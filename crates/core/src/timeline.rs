@@ -32,7 +32,8 @@ macro_rules! string_id {
 
         impl fmt::Display for $ty {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str(&self.0)
+                // `pad` rather than `write_str`, so `{:<20}` in a table actually aligns.
+                f.pad(&self.0)
             }
         }
     };

@@ -24,6 +24,8 @@
 pub mod asset;
 pub mod keyframe;
 pub mod path;
+pub mod pool;
+pub mod probe;
 pub mod project;
 pub mod time;
 pub mod timeline;
@@ -32,7 +34,12 @@ pub mod validate;
 pub use asset::{Asset, AssetId, AssetKind, GenerationState, MediaMetadata};
 pub use keyframe::{Easing, Keyframe, KeyframeTrack, PropertyPath};
 pub use path::{PathProblem, ProjectPath};
-pub use project::{LoadError, PROJECT_FILE_NAME, Project, SCHEMA_VERSION, SaveError};
+pub use pool::{AssetHealth, AssetStatus, HashCheck, ImportError, asset_status, import_asset};
+pub use probe::{ProbeError, ProbeMedia};
+pub use project::{
+    ASSETS_DIR, CACHE_DIR, GENERATED_DIR, LoadError, PROJECT_FILE_NAME, Project, SCHEMA_VERSION,
+    SaveError,
+};
 pub use time::Seconds;
 pub use timeline::{Clip, ClipId, Track, TrackId, TrackKind};
 pub use validate::{ValidationError, ValidationErrors};

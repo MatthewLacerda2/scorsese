@@ -45,7 +45,8 @@ impl PropertyPath {
 
 impl std::fmt::Display for PropertyPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.0)
+        // `pad` rather than `write_str`, so `{:<20}` in a table actually aligns.
+        f.pad(&self.0)
     }
 }
 

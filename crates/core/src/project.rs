@@ -19,6 +19,15 @@ pub const SCHEMA_VERSION: u32 = 1;
 /// The document's file name inside a `*.scor/` project directory.
 pub const PROJECT_FILE_NAME: &str = "project.json";
 
+/// Imported media, copied in so the project stays self-contained.
+pub const ASSETS_DIR: &str = "assets";
+
+/// Provider output, content-addressed by prompt hash.
+pub const GENERATED_DIR: &str = "generated";
+
+/// Rebuildable scratch. Gitignored, and safe to delete at any time.
+pub const CACHE_DIR: &str = "cache";
+
 /// A whole project: the assets it knows about and where they sit in time.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -41,6 +50,25 @@ impl Project {
             assets: Vec::new(),
             tracks: Vec::new(),
         }
+    }
+
+    /// Creates a `*.scor/` directory: the sub-directories and a
+    /// `project.json` for an empty project. Refuses to overwrite one that is
+    /// already there.
+    pub fn create(project_dir: &Path, name: impl Into<String>) -> Result<Self, SaveError> {
+        let file = project_dir.join(PROJECT_FILE_NAME);
+        if file.exists() {
+            return Err(SaveError::AlreadyAProject {
+                path: project_dir.to_path_buf(),
+            });
+        }
+        for directory in [ASSETS_DIR, GENERATED_DIR, CACHE_DIR] {
+            let path = project_dir.join(directory);
+            fs::create_dir_all(&path).map_err(|source| SaveError::Io { path, source })?;
+        }
+        let project = Self::new(name);
+        project.save(project_dir)?;
+        Ok(project)
     }
 
     /// Looks an asset up by id.
@@ -137,10 +165,12 @@ pub enum LoadError {
 pub enum SaveError {
     #[error("serialising project: {0}")]
     Serialize(#[from] serde_json::Error),
-    #[error("writing {path}: {source}")]
+    #[error("writing {}: {source}", path.display())]
     Io {
         path: PathBuf,
         #[source]
         source: std::io::Error,
     },
+    #[error("{} is already a scorsese project", path.display())]
+    AlreadyAProject { path: PathBuf },
 }
