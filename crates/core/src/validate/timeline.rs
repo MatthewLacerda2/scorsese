@@ -3,6 +3,7 @@
 use std::collections::HashSet;
 
 use crate::project::Project;
+use crate::time::Frames;
 use crate::timeline::{Clip, Track, TrackKind};
 
 use super::error::ValidationError;
@@ -25,7 +26,7 @@ pub(super) fn check(project: &Project, errors: &mut Vec<ValidationError>) {
                 });
             }
             check_reference(project, track, clip, errors);
-            check_times(clip, errors);
+            check_duration(clip, errors);
             check_keyframes(clip, errors);
         }
         check_overlaps(track, errors);
@@ -61,21 +62,11 @@ fn check_reference(
     }
 }
 
-fn check_times(clip: &Clip, errors: &mut Vec<ValidationError>) {
-    for (field, value) in [
-        ("start", clip.start),
-        ("duration", clip.duration),
-        ("source_in", clip.source_in),
-    ] {
-        if !value.is_valid() {
-            errors.push(ValidationError::BadTime {
-                clip: clip.id.clone(),
-                field,
-                value: value.get(),
-            });
-        }
-    }
-    if clip.duration.is_valid() && clip.duration.get() == 0.0 {
+/// Frame times are whole and non-negative by construction, so the only way a
+/// clip's timing is wrong is that it covers no frame at all. A negative or
+/// fractional time never reaches validation — it fails to parse.
+fn check_duration(clip: &Clip, errors: &mut Vec<ValidationError>) {
+    if clip.duration == Frames::ZERO {
         errors.push(ValidationError::ZeroDuration {
             clip: clip.id.clone(),
         });
@@ -86,12 +77,12 @@ fn check_times(clip: &Clip, errors: &mut Vec<ValidationError>) {
 /// shows exactly one clip, which is what lets the compositor walk tracks
 /// bottom to top without resolving conflicts.
 fn check_overlaps(track: &Track, errors: &mut Vec<ValidationError>) {
-    let mut ordered: Vec<&Clip> = track.clips.iter().filter(|c| c.start.is_valid()).collect();
-    ordered.sort_by(|a, b| a.start.cmp_total(b.start));
+    let mut ordered: Vec<&Clip> = track.clips.iter().collect();
+    ordered.sort_by_key(|clip| clip.start);
 
     for pair in ordered.windows(2) {
         let (first, second) = (pair[0], pair[1]);
-        if first.duration.is_valid() && first.overlaps(second) {
+        if first.overlaps(second) {
             errors.push(ValidationError::OverlappingClips {
                 track: track.id.clone(),
                 first: first.id.clone(),
@@ -129,13 +120,6 @@ fn check_keyframes(clip: &Clip, errors: &mut Vec<ValidationError>) {
             });
         }
         for keyframe in &track.keyframes {
-            if !keyframe.t.is_valid() {
-                errors.push(ValidationError::BadKeyframeTime {
-                    clip: clip_id(),
-                    property: property(),
-                    value: keyframe.t.get(),
-                });
-            }
             if !keyframe.value.is_finite() {
                 errors.push(ValidationError::BadKeyframeValue {
                     clip: clip_id(),

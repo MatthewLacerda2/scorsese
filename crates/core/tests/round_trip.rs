@@ -2,12 +2,15 @@
 
 mod common;
 
-use scorsese_core::{AssetKind, GenerationState, LoadError, Project, SCHEMA_VERSION, Seconds};
+use scorsese_core::{
+    AssetKind, Fps, Frames, GenerationState, LoadError, MediaMetadata, Project, SCHEMA_VERSION,
+};
 
 #[test]
 fn fixture_parses_and_validates() {
     let project = common::project();
     assert_eq!(project.name, "Narrated teaser");
+    assert_eq!(project.timeline_fps, Fps::THIRTY);
     assert_eq!(project.assets.len(), 4);
     assert_eq!(project.clips().count(), 4);
     assert_eq!(project.validate(), Ok(()));
@@ -64,19 +67,25 @@ fn kinds_and_states_use_snake_case_on_the_wire() {
 fn source_in_defaults_to_zero() {
     let project = common::project();
     let (_, clip) = project.clips().next().expect("a clip");
-    assert_eq!(clip.source_in, Seconds::ZERO);
+    assert_eq!(clip.source_in, Frames::ZERO);
+}
+
+#[test]
+fn a_probed_source_framerate_round_trips_exactly() {
+    let mut project = common::project();
+    common::asset_mut(&mut project, "logo").media = Some(MediaMetadata {
+        frame_rate: Some(Fps::NTSC),
+        ..MediaMetadata::default()
+    });
+    let json = project.to_json().expect("serialise");
+    assert!(json.contains("30000"), "a rational rate stays rational");
+    assert_eq!(Project::from_json(&json).expect("reparse"), project);
 }
 
 #[test]
 fn unknown_fields_are_refused() {
-    let json = r#"{
-        "schema_version": 1,
-        "name": "typo",
-        "assets": [],
-        "tracks": [],
-        "trackz": []
-    }"#;
-    let error = Project::from_json(json).expect_err("unknown field must fail");
+    let error = Project::from_json(&common::document(r#""trackz": []"#))
+        .expect_err("unknown field must fail");
     assert!(matches!(error, LoadError::Parse(_)), "got {error:?}");
 }
 

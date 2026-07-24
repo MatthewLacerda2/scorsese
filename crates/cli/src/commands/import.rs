@@ -38,7 +38,7 @@ fn describe(media: &scorsese_core::MediaMetadata) -> String {
         parts.push(format!("{width}x{height}"));
     }
     if let Some(rate) = media.frame_rate {
-        parts.push(format!("{rate:.3} fps"));
+        parts.push(format!("{rate} fps"));
     }
     if let Some(duration) = media.duration_seconds {
         parts.push(format!("{duration:.2}s"));

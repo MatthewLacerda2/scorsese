@@ -20,7 +20,10 @@ myvideo.scor/
 Every path in `project.json` is relative to the project root — a project
 survives `scp -r` to another machine. Assets are entities (id, kind, path,
 sha256, probed metadata); clips on tracks reference assets by id, never by
-path. The format is documented in
+path. The edit is authored against a **timeline framerate** — an exact
+rational, so 29.97 is 30000/1001 and not a rounded float — and every clip and
+keyframe time is a whole frame count on that grid; the framerate you *render*
+at is a separate, per-render choice. The format is documented in
 [docs/project-format.md](docs/project-format.md) and is meant to be
 hand-written.
 
@@ -51,7 +54,8 @@ instead of whatever is on PATH.
 ## Using it so far
 
 ```sh
-scorsese new teaser.scor --name "Product teaser"
+scorsese new teaser.scor --name "Product teaser"          # 30fps timeline
+scorsese new broadcast.scor --fps 30000/1001              # 29.97, exactly
 scorsese import ~/footage/skyline.mp4 --project teaser.scor
 scorsese import ~/music/bed.wav --project teaser.scor
 
@@ -60,6 +64,9 @@ scorsese assets --verify --project teaser.scor   # re-hash to catch changed file
 scorsese assets gc --project teaser.scor         # what nothing references
 scorsese assets gc --delete --project teaser.scor
 ```
+
+The timeline framerate is chosen once, at `new`, and defaults to 30. It is the
+grid the edit is authored against, not the rate you export at.
 
 Importing **copies** the file into `assets/`, hashes it, and asks ffprobe what
 it is. Import the same content twice and you get the same asset back — assets

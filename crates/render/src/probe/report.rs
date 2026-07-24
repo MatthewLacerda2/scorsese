@@ -4,6 +4,7 @@
 //! omits fields freely. Everything awkward about that shape is confined to
 //! this file so no consumer ever re-parses it.
 
+use scorsese_core::Fps;
 use scorsese_core::asset::MediaMetadata;
 use serde::Deserialize;
 
@@ -73,14 +74,9 @@ fn parse_number(raw: &str) -> Option<f64> {
         .filter(|value| value.is_finite() && *value > 0.0)
 }
 
-/// `"30000/1001"` becomes 29.97. A still image reports `"0/0"`, which is not
-/// a frame rate and becomes `None` rather than a division by zero.
-fn parse_rate(raw: &str) -> Option<f64> {
-    let (numerator, denominator) = raw.split_once('/')?;
-    let numerator: f64 = numerator.parse().ok()?;
-    let denominator: f64 = denominator.parse().ok()?;
-    if denominator == 0.0 || numerator == 0.0 {
-        return None;
-    }
-    Some(numerator / denominator)
+/// ffprobe's `"30000/1001"` is already the shape [`Fps`] holds, so it is kept
+/// exactly rather than collapsed to 29.97. A still image reports `"0/0"`,
+/// which is not a frame rate and becomes `None`.
+fn parse_rate(raw: &str) -> Option<Fps> {
+    raw.parse().ok()
 }

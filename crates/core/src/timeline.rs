@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::asset::AssetId;
 use crate::keyframe::KeyframeTrack;
-use crate::time::Seconds;
+use crate::time::Frames;
 
 /// Identifies a track within one project.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
@@ -83,40 +83,44 @@ pub struct Clip {
     pub id: ClipId,
     /// The asset this clip shows — **by id, never by path**.
     pub asset: AssetId,
-    /// Where the clip begins on the timeline.
-    pub start: Seconds,
-    /// How long the clip occupies the timeline.
-    pub duration: Seconds,
-    /// Offset into the source media where playback begins. Zero by default;
-    /// meaningless for `text` and still images, which have no timeline of
-    /// their own.
+    /// Where the clip begins on the timeline, in frames on the project's
+    /// [`crate::Fps`] grid.
+    pub start: Frames,
+    /// How many frames of the timeline the clip occupies.
+    pub duration: Frames,
+    /// Offset into the source media where playback begins, in frames of the
+    /// **timeline** grid — a source shot at another rate is conformed by
+    /// [`crate::Fps::conform`]. Zero by default; meaningless for `text` and
+    /// still images, which have no timeline of their own.
     #[serde(default)]
-    pub source_in: Seconds,
+    pub source_in: Frames,
     /// Properties animated over this clip.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub keyframes: Vec<KeyframeTrack>,
 }
 
 impl Clip {
-    pub fn new(id: ClipId, asset: AssetId, start: Seconds, duration: Seconds) -> Self {
+    pub fn new(id: ClipId, asset: AssetId, start: Frames, duration: Frames) -> Self {
         Self {
             id,
             asset,
             start,
             duration,
-            source_in: Seconds::ZERO,
+            source_in: Frames::ZERO,
             keyframes: Vec::new(),
         }
     }
 
-    /// The moment just past this clip's last frame.
-    pub fn end(&self) -> Seconds {
+    /// The frame just past this clip's last one — so a clip at frame 0 running
+    /// 240 frames ends at 240, and the clip starting at 240 owns that frame.
+    pub fn end(&self) -> Frames {
         self.start + self.duration
     }
 
-    /// True when the two clips cover any common instant. Clips that merely
-    /// touch (one ends exactly where the next starts) do not overlap.
+    /// True when the two clips share any frame. Clips that merely touch (one
+    /// ending exactly where the next starts) do not overlap — with integer
+    /// frames that is a fact rather than a tolerance.
     pub fn overlaps(&self, other: &Self) -> bool {
-        self.start.get() < other.end().get() && other.start.get() < self.end().get()
+        self.start < other.end() && other.start < self.end()
     }
 }

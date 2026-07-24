@@ -59,13 +59,6 @@ pub enum ValidationError {
     #[error("clip `{clip}` references asset `{asset}`, which is not in the assets table")]
     DanglingAssetRef { clip: ClipId, asset: AssetId },
 
-    #[error("clip `{clip}`: `{field}` is {value}, which is not a usable time")]
-    BadTime {
-        clip: ClipId,
-        field: &'static str,
-        value: f64,
-    },
-
     #[error("clip `{clip}` has zero duration and would render nothing")]
     ZeroDuration { clip: ClipId },
 
@@ -100,13 +93,6 @@ pub enum ValidationError {
     EmptyKeyframeTrack {
         clip: ClipId,
         property: PropertyPath,
-    },
-
-    #[error("clip `{clip}`: keyframe for `{property}` at {value} is not a usable time")]
-    BadKeyframeTime {
-        clip: ClipId,
-        property: PropertyPath,
-        value: f64,
     },
 
     #[error("clip `{clip}`: keyframe value for `{property}` is not a finite number")]

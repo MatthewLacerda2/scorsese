@@ -4,7 +4,7 @@
 
 use crate::common::{assert_only_problem, clip_id, project};
 use scorsese_core::{
-    Easing, Keyframe, KeyframeTrack, Project, PropertyPath, Seconds, ValidationError as E,
+    Easing, Frames, Keyframe, KeyframeTrack, Project, PropertyPath, ValidationError as E,
 };
 
 /// Replaces the `opacity` track on `c-logo` with these points.
@@ -13,9 +13,9 @@ fn set_opacity(project: &mut Project, keyframes: Vec<Keyframe>) {
         KeyframeTrack::new(PropertyPath::new("opacity"), keyframes);
 }
 
-fn at(t: f64, value: f64) -> Keyframe {
+fn at(t: u64, value: f64) -> Keyframe {
     Keyframe {
-        t: Seconds(t),
+        t: Frames(t),
         value,
         easing: Easing::Linear,
     }
@@ -28,7 +28,7 @@ fn opacity_problem(make: fn(clip: scorsese_core::ClipId, property: PropertyPath)
 #[test]
 fn keyframes_must_ascend_in_time() {
     let mut p = project();
-    set_opacity(&mut p, vec![at(1.0, 0.0), at(0.5, 1.0)]);
+    set_opacity(&mut p, vec![at(30, 0.0), at(15, 1.0)]);
     assert_only_problem(
         &p,
         &opacity_problem(|clip, property| E::UnsortedKeyframes { clip, property }),
@@ -36,9 +36,9 @@ fn keyframes_must_ascend_in_time() {
 }
 
 #[test]
-fn two_keyframes_at_the_same_instant_are_refused() {
+fn two_keyframes_on_the_same_frame_are_refused() {
     let mut p = project();
-    set_opacity(&mut p, vec![at(0.5, 0.0), at(0.5, 1.0)]);
+    set_opacity(&mut p, vec![at(15, 0.0), at(15, 1.0)]);
     assert_only_problem(
         &p,
         &opacity_problem(|clip, property| E::UnsortedKeyframes { clip, property }),
@@ -58,7 +58,7 @@ fn an_empty_keyframe_track_is_refused() {
 #[test]
 fn a_keyframe_value_must_be_a_number() {
     let mut p = project();
-    set_opacity(&mut p, vec![at(0.0, f64::NAN), at(1.0, 1.0)]);
+    set_opacity(&mut p, vec![at(0, f64::NAN), at(30, 1.0)]);
     assert_only_problem(
         &p,
         &opacity_problem(|clip, property| E::BadKeyframeValue { clip, property }),
@@ -83,7 +83,7 @@ fn a_property_the_compositor_has_never_heard_of_is_still_valid() {
     let mut p = project();
     p.tracks[1].clips[0].keyframes.push(KeyframeTrack::new(
         PropertyPath::new("wibble.wobble"),
-        vec![at(0.0, 0.0), at(1.0, 1.0)],
+        vec![at(0, 0.0), at(30, 1.0)],
     ));
     assert_eq!(
         p.validate(),
@@ -102,10 +102,10 @@ fn easing_defaults_to_linear_when_omitted() {
 
 #[test]
 fn keyframe_times_are_relative_to_the_clip_not_the_timeline() {
-    // c-logo starts at 6.0 and its first keyframe is at 0.0 — moving the clip
-    // must never require rewriting its keyframes.
+    // c-logo starts at frame 180 and its first keyframe is at frame 0 —
+    // moving the clip must never require rewriting its keyframes.
     let project = project();
     let clip = &project.tracks[1].clips[0];
-    assert_eq!(clip.start, Seconds(6.0));
-    assert_eq!(clip.keyframes[0].keyframes[0].t, Seconds::ZERO);
+    assert_eq!(clip.start, Frames(180));
+    assert_eq!(clip.keyframes[0].keyframes[0].t, Frames::ZERO);
 }

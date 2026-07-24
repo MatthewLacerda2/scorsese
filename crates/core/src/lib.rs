@@ -10,6 +10,12 @@
 //! `scp -r` between machines. Assets are entities (id, kind, path, sha256,
 //! probed metadata); clips reference assets by id, never by path.
 //!
+//! The timeline is measured in **frames on an exact rational grid**: a
+//! project carries a `timeline_fps`, and every clip and keyframe time is a
+//! whole frame count on it. Seconds appear only at the edges — showing a time
+//! to a human, handing one to ffmpeg. Output framerate stays a render
+//! setting; a render at another rate conforms from this grid.
+//!
 //! Keyframe tracks are generic: `(property_path, [(t, value, easing)])` over
 //! any numeric property. This crate defines property *types*, never property
 //! *values*.
@@ -40,6 +46,6 @@ pub use project::{
     ASSETS_DIR, CACHE_DIR, GENERATED_DIR, LoadError, PROJECT_FILE_NAME, Project, SCHEMA_VERSION,
     SaveError,
 };
-pub use time::Seconds;
+pub use time::{Fps, FpsError, FpsParseError, Frames};
 pub use timeline::{Clip, ClipId, Track, TrackId, TrackKind};
 pub use validate::{ValidationError, ValidationErrors};

@@ -4,7 +4,7 @@ use crate::common::stub_probe::StubProbe;
 use crate::common::{new_project, source_file};
 use scorsese_core::pool::{GcError, remove_assets, unused_assets};
 use scorsese_core::{
-    AssetId, Clip, ClipId, Project, Seconds, Track, TrackId, TrackKind, import_asset,
+    AssetId, Clip, ClipId, Frames, Project, Track, TrackId, TrackKind, import_asset,
 };
 use std::path::PathBuf;
 
@@ -32,8 +32,8 @@ fn project_with_one_used_asset(label: &str) -> (PathBuf, Project, AssetId, Asset
     track.clips.push(Clip::new(
         ClipId::new("c1"),
         used.clone(),
-        Seconds(0.0),
-        Seconds(1.0),
+        Frames::ZERO,
+        Frames(30),
     ));
     project.tracks.push(track);
 

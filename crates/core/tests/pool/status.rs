@@ -3,7 +3,7 @@
 use crate::common::stub_probe::StubProbe;
 use crate::common::{new_project, source_file};
 use scorsese_core::{
-    AssetHealth, AssetKind, AssetStatus, Clip, ClipId, GenerationState, HashCheck, Seconds, Track,
+    AssetHealth, AssetKind, AssetStatus, Clip, ClipId, Frames, GenerationState, HashCheck, Track,
     TrackId, TrackKind, asset_status, import_asset,
 };
 
@@ -100,15 +100,12 @@ fn clip_counts_come_from_the_timeline() {
     track.clips.push(Clip::new(
         ClipId::new("a"),
         asset.clone(),
-        Seconds(0.0),
-        Seconds(1.0),
+        Frames::ZERO,
+        Frames(30),
     ));
-    track.clips.push(Clip::new(
-        ClipId::new("b"),
-        asset,
-        Seconds(1.0),
-        Seconds(1.0),
-    ));
+    track
+        .clips
+        .push(Clip::new(ClipId::new("b"), asset, Frames(30), Frames(30)));
     project.tracks.push(track);
 
     let rows = asset_status(&project, &dir, HashCheck::Skip);
