@@ -63,6 +63,11 @@ scorsese assets --project teaser.scor            # what's in the pool
 scorsese assets --verify --project teaser.scor   # re-hash to catch changed files
 scorsese assets gc --project teaser.scor         # what nothing references
 scorsese assets gc --delete --project teaser.scor
+
+scorsese render --project teaser.scor --out teaser.mp4
+scorsese render --project teaser.scor --out cut.mp4 --range 90:210
+scorsese render --project teaser.scor --out small.mp4 \
+    --resolution 1280x720 --fps 60 --bitrate 6M
 ```
 
 The timeline framerate is chosen once, at `new`, and defaults to 30. It is the
@@ -72,9 +77,21 @@ Importing **copies** the file into `assets/`, hashes it, and asks ffprobe what
 it is. Import the same content twice and you get the same asset back — assets
 are entities, and two clips pointing at one asset is the intended shape.
 
-Rendering, generation, and the rest of the timeline commands are still to
-come; the [issue tracker](https://github.com/MatthewLacerda2/scorsese/issues)
-is the plan.
+Putting clips on tracks means editing `project.json` for now — the format is
+documented and meant to be written by hand or by an agent.
+
+`render` walks the timeline and writes a file. Resolution, framerate, and
+bitrate are chosen per render, never stored in the project; a render at a rate
+other than `timeline_fps` conforms from the grid. Sources of another shape are
+letterboxed rather than stretched, and holes in the timeline render black.
+`--range` renders a slice of the timeline in frames, which is the cheap way to
+check one cut without re-encoding everything.
+
+Renders are currently silent and cover one video track, and a clip still
+awaiting generation refuses to render rather than standing in as a slug card.
+Audio mixing, compositing, slug cards, and generation each have an issue; the
+[issue tracker](https://github.com/MatthewLacerda2/scorsese/issues) is the
+plan.
 
 ## Crate map
 

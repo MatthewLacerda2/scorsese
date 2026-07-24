@@ -4,49 +4,16 @@
 //! CI installs it. They deliberately do not skip themselves when it is
 //! absent: a test that quietly passes by doing nothing is worse than one that
 //! fails loudly.
-//!
-//! The fixtures are generated here rather than committed. ffmpeg's own
-//! synthetic sources make exact, tiny media, and generating them through
-//! [`Tools`] exercises the command builder that every ffmpeg invocation in
-//! the workspace must go through.
 
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU32, Ordering};
+mod common;
+
+use std::path::Path;
 
 use scorsese_core::Fps;
 use scorsese_core::ProbeMedia;
-use scorsese_render::{Ffprobe, Tools};
+use scorsese_render::Ffprobe;
 
-fn tools() -> Tools {
-    Tools::discover().expect("ffmpeg and ffprobe must be on PATH to run these tests")
-}
-
-fn fixture_dir(label: &str) -> PathBuf {
-    static COUNTER: AtomicU32 = AtomicU32::new(0);
-    let unique = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!(
-        "scorsese-probe-{label}-{}-{unique}",
-        std::process::id()
-    ));
-    std::fs::create_dir_all(&dir).expect("create fixture dir");
-    dir
-}
-
-/// Runs ffmpeg with a synthetic input to make one small fixture file.
-fn generate(tools: &Tools, path: &Path, args: &[&str]) {
-    let output = tools
-        .ffmpeg()
-        .args(["-v", "error", "-y"])
-        .args(args)
-        .arg(path)
-        .output()
-        .expect("run ffmpeg");
-    assert!(
-        output.status.success(),
-        "ffmpeg failed: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-}
+use common::ffmpeg::{fixture_dir, generate, tools};
 
 #[test]
 fn a_video_reports_size_rate_and_duration() {

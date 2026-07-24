@@ -84,8 +84,10 @@ the field is a fraction.
 
 ### Timeline fps is not output fps
 
-Render settings — aspect, resolution, fps, bitrate — are still chosen per
-render. The two are different questions:
+Render settings — resolution, fps, bitrate — are still chosen per render.
+(Aspect ratio is not a setting of its own: it is whatever the resolution says,
+and a source of another shape is letterboxed to fit.) The two are different
+questions:
 
 - the **timeline** framerate answers *what is on screen when*, and
 - the **output** framerate is what the file you deliver is encoded at.
@@ -134,6 +136,10 @@ Clips on one track may *touch* but never overlap, and with integer frames that
 is a fact rather than a tolerance. A clip ending at frame 240 and one starting
 at 240 do not overlap: frame 240 belongs to the second, and nothing has to
 arbitrate a cut at `1.0333333`.
+
+A gap is allowed, and renders **black** for its length. Leaving a hole is a
+way of saying "two seconds of nothing here", not a way of shortening the
+timeline. A timeline ends where its last clip ends.
 
 ## Keyframes
 

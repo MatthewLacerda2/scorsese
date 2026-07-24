@@ -5,3 +5,4 @@
 pub mod assets;
 pub mod import;
 pub mod new;
+pub mod render;
