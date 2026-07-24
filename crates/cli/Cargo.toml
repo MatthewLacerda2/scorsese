@@ -1,0 +1,11 @@
+[package]
+name = "scorsese-cli"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "scorsese"
+path = "src/main.rs"
+
+[dependencies]

@@ -1,0 +1,47 @@
+[
+  {
+    "name": "idea",
+    "color": "d4c5f9",
+    "description": "Might not add value; parked until the user decides. Must NOT be started."
+  },
+  {
+    "name": "planning",
+    "color": "fbca04",
+    "description": "Has value, but architecture/GUI approach still being discussed. Must NOT be started."
+  },
+  {
+    "name": "architecture",
+    "color": "b60205",
+    "description": "How we define stuff: structural shape, conventions, project.json format changes."
+  },
+  {
+    "name": "infrastructure",
+    "color": "d93f0b",
+    "description": "Tools and guardrails for the development process: CI, harnesses, gates."
+  },
+  {
+    "name": "bug",
+    "color": "ee0701",
+    "description": "Something isn't working."
+  },
+  {
+    "name": "documentation",
+    "color": "0075ca",
+    "description": "Edit/add documentation; never waits its turn."
+  },
+  {
+    "name": "feature",
+    "color": "a2eeef",
+    "description": "A new editor capability serving the videos made with it."
+  },
+  {
+    "name": "foundation",
+    "color": "0e8a16",
+    "description": "Groundworks that make the editor itself more complete."
+  },
+  {
+    "name": "human",
+    "color": "5319e7",
+    "description": "AI can't do this end-to-end; needs a human in the loop."
+  }
+]

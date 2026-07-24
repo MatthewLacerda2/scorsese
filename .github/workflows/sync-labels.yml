@@ -1,0 +1,31 @@
+# Syncs repository labels from .github/labels.json (the source of truth).
+# Manual-dispatch maintenance workflow: agents drive this repo through the
+# GitHub MCP server, which has no label-management tools — this fills the gap.
+# Idempotent: existing labels are updated in place, missing ones created.
+# It never deletes labels.
+name: Sync labels
+
+on:
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync labels from .github/labels.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          jq -c '.[]' .github/labels.json | while read -r label; do
+            name=$(jq -r '.name' <<<"$label")
+            color=$(jq -r '.color' <<<"$label")
+            desc=$(jq -r '.description' <<<"$label")
+            gh label create "$name" --color "$color" --description "$desc" --force \
+              --repo "$GITHUB_REPOSITORY"
+            echo "synced: $name"
+          done
