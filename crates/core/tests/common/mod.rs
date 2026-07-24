@@ -2,10 +2,12 @@
 //! items here are expected rather than dead.
 #![allow(dead_code)]
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use scorsese_core::{Asset, AssetId, ClipId, Project, TrackId, ValidationError, ValidationErrors};
+
+pub mod stub_probe;
 
 /// A hand-written project exercising every asset kind, both track kinds, and
 /// keyframes. Doubles as the worked example in `docs/project-format.md`.
@@ -56,6 +58,22 @@ pub fn assert_only_problem(project: &Project, expected: &ValidationError) {
         std::slice::from_ref(expected),
         "wrong problems reported"
     );
+}
+
+/// A fresh, empty `*.scor` directory with a project already created in it.
+pub fn new_project(label: &str) -> (PathBuf, Project) {
+    let dir = temp_project_dir(label);
+    let project = Project::create(&dir, label).expect("create project");
+    (dir, project)
+}
+
+/// Writes a file of `bytes` outside any project, to import from.
+pub fn source_file(dir: &Path, name: &str, bytes: &[u8]) -> PathBuf {
+    let path = dir.join("sources").join(name);
+    let parent = path.parent().expect("a source file has a parent directory");
+    std::fs::create_dir_all(parent).expect("create source dir");
+    std::fs::write(&path, bytes).expect("write source file");
+    path
 }
 
 /// A fresh empty directory under the system temp dir, unique per call.

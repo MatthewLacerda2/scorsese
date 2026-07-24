@@ -45,6 +45,30 @@ Requires Rust (stable) and, for now, `ffmpeg`/`ffprobe` on your PATH —
 shipped builds will bundle ffmpeg as a sidecar later. ffmpeg only decodes and
 encodes; all compositing (transforms, alpha, text) is done by our compositor.
 
+Set `SCORSESE_FFMPEG` / `SCORSESE_FFPROBE` to point at specific binaries
+instead of whatever is on PATH.
+
+## Using it so far
+
+```sh
+scorsese new teaser.scor --name "Product teaser"
+scorsese import ~/footage/skyline.mp4 --project teaser.scor
+scorsese import ~/music/bed.wav --project teaser.scor
+
+scorsese assets --project teaser.scor            # what's in the pool
+scorsese assets --verify --project teaser.scor   # re-hash to catch changed files
+scorsese assets gc --project teaser.scor         # what nothing references
+scorsese assets gc --delete --project teaser.scor
+```
+
+Importing **copies** the file into `assets/`, hashes it, and asks ffprobe what
+it is. Import the same content twice and you get the same asset back — assets
+are entities, and two clips pointing at one asset is the intended shape.
+
+Rendering, generation, and the rest of the timeline commands are still to
+come; the [issue tracker](https://github.com/MatthewLacerda2/scorsese/issues)
+is the plan.
+
 ## Crate map
 
 | Crate | Responsibility |

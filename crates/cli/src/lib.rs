@@ -12,12 +12,46 @@
 //! that another caller (the MCP server, the GUI) would want lives in those
 //! crates, not here.
 
-/// Placeholder so `cargo test` exercises this crate from day one.
-/// Replaced by real CLI tests as subcommands land.
+pub mod cli;
+pub mod commands;
+
+use anyhow::Result;
+use clap::Parser;
+
+use cli::{AssetsAction, Cli, Command};
+
+/// Parses the command line and runs it.
+pub fn run() -> Result<()> {
+    dispatch(Cli::parse())
+}
+
+fn dispatch(cli: Cli) -> Result<()> {
+    let directory = cli.project_dir();
+    match cli.command {
+        Command::New { directory, name } => commands::new::run(&directory, name),
+        Command::Import { file, kind } => {
+            commands::import::run(&directory, &file, kind.map(Into::into))
+        }
+        Command::Assets {
+            action: None,
+            verify,
+        } => commands::assets::list(&directory, verify),
+        Command::Assets {
+            action: Some(AssetsAction::Gc { delete }),
+            ..
+        } => commands::assets::gc(&directory, delete),
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    /// clap's own consistency checks — a malformed command tree is a panic at
+    /// startup rather than a compile error, so it is worth asserting.
     #[test]
-    fn crate_compiles() {
-        assert_eq!(2 + 2, 4);
+    fn the_command_tree_is_well_formed() {
+        use clap::CommandFactory;
+        Cli::command().debug_assert();
     }
 }
