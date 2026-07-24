@@ -1,0 +1,21 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/core",
+    "crates/compositor",
+    "crates/render",
+    "crates/providers",
+    "crates/cli",
+    "crates/mcp",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+repository = "https://github.com/MatthewLacerda2/scorsese"
+
+[workspace.dependencies]
+scorsese-core = { path = "crates/core" }
+scorsese-compositor = { path = "crates/compositor" }
+scorsese-render = { path = "crates/render" }
+scorsese-providers = { path = "crates/providers" }
