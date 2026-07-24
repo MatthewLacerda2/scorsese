@@ -25,6 +25,8 @@ a video from brief to rendered file without a human touching a mouse.
 
 - **README.md** — what scorsese is, the project-directory model, the
   sketch→GO lifecycle, how to build.
+- **docs/project-format.md** — the `project.json` schema: assets, tracks,
+  clips, keyframes, paths, and what validation checks.
 - Crate boundaries live in each crate's `lib.rs` module doc — read them before
   adding a dependency between crates.
 

@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "name": "Narrated teaser",
+  "assets": [
+    {
+      "id": "shot-city",
+      "kind": "generated_video",
+      "prompt": "wide aerial of a city at dawn, slow push in",
+      "state": "sketch"
+    },
+    {
+      "id": "logo",
+      "kind": "image",
+      "path": "assets/logo.png",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "media": {
+        "width": 512,
+        "height": 512
+      }
+    },
+    {
+      "id": "vo-open",
+      "kind": "generated_audio",
+      "prompt": "In a city that never sleeps, one editor never blinks.",
+      "state": "sketch"
+    },
+    {
+      "id": "title",
+      "kind": "text",
+      "text": "SCORSESE"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "name": "Main",
+      "clips": [
+        {
+          "id": "c-shot",
+          "asset": "shot-city",
+          "start": 0.0,
+          "duration": 8.0
+        },
+        {
+          "id": "c-title",
+          "asset": "title",
+          "start": 8.0,
+          "duration": 2.0
+        }
+      ]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "name": "Overlay",
+      "clips": [
+        {
+          "id": "c-logo",
+          "asset": "logo",
+          "start": 6.0,
+          "duration": 4.0,
+          "keyframes": [
+            {
+              "property": "opacity",
+              "keyframes": [
+                { "t": 0.0, "value": 0.0, "easing": "ease_in" },
+                { "t": 0.5, "value": 1.0 }
+              ]
+            },
+            {
+              "property": "transform.position.x",
+              "keyframes": [
+                { "t": 0.0, "value": 40.0 },
+                { "t": 1.5, "value": 0.0, "easing": "ease_out" }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "a1",
+      "kind": "audio",
+      "name": "Narration",
+      "clips": [
+        {
+          "id": "c-vo",
+          "asset": "vo-open",
+          "start": 0.5,
+          "duration": 6.0,
+          "keyframes": [
+            {
+              "property": "volume",
+              "keyframes": [
+                { "t": 0.0, "value": 0.0 },
+                { "t": 0.25, "value": 1.0 }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
