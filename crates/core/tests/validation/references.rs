@@ -2,7 +2,7 @@
 //! can hold them.
 
 use crate::common::{assert_only_problem, asset_id, clip_id, project, track_id};
-use scorsese_core::{AssetKind, Clip, Seconds, TrackKind, ValidationError as E};
+use scorsese_core::{AssetKind, Clip, Frames, TrackKind, ValidationError as E};
 
 #[test]
 fn a_clip_pointing_at_a_missing_asset_is_reported() {
@@ -40,7 +40,7 @@ fn a_reused_track_id_is_reported() {
 fn sound_does_not_belong_on_a_video_track() {
     let mut p = project();
     let mut vo = p.tracks[2].clips.remove(0);
-    vo.start = Seconds(10.0); // clear of the video clips, so only kind is wrong
+    vo.start = Frames(300); // clear of the video clips, so only kind is wrong
     p.tracks[0].clips.push(vo);
     assert_only_problem(
         &p,
@@ -57,7 +57,7 @@ fn sound_does_not_belong_on_a_video_track() {
 fn picture_does_not_belong_on_an_audio_track() {
     let mut p = project();
     let mut logo = p.tracks[1].clips.remove(0);
-    logo.start = Seconds(7.0); // clear of the narration clip
+    logo.start = Frames(210); // clear of the narration clip
     p.tracks[2].clips.push(logo);
     assert_only_problem(
         &p,
@@ -96,8 +96,8 @@ fn a_clip_built_in_code_passes_the_same_checks() {
     let clip = Clip::new(
         clip_id("c-extra"),
         asset_id("logo"),
-        Seconds(0.0),
-        Seconds(1.0),
+        Frames::ZERO,
+        Frames(30),
     );
     p.tracks[1].clips.push(clip);
     assert_eq!(p.validate(), Ok(()));

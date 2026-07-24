@@ -9,6 +9,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::path::ProjectPath;
+use crate::time::Fps;
 
 /// Identifies an asset within one project. Unique across the assets table.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
@@ -185,14 +186,20 @@ impl Asset {
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MediaMetadata {
+    /// The source's own length in wall-clock seconds, which is what a probe
+    /// measures. Not a timeline value: it is on the source's grid, not the
+    /// project's, until a clip conforms it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub duration_seconds: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub width: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub height: Option<u32>,
+    /// The source's framerate, kept rational because ffprobe reports one and
+    /// because conforming a 30000/1001 source off a rounded 29.97 is exactly
+    /// the drift the timeline grid exists to avoid.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub frame_rate: Option<f64>,
+    pub frame_rate: Option<Fps>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audio_channels: Option<u16>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

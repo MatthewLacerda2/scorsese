@@ -28,7 +28,11 @@ pub fn run() -> Result<()> {
 fn dispatch(cli: Cli) -> Result<()> {
     let directory = cli.project_dir();
     match cli.command {
-        Command::New { directory, name } => commands::new::run(&directory, name),
+        Command::New {
+            directory,
+            name,
+            fps,
+        } => commands::new::run(&directory, name, fps),
         Command::Import { file, kind } => {
             commands::import::run(&directory, &file, kind.map(Into::into))
         }

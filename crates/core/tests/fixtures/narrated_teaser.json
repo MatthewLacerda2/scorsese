@@ -1,6 +1,10 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Narrated teaser",
+  "timeline_fps": {
+    "num": 30,
+    "den": 1
+  },
   "assets": [
     {
       "id": "shot-city",
@@ -39,14 +43,14 @@
         {
           "id": "c-shot",
           "asset": "shot-city",
-          "start": 0.0,
-          "duration": 8.0
+          "start": 0,
+          "duration": 240
         },
         {
           "id": "c-title",
           "asset": "title",
-          "start": 8.0,
-          "duration": 2.0
+          "start": 240,
+          "duration": 60
         }
       ]
     },
@@ -58,21 +62,21 @@
         {
           "id": "c-logo",
           "asset": "logo",
-          "start": 6.0,
-          "duration": 4.0,
+          "start": 180,
+          "duration": 120,
           "keyframes": [
             {
               "property": "opacity",
               "keyframes": [
-                { "t": 0.0, "value": 0.0, "easing": "ease_in" },
-                { "t": 0.5, "value": 1.0 }
+                { "t": 0, "value": 0.0, "easing": "ease_in" },
+                { "t": 15, "value": 1.0 }
               ]
             },
             {
               "property": "transform.position.x",
               "keyframes": [
-                { "t": 0.0, "value": 40.0 },
-                { "t": 1.5, "value": 0.0, "easing": "ease_out" }
+                { "t": 0, "value": 40.0 },
+                { "t": 45, "value": 0.0, "easing": "ease_out" }
               ]
             }
           ]
@@ -87,14 +91,14 @@
         {
           "id": "c-vo",
           "asset": "vo-open",
-          "start": 0.5,
-          "duration": 6.0,
+          "start": 15,
+          "duration": 180,
           "keyframes": [
             {
               "property": "volume",
               "keyframes": [
-                { "t": 0.0, "value": 0.0 },
-                { "t": 0.25, "value": 1.0 }
+                { "t": 0, "value": 0.0 },
+                { "t": 8, "value": 1.0 }
               ]
             }
           ]

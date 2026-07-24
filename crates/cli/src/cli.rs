@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand, ValueEnum};
-use scorsese_core::AssetKind;
+use scorsese_core::{AssetKind, Fps};
 
 #[derive(Debug, Parser)]
 #[command(
@@ -37,6 +37,11 @@ pub enum Command {
         /// Project name. Defaults to the directory's name.
         #[arg(long)]
         name: Option<String>,
+        /// The timeline framerate every clip and keyframe time is counted
+        /// in: `30`, or a rational like `30000/1001` for 29.97. Chosen once,
+        /// here — changing it later is a real operation, not a field edit.
+        #[arg(long, default_value = "30")]
+        fps: Fps,
     },
     /// Copy a media file into the project and add it to the assets table.
     Import {

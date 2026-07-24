@@ -3,9 +3,9 @@
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use scorsese_core::Project;
+use scorsese_core::{Fps, Project};
 
-pub fn run(directory: &Path, name: Option<String>) -> Result<()> {
+pub fn run(directory: &Path, name: Option<String>, fps: Fps) -> Result<()> {
     let name = name.unwrap_or_else(|| {
         directory
             .file_stem()
@@ -14,10 +14,13 @@ pub fn run(directory: &Path, name: Option<String>) -> Result<()> {
             .to_owned()
     });
 
-    Project::create(directory, &name)
+    Project::create(directory, &name, fps)
         .with_context(|| format!("creating a project in {}", directory.display()))?;
 
-    println!("Created project \"{name}\" in {}", directory.display());
+    println!(
+        "Created project \"{name}\" at {fps} fps in {}",
+        directory.display()
+    );
     println!("  project.json, assets/, generated/, cache/");
     Ok(())
 }

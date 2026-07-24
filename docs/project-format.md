@@ -1,4 +1,4 @@
-# `project.json` — schema v1
+# `project.json` — schema v2
 
 The contract between the CLI, the MCP server, the GUI, and every project
 saved on someone's disk. It is meant to be hand-written: an agent should be
@@ -12,17 +12,19 @@ bump and a migration note.
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Narrated teaser",
+  "timeline_fps": { "num": 30, "den": 1 },
   "assets": [ ... ],
   "tracks": [ ... ]
 }
 ```
 
-`assets` and `tracks` may be omitted; both default to empty. Every other
-field shown below as optional may be omitted, and omitted is written as
-*absent*, never as `null`. Unknown fields are an error, not a warning — a
-typo like `"trackz"` fails the load rather than being silently dropped.
+`assets` and `tracks` may be omitted; both default to empty. `timeline_fps`
+may **not** — see below. Every other field shown below as optional may be
+omitted, and omitted is written as *absent*, never as `null`. Unknown fields
+are an error, not a warning — a typo like `"trackz"` fails the load rather
+than being silently dropped.
 
 ## Assets
 
@@ -35,7 +37,7 @@ re-importing or regenerating a file is one edit in one place.
 | `kind` | all | `video`, `image`, `audio`, `text`, `generated_video`, `generated_audio` |
 | `path` | file-backed kinds | Relative to the project root |
 | `sha256` | optional | 64 lowercase hex chars, of the file at `path` |
-| `media` | optional | What ffprobe found: `duration_seconds`, `width`, `height`, `frame_rate`, `audio_channels`, `sample_rate` |
+| `media` | optional | What ffprobe found: `duration_seconds`, `width`, `height`, `frame_rate` (a rational), `audio_channels`, `sample_rate` |
 | `prompt` | `generated_*` | What to generate |
 | `state` | `generated_*` | `sketch`, `queued`, `generated`, `stale` |
 | `text` | `text` | The string to render; text assets carry content inline and have no `path` |
@@ -50,13 +52,65 @@ a slug card — the prompt on a gray card. That is what makes previewing a full
 cut cost nothing. `GO` generates exactly the sketch and stale assets;
 `generated` is a cache hit and is never re-billed.
 
+`media.duration_seconds` is wall-clock, and `media.frame_rate` is a rational
+in the same shape as `timeline_fps` — a source's own grid, which is not
+necessarily the timeline's.
+
+## The timeline framerate
+
+```json
+"timeline_fps": { "num": 30000, "den": 1001 }
+```
+
+The grid this edit is authored against. Every clip and keyframe time in the
+document is a whole frame count on it.
+
+**Rational, not a float.** 29.97 is exactly 30000/1001; 23.976 is 24000/1001.
+A float cannot hold either, and rounding them is where long-timeline drift
+comes from. `{ "num": 30, "den": 1 }` is plain 30. The fraction is reduced on
+load, so `60/2` and `30/1` are the same value.
+
+**Required, with no default.** A missing framerate would leave every time in
+the file meaning something other than what its author intended, so a document
+without one does not load. Both parts must be non-zero.
+
+**Chosen at project creation** — `scorsese new teaser.scor --fps 30000/1001`,
+defaulting to 30. Changing it afterwards is a real operation — rescale the
+edit, or reinterpret it at the new rate? — not a field edit. Nothing here
+forecloses it; it is simply not something you do by hand.
+
+`--fps` takes `30` or `30000/1001` and refuses `29.97`, for the same reason
+the field is a fraction.
+
+### Timeline fps is not output fps
+
+Render settings — aspect, resolution, fps, bitrate — are still chosen per
+render. The two are different questions:
+
+- the **timeline** framerate answers *what is on screen when*, and
+- the **output** framerate is what the file you deliver is encoded at.
+
+A render at a rate other than the timeline's **conforms** from the grid; the
+grid stays authoritative.
+
+### Conforming: source fps ≠ timeline fps
+
+A source shot at another rate — a 24fps clip on a 30fps timeline — is
+conformed by taking, for each timeline frame, the **nearest source frame in
+wall-clock time**. No interpolation, no invented in-between frames: 24→30
+repeats source frames in the familiar 2:3 pattern. Optical-flow retiming is a
+feature someone can ask for later, not a silent default.
+
+The same rule, in the same direction, covers rendering at an output rate
+other than the timeline's.
+
 ## Tracks and clips
 
 ```json
 {
   "id": "v1", "kind": "video", "name": "Main",
   "clips": [
-    { "id": "c-shot", "asset": "shot-city", "start": 0.0, "duration": 8.0 }
+    { "id": "c-shot", "asset": "shot-city", "start": 0, "duration": 240 }
   ]
 }
 ```
@@ -67,27 +121,39 @@ tracks, audible ones on audio tracks.
 
 A clip carries `start` and `duration` on the timeline, an optional
 `source_in` offset into the media (default `0`), and optional `keyframes`.
-Clips on one track may *touch* — one ending exactly where the next starts —
-but never overlap.
+`source_in` counts in **timeline** frames too — "skip the first two seconds"
+means the same thing whatever the source was shot at, and the conform rule
+below turns it into a source frame.
 
-**Times are seconds, not frames.** Frame rate is a render setting chosen per
-render, so it is not known when the project is authored; a frame-based
-timeline would silently bind a project to one fps.
+**Times are whole frames on `timeline_fps`, not seconds.** At 30fps the clip
+above runs frames 0–239 and covers the first eight seconds. A fractional or
+negative time is not a time: it fails the load rather than being rounded into
+place.
+
+Clips on one track may *touch* but never overlap, and with integer frames that
+is a fact rather than a tolerance. A clip ending at frame 240 and one starting
+at 240 do not overlap: frame 240 belongs to the second, and nothing has to
+arbitrate a cut at `1.0333333`.
 
 ## Keyframes
 
 ```json
 "keyframes": [
   { "property": "opacity", "keyframes": [
-      { "t": 0.0, "value": 0.0, "easing": "ease_in" },
-      { "t": 0.5, "value": 1.0 }
+      { "t": 0, "value": 0.0, "easing": "ease_in" },
+      { "t": 15, "value": 1.0 }
   ]}
 ]
 ```
 
 A keyframe track is `(property_path, [(t, value, easing)])` over any numeric
-property. `t` is relative to the **start of the clip**, so moving a clip
-never rewrites its keyframes. Times must ascend strictly. `easing` is
+property. `t` is in frames relative to the **start of the clip**, so moving a
+clip never rewrites its keyframes. Times must ascend strictly.
+
+Frames are enough resolution even for audio. Keyframes are *control points*
+and the value travels continuously between them, so putting the points on the
+frame grid does not make a ramp steppy — it only quantises where the ramp's
+corners sit, to 1/30s, which is well below audible for a fade. `easing` is
 `linear` (default), `ease_in`, `ease_out`, `ease_in_out`, or `hold`.
 
 `property` is a dotted string — `opacity`, `transform.position.x`, `volume`
@@ -112,8 +178,26 @@ a project unattended sees the whole list at once.
 
 What it checks: schema version, duplicate ids, path rules, hash shape, the
 fields each asset kind requires, clip references resolving, asset kind
-against track kind, times being finite and non-negative, non-zero durations,
-clip overlap, and keyframe shape.
+against track kind, non-zero durations, clip overlap, and keyframe shape.
+
+Note what is *not* on that list. A time that is negative, fractional, or
+infinite cannot be represented as a frame count, so it fails the parse with
+the line it is on — earlier and more precisely than validation could say it.
+The same goes for an unusable `timeline_fps`: there is nothing useful to
+validate about a timeline whose grid is undefined.
+
+## Migrating from v1
+
+v1 measured the timeline in float seconds and had no `timeline_fps`. It was
+never shipped and no v1 project is known to exist, so **v2 ships no migration
+code**: a v1 document is refused with "this build reads schema_version 2".
+
+Converting one by hand, if one ever turns up, is two steps: pick the
+framerate the edit was authored against and add it as `timeline_fps`, then
+multiply every `start`, `duration`, `source_in`, and keyframe `t` by that rate
+and round to the nearest whole frame. Rounding is the reason this is a manual
+decision rather than an automatic one — it can move a cut by a frame, and only
+the person who made the cut can say whether that matters.
 
 A complete worked example lives in
 `crates/core/tests/fixtures/narrated_teaser.json`.

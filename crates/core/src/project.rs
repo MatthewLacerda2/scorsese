@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::asset::{Asset, AssetId};
+use crate::time::Fps;
 use crate::timeline::{Clip, Track};
 use crate::validate::ValidationErrors;
 
@@ -14,7 +15,7 @@ use crate::validate::ValidationErrors;
 /// Bumping it is `architecture` work and requires a migration note: this
 /// format is the contract between the CLI, the MCP server, the GUI, and every
 /// project already saved on someone's disk.
-pub const SCHEMA_VERSION: u32 = 1;
+pub const SCHEMA_VERSION: u32 = 2;
 
 /// The document's file name inside a `*.scor/` project directory.
 pub const PROJECT_FILE_NAME: &str = "project.json";
@@ -34,6 +35,13 @@ pub const CACHE_DIR: &str = "cache";
 pub struct Project {
     pub schema_version: u32,
     pub name: String,
+    /// The grid this edit is authored against. Every clip and keyframe time
+    /// in the document is a frame count on it.
+    ///
+    /// Required, with no default: a missing framerate would leave every time
+    /// in the file meaning something other than what its author intended, and
+    /// guessing 30 is a worse failure than refusing to load.
+    pub timeline_fps: Fps,
     /// Every asset the project knows about, keyed by `id` within the entries.
     #[serde(default)]
     pub assets: Vec<Asset>,
@@ -42,20 +50,25 @@ pub struct Project {
 }
 
 impl Project {
-    /// An empty project at the current schema version.
-    pub fn new(name: impl Into<String>) -> Self {
+    /// An empty project on the given grid, at the current schema version.
+    pub fn new(name: impl Into<String>, timeline_fps: Fps) -> Self {
         Self {
             schema_version: SCHEMA_VERSION,
             name: name.into(),
+            timeline_fps,
             assets: Vec::new(),
             tracks: Vec::new(),
         }
     }
 
     /// Creates a `*.scor/` directory: the sub-directories and a
-    /// `project.json` for an empty project. Refuses to overwrite one that is
-    /// already there.
-    pub fn create(project_dir: &Path, name: impl Into<String>) -> Result<Self, SaveError> {
+    /// `project.json` for an empty project on the given grid. Refuses to
+    /// overwrite one that is already there.
+    pub fn create(
+        project_dir: &Path,
+        name: impl Into<String>,
+        timeline_fps: Fps,
+    ) -> Result<Self, SaveError> {
         let file = project_dir.join(PROJECT_FILE_NAME);
         if file.exists() {
             return Err(SaveError::AlreadyAProject {
@@ -66,7 +79,7 @@ impl Project {
             let path = project_dir.join(directory);
             fs::create_dir_all(&path).map_err(|source| SaveError::Io { path, source })?;
         }
-        let project = Self::new(name);
+        let project = Self::new(name, timeline_fps);
         project.save(project_dir)?;
         Ok(project)
     }

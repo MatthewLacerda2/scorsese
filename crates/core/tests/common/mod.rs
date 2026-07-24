@@ -5,7 +5,10 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use scorsese_core::{Asset, AssetId, ClipId, Project, TrackId, ValidationError, ValidationErrors};
+use scorsese_core::{
+    Asset, AssetId, ClipId, Fps, Project, SCHEMA_VERSION, TrackId, ValidationError,
+    ValidationErrors,
+};
 
 pub mod stub_probe;
 
@@ -17,6 +20,15 @@ pub const FIXTURE: &str = include_str!("../fixtures/narrated_teaser.json");
 /// produce exactly one problem at a time.
 pub fn project() -> Project {
     Project::from_json(FIXTURE).expect("fixture parses")
+}
+
+/// A minimal well-formed document with `body` spliced in — for the parse
+/// failures that are about one field rather than a whole project.
+pub fn document(body: &str) -> String {
+    format!(
+        r#"{{ "schema_version": {SCHEMA_VERSION}, "name": "probe",
+              "timeline_fps": {{ "num": 30, "den": 1 }}, {body} }}"#
+    )
 }
 
 pub fn asset_id(id: &str) -> AssetId {
@@ -63,7 +75,7 @@ pub fn assert_only_problem(project: &Project, expected: &ValidationError) {
 /// A fresh, empty `*.scor` directory with a project already created in it.
 pub fn new_project(label: &str) -> (PathBuf, Project) {
     let dir = temp_project_dir(label);
-    let project = Project::create(&dir, label).expect("create project");
+    let project = Project::create(&dir, label, Fps::THIRTY).expect("create project");
     (dir, project)
 }
 

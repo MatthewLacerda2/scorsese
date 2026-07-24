@@ -13,6 +13,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 
+use scorsese_core::Fps;
 use scorsese_core::ProbeMedia;
 use scorsese_render::{Ffprobe, Tools};
 
@@ -61,7 +62,7 @@ fn a_video_reports_size_rate_and_duration() {
     let media = Ffprobe::new(tools).probe(&file).expect("probe");
 
     assert_eq!((media.width, media.height), (Some(320), Some(240)));
-    assert_eq!(media.frame_rate, Some(30.0));
+    assert_eq!(media.frame_rate, Some(Fps::THIRTY));
     let duration = media.duration_seconds.expect("a duration");
     assert!((duration - 2.0).abs() < 0.1, "duration was {duration}");
     assert_eq!(media.audio_channels, None, "this clip is silent");

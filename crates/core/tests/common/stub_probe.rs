@@ -8,7 +8,7 @@
 
 use std::path::Path;
 
-use scorsese_core::{MediaMetadata, ProbeError, ProbeMedia};
+use scorsese_core::{Fps, MediaMetadata, ProbeError, ProbeMedia};
 
 pub struct StubProbe {
     result: Result<MediaMetadata, String>,
@@ -20,7 +20,7 @@ impl StubProbe {
             duration_seconds: Some(2.0),
             width: Some(320),
             height: Some(240),
-            frame_rate: Some(30.0),
+            frame_rate: Some(Fps::THIRTY),
             audio_channels: None,
             sample_rate: None,
         })
@@ -31,7 +31,7 @@ impl StubProbe {
             width: Some(64),
             height: Some(64),
             // ffprobe invents these for a still; import is expected to drop them.
-            frame_rate: Some(25.0),
+            frame_rate: Some(Fps::PAL),
             duration_seconds: Some(0.04),
             ..MediaMetadata::default()
         })

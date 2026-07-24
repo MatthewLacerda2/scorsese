@@ -13,7 +13,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::time::Seconds;
+use crate::time::Frames;
 
 /// Names the property a keyframe track animates, e.g. `opacity`,
 /// `transform.position.x`, `volume`. Dotted segments, no empty segment.
@@ -67,9 +67,14 @@ pub enum Easing {
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Keyframe {
-    /// Time of this keyframe, **relative to the start of its clip** — so
-    /// moving a clip along the timeline never rewrites its keyframes.
-    pub t: Seconds,
+    /// Time of this keyframe, in frames **relative to the start of its clip**
+    /// — so moving a clip along the timeline never rewrites its keyframes.
+    ///
+    /// Keyframes are *control points*; the value travels continuously between
+    /// them. Putting the control points on the frame grid does not make a
+    /// ramp steppy, it only quantises where the ramp's corners sit, which is
+    /// why even an audio fade wants frames and not something finer.
+    pub t: Frames,
     pub value: f64,
     /// How the value travels from here to the next keyframe.
     #[serde(default)]
@@ -96,8 +101,6 @@ impl KeyframeTrack {
     /// True when times ascend strictly. Checked by validation; the evaluator
     /// this unblocks is entitled to assume it.
     pub fn is_sorted(&self) -> bool {
-        self.keyframes
-            .windows(2)
-            .all(|pair| pair[0].t.get() < pair[1].t.get())
+        self.keyframes.windows(2).all(|pair| pair[0].t < pair[1].t)
     }
 }
