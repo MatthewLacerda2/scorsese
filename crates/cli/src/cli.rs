@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand, ValueEnum};
 use scorsese_core::{AssetKind, Fps};
+use scorsese_render::{Bitrate, FrameRange, Resolution};
 
 #[derive(Debug, Parser)]
 #[command(
@@ -50,6 +51,28 @@ pub enum Command {
         /// Override the kind instead of inferring it from the extension.
         #[arg(long, value_enum)]
         kind: Option<KindArg>,
+    },
+    /// Render the timeline to a video file.
+    Render {
+        /// Where to write the encoded file, e.g. `teaser.mp4`.
+        #[arg(long)]
+        out: PathBuf,
+        /// Output resolution. Sources of a different shape are letterboxed to
+        /// fit, never stretched.
+        #[arg(long, default_value = "1920x1080")]
+        resolution: Resolution,
+        /// Output framerate. Defaults to the project's timeline framerate;
+        /// anything else is conformed from it, nearest frame.
+        #[arg(long)]
+        fps: Option<Fps>,
+        /// Target video bitrate, e.g. `8M`. Without it the encoder aims for
+        /// constant quality instead.
+        #[arg(long)]
+        bitrate: Option<Bitrate>,
+        /// Render only part of the timeline, in frames: `30:120` covers frames
+        /// 30 up to 120, `30:` runs to the end, `:120` from the start.
+        #[arg(long)]
+        range: Option<FrameRange>,
     },
     /// List the media pool and the state of everything in it.
     Assets {

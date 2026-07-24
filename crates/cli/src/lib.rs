@@ -36,6 +36,13 @@ fn dispatch(cli: Cli) -> Result<()> {
         Command::Import { file, kind } => {
             commands::import::run(&directory, &file, kind.map(Into::into))
         }
+        Command::Render {
+            out,
+            resolution,
+            fps,
+            bitrate,
+            range,
+        } => commands::render::run(&directory, &out, resolution, fps, bitrate, range),
         Command::Assets {
             action: None,
             verify,
