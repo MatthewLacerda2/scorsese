@@ -1,0 +1,41 @@
+# Wires GitHub native issue dependencies (Blocked by / Blocks).
+# Manual-dispatch maintenance workflow: agents drive this repo through the
+# GitHub MCP server, which has no issue-dependency tools — this fills the gap.
+# Input is a JSON array of [blocked_issue_number, blocking_issue_number]
+# pairs, e.g. [[5,2],[5,3]] marks #5 as blocked by #2 and #3.
+# Idempotent: an already-existing relationship is skipped, not an error.
+name: Wire issue dependencies
+
+on:
+  workflow_dispatch:
+    inputs:
+      pairs:
+        description: "JSON array of [blocked, blocked_by] issue-number pairs"
+        required: true
+        type: string
+
+permissions:
+  issues: write
+
+jobs:
+  wire:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create blocked-by relationships
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PAIRS: ${{ inputs.pairs }}
+        run: |
+          set -euo pipefail
+          jq -c '.[]' <<<"$PAIRS" | while read -r pair; do
+            blocked=$(jq -r '.[0]' <<<"$pair")
+            blocker=$(jq -r '.[1]' <<<"$pair")
+            blocker_id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$blocker" --jq '.id')
+            out=$(gh api -X POST \
+              "repos/$GITHUB_REPOSITORY/issues/$blocked/dependencies/blocked_by" \
+              --input - <<<"{\"issue_id\": $blocker_id}" 2>&1) \
+              && echo "wired: #$blocked blocked by #$blocker" \
+              || { grep -qi "already exists\|422" <<<"$out" \
+                     && echo "exists: #$blocked blocked by #$blocker" \
+                     || { echo "$out"; exit 1; }; }
+          done
