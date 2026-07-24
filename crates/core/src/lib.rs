@@ -15,15 +15,24 @@
 //! *values*.
 //!
 //! Boundary: this crate must never touch a display, a GPU, a network, or
-//! spawn a process. No GUI, no ffmpeg, no provider calls — it depends on
-//! nothing but serde-level data handling. Everything else depends on it.
+//! spawn a process. No GUI, no ffmpeg, no provider calls — it reads and
+//! writes the project document and reasons about it. Everything else depends
+//! on it.
+//!
+//! The format itself is documented in `docs/project-format.md`.
 
-/// Placeholder so `cargo test` exercises this crate from day one.
-/// Replaced by real model tests in the project.json schema v1 issue.
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn crate_compiles() {
-        assert_eq!(2 + 2, 4);
-    }
-}
+pub mod asset;
+pub mod keyframe;
+pub mod path;
+pub mod project;
+pub mod time;
+pub mod timeline;
+pub mod validate;
+
+pub use asset::{Asset, AssetId, AssetKind, GenerationState, MediaMetadata};
+pub use keyframe::{Easing, Keyframe, KeyframeTrack, PropertyPath};
+pub use path::{PathProblem, ProjectPath};
+pub use project::{LoadError, PROJECT_FILE_NAME, Project, SCHEMA_VERSION, SaveError};
+pub use time::Seconds;
+pub use timeline::{Clip, ClipId, Track, TrackId, TrackKind};
+pub use validate::{ValidationError, ValidationErrors};

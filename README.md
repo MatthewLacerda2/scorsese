@@ -20,7 +20,9 @@ myvideo.scor/
 Every path in `project.json` is relative to the project root — a project
 survives `scp -r` to another machine. Assets are entities (id, kind, path,
 sha256, probed metadata); clips on tracks reference assets by id, never by
-path.
+path. The format is documented in
+[docs/project-format.md](docs/project-format.md) and is meant to be
+hand-written.
 
 ## Sketch → GO
 
