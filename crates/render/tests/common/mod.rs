@@ -8,7 +8,7 @@ use scorsese_core::{
     Asset, AssetId, AssetKind, Clip, ClipId, Fps, Frames, Project, ProjectPath, Track, TrackId,
     TrackKind,
 };
-use scorsese_render::plan::{Content, Plan};
+use scorsese_render::plan::Plan;
 
 /// An asset with a path under `assets/`, which is what makes the plan treat it
 /// as something to decode. The file name follows the id, so a fixture built by
@@ -95,13 +95,22 @@ pub fn project(assets: Vec<Asset>, tracks: Vec<Track>) -> Project {
 
 /// A plan as `(timeline start, timeline frames, what fills it, output frames)`
 /// per segment — the whole of what sequencing decides, in one comparable value.
+///
+/// "What fills it" is the clips visible through the stretch, bottom track
+/// first, joined by `+`; `gap` when nothing is.
 pub fn shape(plan: &Plan<'_>) -> Vec<(u64, u64, String, u64)> {
     plan.segments()
         .iter()
         .map(|segment| {
-            let what = match &segment.content {
-                Content::Gap => "gap".to_owned(),
-                Content::Shot(shot) => shot.clip.id.to_string(),
+            let what = if segment.is_gap() {
+                "gap".to_owned()
+            } else {
+                segment
+                    .layers
+                    .iter()
+                    .map(|shot| shot.clip.id.to_string())
+                    .collect::<Vec<_>>()
+                    .join("+")
             };
             (
                 segment.start.get(),
@@ -113,13 +122,11 @@ pub fn shape(plan: &Plan<'_>) -> Vec<(u64, u64, String, u64)> {
         .collect()
 }
 
-/// Where each shot opens in its source, by clip id.
+/// Where each shot opens in its source, by clip id, in segment then track order.
 pub fn source_ins(plan: &Plan<'_>) -> Vec<(String, u64)> {
     plan.segments()
         .iter()
-        .filter_map(|segment| match &segment.content {
-            Content::Gap => None,
-            Content::Shot(shot) => Some((shot.clip.id.to_string(), shot.source_in.get())),
-        })
+        .flat_map(|segment| segment.layers.iter())
+        .map(|shot| (shot.clip.id.to_string(), shot.source_in.get()))
         .collect()
 }

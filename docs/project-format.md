@@ -121,6 +121,23 @@ A track is `video` or `audio`. Video tracks composite in array order, first
 at the bottom; audio tracks all mix together. Visual assets go on video
 tracks, audible ones on audio tracks.
 
+A **hole in a track contributes nothing**, so the tracks below it show through.
+Only a stretch with nothing on *any* video track renders black. That is the
+difference between an empty patch of an overlay track and an empty timeline.
+
+### How a source is fitted into the raster
+
+Every clip is scaled to **fit** the render's resolution, keeping its
+proportions, and the space left over is filled with **transparent** — not
+black. On the bottom track the distinction is invisible, since the canvas
+beneath is black anyway. On an upper track it is the whole point: a 4:3 clip
+over a 16:9 one shows the wider clip at the sides rather than blacking it out.
+
+Scale-to-fit is the only fitting rule today, so a small logo on an upper track
+arrives filling as much of the frame as its proportions allow; shrink it with
+`transform.scale.*`. A per-clip *fit mode* (fill / fit / native size) would be
+a new field, and so `architecture` work rather than something to bolt on.
+
 A clip carries `start` and `duration` on the timeline, an optional
 `source_in` offset into the media (default `0`), and optional `keyframes`.
 `source_in` counts in **timeline** frames too — "skip the first two seconds"

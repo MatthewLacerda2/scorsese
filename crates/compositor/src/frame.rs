@@ -150,6 +150,18 @@ impl Frame {
         }
     }
 
+    /// Resets the frame to nothing at all — transparent everywhere.
+    ///
+    /// What a layer contributes when it has nothing to show. Distinct from
+    /// [`Frame::fill_black`] and the distinction matters: an upper layer that
+    /// went opaque black would paint over the tracks below it, where a
+    /// transparent one lets them through. Over a black canvas the two look
+    /// identical, which is why the difference only shows up once there are
+    /// layers.
+    pub fn fill_transparent(&mut self) {
+        self.pixels.fill(0);
+    }
+
     /// True when every pixel is fully opaque.
     ///
     /// Worth asking, because straight and premultiplied alpha are the *same

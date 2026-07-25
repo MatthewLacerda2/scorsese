@@ -28,23 +28,6 @@ fn an_empty_video_track_is_not_something_to_render_either() {
 }
 
 #[test]
-fn two_video_tracks_are_refused_rather_than_flattened() {
-    // Compositing tracks together is the compositor's job. Rendering only the
-    // bottom one would produce a file that looks finished and is not.
-    let project = project(
-        vec![file_asset("a", AssetKind::Video)],
-        vec![
-            video_track("v1", vec![clip("c1", "a", 0, 30)]),
-            video_track("v2", vec![clip("c2", "a", 0, 30)]),
-        ],
-    );
-    assert_eq!(
-        Plan::build(&project, Fps::THIRTY, FrameRange::ALL),
-        Err(PlanError::MultipleVideoTracks { count: 2 })
-    );
-}
-
-#[test]
 fn an_empty_second_video_track_is_ignored() {
     let project = project(
         vec![file_asset("a", AssetKind::Video)],
