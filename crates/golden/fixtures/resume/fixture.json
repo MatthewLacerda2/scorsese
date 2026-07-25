@@ -1,0 +1,14 @@
+{
+  "description": "A clip on the lower track cut into three stretches by an overlay entering and leaving above it, over a source whose colour changes half way. The bed is one second of red then one second of green; the overlay is a narrow white strip covering timeline frames 20-39, so the bed stays visible at the sides throughout. Frames 35 and 45 are the discriminators: the bed must be green there, because the second and third stretches resume at source frames 20 and 40 rather than restarting. A clip that restarted its source at every cut on an unrelated track would show red at both, and would look perfectly correct in every fixture whose sources are a single flat colour.",
+  "media": {
+    "bands": [
+      "-f", "lavfi", "-i", "color=c=red:s=64x64:d=1:r=30",
+      "-f", "lavfi", "-i", "color=c=green:s=64x64:d=1:r=30",
+      "-filter_complex", "[0:v][1:v]concat=n=2:v=1",
+      "-pix_fmt", "yuv420p"
+    ],
+    "strip": "color=c=white:s=32x64:d=2:r=30"
+  },
+  "render": { "resolution": "64x64", "fps": "30" },
+  "frames": [10, 25, 35, 45]
+}

@@ -58,7 +58,7 @@ macro_rules! goldens {
 }
 
 goldens!(
-    blend, cuts, fade, gap_above, letterbox, overlay, slice, slide, zoom
+    blend, cuts, fade, gap_above, letterbox, overlay, resume, slice, slide, zoom
 );
 
 #[test]
