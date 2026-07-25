@@ -1,0 +1,22 @@
+{
+  "schema_version": 2,
+  "name": "cuts",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    { "id": "red", "kind": "video", "path": "assets/red.mp4" },
+    { "id": "blue", "kind": "video", "path": "assets/blue.mp4" },
+    { "id": "logo", "kind": "image", "path": "assets/logo.png" }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "name": "picture",
+      "clips": [
+        { "id": "c-red", "asset": "red", "start": 0, "duration": 30 },
+        { "id": "c-blue", "asset": "blue", "start": 45, "duration": 30 },
+        { "id": "c-logo", "asset": "logo", "start": 75, "duration": 15 }
+      ]
+    }
+  ]
+}

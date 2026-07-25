@@ -103,6 +103,7 @@ plan.
 | `crates/providers` | Veo + ElevenLabs clients, prompt-hash cache, generation states |
 | `crates/cli` | The headless `scorsese` binary: `new`, `import`, `render`, `generate`, `assets`, `diff` |
 | `crates/mcp` | MCP server — the same operations as MCP tools for Claude agents |
+| `crates/golden` | Test infrastructure: the golden-render gate ([docs](docs/golden-renders.md)) |
 | `app/` | Tauri GUI (placeholder — arrives with its seed issue) |
 
 `core` and `cli` never touch a display. Each crate's `lib.rs` states its

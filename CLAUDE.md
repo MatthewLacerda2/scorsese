@@ -27,6 +27,9 @@ a video from brief to rendered file without a human touching a mouse.
   sketch→GO lifecycle, how to build.
 - **docs/project-format.md** — the `project.json` schema: assets, tracks,
   clips, keyframes, paths, and what validation checks.
+- **docs/golden-renders.md** — the pixel gate: what a fixture is, how frames are
+  compared, and when re-blessing a reference is legitimate. Read it before
+  changing anything a render's output depends on.
 - Crate boundaries live in each crate's `lib.rs` module doc — read them before
   adding a dependency between crates.
 
@@ -75,9 +78,10 @@ side effect of a feature PR.
 rendering, CPU tiny-skia first) ← `crates/render` (ffmpeg orchestration) ;
 `crates/providers` (Veo + ElevenLabs, prompt-hash cache) ; `crates/cli` (the
 headless `scorsese` binary) ; `crates/mcp` (MCP server, thin wrapper over the
-same logic) ; `app/` (Tauri GUI, not in the workspace yet). Each `lib.rs` doc
-states what its crate must never depend on — those boundaries are enforced
-in review.
+same logic) ; `crates/golden` (test infrastructure: the golden-render gate,
+which nothing ships and nothing depends on) ; `app/` (Tauri GUI, not in the
+workspace yet). Each `lib.rs` doc states what its crate must never depend on —
+those boundaries are enforced in review.
 
 ## How we work
 
@@ -162,9 +166,11 @@ in review.
   ffmpeg is an external binary on PATH in dev/CI and a bundled Tauri sidecar
   in shipped builds; that indirection lives in one place. No ad-hoc
   `Command::new("ffmpeg")` anywhere else.
-- **Golden-render tests compare frame hashes / SSIM with tolerance** — never
-  byte-equality of encoded output. Encoders are not deterministic across
-  versions and platforms; frames are what we control.
+- **Golden-render tests compare frames with tolerance** — never byte-equality of
+  encoded output. Encoders are not deterministic across versions and platforms;
+  frames are what we control. The harness is `crates/golden`, and
+  **docs/golden-renders.md** is the rulebook — including the one that matters:
+  re-blessing a reference to make CI green is never legitimate.
 - **`project.json` format changes are `architecture`-label work** and require
   a schema version bump plus a migration note. The format is the contract
   between the CLI, the MCP server, the GUI, and every saved project.
