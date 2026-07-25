@@ -13,8 +13,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
-use scorsese_render::frame::PIXEL_FORMAT;
-use scorsese_render::{Frame, Resolution, Tools};
+use scorsese_render::{Frame, PIXEL_FORMAT, Resolution, Tools};
 
 /// Decodes one frame of a video file by index.
 pub fn extract(

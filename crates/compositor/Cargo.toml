@@ -5,3 +5,6 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
+scorsese-core = { version = "0.1.0", path = "../core" }
+thiserror = "2.0.19"
+tiny-skia = "0.12.0"

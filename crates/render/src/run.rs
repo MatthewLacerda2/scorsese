@@ -2,23 +2,24 @@
 
 use std::path::Path;
 
-use scorsese_core::{AssetKind, Fps, Project};
+use scorsese_compositor::{Compositor, CpuCompositor, Frame, Layer, Properties};
+use scorsese_core::{AssetKind, Fps, Frames, Project};
 
 use crate::error::RenderError;
-use crate::frame::Frame;
 use crate::pipe::{Decoder, Encoder, Source};
-use crate::plan::{Content, FrameRange, Plan, Shot};
+use crate::plan::{Content, FrameRange, Plan, Segment, Shot};
 use crate::report::{Note, RenderReport};
 use crate::settings::RenderSettings;
+use crate::tools::Tools;
 
 /// Renders projects with one set of settings.
 pub struct Renderer<'a> {
-    tools: &'a crate::tools::Tools,
+    tools: &'a Tools,
     settings: RenderSettings,
 }
 
 impl<'a> Renderer<'a> {
-    pub fn new(tools: &'a crate::tools::Tools, settings: RenderSettings) -> Self {
+    pub fn new(tools: &'a Tools, settings: RenderSettings) -> Self {
         Self { tools, settings }
     }
 
@@ -36,25 +37,32 @@ impl<'a> Renderer<'a> {
         let plan = Plan::build(project, self.settings.fps, range)?;
         let mut notes = plan.notes().to_vec();
         let mut encoder = Encoder::start(self.tools, &self.settings, out)?;
-        let mut frame = Frame::black(self.settings.resolution);
+        let mut stage = Stage {
+            compositor: CpuCompositor::new(),
+            source: Frame::black(self.settings.resolution),
+            canvas: Frame::black(self.settings.resolution),
+        };
         let mut written = 0;
 
         for segment in plan.segments() {
             let frames = plan.out_frames_of(segment);
             match &segment.content {
                 Content::Gap => {
-                    frame.fill_black();
+                    // A gap has no layers, so compositing nothing is exactly
+                    // what it looks like: the cleared canvas.
+                    stage.compositor.composite(&mut stage.canvas, &[])?;
                     for _ in 0..frames {
-                        encoder.write(&frame)?;
+                        encoder.write(&stage.canvas)?;
                     }
                 }
                 Content::Shot(shot) => {
                     let note = self.render_shot(
                         shot,
                         project_root,
-                        project.timeline_fps,
+                        &plan,
+                        segment,
                         frames,
-                        &mut frame,
+                        &mut stage,
                         &mut encoder,
                     )?;
                     notes.extend(note);
@@ -72,37 +80,45 @@ impl<'a> Renderer<'a> {
         })
     }
 
-    /// Decodes one clip's worth of frames and hands each to the encoder.
+    /// Decodes one clip's frames, composites each, and hands them to the encoder.
+    #[allow(clippy::too_many_arguments)]
     fn render_shot(
         &self,
         shot: &Shot<'_>,
         project_root: &Path,
-        timeline_fps: Fps,
+        plan: &Plan<'_>,
+        segment: &Segment<'_>,
         frames: u64,
-        frame: &mut Frame,
+        stage: &mut Stage,
         encoder: &mut Encoder,
     ) -> Result<Option<Note>, RenderError> {
-        let source = source_for(shot, project_root, timeline_fps, frames)?;
+        let source = source_for(shot, project_root, plan.timeline_fps(), frames)?;
         let mut decoder = Decoder::start(self.tools, &source, &self.settings)?;
         let mut missing = 0;
 
-        for _ in 0..frames {
-            if !decoder.read_into(frame)? {
+        for index in 0..frames {
+            if !decoder.read_into(&mut stage.source)? {
                 // The source ran out before the clip did. Black is the honest
                 // answer, and the note below makes sure it is not a silent one.
-                frame.fill_black();
+                stage.source.fill_black();
                 missing += 1;
             }
 
-            // This is the compositing seam. Today one decoded frame becomes one
-            // output frame untouched, which is why there is nothing between the
-            // read and the write. Compositor v1 replaces this line with the
-            // real thing: several source frames, transforms, opacity, and text
-            // resolved into one output frame. Nothing on either side of it —
-            // the plan, the decode pipe, the encode pipe — changes when it
-            // does, which is the point of building the spine first.
+            // Keyframes are timed from the clip's own start, so that moving a
+            // clip along the timeline never rewrites them. Which instant of the
+            // clip this output frame shows is the plan's to say.
+            let at = plan.timeline_frame_of(segment, index);
+            let elapsed = Frames(at.get().saturating_sub(shot.clip.start.get()));
+            let properties = Properties::at(&shot.clip.keyframes, elapsed);
 
-            encoder.write(frame)?;
+            stage.compositor.composite(
+                &mut stage.canvas,
+                &[Layer {
+                    source: &stage.source,
+                    properties,
+                }],
+            )?;
+            encoder.write(&stage.canvas)?;
         }
 
         decoder.finish()?;
@@ -111,6 +127,19 @@ impl<'a> Renderer<'a> {
             missing,
         }))
     }
+}
+
+/// The buffers and the compositor a render reuses for every frame.
+///
+/// Held together because they are allocated once and live for the whole render:
+/// at 1080p30, allocating these per frame would be a few hundred megabytes a
+/// second of pure churn.
+struct Stage {
+    compositor: CpuCompositor,
+    /// What the decoder just handed us.
+    source: Frame,
+    /// What the encoder is about to be given.
+    canvas: Frame,
 }
 
 /// Where a shot's media is on disk, and how to read it.

@@ -22,15 +22,15 @@
 //!
 //! That middle step is where Path B lives: ffmpeg decodes and encodes, and
 //! every decision about what is on screen happens in our process. Compositing
-//! is a passthrough for now — the seam is a single point in [`run`], and
-//! Compositor v1 fills it in without either pipe changing shape.
+//! That middle step is where Path B lives: ffmpeg decodes and encodes, and
+//! every decision about what is on screen happens in our process — transforms,
+//! opacity, and layer order are `scorsese-compositor`'s, called from [`run`].
 //!
 //! Boundary: no compositing logic (that is `scorsese-compositor`'s job — this
 //! crate moves bytes, it never draws), no provider calls, no GUI. Depends on
 //! `scorsese-core` and `scorsese-compositor`.
 
 pub mod error;
-pub mod frame;
 pub mod pipe;
 pub mod plan;
 pub mod probe;
@@ -39,8 +39,12 @@ pub mod run;
 pub mod settings;
 pub mod tools;
 
+/// The frame buffer and raster types, which belong to the compositor — a frame
+/// is what it produces. Re-exported so callers need not care which crate
+/// defines them.
+pub use scorsese_compositor::{Frame, PIXEL_FORMAT};
+
 pub use error::{RenderError, Stage};
-pub use frame::Frame;
 pub use plan::{FrameRange, FrameRangeError, Plan, PlanError};
 pub use probe::Ffprobe;
 pub use report::{Note, RenderReport};

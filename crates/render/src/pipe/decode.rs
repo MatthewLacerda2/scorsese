@@ -5,9 +5,9 @@ use std::path::PathBuf;
 use std::process::{Child, ChildStdout, Stdio};
 
 use crate::error::{RenderError, Stage};
-use crate::frame::{Frame, PIXEL_FORMAT};
 use crate::settings::RenderSettings;
 use crate::tools::Tools;
+use scorsese_compositor::{Frame, PIXEL_FORMAT};
 
 /// What to decode, and how much of it.
 #[derive(Debug, Clone, PartialEq)]
