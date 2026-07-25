@@ -49,6 +49,9 @@ pub enum RenderError {
         source: std::io::Error,
     },
 
+    #[error("compositing: {0}")]
+    Composite(#[from] scorsese_compositor::CompositeError),
+
     #[error("ffmpeg failed while {stage} {subject}: {message}")]
     Ffmpeg {
         stage: Stage,

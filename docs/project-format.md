@@ -168,6 +168,31 @@ the generality rule: core defines property types, never property values. The
 compositor resolves paths; adding a new animatable property costs nothing
 here.
 
+### What the compositor animates today
+
+| path | means | `1.0` / `0.0` |
+| --- | --- | --- |
+| `opacity` | how solid the layer is | `1.0` solid, `0.0` invisible |
+| `transform.position.x` | offset right, in **output pixels** | `0.0` unmoved |
+| `transform.position.y` | offset down, in output pixels | `0.0` unmoved |
+| `transform.scale.x` | width multiplier about the layer's centre | `1.0` natural size |
+| `transform.scale.y` | height multiplier about the layer's centre | `1.0` natural size |
+
+Scale is **centre-anchored**, so shrinking a clip does not also slide it into a
+corner. Position is applied after scale and measured in output pixels, so it
+means the same thing whatever the source was shot at.
+
+A path the compositor does not know is **ignored** — not an error. A project
+authored against a newer scorsese has to still render on an older one. The
+cost is that a typo like `opactiy` silently does nothing, which is why warning
+about unrecognised paths is planned separately.
+
+Because `t` counts from the clip's start, a fade written once keeps working
+after the clip is dragged elsewhere on the timeline. `scorsese-compositor`'s
+`fade_in` and `fade_out` are sugar that write exactly these opacity keyframes
+— there is no separate fade mechanism, which is why a fade composes with a
+move or a zoom for free.
+
 ## Paths
 
 Every path is relative to the project root and uses forward slashes on every

@@ -1,0 +1,36 @@
+{
+  "schema_version": 2,
+  "name": "zoom",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [{ "id": "red", "kind": "video", "path": "assets/red.mp4" }],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-red",
+          "asset": "red",
+          "start": 0,
+          "duration": 32,
+          "keyframes": [
+            {
+              "property": "transform.scale.x",
+              "keyframes": [
+                { "t": 0, "value": 1.0 },
+                { "t": 32, "value": 0.5 }
+              ]
+            },
+            {
+              "property": "transform.scale.y",
+              "keyframes": [
+                { "t": 0, "value": 1.0 },
+                { "t": 32, "value": 0.5 }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

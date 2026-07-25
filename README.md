@@ -87,9 +87,16 @@ letterboxed rather than stretched, and holes in the timeline render black.
 `--range` renders a slice of the timeline in frames, which is the cheap way to
 check one cut without re-encoding everything.
 
-Renders are currently silent and cover one video track, and a clip still
-awaiting generation refuses to render rather than standing in as a slug card.
-Audio mixing, compositing, slug cards, and generation each have an issue; the
+Clips can be **animated**: opacity, position, and scale are keyframed
+properties, evaluated per frame and drawn by our own compositor rather than by
+ffmpeg. `docs/project-format.md` lists the property paths and what they mean.
+Scale is centre-anchored, and a fade is nothing but opacity keyframes — so it
+composes with a move or a zoom for free.
+
+Renders are currently silent, cover one video track, and cannot draw text; a
+clip still awaiting generation refuses to render rather than standing in as a
+slug card. Audio mixing, layered tracks, text, slug cards, and generation each
+have an issue; the
 [issue tracker](https://github.com/MatthewLacerda2/scorsese/issues) is the
 plan.
 

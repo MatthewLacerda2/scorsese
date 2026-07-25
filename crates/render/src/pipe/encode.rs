@@ -5,9 +5,9 @@ use std::path::Path;
 use std::process::{Child, ChildStdin, Stdio};
 
 use crate::error::{RenderError, Stage};
-use crate::frame::{Frame, PIXEL_FORMAT};
 use crate::settings::RenderSettings;
 use crate::tools::Tools;
+use scorsese_compositor::{Frame, PIXEL_FORMAT};
 
 /// Constant-quality target used when no bitrate is asked for. A size budget is
 /// the exception, not the rule — most renders want "look right", and a fixed

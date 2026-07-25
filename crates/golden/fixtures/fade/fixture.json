@@ -1,0 +1,6 @@
+{
+  "description": "A ten-frame opacity ramp on a solid red clip. Frame 0 is fully transparent so the canvas shows through as black, frame 5 is half way up, and from frame 10 on the clip is solid. A fade evaluated on the wrong grid, anchored to the timeline instead of the clip, or interpolated the wrong way round moves those frames and fails here.",
+  "media": { "red": "color=c=red:s=64x64:d=2:r=30" },
+  "render": { "resolution": "64x64", "fps": "30" },
+  "frames": [0, 5, 10, 29]
+}

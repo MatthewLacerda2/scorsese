@@ -63,6 +63,29 @@ pub enum Easing {
     Hold,
 }
 
+impl Easing {
+    /// Reshapes linear progress through a segment, `0.0..=1.0`, into eased
+    /// progress.
+    ///
+    /// The classic quadratic family, which is what "ease in" means to anyone
+    /// who has used an editor. Nothing here is tuneable yet on purpose: a
+    /// custom bezier is a property of a keyframe someone can ask for, and
+    /// inventing the knob before the need is how a format grows fields nobody
+    /// sets.
+    pub fn apply(self, progress: f64) -> f64 {
+        let p = progress.clamp(0.0, 1.0);
+        match self {
+            Self::Linear => p,
+            Self::EaseIn => p * p,
+            Self::EaseOut => 1.0 - (1.0 - p) * (1.0 - p),
+            // Smoothstep: symmetric, and flat at both ends.
+            Self::EaseInOut => p * p * (3.0 - 2.0 * p),
+            // The value does not travel at all; it jumps at the next keyframe.
+            Self::Hold => 0.0,
+        }
+    }
+}
+
 /// One `(t, value, easing)` point.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -102,5 +125,42 @@ impl KeyframeTrack {
     /// this unblocks is entitled to assume it.
     pub fn is_sorted(&self) -> bool {
         self.keyframes.windows(2).all(|pair| pair[0].t < pair[1].t)
+    }
+
+    /// The value of this property at `t`, in frames from the start of the clip.
+    ///
+    /// `None` only when the track holds no keyframes — a property with nothing
+    /// to say leaves whatever reads it on its own default, rather than
+    /// asserting a zero nobody wrote.
+    ///
+    /// Outside the keyframed span the value **holds**: before the first
+    /// keyframe it is the first value, after the last it is the last. The
+    /// alternative — extrapolating — would have a two-keyframe fade keep
+    /// darkening past the end of the clip, which nobody means by two
+    /// keyframes.
+    ///
+    /// This is the whole of the mechanism, and it does not know which property
+    /// it is animating. That is the generality rule holding: the same function
+    /// evaluates an opacity ramp, a position move, and an audio fade.
+    pub fn value_at(&self, t: Frames) -> Option<f64> {
+        let first = self.keyframes.first()?;
+        let last = self.keyframes.last()?;
+        if t <= first.t {
+            return Some(first.value);
+        }
+        if t >= last.t {
+            return Some(last.value);
+        }
+        let pair = self
+            .keyframes
+            .windows(2)
+            .find(|pair| pair[0].t <= t && t < pair[1].t)?;
+        let (from, to) = (&pair[0], &pair[1]);
+        let span = to.t.get().saturating_sub(from.t.get());
+        if span == 0 {
+            return Some(from.value);
+        }
+        let progress = (t.get() - from.t.get()) as f64 / span as f64;
+        Some(from.value + (to.value - from.value) * from.easing.apply(progress))
     }
 }

@@ -146,6 +146,11 @@ impl<'a> Plan<'a> {
         self.out_fps
     }
 
+    /// The grid the project was authored against.
+    pub const fn timeline_fps(&self) -> Fps {
+        self.timeline_fps
+    }
+
     /// How many frames the render writes in total.
     pub fn out_frames(&self) -> u64 {
         self.out_index(self.end)
@@ -158,6 +163,16 @@ impl<'a> Plan<'a> {
     /// each duration on its own would round each one independently and drift.
     pub fn out_frames_of(&self, segment: &Segment<'_>) -> u64 {
         self.out_index(segment.end()) - self.out_index(segment.start)
+    }
+
+    /// Which timeline frame the `index`th output frame of a segment shows.
+    ///
+    /// The inverse of the conform that decided the segment's frame count, and
+    /// the reason it is needed: keyframes are timed against the timeline grid,
+    /// so the compositor has to be told which instant it is drawing — not which
+    /// output frame it happens to be on.
+    pub fn timeline_frame_of(&self, segment: &Segment<'_>, index: u64) -> Frames {
+        segment.start + self.timeline_fps.conform(Frames(index), self.out_fps)
     }
 
     /// The output frame a timeline frame lands on, counted from the start of

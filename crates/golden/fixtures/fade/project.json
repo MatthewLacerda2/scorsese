@@ -1,0 +1,29 @@
+{
+  "schema_version": 2,
+  "name": "fade",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [{ "id": "red", "kind": "video", "path": "assets/red.mp4" }],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-red",
+          "asset": "red",
+          "start": 0,
+          "duration": 30,
+          "keyframes": [
+            {
+              "property": "opacity",
+              "keyframes": [
+                { "t": 0, "value": 0.0 },
+                { "t": 10, "value": 1.0 }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -57,7 +57,7 @@ macro_rules! goldens {
     };
 }
 
-goldens!(cuts, letterbox, slice);
+goldens!(cuts, fade, letterbox, slice, slide, zoom);
 
 #[test]
 fn every_fixture_is_covered() {
