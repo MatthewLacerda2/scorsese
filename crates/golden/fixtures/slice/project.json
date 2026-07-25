@@ -1,0 +1,21 @@
+{
+  "schema_version": 2,
+  "name": "slice",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [{ "id": "bands", "kind": "video", "path": "assets/bands.mp4" }],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-bands",
+          "asset": "bands",
+          "start": 0,
+          "duration": 60,
+          "source_in": 5
+        }
+      ]
+    }
+  ]
+}

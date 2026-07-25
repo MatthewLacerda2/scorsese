@@ -242,6 +242,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "scorsese-golden"
+version = "0.1.0"
+dependencies = [
+ "scorsese-core",
+ "scorsese-render",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "scorsese-mcp"
 version = "0.1.0"
 

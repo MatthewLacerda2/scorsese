@@ -33,3 +33,14 @@ jobs:
 
       - name: Test
         run: cargo test --workspace
+
+      # The golden renders live inside `cargo test --workspace`, so a failure
+      # above may be a pixel regression. These are the frames it disagreed with,
+      # uploaded so the diff can be looked at rather than guessed at.
+      - name: Upload golden-render failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-failures
+          path: target/tmp/golden-failures/
+          if-no-files-found: ignore
