@@ -117,13 +117,20 @@ impl Decoder {
 
 /// Re-time, fit, letterbox — in that order, because dropping frames before
 /// scaling means not scaling the frames that get dropped.
+///
+/// The bars are **transparent**, not black, and `format=rgba` before the pad is
+/// what keeps them so. On the bottom layer the difference is invisible — the
+/// canvas underneath is black anyway — but on an upper track it is the whole
+/// point: a narrow clip over a wide one shows the wide one at the sides rather
+/// than blacking it out.
 fn video_filter(settings: &RenderSettings) -> String {
     let width = settings.resolution.width();
     let height = settings.resolution.height();
     format!(
         "fps={}/{},\
          scale={width}:{height}:force_original_aspect_ratio=decrease,\
-         pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=black",
+         format=rgba,\
+         pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=black@0.0",
         settings.fps.num(),
         settings.fps.den()
     )

@@ -7,7 +7,7 @@ use scorsese_core::{AssetKind, Fps, Frames, Project};
 
 use crate::error::RenderError;
 use crate::pipe::{Decoder, Encoder, Source};
-use crate::plan::{Content, FrameRange, Plan, Segment, Shot};
+use crate::plan::{FrameRange, Plan, Segment, Shot};
 use crate::report::{Note, RenderReport};
 use crate::settings::RenderSettings;
 use crate::tools::Tools;
@@ -37,37 +37,19 @@ impl<'a> Renderer<'a> {
         let plan = Plan::build(project, self.settings.fps, range)?;
         let mut notes = plan.notes().to_vec();
         let mut encoder = Encoder::start(self.tools, &self.settings, out)?;
-        let mut stage = Stage {
-            compositor: CpuCompositor::new(),
-            source: Frame::black(self.settings.resolution),
-            canvas: Frame::black(self.settings.resolution),
-        };
+        let mut stage = Stage::for_plan(&plan, self.settings);
         let mut written = 0;
 
         for segment in plan.segments() {
             let frames = plan.out_frames_of(segment);
-            match &segment.content {
-                Content::Gap => {
-                    // A gap has no layers, so compositing nothing is exactly
-                    // what it looks like: the cleared canvas.
-                    stage.compositor.composite(&mut stage.canvas, &[])?;
-                    for _ in 0..frames {
-                        encoder.write(&stage.canvas)?;
-                    }
-                }
-                Content::Shot(shot) => {
-                    let note = self.render_shot(
-                        shot,
-                        project_root,
-                        &plan,
-                        segment,
-                        frames,
-                        &mut stage,
-                        &mut encoder,
-                    )?;
-                    notes.extend(note);
-                }
-            }
+            notes.extend(self.render_segment(
+                segment,
+                project_root,
+                &plan,
+                frames,
+                &mut stage,
+                &mut encoder,
+            )?);
             written += frames;
         }
 
@@ -80,66 +62,119 @@ impl<'a> Renderer<'a> {
         })
     }
 
-    /// Decodes one clip's frames, composites each, and hands them to the encoder.
-    #[allow(clippy::too_many_arguments)]
-    fn render_shot(
+    /// Decodes one stretch of timeline, composites each of its frames, and
+    /// hands them to the encoder.
+    fn render_segment(
         &self,
-        shot: &Shot<'_>,
+        segment: &Segment<'_>,
         project_root: &Path,
         plan: &Plan<'_>,
-        segment: &Segment<'_>,
         frames: u64,
         stage: &mut Stage,
         encoder: &mut Encoder,
-    ) -> Result<Option<Note>, RenderError> {
-        let source = source_for(shot, project_root, plan.timeline_fps(), frames)?;
-        let mut decoder = Decoder::start(self.tools, &source, &self.settings)?;
-        let mut missing = 0;
+    ) -> Result<Vec<Note>, RenderError> {
+        // Split the borrow up front: the sources are written into and the canvas
+        // read out of within the same frame, and they are separate buffers.
+        let Stage {
+            compositor,
+            sources,
+            canvas,
+        } = stage;
 
-        for index in 0..frames {
-            if !decoder.read_into(&mut stage.source)? {
-                // The source ran out before the clip did. Black is the honest
-                // answer, and the note below makes sure it is not a silent one.
-                stage.source.fill_black();
-                missing += 1;
+        if segment.is_gap() {
+            // No layers, so compositing nothing is exactly what a gap looks
+            // like: the cleared canvas, once, written for as long as it lasts.
+            compositor.composite(canvas, &[])?;
+            for _ in 0..frames {
+                encoder.write(canvas)?;
             }
-
-            // Keyframes are timed from the clip's own start, so that moving a
-            // clip along the timeline never rewrites them. Which instant of the
-            // clip this output frame shows is the plan's to say.
-            let at = plan.timeline_frame_of(segment, index);
-            let elapsed = Frames(at.get().saturating_sub(shot.clip.start.get()));
-            let properties = Properties::at(&shot.clip.keyframes, elapsed);
-
-            stage.compositor.composite(
-                &mut stage.canvas,
-                &[Layer {
-                    source: &stage.source,
-                    properties,
-                }],
-            )?;
-            encoder.write(&stage.canvas)?;
+            return Ok(Vec::new());
         }
 
-        decoder.finish()?;
-        Ok((missing > 0).then(|| Note::ClipRanShort {
-            clip: shot.clip.id.to_string(),
-            missing,
-        }))
+        // One decoder per layer, all running at once. They are read in lockstep,
+        // a frame from each per output frame, so every pipe drains evenly and
+        // none of them blocks waiting for us.
+        let mut decoders = Vec::with_capacity(segment.layers.len());
+        for shot in &segment.layers {
+            let source = source_for(shot, project_root, plan.timeline_fps(), frames)?;
+            decoders.push(Decoder::start(self.tools, &source, &self.settings)?);
+        }
+        let mut missing = vec![0_u64; segment.layers.len()];
+
+        for index in 0..frames {
+            for (at, decoder) in decoders.iter_mut().enumerate() {
+                if !decoder.read_into(&mut sources[at])? {
+                    // This layer's source ran out before its clip did. Blank
+                    // rather than black: an upper layer that went opaque black
+                    // would paint over the tracks below it, which is not what
+                    // running out of footage means.
+                    sources[at].fill_transparent();
+                    missing[at] += 1;
+                }
+            }
+
+            // Keyframes are timed from each clip's own start, so that moving a
+            // clip along the timeline never rewrites them. Which instant of the
+            // timeline this output frame shows is the plan's to say.
+            let at = plan.timeline_frame_of(segment, index);
+            let layers: Vec<Layer<'_>> = segment
+                .layers
+                .iter()
+                .zip(sources.iter())
+                .map(|(shot, source)| Layer {
+                    source,
+                    properties: Properties::at(&shot.clip.keyframes, elapsed(at, shot.clip)),
+                })
+                .collect();
+
+            compositor.composite(canvas, &layers)?;
+            encoder.write(canvas)?;
+        }
+
+        for decoder in decoders {
+            decoder.finish()?;
+        }
+        Ok(segment
+            .layers
+            .iter()
+            .zip(missing)
+            .filter(|(_, missing)| *missing > 0)
+            .map(|(shot, missing)| Note::ClipRanShort {
+                clip: shot.clip.id.to_string(),
+                missing,
+            })
+            .collect())
     }
+}
+
+/// How far into its own clip a timeline frame is.
+fn elapsed(at: Frames, clip: &scorsese_core::Clip) -> Frames {
+    Frames(at.get().saturating_sub(clip.start.get()))
 }
 
 /// The buffers and the compositor a render reuses for every frame.
 ///
-/// Held together because they are allocated once and live for the whole render:
-/// at 1080p30, allocating these per frame would be a few hundred megabytes a
-/// second of pure churn.
+/// Allocated once and kept for the whole render: at 1080p30 a single frame
+/// buffer is 8 MB, so allocating one per layer per frame would be hundreds of
+/// megabytes a second of pure churn.
 struct Stage {
     compositor: CpuCompositor,
-    /// What the decoder just handed us.
-    source: Frame,
+    /// One decode buffer per layer, sized to the widest stack in the plan.
+    sources: Vec<Frame>,
     /// What the encoder is about to be given.
     canvas: Frame,
+}
+
+impl Stage {
+    fn for_plan(plan: &Plan<'_>, settings: RenderSettings) -> Self {
+        Self {
+            compositor: CpuCompositor::new(),
+            sources: (0..plan.widest_stack())
+                .map(|_| Frame::black(settings.resolution))
+                .collect(),
+            canvas: Frame::black(settings.resolution),
+        }
+    }
 }
 
 /// Where a shot's media is on disk, and how to read it.

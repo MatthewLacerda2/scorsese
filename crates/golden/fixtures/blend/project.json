@@ -1,0 +1,31 @@
+{
+  "schema_version": 2,
+  "name": "blend",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    { "id": "under", "kind": "video", "path": "assets/under.mp4" },
+    { "id": "over", "kind": "video", "path": "assets/over.mp4" }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [{ "id": "c-bed", "asset": "under", "start": 0, "duration": 30 }]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-top",
+          "asset": "over",
+          "start": 0,
+          "duration": 30,
+          "keyframes": [
+            { "property": "opacity", "keyframes": [{ "t": 0, "value": 0.5 }] }
+          ]
+        }
+      ]
+    }
+  ]
+}

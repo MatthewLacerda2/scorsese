@@ -1,0 +1,24 @@
+{
+  "schema_version": 2,
+  "name": "gap_above",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    { "id": "under", "kind": "video", "path": "assets/under.mp4" },
+    { "id": "over", "kind": "video", "path": "assets/over.mp4" }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [{ "id": "c-bed", "asset": "under", "start": 0, "duration": 60 }]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "clips": [
+        { "id": "c-first", "asset": "over", "start": 0, "duration": 20 },
+        { "id": "c-second", "asset": "over", "start": 40, "duration": 20 }
+      ]
+    }
+  ]
+}

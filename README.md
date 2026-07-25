@@ -93,10 +93,16 @@ ffmpeg. `docs/project-format.md` lists the property paths and what they mean.
 Scale is centre-anchored, and a fade is nothing but opacity keyframes — so it
 composes with a move or a zoom for free.
 
-Renders are currently silent, cover one video track, and cannot draw text; a
-clip still awaiting generation refuses to render rather than standing in as a
-slug card. Audio mixing, layered tracks, text, slug cards, and generation each
-have an issue; the
+**Video tracks layer.** They composite bottom to top in the order they appear
+in the project, each with its own transforms and opacity, so an overlay is just
+a clip on a higher track. A clip is scaled to fit the raster and the space left
+over is transparent, which is what lets a narrower clip show the one beneath it
+at the sides. A hole in a track lets the tracks below through; only a stretch
+with nothing on any track is black.
+
+Renders are currently silent and cannot draw text; a clip still awaiting
+generation refuses to render rather than standing in as a slug card. Audio
+mixing, text, slug cards, and generation each have an issue; the
 [issue tracker](https://github.com/MatthewLacerda2/scorsese/issues) is the
 plan.
 

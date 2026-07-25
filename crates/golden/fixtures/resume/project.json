@@ -1,0 +1,23 @@
+{
+  "schema_version": 2,
+  "name": "resume",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    { "id": "bands", "kind": "video", "path": "assets/bands.mp4" },
+    { "id": "strip", "kind": "video", "path": "assets/strip.mp4" }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "name": "bed",
+      "clips": [{ "id": "c-bed", "asset": "bands", "start": 0, "duration": 60 }]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "name": "overlay",
+      "clips": [{ "id": "c-strip", "asset": "strip", "start": 20, "duration": 20 }]
+    }
+  ]
+}
