@@ -86,8 +86,8 @@ the field is a fraction.
 
 Render settings — resolution, fps, bitrate — are still chosen per render.
 (Aspect ratio is not a setting of its own: it is whatever the resolution says,
-and how a source of another shape meets it is the clip's `fit`, below.) The two are different
-questions:
+and how a source of another shape meets it is the clip's `fit`, below.) The
+two are different questions:
 
 - the **timeline** framerate answers *what is on screen when*, and
 - the **output** framerate is what the file you deliver is encoded at.
