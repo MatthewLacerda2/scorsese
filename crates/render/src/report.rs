@@ -28,6 +28,13 @@ pub enum Note {
     /// A video clip's own sound was left out of the mix, because whether it
     /// has any could not be established.
     ClipAudioSkipped { clip: String, reason: String },
+    /// A keyframe track animates a property nothing in this build resolves, so
+    /// it will never do anything.
+    UnknownProperty {
+        clip: String,
+        property: String,
+        did_you_mean: Option<&'static str>,
+    },
 }
 
 impl fmt::Display for Note {
@@ -62,6 +69,17 @@ impl fmt::Display for Note {
                 "clip `{clip}` was mixed without its own sound, because its media \
                  could not be probed for one: {reason}"
             ),
+            Self::UnknownProperty {
+                clip,
+                property,
+                did_you_mean,
+            } => {
+                write!(f, "clip `{clip}`: nothing animates `{property}`")?;
+                match did_you_mean {
+                    Some(known) => write!(f, " — did you mean `{known}`?"),
+                    None => Ok(()),
+                }
+            }
         }
     }
 }

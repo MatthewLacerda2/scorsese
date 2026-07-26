@@ -8,12 +8,20 @@
 //! and never a change to the format or the model.
 //!
 //! A keyframe track naming something not listed here is **ignored**. That is a
-//! deliberate non-failure — a project authored against a newer compositor must
-//! still render on an older one — and it is also why a typo currently does
-//! nothing quietly. Warning about unknown paths is its own issue; the registry
-//! it needs belongs in this crate for exactly the reason above.
+//! deliberate non-failure: a project authored against a newer compositor must
+//! still render on an older one, and an unknown property must never be able to
+//! fail a render.
+//!
+//! It is also why a typo would otherwise do nothing quietly, so [`ANIMATED`]
+//! publishes what these names are. It sits here, in the same file as the match
+//! that resolves them, so the list cannot drift from the code — and in this
+//! crate rather than in `scorsese-core`, because the moment core holds a list
+//! of known properties, adding one becomes a core change and the generality
+//! rule is gone.
 
 use scorsese_core::{Clip, Easing, Frames, Keyframe, KeyframeTrack, PropertyPath};
+
+use crate::registry::Property;
 
 /// The property paths this compositor resolves.
 pub mod path {
@@ -27,10 +35,36 @@ pub mod path {
     pub const SCALE_X: &str = "transform.scale.x";
     /// Vertical size multiplier about the layer's own centre.
     pub const SCALE_Y: &str = "transform.scale.y";
-
-    /// Every path above, for anything that needs the whole vocabulary.
-    pub const ALL: &[&str] = &[OPACITY, POSITION_X, POSITION_Y, SCALE_X, SCALE_Y];
 }
+
+/// What this compositor animates, and what animating it does.
+///
+/// The vocabulary itself, next to the [`Properties::at`] match that gives each
+/// name meaning: a property added there without being added here is a property
+/// nothing can tell you about, and one added here without being implemented
+/// there is a promise nothing keeps. Adding both is one edit in one file.
+pub const ANIMATED: &[Property] = &[
+    Property {
+        path: path::OPACITY,
+        describes: "how solid the layer is",
+    },
+    Property {
+        path: path::POSITION_X,
+        describes: "how far right the layer is moved, in output pixels",
+    },
+    Property {
+        path: path::POSITION_Y,
+        describes: "how far down the layer is moved, in output pixels",
+    },
+    Property {
+        path: path::SCALE_X,
+        describes: "the layer's width, as a multiplier about its own centre",
+    },
+    Property {
+        path: path::SCALE_Y,
+        describes: "the layer's height, as a multiplier about its own centre",
+    },
+];
 
 /// What a layer looks like at one instant.
 #[derive(Debug, Clone, Copy, PartialEq)]

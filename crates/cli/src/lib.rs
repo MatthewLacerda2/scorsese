@@ -1,7 +1,7 @@
 //! # scorsese-cli — the headless binary
 //!
 //! Responsibility: the `scorsese` command-line surface — `new`, `import`,
-//! `render`, `generate`, `assets`, `diff`. This is how an agent (or a CI
+//! `check`, `render`, `generate`, `assets`, `diff`. This is how an agent (or a CI
 //! job) assembles and renders a video with no human and no screen: every
 //! editing capability the GUI will ever have must be reachable from here
 //! first.
@@ -33,6 +33,7 @@ fn dispatch(cli: Cli) -> Result<()> {
             name,
             fps,
         } => commands::new::run(&directory, name, fps),
+        Command::Check => commands::check::run(&directory),
         Command::Import { file, kind } => {
             commands::import::run(&directory, &file, kind.map(Into::into))
         }

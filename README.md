@@ -64,6 +64,8 @@ scorsese assets --verify --project teaser.scor   # re-hash to catch changed file
 scorsese assets gc --project teaser.scor         # what nothing references
 scorsese assets gc --delete --project teaser.scor
 
+scorsese check --project teaser.scor             # problems and warnings, no render
+
 scorsese render --project teaser.scor --out teaser.mp4
 scorsese render --project teaser.scor --out cut.mp4 --range 90:210
 scorsese render --project teaser.scor --out small.mp4 \
@@ -91,7 +93,9 @@ check one cut without re-encoding everything.
 
 Clips can be **animated**: opacity, position, and scale are keyframed
 properties, evaluated per frame and drawn by our own compositor rather than by
-ffmpeg. `docs/project-format.md` lists the property paths and what they mean.
+ffmpeg. `docs/project-format.md` lists the property paths and what they mean,
+and `scorsese check` warns — never fails — when a keyframe track names one
+nothing animates, suggesting what a typo was probably meant to be.
 Scale is centre-anchored, and a fade is nothing but opacity keyframes — so it
 composes with a move or a zoom for free.
 

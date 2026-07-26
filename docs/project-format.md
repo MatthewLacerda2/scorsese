@@ -276,10 +276,27 @@ rather than stepping once a frame — thirty steps a second is inaudible as
 pitch but audible as a zipper. That is why frames are enough resolution for an
 audio fade: they place the corners of the ramp, not the ramp itself.
 
-A path the compositor does not know is **ignored** — not an error. A project
-authored against a newer scorsese has to still render on an older one. The
-cost is that a typo like `opactiy` silently does nothing, which is why warning
-about unrecognised paths is planned separately.
+A path nothing animates is **ignored** — not an error. A project authored
+against a newer scorsese has to still render on an older one, so an unknown
+property can never fail a render.
+
+It is **warned** about, though, because the cost of ignoring it silently is
+that a typo like `opactiy` does nothing at all: the keyframe track is valid,
+the render succeeds, and the fade simply never happens. `scorsese check` and
+every render's report name the clip and the property, and suggest the property
+it was probably meant to be when there is an obvious candidate:
+
+```
+warning: clip `c1`: nothing animates `opactiy` — did you mean `opacity`?
+```
+
+A warning is all it is. It never fails a render, a check, or a merge — it
+audits quality rather than proving correctness, and a hard error would make
+every newly animatable property a breaking change for projects that already
+use it. The list of what *is* animatable lives in the crate that implements
+each property — the compositor for the visual ones, the mixer for `volume` —
+so it cannot drift from the code, and core still knows nothing about which
+properties exist.
 
 Because `t` counts from the clip's start, a fade written once keeps working
 after the clip is dragged elsewhere on the timeline. `scorsese-compositor`'s

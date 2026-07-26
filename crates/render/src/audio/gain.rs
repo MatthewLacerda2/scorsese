@@ -10,6 +10,7 @@
 //! volume ramp is evaluated by the same [`KeyframeTrack::value_at`] that
 //! evaluates a fade.
 
+use scorsese_compositor::Property;
 use scorsese_core::{Frames, KeyframeTrack};
 
 /// The property paths the mixer resolves.
@@ -17,10 +18,19 @@ pub mod path {
     /// How loud a clip plays, as a multiplier: `1.0` is the source untouched,
     /// `0.0` is silence, and above `1.0` is gain.
     pub const VOLUME: &str = "volume";
-
-    /// Every path above, for anything that needs the whole vocabulary.
-    pub const ALL: &[&str] = &[VOLUME];
 }
+
+/// What the mixer animates.
+///
+/// Its own list rather than an entry in the compositor's, for the same reason
+/// the constant above is here: each renderer of a property owns its name next
+/// to the code that implements it. A `volume` listed in a crate that draws
+/// pictures would be a name with no implementation behind it, which is the
+/// drift a published vocabulary exists to prevent.
+pub const ANIMATED: &[Property] = &[Property {
+    path: path::VOLUME,
+    describes: "how loud the clip plays, as a multiplier on its own level",
+}];
 
 /// Volume with no keyframes: the source exactly as it was recorded.
 pub const UNITY: f32 = 1.0;

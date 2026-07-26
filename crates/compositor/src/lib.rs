@@ -19,6 +19,11 @@
 //! a new animatable property costs a change here and nothing to the format, the
 //! model, or the renderer.
 //!
+//! That is also why the *list* of them lives here: [`properties::ANIMATED`]
+//! publishes what this compositor resolves, so something else can warn about a
+//! keyframe track naming a property nobody animates. [`registry`] is the
+//! machinery for asking; the answer is never an error.
+//!
 //! [`Frame`] and [`Resolution`] live here too, because a frame buffer is this
 //! crate's currency; `scorsese-render` re-exports them.
 //!
@@ -30,8 +35,10 @@ pub mod compose;
 pub mod cpu;
 pub mod frame;
 pub mod properties;
+pub mod registry;
 
 pub use compose::{CompositeError, Compositor, Layer};
 pub use cpu::CpuCompositor;
 pub use frame::{BYTES_PER_PIXEL, Frame, PIXEL_FORMAT, Resolution, ResolutionError};
-pub use properties::{Properties, fade_in, fade_out, path};
+pub use properties::{ANIMATED, Properties, fade_in, fade_out, path};
+pub use registry::{Property, Registry};

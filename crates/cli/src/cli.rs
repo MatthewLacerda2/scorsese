@@ -52,6 +52,9 @@ pub enum Command {
         #[arg(long, value_enum)]
         kind: Option<KindArg>,
     },
+    /// Report everything wrong or questionable about the project, without
+    /// rendering. Problems fail; warnings do not.
+    Check,
     /// Render the timeline to a video file.
     Render {
         /// Where to write the encoded file, e.g. `teaser.mp4`.

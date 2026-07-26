@@ -16,6 +16,7 @@ mod fitting;
 mod output;
 mod partial;
 mod sources;
+mod warnings;
 
 use std::path::{Path, PathBuf};
 
