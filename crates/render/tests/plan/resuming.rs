@@ -1,10 +1,13 @@
 //! Where each layer opens in its own source, once other tracks start cutting
 //! the timeline underneath it.
 
-use scorsese_core::Fps;
+use scorsese_core::{AssetKind, Fps};
 use scorsese_render::{FrameRange, Plan};
 
-use crate::common::{clip, clip_from, project, shape, source_ins, video_track};
+use crate::common::{
+    audio_track, clip, clip_from, file_asset, project, shape, sounding_asset, source_ins,
+    video_track,
+};
 use crate::{overlaid, two_videos};
 
 #[test]
@@ -66,5 +69,38 @@ fn a_range_trims_a_stack_the_same_way_it_trims_one_track() {
             ("bed".to_owned(), 40),
         ],
         "both layers open where the range starts, each in its own clip's terms"
+    );
+}
+
+#[test]
+fn a_shot_resumes_its_own_sound_across_a_cut_on_another_track() {
+    // The same rule that keeps a music bed from restarting: where a stretch
+    // opens in a clip's source is the clip's business, not the segment's.
+    let project = project(
+        vec![
+            sounding_asset("interview", AssetKind::Video),
+            file_asset("music", AssetKind::Audio),
+        ],
+        vec![
+            video_track("v1", vec![clip("c1", "interview", 0, 60)]),
+            audio_track("a1", vec![clip("m1", "music", 30, 30)]),
+        ],
+    );
+    let plan = Plan::build(&project, Fps::THIRTY, FrameRange::ALL).expect("plan");
+
+    let opens: Vec<(String, u64)> = plan
+        .audio()
+        .iter()
+        .flat_map(|segment| segment.layers.iter())
+        .map(|shot| (shot.clip.id.to_string(), shot.source_in.get()))
+        .collect();
+    assert_eq!(
+        opens,
+        [
+            ("c1".to_owned(), 0),
+            ("c1".to_owned(), 30),
+            ("m1".to_owned(), 0),
+        ],
+        "the shot picks its sound up where it left off"
     );
 }

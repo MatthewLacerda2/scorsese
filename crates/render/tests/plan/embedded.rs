@@ -111,34 +111,44 @@ fn an_audible_shot_cuts_the_mix_where_its_own_clip_starts_and_ends() {
 }
 
 #[test]
-fn a_shot_resumes_its_own_sound_across_a_cut_on_another_track() {
-    // The same rule that keeps a music bed from restarting: where a stretch
-    // opens in a clip's source is the clip's business, not the segment's.
+fn a_track_of_mixed_shots_contributes_only_the_ones_with_sound() {
+    // The ordinary timeline: an interview, silent b-roll, another interview,
+    // over a bed that changes clip halfway through the b-roll. Both halves of
+    // the rule are here. The b-roll's own boundaries must not cut the mix — or
+    // the bed would be decoded twice more for no reason — and the stretch that
+    // *does* begin inside the b-roll, because the bed cut there, must not pick
+    // it up as a layer.
     let project = project(
         vec![
             sounding_asset("interview", AssetKind::Video),
+            silent_asset("broll", AssetKind::Video),
             file_asset("music", AssetKind::Audio),
         ],
         vec![
-            video_track("v1", vec![clip("c1", "interview", 0, 60)]),
-            audio_track("a1", vec![clip("m1", "music", 30, 30)]),
+            video_track(
+                "v1",
+                vec![
+                    clip("c1", "interview", 0, 30),
+                    clip("c2", "broll", 40, 20),
+                    clip("c3", "interview", 70, 20),
+                ],
+            ),
+            audio_track(
+                "a1",
+                vec![clip("m1", "music", 0, 50), clip("m2", "music", 50, 40)],
+            ),
         ],
     );
     let plan = plan_of(&project);
 
-    let opens: Vec<(String, u64)> = plan
-        .audio()
-        .iter()
-        .flat_map(|segment| segment.layers.iter())
-        .map(|shot| (shot.clip.id.to_string(), shot.source_in.get()))
-        .collect();
+    assert_eq!(plan.segments().len(), 5, "three shots and two holes");
     assert_eq!(
-        opens,
+        audio_shape(&plan),
         [
-            ("c1".to_owned(), 0),
-            ("c1".to_owned(), 30),
-            ("m1".to_owned(), 0),
-        ],
-        "the shot picks its sound up where it left off"
+            (0, 30, "c1+m1".to_owned()),
+            (30, 20, "m1".to_owned()),
+            (50, 20, "m2".to_owned()),
+            (70, 20, "c3+m2".to_owned()),
+        ]
     );
 }
