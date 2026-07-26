@@ -14,20 +14,29 @@ use crate::settings::Resolution;
 /// prevent.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Note {
-    /// The project has audio, and this pipeline does not mix it yet.
-    AudioNotMixed { tracks: usize },
+    /// Audio carries on past the last picture, and was cut off there.
+    AudioTrimmed {
+        audio_end: Frames,
+        timeline_end: Frames,
+    },
     /// The requested range ran past the end of the timeline.
     RangeClamped { asked: Frames, timeline_end: Frames },
     /// A clip outlasts its own source media; the remainder rendered black.
     ClipRanShort { clip: String, missing: u64 },
+    /// An audio clip outlasts its own source; the remainder is silence.
+    AudioRanShort { clip: String, missing_ms: u64 },
 }
 
 impl fmt::Display for Note {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::AudioNotMixed { tracks } => write!(
+            Self::AudioTrimmed {
+                audio_end,
+                timeline_end,
+            } => write!(
                 f,
-                "{tracks} audio track(s) were not mixed in — this render is silent"
+                "audio runs to frame {audio_end} but the last picture ends at \
+                 {timeline_end}, so the tail was cut"
             ),
             Self::RangeClamped {
                 asked,
@@ -41,6 +50,10 @@ impl fmt::Display for Note {
                 f,
                 "clip `{clip}` outlasts its source by {missing} frame(s), which rendered black"
             ),
+            Self::AudioRanShort { clip, missing_ms } => write!(
+                f,
+                "clip `{clip}` outlasts its source by {missing_ms}ms, which is silent"
+            ),
         }
     }
 }
@@ -52,6 +65,9 @@ pub struct RenderReport {
     pub frames: u64,
     pub fps: Fps,
     pub resolution: Resolution,
+    /// How much soundtrack the output carries. `None` means the render has no
+    /// audio stream at all, which is not the same as a stream of silence.
+    pub seconds_of_audio: Option<f64>,
     pub notes: Vec<Note>,
 }
 

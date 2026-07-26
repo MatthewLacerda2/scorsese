@@ -11,6 +11,9 @@ use crate::tools::ToolsError;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Stage {
     Decode,
+    /// Decoding and summing audio, which is its own stage because it happens
+    /// before a single picture frame is encoded.
+    Mix,
     Encode,
 }
 
@@ -18,6 +21,7 @@ impl fmt::Display for Stage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match self {
             Self::Decode => "decoding",
+            Self::Mix => "mixing",
             Self::Encode => "encoding",
         })
     }
@@ -34,6 +38,13 @@ pub enum RenderError {
 
     #[error("asset `{asset}` points at {}, which is not there", path.display())]
     MissingMedia { asset: String, path: PathBuf },
+
+    #[error("could not write the mix to {}: {source}", path.display())]
+    Scratch {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
 
     #[error("could not start ffmpeg for {stage}: {source}")]
     Spawn {

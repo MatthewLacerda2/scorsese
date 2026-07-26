@@ -4,6 +4,8 @@ use std::io::Write;
 use std::path::Path;
 use std::process::{Child, ChildStdin, Stdio};
 
+use super::audio::SAMPLE_FORMAT;
+use crate::audio::CHANNELS;
 use crate::error::{RenderError, Stage};
 use crate::settings::RenderSettings;
 use crate::tools::Tools;
@@ -23,15 +25,21 @@ pub struct Encoder {
 }
 
 impl Encoder {
-    /// Starts encoding to `out`.
+    /// Starts encoding to `out`, optionally muxing in a finished mix.
     ///
     /// H.264 in whatever container `out`'s extension implies, 4:2:0 — the
     /// combination that plays everywhere. Codec choice is not a render setting
     /// yet because nothing has needed a second one; when something does, it
     /// belongs next to the settings this takes, not hardcoded further up.
+    ///
+    /// The mix arrives as a **file** while picture arrives on stdin, for the
+    /// blunt reason that a process has one stdin. It is already complete by the
+    /// time this starts, so ffmpeg reads it at whatever pace it encodes at and
+    /// nothing has to be kept in step.
     pub fn start(
         tools: &Tools,
         settings: &RenderSettings,
+        mix: Option<&Path>,
         out: &Path,
     ) -> Result<Self, RenderError> {
         let mut command = tools.ffmpeg();
@@ -43,11 +51,34 @@ impl Encoder {
                 "-r",
                 &format!("{}/{}", settings.fps.num(), settings.fps.den()),
             ])
-            .args(["-i", "-", "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p"]);
+            .args(["-i", "-"]);
+        if let Some(mix) = mix {
+            command
+                .args(["-f", SAMPLE_FORMAT])
+                .args(["-ar", &settings.sample_rate.hz().to_string()])
+                .args(["-ac", &CHANNELS.to_string()])
+                .arg("-i")
+                .arg(mix);
+        }
+        command.args(["-c:v", "libx264", "-pix_fmt", "yuv420p"]);
         match settings.bitrate {
             Some(bitrate) => command.args(["-b:v", &bitrate.ffmpeg_value()]),
             None => command.args(["-crf", DEFAULT_CRF]),
         };
+        match mix {
+            // AAC because it is what an .mp4 is expected to carry and what every
+            // player decodes; the raw float samples we mixed in would be
+            // enormous and unplayable on half the devices this has to reach.
+            Some(_) => {
+                command.args(["-c:a", "aac"]);
+                if let Some(bitrate) = settings.audio_bitrate {
+                    command.args(["-b:a", &bitrate.ffmpeg_value()]);
+                }
+            }
+            None => {
+                command.arg("-an");
+            }
+        }
         command
             .arg(out)
             .stdin(Stdio::piped())

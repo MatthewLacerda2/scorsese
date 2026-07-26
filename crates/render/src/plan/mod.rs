@@ -61,20 +61,33 @@ pub struct Plan<'a> {
     timeline_fps: Fps,
     out_fps: Fps,
     segments: Vec<Segment<'a>>,
+    audio: Vec<Segment<'a>>,
     notes: Vec<Note>,
 }
 
 impl<'a> Plan<'a> {
-    /// Sequences a project's video tracks over `range`, for an output at
-    /// `out_fps`.
+    /// Sequences a project's tracks over `range`, for an output at `out_fps`.
+    ///
+    /// **Picture decides how long the render is.** A music bed running past the
+    /// last shot is trimmed rather than extending the file, because the thing
+    /// being produced is a video: an edit ends when the last thing you can see
+    /// ends. Audio lost that way is reported, never dropped in silence.
     pub fn build(project: &'a Project, out_fps: Fps, range: FrameRange) -> Result<Self, PlanError> {
-        let tracks = segments::video_tracks(project);
+        let tracks = segments::tracks_of(project, TrackKind::Video);
         if tracks.is_empty() {
             return Err(PlanError::NothingToRender);
         }
         let timeline_end = segments::timeline_end(&tracks);
+        let audio_tracks = segments::tracks_of(project, TrackKind::Audio);
 
-        let mut notes = audio_note(project);
+        let mut notes = Vec::new();
+        let audio_end = segments::timeline_end(&audio_tracks);
+        if audio_end > timeline_end {
+            notes.push(Note::AudioTrimmed {
+                audio_end,
+                timeline_end,
+            });
+        }
         let start = range.start();
         let end = match range.end() {
             Some(asked) if asked > timeline_end => {
@@ -100,12 +113,20 @@ impl<'a> Plan<'a> {
             timeline_fps: project.timeline_fps,
             out_fps,
             segments: segments::build(project, &tracks, start, end)?,
+            audio: segments::build(project, &audio_tracks, start, end)?,
             notes,
         })
     }
 
     pub fn segments(&self) -> &[Segment<'a>] {
         &self.segments
+    }
+
+    /// The audible stretches, cut where the audible set changes — the same
+    /// shape as [`Plan::segments`], because a stack of sounds playing at once
+    /// is the same problem as a stack of pictures.
+    pub fn audio(&self) -> &[Segment<'a>] {
+        &self.audio
     }
 
     pub fn notes(&self) -> &[Note] {
@@ -155,24 +176,34 @@ impl<'a> Plan<'a> {
         segment.start + self.timeline_fps.conform(Frames(index), self.out_fps)
     }
 
+    /// How many sample-frames of audio one segment is worth, at `rate`.
+    ///
+    /// Derived from boundaries for the same reason [`Plan::out_frames_of`] is:
+    /// rounding each segment's duration on its own would drift, and audio that
+    /// drifts against picture is the one error nobody forgives.
+    pub fn samples_of(&self, segment: &Segment<'_>, rate: u32) -> u64 {
+        self.sample_index(segment.end(), rate) - self.sample_index(segment.start, rate)
+    }
+
+    /// How many sample-frames the whole mix runs to, at `rate`.
+    pub fn total_samples(&self, rate: u32) -> u64 {
+        self.sample_index(self.end, rate)
+    }
+
     /// The output frame a timeline frame lands on, counted from the start of
     /// the render.
     fn out_index(&self, at: Frames) -> u64 {
         let offset = Frames(at.get().saturating_sub(self.start.get()));
         self.out_fps.conform(offset, self.timeline_fps).get()
     }
-}
 
-fn audio_note(project: &Project) -> Vec<Note> {
-    let tracks = project
-        .tracks
-        .iter()
-        .filter(|track| track.kind == TrackKind::Audio && !track.clips.is_empty())
-        .count();
-    if tracks == 0 {
-        Vec::new()
-    } else {
-        vec![Note::AudioNotMixed { tracks }]
+    /// The sample a timeline frame lands on, counted from the start of the
+    /// render. Exact until the final rounding, like every other conform here.
+    fn sample_index(&self, at: Frames, rate: u32) -> u64 {
+        let offset = u128::from(at.get().saturating_sub(self.start.get()));
+        let numerator = offset * u128::from(self.timeline_fps.den()) * u128::from(rate);
+        let denominator = u128::from(self.timeline_fps.num());
+        u64::try_from((numerator + denominator / 2) / denominator).unwrap_or(u64::MAX)
     }
 }
 

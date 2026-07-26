@@ -1,13 +1,15 @@
-//! The two ffmpeg processes a render talks to.
+//! The ffmpeg processes a render talks to.
 //!
-//! This is the whole of ffmpeg's job in scorsese: hand us raw frames from a
-//! source, and take raw frames back to encode. Everything between the two —
-//! what is on screen, where, and how opaque — happens in our process. That is
-//! Path B, and these two files are its edges.
+//! This is the whole of ffmpeg's job in scorsese: hand us raw frames and raw
+//! samples from a source, and take them back to encode. Everything between —
+//! what is on screen, where, how opaque, and how loud — happens in our process.
+//! That is Path B, and these files are its edges.
 
+mod audio;
 mod decode;
 mod encode;
 
+pub use audio::{AudioDecoder, AudioSource, SAMPLE_FORMAT};
 pub use decode::{Decoder, Source};
 pub use encode::Encoder;
 

@@ -5,6 +5,7 @@ use std::path::Path;
 use scorsese_compositor::{Compositor, CpuCompositor, Frame, Layer, Properties};
 use scorsese_core::{AssetKind, Fps, Frames, Project};
 
+use crate::audio;
 use crate::error::RenderError;
 use crate::pipe::{Decoder, Encoder, Source};
 use crate::plan::{FrameRange, Plan, Segment, Shot};
@@ -36,7 +37,18 @@ impl<'a> Renderer<'a> {
     ) -> Result<RenderReport, RenderError> {
         let plan = Plan::build(project, self.settings.fps, range)?;
         let mut notes = plan.notes().to_vec();
-        let mut encoder = Encoder::start(self.tools, &self.settings, out)?;
+
+        // Sound before picture, because the encoder needs the finished mix as
+        // an input file. It is also the cheaper half: a mix that fails on a
+        // missing music file should fail before we spend minutes encoding.
+        let mixed = audio::mixdown(self.tools, &self.settings, &plan, project_root, out)?;
+        let mix = mixed.as_ref().map(|(mixdown, _)| mixdown.path());
+        let has_audio = mix.is_some();
+        if let Some((_, mix_notes)) = &mixed {
+            notes.extend(mix_notes.iter().cloned());
+        }
+
+        let mut encoder = Encoder::start(self.tools, &self.settings, mix, out)?;
         let mut stage = Stage::for_plan(&plan, self.settings);
         let mut written = 0;
 
@@ -54,10 +66,17 @@ impl<'a> Renderer<'a> {
         }
 
         encoder.finish()?;
+        // Only now is the scratch mix expendable: dropping it removes the file,
+        // and the encoder has been reading from it until this point.
+        drop(mixed);
         Ok(RenderReport {
             frames: written,
             fps: self.settings.fps,
             resolution: self.settings.resolution,
+            seconds_of_audio: has_audio.then(|| {
+                plan.total_samples(self.settings.sample_rate.hz()) as f64
+                    / f64::from(self.settings.sample_rate.hz())
+            }),
             notes,
         })
     }
