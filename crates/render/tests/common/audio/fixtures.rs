@@ -12,6 +12,9 @@ use crate::common::ffmpeg::generate_asset;
 /// What the fixtures are generated and analysed at.
 pub const RATE: u32 = 48_000;
 
+/// How loud the tone recorded on a video fixture is.
+pub const SHOT_LEVEL: f64 = 0.4;
+
 /// A tone at `hz`, `seconds` long, peaking at `amplitude`, in the project's
 /// `assets/`.
 ///
@@ -45,6 +48,41 @@ pub fn tone_asset(
         id,
         AssetKind::Audio,
         &["-f", "lavfi", "-i", &graph],
+    )
+}
+
+/// A video asset with a tone recorded **on it** — a stand-in for an interview,
+/// a talking head, or a screen recording with a click track.
+///
+/// The picture is black and nobody looks at it. What matters is that the sound
+/// is inside the same file as the picture, which is the whole of what makes
+/// this different from an audio asset sitting next to one.
+///
+/// Its tone peaks at [`SHOT_LEVEL`] rather than near full scale, so a second
+/// sound over it still sums inside full scale — what these tests measure is the
+/// mix, not the clipper.
+pub fn talking_picture(tools: &Tools, root: &Path, id: &str, seconds: u32, hz: u32) -> Asset {
+    let graph = format!(
+        "aevalsrc=exprs={SHOT_LEVEL}*sin(2*PI*{hz}*t):duration={seconds}:sample_rate={RATE}"
+    );
+    generate_asset(
+        tools,
+        root,
+        id,
+        AssetKind::Video,
+        &[
+            "-f",
+            "lavfi",
+            "-i",
+            &format!("color=c=black:s=32x32:d={seconds}:r=30"),
+            "-f",
+            "lavfi",
+            "-i",
+            &graph,
+            "-shortest",
+            "-pix_fmt",
+            "yuv420p",
+        ],
     )
 }
 

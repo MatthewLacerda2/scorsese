@@ -8,7 +8,7 @@
 mod range;
 mod segments;
 
-use scorsese_core::{Asset, AssetKind, Clip, Fps, Frames, Project, TrackKind};
+use scorsese_core::{Asset, AssetKind, Clip, Fps, Frames, Project, Track, TrackKind};
 
 use crate::report::Note;
 
@@ -72,16 +72,26 @@ impl<'a> Plan<'a> {
     /// last shot is trimmed rather than extending the file, because the thing
     /// being produced is a video: an edit ends when the last thing you can see
     /// ends. Audio lost that way is reported, never dropped in silence.
+    ///
+    /// What is *heard* is not simply the audio tracks. A clip on a video track
+    /// whose file carries an audio stream is mixed alongside them, at its own
+    /// keyframed `volume` like anything else — the sound on a shot is part of
+    /// the shot. Whether a file has that stream is read from the assets table,
+    /// so this stays a function of the project with no ffprobe in it.
     pub fn build(project: &'a Project, out_fps: Fps, range: FrameRange) -> Result<Self, PlanError> {
         let tracks = segments::tracks_of(project, TrackKind::Video);
         if tracks.is_empty() {
             return Err(PlanError::NothingToRender);
         }
         let timeline_end = segments::timeline_end(&tracks);
-        let audio_tracks = segments::tracks_of(project, TrackKind::Audio);
+        let audible = |track: &Track, clip: &Clip| segments::is_audible(project, track, clip);
+        let audio_tracks =
+            segments::taking_part(project, &[TrackKind::Video, TrackKind::Audio], audible);
 
         let mut notes = Vec::new();
-        let audio_end = segments::timeline_end(&audio_tracks);
+        // Only the audio *tracks* can outlast the picture: sound that came off
+        // a video clip ends when that clip's picture does, by construction.
+        let audio_end = segments::timeline_end(&segments::tracks_of(project, TrackKind::Audio));
         if audio_end > timeline_end {
             notes.push(Note::AudioTrimmed {
                 audio_end,
@@ -112,8 +122,8 @@ impl<'a> Plan<'a> {
             end,
             timeline_fps: project.timeline_fps,
             out_fps,
-            segments: segments::build(project, &tracks, start, end)?,
-            audio: segments::build(project, &audio_tracks, start, end)?,
+            segments: segments::build(project, &tracks, start, end, segments::anything)?,
+            audio: segments::build(project, &audio_tracks, start, end, audible)?,
             notes,
         })
     }
@@ -124,7 +134,9 @@ impl<'a> Plan<'a> {
 
     /// The audible stretches, cut where the audible set changes — the same
     /// shape as [`Plan::segments`], because a stack of sounds playing at once
-    /// is the same problem as a stack of pictures.
+    /// is the same problem as a stack of pictures. A shot here can be a clip on
+    /// a video track: its picture is in [`Plan::segments`] and its sound is
+    /// here, and neither knows about the other.
     pub fn audio(&self) -> &[Segment<'a>] {
         &self.audio
     }

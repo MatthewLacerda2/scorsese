@@ -13,6 +13,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod embedded;
 mod mixing;
 mod sources;
 mod volume;

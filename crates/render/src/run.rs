@@ -36,11 +36,17 @@ impl<'a> Renderer<'a> {
         range: FrameRange,
         out: &Path,
     ) -> Result<RenderReport, RenderError> {
-        let plan = Plan::build(project, self.settings.fps, range)?;
+        // What a video clip's file has on it decides whether its sound is
+        // mixed, so anything the project never recorded is found out here —
+        // before the plan, which is a pure function of the document.
+        let (project, probe_notes) = crate::probe::fill_media(self.tools, project, project_root);
+        let plan = Plan::build(&project, self.settings.fps, range)?;
         let mut notes = plan.notes().to_vec();
+        notes.extend(probe_notes);
         // Before anything is spawned: a clip asking for its source's own size
         // needs that size established, and this is the cheap place to fail if
-        // it cannot be.
+        // it cannot be. What the probe above filled in is answer enough for
+        // most of them, so this rarely spawns anything of its own.
         let sizes = Sizes::measure(self.tools, &plan, project_root)?;
 
         // Sound before picture, because the encoder needs the finished mix as

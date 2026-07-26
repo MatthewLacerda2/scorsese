@@ -4,12 +4,14 @@
 
 pub mod audio;
 pub mod ffmpeg;
+pub mod plans;
+
+pub use plans::{audio_shape, shape, source_ins};
 
 use scorsese_core::{
-    Asset, AssetId, AssetKind, Clip, ClipId, Fit, Fps, Frames, Project, ProjectPath, Track,
-    TrackId, TrackKind,
+    Asset, AssetId, AssetKind, Clip, ClipId, Fit, Fps, Frames, MediaMetadata, Project, ProjectPath,
+    Track, TrackId, TrackKind,
 };
-use scorsese_render::plan::Plan;
 
 /// An asset with a path under `assets/`, which is what makes the plan treat it
 /// as something to decode. The file name follows the id, so a fixture built by
@@ -28,6 +30,28 @@ pub fn extension(kind: AssetKind) -> &'static str {
         AssetKind::Image => "png",
         AssetKind::Audio => "wav",
         _ => "mp4",
+    }
+}
+
+/// A file asset that has been probed and found to have sound on it — a camera
+/// clip with dialogue, a screen recording with a click track.
+pub fn sounding_asset(id: &str, kind: AssetKind) -> Asset {
+    Asset {
+        media: Some(MediaMetadata {
+            audio_channels: Some(2),
+            ..MediaMetadata::default()
+        }),
+        ..file_asset(id, kind)
+    }
+}
+
+/// A file asset that has been probed and found to have no audio stream at all.
+/// Distinct from one nobody probed: this is an answer, that is the absence of
+/// one.
+pub fn silent_asset(id: &str, kind: AssetKind) -> Asset {
+    Asset {
+        media: Some(MediaMetadata::default()),
+        ..file_asset(id, kind)
     }
 }
 
@@ -98,42 +122,4 @@ pub fn project(assets: Vec<Asset>, tracks: Vec<Track>) -> Project {
         tracks,
         ..Project::new("fixture", Fps::THIRTY)
     }
-}
-
-/// A plan as `(timeline start, timeline frames, what fills it, output frames)`
-/// per segment — the whole of what sequencing decides, in one comparable value.
-///
-/// "What fills it" is the clips visible through the stretch, bottom track
-/// first, joined by `+`; `gap` when nothing is.
-pub fn shape(plan: &Plan<'_>) -> Vec<(u64, u64, String, u64)> {
-    plan.segments()
-        .iter()
-        .map(|segment| {
-            let what = if segment.is_gap() {
-                "gap".to_owned()
-            } else {
-                segment
-                    .layers
-                    .iter()
-                    .map(|shot| shot.clip.id.to_string())
-                    .collect::<Vec<_>>()
-                    .join("+")
-            };
-            (
-                segment.start.get(),
-                segment.duration.get(),
-                what,
-                plan.out_frames_of(segment),
-            )
-        })
-        .collect()
-}
-
-/// Where each shot opens in its source, by clip id, in segment then track order.
-pub fn source_ins(plan: &Plan<'_>) -> Vec<(String, u64)> {
-    plan.segments()
-        .iter()
-        .flat_map(|segment| segment.layers.iter())
-        .map(|shot| (shot.clip.id.to_string(), shot.source_in.get()))
-        .collect()
 }

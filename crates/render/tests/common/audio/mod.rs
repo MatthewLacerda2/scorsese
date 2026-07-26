@@ -9,5 +9,5 @@
 pub mod fixtures;
 pub mod listen;
 
-pub use fixtures::{RATE, tone_asset, with_volume};
+pub use fixtures::{RATE, SHOT_LEVEL, talking_picture, tone_asset, with_volume};
 pub use listen::{assert_audible, assert_silent, has_soundtrack, level, soundtrack};

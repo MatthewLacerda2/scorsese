@@ -6,6 +6,11 @@
 //! encodes, and every decision about what is heard when is ours. That is Path B
 //! with a different medium.
 //!
+//! A shot in one of these stretches can be a clip on a **video** track, when
+//! its file has sound on it. Nothing here knows the difference: a source of
+//! samples is a source of samples, and `-vn` on the decoder means a video file
+//! arrives as exactly that.
+//!
 //! The mix is produced in full before the encoder starts, because ffmpeg takes
 //! raw video on stdin and there is only one stdin. Writing it to a file next to
 //! the output and handing that over as a second input keeps the render to two

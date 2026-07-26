@@ -107,8 +107,11 @@ tracks below through; only a stretch with nothing on any track is black.
 **Renders have sound.** Audio tracks are placed, trimmed, and mixed together
 the same way video tracks are stacked — several playing at once are summed,
 and `volume` is an ordinary keyframed property, so a fade-out and a mute are
-the same mechanism at different values. Picture decides how long a render is:
-a music bed running past the last shot is cut there and said so in the report.
+the same mechanism at different values. A **video clip's own audio is mixed
+too**: the dialogue on an interview is heard because the clip is on the
+timeline, and muting it under a voiceover is `volume: 0.0` on that clip.
+Picture decides how long a render is: a music bed running past the last shot is
+cut there and said so in the report.
 A project with no audio produces a file with no audio stream, which is not the
 same as a stream of silence.
 
