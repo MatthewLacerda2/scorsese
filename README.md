@@ -68,6 +68,8 @@ scorsese render --project teaser.scor --out teaser.mp4
 scorsese render --project teaser.scor --out cut.mp4 --range 90:210
 scorsese render --project teaser.scor --out small.mp4 \
     --resolution 1280x720 --fps 60 --bitrate 6M
+scorsese render --project teaser.scor --out teaser.mp4 \
+    --sample-rate 48000 --audio-bitrate 192k
 ```
 
 The timeline framerate is chosen once, at `new`, and defaults to 30. It is the
@@ -100,9 +102,17 @@ over is transparent, which is what lets a narrower clip show the one beneath it
 at the sides. A hole in a track lets the tracks below through; only a stretch
 with nothing on any track is black.
 
-Renders are currently silent and cannot draw text; a clip still awaiting
-generation refuses to render rather than standing in as a slug card. Audio
-mixing, text, slug cards, and generation each have an issue; the
+**Renders have sound.** Audio tracks are placed, trimmed, and mixed together
+the same way video tracks are stacked — several playing at once are summed,
+and `volume` is an ordinary keyframed property, so a fade-out and a mute are
+the same mechanism at different values. Picture decides how long a render is:
+a music bed running past the last shot is cut there and said so in the report.
+A project with no audio produces a file with no audio stream, which is not the
+same as a stream of silence.
+
+Renders still cannot draw text, and a clip awaiting generation refuses to
+render rather than standing in as a slug card. Text, slug cards, and
+generation each have an issue; the
 [issue tracker](https://github.com/MatthewLacerda2/scorsese/issues) is the
 plan.
 
@@ -112,7 +122,7 @@ plan.
 | --- | --- |
 | `crates/core` | Timeline model, assets table, keyframes, serde `project.json` format, validation |
 | `crates/compositor` | Frame rendering — CPU (tiny-skia) first, wgpu later behind the same trait |
-| `crates/render` | ffmpeg orchestration: probe, decode pipes, encode pipe, render settings |
+| `crates/render` | ffmpeg orchestration: probe, decode pipes, the audio mix, encode pipe, render settings |
 | `crates/providers` | Veo + ElevenLabs clients, prompt-hash cache, generation states |
 | `crates/cli` | The headless `scorsese` binary: `new`, `import`, `render`, `generate`, `assets`, `diff` |
 | `crates/mcp` | MCP server — the same operations as MCP tools for Claude agents |

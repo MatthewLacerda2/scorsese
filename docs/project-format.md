@@ -121,6 +121,11 @@ A track is `video` or `audio`. Video tracks composite in array order, first
 at the bottom; audio tracks all mix together. Visual assets go on video
 tracks, audible ones on audio tracks.
 
+**Order means nothing on audio tracks.** Sounds playing at once are summed,
+and addition does not care which came first — there is no "on top" for a
+music bed. A clip is heard because it is somewhere, not because of where its
+track sits in the list.
+
 A **hole in a track contributes nothing**, so the tracks below it show through.
 Only a stretch with nothing on *any* video track renders black. That is the
 difference between an empty patch of an overlay track and an empty timeline.
@@ -154,9 +159,26 @@ is a fact rather than a tolerance. A clip ending at frame 240 and one starting
 at 240 do not overlap: frame 240 belongs to the second, and nothing has to
 arbitrate a cut at `1.0333333`.
 
-A gap is allowed, and renders **black** for its length. Leaving a hole is a
-way of saying "two seconds of nothing here", not a way of shortening the
-timeline. A timeline ends where its last clip ends.
+A gap is allowed, and renders **black** for its length — or, on an audio
+track, **silence**. Leaving a hole is a way of saying "two seconds of nothing
+here", not a way of shortening the timeline. A timeline ends where its last
+clip ends.
+
+### How long a render is
+
+**Picture decides.** A render's length is where the last video clip ends;
+audio carrying on past it is cut there and reported. The thing being produced
+is a video, and an edit ends when the last thing you can see ends — a music
+bed left long is a bed left long, not a request for a longer film.
+
+The other way round is simply silence: audio shorter than the picture leaves
+the rest of the soundtrack empty, and the file still carries a sound stream.
+A project with no audio clips at all is different again — that file has **no
+audio stream**, which is not the same as a stream of silence.
+
+Sample rate and audio bitrate are chosen per render, like resolution and
+framerate, and default to 48 kHz. Sources of any rate are resampled on the way
+in, so the mix only ever works in one.
 
 ## Keyframes
 
@@ -194,10 +216,22 @@ here.
 | `transform.position.y` | offset down, in output pixels | `0.0` unmoved |
 | `transform.scale.x` | width multiplier about the layer's centre | `1.0` natural size |
 | `transform.scale.y` | height multiplier about the layer's centre | `1.0` natural size |
+| `volume` | how loud an audio clip plays | `1.0` as recorded, `0.0` silent |
 
 Scale is **centre-anchored**, so shrinking a clip does not also slide it into a
 corner. Position is applied after scale and measured in output pixels, so it
 means the same thing whatever the source was shot at.
+
+`volume` is a multiplier, so above `1.0` is gain and below zero is nothing —
+a negative multiplier is a phase inversion, which is not what dragging a
+volume line past the floor means, so it is clamped away. **Muting a clip is
+`volume` `0.0`**, not a flag: one keyframe holds for the whole clip, and the
+thing that makes a clip silent is the same thing that fades it out.
+
+Volume is evaluated **per sample**, travelling continuously between keyframes
+rather than stepping once a frame — thirty steps a second is inaudible as
+pitch but audible as a zipper. That is why frames are enough resolution for an
+audio fade: they place the corners of the ramp, not the ramp itself.
 
 A path the compositor does not know is **ignored** — not an error. A project
 authored against a newer scorsese has to still render on an older one. The
