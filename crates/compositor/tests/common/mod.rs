@@ -33,10 +33,22 @@ pub fn solid(colour: (u8, u8, u8)) -> Frame {
 /// outside the compositor speaks it.
 pub fn translucent(colour: (u8, u8, u8), alpha: u8) -> Frame {
     let mut frame = Frame::black(raster());
+    fill(&mut frame, colour, alpha);
+    frame
+}
+
+/// An opaque frame at a size of its own — what a clip kept at its native size
+/// arrives as, which is not necessarily the canvas's.
+pub fn solid_of(colour: (u8, u8, u8), width: u32, height: u32) -> Frame {
+    let mut frame = Frame::black(Resolution::source(width, height).expect("a legal source raster"));
+    fill(&mut frame, colour, u8::MAX);
+    frame
+}
+
+fn fill(frame: &mut Frame, colour: (u8, u8, u8), alpha: u8) {
     for pixel in frame.bytes_mut().chunks_exact_mut(BYTES_PER_PIXEL) {
         pixel.copy_from_slice(&[colour.0, colour.1, colour.2, alpha]);
     }
-    frame
 }
 
 /// Composites layers onto a fresh canvas.

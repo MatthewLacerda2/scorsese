@@ -13,7 +13,8 @@
 //! [`Resolution`] says. Two independent settings could contradict each other,
 //! and the only thing that could reconcile them — non-square pixels — is a
 //! legacy this project has no reason to carry. Source material of a different
-//! shape is letterboxed to fit, never stretched.
+//! shape meets the raster the way its clip's [`scorsese_core::Fit`] says —
+//! letterboxed, cropped, or left at its own size — and is never stretched.
 
 use std::fmt;
 use std::str::FromStr;

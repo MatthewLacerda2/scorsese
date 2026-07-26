@@ -97,10 +97,12 @@ composes with a move or a zoom for free.
 
 **Video tracks layer.** They composite bottom to top in the order they appear
 in the project, each with its own transforms and opacity, so an overlay is just
-a clip on a higher track. A clip is scaled to fit the raster and the space left
-over is transparent, which is what lets a narrower clip show the one beneath it
-at the sides. A hole in a track lets the tracks below through; only a stretch
-with nothing on any track is black.
+a clip on a higher track. A clip chooses how it meets the raster with `fit`:
+scaled to **fit** inside it (the default, leaving transparent around it so a
+narrower clip shows the one beneath at the sides), scaled to **fill** it with
+the overflow cropped, or left at its own **native** size resting centred — which
+is how a logo is placed at the size it was drawn. A hole in a track lets the
+tracks below through; only a stretch with nothing on any track is black.
 
 **Renders have sound.** Audio tracks are placed, trimmed, and mixed together
 the same way video tracks are stacked — several playing at once are summed,

@@ -89,7 +89,7 @@ fn draw(
         quality: FilterQuality::Bilinear,
         blend_mode: BlendMode::SourceOver,
     };
-    let transform = transform_of(layer, source_resolution);
+    let transform = transform_of(layer, source_resolution, canvas.resolution());
 
     let canvas_resolution = canvas.resolution();
     let bytes = canvas.byte_count();
@@ -109,24 +109,43 @@ fn draw(
     Ok(())
 }
 
-/// Scale about the layer's own centre, then offset.
+/// Rest the layer centred on the canvas, scale about its own centre, then
+/// offset by its position.
 ///
 /// Written out as one matrix rather than composed from three, because the
 /// composition order of scale-about-a-point is the classic place to introduce a
-/// bug that only shows up off-centre. Mapping `x' = sx·x + tx` directly, a
-/// scale about centre `c` is `tx = c·(1 − sx)`, and position simply adds.
-fn transform_of(layer: &Layer<'_>, source: crate::frame::Resolution) -> Transform {
+/// bug that only shows up off-centre. Mapping `x' = sx·x + tx` directly, a scale
+/// about centre `c` is `tx = c·(1 − sx)`, the resting offset adds, and position
+/// adds after that.
+///
+/// A layer the size of the canvas rests at the origin, so this is the same
+/// matrix it always was — which is what keeps every existing reference frame
+/// meaning what it meant. A layer that is *not* canvas-sized is what
+/// [`scorsese_core::Fit::Native`] produces, and centred is where it rests: the
+/// alternative, the top-left corner, is an arbitrary edge of a raster the
+/// project is not supposed to know the size of.
+fn transform_of(
+    layer: &Layer<'_>,
+    source: crate::frame::Resolution,
+    canvas: crate::frame::Resolution,
+) -> Transform {
     let scale_x = layer.properties.scale.0 as f32;
     let scale_y = layer.properties.scale.1 as f32;
     let centre_x = source.width() as f32 / 2.0;
     let centre_y = source.height() as f32 / 2.0;
+    // Rounded to whole pixels: a layer an odd number of pixels narrower than the
+    // canvas cannot sit exactly in the middle of it, and half a pixel out is a
+    // bilinear smear across every edge in the layer. Crisp beats exact when the
+    // difference is invisible and the cost is the whole layer going soft.
+    let rest_x = ((canvas.width() as f32 - source.width() as f32) / 2.0).round();
+    let rest_y = ((canvas.height() as f32 - source.height() as f32) / 2.0).round();
     Transform::from_row(
         scale_x,
         0.0,
         0.0,
         scale_y,
-        centre_x * (1.0 - scale_x) + layer.properties.position.0 as f32,
-        centre_y * (1.0 - scale_y) + layer.properties.position.1 as f32,
+        rest_x + centre_x * (1.0 - scale_x) + layer.properties.position.0 as f32,
+        rest_y + centre_y * (1.0 - scale_y) + layer.properties.position.1 as f32,
     )
 }
 

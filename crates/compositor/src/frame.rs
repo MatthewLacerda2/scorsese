@@ -49,6 +49,21 @@ impl Resolution {
         Ok(Self { width, height })
     }
 
+    /// The size of a raster that is **not** encoded — a decoded source frame
+    /// resting on the canvas at its own size.
+    ///
+    /// Only the zero check applies here. The even rule belongs to the encoder:
+    /// 4:2:0 chroma has no defined half of an odd dimension, which is a fact
+    /// about the file being written rather than about every buffer in the
+    /// process. A 33×33 logo is a perfectly good layer, and refusing it would
+    /// mean refusing to render a project over the shape of one of its sources.
+    pub fn source(width: u32, height: u32) -> Result<Self, ResolutionError> {
+        if width == 0 || height == 0 {
+            return Err(ResolutionError::Zero);
+        }
+        Ok(Self { width, height })
+    }
+
     pub const fn width(self) -> u32 {
         self.width
     }

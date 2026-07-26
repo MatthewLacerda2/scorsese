@@ -7,7 +7,34 @@ use std::process::{Child, ChildStdout, Stdio};
 use crate::error::{RenderError, Stage};
 use crate::settings::RenderSettings;
 use crate::tools::Tools;
-use scorsese_compositor::{Frame, PIXEL_FORMAT};
+use scorsese_compositor::{Frame, PIXEL_FORMAT, Resolution};
+
+/// How a source meets the render's raster, resolved to pixels.
+///
+/// [`scorsese_core::Fit`] says what the author asked for; this is what the
+/// decoder does about it, which for one of the three means already knowing the
+/// source's own size.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Fitting {
+    /// Scale to fit inside the raster; pad the rest transparent.
+    Fit,
+    /// Scale to cover the raster; crop the overflow off the edges.
+    Fill,
+    /// Leave the source alone. It arrives at this — its own — size.
+    Native(Resolution),
+}
+
+impl Fitting {
+    /// The size frames come out at, and so the size of the buffer that reads
+    /// them. Fitting and filling produce the render's raster by construction;
+    /// native produces whatever the source happens to be.
+    pub fn raster(self, settings: &RenderSettings) -> Resolution {
+        match self {
+            Self::Fit | Self::Fill => settings.resolution,
+            Self::Native(source) => source,
+        }
+    }
+}
 
 /// What to decode, and how much of it.
 #[derive(Debug, Clone, PartialEq)]
@@ -22,6 +49,8 @@ pub struct Source {
     pub seek_seconds: f64,
     /// How many frames to ask for, on the output grid.
     pub frames: u64,
+    /// How this source meets the raster.
+    pub fitting: Fitting,
 }
 
 /// An ffmpeg process decoding one source into raw frames on its stdout.
@@ -35,16 +64,19 @@ pub struct Decoder {
     child: Child,
     stdout: ChildStdout,
     subject: String,
+    raster: Resolution,
 }
 
 impl Decoder {
-    /// Starts decoding. Frames arrive already scaled to the render's
-    /// resolution and re-timed to its framerate: fitting a source into the
-    /// output raster is a decode concern, and doing it in the decoder means
-    /// every frame reaching our process is already the size we composite at.
+    /// Starts decoding. Frames arrive re-timed to the render's framerate and
+    /// fitted the way the clip asked to be: fitting a source into the output
+    /// raster is a decode concern, and doing it here means every frame reaching
+    /// our process is already the size the compositor will place.
     ///
-    /// Sources of a different shape are letterboxed, never stretched — a
-    /// vertical phone clip in a 16:9 render gets black at the sides.
+    /// Sources of a different shape are never stretched. `fit` letterboxes them
+    /// — a vertical phone clip in a 16:9 render gets transparent at the sides —
+    /// `fill` crops instead, and `native` leaves the source at its own size for
+    /// the compositor to rest on the canvas.
     pub fn start(
         tools: &Tools,
         source: &Source,
@@ -65,7 +97,7 @@ impl Decoder {
             .arg(&source.file)
             .args(["-frames:v", &source.frames.to_string()])
             .arg("-vf")
-            .arg(video_filter(settings))
+            .arg(video_filter(settings, source.fitting))
             .args(["-an", "-pix_fmt", PIXEL_FORMAT, "-f", "rawvideo", "-"])
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
@@ -83,7 +115,16 @@ impl Decoder {
             child,
             stdout,
             subject: source.file.display().to_string(),
+            raster: source.fitting.raster(settings),
         })
+    }
+
+    /// The size the frames it produces are. Asked of the decoder rather than
+    /// worked out again by the caller, so a buffer can only ever be the size
+    /// the pipe is about to fill — a mismatch would not fail, it would slide
+    /// every later frame along by the difference.
+    pub const fn raster(&self) -> Resolution {
+        self.raster
     }
 
     /// Reads the next frame into `frame`. `false` means the source ran out —
@@ -115,23 +156,38 @@ impl Decoder {
     }
 }
 
-/// Re-time, fit, letterbox — in that order, because dropping frames before
+/// Re-time first, then fit — in that order, because dropping frames before
 /// scaling means not scaling the frames that get dropped.
 ///
-/// The bars are **transparent**, not black, and `format=rgba` before the pad is
-/// what keeps them so. On the bottom layer the difference is invisible — the
-/// canvas underneath is black anyway — but on an upper track it is the whole
-/// point: a narrow clip over a wide one shows the wide one at the sides rather
-/// than blacking it out.
-fn video_filter(settings: &RenderSettings) -> String {
+/// `fit` letterboxes and the bars are **transparent**, not black; `format=rgba`
+/// before the pad is what keeps them so. On the bottom layer the difference is
+/// invisible — the canvas underneath is black anyway — but on an upper track it
+/// is the whole point: a narrow clip over a wide one shows the wide one at the
+/// sides rather than blacking it out.
+///
+/// `fill` is the same scale with the rounding turned the other way, so the
+/// source covers the raster instead of sitting inside it, and a centred crop
+/// takes the overflow off. Nothing is padded because nothing is left over.
+///
+/// `native` scales nothing and pads nothing: the frames come out at the source's
+/// own size, and where they sit on the canvas is the compositor's business.
+fn video_filter(settings: &RenderSettings, fitting: Fitting) -> String {
+    let rate = format!("fps={}/{}", settings.fps.num(), settings.fps.den());
     let width = settings.resolution.width();
     let height = settings.resolution.height();
-    format!(
-        "fps={}/{},\
-         scale={width}:{height}:force_original_aspect_ratio=decrease,\
-         format=rgba,\
-         pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=black@0.0",
-        settings.fps.num(),
-        settings.fps.den()
-    )
+    match fitting {
+        Fitting::Fit => format!(
+            "{rate},\
+             scale={width}:{height}:force_original_aspect_ratio=decrease,\
+             format=rgba,\
+             pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=black@0.0"
+        ),
+        Fitting::Fill => format!(
+            "{rate},\
+             scale={width}:{height}:force_original_aspect_ratio=increase,\
+             format=rgba,\
+             crop={width}:{height}"
+        ),
+        Fitting::Native(_) => format!("{rate},format=rgba"),
+    }
 }
