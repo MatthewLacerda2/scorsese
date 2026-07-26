@@ -9,17 +9,27 @@
 //! Those stretches fall out of the clip boundaries. Every clip start and every
 //! clip end, on any track, is a point where the visible set can change; between
 //! two consecutive such points it cannot.
+//!
+//! Audio is cut exactly the same way, by the same code. A stack of sounds
+//! playing at once is the same problem as a stack of pictures — several tracks,
+//! no overlap within a track, cuts wherever the set changes — so it would take
+//! more code, not less, to treat them as two problems.
 
 use scorsese_core::{Asset, AssetKind, Clip, Frames, Project, Track, TrackKind};
 
 use super::{PlanError, Segment, Shot};
 
-/// Every video track carrying clips, in project order — **first at the bottom**.
-pub fn video_tracks(project: &Project) -> Vec<&Track> {
+/// Every track of one kind carrying clips, in project order — for video,
+/// **first at the bottom**.
+///
+/// Audio tracks have no equivalent of that order: sounds playing at once are
+/// summed, and addition does not care which came first. The order is kept
+/// anyway so a mix is reproducible down to its floating-point rounding.
+pub fn tracks_of(project: &Project, kind: TrackKind) -> Vec<&Track> {
     project
         .tracks
         .iter()
-        .filter(|track| track.kind == TrackKind::Video && !track.clips.is_empty())
+        .filter(|track| track.kind == kind && !track.clips.is_empty())
         .collect()
 }
 
@@ -32,14 +42,20 @@ pub fn timeline_end(tracks: &[&Track]) -> Frames {
         .unwrap_or(Frames::ZERO)
 }
 
-/// Splits `start..end` at every clip boundary and gathers what is visible
-/// through each piece.
+/// Splits `start..end` at every clip boundary and gathers what is visible — or
+/// audible — through each piece.
 pub fn build<'a>(
     project: &'a Project,
     tracks: &[&'a Track],
     start: Frames,
     end: Frames,
 ) -> Result<Vec<Segment<'a>>, PlanError> {
+    // No tracks is not one empty stretch, it is no stretches at all. The
+    // difference matters for audio, where it is what tells a render to produce
+    // no soundtrack rather than a silent one.
+    if tracks.is_empty() {
+        return Ok(Vec::new());
+    }
     let mut segments = Vec::new();
     for pair in cuts(tracks, start, end).windows(2) {
         let (from, to) = (pair[0], pair[1]);

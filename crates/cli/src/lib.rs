@@ -41,8 +41,21 @@ fn dispatch(cli: Cli) -> Result<()> {
             resolution,
             fps,
             bitrate,
+            sample_rate,
+            audio_bitrate,
             range,
-        } => commands::render::run(&directory, &out, resolution, fps, bitrate, range),
+        } => commands::render::run(
+            &directory,
+            &out,
+            commands::render::Options {
+                resolution,
+                fps,
+                bitrate,
+                sample_rate,
+                audio_bitrate,
+                range,
+            },
+        ),
         Command::Assets {
             action: None,
             verify,

@@ -1,7 +1,8 @@
 //! Shared fixtures. Each test file uses a different slice of this, so unused
-//! items here are expected rather than dead.
-#![allow(dead_code)]
+//! items and unused re-exports here are expected rather than dead.
+#![allow(dead_code, unused_imports)]
 
+pub mod audio;
 pub mod ffmpeg;
 
 use scorsese_core::{

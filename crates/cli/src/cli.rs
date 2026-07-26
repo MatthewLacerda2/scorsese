@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand, ValueEnum};
 use scorsese_core::{AssetKind, Fps};
-use scorsese_render::{Bitrate, FrameRange, Resolution};
+use scorsese_render::{Bitrate, FrameRange, Resolution, SampleRate};
 
 #[derive(Debug, Parser)]
 #[command(
@@ -69,6 +69,14 @@ pub enum Command {
         /// constant quality instead.
         #[arg(long)]
         bitrate: Option<Bitrate>,
+        /// Sample rate the mix is produced at, e.g. `48000` or `48k`. Sources
+        /// recorded at other rates are resampled to it.
+        #[arg(long, default_value = "48000")]
+        sample_rate: SampleRate,
+        /// Target audio bitrate, e.g. `192k`. Without it the encoder uses its
+        /// own default, which is already transparent for speech and music.
+        #[arg(long)]
+        audio_bitrate: Option<Bitrate>,
         /// Render only part of the timeline, in frames: `30:120` covers frames
         /// 30 up to 120, `30:` runs to the end, `:120` from the start.
         #[arg(long)]

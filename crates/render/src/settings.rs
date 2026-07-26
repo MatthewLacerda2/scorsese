@@ -5,6 +5,10 @@
 //! screen when; a render conforms from that grid to whatever is asked for
 //! here.
 //!
+//! Audio is chosen here for the same reason picture is: a sample rate is a
+//! property of the file being delivered, not of the edit. The mix is produced
+//! at [`SampleRate`] whatever the sources were recorded at.
+//!
 //! Aspect ratio is deliberately not a separate setting: it is whatever
 //! [`Resolution`] says. Two independent settings could contradict each other,
 //! and the only thing that could reconcile them — non-square pixels — is a
@@ -74,6 +78,68 @@ pub enum BitrateError {
     Zero,
 }
 
+/// How many samples per second a render mixes and encodes at.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SampleRate(u32);
+
+impl SampleRate {
+    /// 48 kHz — what video production runs at, and what every encoder we hand
+    /// audio to takes without resampling.
+    pub const DEFAULT: Self = Self(48_000);
+
+    /// A rate in Hz. Zero is refused: every sample-count calculation in the
+    /// mixer divides by this.
+    pub fn new(hz: u32) -> Result<Self, SampleRateError> {
+        if hz == 0 {
+            return Err(SampleRateError::Zero);
+        }
+        Ok(Self(hz))
+    }
+
+    pub const fn hz(self) -> u32 {
+        self.0
+    }
+}
+
+impl Default for SampleRate {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+impl fmt::Display for SampleRate {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} Hz", self.0)
+    }
+}
+
+impl FromStr for SampleRate {
+    type Err = SampleRateError;
+
+    /// Parses `48000` or `48k`.
+    fn from_str(text: &str) -> Result<Self, Self::Err> {
+        let text = text.trim();
+        let (digits, scale) = match text.strip_suffix(['k', 'K']) {
+            Some(digits) => (digits, 1_000),
+            None => (text, 1),
+        };
+        let value: u32 = digits
+            .trim()
+            .parse()
+            .map_err(|_| SampleRateError::Malformed)?;
+        Self::new(value.saturating_mul(scale))
+    }
+}
+
+/// Text that is not a sample rate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum SampleRateError {
+    #[error("expected a sample rate like `48000` or `48k`")]
+    Malformed,
+    #[error("a sample rate of zero has no samples in it")]
+    Zero,
+}
+
 /// Everything a render needs to know that the project does not decide.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RenderSettings {
@@ -81,9 +147,15 @@ pub struct RenderSettings {
     /// The output framerate. Rendering at a rate other than the project's
     /// timeline grid conforms from it — nearest frame, no interpolation.
     pub fps: Fps,
-    /// Target bitrate. `None` asks the encoder for constant quality instead,
-    /// which is the better answer when nobody has a file-size budget.
+    /// Target video bitrate. `None` asks the encoder for constant quality
+    /// instead, which is the better answer when nobody has a file-size budget.
     pub bitrate: Option<Bitrate>,
+    /// What the mix is produced at. Sources of any rate are resampled to it on
+    /// the way in, so this is the one rate the mixer ever works in.
+    pub sample_rate: SampleRate,
+    /// Target audio bitrate. `None` leaves the encoder on its own default,
+    /// which for AAC is already transparent for speech and music beds.
+    pub audio_bitrate: Option<Bitrate>,
 }
 
 impl RenderSettings {
@@ -92,10 +164,20 @@ impl RenderSettings {
             resolution,
             fps,
             bitrate: None,
+            sample_rate: SampleRate::DEFAULT,
+            audio_bitrate: None,
         }
     }
 
     pub fn with_bitrate(self, bitrate: Option<Bitrate>) -> Self {
         Self { bitrate, ..self }
+    }
+
+    pub fn with_audio(self, sample_rate: SampleRate, audio_bitrate: Option<Bitrate>) -> Self {
+        Self {
+            sample_rate,
+            audio_bitrate,
+            ..self
+        }
     }
 }

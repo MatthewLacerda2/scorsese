@@ -10,6 +10,15 @@ right".
 They are a **hard gate**. They run inside `cargo test --workspace` and they are
 green-to-merge, no exceptions.
 
+**Pixels only.** Sound is guarded a different way, in
+`crates/render/tests/audio/`: those tests render real projects and ask how loud
+the result is over a window of time. There is no committed reference waveform
+and there should not be — a soundtrack that has been resampled and through a
+lossy encoder is not reproducible sample for sample, and a binary reference
+nobody can read by looking at it is a reference nobody can check. "Is there
+sound at this second, and is it getting louder" is a question with an obvious
+right answer, which is the property that makes a gate worth having.
+
 ## What a fixture is
 
 A directory under `crates/golden/fixtures/`:

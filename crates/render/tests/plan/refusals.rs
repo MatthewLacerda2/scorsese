@@ -2,12 +2,9 @@
 //! producing something almost right.
 
 use scorsese_core::{AssetId, AssetKind, Clip, ClipId, Fps, Frames};
-use scorsese_render::report::Note;
 use scorsese_render::{FrameRange, Plan, PlanError};
 
-use crate::common::{
-    audio_track, clip, file_asset, project, sketch_asset, text_asset, video_track,
-};
+use crate::common::{clip, file_asset, project, sketch_asset, text_asset, video_track};
 
 #[test]
 fn an_empty_project_has_nothing_to_render() {
@@ -98,20 +95,4 @@ fn a_range_that_selects_nothing_is_refused() {
         matches!(error, PlanError::EmptyRange { .. }),
         "got {error:?}"
     );
-}
-
-#[test]
-fn audio_tracks_are_reported_rather_than_dropped_in_silence() {
-    let project = project(
-        vec![
-            file_asset("a", AssetKind::Video),
-            file_asset("music", AssetKind::Audio),
-        ],
-        vec![
-            video_track("v1", vec![clip("c1", "a", 0, 30)]),
-            audio_track("a1", vec![clip("m1", "music", 0, 30)]),
-        ],
-    );
-    let plan = Plan::build(&project, Fps::THIRTY, FrameRange::ALL).expect("plan");
-    assert_eq!(plan.notes(), [Note::AudioNotMixed { tracks: 1 }]);
 }
