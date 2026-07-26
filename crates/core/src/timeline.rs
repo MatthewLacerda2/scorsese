@@ -148,7 +148,7 @@ impl Clip {
             start,
             duration,
             source_in: Frames::ZERO,
-            fit: Fit::Fit,
+            fit: Fit::default(),
             keyframes: Vec::new(),
         }
     }
