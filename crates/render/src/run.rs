@@ -43,6 +43,15 @@ impl<'a> Renderer<'a> {
         let plan = Plan::build(&project, self.settings.fps, range)?;
         let mut notes = plan.notes().to_vec();
         notes.extend(probe_notes);
+        // Said at the start, about the whole project rather than the range: a
+        // keyframe track nothing resolves does not stop this render, it just
+        // never does anything, and that is the sort of thing a render should
+        // mention before it spends minutes producing exactly the wrong fade.
+        notes.extend(
+            crate::properties::unknown_in(&project)
+                .into_iter()
+                .map(Note::from),
+        );
         // Before anything is spawned: a clip asking for its source's own size
         // needs that size established, and this is the cheap place to fail if
         // it cannot be. What the probe above filled in is answer enough for

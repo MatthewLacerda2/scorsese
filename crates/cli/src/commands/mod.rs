@@ -3,6 +3,7 @@
 //! `scorsese-core` or `scorsese-render`, never here.
 
 pub mod assets;
+pub mod check;
 pub mod import;
 pub mod new;
 pub mod render;
