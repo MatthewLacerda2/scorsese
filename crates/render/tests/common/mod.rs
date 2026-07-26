@@ -6,8 +6,8 @@ pub mod audio;
 pub mod ffmpeg;
 
 use scorsese_core::{
-    Asset, AssetId, AssetKind, Clip, ClipId, Fps, Frames, Project, ProjectPath, Track, TrackId,
-    TrackKind,
+    Asset, AssetId, AssetKind, Clip, ClipId, Fit, Fps, Frames, Project, ProjectPath, Track,
+    TrackId, TrackKind,
 };
 use scorsese_render::plan::Plan;
 
@@ -59,6 +59,12 @@ pub fn clip(id: &str, asset: &str, start: u64, duration: u64) -> Clip {
         Frames(start),
         Frames(duration),
     )
+}
+
+/// A clip that meets the raster some way other than scaling to fit it.
+pub fn fitted(fit: Fit, mut clip: Clip) -> Clip {
+    clip.fit = fit;
+    clip
 }
 
 /// A clip that opens partway into its source.

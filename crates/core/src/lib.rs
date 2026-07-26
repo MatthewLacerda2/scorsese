@@ -47,5 +47,5 @@ pub use project::{
     SaveError,
 };
 pub use time::{Fps, FpsError, FpsParseError, Frames};
-pub use timeline::{Clip, ClipId, Track, TrackId, TrackKind};
+pub use timeline::{Clip, ClipId, Fit, Track, TrackId, TrackKind};
 pub use validate::{ValidationError, ValidationErrors};

@@ -1,0 +1,15 @@
+{
+  "schema_version": 3,
+  "name": "fill",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [{ "id": "wide", "kind": "video", "path": "assets/wide.mp4" }],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [
+        { "id": "c-wide", "asset": "wide", "start": 0, "duration": 15, "fit": "fill" }
+      ]
+    }
+  ]
+}

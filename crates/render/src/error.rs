@@ -39,6 +39,16 @@ pub enum RenderError {
     #[error("asset `{asset}` points at {}, which is not there", path.display())]
     MissingMedia { asset: String, path: PathBuf },
 
+    #[error(
+        "clip `{clip}` asks for asset `{asset}` at its native size, \
+         but how big that is could not be established: {reason}"
+    )]
+    UnknownSourceSize {
+        clip: String,
+        asset: String,
+        reason: String,
+    },
+
     #[error("could not write the mix to {}: {source}", path.display())]
     Scratch {
         path: PathBuf,

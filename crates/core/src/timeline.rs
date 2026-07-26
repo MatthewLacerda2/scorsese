@@ -76,6 +76,40 @@ impl Track {
     }
 }
 
+/// How a clip's source is fitted into the render's raster.
+///
+/// The raster is a render setting, and the project is not supposed to care what
+/// it is. So this says what the author *meant* — the whole thing with bars
+/// allowed, cover it and crop the overflow, or leave it alone — and lets the
+/// render work out the pixels.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Fit {
+    /// Scale to fit inside the raster, keeping proportions. What is left over
+    /// is **transparent**, so the tracks below show through it.
+    #[default]
+    Fit,
+    /// Scale to cover the raster, keeping proportions, cropping the overflow
+    /// off the edges. What a background plate that must not have bars wants.
+    Fill,
+    /// No scaling at all: the source arrives at its own pixel size, resting
+    /// centred, and `transform.position.*` offsets it from there.
+    ///
+    /// This is how something is placed at a size it was authored at. Scaling a
+    /// 64×64 logo to fit makes its on-screen size a function of the render's
+    /// resolution, so the factor that shrinks it back means nothing to a reader
+    /// and stops meaning it the moment the render changes size.
+    Native,
+}
+
+impl Fit {
+    /// True for [`Fit::Fit`] — what a clip that says nothing means. Keeps the
+    /// field out of documents that do not set it.
+    pub fn is_default(&self) -> bool {
+        matches!(self, Self::Fit)
+    }
+}
+
 /// One placement of an asset on a track.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -94,6 +128,13 @@ pub struct Clip {
     /// still images, which have no timeline of their own.
     #[serde(default)]
     pub source_in: Frames,
+    /// How the source is fitted into the render's raster. [`Fit::Fit`] when
+    /// absent, which is what every clip did before there was a choice.
+    ///
+    /// Picture only: an audio clip has no raster, and this says nothing about
+    /// one.
+    #[serde(default, skip_serializing_if = "Fit::is_default")]
+    pub fit: Fit,
     /// Properties animated over this clip.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub keyframes: Vec<KeyframeTrack>,
@@ -107,6 +148,7 @@ impl Clip {
             start,
             duration,
             source_in: Frames::ZERO,
+            fit: Fit::Fit,
             keyframes: Vec::new(),
         }
     }

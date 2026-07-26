@@ -7,6 +7,12 @@ use crate::properties::Properties;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Layer<'a> {
     /// The layer's pixels, straight RGBA. Usually a decoded source frame.
+    ///
+    /// **Need not be the size of the canvas.** A source smaller than the canvas
+    /// rests centred on it and covers only the pixels it has, leaving the rest
+    /// of the canvas — and so the tracks below it — showing through; a larger
+    /// one is clipped by the canvas edges. That is what a clip asking for its
+    /// native size arrives as.
     pub source: &'a Frame,
     /// Where it goes, how big, how solid — already evaluated for this instant.
     /// The compositor animates nothing itself; it draws one moment.

@@ -42,6 +42,7 @@ pub mod error;
 pub mod pipe;
 pub mod plan;
 pub mod probe;
+pub mod raster;
 pub mod report;
 pub mod run;
 pub mod settings;
@@ -56,6 +57,7 @@ pub use audio::{Mix, Mixdown};
 pub use error::{RenderError, Stage};
 pub use plan::{FrameRange, FrameRangeError, Plan, PlanError};
 pub use probe::Ffprobe;
+pub use raster::Sizes;
 pub use report::{Note, RenderReport};
 pub use run::Renderer;
 pub use settings::{

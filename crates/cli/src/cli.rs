@@ -57,8 +57,9 @@ pub enum Command {
         /// Where to write the encoded file, e.g. `teaser.mp4`.
         #[arg(long)]
         out: PathBuf,
-        /// Output resolution. Sources of a different shape are letterboxed to
-        /// fit, never stretched.
+        /// Output resolution. Sources of a different shape meet it the way
+        /// each clip's `fit` says — letterboxed, cropped, or left at their own
+        /// size — and are never stretched.
         #[arg(long, default_value = "1920x1080")]
         resolution: Resolution,
         /// Output framerate. Defaults to the project's timeline framerate;

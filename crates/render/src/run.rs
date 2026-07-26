@@ -7,8 +7,9 @@ use scorsese_core::{AssetKind, Fps, Frames, Project};
 
 use crate::audio;
 use crate::error::RenderError;
-use crate::pipe::{Decoder, Encoder, Source};
+use crate::pipe::{Decoder, Encoder, Fitting, Source};
 use crate::plan::{FrameRange, Plan, Segment, Shot};
+use crate::raster::Sizes;
 use crate::report::{Note, RenderReport};
 use crate::settings::RenderSettings;
 use crate::tools::Tools;
@@ -37,6 +38,10 @@ impl<'a> Renderer<'a> {
     ) -> Result<RenderReport, RenderError> {
         let plan = Plan::build(project, self.settings.fps, range)?;
         let mut notes = plan.notes().to_vec();
+        // Before anything is spawned: a clip asking for its source's own size
+        // needs that size established, and this is the cheap place to fail if
+        // it cannot be.
+        let sizes = Sizes::measure(self.tools, &plan, project_root)?;
 
         // Sound before picture, because the encoder needs the finished mix as
         // an input file. It is also the cheaper half: a mix that fails on a
@@ -58,6 +63,7 @@ impl<'a> Renderer<'a> {
                 segment,
                 project_root,
                 &plan,
+                &sizes,
                 frames,
                 &mut stage,
                 &mut encoder,
@@ -83,11 +89,13 @@ impl<'a> Renderer<'a> {
 
     /// Decodes one stretch of timeline, composites each of its frames, and
     /// hands them to the encoder.
+    #[allow(clippy::too_many_arguments)]
     fn render_segment(
         &self,
         segment: &Segment<'_>,
         project_root: &Path,
         plan: &Plan<'_>,
+        sizes: &Sizes,
         frames: u64,
         stage: &mut Stage,
         encoder: &mut Encoder,
@@ -114,9 +122,23 @@ impl<'a> Renderer<'a> {
         // a frame from each per output frame, so every pipe drains evenly and
         // none of them blocks waiting for us.
         let mut decoders = Vec::with_capacity(segment.layers.len());
-        for shot in &segment.layers {
-            let source = source_for(shot, project_root, plan.timeline_fps(), frames)?;
-            decoders.push(Decoder::start(self.tools, &source, &self.settings)?);
+        for (at, shot) in segment.layers.iter().enumerate() {
+            let source = source_for(
+                shot,
+                project_root,
+                plan.timeline_fps(),
+                frames,
+                sizes.fitting(shot),
+            )?;
+            let decoder = Decoder::start(self.tools, &source, &self.settings)?;
+            // A source kept at its own size is not the size of the canvas, so
+            // the buffer reading it is whatever this decoder produces — asked
+            // of the decoder rather than worked out twice. Buffers are still
+            // reused across segments; only a change of size costs one.
+            if sources[at].resolution() != decoder.raster() {
+                sources[at] = Frame::black(decoder.raster());
+            }
+            decoders.push(decoder);
         }
         let mut missing = vec![0_u64; segment.layers.len()];
 
@@ -202,6 +224,7 @@ fn source_for(
     project_root: &Path,
     timeline_fps: Fps,
     frames: u64,
+    fitting: Fitting,
 ) -> Result<Source, RenderError> {
     let path = shot
         .asset
@@ -222,5 +245,6 @@ fn source_for(
         still: shot.asset.kind == AssetKind::Image,
         seek_seconds: timeline_fps.seconds(shot.source_in),
         frames,
+        fitting,
     })
 }

@@ -1,4 +1,4 @@
-# `project.json` — schema v2
+# `project.json` — schema v3
 
 The contract between the CLI, the MCP server, the GUI, and every project
 saved on someone's disk. It is meant to be hand-written: an agent should be
@@ -12,7 +12,7 @@ bump and a migration note.
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [ ... ],
@@ -86,7 +86,7 @@ the field is a fraction.
 
 Render settings — resolution, fps, bitrate — are still chosen per render.
 (Aspect ratio is not a setting of its own: it is whatever the resolution says,
-and a source of another shape is letterboxed to fit.) The two are different
+and how a source of another shape meets it is the clip's `fit`, below.) The two are different
 questions:
 
 - the **timeline** framerate answers *what is on screen when*, and
@@ -132,19 +132,46 @@ difference between an empty patch of an overlay track and an empty timeline.
 
 ### How a source is fitted into the raster
 
-Every clip is scaled to **fit** the render's resolution, keeping its
-proportions, and the space left over is filled with **transparent** — not
-black. On the bottom track the distinction is invisible, since the canvas
-beneath is black anyway. On an upper track it is the whole point: a 4:3 clip
-over a 16:9 one shows the wider clip at the sides rather than blacking it out.
+A clip chooses this with `fit`, which is `fit` when absent:
 
-Scale-to-fit is the only fitting rule today, so a small logo on an upper track
-arrives filling as much of the frame as its proportions allow; shrink it with
-`transform.scale.*`. A per-clip *fit mode* (fill / fit / native size) would be
-a new field, and so `architecture` work rather than something to bolt on.
+| `fit` | what happens | for |
+| --- | --- | --- |
+| `fit` | scaled to sit **inside** the raster, keeping proportions; the leftover is **transparent** | the default — the whole shot, bars allowed |
+| `fill` | scaled to **cover** the raster, keeping proportions; the overflow is cropped off the edges | a background plate that must not have bars |
+| `native` | not scaled at all; the source arrives at its **own pixel size**, resting centred | a logo or badge at the size it was authored |
+
+```json
+{ "id": "c-logo", "asset": "logo", "start": 0, "duration": 60, "fit": "native" }
+```
+
+The leftover under `fit` is transparent rather than black. On the bottom track
+the distinction is invisible, since the canvas beneath is black anyway. On an
+upper track it is the whole point: a 4:3 clip over a 16:9 one shows the wider
+clip at the sides rather than blacking it out. The same goes for the canvas
+around a `native` layer — the tracks below show through it.
+
+**Why `native` exists.** Under `fit`, a 64×64 logo in a 1920×1080 render
+arrives 1080×1080 and has to be shrunk back with `transform.scale.x: 0.06`.
+That number means nothing to a reader, it stops being right the moment the
+render's resolution changes, and working it out means arithmetic against a
+raster the project is not supposed to know about. `native` says "the logo, at
+its size, moved here", which is what the author meant.
+
+`native` rests the source **centred**, and `transform.position.*` offsets from
+there. Centred, because the alternative — a corner — is an arbitrary edge of
+that same raster. A source an odd number of pixels smaller than the raster
+cannot sit exactly in the middle of it and is rounded to a whole pixel, since
+half a pixel out would soften every edge in the layer. A source **larger** than
+the raster is clipped by it rather than being shrunk: native means native.
+
+`fit` is picture only. An audio clip has no raster, and a `fit` on one is
+meaningless rather than invalid. Anchors other than the centre, per-clip crop
+rectangles, and stretch-to-fill are not here: the last one is what
+`transform.scale.*` already does for anyone who truly wants it.
 
 A clip carries `start` and `duration` on the timeline, an optional
-`source_in` offset into the media (default `0`), and optional `keyframes`.
+`source_in` offset into the media (default `0`), an optional `fit`
+(default `fit`), and optional `keyframes`.
 `source_in` counts in **timeline** frames too — "skip the first two seconds"
 means the same thing whatever the source was shot at, and the conform rule
 below turns it into a source frame.
@@ -267,6 +294,19 @@ infinite cannot be represented as a frame count, so it fails the parse with
 the line it is on — earlier and more precisely than validation could say it.
 The same goes for an unusable `timeline_fps`: there is nothing useful to
 validate about a timeline whose grid is undefined.
+
+## Migrating from v2
+
+v3 adds one optional field: `fit` on a clip. **Absent means `fit`**, which is
+what every clip did before the field existed, so no v2 document means anything
+different under v3 — converting one is changing `"schema_version": 2` to
+`"schema_version": 3` and nothing else.
+
+The version still has to be changed by hand, because this build reads exactly
+one schema version and refuses the rest. That refusal is the point: a document
+that says `2` was written against a build that could not have meant anything by
+`fit`, and inferring which of the two a file in front of us is would be
+guessing rather than reading.
 
 ## Migrating from v1
 

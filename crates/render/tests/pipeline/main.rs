@@ -12,6 +12,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod fitting;
 mod output;
 mod partial;
 mod sources;
