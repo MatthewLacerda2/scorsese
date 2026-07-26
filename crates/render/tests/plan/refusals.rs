@@ -2,12 +2,9 @@
 //! producing something almost right.
 
 use scorsese_core::{AssetId, AssetKind, Clip, ClipId, Fps, Frames};
-use scorsese_render::report::Note;
 use scorsese_render::{FrameRange, Plan, PlanError};
 
-use crate::common::{
-    audio_track, clip, file_asset, project, sketch_asset, text_asset, video_track,
-};
+use crate::common::{clip, file_asset, project, sketch_asset, text_asset, video_track};
 
 #[test]
 fn an_empty_project_has_nothing_to_render() {
@@ -97,40 +94,5 @@ fn a_range_that_selects_nothing_is_refused() {
     assert!(
         matches!(error, PlanError::EmptyRange { .. }),
         "got {error:?}"
-    );
-}
-
-#[test]
-fn a_project_with_no_audio_gets_no_soundtrack_at_all() {
-    // Not one of silence: a video with an empty audio stream and a video with
-    // none are different files, and the second is what an edit with no sound in
-    // it means.
-    let project = project(
-        vec![file_asset("a", AssetKind::Video)],
-        vec![video_track("v1", vec![clip("c1", "a", 0, 30)])],
-    );
-    let plan = Plan::build(&project, Fps::THIRTY, FrameRange::ALL).expect("plan");
-    assert!(plan.audio().is_empty());
-}
-
-#[test]
-fn audio_running_past_the_last_picture_is_reported_rather_than_cut_in_silence() {
-    let project = project(
-        vec![
-            file_asset("a", AssetKind::Video),
-            file_asset("music", AssetKind::Audio),
-        ],
-        vec![
-            video_track("v1", vec![clip("c1", "a", 0, 30)]),
-            audio_track("a1", vec![clip("m1", "music", 0, 90)]),
-        ],
-    );
-    let plan = Plan::build(&project, Fps::THIRTY, FrameRange::ALL).expect("plan");
-    assert_eq!(
-        plan.notes(),
-        [Note::AudioTrimmed {
-            audio_end: Frames(90),
-            timeline_end: Frames(30),
-        }]
     );
 }

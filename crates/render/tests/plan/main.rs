@@ -7,6 +7,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod audio;
 mod layering;
 mod range;
 mod refusals;

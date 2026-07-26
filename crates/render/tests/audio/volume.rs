@@ -37,8 +37,12 @@ fn a_volume_ramp_actually_ramps() {
         level(&heard, 1.4, 1.6),
         level(&heard, 2.7, 2.9),
     );
+    // By a margin, not merely in order. A clip whose volume was ignored
+    // altogether reads the same level in all three windows, and `early < middle`
+    // is then a coin flip that passes half the time — which is worse than no
+    // test, because it looks like one.
     assert!(
-        early < middle && middle < late,
+        middle > early * 3.0 && late > middle * 1.5,
         "the ramp should climb throughout: {early}, then {middle}, then {late}"
     );
     assert_audible(late, "the end of the ramp");
