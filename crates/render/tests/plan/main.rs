@@ -8,6 +8,7 @@
 mod common;
 
 mod audio;
+mod embedded;
 mod layering;
 mod range;
 mod refusals;

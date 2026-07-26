@@ -56,7 +56,7 @@ pub use scorsese_compositor::{Frame, PIXEL_FORMAT};
 pub use audio::{Mix, Mixdown};
 pub use error::{RenderError, Stage};
 pub use plan::{FrameRange, FrameRangeError, Plan, PlanError};
-pub use probe::Ffprobe;
+pub use probe::{Ffprobe, fill_media};
 pub use raster::Sizes;
 pub use report::{Note, RenderReport};
 pub use run::Renderer;

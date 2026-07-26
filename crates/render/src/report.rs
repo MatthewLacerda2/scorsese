@@ -25,6 +25,9 @@ pub enum Note {
     ClipRanShort { clip: String, missing: u64 },
     /// An audio clip outlasts its own source; the remainder is silence.
     AudioRanShort { clip: String, missing_ms: u64 },
+    /// A video clip's own sound was left out of the mix, because whether it
+    /// has any could not be established.
+    ClipAudioSkipped { clip: String, reason: String },
 }
 
 impl fmt::Display for Note {
@@ -53,6 +56,11 @@ impl fmt::Display for Note {
             Self::AudioRanShort { clip, missing_ms } => write!(
                 f,
                 "clip `{clip}` outlasts its source by {missing_ms}ms, which is silent"
+            ),
+            Self::ClipAudioSkipped { clip, reason } => write!(
+                f,
+                "clip `{clip}` was mixed without its own sound, because its media \
+                 could not be probed for one: {reason}"
             ),
         }
     }

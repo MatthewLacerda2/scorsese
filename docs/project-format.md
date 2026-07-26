@@ -126,6 +126,20 @@ and addition does not care which came first — there is no "on top" for a
 music bed. A clip is heard because it is somewhere, not because of where its
 track sits in the list.
 
+**A video clip's own sound is mixed too.** Every camera clip has sound on it,
+and a clip on a *video* track whose file carries an audio stream is mixed
+alongside the audio tracks, at the same keyframed `volume` as anything else —
+so muting a talking head under a voiceover is `volume: 0.0` on that clip. No
+new field, no second concept, and no demuxing a file by hand to line its own
+sound back up against its picture.
+
+Whether a file has an audio stream is read from the asset's
+`media.audio_channels`. An asset nobody has probed is **not** assumed to be
+silent: a render probes what the project never recorded before it plans
+anything, and if that probe fails, the clip is mixed without its own sound and
+the report says which clip and why. Silence is never something a render
+decided on its own without mentioning it.
+
 A **hole in a track contributes nothing**, so the tracks below it show through.
 Only a stretch with nothing on *any* video track renders black. That is the
 difference between an empty patch of an overlay track and an empty timeline.
@@ -243,13 +257,15 @@ here.
 | `transform.position.y` | offset down, in output pixels | `0.0` unmoved |
 | `transform.scale.x` | width multiplier about the layer's centre | `1.0` natural size |
 | `transform.scale.y` | height multiplier about the layer's centre | `1.0` natural size |
-| `volume` | how loud an audio clip plays | `1.0` as recorded, `0.0` silent |
+| `volume` | how loud a clip plays, on either kind of track | `1.0` as recorded, `0.0` silent |
 
 Scale is **centre-anchored**, so shrinking a clip does not also slide it into a
 corner. Position is applied after scale and measured in output pixels, so it
 means the same thing whatever the source was shot at.
 
-`volume` is a multiplier, so above `1.0` is gain and below zero is nothing —
+`volume` applies to any clip that makes a sound, which includes a clip on a
+video track whose file has audio on it. It is a multiplier, so above `1.0` is
+gain and below zero is nothing —
 a negative multiplier is a phase inversion, which is not what dragging a
 volume line past the floor means, so it is clamped away. **Muting a clip is
 `volume` `0.0`**, not a flag: one keyframe holds for the whole clip, and the
