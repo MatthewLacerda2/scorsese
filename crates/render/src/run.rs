@@ -12,6 +12,7 @@ use crate::plan::{FrameRange, Plan, Segment, Shot};
 use crate::raster::Sizes;
 use crate::report::{Note, RenderReport};
 use crate::settings::RenderSettings;
+use crate::text::Painter;
 use crate::tools::Tools;
 
 /// Renders projects with one set of settings.
@@ -121,6 +122,7 @@ impl<'a> Renderer<'a> {
         // read out of within the same frame, and they are separate buffers.
         let Stage {
             compositor,
+            painter,
             sources,
             canvas,
         } = stage;
@@ -138,8 +140,22 @@ impl<'a> Renderer<'a> {
         // One decoder per layer, all running at once. They are read in lockstep,
         // a frame from each per output frame, so every pipe drains evenly and
         // none of them blocks waiting for us.
-        let mut decoders = Vec::with_capacity(segment.layers.len());
+        //
+        // A text layer has no decoder: nothing is being read, so it holds a
+        // `None` and keeps its place in the stack. Its pixels are drawn once,
+        // here — the content does not change over a clip, and re-drawing every
+        // glyph thirty times a second to get the same answer would be waste.
+        let mut decoders: Vec<Option<Decoder>> = Vec::with_capacity(segment.layers.len());
         for (at, shot) in segment.layers.iter().enumerate() {
+            if shot.asset.kind == AssetKind::Text {
+                let raster = self.settings.resolution;
+                if sources[at].resolution() != raster {
+                    sources[at] = Frame::black(raster);
+                }
+                painter.paint(&mut sources[at], shot.asset, project_root)?;
+                decoders.push(None);
+                continue;
+            }
             let source = source_for(
                 shot,
                 project_root,
@@ -155,12 +171,18 @@ impl<'a> Renderer<'a> {
             if sources[at].resolution() != decoder.raster() {
                 sources[at] = Frame::black(decoder.raster());
             }
-            decoders.push(decoder);
+            decoders.push(Some(decoder));
         }
         let mut missing = vec![0_u64; segment.layers.len()];
 
         for index in 0..frames {
             for (at, decoder) in decoders.iter_mut().enumerate() {
+                let Some(decoder) = decoder else {
+                    // Drawn once and still there: a text layer never runs out
+                    // of source, so there is nothing to read and nothing to
+                    // report short.
+                    continue;
+                };
                 if !decoder.read_into(&mut sources[at])? {
                     // This layer's source ran out before its clip did. Blank
                     // rather than black: an upper layer that went opaque black
@@ -189,7 +211,7 @@ impl<'a> Renderer<'a> {
             encoder.write(canvas)?;
         }
 
-        for decoder in decoders {
+        for decoder in decoders.into_iter().flatten() {
             decoder.finish()?;
         }
         Ok(segment
@@ -217,6 +239,8 @@ fn elapsed(at: Frames, clip: &scorsese_core::Clip) -> Frames {
 /// megabytes a second of pure churn.
 struct Stage {
     compositor: CpuCompositor,
+    /// Draws the text layers, and keeps any font it had to open off disk.
+    painter: Painter,
     /// One decode buffer per layer, sized to the widest stack in the plan.
     sources: Vec<Frame>,
     /// What the encoder is about to be given.
@@ -227,6 +251,7 @@ impl Stage {
     fn for_plan(plan: &Plan<'_>, settings: RenderSettings) -> Self {
         Self {
             compositor: CpuCompositor::new(),
+            painter: Painter::new(),
             sources: (0..plan.widest_stack())
                 .map(|_| Frame::black(settings.resolution))
                 .collect(),

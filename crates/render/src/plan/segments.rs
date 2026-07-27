@@ -20,7 +20,7 @@
 //! clips whose files have sound on them and clips whose files do not. So both
 //! passes take a predicate, and the audio pass is the one that says no.
 
-use scorsese_core::{Asset, AssetKind, Clip, Frames, Project, Track, TrackKind};
+use scorsese_core::{Asset, Clip, Frames, Project, Track, TrackKind};
 
 use super::{PlanError, Segment, Shot};
 
@@ -176,7 +176,7 @@ fn covers(clip: &Clip, at: Frames) -> bool {
     clip.start <= at && at < clip.end()
 }
 
-/// The asset a clip shows, if it is something this pipeline can decode today.
+/// The asset a clip shows, if there is anything to put on screen for it.
 fn renderable_asset<'a>(project: &'a Project, clip: &Clip) -> Result<&'a Asset, PlanError> {
     let asset = project
         .asset(&clip.asset)
@@ -190,13 +190,10 @@ fn renderable_asset<'a>(project: &'a Project, clip: &Clip) -> Result<&'a Asset, 
             asset: asset.id.to_string(),
         });
     }
-    if asset.kind == AssetKind::Text {
-        return Err(PlanError::NeedsCompositor {
-            clip: clip.id.to_string(),
-            kind: asset.kind,
-        });
-    }
-    if asset.path.is_none() {
+    // A text asset has no file to open: its content is in the document and the
+    // compositor draws it. So the missing-media question is only asked of the
+    // kinds a file is what they *are*.
+    if asset.kind.is_file_backed() && asset.path.is_none() {
         return Err(PlanError::NoMedia {
             clip: clip.id.to_string(),
             asset: asset.id.to_string(),

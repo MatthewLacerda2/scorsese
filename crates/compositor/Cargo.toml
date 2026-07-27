@@ -12,3 +12,19 @@ workspace = true
 scorsese-core = { version = "0.1.0", path = "../core" }
 thiserror = "2.0.19"
 tiny-skia = "0.12.0"
+
+# Font parsing and glyph outlines — read-only, no shaping, no layout, no system
+# font lookup. It is the smallest crate that answers the two questions a title
+# card asks ("what is this character's outline" and "how far does the pen
+# move"), and it hands back **paths**, which tiny-skia already fills: text
+# arrives at the same rasteriser as every other layer instead of bringing a
+# second one whose antialiasing could disagree.
+#
+# The alternatives all reach `ttf-parser`, which its author has marked
+# unmaintained (RUSTSEC-2026-0192) — `fontdue`, `ab_glyph` and `cosmic-text`
+# every one of them. skrifa is the advisory's own named replacement, is
+# maintained as part of Google Fonts' `fontations`, and its whole tree is
+# already on the licence allow-list. Picking a glyph crate that needed a
+# supply-chain exception on the day it landed would be the wrong decision to
+# leave behind.
+skrifa = "0.45.1"

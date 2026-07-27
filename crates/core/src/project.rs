@@ -15,7 +15,7 @@ use crate::validate::ValidationErrors;
 /// Bumping it is `architecture` work and requires a migration note: this
 /// format is the contract between the CLI, the MCP server, the GUI, and every
 /// project already saved on someone's disk.
-pub const SCHEMA_VERSION: u32 = 3;
+pub const SCHEMA_VERSION: u32 = 4;
 
 /// The document's file name inside a `*.scor/` project directory.
 pub const PROJECT_FILE_NAME: &str = "project.json";

@@ -1,0 +1,26 @@
+{
+  "schema_version": 4,
+  "name": "paragraph",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    {
+      "id": "body",
+      "kind": "text",
+      "text": "The quick brown fox jumps over the lazy dog and keeps on going well past where this frame ends",
+      "style": {
+        "font": "sans",
+        "size": 0.11,
+        "color": "#ffffff",
+        "align": "left",
+        "max_width": 0.8
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [{ "id": "c-body", "asset": "body", "start": 0, "duration": 6 }]
+    }
+  ]
+}

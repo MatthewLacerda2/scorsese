@@ -1,7 +1,5 @@
 //! What validation can find, and how it reads.
 
-use std::fmt;
-
 use crate::asset::{AssetId, AssetKind};
 use crate::keyframe::PropertyPath;
 use crate::path::{PathProblem, ProjectPath};
@@ -56,6 +54,32 @@ pub enum ValidationError {
     MissingText {
         /// The empty text asset.
         asset: AssetId,
+    },
+
+    /// A font file that would not survive `scp -r`, under the same rules every
+    /// other path in the document obeys. Named apart from
+    /// [`ValidationError::BadPath`] because a text asset has two paths in
+    /// play — its font and nothing else — and "which path" is the first thing
+    /// a reader needs.
+    #[error("asset `{asset}`: font `{path}` {problem}")]
+    BadFontPath {
+        /// The text asset naming it.
+        asset: AssetId,
+        /// The font path as written.
+        path: ProjectPath,
+        /// Which rule it breaks.
+        problem: PathProblem,
+    },
+
+    /// A style on something with no glyphs in it. Ignored rather than obeyed
+    /// if it were allowed through, so it is said out loud instead: a `style`
+    /// on a video asset is a `kind` that was meant to be `text`.
+    #[error("asset `{asset}` is a {kind:?}, so `style` does not apply to it")]
+    StyleOnNonTextAsset {
+        /// The asset with the stray field.
+        asset: AssetId,
+        /// The kind that has no use for it.
+        kind: AssetKind,
     },
 
     /// Inline content on a file-backed asset — usually a `kind` that was
@@ -224,68 +248,4 @@ pub enum ValidationError {
         /// The property being animated.
         property: PropertyPath,
     },
-}
-
-/// Everything wrong with a project, collected in one pass.
-///
-/// Validation reports all problems together rather than stopping at the
-/// first: an agent fixing a project unattended should see the whole list, not
-/// discover it one round-trip at a time.
-#[derive(Debug, Clone, PartialEq)]
-pub struct ValidationErrors(Vec<ValidationError>);
-
-impl ValidationErrors {
-    pub(crate) fn new(errors: Vec<ValidationError>) -> Self {
-        Self(errors)
-    }
-
-    /// The problems, in the order validation found them: assets first, then
-    /// tracks and clips.
-    pub fn as_slice(&self) -> &[ValidationError] {
-        &self.0
-    }
-
-    /// How many problems there are — what the `Display` line above the list
-    /// counts.
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    /// True when the project is valid. Never observed on a value that reached
-    /// a caller: validation returns `Ok` rather than an empty error set.
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    /// Takes the problems out, for a caller that wants to sort or filter them
-    /// rather than print them.
-    pub fn into_vec(self) -> Vec<ValidationError> {
-        self.0
-    }
-}
-
-impl fmt::Display for ValidationErrors {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let plural = if self.0.len() == 1 {
-            "problem"
-        } else {
-            "problems"
-        };
-        write!(f, "{} {plural} in this project:", self.0.len())?;
-        for error in &self.0 {
-            write!(f, "\n  - {error}")?;
-        }
-        Ok(())
-    }
-}
-
-impl std::error::Error for ValidationErrors {}
-
-impl IntoIterator for ValidationErrors {
-    type Item = ValidationError;
-    type IntoIter = std::vec::IntoIter<ValidationError>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
-    }
 }

@@ -47,6 +47,7 @@ pub mod raster;
 pub mod report;
 pub mod run;
 pub mod settings;
+pub mod text;
 pub mod tools;
 
 /// The frame buffer and raster types, which belong to the compositor — a frame
@@ -65,4 +66,5 @@ pub use run::Renderer;
 pub use settings::{
     Bitrate, BitrateError, RenderSettings, Resolution, ResolutionError, SampleRate, SampleRateError,
 };
+pub use text::Painter;
 pub use tools::{Tools, ToolsError};

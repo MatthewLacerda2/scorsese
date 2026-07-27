@@ -1,5 +1,5 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "name": "Narrated teaser",
   "timeline_fps": {
     "num": 30,
@@ -31,7 +31,13 @@
     {
       "id": "title",
       "kind": "text",
-      "text": "SCORSESE"
+      "text": "SCORSESE",
+      "style": {
+        "font": "serif",
+        "size": 0.16,
+        "color": "#f5f0e6",
+        "max_width": 0.8
+      }
     }
   ],
   "tracks": [

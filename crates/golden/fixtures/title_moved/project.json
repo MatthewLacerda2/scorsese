@@ -1,0 +1,49 @@
+{
+  "schema_version": 4,
+  "name": "title_moved",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    { "id": "plate", "kind": "video", "path": "assets/plate.mp4" },
+    {
+      "id": "title",
+      "kind": "text",
+      "text": "SCORSESE",
+      "style": { "font": "sans", "size": 0.22, "color": "#ffffff" }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [{ "id": "c-plate", "asset": "plate", "start": 0, "duration": 30 }]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-title",
+          "asset": "title",
+          "start": 0,
+          "duration": 30,
+          "keyframes": [
+            {
+              "property": "opacity",
+              "keyframes": [
+                { "t": 0, "value": 0.0 },
+                { "t": 15, "value": 1.0 }
+              ]
+            },
+            {
+              "property": "transform.position.y",
+              "keyframes": [
+                { "t": 0, "value": 24.0 },
+                { "t": 20, "value": -20.0, "easing": "ease_out" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

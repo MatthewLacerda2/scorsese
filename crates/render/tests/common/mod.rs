@@ -9,8 +9,8 @@ pub(crate) mod plans;
 pub(crate) use plans::{audio_shape, shape, source_ins};
 
 use scorsese_core::{
-    Asset, AssetId, AssetKind, Clip, ClipId, Fit, Fps, Frames, MediaMetadata, Project, ProjectPath,
-    Track, TrackId, TrackKind,
+    Asset, AssetId, AssetKind, Clip, ClipId, Fit, FontChoice, Fps, Frames, MediaMetadata, Project,
+    ProjectPath, TextStyle, Track, TrackId, TrackKind,
 };
 
 /// An asset with a path under `assets/`, which is what makes the plan treat it
@@ -64,15 +64,19 @@ pub(crate) fn sketch_asset(id: &str) -> Asset {
     )
 }
 
-/// A text asset, which has no file and needs the compositor to draw it.
+/// A text asset: content inline, no file anywhere, drawn by the compositor.
 pub(crate) fn text_asset(id: &str) -> Asset {
+    Asset::text(AssetId::new(id), "THE END")
+}
+
+/// A text asset set in a face the project brings with it, at `path`.
+pub(crate) fn text_asset_in(id: &str, path: &str) -> Asset {
     Asset {
-        text: Some("THE END".to_owned()),
-        ..Asset::imported(
-            AssetId::new(id),
-            AssetKind::Text,
-            ProjectPath::new("assets/unused.txt"),
-        )
+        style: Some(TextStyle {
+            font: FontChoice::File(ProjectPath::new(path)),
+            ..TextStyle::default()
+        }),
+        ..text_asset(id)
     }
 }
 

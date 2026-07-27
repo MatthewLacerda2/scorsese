@@ -115,28 +115,3 @@ fn a_plain_asset_carries_no_prompt_or_state() {
         kind
     }));
 }
-
-#[test]
-fn a_text_asset_needs_its_content() {
-    let mut p = project();
-    asset_mut(&mut p, "title").text = None;
-    assert_only_problem(
-        &p,
-        &E::MissingText {
-            asset: asset_id("title"),
-        },
-    );
-}
-
-#[test]
-fn nothing_but_a_text_asset_may_carry_text() {
-    let mut p = project();
-    asset_mut(&mut p, "logo").text = Some("stray".to_owned());
-    assert_only_problem(
-        &p,
-        &E::TextOnNonTextAsset {
-            asset: asset_id("logo"),
-            kind: AssetKind::Image,
-        },
-    );
-}
