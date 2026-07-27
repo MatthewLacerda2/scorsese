@@ -53,6 +53,9 @@ pub(crate) fn song() -> Song {
         }],
         patterns,
         arrangement: vec!["verse".to_owned(), "verse".to_owned()],
+        fit: None,
+        fade: None,
+        tail: None,
     }
 }
 
