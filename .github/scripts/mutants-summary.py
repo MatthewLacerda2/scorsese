@@ -65,16 +65,23 @@ def headline(data: dict, scope: str) -> list[str]:
     timeout, unviable = data["timeout"], data["unviable"]
     took = elapsed(data)
 
+    # Always stated, and never omitted when the answer is "nothing": a
+    # diff-scoped run that quietly compared against the wrong base would report
+    # a clean bill of health forever, and this line is what makes that visible
+    # instead of reassuring.
+    where = [f"*{scope}*", ""] if scope else []
+
     if total == 0:
         return [
             "## Mutation",
             "",
             "### No mutants to run",
             "",
-            f"Nothing this {scope} touches is in the mutated surface"
+            "Nothing in the changed lines is in the mutated surface"
             " (`crates/core`, `crates/compositor`, and the plan and audio"
             " arithmetic of `crates/render` — see `.cargo/mutants.toml`).",
             "",
+            *where,
         ]
 
     viable = total - unviable
@@ -99,7 +106,7 @@ def headline(data: dict, scope: str) -> list[str]:
         if missed
         else "Every mutation of this code broke at least one test."
     )
-    return ["## Mutation", "", verdict, "", " · ".join(aside) + ".", "", lede, ""]
+    return ["## Mutation", "", verdict, "", " · ".join(aside) + ".", "", *where, lede, ""]
 
 
 def table(mutants: list[dict], title: str, note: str) -> list[str]:
@@ -127,8 +134,8 @@ FOOTER = (
 
 def main() -> None:
     if len(sys.argv) < 2:
-        sys.exit("usage: mutants-summary.py <outcomes.json> [scope-noun]")
-    scope = sys.argv[2] if len(sys.argv) > 2 else "diff"
+        sys.exit("usage: mutants-summary.py <outcomes.json> [scope-note]")
+    scope = sys.argv[2] if len(sys.argv) > 2 else ""
     data = json.loads(Path(sys.argv[1]).read_text())
     outcomes = data.get("outcomes", [])
 

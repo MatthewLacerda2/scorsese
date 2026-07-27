@@ -302,22 +302,34 @@ jobs:
       - name: Install cargo-mutants
         uses: taiki-e/install-action@cargo-mutants
 
+      # Every failure here is fatal on purpose. The one thing this job must
+      # never do is compare against nothing and call the silence good news, so
+      # a base that cannot be resolved, or a diff that comes out empty when a
+      # pull request by definition changed something, stops the job instead of
+      # producing a clean report. The base and the file count go into the
+      # report too, so a reader can see what was compared rather than assume.
       - name: The lines this PR changed
         id: diff
         env:
-          BASE: ${{ github.event.pull_request.base.sha }}
+          BASE: origin/${{ github.event.pull_request.base.ref }}
         run: |
-          if ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
-            echo "::error::base commit $BASE is missing from this checkout;" \
-                 "--in-diff would silently mutate nothing"
+          if ! git rev-parse --verify --quiet "$BASE^{commit}" > /dev/null; then
+            echo "::error::$BASE is not in this checkout; --in-diff would" \
+                 "silently mutate nothing"
             exit 1
           fi
-          if [ -z "$(git diff --name-only "$BASE" HEAD)" ]; then
-            echo "::error::the diff against $BASE is empty, which cannot be" \
-                 "true of a pull request; the base ref is wrong"
+          merge_base=$(git merge-base "$BASE" HEAD)
+          changed=$(git diff --name-only "$merge_base" HEAD | wc -l)
+          if [ "$changed" -eq 0 ]; then
+            echo "::error::the diff against $merge_base is empty, which cannot" \
+                 "be true of a pull request; the base ref is wrong"
             exit 1
           fi
-          git diff "$BASE" HEAD -- '*.rs' > pr.diff
+          git diff "$merge_base" HEAD -- '*.rs' > pr.diff
+          rust=$(git diff --name-only "$merge_base" HEAD -- '*.rs' | wc -l)
+          echo "Diff-scoped to this pull request: $rust of $changed changed" \
+               "files are Rust, against \`$BASE\` (merge base" \
+               "\`$(git rev-parse --short "$merge_base")\`)." > scope.txt
           if [ -s pr.diff ]; then echo "rust=yes" >> "$GITHUB_OUTPUT"
           else echo "rust=no" >> "$GITHUB_OUTPUT"; fi
 
@@ -342,12 +354,13 @@ jobs:
       - name: Render the report
         if: always()
         run: |
+          scope=$(cat scope.txt 2>/dev/null || echo "Scope unknown.")
           if [ -f mutants.out/outcomes.json ]; then
-            python3 .github/scripts/mutants-summary.py mutants.out/outcomes.json "pull request" \
+            python3 .github/scripts/mutants-summary.py mutants.out/outcomes.json "$scope" \
               > mutants.md
           elif [ "${{ steps.diff.outputs.rust }}" = "no" ]; then
-            printf '## Mutation\n\n### No mutants to run\n\nThis pull request changes no Rust source.\n' \
-              > mutants.md
+            printf '## Mutation\n\n### No mutants to run\n\nThis pull request changes no Rust source.\n\n*%s*\n' \
+              "$scope" > mutants.md
           else
             printf '## Mutation\n\n### The run did not produce a report\n\nSee the job log.\n' \
               > mutants.md
