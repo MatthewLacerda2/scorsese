@@ -1,0 +1,38 @@
+#!/bin/sh
+# Runs before every commit: the fast half of the gates (`make pre-commit`) —
+# formatting and the size gate, neither of which needs a build.
+#
+# This directory is committed, and `git config core.hooksPath .githooks` is
+# what points git at it. `.git/hooks/` would not survive a fresh clone and
+# would not exist in a new worktree; this does, for every worktree at once,
+# because worktrees inherit the repository config. Run `make setup` once per
+# clone.
+#
+# The full set — clippy, docs, tests, supply chain — is `make gates`, on
+# demand. It is not here on purpose: the suite spawns real ffmpeg and takes
+# ~20s, and an agent commits several times per issue, including the deliberate
+# commit/corrupt/test/restore cycle of break-testing. Taxing that would tax the
+# practice we most want to encourage.
+
+set -e
+
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+if ! command -v make >/dev/null 2>&1; then
+	echo "pre-commit: make is not installed, so the fast gates cannot run." >&2
+	echo "            Install make, or run 'git commit --no-verify' and rely on CI." >&2
+	exit 1
+fi
+
+if make --no-print-directory pre-commit; then
+	exit 0
+fi
+
+cat >&2 <<'EOF'
+
+pre-commit: a fast gate failed, so nothing was committed.
+  fix the formatting:      make format-fix
+  see every gate:          make help
+  commit anyway (WIP):     git commit --no-verify
+EOF
+exit 1

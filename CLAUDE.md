@@ -143,11 +143,21 @@ those boundaries are enforced in review.
   an **informational signal**: surfaced where the agent acts on it (job
   summary or PR comment), never blocking a merge. Don't reach for a hard gate
   where a signal does the job.
+- **Run the gates before the push, not after it.** `make gates` runs every
+  gate CI blocks on — format, size, clippy, docs, tests, supply chain — and
+  `make help` lists them, so the target list is the answer to "what has to be
+  green?" rather than `ci.yml` being read for it. `make setup`, once per
+  clone, points git at the committed hooks in `.githooks/`; from then on
+  `make pre-commit` (formatting and the size gate — no build, well under a
+  second) runs before every commit, so a file over the line limit never
+  reaches a branch. A deliberate work-in-progress commit bypasses it with
+  `git commit --no-verify`. Signals stay opt-in and out of `make gates`:
+  `make coverage` is one, and running it is never part of passing.
 - **Size gate:** source files ≤ 300 lines, test files ≤ 150. **Group by
   subfolder, not filename prefix** — a shared prefix on sibling files
   (`draw_*`, `probe_*`) is a subfolder waiting to happen; make it one and drop
   the prefix. Enforced in CI by `tools/lint` — run it yourself with
-  `cargo run --manifest-path tools/lint/Cargo.toml`. Which cap applies to a
+  `make size`, and the pre-commit hook runs it too. Which cap applies to a
   given path is decided and documented in `tools/lint/src/classify.rs`, and
   nothing is grandfathered: a file over the limit gets split, not excused.
 - **Agent velocity is first-class.** Agents drive this repo, often unattended.
