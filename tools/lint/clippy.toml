@@ -1,0 +1,13 @@
+# The repo-root `clippy.toml` again, for the same reason `Cargo.toml`'s lint
+# tables are repeated here: clippy reads this file from the workspace root, and
+# this crate is deliberately its own workspace, so the one at the repo root does
+# not reach it. Without this, `unwrap_used` would land harder here than anywhere
+# else in the repo — the opposite of the policy it is meant to match.
+#
+# A failed `unwrap` in a test *is* the assertion. The exemption reaches `#[test]`
+# functions and `#[cfg(test)]` modules and no further; shared helpers are still
+# held to `expect("…")`, because a helper fails a long way from the test that
+# called it and the message is the only thing naming which one.
+#
+# `tests/policy.rs` holds this file and the root's to the same contents.
+allow-unwrap-in-tests = true

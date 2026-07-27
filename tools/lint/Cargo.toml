@@ -2,7 +2,26 @@
 # root. The gate has to be runnable — and testable — without building scorsese
 # or having ffmpeg on PATH, and it has no business being pulled into
 # `cargo test --workspace` alongside the crates it inspects.
+#
+# That isolation is worth what it costs, but it does mean this crate inherits
+# nothing from the repo-root manifest — including the lint policy. So the policy
+# is restated below rather than left absent: the crate that enforces a hard gate
+# has no business being held to a weaker standard than the code it inspects.
+#
+# The duplication is deliberate and it is *checked*. `tests/policy.rs` reads
+# both manifests and fails if they disagree, so drift is a test failure rather
+# than a silent divergence — edit one table and the test names the other.
 [workspace]
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+unreachable_pub = "warn"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+dbg_macro = "deny"
+todo = "deny"
 
 [package]
 name = "scorsese-lint"
@@ -10,6 +29,9 @@ version = "0.1.0"
 edition = "2024"
 repository = "https://github.com/MatthewLacerda2/scorsese"
 publish = false
+
+[lints]
+workspace = true
 
 # No dependencies, on purpose: a guardrail that CI runs on every push should
 # cost a few seconds of compiling, not a dependency tree of its own.
