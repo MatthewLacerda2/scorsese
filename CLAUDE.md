@@ -112,9 +112,11 @@ those boundaries are enforced in review.
   `main` → CI green on that rebased state → merge → repeat, one PR at a time.
   Rust is compiled: two PRs can each be green alone yet break `main` together,
   so merging cannot be parallelized. The only exception is a PR touching
-  **only** Markdown — CI skips those, so they merge freely. If a PR takes ≈3
-  fix attempts at the same failure, or needs a decision you can't make, mark
-  it draft and hand it to the user.
+  **only** Markdown — CI skips those, so they merge freely. `docs/project-format.md`
+  is not one of those: tests parse its examples and check its property table,
+  so CI runs for it like any source file. If a PR takes ≈3 fix attempts at the
+  same failure, or needs a decision you can't make, mark it draft and hand it
+  to the user.
 - **Architecture- then infrastructure-first (NOT "make it up as we go").**
   When we find a problem — something that bites or will bite more than once, a
   pattern worth adopting, or a gold-standard practice we should have had — we
@@ -173,6 +175,13 @@ those boundaries are enforced in review.
   frames are what we control. The harness is `crates/golden`, and
   **docs/golden-renders.md** is the rulebook — including the one that matters:
   re-blessing a reference to make CI green is never legitimate.
+- **Documentation an agent acts on is gated like code.** `cargo doc` runs with
+  `-D warnings`; `docs/project-format.md`'s JSON examples are parsed as
+  projects and its animatable-property table is held to what the code
+  publishes; every CLI command and flag must carry help text. Any new
+  agent-facing surface inherits the rule — MCP tools first among them. What
+  this never proves is that the prose is *true*: it stops the shape from
+  drifting silently, and reading is still how correctness gets checked.
 - **`project.json` format changes are `architecture`-label work** and require
   a schema version bump plus a migration note. The format is the contract
   between the CLI, the MCP server, the GUI, and every saved project.
