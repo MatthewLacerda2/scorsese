@@ -38,8 +38,12 @@ fn with_sound(label: &str, video_frames: u32, audio_frames: u32) -> PathBuf {
 fn the_sample_rate_asked_for_is_what_the_mix_is_delivered_at() {
     // 32k rather than a plain count, so the suffix half of the parser is on
     // the path a person actually types.
-    let dir = with_sound("sample-rate", 30, 30);
-    let file = render(&dir, "cut.mp4", &["--sample-rate", "32k"]).file();
+    let dir = with_sound("mix-rate", 30, 30);
+    let rendered = render(&dir, "cut.mp4", &["--sample-rate", "32k"]);
+    // And the report says the rate it delivered at, which is the only place a
+    // headless caller can learn it without probing the file itself.
+    rendered.run.says("  audio 32000 Hz");
+    let file = rendered.file();
 
     let stream = probe(&tools(), &file, "a:0", SOUND);
     assert_eq!(stream.number("sample_rate"), 32_000);
@@ -51,9 +55,13 @@ fn the_sample_rate_asked_for_is_what_the_mix_is_delivered_at() {
 fn a_project_with_nothing_audible_is_delivered_with_no_audio_stream_at_all() {
     // Not a stream of silence: an mp4 with an empty AAC track in it is a file
     // that claims to have a soundtrack.
-    let dir = one_shot("silent", 15);
+    let dir = one_shot("no-sound", 15);
     let rendered = render(&dir, "cut.mp4", &[]);
-    rendered.run.says("silent");
+    // The report must not announce a soundtrack the file does not have. The
+    // label is not `silent`, and the needle carries a dash, because the run
+    // prints the output path and a fixture's own name would match anything.
+    rendered.run.says("silent —");
+    rendered.run.silent_about("  audio ");
     let file = rendered.file();
 
     assert!(
