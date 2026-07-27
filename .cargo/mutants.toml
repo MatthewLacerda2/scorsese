@@ -1,0 +1,112 @@
+# cargo-mutants: which code gets mutated, and why it stops where it does.
+#
+# Mutation testing answers the question coverage cannot: *if this line were
+# wrong, would anything notice?* A line can be executed by ten tests and
+# asserted on by none. See the `mutants` job in `.github/workflows/ci.yml` for
+# how the result is routed, and `docs/mutation-testing.md` for the policy this
+# file implements — including what to do with a survivor.
+#
+# Run exactly what CI runs, over the whole scoped surface:
+#
+#     cargo mutants                       # everything below
+#     cargo mutants --in-diff <(git diff origin/main...)   # what CI runs per PR
+#
+# ---------------------------------------------------------------------------
+# The mutated surface
+# ---------------------------------------------------------------------------
+#
+# Only the pure-logic surface, for two reasons that happen to point the same
+# way — it is where mutation is *accurate*, and it is where it is *cheap*.
+#
+# In scope:
+#
+# - `crates/core` — validation, the keyframe evaluator, the rational-framerate
+#   arithmetic, the asset pool. No ffmpeg anywhere in it; its tests answer in
+#   under a second.
+# - `crates/compositor` — property resolution and the CPU compositor. Pure
+#   pixel arithmetic over in-memory frames.
+# - `crates/render/src/plan/`, `src/audio/mix.rs`, `src/audio/gain.rs` —
+#   sequencing, sample mixing, gain. Arithmetic decisions whose wrong answer is
+#   a wrong video, and none of them shell out.
+#
+# Deliberately out of scope:
+#
+# - `crates/render/src/pipe/` — builds ffmpeg command lines. Both the slow part
+#   and the part mutation judges worst: a mutated argument string makes ffmpeg
+#   fail loudly rather than subtly, so nearly every mutant there is caught for
+#   a reason that says nothing about the tests.
+# - `crates/render/src/probe/`, `run.rs`, `raster.rs`, `report.rs` — the same
+#   argument, plus every mutant costs a real decode.
+# - `crates/golden` — test infrastructure. Measuring whether the tests test the
+#   test harness measures the wrong thing.
+# - `crates/cli`, `crates/mcp`, `crates/providers` — thin wrappers and
+#   trait definitions over the logic above; mutating an argument-parsing arm
+#   reports on `clap`, not on us.
+# - `tools/lint` — its own workspace, not reachable from this one at all.
+#
+# Adding a crate here is a deliberate change: it moves per-PR CI cost, so make
+# it in its own commit with the measured before-and-after.
+examine_globs = [
+    "crates/core/src/**/*.rs",
+    "crates/compositor/src/**/*.rs",
+    "crates/render/src/plan/**/*.rs",
+    "crates/render/src/audio/mix.rs",
+    "crates/render/src/audio/gain.rs",
+]
+
+# `examine_globs` already decides this — these say it a second time so that a
+# hand-run with an extra `--file` cannot widen the scope past the two areas
+# that were excluded on purpose. `--file` is matched before `--exclude`.
+exclude_globs = [
+    "crates/render/src/pipe/**/*.rs",
+    "crates/golden/**/*.rs",
+]
+
+# ---------------------------------------------------------------------------
+# Equivalent mutants
+# ---------------------------------------------------------------------------
+#
+# An *equivalent mutant* changes the code without changing its behaviour, so no
+# test can possibly catch it and it surfaces as a survivor needing no fix.
+# The policy, in full:
+#
+#   A survivor is a test gap until it is shown to be equivalent. Showing that
+#   means an entry below with a written reason. It never means weakening or
+#   deleting an assertion to make the report quieter — a test changed to suit a
+#   tool has stopped testing the code.
+#
+# `exclude_re` matches the mutant name as `cargo mutants --list` prints it, so
+# an entry names one mutation of one function and cannot silently grow to cover
+# a real gap that appears next to it later.
+#
+# Empty today: the first full sweep (see the PR for #44) found no survivor that
+# was equivalent rather than a genuine gap. Entries go here with their reason,
+# not in a commit message.
+exclude_re = []
+
+# ---------------------------------------------------------------------------
+# Execution
+# ---------------------------------------------------------------------------
+
+# The failure mode this exists for: a mutant that turns a loop bound into a
+# constant produces code that never terminates, and without a timeout the job
+# waits for the runner's six-hour limit instead of reporting it. cargo-mutants
+# times the unmutated baseline and caps each mutant at a multiple of it; 5x is
+# loose enough that a slow runner is not mistaken for a hang.
+timeout_multiplier = 5.0
+
+# The floor under that multiple. `crates/core`'s tests finish in ~0.2s, and 5x
+# of that would call a mutant a hang for being scheduled behind something else.
+# A real infinite loop still stops at 30 seconds.
+minimum_test_timeout = 30.0
+
+# Tests from the mutated package only, not the whole workspace. This is the
+# decision that makes the cost bearable: a mutant in `crates/core` runs core's
+# tests in ~0.2s instead of dragging the golden renders along for ~10 minutes.
+#
+# The trade-off is real and accepted: a `core` mutant that *only* a golden
+# render would have caught is reported as surviving. That is the conservative
+# direction to be wrong in — it over-reports work rather than under-reporting
+# it — and it matches what the signal is for. A behaviour whose only assertion
+# is a pixel comparison three crates away is a thin assertion in its own right.
+test_workspace = false

@@ -226,6 +226,171 @@ jobs:
             gh pr comment "$PR" --body-file comment.md
           fi
 
+  # Mutation testing. The second signal, and the same rules as `coverage`
+  # above: it reports, it never blocks.
+  #
+  # What it exists to catch, and why coverage does not catch it: coverage
+  # answers "was this line executed?", mutation answers "if this line were
+  # wrong, would anything notice?". A line can be executed by ten tests and
+  # asserted on by none. That is not hypothetical here — break-testing #8 found
+  # a volume-ramp test that passed with volume ignored entirely, because it
+  # asserted only that three measured levels ascended, which a clip at constant
+  # level satisfies by chance about half the time. Replacing `Gain::at`'s body
+  # with a constant is exactly the mutation that survives such a test.
+  #
+  # What it does *not* replace is break-testing. Of the three real coverage
+  # gaps found in this project so far, mutation would have caught one. The
+  # other two were semantic — a music bed restarting at every cut instead of
+  # resuming, keyframes timed from the timeline instead of from the clip — and
+  # in both the line ran, an assertion reached it, and no generated mutant
+  # would have survived. No tool mutates "resumed from the wrong offset" into
+  # existence. Mutation asks whether anything asserts this at all;
+  # break-testing asks whether the assertion pins down the right behaviour.
+  #
+  # Scoped two ways, because a naive sweep of this workspace would take hours:
+  # to the pure-logic surface (the crates and modules with no ffmpeg in them),
+  # and to the lines this PR changed. `.cargo/mutants.toml` holds the first,
+  # with the reasoning for every inclusion and exclusion, plus the
+  # equivalent-mutant policy; `--in-diff` below is the second, and it is what
+  # makes the cost track the size of the change rather than the size of the
+  # codebase. Measured on the full scoped surface: 592 mutants, ~12 minutes at
+  # `-j 3`. A per-PR run sees a small fraction of that.
+  #
+  # Pull requests only. `--in-diff` needs two commits to compare, and a push to
+  # `main` has no base to be a diff *from*. If a full sweep is ever wanted, it
+  # belongs on a schedule with its own job, not bolted onto this one.
+  mutants:
+    name: mutants (signal)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    # The same structural guarantee `coverage` relies on: whatever happens in
+    # here — survivors, a broken flag, cargo-mutants itself falling over — the
+    # workflow run stays green and the PR stays mergeable. The job's own check
+    # can still go red, which is where "your signal is broken" belongs. Naming
+    # this job in a branch-protection required-checks list would undo all of
+    # that: don't.
+    continue-on-error: true
+    # A backstop under the per-mutant timeout in `.cargo/mutants.toml`. That
+    # one catches a single mutant that hangs; this one catches a diff so large
+    # that the run stops being a per-PR signal, and ends it rather than letting
+    # it wander towards the six-hour default.
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      # `fetch-depth: 0`, and this is load-bearing. `--in-diff` compares
+      # against the base commit, and the default shallow checkout does not
+      # contain it — the diff would come out empty and the job would cheerfully
+      # report "no mutants" on every PR forever. A signal that is silently
+      # measuring nothing is worse than no signal, so the step below refuses to
+      # continue rather than assume.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Mutants in `crates/render/src/plan/` and `src/audio/` run that crate's
+      # tests, which decode real fixture media.
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: mutants
+
+      - name: Install cargo-mutants
+        uses: taiki-e/install-action@cargo-mutants
+
+      - name: The lines this PR changed
+        id: diff
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            echo "::error::base commit $BASE is missing from this checkout;" \
+                 "--in-diff would silently mutate nothing"
+            exit 1
+          fi
+          if [ -z "$(git diff --name-only "$BASE" HEAD)" ]; then
+            echo "::error::the diff against $BASE is empty, which cannot be" \
+                 "true of a pull request; the base ref is wrong"
+            exit 1
+          fi
+          git diff "$BASE" HEAD -- '*.rs' > pr.diff
+          if [ -s pr.diff ]; then echo "rust=yes" >> "$GITHUB_OUTPUT"
+          else echo "rust=no" >> "$GITHUB_OUTPUT"; fi
+
+      # cargo-mutants builds each mutant in a copy of the tree that includes a
+      # copy of `target/`, so a warm one here is the difference between an
+      # incremental relink per mutant and a cold build per mutant.
+      - name: Warm the build
+        if: steps.diff.outputs.rust == 'yes'
+        run: cargo build --workspace --tests --locked
+
+      # Never fails on its own: surviving mutants are an ordinary result, not
+      # an error, and the exit code that says so must not be confused with the
+      # one that says the tool broke. cargo-mutants distinguishes them — 2 is
+      # "found survivors", 3 is "something timed out", and the guard at the end
+      # of this job turns anything else red.
+      - name: Mutate
+        if: steps.diff.outputs.rust == 'yes'
+        run: |
+          cargo mutants --in-diff pr.diff --jobs 2 --colors never && status=0 || status=$?
+          echo "MUTANTS_STATUS=$status" >> "$GITHUB_ENV"
+
+      - name: Render the report
+        if: always()
+        run: |
+          if [ -f mutants.out/outcomes.json ]; then
+            python3 .github/scripts/mutants-summary.py mutants.out/outcomes.json "pull request" \
+              > mutants.md
+          elif [ "${{ steps.diff.outputs.rust }}" = "no" ]; then
+            printf '## Mutation\n\n### No mutants to run\n\nThis pull request changes no Rust source.\n' \
+              > mutants.md
+          else
+            printf '## Mutation\n\n### The run did not produce a report\n\nSee the job log.\n' \
+              > mutants.md
+          fi
+          cat mutants.md >> "$GITHUB_STEP_SUMMARY"
+
+      # One comment that rewrites itself, keyed on the marker — the same shape
+      # as `coverage` above, so the two signals read as one system. It is
+      # written when there is something to say and *rewritten* when there is
+      # not, which is how a survivor list clears itself once a re-push fixes
+      # it; what it never does is open a fresh comment on a PR that has nothing
+      # to report. Skipped for forks, whose token has no write scope.
+      - name: Comment on the PR
+        if: >
+          always() &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          { echo '<!-- mutation-signal -->'; cat mutants.md; } > comment.md
+          existing=$(gh api "repos/$REPO/issues/$PR/comments?per_page=100" \
+            --jq 'map(select(.body | startswith("<!-- mutation-signal -->")))
+                  | .[0].id // empty')
+          if [ -n "$existing" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$existing" -F body=@comment.md
+          elif grep -qE '^### (.* survived|Timed out)' mutants.md; then
+            gh pr comment "$PR" --body-file comment.md
+          else
+            echo "nothing to report and no comment to clear"
+          fi
+
+      # The only thing in this job that can go red, and it is reserved for the
+      # signal being broken rather than the code being unasserted.
+      - name: Fail only if the tool itself broke
+        if: always() && steps.diff.outputs.rust == 'yes'
+        run: |
+          case "$MUTANTS_STATUS" in
+            0|2|3) echo "cargo-mutants ran (exit $MUTANTS_STATUS)" ;;
+            *) echo "::error::cargo-mutants exited $MUTANTS_STATUS"; exit 1 ;;
+          esac
+
   # Supply chain. Nothing else in this workflow looks at what our ~60
   # transitive dependencies are or what they are licensed under; a RUSTSEC
   # advisory would otherwise land silently and stay until someone happened to
