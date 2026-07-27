@@ -109,4 +109,9 @@ fn each_segment_uses_the_easing_of_the_keyframe_it_leaves() {
     ]);
     assert_eq!(at(&mixed, 5), 0.0, "the first segment holds");
     assert_eq!(at(&mixed, 15), 0.75, "the second interpolates");
+    // A keyframe's own frame belongs to the segment it *opens*, not the one it
+    // closes. Read as the closing end of the first segment this is 0.0 — the
+    // hold has not jumped yet — so the boundary is the difference between the
+    // jump landing on frame 10 and on frame 11.
+    assert_eq!(at(&mixed, 10), 0.5, "and the keyframe itself is its own");
 }

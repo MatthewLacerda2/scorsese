@@ -114,3 +114,15 @@ fn clips_entirely_outside_the_range_are_left_out() {
     let included: Vec<String> = shape(&plan).into_iter().map(|entry| entry.2).collect();
     assert_eq!(included, vec!["c2".to_owned()]);
 }
+
+#[test]
+fn asking_for_exactly_the_end_is_not_asking_past_it() {
+    // The timeline ends at 120 — the frame after the last one — so `:120` is the
+    // whole of it and nothing was clamped. One frame loose here and every render
+    // of a full timeline would come back carrying a warning about itself.
+    let project = timeline();
+    let plan = Plan::build(&project, Fps::THIRTY, range(":120")).expect("plan");
+
+    assert_eq!(plan.end(), Frames(120));
+    assert_eq!(plan.notes(), [], "120 is the end, not past it");
+}

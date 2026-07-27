@@ -4,7 +4,8 @@ use scorsese_core::AssetKind;
 
 use super::plan_of;
 use crate::common::{
-    audio_shape, clip, file_asset, project, silent_asset, sounding_asset, video_track,
+    asset_with_channels, audio_shape, clip, file_asset, project, silent_asset, sounding_asset,
+    video_track,
 };
 
 #[test]
@@ -28,6 +29,19 @@ fn a_video_clip_with_no_sound_on_it_is_not() {
     // a stream of silence.
     let project = project(
         vec![silent_asset("plate", AssetKind::Video)],
+        vec![video_track("v1", vec![clip("c1", "plate", 0, 30)])],
+    );
+
+    assert!(plan_of(&project).audio().is_empty());
+}
+
+#[test]
+fn a_stream_of_no_channels_is_no_sound() {
+    // The boundary in `channels > 0`. A container can declare an audio stream
+    // and put nothing in it, and zero channels is an answer of "no" rather than
+    // a stream worth starting a decoder for.
+    let project = project(
+        vec![asset_with_channels("plate", AssetKind::Video, 0)],
         vec![video_track("v1", vec![clip("c1", "plate", 0, 30)])],
     );
 
