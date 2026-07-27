@@ -20,6 +20,29 @@ repository = "https://github.com/MatthewLacerda2/scorsese"
 # every dependency to the allow-list.
 publish = false
 
+# Every lint here is a merge gate: CI runs `cargo clippy -D warnings`, so a
+# warning fails the build. The set is deliberately small — each entry states an
+# invariant the codebase already holds, not a style preference. See CLAUDE.md's
+# "Repo-specific conventions" for the policy.
+[workspace.lints.rust]
+# There is no `unsafe` in this workspace. `forbid` makes that a guarantee
+# rather than a coincidence — it cannot be un-done by a local `allow`.
+unsafe_code = "forbid"
+# CLAUDE.md points at each crate's `lib.rs` module doc as the statement of its
+# boundary. The docs are architecture, so an undocumented public item is a hole
+# in the architecture.
+missing_docs = "warn"
+# `pub` on an item no other crate can reach is API surface nobody meant to add.
+unreachable_pub = "warn"
+
+[workspace.lints.clippy]
+# Library code states its invariants with `expect("...")`. `unwrap` in a test is
+# the assertion itself, so test targets allow it back — see the crate roots.
+unwrap_used = "deny"
+# Debugging leftovers must not survive a merge.
+dbg_macro = "deny"
+todo = "deny"
+
 [workspace.dependencies]
 scorsese-core = { path = "crates/core" }
 scorsese-compositor = { path = "crates/compositor" }

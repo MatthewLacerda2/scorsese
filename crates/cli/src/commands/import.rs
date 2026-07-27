@@ -6,6 +6,11 @@ use anyhow::{Context, Result};
 use scorsese_core::{AssetKind, Project, import_asset};
 use scorsese_render::Ffprobe;
 
+/// Copies the file into the project, probes it, and records it in the pool.
+///
+/// Importing the same media twice is not an error: it hashes to the asset that
+/// already exists and comes back with that id, nothing copied. Which makes an
+/// import loop safe to re-run — the thing an agent does by accident.
 pub fn run(project_dir: &Path, file: &Path, kind: Option<AssetKind>) -> Result<()> {
     let mut project = Project::load(project_dir)
         .with_context(|| format!("opening the project in {}", project_dir.display()))?;

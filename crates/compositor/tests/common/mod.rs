@@ -9,29 +9,29 @@ use scorsese_core::{AssetId, Clip, ClipId, Easing, Frames, Keyframe, KeyframeTra
 
 /// The raster the tests work at: big enough for a centred half-scale layer to
 /// land on whole pixels, small enough to reason about by hand.
-pub const SIZE: u32 = 64;
+pub(crate) const SIZE: u32 = 64;
 
 /// The centre of the canvas, and a point well inside its top-left corner.
-pub const CENTRE: (u32, u32) = (SIZE / 2, SIZE / 2);
-pub const CORNER: (u32, u32) = (4, 4);
+pub(crate) const CENTRE: (u32, u32) = (SIZE / 2, SIZE / 2);
+pub(crate) const CORNER: (u32, u32) = (4, 4);
 
-pub const BLACK: (u8, u8, u8) = (0, 0, 0);
-pub const RED: (u8, u8, u8) = (255, 0, 0);
-pub const BLUE: (u8, u8, u8) = (0, 0, 255);
-pub const HALF_RED: (u8, u8, u8) = (128, 0, 0);
+pub(crate) const BLACK: (u8, u8, u8) = (0, 0, 0);
+pub(crate) const RED: (u8, u8, u8) = (255, 0, 0);
+pub(crate) const BLUE: (u8, u8, u8) = (0, 0, 255);
+pub(crate) const HALF_RED: (u8, u8, u8) = (128, 0, 0);
 
-pub fn raster() -> Resolution {
+pub(crate) fn raster() -> Resolution {
     Resolution::new(SIZE, SIZE).expect("a legal raster")
 }
 
 /// A frame of one colour, fully opaque.
-pub fn solid(colour: (u8, u8, u8)) -> Frame {
+pub(crate) fn solid(colour: (u8, u8, u8)) -> Frame {
     translucent(colour, u8::MAX)
 }
 
 /// A frame of one colour at one alpha, in **straight** alpha as everything
 /// outside the compositor speaks it.
-pub fn translucent(colour: (u8, u8, u8), alpha: u8) -> Frame {
+pub(crate) fn translucent(colour: (u8, u8, u8), alpha: u8) -> Frame {
     let mut frame = Frame::black(raster());
     fill(&mut frame, colour, alpha);
     frame
@@ -39,7 +39,7 @@ pub fn translucent(colour: (u8, u8, u8), alpha: u8) -> Frame {
 
 /// An opaque frame at a size of its own — what a clip kept at its native size
 /// arrives as, which is not necessarily the canvas's.
-pub fn solid_of(colour: (u8, u8, u8), width: u32, height: u32) -> Frame {
+pub(crate) fn solid_of(colour: (u8, u8, u8), width: u32, height: u32) -> Frame {
     let mut frame = Frame::black(Resolution::source(width, height).expect("a legal source raster"));
     fill(&mut frame, colour, u8::MAX);
     frame
@@ -52,7 +52,7 @@ fn fill(frame: &mut Frame, colour: (u8, u8, u8), alpha: u8) {
 }
 
 /// Composites layers onto a fresh canvas.
-pub fn composited(layers: &[Layer<'_>]) -> Frame {
+pub(crate) fn composited(layers: &[Layer<'_>]) -> Frame {
     let mut canvas = Frame::black(raster());
     CpuCompositor::new()
         .composite(&mut canvas, layers)
@@ -61,12 +61,12 @@ pub fn composited(layers: &[Layer<'_>]) -> Frame {
 }
 
 /// A layer with properties other than the defaults.
-pub fn with(source: &Frame, properties: Properties) -> Layer<'_> {
+pub(crate) fn with(source: &Frame, properties: Properties) -> Layer<'_> {
     Layer { source, properties }
 }
 
 /// One pixel, as `(r, g, b, a)`.
-pub fn pixel(frame: &Frame, x: u32, y: u32) -> (u8, u8, u8, u8) {
+pub(crate) fn pixel(frame: &Frame, x: u32, y: u32) -> (u8, u8, u8, u8) {
     let width = frame.resolution().width() as usize;
     let at = (y as usize * width + x as usize) * BYTES_PER_PIXEL;
     let bytes = &frame.bytes()[at..at + BYTES_PER_PIXEL];
@@ -75,7 +75,7 @@ pub fn pixel(frame: &Frame, x: u32, y: u32) -> (u8, u8, u8, u8) {
 
 /// Asserts a pixel is about a colour, allowing for the rasteriser's rounding.
 #[track_caller]
-pub fn assert_pixel(frame: &Frame, at: (u32, u32), expected: (u8, u8, u8), what: &str) {
+pub(crate) fn assert_pixel(frame: &Frame, at: (u32, u32), expected: (u8, u8, u8), what: &str) {
     let found = pixel(frame, at.0, at.1);
     let close = |a: u8, b: u8| a.abs_diff(b) <= 2;
     assert!(
@@ -90,7 +90,7 @@ pub fn assert_pixel(frame: &Frame, at: (u32, u32), expected: (u8, u8, u8), what:
 }
 
 /// A track holding one keyframe, so a property has a fixed value.
-pub fn constant(property: &str, value: f64) -> KeyframeTrack {
+pub(crate) fn constant(property: &str, value: f64) -> KeyframeTrack {
     KeyframeTrack::new(
         PropertyPath::new(property),
         vec![Keyframe {
@@ -101,7 +101,7 @@ pub fn constant(property: &str, value: f64) -> KeyframeTrack {
     )
 }
 
-pub fn clip(duration: u64) -> Clip {
+pub(crate) fn clip(duration: u64) -> Clip {
     Clip::new(
         ClipId::new("c1"),
         AssetId::new("a1"),
@@ -111,6 +111,6 @@ pub fn clip(duration: u64) -> Clip {
 }
 
 /// The opacity a clip's own keyframes give at `t`.
-pub fn opacity_at(clip: &Clip, t: u64) -> f64 {
+pub(crate) fn opacity_at(clip: &Clip, t: u64) -> f64 {
     Properties::at(&clip.keyframes, Frames(t)).opacity
 }

@@ -37,6 +37,8 @@ impl ProjectPath {
         Self(path.into())
     }
 
+    /// The path as stored: project-relative, forward slashes, whatever the
+    /// host platform's own separator happens to be.
     pub fn as_str(&self) -> &str {
         &self.0
     }

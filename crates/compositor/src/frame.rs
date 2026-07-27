@@ -64,10 +64,12 @@ impl Resolution {
         Ok(Self { width, height })
     }
 
+    /// Pixels across — even, unless this came from [`Resolution::source`].
     pub const fn width(self) -> u32 {
         self.width
     }
 
+    /// Pixels down, under the same rule as [`Resolution::width`].
     pub const fn height(self) -> u32 {
         self.height
     }
@@ -110,12 +112,23 @@ impl FromStr for Resolution {
 /// Dimensions that cannot be rendered.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum ResolutionError {
+    /// The text was not `WIDTHxHEIGHT` at all — only [`FromStr`] can produce
+    /// this one.
     #[error("expected a resolution like `1920x1080`")]
     Malformed,
+    /// A dimension of zero, which no buffer, canvas or source has a meaning
+    /// for.
     #[error("a resolution cannot have a zero dimension")]
     Zero,
+    /// Rejected by [`Resolution::new`] only; [`Resolution::source`] allows it,
+    /// since the even rule belongs to the encoder and not to every raster.
     #[error("{width}x{height} has an odd dimension; 4:2:0 video needs both to be even")]
-    Odd { width: u32, height: u32 },
+    Odd {
+        /// The width asked for.
+        width: u32,
+        /// The height asked for.
+        height: u32,
+    },
 }
 
 /// One uncompressed frame.
@@ -139,6 +152,8 @@ impl Frame {
         frame
     }
 
+    /// The size the buffer was laid out for. Fixed at construction, so it can
+    /// never drift from the bytes it describes.
     pub const fn resolution(&self) -> Resolution {
         self.resolution
     }
@@ -148,10 +163,14 @@ impl Frame {
         self.pixels.len()
     }
 
+    /// The pixels themselves, row-major in [`PIXEL_FORMAT`] — the form that
+    /// goes to ffmpeg's stdin unchanged.
     pub fn bytes(&self) -> &[u8] {
         &self.pixels
     }
 
+    /// The same buffer to write over, which is how a decoder fills a frame in
+    /// place instead of handing back a fresh allocation every time.
     pub fn bytes_mut(&mut self) -> &mut [u8] {
         &mut self.pixels
     }

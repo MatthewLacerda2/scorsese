@@ -10,41 +10,41 @@ use scorsese_core::{
     ValidationErrors,
 };
 
-pub mod stub_probe;
+pub(crate) mod stub_probe;
 
 /// A hand-written project exercising every asset kind, both track kinds, and
 /// keyframes. Doubles as the worked example in `docs/project-format.md`.
-pub const FIXTURE: &str = include_str!("../fixtures/narrated_teaser.json");
+pub(crate) const FIXTURE: &str = include_str!("../fixtures/narrated_teaser.json");
 
 /// The fixture, parsed. Valid by construction — tests mutate a copy of it to
 /// produce exactly one problem at a time.
-pub fn project() -> Project {
+pub(crate) fn project() -> Project {
     Project::from_json(FIXTURE).expect("fixture parses")
 }
 
 /// A minimal well-formed document with `body` spliced in — for the parse
 /// failures that are about one field rather than a whole project.
-pub fn document(body: &str) -> String {
+pub(crate) fn document(body: &str) -> String {
     format!(
         r#"{{ "schema_version": {SCHEMA_VERSION}, "name": "probe",
               "timeline_fps": {{ "num": 30, "den": 1 }}, {body} }}"#
     )
 }
 
-pub fn asset_id(id: &str) -> AssetId {
+pub(crate) fn asset_id(id: &str) -> AssetId {
     AssetId::new(id)
 }
 
-pub fn clip_id(id: &str) -> ClipId {
+pub(crate) fn clip_id(id: &str) -> ClipId {
     ClipId::new(id)
 }
 
-pub fn track_id(id: &str) -> TrackId {
+pub(crate) fn track_id(id: &str) -> TrackId {
     TrackId::new(id)
 }
 
 /// The asset with this id, mutably.
-pub fn asset_mut<'a>(project: &'a mut Project, id: &str) -> &'a mut Asset {
+pub(crate) fn asset_mut<'a>(project: &'a mut Project, id: &str) -> &'a mut Asset {
     project
         .assets
         .iter_mut()
@@ -53,7 +53,7 @@ pub fn asset_mut<'a>(project: &'a mut Project, id: &str) -> &'a mut Asset {
 }
 
 /// The problems a project reports, or an empty list when it is valid.
-pub fn problems(project: &Project) -> Vec<ValidationError> {
+pub(crate) fn problems(project: &Project) -> Vec<ValidationError> {
     project
         .validate()
         .err()
@@ -63,7 +63,7 @@ pub fn problems(project: &Project) -> Vec<ValidationError> {
 /// Asserts the project reports exactly this one problem — which keeps a test
 /// honest about the mutation it made, rather than passing on a side effect.
 #[track_caller]
-pub fn assert_only_problem(project: &Project, expected: &ValidationError) {
+pub(crate) fn assert_only_problem(project: &Project, expected: &ValidationError) {
     let found = problems(project);
     assert_eq!(
         found.as_slice(),
@@ -73,14 +73,14 @@ pub fn assert_only_problem(project: &Project, expected: &ValidationError) {
 }
 
 /// A fresh, empty `*.scor` directory with a project already created in it.
-pub fn new_project(label: &str) -> (PathBuf, Project) {
+pub(crate) fn new_project(label: &str) -> (PathBuf, Project) {
     let dir = temp_project_dir(label);
     let project = Project::create(&dir, label, Fps::THIRTY).expect("create project");
     (dir, project)
 }
 
 /// Writes a file of `bytes` outside any project, to import from.
-pub fn source_file(dir: &Path, name: &str, bytes: &[u8]) -> PathBuf {
+pub(crate) fn source_file(dir: &Path, name: &str, bytes: &[u8]) -> PathBuf {
     let path = dir.join("sources").join(name);
     let parent = path.parent().expect("a source file has a parent directory");
     std::fs::create_dir_all(parent).expect("create source dir");
@@ -89,7 +89,7 @@ pub fn source_file(dir: &Path, name: &str, bytes: &[u8]) -> PathBuf {
 }
 
 /// A fresh empty directory under the system temp dir, unique per call.
-pub fn temp_project_dir(label: &str) -> PathBuf {
+pub(crate) fn temp_project_dir(label: &str) -> PathBuf {
     static COUNTER: AtomicU32 = AtomicU32::new(0);
     let unique = COUNTER.fetch_add(1, Ordering::Relaxed);
     let dir = std::env::temp_dir().join(format!(

@@ -49,14 +49,22 @@ pub trait Compositor {
 /// Why a frame could not be composited.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum CompositeError {
+    /// The canvas [`Frame`] disagrees with itself, which means something
+    /// upstream resized one of the two without the other.
     #[error("a {resolution} canvas does not match its {bytes} bytes of buffer")]
     BadCanvas {
+        /// The size the [`Frame`] claims.
         resolution: Resolution,
+        /// The buffer it actually carries.
         bytes: usize,
     },
+    /// The same disagreement in a [`Layer`]'s source — most often a decoded
+    /// frame that did not arrive whole.
     #[error("a {resolution} layer does not match its {bytes} bytes of buffer")]
     BadLayer {
+        /// The size the [`Frame`] claims.
         resolution: Resolution,
+        /// The buffer it actually carries.
         bytes: usize,
     },
 }

@@ -6,6 +6,9 @@ use clap::{Parser, Subcommand, ValueEnum};
 use scorsese_core::{AssetKind, Fps};
 use scorsese_render::{Bitrate, FrameRange, Resolution, SampleRate};
 
+/// The whole command line: one verb, plus the options that outlive the choice
+/// of verb. `about` is set explicitly rather than taken from this doc, so the
+/// help a person reads and the doc a reader of the code reads can differ.
 #[derive(Debug, Parser)]
 #[command(
     name = "scorsese",
@@ -13,6 +16,7 @@ use scorsese_render::{Bitrate, FrameRange, Resolution, SampleRate};
     about = "A video editor for agentic workflows"
 )]
 pub struct Cli {
+    /// The verb, and everything that only that verb takes.
     #[command(subcommand)]
     pub command: Command,
 
@@ -24,11 +28,17 @@ pub struct Cli {
 }
 
 impl Cli {
+    /// `--project` if it was given, the current directory otherwise — which is
+    /// what makes `cd teaser.scor && scorsese check` the short form of
+    /// everything here.
     pub fn project_dir(&self) -> PathBuf {
         self.project.clone().unwrap_or_else(|| PathBuf::from("."))
     }
 }
 
+/// Everything the binary can be asked to do. Each variant is dispatched to the
+/// `commands` module of the same name, which is the whole of the CLI's own
+/// logic — the rest lives in the library crates.
 #[derive(Debug, Subcommand)]
 pub enum Command {
     /// Create a new project directory.
@@ -88,6 +98,7 @@ pub enum Command {
     },
     /// List the media pool and the state of everything in it.
     Assets {
+        /// What to do with the pool. Without one, it is listed.
         #[command(subcommand)]
         action: Option<AssetsAction>,
         /// Re-hash every file to detect media that changed since import.
@@ -96,6 +107,7 @@ pub enum Command {
     },
 }
 
+/// The things `assets` does beyond reporting what is in the pool.
 #[derive(Debug, Subcommand)]
 pub enum AssetsAction {
     /// Report assets no clip references, and optionally delete them.
@@ -110,8 +122,11 @@ pub enum AssetsAction {
 /// purpose: they are authored, not imported.
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum KindArg {
+    /// Moving pictures, and whatever audio the file carries alongside them.
     Video,
+    /// A still, which holds the screen for as long as its clip is on it.
     Image,
+    /// Sound on its own — music, narration, an effect.
     Audio,
 }
 

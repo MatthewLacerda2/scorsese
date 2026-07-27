@@ -21,10 +21,13 @@ pub struct ClipId(String);
 macro_rules! string_id {
     ($ty:ty) => {
         impl $ty {
+            /// Wraps a string as an id. Uniqueness is a property of the
+            /// document, so a repeat is [`crate::validate`]'s to find.
             pub fn new(id: impl Into<String>) -> Self {
                 Self(id.into())
             }
 
+            /// The id as written in `project.json`.
             pub fn as_str(&self) -> &str {
                 &self.0
             }
@@ -47,7 +50,11 @@ string_id!(ClipId);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TrackKind {
+    /// Carries picture. Where a track sits in the list is what "on top"
+    /// means; the first is at the bottom.
     Video,
+    /// Carries sound. Order means nothing here — everything playing at once
+    /// is summed, and addition does not care what came first.
     Audio,
 }
 
@@ -56,16 +63,23 @@ pub enum TrackKind {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Track {
+    /// Unique within the project. What validation names when it reports an
+    /// overlap on this track.
     pub id: TrackId,
+    /// Decides which assets may sit here: a visual asset on a video track, an
+    /// audible one on an audio track.
     pub kind: TrackKind,
     /// What a human calls this track. Cosmetic.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    /// What is on this track. Clips may touch but never overlap, and a hole
+    /// between them contributes nothing rather than rendering black.
     #[serde(default)]
     pub clips: Vec<Clip>,
 }
 
 impl Track {
+    /// An empty, unnamed track. Clips are pushed onto it afterwards.
     pub fn new(id: TrackId, kind: TrackKind) -> Self {
         Self {
             id,
@@ -114,6 +128,8 @@ impl Fit {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Clip {
+    /// Unique across the whole project, not just this track — validation and
+    /// every render report identify a clip by it alone.
     pub id: ClipId,
     /// The asset this clip shows — **by id, never by path**.
     pub asset: AssetId,
@@ -141,6 +157,8 @@ pub struct Clip {
 }
 
 impl Clip {
+    /// A clip at its defaults: from the head of the source, fitted, and
+    /// animating nothing.
     pub fn new(id: ClipId, asset: AssetId, start: Frames, duration: Frames) -> Self {
         Self {
             id,

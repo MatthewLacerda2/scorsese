@@ -140,23 +140,40 @@ fn stderr_of(stderr: &[u8]) -> String {
 /// Why a frame could not be read or written.
 #[derive(Debug, thiserror::Error)]
 pub enum FrameError {
+    /// ffmpeg could not be spawned, or its stdin could not be fed.
     #[error("{}: {source}", file.display())]
     Io {
+        /// The frame file being read or written when this happened.
         file: PathBuf,
+        /// What the operating system said.
         #[source]
         source: std::io::Error,
     },
+    /// ffmpeg ran and refused the file — an unreadable PNG, or a codec it
+    /// cannot open.
     #[error("ffmpeg failed on {}: {message}", file.display())]
-    Ffmpeg { file: PathBuf, message: String },
+    Ffmpeg {
+        /// The file ffmpeg was pointed at.
+        file: PathBuf,
+        /// ffmpeg's own stderr, trimmed.
+        message: String,
+    },
+    /// ffmpeg succeeded but handed back the wrong number of bytes, which means
+    /// the frame is not what was asked for even though nothing errored.
     #[error(
         "{} decoded to {found} bytes, but one {resolution} frame is {wanted} — \
          either the frame is not there or the reference is the wrong size",
         file.display()
     )]
     WrongSize {
+        /// The video or reference PNG that was decoded.
         file: PathBuf,
+        /// Bytes ffmpeg actually wrote — zero when the frame index is past the
+        /// end of the file.
         found: usize,
+        /// Bytes one frame at `resolution` occupies.
         wanted: usize,
+        /// The size the caller expected, from the fixture's render settings.
         resolution: Resolution,
     },
 }

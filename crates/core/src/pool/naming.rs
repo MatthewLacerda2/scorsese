@@ -34,7 +34,7 @@ pub fn infer_kind(path: &Path) -> Option<AssetKind> {
 
 /// A file name for `assets/` that does not collide with what is already
 /// there. `logo.png` becomes `logo-2.png` when taken.
-pub fn unique_file_name(assets_dir: &Path, source: &Path) -> String {
+pub(super) fn unique_file_name(assets_dir: &Path, source: &Path) -> String {
     let name = sanitise(
         source
             .file_name()
@@ -54,7 +54,7 @@ pub fn unique_file_name(assets_dir: &Path, source: &Path) -> String {
 /// An asset id derived from the file name, unique within the project. Ids are
 /// what a human types into `project.json`, so they stay legible rather than
 /// becoming hashes.
-pub fn unique_asset_id(project: &Project, file_name: &str) -> AssetId {
+pub(super) fn unique_asset_id(project: &Project, file_name: &str) -> AssetId {
     let (stem, _) = split_extension(file_name);
     let base = if stem.is_empty() { "asset" } else { stem };
     let mut candidate = base.to_owned();

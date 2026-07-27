@@ -11,7 +11,11 @@ use super::hash::hash_file;
 /// it is asked for rather than assumed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HashCheck {
+    /// Trust the recorded hash. A file being *present* is still checked; only
+    /// its contents go unread.
     Skip,
+    /// Re-hash every file and compare. The slow answer, and the only one that
+    /// catches a file edited behind the project's back.
     Verify,
 }
 
@@ -27,7 +31,12 @@ pub enum AssetHealth {
     /// The assets table points at a file that is not there.
     Missing,
     /// The file changed since it was imported.
-    HashMismatch { recorded: String, found: String },
+    HashMismatch {
+        /// The hash the assets table remembers from import.
+        recorded: String,
+        /// The hash the file has now.
+        found: String,
+    },
     /// Present, but nothing has probed it.
     Unprobed,
     /// The file could not be read to verify it.
@@ -47,8 +56,12 @@ impl AssetHealth {
 /// One row of `scorsese assets`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AssetStatus {
+    /// The asset this row is about.
     pub id: AssetId,
+    /// Carried along so a report can be read without the project beside it.
     pub kind: AssetKind,
+    /// What was found on disk — see [`AssetHealth::needs_attention`] for
+    /// which of these are faults rather than facts.
     pub health: AssetHealth,
     /// How many clips reference this asset. Zero means `gc` would collect it.
     pub clip_count: usize,

@@ -63,23 +63,41 @@ pub fn remove_assets(
 /// What a collection actually did.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct GcReport {
+    /// The assets dropped from the table, in the order they were asked for.
     pub removed: Vec<AssetId>,
+    /// Files actually unlinked. Fewer than `removed` when some entries were
+    /// inline or already gone.
     pub files_deleted: usize,
     /// Entries whose file was already absent.
     pub files_missing: usize,
+    /// How much disk the deleted files were holding — the number worth
+    /// showing a human deciding whether to collect.
     pub bytes_freed: u64,
 }
 
 /// Why a collection stopped.
 #[derive(Debug, thiserror::Error)]
 pub enum GcError {
+    /// Collecting it would leave a clip pointing at nothing, which is exactly
+    /// what validation exists to prevent.
     #[error("asset `{id}` is still used by a clip")]
-    StillReferenced { id: AssetId },
+    StillReferenced {
+        /// The asset a clip still refers to.
+        id: AssetId,
+    },
+    /// An id that is not in the assets table — a stale list, or a typo.
     #[error("no asset `{id}` in this project")]
-    NoSuchAsset { id: AssetId },
+    NoSuchAsset {
+        /// The id that matched nothing.
+        id: AssetId,
+    },
+    /// The entry is gone from the table, but its file could not be unlinked.
+    /// Collection stops here rather than carrying on half-done.
     #[error("cannot delete {}: {source}", path.display())]
     Undeletable {
+        /// The file that survived.
         path: PathBuf,
+        /// What the operating system said.
         #[source]
         source: std::io::Error,
     },

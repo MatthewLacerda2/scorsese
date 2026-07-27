@@ -62,10 +62,12 @@ impl Fps {
         })
     }
 
+    /// The numerator, in lowest terms — 30000 for 29.97.
     pub const fn num(self) -> u32 {
         self.num
     }
 
+    /// The denominator, in lowest terms — 1001 for 29.97, 1 for a whole rate.
     pub const fn den(self) -> u32 {
         self.den
     }
@@ -164,15 +166,20 @@ impl TryFrom<FpsWire> for Fps {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 #[error("framerate {num}/{den} is unusable: both parts must be non-zero")]
 pub struct FpsError {
+    /// The numerator as offered, before reduction.
     pub num: u32,
+    /// The denominator as offered, before reduction.
     pub den: u32,
 }
 
 /// Text that is not a framerate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum FpsParseError {
+    /// Not two integers, or not integers at all — `29.97` lands here, which is
+    /// the point.
     #[error("expected a framerate like `30` or `30000/1001`")]
     Malformed,
+    /// Read as a fraction, but not one a timeline can be measured on.
     #[error(transparent)]
     Unusable(#[from] FpsError),
 }

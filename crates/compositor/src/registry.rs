@@ -45,6 +45,8 @@ impl Registry {
             .find(|property| property.path == path.as_str())
     }
 
+    /// [`Registry::get`] for callers that only want the yes or no — which is
+    /// every caller deciding whether to warn.
     pub fn knows(&self, path: &PropertyPath) -> bool {
         self.get(path).is_some()
     }

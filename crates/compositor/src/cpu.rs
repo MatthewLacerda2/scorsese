@@ -18,6 +18,9 @@ pub struct CpuCompositor {
 }
 
 impl CpuCompositor {
+    /// One with no scratch buffer yet. It grows to fit the first layer that
+    /// needs premultiplying and is reused for every frame after that, so a
+    /// compositor is worth keeping across a render rather than per frame.
     pub fn new() -> Self {
         Self::default()
     }

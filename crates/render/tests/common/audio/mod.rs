@@ -6,8 +6,8 @@
 //! "is there sound here, and roughly how much" is the question the pipeline can
 //! actually be held to.
 
-pub mod fixtures;
-pub mod listen;
+pub(crate) mod fixtures;
+pub(crate) mod listen;
 
-pub use fixtures::{RATE, SHOT_LEVEL, talking_picture, tone_asset, with_volume};
-pub use listen::{assert_audible, assert_silent, has_soundtrack, level, soundtrack};
+pub(crate) use fixtures::{RATE, SHOT_LEVEL, talking_picture, tone_asset, with_volume};
+pub(crate) use listen::{assert_audible, assert_silent, has_soundtrack, level, soundtrack};

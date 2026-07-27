@@ -28,6 +28,8 @@ pub use scorsese_compositor::{Resolution, ResolutionError};
 pub struct Bitrate(u64);
 
 impl Bitrate {
+    /// The rate as a plain number, for callers doing arithmetic on it rather
+    /// than handing it to an encoder.
     pub const fn bits_per_second(self) -> u64 {
         self.0
     }
@@ -73,8 +75,11 @@ impl fmt::Display for Bitrate {
 /// Text that is not a bitrate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum BitrateError {
+    /// The digits, or the `M`/`k` suffix, did not parse.
     #[error("expected a bitrate like `8M`, `800k`, or a count of bits per second")]
     Malformed,
+    /// Refused rather than passed on: ffmpeg treats `-b:v 0` as a licence to
+    /// produce garbage.
     #[error("a bitrate of zero would encode nothing")]
     Zero,
 }
@@ -97,6 +102,8 @@ impl SampleRate {
         Ok(Self(hz))
     }
 
+    /// The rate in Hz, which is what both ffmpeg and the mixer's sample counts
+    /// want.
     pub const fn hz(self) -> u32 {
         self.0
     }
@@ -135,8 +142,11 @@ impl FromStr for SampleRate {
 /// Text that is not a sample rate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum SampleRateError {
+    /// The digits, or the `k` suffix, did not parse.
     #[error("expected a sample rate like `48000` or `48k`")]
     Malformed,
+    /// Caught at construction because every sample-count calculation in the
+    /// mixer divides by the rate.
     #[error("a sample rate of zero has no samples in it")]
     Zero,
 }
@@ -144,6 +154,8 @@ pub enum SampleRateError {
 /// Everything a render needs to know that the project does not decide.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RenderSettings {
+    /// The raster every frame is composited into, and — since there is no
+    /// separate aspect setting — the shape of the delivered file.
     pub resolution: Resolution,
     /// The output framerate. Rendering at a rate other than the project's
     /// timeline grid conforms from it — nearest frame, no interpolation.
@@ -160,6 +172,9 @@ pub struct RenderSettings {
 }
 
 impl RenderSettings {
+    /// The two settings with no sensible default, everything else left at one:
+    /// constant quality for picture, 48 kHz and the encoder's own choice for
+    /// sound.
     pub fn new(resolution: Resolution, fps: Fps) -> Self {
         Self {
             resolution,
@@ -170,10 +185,14 @@ impl RenderSettings {
         }
     }
 
+    /// Puts the picture on a file-size budget. `None` keeps constant quality.
     pub fn with_bitrate(self, bitrate: Option<Bitrate>) -> Self {
         Self { bitrate, ..self }
     }
 
+    /// Sets both audio settings together, because a rate and a bitrate are
+    /// chosen against each other — 128k means something different at 48 kHz
+    /// than at 8 kHz.
     pub fn with_audio(self, sample_rate: SampleRate, audio_bitrate: Option<Bitrate>) -> Self {
         Self {
             sample_rate,

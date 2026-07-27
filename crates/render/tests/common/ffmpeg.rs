@@ -10,12 +10,12 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use scorsese_core::{Asset, AssetKind};
 use scorsese_render::Tools;
 
-pub fn tools() -> Tools {
+pub(crate) fn tools() -> Tools {
     Tools::discover().expect("ffmpeg and ffprobe must be on PATH to run these tests")
 }
 
 /// A fresh empty directory, unique per call.
-pub fn fixture_dir(label: &str) -> PathBuf {
+pub(crate) fn fixture_dir(label: &str) -> PathBuf {
     static COUNTER: AtomicU32 = AtomicU32::new(0);
     let unique = COUNTER.fetch_add(1, Ordering::Relaxed);
     let dir = std::env::temp_dir().join(format!(
@@ -28,7 +28,7 @@ pub fn fixture_dir(label: &str) -> PathBuf {
 }
 
 /// Runs ffmpeg with a synthetic input to make one small fixture file.
-pub fn generate(tools: &Tools, path: &Path, args: &[&str]) {
+pub(crate) fn generate(tools: &Tools, path: &Path, args: &[&str]) {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).expect("create fixture parent");
     }
@@ -48,7 +48,7 @@ pub fn generate(tools: &Tools, path: &Path, args: &[&str]) {
 
 /// Generates a media file inside a project's `assets/` and returns the assets
 /// table row pointing at it.
-pub fn generate_asset(
+pub(crate) fn generate_asset(
     tools: &Tools,
     project_root: &Path,
     id: &str,
@@ -62,17 +62,17 @@ pub fn generate_asset(
 
 /// What ffprobe says about the video stream of a rendered file.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Rendered {
-    pub width: u64,
-    pub height: u64,
+pub(crate) struct Rendered {
+    pub(crate) width: u64,
+    pub(crate) height: u64,
     /// Counted by decoding, not read from a header: a container's frame count
     /// is a claim, and this is the number the file actually contains.
-    pub frames: u64,
+    pub(crate) frames: u64,
     /// The rate as ffprobe writes a rational, e.g. `30/1`.
-    pub rate: String,
+    pub(crate) rate: String,
 }
 
-pub fn inspect(tools: &Tools, file: &Path) -> Rendered {
+pub(crate) fn inspect(tools: &Tools, file: &Path) -> Rendered {
     let output = tools
         .ffprobe()
         .args(["-v", "error", "-select_streams", "v:0", "-count_frames"])
@@ -113,7 +113,7 @@ pub fn inspect(tools: &Tools, file: &Path) -> Rendered {
 /// The average colour of one frame of a rendered file — enough to tell teal
 /// from black without committing a golden image, which is the harness issue's
 /// job rather than this one's.
-pub fn mean_rgb(tools: &Tools, file: &Path, frame: u64) -> (u8, u8, u8) {
+pub(crate) fn mean_rgb(tools: &Tools, file: &Path, frame: u64) -> (u8, u8, u8) {
     let output = tools
         .ffmpeg()
         .args(["-v", "error", "-i"])

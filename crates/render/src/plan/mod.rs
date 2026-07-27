@@ -17,7 +17,10 @@ pub use range::{FrameRange, FrameRangeError};
 /// A clip resolved to the asset it shows.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Shot<'a> {
+    /// The clip as authored — its placement, fit, and keyframes.
     pub clip: &'a Clip,
+    /// The entry the clip's asset id resolved to. Looked up once here so
+    /// nothing downstream has to carry the assets table around.
     pub asset: &'a Asset,
     /// Where in the source to start, in frames of the **timeline** grid — the
     /// clip's own `source_in`, plus however far into the clip this stretch of
@@ -128,6 +131,8 @@ impl<'a> Plan<'a> {
         })
     }
 
+    /// The visible stretches, in order and covering the render's range with no
+    /// holes — a gap is a segment with no layers, not an absence.
     pub fn segments(&self) -> &[Segment<'a>] {
         &self.segments
     }
@@ -141,10 +146,14 @@ impl<'a> Plan<'a> {
         &self.audio
     }
 
+    /// What sequencing noticed on the way — trimmed audio, a clamped range.
+    /// Sequencing never refuses a project over these, so the caller carries
+    /// them into its [`crate::report::RenderReport`].
     pub fn notes(&self) -> &[Note] {
         &self.notes
     }
 
+    /// The grid the render writes on, which the timeline is conformed to.
     pub const fn out_fps(&self) -> Fps {
         self.out_fps
     }
@@ -222,27 +231,60 @@ impl<'a> Plan<'a> {
 /// Why a timeline cannot be sequenced into a render.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum PlanError {
+    /// Picture decides how long a render is, so a project with only audio has
+    /// no length to give one.
     #[error("there is nothing to render: no video track has any clips")]
     NothingToRender,
 
+    /// Typically a stale `--range` left over from a longer cut.
     #[error("range {range} selects no frames of a timeline {timeline_end} long")]
     EmptyRange {
+        /// The range as asked for, after clamping.
         range: FrameRange,
+        /// Where the timeline actually ends.
         timeline_end: Frames,
     },
 
+    /// The project is internally inconsistent: validation should have caught
+    /// this before a render was ever attempted.
     #[error("clip `{clip}` references asset `{asset}`, which is not in the assets table")]
-    UnknownAsset { clip: String, asset: String },
+    UnknownAsset {
+        /// The clip holding the dangling reference.
+        clip: String,
+        /// The asset id nothing in the table matches.
+        asset: String,
+    },
 
+    /// A prompt clip still in `sketch` or `stale`. Until slug cards exist there
+    /// is nothing to put on screen for it.
     #[error(
         "clip `{clip}` shows asset `{asset}`, which has not been generated yet — \
          rendering sketches as slug cards is not implemented yet, so run `scorsese generate` first"
     )]
-    NotGenerated { clip: String, asset: String },
+    NotGenerated {
+        /// The clip showing the ungenerated asset.
+        clip: String,
+        /// The asset still waiting on its provider.
+        asset: String,
+    },
 
+    /// An asset kind that is drawn rather than decoded — text, for now. It has
+    /// no file for the decode path to open.
     #[error("clip `{clip}` shows a {kind:?} asset, which needs the compositor to draw it")]
-    NeedsCompositor { clip: String, kind: AssetKind },
+    NeedsCompositor {
+        /// The clip that cannot be decoded.
+        clip: String,
+        /// The kind that needs drawing instead.
+        kind: AssetKind,
+    },
 
+    /// The table entry is generated but carries no path — a project edited by
+    /// hand, or a migration that lost one.
     #[error("clip `{clip}` shows asset `{asset}`, which has no media file")]
-    NoMedia { clip: String, asset: String },
+    NoMedia {
+        /// The clip with nothing to show.
+        clip: String,
+        /// The asset whose path is missing.
+        asset: String,
+    },
 }

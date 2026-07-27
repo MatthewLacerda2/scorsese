@@ -10,10 +10,10 @@ use scorsese_render::Tools;
 use crate::common::ffmpeg::generate_asset;
 
 /// What the fixtures are generated and analysed at.
-pub const RATE: u32 = 48_000;
+pub(crate) const RATE: u32 = 48_000;
 
 /// How loud the tone recorded on a video fixture is.
-pub const SHOT_LEVEL: f64 = 0.4;
+pub(crate) const SHOT_LEVEL: f64 = 0.4;
 
 /// A tone at `hz`, `seconds` long, peaking at `amplitude`, in the project's
 /// `assets/`.
@@ -29,7 +29,7 @@ pub const SHOT_LEVEL: f64 = 0.4;
 ///
 /// `filter` is appended to the graph, which is how a fixture gains a run of
 /// silence at the front without a second helper.
-pub fn tone_asset(
+pub(crate) fn tone_asset(
     tools: &Tools,
     root: &Path,
     id: &str,
@@ -61,7 +61,13 @@ pub fn tone_asset(
 /// Its tone peaks at [`SHOT_LEVEL`] rather than near full scale, so a second
 /// sound over it still sums inside full scale — what these tests measure is the
 /// mix, not the clipper.
-pub fn talking_picture(tools: &Tools, root: &Path, id: &str, seconds: u32, hz: u32) -> Asset {
+pub(crate) fn talking_picture(
+    tools: &Tools,
+    root: &Path,
+    id: &str,
+    seconds: u32,
+    hz: u32,
+) -> Asset {
     let graph = format!(
         "aevalsrc=exprs={SHOT_LEVEL}*sin(2*PI*{hz}*t):duration={seconds}:sample_rate={RATE}"
     );
@@ -88,7 +94,7 @@ pub fn talking_picture(tools: &Tools, root: &Path, id: &str, seconds: u32, hz: u
 
 /// Writes a volume keyframe track onto a clip, in one call, since every audio
 /// test that animates anything animates this.
-pub fn with_volume(mut clip: Clip, points: &[(u64, f64)]) -> Clip {
+pub(crate) fn with_volume(mut clip: Clip, points: &[(u64, f64)]) -> Clip {
     clip.keyframes.push(KeyframeTrack::new(
         PropertyPath::new(scorsese_render::audio::path::VOLUME),
         points
