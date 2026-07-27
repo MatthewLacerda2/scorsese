@@ -144,7 +144,10 @@ those boundaries are enforced in review.
 - **Size gate:** source files ≤ 300 lines, test files ≤ 150. **Group by
   subfolder, not filename prefix** — a shared prefix on sibling files
   (`draw_*`, `probe_*`) is a subfolder waiting to happen; make it one and drop
-  the prefix.
+  the prefix. Enforced in CI by `tools/lint` — run it yourself with
+  `cargo run --manifest-path tools/lint/Cargo.toml`. Which cap applies to a
+  given path is decided and documented in `tools/lint/src/classify.rs`, and
+  nothing is grandfathered: a file over the limit gets split, not excused.
 - **Agent velocity is first-class.** Agents drive this repo, often unattended.
   Write code that is readable by design and lean — clear code is cheaper to
   reason about and faster for the next agent to extend. Keep CI fast. This is

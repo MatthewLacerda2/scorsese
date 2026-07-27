@@ -42,6 +42,9 @@ marks the asset **stale**, back to a slug card until the next GO.
 ```sh
 cargo build          # builds the workspace, including the `scorsese` CLI
 cargo test           # runs every crate's tests
+
+# The size gate CI runs: source files ≤ 300 lines, test files ≤ 150
+cargo run --manifest-path tools/lint/Cargo.toml
 ```
 
 Requires `rustup` — `rust-toolchain.toml` pins the exact compiler, so the

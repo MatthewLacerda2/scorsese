@@ -1,0 +1,24 @@
+# Deliberately its own workspace root, not a member of the one at the repo
+# root. The gate has to be runnable — and testable — without building scorsese
+# or having ffmpeg on PATH, and it has no business being pulled into
+# `cargo test --workspace` alongside the crates it inspects.
+[workspace]
+
+[package]
+name = "scorsese-lint"
+version = "0.1.0"
+edition = "2024"
+repository = "https://github.com/MatthewLacerda2/scorsese"
+publish = false
+
+# No dependencies, on purpose: a guardrail that CI runs on every push should
+# cost a few seconds of compiling, not a dependency tree of its own.
+[dependencies]
+
+[lib]
+name = "scorsese_lint"
+path = "src/lib.rs"
+
+[[bin]]
+name = "size-gate"
+path = "src/main.rs"
