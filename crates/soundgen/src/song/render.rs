@@ -27,6 +27,7 @@
 
 use std::collections::HashMap;
 
+use super::shape::{plan, shape};
 use super::{PatchRef, Song};
 use crate::core::{self, RATE};
 use crate::error::SynthError;
@@ -72,10 +73,14 @@ impl PatchResolver for InlineOnly {
 }
 
 /// Renders `song` to a mono sample buffer at [`crate::SAMPLE_RATE`],
-/// master-limited.
+/// master-limited, and the length the song asks to be.
 pub fn render_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Vec<f32>, SynthError> {
     song.validate()?;
     let patches = resolve_patches(song, resolve)?;
+    // How fast to play it and how many times through, worked out before a
+    // sample is produced: `fit` is a property of the whole piece, and deciding
+    // it per note would mean rendering the wrong notes and cutting afterwards.
+    let (bpm, passes) = plan(song);
     let track_index: HashMap<&str, usize> = song
         .tracks
         .iter()
@@ -83,17 +88,27 @@ pub fn render_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Vec<f32>,
         .map(|(index, track)| (track.name.as_str(), index))
         .collect();
 
-    let beat = song.beat_seconds();
+    let beat = 60.0 / bpm;
     // Start at the arrangement's own length rather than growing from empty, so
     // a song whose last pattern ends on a rest keeps that rest. Truncating to
     // the final *note* instead would silently shorten the buffer and put a loop
     // point in the wrong place — the arrangement is the score, not just where
     // the samples happen to stop. Tails then extend it past this.
-    let mut master = vec![0.0f32; (song.arrangement_beats() * beat * RATE).round() as usize];
+    let played = song.arrangement_beats() * passes as f32;
+    let arrangement_end = (played * beat * RATE).round() as usize;
+    let mut master = vec![0.0f32; arrangement_end];
     let mut cursor_beats = 0.0f32;
     let mut ordinal: u64 = 0;
 
-    for name in &song.arrangement {
+    // Repeats are a longer arrangement, not a copied buffer: tiling rendered
+    // audio would overlap each pass's ring-out onto the next pass's downbeat,
+    // and would replay the same seeded noise every time round.
+    for name in song
+        .arrangement
+        .iter()
+        .cycle()
+        .take(song.arrangement.len() * passes as usize)
+    {
         let pattern = song
             .patterns
             .get(name)
@@ -120,6 +135,8 @@ pub fn render_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Vec<f32>,
     // The master limiter, always — mixing by addition is exactly the operation
     // that overshoots full scale, so the sum is never handed out unlimited.
     limiter::apply(&mut master, RATE);
+    // Then length and level, in that order, on the limited signal.
+    shape(song, &mut master, arrangement_end);
     Ok(master)
 }
 

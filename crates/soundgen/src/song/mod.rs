@@ -32,6 +32,9 @@
 //! the patch follows.
 
 pub mod render;
+pub mod shape;
+pub mod timing;
+mod validate;
 
 use std::collections::BTreeMap;
 
@@ -41,6 +44,7 @@ use crate::error::SynthError;
 use crate::patch::Patch;
 
 pub use render::{InlineOnly, PatchResolver, render_song};
+pub use timing::{Fade, Fit, FitMode, Tail};
 
 /// Default for a per-track or per-note gain: unity, i.e. "as written".
 fn one() -> f32 {
@@ -65,6 +69,17 @@ pub struct Song {
     pub patterns: BTreeMap<String, Pattern>,
     /// Which patterns play, in order. Repeats are just repeats.
     pub arrangement: Vec<String>,
+    /// A length the piece has to come out at, when the picture decides that
+    /// rather than the music. Absent means the song is as long as it is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fit: Option<Fit>,
+    /// Level moves on the finished piece. Absent means neither end moves.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fade: Option<Fade>,
+    /// What happens after the last beat. Absent means [`Tail::Ring`], which is
+    /// what every song did before the field existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tail: Option<Tail>,
 }
 
 /// One instrument in the mix: a patch, and how loud it sits.
@@ -183,77 +198,9 @@ impl Song {
         60.0 / self.bpm
     }
 
-    /// Rejects a song the renderer cannot honour, *before* any samples are
-    /// produced — so a typo'd track or pattern name is a clear message rather
-    /// than silence in the mix, which is the failure mode that would cost an
-    /// agent a whole iteration to even notice.
-    pub fn validate(&self) -> Result<(), SynthError> {
-        if !(self.bpm.is_finite() && self.bpm > 0.0) {
-            return Err(SynthError::BadBpm { bpm: self.bpm });
-        }
-        if self.tracks.is_empty() {
-            return Err(SynthError::NoTracks);
-        }
-        if self.arrangement.is_empty() {
-            return Err(SynthError::EmptyArrangement);
-        }
-        for name in &self.arrangement {
-            if !self.patterns.contains_key(name) {
-                return Err(SynthError::UnknownPattern {
-                    pattern: name.clone(),
-                });
-            }
-        }
-        for (name, pattern) in &self.patterns {
-            pattern.validate(name, &self.tracks)?;
-        }
-        Ok(())
-    }
-}
-
-impl Pattern {
-    /// Checks one pattern's slot length and every note in it.
-    fn validate(&self, name: &str, tracks: &[Track]) -> Result<(), SynthError> {
-        if !(self.beats.is_finite() && self.beats > 0.0) {
-            return Err(SynthError::BadPatternBeats {
-                pattern: name.to_owned(),
-                beats: self.beats,
-            });
-        }
-        for (index, note) in self.notes.iter().enumerate() {
-            note.validate(name, index, tracks)?;
-        }
-        Ok(())
-    }
-}
-
-impl Note {
-    /// Checks that one note names a real track, starts somewhere, lasts for
-    /// some time, and has a pitch that parses.
-    fn validate(&self, pattern: &str, index: usize, tracks: &[Track]) -> Result<(), SynthError> {
-        let pattern = || pattern.to_owned();
-        if !tracks.iter().any(|track| track.name == self.track) {
-            return Err(SynthError::UnknownTrack {
-                pattern: pattern(),
-                index,
-                track: self.track.clone(),
-            });
-        }
-        if !(self.start.is_finite() && self.start >= 0.0) {
-            return Err(SynthError::BadNoteStart {
-                pattern: pattern(),
-                index,
-                start: self.start,
-            });
-        }
-        if !(self.dur.is_finite() && self.dur > 0.0) {
-            return Err(SynthError::BadNoteDuration {
-                pattern: pattern(),
-                index,
-                dur: self.dur,
-            });
-        }
-        self.note.to_midi()?;
-        Ok(())
+    /// What this song does after its last beat, defaults included — so a
+    /// caller never has to decide what an absent field meant.
+    pub fn tail(&self) -> Tail {
+        self.tail.unwrap_or_default()
     }
 }

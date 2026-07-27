@@ -158,6 +158,40 @@ pub enum SynthError {
         dur: f32,
     },
 
+    /// A target length that is not a length.
+    #[error("song: `fit.seconds` must be positive, got {seconds}")]
+    BadFitSeconds {
+        /// The target as written.
+        seconds: f32,
+    },
+
+    /// A fade that runs for a negative or nonsensical time.
+    #[error("song: a fade must be zero or more seconds, got {seconds}")]
+    BadFade {
+        /// The offending length.
+        seconds: f32,
+    },
+
+    /// `stretch` would have had to move the tempo further than a piece of
+    /// music survives. Refused rather than delivered, because a bed at 40%
+    /// speed is not a bed.
+    ///
+    /// Carries the tempo it would have needed, so the caller can decide
+    /// between a different target, a different arrangement, and `loop`.
+    #[error(
+        "song: fitting this at `stretch` needs {needed:.1} bpm against {bpm:.1} written, \
+         further than the {}% a piece survives — use `loop`, or change the arrangement",
+        (limit * 100.0).round()
+    )]
+    StretchTooFar {
+        /// The tempo the song is written at.
+        bpm: f32,
+        /// The tempo the target would have required.
+        needed: f32,
+        /// How far the tempo may move, as a fraction either way.
+        limit: f32,
+    },
+
     /// A track named its instrument by reference and the caller's resolver
     /// could not produce it. What "could not" means is the caller's to say —
     /// this crate never opens anything itself.

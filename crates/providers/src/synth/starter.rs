@@ -114,6 +114,9 @@ fn four_bars() -> Song {
             "a".to_owned(),
             "b".to_owned(),
         ],
+        fit: None,
+        fade: None,
+        tail: None,
     }
 }
 

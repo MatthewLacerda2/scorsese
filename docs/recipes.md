@@ -136,6 +136,43 @@ Write repetition as repetition. A melody with any structure is a few short
 patterns and a list naming them; the same music as one flat note list is
 hundreds of lines, and every edit becomes a merge conflict with itself.
 
+### Fitting a song to the cut
+
+A song's natural length is whatever its notes add up to, plus the ring-out.
+When the picture decides the length instead, say so — all three fields are
+optional, and absent means the song is as long as it is.
+
+```json fields
+  "fit": { "seconds": 43.0, "mode": "loop" },
+  "fade": { "in_seconds": 1.5, "out_seconds": 3.0 },
+  "tail": "ring"
+```
+
+**`fit`** makes the file exactly `seconds` long, to the sample. `mode` is:
+
+| mode | What it does | Use it for |
+| --- | --- | --- |
+| `loop` *(default)* | repeats the arrangement, cutting mid-arrangement where the time runs out | a bed under dialogue — the seam is inaudible under speech |
+| `stretch` | moves the tempo so a whole number of passes lands on the target | music that has to stay intact |
+| `once` | plays through once and pads with silence | a sting |
+
+`stretch` **refuses** if it would have to move the tempo by more than 25%,
+and says what tempo it would have needed — a bed at 40% speed is not a bed.
+Reach for `loop` when that happens.
+
+A cut is always faded over about 20 ms, because a buffer truncated at an
+arbitrary sample ends mid-waveform, and that is a click.
+
+**`fade`** moves the level at each end of the finished piece. This belongs to
+the *music* — a piece that ends by resolving and receding stays that way when
+it is moved elsewhere in the timeline or reused in another project. Ducking
+*this* use of it under *this* voice-over is a keyframe on the clip instead.
+
+**`tail`** is `ring` (the default: the file grows to hold the last note's
+release and any fx tail) or `exact` (the file ends on the arrangement's final
+beat, with the tail faded into it). Use `exact` when the music has to butt
+against something.
+
 `seed` re-rolls every stochastic source in the piece at once. A pattern played
 twice does not repeat its noise — a repeated snare is not a photocopy — while
 the whole piece stays byte-identical across runs.
@@ -163,6 +200,26 @@ rate, a note of no length, an arrangement naming a pattern that does not exist,
 a note on a track that does not exist.
 
 Musical taste is not checked. An ugly patch renders.
+
+## What CI checks about this page
+
+Every fenced `json` block here carries a marker saying what it is a piece of,
+and a test completes it into a whole recipe:
+
+| marker | the block is | checked by |
+| --- | --- | --- |
+| `recipe` | a complete recipe | parsing **and rendering** it |
+| `fields` | top-level fields of a song | splicing them into a minimal song, then both |
+
+An unmarked `json` block fails rather than quietly escaping the check. Blocks
+marked `jsonc` are illustrative fragments and make no claim to be complete.
+
+Rendering, not just parsing: a recipe that parses can still be silent, and an
+example nobody can play is worse than no example.
+
+What this never proves is that the prose next to a block is *true*. That is the
+limit of any documentation gate, and it is written here so a green check is
+never mistaken for an accurate page.
 
 ## Where this fits
 
