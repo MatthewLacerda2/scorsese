@@ -29,8 +29,8 @@ fn repo_root() -> PathBuf {
 /// lines are dropped, `[header]` opens a section, and a value keeps whatever
 /// quoting it was written with so `"warn"` cannot silently equal `warn`.
 fn settings(file: &Path) -> BTreeMap<String, String> {
-    let text = std::fs::read_to_string(file)
-        .unwrap_or_else(|e| panic!("reading {}: {e}", file.display()));
+    let text =
+        std::fs::read_to_string(file).unwrap_or_else(|e| panic!("reading {}: {e}", file.display()));
     let mut section = String::new();
     let mut found = BTreeMap::new();
     for line in text.lines() {
