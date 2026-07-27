@@ -21,6 +21,8 @@ use std::str::FromStr;
 
 use scorsese_core::Fps;
 
+use crate::format::OutputFormat;
+
 pub use scorsese_compositor::{Resolution, ResolutionError};
 
 /// A target video bitrate, in bits per second.
@@ -169,12 +171,16 @@ pub struct RenderSettings {
     /// Target audio bitrate. `None` leaves the encoder on its own default,
     /// which for AAC is already transparent for speech and music beds.
     pub audio_bitrate: Option<Bitrate>,
+    /// What shape the delivered file is: the container, and the codecs written
+    /// into it. Checked when the [`OutputFormat`] is built, so a render that
+    /// gets this far cannot spend an encode producing a file nobody wants.
+    pub format: OutputFormat,
 }
 
 impl RenderSettings {
     /// The two settings with no sensible default, everything else left at one:
     /// constant quality for picture, 48 kHz and the encoder's own choice for
-    /// sound.
+    /// sound, and an mp4 of H.264 and AAC to put them in.
     pub fn new(resolution: Resolution, fps: Fps) -> Self {
         Self {
             resolution,
@@ -182,12 +188,23 @@ impl RenderSettings {
             bitrate: None,
             sample_rate: SampleRate::DEFAULT,
             audio_bitrate: None,
+            format: OutputFormat::default(),
         }
     }
 
     /// Puts the picture on a file-size budget. `None` keeps constant quality.
     pub fn with_bitrate(self, bitrate: Option<Bitrate>) -> Self {
         Self { bitrate, ..self }
+    }
+
+    /// Delivers in `format` rather than the default mp4.
+    ///
+    /// Takes an already-built [`OutputFormat`] rather than a container and two
+    /// codecs, so the combination is checked before a `RenderSettings` exists
+    /// to hold it — which is what makes the refusal early rather than a thing
+    /// the encoder discovers.
+    pub fn with_format(self, format: OutputFormat) -> Self {
+        Self { format, ..self }
     }
 
     /// Sets both audio settings together, because a rate and a bitrate are

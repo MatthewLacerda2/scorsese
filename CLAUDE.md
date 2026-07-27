@@ -29,6 +29,8 @@ add to this vision.
 - **docs/golden-renders.md** — the pixel gate: what a fixture is, how frames are
   compared, and when re-blessing a reference is legitimate. Read it before
   changing anything a render's output depends on.
+- **docs/output-formats.md** — the containers and codecs a render delivers in,
+  which combinations are refused, and why that list is deliberately short.
 - Crate boundaries live in each crate's `lib.rs` module doc — read them before
   adding a dependency between crates.
 

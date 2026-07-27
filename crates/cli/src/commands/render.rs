@@ -5,7 +5,8 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use scorsese_core::{Fps, Project};
 use scorsese_render::{
-    Bitrate, FrameRange, RenderSettings, Renderer, Resolution, SampleRate, Tools,
+    AudioCodec, Bitrate, Container, FrameRange, OutputFormat, RenderSettings, Renderer, Resolution,
+    SampleRate, Tools, VideoCodec,
 };
 
 /// Everything the command line can say about the file to produce. Gathered into
@@ -25,11 +26,27 @@ pub struct Options {
     pub audio_bitrate: Option<Bitrate>,
     /// `None` renders the whole timeline.
     pub range: Option<FrameRange>,
+    /// `None` takes the container `out`'s extension asks for.
+    pub container: Option<Container>,
+    /// `None` takes the picture codec the container is written with.
+    pub video_codec: Option<VideoCodec>,
+    /// `None` takes the sound codec the container is written with.
+    pub audio_codec: Option<AudioCodec>,
 }
 
 /// Renders the project to `out`, then prints what was written — for a headless
 /// render those lines are the only report anyone gets.
 pub fn run(project_dir: &Path, out: &Path, options: Options) -> Result<()> {
+    // First, before the project is even opened: what shape the file is asked
+    // to be is the cheapest thing to get wrong and the most expensive thing to
+    // find out late. A combination we do not write is refused here, with
+    // nothing spent and no ffmpeg yet located.
+    let container = match options.container {
+        Some(container) => container,
+        None => Container::from_path(out)?,
+    };
+    let format = OutputFormat::new(container, options.video_codec, options.audio_codec)?;
+
     let project = Project::load(project_dir)
         .with_context(|| format!("opening the project in {}", project_dir.display()))?;
 
@@ -38,7 +55,8 @@ pub fn run(project_dir: &Path, out: &Path, options: Options) -> Result<()> {
     let fps = options.fps.unwrap_or(project.timeline_fps);
     let settings = RenderSettings::new(options.resolution, fps)
         .with_bitrate(options.bitrate)
-        .with_audio(options.sample_rate, options.audio_bitrate);
+        .with_audio(options.sample_rate, options.audio_bitrate)
+        .with_format(format);
     let range = options.range.unwrap_or(FrameRange::ALL);
 
     let tools = Tools::discover()?;
@@ -53,6 +71,10 @@ pub fn run(project_dir: &Path, out: &Path, options: Options) -> Result<()> {
         report.resolution,
         report.seconds()
     );
+    // Said every time, not only when a flag asked for it: the shape of the
+    // file used to be an inference, and an inference nobody printed is one
+    // nobody checks.
+    println!("  format {format}");
     match report.seconds_of_audio {
         Some(seconds) => println!("  audio {} ({seconds:.2}s)", settings.sample_rate),
         None => println!("  silent — the project has no audio clips"),

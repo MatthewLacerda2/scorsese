@@ -3,7 +3,7 @@
 //! Responsibility: everything that touches ffmpeg/ffprobe — probing imported
 //! media, decoding sources to raw frames over pipes, piping composited raw
 //! frames into an ffmpeg encode process, and render settings (resolution, fps,
-//! bitrate — user-chosen per render).
+//! bitrate, and the shape of the delivered file — user-chosen per render).
 //!
 //! Every ffmpeg invocation in the entire workspace goes through this crate's
 //! command builder ([`tools::Tools`]). No ad-hoc `Command::new("ffmpeg")`
@@ -39,6 +39,7 @@
 
 pub mod audio;
 pub mod error;
+pub mod format;
 pub mod pipe;
 pub mod plan;
 pub mod probe;
@@ -57,6 +58,7 @@ pub use scorsese_compositor::{Frame, PIXEL_FORMAT};
 
 pub use audio::{Mix, Mixdown};
 pub use error::{RenderError, Stage};
+pub use format::{AudioCodec, Container, FormatError, OutputFormat, VideoCodec};
 pub use plan::{FrameRange, FrameRangeError, Plan, PlanError};
 pub use probe::{Ffprobe, fill_media};
 pub use properties::{ANIMATABLE, Unknown, unknown_in};
