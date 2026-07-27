@@ -147,6 +147,7 @@ pub(super) fn build<'a>(
             {
                 let asset = renderable_asset(project, clip)?;
                 layers.push(Shot {
+                    track: &track.id,
                     clip,
                     asset,
                     showing: showing(asset),

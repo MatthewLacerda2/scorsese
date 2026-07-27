@@ -141,7 +141,11 @@ pub enum Absent {
 
 impl Absent {
     /// What the document says about this asset's media.
-    fn of(asset: &Asset) -> Self {
+    ///
+    /// The document alone — no disk is consulted, which is what lets a
+    /// description say why a clip is a card without a render having happened.
+    /// [`standing`] is the same question once the filesystem has had its say.
+    pub fn of(asset: &Asset) -> Self {
         match asset.state {
             Some(GenerationState::Sketch) => Self::Sketch,
             Some(GenerationState::Queued) => Self::Queued,
@@ -167,6 +171,21 @@ impl Absent {
             Self::Stale => "STALE",
             Self::Gone => "MEDIA MISSING",
         }
+    }
+}
+
+impl std::fmt::Display for Absent {
+    /// In the document's own words, lowercase: these are the `state` values a
+    /// reader would go and look for in `project.json`. The card's own label
+    /// shouts, which is right on a gray card and wrong in the middle of a
+    /// sentence.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Sketch => "sketch",
+            Self::Queued => "queued",
+            Self::Stale => "stale",
+            Self::Gone => "media missing",
+        })
     }
 }
 

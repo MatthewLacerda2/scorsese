@@ -5,11 +5,11 @@ mod setup;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
+use scorsese_render::frames::{self, FrameError};
 use scorsese_render::{Renderer, Tools};
 
 use crate::compare::{self, Difference, SizeMismatch, Tolerance};
 use crate::fixture::{Fixture, FixtureError};
-use crate::frames::{self, FrameError};
 
 pub use setup::SetupError;
 
@@ -133,7 +133,7 @@ pub fn run(fixture_dir: &Path, mode: Mode, workspace: &Path) -> Result<Outcome, 
         let reference = fixture.reference(frame);
 
         if mode == Mode::Bless {
-            frames::write_reference(&tools, &reference, &actual)?;
+            frames::write_png(&tools, &reference, &actual)?;
             blessed.push(frame);
             continue;
         }
@@ -147,12 +147,12 @@ pub fn run(fixture_dir: &Path, mode: Mode, workspace: &Path) -> Result<Outcome, 
             });
         }
 
-        let expected = frames::read_reference(&tools, &reference, fixture.settings.resolution)?;
+        let expected = frames::read_png(&tools, &reference, fixture.settings.resolution)?;
         let difference = compare::compare(&actual, &expected)?;
         compared.push((frame, difference));
         if !fixture.manifest.tolerance.accepts(&difference) {
             let dumped = failures.join(format!("frame-{frame:04}-actual.png"));
-            frames::write_reference(&tools, &dumped, &actual)?;
+            frames::write_png(&tools, &dumped, &actual)?;
             failed.push(Mismatch {
                 frame,
                 difference,

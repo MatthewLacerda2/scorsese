@@ -4,6 +4,7 @@ use std::fmt;
 
 use scorsese_core::{Fps, Frames};
 
+use crate::describe::Description;
 use crate::settings::Resolution;
 
 /// Something worth saying about a render that is not a reason to refuse it.
@@ -171,6 +172,14 @@ pub struct RenderReport {
     /// Everything the render wants a second look at. Empty is the good case;
     /// a caller that ignores this is the failure mode [`Note`] exists for.
     pub notes: Vec<Note>,
+    /// What the file actually contains, stretch by stretch — the cut as the
+    /// plan sequenced it, in seconds as well as frames.
+    ///
+    /// Carried on the report rather than left to the caller to re-derive,
+    /// because the plan this came off is the one that was rendered: it has been
+    /// probed, clamped to the range asked for, and had its media resolved.
+    /// Building a second plan to describe the first is how the two drift.
+    pub description: Description,
 }
 
 impl RenderReport {
