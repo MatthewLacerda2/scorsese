@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use clap::{Parser, Subcommand, ValueEnum};
 use scorsese_core::{AssetKind, Fps};
 use scorsese_render::{
-    AudioCodec, Bitrate, Container, FrameRange, Resolution, SampleRate, VideoCodec,
+    AudioCodec, Bitrate, Container, Cue, FrameRange, Resolution, SampleRate, VideoCodec,
 };
 
 /// The whole command line: one verb, plus the options that outlive the choice
@@ -119,6 +119,29 @@ pub enum Command {
         /// `--video-codec`, to what the container is written with.
         #[arg(long)]
         audio_codec: Option<AudioCodec>,
+        /// Also write PNG stills of the finished file into this directory, so
+        /// the pixels can be looked at without watching the video. The
+        /// description says what the edit claims; these are what it did.
+        #[arg(long)]
+        stills: Option<PathBuf>,
+        /// Which instants to still, comma-separated: `2.5s` for a time, `75`
+        /// for a timeline frame. Without it, every segment boundary — which is
+        /// where a cut can be one frame wrong.
+        #[arg(long, value_delimiter = ',', requires = "stills")]
+        at: Vec<Cue>,
+    },
+    /// Say what the timeline contains — what is on screen when, on which
+    /// track, at what fit, with what animated, and what is audible under it.
+    /// No render, no ffmpeg, no cost.
+    Describe {
+        /// Describe the cut as it would be rendered at this framerate.
+        /// Defaults to the project's own timeline framerate.
+        #[arg(long)]
+        fps: Option<Fps>,
+        /// Describe only part of the timeline, in frames: `30:120` covers
+        /// frames 30 up to 120, `30:` runs to the end, `:120` from the start.
+        #[arg(long)]
+        range: Option<FrameRange>,
     },
     /// List the media pool and the state of everything in it.
     Assets {

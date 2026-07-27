@@ -48,6 +48,8 @@ fn dispatch(cli: Cli) -> Result<()> {
             container,
             video_codec,
             audio_codec,
+            stills,
+            at,
         } => commands::render::run(
             &directory,
             &out,
@@ -61,8 +63,11 @@ fn dispatch(cli: Cli) -> Result<()> {
                 container,
                 video_codec,
                 audio_codec,
+                stills,
+                at,
             },
         ),
+        Command::Describe { fps, range } => commands::describe::run(&directory, fps, range),
         Command::Assets {
             action: None,
             verify,

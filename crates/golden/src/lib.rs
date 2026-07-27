@@ -17,7 +17,8 @@
 //!    an `expected/` directory of reference PNGs.
 //! 2. [`harness::run`] generates the media with ffmpeg's synthetic sources into
 //!    a scratch project directory, renders it, and pulls out the frames the
-//!    fixture nominates.
+//!    fixture nominates — with `scorsese_render::frames`, which is a shipped
+//!    capability this crate calls rather than one it owns.
 //! 3. Each frame is compared to its reference by [`compare()`] — per-channel SSIM
 //!    and mean absolute error, both with tolerance.
 //!
@@ -36,7 +37,6 @@
 
 pub mod compare;
 pub mod fixture;
-pub mod frames;
 pub mod harness;
 
 pub use compare::{Difference, Tolerance, compare};

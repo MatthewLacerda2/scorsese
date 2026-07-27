@@ -107,6 +107,7 @@ impl<'a> Renderer<'a> {
                     / f64::from(self.settings.sample_rate.hz())
             }),
             notes,
+            description: crate::describe::Description::of(&plan),
         })
     }
 }

@@ -9,7 +9,7 @@ mod error;
 mod range;
 mod segments;
 
-use scorsese_core::{Asset, Clip, Fps, Frames, Project, Track, TrackKind};
+use scorsese_core::{Asset, Clip, Fps, Frames, Project, Track, TrackId, TrackKind};
 
 use crate::report::Note;
 
@@ -37,6 +37,10 @@ pub enum Showing {
 /// A clip resolved to the asset it shows.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Shot<'a> {
+    /// The track the clip sits on. Carried because *which lane* a shot is in
+    /// is half of what a stack means — the layer order for picture, and the
+    /// only way a reader can tell the narration from the music.
+    pub track: &'a TrackId,
     /// The clip as authored — its placement, fit, and keyframes.
     pub clip: &'a Clip,
     /// The entry the clip's asset id resolved to. Looked up once here so
@@ -191,6 +195,27 @@ impl<'a> Plan<'a> {
     /// The grid the render writes on, which the timeline is conformed to.
     pub const fn out_fps(&self) -> Fps {
         self.out_fps
+    }
+
+    /// The first timeline frame the render covers — frame 0 of the file that
+    /// comes out, which is not frame 0 of the timeline when a range was asked
+    /// for.
+    pub const fn start(&self) -> Frames {
+        self.start
+    }
+
+    /// The frame just past the last one the render covers.
+    pub const fn end(&self) -> Frames {
+        self.end
+    }
+
+    /// Which frame of the delivered file a timeline instant lands on.
+    ///
+    /// The map anyone reading the output needs: the description talks about the
+    /// timeline, the file is counted from the start of the render, and pulling
+    /// a still out of it means converting between the two exactly once.
+    pub fn out_frame_of(&self, at: Frames) -> u64 {
+        self.out_index(at)
     }
 
     /// The grid the project was authored against.

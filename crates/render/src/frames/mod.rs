@@ -1,19 +1,31 @@
 //! Getting single frames in and out of files.
 //!
-//! References are PNGs, and they are written and read through ffmpeg like
-//! everything else — no image library, and no exception to the rule that every
-//! ffmpeg invocation goes through the command builder.
+//! The half of render review that the plan cannot do. A description is derived
+//! from the document, so it is structurally unable to notice the document being
+//! wrong about reality — a source that decoded black, a logo resting off-screen,
+//! a `native` clip whose media turned out to be 4000px wide, a fade that never
+//! happened. Pulling real frames out of the finished file is how those get seen,
+//! by handing an agent something it can actually look at.
 //!
-//! PNG because it is lossless, because a 64×64 reference is a few hundred bytes
-//! rather than a binary blob, and because a review page renders an image diff:
-//! re-blessing a golden shows up as a picture that changed, which is the only
-//! form in which a human can judge whether the change was legitimate.
+//! **PNG, through ffmpeg like everything else.** No image library, and no
+//! exception to the rule that every ffmpeg invocation goes through the command
+//! builder. PNG because it is lossless, because a small still is a few hundred
+//! bytes rather than a binary blob, and because a review page renders an image
+//! diff — which is what makes the golden harness a caller of this rather than
+//! the owner of it.
+
+mod stills;
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
-use scorsese_render::{Frame, PIXEL_FORMAT, Resolution, Tools};
+use scorsese_compositor::{Frame, PIXEL_FORMAT};
+
+use crate::settings::Resolution;
+use crate::tools::Tools;
+
+pub use stills::{Still, stills};
 
 /// Decodes one frame of a video file by index.
 pub fn extract(
@@ -31,19 +43,15 @@ pub fn extract(
     raw_frame(command, file, resolution)
 }
 
-/// Reads a reference PNG.
-pub fn read_reference(
-    tools: &Tools,
-    file: &Path,
-    resolution: Resolution,
-) -> Result<Frame, FrameError> {
+/// Reads a PNG back as a frame.
+pub fn read_png(tools: &Tools, file: &Path, resolution: Resolution) -> Result<Frame, FrameError> {
     let mut command = tools.ffmpeg();
     command.args(["-nostdin", "-v", "error", "-i"]).arg(file);
     raw_frame(command, file, resolution)
 }
 
-/// Writes a frame out as a reference PNG, creating the directory if needed.
-pub fn write_reference(tools: &Tools, file: &Path, frame: &Frame) -> Result<(), FrameError> {
+/// Writes a frame out as a PNG, creating the directory if needed.
+pub fn write_png(tools: &Tools, file: &Path, frame: &Frame) -> Result<(), FrameError> {
     if let Some(parent) = file.parent() {
         std::fs::create_dir_all(parent).map_err(|source| FrameError::Io {
             file: parent.to_path_buf(),
@@ -162,18 +170,19 @@ pub enum FrameError {
     /// the frame is not what was asked for even though nothing errored.
     #[error(
         "{} decoded to {found} bytes, but one {resolution} frame is {wanted} — \
-         either the frame is not there or the reference is the wrong size",
+         either the frame is not there or the file is not the size asked for",
         file.display()
     )]
     WrongSize {
-        /// The video or reference PNG that was decoded.
+        /// The video or PNG that was decoded.
         file: PathBuf,
         /// Bytes ffmpeg actually wrote — zero when the frame index is past the
         /// end of the file.
         found: usize,
         /// Bytes one frame at `resolution` occupies.
         wanted: usize,
-        /// The size the caller expected, from the fixture's render settings.
+        /// The size the caller expected, from the render settings the file was
+        /// written with.
         resolution: Resolution,
     },
 }

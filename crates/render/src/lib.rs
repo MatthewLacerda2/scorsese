@@ -27,6 +27,17 @@
 //! process. Transforms, opacity, and layer order are `scorsese-compositor`'s,
 //! called from [`run`]; summing samples is [`audio`]'s own.
 //!
+//! Two more modules exist so that a render can be *reviewed* without anyone
+//! watching it, which is what an unattended agent has instead of eyes.
+//! [`describe`] reads a plan back as prose — what is on screen when, at what
+//! fit, with what animated, and what is audible under it — for nothing, since
+//! the plan worked it all out already and used to throw it away. [`frames`]
+//! pulls real frames out of a finished file as PNGs, which is the only half
+//! that can catch the document being wrong about reality. They live here
+//! because the plan is what knows the first and ffmpeg is what does the
+//! second, and because the CLI, the MCP server and the golden harness all want
+//! the same answer.
+//!
 //! Boundary: no compositing logic (that is `scorsese-compositor`'s job — this
 //! crate never draws), no provider calls, no GUI. Depends on `scorsese-core`
 //! and `scorsese-compositor`.
@@ -38,8 +49,10 @@
 //! file move rather than a rewrite.
 
 pub mod audio;
+pub mod describe;
 pub mod error;
 pub mod format;
+pub mod frames;
 pub mod pipe;
 pub mod plan;
 pub mod probe;
@@ -58,8 +71,10 @@ pub mod tools;
 pub use scorsese_compositor::{Frame, PIXEL_FORMAT};
 
 pub use audio::{Mix, Mixdown};
+pub use describe::{Cue, CueError, Description, Moment, Stretch};
 pub use error::{RenderError, Stage};
 pub use format::{AudioCodec, Container, FormatError, OutputFormat, VideoCodec};
+pub use frames::{FrameError, Still};
 pub use plan::{FrameRange, FrameRangeError, Plan, PlanError, Showing};
 pub use probe::{Ffprobe, fill_media};
 pub use properties::{ANIMATABLE, Unknown, unknown_in};

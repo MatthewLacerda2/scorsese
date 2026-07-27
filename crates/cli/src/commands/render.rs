@@ -1,12 +1,12 @@
 //! `scorsese render`
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use scorsese_core::{Fps, Project};
 use scorsese_render::{
-    AudioCodec, Bitrate, Container, FrameRange, OutputFormat, RenderSettings, Renderer, Resolution,
-    SampleRate, Tools, VideoCodec,
+    AudioCodec, Bitrate, Container, Cue, FrameRange, OutputFormat, RenderSettings, Renderer,
+    Resolution, SampleRate, Tools, VideoCodec, frames,
 };
 
 /// Everything the command line can say about the file to produce. Gathered into
@@ -32,6 +32,11 @@ pub struct Options {
     pub video_codec: Option<VideoCodec>,
     /// `None` takes the sound codec the container is written with.
     pub audio_codec: Option<AudioCodec>,
+    /// Where to write PNG stills of the finished file. `None` writes none.
+    pub stills: Option<PathBuf>,
+    /// Which instants to still. Empty means every segment boundary, which is
+    /// where a cut can be one frame wrong.
+    pub at: Vec<Cue>,
 }
 
 /// Renders the project to `out`, then prints what was written — for a headless
@@ -84,6 +89,48 @@ pub fn run(project_dir: &Path, out: &Path, options: Options) -> Result<()> {
     }
     for note in &report.notes {
         println!("  note: {note}");
+    }
+    // What is actually in the file, which until now nobody could learn without
+    // watching it. Printed every time rather than behind a flag: an unattended
+    // agent has no second chance to ask, and this cost nothing to produce.
+    println!("{}", report.description);
+
+    if let Some(directory) = &options.stills {
+        stills(&tools, out, &options.at, &settings, &report, directory)?;
+    }
+    Ok(())
+}
+
+/// Writes the asked-for frames of the finished render out as PNGs.
+///
+/// The description says what the edit *claims*; these are what the pixels
+/// actually did. That is the half no plan can check, because the plan is
+/// derived from the same document that might be wrong about reality.
+fn stills(
+    tools: &Tools,
+    out: &Path,
+    at: &[Cue],
+    settings: &RenderSettings,
+    report: &scorsese_render::RenderReport,
+    directory: &Path,
+) -> Result<()> {
+    let description = &report.description;
+    let wanted: Vec<u64> = if at.is_empty() {
+        description.boundaries()
+    } else {
+        at.iter().map(|cue| cue.out_frame(description)).collect()
+    };
+    let written = frames::stills(tools, out, &wanted, settings.resolution, directory)
+        .with_context(|| format!("writing stills into {}", directory.display()))?;
+
+    println!("  {} still(s) in {}", written.len(), directory.display());
+    for still in &written {
+        let seconds = description.from.seconds + still.frame as f64 / settings.fps.as_f64();
+        println!(
+            "    f{} ({seconds:.2}s) {}",
+            still.frame,
+            still.path.display()
+        );
     }
     Ok(())
 }

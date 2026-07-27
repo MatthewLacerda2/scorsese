@@ -52,6 +52,13 @@ Never byte-equality of encoded output. Two ffmpeg builds encoding the same
 frames produce different bitstreams; the bytes of an `.mp4` are not ours to
 assert on. **Frames are.**
 
+Frames come out of the render through `scorsese_render::frames`, not through
+anything this harness owns. Getting a frame in and out of a file is a shipped
+capability — `scorsese render --stills` writes PNGs with the same code — and
+nothing may depend on `crates/golden`, so the harness is a caller of it rather
+than the owner. Every fixture passing unchanged across that move is what says
+the two were the same code.
+
 Each compared frame is measured two ways, both with tolerance:
 
 - **SSIM** on the worst 8×8 block, on luma — catches *where* pixels are. A shape

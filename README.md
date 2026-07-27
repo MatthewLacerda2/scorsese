@@ -103,6 +103,9 @@ scorsese assets gc --delete --project teaser.scor
 scorsese check --project teaser.scor             # problems and warnings, no render
 scorsese check --verify --project teaser.scor    # ...and re-hash the media too
 
+scorsese describe --project teaser.scor          # what the cut contains, no render
+scorsese describe --project teaser.scor --range 90:210
+
 scorsese render --project teaser.scor --out teaser.mp4
 scorsese render --project teaser.scor --out cut.mp4 --range 90:210
 scorsese render --project teaser.scor --out small.mp4 \
@@ -111,6 +114,9 @@ scorsese render --project teaser.scor --out teaser.mp4 \
     --sample-rate 48000 --audio-bitrate 192k
 scorsese render --project teaser.scor --out legacy.avi
 scorsese render --project teaser.scor --out legacy.avi --video-codec h264
+scorsese render --project teaser.scor --out teaser.mp4 --stills review/
+scorsese render --project teaser.scor --out teaser.mp4 \
+    --stills review/ --at 0s,2.5s,180
 ```
 
 The timeline framerate is chosen once, at `new`, and defaults to 30. It is the
@@ -140,6 +146,22 @@ other than `timeline_fps` conforms from the grid. Sources of another shape are
 letterboxed rather than stretched, and holes in the timeline render black.
 `--range` renders a slice of the timeline in frames, which is the cheap way to
 check one cut without re-encoding everything.
+
+**A render can be reviewed without watching it**, which is what an unattended
+agent has instead of eyes. `describe` — and `render`, afterwards — prints the
+cut stretch by stretch, in seconds as well as frames: what is on screen, on
+which track, at what fit, with what animated and over which half second, and
+what is audible under it. A slug card says so, with its prompt and its state,
+so a preview cut of nothing but prompts does not read like a finished film. It
+costs nothing: the plan works all of this out anyway, so `describe` runs
+without ffmpeg and before a frame has been encoded.
+
+That answers *"is the edit what I asked for?"* — but not *"do the pixels agree
+with the project?"*, because it is derived from the same document that might be
+wrong about reality. `--stills` is the other half: PNGs pulled out of the
+finished file for an agent to actually look at, at every segment boundary by
+default, because a boundary is where a cut can be one frame wrong. `--at` names
+instants instead, in either unit — `2.5s` or `180`.
 
 The shape of the delivered file — the container and the codecs in it — is a
 render setting like the rest. `--out`'s extension supplies the default, so
