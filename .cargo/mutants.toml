@@ -92,6 +92,26 @@ exclude_re = [
     # that could be hit is a gap, and the identical-looking mutation would be
     # reported as a survivor from a function whose tolerance is reachable.
     "replace < with <= in Properties::is_identity",
+
+    # `segments::cuts` collects the frames at which the visible set can change.
+    # It seeds the list with `[start, end]`, then adds each clip boundary that
+    # `at > start && at < end` calls *inside* — and finishes with
+    # `sort_unstable()` followed by `dedup()`.
+    #
+    # That dedup is what makes both of these equivalent. Loosening either end of
+    # `inside` changes the answer for exactly one boundary value — a clip
+    # starting on `start`, or ending on `end` — and that value is already in the
+    # list. The mutant pushes a second copy of a frame that is then deduplicated
+    # away, so the returned cuts are identical for every input. No test can tell
+    # the two apart, and a test that tried would be asserting on a `Vec` that
+    # cannot differ.
+    #
+    # The comparisons themselves are still load-bearing, and the mutations that
+    # *are* caught say so: `>` to `<`, `>` to `==`, `<` to `>` and `<` to `==`
+    # each admit boundaries from outside the rendered range and are killed by
+    # the range tests. Only the one-frame widening is absorbed.
+    "replace > with >= in cuts",
+    "replace < with <= in cuts",
 ]
 
 # ---------------------------------------------------------------------------
