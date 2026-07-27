@@ -108,6 +108,27 @@ jobs:
           cargo clippy --manifest-path tools/lint/Cargo.toml
           --all-targets --locked -- -D warnings
 
+  # The renderers for the two signals below. They are Python, so nothing else in
+  # this workflow compiles or checks them, and they had a bug that made both
+  # signals look broken: on a branch whose only Rust changes are test files,
+  # cargo-mutants finds nothing to mutate and writes no report, and reading that
+  # as a missing file made `make mutants` exit on a traceback and made this
+  # workflow announce that the run had failed to produce a report. Neither was
+  # true — there was simply nothing in scope.
+  #
+  # A gate rather than a signal, by CLAUDE.md's rule: what it checks is ordinary
+  # correctness, not a quality audit. Its own job because it needs no Rust
+  # toolchain, no ffmpeg and no cache — stdlib `unittest`, and it answers in
+  # seconds beside everything else.
+  scripts:
+    name: signal renderers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test
+        run: python3 -m unittest discover --start-directory .github/scripts/tests --verbose
+
   # Coverage. A signal, never a gate — the one job here that cannot turn
   # anything red, by design.
   #
@@ -355,16 +376,14 @@ jobs:
         if: always()
         run: |
           scope=$(cat scope.txt 2>/dev/null || echo "Scope unknown.")
-          if [ -f mutants.out/outcomes.json ]; then
-            python3 .github/scripts/mutants-summary.py mutants.out/outcomes.json "$scope" \
-              > mutants.md
-          elif [ "${{ steps.diff.outputs.rust }}" = "no" ]; then
-            printf '## Mutation\n\n### No mutants to run\n\nThis pull request changes no Rust source.\n\n*%s*\n' \
-              "$scope" > mutants.md
-          else
-            printf '## Mutation\n\n### The run did not produce a report\n\nSee the job log.\n' \
-              > mutants.md
-          fi
+          # One path, and deliberately: the summary script renders a run that
+          # had nothing to do as readily as one that did, so a missing
+          # `outcomes.json` is no longer read here as breakage. It is the
+          # ordinary result for a pull request whose Rust changes are all test
+          # files — which used to land in the `else` below and report "the run
+          # did not produce a report", saying the tool broke when it had not.
+          python3 .github/scripts/mutants-summary.py mutants.out/outcomes.json "$scope" \
+            > mutants.md
           tee -a "$GITHUB_STEP_SUMMARY" < mutants.md
 
       # One comment that rewrites itself, keyed on the marker — the same shape
