@@ -154,7 +154,8 @@ those boundaries are enforced in review.
   second) runs before every commit, so a file over the line limit never
   reaches a branch. A deliberate work-in-progress commit bypasses it with
   `git commit --no-verify`. Signals stay opt-in and out of `make gates`:
-  `make coverage` is one, and running it is never part of passing.
+  `make coverage` and `make mutants` are the two, and running either is never
+  part of passing.
 - **Size gate:** source files ≤ 300 lines, test files ≤ 150. **Group by
   subfolder, not filename prefix** — a shared prefix on sibling files
   (`draw_*`, `probe_*`) is a subfolder waiting to happen; make it one and drop
