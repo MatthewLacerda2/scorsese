@@ -16,8 +16,8 @@
 # Clippy is on the slow side deliberately — see the `clippy` target.
 #
 # Gates block; signals inform (CLAUDE.md, "Gates vs. signals"). `make gates`
-# runs only gates. `make coverage` is a signal and is opt-in precisely so a
-# local run never trains anyone to treat one as the other.
+# runs only gates. `make coverage` and `make mutants` are signals and are
+# opt-in precisely so a local run never trains anyone to treat one as the other.
 
 # Prerequisites run in order, and a gate that fails should be the last thing
 # printed rather than one of several racing to the terminal.
@@ -33,7 +33,7 @@ LINT := --manifest-path tools/lint/Cargo.toml
 GATES := format size clippy docs test deny
 
 .DEFAULT_GOAL := help
-.PHONY: help setup gates pre-commit inventory $(GATES) format-fix coverage
+.PHONY: help setup gates pre-commit inventory $(GATES) format-fix coverage mutants
 
 ##@ Everyday
 
@@ -112,6 +112,40 @@ coverage: ## Which pub items no test reaches. A signal: no threshold, blocks not
 	cargo llvm-cov --workspace --locked --exclude-from-report scorsese-golden \
 		--json --output-path target/coverage.json
 	python3 .github/scripts/coverage-summary.py target/coverage.json
+
+# Diff-scoped, exactly as the `mutants` job runs it, because the useful question
+# before a push is "would anything notice if what I just wrote were wrong?" and
+# not "how is the whole codebase doing". `cargo mutants` on its own sweeps the
+# full scoped surface — ~16 minutes — and is there when that is what you want.
+#
+# Surviving mutants exit 2 and timeouts exit 3; neither is a failure of the run,
+# so neither fails this target. Anything else is the tool breaking and does.
+#
+# An empty diff is answered here rather than passed on: `cargo mutants` treats
+# one as "nothing to do", exits 0 and leaves any previous `mutants.out` where it
+# was — so handing that to the summary script would reprint an old report as if
+# it were this branch's. Hence the check, and the `rm -rf` before a real run.
+#
+# What gets mutated, and what to do with a survivor: docs/mutation-testing.md.
+mutants: ## Which changes to the code no test would notice. A signal: blocks nothing
+	@command -v cargo-mutants >/dev/null 2>&1 || { \
+		echo "mutants: cargo-mutants is not installed." >&2; \
+		echo "         Install it with: cargo install --locked cargo-mutants" >&2; \
+		exit 1; }
+	@git rev-parse --verify --quiet origin/main >/dev/null || { \
+		echo "mutants: origin/main is not in this clone -- there is no diff to scope to." >&2; \
+		echo "         Fetch it with: git fetch origin main" >&2; \
+		exit 1; }
+	@mkdir -p target
+	@git diff origin/main...HEAD -- '*.rs' > target/pr.diff
+	@if [ ! -s target/pr.diff ]; then \
+		echo "mutants: this branch changes no Rust source against origin/main."; \
+	else \
+		rm -rf mutants.out; \
+		cargo mutants --in-diff target/pr.diff; status=$$?; \
+		case $$status in 0|2|3) ;; *) exit $$status ;; esac; \
+		python3 .github/scripts/mutants-summary.py mutants.out/outcomes.json; \
+	fi
 
 ##@ Fixing
 
