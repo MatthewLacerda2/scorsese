@@ -28,9 +28,46 @@ mod layout;
 pub use draw::draw_line;
 pub use font::{Font, FontError};
 
+use std::ops::Range;
+
 use scorsese_core::{Rgba, TextAlign};
 
-use crate::frame::Frame;
+use crate::frame::{Frame, Resolution};
+
+/// The horizontal strip of a frame a block of text is set in.
+///
+/// A block is centred in its band, so the whole frame is one band — what a
+/// title gets — and the foot of the frame is another, which is what a
+/// narration card sits in. Nothing else about the drawing changes: the same
+/// wrapping, the same truncation, the same horizontal alignment.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Band {
+    /// Pixels from the top of the frame down to the top of the strip.
+    pub top: f32,
+    /// How tall the strip is, in pixels. What is set in it is truncated to
+    /// this rather than to the frame, so a band cannot spill out of itself.
+    pub height: f32,
+}
+
+impl Band {
+    /// The whole of a frame, which is what plain [`draw`] sets text in.
+    pub fn whole(resolution: Resolution) -> Self {
+        Self {
+            top: 0.0,
+            height: resolution.height() as f32,
+        }
+    }
+
+    /// The rows of `resolution` this band covers — what fills the panel of a
+    /// card behind the text. Rounded outwards and clamped, so a band never
+    /// leaves an unpainted row between itself and the edge it reaches.
+    pub fn rows(self, resolution: Resolution) -> Range<u32> {
+        let height = f64::from(resolution.height());
+        let first = f64::from(self.top).clamp(0.0, height) as u32;
+        let last = (f64::from(self.top) + f64::from(self.height)).clamp(0.0, height);
+        first..(last.ceil() as u32).max(first)
+    }
+}
 
 /// How a block of text is set, in pixels of the frame it goes on.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -60,8 +97,18 @@ pub struct Style {
 /// transparent so the tracks underneath show through everywhere the glyphs are
 /// not.
 pub fn draw(frame: &mut Frame, text: &str, font: &Font, style: &Style) {
+    draw_in(frame, text, font, style, Band::whole(frame.resolution()));
+}
+
+/// [`draw`], into one band of the frame rather than the whole of it.
+///
+/// The block is centred in the band both ways and truncated to it, so a card's
+/// panel and the text on it are described by the same value and cannot drift
+/// apart. `draw` is this with the band being the entire frame.
+pub fn draw_in(frame: &mut Frame, text: &str, font: &Font, style: &Style, band: Band) {
     let resolution = frame.resolution();
-    let (width, height) = (resolution.width() as f32, resolution.height() as f32);
+    let width = resolution.width() as f32;
+    let height = band.height.max(1.0);
 
     // Every guard below is a `max`, which is also how a NaN is caught: it
     // returns the other operand. A style that says nothing sane still draws
@@ -78,7 +125,7 @@ pub fn draw(frame: &mut Frame, text: &str, font: &Font, style: &Style) {
     let face = font.at(size);
     let lines = layout::wrap(text, &face, max_width, rows);
     let (ascent, descent) = face.extents();
-    let top = (height - line_height * lines.len() as f32) / 2.0;
+    let top = band.top + (height - line_height * lines.len() as f32) / 2.0;
     let box_left = (width - max_width) / 2.0;
 
     // One path for the whole block, filled once: the rasteriser is entered a

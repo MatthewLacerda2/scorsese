@@ -14,6 +14,7 @@ mod range;
 mod refusals;
 mod resuming;
 mod sequencing;
+mod sketches;
 
 use scorsese_core::{Asset, AssetKind, Project};
 

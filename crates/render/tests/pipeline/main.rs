@@ -15,6 +15,7 @@ mod common;
 mod fitting;
 mod output;
 mod partial;
+mod slugs;
 mod sources;
 mod text;
 mod warnings;

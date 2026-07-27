@@ -15,19 +15,32 @@
 //! no overlap within a track, cuts wherever the set changes — so it would take
 //! more code, not less, to treat them as two problems.
 //!
-//! The one difference is *which* clips take part. Every clip on a video track
-//! is visible; only some of them are audible, because a video track carries
-//! clips whose files have sound on them and clips whose files do not. So both
-//! passes take a predicate, and the audio pass is the one that says no.
+//! The one difference is *which* clips take part, and neither pass is simply
+//! "its own tracks". A clip on a video track is always visible; a clip on an
+//! *audio* track is visible too when it is a prompt with no media, because its
+//! slug card is picture. A clip on an audio track is always audible; a clip on
+//! a video track is audible when its own file has sound on it. So both passes
+//! take a predicate, and each one says no to something.
 
 use scorsese_core::{Asset, Clip, Frames, Project, Track, TrackKind};
 
-use super::{PlanError, Segment, Shot};
+use super::{PlanError, Segment, Shot, Showing};
 
-/// Every clip counts. What the picture pass wants: a clip on a video track is
-/// on screen, and there is nothing further to ask.
-pub(super) fn anything(_: &Track, _: &Clip) -> bool {
-    true
+/// True when this clip puts something on screen.
+///
+/// Every clip on a video track does. A clip on an **audio** track does when it
+/// is showing a slug card: a narration prompt that has not been generated is
+/// silence in the mix and a card on the picture, which is the only way a cut
+/// built around a voice-over can be watched before the voice-over exists. Once
+/// it *has* been generated the card goes away and the picture is untouched —
+/// nothing is ever drawn over a shot for a sound that can be heard.
+pub(super) fn is_visible(project: &Project, track: &Track, clip: &Clip) -> bool {
+    match track.kind {
+        TrackKind::Video => true,
+        TrackKind::Audio => project
+            .asset(&clip.asset)
+            .is_some_and(|asset| showing(asset) == Showing::Card),
+    }
 }
 
 /// True when this clip puts sound into the mix.
@@ -132,9 +145,11 @@ pub(super) fn build<'a>(
                 .iter()
                 .find(|clip| covers(clip, from) && keep(track, clip))
             {
+                let asset = renderable_asset(project, clip)?;
                 layers.push(Shot {
                     clip,
-                    asset: renderable_asset(project, clip)?,
+                    asset,
+                    showing: showing(asset),
                     source_in: clip.source_in + Frames(from.get() - clip.start.get()),
                 });
             }
@@ -176,6 +191,22 @@ fn covers(clip: &Clip, at: Frames) -> bool {
     clip.start <= at && at < clip.end()
 }
 
+/// Media, or the card that stands in for it.
+///
+/// The question is not which lifecycle state the asset is in but whether the
+/// document believes there is a file: `sketch` has never had one, `queued` does
+/// not have one yet, and `stale` has one that no longer answers the prompt
+/// beside it. All three are a card, and `generated` is the only state that is
+/// not. An asset with no lifecycle at all — an imported clip, a title — always
+/// shows itself.
+pub(super) fn showing(asset: &Asset) -> Showing {
+    if asset.kind.is_generated() && !asset.has_renderable_media() {
+        Showing::Card
+    } else {
+        Showing::Media
+    }
+}
+
 /// The asset a clip shows, if there is anything to put on screen for it.
 fn renderable_asset<'a>(project: &'a Project, clip: &Clip) -> Result<&'a Asset, PlanError> {
     let asset = project
@@ -184,16 +215,11 @@ fn renderable_asset<'a>(project: &'a Project, clip: &Clip) -> Result<&'a Asset, 
             clip: clip.id.to_string(),
             asset: clip.asset.to_string(),
         })?;
-    if asset.needs_generation() {
-        return Err(PlanError::NotGenerated {
-            clip: clip.id.to_string(),
-            asset: asset.id.to_string(),
-        });
-    }
-    // A text asset has no file to open: its content is in the document and the
-    // compositor draws it. So the missing-media question is only asked of the
-    // kinds a file is what they *are*.
-    if asset.kind.is_file_backed() && asset.path.is_none() {
+    // Two kinds need no file. A text asset carries its content in the document,
+    // and a prompt with nothing generated has a slug card — so the
+    // missing-media refusal is only for an imported asset whose path went
+    // missing from the table, which is a document nobody can render.
+    if asset.kind.is_file_backed() && asset.path.is_none() && showing(asset) == Showing::Media {
         return Err(PlanError::NoMedia {
             clip: clip.id.to_string(),
             asset: asset.id.to_string(),

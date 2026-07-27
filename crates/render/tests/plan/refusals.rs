@@ -1,10 +1,10 @@
 //! Timelines this pipeline will not render, and why it says no rather than
 //! producing something almost right.
 
-use scorsese_core::{AssetId, AssetKind, Clip, ClipId, Fps, Frames};
+use scorsese_core::{Asset, AssetId, AssetKind, Clip, ClipId, Fps, Frames};
 use scorsese_render::{FrameRange, Plan, PlanError};
 
-use crate::common::{clip, file_asset, project, shape, sketch_asset, text_asset, video_track};
+use crate::common::{clip, file_asset, project, shape, text_asset, video_track};
 
 #[test]
 fn an_empty_project_has_nothing_to_render() {
@@ -36,17 +36,20 @@ fn an_empty_second_video_track_is_ignored() {
     assert!(Plan::build(&project, Fps::THIRTY, FrameRange::ALL).is_ok());
 }
 
+/// An *imported* asset with no path is a document nobody can render: there is
+/// no prompt to put on a card and no file to decode. A prompt in the same
+/// state is not this — it has a slug card, which is `plan/sketches.rs`.
 #[test]
-fn a_sketch_clip_is_refused_until_slug_cards_exist() {
+fn an_imported_asset_with_no_file_is_refused() {
     let project = project(
-        vec![sketch_asset("veo1")],
-        vec![video_track("v1", vec![clip("c1", "veo1", 0, 30)])],
+        vec![Asset {
+            path: None,
+            ..file_asset("a", AssetKind::Video)
+        }],
+        vec![video_track("v1", vec![clip("c1", "a", 0, 30)])],
     );
     let error = Plan::build(&project, Fps::THIRTY, FrameRange::ALL).expect_err("must refuse");
-    assert!(
-        matches!(error, PlanError::NotGenerated { .. }),
-        "got {error:?}"
-    );
+    assert!(matches!(error, PlanError::NoMedia { .. }), "got {error:?}");
 }
 
 /// A text asset has no file, and the missing-media refusal must not be aimed

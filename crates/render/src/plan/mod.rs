@@ -5,6 +5,7 @@
 //! say how many output frames each stretch is worth. Keeping it separate is
 //! what lets the sequencing be tested exhaustively without encoding anything.
 
+mod error;
 mod range;
 mod segments;
 
@@ -12,7 +13,26 @@ use scorsese_core::{Asset, Clip, Fps, Frames, Project, Track, TrackKind};
 
 use crate::report::Note;
 
+pub use error::PlanError;
 pub use range::{FrameRange, FrameRangeError};
+
+/// What a clip puts on screen, or into the mix.
+///
+/// The whole of the sketch lifecycle as the renderer sees it, and it is decided
+/// from the **document**: an asset either has media the project believes in, or
+/// it does not and a card stands in. Whether the file that belief names is
+/// actually on disk is a question for later, in [`crate::slug`], where opening
+/// files is allowed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Showing {
+    /// The asset's own media, decoded from the file it names — or, for a text
+    /// asset, the content it carries inline.
+    Media,
+    /// A slug card: the prompt on a gray card, because there is nothing
+    /// generated to show. What `sketch`, `queued` and `stale` all render as,
+    /// and what makes a full preview cut cost nothing.
+    Card,
+}
 
 /// A clip resolved to the asset it shows.
 #[derive(Debug, Clone, PartialEq)]
@@ -22,6 +42,9 @@ pub struct Shot<'a> {
     /// The entry the clip's asset id resolved to. Looked up once here so
     /// nothing downstream has to carry the assets table around.
     pub asset: &'a Asset,
+    /// Media or a slug card. Resolved here, once, so that no later stage has
+    /// to re-derive the lifecycle rules from `state` and `path`.
+    pub showing: Showing,
     /// Where in the source to start, in frames of the **timeline** grid — the
     /// clip's own `source_in`, plus however far into the clip this stretch of
     /// timeline begins. A clip cut across several segments by a boundary on
@@ -81,6 +104,12 @@ impl<'a> Plan<'a> {
     /// keyframed `volume` like anything else — the sound on a shot is part of
     /// the shot. Whether a file has that stream is read from the assets table,
     /// so this stays a function of the project with no ffprobe in it.
+    ///
+    /// And what is *seen* is not simply the video tracks. A narration prompt
+    /// nobody has generated yet has a slug card, and a card is picture: it goes
+    /// on the output above the shots it narrates, for exactly as long as its
+    /// clip lasts, so that a cut driven by its voice-over can be watched before
+    /// a word of it has been paid for.
     pub fn build(project: &'a Project, out_fps: Fps, range: FrameRange) -> Result<Self, PlanError> {
         let tracks = segments::tracks_of(project, TrackKind::Video);
         if tracks.is_empty() {
@@ -90,6 +119,12 @@ impl<'a> Plan<'a> {
         let audible = |track: &Track, clip: &Clip| segments::is_audible(project, track, clip);
         let audio_tracks =
             segments::taking_part(project, &[TrackKind::Video, TrackKind::Audio], audible);
+        let visible = |track: &Track, clip: &Clip| segments::is_visible(project, track, clip);
+        let mut picture_tracks = tracks.clone();
+        // After the video tracks rather than in document order: a narration
+        // card belongs over the picture, and nothing on an audio track can be
+        // what a shot is composited *onto*.
+        picture_tracks.extend(segments::taking_part(project, &[TrackKind::Audio], visible));
 
         let mut notes = Vec::new();
         // Only the audio *tracks* can outlast the picture: sound that came off
@@ -125,7 +160,7 @@ impl<'a> Plan<'a> {
             end,
             timeline_fps: project.timeline_fps,
             out_fps,
-            segments: segments::build(project, &tracks, start, end, segments::anything)?,
+            segments: segments::build(project, &picture_tracks, start, end, visible)?,
             audio: segments::build(project, &audio_tracks, start, end, audible)?,
             notes,
         })
@@ -226,55 +261,4 @@ impl<'a> Plan<'a> {
         let denominator = u128::from(self.timeline_fps.num());
         u64::try_from((numerator + denominator / 2) / denominator).unwrap_or(u64::MAX)
     }
-}
-
-/// Why a timeline cannot be sequenced into a render.
-#[derive(Debug, Clone, PartialEq, thiserror::Error)]
-pub enum PlanError {
-    /// Picture decides how long a render is, so a project with only audio has
-    /// no length to give one.
-    #[error("there is nothing to render: no video track has any clips")]
-    NothingToRender,
-
-    /// Typically a stale `--range` left over from a longer cut.
-    #[error("range {range} selects no frames of a timeline {timeline_end} long")]
-    EmptyRange {
-        /// The range as asked for, after clamping.
-        range: FrameRange,
-        /// Where the timeline actually ends.
-        timeline_end: Frames,
-    },
-
-    /// The project is internally inconsistent: validation should have caught
-    /// this before a render was ever attempted.
-    #[error("clip `{clip}` references asset `{asset}`, which is not in the assets table")]
-    UnknownAsset {
-        /// The clip holding the dangling reference.
-        clip: String,
-        /// The asset id nothing in the table matches.
-        asset: String,
-    },
-
-    /// A prompt clip still in `sketch` or `stale`. Until slug cards exist there
-    /// is nothing to put on screen for it.
-    #[error(
-        "clip `{clip}` shows asset `{asset}`, which has not been generated yet — \
-         rendering sketches as slug cards is not implemented yet, so run `scorsese generate` first"
-    )]
-    NotGenerated {
-        /// The clip showing the ungenerated asset.
-        clip: String,
-        /// The asset still waiting on its provider.
-        asset: String,
-    },
-
-    /// The table entry is generated but carries no path — a project edited by
-    /// hand, or a migration that lost one.
-    #[error("clip `{clip}` shows asset `{asset}`, which has no media file")]
-    NoMedia {
-        /// The clip with nothing to show.
-        clip: String,
-        /// The asset whose path is missing.
-        asset: String,
-    },
 }

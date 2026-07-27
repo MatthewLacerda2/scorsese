@@ -48,10 +48,38 @@ re-importing or regenerating a file is one edit in one place.
   "prompt": "wide aerial of a city at dawn, slow push in" }
 ```
 
-A `generated_*` asset in `sketch` or `stale` has no media yet and renders as
-a slug card — the prompt on a gray card. That is what makes previewing a full
-cut cost nothing. `GO` generates exactly the sketch and stale assets;
-`generated` is a cache hit and is never re-billed.
+A `generated_*` asset with no media renders as a **slug card** — the prompt on
+a gray card, with what kind of prompt it is and what state it is in written
+above it. That is what makes previewing a full cut cost nothing. `GO`
+generates exactly the sketch and stale assets; `generated` is a cache hit and
+is never re-billed.
+
+Which states have media follows from what the states mean, and `generated` is
+the only one that does:
+
+| State | Renders as | Why |
+| --- | --- | --- |
+| `sketch` | a card | nothing has been generated |
+| `queued` | a card | in flight; the file lands when it lands |
+| `generated` | its media | the file is what the prompt asked for |
+| `stale` | a card | the file exists and is **not** what the prompt now says |
+
+`stale` is the one worth reading twice: the media is still on disk, and
+showing it would be showing a shot the project no longer asks for.
+
+A `generated` asset whose file is **not there** — deleted, or never copied
+along with the project — renders as a card too, and the render says so in its
+report rather than failing. The media can be generated again, and a preview
+with one card in it is worth more than no preview at all.
+
+### Narration prompts are visible
+
+A `generated_audio` prompt lives on an audio track, and until it is generated
+there is nothing to hear: it contributes **silence** to the mix. Its card
+still appears, as a band across the foot of the picture for exactly the frames
+its clip covers, so a cut built around a voice-over can be watched before a
+word of it has been paid for. Once the audio exists the card is gone and the
+picture is untouched — a slug card is a stand-in, never a caption.
 
 ### Text assets and how they look
 
@@ -384,10 +412,11 @@ Validation is about the *document*, and stops at the edge of it: it checks that
 `path` is legal and relative, never that anything is there. Whether the media
 actually exists is the pool's answer and `scorsese check`'s question — a
 document can be flawless and still unrenderable because the footage was deleted
-underneath it. `check` reports both together: a file a clip references and
+underneath it. `check` reports both together: an imported file a clip references and
 cannot find is a problem, a file whose content no longer matches its recorded
-`sha256` is a warning, and a `generated_*` asset still awaiting generation is
-neither. A `style`'s font file is a path like any other, so the same split
+`sha256` is a warning, a *generated* file that has gone is a warning too —
+it renders as a slug card rather than stopping the render — and a `generated_*`
+asset still awaiting generation is neither. A `style`'s font file is a path like any other, so the same split
 applies: the shape is validated here, and whether the face is really on disk is
 the render's to find out.
 

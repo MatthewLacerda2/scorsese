@@ -71,6 +71,7 @@ goldens!(
     serif,
     slice,
     slide,
+    slugs,
     title,
     title_moved,
     zoom

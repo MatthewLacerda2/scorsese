@@ -30,6 +30,9 @@ impl Rgba {
     /// it is the colour that reads over the widest range of footage.
     pub const WHITE: Self = Self::opaque(255, 255, 255);
 
+    /// Opaque black — what a picture is where nothing covers it.
+    pub const BLACK: Self = Self::opaque(0, 0, 0);
+
     /// A colour with the alpha spelled out.
     pub const fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
         Self { r, g, b, a }

@@ -33,12 +33,17 @@
 //! pixels. What it produces is an ordinary layer, so a title fades and moves
 //! through the properties above rather than through anything of its own.
 //!
+//! [`card`] is that same text over a panel of colour, which is all a slug card
+//! is. It is a hundred lines that call the other two modules, and it is not a
+//! rendering path of its own — that is the point of it.
+//!
 //! Boundary: no ffmpeg invocation, no encoding, no file I/O on media, no
 //! provider calls, no GUI event loop. It depends on `scorsese-core` for the
 //! model and nothing above it. The shipped faces are compiled in with
 //! `include_bytes!` rather than read at runtime, which is what keeps that
 //! true; a project's own font arrives as bytes somebody else opened.
 
+pub mod card;
 pub mod compose;
 pub mod cpu;
 pub mod frame;
@@ -46,9 +51,10 @@ pub mod properties;
 pub mod registry;
 pub mod text;
 
+pub use card::Card;
 pub use compose::{CompositeError, Compositor, Layer};
 pub use cpu::CpuCompositor;
 pub use frame::{BYTES_PER_PIXEL, Frame, PIXEL_FORMAT, Resolution, ResolutionError};
 pub use properties::{ANIMATED, Properties, fade_in, fade_out, path};
 pub use registry::{Property, Registry};
-pub use text::{Font, FontError};
+pub use text::{Band, Font, FontError};

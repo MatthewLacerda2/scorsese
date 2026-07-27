@@ -8,6 +8,8 @@
 use std::fmt;
 use std::str::FromStr;
 
+use scorsese_core::Rgba;
+
 /// Bytes per pixel in the interchange format.
 pub const BYTES_PER_PIXEL: usize = 4;
 
@@ -179,8 +181,35 @@ impl Frame {
     /// like, what a clip whose source ran out falls back to, and what a canvas
     /// starts as before anything is composited onto it.
     pub fn fill_black(&mut self) {
-        for pixel in self.pixels.chunks_exact_mut(BYTES_PER_PIXEL) {
-            pixel.copy_from_slice(&[0, 0, 0, u8::MAX]);
+        self.fill(Rgba::BLACK);
+    }
+
+    /// Paints the whole frame one colour, alpha included.
+    ///
+    /// The flat half of a slug card: a panel of colour is what the prompt is
+    /// then drawn over. A translucent colour here is a translucent *layer* —
+    /// nothing is blended with what was in the buffer before, because a layer
+    /// describes what it contributes and the compositor decides how that meets
+    /// the tracks below it.
+    pub fn fill(&mut self, color: Rgba) {
+        self.fill_rows(0..self.resolution.height(), color);
+    }
+
+    /// Paints whole rows one colour and leaves the rest of the frame alone.
+    ///
+    /// Rows rather than a rectangle, because what needs one is a band across
+    /// the picture — a narration card at the foot of the frame — and a general
+    /// rectangle would be a clipping model this crate does not otherwise have.
+    /// A range reaching past the last row is cut back to it rather than
+    /// refused; a band is a fraction of a raster somebody rounded.
+    pub fn fill_rows(&mut self, rows: std::ops::Range<u32>, color: Rgba) {
+        let height = self.resolution.height();
+        let stride = self.resolution.width() as usize * BYTES_PER_PIXEL;
+        let first = rows.start.min(height) as usize * stride;
+        let last = rows.end.clamp(rows.start, height) as usize * stride;
+        let channels = color.channels();
+        for pixel in self.pixels[first..last].chunks_exact_mut(BYTES_PER_PIXEL) {
+            pixel.copy_from_slice(&channels);
         }
     }
 

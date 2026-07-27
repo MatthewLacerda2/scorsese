@@ -40,6 +40,21 @@ fn a_referenced_missing_file_is_a_problem() {
     );
 }
 
+/// Except when it is a prompt's. A generated file that has gone renders as a
+/// slug card and a note, and `scorsese generate` can make it again — so the
+/// render succeeds and this is a warning about a preview, not a refusal.
+#[test]
+fn a_referenced_generated_file_that_is_gone_is_only_a_warning() {
+    let missing = AssetStatus {
+        kind: AssetKind::GeneratedVideo,
+        ..row(AssetHealth::Missing, 1)
+    };
+    assert_eq!(
+        findings(&[missing]).first().map(|finding| finding.severity),
+        Some(Severity::Warning)
+    );
+}
+
 #[test]
 fn a_referenced_unreadable_file_is_a_problem() {
     let health = AssetHealth::Unreadable("permission denied".to_owned());
