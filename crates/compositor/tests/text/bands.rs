@@ -5,8 +5,8 @@
 //! which is why a title is unchanged by any of this, and the foot of the frame
 //! is another, which is where a narration card's words go.
 
-use scorsese_compositor::text::{self, Band, Font};
 use scorsese_compositor::Resolution;
+use scorsese_compositor::text::{self, Band, Font};
 use scorsese_core::Rgba;
 
 use crate::cards::{PANEL, card_of, foot};

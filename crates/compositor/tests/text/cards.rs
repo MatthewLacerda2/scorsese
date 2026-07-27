@@ -4,9 +4,9 @@
 //! that the panel goes exactly where it was asked to go, the text goes with
 //! it, and neither touches the rest of the frame.
 
+use scorsese_compositor::Frame;
 use scorsese_compositor::card::{self, Card};
 use scorsese_compositor::text::{Band, Font};
-use scorsese_compositor::Frame;
 use scorsese_core::Rgba;
 
 use crate::ink::{HEIGHT, WIDTH, canvas, pixel, style};
