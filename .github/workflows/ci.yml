@@ -28,11 +28,14 @@ jobs:
       - name: Format
         run: cargo fmt --all --check
 
+      # `--locked` everywhere below: a Cargo.lock that would need updating
+      # fails loudly here instead of being quietly rewritten inside the runner,
+      # so CI builds exactly the dependency versions the PR author built.
       - name: Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
       - name: Test
-        run: cargo test --workspace
+        run: cargo test --workspace --locked
 
       # The golden renders live inside `cargo test --workspace`, so a failure
       # above may be a pixel regression. These are the frames it disagreed with,
@@ -44,3 +47,20 @@ jobs:
           name: golden-failures
           path: target/tmp/golden-failures/
           if-no-files-found: ignore
+
+  # Supply chain. Nothing else in this workflow looks at what our ~60
+  # transitive dependencies are or what they are licensed under; a RUSTSEC
+  # advisory would otherwise land silently and stay until someone happened to
+  # read a changelog. This is a blocking gate, not a signal — a known
+  # vulnerability is not something to report and merge anyway. The policy,
+  # including any deliberately ignored advisory and its reasoning, lives in
+  # `deny.toml`; override there, never by relaxing this step.
+  deny:
+    name: cargo-deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories bans sources licenses

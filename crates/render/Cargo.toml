@@ -3,6 +3,7 @@ name = "scorsese-render"
 version.workspace = true
 edition.workspace = true
 repository.workspace = true
+publish.workspace = true
 
 [dependencies]
 scorsese-compositor = { version = "0.1.0", path = "../compositor" }

@@ -1,0 +1,54 @@
+# Supply-chain policy for `cargo deny check advisories bans sources licenses`.
+#
+# The CI `deny` job is a BLOCKING gate (no continue-on-error): a new RUSTSEC
+# advisory, a non-allow-listed license, or a dependency from somewhere other
+# than crates.io fails the build. A known vulnerability is not something to
+# inform anyone about and merge anyway.
+#
+# Override only by adding a reviewed, deliberate entry to THIS file — with the
+# paragraph explaining why — never by relaxing the CI step.
+
+[advisories]
+# A crate version pulled after being yanked is worth knowing about, but it is
+# not a vulnerability and it should not stop a merge.
+yanked = "warn"
+# Every entry here is an advisory we have read and decided does not reach us.
+# It carries a paragraph saying why, and the condition under which it goes away.
+ignore = []
+
+[bans]
+# Two versions of the same crate is bloat, not breakage: it makes the build
+# bigger and slower but nothing incorrect. Worth seeing in the log, not worth
+# blocking on.
+multiple-versions = "warn"
+# We write our own version requirements; none of them are wildcards, and a
+# wildcard on a path dependency inside the workspace is normal.
+wildcards = "allow"
+
+[licenses]
+# Explicit allow-list: a dependency under any other license fails CI. This is
+# deliberately tight — it holds exactly the licenses our tree actually uses, so
+# that a new one arrives as a decision someone makes rather than a line nobody
+# reads. Add to it only after looking at what the license requires of us.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    # `arrayref`, reached through the `tiny-skia` rasterizer.
+    "BSD-2-Clause",
+    # `tiny-skia` and `tiny-skia-path` — the CPU compositor backend.
+    "BSD-3-Clause",
+    # `unicode-ident`, whose license is `(MIT OR Apache-2.0) AND Unicode-3.0`:
+    # the Unicode half is not optional, so it has to be allowed explicitly.
+    "Unicode-3.0",
+]
+confidence-threshold = 0.8
+# Our own crates carry no license field and are never published to a registry
+# (`publish = false`). Dependencies are still fully gated.
+private = { ignore = true }
+
+[sources]
+# Everything comes from crates.io. A git dependency — or a crate from some
+# other registry — is a supply-chain decision that has to be made on purpose.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
