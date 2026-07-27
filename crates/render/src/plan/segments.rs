@@ -26,7 +26,7 @@ use super::{PlanError, Segment, Shot};
 
 /// Every clip counts. What the picture pass wants: a clip on a video track is
 /// on screen, and there is nothing further to ask.
-pub fn anything(_: &Track, _: &Clip) -> bool {
+pub(super) fn anything(_: &Track, _: &Clip) -> bool {
     true
 }
 
@@ -42,7 +42,7 @@ pub fn anything(_: &Track, _: &Clip) -> bool {
 /// answer means the probe failed, and treating "we could not find out" as sound
 /// would mean decoding a file we have no reason to believe has any. That is the
 /// case a render note exists for.
-pub fn is_audible(project: &Project, track: &Track, clip: &Clip) -> bool {
+pub(super) fn is_audible(project: &Project, track: &Track, clip: &Clip) -> bool {
     match track.kind {
         TrackKind::Audio => true,
         TrackKind::Video => project.asset(&clip.asset).is_some_and(carries_sound),
@@ -50,7 +50,7 @@ pub fn is_audible(project: &Project, track: &Track, clip: &Clip) -> bool {
 }
 
 /// True when the media behind this asset is known to have an audio stream.
-pub fn carries_sound(asset: &Asset) -> bool {
+pub(super) fn carries_sound(asset: &Asset) -> bool {
     asset
         .media
         .and_then(|media| media.audio_channels)
@@ -63,7 +63,7 @@ pub fn carries_sound(asset: &Asset) -> bool {
 /// Audio tracks have no equivalent of that order: sounds playing at once are
 /// summed, and addition does not care which came first. The order is kept
 /// anyway so a mix is reproducible down to its floating-point rounding.
-pub fn tracks_of(project: &Project, kind: TrackKind) -> Vec<&Track> {
+pub(super) fn tracks_of(project: &Project, kind: TrackKind) -> Vec<&Track> {
     project
         .tracks
         .iter()
@@ -72,7 +72,7 @@ pub fn tracks_of(project: &Project, kind: TrackKind) -> Vec<&Track> {
 }
 
 /// The frame just past the last clip on any of these tracks.
-pub fn timeline_end(tracks: &[&Track]) -> Frames {
+pub(super) fn timeline_end(tracks: &[&Track]) -> Frames {
     tracks
         .iter()
         .flat_map(|track| track.clips.iter().map(Clip::end))
@@ -85,7 +85,7 @@ pub fn timeline_end(tracks: &[&Track]) -> Frames {
 /// For picture that is every video track with clips. For sound it is every
 /// audio track, plus any video track carrying a clip with sound on it — sound
 /// is not a property of a track's kind, it is a property of the media.
-pub fn taking_part<'a>(
+pub(super) fn taking_part<'a>(
     project: &'a Project,
     kinds: &[TrackKind],
     keep: impl Fn(&Track, &Clip) -> bool,
@@ -105,7 +105,7 @@ pub fn taking_part<'a>(
 /// `keep` decides which clips take part at all: one it rejects neither appears
 /// as a layer nor cuts the timeline, so a silent shot in the middle of a music
 /// bed does not split the mix in two for no reason.
-pub fn build<'a>(
+pub(super) fn build<'a>(
     project: &'a Project,
     tracks: &[&'a Track],
     start: Frames,

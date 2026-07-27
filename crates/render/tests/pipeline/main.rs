@@ -29,10 +29,14 @@ use common::ffmpeg::generate_asset;
 /// letterboxing to be visible.
 const RASTER: (u32, u32) = (64, 64);
 
-pub const BLACK: (u8, u8, u8) = (0, 0, 0);
-pub const RED: (u8, u8, u8) = (254, 0, 0);
-pub const GREEN: (u8, u8, u8) = (0, 128, 0);
-pub const BLUE: (u8, u8, u8) = (0, 0, 254);
+/// The colours the fixtures are built from, as they come back out of the
+/// encoder. Not quite the primaries they went in as: `RED` and `BLUE` lose a
+/// step to the yuv round trip, and `GREEN` is ffmpeg's `green`, which is half
+/// intensity.
+const BLACK: (u8, u8, u8) = (0, 0, 0);
+const RED: (u8, u8, u8) = (254, 0, 0);
+const GREEN: (u8, u8, u8) = (0, 128, 0);
+const BLUE: (u8, u8, u8) = (0, 0, 254);
 
 fn settings(fps: Fps) -> RenderSettings {
     let resolution =

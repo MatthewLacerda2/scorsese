@@ -10,12 +10,12 @@ use std::path::Path;
 
 use scorsese_core::{Fps, MediaMetadata, ProbeError, ProbeMedia};
 
-pub struct StubProbe {
+pub(crate) struct StubProbe {
     result: Result<MediaMetadata, String>,
 }
 
 impl StubProbe {
-    pub fn video() -> Self {
+    pub(crate) fn video() -> Self {
         Self::reporting(MediaMetadata {
             duration_seconds: Some(2.0),
             width: Some(320),
@@ -26,7 +26,7 @@ impl StubProbe {
         })
     }
 
-    pub fn image() -> Self {
+    pub(crate) fn image() -> Self {
         Self::reporting(MediaMetadata {
             width: Some(64),
             height: Some(64),
@@ -37,7 +37,7 @@ impl StubProbe {
         })
     }
 
-    pub fn audio() -> Self {
+    pub(crate) fn audio() -> Self {
         Self::reporting(MediaMetadata {
             duration_seconds: Some(3.0),
             audio_channels: Some(2),
@@ -46,13 +46,13 @@ impl StubProbe {
         })
     }
 
-    pub fn reporting(metadata: MediaMetadata) -> Self {
+    pub(crate) fn reporting(metadata: MediaMetadata) -> Self {
         Self {
             result: Ok(metadata),
         }
     }
 
-    pub fn failing(message: &str) -> Self {
+    pub(crate) fn failing(message: &str) -> Self {
         Self {
             result: Err(message.to_owned()),
         }

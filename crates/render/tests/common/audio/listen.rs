@@ -9,7 +9,7 @@ use super::fixtures::RATE;
 /// Whether the file carries an audio stream at all — asked separately, because
 /// "no soundtrack" and "a silent soundtrack" are different outcomes and only one
 /// of them can be decoded.
-pub fn has_soundtrack(tools: &Tools, file: &Path) -> bool {
+pub(crate) fn has_soundtrack(tools: &Tools, file: &Path) -> bool {
     let output = tools
         .ffprobe()
         .args(["-v", "error", "-select_streams", "a"])
@@ -29,7 +29,7 @@ pub fn has_soundtrack(tools: &Tools, file: &Path) -> bool {
 ///
 /// Mono because loudness is the question and a downmix answers it for both
 /// channels at once. Empty when the file has no audio stream at all.
-pub fn soundtrack(tools: &Tools, file: &Path) -> Vec<f32> {
+pub(crate) fn soundtrack(tools: &Tools, file: &Path) -> Vec<f32> {
     if !has_soundtrack(tools, file) {
         return Vec::new();
     }
@@ -59,7 +59,7 @@ pub fn soundtrack(tools: &Tools, file: &Path) -> Vec<f32> {
 /// A window past the end of the samples reads as silence rather than panicking:
 /// "there is nothing there" is a legitimate answer, and the tests that ask it
 /// mean it.
-pub fn level(samples: &[f32], from: f64, to: f64) -> f32 {
+pub(crate) fn level(samples: &[f32], from: f64, to: f64) -> f32 {
     let at = |seconds: f64| ((seconds * f64::from(RATE)) as usize).min(samples.len());
     let window = &samples[at(from)..at(to)];
     if window.is_empty() {
@@ -77,15 +77,15 @@ pub fn level(samples: &[f32], from: f64, to: f64) -> f32 {
 /// A sine of amplitude `a` reads `0.707a`, and mixing down to mono for analysis
 /// costs another 3 dB when the source was upmixed to stereo on the way in — so
 /// the quietest fixture here, at 0.3, still lands near 0.15.
-pub const AUDIBLE: f32 = 0.08;
+pub(crate) const AUDIBLE: f32 = 0.08;
 
 /// Quiet enough to be unmistakably nothing. Not zero: a lossy encoder rings
 /// slightly either side of a hard edge, so demanding digital silence would be
 /// asserting something about AAC rather than about scorsese.
-pub const SILENT: f32 = 0.02;
+pub(crate) const SILENT: f32 = 0.02;
 
 #[track_caller]
-pub fn assert_audible(level: f32, what: &str) {
+pub(crate) fn assert_audible(level: f32, what: &str) {
     assert!(
         level > AUDIBLE,
         "{what}: expected sound, found level {level}"
@@ -93,7 +93,7 @@ pub fn assert_audible(level: f32, what: &str) {
 }
 
 #[track_caller]
-pub fn assert_silent(level: f32, what: &str) {
+pub(crate) fn assert_silent(level: f32, what: &str) {
     assert!(
         level < SILENT,
         "{what}: expected silence, found level {level}"

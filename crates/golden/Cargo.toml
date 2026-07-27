@@ -6,6 +6,9 @@ repository.workspace = true
 # Test infrastructure. Nothing ships it and nothing depends on it.
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
 scorsese-core = { version = "0.1.0", path = "../core" }
 scorsese-render = { version = "0.1.0", path = "../render" }

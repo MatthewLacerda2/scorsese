@@ -12,7 +12,7 @@ use scorsese_render::plan::Plan;
 ///
 /// "What fills it" is the clips visible through the stretch, bottom track
 /// first, joined by `+`; `gap` when nothing is.
-pub fn shape(plan: &Plan<'_>) -> Vec<(u64, u64, String, u64)> {
+pub(crate) fn shape(plan: &Plan<'_>) -> Vec<(u64, u64, String, u64)> {
     plan.segments()
         .iter()
         .map(|segment| {
@@ -38,7 +38,7 @@ pub fn shape(plan: &Plan<'_>) -> Vec<(u64, u64, String, u64)> {
 
 /// The audible half of a plan as `(timeline start, timeline frames, what is
 /// heard)` per stretch — the same reading as [`shape`], for sound.
-pub fn audio_shape(plan: &Plan<'_>) -> Vec<(u64, u64, String)> {
+pub(crate) fn audio_shape(plan: &Plan<'_>) -> Vec<(u64, u64, String)> {
     plan.audio()
         .iter()
         .map(|segment| {
@@ -58,7 +58,7 @@ pub fn audio_shape(plan: &Plan<'_>) -> Vec<(u64, u64, String)> {
 }
 
 /// Where each shot opens in its source, by clip id, in segment then track order.
-pub fn source_ins(plan: &Plan<'_>) -> Vec<(String, u64)> {
+pub(crate) fn source_ins(plan: &Plan<'_>) -> Vec<(String, u64)> {
     plan.segments()
         .iter()
         .flat_map(|segment| segment.layers.iter())

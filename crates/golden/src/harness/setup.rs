@@ -13,7 +13,7 @@ use crate::fixture::{Fixture, Recipe};
 /// Loaded back rather than reused from memory on purpose — that path validates,
 /// and it is the same one a person running `scorsese render` takes. A fixture
 /// whose document does not survive a real load should fail here.
-pub fn materialise(
+pub(super) fn materialise(
     tools: &Tools,
     fixture: &Fixture,
     directory: &Path,

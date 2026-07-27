@@ -1,0 +1,5 @@
+# A failed `unwrap` in a test *is* the assertion, so `clippy::unwrap_used` —
+# denied for the workspace in Cargo.toml — steps aside inside test code. This
+# is clippy's own mechanism for the split; it needs no attribute in any file,
+# so a new test file gets the exemption without having to remember it.
+allow-unwrap-in-tests = true

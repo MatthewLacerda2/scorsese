@@ -9,7 +9,7 @@ use scorsese_core::asset::MediaMetadata;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
-pub struct Report {
+pub(super) struct Report {
     #[serde(default)]
     format: Format,
     #[serde(default)]
@@ -33,7 +33,7 @@ struct Stream {
 }
 
 impl Report {
-    pub fn into_metadata(self) -> MediaMetadata {
+    pub(super) fn into_metadata(self) -> MediaMetadata {
         let video = self.stream("video");
         let audio = self.stream("audio");
 
