@@ -72,7 +72,10 @@ fn both_channels_of_one_instant_are_at_the_same_point_in_the_fade() {
     let mut mix = Mix::silence(2);
     mix.add(&full_scale(2), Gain::of(from_ref(&ramp)), ADVANCING);
     let samples = mix.samples();
-    assert_eq!(samples[0], samples[1], "left and right of the first instant");
+    assert_eq!(
+        samples[0], samples[1],
+        "left and right of the first instant"
+    );
     assert_eq!(samples[2], samples[3], "and of the second");
     assert_eq!(samples[0], 0.25);
 }
@@ -93,10 +96,15 @@ fn sums_past_full_scale_are_clipped_only_when_they_are_written_out() {
     let mut mix = Mix::silence(1);
     mix.add(&[0.75, -0.75], Gain::of(&[]), STILL);
     mix.add(&[0.75, -0.75], Gain::of(&[]), STILL);
-    assert_eq!(mix.samples(), [1.5, -1.5], "the overshoot is carried, not lost");
+    assert_eq!(
+        mix.samples(),
+        [1.5, -1.5],
+        "the overshoot is carried, not lost"
+    );
 
     let mut written = Vec::new();
-    mix.write_to(&mut written).expect("a Vec never fails to write");
+    mix.write_to(&mut written)
+        .expect("a Vec never fails to write");
     let out: Vec<f32> = written
         .chunks_exact(size_of::<f32>())
         .map(|bytes| f32::from_le_bytes(bytes.try_into().expect("four bytes")))

@@ -24,7 +24,11 @@ fn only_the_volume_property_is_read() {
     let opacity = keyframed("opacity", &[(0, 0.0), (4, 1.0)]);
     let gain = Gain::of(std::slice::from_ref(&opacity));
     assert!(gain.is_unity(), "there is no volume track here");
-    assert_eq!(gain.at(2.0), 1.0, "and the clip is untouched, not half-faded");
+    assert_eq!(
+        gain.at(2.0),
+        1.0,
+        "and the clip is untouched, not half-faded"
+    );
 }
 
 #[test]
