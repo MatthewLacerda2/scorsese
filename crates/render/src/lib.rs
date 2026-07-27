@@ -48,6 +48,7 @@ pub mod raster;
 pub mod report;
 pub mod run;
 pub mod settings;
+pub mod slug;
 pub mod text;
 pub mod tools;
 
@@ -59,14 +60,15 @@ pub use scorsese_compositor::{Frame, PIXEL_FORMAT};
 pub use audio::{Mix, Mixdown};
 pub use error::{RenderError, Stage};
 pub use format::{AudioCodec, Container, FormatError, OutputFormat, VideoCodec};
-pub use plan::{FrameRange, FrameRangeError, Plan, PlanError};
+pub use plan::{FrameRange, FrameRangeError, Plan, PlanError, Showing};
 pub use probe::{Ffprobe, fill_media};
 pub use properties::{ANIMATABLE, Unknown, unknown_in};
 pub use raster::Sizes;
-pub use report::{Note, RenderReport};
+pub use report::{Note, RenderReport, StandIn};
 pub use run::Renderer;
 pub use settings::{
     Bitrate, BitrateError, RenderSettings, Resolution, ResolutionError, SampleRate, SampleRateError,
 };
+pub use slug::{Absent, Standing};
 pub use text::Painter;
 pub use tools::{Tools, ToolsError};

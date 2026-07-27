@@ -56,8 +56,7 @@ impl fmt::Display for Finding {
 pub fn findings(rows: &[AssetStatus]) -> Vec<Finding> {
     rows.iter()
         .filter_map(|row| {
-            let referenced = row.clip_count > 0;
-            let severity = severity(&row.health, referenced)?;
+            let severity = severity(row)?;
             Some(Finding {
                 asset: row.id.clone(),
                 severity,
@@ -67,14 +66,19 @@ pub fn findings(rows: &[AssetStatus]) -> Vec<Finding> {
         .collect()
 }
 
-/// How serious this health is on an asset the timeline does or does not use.
+/// How serious this row is.
 ///
-/// `None` means silence. An unreferenced asset is one step less serious than
-/// a referenced one, because nothing it could break is in the render — a
-/// missing file no clip uses is worth mentioning, and `gc` is the answer to
-/// it, but it is not a reason to refuse.
-fn severity(health: &AssetHealth, referenced: bool) -> Option<Severity> {
-    let worst = match health {
+/// `None` means silence. Two things demote a fault by one step, off the bottom
+/// of the ladder into silence:
+///
+/// - **Nothing uses it.** Nothing an unreferenced asset does can break a
+///   render — a missing file no clip shows is worth mentioning, and `gc` is
+///   the answer to it, but it is not a reason to refuse.
+/// - **It is a prompt.** A generated file that has gone renders as a slug card
+///   and a note rather than stopping the render, and the media can be made
+///   again. That is a warning about a preview, not an unrenderable project.
+fn severity(row: &AssetStatus) -> Option<Severity> {
+    let worst = match &row.health {
         // Not faults: healthy media, text that lives in the document, and a
         // sketch clip whose media does not exist yet by design.
         AssetHealth::Ok | AssetHealth::Inline | AssetHealth::Awaiting(_) => return None,
@@ -85,7 +89,7 @@ fn severity(health: &AssetHealth, referenced: bool) -> Option<Severity> {
         // other renders fine and merely leaves the pool under-described.
         AssetHealth::HashMismatch { .. } | AssetHealth::Unprobed => Severity::Warning,
     };
-    if referenced {
+    if row.clip_count > 0 && !row.kind.is_generated() {
         Some(worst)
     } else {
         demote(worst)

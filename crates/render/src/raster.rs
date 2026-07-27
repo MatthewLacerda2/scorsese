@@ -17,7 +17,7 @@ use scorsese_core::{Asset, AssetId, Fit, ProbeMedia};
 
 use crate::error::RenderError;
 use crate::pipe::Fitting;
-use crate::plan::{Plan, Shot};
+use crate::plan::{Plan, Shot, Showing};
 use crate::probe::Ffprobe;
 use crate::tools::Tools;
 
@@ -43,13 +43,24 @@ impl Sizes {
         let probe = Ffprobe::new(tools.clone());
 
         for shot in plan.segments().iter().flat_map(|segment| &segment.layers) {
-            // A drawn asset has no native size to measure: text is rasterised
-            // at whatever the render's raster is, so `fit` says nothing about
-            // it and there is no file to ask.
+            // A drawn asset has no native size to measure: text and slug cards
+            // are rasterised at whatever the render's raster is, so `fit` says
+            // nothing about them and there is no file to ask.
             if shot.clip.fit != Fit::Native
                 || !shot.asset.kind.is_file_backed()
+                || shot.showing != Showing::Media
                 || native.contains_key(&shot.asset.id)
             {
+                continue;
+            }
+            // A generated file that has gone missing shows a card too, and
+            // probing it would be a subprocess spent to fail. Asked of the
+            // filesystem rather than the document, which is the only place the
+            // answer is.
+            if matches!(
+                crate::slug::standing(shot, project_root)?,
+                crate::slug::Standing::Card(_)
+            ) {
                 continue;
             }
             let size = measure_one(&probe, shot.asset, project_root).map_err(|reason| {

@@ -1,0 +1,43 @@
+{
+  "schema_version": 4,
+  "name": "slugs",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    {
+      "id": "shot-city",
+      "kind": "generated_video",
+      "state": "sketch",
+      "prompt": "wide aerial of a city at dawn"
+    },
+    {
+      "id": "shot-street",
+      "kind": "generated_video",
+      "state": "stale",
+      "path": "generated/shot-street.mp4",
+      "prompt": "a street at night, neon, slow push in"
+    },
+    {
+      "id": "narration",
+      "kind": "generated_audio",
+      "state": "sketch",
+      "prompt": "and then the city woke up"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "name": "picture",
+      "clips": [
+        { "id": "c-city", "asset": "shot-city", "start": 0, "duration": 15 },
+        { "id": "c-street", "asset": "shot-street", "start": 15, "duration": 15 }
+      ]
+    },
+    {
+      "id": "a1",
+      "kind": "audio",
+      "name": "narration",
+      "clips": [{ "id": "c-vo", "asset": "narration", "start": 0, "duration": 20 }]
+    }
+  ]
+}

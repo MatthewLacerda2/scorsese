@@ -5,8 +5,10 @@
 pub(crate) mod audio;
 pub(crate) mod ffmpeg;
 pub(crate) mod plans;
+pub(crate) mod prompts;
 
 pub(crate) use plans::{audio_shape, shape, source_ins};
+pub(crate) use prompts::{generated_asset, narration_asset, sketch_asset, stale_asset};
 
 use scorsese_core::{
     Asset, AssetId, AssetKind, Clip, ClipId, Fit, FontChoice, Fps, Frames, MediaMetadata, Project,
@@ -53,15 +55,6 @@ pub(crate) fn silent_asset(id: &str, kind: AssetKind) -> Asset {
         media: Some(MediaMetadata::default()),
         ..file_asset(id, kind)
     }
-}
-
-/// A prompt-backed asset nobody has spent money on yet.
-pub(crate) fn sketch_asset(id: &str) -> Asset {
-    Asset::sketch(
-        AssetId::new(id),
-        AssetKind::GeneratedVideo,
-        "a skyline at dusk",
-    )
 }
 
 /// A text asset: content inline, no file anywhere, drawn by the compositor.

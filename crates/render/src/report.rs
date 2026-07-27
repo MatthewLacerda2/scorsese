@@ -50,6 +50,21 @@ pub enum Note {
         /// Why the probe could not answer.
         reason: String,
     },
+    /// An asset the project believes was generated has no file on disk, so
+    /// something stood in for it and the render carried on.
+    ///
+    /// A warning rather than a refusal because the media can be made again —
+    /// `scorsese generate` re-bills exactly this asset — and a preview cut with
+    /// one card in it is worth more than no preview at all. Ignoring it means
+    /// delivering a film with a gray card where a shot should be.
+    GeneratedMissing {
+        /// The clip that came up empty.
+        clip: String,
+        /// The asset whose file is not where the table says.
+        asset: String,
+        /// What was put there instead.
+        stood_in: StandIn,
+    },
     /// A keyframe track animates a property nothing in this build resolves, so
     /// it will never do anything.
     UnknownProperty {
@@ -60,6 +75,27 @@ pub enum Note {
         /// The nearest property that does exist, when there is one.
         did_you_mean: Option<&'static str>,
     },
+}
+
+/// What a render put where media should have been.
+///
+/// Both halves of a prompt clip, named because the two are not the same
+/// finding: a card is visible to whoever watches the result, silence is not.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StandIn {
+    /// A slug card, on the picture.
+    SlugCard,
+    /// Nothing, in the mix.
+    Silence,
+}
+
+impl fmt::Display for StandIn {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::SlugCard => "a slug card",
+            Self::Silence => "silence",
+        })
+    }
 }
 
 impl fmt::Display for Note {
@@ -93,6 +129,15 @@ impl fmt::Display for Note {
                 f,
                 "clip `{clip}` was mixed without its own sound, because its media \
                  could not be probed for one: {reason}"
+            ),
+            Self::GeneratedMissing {
+                clip,
+                asset,
+                stood_in,
+            } => write!(
+                f,
+                "clip `{clip}` shows asset `{asset}`, which the project says was \
+                 generated but has no file on disk — {stood_in} stood in for it"
             ),
             Self::UnknownProperty {
                 clip,

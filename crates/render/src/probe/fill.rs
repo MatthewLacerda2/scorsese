@@ -41,7 +41,7 @@ pub fn fill_media<'a>(
     let unprobed: Vec<AssetId> = project
         .assets
         .iter()
-        .filter(|asset| needs_probing(project, asset))
+        .filter(|asset| needs_probing(project, asset, project_root))
         .map(|asset| asset.id.clone())
         .collect();
     if unprobed.is_empty() {
@@ -75,16 +75,26 @@ pub fn fill_media<'a>(
     (Cow::Owned(filled), notes)
 }
 
-/// True for an asset a video clip shows, that has a file, and that nobody has
-/// asked ffprobe about.
+/// True for an asset a video clip shows, whose file is there, and that nobody
+/// has asked ffprobe about.
 ///
 /// Only the assets a *video* clip shows: an audio clip is mixed whatever its
 /// metadata says, because being on an audio track is already the answer to the
 /// question this probe asks.
-fn needs_probing(project: &Project, asset: &Asset) -> bool {
+///
+/// And only files that exist. Probing one that does not is a process spent to
+/// learn what a `stat` already said, and the note it would leave — "this clip
+/// was mixed without its own sound, because it could not be probed" — is a
+/// worse account of a missing file than the ones that come later: a refusal
+/// for imported media, a slug card and [`Note::GeneratedMissing`] for
+/// generated media.
+fn needs_probing(project: &Project, asset: &Asset, project_root: &Path) -> bool {
     asset.media.is_none()
-        && asset.path.is_some()
         && !asset.needs_generation()
+        && asset
+            .path
+            .as_ref()
+            .is_some_and(|path| path.resolve(project_root).is_file())
         && shown_by_a_video_clip(project, &asset.id)
 }
 

@@ -29,8 +29,9 @@ use scorsese_core::Frames;
 use crate::error::{RenderError, Stage};
 use crate::pipe::{AudioDecoder, AudioSource};
 use crate::plan::{Plan, Segment, Shot};
-use crate::report::Note;
+use crate::report::{Note, StandIn};
 use crate::settings::RenderSettings;
+use crate::slug::Standing;
 use crate::tools::Tools;
 
 pub use gain::{Gain, path};
@@ -128,7 +129,14 @@ fn mix_segment(
     let mut decoded = Vec::new();
 
     for shot in &segment.layers {
-        let source = audio_source(shot, project_root, plan, frames)?;
+        // A prompt with nothing generated contributes **silence**: the stretch
+        // is already as long as it needs to be, so a narration sketch simply
+        // adds nothing to it. Its card is on the picture for the same frames,
+        // which is what makes a voice-over-driven cut watchable for free.
+        let Some(file) = audio_file(shot, project_root, notes)? else {
+            continue;
+        };
+        let source = audio_source(shot, file, plan, frames);
         let mut decoder = AudioDecoder::start(tools, &source, settings)?;
         let read = decoder.read(&mut decoded, frames as usize)?;
         decoder.finish()?;
@@ -156,30 +164,41 @@ fn elapsed(at: Frames, shot: &Shot<'_>) -> u64 {
     at.get().saturating_sub(shot.clip.start.get())
 }
 
-/// Where a shot's media is on disk, and how much of it to read.
-fn audio_source(
+/// Where a shot's sound is on disk, or `None` when there is none to read.
+///
+/// The mix's half of the sketch lifecycle. A prompt that has not been generated
+/// has nothing to decode and says so quietly; a file the project believes in
+/// and cannot find says so in the report, because that one is a fault rather
+/// than a stage. Either way the render carries on: silence is a thing a
+/// soundtrack can contain, and refusing here would mean a preview cut cannot be
+/// watched at all.
+fn audio_file(
     shot: &Shot<'_>,
     project_root: &Path,
-    plan: &Plan<'_>,
-    frames: u64,
-) -> Result<AudioSource, RenderError> {
-    let path = shot
-        .asset
-        .path
-        .as_ref()
-        .expect("the plan refuses a shot whose asset has no path");
-    let file = path.resolve(project_root);
-    if !file.is_file() {
-        return Err(RenderError::MissingMedia {
-            asset: shot.asset.id.to_string(),
-            path: file,
-        });
+    notes: &mut Vec<Note>,
+) -> Result<Option<PathBuf>, RenderError> {
+    match crate::slug::standing(shot, project_root)? {
+        Standing::Media(file) => Ok(Some(file)),
+        Standing::Card(absent) => {
+            if absent.is_a_problem() {
+                notes.push(Note::GeneratedMissing {
+                    clip: shot.clip.id.to_string(),
+                    asset: shot.asset.id.to_string(),
+                    stood_in: StandIn::Silence,
+                });
+            }
+            Ok(None)
+        }
     }
-    Ok(AudioSource {
+}
+
+/// How much of a shot's sound to read, and from where in it.
+fn audio_source(shot: &Shot<'_>, file: PathBuf, plan: &Plan<'_>, frames: u64) -> AudioSource {
+    AudioSource {
         file,
         seek_seconds: plan.timeline_fps().seconds(shot.source_in),
         frames,
-    })
+    }
 }
 
 /// Where to put the mix while it is being made: beside the output, hidden, and
