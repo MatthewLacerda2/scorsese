@@ -8,7 +8,7 @@
 mod range;
 mod segments;
 
-use scorsese_core::{Asset, AssetKind, Clip, Fps, Frames, Project, Track, TrackKind};
+use scorsese_core::{Asset, Clip, Fps, Frames, Project, Track, TrackKind};
 
 use crate::report::Note;
 
@@ -266,16 +266,6 @@ pub enum PlanError {
         clip: String,
         /// The asset still waiting on its provider.
         asset: String,
-    },
-
-    /// An asset kind that is drawn rather than decoded — text, for now. It has
-    /// no file for the decode path to open.
-    #[error("clip `{clip}` shows a {kind:?} asset, which needs the compositor to draw it")]
-    NeedsCompositor {
-        /// The clip that cannot be decoded.
-        clip: String,
-        /// The kind that needs drawing instead.
-        kind: AssetKind,
     },
 
     /// The table entry is generated but carries no path — a project edited by

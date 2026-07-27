@@ -85,4 +85,29 @@ fn check_kind_fields(asset: &Asset, errors: &mut Vec<ValidationError>) {
         }
         _ => {}
     }
+    check_style(asset, errors);
+}
+
+/// A style belongs to the one kind that has glyphs, and the font it names is a
+/// path like any other — so it obeys the same rules, checked here rather than
+/// discovered as a missing file part way through a render.
+fn check_style(asset: &Asset, errors: &mut Vec<ValidationError>) {
+    let Some(style) = &asset.style else {
+        return;
+    };
+    if asset.kind != AssetKind::Text {
+        errors.push(ValidationError::StyleOnNonTextAsset {
+            asset: asset.id.clone(),
+            kind: asset.kind,
+        });
+    }
+    if let Some(font) = style.font.file()
+        && let Err(problem) = font.check()
+    {
+        errors.push(ValidationError::BadFontPath {
+            asset: asset.id.clone(),
+            path: font.clone(),
+            problem,
+        });
+    }
 }

@@ -149,9 +149,31 @@ cut there and said so in the report.
 A project with no audio produces a file with no audio stream, which is not the
 same as a stream of silence.
 
-Renders still cannot draw text, and a clip awaiting generation refuses to
-render rather than standing in as a slug card. Text, slug cards, and
-generation each have an issue; the
+**Renders draw text.** A `text` asset carries its string inline and a `style`
+saying how it looks — font, size, colour, alignment, where it wraps — and the
+compositor draws it, wrapping what is too wide and ending with an ellipsis
+what is too tall. It composites like any other layer, so a title fades with
+`opacity` and slides with `transform.position.*`, the same properties a video
+clip uses.
+
+Two faces ship with scorsese, committed to the repository under
+`crates/compositor/fonts/` with their licence beside them:
+
+| `font` | face | stands in for | licence |
+| --- | --- | --- | --- |
+| `sans` (default) | Liberation Sans | Arial | SIL OFL 1.1 |
+| `serif` | Liberation Serif | Times New Roman | SIL OFL 1.1 |
+
+They are shipped rather than looked up on the system because a system font
+resolves to a different file on every platform, and text has to render
+identically everywhere for the golden-render gate to mean anything. They are
+defaults, not the whole vocabulary: `font` may instead name a font file the
+project carries, like `assets/Inter-Regular.ttf`. Glyph outlines are read with
+[skrifa](https://crates.io/crates/skrifa) and filled by the same tiny-skia
+rasteriser every other layer goes through.
+
+A clip awaiting generation still refuses to render rather than standing in as
+a slug card. Slug cards and generation each have an issue; the
 [issue tracker](https://github.com/MatthewLacerda2/scorsese/issues) is the
 plan.
 
@@ -160,7 +182,7 @@ plan.
 | Crate | Responsibility |
 | --- | --- |
 | `crates/core` | Timeline model, assets table, keyframes, serde `project.json` format, validation |
-| `crates/compositor` | Frame rendering — CPU (tiny-skia) first, wgpu later behind the same trait |
+| `crates/compositor` | Frame rendering — CPU (tiny-skia) first, wgpu later behind the same trait; text, and the two fonts scorsese ships |
 | `crates/render` | ffmpeg orchestration: probe, decode pipes, the audio mix, encode pipe, render settings |
 | `crates/providers` | Veo + ElevenLabs clients, prompt-hash cache, generation states |
 | `crates/cli` | The headless `scorsese` binary: `new`, `import`, `render`, `generate`, `assets`, `diff` |

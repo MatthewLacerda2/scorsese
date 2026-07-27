@@ -1,4 +1,4 @@
-# `project.json` — schema v3
+# `project.json` — schema v4
 
 The contract between the CLI, the MCP server, the GUI, and every project
 saved on someone's disk. It is meant to be hand-written: an agent should be
@@ -12,7 +12,7 @@ bump and a migration note.
 
 ```json project
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -41,6 +41,7 @@ re-importing or regenerating a file is one edit in one place.
 | `prompt` | `generated_*` | What to generate |
 | `state` | `generated_*` | `sketch`, `queued`, `generated`, `stale` |
 | `text` | `text` | The string to render; text assets carry content inline and have no `path` |
+| `style` | optional, `text` only | How that string looks: `font`, `size`, `color`, `align`, `line_height`, `max_width` — see below |
 
 ```json asset
 { "id": "shot-city", "kind": "generated_video", "state": "sketch",
@@ -51,6 +52,52 @@ A `generated_*` asset in `sketch` or `stale` has no media yet and renders as
 a slug card — the prompt on a gray card. That is what makes previewing a full
 cut cost nothing. `GO` generates exactly the sketch and stale assets;
 `generated` is a cache hit and is never re-billed.
+
+### Text assets and how they look
+
+```json asset
+{ "id": "title", "kind": "text", "text": "Chapter One",
+  "style": { "font": "serif", "size": 0.12, "color": "#ffcc00" } }
+```
+
+A `text` asset is the one kind with no file behind it: its content is the
+`text` field and its appearance is `style`. **Every field of `style` is
+optional, and an absent `style` means all of them** — white, centred, sans,
+which is the title most people meant.
+
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `font` | `sans` | `sans`, `serif`, or a path to a font file inside the project |
+| `size` | `0.1` | Em size as a fraction of the frame's **height** |
+| `color` | `#ffffff` | `#rrggbb`, or `#rrggbbaa` for text you can see through |
+| `align` | `center` | `left`, `center`, `right` — within the wrapped block |
+| `line_height` | `1.25` | Baseline to baseline, as a multiple of `size` |
+| `max_width` | `0.9` | Where lines wrap, as a fraction of the frame's **width** |
+
+**Sizes are fractions of the raster, not pixels.** Resolution is a render
+setting — the same project is previewed at 640×360 and delivered at 4K — so a
+title written as `72` pixels would be a different title in each. `size: 0.1` is
+a tenth of the picture's height whatever it is rendered at.
+
+**Two font names are reserved.** `sans` and `serif` are the faces scorsese
+ships: Liberation Sans and Liberation Serif, metric-compatible with Arial and
+Times New Roman, under the SIL Open Font License. Anything else in `font` is
+read as a path to a font file the project carries, relative to the project root
+like every other path — `assets/Inter-Regular.ttf`. The fonts are committed to
+the repository rather than looked up on the system, because a system lookup
+resolves differently on every platform and text has to render identically
+everywhere.
+
+The text is laid out centred on the frame, wrapped to `max_width`, and
+truncated with an ellipsis if it is taller than the picture. **Moving it is
+`transform.position.x` and `transform.position.y`**, and fading it is
+`opacity` — the same properties that move and fade a video clip, keyframes and
+all. Text has no animatable properties of its own, which is why a title that
+slides and fades needs nothing here. `fit` is meaningless on a text clip:
+there is no source raster to reconcile, since the text is drawn at whatever
+size the render is.
+
+Bold, italic, per-character animation, outlines and shadows are not here yet.
 
 `media.duration_seconds` is wall-clock, and `media.frame_rate` is a rational
 in the same shape as `timeline_fps` — a source's own grid, which is not
@@ -322,8 +369,10 @@ problem in one pass rather than stopping at the first, so an agent repairing
 a project unattended sees the whole list at once.
 
 What it checks: schema version, duplicate ids, path rules, hash shape, the
-fields each asset kind requires, clip references resolving, asset kind
-against track kind, non-zero durations, clip overlap, and keyframe shape.
+fields each asset kind requires — including that only a `text` asset carries
+`text` or `style`, and that a `style`'s font path obeys the project-path rules
+— clip references resolving, asset kind against track kind, non-zero
+durations, clip overlap, and keyframe shape.
 
 Note what is *not* on that list. A time that is negative, fractional, or
 infinite cannot be represented as a frame count, so it fails the parse with
@@ -338,14 +387,28 @@ document can be flawless and still unrenderable because the footage was deleted
 underneath it. `check` reports both together: a file a clip references and
 cannot find is a problem, a file whose content no longer matches its recorded
 `sha256` is a warning, and a `generated_*` asset still awaiting generation is
-neither.
+neither. A `style`'s font file is a path like any other, so the same split
+applies: the shape is validated here, and whether the face is really on disk is
+the render's to find out.
+
+## Migrating from v3
+
+v4 adds one optional field: `style` on a `text` asset. **Absent means every
+default** — white, centred, sans, a tenth of the frame high — which is what
+every text asset did before the field existed, so no v3 document means anything
+different under v4. Converting one is changing `"schema_version": 3` to
+`"schema_version": 4` and nothing else.
+
+Before v4 a text asset could not be rendered at all: the renderer refused a
+clip showing one. So the only v3 documents affected are ones that were never
+renderable, and there is nothing for a migration to preserve.
 
 ## Migrating from v2
 
-v3 adds one optional field: `fit` on a clip. **Absent means `fit`**, which is
+v3 added one optional field: `fit` on a clip. **Absent means `fit`**, which is
 what every clip did before the field existed, so no v2 document means anything
 different under v3 — converting one is changing `"schema_version": 2` to
-`"schema_version": 3` and nothing else.
+`"schema_version": 3` and then on to `4` as above.
 
 The version still has to be changed by hand, because this build reads exactly
 one schema version and refuses the rest. That refusal is the point: a document

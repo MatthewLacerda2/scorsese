@@ -66,6 +66,20 @@ pub enum RenderError {
         reason: String,
     },
 
+    /// A text asset names a font file the render cannot use — missing, or not
+    /// a font at all. Refused rather than quietly falling back to the shipped
+    /// sans: a title in the wrong face is a re-render nobody would know to ask
+    /// for until they watched the result.
+    #[error("asset `{asset}` asks for the font at {}: {detail}", path.display())]
+    UnusableFont {
+        /// The text asset naming the font.
+        asset: String,
+        /// Where the project said the file would be.
+        path: PathBuf,
+        /// What the filesystem or the font parser said.
+        detail: String,
+    },
+
     /// The mix is written to scratch before the encoder reads it back, so a
     /// full or read-only working directory surfaces here first.
     #[error("could not write the mix to {}: {source}", path.display())]

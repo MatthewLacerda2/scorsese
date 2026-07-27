@@ -43,7 +43,13 @@ impl Sizes {
         let probe = Ffprobe::new(tools.clone());
 
         for shot in plan.segments().iter().flat_map(|segment| &segment.layers) {
-            if shot.clip.fit != Fit::Native || native.contains_key(&shot.asset.id) {
+            // A drawn asset has no native size to measure: text is rasterised
+            // at whatever the render's raster is, so `fit` says nothing about
+            // it and there is no file to ask.
+            if shot.clip.fit != Fit::Native
+                || !shot.asset.kind.is_file_backed()
+                || native.contains_key(&shot.asset.id)
+            {
                 continue;
             }
             let size = measure_one(&probe, shot.asset, project_root).map_err(|reason| {

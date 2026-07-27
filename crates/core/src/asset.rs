@@ -9,6 +9,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::path::ProjectPath;
+use crate::text::TextStyle;
 use crate::time::Fps;
 
 /// Identifies an asset within one project. Unique across the assets table.
@@ -152,6 +153,11 @@ pub struct Asset {
     /// Inline content for the `text` kind.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
+    /// How that content looks: font, size, colour, alignment. Only the `text`
+    /// kind has one, and an absent style means [`TextStyle::default`] —
+    /// white, centred, sans — rather than nothing to draw.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style: Option<TextStyle>,
 }
 
 impl Asset {
@@ -182,7 +188,24 @@ impl Asset {
             prompt: None,
             state: None,
             text: None,
+            style: None,
         }
+    }
+
+    /// A text asset carrying its content inline, styled by whatever the
+    /// document says — or by [`TextStyle::default`] when it says nothing.
+    pub fn text(id: AssetId, content: impl Into<String>) -> Self {
+        Self {
+            text: Some(content.into()),
+            ..Self::bare(id, AssetKind::Text)
+        }
+    }
+
+    /// The style this asset's text is drawn in, defaults included. Not the
+    /// stored field: an absent style is every default, not an absence, so a
+    /// caller never has to decide what a missing font means.
+    pub fn text_style(&self) -> TextStyle {
+        self.style.clone().unwrap_or_default()
     }
 
     /// True when GO would spend money on this asset.

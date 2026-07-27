@@ -33,6 +33,7 @@ pub mod path;
 pub mod pool;
 pub mod probe;
 pub mod project;
+pub mod text;
 pub mod time;
 pub mod timeline;
 pub mod validate;
@@ -46,6 +47,7 @@ pub use project::{
     ASSETS_DIR, CACHE_DIR, GENERATED_DIR, LoadError, PROJECT_FILE_NAME, Project, SCHEMA_VERSION,
     SaveError,
 };
+pub use text::{ColorError, FontChoice, Rgba, TextAlign, TextStyle};
 pub use time::{Fps, FpsError, FpsParseError, Frames};
 pub use timeline::{Clip, ClipId, Fit, Track, TrackId, TrackKind};
 pub use validate::{ValidationError, ValidationErrors};

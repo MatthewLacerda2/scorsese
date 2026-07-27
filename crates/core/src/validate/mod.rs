@@ -12,9 +12,11 @@
 
 mod assets;
 mod error;
+mod report;
 mod timeline;
 
-pub use error::{ValidationError, ValidationErrors};
+pub use error::ValidationError;
+pub use report::ValidationErrors;
 
 use crate::project::{Project, SCHEMA_VERSION};
 

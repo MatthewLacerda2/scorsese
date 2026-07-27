@@ -4,7 +4,7 @@
 use scorsese_core::{AssetId, AssetKind, Clip, ClipId, Fps, Frames};
 use scorsese_render::{FrameRange, Plan, PlanError};
 
-use crate::common::{clip, file_asset, project, sketch_asset, text_asset, video_track};
+use crate::common::{clip, file_asset, project, shape, sketch_asset, text_asset, video_track};
 
 #[test]
 fn an_empty_project_has_nothing_to_render() {
@@ -49,17 +49,16 @@ fn a_sketch_clip_is_refused_until_slug_cards_exist() {
     );
 }
 
+/// A text asset has no file, and the missing-media refusal must not be aimed
+/// at it: its content is in the document and the compositor draws it.
 #[test]
-fn a_text_clip_is_refused_until_the_compositor_can_draw_it() {
+fn a_text_clip_needs_no_media_file() {
     let project = project(
         vec![text_asset("title")],
         vec![video_track("v1", vec![clip("c1", "title", 0, 30)])],
     );
-    let error = Plan::build(&project, Fps::THIRTY, FrameRange::ALL).expect_err("must refuse");
-    assert!(
-        matches!(error, PlanError::NeedsCompositor { .. }),
-        "got {error:?}"
-    );
+    let plan = Plan::build(&project, Fps::THIRTY, FrameRange::ALL).expect("a text clip plans");
+    assert_eq!(shape(&plan), vec![(0, 30, "c1".to_owned(), 30)]);
 }
 
 #[test]

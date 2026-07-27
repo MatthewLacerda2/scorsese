@@ -1,0 +1,20 @@
+{
+  "schema_version": 4,
+  "name": "serif",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    {
+      "id": "title",
+      "kind": "text",
+      "text": "THE END",
+      "style": { "font": "serif", "size": 0.3, "color": "#ffcc00" }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [{ "id": "c-title", "asset": "title", "start": 0, "duration": 10 }]
+    }
+  ]
+}
