@@ -48,6 +48,39 @@ jobs:
           path: target/tmp/golden-failures/
           if-no-files-found: ignore
 
+  # The size gate: source files ≤ 300 lines, test files ≤ 150. CLAUDE.md lists
+  # it among the hard gates and, until now, nothing checked it — a limit that
+  # held by habit for as long as someone was watching. Its own job because it
+  # needs neither ffmpeg nor a build of the workspace, so it answers in seconds
+  # instead of waiting behind the heavy one. The rule deciding which cap a path
+  # falls under lives in `tools/lint/src/classify.rs`, and its tests run here
+  # first: a classifier that quietly misfiles a path is a gate that has stopped
+  # gating without saying so.
+  size:
+    name: size gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tools/lint
+
+      - name: Test the gate
+        run: cargo test --manifest-path tools/lint/Cargo.toml --locked
+
+      - name: Run the gate
+        run: cargo run --manifest-path tools/lint/Cargo.toml --locked --quiet
+
+      - name: Format
+        run: cargo fmt --manifest-path tools/lint/Cargo.toml --all --check
+
+      - name: Clippy
+        run: >
+          cargo clippy --manifest-path tools/lint/Cargo.toml
+          --all-targets --locked -- -D warnings
+
   # Supply chain. Nothing else in this workflow looks at what our ~60
   # transitive dependencies are or what they are licensed under; a RUSTSEC
   # advisory would otherwise land silently and stay until someone happened to
