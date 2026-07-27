@@ -8,3 +8,4 @@ mod common;
 
 mod authoring;
 mod baking;
+mod metadata;

@@ -54,6 +54,24 @@ pub fn encode(samples: &[f32]) -> Vec<u8> {
     out
 }
 
+/// How many sample frames a file of `file_len` bytes carries.
+///
+/// Worked out from the length rather than read back from the header, because
+/// this is only ever asked about a file [`encode`] produced: the length is the
+/// one thing that cannot disagree with the samples.
+pub fn frames_in(file_len: usize) -> usize {
+    file_len.saturating_sub(HEADER_LEN) / BYTES_PER_SAMPLE as usize
+}
+
+/// How long a file of `file_len` bytes plays for, in seconds.
+///
+/// So a caller can record what it baked without decoding it again — the one
+/// fact about a bake that nothing else on the asset carries, and the one an
+/// agent needs to lay a clip of the right length.
+pub fn seconds_in(file_len: usize) -> f64 {
+    frames_in(file_len) as f64 / f64::from(SAMPLE_RATE)
+}
+
 /// Quantises one `f32` sample to 16-bit, clamping first so `±1.0` maps to the
 /// endpoints instead of overflowing.
 #[inline]
@@ -95,6 +113,16 @@ mod tests {
         assert_eq!(to_i16(-1.0), -i16::MAX);
         assert_eq!(to_i16(9.0), i16::MAX, "a hot sample clamps, never wraps");
         assert_eq!(to_i16(-9.0), -i16::MAX);
+    }
+
+    #[test]
+    fn the_length_of_a_file_says_how_long_it_plays() {
+        let one_second = encode(&vec![0.0; SAMPLE_RATE as usize]);
+        assert_eq!(frames_in(one_second.len()), SAMPLE_RATE as usize);
+        assert!((seconds_in(one_second.len()) - 1.0).abs() < 1e-9);
+        assert_eq!(frames_in(encode(&[]).len()), 0);
+        // Never a panic on something that is not one of ours, however short.
+        assert_eq!(frames_in(3), 0);
     }
 
     #[test]

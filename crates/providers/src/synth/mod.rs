@@ -28,9 +28,9 @@ pub mod starter;
 use std::path::{Path, PathBuf};
 
 use scorsese_core::{
-    Asset, AssetId, GENERATED_DIR, GenerationState, Project, ProjectPath, hash_bytes,
+    Asset, AssetId, GENERATED_DIR, GenerationState, MediaMetadata, Project, ProjectPath, hash_bytes,
 };
-use scorsese_soundgen::{Patch, bake_note, bake_song};
+use scorsese_soundgen::{Patch, SAMPLE_RATE, bake_note, bake_song, wav};
 
 pub use create::{check, create};
 pub use error::SynthesisError;
@@ -212,16 +212,27 @@ fn write(path: &Path, wav: &[u8]) -> Result<(), SynthesisError> {
     })
 }
 
-/// Points the asset at what is now on disk.
+/// Points the asset at what is now on disk, and says what is in it.
 fn record(project: &mut Project, id: &AssetId, baked: &Baked, project_root: &Path) {
     let Some(asset) = project.assets.iter_mut().find(|asset| &asset.id == id) else {
         return;
     };
     asset.path = Some(baked.path().clone());
     asset.state = Some(GenerationState::Generated);
+
+    let Ok(wav) = std::fs::read(baked.path().resolve(project_root)) else {
+        return;
+    };
     // Of the finished file, which is what `sha256` means everywhere else — the
     // recipe's own digest is already in the file name.
-    asset.sha256 = std::fs::read(baked.path().resolve(project_root))
-        .ok()
-        .map(|bytes| hash_bytes(&bytes));
+    asset.sha256 = Some(hash_bytes(&wav));
+    // Filled in here rather than left for a probe, because we know it: nothing
+    // about a bake needs ffprobe to discover, and an asset that cannot say how
+    // long it is makes an agent guess the length of the clip it just made.
+    asset.media = Some(MediaMetadata {
+        duration_seconds: Some(wav::seconds_in(wav.len())),
+        audio_channels: Some(1),
+        sample_rate: Some(SAMPLE_RATE),
+        ..MediaMetadata::default()
+    });
 }
