@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand, ValueEnum};
 use scorsese_core::{AssetKind, Fps};
+use scorsese_providers::Starter;
 use scorsese_render::{
     AudioCodec, Bitrate, Container, Cue, FrameRange, Resolution, SampleRate, VideoCodec,
 };
@@ -143,6 +144,13 @@ pub enum Command {
         #[arg(long)]
         range: Option<FrameRange>,
     },
+    /// Make sound from a recipe the project carries: an effect, or a score.
+    /// No key, no network, no cost, and the same bytes every time.
+    Synth {
+        /// What to do. Without one, the pending recipes are baked.
+        #[command(subcommand)]
+        action: Option<SynthAction>,
+    },
     /// List the media pool and the state of everything in it.
     Assets {
         /// What to do with the pool. Without one, it is listed.
@@ -152,6 +160,54 @@ pub enum Command {
         #[arg(long)]
         verify: bool,
     },
+}
+
+/// The things `synth` does. Baking is the default, so the common case needs
+/// no verb at all.
+#[derive(Debug, Subcommand)]
+pub enum SynthAction {
+    /// Write a starter recipe into `recipes/` and add the asset that points
+    /// at it. The starter makes a sound as written, so the first bake is
+    /// something to listen to rather than silence.
+    New {
+        /// What to call it. Becomes the asset id and the recipe's file name,
+        /// suffixed if that name is taken.
+        name: String,
+        /// Which shape to start from: `patch` for one instrument and one note,
+        /// `song` for an arrangement.
+        #[arg(long, default_value = "patch")]
+        kind: StarterArg,
+    },
+    /// Render the recipes that are not already baked, into `generated/`.
+    /// Safe to re-run: an unchanged recipe is a cache hit.
+    Bake {
+        /// Bake only this asset. Without it, every synth asset is considered.
+        asset: Option<String>,
+    },
+    /// Parse a recipe and report what it is, without rendering it — so a
+    /// malformed document costs milliseconds rather than a bake.
+    Check {
+        /// The recipe file to read.
+        recipe: PathBuf,
+    },
+}
+
+/// Which starter `synth new` writes.
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum StarterArg {
+    /// One instrument, one note: the shape an effect takes.
+    Patch,
+    /// Four bars of one instrument: the shape a score takes.
+    Song,
+}
+
+impl From<StarterArg> for Starter {
+    fn from(arg: StarterArg) -> Self {
+        match arg {
+            StarterArg::Patch => Self::Patch,
+            StarterArg::Song => Self::Song,
+        }
+    }
 }
 
 /// The things `assets` does beyond reporting what is in the pool.

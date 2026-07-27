@@ -24,6 +24,6 @@ pub fn run(directory: &Path, name: Option<String>, fps: Fps) -> Result<()> {
         "Created project \"{name}\" at {fps} fps in {}",
         directory.display()
     );
-    println!("  project.json, assets/, generated/, cache/");
+    println!("  project.json, assets/, generated/, recipes/, cache/");
     Ok(())
 }

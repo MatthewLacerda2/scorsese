@@ -118,7 +118,7 @@ The recipe is a separate file rather than inline JSON because a recipe is
 long: a song is tracks, patterns and an arrangement, and inlining one would
 bury the timeline under note lists in the document an agent reads to
 understand the edit. It also makes the edit-and-rebake loop a single-file
-diff.
+diff. **What to write in one is [`recipes.md`](recipes.md).**
 
 `synth_audio` does not replace `generated_audio`. That one is for voice —
 a line of narration is a sentence, and no amount of arithmetic will read it

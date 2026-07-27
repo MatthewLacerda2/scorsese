@@ -16,6 +16,7 @@ mod outcome;
 mod refusals;
 mod settings;
 mod sound;
+mod synthesised;
 
 use std::path::{Path, PathBuf};
 
