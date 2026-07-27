@@ -64,6 +64,10 @@ fn a_cut_belongs_to_exactly_one_clip() {
     let (shot, title) = (&project.tracks[0].clips[0], &project.tracks[0].clips[1]);
     assert_eq!(shot.end(), title.start);
     assert!(!shot.overlaps(title));
+    // Asked the other way round too: touching is not overlapping whichever clip
+    // is doing the asking, and a comparison one frame loose at either end would
+    // answer the two differently.
+    assert!(!title.overlaps(shot));
     assert_eq!(project.validate(), Ok(()));
 }
 
@@ -71,6 +75,10 @@ fn a_cut_belongs_to_exactly_one_clip() {
 fn a_clip_one_frame_earlier_overlaps() {
     let mut project = project();
     project.tracks[0].clips[1].start = Frames(239);
+    let (shot, title) = (&project.tracks[0].clips[0], &project.tracks[0].clips[1]);
+    // Frame 239 belongs to both, which is the whole of what overlapping means —
+    // and again symmetrically.
+    assert!(shot.overlaps(title) && title.overlaps(shot));
     assert_eq!(project.validate().expect_err("overlap").len(), 1);
 }
 

@@ -38,9 +38,16 @@ pub(crate) fn extension(kind: AssetKind) -> &'static str {
 /// A file asset that has been probed and found to have sound on it — a camera
 /// clip with dialogue, a screen recording with a click track.
 pub(crate) fn sounding_asset(id: &str, kind: AssetKind) -> Asset {
+    asset_with_channels(id, kind, 2)
+}
+
+/// A file asset probed and found to declare an audio stream of `channels`
+/// channels. Zero is a legal answer and means the same as no stream: a
+/// container can carry a track that carries nothing.
+pub(crate) fn asset_with_channels(id: &str, kind: AssetKind, channels: u16) -> Asset {
     Asset {
         media: Some(MediaMetadata {
-            audio_channels: Some(2),
+            audio_channels: Some(channels),
             ..MediaMetadata::default()
         }),
         ..file_asset(id, kind)

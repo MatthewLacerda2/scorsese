@@ -45,6 +45,28 @@ fn audio_running_past_the_last_picture_is_reported_rather_than_cut_in_silence() 
 }
 
 #[test]
+fn audio_ending_on_the_last_picture_frame_is_not_trimmed() {
+    // The boundary itself. A bed cut to the frame ends *at* frame 90, which is
+    // the frame after the last one — nothing was lost, so there is nothing to
+    // report, and a comparison one frame loose here would call every
+    // well-finished edit trimmed.
+    let project = project(
+        vec![
+            file_asset("a", AssetKind::Video),
+            file_asset("music", AssetKind::Audio),
+        ],
+        vec![
+            video_track("v1", vec![clip("c1", "a", 0, 90)]),
+            audio_track("a1", vec![clip("m1", "music", 0, 90)]),
+        ],
+    );
+    let plan = Plan::build(&project, Fps::THIRTY, FrameRange::ALL).expect("plan");
+
+    assert_eq!(plan.notes(), [], "nothing was cut");
+    assert_eq!(plan.end(), Frames(90));
+}
+
+#[test]
 fn an_audio_track_is_cut_where_its_own_clips_change_and_not_where_the_picture_does() {
     let project = project(
         vec![
