@@ -45,7 +45,20 @@ cargo test           # runs every crate's tests
 
 # The size gate CI runs: source files ≤ 300 lines, test files ≤ 150
 cargo run --manifest-path tools/lint/Cargo.toml
+
+# Coverage, exactly as CI measures and reports it (needs cargo-llvm-cov)
+cargo llvm-cov --workspace --exclude-from-report scorsese-golden \
+    --json --output-path coverage.json
+python3 .github/scripts/coverage-summary.py coverage.json
 ```
+
+Coverage is a **signal, not a gate**: there is no threshold and it never fails
+a build. It exists to answer one question nothing else here answers — which
+`pub` items no test reaches at all, which `clippy`'s `dead_code` cannot see
+because nearly everything in these crates is `pub`. What it does *not* say is
+whether a test asserts anything; an executed line is not a checked one, and
+break-testing is what settles that. The `coverage` job in
+`.github/workflows/ci.yml` documents what is excluded and why.
 
 Requires `rustup` — `rust-toolchain.toml` pins the exact compiler, so the
 right one installs itself on first build and your local `clippy` matches CI's

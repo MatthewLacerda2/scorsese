@@ -108,6 +108,124 @@ jobs:
           cargo clippy --manifest-path tools/lint/Cargo.toml
           --all-targets --locked -- -D warnings
 
+  # Coverage. A signal, never a gate — the one job here that cannot turn
+  # anything red, by design.
+  #
+  # What it exists to catch: nothing else tells you a `pub fn` has no test at
+  # all. `clippy -D warnings` promotes rustc's `dead_code`, which catches
+  # private rot, but `dead_code` never fires on `pub` items in a library crate
+  # — and nearly everything in these crates is `pub`, because they exist to be
+  # called by the CLI, the MCP server and the GUI. Break-testing #31 found two
+  # behaviours with no coverage whatsoever and the suite stayed green.
+  #
+  # Why it never blocks: CLAUDE.md's gates-vs-signals rule. A check that proves
+  # correctness gates; a check that audits quality informs. A percentage
+  # threshold would be actively harmful here — it rewards tests that execute
+  # lines over tests that assert behaviour, which is the opposite of what this
+  # repo's tests are for. The audio tests measure loudness over a window and
+  # the golden tests compare pixels; neither moves a coverage number much, and
+  # both are worth more than anything a threshold would buy. If a number should
+  # ever gate something, that is a decision made on purpose in its own PR.
+  #
+  # `continue-on-error` is what makes that structural rather than a promise: a
+  # failure in this job — a broken flag, a runner without ffmpeg, llvm-cov
+  # itself falling over — leaves the workflow run green. The job's own check
+  # still goes red, which is the right place for "your signal is broken" to
+  # show up, and the PR stays mergeable. The one way to undo that is to name
+  # this job in a branch-protection required-checks list: don't. That would
+  # make it a gate by the back door, which is the decision this issue
+  # deliberately did not make.
+  #
+  # On pull requests *and* pushes to main. The PR run is where an agent acts on
+  # it; the main run is the baseline that number is read against, and main is
+  # exactly where an unattended overnight merge would otherwise go unmeasured.
+  # It costs runner minutes but not latency: it runs beside `check` rather than
+  # behind it, and it can never be the job someone is waiting on.
+  #
+  # What is excluded, and why:
+  #
+  # - `crates/golden` — test infrastructure; nothing ships it and nothing
+  #   depends on it. Measuring how well the harness is tested measures the
+  #   wrong thing, and it would flatter the average besides. `--exclude-from-
+  #   report` and not `--exclude`: its tests still *run*, because rendering
+  #   fixtures is a large part of what exercises `render` and `compositor`.
+  #   The coverage it produces in other crates is exactly what we want counted.
+  # - `tools/lint` — its own workspace, deliberately outside
+  #   `cargo test --workspace` so the size gate is runnable without ffmpeg. In
+  #   for free it is not: it would need a second instrumented build and a
+  #   merged profile, doubling this job for a four-file tool whose own tests
+  #   already run as a hard gate in `size` above. Out, on cost.
+  # - Integration tests themselves (`crates/*/tests/**`) — llvm-cov omits test
+  #   targets from the report by default, which is right: a test file is 100%
+  #   covered by definition and counting it would only dilute the number.
+  coverage:
+    name: coverage (signal)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # The same tests as `check`, so the same decoder. This job is roughly as
+      # long as that one for the same reason.
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+
+      # Its own cache key: instrumented builds carry different RUSTFLAGS and
+      # would otherwise thrash the artifacts `check` depends on.
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: coverage
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      # `rust-toolchain.toml` pins rustfmt and clippy only. llvm-tools is asked
+      # for here rather than added there so the pin stays the set every job
+      # needs, and only this one pays to download it.
+      - name: Install llvm-tools
+        run: rustup component add llvm-tools-preview
+
+      - name: Measure
+        run: >
+          cargo llvm-cov --workspace --locked
+          --exclude-from-report scorsese-golden
+          --json --output-path coverage.json
+
+      # Read where it lands, not behind a click. llvm-cov's own report is a
+      # twelve-column table with a row per file; this is the same data ordered
+      # by what someone would act on.
+      - name: Render the report
+        run: |
+          python3 .github/scripts/coverage-summary.py coverage.json > coverage.md
+          cat coverage.md >> "$GITHUB_STEP_SUMMARY"
+
+      # One comment that rewrites itself, keyed on the marker below — a signal
+      # that grows a new comment per push stops being read by the third one.
+      # Skipped for forks, whose token has no write scope; nothing downstream
+      # depends on it, and the job cannot fail the run either way.
+      - name: Comment on the PR
+        if: >
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          { echo '<!-- coverage-signal -->'; cat coverage.md; } > comment.md
+          existing=$(gh api "repos/$REPO/issues/$PR/comments?per_page=100" \
+            --jq 'map(select(.body | startswith("<!-- coverage-signal -->")))
+                  | .[0].id // empty')
+          if [ -n "$existing" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$existing" -F body=@comment.md
+          else
+            gh pr comment "$PR" --body-file comment.md
+          fi
+
   # Supply chain. Nothing else in this workflow looks at what our ~60
   # transitive dependencies are or what they are licensed under; a RUSTSEC
   # advisory would otherwise land silently and stay until someone happened to
