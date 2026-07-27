@@ -61,8 +61,8 @@ the size of the change rather than the size of the codebase.
 ```sh
 cargo install cargo-mutants --locked
 
-cargo mutants                                     # the whole scoped surface
-cargo mutants --in-diff <(git diff origin/main)   # what CI runs on a PR
+make mutants                                      # what CI runs: this branch's diff
+cargo mutants                                     # the whole scoped surface, ~16 min
 cargo mutants -F '^crates/core/src/keyframe\.rs'  # one file, while writing it
 ```
 

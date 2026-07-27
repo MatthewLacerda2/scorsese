@@ -6,10 +6,10 @@
 # how the result is routed, and `docs/mutation-testing.md` for the policy this
 # file implements — including what to do with a survivor.
 #
-# Run exactly what CI runs, over the whole scoped surface:
+# Run it:
 #
-#     cargo mutants                       # everything below
-#     cargo mutants --in-diff <(git diff origin/main...)   # what CI runs per PR
+#     make mutants     # this branch's diff, exactly as the CI job scopes it
+#     cargo mutants    # the whole surface below, ~16 minutes
 #
 # ---------------------------------------------------------------------------
 # The mutated surface

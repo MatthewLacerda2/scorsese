@@ -8,9 +8,10 @@ survived* — are somewhere in the middle of it. What comes out here is only the
 survivors, with the mutation spelled out, ordered by file so it reads as a
 worklist.
 
-Run it against exactly what CI produces:
+`make mutants` runs exactly what CI runs and then feeds the result through
+here. By hand, against a sweep of the whole scoped surface:
 
-    cargo mutants --in-diff <(git diff origin/main...HEAD)
+    cargo mutants
     python3 .github/scripts/mutants-summary.py mutants.out/outcomes.json
 
 Python and not jq for the reason coverage gives: python3 is the one of the two
