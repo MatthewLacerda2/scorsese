@@ -17,10 +17,13 @@ use crate::time::Fps;
 pub struct AssetId(String);
 
 impl AssetId {
+    /// Wraps a string as an id. Uniqueness is a property of the table, not of
+    /// the id, so it is [`crate::validate`] that catches a repeat.
     pub fn new(id: impl Into<String>) -> Self {
         Self(id.into())
     }
 
+    /// The id as written in `project.json`.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -37,9 +40,15 @@ impl fmt::Display for AssetId {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AssetKind {
+    /// A moving-picture file, which may carry sound of its own.
     Video,
+    /// A still. It has no duration — how long it is on screen is the clip's
+    /// business, not the file's.
     Image,
+    /// A sound file, and the only imported kind that belongs on an audio track.
     Audio,
+    /// A string rendered as picture. The one kind with no file behind it: the
+    /// content lives inline in `project.json`.
     Text,
     /// A Veo prompt: video that does not exist until it is generated.
     GeneratedVideo,
@@ -82,9 +91,17 @@ impl AssetKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum GenerationState {
+    /// A prompt nobody has spent money on yet. Where every generated asset
+    /// starts.
     Sketch,
+    /// Handed to the provider and in flight. GO leaves it alone rather than
+    /// paying for it twice.
     Queued,
+    /// The media exists on disk. A cache hit for as long as the prompt is
+    /// unchanged, and never re-billed.
     Generated,
+    /// Generated once, then the prompt was edited — so the file on disk is no
+    /// longer what the project asks for, and GO will redo it.
     Stale,
 }
 
@@ -110,7 +127,11 @@ impl GenerationState {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Asset {
+    /// Unique within the project, and the only handle a clip has on this
+    /// asset — so renaming one here is a rename everywhere it is used.
     pub id: AssetId,
+    /// Decides which of the fields below are required, and which track the
+    /// asset may sit on: [`AssetKind::is_visual`] against the track's kind.
     pub kind: AssetKind,
     /// Path to the media, relative to the project root. Imported media lives
     /// under `assets/`, provider output under `generated/`.
@@ -191,8 +212,12 @@ pub struct MediaMetadata {
     /// project's, until a clip conforms it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub duration_seconds: Option<f64>,
+    /// Picture width in pixels. Its absence is how import tells that a file
+    /// claiming to be video has no video stream in it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub width: Option<u32>,
+    /// Picture height in pixels. With `width`, the shape a clip's
+    /// [`crate::Fit`] has to reconcile against the render's raster.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub height: Option<u32>,
     /// The source's framerate, kept rational because ffprobe reports one and
@@ -200,8 +225,13 @@ pub struct MediaMetadata {
     /// the drift the timeline grid exists to avoid.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub frame_rate: Option<Fps>,
+    /// How many audio channels the file carries. This is what says whether a
+    /// clip on a *video* track has sound of its own to mix; absent means
+    /// nobody has looked, not that the file is silent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audio_channels: Option<u16>,
+    /// The source's sample rate in Hz. Informational here — the mix works in
+    /// one rate and resamples everything on the way in.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sample_rate: Option<u32>,
 }

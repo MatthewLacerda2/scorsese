@@ -20,6 +20,8 @@ pub struct Ffprobe {
 }
 
 impl Ffprobe {
+    /// Probes using tools that have already been located — the constructor for
+    /// a caller that holds a [`Tools`] and should not go looking twice.
     pub fn new(tools: Tools) -> Self {
         Self { tools }
     }

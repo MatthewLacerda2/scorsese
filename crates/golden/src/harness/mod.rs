@@ -19,7 +19,11 @@ pub const UPDATE_VARIABLE: &str = "UPDATE_GOLDENS";
 /// Whether a run holds the render to the references or replaces them.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
+    /// Hold the render to what is committed. What CI runs, and the default —
+    /// a missing reference fails here rather than being filled in silently.
     Check,
+    /// Overwrite every compared frame's reference. Legitimate only when the
+    /// render changed on purpose; `docs/golden-renders.md` says when.
     Bless,
 }
 
@@ -36,6 +40,7 @@ impl Mode {
 /// What a passing run found.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Outcome {
+    /// The fixture that ran, by directory name.
     pub name: String,
     /// Frames the render wrote in total, not just the compared ones.
     pub frames_rendered: u64,
@@ -49,7 +54,9 @@ pub struct Outcome {
 /// One frame that fell outside tolerance.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Mismatch {
+    /// Index into the rendered file, as the fixture nominated it.
     pub frame: u64,
+    /// How far out it was, so the report can say by how much it missed.
     pub difference: Difference,
     /// Where the frame that was actually produced got written.
     pub actual: PathBuf,
@@ -60,9 +67,12 @@ pub struct Mismatch {
 /// Everything wrong with one fixture's output, and where to look at it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Mismatches {
+    /// The bar these frames were held to, carried along so the failure can
+    /// print what was needed next to what was measured.
     pub tolerance: Tolerance,
     /// The render itself, kept on disk for inspection.
     pub render: PathBuf,
+    /// Only the frames that fell outside tolerance, in fixture order.
     pub frames: Vec<Mismatch>,
 }
 
@@ -184,12 +194,19 @@ pub fn assert_matches(fixture_dir: &Path, mode: Mode, workspace: &Path) -> Outco
 /// Why a golden run did not come out clean.
 #[derive(Debug, thiserror::Error)]
 pub enum GoldenError {
+    /// The one failure that is about pixels. Everything else here is the
+    /// harness saying it could not get as far as comparing.
     #[error("golden fixture `{fixture}` does not match its references\n{mismatches}")]
     Mismatch {
+        /// The fixture that regressed.
         fixture: String,
+        /// Every frame that missed, and where to look at each.
         mismatches: Mismatches,
     },
 
+    /// A frame nominated for comparison has no committed reference. Fails
+    /// rather than being created, so a fixture never passes by asserting
+    /// nothing.
     #[error(
         "golden fixture `{fixture}` has no reference for frame {frame} at {} — \
          create it with {UPDATE_VARIABLE}=1 cargo test -p scorsese-golden, \
@@ -197,36 +214,53 @@ pub enum GoldenError {
         path.display()
     )]
     NoReference {
+        /// The fixture missing a reference.
         fixture: String,
+        /// The frame it nominates but cannot be held to.
         frame: u64,
+        /// Where the reference is expected to sit.
         path: PathBuf,
     },
 
+    /// The fixture asks about a frame the render never produced — a timeline
+    /// that got shorter, or a `range` narrowed without updating `frames`.
     #[error(
         "golden fixture `{fixture}` compares frame {frame}, but its render is only \
          {frames} frames long"
     )]
     FrameBeyondRender {
+        /// The fixture that over-reaches.
         fixture: String,
+        /// The frame it asks for.
         frame: u64,
+        /// How many the render actually wrote.
         frames: u64,
     },
 
+    /// The fixture disagrees with itself, before anything was rendered.
     #[error("the fixture is broken: {0}")]
     Fixture(#[from] FixtureError),
 
+    /// Materialising the scratch project or conjuring its media failed.
     #[error("setting the fixture up: {0}")]
     Setup(#[from] SetupError),
 
+    /// No ffmpeg on PATH — the harness needs one to render or to read a PNG.
     #[error(transparent)]
     Tools(#[from] scorsese_render::ToolsError),
 
+    /// The render failed outright, which is a bug in the code under test and
+    /// not something the fixture can be blamed for.
     #[error("rendering the fixture: {0}")]
     Render(#[from] scorsese_render::RenderError),
 
+    /// A frame could not be pulled out of the render, or written back as a
+    /// reference.
     #[error("reading a frame: {0}")]
     Frame(#[from] FrameError),
 
+    /// The render and its reference are different sizes, so there is nothing
+    /// to compare — re-bless deliberately if the resolution moved on purpose.
     #[error(transparent)]
     Size(#[from] SizeMismatch),
 }

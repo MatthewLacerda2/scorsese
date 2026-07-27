@@ -2,4 +2,9 @@
 # denied for the workspace in Cargo.toml — steps aside inside test code. This
 # is clippy's own mechanism for the split; it needs no attribute in any file,
 # so a new test file gets the exemption without having to remember it.
+#
+# The exemption reaches `#[test]` functions and `#[cfg(test)]` modules, and no
+# further. A shared helper in `tests/common/` is still held to `expect("…")` —
+# which is right: a helper fails a long way from the test that called it, so the
+# message is the only thing telling you which one.
 allow-unwrap-in-tests = true

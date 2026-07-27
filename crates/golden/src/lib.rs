@@ -18,7 +18,7 @@
 //! 2. [`harness::run`] generates the media with ffmpeg's synthetic sources into
 //!    a scratch project directory, renders it, and pulls out the frames the
 //!    fixture nominates.
-//! 3. Each frame is compared to its reference by [`compare`] — per-channel SSIM
+//! 3. Each frame is compared to its reference by [`compare()`] — per-channel SSIM
 //!    and mean absolute error, both with tolerance.
 //!
 //! **Comparison is perceptual, never byte-equality of encoded output.** Two

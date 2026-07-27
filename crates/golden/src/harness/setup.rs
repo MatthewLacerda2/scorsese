@@ -98,22 +98,37 @@ fn generate(
 /// Why a fixture could not be set up. All faults in the fixture.
 #[derive(Debug, thiserror::Error)]
 pub enum SetupError {
+    /// The scratch project directory could not be built or copied into.
     #[error("{}: {source}", path.display())]
     Io {
+        /// The directory or file being created or written.
         path: PathBuf,
+        /// What the filesystem said.
         #[source]
         source: std::io::Error,
     },
+    /// A recipe names an asset that has no `path`, so there is nowhere to put
+    /// the media it describes.
     #[error("asset `{asset}` has no path to generate media at")]
-    NoPath { asset: String },
+    NoPath {
+        /// The asset id with a recipe but no destination.
+        asset: String,
+    },
+    /// ffmpeg refused the recipe — almost always a malformed lavfi source.
     #[error("generating `{asset}` at {}: {message}", path.display())]
     Ffmpeg {
+        /// The asset whose media was being conjured.
         asset: String,
+        /// Where the file was to be written.
         path: PathBuf,
+        /// ffmpeg's own stderr, trimmed.
         message: String,
     },
+    /// The document copied in does not survive a real [`Project::load`] — the
+    /// same path `scorsese render` takes, so this would bite a user too.
     #[error("the fixture's project does not load: {source}")]
     Load {
+        /// Boxed to keep this variant from dominating the enum's size.
         #[source]
         source: Box<scorsese_core::LoadError>,
     },

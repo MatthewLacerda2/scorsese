@@ -30,7 +30,10 @@ pub const ANIMATABLE: Registry = Registry::new(&[DRAWN, MIXED]);
 /// so nothing prompts a second look and the mistake ships.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Unknown {
+    /// The clip whose keyframes name it — reported per clip, since the same
+    /// typo in two places is two things to fix.
     pub clip: String,
+    /// The path as authored, quoted back verbatim so it can be searched for.
     pub property: String,
     /// The known property it was probably meant to be, when there is an obvious
     /// candidate. A typo is the case being caught, so this is most of the value.

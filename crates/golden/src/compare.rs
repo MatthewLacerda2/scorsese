@@ -70,8 +70,12 @@ pub struct Difference {
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Tolerance {
+    /// The floor a frame's worst block may not fall below. Defaults to 0.95;
+    /// red against blue scores 0.70, so there is a long way between the two.
     #[serde(default = "default_min_ssim")]
     pub min_ssim: f64,
+    /// The ceiling on average channel error, in 0–255 levels. Defaults to 2.0,
+    /// which is encoder noise; a wrong colour is two orders of magnitude out.
     #[serde(default = "default_max_mean_error")]
     pub max_mean_error: f64,
 }
@@ -94,6 +98,8 @@ impl Default for Tolerance {
 }
 
 impl Tolerance {
+    /// Whether a frame passes. Both measures must hold — either one alone lets
+    /// through a class of regression the other catches.
     pub fn accepts(&self, difference: &Difference) -> bool {
         difference.ssim >= self.min_ssim && difference.mean_error <= self.max_mean_error
     }
@@ -120,7 +126,9 @@ pub fn compare(actual: &Frame, expected: &Frame) -> Result<Difference, SizeMisma
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 #[error("frame is {actual} but its reference is {expected}")]
 pub struct SizeMismatch {
+    /// What the render produced — the fixture's own `render.resolution`.
     pub actual: Resolution,
+    /// What the committed reference is, blessed at some earlier resolution.
     pub expected: Resolution,
 }
 

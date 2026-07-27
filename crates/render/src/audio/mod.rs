@@ -47,6 +47,8 @@ pub struct Mixdown {
 }
 
 impl Mixdown {
+    /// Where the samples are, for as long as this value is alive. Borrowed
+    /// rather than handed out, because the file goes when it does.
     pub fn path(&self) -> &Path {
         &self.path
     }

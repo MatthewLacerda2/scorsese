@@ -21,6 +21,8 @@ pub struct Renderer<'a> {
 }
 
 impl<'a> Renderer<'a> {
+    /// Borrows the tools rather than discovering its own, so the cost of
+    /// checking ffmpeg is paid once however many renders follow.
     pub fn new(tools: &'a Tools, settings: RenderSettings) -> Self {
         Self { tools, settings }
     }

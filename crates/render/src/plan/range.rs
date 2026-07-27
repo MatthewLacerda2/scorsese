@@ -40,10 +40,13 @@ impl FrameRange {
         Ok(Self { start, end })
     }
 
+    /// The first frame rendered. Always known — an open start means zero.
     pub const fn start(self) -> Frames {
         self.start
     }
 
+    /// The frame just past the last one rendered, or `None` to run to whatever
+    /// the timeline turns out to be — which only the plan can work out.
     pub const fn end(self) -> Option<Frames> {
         self.end
     }
@@ -85,8 +88,15 @@ impl FromStr for FrameRange {
 /// Text that is not a frame range.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum FrameRangeError {
+    /// No colon, or an end that is not a whole number of frames.
     #[error("expected a frame range like `30:120`, `30:`, or `:120`")]
     Malformed,
+    /// Includes the equal case: end-exclusive means `30:30` selects nothing.
     #[error("frame range {}:{} ends before it begins", start.get(), end.get())]
-    Backwards { start: Frames, end: Frames },
+    Backwards {
+        /// The first frame asked for.
+        start: Frames,
+        /// The end that did not come after it.
+        end: Frames,
+    },
 }

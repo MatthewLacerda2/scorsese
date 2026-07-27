@@ -33,7 +33,12 @@ pub const CACHE_DIR: &str = "cache";
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Project {
+    /// Which format this document is written in. This build reads exactly
+    /// [`SCHEMA_VERSION`] and refuses the rest, rather than guessing what an
+    /// older or newer writer meant by a field.
     pub schema_version: u32,
+    /// What a human calls this edit. Cosmetic, and unrelated to the `*.scor/`
+    /// directory's own name.
     pub name: String,
     /// The grid this edit is authored against. Every clip and keyframe time
     /// in the document is a frame count on it.
@@ -45,6 +50,8 @@ pub struct Project {
     /// Every asset the project knows about, keyed by `id` within the entries.
     #[serde(default)]
     pub assets: Vec<Asset>,
+    /// The tracks, in compositing order: the first video track is the bottom
+    /// layer. Audio tracks are unordered among themselves.
     #[serde(default)]
     pub tracks: Vec<Track>,
 }
@@ -159,16 +166,32 @@ struct VersionPeek {
 /// Why a project could not be loaded.
 #[derive(Debug, thiserror::Error)]
 pub enum LoadError {
+    /// The file could not be read — usually no `project.json` where one was
+    /// expected, so the directory is not a project.
     #[error("reading {path}: {source}")]
     Io {
+        /// The `project.json` that could not be read.
         path: PathBuf,
+        /// What the operating system said.
         #[source]
         source: std::io::Error,
     },
+    /// Not valid JSON, or JSON that does not fit the schema — an unknown field
+    /// lands here, since a typo like `"trackz"` fails the load rather than
+    /// being dropped. Carries the line it is on.
     #[error("parsing project.json: {0}")]
     Parse(#[source] serde_json::Error),
+    /// A document from another build. Read before anything else, so the
+    /// advice is "upgrade scorsese" rather than a complaint about a field.
     #[error("project.json is schema_version {found}, but this build of scorsese reads {supported}")]
-    SchemaVersion { found: u32, supported: u32 },
+    SchemaVersion {
+        /// The version the document declares.
+        found: u32,
+        /// The one and only version this build reads.
+        supported: u32,
+    },
+    /// The document parsed but does not describe a coherent project. Every
+    /// problem at once, never just the first.
     #[error(transparent)]
     Invalid(#[from] ValidationErrors),
 }
@@ -176,14 +199,24 @@ pub enum LoadError {
 /// Why a project could not be saved.
 #[derive(Debug, thiserror::Error)]
 pub enum SaveError {
+    /// The in-memory project could not be turned into JSON. A non-finite
+    /// keyframe value is the realistic way to get here.
     #[error("serialising project: {0}")]
     Serialize(#[from] serde_json::Error),
+    /// The write itself failed: no such directory, no permission, no room.
     #[error("writing {}: {source}", path.display())]
     Io {
+        /// The file or directory that could not be written.
         path: PathBuf,
+        /// What the operating system said.
         #[source]
         source: std::io::Error,
     },
+    /// Creating a project where one already lives. Refused rather than
+    /// overwritten — clobbering an edit is not undoable.
     #[error("{} is already a scorsese project", path.display())]
-    AlreadyAProject { path: PathBuf },
+    AlreadyAProject {
+        /// The directory that already holds a `project.json`.
+        path: PathBuf,
+    },
 }

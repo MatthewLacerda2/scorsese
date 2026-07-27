@@ -39,6 +39,8 @@ impl Fitting {
 /// What to decode, and how much of it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Source {
+    /// The media to read, already resolved against the project root — nothing
+    /// below here knows what a project directory is.
     pub file: PathBuf,
     /// A still image, which has no timeline of its own and is held for as long
     /// as the clip lasts.

@@ -22,10 +22,13 @@ use crate::time::Frames;
 pub struct PropertyPath(String);
 
 impl PropertyPath {
+    /// Wraps a string as a property path. Infallible, and it does not check
+    /// that anything animates the property — see [`PropertyPath::is_well_formed`].
     pub fn new(path: impl Into<String>) -> Self {
         Self(path.into())
     }
 
+    /// The whole dotted path as written.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -54,10 +57,15 @@ impl std::fmt::Display for PropertyPath {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Easing {
+    /// Constant rate throughout, and what a keyframe that says nothing means.
     #[default]
     Linear,
+    /// Starts slow and accelerates into the next keyframe.
     EaseIn,
+    /// Starts at full rate and settles as it arrives.
     EaseOut,
+    /// Slow at both ends, quickest in the middle — the one that reads as
+    /// deliberate rather than mechanical.
     EaseInOut,
     /// Holds this value until the next keyframe, then jumps.
     Hold,
@@ -98,6 +106,9 @@ pub struct Keyframe {
     /// ramp steppy, it only quantises where the ramp's corners sit, which is
     /// why even an audio fade wants frames and not something finer.
     pub t: Frames,
+    /// What the property reads at this instant. Its meaning is the property's,
+    /// never this crate's — `1.0` is fully opaque to opacity and as-recorded
+    /// to volume, and core knows neither. Must be finite.
     pub value: f64,
     /// How the value travels from here to the next keyframe.
     #[serde(default)]
@@ -108,12 +119,18 @@ pub struct Keyframe {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyframeTrack {
+    /// Which property these points animate. A path nothing animates is
+    /// ignored and warned about, never an error — a project authored against
+    /// a newer scorsese still has to render on an older one.
     pub property: PropertyPath,
     /// Ordered by `t`, ascending, with no duplicated times.
     pub keyframes: Vec<Keyframe>,
 }
 
 impl KeyframeTrack {
+    /// Takes the points as given. Sorting is not imposed here — validation
+    /// reports an out-of-order track rather than silently rewriting what an
+    /// author wrote.
     pub fn new(property: PropertyPath, keyframes: Vec<Keyframe>) -> Self {
         Self {
             property,

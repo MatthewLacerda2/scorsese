@@ -117,28 +117,51 @@ fn check_kind_against_media(
 /// Why a file could not be imported.
 #[derive(Debug, thiserror::Error)]
 pub enum ImportError {
+    /// The source file could not be read to hash it. Raised before anything
+    /// is copied, so the project directory is untouched.
     #[error("cannot read {}: {source}", path.display())]
     Unreadable {
+        /// The source file outside the project.
         path: PathBuf,
+        /// What the operating system said.
         #[source]
         source: std::io::Error,
     },
+    /// `assets/` could not be created, or the copy into it failed.
     #[error("cannot write {}: {source}", path.display())]
     Unwritable {
+        /// The destination that could not be written.
         path: PathBuf,
+        /// What the operating system said.
         #[source]
         source: std::io::Error,
     },
+    /// No extension, or one nothing recognises. Guessing here would import a
+    /// file as the wrong kind and only surface at render time.
     #[error("cannot tell what kind of media {} is; pass the kind explicitly", path.display())]
-    UnknownKind { path: PathBuf },
+    UnknownKind {
+        /// The file whose extension said nothing useful.
+        path: PathBuf,
+    },
+    /// A `text` or `generated_*` kind was asked for. Those carry a string, not
+    /// a file, so there is nothing for import to do with them.
     #[error("{kind:?} assets are authored, not imported — there is no file to copy in")]
-    NotImportable { kind: AssetKind },
+    NotImportable {
+        /// The kind that has no file behind it.
+        kind: AssetKind,
+    },
+    /// The extension lied — a `.mp4` with no picture, a `.mp3` with no sound.
+    /// Caught at import, when it is still one file rather than a broken cut.
     #[error("{} was imported as {kind:?} but has {found}", path.display())]
     KindMismatch {
+        /// The file that was probed.
         path: PathBuf,
+        /// The kind it was being imported as.
         kind: AssetKind,
+        /// What the probe found instead, e.g. `no audio stream`.
         found: &'static str,
     },
+    /// The prober could not read the file at all.
     #[error(transparent)]
     Probe(#[from] ProbeError),
 }

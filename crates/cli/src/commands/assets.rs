@@ -6,6 +6,12 @@ use anyhow::{Context, Result};
 use scorsese_core::pool::{remove_assets, unused_assets};
 use scorsese_core::{AssetHealth, AssetStatus, HashCheck, Project, asset_status};
 
+/// Prints one line per asset: what it is, how many clips lean on it, and
+/// whether the file behind it is still there and still the one that was
+/// imported.
+///
+/// Re-hashing is opt-in because it is the only part of this that reads the
+/// media, and a pool of large sources turns an instant listing into seconds.
 pub fn list(project_dir: &Path, verify: bool) -> Result<()> {
     let project = open(project_dir)?;
     let check = if verify {
@@ -38,6 +44,9 @@ pub fn list(project_dir: &Path, verify: bool) -> Result<()> {
     Ok(())
 }
 
+/// Reports the assets no clip references, and only deletes them when asked
+/// twice — the report is the default because unimported media is not
+/// recoverable, and an agent running this unattended should have to mean it.
 pub fn gc(project_dir: &Path, delete: bool) -> Result<()> {
     let mut project = open(project_dir)?;
     let unused = unused_assets(&project);

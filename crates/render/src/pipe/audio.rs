@@ -31,6 +31,8 @@ const MARGIN_SECONDS: f64 = 0.5;
 /// What to decode, and how much of it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct AudioSource {
+    /// The media to read, already resolved against the project root — nothing
+    /// below here knows what a project directory is.
     pub file: PathBuf,
     /// Where to start in the source, in wall-clock seconds.
     pub seek_seconds: f64,

@@ -176,6 +176,22 @@ those boundaries are enforced in review.
 - **`project.json` format changes are `architecture`-label work** and require
   a schema version bump plus a migration note. The format is the contract
   between the CLI, the MCP server, the GUI, and every saved project.
+- **The lint set is chosen, not inherited.** `[workspace.lints]` in the root
+  `Cargo.toml` is the whole policy; every crate takes it with
+  `lints.workspace = true`. Because CI denies warnings, **each lint there is a
+  merge gate**, so the bar for adding one is the gates-vs-signals rule: it must
+  prove correctness or an invariant we have actually stated, never a style
+  preference we would wave through. That is why `clippy::pedantic` is not on —
+  a gate people route around teaches everyone to route around gates. What is on:
+  `unsafe_code = "forbid"` (there is none, and it stays that way),
+  `missing_docs` (each `lib.rs` doc is a crate's stated boundary, so the docs
+  are architecture), `unreachable_pub` (`pub` nobody can reach is API surface
+  nobody meant to add), and `clippy::unwrap_used`, `dbg_macro`, `todo`.
+  `clippy.toml` holds `allow-unwrap-in-tests`, because a failed `unwrap` in a
+  test *is* the assertion — library code, and shared helpers under
+  `tests/common/`, say what they assume with `expect("…")` instead. Adding or
+  removing a lint is a change to this rule, so it belongs in its own PR with
+  the reason recorded here.
 - **Nothing in the codebase is temporary**, except small JSON or log files.
   Anything added must benefit the project long-term or be necessary to its
   development — technically, or as a project.

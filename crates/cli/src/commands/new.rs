@@ -5,6 +5,9 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use scorsese_core::{Fps, Project};
 
+/// Lays out an empty project directory. The name falls back to the directory's
+/// own stem, because `teaser.scor` holding a project called `teaser` is what
+/// anyone omitting the flag meant.
 pub fn run(directory: &Path, name: Option<String>, fps: Fps) -> Result<()> {
     let name = name.unwrap_or_else(|| {
         directory

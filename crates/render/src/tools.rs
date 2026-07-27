@@ -8,9 +8,12 @@
 use std::path::PathBuf;
 use std::process::Command;
 
-/// Overrides for the binaries, so a bundled build can point at its sidecars
-/// without changing any calling code.
+/// Overrides where ffmpeg is found, so a bundled build can point at its
+/// sidecar without changing any calling code.
 pub const FFMPEG_ENV: &str = "SCORSESE_FFMPEG";
+
+/// The ffprobe half of [`FFMPEG_ENV`]. Set separately because the two binaries
+/// do not have to come from the same place.
 pub const FFPROBE_ENV: &str = "SCORSESE_FFPROBE";
 
 /// The external tools this crate drives.
@@ -78,9 +81,14 @@ pub enum ToolsError {
          install ffmpeg and put it on PATH, or set {env} to its location",
         binary.display()
     )]
+    /// Nothing runnable at the path we resolved — not installed, not on
+    /// `PATH`, or an override pointing somewhere stale.
     NotFound {
+        /// The path that was tried.
         binary: PathBuf,
+        /// The variable that would override it.
         env: &'static str,
+        /// Why the process would not start.
         #[source]
         source: std::io::Error,
     },

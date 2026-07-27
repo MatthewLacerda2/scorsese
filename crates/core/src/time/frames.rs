@@ -20,6 +20,8 @@ use serde::{Deserialize, Serialize};
 pub struct Frames(pub u64);
 
 impl Frames {
+    /// The first frame of the timeline, and the default for every time a
+    /// document leaves out.
     pub const ZERO: Self = Self(0);
 
     /// The frame count as a plain `u64`.
