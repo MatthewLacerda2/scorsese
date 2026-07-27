@@ -62,9 +62,16 @@ pub enum Command {
         #[arg(long, value_enum)]
         kind: Option<KindArg>,
     },
-    /// Report everything wrong or questionable about the project, without
-    /// rendering. Problems fail; warnings do not.
-    Check,
+    /// Report everything wrong or questionable about the project — the
+    /// document and the media it references — without rendering. Problems
+    /// fail; warnings do not.
+    Check {
+        /// Re-hash every file to catch media that changed since import.
+        /// Existence is always checked; hashing a whole pool costs real I/O
+        /// and only ever produces warnings, so it is asked for.
+        #[arg(long)]
+        verify: bool,
+    },
     /// Render the timeline to a video file.
     Render {
         /// Where to write the encoded file, e.g. `teaser.mp4`.

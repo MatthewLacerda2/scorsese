@@ -328,6 +328,15 @@ the line it is on — earlier and more precisely than validation could say it.
 The same goes for an unusable `timeline_fps`: there is nothing useful to
 validate about a timeline whose grid is undefined.
 
+Validation is about the *document*, and stops at the edge of it: it checks that
+`path` is legal and relative, never that anything is there. Whether the media
+actually exists is the pool's answer and `scorsese check`'s question — a
+document can be flawless and still unrenderable because the footage was deleted
+underneath it. `check` reports both together: a file a clip references and
+cannot find is a problem, a file whose content no longer matches its recorded
+`sha256` is a warning, and a `generated_*` asset still awaiting generation is
+neither.
+
 ## Migrating from v2
 
 v3 adds one optional field: `fit` on a clip. **Absent means `fit`**, which is

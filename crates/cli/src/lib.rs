@@ -33,7 +33,7 @@ fn dispatch(cli: Cli) -> Result<()> {
             name,
             fps,
         } => commands::new::run(&directory, name, fps),
-        Command::Check => commands::check::run(&directory),
+        Command::Check { verify } => commands::check::run(&directory, verify),
         Command::Import { file, kind } => {
             commands::import::run(&directory, &file, kind.map(Into::into))
         }
