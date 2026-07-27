@@ -70,6 +70,7 @@ scorsese assets gc --project teaser.scor         # what nothing references
 scorsese assets gc --delete --project teaser.scor
 
 scorsese check --project teaser.scor             # problems and warnings, no render
+scorsese check --verify --project teaser.scor    # ...and re-hash the media too
 
 scorsese render --project teaser.scor --out teaser.mp4
 scorsese render --project teaser.scor --out cut.mp4 --range 90:210
@@ -88,6 +89,17 @@ are entities, and two clips pointing at one asset is the intended shape.
 
 Putting clips on tracks means editing `project.json` for now — the format is
 documented and meant to be written by hand or by an agent.
+
+`check` answers one question — *will this render?* — and answers it about the
+document **and** the media it points at. A file a clip needs and cannot find is
+a problem and fails; a file that changed since it was imported, or was never
+probed, is a warning and does not. An asset nothing references is never worse
+than a warning, whatever state it is in, because no render can trip over it —
+`assets gc` is the answer to that one. Sketch clips awaiting generation are the
+normal state of a project before GO and are never reported at all. Existence is
+always checked; `--verify` adds re-hashing, which costs a read of every file in
+the pool and only ever produces warnings, so it is asked for rather than
+assumed.
 
 `render` walks the timeline and writes a file. Resolution, framerate, and
 bitrate are chosen per render, never stored in the project; a render at a rate
