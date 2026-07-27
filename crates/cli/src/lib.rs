@@ -45,6 +45,9 @@ fn dispatch(cli: Cli) -> Result<()> {
             sample_rate,
             audio_bitrate,
             range,
+            container,
+            video_codec,
+            audio_codec,
         } => commands::render::run(
             &directory,
             &out,
@@ -55,6 +58,9 @@ fn dispatch(cli: Cli) -> Result<()> {
                 sample_rate,
                 audio_bitrate,
                 range,
+                container,
+                video_codec,
+                audio_codec,
             },
         ),
         Command::Assets {

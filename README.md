@@ -109,6 +109,8 @@ scorsese render --project teaser.scor --out small.mp4 \
     --resolution 1280x720 --fps 60 --bitrate 6M
 scorsese render --project teaser.scor --out teaser.mp4 \
     --sample-rate 48000 --audio-bitrate 192k
+scorsese render --project teaser.scor --out legacy.avi
+scorsese render --project teaser.scor --out legacy.avi --video-codec h264
 ```
 
 The timeline framerate is chosen once, at `new`, and defaults to 30. It is the
@@ -138,6 +140,14 @@ other than `timeline_fps` conforms from the grid. Sources of another shape are
 letterboxed rather than stretched, and holes in the timeline render black.
 `--range` renders a slice of the timeline in frames, which is the cheap way to
 check one cut without re-encoding everything.
+
+The shape of the delivered file — the container and the codecs in it — is a
+render setting like the rest. `--out`'s extension supplies the default, so
+naming the file is usually the whole decision, and each container gets the
+codecs it is expected to carry rather than H.264 in everything. A combination
+scorsese does not write is refused before anything is encoded, because a
+plausible-looking wrong file costs more than a refusal.
+**docs/output-formats.md** is the accepted set and why it is that short.
 
 Clips can be **animated**: opacity, position, and scale are keyframed
 properties, evaluated per frame and drawn by our own compositor rather than by

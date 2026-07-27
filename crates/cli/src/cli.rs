@@ -4,7 +4,9 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand, ValueEnum};
 use scorsese_core::{AssetKind, Fps};
-use scorsese_render::{Bitrate, FrameRange, Resolution, SampleRate};
+use scorsese_render::{
+    AudioCodec, Bitrate, Container, FrameRange, Resolution, SampleRate, VideoCodec,
+};
 
 /// The whole command line: one verb, plus the options that outlive the choice
 /// of verb. `about` is set explicitly rather than taken from this doc, so the
@@ -102,6 +104,21 @@ pub enum Command {
         /// 30 up to 120, `30:` runs to the end, `:120` from the start.
         #[arg(long)]
         range: Option<FrameRange>,
+        /// Container to deliver in: `mp4`, `mkv`, `avi`, or `wmv`. Defaults to
+        /// what `--out`'s extension asks for, so naming the file is usually
+        /// the whole of this decision.
+        #[arg(long)]
+        container: Option<Container>,
+        /// Picture codec: `h264`, `mpeg4`, or `wmv2`. Defaults to what the
+        /// container is written with — H.264 for mp4 and mkv, MPEG-4 Part 2
+        /// for avi, WMV 8 for wmv. A pairing scorsese does not write is
+        /// refused before anything is encoded.
+        #[arg(long)]
+        video_codec: Option<VideoCodec>,
+        /// Sound codec: `aac`, `pcm_s16le`, or `wmav2`. Defaults, like
+        /// `--video-codec`, to what the container is written with.
+        #[arg(long)]
+        audio_codec: Option<AudioCodec>,
     },
     /// List the media pool and the state of everything in it.
     Assets {
