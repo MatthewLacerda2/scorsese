@@ -10,13 +10,13 @@ bump and a migration note.
 
 ## The document
 
-```json
+```json project
 {
   "schema_version": 3,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
-  "assets": [ ... ],
-  "tracks": [ ... ]
+  "assets": [],
+  "tracks": []
 }
 ```
 
@@ -42,7 +42,7 @@ re-importing or regenerating a file is one edit in one place.
 | `state` | `generated_*` | `sketch`, `queued`, `generated`, `stale` |
 | `text` | `text` | The string to render; text assets carry content inline and have no `path` |
 
-```json
+```json asset
 { "id": "shot-city", "kind": "generated_video", "state": "sketch",
   "prompt": "wide aerial of a city at dawn, slow push in" }
 ```
@@ -58,7 +58,7 @@ necessarily the timeline's.
 
 ## The timeline framerate
 
-```json
+```json fields
 "timeline_fps": { "num": 30000, "den": 1001 }
 ```
 
@@ -108,7 +108,7 @@ other than the timeline's.
 
 ## Tracks and clips
 
-```json
+```json track
 {
   "id": "v1", "kind": "video", "name": "Main",
   "clips": [
@@ -154,7 +154,7 @@ A clip chooses this with `fit`, which is `fit` when absent:
 | `fill` | scaled to **cover** the raster, keeping proportions; the overflow is cropped off the edges | a background plate that must not have bars |
 | `native` | not scaled at all; the source arrives at its **own pixel size**, resting centred | a logo or badge at the size it was authored |
 
-```json
+```json clip
 { "id": "c-logo", "asset": "logo", "start": 0, "duration": 60, "fit": "native" }
 ```
 
@@ -223,13 +223,16 @@ in, so the mix only ever works in one.
 
 ## Keyframes
 
-```json
-"keyframes": [
-  { "property": "opacity", "keyframes": [
-      { "t": 0, "value": 0.0, "easing": "ease_in" },
-      { "t": 15, "value": 1.0 }
-  ]}
-]
+```json clip
+{
+  "id": "c-title", "asset": "title", "start": 0, "duration": 90,
+  "keyframes": [
+    { "property": "opacity", "keyframes": [
+        { "t": 0, "value": 0.0, "easing": "ease_in" },
+        { "t": 15, "value": 1.0 }
+    ]}
+  ]
+}
 ```
 
 A keyframe track is `(property_path, [(t, value, easing)])` over any numeric
@@ -365,3 +368,39 @@ the person who made the cut can say whether that matters.
 
 A complete worked example lives in
 `crates/core/tests/fixtures/narrated_teaser.json`.
+
+## What CI checks about this page
+
+This is the document an agent reads before writing a `project.json`, so it is
+held to the code it describes rather than to anyone's memory:
+
+- **Every animatable property is listed.** The compositor and the mixer each
+  publish what they animate; a test asserts every published path appears in
+  the table above, and that the table names nothing nobody animates. Adding a
+  property without documenting it fails the build, and so does documenting one
+  that does not exist.
+- **Every example parses.** Each fenced `json` block carries a marker after
+  the language, saying what it is a piece of; a test completes it into a whole
+  document and parses that. An unmarked `json` block fails rather than quietly
+  escaping the check, so a new example has to say what it is.
+
+  | marker | the block is | checked by |
+  | --- | --- | --- |
+  | `project` | a whole `project.json` | parsing **and** validating it |
+  | `fields` | top-level fields of the document | splicing them into a minimal document |
+  | `asset` | one entry of `assets` | putting it in an otherwise empty project |
+  | `track` | one entry of `tracks` | putting it in an otherwise empty project |
+  | `clip` | one entry of a track's `clips` | putting it on an otherwise empty track |
+
+  Fragments are parsed but not validated. A fragment may legitimately name an
+  asset it does not carry, and failing it for that would be failing it for
+  being a fragment.
+- **Every command and flag in `scorsese --help` says something**, so the only
+  interface an agent has today cannot grow a silent flag.
+
+**What none of this proves.** A green CI run says every property is mentioned,
+every example still parses, and every flag has help. It says nothing about
+whether the sentence next to any of them is still *true* — that is the limit
+of any documentation gate, and it is written here so a green check is never
+mistaken for an accurate page. Prose that describes behaviour is still checked
+by reading it.

@@ -1,13 +1,23 @@
 name: CI
 
+# Markdown-only changes skip CI — with one exception, and it is the whole
+# point of the exception. `docs/project-format.md` is read by tests: its JSON
+# examples are parsed and its animatable-property table is compared to the
+# code. Skipping CI for it would mean the one document under test is the one
+# document that can be broken without anything noticing. Patterns are ordered:
+# a later one overrides an earlier one for a path both match.
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - "**.md"
+    paths:
+      - "**"
+      - "!**.md"
+      - "docs/project-format.md"
   pull_request:
-    paths-ignore:
-      - "**.md"
+    paths:
+      - "**"
+      - "!**.md"
+      - "docs/project-format.md"
 
 env:
   CARGO_TERM_COLOR: always
@@ -34,6 +44,23 @@ jobs:
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
+      # The API docs, built as a gate. `-D warnings` turns a broken or
+      # ambiguous intra-doc link into a failure — one had been dangling in
+      # `scorsese-golden` for months simply because nothing ever ran this, and
+      # CLAUDE.md names each crate's `lib.rs` doc as the statement of that
+      # crate's boundary. A doc nobody builds is a doc that rots.
+      #
+      # A step of this job rather than a job of its own: rustdoc needs the
+      # workspace compiled, and this way it reuses the cache the build above
+      # already warmed instead of paying for a second one.
+      - name: Docs
+        run: cargo doc --workspace --no-deps --locked
+        env:
+          RUSTDOCFLAGS: -D warnings
+
+      # `docs/project-format.md` is gated from inside the test run: its JSON
+      # examples are parsed as projects and its animatable-property table is
+      # held to what the code publishes. Nothing extra to invoke here.
       - name: Test
         run: cargo test --workspace --locked
 
