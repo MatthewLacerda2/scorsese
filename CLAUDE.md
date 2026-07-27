@@ -85,12 +85,14 @@ side effect of a feature PR.
 
 `crates/core` (model, serde format, validation) ← `crates/compositor` (frame
 rendering, CPU tiny-skia first) ← `crates/render` (ffmpeg orchestration) ;
-`crates/providers` (Veo + ElevenLabs, prompt-hash cache) ; `crates/cli` (the
-headless `scorsese` binary) ; `crates/mcp` (MCP server, thin wrapper over the
-same logic) ; `crates/golden` (test infrastructure: the golden-render gate,
-which nothing ships and nothing depends on) ; `app/` (Tauri GUI, not in the
-workspace yet). Each `lib.rs` doc states what its crate must never depend on —
-those boundaries are enforced in review.
+`crates/soundgen` (synthesis: recipe documents → samples; **no I/O at all**,
+and no dependency on `core`) ← `crates/providers` (Veo + ElevenLabs +
+synthesis, brief-hash cache) ; `crates/cli` (the headless `scorsese` binary) ;
+`crates/mcp` (MCP server, thin wrapper over the same logic) ; `crates/golden`
+(test infrastructure: the golden-render gate, which nothing ships and nothing
+depends on) ; `app/` (Tauri GUI, not in the workspace yet). Each `lib.rs` doc
+states what its crate must never depend on — those boundaries are enforced in
+review.
 
 ## How we work
 

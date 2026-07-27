@@ -1,0 +1,95 @@
+//! # scorsese-soundgen — sound from a document
+//!
+//! Responsibility: turning a **recipe** — a synthesiser patch, or a song —
+//! into samples. The oscillators, filters, envelopes and effects that make one
+//! note; the tracker-style arrangement that makes a piece of music out of many;
+//! and the WAV encoding that puts either into bytes.
+//!
+//! This is the free half of scorsese's generated content. A `synth_audio`
+//! asset costs no money, needs no key and no network, and produces the **same
+//! bytes every time**, which is what lets `generated/` address a bake by the
+//! hash of the recipe that made it.
+//!
+//! ## Boundary
+//!
+//! This crate performs **no I/O of any kind**: no filesystem, no network, no
+//! process, no display. It takes documents and returns buffers and bytes; a
+//! caller writes them. Nor does it depend on `scorsese-core` — it has never
+//! heard of a project, an asset or a `ProjectPath`, and a song that names its
+//! instruments by reference resolves them through a caller-supplied
+//! [`PatchResolver`] rather than by opening anything itself.
+//!
+//! That boundary is what makes the determinism claim checkable: every output
+//! is a pure function of the documents handed in.
+//!
+//! ## The signal path
+//!
+//! A [`Patch`] is *structured, not a free graph*. The stages are fixed and the
+//! recipe chooses what fills them — never how they connect:
+//!
+//! ```text
+//!   source ─► filter ─► amp envelope ─► fx chain
+//!      ▲         ▲            ▲
+//!      └─────── LFO ──────────┘   (one target: pitch | cutoff | amp)
+//! ```
+//!
+//! A [`Song`] layers that: tracks name patches, patterns name notes, and the
+//! arrangement names patterns. Every time in a song is in **beats**, so
+//! changing the tempo of a finished piece is one number.
+//!
+//! ## Determinism
+//!
+//! Nothing here reads a clock or a random number generator. Every stochastic
+//! element — noise, the Karplus excitation — draws from the seeded integer
+//! hash in [`hash`], so the same recipe and seed produce identical samples in
+//! any process, on any machine, on any run.
+//!
+//! ## Rate and channels
+//!
+//! Everything renders at [`SAMPLE_RATE`], in mono. That is deliberate rather
+//! than a limitation to work around: a bake is addressed by the hash of its
+//! recipe, so it must not depend on what some later render happens to ask for.
+//! `scorsese-render` resamples and upmixes every audio source on the way into
+//! the mix — a synthesised file takes exactly the path an imported mono file
+//! does.
+
+pub mod core;
+pub mod error;
+pub mod fx;
+pub mod hash;
+pub mod note;
+pub mod patch;
+pub mod song;
+pub mod wav;
+
+pub use core::{SAMPLE_RATE, render_note};
+pub use error::SynthError;
+pub use note::{NoteOpts, midi_to_freq, parse_note};
+pub use patch::Patch;
+pub use song::{PatchResolver, Song, render_song};
+
+/// Render one note of `patch` and encode it as a mono 16-bit PCM WAV.
+///
+/// The one-call front door for an effect: a gunshot, a footstep, a UI blip.
+/// The returned bytes are a complete file — a caller writes them wherever the
+/// project keeps its bakes.
+///
+/// The output is limited before encoding, always. A bake must not clip, and
+/// that is not the recipe's decision to make.
+pub fn bake_note(patch: &Patch, midi: f32, opts: &NoteOpts) -> Result<Vec<u8>, SynthError> {
+    Ok(wav::encode(&core::render_limited(patch, midi, opts)?))
+}
+
+/// Render one note of `patch`, naming the note the way a score does (`"C#4"`,
+/// or a MIDI number as text), and encode it as a WAV.
+pub fn bake_named_note(patch: &Patch, note: &str, opts: &NoteOpts) -> Result<Vec<u8>, SynthError> {
+    bake_note(patch, parse_note(note)?, opts)
+}
+
+/// Render `song` and encode it as a mono 16-bit PCM WAV.
+///
+/// `resolve` supplies the patch behind any track that names its instrument by
+/// reference rather than carrying it inline — see [`PatchResolver`].
+pub fn bake_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Vec<u8>, SynthError> {
+    Ok(wav::encode(&render_song(song, resolve)?))
+}
