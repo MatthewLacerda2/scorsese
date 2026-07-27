@@ -24,6 +24,17 @@ pub fn hash_file(path: &Path) -> io::Result<String> {
     Ok(hex(&hasher.finalize()))
 }
 
+/// Hashes bytes already in memory, in the same form [`hash_file`] returns.
+///
+/// For content that is small by construction and is being hashed to *name*
+/// something rather than to verify it — a synthesis recipe, whose hash is the
+/// file name of its bake.
+pub fn hash_bytes(bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    hex(&hasher.finalize())
+}
+
 fn hex(bytes: &[u8]) -> String {
     use std::fmt::Write;
     bytes

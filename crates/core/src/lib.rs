@@ -42,7 +42,10 @@ pub mod validate;
 pub use asset::{Asset, AssetId, AssetKind, GenerationState, MediaMetadata};
 pub use keyframe::{Easing, Keyframe, KeyframeTrack, PropertyPath};
 pub use path::{PathProblem, ProjectPath};
-pub use pool::{AssetHealth, AssetStatus, HashCheck, ImportError, asset_status, import_asset};
+pub use pool::{
+    AssetHealth, AssetStatus, HashCheck, ImportError, asset_id_for, asset_status, hash_bytes,
+    import_asset,
+};
 pub use probe::{ProbeError, ProbeMedia};
 pub use project::{
     ASSETS_DIR, CACHE_DIR, GENERATED_DIR, LoadError, PROJECT_FILE_NAME, Project, RECIPES_DIR,

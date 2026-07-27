@@ -14,7 +14,7 @@ mod naming;
 mod status;
 
 pub use gc::{GcError, GcReport, remove_assets, unused_assets};
-pub use hash::hash_file;
+pub use hash::{hash_bytes, hash_file};
 pub use import::{ImportError, import_asset};
-pub use naming::infer_kind;
+pub use naming::{asset_id_for, infer_kind};
 pub use status::{AssetHealth, AssetStatus, HashCheck, asset_status};

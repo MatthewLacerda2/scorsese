@@ -1,7 +1,8 @@
 //! # scorsese-cli — the headless binary
 //!
 //! Responsibility: the `scorsese` command-line surface — `new`, `import`,
-//! `check`, `render`, `generate`, `assets`, `diff`. This is how an agent (or a CI
+//! `check`, `render`, `synth`, `generate`, `assets`, `diff`. This is how an
+//! agent (or a CI
 //! job) assembles and renders a video with no human and no screen: every
 //! editing capability the GUI will ever have must be reachable from here
 //! first.
@@ -18,7 +19,7 @@ pub mod commands;
 use anyhow::Result;
 use clap::Parser;
 
-use cli::{AssetsAction, Cli, Command};
+use cli::{AssetsAction, Cli, Command, SynthAction};
 
 /// Parses the command line and runs it.
 pub fn run() -> Result<()> {
@@ -68,6 +69,16 @@ fn dispatch(cli: Cli) -> Result<()> {
             },
         ),
         Command::Describe { fps, range } => commands::describe::run(&directory, fps, range),
+        Command::Synth { action } => match action {
+            Some(SynthAction::New { name, kind }) => {
+                commands::synth::new(&directory, &name, kind.into())
+            }
+            Some(SynthAction::Check { recipe }) => commands::synth::check(&recipe),
+            Some(SynthAction::Bake { asset }) => {
+                commands::synth::bake(&directory, asset.as_deref())
+            }
+            None => commands::synth::bake(&directory, None),
+        },
         Command::Assets {
             action: None,
             verify,

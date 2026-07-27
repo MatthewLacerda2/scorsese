@@ -351,7 +351,9 @@ dependencies = [
  "anyhow",
  "clap",
  "scorsese-core",
+ "scorsese-providers",
  "scorsese-render",
+ "serde_json",
 ]
 
 [[package]]
@@ -392,6 +394,13 @@ version = "0.1.0"
 [[package]]
 name = "scorsese-providers"
 version = "0.1.0"
+dependencies = [
+ "scorsese-core",
+ "scorsese-soundgen",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
 
 [[package]]
 name = "scorsese-render"

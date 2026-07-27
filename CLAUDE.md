@@ -26,6 +26,9 @@ add to this vision.
 
 - **docs/project-format.md** — the `project.json` schema: assets, tracks,
   clips, keyframes, paths, and what validation checks.
+- **docs/recipes.md** — the synthesis recipe format: what to write in
+  `recipes/*.json` to get an effect or a score out of `scorsese synth`. Free,
+  offline, deterministic — read it before reaching for a sound file.
 - **docs/golden-renders.md** — the pixel gate: what a fixture is, how frames are
   compared, and when re-blessing a reference is legitimate. Read it before
   changing anything a render's output depends on.

@@ -8,3 +8,4 @@ pub mod describe;
 pub mod import;
 pub mod new;
 pub mod render;
+pub mod synth;

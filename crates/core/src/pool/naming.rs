@@ -51,6 +51,15 @@ pub(super) fn unique_file_name(assets_dir: &Path, source: &Path) -> String {
     candidate
 }
 
+/// A legible, unique id for a new asset, from a name somebody chose.
+///
+/// The public door onto the same rules import follows — sanitised so the id
+/// stays portable, then suffixed until it is unused. For the kinds that are
+/// *named* into existence rather than imported from a file.
+pub fn asset_id_for(project: &Project, desired: &str) -> AssetId {
+    unique_asset_id(project, &sanitise(desired))
+}
+
 /// An asset id derived from the file name, unique within the project. Ids are
 /// what a human types into `project.json`, so they stay legible rather than
 /// becoming hashes.
