@@ -7,8 +7,16 @@ line can be executed by ten tests and asserted on by none.
 That gap is not hypothetical here. Break-testing #8 found a volume-ramp test
 that passed with volume ignored entirely: it asserted only that three measured
 levels ascended, which a clip playing at a constant level satisfies by chance
-about half the time. Replace `Gain::at`'s body with a constant and that test
-still passes — the definition of a surviving mutant.
+about half the time. Replacing `Gain::at`'s body with a constant left that test
+green — the definition of a surviving mutant.
+
+#8 made the ramp assertions real, and the first full sweep then found the same
+gap one layer down: the *arithmetic* under the ramp was still unpinned, and
+`Mix::add` could mix by **subtraction** with the whole suite green. Closing that
+(#60) took assertions of a different kind — the sample is those two sources
+added, the multiplier is a quarter of the way from 0.0 to 1.0 — because a
+measurement over a window is satisfied by more than one arithmetic. That is the
+shape of the answer when a survivor is real: name the value, not the range.
 
 The tool is [`cargo-mutants`](https://mutants.rs/). It edits one small thing in
 the source — a returned value, a comparison, an arithmetic operator — rebuilds,
