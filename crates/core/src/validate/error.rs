@@ -92,14 +92,51 @@ pub enum ValidationError {
         kind: AssetKind,
     },
 
-    /// Only the `generated_*` kinds are made from a prompt; a prompt anywhere
-    /// else would never be acted on.
+    /// Only the prompt-backed kinds are made from a sentence; a prompt
+    /// anywhere else would never be acted on. `synth_audio` lands here too:
+    /// its brief is a `recipe`, and a prompt beside one is two briefs for one
+    /// asset.
     #[error("asset `{asset}` is a {kind:?}, so `prompt` does not apply to it")]
-    PromptOnPlainAsset {
+    StrayPrompt {
         /// The asset with the stray field.
         asset: AssetId,
         /// The kind that has no use for it.
         kind: AssetKind,
+    },
+
+    /// A recipe on a kind that is not synthesised. Like a stray prompt, it
+    /// would never be acted on — usually a `kind` that was meant to be
+    /// `synth_audio`.
+    #[error("asset `{asset}` is a {kind:?}, so `recipe` does not apply to it")]
+    StrayRecipe {
+        /// The asset with the stray field.
+        asset: AssetId,
+        /// The kind that has no use for it.
+        kind: AssetKind,
+    },
+
+    /// A synthesis asset with no recipe: a lifecycle with nothing to realise.
+    #[error("asset `{asset}` is a {kind:?} and needs a `recipe`")]
+    MissingRecipe {
+        /// The asset with nothing to synthesise from.
+        asset: AssetId,
+        /// The kind that requires a recipe.
+        kind: AssetKind,
+    },
+
+    /// A recipe path that would not survive `scp -r`, under the same rules
+    /// every other path in the document obeys. Named apart from
+    /// [`ValidationError::BadPath`] because a synthesis asset has two paths in
+    /// play — its recipe and its baked media — and "which path" is the first
+    /// thing a reader needs.
+    #[error("asset `{asset}`: recipe `{path}` {problem}")]
+    BadRecipePath {
+        /// The synthesis asset naming it.
+        asset: AssetId,
+        /// The recipe path as written.
+        path: ProjectPath,
+        /// Which rule it breaks.
+        problem: PathProblem,
     },
 
     /// The sketch lifecycle belongs to prompt-backed assets; an imported file

@@ -1,4 +1,4 @@
-# `project.json` — schema v4
+# `project.json` — schema v5
 
 The contract between the CLI, the MCP server, the GUI, and every project
 saved on someone's disk. It is meant to be hand-written: an agent should be
@@ -12,7 +12,7 @@ bump and a migration note.
 
 ```json project
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -34,12 +34,13 @@ re-importing or regenerating a file is one edit in one place.
 | Field | Required for | Meaning |
 | --- | --- | --- |
 | `id` | all | Unique within the project |
-| `kind` | all | `video`, `image`, `audio`, `text`, `generated_video`, `generated_audio` |
+| `kind` | all | `video`, `image`, `audio`, `text`, `generated_video`, `generated_audio`, `synth_audio` |
 | `path` | file-backed kinds | Relative to the project root |
 | `sha256` | optional | 64 lowercase hex chars, of the file at `path` |
 | `media` | optional | What ffprobe found: `duration_seconds`, `width`, `height`, `frame_rate` (a rational), `audio_channels`, `sample_rate` |
-| `prompt` | `generated_*` | What to generate |
-| `state` | `generated_*` | `sketch`, `queued`, `generated`, `stale` |
+| `prompt` | `generated_*` | What to generate, in words |
+| `recipe` | `synth_audio` | Path to the document to synthesise from, by convention under `recipes/` |
+| `state` | `generated_*`, `synth_audio` | `sketch`, `queued`, `generated`, `stale` |
 | `text` | `text` | The string to render; text assets carry content inline and have no `path` |
 | `style` | optional, `text` only | How that string looks: `font`, `size`, `color`, `align`, `line_height`, `max_width` — see below |
 
@@ -48,11 +49,23 @@ re-importing or regenerating a file is one edit in one place.
   "prompt": "wide aerial of a city at dawn, slow push in" }
 ```
 
-A `generated_*` asset with no media renders as a **slug card** — the prompt on
-a gray card, with what kind of prompt it is and what state it is in written
-above it. That is what makes previewing a full cut cost nothing. `GO`
-generates exactly the sketch and stale assets; `generated` is a cache hit and
-is never re-billed.
+A generated asset with no media renders as a **slug card** — the brief on a
+gray card, with what kind of brief it is and what state it is in written above
+it. That is what makes previewing a full cut cost nothing. `GO` generates
+exactly the sketch and stale assets; `generated` is a cache hit and is never
+redone.
+
+Three kinds are generated, and they differ in what the brief *is*:
+
+| Kind | Brief | Realised by | Costs |
+| --- | --- | --- | --- |
+| `generated_video` | `prompt` — a sentence | Veo, over the network | money |
+| `generated_audio` | `prompt` — a sentence | ElevenLabs, over the network | money |
+| `synth_audio` | `recipe` — a document in the project | synthesis, locally | nothing |
+
+An asset carries exactly the brief its kind takes and never the other:
+a `recipe` on a Veo asset would never be read, so it is refused rather than
+ignored.
 
 Which states have media follows from what the states mean, and `generated` is
 the only one that does:
@@ -80,6 +93,36 @@ still appears, as a band across the foot of the picture for exactly the frames
 its clip covers, so a cut built around a voice-over can be watched before a
 word of it has been paid for. Once the audio exists the card is gone and the
 picture is untouched — a slug card is a stand-in, never a caption.
+
+### Synthesised audio
+
+```json asset
+{ "id": "theme", "kind": "synth_audio", "state": "sketch",
+  "recipe": "recipes/theme.json" }
+```
+
+A `synth_audio` asset is sound computed from a document the project carries —
+a synthesiser patch for an effect, or a song for a score. It sits on an audio
+track like any other sound, and behaves like the prompt-backed kinds in every
+way the lifecycle cares about: `sketch` until it is realised, silence in the
+mix until then, a cache hit once it exists.
+
+What differs is everything about the cost. Realising one needs no network, no
+key and no money, and it is **deterministic** — the same recipe produces the
+same bytes on any machine, on any run. So the generated file is named for the
+SHA-256 of the recipe's bytes, and `path` pointing at a hash the recipe no
+longer has *is* what `stale` means for this kind. Nothing else has to record
+it.
+
+The recipe is a separate file rather than inline JSON because a recipe is
+long: a song is tracks, patterns and an arrangement, and inlining one would
+bury the timeline under note lists in the document an agent reads to
+understand the edit. It also makes the edit-and-rebake loop a single-file
+diff.
+
+`synth_audio` does not replace `generated_audio`. That one is for voice —
+a line of narration is a sentence, and no amount of arithmetic will read it
+aloud.
 
 ### Text assets and how they look
 
@@ -387,7 +430,18 @@ move or a zoom for free.
 Every path is relative to the project root and uses forward slashes on every
 platform. Absolute paths (`/media/x.mp4`, `C:/media/x.mp4`, `\\host\share`),
 backslashes, and `..` components are all rejected. This is what lets a
-project survive `scp -r` between machines.
+project survive `scp -r` between machines. The rule covers every path in the
+document, not just `path`: a `style`'s font and a `synth_audio`'s `recipe`
+obey it too.
+
+A project directory holds four of its own:
+
+| Directory | What is in it | Survives a delete? |
+| --- | --- | --- |
+| `assets/` | imported media, copied in on import | no — the originals are elsewhere |
+| `generated/` | provider and synthesis output, named for the hash of its brief | yes — it can be made again |
+| `recipes/` | authored synthesis documents | **no** — deleting one loses work |
+| `cache/` | rebuildable scratch, gitignored | yes |
 
 ## Validation
 
@@ -398,9 +452,11 @@ a project unattended sees the whole list at once.
 
 What it checks: schema version, duplicate ids, path rules, hash shape, the
 fields each asset kind requires — including that only a `text` asset carries
-`text` or `style`, and that a `style`'s font path obeys the project-path rules
-— clip references resolving, asset kind against track kind, non-zero
-durations, clip overlap, and keyframe shape.
+`text` or `style`, that a `style`'s font path and a `synth_audio`'s `recipe`
+obey the project-path rules, and that each generated kind carries exactly the
+brief it takes: a `prompt` or a `recipe`, never both and never the other's —
+clip references resolving, asset kind against track kind, non-zero durations,
+clip overlap, and keyframe shape.
 
 Note what is *not* on that list. A time that is negative, fractional, or
 infinite cannot be represented as a frame count, so it fails the parse with
@@ -420,13 +476,25 @@ asset still awaiting generation is neither. A `style`'s font file is a path like
 applies: the shape is validated here, and whether the face is really on disk is
 the render's to find out.
 
+## Migrating from v4
+
+v5 adds the `synth_audio` asset kind and the `recipe` field that goes with it.
+Both are new: no v4 document can contain either, so **no v4 document means
+anything different under v5**. Converting one is changing `"schema_version": 4`
+to `"schema_version": 5` and nothing else.
+
+A v5 project directory also has a `recipes/` directory, which `scorsese new`
+creates. A converted v4 project does not have one until something writes a
+recipe into it, and nothing needs it before then — an absent `recipes/` is not
+a validation error, the same way an absent `generated/` never was.
+
 ## Migrating from v3
 
 v4 adds one optional field: `style` on a `text` asset. **Absent means every
 default** — white, centred, sans, a tenth of the frame high — which is what
 every text asset did before the field existed, so no v3 document means anything
 different under v4. Converting one is changing `"schema_version": 3` to
-`"schema_version": 4` and nothing else.
+`"schema_version": 4`, and then on to `5` as above.
 
 Before v4 a text asset could not be rendered at all: the renderer refused a
 clip showing one. So the only v3 documents affected are ones that were never
@@ -437,7 +505,7 @@ renderable, and there is nothing for a migration to preserve.
 v3 added one optional field: `fit` on a clip. **Absent means `fit`**, which is
 what every clip did before the field existed, so no v2 document means anything
 different under v3 — converting one is changing `"schema_version": 2` to
-`"schema_version": 3` and then on to `4` as above.
+`"schema_version": 3` and then on to `5` as above.
 
 The version still has to be changed by hand, because this build reads exactly
 one schema version and refuses the rest. That refusal is the point: a document

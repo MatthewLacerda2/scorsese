@@ -7,5 +7,6 @@ mod assets;
 mod keyframes;
 mod paths;
 mod references;
+mod synth;
 mod text;
 mod timing;

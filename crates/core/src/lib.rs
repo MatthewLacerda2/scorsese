@@ -5,7 +5,8 @@
 //! references, overlap constraints, path hygiene).
 //!
 //! A project is a directory (`*.scor/`): `project.json` plus `assets/`,
-//! `generated/`, and `cache/`. Every path stored in `project.json` is
+//! `generated/`, `recipes/`, and `cache/`. Every path stored in
+//! `project.json` is
 //! relative to the project root — never absolute — so a project survives
 //! `scp -r` between machines. Assets are entities (id, kind, path, sha256,
 //! probed metadata); clips reference assets by id, never by path.
@@ -44,8 +45,8 @@ pub use path::{PathProblem, ProjectPath};
 pub use pool::{AssetHealth, AssetStatus, HashCheck, ImportError, asset_status, import_asset};
 pub use probe::{ProbeError, ProbeMedia};
 pub use project::{
-    ASSETS_DIR, CACHE_DIR, GENERATED_DIR, LoadError, PROJECT_FILE_NAME, Project, SCHEMA_VERSION,
-    SaveError,
+    ASSETS_DIR, CACHE_DIR, GENERATED_DIR, LoadError, PROJECT_FILE_NAME, Project, RECIPES_DIR,
+    SCHEMA_VERSION, SaveError,
 };
 pub use text::{ColorError, FontChoice, Rgba, TextAlign, TextStyle};
 pub use time::{Fps, FpsError, FpsParseError, Frames};

@@ -106,7 +106,7 @@ fn a_plain_asset_carries_no_prompt_or_state() {
     logo.state = Some(GenerationState::Sketch);
     let kind = AssetKind::Image;
     let found = problems(&p);
-    assert!(found.contains(&E::PromptOnPlainAsset {
+    assert!(found.contains(&E::StrayPrompt {
         asset: asset_id("logo"),
         kind
     }));

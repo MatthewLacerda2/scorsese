@@ -1,5 +1,5 @@
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "name": "Narrated teaser",
   "timeline_fps": {
     "num": 30,
@@ -38,6 +38,12 @@
         "color": "#f5f0e6",
         "max_width": 0.8
       }
+    },
+    {
+      "id": "score",
+      "kind": "synth_audio",
+      "recipe": "recipes/theme.json",
+      "state": "sketch"
     }
   ],
   "tracks": [
@@ -108,6 +114,19 @@
               ]
             }
           ]
+        }
+      ]
+    },
+    {
+      "id": "a2",
+      "kind": "audio",
+      "name": "Score",
+      "clips": [
+        {
+          "id": "c-score",
+          "asset": "score",
+          "start": 0,
+          "duration": 300
         }
       ]
     }

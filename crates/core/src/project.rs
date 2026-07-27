@@ -15,7 +15,7 @@ use crate::validate::ValidationErrors;
 /// Bumping it is `architecture` work and requires a migration note: this
 /// format is the contract between the CLI, the MCP server, the GUI, and every
 /// project already saved on someone's disk.
-pub const SCHEMA_VERSION: u32 = 4;
+pub const SCHEMA_VERSION: u32 = 5;
 
 /// The document's file name inside a `*.scor/` project directory.
 pub const PROJECT_FILE_NAME: &str = "project.json";
@@ -23,8 +23,18 @@ pub const PROJECT_FILE_NAME: &str = "project.json";
 /// Imported media, copied in so the project stays self-contained.
 pub const ASSETS_DIR: &str = "assets";
 
-/// Provider output, content-addressed by prompt hash.
+/// Provider and synthesis output, content-addressed by the hash of the brief
+/// that produced it.
 pub const GENERATED_DIR: &str = "generated";
+
+/// Authored documents that generate assets — synthesis recipes today.
+///
+/// Its own directory because the other three each say something a recipe is
+/// not: it is neither imported media nor output, and it is not rebuildable —
+/// deleting one loses work. Named for the role rather than for audio, so a
+/// procedural texture recipe would have somewhere to go without another
+/// format change.
+pub const RECIPES_DIR: &str = "recipes";
 
 /// Rebuildable scratch. Gitignored, and safe to delete at any time.
 pub const CACHE_DIR: &str = "cache";
@@ -82,7 +92,7 @@ impl Project {
                 path: project_dir.to_path_buf(),
             });
         }
-        for directory in [ASSETS_DIR, GENERATED_DIR, CACHE_DIR] {
+        for directory in [ASSETS_DIR, GENERATED_DIR, RECIPES_DIR, CACHE_DIR] {
             let path = project_dir.join(directory);
             fs::create_dir_all(&path).map_err(|source| SaveError::Io { path, source })?;
         }
