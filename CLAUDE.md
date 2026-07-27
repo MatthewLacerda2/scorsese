@@ -14,17 +14,16 @@ the rules of this file unless one is blocking you or explains a conclusion.
 
 ## North star
 
-An agent should be able to take a rough brief ("90-second product teaser,
-narrated, music under it"), assemble the cut as prompt clips, preview it for
-$0, and only then spend money generating media. Filmora 9 is the UX
-reference for *scope* decisions — what a mainstream editor is expected to do —
-not a spec to clone. The editor is "good enough" when a Claude agent can carry
-a video from brief to rendered file without a human touching a mouse.
+Scorsese must allow the user to fully realize what he envisioned for the video,
+in the fastest way possible. Claude must be able to interface with Scorsese to
+fully realize the video, given the user's idea for it. Scorsese's GUI is merely
+an interface for the user to visualize the editing planning and process, Claude
+must be able to carry the whole editing process with just the user's prompts and
+necessary file resources provided by the user. Any add/edit to the codebase MUST
+add to this vision.
 
 ## Start here
 
-- **README.md** — what scorsese is, the project-directory model, the
-  sketch→GO lifecycle, how to build.
 - **docs/project-format.md** — the `project.json` schema: assets, tracks,
   clips, keyframes, paths, and what validation checks.
 - **docs/golden-renders.md** — the pixel gate: what a fixture is, how frames are
@@ -104,8 +103,8 @@ those boundaries are enforced in review.
   its first commit, open a PR for it — as a **draft**. Draft while in progress
   or blocked (say why in the description); **ready for review** once done and
   nothing further is needed from the user. The description says **what
-  changed, why we want it in the project, and the effect** — not process; how
-  you got there appears only when it's needed to understand the diff.
+  changed and the effect** — not process; how you got there appears only when
+  it's needed to understand the diff.
 - **Branch naming.** A PR that closes an issue uses `{issue_number}-short-slug`
   (e.g. `3-render-pipeline`). An issue-less PR uses a readable short slug of
   its subject. Lowercase-hyphenated, brief.
@@ -131,7 +130,7 @@ those boundaries are enforced in review.
   fair game.
 - **Assign the user when you start.** The moment work begins on an issue,
   assign the user to it so it's visibly taken. Unassigned = fair game;
-  assigned = in progress.
+  assigned = in progress by someone.
 - **Never file an issue and start it in the same breath** — unless the work is
   a direct consequence of another, already-decided issue. An idea still being
   shaped has to settle before anyone codes it.
@@ -179,16 +178,16 @@ those boundaries are enforced in review.
 
 - **Issues come before PRs.** The unit of work is a well-specified issue: the
   **what**, **why it belongs in the project**, and the **roadmap — not the
-  implementation intrinsics**. A good issue is documentation of what was
-  thought of: a future Claude reads it cold and says *"I understand the
-  assignment."* That's what lets an issue run unattended, even overnight.
+  implementation intrinsics**. A good issue makes clear what the idea is:
+  a future Claude reads it cold and says *"I understand the assignment, i know
+  how to proceed."* That's what lets an issue run unattended, even overnight.
 - **Priority by label:** **architecture → infrastructure → bug → foundation →
   feature.** If the way we build isn't solid — a structural shape or
   convention missing (**architecture**), a tool or guardrail missing
   (**infrastructure**), or something broken (**bug**) — we halt and fix that
   first. Then **foundation** work makes the editor itself more complete. Then
-  **feature** work serves the videos being made with it. **documentation**
-  can be done at any time and never waits its turn.
+  **feature** work serves Claude, the user or the video being made with it.
+  **documentation** can be done at any time and never waits its turn.
 
 ### Labels
 
@@ -198,12 +197,12 @@ Stage labels (at most one; absence means ready):
   be started.
 - **planning** — has value, but the architecture/GUI approach is still being
   discussed. Must **NOT** be started.
-- *(no stage label)* — ready: anyone can tell Claude "pick issue N, do it
-  e2e, commit, push, merge when CI is green."
+- *(no stage label)* — ready: anyone (human or Claude) can tell a Claude agent:
+  "do issue N" and Claude can read it, implement it and merge it
 
 Type labels (combinable with a stage label):
 
-- **architecture** — how we define stuff: structural shape, conventions,
+- **architecture** — the project's communication structure, conventions,
   `project.json` format changes, crate boundaries.
 - **infrastructure** — tools and guardrails for the development process: CI,
   the golden-render harness, gates.
@@ -213,9 +212,10 @@ Type labels (combinable with a stage label):
 - **foundation** — groundworks that make the editor itself more complete.
 - **human** — AI can't do this end-to-end; needs a human in the loop.
 
-If a `planning` issue would affect how another issue gets implemented — or
-even how it's thought of — that other issue must be marked **blocked by** the
-planning issue.
+If a `planning` issue would affect how another issue gets implemented or is
+thought of, that other issue must be marked **blocked by** the planning issue.
+We prioritize anything that accelerates the improvement of the project itself.
+Increasing derivatives takes precedence over increasing the variables they aim at.
 
 ## Overrides
 
