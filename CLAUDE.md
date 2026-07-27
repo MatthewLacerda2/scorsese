@@ -40,21 +40,29 @@ These decisions are settled. Changing one is `architecture`-label work, not a
 side effect of a feature PR.
 
 - **A project is a directory** (`*.scor/`): `project.json` + `assets/`
-  (imported media, copied on import) + `generated/` (provider outputs,
-  content-addressed by prompt hash) + `cache/` (rebuildable, gitignored). All
-  paths inside `project.json` are relative to the project root. **No absolute
-  paths, ever** — a project must survive `scp -r` between machines.
+  (imported media, copied on import) + `generated/` (provider and synthesis
+  output, content-addressed by the hash of its brief) + `recipes/` (authored
+  synthesis documents — not rebuildable, deleting one loses work) + `cache/`
+  (rebuildable, gitignored). All paths inside `project.json` are relative to
+  the project root. **No absolute paths, ever** — a project must survive
+  `scp -r` between machines.
 - **Assets are entities, clips are references.** `project.json` has an assets
   table (id, kind, path, sha256 hash, probed metadata); tracks hold clips that
   reference assets **by id — never by path**. Asset kinds: `video`, `image`,
   `audio`, `text`, `generated_video` (Veo prompt), `generated_audio`
-  (ElevenLabs TTS prompt).
-- **Prompt clips and the sketch lifecycle.** A `generated_*` asset carries a
-  prompt and a state: `sketch → queued → generated → stale` (stale = prompt
-  edited after generation). Sketch/stale clips render as slug cards (prompt
-  text on a gray card) so a full preview cut costs $0. "GO" generates only
-  sketch/stale assets. Generated files are cached by prompt hash and never
-  regenerated for an unchanged prompt.
+  (ElevenLabs TTS prompt), `synth_audio` (a synthesis recipe).
+- **Generated clips and the sketch lifecycle.** A generated asset carries a
+  **brief** and a state: `sketch → queued → generated → stale` (stale = brief
+  edited after generation). Sketch/stale clips render as slug cards so a full
+  preview cut costs $0. "GO" realises only sketch/stale assets, and output is
+  cached by the hash of its brief — never redone for an unchanged one.
+- **Two kinds of brief, and the difference is load-bearing.** A `prompt` is a
+  sentence handed to a provider: it costs money, needs a network, and cannot
+  be reproduced from the project alone. A `recipe` is a document in
+  `recipes/`: synthesis reads it locally, for free, deterministically. An
+  asset carries exactly the brief its kind takes and never the other. In code
+  that is `AssetKind::is_prompted` vs `is_synthesized`, both under
+  `is_generated` — do not collapse them back together.
 - **Compositing is ours; ffmpeg only decodes and encodes** (Path B). ffmpeg
   decodes sources to raw frames → our compositor produces each output frame
   (transforms, alpha, text) → raw frames are piped to ffmpeg stdin for encode.

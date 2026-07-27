@@ -1,5 +1,5 @@
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "name": "letterbox",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [{ "id": "tall", "kind": "video", "path": "assets/tall.mp4" }],

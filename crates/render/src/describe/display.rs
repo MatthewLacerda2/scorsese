@@ -190,6 +190,7 @@ const fn kind(kind: AssetKind) -> &'static str {
         AssetKind::Text => "text",
         AssetKind::GeneratedVideo => "generated_video",
         AssetKind::GeneratedAudio => "generated_audio",
+        AssetKind::SynthAudio => "synth_audio",
     }
 }
 

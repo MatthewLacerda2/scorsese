@@ -4,6 +4,8 @@
 //! [`AssetId`] and never by path, so moving or regenerating a file is one
 //! edit in one place.
 
+pub mod kind;
+
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
@@ -11,6 +13,8 @@ use serde::{Deserialize, Serialize};
 use crate::path::ProjectPath;
 use crate::text::TextStyle;
 use crate::time::Fps;
+
+pub use kind::{AssetKind, GenerationState};
 
 /// Identifies an asset within one project. Unique across the assets table.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
@@ -37,94 +41,13 @@ impl fmt::Display for AssetId {
     }
 }
 
-/// What kind of media an asset is.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AssetKind {
-    /// A moving-picture file, which may carry sound of its own.
-    Video,
-    /// A still. It has no duration — how long it is on screen is the clip's
-    /// business, not the file's.
-    Image,
-    /// A sound file, and the only imported kind that belongs on an audio track.
-    Audio,
-    /// A string rendered as picture. The one kind with no file behind it: the
-    /// content lives inline in `project.json`.
-    Text,
-    /// A Veo prompt: video that does not exist until it is generated.
-    GeneratedVideo,
-    /// An ElevenLabs TTS prompt: audio that does not exist until generated.
-    GeneratedAudio,
-}
-
-impl AssetKind {
-    /// True for the prompt-backed kinds, which carry a prompt and a
-    /// [`GenerationState`] and cost money to realise.
-    pub fn is_generated(self) -> bool {
-        matches!(self, Self::GeneratedVideo | Self::GeneratedAudio)
-    }
-
-    /// True when this kind produces picture, and so belongs on a video track.
-    pub fn is_visual(self) -> bool {
-        matches!(
-            self,
-            Self::Video | Self::Image | Self::Text | Self::GeneratedVideo
-        )
-    }
-
-    /// True when this kind produces sound, and so belongs on an audio track.
-    pub fn is_audible(self) -> bool {
-        matches!(self, Self::Audio | Self::GeneratedAudio)
-    }
-
-    /// True when a file on disk is what this kind ultimately refers to.
-    /// `text` is the exception: it carries its content inline.
-    pub fn is_file_backed(self) -> bool {
-        !matches!(self, Self::Text)
-    }
-}
-
-/// Where a prompt-backed asset sits in the sketch lifecycle.
-///
-/// `sketch → queued → generated`, and back to `stale` when the prompt is
-/// edited after generation. Sketch and stale clips render as slug cards, so a
-/// full preview cut costs nothing.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum GenerationState {
-    /// A prompt nobody has spent money on yet. Where every generated asset
-    /// starts.
-    Sketch,
-    /// Handed to the provider and in flight. GO leaves it alone rather than
-    /// paying for it twice.
-    Queued,
-    /// The media exists on disk. A cache hit for as long as the prompt is
-    /// unchanged, and never re-billed.
-    Generated,
-    /// Generated once, then the prompt was edited — so the file on disk is no
-    /// longer what the project asks for, and GO will redo it.
-    Stale,
-}
-
-impl GenerationState {
-    /// True for the states GO acts on. `generated` is a cache hit and is
-    /// never regenerated; `queued` is already in flight.
-    pub fn needs_generation(self) -> bool {
-        matches!(self, Self::Sketch | Self::Stale)
-    }
-
-    /// True when this state implies a media file should exist on disk.
-    pub fn has_media(self) -> bool {
-        matches!(self, Self::Generated)
-    }
-}
-
 /// One row of the assets table.
 ///
 /// Which fields are required depends on `kind` — an imported video needs a
-/// `path`, a Veo prompt needs a `prompt` and a `state`, a text asset needs
-/// `text`. Those rules are checked by [`crate::validate`] so that one pass
-/// reports every problem at once.
+/// `path`, a Veo prompt needs a `prompt` and a `state`, a synthesis asset
+/// needs a `recipe` and a `state`, a text asset needs `text`. Those rules are
+/// checked by [`crate::validate`] so that one pass reports every problem at
+/// once.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Asset {
@@ -135,7 +58,7 @@ pub struct Asset {
     /// asset may sit on: [`AssetKind::is_visual`] against the track's kind.
     pub kind: AssetKind,
     /// Path to the media, relative to the project root. Imported media lives
-    /// under `assets/`, provider output under `generated/`.
+    /// under `assets/`, generated and synthesised output under `generated/`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub path: Option<ProjectPath>,
     /// Lowercase hex SHA-256 of the file at `path`.
@@ -144,10 +67,21 @@ pub struct Asset {
     /// What ffprobe found. Absent until the asset has been probed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub media: Option<MediaMetadata>,
-    /// The generation prompt. Required for the `generated_*` kinds.
+    /// The generation prompt. Required for the prompt-backed kinds, and
+    /// refused on every other — including `synth_audio`, whose brief is a
+    /// document rather than a sentence.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub prompt: Option<String>,
-    /// Lifecycle state. Required for the `generated_*` kinds.
+    /// Path to the synthesis recipe, relative to the project root — by
+    /// convention under `recipes/`. Required for the synthesised kinds.
+    ///
+    /// A file of its own rather than inline JSON because a recipe is long: a
+    /// song is tracks, patterns and an arrangement, and inlining one would
+    /// bury the timeline under note lists in the document an agent reads to
+    /// understand the edit.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recipe: Option<ProjectPath>,
+    /// Lifecycle state. Required for every generated kind.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state: Option<GenerationState>,
     /// Inline content for the `text` kind.
@@ -178,6 +112,17 @@ impl Asset {
         }
     }
 
+    /// A synthesis asset in its initial `sketch` state, pointing at the recipe
+    /// that describes it. The sibling of [`Asset::sketch`] for the kinds whose
+    /// brief is a document rather than a sentence.
+    pub fn synth(id: AssetId, kind: AssetKind, recipe: ProjectPath) -> Self {
+        Self {
+            recipe: Some(recipe),
+            state: Some(GenerationState::Sketch),
+            ..Self::bare(id, kind)
+        }
+    }
+
     fn bare(id: AssetId, kind: AssetKind) -> Self {
         Self {
             id,
@@ -186,6 +131,7 @@ impl Asset {
             sha256: None,
             media: None,
             prompt: None,
+            recipe: None,
             state: None,
             text: None,
             style: None,
@@ -208,7 +154,8 @@ impl Asset {
         self.style.clone().unwrap_or_default()
     }
 
-    /// True when GO would spend money on this asset.
+    /// True when GO would realise this asset. Not the same as "would spend
+    /// money on it": a synthesised asset needs generation and costs nothing.
     pub fn needs_generation(&self) -> bool {
         self.state.is_some_and(GenerationState::needs_generation)
     }

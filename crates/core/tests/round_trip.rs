@@ -11,8 +11,8 @@ fn fixture_parses_and_validates() {
     let project = common::project();
     assert_eq!(project.name, "Narrated teaser");
     assert_eq!(project.timeline_fps, Fps::THIRTY);
-    assert_eq!(project.assets.len(), 4);
-    assert_eq!(project.clips().count(), 4);
+    assert_eq!(project.assets.len(), 5);
+    assert_eq!(project.clips().count(), 5);
     assert_eq!(project.validate(), Ok(()));
 }
 
@@ -32,14 +32,26 @@ fn optional_fields_are_omitted_not_nulled() {
     );
 }
 
+/// What GO would realise — which is not the same list as what GO would
+/// *bill* for. `score` is synthesised locally and costs nothing, and keeping
+/// the two ideas apart is the whole reason `is_prompted` exists beside
+/// `is_generated`.
 #[test]
-fn sketch_assets_are_the_ones_go_would_pay_for() {
+fn sketch_assets_are_the_ones_go_would_realise() {
     let project = common::project();
     let pending: Vec<_> = project
         .pending_generation()
         .map(|a| a.id.as_str().to_owned())
         .collect();
-    assert_eq!(pending, ["shot-city", "vo-open"]);
+    assert_eq!(pending, ["shot-city", "vo-open", "score"]);
+
+    let billed: Vec<_> = project
+        .pending_generation()
+        .filter(|a| a.kind.is_prompted())
+        .map(|a| a.id.as_str().to_owned())
+        .collect();
+    assert_eq!(billed, ["shot-city", "vo-open"], "synthesis is free");
+
     assert!(
         project
             .assets
