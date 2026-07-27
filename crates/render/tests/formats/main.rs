@@ -5,9 +5,11 @@
 //! test in the repository stayed green, since none of them looked at the file
 //! as anything but a bag of frames.
 //!
-//! Frames are the golden harness's business and are not re-tested here. What
-//! these hold is the muxing decision — container, picture codec, sound codec —
-//! and the refusal of the combinations we do not write.
+//! What these hold is the muxing decision — container, picture codec, sound
+//! codec — and the refusal of the combinations we do not write. Pixel-exact
+//! frames stay the golden harness's business; the only thing asked about the
+//! picture here is that it survived the encoder at all, since a blank stream
+//! probes exactly like a good one.
 
 #[path = "../common/mod.rs"]
 mod common;
@@ -23,11 +25,11 @@ use std::path::{Path, PathBuf};
 use scorsese_core::{AssetKind, Fps, Project};
 use scorsese_render::{FrameRange, OutputFormat, RenderSettings, Renderer, Resolution, Tools};
 
-use common::ffmpeg::{fixture_dir, generate_asset, tools};
+use common::ffmpeg::{fixture_dir, generate_asset, mean_rgb, tools};
 use common::{audio_track, clip, project, video_track};
 
-/// Small on purpose: these tests ask what kind of file came out, never what is
-/// in the picture, and every container here costs a real encode.
+/// Small on purpose: what these ask of a file is what kind it is, and every
+/// container here costs a real encode.
 const RASTER: (u32, u32) = (32, 32);
 
 /// One second of red with a tone under it. Both halves matter — the audio
@@ -79,6 +81,14 @@ fn delivered_with(label: &str, settings: RenderSettings, name: &str) -> probing:
     let dir = fixture_dir(label);
     let out = render(&tools, &dir, settings, name);
     let found = probing::probe(&tools, &out);
+    // Labelled right is not the same as watchable: a pairing that produced a
+    // blank or corrupt stream would ffprobe exactly like a good one, so the
+    // picture is checked to have survived every encoder we offer.
+    let colour = mean_rgb(&tools, &out, 15);
+    assert!(
+        colour.0 > 200 && colour.1 < 60 && colour.2 < 60,
+        "the picture came out {colour:?} rather than red"
+    );
     std::fs::remove_dir_all(&dir).ok();
     found
 }
