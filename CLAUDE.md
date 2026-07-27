@@ -173,6 +173,9 @@ those boundaries are enforced in review.
 - **`project.json` format changes are `architecture`-label work** and require
   a schema version bump plus a migration note. The format is the contract
   between the CLI, the MCP server, the GUI, and every saved project.
+- **Nothing in the codebase is temporary**, except small JSON or log files.
+  Anything added must benefit the project long-term or be necessary to its
+  development — technically, or as a project.
 
 ## Issues, labels & priority
 
@@ -181,6 +184,14 @@ those boundaries are enforced in review.
   implementation intrinsics**. A good issue makes clear what the idea is:
   a future Claude reads it cold and says *"I understand the assignment, i know
   how to proceed."* That's what lets an issue run unattended, even overnight.
+- **File what you notice.** Claude may open an issue autonomously — for
+  anything that will be a recurring theme or problem, or when it realises a
+  tool would be useful more than once. Only things whose benefit outweighs the
+  cost of implementing them get an issue. If a Claude-written issue is a
+  breaking change, changes human-interfacing features, or needs a human's
+  judgement call, it must carry one of `idea`, `planning` or `human`. Filing is
+  Claude's; deciding is not — the rule against starting an issue in the same
+  breath as filing it holds here without exception.
 - **Priority by label:** **architecture → infrastructure → bug → foundation →
   feature.** If the way we build isn't solid — a structural shape or
   convention missing (**architecture**), a tool or guardrail missing
