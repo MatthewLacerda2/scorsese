@@ -39,6 +39,21 @@ fn the_shape_of_the_file_is_said_every_time() {
 }
 
 #[test]
+fn what_is_actually_in_the_file_is_said_every_time() {
+    // Printed rather than kept behind a flag: an unattended agent has no
+    // second chance to ask what the cut it just produced contains, and this
+    // cost nothing to produce — it came off the plan that was rendered.
+    let dir = one_shot("described", 45);
+    let rendered = render(&dir, "cut.mp4", &[]);
+
+    rendered.run.says("timeline frames 0–45");
+    rendered.run.says("picture");
+    rendered.run.says("v1/c1");
+    let _ = rendered.file();
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
 fn the_stills_asked_for_are_written_where_they_were_asked_for() {
     // The description says what the edit claims; these are what the pixels
     // did. So the test is that the files exist and are the render's own size.
