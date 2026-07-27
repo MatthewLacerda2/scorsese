@@ -108,6 +108,7 @@ coverage: ## Which pub items no test reaches. A signal: no threshold, blocks not
 		echo "          Install it with: cargo install --locked cargo-llvm-cov" >&2; \
 		echo "          It also needs: rustup component add llvm-tools-preview" >&2; \
 		exit 1; }
+	@mkdir -p target
 	cargo llvm-cov --workspace --locked --exclude-from-report scorsese-golden \
 		--json --output-path target/coverage.json
 	python3 .github/scripts/coverage-summary.py target/coverage.json
