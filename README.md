@@ -43,13 +43,29 @@ marks the asset **stale**, back to a slug card until the next GO.
 cargo build          # builds the workspace, including the `scorsese` CLI
 cargo test           # runs every crate's tests
 
-# The size gate CI runs: source files ≤ 300 lines, test files ≤ 150
-cargo run --manifest-path tools/lint/Cargo.toml
+make setup           # once per clone: installs the committed git hooks
+make gates           # everything CI blocks on — run this before opening a PR
+make help            # every target, and which of them are gates
+```
 
-# Coverage, exactly as CI measures and reports it (needs cargo-llvm-cov)
-cargo llvm-cov --workspace --exclude-from-report scorsese-golden \
-    --json --output-path coverage.json
-python3 .github/scripts/coverage-summary.py coverage.json
+`make setup` points git at `.githooks/`, so `make pre-commit` — formatting and
+the size gate, no build, well under a second — runs before each commit and a
+file over the line limit never reaches a branch. It is repository config, so
+one run covers every worktree. A deliberate work-in-progress commit gets
+through with `git commit --no-verify`; everything the hook skips is in
+`make gates`.
+
+The **Makefile is the list of gates**: `make help` prints format, size,
+clippy, docs, test and deny, each running exactly the command CI runs. Every
+individual target is runnable on its own — `make size`, `make clippy` — and
+`make format-fix` rewrites what the format gate objects to. `make deny` and
+`make coverage` need tools that are not part of the toolchain pin; both say
+how to install themselves rather than failing obscurely.
+
+Signals are deliberately not in `make gates`:
+
+```sh
+make coverage        # which pub items no test reaches (needs cargo-llvm-cov)
 ```
 
 Coverage is a **signal, not a gate**: there is no threshold and it never fails
@@ -60,6 +76,8 @@ whether a test asserts anything; an executed line is not a checked one, and
 break-testing is what settles that. The `coverage` job in
 `.github/workflows/ci.yml` documents what is excluded and why.
 
+Requires `make` for the targets above — every recipe is one plain `cargo`
+invocation, so they can be read off and run by hand where it is missing.
 Requires `rustup` — `rust-toolchain.toml` pins the exact compiler, so the
 right one installs itself on first build and your local `clippy` matches CI's
 lint for lint. Also, for now, `ffmpeg`/`ffprobe` on your PATH — shipped builds
