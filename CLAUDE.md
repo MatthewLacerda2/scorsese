@@ -146,7 +146,8 @@ those boundaries are enforced in review.
   summary or PR comment), never blocking a merge. Don't reach for a hard gate
   where a signal does the job.
 - **Run the gates before the push, not after it.** `make gates` runs every
-  gate CI blocks on — format, size, clippy, docs, tests, supply chain — and
+  gate CI blocks on — format, size, the signal renderers, clippy, docs, tests,
+  supply chain — and
   `make help` lists them, so the target list is the answer to "what has to be
   green?" rather than `ci.yml` being read for it. `make setup`, once per
   clone, points git at the committed hooks in `.githooks/`; from then on

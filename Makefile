@@ -30,7 +30,7 @@ LINT := --manifest-path tools/lint/Cargo.toml
 # The hard gates, in the order `make gates` runs them: cheapest first, so the
 # feedback that costs nothing arrives before the feedback that costs a build.
 # `inventory` below holds this list to the ones documented as gates.
-GATES := format size clippy docs test deny
+GATES := format size scripts clippy docs test deny
 
 .DEFAULT_GOAL := help
 .PHONY: help setup gates pre-commit inventory $(GATES) format-fix coverage mutants
@@ -93,6 +93,14 @@ test: ## [gate] The whole suite, golden renders included (needs ffmpeg on PATH)
 		exit 1; }
 	cargo test --workspace --locked
 
+# The two Python scripts render the coverage and mutation signals, and a signal
+# that dies rendering its own report reads as the tool being broken — which is
+# how a branch adding only tests used to be reported. They are a gate and not a
+# signal because what is checked here is ordinary correctness, and because they
+# cost a fraction of a second: stdlib `unittest`, no dependency to install.
+scripts: ## [gate] The signal renderers under .github/scripts
+	python3 -m unittest discover --start-directory .github/scripts/tests --quiet
+
 deny: ## [gate] Supply chain: advisories, bans, sources, licenses
 	@command -v cargo-deny >/dev/null 2>&1 || { \
 		echo "deny: cargo-deny is not installed." >&2; \
@@ -125,6 +133,14 @@ coverage: ## Which pub items no test reaches. A signal: no threshold, blocks not
 # one as "nothing to do", exits 0 and leaves any previous `mutants.out` where it
 # was — so handing that to the summary script would reprint an old report as if
 # it were this branch's. Hence the check, and the `rm -rf` before a real run.
+#
+# A *non-empty* diff with nothing mutable in it is the other half of the same
+# case, and it is not rare: a branch that only adds tests changes Rust files, so
+# it passes the check above, and then cargo-mutants finds nothing in the mutated
+# surface and writes no `outcomes.json`. The summary script answers that itself
+# — see `NOTHING_TO_RUN` there — so the report is rendered unconditionally
+# rather than guarded here, which is what keeps this and the CI job saying the
+# same thing.
 #
 # What gets mutated, and what to do with a survivor: docs/mutation-testing.md.
 mutants: ## Which changes to the code no test would notice. A signal: blocks nothing

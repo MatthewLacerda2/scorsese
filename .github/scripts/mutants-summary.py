@@ -133,11 +133,31 @@ FOOTER = (
 )
 
 
+# What a run that had nothing to do leaves behind, expressed as the report it
+# would have written. cargo-mutants writes no `outcomes.json` *at all* when the
+# diff it was handed contains no mutable lines — it has nothing to record — and
+# a branch that changes only test files is exactly that: `--in-diff` is given a
+# non-empty diff, because test files are Rust, and finds nothing in the mutated
+# surface inside it.
+#
+# Reading that as "the file is missing, so something broke" is the mistake this
+# avoids. Nothing broke; the honest answer is the one `headline` already gives
+# for a run whose total is zero, so this routes to it rather than restating it.
+NOTHING_TO_RUN = {"total_mutants": 0, "missed": 0, "caught": 0, "timeout": 0, "unviable": 0}
+
+
+def read(path: Path) -> dict:
+    """The run's outcomes, or an empty run if it never wrote any."""
+    if not path.exists():
+        return dict(NOTHING_TO_RUN)
+    return json.loads(path.read_text())
+
+
 def main() -> None:
     if len(sys.argv) < 2:
         sys.exit("usage: mutants-summary.py <outcomes.json> [scope-note]")
     scope = sys.argv[2] if len(sys.argv) > 2 else ""
-    data = json.loads(Path(sys.argv[1]).read_text())
+    data = read(Path(sys.argv[1]))
     outcomes = data.get("outcomes", [])
 
     out = headline(data, scope)
