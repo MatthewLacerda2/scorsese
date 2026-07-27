@@ -10,6 +10,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod failures;
 mod notes;
 mod outcome;
 mod refusals;
