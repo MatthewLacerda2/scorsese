@@ -57,6 +57,27 @@ pub(crate) fn sounding_video(tools: &Tools, root: &Path, id: &str, colour: &str,
     );
 }
 
+/// The raster a fixture is made at when the point is how it compresses. A flat
+/// colour at [`SIZE`] encodes to almost nothing whatever the encoder is asked
+/// for, which makes it useless for telling one bitrate from another.
+pub(crate) const BIG: &str = "320x240";
+
+/// A moving test pattern at `assets/{id}.mp4`, [`BIG`] and 30 fps.
+pub(crate) fn pattern_video(tools: &Tools, root: &Path, id: &str, seconds: u32) {
+    generate(
+        tools,
+        &root.join(format!("assets/{id}.mp4")),
+        &[
+            "-f",
+            "lavfi",
+            "-i",
+            &format!("testsrc=s={BIG}:d={seconds}:r=30"),
+            "-pix_fmt",
+            "yuv420p",
+        ],
+    );
+}
+
 /// A tone at `assets/{id}.wav`, for an audio track to carry.
 pub(crate) fn tone(tools: &Tools, root: &Path, id: &str, seconds: u32) {
     generate(
