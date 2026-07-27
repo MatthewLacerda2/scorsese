@@ -54,9 +54,11 @@ examine_globs = [
     "crates/render/src/audio/gain.rs",
 ]
 
-# `examine_globs` already decides this — these say it a second time so that a
-# hand-run with an extra `--file` cannot widen the scope past the two areas
-# that were excluded on purpose. `--file` is matched before `--exclude`.
+# `examine_globs` already decides this — these say it a second time because a
+# `--file` on the command line is *unioned* with the globs above rather than
+# narrowing them, so a hand-run can widen the scope by accident. Exclusions are
+# applied after, which is what makes them hold. (To narrow a run to one file,
+# use `--re '^path/to/file\.rs'`, not `--file`.)
 exclude_globs = [
     "crates/render/src/pipe/**/*.rs",
     "crates/golden/**/*.rs",
@@ -77,12 +79,20 @@ exclude_globs = [
 #
 # `exclude_re` matches the mutant name as `cargo mutants --list` prints it, so
 # an entry names one mutation of one function and cannot silently grow to cover
-# a real gap that appears next to it later.
-#
-# Empty today: the first full sweep (see the PR for #44) found no survivor that
-# was equivalent rather than a genuine gap. Entries go here with their reason,
-# not in a commit message.
-exclude_re = []
+# a real gap that appears next to it later. The reason goes here, next to the
+# entry — not in a commit message nobody will find.
+exclude_re = [
+    # `Properties::is_identity` compares five `f64` differences against a
+    # tolerance: `(x - 1.0).abs() < 1e-9`. Widening `<` to `<=` changes the
+    # answer only for a difference that is *exactly* 1e-9, and 1e-9 is not
+    # representable in binary floating point — no input can be constructed that
+    # tells the two apart. Genuinely equivalent, so no test is owed.
+    #
+    # Excluded and not fixed, and the distinction matters: an epsilon boundary
+    # that could be hit is a gap, and the identical-looking mutation would be
+    # reported as a survivor from a function whose tolerance is reachable.
+    "replace < with <= in Properties::is_identity",
+]
 
 # ---------------------------------------------------------------------------
 # Execution

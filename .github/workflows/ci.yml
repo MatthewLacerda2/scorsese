@@ -365,7 +365,7 @@ jobs:
             printf '## Mutation\n\n### The run did not produce a report\n\nSee the job log.\n' \
               > mutants.md
           fi
-          cat mutants.md >> "$GITHUB_STEP_SUMMARY"
+          tee -a "$GITHUB_STEP_SUMMARY" < mutants.md
 
       # One comment that rewrites itself, keyed on the marker — the same shape
       # as `coverage` above, so the two signals read as one system. It is

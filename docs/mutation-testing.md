@@ -63,8 +63,14 @@ cargo install cargo-mutants --locked
 
 cargo mutants                                     # the whole scoped surface
 cargo mutants --in-diff <(git diff origin/main)   # what CI runs on a PR
-cargo mutants -f 'crates/core/src/keyframe.rs'    # one file, while writing it
+cargo mutants -F '^crates/core/src/keyframe\.rs'  # one file, while writing it
 ```
+
+`-F` and not `-f` for that last one, and the difference is a trap worth
+knowing: `--file` is *unioned* with the config's `examine_globs`, so
+`-f one/file.rs` widens the run to everything rather than narrowing it to one
+thing. `--re` filters the mutant names, which start with the path, so it
+narrows as expected.
 
 Results land in `mutants.out/` (gitignored). `mutants.out/missed.txt` is the
 survivor list; `mutants.out/diff/` holds the actual edit that survived, which
