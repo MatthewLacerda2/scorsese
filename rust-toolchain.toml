@@ -1,0 +1,13 @@
+# The exact compiler every build uses — CI and every developer machine alike.
+#
+# This is not MSRV politeness. We run `clippy -D warnings`, and every clippy
+# release adds lints: without a pin, a PR that changed nothing relevant goes
+# red because the runner picked up a newer clippy overnight. CI failing for a
+# reason the author cannot see in their own diff teaches people that red means
+# "try again" rather than "you broke something".
+#
+# Bumping the channel is a deliberate change: do it in its own PR, so the new
+# lints land somewhere they can be read, not on top of a feature diff.
+[toolchain]
+channel = "1.96.0"
+components = ["rustfmt", "clippy"]

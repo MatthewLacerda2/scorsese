@@ -44,9 +44,11 @@ cargo build          # builds the workspace, including the `scorsese` CLI
 cargo test           # runs every crate's tests
 ```
 
-Requires Rust (stable) and, for now, `ffmpeg`/`ffprobe` on your PATH —
-shipped builds will bundle ffmpeg as a sidecar later. ffmpeg only decodes and
-encodes; all compositing (transforms, alpha, text) is done by our compositor.
+Requires `rustup` — `rust-toolchain.toml` pins the exact compiler, so the
+right one installs itself on first build and your local `clippy` matches CI's
+lint for lint. Also, for now, `ffmpeg`/`ffprobe` on your PATH — shipped builds
+will bundle ffmpeg as a sidecar later. ffmpeg only decodes and encodes; all
+compositing (transforms, alpha, text) is done by our compositor.
 
 Set `SCORSESE_FFMPEG` / `SCORSESE_FFPROBE` to point at specific binaries
 instead of whatever is on PATH.

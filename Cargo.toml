@@ -14,6 +14,11 @@ members = [
 version = "0.1.0"
 edition = "2024"
 repository = "https://github.com/MatthewLacerda2/scorsese"
+# scorsese ships as an application, not as crates: nothing here goes to a
+# registry. Saying so keeps `cargo publish` from ever firing by accident, and
+# lets the license gate in `deny.toml` skip our own crates while still holding
+# every dependency to the allow-list.
+publish = false
 
 [workspace.dependencies]
 scorsese-core = { path = "crates/core" }
