@@ -5,6 +5,7 @@
 //! `exit_codes` drives the real command over real project directories, and
 //! only asserts the thing a caller actually branches on — whether it failed.
 
+#[path = "../common/mod.rs"]
 mod common;
 
 mod exit_codes;

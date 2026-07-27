@@ -4,7 +4,9 @@
 //! cheap enough to sit inside an edit loop — and everything hashing finds is a
 //! warning, which never changes the exit code either way.
 
-use crate::common::{check, clip, media_file, project, video};
+use crate::common::documents::assets::video;
+use crate::common::documents::{clip, media_file, project};
+use crate::common::run_in;
 
 /// A project whose one file no longer hashes to what was recorded at import.
 fn changed_project(label: &str) -> std::path::PathBuf {
@@ -15,7 +17,7 @@ fn changed_project(label: &str) -> std::path::PathBuf {
 
 #[test]
 fn a_changed_file_goes_unnoticed_without_verify() {
-    let run = check(&changed_project("changed-default"), false);
+    let run = run_in(&changed_project("changed-default"), &["check"]);
 
     assert!(!run.failed, "{}", run.output);
     run.says("no problems, nothing to warn about");
@@ -24,7 +26,7 @@ fn a_changed_file_goes_unnoticed_without_verify() {
 
 #[test]
 fn verify_reports_a_changed_file_as_a_warning() {
-    let run = check(&changed_project("changed-verify"), true);
+    let run = run_in(&changed_project("changed-verify"), &["check", "--verify"]);
 
     assert!(
         !run.failed,
@@ -42,7 +44,7 @@ fn verify_leaves_a_healthy_project_healthy() {
     let dir = project("verify-healthy", &[video("boat")], &[clip("c1", "boat", 0)]);
     media_file(&dir, "boat", b"");
 
-    let run = check(&dir, true);
+    let run = run_in(&dir, &["check", "--verify"]);
     assert!(!run.failed, "{}", run.output);
     run.says("no problems, nothing to warn about");
 }
