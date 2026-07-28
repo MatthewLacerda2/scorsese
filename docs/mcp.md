@@ -38,6 +38,11 @@ Every tool takes `project`: the path of the `*.scor` directory to work on.
 | `project_check` | every problem with the document and its media, at once | nothing |
 | `project_assets` | the media pool and the state of everything in it | nothing |
 | `duck_music` | lower a music track under narration, as volume keyframes | nothing |
+| `synth_new` | start a recipe, and the asset that points at it | nothing |
+| `synth_read` | a recipe file as it is on disk | nothing |
+| `synth_write` | replace one, **parsed first** | nothing |
+| `synth_check` | parse a recipe without rendering it | nothing |
+| `synth_bake` | render the recipes not already baked | nothing |
 | `render` | encode the timeline to a file | ffmpeg, and real time |
 
 **The edit is the document.** `project_read` and `project_write` are the pair
@@ -48,6 +53,28 @@ change at all is read it, change it, write it back. The format is
 `project_write` **validates before writing**. A document that would not load is
 refused with every problem listed and the file on disk is left exactly as it
 was — so a half-formed edit cannot destroy a working one.
+
+## Making sound
+
+`synth_read` and `synth_write` are the pair that has no command-line
+counterpart, and that is deliberate. Over the CLI you would edit a recipe with
+an editor; an assistant that has to round-trip through the filesystem to change
+a note is doing bookkeeping instead of composing.
+
+The loop is **write, bake, listen, adjust**, and every turn of it is free:
+
+```
+synth_new    → a starter recipe that makes a sound as written
+synth_read   → what it says now
+synth_write  → change it
+synth_bake   → hear it
+```
+
+Nothing has to mark an asset stale. A bake is named for the hash of its recipe,
+so changing the recipe changes which file the asset wants, and the next
+`synth_bake` redoes it. Re-baking an unchanged recipe renders nothing.
+
+What to write in a recipe is [`recipes.md`](recipes.md).
 
 ## Stateless, on purpose
 

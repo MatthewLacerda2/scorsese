@@ -7,6 +7,7 @@
 //! surely as a wrong result.
 
 mod changing;
+mod composing;
 mod fixture;
 mod handshake;
 mod looking;

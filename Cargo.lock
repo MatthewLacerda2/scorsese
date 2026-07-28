@@ -392,6 +392,7 @@ name = "scorsese-mcp"
 version = "0.1.0"
 dependencies = [
  "scorsese-core",
+ "scorsese-providers",
  "scorsese-render",
  "serde",
  "serde_json",
