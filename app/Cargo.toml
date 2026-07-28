@@ -34,6 +34,10 @@ publish = false
 [lints]
 workspace = true
 
+[lib]
+name = "scorsese_app"
+path = "src/lib.rs"
+
 [[bin]]
 name = "scorsese-app"
 path = "src/main.rs"
@@ -48,3 +52,6 @@ scorsese-core = { path = "../crates/core" }
 # for the compositor directly — is what keeps the window from growing a second
 # way to draw the picture.
 scorsese-render = { path = "../crates/render" }
+
+[dev-dependencies]
+egui_kittest = { version = "0.35.0", features = ["wgpu", "snapshot"] }

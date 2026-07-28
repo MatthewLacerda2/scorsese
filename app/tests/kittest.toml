@@ -1,0 +1,14 @@
+# How close a panel has to be to its reference.
+#
+# Not byte-for-byte, and for the same reason `docs/golden-renders.md` gives for
+# renders: a GPU rasterising text is no more deterministic across drivers and
+# backends than an encoder is across versions. CI runs these on a software
+# rasteriser and a developer runs them on whatever card is in the machine, so a
+# little give is what makes the reference mean "this is the panel" rather than
+# "this is the panel on that GPU".
+#
+# The rule this does NOT relax: re-blessing a reference to make a test pass is
+# never legitimate. Widen this when two honest machines disagree — never to get
+# a change through.
+threshold = 0.8
+failed_pixel_count_threshold = 400
