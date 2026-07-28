@@ -23,6 +23,7 @@ use egui::Ui;
 use crate::editing::Editing;
 use crate::files::Files;
 use crate::inspector::Inspector;
+use crate::preview::Preview;
 use crate::project::{Open, Refused, open};
 use crate::timeline::Timeline;
 
@@ -41,6 +42,8 @@ pub(crate) struct Scorsese {
     files: Files,
     /// The inspector, which is the one panel that changes the document.
     inspector: Inspector,
+    /// The picture at the playhead, and the transport under it.
+    preview: Preview,
 }
 
 impl Scorsese {
@@ -53,6 +56,7 @@ impl Scorsese {
             timeline: Timeline::default(),
             files: Files::default(),
             inspector: Inspector::default(),
+            preview: Preview::default(),
         };
         if let Some(directory) = directory {
             window.open(&directory);
@@ -76,6 +80,9 @@ impl Scorsese {
                 self.timeline.reset();
                 self.files.reset();
                 self.inspector.reset();
+                // A frame of the last film left on screen under the new one's
+                // playhead would be the preview lying on its first repaint.
+                self.preview.reset();
                 if let Some(open) = &self.opened {
                     self.files.refresh(open);
                 }
@@ -137,6 +144,15 @@ impl Scorsese {
         let opened = self.opened.as_ref()?;
         self.editing.forget_missing(&opened.project);
         Some((&mut self.timeline, opened, &mut self.editing))
+    }
+
+    /// The preview, the document it draws a frame of, and the playhead it
+    /// moves — handed out together for the same reason the timeline's three
+    /// are: it needs all of them at once, and a caller cannot collect them one
+    /// at a time.
+    pub(crate) fn preview(&mut self) -> Option<(&mut Preview, &Open, &mut Editing)> {
+        let opened = self.opened.as_ref()?;
+        Some((&mut self.preview, opened, &mut self.editing))
     }
 
     /// Why the last open failed, for the panel that has to say so.

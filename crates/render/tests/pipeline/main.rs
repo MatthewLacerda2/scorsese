@@ -17,6 +17,7 @@ mod output;
 mod partial;
 mod slugs;
 mod sources;
+mod still;
 mod text;
 mod warnings;
 

@@ -3,12 +3,19 @@
 //! This module is a render's outer shape — probe, plan, mix, encode, and the
 //! walk over the plan's segments. What happens *inside* one stretch of
 //! timeline, where the decoders run and each frame is drawn, is `segment`.
+//!
+//! `still` is the same machinery with the encoder taken out: one frame, handed
+//! back as pixels, for whoever is looking at the edit rather than delivering
+//! it. It shares `segment` rather than paralleling it, so a preview cannot draw
+//! the picture differently from the file.
 
 mod segment;
+mod still;
 
 use std::path::Path;
 
-use scorsese_core::Project;
+use scorsese_compositor::Frame;
+use scorsese_core::{Frames, Project};
 
 use crate::audio;
 use crate::error::RenderError;
@@ -90,7 +97,9 @@ impl<'a> Renderer<'a> {
 
         for segment in plan.segments() {
             let frames = plan.out_frames_of(segment);
-            notes.extend(pass.render(segment, frames, &mut stage, &mut encoder)?);
+            notes.extend(pass.render(segment, frames, &mut stage, &mut |frame| {
+                encoder.write(frame)
+            })?);
             written += frames;
         }
 
@@ -109,5 +118,27 @@ impl<'a> Renderer<'a> {
             notes,
             description: crate::describe::Description::of(&plan),
         })
+    }
+
+    /// One frame of `project` at timeline frame `at`, composited and handed
+    /// back — no encoder, no file, no sound.
+    ///
+    /// What a window shows when someone scrubs, and the reason it can be
+    /// trusted: this is [`Renderer::render`]'s own plan, decoders and
+    /// compositor, stopped one step before the encode. A slug card here is the
+    /// slug card the delivered file would have, at the raster the settings ask
+    /// for — which is how a preview cut of prompts nobody has paid for can be
+    /// watched at all.
+    ///
+    /// It is not cheap. Every call spawns an ffmpeg per layer with a source,
+    /// so a caller redrawing a window is expected to remember the frame it got
+    /// and ask again only when the instant it wants changes.
+    pub fn still(
+        &self,
+        project: &Project,
+        project_root: &Path,
+        at: Frames,
+    ) -> Result<Frame, RenderError> {
+        still::compose(self.tools, self.settings, project, project_root, at)
     }
 }

@@ -50,5 +50,14 @@ The window and the four-panel frame: preview, timeline, inspector, project
 files. It opens a project, says what is in it, and lists every validation
 problem when it will not load.
 
-The furniture arrives issue by issue — the preview, the timeline drawing, the
-inspector, the files list. See #13.
+The preview shows the picture at the playhead, composited at a reduced raster
+by `scorsese-render`'s own still — the render pipeline with the encoder taken
+out — with a transport under it: jump to start, back a frame, play or pause,
+forward a frame, jump to end. A step is **one frame**, because whether a cut
+lands a frame early is what a step button is for. Playback runs on the wall
+clock and drops frames rather than slowing down, so what it shows about pacing
+is true even when compositing cannot keep up. **No sound yet**: playing audio
+in step with the picture is a second clock to keep in sync, and it gets its own
+issue once scrubbing feels right.
+
+The furniture arrives issue by issue — the inspector next. See #13.
