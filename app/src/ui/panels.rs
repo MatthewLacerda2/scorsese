@@ -1,10 +1,9 @@
 //! Where each panel sits.
 
-use egui::{CentralPanel, MenuBar, Panel, RichText, ScrollArea, Ui};
+use egui::{CentralPanel, MenuBar, Panel, RichText, Ui};
 
 use super::Scorsese;
 use super::empty;
-use crate::project::Open;
 
 /// How tall the timeline strip opens when there is no project to size it to.
 const EMPTY_TIMELINE_HEIGHT: f32 = 140.0;
@@ -46,7 +45,7 @@ pub(super) fn timeline(ui: &mut Ui, window: &mut Scorsese) {
 }
 
 /// The inspector and project files, stacked down the right-hand edge.
-pub(super) fn side(ui: &mut Ui, open: Option<&Open>) {
+pub(super) fn side(ui: &mut Ui, window: &mut Scorsese) {
     Panel::right("side")
         .default_size(SIDE_WIDTH)
         .show(ui, |ui| {
@@ -54,16 +53,12 @@ pub(super) fn side(ui: &mut Ui, open: Option<&Open>) {
             empty::placeholder(ui, "select a clip to see what it is");
             ui.separator();
 
-            ui.heading("Project files");
-            let Some(open) = open else {
+            let Some((files, open, editing)) = window.files() else {
+                ui.heading("Project files");
                 empty::placeholder(ui, "the assets appear here");
                 return;
             };
-            ScrollArea::vertical().show(ui, |ui| {
-                for asset in &open.project.assets {
-                    ui.label(format!("{}  ·  {:?}", asset.id, asset.kind));
-                }
-            });
+            files.show(ui, open, editing);
         });
 }
 

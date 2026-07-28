@@ -21,6 +21,7 @@
 //! compiled by `cargo test --workspace`, which every headless change runs.
 
 mod editing;
+mod files;
 mod project;
 mod timeline;
 mod ui;
