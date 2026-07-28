@@ -22,6 +22,28 @@ must be able to carry the whole editing process with just the user's prompts and
 necessary file resources provided by the user. Any add/edit to the codebase MUST
 add to this vision.
 
+### What scorsese is, and is not
+
+Scorsese is a tool for **creating and editing videos** — cuts, titles, music,
+narration, pacing. It is **not** a compositing suite: no node graphs, no
+tracking, no rotoscoping, no colour pipelines, no VFX. Those are a different
+craft and a different program.
+
+The word to hold onto is **approachable**. If a capability would only make
+sense to someone who already edits professionally, it is probably out of
+scope; if it is something a person with an idea and some footage would reach
+for, it is probably in.
+
+**Filmora 9 is the reference for taste**, not a specification — when a
+question is "what should this feel like?" rather than "what should this do?",
+that is where to look. Worth copying in spirit: its built-in animations and
+fonts, its audio controls (volume as plain linear ramps between points), and
+speed changes on video and audio clips. Worth ignoring: anything that exists
+because a professional demanded it.
+
+This is a scope rule, so it cuts both ways. It is a reason to *refuse* an
+elaborate feature, and equally a reason to *build* an obvious one well.
+
 ## Start here
 
 - **docs/project-format.md** — the `project.json` schema: assets, tracks,
@@ -83,6 +105,22 @@ side effect of a feature PR.
   GUI toolkit — that invariant is stated in their `lib.rs` docs and enforced
   in review. The GUI is a client of the same library logic the CLI and MCP
   server use.
+- **The GUI is `egui`, in Rust, and deliberately thin.** One language and one
+  toolchain, and a compositor frame reaches the screen as a texture rather
+  than crossing a process boundary — which is what makes scrubbing feel
+  immediate. It gets the operations a person reaches for *with a mouse, often*:
+  scrub, select, nudge, trim, change a plain value. Anything with structure to
+  it is a sentence to an assistant over MCP, not a menu. A GUI rich enough to
+  do the editing would be a second, weaker way to do everything.
+- **Ship it simple, then iterate from use.** The GUI is the one part of this
+  project whose requirements cannot be reasoned out in advance — so the bar for
+  a first version is *the user can start editing with it*, not *it is right*.
+  Perfecting an interaction nobody has tried yet is the failure mode to avoid.
+- **MCP is a protocol, not a Claude feature.** `crates/mcp` speaks MCP to
+  whatever client is on the other end; Gemini, GPT and anything else that
+  speaks it get the same tools, the same way an HTTP API does not care whether
+  a browser, a phone or curl is calling. Claude is who we develop and test
+  against, not a dependency. Nothing in the server may assume otherwise.
 
 ### Crate map
 
@@ -93,7 +131,8 @@ and no dependency on `core`) ← `crates/providers` (Veo + ElevenLabs +
 synthesis, brief-hash cache) ; `crates/cli` (the headless `scorsese` binary) ;
 `crates/mcp` (MCP server, thin wrapper over the same logic) ; `crates/golden`
 (test infrastructure: the golden-render gate, which nothing ships and nothing
-depends on) ; `app/` (Tauri GUI, not in the workspace yet). Each `lib.rs` doc
+depends on) ; `app/` (the egui desktop app — its own cargo workspace, so a
+graphics dependency tree never slows `cargo test --workspace`). Each `lib.rs` doc
 states what its crate must never depend on — those boundaries are enforced in
 review.
 
@@ -194,8 +233,8 @@ review.
 - **Secrets via `.env`** (gitignored), documented in the committed
   `.env.example`. Never in `project.json`, never in code, never in fixtures.
 - **All ffmpeg invocations go through `scorsese-render`'s command builder.**
-  ffmpeg is an external binary on PATH in dev/CI and a bundled Tauri sidecar
-  in shipped builds; that indirection lives in one place. No ad-hoc
+  ffmpeg is an external binary on PATH in dev/CI and is bundled beside the
+  binary in shipped builds; that indirection lives in one place. No ad-hoc
   `Command::new("ffmpeg")` anywhere else.
 - **Golden-render tests compare frames with tolerance** — never byte-equality of
   encoded output. Encoders are not deterministic across versions and platforms;

@@ -1,0 +1,96 @@
+//! Where each panel sits.
+
+use egui::{CentralPanel, MenuBar, Panel, RichText, ScrollArea, Ui};
+
+use super::Scorsese;
+use super::empty;
+use crate::project::Open;
+
+/// How tall the timeline strip opens, in points.
+const TIMELINE_HEIGHT: f32 = 220.0;
+/// How wide the inspector and files column opens.
+const SIDE_WIDTH: f32 = 280.0;
+
+/// The menu bar: opening a project, and nothing else yet.
+pub(super) fn menu(ui: &mut Ui, window: &mut Scorsese) {
+    Panel::top("menu").show(ui, |ui| {
+        MenuBar::new().ui(ui, |ui| {
+            if ui.button("Open project…").clicked() {
+                window.pick();
+            }
+            if let Some(open) = window.project() {
+                ui.separator();
+                ui.label(RichText::new(open.directory()).strong());
+            }
+        });
+    });
+}
+
+/// The timeline strip along the bottom.
+pub(super) fn timeline(ui: &mut Ui, open: Option<&Open>) {
+    Panel::bottom("timeline")
+        .exact_size(TIMELINE_HEIGHT)
+        .show(ui, |ui| {
+            ui.heading("Timeline");
+            let Some(open) = open else {
+                empty::placeholder(ui, "the tracks appear here");
+                return;
+            };
+            // Enough to prove the panel is wired to a real document. What
+            // actually draws here arrives with the timeline issue.
+            for track in &open.project.tracks {
+                ui.label(format!(
+                    "{}  ·  {:?}  ·  {} clip(s)",
+                    track.id,
+                    track.kind,
+                    track.clips.len()
+                ));
+            }
+        });
+}
+
+/// The inspector and project files, stacked down the right-hand edge.
+pub(super) fn side(ui: &mut Ui, open: Option<&Open>) {
+    Panel::right("side")
+        .default_size(SIDE_WIDTH)
+        .show(ui, |ui| {
+            ui.heading("Inspector");
+            empty::placeholder(ui, "select a clip to see what it is");
+            ui.separator();
+
+            ui.heading("Project files");
+            let Some(open) = open else {
+                empty::placeholder(ui, "the assets appear here");
+                return;
+            };
+            ScrollArea::vertical().show(ui, |ui| {
+                for asset in &open.project.assets {
+                    ui.label(format!("{}  ·  {:?}", asset.id, asset.kind));
+                }
+            });
+        });
+}
+
+/// The preview, and — when nothing is open or something went wrong — whatever
+/// has to be said instead.
+pub(super) fn centre(ui: &mut Ui, window: &mut Scorsese) {
+    CentralPanel::default().show(ui, |ui| {
+        if let Some(refused) = window.problem() {
+            empty::refusal(ui, refused);
+            return;
+        }
+        let Some(open) = window.project() else {
+            empty::nothing_open(ui, |window| window.pick(), window);
+            return;
+        };
+        ui.heading(&open.project.name);
+        ui.label(format!(
+            "{} fps  ·  {} asset(s)  ·  {} track(s)  ·  {} clip(s)",
+            open.project.timeline_fps,
+            open.project.assets.len(),
+            open.project.tracks.len(),
+            open.project.clips().count()
+        ));
+        empty::placeholder(ui, "the picture appears here");
+    });
+}

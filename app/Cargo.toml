@@ -1,0 +1,45 @@
+# Deliberately its own workspace root, not a member of the one at the repo
+# root. egui reaches a window through a graphics stack — winit, wgpu, the
+# platform's own toolkit — and none of that has any business being compiled by
+# `cargo test --workspace`, which every headless change runs.
+#
+# That isolation is worth what it costs, but it means this crate inherits
+# nothing from the repo-root manifest — the lint policy included. So the policy
+# is restated below rather than left absent: the one crate a person actually
+# looks at has no business being held to a weaker standard than the ones that
+# do the work.
+#
+# The duplication is deliberate and it is *checked*: `tools/lint/tests/policy.rs`
+# reads every separate workspace root and fails if any of them disagree, so
+# drift is a test failure rather than a silent divergence.
+[workspace]
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+unreachable_pub = "warn"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+dbg_macro = "deny"
+todo = "deny"
+
+[package]
+name = "scorsese-app"
+version = "0.1.0"
+edition = "2024"
+repository = "https://github.com/MatthewLacerda2/scorsese"
+publish = false
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "scorsese-app"
+path = "src/main.rs"
+
+[dependencies]
+eframe = "0.35.0"
+egui = "0.35.0"
+rfd = "0.17.2"
+scorsese-core = { path = "../crates/core" }
