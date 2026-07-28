@@ -33,7 +33,10 @@ LINT := --manifest-path tools/lint/Cargo.toml
 GATES := format size scripts clippy docs test deny
 
 .DEFAULT_GOAL := help
-.PHONY: help setup gates pre-commit inventory $(GATES) format-fix coverage mutants
+# `app` is in here for a reason that costs an afternoon to find: there is a
+# directory called `app/`, so without this make decides the target is already
+# built and `make app` prints "up to date" without running a thing.
+.PHONY: help setup gates pre-commit inventory $(GATES) app format-fix coverage mutants
 
 ##@ Everyday
 

@@ -22,6 +22,7 @@ use egui::Ui;
 
 use crate::editing::Editing;
 use crate::files::Files;
+use crate::inspector::Inspector;
 use crate::project::{Open, Refused, open};
 use crate::timeline::Timeline;
 
@@ -38,6 +39,8 @@ pub(crate) struct Scorsese {
     timeline: Timeline,
     /// The pool as the files panel last read it.
     files: Files,
+    /// The inspector, which is the one panel that changes the document.
+    inspector: Inspector,
 }
 
 impl Scorsese {
@@ -49,6 +52,7 @@ impl Scorsese {
             editing: Editing::default(),
             timeline: Timeline::default(),
             files: Files::default(),
+            inspector: Inspector::default(),
         };
         if let Some(directory) = directory {
             window.open(&directory);
@@ -71,6 +75,7 @@ impl Scorsese {
                 self.editing.reset();
                 self.timeline.reset();
                 self.files.reset();
+                self.inspector.reset();
                 if let Some(open) = &self.opened {
                     self.files.refresh(open);
                 }
@@ -112,6 +117,17 @@ impl Scorsese {
     pub(crate) fn files(&mut self) -> Option<(&mut Files, &Open, &mut Editing)> {
         let opened = self.opened.as_ref()?;
         Some((&mut self.files, opened, &mut self.editing))
+    }
+
+    /// The inspector, the document it edits, and what is selected in it.
+    ///
+    /// The project by `&mut`, alone among the panels: this is the one that
+    /// changes it. The selection is read-only here — the timeline is where a
+    /// clip is picked, and two panels able to set it would be two answers to
+    /// one question.
+    pub(crate) fn inspector(&mut self) -> Option<(&mut Inspector, &mut Open, &Editing)> {
+        let opened = self.opened.as_mut()?;
+        Some((&mut self.inspector, opened, &self.editing))
     }
 
     /// The timeline, the document it draws, and the view state it moves —

@@ -22,6 +22,7 @@
 
 mod editing;
 mod files;
+mod inspector;
 mod project;
 mod timeline;
 mod ui;

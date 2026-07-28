@@ -49,8 +49,13 @@ pub(super) fn side(ui: &mut Ui, window: &mut Scorsese) {
     Panel::right("side")
         .default_size(SIDE_WIDTH)
         .show(ui, |ui| {
-            ui.heading("Inspector");
-            empty::placeholder(ui, "select a clip to see what it is");
+            match window.inspector() {
+                Some((inspector, open, editing)) => inspector.show(ui, open, editing),
+                None => {
+                    ui.heading("Inspector");
+                    empty::placeholder(ui, "select a clip to see what it is");
+                }
+            }
             ui.separator();
 
             let Some((files, open, editing)) = window.files() else {
