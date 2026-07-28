@@ -253,15 +253,38 @@ pub fn paint(frame: &mut Frame, asset: &Asset, absent: Absent) {
 /// What the card says, in the order it is read: what this is, then what it was
 /// going to be.
 ///
+/// Public because it is the sentence a person reads off a slug card, and
+/// anything that wants to say the same thing without painting a frame — a
+/// tooltip, a description, a test — should say it the same way rather than
+/// building its own.
+///
 /// The label is a line of the same block rather than a badge drawn separately,
 /// which is what makes a card one wrap and one truncation: a prompt longer than
 /// the frame loses its tail to an ellipsis and never its label.
-fn wording(asset: &Asset, absent: Absent) -> String {
+pub fn wording(asset: &Asset, absent: Absent) -> String {
+    let (kind, brief) = brief(asset);
+    format!("{kind} · {}{BREAK}{brief}", absent.label())
+}
+
+/// What kind of brief this asset carries, and what that brief says.
+///
+/// The three generated kinds do not all carry a prompt. A `synth_audio` asset
+/// is made from a **recipe** in the project, so asking it for a prompt and
+/// finding none used to put "(no prompt)" on the card — reporting a perfectly
+/// well-formed asset as broken, in the one place a person looks to find out
+/// what a shot is going to be. The card names what is actually there.
+fn brief(asset: &Asset) -> (&'static str, &str) {
+    if asset.kind.is_synthesized() {
+        let recipe = asset
+            .recipe
+            .as_ref()
+            .map_or("(no recipe)", |recipe| recipe.as_str());
+        return ("AUDIO RECIPE", recipe);
+    }
     let kind = if asset.kind.is_audible() {
         "AUDIO PROMPT"
     } else {
         "VIDEO PROMPT"
     };
-    let prompt = asset.prompt.as_deref().unwrap_or("(no prompt)");
-    format!("{kind} · {}{BREAK}{prompt}", absent.label())
+    (kind, asset.prompt.as_deref().unwrap_or("(no prompt)"))
 }

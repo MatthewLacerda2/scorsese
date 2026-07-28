@@ -119,3 +119,25 @@ fn a_text_asset_is_described_by_what_it_says() {
     );
     assert!(format!("{description}").contains("title (text, fit) \"THE END\""));
 }
+
+/// A synthesised asset carries a **recipe**, not a prompt. Asking it for one
+/// and finding none used to put "(no prompt)" on its card, which reports a
+/// well-formed asset as broken in the one place a person looks to find out
+/// what a shot is going to be.
+///
+/// Found by rendering the window's panels offscreen and *looking* at them —
+/// nothing had ever drawn a slug card for a synth asset before.
+#[test]
+fn a_synth_card_names_its_recipe_rather_than_a_prompt_it_never_had() {
+    use scorsese_core::{Asset, AssetId, AssetKind, ProjectPath};
+
+    let asset = Asset::synth(
+        AssetId::new("bed"),
+        AssetKind::SynthAudio,
+        ProjectPath::new("recipes/bed.json"),
+    );
+    let wording = scorsese_render::slug::wording(&asset, scorsese_render::slug::Absent::Sketch);
+    assert!(wording.contains("RECIPE"), "got {wording}");
+    assert!(wording.contains("recipes/bed.json"), "got {wording}");
+    assert!(!wording.contains("no prompt"), "got {wording}");
+}

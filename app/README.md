@@ -48,6 +48,35 @@ the frame-to-pixel transform, lane ordering, snapping, trim arithmetic, and
 what a refused edit leaves on disk. That is where the bugs are; the drawing is
 checked by looking at it.
 
+## Looking at it without a display
+
+`app/tests/panels/` renders the whole window offscreen through `egui_kittest`
+— no window, no display, no X server — and holds each panel to a reference
+image in `app/tests/snapshots/`.
+
+That exists because six panels were built before it did and **not one frame of
+any of them had ever been looked at.** Every other test here covers the logic
+*behind* the drawing, because the drawing was unreachable.
+
+```
+cargo test --manifest-path app/Cargo.toml --test panels
+UPDATE_SNAPSHOTS=1 cargo test --manifest-path app/Cargo.toml --test panels
+```
+
+Comparison is **with tolerance**, never byte-for-byte: a GPU rasterising text
+is no more deterministic across drivers than an encoder is across versions,
+which is the same reason `docs/golden-renders.md` gives for renders.
+
+**The rule that matters carries over unchanged: re-blessing a reference to make
+a test pass is never legitimate.** A snapshot changes when the interface was
+meant to change, and the new picture is *looked at* before it is committed.
+`UPDATE_SNAPSHOTS=1` writes them; it does not decide they are right.
+
+A fixture project is named for its label alone — no process id, no counter —
+because the window puts the directory's name in its menu bar, and a name that
+changed between runs would change the picture between runs. A snapshot that
+cannot reproduce itself is not a reference.
+
 ## Invariants
 
 - **The GUI is a client**, not a layer underneath. It reads and writes the

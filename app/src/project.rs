@@ -70,7 +70,10 @@ fn refused(root: &Path, error: LoadError) -> Refused {
             problems: vec![problem.to_string()],
         },
         LoadError::Invalid(errors) => Refused {
-            heading: format!("{} problems in this project", errors.len()),
+            heading: match errors.len() {
+                1 => "1 problem in this project".to_owned(),
+                many => format!("{many} problems in this project"),
+            },
             problems: listed(errors),
         },
     }

@@ -28,7 +28,7 @@ use crate::project::{Open, Refused, open};
 use crate::timeline::Timeline;
 
 /// The whole window's state.
-pub(crate) struct Scorsese {
+pub struct Scorsese {
     /// The project, once one is open. `None` is the ordinary starting state,
     /// not an error — the window opens before anything is chosen.
     opened: Option<Open>,
@@ -48,7 +48,7 @@ pub(crate) struct Scorsese {
 
 impl Scorsese {
     /// A window, optionally starting on a directory given on the command line.
-    pub(crate) fn opening(directory: Option<std::path::PathBuf>) -> Self {
+    pub fn opening(directory: Option<std::path::PathBuf>) -> Self {
         let mut window = Self {
             opened: None,
             refused: None,
@@ -102,8 +102,27 @@ impl Scorsese {
     }
 }
 
-impl App for Scorsese {
-    fn ui(&mut self, ui: &mut Ui, _frame: &mut Frame) {
+impl Scorsese {
+    /// Points the window at a clip, as clicking it in the timeline does.
+    ///
+    /// Public for two reasons, and the second is worth stating plainly. A
+    /// window has more than one way to point at something — the files panel
+    /// already highlights an asset — so selecting from outside the timeline is
+    /// a real operation. And it is what lets a snapshot put the inspector into
+    /// the state it exists for, without synthesising a pointer event at a pixel
+    /// computed from the layout it is supposed to be checking.
+    pub fn select(&mut self, clip: &str) {
+        self.editing.selected = Some(scorsese_core::ClipId::new(clip));
+    }
+
+    /// Draws the whole window into `ui`.
+    ///
+    /// Takes a `Ui` and nothing else — no `eframe::Frame`, no event loop —
+    /// which is the whole reason it is a method rather than the body of
+    /// [`App::ui`]. A window that can only be drawn by an event loop is a
+    /// window nobody can look at in a test, and six panels were built that way
+    /// before this existed.
+    pub fn draw(&mut self, ui: &mut Ui) {
         // Declared outside-in, which is what egui's layout wants: each panel
         // takes its edge and leaves the rest to the next. The centre goes last
         // and gets whatever is left.
@@ -111,6 +130,12 @@ impl App for Scorsese {
         panels::timeline(ui, self);
         panels::side(ui, self);
         panels::centre(ui, self);
+    }
+}
+
+impl App for Scorsese {
+    fn ui(&mut self, ui: &mut Ui, _frame: &mut Frame) {
+        self.draw(ui);
     }
 }
 
