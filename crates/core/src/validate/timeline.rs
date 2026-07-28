@@ -106,6 +106,17 @@ fn check_keyframes(clip: &Clip, errors: &mut Vec<ValidationError>) {
                 property: property(),
             });
         }
+        // A blank signature is worse than none: it claims a tool wrote this
+        // and names no tool, so nothing can ever recognise or replace it.
+        // Whether the tool *exists* is not checked, for the same reason a
+        // property path is a string — a document written against a newer
+        // scorsese still has to load on an older one.
+        if track.by.as_deref().is_some_and(|by| by.trim().is_empty()) {
+            errors.push(ValidationError::BlankKeyframeAuthor {
+                clip: clip_id(),
+                property: property(),
+            });
+        }
         if track.keyframes.is_empty() {
             errors.push(ValidationError::EmptyKeyframeTrack {
                 clip: clip_id(),

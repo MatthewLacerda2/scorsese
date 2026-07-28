@@ -123,19 +123,50 @@ pub struct KeyframeTrack {
     /// ignored and warned about, never an error — a project authored against
     /// a newer scorsese still has to render on an older one.
     pub property: PropertyPath,
+    /// Which tool wrote this track, if a tool did. Absent means a person or an
+    /// agent placed these points by hand, which is what every keyframe meant
+    /// before this field existed.
+    ///
+    /// It buys exactly one thing, and it is not provenance for its own sake: a
+    /// tool that generates keyframes can find its own previous output and
+    /// replace it, without touching anything anyone set by hand. Re-running
+    /// auto-ducking should redo the ducking and leave your fades alone.
+    ///
+    /// Nothing else reads it. It does not reach [`KeyframeTrack::value_at`]
+    /// and it changes no pixel and no sample.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub by: Option<String>,
     /// Ordered by `t`, ascending, with no duplicated times.
     pub keyframes: Vec<Keyframe>,
 }
 
 impl KeyframeTrack {
-    /// Takes the points as given. Sorting is not imposed here — validation
-    /// reports an out-of-order track rather than silently rewriting what an
-    /// author wrote.
+    /// Takes the points as given, unsigned. Sorting is not imposed here —
+    /// validation reports an out-of-order track rather than silently rewriting
+    /// what an author wrote.
     pub fn new(property: PropertyPath, keyframes: Vec<Keyframe>) -> Self {
         Self {
             property,
+            by: None,
             keyframes,
         }
+    }
+
+    /// The same track, signed by the tool that generated it.
+    ///
+    /// A tool signs what it writes so it can recognise its own work later.
+    /// Everything unsigned belongs to whoever wrote it by hand and is never a
+    /// tool's to replace.
+    pub fn generated_by(self, tool: impl Into<String>) -> Self {
+        Self {
+            by: Some(tool.into()),
+            ..self
+        }
+    }
+
+    /// True when `tool` wrote this track, and so may replace it.
+    pub fn is_generated_by(&self, tool: &str) -> bool {
+        self.by.as_deref() == Some(tool)
     }
 
     /// True when times ascend strictly. Checked by validation; the evaluator
