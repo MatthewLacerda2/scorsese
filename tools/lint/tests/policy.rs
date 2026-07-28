@@ -1,10 +1,10 @@
-//! The lint policy here must match the repo root's.
+//! Every separate workspace root must state the same lint policy.
 //!
-//! This crate is its own workspace root (see the comment atop its `Cargo.toml`),
-//! which buys a gate that builds without ffmpeg and stays out of
-//! `cargo test --workspace` — and costs it every inheritance, the lint policy
-//! included. The policy is therefore restated in `tools/lint/Cargo.toml` and
-//! `tools/lint/clippy.toml` rather than inherited.
+//! Two directories are their own workspace roots — `tools/lint`, so the size
+//! gate builds without ffmpeg, and `app`, so a graphics stack never reaches
+//! `cargo test --workspace`. Each buys that isolation and pays every
+//! inheritance for it, the lint policy included, so each restates the policy in
+//! its own `Cargo.toml` and `clippy.toml` rather than inheriting one.
 //!
 //! Duplication that nothing checks is the failure mode the workspace table
 //! existed to prevent, so these tests check it. They compare *settings* and not
@@ -66,51 +66,60 @@ fn lints(manifest: &Path) -> BTreeMap<String, String> {
         .collect()
 }
 
+/// Every directory that is its own workspace root, and so inherits nothing.
+///
+/// Adding a third is one line here, and that is the point: the check is over
+/// the *set* of separate roots rather than over one favoured one.
+const SEPARATE_ROOTS: &[&str] = &["tools/lint", "app"];
+
 #[test]
-fn the_lint_tables_say_the_same_thing_at_both_roots() {
+fn the_lint_tables_say_the_same_thing_at_every_root() {
     let root = repo_root();
     let workspace = lints(&root.join("Cargo.toml"));
-    let tool = lints(&root.join("tools/lint/Cargo.toml"));
-
     assert!(
         !workspace.is_empty(),
         "no [workspace.lints.*] found at the repo root — this test would pass vacuously"
     );
-    assert_eq!(
-        workspace, tool,
-        "the lint policy at the repo root and in tools/lint have drifted. \
-         They are separate workspaces, so neither inherits the other: add the \
-         lint to both tables, or remove it from both."
-    );
+    for separate in SEPARATE_ROOTS {
+        assert_eq!(
+            workspace,
+            lints(&root.join(separate).join("Cargo.toml")),
+            "the lint policy at the repo root and in {separate} have drifted. \
+             They are separate workspaces, so neither inherits the other: add \
+             the lint to both tables, or remove it from both."
+        );
+    }
 }
 
 #[test]
-fn the_clippy_configuration_says_the_same_thing_at_both_roots() {
+fn the_clippy_configuration_says_the_same_thing_at_every_root() {
     let root = repo_root();
     let workspace = settings(&root.join("clippy.toml"));
-    let tool = settings(&root.join("tools/lint/clippy.toml"));
-
     assert!(
         !workspace.is_empty(),
         "no settings found in the repo root clippy.toml — this test would pass vacuously"
     );
-    assert_eq!(
-        workspace, tool,
-        "clippy.toml at the repo root and in tools/lint have drifted. clippy \
-         reads it from the workspace root, and tools/lint is its own workspace, \
-         so a setting in one has no effect on the other."
-    );
+    for separate in SEPARATE_ROOTS {
+        assert_eq!(
+            workspace,
+            settings(&root.join(separate).join("clippy.toml")),
+            "clippy.toml at the repo root and in {separate} have drifted. clippy \
+             reads it from the workspace root, and {separate} is its own \
+             workspace, so a setting in one has no effect on the other."
+        );
+    }
 }
 
 #[test]
-fn this_crate_takes_the_policy_rather_than_only_stating_it() {
-    let manifest = repo_root().join("tools/lint/Cargo.toml");
-    let settings = settings(&manifest);
-
-    assert_eq!(
-        settings.get("lints.workspace").map(String::as_str),
-        Some("true"),
-        "tools/lint declares [workspace.lints] but its package does not take \
-         them with `[lints] workspace = true`, so they apply to nothing"
-    );
+fn every_separate_root_takes_the_policy_rather_than_only_stating_it() {
+    let root = repo_root();
+    for separate in SEPARATE_ROOTS {
+        let settings = settings(&root.join(separate).join("Cargo.toml"));
+        assert_eq!(
+            settings.get("lints.workspace").map(String::as_str),
+            Some("true"),
+            "{separate} declares [workspace.lints] but its package does not \
+             take them with `[lints] workspace = true`, so they apply to nothing"
+        );
+    }
 }

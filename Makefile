@@ -165,6 +165,11 @@ mutants: ## Which changes to the code no test would notice. A signal: blocks not
 
 ##@ Fixing
 
+app: ## Build the desktop app (its own workspace; not part of `make gates`)
+	cargo fmt --manifest-path app/Cargo.toml --all --check
+	cargo clippy --manifest-path app/Cargo.toml --all-targets --locked -- -D warnings
+	cargo build --manifest-path app/Cargo.toml --locked
+
 format-fix: ## Rewrite files to satisfy the format gate
 	cargo fmt --all
 	cargo fmt $(LINT) --all
