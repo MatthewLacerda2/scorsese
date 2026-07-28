@@ -32,6 +32,22 @@ The cost is that it inherits nothing, the lint policy included. So the policy is
 restated in `app/Cargo.toml` and `app/clippy.toml`, and
 `tools/lint/tests/policy.rs` fails if any separate root drifts from the others.
 
+## Its tests are a gate
+
+`make app` runs this crate's format, clippy, build **and tests**, and the
+`desktop app` CI job runs the same four. A failing test here blocks a merge
+exactly as a failing workspace test does.
+
+They run here and nowhere else. `app/` is its own workspace so that a graphics
+dependency tree never slows a headless change, which also means
+`cargo test --workspace` cannot reach them — so this job is the only place they
+ever execute.
+
+None of them open a window. What they cover is the logic behind the drawing:
+the frame-to-pixel transform, lane ordering, snapping, trim arithmetic, and
+what a refused edit leaves on disk. That is where the bugs are; the drawing is
+checked by looking at it.
+
 ## Invariants
 
 - **The GUI is a client**, not a layer underneath. It reads and writes the
