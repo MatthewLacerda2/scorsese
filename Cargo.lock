@@ -390,6 +390,12 @@ dependencies = [
 [[package]]
 name = "scorsese-mcp"
 version = "0.1.0"
+dependencies = [
+ "scorsese-core",
+ "scorsese-render",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "scorsese-providers"
