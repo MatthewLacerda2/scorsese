@@ -51,6 +51,17 @@ impl View {
         frames.get() as f32 * self.scale
     }
 
+    /// How many frames a span of `pixels` covers — the inverse of
+    /// [`View::width_of`], and the only honest way to say "eight pixels" in a
+    /// document that is measured in frames.
+    ///
+    /// What snapping needs: a tolerance written in pixels stays the same size
+    /// on screen at every magnification, which is the whole point of measuring
+    /// it there rather than in frames.
+    pub(crate) fn frames_in(self, pixels: f32) -> Frames {
+        Frames((pixels / self.scale).max(0.0).round() as u64)
+    }
+
     /// Which frame sits `offset` pixels from the left edge of the clip area.
     ///
     /// Saturating at zero rather than wrapping: a drag that goes past the
@@ -176,6 +187,19 @@ mod tests {
         view.fit(Frames(1800), 900.0);
         assert_eq!(view.frame_at(0.0), Frames::ZERO);
         assert_eq!(view.frame_at(900.0), Frames(1800));
+    }
+
+    /// A span written in pixels has to mean fewer frames the further in you
+    /// are — that is what makes a snap tolerance feel the same at every
+    /// magnification instead of grabbing half the film when zoomed out.
+    #[test]
+    fn a_pixel_span_is_worth_fewer_frames_the_further_in_the_view_is() {
+        let mut view = View::default();
+        view.fit(Frames(1800), 900.0);
+        assert_eq!(view.frames_in(10.0), Frames(20));
+        view.zoom(4.0, 0.0);
+        assert_eq!(view.frames_in(10.0), Frames(5));
+        assert_eq!(view.frames_in(0.0), Frames::ZERO);
     }
 
     #[test]

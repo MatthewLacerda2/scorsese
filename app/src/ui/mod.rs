@@ -140,8 +140,11 @@ impl Scorsese {
     /// The timeline, the document it draws, and the view state it moves —
     /// handed out together because it needs all three at once and the
     /// borrow checker will not let a caller collect them one at a time.
-    pub(crate) fn timeline(&mut self) -> Option<(&mut Timeline, &Open, &mut Editing)> {
-        let opened = self.opened.as_ref()?;
+    ///
+    /// The document goes out **mutably**: dragging a clip is an edit, and the
+    /// document on disk is the only model there is to make it in.
+    pub(crate) fn timeline(&mut self) -> Option<(&mut Timeline, &mut Open, &mut Editing)> {
+        let opened = self.opened.as_mut()?;
         self.editing.forget_missing(&opened.project);
         Some((&mut self.timeline, opened, &mut self.editing))
     }
