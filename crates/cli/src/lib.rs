@@ -1,7 +1,7 @@
 //! # scorsese-cli — the headless binary
 //!
 //! Responsibility: the `scorsese` command-line surface — `new`, `import`,
-//! `check`, `render`, `synth`, `generate`, `assets`, `diff`. This is how an
+//! `check`, `render`, `synth`, `duck`, `generate`, `assets`, `diff`. This is how an
 //! agent (or a CI
 //! job) assembles and renders a video with no human and no screen: every
 //! editing capability the GUI will ever have must be reachable from here
@@ -79,6 +79,22 @@ fn dispatch(cli: Cli) -> Result<()> {
             }
             None => commands::synth::bake(&directory, None),
         },
+        Command::Duck {
+            music,
+            depth,
+            attack,
+            release,
+            under,
+        } => commands::duck::run(
+            &directory,
+            &music,
+            &commands::duck::Options {
+                depth,
+                attack,
+                release,
+                under,
+            },
+        ),
         Command::Assets {
             action: None,
             verify,

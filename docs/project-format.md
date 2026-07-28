@@ -398,6 +398,20 @@ Nothing else reads it. It reaches no renderer, and changes no pixel and no
 sample. A `by` that is present but blank is an error: it claims a tool wrote
 the track and names none, so nothing could ever recognise or replace it.
 
+**`duck` is the first tool that signs anything.** `scorsese duck --music <track>`
+lowers a music clip's `volume` while narration plays over it, by writing exactly
+the keyframes above. It triggers on the narration **clip's extents**, not on the
+sound, which means it works on narration nobody has generated yet — a cut built
+around a voice-over can be ducked, watched and judged before a word of it has
+been paid for. A pause mid-sentence stays ducked; that is the cost of the
+choice, and it is the right way round.
+
+Where the four points land: full a moment before the narration starts, down by
+the frame it starts, held until it ends, back to full a little after. Two lines
+closer together than one recovery-plus-fall become a single dip, because coming
+all the way up and immediately going back down is pumping — which draws more
+attention than the ducking was avoiding.
+
 ### What the compositor animates today
 
 | path | means | `1.0` / `0.0` |
