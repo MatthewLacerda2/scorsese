@@ -1,32 +1,53 @@
-//! # scorsese-mcp — the MCP server (skeleton)
+//! # scorsese-mcp — the MCP server
 //!
-//! Responsibility: exposing scorsese to Claude agents as MCP tools —
-//! plan/import/generate/render/diff — as a thin wrapper over the same
-//! library logic the CLI uses. If a tool here needs code the CLI doesn't
-//! share, that code is in the wrong place: push it down into `core`,
-//! `render`, or `providers`.
+//! Responsibility: exposing scorsese over the Model Context Protocol, as a
+//! thin wrapper over the same library logic the CLI uses. If a tool here needs
+//! code the CLI does not share, that code is in the wrong place — push it down
+//! into `core`, `render` or `providers`.
 //!
-//! Boundary: protocol handling only. No editing logic of its own, no
-//! display, no direct ffmpeg or provider calls — everything goes through
-//! the lower crates.
+//! **MCP is a protocol, not a Claude feature.** This server speaks it to
+//! whatever client is on the other end; Gemini, GPT and anything else that
+//! speaks MCP get the same tools, the same way an HTTP API does not care
+//! whether a browser, a phone or curl is calling. Claude is who this is
+//! developed and tested against, not a dependency, and nothing here may assume
+//! otherwise.
 //!
-//! **Every tool exposed here carries a description, and that is enforced by a
-//! test from the first tool onwards.** A tool's description is not a courtesy:
-//! it is the entire interface an agent has to it, and an undescribed tool is a
-//! capability that exists and cannot be found — nothing fails, the agent
-//! simply never calls it. The same gate already covers the CLI's `--help` (see
-//! `crates/cli/tests/help.rs`) and the property table in
-//! `docs/project-format.md`; walking a tool registry is the same test again.
-//! Building it in with the first tool costs one test. Retrofitting it once
-//! there are twelve tools, three of them undescribed, costs an argument about
-//! which three.
+//! Boundary: protocol handling only. No editing logic of its own, no display,
+//! no direct ffmpeg or provider calls — everything goes through the lower
+//! crates.
+//!
+//! ## Hand-rolled, deliberately
+//!
+//! MCP over stdio is JSON-RPC 2.0, one message per line. That is a small
+//! enough surface — `initialize`, `tools/list`, `tools/call`, `ping` — that
+//! taking an SDK for it would cost more than it saved: at the time of writing
+//! the official Rust SDK is a beta, and it brings an async runtime to a
+//! protocol that is one stream read in order. A blocking read of a line is
+//! exactly the right shape, and every dependency here is one `cargo deny` has
+//! to keep clearing.
+//!
+//! That is a judgement, not a principle. If the protocol grows a transport
+//! this cannot honestly serve, taking the SDK is the right answer, and this
+//! paragraph is the note explaining why it was not taken sooner.
+//!
+//! ## Every tool is described, and that is a gate
+//!
+//! A tool's description is the entire interface a client has to it, and an
+//! undescribed tool is a capability that exists and cannot be found — nothing
+//! fails, the assistant on the other end simply never calls it. `tests/` walks
+//! the registry and fails on a tool or an argument that says nothing about
+//! itself. The same gate already covers the CLI's `--help` and the property
+//! table in `docs/project-format.md`.
+//!
+//! ## Stateless
+//!
+//! Every tool takes the project directory it works on. There is no server-side
+//! "open project" to go stale, so a client may crash, reconnect, or run two
+//! conversations against one project without anything getting out of step.
 
-/// Placeholder so `cargo test` exercises this crate from day one.
-/// Replaced by real tool tests in the MCP server issue.
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn crate_compiles() {
-        assert_eq!(2 + 2, 4);
-    }
-}
+pub mod rpc;
+pub mod session;
+pub mod tools;
+
+pub use session::serve;
+pub use tools::{Tool, registry};

@@ -56,6 +56,8 @@ elaborate feature, and equally a reason to *build* an obvious one well.
   changing anything a render's output depends on.
 - **docs/output-formats.md** — the containers and codecs a render delivers in,
   which combinations are refused, and why that list is deliberately short.
+- **docs/mcp.md** — the tools `scorsese-mcp` exposes, how a client is pointed
+  at it, and the rule that every tool and every argument describes itself.
 - Crate boundaries live in each crate's `lib.rs` module doc — read them before
   adding a dependency between crates.
 
