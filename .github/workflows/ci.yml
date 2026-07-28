@@ -115,6 +115,18 @@ jobs:
       - name: Build
         run: cargo build --manifest-path app/Cargo.toml --locked
 
+      # A gate, not a signal: a failing app test blocks a merge exactly as a
+      # failing workspace test does. `app/` is its own workspace so that a
+      # graphics dependency tree never slows a headless change — which means
+      # `cargo test --workspace` cannot reach these, and this job is the only
+      # place they ever run.
+      #
+      # Nothing here opens a window. The tests are the logic behind the
+      # drawing — the frame-to-pixel transform, snapping, trim arithmetic,
+      # what a refused edit leaves on disk — which is where the bugs are.
+      - name: Test
+        run: cargo test --manifest-path app/Cargo.toml --locked
+
   size:
     name: size gate
     runs-on: ubuntu-latest
