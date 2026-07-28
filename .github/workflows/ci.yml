@@ -95,12 +95,19 @@ jobs:
       # rasterise through wgpu, which needs an adapter to exist at all.
       # `mesa-vulkan-drivers` provides lavapipe, a software one, so a runner
       # with no GPU can still draw the window offscreen.
+      #
+      # ffmpeg because the preview composites a real frame through
+      # `scorsese-render`, which is the whole point of it — a preview that drew
+      # the picture its own way would be a preview that lies. Without ffmpeg the
+      # panel says so, clearly and with the fix, and a snapshot of *that* is a
+      # snapshot of a runner misconfiguration rather than of the window.
       - name: Install the graphics and windowing libraries
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             libgtk-3-dev libxkbcommon-dev libwayland-dev \
-            mesa-vulkan-drivers libvulkan1
+            mesa-vulkan-drivers libvulkan1 \
+            ffmpeg
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
