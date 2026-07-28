@@ -6,14 +6,18 @@
 //! so the ruler, the clips and the playhead cannot disagree about where a
 //! frame is.
 
+mod drag;
+mod gesture;
 mod lanes;
 mod ruler;
 mod view;
 
 use egui::{Rect, Sense, Ui, vec2};
-use scorsese_core::{ClipId, Project};
+use scorsese_core::Project;
 
 use crate::editing::{Editing, length};
+use crate::project::Open;
+use gesture::Gesture;
 use view::View;
 
 /// A frame count as a person reads a time. Lives with the view because that is
@@ -27,7 +31,7 @@ const GUTTER: f32 = 96.0;
 /// How much one notch of the wheel magnifies.
 const ZOOM_STEP: f32 = 1.15;
 
-/// The timeline's own state: where it is looking.
+/// The timeline's own state: where it is looking, and what a hand is doing.
 #[derive(Debug, Default)]
 pub(crate) struct Timeline {
     view: View,
@@ -35,6 +39,12 @@ pub(crate) struct Timeline {
     /// once on open and never again — a view that re-fits itself would undo
     /// every zoom the moment anything changed.
     fitted: bool,
+    /// The gesture in flight, if any.
+    gesture: Option<Gesture>,
+    /// Why the last edit did not take. A refused drag shows itself — the clip
+    /// stops following the pointer — but *why* is the part nobody can guess,
+    /// and a save that failed would otherwise be silent.
+    trouble: Option<String>,
 }
 
 impl Timeline {
@@ -44,17 +54,30 @@ impl Timeline {
     }
 
     /// Draws the timeline and handles what happens on it.
-    pub(crate) fn show(&mut self, ui: &mut Ui, project: &Project, editing: &mut Editing) {
+    pub(crate) fn show(&mut self, ui: &mut Ui, open: &mut Open, editing: &mut Editing) {
         let full = ui.available_rect_before_wrap();
         let (gutter, area) = split(full);
         if !self.fitted {
-            self.view.fit(length(project), area.width());
+            self.view.fit(length(&open.project), area.width());
             self.fitted = true;
         }
 
         let response = ui.allocate_rect(full, Sense::click_and_drag());
-        let pointer = response.hover_pos();
+        // `interact_pointer_pos` first: while a button is down it is the
+        // authority on where the pointer is, and hovering gives up the moment
+        // a drag leaves the panel.
+        let pointer = response
+            .interact_pointer_pos()
+            .or_else(|| response.hover_pos());
         self.navigate(ui, area, pointer);
+
+        let top = area.top() + ruler::HEIGHT;
+        let hit = pointer
+            .filter(|at| area.x_range().contains(at.x))
+            .and_then(|at| lanes::hit(&open.project, area, top, self.view, at));
+        // Input before paint, so a clip moved this frame is drawn where the
+        // pointer left it rather than one frame behind it.
+        self.act(ui, &response, area, hit.as_ref(), open, editing);
 
         let painter = ui.painter_at(full);
         ruler::draw(
@@ -62,45 +85,30 @@ impl Timeline {
             &painter,
             ruler_rect(area),
             self.view,
-            project.timeline_fps,
+            open.project.timeline_fps,
+        );
+        divider(ui, &painter, area, &open.project);
+        rows(
+            &lanes::Paint {
+                ui,
+                painter: &painter,
+                project: &open.project,
+                view: self.view,
+                selected: editing.selected.clone(),
+                highlighted: editing.highlighted.clone(),
+            },
+            gutter,
+            area,
         );
 
-        let paint = lanes::Paint {
-            ui,
-            painter: &painter,
-            project,
-            view: self.view,
-            selected: editing.selected.clone(),
-            highlighted: editing.highlighted.clone(),
-            pointer,
-        };
-        divider(ui, &painter, area, project);
-        let hovered = self.rows(&paint, gutter, area);
-        self.seek_or_select(&response, area, hovered, editing, project);
-
+        self.snap_line(ui, &painter, area);
+        self.note(ui, &painter, area);
         ruler::playhead(
             &painter,
             area,
             area.left() + self.view.offset_of(editing.playhead),
             ui.visuals().error_fg_color,
         );
-    }
-
-    /// Every lane, gutter label and clip.
-    fn rows(&self, paint: &lanes::Paint<'_>, gutter: Rect, area: Rect) -> Option<ClipId> {
-        let top = area.top() + ruler::HEIGHT;
-        let mut hovered = None;
-        for (track, offset) in lanes::laid_out(paint.project) {
-            let lane = |rect: Rect| {
-                Rect::from_min_size(
-                    egui::pos2(rect.left(), top + offset),
-                    vec2(rect.width(), lanes::LANE),
-                )
-            };
-            lanes::gutter(paint.ui, paint.painter, lane(gutter), track);
-            hovered = lanes::draw(paint, lane(area), track).or(hovered);
-        }
-        hovered
     }
 
     /// Scrolling and zooming, from the wheel.
@@ -126,34 +134,56 @@ impl Timeline {
         }
     }
 
-    /// What a click or drag on the timeline means.
+    /// The line a drag has come to rest against.
     ///
-    /// On the ruler, or dragging anywhere: move the playhead. On a clip:
-    /// select it. Dragging the playhead from anywhere is deliberate — scrubbing
-    /// is the thing you do most, and making it need a thin strip at the top
-    /// would be making the common case the fiddly one.
-    fn seek_or_select(
-        &self,
-        response: &egui::Response,
-        area: Rect,
-        hovered: Option<ClipId>,
-        editing: &mut Editing,
-        project: &Project,
-    ) {
-        let Some(at) = response.interact_pointer_pos() else {
+    /// Only while a gesture is live and only when one was actually taken: an
+    /// indicator that is always on says nothing.
+    fn snap_line(&self, ui: &Ui, painter: &egui::Painter, area: Rect) {
+        let Some(Gesture::Clip(held)) = &self.gesture else {
             return;
         };
-        let on_ruler = at.y <= area.top() + ruler::HEIGHT;
-        if response.dragged() || (response.clicked() && (on_ruler || hovered.is_none())) {
-            let frame = self.view.frame_at(at.x - area.left());
-            editing.playhead = frame.min(length(project));
+        let Some(frame) = held.snapped() else {
+            return;
+        };
+        let x = area.left() + self.view.offset_of(frame);
+        if !area.x_range().contains(x) {
+            return;
         }
-        if response.clicked()
-            && !on_ruler
-            && let Some(clip) = hovered
-        {
-            editing.selected = Some(clip);
-        }
+        painter.line_segment(
+            [
+                egui::pos2(x, area.top() + ruler::HEIGHT),
+                egui::pos2(x, area.bottom()),
+            ],
+            egui::Stroke::new(1.0, ui.visuals().warn_fg_color),
+        );
+    }
+
+    /// What the last edit could not do, said out loud.
+    fn note(&self, ui: &Ui, painter: &egui::Painter, area: Rect) {
+        let Some(text) = &self.trouble else {
+            return;
+        };
+        painter.text(
+            area.right_top() + vec2(-6.0, 4.0),
+            egui::Align2::RIGHT_TOP,
+            text,
+            egui::FontId::proportional(11.0),
+            ui.visuals().error_fg_color,
+        );
+    }
+}
+
+/// Every lane, gutter label and clip.
+fn rows(paint: &lanes::Paint<'_>, gutter: Rect, area: Rect) {
+    let top = area.top() + ruler::HEIGHT;
+    for (track, offset) in lanes::laid_out(paint.project) {
+        lanes::gutter(
+            paint.ui,
+            paint.painter,
+            lanes::lane_rect(gutter, top, offset),
+            track,
+        );
+        lanes::draw(paint, lanes::lane_rect(area, top, offset), track);
     }
 }
 

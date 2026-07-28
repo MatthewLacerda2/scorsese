@@ -40,7 +40,7 @@ pub(super) fn timeline(ui: &mut Ui, window: &mut Scorsese) {
                 empty::placeholder(ui, "the tracks appear here");
                 return;
             };
-            timeline.show(ui, &open.project, editing);
+            timeline.show(ui, open, editing);
         });
 }
 

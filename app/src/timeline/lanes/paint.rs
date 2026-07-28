@@ -25,19 +25,15 @@ pub(in crate::timeline) struct Paint<'a> {
     /// and everything else is dimmed, which answers "where is this used?"
     /// without anyone having to read ids off a timeline.
     pub(in crate::timeline) highlighted: Option<AssetId>,
-    /// Where the pointer is, for hit-testing.
-    pub(in crate::timeline) pointer: Option<egui::Pos2>,
 }
 
-/// Draws one lane's background and its clips, returning the clip the pointer
-/// is over.
-pub(in crate::timeline) fn draw(paint: &Paint<'_>, lane: Rect, track: &Track) -> Option<ClipId> {
+/// Draws one lane's background and its clips.
+pub(in crate::timeline) fn draw(paint: &Paint<'_>, lane: Rect, track: &Track) {
     let Paint {
         ui, painter, view, ..
     } = *paint;
     painter.rect_filled(lane, 2.0, ui.visuals().extreme_bg_color);
 
-    let mut hovered = None;
     for clip in &track.clips {
         let rect = clip_rect(lane, clip, view);
         // A clip scrolled off the edge is not drawn at all: at a wide zoom a
@@ -58,15 +54,11 @@ pub(in crate::timeline) fn draw(paint: &Paint<'_>, lane: Rect, track: &Track) ->
             .is_some_and(|picked| picked != &clip.asset);
         clip_body(ui, painter, rect.intersect(lane), asset, is_selected, faded);
         label(ui, painter, rect.intersect(lane), clip, asset);
-        if paint.pointer.is_some_and(|at| rect.contains(at)) {
-            hovered = Some(clip.id.clone());
-        }
     }
-    hovered
 }
 
 /// Where a clip sits in its lane.
-fn clip_rect(lane: Rect, clip: &Clip, view: View) -> Rect {
+pub(super) fn clip_rect(lane: Rect, clip: &Clip, view: View) -> Rect {
     let left = lane.left() + view.offset_of(clip.start);
     // At least a hair wide, so a very short clip at a wide zoom is still
     // something you can see and click rather than nothing at all.
