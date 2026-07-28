@@ -6,8 +6,8 @@ use super::Scorsese;
 use super::empty;
 use crate::project::Open;
 
-/// How tall the timeline strip opens, in points.
-const TIMELINE_HEIGHT: f32 = 220.0;
+/// How tall the timeline strip opens when there is no project to size it to.
+const EMPTY_TIMELINE_HEIGHT: f32 = 140.0;
 /// How wide the inspector and files column opens.
 const SIDE_WIDTH: f32 = 280.0;
 
@@ -27,25 +27,21 @@ pub(super) fn menu(ui: &mut Ui, window: &mut Scorsese) {
 }
 
 /// The timeline strip along the bottom.
-pub(super) fn timeline(ui: &mut Ui, open: Option<&Open>) {
+pub(super) fn timeline(ui: &mut Ui, window: &mut Scorsese) {
+    let wanted = window.project().map_or(EMPTY_TIMELINE_HEIGHT, |open| {
+        crate::timeline::desired_height(&open.project)
+    });
     Panel::bottom("timeline")
-        .exact_size(TIMELINE_HEIGHT)
+        .default_size(wanted)
+        .min_size(100.0)
+        .resizable(true)
         .show(ui, |ui| {
-            ui.heading("Timeline");
-            let Some(open) = open else {
+            let Some((timeline, open, editing)) = window.timeline() else {
+                ui.heading("Timeline");
                 empty::placeholder(ui, "the tracks appear here");
                 return;
             };
-            // Enough to prove the panel is wired to a real document. What
-            // actually draws here arrives with the timeline issue.
-            for track in &open.project.tracks {
-                ui.label(format!(
-                    "{}  ·  {:?}  ·  {} clip(s)",
-                    track.id,
-                    track.kind,
-                    track.clips.len()
-                ));
-            }
+            timeline.show(ui, &open.project, editing);
         });
 }
 

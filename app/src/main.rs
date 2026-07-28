@@ -20,7 +20,9 @@
 //! It is also its own cargo workspace. A graphics stack has no business being
 //! compiled by `cargo test --workspace`, which every headless change runs.
 
+mod editing;
 mod project;
+mod timeline;
 mod ui;
 
 use eframe::NativeOptions;
