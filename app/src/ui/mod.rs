@@ -21,6 +21,7 @@ use eframe::{App, Frame};
 use egui::Ui;
 
 use crate::editing::Editing;
+use crate::files::Files;
 use crate::project::{Open, Refused, open};
 use crate::timeline::Timeline;
 
@@ -35,6 +36,8 @@ pub(crate) struct Scorsese {
     editing: Editing,
     /// The timeline's own view — how far in, and how magnified.
     timeline: Timeline,
+    /// The pool as the files panel last read it.
+    files: Files,
 }
 
 impl Scorsese {
@@ -45,6 +48,7 @@ impl Scorsese {
             refused: None,
             editing: Editing::default(),
             timeline: Timeline::default(),
+            files: Files::default(),
         };
         if let Some(directory) = directory {
             window.open(&directory);
@@ -66,6 +70,10 @@ impl Scorsese {
                 // fitted to its length, is worse than starting over.
                 self.editing.reset();
                 self.timeline.reset();
+                self.files.reset();
+                if let Some(open) = &self.opened {
+                    self.files.refresh(open);
+                }
             }
             Err(refused) => self.refused = Some(refused),
         }
@@ -89,7 +97,7 @@ impl App for Scorsese {
         // and gets whatever is left.
         panels::menu(ui, self);
         panels::timeline(ui, self);
-        panels::side(ui, self.opened.as_ref());
+        panels::side(ui, self);
         panels::centre(ui, self);
     }
 }
@@ -98,6 +106,12 @@ impl Scorsese {
     /// The project, for the panels that draw it.
     pub(crate) fn project(&self) -> Option<&Open> {
         self.opened.as_ref()
+    }
+
+    /// The files panel, the project it lists, and the view state it sets.
+    pub(crate) fn files(&mut self) -> Option<(&mut Files, &Open, &mut Editing)> {
+        let opened = self.opened.as_ref()?;
+        Some((&mut self.files, opened, &mut self.editing))
     }
 
     /// The timeline, the document it draws, and the view state it moves —

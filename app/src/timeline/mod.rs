@@ -65,6 +65,7 @@ impl Timeline {
             project,
             view: self.view,
             selected: editing.selected.clone(),
+            highlighted: editing.highlighted.clone(),
             pointer,
         };
         divider(ui, &painter, area, project);

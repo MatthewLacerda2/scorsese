@@ -10,7 +10,7 @@
 //! line down the timeline are the same value seen twice. Two copies would
 //! disagree the first moment someone dragged one.
 
-use scorsese_core::{ClipId, Frames, Project};
+use scorsese_core::{AssetId, ClipId, Frames, Project};
 
 /// Where the window is looking.
 #[derive(Debug, Default, Clone)]
@@ -20,6 +20,10 @@ pub(crate) struct Editing {
     /// The selected clip, if any. An id rather than a reference: the document
     /// is mutable and a borrow held across a frame would fight every edit.
     pub(crate) selected: Option<ClipId>,
+    /// An asset picked out in the files panel, whose clips the timeline picks
+    /// out in turn. Answers "where does this actually get used?", which a list
+    /// of assets cannot.
+    pub(crate) highlighted: Option<AssetId>,
 }
 
 impl Editing {
