@@ -15,6 +15,7 @@
 
 mod edit;
 mod inspect;
+mod synth;
 
 use serde_json::Value;
 
@@ -46,6 +47,11 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(inspect::Assets),
         Box::new(edit::Write),
         Box::new(edit::Duck),
+        Box::new(synth::New),
+        Box::new(synth::Read),
+        Box::new(synth::Write),
+        Box::new(synth::Check),
+        Box::new(synth::Bake),
         Box::new(edit::Render),
     ]
 }
