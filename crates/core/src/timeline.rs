@@ -183,4 +183,26 @@ impl Clip {
     pub fn overlaps(&self, other: &Self) -> bool {
         self.start < other.end() && other.start < self.end()
     }
+
+    /// Replaces the tracks `tool` previously wrote for a property with
+    /// `replacement`, leaving every other track alone.
+    ///
+    /// One call rather than "remove mine, then add mine", because those two
+    /// steps have a moment between them where the clip is animated by nothing,
+    /// and a run that fails there leaves an edit quietly missing a ramp.
+    ///
+    /// Passing an empty `replacement` is how a tool withdraws its work.
+    /// Anything unsigned, or signed by someone else, is untouched whatever it
+    /// animates — that is the whole point of the field, and the reason this
+    /// takes a tool name rather than a property alone.
+    pub fn replace_generated(&mut self, tool: &str, replacement: Vec<KeyframeTrack>) {
+        self.keyframes.retain(|track| !track.is_generated_by(tool));
+        self.keyframes.extend(replacement);
+    }
+
+    /// Every track this clip animates that no tool signed — what a person or
+    /// an agent wrote by hand, and what nothing generated may overwrite.
+    pub fn hand_written(&self) -> impl Iterator<Item = &KeyframeTrack> {
+        self.keyframes.iter().filter(|track| track.by.is_none())
+    }
 }

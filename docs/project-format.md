@@ -1,4 +1,4 @@
-# `project.json` — schema v5
+# `project.json` — schema v6
 
 The contract between the CLI, the MCP server, the GUI, and every project
 saved on someone's disk. It is meant to be hand-written: an agent should be
@@ -12,7 +12,7 @@ bump and a migration note.
 
 ```json project
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -369,6 +369,35 @@ the generality rule: core defines property types, never property values. The
 compositor resolves paths; adding a new animatable property costs nothing
 here.
 
+### Tracks a tool wrote
+
+A keyframe track may carry an optional `by` naming the tool that generated it:
+
+```json clip
+{
+  "id": "c-bed", "asset": "bed", "start": 0, "duration": 300,
+  "keyframes": [
+    { "property": "volume", "by": "duck", "keyframes": [
+        { "t": 0, "value": 1.0 },
+        { "t": 9, "value": 0.25, "easing": "ease_out" }
+    ]}
+  ]
+}
+```
+
+**Absent means a person or an agent wrote it by hand**, which is what every
+keyframe meant before the field existed.
+
+It buys exactly one thing. A tool that generates keyframes may replace tracks
+it signed, and must never touch a track that is unsigned or signed by somebody
+else. So re-running auto-ducking redoes the ducking and leaves your fades
+alone — without it, a generator can only clobber everything or refuse to run
+twice, and both make the edit-and-listen loop unusable.
+
+Nothing else reads it. It reaches no renderer, and changes no pixel and no
+sample. A `by` that is present but blank is an error: it claims a tool wrote
+the track and names none, so nothing could ever recognise or replace it.
+
 ### What the compositor animates today
 
 | path | means | `1.0` / `0.0` |
@@ -476,6 +505,14 @@ asset still awaiting generation is neither. A `style`'s font file is a path like
 applies: the shape is validated here, and whether the face is really on disk is
 the render's to find out.
 
+## Migrating from v5
+
+v6 adds one optional field: `by` on a keyframe track. No v5 document can
+contain it, and **absent means hand-written**, which is what every keyframe
+track in every v5 project already is. So no v5 document means anything
+different under v6 — converting one is changing `"schema_version": 5` to
+`"schema_version": 6` and nothing else.
+
 ## Migrating from v4
 
 v5 adds the `synth_audio` asset kind and the `recipe` field that goes with it.
@@ -494,7 +531,7 @@ v4 adds one optional field: `style` on a `text` asset. **Absent means every
 default** — white, centred, sans, a tenth of the frame high — which is what
 every text asset did before the field existed, so no v3 document means anything
 different under v4. Converting one is changing `"schema_version": 3` to
-`"schema_version": 4`, and then on to `5` as above.
+`"schema_version": 4`, and then on to `6` as above.
 
 Before v4 a text asset could not be rendered at all: the renderer refused a
 clip showing one. So the only v3 documents affected are ones that were never
@@ -505,7 +542,7 @@ renderable, and there is nothing for a migration to preserve.
 v3 added one optional field: `fit` on a clip. **Absent means `fit`**, which is
 what every clip did before the field existed, so no v2 document means anything
 different under v3 — converting one is changing `"schema_version": 2` to
-`"schema_version": 3` and then on to `5` as above.
+`"schema_version": 3` and then on to `6` as above.
 
 The version still has to be changed by hand, because this build reads exactly
 one schema version and refuses the rest. That refusal is the point: a document

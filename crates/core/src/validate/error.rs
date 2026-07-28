@@ -175,6 +175,18 @@ pub enum ValidationError {
         asset: AssetId,
     },
 
+    /// A keyframe track claiming a tool wrote it, and naming no tool.
+    ///
+    /// Worse than being unsigned: nothing can recognise it, so no tool will
+    /// ever replace it and no reader can tell whose it is.
+    #[error("clip `{clip}`: the `{property}` track has a blank `by`")]
+    BlankKeyframeAuthor {
+        /// The clip carrying it.
+        clip: ClipId,
+        /// Which track.
+        property: PropertyPath,
+    },
+
     /// Not the shape a SHA-256 comes in, so it can never match a real file —
     /// truncated, uppercase, or an algorithm that is not SHA-256.
     #[error("asset `{asset}`: sha256 `{value}` is not 64 lowercase hex characters")]
