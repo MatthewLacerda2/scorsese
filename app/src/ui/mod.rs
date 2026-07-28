@@ -20,7 +20,9 @@ mod panels;
 use eframe::{App, Frame};
 use egui::Ui;
 
+use crate::editing::Editing;
 use crate::project::{Open, Refused, open};
+use crate::timeline::Timeline;
 
 /// The whole window's state.
 pub(crate) struct Scorsese {
@@ -29,6 +31,10 @@ pub(crate) struct Scorsese {
     opened: Option<Open>,
     /// Why the last attempt failed, if it did. Cleared by a successful open.
     refused: Option<Refused>,
+    /// Where the window is looking: the playhead, and what is selected.
+    editing: Editing,
+    /// The timeline's own view — how far in, and how magnified.
+    timeline: Timeline,
 }
 
 impl Scorsese {
@@ -37,6 +43,8 @@ impl Scorsese {
         let mut window = Self {
             opened: None,
             refused: None,
+            editing: Editing::default(),
+            timeline: Timeline::default(),
         };
         if let Some(directory) = directory {
             window.open(&directory);
@@ -54,6 +62,10 @@ impl Scorsese {
             Ok(project) => {
                 self.opened = Some(project);
                 self.refused = None;
+                // A playhead left at frame 900 of the last film, or a view
+                // fitted to its length, is worse than starting over.
+                self.editing.reset();
+                self.timeline.reset();
             }
             Err(refused) => self.refused = Some(refused),
         }
@@ -76,7 +88,7 @@ impl App for Scorsese {
         // takes its edge and leaves the rest to the next. The centre goes last
         // and gets whatever is left.
         panels::menu(ui, self);
-        panels::timeline(ui, self.opened.as_ref());
+        panels::timeline(ui, self);
         panels::side(ui, self.opened.as_ref());
         panels::centre(ui, self);
     }
@@ -86,6 +98,15 @@ impl Scorsese {
     /// The project, for the panels that draw it.
     pub(crate) fn project(&self) -> Option<&Open> {
         self.opened.as_ref()
+    }
+
+    /// The timeline, the document it draws, and the view state it moves —
+    /// handed out together because it needs all three at once and the
+    /// borrow checker will not let a caller collect them one at a time.
+    pub(crate) fn timeline(&mut self) -> Option<(&mut Timeline, &Open, &mut Editing)> {
+        let opened = self.opened.as_ref()?;
+        self.editing.forget_missing(&opened.project);
+        Some((&mut self.timeline, opened, &mut self.editing))
     }
 
     /// Why the last open failed, for the panel that has to say so.
