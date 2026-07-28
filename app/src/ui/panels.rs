@@ -75,18 +75,10 @@ pub(super) fn centre(ui: &mut Ui, window: &mut Scorsese) {
             empty::refusal(ui, refused);
             return;
         }
-        let Some(open) = window.project() else {
+        let Some((preview, open, editing)) = window.preview() else {
             empty::nothing_open(ui, |window| window.pick(), window);
             return;
         };
-        ui.heading(&open.project.name);
-        ui.label(format!(
-            "{} fps  ·  {} asset(s)  ·  {} track(s)  ·  {} clip(s)",
-            open.project.timeline_fps,
-            open.project.assets.len(),
-            open.project.tracks.len(),
-            open.project.clips().count()
-        ));
-        empty::placeholder(ui, "the picture appears here");
+        preview.show(ui, open, editing);
     });
 }

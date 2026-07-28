@@ -33,9 +33,10 @@ LINT := --manifest-path tools/lint/Cargo.toml
 GATES := format size scripts clippy docs test deny
 
 .DEFAULT_GOAL := help
-# `app` is in here for a reason that costs an afternoon to find: there is a
-# directory called `app/`, so without this make decides the target is already
-# built and `make app` prints "up to date" without running a thing.
+# `app` is on this list for a reason worth stating: there is a directory called
+# `app/`, so without it make sees the target as already built and `make app`
+# prints "up to date" without running a thing. A check that silently does
+# nothing is worse than no check.
 .PHONY: help setup gates pre-commit inventory $(GATES) app format-fix coverage mutants
 
 ##@ Everyday

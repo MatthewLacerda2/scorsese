@@ -15,7 +15,7 @@ use scorsese_compositor::{Compositor, CpuCompositor, Frame, Layer, Properties};
 use scorsese_core::{AssetKind, Clip, Fps, Frames};
 
 use crate::error::RenderError;
-use crate::pipe::{Decoder, Encoder, Fitting, Source};
+use crate::pipe::{Decoder, Fitting, Source};
 use crate::plan::{Plan, Segment, Shot};
 use crate::raster::Sizes;
 use crate::report::{Note, StandIn};
@@ -23,6 +23,15 @@ use crate::settings::RenderSettings;
 use crate::slug::{self, Standing};
 use crate::text::Painter;
 use crate::tools::Tools;
+
+/// Where a composited frame goes once it exists.
+///
+/// A render hands it to the encoder; a still keeps the one it asked for. The
+/// destination is a callback rather than a type because the alternative is a
+/// second walk over the plan that draws frames its own way — which is the one
+/// thing a preview must never be. One compositing path, two things done with
+/// what comes out of it.
+pub(super) type Write<'a> = &'a mut dyn FnMut(&Frame) -> Result<(), RenderError>;
 
 /// Everything a segment is rendered against: the tools, the settings, and the
 /// three things worked out before any process was spawned.
@@ -41,13 +50,13 @@ pub(super) struct Pass<'a> {
 
 impl Pass<'_> {
     /// Decodes one stretch of timeline, composites each of its frames, and
-    /// hands them to the encoder. What comes back is what the stretch noticed.
+    /// hands them to `write`. What comes back is what the stretch noticed.
     pub(super) fn render(
         &self,
         segment: &Segment<'_>,
         frames: u64,
         stage: &mut Stage,
-        encoder: &mut Encoder,
+        write: Write<'_>,
     ) -> Result<Vec<Note>, RenderError> {
         // Split the borrow up front: the sources are written into and the canvas
         // read out of within the same frame, and they are separate buffers.
@@ -63,7 +72,7 @@ impl Pass<'_> {
             // like: the cleared canvas, once, written for as long as it lasts.
             compositor.composite(canvas, &[])?;
             for _ in 0..frames {
-                encoder.write(canvas)?;
+                write(canvas)?;
             }
             return Ok(Vec::new());
         }
@@ -108,7 +117,7 @@ impl Pass<'_> {
                 .collect();
 
             compositor.composite(canvas, &layers)?;
-            encoder.write(canvas)?;
+            write(canvas)?;
         }
 
         for decoder in decoders.into_iter().flatten() {

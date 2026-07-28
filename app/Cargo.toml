@@ -43,3 +43,8 @@ eframe = "0.35.0"
 egui = "0.35.0"
 rfd = "0.17.2"
 scorsese-core = { path = "../crates/core" }
+# The preview composites through the renderer's own still, which is the render
+# pipeline with the encoder taken out. Depending on it — rather than reaching
+# for the compositor directly — is what keeps the window from growing a second
+# way to draw the picture.
+scorsese-render = { path = "../crates/render" }

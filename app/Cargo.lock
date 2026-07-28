@@ -1000,14 +1000,14 @@ dependencies = [
  "ecolor",
  "emath",
  "epaint_default_fonts",
- "font-types",
+ "font-types 0.11.3",
  "harfrust",
  "log",
  "nohash-hasher",
  "parking_lot",
  "profiling",
  "self_cell",
- "skrifa",
+ "skrifa 0.42.1",
  "smallvec",
  "unicode-general-category",
  "unicode-segmentation",
@@ -1131,6 +1131,15 @@ name = "font-types"
 version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b38ad915f6dadd993ced50848a8291a543bd41ca62bc10740d5e64e2ab4cfd7"
+dependencies = [
+ "bytemuck",
+]
+
+[[package]]
+name = "font-types"
+version = "0.12.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0a7299a780854a6d391be2ae1c8521c9368471b559dbfd6a8dbd9f407eaff100"
 dependencies = [
  "bytemuck",
 ]
@@ -1281,7 +1290,7 @@ dependencies = [
  "hashbrown 0.17.1",
  "log",
  "peniko",
- "skrifa",
+ "skrifa 0.42.1",
  "smallvec",
  "vello_common",
 ]
@@ -1427,7 +1436,7 @@ checksum = "0431e8e389aa0f1e72bb9d1c2db8957a1a7a3580e8ed97db819c14837aac9b3e"
 dependencies = [
  "bitflags 2.13.1",
  "bytemuck",
- "read-fonts",
+ "read-fonts 0.39.2",
  "smallvec",
 ]
 
@@ -2617,7 +2626,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4ed38b89c2c77ff968c524145ad65fb010f38af5c7a224b53b81d47ac2daa81"
 dependencies = [
  "bytemuck",
- "font-types",
+ "font-types 0.11.3",
+]
+
+[[package]]
+name = "read-fonts"
+version = "0.42.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2c69341f5f744623061a258e9d06a0213783a89ec23b6efb88a1c0c4ed285559"
+dependencies = [
+ "bytemuck",
+ "font-types 0.12.2",
+ "once_cell",
 ]
 
 [[package]]
@@ -2762,6 +2782,17 @@ dependencies = [
  "egui",
  "rfd",
  "scorsese-core",
+ "scorsese-render",
+]
+
+[[package]]
+name = "scorsese-compositor"
+version = "0.1.0"
+dependencies = [
+ "scorsese-core",
+ "skrifa 0.45.1",
+ "thiserror 2.0.19",
+ "tiny-skia 0.12.0",
 ]
 
 [[package]]
@@ -2775,6 +2806,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "scorsese-render"
+version = "0.1.0"
+dependencies = [
+ "scorsese-compositor",
+ "scorsese-core",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.19",
+]
+
+[[package]]
 name = "sctk-adwaita"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2784,7 +2826,7 @@ dependencies = [
  "log",
  "memmap2",
  "smithay-client-toolkit 0.19.2",
- "tiny-skia",
+ "tiny-skia 0.11.4",
 ]
 
 [[package]]
@@ -2915,7 +2957,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c34617370ae968efb7161bb2beb517d9084659aae19e24b89e3db25b46e4564"
 dependencies = [
  "bytemuck",
- "read-fonts",
+ "read-fonts 0.39.2",
+]
+
+[[package]]
+name = "skrifa"
+version = "0.45.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd5b090b1690f1c63a8659574ea987c557f1cc571e24dedcba89458f32d0ccb5"
+dependencies = [
+ "bytemuck",
+ "read-fonts 0.42.1",
 ]
 
 [[package]]
@@ -3158,7 +3210,22 @@ dependencies = [
  "bytemuck",
  "cfg-if",
  "log",
- "tiny-skia-path",
+ "tiny-skia-path 0.11.4",
+]
+
+[[package]]
+name = "tiny-skia"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47ffee5eaaf5527f630fb0e356b90ebdec84d5d18d937c5e440350f88c5a91ea"
+dependencies = [
+ "arrayref",
+ "arrayvec",
+ "bytemuck",
+ "cfg-if",
+ "log",
+ "png",
+ "tiny-skia-path 0.12.0",
 ]
 
 [[package]]
@@ -3166,6 +3233,17 @@ name = "tiny-skia-path"
 version = "0.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c9e7fc0c2e86a30b117d0462aa261b72b7a99b7ebd7deb3a14ceda95c5bdc93"
+dependencies = [
+ "arrayref",
+ "bytemuck",
+ "strict-num",
+]
+
+[[package]]
+name = "tiny-skia-path"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "edca365c3faccca67d06593c5980fa6c57687de727a03131735bb85f01fdeeb9"
 dependencies = [
  "arrayref",
  "bytemuck",

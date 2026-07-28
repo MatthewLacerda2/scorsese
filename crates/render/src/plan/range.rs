@@ -29,6 +29,19 @@ impl FrameRange {
         end: None,
     };
 
+    /// Exactly one frame — what a still, and so a preview, asks for.
+    ///
+    /// Infallible where [`FrameRange::new`] is not, because a frame is always
+    /// followed by the one after it. That matters for a caller that scrubs: a
+    /// preview asking for a frame sixty times a second has no sensible thing to
+    /// do with a range error, and there is none to have.
+    pub const fn just(at: Frames) -> Self {
+        Self {
+            start: at,
+            end: Some(Frames(at.get().saturating_add(1))),
+        }
+    }
+
     /// A range from `start`, ending at `end` or running to the timeline's own
     /// end when that is `None`.
     pub fn new(start: Frames, end: Option<Frames>) -> Result<Self, FrameRangeError> {
