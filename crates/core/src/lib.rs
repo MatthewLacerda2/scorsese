@@ -29,6 +29,7 @@
 //! The format itself is documented in `docs/project-format.md`.
 
 pub mod asset;
+pub mod dip;
 pub mod keyframe;
 pub mod path;
 pub mod pool;
@@ -40,6 +41,7 @@ pub mod timeline;
 pub mod validate;
 
 pub use asset::{Asset, AssetId, AssetKind, GenerationState, MediaMetadata};
+pub use dip::{Dip, Ducked, Span, Under, duck_track};
 pub use keyframe::{Easing, Keyframe, KeyframeTrack, PropertyPath};
 pub use path::{PathProblem, ProjectPath};
 pub use pool::{
