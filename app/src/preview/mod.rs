@@ -12,10 +12,12 @@
 //! are one position with two views — two copies would disagree the first moment
 //! someone dragged one.
 //!
-//! Sound is deliberately absent. Playing audio in step with the picture is a
-//! second clock to keep in sync, and bolting it onto the first version of the
-//! preview would tangle two hard things.
+//! Sound plays with it, and the same rule holds: every sample comes from the
+//! renderer's own mixer, so what you hear is what ships. See [`sound`] for how
+//! it is made and, more importantly, for which of the two is the clock — the
+//! answer is not the one this module started with.
 
+mod sound;
 mod still;
 mod transport;
 
@@ -36,20 +38,30 @@ pub(crate) struct Preview {
     playing: Option<Playing>,
 }
 
-/// A run of the transport: where the playhead was when play was pressed, and
-/// when that was.
+/// A run of the transport: where the playhead was when play was pressed, when
+/// that was, and the sound that takes over timing it.
 ///
 /// Time is kept from the press rather than accumulated frame by frame, so a
 /// composite that takes longer than a frame costs *frames* and not *seconds*:
-/// the playhead is always where the wall clock says it should be, and the
-/// picture is whichever frame we managed to draw. Playback that slowed down
-/// instead would be a preview lying about pacing, which is the one thing a
-/// person watches a preview to judge.
+/// the playhead is where the clock says it should be, and the picture is
+/// whichever frame we managed to draw. Playback that slowed down instead would
+/// be a preview lying about pacing, which is the one thing a person watches a
+/// preview to judge.
+///
+/// **Which clock, though, is the sound's to say.** A dropped video frame is
+/// invisible; a dropped sample is a click and a stretched one is a pitch
+/// change, so audio cannot be made to follow anything. Once the mix is
+/// playing, its position through the buffer *is* the playhead. The wall clock
+/// stays as the fallback for the moment before the mix is ready, for a film
+/// with nothing audible in it, and for a machine with no sound card — which is
+/// exactly what playback did before there was any sound at all.
 struct Playing {
     /// Where the playhead was when it started.
     from: Frames,
-    /// When that was.
+    /// When that was — the fallback clock.
     since: std::time::Instant,
+    /// The soundtrack, which becomes the clock as soon as it is playing.
+    sound: sound::Sound,
 }
 
 impl Preview {
@@ -79,8 +91,13 @@ impl Preview {
         let last = transport::last_frame(length(&open.project));
         self.advance(ui, fps, last, editing);
 
+        let silent = self
+            .playing
+            .as_ref()
+            .and_then(|playing| playing.sound.trouble())
+            .map(str::to_owned);
         Panel::bottom("transport").show(ui, |ui| {
-            match transport::show(ui, fps, editing.playhead.min(last), last) {
+            match transport::show(ui, fps, editing.playhead.min(last), last, silent.as_deref()) {
                 Some(Command::Seek(frame)) => {
                     // Any seek stops playback, which is what every editor does:
                     // a step or a jump is someone taking hold of the playhead,
@@ -88,7 +105,7 @@ impl Preview {
                     editing.playhead = frame;
                     self.playing = None;
                 }
-                Some(Command::Toggle) => self.toggle(editing.playhead, last),
+                Some(Command::Toggle) => self.toggle(open, editing.playhead, last),
                 None => {}
             }
         });
@@ -104,24 +121,35 @@ impl Preview {
     ///
     /// Pressing play while parked at the end starts over, because the
     /// alternative is a play button that does nothing and gives no reason.
-    fn toggle(&mut self, at: Frames, last: Frames) {
+    /// Stopping drops the `Playing`, and with it the sound — which is the
+    /// whole of "stopping must not leave a voice hanging". There is one owner
+    /// of the stream and letting go of it is the stop button.
+    fn toggle(&mut self, open: &Open, at: Frames, last: Frames) {
         if self.playing.take().is_some() {
             return;
         }
+        let from = if at >= last { Frames::ZERO } else { at };
         self.playing = Some(Playing {
-            from: if at >= last { Frames::ZERO } else { at },
+            from,
             since: std::time::Instant::now(),
+            sound: sound::Sound::start(&open.project, &open.root, from),
         });
     }
 
-    /// Moves the playhead along the wall clock while the transport runs, and
+    /// Moves the playhead along whichever clock is running the transport, and
     /// keeps the window repainting so that it does.
     fn advance(&mut self, ui: &Ui, fps: Fps, last: Frames, editing: &mut Editing) {
-        let Some(playing) = &self.playing else {
+        let Some(playing) = &mut self.playing else {
             return;
         };
-        let elapsed = playing.since.elapsed().as_secs_f64();
-        let at = playing.from + fps.frames(elapsed);
+        // Takes the mix from the worker the moment it is ready, and starts it.
+        playing.sound.poll();
+        // Sound is the clock when there is sound; the wall clock is what is
+        // left when there is not.
+        let at = playing
+            .sound
+            .at(fps)
+            .unwrap_or_else(|| playing.from + fps.frames(playing.since.elapsed().as_secs_f64()));
         if at >= last {
             editing.playhead = last;
             self.playing = None;

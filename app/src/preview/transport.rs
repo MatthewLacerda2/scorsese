@@ -42,9 +42,25 @@ pub(super) fn last_frame(length: Frames) -> Frames {
 }
 
 /// Draws the transport and says what was asked of it.
-pub(super) fn show(ui: &mut Ui, fps: Fps, at: Frames, last: Frames) -> Option<Command> {
+pub(super) fn show(
+    ui: &mut Ui,
+    fps: Fps,
+    at: Frames,
+    last: Frames,
+    silent: Option<&str>,
+) -> Option<Command> {
     let scrubbed = scrubber(ui, at, last).map(Command::Seek);
     let pressed = buttons(ui, fps, at, last);
+    // Said quietly, under the transport, because it is not an error — the film
+    // still plays. But a preview that is silent for a reason should give the
+    // reason, or the reason someone reaches for is "the sound is broken".
+    if let Some(why) = silent {
+        ui.label(
+            egui::RichText::new(format!("no sound — {why}"))
+                .weak()
+                .small(),
+        );
+    }
     // The scrub bar wins a tie, because a drag is continuous and a click is
     // not: letting a button press during a drag jump the playhead elsewhere
     // would make the drag stutter.

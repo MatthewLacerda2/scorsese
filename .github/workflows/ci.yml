@@ -101,12 +101,18 @@ jobs:
       # the picture its own way would be a preview that lies. Without ffmpeg the
       # panel says so, clearly and with the fix, and a snapshot of *that* is a
       # snapshot of a runner misconfiguration rather than of the window.
-      - name: Install the graphics and windowing libraries
+      # `libasound2-dev` is a *build* requirement, not a runtime one: `cpal`
+      # goes through `alsa-sys`, whose build script asks pkg-config for
+      # `alsa.pc` and fails the compile without it. A runner has no sound card
+      # and does not need one — the preview falls back to the wall clock and
+      # plays the picture silently — but it does need the headers to link.
+      - name: Install the graphics, windowing and sound libraries
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             libgtk-3-dev libxkbcommon-dev libwayland-dev \
             mesa-vulkan-drivers libvulkan1 \
+            libasound2-dev \
             ffmpeg
 
       - name: Rust cache

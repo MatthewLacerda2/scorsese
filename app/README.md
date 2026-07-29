@@ -11,6 +11,21 @@ cargo run --manifest-path app/Cargo.toml -- path/to/teaser.scor   # skip the dia
 The path argument is a convenience for development, not a documented flag — the
 shipped way in is the Open dialog.
 
+**On Linux, building needs the ALSA development headers.** Sound goes through
+`cpal`, which reaches `alsa-sys`, whose build script asks pkg-config for
+`alsa.pc` and fails the compile without it:
+
+```
+sudo apt-get install libasound2-dev   # Debian, Ubuntu
+sudo pacman -S alsa-lib               # Arch
+sudo dnf install alsa-lib-devel       # Fedora
+```
+
+A sound *card* is not required. Without one the preview plays the picture
+silently and says why, which is what CI does. `make app` checks for the headers
+and names the package rather than letting a build script panic three crates
+down.
+
 ## What it is for
 
 Scrub, select, nudge, trim, change a plain value. The operations a person
@@ -99,10 +114,21 @@ The preview shows the picture at the playhead, composited at a reduced raster
 by `scorsese-render`'s own still — the render pipeline with the encoder taken
 out — with a transport under it: jump to start, back a frame, play or pause,
 forward a frame, jump to end. A step is **one frame**, because whether a cut
-lands a frame early is what a step button is for. Playback runs on the wall
-clock and drops frames rather than slowing down, so what it shows about pacing
-is true even when compositing cannot keep up. **No sound yet**: playing audio
-in step with the picture is a second clock to keep in sync, and it gets its own
-issue once scrubbing feels right.
+lands a frame early is what a step button is for. Playback drops frames rather
+than slowing down, so what it shows about pacing is true even when compositing
+cannot keep up.
+
+**It plays the sound too, and the sound is the clock.** A dropped video frame
+is invisible; a dropped sample is a click and a stretched one is a pitch
+change, so audio cannot be made to follow anything — the mix's position *is*
+the playhead, and the picture is whichever frame we managed to draw for it. The
+wall clock is still underneath, for the moment before the mix is ready, for a
+film with nothing audible in it, and for a machine with no sound card. Every
+sample comes from the renderer's own mixer, so what you hear is what a render
+delivers.
+
+Scrubbing and stepping are silent on purpose. A frame step is a thirtieth of a
+second — a click, not a note — and scrubbing audio needs a scheme of its own
+rather than whatever fell out of playback.
 
 The furniture arrives issue by issue — the inspector next. See #13.

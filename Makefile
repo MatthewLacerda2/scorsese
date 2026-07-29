@@ -190,7 +190,19 @@ mutants: ## Which changes to the code no test would notice. A signal: blocks not
 
 ##@ Fixing
 
+# Sound is linked, not optional: `cpal` reaches `alsa-sys`, whose build script
+# asks pkg-config for `alsa.pc` and fails the compile without it. Said here with
+# the fix, because the failure it produces otherwise is a panic inside a build
+# script three crates down that names neither the package nor the reason. A
+# sound *card* is not needed — the preview plays the picture silently without
+# one, which is what CI does — only the headers.
 app: ## The desktop app's own gates (its own workspace; not part of `make gates`)
+	@{ command -v pkg-config >/dev/null 2>&1 && pkg-config --exists alsa; } || { \
+		echo "app: the ALSA development headers are missing -- cpal cannot build without them." >&2; \
+		echo "     Debian/Ubuntu: sudo apt-get install libasound2-dev" >&2; \
+		echo "     Arch:          sudo pacman -S alsa-lib" >&2; \
+		echo "     Fedora:        sudo dnf install alsa-lib-devel" >&2; \
+		exit 1; }
 	cargo fmt --manifest-path app/Cargo.toml --all --check
 	cargo clippy --manifest-path app/Cargo.toml --all-targets --locked -- -D warnings
 	cargo build --manifest-path app/Cargo.toml --locked
