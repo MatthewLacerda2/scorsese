@@ -24,6 +24,17 @@ unwrap_used = "deny"
 dbg_macro = "deny"
 todo = "deny"
 
+# The same reasoning as the workspace root's, for the same reason: the preview
+# composites through `scorsese-render`, so an unoptimised app scrubs at the
+# speed an unoptimised render renders at — and scrubbing is what this window is
+# for. Kept in step with the root manifest deliberately; see the note there for
+# the measurements.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
 [package]
 name = "scorsese-app"
 version = "0.1.0"

@@ -44,6 +44,36 @@ unwrap_used = "deny"
 dbg_macro = "deny"
 todo = "deny"
 
+# The ordinary build has to be fast enough to render with, because rendering is
+# what this program does and nobody should have to know a second command to do
+# it. At `opt-level = 0` a ten-second 1080p render took **1290 seconds**; at
+# `1` it takes **36**. That is not a slow compositor, it is an unoptimised one,
+# and measuring the unoptimised build was how "rendering is slow" became folklore.
+#
+# `1` rather than `2` or `3`, measured rather than assumed:
+#
+#   dev profile     rebuild   test --workspace   10s of 1080p
+#   opt-level 0        2s           43s            1290s
+#   opt-level 1        8s           39s              36s
+#   opt-level 2       42s           93s              34s
+#
+# Level 2 buys two seconds of render and costs five times the rebuild and more
+# than twice the test suite. Level 1 costs six seconds a rebuild and makes
+# `cargo test` *faster*, because the golden renders speed up by more than the
+# extra compiling costs.
+#
+# `debug_assertions` stays on — this is the dev profile, not a release one — so
+# a fast render is still a checked one. That was the point of raising this
+# profile rather than telling everyone to pass `--release`.
+[profile.dev]
+opt-level = 1
+
+# Dependencies get the full treatment. They are compiled once and then cached,
+# so their optimisation costs nothing per edit — and tiny-skia, which does the
+# actual rasterising, is one of them.
+[profile.dev.package."*"]
+opt-level = 3
+
 [workspace.dependencies]
 scorsese-core = { path = "crates/core" }
 scorsese-soundgen = { path = "crates/soundgen" }
