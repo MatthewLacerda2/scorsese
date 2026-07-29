@@ -519,6 +519,15 @@ A project directory holds four of its own:
 
 ## Validation
 
+**A save is atomic.** The document is written to a scratch file beside it and
+renamed into place, so anything reading `project.json` at that moment gets the
+whole of the old document or the whole of the new one and never a piece of
+either. That matters because more than one program is looking: the MCP server's
+`project_read` is stateless and can be called at any instant, the GUI writes
+when a hand comes off a clip, and there is no journal to recover from — this
+one file *is* the edit. Everything else written into a project goes the same
+way, recipes and baked media included.
+
 `Project::load` validates; `Project::save` does not, so an editor may save
 work that is mid-edit and temporarily incoherent. Validation reports **every**
 problem in one pass rather than stopping at the first, so an agent repairing

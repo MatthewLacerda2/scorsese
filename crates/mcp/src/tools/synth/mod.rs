@@ -249,7 +249,8 @@ impl Tool for Write {
             std::fs::create_dir_all(parent)
                 .map_err(|error| format!("creating {}: {error}", parent.display()))?;
         }
-        std::fs::write(&file, document).map_err(|error| format!("writing {relative}: {error}"))?;
+        scorsese_core::write::atomically(&file, document)
+            .map_err(|error| format!("writing {relative}: {error}"))?;
         Ok(format!(
             "{relative} written — a {} recipe. Its asset is stale now; \
              synth_bake redoes it.",
