@@ -1,0 +1,42 @@
+{
+  "schema_version": 7,
+  "name": "wash",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    { "id": "teal", "kind": "color", "color": "#116677" },
+    {
+      "id": "title",
+      "kind": "text",
+      "text": "WASH",
+      "style": { "font": "sans", "size": 0.3, "color": "#ffffff" }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-wash",
+          "asset": "teal",
+          "start": 0,
+          "duration": 10,
+          "keyframes": [
+            {
+              "property": "opacity",
+              "keyframes": [
+                { "t": 0, "value": 0.25 },
+                { "t": 9, "value": 1.0 }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "clips": [{ "id": "c-title", "asset": "title", "start": 0, "duration": 10 }]
+    }
+  ]
+}

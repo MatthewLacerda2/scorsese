@@ -1,5 +1,5 @@
 {
-  "schema_version": 6,
+  "schema_version": 7,
   "name": "Narrated teaser",
   "timeline_fps": {
     "num": 30,
@@ -44,6 +44,11 @@
       "kind": "synth_audio",
       "recipe": "recipes/theme.json",
       "state": "sketch"
+    },
+    {
+      "id": "black",
+      "kind": "color",
+      "color": "#0b0b0f"
     }
   ],
   "tracks": [
@@ -62,6 +67,12 @@
           "id": "c-title",
           "asset": "title",
           "start": 240,
+          "duration": 60
+        },
+        {
+          "id": "c-black",
+          "asset": "black",
+          "start": 300,
           "duration": 60
         }
       ]

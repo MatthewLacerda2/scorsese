@@ -20,13 +20,13 @@
 //! properties every layer already has — `transform.scale.*` and `opacity` —
 //! rather than through a second, text-shaped way of saying the same thing.
 
-mod color;
 mod font;
 
-pub use color::{ColorError, Rgba};
 pub use font::FontChoice;
 
 use serde::{Deserialize, Serialize};
+
+use crate::color::Rgba;
 
 /// Which edge of the wrapped block a line of text lines up against.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]

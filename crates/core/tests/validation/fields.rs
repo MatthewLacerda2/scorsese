@@ -17,6 +17,7 @@ fn a_field_is_named_as_the_document_writes_it() {
         (AssetField::Prompt, "prompt"),
         (AssetField::Recipe, "recipe"),
         (AssetField::State, "state"),
+        (AssetField::Color, "color"),
     ];
     for (field, name) in named {
         assert_eq!(field.to_string(), name);

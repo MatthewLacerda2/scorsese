@@ -1,7 +1,7 @@
 //! One stretch of timeline, and what is on it.
 
 use scorsese_compositor::ANIMATED as DRAWN;
-use scorsese_core::{AssetKind, Fit, Fps};
+use scorsese_core::{AssetKind, Fit, Fps, Rgba};
 
 use crate::audio::gain::ANIMATED as MIXED;
 use crate::audio::path::VOLUME;
@@ -138,8 +138,11 @@ pub enum Shown {
     /// The asset's own media, decoded from the file it names.
     Media,
     /// Content carried inline in the document and drawn by the compositor.
-    /// The one kind with no file behind it.
     Text(String),
+    /// A solid colour filling the raster. The other inline kind, and the one
+    /// a description has to name rather than call "media": a reader counting
+    /// layers should be able to tell a background from a shot.
+    Color(Rgba),
     /// A slug card, because there is nothing generated to show. What makes a
     /// full preview cut of prompt clips cost nothing — and the case a
     /// description most has to name, since a cut made entirely of cards looks
@@ -167,6 +170,7 @@ impl Shown {
         }
         match (shot.asset.kind, shot.asset.text.as_ref()) {
             (AssetKind::Text, Some(text)) => Self::Text(text.clone()),
+            (AssetKind::Color, _) => Self::Color(shot.asset.color.unwrap_or_default()),
             _ => Self::Media,
         }
     }

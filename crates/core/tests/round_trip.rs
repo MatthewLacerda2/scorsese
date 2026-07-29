@@ -11,8 +11,8 @@ fn fixture_parses_and_validates() {
     let project = common::project();
     assert_eq!(project.name, "Narrated teaser");
     assert_eq!(project.timeline_fps, Fps::THIRTY);
-    assert_eq!(project.assets.len(), 5);
-    assert_eq!(project.clips().count(), 5);
+    assert_eq!(project.assets.len(), 6);
+    assert_eq!(project.clips().count(), 6);
     assert_eq!(project.validate(), Ok(()));
 }
 

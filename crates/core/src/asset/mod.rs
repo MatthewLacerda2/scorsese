@@ -10,6 +10,7 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
+use crate::color::Rgba;
 use crate::path::ProjectPath;
 use crate::text::TextStyle;
 use crate::time::Fps;
@@ -92,6 +93,13 @@ pub struct Asset {
     /// white, centred, sans — rather than nothing to draw.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<TextStyle>,
+    /// The colour a `color` asset is, and the whole of what it carries.
+    ///
+    /// Required on that kind and refused on every other. No default: a
+    /// background nobody chose the colour of would render as *some* colour,
+    /// and picking one silently is how a film opens on the wrong shade.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<Rgba>,
 }
 
 impl Asset {
@@ -135,6 +143,7 @@ impl Asset {
             state: None,
             text: None,
             style: None,
+            color: None,
         }
     }
 
@@ -144,6 +153,18 @@ impl Asset {
         Self {
             text: Some(content.into()),
             ..Self::bare(id, AssetKind::Text)
+        }
+    }
+
+    /// A solid-colour asset: a background, a card, a wash under a title.
+    ///
+    /// The sibling of [`Asset::text`] for the other inline kind. It fills
+    /// whatever raster the render is, so there is no size to choose and
+    /// nothing here that ties the document to a resolution.
+    pub fn color(id: AssetId, color: Rgba) -> Self {
+        Self {
+            color: Some(color),
+            ..Self::bare(id, AssetKind::Color)
         }
     }
 
@@ -167,7 +188,9 @@ impl Asset {
     pub fn has_renderable_media(&self) -> bool {
         match self.state {
             Some(state) => state.has_media() && self.path.is_some(),
-            None => self.path.is_some() || self.kind == AssetKind::Text,
+            // An inline kind is always renderable — a title and a colour are
+            // both entirely present in the document already.
+            None => self.path.is_some() || !self.kind.is_file_backed(),
         }
     }
 }

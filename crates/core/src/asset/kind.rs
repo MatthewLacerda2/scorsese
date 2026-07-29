@@ -14,9 +14,16 @@ pub enum AssetKind {
     Image,
     /// A sound file, and the only imported kind that belongs on an audio track.
     Audio,
-    /// A string rendered as picture. The one kind with no file behind it: the
-    /// content lives inline in `project.json`.
+    /// A string rendered as picture. Its content lives inline in
+    /// `project.json` rather than in a file.
     Text,
+    /// A solid colour filling the whole raster: a background, a colour card, a
+    /// wash under a title. Like [`AssetKind::Text`] it has no file behind it,
+    /// and it is simpler still — no content at all, only appearance.
+    ///
+    /// Resolution-independent by construction. It is whatever the render is,
+    /// so nothing about it carries a raster the project should not know.
+    Color,
     /// A Veo prompt: video that does not exist until it is generated.
     GeneratedVideo,
     /// An ElevenLabs TTS prompt: audio that does not exist until generated.
@@ -61,7 +68,7 @@ impl AssetKind {
     pub fn is_visual(self) -> bool {
         matches!(
             self,
-            Self::Video | Self::Image | Self::Text | Self::GeneratedVideo
+            Self::Video | Self::Image | Self::Text | Self::Color | Self::GeneratedVideo
         )
     }
 
@@ -71,9 +78,14 @@ impl AssetKind {
     }
 
     /// True when a file on disk is what this kind ultimately refers to.
-    /// `text` is the exception: it carries its content inline.
+    ///
+    /// The **inline** kinds are the exception — `text` and `color` say what
+    /// they are in the document itself. Most of what follows from that is
+    /// asked here rather than of the kind directly: they cannot be imported,
+    /// there is nothing to hash or probe, and `fit` has no source raster to
+    /// reconcile against.
     pub fn is_file_backed(self) -> bool {
-        !matches!(self, Self::Text)
+        !matches!(self, Self::Text | Self::Color)
     }
 }
 
