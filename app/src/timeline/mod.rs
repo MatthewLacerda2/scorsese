@@ -53,6 +53,15 @@ impl Timeline {
         *self = Self::default();
     }
 
+    /// Whether a hand is on something right now.
+    ///
+    /// Asked by the reload: replacing the document mid-drag would yank the
+    /// clip out from under the pointer, so a change that arrives during a
+    /// gesture waits for it to end.
+    pub(crate) fn busy(&self) -> bool {
+        self.gesture.is_some()
+    }
+
     /// Draws the timeline and handles what happens on it.
     pub(crate) fn show(&mut self, ui: &mut Ui, open: &mut Open, editing: &mut Editing) {
         let full = ui.available_rect_before_wrap();

@@ -14,6 +14,7 @@
 //! inspector and the files list each arrive with their own issue. What this
 //! module settles is where they go and who owns the project they all read.
 
+mod disk;
 mod empty;
 mod panels;
 
@@ -24,8 +25,10 @@ use crate::editing::Editing;
 use crate::files::Files;
 use crate::inspector::Inspector;
 use crate::preview::Preview;
+use crate::project::watch::Watch;
 use crate::project::{Open, Refused, open};
 use crate::timeline::Timeline;
+use disk::Disk;
 
 /// The whole window's state.
 pub struct Scorsese {
@@ -34,6 +37,10 @@ pub struct Scorsese {
     opened: Option<Open>,
     /// Why the last attempt failed, if it did. Cleared by a successful open.
     refused: Option<Refused>,
+    /// Watches the open document for changes made outside this window.
+    watch: Option<Watch>,
+    /// What the last such change turned out to be.
+    disk: Disk,
     /// Where the window is looking: the playhead, and what is selected.
     editing: Editing,
     /// The timeline's own view — how far in, and how magnified.
@@ -52,6 +59,8 @@ impl Scorsese {
         let mut window = Self {
             opened: None,
             refused: None,
+            watch: None,
+            disk: Disk::default(),
             editing: Editing::default(),
             timeline: Timeline::default(),
             files: Files::default(),
@@ -72,6 +81,8 @@ impl Scorsese {
     fn open(&mut self, directory: &std::path::Path) {
         match open(directory) {
             Ok(project) => {
+                self.watch = Some(Watch::on(directory));
+                self.disk = Disk::Quiet;
                 self.opened = Some(project);
                 self.refused = None;
                 // A playhead left at frame 900 of the last film, or a view
@@ -115,6 +126,44 @@ impl Scorsese {
         self.editing.selected = Some(scorsese_core::ClipId::new(clip));
     }
 
+    /// Points the window at an instant, as dragging the scrubber does.
+    ///
+    /// Public for the second of [`Scorsese::select`]'s two reasons: putting
+    /// the playhead somewhere is otherwise only possible by synthesising a
+    /// pointer drag at a pixel computed from the layout, and "the playhead did
+    /// not move when the document was re-read" is a thing worth asserting
+    /// directly.
+    pub fn scrub(&mut self, to: scorsese_core::Frames) {
+        self.editing.playhead = to;
+    }
+
+    /// The document the window is showing, if one is open.
+    ///
+    /// Read-only and deliberately narrow, and public for the same reason
+    /// [`Scorsese::select`] is: a window whose state can only be observed as
+    /// pixels can only be asserted about by looking at a picture, and "the
+    /// document was re-read and the playhead did not move" is not something a
+    /// picture says clearly.
+    pub fn showing(&self) -> Option<&scorsese_core::Project> {
+        self.opened.as_ref().map(|open| &open.project)
+    }
+
+    /// Where the playhead is standing.
+    pub fn playhead(&self) -> scorsese_core::Frames {
+        self.editing.playhead
+    }
+
+    /// Which clip is selected, if any.
+    pub fn selected(&self) -> Option<&scorsese_core::ClipId> {
+        self.editing.selected.as_ref()
+    }
+
+    /// What the window would say about the document on disk — the same
+    /// sentence the bar shows, or nothing when it has nothing to say.
+    pub fn disk_note(&self) -> Option<String> {
+        self.disk.note().map(|note| note.text)
+    }
+
     /// Draws the whole window into `ui`.
     ///
     /// Takes a `Ui` and nothing else — no `eframe::Frame`, no event loop —
@@ -123,6 +172,7 @@ impl Scorsese {
     /// window nobody can look at in a test, and six panels were built that way
     /// before this existed.
     pub fn draw(&mut self, ui: &mut Ui) {
+        self.follow_disk(ui.ctx());
         // Declared outside-in, which is what egui's layout wants: each panel
         // takes its edge and leaves the rest to the next. The centre goes last
         // and gets whatever is left.
@@ -186,5 +236,10 @@ impl Scorsese {
     /// Why the last open failed, for the panel that has to say so.
     pub(crate) fn problem(&self) -> Option<&Refused> {
         self.refused.as_ref()
+    }
+
+    /// What the document on disk last did, for the bar that reports it.
+    pub(crate) fn disk(&self) -> &Disk {
+        &self.disk
     }
 }
