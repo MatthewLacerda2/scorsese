@@ -56,4 +56,4 @@ pub use project::{
 pub use text::{ColorError, FontChoice, Rgba, TextAlign, TextStyle};
 pub use time::{Fps, FpsError, FpsParseError, Frames};
 pub use timeline::{Clip, ClipId, Fit, Track, TrackId, TrackKind};
-pub use validate::{ValidationError, ValidationErrors};
+pub use validate::{AssetField, ValidationError, ValidationErrors};

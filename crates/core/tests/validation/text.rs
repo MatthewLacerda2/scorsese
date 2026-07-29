@@ -3,7 +3,8 @@
 
 use crate::common::{assert_only_problem, asset_id, asset_mut, problems, project};
 use scorsese_core::{
-    AssetKind, FontChoice, PathProblem, ProjectPath, TextStyle, ValidationError as E,
+    AssetField as F, AssetKind, FontChoice, PathProblem, ProjectPath, TextStyle,
+    ValidationError as E,
 };
 
 #[test]
@@ -24,8 +25,9 @@ fn nothing_but_a_text_asset_may_carry_text() {
     asset_mut(&mut p, "logo").text = Some("stray".to_owned());
     assert_only_problem(
         &p,
-        &E::TextOnNonTextAsset {
+        &E::StrayField {
             asset: asset_id("logo"),
+            field: F::Text,
             kind: AssetKind::Image,
         },
     );
@@ -37,8 +39,9 @@ fn nothing_but_a_text_asset_may_carry_a_style() {
     asset_mut(&mut p, "logo").style = Some(TextStyle::default());
     assert_only_problem(
         &p,
-        &E::StyleOnNonTextAsset {
+        &E::StrayField {
             asset: asset_id("logo"),
+            field: F::Style,
             kind: AssetKind::Image,
         },
     );

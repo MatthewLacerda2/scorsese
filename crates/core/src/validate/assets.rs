@@ -6,6 +6,7 @@ use crate::asset::{Asset, AssetKind};
 use crate::project::Project;
 
 use super::error::ValidationError;
+use super::field::AssetField;
 
 pub(super) fn check(project: &Project, errors: &mut Vec<ValidationError>) {
     let mut seen = HashSet::new();
@@ -75,7 +76,7 @@ fn check_kind_fields(asset: &Asset, errors: &mut Vec<ValidationError>) {
 
     if kind.is_generated() {
         match asset.state {
-            None => errors.push(ValidationError::MissingState { asset: id(), kind }),
+            None => errors.push(missing(asset, AssetField::State)),
             Some(state) if state.has_media() && asset.path.is_none() => {
                 errors.push(ValidationError::GeneratedWithoutPath { asset: id() });
             }
@@ -83,21 +84,38 @@ fn check_kind_fields(asset: &Asset, errors: &mut Vec<ValidationError>) {
         }
     } else {
         if asset.state.is_some() {
-            errors.push(ValidationError::StateOnPlainAsset { asset: id(), kind });
+            errors.push(stray(asset, AssetField::State));
         }
         if kind.is_file_backed() && asset.path.is_none() {
-            errors.push(ValidationError::MissingPath { asset: id(), kind });
+            errors.push(missing(asset, AssetField::Path));
         }
     }
 
     match (kind, &asset.text) {
         (AssetKind::Text, None) => errors.push(ValidationError::MissingText { asset: id() }),
-        (kind, Some(_)) if kind != AssetKind::Text => {
-            errors.push(ValidationError::TextOnNonTextAsset { asset: id(), kind });
-        }
-        _ => {}
+        (AssetKind::Text, Some(_)) => {}
+        (_, Some(_)) => errors.push(stray(asset, AssetField::Text)),
+        (_, None) => {}
     }
     check_style(asset, errors);
+}
+
+/// A field this asset's kind requires and does not have.
+fn missing(asset: &Asset, field: AssetField) -> ValidationError {
+    ValidationError::MissingField {
+        asset: asset.id.clone(),
+        field,
+        kind: asset.kind,
+    }
+}
+
+/// A field this asset carries that its kind has no use for.
+fn stray(asset: &Asset, field: AssetField) -> ValidationError {
+    ValidationError::StrayField {
+        asset: asset.id.clone(),
+        field,
+        kind: asset.kind,
+    }
 }
 
 /// The brief: what an asset is to be made *from*.
@@ -109,17 +127,16 @@ fn check_kind_fields(asset: &Asset, errors: &mut Vec<ValidationError>) {
 /// on a Veo asset would never be read, and silence about it would look like it
 /// had been.
 fn check_brief(asset: &Asset, errors: &mut Vec<ValidationError>) {
-    let id = || asset.id.clone();
     let kind = asset.kind;
 
     match (kind.is_prompted(), asset.prompt.is_some()) {
-        (true, false) => errors.push(ValidationError::MissingPrompt { asset: id(), kind }),
-        (false, true) => errors.push(ValidationError::StrayPrompt { asset: id(), kind }),
+        (true, false) => errors.push(missing(asset, AssetField::Prompt)),
+        (false, true) => errors.push(stray(asset, AssetField::Prompt)),
         _ => {}
     }
     match (kind.is_synthesized(), asset.recipe.is_some()) {
-        (true, false) => errors.push(ValidationError::MissingRecipe { asset: id(), kind }),
-        (false, true) => errors.push(ValidationError::StrayRecipe { asset: id(), kind }),
+        (true, false) => errors.push(missing(asset, AssetField::Recipe)),
+        (false, true) => errors.push(stray(asset, AssetField::Recipe)),
         _ => {}
     }
 }
@@ -132,10 +149,7 @@ fn check_style(asset: &Asset, errors: &mut Vec<ValidationError>) {
         return;
     };
     if asset.kind != AssetKind::Text {
-        errors.push(ValidationError::StyleOnNonTextAsset {
-            asset: asset.id.clone(),
-            kind: asset.kind,
-        });
+        errors.push(stray(asset, AssetField::Style));
     }
     if let Some(font) = style.font.file()
         && let Err(problem) = font.check()

@@ -4,6 +4,7 @@ use crate::asset::{AssetId, AssetKind};
 use crate::keyframe::PropertyPath;
 use crate::path::{PathProblem, ProjectPath};
 use crate::timeline::{ClipId, TrackId, TrackKind};
+use crate::validate::field::AssetField;
 
 /// One thing wrong with a project.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
@@ -38,13 +39,34 @@ pub enum ValidationError {
         problem: PathProblem,
     },
 
-    /// Every kind but `text` is a file on disk, and there is no file without
-    /// a path to it.
-    #[error("asset `{asset}` is a {kind:?} and needs a `path`")]
-    MissingPath {
-        /// The asset with nothing to point at.
+    /// A field the asset's kind requires, absent.
+    ///
+    /// One variant rather than one per field: which fields a kind needs is
+    /// [`AssetField`]'s to explain, and saying it again per error is how the
+    /// same reasoning ends up written twice and maintained once.
+    #[error("asset `{asset}` is a {kind:?} and needs a `{field}`")]
+    MissingField {
+        /// The asset that is short a field.
         asset: AssetId,
-        /// The kind that requires a path.
+        /// Which field, and why that kind wants it.
+        field: AssetField,
+        /// The kind that requires it.
+        kind: AssetKind,
+    },
+
+    /// A field belonging to some other kind.
+    ///
+    /// The mirror of [`ValidationError::MissingField`], and worth reporting
+    /// for the same reason: nothing would ever read it, and silence about it
+    /// would look exactly like having read it. Usually a `kind` that was meant
+    /// to be something else.
+    #[error("asset `{asset}` is a {kind:?}, so `{field}` does not apply to it")]
+    StrayField {
+        /// The asset carrying it.
+        asset: AssetId,
+        /// Which field, and where it does belong.
+        field: AssetField,
+        /// The kind that has no use for it.
         kind: AssetKind,
     },
 
@@ -71,59 +93,6 @@ pub enum ValidationError {
         problem: PathProblem,
     },
 
-    /// A style on something with no glyphs in it. Ignored rather than obeyed
-    /// if it were allowed through, so it is said out loud instead: a `style`
-    /// on a video asset is a `kind` that was meant to be `text`.
-    #[error("asset `{asset}` is a {kind:?}, so `style` does not apply to it")]
-    StyleOnNonTextAsset {
-        /// The asset with the stray field.
-        asset: AssetId,
-        /// The kind that has no use for it.
-        kind: AssetKind,
-    },
-
-    /// Inline content on a file-backed asset — usually a `kind` that was
-    /// meant to be `text`.
-    #[error("asset `{asset}` is a {kind:?}, so `text` does not apply to it")]
-    TextOnNonTextAsset {
-        /// The asset with the stray field.
-        asset: AssetId,
-        /// The kind that has no use for it.
-        kind: AssetKind,
-    },
-
-    /// Only the prompt-backed kinds are made from a sentence; a prompt
-    /// anywhere else would never be acted on. `synth_audio` lands here too:
-    /// its brief is a `recipe`, and a prompt beside one is two briefs for one
-    /// asset.
-    #[error("asset `{asset}` is a {kind:?}, so `prompt` does not apply to it")]
-    StrayPrompt {
-        /// The asset with the stray field.
-        asset: AssetId,
-        /// The kind that has no use for it.
-        kind: AssetKind,
-    },
-
-    /// A recipe on a kind that is not synthesised. Like a stray prompt, it
-    /// would never be acted on — usually a `kind` that was meant to be
-    /// `synth_audio`.
-    #[error("asset `{asset}` is a {kind:?}, so `recipe` does not apply to it")]
-    StrayRecipe {
-        /// The asset with the stray field.
-        asset: AssetId,
-        /// The kind that has no use for it.
-        kind: AssetKind,
-    },
-
-    /// A synthesis asset with no recipe: a lifecycle with nothing to realise.
-    #[error("asset `{asset}` is a {kind:?} and needs a `recipe`")]
-    MissingRecipe {
-        /// The asset with nothing to synthesise from.
-        asset: AssetId,
-        /// The kind that requires a recipe.
-        kind: AssetKind,
-    },
-
     /// A recipe path that would not survive `scp -r`, under the same rules
     /// every other path in the document obeys. Named apart from
     /// [`ValidationError::BadPath`] because a synthesis asset has two paths in
@@ -137,34 +106,6 @@ pub enum ValidationError {
         path: ProjectPath,
         /// Which rule it breaks.
         problem: PathProblem,
-    },
-
-    /// The sketch lifecycle belongs to prompt-backed assets; an imported file
-    /// is simply there.
-    #[error("asset `{asset}` is a {kind:?}, so `state` does not apply to it")]
-    StateOnPlainAsset {
-        /// The asset with the stray field.
-        asset: AssetId,
-        /// The kind that has no lifecycle.
-        kind: AssetKind,
-    },
-
-    /// A generated asset with no prompt is a bill nobody wrote the brief for.
-    #[error("asset `{asset}` is a {kind:?} and needs a `prompt`")]
-    MissingPrompt {
-        /// The asset with nothing to generate from.
-        asset: AssetId,
-        /// The kind that requires a prompt.
-        kind: AssetKind,
-    },
-
-    /// Without a state, GO cannot tell whether this has been paid for.
-    #[error("asset `{asset}` is a {kind:?} and needs a `state`")]
-    MissingState {
-        /// The asset with no lifecycle position.
-        asset: AssetId,
-        /// The kind that requires a state.
-        kind: AssetKind,
     },
 
     /// `generated` claims the media exists, so something has to say where.
