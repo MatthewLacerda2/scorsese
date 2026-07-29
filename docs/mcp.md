@@ -37,6 +37,7 @@ Every tool takes `project`: the path of the `*.scor` directory to work on.
 | `project_describe` | what is on screen when, and what is audible under it | nothing |
 | `project_check` | every problem with the document and its media, at once | nothing |
 | `project_assets` | the media pool and the state of everything in it | nothing |
+| `dissolve` | cross one shot into the next, as opacity keyframes | nothing |
 | `duck_music` | lower a music track under narration, as volume keyframes | nothing |
 | `synth_new` | start a recipe, and the asset that points at it | nothing |
 | `synth_read` | a recipe file as it is on disk | nothing |
@@ -53,6 +54,25 @@ change at all is read it, change it, write it back. The format is
 `project_write` **validates before writing**. A document that would not load is
 refused with every problem listed and the file on disk is left exactly as it
 was — so a half-formed edit cannot destroy a working one.
+
+## The two operations that write keyframes for you
+
+`dissolve` and `duck_music` are sugar, and both keep the same bargain: what
+they write is **ordinary keyframes** — the ones you would have placed by hand —
+which stay visible, editable and deletable afterwards. Neither adds a stage to
+the renderer, which is why a dissolve composes with a move or a turn for free.
+
+`dissolve` has one behaviour worth knowing before calling it: **it moves the
+incoming clip to a track above.** Two clips on one track may not overlap, and a
+crossover needs them to, so the shot arriving is pulled back over the outgoing
+one and put on a later track — later meaning drawn on top. The reply says which
+track and how far it moved, because that is an edit you did not ask for in so
+many words.
+
+It refuses, changing nothing at all, when the two clips do not currently meet
+at a cut, when either is shorter than the crossover, or when the crossover
+would round to no frames. A dissolve with no defined crossover has no shape,
+and guessing at one is worse than saying so.
 
 ## Making sound
 

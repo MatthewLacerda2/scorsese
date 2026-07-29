@@ -46,6 +46,7 @@
 pub mod card;
 pub mod compose;
 pub mod cpu;
+pub mod dissolve;
 pub mod frame;
 pub mod properties;
 pub mod registry;
@@ -54,6 +55,7 @@ pub mod text;
 pub use card::Card;
 pub use compose::{CompositeError, Compositor, Layer};
 pub use cpu::CpuCompositor;
+pub use dissolve::{DissolveError, Placed, dissolve};
 pub use frame::{BYTES_PER_PIXEL, Frame, PIXEL_FORMAT, Resolution, ResolutionError};
 pub use properties::{ANIMATED, Properties, fade_in, fade_out, path};
 pub use registry::{Property, Registry};

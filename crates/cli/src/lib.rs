@@ -79,6 +79,9 @@ fn dispatch(cli: Cli) -> Result<()> {
             }
             None => commands::synth::bake(&directory, None),
         },
+        Command::Dissolve { from, to, seconds } => {
+            commands::dissolve::run(&directory, &from, &to, seconds)
+        }
         Command::Duck {
             music,
             depth,
