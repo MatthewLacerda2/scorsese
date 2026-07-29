@@ -7,6 +7,19 @@
 #
 # Override only by adding a reviewed, deliberate entry to THIS file — with the
 # paragraph explaining why — never by relaxing the CI step.
+#
+# This one file is the policy for BOTH workspaces. `app/` is its own workspace
+# with its own lockfile — a graphics stack has no business being compiled by
+# `cargo test --workspace` — so it is checked by a second invocation pointed at
+# `app/Cargo.toml` rather than by the same one. Two invocations, one policy: a
+# second `deny.toml` would be a second answer to "what may we depend on?", and
+# the app's tree went 385 crates unchecked precisely because nobody noticed it
+# was not covered.
+#
+# There is a third workspace, `tools/lint`, and it is deliberately not checked:
+# it has no dependencies at all, and its lockfile holds exactly one crate —
+# itself. Nothing to gate. That stops being true the moment it gains a
+# dependency, which is the reason this paragraph exists rather than the fact.
 
 [advisories]
 # A crate version pulled after being yanked is worth knowing about, but it is
@@ -14,7 +27,25 @@
 yanked = "warn"
 # Every entry here is an advisory we have read and decided does not reach us.
 # It carries a paragraph saying why, and the condition under which it goes away.
-ignore = []
+ignore = [
+    # `ttf-parser` is unmaintained — its author has said so and there will be
+    # no further fixes. It is not a vulnerability: nothing here is exploitable,
+    # the crate simply has no future. And it is not ours to choose, arriving
+    # three levels down someone else's tree:
+    # `winit → sctk-adwaita → ab_glyph → owned_ttf_parser → ttf-parser`.
+    #
+    # The advisory says outright that no safe upgrade is available, and the
+    # replacement it suggests (`skrifa`) is a change `winit` would have to
+    # make. Goes away when `winit` makes it — which means this is worth
+    # re-reading whenever `winit` or `eframe` is bumped, and at no other time.
+    #
+    # The workspace run prints `advisory-not-detected` for this, because
+    # `ttf-parser` reaches only the app. That warning is expected and there is
+    # no knob for it; it is the cost of one policy over two lockfiles, and it
+    # is cheaper than two policies. If it ever disappears from the *app* run
+    # too, the entry has done its job and should be deleted.
+    { id = "RUSTSEC-2026-0192", reason = "unmaintained, reached only through winit's own tree; no upgrade exists and the fix is not ours to make" },
+]
 
 [bans]
 # Two versions of the same crate is bloat, not breakage: it makes the build
@@ -40,8 +71,47 @@ allow = [
     # `unicode-ident`, whose license is `(MIT OR Apache-2.0) AND Unicode-3.0`:
     # the Unicode half is not optional, so it has to be allowed explicitly.
     "Unicode-3.0",
+
+    # Everything below this line arrives with the desktop app's graphics stack
+    # and nothing else. All of it is permissive — none is copyleft, none asks
+    # for anything at all beyond keeping the notice — but each is a decision,
+    # so each says which crate brought it and how.
+
+    # `foldhash` (through `hashbrown`, in both wgpu-hal and accesskit) and
+    # `slotmap` (through `glow`, wgpu's GL backend). Permissive, and the
+    # closest thing to a no-op licence there is.
+    "Zlib",
+    # The Boost licence: `clipboard-win` and its `error-code`, reached through
+    # `arboard → egui-winit → eframe`. Windows-only — they are in the lockfile
+    # because a lockfile covers every target, and are never built here.
+    "BSL-1.0",
+    # `libloading`, through `ash`/`gpu-allocator` into `wgpu-hal`: how wgpu
+    # opens the platform's graphics library at runtime rather than linking it.
+    "ISC",
+    # `hexf-parse`, through `naga → wgpu-core`: parsing hexadecimal floats in
+    # shader source. A dedication to the public domain, so it requires nothing.
+    "CC0-1.0",
+    # The last two are one decision, and they come as a pair. egui bundles its
+    # default fonts in `epaint_default_fonts`, whose licence is
+    # `(MIT OR Apache-2.0) AND OFL-1.1 AND Ubuntu-font-1.0` — the same shape as
+    # `unicode-ident` above, where the `AND` halves are not optional.
+    #
+    # Both are font licences and both are about *fonts*, not about us: they
+    # permit embedding and redistribution, and their conditions bite on
+    # selling the fonts alone or on renaming a modified one. We do neither —
+    # the fonts ship inside the window, unmodified, exactly as egui ships them.
+    "OFL-1.1",
+    "Ubuntu-font-1.0",
 ]
 confidence-threshold = 0.8
+# One policy over two workspaces means each run legitimately uses only part of
+# the list: the workspace never sees a font licence, and the app never sees
+# `tiny-skia`'s. Left at the default, every run would warn about the entries
+# the *other* one needs, and a gate that warns on every green run is a gate
+# people stop reading. The list is still tight — an entry nobody uses at all
+# shows up in review as a line with no crate named beside it, which is what the
+# comments above are for.
+unused-allowed-license = "allow"
 # Our own crates carry no license field and are never published to a registry
 # (`publish = false`). Dependencies are still fully gated.
 private = { ignore = true }
