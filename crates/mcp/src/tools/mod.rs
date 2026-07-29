@@ -46,6 +46,7 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(inspect::Check),
         Box::new(inspect::Assets),
         Box::new(edit::Write),
+        Box::new(edit::Dissolve),
         Box::new(edit::Duck),
         Box::new(synth::New),
         Box::new(synth::Read),

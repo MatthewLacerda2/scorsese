@@ -70,6 +70,12 @@ pub mod tools;
 /// defines them.
 pub use scorsese_compositor::{Frame, PIXEL_FORMAT};
 
+/// Dissolving one shot into the next, which belongs to the compositor because
+/// it names `opacity`. Re-exported for the same reason `audio::path::VOLUME`
+/// is reachable from here: this is the seam where a caller that edits a
+/// project meets the vocabulary of the thing that draws it.
+pub use scorsese_compositor::{DissolveError, Placed, dissolve};
+
 pub use audio::{Mix, Mixdown};
 pub use describe::{Cue, CueError, Description, Moment, Stretch};
 pub use error::{RenderError, Stage};

@@ -5,6 +5,7 @@
 pub mod assets;
 pub mod check;
 pub mod describe;
+pub mod dissolve;
 pub mod duck;
 pub mod import;
 pub mod new;

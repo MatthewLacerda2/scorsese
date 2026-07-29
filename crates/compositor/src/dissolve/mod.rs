@@ -15,9 +15,10 @@
 //! ## Why it lives here and not in `scorsese-core`
 //!
 //! Because it names `opacity`. Core defines property *types* and never
-//! property *values*, which is why [`crate::dip`]'s ducking takes the property
-//! to write as an argument and lives there, while the fades name their
-//! property and live here. A dissolve is a fade's sibling, so it is here.
+//! property *values*, which is why [`scorsese_core::dip`]'s ducking takes the
+//! property to write as an argument and lives there, while the fades name
+//! their property and live here. A dissolve is a fade's sibling, so it is
+//! here.
 //!
 //! ## The overlap decision
 //!

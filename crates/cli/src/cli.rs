@@ -151,6 +151,23 @@ pub enum Command {
         #[command(subcommand)]
         action: Option<SynthAction>,
     },
+    /// Dissolve one shot into the next, by writing ordinary opacity keyframes
+    /// on both.
+    ///
+    /// Two clips on one track may not overlap and a crossover needs them to,
+    /// so the incoming clip moves to a track above and is pulled back over the
+    /// outgoing one. What that rearranged is printed rather than discovered.
+    Dissolve {
+        /// The outgoing clip — the shot being left.
+        #[arg(long)]
+        from: String,
+        /// The incoming clip — the shot arriving. It ends up on a track above.
+        #[arg(long)]
+        to: String,
+        /// How long the crossover lasts, in seconds.
+        #[arg(long, default_value = "0.5")]
+        seconds: f64,
+    },
     /// Lower the music while narration plays, by writing ordinary volume
     /// keyframes. Safe to re-run: it replaces only its own work.
     Duck {
