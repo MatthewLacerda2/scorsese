@@ -1,4 +1,8 @@
-//! Project directories for the snapshots to draw.
+//! Project directories for the tests to draw and to rewrite.
+//!
+//! Shared by more than one test binary, and each uses a different slice of it,
+//! so items unused from where you are reading are expected rather than dead.
+#![allow(dead_code)]
 //!
 //! Written out as text rather than built through `scorsese-core`, for the same
 //! reason `crates/cli`'s fixtures are: the document is the contract, and a

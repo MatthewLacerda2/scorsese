@@ -115,6 +115,13 @@ impl Still {
         }
     }
 
+    /// Forgets which instant the held frame answers, so the next repaint
+    /// composites again. The texture is kept until there is one to replace it
+    /// with — dropping it here would blink the panel to black on every reload.
+    pub(super) fn forget(&mut self) {
+        self.asked = None;
+    }
+
     /// Records why there is no picture, and drops the one that is no longer
     /// true. A stale frame left on screen under a new playhead would be the
     /// preview lying, which is worse than the preview being empty.

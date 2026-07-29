@@ -21,6 +21,18 @@ pub(super) fn menu(ui: &mut Ui, window: &mut Scorsese) {
                 ui.separator();
                 ui.label(RichText::new(open.directory()).strong());
             }
+            // Said here rather than over the picture: an outside edit is
+            // ordinary in this workflow, not an interruption, and the bar is
+            // where a window says what it is showing.
+            if let Some(note) = window.disk().note() {
+                ui.separator();
+                let text = RichText::new(note.text);
+                ui.label(if note.trouble {
+                    text.color(ui.visuals().warn_fg_color)
+                } else {
+                    text.weak()
+                });
+            }
         });
     });
 }

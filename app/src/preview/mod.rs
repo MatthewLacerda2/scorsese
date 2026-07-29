@@ -59,6 +59,16 @@ impl Preview {
         *self = Self::default();
     }
 
+    /// Forgets the composited frame, for when the document it was drawn from
+    /// changed underneath it.
+    ///
+    /// Not [`Preview::reset`]: the playhead and the transport are untouched,
+    /// because where someone is looking is not what changed. Only the picture
+    /// is now a picture of a document that no longer exists.
+    pub(crate) fn document_changed(&mut self) {
+        self.picture.forget();
+    }
+
     /// Draws the preview: the transport along the bottom, the picture above it.
     ///
     /// Declared in that order because that is what egui's layout wants — the

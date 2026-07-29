@@ -1,4 +1,7 @@
-//! What the window has open, and how it got there.
+//! What the window has open, how it got there, and how it notices that it
+//! changed underneath.
+
+pub(crate) mod watch;
 
 use std::path::{Path, PathBuf};
 
