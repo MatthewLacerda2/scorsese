@@ -478,19 +478,37 @@ jobs:
             *) echo "::error::cargo-mutants exited $MUTANTS_STATUS"; exit 1 ;;
           esac
 
-  # Supply chain. Nothing else in this workflow looks at what our ~60
-  # transitive dependencies are or what they are licensed under; a RUSTSEC
-  # advisory would otherwise land silently and stay until someone happened to
-  # read a changelog. This is a blocking gate, not a signal — a known
-  # vulnerability is not something to report and merge anyway. The policy,
-  # including any deliberately ignored advisory and its reasoning, lives in
-  # `deny.toml`; override there, never by relaxing this step.
+  # Supply chain. Nothing else in this workflow looks at what our transitive
+  # dependencies are or what they are licensed under; a RUSTSEC advisory would
+  # otherwise land silently and stay until someone happened to read a
+  # changelog. This is a blocking gate, not a signal — a known vulnerability is
+  # not something to report and merge anyway. The policy, including any
+  # deliberately ignored advisory and its reasoning, lives in `deny.toml`;
+  # override there, never by relaxing this step.
+  #
+  # TWO steps, because there are two lockfiles. `app/` is its own cargo
+  # workspace, so the root run sees none of it — that is how 385 crates,
+  # `eframe`, `egui`, `wgpu` and `winit` among them, sat outside this gate
+  # while it looked like it covered the project. Both steps read the same
+  # `deny.toml`: one policy, checked twice.
   deny:
     name: cargo-deny
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - uses: EmbarkStudios/cargo-deny-action@v2
+      - name: The workspace
+        uses: EmbarkStudios/cargo-deny-action@v2
         with:
+          command: check advisories bans sources licenses
+
+      # `--all-features` is repeated rather than inherited: `arguments`
+      # *replaces* the action's default of `--all-features`, so omitting it
+      # here would check the app with default features only and let a
+      # feature-gated dependency through the gate that exists to catch it.
+      - name: The desktop app
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          manifest-path: app/Cargo.toml
+          arguments: --all-features --config deny.toml
           command: check advisories bans sources licenses

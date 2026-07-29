@@ -113,12 +113,25 @@ test: ## [gate] The whole suite, golden renders included (needs ffmpeg on PATH)
 scripts: ## [gate] The signal renderers under .github/scripts
 	python3 -m unittest discover --start-directory .github/scripts/tests --quiet
 
-deny: ## [gate] Supply chain: advisories, bans, sources, licenses
+# Both workspaces, and the second line is the whole point. `app/` is its own
+# cargo workspace with its own lockfile, so the first run does not see a single
+# crate of it — 385 of them went unchecked for exactly that reason, `eframe`,
+# `wgpu` and `winit` among them. `--config` aims the second run at the root
+# policy rather than letting it look for an `app/deny.toml`, which must never
+# exist: one policy, checked twice.
+#
+# `--all-features` on both, because CI's action passes it by default and this
+# file promises to run the command CI runs. Without it a feature-gated
+# dependency is in the graph there and not here, and `make deny` would go green
+# on a tree CI rejects — which is the one thing this runner must never do.
+deny: ## [gate] Supply chain, both workspaces: advisories, bans, sources, licenses
 	@command -v cargo-deny >/dev/null 2>&1 || { \
 		echo "deny: cargo-deny is not installed." >&2; \
 		echo "      Install it with: cargo install --locked cargo-deny" >&2; \
 		exit 1; }
-	cargo deny check advisories bans sources licenses
+	cargo deny --all-features check advisories bans sources licenses
+	cargo deny --all-features --manifest-path app/Cargo.toml --config deny.toml \
+		check advisories bans sources licenses
 
 ##@ Signals — informational, never a merge gate
 
