@@ -3,6 +3,11 @@
 //! Stored as a hex string rather than four numbers, because `#ffcc00` is how
 //! every tool a person has ever used writes a colour, and a document meant to
 //! be hand-authored should not ask anyone to count commas.
+//!
+//! Its own module rather than text's, because more than one thing in a project
+//! is a colour: the glyphs of a [`crate::TextStyle`], and the whole of a
+//! [`crate::AssetKind::Color`] asset. One notation, read one way, wherever a
+//! document names a colour.
 
 use std::fmt;
 use std::str::FromStr;

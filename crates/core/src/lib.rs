@@ -29,6 +29,7 @@
 //! The format itself is documented in `docs/project-format.md`.
 
 pub mod asset;
+pub mod color;
 pub mod dip;
 pub mod keyframe;
 pub mod path;
@@ -41,6 +42,7 @@ pub mod timeline;
 pub mod validate;
 
 pub use asset::{Asset, AssetId, AssetKind, GenerationState, MediaMetadata};
+pub use color::{ColorError, Rgba};
 pub use dip::{Dip, Ducked, Span, Under, duck_track};
 pub use keyframe::{Easing, Keyframe, KeyframeTrack, PropertyPath};
 pub use path::{PathProblem, ProjectPath};
@@ -53,7 +55,7 @@ pub use project::{
     ASSETS_DIR, CACHE_DIR, GENERATED_DIR, LoadError, PROJECT_FILE_NAME, Project, RECIPES_DIR,
     SCHEMA_VERSION, SaveError,
 };
-pub use text::{ColorError, FontChoice, Rgba, TextAlign, TextStyle};
+pub use text::{FontChoice, TextAlign, TextStyle};
 pub use time::{Fps, FpsError, FpsParseError, Frames};
 pub use timeline::{Clip, ClipId, Fit, Track, TrackId, TrackKind};
 pub use validate::{AssetField, ValidationError, ValidationErrors};

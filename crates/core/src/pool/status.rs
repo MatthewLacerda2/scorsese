@@ -85,7 +85,9 @@ pub fn asset_status(project: &Project, project_root: &Path, check: HashCheck) ->
 }
 
 fn health_of(asset: &Asset, project_root: &Path, check: HashCheck) -> AssetHealth {
-    if asset.kind == AssetKind::Text {
+    // An inline kind — a title, a colour — is entirely in the document, so
+    // there is no file to find and nothing about it can be missing.
+    if !asset.kind.is_file_backed() {
         return AssetHealth::Inline;
     }
     match asset.state {

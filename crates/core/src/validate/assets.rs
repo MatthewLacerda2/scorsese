@@ -91,13 +91,33 @@ fn check_kind_fields(asset: &Asset, errors: &mut Vec<ValidationError>) {
         }
     }
 
+    check_inline(asset, errors);
+    check_style(asset, errors);
+}
+
+/// What the inline kinds carry instead of a file.
+///
+/// `text` holds a string and `color` holds a colour, and each is required by
+/// exactly the kind it belongs to and refused everywhere else. Refusing the
+/// stray one matters as much as requiring the right one: a `color` on a video
+/// asset would never be read, and silence about it would look like it had been.
+fn check_inline(asset: &Asset, errors: &mut Vec<ValidationError>) {
+    let id = || asset.id.clone();
+    let kind = asset.kind;
+
     match (kind, &asset.text) {
         (AssetKind::Text, None) => errors.push(ValidationError::MissingText { asset: id() }),
         (AssetKind::Text, Some(_)) => {}
         (_, Some(_)) => errors.push(stray(asset, AssetField::Text)),
         (_, None) => {}
     }
-    check_style(asset, errors);
+    match (kind, asset.color) {
+        (AssetKind::Color, None) => errors.push(ValidationError::MissingColor { asset: id() }),
+        (kind, Some(_)) if kind != AssetKind::Color => {
+            errors.push(ValidationError::ColorOnNonColorAsset { asset: id(), kind });
+        }
+        _ => {}
+    }
 }
 
 /// A field this asset's kind requires and does not have.

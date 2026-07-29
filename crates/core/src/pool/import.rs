@@ -83,8 +83,9 @@ fn resolve_kind(source: &Path, requested: Option<AssetKind>) -> Result<AssetKind
             path: source.to_path_buf(),
         })?,
     };
-    // A prompt is authored, not imported: there is no file to copy in.
-    if kind.is_generated() || kind == AssetKind::Text {
+    // A prompt is authored and an inline kind is written down; neither has a
+    // file to copy in.
+    if kind.is_generated() || !kind.is_file_backed() {
         return Err(ImportError::NotImportable { kind });
     }
     Ok(kind)
