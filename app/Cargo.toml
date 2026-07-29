@@ -54,6 +54,7 @@ name = "scorsese-app"
 path = "src/main.rs"
 
 [dependencies]
+cpal = "0.18"
 eframe = "0.35.0"
 egui = "0.35.0"
 rfd = "0.17.2"
