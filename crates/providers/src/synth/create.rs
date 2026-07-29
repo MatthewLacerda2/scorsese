@@ -2,7 +2,9 @@
 
 use std::path::Path;
 
-use scorsese_core::{Asset, AssetId, AssetKind, Project, ProjectPath, RECIPES_DIR, asset_id_for};
+use scorsese_core::{
+    Asset, AssetId, AssetKind, Project, ProjectPath, RECIPES_DIR, asset_id_for, write,
+};
 
 use super::error::SynthesisError;
 use super::recipe::Recipe;
@@ -38,7 +40,9 @@ pub fn create(
             source,
         })?;
     }
-    std::fs::write(&file, json).map_err(|source| SynthesisError::Write {
+    // Atomic: a recipe is authored work, and a half-written one is the kind
+    // `recipes/` cannot afford to lose.
+    write::atomically(&file, json).map_err(|source| SynthesisError::Write {
         path: file.clone(),
         source,
     })?;

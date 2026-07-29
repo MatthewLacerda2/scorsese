@@ -206,7 +206,13 @@ fn write(path: &Path, wav: &[u8]) -> Result<(), SynthesisError> {
             source,
         })?;
     }
-    std::fs::write(path, wav).map_err(|source| SynthesisError::Write {
+    // Atomic, and here it is the cache that depends on it: a bake is named for
+    // the hash of its brief, so a truncated file is indistinguishable from a
+    // finished one and would be served as the bake for ever after.
+    //
+    // `write` is this module's own function, so the shared one is named in
+    // full rather than imported over it.
+    scorsese_core::write::atomically(path, wav).map_err(|source| SynthesisError::Write {
         path: path.to_path_buf(),
         source,
     })

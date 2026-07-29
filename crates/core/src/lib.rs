@@ -40,6 +40,7 @@ pub mod text;
 pub mod time;
 pub mod timeline;
 pub mod validate;
+pub mod write;
 
 pub use asset::{Asset, AssetId, AssetKind, GenerationState, MediaMetadata};
 pub use color::{ColorError, Rgba};

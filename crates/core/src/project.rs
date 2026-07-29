@@ -160,10 +160,13 @@ impl Project {
     /// Does **not** validate: an editor mid-edit is allowed to save work that
     /// is temporarily incoherent. Validate before rendering, not before
     /// saving.
+    ///
+    /// The write is atomic — see [`crate::write`] — so a reader arriving
+    /// mid-save gets the previous document whole, never half of this one.
     pub fn save(&self, project_dir: &Path) -> Result<(), SaveError> {
         let file = project_dir.join(PROJECT_FILE_NAME);
         let json = self.to_json()?;
-        fs::write(&file, json).map_err(|source| SaveError::Io { path: file, source })
+        crate::write::atomically(&file, json).map_err(|source| SaveError::Io { path: file, source })
     }
 }
 
