@@ -75,11 +75,14 @@ fn a_genuinely_novel_property_is_reported_without_a_guess() {
     // A project authored against a newer scorsese is not making a mistake. It
     // is still worth mentioning that nothing here will act on it, but there is
     // nothing to suggest.
+    // `transform.rotation` stood here until this build learned to draw it,
+    // which is the list working: what is in it is what gets animated, and a
+    // property that joins it stops being novel everywhere at once.
     assert_eq!(
-        warnings_for(vec![animating("c1", "transform.rotation")]),
+        warnings_for(vec![animating("c1", "lighting.intensity")]),
         [Unknown {
             clip: "c1".to_owned(),
-            property: "transform.rotation".to_owned(),
+            property: "lighting.intensity".to_owned(),
             did_you_mean: None,
         }]
     );

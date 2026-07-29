@@ -452,11 +452,15 @@ attention than the ducking was avoiding.
 | `transform.position.y` | offset down, in output pixels | `0.0` unmoved |
 | `transform.scale.x` | width multiplier about the layer's centre | `1.0` natural size |
 | `transform.scale.y` | height multiplier about the layer's centre | `1.0` natural size |
+| `transform.rotation` | turn about the layer's centre, in **degrees clockwise** | `0.0` upright |
 | `volume` | how loud a clip plays, on either kind of track | `1.0` as recorded, `0.0` silent |
 
-Scale is **centre-anchored**, so shrinking a clip does not also slide it into a
-corner. Position is applied after scale and measured in output pixels, so it
-means the same thing whatever the source was shot at.
+Scale and rotation are both **centre-anchored**, so shrinking a clip does not
+also slide it into a corner and turning one does not swing it around an edge.
+Rotation is in degrees and **positive turns clockwise** — nobody should have to
+render a frame to find that out. The layer is scaled first and then turned,
+both about its own centre; position is applied after both and measured in
+output pixels, so it means the same thing whatever the source was shot at.
 
 `volume` applies to any clip that makes a sound, which includes a clip on a
 video track whose file has audio on it. It is a multiplier, so above `1.0` is

@@ -55,7 +55,10 @@ fn every_property_the_compositor_resolves_is_published() {
 #[test]
 fn a_path_nobody_animates_is_not_known() {
     assert!(!DRAWN.knows(&path_of("opactiy")));
-    assert!(!DRAWN.knows(&path_of("transform.rotation")));
+    // `transform.rotation` stood here, as the plausible-but-absent property.
+    // It exists now, and that is exactly what this list is for: what is in it
+    // is what this build draws, so the day that changes, this changes too.
+    assert!(!DRAWN.knows(&path_of("transform.skew.x")));
     // `volume` really is unknown *to the compositor* — it is the mixer's, and
     // the union of the two is assembled where both are visible.
     assert!(!DRAWN.knows(&path_of("volume")));
@@ -81,7 +84,7 @@ fn a_genuinely_novel_path_is_not_guessed_at() {
     // A project authored against a newer compositor is not making a typo, and a
     // confident wrong suggestion is worse than none: it is the one thing a
     // reader acts on without checking.
-    assert_eq!(DRAWN.did_you_mean(&path_of("transform.rotation")), None);
+    assert_eq!(DRAWN.did_you_mean(&path_of("lighting.intensity")), None);
     assert_eq!(DRAWN.did_you_mean(&path_of("blur.radius")), None);
     assert_eq!(DRAWN.did_you_mean(&path_of("")), None);
 }

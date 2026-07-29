@@ -35,6 +35,9 @@ pub mod path {
     pub const SCALE_X: &str = "transform.scale.x";
     /// Vertical size multiplier about the layer's own centre.
     pub const SCALE_Y: &str = "transform.scale.y";
+    /// Turn about the layer's own centre, in degrees. **Positive is
+    /// clockwise** — nobody should have to render a frame to find that out.
+    pub const ROTATION: &str = "transform.rotation";
 }
 
 /// What this compositor animates, and what animating it does.
@@ -64,6 +67,10 @@ pub const ANIMATED: &[Property] = &[
         path: path::SCALE_Y,
         describes: "the layer's height, as a multiplier about its own centre",
     },
+    Property {
+        path: path::ROTATION,
+        describes: "how far the layer is turned clockwise about its own centre, in degrees",
+    },
 ];
 
 /// What a layer looks like at one instant.
@@ -74,6 +81,10 @@ pub struct Properties {
     /// Size multiplier about the layer's own centre. `1.0` is natural size, so
     /// scaling a layer does not also move it.
     pub scale: (f64, f64),
+    /// Turn about the layer's own centre, in degrees, clockwise. The same
+    /// anchor scale uses, for the same reason: any other anchor is an
+    /// arbitrary edge of a raster the project is not supposed to know about.
+    pub rotation: f64,
     /// `0.0` invisible, `1.0` solid.
     pub opacity: f64,
 }
@@ -84,6 +95,7 @@ impl Default for Properties {
         Self {
             position: (0.0, 0.0),
             scale: (1.0, 1.0),
+            rotation: 0.0,
             opacity: 1.0,
         }
     }
@@ -107,6 +119,7 @@ impl Properties {
                 path::POSITION_Y => properties.position.1 = value,
                 path::SCALE_X => properties.scale.0 = value,
                 path::SCALE_Y => properties.scale.1 = value,
+                path::ROTATION => properties.rotation = value,
                 _ => {}
             }
         }
@@ -121,6 +134,8 @@ impl Properties {
             && self.position.1.abs() < EPSILON
             && (self.scale.0 - 1.0).abs() < EPSILON
             && (self.scale.1 - 1.0).abs() < EPSILON
+            // A turned layer is never a plain copy, however slight the turn.
+            && self.rotation.abs() < EPSILON
             && (self.opacity - 1.0).abs() < EPSILON
     }
 
