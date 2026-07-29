@@ -1,0 +1,6 @@
+{
+  "description": "A solid colour asset as a background, with a title over it. The teal fills the whole raster with no file behind it and no size on it — that is the point of the kind — and its `opacity` is keyframed from a quarter to solid across the two sampled frames, so frame 0 is a dark teal and frame 9 is the full colour. That spread is what makes the reference discriminating: a colour that ignored `opacity` would be identical in both frames, and one that was not drawn at all would leave black in both. The white title on the upper track proves the colour composites beneath other layers rather than over them. Nothing here has a file; the whole picture comes out of the assets table.",
+  "media": {},
+  "render": { "resolution": "192x108", "fps": "30" },
+  "frames": [0, 9]
+}

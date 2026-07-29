@@ -112,11 +112,10 @@ fn check_inline(asset: &Asset, errors: &mut Vec<ValidationError>) {
         (_, None) => {}
     }
     match (kind, asset.color) {
-        (AssetKind::Color, None) => errors.push(ValidationError::MissingColor { asset: id() }),
-        (kind, Some(_)) if kind != AssetKind::Color => {
-            errors.push(ValidationError::ColorOnNonColorAsset { asset: id(), kind });
-        }
-        _ => {}
+        (AssetKind::Color, None) => errors.push(missing(asset, AssetField::Color)),
+        (AssetKind::Color, Some(_)) => {}
+        (_, Some(_)) => errors.push(stray(asset, AssetField::Color)),
+        (_, None) => {}
     }
 }
 

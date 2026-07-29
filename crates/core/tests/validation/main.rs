@@ -4,6 +4,7 @@
 mod common;
 
 mod assets;
+mod color;
 mod fields;
 mod generated;
 mod keyframes;

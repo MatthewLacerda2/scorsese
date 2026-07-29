@@ -1,4 +1,4 @@
-# `project.json` — schema v6
+# `project.json` — schema v7
 
 The contract between the CLI, the MCP server, the GUI, and every project
 saved on someone's disk. It is meant to be hand-written: an agent should be
@@ -12,7 +12,7 @@ bump and a migration note.
 
 ```json project
 {
-  "schema_version": 6,
+  "schema_version": 7,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -34,7 +34,7 @@ re-importing or regenerating a file is one edit in one place.
 | Field | Required for | Meaning |
 | --- | --- | --- |
 | `id` | all | Unique within the project |
-| `kind` | all | `video`, `image`, `audio`, `text`, `generated_video`, `generated_audio`, `synth_audio` |
+| `kind` | all | `video`, `image`, `audio`, `text`, `color`, `generated_video`, `generated_audio`, `synth_audio` |
 | `path` | file-backed kinds | Relative to the project root |
 | `sha256` | optional | 64 lowercase hex chars, of the file at `path` |
 | `media` | optional | What ffprobe found: `duration_seconds`, `width`, `height`, `frame_rate` (a rational), `audio_channels`, `sample_rate` |
@@ -43,6 +43,7 @@ re-importing or regenerating a file is one edit in one place.
 | `state` | `generated_*`, `synth_audio` | `sketch`, `queued`, `generated`, `stale` |
 | `text` | `text` | The string to render; text assets carry content inline and have no `path` |
 | `style` | optional, `text` only | How that string looks: `font`, `size`, `color`, `align`, `line_height`, `max_width` — see below |
+| `color` | `color` | The colour to fill with, as `#rrggbb` or `#rrggbbaa`; colour assets have no `path` |
 
 ```json asset
 { "id": "shot-city", "kind": "generated_video", "state": "sketch",
@@ -131,8 +132,8 @@ aloud.
   "style": { "font": "serif", "size": 0.12, "color": "#ffcc00" } }
 ```
 
-A `text` asset is the one kind with no file behind it: its content is the
-`text` field and its appearance is `style`. **Every field of `style` is
+A `text` asset has no file behind it: its content is the `text` field and its
+appearance is `style`. (`color` is the other such kind — see below.) **Every field of `style` is
 optional, and an absent `style` means all of them** — white, centred, sans,
 which is the title most people meant.
 
@@ -169,6 +170,36 @@ there is no source raster to reconcile, since the text is drawn at whatever
 size the render is.
 
 Bold, italic, per-character animation, outlines and shadows are not here yet.
+
+### Colour assets
+
+```json asset
+{ "id": "black", "kind": "color", "color": "#000000" }
+```
+
+A `color` asset is the other kind with no file behind it, and the simpler of
+the two: it has no content at all, only appearance. It is a background, a
+colour card, a letterbox matte, or the wash under a title — everything that
+would otherwise mean generating a PNG of identical pixels and importing a
+megabyte of them to say one thing.
+
+The `color` field is required and takes the same notation a text `style` does:
+`#rrggbb`, or `#rrggbbaa` for one you can see through. There is no default. A
+background is the largest thing on screen, and one that came out white because
+nobody chose would be a shot rendered wrong that no error ever mentioned.
+
+**It fills whatever raster the render is**, so it is resolution-independent by
+construction — there is no size on it to be wrong at 4K, which is the whole
+reason it exists rather than a PNG. For the same reason `fit` is meaningless
+on a colour clip, exactly as it is on a text clip: there is no source raster to
+reconcile. Neither is an error; both are simply not read.
+
+It composites like any other layer. `opacity` and the transforms already apply,
+so a colour that fades up is keyframes and nothing new — and a half-opacity
+black over a shot is how you dim one.
+
+Gradients are not here. A gradient has a direction, stops and an interpolation
+between them, and that is a different feature wearing this one's clothes.
 
 `media.duration_seconds` is wall-clock, and `media.frame_rate` is a rational
 in the same shape as `timeline_fps` — a source's own grid, which is not
@@ -495,7 +526,8 @@ a project unattended sees the whole list at once.
 
 What it checks: schema version, duplicate ids, path rules, hash shape, the
 fields each asset kind requires — including that only a `text` asset carries
-`text` or `style`, that a `style`'s font path and a `synth_audio`'s `recipe`
+`text` or `style` and only a `color` asset carries `color`, that a `style`'s
+font path and a `synth_audio`'s `recipe`
 obey the project-path rules, and that each generated kind carries exactly the
 brief it takes: a `prompt` or a `recipe`, never both and never the other's —
 clip references resolving, asset kind against track kind, non-zero durations,
@@ -519,13 +551,20 @@ asset still awaiting generation is neither. A `style`'s font file is a path like
 applies: the shape is validated here, and whether the face is really on disk is
 the render's to find out.
 
+## Migrating from v6
+
+v7 adds the `color` asset kind and the `color` field that goes with it. Both
+are new: no v6 document can contain either, so **no v6 document means anything
+different under v7**. Converting one is changing `"schema_version": 6` to
+`"schema_version": 7` and nothing else.
+
 ## Migrating from v5
 
 v6 adds one optional field: `by` on a keyframe track. No v5 document can
 contain it, and **absent means hand-written**, which is what every keyframe
 track in every v5 project already is. So no v5 document means anything
 different under v6 — converting one is changing `"schema_version": 5` to
-`"schema_version": 6` and nothing else.
+`"schema_version": 7` and nothing else.
 
 ## Migrating from v4
 
@@ -545,7 +584,7 @@ v4 adds one optional field: `style` on a `text` asset. **Absent means every
 default** — white, centred, sans, a tenth of the frame high — which is what
 every text asset did before the field existed, so no v3 document means anything
 different under v4. Converting one is changing `"schema_version": 3` to
-`"schema_version": 4`, and then on to `6` as above.
+`"schema_version": 4`, and then on to `7` as above.
 
 Before v4 a text asset could not be rendered at all: the renderer refused a
 clip showing one. So the only v3 documents affected are ones that were never
@@ -556,7 +595,7 @@ renderable, and there is nothing for a migration to preserve.
 v3 added one optional field: `fit` on a clip. **Absent means `fit`**, which is
 what every clip did before the field existed, so no v2 document means anything
 different under v3 — converting one is changing `"schema_version": 2` to
-`"schema_version": 3` and then on to `6` as above.
+`"schema_version": 3` and then on to `7` as above.
 
 The version still has to be changed by hand, because this build reads exactly
 one schema version and refuses the rest. That refusal is the point: a document

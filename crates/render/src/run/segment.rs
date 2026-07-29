@@ -161,6 +161,17 @@ impl Pass<'_> {
             return Ok(None);
         }
 
+        if shot.asset.kind == AssetKind::Color {
+            drawn_at_raster(buffer);
+            // Validation requires the colour, so the default is unreachable
+            // through a loaded project. White rather than transparent if a
+            // caller ever builds one in memory: a layer that silently vanished
+            // would be harder to notice than one that is plainly the wrong
+            // colour.
+            buffer.fill(shot.asset.color.unwrap_or_default());
+            return Ok(None);
+        }
+
         let file = match slug::standing(shot, self.project_root)? {
             Standing::Media(file) => file,
             Standing::Card(absent) => {

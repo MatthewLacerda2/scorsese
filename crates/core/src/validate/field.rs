@@ -54,6 +54,14 @@ pub enum AssetField {
     /// whether this has been paid for. Refused on the rest: an imported file
     /// is simply there, and has no lifecycle to be at a point in.
     State,
+    /// What colour a `color` asset is.
+    ///
+    /// The other inline kind, and the whole of what it carries — a `color`
+    /// asset has no content, only appearance. Required rather than defaulted:
+    /// a background is the largest thing on screen, and one that came out
+    /// white because nobody chose is a shot rendered wrong in a way no error
+    /// ever mentioned.
+    Color,
 }
 
 impl AssetField {
@@ -66,6 +74,7 @@ impl AssetField {
             Self::Prompt => "prompt",
             Self::Recipe => "recipe",
             Self::State => "state",
+            Self::Color => "color",
         }
     }
 }

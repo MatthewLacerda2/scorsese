@@ -74,6 +74,7 @@ goldens!(
     slugs,
     title,
     title_moved,
+    wash,
     zoom
 );
 

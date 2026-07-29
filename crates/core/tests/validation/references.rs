@@ -40,7 +40,7 @@ fn a_reused_track_id_is_reported() {
 fn sound_does_not_belong_on_a_video_track() {
     let mut p = project();
     let mut vo = p.tracks[2].clips.remove(0);
-    vo.start = Frames(300); // clear of the video clips, so only kind is wrong
+    vo.start = Frames(400); // clear of the video clips, so only kind is wrong
     p.tracks[0].clips.push(vo);
     assert_only_problem(
         &p,
@@ -79,8 +79,10 @@ fn every_asset_kind_has_a_track_it_can_sit_on() {
         AssetKind::Image,
         AssetKind::Audio,
         AssetKind::Text,
+        AssetKind::Color,
         AssetKind::GeneratedVideo,
         AssetKind::GeneratedAudio,
+        AssetKind::SynthAudio,
     ];
     for kind in kinds {
         assert!(

@@ -101,7 +101,7 @@ impl Files {
 const GROUPS: &[(&str, &[AssetKind])] = &[
     ("PICTURE", &[AssetKind::Video, AssetKind::Image]),
     ("SOUND", &[AssetKind::Audio]),
-    ("TITLES", &[AssetKind::Text]),
+    ("TITLES", &[AssetKind::Text, AssetKind::Color]),
     (
         "NOT MADE YET",
         &[

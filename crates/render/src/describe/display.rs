@@ -105,6 +105,9 @@ fn onscreen(playing: &Playing) -> String {
             fit(playing.fit),
             clipped(text)
         ),
+        // Like a card, a colour is the raster itself rather than something
+        // fitted into it, so printing a `fit` would be inventing a fact.
+        Shown::Color(color) => format!("{} (color {color})", playing.asset),
         Shown::Media => format!(
             "{} ({}, {})",
             playing.asset,
@@ -188,6 +191,7 @@ const fn kind(kind: AssetKind) -> &'static str {
         AssetKind::Image => "image",
         AssetKind::Audio => "audio",
         AssetKind::Text => "text",
+        AssetKind::Color => "color",
         AssetKind::GeneratedVideo => "generated_video",
         AssetKind::GeneratedAudio => "generated_audio",
         AssetKind::SynthAudio => "synth_audio",

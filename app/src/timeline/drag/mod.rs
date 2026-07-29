@@ -185,12 +185,12 @@ pub(super) fn cursor(hit: &lanes::Hit, at: Pos2) -> CursorIcon {
 
 /// True when the asset has a timeline of its own to run out of.
 ///
-/// A still and a title do not: `source_in` means nothing on either, so pulling
-/// their head back is limited by the start of the timeline and nothing else.
-/// Asked here rather than in `scorsese-core` because it is a question about
-/// dragging — the model already says what each kind is.
+/// A still, a title and a colour do not: `source_in` means nothing on any of
+/// them, so pulling their head back is limited by the start of the timeline
+/// and nothing else. Asked here rather than in `scorsese-core` because it is a
+/// question about dragging — the model already says what each kind is.
 fn has_source_timeline(kind: AssetKind) -> bool {
-    !matches!(kind, AssetKind::Image | AssetKind::Text)
+    !matches!(kind, AssetKind::Image | AssetKind::Text | AssetKind::Color)
 }
 
 #[cfg(test)]
