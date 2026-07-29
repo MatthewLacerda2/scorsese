@@ -37,7 +37,7 @@ GATES := format size scripts clippy docs test deny
 # `app/`, so without it make sees the target as already built and `make app`
 # prints "up to date" without running a thing. A check that silently does
 # nothing is worse than no check.
-.PHONY: help setup gates pre-commit inventory $(GATES) app format-fix coverage mutants
+.PHONY: help setup gates pre-commit inventory $(GATES) app release format-fix coverage mutants
 
 ##@ Everyday
 
@@ -58,6 +58,14 @@ pre-commit: format size ## The fast half: what the pre-commit hook runs
 
 gates: inventory $(GATES) ## Everything CI blocks on. Run this before opening a PR
 	@echo "gates: all green -- $(GATES)"
+
+# For a delivery render, and not much else. The dev profile is optimised (see
+# the note in Cargo.toml), so the ordinary `cargo build` is already fast enough
+# to iterate a cut with — this is the last ~2x, at the cost of a full rebuild
+# and no debug assertions.
+release: ## Optimised binaries, for a final render rather than for iterating
+	cargo build --release
+	@echo "release: binaries in target/release -- scorsese, scorsese-mcp"
 
 ##@ The gates
 

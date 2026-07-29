@@ -45,8 +45,21 @@ cargo test           # runs every crate's tests
 
 make setup           # once per clone: installs the committed git hooks
 make gates           # everything CI blocks on — run this before opening a PR
+make release         # optimised binaries, for a delivery render
 make help            # every target, and which of them are gates
 ```
+
+**The ordinary build renders at a usable speed**, which is not the default a
+Rust project gets and is worth knowing why. `[profile.dev]` in the root
+`Cargo.toml` is set to `opt-level = 1` with dependencies at `3`: unoptimised,
+a ten-second 1080p render took **1290 seconds**, and it takes **36** as
+configured. That was never a slow compositor — it was an unoptimised one, and
+measuring the unoptimised build is how "rendering is slow" turns into folklore.
+Debug assertions stay on, so a fast render is still a checked one. The manifest
+carries the measurements, including why `opt-level = 1` and not `2`.
+
+`make release` is the last ~2× (36s → 19s on the same render) and is worth it
+for a delivery, not for iterating on a cut.
 
 `make setup` points git at `.githooks/`, so `make pre-commit` — formatting and
 the size gate, no build, well under a second — runs before each commit and a
