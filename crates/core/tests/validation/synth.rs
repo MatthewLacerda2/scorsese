@@ -1,7 +1,9 @@
 //! The synthesis kind: its brief is a recipe, and only a recipe.
 
 use crate::common::{assert_only_problem, asset_id, asset_mut, problems, project};
-use scorsese_core::{AssetKind, GenerationState, ProjectPath, ValidationError as E};
+use scorsese_core::{
+    AssetField as F, AssetKind, GenerationState, ProjectPath, ValidationError as E,
+};
 
 #[test]
 fn a_synth_asset_needs_a_recipe() {
@@ -9,8 +11,9 @@ fn a_synth_asset_needs_a_recipe() {
     asset_mut(&mut p, "score").recipe = None;
     assert_only_problem(
         &p,
-        &E::MissingRecipe {
+        &E::MissingField {
             asset: asset_id("score"),
+            field: F::Recipe,
             kind: AssetKind::SynthAudio,
         },
     );
@@ -37,8 +40,9 @@ fn a_recipe_belongs_to_no_other_kind() {
     asset_mut(&mut p, "logo").recipe = Some(ProjectPath::new("recipes/theme.json"));
     assert_only_problem(
         &p,
-        &E::StrayRecipe {
+        &E::StrayField {
             asset: asset_id("logo"),
+            field: F::Recipe,
             kind: AssetKind::Image,
         },
     );
@@ -53,8 +57,9 @@ fn a_synth_asset_carries_no_prompt() {
     asset_mut(&mut p, "score").prompt = Some("something cinematic".to_owned());
     assert_only_problem(
         &p,
-        &E::StrayPrompt {
+        &E::StrayField {
             asset: asset_id("score"),
+            field: F::Prompt,
             kind: AssetKind::SynthAudio,
         },
     );
@@ -66,8 +71,9 @@ fn a_synth_asset_needs_a_state() {
     asset_mut(&mut p, "score").state = None;
     assert_only_problem(
         &p,
-        &E::MissingState {
+        &E::MissingField {
             asset: asset_id("score"),
+            field: F::State,
             kind: AssetKind::SynthAudio,
         },
     );

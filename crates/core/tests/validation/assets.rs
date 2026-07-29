@@ -1,7 +1,7 @@
 //! Assets-table coherence: identity, hashes, and what each kind must carry.
 
 use crate::common::{assert_only_problem, asset_id, asset_mut, problems, project};
-use scorsese_core::{AssetKind, GenerationState, ValidationError as E};
+use scorsese_core::{AssetField as F, AssetKind, GenerationState, ValidationError as E};
 
 #[test]
 fn a_reused_asset_id_is_reported_once() {
@@ -22,8 +22,9 @@ fn a_file_backed_asset_needs_a_path() {
     asset_mut(&mut p, "logo").path = None;
     assert_only_problem(
         &p,
-        &E::MissingPath {
+        &E::MissingField {
             asset: asset_id("logo"),
+            field: F::Path,
             kind: AssetKind::Image,
         },
     );
@@ -64,12 +65,14 @@ fn a_prompt_asset_needs_a_prompt_and_a_state() {
     shot.state = None;
     let kind = AssetKind::GeneratedVideo;
     let found = problems(&p);
-    assert!(found.contains(&E::MissingPrompt {
+    assert!(found.contains(&E::MissingField {
         asset: asset_id("shot-city"),
+        field: F::Prompt,
         kind
     }));
-    assert!(found.contains(&E::MissingState {
+    assert!(found.contains(&E::MissingField {
         asset: asset_id("shot-city"),
+        field: F::State,
         kind
     }));
 }
@@ -106,12 +109,14 @@ fn a_plain_asset_carries_no_prompt_or_state() {
     logo.state = Some(GenerationState::Sketch);
     let kind = AssetKind::Image;
     let found = problems(&p);
-    assert!(found.contains(&E::StrayPrompt {
+    assert!(found.contains(&E::StrayField {
         asset: asset_id("logo"),
+        field: F::Prompt,
         kind
     }));
-    assert!(found.contains(&E::StateOnPlainAsset {
+    assert!(found.contains(&E::StrayField {
         asset: asset_id("logo"),
+        field: F::State,
         kind
     }));
 }

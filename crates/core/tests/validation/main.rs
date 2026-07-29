@@ -4,6 +4,7 @@
 mod common;
 
 mod assets;
+mod fields;
 mod generated;
 mod keyframes;
 mod paths;
