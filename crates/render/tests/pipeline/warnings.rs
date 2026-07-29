@@ -75,7 +75,10 @@ fn a_novel_property_is_no_reason_to_refuse_a_render() {
         vec![red],
         vec![video_track(
             "v1",
-            vec![animating(clip("c1", "red", 0, 15), "transform.rotation")],
+            // `transform.rotation` stood here until this build learned to draw
+            // it. What this needs is a property nothing animates *and* nothing
+            // would guess at, which is the pair the test is really about.
+            vec![animating(clip("c1", "red", 0, 15), "lighting.intensity")],
         )],
     );
 

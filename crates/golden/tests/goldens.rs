@@ -72,6 +72,7 @@ goldens!(
     slice,
     slide,
     slugs,
+    spin,
     title,
     title_moved,
     wash,

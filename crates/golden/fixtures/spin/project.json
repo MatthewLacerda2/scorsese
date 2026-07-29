@@ -1,0 +1,30 @@
+{
+  "schema_version": 7,
+  "name": "spin",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [{ "id": "bar", "kind": "video", "path": "assets/bar.mp4" }],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-bar",
+          "asset": "bar",
+          "start": 0,
+          "duration": 32,
+          "fit": "native",
+          "keyframes": [
+            {
+              "property": "transform.rotation",
+              "keyframes": [
+                { "t": 0, "value": 0.0 },
+                { "t": 32, "value": 90.0 }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

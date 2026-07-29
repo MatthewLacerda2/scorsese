@@ -112,14 +112,31 @@ fn draw(
     Ok(())
 }
 
-/// Rest the layer centred on the canvas, scale about its own centre, then
-/// offset by its position.
+/// Rest the layer centred on the canvas, scale and turn it about its own
+/// centre, then offset by its position.
 ///
-/// Written out as one matrix rather than composed from three, because the
-/// composition order of scale-about-a-point is the classic place to introduce a
-/// bug that only shows up off-centre. Mapping `x' = sx·x + tx` directly, a scale
-/// about centre `c` is `tx = c·(1 − sx)`, the resting offset adds, and position
-/// adds after that.
+/// Written out as one matrix rather than composed from four, because the
+/// composition order of scale-and-rotate-about-a-point is the classic place to
+/// introduce a bug that only shows up off-centre. The mapping is
+/// `p' = rest + position + c + R·S·(p − c)`: scale first, then turn, both about
+/// the layer's own centre `c`, and everything else translates after. So the
+/// linear part is
+///
+/// ```text
+///           ⎡ sx·cos θ   −sy·sin θ ⎤
+///   R · S = ⎣ sx·sin θ    sy·cos θ ⎦
+/// ```
+///
+/// and the translation is `rest + position + c − (R·S)·c`.
+///
+/// **At θ = 0 this is exactly the matrix it always was** — `cos 0 = 1`,
+/// `sin 0 = 0`, so it reduces to `tx = rest + c·(1 − sx) + position` — which is
+/// what keeps every existing reference frame meaning what it meant. That is
+/// worth more than brevity here: a golden render that shifted by a pixel would
+/// be indistinguishable from this change being wrong.
+///
+/// **Positive is clockwise**, because the raster's y runs downward: `(1, 0)`
+/// maps to `(cos θ, sin θ)`, and a positive y is further down the frame.
 ///
 /// A layer the size of the canvas rests at the origin, so this is the same
 /// matrix it always was — which is what keeps every existing reference frame
@@ -142,13 +159,18 @@ fn transform_of(
     // difference is invisible and the cost is the whole layer going soft.
     let rest_x = ((canvas.width() as f32 - source.width() as f32) / 2.0).round();
     let rest_y = ((canvas.height() as f32 - source.height() as f32) / 2.0).round();
+    let (sin, cos) = (layer.properties.rotation as f32).to_radians().sin_cos();
+    // The linear part, R·S, in tiny-skia's row order: `from_row(sx, ky, kx, sy,
+    // …)` maps `x' = sx·x + kx·y + tx` and `y' = ky·x + sy·y + ty`.
+    let (a, kx) = (scale_x * cos, -scale_y * sin);
+    let (ky, d) = (scale_x * sin, scale_y * cos);
     Transform::from_row(
-        scale_x,
-        0.0,
-        0.0,
-        scale_y,
-        rest_x + centre_x * (1.0 - scale_x) + layer.properties.position.0 as f32,
-        rest_y + centre_y * (1.0 - scale_y) + layer.properties.position.1 as f32,
+        a,
+        ky,
+        kx,
+        d,
+        rest_x + centre_x - (a * centre_x + kx * centre_y) + layer.properties.position.0 as f32,
+        rest_y + centre_y - (ky * centre_x + d * centre_y) + layer.properties.position.1 as f32,
     )
 }
 
