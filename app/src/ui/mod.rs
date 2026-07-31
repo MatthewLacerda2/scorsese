@@ -145,7 +145,8 @@ impl Scorsese {
 }
 
 impl Scorsese {
-    /// Points the window at a clip, as clicking it in the timeline does.
+    /// Points the window at a clip, as clicking it in the timeline does —
+    /// replacing whatever was selected before.
     ///
     /// Public for two reasons, and the second is worth stating plainly. A
     /// window has more than one way to point at something — the files panel
@@ -154,7 +155,17 @@ impl Scorsese {
     /// the state it exists for, without synthesising a pointer event at a pixel
     /// computed from the layout it is supposed to be checking.
     pub fn select(&mut self, clip: &str) {
-        self.editing.selected = Some(scorsese_core::ClipId::new(clip));
+        self.editing.pick(&scorsese_core::ClipId::new(clip), false);
+    }
+
+    /// Adds a clip to the selection, as shift-clicking it does.
+    ///
+    /// The second half of [`Scorsese::select`]'s second reason: a window with
+    /// three clips selected is a state worth looking at, and reaching it
+    /// through synthesised modifier-clicks at computed pixels would be a test
+    /// of the layout rather than of the picture.
+    pub fn also_select(&mut self, clip: &str) {
+        self.editing.pick(&scorsese_core::ClipId::new(clip), true);
     }
 
     /// Points the window at an instant, as dragging the scrubber does.
@@ -184,9 +195,9 @@ impl Scorsese {
         self.editing.playhead
     }
 
-    /// Which clip is selected, if any.
-    pub fn selected(&self) -> Option<&scorsese_core::ClipId> {
-        self.editing.selected.as_ref()
+    /// Which clips are selected, in the selection's own order.
+    pub fn selected(&self) -> Vec<&scorsese_core::ClipId> {
+        self.editing.selected.iter().collect()
     }
 
     /// What the window would say about the document on disk — the same

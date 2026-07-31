@@ -42,6 +42,7 @@ fn a_reload_leaves_the_viewer_where_it_was_standing() {
     let mut harness = window(project.path());
     harness.state_mut().scrub(Frames(137));
     harness.state_mut().select("c-title");
+    harness.state_mut().also_select("c-shot");
     harness.run();
 
     rewrite(project.path(), |document| {
@@ -62,8 +63,8 @@ fn a_reload_leaves_the_viewer_where_it_was_standing() {
     );
     assert_eq!(
         harness.state().selected(),
-        Some(&ClipId::new("c-title")),
-        "the selection was lost"
+        [&ClipId::new("c-shot"), &ClipId::new("c-title")],
+        "the selection was lost — all of it has to survive, not the last click"
     );
 }
 
