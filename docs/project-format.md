@@ -1,4 +1,4 @@
-# `project.json` — schema v7
+# `project.json` — schema v8
 
 The contract between the CLI, the MCP server, the GUI, and every project
 saved on someone's disk. It is meant to be hand-written: an agent should be
@@ -12,7 +12,7 @@ bump and a migration note.
 
 ```json project
 {
-  "schema_version": 7,
+  "schema_version": 8,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -146,10 +146,12 @@ which is the title most people meant.
 | `line_height` | `1.25` | Baseline to baseline, as a multiple of `size` |
 | `max_width` | `0.9` | Where lines wrap, as a fraction of the frame's **width** |
 
-**Sizes are fractions of the raster, not pixels.** Resolution is a render
-setting — the same project is previewed at 640×360 and delivered at 4K — so a
-title written as `72` pixels would be a different title in each. `size: 0.1` is
-a tenth of the picture's height whatever it is rendered at.
+**Measurements are fractions of the raster, not pixels.** Resolution is a
+render setting — the same project is previewed at 640×360 and delivered at 4K —
+so a title written as `72` pixels would be a different title in each.
+`size: 0.1` is a tenth of the picture's height whatever it is rendered at, and
+the rule is the format's rather than this table's: `max_width` and
+`transform.position.*` are fractions for the same reason.
 
 **Two font names are reserved.** `sans` and `serif` are the faces scorsese
 ships: Liberation Sans and Liberation Serif, metric-compatible with Arial and
@@ -448,8 +450,8 @@ attention than the ducking was avoiding.
 | path | means | `1.0` / `0.0` |
 | --- | --- | --- |
 | `opacity` | how solid the layer is | `1.0` solid, `0.0` invisible |
-| `transform.position.x` | offset right, in **output pixels** | `0.0` unmoved |
-| `transform.position.y` | offset down, in output pixels | `0.0` unmoved |
+| `transform.position.x` | offset right, as a fraction of the raster's **width** | `0.0` unmoved |
+| `transform.position.y` | offset down, as a fraction of the raster's **height** | `0.0` unmoved |
 | `transform.scale.x` | width multiplier about the layer's centre | `1.0` natural size |
 | `transform.scale.y` | height multiplier about the layer's centre | `1.0` natural size |
 | `transform.rotation` | turn about the layer's centre, in **degrees clockwise** | `0.0` upright |
@@ -459,8 +461,17 @@ Scale and rotation are both **centre-anchored**, so shrinking a clip does not
 also slide it into a corner and turning one does not swing it around an edge.
 Rotation is in degrees and **positive turns clockwise** — nobody should have to
 render a frame to find that out. The layer is scaled first and then turned,
-both about its own centre; position is applied after both and measured in
-output pixels, so it means the same thing whatever the source was shot at.
+both about its own centre; position is applied after both.
+
+**Position is a fraction of the raster**, for the same reason `size` is: a
+title placed `110` pixels above centre is a tenth of the height at 1080 and a
+twentieth at 4K, so a layout composed in a preview would not survive delivery.
+`transform.position.x` of `0.25` moves the layer a quarter of the raster's
+**width** to the right of where it naturally sits; `transform.position.y` of
+`0.25` moves it a quarter of its **height** down. Each axis against its own
+dimension, so `0.5` in x reaches the edge of the frame whatever its shape —
+resolving both against the height would keep a diagonal's angle across aspect
+ratios and cost the plain reading that placement actually wants.
 
 `volume` applies to any clip that makes a sound, which includes a clip on a
 video track whose file has audio on it. It is a multiplier, so above `1.0` is
@@ -564,12 +575,41 @@ asset still awaiting generation is neither. A `style`'s font file is a path like
 applies: the shape is validated here, and whether the face is really on disk is
 the render's to find out.
 
+## Migrating from v7
+
+v8 changes the **unit** of `transform.position.x` and `transform.position.y`
+from output pixels to fractions of the raster. It is the first bump that
+changes what a document already written means, so it is the first that cannot
+always be done by changing a number.
+
+- **A project that positions nothing converts silently.** This is the common
+  case — most projects animate opacity and scale and never move a layer — and
+  converting one is changing `"schema_version": 7` to `"schema_version": 8`
+  and nothing else.
+- **A nonzero position has to be converted by hand**: divide each `value` on a
+  `transform.position.x` track by the pixel **width** the project was composed
+  at, and each on a `transform.position.y` track by its **height**.
+
+There is no automatic conversion, and that is deliberate. A v7 position is
+pixels measured against a raster **the document does not record** — resolution
+is a render setting, not a project field, so nothing in the file says which one
+the author was looking at. Guessing 1920×1080 would convert most projects
+correctly and silently produce a wrong layout in the rest, and the rest are
+exactly the projects whose author cared enough to move something. A wrong unit
+that renders successfully is the failure this change was made to end; a
+migration that reintroduced it would be a poor joke.
+
+Converting in the other direction is not possible at all, which is the argument
+for the change in one line: a pixel offset at a known delivery resolution is
+just a fraction with more decimal places, while a fraction cannot be recovered
+from a pixel count without knowing the raster it was written against.
+
 ## Migrating from v6
 
 v7 adds the `color` asset kind and the `color` field that goes with it. Both
 are new: no v6 document can contain either, so **no v6 document means anything
 different under v7**. Converting one is changing `"schema_version": 6` to
-`"schema_version": 7` and nothing else.
+`"schema_version": 7`, and then on to `8` as above.
 
 ## Migrating from v5
 
@@ -577,7 +617,7 @@ v6 adds one optional field: `by` on a keyframe track. No v5 document can
 contain it, and **absent means hand-written**, which is what every keyframe
 track in every v5 project already is. So no v5 document means anything
 different under v6 — converting one is changing `"schema_version": 5` to
-`"schema_version": 7` and nothing else.
+`"schema_version": 7`, and then on to `8` as above.
 
 ## Migrating from v4
 
@@ -597,7 +637,7 @@ v4 adds one optional field: `style` on a `text` asset. **Absent means every
 default** — white, centred, sans, a tenth of the frame high — which is what
 every text asset did before the field existed, so no v3 document means anything
 different under v4. Converting one is changing `"schema_version": 3` to
-`"schema_version": 4`, and then on to `7` as above.
+`"schema_version": 4`, and then on to `8` as above.
 
 Before v4 a text asset could not be rendered at all: the renderer refused a
 clip showing one. So the only v3 documents affected are ones that were never
@@ -608,7 +648,7 @@ renderable, and there is nothing for a migration to preserve.
 v3 added one optional field: `fit` on a clip. **Absent means `fit`**, which is
 what every clip did before the field existed, so no v2 document means anything
 different under v3 — converting one is changing `"schema_version": 2` to
-`"schema_version": 3` and then on to `7` as above.
+`"schema_version": 3` and then on to `8` as above.
 
 The version still has to be changed by hand, because this build reads exactly
 one schema version and refuses the rest. That refusal is the point: a document

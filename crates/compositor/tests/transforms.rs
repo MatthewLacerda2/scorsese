@@ -45,11 +45,13 @@ fn a_layers_own_alpha_is_honoured_as_well_as_its_opacity() {
 
 #[test]
 fn position_moves_the_layer_and_leaves_black_behind_it() {
+    // Half the raster's width, whatever the raster is: position is a fraction,
+    // so this reads the same at 64 pixels and at 4K.
     let source = solid(RED);
     let canvas = composited(&[with(
         &source,
         Properties {
-            position: (f64::from(SIZE) / 2.0, 0.0),
+            position: (0.5, 0.0),
             ..Properties::default()
         },
     )]);

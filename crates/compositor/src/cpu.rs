@@ -129,6 +129,15 @@ fn draw(
 ///
 /// and the translation is `rest + position + c − (R·S)·c`.
 ///
+/// **Position is a fraction of the canvas, and this is where it becomes
+/// pixels** — x against the canvas width, y against its height. Resolution is
+/// a render setting, so a layer nudged by a count of pixels would sit
+/// somewhere else the moment the same project was delivered at another size.
+/// Each axis resolves against its own dimension rather than both against the
+/// height: placement is what position is mostly used for, and `0.5` in x
+/// reaching the edge of a 16:9 frame reads more plainly than a diagonal that
+/// keeps its angle across aspect ratios.
+///
 /// **At θ = 0 this is exactly the matrix it always was** — `cos 0 = 1`,
 /// `sin 0 = 0`, so it reduces to `tx = rest + c·(1 − sx) + position` — which is
 /// what keeps every existing reference frame meaning what it meant. That is
@@ -159,6 +168,13 @@ fn transform_of(
     // difference is invisible and the cost is the whole layer going soft.
     let rest_x = ((canvas.width() as f32 - source.width() as f32) / 2.0).round();
     let rest_y = ((canvas.height() as f32 - source.height() as f32) / 2.0).round();
+    // Not rounded, unlike the resting place above: a fraction of the raster
+    // lands between pixels far more often than it lands on one, and a slow
+    // drift stepping a whole pixel at a time is a worse artefact than the
+    // bilinear softness that rounding avoids. Resting is static, where the
+    // softness buys nothing; a position is usually going somewhere.
+    let offset_x = layer.properties.position.0 as f32 * canvas.width() as f32;
+    let offset_y = layer.properties.position.1 as f32 * canvas.height() as f32;
     let (sin, cos) = (layer.properties.rotation as f32).to_radians().sin_cos();
     // The linear part, R·S, in tiny-skia's row order: `from_row(sx, ky, kx, sy,
     // …)` maps `x' = sx·x + kx·y + tx` and `y' = ky·x + sy·y + ty`.
@@ -169,8 +185,8 @@ fn transform_of(
         ky,
         kx,
         d,
-        rest_x + centre_x - (a * centre_x + kx * centre_y) + layer.properties.position.0 as f32,
-        rest_y + centre_y - (ky * centre_x + d * centre_y) + layer.properties.position.1 as f32,
+        rest_x + centre_x - (a * centre_x + kx * centre_y) + offset_x,
+        rest_y + centre_y - (ky * centre_x + d * centre_y) + offset_y,
     )
 }
 

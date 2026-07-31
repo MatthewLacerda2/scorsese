@@ -45,14 +45,15 @@ fn a_small_layer_leaves_the_tracks_below_it_showing() {
 
 #[test]
 fn position_offsets_a_small_layer_from_where_it_rests() {
-    // Position means the same thing it always did — output pixels from the
-    // resting place — which for a native layer is the middle rather than the
-    // top-left. Measured against the resting position above.
+    // Position is a fraction of the canvas, offsetting the layer from where it
+    // rests — which for a native layer is the middle rather than the top-left.
+    // An eighth of this 64-pixel canvas is eight pixels, so the arithmetic is
+    // visible in the assertions rather than hidden in a rounder number.
     let badge = solid_of(RED, SMALL, SMALL);
     let canvas = composited(&[Layer {
         source: &badge,
         properties: Properties {
-            position: (8.0, 0.0),
+            position: (0.125, 0.0),
             ..Properties::default()
         },
     }]);

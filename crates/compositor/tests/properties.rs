@@ -21,14 +21,14 @@ fn a_clip_that_animates_nothing_composites_as_it_arrived() {
 fn every_known_path_reaches_its_property() {
     let tracks = vec![
         constant(path::OPACITY, 0.25),
-        constant(path::POSITION_X, 10.0),
-        constant(path::POSITION_Y, -4.0),
+        constant(path::POSITION_X, 0.1),
+        constant(path::POSITION_Y, -0.04),
         constant(path::SCALE_X, 2.0),
         constant(path::SCALE_Y, 0.5),
     ];
     let properties = Properties::at(&tracks, Frames::ZERO);
     assert_eq!(properties.opacity, 0.25);
-    assert_eq!(properties.position, (10.0, -4.0));
+    assert_eq!(properties.position, (0.1, -0.04));
     assert_eq!(properties.scale, (2.0, 0.5));
 }
 
