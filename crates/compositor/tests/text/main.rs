@@ -5,6 +5,7 @@ mod cards;
 mod drawing;
 mod faces;
 mod ink;
+mod kerning;
 mod truncation;
 mod weight;
 mod wrapping;

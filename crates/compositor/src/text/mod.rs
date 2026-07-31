@@ -1,11 +1,13 @@
 //! Drawing text into a frame.
 //!
 //! tiny-skia fills paths and does no text at all, so this is a glyph pipeline
-//! of its own: `font` reads a face and its outlines, `layout` decides which
-//! characters go on which line, and `draw` fills the result into a [`Frame`]
-//! — through tiny-skia, so the compositor keeps one rasteriser rather than
-//! two that could disagree. The crate that reads the faces is **skrifa**,
-//! sized to the job; the reasoning is in `crates/compositor/Cargo.toml`.
+//! of its own: `font` reads a face, `layout` decides which characters go on
+//! which line, `shape` turns each line into the glyphs that set it — kerning
+//! and all — and `draw` fills those outlines into a [`Frame`] through
+//! tiny-skia, so the compositor keeps one rasteriser rather than two that
+//! could disagree. Two crates read the face: **skrifa** for outlines and
+//! **HarfRust** for shaping; the reasoning for both is in
+//! `crates/compositor/Cargo.toml`.
 //!
 //! **Text is a layer like any other.** What this module produces is pixels on a
 //! frame; that frame then goes through the same [`crate::compose`] path as a
@@ -24,6 +26,7 @@
 mod draw;
 mod font;
 mod layout;
+mod shape;
 
 pub use draw::draw_line;
 pub use font::{Font, FontError};
@@ -157,15 +160,15 @@ pub fn draw_in(frame: &mut Frame, text: &str, font: &Font, style: &Style, band: 
         // back to the middle of the picture one at a time.
         let left = match style.align {
             TextAlign::Left => box_left,
-            TextAlign::Center => box_left + (max_width - line.width) / 2.0,
-            TextAlign::Right => box_left + max_width - line.width,
+            TextAlign::Center => box_left + (max_width - line.shaped.width) / 2.0,
+            TextAlign::Right => box_left + max_width - line.shaped.width,
         };
         // The visual middle of a line of text sits `(ascent + descent) / 2`
         // above its baseline — descent being negative — so centring the block
         // means putting that midpoint, not the baseline, on the row's centre.
         // Baselines alone would hang every block a little low.
         let baseline = top + line_height * (row as f32 + 0.5) + (ascent + descent) / 2.0;
-        draw::line_into(&mut outlines, &face, &line.text, (left, baseline));
+        draw::line_into(&mut outlines, &face, &line.shaped, (left, baseline));
     }
     draw::stamp(frame, outlines, style.color);
 }

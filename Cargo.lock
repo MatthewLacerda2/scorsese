@@ -236,6 +236,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "harfrust"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c03d949a14aa089bbb282f7dd76a498a7f684428e4257202efc119ec010376f9"
+dependencies = [
+ "bitflags",
+ "bytemuck",
+ "read-fonts",
+ "smallvec",
+]
+
+[[package]]
 name = "heck"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -335,9 +347,9 @@ dependencies = [
 
 [[package]]
 name = "read-fonts"
-version = "0.42.1"
+version = "0.41.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c69341f5f744623061a258e9d06a0213783a89ec23b6efb88a1c0c4ed285559"
+checksum = "046a7d674daf459825b32f5062056d6882db0d2f5a479fbd76ccfc870ac18709"
 dependencies = [
  "bytemuck",
  "font-types",
@@ -360,6 +372,7 @@ dependencies = [
 name = "scorsese-compositor"
 version = "0.1.0"
 dependencies = [
+ "harfrust",
  "scorsese-core",
  "skrifa",
  "thiserror",
@@ -492,13 +505,19 @@ checksum = "3a219298ac11a56ea9a6d2120044824d6f01aeb034955e7af7bc16858527deea"
 
 [[package]]
 name = "skrifa"
-version = "0.45.1"
+version = "0.44.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd5b090b1690f1c63a8659574ea987c557f1cc571e24dedcba89458f32d0ccb5"
+checksum = "819ab7d62b1d3e72d9d9dea5650bac30424f9111364bb94928dbf5ecad1baa68"
 dependencies = [
  "bytemuck",
  "read-fonts",
 ]
+
+[[package]]
+name = "smallvec"
+version = "1.15.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8ed6a63f02c8539c91a8685a86f4099661ba3da017932f6ebbea6de3f0fa7c90"
 
 [[package]]
 name = "strict-num"
