@@ -116,6 +116,38 @@ pub enum SynthError {
         pattern: String,
     },
 
+    /// An arrangement entry's `tracks` filter names an instrument the song does
+    /// not have — the same typo as an unknown pattern, with the same
+    /// consequence: something that silently never plays.
+    #[error("song: arrangement entry for `{pattern}`: no track named `{track}` to play")]
+    UnknownTrackFilter {
+        /// The pattern the entry plays.
+        pattern: String,
+        /// The name that matched no track.
+        track: String,
+    },
+
+    /// An arrangement entry asks to transpose by something that is not a
+    /// number of semitones.
+    #[error("song: arrangement entry for `{pattern}`: transpose must be finite, got {transpose}")]
+    BadTranspose {
+        /// The pattern the entry plays.
+        pattern: String,
+        /// The transposition as written.
+        transpose: f32,
+    },
+
+    /// An arrangement entry scales velocity by something that is not a
+    /// non-negative number. Negative would be a phase inversion by another
+    /// name, which is not what "quieter" means.
+    #[error("song: arrangement entry for `{pattern}`: vel_scale must be >= 0, got {scale}")]
+    BadVelocityScale {
+        /// The pattern the entry plays.
+        pattern: String,
+        /// The scale as written.
+        scale: f32,
+    },
+
     /// A pattern's slot length decides where the next one starts.
     #[error("song: pattern `{pattern}`: beats must be positive, got {beats}")]
     BadPatternBeats {

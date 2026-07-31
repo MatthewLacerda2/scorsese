@@ -108,12 +108,7 @@ fn four_bars() -> Song {
             gain: 0.9,
         }],
         patterns,
-        arrangement: vec![
-            "a".to_owned(),
-            "b".to_owned(),
-            "a".to_owned(),
-            "b".to_owned(),
-        ],
+        arrangement: vec!["a".into(), "b".into(), "a".into(), "b".into()],
         fit: None,
         fade: None,
         tail: None,

@@ -5,7 +5,7 @@
 //! even notice. So every name is resolved and every number is checked up front.
 
 use super::timing::MAX_STRETCH;
-use super::{Note, Pattern, Song, Track};
+use super::{ArrangementEntry, Note, Pattern, Song, Track};
 use crate::error::SynthError;
 
 impl Song {
@@ -23,17 +23,57 @@ impl Song {
         if self.arrangement.is_empty() {
             return Err(SynthError::EmptyArrangement);
         }
-        for name in &self.arrangement {
-            if !self.patterns.contains_key(name) {
+        for entry in &self.arrangement {
+            if !self.patterns.contains_key(entry.pattern()) {
                 return Err(SynthError::UnknownPattern {
-                    pattern: name.clone(),
+                    pattern: entry.pattern().to_owned(),
                 });
             }
+            self.check_entry(entry)?;
         }
         for (name, pattern) in &self.patterns {
             pattern.validate(name, &self.tracks)?;
         }
         self.check_shape()
+    }
+
+    /// One arrangement entry's transforms.
+    ///
+    /// A `tracks` filter naming no real track is the same typo as an
+    /// arrangement naming no real pattern, and has the same consequence — an
+    /// instrument that silently never plays — so it gets the same treatment.
+    /// A transpose or a scale that is not a finite number is refused here
+    /// too: a NaN reaches the mix as a whole song of silence, which is a long
+    /// way from the field that caused it.
+    fn check_entry(&self, entry: &ArrangementEntry) -> Result<(), SynthError> {
+        let ArrangementEntry::Transformed(play) = entry else {
+            return Ok(());
+        };
+        if let Some(transpose) = play.transpose
+            && !transpose.is_finite()
+        {
+            return Err(SynthError::BadTranspose {
+                pattern: play.pattern.clone(),
+                transpose,
+            });
+        }
+        if let Some(scale) = play.vel_scale
+            && !(scale.is_finite() && scale >= 0.0)
+        {
+            return Err(SynthError::BadVelocityScale {
+                pattern: play.pattern.clone(),
+                scale,
+            });
+        }
+        for wanted in play.tracks.iter().flatten() {
+            if !self.tracks.iter().any(|track| &track.name == wanted) {
+                return Err(SynthError::UnknownTrackFilter {
+                    pattern: play.pattern.clone(),
+                    track: wanted.clone(),
+                });
+            }
+        }
+        Ok(())
     }
 
     /// The length and level fields, checked here rather than at render time so
