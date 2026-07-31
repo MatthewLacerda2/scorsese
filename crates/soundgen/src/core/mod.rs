@@ -54,18 +54,25 @@ const MAX_SECONDS: f32 = 60.0;
 /// Renders one note of `patch` at MIDI pitch `midi` under `opts`, returning the
 /// raw `f32` buffer — **pre-limiter**, so a caller summing several notes can
 /// limit the sum instead of each part of it.
+///
+/// Velocity is clamped once, here, and then handed to every stage that reads
+/// it. Three stages now do — the FM source, the filter and the amp envelope —
+/// and if each clamped for itself, one of them eventually would not, and a
+/// note would be struck at three subtly different strengths at once.
 pub fn render_note(patch: &Patch, midi: f32, opts: &NoteOpts) -> Result<Vec<f32>, SynthError> {
     patch.validate()?;
     let gate = gate_length(opts.duration)?;
     let n = sample_count(gate + patch.amp.r.max(0.0) + fx::tail_seconds(&patch.fx));
+    let velocity = opts.velocity.clamp(0.0, 1.0);
 
     let freqs = pitch_track(patch.lfo, midi_to_freq(midi), n);
     let mut buf = vec![0.0; n];
-    source::render(&patch.source, &freqs, opts.seed, &mut buf, RATE);
+    source::render(&patch.source, &freqs, opts.seed, velocity, &mut buf, RATE);
     if let Some(f) = patch.filter {
-        filter::apply(&mut buf, &f, &cutoff_track(&f, patch.lfo, gate, n), RATE);
+        let cutoffs = cutoff_track(&f, patch.lfo, gate, n, velocity);
+        filter::apply(&mut buf, &f, &cutoffs, RATE);
     }
-    apply_amp(&mut buf, patch, gate, opts.velocity);
+    apply_amp(&mut buf, patch, gate, velocity);
     fx::apply_chain(&mut buf, &patch.fx, RATE);
     Ok(buf)
 }
@@ -112,14 +119,23 @@ fn pitch_track(lfo: Option<Lfo>, base: f32, n: usize) -> Vec<f32> {
     }
 }
 
-/// The per-sample cutoff track: the base cutoff, swept by the filter envelope
+/// The per-sample cutoff track: the base cutoff, offset by how hard the note
+/// was struck (`vel_cutoff` Hz at full velocity), swept by the filter envelope
 /// (`env_amount` Hz at full level) and wobbled by an LFO aimed at `cutoff`
 /// (`depth` octaves either way).
-fn cutoff_track(f: &Filter, lfo: Option<Lfo>, gate: f32, n: usize) -> Vec<f32> {
+///
+/// The velocity offset joins the sum rather than scaling it, and lands *inside*
+/// the LFO's multiply: velocity says how bright this strike is, and the wobble
+/// then rides that brightness in octaves either way, as it already did the
+/// envelope's. Nothing here bounds the result — [`filter::apply`] clamps every
+/// cutoff into the SVF's stable band anyway, and doing it twice would only
+/// invite the two clamps to disagree.
+fn cutoff_track(f: &Filter, lfo: Option<Lfo>, gate: f32, n: usize, velocity: f32) -> Vec<f32> {
     let envelope = env::track(&f.adsr, gate, n, RATE);
+    let struck = f.cutoff + f.vel_cutoff * velocity;
     (0..n)
         .map(|i| {
-            let swept = f.cutoff + f.env_amount * envelope[i];
+            let swept = struck + f.env_amount * envelope[i];
             match lfo {
                 Some(l) if l.target == LfoTarget::Cutoff => {
                     swept * (l.depth * lfo_wave(&l, i)).exp2()
@@ -131,10 +147,10 @@ fn cutoff_track(f: &Filter, lfo: Option<Lfo>, gate: f32, n: usize) -> Vec<f32> {
 }
 
 /// Apply velocity, the amp envelope and any tremolo — the stage that turns a
-/// continuous tone into a note.
+/// continuous tone into a note. `velocity` arrives already clamped from
+/// [`render_note`].
 fn apply_amp(buf: &mut [f32], patch: &Patch, gate: f32, velocity: f32) {
     let envelope = env::track(&patch.amp, gate, buf.len(), RATE);
-    let velocity = velocity.clamp(0.0, 1.0);
     for (i, s) in buf.iter_mut().enumerate() {
         *s *= velocity * envelope[i] * tremolo(patch.lfo, i);
     }

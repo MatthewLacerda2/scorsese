@@ -76,6 +76,7 @@ fn pluck() -> Patch {
             // The move that makes it a pluck rather than a pad: the cutoff
             // opens on the attack and closes as the note decays.
             env_amount: 3200.0,
+            vel_cutoff: 0.0,
             adsr: Adsr {
                 a: 0.001,
                 d: 0.18,

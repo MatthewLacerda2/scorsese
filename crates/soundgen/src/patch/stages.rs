@@ -80,6 +80,23 @@ pub enum Source {
         ratio: f32,
         /// Modulation depth. Higher indices add sidebands, i.e. brightness.
         index: f32,
+        /// How much modulation depth a full-velocity strike adds to `index`.
+        /// Defaults to `0.0`: brightness fixed however hard the note is
+        /// struck, which is what every patch written before this field
+        /// existed already meant.
+        ///
+        /// The FM half of the velocity routing described on
+        /// [`Filter::vel_cutoff`], and the more literal half: in two-operator
+        /// FM the index *is* the brightness, so this is the whole difference
+        /// between a bell tapped and a bell hit.
+        ///
+        /// Added to `index` and then floored at zero. The floor is not
+        /// defensive — a negative index only mirrors the modulator, and a
+        /// mirrored modulator sounds exactly as bright as its positive twin,
+        /// so an unclamped sum would make a darkening routing start
+        /// brightening again the moment it crossed over.
+        #[serde(default)]
+        vel_index: f32,
         /// Seconds for the modulator's own decay — how fast the bright attack
         /// collapses to a near-sine body.
         #[serde(default = "mod_decay_default")]
@@ -142,6 +159,32 @@ pub struct Filter {
     /// Negative sweeps downward.
     #[serde(default)]
     pub env_amount: f32,
+    /// How many Hz a full-velocity strike adds to the cutoff. Defaults to
+    /// `0.0`, which is velocity doing nothing here — exactly what every patch
+    /// written before this field existed already meant.
+    ///
+    /// This is what makes a note read as *played* rather than *turned up*. On
+    /// any real instrument, more energy in means more energy in the upper
+    /// harmonics: a hard-picked string is not merely a louder string, it is a
+    /// brighter one, and the ear reads that change in brightness as effort.
+    /// Velocity aimed only at the fader is a large part of why a carefully
+    /// written synthesised part still sounds like a machine.
+    ///
+    /// Same Hz unit and same sign convention as [`Filter::env_amount`],
+    /// because it is the same quantity arriving from a different source — one
+    /// mental model, and the two are directly comparable when both are set.
+    /// The terms are **added**, `cutoff + env_amount × env + vel_cutoff × vel`,
+    /// so each stays independent of the others and a zero stays harmless;
+    /// multiplying would let `vel = 0` shut the filter outright, which is a
+    /// different and worse instrument.
+    ///
+    /// Negative is legal and means velocity *darkens* — a perfectly good
+    /// instrument, and the reason this is not validated as positive. The
+    /// resulting cutoff is clamped into the filter's stable band per sample,
+    /// exactly as a negative `env_amount`'s already is, so no value here can
+    /// produce an unstable filter.
+    #[serde(default)]
+    pub vel_cutoff: f32,
     /// The cutoff envelope. Defaults to the same fast shape as
     /// [`Adsr::default`].
     #[serde(default)]
