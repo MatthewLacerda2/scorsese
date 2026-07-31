@@ -59,6 +59,7 @@ macro_rules! goldens {
 
 goldens!(
     blend,
+    crop,
     cuts,
     fade,
     fill,

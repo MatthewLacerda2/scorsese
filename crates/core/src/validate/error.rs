@@ -172,6 +172,20 @@ pub enum ValidationError {
         clip: ClipId,
     },
 
+    /// A crop rectangle that runs off an edge of the source, or encloses none
+    /// of it. Fractions are what make this checkable without knowing the
+    /// source's pixel size — every edge lies in `0..=1`, and `x + width` and
+    /// `y + height` cannot pass `1`.
+    #[error("clip `{clip}` has a crop outside its source: {rectangle}")]
+    CropOutsideSource {
+        /// The clip carrying it.
+        clip: ClipId,
+        /// The rectangle as written, each edge named the way `project.json`
+        /// spells it — so the message points at a field rather than at a
+        /// description of one.
+        rectangle: String,
+    },
+
     /// One track cannot show two things at once. Touching is fine — this is
     /// a shared frame, not a rounding tolerance.
     #[error("clips `{first}` and `{second}` overlap on track `{track}`")]

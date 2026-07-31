@@ -124,6 +124,82 @@ impl Fit {
     }
 }
 
+/// A rectangle of the source, in fractions of it.
+///
+/// **The asset is never touched.** Cropping by cutting the file down is the one
+/// place the format's premise — a document describing an edit over unmodified
+/// assets — currently has to be broken to do ordinary work, and a project that
+/// does it stops being a description of an edit and becomes a description of a
+/// result: the original pixels are gone, nothing records that a sidebar was
+/// removed or from where, and the recorded `sha256` describes a file no camera
+/// and no capture ever produced.
+///
+/// **Fractions of the source, not source pixels**, and the reasoning matters
+/// more than the choice. A fraction survives the asset being *replaced* by a
+/// higher-resolution capture of the same thing — re-shoot the screenshot at 4K
+/// and the crop still means the same region, where in pixels it would silently
+/// mean a different one. That is exactly the change-your-mind-later case this
+/// exists for, so the unit must not be the one that breaks it. A fraction also
+/// validates from the document alone, where a pixel rectangle would need the
+/// source's dimensions, which are only recorded if something probed the asset.
+///
+/// This is a different question from `transform.position`, which is a fraction
+/// of the **output** raster. A crop is against the **source** raster, and the
+/// two do not have to answer the same way.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Crop {
+    /// Left edge, as a fraction of the source's width.
+    pub x: f64,
+    /// Top edge, as a fraction of the source's height.
+    pub y: f64,
+    /// How much of the source's width is kept.
+    pub width: f64,
+    /// How much of the source's height is kept.
+    pub height: f64,
+}
+
+impl Default for Crop {
+    /// The whole source — what an absent `crop` means.
+    fn default() -> Self {
+        Self {
+            x: 0.0,
+            y: 0.0,
+            width: 1.0,
+            height: 1.0,
+        }
+    }
+}
+
+impl Crop {
+    /// Each edge, paired with the name `project.json` spells it — so a message
+    /// about one names the field the author wrote rather than a description of
+    /// it.
+    pub fn edges(&self) -> [(&'static str, f64); 4] {
+        [
+            ("x", self.x),
+            ("y", self.y),
+            ("width", self.width),
+            ("height", self.height),
+        ]
+    }
+
+    /// True when the rectangle is inside the source and encloses some of it.
+    ///
+    /// Checkable from the document alone, which is the point of fractions: a
+    /// pixel rectangle would need the source's dimensions, and those are only
+    /// recorded if something probed the asset.
+    pub fn is_within_source(&self) -> bool {
+        self.edges().iter().all(|&(_, value)| value.is_finite())
+            && self.width > 0.0
+            && self.height > 0.0
+            && self.x >= 0.0
+            && self.y >= 0.0
+            && self.x + self.width <= 1.0
+            && self.y + self.height <= 1.0
+    }
+}
+
 /// One placement of an asset on a track.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -151,6 +227,10 @@ pub struct Clip {
     /// one.
     #[serde(default, skip_serializing_if = "Fit::is_default")]
     pub fit: Fit,
+    /// Which part of the source is shown. Absent means all of it, the way an
+    /// absent [`Fit`] means the ordinary case.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub crop: Option<Crop>,
     /// Properties animated over this clip.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub keyframes: Vec<KeyframeTrack>,
@@ -167,6 +247,7 @@ impl Clip {
             duration,
             source_in: Frames::ZERO,
             fit: Fit::default(),
+            crop: None,
             keyframes: Vec::new(),
         }
     }

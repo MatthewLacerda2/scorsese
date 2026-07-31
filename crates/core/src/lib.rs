@@ -58,5 +58,5 @@ pub use project::{
 };
 pub use text::{FontChoice, TextAlign, TextStyle};
 pub use time::{Fps, FpsError, FpsParseError, Frames};
-pub use timeline::{Clip, ClipId, Fit, Track, TrackId, TrackKind};
+pub use timeline::{Clip, ClipId, Crop, Fit, Track, TrackId, TrackKind};
 pub use validate::{AssetField, ValidationError, ValidationErrors};

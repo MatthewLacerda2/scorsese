@@ -8,7 +8,7 @@
 
 use std::fmt;
 
-use scorsese_core::{AssetKind, Easing, Fit};
+use scorsese_core::{AssetKind, Crop, Easing, Fit};
 
 use super::{Animated, Description, Playing, Shown, Stretch, Travel};
 
@@ -109,10 +109,11 @@ fn onscreen(playing: &Playing) -> String {
         // fitted into it, so printing a `fit` would be inventing a fact.
         Shown::Color(color) => format!("{} (color {color})", playing.asset),
         Shown::Media => format!(
-            "{} ({}, {})",
+            "{} ({}, {}{})",
             playing.asset,
             kind(playing.kind),
-            fit(playing.fit)
+            fit(playing.fit),
+            cropped(playing.crop)
         ),
     }
 }
@@ -173,6 +174,20 @@ fn clipped(text: &str) -> String {
     }
     let kept: String = flat.chars().take(PROMPT_WIDTH - 1).collect();
     format!("{}…", kept.trim_end())
+}
+
+/// The crop, when there is one, in the words the document writes it.
+///
+/// Nothing at all when the clip shows its whole source, which is nearly every
+/// clip: a line reading "crop: none" on every shot would bury the one shot
+/// where the answer is interesting.
+fn cropped(crop: Option<Crop>) -> String {
+    crop.map_or_else(String::new, |crop| {
+        format!(
+            ", crop {} {} {}x{}",
+            crop.x, crop.y, crop.width, crop.height
+        )
+    })
 }
 
 /// What a document's `fit` value is called, in the words the format uses.

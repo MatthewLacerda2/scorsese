@@ -8,6 +8,7 @@ use crate::error::{RenderError, Stage};
 use crate::settings::RenderSettings;
 use crate::tools::Tools;
 use scorsese_compositor::{Frame, PIXEL_FORMAT, Resolution};
+use scorsese_core::Crop;
 
 /// How a source meets the render's raster, resolved to pixels.
 ///
@@ -53,6 +54,8 @@ pub struct Source {
     pub frames: u64,
     /// How this source meets the raster.
     pub fitting: Fitting,
+    /// Which rectangle of the source is shown. Absent means all of it.
+    pub crop: Option<Crop>,
 }
 
 /// An ffmpeg process decoding one source into raw frames on its stdout.
@@ -99,7 +102,7 @@ impl Decoder {
             .arg(&source.file)
             .args(["-frames:v", &source.frames.to_string()])
             .arg("-vf")
-            .arg(video_filter(settings, source.fitting))
+            .arg(video_filter(settings, source.fitting, source.crop))
             .args(["-an", "-pix_fmt", PIXEL_FORMAT, "-f", "rawvideo", "-"])
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
@@ -173,8 +176,26 @@ impl Decoder {
 ///
 /// `native` scales nothing and pads nothing: the frames come out at the source's
 /// own size, and where they sit on the canvas is the compositor's business.
-fn video_filter(settings: &RenderSettings, fitting: Fitting) -> String {
+///
+/// A `crop` goes **first**, ahead of all three. The order is `source → crop →
+/// fit into the raster`, and it is the only one that makes sense: cropping
+/// after the fit would be cropping the *output*, which is a matte and a
+/// different feature. So after a crop it is the **cropped** rectangle that
+/// `fit`, `fill` and `native` reconcile against the raster — which means a crop
+/// that changes the aspect changes what `fit` does. That is correct and it
+/// should not surprise anyone, which is why it is written here.
+fn video_filter(settings: &RenderSettings, fitting: Fitting, crop: Option<Crop>) -> String {
     let rate = format!("fps={}/{}", settings.fps.num(), settings.fps.den());
+    let rate = match crop {
+        // In terms of the input's own dimensions, so the filter needs no
+        // knowledge of how big the source is and stays right when the asset is
+        // replaced by a bigger capture of the same thing.
+        Some(crop) => format!(
+            "{rate},crop=iw*{}:ih*{}:iw*{}:ih*{}",
+            crop.width, crop.height, crop.x, crop.y
+        ),
+        None => rate,
+    };
     let width = settings.resolution.width();
     let height = settings.resolution.height();
     match fitting {
