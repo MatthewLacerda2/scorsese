@@ -26,6 +26,13 @@
 //! ffmpeg builds encoding the same frames produce different bitstreams, so the
 //! bytes of an `.mp4` are not ours to assert on. Frames are.
 //!
+//! That reasoning covers the encoder at the end of a render. ffmpeg is also
+//! the decoder at the start of one, and the tolerances were never sized to
+//! absorb a different one — so each fixture records the ffmpeg its references
+//! were blessed under, and a failure says which one produced the frames it is
+//! complaining about. It is provenance for a failure to quote, never a check
+//! of its own: [`harness::decoder`].
+//!
 //! Re-blessing is a deliberate act: `UPDATE_GOLDENS=1 cargo test -p
 //! scorsese-golden` rewrites the references, and because they are PNGs the
 //! change arrives in review as an image diff a human can actually judge. When
@@ -42,5 +49,5 @@ pub mod harness;
 pub use compare::{Difference, Tolerance, compare};
 pub use fixture::{Fixture, FixtureError, Manifest, Recipe};
 pub use harness::{
-    GoldenError, Mismatch, Mismatches, Mode, Outcome, UPDATE_VARIABLE, assert_matches, run,
+    Decoder, GoldenError, Mismatch, Mismatches, Mode, Outcome, UPDATE_VARIABLE, assert_matches, run,
 };
