@@ -50,13 +50,20 @@ GATES := format size scripts clippy docs test deny app
 # is the other half: work under `app/` edited and not yet committed, which is
 # the state `make gates` is most often run in.
 #
+# Markdown is excluded because CI excludes it. This workflow's own path filter
+# drops `**.md`, so a branch changing only `app/README.md` starts no CI run at
+# all — and answering "yes" to it here would build `eframe`, `wgpu` and `winit`
+# to check a typo against a job that was never going to run. A conditional gate
+# that expensive on that little is how people learn to route around it.
+#
 # When `origin/main` is not in the clone the question cannot be answered, and
 # the answer is then *yes*. A skip has to be a decision; it must never be what
 # not knowing looks like.
+APP_PATHS := app/ ':(exclude)*.md'
 TOUCHES_APP = { \
 	! git rev-parse --verify --quiet origin/main >/dev/null 2>&1 \
-	|| ! git diff --quiet origin/main...HEAD -- app/ \
-	|| [ -n "$$(git status --porcelain -- app/)" ]; }
+	|| ! git diff --quiet origin/main...HEAD -- $(APP_PATHS) \
+	|| [ -n "$$(git status --porcelain -- $(APP_PATHS))" ]; }
 
 .DEFAULT_GOAL := help
 # `app` is on this list for a reason worth stating: there is a directory called
