@@ -186,6 +186,14 @@ review.
   much if done concurrently. There are no rigid batches: **the dependency
   graph is the plan.** Any issue with no open blockers and no stage label is
   fair game.
+- **Re-read the board after every merge, not after a batch.** A merge changes
+  the graph: whatever the merged issue blocked is fair game the moment it
+  lands. So the loop is one issue wide — merge, re-read the board, take the
+  highest-priority issue with no open blockers and no stage label, assign the
+  user, start it — and it repeats until nothing unblocked and unassigned is
+  left. Choosing a batch up front and re-checking only once it is done is what
+  this replaces: that batch is already stale by its second issue, and work
+  unblocked by the first sits waiting on the rest of it for no reason.
 - **Assign the user when you start.** The moment work begins on an issue,
   assign the user to it so it's visibly taken. Unassigned = fair game;
   assigned = in progress by someone.
@@ -222,7 +230,7 @@ review.
   Write code that is readable by design and lean — clear code is cheaper to
   reason about and faster for the next agent to extend. Keep CI fast. This is
   part of **Craft**, not a trade-off against it.
-- When working through issue batches unattended: if in doubt on an issue,
+- When working through issues unattended: if in doubt on an issue,
   leave a comment on the issue and continue if possible, rather than stalling
   the night on a chat question. Questions during *planning* conversations are
   asked right away.
