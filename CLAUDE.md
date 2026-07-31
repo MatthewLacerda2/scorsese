@@ -164,10 +164,13 @@ review.
 - **Branch naming.** A PR that closes an issue uses `{issue_number}-short-slug`
   (e.g. `3-render-pipeline`). An issue-less PR uses a readable short slug of
   its subject. Lowercase-hyphenated, brief.
-- **One worktree per issue, when issues run in parallel.** Issues that block
-  neither each other nor a common third may be worked at the same time, and
-  each gets **its own git worktree** branched off the latest `main` — one
-  checkout per branch, never two branches taking turns in one. The isolation
+- **One worktree per issue, and every unblocked issue at once.** Issues that
+  block neither each other nor a common third are worked **in parallel, all of
+  them** — five unblocked issues means five branches being built right now, not
+  the best one of the five — and each gets **its own git worktree** branched
+  off the latest `main`: one checkout per branch, never two branches taking
+  turns in one. Start as many as the machine can actually carry; if it cannot
+  carry them all, priority order decides which go first. The isolation
   is what makes a branch's gates mean anything: a shared checkout mixes
   another issue's edits into `make gates` and thrashes `target/` between
   builds. Each branch runs its own CI as a **signal** that it is healthy; the
@@ -198,12 +201,15 @@ review.
   fair game.
 - **Re-read the board after every merge, not after a batch.** A merge changes
   the graph: whatever the merged issue blocked is fair game the moment it
-  lands. So the decision is one merge wide — merge, re-read the board, take the
-  highest-priority issue with no open blockers and no stage label, assign the
-  user, start it — and it repeats until nothing unblocked and unassigned is
-  left. Choosing a batch up front and re-checking only once it is done is what
-  this replaces: that batch is already stale by its second issue, and work
-  unblocked by the first sits waiting on the rest of it for no reason.
+  lands. So the decision is one merge wide — merge, re-read the board, and
+  start **every** issue that is now unblocked, unassigned and free of a stage
+  label, each in its own worktree — repeating until the board has none left.
+  One merge that unblocks three means three more branches, not the best of the
+  three: priority orders what gets **merged**, never what gets **worked**, and
+  an unblocked issue left unstarted is capacity going to waste. Choosing a
+  batch up front and re-checking only once it is done is what this replaces:
+  that batch is already stale by its second issue, and work unblocked by the
+  first sits waiting on the rest of it for no reason.
 - **Assign the user when you start.** The moment work begins on an issue,
   assign the user to it so it's visibly taken. Unassigned = fair game;
   assigned = in progress by someone.
