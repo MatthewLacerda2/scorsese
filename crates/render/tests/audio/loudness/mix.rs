@@ -27,14 +27,19 @@ fn a_tone_of_known_amplitude_is_reported_where_it_should_be() {
         .levels
         .expect("a render with sound reports its level");
 
-    let mean = levels.mix.mean_dbfs.expect("the mix is audible");
+    let mean = levels
+        .mix
+        .whole
+        .loudness
+        .mean_dbfs
+        .expect("the mix is audible");
     let expected = sine_mean_dbfs(0.5);
     assert!(
         (mean - expected).abs() < SLACK,
         "a half-scale sine should read near {expected:.1} dBFS, and read {mean:.1}"
     );
     assert!(
-        !levels.mix.is_clipping(),
+        !levels.mix.whole.loudness.is_clipping(),
         "half scale is nowhere near the rail"
     );
     std::fs::remove_dir_all(&dir).ok();
@@ -62,6 +67,8 @@ fn a_quieter_mix_reads_quieter_by_the_amount_it_is_quieter() {
                 .levels
                 .expect("reported")
                 .mix
+                .whole
+                .loudness
                 .mean_dbfs
                 .expect("audible"),
         );

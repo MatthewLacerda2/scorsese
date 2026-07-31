@@ -44,7 +44,7 @@ fn each_audible_clip_is_reported_on_its_own() {
     );
     // And the mix is dominated by the loud one, which is exactly why the mix
     // number alone would not have found the quiet one.
-    let mix = levels.mix.mean_dbfs.expect("audible");
+    let mix = levels.mix.whole.loudness.mean_dbfs.expect("audible");
     assert!(
         (mix - of("m-loud")).abs() < 3.0,
         "mix {mix:.1} should sit near the loud clip at {:.1}",

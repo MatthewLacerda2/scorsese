@@ -44,6 +44,7 @@ Every tool takes `project`: the path of the `*.scor` directory to work on.
 | `synth_write` | replace one, **parsed first** | nothing |
 | `synth_check` | parse a recipe without rendering it | nothing |
 | `synth_bake` | render the recipes not already baked | nothing |
+| `audio_level` | how a finished sound file came out, and how it differs from another | ffmpeg |
 | `render` | encode the timeline to a file | ffmpeg, and real time |
 
 **The edit is the document.** `project_read` and `project_write` are the pair
@@ -95,6 +96,33 @@ so changing the recipe changes which file the asset wants, and the next
 `synth_bake` redoes it. Re-baking an unchanged recipe renders nothing.
 
 What to write in a recipe is [`recipes.md`](recipes.md).
+
+## Listening, for a client that cannot hear
+
+`synth_bake` reports how what it just made came out, and `audio_level` reports
+the same about any finished file — mean, peak and crest over the whole thing,
+the same again per section, and the share of the energy that is low, mid and
+high. Give `audio_level` an `against` and the two files are compared field by
+field.
+
+**That is the loop closing.** For every other part of this project a client can
+check its own work; audio is the one place it currently terminates at a human.
+Most of that gap is not real and is not papered over here — for a `synth_audio`
+asset the client *wrote the document*, so which instruments play and where the
+sections are is already in the recipe, exactly and for free. The gap that is
+real is everything that only exists **after** the render: level, spectral
+balance, and whether section C is actually bigger than section A or merely has
+more notes in it.
+
+The comparison is the part with teeth, and the reason is that an absolute
+number is hard to judge and a difference is not. Rewrite a score, re-bake,
+compare against the previous file, and the question "did the change land?" has
+an answer without anyone being asked to listen a second time.
+
+It is a **signal and never a gate** — there is no correct loudness — and it is
+not a critic. It finds defects: too quiet, clipping, muddy, a section flat
+where the arrangement said climax. It does not find taste, and a metric treated
+as an ear produces music that optimises the number and gets worse.
 
 ## Stateless, on purpose
 

@@ -40,8 +40,8 @@ fn a_low_tone_reports_its_energy_in_the_low_band() {
 #[test]
 fn a_midrange_tone_reports_its_energy_in_the_mid_band() {
     let (low, mid, high) = shares(&tone(1_000.0));
-    assert!(mid > 0.85, "1 kHz is midrange: mid {mid:.3}, low {low:.3}");
-    assert!(mid > low + high, "and it is where most of the energy is");
+    assert!(mid > 0.95, "1 kHz is midrange: mid {mid:.3}, low {low:.3}");
+    assert!(high < 0.02, "high {high:.3}");
 }
 
 /// The top of the split, which is what "thin" and "harsh" are read off.
