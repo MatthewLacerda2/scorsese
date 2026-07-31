@@ -86,7 +86,7 @@ fn a_range_describes_only_that_slice() {
 /// A shot, a narration prompt over its first half, then two seconds of nothing
 /// — one of each thing a description has to name.
 const DOCUMENT: &str = r#"{
-  "schema_version": 8,
+  "schema_version": 9,
   "name": "Teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [

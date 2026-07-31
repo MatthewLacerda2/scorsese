@@ -231,6 +231,7 @@ fn source_for(
         seek_seconds: timeline_fps.seconds(shot.source_in),
         frames,
         fitting,
+        crop: shot.clip.crop,
     }
 }
 

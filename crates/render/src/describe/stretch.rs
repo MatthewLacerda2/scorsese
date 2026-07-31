@@ -1,7 +1,7 @@
 //! One stretch of timeline, and what is on it.
 
 use scorsese_compositor::ANIMATED as DRAWN;
-use scorsese_core::{AssetKind, Fit, Fps, Rgba};
+use scorsese_core::{AssetKind, Crop, Fit, Fps, Rgba};
 
 use crate::audio::gain::ANIMATED as MIXED;
 use crate::audio::path::VOLUME;
@@ -85,6 +85,13 @@ pub struct Playing {
     /// How the source meets the raster. **Picture only** — an audio clip has no
     /// raster and this says nothing about one.
     pub fit: Fit,
+    /// Which part of the source is shown, when it is not all of it.
+    ///
+    /// Said out loud rather than left to whoever opens the document, because a
+    /// crop is the one clip property whose effect a reader would otherwise
+    /// attribute to the asset — the shot simply *looks* like that — and the
+    /// whole point of the field is that the asset is untouched.
+    pub crop: Option<Crop>,
     /// The properties animated across this stretch, in the order the document
     /// writes them.
     ///
@@ -127,6 +134,7 @@ impl Playing {
             kind: shot.asset.kind,
             shows: Shown::of(shot),
             fit: shot.clip.fit,
+            crop: shot.clip.crop,
             animated: animation::across(shot.clip, vocabulary, from.frame, to.frame, fps),
         }
     }

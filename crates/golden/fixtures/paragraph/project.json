@@ -1,5 +1,5 @@
 {
-  "schema_version": 8,
+  "schema_version": 9,
   "name": "paragraph",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [

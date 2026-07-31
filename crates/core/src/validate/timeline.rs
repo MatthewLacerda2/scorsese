@@ -27,6 +27,7 @@ pub(super) fn check(project: &Project, errors: &mut Vec<ValidationError>) {
             }
             check_reference(project, track, clip, errors);
             check_duration(clip, errors);
+            check_crop(clip, errors);
             check_keyframes(clip, errors);
         }
         check_overlaps(track, errors);
@@ -69,6 +70,25 @@ fn check_duration(clip: &Clip, errors: &mut Vec<ValidationError>) {
     if clip.duration == Frames::ZERO {
         errors.push(ValidationError::ZeroDuration {
             clip: clip.id.clone(),
+        });
+    }
+}
+
+/// A crop names a rectangle of the source in fractions of it, so a rectangle
+/// that runs off an edge or encloses nothing is checkable here — from the
+/// document alone, without knowing how big the source is. That the source
+/// *exists* is the render's to find out, as it is for every path.
+fn check_crop(clip: &Clip, errors: &mut Vec<ValidationError>) {
+    let Some(crop) = clip.crop else {
+        return;
+    };
+    if !crop.is_within_source() {
+        errors.push(ValidationError::CropOutsideSource {
+            clip: clip.id.clone(),
+            rectangle: crop
+                .edges()
+                .map(|(field, value)| format!("{field} {value}"))
+                .join(", "),
         });
     }
 }

@@ -81,6 +81,14 @@ impl Sizes {
     /// the plan is measured — and falling back to fitting it is the safe way to
     /// be wrong: the picture is the wrong size, rather than the pipe being read
     /// at the wrong stride and every later frame sliding.
+    ///
+    /// A **cropped** native layer is the cropped pixels at their own size,
+    /// which is what "native" has to mean if it means anything: the crop runs
+    /// before the fit, so by the time `native` is deciding what arrives, the
+    /// source is already the rectangle rather than the file. Getting this
+    /// wrong would not merely be the wrong size on screen — the buffer reading
+    /// the pipe is sized from this, so it would be read at the wrong stride
+    /// and every later frame would slide.
     pub fn fitting(&self, shot: &Shot<'_>) -> Fitting {
         match shot.clip.fit {
             Fit::Fit => Fitting::Fit,
@@ -88,9 +96,27 @@ impl Sizes {
             Fit::Native => self
                 .native
                 .get(&shot.asset.id)
-                .map_or(Fitting::Fit, |&size| Fitting::Native(size)),
+                .map_or(Fitting::Fit, |&size| {
+                    Fitting::Native(cropped(size, shot.clip.crop))
+                }),
         }
     }
+}
+
+/// What a crop leaves of a source, in pixels.
+///
+/// ffmpeg's `crop` rounds the same way — `iw*w` truncated to whole pixels — and
+/// the two must agree, because one sizes the buffer and the other fills it.
+/// At least one pixel each way: a rectangle that rounds to nothing is a raster
+/// nothing can be read into, and validation has already established that the
+/// fractions themselves enclose some of the source.
+fn cropped(size: Resolution, crop: Option<scorsese_core::Crop>) -> Resolution {
+    let Some(crop) = crop else {
+        return size;
+    };
+    let width = (f64::from(size.width()) * crop.width) as u32;
+    let height = (f64::from(size.height()) * crop.height) as u32;
+    Resolution::source(width.max(1), height.max(1)).unwrap_or(size)
 }
 
 /// The asset's own pixel size, from what was probed at import or from a probe

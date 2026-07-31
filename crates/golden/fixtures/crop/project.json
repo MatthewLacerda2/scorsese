@@ -1,0 +1,21 @@
+{
+  "schema_version": 9,
+  "name": "crop",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [{ "id": "quarters", "kind": "video", "path": "assets/quarters.mp4" }],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-quarters",
+          "asset": "quarters",
+          "start": 0,
+          "duration": 15,
+          "crop": { "x": 0.5, "y": 0.0, "width": 0.5, "height": 0.5 }
+        }
+      ]
+    }
+  ]
+}

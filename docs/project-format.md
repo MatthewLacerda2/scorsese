@@ -1,4 +1,4 @@
-# `project.json` — schema v8
+# `project.json` — schema v9
 
 The contract between the CLI, the MCP server, the GUI, and every project
 saved on someone's disk. It is meant to be hand-written: an agent should be
@@ -12,7 +12,7 @@ bump and a migration note.
 
 ```json project
 {
-  "schema_version": 8,
+  "schema_version": 9,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -330,13 +330,64 @@ half a pixel out would soften every edge in the layer. A source **larger** than
 the raster is clipped by it rather than being shrunk: native means native.
 
 `fit` is picture only. An audio clip has no raster, and a `fit` on one is
-meaningless rather than invalid. Anchors other than the centre, per-clip crop
-rectangles, and stretch-to-fill are not here: the last one is what
-`transform.scale.*` already does for anyone who truly wants it.
+meaningless rather than invalid. Anchors other than the centre and
+stretch-to-fill are not here: the last one is what `transform.scale.*` already
+does for anyone who truly wants it.
+
+### Showing part of a source: `crop`
+
+```json clip
+{ "id": "c-panel", "asset": "screenshot", "start": 0, "duration": 120,
+  "crop": { "x": 0.158, "y": 0.079, "width": 0.842, "height": 0.921 } }
+```
+
+A rectangle of the source, **in fractions of it**, aligned to the source's own
+axes. Absent means the whole thing, the way an absent `fit` means the ordinary
+case. All four fields are required when the rectangle is there: a partial one
+is a rectangle whose other edges nobody stated.
+
+**The asset is never touched**, and that is the point rather than a detail.
+Cropping by cutting the file down is the one place this format's premise — a
+document describing an edit over unmodified assets — has to be broken to do
+ordinary work. Do it and the original pixels are gone, so "show more of the
+map" means going back to the machine the screenshot came from; nothing in
+`project.json` records that a sidebar was removed, or from where; and `sha256`
+and `media` describe a file no camera and no capture ever produced. As a clip
+property it is an edit you can change your mind about, like every other one.
+
+**Fractions, not source pixels**, and the reasoning is worth more than the
+choice. A fraction survives the asset being *replaced* by a higher-resolution
+capture of the same thing: re-shoot the screenshot at 4K and the crop still
+means the same region, where in pixels it would silently mean a different one —
+and changing the crop later is exactly what the field is for. A fraction is
+also checkable from the document alone, where a pixel rectangle would need the
+source's dimensions, which are recorded only if something probed the asset.
+
+**Crop happens before fit.** The order is `source → crop → fit into the raster
+→ transform → composite`, and it is the only one that makes sense: cropping
+after the fit would be cropping the *output*, which is a matte and a different
+feature. So after a crop it is the **cropped rectangle** that `fit`, `fill` and
+`native` reconcile against the raster — a crop that changes the aspect
+therefore changes what `fit` does, and a cropped `native` layer is the cropped
+pixels at their own size.
+
+A rectangle that runs off an edge of the source, or encloses none of it, is a
+validation error naming the clip and the edges as they are written.
+
+This is a different question from `transform.position`, which is a fraction of
+the **output** raster. A crop is against the **source** raster, and the two do
+not have to answer the same way.
+
+**Not a mask, not a shape, not rotation-aware, not per-corner**, and not
+animatable: the crop is applied as the source is decoded, ahead of the fit, so
+it is one rectangle for the clip rather than a value the compositor resolves
+per frame. Animating it would mean moving the fit into the compositor, which is
+its own piece of work.
 
 A clip carries `start` and `duration` on the timeline, an optional
 `source_in` offset into the media (default `0`), an optional `fit`
-(default `fit`), and optional `keyframes`.
+(default `fit`), an optional `crop` (default the whole source), and optional
+`keyframes`.
 `source_in` counts in **timeline** frames too — "skip the first two seconds"
 means the same thing whatever the source was shot at, and the conform rule
 below turns it into a source frame.
@@ -575,6 +626,14 @@ asset still awaiting generation is neither. A `style`'s font file is a path like
 applies: the shape is validated here, and whether the face is really on disk is
 the render's to find out.
 
+## Migrating from v8
+
+v9 adds one optional field: `crop` on a clip. No v8 document can contain it,
+and **absent means the whole source**, which is what every clip did before the
+field existed. So no v8 document means anything different under v9 —
+converting one is changing `"schema_version": 8` to `"schema_version": 9` and
+nothing else.
+
 ## Migrating from v7
 
 v8 changes the **unit** of `transform.position.x` and `transform.position.y`
@@ -609,7 +668,7 @@ from a pixel count without knowing the raster it was written against.
 v7 adds the `color` asset kind and the `color` field that goes with it. Both
 are new: no v6 document can contain either, so **no v6 document means anything
 different under v7**. Converting one is changing `"schema_version": 6` to
-`"schema_version": 7`, and then on to `8` as above.
+`"schema_version": 7`, and then on to `9` as above.
 
 ## Migrating from v5
 
@@ -617,7 +676,7 @@ v6 adds one optional field: `by` on a keyframe track. No v5 document can
 contain it, and **absent means hand-written**, which is what every keyframe
 track in every v5 project already is. So no v5 document means anything
 different under v6 — converting one is changing `"schema_version": 5` to
-`"schema_version": 7`, and then on to `8` as above.
+`"schema_version": 7`, and then on to `9` as above.
 
 ## Migrating from v4
 
@@ -637,7 +696,7 @@ v4 adds one optional field: `style` on a `text` asset. **Absent means every
 default** — white, centred, sans, a tenth of the frame high — which is what
 every text asset did before the field existed, so no v3 document means anything
 different under v4. Converting one is changing `"schema_version": 3` to
-`"schema_version": 4`, and then on to `8` as above.
+`"schema_version": 4`, and then on to `9` as above.
 
 Before v4 a text asset could not be rendered at all: the renderer refused a
 clip showing one. So the only v3 documents affected are ones that were never
@@ -648,7 +707,7 @@ renderable, and there is nothing for a migration to preserve.
 v3 added one optional field: `fit` on a clip. **Absent means `fit`**, which is
 what every clip did before the field existed, so no v2 document means anything
 different under v3 — converting one is changing `"schema_version": 2` to
-`"schema_version": 3` and then on to `8` as above.
+`"schema_version": 3` and then on to `9` as above.
 
 The version still has to be changed by hand, because this build reads exactly
 one schema version and refuses the rest. That refusal is the point: a document
