@@ -51,7 +51,7 @@ fn the_two_faces_set_a_title_to_about_the_same_width() {
 
 #[test]
 fn a_project_can_bring_a_font_of_its_own() {
-    let brought = Font::from_bytes(SERIF_FILE).expect("a real font file parses");
+    let brought = Font::from_bytes(SERIF_FILE, None).expect("a real font file parses");
     assert_eq!(
         set_in(&brought).bytes(),
         set_in(Font::serif()).bytes(),
@@ -61,7 +61,7 @@ fn a_project_can_bring_a_font_of_its_own() {
 
 #[test]
 fn something_that_is_not_a_font_is_refused() {
-    let error = Font::from_bytes(b"this is not a font").expect_err("must refuse");
+    let error = Font::from_bytes(b"this is not a font", None).expect_err("must refuse");
     assert!(
         error.to_string().contains("not a font"),
         "the message should say what is wrong; got `{error}`"

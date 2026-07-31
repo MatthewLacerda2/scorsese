@@ -1,4 +1,4 @@
-# `project.json` — schema v10
+# `project.json` — schema v11
 
 The contract between the CLI, the MCP server, the GUI, and every project
 saved on someone's disk. It is meant to be hand-written: an agent should be
@@ -12,7 +12,7 @@ bump and a migration note.
 
 ```json project
 {
-  "schema_version": 10,
+  "schema_version": 11,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -42,7 +42,7 @@ re-importing or regenerating a file is one edit in one place.
 | `recipe` | `synth_audio` | Path to the document to synthesise from, by convention under `recipes/` |
 | `state` | `generated_*`, `synth_audio` | `sketch`, `queued`, `generated`, `stale` |
 | `text` | `text` | The string to render; text assets carry content inline and have no `path` |
-| `style` | optional, `text` only | How that string looks: `font`, `size`, `color`, `align`, `line_height`, `max_width` — see below |
+| `style` | optional, `text` only | How that string looks: `font`, `weight`, `size`, `color`, `align`, `line_height`, `max_width` — see below |
 | `color` | `color` | The colour to fill with, as `#rrggbb` or `#rrggbbaa`; colour assets have no `path` |
 
 ```json asset
@@ -140,6 +140,7 @@ which is the title most people meant.
 | Field | Default | Meaning |
 | --- | --- | --- |
 | `font` | `sans` | `sans`, `serif`, or a path to a font file inside the project |
+| `weight` | *none* | How heavy, 1–1000 — **required** for a variable font, refused for anything else |
 | `size` | `0.1` | Em size as a fraction of the frame's **height** |
 | `color` | `#ffffff` | `#rrggbb`, or `#rrggbbaa` for text you can see through |
 | `align` | `center` | `left`, `center`, `right` — within the wrapped block |
@@ -162,6 +163,55 @@ the repository rather than looked up on the system, because a system lookup
 resolves differently on every platform and text has to render identically
 everywhere.
 
+#### Weight, and the variable font that would otherwise render hairline
+
+```json asset
+{ "id": "title", "kind": "text", "text": "Chapter One",
+  "style": { "font": "assets/Manrope[wght].ttf", "weight": 700, "size": 0.12 } }
+```
+
+**Most modern open fonts ship only as variable files**, and that fact is the
+reason this field exists. Google Fonts serves `Manrope[wght].ttf`,
+`Outfit[wght].ttf` and `PlusJakartaSans[wght].ttf` and nothing else for those
+families: one file holding a continuous range of weights, plus a *default
+instance* the designer picked. That default is very often not Regular.
+
+| family | its own default | what "no weight" would give you |
+| --- | --- | --- |
+| Manrope | 200 | ExtraLight |
+| Outfit | 100 | Thin |
+| Plus Jakarta Sans | 400 | Regular |
+
+So **a variable font with no `weight` is refused**, by name, saying the file is
+variable and what range its axis covers. There is no fallback to 400 and no
+falling back to the file's own default, for the same reason a `color` asset has
+no default colour: a title card set in hairline Thin at a tenth of the frame is
+a shot rendered wrong, and a document that produced it would look entirely
+correct. The rule this is holding is that **a project which renders wrong must
+not render silently**.
+
+The other three cases follow from the same rule:
+
+- **A weight the file's axis does not reach is refused**, with the range it
+  does reach. Manrope stops at 800, so `900` is an error rather than a quiet
+  clamp — clamping is the same silent substitution one step along.
+- **A weight on a static font is refused.** A file with no `wght` axis has one
+  weight; silently ignoring a field you wrote is how you come to insist your
+  bold is broken.
+- **A weight on `sans` or `serif` is refused.** The shipped faces are one
+  static weight each. This one is caught by validation rather than at the
+  render, because it needs no file to know.
+
+`weight` is the *only* axis read. Optical size, width and slant are real axes
+and none of them is what "make this bold" means.
+
+**One file, every weight**, which is the other half of what this buys. A
+project wanting a bold title and a regular caption points both at the same
+`.ttf` and names 700 and 400 — no second copy of the family, and no instancing
+a static face with `fonttools` outside the project first. Weights the designer
+never drew work too: `500` is a position on the axis, not the nearer of two
+neighbours.
+
 The text is laid out centred on the frame, wrapped to `max_width`, and
 truncated with an ellipsis if it is taller than the picture. **Moving it is
 `transform.position.x` and `transform.position.y`**, and fading it is
@@ -171,7 +221,10 @@ slides and fades needs nothing here. `fit` is meaningless on a text clip:
 there is no source raster to reconcile, since the text is drawn at whatever
 size the render is.
 
-Bold, italic, per-character animation, outlines and shadows are not here yet.
+Italic, per-character animation, outlines and shadows are not here yet. Bold is
+`weight` on a variable font, and nothing more than that: there is no `bold`
+flag, because a flag would be a second, coarser way to say a number that
+already exists.
 
 ### Colour assets
 
@@ -697,6 +750,34 @@ asset still awaiting generation is neither. A `style`'s font file is a path like
 applies: the shape is validated here, and whether the face is really on disk is
 the render's to find out.
 
+`style.weight` splits the same way, and the split is worth reading once. What
+the document alone can say is checked here: `sans` and `serif` are faces
+scorsese ships and knows to be static, so a weight beside one is refused
+without opening anything, and a number outside OpenType's own 1–1000 is not a
+weight for any face. What only the *file* can answer — whether it is variable
+at all, and how far its `wght` axis runs — is refused at the render, in the
+same breath as "this is not a font I can read".
+
+## Migrating from v10
+
+v11 adds one optional field: `weight` on a text asset's `style`. No v10 document
+can contain it, so **converting one is changing `"schema_version": 10` to
+`"schema_version": 11`** — with one thing to check first, and it is the reason
+the field exists.
+
+**A v10 project that names a variable font file will now be refused rather than
+rendered.** Under v10 such a project rendered at whatever instance the file's
+`fvar` table called default, which for most of the families people reach for is
+not Regular: ExtraLight in Manrope, Thin in Outfit. Add the `weight` that shot
+was meant to be set at and it renders again.
+
+That is a change to what an already-written document does, and it is deliberate.
+The alternative — carry on and warn — leaves a render that is wrong in a way
+nobody has to look at, and the v10 behaviour is not a behaviour anyone chose:
+it is the absence of one. Projects naming `sans`, `serif`, or a static font
+file are unaffected, which is every project written before variable fonts came
+up at all.
+
 ## Migrating from v9
 
 v10 adds one optional field: `anchor` on a clip. No v9 document can contain it,
@@ -711,7 +792,7 @@ v9 adds one optional field: `crop` on a clip. No v8 document can contain it,
 and **absent means the whole source**, which is what every clip did before the
 field existed. So no v8 document means anything different under v9 —
 converting one is changing `"schema_version": 8` to `"schema_version": 9`, and
-then on to `10` as above.
+then on to `11` as above.
 
 ## Migrating from v7
 
@@ -747,7 +828,7 @@ from a pixel count without knowing the raster it was written against.
 v7 adds the `color` asset kind and the `color` field that goes with it. Both
 are new: no v6 document can contain either, so **no v6 document means anything
 different under v7**. Converting one is changing `"schema_version": 6` to
-`"schema_version": 7`, and then on to `10` as above.
+`"schema_version": 7`, and then on to `11` as above.
 
 ## Migrating from v5
 
@@ -755,14 +836,14 @@ v6 adds one optional field: `by` on a keyframe track. No v5 document can
 contain it, and **absent means hand-written**, which is what every keyframe
 track in every v5 project already is. So no v5 document means anything
 different under v6 — converting one is changing `"schema_version": 5` to
-`"schema_version": 7`, and then on to `10` as above.
+`"schema_version": 7`, and then on to `11` as above.
 
 ## Migrating from v4
 
 v5 adds the `synth_audio` asset kind and the `recipe` field that goes with it.
 Both are new: no v4 document can contain either, so **no v4 document means
 anything different under v5**. Converting one is changing `"schema_version": 4`
-to `"schema_version": 5` and nothing else.
+to `"schema_version": 5`, and then on to `11` as above.
 
 A v5 project directory also has a `recipes/` directory, which `scorsese new`
 creates. A converted v4 project does not have one until something writes a
@@ -775,7 +856,7 @@ v4 adds one optional field: `style` on a `text` asset. **Absent means every
 default** — white, centred, sans, a tenth of the frame high — which is what
 every text asset did before the field existed, so no v3 document means anything
 different under v4. Converting one is changing `"schema_version": 3` to
-`"schema_version": 4`, and then on to `10` as above.
+`"schema_version": 4`, and then on to `11` as above.
 
 Before v4 a text asset could not be rendered at all: the renderer refused a
 clip showing one. So the only v3 documents affected are ones that were never
@@ -786,7 +867,7 @@ renderable, and there is nothing for a migration to preserve.
 v3 added one optional field: `fit` on a clip. **Absent means `fit`**, which is
 what every clip did before the field existed, so no v2 document means anything
 different under v3 — converting one is changing `"schema_version": 2` to
-`"schema_version": 3` and then on to `10` as above.
+`"schema_version": 3` and then on to `11` as above.
 
 The version still has to be changed by hand, because this build reads exactly
 one schema version and refuses the rest. That refusal is the point: a document

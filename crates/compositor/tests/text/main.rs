@@ -6,4 +6,5 @@ mod drawing;
 mod faces;
 mod ink;
 mod truncation;
+mod weight;
 mod wrapping;

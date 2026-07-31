@@ -38,6 +38,14 @@ colours, test patterns — so the repository never carries sample footage. The
 recipe lives in `fixture.json`, keyed by asset id; the file name comes from the
 asset's `path` in `project.json`, so it is written down once.
 
+A fixture may also carry an `assets/` directory of its own, which the harness
+copies into the scratch project verbatim. That is for the files ffmpeg cannot
+conjure, and there is exactly one kind of them today: a **font**. A face is not
+footage — it is the same bytes on every machine, and no `lavfi` source will
+ever produce one — so a fixture testing that a project can bring its own font
+has no other way to say so. `weight` is the fixture that does. The rule above
+is unmoved: media is still generated, never committed.
+
 `fixture.json` names the frames to compare. Choose the boundaries: the last
 frame of a clip and the first frame of the next, either side of a gap, the first
 and last frame of a held still. That is where an off-by-one hides, and a fixture

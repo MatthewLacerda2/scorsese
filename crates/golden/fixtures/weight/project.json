@@ -1,0 +1,39 @@
+{
+  "schema_version": 11,
+  "name": "weight",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    {
+      "id": "light",
+      "kind": "text",
+      "text": "AB",
+      "style": {
+        "font": "assets/Manrope[wght].ttf",
+        "weight": 200,
+        "size": 0.5,
+        "color": "#ffcc00"
+      }
+    },
+    {
+      "id": "heavy",
+      "kind": "text",
+      "text": "AB",
+      "style": {
+        "font": "assets/Manrope[wght].ttf",
+        "weight": 800,
+        "size": 0.5,
+        "color": "#ffcc00"
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [
+        { "id": "c-light", "asset": "light", "start": 0, "duration": 15 },
+        { "id": "c-heavy", "asset": "heavy", "start": 15, "duration": 15 }
+      ]
+    }
+  ]
+}

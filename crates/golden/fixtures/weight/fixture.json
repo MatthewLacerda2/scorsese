@@ -1,0 +1,6 @@
+{
+  "description": "The same two letters, from the same font file, at two weights. Frame 0 is `AB` at `weight: 200` and frame 15 is `AB` at `weight: 800`, both set in `assets/Manrope[wght].ttf` — one variable file, no second copy of the family, which is the capability this fixture exists to hold. What breaks it is a build that stops instancing the `wght` axis: the two references would collapse onto each other, because a font read at its default location draws every weight the same. Manrope's own default is 200, so such a build would match frame 0 exactly and fail only on frame 15 — the ExtraLight-by-accident this whole feature was written against, caught as pixels. The font is committed in this fixture's `assets/`, which the harness copies in verbatim: a face is not footage and no lavfi source can produce one.",
+  "media": {},
+  "render": { "resolution": "192x108", "fps": "30" },
+  "frames": [0, 15]
+}
