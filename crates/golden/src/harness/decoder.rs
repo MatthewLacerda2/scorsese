@@ -5,7 +5,7 @@
 //! *end* of a render. ffmpeg is also the **decoder** at the start of one: every
 //! pixel the compositor works on arrived from it, and two builds far enough
 //! apart need not hand over the same ones. The tolerances in
-//! [`compare`](crate::compare) were sized for encoder noise and say so; they
+//! [`compare`](mod@crate::compare) were sized for encoder noise and say so; they
 //! were never sized to absorb a different decoder.
 //!
 //! So a reference records the ffmpeg it was blessed under, and a failure can
