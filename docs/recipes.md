@@ -191,6 +191,9 @@ Output is **mono, 16-bit PCM, 44.1 kHz**. A render resamples and upmixes it
 into the mix exactly as it would any imported file, so a recipe never has to
 know what the finished video will be delivered at.
 
+Mono is a settled decision rather than a stage on the way to stereo, so there
+is no panning and no width: a recipe places a sound in *time*, never in space.
+
 ## What is refused
 
 Only what would produce silence, a divide-by-zero, an unstable filter or an
