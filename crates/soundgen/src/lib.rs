@@ -46,9 +46,26 @@
 //!
 //! ## Rate and channels
 //!
-//! Everything renders at [`SAMPLE_RATE`], in mono. That is deliberate rather
-//! than a limitation to work around: a bake is addressed by the hash of its
-//! recipe, so it must not depend on what some later render happens to ask for.
+//! Everything renders at [`SAMPLE_RATE`], in mono. Both are deliberate rather
+//! than limitations to work around, and they are deliberate for **different
+//! reasons** — which is worth separating, because one argument does not carry
+//! the other.
+//!
+//! The **rate** is fixed because a bake is addressed by the hash of its recipe,
+//! so it must not depend on what some later render happens to ask for. A rate
+//! that followed the render would give one recipe many different files under
+//! one hash.
+//!
+//! That argument says nothing about **channels**: it asks only that the count
+//! be fixed, and two is as fixed as one. Mono is chosen on its own terms, and
+//! the terms are simplicity. Every buffer in this crate is one `Vec<f32>`, so
+//! every source, filter, envelope and effect is a single-buffer function; the
+//! limiter clamps one signal rather than linking two so a stereo image does not
+//! lurch when it acts; and no recipe, and no agent writing one, ever has to
+//! think about width. **Stereo and panning are declined, not deferred** — a
+//! song-level effects bus is where they would naturally arrive, and they do not
+//! arrive there either.
+//!
 //! `scorsese-render` resamples and upmixes every audio source on the way into
 //! the mix — a synthesised file takes exactly the path an imported mono file
 //! does.
