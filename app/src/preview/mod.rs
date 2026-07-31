@@ -12,11 +12,17 @@
 //! are one position with two views — two copies would disagree the first moment
 //! someone dragged one.
 //!
+//! [`save`] is that same frame kept: the button under the picture writes the
+//! instant under the playhead out as a PNG, composited again at delivery
+//! resolution rather than lifted off the panel — a screengrab of a preview pane
+//! is not what the film looks like.
+//!
 //! Sound plays with it, and the same rule holds: every sample comes from the
 //! renderer's own mixer, so what you hear is what ships. See [`sound`] for how
 //! it is made and, more importantly, for which of the two is the clock — the
 //! answer is not the one this module started with.
 
+mod save;
 mod sound;
 mod still;
 mod transport;
@@ -26,6 +32,7 @@ use scorsese_core::{Fps, Frames};
 
 use crate::editing::{Editing, length};
 use crate::project::Open;
+use save::Saved;
 use still::Still;
 use transport::Command;
 
@@ -36,6 +43,10 @@ pub(crate) struct Preview {
     picture: Still,
     /// Set while the transport is running.
     playing: Option<Playing>,
+    /// What became of the last frame someone asked to keep. Held so it can be
+    /// said under the transport — a save that reported nothing would be
+    /// indistinguishable from a button that does nothing.
+    saved: Option<Saved>,
 }
 
 /// A run of the transport: where the playhead was when play was pressed, when
@@ -106,8 +117,17 @@ impl Preview {
                     self.playing = None;
                 }
                 Some(Command::Toggle) => self.toggle(open, editing.playhead, last),
+                // Composited again rather than taken off the panel above: the
+                // preview draws at a reduced raster, and a kept frame is the
+                // one a render would deliver.
+                Some(Command::Keep) => {
+                    if let Some(outcome) = save::frame(open, editing.playhead.min(last)) {
+                        self.saved = Some(outcome);
+                    }
+                }
                 None => {}
             }
+            save::note(ui, self.saved.as_ref());
         });
 
         // Clamped rather than refused: the timeline lets the playhead rest one

@@ -2,7 +2,7 @@
 //!
 //! `Command` is the whole of what the binary does — one variant per verb, each
 //! carrying only what that verb takes. The second subcommand level, and the
-//! enumerated values a flag accepts, are [`actions`]: kept apart because this
+//! enumerated values a flag accepts, are `actions`: kept apart because this
 //! file answers "what can scorsese be asked to do?" and that one answers "what
 //! words may an answer be spelled with?".
 

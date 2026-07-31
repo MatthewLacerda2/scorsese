@@ -68,6 +68,15 @@ nothing may depend on `crates/golden`, so the harness is a caller of it rather
 than the owner. Every fixture passing unchanged across that move is what says
 the two were the same code.
 
+**`scorsese still` is not a shortcut for this, and must never become one.** It
+composites a frame and writes it out without opening an encoder, which is what
+makes it fast and what makes it useless here: this gate exists to catch what a
+*delivered file* holds, and a picture that never went through an encoder cannot
+answer that. The two are halves of one question — `still` asks what the
+compositor produced, `--stills` asks what came back out of the file — and
+swapping one for the other would quietly narrow what these fixtures prove to
+something they already proved.
+
 Each compared frame is measured two ways, both with tolerance:
 
 - **SSIM** on the worst 8×8 block, on luma — catches *where* pixels are. A shape
