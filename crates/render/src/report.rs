@@ -4,6 +4,7 @@ use std::fmt;
 
 use scorsese_core::{Fps, Frames};
 
+use crate::audio::SoundLevels;
 use crate::describe::Description;
 use crate::settings::Resolution;
 
@@ -169,6 +170,14 @@ pub struct RenderReport {
     /// How much soundtrack the output carries. `None` means the render has no
     /// audio stream at all, which is not the same as a stream of silence.
     pub seconds_of_audio: Option<f64>,
+    /// How loud it came out — the mix, and each clip's contribution to it.
+    /// `None` when there is no audio stream to measure.
+    ///
+    /// A **signal**, not a gate: nothing here can fail a render, because there
+    /// is no correct loudness. What it replaces is a habit — running
+    /// `ffmpeg -af volumedetect` by hand after every render — with a number the
+    /// command says on its own.
+    pub levels: Option<SoundLevels>,
     /// Everything the render wants a second look at. Empty is the good case;
     /// a caller that ignores this is the failure mode [`Note`] exists for.
     pub notes: Vec<Note>,

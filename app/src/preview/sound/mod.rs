@@ -169,7 +169,7 @@ fn mix(project: &Project, root: &Path, from: Frames, rate: u32) -> Result<Vec<f3
     let settings = RenderSettings::new(raster, fps).with_audio(rate, None);
 
     let scratch = scratch_path();
-    let Some((mixdown, _notes)) =
+    let Some((mixdown, _notes, _levels)) =
         mixdown(&tools, &settings, &plan, root, &scratch).map_err(|error| error.to_string())?
     else {
         return Ok(Vec::new());

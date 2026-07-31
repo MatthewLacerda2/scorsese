@@ -5,6 +5,7 @@ use std::path::Path;
 use anyhow::{Context, Result, bail};
 use scorsese_core::{AssetId, Project};
 use scorsese_providers::synth::{self, Baked, Starter};
+use scorsese_render::say;
 
 /// Writes a starter recipe and the asset that points at it.
 pub fn new(project_dir: &Path, name: &str, starter: Starter) -> Result<()> {
@@ -71,9 +72,16 @@ pub fn check(recipe: &Path) -> Result<()> {
 fn report(baked: &[(AssetId, Baked)]) {
     for (id, outcome) in baked {
         match outcome {
-            Baked::Rendered { path, bytes } => {
+            Baked::Rendered {
+                path,
+                bytes,
+                loudness,
+            } => {
                 println!("{id} — baked, {} KB", bytes / 1024);
                 println!("  {path}");
+                // A recipe's level is a property of the recipe, so saying it
+                // here is saying it before the sound is ever mixed.
+                println!("  {}", say::loudness(loudness));
             }
             Baked::Cached { path } => {
                 println!("{id} — already baked");

@@ -74,6 +74,7 @@ pub mod core;
 pub mod error;
 pub mod fx;
 pub mod hash;
+pub mod level;
 pub mod note;
 pub mod patch;
 pub mod song;
@@ -93,13 +94,13 @@ pub use song::{PatchResolver, Song, render_song};
 ///
 /// The output is limited before encoding, always. A bake must not clip, and
 /// that is not the recipe's decision to make.
-pub fn bake_note(patch: &Patch, midi: f32, opts: &NoteOpts) -> Result<Vec<u8>, SynthError> {
-    Ok(wav::encode(&core::render_limited(patch, midi, opts)?))
+pub fn bake_note(patch: &Patch, midi: f32, opts: &NoteOpts) -> Result<Bake, SynthError> {
+    Ok(Bake::of(&core::render_limited(patch, midi, opts)?))
 }
 
 /// Render one note of `patch`, naming the note the way a score does (`"C#4"`,
 /// or a MIDI number as text), and encode it as a WAV.
-pub fn bake_named_note(patch: &Patch, note: &str, opts: &NoteOpts) -> Result<Vec<u8>, SynthError> {
+pub fn bake_named_note(patch: &Patch, note: &str, opts: &NoteOpts) -> Result<Bake, SynthError> {
     bake_note(patch, parse_note(note)?, opts)
 }
 
@@ -107,6 +108,34 @@ pub fn bake_named_note(patch: &Patch, note: &str, opts: &NoteOpts) -> Result<Vec
 ///
 /// `resolve` supplies the patch behind any track that names its instrument by
 /// reference rather than carrying it inline — see [`PatchResolver`].
-pub fn bake_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Vec<u8>, SynthError> {
-    Ok(wav::encode(&render_song(song, resolve)?))
+pub fn bake_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Bake, SynthError> {
+    Ok(Bake::of(&render_song(song, resolve)?))
+}
+
+/// A finished bake: the file, and how loud it came out.
+///
+/// The loudness rides along rather than being a second call, because the only
+/// place the samples exist is inside the bake — handing back bytes alone would
+/// mean decoding the WAV again to learn something that was in hand a moment
+/// earlier. A recipe's level is a property of the recipe, so catching it here
+/// is catching it before it is ever mixed.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Bake {
+    /// The encoded file, mono 16-bit PCM.
+    pub wav: Vec<u8>,
+    /// How loud the samples were, measured before encoding.
+    pub loudness: level::Loudness,
+}
+
+impl Bake {
+    /// Encodes and measures one buffer. Mono, as everything this crate makes
+    /// is.
+    fn of(samples: &[f32]) -> Self {
+        let mut meter = level::Meter::new(1);
+        meter.feed(samples);
+        Self {
+            wav: wav::encode(samples),
+            loudness: meter.finish(),
+        }
+    }
 }

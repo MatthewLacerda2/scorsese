@@ -415,6 +415,7 @@ version = "0.1.0"
 dependencies = [
  "scorsese-compositor",
  "scorsese-core",
+ "scorsese-soundgen",
  "serde",
  "serde_json",
  "thiserror",

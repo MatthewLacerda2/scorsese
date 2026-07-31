@@ -18,6 +18,7 @@
 //! everywhere this has to run.
 
 pub mod gain;
+pub mod level;
 pub mod mix;
 
 use std::fs::File;
@@ -35,7 +36,9 @@ use crate::slug::Standing;
 use crate::tools::Tools;
 
 pub use gain::{Gain, path};
+pub use level::{Levels, SoundLevels};
 pub use mix::{CHANNELS, Mix, Ramp};
+pub use scorsese_soundgen::level::{Loudness, Meter};
 
 /// A finished mix on disk, and the file's own undertaker.
 ///
@@ -72,7 +75,7 @@ pub fn mixdown(
     plan: &Plan<'_>,
     project_root: &Path,
     out: &Path,
-) -> Result<Option<(Mixdown, Vec<Note>)>, RenderError> {
+) -> Result<Option<(Mixdown, Vec<Note>, Levels)>, RenderError> {
     if plan.audio().is_empty() {
         return Ok(None);
     }
@@ -86,9 +89,22 @@ pub fn mixdown(
     })?;
     let mut writer = BufWriter::new(file);
     let mut notes = Vec::new();
+    let mut levels = Levels::default();
 
     for segment in plan.audio() {
-        let mix = mix_segment(tools, settings, plan, project_root, segment, &mut notes)?;
+        let mix = mix_segment(
+            tools,
+            settings,
+            plan,
+            project_root,
+            segment,
+            &mut notes,
+            &mut levels,
+        )?;
+        // The mix is metered as it is written rather than afterwards: the file
+        // is the only place the whole thing ever exists, and reading it back to
+        // measure it would be a second pass over every sample of the render.
+        levels.mix.feed(mix.samples());
         mix.write_to(&mut writer)
             .map_err(|source| RenderError::Pipe {
                 stage: Stage::Mix,
@@ -104,7 +120,7 @@ pub fn mixdown(
         source,
     })?;
     drop(writer);
-    Ok(Some((mixdown, notes)))
+    Ok(Some((mixdown, notes, levels)))
 }
 
 /// Sums one stretch of timeline, in which the audible set does not change.
@@ -115,6 +131,7 @@ fn mix_segment(
     project_root: &Path,
     segment: &Segment<'_>,
     notes: &mut Vec<Note>,
+    levels: &mut Levels,
 ) -> Result<Mix, RenderError> {
     let rate = settings.sample_rate.hz();
     let frames = plan.samples_of(segment, rate);
@@ -133,6 +150,11 @@ fn mix_segment(
         // is already as long as it needs to be, so a narration sketch simply
         // adds nothing to it. Its card is on the picture for the same frames,
         // which is what makes a voice-over-driven cut watchable for free.
+        // Registered even when there is nothing to decode, so a clip whose
+        // narration was never generated is reported as silent rather than left
+        // out. "This clip makes no sound" is the finding, and dropping the row
+        // is how it goes unnoticed.
+        let meter = levels.clip(shot.clip.id.as_str());
         let Some(file) = audio_file(shot, project_root, notes)? else {
             continue;
         };
@@ -147,6 +169,10 @@ fn mix_segment(
                 missing_ms: (frames - read as u64) * 1_000 / u64::from(rate),
             });
         }
+        // Metered as it is summed, and *after* its own volume keyframes: what
+        // an author can act on is what this clip contributes to the mix, where
+        // measuring the source instead would report the file rather than the
+        // edit.
         mix.add(
             &decoded,
             Gain::of(&shot.clip.keyframes),
@@ -154,6 +180,7 @@ fn mix_segment(
                 first: elapsed(segment.start, shot) as f64,
                 per_sample,
             },
+            meter,
         );
     }
     Ok(mix)

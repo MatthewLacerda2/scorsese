@@ -30,7 +30,8 @@ use std::path::{Path, PathBuf};
 use scorsese_core::{
     Asset, AssetId, GENERATED_DIR, GenerationState, MediaMetadata, Project, ProjectPath, hash_bytes,
 };
-use scorsese_soundgen::{Patch, SAMPLE_RATE, bake_note, bake_song, wav};
+use scorsese_soundgen::level::Loudness;
+use scorsese_soundgen::{Bake, Patch, SAMPLE_RATE, bake_note, bake_song, wav};
 
 pub use create::{check, create};
 pub use error::SynthesisError;
@@ -38,7 +39,7 @@ pub use recipe::{OneShot, Recipe};
 pub use starter::Starter;
 
 /// What happened to one asset.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Baked {
     /// Rendered and written. The only outcome that did any work.
     Rendered {
@@ -46,6 +47,13 @@ pub enum Baked {
         path: ProjectPath,
         /// How big it is, for a report that says something happened.
         bytes: usize,
+        /// How loud it came out.
+        ///
+        /// Only on this variant, and that is the honest shape rather than a
+        /// gap: a cached bake was not measured on this run, and reporting a
+        /// number nobody just computed would be inventing one. Rebaking to
+        /// learn it would undo the whole point of the cache.
+        loudness: Loudness,
     },
     /// The file for this exact recipe was already there.
     Cached {
@@ -113,11 +121,12 @@ pub fn bake_asset(
     let baked = if on_disk.is_file() {
         Baked::Cached { path: output }
     } else {
-        let wav = render(&recipe, &file, project_root)?;
-        write(&on_disk, &wav)?;
+        let bake = render(&recipe, &file, project_root)?;
+        write(&on_disk, &bake.wav)?;
         Baked::Rendered {
-            bytes: wav.len(),
+            bytes: bake.wav.len(),
             path: output,
+            loudness: bake.loudness,
         }
     };
     record(project, id, &baked, project_root);
@@ -165,7 +174,7 @@ fn read_recipe(
 }
 
 /// Renders a recipe to a complete WAV.
-fn render(recipe: &Recipe, file: &Path, project_root: &Path) -> Result<Vec<u8>, SynthesisError> {
+fn render(recipe: &Recipe, file: &Path, project_root: &Path) -> Result<Bake, SynthesisError> {
     let unrenderable = |source| SynthesisError::Unrenderable {
         path: file.to_path_buf(),
         source,

@@ -3,6 +3,7 @@
 use std::slice::from_ref;
 
 use scorsese_render::audio::{CHANNELS, Gain, Mix, Ramp};
+use scorsese_soundgen::level::Meter;
 
 use crate::volume;
 
@@ -38,8 +39,18 @@ fn two_sources_playing_at_once_are_added_sample_by_sample() {
     // window is satisfied by summing, by subtracting, and by taking whichever
     // source is louder; only the sum is mixing.
     let mut mix = Mix::silence(2);
-    mix.add(&[0.25, 0.5, 0.75, 0.125], Gain::of(&[]), STILL);
-    mix.add(&[0.5, 0.25, 0.125, 0.25], Gain::of(&[]), STILL);
+    mix.add(
+        &[0.25, 0.5, 0.75, 0.125],
+        Gain::of(&[]),
+        STILL,
+        &mut meter(),
+    );
+    mix.add(
+        &[0.5, 0.25, 0.125, 0.25],
+        Gain::of(&[]),
+        STILL,
+        &mut meter(),
+    );
     assert_eq!(mix.samples(), [0.75, 0.75, 0.875, 0.375]);
 }
 
@@ -48,8 +59,8 @@ fn a_source_shorter_than_the_stretch_leaves_the_rest_as_it_found_it() {
     // Running out of audio is silence for the remainder, not a shortened mix —
     // and not an overwrite of whatever else is playing there.
     let mut mix = Mix::silence(3);
-    mix.add(&[0.5, 0.5, 0.25, 0.25], Gain::of(&[]), STILL);
-    mix.add(&[0.25, 0.25], Gain::of(&[]), STILL);
+    mix.add(&[0.5, 0.5, 0.25, 0.25], Gain::of(&[]), STILL, &mut meter());
+    mix.add(&[0.25, 0.25], Gain::of(&[]), STILL, &mut meter());
     assert_eq!(mix.samples(), [0.75, 0.75, 0.25, 0.25, 0.0, 0.0]);
 }
 
@@ -59,7 +70,12 @@ fn a_kept_source_is_scaled_by_its_volume_at_that_instant() {
     // reads back the volume line itself, one sample-frame at a time.
     let ramp = volume(&[(0, 0.0), (4, 1.0)]);
     let mut mix = Mix::silence(3);
-    mix.add(&full_scale(3), Gain::of(from_ref(&ramp)), ADVANCING);
+    mix.add(
+        &full_scale(3),
+        Gain::of(from_ref(&ramp)),
+        ADVANCING,
+        &mut meter(),
+    );
     assert_eq!(mix.samples(), [0.25, 0.25, 0.5, 0.5, 0.75, 0.75]);
 }
 
@@ -70,7 +86,12 @@ fn both_channels_of_one_instant_are_at_the_same_point_in_the_fade() {
     // image as it goes.
     let ramp = volume(&[(0, 0.0), (4, 1.0)]);
     let mut mix = Mix::silence(2);
-    mix.add(&full_scale(2), Gain::of(from_ref(&ramp)), ADVANCING);
+    mix.add(
+        &full_scale(2),
+        Gain::of(from_ref(&ramp)),
+        ADVANCING,
+        &mut meter(),
+    );
     let samples = mix.samples();
     assert_eq!(
         samples[0], samples[1],
@@ -86,16 +107,16 @@ fn a_scaled_source_is_added_to_what_is_already_there() {
     // and both of them accumulate.
     let ramp = volume(&[(0, 0.5)]);
     let mut mix = Mix::silence(1);
-    mix.add(&[0.25, 0.25], Gain::of(&[]), STILL);
-    mix.add(&[0.5, 0.5], Gain::of(from_ref(&ramp)), STILL);
+    mix.add(&[0.25, 0.25], Gain::of(&[]), STILL, &mut meter());
+    mix.add(&[0.5, 0.5], Gain::of(from_ref(&ramp)), STILL, &mut meter());
     assert_eq!(mix.samples(), [0.5, 0.5]);
 }
 
 #[test]
 fn sums_past_full_scale_are_clipped_only_when_they_are_written_out() {
     let mut mix = Mix::silence(1);
-    mix.add(&[0.75, -0.75], Gain::of(&[]), STILL);
-    mix.add(&[0.75, -0.75], Gain::of(&[]), STILL);
+    mix.add(&[0.75, -0.75], Gain::of(&[]), STILL, &mut meter());
+    mix.add(&[0.75, -0.75], Gain::of(&[]), STILL, &mut meter());
     assert_eq!(
         mix.samples(),
         [1.5, -1.5],
@@ -110,4 +131,13 @@ fn sums_past_full_scale_are_clipped_only_when_they_are_written_out() {
         .map(|bytes| f32::from_le_bytes(bytes.try_into().expect("four bytes")))
         .collect();
     assert_eq!(out, [1.0, -1.0], "clipped at both ends, and audibly so");
+}
+
+/// A meter for the tests that are about summing rather than about level.
+///
+/// `add` reports what it added, and these assertions are about the buffer it
+/// added *into* — so the measurement is taken and dropped, deliberately, rather
+/// than the signature growing an `Option` for the sake of tests.
+fn meter() -> Meter {
+    Meter::new(scorsese_render::audio::CHANNELS)
 }
