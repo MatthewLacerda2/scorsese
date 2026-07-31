@@ -69,11 +69,18 @@ through with `git commit --no-verify`; everything the hook skips is in
 `make gates`.
 
 The **Makefile is the list of gates**: `make help` prints format, size,
-clippy, docs, test and deny, each running exactly the command CI runs. Every
-individual target is runnable on its own — `make size`, `make clippy` — and
-`make format-fix` rewrites what the format gate objects to. `make deny` and
+clippy, docs, test, deny and app, each running exactly the command CI runs.
+Every individual target is runnable on its own — `make size`, `make clippy` —
+and `make format-fix` rewrites what the format gate objects to. `make deny` and
 `make coverage` need tools that are not part of the toolchain pin; both say
 how to install themselves rather than failing obscurely.
+
+`app` is the one gate that decides whether to run. The desktop app is its own
+cargo workspace so that a headless change never compiles a graphics dependency
+tree, so `make gates` runs its format, clippy, build and tests when the branch
+touches `app/` and skips them when it does not — saying which, rather than
+printing green over a check it chose not to run. `make app` on its own always
+runs them.
 
 Signals are deliberately not in `make gates`:
 

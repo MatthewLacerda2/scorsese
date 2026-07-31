@@ -225,9 +225,13 @@ review.
   where a signal does the job.
 - **Run the gates before the push, not after it.** `make gates` runs every
   gate CI blocks on — format, size, the signal renderers, clippy, docs, tests,
-  supply chain — and
+  supply chain, and the desktop app's own workspace — and
   `make help` lists them, so the target list is the answer to "what has to be
-  green?" rather than `ci.yml` being read for it. `make setup`, once per
+  green?" rather than `ci.yml` being read for it. The app gate is the only
+  conditional one: `app/` is a separate cargo workspace precisely so a headless
+  change never builds a graphics dependency tree, so it runs when the branch
+  touches `app/` and is reported as skipped when it does not — never green over
+  a check that did not run. `make setup`, once per
   clone, points git at the committed hooks in `.githooks/`; from then on
   `make pre-commit` (formatting and the size gate — no build, well under a
   second) runs before every commit, so a file over the line limit never
