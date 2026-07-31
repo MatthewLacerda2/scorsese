@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use scorsese_core::{Fps, Project};
+use scorsese_render::say;
 use scorsese_render::{
     AudioCodec, Bitrate, Container, Cue, FrameRange, OutputFormat, RenderSettings, Renderer,
     Resolution, SampleRate, Tools, VideoCodec, frames,
@@ -83,6 +84,17 @@ pub fn run(project_dir: &Path, out: &Path, options: Options) -> Result<()> {
     match report.seconds_of_audio {
         Some(seconds) => println!("  audio {} ({seconds:.2}s)", settings.sample_rate),
         None => println!("  silent — the project has no audio clips"),
+    }
+    // Said every time, like the format above, and for the same reason. A mix
+    // ten decibels too quiet passes every test in the suite; the only thing
+    // that has ever caught one is a number printed when the render finishes.
+    // It is a signal and never a gate — there is no correct loudness — so
+    // nothing here can make the command fail.
+    if let Some(levels) = &report.levels {
+        println!("  mix    {}", say::loudness(&levels.mix));
+        for (clip, level) in &levels.clips {
+            println!("    {clip:<20} {}", say::loudness(level));
+        }
     }
     if let Some(bitrate) = options.bitrate {
         println!("  bitrate {bitrate}");

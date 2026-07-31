@@ -14,6 +14,7 @@
 mod common;
 
 mod embedded;
+mod loudness;
 mod mixing;
 mod prompts;
 mod sources;

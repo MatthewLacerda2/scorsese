@@ -60,6 +60,7 @@ pub mod properties;
 pub mod raster;
 pub mod report;
 pub mod run;
+pub mod say;
 pub mod settings;
 pub mod slug;
 pub mod text;

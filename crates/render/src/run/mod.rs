@@ -78,11 +78,14 @@ impl<'a> Renderer<'a> {
         // an input file. It is also the cheaper half: a mix that fails on a
         // missing music file should fail before we spend minutes encoding.
         let mixed = audio::mixdown(self.tools, &self.settings, &plan, project_root, out)?;
-        let mix = mixed.as_ref().map(|(mixdown, _)| mixdown.path());
+        let mix = mixed.as_ref().map(|(mixdown, _, _)| mixdown.path());
         let has_audio = mix.is_some();
-        if let Some((_, mix_notes)) = &mixed {
+        if let Some((_, mix_notes, _)) = &mixed {
             notes.extend(mix_notes.iter().cloned());
         }
+        // Taken before `mixed` is dropped, which is what removes the scratch
+        // file. The numbers outlive the samples they were measured from.
+        let levels = mixed.as_ref().map(|(_, _, levels)| levels.finish());
 
         let mut encoder = Encoder::start(self.tools, &self.settings, mix, out)?;
         let mut stage = Stage::for_plan(&plan, self.settings);
@@ -115,6 +118,7 @@ impl<'a> Renderer<'a> {
                 plan.total_samples(self.settings.sample_rate.hz()) as f64
                     / f64::from(self.settings.sample_rate.hz())
             }),
+            levels,
             notes,
             description: crate::describe::Description::of(&plan),
         })

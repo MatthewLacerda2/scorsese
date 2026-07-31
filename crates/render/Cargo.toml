@@ -11,6 +11,11 @@ workspace = true
 [dependencies]
 scorsese-compositor = { version = "0.1.0", path = "../compositor" }
 scorsese-core = { version = "0.1.0", path = "../core" }
+# For the loudness meter alone. `soundgen` is the crate that is *only* sample
+# arithmetic, and a bake needs the same numbers a render does — one meter in the
+# one place that is nothing but sample maths, rather than two that can disagree.
+# It brings no dependency this crate does not already have.
+scorsese-soundgen = { version = "0.1.0", path = "../soundgen" }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 thiserror = "2.0.19"

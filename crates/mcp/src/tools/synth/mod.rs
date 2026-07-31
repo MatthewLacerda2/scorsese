@@ -135,8 +135,18 @@ impl Tool for Bake {
         let lines: Vec<String> = baked
             .iter()
             .map(|(id, outcome)| match outcome {
-                Baked::Rendered { path, bytes } => {
-                    format!("{id} — baked, {} KB, {path}", bytes / 1024)
+                Baked::Rendered {
+                    path,
+                    bytes,
+                    loudness,
+                } => {
+                    // An assistant that just rewrote a score should be able to
+                    // read the level back without asking a human to listen.
+                    format!(
+                        "{id} — baked, {} KB, {path}, {}",
+                        bytes / 1024,
+                        scorsese_render::say::loudness(loudness)
+                    )
                 }
                 Baked::Cached { path } => format!("{id} — already baked, {path}"),
             })

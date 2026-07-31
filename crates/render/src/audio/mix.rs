@@ -8,6 +8,7 @@
 use std::io::{self, Write};
 
 use super::gain::Gain;
+use scorsese_soundgen::level::Meter;
 
 /// How many channels the mix is produced in.
 ///
@@ -50,20 +51,29 @@ impl Mix {
         self.samples.len() / CHANNELS
     }
 
-    /// Adds one source's samples, scaled by its volume over the run.
+    /// Adds one source's samples, scaled by its volume over the run, telling
+    /// `meter` what was added.
     ///
     /// A source shorter than the buffer contributes only what it has: the
     /// remainder is left as it was, which is silence unless another source
     /// covers it. That is what running out of audio means, and it is the audio
     /// counterpart of a layer whose footage ran short.
-    pub fn add(&mut self, source: &[f32], gain: Gain<'_>, ramp: Ramp) {
+    ///
+    /// The meter is fed here, and not by the caller from `source`, because what
+    /// is worth knowing is **what this clip put into the mix** — the samples
+    /// after its own volume keyframes. Measuring `source` instead would report
+    /// the file rather than the edit, and a clip faded to nothing would read as
+    /// loud as its media.
+    pub fn add(&mut self, source: &[f32], gain: Gain<'_>, ramp: Ramp, meter: &mut Meter) {
         let shared = self.samples.len().min(source.len());
         if gain.is_unity() {
+            meter.feed(&source[..shared]);
             for (into, &sample) in self.samples[..shared].iter_mut().zip(source) {
                 *into += sample;
             }
             return;
         }
+        let mut scaled = Vec::with_capacity(shared);
         for (frame, (into, from)) in self.samples[..shared]
             .chunks_mut(CHANNELS)
             .zip(source[..shared].chunks(CHANNELS))
@@ -74,8 +84,10 @@ impl Mix {
             let level = gain.at(ramp.first + ramp.per_sample * frame as f64);
             for (into, &sample) in into.iter_mut().zip(from) {
                 *into += sample * level;
+                scaled.push(sample * level);
             }
         }
+        meter.feed(&scaled);
     }
 
     /// Writes the mix out as little-endian `f32`, which is what the encoder is
