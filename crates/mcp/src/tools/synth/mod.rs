@@ -13,7 +13,7 @@ use scorsese_providers::synth::{self, Baked, Starter};
 use serde_json::Value;
 
 use super::inspect::load;
-use super::{Tool, project_dir, project_property};
+use super::{Reply, Tool, project_dir, project_property};
 use recipes::{read, recipe_path, recipe_property, recipe_schema, text};
 
 /// Start a recipe.
@@ -53,7 +53,7 @@ impl Tool for New {
         })
     }
 
-    fn call(&self, arguments: &Value) -> Result<String, String> {
+    fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let dir = project_dir(arguments)?;
         let mut project = load(&dir)?;
         let name = text(arguments, "name")?;
@@ -77,7 +77,8 @@ impl Tool for New {
         Ok(format!(
             "{id} — synth_audio, sketch\n{recipe}\nEdit it with synth_write, then \
              synth_bake to hear it."
-        ))
+        )
+        .into())
     }
 }
 
@@ -111,7 +112,7 @@ impl Tool for Bake {
         })
     }
 
-    fn call(&self, arguments: &Value) -> Result<String, String> {
+    fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let dir = project_dir(arguments)?;
         let mut project = load(&dir)?;
 
@@ -125,7 +126,7 @@ impl Tool for Bake {
             None => synth::bake_pending(&mut project, &dir).map_err(|error| format!("{error}"))?,
         };
         if baked.is_empty() {
-            return Ok("no synth_audio assets — synth_new starts one".to_owned());
+            return Ok("no synth_audio assets — synth_new starts one".into());
         }
         project
             .save(&dir)
@@ -162,7 +163,8 @@ impl Tool for Bake {
             "{}\n{fresh} rendered, {} cached, $0.00",
             lines.join("\n"),
             baked.len() - fresh
-        ))
+        )
+        .into())
     }
 }
 
@@ -184,14 +186,13 @@ impl Tool for Check {
         recipe_schema()
     }
 
-    fn call(&self, arguments: &Value) -> Result<String, String> {
+    fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let (_, file, relative) = recipe_path(arguments)?;
         let json = read(&file)?;
         match synth::check(&json) {
-            Ok(parsed) => Ok(format!(
-                "{relative}: a {} recipe, and it parses",
-                parsed.kind()
-            )),
+            Ok(parsed) => {
+                Ok(format!("{relative}: a {} recipe, and it parses", parsed.kind()).into())
+            }
             Err(problem) => Err(format!("{relative}: {problem}")),
         }
     }
@@ -215,9 +216,9 @@ impl Tool for Read {
         recipe_schema()
     }
 
-    fn call(&self, arguments: &Value) -> Result<String, String> {
+    fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let (_, file, _) = recipe_path(arguments)?;
-        read(&file)
+        read(&file).map(Into::into)
     }
 }
 
@@ -253,7 +254,7 @@ impl Tool for Write {
         })
     }
 
-    fn call(&self, arguments: &Value) -> Result<String, String> {
+    fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let (_, file, relative) = recipe_path(arguments)?;
         let document = text(arguments, "document")?;
         // Parsed before it is written, for the same reason `project_write`
@@ -272,6 +273,7 @@ impl Tool for Write {
             "{relative} written — a {} recipe. Its asset is stale now; \
              synth_bake redoes it.",
             parsed.kind()
-        ))
+        )
+        .into())
     }
 }

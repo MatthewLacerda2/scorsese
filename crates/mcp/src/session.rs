@@ -130,12 +130,14 @@ fn call(params: Option<&Value>) -> Result<Value, (Failure, String)> {
     ))?;
 
     let arguments = params.get("arguments").cloned().unwrap_or(json!({}));
-    let (text, failed) = match tool.call(&arguments) {
-        Ok(text) => (text, false),
-        Err(text) => (text, true),
+    // A refusal is words and nothing else — there is no picture of something
+    // that did not happen — so it takes the same shape a plain answer does.
+    let (reply, failed) = match tool.call(&arguments) {
+        Ok(reply) => (reply, false),
+        Err(text) => (text.into(), true),
     };
     Ok(json!({
-        "content": [{ "type": "text", "text": text }],
+        "content": reply.content(),
         "isError": failed
     }))
 }

@@ -6,7 +6,7 @@ use scorsese_core::{HashCheck, Project, asset_status};
 use scorsese_render::{Description, FrameRange, Note, Plan, unknown_in};
 use serde_json::Value;
 
-use super::{Tool, project_dir, project_only_schema};
+use super::{Reply, Tool, project_dir, project_only_schema};
 
 /// The project document itself.
 pub(super) struct Read;
@@ -27,12 +27,13 @@ impl Tool for Read {
         project_only_schema()
     }
 
-    fn call(&self, arguments: &Value) -> Result<String, String> {
+    fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let dir = project_dir(arguments)?;
         // Read rather than load-and-serialise, so what comes back is the file
         // as written — including whatever a hand edit left in it. A document
         // that will not validate is exactly when reading it matters most.
         std::fs::read_to_string(dir.join(scorsese_core::PROJECT_FILE_NAME))
+            .map(Into::into)
             .map_err(|error| format!("reading the project: {error}"))
     }
 }
@@ -56,7 +57,7 @@ impl Tool for Describe {
         project_only_schema()
     }
 
-    fn call(&self, arguments: &Value) -> Result<String, String> {
+    fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let dir = project_dir(arguments)?;
         let project = load(&dir)?;
         let plan = Plan::build(&project, project.timeline_fps, FrameRange::ALL)
@@ -69,7 +70,7 @@ impl Tool for Describe {
         for unknown in unknown_in(&project) {
             out.push_str(&format!("  note: {}\n", Note::from(unknown)));
         }
-        Ok(out)
+        Ok(out.into())
     }
 }
 
@@ -92,13 +93,13 @@ impl Tool for Check {
         project_only_schema()
     }
 
-    fn call(&self, arguments: &Value) -> Result<String, String> {
+    fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let dir = project_dir(arguments)?;
         match Project::load(&dir) {
-            Ok(_) => Ok("no problems with the document".to_owned()),
+            Ok(_) => Ok("no problems with the document".into()),
             // A failure here is the answer, not an error: being asked what is
             // wrong and finding something is this tool working.
-            Err(problems) => Ok(problems.to_string()),
+            Err(problems) => Ok(problems.to_string().into()),
         }
     }
 }
@@ -134,7 +135,7 @@ impl Tool for Assets {
         })
     }
 
-    fn call(&self, arguments: &Value) -> Result<String, String> {
+    fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let dir = project_dir(arguments)?;
         let project = load(&dir)?;
         let check = if arguments.get("verify").and_then(Value::as_bool) == Some(true) {
@@ -144,7 +145,7 @@ impl Tool for Assets {
         };
         let rows = asset_status(&project, &dir, check);
         if rows.is_empty() {
-            return Ok("the pool is empty".to_owned());
+            return Ok("the pool is empty".into());
         }
         Ok(rows
             .iter()
@@ -155,7 +156,8 @@ impl Tool for Assets {
                 )
             })
             .collect::<Vec<_>>()
-            .join("\n"))
+            .join("\n")
+            .into())
     }
 }
 

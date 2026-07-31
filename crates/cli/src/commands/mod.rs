@@ -12,4 +12,5 @@ pub mod level;
 pub mod new;
 pub mod probe;
 pub mod render;
+pub mod still;
 pub mod synth;

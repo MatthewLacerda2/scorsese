@@ -16,9 +16,73 @@
 mod edit;
 mod inspect;
 mod level;
+mod still;
 mod synth;
 
 use serde_json::Value;
+
+use crate::base64;
+
+/// The `mimeType` an image block carries. One kind, because there is one kind
+/// of picture this server produces — see [`scorsese_render::frames`] for why it
+/// is PNG and not something smaller.
+const PNG: &str = "image/png";
+
+/// What a tool answers with.
+///
+/// Text, always: an answer a client cannot show as words is an answer nobody
+/// can read back in a transcript. A picture *as well*, when the answer is one —
+/// MCP carries an image as its own content block, so a client that can see
+/// images sees the frame rather than a path to a file it has no way to open.
+///
+/// The two are not alternatives, and that is the point of the shape. A tool
+/// that returned only an image would be unreadable to a client without vision
+/// and unloggable everywhere; one that returned only text could never show a
+/// frame at all.
+pub struct Reply {
+    /// What to say. The whole answer for every tool that has nothing to show.
+    pub text: String,
+    /// A PNG, already base64-encoded, when there is a picture in the answer.
+    pub image: Option<String>,
+}
+
+impl Reply {
+    /// A picture, and the words that go with it.
+    pub(crate) fn picture(text: String, png: &[u8]) -> Self {
+        Self {
+            text,
+            image: Some(base64::encode(png)),
+        }
+    }
+
+    /// The content blocks MCP puts this on the wire as.
+    ///
+    /// Text first, always. A client renders blocks in order, and the sentence
+    /// saying which frame this is belongs above the frame rather than under it.
+    pub fn content(&self) -> Vec<Value> {
+        let mut blocks = vec![serde_json::json!({ "type": "text", "text": self.text })];
+        if let Some(image) = &self.image {
+            blocks.push(serde_json::json!({
+                "type": "image",
+                "data": image,
+                "mimeType": PNG
+            }));
+        }
+        blocks
+    }
+}
+
+impl From<String> for Reply {
+    fn from(text: String) -> Self {
+        Self { text, image: None }
+    }
+}
+
+impl From<&str> for Reply {
+    fn from(text: &str) -> Self {
+        Self::from(text.to_owned())
+    }
+}
 
 /// What a tool needs to say about itself, and what it does.
 pub trait Tool: Send + Sync {
@@ -34,9 +98,12 @@ pub trait Tool: Send + Sync {
     /// `description`, for the same reason the tool does.
     fn schema(&self) -> Value;
 
-    /// Runs it. The `Ok` string is what the client sees; the `Err` string is
+    /// Runs it. The `Ok` reply is what the client sees; the `Err` string is
     /// what it sees when the tool refused, which is just as much of an answer.
-    fn call(&self, arguments: &Value) -> Result<String, String>;
+    ///
+    /// A [`Reply`] is a `String` away — `Ok(text.into())` — so a tool with
+    /// nothing to show says so in one word rather than in a struct literal.
+    fn call(&self, arguments: &Value) -> Result<Reply, String>;
 }
 
 /// Every tool this server exposes.
@@ -57,6 +124,7 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(synth::Bake),
         Box::new(level::Level),
         Box::new(edit::Render),
+        Box::new(still::Still),
     ]
 }
 

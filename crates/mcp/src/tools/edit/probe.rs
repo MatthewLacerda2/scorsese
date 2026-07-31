@@ -11,7 +11,7 @@ use scorsese_render::Ffprobe;
 use serde_json::Value;
 
 use crate::tools::inspect::load;
-use crate::tools::{Tool, project_dir, project_property};
+use crate::tools::{Reply, Tool, project_dir, project_property};
 
 /// Read what the media pool is actually made of.
 pub(crate) struct Probe;
@@ -51,7 +51,7 @@ impl Tool for Probe {
         })
     }
 
-    fn call(&self, arguments: &Value) -> Result<String, String> {
+    fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let dir = project_dir(arguments)?;
         let mut project = load(&dir)?;
         let reprobe = if arguments.get("all").and_then(Value::as_bool) == Some(true) {
@@ -66,7 +66,7 @@ impl Tool for Probe {
         let probe = Ffprobe::discover().map_err(|error| format!("{error}"))?;
         let report = probe_assets(&mut project, &dir, &probe, reprobe);
         if report.is_empty() {
-            return Ok("no assets with a file to probe".to_owned());
+            return Ok("no assets with a file to probe".into());
         }
 
         let recorded = count(&report, &ProbeOutcome::Recorded);
@@ -75,7 +75,7 @@ impl Tool for Probe {
                 .save(&dir)
                 .map_err(|error| format!("saving the project: {error}"))?;
         }
-        Ok(said(&report, recorded))
+        Ok(said(&report, recorded).into())
     }
 }
 

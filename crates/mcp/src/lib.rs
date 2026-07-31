@@ -45,9 +45,10 @@
 //! "open project" to go stale, so a client may crash, reconnect, or run two
 //! conversations against one project without anything getting out of step.
 
+mod base64;
 pub mod rpc;
 pub mod session;
 pub mod tools;
 
 pub use session::serve;
-pub use tools::{Tool, registry};
+pub use tools::{Reply, Tool, registry};

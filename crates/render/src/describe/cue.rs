@@ -10,7 +10,7 @@
 use std::fmt;
 use std::str::FromStr;
 
-use scorsese_core::Frames;
+use scorsese_core::{Fps, Frames};
 
 use super::Description;
 
@@ -36,6 +36,25 @@ impl Cue {
             Self::Seconds(seconds) => seconds,
         };
         description.out_frame_at(seconds)
+    }
+
+    /// Which frame of the **timeline** this instant lands on.
+    ///
+    /// The answer for a caller with no render to index into — compositing one
+    /// frame asks the timeline for it directly, and there is no delivered file
+    /// whose frames could be counted. So the only conversion left is the one
+    /// the grid decides: a time becomes the nearest frame on it, and a frame is
+    /// already the answer.
+    ///
+    /// `fps` is the **timeline's** rate, not an output rate. Nothing is being
+    /// encoded, so there is no second grid to conform to, and reading `2.5s`
+    /// against anything but the grid the document is authored on would name an
+    /// instant the edit does not have.
+    pub fn timeline_frame(self, fps: Fps) -> Frames {
+        match self {
+            Self::Frame(frame) => frame,
+            Self::Seconds(seconds) => fps.frames(seconds),
+        }
     }
 }
 

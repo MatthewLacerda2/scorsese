@@ -74,3 +74,22 @@ fn an_instant_past_the_end_lands_on_the_last_frame() {
     assert_eq!(Cue::Seconds(99.0).out_frame(&description), 89);
     assert_eq!(Cue::Frame(Frames(90)).out_frame(&description), 89);
 }
+
+/// The other end of the same question: a still has no delivered file to index
+/// into, so a cue names a frame of the timeline directly. Both units go to the
+/// grid the document is authored on, and nothing conforms.
+#[test]
+fn a_cue_names_a_timeline_frame_when_there_is_no_file_to_count_frames_of() {
+    assert_eq!(
+        Cue::Frame(Frames(45)).timeline_frame(Fps::THIRTY),
+        Frames(45)
+    );
+    assert_eq!(Cue::Seconds(1.5).timeline_frame(Fps::THIRTY), Frames(45));
+    assert_eq!(Cue::Seconds(0.0).timeline_frame(Fps::THIRTY), Frames::ZERO);
+    assert_eq!(
+        Cue::Frame(Frames(45)).timeline_frame(Fps::SIXTY),
+        Frames(45),
+        "a frame is already an answer — the rate cannot re-time it"
+    );
+    assert_eq!(Cue::Seconds(1.5).timeline_frame(Fps::SIXTY), Frames(90));
+}

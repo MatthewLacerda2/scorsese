@@ -6,7 +6,7 @@ use serde_json::Value;
 
 use super::{frames, number};
 use crate::tools::inspect::load;
-use crate::tools::{Tool, project_dir, project_property};
+use crate::tools::{Reply, Tool, project_dir, project_property};
 
 /// Dissolve one shot into the next.
 pub(crate) struct Dissolve;
@@ -56,7 +56,7 @@ impl Tool for Dissolve {
         })
     }
 
-    fn call(&self, arguments: &Value) -> Result<String, String> {
+    fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let dir = project_dir(arguments)?;
         let mut project = load(&dir)?;
         let from = clip_id(arguments, "from")?;
@@ -78,7 +78,8 @@ impl Tool for Dissolve {
             duration.get(),
             placed.track,
             placed.pulled_back
-        ))
+        )
+        .into())
     }
 }
 
