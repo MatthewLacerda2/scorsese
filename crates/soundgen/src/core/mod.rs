@@ -10,6 +10,14 @@
 //!      └─────── LFO ──────────┘   (one target: pitch | cutoff | amp)
 //! ```
 //!
+//! A note's **velocity** taps that path in up to three places, not one. It
+//! always scales the amp envelope; a patch may also aim it at the filter cutoff
+//! (`vel_cutoff`) and at the FM modulator's depth (`vel_index`), both defaulting
+//! to zero. That is what separates a note that was *played* from one that was
+//! turned up — striking an instrument harder moves energy into the upper
+//! harmonics, and a velocity that only reaches a fader is the reason a
+//! carefully written part can still sound mechanical.
+//!
 //! Everything is `f32` in `−1..=1` end to end; the only quantisation is the WAV
 //! encoder's. The rendered buffer is **longer than the note**: the amp
 //! envelope's release rings out after the gate closes, and an fx chain adds its
