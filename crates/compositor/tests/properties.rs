@@ -25,11 +25,16 @@ fn every_known_path_reaches_its_property() {
         constant(path::POSITION_Y, -0.04),
         constant(path::SCALE_X, 2.0),
         constant(path::SCALE_Y, 0.5),
+        constant(path::ROTATION, 15.0),
+        constant(path::FLIP_X, 30.0),
+        constant(path::FLIP_Y, 45.0),
     ];
     let properties = Properties::at(&tracks, Frames::ZERO);
     assert_eq!(properties.opacity, 0.25);
     assert_eq!(properties.position, (0.1, -0.04));
     assert_eq!(properties.scale, (2.0, 0.5));
+    assert_eq!(properties.rotation, 15.0);
+    assert_eq!(properties.flip, (30.0, 45.0));
 }
 
 #[test]
@@ -57,6 +62,16 @@ fn a_layer_that_would_draw_nothing_is_recognised() {
             scale: (1.0, 0.0),
             ..Properties::default()
         },
+        // Edge on, about either axis: the cosine is zero, so there is no width
+        // or no height left to draw, and the rasteriser never sees it.
+        Properties {
+            flip: (0.0, 90.0),
+            ..Properties::default()
+        },
+        Properties {
+            flip: (-90.0, 0.0),
+            ..Properties::default()
+        },
     ];
     for properties in invisible {
         assert!(properties.is_invisible(), "{properties:?}");
@@ -77,6 +92,11 @@ fn a_moved_or_faded_layer_is_not_an_identity() {
         },
         Properties {
             opacity: 0.9,
+            ..Properties::default()
+        },
+        // A mirrored layer draws its own pixels, but not in their own places.
+        Properties {
+            flip: (0.0, 180.0),
             ..Properties::default()
         },
     ];
