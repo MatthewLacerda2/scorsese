@@ -151,7 +151,7 @@ pub(super) fn build<'a>(
                     clip,
                     asset,
                     showing: showing(asset),
-                    source_in: clip.source_in + Frames(from.get() - clip.start.get()),
+                    source_in: source_in_at(clip, from),
                 });
             }
         }
@@ -162,6 +162,23 @@ pub(super) fn build<'a>(
         });
     }
     Ok(segments)
+}
+
+/// Where in a clip's source the stretch beginning at `at` opens, in frames of
+/// the timeline grid.
+///
+/// The one piece of arithmetic a clip's speed changes. Without it a segment
+/// resuming five timeline frames into a clip opened five source frames in;
+/// with it the source has advanced by five *times the clip's speed*, so the
+/// answer is generally not a whole frame and is not rounded to one.
+///
+/// An unusable speed cannot get here through a loaded project — validation
+/// refuses it — and an in-memory one built by hand produces a position a
+/// decoder will simply seek to, which is no worse than any other nonsense
+/// number in a document nobody validated.
+fn source_in_at(clip: &Clip, at: Frames) -> f64 {
+    let elapsed = Frames(at.get().saturating_sub(clip.start.get()));
+    clip.source_in.get() as f64 + clip.speed.source_frames(elapsed)
 }
 
 /// The frames at which the visible set can change, in order, `start` and `end`

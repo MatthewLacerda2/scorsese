@@ -7,7 +7,7 @@ pub(crate) mod ffmpeg;
 pub(crate) mod plans;
 pub(crate) mod prompts;
 
-pub(crate) use plans::{audio_shape, shape, source_ins};
+pub(crate) use plans::{audio_shape, audio_source_ins, shape, source_ins};
 pub(crate) use prompts::{generated_asset, narration_asset, sketch_asset, stale_asset};
 
 use scorsese_core::{

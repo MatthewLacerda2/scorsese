@@ -5,8 +5,8 @@ use scorsese_core::{AssetKind, Fps};
 use scorsese_render::{FrameRange, Plan};
 
 use crate::common::{
-    audio_track, clip, clip_from, file_asset, project, shape, sounding_asset, source_ins,
-    video_track,
+    audio_source_ins, audio_track, clip, clip_from, file_asset, project, shape, sounding_asset,
+    source_ins, video_track,
 };
 use crate::{overlaid, two_videos};
 
@@ -21,10 +21,10 @@ fn a_clip_cut_by_another_track_resumes_at_the_right_source_frame() {
     assert_eq!(
         source_ins(&plan),
         vec![
-            ("bed".to_owned(), 0),
-            ("bed".to_owned(), 20),
-            ("top".to_owned(), 0),
-            ("bed".to_owned(), 40),
+            ("bed".to_owned(), 0.0),
+            ("bed".to_owned(), 20.0),
+            ("top".to_owned(), 0.0),
+            ("bed".to_owned(), 40.0),
         ]
     );
 }
@@ -40,12 +40,16 @@ fn a_clips_own_source_in_still_counts_when_another_track_cuts_it() {
     );
     let plan = Plan::build(&project, Fps::THIRTY, FrameRange::ALL).expect("plan");
 
-    let beds: Vec<u64> = source_ins(&plan)
+    let beds: Vec<f64> = source_ins(&plan)
         .into_iter()
         .filter(|(id, _)| id == "bed")
         .map(|(_, at)| at)
         .collect();
-    assert_eq!(beds, vec![100, 120, 140], "the clip's own offset is added");
+    assert_eq!(
+        beds,
+        vec![100.0, 120.0, 140.0],
+        "the clip's own offset is added"
+    );
 }
 
 #[test]
@@ -64,9 +68,9 @@ fn a_range_trims_a_stack_the_same_way_it_trims_one_track() {
     assert_eq!(
         source_ins(&plan),
         vec![
-            ("bed".to_owned(), 25),
-            ("top".to_owned(), 5),
-            ("bed".to_owned(), 40),
+            ("bed".to_owned(), 25.0),
+            ("top".to_owned(), 5.0),
+            ("bed".to_owned(), 40.0),
         ],
         "both layers open where the range starts, each in its own clip's terms"
     );
@@ -88,18 +92,12 @@ fn a_shot_resumes_its_own_sound_across_a_cut_on_another_track() {
     );
     let plan = Plan::build(&project, Fps::THIRTY, FrameRange::ALL).expect("plan");
 
-    let opens: Vec<(String, u64)> = plan
-        .audio()
-        .iter()
-        .flat_map(|segment| segment.layers.iter())
-        .map(|shot| (shot.clip.id.to_string(), shot.source_in.get()))
-        .collect();
     assert_eq!(
-        opens,
+        audio_source_ins(&plan),
         [
-            ("c1".to_owned(), 0),
-            ("c1".to_owned(), 30),
-            ("m1".to_owned(), 0),
+            ("c1".to_owned(), 0.0),
+            ("c1".to_owned(), 30.0),
+            ("m1".to_owned(), 0.0),
         ],
         "the shot picks its sound up where it left off"
     );

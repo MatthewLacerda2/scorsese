@@ -227,7 +227,8 @@ fn audio_file(
 fn audio_source(shot: &Shot<'_>, file: PathBuf, plan: &Plan<'_>, frames: u64) -> AudioSource {
     AudioSource {
         file,
-        seek_seconds: plan.timeline_fps().seconds(shot.source_in),
+        seek_seconds: plan.timeline_fps().seconds_at(shot.source_in),
+        speed: shot.clip.speed,
         frames,
     }
 }

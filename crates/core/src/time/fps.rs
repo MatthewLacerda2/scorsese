@@ -80,7 +80,23 @@ impl Fps {
 
     /// Where a frame on this grid falls in wall-clock time.
     pub fn seconds(self, frames: Frames) -> f64 {
-        frames.get() as f64 * f64::from(self.den) / f64::from(self.num)
+        self.seconds_at(frames.get() as f64)
+    }
+
+    /// Where a **fractional** frame count falls in wall-clock time.
+    ///
+    /// The sibling of [`Fps::seconds`], for the one thing that puts a position
+    /// between two frames: a clip's [`Speed`](super::Speed) advances its source
+    /// at a rate of its own, so the point a stretch of timeline opens in that
+    /// source is a fraction of a frame in. Rounding it to a frame before it
+    /// reaches a decoder would leave a segment resumed after a cut on another
+    /// track up to half a frame from where the one before it stopped, which is
+    /// a visible jump in the picture and an audible one in the mix.
+    ///
+    /// A whole count still goes through the same arithmetic, so nothing that
+    /// plays at its own rate changes by so much as a bit.
+    pub fn seconds_at(self, frames: f64) -> f64 {
+        frames * f64::from(self.den) / f64::from(self.num)
     }
 
     /// The frame on this grid nearest a wall-clock time. Anything at or below

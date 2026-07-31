@@ -229,7 +229,8 @@ fn source_for(
         // A still has no timeline of its own: it is held for the clip's
         // length rather than played, so there is nothing to seek into.
         still: shot.asset.kind == AssetKind::Image,
-        seek_seconds: timeline_fps.seconds(shot.source_in),
+        seek_seconds: timeline_fps.seconds_at(shot.source_in),
+        speed: shot.clip.speed,
         frames,
         fitting,
         crop: shot.clip.crop,

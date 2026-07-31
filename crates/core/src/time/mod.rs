@@ -21,8 +21,15 @@
 //! right unit: showing a time to a human, and handing one to ffmpeg. They are
 //! a conversion ([`Fps::seconds`]), never a stored timeline value.
 
+//! A clip may also run against that grid at a rate of its own ([`Speed`]),
+//! which is the one place a source position stops being a whole frame: the
+//! grid stays integer, and where in the source a stretch of it opens becomes a
+//! fraction of one.
+
 mod fps;
 mod frames;
+mod speed;
 
 pub use fps::{Fps, FpsError, FpsParseError};
 pub use frames::Frames;
+pub use speed::Speed;

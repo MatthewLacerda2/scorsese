@@ -5,7 +5,7 @@
 //! one value per question, so a failure prints the whole sequencing side by
 //! side with what was expected.
 
-use scorsese_render::plan::Plan;
+use scorsese_render::plan::{Plan, Segment};
 
 /// A plan as `(timeline start, timeline frames, what fills it, output frames)`
 /// per segment — the whole of what sequencing decides, in one comparable value.
@@ -57,11 +57,21 @@ pub(crate) fn audio_shape(plan: &Plan<'_>) -> Vec<(u64, u64, String)> {
         .collect()
 }
 
-/// Where each shot opens in its source, by clip id, in segment then track order.
-pub(crate) fn source_ins(plan: &Plan<'_>) -> Vec<(String, u64)> {
-    plan.segments()
+/// Where each shot opens in its source, by clip id, in segment then track
+/// order. Fractional, because a clip's speed puts the answer between frames.
+pub(crate) fn source_ins(plan: &Plan<'_>) -> Vec<(String, f64)> {
+    opens(plan.segments())
+}
+
+/// The same, for the stretches of the mix rather than the picture.
+pub(crate) fn audio_source_ins(plan: &Plan<'_>) -> Vec<(String, f64)> {
+    opens(plan.audio())
+}
+
+fn opens(segments: &[Segment<'_>]) -> Vec<(String, f64)> {
+    segments
         .iter()
         .flat_map(|segment| segment.layers.iter())
-        .map(|shot| (shot.clip.id.to_string(), shot.source_in.get()))
+        .map(|shot| (shot.clip.id.to_string(), shot.source_in))
         .collect()
 }

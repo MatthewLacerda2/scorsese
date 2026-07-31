@@ -8,7 +8,7 @@
 
 use std::fmt;
 
-use scorsese_core::{AssetKind, Crop, Easing, Fit};
+use scorsese_core::{AssetKind, Crop, Easing, Fit, Speed};
 
 use super::{Animated, Description, Playing, Shown, Stretch, Travel};
 
@@ -109,11 +109,12 @@ fn onscreen(playing: &Playing) -> String {
         // fitted into it, so printing a `fit` would be inventing a fact.
         Shown::Color(color) => format!("{} (color {color})", playing.asset),
         Shown::Media => format!(
-            "{} ({}, {}{})",
+            "{} ({}, {}{}{})",
             playing.asset,
             kind(playing.kind),
             fit(playing.fit),
-            cropped(playing.crop)
+            cropped(playing.crop),
+            retimed(playing.speed)
         ),
     }
 }
@@ -125,7 +126,12 @@ fn audible(playing: &Playing) -> String {
         // The prompt is already on this clip's picture line; a card in the mix
         // is only here to say that what it stands in for cannot be heard.
         Shown::Card { absent, .. } => format!("{} (card, {absent})", playing.asset),
-        _ => format!("{} ({})", playing.asset, kind(playing.kind)),
+        _ => format!(
+            "{} ({}{})",
+            playing.asset,
+            kind(playing.kind),
+            retimed(playing.speed)
+        ),
     };
     if playing.is_audible() {
         what
@@ -188,6 +194,19 @@ fn cropped(crop: Option<Crop>) -> String {
             crop.x, crop.y, crop.width, crop.height
         )
     })
+}
+
+/// The speed, when it is not the source's own, and nothing at all when it is.
+///
+/// Silent on the ordinary clip for the same reason [`cropped`] is: `1×` on
+/// every line of every description would bury the one shot where the answer is
+/// worth reading. And it is worth reading — a slot holding twice its own length
+/// of footage is invisible in a frame count.
+fn retimed(speed: Speed) -> String {
+    if speed.is_normal() {
+        return String::new();
+    }
+    format!(", {speed}")
 }
 
 /// What a document's `fit` value is called, in the words the format uses.

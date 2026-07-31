@@ -1,6 +1,7 @@
 //! Tracks and clips: where assets sit in time.
 //!
-//! Where a clip's picture sits in *space* — `fit`, `crop`, `anchor` — is
+//! How fast a clip runs against the timeline is `speed`, below. Where its
+//! picture sits in *space* — `fit`, `crop`, `anchor` — is
 //! [`placement`].
 
 use std::fmt;
@@ -11,7 +12,7 @@ pub mod placement;
 
 use crate::asset::AssetId;
 use crate::keyframe::KeyframeTrack;
-use crate::time::Frames;
+use crate::time::{Frames, Speed};
 
 pub use placement::{Anchor, AnchorX, AnchorY, Crop, Fit};
 
@@ -117,6 +118,23 @@ pub struct Clip {
     /// still images, which have no timeline of their own.
     #[serde(default)]
     pub source_in: Frames,
+    /// How fast the source runs against the timeline. [`Speed::NORMAL`] when
+    /// absent, which is one source frame per timeline frame — what every clip
+    /// did before there was a rate to choose.
+    ///
+    /// This is what breaks the one-to-one relationship `source_in` and
+    /// `duration` used to have: a clip of 60 timeline frames at `2.0` consumes
+    /// 120 frames of its source, and one at `0.5` consumes 30. `duration` is
+    /// still a length of **timeline**, so speeding a clip up without also
+    /// shortening it shows more of the source in the same slot — see
+    /// [`Clip::retime`] for the other reading, the one an editor's 2× button
+    /// performs.
+    ///
+    /// Applies to the clip's sound as well as its picture, at the same rate and
+    /// with the pitch going with it. A clip has one speed: separating the two
+    /// is a compositing-suite answer to a question nobody editing a video asks.
+    #[serde(default, skip_serializing_if = "Speed::is_normal")]
+    pub speed: Speed,
     /// How the source is fitted into the render's raster. [`Fit::Fit`] when
     /// absent, which is what every clip did before there was a choice.
     ///
@@ -153,6 +171,7 @@ impl Clip {
             start,
             duration,
             source_in: Frames::ZERO,
+            speed: Speed::NORMAL,
             fit: Fit::default(),
             crop: None,
             anchor: Anchor::default(),
@@ -185,6 +204,41 @@ impl Clip {
     /// frames that is a fact rather than a tolerance.
     pub fn overlaps(&self, other: &Self) -> bool {
         self.start < other.end() && other.start < self.end()
+    }
+
+    /// How much of the source this clip consumes, in frames of the timeline's
+    /// grid — its `duration` stretched by its speed.
+    ///
+    /// The number that decides whether a clip runs off the end of its footage,
+    /// and the reason speed and an over-long trim are the same problem: both
+    /// ask for more source than there is, and both are answered the same way.
+    pub fn source_frames(&self) -> f64 {
+        self.speed.source_frames(self.duration)
+    }
+
+    /// Sets the speed and rescales `duration`, so the clip goes on covering the
+    /// same stretch of its source at the new rate.
+    ///
+    /// This is the *operation* — what picking 2× in an editor does, and what a
+    /// GUI or an assistant asked to speed a clip up should call. Writing
+    /// `speed` into the document instead is a different and equally legitimate
+    /// edit: the clip keeps its slot on the timeline and shows more or less of
+    /// its source in it. The format records only the rate, which is what lets
+    /// both exist without a field having to mean two things.
+    ///
+    /// The new length is rounded to a whole timeline frame and never to zero: a
+    /// clip covering no frame is not a clip, and deleting one because a speed
+    /// was extreme is a worse answer than a clip one frame long. A speed
+    /// [`Speed::is_usable`] rejects changes nothing at all — there is no length
+    /// to rescale to — and neither does one applied to a clip whose current
+    /// speed is already unusable.
+    pub fn retime(&mut self, speed: Speed) {
+        if !speed.is_usable() || !self.speed.is_usable() {
+            return;
+        }
+        let source = self.source_frames();
+        self.speed = speed;
+        self.duration = Frames((speed.timeline_frames(source).round() as u64).max(1));
     }
 
     /// Replaces the tracks `tool` previously wrote for a property with

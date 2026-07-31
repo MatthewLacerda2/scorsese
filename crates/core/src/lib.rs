@@ -61,6 +61,6 @@ pub use project::{
     SCHEMA_VERSION, SaveError,
 };
 pub use text::{FontChoice, MAX_WEIGHT, MIN_WEIGHT, TextAlign, TextStyle};
-pub use time::{Fps, FpsError, FpsParseError, Frames};
+pub use time::{Fps, FpsError, FpsParseError, Frames, Speed};
 pub use timeline::{Anchor, AnchorX, AnchorY, Clip, ClipId, Crop, Fit, Track, TrackId, TrackKind};
 pub use validate::{AssetField, AssetProblem, TimelineProblem, ValidationError, ValidationErrors};

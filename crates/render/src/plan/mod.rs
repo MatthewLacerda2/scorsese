@@ -51,9 +51,17 @@ pub struct Shot<'a> {
     pub showing: Showing,
     /// Where in the source to start, in frames of the **timeline** grid — the
     /// clip's own `source_in`, plus however far into the clip this stretch of
-    /// timeline begins. A clip cut across several segments by a boundary on
-    /// another track resumes from the right frame in each.
-    pub source_in: Frames,
+    /// timeline begins, taken at the clip's speed. A clip cut across several
+    /// segments by a boundary on another track resumes from the right frame in
+    /// each.
+    ///
+    /// Fractional, and that is what a clip's speed costs: at 1.5× a segment
+    /// beginning 5 timeline frames into a clip opens 7.5 frames into its
+    /// source, which is a real point in the media and not a frame of the
+    /// timeline. Rounding it here would leave a resumed segment up to half a
+    /// frame from where the one before it stopped — a jump in the picture and a
+    /// click in the mix, at every cut on another track.
+    pub source_in: f64,
 }
 
 /// One stretch of the timeline over which the visible set does not change.
