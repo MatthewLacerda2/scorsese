@@ -27,9 +27,11 @@ use crate::registry::Property;
 pub mod path {
     /// How solid the layer is: `0.0` invisible, `1.0` opaque.
     pub const OPACITY: &str = "opacity";
-    /// Horizontal offset from where the layer naturally sits, in canvas pixels.
+    /// Horizontal offset from where the layer naturally sits, as a fraction of
+    /// the canvas **width**: `0.25` is a quarter of the way across it.
     pub const POSITION_X: &str = "transform.position.x";
-    /// Vertical offset, in canvas pixels. Positive is down, as on the raster.
+    /// Vertical offset, as a fraction of the canvas **height**. Positive is
+    /// down, as on the raster.
     pub const POSITION_Y: &str = "transform.position.y";
     /// Horizontal size multiplier about the layer's own centre.
     pub const SCALE_X: &str = "transform.scale.x";
@@ -53,11 +55,11 @@ pub const ANIMATED: &[Property] = &[
     },
     Property {
         path: path::POSITION_X,
-        describes: "how far right the layer is moved, in output pixels",
+        describes: "how far right the layer is moved, as a fraction of the raster's width",
     },
     Property {
         path: path::POSITION_Y,
-        describes: "how far down the layer is moved, in output pixels",
+        describes: "how far down the layer is moved, as a fraction of the raster's height",
     },
     Property {
         path: path::SCALE_X,
@@ -76,7 +78,10 @@ pub const ANIMATED: &[Property] = &[
 /// What a layer looks like at one instant.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Properties {
-    /// Offset from where the layer naturally sits, in canvas pixels.
+    /// Offset from where the layer naturally sits, as a fraction of the canvas
+    /// — x of its width, y of its height. Resolution is a render setting, so a
+    /// layer nudged by a number of pixels would sit somewhere else the moment
+    /// the same project was delivered at a different size.
     pub position: (f64, f64),
     /// Size multiplier about the layer's own centre. `1.0` is natural size, so
     /// scaling a layer does not also move it.

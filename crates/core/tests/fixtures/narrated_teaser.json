@@ -1,5 +1,5 @@
 {
-  "schema_version": 7,
+  "schema_version": 8,
   "name": "Narrated teaser",
   "timeline_fps": {
     "num": 30,
@@ -98,7 +98,7 @@
             {
               "property": "transform.position.x",
               "keyframes": [
-                { "t": 0, "value": 40.0 },
+                { "t": 0, "value": 0.05 },
                 { "t": 45, "value": 0.0, "easing": "ease_out" }
               ]
             }

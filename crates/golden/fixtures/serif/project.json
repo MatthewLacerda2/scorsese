@@ -1,5 +1,5 @@
 {
-  "schema_version": 7,
+  "schema_version": 8,
   "name": "serif",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [

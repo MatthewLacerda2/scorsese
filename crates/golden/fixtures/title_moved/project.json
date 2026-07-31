@@ -1,5 +1,5 @@
 {
-  "schema_version": 7,
+  "schema_version": 8,
   "name": "title_moved",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [
@@ -37,8 +37,8 @@
             {
               "property": "transform.position.y",
               "keyframes": [
-                { "t": 0, "value": 24.0 },
-                { "t": 20, "value": -20.0, "easing": "ease_out" }
+                { "t": 0, "value": 0.2222222222222222 },
+                { "t": 20, "value": -0.1851851851851852, "easing": "ease_out" }
               ]
             }
           ]
