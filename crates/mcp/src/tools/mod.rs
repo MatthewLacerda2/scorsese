@@ -16,6 +16,7 @@
 mod edit;
 mod inspect;
 mod level;
+mod script;
 mod still;
 mod synth;
 
@@ -114,6 +115,8 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(inspect::Check),
         Box::new(inspect::Assets),
         Box::new(edit::Probe),
+        Box::new(script::Read),
+        Box::new(script::Write),
         Box::new(edit::Write),
         Box::new(edit::Dissolve),
         Box::new(edit::Duck),

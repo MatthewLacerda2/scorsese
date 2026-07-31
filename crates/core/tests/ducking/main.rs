@@ -33,6 +33,7 @@ pub(crate) fn scored(narration: &[(u64, u64)]) -> Project {
 
 pub(crate) fn audio_track(id: &str, clips: Vec<Clip>) -> Track {
     Track {
+        note: None,
         id: TrackId::new(id),
         kind: TrackKind::Audio,
         name: None,

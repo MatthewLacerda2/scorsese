@@ -4,7 +4,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 use scorsese_core::{Fps, Project};
-use scorsese_render::{Description, FrameRange, Note, Plan, unknown_in};
+use scorsese_render::{Commentary, Description, FrameRange, Note, Plan, unknown_in};
 
 /// Prints what the timeline contains, without rendering any of it.
 ///
@@ -18,6 +18,14 @@ pub fn run(project_dir: &Path, fps: Option<Fps>, range: Option<FrameRange>) -> R
     let plan = Plan::build(&project, fps, range.unwrap_or(FrameRange::ALL))
         .context("sequencing the timeline")?;
 
+    // Before the cut rather than after it. A script is meant to be read before
+    // the edit is touched, and a note is the context the shot below it only
+    // makes sense in — printing either as a footnote is printing it where the
+    // reader has already made up their mind.
+    let commentary = Commentary::of(&project);
+    if !commentary.is_empty() {
+        println!("{commentary}\n");
+    }
     println!("{} — {}", project.name, Description::of(&plan));
     // The same notes a render would carry, for the same reason: a description
     // of a cut whose music was silently trimmed should say so where the cut is

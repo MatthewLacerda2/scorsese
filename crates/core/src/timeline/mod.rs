@@ -80,6 +80,21 @@ pub struct Track {
     /// What a human calls this track. Cosmetic.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    /// Why this track is the way it is, for whoever reads the project next.
+    ///
+    /// **Never rendered.** Not a card, not a caption, not under any setting —
+    /// that is an invariant of the format rather than a default someone could
+    /// turn off, and it is worth saying out loud because the format does have
+    /// precedent for text in a document reaching the screen: a `text` asset is
+    /// drawn, and a sketch asset's `prompt` goes on a slug card. A note is
+    /// categorically unlike both. Text meant to be seen is a `text` asset.
+    ///
+    /// This is not [`Track::name`]. A name is what the lane is *called*, and it
+    /// belongs in a lane header; a note is why the lane is here — why the music
+    /// sits under the narration rather than over it, why this is the one that
+    /// gets ducked.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
     /// What is on this track. Clips may touch but never overlap, and a hole
     /// between them contributes nothing rather than rendering black.
     #[serde(default)]
@@ -93,6 +108,7 @@ impl Track {
             id,
             kind,
             name: None,
+            note: None,
             clips: Vec::new(),
         }
     }
@@ -156,6 +172,16 @@ pub struct Clip {
     /// animated part.
     #[serde(default, skip_serializing_if = "Anchor::is_default")]
     pub anchor: Anchor,
+    /// Why this clip is the way it is. Never rendered — see [`super::Track::note`].
+    ///
+    /// The commonest place a note belongs, because most decisions are decisions
+    /// about a shot: why it runs this long, why it was moved out of the
+    /// full-bleed plate, which corner the push-in must not drift toward. It
+    /// travels with the clip, so retiming the cut cannot desynchronise it and
+    /// deleting the clip takes the reasoning for a clip that no longer exists
+    /// with it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
     /// Properties animated over this clip.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub keyframes: Vec<KeyframeTrack>,
@@ -176,6 +202,7 @@ impl Clip {
             crop: None,
             anchor: Anchor::default(),
             keyframes: Vec::new(),
+            note: None,
         }
     }
 

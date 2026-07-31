@@ -11,6 +11,7 @@ use scorsese_core::{AssetId, Clip, ClipId, Fps, Frames, Project, Track, TrackId,
 pub(crate) fn cut() -> Project {
     let mut project = Project::new("cut", Fps::THIRTY);
     project.tracks.push(Track {
+        note: None,
         id: TrackId::new("v1"),
         kind: TrackKind::Video,
         name: None,

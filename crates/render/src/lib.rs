@@ -78,7 +78,7 @@ pub use scorsese_compositor::{Frame, PIXEL_FORMAT};
 pub use scorsese_compositor::{DissolveError, Placed, dissolve};
 
 pub use audio::{Loudness, Mix, Mixdown, Profile, SoundLevels, measure};
-pub use describe::{Cue, CueError, Description, Moment, Stretch};
+pub use describe::{Commentary, Cue, CueError, Description, Moment, Stretch};
 pub use error::{RenderError, Stage};
 pub use format::{AudioCodec, Container, FormatError, OutputFormat, VideoCodec};
 pub use frames::{FrameError, Still};

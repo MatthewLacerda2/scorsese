@@ -21,6 +21,11 @@
 //! any numeric property. This crate defines property *types*, never property
 //! *values*.
 //!
+//! A project also carries **why** it is the way it is: a `script` at the
+//! document's root, and a `note` on anything with an `id`. Neither ever
+//! reaches the screen — see [`note`] for what they are for and why they are
+//! two mechanisms rather than one.
+//!
 //! Boundary: this crate must never touch a display, a GPU, a network, or
 //! spawn a process. No GUI, no ffmpeg, no provider calls — it reads and
 //! writes the project document and reasons about it. Everything else depends
@@ -32,6 +37,7 @@ pub mod asset;
 pub mod color;
 pub mod dip;
 pub mod keyframe;
+pub mod note;
 pub mod pacing;
 pub mod path;
 pub mod pool;
@@ -49,6 +55,7 @@ pub use dip::{Dip, Ducked, Span, Under, duck_track};
 pub use keyframe::{Easing, Keyframe, KeyframeTrack, PropertyPath};
 // The function itself is deliberately left behind the module — see
 // [`pacing`] for why `scorsese_core::scale` would be the wrong name.
+pub use note::{Annotated, Noted};
 pub use pacing::{PaceError, Paced};
 pub use path::{PathProblem, ProjectPath};
 pub use pool::{

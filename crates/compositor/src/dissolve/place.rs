@@ -138,6 +138,7 @@ fn home(project: &mut Project, below: usize, clip: &Clip) -> Result<(usize, bool
             id,
             kind: TrackKind::Video,
             name: None,
+            note: None,
             clips: Vec::new(),
         },
     );
