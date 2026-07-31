@@ -15,6 +15,12 @@
 #
 # Clippy is on the slow side deliberately — see the `clippy` target.
 #
+# One gate is conditional, and only one: `app` runs when the branch touches
+# `app/` and is skipped — reported, never silently — when it does not. That is
+# what lets the desktop app's separate workspace be covered here without
+# putting a `wgpu` build on the path of every headless commit. Its reasoning is
+# at the target.
+#
 # Gates block; signals inform (CLAUDE.md, "Gates vs. signals"). `make gates`
 # runs only gates. `make coverage` and `make mutants` are signals and are
 # opt-in precisely so a local run never trains anyone to treat one as the other.
@@ -29,15 +35,35 @@ LINT := --manifest-path tools/lint/Cargo.toml
 
 # The hard gates, in the order `make gates` runs them: cheapest first, so the
 # feedback that costs nothing arrives before the feedback that costs a build.
-# `inventory` below holds this list to the ones documented as gates.
-GATES := format size scripts clippy docs test deny
+# `inventory` below holds this list to the ones documented as gates. `app` is
+# last because it is the only one that can build a graphics dependency tree,
+# and because it is the only one that may decide not to run at all — see it.
+GATES := format size scripts clippy docs test deny app
+
+# Whether this branch touches the desktop app, and so whether its gates are on
+# the path of this change. The question is asked in two places — the `app` gate
+# and the summary line `gates` prints — so it is written once, here.
+#
+# Two halves, because a branch is not only its commits. `origin/main...HEAD` is
+# the committed diff, the same answer `make mutants` scopes itself to, so there
+# is one definition of "what this branch changed" rather than two. `git status`
+# is the other half: work under `app/` edited and not yet committed, which is
+# the state `make gates` is most often run in.
+#
+# When `origin/main` is not in the clone the question cannot be answered, and
+# the answer is then *yes*. A skip has to be a decision; it must never be what
+# not knowing looks like.
+TOUCHES_APP = { \
+	! git rev-parse --verify --quiet origin/main >/dev/null 2>&1 \
+	|| ! git diff --quiet origin/main...HEAD -- app/ \
+	|| [ -n "$$(git status --porcelain -- app/)" ]; }
 
 .DEFAULT_GOAL := help
 # `app` is on this list for a reason worth stating: there is a directory called
 # `app/`, so without it make sees the target as already built and `make app`
 # prints "up to date" without running a thing. A check that silently does
 # nothing is worse than no check.
-.PHONY: help setup gates pre-commit inventory $(GATES) app release format-fix coverage mutants
+.PHONY: help setup gates pre-commit inventory $(GATES) app-gates release format-fix coverage mutants
 
 ##@ Everyday
 
@@ -56,8 +82,22 @@ setup: ## Install the committed git hooks (one-time, covers every worktree)
 pre-commit: format size ## The fast half: what the pre-commit hook runs
 	@echo "pre-commit: ok"
 
+# `APP` is target-specific, so it reaches `app` below as a prerequisite of this
+# and nowhere else: reaching a gate through `make gates` is scoped to the diff,
+# asking for `make app` by name is not.
+#
+# The summary says which gates were run rather than which exist. A runner that
+# prints "all green" over a check it decided not to run is the failure mode
+# `inventory` was written to prevent, and skipping the app gates silently would
+# be that failure mode arriving by a different door.
+gates: APP := scoped
 gates: inventory $(GATES) ## Everything CI blocks on. Run this before opening a PR
-	@echo "gates: all green -- $(GATES)"
+	@if $(TOUCHES_APP); then \
+		echo "gates: all green -- $(GATES)"; \
+	else \
+		echo "gates: all green -- $(filter-out app,$(GATES))"; \
+		echo "gates: app not run -- this branch changes nothing under app/."; \
+	fi
 
 # For a delivery render, and not much else. The dev profile is optimised (see
 # the note in Cargo.toml), so the ordinary `cargo build` is already fast enough
@@ -133,6 +173,46 @@ deny: ## [gate] Supply chain, both workspaces: advisories, bans, sources, licens
 	cargo deny --all-features --manifest-path app/Cargo.toml --config deny.toml \
 		check advisories bans sources licenses
 
+# The one gate that decides whether to run, and the condition is the point.
+# `app/` is its own cargo workspace precisely so a headless change never pays
+# for `eframe`, `wgpu` and `winit`; putting it in $(GATES) unconditionally would
+# hand that cost back to every commit that has nothing to do with the window.
+# So it runs when the branch touches `app/`, and says out loud when it does not
+# — CI blocks on a `desktop app` job either way, and until this was here
+# `make gates` could go green on a tree that job rejects. Four of the seven CI
+# failures since the Makefile arrived were in exactly that blind spot.
+#
+# $(APP) is `scoped` only when this is reached through `make gates`. `make app`
+# by name runs it outright: asking for a gate is a different act from running
+# the set, and someone who types it wants the app built.
+app: ## [gate] The desktop app's own workspace, when the branch touches app/
+	@if [ "$(APP)" != "scoped" ] || $(TOUCHES_APP); then \
+		$(MAKE) --no-print-directory app-gates; \
+	else \
+		echo "app: this branch changes nothing under app/ -- not run."; \
+	fi
+
+# Sound is linked, not optional: `cpal` reaches `alsa-sys`, whose build script
+# asks pkg-config for `alsa.pc` and fails the compile without it. Said here with
+# the fix, because the failure it produces otherwise is a panic inside a build
+# script three crates down that names neither the package nor the reason. A
+# sound *card* is not needed — the preview plays the picture silently without
+# one, which is what CI does — only the headers.
+app-gates:
+	@{ command -v pkg-config >/dev/null 2>&1 && pkg-config --exists alsa; } || { \
+		echo "app: the ALSA development headers are missing -- cpal cannot build without them." >&2; \
+		echo "     Debian/Ubuntu: sudo apt-get install libasound2-dev" >&2; \
+		echo "     Arch:          sudo pacman -S alsa-lib" >&2; \
+		echo "     Fedora:        sudo dnf install alsa-lib-devel" >&2; \
+		exit 1; }
+	cargo fmt --manifest-path app/Cargo.toml --all --check
+	cargo clippy --manifest-path app/Cargo.toml --all-targets --locked -- -D warnings
+	cargo build --manifest-path app/Cargo.toml --locked
+# Running them, not only compiling them. `clippy --all-targets` and `build`
+# already build the test targets, so a test that does not compile was caught —
+# and one that fails was not, which reads as coverage while proving nothing.
+	cargo test --manifest-path app/Cargo.toml --locked
+
 ##@ Signals — informational, never a merge gate
 
 coverage: ## Which pub items no test reaches. A signal: no threshold, blocks nothing
@@ -189,27 +269,6 @@ mutants: ## Which changes to the code no test would notice. A signal: blocks not
 	fi
 
 ##@ Fixing
-
-# Sound is linked, not optional: `cpal` reaches `alsa-sys`, whose build script
-# asks pkg-config for `alsa.pc` and fails the compile without it. Said here with
-# the fix, because the failure it produces otherwise is a panic inside a build
-# script three crates down that names neither the package nor the reason. A
-# sound *card* is not needed — the preview plays the picture silently without
-# one, which is what CI does — only the headers.
-app: ## The desktop app's own gates (its own workspace; not part of `make gates`)
-	@{ command -v pkg-config >/dev/null 2>&1 && pkg-config --exists alsa; } || { \
-		echo "app: the ALSA development headers are missing -- cpal cannot build without them." >&2; \
-		echo "     Debian/Ubuntu: sudo apt-get install libasound2-dev" >&2; \
-		echo "     Arch:          sudo pacman -S alsa-lib" >&2; \
-		echo "     Fedora:        sudo dnf install alsa-lib-devel" >&2; \
-		exit 1; }
-	cargo fmt --manifest-path app/Cargo.toml --all --check
-	cargo clippy --manifest-path app/Cargo.toml --all-targets --locked -- -D warnings
-	cargo build --manifest-path app/Cargo.toml --locked
-# Running them, not only compiling them. `clippy --all-targets` and `build`
-# already build the test targets, so a test that does not compile was caught —
-# and one that fails was not, which reads as coverage while proving nothing.
-	cargo test --manifest-path app/Cargo.toml --locked
 
 format-fix: ## Rewrite files to satisfy the format gate
 	cargo fmt --all

@@ -53,6 +53,13 @@ restated in `app/Cargo.toml` and `app/clippy.toml`, and
 `desktop app` CI job runs the same four. A failing test here blocks a merge
 exactly as a failing workspace test does.
 
+`make gates` runs them too, and only when the branch touches `app/` — the
+whole point of the separate workspace is that a headless change never pays for
+this dependency tree, and a gate runner that charged every commit for it would
+give that back. So a change under `app/` gets these four locally before the
+push, and a change that leaves the app alone is told they were skipped rather
+than shown a green that covered nothing.
+
 They run here and nowhere else. `app/` is its own workspace so that a graphics
 dependency tree never slows a headless change, which also means
 `cargo test --workspace` cannot reach them — so this job is the only place they
