@@ -92,6 +92,10 @@ where 1.0 dips to silence.
 always runs after them and is not listed — a bake must not clip, and that is
 not the recipe's decision.
 
+This chain is the *instrument's own*: it is applied to each note separately. A
+song has two more places to put one, and reverb almost always wants one of them
+— see [Where an effect goes](#where-an-effect-goes).
+
 ### Playing harder, not just louder
 
 By default a note's `velocity` is a fader: it scales the level and nothing
@@ -282,6 +286,42 @@ per note in *arrangement* order. So the piece stays byte-identical across runs,
 `seed` re-rolls the whole performance at once, and a pattern played twice is
 played differently the second time — which is the point. A repeat nudged
 identically both times is still a photocopy, just a crooked one.
+
+### Where an effect goes
+
+A chain can live in three places. Which one you pick is most of the difference
+between *some synth parts* and *a piece of music*, so it is worth a moment.
+
+```json fields
+  "tracks": [
+    { "name": "t", "gain": 0.8,
+      "patch": {
+        "source": { "kind": "noise" },
+        "amp": { "a": 0.001, "d": 0.05, "s": 0.0, "r": 0.02 }
+      },
+      "fx": [{ "fx": "delay", "time": 0.28, "feedback": 0.35, "mix": 0.2 }] }
+  ],
+  "fx": [{ "fx": "reverb", "size": 0.7, "damp": 0.4, "mix": 0.18 }]
+```
+
+| where | runs on | reach for it when the effect is |
+| --- | --- | --- |
+| `patch.fx` | every note of that instrument, one at a time | part of the **sound** — the corridor a gunshot is fired in, a slapback that *is* the instrument |
+| a track's `fx` | that instrument's whole part, before its `gain` | part of the **performance** — a delay whose repeats answer the phrase rather than each note |
+| the song's `fx` | the sum of every track, before the limiter | the **room** — one space the whole piece is playing in |
+
+**Reverb belongs on the song.** Put it on a patch and each instrument is in its
+own room, drifting apart the moment one of them is tuned; put it on the song and
+it is one setting, decaying once across everything and ringing past the last
+note as a single tail. It is also less work for the machine: one room, convolved
+once, instead of the same room convolved for every note in the piece.
+
+Both fields default to empty, and an empty one is not written down — a song that
+does not use them is exactly the song it was before they existed.
+
+A song chain runs **before** the limiter, always. Nothing may add gain after the
+thing that guarantees a bake does not clip. Fades still come last, after
+limiting, as they always did.
 
 ### Fitting a song to the cut
 
