@@ -6,6 +6,34 @@ name: CI
 # code. Skipping CI for it would mean the one document under test is the one
 # document that can be broken without anything noticing. Patterns are ordered:
 # a later one overrides an earlier one for a path both match.
+#
+# CI speaks in two situations and no others: a pull request **claims to be
+# finished**, and `main` moves. Every job below carries `if: ${{ !DRAFT }}` —
+# spelled out each time, because Actions has no workflow-level `if`.
+#
+# The invariant it rests on: **a ready pull request claims it passes; a draft
+# makes no such claim.** CI's job is to check claims, so a red run always means
+# a claim was broken, which is worth an email every time. A draft is how work
+# survives a question needing the user, a failure the agent could not resolve,
+# or a session that died mid-task — none of those asserts anything, so there is
+# nothing to check. Silence on drafts is not leniency about unfinished work; it
+# is having nothing asserted to it.
+#
+# The evidence: of the eight CI failures on record, **seven fired while the
+# pull request was still a draft**, and not one has ever occurred on `main`.
+# That is a notification channel being trained to be ignored, and the cost is
+# not the noise — it is that `main` going red would be deleted unread too.
+#
+# `ready_for_review` in `types:` is load-bearing, and omitting it fails *open*.
+# It is not one of the defaults (`opened`, `synchronize`, `reopened`), so the
+# draft condition without it would mean a pull request drafted, finished, and
+# marked ready with no further push never gets a run at all — merging with no
+# checks rather than with green ones. Both halves are needed together.
+#
+# The other half of this lives in CLAUDE.md: the gates run locally before a
+# pull request is marked ready, so `make gates` rather than GitHub is the first
+# thing to compile the code. Deliberately not before every push — checkpoint
+# commits stay cheap, which is what break-testing depends on.
 on:
   push:
     branches: [main]
@@ -14,6 +42,7 @@ on:
       - "!**.md"
       - "docs/project-format.md"
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "**"
       - "!**.md"
@@ -45,6 +74,9 @@ jobs:
   check:
     name: fmt + clippy + test
     runs-on: ubuntu-24.04
+    # Drafts assert nothing, so there is nothing to check. See the top of
+    # this file; `ready_for_review` in `types:` is what makes it fire at all.
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     steps:
       - uses: actions/checkout@v4
 
@@ -111,6 +143,9 @@ jobs:
   app:
     name: desktop app
     runs-on: ubuntu-24.04
+    # Drafts assert nothing, so there is nothing to check. See the top of
+    # this file; `ready_for_review` in `types:` is what makes it fire at all.
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     steps:
       - uses: actions/checkout@v4
 
@@ -172,6 +207,9 @@ jobs:
   size:
     name: size gate
     runs-on: ubuntu-24.04
+    # Drafts assert nothing, so there is nothing to check. See the top of
+    # this file; `ready_for_review` in `types:` is what makes it fire at all.
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     steps:
       - uses: actions/checkout@v4
 
@@ -209,6 +247,9 @@ jobs:
   scripts:
     name: signal renderers
     runs-on: ubuntu-24.04
+    # Drafts assert nothing, so there is nothing to check. See the top of
+    # this file; `ready_for_review` in `types:` is what makes it fire at all.
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     steps:
       - uses: actions/checkout@v4
 
@@ -268,6 +309,9 @@ jobs:
   coverage:
     name: coverage (signal)
     runs-on: ubuntu-24.04
+    # Drafts assert nothing, so there is nothing to check. See the top of
+    # this file; `ready_for_review` in `types:` is what makes it fire at all.
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     continue-on-error: true
     permissions:
       contents: read
@@ -366,10 +410,17 @@ jobs:
   # Pull requests only. `--in-diff` needs two commits to compare, and a push to
   # `main` has no base to be a diff *from*. If a full sweep is ever wanted, it
   # belongs on a schedule with its own job, not bolted onto this one.
+  #
+  # Ready ones only, by the rule at the top of this file. This signal exists for
+  # an agent to act on before claiming the work is finished, so a draft is a
+  # branch with nothing claimed about it yet — and the survivor list it would
+  # comment is one an in-progress branch has not finished earning.
   mutants:
     name: mutants (signal)
     runs-on: ubuntu-24.04
-    if: github.event_name == 'pull_request'
+    if: >
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.draft == false
     # The same structural guarantee `coverage` relies on: whatever happens in
     # here — survivors, a broken flag, cargo-mutants itself falling over — the
     # workflow run stays green and the PR stays mergeable. The job's own check
@@ -525,6 +576,9 @@ jobs:
   deny:
     name: cargo-deny
     runs-on: ubuntu-24.04
+    # Drafts assert nothing, so there is nothing to check. See the top of
+    # this file; `ready_for_review` in `types:` is what makes it fire at all.
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     steps:
       - uses: actions/checkout@v4
 

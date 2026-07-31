@@ -161,6 +161,29 @@ review.
   nothing further is needed from the user. The description says **what
   changed and the effect** — not process; how you got there appears only when
   it's needed to understand the diff.
+- **A ready pull request claims it passes; a draft makes no such claim.** That
+  is what the two states mean here, and **CI runs on ready pull requests and on
+  `main`, nowhere else.** A draft is not decoration on unfinished work — it is
+  how work survives, and all three cases it covers are ones where pushing is
+  the point: a genuine question surfaced mid-issue and needs the user, CI went
+  red and the ≈3-attempts rule fired, or the run was stopped or died mid-work.
+  None of them asserts the work is finished, so there is nothing for CI to
+  check; a red run therefore always means a claim was broken, which is worth a
+  notification every time.
+  - **Run `make gates` before marking a pull request ready** — deliberately
+    *not* before every push. GitHub should not be the first thing that compiles
+    the code, and checkpoint commits have to stay cheap, which is the same
+    reasoning that keeps the pre-commit hook to formatting and the size gate.
+  - **A red ready pull request stays ready** and is fixed in the next commit. It
+    does not go back to draft. The next commit usually resolves it, so the real
+    cost is one notification per genuine failure; repeated failure is
+    self-limiting, because by the third attempt the ≈3-attempts rule has fired
+    and the work is being handed over — a moment that *should* be loud.
+  - **Nothing depends on a hand-back comment existing.** A draft is a saved
+    state as best the last session could manage, and a session cut short may
+    never have got to explain itself. The durable context is the **issue**,
+    written before the work started and meant to be read cold. Write a comment
+    when there is a chance to; never rely on one being there.
 - **Branch naming.** A PR that closes an issue uses `{issue_number}-short-slug`
   (e.g. `3-render-pipeline`). An issue-less PR uses a readable short slug of
   its subject. Lowercase-hyphenated, brief.
@@ -223,7 +246,9 @@ review.
   an **informational signal**: surfaced where the agent acts on it (job
   summary or PR comment), never blocking a merge. Don't reach for a hard gate
   where a signal does the job.
-- **Run the gates before the push, not after it.** `make gates` runs every
+- **Run the gates before claiming the work is finished, not after CI says so.**
+  In practice that is before marking a pull request **ready for review**, which
+  is the moment CI is asked to check anything at all. `make gates` runs every
   gate CI blocks on — format, size, the signal renderers, clippy, docs, tests,
   supply chain, and the desktop app's own workspace — and
   `make help` lists them, so the target list is the answer to "what has to be
