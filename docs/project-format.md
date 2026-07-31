@@ -37,7 +37,7 @@ re-importing or regenerating a file is one edit in one place.
 | `kind` | all | `video`, `image`, `audio`, `text`, `color`, `generated_video`, `generated_audio`, `synth_audio` |
 | `path` | file-backed kinds | Relative to the project root |
 | `sha256` | optional | 64 lowercase hex chars, of the file at `path` |
-| `media` | optional | What ffprobe found: `duration_seconds`, `width`, `height`, `frame_rate` (a rational), `audio_channels`, `sample_rate` |
+| `media` | optional | What ffprobe found: `duration_seconds`, `width`, `height`, `frame_rate` (a rational), `audio_channels`, `sample_rate` — see below |
 | `prompt` | `generated_*` | What to generate, in words |
 | `recipe` | `synth_audio` | Path to the document to synthesise from, by convention under `recipes/` |
 | `state` | `generated_*`, `synth_audio` | `sketch`, `queued`, `generated`, `stale` |
@@ -49,6 +49,19 @@ re-importing or regenerating a file is one edit in one place.
 { "id": "shot-city", "kind": "generated_video", "state": "sketch",
   "prompt": "wide aerial of a city at dawn, slow push in" }
 ```
+
+`media` is what something measured, never what anyone chose — so an asset you
+write by hand leaves it out and has it filled in later. `scorsese probe` (and
+`project_probe` over MCP) reads every asset that has a file and no `media`;
+import does the same for what it brings in, and the window does it in the
+background when it opens a project. Anything that needs a source's own length
+reads `duration_seconds`, so an asset nobody has probed is one those features
+skip — which is why `scorsese assets` counts it as needing attention.
+
+A **still** is the one deliberate gap in that: its `media` carries a size and
+never a `duration_seconds` or a `frame_rate`. ffprobe calls a still a one-frame
+video and invents both, and how long a still is on screen is the clip's
+business, not the file's.
 
 A generated asset with no media renders as a **slug card** — the brief on a
 gray card, with what kind of brief it is and what state it is in written above

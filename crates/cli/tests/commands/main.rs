@@ -1,4 +1,4 @@
-//! `new`, `import` and `assets` — the three commands that change what is on
+//! `new`, `import`, `probe` and `assets` — the commands that change what is on
 //! disk, driven end to end against real project directories.
 //!
 //! What each asserts is the effect: the directory that exists afterwards, the
@@ -13,3 +13,4 @@ mod common;
 mod assets;
 mod import;
 mod new;
+mod probe;

@@ -120,6 +120,9 @@ scorsese assets --verify --project teaser.scor   # re-hash to catch changed file
 scorsese assets gc --project teaser.scor         # what nothing references
 scorsese assets gc --delete --project teaser.scor
 
+scorsese probe --project teaser.scor             # measure the assets nobody has
+scorsese probe --all --project teaser.scor       # ...and re-read the ones we have
+
 scorsese check --project teaser.scor             # problems and warnings, no render
 scorsese check --verify --project teaser.scor    # ...and re-hash the media too
 
@@ -146,13 +149,23 @@ Importing **copies** the file into `assets/`, hashes it, and asks ffprobe what
 it is. Import the same content twice and you get the same asset back — assets
 are entities, and two clips pointing at one asset is the intended shape.
 
+`probe` does the measuring half of that for everything else. An asset written
+straight into `project.json` — by hand, or by an agent assembling a cut — has a
+path and nothing recorded about the file behind it, and any feature that needs
+the source's own length quietly skips it. This asks ffprobe about every such
+asset and writes down the answer. Safe to re-run: one already probed is left
+alone unless `--all` says to read every file again. The window does the same
+in the background when it opens a project, so what it shows is measured
+without anyone asking.
+
 Putting clips on tracks means editing `project.json` for now — the format is
 documented and meant to be written by hand or by an agent.
 
 `check` answers one question — *will this render?* — and answers it about the
 document **and** the media it points at. A file a clip needs and cannot find is
-a problem and fails; a file that changed since it was imported, or was never
-probed, is a warning and does not. An asset nothing references is never worse
+a problem and fails; a file that changed since it was imported, or that nobody
+has probed, is a warning and does not — `scorsese probe` is the answer to the
+second one. An asset nothing references is never worse
 than a warning, whatever state it is in, because no render can trip over it —
 `assets gc` is the answer to that one. Sketch clips awaiting generation are the
 normal state of a project before GO and are never reported at all. Existence is

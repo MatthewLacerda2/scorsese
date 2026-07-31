@@ -37,6 +37,7 @@ Every tool takes `project`: the path of the `*.scor` directory to work on.
 | `project_describe` | what is on screen when, and what is audible under it | nothing |
 | `project_check` | every problem with the document and its media, at once | nothing |
 | `project_assets` | the media pool and the state of everything in it | nothing |
+| `project_probe` | measure the assets nobody has probed, and record it | ffprobe |
 | `dissolve` | cross one shot into the next, as opacity keyframes | nothing |
 | `duck_music` | lower a music track under narration, as volume keyframes | nothing |
 | `synth_new` | start a recipe, and the asset that points at it | nothing |
@@ -55,6 +56,14 @@ change at all is read it, change it, write it back. The format is
 `project_write` **validates before writing**. A document that would not load is
 refused with every problem listed and the file on disk is left exactly as it
 was — so a half-formed edit cannot destroy a working one.
+
+**Call `project_probe` after adding assets by writing the document.** Import
+measures what it brings in; an asset that arrived by being written into
+`project.json` carries a path and nothing recorded about the file behind it,
+and every feature that needs the source's own length — the ceiling on a right
+trim among them — has no choice but to skip it. This asks ffprobe about each
+such asset and writes down what it says. Safe to call after every edit: one
+already probed is left alone unless `all` is set.
 
 ## The two operations that write keyframes for you
 
