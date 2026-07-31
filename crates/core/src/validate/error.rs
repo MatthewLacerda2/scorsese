@@ -93,6 +93,43 @@ pub enum ValidationError {
         problem: PathProblem,
     },
 
+    /// A `weight` beside `sans` or `serif`.
+    ///
+    /// The two shipped faces are one static weight each, so nothing could act
+    /// on the number — and a field nothing reads is how someone comes to
+    /// insist their bold is broken. The message points at the way to get a
+    /// weight at all: a variable font file the project carries.
+    #[error(
+        "asset `{asset}`: `{font}` is one of the faces scorsese ships and has a single weight, \
+         so `weight` ({weight}) cannot apply to it — name a variable font file instead"
+    )]
+    WeightOnReservedFont {
+        /// The text asset naming it.
+        asset: AssetId,
+        /// Which reserved name was written.
+        font: String,
+        /// The weight that could not be honoured.
+        weight: u16,
+    },
+
+    /// A number that is not a weight on anybody's scale.
+    ///
+    /// The bounds are OpenType's for the `wght` axis, so this is checkable from
+    /// the document alone. Whether a *particular* face reaches the weight asked
+    /// for is narrower and only the file can answer it, so that refusal waits
+    /// until the render opens it.
+    #[error("asset `{asset}`: weight {weight} is outside the {min}–{max} a font weight can be")]
+    WeightOutOfRange {
+        /// The text asset naming it.
+        asset: AssetId,
+        /// The number as written.
+        weight: u16,
+        /// The lightest weight the format allows.
+        min: u16,
+        /// The heaviest weight the format allows.
+        max: u16,
+    },
+
     /// A recipe path that would not survive `scp -r`, under the same rules
     /// every other path in the document obeys. Named apart from
     /// [`ValidationError::BadPath`] because a synthesis asset has two paths in

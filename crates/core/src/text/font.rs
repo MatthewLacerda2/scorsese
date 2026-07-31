@@ -16,6 +16,18 @@ const SANS: &str = "sans";
 /// The name reserved for the shipped serif face.
 const SERIF: &str = "serif";
 
+/// The lightest weight OpenType allows on the `wght` axis.
+///
+/// The bounds are the *format's*, not any font's. A file declares its own,
+/// usually narrower range — Manrope stops at 200 and 800 — and only the file
+/// can say what that is, so checking it belongs where the file is opened. What
+/// is checkable from the document alone is that the number is a weight at all,
+/// and `0` or `70000` is not one whatever face it is aimed at.
+pub const MIN_WEIGHT: u16 = 1;
+
+/// The heaviest weight OpenType allows on the `wght` axis.
+pub const MAX_WEIGHT: u16 = 1000;
+
 /// The face to set a text asset in.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(from = "String", into = "String")]
@@ -43,6 +55,16 @@ impl FontChoice {
             Self::File(path) => Some(path),
             _ => None,
         }
+    }
+
+    /// True for the two names scorsese reserves, whose faces it ships itself.
+    ///
+    /// Worth asking because the shipped faces are **static, one weight each**,
+    /// so a `weight` beside one of them can never be honoured. That is a fact
+    /// about the reserved name rather than about any file on disk, which is
+    /// what lets validation refuse it without opening anything.
+    pub fn is_reserved(&self) -> bool {
+        matches!(self, Self::Sans | Self::Serif)
     }
 }
 

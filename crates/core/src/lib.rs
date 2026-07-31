@@ -56,7 +56,7 @@ pub use project::{
     ASSETS_DIR, CACHE_DIR, GENERATED_DIR, LoadError, PROJECT_FILE_NAME, Project, RECIPES_DIR,
     SCHEMA_VERSION, SaveError,
 };
-pub use text::{FontChoice, TextAlign, TextStyle};
+pub use text::{FontChoice, MAX_WEIGHT, MIN_WEIGHT, TextAlign, TextStyle};
 pub use time::{Fps, FpsError, FpsParseError, Frames};
 pub use timeline::{Anchor, AnchorX, AnchorY, Clip, ClipId, Crop, Fit, Track, TrackId, TrackKind};
 pub use validate::{AssetField, ValidationError, ValidationErrors};

@@ -27,9 +27,15 @@ use crate::error::RenderError;
 /// milliseconds, and a cut with a title on every shot would otherwise pay that
 /// for each one. The two shipped faces are the compositor's and are parsed once
 /// per process; only a project's own font lands in this map.
+///
+/// **Keyed by file *and* weight**, because one variable file is many faces: a
+/// project setting its titles in Manrope at 800 and its captions in the same
+/// file at 400 has two instances, and they must not share a cache slot. That
+/// is the whole point of the feature — one file where the per-weight file tax
+/// used to be — so the cache has to be able to hold both at once.
 #[derive(Debug, Default)]
 pub struct Painter {
-    fonts: HashMap<PathBuf, Font>,
+    fonts: HashMap<(PathBuf, Option<u16>), Font>,
 }
 
 impl Painter {
@@ -62,8 +68,18 @@ impl Painter {
         Ok(())
     }
 
-    /// The face a style names, opening and keeping a project's own font file
-    /// the first time it is asked for.
+    /// The face a style names, at the weight it names, opening and keeping a
+    /// project's own font file the first time it is asked for.
+    ///
+    /// The two reserved names come back unweighted, and a `weight` beside one
+    /// of them never reaches here: the shipped faces are static and known to be
+    /// static without opening anything, so [`Project::validate`] refuses that
+    /// pairing before a render can start. Everything a *file* has to say about
+    /// its own weights — whether it is variable at all, and how far its axis
+    /// runs — is a fact about bytes on disk, so the refusal lives here, where
+    /// the bytes are.
+    ///
+    /// [`Project::validate`]: scorsese_core::Project::validate
     fn font(
         &mut self,
         style: &TextStyle,
@@ -75,17 +91,19 @@ impl Painter {
             FontChoice::Serif => return Ok(Font::serif()),
             FontChoice::File(path) => path.resolve(project_root),
         };
-        if !self.fonts.contains_key(&path) {
+        let key = (path, style.weight);
+        if !self.fonts.contains_key(&key) {
             let unusable = |detail: String| RenderError::UnusableFont {
                 asset: asset.id.to_string(),
-                path: path.clone(),
+                path: key.0.clone(),
                 detail,
             };
-            let bytes = std::fs::read(&path).map_err(|source| unusable(source.to_string()))?;
-            let font = Font::from_bytes(&bytes).map_err(|error| unusable(error.to_string()))?;
-            self.fonts.insert(path.clone(), font);
+            let bytes = std::fs::read(&key.0).map_err(|source| unusable(source.to_string()))?;
+            let font = Font::from_bytes(&bytes, style.weight)
+                .map_err(|error| unusable(error.to_string()))?;
+            self.fonts.insert(key.clone(), font);
         }
-        Ok(&self.fonts[&path])
+        Ok(&self.fonts[&key])
     }
 }
 

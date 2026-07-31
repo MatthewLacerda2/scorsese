@@ -4,6 +4,7 @@ use std::collections::HashSet;
 
 use crate::asset::{Asset, AssetKind};
 use crate::project::Project;
+use crate::text::{MAX_WEIGHT, MIN_WEIGHT, TextStyle};
 
 use super::error::ValidationError;
 use super::field::AssetField;
@@ -177,6 +178,37 @@ fn check_style(asset: &Asset, errors: &mut Vec<ValidationError>) {
             asset: asset.id.clone(),
             path: font.clone(),
             problem,
+        });
+    }
+    check_weight(asset, style, errors);
+}
+
+/// What can be said about a `weight` without opening a font file.
+///
+/// Two things, and deliberately only two. A reserved name is a face scorsese
+/// ships and knows to be static, so a weight beside one can be refused from the
+/// document alone. A number outside OpenType's own `wght` range is not a weight
+/// for any face, so it can be refused the same way. Everything else — whether
+/// this file is variable at all, and whether its axis reaches 900 — is a fact
+/// about bytes on disk, and lives where the file is read. Validation is about
+/// the document and stops at the edge of it, exactly as it does for `path`.
+fn check_weight(asset: &Asset, style: &TextStyle, errors: &mut Vec<ValidationError>) {
+    let Some(weight) = style.weight else {
+        return;
+    };
+    if style.font.is_reserved() {
+        errors.push(ValidationError::WeightOnReservedFont {
+            asset: asset.id.clone(),
+            font: String::from(style.font.clone()),
+            weight,
+        });
+    }
+    if !(MIN_WEIGHT..=MAX_WEIGHT).contains(&weight) {
+        errors.push(ValidationError::WeightOutOfRange {
+            asset: asset.id.clone(),
+            weight,
+            min: MIN_WEIGHT,
+            max: MAX_WEIGHT,
         });
     }
 }
