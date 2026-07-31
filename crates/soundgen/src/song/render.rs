@@ -18,11 +18,11 @@
 //!   the mix, then squash the sum again. The master limiter is the guarantee
 //!   that matters, and it is not optional.
 //!
-//! This file walks the arrangement and hands each rendered note to [`super::mix`],
-//! which owns where a note lands and what runs on the sums — a chain on a track
-//! or on the whole piece. Those two stages are the same reasoning as the
-//! paragraph above, one level up: some things belong to the sum and not to the
-//! parts, which is also why the song's chain runs *before* the limiter here and
+//! This file walks the arrangement and hands each rendered note to the `mix`
+//! module beside it, which owns where a note lands and what runs on the sums —
+//! a chain on a track, or one on the whole piece. Those two stages are the
+//! paragraph above one level up: some things belong to the sum and not to the
+//! parts, which is also why a song's chain runs *before* the limiter here and
 //! never after it.
 //!
 //! **Determinism.** Every note's seed is derived from `(song.seed, track
