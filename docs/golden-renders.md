@@ -30,6 +30,7 @@ cuts/
   expected/
     frame-0000.png    # reference frames, a few hundred bytes each
     frame-0029.png
+    decoder.txt       # an ffmpeg known to produce exactly those frames
 ```
 
 Media is **generated at test time** from ffmpeg's synthetic sources — solid
@@ -73,6 +74,60 @@ Neither alone is enough and each catches what the other waves through;
 platform's x264 and far tighter than any real regression — red against blue
 scores 0.70 and 169.
 
+## The decoder, which sits upstream of all of that
+
+"Frames are ours to assert on" is a claim about the **encoder** at the end of a
+render. ffmpeg is also the **decoder** at the start of one: every pixel the
+compositor works on arrived through it, so a different ffmpeg is a difference
+the tolerances above never accounted for. They were sized for encoder noise and
+say so.
+
+CI and a development machine are not on the same one. CI runs Ubuntu 24.04's
+`6.1.1-3ubuntu5`; Arch currently ships `n8.1.2`. Two majors apart, comparing
+pixels.
+
+**Measured, on the fixture set as it stands: they agree exactly.** Every
+compared frame of every fixture, decoded by 6.1.1 and by 8.1.2, comes out
+bit-identical — SSIM 1.0000 and mean error 0.000, not merely inside tolerance.
+That is not luck. H.264 specifies its inverse transform exactly, so conformant
+decoders are obliged to produce identical samples; it is *encoding* that is
+free to differ, which is the asymmetry this whole gate is built on. The
+synthetic flat-colour sources these fixtures use give swscale nothing to
+disagree about either.
+
+So this is a gap that has never bitten and, for the codecs in use, has no
+mechanism to. Two things follow from it, and neither is a check that can fail:
+
+- **CI pins its runner image** to `ubuntu-24.04` rather than `ubuntu-latest`.
+  A moving label would change the decoder under the pixel gate by a major
+  version the day GitHub rolls it, with nothing in any diff to say so — the
+  same reasoning as `rust-toolchain.toml`'s. Every CI run also prints
+  `ffmpeg -version`, so which decoder ran is a fact in the log rather than
+  something to reconstruct later.
+- **Each fixture records a decoder** in `expected/decoder.txt`: an ffmpeg known
+  to produce exactly those frames. Blessing rewrites it in the same act that
+  rewrites the references, so it can never describe an older set of frames than
+  they are. The committed records name CI's `6.1.1-3ubuntu5`, from the
+  measurement above.
+
+The record **never fails anything, and never warns on a passing run**. It
+speaks in one place: inside the report of a fixture whose frames already
+disagree, where it names the ffmpeg that produced them and the one the
+references were recorded under. A failure that would otherwise read as "the
+pixels moved" reads as "the pixels moved, and you are on a different decoder —
+rule that out first".
+
+Failing on a mismatch instead would make the suite unrunnable for anyone whose
+distribution ships something else, which is a gate going red for a cause its
+author cannot see in their own diff. Warning on every green run would train
+everyone to scroll past it. `crates/golden/tests/provenance.rs` holds both
+halves to specific cases, including that a fixture whose record names a
+different ffmpeg still passes when its frames match.
+
+**It is context, not permission.** Re-blessing because the report mentioned a
+decoder difference is the same illegitimate act as re-blessing for any other
+reason, and it would bake one machine's decoder into the reference.
+
 ## Re-blessing
 
 ```sh
@@ -104,10 +159,12 @@ Two rules keep that honest:
 ## When a golden fails
 
 The failure names every frame that fell outside tolerance, its scores, and two
-paths: the committed reference and the frame that was actually produced. The
-render itself is kept on disk rather than cleaned up, because watching it is
-usually the fastest diagnosis. In CI those frames are uploaded as the
-`golden-failures` artifact.
+paths: the committed reference and the frame that was actually produced. It
+also names the ffmpeg that decoded them, and whether that is the one the
+references were recorded under — see the decoder section above for what to do
+with that, and what not to. The render itself is kept on disk rather than
+cleaned up, because watching it is usually the fastest diagnosis. In CI those
+frames are uploaded as the `golden-failures` artifact.
 
 ## Adding a fixture
 
@@ -119,3 +176,6 @@ usually the fastest diagnosis. In CI those frames are uploaded as the
 3. Create the references with `UPDATE_GOLDENS=1`, then **look at them** before
    committing. A blessed reference is an assertion about what is correct; if you
    did not check it, you have asserted that whatever the code did was right.
+   The same run writes `expected/decoder.txt` naming the ffmpeg that produced
+   them; commit it with the PNGs, since on its own it would describe frames
+   that are not there.

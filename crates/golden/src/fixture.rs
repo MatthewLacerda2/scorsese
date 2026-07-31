@@ -165,11 +165,15 @@ impl Fixture {
         Ok(fixture)
     }
 
+    /// The directory of reference frames, which also holds the record of the
+    /// ffmpeg that decoded them.
+    pub fn expected(&self) -> PathBuf {
+        self.directory.join(EXPECTED_DIR)
+    }
+
     /// Where a frame's reference image lives.
     pub fn reference(&self, frame: u64) -> PathBuf {
-        self.directory
-            .join(EXPECTED_DIR)
-            .join(format!("frame-{frame:04}.png"))
+        self.expected().join(format!("frame-{frame:04}.png"))
     }
 
     /// The assets needing a file generated for them, paired with their recipe.

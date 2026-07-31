@@ -19,18 +19,43 @@ on:
       - "!**.md"
       - "docs/project-format.md"
 
+# `ubuntu-24.04` and not `ubuntu-latest`, everywhere below, and the reason is
+# ffmpeg. It comes from the image's apt archive — 6.1.1-3ubuntu5 there — and
+# ffmpeg is not only the encoder at the end of a render; it is the **decoder**
+# at the start of one, so every pixel the golden gate compares arrived through
+# it. `ubuntu-latest` is a moving label: when GitHub rolls it to the next LTS,
+# the decoder under the pixel gate changes major version with nothing in any
+# diff to say so. `rust-toolchain.toml` pins the compiler for exactly this
+# reason, and its comment is the whole argument — a gate that goes red for a
+# cause its author cannot see teaches people that red means "try again".
+#
+# Pinned at the image rather than at the package version. `apt-get install
+# ffmpeg=7:6.1.1-3ubuntu5` would pin harder and break the day the archive
+# rotates that build out, which would be this same failure arriving by the
+# other door.
+#
+# What this states, so a developer can match it: the golden references are held
+# to account under **ffmpeg 6.1.1** from Ubuntu 24.04. Measured against 8.1.2
+# on Arch, both decode these fixtures to bit-identical frames — see
+# docs/golden-renders.md.
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   check:
     name: fmt + clippy + test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
+      # Printed, not only installed. A run that compares pixels should say in
+      # its own log which decoder produced them, so a future disagreement can
+      # be dated rather than reconstructed.
       - name: Install ffmpeg
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          ffmpeg -version | head -1
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
@@ -85,7 +110,7 @@ jobs:
   # gating without saying so.
   app:
     name: desktop app
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -146,7 +171,7 @@ jobs:
 
   size:
     name: size gate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -183,7 +208,7 @@ jobs:
   # seconds beside everything else.
   scripts:
     name: signal renderers
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -242,7 +267,7 @@ jobs:
   #   covered by definition and counting it would only dilute the number.
   coverage:
     name: coverage (signal)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     continue-on-error: true
     permissions:
       contents: read
@@ -343,7 +368,7 @@ jobs:
   # belongs on a schedule with its own job, not bolted onto this one.
   mutants:
     name: mutants (signal)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: github.event_name == 'pull_request'
     # The same structural guarantee `coverage` relies on: whatever happens in
     # here — survivors, a broken flag, cargo-mutants itself falling over — the
@@ -499,7 +524,7 @@ jobs:
   # `deny.toml`: one policy, checked twice.
   deny:
     name: cargo-deny
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 

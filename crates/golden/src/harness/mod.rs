@@ -1,16 +1,20 @@
 //! Rendering a fixture and holding it to its references.
 
+pub mod decoder;
+mod errors;
 mod setup;
 
 use std::fmt;
 use std::path::{Path, PathBuf};
 
-use scorsese_render::frames::{self, FrameError};
+use scorsese_render::frames;
 use scorsese_render::{Renderer, Tools};
 
-use crate::compare::{self, Difference, SizeMismatch, Tolerance};
-use crate::fixture::{Fixture, FixtureError};
+use crate::compare::{self, Difference, Tolerance};
+use crate::fixture::Fixture;
 
+pub use decoder::Decoder;
+pub use errors::GoldenError;
 pub use setup::SetupError;
 
 /// The name of the environment variable that re-blesses references.
@@ -74,6 +78,10 @@ pub struct Mismatches {
     pub render: PathBuf,
     /// Only the frames that fell outside tolerance, in fixture order.
     pub frames: Vec<Mismatch>,
+    /// What decoded these frames, and what decoded the references — so a
+    /// disagreement can name a different ffmpeg as its cause instead of
+    /// reading as a regression. See [`decoder`].
+    pub decoder: Decoder,
 }
 
 impl fmt::Display for Mismatches {
@@ -92,6 +100,7 @@ impl fmt::Display for Mismatches {
             writeln!(f, "    actual   {}", entry.actual.display())?;
         }
         writeln!(f, "  the render itself is at {}", self.render.display())?;
+        writeln!(f, "{}", self.decoder)?;
         write!(
             f,
             "  if this change is intended, re-bless with: \
@@ -109,6 +118,10 @@ impl fmt::Display for Mismatches {
 pub fn run(fixture_dir: &Path, mode: Mode, workspace: &Path) -> Result<Outcome, GoldenError> {
     let fixture = Fixture::load(fixture_dir)?;
     let tools = Tools::discover()?;
+    // Asked once per fixture, before anything is rendered: every frame below
+    // arrives through this ffmpeg, so it is the one fact a failure needs to be
+    // able to name. It never decides anything on its own — see `decoder`.
+    let decoder = Decoder::read(&fixture.expected(), tools.ffmpeg_version()?);
     let work = workspace.join("renders").join(&fixture.name);
     let project = setup::materialise(&tools, &fixture, &work)?;
 
@@ -162,14 +175,27 @@ pub fn run(fixture_dir: &Path, mode: Mode, workspace: &Path) -> Result<Outcome, 
         }
     }
 
+    // Written after the loop rather than inside it: one record covers the
+    // fixture's references, and it is rewritten in the same act that rewrites
+    // them so it can never describe an older set of frames than they are.
+    if mode == Mode::Bless {
+        decoder
+            .write(&fixture.expected())
+            .map_err(|source| GoldenError::Record {
+                fixture: fixture.name.clone(),
+                source,
+            })?;
+    }
+
     if !failed.is_empty() {
         return Err(GoldenError::Mismatch {
             fixture: fixture.name,
-            mismatches: Mismatches {
+            mismatches: Box::new(Mismatches {
                 tolerance: fixture.manifest.tolerance,
                 render: output,
                 frames: failed,
-            },
+                decoder,
+            }),
         });
     }
 
@@ -189,78 +215,4 @@ pub fn assert_matches(fixture_dir: &Path, mode: Mode, workspace: &Path) -> Outco
         Ok(outcome) => outcome,
         Err(error) => panic!("{error}"),
     }
-}
-
-/// Why a golden run did not come out clean.
-#[derive(Debug, thiserror::Error)]
-pub enum GoldenError {
-    /// The one failure that is about pixels. Everything else here is the
-    /// harness saying it could not get as far as comparing.
-    #[error("golden fixture `{fixture}` does not match its references\n{mismatches}")]
-    Mismatch {
-        /// The fixture that regressed.
-        fixture: String,
-        /// Every frame that missed, and where to look at each.
-        mismatches: Mismatches,
-    },
-
-    /// A frame nominated for comparison has no committed reference. Fails
-    /// rather than being created, so a fixture never passes by asserting
-    /// nothing.
-    #[error(
-        "golden fixture `{fixture}` has no reference for frame {frame} at {} — \
-         create it with {UPDATE_VARIABLE}=1 cargo test -p scorsese-golden, \
-         and look at it before committing it",
-        path.display()
-    )]
-    NoReference {
-        /// The fixture missing a reference.
-        fixture: String,
-        /// The frame it nominates but cannot be held to.
-        frame: u64,
-        /// Where the reference is expected to sit.
-        path: PathBuf,
-    },
-
-    /// The fixture asks about a frame the render never produced — a timeline
-    /// that got shorter, or a `range` narrowed without updating `frames`.
-    #[error(
-        "golden fixture `{fixture}` compares frame {frame}, but its render is only \
-         {frames} frames long"
-    )]
-    FrameBeyondRender {
-        /// The fixture that over-reaches.
-        fixture: String,
-        /// The frame it asks for.
-        frame: u64,
-        /// How many the render actually wrote.
-        frames: u64,
-    },
-
-    /// The fixture disagrees with itself, before anything was rendered.
-    #[error("the fixture is broken: {0}")]
-    Fixture(#[from] FixtureError),
-
-    /// Materialising the scratch project or conjuring its media failed.
-    #[error("setting the fixture up: {0}")]
-    Setup(#[from] SetupError),
-
-    /// No ffmpeg on PATH — the harness needs one to render or to read a PNG.
-    #[error(transparent)]
-    Tools(#[from] scorsese_render::ToolsError),
-
-    /// The render failed outright, which is a bug in the code under test and
-    /// not something the fixture can be blamed for.
-    #[error("rendering the fixture: {0}")]
-    Render(#[from] scorsese_render::RenderError),
-
-    /// A frame could not be pulled out of the render, or written back as a
-    /// reference.
-    #[error("reading a frame: {0}")]
-    Frame(#[from] FrameError),
-
-    /// The render and its reference are different sizes, so there is nothing
-    /// to compare — re-bless deliberately if the resolution moved on purpose.
-    #[error(transparent)]
-    Size(#[from] SizeMismatch),
 }
