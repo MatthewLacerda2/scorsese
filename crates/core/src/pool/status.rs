@@ -37,7 +37,8 @@ pub enum AssetHealth {
         /// The hash the file has now.
         found: String,
     },
-    /// Present, but nothing has probed it.
+    /// Present, but nothing has probed it — so how long it is, how big it is
+    /// and whether it carries sound are all unknown.
     Unprobed,
     /// The file could not be read to verify it.
     Unreadable(String),
@@ -45,10 +46,17 @@ pub enum AssetHealth {
 
 impl AssetHealth {
     /// True when this asset needs a human or an agent to do something.
+    ///
+    /// [`Self::Unprobed`] is one of them, which it did not used to be. It was
+    /// reported as a fact for as long as nothing read the metadata; now that
+    /// features do — a source's own length is what bounds a trim — an asset
+    /// nobody has looked at is an asset those features silently skip. The
+    /// thing to do about it is `scorsese probe`, which is why this counts as
+    /// something to fix rather than something to know.
     pub fn needs_attention(&self) -> bool {
         matches!(
             self,
-            Self::Missing | Self::HashMismatch { .. } | Self::Unreadable(_)
+            Self::Missing | Self::HashMismatch { .. } | Self::Unreadable(_) | Self::Unprobed
         )
     }
 }

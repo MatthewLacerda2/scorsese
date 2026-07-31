@@ -10,6 +10,7 @@ use crate::project::{ASSETS_DIR, Project};
 
 use super::hash::hash_file;
 use super::naming::{infer_kind, unique_asset_id, unique_file_name};
+use super::probing::as_recorded;
 
 /// Copies a file into the project's `assets/`, hashes and probes it, and adds
 /// it to the assets table. Returns the id of the asset to reference.
@@ -43,15 +44,12 @@ pub fn import_asset(
     // Probe before copying. Everything that can reject a file happens while
     // the project directory is still untouched, so a failed import cannot
     // leave a stray file behind in `assets/`.
-    let mut media = probe.probe(source)?;
+    let media = probe.probe(source)?;
     check_kind_against_media(kind, &media, source)?;
-    if kind == AssetKind::Image {
-        // ffprobe reports a still as a one-frame video, inventing a frame
-        // rate and sometimes a duration. A still has neither; how long it is
-        // on screen is the clip's business, not the file's.
-        media.frame_rate = None;
-        media.duration_seconds = None;
-    }
+    // What a still's metadata says is decided in one place, shared with
+    // `scorsese probe` — see [`as_recorded`]. Two paths into the assets table
+    // that describe one file differently would be a bug nobody could see.
+    let media = as_recorded(kind, media);
 
     let assets_dir = project_root.join(ASSETS_DIR);
     fs::create_dir_all(&assets_dir).map_err(|source_err| ImportError::Unwritable {

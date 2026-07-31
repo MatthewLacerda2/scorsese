@@ -65,6 +65,20 @@ pub enum Command {
         #[arg(long, value_enum)]
         kind: Option<KindArg>,
     },
+    /// Ask ffprobe about every asset that has a file and no recorded
+    /// metadata, and write down what it says: how long the source is, how big
+    /// it is, and whether it carries sound.
+    ///
+    /// Import already does this for what it brings in; this is for everything
+    /// that reached `project.json` another way. Safe to re-run — an
+    /// already-probed asset is left alone.
+    Probe {
+        /// Read every file again, replacing metadata that is already
+        /// recorded. For when what is written down is wrong; without it, only
+        /// the assets nobody has looked at are probed.
+        #[arg(long)]
+        all: bool,
+    },
     /// Report everything wrong or questionable about the project — the
     /// document and the media it references — without rendering. Problems
     /// fail; warnings do not.

@@ -138,8 +138,9 @@ fn note(project: &Project, status: &AssetStatus) -> RichText {
         AssetHealth::Missing => "file missing".to_owned(),
         AssetHealth::HashMismatch { .. } => "changed on disk".to_owned(),
         AssetHealth::Unreadable(_) => "unreadable".to_owned(),
-        // Present but never probed: not a fault, and not worth shouting
-        // about — it only means nobody has asked ffprobe how long it is.
+        // Present, but nobody has asked ffprobe how long it is — so anything
+        // that needs the source's own length skips it. The window probes on
+        // open, so seeing this usually means ffprobe could not be found.
         AssetHealth::Unprobed => "not probed".to_owned(),
         AssetHealth::Inline | AssetHealth::Ok => recipe_of(project, status),
     };
