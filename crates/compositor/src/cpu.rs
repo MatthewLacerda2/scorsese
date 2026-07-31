@@ -4,6 +4,7 @@
 //! same pixels everywhere — which is what makes it the reference a GPU backend
 //! can later be held to.
 
+use scorsese_core::{AnchorX, AnchorY};
 use tiny_skia::{BlendMode, FilterQuality, PixmapMut, PixmapPaint, PixmapRef, Transform};
 
 use crate::compose::{CompositeError, Compositor, Layer};
@@ -147,12 +148,18 @@ fn draw(
 /// **Positive is clockwise**, because the raster's y runs downward: `(1, 0)`
 /// maps to `(cos θ, sin θ)`, and a positive y is further down the frame.
 ///
-/// A layer the size of the canvas rests at the origin, so this is the same
-/// matrix it always was — which is what keeps every existing reference frame
-/// meaning what it meant. A layer that is *not* canvas-sized is what
-/// [`scorsese_core::Fit::Native`] produces, and centred is where it rests: the
-/// alternative, the top-left corner, is an arbitrary edge of a raster the
-/// project is not supposed to know the size of.
+/// **The anchor decides where the layer rests**, and nothing else about it. A
+/// centred anchor is the arithmetic this always did; `left` rests the layer's
+/// left edge on the frame's, `right` rests its right edge on the frame's right.
+/// That makes a positive offset mean "further in" on both sides, so the same
+/// number is the same margin whichever edge it is measured from — which is what
+/// lets a layout be flipped by changing one word.
+///
+/// A layer the size of the canvas rests at the origin whatever its anchor,
+/// since every edge already meets the matching one. That is what keeps every
+/// existing reference frame meaning what it meant, and it is also why an anchor
+/// says nothing about a `fit` or `fill` layer: those *are* the raster. The layer
+/// that is not canvas-sized is what [`scorsese_core::Fit::Native`] produces.
 fn transform_of(
     layer: &Layer<'_>,
     source: crate::frame::Resolution,
@@ -165,16 +172,41 @@ fn transform_of(
     // Rounded to whole pixels: a layer an odd number of pixels narrower than the
     // canvas cannot sit exactly in the middle of it, and half a pixel out is a
     // bilinear smear across every edge in the layer. Crisp beats exact when the
-    // difference is invisible and the cost is the whole layer going soft.
-    let rest_x = ((canvas.width() as f32 - source.width() as f32) / 2.0).round();
-    let rest_y = ((canvas.height() as f32 - source.height() as f32) / 2.0).round();
+    // difference is invisible and the cost is the whole layer going soft. Only
+    // the centred case can land on a half pixel; the edges are exact.
+    let spare_x = canvas.width() as f32 - source.width() as f32;
+    let spare_y = canvas.height() as f32 - source.height() as f32;
+    let rest_x = match layer.anchor.x {
+        AnchorX::Left => 0.0,
+        AnchorX::Center => (spare_x / 2.0).round(),
+        AnchorX::Right => spare_x,
+    };
+    let rest_y = match layer.anchor.y {
+        AnchorY::Top => 0.0,
+        AnchorY::Center => (spare_y / 2.0).round(),
+        AnchorY::Bottom => spare_y,
+    };
     // Not rounded, unlike the resting place above: a fraction of the raster
     // lands between pixels far more often than it lands on one, and a slow
     // drift stepping a whole pixel at a time is a worse artefact than the
     // bilinear softness that rounding avoids. Resting is static, where the
     // softness buys nothing; a position is usually going somewhere.
-    let offset_x = layer.properties.position.0 as f32 * canvas.width() as f32;
-    let offset_y = layer.properties.position.1 as f32 * canvas.height() as f32;
+    // Negated on the far edges, so "further in" is positive on both sides and
+    // the same number is the same margin whichever edge it was measured from.
+    // Without this, flipping a layout would mean negating every offset, which
+    // is the hand arithmetic anchors exist to remove.
+    let inward_x = if layer.anchor.x == AnchorX::Right {
+        -1.0
+    } else {
+        1.0
+    };
+    let inward_y = if layer.anchor.y == AnchorY::Bottom {
+        -1.0
+    } else {
+        1.0
+    };
+    let offset_x = layer.properties.position.0 as f32 * canvas.width() as f32 * inward_x;
+    let offset_y = layer.properties.position.1 as f32 * canvas.height() as f32 * inward_y;
     let (sin, cos) = (layer.properties.rotation as f32).to_radians().sin_cos();
     // The linear part, R·S, in tiny-skia's row order: `from_row(sx, ky, kx, sy,
     // …)` maps `x' = sx·x + kx·y + tx` and `y' = ky·x + sy·y + ty`.

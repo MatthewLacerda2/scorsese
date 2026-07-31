@@ -1,4 +1,4 @@
-# `project.json` — schema v9
+# `project.json` — schema v10
 
 The contract between the CLI, the MCP server, the GUI, and every project
 saved on someone's disk. It is meant to be hand-written: an agent should be
@@ -12,7 +12,7 @@ bump and a migration note.
 
 ```json project
 {
-  "schema_version": 9,
+  "schema_version": 10,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -384,10 +384,52 @@ it is one rectangle for the clip rather than a value the compositor resolves
 per frame. Animating it would mean moving the fit into the compositor, which is
 its own piece of work.
 
+### Which edge a position is measured from: `anchor`
+
+```json clip
+{ "id": "c-title", "asset": "title", "start": 0, "duration": 112,
+  "anchor": { "x": "left", "y": "center" },
+  "keyframes": [ { "property": "transform.position.x",
+                   "keyframes": [ { "t": 0, "value": 0.05 } ] } ] }
+```
+
+`x` is `left`, `center` or `right`; `y` is `top`, `center` or `bottom`. Absent
+means centred on both, which is what every layer did before the field existed.
+
+**Without it the format can say where a layer ended up and not what was meant.**
+A title column beside a picture — the commonest arrangement there is — comes out
+as an offset derived on paper from the block's width and the fact that text is
+drawn centred. Nobody can read that back out; putting the text on the other side
+is a recomputation rather than one word; and lengthening the title moves it,
+because a centred block grows both ways. With an anchor the same layout is
+`left` and a margin, and flipping it is `left` → `right` with the number
+unchanged.
+
+**A positive offset always moves the layer further in.** On `right` and
+`bottom` the offset is measured inward from that edge, so the same number is the
+same margin whichever edge it was measured from — which is what makes flipping a
+layout one word rather than a sign change.
+
+**What it anchors is the layer's laid-out rectangle**, and for text that is the
+**wrapped block at `max_width`**, not the longest line. Left-anchored text could
+plausibly mean either, and only the block keeps a column's left edge still when
+the wording changes. `align` still places each line inside that block.
+
+**A `fit` or `fill` layer is unaffected**, and that falls out rather than being
+a special case: such a layer *is* the raster, so every edge already meets the
+matching one. An anchor moves a `native` layer, a cropped one, and a text block.
+
+**It is a field, not an animatable property**, and deliberately: an anchor says
+how a coordinate is to be *read*, and animating that would slide a layer by
+changing what its number means. `transform.position` stays the animated part.
+Scale and rotation stay centre-anchored about the layer's own middle — the
+anchor decides where the layer sits, and those decide what it does about its
+own centre once it is there.
+
 A clip carries `start` and `duration` on the timeline, an optional
 `source_in` offset into the media (default `0`), an optional `fit`
-(default `fit`), an optional `crop` (default the whole source), and optional
-`keyframes`.
+(default `fit`), an optional `crop` (default the whole source), an optional
+`anchor` (default centred), and optional `keyframes`.
 `source_in` counts in **timeline** frames too — "skip the first two seconds"
 means the same thing whatever the source was shot at, and the conform rule
 below turns it into a source frame.
@@ -626,13 +668,21 @@ asset still awaiting generation is neither. A `style`'s font file is a path like
 applies: the shape is validated here, and whether the face is really on disk is
 the render's to find out.
 
+## Migrating from v9
+
+v10 adds one optional field: `anchor` on a clip. No v9 document can contain it,
+and **absent means centred on both axes**, which is what every layer did before
+the field existed. So no v9 document means anything different under v10 —
+converting one is changing `"schema_version": 9` to `"schema_version": 10` and
+nothing else.
+
 ## Migrating from v8
 
 v9 adds one optional field: `crop` on a clip. No v8 document can contain it,
 and **absent means the whole source**, which is what every clip did before the
 field existed. So no v8 document means anything different under v9 —
-converting one is changing `"schema_version": 8` to `"schema_version": 9` and
-nothing else.
+converting one is changing `"schema_version": 8` to `"schema_version": 9`, and
+then on to `10` as above.
 
 ## Migrating from v7
 
@@ -668,7 +718,7 @@ from a pixel count without knowing the raster it was written against.
 v7 adds the `color` asset kind and the `color` field that goes with it. Both
 are new: no v6 document can contain either, so **no v6 document means anything
 different under v7**. Converting one is changing `"schema_version": 6` to
-`"schema_version": 7`, and then on to `9` as above.
+`"schema_version": 7`, and then on to `10` as above.
 
 ## Migrating from v5
 
@@ -676,7 +726,7 @@ v6 adds one optional field: `by` on a keyframe track. No v5 document can
 contain it, and **absent means hand-written**, which is what every keyframe
 track in every v5 project already is. So no v5 document means anything
 different under v6 — converting one is changing `"schema_version": 5` to
-`"schema_version": 7`, and then on to `9` as above.
+`"schema_version": 7`, and then on to `10` as above.
 
 ## Migrating from v4
 
@@ -696,7 +746,7 @@ v4 adds one optional field: `style` on a `text` asset. **Absent means every
 default** — white, centred, sans, a tenth of the frame high — which is what
 every text asset did before the field existed, so no v3 document means anything
 different under v4. Converting one is changing `"schema_version": 3` to
-`"schema_version": 4`, and then on to `9` as above.
+`"schema_version": 4`, and then on to `10` as above.
 
 Before v4 a text asset could not be rendered at all: the renderer refused a
 clip showing one. So the only v3 documents affected are ones that were never
@@ -707,7 +757,7 @@ renderable, and there is nothing for a migration to preserve.
 v3 added one optional field: `fit` on a clip. **Absent means `fit`**, which is
 what every clip did before the field existed, so no v2 document means anything
 different under v3 — converting one is changing `"schema_version": 2` to
-`"schema_version": 3` and then on to `9` as above.
+`"schema_version": 3` and then on to `10` as above.
 
 The version still has to be changed by hand, because this build reads exactly
 one schema version and refuses the rest. That refusal is the point: a document

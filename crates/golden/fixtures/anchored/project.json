@@ -1,0 +1,64 @@
+{
+  "schema_version": 10,
+  "name": "anchored",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    { "id": "plate", "kind": "color", "color": "#101820" },
+    {
+      "id": "left",
+      "kind": "text",
+      "text": "LEFT",
+      "style": { "font": "sans", "size": 0.16, "color": "#ffffff", "max_width": 0.4 }
+    },
+    {
+      "id": "right",
+      "kind": "text",
+      "text": "RIGHT",
+      "style": { "font": "sans", "size": 0.16, "color": "#ffcc00", "max_width": 0.4 }
+    },
+    {
+      "id": "middle",
+      "kind": "text",
+      "text": "MIDDLE",
+      "style": { "font": "sans", "size": 0.16, "color": "#66ccff", "max_width": 0.4 }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [{ "id": "c-plate", "asset": "plate", "start": 0, "duration": 15 }]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-left",
+          "asset": "left",
+          "start": 0,
+          "duration": 15,
+          "anchor": { "x": "left", "y": "top" }
+        }
+      ]
+    },
+    {
+      "id": "v3",
+      "kind": "video",
+      "clips": [{ "id": "c-middle", "asset": "middle", "start": 0, "duration": 15 }]
+    },
+    {
+      "id": "v4",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-right",
+          "asset": "right",
+          "start": 0,
+          "duration": 15,
+          "anchor": { "x": "right", "y": "bottom" }
+        }
+      ]
+    }
+  ]
+}
