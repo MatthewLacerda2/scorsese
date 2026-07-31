@@ -1,12 +1,19 @@
 //! Tracks and clips: where assets sit in time.
+//!
+//! Where a clip's picture sits in *space* — `fit`, `crop`, `anchor` — is
+//! [`placement`].
 
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
+pub mod placement;
+
 use crate::asset::AssetId;
 use crate::keyframe::KeyframeTrack;
 use crate::time::Frames;
+
+pub use placement::{Anchor, AnchorX, AnchorY, Crop, Fit};
 
 /// Identifies a track within one project.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
@@ -90,116 +97,6 @@ impl Track {
     }
 }
 
-/// How a clip's source is fitted into the render's raster.
-///
-/// The raster is a render setting, and the project is not supposed to care what
-/// it is. So this says what the author *meant* — the whole thing with bars
-/// allowed, cover it and crop the overflow, or leave it alone — and lets the
-/// render work out the pixels.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Fit {
-    /// Scale to fit inside the raster, keeping proportions. What is left over
-    /// is **transparent**, so the tracks below show through it.
-    #[default]
-    Fit,
-    /// Scale to cover the raster, keeping proportions, cropping the overflow
-    /// off the edges. What a background plate that must not have bars wants.
-    Fill,
-    /// No scaling at all: the source arrives at its own pixel size, resting
-    /// centred, and `transform.position.*` offsets it from there.
-    ///
-    /// This is how something is placed at a size it was authored at. Scaling a
-    /// 64×64 logo to fit makes its on-screen size a function of the render's
-    /// resolution, so the factor that shrinks it back means nothing to a reader
-    /// and stops meaning it the moment the render changes size.
-    Native,
-}
-
-impl Fit {
-    /// True for [`Fit::Fit`] — what a clip that says nothing means. Keeps the
-    /// field out of documents that do not set it.
-    pub fn is_default(&self) -> bool {
-        matches!(self, Self::Fit)
-    }
-}
-
-/// A rectangle of the source, in fractions of it.
-///
-/// **The asset is never touched.** Cropping by cutting the file down is the one
-/// place the format's premise — a document describing an edit over unmodified
-/// assets — currently has to be broken to do ordinary work, and a project that
-/// does it stops being a description of an edit and becomes a description of a
-/// result: the original pixels are gone, nothing records that a sidebar was
-/// removed or from where, and the recorded `sha256` describes a file no camera
-/// and no capture ever produced.
-///
-/// **Fractions of the source, not source pixels**, and the reasoning matters
-/// more than the choice. A fraction survives the asset being *replaced* by a
-/// higher-resolution capture of the same thing — re-shoot the screenshot at 4K
-/// and the crop still means the same region, where in pixels it would silently
-/// mean a different one. That is exactly the change-your-mind-later case this
-/// exists for, so the unit must not be the one that breaks it. A fraction also
-/// validates from the document alone, where a pixel rectangle would need the
-/// source's dimensions, which are only recorded if something probed the asset.
-///
-/// This is a different question from `transform.position`, which is a fraction
-/// of the **output** raster. A crop is against the **source** raster, and the
-/// two do not have to answer the same way.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Crop {
-    /// Left edge, as a fraction of the source's width.
-    pub x: f64,
-    /// Top edge, as a fraction of the source's height.
-    pub y: f64,
-    /// How much of the source's width is kept.
-    pub width: f64,
-    /// How much of the source's height is kept.
-    pub height: f64,
-}
-
-impl Default for Crop {
-    /// The whole source — what an absent `crop` means.
-    fn default() -> Self {
-        Self {
-            x: 0.0,
-            y: 0.0,
-            width: 1.0,
-            height: 1.0,
-        }
-    }
-}
-
-impl Crop {
-    /// Each edge, paired with the name `project.json` spells it — so a message
-    /// about one names the field the author wrote rather than a description of
-    /// it.
-    pub fn edges(&self) -> [(&'static str, f64); 4] {
-        [
-            ("x", self.x),
-            ("y", self.y),
-            ("width", self.width),
-            ("height", self.height),
-        ]
-    }
-
-    /// True when the rectangle is inside the source and encloses some of it.
-    ///
-    /// Checkable from the document alone, which is the point of fractions: a
-    /// pixel rectangle would need the source's dimensions, and those are only
-    /// recorded if something probed the asset.
-    pub fn is_within_source(&self) -> bool {
-        self.edges().iter().all(|&(_, value)| value.is_finite())
-            && self.width > 0.0
-            && self.height > 0.0
-            && self.x >= 0.0
-            && self.y >= 0.0
-            && self.x + self.width <= 1.0
-            && self.y + self.height <= 1.0
-    }
-}
-
 /// One placement of an asset on a track.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -231,6 +128,16 @@ pub struct Clip {
     /// absent [`Fit`] means the ordinary case.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub crop: Option<Crop>,
+    /// Which edges `transform.position` is measured from. Absent means centred
+    /// on both axes, which is what every layer did before the field existed.
+    ///
+    /// A **field and not an animatable property**, deliberately. An anchor says
+    /// how a coordinate is to be read, and animating the interpretation of a
+    /// coordinate — sliding a layer by changing what its number means — is a
+    /// way to produce jumps nobody asked for. `transform.position` stays the
+    /// animated part.
+    #[serde(default, skip_serializing_if = "Anchor::is_default")]
+    pub anchor: Anchor,
     /// Properties animated over this clip.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub keyframes: Vec<KeyframeTrack>,
@@ -248,6 +155,7 @@ impl Clip {
             source_in: Frames::ZERO,
             fit: Fit::default(),
             crop: None,
+            anchor: Anchor::default(),
             keyframes: Vec::new(),
         }
     }

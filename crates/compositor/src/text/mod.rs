@@ -30,7 +30,7 @@ pub use font::{Font, FontError};
 
 use std::ops::Range;
 
-use scorsese_core::{Rgba, TextAlign};
+use scorsese_core::{Anchor, AnchorX, AnchorY, Rgba, TextAlign};
 
 use crate::frame::{Frame, Resolution};
 
@@ -82,6 +82,15 @@ pub struct Style {
     pub line_height: f32,
     /// How wide the block may run before a line wraps, in pixels.
     pub max_width: f32,
+    /// Which edges of the frame the block's own edges are measured from.
+    ///
+    /// A text layer is drawn into a frame the size of the whole raster, so
+    /// unlike a `native` picture there is no smaller rectangle for the
+    /// compositor to rest — the anchor has to reach the *layout*. What it
+    /// anchors is the **wrapped block at `max_width`**, not the longest line:
+    /// left-anchored text could plausibly mean either, and only the first keeps
+    /// a column's left edge still when the wording changes.
+    pub anchor: Anchor,
 }
 
 /// Draws `text` into `frame`, wrapped to the style's width and **centred on
@@ -125,17 +134,30 @@ pub fn draw_in(frame: &mut Frame, text: &str, font: &Font, style: &Style, band: 
     let face = font.at(size);
     let lines = layout::wrap(text, &face, max_width, rows);
     let (ascent, descent) = face.extents();
-    let top = band.top + (height - line_height * lines.len() as f32) / 2.0;
-    let box_left = (width - max_width) / 2.0;
+    let block_height = line_height * lines.len() as f32;
+    let top = match style.anchor.y {
+        AnchorY::Top => band.top,
+        AnchorY::Center => band.top + (height - block_height) / 2.0,
+        AnchorY::Bottom => band.top + height - block_height,
+    };
+    let box_left = match style.anchor.x {
+        AnchorX::Left => 0.0,
+        AnchorX::Center => (width - max_width) / 2.0,
+        AnchorX::Right => width - max_width,
+    };
 
     // One path for the whole block, filled once: the rasteriser is entered a
     // single time however many lines there are, and letters that overlap are
     // one shape rather than two blended over each other at the seam.
     let mut outlines = draw::Outlines::default();
     for (row, line) in lines.iter().enumerate() {
+        // `align` places a line inside the block; the anchor placed the block
+        // inside the frame. Centring a line has to be centring it in the
+        // *block*, not in the frame, or an anchored column's lines would drift
+        // back to the middle of the picture one at a time.
         let left = match style.align {
             TextAlign::Left => box_left,
-            TextAlign::Center => (width - line.width) / 2.0,
+            TextAlign::Center => box_left + (max_width - line.width) / 2.0,
             TextAlign::Right => box_left + max_width - line.width,
         };
         // The visual middle of a line of text sits `(ascent + descent) / 2`

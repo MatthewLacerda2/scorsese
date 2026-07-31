@@ -1,5 +1,7 @@
 //! What a compositor is asked to do.
 
+use scorsese_core::Anchor;
+
 use crate::frame::{Frame, Resolution};
 use crate::properties::Properties;
 
@@ -17,6 +19,12 @@ pub struct Layer<'a> {
     /// Where it goes, how big, how solid — already evaluated for this instant.
     /// The compositor animates nothing itself; it draws one moment.
     pub properties: Properties,
+    /// Which edges of the frame the layer's own edges are measured from.
+    ///
+    /// Separate from [`Properties`] because it is not animated and must not
+    /// become so: it says how the position is to be *read*, and animating that
+    /// would move a layer by changing what its number means.
+    pub anchor: Anchor,
 }
 
 impl<'a> Layer<'a> {
@@ -25,6 +33,7 @@ impl<'a> Layer<'a> {
         Self {
             source,
             properties: Properties::default(),
+            anchor: Anchor::default(),
         }
     }
 }

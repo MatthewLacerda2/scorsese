@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 
 use scorsese_compositor::Frame;
 use scorsese_compositor::text::{self, Font, Style};
-use scorsese_core::{Asset, FontChoice, TextStyle};
+use scorsese_core::{Anchor, Asset, FontChoice, TextStyle};
 
 use crate::error::RenderError;
 
@@ -42,12 +42,14 @@ impl Painter {
     ///
     /// The frame is cleared to transparent first: a text layer is glyphs and
     /// nothing else, so everywhere the letters are not, the tracks underneath
-    /// show through. Where the block sits is the frame's centre, and moving it
-    /// is `transform.position.*` like any other layer.
+    /// show through. Where the block sits is what `anchor` says — the frame's
+    /// centre unless the clip asked otherwise — and moving it from there is
+    /// `transform.position.*` like any other layer.
     pub fn paint(
         &mut self,
         frame: &mut Frame,
         asset: &Asset,
+        anchor: Anchor,
         project_root: &Path,
     ) -> Result<(), RenderError> {
         let style = asset.text_style();
@@ -56,7 +58,7 @@ impl Painter {
         let font = self.font(&style, asset, project_root)?;
 
         frame.fill_transparent();
-        text::draw(frame, &content, font, &resolve(&style, resolution));
+        text::draw(frame, &content, font, &resolve(&style, anchor, resolution));
         Ok(())
     }
 
@@ -93,7 +95,11 @@ impl Painter {
 /// **width**: the height, because that is what makes a line of text the same
 /// proportion of the picture at any aspect ratio, and a wrap column measured
 /// down rather than across would be a surprise to everyone.
-fn resolve(style: &TextStyle, resolution: scorsese_compositor::Resolution) -> Style {
+fn resolve(
+    style: &TextStyle,
+    anchor: Anchor,
+    resolution: scorsese_compositor::Resolution,
+) -> Style {
     let height = f64::from(resolution.height());
     let width = f64::from(resolution.width());
     let size = style.size * height;
@@ -103,5 +109,9 @@ fn resolve(style: &TextStyle, resolution: scorsese_compositor::Resolution) -> St
         align: style.align,
         line_height: (size * style.line_height) as f32,
         max_width: (style.max_width * width) as f32,
+        // The anchor comes off the **clip**, not the style: it is where this
+        // placement of the text sits, and the same text asset used twice may
+        // legitimately sit in two different corners.
+        anchor,
     }
 }

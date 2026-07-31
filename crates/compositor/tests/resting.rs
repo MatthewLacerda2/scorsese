@@ -56,6 +56,7 @@ fn position_offsets_a_small_layer_from_where_it_rests() {
             position: (0.125, 0.0),
             ..Properties::default()
         },
+        anchor: scorsese_core::Anchor::default(),
     }]);
 
     assert_pixel(&canvas, (FIRST + 8, CENTRE.1), RED, "moved right by eight");

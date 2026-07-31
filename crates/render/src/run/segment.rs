@@ -113,6 +113,7 @@ impl Pass<'_> {
                 .map(|(shot, source)| Layer {
                     source,
                     properties: Properties::at(&shot.clip.keyframes, elapsed(at, shot.clip)),
+                    anchor: shot.clip.anchor,
                 })
                 .collect();
 
@@ -157,7 +158,7 @@ impl Pass<'_> {
 
         if shot.asset.kind == AssetKind::Text {
             drawn_at_raster(buffer);
-            painter.paint(buffer, shot.asset, self.project_root)?;
+            painter.paint(buffer, shot.asset, shot.clip.anchor, self.project_root)?;
             return Ok(None);
         }
 

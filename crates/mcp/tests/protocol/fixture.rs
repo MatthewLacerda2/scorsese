@@ -42,7 +42,7 @@ pub(crate) const BED: &str = r#"{
 "#;
 
 pub(crate) const DOCUMENT: &str = r#"{
-  "schema_version": 9,
+  "schema_version": 10,
   "name": "Teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [
