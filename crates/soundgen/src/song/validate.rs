@@ -34,7 +34,31 @@ impl Song {
         for (name, pattern) in &self.patterns {
             pattern.validate(name, &self.tracks)?;
         }
+        self.check_feel()?;
         self.check_shape()
+    }
+
+    /// The performance fields: how much the song swings, and how far its player
+    /// strays from the page.
+    ///
+    /// Both are refused only for values that stop meaning what the field is
+    /// named after. A swing at or past 1 does not swing harder — it moves the
+    /// off-beat onto the following downbeat and reorders the music — and a
+    /// negative scatter is not a scatter in the other direction. Taste is not
+    /// checked: a song that swings 0.9 renders, and sounds like it.
+    fn check_feel(&self) -> Result<(), SynthError> {
+        if !(self.swing.is_finite() && (0.0..1.0).contains(&self.swing)) {
+            return Err(SynthError::BadSwing { swing: self.swing });
+        }
+        let Some(feel) = self.humanize else {
+            return Ok(());
+        };
+        for (field, amount) in [("timing", feel.timing), ("velocity", feel.velocity)] {
+            if !(amount.is_finite() && amount >= 0.0) {
+                return Err(SynthError::BadHumanize { field, amount });
+            }
+        }
+        Ok(())
     }
 
     /// One arrangement entry's transforms.

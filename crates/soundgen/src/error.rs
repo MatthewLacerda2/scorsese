@@ -190,6 +190,30 @@ pub enum SynthError {
         dur: f32,
     },
 
+    /// A swing outside the range where it still means "the off-beat sits
+    /// late". At 1 the off-beat eighth lands on the following beat — the two
+    /// have swapped places rather than been felt — and below 0 the off-beats
+    /// run early, which is not swing under any name.
+    #[error(
+        "song: `swing` must be at least 0 and below 1 (0 is straight, 0.33 swings), got {swing}"
+    )]
+    BadSwing {
+        /// The swing as written.
+        swing: f32,
+    },
+
+    /// A humanise amount that is not an amount. Both fields are magnitudes —
+    /// how far a player may stray, either way — so a negative one is not the
+    /// other direction, it is nonsense.
+    #[error("song: `humanize.{field}` must be zero or more, got {amount}")]
+    BadHumanize {
+        /// Which of the two fields is at fault, as it is spelled in the
+        /// document.
+        field: &'static str,
+        /// The amount as written.
+        amount: f32,
+    },
+
     /// A target length that is not a length.
     #[error("song: `fit.seconds` must be positive, got {seconds}")]
     BadFitSeconds {

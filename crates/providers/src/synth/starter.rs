@@ -110,6 +110,8 @@ fn four_bars() -> Song {
         }],
         patterns,
         arrangement: vec!["a".into(), "b".into(), "a".into(), "b".into()],
+        swing: 0.0,
+        humanize: None,
         fit: None,
         fade: None,
         tail: None,
