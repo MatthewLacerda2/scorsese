@@ -25,7 +25,13 @@ pub(super) enum Gesture {
     /// Dragging the playhead.
     Scrub,
     /// Moving or trimming a clip.
-    Clip(drag::Drag),
+    ///
+    /// Boxed because a [`drag::Drag`] carries a copy of the clip as it was when
+    /// the drag began, and a clip is much bigger than the other variant, which
+    /// carries nothing. One press is one allocation, against making every
+    /// `Gesture` — including the scrub that is by far the commonest — as large
+    /// as a clip.
+    Clip(Box<drag::Drag>),
 }
 
 impl Timeline {
@@ -89,7 +95,7 @@ impl Timeline {
             Some(hit) => {
                 editing.selected = Some(hit.clip.clone());
                 drag::Drag::begin(&open.project, &hit, at, area, self.view)
-                    .map_or(Gesture::Scrub, Gesture::Clip)
+                    .map_or(Gesture::Scrub, |held| Gesture::Clip(Box::new(held)))
             }
             None => Gesture::Scrub,
         });
