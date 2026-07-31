@@ -29,6 +29,8 @@
 //! predict the cause, and this one has already been the wrong cause once: the
 //! development machine has Vulkan ICDs installed and hung anyway.
 
+mod selftest;
+
 use std::io::{self, Write};
 use std::sync::Once;
 use std::time::Duration;
@@ -47,8 +49,8 @@ const BUDGET: Duration = Duration::from_secs(300);
 ///
 /// A guard nobody has seen fire is the same thing this repo refuses everywhere
 /// else: something that reads as coverage while proving nothing. It exists for
-/// [`the_watchdog_stops_a_run_that_will_not_finish`], which re-runs this binary
-/// with the variable set and a deliberately wedged test inside it.
+/// [`selftest`], which re-runs this binary with the variable set and a
+/// deliberately wedged test inside it.
 pub(crate) const BUDGET_VAR: &str = "PANELS_WATCHDOG_BUDGET_SECONDS";
 
 /// Starts the countdown, once per test binary.
@@ -105,46 +107,4 @@ fn report(budget: Duration) {
     // Nothing useful to do if even this fails, and the exit that follows is the
     // part that must happen regardless.
     let _ = io::stderr().write_all(said.as_bytes());
-}
-
-/// The wedged test the self-test below runs, and the only thing `--ignored`
-/// covers in this binary.
-///
-/// It stands in for a snapshot that will not finish: the watchdog cannot tell
-/// the difference, which is the point — it does not diagnose, it stops.
-#[test]
-#[ignore = "hangs on purpose; run by the_watchdog_stops_a_run_that_will_not_finish"]
-fn wedged_on_purpose() {
-    arm();
-    thread::sleep(Duration::from_secs(120));
-    panic!("the watchdog should have ended this process long before now");
-}
-
-/// The guard, watched firing.
-///
-/// Runs this same binary again with a one-second budget and the wedged test
-/// above, and holds it to the two things that were wrong before: it **ends**,
-/// and it **says what to look at**. A budget of 1 against a sleep of 120 means
-/// a pass here cannot be the test merely finishing on its own.
-#[test]
-fn the_watchdog_stops_a_run_that_will_not_finish() {
-    let binary = std::env::current_exe().expect("the test binary knows its own path");
-    let run = process::Command::new(binary)
-        // Filtered by substring rather than `--exact`, because the exact name
-        // carries this module's path and a rename would then quietly select no
-        // test at all — which passes, and is the shape of failure this whole
-        // file is about.
-        .args(["--ignored", "wedged_on_purpose"])
-        .env(BUDGET_VAR, "1")
-        .output()
-        .expect("the test binary re-runs");
-
-    assert!(!run.status.success(), "a wedged run must fail, not pass");
-    let said = String::from_utf8_lossy(&run.stderr);
-    for expected in ["are not going to finish", "pgrep -fa panels-", "vulkan-swrast"] {
-        assert!(
-            said.contains(expected),
-            "the refusal should mention `{expected}`, and said:\n{said}"
-        );
-    }
 }
