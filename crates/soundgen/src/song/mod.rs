@@ -23,14 +23,19 @@
 //!     "verse": { "beats": 8, "notes": [
 //!       { "track": "bass", "note": "E2", "start": 0.0, "dur": 0.5, "vel": 1.0 }] }
 //!   },
-//!   "arrangement": ["verse", "verse"]
+//!   "arrangement": ["verse", { "pattern": "verse", "transpose": 12 }]
 //! }
 //! ```
+//!
+//! An arrangement entry is a pattern's name, or that name with transforms —
+//! see [`arrangement`] for why a repeat that can vary is the difference between
+//! music that develops and music that only repeats.
 //!
 //! Rendering lives in [`render`]; this file is the document alone — plain
 //! serde data that round-trips losslessly, the same "document as truth" rule
 //! the patch follows.
 
+pub mod arrangement;
 pub mod render;
 pub mod shape;
 pub mod timing;
@@ -43,6 +48,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::SynthError;
 use crate::patch::Patch;
 
+pub use arrangement::{ArrangementEntry, Play};
 pub use render::{InlineOnly, PatchResolver, render_song};
 pub use timing::{Fade, Fit, FitMode, Tail};
 
@@ -67,8 +73,10 @@ pub struct Song {
     /// [`Song::to_json`] emits patterns in a stable order and two saves of the
     /// same song are byte-identical.
     pub patterns: BTreeMap<String, Pattern>,
-    /// Which patterns play, in order. Repeats are just repeats.
-    pub arrangement: Vec<String>,
+    /// Which patterns play, in order. An entry is a pattern's name, or that
+    /// name with [transforms](ArrangementEntry) — a repeat that varies rather
+    /// than photocopies.
+    pub arrangement: Vec<ArrangementEntry>,
     /// A length the piece has to come out at, when the picture decides that
     /// rather than the music. Absent means the song is as long as it is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -188,7 +196,7 @@ impl Song {
     pub fn arrangement_beats(&self) -> f32 {
         self.arrangement
             .iter()
-            .filter_map(|name| self.patterns.get(name))
+            .filter_map(|entry| self.patterns.get(entry.pattern()))
             .map(|pattern| pattern.beats)
             .sum()
     }

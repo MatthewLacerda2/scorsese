@@ -44,7 +44,7 @@ fn a_tempo_of_zero_is_refused() {
 #[test]
 fn an_arrangement_naming_a_pattern_that_does_not_exist_is_refused() {
     let mut song = song();
-    song.arrangement = vec!["chorus".to_owned()];
+    song.arrangement = vec!["chorus".into()];
     assert_eq!(
         song.validate(),
         Err(SynthError::UnknownPattern {

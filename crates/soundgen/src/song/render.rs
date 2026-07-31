@@ -33,7 +33,7 @@ use crate::core::{self, RATE};
 use crate::error::SynthError;
 use crate::fx::limiter;
 use crate::hash::hash3;
-use crate::note::NoteOpts;
+use crate::note::{MIDI_RANGE, NoteOpts};
 use crate::patch::Patch;
 
 /// Supplies the patch behind a track that names its instrument rather than
@@ -103,29 +103,41 @@ pub fn render_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Vec<f32>,
     // Repeats are a longer arrangement, not a copied buffer: tiling rendered
     // audio would overlap each pass's ring-out onto the next pass's downbeat,
     // and would replay the same seeded noise every time round.
-    for name in song
+    for entry in song
         .arrangement
         .iter()
         .cycle()
         .take(song.arrangement.len() * passes as usize)
     {
-        let pattern = song
-            .patterns
-            .get(name)
-            .ok_or_else(|| SynthError::UnknownPattern {
-                pattern: name.clone(),
-            })?;
+        let pattern =
+            song.patterns
+                .get(entry.pattern())
+                .ok_or_else(|| SynthError::UnknownPattern {
+                    pattern: entry.pattern().to_owned(),
+                })?;
         for note in &pattern.notes {
-            // Validation has already established that every note names a real
-            // track, so this lookup cannot miss.
+            // A silenced track still consumes its ordinal, so muting one for
+            // eight bars does not re-roll the noise of every note after it.
             let track = track_index[note.track.as_str()];
+            let seed = note_seed(song.seed, track, ordinal);
+            ordinal += 1;
+            if !entry.plays(&note.track) {
+                continue;
+            }
+            // The entry's transforms, applied to the *written* pattern rather
+            // than to whatever the previous entry produced: they do not stack
+            // across entries, so the tenth repeat is not nine octaves up and
+            // the document still says what it does.
             let opts = NoteOpts {
                 duration: note.dur * beat,
-                velocity: note.vel,
-                seed: note_seed(song.seed, track, ordinal),
+                velocity: note.vel * entry.vel_scale(),
+                seed,
             };
-            ordinal += 1;
-            let rendered = core::render_note(&patches[track], note.note.to_midi()?, &opts)?;
+            // Clamped rather than refused: refusing would make a legal
+            // transpose depend on the register of a pattern written months ago.
+            let pitch =
+                (note.note.to_midi()? + entry.transpose()).clamp(MIDI_RANGE.0, MIDI_RANGE.1);
+            let rendered = core::render_note(&patches[track], pitch, &opts)?;
             let at = ((cursor_beats + note.start) * beat * RATE).round() as usize;
             mix_into(&mut master, &rendered, at, song.tracks[track].gain);
         }

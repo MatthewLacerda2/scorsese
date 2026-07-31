@@ -17,6 +17,14 @@
 
 use crate::error::SynthError;
 
+/// The MIDI pitch axis, lowest and highest — `C-1` to `G9`.
+///
+/// Published because it is a boundary two different things need: a note *name*
+/// outside it is refused here, and a transposed note pushed outside it is
+/// clamped back into it by the song renderer. Two copies of the range would be
+/// two places to disagree about what a pitch is.
+pub const MIDI_RANGE: (f32, f32) = (0.0, 127.0);
+
 /// MIDI note number of the tuning reference, A4.
 const A4_MIDI: f32 = 69.0;
 /// Concert pitch of A4, in Hz.
@@ -84,7 +92,7 @@ pub fn parse_note(name: &str) -> Result<f32, SynthError> {
     })?;
 
     let midi = (octave + 1) * 12 + semitone + accidental;
-    if !(0..=127).contains(&midi) {
+    if !(MIDI_RANGE.0 as i32..=MIDI_RANGE.1 as i32).contains(&midi) {
         return Err(SynthError::NoteOutOfRange {
             name: name.to_owned(),
             midi,

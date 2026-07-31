@@ -117,7 +117,11 @@ not the recipe's decision.
       { "track": "bass", "note": "C2", "start": 0, "dur": 2.0, "vel": 1.0 }
     ] }
   },
-  "arrangement": ["a", "a"]
+  "arrangement": [
+    "a",
+    { "pattern": "a", "transpose": 12, "vel_scale": 0.6, "tracks": ["lead"] },
+    "a"
+  ]
 }
 ```
 
@@ -130,11 +134,49 @@ changing the tempo of a finished piece is one number.
   absolute paths, no `..`, forward slashes.
 - **`patterns`** — named blocks. `beats` is the *slot* the block occupies; notes
   may ring out past it and the next pattern still starts on time.
-- **`arrangement`** — which patterns play, in order. Repeats are just repeats.
+- **`arrangement`** — which patterns play, in order.
 
 Write repetition as repetition. A melody with any structure is a few short
 patterns and a list naming them; the same music as one flat note list is
 hundreds of lines, and every edit becomes a merge conflict with itself.
+
+### Repeating a pattern differently
+
+An arrangement entry is a pattern's **name**, or that name with **transforms**.
+The middle entry above is the same four bars an octave up, played quieter, by
+the lead alone — three fields instead of a second pattern written out note by
+note.
+
+| field | does |
+| --- | --- |
+| `transpose` | adds semitones to every note — a key change, an octave double, a lifted final chorus |
+| `vel_scale` | multiplies every velocity — a quiet reprise, a half-time breakdown |
+| `tracks` | plays only these tracks; everything else is silent for that entry |
+
+Reach for these. Without them the format prices variation out: a repeat costs
+one word and a variation costs a whole pattern, so a song written under that
+pressure comes out four thin patterns played twice each — sparse and
+symmetrical, for the same reason water runs downhill. A transform costs less
+than either, and it puts the relationship between two sections **in the
+document**, where an edit to one keeps the other in step and a reader can tell
+a deliberate variation from an inconsistency.
+
+Three things worth knowing before you write one:
+
+- **Transforms do not stack.** Every entry transforms the pattern *as written*,
+  never what the entry before it produced, so the tenth repeat is not nine
+  octaves up.
+- **`tracks` is a filter, not a remap.** It says which of the song's tracks
+  sound; it cannot move a note to a different instrument. If it could, a
+  pattern would mean something different depending on where it was played, and
+  then it is no longer a block of music.
+- **A transpose off the end of the keyboard is clamped, not refused.** Whether
+  a transpose is legal should not depend on the register of a pattern written
+  months ago.
+
+Inversion, retrograde, augmentation and fragmentation are deliberately absent.
+They are real compositional operations and also the ones nobody reaches for by
+hand; if a real song wants one, that is a request with the song attached.
 
 ### Fitting a song to the cut
 
@@ -200,7 +242,8 @@ Only what would produce silence, a divide-by-zero, an unstable filter or an
 unbounded allocation: an empty oscillator stack, a stack weighted entirely to
 zero, a non-positive `fm2` ratio, a cutoff at or below 0 Hz, a negative LFO
 rate, a note of no length, an arrangement naming a pattern that does not exist,
-a note on a track that does not exist.
+a note on a track that does not exist, a `tracks` filter naming one that does
+not either, and a `vel_scale` below zero.
 
 Musical taste is not checked. An ugly patch renders.
 

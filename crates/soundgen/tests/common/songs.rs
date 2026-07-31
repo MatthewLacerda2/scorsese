@@ -52,7 +52,7 @@ pub(crate) fn song() -> Song {
             gain: 0.8,
         }],
         patterns,
-        arrangement: vec!["verse".to_owned(), "verse".to_owned()],
+        arrangement: vec!["verse".into(), "verse".into()],
         fit: None,
         fade: None,
         tail: None,
