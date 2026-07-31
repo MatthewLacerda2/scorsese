@@ -19,7 +19,7 @@ use crate::error::{RenderError, Stage};
 
 /// Waits for an ffmpeg process and turns a non-zero exit into an error
 /// carrying whatever it said on stderr.
-fn finish(child: Child, stage: Stage, subject: &str) -> Result<(), RenderError> {
+pub(crate) fn finish(child: Child, stage: Stage, subject: &str) -> Result<(), RenderError> {
     let output = child
         .wait_with_output()
         .map_err(|source| RenderError::Pipe { stage, source })?;

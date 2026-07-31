@@ -191,6 +191,20 @@ pub enum Command {
         #[arg(long)]
         under: Vec<String>,
     },
+    /// Say how a finished sound file came out — over its whole length, over
+    /// time, and across the spectrum — and optionally how it differs from
+    /// another. A signal, never a gate: there is no correct loudness, so
+    /// nothing here can fail.
+    Level {
+        /// The file to measure. A bake, a render, or any media ffmpeg can
+        /// decode sound out of.
+        file: PathBuf,
+        /// Compare against this file, field by field. The version this was
+        /// meant to replace, usually — a difference is far easier to judge
+        /// than an absolute number.
+        #[arg(long)]
+        against: Option<PathBuf>,
+    },
     /// List the media pool and the state of everything in it.
     Assets {
         /// What to do with the pool. Without one, it is listed.

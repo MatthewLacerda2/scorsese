@@ -38,6 +38,7 @@
 pub mod arrangement;
 pub mod feel;
 pub mod render;
+pub mod sections;
 pub mod shape;
 pub mod timing;
 mod validate;

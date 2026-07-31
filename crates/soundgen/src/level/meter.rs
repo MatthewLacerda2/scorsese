@@ -1,23 +1,10 @@
 //! How loud a signal came out: peak, true peak, and mean level.
 //!
-//! Pure arithmetic over samples, which is why it lives here rather than beside
-//! either of the two things that want it. A render measures its finished mix
-//! and a bake measures the samples it just synthesised; those are different
-//! crates with different jobs, and the measurement is the same measurement.
-//! Putting it in the one crate that is *only* sample arithmetic is what keeps
-//! there from being two of it.
-//!
-//! **This is a signal, never a gate.** There is no correct loudness — a sting
-//! is meant to be hot, a bed under narration is meant to be far down — so a
-//! threshold that refused a bake or a render would be a taste enforced as a
-//! build failure. What it changes is the default: from "sounds fine, probably"
-//! to a number the author can act on.
-//!
-//! The defects that argued for it were all **authored content and not code**: a
-//! noise swell loud enough to wash out a whole piece, and two scores that came
-//! out four and a half decibels under the reference they replaced. No test
-//! suite catches those, because they are artistic choices with wrong numbers
-//! rather than regressions.
+//! The *how loud* half of [`super`]. One number per statistic over whatever
+//! samples it is fed, and nothing here knows how long the thing being measured
+//! is or what part of it this is — [`super::profile`] decides that by handing
+//! one of these a stretch at a time, and [`super::bands`] answers the other
+//! question a report asks, which is **where** the energy sits.
 
 /// Full scale, as the number a sample of `1.0` is.
 const FULL_SCALE: f64 = 1.0;
