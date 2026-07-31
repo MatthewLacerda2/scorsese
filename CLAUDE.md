@@ -164,6 +164,16 @@ review.
 - **Branch naming.** A PR that closes an issue uses `{issue_number}-short-slug`
   (e.g. `3-render-pipeline`). An issue-less PR uses a readable short slug of
   its subject. Lowercase-hyphenated, brief.
+- **One worktree per issue, when issues run in parallel.** Issues that block
+  neither each other nor a common third may be worked at the same time, and
+  each gets **its own git worktree** branched off the latest `main` — one
+  checkout per branch, never two branches taking turns in one. The isolation
+  is what makes a branch's gates mean anything: a shared checkout mixes
+  another issue's edits into `make gates` and thrashes `target/` between
+  builds. Each branch runs its own CI as a **signal** that it is healthy; the
+  run that **gates** a merge is the one on the rebased state below, so
+  re-running the other open PRs after every merge proves nothing — each gets
+  its green when its turn to rebase comes.
 - **Merging — serialized, one at a time.** Rebase the PR onto the latest
   `main` → CI green on that rebased state → merge → repeat, one PR at a time.
   Rust is compiled: two PRs can each be green alone yet break `main` together,
@@ -188,7 +198,7 @@ review.
   fair game.
 - **Re-read the board after every merge, not after a batch.** A merge changes
   the graph: whatever the merged issue blocked is fair game the moment it
-  lands. So the loop is one issue wide — merge, re-read the board, take the
+  lands. So the decision is one merge wide — merge, re-read the board, take the
   highest-priority issue with no open blockers and no stage label, assign the
   user, start it — and it repeats until nothing unblocked and unassigned is
   left. Choosing a batch up front and re-checking only once it is done is what
