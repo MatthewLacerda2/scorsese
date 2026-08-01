@@ -12,6 +12,7 @@ mod fixture;
 mod handshake;
 mod looking;
 mod pacing;
+mod rendering;
 mod seeing;
 
 use serde_json::Value;

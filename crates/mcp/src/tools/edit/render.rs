@@ -38,6 +38,13 @@ impl Tool for Render {
                     "description": "Output size, e.g. 1920x1080. Sources of another \
                                     shape meet it the way each clip's fit says, and \
                                     are never stretched. Default 1920x1080."
+                },
+                "range": {
+                    "type": "string",
+                    "description": "Render only part of the timeline, in frames: \
+                                    30:120 covers frames 30 up to 120, 30: runs to \
+                                    the end, :120 from the start. Without it the \
+                                    whole timeline is rendered."
                 }
             },
             "required": ["project", "out"]
@@ -59,6 +66,17 @@ impl Tool for Render {
             .parse()
             .map_err(|problem| format!("resolution: {problem}"))?;
 
+        // The CLI's `--range`, parsed by the CLI's parser: `FrameRange`'s own
+        // `FromStr` is the one set of rules, so `30:`, `:120` and every refusal
+        // read the same from either client. Parsed before ffmpeg is looked for,
+        // because a range that is not one costs nothing to refuse.
+        let range = match arguments.get("range").and_then(Value::as_str) {
+            Some(text) => text
+                .parse()
+                .map_err(|problem| format!("range: {problem}"))?,
+            None => FrameRange::ALL,
+        };
+
         // Discovered per call rather than held: a server that found ffmpeg at
         // startup would keep insisting it was there after someone uninstalled
         // it, and this is not a hot path.
@@ -67,7 +85,7 @@ impl Tool for Render {
         // was authored against is the one output rate needing no conform.
         let settings = RenderSettings::new(resolution, project.timeline_fps);
         let report = Renderer::new(&tools, settings)
-            .render(&project, &dir, FrameRange::ALL, Path::new(out))
+            .render(&project, &dir, range, Path::new(out))
             .map_err(|error| format!("rendering: {error}"))?;
         Ok(format!(
             "wrote {out} — {} frames at {} fps, {} ({:.2}s)",
