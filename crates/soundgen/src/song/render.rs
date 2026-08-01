@@ -18,6 +18,13 @@
 //!   the mix, then squash the sum again. The master limiter is the guarantee
 //!   that matters, and it is not optional.
 //!
+//! This file walks the arrangement and hands each rendered note to the `mix`
+//! module beside it, which owns where a note lands and what runs on the sums —
+//! a chain on a track, or one on the whole piece. Those two stages are the
+//! paragraph above one level up: some things belong to the sum and not to the
+//! parts, which is also why a song's chain runs *before* the limiter here and
+//! never after it.
+//!
 //! **Determinism.** Every note's seed is derived from `(song.seed, track
 //! index, note ordinal)` through the same seeded integer hash everything else
 //! here uses — no `rand`, no wall clock. The ordinal counts notes in
@@ -30,6 +37,7 @@
 use std::collections::HashMap;
 
 use super::feel::swung;
+use super::mix::Mix;
 use super::shape::{plan, shape};
 use super::{PatchRef, Song};
 use crate::core::{self, RATE};
@@ -99,7 +107,7 @@ pub fn render_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Vec<f32>,
     // the samples happen to stop. Tails then extend it past this.
     let played = song.arrangement_beats() * passes as f32;
     let arrangement_end = (played * beat * RATE).round() as usize;
-    let mut master = vec![0.0f32; arrangement_end];
+    let mut mix = Mix::new(song, arrangement_end);
     let mut cursor_beats = 0.0f32;
     let mut ordinal: u64 = 0;
     // Resolved once: an absent `humanize` is one that scatters nothing, so the
@@ -152,32 +160,23 @@ pub fn render_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Vec<f32>,
             let onset = (cursor_beats + swung(note.start, song.swing)) * beat
                 + feel.onset_seconds(track, place, song.seed);
             let at = (onset * RATE).round().max(0.0) as usize;
-            mix_into(&mut master, &rendered, at, song.tracks[track].gain);
+            // Added to the track's own bus rather than straight to the master:
+            // where a note lands is timing, which bus it lands on is routing,
+            // and the two answer to different fields.
+            mix.add(track, &rendered, at);
         }
         cursor_beats += pattern.beats;
     }
 
+    // Track buses folded down and the song's own chain applied — everything
+    // that belongs to a sum rather than to a note.
+    let mut master = mix.finish();
     // The master limiter, always — mixing by addition is exactly the operation
     // that overshoots full scale, so the sum is never handed out unlimited.
     limiter::apply(&mut master, RATE);
     // Then length and level, in that order, on the limited signal.
     shape(song, &mut master, arrangement_end);
     Ok(master)
-}
-
-/// Adds `src * gain` into `master` starting at sample `at`, growing `master` to
-/// fit.
-///
-/// The growth is what lets the song ring out: the last note's release tail
-/// extends the buffer past the final beat instead of being truncated to it.
-fn mix_into(master: &mut Vec<f32>, src: &[f32], at: usize, gain: f32) {
-    let end = at + src.len();
-    if master.len() < end {
-        master.resize(end, 0.0);
-    }
-    for (dst, sample) in master[at..end].iter_mut().zip(src) {
-        *dst += sample * gain;
-    }
 }
 
 /// One seed per note, from `(song seed, track, ordinal)`.

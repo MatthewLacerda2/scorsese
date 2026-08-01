@@ -37,6 +37,7 @@
 
 pub mod arrangement;
 pub mod feel;
+mod mix;
 pub mod render;
 pub mod sections;
 pub mod shape;
@@ -48,7 +49,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::error::SynthError;
-use crate::patch::Patch;
+use crate::patch::{Fx, Patch};
 
 pub use arrangement::{ArrangementEntry, Play};
 pub use feel::Humanize;
@@ -103,6 +104,15 @@ pub struct Song {
     /// song did before the field existed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub humanize: Option<Humanize>,
+    /// Effects on the finished mix, applied to the sum of every track — and
+    /// *before* the master limiter, which is the only place they can run
+    /// without withdrawing the promise that a bake cannot clip. This is where a
+    /// piece gets a **room**: one reverb over everything, decaying once, rather
+    /// than the same settings copied into every patch and drifting apart the
+    /// first time one of them is tuned. Empty means the mix reaches the limiter
+    /// exactly as it was summed. The `song::mix` module has the reasoning.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub fx: Vec<Fx>,
     /// A length the piece has to come out at, when the picture decides that
     /// rather than the music. Absent means the song is as long as it is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -128,6 +138,16 @@ pub struct Track {
     /// safety one.
     #[serde(default = "one")]
     pub gain: f32,
+    /// Effects on this instrument's whole part, applied to the sum of its
+    /// notes *before* [`Track::gain`] reaches the master — a delay that
+    /// belongs to the keys rather than to one chord of them. Distinct from
+    /// [`Patch::fx`], which is the instrument's own sound and is applied to
+    /// each note separately — the `song::mix` module has the ordering between
+    /// the two, which is the load-bearing part. Empty means this track's notes
+    /// are added straight into the master, exactly as they were before the
+    /// field existed.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub fx: Vec<Fx>,
 }
 
 /// A track's instrument: the patch inline, or a reference for the caller to
