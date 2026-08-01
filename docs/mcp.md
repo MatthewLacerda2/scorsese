@@ -251,8 +251,8 @@ synth_set  { "project": "trilhas.scor", "recipe": "recipes/05.json",
 It sets **one** number, named the way the recipe names it: a song's `bpm`,
 `seed` or `swing`, a patch's `duration`, `velocity` or `seed`, and a track's
 `gain` — the track by **its name**, the one the song's notes already use. Those
-are the values re-tuned after listening, and none of them changes what is
-played. Anything else, a note or an arrangement entry included, is a
+are the values re-tuned after listening, and none of them rewrites a note.
+Anything else, a note or an arrangement entry included, is a
 `synth_write`: notes and entries have no names, and addressing them by position
 would mean something different the moment one is inserted above them.
 

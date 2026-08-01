@@ -84,8 +84,8 @@ impl Tool for Set {
             None => format!("`{field}`"),
         };
         Ok(format!(
-            "{relative}: {target} {} → {value} — a {} recipe, rewritten with \
-             nothing else touched. Its asset is stale now; synth_bake redoes it.",
+            "{relative}: {target} {} → {value} — a {} recipe, and no other value \
+             changed. Its asset is stale now; synth_bake redoes it.",
             change.was, change.kind
         )
         .into())
