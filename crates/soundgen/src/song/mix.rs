@@ -88,7 +88,7 @@ impl<'a> Mix<'a> {
         if played.fx.is_empty() {
             mix_into(&mut self.master, src, at, played.gain);
         } else {
-            mix_into(self.buses[track].get_or_insert_with(Vec::new), src, at, 1.0);
+            mix_into(self.buses[track].get_or_insert_default(), src, at, 1.0);
         }
     }
 
