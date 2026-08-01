@@ -134,6 +134,7 @@ mod tests {
             id: TrackId::new(id),
             kind,
             name: None,
+            note: None,
             clips: vec![],
         }
     }
