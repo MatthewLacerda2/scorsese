@@ -10,4 +10,4 @@ pub(crate) mod fixtures;
 pub(crate) mod listen;
 
 pub(crate) use fixtures::{RATE, SHOT_LEVEL, talking_picture, tone_asset, with_volume};
-pub(crate) use listen::{assert_audible, assert_silent, has_soundtrack, level, soundtrack};
+pub(crate) use listen::{assert_audible, assert_silent, has_soundtrack, level, pitch, soundtrack};

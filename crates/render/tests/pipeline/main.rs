@@ -15,6 +15,7 @@ mod common;
 mod fitting;
 mod output;
 mod partial;
+mod retiming;
 mod slugs;
 mod sources;
 mod still;
@@ -65,6 +66,37 @@ fn colour_asset(tools: &Tools, root: &Path, colour: &str, size: &str, seconds: u
             "lavfi",
             "-i",
             &colour_filter(colour, size, seconds),
+            "-pix_fmt",
+            "yuv420p",
+        ],
+    )
+}
+
+/// One source, three seconds of it, each second a different colour — so the
+/// frame a render opens on says how far into the source it seeked, and how fast
+/// it walked there.
+fn banded_source(tools: &Tools, dir: &Path) -> Asset {
+    let band = |colour: &str| colour_filter(colour, "64x64", 1);
+    generate_asset(
+        tools,
+        dir,
+        "bands",
+        AssetKind::Video,
+        &[
+            "-f",
+            "lavfi",
+            "-i",
+            &band("red"),
+            "-f",
+            "lavfi",
+            "-i",
+            &band("green"),
+            "-f",
+            "lavfi",
+            "-i",
+            &band("blue"),
+            "-filter_complex",
+            "[0:v][1:v][2:v]concat=n=3:v=1",
             "-pix_fmt",
             "yuv420p",
         ],

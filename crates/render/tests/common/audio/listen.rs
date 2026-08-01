@@ -72,6 +72,30 @@ pub(crate) fn level(samples: &[f32], from: f64, to: f64) -> f32 {
     (total / window.len() as f64).sqrt() as f32
 }
 
+/// Roughly how high the window `from..to` sounds, in hertz.
+///
+/// Counted zero crossings rather than a transform, because every fixture that
+/// asks this is a pure sine and a sine crosses zero exactly twice per cycle.
+/// That makes the estimate exact enough to tell 440 from 880 and honest about
+/// what it is: a question with an obvious right answer, which is the only kind
+/// of question this file asks.
+///
+/// The window is measured after a lossy encoder, so it is approximate. It is not
+/// approximate by a factor of two, which is the only thing anything here reads
+/// out of it.
+pub(crate) fn pitch(samples: &[f32], from: f64, to: f64) -> f64 {
+    let at = |seconds: f64| ((seconds * f64::from(RATE)) as usize).min(samples.len());
+    let window = &samples[at(from)..at(to)];
+    if window.len() < 2 {
+        return 0.0;
+    }
+    let crossings = window
+        .windows(2)
+        .filter(|pair| (pair[0] < 0.0) != (pair[1] < 0.0))
+        .count();
+    crossings as f64 * f64::from(RATE) / (2.0 * window.len() as f64)
+}
+
 /// Loud enough to be unmistakably sound.
 ///
 /// A sine of amplitude `a` reads `0.707a`, and mixing down to mono for analysis

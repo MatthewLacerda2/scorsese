@@ -12,7 +12,7 @@ pub(crate) use prompts::{generated_asset, narration_asset, sketch_asset, stale_a
 
 use scorsese_core::{
     Asset, AssetId, AssetKind, Clip, ClipId, Fit, FontChoice, Fps, Frames, MediaMetadata, Project,
-    ProjectPath, TextStyle, Track, TrackId, TrackKind,
+    ProjectPath, Speed, TextStyle, Track, TrackId, TrackKind,
 };
 
 /// An asset with a path under `assets/`, which is what makes the plan treat it
@@ -101,6 +101,12 @@ pub(crate) fn clip_from(id: &str, asset: &str, start: u64, duration: u64, source
         source_in: Frames(source_in),
         ..clip(id, asset, start, duration)
     }
+}
+
+/// A clip running at a rate other than its source's own.
+pub(crate) fn sped(rate: f64, mut clip: Clip) -> Clip {
+    clip.speed = Speed::new(rate);
+    clip
 }
 
 pub(crate) fn video_track(id: &str, clips: Vec<Clip>) -> Track {

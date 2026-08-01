@@ -1,0 +1,21 @@
+{
+  "schema_version": 10,
+  "name": "speed",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    { "id": "bands", "kind": "video", "path": "assets/bands.mp4" }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "name": "picture",
+      "clips": [
+        { "id": "c-quick", "asset": "bands", "start": 0, "duration": 45,
+          "speed": 2.0 },
+        { "id": "c-slow", "asset": "bands", "start": 45, "duration": 60,
+          "source_in": 30, "speed": 0.5 }
+      ]
+    }
+  ]
+}

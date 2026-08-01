@@ -17,6 +17,7 @@ mod embedded;
 mod loudness;
 mod mixing;
 mod prompts;
+mod retiming;
 mod sources;
 mod volume;
 
