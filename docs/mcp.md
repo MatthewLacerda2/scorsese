@@ -52,6 +52,7 @@ for `project_new` alone, the one to create.
 | `synth_set` | change one number in one, by name | nothing |
 | `synth_check` | parse a recipe without rendering it | nothing |
 | `synth_bake` | render the recipes not already baked, and say how each came out — whole, per section, per track | nothing |
+| `synth_survey` | what every song recipe is made of, counted across all of them | nothing |
 | `audio_level` | how a finished sound file came out, and how it differs from another | ffmpeg |
 | `still` | **look at** the edit, returned as pictures | ffmpeg, and seconds |
 | `render` | encode the timeline, or a `range` of it, to a file | ffmpeg, and real time |
@@ -360,6 +361,27 @@ It is a **signal and never a gate** — there is no correct loudness — and it 
 not a critic. It finds defects: too quiet, clipping, muddy, a section flat
 where the arrangement said climax. It does not find taste, and a metric treated
 as an ear produces music that optimises the number and gets worse.
+
+### The one question that is about a set
+
+Everything above asks *how did this one come out*. `synth_survey` asks *what
+are all of these*, and it is the only tool that reads more than one recipe at
+a time. Six cues can each be baked, levelled and corrected, all pass, and still
+be one instrument playing in all six — which is the first thing a listener
+notices and the last thing any per-bake number can see.
+
+It costs nothing and needs nothing: no bake, no ffmpeg, no network. Everything
+it reports is already written down in `recipes/`, so this is parsing documents
+that were going to be parsed anyway. Per song it gives the tempo, the register
+and the pitch classes, then a row per track naming its source kind, its gain
+and its filter cutoff; under them, the same facts counted across the project.
+What each column means is in
+[`recipes.md`](recipes.md#what-the-whole-set-is-made-of).
+
+**It counts and stops.** There is no score, no grade, no recommendation and no
+diversity number — a set of six variations on one instrument is a legitimate
+thing to write on purpose, and a metric of variety is precisely the one that
+would get optimised. A project of fewer than two songs has no set to report on.
 
 ## Stateless, on purpose
 

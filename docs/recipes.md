@@ -469,6 +469,60 @@ muddy, a section flat where the arrangement said climax. It does not find
 taste, and a metric treated as an ear produces music that optimises the number
 and gets worse.
 
+## What the whole set is made of
+
+Everything above measures **one** bake. `scorsese synth survey`, and
+`synth_survey` over MCP, read every song recipe in the project instead and say
+what the set is made of:
+
+```text
+01-km      96 bpm  E2-A5  C D E F G A B (diatonic on C)
+  arp   karplus    gain 0.85  cutoff 4600 Hz
+  pad   osc_stack  gain 0.40  no filter
+02-calado  132 bpm  E2-G5  C D E F G A B (diatonic on C)
+  arp   karplus    gain 0.76  cutoff 4400 Hz
+  bell  fm2        gain 0.50  no filter
+2 songs
+  karplus    in 2, loudest in 2
+  fm2        in 1, loudest in 0
+  osc_stack  in 1, loudest in 0
+  tempo      96-132 bpm
+  register   E2-A5
+```
+
+A **song line** carries the tempo it plays at (the written one, unless `fit`
+stretched it), the register its notes reach, and the pitch classes they fall
+in. The collection is named only when the set of classes *is* exactly a
+diatonic one — that is arithmetic, and naming a mode would mean picking a tonic
+the document never states.
+
+A **track row** carries what the documents say the instrument is: its source
+kind in the word the recipe spells it with, its gain as written, and where its
+filter starts. Written, not measured — this costs no bake, so `gain 0.85` is
+the number in the score rather than a level anything came out at. A song of one
+track gets no rows, the same rule the section and layer tables follow.
+
+The **rollup** counts the same facts across the project: how many songs use
+each source kind, how many carry it in their *loudest* track — the element a
+listener hears first — and the spread of tempos and registers.
+
+None of it costs anything: no bake, no samples, no ffmpeg, no network. It is
+parsing files that were going to be parsed anyway, which makes it the cheapest
+signal in the project and the one with the least excuse for being missing. A
+client with no ears cannot hear that six cues are one guitar six times, but it
+can absolutely count it.
+
+**It counts and stops.** No score, no grade, no recommendation, and above all
+no diversity number. Six variations on one instrument is a legitimate thing to
+write on purpose, and by the rule stated just above — a metric treated as an
+ear produces music that optimises the number — a measure of variety is exactly
+the metric that would get optimised. Nothing here can fail anything.
+
+A project of fewer than two songs gets **no report at all**: a survey is across
+a set, and one row under a summary of that row is the same sentence twice.
+One-shot patches are left out for the same kind of reason — an effect has no
+tempo, no arrangement and no mix to be the loudest thing in.
+
 ## What is refused
 
 Only what would produce silence, a divide-by-zero, an unstable filter or an
