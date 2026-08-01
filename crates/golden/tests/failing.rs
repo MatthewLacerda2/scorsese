@@ -11,8 +11,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use scorsese_golden::harness::GoldenError;
-use scorsese_golden::{Fixture, Mode, run};
+use scorsese_golden::{Fixture, GoldenError, Mode, run};
 use scorsese_render::frames;
 use scorsese_render::{Frame, Resolution, Tools};
 

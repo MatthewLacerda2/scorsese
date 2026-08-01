@@ -1,6 +1,6 @@
 //! Rendering a fixture and holding it to its references.
 
-pub mod decoder;
+mod decoder;
 mod errors;
 mod setup;
 
@@ -13,7 +13,7 @@ use scorsese_render::{Renderer, Tools};
 use crate::compare::{self, Difference, Tolerance};
 use crate::fixture::Fixture;
 
-pub use decoder::Decoder;
+pub use decoder::{Decoder, RECORD_FILE};
 pub use errors::GoldenError;
 pub use setup::SetupError;
 
@@ -80,7 +80,7 @@ pub struct Mismatches {
     pub frames: Vec<Mismatch>,
     /// What decoded these frames, and what decoded the references — so a
     /// disagreement can name a different ffmpeg as its cause instead of
-    /// reading as a regression. See [`decoder`].
+    /// reading as a regression. See [`Decoder`].
     pub decoder: Decoder,
 }
 
