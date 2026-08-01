@@ -31,7 +31,7 @@ use crate::time::Frames;
 use crate::timeline::{Clip, Track, TrackKind};
 
 pub use apply::{Ducked, Under, audio_tracks, duck_track};
-pub use spans::{Span, covering, merge};
+pub(crate) use spans::{Span, covering, merge};
 
 /// Who signs the keyframe tracks this module produces.
 ///
@@ -93,7 +93,7 @@ impl Dip {
 /// Times are clip-relative, like every keyframe: moving the clip later does
 /// not rewrite them, and it does not need to, because the spans were computed
 /// against where the clip is now.
-pub fn plan(
+pub(crate) fn plan(
     clip: &Clip,
     covering: &[Span],
     property: PropertyPath,
@@ -146,6 +146,6 @@ fn push_dip(into: &mut Vec<Keyframe>, span: &Span, duration: Frames, dip: Dip) {
 /// Audio only: dipping a picture under another picture is a real effect, but
 /// it is not this one, and a caller that wants it should say which tracks
 /// rather than have it guessed.
-pub fn is_coverable(track: &Track) -> bool {
+pub(crate) fn is_coverable(track: &Track) -> bool {
     track.kind == TrackKind::Audio
 }

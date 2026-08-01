@@ -11,16 +11,15 @@ use crate::timeline::Clip;
 /// Clip-relative rather than absolute because that is what a keyframe time is,
 /// and converting once here is better than converting at every use.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Span {
+pub(crate) struct Span {
     /// First frame covered.
-    pub from: Frames,
+    pub(crate) from: Frames,
     /// The frame just past the last one covered.
-    pub to: Frames,
+    pub(crate) to: Frames,
 }
 
 impl Span {
-    /// True when this span covers no frames at all.
-    pub fn is_empty(self) -> bool {
+    pub(crate) fn is_empty(self) -> bool {
         self.from >= self.to
     }
 }
@@ -31,7 +30,7 @@ impl Span {
 /// partially contributes only the shared part. Clips that merely touch — one
 /// ending exactly where the other starts — do not overlap, the same rule
 /// [`Clip::overlaps`] holds everywhere else.
-pub fn covering<'a>(clip: &Clip, others: impl IntoIterator<Item = &'a Clip>) -> Vec<Span> {
+pub(crate) fn covering<'a>(clip: &Clip, others: impl IntoIterator<Item = &'a Clip>) -> Vec<Span> {
     let mut spans: Vec<Span> = others
         .into_iter()
         .filter(|other| other.overlaps(clip))
@@ -51,7 +50,7 @@ pub fn covering<'a>(clip: &Clip, others: impl IntoIterator<Item = &'a Clip>) -> 
 /// apart are one dip, not two: coming all the way back up and immediately
 /// going down again is pumping, which draws more attention than the ducking
 /// was avoiding. `gap` is how much silence is worth surfacing for.
-pub fn merge(spans: &[Span], gap: Frames) -> Vec<Span> {
+pub(crate) fn merge(spans: &[Span], gap: Frames) -> Vec<Span> {
     let mut sorted: Vec<Span> = spans.iter().copied().filter(|s| !s.is_empty()).collect();
     sorted.sort_unstable();
 
