@@ -124,7 +124,7 @@ format: ## [gate] cargo fmt --check, workspace and tools/lint
 # misfiles a path is a gate that has stopped gating without saying so. Their
 # output is held back unless they fail — this runs on every commit, and a wall
 # of passing dots is how a hook's output stops being read.
-size: ## [gate] Source files <= 300 lines, test files <= 150 (tools/lint, tested first)
+size: ## [gate] Source <= 300 lines of code, tests <= 150; blanks and comments free
 	@out=$$(cargo test $(LINT) --locked --quiet 2>&1) \
 		|| { printf '%s\n' "$$out" >&2; exit 1; }
 	cargo run $(LINT) --locked --quiet

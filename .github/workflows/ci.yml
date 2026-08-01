@@ -132,7 +132,9 @@ jobs:
           path: target/tmp/golden-failures/
           if-no-files-found: ignore
 
-  # The size gate: source files ≤ 300 lines, test files ≤ 150. CLAUDE.md lists
+  # The size gate: source files ≤ 300 lines of code, test files ≤ 150 — blank
+  # and comment lines do not count, for the reasons in `scan::code_lines`.
+  # CLAUDE.md lists
   # it among the hard gates and, until now, nothing checked it — a limit that
   # held by habit for as long as someone was watching. Its own job because it
   # needs neither ffmpeg nor a build of the workspace, so it answers in seconds

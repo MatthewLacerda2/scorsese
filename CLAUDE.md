@@ -264,7 +264,10 @@ review.
   `git commit --no-verify`. Signals stay opt-in and out of `make gates`:
   `make coverage` and `make mutants` are the two, and running either is never
   part of passing.
-- **Size gate:** source files ≤ 300 lines, test files ≤ 150. **Group by
+- **Size gate:** source files ≤ 300 **lines of code**, test files ≤ 150. Blank
+  and comment lines do not count — `missing_docs` is a merge gate and the house
+  style is to explain the *why*, so a cap that counted prose put those two rules
+  in opposition and split files whose code was never the problem. **Group by
   subfolder, not filename prefix** — a shared prefix on sibling files
   (`draw_*`, `probe_*`) is a subfolder waiting to happen; make it one and drop
   the prefix. Enforced in CI by `tools/lint` — run it yourself with

@@ -73,6 +73,23 @@ fn a_test_file_is_held_to_the_tighter_limit() {
 }
 
 #[test]
+fn documentation_does_not_push_a_file_over() {
+    // The whole behaviour of the gate, in one case: 400 lines of text, 200 of
+    // them code. A file that explains itself is not a file that needs
+    // splitting, and the cap is on the code.
+    let root = Path::new(env!("CARGO_TARGET_TMPDIR")).join("documented");
+    let _ = fs::remove_dir_all(&root);
+    let path = root.join("crates/core/src/lib.rs");
+    fs::create_dir_all(path.parent().expect("parent")).expect("mkdir");
+    fs::write(&path, "/// prose\nx\n".repeat(200)).expect("write");
+
+    let report = check_dir(&root).expect("scan");
+
+    assert!(report.is_clean(), "{:?}", report.violations);
+    assert_eq!(report.checked, 1);
+}
+
+#[test]
 fn the_message_names_the_file_its_length_and_the_limit_it_broke() {
     let root = tree("message", &[("crates/render/tests/plan/embedded.rs", 154)]);
 

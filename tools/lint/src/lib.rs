@@ -1,9 +1,14 @@
-//! The size gate: source files ≤ 300 lines, test files ≤ 150.
+//! The size gate: source files ≤ 300 lines of code, test files ≤ 150.
 //!
 //! CLAUDE.md lists this among the hard gates, next to `clippy -D warnings` and
 //! the golden renders. Small files are what let an agent hold a module in
 //! context and change it confidently, which is what makes unattended work
 //! possible at all — so the limits are checked rather than remembered.
+//!
+//! *Lines of code* means blank and comment lines do not count; [`scan::code_lines`]
+//! says why at length. The short of it is that this repo documents deliberately
+//! and at length, and a cap that counted prose was splitting files whose code
+//! was never the problem.
 //!
 //! Two halves, deliberately separate: [`classify`] decides *which* cap a path
 //! falls under and is the part with its own tests, since a classifier that

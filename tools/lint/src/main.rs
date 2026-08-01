@@ -1,4 +1,4 @@
-//! `size-gate [ROOT]` — fail if any Rust file is over its line limit.
+//! `size-gate [ROOT]` — fail if any Rust file is over its code-line limit.
 //!
 //! Defaults to the current directory, which is the repo root when CI runs it
 //! as `cargo run --manifest-path tools/lint/Cargo.toml`.
@@ -23,7 +23,7 @@ fn main() -> ExitCode {
 
     if report.is_clean() {
         println!(
-            "size gate: {} files, all within {SOURCE_LIMIT} lines (source) / {TEST_LIMIT} lines (test)",
+            "size gate: {} files, all within {SOURCE_LIMIT} lines of code (source) / {TEST_LIMIT} (test)",
             report.checked
         );
         return ExitCode::SUCCESS;
