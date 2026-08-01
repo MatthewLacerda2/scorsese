@@ -66,11 +66,20 @@ pub enum Command {
         #[arg(long, default_value = "30")]
         fps: Fps,
     },
-    /// Copy a media file into the project and add it to the assets table.
+    /// Copy media into the project and add it to the assets table.
+    ///
+    /// A directory brings in the media directly inside it, one asset each,
+    /// sorted by file name and without recursing — the directory itself never
+    /// becomes an asset. Files that are not media are skipped and named, and a
+    /// file whose id an asset already answers to is refused with nothing
+    /// copied at all.
     Import {
-        /// The file to import. It is copied, never referenced in place.
-        file: PathBuf,
-        /// Override the kind instead of inferring it from the extension.
+        /// The file or directory to import. What comes in is copied, never
+        /// referenced in place.
+        path: PathBuf,
+        /// Override the kind instead of inferring it from the extension. For a
+        /// directory this says what the media in it is; which files count as
+        /// media at all is still the extension's answer.
         #[arg(long, value_enum)]
         kind: Option<KindArg>,
     },

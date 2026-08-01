@@ -7,6 +7,7 @@
 //! [`crate::probe::ProbeMedia`] so this crate keeps its boundary and so
 //! importing stays testable without ffmpeg.
 
+mod directory;
 mod gc;
 mod hash;
 mod import;
@@ -14,6 +15,7 @@ mod naming;
 mod probing;
 mod status;
 
+pub use directory::{Import, Imported, SkipReason, Skipped, import_path};
 pub use gc::{GcError, GcReport, remove_assets, unused_assets};
 pub use hash::{hash_bytes, hash_file};
 pub use import::{ImportError, import_asset};

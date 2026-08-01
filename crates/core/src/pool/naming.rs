@@ -60,6 +60,23 @@ pub fn asset_id_for(project: &Project, desired: &str) -> AssetId {
     unique_asset_id(project, &sanitise(desired))
 }
 
+/// The id a source file asks for, before anything checks whether it is free.
+///
+/// Separate from [`unique_asset_id`] because a caller importing a whole
+/// directory has to know what each file *wants* to be called while it can
+/// still refuse — a suffix applied on the way in is a decision made after the
+/// point where refusing was possible.
+pub(super) fn wanted_asset_id(source: &Path) -> AssetId {
+    let name = sanitise(
+        source
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("asset"),
+    );
+    let (stem, _) = split_extension(&name);
+    AssetId::new(if stem.is_empty() { "asset" } else { stem }.to_owned())
+}
+
 /// An asset id derived from the file name, unique within the project. Ids are
 /// what a human types into `project.json`, so they stay legible rather than
 /// becoming hashes.

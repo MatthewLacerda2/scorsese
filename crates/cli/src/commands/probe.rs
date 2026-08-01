@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use scorsese_core::{MediaMetadata, ProbeOutcome, Probed, Project, Reprobe, probe_assets};
+use scorsese_core::{ProbeOutcome, Probed, Project, Reprobe, probe_assets};
 use scorsese_render::Ffprobe;
 
 /// Probes every asset with a file and no metadata, and writes what came back
@@ -48,7 +48,7 @@ fn line(project: &Project, row: &Probed) -> Option<String> {
         ProbeOutcome::Recorded => project
             .asset(&row.id)
             .and_then(|asset| asset.media.as_ref())
-            .map_or_else(|| "probed".to_owned(), summarise),
+            .map_or_else(|| "probed".to_owned(), ToString::to_string),
         ProbeOutcome::AlreadyKnown => return None,
         ProbeOutcome::Missing => "FILE MISSING".to_owned(),
         ProbeOutcome::Failed(why) => format!("COULD NOT PROBE: {why}"),
@@ -80,31 +80,6 @@ fn summary(report: &[Probed], recorded: usize, all: bool) -> String {
 
 fn tally(report: &[Probed], counts: impl Fn(&ProbeOutcome) -> bool) -> usize {
     report.iter().filter(|row| counts(&row.outcome)).count()
-}
-
-/// A media block in one readable line: the shape, the rate, the length.
-///
-/// Shared with `scorsese import`, which says the same thing about the one file
-/// it just brought in. Two commands that report the same metadata differently
-/// would read like two different facts.
-pub(crate) fn summarise(media: &MediaMetadata) -> String {
-    let mut parts = Vec::new();
-    if let (Some(width), Some(height)) = (media.width, media.height) {
-        parts.push(format!("{width}x{height}"));
-    }
-    if let Some(rate) = media.frame_rate {
-        parts.push(format!("{rate} fps"));
-    }
-    if let Some(duration) = media.duration_seconds {
-        parts.push(format!("{duration:.2}s"));
-    }
-    if let Some(channels) = media.audio_channels {
-        parts.push(format!("{channels} audio ch"));
-    }
-    if parts.is_empty() {
-        return "no metadata reported".to_owned();
-    }
-    parts.join(", ")
 }
 
 fn open(project_dir: &Path) -> Result<Project> {

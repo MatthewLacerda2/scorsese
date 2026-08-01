@@ -289,3 +289,31 @@ pub struct MediaMetadata {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sample_rate: Option<u32>,
 }
+
+/// What was measured, in one readable line: the shape, the rate, the length.
+///
+/// It lives on the type rather than in whichever crate happens to be printing,
+/// because `scorsese probe`, `scorsese import` and the MCP tools all report the
+/// same measurement — and two surfaces wording one fact differently read like
+/// two different facts.
+impl fmt::Display for MediaMetadata {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut parts = Vec::new();
+        if let (Some(width), Some(height)) = (self.width, self.height) {
+            parts.push(format!("{width}x{height}"));
+        }
+        if let Some(rate) = self.frame_rate {
+            parts.push(format!("{rate} fps"));
+        }
+        if let Some(duration) = self.duration_seconds {
+            parts.push(format!("{duration:.2}s"));
+        }
+        if let Some(channels) = self.audio_channels {
+            parts.push(format!("{channels} audio ch"));
+        }
+        if parts.is_empty() {
+            return f.write_str("no metadata reported");
+        }
+        f.write_str(&parts.join(", "))
+    }
+}

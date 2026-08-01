@@ -59,8 +59,9 @@ pub use note::{Annotated, Noted};
 pub use pacing::{PaceError, Paced};
 pub use path::{PathProblem, ProjectPath};
 pub use pool::{
-    AssetHealth, AssetStatus, HashCheck, ImportError, ProbeOutcome, Probed, Reprobe, asset_id_for,
-    asset_status, hash_bytes, import_asset, probe_assets, unprobed_assets,
+    AssetHealth, AssetStatus, HashCheck, Import, ImportError, Imported, ProbeOutcome, Probed,
+    Reprobe, SkipReason, Skipped, asset_id_for, asset_status, hash_bytes, import_asset,
+    import_path, probe_assets, unprobed_assets,
 };
 pub use probe::{ProbeError, ProbeMedia};
 pub use project::{
