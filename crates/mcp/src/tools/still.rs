@@ -1,4 +1,4 @@
-//! One frame of the timeline, as a picture the client can look at.
+//! Frames of the timeline, as pictures the client can look at.
 //!
 //! The tool that closes the loop the rest of this server only describes.
 //! Everything else here answers in words — what the document says, what the cut
@@ -7,6 +7,13 @@
 //! whether it is readable, whether it collides with the shot under it, or
 //! whether it is on screen at all. This is the call that shows it.
 //!
+//! It takes several instants because *"does every section look right?"* is one
+//! question, and a tool that answers one frame at a time turns it into a round
+//! trip per section. A picture is the most expensive reply this server sends,
+//! so the cost of looking is what decides how often anything gets verified —
+//! and an assistant that checks one of six sections and reports on all six
+//! fails without erroring.
+//!
 //! It is the same picture the render delivers, because it comes from the same
 //! code: [`Renderer::still`] is the render pipeline with the encoder taken out.
 //! A still drawn any other way could disagree with the file, and then looking
@@ -14,12 +21,12 @@
 
 use std::path::PathBuf;
 
-use scorsese_core::Fps;
+use scorsese_core::{Fps, Frames};
 use scorsese_render::{Cue, RenderSettings, Renderer, Resolution, Tools, frames};
 use serde_json::Value;
 
 use crate::tools::inspect::load;
-use crate::tools::{Reply, Tool, project_dir, project_property};
+use crate::tools::{Part, Reply, Tool, project_dir, project_property};
 
 /// What the frame is composited at when nobody says.
 ///
@@ -31,7 +38,7 @@ use crate::tools::{Reply, Tool, project_dir, project_property};
 /// see a cut. A caller who wants the delivery raster asks for it.
 const DEFAULT_RASTER: &str = "1280x720";
 
-/// A frame, composited and handed back as a picture.
+/// Frames, composited and handed back as pictures.
 pub(crate) struct Still;
 
 impl Tool for Still {
@@ -40,14 +47,17 @@ impl Tool for Still {
     }
 
     fn description(&self) -> &'static str {
-        "Look at one frame of the edit. Composites the timeline at one instant \
-         and returns the picture itself — the same pixels a render would \
-         deliver, since it is the render pipeline with the encoder taken out. \
-         Needs ffmpeg, but encodes nothing: seconds, not a whole render. Use it \
-         to check what project_describe can only assert — that a title is \
-         readable, that a layer is where it was meant to be, that a cut lands. \
-         Sketch and stale generated assets appear as slug cards, so a frame of \
-         an unrealised shot still shows something."
+        "Look at the edit. Composites the timeline at one instant, or at a \
+         whole list of them, and returns the pictures themselves — the same \
+         pixels a render would deliver, since it is the render pipeline with \
+         the encoder taken out. One sentence and one picture comes back per \
+         instant, in the order asked, so checking every section of a cut is \
+         one call rather than one per section. Needs ffmpeg, but encodes \
+         nothing: seconds, not a whole render. Use it to check what \
+         project_describe can only assert — that a title is readable, that a \
+         layer is where it was meant to be, that a cut lands. Sketch and stale \
+         generated assets appear as slug cards, so a frame of an unrealised \
+         shot still shows something."
     }
 
     fn schema(&self) -> Value {
@@ -56,10 +66,14 @@ impl Tool for Still {
             "properties": {
                 "project": project_property(),
                 "at": {
-                    "type": "string",
+                    "type": ["string", "array"],
+                    "items": { "type": "string" },
                     "description": "Which instant to look at: a time like 9.1s, or a \
                                     timeline frame number like 285. A bare decimal is \
-                                    refused — say which unit you mean."
+                                    refused — say which unit you mean. Give a list, e.g. \
+                                    [\"0s\", \"9.1s\", \"400\"], to look at several at \
+                                    once: one sentence and one picture comes back per \
+                                    instant, in the order asked."
                 },
                 "resolution": {
                     "type": "string",
@@ -70,8 +84,11 @@ impl Tool for Still {
                 "out": {
                     "type": "string",
                     "description": "Also keep the PNG at this path, e.g. review/title.png. \
-                                    Without it the picture is returned and nothing is \
-                                    left on disk."
+                                    One instant only — a path names a file, and several \
+                                    frames do not fit in one, so asking for a list and a \
+                                    path together is refused; `scorsese render --stills` \
+                                    is how a set of PNGs gets written. Without it the \
+                                    picture is returned and nothing is left on disk."
                 }
             },
             "required": ["project", "at"]
@@ -81,7 +98,8 @@ impl Tool for Still {
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let dir = project_dir(arguments)?;
         let project = load(&dir)?;
-        let at = instant(arguments, project.timeline_fps)?;
+        let instants = instants(arguments, project.timeline_fps)?;
+        let kept = kept(arguments, instants.len())?;
         let resolution: Resolution = arguments
             .get("resolution")
             .and_then(Value::as_str)
@@ -96,42 +114,93 @@ impl Tool for Still {
         // The project's own grid, so the frame handed back is the frame asked
         // for rather than the nearest one at some other rate.
         let settings = RenderSettings::new(resolution, project.timeline_fps);
-        let frame = Renderer::new(&tools, settings)
-            .still(&project, &dir, at)
-            .map_err(|error| format!("compositing frame {}: {error}", at.get()))?;
+        let renderer = Renderer::new(&tools, settings);
 
-        // Written to a file either way: PNG encoding is ffmpeg's, and ffmpeg
-        // writes files. Where it goes is the only difference — a path the
-        // caller named, kept, or a scratch file that is read back and removed.
-        let kept = arguments.get("out").and_then(Value::as_str);
-        let png = Scratch::at(kept);
-        frames::write_png(&tools, &png.path, &frame)
-            .map_err(|error| format!("writing the frame: {error}"))?;
-        let bytes = std::fs::read(&png.path)
-            .map_err(|error| format!("reading {} back: {error}", png.path.display()))?;
+        let mut parts = Vec::with_capacity(instants.len());
+        for at in instants {
+            let frame = renderer
+                .still(&project, &dir, at)
+                .map_err(|error| format!("compositing frame {}: {error}", at.get()))?;
 
-        let seconds = project.timeline_fps.seconds(at);
-        let mut said = format!(
-            "frame {} ({seconds:.2}s) of {} at {resolution}",
-            at.get(),
-            project.name
-        );
-        if let Some(path) = kept {
-            said.push_str(&format!(" — written to {path}"));
+            // Written to a file either way: PNG encoding is ffmpeg's, and
+            // ffmpeg writes files. Where it goes is the only difference — a
+            // path the caller named, kept, or a scratch file that is read back
+            // and removed.
+            let png = Scratch::at(kept);
+            frames::write_png(&tools, &png.path, &frame)
+                .map_err(|error| format!("writing the frame: {error}"))?;
+            let bytes = std::fs::read(&png.path)
+                .map_err(|error| format!("reading {} back: {error}", png.path.display()))?;
+
+            let seconds = project.timeline_fps.seconds(at);
+            let mut said = format!(
+                "frame {} ({seconds:.2}s) of {} at {resolution}",
+                at.get(),
+                project.name
+            );
+            if let Some(path) = kept {
+                said.push_str(&format!(" — written to {path}"));
+            }
+            parts.push(Part::picture(said, &bytes));
         }
-        Ok(Reply::picture(said, &bytes))
+        Ok(parts.into())
     }
 }
 
-/// Which timeline frame the `at` argument names.
-fn instant(arguments: &Value, fps: Fps) -> Result<scorsese_core::Frames, String> {
-    let at = arguments
-        .get("at")
-        .and_then(Value::as_str)
-        .ok_or_else(|| "`at` is required: a time like 9.1s, or a frame like 285".to_owned())?;
-    at.parse::<Cue>()
-        .map(|cue| cue.timeline_frame(fps))
-        .map_err(|problem| format!("at: {problem}"))
+/// What the `at` argument says when it says nothing usable.
+const WANTED: &str = "`at` is required: a time like 9.1s, a frame like 285, or a list of either";
+
+/// Which timeline frames the `at` argument names, in the order it named them.
+///
+/// Order is the caller's and is never sorted or deduplicated, unlike
+/// `render --stills`. A list of instants is a list of questions, and the
+/// answers have to line up with them — a client that asked about the end and
+/// then the start reads the reply in that order.
+fn instants(arguments: &Value, fps: Fps) -> Result<Vec<Frames>, String> {
+    let asked = match arguments.get("at") {
+        Some(Value::String(one)) => vec![one.as_str()],
+        Some(Value::Array(many)) => many
+            .iter()
+            .map(|item| {
+                item.as_str().ok_or_else(|| {
+                    format!(
+                        "at: {item} is not an instant — each one is text, like \"9.1s\" or \"285\""
+                    )
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?,
+        _ => return Err(WANTED.to_owned()),
+    };
+    if asked.is_empty() {
+        return Err("at: an empty list names no instant to look at".to_owned());
+    }
+    asked
+        .into_iter()
+        .map(|at| {
+            at.parse::<Cue>()
+                .map(|cue| cue.timeline_frame(fps))
+                .map_err(|problem| format!("at: {problem}"))
+        })
+        .collect()
+}
+
+/// The path a PNG is kept at, once it is established that one frame was asked
+/// for.
+///
+/// Several instants and a path together is refused rather than reinterpreted
+/// as a directory. `out` is the secondary use of this tool — the picture in
+/// the reply is the point of it — and `scorsese render --stills` already
+/// writes a numbered set of PNGs, so a second, worse version of that here
+/// would be a rule to remember instead of a capability.
+fn kept<'a>(arguments: &'a Value, instants: usize) -> Result<Option<&'a str>, String> {
+    let out = arguments.get("out").and_then(Value::as_str);
+    match out {
+        Some(path) if instants > 1 => Err(format!(
+            "out: {path} is one path and {instants} instants were asked for. Ask for one \
+             instant to keep a file, or use `scorsese render --stills` for a set of PNGs."
+        )),
+        _ => Ok(out),
+    }
 }
 
 /// Where the PNG is written, and whether it survives the call.

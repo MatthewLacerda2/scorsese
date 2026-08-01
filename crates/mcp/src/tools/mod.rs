@@ -30,7 +30,8 @@ use crate::base64;
 /// is PNG and not something smaller.
 const PNG: &str = "image/png";
 
-/// What a tool answers with.
+/// One thing an answer is about: what to say, and the picture it names when
+/// there is one.
 ///
 /// Text, always: an answer a client cannot show as words is an answer nobody
 /// can read back in a transcript. A picture *as well*, when the answer is one —
@@ -41,14 +42,14 @@ const PNG: &str = "image/png";
 /// that returned only an image would be unreadable to a client without vision
 /// and unloggable everywhere; one that returned only text could never show a
 /// frame at all.
-pub struct Reply {
+pub struct Part {
     /// What to say. The whole answer for every tool that has nothing to show.
     pub text: String,
-    /// A PNG, already base64-encoded, when there is a picture in the answer.
+    /// A PNG, already base64-encoded, when there is a picture in this part.
     pub image: Option<String>,
 }
 
-impl Reply {
+impl Part {
     /// A picture, and the words that go with it.
     pub(crate) fn picture(text: String, png: &[u8]) -> Self {
         Self {
@@ -56,27 +57,54 @@ impl Reply {
             image: Some(base64::encode(png)),
         }
     }
+}
 
+/// What a tool answers with: one part, or several in the order to read them.
+///
+/// Several, because a question is often asked about several things at once —
+/// `still` handed six instants answers about all six — and the alternative is
+/// a client paying for six round trips to ask one question. What the list
+/// preserves is which words go with which picture: a block of prose about six
+/// frames followed by six frames is unreadable, so each sentence sits directly
+/// above the picture it names.
+pub struct Reply {
+    /// What the answer is made of, in the order a client renders it. Never
+    /// empty — a reply that says nothing is not an answer.
+    pub parts: Vec<Part>,
+}
+
+impl Reply {
     /// The content blocks MCP puts this on the wire as.
     ///
     /// Text first, always. A client renders blocks in order, and the sentence
     /// saying which frame this is belongs above the frame rather than under it.
     pub fn content(&self) -> Vec<Value> {
-        let mut blocks = vec![serde_json::json!({ "type": "text", "text": self.text })];
-        if let Some(image) = &self.image {
-            blocks.push(serde_json::json!({
-                "type": "image",
-                "data": image,
-                "mimeType": PNG
-            }));
+        let mut blocks = Vec::with_capacity(self.parts.len() * 2);
+        for part in &self.parts {
+            blocks.push(serde_json::json!({ "type": "text", "text": part.text }));
+            if let Some(image) = &part.image {
+                blocks.push(serde_json::json!({
+                    "type": "image",
+                    "data": image,
+                    "mimeType": PNG
+                }));
+            }
         }
         blocks
     }
 }
 
+impl From<Vec<Part>> for Reply {
+    fn from(parts: Vec<Part>) -> Self {
+        Self { parts }
+    }
+}
+
 impl From<String> for Reply {
     fn from(text: String) -> Self {
-        Self { text, image: None }
+        Self {
+            parts: vec![Part { text, image: None }],
+        }
     }
 }
 
