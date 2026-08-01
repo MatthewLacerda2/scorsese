@@ -69,8 +69,10 @@ impl Recipe {
         serde_json::from_str(json)
     }
 
-    /// Serialises to pretty JSON — the on-disk form.
-    pub fn to_json(&self) -> Result<String, serde_json::Error> {
+    /// Serialises to pretty JSON — the on-disk form. In-crate only: writing a
+    /// recipe out is what `create` and `set` do, and both hand back what they
+    /// wrote, so nobody outside has ever needed to do it themselves.
+    pub(crate) fn to_json(&self) -> Result<String, serde_json::Error> {
         let mut json = serde_json::to_string_pretty(self)?;
         json.push('\n');
         Ok(json)

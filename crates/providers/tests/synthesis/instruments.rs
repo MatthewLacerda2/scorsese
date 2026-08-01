@@ -2,8 +2,7 @@
 //! `PatchResolver` exists to resolve, wired to a real project.
 
 use crate::common::{project, synth_asset, write};
-use scorsese_providers::SynthesisError;
-use scorsese_providers::synth::bake_asset;
+use scorsese_providers::synth::{SynthesisError, bake_asset};
 
 const BASS: &str = r#"{
   "source": { "kind": "karplus", "damping": 0.99, "brightness": 0.4 },
