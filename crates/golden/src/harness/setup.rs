@@ -31,6 +31,11 @@ pub(super) fn materialise(
         source,
     })?;
 
+    carry(
+        &fixture.directory.join(ASSETS_DIR),
+        &directory.join(ASSETS_DIR),
+    )?;
+
     for (asset, recipe) in fixture.media() {
         generate(tools, asset, recipe, directory)?;
     }
@@ -38,6 +43,39 @@ pub(super) fn materialise(
     Project::load(directory).map_err(|source| SetupError::Load {
         source: Box::new(source),
     })
+}
+
+/// Copies a fixture's own `assets/` into the scratch project, if it has one.
+///
+/// **Media is still generated, not committed** — that rule is why the
+/// repository carries no sample footage and it has not moved. This is for the
+/// files ffmpeg cannot conjure, and there is exactly one kind of them today: a
+/// **font**. A face is not footage. It is a few glyph outlines, it is the same
+/// bytes on every machine, and no `lavfi` source will ever produce one — so a
+/// fixture that needs a project to bring its own font has no other way to say
+/// so. Most fixtures have no `assets/` at all and this does nothing for them.
+///
+/// Recursive, so a fixture may organise what it carries into subdirectories the
+/// same way a real project would.
+fn carry(from: &Path, into: &Path) -> Result<(), SetupError> {
+    if !from.is_dir() {
+        return Ok(());
+    }
+    let io = |path: &Path, source: std::io::Error| SetupError::Io {
+        path: path.to_path_buf(),
+        source,
+    };
+    std::fs::create_dir_all(into).map_err(|source| io(into, source))?;
+    for entry in std::fs::read_dir(from).map_err(|source| io(from, source))? {
+        let entry = entry.map_err(|source| io(from, source))?;
+        let target = into.join(entry.file_name());
+        if entry.path().is_dir() {
+            carry(&entry.path(), &target)?;
+        } else {
+            std::fs::copy(entry.path(), &target).map_err(|source| io(&target, source))?;
+        }
+    }
+    Ok(())
 }
 
 /// Runs ffmpeg to make one asset's media at the path `project.json` claims.

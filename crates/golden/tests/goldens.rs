@@ -79,6 +79,7 @@ goldens!(
     title,
     title_moved,
     wash,
+    weight,
     zoom
 );
 

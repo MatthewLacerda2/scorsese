@@ -13,3 +13,4 @@ mod references;
 mod synth;
 mod text;
 mod timing;
+mod weight;

@@ -62,7 +62,7 @@ fn write(label: &str, document: &str) -> Fixture {
 }
 
 const DOCUMENT: &str = r##"{
-  "schema_version": 10,
+  "schema_version": 11,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [

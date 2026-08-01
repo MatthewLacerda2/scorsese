@@ -22,7 +22,7 @@
 
 mod font;
 
-pub use font::FontChoice;
+pub use font::{FontChoice, MAX_WEIGHT, MIN_WEIGHT};
 
 use serde::{Deserialize, Serialize};
 
@@ -53,6 +53,25 @@ pub struct TextStyle {
     /// The face to set the text in: one of the two shipped with scorsese, or a
     /// font file of the project's own.
     pub font: FontChoice,
+    /// How heavy to set the glyphs, on the usual scale where 400 is regular
+    /// and 700 is bold — read only from a **variable** font file, which is what
+    /// most modern open faces now ship as.
+    ///
+    /// **There is no default, and that is the point.** A variable font's own
+    /// `fvar` table names a default instance, and it is very often not 400:
+    /// Manrope's is 200 and Outfit's is 100. A build that quietly fell back to
+    /// it would set a title card in hairline Thin and never say so — a shot
+    /// rendered wrong that no error mentions, which is the same failure the
+    /// `color` asset was deliberately designed against. So a variable font with
+    /// no weight named is refused at the point the file is read, rather than
+    /// guessed at. A static file has exactly one weight and needs nothing said
+    /// about it; naming one there is refused too, because a field nobody reads
+    /// is how someone comes to insist their bold is broken.
+    ///
+    /// Only the `wght` axis is read. Optical size, width and slant are real
+    /// axes and none of them is what "make this bold" means.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub weight: Option<u16>,
     /// The em size, as a fraction of the **frame's height**. `0.1` is a tenth
     /// of the picture — a title — and means the same thing at every render
     /// resolution.
@@ -88,6 +107,7 @@ impl Default for TextStyle {
     fn default() -> Self {
         Self {
             font: FontChoice::default(),
+            weight: None,
             size: Self::DEFAULT_SIZE,
             color: Rgba::WHITE,
             align: TextAlign::default(),

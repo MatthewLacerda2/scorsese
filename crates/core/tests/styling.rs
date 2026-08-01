@@ -63,6 +63,30 @@ fn a_font_is_either_a_reserved_name_or_a_file() {
     }
 }
 
+/// Absent has to *stay* absent through a save. Writing `"weight": null` — or
+/// worse, a number nobody chose — would turn "this file has one weight" into a
+/// claim the document makes, and the next load would have to honour it.
+#[test]
+fn an_unweighted_style_says_nothing_about_weight() {
+    assert_eq!(TextStyle::default().weight, None);
+    let written = serde_json::to_string(&TextStyle::default()).expect("serialises");
+    assert!(
+        !written.contains("weight"),
+        "an absent weight is absent from the document; got {written}"
+    );
+
+    let json = document(
+        r##""assets": [{ "id": "t", "kind": "text", "text": "hi",
+                         "style": { "font": "assets/Manrope[wght].ttf", "weight": 700 } }]"##,
+    );
+    let project = Project::from_json(&json).expect("parses");
+    let style = project
+        .asset(&asset_id("t"))
+        .expect("the asset")
+        .text_style();
+    assert_eq!(style.weight, Some(700));
+}
+
 #[test]
 fn a_colour_is_read_and_written_as_hex() {
     assert_eq!("#ffcc00".parse(), Ok(Rgba::opaque(255, 204, 0)));
