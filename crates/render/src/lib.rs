@@ -60,19 +60,21 @@
 //! [`unknown_in`] is the vocabulary of animatable property paths a project is
 //! checked against.
 //!
-//! **Five modules keep their path**, because what they publish is a *verb* and
-//! the verb needs its noun in front of it. [`mod@audio`] mixes
+//! **Five modules keep their path.** Three of them publish *verbs*, which need
+//! their noun in front of them to read: [`mod@audio`] mixes
 //! ([`audio::mixdown`]), measures ([`audio::measure`]) and owns the one
 //! property name a volume keyframe spells ([`audio::path::VOLUME`]);
 //! [`mod@frames`] pulls pictures back out of a finished file
 //! ([`frames::extract`], [`frames::stills`], [`frames::read_png`],
-//! [`frames::write_png`]); [`mod@say`] turns a measurement into rows a person
-//! reads ([`say::summary`], [`say::sections`], [`say::layers`],
-//! [`say::survey`], [`say::comparison`]); [`mod@tools`] keeps the two
-//! environment variables that point the binaries elsewhere
-//! ([`tools::FFMPEG_ENV`], [`tools::FFPROBE_ENV`]); and [`mod@plan`] is open
-//! because [`Segment`](plan::Segment) and [`Shot`](plan::Shot) are what
-//! walking a plan means naming.
+//! [`frames::write_png`]); and [`mod@say`] turns a measurement into rows a
+//! person reads ([`say::summary`], [`say::sections`], [`say::layers`],
+//! [`say::survey`], [`say::comparison`]). [`mod@tools`] holds the two
+//! environment variables that point the binaries somewhere else
+//! ([`tools::FFMPEG_ENV`], [`tools::FFPROBE_ENV`]) beside the [`Tools`] the
+//! root publishes. [`mod@plan`] is open because [`Segment`](plan::Segment) and
+//! [`Shot`](plan::Shot) are what walking a plan means naming — its [`Plan`]
+//! and [`FrameRange`] are reachable both ways, which is one path more than
+//! anything needs and the next thing to tidy here.
 //!
 //! **Everything else is `pub(crate)`.** The ffmpeg processes themselves, the
 //! rasters a fit is worked out on, the slug-card furniture, the font cache and
