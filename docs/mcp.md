@@ -40,6 +40,7 @@ Every tool takes `project`: the path of the `*.scor` directory to work on.
 | `project_probe` | measure the assets nobody has probed, and record it | ffprobe |
 | `dissolve` | cross one shot into the next, as opacity keyframes | nothing |
 | `duck_music` | lower a music track under narration, as volume keyframes | nothing |
+| `scale_pacing` | spread a run of clips out, or close it up, about one instant | nothing |
 | `synth_new` | start a recipe, and the asset that points at it | nothing |
 | `synth_read` | a recipe file as it is on disk | nothing |
 | `synth_write` | replace one, **parsed first** | nothing |
@@ -84,6 +85,44 @@ It refuses, changing nothing at all, when the two clips do not currently meet
 at a cut, when either is shorter than the crossover, or when the crossover
 would round to no frames. A dissolve with no defined crossover has no shape,
 and guessing at one is worse than saying so.
+
+## Pacing: the same clips, spread differently
+
+`scale_pacing` is the operation for **pacing**, which is most of what editing
+actually is. A montage cut to a song that turned out to be 8% slower, a run of
+titles that all need a beat more air, a sequence that drags in the middle — all
+of them are the same clips spread differently, and every other way of doing it
+is rewriting every `start` in the document and getting the arithmetic slightly
+wrong.
+
+```
+scale_pacing  { "project": "teaser.scor", "clips": ["c-title", "c-black"],
+                "factor": 0.83, "about_seconds": 8.0 }
+```
+
+`about_seconds` is the one instant that does not move. Everything before it
+draws in and everything after it pushes out, which is what lets you keep the
+moment you care about fixed and let the rest breathe around it.
+
+**Durations scale with the positions, but only where that is free.** For a
+title, a still, a colour, or a brief nobody has generated yet, `duration` says
+nothing except how long the thing is on screen — so scaling it is exact, and
+nothing plays faster. That is the difference between a faster cut and the same
+cut with its gaps squeezed out.
+
+For a clip with a real file behind it the same instruction has two entirely
+different readings — show less of the source, or play the whole of it faster —
+and picking one silently is the failure that *looks* successful either way. So
+those clips move, keep their length, and **the reply names them.**
+
+Positions are rounded in one place, which buys a property worth relying on: a
+run of cuts that touched exactly still touches exactly, at every factor. It is
+only a mixed selection — some clips scaling, some keeping a length their media
+owns — that can open a gap or a collision, and a collision is refused.
+
+Refusals change nothing at all: a factor that is not positive, a clip that
+would land before the start of the timeline, a clip that would round away to
+less than a frame, and any result the document would not load.
 
 ## Looking at a frame
 

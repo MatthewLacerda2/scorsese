@@ -117,6 +117,7 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(edit::Write),
         Box::new(edit::Dissolve),
         Box::new(edit::Duck),
+        Box::new(edit::ScalePacing),
         Box::new(synth::New),
         Box::new(synth::Read),
         Box::new(synth::Write),

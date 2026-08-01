@@ -15,7 +15,7 @@ use egui::{Pos2, Rect, Response, Ui};
 use scorsese_core::{Frames, Project};
 
 use super::view::View;
-use super::{Timeline, drag, lanes, ruler};
+use super::{Timeline, drag, lanes, pacing, ruler};
 use crate::editing::{Editing, length};
 use crate::project::Open;
 
@@ -32,6 +32,17 @@ pub(super) enum Gesture {
     /// `Gesture` — including the scrub that is by far the commonest — as large
     /// as a clip.
     Clip(Box<drag::Drag>),
+    /// Scaling the selected clips about the playhead.
+    ///
+    /// The one gesture here that no button started — see [`super::pacing`]. It
+    /// belongs in this enum all the same, because what a gesture *is* is the
+    /// thing the panel is in the middle of: a reload arriving during one has to
+    /// wait for it either way, and this can no more overlap a drag than a drag
+    /// can overlap a scrub.
+    ///
+    /// Boxed for the same reason as the drag, and more so: it carries the whole
+    /// document as it stood when the gesture began.
+    Pace(Box<pacing::Pace>),
 }
 
 impl Timeline {

@@ -71,6 +71,29 @@ fn several_clips_selected() {
     harness.snapshot("several_clips_selected");
 }
 
+/// A scale in flight: the clips drawn where the pointer has put them, and the
+/// timeline saying what factor that is and how to keep or cancel it.
+///
+/// The only state in this window that exists **only while a hand is on it**, so
+/// a snapshot is the only way anybody ever looks at it. The pointer is 120
+/// pixels left of where the gesture was armed, which is a factor of about 0.71
+/// — a cut being tightened, which is the direction people reach for.
+#[test]
+fn a_scale_in_flight() {
+    let project = fixture::project("pacing");
+    let mut harness = window(Some(project.path().to_path_buf()));
+    harness.state_mut().select("c-shot");
+    harness.state_mut().also_select("c-title");
+    harness.run();
+    harness.hover_at(egui::pos2(500.0, 700.0));
+    harness.run();
+    harness.key_press(egui::Key::S);
+    harness.run();
+    harness.hover_at(egui::pos2(380.0, 700.0));
+    harness.run();
+    harness.snapshot("a_scale_in_flight");
+}
+
 /// A project that will not load. Every problem at once, in the window rather
 /// than in a terminal — the promise validation already makes to the CLI.
 #[test]
