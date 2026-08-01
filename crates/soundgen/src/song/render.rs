@@ -91,9 +91,9 @@ impl PatchResolver for InlineOnly {
 /// re-rendering a track alone to measure it would be paying twice for a number
 /// that was already in hand.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Mixdown {
+pub(crate) struct Mixdown {
     /// The finished mono buffer — the thing that gets encoded.
-    pub master: Vec<f32>,
+    pub(crate) master: Vec<f32>,
     /// One row per track, in track order, **post-gain**: what that instrument
     /// takes up in the mix rather than what it would sound like alone.
     ///
@@ -105,7 +105,7 @@ pub struct Mixdown {
     /// **Empty for a song of fewer than two tracks**, which is the rule
     /// [`crate::level::Profile`] already holds sections to: one row under a
     /// one-line summary is the same sentence twice.
-    pub tracks: Vec<Layer>,
+    pub(crate) tracks: Vec<Layer>,
 }
 
 /// Renders `song` to a mono sample buffer at [`crate::SAMPLE_RATE`],
@@ -116,7 +116,7 @@ pub fn render_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Vec<f32>,
 
 /// [`render_song`], keeping what each track contributed on its way into the
 /// mix — see [`Mixdown::tracks`].
-pub fn mix_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Mixdown, SynthError> {
+pub(crate) fn mix_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Mixdown, SynthError> {
     song.validate()?;
     let patches = resolve_patches(song, resolve)?;
     // How fast to play it and how many times through, worked out before a

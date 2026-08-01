@@ -12,7 +12,7 @@
 ///
 /// `time` is the echo spacing in seconds, `feedback` how much of each echo feeds
 /// the next (clamped below 1 so the tail always dies), `mix` the wet/dry blend.
-pub fn apply(buf: &mut [f32], time: f32, feedback: f32, mix: f32, rate: f32) {
+pub(crate) fn apply(buf: &mut [f32], time: f32, feedback: f32, mix: f32, rate: f32) {
     if !time.is_finite() || time <= 0.0 {
         return;
     }
@@ -36,7 +36,7 @@ pub fn apply(buf: &mut [f32], time: f32, feedback: f32, mix: f32, rate: f32) {
 
 /// How long the echoes keep ringing after the dry signal stops, in seconds — what
 /// the renderer pads the buffer by so the tail is not cut off mid-repeat.
-pub fn tail_seconds(time: f32, feedback: f32) -> f32 {
+pub(crate) fn tail_seconds(time: f32, feedback: f32) -> f32 {
     let time = time.clamp(0.0, 4.0);
     let feedback = feedback.clamp(0.0, 0.95);
     if feedback <= 0.0 {

@@ -24,7 +24,14 @@ const MIN_DELAY: usize = 2;
 const EXCITATION_CHANNEL: u64 = 0x4b53; // "KS"
 
 /// Render a plucked string of frequency `freq` into `out`.
-pub fn render(out: &mut [f32], freq: f32, damping: f32, brightness: f32, seed: u64, rate: f32) {
+pub(crate) fn render(
+    out: &mut [f32],
+    freq: f32,
+    damping: f32,
+    brightness: f32,
+    seed: u64,
+    rate: f32,
+) {
     let len = delay_len(freq, rate);
     let mut line = excitation(len, brightness.clamp(0.0, 1.0), seed);
     let feedback = damping.clamp(0.0, 1.0) * 0.5;

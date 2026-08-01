@@ -27,21 +27,21 @@
 //! }
 //! ```
 //!
-//! An arrangement entry is a pattern's name, or that name with transforms —
-//! see [`arrangement`] for why a repeat that can vary is the difference between
-//! music that develops and music that only repeats.
+//! An arrangement entry is a pattern's name, or that name with transforms: a
+//! repeat that can vary is the difference between music that develops and music
+//! that only repeats.
 //!
-//! Rendering lives in [`render`]; this file is the document alone — plain
+//! Rendering lives in [`render_song`]; this file is the document alone — plain
 //! serde data that round-trips losslessly, the same "document as truth" rule
 //! the patch follows.
 
-pub mod arrangement;
-pub mod feel;
+pub(crate) mod arrangement;
+pub(crate) mod feel;
 mod mix;
-pub mod render;
-pub mod sections;
-pub mod shape;
-pub mod timing;
+pub(crate) mod render;
+pub(crate) mod sections;
+pub(crate) mod shape;
+pub(crate) mod timing;
 mod validate;
 
 use std::collections::BTreeMap;
@@ -53,7 +53,7 @@ use crate::patch::{Fx, Patch};
 
 pub use arrangement::{ArrangementEntry, Play};
 pub use feel::Humanize;
-pub use render::{InlineOnly, Mixdown, PatchResolver, mix_song, render_song};
+pub use render::{InlineOnly, PatchResolver, render_song};
 pub use timing::{Fade, Fit, FitMode, Tail};
 
 /// Default for a per-track or per-note gain: unity, i.e. "as written".
@@ -95,8 +95,8 @@ pub struct Song {
     /// How far the off-beat eighths sit behind the grid: `0.0` is straight,
     /// `0.33` is roughly the triplet feel, `0.5` is dotted. A property of the
     /// *performance*, so it is song-level — a rhythm section that swings while
-    /// the lead does not is a specific effect, not a default. See
-    /// [`feel::swung`].
+    /// the lead does not is a specific effect, not a default. Onsets only: a
+    /// note's `dur` is what the document says it is.
     #[serde(default, skip_serializing_if = "no_swing")]
     pub swing: f32,
     /// How far the player strays from the written page in timing and

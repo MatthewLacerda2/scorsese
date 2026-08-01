@@ -26,7 +26,7 @@
 //! *can* count, and "karplus is the loudest track in all six" is a sentence it
 //! can produce from the files without anyone listening first.
 
-pub mod pitch;
+pub(crate) mod pitch;
 mod song;
 
 use std::collections::BTreeMap;

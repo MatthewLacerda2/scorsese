@@ -83,7 +83,15 @@ pub struct Humanize {
 impl Humanize {
     /// True when neither field does anything, so nothing has to be drawn and
     /// the render is what it was before the field existed.
-    pub fn is_nothing(self) -> bool {
+    // Its own test is the only caller outside a test build: this is the
+    // shortcut a renderer takes before drawing per-note nudges, and nothing
+    // takes it yet. Silent until `Humanize` stopped being reachable from
+    // outside the crate; the expectation lifts itself the moment one does.
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "no caller yet outside its own test")
+    )]
+    pub(crate) fn is_nothing(self) -> bool {
         self.timing <= 0.0 && self.velocity <= 0.0
     }
 
@@ -92,7 +100,7 @@ impl Humanize {
     /// The caller adds this to where the beat put the note and clamps the
     /// result at the start of the buffer: a note nudged early on the very first
     /// beat has nowhere to go, and a negative sample index is not a time.
-    pub fn onset_seconds(self, track: usize, ordinal: u64, song_seed: u64) -> f32 {
+    pub(crate) fn onset_seconds(self, track: usize, ordinal: u64, song_seed: u64) -> f32 {
         if self.timing <= 0.0 {
             return 0.0;
         }
@@ -105,7 +113,7 @@ impl Humanize {
     /// A scatter *around* what was written, never a decision about it: the
     /// written value has already been through the arrangement's `vel_scale`,
     /// and humanising is not the stage that gets to overrule either.
-    pub fn velocity(self, written: f32, track: usize, ordinal: u64, song_seed: u64) -> f32 {
+    pub(crate) fn velocity(self, written: f32, track: usize, ordinal: u64, song_seed: u64) -> f32 {
         if self.velocity <= 0.0 {
             return written;
         }
@@ -155,7 +163,7 @@ fn symmetric(channel: u64, track: usize, ordinal: u64, song_seed: u64) -> f32 {
 /// Onsets only. A note's `dur` is what the document says it is; a gate that
 /// stretched with the beat would change how long a note is held for a reason
 /// the document never states.
-pub fn swung(start: f32, swing: f32) -> f32 {
+pub(crate) fn swung(start: f32, swing: f32) -> f32 {
     if swing <= 0.0 {
         return start;
     }

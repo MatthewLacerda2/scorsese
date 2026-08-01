@@ -10,9 +10,9 @@
 //! them (the layer's standing rule). Effects are added here, not in the patch
 //! document's signal path, so the fixed source → filter → amp contract stays fixed.
 
-pub mod delay;
-pub mod limiter;
-pub mod reverb;
+pub(crate) mod delay;
+pub(crate) mod limiter;
+pub(crate) mod reverb;
 
 use crate::patch::Fx;
 
@@ -21,7 +21,7 @@ use crate::patch::Fx;
 const MAX_TAIL: f32 = 6.0;
 
 /// Apply the chain to `buf` in place, in list order.
-pub fn apply_chain(buf: &mut [f32], chain: &[Fx], rate: f32) {
+pub(crate) fn apply_chain(buf: &mut [f32], chain: &[Fx], rate: f32) {
     for fx in chain {
         match *fx {
             Fx::Delay {
@@ -37,7 +37,7 @@ pub fn apply_chain(buf: &mut [f32], chain: &[Fx], rate: f32) {
 /// How much extra time the chain needs to ring out after the note itself ends —
 /// what the renderer pads the buffer by, so an echo or a reverb tail is never cut
 /// off mid-repeat. A fully dry effect asks for nothing.
-pub fn tail_seconds(chain: &[Fx]) -> f32 {
+pub(crate) fn tail_seconds(chain: &[Fx]) -> f32 {
     let total: f32 = chain
         .iter()
         .map(|fx| match *fx {

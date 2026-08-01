@@ -19,11 +19,11 @@ use crate::error::SynthError;
 
 /// The MIDI pitch axis, lowest and highest — `C-1` to `G9`.
 ///
-/// Published because it is a boundary two different things need: a note *name*
-/// outside it is refused here, and a transposed note pushed outside it is
-/// clamped back into it by the song renderer. Two copies of the range would be
-/// two places to disagree about what a pitch is.
-pub const MIDI_RANGE: (f32, f32) = (0.0, 127.0);
+/// Shared rather than duplicated because it is a boundary two different things
+/// need: a note *name* outside it is refused here, and a transposed note pushed
+/// outside it is clamped back into it by the song renderer. Two copies of the
+/// range would be two places to disagree about what a pitch is.
+pub(crate) const MIDI_RANGE: (f32, f32) = (0.0, 127.0);
 
 /// MIDI note number of the tuning reference, A4.
 const A4_MIDI: f32 = 69.0;
@@ -134,7 +134,7 @@ const SHARP_NAMES: [&str; 12] = [
 ];
 
 /// Names a pitch class — `0` is C, `11` is B — wrapping anything above.
-pub fn pitch_class_name(class: u32) -> &'static str {
+pub(crate) fn pitch_class_name(class: u32) -> &'static str {
     SHARP_NAMES[(class % 12) as usize]
 }
 
@@ -144,7 +144,7 @@ pub fn pitch_class_name(class: u32) -> &'static str {
 /// semitone for the fractional ones a microtonal pitch or a transpose can
 /// produce — a report says which note this *is*, and "C4 and a bit" is not a
 /// note anyone goes looking for.
-pub fn midi_to_name(midi: f32) -> String {
+pub(crate) fn midi_to_name(midi: f32) -> String {
     let whole = midi.round().clamp(MIDI_RANGE.0, MIDI_RANGE.1) as i32;
     format!(
         "{}{}",

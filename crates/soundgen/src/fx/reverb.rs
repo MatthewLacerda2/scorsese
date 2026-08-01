@@ -84,7 +84,7 @@ impl Allpass {
 }
 
 /// Apply Freeverb to `buf` in place.
-pub fn apply(buf: &mut [f32], size: f32, damp: f32, mix: f32, rate: f32) {
+pub(crate) fn apply(buf: &mut [f32], size: f32, damp: f32, mix: f32, rate: f32) {
     let scale = if rate > 0.0 { rate / TUNED_RATE } else { 1.0 };
     let scaled = |len: usize| ((len as f32 * scale).round() as usize).max(1);
     let mut combs: Vec<Comb> = COMB_LENGTHS.iter().map(|l| Comb::new(scaled(*l))).collect();
@@ -111,7 +111,7 @@ pub fn apply(buf: &mut [f32], size: f32, damp: f32, mix: f32, rate: f32) {
 
 /// How long the tail rings after the dry signal stops, in seconds — what the
 /// renderer pads the buffer by so the reverb is not cut off.
-pub fn tail_seconds(size: f32) -> f32 {
+pub(crate) fn tail_seconds(size: f32) -> f32 {
     0.5 + size.clamp(0.0, 1.0) * 2.5
 }
 

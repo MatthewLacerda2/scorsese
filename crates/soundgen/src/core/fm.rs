@@ -19,7 +19,14 @@ use std::f32::consts::TAU;
 
 /// Render a two-operator FM note into `out`, following the per-sample frequency
 /// track `freqs` (so an LFO vibrato applies to carrier and modulator alike).
-pub fn render(out: &mut [f32], freqs: &[f32], ratio: f32, index: f32, decay: f32, rate: f32) {
+pub(crate) fn render(
+    out: &mut [f32],
+    freqs: &[f32],
+    ratio: f32,
+    index: f32,
+    decay: f32,
+    rate: f32,
+) {
     let mut carrier = 0.0f32;
     let mut modulator = 0.0f32;
     for (i, s) in out.iter_mut().enumerate() {

@@ -22,6 +22,40 @@
 //! That boundary is what makes the determinism claim checkable: every output
 //! is a pure function of the documents handed in.
 //!
+//! ## What this publishes
+//!
+//! **The crate root is the way in.** [`bake_note`], [`bake_named_note`] and
+//! [`bake_song`] each take a document and hand back a [`Bake`] — a finished
+//! file and how it came out. [`render_note`] and [`render_song`] are the same
+//! two jobs stopping one step earlier, at the samples, for a caller that wants
+//! to do something with them other than write them down. Around those sit the
+//! documents they take ([`Patch`], [`Song`], [`NoteOpts`]), the
+//! [`PatchResolver`] a song's references resolve through, [`SynthError`],
+//! [`SAMPLE_RATE`], and [`parse_note`] and [`midi_to_freq`] for turning what a
+//! score writes into what the renderer plays.
+//!
+//! **Five modules keep their own path**, because each is a vocabulary rather
+//! than a handful of names:
+//!
+//! - [`patch`] and [`song`] are the two recipe documents — every type a
+//!   `recipes/*.json` file deserialises into. They are named for the document
+//!   they belong to, and `song::Note` and `patch::Osc` say what they are in a
+//!   way that thirty more names at the root would not.
+//! - [`level`] is the measurement, and it is here rather than beside a caller
+//!   because a render measuring its finished mix and a bake measuring what it
+//!   just synthesised are the same arithmetic. `scorsese-render` imports it
+//!   whole.
+//! - [`survey`] is what a *set* of recipes is made of, counted from the
+//!   documents without baking any of them.
+//! - [`wav`] publishes one function, [`wav::seconds_in`], and keeps its module
+//!   because the noun is what makes the verb readable.
+//!
+//! **Everything else is `pub(crate)`.** The oscillators, filters, envelopes,
+//! effects, the seeded hash and the note-name parser are the inside of
+//! [`render_note`]; the song mixer's per-track intermediate is the inside of
+//! [`bake_song`]. None of it is a second way to reach a result this crate
+//! already returns.
+//!
 //! ## The signal path
 //!
 //! A [`Patch`] is *structured, not a free graph*. The stages are fixed and the
@@ -40,9 +74,9 @@
 //! ## Determinism
 //!
 //! Nothing here reads a clock or a random number generator. Every stochastic
-//! element — noise, the Karplus excitation — draws from the seeded integer
-//! hash in [`hash`], so the same recipe and seed produce identical samples in
-//! any process, on any machine, on any run.
+//! element — noise, the Karplus excitation — draws from one seeded integer
+//! hash, so the same recipe and seed produce identical samples in any process,
+//! on any machine, on any run.
 //!
 //! ## Rate and channels
 //!
@@ -70,12 +104,12 @@
 //! the mix — a synthesised file takes exactly the path an imported mono file
 //! does.
 
-pub mod core;
-pub mod error;
-pub mod fx;
-pub mod hash;
+pub(crate) mod core;
+pub(crate) mod error;
+pub(crate) mod fx;
+pub(crate) mod hash;
 pub mod level;
-pub mod note;
+pub(crate) mod note;
 pub mod patch;
 pub mod song;
 pub mod survey;
@@ -83,7 +117,7 @@ pub mod wav;
 
 pub use core::{SAMPLE_RATE, render_note};
 pub use error::SynthError;
-pub use note::{NoteOpts, midi_to_freq, midi_to_name, parse_note};
+pub use note::{NoteOpts, midi_to_freq, parse_note};
 pub use patch::Patch;
 pub use song::{PatchResolver, Song, render_song};
 
@@ -120,7 +154,7 @@ pub fn bake_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Bake, Synth
     // makes a row say "the second chorus is the quiet one" rather than "seconds
     // 24 to 32 are quiet". Its tracks decide the other table: which instrument
     // is taking up the room, which is the half a section row cannot answer.
-    let mixed = song::mix_song(song, resolve)?;
+    let mixed = song::render::mix_song(song, resolve)?;
     Ok(Bake::of(
         &mixed.master,
         song::sections::of(song),
@@ -142,8 +176,8 @@ pub struct Bake {
     /// How it came out — over its whole length, and section by section.
     pub profile: level::Profile,
     /// How each track came out on its own, post-gain — which layer is taking
-    /// up the room. Empty unless this was a song of more than one track; see
-    /// [`song::Mixdown::tracks`].
+    /// up the room. Empty unless this was a song of more than one track: one
+    /// row under a one-line summary is the same sentence twice.
     pub tracks: Vec<level::Layer>,
 }
 
