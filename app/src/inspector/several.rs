@@ -145,7 +145,7 @@ mod tests {
     use crate::inspector::fixture::project;
 
     fn selection(ids: &[&str]) -> BTreeSet<ClipId> {
-        ids.iter().map(|id| ClipId::new(id)).collect()
+        ids.iter().map(|id| ClipId::new(*id)).collect()
     }
 
     /// The fact a person is checking after a shift-click: how many, and how far
