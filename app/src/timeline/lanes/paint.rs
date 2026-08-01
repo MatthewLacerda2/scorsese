@@ -1,5 +1,7 @@
 //! Drawing one lane: its clips, their labels, and the gutter beside them.
 
+use std::collections::BTreeSet;
+
 use egui::{Align2, Color32, CornerRadius, FontId, Painter, Rect, Stroke, Ui, vec2};
 use scorsese_core::{Asset, AssetId, Clip, ClipId, Project, Track};
 
@@ -19,8 +21,9 @@ pub(in crate::timeline) struct Paint<'a> {
     pub(in crate::timeline) project: &'a Project,
     /// How far in and how magnified.
     pub(in crate::timeline) view: View,
-    /// Which clip is selected, if any.
-    pub(in crate::timeline) selected: Option<ClipId>,
+    /// The selected clips. Borrowed rather than copied: the set is read once
+    /// per clip drawn and a timeline redraws while a hand is moving.
+    pub(in crate::timeline) selected: &'a BTreeSet<ClipId>,
     /// An asset picked out in the files panel. Its clips are drawn brighter
     /// and everything else is dimmed, which answers "where is this used?"
     /// without anyone having to read ids off a timeline.
@@ -43,7 +46,7 @@ pub(in crate::timeline) fn draw(paint: &Paint<'_>, lane: Rect, track: &Track) {
             continue;
         }
         let asset = paint.project.asset(&clip.asset);
-        let is_selected = paint.selected.as_ref() == Some(&clip.id);
+        let is_selected = paint.selected.contains(&clip.id);
         // Nothing highlighted means everything is at full strength; something
         // highlighted means everything else steps back. Dimming the rest
         // rather than outlining the few keeps the answer readable when an

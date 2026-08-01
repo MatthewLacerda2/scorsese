@@ -41,6 +41,8 @@ impl Timeline {
     /// it, and move or trim it. Scrubbing by dragging anywhere empty is
     /// deliberate — it is the thing you do most, and making it need the thin
     /// strip at the top would make the common case the fiddly one.
+    ///
+    /// Shift or ctrl held turns a click on a clip into *this one as well*.
     pub(super) fn act(
         &mut self,
         ui: &Ui,
@@ -65,15 +67,26 @@ impl Timeline {
             // a clip's edge for one aimed past it and leave the clip trailing
             // the pointer by the threshold for the rest of the gesture.
             let origin = ui.input(|input| input.pointer.press_origin());
-            self.grab(origin.unwrap_or(at), area, open, editing);
+            self.grab(origin.unwrap_or(at), area, open, editing, adding(ui));
         }
 
         if response.dragged() {
             self.follow(ui, area, at, open, editing);
         } else if response.clicked() {
             match hit.filter(|_| !on_ruler) {
-                Some(hit) => editing.selected = Some(hit.clip.clone()),
-                None => editing.playhead = frame_under(self.view, area, at, &open.project),
+                Some(hit) => editing.pick(&hit.clip, adding(ui)),
+                None => {
+                    // Clicking bare timeline is how you let go of everything —
+                    // but the ruler is not bare timeline, it is the playhead's
+                    // own strip. Standing the playhead somewhere is half of
+                    // every operation that acts on a selection, and a ruler
+                    // that cleared the selection would make those two things
+                    // impossible to do in either order.
+                    if !on_ruler {
+                        editing.selected.clear();
+                    }
+                    editing.playhead = frame_under(self.view, area, at, &open.project);
+                }
             }
         }
         if response.drag_stopped() {
@@ -83,7 +96,7 @@ impl Timeline {
     }
 
     /// Decides what this gesture is, from what the button went down on.
-    fn grab(&mut self, at: Pos2, area: Rect, open: &Open, editing: &mut Editing) {
+    fn grab(&mut self, at: Pos2, area: Rect, open: &Open, editing: &mut Editing, adding: bool) {
         self.trouble = None;
         let top = area.top() + ruler::HEIGHT;
         let grabbed = (at.y > top)
@@ -91,9 +104,10 @@ impl Timeline {
             .flatten();
         self.gesture = Some(match grabbed {
             // Taking hold of a clip selects it: the inspector should be looking
-            // at whatever your hand is on.
+            // at whatever your hand is on. A clip already in the selection is
+            // the exception — see [`Editing::hold`].
             Some(hit) => {
-                editing.selected = Some(hit.clip.clone());
+                editing.hold(&hit.clip, adding);
                 drag::Drag::begin(&open.project, &hit, at, area, self.view)
                     .map_or(Gesture::Scrub, |held| Gesture::Clip(Box::new(held)))
             }
@@ -139,6 +153,16 @@ impl Timeline {
                 .map(|why| why.to_string());
         }
     }
+}
+
+/// Whether a modifier meaning "as well as" is held.
+///
+/// Shift **or** ctrl, and both on purpose. Every list anyone has ever clicked
+/// in takes one of the two, nobody remembers which belongs to which program,
+/// and there is nothing else for either of them to mean on a clip. `command`
+/// rather than `ctrl` so the same hand works on a Mac, where it is ⌘.
+fn adding(ui: &Ui) -> bool {
+    ui.input(|input| input.modifiers.shift || input.modifiers.command)
 }
 
 /// Which frame `at` falls on, never past the end of the edit.

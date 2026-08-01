@@ -103,7 +103,7 @@ impl Timeline {
                 painter: &painter,
                 project: &open.project,
                 view: self.view,
-                selected: editing.selected.clone(),
+                selected: &editing.selected,
                 highlighted: editing.highlighted.clone(),
             },
             gutter,
