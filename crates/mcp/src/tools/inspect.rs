@@ -3,7 +3,7 @@
 //! None of these change anything, and none of them cost anything to run.
 
 use scorsese_core::{HashCheck, Project, asset_status};
-use scorsese_render::{Description, FrameRange, Note, Plan, unknown_in};
+use scorsese_render::{Commentary, Description, FrameRange, Note, Plan, unknown_in};
 use serde_json::Value;
 
 use super::{Reply, Tool, project_dir, project_only_schema};
@@ -48,9 +48,10 @@ impl Tool for Describe {
 
     fn description(&self) -> &'static str {
         "Say what the cut contains: what is on screen when, on which track, at \
-         what fit, with what animated, and what is audible under it. Sequences \
-         the timeline exactly as a render would but produces no file — so it is \
-         the cheapest way to check an edit is right. No ffmpeg, no cost."
+         what fit, with what animated, and what is audible under it — and every \
+         note left on an asset, track or clip saying why it is that way. \
+         Sequences the timeline exactly as a render would but produces no file, \
+         so it is the cheapest way to check an edit is right. No ffmpeg, no cost."
     }
 
     fn schema(&self) -> Value {
@@ -63,7 +64,15 @@ impl Tool for Describe {
         let plan = Plan::build(&project, project.timeline_fps, FrameRange::ALL)
             .map_err(|error| format!("sequencing the timeline: {error}"))?;
 
-        let mut out = format!("{} — {}\n", project.name, Description::of(&plan));
+        // Ahead of the cut, not after it: a script is meant to be read before
+        // the edit is touched, and a note is the context the shot only makes
+        // sense in.
+        let commentary = Commentary::of(&project);
+        let mut out = String::new();
+        if !commentary.is_empty() {
+            out.push_str(&format!("{commentary}\n\n"));
+        }
+        out.push_str(&format!("{} — {}\n", project.name, Description::of(&plan)));
         for note in plan.notes() {
             out.push_str(&format!("  note: {note}\n"));
         }

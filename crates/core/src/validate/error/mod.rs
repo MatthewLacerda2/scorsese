@@ -17,6 +17,8 @@ mod timeline;
 pub use assets::AssetProblem;
 pub use timeline::TimelineProblem;
 
+use crate::path::{PathProblem, ProjectPath};
+
 /// One thing wrong with a project.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum ValidationError {
@@ -28,6 +30,21 @@ pub enum ValidationError {
         found: u32,
         /// The one version this build reads.
         supported: u32,
+    },
+
+    /// The document's `script` path, breaking the rules every other path
+    /// obeys. It names no asset, so it is its own variant rather than a
+    /// [`AssetProblem::BadPath`] with nothing to blame.
+    ///
+    /// The *shape* is all that is checked here. Whether the file is really
+    /// there is `scorsese check`'s question and only ever a warning: a project
+    /// that has lost its brief should still render.
+    #[error("the project's script path `{path}` {problem}")]
+    BadScriptPath {
+        /// The path as written.
+        path: ProjectPath,
+        /// Which rule it breaks.
+        problem: PathProblem,
     },
 
     /// Something wrong with a row of the assets table.

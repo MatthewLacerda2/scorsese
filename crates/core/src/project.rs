@@ -6,6 +6,8 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::asset::{Asset, AssetId};
+use crate::note::Noted;
+use crate::path::ProjectPath;
 use crate::time::Fps;
 use crate::timeline::{Clip, Track};
 use crate::validate::ValidationErrors;
@@ -15,7 +17,7 @@ use crate::validate::ValidationErrors;
 /// Bumping it is `architecture` work and requires a migration note: this
 /// format is the contract between the CLI, the MCP server, the GUI, and every
 /// project already saved on someone's disk.
-pub const SCHEMA_VERSION: u32 = 12;
+pub const SCHEMA_VERSION: u32 = 13;
 
 /// The document's file name inside a `*.scor/` project directory.
 pub const PROJECT_FILE_NAME: &str = "project.json";
@@ -57,6 +59,30 @@ pub struct Project {
     /// in the file meaning something other than what its author intended, and
     /// guessing 30 is a worse failure than refusing to load.
     pub timeline_fps: Fps,
+    /// The document this edit is being cut from, as a project-relative path —
+    /// by convention `script.md` at the root.
+    ///
+    /// **A file, not a string.** The same reasoning as a synthesis
+    /// [`Asset::recipe`]: such a document is long — a real one measured 30 KB
+    /// against a `project.json` of 34 KB — and inlining it would very nearly
+    /// double the document while burying the timeline under prose, in the one
+    /// file an agent opens to learn the edit. A file also gets a readable diff
+    /// and edits from any tool. It lives inside the project directory like
+    /// every other path, so it still survives `scp -r`.
+    ///
+    /// **Never parsed.** No schema, no sections, no front matter, no
+    /// convention this tool enforces — the moment something here extracts
+    /// meaning from it, it becomes a format with rules and stops being the
+    /// place you write freely. Markdown is a convention and not a requirement;
+    /// nothing reads the extension.
+    ///
+    /// **Never rendered**, exactly as [`crate::Track::note`] is not.
+    ///
+    /// A `script` naming a file that is not there is a **warning**, not a
+    /// failure, for the same reason a missing generated file is: a project that
+    /// has lost its brief should still render.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub script: Option<ProjectPath>,
     /// Every asset the project knows about, keyed by `id` within the entries.
     #[serde(default)]
     pub assets: Vec<Asset>,
@@ -73,6 +99,7 @@ impl Project {
             schema_version: SCHEMA_VERSION,
             name: name.into(),
             timeline_fps,
+            script: None,
             assets: Vec::new(),
             tracks: Vec::new(),
         }
@@ -111,6 +138,22 @@ impl Project {
         self.tracks
             .iter()
             .flat_map(|track| track.clips.iter().map(move |clip| (track, clip)))
+    }
+
+    /// Every note in the document, in reading order: the assets table first,
+    /// then each track followed by the clips on it.
+    ///
+    /// One pass over the whole document rather than three lists, because the
+    /// question anyone asks is *what does this project say about itself?* and
+    /// the answer is not sorted by which table a note happens to live in.
+    pub fn notes(&self) -> impl Iterator<Item = Noted<'_>> {
+        let assets = self.assets.iter().filter_map(Noted::on_asset);
+        let tracks = self.tracks.iter().flat_map(|track| {
+            Noted::on_track(track)
+                .into_iter()
+                .chain(track.clips.iter().filter_map(Noted::on_clip))
+        });
+        assets.chain(tracks)
     }
 
     /// Assets GO would spend money on: the sketch and stale ones.

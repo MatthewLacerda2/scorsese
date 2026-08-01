@@ -1,7 +1,7 @@
 //! Path rules — the invariant that lets a project survive `scp -r`.
 
 use crate::common::{assert_only_problem, asset_id, asset_mut, project};
-use scorsese_core::{AssetProblem as E, PathProblem, ProjectPath};
+use scorsese_core::{AssetProblem as E, PathProblem, ProjectPath, ValidationError};
 
 /// Puts `path` on the logo asset and expects exactly that one complaint.
 #[track_caller]
@@ -49,6 +49,31 @@ fn a_backslash_path_is_refused() {
 #[test]
 fn an_empty_path_is_refused() {
     expect_problem("", PathProblem::Empty);
+}
+
+/// The script is the document's own path and names no asset, so it gets its
+/// own complaint — but the rule it breaks is the same rule.
+#[test]
+fn the_script_obeys_the_rules_every_other_path_obeys() {
+    let mut p = project();
+    let path = ProjectPath::new("../notes/script.md");
+    p.script = Some(path.clone());
+    assert_only_problem(
+        &p,
+        ValidationError::BadScriptPath {
+            path,
+            problem: PathProblem::ParentEscape,
+        },
+    );
+}
+
+/// Whether the file is really there is `scorsese check`'s question and only
+/// ever a warning: a project that has lost its brief should still render.
+#[test]
+fn a_script_naming_a_file_nobody_has_written_is_still_valid() {
+    let mut p = project();
+    p.script = Some(ProjectPath::new("script.md"));
+    assert_eq!(p.validate(), Ok(()));
 }
 
 #[test]

@@ -100,6 +100,22 @@ pub struct Asset {
     /// and picking one silently is how a film opens on the wrong shade.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub color: Option<Rgba>,
+    /// Why this asset is what it is. Never rendered — see
+    /// [`crate::Track::note`], which states the invariant in full.
+    ///
+    /// An asset's note is the one that survives the edit changing around it,
+    /// because it is about the *file* rather than about a moment: that this
+    /// footage is a stand-in and must never be described as the real thing,
+    /// that this headline is quoted copy and rewording it edits someone else's
+    /// words. Those stay true in every use of the asset, in any order, at any
+    /// position — which is exactly why they belong here and not on one of the
+    /// clips that happens to show it.
+    ///
+    /// Allowed on every kind, including the generated ones, and it is not a
+    /// second brief: a `prompt` is handed to a provider and reaches the screen
+    /// on a slug card, a note is handed to nobody.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
 }
 
 impl Asset {
@@ -144,6 +160,7 @@ impl Asset {
             text: None,
             style: None,
             color: None,
+            note: None,
         }
     }
 

@@ -81,6 +81,7 @@ fn baked() -> Asset {
 
 pub(crate) fn track(id: &str, kind: TrackKind, clips: Vec<Clip>) -> Track {
     Track {
+        note: None,
         id: TrackId::new(id),
         kind,
         name: None,

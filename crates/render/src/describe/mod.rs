@@ -21,8 +21,13 @@
 //! document, because it is derived from the same document that might be wrong
 //! about reality — a source that decoded black, a `native` clip whose media
 //! turned out to be 4000px wide. That is [`crate::frames`]'s half of the job.
+//!
+//! [`Commentary`] is the one thing here that is read off the **document**
+//! rather than off the plan: the script the project carries and the notes left
+//! on its elements. What a cut contains includes why it is that way.
 
 mod animation;
+mod commentary;
 mod cue;
 mod display;
 mod stretch;
@@ -32,6 +37,7 @@ use scorsese_core::{Fps, Frames};
 use crate::plan::{Plan, Segment};
 
 pub use animation::{Animated, Travel};
+pub use commentary::Commentary;
 pub use cue::{Cue, CueError};
 pub use stretch::{Playing, Shown, Stretch};
 

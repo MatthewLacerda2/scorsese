@@ -83,10 +83,40 @@ fn a_range_describes_only_that_slice() {
     std::fs::remove_dir_all(&dir).ok();
 }
 
+/// The reasoning a project carries is part of what it contains, so the command
+/// whose job is saying what it contains has to say it — and say it before the
+/// cut, where it still changes what a reader makes of the shot below.
+#[test]
+fn a_description_carries_the_script_and_the_notes() {
+    let dir = project("commentary");
+    let document = std::fs::read_to_string(dir.join("project.json")).expect("read the document");
+    std::fs::write(
+        dir.join("project.json"),
+        document.replace(
+            r#""name": "Teaser","#,
+            r#""name": "Teaser", "script": "script.md","#,
+        ),
+    )
+    .expect("write the document");
+
+    let (succeeded, output) = describe(&dir, &[]);
+    assert!(succeeded, "{output}");
+    assert!(output.contains("script: script.md"), "{output}");
+    assert!(
+        output.contains("note on clip `c1`: tried full-bleed first"),
+        "{output}"
+    );
+    assert!(
+        output.find("script: script.md") < output.find("Teaser — "),
+        "the script is read before the edit is touched:\n{output}"
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}
+
 /// A shot, a narration prompt over its first half, then two seconds of nothing
 /// — one of each thing a description has to name.
 const DOCUMENT: &str = r#"{
-  "schema_version": 12,
+  "schema_version": 13,
   "name": "Teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [
@@ -98,7 +128,8 @@ const DOCUMENT: &str = r#"{
       "id": "v1",
       "kind": "video",
       "clips": [
-        { "id": "c1", "asset": "shot", "start": 0, "duration": 60 },
+        { "id": "c1", "asset": "shot", "start": 0, "duration": 60,
+          "note": "tried full-bleed first; white text over a bright sky did not read" },
         { "id": "c2", "asset": "shot", "start": 90, "duration": 30 }
       ]
     },

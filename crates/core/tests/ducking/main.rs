@@ -36,6 +36,7 @@ pub(crate) fn audio_track(id: &str, clips: Vec<Clip>) -> Track {
         id: TrackId::new(id),
         kind: TrackKind::Audio,
         name: None,
+        note: None,
         clips,
     }
 }

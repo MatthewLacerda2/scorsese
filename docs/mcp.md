@@ -38,6 +38,8 @@ Every tool takes `project`: the path of the `*.scor` directory to work on.
 | `project_check` | every problem with the document and its media, at once | nothing |
 | `project_assets` | the media pool and the state of everything in it | nothing |
 | `project_probe` | measure the assets nobody has probed, and record it | ffprobe |
+| `script_read` | the document this edit is being cut from | nothing |
+| `script_write` | replace it, starting one if there is none | nothing |
 | `dissolve` | cross one shot into the next, as opacity keyframes | nothing |
 | `duck_music` | lower a music track under narration, as volume keyframes | nothing |
 | `scale_pacing` | spread a run of clips out, or close it up, about one instant | nothing |
@@ -66,6 +68,31 @@ and every feature that needs the source's own length — the ceiling on a right
 trim among them — has no choice but to skip it. This asks ffprobe about each
 such asset and writes down what it says. Safe to call after every edit: one
 already probed is left alone unless `all` is set.
+## Why the edit was made this way
+
+A project carries its own reasoning, and an assistant is the thing best placed
+to record it — while it edits, unprompted, because it is the one that knows why.
+
+There are two mechanisms and they are not interchangeable. A **note** is one
+sentence about one element, and it lives in `project.json` on the asset, track
+or clip it is about, so `project_read` and `project_write` already carry it —
+there is no separate note tool and there should not be one. A **script** is the
+document the whole edit is cut from, and it is a file beside `project.json`
+rather than a field inside it, so it needs `script_read` and `script_write`.
+
+**Read the script before touching the edit.** It is where the reasons live that
+no timeline can show — what the film has to be, and often what it must never
+claim on camera. A cold start without it is a guess. `project_describe` prints
+the script's path and every note ahead of the cut, so one call says whether
+there is anything to read.
+
+`script_write` replaces the file whole, and points the document at it if the
+project had no script yet. That is the reason `scorsese new` leaves no stub:
+starting a script is one call either way, and an empty `script.md` with the
+document pointing at it would have every project claiming to carry one.
+
+**Neither ever renders**, in any version of this tool. Text meant to be seen is
+a `text` asset.
 
 ## The two operations that write keyframes for you
 

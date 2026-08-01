@@ -39,6 +39,17 @@ impl Project {
                 supported: SCHEMA_VERSION,
             });
         }
+        // The script is a path like any other, so it obeys the rules any other
+        // path obeys — checked here rather than under `assets`, because it
+        // belongs to the document and there is no asset to name in the message.
+        if let Some(script) = &self.script
+            && let Err(problem) = script.check()
+        {
+            errors.push(ValidationError::BadScriptPath {
+                path: script.clone(),
+                problem,
+            });
+        }
         errors.extend(assets::check(self).into_iter().map(Into::into));
         errors.extend(timeline::check(self).into_iter().map(Into::into));
 

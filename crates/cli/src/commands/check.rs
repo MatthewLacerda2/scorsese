@@ -5,7 +5,9 @@ pub mod media;
 use std::path::Path;
 
 use anyhow::{Context, Result, bail};
-use scorsese_core::{HashCheck, PROJECT_FILE_NAME, Project, ValidationErrors, asset_status};
+use scorsese_core::{
+    HashCheck, PROJECT_FILE_NAME, Project, ProjectPath, ValidationErrors, asset_status,
+};
 use scorsese_render::unknown_in;
 
 use media::{Finding, Severity};
@@ -55,6 +57,16 @@ pub fn run(project_dir: &Path, verify: bool) -> Result<()> {
         }
     }
 
+    // A warning and never a problem, for the same reason a missing generated
+    // file is one: a project that has lost its brief still renders, and the
+    // frames it produces are not one pixel different for it. Worth saying
+    // loudly all the same — the script is the only part of the edit that
+    // cannot be reconstructed by looking at the film.
+    let lost_script = missing_script(&project, project_dir);
+    if let Some(path) = &lost_script {
+        println!("warning: the project's script `{path}` is not there");
+    }
+
     let hashes = if verify {
         HashCheck::Verify
     } else {
@@ -77,7 +89,8 @@ pub fn run(project_dir: &Path, verify: bool) -> Result<()> {
     }
 
     let invalid = project.validate().err();
-    let warning_count = warnings.len() + count(&media, Severity::Warning);
+    let warning_count =
+        warnings.len() + count(&media, Severity::Warning) + usize::from(lost_script.is_some());
     match problem_report(invalid.as_ref(), &media) {
         // Non-zero, and carrying the problems themselves rather than a count:
         // whatever runs this unattended reads the message and nothing else.
@@ -125,6 +138,17 @@ fn problem_report(invalid: Option<&ValidationErrors>, media: &[Finding]) -> Opti
         report.push_str(line);
     }
     Some(report)
+}
+
+/// The script the document names, when there is no file where it says.
+///
+/// A path that breaks the project-path rules is validation's to report and not
+/// this function's, so a badly-shaped one is left alone here rather than
+/// producing a second complaint about the same field.
+fn missing_script(project: &Project, project_dir: &Path) -> Option<ProjectPath> {
+    let script = project.script.clone()?;
+    script.check().ok()?;
+    (!script.resolve(project_dir).is_file()).then_some(script)
 }
 
 fn count(media: &[Finding], severity: Severity) -> usize {
