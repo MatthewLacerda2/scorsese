@@ -100,7 +100,8 @@ fn a_weight_named_for_a_static_font_is_refused() {
         "got `{error}`"
     );
     assert!(
-        error.to_string().contains("static"),
-        "the message has to say the file is the reason; got `{error}`"
+        error.to_string().contains("wght"),
+        "the message has to name the axis the file is missing, since that is \
+         what the author has to go and look for; got `{error}`"
     );
 }

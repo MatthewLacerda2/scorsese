@@ -272,7 +272,12 @@ pub enum FontError {
 
     /// A weight named for a file that has only one. Ignoring it would look
     /// exactly like honouring it.
-    #[error("this font is static — it has one weight — so it cannot be set at weight {weight}")]
+    ///
+    /// The message says "no `wght` axis" rather than "static", because that is
+    /// the fact and it is very slightly narrower: a face varying only on
+    /// `opsz` or `wdth` is a variable file with one weight, and telling its
+    /// author it is static would send them looking for the wrong thing.
+    #[error("this font has no `wght` axis — it has one weight — so it cannot be set at {weight}")]
     StaticWithWeight {
         /// The weight that could not be honoured.
         weight: u16,
