@@ -16,6 +16,7 @@ mod pacing;
 mod rendering;
 mod seeing;
 mod starting;
+mod surveying;
 mod tuning;
 
 use serde_json::Value;

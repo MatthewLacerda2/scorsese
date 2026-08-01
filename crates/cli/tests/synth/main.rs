@@ -10,3 +10,4 @@ mod authoring;
 mod baking;
 mod measuring;
 mod metadata;
+mod surveying;

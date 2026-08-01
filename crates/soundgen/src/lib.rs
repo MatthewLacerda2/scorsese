@@ -78,11 +78,12 @@ pub mod level;
 pub mod note;
 pub mod patch;
 pub mod song;
+pub mod survey;
 pub mod wav;
 
 pub use core::{SAMPLE_RATE, render_note};
 pub use error::SynthError;
-pub use note::{NoteOpts, midi_to_freq, parse_note};
+pub use note::{NoteOpts, midi_to_freq, midi_to_name, parse_note};
 pub use patch::Patch;
 pub use song::{PatchResolver, Song, render_song};
 

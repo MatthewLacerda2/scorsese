@@ -42,6 +42,11 @@ pub enum SynthAction {
         /// The recipe file to read.
         recipe: PathBuf,
     },
+    /// Say what every song recipe in the project is made of, and count the
+    /// same facts across them: which sources, at what gain and cutoff, at what
+    /// tempo, in what register. Reads the documents only — no bake, no ffmpeg,
+    /// no cost. A count and never a score: nothing here can fail anything.
+    Survey,
 }
 
 /// Which starter `synth new` writes.

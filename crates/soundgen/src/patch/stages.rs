@@ -104,6 +104,22 @@ pub enum Source {
     },
 }
 
+impl Source {
+    /// What this generator is called, in the word the document spells it with.
+    ///
+    /// The serde tag rather than a prose label, so a report that names a source
+    /// and a recipe that chooses one use the same vocabulary — a reader who
+    /// sees `karplus` in a report can search the recipes for it.
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Self::OscStack { .. } => "osc_stack",
+            Self::Karplus { .. } => "karplus",
+            Self::Noise => "noise",
+            Self::Fm2 { .. } => "fm2",
+        }
+    }
+}
+
 /// A linear-segment ADSR envelope.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Adsr {
