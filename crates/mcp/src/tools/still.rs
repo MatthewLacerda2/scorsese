@@ -192,7 +192,7 @@ fn instants(arguments: &Value, fps: Fps) -> Result<Vec<Frames>, String> {
 /// the reply is the point of it — and `scorsese render --stills` already
 /// writes a numbered set of PNGs, so a second, worse version of that here
 /// would be a rule to remember instead of a capability.
-fn kept<'a>(arguments: &'a Value, instants: usize) -> Result<Option<&'a str>, String> {
+fn kept(arguments: &Value, instants: usize) -> Result<Option<&str>, String> {
     let out = arguments.get("out").and_then(Value::as_str);
     match out {
         Some(path) if instants > 1 => Err(format!(
