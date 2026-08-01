@@ -181,12 +181,22 @@ impl Profiler {
 
     /// How many samples may still be fed before the next boundary, as a count
     /// of interleaved samples rather than frames.
+    ///
+    /// Saturating throughout, because a boundary is arithmetic on a number out
+    /// of a document: a pattern of `1e30` beats is a legal `f32` and would
+    /// otherwise overflow this into a panic, which is a poor way for a report
+    /// to report anything.
     fn until_boundary(&self) -> usize {
         let boundary = match self.cuts.front() {
             Some(cut) => self.frame_at(cut.end_seconds),
-            None => self.current.from + self.frame_at(FALLBACK_SECONDS).max(1),
+            None => self
+                .current
+                .from
+                .saturating_add(self.frame_at(FALLBACK_SECONDS).max(1)),
         };
-        boundary.saturating_sub(self.fed) as usize * self.channels
+        usize::try_from(boundary.saturating_sub(self.fed))
+            .unwrap_or(usize::MAX)
+            .saturating_mul(self.channels)
     }
 
     /// Which sample-frame a time in seconds falls on.
