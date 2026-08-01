@@ -37,13 +37,13 @@
 /// The mud region is just above this — 250 to 500 Hz is where a mix goes
 /// boxy — so putting the boundary at its foot makes a swollen `low` share the
 /// symptom of the thing an author would call muddy.
-const LOW_HZ: f32 = 250.0;
+pub const LOW_HZ: f32 = 250.0;
 
 /// Where the midrange stops and presence and air begin, in Hz.
 ///
 /// Above this is where a mix reads as bright, harsh or thin; below it is where
 /// nearly every instrument's fundamental lives.
-const HIGH_HZ: f32 = 4_000.0;
+pub const HIGH_HZ: f32 = 4_000.0;
 
 /// How many one-poles each edge is made of. Two, for the reason the module doc
 /// gives: one smears an ordinary midrange tone into the bass.
