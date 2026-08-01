@@ -30,26 +30,36 @@
 //! combinations that cannot mean anything are refused rather than guessed at.
 //! Only `wght` is read — `opsz`, `wdth` and `slnt` are real axes and none of
 //! them is what "make this bold" means.
+//!
+//! What is read out of a face is deliberately narrow — how tall it sets, the
+//! outline of a glyph, and a shaper to choose and place those glyphs (see
+//! [`super::shape`]). Two crates read the one face: skrifa for the outlines,
+//! HarfRust for the shaping. They are versioned to share a `read-fonts`
+//! underneath, so what they are handed is the same parsed [`FontRef`] and not
+//! two of them — the reasoning is in `crates/compositor/Cargo.toml`.
 
 use std::fmt;
 use std::sync::OnceLock;
 
+use harfrust::{Shaper, ShaperData, ShaperInstance};
 use skrifa::instance::{Location, LocationRef, Size};
-use skrifa::metrics::GlyphMetrics;
 use skrifa::outline::{DrawSettings, OutlineGlyphCollection, OutlinePen};
-use skrifa::{FontRef, MetadataProvider, Tag};
+use skrifa::{FontRef, GlyphId, MetadataProvider};
 
-/// The variation axis that means "how heavy", as OpenType spells it.
-const WEIGHT_AXIS: Tag = Tag::new(b"wght");
+use super::shape::{self, Shaped};
+
+mod weight;
+
+use weight::locate;
 
 /// Liberation Sans, regular weight. One weight of each face rather than a
 /// family: bold and italic are a real feature with a real vocabulary
 /// (`weight`, `slant`), and shipping four files against a `style` nothing can
 /// select would be a megabyte pretending to be a choice.
-const SANS: &[u8] = include_bytes!("../../fonts/LiberationSans-Regular.ttf");
+const SANS: &[u8] = include_bytes!("../../../fonts/LiberationSans-Regular.ttf");
 
 /// Liberation Serif, regular weight, under the same rule.
-const SERIF: &[u8] = include_bytes!("../../fonts/LiberationSerif-Regular.ttf");
+const SERIF: &[u8] = include_bytes!("../../../fonts/LiberationSerif-Regular.ttf");
 
 /// A face, checked and ready to draw with.
 ///
@@ -57,12 +67,23 @@ const SERIF: &[u8] = include_bytes!("../../fonts/LiberationSerif-Regular.ttf");
 /// bytes, and a struct holding both would be self-referential. Re-reading the
 /// table directory is a handful of bounds checks, paid once per drawn block
 /// rather than per glyph.
+///
+/// The shaper's own view of the face is the exception, and it is kept here for
+/// the opposite reason: working out which of the font's lookups a feature
+/// reaches is real work, it borrows nothing, and it does not depend on the
+/// size a block is set at — so it is done once for the file and reused by
+/// every block, every line and every frame that face ever sets.
 pub struct Font {
     bytes: Vec<u8>,
     /// Where in variation space to draw. Empty for a static file, and one
     /// normalised coordinate per `fvar` axis for a variable one — computed
     /// once when the face is made, because it is the same for every glyph.
     location: Location,
+    shaping: ShaperData,
+    /// The same variation position as `location`, in the form the shaper
+    /// wants. Built once, beside it, because a `Shaper` borrows its instance
+    /// and one made per call could not outlive the call.
+    instance: ShaperInstance,
 }
 
 impl Font {
@@ -100,6 +121,8 @@ impl Font {
         let font = FontRef::new(bytes).map_err(|error| FontError::Unreadable(error.to_string()))?;
         let location = locate(&font, weight)?;
         Ok(Self {
+            instance: ShaperInstance::from_coords(&font, location.coords().iter().copied()),
+            shaping: ShaperData::new(&font),
             bytes: bytes.to_vec(),
             location,
         })
@@ -111,10 +134,25 @@ impl Font {
         let at = Size::new(size);
         let location = LocationRef::from(&self.location);
         let line = font.metrics(at, location);
+        // The shaper is pinned to the **same** instance the outlines are drawn
+        // at. Shaping a variable face at its default while filling it at 700
+        // would kern a bold in the regular's metrics — the letters would be the
+        // weight asked for and the spacing between them would not.
+        let shaper = self
+            .shaping
+            .shaper(&font)
+            .instance(Some(&self.instance))
+            .build();
+        // Shaping reports in font units, because a shaped run is the same run
+        // whatever it is set at; everything downstream of here is in pixels of
+        // the raster, so the ratio is worked out once per face rather than per
+        // glyph. A face claiming no units per em cannot be scaled sanely, and
+        // one that sets nothing is better than one that sets a smear.
+        let units = shaper.units_per_em().max(1) as f32;
         Face {
-            charmap: font.charmap(),
             glyphs: font.outline_glyphs(),
-            metrics: font.glyph_metrics(at, location),
+            shaper,
+            scale: size / units,
             ascent: line.ascent,
             descent: line.descent,
             at,
@@ -129,37 +167,6 @@ impl Font {
     }
 }
 
-/// Turns a weight into a position in the file's variation space, refusing
-/// every pairing of file and weight that cannot mean one thing.
-///
-/// A file with no `wght` axis is static as far as this is concerned — a face
-/// varying only on `opsz` or `wdth` has one weight like any static one, and
-/// naming a weight for it is the same mistake.
-fn locate(font: &FontRef<'_>, weight: Option<u16>) -> Result<Location, FontError> {
-    let axes = font.axes();
-    let axis = axes.get_by_tag(WEIGHT_AXIS);
-    match (axis, weight) {
-        (None, None) => Ok(Location::default()),
-        (None, Some(weight)) => Err(FontError::StaticWithWeight { weight }),
-        (Some(axis), None) => Err(FontError::VariableWithoutWeight {
-            min: axis.min_value(),
-            default: axis.default_value(),
-            max: axis.max_value(),
-        }),
-        (Some(axis), Some(weight)) => {
-            let asked = f32::from(weight);
-            if asked < axis.min_value() || asked > axis.max_value() {
-                return Err(FontError::WeightOffAxis {
-                    weight,
-                    min: axis.min_value(),
-                    max: axis.max_value(),
-                });
-            }
-            Ok(axes.location([(WEIGHT_AXIS, asked)]))
-        }
-    }
-}
-
 impl fmt::Debug for Font {
     /// The file itself is hundreds of kilobytes and nothing a reader wants in
     /// a log line.
@@ -171,9 +178,10 @@ impl fmt::Debug for Font {
 /// One face at one size: everything measuring and drawing needs, looked up
 /// once instead of per character.
 pub(super) struct Face<'a> {
-    charmap: skrifa::charmap::Charmap<'a>,
     glyphs: OutlineGlyphCollection<'a>,
-    metrics: GlyphMetrics<'a>,
+    shaper: Shaper<'a>,
+    /// Font units to pixels, at the size this face was taken at.
+    scale: f32,
     ascent: f32,
     descent: f32,
     at: Size,
@@ -183,16 +191,13 @@ pub(super) struct Face<'a> {
 }
 
 impl Face<'_> {
-    /// How far the pen moves to set `character`.
+    /// Which glyphs set `text` and where each one goes, kerning applied.
     ///
-    /// A character the face has no glyph for advances by nothing rather than
-    /// by a guess, so a string of them takes no width and draws nothing —
-    /// which is what "this face cannot say that" should look like.
-    pub(super) fn advance(&self, character: char) -> f32 {
-        self.charmap
-            .map(character)
-            .and_then(|glyph| self.metrics.advance_width(glyph))
-            .unwrap_or(0.0)
+    /// The only way to a width in this module: measuring a string any other
+    /// way would answer with the spacing the face did *not* ask for, and
+    /// wrapping would then break lines in places the drawn text does not.
+    pub(super) fn shape(&self, text: &str) -> Shaped {
+        shape::shape(&self.shaper, text, self.scale)
     }
 
     /// How far the tallest glyph reaches above the baseline and the lowest
@@ -201,15 +206,11 @@ impl Face<'_> {
         (self.ascent, self.descent)
     }
 
-    /// Walks `character`'s outline through `pen`, in font-space with **y
+    /// Walks the outline of glyph `id` through `pen`, in font-space with **y
     /// upwards** — the convention outlines are written in, which whoever draws
     /// them has to flip onto a raster.
-    pub(super) fn outline(&self, character: char, pen: &mut impl OutlinePen) {
-        let Some(glyph) = self
-            .charmap
-            .map(character)
-            .and_then(|id| self.glyphs.get(id))
-        else {
+    pub(super) fn outline(&self, id: GlyphId, pen: &mut impl OutlinePen) {
+        let Some(glyph) = self.glyphs.get(id) else {
             return;
         };
         // A glyph that will not draw — a corrupt outline in an otherwise

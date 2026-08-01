@@ -13,12 +13,12 @@ scorsese-core = { version = "0.1.0", path = "../core" }
 thiserror = "2.0.19"
 tiny-skia = "0.12.0"
 
-# Font parsing and glyph outlines — read-only, no shaping, no layout, no system
-# font lookup. It is the smallest crate that answers the two questions a title
-# card asks ("what is this character's outline" and "how far does the pen
-# move"), and it hands back **paths**, which tiny-skia already fills: text
-# arrives at the same rasteriser as every other layer instead of bringing a
-# second one whose antialiasing could disagree.
+# Font parsing and glyph outlines — read-only, no layout, no system font
+# lookup. It answers what a title card asks of a face ("what is this glyph's
+# outline", "how tall does this face set"), and it hands outlines back as
+# **paths**, which tiny-skia already fills: text arrives at the same rasteriser
+# as every other layer instead of bringing a second one whose antialiasing
+# could disagree.
 #
 # The alternatives all reach `ttf-parser`, which its author has marked
 # unmaintained (RUSTSEC-2026-0192) — `fontdue`, `ab_glyph` and `cosmic-text`
@@ -27,4 +27,28 @@ tiny-skia = "0.12.0"
 # already on the licence allow-list. Picking a glyph crate that needed a
 # supply-chain exception on the day it landed would be the wrong decision to
 # leave behind.
-skrifa = "0.45.1"
+#
+# Held one minor behind the latest release on purpose — see `harfrust` below.
+skrifa = "0.44.0"
+
+# Shaping: characters in, positioned glyphs out. Kerning is why it is here —
+# the per-pair spacing that stops `AV`, `To` and `Wa` from looking gappy — and
+# kerning is not a table a pair can be looked up in. It is a feature the font
+# asks the shaper to apply, so having kerning means having a shaper.
+#
+# `rustybuzz` is the name most people know, and it is the one candidate this
+# crate may not take: it is built on `ttf-parser`, the same unmaintained parser
+# the paragraph above rejected. HarfRust is rustybuzz's own successor, by the
+# HarfBuzz project, forked precisely to move off `ttf-parser` and onto
+# `read-fonts` — in its own words, "to avoid shipping multiple implementations
+# of core font parsing for skrifa consumers", which is this crate exactly. MIT,
+# from crates.io, and everything it brings (`bitflags`, `bytemuck`,
+# `smallvec`) was already on the licence allow-list.
+#
+# **skrifa and harfrust have to agree on `read-fonts`.** They are two views of
+# one face and are handed one parsed `FontRef`; resolved to different majors of
+# `read-fonts` that would be two unrelated types, the face would be parsed
+# twice, and the build would carry two copies of one parser. harfrust 0.12 is
+# on `read-fonts` 0.41, and so is skrifa 0.44 — the pair moves together or not
+# at all. Bumping one alone is the mistake this paragraph exists to prevent.
+harfrust = "0.12.0"

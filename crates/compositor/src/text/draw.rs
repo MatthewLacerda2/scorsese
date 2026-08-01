@@ -14,6 +14,7 @@ use scorsese_core::Rgba;
 use crate::frame::{BYTES_PER_PIXEL, Frame};
 
 use super::font::{Face, Font};
+use super::shape::Shaped;
 
 /// Draws one line of `text` into `frame`, in `color`, at `size` pixels per em.
 ///
@@ -37,17 +38,24 @@ pub fn draw_line(
 ) {
     let face = font.at(size.max(1.0));
     let mut path = Outlines::default();
-    line_into(&mut path, &face, text, origin);
+    line_into(&mut path, &face, &face.shape(text), origin);
     stamp(frame, path, color);
 }
 
-/// Traces `text` into `path`, with the pen starting at `origin`.
-pub(super) fn line_into(path: &mut Outlines, face: &Face<'_>, text: &str, origin: (f32, f32)) {
-    let (mut pen, baseline) = origin;
-    for character in text.chars() {
-        path.place(pen, baseline);
-        face.outline(character, path);
-        pen += face.advance(character);
+/// Traces an already-shaped run into `path`, with the run starting at
+/// `origin`.
+///
+/// Shaped rather than plain text because where a glyph goes was decided
+/// upstream — the shaper applied the face's kerning, and a run that was
+/// measured to fit a line has to be drawn as the same run it was measured as.
+pub(super) fn line_into(path: &mut Outlines, face: &Face<'_>, shaped: &Shaped, origin: (f32, f32)) {
+    let (left, baseline) = origin;
+    for glyph in &shaped.glyphs {
+        // The run's offsets are font-space — y upwards — and a baseline is a
+        // row of the raster, so a glyph lifted off the baseline moves up the
+        // frame, which is towards zero.
+        path.place(left + glyph.at.0, baseline - glyph.at.1);
+        face.outline(glyph.id, path);
     }
 }
 

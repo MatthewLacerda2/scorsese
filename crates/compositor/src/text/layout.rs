@@ -8,19 +8,25 @@
 //! runs off the bottom of it.
 
 use super::font::Face;
+use super::shape::Shaped;
 
-/// One line, laid out and measured.
+/// One line, laid out and shaped.
 pub(super) struct Line {
     /// The characters on it, with the whitespace it was broken at removed.
+    /// Kept beside the glyphs because breaking, truncating and ellipsising all
+    /// happen to text — a glyph run cannot have a character taken off its end.
     pub text: String,
-    /// How wide it sets at the size its face was taken at.
-    pub width: f32,
+    /// The glyphs that set it, and how wide they set. Shaped here rather than
+    /// again at drawing time: a line is measured to decide it fits, and
+    /// measuring it *is* shaping it, so the result is carried forward instead
+    /// of being thrown away and recomputed for every frame.
+    pub shaped: Shaped,
 }
 
 /// How wide `text` sets in one line. The one measurement in this module, so
 /// wrapping and drawing can never disagree about where a line ends.
 pub(super) fn measure(face: &Face<'_>, text: &str) -> f32 {
-    text.chars().map(|character| face.advance(character)).sum()
+    face.shape(text).width
 }
 
 /// Wraps `text` to `max_width`, keeping at most `max_lines` of it.
@@ -103,11 +109,11 @@ fn ellipsise(last: Line, face: &Face<'_>, max_width: f32) -> Line {
     let mut text = last.text;
     loop {
         let candidate = format!("{}…", text.trim_end());
-        let width = measure(face, &candidate);
-        if width <= max_width || text.is_empty() {
+        let shaped = face.shape(&candidate);
+        if shaped.width <= max_width || text.is_empty() {
             return Line {
                 text: candidate,
-                width,
+                shaped,
             };
         }
         text.pop();
@@ -115,6 +121,6 @@ fn ellipsise(last: Line, face: &Face<'_>, max_width: f32) -> Line {
 }
 
 fn push(lines: &mut Vec<Line>, face: &Face<'_>, text: String) {
-    let width = measure(face, &text);
-    lines.push(Line { text, width });
+    let shaped = face.shape(&text);
+    lines.push(Line { text, shaped });
 }
