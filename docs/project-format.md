@@ -548,13 +548,42 @@ attention than the ducking was avoiding.
 | `transform.scale.x` | width multiplier about the layer's centre | `1.0` natural size |
 | `transform.scale.y` | height multiplier about the layer's centre | `1.0` natural size |
 | `transform.rotation` | turn about the layer's centre, in **degrees clockwise** | `0.0` upright |
+| `transform.flip.x` | turn about the layer's own **horizontal** axis, in degrees | `0.0` face on |
+| `transform.flip.y` | turn about the layer's own **vertical** axis, in degrees | `0.0` face on |
 | `volume` | how loud a clip plays, on either kind of track | `1.0` as recorded, `0.0` silent |
 
-Scale and rotation are both **centre-anchored**, so shrinking a clip does not
-also slide it into a corner and turning one does not swing it around an edge.
-Rotation is in degrees and **positive turns clockwise** — nobody should have to
-render a frame to find that out. The layer is scaled first and then turned,
-both about its own centre; position is applied after both.
+Scale, rotation and flip are all **centre-anchored**, so shrinking a clip does
+not also slide it into a corner and turning one does not swing it around an
+edge. Rotation is in degrees and **positive turns clockwise** — nobody should
+have to render a frame to find that out. The layer is scaled first and then
+turned, both about its own centre; position is applied after both.
+
+**A flip turns the layer over.** `transform.flip.y` turns it about its
+**vertical** axis — the page-turn, one side edge swinging toward you — and
+`transform.flip.x` turns it about its **horizontal** one. Both in degrees, both
+`0` by default: `0°` is face on, `90°` is edge on and therefore **invisible**
+(the layer is skipped, not drawn as a line of smeared colour down the middle of
+the frame), and `180°` is face on again and **mirrored**, which is what the back
+of a card looks like.
+
+`flip.x` and `flip.y` name the **axis turned about**, not the direction the
+picture appears to move — so `transform.flip.y`, about the *vertical* axis, is
+the left-right page-turn that some people would call "flipping horizontally".
+That is the convention `transform.rotation` already uses, and it is written down
+here rather than left to be discovered by rendering a frame.
+
+Two things fall out of it, and neither is a feature of its own. A **mirrored
+layer** is a static `transform.flip.y` of `180` — one keyframe, held. And a
+**flip that swaps the picture halfway** is two ordinary clips: clip A animates
+`0° → 90°`, clip B picks up at `90°` and carries on to `180°`, and the swap
+happens on the frame where nothing is visible. Nothing owns both halves, so
+every partial flip and every mid-flip substitution comes out of the same
+property.
+
+The flip is **flat, not perspective**: the layer squashes along the axis by
+`cos θ`, and the near edge does not grow as it swings toward you. A true
+projective warp is not an affine transform, and the flat version reads correctly
+as a card turning.
 
 **Position is a fraction of the raster**, for the same reason `size` is: a
 title placed `110` pixels above centre is a tenth of the height at 1080 and a

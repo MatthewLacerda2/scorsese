@@ -1,9 +1,9 @@
 //! # scorsese-compositor — frame rendering
 //!
 //! Responsibility: producing each output frame from decoded source frames —
-//! transforms (position/scale), alpha blending, opacity, and later text and
-//! slug cards. CPU-first via tiny-skia; a wgpu backend arrives later behind the
-//! same [`Compositor`] trait.
+//! transforms (position, scale, rotation, flip), alpha blending, opacity, and
+//! later text and slug cards. CPU-first via tiny-skia; a wgpu backend arrives
+//! later behind the same [`Compositor`] trait.
 //!
 //! Compositing is ours; ffmpeg only decodes and encodes (Path B). This crate
 //! consumes raw frames plus already-evaluated property values and emits raw

@@ -64,6 +64,7 @@ goldens!(
     cuts,
     fade,
     fill,
+    flip,
     gap_above,
     letterbox,
     native,

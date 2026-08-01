@@ -1,0 +1,30 @@
+{
+  "schema_version": 10,
+  "name": "flip",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [{ "id": "card", "kind": "video", "path": "assets/card.mp4" }],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-card",
+          "asset": "card",
+          "start": 0,
+          "duration": 33,
+          "fit": "native",
+          "keyframes": [
+            {
+              "property": "transform.flip.y",
+              "keyframes": [
+                { "t": 0, "value": 0.0 },
+                { "t": 32, "value": 180.0 }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

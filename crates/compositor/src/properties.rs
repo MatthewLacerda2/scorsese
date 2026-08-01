@@ -40,6 +40,23 @@ pub mod path {
     /// Turn about the layer's own centre, in degrees. **Positive is
     /// clockwise** — nobody should have to render a frame to find that out.
     pub const ROTATION: &str = "transform.rotation";
+    /// Turn about the layer's own **horizontal** axis, in degrees: the top edge
+    /// swinging toward you. `0` is face on, `90` edge on and so invisible,
+    /// `180` face on again and mirrored top to bottom.
+    ///
+    /// The name is the axis turned **about**, not the direction the picture
+    /// appears to move — the same convention [`ROTATION`] uses, and said
+    /// outright here because nobody should have to render a frame to find out
+    /// which way a flip goes.
+    pub const FLIP_X: &str = "transform.flip.x";
+    /// Turn about the layer's own **vertical** axis, in degrees: the page-turn,
+    /// one side edge swinging toward you. `0` is face on, `90` edge on and so
+    /// invisible, `180` face on again and mirrored left to right.
+    ///
+    /// Named for the axis turned **about**, so this is the one some people
+    /// would call "flipping horizontally" — see [`FLIP_X`] for why the
+    /// convention is worth stating rather than guessing at.
+    pub const FLIP_Y: &str = "transform.flip.y";
 }
 
 /// What this compositor animates, and what animating it does.
@@ -73,6 +90,14 @@ pub const ANIMATED: &[Property] = &[
         path: path::ROTATION,
         describes: "how far the layer is turned clockwise about its own centre, in degrees",
     },
+    Property {
+        path: path::FLIP_X,
+        describes: "how far the layer is turned about its own horizontal axis, in degrees",
+    },
+    Property {
+        path: path::FLIP_Y,
+        describes: "how far the layer is turned about its own vertical axis, in degrees",
+    },
 ];
 
 /// What a layer looks like at one instant.
@@ -90,17 +115,28 @@ pub struct Properties {
     /// anchor scale uses, for the same reason: any other anchor is an
     /// arbitrary edge of a raster the project is not supposed to know about.
     pub rotation: f64,
+    /// Turn about the layer's own axes, in degrees — `.0` about its
+    /// **horizontal** axis and `.1` about its **vertical** one, which is the
+    /// page-turn. `0.0` is face on, `180.0` is face on and mirrored, which is
+    /// what the back of a card looks like.
+    ///
+    /// Flat, not perspective: the layer squashes along the axis it is turning
+    /// about, and the near edge does not grow. A projective warp is not one
+    /// affine matrix, and this reads correctly as a card turning without one.
+    pub flip: (f64, f64),
     /// `0.0` invisible, `1.0` solid.
     pub opacity: f64,
 }
 
 impl Default for Properties {
-    /// The layer exactly as it arrived: where it sits, its own size, solid.
+    /// The layer exactly as it arrived: where it sits, its own size, facing
+    /// front, solid.
     fn default() -> Self {
         Self {
             position: (0.0, 0.0),
             scale: (1.0, 1.0),
             rotation: 0.0,
+            flip: (0.0, 0.0),
             opacity: 1.0,
         }
     }
@@ -125,20 +161,47 @@ impl Properties {
                 path::SCALE_X => properties.scale.0 = value,
                 path::SCALE_Y => properties.scale.1 = value,
                 path::ROTATION => properties.rotation = value,
+                path::FLIP_X => properties.flip.0 = value,
+                path::FLIP_Y => properties.flip.1 = value,
                 _ => {}
             }
         }
         properties
     }
 
+    /// The multiplier each axis is actually drawn at, with the flips folded in.
+    ///
+    /// A flip is not a transform of its own. Turning a card about one of its
+    /// own axes narrows what you see of it by `cos θ` along the *other* one and
+    /// does nothing else — so the whole feature is a factor on the scale that
+    /// was already being applied about the layer's own centre. That is also why
+    /// there is no separate backface case anywhere: `cos 180°` is `−1`, a
+    /// negative scale is a mirror, and a mirror is what the back of a card
+    /// looks like.
+    ///
+    /// **The axes cross over, and they cross over here, once.** A turn about
+    /// the vertical axis is what changes the horizontal extent. Getting that
+    /// backwards is the obvious bug in this feature, and it is far cheaper to
+    /// check in one function than at every place a scale is read.
+    pub fn effective_scale(&self) -> (f64, f64) {
+        (
+            self.scale.0 * self.flip.1.to_radians().cos(),
+            self.scale.1 * self.flip.0.to_radians().cos(),
+        )
+    }
+
     /// True when this layer would draw exactly its own pixels, unmoved and
     /// unblended — which lets a compositor copy rather than rasterise.
     pub fn is_identity(&self) -> bool {
         const EPSILON: f64 = 1e-9;
+        // The effective scale rather than the authored one, so a layer flipped
+        // to its back — scale `−1`, a mirror — is never mistaken for a copy,
+        // while one turned the whole way round to `360°` correctly is one.
+        let (scale_x, scale_y) = self.effective_scale();
         self.position.0.abs() < EPSILON
             && self.position.1.abs() < EPSILON
-            && (self.scale.0 - 1.0).abs() < EPSILON
-            && (self.scale.1 - 1.0).abs() < EPSILON
+            && (scale_x - 1.0).abs() < EPSILON
+            && (scale_y - 1.0).abs() < EPSILON
             // A turned layer is never a plain copy, however slight the turn.
             && self.rotation.abs() < EPSILON
             && (self.opacity - 1.0).abs() < EPSILON
@@ -146,9 +209,15 @@ impl Properties {
 
     /// True when the layer would contribute nothing, so it can be skipped
     /// rather than rasterised into oblivion.
+    ///
+    /// This is what makes an edge-on layer *genuinely absent*. At exactly `90°`
+    /// the effective scale is `cos 90°`, which is zero to within a rounding
+    /// error, and a rasteriser handed that would smear a line of colour down
+    /// the middle of the frame instead of drawing nothing at all.
     pub fn is_invisible(&self) -> bool {
         const EPSILON: f64 = 1e-9;
-        self.opacity <= EPSILON || self.scale.0.abs() <= EPSILON || self.scale.1.abs() <= EPSILON
+        let (scale_x, scale_y) = self.effective_scale();
+        self.opacity <= EPSILON || scale_x.abs() <= EPSILON || scale_y.abs() <= EPSILON
     }
 }
 

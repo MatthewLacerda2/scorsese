@@ -148,6 +148,20 @@ fn draw(
 /// **Positive is clockwise**, because the raster's y runs downward: `(1, 0)`
 /// maps to `(cos θ, sin θ)`, and a positive y is further down the frame.
 ///
+/// **A flip needs nothing here, and that is the point of it.** Turning the
+/// layer about one of its own axes squashes it along the other by `cos θ`, and
+/// `S` is already a scale about the layer's own centre — so a flip arrives
+/// folded into `sx` and `sy` by [`Properties::effective_scale`] and this
+/// matrix is the matrix it always was. Folding it into `S` rather than
+/// applying it after `R` is also what makes the axis the *layer's* and not the
+/// frame's: a layer already turned 30° flips about its own edge, which is the
+/// only reading of "its vertical axis" that survives a rotation. At `180°` the
+/// factor is `−1`, so the same matrix mirrors about the same centre, which is
+/// exactly what the back of a card is — there is no backface branch because
+/// there is nothing for one to do.
+///
+/// [`Properties::effective_scale`]: crate::Properties::effective_scale
+///
 /// **The anchor decides where the layer rests**, and nothing else about it. A
 /// centred anchor is the arithmetic this always did; `left` rests the layer's
 /// left edge on the frame's, `right` rests its right edge on the frame's right.
@@ -165,8 +179,11 @@ fn transform_of(
     source: crate::frame::Resolution,
     canvas: crate::frame::Resolution,
 ) -> Transform {
-    let scale_x = layer.properties.scale.0 as f32;
-    let scale_y = layer.properties.scale.1 as f32;
+    // Resolved in f64 and cast once: the flip's cosine is the one factor here a
+    // single-precision cosine could round visibly, and near edge-on it is the
+    // difference between a sliver and a smear.
+    let (scale_x, scale_y) = layer.properties.effective_scale();
+    let (scale_x, scale_y) = (scale_x as f32, scale_y as f32);
     let centre_x = source.width() as f32 / 2.0;
     let centre_y = source.height() as f32 / 2.0;
     // Rounded to whole pixels: a layer an odd number of pixels narrower than the
