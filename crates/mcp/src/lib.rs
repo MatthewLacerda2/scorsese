@@ -51,4 +51,4 @@ pub mod session;
 pub mod tools;
 
 pub use session::serve;
-pub use tools::{Reply, Tool, registry};
+pub use tools::{Part, Reply, Tool, registry};

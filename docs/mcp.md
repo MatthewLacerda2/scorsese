@@ -53,7 +53,7 @@ for `project_new` alone, the one to create.
 | `synth_check` | parse a recipe without rendering it | nothing |
 | `synth_bake` | render the recipes not already baked, and say how each came out — whole, per section, per track | nothing |
 | `audio_level` | how a finished sound file came out, and how it differs from another | ffmpeg |
-| `still` | **look at** one frame, returned as a picture | ffmpeg, and seconds |
+| `still` | **look at** the edit, returned as pictures | ffmpeg, and seconds |
 | `render` | encode the timeline, or a `range` of it, to a file | ffmpeg, and real time |
 
 **A project is a directory, and `project_new` is what makes one.**
@@ -210,7 +210,7 @@ Refusals change nothing at all: a factor that is not positive, a clip that
 would land before the start of the timeline, a clip that would round away to
 less than a frame, and any result the document would not load.
 
-## Looking at a frame
+## Looking at the frames
 
 `still` is the only tool that answers with something other than words, and that
 is the point of it. Everything else here *describes*: what the document says,
@@ -228,6 +228,21 @@ The reply carries two content blocks: the sentence, and the frame as a PNG
 image. A client that can see images sees it. `at` takes either unit — `9.1s` or
 the timeline frame `273` — and a bare decimal is refused rather than guessed at.
 
+**`at` also takes a list**, and that is how a whole cut gets checked:
+
+```
+still  { "project": "teaser.scor", "at": ["0s", "9.1s", "400", "22.5s"] }
+       → four sentences and four pictures, in that order
+```
+
+One sentence and one picture per instant, **in the order asked** — never sorted,
+never deduplicated, so the reply lines up with the question. *"Does every
+section look right?"* is one question, and answering it one frame at a time
+turns it into a round trip per section. A picture is the most expensive reply
+this server sends, so what looking costs is what decides how often anything gets
+verified, and an assistant that checks one section of six and reports on all six
+is wrong without erroring.
+
 **It is the frame a render would deliver**, because it is the render pipeline
 with the encoder taken out: the same plan, the same decoders, the same
 compositor. Nothing is encoded and no video file is produced, so it costs
@@ -238,6 +253,12 @@ The default raster is 1280x720 rather than a delivery size, because layout is a
 fraction of the frame — the same picture with a fraction of the wire cost. Pass
 `resolution` for delivery size. Pass `out` to keep the PNG on disk as well;
 without it, nothing is left behind.
+
+**`out` is for one instant, and a list with `out` is refused.** A path names a
+file and several frames do not fit in one. Reading it as a directory instead
+would make the tool's secondary use a second, weaker `render --stills` — which
+already writes a numbered set of PNGs — so the refusal names the path and the
+count and points there.
 
 ## Rendering part of the timeline
 
