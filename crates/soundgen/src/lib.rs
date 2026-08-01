@@ -95,10 +95,11 @@ pub use song::{PatchResolver, Song, render_song};
 /// The output is limited before encoding, always. A bake must not clip, and
 /// that is not the recipe's decision to make.
 pub fn bake_note(patch: &Patch, midi: f32, opts: &NoteOpts) -> Result<Bake, SynthError> {
-    // No sections: a one-shot is one gesture, and the arrangement that would
-    // say otherwise does not exist for a patch.
+    // Neither sections nor tracks: a one-shot is one gesture played by one
+    // voice, so both tables would be the summary printed a second time.
     Ok(Bake::of(
         &core::render_limited(patch, midi, opts)?,
+        Vec::new(),
         Vec::new(),
     ))
 }
@@ -116,10 +117,13 @@ pub fn bake_named_note(patch: &Patch, note: &str, opts: &NoteOpts) -> Result<Bak
 pub fn bake_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Bake, SynthError> {
     // The song's own arrangement decides the rows of the report, which is what
     // makes a row say "the second chorus is the quiet one" rather than "seconds
-    // 24 to 32 are quiet".
+    // 24 to 32 are quiet". Its tracks decide the other table: which instrument
+    // is taking up the room, which is the half a section row cannot answer.
+    let mixed = song::mix_song(song, resolve)?;
     Ok(Bake::of(
-        &render_song(song, resolve)?,
+        &mixed.master,
         song::sections::of(song),
+        mixed.tracks,
     ))
 }
 
@@ -136,6 +140,10 @@ pub struct Bake {
     pub wav: Vec<u8>,
     /// How it came out — over its whole length, and section by section.
     pub profile: level::Profile,
+    /// How each track came out on its own, post-gain — which layer is taking
+    /// up the room. Empty unless this was a song of more than one track; see
+    /// [`song::Mixdown::tracks`].
+    pub tracks: Vec<level::Layer>,
 }
 
 impl Bake {
@@ -144,14 +152,16 @@ impl Bake {
         self.profile.loudness()
     }
 
-    /// Encodes and measures one buffer, cutting it where `sections` says.
+    /// Encodes and measures one buffer, cutting it where `sections` says and
+    /// carrying the rows its layers were already measured into.
     /// Mono, as everything this crate makes is.
-    fn of(samples: &[f32], sections: Vec<level::Cut>) -> Self {
+    fn of(samples: &[f32], sections: Vec<level::Cut>, tracks: Vec<level::Layer>) -> Self {
         let mut profiler = level::Profiler::sectioned(1, SAMPLE_RATE, sections);
         profiler.feed(samples);
         Self {
             wav: wav::encode(samples),
             profile: profiler.finish(),
+            tracks,
         }
     }
 }

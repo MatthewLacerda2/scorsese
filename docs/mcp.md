@@ -50,7 +50,7 @@ for `project_new` alone, the one to create.
 | `synth_write` | replace one, **parsed first** | nothing |
 | `synth_set` | change one number in one, by name | nothing |
 | `synth_check` | parse a recipe without rendering it | nothing |
-| `synth_bake` | render the recipes not already baked | nothing |
+| `synth_bake` | render the recipes not already baked, and say how each came out — whole, per section, per track | nothing |
 | `audio_level` | how a finished sound file came out, and how it differs from another | ffmpeg |
 | `still` | **look at** one frame, returned as a picture | ffmpeg, and seconds |
 | `render` | encode the timeline, or a `range` of it, to a file | ffmpeg, and real time |
@@ -284,6 +284,15 @@ The comparison is the part with teeth, and the reason is that an absolute
 number is hard to judge and a difference is not. Rewrite a score, re-bake,
 compare against the previous file, and the question "did the change land?" has
 an answer without anyone being asked to listen a second time.
+
+`synth_bake` adds one thing `audio_level` cannot: **a row per track of a song**,
+under the section rows, carrying the same figures post-gain. "The mix is muddy"
+is a diagnosis with no address when five instruments are playing; "the sub is
+96% below 250 Hz" is one fader. The rows are always in the reply — a report
+that has to be asked for is one an unattended client never sees — and only a
+song of more than one track has them. `audio_level` measures a finished file,
+which no longer has tracks in it, so it reports the sum alone. What the rows
+mean, in full, is in [`recipes.md`](recipes.md#which-layer-is-taking-up-the-room).
 
 It is a **signal and never a gate** — there is no correct loudness — and it is
 not a critic. It finds defects: too quiet, clipping, muddy, a section flat

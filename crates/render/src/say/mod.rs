@@ -12,11 +12,13 @@
 //! hear, and who is scrubbing.
 
 mod compare;
+mod layers;
 mod table;
 
 use scorsese_soundgen::level::Loudness;
 
 pub use compare::comparison;
+pub use layers::layers;
 pub use table::{headline, sections, summary};
 
 /// How loud something came out, as a line to print after the thing it measures.

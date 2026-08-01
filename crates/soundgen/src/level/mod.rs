@@ -35,6 +35,12 @@
 //! low end is most of the energy. [`bands`] catches "muddy" and "thin", which a
 //! meter cannot see at all.
 //!
+//! **A number about the whole says nothing about who caused it.** "87% of the
+//! energy is below 250 Hz" is a correct diagnosis of a five-instrument mix and
+//! an address nobody can act on: the fix is to change four of them at once and
+//! re-measure. [`layer`] is the same statistics a third way — one row per part
+//! of the mix — which is what turns adjusting into measuring.
+//!
 //! **A difference is easier to judge than a number.** Is −14 dBFS good? It
 //! depends entirely. Is it 4.6 dB under the version it was meant to replace?
 //! That is a finding. [`diff`] is the form an agent iterating on a score
@@ -61,10 +67,12 @@
 
 pub mod bands;
 pub mod diff;
+pub mod layer;
 pub mod meter;
 pub mod profile;
 
 pub use bands::{BandMeter, Bands};
 pub use diff::{BandsDifference, Difference};
+pub use layer::Layer;
 pub use meter::{Loudness, Meter};
 pub use profile::{Cut, Profile, Profiler, Span};

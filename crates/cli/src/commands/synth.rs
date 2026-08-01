@@ -76,6 +76,7 @@ fn report(baked: &[(AssetId, Baked)]) {
                 path,
                 bytes,
                 profile,
+                tracks,
             } => {
                 println!("{id} — baked, {} KB", bytes / 1024);
                 println!("  {path}");
@@ -85,6 +86,12 @@ fn report(baked: &[(AssetId, Baked)]) {
                 // second chorus is named rather than looked up.
                 println!("  {}", say::summary(profile));
                 for row in say::sections(profile) {
+                    println!("    {row}");
+                }
+                // Then the same figures split the other way — by instrument
+                // rather than by time — because "the mix is muddy" and "the sub
+                // is what is muddying it" are one finding and one guess.
+                for row in say::layers(tracks) {
                     println!("    {row}");
                 }
             }

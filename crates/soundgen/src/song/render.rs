@@ -44,6 +44,7 @@ use crate::core::{self, RATE};
 use crate::error::SynthError;
 use crate::fx::limiter;
 use crate::hash::hash3;
+use crate::level::Layer;
 use crate::note::{MIDI_RANGE, NoteOpts};
 use crate::patch::Patch;
 
@@ -83,9 +84,39 @@ impl PatchResolver for InlineOnly {
     }
 }
 
+/// A rendered song, and what each of its tracks put into it.
+///
+/// The two arrive together because the second only exists while the first is
+/// being made: once the mix is summed there is no way back to the parts, and
+/// re-rendering a track alone to measure it would be paying twice for a number
+/// that was already in hand.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Mixdown {
+    /// The finished mono buffer — the thing that gets encoded.
+    pub master: Vec<f32>,
+    /// One row per track, in track order, **post-gain**: what that instrument
+    /// takes up in the mix rather than what it would sound like alone.
+    ///
+    /// The song's own chain, the master limiter and the fades are *not* in
+    /// these numbers. Those belong to the sum, and a row that included them
+    /// would be answering a question about the piece under the name of a
+    /// track.
+    ///
+    /// **Empty for a song of fewer than two tracks**, which is the rule
+    /// [`crate::level::Profile`] already holds sections to: one row under a
+    /// one-line summary is the same sentence twice.
+    pub tracks: Vec<Layer>,
+}
+
 /// Renders `song` to a mono sample buffer at [`crate::SAMPLE_RATE`],
 /// master-limited, and the length the song asks to be.
 pub fn render_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Vec<f32>, SynthError> {
+    Ok(mix_song(song, resolve)?.master)
+}
+
+/// [`render_song`], keeping what each track contributed on its way into the
+/// mix — see [`Mixdown::tracks`].
+pub fn mix_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Mixdown, SynthError> {
     song.validate()?;
     let patches = resolve_patches(song, resolve)?;
     // How fast to play it and how many times through, worked out before a
@@ -169,14 +200,15 @@ pub fn render_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Vec<f32>,
     }
 
     // Track buses folded down and the song's own chain applied — everything
-    // that belongs to a sum rather than to a note.
-    let mut master = mix.finish();
+    // that belongs to a sum rather than to a note. Each track is measured as it
+    // goes past, which is the only moment it exists on its own.
+    let (mut master, tracks) = mix.finish();
     // The master limiter, always — mixing by addition is exactly the operation
     // that overshoots full scale, so the sum is never handed out unlimited.
     limiter::apply(&mut master, RATE);
     // Then length and level, in that order, on the limited signal.
     shape(song, &mut master, arrangement_end);
-    Ok(master)
+    Ok(Mixdown { master, tracks })
 }
 
 /// One seed per note, from `(song seed, track, ordinal)`.

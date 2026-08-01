@@ -42,10 +42,28 @@
 //!   fold-down is algebraically the same, but `(a + b)·g` and `a·g + b·g` are
 //!   not the same `f32`, and a field whose whole promise is that leaving it out
 //!   changes nothing cannot afford "nothing, to within rounding".
+//!
+//! ## Measuring on the way past
+//!
+//! The sum is also the one moment at which every track exists separately, so it
+//! is where each one is measured. A report that says a mix is muddy without
+//! saying which layer is muddying it sends its reader to change four
+//! instruments at once and hope; [`crate::level::layer`] is what the rows are
+//! for.
+//!
+//! It costs a buffer per track and a second add per note, and that is the
+//! honest price rather than a free ride: a track with no chain is **not**
+//! routed through a bus to get it, for exactly the rounding reason above. The
+//! measurement takes a parallel copy instead of taking over the path, so the
+//! samples handed out are bit-identical to the ones this mixer produced before
+//! it measured anything. A song of one track skips it entirely — one row under
+//! a one-line summary is the same sentence twice, so there is nothing to pay
+//! for.
 
 use super::Song;
-use crate::core::RATE;
+use crate::core::{RATE, SAMPLE_RATE};
 use crate::fx;
+use crate::level::Layer;
 use crate::patch::Fx;
 
 /// The buses a song is summed through: one master, and a private buffer for
@@ -58,14 +76,23 @@ use crate::patch::Fx;
 pub(super) struct Mix<'a> {
     song: &'a Song,
     master: Vec<f32>,
-    /// One slot per track, in track order. `None` until that track's first
-    /// note arrives, and forever if the track has no chain — the common case
-    /// allocates nothing.
-    buses: Vec<Option<Vec<f32>>>,
+    /// One slot per track, in track order: that track's own part of the mix.
+    /// `None` until its first note arrives.
+    ///
+    /// It is the **bus** for a track that asked for a chain, and a
+    /// measurement-only tap for one that did not — either way it holds what
+    /// that instrument contributes and nothing else, which is what both jobs
+    /// want.
+    parts: Vec<Option<Vec<f32>>>,
+    /// Whether a tap is kept for the tracks that have no chain of their own.
+    ///
+    /// False for a song of fewer than two tracks, whose rows are not reported
+    /// at all — see the module doc.
+    measured: bool,
 }
 
 impl<'a> Mix<'a> {
-    /// A master as long as the arrangement, and room for a bus per track.
+    /// A master as long as the arrangement, and room for a part per track.
     ///
     /// Starting at the arrangement's own length rather than growing from empty
     /// is what keeps a song that ends on a rest that long; see
@@ -74,7 +101,8 @@ impl<'a> Mix<'a> {
         Self {
             song,
             master: vec![0.0f32; arrangement_end],
-            buses: song.tracks.iter().map(|_| None).collect(),
+            parts: song.tracks.iter().map(|_| None).collect(),
+            measured: song.tracks.len() > 1,
         }
     }
 
@@ -85,28 +113,72 @@ impl<'a> Mix<'a> {
     /// before the gain is applied.
     pub(super) fn add(&mut self, track: usize, src: &[f32], at: usize) {
         let played = &self.song.tracks[track];
-        if played.fx.is_empty() {
-            mix_into(&mut self.master, src, at, played.gain);
-        } else {
-            mix_into(self.buses[track].get_or_insert_default(), src, at, 1.0);
+        if !played.fx.is_empty() {
+            mix_into(self.parts[track].get_or_insert_default(), src, at, 1.0);
+            return;
+        }
+        mix_into(&mut self.master, src, at, played.gain);
+        if self.measured {
+            // At gain, like the master addition beside it and unlike a bus:
+            // there is no chain here to see the part before the fader, and the
+            // row this ends up in is post-gain.
+            let gain = played.gain;
+            mix_into(self.parts[track].get_or_insert_default(), src, at, gain);
         }
     }
 
     /// Folds every bus down and applies the song's own chain, handing back the
     /// summed mix **unlimited** — limiting is the renderer's last word, not the
-    /// mixer's.
-    pub(super) fn finish(mut self) -> Vec<f32> {
+    /// mixer's — and one measured row per track.
+    pub(super) fn finish(mut self) -> (Vec<f32>, Vec<Layer>) {
         let song = self.song;
-        for (track, bus) in song.tracks.iter().zip(std::mem::take(&mut self.buses)) {
-            let Some(mut bus) = bus else { continue };
-            ring_out(&mut bus, &track.fx);
-            fx::apply_chain(&mut bus, &track.fx, RATE);
-            mix_into(&mut self.master, &bus, 0, track.gain);
+        let mut parts = std::mem::take(&mut self.parts);
+        for (track, part) in song.tracks.iter().zip(&mut parts) {
+            let Some(bus) = part.as_mut().filter(|_| !track.fx.is_empty()) else {
+                continue;
+            };
+            ring_out(bus, &track.fx);
+            fx::apply_chain(bus, &track.fx, RATE);
+            mix_into(&mut self.master, bus, 0, track.gain);
+            // Scaled after the fold-down rather than before it, so the master
+            // is summed from exactly the samples it always was and only the
+            // copy being measured moves.
+            for sample in bus.iter_mut() {
+                *sample *= track.gain;
+            }
         }
         ring_out(&mut self.master, &song.fx);
         fx::apply_chain(&mut self.master, &song.fx, RATE);
-        self.master
+        let layers = if self.measured {
+            measure(song, parts, self.master.len())
+        } else {
+            Vec::new()
+        };
+        (self.master, layers)
     }
+}
+
+/// One row per track, each measured over the length of the finished mix.
+///
+/// Padded to that length rather than measured over its own, because the rows
+/// are read *against each other*: a hat that plays for four bars of a
+/// forty-second piece does not take up more room than the pad under it, and a
+/// mean over each track's own extent would say it did.
+///
+/// A track that never played still gets a row, saying it is silent. A missing
+/// row reads as an oversight, and "the arp is not in this mix" is a finding.
+fn measure(song: &Song, parts: Vec<Option<Vec<f32>>>, frames: usize) -> Vec<Layer> {
+    song.tracks
+        .iter()
+        .zip(parts)
+        .map(|(track, part)| {
+            let mut part = part.unwrap_or_default();
+            if !part.is_empty() {
+                part.resize(frames.max(part.len()), 0.0);
+            }
+            Layer::of(track.name.clone(), &part, 1, SAMPLE_RATE)
+        })
+        .collect()
 }
 
 /// Grows `buf` by however long `chain` needs to decay into.
