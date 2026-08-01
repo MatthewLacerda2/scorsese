@@ -27,13 +27,13 @@
 //! string), [`fm`] (2-op FM), [`noise`] (the one seeded RNG), [`source`] (which of
 //! those runs), [`mod@env`] (ADSR), [`filter`] (state-variable filter).
 
-pub mod env;
-pub mod filter;
-pub mod fm;
-pub mod karplus;
-pub mod noise;
-pub mod osc;
-pub mod source;
+pub(crate) mod env;
+pub(crate) mod filter;
+pub(crate) mod fm;
+pub(crate) mod karplus;
+pub(crate) mod noise;
+pub(crate) mod osc;
+pub(crate) mod source;
 
 use std::f32::consts::TAU;
 
@@ -53,7 +53,7 @@ use super::patch::{Filter, Lfo, LfoTarget, Patch};
 pub const SAMPLE_RATE: u32 = 44_100;
 
 /// [`SAMPLE_RATE`] as the float the DSP works in.
-pub const RATE: f32 = SAMPLE_RATE as f32;
+pub(crate) const RATE: f32 = SAMPLE_RATE as f32;
 
 /// Longest buffer one note may render to. A guard, not a musical limit: a typo in
 /// `duration` should fail loudly rather than allocate for an hour of audio.
@@ -100,7 +100,11 @@ fn gate_length(duration: f32) -> Result<f32, SynthError> {
 /// Kept apart from [`render_note`] because the song mixer wants the unlimited
 /// form: limiting every note before summing them would squash each one's
 /// dynamics and then squash the sum again.
-pub fn render_limited(patch: &Patch, midi: f32, opts: &NoteOpts) -> Result<Vec<f32>, SynthError> {
+pub(crate) fn render_limited(
+    patch: &Patch,
+    midi: f32,
+    opts: &NoteOpts,
+) -> Result<Vec<f32>, SynthError> {
     let mut buf = render_note(patch, midi, opts)?;
     fx::limiter::apply(&mut buf, RATE);
     Ok(buf)

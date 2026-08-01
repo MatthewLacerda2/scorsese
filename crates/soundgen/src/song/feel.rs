@@ -155,7 +155,7 @@ fn symmetric(channel: u64, track: usize, ordinal: u64, song_seed: u64) -> f32 {
 /// Onsets only. A note's `dur` is what the document says it is; a gate that
 /// stretched with the beat would change how long a note is held for a reason
 /// the document never states.
-pub fn swung(start: f32, swing: f32) -> f32 {
+pub(crate) fn swung(start: f32, swing: f32) -> f32 {
     if swing <= 0.0 {
         return start;
     }

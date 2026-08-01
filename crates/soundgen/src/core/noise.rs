@@ -12,13 +12,13 @@ use crate::hash::unit2;
 /// `channel` keeps two consumers (say the excitation and a noise layer) from
 /// drawing the identical sequence.
 #[inline]
-pub fn white(i: usize, channel: u64, seed: u64) -> f32 {
+pub(crate) fn white(i: usize, channel: u64, seed: u64) -> f32 {
     unit2(i as i64, 0, channel, seed) * 2.0 - 1.0
 }
 
 /// Fill `out` with white noise — the `noise` source, unshaped (the filter and amp
 /// envelope downstream are what turn it into a gunshot or a footstep).
-pub fn fill(out: &mut [f32], seed: u64) {
+pub(crate) fn fill(out: &mut [f32], seed: u64) {
     for (i, s) in out.iter_mut().enumerate() {
         *s = white(i, 0, seed);
     }

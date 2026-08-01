@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 /// already a large musical change; the point of the bound is that the refusal
 /// says what tempo it would have needed, which is enough to decide what to do
 /// instead.
-pub const MAX_STRETCH: f32 = 0.25;
+pub(crate) const MAX_STRETCH: f32 = 0.25;
 
 /// A length the song must come out at.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -45,7 +45,7 @@ pub enum FitMode {
     /// the target.
     ///
     /// Keeps the music intact and changes how fast it is played instead.
-    /// Refuses rather than distorts past [`MAX_STRETCH`].
+    /// Refuses rather than distorts past a quarter either way.
     Stretch,
     /// Play through once and pad with silence to the target.
     ///

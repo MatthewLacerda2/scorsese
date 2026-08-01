@@ -12,9 +12,9 @@
 //! that `(pitch, velocity, duration) in → buffer out` always holds.
 //!
 //! Patch-as-truth: no buffers and no handles, so it round-trips losslessly.
-//! [`crate::core`] renders it.
+//! [`render_note`](crate::render_note) renders it.
 
-pub mod stages;
+pub(crate) mod stages;
 
 use serde::{Deserialize, Serialize};
 

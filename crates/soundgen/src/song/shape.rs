@@ -26,7 +26,7 @@ const SEAM: f32 = 0.02;
 ///
 /// `arrangement_end` is where the last beat falls, which is the only length
 /// the buffer itself cannot tell you: past that point everything is ring-out.
-pub fn shape(song: &Song, buf: &mut Vec<f32>, arrangement_end: usize) {
+pub(crate) fn shape(song: &Song, buf: &mut Vec<f32>, arrangement_end: usize) {
     if song.tail() == Tail::Exact {
         resize(buf, arrangement_end);
     }
@@ -46,7 +46,7 @@ pub fn shape(song: &Song, buf: &mut Vec<f32>, arrangement_end: usize) {
 /// arrangement plays; `Stretch` keeps one whole number of passes and changes
 /// the tempo. The caller renders the result and then calls [`shape`], which is
 /// what actually lands it on the target sample.
-pub fn plan(song: &Song) -> (f32, u32) {
+pub(crate) fn plan(song: &Song) -> (f32, u32) {
     let Some(fit) = song.fit else {
         return (song.bpm, 1);
     };
@@ -71,7 +71,7 @@ pub fn plan(song: &Song) -> (f32, u32) {
 ///
 /// Its own function because the refusal wants the number: "it would need
 /// 137 bpm" is actionable, and "it does not fit" is not.
-pub fn stretch_ratio(song: &Song, fit: Fit) -> Option<f32> {
+pub(crate) fn stretch_ratio(song: &Song, fit: Fit) -> Option<f32> {
     let once = song.arrangement_beats() * song.beat_seconds();
     if once <= 0.0 || fit.mode != FitMode::Stretch {
         return None;
@@ -97,7 +97,7 @@ fn passes(exact: f32, round: fn(f32) -> f32) -> u32 {
 
 /// Samples in `seconds`, rounded to nearest — the one place a target length
 /// becomes a sample count, so `fit` and the tests agree on what 43 s is.
-pub fn samples(seconds: f32) -> usize {
+pub(crate) fn samples(seconds: f32) -> usize {
     (seconds * RATE).round().max(0.0) as usize
 }
 

@@ -22,7 +22,7 @@ use crate::patch::{Osc, Wave};
 /// Render the summed stack for `freqs` (one base frequency per output sample) into
 /// `out`. The mix is normalized by the total gain, so adding oscillators thickens
 /// the tone without making it louder.
-pub fn render(oscs: &[Osc], freqs: &[f32], out: &mut [f32], sample_rate: f32) {
+pub(crate) fn render(oscs: &[Osc], freqs: &[f32], out: &mut [f32], sample_rate: f32) {
     let total_gain: f32 = oscs.iter().map(|o| o.gain.max(0.0)).sum();
     let norm = if total_gain > 0.0 {
         1.0 / total_gain

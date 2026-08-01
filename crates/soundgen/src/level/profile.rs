@@ -31,7 +31,7 @@ use super::meter::{Loudness, Meter};
 /// music rather than a transient, short enough that a section that changes
 /// halfway through still shows up as two different rows. It only ever applies
 /// where the document does not say — a song's own arrangement always wins.
-pub const FALLBACK_SECONDS: f64 = 8.0;
+pub(crate) const FALLBACK_SECONDS: f64 = 8.0;
 
 /// One boundary in an arrangement: what plays, and when it ends.
 ///

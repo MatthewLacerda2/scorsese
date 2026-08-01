@@ -21,7 +21,7 @@ use crate::patch::Source;
 /// The sum is resolved here rather than inside [`fm`] so that module stays the
 /// FM algorithm and nothing else: it is handed the index to use, not the
 /// bookkeeping that arrived at one.
-pub fn render(
+pub(crate) fn render(
     source: &Source,
     freqs: &[f32],
     seed: u64,

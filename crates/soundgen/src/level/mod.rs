@@ -27,23 +27,23 @@
 //! unremarkable average. Every problem worth finding in a piece of music is a
 //! problem *at a particular moment*, and a whole-file statistic is exactly the
 //! wrong shape for it — the noise swell above was a change over time, reported
-//! as a constant. [`profile`] is the answer to that: the same statistics again,
+//! as a constant. [`Profile`] is the answer to that: the same statistics again,
 //! a section at a time.
 //!
 //! **Level is not the only way a mix is wrong.** A piece can measure perfectly
 //! and still be mud, because everything is stacked in the same octave and the
-//! low end is most of the energy. [`bands`] catches "muddy" and "thin", which a
+//! low end is most of the energy. [`Bands`] catches "muddy" and "thin", which a
 //! meter cannot see at all.
 //!
 //! **A number about the whole says nothing about who caused it.** "87% of the
 //! energy is below 250 Hz" is a correct diagnosis of a five-instrument mix and
 //! an address nobody can act on: the fix is to change four of them at once and
-//! re-measure. [`layer`] is the same statistics a third way — one row per part
+//! re-measure. [`Layer`] is the same statistics a third way — one row per part
 //! of the mix — which is what turns adjusting into measuring.
 //!
 //! **A difference is easier to judge than a number.** Is −14 dBFS good? It
 //! depends entirely. Is it 4.6 dB under the version it was meant to replace?
-//! That is a finding. [`diff`] is the form an agent iterating on a score
+//! That is a finding. [`Difference`] is the form an agent iterating on a score
 //! actually needs, and the form in which two of the three defects above were
 //! ever visible.
 //!
@@ -65,11 +65,11 @@
 //! whether section C is actually bigger than section A or merely has more notes
 //! in it.
 
-pub mod bands;
-pub mod diff;
-pub mod layer;
-pub mod meter;
-pub mod profile;
+pub(crate) mod bands;
+pub(crate) mod diff;
+pub(crate) mod layer;
+pub(crate) mod meter;
+pub(crate) mod profile;
 
 pub use bands::{BandMeter, Bands};
 pub use diff::{BandsDifference, Difference};

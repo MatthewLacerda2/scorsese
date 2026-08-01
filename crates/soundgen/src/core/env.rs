@@ -14,7 +14,7 @@ use crate::patch::Adsr;
 
 /// The envelope level at time `t` (seconds) for a note held `gate` seconds.
 /// Always in `0..=1`.
-pub fn level_at(adsr: &Adsr, t: f32, gate: f32) -> f32 {
+pub(crate) fn level_at(adsr: &Adsr, t: f32, gate: f32) -> f32 {
     if t <= 0.0 {
         return 0.0;
     }
@@ -43,7 +43,7 @@ fn held_level(adsr: &Adsr, t: f32) -> f32 {
 
 /// Sample the envelope into a per-sample track `n` long at `sample_rate`, the form
 /// the render pipeline multiplies by.
-pub fn track(adsr: &Adsr, gate: f32, n: usize, sample_rate: f32) -> Vec<f32> {
+pub(crate) fn track(adsr: &Adsr, gate: f32, n: usize, sample_rate: f32) -> Vec<f32> {
     (0..n)
         .map(|i| level_at(adsr, i as f32 / sample_rate, gate))
         .collect()

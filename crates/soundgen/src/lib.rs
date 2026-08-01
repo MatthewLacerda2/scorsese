@@ -40,9 +40,9 @@
 //! ## Determinism
 //!
 //! Nothing here reads a clock or a random number generator. Every stochastic
-//! element — noise, the Karplus excitation — draws from the seeded integer
-//! hash in [`hash`], so the same recipe and seed produce identical samples in
-//! any process, on any machine, on any run.
+//! element — noise, the Karplus excitation — draws from one seeded integer
+//! hash, so the same recipe and seed produce identical samples in any process,
+//! on any machine, on any run.
 //!
 //! ## Rate and channels
 //!
@@ -70,12 +70,12 @@
 //! the mix — a synthesised file takes exactly the path an imported mono file
 //! does.
 
-pub mod core;
-pub mod error;
-pub mod fx;
-pub mod hash;
+pub(crate) mod core;
+pub(crate) mod error;
+pub(crate) mod fx;
+pub(crate) mod hash;
 pub mod level;
-pub mod note;
+pub(crate) mod note;
 pub mod patch;
 pub mod song;
 pub mod survey;

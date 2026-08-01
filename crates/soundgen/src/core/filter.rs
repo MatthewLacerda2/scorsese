@@ -54,7 +54,7 @@ impl Svf {
 /// Filter `buf` in place, taking the cutoff for sample `i` from `cutoffs[i]` (the
 /// caller bakes the envelope and LFO into that track). `sample_rate` is the output
 /// rate; the filter itself runs at twice it.
-pub fn apply(buf: &mut [f32], filter: &Filter, cutoffs: &[f32], sample_rate: f32) {
+pub(crate) fn apply(buf: &mut [f32], filter: &Filter, cutoffs: &[f32], sample_rate: f32) {
     let mut svf = Svf::default();
     let q = (1.0 - filter.resonance.clamp(0.0, 0.99)).clamp(0.05, 1.0);
     let ceiling = sample_rate * MAX_CUTOFF_RATIO;

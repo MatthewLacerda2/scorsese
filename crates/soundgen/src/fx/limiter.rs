@@ -22,7 +22,7 @@ const RELEASE: f32 = 0.06;
 
 /// Limit `buf` in place so no sample exceeds the ceiling. Non-finite samples (from
 /// a pathological patch) are flushed to silence rather than written to the file.
-pub fn apply(buf: &mut [f32], rate: f32) {
+pub(crate) fn apply(buf: &mut [f32], rate: f32) {
     let mut gain = required_gain(buf);
     ramp_down_before_peaks(&mut gain, slope(ATTACK, rate));
     ramp_up_after_peaks(&mut gain, slope(RELEASE, rate));

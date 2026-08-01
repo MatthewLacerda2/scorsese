@@ -23,7 +23,7 @@ use crate::error::SynthError;
 /// outside it is refused here, and a transposed note pushed outside it is
 /// clamped back into it by the song renderer. Two copies of the range would be
 /// two places to disagree about what a pitch is.
-pub const MIDI_RANGE: (f32, f32) = (0.0, 127.0);
+pub(crate) const MIDI_RANGE: (f32, f32) = (0.0, 127.0);
 
 /// MIDI note number of the tuning reference, A4.
 const A4_MIDI: f32 = 69.0;
@@ -134,7 +134,7 @@ const SHARP_NAMES: [&str; 12] = [
 ];
 
 /// Names a pitch class — `0` is C, `11` is B — wrapping anything above.
-pub fn pitch_class_name(class: u32) -> &'static str {
+pub(crate) fn pitch_class_name(class: u32) -> &'static str {
     SHARP_NAMES[(class % 12) as usize]
 }
 

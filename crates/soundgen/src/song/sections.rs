@@ -27,7 +27,7 @@ use crate::level::Cut;
 /// a piece rings out past its final beat, and that ring-out is left to the
 /// profiler's fixed-interval fallback rather than being folded into the last
 /// pattern, which did not play it.
-pub fn of(song: &Song) -> Vec<Cut> {
+pub(crate) fn of(song: &Song) -> Vec<Cut> {
     let (bpm, passes) = plan(song);
     if bpm <= 0.0 {
         return Vec::new();

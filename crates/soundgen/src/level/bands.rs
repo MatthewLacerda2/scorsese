@@ -37,13 +37,13 @@
 /// The mud region is just above this — 250 to 500 Hz is where a mix goes
 /// boxy — so putting the boundary at its foot makes a swollen `low` share the
 /// symptom of the thing an author would call muddy.
-pub const LOW_HZ: f32 = 250.0;
+pub(crate) const LOW_HZ: f32 = 250.0;
 
 /// Where the midrange stops and presence and air begin, in Hz.
 ///
 /// Above this is where a mix reads as bright, harsh or thin; below it is where
 /// nearly every instrument's fundamental lives.
-pub const HIGH_HZ: f32 = 4_000.0;
+pub(crate) const HIGH_HZ: f32 = 4_000.0;
 
 /// How many one-poles each edge is made of. Two, for the reason the module doc
 /// gives: one smears an ordinary midrange tone into the bass.
@@ -57,11 +57,11 @@ const POLES: usize = 2;
 /// roundings.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Bands {
-    /// Below [`LOW_HZ`] — bass and the bottom of the mud region.
+    /// Below 250 Hz — bass and the bottom of the mud region.
     pub low: f64,
     /// Between the two crossovers, where nearly every fundamental sits.
     pub mid: f64,
-    /// Above [`HIGH_HZ`] — presence and air.
+    /// Above 4 kHz — presence and air.
     pub high: f64,
 }
 
