@@ -19,10 +19,10 @@ use crate::error::SynthError;
 
 /// The MIDI pitch axis, lowest and highest — `C-1` to `G9`.
 ///
-/// Published because it is a boundary two different things need: a note *name*
-/// outside it is refused here, and a transposed note pushed outside it is
-/// clamped back into it by the song renderer. Two copies of the range would be
-/// two places to disagree about what a pitch is.
+/// Shared rather than duplicated because it is a boundary two different things
+/// need: a note *name* outside it is refused here, and a transposed note pushed
+/// outside it is clamped back into it by the song renderer. Two copies of the
+/// range would be two places to disagree about what a pitch is.
 pub(crate) const MIDI_RANGE: (f32, f32) = (0.0, 127.0);
 
 /// MIDI note number of the tuning reference, A4.
