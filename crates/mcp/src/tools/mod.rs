@@ -128,6 +128,7 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(synth::New),
         Box::new(synth::Read),
         Box::new(synth::Write),
+        Box::new(synth::Set),
         Box::new(synth::Check),
         Box::new(synth::Bake),
         Box::new(level::Level),

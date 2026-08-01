@@ -24,6 +24,7 @@ pub mod create;
 pub mod error;
 pub mod recipe;
 pub mod starter;
+pub mod tune;
 
 use std::path::{Path, PathBuf};
 
@@ -37,6 +38,7 @@ pub use create::{check, create};
 pub use error::SynthesisError;
 pub use recipe::{OneShot, Recipe};
 pub use starter::Starter;
+pub use tune::{Change, FIELDS, Setting, set};
 
 /// What happened to one asset.
 #[derive(Debug, Clone, PartialEq)]
