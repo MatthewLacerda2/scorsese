@@ -9,7 +9,7 @@
 mod pages;
 
 use pages::{document, examples};
-use scorsese_providers::Recipe;
+use scorsese_providers::synth::Recipe;
 
 #[test]
 fn the_page_still_carries_examples() {

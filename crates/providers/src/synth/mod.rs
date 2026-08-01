@@ -20,12 +20,12 @@
 //! arithmetic, so the no-real-provider-calls rule is satisfied by construction
 //! rather than by a trait nobody can see through.
 
-pub mod create;
-pub mod error;
-pub mod recipe;
-pub mod starter;
-pub mod survey;
-pub mod tune;
+mod create;
+mod error;
+mod recipe;
+mod starter;
+mod survey;
+mod tune;
 
 use std::path::{Path, PathBuf};
 

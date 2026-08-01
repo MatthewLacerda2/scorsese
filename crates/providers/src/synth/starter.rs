@@ -27,8 +27,7 @@ pub enum Starter {
 }
 
 impl Starter {
-    /// The recipe itself.
-    pub fn recipe(self) -> Recipe {
+    pub(crate) fn recipe(self) -> Recipe {
         match self {
             Self::Patch => Recipe::Patch(OneShot {
                 note: Pitch::Name("C4".to_owned()),

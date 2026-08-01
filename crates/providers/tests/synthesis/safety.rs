@@ -7,8 +7,7 @@
 
 use crate::common::{project, synth_asset, write};
 use scorsese_core::PathProblem;
-use scorsese_providers::SynthesisError;
-use scorsese_providers::synth::bake_asset;
+use scorsese_providers::synth::{SynthesisError, bake_asset};
 
 const SILENT_PATCH: &str = r#"{
   "recipe": "patch", "note": "C4", "duration": 0.1,

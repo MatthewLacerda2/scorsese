@@ -21,7 +21,19 @@
 //! Boundary: no rendering, no compositing, no GUI. This crate turns briefs
 //! into media files on disk and updates asset state; it depends on
 //! `scorsese-core` and `scorsese-soundgen` only.
+//!
+//! ## What this publishes
+//!
+//! [`synth`], by that one path: the verbs (`create`, `check`, `bake_asset` and
+//! `bake_pending`, `survey`, `set`), the [`Recipe`](synth::Recipe) they read and
+//! write, the [`Starter`](synth::Starter) a new one is cut from, and what they
+//! answer with. How a recipe becomes samples — reading it, hashing it,
+//! resolving the instruments it names — is this crate's own business, so those
+//! modules are private.
+//!
+//! The providers proper have no surface here yet. When Veo and ElevenLabs
+//! arrive they get a module of their own beside this one, because a prompt and
+//! a recipe are not the same kind of brief and sharing an entry point is how
+//! that distinction would go quietly missing.
 
 pub mod synth;
-
-pub use synth::{Baked, Recipe, Starter, SynthesisError, bake_asset, bake_pending};
