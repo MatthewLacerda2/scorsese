@@ -87,7 +87,7 @@ impl PitchClasses {
     /// How many distinct classes there are — `0` when nothing was added, `12`
     /// for a fully chromatic piece.
     pub fn count(self) -> u32 {
-        u32::from(self.0.count_ones())
+        self.0.count_ones()
     }
 
     /// Whether any note was ever added.
