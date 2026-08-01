@@ -68,6 +68,21 @@ pub fn check(recipe: &Path) -> Result<()> {
     }
 }
 
+/// Says what the project's song recipes are made of, without baking any of
+/// them.
+///
+/// Prints **nothing at all** for a project of fewer than two songs, and that is
+/// the whole of what it does then: a survey is a report across a set, and a set
+/// of one has no row a summary of it would not already be.
+pub fn survey(project_dir: &Path) -> Result<()> {
+    let project = open(project_dir)?;
+    let surveyed = synth::survey(&project, project_dir).context("reading the recipes")?;
+    for line in say::survey(&surveyed) {
+        println!("{line}");
+    }
+    Ok(())
+}
+
 /// What each bake did, and one line saying how much of it was free.
 fn report(baked: &[(AssetId, Baked)]) {
     for (id, outcome) in baked {

@@ -83,6 +83,7 @@ fn dispatch(cli: Cli) -> Result<()> {
             Some(SynthAction::Bake { asset }) => {
                 commands::synth::bake(&directory, asset.as_deref())
             }
+            Some(SynthAction::Survey) => commands::synth::survey(&directory),
             None => commands::synth::bake(&directory, None),
         },
         Command::Dissolve { from, to, seconds } => {

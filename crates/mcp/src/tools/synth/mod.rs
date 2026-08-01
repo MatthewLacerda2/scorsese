@@ -14,8 +14,10 @@
 
 mod recipes;
 mod set;
+mod survey;
 
 pub(super) use set::Set;
+pub(super) use survey::Survey;
 
 use scorsese_core::ProjectPath;
 use scorsese_providers::synth::{self, Baked, Starter};
