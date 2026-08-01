@@ -23,10 +23,13 @@
 //! here uses — no `rand`, no wall clock. The ordinal counts notes in
 //! arrangement order, so a pattern played twice gets two different noise draws
 //! (a repeated snare should not be a photocopy) while the whole piece stays
-//! byte-identical across runs and processes.
+//! byte-identical across runs and processes. [`super::feel`] draws its onset
+//! and velocity nudges from the same coordinates, so humanising a song puts no
+//! asterisk on any of that.
 
 use std::collections::HashMap;
 
+use super::feel::swung;
 use super::shape::{plan, shape};
 use super::{PatchRef, Song};
 use crate::core::{self, RATE};
@@ -99,6 +102,9 @@ pub fn render_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Vec<f32>,
     let mut master = vec![0.0f32; arrangement_end];
     let mut cursor_beats = 0.0f32;
     let mut ordinal: u64 = 0;
+    // Resolved once: an absent `humanize` is one that scatters nothing, so the
+    // note loop has a single path rather than a branch per note.
+    let feel = song.humanize();
 
     // Repeats are a longer arrangement, not a copied buffer: tiling rendered
     // audio would overlap each pass's ring-out onto the next pass's downbeat,
@@ -119,7 +125,8 @@ pub fn render_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Vec<f32>,
             // A silenced track still consumes its ordinal, so muting one for
             // eight bars does not re-roll the noise of every note after it.
             let track = track_index[note.track.as_str()];
-            let seed = note_seed(song.seed, track, ordinal);
+            let place = ordinal;
+            let seed = note_seed(song.seed, track, place);
             ordinal += 1;
             if !entry.plays(&note.track) {
                 continue;
@@ -130,7 +137,7 @@ pub fn render_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Vec<f32>,
             // the document still says what it does.
             let opts = NoteOpts {
                 duration: note.dur * beat,
-                velocity: note.vel * entry.vel_scale(),
+                velocity: feel.velocity(note.vel * entry.vel_scale(), track, place, song.seed),
                 seed,
             };
             // Clamped rather than refused: refusing would make a legal
@@ -138,7 +145,13 @@ pub fn render_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Vec<f32>,
             let pitch =
                 (note.note.to_midi()? + entry.transpose()).clamp(MIDI_RANGE.0, MIDI_RANGE.1);
             let rendered = core::render_note(&patches[track], pitch, &opts)?;
-            let at = ((cursor_beats + note.start) * beat * RATE).round() as usize;
+            // Swing first, humanise second: swing is where the beat *is*, and
+            // humanise is how well the player hit it. Clamped at zero rather
+            // than wrapped — a note nudged early on the very first beat has
+            // nowhere to go, and a negative sample index is not a time.
+            let onset = (cursor_beats + swung(note.start, song.swing)) * beat
+                + feel.onset_seconds(track, place, song.seed);
+            let at = (onset * RATE).round().max(0.0) as usize;
             mix_into(&mut master, &rendered, at, song.tracks[track].gain);
         }
         cursor_beats += pattern.beats;
@@ -171,6 +184,10 @@ fn mix_into(master: &mut Vec<f32>, src: &[f32], at: usize, gain: f32) {
 ///
 /// Two 32-bit hashes on different channels are stitched into the `u64` the note
 /// renderer wants, so the full seed space is used rather than the low 32 bits.
+///
+/// Those are channels **0 and 1** of these coordinates; [`super::feel`] draws
+/// its onset and velocity nudges from 2 and 3 of the same pair, which is what
+/// keeps a note's timing, its loudness and its noise from moving together.
 fn note_seed(song_seed: u64, track: usize, ordinal: u64) -> u64 {
     let hi = u64::from(hash3(track as i64, ordinal as i64, 0, song_seed));
     let lo = u64::from(hash3(track as i64, ordinal as i64, 1, song_seed));

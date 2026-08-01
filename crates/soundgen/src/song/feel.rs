@@ -1,0 +1,245 @@
+//! Swing and humanise — a song that was played, not clocked.
+//!
+//! Every note in [`super::render`] lands on the sample its beat works out to,
+//! at exactly the velocity written, forever. That is *correct*, and it is also
+//! the loudest signal that a piece of music was generated rather than
+//! performed — louder than the notes themselves, and it survives every
+//! improvement made to the composition.
+//!
+//! Two different things fix it, and keeping them apart is the point:
+//!
+//! - **Swing** is a decision. The off-beat eighths sit late, by the same
+//!   amount every time, because almost nothing outside classical music is
+//!   played on straight eighths. It is a feel, not an error.
+//! - **Humanise** is the error. Each onset a little early or late, each note a
+//!   little harder or softer, never twice the same.
+//!
+//! They compose in that order — swing says where the beat *is*, humanise says
+//! how well the player hit it — and both are absent by default. An absent
+//! field renders byte-identical bytes to a song written before either existed,
+//! which is not politeness: `generated/` addresses a bake by the hash of its
+//! recipe, so a global change in where notes are placed would leave the cache
+//! serving stale audio under unchanged hashes.
+//!
+//! **Seeded, never random.** Humanisation draws from the same seeded integer
+//! hash everything stochastic here draws from, at the same `(track, ordinal)`
+//! coordinates the note's own render seed comes from — no `rand`, no wall
+//! clock. A humanised song is as byte-identical across runs as a rigid one,
+//! and re-rolling the whole performance is still one number: the song's seed.
+
+use serde::{Deserialize, Serialize};
+
+use crate::hash::unit2;
+
+/// The channel of the per-note hash an onset nudge is drawn on.
+///
+/// [`note_seed`](super::render) spends channels 0 and 1 on the seed the note
+/// renderer itself uses, so 2 and 3 are the next free ones. Distinct channels
+/// are what keep a note's timing, its velocity and its noise from moving
+/// together — the reason [`hash3`](crate::hash::hash3) takes the argument at
+/// all.
+const ONSET: u64 = 2;
+
+/// The channel of the per-note hash a velocity nudge is drawn on.
+const VELOCITY: u64 = 3;
+
+/// The quietest a humanised note may be pushed, as a fraction of the velocity
+/// written.
+///
+/// A `velocity` amount above 1 could otherwise reach zero — a note that simply
+/// vanished, which reads as a bug in the pattern rather than as feel — and past
+/// it a *negative* scale, which is a phase inversion wearing "quieter" as a
+/// disguise. A performance has soft notes; it does not have missing ones.
+const QUIETEST: f32 = 0.05;
+
+/// How far a player strays from the written page.
+///
+/// Both fields are magnitudes: how wide the scatter is, either way. Absent
+/// means a machine plays the part, which is what happened before this existed.
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Humanize {
+    /// The widest an onset may be nudged, either way, **in seconds**.
+    ///
+    /// Seconds rather than beats because human timing error does not scale
+    /// with tempo — a player is not three times sloppier at 40 bpm than at 120,
+    /// and a figure that is tight at one tempo should not turn sloppy when the
+    /// piece is slowed down. Ten milliseconds is a tight band; forty is loose
+    /// enough to hear as a person.
+    #[serde(default)]
+    pub timing: f32,
+    /// The widest a velocity may be scaled, either way, as a fraction of what
+    /// was written: `0.08` plays each note between 92% and 108% of its written
+    /// velocity.
+    ///
+    /// A note written at full velocity can only come out *quieter*, because
+    /// full is full and the note renderer clamps there. A song that wants
+    /// dynamics in both directions writes its notes below 1.0 — which is what
+    /// a score does anyway.
+    #[serde(default)]
+    pub velocity: f32,
+}
+
+impl Humanize {
+    /// True when neither field does anything, so nothing has to be drawn and
+    /// the render is what it was before the field existed.
+    pub fn is_nothing(self) -> bool {
+        self.timing <= 0.0 && self.velocity <= 0.0
+    }
+
+    /// Seconds to shift one note's onset by — positive is late.
+    ///
+    /// The caller adds this to where the beat put the note and clamps the
+    /// result at the start of the buffer: a note nudged early on the very first
+    /// beat has nowhere to go, and a negative sample index is not a time.
+    pub fn onset_seconds(self, track: usize, ordinal: u64, song_seed: u64) -> f32 {
+        if self.timing <= 0.0 {
+            return 0.0;
+        }
+        self.timing * symmetric(ONSET, track, ordinal, song_seed)
+    }
+
+    /// The velocity to actually play a note at, given what the document asks
+    /// for.
+    ///
+    /// A scatter *around* what was written, never a decision about it: the
+    /// written value has already been through the arrangement's `vel_scale`,
+    /// and humanising is not the stage that gets to overrule either.
+    pub fn velocity(self, written: f32, track: usize, ordinal: u64, song_seed: u64) -> f32 {
+        if self.velocity <= 0.0 {
+            return written;
+        }
+        let scale = 1.0 + self.velocity * symmetric(VELOCITY, track, ordinal, song_seed);
+        written * scale.max(QUIETEST)
+    }
+}
+
+/// A deterministic draw in `-1.0..1.0` for one note on one channel.
+///
+/// The coordinates are exactly the ones the note's render seed is derived from
+/// — `(track, ordinal)` under the song's seed — and the ordinal counts notes in
+/// *arrangement* order, so a pattern played twice is humanised differently on
+/// each pass. That is the whole point rather than a side effect: eight bars
+/// nudged identically both times round is still a photocopy, just a crooked
+/// one.
+fn symmetric(channel: u64, track: usize, ordinal: u64, song_seed: u64) -> f32 {
+    unit2(track as i64, ordinal as i64, channel, song_seed) * 2.0 - 1.0
+}
+
+/// Where a note written at `start` beats actually sounds, under `swing`.
+///
+/// One number doing one thing: the off-beat eighth sits `swing` of the way
+/// from where it was written to the following beat. `0.0` is straight, `0.33`
+/// is roughly the triplet feel, `0.5` is dotted.
+///
+/// The beat is **stretched around** that point rather than the eighth being
+/// picked out and moved — everything in the first half of the beat is pushed
+/// late in proportion, everything in the second half is pulled back in
+/// proportion. Two things follow, and both are why it is written this way.
+/// Nothing has to decide whether a note *is* an eighth, a question only an
+/// epsilon could answer and one that a note written at `0.4999` would answer
+/// wrong. And the order of the notes is preserved: a sixteenth written after
+/// the off-beat eighth is still after it, where moving the eighth alone would
+/// at `0.5` land the two on the same sample.
+///
+/// It is still *eighth-note* swing: the grid being warped is the eighth, and
+/// finer subdivisions ride along with it rather than being stranded against a
+/// beat that moved without them. Sixteenth-note swing and per-track swing are
+/// the obvious extensions and are deliberately not here — one number that does
+/// the common thing is worth more than a taxonomy nobody reaches for.
+///
+/// Measured **within the pattern**, from `start`, so a pattern swings the same
+/// wherever in the arrangement it is played — a pattern is a block of music,
+/// not a thing that means something different depending on where it sits.
+///
+/// Onsets only. A note's `dur` is what the document says it is; a gate that
+/// stretched with the beat would change how long a note is held for a reason
+/// the document never states.
+pub fn swung(start: f32, swing: f32) -> f32 {
+    if swing <= 0.0 {
+        return start;
+    }
+    let beat = start.floor();
+    let phase = start - beat;
+    // Where the off-beat eighth now sits: half a beat, plus `swing` of the
+    // half-beat that remains between it and the next downbeat.
+    let late = 0.5 * (1.0 + swing);
+    let swung = if phase <= 0.5 {
+        phase * (1.0 + swing)
+    } else {
+        late + (phase - 0.5) * (1.0 - swing)
+    };
+    beat + swung
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn straight_is_the_identity_and_downbeats_never_move() {
+        for start in [0.0, 0.5, 0.75, 3.25, 7.5] {
+            assert_eq!(swung(start, 0.0), start);
+        }
+        for beat in [0.0, 1.0, 2.0, 16.0] {
+            assert_eq!(swung(beat, 0.4), beat);
+        }
+    }
+
+    #[test]
+    fn the_off_beat_eighth_lands_where_the_documentation_says() {
+        for (swing, expected) in [(0.0, 0.5), (0.5, 0.75), (1.0, 1.0)] {
+            assert!((swung(0.5, swing) - expected).abs() < 1e-6);
+            // And the same eighth in any later beat, by the same amount.
+            assert!((swung(5.5, swing) - (5.0 + expected)).abs() < 1e-6);
+        }
+    }
+
+    /// The property that makes a warp better than picking the eighth out: two
+    /// notes never swap places, and never collide.
+    #[test]
+    fn swing_never_reorders_the_notes() {
+        for swing in [0.1, 0.33, 0.5, 0.9] {
+            let mut previous = f32::NEG_INFINITY;
+            for step in 0..64 {
+                let now = swung(step as f32 / 8.0, swing);
+                assert!(now > previous, "swing {swing} reordered at step {step}");
+                previous = now;
+            }
+        }
+    }
+
+    #[test]
+    fn humanising_stays_inside_the_band_it_was_given() {
+        let feel = Humanize {
+            timing: 0.02,
+            velocity: 0.1,
+        };
+        for ordinal in 0..256 {
+            let seconds = feel.onset_seconds(0, ordinal, 9);
+            assert!(seconds.abs() <= 0.02, "onset {seconds} escaped the band");
+            let velocity = feel.velocity(0.5, 0, ordinal, 9);
+            assert!((0.45..=0.55).contains(&velocity), "velocity {velocity}");
+        }
+    }
+
+    /// A `velocity` amount past 1 must not be able to silence or invert a note.
+    #[test]
+    fn an_extravagant_velocity_amount_still_cannot_reach_silence() {
+        let wild = Humanize {
+            timing: 0.0,
+            velocity: 4.0,
+        };
+        for ordinal in 0..256 {
+            assert!(wild.velocity(0.5, 0, ordinal, 3) >= 0.5 * QUIETEST);
+        }
+    }
+
+    #[test]
+    fn nothing_is_drawn_when_nothing_was_asked_for() {
+        let nothing = Humanize::default();
+        assert!(nothing.is_nothing());
+        assert_eq!(nothing.onset_seconds(0, 7, 1), 0.0);
+        assert_eq!(nothing.velocity(0.3, 0, 7, 1), 0.3);
+    }
+}

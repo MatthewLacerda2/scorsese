@@ -3,7 +3,7 @@
 
 use crate::common::songs::{song, verse};
 use scorsese_soundgen::SynthError;
-use scorsese_soundgen::song::{Pitch, Song};
+use scorsese_soundgen::song::{Humanize, Pitch, Song};
 
 #[test]
 fn the_document_round_trips_through_json() {
@@ -79,6 +79,54 @@ fn a_note_held_for_no_time_is_refused() {
             dur: 0.0,
         })
     );
+}
+
+/// At 1 the off-beat eighth lands on the following downbeat — the two have
+/// swapped places rather than been felt — and below 0 the off-beats run early,
+/// which is not swing under any name.
+#[test]
+fn a_swing_that_would_reorder_the_music_is_refused() {
+    for swing in [1.0, 1.5, -0.2] {
+        let odd = Song { swing, ..song() };
+        assert_eq!(odd.validate(), Err(SynthError::BadSwing { swing }));
+    }
+}
+
+/// Both humanise fields are magnitudes — how far a player may stray, either
+/// way — so the refusal has to name which one is nonsense.
+#[test]
+fn a_humanise_amount_that_is_not_an_amount_is_refused_by_name() {
+    let backwards = Humanize {
+        timing: -0.01,
+        velocity: 0.0,
+    };
+    assert_eq!(
+        Song {
+            humanize: Some(backwards),
+            ..song()
+        }
+        .validate(),
+        Err(SynthError::BadHumanize {
+            field: "timing",
+            amount: -0.01,
+        })
+    );
+
+    let nonsense = Humanize {
+        timing: 0.0,
+        velocity: f32::NAN,
+    };
+    assert!(matches!(
+        Song {
+            humanize: Some(nonsense),
+            ..song()
+        }
+        .validate(),
+        Err(SynthError::BadHumanize {
+            field: "velocity",
+            ..
+        })
+    ));
 }
 
 #[test]

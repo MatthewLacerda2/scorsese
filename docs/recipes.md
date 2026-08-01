@@ -249,6 +249,40 @@ Inversion, retrograde, augmentation and fragmentation are deliberately absent.
 They are real compositional operations and also the ones nobody reaches for by
 hand; if a real song wants one, that is a request with the song attached.
 
+### Playing it, rather than clocking it
+
+Every note lands on its exact beat at exactly the velocity written, forever.
+That is the loudest thing a generated piece says about itself — louder than the
+notes — and it survives every improvement made to the composition. Two optional
+fields say otherwise, and both are absent by default.
+
+```json fields
+  "swing": 0.15,
+  "humanize": { "timing": 0.012, "velocity": 0.08 }
+```
+
+**`swing`** sits the off-beat eighths late: `0` is straight, `0.33` is roughly
+the triplet feel, `0.5` is dotted. The beat is stretched *around* the off-beat
+rather than the eighth being picked out and moved, so finer subdivisions ride
+along with it and two notes never swap places. Onsets only — a note's `dur` is
+what the document says it is. It is a property of the performance, so it is
+song-level: a rhythm section that swings while the lead does not is a specific
+effect, not a default.
+
+**`humanize`** scatters each note by a bounded amount. `timing` is the widest
+an onset may be nudged either way, **in seconds** — not beats, because a player
+is not three times sloppier at 40 bpm — and `velocity` is the widest a velocity
+may be scaled, as a fraction of what was written. Twelve milliseconds and 8% is
+a natural band; forty and 20% is a loose one. A note written at full velocity
+can only come out quieter, so a piece that wants dynamics in both directions
+writes its notes below `1.0`.
+
+Both draw from the same seed chain everything stochastic here draws from, keyed
+per note in *arrangement* order. So the piece stays byte-identical across runs,
+`seed` re-rolls the whole performance at once, and a pattern played twice is
+played differently the second time — which is the point. A repeat nudged
+identically both times is still a photocopy, just a crooked one.
+
 ### Fitting a song to the cut
 
 A song's natural length is whatever its notes add up to, plus the ring-out.
@@ -314,7 +348,9 @@ unbounded allocation: an empty oscillator stack, a stack weighted entirely to
 zero, a non-positive `fm2` ratio, a cutoff at or below 0 Hz, a negative LFO
 rate, a note of no length, an arrangement naming a pattern that does not exist,
 a note on a track that does not exist, a `tracks` filter naming one that does
-not either, and a `vel_scale` below zero.
+not either, a `vel_scale` below zero, a `swing` outside `0..1` (at 1 the
+off-beat lands on the next beat, which reorders the music), and a negative
+`humanize` amount.
 
 Musical taste is not checked. An ugly patch renders.
 

@@ -53,6 +53,8 @@ pub(crate) fn song() -> Song {
         }],
         patterns,
         arrangement: vec!["verse".into(), "verse".into()],
+        swing: 0.0,
+        humanize: None,
         fit: None,
         fade: None,
         tail: None,

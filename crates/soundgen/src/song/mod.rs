@@ -36,6 +36,7 @@
 //! the patch follows.
 
 pub mod arrangement;
+pub mod feel;
 pub mod render;
 pub mod shape;
 pub mod timing;
@@ -49,12 +50,24 @@ use crate::error::SynthError;
 use crate::patch::Patch;
 
 pub use arrangement::{ArrangementEntry, Play};
+pub use feel::Humanize;
 pub use render::{InlineOnly, PatchResolver, render_song};
 pub use timing::{Fade, Fit, FitMode, Tail};
 
 /// Default for a per-track or per-note gain: unity, i.e. "as written".
 fn one() -> f32 {
     1.0
+}
+
+/// Whether a song swings at all — the test that keeps `"swing": 0.0` out of
+/// every saved document.
+///
+/// A field that is absent when it does nothing matters more here than
+/// elsewhere: a bake is addressed by the hash of the recipe's bytes, so a
+/// serialiser that started writing a default into every song would invalidate
+/// every cached bake in every project at once, for no change in the audio.
+fn no_swing(swing: &f32) -> bool {
+    *swing == 0.0
 }
 
 /// A complete piece of music, renderable to one mono buffer.
@@ -77,6 +90,18 @@ pub struct Song {
     /// name with [transforms](ArrangementEntry) — a repeat that varies rather
     /// than photocopies.
     pub arrangement: Vec<ArrangementEntry>,
+    /// How far the off-beat eighths sit behind the grid: `0.0` is straight,
+    /// `0.33` is roughly the triplet feel, `0.5` is dotted. A property of the
+    /// *performance*, so it is song-level — a rhythm section that swings while
+    /// the lead does not is a specific effect, not a default. See
+    /// [`feel::swung`].
+    #[serde(default, skip_serializing_if = "no_swing")]
+    pub swing: f32,
+    /// How far the player strays from the written page in timing and
+    /// velocity. Absent means a machine plays the part, which is what every
+    /// song did before the field existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub humanize: Option<Humanize>,
     /// A length the piece has to come out at, when the picture decides that
     /// rather than the music. Absent means the song is as long as it is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -210,5 +235,12 @@ impl Song {
     /// caller never has to decide what an absent field meant.
     pub fn tail(&self) -> Tail {
         self.tail.unwrap_or_default()
+    }
+
+    /// How far this song's player strays from the page, defaults included.
+    /// An absent field is a [`Humanize`] that scatters nothing, so the
+    /// renderer has one path rather than two.
+    pub fn humanize(&self) -> Humanize {
+        self.humanize.unwrap_or_default()
     }
 }
