@@ -4,6 +4,7 @@
 mod common;
 
 mod document;
+mod feel;
 mod lengths;
 mod mixing;
 mod transforms;

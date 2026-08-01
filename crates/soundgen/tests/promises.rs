@@ -8,9 +8,11 @@
 #[path = "common/mod.rs"]
 mod common;
 
+use common::songs::song;
 use common::{minimal, opts, rising_crossings, saw_patch};
 use scorsese_soundgen::patch::{Adsr, Osc, Patch, Source, Wave};
-use scorsese_soundgen::{NoteOpts, bake_named_note, bake_note};
+use scorsese_soundgen::song::{Humanize, InlineOnly};
+use scorsese_soundgen::{NoteOpts, Song, bake_named_note, bake_note, bake_song};
 
 /// A bare sine with no envelope movement, so rising zero-crossings *are* the
 /// frequency and the pitch can be asserted without an FFT.
@@ -71,6 +73,48 @@ fn seeded_noise_is_reproducible_and_a_new_seed_is_not() {
         |seed: u64| bake_note(&noise, 60.0, &NoteOpts { seed, ..opts(0.2) }).expect("bakes");
     assert_eq!(seeded(11), seeded(11));
     assert_ne!(seeded(11), seeded(12));
+}
+
+/// A song with a *feel* is the case that could quietly break this: "played,
+/// not clocked" is the one place a clock or an `rand` would be tempting, and
+/// either would put an asterisk on everything above.
+#[test]
+fn a_humanised_song_bakes_the_same_bytes_and_a_new_seed_does_not() {
+    let played = |seed: u64| {
+        let performance = Song {
+            seed,
+            swing: 0.3,
+            humanize: Some(Humanize {
+                timing: 0.02,
+                velocity: 0.1,
+            }),
+            ..song()
+        };
+        bake_song(&performance, &InlineOnly).expect("bakes")
+    };
+    assert_eq!(
+        played(4),
+        played(4),
+        "a performance is still a pure function"
+    );
+    assert_ne!(played(4), played(5), "and the seed still re-rolls it");
+}
+
+/// Absent means what it meant before the fields existed — which is what keeps
+/// every bake already in a `generated/` directory valid.
+#[test]
+fn asking_for_no_feel_bakes_what_a_song_that_never_heard_of_it_does() {
+    let plain = song();
+    assert_eq!(plain.swing, 0.0);
+    assert!(plain.humanize.is_none());
+    let spelled_out = Song {
+        humanize: Some(Humanize::default()),
+        ..song()
+    };
+    assert_eq!(
+        bake_song(&spelled_out, &InlineOnly).expect("bakes"),
+        bake_song(&plain, &InlineOnly).expect("bakes"),
+    );
 }
 
 #[test]
