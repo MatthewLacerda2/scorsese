@@ -3,7 +3,7 @@
 //! quietly rounding into place.
 
 use crate::common::{asset_id, clip_id, document, project};
-use scorsese_core::{Clip, Fps, Frames, LoadError, Project, SCHEMA_VERSION, ValidationError as E};
+use scorsese_core::{Clip, Fps, Frames, LoadError, Project, SCHEMA_VERSION, TimelineProblem as E};
 
 /// A document whose only track holds `clip`.
 fn track_with(clip: &str) -> String {
@@ -99,7 +99,8 @@ fn a_clip_covering_no_frame_is_reported() {
         project.validate().expect_err("zero duration").into_vec(),
         [E::ZeroDuration {
             clip: clip_id("c-shot")
-        }]
+        }
+        .into()]
     );
 }
 

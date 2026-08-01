@@ -1,9 +1,7 @@
 //! The synthesis kind: its brief is a recipe, and only a recipe.
 
 use crate::common::{assert_only_problem, asset_id, asset_mut, problems, project};
-use scorsese_core::{
-    AssetField as F, AssetKind, GenerationState, ProjectPath, ValidationError as E,
-};
+use scorsese_core::{AssetField as F, AssetKind, AssetProblem as E, GenerationState, ProjectPath};
 
 #[test]
 fn a_synth_asset_needs_a_recipe() {
@@ -11,7 +9,7 @@ fn a_synth_asset_needs_a_recipe() {
     asset_mut(&mut p, "score").recipe = None;
     assert_only_problem(
         &p,
-        &E::MissingField {
+        E::MissingField {
             asset: asset_id("score"),
             field: F::Recipe,
             kind: AssetKind::SynthAudio,
@@ -26,7 +24,7 @@ fn a_recipe_obeys_the_project_path_rules() {
     asset_mut(&mut p, "score").recipe = Some(escaping.clone());
     assert_only_problem(
         &p,
-        &E::BadRecipePath {
+        E::BadRecipePath {
             asset: asset_id("score"),
             path: escaping,
             problem: scorsese_core::PathProblem::ParentEscape,
@@ -40,7 +38,7 @@ fn a_recipe_belongs_to_no_other_kind() {
     asset_mut(&mut p, "logo").recipe = Some(ProjectPath::new("recipes/theme.json"));
     assert_only_problem(
         &p,
-        &E::StrayField {
+        E::StrayField {
             asset: asset_id("logo"),
             field: F::Recipe,
             kind: AssetKind::Image,
@@ -57,7 +55,7 @@ fn a_synth_asset_carries_no_prompt() {
     asset_mut(&mut p, "score").prompt = Some("something cinematic".to_owned());
     assert_only_problem(
         &p,
-        &E::StrayField {
+        E::StrayField {
             asset: asset_id("score"),
             field: F::Prompt,
             kind: AssetKind::SynthAudio,
@@ -71,7 +69,7 @@ fn a_synth_asset_needs_a_state() {
     asset_mut(&mut p, "score").state = None;
     assert_only_problem(
         &p,
-        &E::MissingField {
+        E::MissingField {
             asset: asset_id("score"),
             field: F::State,
             kind: AssetKind::SynthAudio,
@@ -99,7 +97,7 @@ fn a_generated_recipe_must_say_where_the_file_is() {
     asset_mut(&mut p, "score").state = Some(GenerationState::Generated);
     assert_only_problem(
         &p,
-        &E::GeneratedWithoutPath {
+        E::GeneratedWithoutPath {
             asset: asset_id("score"),
         },
     );

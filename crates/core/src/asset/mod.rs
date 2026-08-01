@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::color::Rgba;
 use crate::path::ProjectPath;
 use crate::text::TextStyle;
-use crate::time::Fps;
+use crate::time::{Fps, Frames};
 
 pub use kind::{AssetKind, GenerationState};
 
@@ -173,6 +173,27 @@ impl Asset {
     /// caller never has to decide what a missing font means.
     pub fn text_style(&self) -> TextStyle {
         self.style.clone().unwrap_or_default()
+    }
+
+    /// How much of this asset there is, in frames of `fps` — the ceiling a
+    /// clip showing it may not trim past.
+    ///
+    /// `None` when nothing bounds it, which covers three different absences
+    /// and is deliberately one answer for all of them. A still, a title and a
+    /// colour have no length of their own: how long one is on screen is the
+    /// clip's business, and import nulls `duration_seconds` on a still for
+    /// exactly that reason. A sketch has no file yet, so there is nothing to
+    /// measure until it is realised. And a file nobody has probed has a length
+    /// that is simply not known — inventing one would refuse honest edits on
+    /// assets we have not looked at, which is why `scorsese probe` exists and
+    /// why the window runs it when a project opens.
+    ///
+    /// Measured in *timeline* frames, on the grid the clip is authored
+    /// against, because that is the currency `source_in` and `duration` are
+    /// already in: a source shot at another rate is conformed, so a one-second
+    /// 24fps source is thirty frames of a 30fps timeline.
+    pub fn length(&self, fps: Fps) -> Option<Frames> {
+        Some(fps.frames(self.media?.duration_seconds?))
     }
 
     /// True when GO would realise this asset. Not the same as "would spend

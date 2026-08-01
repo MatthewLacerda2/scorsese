@@ -7,7 +7,7 @@
 
 mod common;
 
-use scorsese_core::{Crop, LoadError, Project, ValidationError};
+use scorsese_core::{Crop, LoadError, Project, TimelineProblem, ValidationError};
 
 /// A document with one clip carrying `body` among its fields.
 fn with_clip(body: &str) -> String {
@@ -83,10 +83,10 @@ fn a_rectangle_that_runs_off_the_source_is_refused() {
             Project::from_json(&with_clip(&format!(r#", "crop": {rectangle}"#))).expect("parses");
         let errors = project.validate().expect_err("it does not validate");
         assert!(
-            errors
-                .as_slice()
-                .iter()
-                .any(|error| matches!(error, ValidationError::CropOutsideSource { .. })),
+            errors.as_slice().iter().any(|error| matches!(
+                error,
+                ValidationError::Timeline(TimelineProblem::CropOutsideSource { .. })
+            )),
             "{rectangle} should be refused, and gave {errors:?}"
         );
     }
@@ -102,10 +102,10 @@ fn a_rectangle_enclosing_none_of_the_source_is_refused() {
     .expect("parses");
     let errors = project.validate().expect_err("it does not validate");
     assert!(
-        errors
-            .as_slice()
-            .iter()
-            .any(|error| matches!(error, ValidationError::CropOutsideSource { .. })),
+        errors.as_slice().iter().any(|error| matches!(
+            error,
+            ValidationError::Timeline(TimelineProblem::CropOutsideSource { .. })
+        )),
         "got {errors:?}"
     );
 }

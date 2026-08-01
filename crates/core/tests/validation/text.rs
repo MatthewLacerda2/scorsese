@@ -3,8 +3,7 @@
 
 use crate::common::{assert_only_problem, asset_id, asset_mut, problems, project};
 use scorsese_core::{
-    AssetField as F, AssetKind, FontChoice, PathProblem, ProjectPath, TextStyle,
-    ValidationError as E,
+    AssetField as F, AssetKind, AssetProblem as E, FontChoice, PathProblem, ProjectPath, TextStyle,
 };
 
 #[test]
@@ -13,7 +12,7 @@ fn a_text_asset_needs_its_content() {
     asset_mut(&mut p, "title").text = None;
     assert_only_problem(
         &p,
-        &E::MissingText {
+        E::MissingText {
             asset: asset_id("title"),
         },
     );
@@ -25,7 +24,7 @@ fn nothing_but_a_text_asset_may_carry_text() {
     asset_mut(&mut p, "logo").text = Some("stray".to_owned());
     assert_only_problem(
         &p,
-        &E::StrayField {
+        E::StrayField {
             asset: asset_id("logo"),
             field: F::Text,
             kind: AssetKind::Image,
@@ -39,7 +38,7 @@ fn nothing_but_a_text_asset_may_carry_a_style() {
     asset_mut(&mut p, "logo").style = Some(TextStyle::default());
     assert_only_problem(
         &p,
-        &E::StrayField {
+        E::StrayField {
             asset: asset_id("logo"),
             field: F::Style,
             kind: AssetKind::Image,
@@ -60,7 +59,7 @@ fn a_font_outside_the_project_is_refused() {
     });
     assert_only_problem(
         &p,
-        &E::BadFontPath {
+        E::BadFontPath {
             asset: asset_id("title"),
             path,
             problem: PathProblem::Absolute,

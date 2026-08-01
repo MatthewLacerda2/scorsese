@@ -5,7 +5,7 @@
 //! of reaching validation. `tests/grid/document.rs` covers that.
 
 use crate::common::{assert_only_problem, clip_id, project, track_id};
-use scorsese_core::{Frames, ValidationError as E};
+use scorsese_core::{Frames, TimelineProblem as E};
 
 fn overlap_on_v1() -> E {
     E::OverlappingClips {
@@ -25,7 +25,7 @@ fn touching_clips_are_fine() {
 fn overlapping_clips_are_refused() {
     let mut p = project();
     p.tracks[0].clips[1].start = Frames(225);
-    assert_only_problem(&p, &overlap_on_v1());
+    assert_only_problem(&p, overlap_on_v1());
 }
 
 #[test]
@@ -33,7 +33,7 @@ fn overlap_is_found_however_the_clips_are_ordered_in_the_file() {
     let mut p = project();
     p.tracks[0].clips.swap(0, 1);
     p.tracks[0].clips[0].start = Frames(225);
-    assert_only_problem(&p, &overlap_on_v1());
+    assert_only_problem(&p, overlap_on_v1());
 }
 
 #[test]
@@ -41,7 +41,7 @@ fn a_clip_fully_inside_another_is_an_overlap() {
     let mut p = project();
     p.tracks[0].clips[1].start = Frames(60);
     p.tracks[0].clips[1].duration = Frames(30);
-    assert_only_problem(&p, &overlap_on_v1());
+    assert_only_problem(&p, overlap_on_v1());
 }
 
 #[test]
@@ -57,7 +57,7 @@ fn a_clip_that_renders_nothing_is_reported() {
     p.tracks[0].clips[0].duration = Frames::ZERO;
     assert_only_problem(
         &p,
-        &E::ZeroDuration {
+        E::ZeroDuration {
             clip: clip_id("c-shot"),
         },
     );

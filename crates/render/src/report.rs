@@ -31,6 +31,13 @@ pub enum Note {
         timeline_end: Frames,
     },
     /// A clip outlasts its own source media; the remainder rendered black.
+    ///
+    /// Validation refuses this wherever the document knows enough to see it
+    /// coming — an asset with a measured length bounds the clips that show it.
+    /// What is left for the render to find is the rest: an asset nobody probed,
+    /// and a file that changed on disk since somebody did. Both are cases where
+    /// the document was honest and the media was not what it said, which is
+    /// exactly what a note is for.
     ClipRanShort {
         /// The clip that ran out of pictures.
         clip: String,

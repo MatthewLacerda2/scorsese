@@ -6,31 +6,33 @@ use crate::asset::{Asset, AssetKind};
 use crate::project::Project;
 use crate::text::{MAX_WEIGHT, MIN_WEIGHT, TextStyle};
 
-use super::error::ValidationError;
+use super::error::AssetProblem;
 use super::field::AssetField;
 
-pub(super) fn check(project: &Project, errors: &mut Vec<ValidationError>) {
+pub(super) fn check(project: &Project) -> Vec<AssetProblem> {
+    let mut errors = Vec::new();
     let mut seen = HashSet::new();
     let mut reported = HashSet::new();
     for asset in &project.assets {
         if !seen.insert(&asset.id) && reported.insert(&asset.id) {
-            errors.push(ValidationError::DuplicateAssetId {
+            errors.push(AssetProblem::DuplicateAssetId {
                 id: asset.id.clone(),
             });
         }
-        check_path(asset, errors);
-        check_recipe(asset, errors);
-        check_sha256(asset, errors);
-        check_kind_fields(asset, errors);
+        check_path(asset, &mut errors);
+        check_recipe(asset, &mut errors);
+        check_sha256(asset, &mut errors);
+        check_kind_fields(asset, &mut errors);
     }
+    errors
 }
 
-fn check_path(asset: &Asset, errors: &mut Vec<ValidationError>) {
+fn check_path(asset: &Asset, errors: &mut Vec<AssetProblem>) {
     let Some(path) = &asset.path else {
         return;
     };
     if let Err(problem) = path.check() {
-        errors.push(ValidationError::BadPath {
+        errors.push(AssetProblem::BadPath {
             asset: asset.id.clone(),
             path: path.clone(),
             problem,
@@ -40,12 +42,12 @@ fn check_path(asset: &Asset, errors: &mut Vec<ValidationError>) {
 
 /// A recipe is a path like any other, so it obeys the same rules — checked
 /// here rather than discovered as a missing file part way through a bake.
-fn check_recipe(asset: &Asset, errors: &mut Vec<ValidationError>) {
+fn check_recipe(asset: &Asset, errors: &mut Vec<AssetProblem>) {
     let Some(recipe) = &asset.recipe else {
         return;
     };
     if let Err(problem) = recipe.check() {
-        errors.push(ValidationError::BadRecipePath {
+        errors.push(AssetProblem::BadRecipePath {
             asset: asset.id.clone(),
             path: recipe.clone(),
             problem,
@@ -53,13 +55,13 @@ fn check_recipe(asset: &Asset, errors: &mut Vec<ValidationError>) {
     }
 }
 
-fn check_sha256(asset: &Asset, errors: &mut Vec<ValidationError>) {
+fn check_sha256(asset: &Asset, errors: &mut Vec<AssetProblem>) {
     let Some(hash) = &asset.sha256 else {
         return;
     };
     let well_formed = hash.len() == 64 && hash.chars().all(|c| matches!(c, '0'..='9' | 'a'..='f'));
     if !well_formed {
-        errors.push(ValidationError::BadSha256 {
+        errors.push(AssetProblem::BadSha256 {
             asset: asset.id.clone(),
             value: hash.clone(),
         });
@@ -69,7 +71,7 @@ fn check_sha256(asset: &Asset, errors: &mut Vec<ValidationError>) {
 /// Which fields an asset must and must not carry follows from its kind: a
 /// generated asset needs a brief and a state, a text asset carries its
 /// content inline, everything else points at a file.
-fn check_kind_fields(asset: &Asset, errors: &mut Vec<ValidationError>) {
+fn check_kind_fields(asset: &Asset, errors: &mut Vec<AssetProblem>) {
     let id = || asset.id.clone();
     let kind = asset.kind;
 
@@ -79,7 +81,7 @@ fn check_kind_fields(asset: &Asset, errors: &mut Vec<ValidationError>) {
         match asset.state {
             None => errors.push(missing(asset, AssetField::State)),
             Some(state) if state.has_media() && asset.path.is_none() => {
-                errors.push(ValidationError::GeneratedWithoutPath { asset: id() });
+                errors.push(AssetProblem::GeneratedWithoutPath { asset: id() });
             }
             Some(_) => {}
         }
@@ -102,12 +104,12 @@ fn check_kind_fields(asset: &Asset, errors: &mut Vec<ValidationError>) {
 /// exactly the kind it belongs to and refused everywhere else. Refusing the
 /// stray one matters as much as requiring the right one: a `color` on a video
 /// asset would never be read, and silence about it would look like it had been.
-fn check_inline(asset: &Asset, errors: &mut Vec<ValidationError>) {
+fn check_inline(asset: &Asset, errors: &mut Vec<AssetProblem>) {
     let id = || asset.id.clone();
     let kind = asset.kind;
 
     match (kind, &asset.text) {
-        (AssetKind::Text, None) => errors.push(ValidationError::MissingText { asset: id() }),
+        (AssetKind::Text, None) => errors.push(AssetProblem::MissingText { asset: id() }),
         (AssetKind::Text, Some(_)) => {}
         (_, Some(_)) => errors.push(stray(asset, AssetField::Text)),
         (_, None) => {}
@@ -121,8 +123,8 @@ fn check_inline(asset: &Asset, errors: &mut Vec<ValidationError>) {
 }
 
 /// A field this asset's kind requires and does not have.
-fn missing(asset: &Asset, field: AssetField) -> ValidationError {
-    ValidationError::MissingField {
+fn missing(asset: &Asset, field: AssetField) -> AssetProblem {
+    AssetProblem::MissingField {
         asset: asset.id.clone(),
         field,
         kind: asset.kind,
@@ -130,8 +132,8 @@ fn missing(asset: &Asset, field: AssetField) -> ValidationError {
 }
 
 /// A field this asset carries that its kind has no use for.
-fn stray(asset: &Asset, field: AssetField) -> ValidationError {
-    ValidationError::StrayField {
+fn stray(asset: &Asset, field: AssetField) -> AssetProblem {
+    AssetProblem::StrayField {
         asset: asset.id.clone(),
         field,
         kind: asset.kind,
@@ -146,7 +148,7 @@ fn stray(asset: &Asset, field: AssetField) -> ValidationError {
 /// Refusing the stray one matters as much as requiring the right one: a recipe
 /// on a Veo asset would never be read, and silence about it would look like it
 /// had been.
-fn check_brief(asset: &Asset, errors: &mut Vec<ValidationError>) {
+fn check_brief(asset: &Asset, errors: &mut Vec<AssetProblem>) {
     let kind = asset.kind;
 
     match (kind.is_prompted(), asset.prompt.is_some()) {
@@ -164,7 +166,7 @@ fn check_brief(asset: &Asset, errors: &mut Vec<ValidationError>) {
 /// A style belongs to the one kind that has glyphs, and the font it names is a
 /// path like any other — so it obeys the same rules, checked here rather than
 /// discovered as a missing file part way through a render.
-fn check_style(asset: &Asset, errors: &mut Vec<ValidationError>) {
+fn check_style(asset: &Asset, errors: &mut Vec<AssetProblem>) {
     let Some(style) = &asset.style else {
         return;
     };
@@ -174,7 +176,7 @@ fn check_style(asset: &Asset, errors: &mut Vec<ValidationError>) {
     if let Some(font) = style.font.file()
         && let Err(problem) = font.check()
     {
-        errors.push(ValidationError::BadFontPath {
+        errors.push(AssetProblem::BadFontPath {
             asset: asset.id.clone(),
             path: font.clone(),
             problem,
@@ -192,19 +194,19 @@ fn check_style(asset: &Asset, errors: &mut Vec<ValidationError>) {
 /// this file is variable at all, and whether its axis reaches 900 — is a fact
 /// about bytes on disk, and lives where the file is read. Validation is about
 /// the document and stops at the edge of it, exactly as it does for `path`.
-fn check_weight(asset: &Asset, style: &TextStyle, errors: &mut Vec<ValidationError>) {
+fn check_weight(asset: &Asset, style: &TextStyle, errors: &mut Vec<AssetProblem>) {
     let Some(weight) = style.weight else {
         return;
     };
     if style.font.is_reserved() {
-        errors.push(ValidationError::WeightOnReservedFont {
+        errors.push(AssetProblem::WeightOnReservedFont {
             asset: asset.id.clone(),
             font: String::from(style.font.clone()),
             weight,
         });
     }
     if !(MIN_WEIGHT..=MAX_WEIGHT).contains(&weight) {
-        errors.push(ValidationError::WeightOutOfRange {
+        errors.push(AssetProblem::WeightOutOfRange {
             asset: asset.id.clone(),
             weight,
             min: MIN_WEIGHT,

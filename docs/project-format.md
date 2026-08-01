@@ -505,6 +505,22 @@ above runs frames 0–239 and covers the first eight seconds. A fractional or
 negative time is not a time: it fails the load rather than being rounded into
 place.
 
+**A clip may not show source that is not there.** `source_in` plus how much of
+the media the clip plays through has to land inside the asset's own length: an
+edit goes on for as long as there is footage, and no more. Both edges are
+bounded by the same fact — `source_in` cannot go below zero because a file has
+nothing before its head, and the tail cannot pass `media.duration_seconds`
+because it has nothing after its end.
+
+The bound is only as good as what has been *measured*, and that is deliberate.
+An asset carrying a `duration_seconds` bounds every clip that shows it. One
+without bounds nothing, which covers a still, a title and a colour — each held
+on screen for as long as you like, none with a length of its own — a sketch,
+whose file does not exist yet, and a file nobody has probed. The last of those
+is what `scorsese probe` is for: a ceiling that applied to half the pool would
+be worse than none, because the half it skipped would be invisible to whoever
+was trimming.
+
 Clips on one track may *touch* but never overlap, and with integer frames that
 is a fact rather than a tolerance. A clip ending at frame 240 and one starting
 at 240 do not overlap: frame 240 belongs to the second, and nothing has to
@@ -743,7 +759,8 @@ font path and a `synth_audio`'s `recipe`
 obey the project-path rules, and that each generated kind carries exactly the
 brief it takes: a `prompt` or a `recipe`, never both and never the other's —
 clip references resolving, asset kind against track kind, non-zero durations,
-clip overlap, and keyframe shape.
+clip overlap, no clip reaching past the end of the source it was measured to
+have, and keyframe shape.
 
 Note what is *not* on that list. A time that is negative, fractional, or
 infinite cannot be represented as a frame count, so it fails the parse with
@@ -752,7 +769,12 @@ The same goes for an unusable `timeline_fps`: there is nothing useful to
 validate about a timeline whose grid is undefined.
 
 Validation is about the *document*, and stops at the edge of it: it checks that
-`path` is legal and relative, never that anything is there. Whether the media
+`path` is legal and relative, never that anything is there. The clip-length
+ceiling is not an exception to that, and it is worth saying why: it reads the
+`media` block the document already carries, written there by whoever probed the
+asset. Validation never opens a file to find out how long it is — that is why
+an unprobed asset bounds nothing, and why the answer to a ceiling that feels
+missing is `scorsese probe` rather than a slower load. Whether the media
 actually exists is the pool's answer and `scorsese check`'s question — a
 document can be flawless and still unrenderable because the footage was deleted
 underneath it. `check` reports both together: an imported file a clip references and

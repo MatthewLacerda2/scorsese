@@ -4,7 +4,7 @@
 
 use crate::common::{assert_only_problem, clip_id, project};
 use scorsese_core::{
-    Easing, Frames, Keyframe, KeyframeTrack, Project, PropertyPath, ValidationError as E,
+    Easing, Frames, Keyframe, KeyframeTrack, Project, PropertyPath, TimelineProblem as E,
 };
 
 /// Replaces the `opacity` track on `c-logo` with these points.
@@ -31,7 +31,7 @@ fn keyframes_must_ascend_in_time() {
     set_opacity(&mut p, vec![at(30, 0.0), at(15, 1.0)]);
     assert_only_problem(
         &p,
-        &opacity_problem(|clip, property| E::UnsortedKeyframes { clip, property }),
+        opacity_problem(|clip, property| E::UnsortedKeyframes { clip, property }),
     );
 }
 
@@ -41,7 +41,7 @@ fn two_keyframes_on_the_same_frame_are_refused() {
     set_opacity(&mut p, vec![at(15, 0.0), at(15, 1.0)]);
     assert_only_problem(
         &p,
-        &opacity_problem(|clip, property| E::UnsortedKeyframes { clip, property }),
+        opacity_problem(|clip, property| E::UnsortedKeyframes { clip, property }),
     );
 }
 
@@ -51,7 +51,7 @@ fn an_empty_keyframe_track_is_refused() {
     set_opacity(&mut p, Vec::new());
     assert_only_problem(
         &p,
-        &opacity_problem(|clip, property| E::EmptyKeyframeTrack { clip, property }),
+        opacity_problem(|clip, property| E::EmptyKeyframeTrack { clip, property }),
     );
 }
 
@@ -61,7 +61,7 @@ fn a_keyframe_value_must_be_a_number() {
     set_opacity(&mut p, vec![at(0, f64::NAN), at(30, 1.0)]);
     assert_only_problem(
         &p,
-        &opacity_problem(|clip, property| E::BadKeyframeValue { clip, property }),
+        opacity_problem(|clip, property| E::BadKeyframeValue { clip, property }),
     );
 }
 
@@ -71,7 +71,7 @@ fn a_malformed_property_path_is_refused() {
     p.tracks[1].clips[0].keyframes[0].property = PropertyPath::new("transform..x");
     assert_only_problem(
         &p,
-        &E::MalformedPropertyPath {
+        E::MalformedPropertyPath {
             clip: clip_id("c-logo"),
             property: PropertyPath::new("transform..x"),
         },

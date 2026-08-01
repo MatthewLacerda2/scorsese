@@ -1,0 +1,41 @@
+//! What validation can find, and how it reads.
+//!
+//! One catalogue per thing being checked, matching the checks themselves: the
+//! assets-table pass reports an [`AssetProblem`], the track-and-clip pass a
+//! [`TimelineProblem`], and the version check sits on [`ValidationError`]
+//! itself because it is about the document rather than about anything in it.
+//! They collect into one list — a project's problems are reported together,
+//! whatever part of the document they are about.
+//!
+//! Split because a catalogue grows with every check and the two halves grow
+//! independently. Which half a new problem belongs in is decided the way the
+//! checks are: by what has to be looked at to find it.
+
+mod assets;
+mod timeline;
+
+pub use assets::AssetProblem;
+pub use timeline::TimelineProblem;
+
+/// One thing wrong with a project.
+#[derive(Debug, Clone, PartialEq, thiserror::Error)]
+pub enum ValidationError {
+    /// A document from another build of scorsese. Nothing else is worth
+    /// reporting until this is settled.
+    #[error("schema_version is {found}, but this build of scorsese reads {supported}")]
+    UnsupportedSchemaVersion {
+        /// The version the document declares.
+        found: u32,
+        /// The one version this build reads.
+        supported: u32,
+    },
+
+    /// Something wrong with a row of the assets table.
+    #[error(transparent)]
+    Asset(#[from] AssetProblem),
+
+    /// Something wrong with a track, a clip, or how a clip sits against the
+    /// asset it shows.
+    #[error(transparent)]
+    Timeline(#[from] TimelineProblem),
+}

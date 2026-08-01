@@ -1,7 +1,7 @@
 //! Assets-table coherence: identity, hashes, and what each kind must carry.
 
-use crate::common::{assert_only_problem, asset_id, asset_mut, problems, project};
-use scorsese_core::{AssetField as F, AssetKind, GenerationState, ValidationError as E};
+use crate::common::{assert_only_problem, asset_id, asset_mut, project, reports};
+use scorsese_core::{AssetField as F, AssetKind, AssetProblem as E, GenerationState};
 
 #[test]
 fn a_reused_asset_id_is_reported_once() {
@@ -10,7 +10,7 @@ fn a_reused_asset_id_is_reported_once() {
     p.assets.push(duplicate);
     assert_only_problem(
         &p,
-        &E::DuplicateAssetId {
+        E::DuplicateAssetId {
             id: asset_id("logo"),
         },
     );
@@ -22,7 +22,7 @@ fn a_file_backed_asset_needs_a_path() {
     asset_mut(&mut p, "logo").path = None;
     assert_only_problem(
         &p,
-        &E::MissingField {
+        E::MissingField {
             asset: asset_id("logo"),
             field: F::Path,
             kind: AssetKind::Image,
@@ -36,7 +36,7 @@ fn a_malformed_hash_is_refused() {
     asset_mut(&mut p, "logo").sha256 = Some("NOTAHASH".to_owned());
     assert_only_problem(
         &p,
-        &E::BadSha256 {
+        E::BadSha256 {
             asset: asset_id("logo"),
             value: "NOTAHASH".to_owned(),
         },
@@ -50,7 +50,7 @@ fn an_uppercase_hash_is_refused() {
     asset_mut(&mut p, "logo").sha256 = Some(shouty.to_owned());
     assert_only_problem(
         &p,
-        &E::BadSha256 {
+        E::BadSha256 {
             asset: asset_id("logo"),
             value: shouty.to_owned(),
         },
@@ -64,17 +64,13 @@ fn a_prompt_asset_needs_a_prompt_and_a_state() {
     shot.prompt = None;
     shot.state = None;
     let kind = AssetKind::GeneratedVideo;
-    let found = problems(&p);
-    assert!(found.contains(&E::MissingField {
+    let missing = |field| E::MissingField {
         asset: asset_id("shot-city"),
-        field: F::Prompt,
-        kind
-    }));
-    assert!(found.contains(&E::MissingField {
-        asset: asset_id("shot-city"),
-        field: F::State,
-        kind
-    }));
+        field,
+        kind,
+    };
+    assert!(reports(&p, missing(F::Prompt)));
+    assert!(reports(&p, missing(F::State)));
 }
 
 #[test]
@@ -83,7 +79,7 @@ fn a_generated_asset_must_point_at_its_file() {
     asset_mut(&mut p, "shot-city").state = Some(GenerationState::Generated);
     assert_only_problem(
         &p,
-        &E::GeneratedWithoutPath {
+        E::GeneratedWithoutPath {
             asset: asset_id("shot-city"),
         },
     );
@@ -108,15 +104,11 @@ fn a_plain_asset_carries_no_prompt_or_state() {
     logo.prompt = Some("a logo, but nicer".to_owned());
     logo.state = Some(GenerationState::Sketch);
     let kind = AssetKind::Image;
-    let found = problems(&p);
-    assert!(found.contains(&E::StrayField {
+    let stray = |field| E::StrayField {
         asset: asset_id("logo"),
-        field: F::Prompt,
-        kind
-    }));
-    assert!(found.contains(&E::StrayField {
-        asset: asset_id("logo"),
-        field: F::State,
-        kind
-    }));
+        field,
+        kind,
+    };
+    assert!(reports(&p, stray(F::Prompt)));
+    assert!(reports(&p, stray(F::State)));
 }
