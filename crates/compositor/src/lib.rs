@@ -49,13 +49,16 @@
 //! the [`CpuCompositor`] behind it, the [`Layer`] they take and the [`Frame`],
 //! [`Resolution`] and [`PIXEL_FORMAT`] a picture is carried in, the
 //! [`Properties`] one instant of a clip resolves to, the [`ANIMATED`] list with
-//! the [`Registry`] that searches it, the two fades ([`fade_in`], [`fade_out`])
-//! and a [`Font`] to set words in.
+//! the [`Registry`] that searches it, and the two fades ([`fade_in`],
+//! [`fade_out`]).
 //!
 //! [`text`], [`card`] and [`mod@dissolve`] keep their module path as well,
 //! because what they publish are *verbs* — `draw`, `draw_in`, `draw_line`,
 //! `dissolve` — and a verb that general needs the noun in front of it to read.
 //! `text::draw` and `card::draw` could not both sit at the root in any case.
+//! The face those verbs set words in is [`text::Font`], and that is its only
+//! spelling: the root re-export it also had was a second name for a type every
+//! caller already reached through `text`.
 //!
 //! Everything else is `pub(crate)`. How a face is read, how a line is broken,
 //! how glyphs are shaped and filled, how one layer is blended onto another are
@@ -77,4 +80,3 @@ pub use dissolve::{DissolveError, Placed, dissolve};
 pub use frame::{BYTES_PER_PIXEL, Frame, PIXEL_FORMAT, Resolution, ResolutionError};
 pub use properties::{ANIMATED, Properties, fade_in, fade_out, path};
 pub use registry::{Property, Registry};
-pub use text::Font;
