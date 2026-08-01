@@ -9,9 +9,9 @@ mod audio;
 mod decode;
 mod encode;
 
-pub use audio::{AudioDecoder, AudioSource, SAMPLE_FORMAT};
-pub use decode::{Decoder, Fitting, Source};
-pub use encode::Encoder;
+pub(crate) use audio::{AudioDecoder, AudioSource, SAMPLE_FORMAT};
+pub(crate) use decode::{Decoder, Fitting, Source};
+pub(crate) use encode::Encoder;
 
 use std::process::Child;
 

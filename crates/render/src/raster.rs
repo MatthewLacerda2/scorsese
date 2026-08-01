@@ -24,7 +24,7 @@ use crate::tools::Tools;
 /// The pixel size of every source a render needs one for, worked out once
 /// before any frame is decoded.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct Sizes {
+pub(crate) struct Sizes {
     native: HashMap<AssetId, Resolution>,
 }
 
@@ -34,7 +34,7 @@ impl Sizes {
     /// Up front rather than per segment, because a clip cut across three
     /// segments by boundaries on other tracks is one source, and asking ffprobe
     /// three times about the same file is three processes for one fact.
-    pub fn measure(
+    pub(crate) fn measure(
         tools: &Tools,
         plan: &Plan<'_>,
         project_root: &Path,
@@ -89,7 +89,7 @@ impl Sizes {
     /// wrong would not merely be the wrong size on screen — the buffer reading
     /// the pipe is sized from this, so it would be read at the wrong stride
     /// and every later frame would slide.
-    pub fn fitting(&self, shot: &Shot<'_>) -> Fitting {
+    pub(crate) fn fitting(&self, shot: &Shot<'_>) -> Fitting {
         match shot.clip.fit {
             Fit::Fit => Fitting::Fit,
             Fit::Fill => Fitting::Fill,

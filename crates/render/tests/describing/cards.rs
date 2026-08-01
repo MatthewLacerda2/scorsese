@@ -6,8 +6,7 @@
 //! carries and the lifecycle state it is in.
 
 use scorsese_core::{AssetKind, GenerationState};
-use scorsese_render::Absent;
-use scorsese_render::describe::Shown;
+use scorsese_render::{Absent, Shown};
 
 use crate::common::prompts::{NARRATION_PROMPT, SHOT_PROMPT, in_state};
 use crate::common::{audio_track, clip, file_asset, project, stale_asset, text_asset, video_track};
@@ -136,7 +135,7 @@ fn a_synth_card_names_its_recipe_rather_than_a_prompt_it_never_had() {
         AssetKind::SynthAudio,
         ProjectPath::new("recipes/bed.json"),
     );
-    let wording = scorsese_render::slug::wording(&asset, scorsese_render::slug::Absent::Sketch);
+    let wording = scorsese_render::wording(&asset, Absent::Sketch);
     assert!(wording.contains("RECIPE"), "got {wording}");
     assert!(wording.contains("recipes/bed.json"), "got {wording}");
     assert!(!wording.contains("no prompt"), "got {wording}");

@@ -1,8 +1,7 @@
 //! Sequencing the audible half of a timeline.
 
 use scorsese_core::{AssetKind, Fps, Frames};
-use scorsese_render::report::Note;
-use scorsese_render::{FrameRange, Plan};
+use scorsese_render::{FrameRange, Note, Plan};
 
 use crate::common::{audio_track, clip, file_asset, project, video_track};
 

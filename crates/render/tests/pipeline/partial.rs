@@ -1,8 +1,7 @@
 //! Rendering a slice of the timeline, and rendering more of a clip than it has.
 
 use scorsese_core::{AssetKind, Fps, Project};
-use scorsese_render::report::Note;
-use scorsese_render::{FrameRange, RenderError, RenderSettings, Renderer, Resolution};
+use scorsese_render::{FrameRange, Note, RenderError, RenderSettings, Renderer, Resolution};
 
 use crate::common::ffmpeg::{fixture_dir, inspect, mean_rgb, tools};
 use crate::common::{clip, clip_from, file_asset, project, video_track};

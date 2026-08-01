@@ -6,8 +6,7 @@
 //! timeline frame would be a whole band out.
 
 use scorsese_core::Fps;
-use scorsese_render::FrameRange;
-use scorsese_render::report::Note;
+use scorsese_render::{FrameRange, Note};
 
 use crate::common::ffmpeg::{fixture_dir, inspect, mean_rgb, tools};
 use crate::common::{clip, clip_from, project, sped, video_track};

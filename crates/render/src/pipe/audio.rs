@@ -20,7 +20,7 @@ use crate::tools::Tools;
 ///
 /// Float, because the mixer sums several sources and integers would have to
 /// deal with the overshoot at every addition rather than once at the end.
-pub const SAMPLE_FORMAT: &str = "f32le";
+pub(crate) const SAMPLE_FORMAT: &str = "f32le";
 
 /// How much longer than asked for to let ffmpeg decode.
 ///
@@ -32,22 +32,22 @@ const MARGIN_SECONDS: f64 = 0.5;
 
 /// What to decode, and how much of it.
 #[derive(Debug, Clone, PartialEq)]
-pub struct AudioSource {
+pub(crate) struct AudioSource {
     /// The media to read, already resolved against the project root — nothing
     /// below here knows what a project directory is.
-    pub file: PathBuf,
+    pub(crate) file: PathBuf,
     /// Where to start in the source, in wall-clock seconds.
-    pub seek_seconds: f64,
+    pub(crate) seek_seconds: f64,
     /// How fast to run the source. The clip's own speed, applied to its sound
     /// exactly as it is to its picture, and — per the format — **taking the
     /// pitch with it**.
-    pub speed: Speed,
+    pub(crate) speed: Speed,
     /// How many sample-frames to ask for, at the render's rate.
-    pub frames: u64,
+    pub(crate) frames: u64,
 }
 
 /// An ffmpeg process decoding one source into raw samples on its stdout.
-pub struct AudioDecoder {
+pub(crate) struct AudioDecoder {
     child: Child,
     stdout: ChildStdout,
     subject: String,
@@ -56,7 +56,7 @@ pub struct AudioDecoder {
 impl AudioDecoder {
     /// Starts decoding, resampled to the render's rate and downmixed or
     /// upmixed to its channel count.
-    pub fn start(
+    pub(crate) fn start(
         tools: &Tools,
         source: &AudioSource,
         settings: &RenderSettings,
@@ -104,7 +104,7 @@ impl AudioDecoder {
     /// Returns how many arrived. Fewer than asked for means the source ran out,
     /// which is a fact about the media rather than a failure — the caller
     /// reports it and the gap stays silent.
-    pub fn read(&mut self, out: &mut Vec<f32>, frames: usize) -> Result<usize, RenderError> {
+    pub(crate) fn read(&mut self, out: &mut Vec<f32>, frames: usize) -> Result<usize, RenderError> {
         let mut bytes = vec![0_u8; frames * CHANNELS * size_of::<f32>()];
         let filled = fill(&mut self.stdout, &mut bytes).map_err(|source| RenderError::Pipe {
             stage: Stage::Mix,
@@ -126,7 +126,7 @@ impl AudioDecoder {
     }
 
     /// Waits for ffmpeg and reports what it said if it failed.
-    pub fn finish(mut self) -> Result<(), RenderError> {
+    pub(crate) fn finish(mut self) -> Result<(), RenderError> {
         // Drain first: ffmpeg blocks writing into a full pipe, so waiting on a
         // process we stopped reading from would deadlock rather than exit.
         std::io::copy(&mut self.stdout, &mut std::io::sink()).map_err(|source| {

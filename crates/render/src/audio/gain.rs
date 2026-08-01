@@ -27,13 +27,13 @@ pub mod path {
 /// to the code that implements it. A `volume` listed in a crate that draws
 /// pictures would be a name with no implementation behind it, which is the
 /// drift a published vocabulary exists to prevent.
-pub const ANIMATED: &[Property] = &[Property {
+pub(crate) const ANIMATED: &[Property] = &[Property {
     path: path::VOLUME,
     describes: "how loud the clip plays, as a multiplier on its own level",
 }];
 
 /// Volume with no keyframes: the source exactly as it was recorded.
-pub const UNITY: f32 = 1.0;
+pub(crate) const UNITY: f32 = 1.0;
 
 /// A clip's volume over time, ready to be asked about any instant.
 ///

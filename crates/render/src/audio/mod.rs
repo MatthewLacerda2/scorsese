@@ -17,10 +17,10 @@
 //! processes at a time and needs no named pipes, which do not portably exist
 //! everywhere this has to run.
 
-pub mod gain;
-pub mod level;
-pub mod measure;
-pub mod mix;
+pub(crate) mod gain;
+pub(crate) mod level;
+pub(crate) mod measure;
+pub(crate) mod mix;
 
 use std::fs::File;
 use std::io::{BufWriter, Write};

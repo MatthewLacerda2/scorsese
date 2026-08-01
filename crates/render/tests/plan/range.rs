@@ -1,8 +1,7 @@
 //! Rendering only part of the timeline.
 
 use scorsese_core::{AssetKind, Fps, Frames, Project};
-use scorsese_render::report::Note;
-use scorsese_render::{FrameRange, FrameRangeError, Plan};
+use scorsese_render::{FrameRange, FrameRangeError, Note, Plan};
 
 use crate::common::{clip, clip_from, file_asset, project, shape, source_ins, video_track};
 

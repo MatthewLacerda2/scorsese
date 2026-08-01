@@ -30,7 +30,7 @@ use crate::tools::Tools;
 /// other are measured on one clock. A resample changes no answer this reports —
 /// mean, peak and three band shares are all properties of the waveform rather
 /// than of the grid it is sampled on.
-pub const ANALYSIS_RATE: u32 = 48_000;
+pub(crate) const ANALYSIS_RATE: u32 = 48_000;
 
 /// How many bytes to pull from ffmpeg at a time.
 const CHUNK: usize = 1 << 16;
@@ -49,7 +49,11 @@ pub fn measure(tools: &Tools, file: &Path) -> Result<Profile, RenderError> {
 ///
 /// For a bake whose recipe is still in hand: the arrangement knows where its
 /// patterns are, and a row that names one is worth several that name a time.
-pub fn profile(tools: &Tools, file: &Path, sections: Vec<Cut>) -> Result<Profile, RenderError> {
+pub(crate) fn profile(
+    tools: &Tools,
+    file: &Path,
+    sections: Vec<Cut>,
+) -> Result<Profile, RenderError> {
     let subject = file.display().to_string();
     let mut command = tools.ffmpeg();
     command

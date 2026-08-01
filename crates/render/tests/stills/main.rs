@@ -17,8 +17,9 @@ mod cues;
 use std::path::{Path, PathBuf};
 
 use scorsese_core::{AssetKind, Fps, Project};
+use scorsese_render::frames::{self, Still};
 use scorsese_render::{
-    Description, Frame, FrameRange, RenderSettings, Renderer, Resolution, Still, Tools, frames,
+    Description, Frame, FrameRange, RenderSettings, Renderer, Resolution, Tools,
 };
 
 use common::ffmpeg::{fixture_dir, generate_asset, tools};
