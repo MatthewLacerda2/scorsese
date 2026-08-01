@@ -5,8 +5,17 @@
 //! is the point: over the CLI you would edit the file with an editor, and an
 //! assistant that has to round-trip through the filesystem to change a note is
 //! an assistant doing bookkeeping instead of composing.
+//!
+//! `synth_set` is the same argument one turn further in. Writing a score and
+//! **tuning** one are different acts, and only the first is a whole document:
+//! the adjust in write-bake-listen-adjust is one number at a time, several
+//! times over, and paying for the entire piece to move a track's `gain` is
+//! bookkeeping again in a new place.
 
 mod recipes;
+mod set;
+
+pub(super) use set::Set;
 
 use scorsese_core::ProjectPath;
 use scorsese_providers::synth::{self, Baked, Starter};

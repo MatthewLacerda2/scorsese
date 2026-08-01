@@ -48,6 +48,7 @@ for `project_new` alone, the one to create.
 | `synth_new` | start a recipe, and the asset that points at it | nothing |
 | `synth_read` | a recipe file as it is on disk | nothing |
 | `synth_write` | replace one, **parsed first** | nothing |
+| `synth_set` | change one number in one, by name | nothing |
 | `synth_check` | parse a recipe without rendering it | nothing |
 | `synth_bake` | render the recipes not already baked | nothing |
 | `audio_level` | how a finished sound file came out, and how it differs from another | ffmpeg |
@@ -233,6 +234,34 @@ so changing the recipe changes which file the asset wants, and the next
 `synth_bake` redoes it. Re-baking an unchanged recipe renders nothing.
 
 What to write in a recipe is [`recipes.md`](recipes.md).
+
+### Tuning, which is not writing
+
+**Reach for `synth_set` when the music is already right and a number is not.**
+Writing a score is a whole document; *adjusting* one is a float at a time, many
+times, with a bake and a measurement between each turn — and `synth_write` prices
+that at the entire piece, so moving a track's `gain` from `0.71` to `0.64`
+re-sends every note in it to say nothing about any of them.
+
+```
+synth_set  { "project": "trilhas.scor", "recipe": "recipes/05.json",
+             "field": "gain", "track": "arp", "value": 0.64 }
+```
+
+It sets **one** number, named the way the recipe names it: a song's `bpm`,
+`seed` or `swing`, a patch's `duration`, `velocity` or `seed`, and a track's
+`gain` — the track by **its name**, the one the song's notes already use. Those
+are the values re-tuned after listening, and none of them rewrites a note.
+Anything else, a note or an arrangement entry included, is a
+`synth_write`: notes and entries have no names, and addressing them by position
+would mean something different the moment one is inserted above them.
+
+It refuses, **changing nothing**, on a field that recipe's shape does not have,
+a track that is not in the song, or a value the field cannot hold — and the
+refusal says what the recipe does take, so learning that costs no extra call.
+What it writes is an ordinary recipe in the format's own canonical form, still
+readable and still editable by hand, and its asset goes stale by exactly the
+arithmetic a full write does.
 
 ## Listening, for a client that cannot hear
 
