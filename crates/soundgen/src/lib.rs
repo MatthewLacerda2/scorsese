@@ -22,6 +22,40 @@
 //! That boundary is what makes the determinism claim checkable: every output
 //! is a pure function of the documents handed in.
 //!
+//! ## What this publishes
+//!
+//! **The crate root is the way in.** [`bake_note`], [`bake_named_note`] and
+//! [`bake_song`] each take a document and hand back a [`Bake`] — a finished
+//! file and how it came out. [`render_note`] and [`render_song`] are the same
+//! two jobs stopping one step earlier, at the samples, for a caller that wants
+//! to do something with them other than write them down. Around those sit the
+//! documents they take ([`Patch`], [`Song`], [`NoteOpts`]), the
+//! [`PatchResolver`] a song's references resolve through, [`SynthError`],
+//! [`SAMPLE_RATE`], and [`parse_note`] and [`midi_to_freq`] for turning what a
+//! score writes into what the renderer plays.
+//!
+//! **Five modules keep their own path**, because each is a vocabulary rather
+//! than a handful of names:
+//!
+//! - [`patch`] and [`song`] are the two recipe documents — every type a
+//!   `recipes/*.json` file deserialises into. They are named for the document
+//!   they belong to, and `song::Note` and `patch::Osc` say what they are in a
+//!   way that thirty more names at the root would not.
+//! - [`level`] is the measurement, and it is here rather than beside a caller
+//!   because a render measuring its finished mix and a bake measuring what it
+//!   just synthesised are the same arithmetic. `scorsese-render` imports it
+//!   whole.
+//! - [`survey`] is what a *set* of recipes is made of, counted from the
+//!   documents without baking any of them.
+//! - [`wav`] publishes one function, [`wav::seconds_in`], and keeps its module
+//!   because the noun is what makes the verb readable.
+//!
+//! **Everything else is `pub(crate)`.** The oscillators, filters, envelopes,
+//! effects, the seeded hash and the note-name parser are the inside of
+//! [`render_note`]; the song mixer's per-track intermediate is the inside of
+//! [`bake_song`]. None of it is a second way to reach a result this crate
+//! already returns.
+//!
 //! ## The signal path
 //!
 //! A [`Patch`] is *structured, not a free graph*. The stages are fixed and the

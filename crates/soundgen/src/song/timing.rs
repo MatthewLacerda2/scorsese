@@ -74,7 +74,7 @@ pub struct Fade {
 
 impl Fade {
     /// True when neither end does anything, so the whole pass can be skipped.
-    pub fn is_silent_about_everything(self) -> bool {
+    pub(crate) fn is_silent_about_everything(self) -> bool {
         self.in_seconds <= 0.0 && self.out_seconds <= 0.0
     }
 }
