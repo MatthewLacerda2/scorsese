@@ -12,7 +12,7 @@ use egui::{Grid, RichText, Ui};
 use scorsese_core::{AssetKind, GenerationState};
 
 use super::Inspector;
-use super::controls::{fit_row, frames_row};
+use super::controls::{fit_row, frames_row, speed_row};
 use super::selected::Selected;
 use crate::project::Open;
 
@@ -44,6 +44,13 @@ impl Inspector {
                 self.attempt(open, selected, "duration", move |clip| {
                     clip.duration = duration;
                 });
+            }
+            // Retimes rather than writing the rate on its own: this is a
+            // person picking 2× on a menu, and what that means to them is the
+            // same footage in half the time. The document keeps the rate and
+            // the length apart, and this is the panel spending that freedom.
+            if let Some(speed) = speed_row(ui, selected.speed, selected.duration, fps) {
+                self.attempt(open, selected, "speed", move |clip| clip.retime(speed));
             }
             // Picture only. A sound has no raster, so a fit control on an audio
             // clip would be a choice with nothing on the other end of it.

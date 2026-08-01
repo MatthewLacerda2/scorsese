@@ -8,7 +8,7 @@
 
 use scorsese_core::{
     AssetId, AssetKind, ClipId, Fit, Frames, GenerationState, KeyframeTrack, Project, PropertyPath,
-    TrackId, TrackKind,
+    Speed, TrackId, TrackKind,
 };
 
 /// One clip, as the inspector shows it.
@@ -36,6 +36,8 @@ pub(super) struct Selected {
     pub(super) duration: Frames,
     /// How the source meets the render's raster.
     pub(super) fit: Fit,
+    /// How fast it runs against the timeline.
+    pub(super) speed: Speed,
     /// Every property something animates over this clip.
     pub(super) animated: Vec<Animated>,
 }
@@ -75,6 +77,7 @@ impl Selected {
             start: found.start,
             duration: found.duration,
             fit: found.fit,
+            speed: found.speed,
             animated: found.keyframes.iter().map(Animated::of).collect(),
         })
     }

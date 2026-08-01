@@ -109,15 +109,23 @@ pub(in crate::timeline) fn propose(
         Handle::Left => {
             // Two floors, and they are different limits: the timeline has no
             // frames before zero, and the source has none before its own head.
+            //
+            // A frame of timeline is also not a frame of source once the clip
+            // has a speed: at 2× dragging the head one frame in eats two frames
+            // of the media. So the source-side floor is converted into the
+            // *timeline* it is worth before it can bound a pointer's travel.
+            let speed = origin.speed;
             let back = match limits.head {
-                Some(head) => frames(head).min(start),
+                Some(head) => (speed.timeline_frames(head.get() as f64) as i64).min(start),
                 None => start,
             };
             let delta = delta.clamp(-back, duration - 1);
+            let consumed = speed.source_frames(Frames(delta.unsigned_abs())).round() as i64;
+            let consumed = if delta < 0 { -consumed } else { consumed };
             Shape {
                 start: Frames((start + delta) as u64),
                 duration: Frames((duration - delta) as u64),
-                source_in: Frames((source_in + delta).max(0) as u64),
+                source_in: Frames((source_in + consumed).max(0) as u64),
             }
         }
         // The tail has a ceiling wherever the source has an end: the clip
@@ -126,7 +134,13 @@ pub(in crate::timeline) fn propose(
         // the media and the gesture keeps running — the same answer dragging a
         // clip off the front of the timeline gets.
         Handle::Right => {
-            let forward = limits.tail.map_or(i64::MAX, frames);
+            // Source-side, like the head's floor, so converted the same way:
+            // at 2× the thirty frames left in the media are worth fifteen
+            // frames of timeline, and clamping at thirty would trim past the
+            // end this exists to stop at.
+            let forward = limits.tail.map_or(i64::MAX, |tail| {
+                origin.speed.timeline_frames(tail.get() as f64) as i64
+            });
             let delta = delta.min(forward);
             Shape {
                 duration: Frames(duration.saturating_add(delta).max(1) as u64),
@@ -145,7 +159,7 @@ fn frames(count: Frames) -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use scorsese_core::{AssetId, ClipId};
+    use scorsese_core::{AssetId, ClipId, Speed};
 
     /// A clip 100 frames long at frame 200, starting 50 frames into its source.
     fn clip() -> Clip {
@@ -287,6 +301,50 @@ mod tests {
             propose(&clip(), Handle::Right, -40, limits).duration,
             Frames(60)
         );
+    }
+
+    /// A frame of timeline stops being a frame of source the moment a clip has
+    /// a speed. Pulling the head in 20 frames at 2× consumes 40 of the media,
+    /// and a trim that moved `source_in` by 20 would slide the picture out from
+    /// under the edge being dragged — the exact failure the left handle exists
+    /// to avoid.
+    #[test]
+    fn trimming_the_head_of_a_sped_clip_eats_source_at_its_own_rate() {
+        let mut clip = clip();
+        clip.speed = Speed::new(2.0);
+        let trimmed = propose(
+            &clip,
+            Handle::Left,
+            20,
+            Limits {
+                head: Some(Frames(50)),
+                tail: None,
+            },
+        );
+        assert_eq!(trimmed.start, Frames(220));
+        assert_eq!(trimmed.duration, Frames(80));
+        assert_eq!(trimmed.source_in, Frames(90), "50 + 20 timeline frames × 2");
+    }
+
+    /// And the floor is in the same currency. Fifty frames of material before
+    /// the head is only twenty-five frames of *timeline* at 2×, so that is how
+    /// far back the edge may be pulled.
+    #[test]
+    fn the_head_of_a_sped_clip_runs_out_of_source_sooner() {
+        let mut clip = clip();
+        clip.speed = Speed::new(2.0);
+        let trimmed = propose(
+            &clip,
+            Handle::Left,
+            -400,
+            Limits {
+                head: Some(Frames(50)),
+                tail: None,
+            },
+        );
+        assert_eq!(trimmed.source_in, Frames::ZERO);
+        assert_eq!(trimmed.start, Frames(175), "25 frames back, and no further");
+        assert_eq!(trimmed.duration, Frames(125));
     }
 
     #[test]

@@ -41,47 +41,44 @@ fn a_sped_clip_walks_its_source_faster_than_the_timeline() {
     );
 }
 
-#[test]
-fn a_slowed_clip_walks_it_slower() {
+/// Where the bed opens in each stretch an overlay cuts it into, with the bed
+/// running at `rate` from `source_in`. Three answers, because the overlay
+/// entering and leaving splits the timeline in three.
+fn bed_opens(rate: f64, source_in: u64, duration: u64, over: (u64, u64)) -> Vec<f64> {
     let project = project(
         two_videos(),
         vec![
-            video_track("v1", vec![sped(0.5, clip("bed", "under", 0, 60))]),
-            video_track("v2", vec![clip("top", "over", 20, 20)]),
+            video_track(
+                "v1",
+                vec![sped(
+                    rate,
+                    clip_from("bed", "under", 0, duration, source_in),
+                )],
+            ),
+            video_track("v2", vec![clip("top", "over", over.0, over.1)]),
         ],
     );
     let plan = Plan::build(&project, Fps::THIRTY, FrameRange::ALL).expect("plan");
-
-    let beds: Vec<f64> = source_ins(&plan)
+    source_ins(&plan)
         .into_iter()
         .filter(|(id, _)| id == "bed")
         .map(|(_, at)| at)
-        .collect();
-    assert_eq!(beds, vec![0.0, 10.0, 20.0]);
+        .collect()
+}
+
+#[test]
+fn a_slowed_clip_walks_it_slower() {
+    assert_eq!(bed_opens(0.5, 0, 60, (20, 20)), vec![0.0, 10.0, 20.0]);
 }
 
 /// `source_in` is where playback begins and the rate only says how fast it
 /// moves from there, so the two compose rather than one scaling the other.
 #[test]
 fn a_clips_own_source_in_is_where_the_rate_starts_from() {
-    let project = project(
-        two_videos(),
-        vec![
-            video_track("v1", vec![sped(3.0, clip_from("bed", "under", 0, 60, 90))]),
-            video_track("v2", vec![clip("top", "over", 20, 20)]),
-        ],
-    );
-    let plan = Plan::build(&project, Fps::THIRTY, FrameRange::ALL).expect("plan");
-
-    let beds: Vec<f64> = source_ins(&plan)
-        .into_iter()
-        .filter(|(id, _)| id == "bed")
-        .map(|(_, at)| at)
-        .collect();
     assert_eq!(
-        beds,
+        bed_opens(3.0, 90, 60, (20, 20)),
         vec![90.0, 150.0, 210.0],
-        "90, then 3 frames per frame"
+        "90, then three source frames per timeline frame"
     );
 }
 
@@ -90,21 +87,7 @@ fn a_clips_own_source_in_is_where_the_rate_starts_from() {
 /// leave the resumed segment half a frame from where the last one stopped.
 #[test]
 fn a_rate_that_lands_between_frames_is_not_rounded_to_one() {
-    let project = project(
-        two_videos(),
-        vec![
-            video_track("v1", vec![sped(1.5, clip("bed", "under", 0, 30))]),
-            video_track("v2", vec![clip("top", "over", 5, 5)]),
-        ],
-    );
-    let plan = Plan::build(&project, Fps::THIRTY, FrameRange::ALL).expect("plan");
-
-    let beds: Vec<f64> = source_ins(&plan)
-        .into_iter()
-        .filter(|(id, _)| id == "bed")
-        .map(|(_, at)| at)
-        .collect();
-    assert_eq!(beds, vec![0.0, 7.5, 15.0]);
+    assert_eq!(bed_opens(1.5, 0, 30, (5, 5)), vec![0.0, 7.5, 15.0]);
 }
 
 /// Segments are cut where the visible set changes, and a rate changes which
