@@ -20,7 +20,7 @@ use scorsese_core::{AssetKind, Clip, ClipId, Frames, Project, TrackId};
 
 use super::lanes;
 use super::view::View;
-use shape::Handle;
+use shape::{Handle, Limits};
 use snap::Targets;
 
 /// How close to an edge, in pixels, counts as taking hold of the edge rather
@@ -46,9 +46,9 @@ pub(super) struct Drag {
     origin: Clip,
     /// The track it started on, and where a trim keeps it.
     track: TrackId,
-    /// How much source lies before `origin.source_in`, or `None` when nothing
-    /// limits how far the head may be pulled back.
-    head: Option<Frames>,
+    /// How much source lies either side of what the clip shows — what stops
+    /// an edge being dragged past the end of the footage it has.
+    limits: Limits,
     /// Which part of it was taken hold of.
     handle: Handle,
     /// The frame under the pointer at the moment it was.
@@ -91,17 +91,26 @@ impl Drag {
         view: View,
     ) -> Option<Self> {
         let (_, clip) = project.clips().find(|(_, clip)| clip.id == hit.clip)?;
+        let asset = project.asset(&clip.asset);
         // An asset that resolves to nothing is treated as timed, which is the
         // cautious reading: it refuses a trim that might be inventing source
         // rather than allowing one that might be.
-        let timed = project
-            .asset(&clip.asset)
-            .is_none_or(|asset| has_source_timeline(asset.kind));
+        let timed = asset.is_none_or(|asset| has_source_timeline(asset.kind));
+        // The tail's ceiling is measured, not inferred — `Asset::length` is
+        // `None` for everything nobody has measured, and the trim is unbounded
+        // exactly there. Read once, when the gesture begins: the same reason
+        // nothing here probes, only now it is not even a lookup per frame.
+        let tail = asset
+            .and_then(|asset| asset.length(project.timeline_fps))
+            .map(|length| Frames(length.get().saturating_sub(clip.source_end().get())));
         Some(Self {
             clip: hit.clip.clone(),
             origin: clip.clone(),
             track: hit.track.clone(),
-            head: timed.then_some(clip.source_in),
+            limits: Limits {
+                head: timed.then_some(clip.source_in),
+                tail,
+            },
             handle: handle_at(hit.rect, at.x),
             from: view.frame_at(at.x - area.left()),
             snapped: None,
@@ -113,7 +122,7 @@ impl Drag {
     pub(super) fn follow(&mut self, pull: Pull<'_>) -> Result<(), String> {
         let now = pull.view.frame_at(pull.at.x - pull.area.left());
         let delta = now.get() as i64 - self.from.get() as i64;
-        let free = shape::propose(&self.origin, self.handle, delta, self.head);
+        let free = shape::propose(&self.origin, self.handle, delta, self.limits);
 
         let taken = (!pull.bypass)
             .then(|| {
@@ -127,7 +136,7 @@ impl Drag {
             // and the indicator must not then claim it did.
             .map(|snap| {
                 (
-                    shape::propose(&self.origin, self.handle, delta + snap.shift, self.head),
+                    shape::propose(&self.origin, self.handle, delta + snap.shift, self.limits),
                     snap.at,
                 )
             })

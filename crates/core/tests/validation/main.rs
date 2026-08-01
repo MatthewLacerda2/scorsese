@@ -10,6 +10,7 @@ mod generated;
 mod keyframes;
 mod paths;
 mod references;
+mod source;
 mod synth;
 mod text;
 mod timing;

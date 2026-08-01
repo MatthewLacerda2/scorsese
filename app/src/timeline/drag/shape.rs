@@ -21,6 +21,24 @@ pub(in crate::timeline) enum Handle {
     Right,
 }
 
+/// How much source a clip has on either side of what it is showing, in frames
+/// of the timeline grid.
+///
+/// The two ceilings a trim comes to rest against, and they are absent for
+/// different reasons. `None` for the head means the asset has no timeline of
+/// its own — a still, a title, a colour — so pulling its head back is limited
+/// by the start of the timeline and nothing else. `None` for the tail means
+/// nothing has *measured* a length: the same three, plus a sketch with no file
+/// yet, plus a file nobody has probed. A ceiling invented from an absence would
+/// stop honest trims on footage we simply have not looked at.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(in crate::timeline) struct Limits {
+    /// How much source lies before the clip's `source_in`.
+    pub(in crate::timeline) head: Option<Frames>,
+    /// How much source lies past where the clip already ends.
+    pub(in crate::timeline) tail: Option<Frames>,
+}
+
 /// Where a clip would sit if the pointer were let go now.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(in crate::timeline) struct Shape {
@@ -65,14 +83,13 @@ impl Shape {
 
 /// The proposal for `handle` dragged `delta` frames from `origin`.
 ///
-/// `head` is how much source material lies before the clip's current
-/// `source_in` — `None` when nothing limits it, which is what a still or a
-/// title is: neither has a timeline of its own to run out of.
+/// `limits` is how much source lies either side of what the clip already
+/// shows — see [`Limits`] for what an absent one means.
 pub(in crate::timeline) fn propose(
     origin: &Clip,
     handle: Handle,
     delta: i64,
-    head: Option<Frames>,
+    limits: Limits,
 ) -> Shape {
     let shape = Shape::of(origin);
     let (start, duration, source_in) = (
@@ -92,8 +109,8 @@ pub(in crate::timeline) fn propose(
         Handle::Left => {
             // Two floors, and they are different limits: the timeline has no
             // frames before zero, and the source has none before its own head.
-            let back = match head {
-                Some(head) => (head.get() as i64).min(start),
+            let back = match limits.head {
+                Some(head) => frames(head).min(start),
                 None => start,
             };
             let delta = delta.clamp(-back, duration - 1);
@@ -103,15 +120,26 @@ pub(in crate::timeline) fn propose(
                 source_in: Frames((source_in + delta).max(0) as u64),
             }
         }
-        // No ceiling on the tail. How much source is left is a question about
-        // a file this module cannot see, and inventing a limit from probed
-        // metadata that half the pool does not carry would refuse honest trims
-        // on the assets that were never probed.
-        Handle::Right => Shape {
-            duration: Frames(duration.saturating_add(delta).max(1) as u64),
-            ..shape
-        },
+        // The tail has a ceiling wherever the source has an end: the clip
+        // stops where the footage does, the way the head stops at its start.
+        // Clamped rather than refused, so the edge rests against the end of
+        // the media and the gesture keeps running — the same answer dragging a
+        // clip off the front of the timeline gets.
+        Handle::Right => {
+            let forward = limits.tail.map_or(i64::MAX, frames);
+            let delta = delta.min(forward);
+            Shape {
+                duration: Frames(duration.saturating_add(delta).max(1) as u64),
+                ..shape
+            }
+        }
     }
+}
+
+/// A frame count as the signed arithmetic above works in, saturating rather
+/// than wrapping on a document that says something absurd.
+fn frames(count: Frames) -> i64 {
+    i64::try_from(count.get()).unwrap_or(i64::MAX)
 }
 
 #[cfg(test)]
@@ -131,9 +159,18 @@ mod tests {
         clip
     }
 
+    /// An asset with a timeline of its own and no measured length — the
+    /// unprobed video that most of these cases are about.
+    fn timed(head: u64) -> Limits {
+        Limits {
+            head: Some(Frames(head)),
+            tail: None,
+        }
+    }
+
     #[test]
     fn moving_the_body_keeps_the_length_and_the_content() {
-        let moved = propose(&clip(), Handle::Body, 30, Some(Frames(50)));
+        let moved = propose(&clip(), Handle::Body, 30, timed(50));
         assert_eq!(moved.start, Frames(230));
         assert_eq!(moved.duration, Frames(100));
         assert_eq!(moved.source_in, Frames(50), "a move is not a trim");
@@ -141,7 +178,7 @@ mod tests {
 
     #[test]
     fn moving_past_the_start_of_the_timeline_rests_at_the_start() {
-        let moved = propose(&clip(), Handle::Body, -9_000, Some(Frames(50)));
+        let moved = propose(&clip(), Handle::Body, -9_000, timed(50));
         assert_eq!(moved.start, Frames::ZERO);
         assert_eq!(moved.duration, Frames(100), "clamped, not trimmed");
     }
@@ -151,7 +188,7 @@ mod tests {
     /// which is not what anyone means by trimming.
     #[test]
     fn trimming_the_head_moves_where_the_source_starts_too() {
-        let trimmed = propose(&clip(), Handle::Left, 20, Some(Frames(50)));
+        let trimmed = propose(&clip(), Handle::Left, 20, timed(50));
         assert_eq!(trimmed.start, Frames(220));
         assert_eq!(trimmed.duration, Frames(80));
         assert_eq!(trimmed.source_in, Frames(70));
@@ -159,7 +196,7 @@ mod tests {
 
     #[test]
     fn pulling_the_head_back_gives_the_source_back() {
-        let trimmed = propose(&clip(), Handle::Left, -30, Some(Frames(50)));
+        let trimmed = propose(&clip(), Handle::Left, -30, timed(50));
         assert_eq!(trimmed.start, Frames(170));
         assert_eq!(trimmed.duration, Frames(130));
         assert_eq!(trimmed.source_in, Frames(20));
@@ -167,7 +204,7 @@ mod tests {
 
     #[test]
     fn the_head_stops_where_the_source_runs_out() {
-        let trimmed = propose(&clip(), Handle::Left, -400, Some(Frames(50)));
+        let trimmed = propose(&clip(), Handle::Left, -400, timed(50));
         assert_eq!(trimmed.source_in, Frames::ZERO);
         assert_eq!(trimmed.start, Frames(150), "50 frames back, and no further");
         assert_eq!(trimmed.duration, Frames(150));
@@ -177,7 +214,7 @@ mod tests {
     /// the start of the timeline and nothing else.
     #[test]
     fn a_still_has_no_head_to_run_out_of() {
-        let trimmed = propose(&clip(), Handle::Left, -400, None);
+        let trimmed = propose(&clip(), Handle::Left, -400, Limits::default());
         assert_eq!(trimmed.start, Frames::ZERO);
         assert_eq!(trimmed.duration, Frames(300));
         assert_eq!(trimmed.source_in, Frames::ZERO);
@@ -185,20 +222,71 @@ mod tests {
 
     #[test]
     fn neither_edge_can_be_dragged_through_the_other() {
-        let head = propose(&clip(), Handle::Left, 5_000, Some(Frames(50)));
+        let head = propose(&clip(), Handle::Left, 5_000, timed(50));
         assert_eq!(head.duration, Frames(1));
         assert_eq!(head.start, Frames(299));
-        let tail = propose(&clip(), Handle::Right, -5_000, Some(Frames(50)));
+        let tail = propose(&clip(), Handle::Right, -5_000, timed(50));
         assert_eq!(tail.duration, Frames(1));
         assert_eq!(tail.start, Frames(200), "the head does not move");
     }
 
     #[test]
     fn trimming_the_tail_leaves_the_head_and_the_source_alone() {
-        let trimmed = propose(&clip(), Handle::Right, 40, Some(Frames(50)));
+        let trimmed = propose(&clip(), Handle::Right, 40, timed(50));
         assert_eq!(trimmed.start, Frames(200));
         assert_eq!(trimmed.duration, Frames(140));
         assert_eq!(trimmed.source_in, Frames(50));
+    }
+
+    /// The tail's own floor, and the whole point of the issue this answers:
+    /// the video goes on for as long as there is content, and no more.
+    #[test]
+    fn the_tail_stops_where_the_source_runs_out() {
+        let limits = Limits {
+            head: Some(Frames(50)),
+            tail: Some(Frames(30)),
+        };
+        let trimmed = propose(&clip(), Handle::Right, 400, limits);
+        assert_eq!(
+            trimmed.duration,
+            Frames(130),
+            "30 frames on, and no further"
+        );
+        assert_eq!(trimmed.start, Frames(200), "the head still does not move");
+    }
+
+    /// A ceiling only stops the edge going past it. Everything short of it is
+    /// the trim the pointer asked for, unchanged.
+    #[test]
+    fn a_tail_inside_its_source_is_left_where_the_pointer_put_it() {
+        let limits = Limits {
+            head: Some(Frames(50)),
+            tail: Some(Frames(30)),
+        };
+        assert_eq!(
+            propose(&clip(), Handle::Right, 20, limits).duration,
+            Frames(120)
+        );
+    }
+
+    /// A clip already past the end of its source — written before the ceiling
+    /// existed, or measured after the fact — can still be pulled back in. Only
+    /// the direction that makes it worse is refused.
+    #[test]
+    fn a_tail_already_past_the_end_may_only_come_back() {
+        let limits = Limits {
+            head: Some(Frames(50)),
+            tail: Some(Frames::ZERO),
+        };
+        assert_eq!(
+            propose(&clip(), Handle::Right, 40, limits).duration,
+            Frames(100),
+            "held where it is"
+        );
+        assert_eq!(
+            propose(&clip(), Handle::Right, -40, limits).duration,
+            Frames(60)
+        );
     }
 
     #[test]
