@@ -120,3 +120,77 @@ fn findings(mut project: Project, root: &Path) -> Vec<Found> {
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use scorsese_core::{Asset, AssetKind, Fps, ProjectPath};
+
+    /// A project with one asset, probed or not.
+    fn holding(media: Option<MediaMetadata>) -> Project {
+        let mut project = Project::new("test", Fps::THIRTY);
+        project.assets.push(Asset {
+            media,
+            ..Asset::imported(
+                AssetId::new("shot"),
+                AssetKind::Video,
+                ProjectPath::new("assets/shot.mp4"),
+            )
+        });
+        project
+    }
+
+    fn measured(seconds: f64) -> MediaMetadata {
+        MediaMetadata {
+            duration_seconds: Some(seconds),
+            ..MediaMetadata::default()
+        }
+    }
+
+    #[test]
+    fn a_finding_fills_in_metadata_that_is_still_missing() {
+        let mut project = holding(None);
+
+        assert!(record(
+            &mut project,
+            &[(AssetId::new("shot"), measured(4.0))]
+        ));
+
+        assert_eq!(
+            project.assets[0].media.and_then(|it| it.duration_seconds),
+            Some(4.0)
+        );
+    }
+
+    /// The rule that keeps a background job from being a second writer: an
+    /// answer that arrived while the probe ran is newer than the probe's, and
+    /// an older reading of an older file must never win.
+    #[test]
+    fn metadata_that_arrived_meanwhile_is_never_overwritten() {
+        let mut project = holding(Some(measured(9.0)));
+
+        assert!(!record(
+            &mut project,
+            &[(AssetId::new("shot"), measured(4.0))]
+        ));
+
+        assert_eq!(
+            project.assets[0].media.and_then(|it| it.duration_seconds),
+            Some(9.0)
+        );
+    }
+
+    /// An asset that has since been removed is not a reason to fail, and not a
+    /// reason to save either.
+    #[test]
+    fn a_finding_about_an_asset_that_is_gone_changes_nothing() {
+        let mut project = holding(None);
+        project.assets.clear();
+
+        assert!(!record(
+            &mut project,
+            &[(AssetId::new("shot"), measured(4.0))]
+        ));
+    }
+}
