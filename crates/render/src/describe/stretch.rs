@@ -1,7 +1,7 @@
 //! One stretch of timeline, and what is on it.
 
 use scorsese_compositor::ANIMATED as DRAWN;
-use scorsese_core::{AssetKind, Crop, Fit, Fps, Rgba};
+use scorsese_core::{AssetKind, Crop, Fit, Fps, Rgba, Speed};
 
 use crate::audio::gain::ANIMATED as MIXED;
 use crate::audio::path::VOLUME;
@@ -92,6 +92,16 @@ pub struct Playing {
     /// attribute to the asset — the shot simply *looks* like that — and the
     /// whole point of the field is that the asset is untouched.
     pub crop: Option<Crop>,
+    /// How fast the clip runs against the timeline.
+    ///
+    /// Said for the same reason a crop is: it is a property of the *clip* whose
+    /// effect a reader would otherwise attribute to the asset — the shot simply
+    /// *moves* like that — and it is the one thing about a stretch that a frame
+    /// count cannot reveal. A ten-second slot holding twenty seconds of footage
+    /// looks exactly like a ten-second slot until something says so.
+    ///
+    /// Applies to picture and sound alike, which is why it is on both lines.
+    pub speed: Speed,
     /// The properties animated across this stretch, in the order the document
     /// writes them.
     ///
@@ -135,6 +145,7 @@ impl Playing {
             shows: Shown::of(shot),
             fit: shot.clip.fit,
             crop: shot.clip.crop,
+            speed: shot.clip.speed,
             animated: animation::across(shot.clip, vocabulary, from.frame, to.frame, fps),
         }
     }

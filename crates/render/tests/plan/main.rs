@@ -13,6 +13,7 @@ mod layering;
 mod range;
 mod refusals;
 mod resuming;
+mod retiming;
 mod sampling;
 mod sequencing;
 mod sketches;

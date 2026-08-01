@@ -76,7 +76,7 @@ fn starting_mid_clip_starts_mid_source() {
 
     assert_eq!(
         source_ins(&plan),
-        vec![("c1".to_owned(), 45), ("c2".to_owned(), 0)]
+        vec![("c1".to_owned(), 45.0), ("c2".to_owned(), 0.0)]
     );
 }
 
@@ -88,7 +88,7 @@ fn a_clips_own_source_in_is_added_to_what_the_range_skipped() {
     );
     let plan = Plan::build(&project, Fps::THIRTY, range("20:")).expect("plan");
 
-    assert_eq!(source_ins(&plan), vec![("c1".to_owned(), 110)]);
+    assert_eq!(source_ins(&plan), vec![("c1".to_owned(), 110.0)]);
 }
 
 #[test]

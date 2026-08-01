@@ -1,5 +1,5 @@
 {
-  "schema_version": 11,
+  "schema_version": 12,
   "name": "spin",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [{ "id": "bar", "kind": "video", "path": "assets/bar.mp4" }],

@@ -1,85 +1,13 @@
-//! What a drag is proposing, in frames — the arithmetic, with no project and
-//! no screen anywhere near it.
+//! Turning a pointer's travel into the clip it is proposing.
 //!
-//! Every proposal is computed from the clip **as it was when the gesture
-//! began**, plus the whole pointer travel since. Never from the clip's current
-//! state plus one more step: a step the document refused would otherwise be
-//! paid for twice, once by not happening and once by the next step starting
-//! from somewhere the clip never was.
+//! Every proposal is absolute — computed from the clip as it was when the
+//! gesture began plus the whole travel since — so a step the document refused
+//! costs the gesture nothing and the next step does not start from somewhere
+//! the clip never was.
 
 use scorsese_core::{Clip, Frames};
 
-/// Which part of a clip was taken hold of.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(in crate::timeline) enum Handle {
-    /// The middle: the clip moves, keeping its length and its content.
-    Body,
-    /// The head. Moves where the clip starts **and** where in the source it
-    /// starts, which is the difference between trimming and sliding.
-    Left,
-    /// The tail. Only the length changes; the head stays put.
-    Right,
-}
-
-/// How much source a clip has on either side of what it is showing, in frames
-/// of the timeline grid.
-///
-/// The two ceilings a trim comes to rest against, and they are absent for
-/// different reasons. `None` for the head means the asset has no timeline of
-/// its own — a still, a title, a colour — so pulling its head back is limited
-/// by the start of the timeline and nothing else. `None` for the tail means
-/// nothing has *measured* a length: the same three, plus a sketch with no file
-/// yet, plus a file nobody has probed. A ceiling invented from an absence would
-/// stop honest trims on footage we simply have not looked at.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub(in crate::timeline) struct Limits {
-    /// How much source lies before the clip's `source_in`.
-    pub(in crate::timeline) head: Option<Frames>,
-    /// How much source lies past where the clip already ends.
-    pub(in crate::timeline) tail: Option<Frames>,
-}
-
-/// Where a clip would sit if the pointer were let go now.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(in crate::timeline) struct Shape {
-    /// Where it begins on the timeline.
-    pub(in crate::timeline) start: Frames,
-    /// How long it runs. Never zero — a clip covering no frame is an edit that
-    /// went wrong, and validation says so.
-    pub(in crate::timeline) duration: Frames,
-    /// Where in the source it begins.
-    pub(in crate::timeline) source_in: Frames,
-}
-
-impl Shape {
-    /// The clip as it stands, untouched — where every proposal starts from.
-    pub(in crate::timeline) fn of(clip: &Clip) -> Self {
-        Self {
-            start: clip.start,
-            duration: clip.duration,
-            source_in: clip.source_in,
-        }
-    }
-
-    /// The frame just past the last one it occupies.
-    pub(in crate::timeline) fn end(self) -> Frames {
-        self.start + self.duration
-    }
-
-    /// The edges a snap may take hold of.
-    ///
-    /// Both of them for a move, because butting a clip up against the one
-    /// before it is the same gesture as butting it against the one after —
-    /// and only the edge being pulled for a trim, since the other one is not
-    /// moving.
-    pub(in crate::timeline) fn edges(self, handle: Handle) -> Vec<Frames> {
-        match handle {
-            Handle::Body => vec![self.start, self.end()],
-            Handle::Left => vec![self.start],
-            Handle::Right => vec![self.end()],
-        }
-    }
-}
+use super::{Handle, Limits, Shape};
 
 /// The proposal for `handle` dragged `delta` frames from `origin`.
 ///
@@ -109,15 +37,23 @@ pub(in crate::timeline) fn propose(
         Handle::Left => {
             // Two floors, and they are different limits: the timeline has no
             // frames before zero, and the source has none before its own head.
+            //
+            // A frame of timeline is also not a frame of source once the clip
+            // has a speed: at 2× dragging the head one frame in eats two frames
+            // of the media. So the source-side floor is converted into the
+            // *timeline* it is worth before it can bound a pointer's travel.
+            let speed = origin.speed;
             let back = match limits.head {
-                Some(head) => frames(head).min(start),
+                Some(head) => (speed.timeline_frames(head.get() as f64) as i64).min(start),
                 None => start,
             };
             let delta = delta.clamp(-back, duration - 1);
+            let consumed = speed.source_frames(Frames(delta.unsigned_abs())).round() as i64;
+            let consumed = if delta < 0 { -consumed } else { consumed };
             Shape {
                 start: Frames((start + delta) as u64),
                 duration: Frames((duration - delta) as u64),
-                source_in: Frames((source_in + delta).max(0) as u64),
+                source_in: Frames((source_in + consumed).max(0) as u64),
             }
         }
         // The tail has a ceiling wherever the source has an end: the clip
@@ -126,7 +62,13 @@ pub(in crate::timeline) fn propose(
         // the media and the gesture keeps running — the same answer dragging a
         // clip off the front of the timeline gets.
         Handle::Right => {
-            let forward = limits.tail.map_or(i64::MAX, frames);
+            // Source-side, like the head's floor, so converted the same way:
+            // at 2× the thirty frames left in the media are worth fifteen
+            // frames of timeline, and clamping at thirty would trim past the
+            // end this exists to stop at.
+            let forward = limits.tail.map_or(i64::MAX, |tail| {
+                origin.speed.timeline_frames(tail.get() as f64) as i64
+            });
             let delta = delta.min(forward);
             Shape {
                 duration: Frames(duration.saturating_add(delta).max(1) as u64),
@@ -136,16 +78,10 @@ pub(in crate::timeline) fn propose(
     }
 }
 
-/// A frame count as the signed arithmetic above works in, saturating rather
-/// than wrapping on a document that says something absurd.
-fn frames(count: Frames) -> i64 {
-    i64::try_from(count.get()).unwrap_or(i64::MAX)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use scorsese_core::{AssetId, ClipId};
+    use scorsese_core::{AssetId, ClipId, Speed};
 
     /// A clip 100 frames long at frame 200, starting 50 frames into its source.
     fn clip() -> Clip {
@@ -287,6 +223,50 @@ mod tests {
             propose(&clip(), Handle::Right, -40, limits).duration,
             Frames(60)
         );
+    }
+
+    /// A frame of timeline stops being a frame of source the moment a clip has
+    /// a speed. Pulling the head in 20 frames at 2× consumes 40 of the media,
+    /// and a trim that moved `source_in` by 20 would slide the picture out from
+    /// under the edge being dragged — the exact failure the left handle exists
+    /// to avoid.
+    #[test]
+    fn trimming_the_head_of_a_sped_clip_eats_source_at_its_own_rate() {
+        let mut clip = clip();
+        clip.speed = Speed::new(2.0);
+        let trimmed = propose(
+            &clip,
+            Handle::Left,
+            20,
+            Limits {
+                head: Some(Frames(50)),
+                tail: None,
+            },
+        );
+        assert_eq!(trimmed.start, Frames(220));
+        assert_eq!(trimmed.duration, Frames(80));
+        assert_eq!(trimmed.source_in, Frames(90), "50 + 20 timeline frames × 2");
+    }
+
+    /// And the floor is in the same currency. Fifty frames of material before
+    /// the head is only twenty-five frames of *timeline* at 2×, so that is how
+    /// far back the edge may be pulled.
+    #[test]
+    fn the_head_of_a_sped_clip_runs_out_of_source_sooner() {
+        let mut clip = clip();
+        clip.speed = Speed::new(2.0);
+        let trimmed = propose(
+            &clip,
+            Handle::Left,
+            -400,
+            Limits {
+                head: Some(Frames(50)),
+                tail: None,
+            },
+        );
+        assert_eq!(trimmed.source_in, Frames::ZERO);
+        assert_eq!(trimmed.start, Frames(175), "25 frames back, and no further");
+        assert_eq!(trimmed.duration, Frames(125));
     }
 
     #[test]

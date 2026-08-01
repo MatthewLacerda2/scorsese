@@ -66,6 +66,22 @@ pub enum TimelineProblem {
         available: Frames,
     },
 
+    /// A `speed` that is not a rate anything could play at: zero, negative, or
+    /// not a number.
+    ///
+    /// The float sibling of [`TimelineProblem::ZeroDuration`]. A frame count
+    /// cannot be negative or fractional and so fails the parse, but every one of
+    /// these fits in a float perfectly well — which is why the check is here,
+    /// where it can name the clip.
+    #[error("clip `{clip}` has a speed of {speed}, which is not a rate it can play at")]
+    UnusableSpeed {
+        /// The clip carrying it.
+        clip: ClipId,
+        /// The rate as written, so the message quotes the document rather than
+        /// describing it.
+        speed: f64,
+    },
+
     /// A crop rectangle that runs off an edge of the source, or encloses none
     /// of it. Fractions are what make this checkable without knowing the
     /// source's pixel size — every edge lies in `0..=1`, and `x + width` and

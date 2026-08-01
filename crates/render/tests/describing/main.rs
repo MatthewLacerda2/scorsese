@@ -11,6 +11,7 @@ mod cards;
 mod cues;
 mod cuts;
 mod fades;
+mod retiming;
 mod sound;
 
 use scorsese_core::{Easing, Fps, Frames, Keyframe, KeyframeTrack, Project, PropertyPath};

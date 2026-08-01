@@ -8,7 +8,7 @@ use crate::error::{RenderError, Stage};
 use crate::settings::RenderSettings;
 use crate::tools::Tools;
 use scorsese_compositor::{Frame, PIXEL_FORMAT, Resolution};
-use scorsese_core::Crop;
+use scorsese_core::{Crop, Speed};
 
 /// How a source meets the render's raster, resolved to pixels.
 ///
@@ -50,6 +50,11 @@ pub struct Source {
     /// that is the unit ffmpeg seeks in; the conversion from the timeline grid
     /// happened before we got here.
     pub seek_seconds: f64,
+    /// How fast to run the source against the output grid. [`Speed::NORMAL`]
+    /// leaves the timing alone, and the filter that would express it is left
+    /// out entirely rather than written as a no-op — a render of ordinary clips
+    /// has to reach ffmpeg exactly as it did before there was a rate to choose.
+    pub speed: Speed,
     /// How many frames to ask for, on the output grid.
     pub frames: u64,
     /// How this source meets the raster.
@@ -102,7 +107,7 @@ impl Decoder {
             .arg(&source.file)
             .args(["-frames:v", &source.frames.to_string()])
             .arg("-vf")
-            .arg(video_filter(settings, source.fitting, source.crop))
+            .arg(video_filter(settings, source))
             .args(["-an", "-pix_fmt", PIXEL_FORMAT, "-f", "rawvideo", "-"])
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
@@ -164,6 +169,20 @@ impl Decoder {
 /// Re-time first, then fit — in that order, because dropping frames before
 /// scaling means not scaling the frames that get dropped.
 ///
+/// **A clip's speed is the first thing in the chain**, ahead of the re-time. It
+/// is `setpts`, which rewrites the source's own timestamps and nothing else:
+/// at 2× every frame's presentation time is halved, so the `fps` filter behind
+/// it sees a source running twice as fast and picks accordingly. That is the
+/// whole of the frame puller's speed work, and it is deliberately expressed to
+/// ffmpeg as *timing* rather than done by us picking frames — deciding what is
+/// on screen when is ours, and which source frame is nearest a given instant is
+/// the same conform question `fps` already answers everywhere else.
+///
+/// A clip at its normal rate gets no `setpts` at all, rather than one that
+/// multiplies by one. The filter graph an ordinary render sends to ffmpeg has
+/// to be the graph it sent before this field existed, or every reference frame
+/// in the golden set is asserting something new.
+///
 /// `fit` letterboxes and the bars are **transparent**, not black; `format=rgba`
 /// before the pad is what keeps them so. On the bottom layer the difference is
 /// invisible — the canvas underneath is black anyway — but on an upper track it
@@ -184,8 +203,17 @@ impl Decoder {
 /// `fit`, `fill` and `native` reconcile against the raster — which means a crop
 /// that changes the aspect changes what `fit` does. That is correct and it
 /// should not surprise anyone, which is why it is written here.
-fn video_filter(settings: &RenderSettings, fitting: Fitting, crop: Option<Crop>) -> String {
+fn video_filter(settings: &RenderSettings, source: &Source) -> String {
+    let (fitting, crop) = (source.fitting, source.crop);
     let rate = format!("fps={}/{}", settings.fps.num(), settings.fps.den());
+    // A still has no timestamps of its own to rewrite — it is one frame looped
+    // at the output rate — so a speed on one is a rate with nothing to apply to
+    // rather than an error. Held is held.
+    let rate = if source.still || source.speed.is_normal() {
+        rate
+    } else {
+        format!("setpts=PTS/{},{rate}", source.speed.get())
+    };
     let rate = match crop {
         // In terms of the input's own dimensions, so the filter needs no
         // knowledge of how big the source is and stays right when the asset is

@@ -31,6 +31,7 @@ pub(super) fn check(project: &Project) -> Vec<TimelineProblem> {
                 check_source_range(project.timeline_fps, asset, clip, &mut errors);
             }
             check_duration(clip, &mut errors);
+            check_speed(clip, &mut errors);
             check_crop(clip, &mut errors);
             check_keyframes(clip, &mut errors);
         }
@@ -105,6 +106,24 @@ fn check_source_range(fps: Fps, asset: &Asset, clip: &Clip, errors: &mut Vec<Tim
             asset: asset.id.clone(),
             reaches,
             available,
+        });
+    }
+}
+
+/// A speed is a rate, and only some floats are one. Zero never advances through
+/// the source, a negative one plays backwards — which the render plan does not
+/// do, since it streams forward through a source rather than seeking — and
+/// neither an infinity nor a NaN is a rate at all.
+///
+/// Checked here rather than refused on the wire, unlike a fractional frame
+/// count: a float field can hold every one of these, so the parse has nothing to
+/// object to, and reporting it with the clip's name is more use than reporting
+/// it with a line number.
+fn check_speed(clip: &Clip, errors: &mut Vec<TimelineProblem>) {
+    if !clip.speed.is_usable() {
+        errors.push(TimelineProblem::UnusableSpeed {
+            clip: clip.id.clone(),
+            speed: clip.speed.get(),
         });
     }
 }

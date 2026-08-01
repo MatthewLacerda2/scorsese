@@ -1,5 +1,5 @@
 {
-  "schema_version": 11,
+  "schema_version": 12,
   "name": "zoom",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [{ "id": "red", "kind": "video", "path": "assets/red.mp4" }],

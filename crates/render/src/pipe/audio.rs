@@ -9,6 +9,8 @@ use std::io::{ErrorKind, Read};
 use std::path::PathBuf;
 use std::process::{Child, ChildStdout, Stdio};
 
+use scorsese_core::Speed;
+
 use crate::audio::CHANNELS;
 use crate::error::{RenderError, Stage};
 use crate::settings::RenderSettings;
@@ -36,6 +38,10 @@ pub struct AudioSource {
     pub file: PathBuf,
     /// Where to start in the source, in wall-clock seconds.
     pub seek_seconds: f64,
+    /// How fast to run the source. The clip's own speed, applied to its sound
+    /// exactly as it is to its picture, and — per the format — **taking the
+    /// pitch with it**.
+    pub speed: Speed,
     /// How many sample-frames to ask for, at the render's rate.
     pub frames: u64,
 }
@@ -65,9 +71,11 @@ impl AudioDecoder {
                 .arg("-ss")
                 .arg(format!("{:.6}", source.seek_seconds));
         }
+        command.arg("-i").arg(&source.file);
+        if let Some(filter) = speed_filter(source.speed, rate) {
+            command.arg("-af").arg(filter);
+        }
         command
-            .arg("-i")
-            .arg(&source.file)
             .args(["-t", &format!("{seconds:.6}")])
             .args(["-vn", "-ar", &rate.to_string()])
             .args(["-ac", &CHANNELS.to_string()])
@@ -129,6 +137,37 @@ impl AudioDecoder {
         })?;
         super::finish(self.child, Stage::Mix, &self.subject)
     }
+}
+
+/// The filter that plays a clip's sound at its own rate — `None` when that rate
+/// is the source's own and there is nothing to do.
+///
+/// **The pitch goes with the speed**, which is the format's decision and not an
+/// accident of the implementation. This is the record-player answer: the samples
+/// are left exactly as they are and the clock underneath them is moved, so a
+/// clip at 2× is an octave up. Holding the pitch would mean a time-stretch — a
+/// real DSP problem, a new dependency, and its own artefacts — and it is a
+/// separate piece of work rather than a flag here.
+///
+/// Three stages, and the first is the one that looks redundant. `asetrate` takes
+/// a sample rate as a number, and the rate the *source* happens to be at is not
+/// something this process knows; pinning the filter's input to the render's rate
+/// first is what makes the multiplication expressible at all. `asetrate` then
+/// relabels those samples as arriving `speed` times faster, and the `-ar` the
+/// decoder already asks for resamples them back — so what reaches the mixer is
+/// at one rate, as it always was.
+///
+/// The played rate is rounded to a whole number of hertz, which is the one
+/// inexactness here: at 48 kHz that is at worst a hundred-thousandth of the
+/// requested speed, or a frame of drift every eleven hours.
+fn speed_filter(speed: Speed, rate: u32) -> Option<String> {
+    if speed.is_normal() || !speed.is_usable() {
+        return None;
+    }
+    let played = (f64::from(rate) * speed.get())
+        .round()
+        .clamp(1.0, f64::from(u32::MAX)) as u32;
+    Some(format!("aresample={rate},asetrate={played}"))
 }
 
 /// Reads until `buffer` is full or the source ends, returning how many bytes

@@ -4,39 +4,9 @@ use scorsese_core::{AssetKind, Fps, Project};
 use scorsese_render::report::Note;
 use scorsese_render::{FrameRange, RenderError, RenderSettings, Renderer, Resolution};
 
-use crate::common::ffmpeg::{fixture_dir, generate_asset, inspect, mean_rgb, tools};
+use crate::common::ffmpeg::{fixture_dir, inspect, mean_rgb, tools};
 use crate::common::{clip, clip_from, file_asset, project, video_track};
-use crate::{BLACK, GREEN, assert_colour, colour_asset, colour_filter, render};
-
-/// One source, three seconds of it, each second a different colour — so the
-/// frame a render opens on says how far into the source it seeked.
-fn banded_source(tools: &scorsese_render::Tools, dir: &std::path::Path) -> scorsese_core::Asset {
-    let band = |colour: &str| colour_filter(colour, "64x64", 1);
-    generate_asset(
-        tools,
-        dir,
-        "bands",
-        AssetKind::Video,
-        &[
-            "-f",
-            "lavfi",
-            "-i",
-            &band("red"),
-            "-f",
-            "lavfi",
-            "-i",
-            &band("green"),
-            "-f",
-            "lavfi",
-            "-i",
-            &band("blue"),
-            "-filter_complex",
-            "[0:v][1:v][2:v]concat=n=3:v=1",
-            "-pix_fmt",
-            "yuv420p",
-        ],
-    )
-}
+use crate::{BLACK, GREEN, assert_colour, banded_source, colour_asset, render};
 
 #[test]
 fn a_clips_source_in_decides_which_source_frame_it_opens_on() {

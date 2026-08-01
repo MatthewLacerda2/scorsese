@@ -1,4 +1,4 @@
-# `project.json` — schema v11
+# `project.json` — schema v12
 
 The contract between the CLI, the MCP server, the GUI, and every project
 saved on someone's disk. It is meant to be hand-written: an agent should be
@@ -12,7 +12,7 @@ bump and a migration note.
 
 ```json project
 {
-  "schema_version": 11,
+  "schema_version": 12,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -492,8 +492,52 @@ Scale and rotation stay centre-anchored about the layer's own middle — the
 anchor decides where the layer sits, and those decide what it does about its
 own centre once it is there.
 
+### Playing faster or slower: `speed`
+
+```json clip
+{ "id": "c-timelapse", "asset": "roof", "start": 0, "duration": 120, "speed": 2.0 }
+```
+
+How fast the source runs against the timeline. `1.0` when absent — one source
+frame per timeline frame, which is what every clip did before there was a rate
+to choose. Validated positive and finite.
+
+**This is what breaks the one-to-one relationship `source_in` and `duration`
+used to have.** A clip of 60 timeline frames at `2.0` consumes 120 frames of its
+source; one at `0.5` consumes 30. `duration` is still a length of **timeline**,
+so speeding a clip up without also shortening it shows more of the source in the
+same slot.
+
+That split is deliberate. What an editor's 2× button does — halve the clip's
+length so it covers the same footage — is an **operation** a GUI or an assistant
+performs, rescaling `duration` as it sets `speed`. The document stays
+declarative, which is what lets a clip be sped up *and* trimmed without the two
+fighting.
+
+**Speed changes pitch.** Playing a clip at 2× resamples its audio and it rises,
+which is what an editor expects from a speed control and what Filmora does.
+Preserving pitch is a time-stretch algorithm and a new dependency; it is
+deferred rather than assumed.
+
+**A clip has one speed, for picture and sound alike.** Separating them is a
+compositing-suite answer to a question nobody editing a video asks.
+
+**Keyframes stay in timeline time.** A keyframe's `t` is where it sits on the
+timeline, and a speed change does not move it — a fade written half a second
+into a clip is half a second into that clip at any speed. Pinning keyframes to
+source frames would shift every animation whenever a clip was retimed, which is
+the opposite of what an author means by *the fade goes here*.
+
+Speeding a clip up consumes more source in the same slot, so it can run off the
+end of its footage exactly as an over-long trim can — same ceiling, same answer.
+
+**Not here:** speed *ramps* (a keyframed speed, where the mapping from timeline
+frame to source frame stops being multiplication and becomes an integral), and
+negative speed, which needs the decoder to seek rather than stream.
+
 A clip carries `start` and `duration` on the timeline, an optional
-`source_in` offset into the media (default `0`), an optional `fit`
+`source_in` offset into the media (default `0`), an optional `speed`
+(default `1.0`), an optional `fit`
 (default `fit`), an optional `crop` (default the whole source), an optional
 `anchor` (default centred), and optional `keyframes`.
 `source_in` counts in **timeline** frames too — "skip the first two seconds"
@@ -793,6 +837,14 @@ weight for any face. What only the *file* can answer — whether it is variable
 at all, and how far its `wght` axis runs — is refused at the render, in the
 same breath as "this is not a font I can read".
 
+## Migrating from v11
+
+v12 adds one optional field: `speed` on a clip. No v11 document can contain it,
+and **absent means `1.0`** — one source frame per timeline frame, which is what
+every clip did before the field existed. So no v11 document means anything
+different under v12 — converting one is changing `"schema_version": 11` to
+`"schema_version": 12` and nothing else.
+
 ## Migrating from v10
 
 v11 adds one optional field: `weight` on a text asset's `style`. No v10 document
@@ -863,7 +915,7 @@ from a pixel count without knowing the raster it was written against.
 v7 adds the `color` asset kind and the `color` field that goes with it. Both
 are new: no v6 document can contain either, so **no v6 document means anything
 different under v7**. Converting one is changing `"schema_version": 6` to
-`"schema_version": 7`, and then on to `11` as above.
+`"schema_version": 7`, and then on to `12` as above.
 
 ## Migrating from v5
 
@@ -871,14 +923,14 @@ v6 adds one optional field: `by` on a keyframe track. No v5 document can
 contain it, and **absent means hand-written**, which is what every keyframe
 track in every v5 project already is. So no v5 document means anything
 different under v6 — converting one is changing `"schema_version": 5` to
-`"schema_version": 7`, and then on to `11` as above.
+`"schema_version": 7`, and then on to `12` as above.
 
 ## Migrating from v4
 
 v5 adds the `synth_audio` asset kind and the `recipe` field that goes with it.
 Both are new: no v4 document can contain either, so **no v4 document means
 anything different under v5**. Converting one is changing `"schema_version": 4`
-to `"schema_version": 5`, and then on to `11` as above.
+to `"schema_version": 5`, and then on to `12` as above.
 
 A v5 project directory also has a `recipes/` directory, which `scorsese new`
 creates. A converted v4 project does not have one until something writes a
@@ -891,7 +943,7 @@ v4 adds one optional field: `style` on a `text` asset. **Absent means every
 default** — white, centred, sans, a tenth of the frame high — which is what
 every text asset did before the field existed, so no v3 document means anything
 different under v4. Converting one is changing `"schema_version": 3` to
-`"schema_version": 4`, and then on to `11` as above.
+`"schema_version": 4`, and then on to `12` as above.
 
 Before v4 a text asset could not be rendered at all: the renderer refused a
 clip showing one. So the only v3 documents affected are ones that were never
@@ -902,7 +954,7 @@ renderable, and there is nothing for a migration to preserve.
 v3 added one optional field: `fit` on a clip. **Absent means `fit`**, which is
 what every clip did before the field existed, so no v2 document means anything
 different under v3 — converting one is changing `"schema_version": 2` to
-`"schema_version": 3` and then on to `11` as above.
+`"schema_version": 3` and then on to `12` as above.
 
 The version still has to be changed by hand, because this build reads exactly
 one schema version and refuses the rest. That refusal is the point: a document
