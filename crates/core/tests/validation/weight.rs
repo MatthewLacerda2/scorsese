@@ -8,8 +8,9 @@
 //! does for `path`.
 
 use crate::common::{assert_only_problem, asset_id, asset_mut, problems, project};
-use scorsese_core::AssetProblem as E;
-use scorsese_core::{FontChoice, MAX_WEIGHT, MIN_WEIGHT, ProjectPath, TextStyle};
+use scorsese_core::{
+    AssetProblem as E, FontChoice, MAX_WEIGHT, MIN_WEIGHT, ProjectPath, TextStyle,
+};
 
 fn styled(project: &mut scorsese_core::Project, font: FontChoice, weight: Option<u16>) {
     asset_mut(project, "title").style = Some(TextStyle {
