@@ -1,9 +1,10 @@
-//! The media pool: import, status, and collection.
+//! The media pool: import, probing, status, and collection.
 
 #[path = "../common/mod.rs"]
 mod common;
 
 mod gc;
 mod import;
+mod probing;
 mod refusals;
 mod status;

@@ -57,6 +57,21 @@ fn a_changed_file_is_only_noticed_when_hashes_are_checked() {
     );
 }
 
+/// It used to be a fact; it is now something to fix. Features read this
+/// metadata — a source's own length is what bounds a trim — so an asset nobody
+/// has looked at is one those features silently skip, and `scorsese probe` is
+/// the thing to do about it.
+#[test]
+fn an_asset_nobody_has_probed_needs_attention() {
+    let (dir, mut project) = imported("status-unprobed");
+    project.assets[0].media = None;
+
+    let rows = asset_status(&project, &dir, HashCheck::Skip);
+
+    assert_eq!(only(&rows).health, AssetHealth::Unprobed);
+    assert!(only(&rows).health.needs_attention());
+}
+
 #[test]
 fn a_sketch_is_awaiting_generation_not_broken() {
     let (dir, mut project) = new_project("status-sketch");

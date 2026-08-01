@@ -10,5 +10,6 @@ pub mod duck;
 pub mod import;
 pub mod level;
 pub mod new;
+pub mod probe;
 pub mod render;
 pub mod synth;

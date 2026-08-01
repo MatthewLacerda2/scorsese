@@ -55,6 +55,35 @@ fn ducking_writes_keyframes_and_says_how_many() {
     std::fs::remove_dir_all(dir).ok();
 }
 
+/// An agent writing `project.json` directly is the path that creates assets
+/// nothing has probed, so the fix has to be reachable from here. This asserts
+/// the half that needs no manufactured media: a file ffprobe cannot read is
+/// named, and the document is left exactly as it was — a failed probe never
+/// half-fills a `media` block.
+#[test]
+fn probing_names_the_file_it_could_not_read_and_writes_nothing() {
+    let dir = project("probe");
+    std::fs::write(dir.join("assets/shot.mp4"), b"not a video").expect("write the fake media");
+    let with_footage = DOCUMENT.replace(
+        r#"{ "id": "title", "kind": "text", "text": "TEASER" },"#,
+        r#"{ "id": "title", "kind": "text", "text": "TEASER" },
+    { "id": "shot", "kind": "video", "path": "assets/shot.mp4" },"#,
+    );
+    std::fs::write(dir.join("project.json"), &with_footage).expect("write the document");
+
+    let (text, failed) = said(&call("project_probe", json!({ "project": dir })));
+
+    assert!(!failed, "{text}");
+    assert!(text.contains("shot"), "got {text}");
+    assert!(text.contains("could not probe"), "got {text}");
+    assert_eq!(
+        std::fs::read_to_string(dir.join("project.json")).expect("read back"),
+        with_footage,
+        "nothing was probed, so nothing was saved"
+    );
+    std::fs::remove_dir_all(dir).ok();
+}
+
 /// A tool that refuses is a *successful* call whose answer is a refusal —
 /// that is the distinction MCP draws, and it decides whether a client shows
 /// the message or reports a broken connection.

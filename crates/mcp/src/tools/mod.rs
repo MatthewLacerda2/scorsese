@@ -46,6 +46,7 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(inspect::Describe),
         Box::new(inspect::Check),
         Box::new(inspect::Assets),
+        Box::new(edit::Probe),
         Box::new(edit::Write),
         Box::new(edit::Dissolve),
         Box::new(edit::Duck),

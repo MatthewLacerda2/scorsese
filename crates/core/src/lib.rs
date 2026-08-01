@@ -48,8 +48,8 @@ pub use dip::{Dip, Ducked, Span, Under, duck_track};
 pub use keyframe::{Easing, Keyframe, KeyframeTrack, PropertyPath};
 pub use path::{PathProblem, ProjectPath};
 pub use pool::{
-    AssetHealth, AssetStatus, HashCheck, ImportError, asset_id_for, asset_status, hash_bytes,
-    import_asset,
+    AssetHealth, AssetStatus, HashCheck, ImportError, ProbeOutcome, Probed, Reprobe, asset_id_for,
+    asset_status, hash_bytes, import_asset, probe_assets, unprobed_assets,
 };
 pub use probe::{ProbeError, ProbeMedia};
 pub use project::{

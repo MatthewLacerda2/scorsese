@@ -32,27 +32,7 @@ pub fn run(project_dir: &Path, file: &Path, kind: Option<AssetKind>) -> Result<(
         println!("  {path}");
     }
     if let Some(media) = &asset.media {
-        println!("  {}", describe(media));
+        println!("  {}", super::probe::summarise(media));
     }
     Ok(())
-}
-
-fn describe(media: &scorsese_core::MediaMetadata) -> String {
-    let mut parts = Vec::new();
-    if let (Some(width), Some(height)) = (media.width, media.height) {
-        parts.push(format!("{width}x{height}"));
-    }
-    if let Some(rate) = media.frame_rate {
-        parts.push(format!("{rate} fps"));
-    }
-    if let Some(duration) = media.duration_seconds {
-        parts.push(format!("{duration:.2}s"));
-    }
-    if let Some(channels) = media.audio_channels {
-        parts.push(format!("{channels} audio ch"));
-    }
-    if parts.is_empty() {
-        return "no metadata reported".to_owned();
-    }
-    parts.join(", ")
 }

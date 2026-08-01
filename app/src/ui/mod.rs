@@ -25,6 +25,7 @@ use crate::editing::Editing;
 use crate::files::Files;
 use crate::inspector::Inspector;
 use crate::preview::Preview;
+use crate::project::probing::{self, Probing};
 use crate::project::watch::Watch;
 use crate::project::{Open, Refused, open};
 use crate::timeline::Timeline;
@@ -39,6 +40,9 @@ pub struct Scorsese {
     refused: Option<Refused>,
     /// Watches the open document for changes made outside this window.
     watch: Option<Watch>,
+    /// Fills in the metadata of assets nobody has probed, on another thread.
+    /// `None` once it has been collected, or when there was nothing to probe.
+    probing: Option<Probing>,
     /// What the last such change turned out to be.
     disk: Disk,
     /// Where the window is looking: the playhead, and what is selected.
@@ -60,6 +64,7 @@ impl Scorsese {
             opened: None,
             refused: None,
             watch: None,
+            probing: None,
             disk: Disk::default(),
             editing: Editing::default(),
             timeline: Timeline::default(),
@@ -96,9 +101,35 @@ impl Scorsese {
                 self.preview.reset();
                 if let Some(open) = &self.opened {
                     self.files.refresh(open);
+                    // Started here and nowhere else: opening is the one moment
+                    // a whole pool arrives at once, and it is the moment
+                    // nobody is holding a clip.
+                    self.probing = Probing::start(&open.project, &open.root);
                 }
             }
             Err(refused) => self.refused = Some(refused),
+        }
+    }
+
+    /// Records what the background probe found, if it has finished.
+    ///
+    /// The findings are applied to the document the window holds now and saved
+    /// straight away, because the document on disk is the model — metadata the
+    /// window knows and the file does not would be the one divergence this app
+    /// is not allowed to have. A save that fails is not reported: nobody asked
+    /// for this, and a read-only project is not a thing to interrupt someone
+    /// about.
+    fn follow_probe(&mut self) {
+        let Some(found) = self.probing.as_mut().and_then(Probing::finished) else {
+            return;
+        };
+        self.probing = None;
+        let Some(open) = &mut self.opened else {
+            return;
+        };
+        if probing::record(&mut open.project, &found) {
+            let _ = open.project.save(&open.root);
+            self.files.refresh(open);
         }
     }
 
@@ -173,6 +204,7 @@ impl Scorsese {
     /// before this existed.
     pub fn draw(&mut self, ui: &mut Ui) {
         self.follow_disk(ui.ctx());
+        self.follow_probe();
         // Declared outside-in, which is what egui's layout wants: each panel
         // takes its edge and leaves the rest to the next. The centre goes last
         // and gets whatever is left.

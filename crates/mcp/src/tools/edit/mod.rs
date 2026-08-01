@@ -7,11 +7,13 @@
 
 mod dissolve;
 mod duck;
+mod probe;
 mod render;
 mod write;
 
 pub(crate) use dissolve::Dissolve;
 pub(crate) use duck::Duck;
+pub(crate) use probe::Probe;
 pub(crate) use render::Render;
 pub(crate) use write::Write;
 
