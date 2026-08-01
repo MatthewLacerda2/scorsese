@@ -9,7 +9,7 @@ use scorsese_core::{Asset, AssetId, AssetKind, Fps, Project, ProjectPath};
 /// A fresh `*.scor` directory with an empty project in it.
 pub(crate) fn project(label: &str) -> (PathBuf, Project) {
     let dir = scratch(label);
-    let project = Project::create(&dir, label, Fps::THIRTY).expect("create the project");
+    let project = Project::create(&dir, Some(label), Fps::THIRTY).expect("create the project");
     (dir, project)
 }
 

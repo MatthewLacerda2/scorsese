@@ -6,8 +6,8 @@ use anyhow::{Context, Result};
 use scorsese_core::{Fps, Project};
 
 /// Lays out an empty project directory. The name falls back to the directory's
-/// own stem, because `teaser.scor` holding a project called `teaser` is what
-/// anyone omitting the flag meant.
+/// own stem — a default [`Project::create`] owns, so that `scorsese new` and the
+/// MCP `project_new` tool name a project the same way.
 ///
 /// **No stub `script.md`**, and the asymmetry with `recipes/` is the reason.
 /// An empty *directory* is unambiguous: it says "things go here" and claims
@@ -24,19 +24,12 @@ use scorsese_core::{Fps, Project};
 /// at it in one call. Starting a script is one action either way; only one of
 /// the two leaves the document honest in the meantime.
 pub fn run(directory: &Path, name: Option<String>, fps: Fps) -> Result<()> {
-    let name = name.unwrap_or_else(|| {
-        directory
-            .file_stem()
-            .and_then(|stem| stem.to_str())
-            .unwrap_or("untitled")
-            .to_owned()
-    });
-
-    Project::create(directory, &name, fps)
+    let project = Project::create(directory, name.as_deref(), fps)
         .with_context(|| format!("creating a project in {}", directory.display()))?;
 
     println!(
-        "Created project \"{name}\" at {fps} fps in {}",
+        "Created project \"{}\" at {fps} fps in {}",
+        project.name,
         directory.display()
     );
     println!("  project.json, assets/, generated/, recipes/, cache/");

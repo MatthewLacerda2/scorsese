@@ -108,9 +108,15 @@ impl Project {
     /// Creates a `*.scor/` directory: the sub-directories and a
     /// `project.json` for an empty project on the given grid. Refuses to
     /// overwrite one that is already there.
+    ///
+    /// **The name is optional, and the fallback lives here** rather than in
+    /// whichever client asked. `teaser.scor` holding a project called `teaser`
+    /// is what anyone omitting it meant, and every client that starts a project
+    /// — the command line, the MCP server — has to mean the same thing by it,
+    /// or two projects made the same way end up named differently.
     pub fn create(
         project_dir: &Path,
-        name: impl Into<String>,
+        name: Option<&str>,
         timeline_fps: Fps,
     ) -> Result<Self, SaveError> {
         let file = project_dir.join(PROJECT_FILE_NAME);
@@ -123,7 +129,7 @@ impl Project {
             let path = project_dir.join(directory);
             fs::create_dir_all(&path).map_err(|source| SaveError::Io { path, source })?;
         }
-        let project = Self::new(name, timeline_fps);
+        let project = Self::new(name_for(project_dir, name), timeline_fps);
         project.save(project_dir)?;
         Ok(project)
     }
@@ -211,6 +217,29 @@ impl Project {
         let json = self.to_json()?;
         crate::write::atomically(&file, json).map_err(|source| SaveError::Io { path: file, source })
     }
+}
+
+/// What a new project is called: what was asked for, or the directory's own
+/// stem with its `.scor` extension dropped.
+///
+/// `untitled` is the last resort, for a directory with no name of its own to
+/// borrow — `.` and `/` are the ones that reach it. A project with an awkward
+/// name is a field anyone can edit; a refusal here would be creation failing
+/// over something cosmetic.
+fn name_for(project_dir: &Path, asked: Option<&str>) -> String {
+    asked
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map_or_else(
+            || {
+                project_dir
+                    .file_stem()
+                    .and_then(|stem| stem.to_str())
+                    .unwrap_or("untitled")
+                    .to_owned()
+            },
+            str::to_owned,
+        )
 }
 
 /// Reads `schema_version` alone, tolerating everything else in the document.
