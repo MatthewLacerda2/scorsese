@@ -34,19 +34,19 @@
 //! The format itself is documented in `docs/project-format.md`.
 
 pub mod asset;
-pub mod color;
+pub(crate) mod color;
 pub mod dip;
-pub mod keyframe;
+pub(crate) mod keyframe;
 pub mod note;
 pub mod pacing;
-pub mod path;
+pub(crate) mod path;
 pub mod pool;
 pub mod probe;
-pub mod project;
-pub mod text;
-pub mod time;
-pub mod timeline;
-pub mod validate;
+pub(crate) mod project;
+pub(crate) mod text;
+pub(crate) mod time;
+pub(crate) mod timeline;
+pub(crate) mod validate;
 pub mod write;
 
 pub use asset::{Asset, AssetId, AssetKind, GenerationState, MediaMetadata};

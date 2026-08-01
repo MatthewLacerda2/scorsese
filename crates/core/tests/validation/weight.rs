@@ -8,7 +8,7 @@
 //! does for `path`.
 
 use crate::common::{assert_only_problem, asset_id, asset_mut, problems, project};
-use scorsese_core::{AssetProblem as E, text};
+use scorsese_core::AssetProblem as E;
 use scorsese_core::{FontChoice, MAX_WEIGHT, MIN_WEIGHT, ProjectPath, TextStyle};
 
 fn styled(project: &mut scorsese_core::Project, font: FontChoice, weight: Option<u16>) {
@@ -85,6 +85,6 @@ fn saying_nothing_about_weight_is_not_a_document_problem() {
     let mut p = project();
     styled(&mut p, own_font(), None);
     assert_eq!(problems(&p), Vec::new());
-    assert_eq!(text::MIN_WEIGHT, 1, "the OpenType floor");
-    assert_eq!(text::MAX_WEIGHT, 1000, "the OpenType ceiling");
+    assert_eq!(MIN_WEIGHT, 1, "the OpenType floor");
+    assert_eq!(MAX_WEIGHT, 1000, "the OpenType ceiling");
 }

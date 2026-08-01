@@ -8,7 +8,7 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
-pub mod placement;
+pub(crate) mod placement;
 
 use crate::asset::AssetId;
 use crate::keyframe::KeyframeTrack;
@@ -30,7 +30,7 @@ macro_rules! string_id {
     ($ty:ty) => {
         impl $ty {
             /// Wraps a string as an id. Uniqueness is a property of the
-            /// document, so a repeat is [`crate::validate`]'s to find.
+            /// document, so a repeat is [`crate::Project::validate`]'s to find.
             pub fn new(id: impl Into<String>) -> Self {
                 Self(id.into())
             }
