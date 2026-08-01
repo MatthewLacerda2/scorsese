@@ -32,6 +32,7 @@ pub mod asset;
 pub mod color;
 pub mod dip;
 pub mod keyframe;
+pub mod pacing;
 pub mod path;
 pub mod pool;
 pub mod probe;
@@ -46,6 +47,9 @@ pub use asset::{Asset, AssetId, AssetKind, GenerationState, MediaMetadata};
 pub use color::{ColorError, Rgba};
 pub use dip::{Dip, Ducked, Span, Under, duck_track};
 pub use keyframe::{Easing, Keyframe, KeyframeTrack, PropertyPath};
+// The function itself is deliberately left behind the module — see
+// [`pacing`] for why `scorsese_core::scale` would be the wrong name.
+pub use pacing::{PaceError, Paced};
 pub use path::{PathProblem, ProjectPath};
 pub use pool::{
     AssetHealth, AssetStatus, HashCheck, ImportError, ProbeOutcome, Probed, Reprobe, asset_id_for,

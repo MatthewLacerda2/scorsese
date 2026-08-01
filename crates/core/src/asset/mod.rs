@@ -181,6 +181,29 @@ impl Asset {
         self.state.is_some_and(GenerationState::needs_generation)
     }
 
+    /// True when there is media behind this asset with a length of its own —
+    /// so a clip of it has a `duration` that is a **window onto something**,
+    /// rather than a statement about the timeline alone.
+    ///
+    /// A still, a title and a colour have no length. How long one of them is on
+    /// screen is the clip's business and nothing else's, so changing it is free
+    /// and exact: nothing plays faster, a picture is simply up for less time.
+    ///
+    /// A shot or a piece of music does have one, and "make this clip shorter"
+    /// then has two entirely different readings — show less of the source, or
+    /// play the whole of it faster. Anything retiming a cut has to know which
+    /// clips it may not answer that for; [`crate::pacing`] is the first.
+    ///
+    /// A generated asset is judged by whether it exists yet. A sketch is a
+    /// brief and no file, so there is nothing to trim and nothing to speed up;
+    /// once realised it is media like any other.
+    pub fn has_intrinsic_duration(&self) -> bool {
+        match self.kind {
+            AssetKind::Image | AssetKind::Text | AssetKind::Color => false,
+            _ => self.state.is_none_or(GenerationState::has_media),
+        }
+    }
+
     /// True when this asset has something to render right now.
     ///
     /// A sketch or stale asset does not: it renders as a slug card instead,
