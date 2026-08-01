@@ -30,8 +30,8 @@
 use std::path::{Path, PathBuf};
 
 use scorsese_compositor::card::{self, Card};
-use scorsese_compositor::text::{Band, Style};
-use scorsese_compositor::{Font, Frame, Resolution};
+use scorsese_compositor::text::{Band, Font, Style};
+use scorsese_compositor::{Frame, Resolution};
 use scorsese_core::{Asset, AssetKind, GenerationState, Rgba, TextAlign};
 
 use crate::error::RenderError;
