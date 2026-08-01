@@ -1,6 +1,6 @@
 //! How a rate is written down, and which ones are refused.
 
-use scorsese_core::{Project, Speed, ValidationError};
+use scorsese_core::{Project, Speed, TimelineProblem, ValidationError};
 
 use crate::common;
 
@@ -55,7 +55,7 @@ fn a_rate_nothing_could_play_at_is_refused_by_name() {
         let errors = project.validate().expect_err("it does not validate");
         assert!(
             errors.as_slice().iter().any(
-                |error| matches!(error, ValidationError::UnusableSpeed { clip, .. }
+                |error| matches!(error, ValidationError::Timeline(TimelineProblem::UnusableSpeed { clip, .. })
                     if clip.as_str() == "c1")
             ),
             "speed {rate} should be refused, and gave {errors:?}"
@@ -73,10 +73,10 @@ fn a_rate_that_is_not_a_number_is_refused_too() {
         project.tracks[0].clips[0].speed = Speed::new(rate);
         let errors = project.validate().expect_err("it does not validate");
         assert!(
-            errors
-                .as_slice()
-                .iter()
-                .any(|error| matches!(error, ValidationError::UnusableSpeed { .. })),
+            errors.as_slice().iter().any(|error| matches!(
+                error,
+                ValidationError::Timeline(TimelineProblem::UnusableSpeed { .. })
+            )),
             "speed {rate} should be refused, and gave {errors:?}"
         );
     }
