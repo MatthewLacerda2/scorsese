@@ -50,7 +50,7 @@ Every tool takes `project`: the path of the `*.scor` directory to work on.
 | `synth_bake` | render the recipes not already baked | nothing |
 | `audio_level` | how a finished sound file came out, and how it differs from another | ffmpeg |
 | `still` | **look at** one frame, returned as a picture | ffmpeg, and seconds |
-| `render` | encode the timeline to a file | ffmpeg, and real time |
+| `render` | encode the timeline, or a `range` of it, to a file | ffmpeg, and real time |
 
 **The edit is the document.** `project_read` and `project_write` are the pair
 that makes everything else possible: the whole cut is one JSON file, so any
@@ -179,6 +179,21 @@ The default raster is 1280x720 rather than a delivery size, because layout is a
 fraction of the frame — the same picture with a fraction of the wire cost. Pass
 `resolution` for delivery size. Pass `out` to keep the PNG on disk as well;
 without it, nothing is left behind.
+
+## Rendering part of the timeline
+
+`render` takes `range`, the same `start:end` frame syntax as `scorsese render
+--range`: `30:120` covers frames 30 up to but not including 120, `30:` runs to
+the end, `:120` from the start. Without it the whole timeline is rendered, and
+that is still the right call for a delivery.
+
+```
+render  { "project": "trilhas.scor", "out": "cue-3.mp4", "range": "450:750" }
+```
+
+It is there because checking one ten-second cue in a sixty-second cut should
+cost ten seconds of encoding rather than sixty. The parser is the CLI's own, so
+a range either client refuses is refused by both, with the same words.
 
 ## Making sound
 
