@@ -44,21 +44,22 @@ use std::sync::OnceLock;
 use harfrust::{Shaper, ShaperData, ShaperInstance};
 use skrifa::instance::{Location, LocationRef, Size};
 use skrifa::outline::{DrawSettings, OutlineGlyphCollection, OutlinePen};
-use skrifa::{FontRef, GlyphId, MetadataProvider, Tag};
+use skrifa::{FontRef, GlyphId, MetadataProvider};
 
 use super::shape::{self, Shaped};
 
-/// The variation axis that means "how heavy", as OpenType spells it.
-const WEIGHT_AXIS: Tag = Tag::new(b"wght");
+mod weight;
+
+use weight::locate;
 
 /// Liberation Sans, regular weight. One weight of each face rather than a
 /// family: bold and italic are a real feature with a real vocabulary
 /// (`weight`, `slant`), and shipping four files against a `style` nothing can
 /// select would be a megabyte pretending to be a choice.
-const SANS: &[u8] = include_bytes!("../../fonts/LiberationSans-Regular.ttf");
+const SANS: &[u8] = include_bytes!("../../../fonts/LiberationSans-Regular.ttf");
 
 /// Liberation Serif, regular weight, under the same rule.
-const SERIF: &[u8] = include_bytes!("../../fonts/LiberationSerif-Regular.ttf");
+const SERIF: &[u8] = include_bytes!("../../../fonts/LiberationSerif-Regular.ttf");
 
 /// A face, checked and ready to draw with.
 ///
@@ -163,37 +164,6 @@ impl Font {
     /// here would mean a corrupt binary rather than a bad project.
     fn shipped(bytes: &[u8]) -> Self {
         Self::from_bytes(bytes, None).expect("a font compiled into this binary parses")
-    }
-}
-
-/// Turns a weight into a position in the file's variation space, refusing
-/// every pairing of file and weight that cannot mean one thing.
-///
-/// A file with no `wght` axis is static as far as this is concerned — a face
-/// varying only on `opsz` or `wdth` has one weight like any static one, and
-/// naming a weight for it is the same mistake.
-fn locate(font: &FontRef<'_>, weight: Option<u16>) -> Result<Location, FontError> {
-    let axes = font.axes();
-    let axis = axes.get_by_tag(WEIGHT_AXIS);
-    match (axis, weight) {
-        (None, None) => Ok(Location::default()),
-        (None, Some(weight)) => Err(FontError::StaticWithWeight { weight }),
-        (Some(axis), None) => Err(FontError::VariableWithoutWeight {
-            min: axis.min_value(),
-            default: axis.default_value(),
-            max: axis.max_value(),
-        }),
-        (Some(axis), Some(weight)) => {
-            let asked = f32::from(weight);
-            if asked < axis.min_value() || asked > axis.max_value() {
-                return Err(FontError::WeightOffAxis {
-                    weight,
-                    min: axis.min_value(),
-                    max: axis.max_value(),
-                });
-            }
-            Ok(axes.location([(WEIGHT_AXIS, asked)]))
-        }
     }
 }
 
