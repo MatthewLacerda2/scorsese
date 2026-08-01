@@ -36,7 +36,7 @@ use media::{Finding, Severity};
 /// Both kinds are printed even when there are problems: an agent repairing a
 /// project unattended should see the whole list, not discover it one
 /// round-trip at a time.
-pub fn run(project_dir: &Path, verify: bool) -> Result<()> {
+pub(crate) fn run(project_dir: &Path, verify: bool) -> Result<()> {
     let file = project_dir.join(PROJECT_FILE_NAME);
     let json = std::fs::read_to_string(&file)
         .with_context(|| format!("opening the project in {}", project_dir.display()))?;

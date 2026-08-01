@@ -17,7 +17,7 @@ use scorsese_providers::synth::Starter;
 /// The things `synth` does. Baking is the default, so the common case needs
 /// no verb at all.
 #[derive(Debug, Subcommand)]
-pub enum SynthAction {
+pub(crate) enum SynthAction {
     /// Write a starter recipe into `recipes/` and add the asset that points
     /// at it. The starter makes a sound as written, so the first bake is
     /// something to listen to rather than silence.
@@ -51,7 +51,7 @@ pub enum SynthAction {
 
 /// Which starter `synth new` writes.
 #[derive(Debug, Clone, Copy, ValueEnum)]
-pub enum StarterArg {
+pub(crate) enum StarterArg {
     /// One instrument, one note: the shape an effect takes.
     Patch,
     /// Four bars of one instrument: the shape a score takes.
@@ -69,7 +69,7 @@ impl From<StarterArg> for Starter {
 
 /// The things `assets` does beyond reporting what is in the pool.
 #[derive(Debug, Subcommand)]
-pub enum AssetsAction {
+pub(crate) enum AssetsAction {
     /// Report assets no clip references, and optionally delete them.
     Gc {
         /// Actually remove them. Without this, nothing is deleted.
@@ -81,7 +81,7 @@ pub enum AssetsAction {
 /// The kinds a file can be imported as. The prompt-backed kinds are absent on
 /// purpose: they are authored, not imported.
 #[derive(Debug, Clone, Copy, ValueEnum)]
-pub enum KindArg {
+pub(crate) enum KindArg {
     /// Moving pictures, and whatever audio the file carries alongside them.
     Video,
     /// A still, which holds the screen for as long as its clip is on it.

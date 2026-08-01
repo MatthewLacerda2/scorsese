@@ -11,7 +11,7 @@ use scorsese_render::{Placed, dissolve};
 /// The incoming clip is pulled back over the outgoing one and moved to a track
 /// above, because two clips on one track may not overlap and a crossover needs
 /// them to. What that rearranges is printed rather than left to be discovered.
-pub fn run(project_dir: &Path, from: &str, to: &str, seconds: f64) -> Result<()> {
+pub(crate) fn run(project_dir: &Path, from: &str, to: &str, seconds: f64) -> Result<()> {
     let mut project = Project::load(project_dir)
         .with_context(|| format!("opening the project in {}", project_dir.display()))?;
 

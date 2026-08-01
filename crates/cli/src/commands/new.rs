@@ -23,7 +23,7 @@ use scorsese_core::{Fps, Project};
 /// the MCP `script_write` tool, which creates the file and points the document
 /// at it in one call. Starting a script is one action either way; only one of
 /// the two leaves the document honest in the meantime.
-pub fn run(directory: &Path, name: Option<String>, fps: Fps) -> Result<()> {
+pub(crate) fn run(directory: &Path, name: Option<String>, fps: Fps) -> Result<()> {
     let project = Project::create(directory, name.as_deref(), fps)
         .with_context(|| format!("creating a project in {}", directory.display()))?;
 

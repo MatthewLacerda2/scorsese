@@ -13,7 +13,7 @@ use scorsese_render::Ffprobe;
 /// left alone, so this costs one pass over the assets table on a pool that is
 /// up to date. `--all` is the way to say the recorded metadata is wrong and
 /// every file should be read again.
-pub fn run(project_dir: &Path, all: bool) -> Result<()> {
+pub(crate) fn run(project_dir: &Path, all: bool) -> Result<()> {
     let mut project = open(project_dir)?;
     let probe = Ffprobe::discover().context("ffprobe is needed to probe media")?;
     let reprobe = if all { Reprobe::All } else { Reprobe::Skip };

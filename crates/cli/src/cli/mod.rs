@@ -8,9 +8,9 @@
 
 use std::path::PathBuf;
 
-pub mod args;
+mod args;
 
-pub use args::{AssetsAction, KindArg, StarterArg, SynthAction};
+pub(crate) use args::{AssetsAction, KindArg, SynthAction};
 
 use clap::{Parser, Subcommand};
 use scorsese_core::Fps;
@@ -30,20 +30,20 @@ use scorsese_render::{
 pub struct Cli {
     /// The verb, and everything that only that verb takes.
     #[command(subcommand)]
-    pub command: Command,
+    pub(crate) command: Command,
 
     /// The project directory to work in. Defaults to the current directory.
     /// Global, so it can follow any subcommand: `scorsese assets gc
     /// --project teaser.scor`.
     #[arg(long, global = true)]
-    pub project: Option<PathBuf>,
+    pub(crate) project: Option<PathBuf>,
 }
 
 impl Cli {
     /// `--project` if it was given, the current directory otherwise — which is
     /// what makes `cd teaser.scor && scorsese check` the short form of
     /// everything here.
-    pub fn project_dir(&self) -> PathBuf {
+    pub(crate) fn project_dir(&self) -> PathBuf {
         self.project.clone().unwrap_or_else(|| PathBuf::from("."))
     }
 }
@@ -52,7 +52,7 @@ impl Cli {
 /// `commands` module of the same name, which is the whole of the CLI's own
 /// logic — the rest lives in the library crates.
 #[derive(Debug, Subcommand)]
-pub enum Command {
+pub(crate) enum Command {
     /// Create a new project directory.
     New {
         /// Where to create it, e.g. `teaser.scor`.

@@ -11,7 +11,7 @@ use scorsese_render::{Commentary, Description, FrameRange, Note, Plan, unknown_i
 /// The cheapest review there is: no ffmpeg, no encode, no money. It reads the
 /// document, sequences it exactly as a render would, and says what would come
 /// out — which makes it as useful before a render as after one.
-pub fn run(project_dir: &Path, fps: Option<Fps>, range: Option<FrameRange>) -> Result<()> {
+pub(crate) fn run(project_dir: &Path, fps: Option<Fps>, range: Option<FrameRange>) -> Result<()> {
     let project = Project::load(project_dir)
         .with_context(|| format!("opening the project in {}", project_dir.display()))?;
     let fps = fps.unwrap_or(project.timeline_fps);

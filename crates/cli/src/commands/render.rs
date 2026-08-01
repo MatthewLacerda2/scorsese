@@ -13,36 +13,36 @@ use scorsese_render::{
 /// Everything the command line can say about the file to produce. Gathered into
 /// one type rather than passed as seven positional arguments, where two
 /// `Option<Bitrate>` next to each other are a bug waiting to be written.
-pub struct Options {
+pub(crate) struct Options {
     /// The canvas every layer is composited onto, and so the size of the file.
-    pub resolution: Resolution,
+    pub(crate) resolution: Resolution,
     /// `None` means the project's own timeline rate — the one output rate that
     /// conforms nothing.
-    pub fps: Option<Fps>,
+    pub(crate) fps: Option<Fps>,
     /// `None` leaves the video encoder aiming for constant quality instead.
-    pub bitrate: Option<Bitrate>,
+    pub(crate) bitrate: Option<Bitrate>,
     /// The rate the mix is produced at; sources recorded at others meet it.
-    pub sample_rate: SampleRate,
+    pub(crate) sample_rate: SampleRate,
     /// `None` leaves the audio encoder on its own default.
-    pub audio_bitrate: Option<Bitrate>,
+    pub(crate) audio_bitrate: Option<Bitrate>,
     /// `None` renders the whole timeline.
-    pub range: Option<FrameRange>,
+    pub(crate) range: Option<FrameRange>,
     /// `None` takes the container `out`'s extension asks for.
-    pub container: Option<Container>,
+    pub(crate) container: Option<Container>,
     /// `None` takes the picture codec the container is written with.
-    pub video_codec: Option<VideoCodec>,
+    pub(crate) video_codec: Option<VideoCodec>,
     /// `None` takes the sound codec the container is written with.
-    pub audio_codec: Option<AudioCodec>,
+    pub(crate) audio_codec: Option<AudioCodec>,
     /// Where to write PNG stills of the finished file. `None` writes none.
-    pub stills: Option<PathBuf>,
+    pub(crate) stills: Option<PathBuf>,
     /// Which instants to still. Empty means every segment boundary, which is
     /// where a cut can be one frame wrong.
-    pub at: Vec<Cue>,
+    pub(crate) at: Vec<Cue>,
 }
 
 /// Renders the project to `out`, then prints what was written — for a headless
 /// render those lines are the only report anyone gets.
-pub fn run(project_dir: &Path, out: &Path, options: Options) -> Result<()> {
+pub(crate) fn run(project_dir: &Path, out: &Path, options: Options) -> Result<()> {
     // First, before the project is even opened: what shape the file is asked
     // to be is the cheapest thing to get wrong and the most expensive thing to
     // find out late. A combination we do not write is refused here, with

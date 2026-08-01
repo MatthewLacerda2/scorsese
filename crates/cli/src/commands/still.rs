@@ -22,7 +22,12 @@ use scorsese_render::{Cue, RenderSettings, Renderer, Resolution, Tools, frames};
 /// once — the same bargain `render --stills` makes, for the same reason: an
 /// agent that asks about a boundary and about the time that boundary falls at
 /// has asked one question.
-pub fn run(project_dir: &Path, out: &Path, at: &[Cue], resolution: Resolution) -> Result<()> {
+pub(crate) fn run(
+    project_dir: &Path,
+    out: &Path,
+    at: &[Cue],
+    resolution: Resolution,
+) -> Result<()> {
     let project = Project::load(project_dir)
         .with_context(|| format!("opening the project in {}", project_dir.display()))?;
     // The project's own grid, always. Nothing is being encoded, so there is no

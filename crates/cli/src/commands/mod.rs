@@ -2,15 +2,15 @@
 //! library, and prints. Logic that the MCP server would also want lives in
 //! `scorsese-core` or `scorsese-render`, never here.
 
-pub mod assets;
-pub mod check;
-pub mod describe;
-pub mod dissolve;
-pub mod duck;
-pub mod import;
-pub mod level;
-pub mod new;
-pub mod probe;
-pub mod render;
-pub mod still;
-pub mod synth;
+pub(crate) mod assets;
+pub(crate) mod check;
+pub(crate) mod describe;
+pub(crate) mod dissolve;
+pub(crate) mod duck;
+pub(crate) mod import;
+pub(crate) mod level;
+pub(crate) mod new;
+pub(crate) mod probe;
+pub(crate) mod render;
+pub(crate) mod still;
+pub(crate) mod synth;
