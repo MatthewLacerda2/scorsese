@@ -10,9 +10,9 @@
 //! `crates/compositor/Cargo.toml`.
 //!
 //! **Text is a layer like any other.** What this module produces is pixels on a
-//! frame; that frame then goes through the same [`crate::compose`] path as a
-//! decoded video frame, with the same `opacity`, `transform.position.*` and
-//! `transform.scale.*` resolved from the same keyframe tracks. A title that
+//! frame; that frame then goes through the same [`Compositor`](crate::Compositor)
+//! path as a decoded video frame, with the same `opacity`, `transform.position.*`
+//! and `transform.scale.*` resolved from the same keyframe tracks. A title that
 //! fades and slides costs nothing here — it is the existing properties acting
 //! on a layer that happens to have letters in it, which is why text needs no
 //! animatable properties of its own.
@@ -64,7 +64,7 @@ impl Band {
     /// The rows of `resolution` this band covers — what fills the panel of a
     /// card behind the text. Rounded outwards and clamped, so a band never
     /// leaves an unpainted row between itself and the edge it reaches.
-    pub fn rows(self, resolution: Resolution) -> Range<u32> {
+    pub(crate) fn rows(self, resolution: Resolution) -> Range<u32> {
         let height = f64::from(resolution.height());
         let first = f64::from(self.top).clamp(0.0, height) as u32;
         let last = (f64::from(self.top) + f64::from(self.height)).clamp(0.0, height);

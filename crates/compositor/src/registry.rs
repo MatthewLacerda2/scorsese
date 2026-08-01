@@ -39,14 +39,13 @@ impl Registry {
         self.sets.iter().copied().flatten()
     }
 
-    /// The property this path names, if anything animates it.
-    pub fn get(&self, path: &PropertyPath) -> Option<&'static Property> {
+    pub(crate) fn get(&self, path: &PropertyPath) -> Option<&'static Property> {
         self.properties()
             .find(|property| property.path == path.as_str())
     }
 
-    /// [`Registry::get`] for callers that only want the yes or no — which is
-    /// every caller deciding whether to warn.
+    /// Whether anything animates this path — the yes or no that is all a
+    /// caller deciding whether to warn ever needs.
     pub fn knows(&self, path: &PropertyPath) -> bool {
         self.get(path).is_some()
     }

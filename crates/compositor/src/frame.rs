@@ -30,8 +30,12 @@ pub struct Resolution {
 }
 
 impl Resolution {
-    /// 1920×1080 — the default when nobody says otherwise.
-    pub const HD: Self = Self {
+    #[expect(
+        dead_code,
+        reason = "1920x1080 named once for whoever needs a default in code; the \
+                  CLI and MCP server currently spell theirs as text instead"
+    )]
+    pub(crate) const HD: Self = Self {
         width: 1920,
         height: 1080,
     };
@@ -76,14 +80,18 @@ impl Resolution {
         self.height
     }
 
-    /// How many pixels one frame holds.
-    pub const fn pixels(self) -> usize {
+    pub(crate) const fn pixels(self) -> usize {
         self.width as usize * self.height as usize
     }
 
     /// Width over height — derived, never stored, so it cannot disagree with
     /// the dimensions it describes.
-    pub fn aspect(self) -> f64 {
+    #[expect(
+        dead_code,
+        reason = "the one derivation of a raster nothing asks for yet; kept \
+                  beside the dimensions so it can never be stored separately"
+    )]
+    pub(crate) fn aspect(self) -> f64 {
         f64::from(self.width) / f64::from(self.height)
     }
 }
@@ -180,7 +188,7 @@ impl Frame {
     /// Resets the frame to opaque black — what a gap in the timeline looks
     /// like, what a clip whose source ran out falls back to, and what a canvas
     /// starts as before anything is composited onto it.
-    pub fn fill_black(&mut self) {
+    pub(crate) fn fill_black(&mut self) {
         self.fill(Rgba::BLACK);
     }
 
@@ -202,7 +210,7 @@ impl Frame {
     /// rectangle would be a clipping model this crate does not otherwise have.
     /// A range reaching past the last row is cut back to it rather than
     /// refused; a band is a fraction of a raster somebody rounded.
-    pub fn fill_rows(&mut self, rows: std::ops::Range<u32>, color: Rgba) {
+    pub(crate) fn fill_rows(&mut self, rows: std::ops::Range<u32>, color: Rgba) {
         let height = self.resolution.height();
         let stride = self.resolution.width() as usize * BYTES_PER_PIXEL;
         let first = rows.start.min(height) as usize * stride;
@@ -216,7 +224,7 @@ impl Frame {
     /// Resets the frame to nothing at all — transparent everywhere.
     ///
     /// What a layer contributes when it has nothing to show. Distinct from
-    /// [`Frame::fill_black`] and the distinction matters: an upper layer that
+    /// resetting to black, and the distinction matters: an upper layer that
     /// went opaque black would paint over the tracks below it, where a
     /// transparent one lets them through. Over a black canvas the two look
     /// identical, which is why the difference only shows up once there are
@@ -231,7 +239,7 @@ impl Frame {
     /// bytes* for an opaque pixel — so an opaque frame can go straight to a
     /// rasteriser that wants premultiplied, with no conversion at all. Decoded
     /// video is always opaque, which is the common case.
-    pub fn is_opaque(&self) -> bool {
+    pub(crate) fn is_opaque(&self) -> bool {
         self.pixels
             .chunks_exact(BYTES_PER_PIXEL)
             .all(|pixel| pixel[3] == u8::MAX)

@@ -14,15 +14,15 @@
 //! **This crate is where property paths acquire meaning.** `scorsese-core` knows
 //! only that a keyframe track animates *some* numeric property — the mechanism
 //! there is deliberately ignorant of which. That `opacity` and
-//! `transform.scale.x` mean anything is decided in [`properties`], next to the
-//! code that implements them, which is the generality rule holding in practice:
-//! a new animatable property costs a change here and nothing to the format, the
+//! `transform.scale.x` mean anything is decided here, next to the code that
+//! implements them, which is the generality rule holding in practice: a new
+//! animatable property costs a change here and nothing to the format, the
 //! model, or the renderer.
 //!
-//! That is also why the *list* of them lives here: [`properties::ANIMATED`]
-//! publishes what this compositor resolves, so something else can warn about a
-//! keyframe track naming a property nobody animates. [`registry`] is the
-//! machinery for asking; the answer is never an error.
+//! That is also why the *list* of them lives here: [`ANIMATED`] publishes what
+//! this compositor resolves, so something else can warn about a keyframe track
+//! naming a property nobody animates. [`Registry`] is the machinery for asking;
+//! the answer is never an error.
 //!
 //! [`Frame`] and [`Resolution`] live here too, because a frame buffer is this
 //! crate's currency; `scorsese-render` re-exports them.
@@ -42,21 +42,39 @@
 //! model and nothing above it. The shipped faces are compiled in with
 //! `include_bytes!` rather than read at runtime, which is what keeps that
 //! true; a project's own font arrives as bytes somebody else opened.
+//!
+//! ## What this publishes
+//!
+//! At the crate root, the compositing vocabulary: the [`Compositor`] trait and
+//! the [`CpuCompositor`] behind it, the [`Layer`] they take and the [`Frame`],
+//! [`Resolution`] and [`PIXEL_FORMAT`] a picture is carried in, the
+//! [`Properties`] one instant of a clip resolves to, the [`ANIMATED`] list with
+//! the [`Registry`] that searches it, the two fades ([`fade_in`], [`fade_out`])
+//! and a [`Font`] to set words in.
+//!
+//! [`text`], [`card`] and [`mod@dissolve`] keep their module path as well,
+//! because what they publish are *verbs* — `draw`, `draw_in`, `draw_line`,
+//! `dissolve` — and a verb that general needs the noun in front of it to read.
+//! `text::draw` and `card::draw` could not both sit at the root in any case.
+//!
+//! Everything else is `pub(crate)`. How a face is read, how a line is broken,
+//! how glyphs are shaped and filled, how one layer is blended onto another are
+//! this crate's own business: `scorsese-render`, its only dependent, asks it
+//! for a picture and never for the steps that made one.
 
 pub mod card;
-pub mod compose;
-pub mod cpu;
+mod compose;
+mod cpu;
 pub mod dissolve;
-pub mod frame;
-pub mod properties;
-pub mod registry;
+mod frame;
+mod properties;
+mod registry;
 pub mod text;
 
-pub use card::Card;
 pub use compose::{CompositeError, Compositor, Layer};
 pub use cpu::CpuCompositor;
 pub use dissolve::{DissolveError, Placed, dissolve};
 pub use frame::{BYTES_PER_PIXEL, Frame, PIXEL_FORMAT, Resolution, ResolutionError};
 pub use properties::{ANIMATED, Properties, fade_in, fade_out, path};
 pub use registry::{Property, Registry};
-pub use text::{Band, Font, FontError};
+pub use text::Font;
