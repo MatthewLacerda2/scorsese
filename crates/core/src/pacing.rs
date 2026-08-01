@@ -31,7 +31,7 @@
 //!
 //! ## Rounding, and the property it buys
 //!
-//! Every position goes through [`mapped`] and is rounded there and nowhere
+//! Every position goes through one function and is rounded there and nowhere
 //! else, so a clip's end and the next clip's start are rounded from the *same*
 //! expression. That is what makes a gapless run stay gapless: with position and
 //! duration both scaling by `k`, clip A's new end is exactly clip B's new
@@ -197,7 +197,7 @@ fn stretching(project: &Project, clips: &BTreeSet<ClipId>) -> BTreeSet<ClipId> {
 fn mapped(t: Frames, about: Frames, factor: f64) -> Option<Frames> {
     let pivot = about.get() as f64;
     let moved = (pivot + (t.get() as f64 - pivot) * factor).round();
-    (moved >= 0.0).then(|| Frames(moved as u64))
+    (moved >= 0.0).then_some(Frames(moved as u64))
 }
 
 #[cfg(test)]
@@ -217,7 +217,7 @@ mod tests {
     fn a_position_moves_away_from_the_pivot_and_back_toward_it() {
         assert_eq!(mapped(Frames(500), Frames(300), 2.0), Some(Frames(700)));
         assert_eq!(mapped(Frames(100), Frames(300), 0.5), Some(Frames(200)));
-        assert_eq!(mapped(Frames(100), Frames(300), 2.0), Some(Frames::ZERO));
+        assert_eq!(mapped(Frames::ZERO, Frames(300), 1.0), Some(Frames::ZERO));
     }
 
     /// There is no time before frame zero, and holding a clip there while its

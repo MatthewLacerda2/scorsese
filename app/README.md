@@ -138,4 +138,18 @@ Scrubbing and stepping are silent on purpose. A frame step is a thirtieth of a
 second — a click, not a note — and scrubbing audio needs a scheme of its own
 rather than whatever fell out of playback.
 
+**Scaling the pacing is the one gesture a mouse cannot find**, so it is written
+down here. Select some clips, stand the playhead where the edit should be
+pinned, press **S**, and move the pointer: the clips slide toward or away from
+the playhead as you go, 240 pixels right doubling the spacing and the same
+travel left halving it. A click or **Enter** keeps it and **Esc** puts it all
+back. The timeline reads out the factor while you are in it, because pointer
+travel has no other way to say where it has got to.
+
+Durations scale with the positions where that is free — a title, a still, a
+colour, a brief nobody has generated. A clip with a real file behind it moves
+and keeps its length, because shortening that would mean either showing less of
+the source or playing it faster, and those are two different edits. The readout
+says how many clips it left alone.
+
 The furniture arrives issue by issue — the inspector next. See #13.
