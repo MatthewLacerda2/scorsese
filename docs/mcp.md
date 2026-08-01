@@ -39,6 +39,7 @@ for `project_new` alone, the one to create.
 | `project_describe` | what is on screen when, and what is audible under it | nothing |
 | `project_check` | every problem with the document and its media, at once | nothing |
 | `project_assets` | the media pool and the state of everything in it | nothing |
+| `import` | copy media in from anywhere on disk — a file, or a folder's worth | ffprobe |
 | `project_probe` | measure the assets nobody has probed, and record it | ffprobe |
 | `script_read` | the document this edit is being cut from | nothing |
 | `script_write` | replace it, starting one if there is none | nothing |
@@ -86,6 +87,46 @@ and every feature that needs the source's own length — the ceiling on a right
 trim among them — has no choice but to skip it. This asks ffprobe about each
 such asset and writes down what it says. Safe to call after every edit: one
 already probed is left alone unless `all` is set.
+
+## Getting media into the project
+
+`import` is how media that is not already in the project gets in, and it is the
+only way over the protocol: writing an asset into `project.json` names a path
+the project already has to contain.
+
+```
+import  { "project": "teaser.scor", "path": "~/Desktop/footage" }
+```
+
+The file is **copied** into `assets/` and the document records the relative
+path it landed at. The path in the call is used once to find the media and is
+never written down — which is the whole reason a project survives `scp -r`.
+`kind` overrides what the extension says, exactly as on the command line.
+
+**`path` may be a directory, and a directory imports its contents, never
+itself.** A folder has no duration, no pixels and no samples, so no clip could
+ever point at one; assets are the things a clip references and the compositor
+draws or hears, and the assets table is that list rather than a file browser.
+
+What a folder import does is fixed so that it can be relied on:
+
+- the media **directly inside it**, one asset each, and **no recursion** —
+  walking a tree invents structure nobody asked for;
+- **sorted by file name**, so the same folder imports to the same ids in the
+  same order every time;
+- files that are not media — a font, a licence, a `.DS_Store` — are **skipped
+  and named in the reply**, because silently ignoring those and silently
+  ignoring a mistyped video look identical from the outside;
+- an id an asset already answers to is **refused, changing nothing at all**.
+  Everything that can reject a file is found before the first byte is copied,
+  so a refusal leaves the project exactly as it was rather than half a folder
+  in `assets/`.
+  Media whose bytes are already in the pool is *not* a collision: it comes back
+  as the asset that holds them, so an import loop stays safe to re-run.
+
+The reply names what came in, what each was measured to be, and what was
+passed over — so nothing needs a `project_probe` after it.
+
 ## Why the edit was made this way
 
 A project carries its own reasoning, and an assistant is the thing best placed

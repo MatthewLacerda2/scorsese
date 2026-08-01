@@ -1,12 +1,13 @@
-//! Tools that change something: write the document, dissolve a cut, duck
-//! the music, scale a run of clips, render.
+//! Tools that change something: bring media in, write the document, dissolve
+//! a cut, duck the music, scale a run of clips, render.
 //!
 //! One file per tool. They were one file until the dissolve arrived and put
-//! it over the size gate, which is the gate doing its job: four tools that
-//! happen to all be verbs are four concerns, not one.
+//! it over the size gate, which is the gate doing its job: tools that happen
+//! to all be verbs are that many concerns, not one.
 
 mod dissolve;
 mod duck;
+mod import;
 mod pace;
 mod probe;
 mod render;
@@ -14,6 +15,7 @@ mod write;
 
 pub(crate) use dissolve::Dissolve;
 pub(crate) use duck::Duck;
+pub(crate) use import::Import;
 pub(crate) use pace::ScalePacing;
 pub(crate) use probe::Probe;
 pub(crate) use render::Render;

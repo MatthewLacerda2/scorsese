@@ -4,6 +4,7 @@
 //! survive `scp -r`. So the assertions here are about two files: the one the
 //! project now owns, and the one outside it that must be exactly as it was.
 
+mod folders;
 mod kinds;
 
 use std::path::{Path, PathBuf};
