@@ -394,19 +394,57 @@ trilha — baked, 3702 KB
      0:00-0:08 intro   mean  -19.1   peak   -8.2   crest  10.9   low  42%  mid  51%  high   7%
      0:08-0:24 verse   mean  -13.8   peak   -3.1   crest  10.7   low  38%  mid  49%  high  13%
      0:24-0:40 chorus  mean  -13.9   peak   -2.9   crest  11.0   low  61%  mid  33%  high   6%
+     sub     mean  -18.9   peak   -6.1   crest  12.8   low  96%  mid   4%  high   0%
+     pad     mean  -21.4   peak  -11.0   crest  10.4   low  71%  mid  28%  high   1%
+     arp     mean  -25.2   peak  -12.7   crest  12.5   low   6%  mid  88%  high   6%
+     hat     mean  -33.7   peak  -14.2   crest  19.5   low   3%  mid  22%  high  75%
 ```
 
-The rows are the **arrangement's own sections** when there is an arrangement,
-which is what lets a finding be "the second chorus is the quiet one" rather
-than "seconds 24 to 32 are quiet". A one-shot, an imported file and a rendered
-mixdown have no arrangement, so those are cut on a fixed interval instead. A
-piece with only one stretch gets no rows at all — one row under a one-line
-summary is the same sentence twice.
+The rows with a clock on them are the **arrangement's own sections** when there
+is an arrangement, which is what lets a finding be "the second chorus is the
+quiet one" rather than "seconds 24 to 32 are quiet". A one-shot, an imported
+file and a rendered mixdown have no arrangement, so those are cut on a fixed
+interval instead. A piece with only one stretch gets no rows at all — one row
+under a one-line summary is the same sentence twice.
 
 *crest* is peak minus mean: the cheapest proxy there is for "does this have
 dynamics, or is it a wall". The three band shares are a coarse split at 250 Hz
 and 4 kHz, enough to say **muddy**, **thin** or **balanced** — not a spectrum
 analyser, and deliberately not one.
+
+### Which layer is taking up the room
+
+The rows with a **name** on them are the song's tracks: the same figures again,
+split by instrument instead of by time. That is the half a summary cannot
+answer. "87% of the energy is below 250 Hz" is a correct diagnosis of a
+five-instrument mix and an address nobody can act on — the only available
+response is to change four instruments at once and re-bake, and if it works,
+nobody learns which change did it. A row per track turns that guess into a
+measurement: above, the sub is the low end and the pad is most of what is left
+of it, so those are the two faders worth touching.
+
+- **Post-gain.** A row is what that track contributes *at its fader*, which is
+  what it takes up in the mix — not what it would sound like soloed. The song's
+  own effects, the master limiter and the fades are not in these numbers;
+  they belong to the sum, and a row that included them would answer a question
+  about the piece under the name of a track.
+- **One line per track for the whole piece**, never per section. Five
+  instruments over four sections is twenty rows in a report usually read as
+  "fine, carry on", and the per-section detail is already on the sum above.
+- **Measured over the length of the piece**, so a hat that plays in one section
+  does not read as louder than the pad it sits over.
+- **A track that never played says `silent`**, which is a finding rather than a
+  gap: an instrument written into the tracks and left out of every pattern is a
+  mistake worth seeing.
+- **Only for a song of more than one track.** A one-shot is one gesture played
+  by one voice, and a single track's row would repeat the summary above it —
+  the same rule the section rows follow.
+
+There is nothing to switch on: the rows are always printed, in
+`scorsese synth bake` and over MCP in `synth_bake`. `scorsese level` and
+`audio_level` do not have them, and cannot — they measure a finished file,
+which has no tracks in it any more, and re-rendering the piece to find them
+would cost what measuring it while it was made costs nothing.
 
 `scorsese level <file>` says the same about any finished file, and
 `--against <other>` compares the two field by field:

@@ -43,6 +43,57 @@ fn a_bake_reports_its_own_level_and_where_its_energy_sits() {
     run.says("high");
 }
 
+/// A song of two instruments, one deep and one bright, written over the
+/// starter recipe.
+fn duet(dir: &Path) {
+    let voice = |name: &str, wave: &str| {
+        format!(
+            r#"{{ "name": "{name}", "gain": 1.0, "patch": {{
+                 "source": {{ "kind": "osc_stack", "oscs": [{{ "wave": "{wave}" }}] }},
+                 "amp": {{ "a": 0.01, "d": 0.1, "s": 0.7, "r": 0.2 }} }} }}"#
+        )
+    };
+    let recipe = format!(
+        r#"{{ "recipe": "song", "bpm": 120, "tracks": [{}, {}],
+              "patterns": {{ "a": {{ "beats": 2, "notes": [
+                {{ "track": "sub", "note": "E1", "start": 0, "dur": 2 }},
+                {{ "track": "bell", "note": "E5", "start": 0, "dur": 2 }}] }} }},
+              "arrangement": ["a"] }}"#,
+        voice("sub", "sine"),
+        voice("bell", "triangle")
+    );
+    std::fs::write(dir.join("recipes/theme.json"), recipe).expect("write the recipe");
+}
+
+/// The half a summary cannot answer: the mix is bottom-heavy, and *this* is
+/// the instrument that made it so. Printed every time, because a report that
+/// has to be asked for is one an unattended agent never sees.
+#[test]
+fn a_bake_says_which_track_is_taking_up_the_room() {
+    let dir = new_project("level-tracks");
+    run_in(&dir, &["synth", "new", "theme", "--kind", "song"]).ok();
+    duet(&dir);
+    let run = run_in(&dir, &["synth", "bake"]).ok();
+    run.says("sub ");
+    run.says("bell");
+    // The share of each track's energy below 250 Hz, off its own row.
+    let low = |row: &str| -> u32 {
+        run.output
+            .lines()
+            .find(|line| line.trim_start().starts_with(row))
+            .and_then(|line| line.split("low").nth(1))
+            .and_then(|rest| rest.split('%').next())
+            .and_then(|share| share.trim().parse().ok())
+            .unwrap_or_else(|| panic!("no low share on the {row} row:\n{}", run.output))
+    };
+    assert!(
+        low("sub") > 90,
+        "a 41 Hz sine is the bass, not {}",
+        low("sub")
+    );
+    assert!(low("bell") < 10, "and the bell is not, at {}", low("bell"));
+}
+
 /// And any finished file can be asked afterwards, which is what makes this
 /// work on a delivered render as readily as on a bake.
 #[test]

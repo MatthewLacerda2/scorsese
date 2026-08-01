@@ -87,6 +87,42 @@ fn editing_a_recipe_is_enough_to_make_the_next_bake_redo_it() {
     std::fs::remove_dir_all(dir).ok();
 }
 
+/// The reply carries the mix broken up by instrument, not only by time. A
+/// client that cannot hear can be told a mix is bottom-heavy and can do
+/// nothing about it until it is told which layer is the bottom.
+#[test]
+fn a_bake_reply_says_which_track_owns_the_energy() {
+    let dir = project("compose-tracks");
+    ok(
+        "synth_new",
+        json!({ "project": dir, "name": "theme", "kind": "song" }),
+    );
+    let voice = |name: &str, wave: &str| {
+        json!({ "name": name, "gain": 1.0, "patch": {
+            "source": { "kind": "osc_stack", "oscs": [{ "wave": wave }] },
+            "amp": { "a": 0.01, "d": 0.1, "s": 0.7, "r": 0.2 } } })
+    };
+    let duet = json!({
+        "recipe": "song", "bpm": 120,
+        "tracks": [voice("sub", "sine"), voice("bell", "triangle")],
+        "patterns": { "a": { "beats": 2, "notes": [
+            { "track": "sub", "note": "E1", "start": 0, "dur": 2 },
+            { "track": "bell", "note": "E5", "start": 0, "dur": 2 }] } },
+        "arrangement": ["a"]
+    });
+    ok(
+        "synth_write",
+        json!({ "project": dir, "recipe": "recipes/theme.json",
+                "document": duet.to_string() }),
+    );
+
+    let baked = ok("synth_bake", json!({ "project": dir }));
+    for row in ["\n  sub ", "\n  bell "] {
+        assert!(baked.contains(row), "no `{row}` row in: {baked}");
+    }
+    std::fs::remove_dir_all(dir).ok();
+}
+
 #[test]
 fn checking_a_recipe_says_what_it_is_without_rendering_it() {
     let dir = project("compose-check");
