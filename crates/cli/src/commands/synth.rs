@@ -75,13 +75,18 @@ fn report(baked: &[(AssetId, Baked)]) {
             Baked::Rendered {
                 path,
                 bytes,
-                loudness,
+                profile,
             } => {
                 println!("{id} — baked, {} KB", bytes / 1024);
                 println!("  {path}");
                 // A recipe's level is a property of the recipe, so saying it
-                // here is saying it before the sound is ever mixed.
-                println!("  {}", say::loudness(loudness));
+                // here is saying it before the sound is ever mixed. The rows
+                // under it are the arrangement's own sections, so a quiet
+                // second chorus is named rather than looked up.
+                println!("  {}", say::summary(profile));
+                for row in say::sections(profile) {
+                    println!("    {row}");
+                }
             }
             Baked::Cached { path } => {
                 println!("{id} — already baked");

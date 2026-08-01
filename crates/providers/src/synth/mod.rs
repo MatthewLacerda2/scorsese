@@ -30,7 +30,7 @@ use std::path::{Path, PathBuf};
 use scorsese_core::{
     Asset, AssetId, GENERATED_DIR, GenerationState, MediaMetadata, Project, ProjectPath, hash_bytes,
 };
-use scorsese_soundgen::level::Loudness;
+use scorsese_soundgen::level::Profile;
 use scorsese_soundgen::{Bake, Patch, SAMPLE_RATE, bake_note, bake_song, wav};
 
 pub use create::{check, create};
@@ -47,13 +47,14 @@ pub enum Baked {
         path: ProjectPath,
         /// How big it is, for a report that says something happened.
         bytes: usize,
-        /// How loud it came out.
+        /// How it came out: the whole file, and each section of the
+        /// arrangement that made it.
         ///
         /// Only on this variant, and that is the honest shape rather than a
-        /// gap: a cached bake was not measured on this run, and reporting a
-        /// number nobody just computed would be inventing one. Rebaking to
-        /// learn it would undo the whole point of the cache.
-        loudness: Loudness,
+        /// gap: a cached bake was not measured on this run, and reporting
+        /// numbers nobody just computed would be inventing them. Rebaking to
+        /// learn them would undo the whole point of the cache.
+        profile: Profile,
     },
     /// The file for this exact recipe was already there.
     Cached {
@@ -126,7 +127,7 @@ pub fn bake_asset(
         Baked::Rendered {
             bytes: bake.wav.len(),
             path: output,
-            loudness: bake.loudness,
+            profile: bake.profile,
         }
     };
     record(project, id, &baked, project_root);

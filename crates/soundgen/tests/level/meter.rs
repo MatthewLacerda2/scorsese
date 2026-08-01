@@ -1,16 +1,8 @@
-//! Measuring how loud a signal is.
-//!
-//! Every assertion here is against a **signal whose level is known by
-//! construction** — a full-scale square, a half-scale one, a silence — because
-//! a meter that is merely self-consistent would agree with itself while being
-//! wrong, and the whole value of this is that the number can be trusted against
-//! a number from somewhere else.
+//! Measuring how loud a signal is: peak, true peak, and mean.
 
 use scorsese_soundgen::level::Meter;
 
-/// Decibels of slack. The measurement is exact arithmetic, so this is
-/// tolerance for the assertions' own rounding rather than for the meter.
-const SLACK: f64 = 0.05;
+use super::SLACK;
 
 fn measured(samples: &[f32], channels: usize) -> scorsese_soundgen::level::Loudness {
     let mut meter = Meter::new(channels);

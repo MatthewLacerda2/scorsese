@@ -18,6 +18,10 @@ pub enum Stage {
     /// Writing composited frames into the deliverable — the one stage whose
     /// subject is the output file rather than something the author imported.
     Encode,
+    /// Reading a finished file back to say how it came out. Its own stage
+    /// because nothing is being produced: a failure here costs a report rather
+    /// than a render.
+    Measure,
 }
 
 impl fmt::Display for Stage {
@@ -26,6 +30,7 @@ impl fmt::Display for Stage {
             Self::Decode => "decoding",
             Self::Mix => "mixing",
             Self::Encode => "encoding",
+            Self::Measure => "measuring",
         })
     }
 }

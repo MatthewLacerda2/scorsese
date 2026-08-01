@@ -19,6 +19,7 @@
 
 pub mod gain;
 pub mod level;
+pub mod measure;
 pub mod mix;
 
 use std::fs::File;
@@ -37,8 +38,11 @@ use crate::tools::Tools;
 
 pub use gain::{Gain, path};
 pub use level::{Levels, SoundLevels};
+pub use measure::measure;
 pub use mix::{CHANNELS, Mix, Ramp};
-pub use scorsese_soundgen::level::{Loudness, Meter};
+pub use scorsese_soundgen::level::{
+    BandMeter, Bands, BandsDifference, Cut, Difference, Loudness, Meter, Profile, Profiler, Span,
+};
 
 /// A finished mix on disk, and the file's own undertaker.
 ///
@@ -89,7 +93,7 @@ pub fn mixdown(
     })?;
     let mut writer = BufWriter::new(file);
     let mut notes = Vec::new();
-    let mut levels = Levels::default();
+    let mut levels = Levels::new(settings.sample_rate.hz());
 
     for segment in plan.audio() {
         let mix = mix_segment(

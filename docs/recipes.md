@@ -341,6 +341,56 @@ know what the finished video will be delivered at.
 Mono is a settled decision rather than a stage on the way to stereo, so there
 is no panning and no width: a recipe places a sound in *time*, never in space.
 
+## How a bake came out
+
+A bake says how it turned out, and so does a render — mean and peak for the
+whole thing, then the same again for each stretch of it, plus the share of its
+energy that is low, mid and high:
+
+```
+trilha — baked, 3702 KB
+  generated/9f3c….wav
+  43.0 s  mean -14.4 dBFS, peak -2.9 dBFS, low  47%  mid  45%  high   8%
+     0:00-0:08 intro   mean  -19.1   peak   -8.2   crest  10.9   low  42%  mid  51%  high   7%
+     0:08-0:24 verse   mean  -13.8   peak   -3.1   crest  10.7   low  38%  mid  49%  high  13%
+     0:24-0:40 chorus  mean  -13.9   peak   -2.9   crest  11.0   low  61%  mid  33%  high   6%
+```
+
+The rows are the **arrangement's own sections** when there is an arrangement,
+which is what lets a finding be "the second chorus is the quiet one" rather
+than "seconds 24 to 32 are quiet". A one-shot, an imported file and a rendered
+mixdown have no arrangement, so those are cut on a fixed interval instead. A
+piece with only one stretch gets no rows at all — one row under a one-line
+summary is the same sentence twice.
+
+*crest* is peak minus mean: the cheapest proxy there is for "does this have
+dynamics, or is it a wall". The three band shares are a coarse split at 250 Hz
+and 4 kHz, enough to say **muddy**, **thin** or **balanced** — not a spectrum
+analyser, and deliberately not one.
+
+`scorsese level <file>` says the same about any finished file, and
+`--against <other>` compares the two field by field:
+
+```
+trilha.wav  vs  trilha.prev.wav
+  mean     -14.4 dB     ( -4.6 dB quieter )
+  peak      -2.9 dB     ( -0.2 dB quieter )
+  crest     11.5 dB     ( +1.2 dB more dynamic )
+  bands   low  47% ( +9 pts )   mid  45% ( -3 pts )   high   8% ( -6 pts )
+```
+
+That is the form with the most teeth. An absolute number is hard to judge — is
+−14 dBFS good? it depends entirely — and a difference is not. Over MCP the same
+two answers come back from `audio_level`.
+
+**All of it is a signal and none of it is a gate.** There is no correct
+loudness: a sting is meant to be hot, a bed under narration is meant to be far
+down, and a threshold that refused a bake would be a taste enforced as a build
+failure. Nor is it a critic. Measurement finds defects — too quiet, clipping,
+muddy, a section flat where the arrangement said climax. It does not find
+taste, and a metric treated as an ear produces music that optimises the number
+and gets worse.
+
 ## What is refused
 
 Only what would produce silence, a divide-by-zero, an unstable filter or an

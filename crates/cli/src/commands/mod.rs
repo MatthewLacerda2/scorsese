@@ -8,6 +8,7 @@ pub mod describe;
 pub mod dissolve;
 pub mod duck;
 pub mod import;
+pub mod level;
 pub mod new;
 pub mod render;
 pub mod synth;

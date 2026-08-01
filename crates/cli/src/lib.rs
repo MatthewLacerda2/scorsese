@@ -98,6 +98,7 @@ fn dispatch(cli: Cli) -> Result<()> {
                 under,
             },
         ),
+        Command::Level { file, against } => commands::level::run(&file, against.as_deref()),
         Command::Assets {
             action: None,
             verify,

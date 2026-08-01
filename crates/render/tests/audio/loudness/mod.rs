@@ -1,7 +1,9 @@
 //! What a render says about how loud it came out.
 //!
-//! Split in two by what the number is *for*: [`mix`] is the delivered
-//! soundtrack's own level, and [`clips`] is which clip put it there.
+//! Split by what the number is *for*: [`mix`] is the delivered soundtrack's own
+//! level, [`clips`] is which clip put it there, and [`measuring`] is reading a
+//! finished file back — the third case, where the thing being measured was made
+//! earlier or by something else, and where two of them can be compared.
 //!
 //! A **signal**, so nothing here asserts that a render was refused — the point
 //! is the opposite: every one of these renders succeeds, and what is under test
@@ -13,6 +15,7 @@
 //! level.
 
 mod clips;
+mod measuring;
 mod mix;
 
 /// Decibels of slack between what the meter says and what the amplitude was.

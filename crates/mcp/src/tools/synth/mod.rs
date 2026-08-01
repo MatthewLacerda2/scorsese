@@ -138,15 +138,22 @@ impl Tool for Bake {
                 Baked::Rendered {
                     path,
                     bytes,
-                    loudness,
+                    profile,
                 } => {
                     // An assistant that just rewrote a score should be able to
-                    // read the level back without asking a human to listen.
-                    format!(
+                    // read back how it came out without asking a human to
+                    // listen — and the whole table, not one number, because the
+                    // question it is usually answering is *where* in the piece
+                    // the change landed.
+                    let mut said = format!(
                         "{id} — baked, {} KB, {path}, {}",
                         bytes / 1024,
-                        scorsese_render::say::loudness(loudness)
-                    )
+                        scorsese_render::say::summary(profile)
+                    );
+                    for row in scorsese_render::say::sections(profile) {
+                        said.push_str(&format!("\n  {row}"));
+                    }
+                    said
                 }
                 Baked::Cached { path } => format!("{id} — already baked, {path}"),
             })

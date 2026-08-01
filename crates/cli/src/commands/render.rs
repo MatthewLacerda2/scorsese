@@ -91,7 +91,12 @@ pub fn run(project_dir: &Path, out: &Path, options: Options) -> Result<()> {
     // It is a signal and never a gate — there is no correct loudness — so
     // nothing here can make the command fail.
     if let Some(levels) = &report.levels {
-        println!("  mix    {}", say::loudness(&levels.mix));
+        println!("  mix    {}", say::loudness(&levels.mix.whole.loudness));
+        // Then the same statistics over time, because a soundtrack that sags
+        // in its third minute reports one unremarkable average otherwise.
+        for row in say::sections(&levels.mix) {
+            println!("    {row}");
+        }
         for (clip, level) in &levels.clips {
             println!("    {clip:<20} {}", say::loudness(level));
         }

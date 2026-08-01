@@ -8,4 +8,5 @@ mod common;
 
 mod authoring;
 mod baking;
+mod measuring;
 mod metadata;
