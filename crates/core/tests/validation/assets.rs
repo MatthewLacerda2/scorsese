@@ -1,6 +1,6 @@
 //! Assets-table coherence: identity, hashes, and what each kind must carry.
 
-use crate::common::{assert_only_problem, asset_id, asset_mut, problems, project};
+use crate::common::{assert_only_problem, asset_id, asset_mut, project, reports};
 use scorsese_core::{AssetField as F, AssetKind, AssetProblem as E, GenerationState};
 
 #[test]
@@ -64,27 +64,13 @@ fn a_prompt_asset_needs_a_prompt_and_a_state() {
     shot.prompt = None;
     shot.state = None;
     let kind = AssetKind::GeneratedVideo;
-    let found = problems(&p);
-    assert!(
-        found.contains(
-            &E::MissingField {
-                asset: asset_id("shot-city"),
-                field: F::Prompt,
-                kind
-            }
-            .into()
-        )
-    );
-    assert!(
-        found.contains(
-            &E::MissingField {
-                asset: asset_id("shot-city"),
-                field: F::State,
-                kind
-            }
-            .into()
-        )
-    );
+    let missing = |field| E::MissingField {
+        asset: asset_id("shot-city"),
+        field,
+        kind,
+    };
+    assert!(reports(&p, missing(F::Prompt)));
+    assert!(reports(&p, missing(F::State)));
 }
 
 #[test]
@@ -118,25 +104,11 @@ fn a_plain_asset_carries_no_prompt_or_state() {
     logo.prompt = Some("a logo, but nicer".to_owned());
     logo.state = Some(GenerationState::Sketch);
     let kind = AssetKind::Image;
-    let found = problems(&p);
-    assert!(
-        found.contains(
-            &E::StrayField {
-                asset: asset_id("logo"),
-                field: F::Prompt,
-                kind
-            }
-            .into()
-        )
-    );
-    assert!(
-        found.contains(
-            &E::StrayField {
-                asset: asset_id("logo"),
-                field: F::State,
-                kind
-            }
-            .into()
-        )
-    );
+    let stray = |field| E::StrayField {
+        asset: asset_id("logo"),
+        field,
+        kind,
+    };
+    assert!(reports(&p, stray(F::Prompt)));
+    assert!(reports(&p, stray(F::State)));
 }
