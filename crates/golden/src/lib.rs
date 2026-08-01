@@ -15,7 +15,7 @@
 //! 1. A directory under `fixtures/` holds a real `project.json`, a
 //!    `fixture.json` saying how to conjure its media and how to render it, and
 //!    an `expected/` directory of reference PNGs.
-//! 2. [`harness::run`] generates the media with ffmpeg's synthetic sources into
+//! 2. [`run()`] generates the media with ffmpeg's synthetic sources into
 //!    a scratch project directory, renders it, and pulls out the frames the
 //!    fixture nominates — with `scorsese_render::frames`, which is a shipped
 //!    capability this crate calls rather than one it owns.
@@ -31,7 +31,7 @@
 //! absorb a different one — so each fixture records the ffmpeg its references
 //! were blessed under, and a failure says which one produced the frames it is
 //! complaining about. It is provenance for a failure to quote, never a check
-//! of its own: [`harness::decoder`].
+//! of its own: [`Decoder`].
 //!
 //! Re-blessing is a deliberate act: `UPDATE_GOLDENS=1 cargo test -p
 //! scorsese-golden` rewrites the references, and because they are PNGs the
@@ -42,12 +42,13 @@
 //! no product behaviour may be implemented here — a capability that turns out
 //! to be generally useful belongs in `scorsese-render` and gets used from here.
 
-pub mod compare;
-pub mod fixture;
-pub mod harness;
+mod compare;
+mod fixture;
+mod harness;
 
-pub use compare::{Difference, Tolerance, compare};
-pub use fixture::{Fixture, FixtureError, Manifest, Recipe};
+pub use compare::{Difference, SizeMismatch, Tolerance, compare};
+pub use fixture::{Fixture, FixtureError, Manifest, Recipe, RenderSpec};
 pub use harness::{
-    Decoder, GoldenError, Mismatch, Mismatches, Mode, Outcome, UPDATE_VARIABLE, assert_matches, run,
+    Decoder, GoldenError, Mismatch, Mismatches, Mode, Outcome, RECORD_FILE, SetupError,
+    UPDATE_VARIABLE, assert_matches, run,
 };

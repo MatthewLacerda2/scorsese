@@ -7,8 +7,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use scorsese_golden::harness::decoder::RECORD_FILE;
-use scorsese_golden::{Fixture, GoldenError, Mode, run};
+use scorsese_golden::{Fixture, GoldenError, Mode, RECORD_FILE, run};
 use scorsese_render::frames;
 use scorsese_render::{Frame, Resolution, Tools};
 

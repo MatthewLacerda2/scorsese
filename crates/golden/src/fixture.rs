@@ -18,14 +18,19 @@ use scorsese_render::{FrameRange, RenderSettings, Resolution};
 
 use crate::compare::Tolerance;
 
-/// The manifest's file name, beside the `project.json` it describes.
-pub const MANIFEST_FILE: &str = "fixture.json";
+const MANIFEST_FILE: &str = "fixture.json";
 
 /// Where a fixture keeps its reference PNGs — the directory a reviewer looks
 /// at when a re-blessing shows up in a diff.
-pub const EXPECTED_DIR: &str = "expected";
+const EXPECTED_DIR: &str = "expected";
 
 /// The manifest beside a fixture's `project.json`.
+///
+/// Published rather than kept inside the crate because it *is* the
+/// `fixture.json` schema — what a fixture author writes, and what
+/// `docs/golden-renders.md` describes. `description` also has to stay reachable
+/// on its own account: nothing reads it, and serde demanding it is the entire
+/// point, so a fixture cannot exist without saying what it is for.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Manifest {
@@ -83,21 +88,19 @@ pub struct RenderSpec {
 pub struct Fixture {
     /// The fixture directory's own name, which is how it is listed in
     /// `tests/goldens.rs` and how it is named when it fails.
-    pub name: String,
+    pub(crate) name: String,
     /// The committed fixture directory. Read from, never rendered into — the
     /// render happens in a scratch copy so the repository stays clean.
-    pub directory: PathBuf,
-    /// The `fixture.json` beside the project, already parsed.
-    pub manifest: Manifest,
+    pub(crate) directory: PathBuf,
+    pub(crate) manifest: Manifest,
     /// The fixture's `project.json`, parsed here to catch a broken document
     /// before ffmpeg is asked to do anything about it.
-    pub project: Project,
-    /// [`Manifest::render`] with its resolution and fps parsed.
-    pub settings: RenderSettings,
-    /// Which frames get rendered at all; [`FrameRange::ALL`] unless the fixture
-    /// is testing a partial render. [`Manifest::frames`] index this output, not
+    pub(crate) project: Project,
+    pub(crate) settings: RenderSettings,
+    /// Which frames get rendered at all; `FrameRange::ALL` unless the fixture
+    /// is testing a partial render. `Manifest::frames` index this output, not
     /// the timeline.
-    pub range: FrameRange,
+    pub(crate) range: FrameRange,
 }
 
 impl Fixture {
@@ -176,8 +179,7 @@ impl Fixture {
         self.expected().join(format!("frame-{frame:04}.png"))
     }
 
-    /// The assets needing a file generated for them, paired with their recipe.
-    pub fn media(&self) -> Vec<(&Asset, &Recipe)> {
+    pub(crate) fn media(&self) -> Vec<(&Asset, &Recipe)> {
         self.project
             .assets
             .iter()

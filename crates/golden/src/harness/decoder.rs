@@ -5,7 +5,7 @@
 //! *end* of a render. ffmpeg is also the **decoder** at the start of one: every
 //! pixel the compositor works on arrived from it, and two builds far enough
 //! apart need not hand over the same ones. The tolerances in
-//! [`compare`](mod@crate::compare) were sized for encoder noise and say so; they
+//! [`Tolerance`](crate::Tolerance) were sized for encoder noise and say so; they
 //! were never sized to absorb a different decoder.
 //!
 //! So a reference records the ffmpeg it was blessed under, and a failure can
@@ -34,8 +34,7 @@ use std::path::{Path, PathBuf};
 /// other way has to earn it by measurement.
 pub const RECORD_FILE: &str = "decoder.txt";
 
-/// Where a fixture's record sits, given its `expected/` directory.
-pub fn record_in(expected: &Path) -> PathBuf {
+fn record_in(expected: &Path) -> PathBuf {
     expected.join(RECORD_FILE)
 }
 
@@ -43,21 +42,16 @@ pub fn record_in(expected: &Path) -> PathBuf {
 /// held to.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Decoder {
-    /// The ffmpeg that just ran, as it names itself.
-    pub running: String,
-    /// The ffmpeg recorded as producing exactly these references. `None` when
-    /// a fixture carries no record — reported as unknown rather than assumed
-    /// to match, because a guess here is worth less than nothing.
-    pub recorded: Option<String>,
+    pub(crate) running: String,
+    /// `None` when a fixture carries no record — reported as unknown rather
+    /// than assumed to match, because a guess here is worth less than nothing.
+    pub(crate) recorded: Option<String>,
 }
 
 impl Decoder {
-    /// Reads the record beside a fixture's references, pairing it with the
-    /// ffmpeg in hand.
-    ///
     /// An unreadable record is the same answer as a missing one: this is
     /// provenance, and no part of the gate should fail over it.
-    pub fn read(expected: &Path, running: String) -> Self {
+    pub(crate) fn read(expected: &Path, running: String) -> Self {
         let recorded = std::fs::read_to_string(record_in(expected))
             .ok()
             .map(|text| text.trim().to_owned())
@@ -67,19 +61,9 @@ impl Decoder {
 
     /// Records the running ffmpeg as what blessed these references. Called
     /// when they are rewritten, so the record cannot go stale behind them.
-    pub fn write(&self, expected: &Path) -> std::io::Result<()> {
+    pub(crate) fn write(&self, expected: &Path) -> std::io::Result<()> {
         std::fs::create_dir_all(expected)?;
         std::fs::write(record_in(expected), format!("{}\n", self.running))
-    }
-
-    /// Whether the frames just compared came from a different ffmpeg than the
-    /// ones they were compared against. Unknown provenance is not a
-    /// difference — it is the absence of an answer, and [`fmt::Display`] says
-    /// so in those words.
-    pub fn differs(&self) -> bool {
-        self.recorded
-            .as_ref()
-            .is_some_and(|recorded| recorded != &self.running)
     }
 }
 
