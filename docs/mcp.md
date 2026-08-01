@@ -28,10 +28,12 @@ claude mcp add scorsese -- /path/to/scorsese-mcp
 
 ## The tools
 
-Every tool takes `project`: the path of the `*.scor` directory to work on.
+Every tool takes `project`: the path of the `*.scor` directory to work on — or,
+for `project_new` alone, the one to create.
 
 | Tool | What it does | Costs |
 | --- | --- | --- |
+| `project_new` | lay out a new `*.scor` directory to edit in | nothing |
 | `project_read` | the `project.json` exactly as it is on disk | nothing |
 | `project_write` | replace it, **validated first** | nothing |
 | `project_describe` | what is on screen when, and what is audible under it | nothing |
@@ -51,6 +53,21 @@ Every tool takes `project`: the path of the `*.scor` directory to work on.
 | `audio_level` | how a finished sound file came out, and how it differs from another | ffmpeg |
 | `still` | **look at** one frame, returned as a picture | ffmpeg, and seconds |
 | `render` | encode the timeline, or a `range` of it, to a file | ffmpeg, and real time |
+
+**A project is a directory, and `project_new` is what makes one.**
+`project.json` plus `assets/`, `generated/`, `recipes/` and `cache/` — the same
+thing `scorsese new` lays out, so an assistant pointed at a machine with no
+project on it can start rather than ask for a terminal. The name defaults to the
+directory's own and the grid to 30 fps, which makes the usual call one argument.
+
+```
+project_new  { "project": "teaser.scor" }
+             → "Created project \"teaser\" at 30 fps in teaser.scor"
+```
+
+It refuses a directory that already holds anything, and writes nothing at all
+when it refuses: half a project laid over what was already there is worse than
+an error, and there is no way afterwards to tell which half is whose.
 
 **The edit is the document.** `project_read` and `project_write` are the pair
 that makes everything else possible: the whole cut is one JSON file, so any
