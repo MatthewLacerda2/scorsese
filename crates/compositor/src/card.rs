@@ -1,7 +1,7 @@
 //! Cards: a panel of colour with a block of text set in it.
 //!
 //! This is what a slug card is made of, and it is deliberately almost nothing:
-//! [`Frame::fill_rows`] and then [`text::draw_in`], into the same [`Band`], in
+//! filling the rows of a band and then [`text::draw_in`] into the same one, in
 //! that order. There is no card *path* through the compositor — what comes out
 //! is an ordinary layer, composited, transformed and faded by exactly the code
 //! a decoded video frame goes through.
