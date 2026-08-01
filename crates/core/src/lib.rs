@@ -50,9 +50,7 @@
 //! [`mod@dip`] is auto-ducking; [`mod@probe`] is the seam an ffprobe lives
 //! behind, so this crate can reason about media without spawning anything;
 //! and [`mod@write`] is the one way a file leaves here. [`note`] keeps its own
-//! as well — the paragraph above sends the reader to it — and [`mod@asset`]
-//! is open for `scorsese-render`, which spells `asset::MediaMetadata` where
-//! everything else spells [`MediaMetadata`].
+//! as well — the paragraph above sends the reader to it.
 //!
 //! **Everything else is `pub(crate)`.** How the document is parsed and saved,
 //! how the frame grid does its arithmetic, how a font choice and a colour are
@@ -60,7 +58,7 @@
 //! — those are the steps this crate is made of, and nothing above it composes
 //! them differently.
 
-pub mod asset;
+pub(crate) mod asset;
 pub(crate) mod color;
 pub mod dip;
 pub(crate) mod keyframe;

@@ -21,7 +21,7 @@
 //! rhythm. So durations scale too, but **only for the clips whose duration is a
 //! statement about the timeline and nothing else**: a still, a title, a colour,
 //! a brief nobody has generated yet. See
-//! [`Asset::has_intrinsic_duration`](crate::asset::Asset::has_intrinsic_duration).
+//! [`Asset::has_intrinsic_duration`](crate::Asset::has_intrinsic_duration).
 //!
 //! For a clip backed by recorded media the same instruction has two entirely
 //! different readings — show less of the source, or play the whole of it faster
