@@ -103,7 +103,11 @@ impl Tool for Bake {
         "Render every synth_audio recipe whose sound is not already on disk, \
          into generated/. Safe to call repeatedly and free every time: a recipe \
          that has not changed is a cache hit that renders nothing, and one that \
-         has changed is redone without anyone having to mark it stale."
+         has changed is redone without anyone having to mark it stale. Says how \
+         each one came out: level and spectral balance for the whole file, then \
+         a row per section of the arrangement, then a row per track of a song \
+         saying which instrument is taking up the room. A signal, never a gate \
+         — nothing about a level can fail a bake."
     }
 
     fn schema(&self) -> Value {
@@ -149,6 +153,7 @@ impl Tool for Bake {
                     path,
                     bytes,
                     profile,
+                    tracks,
                 } => {
                     // An assistant that just rewrote a score should be able to
                     // read back how it came out without asking a human to
@@ -161,6 +166,13 @@ impl Tool for Bake {
                         scorsese_render::say::summary(profile)
                     );
                     for row in scorsese_render::say::sections(profile) {
+                        said.push_str(&format!("\n  {row}"));
+                    }
+                    // And *which layer* the energy is in, which is the other
+                    // half of the same question: a client that cannot hear can
+                    // be told a mix is muddy, and can do nothing with that
+                    // until it is told which of five instruments is the mud.
+                    for row in scorsese_render::say::layers(tracks) {
                         said.push_str(&format!("\n  {row}"));
                     }
                     said

@@ -31,7 +31,7 @@ use std::path::{Path, PathBuf};
 use scorsese_core::{
     Asset, AssetId, GENERATED_DIR, GenerationState, MediaMetadata, Project, ProjectPath, hash_bytes,
 };
-use scorsese_soundgen::level::Profile;
+use scorsese_soundgen::level::{Layer, Profile};
 use scorsese_soundgen::{Bake, Patch, SAMPLE_RATE, bake_note, bake_song, wav};
 
 pub use create::{check, create};
@@ -57,6 +57,12 @@ pub enum Baked {
         /// numbers nobody just computed would be inventing them. Rebaking to
         /// learn them would undo the whole point of the cache.
         profile: Profile,
+        /// How each track came out on its own, post-gain — which layer of the
+        /// mix is taking up the room, rather than only how much room there is.
+        ///
+        /// Empty for a one-shot and for a song of a single track, where the row
+        /// would repeat the summary above it.
+        tracks: Vec<Layer>,
     },
     /// The file for this exact recipe was already there.
     Cached {
@@ -130,6 +136,7 @@ pub fn bake_asset(
             bytes: bake.wav.len(),
             path: output,
             profile: bake.profile,
+            tracks: bake.tracks,
         }
     };
     record(project, id, &baked, project_root);

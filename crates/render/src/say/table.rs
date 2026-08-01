@@ -68,11 +68,21 @@ fn row(span: &Span, label_width: Option<usize>) -> String {
             width = width
         ));
     }
+    said.push_str(&columns(span));
+    said
+}
+
+/// The measured columns of a row, without whatever names it.
+///
+/// Shared with the per-track table beside this one, because the whole claim
+/// both tables make is that their numbers can be read against each other and
+/// against the summary above them. Two formatters would eventually disagree
+/// about a width and turn that reading into a puzzle.
+pub(super) fn columns(span: &Span) -> String {
     let (Some(mean), Some(peak)) = (span.loudness.mean_dbfs, span.loudness.peak_dbfs) else {
-        said.push_str("silent");
-        return said;
+        return "silent".to_owned();
     };
-    said.push_str(&format!("mean {mean:>6.1}   peak {peak:>6.1}"));
+    let mut said = format!("mean {mean:>6.1}   peak {peak:>6.1}");
     // Crest is peak minus mean, so it is free once both are in hand and it is
     // the cheapest proxy there is for "does this have dynamics or is it a wall".
     if let Some(crest) = span.crest_db() {
