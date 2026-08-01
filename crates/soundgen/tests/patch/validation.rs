@@ -21,6 +21,7 @@ fn every_source_kind_is_playable() {
         Source::Fm2 {
             ratio: 2.0,
             index: 3.0,
+            vel_index: 0.0,
             mod_decay: 0.3,
         },
     ] {
@@ -69,6 +70,7 @@ fn a_zero_cutoff_is_not_a_filter() {
         cutoff: 0.0,
         resonance: 0.0,
         env_amount: 0.0,
+        vel_cutoff: 0.0,
         adsr: Adsr::default(),
     });
     assert_eq!(patch.validate(), Err(SynthError::BadCutoff { cutoff: 0.0 }));
@@ -94,6 +96,7 @@ fn an_fm_modulator_needs_somewhere_to_sit() {
         minimal(Source::Fm2 {
             ratio: 0.0,
             index: 1.0,
+            vel_index: 0.0,
             mod_decay: 0.3,
         })
         .validate(),
@@ -111,6 +114,7 @@ fn a_refusal_names_the_value_that_caused_it() {
         cutoff: -40.0,
         resonance: 0.0,
         env_amount: 0.0,
+        vel_cutoff: 0.0,
         adsr: Adsr::default(),
     });
     let message = patch.validate().expect_err("refused").to_string();

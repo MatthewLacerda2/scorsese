@@ -69,7 +69,7 @@ source ─► filter ─► amp envelope ─► fx
 | `osc_stack` | `oscs`: up to 4 of `{ wave, detune_cents, gain, octave }` | leads, basses, pads |
 | `karplus` | `damping` 0..1, `brightness` 0..1 | plucked strings, marimbas |
 | `noise` | — | gunshots, impacts, footsteps, wind |
-| `fm2` | `ratio`, `index`, `mod_decay` | bells, electric pianos, metal |
+| `fm2` | `ratio`, `index`, `vel_index`, `mod_decay` | bells, electric pianos, metal |
 
 `wave` is `sine`, `triangle`, `saw` or `square`. Integer `ratio` on `fm2` stays
 tonal; a fractional one goes metallic.
@@ -78,10 +78,10 @@ tonal; a fractional one goes metallic.
 decay and release are seconds; sustain is a level in `0..=1`. **Required.**
 
 **`filter`** *(optional)* — `kind` is `lowpass` or `highpass`, plus `cutoff` in
-Hz, `resonance` 0..1, `env_amount` in Hz, and its own `adsr`. `env_amount` is
-what makes a patch expressive rather than static: it opens the cutoff on the
-attack and closes it as the note decays. A pluck is a lowpass with a big
-positive `env_amount` and a fast filter decay.
+Hz, `resonance` 0..1, `env_amount` in Hz, `vel_cutoff` in Hz, and its own
+`adsr`. `env_amount` is what makes a patch expressive rather than static: it
+opens the cutoff on the attack and closes it as the note decays. A pluck is a
+lowpass with a big positive `env_amount` and a fast filter decay.
 
 **`lfo`** *(optional)* — `{ "rate": 5.0, "depth": 0.5, "target": "pitch" }`.
 `pitch` is vibrato in semitones, `cutoff` is wobble in octaves, `amp` is tremolo
@@ -91,6 +91,77 @@ where 1.0 dips to silence.
 "feedback", "mix" }` and `{ "fx": "reverb", "size", "damp", "mix" }`. A limiter
 always runs after them and is not listed — a bake must not clip, and that is
 not the recipe's decision.
+
+### Playing harder, not just louder
+
+By default a note's `velocity` is a fader: it scales the level and nothing
+else. That is not how an instrument behaves. Hit a piano key harder and it does
+not merely get louder, it gets **brighter** — more of the energy goes into the
+upper harmonics — and the ear reads that change as effort. Its absence is a
+large part of why a carefully written synthesised part still sounds like a
+machine.
+
+Two optional fields aim velocity at the stages that decide brightness:
+
+| field | on | does |
+| --- | --- | --- |
+| `vel_cutoff` | `filter` | adds this many Hz to the cutoff at full velocity |
+| `vel_index` | `fm2` | adds this much modulation depth at full velocity |
+
+Both default to `0.0`, and a recipe that does not mention them bakes exactly
+the file it always did.
+
+The example is a song rather than a one-shot, because the point only shows up
+when one instrument is played at two strengths — songs are the section below.
+
+```json recipe
+{
+  "recipe": "song",
+  "bpm": 100,
+  "tracks": [
+    {
+      "name": "keys",
+      "patch": {
+        "source": {
+          "kind": "fm2", "ratio": 3.0, "index": 1.0,
+          "vel_index": 7.0, "mod_decay": 0.25
+        },
+        "amp": { "a": 0.002, "d": 0.6, "s": 0.0, "r": 0.2 },
+        "filter": {
+          "kind": "lowpass", "cutoff": 900, "vel_cutoff": 3500,
+          "adsr": { "a": 0.001, "d": 0.3, "s": 0.0, "r": 0.1 }
+        }
+      }
+    }
+  ],
+  "patterns": {
+    "a": { "beats": 4, "notes": [
+      { "track": "keys", "note": "E3", "start": 0, "dur": 1.5, "vel": 1.0 },
+      { "track": "keys", "note": "E3", "start": 2, "dur": 1.5, "vel": 0.35 }
+    ] }
+  },
+  "arrangement": ["a"]
+}
+```
+
+An electric piano playing the same note twice. Without those two fields the
+second note is a photocopy of the first at a third of the level; with them it
+is a different, softer sound — a key touched rather than struck.
+
+Three things worth knowing:
+
+- **They add, they do not scale.** The cutoff is
+  `cutoff + env_amount × envelope + vel_cutoff × velocity`, so each source of
+  movement stays independent and a zero stays harmless. Start `vel_cutoff`
+  somewhere near `env_amount` and adjust by ear; they are the same quantity
+  from different places.
+- **Negative is legal**, and means velocity *darkens* — a real instrument, if
+  an unusual one. A negative `vel_index` bottoms out at a bare carrier rather
+  than turning around and brightening again.
+- **A song's `vel_scale` gets this for free.** A quiet reprise written as
+  `"vel_scale": 0.6` (below) sounds softer rather than merely quieter,
+  which is most of the difference between a section that reads as a dynamic and
+  one that reads as a volume knob.
 
 ## Music: `"recipe": "song"`
 

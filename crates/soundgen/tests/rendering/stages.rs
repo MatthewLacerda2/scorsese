@@ -11,6 +11,7 @@ fn lowpass(cutoff: f32, resonance: f32) -> Filter {
         cutoff,
         resonance,
         env_amount: 0.0,
+        vel_cutoff: 0.0,
         adsr: Adsr::default(),
     }
 }

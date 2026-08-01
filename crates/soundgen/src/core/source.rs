@@ -11,7 +11,24 @@ use crate::patch::Source;
 
 /// Render `source` into `out` (which the caller sized and zeroed), following the
 /// per-sample frequency track `freqs`.
-pub fn render(source: &Source, freqs: &[f32], seed: u64, out: &mut [f32], rate: f32) {
+///
+/// `velocity` is how hard the note was struck, already clamped to `0..=1` by
+/// the caller. Only FM reads it here — its `vel_index` is depth a hard strike
+/// adds to the modulator, and depth is the one place a source's *own*
+/// brightness is a number the patch already carries. Every other source takes
+/// its velocity further down the path, at the filter and the amp envelope.
+///
+/// The sum is resolved here rather than inside [`fm`] so that module stays the
+/// FM algorithm and nothing else: it is handed the index to use, not the
+/// bookkeeping that arrived at one.
+pub fn render(
+    source: &Source,
+    freqs: &[f32],
+    seed: u64,
+    velocity: f32,
+    out: &mut [f32],
+    rate: f32,
+) {
     match source {
         Source::OscStack { oscs } => osc::render(oscs, freqs, out, rate),
         Source::Karplus {
@@ -25,8 +42,12 @@ pub fn render(source: &Source, freqs: &[f32], seed: u64, out: &mut [f32], rate: 
         Source::Fm2 {
             ratio,
             index,
+            vel_index,
             mod_decay,
-        } => fm::render(out, freqs, *ratio, *index, *mod_decay, rate),
+        } => {
+            let depth = (index + vel_index * velocity).max(0.0);
+            fm::render(out, freqs, *ratio, depth, *mod_decay, rate);
+        }
     }
 }
 
@@ -37,7 +58,7 @@ mod tests {
 
     fn render_kind(source: &Source) -> Vec<f32> {
         let mut out = vec![0.0; 8192];
-        render(source, &vec![220.0; 8192], 5, &mut out, 44_100.0);
+        render(source, &vec![220.0; 8192], 5, 1.0, &mut out, 44_100.0);
         out
     }
 
@@ -60,6 +81,7 @@ mod tests {
             Source::Fm2 {
                 ratio: 2.0,
                 index: 4.0,
+                vel_index: 0.0,
                 mod_decay: 0.3,
             },
         ];
@@ -85,7 +107,7 @@ mod tests {
                 brightness: 0.5,
             },
         ] {
-            render(&source, &[], 1, &mut out, 44_100.0);
+            render(&source, &[], 1, 1.0, &mut out, 44_100.0);
         }
         assert!(out.is_empty());
     }
