@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 /// The only version of JSON-RPC this speaks.
-pub const VERSION: &str = "2.0";
+pub(crate) const VERSION: &str = "2.0";
 
 /// A message from the client.
 ///
@@ -17,27 +17,33 @@ pub const VERSION: &str = "2.0";
 /// nothing about. Replying to one is a protocol error, which is why the
 /// distinction is in the type rather than in a comment.
 #[derive(Debug, Deserialize)]
-pub struct Request {
-    /// Which method is being called.
-    pub method: String,
-    /// Its arguments, whatever shape the method takes.
+pub(crate) struct Request {
+    pub(crate) method: String,
     #[serde(default)]
-    pub params: Option<Value>,
-    /// What to echo back on the response. Absent for a notification.
+    pub(crate) params: Option<Value>,
     #[serde(default)]
-    pub id: Option<Value>,
+    pub(crate) id: Option<Value>,
 }
 
 impl Request {
-    /// True when nothing may be sent back.
-    pub fn is_notification(&self) -> bool {
+    pub(crate) fn is_notification(&self) -> bool {
         self.id.is_none()
     }
 }
 
-/// Why a call failed, in the codes JSON-RPC reserves.
+/// Why a call failed, in the codes JSON-RPC reserves — the whole reserved
+/// range, not only the part this server reaches for today. A taxonomy missing
+/// two of the specification's codes would be a worse map of the protocol than
+/// a complete one, so the two nothing raises yet say so in an `expect` that
+/// fails the moment that stops being true.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Failure {
+#[expect(
+    dead_code,
+    reason = "the two nothing raises yet: a line that is JSON but not a request \
+              comes back as `Parse`, and a tool that refuses is an `isError` \
+              answer to a call that worked rather than a fault in the connection"
+)]
+pub(crate) enum Failure {
     /// The line was not JSON.
     Parse,
     /// It was JSON, but not a request.
@@ -65,7 +71,7 @@ impl Failure {
 
 /// A reply, ready to be written as one line.
 #[derive(Debug, Serialize)]
-pub struct Response {
+pub(crate) struct Response {
     jsonrpc: &'static str,
     id: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -75,8 +81,7 @@ pub struct Response {
 }
 
 impl Response {
-    /// A successful reply.
-    pub fn ok(id: Value, result: Value) -> Self {
+    pub(crate) fn ok(id: Value, result: Value) -> Self {
         Self {
             jsonrpc: VERSION,
             id,
@@ -86,7 +91,7 @@ impl Response {
     }
 
     /// A failure, with something a caller can act on in the message.
-    pub fn failed(id: Value, failure: Failure, message: impl Into<String>) -> Self {
+    pub(crate) fn failed(id: Value, failure: Failure, message: impl Into<String>) -> Self {
         Self {
             jsonrpc: VERSION,
             id,
@@ -97,7 +102,7 @@ impl Response {
 
     /// A failure that arrived before any id could be read — a line that was
     /// not JSON at all. The specification says to answer with a null id.
-    pub fn unidentified(failure: Failure, message: impl Into<String>) -> Self {
+    pub(crate) fn unidentified(failure: Failure, message: impl Into<String>) -> Self {
         Self::failed(Value::Null, failure, message)
     }
 }

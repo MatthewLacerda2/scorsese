@@ -44,11 +44,20 @@
 //! Every tool takes the project directory it works on. There is no server-side
 //! "open project" to go stale, so a client may crash, reconnect, or run two
 //! conversations against one project without anything getting out of step.
+//!
+//! ## What this publishes
+//!
+//! `serve`, which is what the binary runs, and `registry` with the `Tool` it
+//! yields and the `Reply` a tool answers with — published because the
+//! description gate above is an integration test and walks the registry from
+//! outside the crate. Everything else is protocol plumbing: the modules are
+//! private, so `rpc`, `session` and the tools themselves are reachable only
+//! from in here.
 
 mod base64;
-pub mod rpc;
-pub mod session;
-pub mod tools;
+mod rpc;
+mod session;
+mod tools;
 
 pub use session::serve;
 pub use tools::{Part, Reply, Tool, registry};

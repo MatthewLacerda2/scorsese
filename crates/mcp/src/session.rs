@@ -43,7 +43,7 @@ pub fn serve(input: impl BufRead, mut output: impl Write) -> std::io::Result<()>
 }
 
 /// One line's reply, or `None` when the line was a notification.
-pub fn handle(line: &str) -> Option<Response> {
+fn handle(line: &str) -> Option<Response> {
     let request: Request = match serde_json::from_str(line) {
         Ok(request) => request,
         Err(problem) => {

@@ -167,8 +167,7 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
     ]
 }
 
-/// A tool by name.
-pub fn find(name: &str) -> Option<Box<dyn Tool>> {
+pub(crate) fn find(name: &str) -> Option<Box<dyn Tool>> {
     registry().into_iter().find(|tool| tool.name() == name)
 }
 
