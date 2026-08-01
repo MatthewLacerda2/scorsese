@@ -201,7 +201,15 @@ review.
   re-running the other open PRs after every merge proves nothing — each gets
   its green when its turn to rebase comes.
 - **Merging — serialized, one at a time.** Rebase the PR onto the latest
-  `main` → CI green on that rebased state → merge → repeat, one PR at a time.
+  `main` → CI green on that rebased state → `make mergeable PR=N` → merge →
+  repeat, one PR at a time.
+  **`make mergeable` is not optional and its answer is not negotiable.** It
+  asks GitHub whether a run genuinely happened on the head commit, because
+  "the checks look green" and "the checks ran" are different claims, and #153
+  is what happens when they diverge: a ready pull request whose only run was a
+  skipped one reads as passing and compiled nothing. `gh pr checks` is not a
+  substitute — it blends runs, which is how a skipped one hides behind a real
+  one.
   Rust is compiled: two PRs can each be green alone yet break `main` together,
   so merging cannot be parallelized. The only exception is a PR touching
   **only** Markdown — CI skips those, so they merge freely. `docs/project-format.md`

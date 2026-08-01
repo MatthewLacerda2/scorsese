@@ -70,7 +70,7 @@ TOUCHES_APP = { \
 # `app/`, so without it make sees the target as already built and `make app`
 # prints "up to date" without running a thing. A check that silently does
 # nothing is worse than no check.
-.PHONY: help setup gates pre-commit inventory $(GATES) app-gates release format-fix coverage mutants
+.PHONY: help setup gates pre-commit inventory $(GATES) app-gates release format-fix coverage mutants mergeable
 
 ##@ Everyday
 
@@ -219,6 +219,20 @@ app-gates:
 # already build the test targets, so a test that does not compile was caught —
 # and one that fails was not, which reads as coverage while proving nothing.
 	cargo test --manifest-path app/Cargo.toml --locked
+
+##@ Merging — asked of GitHub, not of the code
+
+# Neither a gate nor a signal, because it is not about this code at all.
+# `make gates` answers "is this good?"; this answers "did anything check it?",
+# which is a question about GitHub and can only be asked once a pull request
+# exists. It is the last step before `gh pr merge` — see #153 for the failure
+# that made it necessary, and the script's own docstring for why branch
+# protection is not the fix it looks like.
+mergeable: ## Did CI really run on this PR's head? make mergeable PR=171
+	@test -n "$(PR)" || { \
+		echo "mergeable: which pull request? e.g. make mergeable PR=171" >&2; \
+		exit 1; }
+	@python3 .github/scripts/mergeable.py $(PR)
 
 ##@ Signals — informational, never a merge gate
 
