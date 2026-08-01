@@ -1,4 +1,10 @@
 //! The command-line surface.
+//!
+//! `Command` is the whole of what the binary does — one variant per verb, each
+//! carrying only what that verb takes. The second subcommand level, and the
+//! enumerated values a flag accepts, are `actions`: kept apart because this
+//! file answers "what can scorsese be asked to do?" and that one answers "what
+//! words may an answer be spelled with?".
 
 use std::path::PathBuf;
 
@@ -147,6 +153,24 @@ pub enum Command {
         /// where a cut can be one frame wrong.
         #[arg(long, value_delimiter = ',', requires = "stills")]
         at: Vec<Cue>,
+    },
+    /// Write one frame as a PNG, composited exactly as a render would compose
+    /// it — no encode, no video file, no sound. What `render --stills` costs a
+    /// whole render to answer, this answers for one frame.
+    Still {
+        /// Which instant to compose, comma-separated: `9.1s` for a time, `285`
+        /// for a timeline frame. Several instants write several files.
+        #[arg(long, value_delimiter = ',', required = true)]
+        at: Vec<Cue>,
+        /// Where to write the PNG, e.g. `frame.png`. With several instants the
+        /// frame number is added to the name: `frame-00285.png`.
+        #[arg(long)]
+        out: PathBuf,
+        /// The raster to composite at, and so the size of the PNG. Everything
+        /// a title or a layout is placed by is a fraction of the frame, so a
+        /// smaller one is the same picture and costs less to make.
+        #[arg(long, default_value = "1920x1080")]
+        resolution: Resolution,
     },
     /// Say what the timeline contains — what is on screen when, on which
     /// track, at what fit, with what animated, and what is audible under it.

@@ -6,7 +6,7 @@ use serde_json::Value;
 
 use super::{frames, number};
 use crate::tools::inspect::load;
-use crate::tools::{Tool, project_dir, project_property};
+use crate::tools::{Reply, Tool, project_dir, project_property};
 
 /// Lower the music under narration.
 pub(crate) struct Duck;
@@ -60,7 +60,7 @@ impl Tool for Duck {
         })
     }
 
-    fn call(&self, arguments: &Value) -> Result<String, String> {
+    fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let dir = project_dir(arguments)?;
         let mut project = load(&dir)?;
         let music = arguments
@@ -99,6 +99,7 @@ impl Tool for Duck {
              editable and deletable",
             report.dipped.len(),
             report.untouched.len()
-        ))
+        )
+        .into())
     }
 }

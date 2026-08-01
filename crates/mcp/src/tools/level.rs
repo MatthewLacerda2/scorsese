@@ -15,6 +15,8 @@ use std::path::{Path, PathBuf};
 use scorsese_render::{Tools, audio::measure, say};
 use serde_json::Value;
 
+use crate::tools::Reply;
+
 use super::{Tool, project_dir, project_property};
 
 /// Measure a finished sound file, optionally against another.
@@ -58,7 +60,7 @@ impl Tool for Level {
         })
     }
 
-    fn call(&self, arguments: &Value) -> Result<String, String> {
+    fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let dir = project_dir(arguments)?;
         let file = under(&dir, arguments, "file")?
             .ok_or_else(|| "`file` is required: the sound file to measure".to_owned())?;
@@ -74,14 +76,14 @@ impl Tool for Level {
         }
 
         let Some(other) = under(&dir, arguments, "against")? else {
-            return Ok(said);
+            return Ok(said.into());
         };
         let previous = measure(&tools, &other).map_err(|error| format!("{error}"))?;
         said.push_str(&format!("\n\n{}  vs  {}", name(&file), name(&other)));
         for row in say::comparison(&profile, &previous) {
             said.push_str(&format!("\n  {row}"));
         }
-        Ok(said)
+        Ok(said.into())
     }
 }
 

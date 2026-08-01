@@ -140,6 +140,11 @@ scorsese render --project teaser.scor --out legacy.avi --video-codec h264
 scorsese render --project teaser.scor --out teaser.mp4 --stills review/
 scorsese render --project teaser.scor --out teaser.mp4 \
     --stills review/ --at 0s,2.5s,180
+
+scorsese still --project teaser.scor --at 9.1s --out frame.png
+scorsese still --project teaser.scor --at 0s,2.5s,180 --out review/f.png
+scorsese still --project teaser.scor --at 285 --out frame.png \
+    --resolution 1280x720
 ```
 
 The timeline framerate is chosen once, at `new`, and defaults to 30. It is the
@@ -195,6 +200,19 @@ wrong about reality. `--stills` is the other half: PNGs pulled out of the
 finished file for an agent to actually look at, at every segment boundary by
 default, because a boundary is where a cut can be one frame wrong. `--at` names
 instants instead, in either unit — `2.5s` or `180`.
+
+`still` is the other way to ask that, and the cheap one. `--stills` renders the
+whole file and decodes frames back out of it, which is the right answer to *what
+did the encoder produce* — and an expensive answer to *what does this frame look
+like*, since it charges a whole render and a whole encode for a twenty-fourth of
+a second. `scorsese still --at 9.1s --out frame.png` composites that one instant
+and writes it, opening no encoder at all. It is the same plan, the same decoders
+and the same compositor a render uses, so the picture cannot disagree with the
+file; only the settings that could change a frame are offered, so there is no
+bitrate, no codec and no container on it. Several instants write several files.
+The window has the same thing as a button under the preview, and an assistant
+has it over MCP — where the reply is **the image itself**, which is what lets it
+look at an edit instead of reasoning about the JSON.
 
 The shape of the delivered file — the container and the codecs in it — is a
 render setting like the rest. `--out`'s extension supplies the default, so

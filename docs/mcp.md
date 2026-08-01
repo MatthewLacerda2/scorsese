@@ -46,6 +46,7 @@ Every tool takes `project`: the path of the `*.scor` directory to work on.
 | `synth_check` | parse a recipe without rendering it | nothing |
 | `synth_bake` | render the recipes not already baked | nothing |
 | `audio_level` | how a finished sound file came out, and how it differs from another | ffmpeg |
+| `still` | **look at** one frame, returned as a picture | ffmpeg, and seconds |
 | `render` | encode the timeline to a file | ffmpeg, and real time |
 
 **The edit is the document.** `project_read` and `project_write` are the pair
@@ -83,6 +84,35 @@ It refuses, changing nothing at all, when the two clips do not currently meet
 at a cut, when either is shorter than the crossover, or when the crossover
 would round to no frames. A dissolve with no defined crossover has no shape,
 and guessing at one is worse than saying so.
+
+## Looking at a frame
+
+`still` is the only tool that answers with something other than words, and that
+is the point of it. Everything else here *describes*: what the document says,
+what the cut contains, what is wrong with it. An assistant that writes a title
+and reads back "CHAPTER ONE, centred, 0.14 of the frame" still has no idea
+whether it is readable, whether it collides with the shot under it, or whether
+it is on screen at all.
+
+```
+still  { "project": "teaser.scor", "at": "9.1s" }
+       → "frame 273 (9.10s) of Teaser at 1280x720", and the picture
+```
+
+The reply carries two content blocks: the sentence, and the frame as a PNG
+image. A client that can see images sees it. `at` takes either unit — `9.1s` or
+the timeline frame `273` — and a bare decimal is refused rather than guessed at.
+
+**It is the frame a render would deliver**, because it is the render pipeline
+with the encoder taken out: the same plan, the same decoders, the same
+compositor. Nothing is encoded and no video file is produced, so it costs
+seconds rather than a render. Sketch and stale generated assets appear as slug
+cards, exactly as they would in a preview cut.
+
+The default raster is 1280x720 rather than a delivery size, because layout is a
+fraction of the frame — the same picture with a fraction of the wire cost. Pass
+`resolution` for delivery size. Pass `out` to keep the PNG on disk as well;
+without it, nothing is left behind.
 
 ## Making sound
 

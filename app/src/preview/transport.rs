@@ -6,7 +6,11 @@
 //!
 //! **A step is one frame.** Whether a cut lands one frame early is exactly the
 //! question a step button exists to answer, and it is the same question
-//! `render --stills` answers from the command line.
+//! `scorsese still` answers from the command line.
+//!
+//! One control here is not about moving: keeping the frame under the playhead.
+//! It sits with the others because it is about *this instant* and nothing else,
+//! which is what the whole row is about.
 //!
 //! Nothing here owns the playhead. Every control reports what it means as a
 //! [`Command`] and the caller decides, which is what keeps the one position the
@@ -30,6 +34,14 @@ pub(super) enum Command {
     Seek(Frames),
     /// Start running, or stop.
     Toggle,
+    /// Keep the frame under the playhead: write it out as a picture.
+    ///
+    /// Under the preview rather than in a menu because that is where every
+    /// editor puts it, and because it is about the frame someone is looking at
+    /// — the transport is the row that owns *this instant*. It reports itself
+    /// like the others and decides nothing: what "keep it" means is
+    /// [`super::save`]'s.
+    Keep,
 }
 
 /// The last frame anything is on, which is what "the end" means to a transport.
@@ -100,20 +112,34 @@ fn scrubber(ui: &mut Ui, at: Frames, last: Frames) -> Option<Frames> {
     Some(frame_at((pointer.x - track.left()) / track.width(), last))
 }
 
-/// The five buttons, and the reading of where the playhead is.
+/// The five buttons, the one that keeps a frame, and the reading of where the
+/// playhead is.
 fn buttons(ui: &mut Ui, fps: Fps, at: Frames, last: Frames) -> Option<Command> {
     let mut command = None;
     ui.horizontal(|ui| {
-        let mut press = |label: &str, hint: &str, what: Command| {
+        for (label, hint, what) in [
+            ("⏮", "To the start", Command::Seek(Frames::ZERO)),
+            ("◀|", "Back one frame", Command::Seek(back(at))),
+            ("▶", "Play or pause", Command::Toggle),
+            ("|▶", "Forward one frame", Command::Seek(forward(at, last))),
+            ("⏭", "To the end", Command::Seek(last)),
+        ] {
             if ui.button(label).on_hover_text(hint).clicked() {
                 command = Some(what);
             }
-        };
-        press("⏮", "To the start", Command::Seek(Frames::ZERO));
-        press("◀|", "Back one frame", Command::Seek(back(at)));
-        press("▶", "Play or pause", Command::Toggle);
-        press("|▶", "Forward one frame", Command::Seek(forward(at, last)));
-        press("⏭", "To the end", Command::Seek(last));
+        }
+        // Set apart from the five, because it is the one control here that
+        // does not move the playhead. Words rather than a camera glyph: the
+        // shipped fonts are the two the compositor carries and a symbol they
+        // do not have draws as an empty box.
+        ui.separator();
+        if ui
+            .button("Save frame")
+            .on_hover_text("Write this frame out as a PNG, at delivery resolution")
+            .clicked()
+        {
+            command = Some(Command::Keep);
+        }
 
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             ui.label(
