@@ -18,7 +18,7 @@ use crate::common;
 /// A project big enough that writing it is not one atomic syscall by luck. A
 /// hundred clips is an ordinary edit and several kilobytes of JSON.
 fn sizeable(dir: &Path) -> Project {
-    let mut project = Project::create(dir, "sizeable", Fps::THIRTY).expect("create");
+    let mut project = Project::create(dir, Some("sizeable"), Fps::THIRTY).expect("create");
     project.assets.push(Asset::text(
         AssetId::new("title"),
         "a title long enough to take up room in the document",

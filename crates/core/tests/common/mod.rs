@@ -86,7 +86,7 @@ pub(crate) fn assert_only_problem(project: &Project, expected: impl Into<Validat
 /// A fresh, empty `*.scor` directory with a project already created in it.
 pub(crate) fn new_project(label: &str) -> (PathBuf, Project) {
     let dir = temp_project_dir(label);
-    let project = Project::create(&dir, label, Fps::THIRTY).expect("create project");
+    let project = Project::create(&dir, Some(label), Fps::THIRTY).expect("create project");
     (dir, project)
 }
 

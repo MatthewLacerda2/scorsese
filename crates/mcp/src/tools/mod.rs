@@ -13,6 +13,7 @@
 //! or run two conversations against one project without a server-side notion
 //! of "the open project" going stale behind its back.
 
+mod create;
 mod edit;
 mod inspect;
 mod level;
@@ -110,6 +111,9 @@ pub trait Tool: Send + Sync {
 /// Every tool this server exposes.
 pub fn registry() -> Vec<Box<dyn Tool>> {
     vec![
+        // First, because it is the first call on a machine with no project on
+        // it and a client reads this list in order.
+        Box::new(create::New),
         Box::new(inspect::Read),
         Box::new(inspect::Describe),
         Box::new(inspect::Check),
@@ -152,6 +156,10 @@ pub(crate) fn project_dir(arguments: &Value) -> Result<std::path::PathBuf, Strin
 }
 
 /// The `project` property, spelled the same way in every tool's schema.
+///
+/// `project_new` writes its own, and only its own: the directory it names is
+/// one to make rather than one to work on. The *name* of the argument is what
+/// has to be shared, and it is.
 pub(crate) fn project_property() -> Value {
     serde_json::json!({
         "type": "string",
