@@ -147,8 +147,8 @@ fn problem_report(invalid: Option<&ValidationErrors>, media: &[Finding]) -> Opti
 /// producing a second complaint about the same field.
 fn missing_script(project: &Project, project_dir: &Path) -> Option<ProjectPath> {
     let script = project.script.clone()?;
-    let exists = script.check().is_ok() && script.resolve(project_dir).is_file();
-    (!exists).then_some(script)
+    script.check().ok()?;
+    (!script.resolve(project_dir).is_file()).then_some(script)
 }
 
 fn count(media: &[Finding], severity: Severity) -> usize {

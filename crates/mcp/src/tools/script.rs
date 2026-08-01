@@ -111,6 +111,13 @@ impl Tool for Write {
 
         let script = script_path(&project, arguments);
         let file = resolve(&script, &dir)?;
+        // A script may be kept anywhere inside the project, and refusing to
+        // start one at `notes/brief.md` because `notes/` is not there yet would
+        // be refusing over something the tool can simply do.
+        if let Some(parent) = file.parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|error| format!("making {}: {error}", parent.display()))?;
+        }
         scorsese_core::write::atomically(&file, text)
             .map_err(|error| format!("writing {}: {error}", file.display()))?;
 

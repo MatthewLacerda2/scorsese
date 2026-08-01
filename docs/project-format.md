@@ -26,6 +26,95 @@ omitted, and omitted is written as *absent*, never as `null`. Unknown fields
 are an error, not a warning — a typo like `"trackz"` fails the load rather
 than being silently dropped.
 
+`script` is the other optional top-level field, and it has a section of its
+own below.
+
+## The script, and notes
+
+> **Neither the script nor any note ever renders.** Not a card, not a caption,
+> not under any setting, in no version of this tool. That is an invariant of
+> the format rather than a default someone could turn off, and it is stated
+> this loudly because the format has precedent for text in a document reaching
+> the screen: a `text` asset is drawn, and a sketch asset's `prompt` goes on a
+> slug card. A note and a script are categorically unlike both. **Text that is
+> meant to be seen is a `text` asset.** A test renders a project with a script
+> and a note on every element, strips both, renders again, and fails on a
+> single differing byte.
+
+Everything else in this document says *what* the edit is. These two say
+**why**, and without them every reason behind an edit lives outside the
+project and dies with the conversation that produced it. The next person or
+agent to open the file re-litigates all of it, and gets some of it wrong.
+
+### `script` — one per project
+
+```json fields
+"script": "script.md"
+```
+
+The document the edit is being cut from: the brief, the outline, the list of
+things the film must not claim. A **path**, relative to the project root like
+every other, by convention `script.md` at the top of it.
+
+A file rather than a string in the document, for the reason a `recipe` is one:
+such a document is long. A real one measured 30 KB against a `project.json` of
+34 KB — inlining it would very nearly double the document and bury the timeline
+under prose, in the one file an agent opens to learn the edit. A file also gets
+a readable diff and edits from any tool.
+
+**It is never parsed.** No schema, no sections, no front matter, no convention
+this tool enforces. The moment something started extracting meaning from it, it
+would become a format with rules and stop being the place you write freely.
+Markdown is convention only; nothing reads the extension.
+
+A `script` naming a file that is **not there** is a warning, not a failure —
+the same call a missing generated file gets, for the same reason: a project
+that has lost its brief should still render. The path's *shape* is validated
+like any other.
+
+`scorsese new` does **not** leave a stub. An empty directory says "things go
+here"; an empty file with the document pointing at it says the project carries
+a script when it does not, and would make the missing-file warning fire for
+every project that never had one. The MCP `script_write` tool creates the file
+and sets the field in one call, which is what a stub was for.
+
+### `note` — on anything with an `id`
+
+```json asset
+{ "id": "03-mosaic", "kind": "image", "path": "assets/03-mosaic.png",
+  "note": "Stand-in footage: ocean container ships, not a barge convoy. Never describe these as the fleet's own cameras." }
+```
+
+Optional on an **asset**, a **track** and a **clip** — one uniform rule, and
+keyframe tracks get none because they have no `id`, which falls out rather than
+being decided. A free string; nothing reads it either.
+
+Which of the three to write on follows from what the reason is *about*:
+
+| on | what belongs there |
+| --- | --- |
+| asset | true of the file in every use of it — that this is a stand-in, that this is quoted copy |
+| track | why the lane is here — why the music sits under the narration, why this is the one that gets ducked |
+| clip | this shot's own choices — why it runs this long, why it was moved out of the full-bleed plate |
+
+**A note attaches to an element and never to a span of time.** Most reasons are
+not about time at all, and a timed note desynchronises silently the first time
+the cut is retimed: "make it 20% faster" moves every clip and would leave every
+timed note pointing at the wrong moment with nothing to notice. A note on a
+clip moves with the clip for free.
+
+**A note dies with its element, and that is the feature.** Deleting a clip
+deletes the reasoning for a clip that no longer exists — nothing to garbage
+collect, nothing left dangling. What has to survive a re-cut goes in the
+script.
+
+A note is not a `name`: a name is what a track is *called*, in a lane header.
+It is not a `prompt` either — a prompt is handed to a provider and reaches the
+screen on a card; a note is handed to nobody.
+
+`scorsese describe` prints the script's path and every note, ahead of the cut
+rather than after it.
+
 ## Assets
 
 An asset is an entity. Clips point at assets **by id, never by path**, so
@@ -44,6 +133,7 @@ re-importing or regenerating a file is one edit in one place.
 | `text` | `text` | The string to render; text assets carry content inline and have no `path` |
 | `style` | optional, `text` only | How that string looks: `font`, `weight`, `size`, `color`, `align`, `line_height`, `max_width` — see below |
 | `color` | `color` | The colour to fill with, as `#rrggbb` or `#rrggbbaa`; colour assets have no `path` |
+| `note` | optional | Why this asset is what it is. Never rendered — see above |
 
 ```json asset
 { "id": "shot-city", "kind": "generated_video", "state": "sketch",
@@ -337,6 +427,9 @@ other than the timeline's.
 A track is `video` or `audio`. Video tracks composite in array order, first
 at the bottom; audio tracks all mix together. Visual assets go on video
 tracks, audible ones on audio tracks.
+
+Both a track and a clip take an optional `note` — see above. A track's `name`
+is cosmetic and is what the lane is called; its `note` is why it is there.
 
 **Order means nothing on audio tracks.** Sounds playing at once are summed,
 and addition does not care which came first — there is no "on top" for a
@@ -768,8 +861,8 @@ Every path is relative to the project root and uses forward slashes on every
 platform. Absolute paths (`/media/x.mp4`, `C:/media/x.mp4`, `\\host\share`),
 backslashes, and `..` components are all rejected. This is what lets a
 project survive `scp -r` between machines. The rule covers every path in the
-document, not just `path`: a `style`'s font and a `synth_audio`'s `recipe`
-obey it too.
+document, not just `path`: a `style`'s font, a `synth_audio`'s `recipe` and the
+document's own `script` obey it too.
 
 A project directory holds four of its own:
 
@@ -805,6 +898,8 @@ brief it takes: a `prompt` or a `recipe`, never both and never the other's —
 clip references resolving, asset kind against track kind, non-zero durations,
 clip overlap, no clip reaching past the end of the source it was measured to
 have, and keyframe shape.
+that the document's `script` obeys the path rules, clip references resolving, asset kind against track kind, non-zero durations,
+clip overlap, and keyframe shape.
 
 Note what is *not* on that list. A time that is negative, fractional, or
 infinite cannot be represented as a frame count, so it fails the parse with
@@ -827,7 +922,20 @@ cannot find is a problem, a file whose content no longer matches its recorded
 it renders as a slug card rather than stopping the render — and a `generated_*`
 asset still awaiting generation is neither. A `style`'s font file is a path like any other, so the same split
 applies: the shape is validated here, and whether the face is really on disk is
-the render's to find out.
+the render's to find out. So is the `script`, and its missing file is a warning:
+a project that has lost its brief still renders.
+
+## Migrating from v9
+
+v10 adds two optional fields and takes nothing away: `script` on the document,
+and `note` on an asset, a track or a clip. No v9 document can contain either,
+and **absent means what it always meant** — a project that says nothing about
+why it is the way it is, which is every project written before there was
+anywhere to say it. So no v9 document means anything different under v10:
+converting one is changing `"schema_version": 9` to `"schema_version": 13` and
+nothing else.
+
+Neither field changes a single pixel of any render, by design and by test.
 
 `style.weight` splits the same way, and the split is worth reading once. What
 the document alone can say is checked here: `sans` and `serif` are faces
@@ -842,7 +950,7 @@ same breath as "this is not a font I can read".
 v13 adds two optional fields: `script` on the document, and `note` on anything
 with an `id` — an asset, a clip, a track. No v12 document can contain either,
 and absent means what it always meant, so **no v12 document means anything
-different under v13**. Converting one is changing `"schema_version": 12` to
+different under v13**. Converting one is changing `"schema_version": 13` to
 `"schema_version": 13` and nothing else.
 
 ## Migrating from v11
@@ -850,14 +958,14 @@ different under v13**. Converting one is changing `"schema_version": 12` to
 v12 adds one optional field: `speed` on a clip. No v11 document can contain it,
 and **absent means `1.0`** — one source frame per timeline frame, which is what
 every clip did before the field existed. So no v11 document means anything
-different under v12 — converting one is changing `"schema_version": 11` to
-`"schema_version": 12` and nothing else.
+different under v12 — converting one is changing `"schema_version": 13` to
+`"schema_version": 13` and nothing else.
 
 ## Migrating from v10
 
 v11 adds one optional field: `weight` on a text asset's `style`. No v10 document
-can contain it, so **converting one is changing `"schema_version": 10` to
-`"schema_version": 11`** — with one thing to check first, and it is the reason
+can contain it, so **converting one is changing `"schema_version": 13` to
+`"schema_version": 13`** — with one thing to check first, and it is the reason
 the field exists.
 
 **A v10 project that names a variable font file will now be refused rather than
@@ -878,7 +986,7 @@ up at all.
 v10 adds one optional field: `anchor` on a clip. No v9 document can contain it,
 and **absent means centred on both axes**, which is what every layer did before
 the field existed. So no v9 document means anything different under v10 —
-converting one is changing `"schema_version": 9` to `"schema_version": 10` and
+converting one is changing `"schema_version": 9` to `"schema_version": 13` and
 nothing else.
 
 ## Migrating from v8
@@ -888,6 +996,7 @@ and **absent means the whole source**, which is what every clip did before the
 field existed. So no v8 document means anything different under v9 —
 converting one is changing `"schema_version": 8` to `"schema_version": 9`, and
 then on to `11` as above.
+then on to `10` as above.
 
 ## Migrating from v7
 
