@@ -14,7 +14,7 @@
 //! - **A `#[cfg(test)]` module inside a source file changes nothing.** The unit
 //!   being capped is the file an agent has to hold in its head, and inline
 //!   tests are part of that file. A source file with tests in it gets 300
-//!   lines total, not 300 plus a test allowance.
+//!   lines of code total, not 300 plus a test allowance.
 //! - **`build.rs` is source.** It is compiled and run, and nothing about it
 //!   makes 300 lines the wrong number.
 //! - **Hidden directories and build output are not walked at all**: see
@@ -27,10 +27,10 @@
 
 use std::path::Path;
 
-/// The cap on a source file, in lines.
+/// The cap on a source file, in lines of code.
 pub const SOURCE_LIMIT: usize = 300;
 
-/// The cap on a test file, in lines.
+/// The cap on a test file, in lines of code.
 pub const TEST_LIMIT: usize = 150;
 
 /// Which of the two caps a file is held to.

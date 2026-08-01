@@ -20,11 +20,13 @@ pub struct Violation {
 
 impl fmt::Display for Violation {
     /// The whole point of the gate is this line, so it names the file, its
-    /// length, and which of the two limits it broke.
+    /// length, and which of the two limits it broke. It says "lines of code"
+    /// because the number will not match `wc -l`, and a reader comparing the
+    /// two should be told why rather than left to discover it.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{}: {} lines, over the {}-line limit for {} files (by {})",
+            "{}: {} lines of code, over the {}-line limit for {} files (by {})",
             self.path.display(),
             self.lines,
             self.kind.limit(),
@@ -51,16 +53,35 @@ impl Report {
     }
 }
 
-/// Lines in a file's bytes: newline-separated, with a final unterminated line
-/// still counting as one. Blank and comment lines count like any other — what
-/// is being capped is how much file there is to read.
-pub fn line_count(bytes: &[u8]) -> usize {
-    let newlines = bytes.iter().filter(|&&b| b == b'\n').count();
-    if bytes.last().is_some_and(|&b| b != b'\n') {
-        newlines + 1
-    } else {
-        newlines
-    }
+/// Lines of code in a file's bytes: every line that is neither blank nor a
+/// comment. A final unterminated line still counts, the same as any other.
+///
+/// The gate asks whether a file is doing too much, and what grows when it is
+/// doing too much is its code. Documentation grows with how carefully each item
+/// is explained — which this repo asks for on purpose, since `missing_docs` is
+/// itself a merge gate and the house style is to say *why*. Counting both put
+/// those two rules in opposition, and the prose lost: files were being split at
+/// ~120 lines of code because their documentation had carried them to 300.
+///
+/// Splitting is a poor answer to prose volume in any case. It does not reduce
+/// what has to be read, it distributes it and adds a module doc; it only pays
+/// off when the seam is real, and a seam chosen by a line count often is not.
+///
+/// A comment is a line whose first non-whitespace is `//`, which covers `///`
+/// and `//!` too. Block comments are not recognised: there are none in this
+/// repo, and reading them would mean tracking state across lines for a case
+/// that has never come up.
+pub fn code_lines(bytes: &[u8]) -> usize {
+    bytes.split(|&b| b == b'\n').filter(|l| is_code(l)).count()
+}
+
+/// Whether one line, without its terminator, counts toward the limit.
+///
+/// Trimming is what makes a `\r` from a Windows ending, and the indentation in
+/// front of a doc comment, both invisible here.
+fn is_code(line: &[u8]) -> bool {
+    let line = line.trim_ascii();
+    !line.is_empty() && !line.starts_with(b"//")
 }
 
 /// Measure every file under `root` the gate has an opinion about.
@@ -85,7 +106,7 @@ pub fn check_dir(root: &Path) -> io::Result<Report> {
                 && let Some(kind) = classify(&relative)
             {
                 report.checked += 1;
-                let lines = line_count(&fs::read(entry.path())?);
+                let lines = code_lines(&fs::read(entry.path())?);
                 if lines > kind.limit() {
                     report.violations.push(Violation {
                         path: relative,
