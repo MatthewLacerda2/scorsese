@@ -114,6 +114,7 @@ scorsese new teaser.scor --name "Product teaser"          # 30fps timeline
 scorsese new broadcast.scor --fps 30000/1001              # 29.97, exactly
 scorsese import ~/footage/skyline.mp4 --project teaser.scor
 scorsese import ~/music/bed.wav --project teaser.scor
+scorsese import ~/footage --project teaser.scor   # the media in it, one asset each
 
 scorsese assets --project teaser.scor            # what's in the pool
 scorsese assets --verify --project teaser.scor   # re-hash to catch changed files

@@ -3,7 +3,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::asset::{Asset, AssetId, AssetKind};
+use crate::asset::{Asset, AssetId, AssetKind, MediaMetadata};
 use crate::path::ProjectPath;
 use crate::probe::{ProbeError, ProbeMedia};
 use crate::project::{ASSETS_DIR, Project};
@@ -28,29 +28,66 @@ pub fn import_asset(
     probe: &dyn ProbeMedia,
 ) -> Result<AssetId, ImportError> {
     let kind = resolve_kind(source, kind)?;
-    let sha256 = hash_file(source).map_err(|source_err| ImportError::Unreadable {
-        path: source.to_path_buf(),
-        source: source_err,
-    })?;
-
-    if let Some(existing) = project
-        .assets
-        .iter()
-        .find(|a| a.sha256.as_ref() == Some(&sha256))
-    {
-        return Ok(existing.id.clone());
+    let sha256 = hash_of(source)?;
+    if let Some(existing) = already_in_pool(project, &sha256) {
+        return Ok(existing);
     }
-
-    // Probe before copying. Everything that can reject a file happens while
+    // Measure before copying. Everything that can reject a file happens while
     // the project directory is still untouched, so a failed import cannot
     // leave a stray file behind in `assets/`.
+    let media = measure(source, kind, probe)?;
+    place(project, project_root, source, kind, sha256, media, None)
+}
+
+/// The file's content hash, worded as an import failure.
+pub(super) fn hash_of(source: &Path) -> Result<String, ImportError> {
+    hash_file(source).map_err(|source_err| ImportError::Unreadable {
+        path: source.to_path_buf(),
+        source: source_err,
+    })
+}
+
+/// The asset already holding this content, if the pool has it.
+pub(super) fn already_in_pool(project: &Project, sha256: &str) -> Option<AssetId> {
+    project
+        .assets
+        .iter()
+        .find(|a| a.sha256.as_deref() == Some(sha256))
+        .map(|a| a.id.clone())
+}
+
+/// Reads the file and checks it really is what it is being imported as.
+///
+/// Separate from [`place`] so a caller bringing in a whole directory can find
+/// out that one file in it is unreadable while nothing has been copied yet.
+pub(super) fn measure(
+    source: &Path,
+    kind: AssetKind,
+    probe: &dyn ProbeMedia,
+) -> Result<MediaMetadata, ImportError> {
     let media = probe.probe(source)?;
     check_kind_against_media(kind, &media, source)?;
     // What a still's metadata says is decided in one place, shared with
     // `scorsese probe` — see [`as_recorded`]. Two paths into the assets table
     // that describe one file differently would be a bug nobody could see.
-    let media = as_recorded(kind, media);
+    Ok(as_recorded(kind, media))
+}
 
+/// Copies the measured file into `assets/` and records it in the table.
+///
+/// `id` is the id to record it under. `None` derives one from the name the
+/// file lands under, suffixing until it is free — which is what a single-file
+/// import does. A caller that planned its ids ahead of copying anything passes
+/// the one it planned, so the id it checked for collisions is the id it gets.
+pub(super) fn place(
+    project: &mut Project,
+    project_root: &Path,
+    source: &Path,
+    kind: AssetKind,
+    sha256: String,
+    media: MediaMetadata,
+    id: Option<AssetId>,
+) -> Result<AssetId, ImportError> {
     let assets_dir = project_root.join(ASSETS_DIR);
     fs::create_dir_all(&assets_dir).map_err(|source_err| ImportError::Unwritable {
         path: assets_dir.clone(),
@@ -64,7 +101,7 @@ pub fn import_asset(
         source: source_err,
     })?;
 
-    let id = unique_asset_id(project, &file_name);
+    let id = id.unwrap_or_else(|| unique_asset_id(project, &file_name));
     let path = ProjectPath::new(format!("{ASSETS_DIR}/{file_name}"));
     project.assets.push(Asset {
         sha256: Some(sha256),
@@ -74,7 +111,10 @@ pub fn import_asset(
     Ok(id)
 }
 
-fn resolve_kind(source: &Path, requested: Option<AssetKind>) -> Result<AssetKind, ImportError> {
+pub(super) fn resolve_kind(
+    source: &Path,
+    requested: Option<AssetKind>,
+) -> Result<AssetKind, ImportError> {
     let kind = match requested {
         Some(kind) => kind,
         None => infer_kind(source).ok_or_else(|| ImportError::UnknownKind {
@@ -93,7 +133,7 @@ fn resolve_kind(source: &Path, requested: Option<AssetKind>) -> Result<AssetKind
 /// a `.mp4` with no picture in it.
 fn check_kind_against_media(
     kind: AssetKind,
-    media: &crate::asset::MediaMetadata,
+    media: &MediaMetadata,
     source: &Path,
 ) -> Result<(), ImportError> {
     let expectation = if kind.is_visual() && media.width.is_none() {
@@ -159,6 +199,20 @@ pub enum ImportError {
         kind: AssetKind,
         /// What the probe found instead, e.g. `no audio stream`.
         found: &'static str,
+    },
+    /// A file's id is one an asset in the pool already answers to.
+    ///
+    /// Raised only when a whole directory is imported, and raised before
+    /// anything is copied, so the refusal changes nothing at all. A single
+    /// file names one asset and can be suffixed out of the way; a directory
+    /// is a batch, and quietly suffixing one file in it adds a second asset
+    /// nobody asked for and nobody would notice.
+    #[error("{} would import as `{id}`, which is already an asset", path.display())]
+    IdTaken {
+        /// The file that could not be brought in.
+        path: PathBuf,
+        /// The id it would have taken.
+        id: AssetId,
     },
     /// The prober could not read the file at all.
     #[error(transparent)]

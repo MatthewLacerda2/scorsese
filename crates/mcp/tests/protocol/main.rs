@@ -10,6 +10,7 @@ mod changing;
 mod composing;
 mod fixture;
 mod handshake;
+mod importing;
 mod looking;
 mod pacing;
 mod rendering;
