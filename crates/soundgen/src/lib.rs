@@ -83,7 +83,7 @@ pub mod wav;
 
 pub use core::{SAMPLE_RATE, render_note};
 pub use error::SynthError;
-pub use note::{NoteOpts, midi_to_freq, midi_to_name, parse_note};
+pub use note::{NoteOpts, midi_to_freq, parse_note};
 pub use patch::Patch;
 pub use song::{PatchResolver, Song, render_song};
 
@@ -120,7 +120,7 @@ pub fn bake_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Bake, Synth
     // makes a row say "the second chorus is the quiet one" rather than "seconds
     // 24 to 32 are quiet". Its tracks decide the other table: which instrument
     // is taking up the room, which is the half a section row cannot answer.
-    let mixed = song::mix_song(song, resolve)?;
+    let mixed = song::render::mix_song(song, resolve)?;
     Ok(Bake::of(
         &mixed.master,
         song::sections::of(song),
@@ -142,8 +142,8 @@ pub struct Bake {
     /// How it came out — over its whole length, and section by section.
     pub profile: level::Profile,
     /// How each track came out on its own, post-gain — which layer is taking
-    /// up the room. Empty unless this was a song of more than one track; see
-    /// [`song::Mixdown::tracks`].
+    /// up the room. Empty unless this was a song of more than one track: one
+    /// row under a one-line summary is the same sentence twice.
     pub tracks: Vec<level::Layer>,
 }
 

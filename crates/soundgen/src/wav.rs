@@ -29,7 +29,7 @@ const HEADER_LEN: usize = 44;
 ///
 /// Samples are clamped to `−1..=1` and rounded to nearest, so a signal that
 /// somehow survived the limiter cannot wrap around into a click.
-pub fn encode(samples: &[f32]) -> Vec<u8> {
+pub(crate) fn encode(samples: &[f32]) -> Vec<u8> {
     let data_len = samples.len() as u32 * BYTES_PER_SAMPLE;
     let mut out = Vec::with_capacity(HEADER_LEN + data_len as usize);
 
@@ -59,7 +59,7 @@ pub fn encode(samples: &[f32]) -> Vec<u8> {
 /// Worked out from the length rather than read back from the header, because
 /// this is only ever asked about a file [`encode`] produced: the length is the
 /// one thing that cannot disagree with the samples.
-pub fn frames_in(file_len: usize) -> usize {
+pub(crate) fn frames_in(file_len: usize) -> usize {
     file_len.saturating_sub(HEADER_LEN) / BYTES_PER_SAMPLE as usize
 }
 

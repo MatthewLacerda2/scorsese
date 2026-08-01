@@ -53,7 +53,7 @@ use crate::patch::{Fx, Patch};
 
 pub use arrangement::{ArrangementEntry, Play};
 pub use feel::Humanize;
-pub use render::{InlineOnly, Mixdown, PatchResolver, mix_song, render_song};
+pub use render::{InlineOnly, PatchResolver, render_song};
 pub use timing::{Fade, Fit, FitMode, Tail};
 
 /// Default for a per-track or per-note gain: unity, i.e. "as written".

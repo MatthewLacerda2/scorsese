@@ -144,7 +144,7 @@ pub(crate) fn pitch_class_name(class: u32) -> &'static str {
 /// semitone for the fractional ones a microtonal pitch or a transpose can
 /// produce — a report says which note this *is*, and "C4 and a bit" is not a
 /// note anyone goes looking for.
-pub fn midi_to_name(midi: f32) -> String {
+pub(crate) fn midi_to_name(midi: f32) -> String {
     let whole = midi.round().clamp(MIDI_RANGE.0, MIDI_RANGE.1) as i32;
     format!(
         "{}{}",
