@@ -34,13 +34,13 @@ use crate::error::RenderError;
 /// is the whole point of the feature — one file where the per-weight file tax
 /// used to be — so the cache has to be able to hold both at once.
 #[derive(Debug, Default)]
-pub struct Painter {
+pub(crate) struct Painter {
     fonts: HashMap<(PathBuf, Option<u16>), Font>,
 }
 
 impl Painter {
     /// One with nothing opened yet.
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self::default()
     }
 
@@ -51,7 +51,7 @@ impl Painter {
     /// show through. Where the block sits is what `anchor` says — the frame's
     /// centre unless the clip asked otherwise — and moving it from there is
     /// `transform.position.*` like any other layer.
-    pub fn paint(
+    pub(crate) fn paint(
         &mut self,
         frame: &mut Frame,
         asset: &Asset,

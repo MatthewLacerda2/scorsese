@@ -16,7 +16,7 @@ use scorsese_core::{Crop, Speed};
 /// decoder does about it, which for one of the three means already knowing the
 /// source's own size.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Fitting {
+pub(crate) enum Fitting {
     /// Scale to fit inside the raster; pad the rest transparent.
     Fit,
     /// Scale to cover the raster; crop the overflow off the edges.
@@ -29,7 +29,7 @@ impl Fitting {
     /// The size frames come out at, and so the size of the buffer that reads
     /// them. Fitting and filling produce the render's raster by construction;
     /// native produces whatever the source happens to be.
-    pub fn raster(self, settings: &RenderSettings) -> Resolution {
+    pub(crate) fn raster(self, settings: &RenderSettings) -> Resolution {
         match self {
             Self::Fit | Self::Fill => settings.resolution,
             Self::Native(source) => source,
@@ -39,28 +39,28 @@ impl Fitting {
 
 /// What to decode, and how much of it.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Source {
+pub(crate) struct Source {
     /// The media to read, already resolved against the project root — nothing
     /// below here knows what a project directory is.
-    pub file: PathBuf,
+    pub(crate) file: PathBuf,
     /// A still image, which has no timeline of its own and is held for as long
     /// as the clip lasts.
-    pub still: bool,
+    pub(crate) still: bool,
     /// Where to start in the source, in wall-clock seconds. Seconds because
     /// that is the unit ffmpeg seeks in; the conversion from the timeline grid
     /// happened before we got here.
-    pub seek_seconds: f64,
+    pub(crate) seek_seconds: f64,
     /// How fast to run the source against the output grid. [`Speed::NORMAL`]
     /// leaves the timing alone, and the filter that would express it is left
     /// out entirely rather than written as a no-op — a render of ordinary clips
     /// has to reach ffmpeg exactly as it did before there was a rate to choose.
-    pub speed: Speed,
+    pub(crate) speed: Speed,
     /// How many frames to ask for, on the output grid.
-    pub frames: u64,
+    pub(crate) frames: u64,
     /// How this source meets the raster.
-    pub fitting: Fitting,
+    pub(crate) fitting: Fitting,
     /// Which rectangle of the source is shown. Absent means all of it.
-    pub crop: Option<Crop>,
+    pub(crate) crop: Option<Crop>,
 }
 
 /// An ffmpeg process decoding one source into raw frames on its stdout.
@@ -70,7 +70,7 @@ pub struct Source {
 /// segment keeps that mapping obvious. Sequencing several sources into one
 /// ffmpeg invocation would be handing our job — deciding what is on screen
 /// when — back to ffmpeg.
-pub struct Decoder {
+pub(crate) struct Decoder {
     child: Child,
     stdout: ChildStdout,
     subject: String,
@@ -87,7 +87,7 @@ impl Decoder {
     /// — a vertical phone clip in a 16:9 render gets transparent at the sides —
     /// `fill` crops instead, and `native` leaves the source at its own size for
     /// the compositor to rest on the canvas.
-    pub fn start(
+    pub(crate) fn start(
         tools: &Tools,
         source: &Source,
         settings: &RenderSettings,
@@ -133,14 +133,14 @@ impl Decoder {
     /// worked out again by the caller, so a buffer can only ever be the size
     /// the pipe is about to fill — a mismatch would not fail, it would slide
     /// every later frame along by the difference.
-    pub const fn raster(&self) -> Resolution {
+    pub(crate) const fn raster(&self) -> Resolution {
         self.raster
     }
 
     /// Reads the next frame into `frame`. `false` means the source ran out —
     /// which is a fact about the media, not a failure: a clip longer than its
     /// source is a project mistake, and the caller reports it.
-    pub fn read_into(&mut self, frame: &mut Frame) -> Result<bool, RenderError> {
+    pub(crate) fn read_into(&mut self, frame: &mut Frame) -> Result<bool, RenderError> {
         match self.stdout.read_exact(frame.bytes_mut()) {
             Ok(()) => Ok(true),
             Err(error) if error.kind() == ErrorKind::UnexpectedEof => Ok(false),
@@ -152,7 +152,7 @@ impl Decoder {
     }
 
     /// Waits for ffmpeg and reports what it said if it failed.
-    pub fn finish(mut self) -> Result<(), RenderError> {
+    pub(crate) fn finish(mut self) -> Result<(), RenderError> {
         // Drain anything still in flight first. ffmpeg blocks writing into a
         // full pipe, so waiting on a process we stopped reading from would
         // deadlock rather than exit.

@@ -18,7 +18,7 @@ const ENCODED_PIXELS: &str = "yuv420p";
 
 /// An ffmpeg process taking raw frames on its stdin and writing an encoded
 /// file.
-pub struct Encoder {
+pub(crate) struct Encoder {
     child: Child,
     stdin: ChildStdin,
     subject: String,
@@ -38,7 +38,7 @@ impl Encoder {
     /// blunt reason that a process has one stdin. It is already complete by the
     /// time this starts, so ffmpeg reads it at whatever pace it encodes at and
     /// nothing has to be kept in step.
-    pub fn start(
+    pub(crate) fn start(
         tools: &Tools,
         settings: &RenderSettings,
         mix: Option<&Path>,
@@ -113,7 +113,7 @@ impl Encoder {
     }
 
     /// Hands one finished frame to the encoder.
-    pub fn write(&mut self, frame: &Frame) -> Result<(), RenderError> {
+    pub(crate) fn write(&mut self, frame: &Frame) -> Result<(), RenderError> {
         self.stdin
             .write_all(frame.bytes())
             .map_err(|source| RenderError::Pipe {
@@ -123,7 +123,7 @@ impl Encoder {
     }
 
     /// Closes the pipe and waits for the file to be finalised.
-    pub fn finish(self) -> Result<(), RenderError> {
+    pub(crate) fn finish(self) -> Result<(), RenderError> {
         let Self {
             child,
             stdin,

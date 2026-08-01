@@ -21,8 +21,8 @@ pub use range::{FrameRange, FrameRangeError};
 /// The whole of the sketch lifecycle as the renderer sees it, and it is decided
 /// from the **document**: an asset either has media the project believes in, or
 /// it does not and a card stands in. Whether the file that belief names is
-/// actually on disk is a question for later, in [`crate::slug`], where opening
-/// files is allowed.
+/// actually on disk is a question for later, answered as an [`crate::Absent`]
+/// where opening files is allowed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Showing {
     /// The asset's own media, decoded from the file it names — or, for a text

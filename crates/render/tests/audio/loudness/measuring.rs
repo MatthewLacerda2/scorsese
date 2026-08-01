@@ -6,8 +6,8 @@
 
 use std::path::{Path, PathBuf};
 
-use scorsese_render::audio::measure;
-use scorsese_render::{Profile, Tools, say};
+use scorsese_render::audio::{Profile, measure};
+use scorsese_render::{Tools, say};
 use scorsese_soundgen::level::Difference;
 
 use crate::common::ffmpeg::{fixture_dir, generate, tools};

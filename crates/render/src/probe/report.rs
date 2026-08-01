@@ -4,8 +4,7 @@
 //! omits fields freely. Everything awkward about that shape is confined to
 //! this file so no consumer ever re-parses it.
 
-use scorsese_core::Fps;
-use scorsese_core::asset::MediaMetadata;
+use scorsese_core::{Fps, MediaMetadata};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]

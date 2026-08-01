@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use scorsese_core::asset::MediaMetadata;
+use scorsese_core::MediaMetadata;
 use scorsese_core::probe::{ProbeError, ProbeMedia};
 
 use crate::tools::Tools;

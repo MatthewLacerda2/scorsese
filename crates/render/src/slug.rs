@@ -30,8 +30,8 @@
 use std::path::{Path, PathBuf};
 
 use scorsese_compositor::card::{self, Card};
-use scorsese_compositor::text::{Band, Style};
-use scorsese_compositor::{Font, Frame, Resolution};
+use scorsese_compositor::text::{Band, Font, Style};
+use scorsese_compositor::{Frame, Resolution};
 use scorsese_core::{Asset, AssetKind, GenerationState, Rgba, TextAlign};
 
 use crate::error::RenderError;
@@ -149,7 +149,7 @@ impl Absent {
     ///
     /// The document alone — no disk is consulted, which is what lets a
     /// description say why a clip is a card without a render having happened.
-    /// [`standing`] is the same question once the filesystem has had its say.
+    /// `standing` is the same question once the filesystem has had its say.
     pub fn of(asset: &Asset) -> Self {
         match asset.state {
             Some(GenerationState::Sketch) => Self::Sketch,
@@ -196,7 +196,7 @@ impl std::fmt::Display for Absent {
 
 /// What a shot shows once the disk has been consulted.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Standing {
+pub(crate) enum Standing {
     /// The asset's own media, resolved against the project root and known to
     /// be there.
     Media(PathBuf),
@@ -213,7 +213,7 @@ pub enum Standing {
 /// wrong. A missing **imported** file stays a refusal, because nothing but the
 /// author can put it back and silently standing in for it would hide the loss
 /// of footage inside a finished-looking file.
-pub fn standing(shot: &Shot<'_>, project_root: &Path) -> Result<Standing, RenderError> {
+pub(crate) fn standing(shot: &Shot<'_>, project_root: &Path) -> Result<Standing, RenderError> {
     if shot.showing == Showing::Card {
         return Ok(Standing::Card(Absent::of(shot.asset)));
     }
@@ -239,7 +239,7 @@ pub fn standing(shot: &Shot<'_>, project_root: &Path) -> Result<Standing, Render
 ///
 /// Everywhere the card is not — the whole frame but for a narration band — the
 /// layer stays transparent, so the tracks below it show through.
-pub fn paint(frame: &mut Frame, asset: &Asset, absent: Absent) {
+pub(crate) fn paint(frame: &mut Frame, asset: &Asset, absent: Absent) {
     let look = Look::of(asset.kind);
     let resolution = frame.resolution();
     frame.fill_transparent();
