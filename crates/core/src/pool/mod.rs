@@ -17,8 +17,8 @@ mod status;
 
 pub use directory::{Import, Imported, SkipReason, Skipped, import_path};
 pub use gc::{GcError, GcReport, remove_assets, unused_assets};
-pub use hash::{hash_bytes, hash_file};
+pub use hash::hash_bytes;
 pub use import::{ImportError, import_asset};
-pub use naming::{asset_id_for, infer_kind};
+pub use naming::asset_id_for;
 pub use probing::{ProbeOutcome, Probed, Reprobe, probe_assets, unprobed_assets};
 pub use status::{AssetHealth, AssetStatus, HashCheck, asset_status};

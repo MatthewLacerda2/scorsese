@@ -33,7 +33,7 @@ use super::frames::Frames;
 /// rather than stream. Neither is expressible here, on purpose.
 ///
 /// Nothing checks the number as it is read: any float parses, and a zero,
-/// negative or non-finite one is reported by [`crate::validate`] naming the clip
+/// negative or non-finite one is reported by [`crate::Project::validate`] naming the clip
 /// that carries it. That is the same bargain every other field makes — an editor
 /// may save a document that is briefly incoherent and hear about all of it at
 /// once — and it is why this is not a `try_from` on the wire.

@@ -70,7 +70,7 @@ impl FontChoice {
 
 impl From<String> for FontChoice {
     /// Infallible on purpose: a path that breaks the project-path rules is a
-    /// [`crate::validate`] finding, reported alongside every other problem,
+    /// [`crate::Project::validate`] finding, reported alongside every other problem,
     /// rather than a parse failure that hides the rest of the document.
     fn from(text: String) -> Self {
         match text.as_str() {

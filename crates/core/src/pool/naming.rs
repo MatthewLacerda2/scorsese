@@ -18,7 +18,7 @@ const AUDIO: &[&str] = &[
 /// Guesses a kind from the file extension. The probe checks the guess against
 /// what the file actually contains, so a wrong extension is caught rather
 /// than trusted.
-pub fn infer_kind(path: &Path) -> Option<AssetKind> {
+pub(super) fn infer_kind(path: &Path) -> Option<AssetKind> {
     let extension = path.extension()?.to_str()?.to_ascii_lowercase();
     let extension = extension.as_str();
     if VIDEO.contains(&extension) {

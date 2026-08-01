@@ -4,7 +4,7 @@
 //! [`AssetId`] and never by path, so moving or regenerating a file is one
 //! edit in one place.
 
-pub mod kind;
+pub(crate) mod kind;
 
 use std::fmt;
 
@@ -24,7 +24,7 @@ pub struct AssetId(String);
 
 impl AssetId {
     /// Wraps a string as an id. Uniqueness is a property of the table, not of
-    /// the id, so it is [`crate::validate`] that catches a repeat.
+    /// the id, so it is [`crate::Project::validate`] that catches a repeat.
     pub fn new(id: impl Into<String>) -> Self {
         Self(id.into())
     }
@@ -47,7 +47,7 @@ impl fmt::Display for AssetId {
 /// Which fields are required depends on `kind` — an imported video needs a
 /// `path`, a Veo prompt needs a `prompt` and a `state`, a synthesis asset
 /// needs a `recipe` and a `state`, a text asset needs `text`. Those rules are
-/// checked by [`crate::validate`] so that one pass reports every problem at
+/// checked by [`crate::Project::validate`] so that one pass reports every problem at
 /// once.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

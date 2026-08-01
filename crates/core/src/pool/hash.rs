@@ -10,7 +10,7 @@ use sha2::{Digest, Sha256};
 ///
 /// Streamed rather than read whole: a source video can be gigabytes, and
 /// import must not need it all in memory at once.
-pub fn hash_file(path: &Path) -> io::Result<String> {
+pub(super) fn hash_file(path: &Path) -> io::Result<String> {
     let mut file = File::open(path)?;
     let mut hasher = Sha256::new();
     let mut buffer = vec![0_u8; 64 * 1024];
@@ -24,7 +24,8 @@ pub fn hash_file(path: &Path) -> io::Result<String> {
     Ok(hex(&hasher.finalize()))
 }
 
-/// Hashes bytes already in memory, in the same form [`hash_file`] returns.
+/// Hashes bytes already in memory, returning the same lowercase hex a hash of
+/// a whole file does.
 ///
 /// For content that is small by construction and is being hashed to *name*
 /// something rather than to verify it — a synthesis recipe, whose hash is the

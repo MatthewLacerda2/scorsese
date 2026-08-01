@@ -32,30 +32,57 @@
 //! on it.
 //!
 //! The format itself is documented in `docs/project-format.md`.
+//!
+//! ## What this publishes
+//!
+//! **The document, at the crate root.** Every type a `project.json` is made of
+//! — [`Project`], [`Asset`] and [`AssetKind`], [`Track`], [`Clip`] and their
+//! ids, [`KeyframeTrack`] and [`Easing`], [`Fps`], [`Frames`] and [`Speed`],
+//! [`TextStyle`], [`Rgba`], [`ProjectPath`] — is `scorsese_core::Thing` and
+//! nothing longer. Six crates and the desktop app all read and write the same
+//! document, and a model type with two import paths is a model type that gets
+//! spelled two ways.
+//!
+//! **Five modules keep their path**, because what they publish is an
+//! *operation* on a project rather than a part of one, and the verb needs the
+//! noun in front of it: [`mod@pool`] brings media in, hashes it, probes it and
+//! collects what nothing references; [`mod@pacing`] retimes a cut;
+//! [`mod@dip`] is auto-ducking; [`mod@probe`] is the seam an ffprobe lives
+//! behind, so this crate can reason about media without spawning anything;
+//! and [`mod@write`] is the one way a file leaves here. [`note`] keeps its own
+//! as well — the paragraph above sends the reader to it — and [`mod@asset`]
+//! is open for `scorsese-render`, which spells `asset::MediaMetadata` where
+//! everything else spells [`MediaMetadata`].
+//!
+//! **Everything else is `pub(crate)`.** How the document is parsed and saved,
+//! how the frame grid does its arithmetic, how a font choice and a colour are
+//! read, and the whole of validation's machinery behind [`Project::validate`]
+//! — those are the steps this crate is made of, and nothing above it composes
+//! them differently.
 
 pub mod asset;
-pub mod color;
+pub(crate) mod color;
 pub mod dip;
-pub mod keyframe;
+pub(crate) mod keyframe;
 pub mod note;
 pub mod pacing;
-pub mod path;
+pub(crate) mod path;
 pub mod pool;
 pub mod probe;
-pub mod project;
-pub mod text;
-pub mod time;
-pub mod timeline;
-pub mod validate;
+pub(crate) mod project;
+pub(crate) mod text;
+pub(crate) mod time;
+pub(crate) mod timeline;
+pub(crate) mod validate;
 pub mod write;
 
 pub use asset::{Asset, AssetId, AssetKind, GenerationState, MediaMetadata};
 pub use color::{ColorError, Rgba};
-pub use dip::{Dip, Ducked, Span, Under, duck_track};
+pub use dip::{Dip, Ducked, Under, duck_track};
 pub use keyframe::{Easing, Keyframe, KeyframeTrack, PropertyPath};
+pub use note::{Annotated, Noted};
 // The function itself is deliberately left behind the module — see
 // [`pacing`] for why `scorsese_core::scale` would be the wrong name.
-pub use note::{Annotated, Noted};
 pub use pacing::{PaceError, Paced};
 pub use path::{PathProblem, ProjectPath};
 pub use pool::{

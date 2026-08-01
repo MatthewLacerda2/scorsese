@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 /// with forward slashes on every platform.
 ///
 /// This is the rule that lets a project survive `scp -r` between machines, so
-/// it is not negotiable — but it is enforced by [`crate::validate`], not by
+/// it is not negotiable — but it is enforced by [`crate::Project::validate`], not by
 /// this type's `Deserialize`. That is deliberate: a project with three bad
 /// paths should report all three at once instead of aborting on the first.
 /// Construction is therefore infallible; [`ProjectPath::check`] is the rule.
