@@ -122,3 +122,33 @@ fn split_accidentals(rest: &str) -> (i32, &str) {
 pub fn midi_to_freq(midi: f32) -> f32 {
     A4_HZ * ((midi - A4_MIDI) / 12.0).exp2()
 }
+
+/// The twelve pitch classes, spelled with sharps.
+///
+/// One spelling rather than the enharmonic pair, because a pitch class is a
+/// number here and a number carries no key signature to be spelled in — `A#`
+/// and `Bb` are the same class, and picking one keeps two reports of the same
+/// music from disagreeing about what it is made of.
+const SHARP_NAMES: [&str; 12] = [
+    "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
+];
+
+/// Names a pitch class — `0` is C, `11` is B — wrapping anything above.
+pub fn pitch_class_name(class: u32) -> &'static str {
+    SHARP_NAMES[(class % 12) as usize]
+}
+
+/// Names a MIDI number the way a score does: `60` is `"C4"`.
+///
+/// The inverse of [`parse_note`] for whole numbers, and rounded to the nearest
+/// semitone for the fractional ones a microtonal pitch or a transpose can
+/// produce — a report says which note this *is*, and "C4 and a bit" is not a
+/// note anyone goes looking for.
+pub fn midi_to_name(midi: f32) -> String {
+    let whole = midi.round().clamp(MIDI_RANGE.0, MIDI_RANGE.1) as i32;
+    format!(
+        "{}{}",
+        pitch_class_name(whole.unsigned_abs()),
+        whole.div_euclid(12) - 1
+    )
+}
