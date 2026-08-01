@@ -7,22 +7,22 @@ use scorsese_core::{Dip, Ducked, Frames, Project, PropertyPath, TrackId, Under, 
 use scorsese_render::audio::path::VOLUME;
 
 /// How the dip is shaped, before it is put on the project's frame grid.
-pub struct Options {
+pub(crate) struct Options {
     /// How far down, as a multiplier on the clip's own level.
-    pub depth: f64,
+    pub(crate) depth: f64,
     /// Seconds to get there.
-    pub attack: f64,
+    pub(crate) attack: f64,
     /// Seconds to come back.
-    pub release: f64,
+    pub(crate) release: f64,
     /// Which tracks count as narration. Empty means every other audio track.
-    pub under: Vec<String>,
+    pub(crate) under: Vec<String>,
 }
 
 /// Writes volume keyframes on the music track so it steps aside for narration.
 ///
 /// Safe to re-run: it replaces only the tracks it signed, so a second run
 /// redoes the ducking and leaves anything you set by hand exactly as it was.
-pub fn run(project_dir: &Path, music: &str, options: &Options) -> Result<()> {
+pub(crate) fn run(project_dir: &Path, music: &str, options: &Options) -> Result<()> {
     let mut project = Project::load(project_dir)
         .with_context(|| format!("opening the project in {}", project_dir.display()))?;
 

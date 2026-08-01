@@ -8,7 +8,7 @@ use scorsese_providers::synth::{self, Baked, Starter};
 use scorsese_render::say;
 
 /// Writes a starter recipe and the asset that points at it.
-pub fn new(project_dir: &Path, name: &str, starter: Starter) -> Result<()> {
+pub(crate) fn new(project_dir: &Path, name: &str, starter: Starter) -> Result<()> {
     let mut project = open(project_dir)?;
     let id = synth::create(&mut project, project_dir, name, starter)
         .with_context(|| format!("creating the recipe for `{name}`"))?;
@@ -27,7 +27,7 @@ pub fn new(project_dir: &Path, name: &str, starter: Starter) -> Result<()> {
 /// With no id this covers every one of them, and it is deliberately safe to
 /// re-run: an asset whose recipe has not changed is a cache hit that renders
 /// nothing.
-pub fn bake(project_dir: &Path, only: Option<&str>) -> Result<()> {
+pub(crate) fn bake(project_dir: &Path, only: Option<&str>) -> Result<()> {
     let mut project = open(project_dir)?;
     let baked = match only {
         Some(id) => {
@@ -49,7 +49,7 @@ pub fn bake(project_dir: &Path, only: Option<&str>) -> Result<()> {
 }
 
 /// Parses a recipe and says what it is, without rendering it.
-pub fn check(recipe: &Path) -> Result<()> {
+pub(crate) fn check(recipe: &Path) -> Result<()> {
     let json =
         std::fs::read_to_string(recipe).with_context(|| format!("reading {}", recipe.display()))?;
     match synth::check(&json) {
@@ -74,7 +74,7 @@ pub fn check(recipe: &Path) -> Result<()> {
 /// Prints **nothing at all** for a project of fewer than two songs, and that is
 /// the whole of what it does then: a survey is a report across a set, and a set
 /// of one has no row a summary of it would not already be.
-pub fn survey(project_dir: &Path) -> Result<()> {
+pub(crate) fn survey(project_dir: &Path) -> Result<()> {
     let project = open(project_dir)?;
     let surveyed = synth::survey(&project, project_dir).context("reading the recipes")?;
     for line in say::survey(&surveyed) {

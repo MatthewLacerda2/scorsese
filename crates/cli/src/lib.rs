@@ -12,14 +12,32 @@
 //! over `scorsese-core`, `scorsese-render`, and `scorsese-providers`. Logic
 //! that another caller (the MCP server, the GUI) would want lives in those
 //! crates, not here.
+//!
+//! ## What this publishes
+//!
+//! Almost nothing, which is the right shape for a binary crate: [`run`], which
+//! is what `main` calls, plus the two things this crate's own tests reach for
+//! from outside it. [`Cli`] is the command tree as a value, so the help-text
+//! gate can walk every verb and flag without running any of them, and
+//! [`mod@media`] is the health-to-severity table `check` prints, so the rule
+//! deciding what fails a project can be asserted directly instead of being read
+//! back out of stdout.
+//!
+//! Everything else is `pub(crate)`. Nothing in the workspace depends on this
+//! crate — each `commands` module is one verb's worth of orchestration and
+//! printing, and a second caller for any of it would be the sign that the logic
+//! belongs in `scorsese-core` or `scorsese-render` instead.
 
-pub mod cli;
-pub mod commands;
+mod cli;
+mod commands;
 
 use anyhow::Result;
 use clap::Parser;
 
-use cli::{AssetsAction, Cli, Command, SynthAction};
+pub use cli::Cli;
+pub use commands::check::media;
+
+use cli::{AssetsAction, Command, SynthAction};
 
 /// Parses the command line and runs it.
 pub fn run() -> Result<()> {

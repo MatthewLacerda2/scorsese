@@ -16,7 +16,7 @@ use scorsese_render::{Tools, audio::measure, say};
 /// It takes a path rather than an asset id on purpose. What is measured here is
 /// a finished file, and a finished file is as likely to be a delivered `.mp4`
 /// sitting outside the project as a bake inside it.
-pub fn run(file: &Path, against: Option<&Path>) -> Result<()> {
+pub(crate) fn run(file: &Path, against: Option<&Path>) -> Result<()> {
     let tools = Tools::discover()?;
     let profile = measure(&tools, file).with_context(|| format!("measuring {}", file.display()))?;
 

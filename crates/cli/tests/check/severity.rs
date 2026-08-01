@@ -4,7 +4,7 @@
 //! referenced/unreferenced axis is half the rule, and a table that only ever
 //! saw one side of it would pass while ignoring `clip_count` entirely.
 
-use scorsese_cli::commands::check::media::{Severity, findings};
+use scorsese_cli::media::{Severity, findings};
 use scorsese_core::{AssetHealth, AssetId, AssetKind, AssetStatus, GenerationState};
 
 /// The severity `check` gives this health, or `None` when it says nothing.

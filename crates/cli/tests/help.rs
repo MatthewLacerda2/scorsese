@@ -10,7 +10,7 @@
 //! instead of remembering to write help text.
 
 use clap::{Command, CommandFactory};
-use scorsese_cli::cli::Cli;
+use scorsese_cli::Cli;
 
 /// One place with nothing to say for itself.
 #[derive(Debug)]
