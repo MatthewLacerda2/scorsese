@@ -1,5 +1,5 @@
 //! Tools that change something: write the document, dissolve a cut, duck
-//! the music, render.
+//! the music, scale a run of clips, render.
 //!
 //! One file per tool. They were one file until the dissolve arrived and put
 //! it over the size gate, which is the gate doing its job: four tools that
@@ -7,12 +7,14 @@
 
 mod dissolve;
 mod duck;
+mod pace;
 mod probe;
 mod render;
 mod write;
 
 pub(crate) use dissolve::Dissolve;
 pub(crate) use duck::Duck;
+pub(crate) use pace::ScalePacing;
 pub(crate) use probe::Probe;
 pub(crate) use render::Render;
 pub(crate) use write::Write;

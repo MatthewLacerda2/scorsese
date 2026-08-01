@@ -9,6 +9,7 @@
 mod drag;
 mod gesture;
 mod lanes;
+mod pacing;
 mod ruler;
 mod view;
 
@@ -86,7 +87,13 @@ impl Timeline {
             .and_then(|at| lanes::hit(&open.project, area, top, self.view, at));
         // Input before paint, so a clip moved this frame is drawn where the
         // pointer left it rather than one frame behind it.
-        self.act(ui, &response, area, hit.as_ref(), open, editing);
+        //
+        // Pacing first, and exclusively: while it is running the pointer is
+        // driving a factor, so the click that ends it is the end of the gesture
+        // and not a click on whatever it happened to land on.
+        if !self.pace(ui, open, editing) {
+            self.act(ui, &response, area, hit.as_ref(), open, editing);
+        }
 
         let painter = ui.painter_at(full);
         ruler::draw(
@@ -167,18 +174,30 @@ impl Timeline {
         );
     }
 
-    /// What the last edit could not do, said out loud.
+    /// What the panel has to say: the gesture in flight, and what the last
+    /// edit could not do.
+    ///
+    /// Both in one corner and stacked, because they are two halves of one
+    /// answer during a scale — the factor asked for, and the reason the clips
+    /// stopped following it.
     fn note(&self, ui: &Ui, painter: &egui::Painter, area: Rect) {
-        let Some(text) = &self.trouble else {
-            return;
+        let mut at = area.right_top() + vec2(-6.0, 4.0);
+        let mut line = |text: &str, color| {
+            painter.text(
+                at,
+                egui::Align2::RIGHT_TOP,
+                text,
+                egui::FontId::proportional(11.0),
+                color,
+            );
+            at.y += 14.0;
         };
-        painter.text(
-            area.right_top() + vec2(-6.0, 4.0),
-            egui::Align2::RIGHT_TOP,
-            text,
-            egui::FontId::proportional(11.0),
-            ui.visuals().error_fg_color,
-        );
+        if let Some(Gesture::Pace(pace)) = &self.gesture {
+            line(&pace.readout(), ui.visuals().strong_text_color());
+        }
+        if let Some(text) = &self.trouble {
+            line(text, ui.visuals().error_fg_color);
+        }
     }
 }
 
