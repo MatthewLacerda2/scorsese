@@ -166,6 +166,20 @@ impl Clip {
         self.start + self.duration
     }
 
+    /// The frame of the **source** just past the last one this clip plays —
+    /// where it starts in the media, plus how much of the media it gets
+    /// through.
+    ///
+    /// The number that has to land inside the source's own length, and the one
+    /// place a clip's playback rate would enter that arithmetic: a clip running
+    /// at anything other than one source frame per timeline frame gets through
+    /// its media faster or slower, and nothing above this line changes to say
+    /// so. Today the two are the same thing, so this is `source_in` plus
+    /// `duration`.
+    pub fn source_end(&self) -> Frames {
+        self.source_in + self.duration
+    }
+
     /// True when the two clips share any frame. Clips that merely touch (one
     /// ending exactly where the next starts) do not overlap — with integer
     /// frames that is a fact rather than a tolerance.

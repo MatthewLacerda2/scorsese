@@ -1,7 +1,7 @@
 //! Path rules — the invariant that lets a project survive `scp -r`.
 
 use crate::common::{assert_only_problem, asset_id, asset_mut, project};
-use scorsese_core::{PathProblem, ProjectPath, ValidationError as E};
+use scorsese_core::{AssetProblem as E, PathProblem, ProjectPath};
 
 /// Puts `path` on the logo asset and expects exactly that one complaint.
 #[track_caller]
@@ -11,7 +11,7 @@ fn expect_problem(path: &str, problem: PathProblem) {
     asset_mut(&mut p, "logo").path = Some(path.clone());
     assert_only_problem(
         &p,
-        &E::BadPath {
+        E::BadPath {
             asset: asset_id("logo"),
             path,
             problem,

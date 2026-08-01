@@ -1,0 +1,154 @@
+//! What the assets-table checks can find: identity, paths, and the fields a
+//! kind requires.
+
+use crate::asset::{AssetId, AssetKind};
+use crate::path::{PathProblem, ProjectPath};
+use crate::validate::field::AssetField;
+
+/// One thing wrong with a row of the assets table.
+#[derive(Debug, Clone, PartialEq, thiserror::Error)]
+pub enum AssetProblem {
+    /// Ids are how clips name assets, so a repeat makes every reference to it
+    /// ambiguous.
+    #[error("asset id `{id}` is used more than once")]
+    DuplicateAssetId {
+        /// The id claimed twice.
+        id: AssetId,
+    },
+
+    /// A path that would not survive `scp -r` — absolute, backslashed, or
+    /// climbing out of the project root.
+    #[error("asset `{asset}`: path `{path}` {problem}")]
+    BadPath {
+        /// The asset carrying it.
+        asset: AssetId,
+        /// The path as written.
+        path: ProjectPath,
+        /// Which rule it breaks.
+        problem: PathProblem,
+    },
+
+    /// A field the asset's kind requires, absent.
+    ///
+    /// One variant rather than one per field: which fields a kind needs is
+    /// [`AssetField`]'s to explain, and saying it again per error is how the
+    /// same reasoning ends up written twice and maintained once.
+    #[error("asset `{asset}` is a {kind:?} and needs a `{field}`")]
+    MissingField {
+        /// The asset that is short a field.
+        asset: AssetId,
+        /// Which field, and why that kind wants it.
+        field: AssetField,
+        /// The kind that requires it.
+        kind: AssetKind,
+    },
+
+    /// A field belonging to some other kind.
+    ///
+    /// The mirror of [`AssetProblem::MissingField`], and worth reporting for
+    /// the same reason: nothing would ever read it, and silence about it would
+    /// look exactly like having read it. Usually a `kind` that was meant to be
+    /// something else.
+    #[error("asset `{asset}` is a {kind:?}, so `{field}` does not apply to it")]
+    StrayField {
+        /// The asset carrying it.
+        asset: AssetId,
+        /// Which field, and where it does belong.
+        field: AssetField,
+        /// The kind that has no use for it.
+        kind: AssetKind,
+    },
+
+    /// A text asset carries its content inline; without it there is nothing
+    /// to draw.
+    #[error("asset `{asset}` is a text asset and needs `text` content")]
+    MissingText {
+        /// The empty text asset.
+        asset: AssetId,
+    },
+
+    /// A font file that would not survive `scp -r`, under the same rules every
+    /// other path in the document obeys. Named apart from
+    /// [`AssetProblem::BadPath`] because a text asset has two paths in play —
+    /// its font and nothing else — and "which path" is the first thing a reader
+    /// needs.
+    #[error("asset `{asset}`: font `{path}` {problem}")]
+    BadFontPath {
+        /// The text asset naming it.
+        asset: AssetId,
+        /// The font path as written.
+        path: ProjectPath,
+        /// Which rule it breaks.
+        problem: PathProblem,
+    },
+
+    /// A `weight` beside `sans` or `serif`.
+    ///
+    /// The two shipped faces are one static weight each, so nothing could act
+    /// on the number — and a field nothing reads is how someone comes to
+    /// insist their bold is broken. The message points at the way to get a
+    /// weight at all: a variable font file the project carries.
+    #[error(
+        "asset `{asset}`: `{font}` is one of the faces scorsese ships and has a single weight, \
+         so `weight` ({weight}) cannot apply to it — name a variable font file instead"
+    )]
+    WeightOnReservedFont {
+        /// The text asset naming it.
+        asset: AssetId,
+        /// Which reserved name was written.
+        font: String,
+        /// The weight that could not be honoured.
+        weight: u16,
+    },
+
+    /// A number that is not a weight on anybody's scale.
+    ///
+    /// The bounds are OpenType's for the `wght` axis, so this is checkable from
+    /// the document alone. Whether a *particular* face reaches the weight asked
+    /// for is narrower and only the file can answer it, so that refusal waits
+    /// until the render opens it.
+    #[error("asset `{asset}`: weight {weight} is outside the {min}–{max} a font weight can be")]
+    WeightOutOfRange {
+        /// The text asset naming it.
+        asset: AssetId,
+        /// The number as written.
+        weight: u16,
+        /// The lightest weight the format allows.
+        min: u16,
+        /// The heaviest weight the format allows.
+        max: u16,
+    },
+
+    /// A recipe path that would not survive `scp -r`, under the same rules
+    /// every other path in the document obeys. Named apart from
+    /// [`AssetProblem::BadPath`] because a synthesis asset has two paths in
+    /// play — its recipe and its baked media — and "which path" is the first
+    /// thing a reader needs.
+    #[error("asset `{asset}`: recipe `{path}` {problem}")]
+    BadRecipePath {
+        /// The synthesis asset naming it.
+        asset: AssetId,
+        /// The recipe path as written.
+        path: ProjectPath,
+        /// Which rule it breaks.
+        problem: PathProblem,
+    },
+
+    /// `generated` claims the media exists, so something has to say where.
+    /// Usually a state edited by hand ahead of the generation.
+    #[error("asset `{asset}` is in state `generated` but has no `path` to the generated file")]
+    GeneratedWithoutPath {
+        /// The asset claiming media it cannot produce.
+        asset: AssetId,
+    },
+
+    /// Not the shape a SHA-256 comes in, so it can never match a real file —
+    /// truncated, uppercase, or an algorithm that is not SHA-256.
+    #[error("asset `{asset}`: sha256 `{value}` is not 64 lowercase hex characters")]
+    BadSha256 {
+        /// The asset carrying it.
+        asset: AssetId,
+        /// The string that is not a hash.
+        value: String,
+    },
+}

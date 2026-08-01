@@ -5,7 +5,7 @@
 //! and whether it is somewhere it does not belong.
 
 use crate::common::{assert_only_problem, asset_id, asset_mut, problems, project};
-use scorsese_core::{Asset, AssetField as F, AssetKind, Rgba, ValidationError as E};
+use scorsese_core::{Asset, AssetField as F, AssetKind, AssetProblem as E, Rgba};
 
 /// A colour asset in an otherwise valid project, on the video track the
 /// fixture already has.
@@ -27,7 +27,7 @@ fn a_colour_asset_is_valid_on_its_own() {
 fn a_colour_asset_needs_a_colour() {
     assert_only_problem(
         &with_a_colour(None),
-        &E::MissingField {
+        E::MissingField {
             asset: asset_id("bg"),
             field: F::Color,
             kind: AssetKind::Color,
@@ -41,7 +41,7 @@ fn nothing_but_a_colour_asset_may_carry_a_colour() {
     asset_mut(&mut p, "logo").color = Some(Rgba::WHITE);
     assert_only_problem(
         &p,
-        &E::StrayField {
+        E::StrayField {
             asset: asset_id("logo"),
             field: F::Color,
             kind: AssetKind::Image,

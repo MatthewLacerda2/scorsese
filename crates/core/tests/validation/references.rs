@@ -2,7 +2,7 @@
 //! can hold them.
 
 use crate::common::{assert_only_problem, asset_id, clip_id, project, track_id};
-use scorsese_core::{AssetKind, Clip, Frames, TrackKind, ValidationError as E};
+use scorsese_core::{AssetKind, Clip, Frames, TimelineProblem as E, TrackKind};
 
 #[test]
 fn a_clip_pointing_at_a_missing_asset_is_reported() {
@@ -10,7 +10,7 @@ fn a_clip_pointing_at_a_missing_asset_is_reported() {
     p.tracks[0].clips[0].asset = asset_id("shot-citty");
     assert_only_problem(
         &p,
-        &E::DanglingAssetRef {
+        E::DanglingAssetRef {
             clip: clip_id("c-shot"),
             asset: asset_id("shot-citty"),
         },
@@ -23,7 +23,7 @@ fn a_reused_clip_id_is_reported_across_tracks() {
     p.tracks[1].clips[0].id = clip_id("c-shot");
     assert_only_problem(
         &p,
-        &E::DuplicateClipId {
+        E::DuplicateClipId {
             id: clip_id("c-shot"),
         },
     );
@@ -33,7 +33,7 @@ fn a_reused_clip_id_is_reported_across_tracks() {
 fn a_reused_track_id_is_reported() {
     let mut p = project();
     p.tracks[1].id = track_id("v1");
-    assert_only_problem(&p, &E::DuplicateTrackId { id: track_id("v1") });
+    assert_only_problem(&p, E::DuplicateTrackId { id: track_id("v1") });
 }
 
 #[test]
@@ -44,7 +44,7 @@ fn sound_does_not_belong_on_a_video_track() {
     p.tracks[0].clips.push(vo);
     assert_only_problem(
         &p,
-        &E::TrackKindMismatch {
+        E::TrackKindMismatch {
             track: track_id("v1"),
             track_kind: TrackKind::Video,
             clip: clip_id("c-vo"),
@@ -61,7 +61,7 @@ fn picture_does_not_belong_on_an_audio_track() {
     p.tracks[2].clips.push(logo);
     assert_only_problem(
         &p,
-        &E::TrackKindMismatch {
+        E::TrackKindMismatch {
             track: track_id("a1"),
             track_kind: TrackKind::Audio,
             clip: clip_id("c-logo"),

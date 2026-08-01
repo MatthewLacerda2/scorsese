@@ -9,6 +9,12 @@
 //! Every check runs and every problem is collected. Reporting all of them at
 //! once is the point: an agent repairing a project unattended should get the
 //! whole list, not one error per round-trip.
+//!
+//! Almost all of it is about the *document* and stops at the edge of it: a
+//! path is checked for shape, never for a file being there. The exception is
+//! narrow and named — a clip is held to the length of the media its asset was
+//! **measured** to be, when a measurement exists — and it is not the document
+//! reaching for the disk: it reads the `media` block the pool already wrote.
 
 mod assets;
 mod error;
@@ -16,7 +22,7 @@ mod field;
 mod report;
 mod timeline;
 
-pub use error::ValidationError;
+pub use error::{AssetProblem, TimelineProblem, ValidationError};
 pub use field::AssetField;
 pub use report::ValidationErrors;
 
@@ -33,8 +39,8 @@ impl Project {
                 supported: SCHEMA_VERSION,
             });
         }
-        assets::check(self, &mut errors);
-        timeline::check(self, &mut errors);
+        errors.extend(assets::check(self).into_iter().map(Into::into));
+        errors.extend(timeline::check(self).into_iter().map(Into::into));
 
         if errors.is_empty() {
             Ok(())

@@ -62,12 +62,16 @@ pub(crate) fn problems(project: &Project) -> Vec<ValidationError> {
 
 /// Asserts the project reports exactly this one problem — which keeps a test
 /// honest about the mutation it made, rather than passing on a side effect.
+///
+/// Takes anything a problem converts from, so a test names the catalogue its
+/// subject lives in — `AssetProblem` or `TimelineProblem` — rather than the
+/// wrapper that collects both.
 #[track_caller]
-pub(crate) fn assert_only_problem(project: &Project, expected: &ValidationError) {
+pub(crate) fn assert_only_problem(project: &Project, expected: impl Into<ValidationError>) {
     let found = problems(project);
     assert_eq!(
         found.as_slice(),
-        std::slice::from_ref(expected),
+        std::slice::from_ref(&expected.into()),
         "wrong problems reported"
     );
 }

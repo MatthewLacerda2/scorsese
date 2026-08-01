@@ -4,7 +4,7 @@
 //! is not decoration — it is the difference between an agent repairing the
 //! right key and hunting for one that is not in the document.
 
-use scorsese_core::{AssetField, AssetId, AssetKind, ValidationError as E};
+use scorsese_core::{AssetField, AssetId, AssetKind, AssetProblem as E};
 
 /// Every field spells itself the way `project.json` does. A rename here is a
 /// message pointing at a key nobody can find.

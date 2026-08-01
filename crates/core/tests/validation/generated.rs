@@ -2,7 +2,7 @@
 //! replaces its own work and nobody else's.
 
 use crate::common::{assert_only_problem, asset_id, clip_id, project};
-use scorsese_core::{Clip, Frames, Keyframe, KeyframeTrack, PropertyPath, ValidationError as E};
+use scorsese_core::{Clip, Frames, Keyframe, KeyframeTrack, PropertyPath, TimelineProblem as E};
 
 /// A two-point volume ramp on `property`, signed or not.
 fn ramp(property: &str) -> KeyframeTrack {
@@ -105,7 +105,7 @@ fn a_blank_signature_is_refused() {
     });
     assert_only_problem(
         &p,
-        &E::BlankKeyframeAuthor {
+        E::BlankKeyframeAuthor {
             clip: clip_id("c-logo"),
             property: PropertyPath::new("opacity"),
         },

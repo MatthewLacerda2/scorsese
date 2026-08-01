@@ -8,8 +8,8 @@
 //! does for `path`.
 
 use crate::common::{assert_only_problem, asset_id, asset_mut, problems, project};
+use scorsese_core::{AssetProblem as E, text};
 use scorsese_core::{FontChoice, MAX_WEIGHT, MIN_WEIGHT, ProjectPath, TextStyle};
-use scorsese_core::{ValidationError as E, text};
 
 fn styled(project: &mut scorsese_core::Project, font: FontChoice, weight: Option<u16>) {
     asset_mut(project, "title").style = Some(TextStyle {
@@ -32,7 +32,7 @@ fn a_weight_beside_a_reserved_name_is_refused() {
     styled(&mut p, FontChoice::Sans, Some(700));
     assert_only_problem(
         &p,
-        &E::WeightOnReservedFont {
+        E::WeightOnReservedFont {
             asset: asset_id("title"),
             font: "sans".to_owned(),
             weight: 700,
@@ -56,7 +56,7 @@ fn a_number_that_is_not_a_weight_at_all_is_refused() {
         styled(&mut p, own_font(), Some(absurd));
         assert_only_problem(
             &p,
-            &E::WeightOutOfRange {
+            E::WeightOutOfRange {
                 asset: asset_id("title"),
                 weight: absurd,
                 min: MIN_WEIGHT,
