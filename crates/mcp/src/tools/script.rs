@@ -20,7 +20,7 @@ use scorsese_core::{Project, ProjectPath};
 use serde_json::Value;
 
 use super::inspect::load;
-use super::{Reply, Tool, project_dir, project_only_schema, project_property};
+use super::{Costs, Reply, Tool, project_dir, project_only_schema, project_property};
 
 /// By convention, and only that: the tool never reads the extension.
 const DEFAULT_SCRIPT: &str = "script.md";
@@ -39,6 +39,10 @@ impl Tool for Read {
          anything: it is where the reasons live that the timeline cannot show you, \
          including what the film must not claim. Not parsed, not structured — \
          prose, exactly as written."
+    }
+
+    fn costs(&self) -> Costs {
+        Costs::Nothing
     }
 
     fn schema(&self) -> Value {
@@ -77,6 +81,10 @@ impl Tool for Write {
          Nothing here is ever rendered: a script is read, never shown. Use a note \
          on an asset, track or clip for a reason about one thing; use this for what \
          the whole film has to be."
+    }
+
+    fn costs(&self) -> Costs {
+        Costs::Nothing
     }
 
     fn schema(&self) -> Value {

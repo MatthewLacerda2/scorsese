@@ -4,7 +4,7 @@ use scorsese_providers::synth;
 use serde_json::Value;
 
 use super::recipes::{read, recipe_path, recipe_property, text};
-use crate::tools::{Reply, Tool, project_property};
+use crate::tools::{Costs, Reply, Tool, project_property};
 
 /// Set one field of a recipe.
 pub(crate) struct Set;
@@ -22,6 +22,10 @@ impl Tool for Set {
          to move one float. Refused whole, changing nothing, if the field or the \
          track named is not there. The result is an ordinary recipe, and its \
          asset goes stale by the same arithmetic a full write does."
+    }
+
+    fn costs(&self) -> Costs {
+        Costs::Nothing
     }
 
     fn schema(&self) -> Value {

@@ -6,7 +6,7 @@ use serde_json::Value;
 
 use super::{frames, number};
 use crate::tools::inspect::load;
-use crate::tools::{Reply, Tool, project_dir, project_property};
+use crate::tools::{Costs, Reply, Tool, project_dir, project_property};
 
 /// Lower the music under narration.
 pub(crate) struct Duck;
@@ -22,6 +22,10 @@ impl Tool for Duck {
          the keyframes it wrote and never touches ones set by hand. Works on \
          narration that has not been generated yet, since it triggers on where \
          the clips are rather than on the sound."
+    }
+
+    fn costs(&self) -> Costs {
+        Costs::Nothing
     }
 
     fn schema(&self) -> Value {

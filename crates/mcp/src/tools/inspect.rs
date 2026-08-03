@@ -6,7 +6,7 @@ use scorsese_core::{HashCheck, Project, asset_status};
 use scorsese_render::{Commentary, Description, FrameRange, Note, Plan, unknown_in};
 use serde_json::Value;
 
-use super::{Reply, Tool, project_dir, project_only_schema};
+use super::{Costs, Reply, Tool, project_dir, project_only_schema};
 
 /// The project document itself.
 pub(super) struct Read;
@@ -21,6 +21,10 @@ impl Tool for Read {
          is in this document — assets, tracks, clips, keyframes — so this is the \
          starting point for any change. Pair with project_write to edit it. The \
          format is documented in docs/project-format.md."
+    }
+
+    fn costs(&self) -> Costs {
+        Costs::Nothing
     }
 
     fn schema(&self) -> Value {
@@ -47,11 +51,16 @@ impl Tool for Describe {
     }
 
     fn description(&self) -> &'static str {
-        "Say what the cut contains: what is on screen when, on which track, at \
-         what fit, with what animated, and what is audible under it — and every \
-         note left on an asset, track or clip saying why it is that way. \
+        "Say what the cut contains, shot by shot and sound by sound. That is \
+         what is on screen when, on which track, at what fit, with what \
+         animated, and what is audible under it — and every note left on an \
+         asset, track or clip saying why it is that way. \
          Sequences the timeline exactly as a render would but produces no file, \
          so it is the cheapest way to check an edit is right. No ffmpeg, no cost."
+    }
+
+    fn costs(&self) -> Costs {
+        Costs::Nothing
     }
 
     fn schema(&self) -> Value {
@@ -98,6 +107,10 @@ impl Tool for Check {
          repair job. Call this after any edit."
     }
 
+    fn costs(&self) -> Costs {
+        Costs::Nothing
+    }
+
     fn schema(&self) -> Value {
         project_only_schema()
     }
@@ -126,6 +139,10 @@ impl Tool for Assets {
          how many clips use it. Says which generated assets are still sketches \
          nobody has realised, and which files the document points at and cannot \
          find."
+    }
+
+    fn costs(&self) -> Costs {
+        Costs::Nothing
     }
 
     fn schema(&self) -> Value {

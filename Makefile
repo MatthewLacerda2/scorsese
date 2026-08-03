@@ -70,7 +70,7 @@ TOUCHES_APP = { \
 # `app/`, so without it make sees the target as already built and `make app`
 # prints "up to date" without running a thing. A check that silently does
 # nothing is worse than no check.
-.PHONY: help setup gates pre-commit inventory $(GATES) app-gates release format-fix coverage mutants mergeable
+.PHONY: help setup gates pre-commit inventory $(GATES) app-gates release format-fix mcp-table coverage mutants mergeable
 
 ##@ Everyday
 
@@ -294,6 +294,20 @@ mutants: ## Which changes to the code no test would notice. A signal: blocks not
 format-fix: ## Rewrite files to satisfy the format gate
 	cargo fmt --all
 	cargo fmt $(LINT) --all
+
+# The same relationship `format-fix` has to `format`, and for the same reason.
+# The tool table in `docs/mcp.md` is generated from the MCP registry, the `test`
+# gate fails when the checked-in page is not what the generator writes, and this
+# is how it gets written. One source — the tool's own description and cost,
+# which sit beside the `call` they describe — rather than two copies policed
+# against each other.
+#
+# It runs the checking test with an environment variable set rather than being a
+# second implementation, so what rewrites the page and what holds the page to it
+# can never disagree about the answer.
+mcp-table: ## Rewrite docs/mcp.md's tool table from the MCP registry
+	UPDATE_MCP_TABLE=1 cargo test --locked -p scorsese-mcp --test table
+	@echo "mcp-table: docs/mcp.md now says what the registry says."
 
 # `make gates` is only trustworthy if it runs every gate, and the failure mode
 # that matters is a gate quietly dropped from $(GATES) while its target stays

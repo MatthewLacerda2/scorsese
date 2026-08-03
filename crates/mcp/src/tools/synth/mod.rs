@@ -24,7 +24,7 @@ use scorsese_providers::synth::{self, Baked, Starter};
 use serde_json::Value;
 
 use super::inspect::load;
-use super::{Reply, Tool, project_dir, project_property};
+use super::{Costs, Reply, Tool, project_dir, project_property};
 use recipes::{read, recipe_path, recipe_property, recipe_schema, text};
 
 /// Start a recipe.
@@ -40,6 +40,10 @@ impl Tool for New {
          synth_audio asset that points at it. The starter makes a sound as \
          written, so bake it and listen before changing anything. Costs nothing \
          — synthesis needs no key, no network and no money."
+    }
+
+    fn costs(&self) -> Costs {
+        Costs::Nothing
     }
 
     fn schema(&self) -> Value {
@@ -110,6 +114,10 @@ impl Tool for Bake {
          a row per section of the arrangement, then a row per track of a song \
          saying which instrument is taking up the room. A signal, never a gate \
          — nothing about a level can fail a bake."
+    }
+
+    fn costs(&self) -> Costs {
+        Costs::Nothing
     }
 
     fn schema(&self) -> Value {
@@ -205,6 +213,10 @@ impl Tool for Check {
          out a document is malformed before spending a render on it."
     }
 
+    fn costs(&self) -> Costs {
+        Costs::Nothing
+    }
+
     fn schema(&self) -> Value {
         recipe_schema()
     }
@@ -235,6 +247,10 @@ impl Tool for Read {
          documented in docs/recipes.md."
     }
 
+    fn costs(&self) -> Costs {
+        Costs::Nothing
+    }
+
     fn schema(&self) -> Value {
         recipe_schema()
     }
@@ -259,6 +275,10 @@ impl Tool for Write {
          disk is left as it was. Writing a recipe makes its asset stale by \
          arithmetic: the bake is named for the recipe's hash, so the next \
          synth_bake redoes it and nothing has to be marked."
+    }
+
+    fn costs(&self) -> Costs {
+        Costs::Nothing
     }
 
     fn schema(&self) -> Value {

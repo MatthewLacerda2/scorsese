@@ -11,7 +11,7 @@ use scorsese_render::Ffprobe;
 use serde_json::Value;
 
 use crate::tools::inspect::load;
-use crate::tools::{Reply, Tool, project_dir, project_property};
+use crate::tools::{Costs, Reply, Tool, project_dir, project_property};
 
 /// Read what the media pool is actually made of.
 pub(crate) struct Probe;
@@ -22,15 +22,20 @@ impl Tool for Probe {
     }
 
     fn description(&self) -> &'static str {
-        "Ask ffprobe about every asset that has a file and no recorded metadata, \
-         and write down what it says: how long the source is, its width and \
-         height, its frame rate, and whether it carries sound. Import does this \
+        "Ask ffprobe about every asset that has a file and no recorded \
+         metadata, and write down what it says. That is how long the source is, \
+         its width and height, its frame rate, and whether it carries sound. \
+         Import does this \
          for what it brings in, so this is for the assets that reached \
          project.json another way — which is every asset you added by writing \
          the document. Call it after adding assets by hand: features that need \
          a source's own length, a clip's trim ceiling among them, cannot work \
          on an asset nobody has looked at. Safe to re-run; an already-probed \
          asset is left alone unless `all` says otherwise."
+    }
+
+    fn costs(&self) -> Costs {
+        Costs::Probe
     }
 
     fn schema(&self) -> Value {

@@ -7,7 +7,7 @@ use serde_json::Value;
 
 use super::number;
 use crate::tools::inspect::load;
-use crate::tools::{Reply, Tool, project_dir, project_property};
+use crate::tools::{Costs, Reply, Tool, project_dir, project_property};
 
 /// Spread a run of clips out, or close it up, about one instant.
 pub(crate) struct ScalePacing;
@@ -30,6 +30,10 @@ impl Tool for ScalePacing {
          are two different edits, so this refuses to pick. The reply says which \
          clips those were. Nothing is changed at all unless the whole scale \
          lands in a document that still loads."
+    }
+
+    fn costs(&self) -> Costs {
+        Costs::Nothing
     }
 
     fn schema(&self) -> Value {

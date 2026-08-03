@@ -10,7 +10,7 @@ use scorsese_providers::synth;
 use serde_json::Value;
 
 use super::super::inspect::load;
-use super::super::{Reply, Tool, project_dir, project_only_schema};
+use super::super::{Costs, Reply, Tool, project_dir, project_only_schema};
 
 /// Count what every song recipe is made of.
 pub(in crate::tools) struct Survey;
@@ -32,6 +32,10 @@ impl Tool for Survey {
          no grade and no recommendation here, and nothing about it can fail \
          anything. A project of fewer than two songs has no set to report on \
          and says so in one line."
+    }
+
+    fn costs(&self) -> Costs {
+        Costs::Nothing
     }
 
     fn schema(&self) -> Value {

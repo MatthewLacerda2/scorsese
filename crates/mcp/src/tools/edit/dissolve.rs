@@ -6,7 +6,7 @@ use serde_json::Value;
 
 use super::{frames, number};
 use crate::tools::inspect::load;
-use crate::tools::{Reply, Tool, project_dir, project_property};
+use crate::tools::{Costs, Reply, Tool, project_dir, project_property};
 
 /// Dissolve one shot into the next.
 pub(crate) struct Dissolve;
@@ -24,6 +24,10 @@ impl Tool for Dissolve {
          and pulled back over the outgoing one; the reply says what that \
          rearranged. The clips must currently meet at a cut and each must be at \
          least as long as the crossover, or nothing is changed at all."
+    }
+
+    fn costs(&self) -> Costs {
+        Costs::Nothing
     }
 
     fn schema(&self) -> Value {

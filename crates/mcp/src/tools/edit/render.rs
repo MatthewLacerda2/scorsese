@@ -6,7 +6,7 @@ use scorsese_render::{FrameRange, RenderSettings, Renderer, Resolution, Tools};
 use serde_json::Value;
 
 use crate::tools::inspect::load;
-use crate::tools::{Reply, Tool, project_dir, project_property};
+use crate::tools::{Costs, Reply, Tool, project_dir, project_property};
 
 /// Encode the timeline to a file.
 pub(crate) struct Render;
@@ -21,6 +21,10 @@ impl Tool for Render {
          — call project_describe first to check the cut is right, since that \
          costs nothing. Sketch and stale generated assets render as slug cards \
          rather than failing, so a preview cut always produces something."
+    }
+
+    fn costs(&self) -> Costs {
+        Costs::Encode
     }
 
     fn schema(&self) -> Value {

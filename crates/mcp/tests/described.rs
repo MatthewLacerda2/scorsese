@@ -9,6 +9,16 @@
 //! The same gate already covers the CLI's `--help` and the animatable-property
 //! table in `docs/project-format.md`. Walking a tool registry is that test
 //! again.
+//!
+//! **What a tool costs is held to the same discipline, and not from here.**
+//! `Tool::costs` is a required method with no default, so a tool that does not
+//! state what calling it spends fails to compile — which is a stronger gate
+//! than any assertion this file could make, and the reason there is no test for
+//! it below. A test that merely re-checked what the type system already refuses
+//! would read as coverage while proving nothing.
+//!
+//! The half that *is* testable moved to `tests/table.rs`: a description's first
+//! sentence is the cell `docs/mcp.md` carries, so it has to stand on its own.
 
 use scorsese_mcp::registry;
 use serde_json::Value;
