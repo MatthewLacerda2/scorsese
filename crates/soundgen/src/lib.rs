@@ -5,6 +5,13 @@
 //! note; the tracker-style arrangement that makes a piece of music out of many;
 //! and the WAV encoding that puts either into bytes.
 //!
+//! **Effects and score, and no voice.** What this crate makes is sound nobody
+//! speaks: a gunshot, a footstep, a UI blip, and the music under all of them.
+//! Speech is not a feature that is merely unimplemented here — it is a
+//! different craft, and neither [`Patch`] nor [`Song`] has anywhere to put a
+//! phoneme. A project that needs narration gets it from a provider, which is a
+//! fact about the project rather than about this crate.
+//!
 //! This is the free half of scorsese's generated content. A `synth_audio`
 //! asset costs no money, needs no key and no network, and produces the **same
 //! bytes every time**, which is what lets `generated/` address a bake by the
