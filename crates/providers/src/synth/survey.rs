@@ -13,7 +13,7 @@
 use std::path::Path;
 
 use scorsese_core::Project;
-use scorsese_soundgen::survey::{SongSurvey, Survey};
+use scorsese_zimmer::survey::{SongSurvey, Survey};
 
 use super::error::SynthesisError;
 use super::recipe::Recipe;

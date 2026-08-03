@@ -14,7 +14,7 @@
 //! instruments over four sections is twenty rows in a report usually read as
 //! "fine, carry on", and the per-section detail is already on the sum.
 
-use scorsese_soundgen::level::Layer;
+use scorsese_zimmer::level::Layer;
 
 use super::table::columns;
 
@@ -48,7 +48,7 @@ pub fn layers(measured: &[Layer]) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use scorsese_soundgen::level::{Bands, Loudness, Span};
+    use scorsese_zimmer::level::{Bands, Loudness, Span};
 
     fn layer(name: &str, mean: f64, low: f64) -> Layer {
         Layer {

@@ -7,7 +7,7 @@
 //! the same width — a table that omits a column when it has nothing to say
 //! about it is a table whose rows no longer line up.
 
-use scorsese_soundgen::level::{Bands, Profile, Span};
+use scorsese_zimmer::level::{Bands, Profile, Span};
 
 use super::{clock, loudness};
 
@@ -107,7 +107,7 @@ fn balance(bands: &Bands) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use scorsese_soundgen::level::{Cut, Profiler};
+    use scorsese_zimmer::level::{Cut, Profiler};
 
     /// A signal whose two halves differ by a known amount has to say so on the
     /// right rows — which is the entire claim this table makes.

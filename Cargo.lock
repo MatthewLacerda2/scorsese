@@ -416,7 +416,7 @@ name = "scorsese-providers"
 version = "0.1.0"
 dependencies = [
  "scorsese-core",
- "scorsese-soundgen",
+ "scorsese-zimmer",
  "serde",
  "serde_json",
  "thiserror",
@@ -428,14 +428,14 @@ version = "0.1.0"
 dependencies = [
  "scorsese-compositor",
  "scorsese-core",
- "scorsese-soundgen",
+ "scorsese-zimmer",
  "serde",
  "serde_json",
  "thiserror",
 ]
 
 [[package]]
-name = "scorsese-soundgen"
+name = "scorsese-zimmer"
 version = "0.1.0"
 dependencies = [
  "serde",

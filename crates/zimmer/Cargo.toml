@@ -1,5 +1,5 @@
 [package]
-name = "scorsese-providers"
+name = "scorsese-zimmer"
 version.workspace = true
 edition.workspace = true
 repository.workspace = true
@@ -9,8 +9,6 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-scorsese-core = { version = "0.1.0", path = "../core" }
-scorsese-zimmer = { version = "0.1.0", path = "../zimmer" }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 thiserror = "2.0.19"

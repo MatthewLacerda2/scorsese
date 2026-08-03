@@ -32,8 +32,8 @@ use std::path::{Path, PathBuf};
 use scorsese_core::{
     Asset, AssetId, GENERATED_DIR, GenerationState, MediaMetadata, Project, ProjectPath, hash_bytes,
 };
-use scorsese_soundgen::level::{Layer, Profile};
-use scorsese_soundgen::{Bake, Patch, SAMPLE_RATE, bake_note, bake_song, wav};
+use scorsese_zimmer::level::{Layer, Profile};
+use scorsese_zimmer::{Bake, Patch, SAMPLE_RATE, bake_note, bake_song, wav};
 
 pub use create::{check, create};
 pub use error::SynthesisError;
@@ -202,7 +202,7 @@ fn render(recipe: &Recipe, file: &Path, project_root: &Path) -> Result<Bake, Syn
 
 /// The resolver a song's named instruments go through.
 ///
-/// This is the whole of what `scorsese-soundgen` is allowed to reach: a
+/// This is the whole of what `scorsese-zimmer` is allowed to reach: a
 /// project-relative path, checked by the same rules every other path in the
 /// document obeys, read and parsed as a bare patch. The synthesiser never
 /// learns that a project exists.

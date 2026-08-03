@@ -20,7 +20,7 @@
 //!
 //! Boundary: no rendering, no compositing, no GUI. This crate turns briefs
 //! into media files on disk and updates asset state; it depends on
-//! `scorsese-core` and `scorsese-soundgen` only.
+//! `scorsese-core` and `scorsese-zimmer` only.
 //!
 //! ## What this publishes
 //!

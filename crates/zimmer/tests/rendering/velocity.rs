@@ -1,0 +1,135 @@
+//! What a velocity does besides move the fader.
+//!
+//! Two of these matter more than the others. One shows the brightness moving
+//! when a recipe asks for it — the point of the routing. The other shows
+//! *nothing* moving when it does not: a bake is addressed by the hash of its
+//! recipe, so a recipe that never mentions velocity routing has to keep
+//! producing the samples it always did, or `generated/` starts serving files
+//! no recipe describes.
+
+use crate::common::{brightness, minimal, opts, peak, render, saw_patch};
+use scorsese_zimmer::NoteOpts;
+use scorsese_zimmer::patch::{Adsr, Filter, FilterKind, Patch, Source};
+
+/// Half a second of `patch`, struck at `velocity`.
+fn struck(patch: &Patch, velocity: f32) -> Vec<f32> {
+    render(
+        patch,
+        45.0,
+        &NoteOpts {
+            velocity,
+            ..opts(0.5)
+        },
+    )
+}
+
+/// A lowpass with no envelope movement of its own, so velocity is the only
+/// thing left that can move the cutoff.
+fn lowpass(cutoff: f32, vel_cutoff: f32) -> Filter {
+    Filter {
+        kind: FilterKind::Lowpass,
+        cutoff,
+        resonance: 0.0,
+        env_amount: 0.0,
+        vel_cutoff,
+        adsr: Adsr::default(),
+    }
+}
+
+/// Two-operator FM whose modulator holds up for the whole note, so brightness
+/// is `index` and nothing else.
+fn fm(index: f32, vel_index: f32) -> Patch {
+    minimal(Source::Fm2 {
+        ratio: 2.0,
+        index,
+        vel_index,
+        mod_decay: 10.0,
+    })
+}
+
+#[test]
+fn vel_cutoff_makes_a_hard_strike_brighter_than_a_soft_one() {
+    let mut patch = saw_patch();
+    patch.filter = Some(lowpass(400.0, 4000.0));
+    let soft = brightness(&struck(&patch, 0.2));
+    let hard = brightness(&struck(&patch, 1.0));
+    assert!(
+        hard > soft * 2.0,
+        "a hard strike opens the filter: {soft} → {hard}"
+    );
+}
+
+#[test]
+fn vel_index_makes_a_hard_strike_brighter_on_fm() {
+    let patch = fm(1.0, 8.0);
+    let soft = brightness(&struck(&patch, 0.1));
+    let hard = brightness(&struck(&patch, 1.0));
+    assert!(
+        hard > soft * 2.0,
+        "a hard strike adds sidebands: {soft} → {hard}"
+    );
+}
+
+/// The one that protects every bake made before these fields existed: with
+/// neither field set, a quarter-velocity note is the full-velocity note times a
+/// quarter, sample for sample — velocity is a fader and touches nothing else.
+#[test]
+fn velocity_alone_is_still_only_a_fader() {
+    let mut patch = saw_patch();
+    patch.filter = Some(lowpass(1200.0, 0.0));
+    let hard = struck(&patch, 1.0);
+    let soft = struck(&patch, 0.25);
+    assert!(peak(&hard) > 0.1, "there is a signal to compare at all");
+    for (loud, quiet) in hard.iter().zip(&soft) {
+        assert!(
+            (loud * 0.25 - quiet).abs() < 1e-6,
+            "the soft note is the loud one scaled, not a different sound"
+        );
+    }
+}
+
+/// Negative is legal, and it is a real instrument rather than a mistake to
+/// tolerate: a sound that closes down as it is played harder.
+#[test]
+fn a_negative_vel_cutoff_darkens_instead_of_brightening() {
+    let mut patch = saw_patch();
+    patch.filter = Some(lowpass(6000.0, -5500.0));
+    let soft = brightness(&struck(&patch, 0.1));
+    let hard = brightness(&struck(&patch, 1.0));
+    assert!(
+        hard < soft * 0.5,
+        "harder is darker when the routing says so: {soft} → {hard}"
+    );
+}
+
+/// Nothing a recipe writes in these fields can produce an unstable filter: the
+/// cutoff is clamped into the SVF's stable band per sample, exactly as it
+/// already was for a `cutoff` swept off the end by `env_amount`.
+#[test]
+fn an_extreme_vel_cutoff_cannot_destabilise_the_filter() {
+    for vel_cutoff in [-1e9, 1e9] {
+        let mut patch = saw_patch();
+        patch.filter = Some(Filter {
+            resonance: 0.99,
+            ..lowpass(1000.0, vel_cutoff)
+        });
+        let buf = struck(&patch, 1.0);
+        assert!(
+            buf.iter().all(|sample| sample.is_finite()),
+            "vel_cutoff {vel_cutoff} produced non-finite samples"
+        );
+    }
+}
+
+/// A negative FM index only mirrors the modulator, so it sounds exactly as
+/// bright as its positive twin. The sum is floored at zero so a darkening
+/// routing bottoms out at a bare sine rather than turning around.
+#[test]
+fn a_negative_vel_index_bottoms_out_rather_than_brightening_again() {
+    let dulled = brightness(&struck(&fm(2.0, -1.0), 1.0));
+    let far_past = brightness(&struck(&fm(2.0, -8.0), 1.0));
+    assert!(
+        far_past < dulled,
+        "past zero it is a plain carrier, not a bright one: {dulled} → {far_past}"
+    );
+}

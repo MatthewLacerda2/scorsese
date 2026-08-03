@@ -3110,14 +3110,14 @@ version = "0.1.0"
 dependencies = [
  "scorsese-compositor",
  "scorsese-core",
- "scorsese-soundgen",
+ "scorsese-zimmer",
  "serde",
  "serde_json",
  "thiserror 2.0.19",
 ]
 
 [[package]]
-name = "scorsese-soundgen"
+name = "scorsese-zimmer"
 version = "0.1.0"
 dependencies = [
  "serde",

@@ -8,7 +8,7 @@
 use std::io::{self, Write};
 
 use super::gain::Gain;
-use scorsese_soundgen::level::Meter;
+use scorsese_zimmer::level::Meter;
 
 /// How many channels the mix is produced in.
 ///

@@ -2,7 +2,7 @@
 resolver = "3"
 members = [
     "crates/core",
-    "crates/soundgen",
+    "crates/zimmer",
     "crates/compositor",
     "crates/render",
     "crates/providers",
@@ -76,7 +76,7 @@ opt-level = 3
 
 [workspace.dependencies]
 scorsese-core = { path = "crates/core" }
-scorsese-soundgen = { path = "crates/soundgen" }
+scorsese-zimmer = { path = "crates/zimmer" }
 scorsese-compositor = { path = "crates/compositor" }
 scorsese-render = { path = "crates/render" }
 scorsese-providers = { path = "crates/providers" }

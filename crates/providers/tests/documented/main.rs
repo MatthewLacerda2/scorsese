@@ -41,13 +41,13 @@ fn every_example_is_actually_playable() {
         let recipe = Recipe::from_json(&document(&example)).expect("parsed above");
         let played = match &recipe {
             Recipe::Patch(one_shot) => one_shot.note.to_midi().and_then(|midi| {
-                scorsese_soundgen::bake_note(&one_shot.patch, midi, &one_shot.opts())
+                scorsese_zimmer::bake_note(&one_shot.patch, midi, &one_shot.opts())
             }),
             // The song example names one instrument by path on purpose, to
             // document that references exist. Resolving it would need a whole
             // project; stubbing it proves the rest of the document, which is
             // what this test is about.
-            Recipe::Song(song) => scorsese_soundgen::bake_song(song, &|_: &str| Ok(stub())),
+            Recipe::Song(song) => scorsese_zimmer::bake_song(song, &|_: &str| Ok(stub())),
         };
         if let Err(problem) = played {
             panic!(
@@ -59,10 +59,10 @@ fn every_example_is_actually_playable() {
 }
 
 /// Something audible to stand in for a patch the page names but does not carry.
-fn stub() -> scorsese_soundgen::Patch {
-    scorsese_soundgen::Patch {
-        source: scorsese_soundgen::patch::Source::Noise,
-        amp: scorsese_soundgen::patch::Adsr::default(),
+fn stub() -> scorsese_zimmer::Patch {
+    scorsese_zimmer::Patch {
+        source: scorsese_zimmer::patch::Source::Noise,
+        amp: scorsese_zimmer::patch::Adsr::default(),
         filter: None,
         lfo: None,
         fx: vec![],

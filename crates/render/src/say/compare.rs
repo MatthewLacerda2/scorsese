@@ -5,7 +5,7 @@
 //! left column is the *first* subject throughout — a comparison whose sides
 //! swapped between rows would be worse than no comparison.
 
-use scorsese_soundgen::level::{BandsDifference, Difference, Profile};
+use scorsese_zimmer::level::{BandsDifference, Difference, Profile};
 
 /// A field-by-field comparison, as lines to print under the two names.
 ///

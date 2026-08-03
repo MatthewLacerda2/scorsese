@@ -3,7 +3,7 @@
 use std::slice::from_ref;
 
 use scorsese_render::audio::{CHANNELS, Gain, Mix, Ramp};
-use scorsese_soundgen::level::Meter;
+use scorsese_zimmer::level::Meter;
 
 use crate::volume;
 

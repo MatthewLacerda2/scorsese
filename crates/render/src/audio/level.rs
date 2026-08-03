@@ -1,6 +1,6 @@
 //! Grouping a render's loudness: the mix, and each clip's contribution to it.
 //!
-//! The measurement itself is [`scorsese_soundgen::level`] — it is arithmetic
+//! The measurement itself is [`scorsese_zimmer::level`] — it is arithmetic
 //! over samples and nothing to do with ffmpeg, and a bake needs exactly the
 //! same numbers. What belongs here is the part that is about a *render*: that
 //! there is one figure for the delivered soundtrack and one per audible clip.
@@ -18,7 +18,7 @@
 
 use std::collections::BTreeMap;
 
-use scorsese_soundgen::level::{Loudness, Meter, Profile, Profiler};
+use scorsese_zimmer::level::{Loudness, Meter, Profile, Profiler};
 
 use super::mix::CHANNELS;
 
