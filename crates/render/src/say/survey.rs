@@ -10,7 +10,7 @@
 //! [`scorsese_zimmer::survey`] for why a diversity number is the one metric
 //! this must never grow.
 
-use scorsese_zimmer::survey::{Rollup, SongSurvey, Survey, TrackSurvey};
+use scorsese_zimmer::survey::{Register, Rollup, SongSurvey, Survey, TrackSurvey};
 
 /// The whole report, as lines to print.
 ///
@@ -29,8 +29,12 @@ pub fn survey(surveyed: &Survey) -> Vec<String> {
     }
     let name = width(surveyed.songs.iter().map(|song| song.name.len()));
     let bpm = width(surveyed.songs.iter().map(|song| tempo(song.bpm).len()));
-    let track = width(tracks(surveyed).map(|track| track.name.len()));
-    let source = width(tracks(surveyed).map(|track| kind(track).len()));
+    let columns = Columns {
+        name: width(tracks(surveyed).map(|(track, _)| track.name.len())),
+        source: width(tracks(surveyed).map(|(track, _)| kind(track).len())),
+        rate: width(tracks(surveyed).map(|(track, at)| density(track, at).len())),
+        median: width(tracks(surveyed).map(|(track, _)| median(track).len())),
+    };
 
     let mut lines = Vec::new();
     for song in &surveyed.songs {
@@ -41,11 +45,22 @@ pub fn survey(surveyed: &Survey) -> Vec<String> {
             continue;
         }
         for entry in &song.tracks {
-            lines.push(format!("  {}", row(entry, track, source)));
+            lines.push(format!("  {}", row(entry, song.seconds, &columns)));
         }
     }
     lines.extend(counted(&surveyed.rollup()));
     lines
+}
+
+/// How wide each track column is, measured across the whole report.
+///
+/// A struct rather than four more arguments: they travel together and are all
+/// the same type, which is an argument order waiting to be got wrong silently.
+struct Columns {
+    name: usize,
+    source: usize,
+    rate: usize,
+    median: usize,
 }
 
 /// One song: what it plays at, how far it reaches, and what it is made of.
@@ -69,17 +84,64 @@ fn headline(song: &SongSurvey, name: usize, bpm: usize) -> String {
     said
 }
 
-/// One track: which instrument, at what level, filtered where.
-fn row(track: &TrackSurvey, name: usize, source: usize) -> String {
+/// One track: which instrument, and what it does with itself.
+///
+/// The order is deliberate. What an instrument **is** — source, gain, filter —
+/// leads, because that is what a reader looks a track up for. What it **does**
+/// — held or struck, how often, how high — follows, because that is what three
+/// cues sharing one complaint turn out to have in common when their source
+/// kinds have nothing in common at all.
+fn row(track: &TrackSurvey, seconds: f32, columns: &Columns) -> String {
     format!(
-        "{:<name$}  {:<source$}  gain {:>4.2}  {}",
+        "{:<name$}  {:<source$}  gain {:>4.2}  {}  {:>rate$}  {:>median$}  {}",
         track.name,
         kind(track),
         track.gain,
+        sustain(track),
+        density(track, seconds),
+        median(track),
         cutoff(track),
-        name = name,
-        source = source
+        name = columns.name,
+        source = columns.source,
+        rate = columns.rate,
+        median = columns.median
     )
+}
+
+/// Where the amp envelope settles once the attack and decay are done.
+///
+/// **The envelope's sustain, not the source's.** A `karplus` string damps by
+/// itself and an `fm2` modulator decays by itself, so this can read `0.40` for
+/// a sound that dies away regardless. It states what the document states, the
+/// same way `gain` does.
+fn sustain(track: &TrackSurvey) -> String {
+    track.sustain.map_or_else(
+        || "sustain    ?".to_owned(),
+        |at| format!("sustain {at:>4.2}"),
+    )
+}
+
+/// How often the track plays, over the length of one pass of the song.
+///
+/// A track that plays nothing says so in a word. `0.0/s` is arithmetically the
+/// same and reads as a measurement of something, when what happened is that
+/// this instrument is not in this piece.
+fn density(track: &TrackSurvey, seconds: f32) -> String {
+    match track.density(seconds) {
+        Some(rate) if track.notes > 0 => format!("{rate:.1}/s"),
+        _ => "silent".to_owned(),
+    }
+}
+
+/// Where the track sits, as the name of the middle note it plays.
+///
+/// [`Register`] is what names a pitch here, and its `Display` already answers
+/// the one-note case as the note itself — a median is exactly that case, so
+/// this is the vocabulary the register column uses rather than a second one.
+fn median(track: &TrackSurvey) -> String {
+    track
+        .median
+        .map_or_else(|| "-".to_owned(), |midi| Register::at(midi).to_string())
 }
 
 /// The set, counted — the half no per-song row can add up on its own.
@@ -146,28 +208,34 @@ fn width(lengths: impl Iterator<Item = usize>) -> usize {
     lengths.max().unwrap_or(0)
 }
 
-/// Every track of every song, for the columns that are sized across the whole
-/// report rather than per song — a column a reader can scan is one that does
-/// not move between one song and the next.
-fn tracks(surveyed: &Survey) -> impl Iterator<Item = &TrackSurvey> {
+/// Every track of every song, each with the length of the song it is in, for
+/// the columns that are sized across the whole report rather than per song — a
+/// column a reader can scan is one that does not move between one song and the
+/// next.
+fn tracks(surveyed: &Survey) -> impl Iterator<Item = (&TrackSurvey, f32)> {
     surveyed
         .songs
         .iter()
         .filter(|song| song.tracks.len() > 1)
-        .flat_map(|song| song.tracks.iter())
+        .flat_map(|song| song.tracks.iter().map(|track| (track, song.seconds)))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use scorsese_zimmer::survey::{PitchClasses, Register, TrackSurvey};
+    use scorsese_zimmer::survey::{PitchClasses, TrackSurvey};
 
+    /// Eight notes over the four seconds `song` is long, so every fixture track
+    /// plays at 2.0/s unless a test says otherwise.
     fn track(name: &str, source: &'static str, gain: f32, cutoff: Option<f32>) -> TrackSurvey {
         TrackSurvey {
             name: name.to_owned(),
             source: Some(source),
             gain,
             cutoff,
+            sustain: Some(0.0),
+            notes: 8,
+            median: Some(71.0),
         }
     }
 
@@ -180,6 +248,7 @@ mod tests {
             name: name.to_owned(),
             bpm,
             tracks,
+            seconds: 4.0,
             register: Some(Register::at(40.0).with(81.0)),
             pitches,
         }
@@ -237,6 +306,34 @@ mod tests {
         let lines = survey(&two());
         let at = |row: &String| row.find("gain").expect("every row has a gain");
         assert_eq!(at(&lines[1]), at(&lines[4]));
+    }
+
+    /// The half the report was missing: whether a track is held or struck, how
+    /// often it plays, and where it sits. Three cues that read alike on the
+    /// left of the row are told apart here.
+    #[test]
+    fn a_row_says_what_the_track_does_and_not_only_what_it_is() {
+        let lines = survey(&two());
+        assert!(lines[1].contains("sustain 0.00"), "{}", lines[1]);
+        assert!(lines[1].contains("2.0/s"), "{}", lines[1]);
+        assert!(lines[1].contains("B4"), "{}", lines[1]);
+    }
+
+    /// A track nobody wrote a note for is *silent*, not `0.0/s`, and has no
+    /// middle note to name. Both are findings rather than measurements of zero.
+    #[test]
+    fn a_track_that_never_plays_says_so_in_a_word() {
+        let mut quiet = two();
+        quiet.songs[0].tracks[1] = TrackSurvey {
+            notes: 0,
+            median: None,
+            sustain: None,
+            ..quiet.songs[0].tracks[1].clone()
+        };
+        let lines = survey(&quiet);
+        assert!(lines[2].contains("silent"), "{}", lines[2]);
+        assert!(!lines[2].contains("0.0/s"), "{}", lines[2]);
+        assert!(lines[2].contains("sustain    ?"), "{}", lines[2]);
     }
 
     /// One song is not a set, so there is no report at all — the rule the

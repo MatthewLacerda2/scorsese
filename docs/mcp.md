@@ -412,9 +412,16 @@ notices and the last thing any per-bake number can see.
 It costs nothing and needs nothing: no bake, no ffmpeg, no network. Everything
 it reports is already written down in `recipes/`, so this is parsing documents
 that were going to be parsed anyway. Per song it gives the tempo, the register
-and the pitch classes, then a row per track naming its source kind, its gain
-and its filter cutoff; under them, the same facts counted across the project.
-What each column means is in
+and the pitch classes, then a row per track; under them, the same facts counted
+across the project.
+
+A **track row has two halves**, and the second is the one that earns the call.
+What the instrument *is* — source kind, gain, filter cutoff — does not predict
+what anyone hears: three cues written on `karplus`, `fm2` and `osc_stack` can be
+one plucked guitar to a listener, and changing the source kind does not move
+that complaint. So the row also says what the track *does*: its envelope's
+sustain, its notes per second, and the median pitch it sits at. What each column
+means, and why `sustain` is the envelope's rather than the source's, is in
 [`recipes.md`](recipes.md#what-the-whole-set-is-made-of).
 
 **It counts and stops.** There is no score, no grade, no recommendation and no
