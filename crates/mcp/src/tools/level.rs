@@ -17,7 +17,7 @@ use serde_json::Value;
 
 use crate::tools::Reply;
 
-use super::{Tool, project_dir, project_property};
+use super::{Costs, Tool, project_dir, project_property};
 
 /// Measure a finished sound file, optionally against another.
 pub(crate) struct Level;
@@ -28,7 +28,7 @@ impl Tool for Level {
     }
 
     fn description(&self) -> &'static str {
-        "Say how a finished sound file came out: mean, peak and crest over its \
+        "Say how a finished sound file came out. Mean, peak and crest over its \
          whole length, then the same again for each section of it, plus the \
          share of its energy that is low, mid and high. Give `against` and the \
          two are compared field by field, which is the form that actually \
@@ -36,6 +36,10 @@ impl Tool for Level {
          and a difference is not. A signal, never a gate: there is no correct \
          loudness, so nothing here can fail. Works on a bake or on a rendered \
          video, since ffmpeg does the decoding."
+    }
+
+    fn costs(&self) -> Costs {
+        Costs::Decode
     }
 
     fn schema(&self) -> Value {

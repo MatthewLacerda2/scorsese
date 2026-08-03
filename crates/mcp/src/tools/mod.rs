@@ -114,6 +114,45 @@ impl From<&str> for Reply {
     }
 }
 
+/// What a call spends, beyond the document it is handed.
+///
+/// A small closed set rather than a string. "Does this cost money, a process,
+/// or minutes?" is a question with a handful of honest answers here, and a
+/// free-form string would drift into prose the first time anyone had a nuance
+/// to add — at which point it stops being something a client can compare.
+///
+/// It lives on the tool for the same reason [`Tool::description`] does: it is a
+/// fact about the tool, so it should be answerable where the tool is edited
+/// rather than in a page whose author may never open this file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Costs {
+    /// The document, and arithmetic over it. No process, no network, no money.
+    Nothing,
+    /// One `ffprobe` per file measured — reading a header, not decoding.
+    Probe,
+    /// `ffmpeg` decodes, and that is the whole of it: no encoder runs.
+    Decode,
+    /// `ffmpeg` decodes and the compositor draws, once per frame asked for —
+    /// so seconds, and they scale with how many instants were named.
+    Frames,
+    /// `ffmpeg` encodes. Roughly the running time of whatever is rendered,
+    /// which makes this the one cost here a person waits on.
+    Encode,
+}
+
+impl Costs {
+    /// How the cost reads in a table cell, and to anyone being shown it.
+    pub fn says(self) -> &'static str {
+        match self {
+            Self::Nothing => "nothing",
+            Self::Probe => "ffprobe",
+            Self::Decode => "ffmpeg",
+            Self::Frames => "ffmpeg, and seconds",
+            Self::Encode => "ffmpeg, and real time",
+        }
+    }
+}
+
 /// What a tool needs to say about itself, and what it does.
 pub trait Tool: Send + Sync {
     /// How a client names it. Stable — renaming one breaks every saved prompt
@@ -122,7 +161,17 @@ pub trait Tool: Send + Sync {
 
     /// What it does, in the words a client shows to whoever is deciding
     /// whether to call it.
+    ///
+    /// **The first sentence stands alone.** It is the tool's one-line identity
+    /// — the cell `docs/mcp.md` carries is generated from exactly this string —
+    /// so it has to say what the tool is for without the rest of the paragraph
+    /// standing behind it.
     fn description(&self) -> &'static str;
+
+    /// What calling it spends. Required, with no default: the tool that costs
+    /// real time and does not say so is precisely the one worth knowing about,
+    /// and a default is how it would stay quiet.
+    fn costs(&self) -> Costs;
 
     /// The JSON Schema of its arguments. Every property carries its own
     /// `description`, for the same reason the tool does.

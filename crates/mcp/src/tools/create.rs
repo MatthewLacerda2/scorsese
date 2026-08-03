@@ -14,7 +14,7 @@ use scorsese_core::{
 };
 use serde_json::Value;
 
-use super::{Reply, Tool, project_dir};
+use super::{Costs, Reply, Tool, project_dir};
 
 /// The grid a project is authored on when nobody names one — the same default
 /// `scorsese new` carries, because two clients disagreeing about it would put
@@ -37,6 +37,10 @@ impl Tool for New {
          and the grid to 30 fps, so the usual call names nothing but the path. \
          The directory must not already hold anything: a project is never laid \
          over what was there before, and nothing is written when it refuses."
+    }
+
+    fn costs(&self) -> Costs {
+        Costs::Nothing
     }
 
     fn schema(&self) -> Value {

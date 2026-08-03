@@ -26,7 +26,7 @@ use scorsese_render::{Cue, RenderSettings, Renderer, Resolution, Tools, frames};
 use serde_json::Value;
 
 use crate::tools::inspect::load;
-use crate::tools::{Part, Reply, Tool, project_dir, project_property};
+use crate::tools::{Costs, Part, Reply, Tool, project_dir, project_property};
 
 /// What the frame is composited at when nobody says.
 ///
@@ -58,6 +58,10 @@ impl Tool for Still {
          layer is where it was meant to be, that a cut lands. Sketch and stale \
          generated assets appear as slug cards, so a frame of an unrealised \
          shot still shows something."
+    }
+
+    fn costs(&self) -> Costs {
+        Costs::Frames
     }
 
     fn schema(&self) -> Value {

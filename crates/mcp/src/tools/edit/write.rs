@@ -3,7 +3,7 @@
 use scorsese_core::Project;
 use serde_json::Value;
 
-use crate::tools::{Reply, Tool, project_dir, project_property};
+use crate::tools::{Costs, Reply, Tool, project_dir, project_property};
 
 /// Replace the project document.
 pub(crate) struct Write;
@@ -19,6 +19,10 @@ impl Tool for Write {
          it, write it back. **Validated before it is written** — a document \
          that would not load is refused with every problem listed, and the file \
          on disk is left exactly as it was."
+    }
+
+    fn costs(&self) -> Costs {
+        Costs::Nothing
     }
 
     fn schema(&self) -> Value {

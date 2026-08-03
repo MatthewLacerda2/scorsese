@@ -58,31 +58,43 @@ it was running from.
 Every tool takes `project`: the path of the `*.scor` directory to work on — or,
 for `project_new` alone, the one to create.
 
+**The table is generated from the tools themselves.** Each row is a tool's name,
+the first sentence of the description a client is shown, and what calling it
+spends — read out of the registry rather than typed here. `make mcp-table`
+rewrites it and `make test` fails when the page has drifted, so a row is never a
+claim about the server that the server would not make itself.
+
+Everything *under* the table is written by hand, and has to be: it is about how
+the tools relate to each other, which is knowledge no single tool has.
+
+<!-- BEGIN TOOLS. Generated from the registry by `make mcp-table`; edit the tool's description, not this table. -->
+
 | Tool | What it does | Costs |
 | --- | --- | --- |
-| `project_new` | lay out a new `*.scor` directory to edit in | nothing |
-| `project_read` | the `project.json` exactly as it is on disk | nothing |
-| `project_write` | replace it, **validated first** | nothing |
-| `project_describe` | what is on screen when, and what is audible under it | nothing |
-| `project_check` | every problem with the document and its media, at once | nothing |
-| `project_assets` | the media pool and the state of everything in it | nothing |
-| `import` | copy media in from anywhere on disk — a file, or a folder's worth | ffprobe |
-| `project_probe` | measure the assets nobody has probed, and record it | ffprobe |
-| `script_read` | the document this edit is being cut from | nothing |
-| `script_write` | replace it, starting one if there is none | nothing |
-| `dissolve` | cross one shot into the next, as opacity keyframes | nothing |
-| `duck_music` | lower a music track under narration, as volume keyframes | nothing |
-| `scale_pacing` | spread a run of clips out, or close it up, about one instant | nothing |
-| `synth_new` | start a recipe, and the asset that points at it | nothing |
-| `synth_read` | a recipe file as it is on disk | nothing |
-| `synth_write` | replace one, **parsed first** | nothing |
-| `synth_set` | change one number in one, by name | nothing |
-| `synth_check` | parse a recipe without rendering it | nothing |
-| `synth_bake` | render the recipes not already baked, and say how each came out — whole, per section, per track | nothing |
-| `synth_survey` | what every song recipe is made of, counted across all of them | nothing |
-| `audio_level` | how a finished sound file came out, and how it differs from another | ffmpeg |
-| `still` | **look at** the edit, returned as pictures | ffmpeg, and seconds |
-| `render` | encode the timeline, or a `range` of it, to a file | ffmpeg, and real time |
+| `project_new` | Create a *.scor project directory: project.json, and the assets/, generated/, recipes/ and cache/ folders beside it. | nothing |
+| `project_read` | Read a project's project.json exactly as it is on disk. | nothing |
+| `project_describe` | Say what the cut contains, shot by shot and sound by sound. | nothing |
+| `project_check` | Report everything wrong or questionable about a project — the document and the media it references — without rendering. | nothing |
+| `project_assets` | List the media pool: every asset, its kind, what state it is in, and how many clips use it. | nothing |
+| `import` | Copy a media file into the project's assets/ and add it to the assets table, ready for a clip to reference. | ffprobe |
+| `project_probe` | Ask ffprobe about every asset that has a file and no recorded metadata, and write down what it says. | ffprobe |
+| `script_read` | Read the document this edit is being cut from — the brief, the outline, whatever the project's `script` field points at. | nothing |
+| `script_write` | Write the project's script — the document the edit is cut from. | nothing |
+| `project_write` | Replace a project's project.json with the document given. | nothing |
+| `dissolve` | Dissolve one shot into the next, by writing ordinary opacity keyframes on both clips — the same ones you would place by hand, and they stay editable afterwards. | nothing |
+| `duck_music` | Lower a music track while narration plays over it, by writing ordinary volume keyframes on its clips. | nothing |
+| `scale_pacing` | Move some clips toward or away from one instant, all by the same factor — the operation for pacing. | nothing |
+| `synth_new` | Start a new sound: writes a starter recipe into recipes/ and adds the synth_audio asset that points at it. | nothing |
+| `synth_read` | Read a recipe file as it is on disk. | nothing |
+| `synth_write` | Replace a recipe file with the document given. | nothing |
+| `synth_set` | Change one number in a recipe and leave the rest of the document alone: a track's gain, or the recipe's own bpm, seed, swing, duration or velocity. | nothing |
+| `synth_check` | Parse a recipe and say what it is, without rendering it. | nothing |
+| `synth_bake` | Render every synth_audio recipe whose sound is not already on disk, into generated/. | nothing |
+| `synth_survey` | Say what every song recipe in the project is made of, and count the same facts across the whole set. | nothing |
+| `audio_level` | Say how a finished sound file came out. | ffmpeg |
+| `render` | Render the timeline to a video file. | ffmpeg, and real time |
+| `still` | Look at the edit. | ffmpeg, and seconds |
+<!-- END TOOLS -->
 
 **A project is a directory, and `project_new` is what makes one.**
 `project.json` plus `assets/`, `generated/`, `recipes/` and `cache/` — the same
@@ -425,6 +437,14 @@ assistant simply never calls it, and nobody ever learns why.
 So `crates/mcp/tests/described.rs` walks the registry and fails on a tool or an
 argument that says nothing useful about itself. The same gate already covers
 `scorsese --help` and the animatable-property table in `project-format.md`.
+
+**A tool missing from this page was the same failure by another door**, and
+nothing caught it: the row's absence was invisible to every test in the repo, so
+an agent reading the page cold learned about every capability except the newest
+one. `crates/mcp/tests/table.rs` closes that by holding the page to the
+registry — which is why a description's **first sentence** now has a second job.
+It is the cell, so it has to say what the tool is for on its own, without the
+rest of the paragraph standing behind it.
 
 ## What it is not
 

@@ -15,7 +15,7 @@ use scorsese_render::Ffprobe;
 use serde_json::Value;
 
 use crate::tools::inspect::load;
-use crate::tools::{Reply, Tool, project_dir, project_property};
+use crate::tools::{Costs, Reply, Tool, project_dir, project_property};
 
 /// Copy media into the pool.
 pub(crate) struct Import;
@@ -37,6 +37,10 @@ impl Tool for Import {
          skipped and named. A file whose id an asset already answers to is \
          refused with nothing copied at all; media already in the pool is not a \
          collision — it comes back as the asset that already holds those bytes."
+    }
+
+    fn costs(&self) -> Costs {
+        Costs::Probe
     }
 
     fn schema(&self) -> Value {
