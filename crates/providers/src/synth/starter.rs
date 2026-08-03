@@ -11,9 +11,9 @@
 
 use std::collections::BTreeMap;
 
-use scorsese_soundgen::Patch;
-use scorsese_soundgen::patch::{Adsr, Filter, FilterKind, Fx, Osc, Source, Wave};
-use scorsese_soundgen::song::{Note, PatchRef, Pattern, Pitch, Song, Track};
+use scorsese_zimmer::Patch;
+use scorsese_zimmer::patch::{Adsr, Filter, FilterKind, Fx, Osc, Source, Wave};
+use scorsese_zimmer::song::{Note, PatchRef, Pattern, Pitch, Song, Track};
 
 use super::recipe::{OneShot, Recipe};
 

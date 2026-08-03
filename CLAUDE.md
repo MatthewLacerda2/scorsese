@@ -128,7 +128,7 @@ side effect of a feature PR.
 
 `crates/core` (model, serde format, validation) ← `crates/compositor` (frame
 rendering, CPU tiny-skia first) ← `crates/render` (ffmpeg orchestration) ;
-`crates/soundgen` (synthesis: recipe documents → samples; **no I/O at all**,
+`crates/zimmer` (synthesis: recipe documents → samples; **no I/O at all**,
 and no dependency on `core`) ← `crates/providers` (Veo + ElevenLabs +
 synthesis, brief-hash cache) ; `crates/cli` (the headless `scorsese` binary) ;
 `crates/mcp` (MCP server, thin wrapper over the same logic) ; `crates/golden`
@@ -137,6 +137,17 @@ depends on) ; `app/` (the egui desktop app — its own cargo workspace, so a
 graphics dependency tree never slows `cargo test --workspace`). Each `lib.rs` doc
 states what its crate must never depend on — those boundaries are enforced in
 review.
+
+**`zimmer` is ours, and its name is the joke told twice.** The project is named
+for Martin Scorsese; the crate that writes the music is named for Hans Zimmer,
+surname only both times. It is not a vendor, not a third-party dependency and
+not an acronym. The name deliberately says nothing about what the crate does —
+the first line of its own `lib.rs` doc does that instead (*sound from a
+document*), and `missing_docs` is a merge gate, so that line cannot quietly go
+missing. **The rename stops at the crate boundary**: `scorsese synth`, the
+`synth_*` MCP tools and `"kind": "synth_audio"` all stay, because an
+agent-facing surface has to describe itself and the asset kind is the format
+contract.
 
 ## How we work
 

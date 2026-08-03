@@ -18,7 +18,7 @@ use std::io::Read;
 use std::path::Path;
 use std::process::Stdio;
 
-use scorsese_soundgen::level::{Cut, Profile, Profiler};
+use scorsese_zimmer::level::{Cut, Profile, Profiler};
 
 use crate::error::{RenderError, Stage};
 use crate::pipe::SAMPLE_FORMAT;

@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 
 use scorsese_core::{AssetId, PathProblem, ProjectPath};
-use scorsese_soundgen::SynthError;
+use scorsese_zimmer::SynthError;
 
 /// Why an asset could not be synthesised.
 #[derive(Debug, thiserror::Error)]

@@ -7,10 +7,10 @@
 //! differently.
 //!
 //! **It counts and stops.** Nothing here scores, grades, ranks or advises; see
-//! [`scorsese_soundgen::survey`] for why a diversity number is the one metric
+//! [`scorsese_zimmer::survey`] for why a diversity number is the one metric
 //! this must never grow.
 
-use scorsese_soundgen::survey::{Rollup, SongSurvey, Survey, TrackSurvey};
+use scorsese_zimmer::survey::{Rollup, SongSurvey, Survey, TrackSurvey};
 
 /// The whole report, as lines to print.
 ///
@@ -160,7 +160,7 @@ fn tracks(surveyed: &Survey) -> impl Iterator<Item = &TrackSurvey> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use scorsese_soundgen::survey::{PitchClasses, Register, TrackSurvey};
+    use scorsese_zimmer::survey::{PitchClasses, Register, TrackSurvey};
 
     fn track(name: &str, source: &'static str, gain: f32, cutoff: Option<f32>) -> TrackSurvey {
         TrackSurvey {

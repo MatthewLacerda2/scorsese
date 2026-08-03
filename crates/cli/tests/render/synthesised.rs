@@ -55,7 +55,7 @@ fn a_recipe_becomes_the_soundtrack_of_a_delivered_file() {
 
     // The mix is stereo at the render's rate, though the bake was mono at
     // 44.1 kHz: a synthesised file takes the same conforming path into the mix
-    // that an imported one does, which is why soundgen never had to know what
+    // that an imported one does, which is why synthesis never had to know what
     // a render was going to be asked for.
     let stream = probe(
         &tools(),

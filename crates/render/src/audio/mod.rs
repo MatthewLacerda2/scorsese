@@ -40,12 +40,12 @@ pub use gain::{Gain, path};
 pub use level::{Levels, SoundLevels};
 pub use measure::measure;
 pub use mix::{CHANNELS, Mix, Ramp};
-// The four soundgen types this crate's own signatures are written in — a
+// The four `zimmer` types this crate's own signatures are written in — a
 // measurement, a meter to make one with, and the two shapes a level comes back
 // as. Re-exported so a caller of `measure` or `mixdown` can name what it got
-// without reaching past us; the rest of `scorsese_soundgen::level` is
-// soundgen's to publish, and used to be listed here for nobody.
-pub use scorsese_soundgen::level::{Loudness, Meter, Profile, Profiler};
+// without reaching past us; the rest of `scorsese_zimmer::level` is that
+// crate's to publish, and used to be listed here for nobody.
+pub use scorsese_zimmer::level::{Loudness, Meter, Profile, Profiler};
 
 /// A finished mix on disk, and the file's own undertaker.
 ///

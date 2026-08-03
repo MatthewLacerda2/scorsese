@@ -12,8 +12,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use scorsese_soundgen::song::Pitch;
-use scorsese_soundgen::{NoteOpts, Patch, Song};
+use scorsese_zimmer::song::Pitch;
+use scorsese_zimmer::{NoteOpts, Patch, Song};
 
 /// What a recipe describes.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

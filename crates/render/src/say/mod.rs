@@ -16,7 +16,7 @@ mod layers;
 mod survey;
 mod table;
 
-use scorsese_soundgen::level::Loudness;
+use scorsese_zimmer::level::Loudness;
 
 pub use compare::comparison;
 pub use layers::layers;

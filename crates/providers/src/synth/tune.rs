@@ -18,7 +18,7 @@
 //! addressed by the hash of its bytes, so a partial edit makes its asset stale
 //! by exactly the arithmetic a whole rewrite does.
 
-use scorsese_soundgen::Song;
+use scorsese_zimmer::Song;
 
 use super::recipe::{OneShot, Recipe};
 
