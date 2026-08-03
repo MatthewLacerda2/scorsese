@@ -319,12 +319,48 @@ contract.
   **docs/golden-renders.md** is the rulebook — including the one that matters:
   re-blessing a reference to make CI green is never legitimate.
 - **Documentation an agent acts on is gated like code.** `cargo doc` runs with
-  `-D warnings`; `docs/project-format.md`'s JSON examples are parsed as
-  projects and its animatable-property table is held to what the code
-  publishes; every CLI command and flag must carry help text. Any new
-  agent-facing surface inherits the rule — MCP tools first among them. What
-  this never proves is that the prose is *true*: it stops the shape from
-  drifting silently, and reading is still how correctness gets checked.
+  `-D warnings`, and every CLI command and flag must carry help text. Any new
+  agent-facing surface inherits the rule — MCP tools first among them.
+  **There are exactly two ways to hold a page to the code, and they are tried
+  in this order:**
+  1. **Generate it.** Where the code can carry the fact, the document is
+     written *from* it. A list in `docs/` that restates something the code
+     publishes is derived output: a generator writes it, and CI fails when the
+     checked-in file is not what the generator would produce — the same
+     contract `cargo fmt --check` has. One source, and no drift to police.
+  2. **Hold it with a two-way test.** Where the fact cannot live in the code —
+     an example, a claim about behaviour, a table whose other column is prose —
+     the page stays hand-written and is checked in **both** directions: nothing
+     the code publishes that the page omits, and nothing on the page the code
+     does not publish. One direction alone is half a gate, and the half left
+     out is usually the one that would have caught something.
+
+  **The order is the point, because the reflex is the wrong way round.** Faced
+  with a stale table, the obvious patch is a test comparing it against the
+  code — but that keeps two copies and polices them, where generating keeps
+  one. The comparison is the fallback, correct only where there is genuinely
+  nothing to generate from. #207 is what reaching for it by reflex cost.
+
+  **What neither mechanism proves is that the prose is *true*.** Both stop the
+  shape from drifting silently; whether a sentence is correct is still found by
+  reading it, and a green CI has never once said otherwise.
+
+  Every page in `docs/`, and what holds it:
+  - **`project-format.md`** — `core/tests/examples.rs` runs every fenced JSON
+    block through the real loader; `render/tests/vocabulary.rs` holds the
+    animatable-property table to what the compositor and mixer publish, both
+    ways.
+  - **`output-formats.md`** — `render/tests/formats/documented.rs`, the
+    container and codec table against the allow-list, both ways.
+  - **`recipes.md`** — `providers/tests/documented/pages.rs` parses and renders
+    every marked block on the page.
+  - **`mcp.md`** — `mcp/tests/table.rs` **generates** the tool table from the
+    registry, and `make mcp-table` writes it; `mcp/tests/described.rs` holds
+    every tool and every argument to describing itself at all.
+  - **`golden-renders.md`** and **`mutation-testing.md`** — **nothing, and that
+    is right.** Both are process prose: neither carries a list that mirrors
+    something the code publishes, so there is nothing a gate could compare.
+    Recorded here so nobody goes hunting for a gate that was never missing.
 - **`project.json` format changes are `architecture`-label work** and require
   a schema version bump plus a migration note. The format is the contract
   between the CLI, the MCP server, the GUI, and every saved project.
