@@ -486,15 +486,16 @@ what the set is made of:
 
 ```text
 01-km      96 bpm  E2-A5  C D E F G A B (diatonic on C)
-  arp   karplus    gain 0.85  sustain 0.00  2.1/s  F#5  cutoff 4600 Hz
-  pad   osc_stack  gain 0.40  sustain 0.62  0.3/s   B3  no filter
+  hat   noise      gain 0.60  duty  20%  sustain 0.00  4.0/s  F#5  cutoff 9000 Hz
+  pad   osc_stack  gain 0.40  duty  95%  sustain 0.62  0.3/s   B3  no filter
 02-calado  132 bpm  E2-G5  C D E F G A B (diatonic on C)
-  arp   karplus    gain 0.76  sustain 0.00  8.4/s   E5  cutoff 4400 Hz
-  bell  fm2        gain 0.50  sustain 0.00  2.0/s   A5  no filter
+  arp   karplus    gain 0.76  duty  35%  sustain 0.00  8.4/s   E5  cutoff 4400 Hz
+  bell  fm2        gain 0.50  duty  70%  sustain 0.00  2.0/s   A5  no filter
 2 songs
-  karplus    in 2, loudest in 2
-  fm2        in 1, loudest in 0
-  osc_stack  in 1, loudest in 0
+  osc_stack  in 1, loudest in 1
+  fm2        in 1, loudest in 1
+  karplus    in 1, loudest in 0
+  noise      in 1, loudest in 0
   tempo      96-132 bpm
   register   E2-A5
 ```
@@ -510,10 +511,11 @@ A **track row** has two halves, and the split is the useful part.
 What the instrument **is**: its source kind in the word the recipe spells it
 with, its gain as written, and where its filter starts.
 
-What it **does** in the piece: its `amp.s` **sustain**, how many notes per
-second it plays over one pass of the arrangement, and the **median pitch** of
-those notes as a note name. A track that plays nothing at all reads `silent`
-rather than `0.0/s`, and has no middle note to name.
+What it **does** in the piece: the **duty** — the share of the arrangement it is
+sounding over at all — its `amp.s` **sustain**, how many notes per second it
+plays over one pass, and the **median pitch** of those notes as a note name. A
+track that plays nothing at all reads `silent` rather than `0.0/s`, and has no
+middle note to name.
 
 That second half is there because the first half does not predict what anyone
 hears. Three cues can read `karplus`, `fm2` and `osc_stack` — three different
@@ -522,9 +524,10 @@ they actually share is a sustain of zero, a couple of notes a second and a
 register up around F♯5. Changing the source kind does not move that complaint,
 and the row now shows why.
 
-All six columns are written, not measured — this costs no bake, so `gain 0.85`
-is the number in the score rather than a level anything came out at. A song of
-one track gets no rows, the same rule the section and layer tables follow.
+Every column is written, not measured — this costs no bake, so `gain 0.60` is
+the number in the score rather than a level anything came out at, and `duty` is
+counted off the note starts and lengths rather than off any sound. A song of one
+track gets no rows, the same rule the section and layer tables follow.
 
 **`sustain` is the envelope's, not the source's**, and it is worth knowing
 before trusting the column. A `karplus` string damps on its own and an `fm2`
@@ -534,8 +537,27 @@ the same "written, not measured" spirit as `gain` — read it as *what the
 envelope was told to do*, not as *how long you will hear it*.
 
 The **rollup** counts the same facts across the project: how many songs use
-each source kind, how many carry it in their *loudest* track — the element a
-listener hears first — and the spread of tempos and registers.
+each source kind, how many carry it in their *loudest* track, and the spread of
+tempos and registers.
+
+**"Loudest" means `gain × duty`**, and that is why the duty is on the row: it is
+the second half of a number you would otherwise have to take on faith. Written
+gain alone is a per-note *peak* — it says how loud a note is and nothing about
+how much of the piece has any note in it — and percussion is written loud
+exactly because it is short. The example above is the shape of the mistake: the
+hat is written at `0.60` and the pad at `0.40`, and the pad is what the piece
+sounds like, because the hat is only there for a fifth of it.
+
+That matters more than a wording nit, because the rollup line is the one
+sentence in this project that can catch *six cues, one instrument*. Ranked by
+gain alone it once crowned a hi-hat in two songs out of six and reported a
+**more varied** set than the one on disk — the exact wrong answer, since a
+client with no ears has to take the line literally and would stop looking.
+
+**It is a better proxy, not an ear.** A plucked harp sitting 27 dB down can
+still be the instrument you hear, because transients carry prominence that no
+written number and no energy average knows about. Nothing here names a lead with
+authority, and a row that surprises you is worth a `synth_bake` and a listen.
 
 None of it costs anything: no bake, no samples, no ffmpeg, no network. It is
 parsing files that were going to be parsed anyway, which makes it the cheapest

@@ -419,10 +419,17 @@ A **track row has two halves**, and the second is the one that earns the call.
 What the instrument *is* — source kind, gain, filter cutoff — does not predict
 what anyone hears: three cues written on `karplus`, `fm2` and `osc_stack` can be
 one plucked guitar to a listener, and changing the source kind does not move
-that complaint. So the row also says what the track *does*: its envelope's
-sustain, its notes per second, and the median pitch it sits at. What each column
-means, and why `sustain` is the envelope's rather than the source's, is in
+that complaint. So the row also says what the track *does*: the share of the
+arrangement it sounds over, its envelope's sustain, its notes per second, and
+the median pitch it sits at. What each column means, and why `sustain` is the
+envelope's rather than the source's, is in
 [`recipes.md`](recipes.md#what-the-whole-set-is-made-of).
+
+The rollup's **`loudest` is `gain × duty`**, not the highest written gain.
+Percussion is written loud precisely because it is short, so ranking on gain
+alone crowns a hi-hat — and the line that results reports a *more varied* set
+than exists, which is the one failure this report cannot afford. It stays a
+proxy: a plucked harp well down in the mix can still be the instrument you hear.
 
 **It counts and stops.** There is no score, no grade, no recommendation and no
 diversity number — a set of six variations on one instrument is a legitimate
