@@ -24,7 +24,13 @@ impl Tool for Survey {
         "Say what every song recipe in the project is made of, and count the \
          same facts across the whole set. Per song: the tempo it plays at, the \
          register its notes span, the pitch classes they fall in, and a row per \
-         track giving its source kind, its gain and where its filter starts. \
+         track. A track row says what the instrument is — source kind, gain, \
+         where its filter starts — and then what it does in the piece: its \
+         envelope's sustain, how many notes a second it plays, and the median \
+         pitch it sits at. That second half is the half a source kind does not \
+         predict: three cues on three different generators can share a sustain \
+         of zero, a couple of notes a second and a high register, and be one \
+         instrument to anyone listening. \
          Then the counts across the project: how many songs use each source \
          kind, how many carry it in their loudest track, the spread of tempos \
          and of registers. Reads the recipe documents only — no bake, no \

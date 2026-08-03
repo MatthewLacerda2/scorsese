@@ -6,7 +6,7 @@
 //! playing, so the register a piece actually reaches is not the register its
 //! patterns were written in.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 
 use super::{PitchClasses, Register, SongSurvey, TrackSurvey};
 use crate::note::MIDI_RANGE;
@@ -24,7 +24,7 @@ impl SongSurvey {
     /// the other five songs.
     pub fn of(name: &str, song: &Song, resolve: &dyn PatchResolver) -> Self {
         let (bpm, _) = plan(song);
-        let (register, pitches) = played(song);
+        let (register, pitches, mut by_track) = played(song);
         Self {
             name: name.to_owned(),
             bpm,
@@ -33,6 +33,9 @@ impl SongSurvey {
                 .iter()
                 .map(|track| {
                     let patch = instrument(&track.patch, resolve);
+                    // Taken rather than borrowed: each track is visited once,
+                    // and sorting for the median needs the notes owned anyway.
+                    let notes = by_track.remove(track.name.as_str()).unwrap_or_default();
                     TrackSurvey {
                         name: track.name.clone(),
                         source: patch.as_ref().map(|patch| patch.source.kind()),
@@ -41,9 +44,13 @@ impl SongSurvey {
                             .as_ref()
                             .and_then(|patch| patch.filter)
                             .map(|filter| filter.cutoff),
+                        sustain: patch.as_ref().map(|patch| patch.amp.s),
+                        notes: notes.len(),
+                        median: median(notes),
                     }
                 })
                 .collect(),
+            seconds: length(song, bpm),
             register,
             pitches,
         }
@@ -73,9 +80,12 @@ fn instrument(reference: &PatchRef, resolve: &dyn PatchResolver) -> Option<Patch
 /// top of the keyboard is reported at the pitch it will be played at rather
 /// than the one the arithmetic asked for. A note whose name does not parse is
 /// skipped: refusing the document is [`Song::validate`]'s job, not a report's.
-fn played(song: &Song) -> (Option<Register>, PitchClasses) {
+/// The third return is those same notes kept per track, which is what turns a
+/// report about a song into a report about each instrument in it.
+fn played(song: &Song) -> (Option<Register>, PitchClasses, HashMap<String, Vec<f32>>) {
     let mut register: Option<Register> = None;
     let mut pitches = PitchClasses::default();
+    let mut by_track: HashMap<String, Vec<f32>> = HashMap::new();
     for entry in &song.arrangement {
         let Some(pattern) = song.patterns.get(entry.pattern()) else {
             continue;
@@ -91,9 +101,34 @@ fn played(song: &Song) -> (Option<Register>, PitchClasses) {
             register =
                 Some(register.map_or_else(|| Register::at(midi), |so_far| so_far.with(midi)));
             pitches.add(midi);
+            by_track.entry(note.track.clone()).or_default().push(midi);
         }
     }
-    (register, pitches)
+    (register, pitches, by_track)
+}
+
+/// The middle pitch of some notes, or nothing when there are none.
+///
+/// Sorted here rather than at the call site because a median is the only thing
+/// the order is wanted for. An even count takes the upper of the two middles:
+/// averaging them could land a quarter-tone from any note in the piece, and a
+/// column that names a pitch nobody played is worse than one that rounds.
+fn median(mut notes: Vec<f32>) -> Option<f32> {
+    notes.sort_by(f32::total_cmp);
+    notes.get(notes.len() / 2).copied()
+}
+
+/// How long one pass through the arrangement lasts, at the tempo it plays at.
+///
+/// `plan` may have stretched the tempo to fit a target, and every other number
+/// in this report follows the played tempo rather than the written one — a
+/// density measured against the written length would be beside the music by
+/// exactly the amount the stretch moved it.
+fn length(song: &Song, bpm: f32) -> f32 {
+    if bpm <= 0.0 {
+        return 0.0;
+    }
+    song.arrangement_beats() * 60.0 / bpm
 }
 
 #[cfg(test)]
@@ -139,6 +174,38 @@ mod tests {
             survey.loudest().map(|track| track.name.as_str()),
             Some("lead")
         );
+    }
+
+    /// What a track *does*, which is the half no source kind predicts. The lead
+    /// plays four times over eight beats and the pad once, because the second
+    /// arrangement entry leaves the pad out — and the pad is held where the
+    /// lead is not, which is the difference `karplus` versus `osc_stack` does
+    /// not tell you.
+    #[test]
+    fn a_track_reports_how_it_behaves_and_not_only_what_it_is() {
+        let survey = surveyed();
+        // Two entries of four beats at 96 bpm.
+        assert!((survey.seconds - 5.0).abs() < 0.001, "{}", survey.seconds);
+
+        let lead = &survey.tracks[0];
+        assert_eq!(lead.sustain, Some(0.4));
+        assert_eq!(lead.notes, 4);
+        assert_eq!(lead.density(survey.seconds), Some(0.8));
+
+        let pad = &survey.tracks[1];
+        assert_eq!(pad.sustain, Some(0.8));
+        assert_eq!(pad.notes, 1);
+        assert_eq!(pad.density(survey.seconds), Some(0.2));
+    }
+
+    /// The median is a pitch that was actually played, never an average
+    /// between two of them: the lead's four notes are C4, E4 and those two a
+    /// fifth up, so the upper middle is G4 rather than something between.
+    #[test]
+    fn the_median_is_a_note_somebody_wrote() {
+        let survey = surveyed();
+        assert_eq!(survey.tracks[0].median, Some(67.0));
+        assert_eq!(survey.tracks[1].median, Some(36.0), "one note is its own");
     }
 
     /// The register is what is *played*: the second entry transposes the lead

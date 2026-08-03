@@ -486,11 +486,11 @@ what the set is made of:
 
 ```text
 01-km      96 bpm  E2-A5  C D E F G A B (diatonic on C)
-  arp   karplus    gain 0.85  cutoff 4600 Hz
-  pad   osc_stack  gain 0.40  no filter
+  arp   karplus    gain 0.85  sustain 0.00  2.1/s  F#5  cutoff 4600 Hz
+  pad   osc_stack  gain 0.40  sustain 0.62  0.3/s   B3  no filter
 02-calado  132 bpm  E2-G5  C D E F G A B (diatonic on C)
-  arp   karplus    gain 0.76  cutoff 4400 Hz
-  bell  fm2        gain 0.50  no filter
+  arp   karplus    gain 0.76  sustain 0.00  8.4/s   E5  cutoff 4400 Hz
+  bell  fm2        gain 0.50  sustain 0.00  2.0/s   A5  no filter
 2 songs
   karplus    in 2, loudest in 2
   fm2        in 1, loudest in 0
@@ -505,11 +505,33 @@ in. The collection is named only when the set of classes *is* exactly a
 diatonic one — that is arithmetic, and naming a mode would mean picking a tonic
 the document never states.
 
-A **track row** carries what the documents say the instrument is: its source
-kind in the word the recipe spells it with, its gain as written, and where its
-filter starts. Written, not measured — this costs no bake, so `gain 0.85` is
-the number in the score rather than a level anything came out at. A song of one
-track gets no rows, the same rule the section and layer tables follow.
+A **track row** has two halves, and the split is the useful part.
+
+What the instrument **is**: its source kind in the word the recipe spells it
+with, its gain as written, and where its filter starts.
+
+What it **does** in the piece: its `amp.s` **sustain**, how many notes per
+second it plays over one pass of the arrangement, and the **median pitch** of
+those notes as a note name. A track that plays nothing at all reads `silent`
+rather than `0.0/s`, and has no middle note to name.
+
+That second half is there because the first half does not predict what anyone
+hears. Three cues can read `karplus`, `fm2` and `osc_stack` — three different
+instruments on paper — and be one plucked guitar to a listener, because what
+they actually share is a sustain of zero, a couple of notes a second and a
+register up around F♯5. Changing the source kind does not move that complaint,
+and the row now shows why.
+
+All six columns are written, not measured — this costs no bake, so `gain 0.85`
+is the number in the score rather than a level anything came out at. A song of
+one track gets no rows, the same rule the section and layer tables follow.
+
+**`sustain` is the envelope's, not the source's**, and it is worth knowing
+before trusting the column. A `karplus` string damps on its own and an `fm2`
+operator's modulator decays on its own, so a patch can read `sustain 0.40` and
+still be a sound that dies away. The column reports what the document says, in
+the same "written, not measured" spirit as `gain` — read it as *what the
+envelope was told to do*, not as *how long you will hear it*.
 
 The **rollup** counts the same facts across the project: how many songs use
 each source kind, how many carry it in their *loudest* track — the element a

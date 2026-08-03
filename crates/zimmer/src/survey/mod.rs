@@ -38,6 +38,13 @@ pub use pitch::{PitchClasses, Register};
 /// Everything here is written down rather than measured: the gain is the
 /// number in the score, not the level the track came out at. What it came out
 /// at is [`crate::level::Layer`], and that costs a bake.
+///
+/// Two halves, and the split is the useful part. [`TrackSurvey::source`],
+/// `gain` and `cutoff` say what an instrument **is**; `sustain`, `notes` and
+/// `median` say what it **does** in the piece — whether it is held or struck,
+/// how often it plays, and where it sits. A patch answers the first three and
+/// the arrangement answers the rest, which is how three different source kinds
+/// can read as three instruments on the left and as one on the right.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TrackSurvey {
     /// The track's name in the song.
@@ -51,6 +58,36 @@ pub struct TrackSurvey {
     /// The filter's base cutoff in Hz, absent when the patch has no filter.
     /// The envelope and velocity move it from there; this is where it starts.
     pub cutoff: Option<f32>,
+    /// The amp envelope's sustain level, absent for the same unresolved patch
+    /// that leaves `source` absent.
+    ///
+    /// **The envelope's sustain, not the source's**, and the difference is
+    /// real: a `karplus` string damps on its own and an `fm2` modulator decays
+    /// on its own, so a patch can read `0.4` here and still be a decaying
+    /// sound. What this states is what the document states — the same
+    /// written-not-measured discipline `gain` follows.
+    pub sustain: Option<f32>,
+    /// How many notes it plays across the whole arrangement, counted after the
+    /// arrangement's own `tracks` filters have had their say.
+    pub notes: usize,
+    /// The median pitch of those notes, in MIDI. Absent when it plays none.
+    ///
+    /// The median rather than a mean, so one octave leap does not move where a
+    /// track is reported to sit. With an even number of notes it is the upper
+    /// of the two middle pitches rather than their average, which could land
+    /// between two semitones and name a note nobody wrote.
+    pub median: Option<f32>,
+}
+
+impl TrackSurvey {
+    /// How often it plays, in notes per second of the piece.
+    ///
+    /// Absent when the song has no length to divide by — a density over no
+    /// time is unanswerable rather than zero, and the two must not print the
+    /// same way.
+    pub fn density(&self, seconds: f32) -> Option<f32> {
+        (seconds > 0.0).then(|| self.notes as f32 / seconds)
+    }
 }
 
 /// One song: its tempo, its instruments, and the pitch material it is made of.
@@ -64,6 +101,15 @@ pub struct SongSurvey {
     pub bpm: f32,
     /// Its instruments, in the order the document lists them.
     pub tracks: Vec<TrackSurvey>,
+    /// How long one pass through the arrangement lasts, in seconds, at the
+    /// tempo it plays at. Zero for a song with nothing arranged.
+    ///
+    /// Here rather than as a note-density on each track, because it is a fact
+    /// about the song and dividing is the report's job. One pass rather than
+    /// the whole `fit`ted bake: repeating a piece scales the note count and the
+    /// length by the same factor, so density is the same number either way and
+    /// one pass is the one that needs no explaining.
+    pub seconds: f32,
     /// How high and low its notes reach. Absent when nothing is played.
     pub register: Option<Register>,
     /// Which pitch classes those notes fall in.
@@ -178,6 +224,9 @@ mod tests {
             source: Some(source),
             gain,
             cutoff: None,
+            sustain: Some(0.4),
+            notes: 8,
+            median: Some(60.0),
         }
     }
 
@@ -186,9 +235,21 @@ mod tests {
             name: name.to_owned(),
             bpm,
             tracks,
+            seconds: 4.0,
             register: Some(Register::at(40.0)),
             pitches: PitchClasses::default(),
         }
+    }
+
+    /// A density needs a length to divide by, and a song with nothing arranged
+    /// has none — which is a different answer from "it never plays".
+    #[test]
+    fn a_density_over_no_time_is_unanswerable_rather_than_zero() {
+        let played = track("arp", "karplus", 0.5);
+        assert_eq!(played.density(4.0), Some(2.0));
+        assert_eq!(played.density(0.0), None);
+        let silent = TrackSurvey { notes: 0, ..played };
+        assert_eq!(silent.density(4.0), Some(0.0));
     }
 
     /// The finding the whole report exists for, as a count: one source kind is
