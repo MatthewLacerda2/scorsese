@@ -8,6 +8,15 @@ text and rebuild it anywhere.
 Two shapes, told apart by the `recipe` field: **`patch`** is one instrument
 playing one note (an effect), **`song`** is a piece of music.
 
+**Both are sound nobody speaks.** Recipes make effects and score — a gunshot, a
+footstep, a UI blip, the music under all of them — and there is no voice in
+them. That is a boundary rather than a gap: nothing in a patch or a song has
+anywhere to put a phoneme, and a synthesised approximation of a person talking
+is not what anyone wants when real narration is one asset away. Spoken audio is
+a `generated_audio` asset — a prompt handed to a provider, costing money and a
+network, reproducible from nothing but its cache. Keeping the two kinds apart
+is what lets everything on this page promise free and deterministic.
+
 ```
 scorsese synth new zap                 # a patch recipe, and its asset
 scorsese synth new theme --kind song   # a song recipe, and its asset
