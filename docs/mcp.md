@@ -14,17 +14,44 @@ phone, or curl is calling.
 The server is a plain binary that talks over stdin and stdout. A client spawns
 it; there is nothing to configure and no port to pick.
 
-```
-cargo build -p scorsese-mcp
+**Working in this repo, point the client at the crate rather than at a built
+binary.** In the client's MCP configuration, with the repo as the working
+directory:
+
+```json
+{ "command": "cargo",
+  "args": ["run", "--release", "--quiet", "--bin", "scorsese-mcp"] }
 ```
 
-Then in the client's MCP configuration, a server whose command is the built
-binary — `target/debug/scorsese-mcp`, or wherever a release build put it. For
-Claude Code:
+For Claude Code that is:
 
 ```
-claude mcp add scorsese -- /path/to/scorsese-mcp
+claude mcp add scorsese -- cargo run --release --quiet --bin scorsese-mcp
 ```
+
+A build that is already current is a no-op costing a fraction of a second
+before the server starts speaking, and one that is not gets made — so a `git
+pull` is picked up on the next client start, with nothing to remember.
+
+**For an installed build, name the binary** — `/path/to/scorsese-mcp`, or
+`target/release/scorsese-mcp` for one built here. The tradeoff genuinely
+reverses there: a shipped binary should not need a toolchain, a source tree or
+a compile to start.
+
+### Why the default is the crate and not the artifact
+
+A client pointed at a built binary keeps launching whatever was last compiled,
+and **`git pull` alone changes nothing**. The failure that follows is silent:
+no error, no warning, no version mismatch. The session comes up with a smaller
+tool list and everything that is present works, so nothing looks wrong.
+
+That is worse than it sounds, because **the tool list is fixed at handshake
+time and never re-announced**. "Am I running the current server?" is a question
+a client cannot ask from inside the protocol — so a capability that landed on
+`main` an hour ago is not merely missing, it is unfindable, and the work routes
+around it using whatever older tool is still there. Unattended, that run
+finishes and reports success; it was only ever slower and dumber than the repo
+it was running from.
 
 ## The tools
 
