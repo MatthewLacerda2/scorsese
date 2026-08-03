@@ -8,6 +8,7 @@
 
 use std::collections::{BTreeSet, HashMap};
 
+use super::duty::Sounding;
 use super::{PitchClasses, Register, SongSurvey, TrackSurvey};
 use crate::note::MIDI_RANGE;
 use crate::patch::Patch;
@@ -24,7 +25,8 @@ impl SongSurvey {
     /// the other five songs.
     pub fn of(name: &str, song: &Song, resolve: &dyn PatchResolver) -> Self {
         let (bpm, _) = plan(song);
-        let (register, pitches, mut by_track) = played(song);
+        let (register, pitches, mut by_track, mut sounding) = played(song);
+        let beats = song.arrangement_beats();
         Self {
             name: name.to_owned(),
             bpm,
@@ -47,6 +49,10 @@ impl SongSurvey {
                         sustain: patch.as_ref().map(|patch| patch.amp.s),
                         notes: notes.len(),
                         median: median(notes),
+                        duty: sounding
+                            .remove(track.name.as_str())
+                            .unwrap_or_default()
+                            .over(beats),
                     }
                 })
                 .collect(),
@@ -80,12 +86,28 @@ fn instrument(reference: &PatchRef, resolve: &dyn PatchResolver) -> Option<Patch
 /// top of the keyboard is reported at the pitch it will be played at rather
 /// than the one the arithmetic asked for. A note whose name does not parse is
 /// skipped: refusing the document is [`Song::validate`]'s job, not a report's.
-/// The third return is those same notes kept per track, which is what turns a
-/// report about a song into a report about each instrument in it.
-fn played(song: &Song) -> (Option<Register>, PitchClasses, HashMap<String, Vec<f32>>) {
+/// The last two returns are those same notes kept per track — their pitches,
+/// and when each one sounds — which is what turns a report about a song into a
+/// report about each instrument in it.
+///
+/// The **when** is why patterns are walked with a running offset. Every other
+/// number here is indifferent to where in the piece a note falls; a duty cycle
+/// is the one that is not, because two patterns can put the same track's notes
+/// over the same beats of their own slot and mean two different stretches of
+/// the arrangement.
+type Played = (
+    Option<Register>,
+    PitchClasses,
+    HashMap<String, Vec<f32>>,
+    HashMap<String, Sounding>,
+);
+
+fn played(song: &Song) -> Played {
     let mut register: Option<Register> = None;
     let mut pitches = PitchClasses::default();
     let mut by_track: HashMap<String, Vec<f32>> = HashMap::new();
+    let mut sounding: HashMap<String, Sounding> = HashMap::new();
+    let mut at = 0.0;
     for entry in &song.arrangement {
         let Some(pattern) = song.patterns.get(entry.pattern()) else {
             continue;
@@ -94,6 +116,13 @@ fn played(song: &Song) -> (Option<Register>, PitchClasses, HashMap<String, Vec<f
             if !entry.plays(&note.track) {
                 continue;
             }
+            // Before the pitch is parsed: a note whose name does not parse is
+            // still a note this track holds the arrangement for, and the
+            // renderer is what refuses the document.
+            sounding
+                .entry(note.track.clone())
+                .or_default()
+                .add(at + note.start, note.dur);
             let Ok(written) = note.note.to_midi() else {
                 continue;
             };
@@ -103,8 +132,11 @@ fn played(song: &Song) -> (Option<Register>, PitchClasses, HashMap<String, Vec<f
             pitches.add(midi);
             by_track.entry(note.track.clone()).or_default().push(midi);
         }
+        // Where the *slot* ends, not where its sound does — the next pattern
+        // starts on time however long the last note rings.
+        at += pattern.beats;
     }
-    (register, pitches, by_track)
+    (register, pitches, by_track, sounding)
 }
 
 /// The middle pitch of some notes, or nothing when there are none.

@@ -91,12 +91,20 @@ fn headline(song: &SongSurvey, name: usize, bpm: usize) -> String {
 /// — held or struck, how often, how high — follows, because that is what three
 /// cues sharing one complaint turn out to have in common when their source
 /// kinds have nothing in common at all.
+///
+/// `duty` sits beside `gain` rather than with the rest of the second half, and
+/// it is printed at all so the rollup's "loudest" is checkable from the rows.
+/// That count ranks by `gain × duty`, so without the second number a reader
+/// sees a hat written at `0.60` losing to a pad written at `0.50` and has
+/// nothing to reconcile it against — which reads as a bug in the report rather
+/// than as the fix for one.
 fn row(track: &TrackSurvey, seconds: f32, columns: &Columns) -> String {
     format!(
-        "{:<name$}  {:<source$}  gain {:>4.2}  {}  {:>rate$}  {:>median$}  {}",
+        "{:<name$}  {:<source$}  gain {:>4.2}  duty {:>3.0}%  {}  {:>rate$}  {:>median$}  {}",
         track.name,
         kind(track),
         track.gain,
+        track.duty * 100.0,
         sustain(track),
         density(track, seconds),
         median(track),
@@ -236,6 +244,7 @@ mod tests {
             sustain: Some(0.0),
             notes: 8,
             median: Some(71.0),
+            duty: 0.5,
         }
     }
 
@@ -317,6 +326,20 @@ mod tests {
         assert!(lines[1].contains("sustain 0.00"), "{}", lines[1]);
         assert!(lines[1].contains("2.0/s"), "{}", lines[1]);
         assert!(lines[1].contains("B4"), "{}", lines[1]);
+    }
+
+    /// The rollup ranks by `gain × duty`, so the duty has to be on the row or
+    /// the count below it looks like it contradicts the gains above it.
+    #[test]
+    fn a_row_shows_the_duty_the_rollup_ranks_by() {
+        let mut cue = two();
+        cue.songs[0].tracks[0] = TrackSurvey {
+            duty: 0.2,
+            ..cue.songs[0].tracks[0].clone()
+        };
+        let lines = survey(&cue);
+        assert!(lines[1].contains("gain 0.85  duty  20%"), "{}", lines[1]);
+        assert!(lines[2].contains("duty  50%"), "{}", lines[2]);
     }
 
     /// A track nobody wrote a note for is *silent*, not `0.0/s`, and has no

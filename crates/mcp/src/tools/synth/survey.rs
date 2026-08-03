@@ -25,15 +25,20 @@ impl Tool for Survey {
          same facts across the whole set. Per song: the tempo it plays at, the \
          register its notes span, the pitch classes they fall in, and a row per \
          track. A track row says what the instrument is — source kind, gain, \
-         where its filter starts — and then what it does in the piece: its \
-         envelope's sustain, how many notes a second it plays, and the median \
-         pitch it sits at. That second half is the half a source kind does not \
-         predict: three cues on three different generators can share a sustain \
-         of zero, a couple of notes a second and a high register, and be one \
-         instrument to anyone listening. \
+         where its filter starts — and then what it does in the piece: the \
+         share of the arrangement it sounds over, its envelope's sustain, how \
+         many notes a second it plays, and the median pitch it sits at. That \
+         second half is the half a source kind does not predict: three cues on \
+         three different generators can share a sustain of zero, a couple of \
+         notes a second and a high register, and be one instrument to anyone \
+         listening. \
          Then the counts across the project: how many songs use each source \
          kind, how many carry it in their loudest track, the spread of tempos \
-         and of registers. Reads the recipe documents only — no bake, no \
+         and of registers. `Loudest` means gain times duty rather than the \
+         highest written gain: a hi-hat is written loud because it is short, \
+         and ranking on gain alone reports a more varied set than the one on \
+         disk. It is a better proxy than the written number and still not an \
+         ear. Reads the recipe documents only — no bake, no \
          ffmpeg, no network, no cost. It counts and stops: there is no score, \
          no grade and no recommendation here, and nothing about it can fail \
          anything. A project of fewer than two songs has no set to report on \

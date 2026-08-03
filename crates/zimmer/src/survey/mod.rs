@@ -26,6 +26,7 @@
 //! *can* count, and "karplus is the loudest track in all six" is a sentence it
 //! can produce from the files without anyone listening first.
 
+mod duty;
 pub(crate) mod pitch;
 mod song;
 
@@ -40,11 +41,12 @@ pub use pitch::{PitchClasses, Register};
 /// at is [`crate::level::Layer`], and that costs a bake.
 ///
 /// Two halves, and the split is the useful part. [`TrackSurvey::source`],
-/// `gain` and `cutoff` say what an instrument **is**; `sustain`, `notes` and
-/// `median` say what it **does** in the piece — whether it is held or struck,
-/// how often it plays, and where it sits. A patch answers the first three and
-/// the arrangement answers the rest, which is how three different source kinds
-/// can read as three instruments on the left and as one on the right.
+/// `gain` and `cutoff` say what an instrument **is**; `sustain`, `notes`,
+/// `median` and `duty` say what it **does** in the piece — whether it is held
+/// or struck, how often it plays, where it sits, and how much of the piece it
+/// occupies. A patch answers the first three and the arrangement answers the
+/// rest, which is how three different source kinds can read as three
+/// instruments on the left and as one on the right.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TrackSurvey {
     /// The track's name in the song.
@@ -77,6 +79,17 @@ pub struct TrackSurvey {
     /// of the two middle pitches rather than their average, which could land
     /// between two semitones and name a note nobody wrote.
     pub median: Option<f32>,
+    /// The share of the arrangement this track is sounding over, `0.0..=1.0`.
+    ///
+    /// The **union** of its notes rather than the sum, so a chord held for a
+    /// bar is one bar of sound. Notes ringing past the last beat are cut off
+    /// there, since a song's length is where its final pattern ends.
+    ///
+    /// This is what stops `gain` from being read as prominence. Percussion is
+    /// written loud *because* it is short, so a hat at `0.60` for a fifth of
+    /// each beat and a pad at `0.50` held throughout are nowhere near each
+    /// other — see [`SongSurvey::loudest`].
+    pub duty: f32,
 }
 
 impl TrackSurvey {
@@ -117,20 +130,40 @@ pub struct SongSurvey {
 }
 
 impl SongSurvey {
-    /// The track sitting highest in the mix, by the gain it is written at.
+    /// The track taking up the most room in the piece: `gain × duty`.
     ///
-    /// Gain rather than measured energy, because that is what is on the page
-    /// and this whole report costs nothing. Ties go to the first, which is the
-    /// order the document lists them in.
+    /// **Not the highest gain**, which is what this used to be and which was
+    /// wrong in half the songs it was tried on. Written gain is a *per-note
+    /// peak*: it says how loud a note is and nothing about how much of the
+    /// piece there is any note at all, and percussion is written loud precisely
+    /// because it is short. Ranking by gain alone crowned a hi-hat sitting 22 dB
+    /// under the actual lead, and then the rollup built on it reported a set
+    /// more varied than the one that existed — which is the one thing that
+    /// report is for.
+    ///
+    /// Multiplying by [`TrackSurvey::duty`] fixes that with arithmetic over
+    /// documents this already parses, so the survey still costs no bake, no
+    /// ffmpeg and no network. **It is a better proxy and not an ear**: a
+    /// plucked harp 27 dB down can still be the instrument you hear, because
+    /// transients carry prominence that neither a written gain nor an energy
+    /// average knows about. Nothing here names a lead with authority.
+    ///
+    /// Ties go to the first, which is the order the document lists them in.
     pub fn loudest(&self) -> Option<&TrackSurvey> {
         self.tracks.iter().reduce(|loudest, track| {
-            if track.gain > loudest.gain {
+            if room(track) > room(loudest) {
                 track
             } else {
                 loudest
             }
         })
     }
+}
+
+/// How much of the mix a track takes up: how loud it is written, over how much
+/// of the piece it is written at all.
+fn room(track: &TrackSurvey) -> f32 {
+    track.gain * track.duty
 }
 
 /// Every song a project carries, in the order its assets are listed.
@@ -196,8 +229,15 @@ pub struct SourceCount {
     pub source: &'static str,
     /// How many songs have at least one track using it.
     pub songs: usize,
-    /// How many songs have it in their loudest track — the element a listener
-    /// hears first, and the count the per-song rows cannot add up on their own.
+    /// How many songs have it in their loudest track, by
+    /// [`SongSurvey::loudest`]'s meaning of the word — the count the per-song
+    /// rows cannot add up on their own, and the one line in this project that
+    /// can catch *six cues, one instrument*.
+    ///
+    /// Which is why it has to be right: this counted a hi-hat as the sound of
+    /// two pieces once, and the result read as a **more varied** set than the
+    /// one on disk. A wrong answer here is worse than none, because the whole
+    /// point of the line is that a client with no ears takes it literally.
     pub loudest: usize,
 }
 
@@ -219,6 +259,11 @@ mod tests {
     use super::*;
 
     fn track(name: &str, source: &'static str, gain: f32) -> TrackSurvey {
+        held(name, source, gain, 1.0)
+    }
+
+    /// A track written at `gain` and sounding over `duty` of the piece.
+    fn held(name: &str, source: &'static str, gain: f32, duty: f32) -> TrackSurvey {
         TrackSurvey {
             name: name.to_owned(),
             source: Some(source),
@@ -227,7 +272,45 @@ mod tests {
             sustain: Some(0.4),
             notes: 8,
             median: Some(60.0),
+            duty,
         }
+    }
+
+    /// The bug this report was filed for: a hat written louder than the lead,
+    /// firing for a fifth of each beat. Gain alone crowns it; gain over the
+    /// room it takes up does not.
+    #[test]
+    fn a_short_loud_hit_does_not_outrank_what_is_playing_underneath_it() {
+        let cue = song(
+            "01-km",
+            96.0,
+            vec![
+                held("hat", "noise", 0.60, 0.2),
+                held("rhodes", "osc_stack", 0.50, 0.95),
+            ],
+        );
+        assert_eq!(
+            cue.loudest().map(|track| track.name.as_str()),
+            Some("rhodes")
+        );
+        // The hat is still *in* the piece and still counted as a source kind.
+        // What it has stopped doing is claiming to be the sound of it.
+        assert!(cue.kinds().contains("noise"));
+    }
+
+    /// A track nobody arranged takes up none of the piece, so it cannot lead
+    /// one however loudly it is written.
+    #[test]
+    fn a_track_that_never_plays_leads_nothing() {
+        let cue = song(
+            "quiet",
+            120.0,
+            vec![
+                held("unused", "fm2", 1.0, 0.0),
+                held("bed", "osc_stack", 0.2, 0.8),
+            ],
+        );
+        assert_eq!(cue.loudest().map(|track| track.name.as_str()), Some("bed"));
     }
 
     fn song(name: &str, bpm: f32, tracks: Vec<TrackSurvey>) -> SongSurvey {
