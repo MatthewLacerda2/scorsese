@@ -21,8 +21,9 @@ mod error;
 mod field;
 mod report;
 mod timeline;
+mod video;
 
-pub use error::{AssetProblem, TimelineProblem, ValidationError};
+pub use error::{AssetProblem, TimelineProblem, ValidationError, VideoProblem};
 pub use field::AssetField;
 pub use report::ValidationErrors;
 

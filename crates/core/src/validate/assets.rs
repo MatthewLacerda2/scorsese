@@ -23,6 +23,7 @@ pub(super) fn check(project: &Project) -> Vec<AssetProblem> {
         check_recipe(asset, &mut errors);
         check_sha256(asset, &mut errors);
         check_kind_fields(asset, &mut errors);
+        super::video::check(project, asset, &mut errors);
     }
     errors
 }
@@ -96,6 +97,27 @@ fn check_kind_fields(asset: &Asset, errors: &mut Vec<AssetProblem>) {
 
     check_inline(asset, errors);
     check_style(asset, errors);
+    check_bookkeeping(asset, errors);
+}
+
+/// What a kind can have a record *of*.
+///
+/// These are not briefs and nothing renders from them, but they are refused off
+/// the kinds that cannot produce them all the same: a ticket on an imported
+/// file names work nobody is doing, and a price on a synthesised one is money
+/// that was never spent. A number nothing could have written is worth a
+/// question, even when nothing would have read it.
+fn check_bookkeeping(asset: &Asset, errors: &mut Vec<AssetProblem>) {
+    let kind = asset.kind;
+    if asset.operation.is_some() && kind != AssetKind::GeneratedVideo {
+        errors.push(stray(asset, AssetField::Operation));
+    }
+    if asset.queued_at.is_some() && !kind.is_generated() {
+        errors.push(stray(asset, AssetField::QueuedAt));
+    }
+    if asset.cost_cents.is_some() && !kind.is_prompted() {
+        errors.push(stray(asset, AssetField::Cost));
+    }
 }
 
 /// What the inline kinds carry instead of a file.
