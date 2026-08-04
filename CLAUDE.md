@@ -56,6 +56,8 @@ elaborate feature, and equally a reason to *build* an obvious one well.
   changing anything a render's output depends on.
 - **docs/output-formats.md** — the containers and codecs a render delivers in,
   which combinations are refused, and why that list is deliberately short.
+- **docs/credentials.md** — where a provider key comes from, in one order for
+  every way scorsese is run, and the spending ceiling that lives beside it.
 - **docs/mcp.md** — the tools `scorsese-mcp` exposes, how a client is pointed
   at it, and the rule that every tool and every argument describes itself.
 - Crate boundaries live in each crate's `lib.rs` module doc — read them before
@@ -307,8 +309,14 @@ contract.
 - **No real provider calls in tests, ever.** Veo and ElevenLabs are mocked
   behind traits; golden-render tests use local fixture media only. A test that
   spends money or needs a network is a bug.
-- **Secrets via `.env`** (gitignored), documented in the committed
-  `.env.example`. Never in `project.json`, never in code, never in fixtures.
+- **Secrets resolve in one order, through one resolver**: the environment
+  first (an exported variable, or the gitignored `.env` a checkout keeps,
+  documented by `.env.example`), then the per-machine settings file a shipped
+  build reads — `crates/providers`' `credentials` module, and
+  **docs/credentials.md** for the whole of it. `.env` is the development path
+  and stops existing the moment somebody installs a build, which is why there
+  is a second place and why there is only one resolver. Never in
+  `project.json`, never in code, never in fixtures.
 - **All ffmpeg invocations go through `scorsese-render`'s command builder.**
   ffmpeg is an external binary on PATH in dev/CI and is bundled beside the
   binary in shipped builds; that indirection lives in one place. No ad-hoc
