@@ -44,6 +44,7 @@
 //! a recipe are not the same kind of brief and sharing an entry point is how
 //! that distinction would go quietly missing.
 
+pub mod api;
 pub mod credentials;
 pub mod prices;
 pub mod synth;

@@ -71,6 +71,14 @@ allow = [
     # `unicode-ident`, whose license is `(MIT OR Apache-2.0) AND Unicode-3.0`:
     # the Unicode half is not optional, so it has to be allowed explicitly.
     "Unicode-3.0",
+    # `webpki-roots`, reached through `ureq` — the list of certificate
+    # authorities a TLS connection is checked against. A *data* licence rather
+    # than a code one, which is what CDLA is for: it covers Mozilla's CA bundle,
+    # permits redistribution unchanged or modified, and asks nothing of the
+    # software that reads it. It arrives here because talking to a provider over
+    # HTTPS means having something to trust, and shipping our own trust list is
+    # the alternative nobody wants.
+    "CDLA-Permissive-2.0",
 
     # Everything below this line arrives with the desktop app's graphics stack
     # and nothing else. All of it is permissive — none is copyleft, none asks
