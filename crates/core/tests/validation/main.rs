@@ -14,4 +14,5 @@ mod source;
 mod synth;
 mod text;
 mod timing;
+mod video;
 mod weight;

@@ -62,6 +62,29 @@ pub enum AssetField {
     /// white because nobody chose is a shot rendered wrong in a way no error
     /// ever mentioned.
     Color,
+    /// The rest of a generated video's brief: tier, raster, length, aspect and
+    /// the stills it is built from.
+    ///
+    /// One field for all of them because they are one request, and refused
+    /// anywhere but `generated_video` for the reason every stray field is: a
+    /// resolution on a narration prompt would be read by nothing, and silence
+    /// about it would look exactly like having honoured it.
+    Video,
+    /// The provider's name for work in flight.
+    ///
+    /// Only the kinds that queue with somebody else have one. A ticket on an
+    /// imported file names work nobody is doing.
+    Operation,
+    /// When a provider took the request.
+    ///
+    /// Only the generated kinds queue, so only they can have been handed over.
+    QueuedAt,
+    /// What realising the asset cost, in US cents.
+    ///
+    /// Only the prompted kinds can have cost anything. A synthesised asset is
+    /// arithmetic and an imported one is a file that was already there, so a
+    /// price on either is a number that came from nowhere.
+    Cost,
 }
 
 impl AssetField {
@@ -75,6 +98,10 @@ impl AssetField {
             Self::Recipe => "recipe",
             Self::State => "state",
             Self::Color => "color",
+            Self::Video => "video",
+            Self::Operation => "operation",
+            Self::QueuedAt => "queued_at",
+            Self::Cost => "cost_cents",
         }
     }
 }

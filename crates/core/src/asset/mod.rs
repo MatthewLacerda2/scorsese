@@ -5,6 +5,7 @@
 //! edit in one place.
 
 pub(crate) mod kind;
+pub(crate) mod video;
 
 use std::fmt;
 
@@ -12,10 +13,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::color::Rgba;
 use crate::path::ProjectPath;
+use crate::stamp::Timestamp;
 use crate::text::TextStyle;
 use crate::time::{Fps, Frames};
 
 pub use kind::{AssetKind, GenerationState};
+pub use video::{
+    Aspect, ClipSeconds, LengthLock, MAX_REFERENCE_IMAGES, VideoModel, VideoRequest,
+    VideoResolution,
+};
 
 /// Identifies an asset within one project. Unique across the assets table.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
@@ -116,6 +122,49 @@ pub struct Asset {
     /// on a slug card, a note is handed to nobody.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
+    /// The rest of the brief, for the one kind whose provider takes more than a
+    /// sentence. Hashed with the prompt, and refused on every other kind.
+    ///
+    /// Absent means every default rather than nothing asked for — see
+    /// [`Asset::video_request`], which is how callers should read it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub video: Option<VideoRequest>,
+    /// When this asset joined the table.
+    ///
+    /// Bookkeeping, and only that: it is never hashed into a brief and never
+    /// reaches the compositor, so it can neither re-bill an unchanged prompt
+    /// nor make a render depend on the day it ran. Optional, because a document
+    /// written by hand is not wrong for leaving it out — what it buys is a
+    /// sort order for a pool that has grown too long to read.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<Timestamp>,
+    /// When a provider took this asset's request.
+    ///
+    /// Not the same fact as `created_at`, and the difference is the point: an
+    /// asset can sit in a project for weeks before anyone generates it, so its
+    /// age says nothing about whether a request is late. This is the stamp that
+    /// answers *has it been long enough to worry*, and *is the result still
+    /// inside the window the provider will hand it over in*.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub queued_at: Option<Timestamp>,
+    /// The provider's name for the work in flight, while the state is `queued`.
+    ///
+    /// The ticket, and the reason waiting is not something a process has to do:
+    /// it is written into the document, so it survives the command exiting, the
+    /// machine restarting, and the project being copied somewhere else. Whoever
+    /// opens the project next can ask whether the work is done.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<String>,
+    /// What realising this asset actually cost, in US cents, recorded when it
+    /// generated.
+    ///
+    /// Cents rather than dollars so that summing a table is exact, and on the
+    /// asset rather than in a ledger so that the sum *is* the project's total:
+    /// a running tally kept elsewhere would be wrong the first time anyone
+    /// deleted a shot. Absent on anything that has not been paid for, which
+    /// includes every synthesised asset — those are free by construction.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cost_cents: Option<u64>,
 }
 
 impl Asset {
@@ -161,6 +210,11 @@ impl Asset {
             style: None,
             color: None,
             note: None,
+            video: None,
+            created_at: None,
+            queued_at: None,
+            operation: None,
+            cost_cents: None,
         }
     }
 
@@ -190,6 +244,15 @@ impl Asset {
     /// caller never has to decide what a missing font means.
     pub fn text_style(&self) -> TextStyle {
         self.style.clone().unwrap_or_default()
+    }
+
+    /// The rest of this asset's brief, defaults included.
+    ///
+    /// Not the stored field, for the same reason [`Asset::text_style`] is not:
+    /// an absent request is every default rather than an absence, so nobody
+    /// building a provider call has to decide what a missing resolution means.
+    pub fn video_request(&self) -> VideoRequest {
+        self.video.clone().unwrap_or_default()
     }
 
     /// How much of this asset there is, in frames of `fps` — the ceiling a

@@ -3,6 +3,7 @@
 
 use crate::asset::{AssetId, AssetKind};
 use crate::path::{PathProblem, ProjectPath};
+use crate::validate::error::VideoProblem;
 use crate::validate::field::AssetField;
 
 /// One thing wrong with a row of the assets table.
@@ -141,6 +142,14 @@ pub enum AssetProblem {
         /// The asset claiming media it cannot produce.
         asset: AssetId,
     },
+
+    /// Something wrong with what a generated video is asking for.
+    ///
+    /// Its own catalogue rather than more variants here, because these are
+    /// findings about a *combination* of fields rather than about one of them
+    /// — see [`VideoProblem`] for why that difference is worth a split.
+    #[error(transparent)]
+    Video(#[from] VideoProblem),
 
     /// Not the shape a SHA-256 comes in, so it can never match a real file —
     /// truncated, uppercase, or an algorithm that is not SHA-256.

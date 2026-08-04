@@ -13,9 +13,11 @@
 
 mod assets;
 mod timeline;
+mod video;
 
 pub use assets::AssetProblem;
 pub use timeline::TimelineProblem;
+pub use video::VideoProblem;
 
 use crate::path::{PathProblem, ProjectPath};
 
@@ -55,4 +57,14 @@ pub enum ValidationError {
     /// asset it shows.
     #[error(transparent)]
     Timeline(#[from] TimelineProblem),
+}
+
+/// A video problem is an asset problem, so it reaches the collected list the
+/// same way — spelled out because `From` does not chain, and a caller naming
+/// the catalogue its subject lives in should not have to know how many layers
+/// sit between that and the list.
+impl From<VideoProblem> for ValidationError {
+    fn from(problem: VideoProblem) -> Self {
+        Self::Asset(problem.into())
+    }
 }

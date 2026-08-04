@@ -68,13 +68,17 @@ pub(crate) mod path;
 pub mod pool;
 pub mod probe;
 pub(crate) mod project;
+pub(crate) mod stamp;
 pub(crate) mod text;
 pub(crate) mod time;
 pub(crate) mod timeline;
 pub(crate) mod validate;
 pub mod write;
 
-pub use asset::{Asset, AssetId, AssetKind, GenerationState, MediaMetadata};
+pub use asset::{
+    Aspect, Asset, AssetId, AssetKind, ClipSeconds, GenerationState, LengthLock,
+    MAX_REFERENCE_IMAGES, MediaMetadata, VideoModel, VideoRequest, VideoResolution,
+};
 pub use color::{ColorError, Rgba};
 pub use dip::{Dip, Ducked, Under, duck_track};
 pub use keyframe::{Easing, Keyframe, KeyframeTrack, PropertyPath};
@@ -93,7 +97,10 @@ pub use project::{
     ASSETS_DIR, CACHE_DIR, GENERATED_DIR, LoadError, PROJECT_FILE_NAME, Project, RECIPES_DIR,
     SCHEMA_VERSION, SaveError,
 };
+pub use stamp::{Timestamp, TimestampError};
 pub use text::{FontChoice, MAX_WEIGHT, MIN_WEIGHT, TextAlign, TextStyle};
 pub use time::{Fps, FpsError, FpsParseError, Frames, Speed};
 pub use timeline::{Anchor, AnchorX, AnchorY, Clip, ClipId, Crop, Fit, Track, TrackId, TrackKind};
-pub use validate::{AssetField, AssetProblem, TimelineProblem, ValidationError, ValidationErrors};
+pub use validate::{
+    AssetField, AssetProblem, TimelineProblem, ValidationError, ValidationErrors, VideoProblem,
+};

@@ -1,4 +1,4 @@
-# `project.json` — schema v13
+# `project.json` — schema v14
 
 The contract between the CLI, the MCP server, the GUI, and every project
 saved on someone's disk. It is meant to be hand-written: an agent should be
@@ -12,7 +12,7 @@ bump and a migration note.
 
 ```json project
 {
-  "schema_version": 13,
+  "schema_version": 14,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -134,6 +134,11 @@ re-importing or regenerating a file is one edit in one place.
 | `style` | optional, `text` only | How that string looks: `font`, `weight`, `size`, `color`, `align`, `line_height`, `max_width` — see below |
 | `color` | `color` | The colour to fill with, as `#rrggbb` or `#rrggbbaa`; colour assets have no `path` |
 | `note` | optional | Why this asset is what it is. Never rendered — see above |
+| `video` | optional, `generated_video` only | The rest of the brief: `model`, `resolution`, `seconds`, `aspect`, `first_image`, `last_image`, `reference_images` — see below |
+| `created_at` | optional | When the asset joined the table, as UTC RFC 3339 (`2026-08-04T14:20:00Z`) |
+| `queued_at` | optional, generated kinds | When a provider took the request. Not the same fact as `created_at` |
+| `operation` | optional, `generated_video` | The provider's name for work in flight, while `queued` |
+| `cost_cents` | optional, prompted kinds | What realising it actually cost, in US cents |
 
 ```json asset
 { "id": "shot-city", "kind": "generated_video", "state": "sketch",
@@ -197,6 +202,72 @@ still appears, as a band across the foot of the picture for exactly the frames
 its clip covers, so a cut built around a voice-over can be watched before a
 word of it has been paid for. Once the audio exists the card is gone and the
 picture is untouched — a slug card is a stand-in, never a caption.
+
+### What a generated video asks for
+
+A prompt says what the shot is *of*. `video` says what the shot **is** — and
+every field in it changes the video that comes back, so all of them are hashed
+into the brief along with the sentence, and editing any one of them makes the
+asset `stale` exactly as rewording the prompt does.
+
+```json asset
+{ "id": "shot-hero", "kind": "generated_video", "state": "sketch",
+  "prompt": "she turns to face the camera as the rain starts",
+  "video": { "model": "fast", "resolution": "1080p", "seconds": 8,
+             "aspect": "16:9", "first_image": "still-doorway",
+             "reference_images": ["face-front", "face-side"] } }
+```
+
+| Field | Values | Default |
+| --- | --- | --- |
+| `model` | `fast`, `lite` | `fast` |
+| `resolution` | `720p`, `1080p` | `1080p` |
+| `seconds` | `4`, `6`, `8` | `8` |
+| `aspect` | `16:9`, `9:16` | `16:9` |
+| `first_image` | an `image` asset id | — |
+| `last_image` | an `image` asset id | — |
+| `reference_images` | up to 3 `image` asset ids | — |
+
+Only `prompt` is required. Every field above has a default, so an absent
+`video` and an empty one mean the same thing: a request made of a sentence and
+nothing else.
+
+**Stills are named by asset id, never by path** — the same rule a clip follows.
+A path here would be a second way to point at media, and an absolute one would
+break the promise that a project survives being copied to another machine. It
+also means the brief hash can cover a still's `sha256`, so swapping the file
+behind an id regenerates rather than quietly serving the old video.
+
+The three image slots ask for different things. `first_image` is the frame the
+shot opens on. `first_image` with `last_image` asks for the journey between two
+stills — so a `last_image` alone is refused, because on its own it is not a
+smaller version of that request. `reference_images` are pictures of a subject
+that should go on looking like itself from shot to shot.
+
+#### The combinations that are refused
+
+These fields are not independent, and `scorsese check` reports every conflict
+before anything is submitted — a request that could never succeed should cost a
+message, not a round trip:
+
+| Refused | Because |
+| --- | --- |
+| `seconds` other than `8` at `1080p` | that raster is only generated at eight seconds |
+| `seconds` other than `8` with `reference_images` | likewise |
+| `seconds` other than `8` with a first **and** last image | likewise |
+| `reference_images` on `lite` | that tier does not take them |
+| more than 3 `reference_images` | the provider accepts three |
+| `last_image` without `first_image` | there is no journey from nowhere |
+| a still that is not an `image` asset, or not in the table at all | every still handed over is a picture |
+
+The first three are one rule wearing three hats, and the message always names
+the *other* choice — the one that fixed the length — because that is the one
+worth reconsidering. Dropping to `720p` costs less than giving up the stills a
+shot is built from.
+
+Switching a shot to `lite` to save money is the case to watch: it is the one
+change that can invalidate a brief rather than merely cheapen it, which is why
+it is refused rather than honoured with the images dropped.
 
 ### Synthesised audio
 
@@ -925,6 +996,22 @@ applies: the shape is validated here, and whether the face is really on disk is
 the render's to find out. So is the `script`, and its missing file is a warning:
 a project that has lost its brief still renders.
 
+## Migrating from v13
+
+v14 adds five optional fields and takes nothing away: `video` on a
+`generated_video` asset, and the bookkeeping `created_at`, `queued_at`,
+`operation` and `cost_cents`. No v13 document can contain any of them, and
+**absent means what it always meant** — for `video`, a request made of a
+sentence and every default; for the rest, a fact nobody has recorded yet. So no
+v13 document means anything different under v14: converting one is changing
+`"schema_version": 13` to `"schema_version": 14` and nothing else.
+
+None of the five changes a single pixel of any render, and two of them are
+excluded from the brief hash on purpose. A timestamp inside a hash would make an
+unchanged prompt look edited and bill for it again; a timestamp read by the
+compositor would make a golden render depend on the day it ran. `video` is the
+opposite and belongs in the hash entirely: it is part of what was asked for.
+
 ## Migrating from v9
 
 v10 adds two optional fields and takes nothing away: `script` on the document,
@@ -932,7 +1019,7 @@ and `note` on an asset, a track or a clip. No v9 document can contain either,
 and **absent means what it always meant** — a project that says nothing about
 why it is the way it is, which is every project written before there was
 anywhere to say it. So no v9 document means anything different under v10:
-converting one is changing `"schema_version": 9` to `"schema_version": 13` and
+converting one is changing `"schema_version": 9` to `"schema_version": 10` and
 nothing else.
 
 Neither field changes a single pixel of any render, by design and by test.
@@ -950,7 +1037,7 @@ same breath as "this is not a font I can read".
 v13 adds two optional fields: `script` on the document, and `note` on anything
 with an `id` — an asset, a clip, a track. No v12 document can contain either,
 and absent means what it always meant, so **no v12 document means anything
-different under v13**. Converting one is changing `"schema_version": 13` to
+different under v13**. Converting one is changing `"schema_version": 12` to
 `"schema_version": 13` and nothing else.
 
 ## Migrating from v11
@@ -958,14 +1045,14 @@ different under v13**. Converting one is changing `"schema_version": 13` to
 v12 adds one optional field: `speed` on a clip. No v11 document can contain it,
 and **absent means `1.0`** — one source frame per timeline frame, which is what
 every clip did before the field existed. So no v11 document means anything
-different under v12 — converting one is changing `"schema_version": 13` to
-`"schema_version": 13` and nothing else.
+different under v12 — converting one is changing `"schema_version": 11` to
+`"schema_version": 12` and nothing else.
 
 ## Migrating from v10
 
 v11 adds one optional field: `weight` on a text asset's `style`. No v10 document
-can contain it, so **converting one is changing `"schema_version": 13` to
-`"schema_version": 13`** — with one thing to check first, and it is the reason
+can contain it, so **converting one is changing `"schema_version": 10` to
+`"schema_version": 11`** — with one thing to check first, and it is the reason
 the field exists.
 
 **A v10 project that names a variable font file will now be refused rather than
@@ -986,7 +1073,7 @@ up at all.
 v10 adds one optional field: `anchor` on a clip. No v9 document can contain it,
 and **absent means centred on both axes**, which is what every layer did before
 the field existed. So no v9 document means anything different under v10 —
-converting one is changing `"schema_version": 9` to `"schema_version": 13` and
+converting one is changing `"schema_version": 9` to `"schema_version": 10` and
 nothing else.
 
 ## Migrating from v8
@@ -995,7 +1082,6 @@ v9 adds one optional field: `crop` on a clip. No v8 document can contain it,
 and **absent means the whole source**, which is what every clip did before the
 field existed. So no v8 document means anything different under v9 —
 converting one is changing `"schema_version": 8` to `"schema_version": 9`, and
-then on to `11` as above.
 then on to `10` as above.
 
 ## Migrating from v7
