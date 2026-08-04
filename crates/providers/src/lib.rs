@@ -13,8 +13,9 @@
 //! recipe yields the same bytes forever. Only the first kind needs
 //! credentials, and only the first kind needs mocking.
 //!
-//! Credentials come from `.env` (gitignored; `.env.example` documents the
-//! keys). Real provider calls are NEVER made in tests — every networked
+//! Credentials come from one resolver and one order — see [`credentials`]:
+//! the environment first (an exported variable, or the `.env` at the root of a
+//! checkout), then the settings file a shipped build keeps per machine. Real provider calls are NEVER made in tests — every networked
 //! provider is mocked behind a trait. Synthesis needs no such arrangement: it
 //! is arithmetic, so its tests are the real thing.
 //!
@@ -36,4 +37,5 @@
 //! a recipe are not the same kind of brief and sharing an entry point is how
 //! that distinction would go quietly missing.
 
+pub mod credentials;
 pub mod synth;

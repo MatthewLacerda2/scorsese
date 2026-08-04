@@ -53,6 +53,13 @@ impl Cli {
 /// logic — the rest lives in the library crates.
 #[derive(Debug, Subcommand)]
 pub(crate) enum Command {
+    /// Say where provider keys are kept on this machine, which of them
+    /// resolved, and from where.
+    ///
+    /// Never prints a key — not masked, not truncated. What it answers is
+    /// whether one was found and which of the two places had it, which is the
+    /// question anybody debugging a missing credential actually has.
+    Settings,
     /// Create a new project directory.
     New {
         /// Where to create it, e.g. `teaser.scor`.

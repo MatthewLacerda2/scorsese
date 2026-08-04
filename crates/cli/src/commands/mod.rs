@@ -12,5 +12,6 @@ pub(crate) mod level;
 pub(crate) mod new;
 pub(crate) mod probe;
 pub(crate) mod render;
+pub(crate) mod settings;
 pub(crate) mod still;
 pub(crate) mod synth;
