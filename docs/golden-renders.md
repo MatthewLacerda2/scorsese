@@ -7,8 +7,8 @@ and is wrong. Nobody's eyes are in the loop for an agent-driven PR, so the
 golden renders are what stands between "CI is green" and "the video is actually
 right".
 
-They are a **hard gate**. They run inside `cargo test --workspace` and they are
-green-to-merge, no exceptions.
+They are a **hard gate**. They run inside `make test` — the workspace suite,
+through `cargo nextest run` — and they are green-to-merge, no exceptions.
 
 **Pixels only.** Sound is guarded a different way, in
 `crates/render/tests/audio/`: those tests render real projects and ask how loud
