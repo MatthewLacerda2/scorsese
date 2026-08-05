@@ -11,7 +11,9 @@
 
 use std::path::{Path, PathBuf};
 
-use scorsese_providers::voices::{Availability, Catalogue, Filters, Unusable, Voice, VoiceError};
+use scorsese_providers::voices::{
+    Availability, Catalogue, Filters, Page, Unusable, Voice, VoiceError,
+};
 
 /// A project directory that removes itself when the test ends.
 pub(crate) struct Fixture(PathBuf);
@@ -126,8 +128,8 @@ impl Catalogue for Fake {
         Ok(vec![self.voice()])
     }
 
-    fn library(&self, _filters: &Filters) -> Result<Vec<Voice>, VoiceError> {
-        Ok(vec![self.voice()])
+    fn library(&self, _filters: &Filters) -> Result<Page, VoiceError> {
+        Ok(Page::whole(vec![self.voice()]))
     }
 
     /// Answers about its own voice and refuses every other id, rather than
