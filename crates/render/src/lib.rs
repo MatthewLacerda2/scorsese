@@ -83,6 +83,7 @@
 //! second caller of any of them would be a second renderer.
 
 pub mod audio;
+pub mod contact;
 pub(crate) mod describe;
 pub(crate) mod error;
 pub(crate) mod format;
@@ -111,6 +112,7 @@ pub use scorsese_compositor::{Frame, PIXEL_FORMAT};
 /// project meets the vocabulary of the thing that draws it.
 pub use scorsese_compositor::{DissolveError, Placed, dissolve};
 
+pub use contact::{ContactError, Look, Sheet};
 pub use describe::{
     Animated, Commentary, Cue, CueError, Description, Moment, Playing, Shown, Stretch, Travel,
 };

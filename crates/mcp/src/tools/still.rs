@@ -19,13 +19,12 @@
 //! A still drawn any other way could disagree with the file, and then looking
 //! at it would prove nothing.
 
-use std::path::PathBuf;
-
 use scorsese_core::{Fps, Frames};
 use scorsese_render::{Cue, RenderSettings, Renderer, Resolution, Tools, frames};
 use serde_json::Value;
 
 use crate::tools::inspect::load;
+use crate::tools::scratch::Scratch;
 use crate::tools::{Costs, Part, Reply, Tool, project_dir, project_property};
 
 /// What the frame is composited at when nobody says.
@@ -205,52 +204,4 @@ fn kept(arguments: &Value, instants: usize) -> Result<Option<&str>, String> {
         )),
         _ => Ok(out),
     }
-}
-
-/// Where the PNG is written, and whether it survives the call.
-///
-/// A caller who named a path gets the file and keeps it. A caller who did not
-/// still needs one written somewhere, because the encoding is ffmpeg's and
-/// ffmpeg writes files — so it goes to a scratch path that is removed on the
-/// way out, including when the call fails partway through. A server left
-/// littering the temporary directory with frames is a server nobody notices
-/// filling a disk.
-struct Scratch {
-    path: PathBuf,
-    remove: bool,
-}
-
-impl Scratch {
-    fn at(kept: Option<&str>) -> Self {
-        match kept {
-            Some(path) => Self {
-                path: PathBuf::from(path),
-                remove: false,
-            },
-            None => Self {
-                path: std::env::temp_dir().join(format!(
-                    "scorsese-still-{}-{}.png",
-                    std::process::id(),
-                    unique()
-                )),
-                remove: true,
-            },
-        }
-    }
-}
-
-impl Drop for Scratch {
-    fn drop(&mut self) {
-        if self.remove {
-            let _ = std::fs::remove_file(&self.path);
-        }
-    }
-}
-
-/// A number no other call in this process has used, so two frames asked for at
-/// once cannot land on one scratch file.
-fn unique() -> u64 {
-    use std::sync::atomic::{AtomicU64, Ordering};
-    static COUNTER: AtomicU64 = AtomicU64::new(0);
-    COUNTER.fetch_add(1, Ordering::Relaxed)
 }

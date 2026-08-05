@@ -94,6 +94,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `audio_level` | Say how a finished sound file came out. | ffmpeg |
 | `render` | Render the timeline to a video file. | ffmpeg, and real time |
 | `still` | Look at the edit. | ffmpeg, and seconds |
+| `look` | Look at the footage itself, not the edit. | ffmpeg |
 <!-- END TOOLS -->
 
 **A project is a directory, and `project_new` is what makes one.**
@@ -252,8 +253,15 @@ less than a frame, and any result the document would not load.
 
 ## Looking at the frames
 
-`still` is the only tool that answers with something other than words, and that
-is the point of it. Everything else here *describes*: what the document says,
+Two tools answer with something other than words, and the split between them is
+worth getting right: **`still` shows the edit, `look` shows the footage.** One
+composites your timeline at an instant; the other decodes a video file. Neither
+replaces the other — a cut that composites perfectly can still be assembled out
+of shots nobody has looked at.
+
+### `still` — what the edit looks like
+
+Everything else here *describes*: what the document says,
 what the cut contains, what is wrong with it. An assistant that writes a title
 and reads back "CHAPTER ONE, centred, 0.14 of the frame" still has no idea
 whether it is readable, whether it collides with the shot under it, or whether
@@ -299,6 +307,54 @@ file and several frames do not fit in one. Reading it as a directory instead
 would make the tool's secondary use a second, weaker `render --stills` — which
 already writes a numbered set of PNGs — so the refusal names the path and the
 count and points there.
+
+### `look` — what is actually in the footage
+
+Every other tool answers about a video file in words: how long it is, how big,
+what codec, what it is called. None of that is what a shot *is*. An assistant
+handed twenty clips and asked for a cut is arranging file names and hoping.
+
+```
+look  { "project": "teaser.scor", "file": "assets/03-rooftop.mp4" }
+      → "5 frames of …/03-rooftop.mp4 (48.0s long), at 0:00, 0:05, 0:10, 0:15,
+         0:20 — 25.0s to 48.0s not seen yet; call again with from: 25",
+        and the sheet
+```
+
+**A path, not an asset id** — relative to the project like every other path
+here, or absolute for footage that is somewhere else entirely. The file does not
+have to be in the assets table, so material gets looked at *before* the decision
+to import it.
+
+**One picture, not five.** Five separate image blocks cost five times as much
+and say less: what tells you what a shot does is the change *between* frames,
+and a change is only visible when the frames are side by side. At most five
+frames, ever, and the cap is enforced in the library rather than trusted from
+the caller.
+
+**A long file is walked.** Without `to`, the frames are five seconds apart and
+the reply says where the next call starts — 0–20s, then 25–45s. That is the
+intended way to cover a file, not a shortfall: a tool that squeezed an hour into
+five frames would show five unrelated pictures.
+
+```
+look  { "project": "teaser.scor", "file": "assets/03-rooftop.mp4",
+        "from": 12, "to": 16 }
+      → four seconds, in five frames spread across it
+```
+
+**With `to` it is a different question**, so it behaves differently: the caller
+has named a stretch they want to see, and the frames spread evenly across it,
+first on `from` and last on `to`. Covering a file and studying a moment are not
+the same request.
+
+Nothing is left on disk — a sheet is something to look at, not part of the
+project. `scorsese look` is the command that keeps one.
+
+**It closes the loop on generated video.** Veo returns a clip that may or may
+not be what the brief asked for, and without this nobody can tell: the asset
+flips to `generated` and the next tool call proceeds having got a sunset where
+it asked for a sunrise. Generate, look, decide whether to re-prompt.
 
 ## Rendering part of the timeline
 

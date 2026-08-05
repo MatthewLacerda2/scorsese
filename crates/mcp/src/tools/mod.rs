@@ -17,6 +17,8 @@ mod create;
 mod edit;
 mod inspect;
 mod level;
+mod look;
+mod scratch;
 mod script;
 mod still;
 mod synth;
@@ -213,6 +215,7 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(level::Level),
         Box::new(edit::Render),
         Box::new(still::Still),
+        Box::new(look::Look),
     ]
 }
 

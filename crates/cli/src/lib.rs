@@ -38,6 +38,7 @@ pub use cli::Cli;
 pub use commands::check::media;
 
 use cli::{AssetsAction, Command, SynthAction};
+use scorsese_render::contact::Look;
 
 /// Parses the command line and runs it.
 pub fn run() -> Result<()> {
@@ -94,6 +95,21 @@ fn dispatch(cli: Cli) -> Result<()> {
             out,
             resolution,
         } => commands::still::run(&directory, &out, &at, resolution),
+        Command::Look {
+            file,
+            out,
+            from,
+            to,
+            frames,
+        } => commands::look::run(
+            &file,
+            out,
+            &Look {
+                from_seconds: from,
+                to_seconds: to,
+                count: frames,
+            },
+        ),
         Command::Describe { fps, range } => commands::describe::run(&directory, fps, range),
         Command::Synth { action } => match action {
             Some(SynthAction::New { name, kind }) => {

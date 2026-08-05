@@ -101,7 +101,7 @@ pub fn write_png(tools: &Tools, file: &Path, frame: &Frame) -> Result<(), FrameE
 }
 
 /// Runs a command expected to emit exactly one raw RGBA frame on stdout.
-fn raw_frame(
+pub(crate) fn raw_frame(
     mut command: std::process::Command,
     file: &Path,
     resolution: Resolution,
