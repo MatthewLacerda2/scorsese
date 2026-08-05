@@ -60,6 +60,13 @@ pub(crate) enum Command {
     /// whether one was found and which of the two places had it, which is the
     /// question anybody debugging a missing credential actually has.
     Settings,
+    /// Print what a generated shot costs, per tier and per size, with the day
+    /// each figure was last read off the vendor's page.
+    ///
+    /// Every figure is a published rate somebody copied, never a bill: no
+    /// provider reports what a generation actually cost. Prints as Markdown,
+    /// because CI appends this to a job summary.
+    Prices,
     /// Create a new project directory.
     New {
         /// Where to create it, e.g. `teaser.scor`.

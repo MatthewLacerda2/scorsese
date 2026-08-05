@@ -101,7 +101,7 @@ impl AssetField {
             Self::Video => "video",
             Self::Operation => "operation",
             Self::QueuedAt => "queued_at",
-            Self::Cost => "cost_cents",
+            Self::Cost => "estimated_cost_cents",
         }
     }
 }

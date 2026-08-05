@@ -53,6 +53,7 @@ fn dispatch(cli: Cli) -> Result<()> {
             fps,
         } => commands::new::run(&directory, name, fps),
         Command::Settings => commands::settings::run(),
+        Command::Prices => commands::prices::run(),
         Command::Probe { all } => commands::probe::run(&directory, all),
         Command::Check { verify } => commands::check::run(&directory, verify),
         Command::Import { path, kind } => {
