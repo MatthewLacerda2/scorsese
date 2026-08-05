@@ -40,7 +40,7 @@ use scorsese_core::Clip;
 
 use crate::editing::Editing;
 use crate::project::Open;
-use brief::Brief;
+use brief::{Brief, Voices};
 use edit::Refusal;
 use selected::Selected;
 
@@ -48,20 +48,30 @@ use selected::Selected;
 /// open, because it is the same kind of news.
 const REFUSED: Color32 = Color32::from_rgb(220, 90, 80);
 
-/// The panel's own state: nothing but the last thing it had to refuse.
+/// The panel's own state: the last thing it had to refuse, and the one list it
+/// cannot read out of the document.
 ///
 /// Everything else it shows is read out of the document every frame. A panel
 /// that kept its own copy of a clip would be a second edit that can disagree
-/// with the first, and there is exactly one edit.
+/// with the first, and there is exactly one edit. The voice list is the
+/// exception that proves it: it is not in the document at all — it is the
+/// vendor's, cached under the project — so there is nothing for it to disagree
+/// with. See [`Voices`].
 #[derive(Debug, Default)]
 pub(crate) struct Inspector {
     refused: Option<Refusal>,
+    voices: Voices,
 }
 
 impl Inspector {
-    /// Forgets a refusal, for when a different project is opened.
+    /// Forgets a refusal and the voice list, for when a different project is
+    /// opened.
+    ///
+    /// The voices go too because they are cached **per project**: keeping the
+    /// last one's list would offer voices out of a directory nobody is editing.
     pub(crate) fn reset(&mut self) {
         self.refused = None;
+        self.voices.forget();
     }
 
     /// Draws the panel.

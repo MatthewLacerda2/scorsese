@@ -10,8 +10,14 @@
 //! person paying for it.
 //!
 //! Nothing here is a new capability: it is `scorsese generate`, given a
-//! surface, calling the same functions with the same rate table and the same
+//! surface, calling the same functions with the same rate tables and the same
 //! ceiling.
+//!
+//! **Two vendors, said apart.** Shots are priced by Veo's table and lines by
+//! ElevenLabs', and the two are two orders of magnitude apart — ninety-six
+//! cents against about two. So they are counted, subtotalled and reported as
+//! separate groups: a single figure covering both is arithmetic nobody can act
+//! on, because it does not say which half to go and change.
 
 mod quote;
 mod worker;
@@ -108,16 +114,11 @@ impl Generating {
     fn body(&mut self, ui: &mut Ui, open: &mut Open) {
         let quote = Quote::of(&open.project);
 
-        if quote.shots.is_empty() && quote.in_flight == 0 {
-            ui.label("Every shot in this project is already made.");
+        if quote.empty() && quote.in_flight == 0 {
+            ui.label("Every shot and every line in this project is already made.");
         }
-        for shot in &quote.shots {
-            ui.horizontal(|ui| {
-                ui.label(RichText::new(shot.asset.as_str()).strong());
-                ui.label(RichText::new(&shot.shape).weak().small());
-                ui.label(dollars(shot.cents));
-            });
-        }
+        group(ui, "SHOTS", &quote.shots);
+        group(ui, "NARRATION", &quote.lines);
         if quote.in_flight > 0 {
             ui.label(
                 RichText::new(format!(
@@ -129,7 +130,7 @@ impl Generating {
             );
         }
 
-        if !quote.shots.is_empty() {
+        if !quote.empty() {
             ui.separator();
             ui.label(RichText::new(format!("About {}", quote.total())).strong());
             // Said every time, not once in a tooltip. No provider reports what
@@ -159,7 +160,7 @@ impl Generating {
             // Refused here as well as in the library, so the number and the
             // button agree: a run the library would refuse must not look
             // available.
-            let allowed = !busy && !quote.shots.is_empty() && !quote.over_budget();
+            let allowed = !busy && !quote.empty() && !quote.over_budget();
             if ui
                 .add_enabled(allowed, egui::Button::new("Generate"))
                 .on_disabled_hover_text(if quote.over_budget() {
@@ -187,6 +188,36 @@ impl Generating {
         if busy {
             ui.spinner();
         }
+    }
+}
+
+/// One kind of generation, under a heading that counts and totals it.
+///
+/// **Two groups rather than one list**, because the two vendors' prices are two
+/// orders of magnitude apart: a 96¢ shot and a 2¢ line summed into a single
+/// figure is a number nobody can act on, and it is not obvious from the rows
+/// which half of it a person should go and edit. A heading, a count and a
+/// subtotal answer that before the grand total is read.
+fn group(ui: &mut Ui, heading: &str, priced: &[quote::Priced]) {
+    if priced.is_empty() {
+        return;
+    }
+    let subtotal: u64 = priced.iter().map(|one| one.cents).sum();
+    ui.add_space(4.0);
+    ui.horizontal(|ui| {
+        ui.label(RichText::new(heading).strong().small());
+        ui.label(
+            RichText::new(format!("{} · {}", priced.len(), dollars(subtotal)))
+                .weak()
+                .small(),
+        );
+    });
+    for one in priced {
+        ui.horizontal(|ui| {
+            ui.label(RichText::new(one.asset.as_str()).strong());
+            ui.label(RichText::new(&one.shape).weak().small());
+            ui.label(dollars(one.cents));
+        });
     }
 }
 

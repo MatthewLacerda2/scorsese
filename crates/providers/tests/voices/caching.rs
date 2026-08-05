@@ -1,6 +1,6 @@
 //! The cache: what it saves, when it is skipped, and what it rescues.
 
-use scorsese_providers::voices::{Freshness, builtin, library};
+use scorsese_providers::voices::{Freshness, builtin, cached, library};
 
 use super::fake::Fake;
 use super::{root, voice};
@@ -96,4 +96,34 @@ fn with_no_cache_the_refusal_is_what_comes_back() {
         said.contains("dashboard"),
         "the advice must point at the dashboard, not at .env: {said}"
     );
+}
+
+/// What a surface with no key can still offer. Both listings, as one list, out
+/// of `cache/` and nothing else — and a voice that is in both is one voice.
+#[test]
+fn every_cached_listing_is_readable_without_a_key() {
+    let dir = root("voices-cached");
+    let filter = scorsese_providers::voices::Filters {
+        language: Some(String::from("pt")),
+        ..scorsese_providers::voices::Filters::default()
+    };
+    builtin(&dir, &Fake::listing(vec![voice("v1", "Ana")]), false).expect("the built-in listing");
+    library(
+        &dir,
+        &Fake::listing(vec![voice("v1", "Ana"), voice("v2", "Bea")]),
+        &filter,
+        false,
+    )
+    .expect("the library search");
+
+    let names: Vec<String> = cached(&dir).into_iter().map(|found| found.name).collect();
+    assert_eq!(names, ["Ana", "Bea"], "deduplicated, and sorted by name");
+}
+
+/// A project nobody has listed voices in answers with an empty list rather than
+/// a failure: *there are none cached* is an answer, and it is the one a window
+/// has to be able to say plainly.
+#[test]
+fn a_project_with_nothing_cached_says_so_without_failing() {
+    assert!(cached(&root("voices-none")).is_empty());
 }

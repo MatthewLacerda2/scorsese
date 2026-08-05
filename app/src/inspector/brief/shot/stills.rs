@@ -12,7 +12,7 @@ use egui::{ComboBox, RichText, Ui};
 use scorsese_core::{AssetId, MAX_REFERENCE_IMAGES, VideoModel};
 
 use super::fields::OPTIONAL;
-use super::{Brief, request_of};
+use super::{Shot, request_of};
 use crate::inspector::Inspector;
 use crate::inspector::selected::Selected;
 use crate::project::Open;
@@ -26,7 +26,7 @@ pub(super) fn show(
     ui: &mut Ui,
     open: &mut Open,
     selected: &Selected,
-    brief: &Brief,
+    brief: &Shot,
 ) {
     if brief.images.is_empty() {
         ui.add_space(4.0);
@@ -40,17 +40,23 @@ pub(super) fn show(
 
     ui.add_space(6.0);
     if let Some(picked) = one(ui, "First image", &brief.request.first_image, &brief.images) {
-        inspector.attempt_brief(open, selected, brief, "the first image", move |asset| {
-            let request = request_of(asset);
-            request.first_image = picked;
-            // A last frame with no first is not a request the provider has —
-            // it is half an interpolation. Clearing it here means the person
-            // who removed the first image gets a coherent brief rather than a
-            // refusal about a field they did not touch.
-            if request.first_image.is_none() {
-                request.last_image = None;
-            }
-        });
+        inspector.attempt_brief(
+            open,
+            selected,
+            &brief.asset,
+            "the first image",
+            move |asset| {
+                let request = request_of(asset);
+                request.first_image = picked;
+                // A last frame with no first is not a request the provider has —
+                // it is half an interpolation. Clearing it here means the person
+                // who removed the first image gets a coherent brief rather than a
+                // refusal about a field they did not touch.
+                if request.first_image.is_none() {
+                    request.last_image = None;
+                }
+            },
+        );
     }
 
     // Offered only once there is a first image, because that is the only
@@ -58,9 +64,15 @@ pub(super) fn show(
     // interpolation, and a last frame alone has nothing to interpolate from.
     if brief.request.first_image.is_some() {
         if let Some(picked) = one(ui, "Last image", &brief.request.last_image, &brief.images) {
-            inspector.attempt_brief(open, selected, brief, "the last image", move |asset| {
-                request_of(asset).last_image = picked;
-            });
+            inspector.attempt_brief(
+                open,
+                selected,
+                &brief.asset,
+                "the last image",
+                move |asset| {
+                    request_of(asset).last_image = picked;
+                },
+            );
         }
     } else {
         ui.horizontal(|ui| {
@@ -82,7 +94,7 @@ fn references(
     ui: &mut Ui,
     open: &mut Open,
     selected: &Selected,
-    brief: &Brief,
+    brief: &Shot,
 ) {
     ui.add_space(6.0);
     let chosen = &brief.request.reference_images;
@@ -110,9 +122,15 @@ fn references(
         ui.horizontal(|ui| {
             ui.label(RichText::new(id.as_str()).small());
             if ui.small_button("✕").on_hover_text("Remove").clicked() {
-                inspector.attempt_brief(open, selected, brief, "a reference image", move |asset| {
-                    request_of(asset).reference_images.remove(index);
-                });
+                inspector.attempt_brief(
+                    open,
+                    selected,
+                    &brief.asset,
+                    "a reference image",
+                    move |asset| {
+                        request_of(asset).reference_images.remove(index);
+                    },
+                );
             }
         });
     }
@@ -148,9 +166,15 @@ fn references(
             }
         });
     if let Some(id) = adding {
-        inspector.attempt_brief(open, selected, brief, "a reference image", move |asset| {
-            request_of(asset).reference_images.push(id);
-        });
+        inspector.attempt_brief(
+            open,
+            selected,
+            &brief.asset,
+            "a reference image",
+            move |asset| {
+                request_of(asset).reference_images.push(id);
+            },
+        );
     }
 }
 
