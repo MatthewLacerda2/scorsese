@@ -26,10 +26,12 @@
 //! server, the window and every saved project.
 //!
 //! **A schema change is `architecture` work**, needing a version bump and a
-//! migration note — and the field this would want to sit beside, the `speech`
-//! block that holds a `voice_id` at all, does not exist yet. Inventing a home
-//! for a voice id in a document that has nowhere to put one would be guessing
-//! at somebody else's design.
+//! migration note. The `speech` block does now hold a `voice_id`, so a home
+//! could be found — but what would go there is not a property of the cut. An
+//! asset says *which* voice reads a line; this says how a voice that lives in
+//! somebody's account came to exist, which is true of the account and not of
+//! the video. A project copied to a machine signed in as someone else keeps
+//! every word of its `speech` blocks and none of these voices.
 //!
 //! **It is append-only and merge-friendly.** One entry per design, never
 //! rewritten, so two sessions designing voices produce a file that merges by
