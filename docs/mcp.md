@@ -92,6 +92,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `synth_bake` | Render every synth_audio recipe whose sound is not already on disk, into generated/. | nothing |
 | `synth_survey` | Say what every song recipe in the project is made of, and count the same facts across the whole set. | nothing |
 | `audio_level` | Say how a finished sound file came out. | ffmpeg |
+| `generate` | Realise the sketched shots — the one tool here that costs money. | money, at a provider |
 | `render` | Render the timeline to a video file. | ffmpeg, and real time |
 | `still` | Look at the edit. | ffmpeg, and seconds |
 | `look` | Look at the footage itself, not the edit. | ffmpeg |
@@ -354,7 +355,59 @@ project. `scorsese look` is the command that keeps one.
 **It closes the loop on generated video.** Veo returns a clip that may or may
 not be what the brief asked for, and without this nobody can tell: the asset
 flips to `generated` and the next tool call proceeds having got a sunset where
-it asked for a sunrise. Generate, look, decide whether to re-prompt.
+it asked for a sunrise. Generate, look, decide whether to re-prompt — and
+`generate` below is the first half of that loop.
+
+## Generating the shots that do not exist yet
+
+`generate` is **the one tool here that costs money**, and everything about its
+shape follows from that.
+
+```
+generate  { "project": "teaser.scor", "dry_run": true }
+          → "hero: $0.96 — 8s of fast at 1080p
+             wide: $0.20 — 4s of lite at 720p
+             About $1.16 for the whole run — our arithmetic over published
+             rates, never a bill."
+```
+
+**Quote before you spend.** `dry_run` needs no key and sends nothing. Every
+figure it prints comes from the rate table in
+[`prices.md`](prices.md) — and *no provider reports what a
+generation actually cost*, so these are calculations, not receipts. That is why
+the field on the asset is called `estimated_cost_cents`.
+
+**A brief already generated is never sent again.** A generation lands at
+`generated/<asset-id>-<hash of the brief>.mp4`, and the hash covers every field
+of the request *and the bytes of every still it names*. So calling this twice by
+mistake — or after a dropped connection, which is the likelier case — costs
+nothing the second time, and swapping one `face.png` for a different picture of
+the same name *does* count as a new brief.
+
+**It waits, then detaches.** Generation takes minutes. This waits five of them
+by default (`wait_seconds`) and then returns, which loses nothing: a submitted
+shot's ticket is written into `project.json` before anything else can go wrong.
+
+```
+generate  { "project": "teaser.scor", "collect": true }
+          → "hero: generated — generated/hero-4f2a….mp4 (2855524 bytes)"
+```
+
+**`collect` can never spend anything.** It polls what is already in flight and
+submits nothing, which is what makes it safe to call on opening a project — a
+sweep that could start a generation is one that eventually starts twenty. It
+works from another machine too, because a `*.scor` directory carries the
+tickets with it.
+
+**One shot failing leaves the rest generated.** A refused brief is reported
+against its own asset and put back to `sketch` so the prompt can be edited; the
+other nineteen shots are still generated and still say so. Only things that make
+the whole run impossible — no key, over the budget ceiling, a still that will
+not read — stop it.
+
+**A queued shot has two days.** Past that the provider deletes the finished
+video and the money is gone, so a wait that old is reported as its own outcome
+rather than as a longer wait: the two call for opposite things.
 
 ## Rendering part of the timeline
 

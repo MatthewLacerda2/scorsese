@@ -43,7 +43,44 @@ pub struct TimestampError {
     pub found: String,
 }
 
+mod civil;
+
 impl Timestamp {
+    /// Now, in UTC, to the second.
+    ///
+    /// The one place this crate reads a clock. It is `Option` rather than a
+    /// panic because a machine whose clock is set before 1970 can produce a
+    /// negative instant, and a bookkeeping stamp is never worth failing an edit
+    /// over — an asset with no `created_at` is a document that says nothing
+    /// about when it was made, which is exactly what the field being optional
+    /// already means.
+    ///
+    /// Never hashed into a brief and never read by the compositor. A timestamp
+    /// inside a brief hash would make an unchanged prompt look edited and bill
+    /// for it again; one the compositor read would make a golden render depend
+    /// on the day it ran.
+    pub fn now() -> Option<Self> {
+        Self::from_unix(Self::unix_now()?)
+    }
+
+    /// Seconds since the Unix epoch, right now.
+    ///
+    /// Published beside [`Timestamp::now`] because the arithmetic somebody
+    /// actually wants a clock for is *how long ago* — a retention window, an
+    /// age — and doing that on a formatted string means parsing it back.
+    pub fn unix_now() -> Option<i64> {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .ok()
+            .and_then(|since| i64::try_from(since.as_secs()).ok())
+    }
+
+    /// The instant `seconds` after the Unix epoch, in UTC.
+    pub fn from_unix(seconds: i64) -> Option<Self> {
+        let at = civil::Utc::from_unix(seconds);
+        Self::from_utc(at.year, at.month, at.day, at.hour, at.minute, at.second).ok()
+    }
+
     /// The instant as `project.json` writes it.
     pub fn as_str(&self) -> &str {
         &self.0

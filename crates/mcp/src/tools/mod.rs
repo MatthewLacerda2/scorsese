@@ -15,6 +15,7 @@
 
 mod create;
 mod edit;
+mod generate;
 mod inspect;
 mod level;
 mod look;
@@ -140,6 +141,11 @@ pub enum Costs {
     /// `ffmpeg` encodes. Roughly the running time of whatever is rendered,
     /// which makes this the one cost here a person waits on.
     Encode,
+    /// **Real money, to somebody else.** The only cost on this list that is not
+    /// paid in seconds, and the only one that cannot be undone by waiting — so
+    /// it is its own answer rather than a note on `Encode`, and a client
+    /// choosing between tools should be able to see it without reading prose.
+    Money,
 }
 
 impl Costs {
@@ -151,6 +157,7 @@ impl Costs {
             Self::Decode => "ffmpeg",
             Self::Frames => "ffmpeg, and seconds",
             Self::Encode => "ffmpeg, and real time",
+            Self::Money => "money, at a provider",
         }
     }
 }
@@ -213,6 +220,7 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(synth::Bake),
         Box::new(synth::Survey),
         Box::new(level::Level),
+        Box::new(generate::Generate),
         Box::new(edit::Render),
         Box::new(still::Still),
         Box::new(look::Look),
