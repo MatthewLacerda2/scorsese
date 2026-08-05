@@ -233,6 +233,11 @@ Only `prompt` is required. Every field above has a default, so an absent
 `video` and an empty one mean the same thing: a request made of a sentence and
 nothing else.
 
+The fields are the part that can be tabulated; the sentence is not. **What
+certain words do to the shot that comes back is [`prompts.md`](prompts.md)** —
+provider behaviour that cost a generation to find out, which is the half of
+this brief no schema can describe.
+
 **Stills are named by asset id, never by path** — the same rule a clip follows.
 A path here would be a second way to point at media, and an absolute one would
 break the promise that a project survives being copied to another machine. It
