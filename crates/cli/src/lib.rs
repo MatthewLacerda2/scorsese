@@ -1,7 +1,8 @@
 //! # scorsese-cli — the headless binary
 //!
 //! Responsibility: the `scorsese` command-line surface — `new`, `import`,
-//! `check`, `render`, `still`, `synth`, `duck`, `generate`, `assets`, `diff`.
+//! `check`, `render`, `still`, `synth`, `duck`, `voices`, `generate`,
+//! `assets`, `diff`.
 //! This is how an agent (or a CI
 //! job) assembles and renders a video with no human and no screen: every
 //! editing capability the GUI will ever have must be reachable from here
