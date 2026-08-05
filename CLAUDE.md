@@ -51,6 +51,9 @@ elaborate feature, and equally a reason to *build* an obvious one well.
 - **docs/recipes.md** — the synthesis recipe format: what to write in
   `recipes/*.json` to get an effect or a score out of `scorsese synth`. Free,
   offline, deterministic — read it before reaching for a sound file.
+- **docs/prompts.md** — the other brief: what a provider actually does with
+  certain words, each entry learned by paying for a generation. Read it before
+  writing a prompt, because being wrong about one is not free.
 - **docs/golden-renders.md** — the pixel gate: what a fixture is, how frames are
   compared, and when re-blessing a reference is legitimate. Read it before
   changing anything a render's output depends on.
