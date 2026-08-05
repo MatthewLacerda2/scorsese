@@ -58,13 +58,19 @@ fn dispatch(cli: Cli) -> Result<()> {
         Command::Settings => commands::settings::run(),
         Command::Generate {
             dry_run,
+            yes,
             collect,
             wait,
         } => {
             if collect {
                 commands::generate::sweep(&directory)
             } else {
-                commands::generate::run(&directory, std::time::Duration::from_secs(wait), dry_run)
+                commands::generate::run(
+                    &directory,
+                    std::time::Duration::from_secs(wait),
+                    dry_run,
+                    yes,
+                )
             }
         }
         Command::Voices {
