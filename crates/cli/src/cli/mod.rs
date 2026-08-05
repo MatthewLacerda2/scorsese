@@ -68,6 +68,26 @@ pub(crate) enum Command {
     /// provider reports what a generation actually cost. Prints as Markdown,
     /// because CI appends this to a job summary.
     Prices,
+    /// Realise every sketched shot: hand each brief to the provider, wait a
+    /// while, and collect what finishes.
+    ///
+    /// The one command here that spends money. A brief whose file is already
+    /// in generated/ is never sent again, so running this twice costs nothing
+    /// the second time. Whatever is still generating when the wait runs out is
+    /// not lost — its ticket is in project.json, and `--collect` picks it up.
+    Generate {
+        /// Say what a run would cost and stop. Needs no key, sends nothing.
+        #[arg(long)]
+        dry_run: bool,
+        /// Collect what has finished and submit nothing at all. What to run
+        /// after coming back to a project with shots in flight.
+        #[arg(long, conflicts_with = "dry_run")]
+        collect: bool,
+        /// How many seconds to wait before detaching, leaving the rest to be
+        /// collected later. Most shots finish inside the default.
+        #[arg(long, default_value_t = 300)]
+        wait: u64,
+    },
     /// Create a new project directory.
     New {
         /// Where to create it, e.g. `teaser.scor`.

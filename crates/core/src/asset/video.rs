@@ -76,17 +76,20 @@ pub enum VideoResolution {
 }
 
 impl VideoResolution {
-    /// True when this raster is only generated at eight seconds.
-    pub fn locks_length(self) -> bool {
-        matches!(self, Self::P1080)
-    }
-
-    /// The raster's name as `project.json` spells it.
+    /// How it is written where somebody reads it: `720p`, `1080p`.
+    ///
+    /// The same spelling the format uses and the vendor takes, published once
+    /// so a report, a schema and a request body cannot end up with three.
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::P720 => "720p",
             Self::P1080 => "1080p",
         }
+    }
+
+    /// True when this raster is only generated at eight seconds.
+    pub fn locks_length(self) -> bool {
+        matches!(self, Self::P1080)
     }
 }
 

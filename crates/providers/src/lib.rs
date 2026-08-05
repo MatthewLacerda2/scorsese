@@ -48,3 +48,4 @@ pub mod api;
 pub mod credentials;
 pub mod prices;
 pub mod synth;
+pub mod video;

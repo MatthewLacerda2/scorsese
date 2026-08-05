@@ -7,6 +7,7 @@ pub(crate) mod check;
 pub(crate) mod describe;
 pub(crate) mod dissolve;
 pub(crate) mod duck;
+pub(crate) mod generate;
 pub(crate) mod import;
 pub(crate) mod level;
 pub(crate) mod look;
