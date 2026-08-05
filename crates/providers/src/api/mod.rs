@@ -31,5 +31,6 @@
 //! — *what does this vendor's API look like* — and a reader who wants that
 //! answer should not have to read past anything else to get it.
 
+pub mod elevenlabs;
 pub mod http;
 pub mod veo;

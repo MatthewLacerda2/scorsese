@@ -43,9 +43,18 @@
 //! arrive they get a module of their own beside this one, because a prompt and
 //! a recipe are not the same kind of brief and sharing an entry point is how
 //! that distinction would go quietly missing.
+//!
+//! [`voices`], which is where a narration's `voice_id` comes from. It spends
+//! nothing — reading a list is free — but it is the module that keeps the
+//! spending honest, because **every ElevenLabs default voice expires on
+//! 2026-12-31** and a voice id written into this repository would be an outage
+//! with a date on it. It resolves the list at runtime, caches it under the
+//! project's `cache/`, and names the state a withdrawn voice leaves an asset
+//! in rather than substituting another one.
 
 pub mod api;
 pub mod credentials;
 pub mod prices;
 pub mod synth;
 pub mod video;
+pub mod voices;
