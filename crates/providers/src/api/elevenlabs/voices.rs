@@ -165,6 +165,12 @@ pub struct Listing {
 /// accent and an age inside `labels`; `/shared-voices` puts them at the top
 /// level and adds a language. Naming the union rather than two types is what
 /// lets one listing be shown next to the other.
+///
+/// **Checked against real response bodies**, not only against the reference
+/// page — both listings are captured under `fixtures/elevenlabs/` and read by
+/// the tests in [`crate::voices`]. That is what caught `descriptive`, which
+/// the reference page does not list among the top-level fields but which
+/// `/shared-voices` sends for every voice.
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct Voice {
     /// The id a generation names. The only field here that is load-bearing.
@@ -197,6 +203,15 @@ pub struct Voice {
     /// `/shared-voices` only: what the voice is good for, in one word.
     #[serde(default)]
     pub use_case: Option<String>,
+    /// `/shared-voices` only: what the voice *sounds like*, in one word —
+    /// `calm`, `casual`, `confident`.
+    ///
+    /// The same fact `/voices` carries as a `descriptive` label, and the one
+    /// this file was wrong about: it is a top-level field on the Voice Library
+    /// listing, so reading it only out of `labels` lost it for every voice
+    /// there while every built-in voice kept it.
+    #[serde(default)]
+    pub descriptive: Option<String>,
     /// An MP3 of the voice saying something, for a person who wants to hear it
     /// before spending anything on it.
     #[serde(default)]
