@@ -6,7 +6,8 @@
 //! [`super::run`], so what is left here is the translation between them and
 //! nothing else.
 
-use crate::api::elevenlabs::{ElevenLabs, refusal::Refusal, request};
+use crate::api::elevenlabs::refusal::Refusal;
+use crate::api::elevenlabs::speech::{Speak, Speech};
 use crate::api::http::HttpError;
 use crate::credentials::Secret;
 
@@ -18,14 +19,14 @@ const NAME: &str = "ElevenLabs";
 /// ElevenLabs, as a [`SpeechProvider`].
 #[derive(Debug, Clone)]
 pub struct ElevenLabsProvider {
-    api: ElevenLabs,
+    api: Speech,
 }
 
 impl ElevenLabsProvider {
     /// A provider that authenticates with this key.
     pub fn new(key: &Secret) -> Self {
         Self {
-            api: ElevenLabs::new(key),
+            api: Speech::new(key),
         }
     }
 }
@@ -53,9 +54,9 @@ impl SpeechProvider for ElevenLabsProvider {
 /// already refuses the other combination, so this is belt and braces; what it
 /// buys is that the request built here is never one the vendor would silently
 /// ignore a field of, whatever a future caller does.
-fn body_of(brief: &Brief) -> request::Speak {
+fn body_of(brief: &Brief) -> Speak {
     let request = &brief.request;
-    request::Speak {
+    Speak {
         text: brief.text.clone(),
         model_id: request.model.model_id().to_owned(),
         language_code: request
