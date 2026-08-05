@@ -10,6 +10,7 @@ pub(crate) mod duck;
 pub(crate) mod import;
 pub(crate) mod level;
 pub(crate) mod new;
+pub(crate) mod prices;
 pub(crate) mod probe;
 pub(crate) mod render;
 pub(crate) mod settings;

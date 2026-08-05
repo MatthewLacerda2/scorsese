@@ -115,7 +115,7 @@ fn check_bookkeeping(asset: &Asset, errors: &mut Vec<AssetProblem>) {
     if asset.queued_at.is_some() && !kind.is_generated() {
         errors.push(stray(asset, AssetField::QueuedAt));
     }
-    if asset.cost_cents.is_some() && !kind.is_prompted() {
+    if asset.estimated_cost_cents.is_some() && !kind.is_prompted() {
         errors.push(stray(asset, AssetField::Cost));
     }
 }

@@ -1,4 +1,4 @@
-# `project.json` — schema v14
+# `project.json` — schema v15
 
 The contract between the CLI, the MCP server, the GUI, and every project
 saved on someone's disk. It is meant to be hand-written: an agent should be
@@ -12,7 +12,7 @@ bump and a migration note.
 
 ```json project
 {
-  "schema_version": 14,
+  "schema_version": 15,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -138,7 +138,7 @@ re-importing or regenerating a file is one edit in one place.
 | `created_at` | optional | When the asset joined the table, as UTC RFC 3339 (`2026-08-04T14:20:00Z`) |
 | `queued_at` | optional, generated kinds | When a provider took the request. Not the same fact as `created_at` |
 | `operation` | optional, `generated_video` | The provider's name for work in flight, while `queued` |
-| `cost_cents` | optional, prompted kinds | What realising it actually cost, in US cents |
+| `estimated_cost_cents` | optional, prompted kinds | What realising it was *calculated* to cost, in US cents — our arithmetic, never a bill. See [prices.md](prices.md) |
 
 ```json asset
 { "id": "shot-city", "kind": "generated_video", "state": "sketch",
@@ -996,11 +996,27 @@ applies: the shape is validated here, and whether the face is really on disk is
 the render's to find out. So is the `script`, and its missing file is a warning:
 a project that has lost its brief still renders.
 
+## Migrating from v14
+
+v15 renames one field and changes nothing else: `cost_cents` becomes
+`estimated_cost_cents`. A v14 document carrying the old name is refused rather
+than read, which is the point — the number was never what the old name claimed.
+
+No provider scorsese talks to reports what a generation cost. Veo's operation
+answers with a video URI and nothing else; Google accounts for spend at the
+project level, elsewhere and a day late. So the figure recorded here is our own
+arithmetic over a published rate table, and these are summed into a project
+total that somebody reads before deciding to spend more. `cost_cents` read as
+*what you were charged*. Converting a v14 document is renaming that key
+wherever it appears and changing `"schema_version": 14` to
+`"schema_version": 15`.
+
 ## Migrating from v13
 
 v14 adds five optional fields and takes nothing away: `video` on a
 `generated_video` asset, and the bookkeeping `created_at`, `queued_at`,
-`operation` and `cost_cents`. No v13 document can contain any of them, and
+`operation` and `cost_cents` (`estimated_cost_cents` from v15 on). No v13
+document can contain any of them, and
 **absent means what it always meant** — for `video`, a request made of a
 sentence and every default; for the rest, a fact nobody has recorded yet. So no
 v13 document means anything different under v14: converting one is changing

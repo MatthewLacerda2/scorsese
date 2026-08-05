@@ -155,8 +155,17 @@ pub struct Asset {
     /// opens the project next can ask whether the work is done.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub operation: Option<String>,
-    /// What realising this asset actually cost, in US cents, recorded when it
-    /// generated.
+    /// What realising this asset was **calculated** to cost, in US cents,
+    /// recorded when it generated.
+    ///
+    /// **Not a bill, and the name says so on purpose.** No provider scorsese
+    /// talks to reports what a generation cost: Veo's operation carries a
+    /// video URI and nothing else, and Google accounts for spend at the
+    /// project level, elsewhere and a day late. So this is our own arithmetic
+    /// over a published rate table, worked out at the moment of generating and
+    /// written down before the table could drift. A field called `cost_cents`
+    /// would read as what was charged — and these are summed into a project
+    /// total and shown to somebody deciding whether to spend more.
     ///
     /// Cents rather than dollars so that summing a table is exact, and on the
     /// asset rather than in a ledger so that the sum *is* the project's total:
@@ -164,7 +173,7 @@ pub struct Asset {
     /// deleted a shot. Absent on anything that has not been paid for, which
     /// includes every synthesised asset — those are free by construction.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cost_cents: Option<u64>,
+    pub estimated_cost_cents: Option<u64>,
 }
 
 impl Asset {
@@ -214,7 +223,7 @@ impl Asset {
             created_at: None,
             queued_at: None,
             operation: None,
-            cost_cents: None,
+            estimated_cost_cents: None,
         }
     }
 

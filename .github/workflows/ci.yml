@@ -121,6 +121,22 @@ jobs:
       - name: Test
         run: cargo test --workspace --locked
 
+      # A signal, in the job that has already built the binary: what a generated
+      # shot costs, and how long ago somebody read those figures off the
+      # vendor's page. `scorsese prices` prints Markdown for exactly this
+      # reason, so nothing stands between the table and the summary — no
+      # renderer to disagree with the terminal.
+      #
+      # `|| true` is the gates-vs-signals rule made literal. A price checked
+      # eight months ago is worth a line here and is not worth blocking a
+      # merge: the number being old does not make it wrong.
+      - name: Prices (signal)
+        if: always()
+        run: |
+          { echo "## Provider prices"; echo; \
+            cargo run --quiet --locked --bin scorsese -- prices; \
+          } >> "$GITHUB_STEP_SUMMARY" || true
+
       # The golden renders live inside `cargo test --workspace`, so a failure
       # above may be a pixel regression. These are the frames it disagreed with,
       # uploaded so the diff can be looked at rather than guessed at.

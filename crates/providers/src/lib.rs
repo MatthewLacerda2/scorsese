@@ -32,10 +32,18 @@
 //! resolving the instruments it names — is this crate's own business, so those
 //! modules are private.
 //!
+//! [`prices`], which is what a prompted brief costs before anyone commits to
+//! it. It publishes no client and makes no call: it is a table somebody copied
+//! off a vendor's page, dated, and the arithmetic over it. The one thing to
+//! carry away from reading it is that **nothing here is a bill** — no provider
+//! reports what a generation cost, so every figure is our own estimate and the
+//! naming says so throughout.
+//!
 //! The providers proper have no surface here yet. When Veo and ElevenLabs
 //! arrive they get a module of their own beside this one, because a prompt and
 //! a recipe are not the same kind of brief and sharing an entry point is how
 //! that distinction would go quietly missing.
 
 pub mod credentials;
+pub mod prices;
 pub mod synth;

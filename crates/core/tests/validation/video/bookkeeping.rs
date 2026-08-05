@@ -24,7 +24,7 @@ fn a_request_on_a_kind_that_takes_none_is_refused() {
 #[test]
 fn a_price_on_something_free_is_refused() {
     let mut p = project();
-    asset_mut(&mut p, "score").cost_cents = Some(96);
+    asset_mut(&mut p, "score").estimated_cost_cents = Some(96);
     assert_only_problem(
         &p,
         E::StrayField {
