@@ -153,6 +153,14 @@ pub struct Listing {
     /// Whether the vendor has more beyond this page.
     #[serde(default)]
     pub has_more: bool,
+    /// How many voices match the search in all, where the vendor counts them.
+    ///
+    /// `/shared-voices` sends it — the captured fixture answers `4274` to a
+    /// search for Portuguese — and `/voices` does not. An `Option` rather than
+    /// a defaulted zero for exactly that reason: *no count was sent* and *none
+    /// matched* are different answers, and only one of them is worth printing.
+    #[serde(default)]
+    pub total_count: Option<u32>,
 }
 
 /// One voice, as either listing describes it.

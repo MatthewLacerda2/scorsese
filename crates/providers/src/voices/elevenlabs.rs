@@ -20,10 +20,10 @@
 //! Library is not sold to this account* on a listing and *this voice may not be
 //! used* on a lookup, and no reading of the body could tell those apart.
 
-use crate::api::elevenlabs::voices::{self, Filters, Voices};
+use crate::api::elevenlabs::voices::{self, Filters, Listing, Voices};
 use crate::credentials::Secret;
 
-use super::catalogue::{Availability, Catalogue, Voice};
+use super::catalogue::{Availability, Catalogue, More, Page, Voice};
 use super::error::VoiceError;
 use super::refusal::{NO_VOICE, failure, plan_limited, refused, unusable};
 
@@ -58,7 +58,7 @@ impl Catalogue for ElevenLabsVoices {
         Ok(listing.voices.iter().map(voice).collect())
     }
 
-    fn library(&self, filters: &Filters) -> Result<Vec<Voice>, VoiceError> {
+    fn library(&self, filters: &Filters) -> Result<Page, VoiceError> {
         let listing = self.voices.shared(filters).map_err(|error| {
             // The plan refusal only has a meaning on this endpoint: the Voice
             // Library is the part that is not sold to a free account, and the
@@ -70,7 +70,7 @@ impl Catalogue for ElevenLabsVoices {
                 None => failure(NAME, error),
             }
         })?;
-        Ok(listing.voices.iter().map(voice).collect())
+        Ok(page(&listing))
     }
 
     fn one(&self, voice_id: &str) -> Result<Availability, VoiceError> {
@@ -87,6 +87,22 @@ impl Catalogue for ElevenLabsVoices {
                 None => Err(failure(NAME, error)),
             },
         }
+    }
+}
+
+/// A vendor listing as scorsese carries one, whether it was cut short included.
+///
+/// **`has_more` decides whether there is a [`More`] at all, and `total_count`
+/// only fills it in.** The two answer different questions and the vendor sends
+/// the total on every `/shared-voices` reply — including the ones that returned
+/// everything — so reading the total alone would report a complete search as a
+/// capped one.
+fn page(listing: &Listing) -> Page {
+    Page {
+        voices: listing.voices.iter().map(voice).collect(),
+        more: listing.has_more.then_some(More {
+            total: listing.total_count,
+        }),
     }
 }
 
