@@ -11,6 +11,10 @@
 
 use std::path::{Path, PathBuf};
 
+use scorsese_providers::voices::{
+    Availability, Catalogue, Filters, Page, Unusable, Voice, VoiceError,
+};
+
 /// A project directory that removes itself when the test ends.
 pub(crate) struct Fixture(PathBuf);
 
@@ -35,6 +39,109 @@ impl Drop for Fixture {
 /// how they look beside each other.
 pub(crate) fn project(label: &str) -> Fixture {
     write(label, DOCUMENT)
+}
+
+/// The same project with a voice chosen for its narration line — the one state
+/// in which narration is priced above zero.
+///
+/// **No id is written down anywhere.** A [`Fake`] catalogue lists one voice
+/// into the project's own `cache/voices/`, through the same call that fills a
+/// real window's cache, and the document then names the voice **the cache came
+/// back with** — the direction an id travels when a person picks one out of the
+/// picker. So the only place an id ever exists is a rebuildable cache this
+/// fixture creates and [`Drop`] deletes with the rest of the project.
+///
+/// That is not fastidiousness. Every ElevenLabs default voice expires on
+/// 2026-12-31, so an id committed to this repository is an outage with a date
+/// on it — and the rule against one is exactly what had left the narration
+/// figure in every reference image at $0.00.
+pub(crate) fn voiced(label: &str) -> Fixture {
+    let fixture = write(label, DOCUMENT);
+    let chosen = listed(fixture.path());
+    let document = DOCUMENT.replace(
+        LINE,
+        &format!("{LINE}\n      \"speech\": {{ \"voice_id\": \"{chosen}\" }},"),
+    );
+    std::fs::write(fixture.path().join("project.json"), document)
+        .expect("write the project back with a voice chosen");
+    fixture
+}
+
+/// Lists one voice into `root`'s cache and hands back its id.
+///
+/// Through [`voices::builtin`](scorsese_providers::voices::builtin) rather than
+/// by writing the cache file directly: that call is what a window's cache is
+/// filled by, and a second way of writing one would be a second file format to
+/// keep in step.
+fn listed(root: &Path) -> String {
+    let fake = Fake { id: minted() };
+    scorsese_providers::voices::builtin(root, &fake, false).expect("cache the fake listing");
+    scorsese_providers::voices::cached(root)
+        .first()
+        .map(|voice| voice.id.clone())
+        .expect("read back the listing just cached")
+}
+
+/// A voice id invented for this run and no other.
+///
+/// Never a vendor's, and never the same twice, so nothing in this repository
+/// can come to depend on one particular id — which is the whole of what is
+/// forbidden. It is also never drawn: the picker resolves an id it knows to the
+/// voice's *name*, and the generate dialog prices a line without naming its
+/// voice at all, so a reference image stays reproducible.
+fn minted() -> String {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |since| since.subsec_nanos());
+    format!("fixture-voice-{nanos:09}")
+}
+
+/// A catalogue with one voice in it and no network behind it.
+///
+/// The seam `scorsese-providers` leaves for exactly this — see that crate's
+/// `voices` module doc. Nothing here reaches ElevenLabs, so a snapshot needs no
+/// key and spends nothing.
+struct Fake {
+    /// The id this run minted.
+    id: String,
+}
+
+impl Fake {
+    /// The one voice it lists, filled in the way a listing fills one in.
+    fn voice(&self) -> Voice {
+        Voice {
+            id: self.id.clone(),
+            name: String::from("Narrator"),
+            traits: vec![String::from("en"), String::from("male")],
+            description: None,
+            preview: None,
+        }
+    }
+}
+
+impl Catalogue for Fake {
+    fn name(&self) -> &'static str {
+        "fake"
+    }
+
+    fn builtin(&self) -> Result<Vec<Voice>, VoiceError> {
+        Ok(vec![self.voice()])
+    }
+
+    fn library(&self, _filters: &Filters) -> Result<Page, VoiceError> {
+        Ok(Page::whole(vec![self.voice()]))
+    }
+
+    /// Answers about its own voice and refuses every other id, rather than
+    /// saying yes to whatever it is handed: a fake that approves an id it has
+    /// never heard of would let a caller's mistake pass as a working voice.
+    fn one(&self, voice_id: &str) -> Result<Availability, VoiceError> {
+        Ok(if voice_id == self.id {
+            Availability::Available(self.voice())
+        } else {
+            Availability::Unusable(Unusable::Gone)
+        })
+    }
 }
 
 /// The same project with a clip pointing at an asset that is not there.
@@ -81,6 +188,14 @@ const PIXEL: &[u8] = &[
     0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae,
     0x42, 0x60, 0x82,
 ];
+
+/// The opening of the narration asset in [`DOCUMENT`], which is where
+/// [`voiced`] writes the chosen voice in.
+///
+/// An anchor rather than a placeholder, so the document stays a document that
+/// parses as it stands: the one every other test draws is the one written here,
+/// not a template with a hole in it.
+const LINE: &str = r#"{ "id": "vo", "kind": "generated_audio", "state": "sketch","#;
 
 const DOCUMENT: &str = r##"{
   "schema_version": 16,
