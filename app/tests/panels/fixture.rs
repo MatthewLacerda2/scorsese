@@ -58,8 +58,29 @@ fn write(label: &str, document: &str) -> Fixture {
         std::fs::create_dir_all(dir.join(inside)).expect("create the project directory");
     }
     std::fs::write(dir.join("project.json"), document).expect("write project.json");
+    // A real file behind the image asset. An asset whose file is missing is a
+    // warning the pool draws, and a snapshot of a panel should not also be a
+    // snapshot of an unrelated complaint.
+    std::fs::create_dir_all(dir.join("assets")).expect("create assets/");
+    std::fs::write(dir.join("assets/plate.png"), PIXEL).expect("write the image");
     Fixture(dir)
 }
+
+/// The smallest thing that is really a PNG: one opaque black pixel.
+///
+/// Bytes rather than a checked-in file, because what the pool needs is a path
+/// that resolves — nothing in these tests decodes it. Its asset carries a
+/// `media` block for the same reason a real one does: `scorsese import` probes
+/// what it brings in, so an asset without one is an asset the window's
+/// background probe would go and fill in, which is a second writer in the
+/// middle of a test about something else.
+const PIXEL: &[u8] = &[
+    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+    0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4,
+    0x89, 0x00, 0x00, 0x00, 0x0a, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x63, 0x00, 0x01, 0x00, 0x00,
+    0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae,
+    0x42, 0x60, 0x82,
+];
 
 const DOCUMENT: &str = r##"{
   "schema_version": 15,
@@ -69,7 +90,10 @@ const DOCUMENT: &str = r##"{
     { "id": "title", "kind": "text", "text": "CHAPTER ONE",
       "style": { "font": "serif", "size": 0.14, "color": "#f5f0e6" } },
     { "id": "shot-city", "kind": "generated_video", "state": "sketch",
-      "prompt": "wide aerial of a city at dawn, slow push in" },
+      "prompt": "wide aerial of a city at dawn, slow push in",
+      "video": { "model": "fast", "resolution": "1080p", "seconds": 8 } },
+    { "id": "plate", "kind": "image", "path": "assets/plate.png",
+      "media": { "width": 1, "height": 1 } },
     { "id": "vo", "kind": "generated_audio", "state": "sketch",
       "prompt": "In a city that never sleeps, one editor never blinks." },
     { "id": "bed", "kind": "synth_audio", "state": "sketch",

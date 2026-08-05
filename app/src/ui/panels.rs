@@ -20,6 +20,27 @@ pub(super) fn menu(ui: &mut Ui, window: &mut Scorsese) {
             if let Some(open) = window.project() {
                 ui.separator();
                 ui.label(RichText::new(open.directory()).strong());
+                ui.separator();
+                // In the bar rather than behind a menu, because the number it
+                // leads to is one somebody checks before spending — and a shot
+                // still generating is worth seeing without opening anything.
+                if ui
+                    .button("Generate…")
+                    .on_hover_text(
+                        "What the unmade shots would cost, and the button that pays for them",
+                    )
+                    .clicked()
+                {
+                    window.start_generating();
+                }
+                let generating = window.generating_count();
+                if generating > 0 {
+                    ui.label(
+                        RichText::new(format!("{generating} generating"))
+                            .weak()
+                            .small(),
+                    );
+                }
             }
             // Said here rather than over the picture: an outside edit is
             // ordinary in this workflow, not an interruption, and the bar is

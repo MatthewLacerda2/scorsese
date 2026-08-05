@@ -23,6 +23,7 @@ use egui::Ui;
 
 use crate::editing::Editing;
 use crate::files::Files;
+use crate::generating::Generating;
 use crate::inspector::Inspector;
 use crate::preview::Preview;
 use crate::project::probing::{self, Probing};
@@ -55,6 +56,8 @@ pub struct Scorsese {
     inspector: Inspector,
     /// The picture at the playhead, and the transport under it.
     preview: Preview,
+    /// The generate dialog, and whatever it has running.
+    generating: Generating,
 }
 
 impl Scorsese {
@@ -71,6 +74,7 @@ impl Scorsese {
             files: Files::default(),
             inspector: Inspector::default(),
             preview: Preview::default(),
+            generating: Generating::default(),
         };
         if let Some(directory) = directory {
             window.open(&directory);
@@ -99,6 +103,7 @@ impl Scorsese {
                 // A frame of the last film left on screen under the new one's
                 // playhead would be the preview lying on its first repaint.
                 self.preview.reset();
+                self.generating.reset();
                 if let Some(open) = &self.opened {
                     self.files.refresh(open);
                     // Started here and nowhere else: opening is the one moment
@@ -131,6 +136,20 @@ impl Scorsese {
             let _ = open.project.save(&open.root);
             self.files.refresh(open);
         }
+    }
+
+    /// Opens the generate dialog.
+    ///
+    /// `pub` for the same reason [`Scorsese::select`] is: a snapshot test
+    /// drives the window through its own surface rather than reaching into it,
+    /// and a dialog nothing can open is a dialog nobody has looked at.
+    pub fn start_generating(&mut self) {
+        self.generating.open();
+    }
+
+    /// How many shots are in flight, for the bar to say so.
+    pub(crate) fn generating_count(&self) -> usize {
+        self.generating.in_flight()
     }
 
     /// Asks for a directory and opens it. Cancelling does nothing at all.
@@ -216,6 +235,12 @@ impl Scorsese {
     pub fn draw(&mut self, ui: &mut Ui) {
         self.follow_disk(ui.ctx());
         self.follow_probe();
+        // Polled every repaint and blocking on nothing: a submit or a sweep
+        // that has finished is folded in here, and one still going leaves the
+        // window exactly as responsive as it was.
+        if let Some(open) = &mut self.opened {
+            self.generating.poll(open);
+        }
         // Declared outside-in, which is what egui's layout wants: each panel
         // takes its edge and leaves the rest to the next. The centre goes last
         // and gets whatever is left.
@@ -223,6 +248,11 @@ impl Scorsese {
         panels::timeline(ui, self);
         panels::side(ui, self);
         panels::centre(ui, self);
+        // Last, and floating: a dialog belongs over the panels rather than
+        // taking an edge from them.
+        if let Some(open) = &mut self.opened {
+            self.generating.show(ui.ctx(), open);
+        }
     }
 }
 

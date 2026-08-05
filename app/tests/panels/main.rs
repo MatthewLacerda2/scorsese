@@ -103,3 +103,32 @@ fn a_project_that_will_not_load() {
     harness.run();
     harness.snapshot("a_project_that_will_not_load");
 }
+
+/// A generated shot selected: the brief under the clip's own fields, every
+/// optional field marked as one, and — the point of the panel — a length that
+/// says why it is not a choice rather than accepting a value and failing later.
+#[test]
+fn a_generated_shot_selected() {
+    let project = fixture::project("brief");
+    let mut harness = window(Some(project.path().to_path_buf()));
+    harness.state_mut().select("c-shot");
+    harness.run();
+    harness.snapshot("a_generated_shot_selected");
+}
+
+/// The generate dialog: what each unmade shot would cost, the total, and the
+/// two sentences that keep the number honest — that it is our calculation, and
+/// what the ceiling is.
+///
+/// **The one dialog in this window**, because it is the one moment that is not
+/// an editing operation: money leaves. A number on screen before a
+/// confirmation is the difference between a decision and a surprise.
+#[test]
+fn the_generate_dialog() {
+    let project = fixture::project("generate");
+    let mut harness = window(Some(project.path().to_path_buf()));
+    harness.run();
+    harness.state_mut().start_generating();
+    harness.run();
+    harness.snapshot("the_generate_dialog");
+}

@@ -10,7 +10,7 @@
 //! that validated and reached the file, which is the same document the CLI and
 //! the MCP server read.
 
-use scorsese_core::{Clip, ClipId, Project};
+use scorsese_core::{Asset, AssetId, Clip, ClipId, Project};
 
 use crate::project::Open;
 
@@ -43,6 +43,50 @@ pub(super) fn apply(
         .map_err(|problem| vec![problem.to_string()])?;
     open.project = candidate;
     Ok(())
+}
+
+/// Applies `change` to an asset, saves the project, and keeps the result — or
+/// returns every problem, having touched neither the window nor the disk.
+///
+/// The sibling of [`apply`], and it exists because a **brief lives on the
+/// asset, not on the clip that shows it**. Everything else about it is the
+/// same, deliberately: one shape for every edit this panel makes means a
+/// refused prompt behaves exactly like a refused duration — the field springs
+/// back and the reason is said — rather than being a second thing to learn.
+pub(super) fn apply_to_asset(
+    open: &mut Open,
+    asset: &AssetId,
+    change: impl FnOnce(&mut Asset),
+) -> Result<(), Vec<String>> {
+    let candidate = asset_changed(&open.project, asset, change)?;
+    candidate
+        .save(&open.root)
+        .map_err(|problem| vec![problem.to_string()])?;
+    open.project = candidate;
+    Ok(())
+}
+
+/// The project as it would be with `change` applied to one asset.
+fn asset_changed(
+    project: &Project,
+    asset: &AssetId,
+    change: impl FnOnce(&mut Asset),
+) -> Result<Project, Vec<String>> {
+    let mut candidate = project.clone();
+    let target = candidate
+        .assets
+        .iter_mut()
+        .find(|found| &found.id == asset)
+        .ok_or_else(|| vec![format!("there is no asset `{asset}` in this project")])?;
+    change(target);
+    candidate.validate().map_err(|errors| {
+        errors
+            .into_vec()
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<String>>()
+    })?;
+    Ok(candidate)
 }
 
 /// The project as it would be with `change` applied, or every problem that

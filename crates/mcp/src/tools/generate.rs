@@ -12,7 +12,7 @@
 
 use std::time::Duration;
 
-use scorsese_core::Project;
+use scorsese_core::{AssetKind, Project};
 use scorsese_providers::credentials::{Budget, Provider, Settings, resolve};
 use scorsese_providers::prices::{dollars, estimate};
 use scorsese_providers::video::{
@@ -149,7 +149,7 @@ fn quote(project: &Project) -> Result<Reply, String> {
     for asset in project
         .assets
         .iter()
-        .filter(|asset| asset.kind.is_prompted())
+        .filter(|asset| asset.kind == AssetKind::GeneratedVideo)
     {
         let request = asset.video_request();
         let priced = estimate(&request).map_err(|error| format!("{error}"))?;
