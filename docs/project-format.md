@@ -963,14 +963,12 @@ a project unattended sees the whole list at once.
 What it checks: schema version, duplicate ids, path rules, hash shape, the
 fields each asset kind requires — including that only a `text` asset carries
 `text` or `style` and only a `color` asset carries `color`, that a `style`'s
-font path and a `synth_audio`'s `recipe`
+font path, a `synth_audio`'s `recipe` and the document's `script`
 obey the project-path rules, and that each generated kind carries exactly the
 brief it takes: a `prompt` or a `recipe`, never both and never the other's —
 clip references resolving, asset kind against track kind, non-zero durations,
 clip overlap, no clip reaching past the end of the source it was measured to
 have, and keyframe shape.
-that the document's `script` obeys the path rules, clip references resolving, asset kind against track kind, non-zero durations,
-clip overlap, and keyframe shape.
 
 Note what is *not* on that list. A time that is negative, fractional, or
 infinite cannot be represented as a frame count, so it fails the parse with
@@ -995,6 +993,14 @@ asset still awaiting generation is neither. A `style`'s font file is a path like
 applies: the shape is validated here, and whether the face is really on disk is
 the render's to find out. So is the `script`, and its missing file is a warning:
 a project that has lost its brief still renders.
+
+`style.weight` splits the same way, and the split is worth reading once. What
+the document alone can say is checked here: `sans` and `serif` are faces
+scorsese ships and knows to be static, so a weight beside one is refused
+without opening anything, and a number outside OpenType's own 1–1000 is not a
+weight for any face. What only the *file* can answer — whether it is variable
+at all, and how far its `wght` axis runs — is refused at the render, in the
+same breath as "this is not a font I can read".
 
 ## Migrating from v14
 
@@ -1028,26 +1034,6 @@ unchanged prompt look edited and bill for it again; a timestamp read by the
 compositor would make a golden render depend on the day it ran. `video` is the
 opposite and belongs in the hash entirely: it is part of what was asked for.
 
-## Migrating from v9
-
-v10 adds two optional fields and takes nothing away: `script` on the document,
-and `note` on an asset, a track or a clip. No v9 document can contain either,
-and **absent means what it always meant** — a project that says nothing about
-why it is the way it is, which is every project written before there was
-anywhere to say it. So no v9 document means anything different under v10:
-converting one is changing `"schema_version": 9` to `"schema_version": 10` and
-nothing else.
-
-Neither field changes a single pixel of any render, by design and by test.
-
-`style.weight` splits the same way, and the split is worth reading once. What
-the document alone can say is checked here: `sans` and `serif` are faces
-scorsese ships and knows to be static, so a weight beside one is refused
-without opening anything, and a number outside OpenType's own 1–1000 is not a
-weight for any face. What only the *file* can answer — whether it is variable
-at all, and how far its `wght` axis runs — is refused at the render, in the
-same breath as "this is not a font I can read".
-
 ## Migrating from v12
 
 v13 adds two optional fields: `script` on the document, and `note` on anything
@@ -1055,6 +1041,8 @@ with an `id` — an asset, a clip, a track. No v12 document can contain either,
 and absent means what it always meant, so **no v12 document means anything
 different under v13**. Converting one is changing `"schema_version": 12` to
 `"schema_version": 13` and nothing else.
+
+Neither field changes a single pixel of any render, by design and by test.
 
 ## Migrating from v11
 
