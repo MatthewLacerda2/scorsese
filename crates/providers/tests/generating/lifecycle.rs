@@ -1,4 +1,7 @@
-//! sketch → queued → generated, and what happens when it goes wrong.
+//! sketch → queued → generated: the states a brief passes through, and what
+//! the asset says once it has.
+//!
+//! A brief the provider *refuses* is [`refusals`](super::refusals).
 
 use scorsese_providers::credentials::Budget;
 use scorsese_providers::video::{Outcome, collect, generate};
@@ -50,6 +53,26 @@ fn a_sketch_is_queued_then_generated() {
     std::fs::remove_dir_all(&dir).ok();
 }
 
+/// The gap this crate cannot close, and #249 is what closing it dishonestly
+/// cost. A brief knows the length and the raster it asked for and knows nothing
+/// about the sound Veo puts under a shot — and a `media` block written from the
+/// brief is one no probe will ever replace, because a probe skips an asset that
+/// already has one. So the whole block is left for whoever measures the file.
+#[test]
+fn a_generated_shot_arrives_unmeasured() {
+    let (dir, mut project, id) = sketched("unmeasured", "a pit lane in 1976");
+    let provider = Mock::answering("shot", vec![Answer::Ready(b"MP4 BYTES".to_vec())]);
+
+    generate(&mut project, &dir, &provider, Budget::unlimited(0)).expect("a submit");
+    generate(&mut project, &dir, &provider, Budget::unlimited(0)).expect("a collection");
+
+    assert!(
+        project.asset(&id).expect("the asset").media.is_none(),
+        "nothing here measured this file; probing is what fills this in"
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}
+
 /// The ticket is in the document, so a process that never comes back is not a
 /// generation lost. This is the same project loaded fresh, which is what
 /// opening the app does.
@@ -91,62 +114,6 @@ fn collecting_never_submits() {
     assert!(swept.is_empty(), "nothing was in flight: {swept:?}");
     assert_eq!(provider.submissions(), 0);
     assert_eq!(standing(&project, &id).0, "Some(Sketch)");
-    std::fs::remove_dir_all(&dir).ok();
-}
-
-/// A refused brief goes back to being a sketch: it is a prompt to edit and try
-/// again, and an asset still claiming to be queued would be polled for ever.
-#[test]
-fn a_refused_brief_goes_back_to_being_a_sketch() {
-    let (dir, mut project, id) = sketched("refused", "something the model will not make");
-    let provider = Mock::answering(
-        "shot",
-        vec![Answer::Failed(String::from("the prompt was rejected"))],
-    );
-
-    generate(&mut project, &dir, &provider, Budget::unlimited(0)).expect("a run");
-    let second = generate(&mut project, &dir, &provider, Budget::unlimited(0)).expect("a run");
-    let Outcome::Failed { message } = &second[0].1 else {
-        panic!("expected a refusal, got {:?}", second[0].1);
-    };
-    assert!(message.contains("rejected"), "{message}");
-
-    let (state, path, ticket) = standing(&project, &id);
-    assert_eq!(state, "Some(Sketch)");
-    assert_eq!(path, None);
-    assert_eq!(ticket, None, "a dead ticket is not worth polling");
-    std::fs::remove_dir_all(&dir).ok();
-}
-
-/// The failure that actually happens at three in the morning: several shots,
-/// one of them refused. The others must be finished and said to be.
-#[test]
-fn one_shot_failing_leaves_the_rest_generated() {
-    let (dir, mut project) = crate::common::project("partial");
-    for (id, prompt) in [("a", "a wide shot"), ("b", "a close-up"), ("c", "a pan")] {
-        project.assets.push(scorsese_core::Asset::sketch(
-            scorsese_core::AssetId::new(id),
-            scorsese_core::AssetKind::GeneratedVideo,
-            prompt,
-        ));
-    }
-    let provider = Mock::answering("a", vec![Answer::Ready(b"AAA".to_vec())])
-        .and("b", vec![Answer::Failed(String::from("no"))])
-        .and("c", vec![Answer::Ready(b"CCC".to_vec())]);
-
-    generate(&mut project, &dir, &provider, Budget::unlimited(0)).expect("a run");
-    let second = generate(&mut project, &dir, &provider, Budget::unlimited(0)).expect("a run");
-
-    let by_id = |want: &str| {
-        second
-            .iter()
-            .find(|(id, _)| id.as_str() == want)
-            .map(|(_, outcome)| outcome)
-            .expect("every asset is reported on")
-    };
-    assert!(matches!(by_id("a"), Outcome::Generated { .. }));
-    assert!(matches!(by_id("b"), Outcome::Failed { .. }));
-    assert!(matches!(by_id("c"), Outcome::Generated { .. }));
     std::fs::remove_dir_all(&dir).ok();
 }
 

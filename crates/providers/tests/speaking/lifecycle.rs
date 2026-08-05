@@ -30,10 +30,10 @@ fn a_sketch_becomes_a_generated_file_in_one_call() {
     std::fs::remove_dir_all(&dir).ok();
 }
 
-/// The gap this crate cannot close. A shot is exactly as long as its request
-/// asked for; a reading is as long as the words take, and measuring an MP3
-/// needs a decoder `scorsese-providers` does not have. So `media` is left for
-/// whoever probes — and the commands do.
+/// The gap this crate cannot close. A reading is as long as the words take, and
+/// measuring an MP3 needs a decoder `scorsese-providers` does not have. So
+/// `media` is left for whoever probes — and the commands do. A generated shot
+/// arrives the same way, for the same reason: see #249.
 #[test]
 fn a_spoken_line_arrives_without_a_length() {
     let (dir, mut project, id) = sketched("unmeasured", "how long is this");

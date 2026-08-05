@@ -430,10 +430,12 @@ the ordinary state of a cut being written, and it comes back as *not yet* while
 the rest of the run goes ahead. Stopping there would mean re-speaking nineteen
 paid-for lines in order to add the twentieth.
 
-**Narration is measured after it is spoken.** A shot is exactly as long as its
-request asked for, so its length is known in advance; how long a line takes
-depends on the words. `generate` probes what it just wrote, because the mix
-reads `duration_seconds` and an unmeasured line is one the mix skips.
+**What is generated is measured once it lands.** A brief is not a measurement:
+how long a line takes depends on the words, and whether Veo put an engine note
+under a shot is not in the prompt either — it routinely does. So `generate`
+probes what it just wrote, because the mix reads `duration_seconds` and
+`audio_channels`, and a generation nobody measured is a line the mix skips and
+a shot that plays silent.
 
 **A queued shot has two days.** Past that the provider deletes the finished
 video and the money is gone, so a wait that old is reported as its own outcome
