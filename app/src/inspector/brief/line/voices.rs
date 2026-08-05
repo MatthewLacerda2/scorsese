@@ -34,8 +34,11 @@ const NONE: &str = "— none chosen —";
 /// Read once per project and kept, because the alternative is a directory
 /// listing and a handful of JSON parses on every repaint — sixty times a second
 /// for as long as a narration clip stays selected. What that costs is freshness
-/// while the window is open, which is what [`Voices::forget`] and the button
-/// beside the empty list are for.
+/// while the window is open, and [`Voices::forget`] is what buys it back. Two
+/// things ask for it: [`crate::project::watch`], which notices `scorsese
+/// voices` filling the cache in the next terminal along, and the button beside
+/// the empty list — kept, because a watch that misses a look leaves somebody
+/// needing a way to insist.
 #[derive(Debug, Default)]
 pub(in crate::inspector) struct Voices {
     /// What the last read found. `None` means *not read yet*, which is not the
