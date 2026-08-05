@@ -5,18 +5,18 @@
 //! is no ticket, nothing in flight, and nothing for a sweep to collect — which
 //! is why this pass runs on a submit and never otherwise.
 //!
-//! The one thing it adds that the video pass does not need is the measuring.
+//! Measuring what came back is [`super`]'s, for both vendors at once — see
+//! [`super::measure`].
 
 use std::path::Path;
 
-use scorsese_core::{AssetId, AssetKind, Project, Reprobe, probe_assets};
+use scorsese_core::{AssetId, AssetKind, Project};
 use scorsese_providers::credentials::{Budget, Provider, resolve};
 use scorsese_providers::speech::{ElevenLabsProvider, Outcome, generate};
-use scorsese_render::Ffprobe;
 
 use super::{Pass, counted, wants};
 
-/// Speaks every line that needs it, and measures what came back.
+/// Speaks every line that needs it.
 ///
 /// **The key is resolved here, and only when this pass has work** — the same
 /// rule the shots pass follows, and for the same reason: a project of nothing
@@ -32,14 +32,14 @@ pub(super) fn pass(
     }
     let key = resolve(Provider::ElevenLabs).map_err(|error| error.to_string())?;
     let provider = ElevenLabsProvider::new(&key.secret);
-    let spoken = generate(project, root, &provider, budget).map_err(|error| error.to_string())?;
-    if spoken
+    generate(project, root, &provider, budget).map_err(|error| error.to_string())
+}
+
+/// Whether a line arrived on disk on this pass, and so has something to measure.
+pub(super) fn arrived(spoken: &[(AssetId, Outcome)]) -> bool {
+    spoken
         .iter()
         .any(|(_, outcome)| matches!(outcome, Outcome::Generated { .. }))
-    {
-        measure(project, root);
-    }
-    Ok(spoken)
 }
 
 /// What this pass is calculated to have spent, in US cents.
@@ -76,21 +76,3 @@ pub(super) fn said(spoken: &[(AssetId, Outcome)]) -> Vec<String> {
     .collect()
 }
 
-/// Measures what was just spoken.
-///
-/// **Narration has no length until something looks.** A shot comes back exactly
-/// as long as its request asked, so the provider fills that in from the brief;
-/// how long a line takes depends on the words, and `scorsese-providers` has no
-/// decoder to measure an MP3 with — nor should it grow one. The mix reads
-/// `duration_seconds`, so an unprobed line is a line the mix skips.
-///
-/// A failure here is not reported and not an error. The audio is on disk and
-/// has been paid for; a machine with no ffprobe should not be told its run
-/// failed, and both `scorsese probe` and this window's own open-time pass are
-/// still there to close the gap.
-fn measure(project: &mut Project, root: &Path) {
-    let Ok(probe) = Ffprobe::discover() else {
-        return;
-    };
-    probe_assets(project, root, &probe, Reprobe::Skip);
-}

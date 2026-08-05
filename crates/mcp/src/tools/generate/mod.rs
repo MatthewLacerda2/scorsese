@@ -126,7 +126,7 @@ impl Tool for Generate {
             .map_err(|error| format!("saving the project: {error}"))?;
         outcome?;
 
-        measure(&mut project, &dir, &spoken)?;
+        measure(&mut project, &dir, &shots, &spoken)?;
         Ok(said(&shots, &spoken).into())
     }
 }
@@ -180,29 +180,26 @@ fn is_present(asset: &Asset, root: &std::path::Path) -> bool {
         .is_some_and(|path| path.resolve(root).is_file())
 }
 
-/// Measures what was just spoken.
+/// Measures what has just been generated.
 ///
-/// **Narration has no length until something looks.** A shot comes back exactly
-/// as long as its request asked, so the provider fills that in from the brief.
-/// How long a line takes depends on the words, and `scorsese-providers` has no
-/// decoder to measure an MP3 with — nor should it grow one. The mix reads
-/// `duration_seconds`, so an unprobed line is a line the mix skips.
+/// **A generation has no measured shape until something looks**, and neither
+/// kind of brief can supply one. How long a line takes depends on the words;
+/// whether Veo put an engine note under a shot is not in the prompt either, and
+/// it routinely does. `scorsese-providers` can answer neither — it has no
+/// decoder and must not grow one. The mix reads `duration_seconds` and
+/// `audio_channels`, so a generation nobody probed is a line the mix skips and
+/// a shot that plays silent.
 ///
-/// A failure to measure is **not** a failure of the run: the audio exists and
+/// A failure to measure is **not** a failure of the run: the media exists and
 /// has been paid for, and probing it again later is free. Saying so and
 /// carrying on beats reporting a spend as an error.
 fn measure(
     project: &mut Project,
     dir: &std::path::Path,
+    shots: &Run,
     spoken: &lines::Spoken,
 ) -> Result<(), String> {
-    let spoke = spoken.iter().any(|(_, outcome)| {
-        matches!(
-            outcome,
-            scorsese_providers::speech::Outcome::Generated { .. }
-        )
-    });
-    if !spoke {
+    if !landed(shots, spoken) {
         return Ok(());
     }
     let Ok(probe) = Ffprobe::discover() else {
@@ -212,6 +209,24 @@ fn measure(
     project
         .save(dir)
         .map_err(|error| format!("saving the project: {error}"))
+}
+
+/// Whether anything arrived on disk that nothing has measured yet.
+///
+/// A cache hit is not one of them: its file was already there, and whatever ran
+/// when it first landed has had every chance to look at it.
+fn landed(shots: &Run, spoken: &lines::Spoken) -> bool {
+    shots.outcomes.iter().any(|(_, outcome)| {
+        matches!(
+            outcome,
+            scorsese_providers::video::Outcome::Generated { .. }
+        )
+    }) || spoken.iter().any(|(_, outcome)| {
+        matches!(
+            outcome,
+            scorsese_providers::speech::Outcome::Generated { .. }
+        )
+    })
 }
 
 /// A boolean argument, absent meaning false.

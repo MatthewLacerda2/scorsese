@@ -132,13 +132,11 @@ fn one(
 
 /// Points the asset at what is now on disk, and says what it cost.
 ///
-/// **No `media` is written**, and that is the one place speech is worse off
-/// than video. A shot comes back exactly the length its request asked for, so
-/// [`video`](crate::video) can fill the shape from the brief. How long a line
-/// takes depends on the words, and nothing here can measure an MP3 — this
-/// crate has no decoder and must not grow one. So the length arrives when
-/// something probes the file, which is why the commands that call this probe
-/// afterwards.
+/// **No `media` is written**, which is what [`video`](crate::video) does too —
+/// it briefly did otherwise, and #249 is what that cost. How long a line takes
+/// depends on the words, and nothing here can measure an MP3: this crate has no
+/// decoder and must not grow one. So the shape arrives when something probes
+/// the file, which is why the commands that call this probe afterwards.
 fn record(
     project: &mut Project,
     id: &AssetId,
