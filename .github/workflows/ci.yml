@@ -92,6 +92,13 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
 
+      # A prebuilt binary, not a build. `cargo install cargo-nextest` compiles a
+      # large tool from source in every job, which would cost more than the
+      # faster suite saves — the same reason `coverage` and `mutants` below get
+      # their tools from this action rather than from cargo.
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
+
       - name: Format
         run: cargo fmt --all --check
 
@@ -118,8 +125,22 @@ jobs:
       # `docs/project-format.md` is gated from inside the test run: its JSON
       # examples are parsed as projects and its animatable-property table is
       # held to what the code publishes. Nothing extra to invoke here.
+      #
+      # nextest rather than `cargo test`: 31 integration test binaries, which
+      # cargo runs essentially one at a time while threading only within each.
+      # nextest schedules every test from every binary in one pool and runs each
+      # in its own process, so a crash costs one result instead of a binary's
+      # worth. Measured warm on the dev machine, 44.5s to 34.0s — see #225.
       - name: Test
-        run: cargo test --workspace --locked
+        run: cargo nextest run --workspace --locked
+
+      # Its own step because nextest cannot run doctests — an upstream
+      # limitation, not a nextest decision. There are zero compiled doctests in
+      # the tree today (every code fence is ```text or ```jsonc), so this costs
+      # about a second; it is here so the first real one does not silently go
+      # unrun.
+      - name: Doctests
+        run: cargo test --doc --workspace --locked
 
       # A signal, in the job that has already built the binary: what a generated
       # shot costs, and how long ago somebody read those figures off the
@@ -137,9 +158,14 @@ jobs:
             cargo run --quiet --locked --bin scorsese -- prices; \
           } >> "$GITHUB_STEP_SUMMARY" || true
 
-      # The golden renders live inside `cargo test --workspace`, so a failure
-      # above may be a pixel regression. These are the frames it disagreed with,
+      # The golden renders live inside the test step above, so a failure there
+      # may be a pixel regression. These are the frames it disagreed with,
       # uploaded so the diff can be looked at rather than guessed at.
+      #
+      # The path survives the runner change, and it was checked rather than
+      # assumed: the harness writes into `CARGO_TARGET_TMPDIR`, which cargo
+      # bakes in at *compile* time as `<target-dir>/tmp`, so which process runs
+      # the test afterwards cannot move it.
       - name: Upload golden-render failures
         if: failure()
         uses: actions/upload-artifact@v4
@@ -198,6 +224,12 @@ jobs:
         with:
           workspaces: app
 
+      # The same runner as `check`, installed the same way. One workspace on
+      # nextest and the other on `cargo test` would mean "the tests" describing
+      # two different things in one repo.
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
+
       # Its own job, and its own workspace: a graphics dependency tree must
       # never be on the path of a headless change, and a broken app build must
       # never block one.
@@ -220,7 +252,10 @@ jobs:
       # drawing — the frame-to-pixel transform, snapping, trim arithmetic,
       # what a refused edit leaves on disk — which is where the bugs are.
       - name: Test
-        run: cargo test --manifest-path app/Cargo.toml --locked
+        run: cargo nextest run --manifest-path app/Cargo.toml --locked
+
+      - name: Doctests
+        run: cargo test --doc --manifest-path app/Cargo.toml --locked
 
   size:
     name: size gate

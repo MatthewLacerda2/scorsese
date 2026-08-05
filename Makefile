@@ -65,6 +65,17 @@ TOUCHES_APP = { \
 	|| ! git diff --quiet origin/main...HEAD -- $(APP_PATHS) \
 	|| [ -n "$$(git status --porcelain -- $(APP_PATHS))" ]; }
 
+# Both test gates run through nextest, so both ask for it the same way, and a
+# missing runner says what it is and how to get it rather than surfacing as
+# `error: no such command: nextest` from cargo. The prebuilt tarball is offered
+# first for the reason CI installs a binary too: building the runner costs more
+# than the faster runs save.
+NEXTEST_CHECK = command -v cargo-nextest >/dev/null 2>&1 || { \
+	echo "nextest: cargo-nextest is not installed -- the suite runs through it." >&2; \
+	echo "         Prebuilt, in seconds:  https://get.nexte.st/" >&2; \
+	echo "         Or from source:        cargo install --locked cargo-nextest" >&2; \
+	exit 1; }
+
 .DEFAULT_GOAL := help
 # `app` is on this list for a reason worth stating: there is a directory called
 # `app/`, so without it make sees the target as already built and `make app`
@@ -81,10 +92,18 @@ help: ## Print this list
 		$(MAKEFILE_LIST)
 	@echo
 
-setup: ## Install the committed git hooks (one-time, covers every worktree)
+setup: ## Once per clone: the committed git hooks, and the tools a gate needs
 	git config core.hooksPath .githooks
 	@echo "hooks: core.hooksPath -> .githooks; 'make pre-commit' now runs before each commit."
 	@echo "hooks: to commit anyway on a work-in-progress commit, use 'git commit --no-verify'."
+# The one tool a fresh clone needs that it does not already have. Said here
+# rather than left to the first `make test` to discover, because this is the
+# target a new checkout runs on purpose and that one is run in a hurry.
+	@command -v cargo-nextest >/dev/null 2>&1 \
+		&& echo "tools: cargo-nextest found -- 'make test' can run." \
+		|| { echo "tools: cargo-nextest is missing -- both test gates run through it."; \
+		     echo "tools: get it prebuilt from https://get.nexte.st/, or with"; \
+		     echo "tools: 'cargo install --locked cargo-nextest'."; }
 
 pre-commit: format size ## The fast half: what the pre-commit hook runs
 	@echo "pre-commit: ok"
@@ -124,6 +143,11 @@ format: ## [gate] cargo fmt --check, workspace and tools/lint
 # misfiles a path is a gate that has stopped gating without saying so. Their
 # output is held back unless they fail — this runs on every commit, and a wall
 # of passing dots is how a hook's output stops being read.
+#
+# The one test run left on plain `cargo test`, and deliberately. This is in
+# `pre-commit`, so putting it through nextest would mean a clone that has not
+# installed the runner yet cannot commit at all — and there is nothing to win:
+# four files, one test binary, nothing for a scheduler to overlap.
 size: ## [gate] Source <= 300 lines of code, tests <= 150; blanks and comments free
 	@out=$$(cargo test $(LINT) --locked --quiet 2>&1) \
 		|| { printf '%s\n' "$$out" >&2; exit 1; }
@@ -145,12 +169,28 @@ clippy: ## [gate] clippy -D warnings, workspace and tools/lint
 docs: ## [gate] cargo doc with -D warnings: a broken intra-doc link is a failure
 	RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
 
-test: ## [gate] The whole suite, golden renders included (needs ffmpeg on PATH)
+# nextest rather than `cargo test`, and the reason is scheduling. This
+# workspace has 31 integration test binaries; cargo runs them essentially one at
+# a time and threads only *within* each, so the slow render and golden binaries
+# leave the other cores idle while they finish. nextest puts every test from
+# every binary into one global pool and gives each its own process. Measured
+# warm on the dev machine (4 cores / 8 threads): 44.5s down to 34.0s, a failure
+# prints the moment it happens instead of at the end, and a test that aborts now
+# costs one result rather than every result in its binary.
+#
+# Doctests are the one thing nextest cannot run — an upstream limitation, not a
+# nextest decision — so they get their own line. Every code fence in the tree is
+# ```text or ```jsonc, so there are currently zero compiled doctests and this
+# line takes a second. It is here so that the day someone writes a real one, it
+# does not silently stop being run.
+test: ## [gate] The whole suite, golden renders included (needs ffmpeg, nextest)
 	@command -v ffmpeg >/dev/null 2>&1 || { \
 		echo "test: ffmpeg is not on PATH -- the render and golden tests need it." >&2; \
 		echo "      Install it from your package manager, or point SCORSESE_FFMPEG at a binary." >&2; \
 		exit 1; }
-	cargo test --workspace --locked
+	@$(NEXTEST_CHECK)
+	cargo nextest run --workspace --locked
+	cargo test --doc --workspace --locked
 
 # The two Python scripts render the coverage and mutation signals, and a signal
 # that dies rendering its own report reads as the tool being broken — which is
@@ -212,13 +252,17 @@ app-gates:
 		echo "     Arch:          sudo pacman -S alsa-lib" >&2; \
 		echo "     Fedora:        sudo dnf install alsa-lib-devel" >&2; \
 		exit 1; }
+	@$(NEXTEST_CHECK)
 	cargo fmt --manifest-path app/Cargo.toml --all --check
 	cargo clippy --manifest-path app/Cargo.toml --all-targets --locked -- -D warnings
 	cargo build --manifest-path app/Cargo.toml --locked
 # Running them, not only compiling them. `clippy --all-targets` and `build`
 # already build the test targets, so a test that does not compile was caught —
 # and one that fails was not, which reads as coverage while proving nothing.
-	cargo test --manifest-path app/Cargo.toml --locked
+# Through the same runner as the workspace gate, and with the same doctest line
+# beside it, so "the tests" means one thing in this repo rather than two.
+	cargo nextest run --manifest-path app/Cargo.toml --locked
+	cargo test --doc --manifest-path app/Cargo.toml --locked
 
 ##@ Merging — asked of GitHub, not of the code
 

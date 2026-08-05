@@ -44,9 +44,9 @@ marks the asset **stale**, back to a slug card until the next GO.
 
 ```sh
 cargo build          # builds the workspace, including the `scorsese` CLI
-cargo test           # runs every crate's tests
+make test            # every crate's tests, run through cargo-nextest
 
-make setup           # once per clone: installs the committed git hooks
+make setup           # once per clone: the git hooks, and the runner to install
 make gates           # everything CI blocks on — run this before opening a PR
 make release         # optimised binaries, for a delivery render
 make help            # every target, and which of them are gates
