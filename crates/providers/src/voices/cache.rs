@@ -102,6 +102,27 @@ pub(crate) fn read(root: &Path, key: &str) -> Option<Cached> {
     serde_json::from_str(&text).ok()
 }
 
+/// Every listing this project has cached, whichever query wrote it.
+///
+/// The one read here that does not know what it is looking for. Every other
+/// caller asks after a named listing and can spell the key; a surface with
+/// neither a key nor a network can only ask *what is there at all*, and the
+/// honest answer to that is the whole directory.
+///
+/// Unreadable entries are skipped for exactly the reason [`read`] skips them: a
+/// cache is an optimisation, and a corrupt file in one is a miss rather than a
+/// failure.
+pub(crate) fn all(root: &Path) -> Vec<Cached> {
+    let Ok(entries) = std::fs::read_dir(root.join(CACHE_DIR).join(VOICES_DIR)) else {
+        return Vec::new();
+    };
+    entries
+        .flatten()
+        .filter_map(|entry| std::fs::read_to_string(entry.path()).ok())
+        .filter_map(|text| serde_json::from_str::<Cached>(&text).ok())
+        .collect()
+}
+
 /// Writes a listing into the cache, creating `cache/voices/` if it is the
 /// project's first.
 ///

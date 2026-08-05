@@ -14,7 +14,9 @@
 //! `scp -r` has to carry — which is also what lets an offline `scorsese
 //! voices` still answer. A cache that never expired would be the failure this
 //! module is about, so a stale one refreshes itself and every answer says how
-//! old it is — see [`REFRESH_AFTER_DAYS`] and [`Freshness`].
+//! old it is — see [`REFRESH_AFTER_DAYS`] and [`Freshness`]. [`cached`] is that
+//! same store read on its own terms, for a surface that has no key to ask with
+//! and must stay usable anyway.
 //!
 //! **A voice that cannot be used is a named state, not a crash.**
 //! [`Availability`] is what a lookup answers with, [`Unusable`] says which
@@ -55,6 +57,6 @@ pub use cache::REFRESH_AFTER_DAYS;
 pub use catalogue::{Availability, Catalogue, Unusable, Voice};
 pub use elevenlabs::ElevenLabsVoices;
 pub use error::VoiceError;
-pub use run::{Answer, Freshness, builtin, library, require};
+pub use run::{Answer, Freshness, builtin, cached, library, require};
 
 pub use crate::api::elevenlabs::voices::{DEFAULT_PAGE_SIZE, Filters, MAX_PAGE_SIZE};

@@ -1,4 +1,4 @@
-//! Handing briefs to a provider without the window waiting for it.
+//! Handing briefs to the providers without the window waiting for them.
 //!
 //! **Submit and detach; never wait.** `scorsese generate` waits five minutes
 //! because a terminal can afford to. A window cannot — a frozen picture is the
@@ -11,17 +11,26 @@
 //! an edit could be clobbered by an answer to a question asked before it. A
 //! submit is a second or two, and a sweep is less.
 //!
-//! The pattern is [`Probing`](crate::project::Probing)'s: a channel, a copy to
-//! the worker, and a poll from the repaint loop that never blocks.
+//! The pattern is [`Probing`](crate::project::probing::Probing)'s: a channel, a
+//! copy to the worker, and a poll from the repaint loop that never blocks.
+//!
+//! # Two vendors, one ceiling, one total
+//!
+//! [`shots`] is Veo and [`lines`] is ElevenLabs, run in that order with the
+//! ceiling threaded from the first into the second — a limit each pass checked
+//! on its own would be a limit worth twice what somebody set. Each resolves its
+//! own key, and only when it has work: a project of nothing but narration must
+//! not be stopped for want of a Veo key, and the other way round.
+
+mod lines;
+mod shots;
 
 use std::path::Path;
 use std::sync::mpsc::{Receiver, TryRecvError, channel};
-use std::time::Duration;
 
-use scorsese_core::Project;
-use scorsese_providers::credentials::{Budget, Provider, Settings, resolve};
+use scorsese_core::{Asset, AssetKind, Project};
+use scorsese_providers::credentials::{Budget, Settings};
 use scorsese_providers::prices::dollars;
-use scorsese_providers::video::{Outcome, VeoProvider, collect, generate_waiting};
 
 /// What one background pass did.
 pub(crate) struct Report {
@@ -82,50 +91,42 @@ impl Working {
 
 /// One pass, on the worker's thread.
 fn run(pass: Pass, mut project: Project, root: &Path) -> Report {
-    let key = match resolve(Provider::Gemini) {
-        Ok(key) => key,
-        Err(error) => return failure(error.to_string()),
-    };
-    let provider = VeoProvider::new(&key.secret);
     let settings = Settings::load().unwrap_or_default();
     let budget = Budget::from_settings(&settings, super::quote::spent(&project));
 
-    let outcome = match pass {
-        // Zero patience: the submit itself is what is wanted, and the window
-        // does the waiting by sweeping.
-        Pass::Submit => generate_waiting(
-            &mut project,
-            root,
-            &provider,
-            budget,
-            Duration::ZERO,
-            |_| {},
-        )
-        .map(|run| (run.outcomes, run.spent_cents)),
-        Pass::Sweep => collect(&mut project, root, &provider).map(|outcomes| (outcomes, 0)),
+    let made = match shots::pass(&mut project, root, pass, budget) {
+        Ok(made) => made,
+        Err(said) => return stopped(&project, root, said),
+    };
+    let spoken = match lines::pass(&mut project, root, pass, budget.spend(made.spent_cents)) {
+        Ok(spoken) => spoken,
+        Err(said) => return stopped(&project, root, said),
     };
 
-    let (outcomes, spent) = match outcome {
-        Ok(both) => both,
-        // Saved anyway before reporting: a ticket written just before a failure
-        // is the only record that money was spent, and dropping it means paying
-        // for that work twice.
-        Err(error) => {
-            let _ = project.save(root);
-            return failure(error.to_string());
-        }
-    };
     if let Err(error) = project.save(root) {
         return failure(format!("saving the project: {error}"));
     }
+    let mut parts = shots::said(&made.outcomes);
+    parts.extend(lines::said(&spoken));
     Report {
-        in_flight: outcomes
+        in_flight: made
+            .outcomes
             .iter()
             .filter(|(_, outcome)| outcome.is_in_flight())
             .count(),
-        said: said(&outcomes, spent, pass),
+        said: sentence(parts, made.spent_cents + lines::spent(&spoken), pass),
         failed: false,
     }
+}
+
+/// A pass that stopped partway, with the document saved first.
+///
+/// Saved before reporting rather than after: a ticket written just before a
+/// failure is the only record that money was spent, and dropping it means
+/// paying for that work twice.
+fn stopped(project: &Project, root: &Path, said: String) -> Report {
+    let _ = project.save(root);
+    failure(said)
 }
 
 /// A pass that could not run.
@@ -138,50 +139,48 @@ fn failure(said: String) -> Report {
 }
 
 /// What the pass reads as, in one line.
-fn said(outcomes: &[(scorsese_core::AssetId, Outcome)], spent: u64, pass: Pass) -> String {
-    let generated = outcomes
-        .iter()
-        .filter(|(_, outcome)| matches!(outcome, Outcome::Generated { .. }))
-        .count();
-    let refused = outcomes
-        .iter()
-        .filter(|(_, outcome)| matches!(outcome, Outcome::Failed { .. }))
-        .count();
-    let expired = outcomes
-        .iter()
-        .filter(|(_, outcome)| matches!(outcome, Outcome::Expired { .. }))
-        .count();
-    let waiting = outcomes
-        .iter()
-        .filter(|(_, outcome)| outcome.is_in_flight())
-        .count();
-
-    let mut parts = Vec::new();
-    if waiting > 0 {
-        parts.push(format!("{waiting} generating"));
-    }
-    if generated > 0 {
-        parts.push(format!("{generated} arrived"));
-    }
-    if refused > 0 {
-        parts.push(format!("{refused} refused"));
-    }
-    if expired > 0 {
-        parts.push(format!("{expired} past the window and lost"));
-    }
+fn sentence(mut parts: Vec<String>, spent: u64, pass: Pass) -> String {
     if parts.is_empty() {
         return match pass {
-            Pass::Submit => String::from("nothing to generate — every shot is already made"),
+            Pass::Submit => {
+                String::from("nothing to generate — every shot and every line is already made")
+            }
             Pass::Sweep => String::from("nothing in flight"),
         };
     }
     if spent > 0 {
         // Always with the qualifier. This is a number somebody reads before
         // deciding to spend more, and no provider tells us what was billed.
-        parts.push(format!(
-            "about {} spent, by our calculation",
-            dollars(spent)
-        ));
+        parts.push(format!("about {} spent, by our calculation", dollars(spent)));
     }
     parts.join(" · ")
+}
+
+/// Whether this kind has anything left to do, and so whether its key is needed.
+///
+/// True when a brief of that kind has no file behind it yet, or has work in
+/// flight. The **disk** and not the document, deliberately: an asset can say
+/// `generated` and have lost its file — deleted, or never copied along with the
+/// project — and that one does need making again, whatever the state field
+/// claims.
+fn wants(project: &Project, root: &Path, kind: AssetKind) -> bool {
+    project
+        .assets
+        .iter()
+        .filter(|asset| asset.kind == kind)
+        .any(|asset| asset.operation.is_some() || !present(asset, root))
+}
+
+/// Whether this asset's media is actually on disk.
+fn present(asset: &Asset, root: &Path) -> bool {
+    asset
+        .path
+        .as_ref()
+        .is_some_and(|path| path.resolve(root).is_file())
+}
+
+/// One clause of a report — `3 arrived` — and nothing at all when the count is
+/// zero.
+fn counted(count: usize, what: &str) -> Option<String> {
+    (count > 0).then(|| format!("{count} {what}"))
 }

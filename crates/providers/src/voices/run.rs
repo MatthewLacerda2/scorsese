@@ -146,6 +146,31 @@ pub fn library(
     listed(root, &key, refresh, || catalogue.library(filters))
 }
 
+/// Every voice this project has already listed, out of `cache/` alone.
+///
+/// **No key, no network, no failure.** That combination is what it is for: a
+/// surface that cannot ask the vendor — a window on a train, or one running on
+/// a key that was never granted `voices_read` — still has something to offer
+/// besides a text box wanting a hexadecimal id. What it cannot do is find a
+/// voice nobody has listed yet, which is why every surface showing this also
+/// says where a list comes from and how to fetch one.
+///
+/// Both listings at once, and deduplicated by id, because a voice can be in the
+/// built-in set and in a Voice Library search and is still one voice. Sorted by
+/// name, because that is what a person picking one reads.
+pub fn cached(root: &Path) -> Vec<Voice> {
+    let mut found: Vec<Voice> = Vec::new();
+    for entry in cache::all(root) {
+        for voice in entry.voices {
+            if !found.iter().any(|had| had.id == voice.id) {
+                found.push(voice);
+            }
+        }
+    }
+    found.sort_by(|one, two| one.name.cmp(&two.name));
+    found
+}
+
 /// The voice `voice_id` names, or a refusal that says what to do instead.
 ///
 /// **Never cached, and that is deliberate.** This asks whether a voice somebody
