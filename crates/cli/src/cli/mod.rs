@@ -172,10 +172,22 @@ pub(crate) enum Command {
     /// is not lost — its ticket is in project.json, and `--collect` picks it
     /// up. Narration comes back on the same call and is never in flight. A line
     /// with no voice chosen yet is reported and skipped, not failed.
+    ///
+    /// Nothing is submitted until you say so: the quote is printed and the run
+    /// asks. Pass `--yes` to answer in advance, which an unattended run must —
+    /// with stdin not a terminal and no `--yes`, this refuses rather than
+    /// waiting for an answer nobody is there to give.
     Generate {
         /// Say what a run would cost and stop. Needs no key, sends nothing.
         #[arg(long)]
         dry_run: bool,
+        /// Go ahead without asking — what an unattended run passes, and what
+        /// stdin being a pipe rather than a terminal requires. It does not
+        /// lift the spending ceiling: a run over it is refused all the same.
+        /// Costs nothing to pass with `--dry-run` or `--collect`, which submit
+        /// nothing and never ask.
+        #[arg(long)]
+        yes: bool,
         /// Collect what has finished and submit nothing at all. What to run
         /// after coming back to a project with shots in flight.
         #[arg(long, conflicts_with = "dry_run")]

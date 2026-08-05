@@ -32,9 +32,12 @@ hand-written.
 Clips backed by a generative prompt (Veo video, ElevenLabs TTS) start as
 **sketches**: they render as slug cards — the prompt text on a gray card — so
 you can preview the entire cut for $0. When the cut is right, **GO**
-(`scorsese generate`) generates only sketch and stale assets, reporting the
-cost estimate before spending. Generated media is cached by prompt hash; an
-unchanged prompt is never paid for twice. Editing a prompt after generation
+(`scorsese generate`) generates only sketch and stale assets. It prints the
+cost estimate and **asks before it sends anything** — `--yes` answers in
+advance, and a run whose stdin is a pipe rather than a terminal is refused
+rather than left waiting for an answer nobody is there to give. The ceiling in
+your settings is refused either way. Generated media is cached by prompt hash;
+an unchanged prompt is never paid for twice. Editing a prompt after generation
 marks the asset **stale**, back to a slug card until the next GO.
 
 ## Building

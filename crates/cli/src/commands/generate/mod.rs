@@ -12,7 +12,12 @@
 //! **A key is asked for only by a pass that has work.** Resolving both up front
 //! would mean a project of nothing but narration could not be generated without
 //! a Veo key, and the other way round. Which is what [`wants`] decides.
+//!
+//! **Spending is opt-in.** Nothing is submitted until the quote has been shown
+//! and somebody has said go ahead — see [`confirm`]. The ceiling is checked
+//! further down still, inside the pass, where no flag reaches it.
 
+mod confirm;
 mod lines;
 mod shots;
 
@@ -28,12 +33,17 @@ use scorsese_providers::video::{Outcome, Run};
 use scorsese_render::Ffprobe;
 
 /// Realises every sketched brief, waiting up to `patience` for the shots.
-pub(crate) fn run(project_dir: &Path, patience: Duration, dry_run: bool) -> Result<()> {
+pub(crate) fn run(project_dir: &Path, patience: Duration, dry_run: bool, yes: bool) -> Result<()> {
     let mut project = Project::load(project_dir)
         .with_context(|| format!("opening the project in {}", project_dir.display()))?;
 
     if dry_run {
         return quote(&project);
+    }
+
+    if pending(&project, project_dir) && !permitted(&project, yes)? {
+        println!("Nothing was sent.");
+        return Ok(());
     }
 
     let settings = Settings::load().unwrap_or_default();
@@ -106,6 +116,33 @@ fn passes(project: &mut Project, project_dir: &Path, budget: Budget, patience: D
         }
     }
     (shots, lines, Ok(()))
+}
+
+/// Whether this run may go ahead: the quote, and then the question.
+///
+/// The quote is printed **only when somebody is going to be asked**, because it
+/// is there to be decided on. A run that already carries its answer prints what
+/// it did, not what it was about to do.
+fn permitted(project: &Project, yes: bool) -> Result<bool> {
+    match confirm::verdict(yes, confirm::interactive()) {
+        confirm::Verdict::Ahead => Ok(true),
+        confirm::Verdict::NobodyThere => Err(anyhow::anyhow!(confirm::NOBODY_THERE)),
+        confirm::Verdict::Ask => {
+            quote(project)?;
+            confirm::asked()
+        }
+    }
+}
+
+/// Whether either pass has anything to do at all.
+///
+/// A run with nothing to submit is never asked about and never refused for
+/// having no terminal: there is no decision to take when the answer costs
+/// nothing either way. It is what keeps `scorsese generate` over a project that
+/// is already generated working from a script, exactly as it did before.
+fn pending(project: &Project, root: &Path) -> bool {
+    wants(project, root, AssetKind::GeneratedVideo)
+        || wants(project, root, AssetKind::GeneratedAudio)
 }
 
 /// Whether this kind has anything left to do, and so whether its key is needed.
