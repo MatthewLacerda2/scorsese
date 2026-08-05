@@ -18,3 +18,4 @@ pub(crate) mod render;
 pub(crate) mod settings;
 pub(crate) mod still;
 pub(crate) mod synth;
+pub(crate) mod voices;

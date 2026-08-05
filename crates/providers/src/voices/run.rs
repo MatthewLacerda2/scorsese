@@ -23,7 +23,7 @@ use scorsese_core::Timestamp;
 
 use crate::api::elevenlabs::voices::{Filters, MAX_PAGE_SIZE};
 
-use super::cache;
+use super::cache::{self, REFRESH_AFTER_DAYS};
 use super::catalogue::{Availability, Catalogue, Voice};
 use super::error::VoiceError;
 
@@ -47,6 +47,55 @@ pub enum Freshness {
     },
 }
 
+impl Freshness {
+    /// Where the list came from, in the words somebody would use.
+    ///
+    /// Written here rather than at each surface because the CLI and the MCP
+    /// server say the same thing and must not drift into saying it differently
+    /// — the whole value of a provenance line is that it can be trusted
+    /// literally. Only the way to force a re-read differs between them, so only
+    /// that is a parameter: `--refresh` in a terminal, `refresh: true` in a
+    /// tool call.
+    ///
+    /// It is never omitted, not even on a list read a second ago. *These are
+    /// the voices* and *these were the voices last time anyone could ask* are
+    /// different claims, and a reader left to infer which one they have will
+    /// eventually infer wrong — over an id that stopped working a week ago.
+    pub fn says(&self, refresh: &str) -> String {
+        match self {
+            Self::Fetched => String::from("read from ElevenLabs just now."),
+            Self::Cached {
+                days,
+                refusal: None,
+            } => format!(
+                "out of the project's cache, {}. Re-read after {REFRESH_AFTER_DAYS} days, \
+                 or now with {refresh}.",
+                aged(*days)
+            ),
+            Self::Cached {
+                days,
+                refusal: Some(why),
+            } => format!(
+                "out of the project's cache, {} — ElevenLabs could not be asked:\n{why}",
+                aged(*days)
+            ),
+        }
+    }
+}
+
+/// How old a cached list is, said the way a person says it.
+fn aged(days: Option<i64>) -> String {
+    match days {
+        Some(0) => String::from("read today"),
+        Some(1) => String::from("read yesterday"),
+        Some(days) => format!("read {days} days ago"),
+        // A machine with no working clock, or one whose clock has moved
+        // backwards. Reported as unknown rather than guessed at: an invented
+        // age is worse than none, because it looks like a fact.
+        None => String::from("read at some point"),
+    }
+}
+
 /// A list, and where it came from.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Answer {
@@ -54,6 +103,20 @@ pub struct Answer {
     pub voices: Vec<Voice>,
     /// Fetched, or out of the cache and how old.
     pub freshness: Freshness,
+}
+
+impl Answer {
+    /// The line that closes a listing: how many voices, and where they came
+    /// from.
+    ///
+    /// `what` names the listing — *built-in*, *the Voice Library* — and
+    /// `refresh` is how the reader would force a re-read on the surface they
+    /// are looking at.
+    pub fn summary(&self, what: &str, refresh: &str) -> String {
+        let count = self.voices.len();
+        let plural = if count == 1 { "voice" } else { "voices" };
+        format!("{count} {what} {plural}, {}", self.freshness.says(refresh))
+    }
 }
 
 /// The built-in voices.

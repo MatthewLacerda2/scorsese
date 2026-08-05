@@ -61,6 +61,53 @@ pub(crate) enum Command {
     /// whether one was found and which of the two places had it, which is the
     /// question anybody debugging a missing credential actually has.
     Settings,
+    /// List the ElevenLabs voices a narration can be read in, or check that
+    /// one still exists.
+    ///
+    /// Costs nothing and spends nothing: a listing is free, and the answer is
+    /// cached inside the project so browsing needs no network. There is no
+    /// default voice and there never will be — every ElevenLabs default voice
+    /// expires on 2026-12-31, so an id written into scorsese would be an
+    /// outage with a date already on it.
+    Voices {
+        /// Search the Voice Library — thousands of voices other people
+        /// published — instead of the small built-in set. Needs a paid
+        /// ElevenLabs plan; the built-in voices do not.
+        #[arg(long)]
+        library: bool,
+        /// Only voices in this language, as an ISO 639-1 code: `pt`, `en`,
+        /// `es`. The filter worth reaching for first — it is what surfaces
+        /// people who actually speak the language rather than read it.
+        #[arg(long, requires = "library")]
+        language: Option<String>,
+        /// Only voices in this regional variant, where the vendor has one:
+        /// `pt-br`, `en-us`. Finer than `--language`, and not every voice
+        /// carries it.
+        #[arg(long, requires = "library")]
+        locale: Option<String>,
+        /// Only voices of this gender: `male`, `female`, `neutral`.
+        #[arg(long, requires = "library")]
+        gender: Option<String>,
+        /// Only voices of this age: `young`, `middle_aged`, `old`.
+        #[arg(long, requires = "library")]
+        age: Option<String>,
+        /// Only voices with this accent, matched loosely: `british`,
+        /// `brazilian`.
+        #[arg(long, requires = "library")]
+        accent: Option<String>,
+        /// How many to return, at most 100. The vendor's own default is 30.
+        #[arg(long, requires = "library")]
+        page_size: Option<u32>,
+        /// Read the list from ElevenLabs again even if the cached one is still
+        /// current. The cache re-reads itself weekly on its own.
+        #[arg(long, conflicts_with = "check")]
+        refresh: bool,
+        /// Ask about one voice id instead of listing anything: whether it still
+        /// exists and can be generated with. Never answered from the cache —
+        /// catching an id that has gone is the whole point of it.
+        #[arg(long, conflicts_with = "library", value_name = "VOICE_ID")]
+        check: Option<String>,
+    },
     /// Print what a generated shot costs, per tier and per size, with the day
     /// each figure was last read off the vendor's page.
     ///

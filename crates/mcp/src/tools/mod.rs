@@ -23,6 +23,7 @@ mod scratch;
 mod script;
 mod still;
 mod synth;
+mod voices;
 
 use serde_json::Value;
 
@@ -141,6 +142,14 @@ pub enum Costs {
     /// `ffmpeg` encodes. Roughly the running time of whatever is rendered,
     /// which makes this the one cost here a person waits on.
     Encode,
+    /// A call to a provider that is **not billed** — a listing, a lookup.
+    ///
+    /// Its own answer rather than [`Costs::Nothing`], because that one promises
+    /// no network at all and a client may reasonably act on the promise: a tool
+    /// needing a key and a connection is not one to reach for while offline,
+    /// however little it spends. Equally not [`Costs::Money`], which is the one
+    /// cost here that cannot be undone by trying again.
+    Request,
     /// **Real money, to somebody else.** The only cost on this list that is not
     /// paid in seconds, and the only one that cannot be undone by waiting — so
     /// it is its own answer rather than a note on `Encode`, and a client
@@ -157,6 +166,7 @@ impl Costs {
             Self::Decode => "ffmpeg",
             Self::Frames => "ffmpeg, and seconds",
             Self::Encode => "ffmpeg, and real time",
+            Self::Request => "a key and a network, but no money",
             Self::Money => "money, at a provider",
         }
     }
@@ -220,6 +230,7 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(synth::Bake),
         Box::new(synth::Survey),
         Box::new(level::Level),
+        Box::new(voices::Voices),
         Box::new(generate::Generate),
         Box::new(edit::Render),
         Box::new(still::Still),
