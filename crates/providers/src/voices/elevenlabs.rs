@@ -163,7 +163,7 @@ fn voice(found: &voices::Voice) -> Voice {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::elevenlabs::voices::Listing;
+    use super::super::run::{Answer, Freshness};
 
     /// The built-in listing, as the vendor sent it.
     const PREMADE: &str = include_str!("../../fixtures/elevenlabs/premade.json");
@@ -248,6 +248,43 @@ mod tests {
                 "conversational"
             ]
         );
+    }
+
+    /// The wrongness this listing had, read off the body that has it: the
+    /// vendor answered a search for Portuguese with 100 voices, `has_more` and
+    /// a count of 4,274, and every one of those three facts reached a reader as
+    /// the first alone. The captured numbers are what make this a measurement
+    /// rather than a guess about scale.
+    #[test]
+    fn a_capped_library_search_says_it_was_capped() {
+        let page = page(&listing(LIBRARY));
+        let more = page.more.expect("the vendor said there were more");
+        assert_eq!(more.total, Some(4274));
+
+        let answer = Answer {
+            voices: page.voices,
+            more: page.more,
+            freshness: Freshness::Fetched,
+        };
+        let said = answer.summary("the Voice Library", "--refresh");
+        assert!(said.contains("of 4,274 matching voices"), "{said}");
+        assert!(said.contains("narrow with language"), "{said}");
+    }
+
+    /// The other half, and the one a total alone would get wrong: the built-in
+    /// listing is the whole set, so it must not report itself as cut short.
+    #[test]
+    fn a_complete_listing_claims_nothing_beyond_itself() {
+        let page = page(&listing(PREMADE));
+        assert_eq!(page.more, None);
+
+        let answer = Answer {
+            voices: page.voices,
+            more: page.more,
+            freshness: Freshness::Fetched,
+        };
+        let said = answer.summary("built-in", "--refresh");
+        assert!(!said.contains("narrow with"), "{said}");
     }
 
     /// The general form of the bug, over both bodies: nothing the vendor filled

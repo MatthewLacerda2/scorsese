@@ -514,6 +514,24 @@ voices  { "project": "teaser.scor", "library": true,
           "language": "pt", "gender": "female", "page_size": 50 }
 ```
 
+**A search that was cut short says so.** `page_size` caps the reply at a
+hundred; it does not cap what matched, and a search for Portuguese matches
+thousands. So the listing closes with how many there were — a truncated search
+and a complete one that printed identically would have somebody concluding
+their filter found everything and stopping there.
+
+```
+voices  { "project": "teaser.scor", "library": true, "language": "pt" }
+        → "…
+           100 the Voice Library voices, read from ElevenLabs just now.
+           That is the first 100 of 4,274 matching voices — narrow with
+           language, accent, age or gender to search a smaller set."
+```
+
+There is no cursor and no second page to ask for: narrowing is the way to a
+different hundred. The count is the vendor's own and is never estimated — where
+it sends none, the listing says there are more without saying how many.
+
 The Voice Library is **not available through the API on a free plan**. When it
 is refused, the reply says exactly that and points at the built-in voices,
 which generate the same way. No subscription tier is detected to produce that

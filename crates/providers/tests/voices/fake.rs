@@ -7,7 +7,9 @@
 use std::cell::RefCell;
 
 use scorsese_providers::video::ProviderError;
-use scorsese_providers::voices::{Availability, Catalogue, Filters, Voice, VoiceError};
+use scorsese_providers::voices::{
+    Availability, Catalogue, Filters, More, Page, Voice, VoiceError,
+};
 
 /// A catalogue that answers exactly what it was told to.
 pub(crate) struct Fake {
@@ -20,6 +22,9 @@ pub(crate) struct Fake {
     pub(crate) free_plan: bool,
     /// Set to make a listing answer the way an unscoped key is refused.
     pub(crate) unscoped: bool,
+    /// Set to make the Voice Library answer the way a capped search does:
+    /// these voices, and a count of how many matched in all.
+    pub(crate) more: Option<More>,
     /// What `one` answers with, for whichever id it is asked about.
     pub(crate) availability: Option<Availability>,
     /// How many times a listing has actually been asked for.
@@ -34,6 +39,7 @@ impl Fake {
             unreachable: false,
             free_plan: false,
             unscoped: false,
+            more: None,
             availability: None,
             listings: RefCell::new(0),
         }
@@ -81,14 +87,17 @@ impl Catalogue for Fake {
         self.answer()
     }
 
-    fn library(&self, _filters: &Filters) -> Result<Vec<Voice>, VoiceError> {
+    fn library(&self, _filters: &Filters) -> Result<Page, VoiceError> {
         if self.free_plan {
             *self.listings.borrow_mut() += 1;
             return Err(VoiceError::NoLibraryOnThisPlan {
                 said: String::from("Free users cannot use library voices via the API."),
             });
         }
-        self.answer()
+        Ok(Page {
+            voices: self.answer()?,
+            more: self.more,
+        })
     }
 
     fn one(&self, _voice_id: &str) -> Result<Availability, VoiceError> {

@@ -55,7 +55,10 @@ impl Tool for Voices {
                     "description": "Search the Voice Library — thousands of voices other \
                                     people published — instead of the small built-in set. \
                                     Needs a paid ElevenLabs plan; the built-in voices do \
-                                    not. The filters below apply only to this."
+                                    not. The filters below apply only to this. A search \
+                                    that matched more voices than one reply can carry \
+                                    says so, and how many matched in all — so a \
+                                    truncated search is never mistaken for a complete one."
                 },
                 "language": {
                     "type": "string",
@@ -85,7 +88,9 @@ impl Tool for Voices {
                 "page_size": {
                     "type": "integer",
                     "description": "How many Voice Library voices to return, at most 100. \
-                                    The vendor's own default is 30."
+                                    The vendor's own default is 30. It caps the reply and \
+                                    not the search — thousands can match, and the listing \
+                                    reports how many did."
                 },
                 "refresh": {
                     "type": "boolean",

@@ -1,6 +1,6 @@
 //! The cache: what it saves, when it is skipped, and what it rescues.
 
-use scorsese_providers::voices::{Freshness, builtin, cached, library};
+use scorsese_providers::voices::{Freshness, More, builtin, cached, library};
 
 use super::fake::Fake;
 use super::{root, voice};
@@ -58,6 +58,28 @@ fn two_searches_do_not_overwrite_each_other() {
     let again = library(&dir, &portuguese, &filter("pt"), false).expect("the pt search again");
     assert_eq!(again.voices, vec![voice("pt-1", "Ana")]);
     assert_eq!(portuguese.calls(), 1, "the pt list was fetched twice");
+}
+
+/// A search that was cut short has to stay cut short once it is saved. The
+/// cache is served for a week, so a copy that lost the caveat would be the
+/// silent cap with a longer life than the reply that produced it.
+#[test]
+fn a_cached_search_is_still_reported_as_truncated() {
+    let dir = root("voices-truncated");
+    let mut capped = Fake::listing(vec![voice("pt-1", "Ana")]);
+    capped.more = Some(More { total: Some(4274) });
+    let filter = scorsese_providers::voices::Filters {
+        language: Some(String::from("pt")),
+        ..scorsese_providers::voices::Filters::default()
+    };
+
+    let fetched = library(&dir, &capped, &filter, false).expect("the search");
+    assert_eq!(fetched.more, Some(More { total: Some(4274) }));
+
+    let again = library(&dir, &capped, &filter, false).expect("the search again");
+    assert_eq!(capped.calls(), 1, "the cache did not hold");
+    let said = again.summary("the Voice Library", "--refresh");
+    assert!(said.contains("of 4,274 matching voices"), "{said}");
 }
 
 /// Offline, on a train, with a key that works: a saved list is a far better
