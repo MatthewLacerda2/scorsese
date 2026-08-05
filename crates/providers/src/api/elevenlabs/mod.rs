@@ -20,6 +20,7 @@
 //!
 //! [`Caller`]: crate::api::http::Caller
 
+pub mod design;
 pub mod refusal;
 pub mod speech;
 pub mod voices;
