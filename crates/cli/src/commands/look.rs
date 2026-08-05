@@ -34,12 +34,17 @@ pub(crate) fn run(file: &Path, out: Option<PathBuf>, look: &Look) -> Result<()> 
         .map(|at| contact::label(*at))
         .collect();
     println!(
-        "Wrote {} — {} of {} ({:.1}s), at {}",
+        "Wrote {} — {} of {} ({:.1}s), at {}{}",
         path.display(),
         counted(sheet.at_seconds.len()),
         file.display(),
         sheet.duration_seconds,
-        moments.join(", ")
+        moments.join(", "),
+        if look.grid {
+            ", each ruled in fractions of the source"
+        } else {
+            ""
+        }
     );
     // The number a following call starts from, rather than left to be worked
     // out — walking a long file is the expected way to use this, and a step

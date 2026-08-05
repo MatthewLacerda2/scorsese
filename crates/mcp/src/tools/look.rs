@@ -41,8 +41,10 @@ impl Tool for Look {
          brief asked for. At most 5 frames, one every 5 seconds by default; a \
          longer file is walked with successive calls, and each reply says where \
          the next one starts. Give `to` to look closely at one stretch instead \
-         — the frames then spread evenly across it. Needs ffmpeg; decodes a \
-         handful of frames and encodes nothing."
+         — the frames then spread evenly across it. Pass grid: true to have \
+         every frame ruled in fractions of the source, which is what a clip's \
+         crop is measured in. Needs ffmpeg; decodes a handful of frames and \
+         encodes nothing."
     }
 
     fn costs(&self) -> Costs {
@@ -79,6 +81,18 @@ impl Tool for Look {
                     "description": "How many frames to take. Default 5, which is also the \
                                     most: more than that in one sheet is unreadable at any \
                                     size worth sending."
+                },
+                "grid": {
+                    "type": "boolean",
+                    "description": "Rule every frame of the sheet with coordinates: a line \
+                                    every 0.1, heavier at 0.5, labelled along the top and \
+                                    left edges, origin at the top-left corner. The \
+                                    fractions are the source's own — its whole width and \
+                                    height, not the render raster and not the sheet — which \
+                                    is exactly what a clip's crop is measured in, so the \
+                                    rectangle read off a frame is the rectangle written \
+                                    into the document. Default false, because the lines are \
+                                    drawn onto the picture itself."
                 }
             },
             "required": ["project", "file"]
@@ -112,7 +126,7 @@ impl Tool for Look {
         let bytes = std::fs::read(&png.path)
             .map_err(|error| format!("reading {} back: {error}", png.path.display()))?;
 
-        Ok(vec![Part::picture(said(&sheet), &bytes)].into())
+        Ok(vec![Part::picture(said(&sheet, range.grid), &bytes)].into())
     }
 }
 
@@ -123,14 +137,19 @@ impl Tool for Look {
 /// follow. Where to carry on from is said outright rather than left to be
 /// worked out: walking a long file is the expected use, and a step somebody
 /// computes is a step somebody gets wrong.
-fn said(sheet: &contact::Sheet) -> String {
+fn said(sheet: &contact::Sheet, ruled: bool) -> String {
     let moments: Vec<String> = sheet.at_seconds.iter().map(|at| label(*at)).collect();
     let mut text = format!(
-        "{} of {} ({:.1}s long), at {}",
+        "{} of {} ({:.1}s long), at {}{}",
         counted(moments.len()),
         sheet.file.display(),
         sheet.duration_seconds,
-        moments.join(", ")
+        moments.join(", "),
+        if ruled {
+            " — each ruled 0.0 to 1.0 of the source"
+        } else {
+            ""
+        }
     );
     match sheet.next_from() {
         Some(next) => text.push_str(&format!(
@@ -191,5 +210,9 @@ fn range(arguments: &Value) -> Result<Range, String> {
         from_seconds: from,
         to_seconds: to,
         count: frames,
+        grid: arguments
+            .get("grid")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
     })
 }

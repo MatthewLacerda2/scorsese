@@ -5,9 +5,14 @@
 //! other path, so there is one anti-aliaser in the compositor rather than two
 //! that could disagree, and text inherits whatever platform behaviour the
 //! existing golden references already pin.
+//!
+//! Being the crate's one way onto the raster is also why [`fill_rects`] is
+//! here rather than beside the module that wants it: a rectangle is a path
+//! like a glyph is, and drawing one anywhere else would be a second
+//! anti-aliaser and a second blend to keep in step with this one.
 
 use skrifa::outline::OutlinePen;
-use tiny_skia::{FillRule, Paint, PathBuilder, Pixmap, Transform};
+use tiny_skia::{FillRule, Paint, Path, PathBuilder, Pixmap, Rect, Transform};
 
 use scorsese_core::Rgba;
 
@@ -40,6 +45,47 @@ pub fn draw_line(
     let mut path = Outlines::default();
     line_into(&mut path, &face, &face.shape(text), origin);
     stamp(frame, path, color);
+}
+
+/// Draws several unrelated lines in one pass of the rasteriser.
+///
+/// [`draw_line`] for each of them would be correct and slow: every call fills
+/// its own full-frame pixmap, so a ruler's two dozen labels would allocate and
+/// walk the raster two dozen times. They share a face, a size and a colour —
+/// which is exactly when the glyphs can go into one path — so the cost is one
+/// pass however many runs there are.
+pub(crate) fn draw_runs<S: AsRef<str>>(
+    frame: &mut Frame,
+    font: &Font,
+    size: f32,
+    color: Rgba,
+    runs: &[(S, (f32, f32))],
+) {
+    let face = font.at(size.max(1.0));
+    let mut path = Outlines::default();
+    for (text, origin) in runs {
+        line_into(&mut path, &face, &face.shape(text.as_ref()), *origin);
+    }
+    stamp(frame, path, color);
+}
+
+/// Fills axis-aligned rectangles — `(x, y, width, height)` in pixels — onto
+/// `frame` in `color`, all of them in one pass.
+///
+/// Anti-aliased and blended like everything else here, which is what a
+/// gridline needs: a line at a tenth of a 1280-pixel raster falls at 128.0 for
+/// one tenth and 384.0 for another, and one snapped to whole pixels would sit
+/// at a slightly different fraction than the one it claims to mark.
+pub(crate) fn fill_rects(frame: &mut Frame, rects: &[(f32, f32, f32, f32)], color: Rgba) {
+    let mut builder = PathBuilder::new();
+    for &(x, y, width, height) in rects {
+        if let Some(rect) = Rect::from_xywh(x, y, width, height) {
+            builder.push_rect(rect);
+        }
+    }
+    if let Some(path) = builder.finish() {
+        fill(frame, &path, color);
+    }
 }
 
 /// Traces an already-shaped run into `path`, with the run starting at
@@ -125,6 +171,13 @@ pub(super) fn stamp(frame: &mut Frame, outlines: Outlines, color: Rgba) {
     let Some(path) = outlines.builder.finish() else {
         return;
     };
+    fill(frame, &path, color);
+}
+
+/// Fills one finished path onto the frame — the step [`stamp`] and
+/// [`fill_rects`] share, so glyphs and rectangles cannot come out blended
+/// differently.
+fn fill(frame: &mut Frame, path: &Path, color: Rgba) {
     let resolution = frame.resolution();
     let Some(mut pixmap) = Pixmap::new(resolution.width(), resolution.height()) else {
         return;
@@ -135,13 +188,7 @@ pub(super) fn stamp(frame: &mut Frame, outlines: Outlines, color: Rgba) {
     // Anti-aliased, because a title with stepped edges is the one thing that
     // makes a render look amateur at any resolution.
     paint.anti_alias = true;
-    pixmap.fill_path(
-        &path,
-        &paint,
-        FillRule::Winding,
-        Transform::identity(),
-        None,
-    );
+    pixmap.fill_path(path, &paint, FillRule::Winding, Transform::identity(), None);
 
     for (pixel, drawn) in frame
         .bytes_mut()

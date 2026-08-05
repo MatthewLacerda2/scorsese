@@ -324,6 +324,14 @@ pub(crate) enum Command {
         /// smaller one is the same picture and costs less to make.
         #[arg(long, default_value = "1920x1080")]
         resolution: Resolution,
+        /// Rule the frame with coordinates: a line every 0.1 of the raster,
+        /// heavier at 0.5, labelled along the top and left edges. Fractions of
+        /// the frame, which is what `transform.position.*` is written in, so a
+        /// layer's place can be read off the picture instead of guessed at.
+        /// Drawn onto the PNG itself — leave it off for a frame you mean to
+        /// keep.
+        #[arg(long)]
+        grid: bool,
     },
     /// Look at a video file: frames sampled from it, tiled into one PNG with
     /// each frame's timestamp on it.
@@ -349,6 +357,13 @@ pub(crate) enum Command {
         /// How many frames to take, at most five.
         #[arg(long, default_value_t = contact::MAX_FRAMES)]
         frames: usize,
+        /// Rule each frame with coordinates: a line every 0.1, heavier at 0.5,
+        /// labelled along the top and left edges. The fractions are the
+        /// **source's** own — its whole width and height, not the render
+        /// raster — which is exactly what `crop` is measured in, so a rectangle
+        /// can be read off the footage. Drawn onto the PNG itself.
+        #[arg(long)]
+        grid: bool,
     },
     /// Say what the timeline contains — what is on screen when, on which
     /// track, at what fit, with what animated, and what is audible under it.

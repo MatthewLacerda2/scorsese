@@ -681,6 +681,12 @@ This is a different question from `transform.position`, which is a fraction of
 the **output** raster. A crop is against the **source** raster, and the two do
 not have to answer the same way.
 
+**The four numbers can be read off the footage rather than guessed at.**
+`scorsese look <file> --grid` — or the `look` tool with `grid: true` — rules
+every sampled frame with a line at each `0.1` of the source, which is precisely
+the unit here. `scorsese still --grid` rules a composited frame the same way, in
+the output raster's fractions, for `transform.position`.
+
 **Not a mask, not a shape, not rotation-aware, not per-corner**, and not
 animatable: the crop is applied as the source is decoded, ahead of the fit, so
 it is one rectangle for the clip rather than a value the compositor resolves

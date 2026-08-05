@@ -29,6 +29,7 @@ mod layout;
 mod shape;
 
 pub use draw::draw_line;
+pub(crate) use draw::{draw_runs, fill_rects};
 pub use font::{Font, FontError};
 
 use std::ops::Range;
@@ -94,6 +95,17 @@ pub struct Style {
     /// left-anchored text could plausibly mean either, and only the first keeps
     /// a column's left edge still when the wording changes.
     pub anchor: Anchor,
+}
+
+/// How wide one line of `text` sets at `size`, in pixels.
+///
+/// Shaped rather than counted, so the answer includes the face's kerning and
+/// is the width the same line would actually be drawn at. What it is for is
+/// placing a run against a right-hand edge — [`draw_line`] starts at a left
+/// edge, and something that has to end at a known x has to know how long it
+/// is first.
+pub(crate) fn width(font: &Font, text: &str, size: f32) -> f32 {
+    font.at(size.max(1.0)).shape(text).width
 }
 
 /// Draws `text` into `frame`, wrapped to the style's width and **centred on

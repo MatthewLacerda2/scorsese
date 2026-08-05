@@ -101,7 +101,7 @@ pub fn sheet(tools: &Tools, file: &Path, look: &Look) -> Result<Sheet, ContactEr
     }
 
     Ok(Sheet {
-        image: sheet::tile(cells, Font::sans())?,
+        image: sheet::tile(cells, Font::sans(), look.grid)?,
         at_seconds,
         duration_seconds,
         file: file.to_path_buf(),

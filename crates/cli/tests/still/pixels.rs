@@ -60,6 +60,23 @@ fn a_title_reaches_the_png_with_nothing_to_decode() {
     std::fs::remove_dir_all(dir).ok();
 }
 
+/// `--grid` reaches the PNG, and the two heavy rules cross where they claim to:
+/// the middle of the frame is `0.5` on both axes, so the pixel dead centre of a
+/// ruled still is the rule rather than the shot.
+#[test]
+fn a_ruled_still_carries_its_rules_into_the_png() {
+    let dir = shot("still-grid", "red");
+    still(&dir, "ruled.png", &["--at", "0s", "--grid"]).ok();
+
+    let (r, g, b, _) = centre(&written(&dir.join("ruled.png"), RASTER));
+    assert!(
+        r > 150 && g > 150 && b > 150,
+        "the centre of a ruled still came out ({r}, {g}, {b}) — the 0.5 rules \
+         are not crossing there"
+    );
+    std::fs::remove_dir_all(dir).ok();
+}
+
 /// The picture is the same at every raster, which is the promise `--resolution`
 /// rests on: layout is a fraction of the frame, so a smaller still is a cheaper
 /// look at the same edit rather than a different one.
