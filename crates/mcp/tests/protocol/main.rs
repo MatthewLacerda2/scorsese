@@ -18,6 +18,7 @@ mod seeing;
 mod starting;
 mod surveying;
 mod tuning;
+mod watching;
 
 use serde_json::Value;
 

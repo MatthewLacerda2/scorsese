@@ -9,6 +9,7 @@ pub(crate) mod dissolve;
 pub(crate) mod duck;
 pub(crate) mod import;
 pub(crate) mod level;
+pub(crate) mod look;
 pub(crate) mod new;
 pub(crate) mod prices;
 pub(crate) mod probe;

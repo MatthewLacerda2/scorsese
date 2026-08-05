@@ -33,6 +33,11 @@
 //! pixels. What it produces is an ordinary layer, so a title fades and moves
 //! through the properties above rather than through anything of its own.
 //!
+//! [`sheet`] tiles several frames into one labelled picture, so an assistant
+//! can look at footage. It is the same two modules again — a label is a card,
+//! and placing a cell is a layer — which is why it is forty lines of layout
+//! rather than a path of its own.
+//!
 //! [`card`] is that same text over a panel of colour, which is all a slug card
 //! is. It is a hundred lines that call the other two modules, and it is not a
 //! rendering path of its own — that is the point of it.
@@ -72,6 +77,7 @@ pub mod dissolve;
 mod frame;
 mod properties;
 mod registry;
+pub mod sheet;
 pub mod text;
 
 pub use compose::{CompositeError, Compositor, Layer};

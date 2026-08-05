@@ -14,6 +14,7 @@ pub(crate) use args::{AssetsAction, KindArg, SynthAction};
 
 use clap::{Parser, Subcommand};
 use scorsese_core::Fps;
+use scorsese_render::contact;
 use scorsese_render::{
     AudioCodec, Bitrate, Container, Cue, FrameRange, Resolution, SampleRate, VideoCodec,
 };
@@ -194,6 +195,31 @@ pub(crate) enum Command {
         /// smaller one is the same picture and costs less to make.
         #[arg(long, default_value = "1920x1080")]
         resolution: Resolution,
+    },
+    /// Look at a video file: frames sampled from it, tiled into one PNG with
+    /// each frame's timestamp on it.
+    ///
+    /// A file, not a project — an imported asset or footage nobody has
+    /// imported yet — so this answers "what is in this?" where `still`
+    /// answers "what does my cut look like?".
+    Look {
+        /// The video file to look at.
+        file: PathBuf,
+        /// Where to write the PNG. Defaults to `<file>.sheet.png`, beside the
+        /// source.
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// Where to start, in seconds. A file longer than one sheet is walked
+        /// in successive calls, and each one says where the next starts.
+        #[arg(long, default_value_t = 0.0)]
+        from: f64,
+        /// Where to stop, in seconds. Without it the frames are five seconds
+        /// apart; with it they spread evenly across the span you named.
+        #[arg(long)]
+        to: Option<f64>,
+        /// How many frames to take, at most five.
+        #[arg(long, default_value_t = contact::MAX_FRAMES)]
+        frames: usize,
     },
     /// Say what the timeline contains — what is on screen when, on which
     /// track, at what fit, with what animated, and what is audible under it.
