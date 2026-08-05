@@ -93,6 +93,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `synth_survey` | Say what every song recipe in the project is made of, and count the same facts across the whole set. | nothing |
 | `audio_level` | Say how a finished sound file came out. | ffmpeg |
 | `voices` | List the ElevenLabs voices a narration can be read in, or check that one still exists. | a key and a network, but no money |
+| `voice_design` | Design a new ElevenLabs voice from a description, for when no voice in either list is the one the video needs. | money, at a provider |
 | `generate` | Realise the sketched briefs — the one tool here that costs money. | money, at a provider |
 | `render` | Render the timeline to a video file. | ffmpeg, and real time |
 | `still` | Look at the edit. | ffmpeg, and seconds |
@@ -502,6 +503,79 @@ was never granted the `voices_read` permission is fixed in the ElevenLabs
 dashboard. The refusal body names which it is, so the two get different advice —
 sending somebody to check a credential that is already correct is the most
 expensive kind of wrong error message.
+
+## Designing the voice, when neither list has it
+
+`voice_design` is the escape hatch for the case `voices` cannot answer: the
+voice a person had in mind before they heard anything, which neither the
+built-in set nor the Voice Library happens to contain. It is especially the
+pt-BR case — the Library's coverage there is thin, and a free account cannot
+reach it at all.
+
+It is **the second tool here that spends money**, and it spends it differently.
+
+```
+voice_design  { "project": "teaser.scor",
+                "prompt": "a Brazilian woman in her forties, unhurried, warm,
+                           the voice of someone telling you something true",
+                "text": "<a hundred characters or more of the line the video
+                         actually needs>",
+                "seed": 42 }
+              → "1. hCTB9k2W…
+                    generated/voice-design/9f3c…/1-hCTB9k2W….mp3
+                 2. …
+                 $0.02 for the design — 118 characters of preview text at 10¢
+                 per 1000, charged once for all three candidates."
+```
+
+**One call, three candidates, one charge.** The billing is the thing to get
+right here, because the obvious guess is wrong: three samples come back and the
+*preview text* is billed once. `dry_run` quotes it without a key and without
+sending anything, exactly as `generate`'s does.
+
+**Voice design spend is its own line item.** It counts against the same
+spending ceiling — it is real money at the same vendor — but it is never added
+to what the shots cost. A generation total that moved while nobody was
+generating would be a counter nobody could trust, and *"voice design"* beside
+the number is the whole fix.
+
+**The samples are files, not sound in a reply.** Three MP3s land in
+`generated/`, named for the hash of the brief, and the reply says where. So
+asking for the same design twice — after a dropped connection, most likely —
+costs nothing the second time, the same guarantee a generated shot has. Playing
+them is a window's job; a client that cannot hear gets the paths, and a person
+gets the audition.
+
+**Then keep one, which costs nothing more.**
+
+```
+voice_design  { "project": "teaser.scor", "keep": "hCTB9k2W…",
+                "name": "Narrator (pt-BR)" }
+```
+
+That call turns a candidate into a real `voice_id`, usable exactly like one out
+of a listing. The two that were passed over need no cleanup — they were never
+persisted as voices — and they are reported to the vendor as auditioned and not
+chosen, which is free and is what the endpoint asks for.
+
+**What it creates is not inside the project, and that is worth knowing.** The
+voice lives in the user's ElevenLabs account. The id travels with an `scp -r`
+and the voice does not: open the project on another machine, under another
+account, or after somebody tidied their voice list, and the id names nothing.
+
+So the **description and the seed** are written into `designed-voices.json`
+beside `project.json`, and a voice that is lost can be asked for again from
+what the project already holds. It is a file rather than a field in
+`project.json` because a record of things created in somebody's account
+elsewhere is not what that document describes. `list` reads it back.
+
+```
+voice_design  { "project": "teaser.scor", "list": true }
+```
+
+**Voice cloning is not here, in any form.** No user-supplied audio, no
+likeness, no consent surface. That is a decision rather than an omission, and
+it is not a smaller version of this tool.
 
 ## Rendering part of the timeline
 

@@ -14,6 +14,7 @@
 //! of "the open project" going stale behind its back.
 
 mod create;
+mod design;
 mod edit;
 mod generate;
 mod inspect;
@@ -231,6 +232,7 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(synth::Survey),
         Box::new(level::Level),
         Box::new(voices::Voices),
+        Box::new(design::VoiceDesign),
         Box::new(generate::Generate),
         Box::new(edit::Render),
         Box::new(still::Still),

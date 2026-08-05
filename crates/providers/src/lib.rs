@@ -51,11 +51,24 @@
 //! with a date on it. It resolves the list at runtime, caches it under the
 //! project's `cache/`, and names the state a withdrawn voice leaves an asset
 //! in rather than substituting another one.
+//!
+//! [`voices::design`], its sibling, which **makes** a voice where that one
+//! finds one — and which therefore spends money and leaves something behind in
+//! somebody's ElevenLabs account. It is the only thing in this crate with an
+//! effect outside the project directory, so it records what made each voice in
+//! a file beside `project.json`: the id travels with an `scp -r` and the voice
+//! itself does not.
+//!
+//! [`spending`], the one answer to *what has this project cost so far*. A
+//! ceiling asks it to decide whether the next call may go ahead and a person
+//! asks it to decide whether they want to; two answers to that would first be
+//! noticed by somebody who had already paid.
 
 pub mod api;
 pub mod credentials;
 pub mod prices;
 pub mod speech;
+pub mod spending;
 pub mod synth;
 pub mod video;
 pub mod voices;
