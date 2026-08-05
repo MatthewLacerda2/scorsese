@@ -2,51 +2,52 @@
 //!
 //! # The arithmetic, and the one thing that is odd about it
 //!
-//! ElevenLabs bills text-to-speech by the character of input, so the figure is
-//! known **exactly before the call** — a pre-flight estimate, never a
-//! reconciliation. Voice Design is billed the same way, over the passage the
+//! ElevenLabs bills by the character of input, so the figure is known
+//! **exactly before the call** — a pre-flight estimate, never a
+//! reconciliation. Voice Design is billed that same way, over the passage the
 //! previews read, and **once**: three samples come back and one passage is
 //! charged. That is the sentence worth carrying away, because the obvious guess
 //! is three times the price and the obvious guess is wrong.
 //!
-//! **Round up.** Unlike Veo, this does not land on whole cents, and an estimate
-//! that undershoots is one that slips past the ceiling it was computed for.
+//! # The rate is not this module's, and that is the point
 //!
-//! # This rate is a lodger, and it says so
+//! There is one ElevenLabs rate table in this crate — [`prices::elevenlabs`] —
+//! and this reads it rather than carrying a figure of its own. Two tables for
+//! one vendor is the arrangement where the first person to notice they disagree
+//! is the person who has already paid, and it is also how a re-priced vendor
+//! gets half-updated. So the whole of what lives here is *which* rate applies
+//! and *what to say about it*: the standard character rate, which is what the
+//! vendor bills a design at, and a sentence explaining the once-for-three.
 //!
-//! The rate below belongs in `prices::elevenlabs`, beside `prices::veo`, with
-//! its own [`Checked`] date so it joins `scorsese prices` and the CI price
-//! signal for free. That table is being written on the branch for the
-//! ElevenLabs provider itself, which is where it has to live — a second table
-//! landing here first would be two rate tables for one vendor, and the first
-//! person to notice they disagree would be the person who had already paid.
+//! Rounding up happens there too, for the reason stated there: this does not
+//! land on whole cents, and an estimate that undershoots is one that slips past
+//! the ceiling it was computed for.
 //!
-//! So this holds one constant, dated the same way, and the move is a deletion:
-//! when the provider's table lands, this module calls into it and the constant
-//! goes. Nothing else here changes, because everything else is the arithmetic
-//! rather than the number.
+//! Every figure here is **our own arithmetic over a page somebody copied, never
+//! a bill** — no ElevenLabs response reports what a call cost. That is why what
+//! gets recorded is called an *estimate* wherever it is written down.
 //!
-//! Every figure this produces is **our own calculation over a page somebody
-//! copied, never a bill** — no ElevenLabs response reports what a call cost.
-//! That is why what gets recorded is called an *estimate* wherever it is
-//! written down.
+//! [`prices::elevenlabs`]: crate::prices::elevenlabs
 
-use crate::prices::{Checked, dollars};
+use scorsese_core::SpeechModel;
 
-/// What a thousand characters of designed speech costs, in US cents.
+use crate::prices::{self, SpeechEstimate, UnpricedSpeech, dollars};
+
+/// Which rate a design is billed at.
 ///
-/// The vendor's base character rate, which is what Voice Design is billed at.
-/// Read off <https://elevenlabs.io/pricing> on the date below.
-const CENTS_PER_1K: u64 = 10;
-
-/// The day the figure above was last read off the vendor's page.
-const CHECKED: Checked = Checked::on(2026, 8, 5);
+/// The vendor's standard character rate. Voice Design runs on a model of its
+/// own — a text-to-voice model rather than a text-to-speech one — but it is
+/// **billed** at the base character price, and it is the billing this module is
+/// about. Named here rather than left implicit, because it is the one
+/// assumption in this file that a vendor could change without changing a
+/// number.
+const BILLED_AS: SpeechModel = SpeechModel::Standard;
 
 /// What one design is expected to cost, and what that was worked out from.
 ///
-/// Carries the length and the rate as well as the total, because an estimate
-/// somebody is about to approve should be checkable without re-deriving it —
-/// *430 characters at 10¢ per 1000 is 5¢* is an argument, and `5` on its own is
+/// The speech estimate, with the design's own way of saying it — an estimate
+/// somebody is about to approve should be checkable without re-deriving it, and
+/// *118 characters at 10¢ per 1000 is 2¢* is an argument where `2` on its own is
 /// a demand.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Estimate {
@@ -54,10 +55,8 @@ pub struct Estimate {
     pub cents: u64,
     /// How many characters were priced — the passage, once.
     pub characters: usize,
-    /// The rate used, in cents per thousand characters.
-    pub cents_per_1k: u64,
-    /// The day that rate was last confirmed against the vendor's page.
-    pub checked: Checked,
+    /// The rate it came from, date included.
+    pub rate: prices::elevenlabs::Rate,
 }
 
 impl Estimate {
@@ -73,9 +72,19 @@ impl Estimate {
              all three candidates. Our arithmetic over the published rate as of {}, never a bill.",
             dollars(self.cents),
             self.characters,
-            self.cents_per_1k,
-            self.checked
+            self.rate.cents_per_1k_chars,
+            self.rate.checked
         )
+    }
+}
+
+impl From<SpeechEstimate> for Estimate {
+    fn from(estimate: SpeechEstimate) -> Self {
+        Self {
+            cents: estimate.cents,
+            characters: estimate.characters,
+            rate: estimate.rate,
+        }
     }
 }
 
@@ -86,16 +95,12 @@ impl Estimate {
 /// voice. Three callers, one calculation — a second one would be a second
 /// answer, and the first person to notice they disagree would be the person who
 /// had already paid.
-pub fn estimate(passage: &str) -> Estimate {
-    let characters = passage.chars().count();
-    Estimate {
-        // Rounded up, on integers throughout. A float here would be a rounding
-        // error inside a ceiling, and a ceiling nobody can reason about.
-        cents: (u64::try_from(characters).unwrap_or(u64::MAX) * CENTS_PER_1K).div_ceil(1000),
-        characters,
-        cents_per_1k: CENTS_PER_1K,
-        checked: CHECKED,
-    }
+///
+/// **Characters, not bytes**, because that is what the vendor counts. A
+/// Portuguese passage is shorter in characters than in UTF-8 bytes, so pricing
+/// bytes would overcharge exactly the audience this feature exists for.
+pub fn estimate(passage: &str) -> Result<Estimate, UnpricedSpeech> {
+    prices::speech(BILLED_AS, passage.chars().count()).map(Estimate::from)
 }
 
 #[cfg(test)]
@@ -106,18 +111,18 @@ mod tests {
     /// slips past the ceiling it was computed for.
     #[test]
     fn a_part_of_a_cent_is_a_whole_cent() {
-        assert_eq!(estimate(&"a".repeat(100)).cents, 1, "100 chars is 1¢ of 10");
-        assert_eq!(estimate(&"a".repeat(101)).cents, 2);
-        assert_eq!(estimate(&"a".repeat(1000)).cents, 10);
+        let cents = |length: usize| estimate(&"a".repeat(length)).unwrap().cents;
+        assert_eq!(cents(100), 1, "100 characters is 1¢ of the 10¢ per 1000");
+        assert_eq!(cents(101), 2);
+        assert_eq!(cents(1000), 10);
     }
 
     /// The vendor counts what a person counts, and a Portuguese passage is
-    /// shorter in characters than in UTF-8 bytes. Pricing bytes would overcharge
-    /// exactly the audience this feature exists for.
+    /// shorter in characters than in UTF-8 bytes.
     #[test]
     fn characters_are_counted_rather_than_bytes() {
         let passage = "ação".repeat(50);
-        assert_eq!(estimate(&passage).characters, 200);
+        assert_eq!(estimate(&passage).unwrap().characters, 200);
         assert!(passage.len() > 200, "the test needs multi-byte characters");
     }
 
@@ -125,7 +130,7 @@ mod tests {
     /// reads as a bill.
     #[test]
     fn the_sentence_says_it_is_an_estimate() {
-        let said = estimate(&"a".repeat(200)).says();
+        let said = estimate(&"a".repeat(200)).unwrap().says();
         assert!(said.contains("$0.02"), "{said}");
         assert!(said.contains("never a bill"), "{said}");
         assert!(said.contains("charged once"), "{said}");

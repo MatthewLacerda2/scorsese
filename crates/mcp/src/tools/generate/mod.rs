@@ -18,11 +18,13 @@
 mod lines;
 mod shots;
 
+use std::path::Path;
 use std::time::Duration;
 
 use scorsese_core::{Asset, AssetKind, Project, Reprobe, probe_assets};
 use scorsese_providers::credentials::{Budget, Settings};
 use scorsese_providers::prices::dollars;
+use scorsese_providers::spending;
 use scorsese_providers::video::{Run, WAIT_FOR};
 use scorsese_render::Ffprobe;
 use serde_json::Value;
@@ -95,7 +97,7 @@ impl Tool for Generate {
         }
 
         let settings = Settings::load().unwrap_or_default();
-        let budget = Budget::from_settings(&settings, spent_so_far(&project));
+        let budget = Budget::from_settings(&settings, spent_so_far(&project, &dir));
         let collecting = flag(arguments, "collect");
         let patience = patience(arguments)?;
 
@@ -231,13 +233,14 @@ fn patience(arguments: &Value) -> Result<Duration, String> {
     }
 }
 
-/// What the assets already say has been spent on them.
-fn spent_so_far(project: &Project) -> u64 {
-    project
-        .assets
-        .iter()
-        .filter_map(|asset| asset.estimated_cost_cents)
-        .sum()
+/// What this project has already spent, against the ceiling.
+///
+/// The assets **and** the designed-voice ledger, because a ceiling that counted
+/// only one of them would be wrong by however much the other holds — designing
+/// a voice is real money at the same vendor. They stay separate figures
+/// wherever they are *reported*; see [`spending`].
+fn spent_so_far(project: &Project, root: &Path) -> u64 {
+    spending::so_far(project, root).total()
 }
 
 /// What a run would cost, without a key and without sending anything.

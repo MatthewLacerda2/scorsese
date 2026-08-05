@@ -66,7 +66,7 @@ pub(crate) fn run(project_dir: &Path, options: &Options) -> Result<()> {
     if options.dry_run {
         // No key, no call, nothing sent. The quote is arithmetic over the
         // passage and needs nothing else.
-        println!("{}", estimate(&brief.passage).says());
+        println!("{}", estimate(&brief.passage)?.says());
         return Ok(());
     }
 

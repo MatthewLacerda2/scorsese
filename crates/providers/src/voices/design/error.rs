@@ -29,6 +29,15 @@ pub enum DesignError {
     #[error(transparent)]
     Voice(#[from] VoiceError),
 
+    /// No published rate for the model a design is billed at.
+    ///
+    /// Unreachable today — every model in the table has a rate, and a test
+    /// holds that true. It is carried rather than swallowed so that a rate
+    /// going missing is a refusal somebody has to answer for, and never a
+    /// design quoted at nothing.
+    #[error(transparent)]
+    Unpriced(#[from] crate::prices::UnpricedSpeech),
+
     /// The run would cross the spending ceiling.
     ///
     /// **Not negotiable by a flag**, exactly as generating a shot is not: the

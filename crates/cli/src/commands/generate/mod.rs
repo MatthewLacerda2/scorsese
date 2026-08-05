@@ -23,6 +23,7 @@ use anyhow::{Context, Result};
 use scorsese_core::{Asset, AssetKind, Project, Reprobe, probe_assets};
 use scorsese_providers::credentials::{Budget, Settings};
 use scorsese_providers::prices::dollars;
+use scorsese_providers::spending;
 use scorsese_providers::video::Run;
 use scorsese_render::Ffprobe;
 
@@ -36,7 +37,7 @@ pub(crate) fn run(project_dir: &Path, patience: Duration, dry_run: bool) -> Resu
     }
 
     let settings = Settings::load().unwrap_or_default();
-    let budget = Budget::from_settings(&settings, spent_so_far(&project));
+    let budget = Budget::from_settings(&settings, spent_so_far(&project, project_dir));
 
     // The document is saved whatever happens, and that is not tidiness: a
     // ticket written before a failure is the only record that money was spent,
@@ -176,13 +177,14 @@ fn quote(project: &Project) -> Result<()> {
     Ok(())
 }
 
-/// What the assets already say has been spent on them.
-fn spent_so_far(project: &Project) -> u64 {
-    project
-        .assets
-        .iter()
-        .filter_map(|asset| asset.estimated_cost_cents)
-        .sum()
+/// What this project has already spent, against the ceiling.
+///
+/// The assets **and** the designed-voice ledger, because a ceiling that counted
+/// only one of them would be wrong by however much the other holds — designing
+/// a voice is real money at the same vendor. They stay separate figures
+/// wherever they are *reported*; see [`spending`].
+fn spent_so_far(project: &Project, root: &Path) -> u64 {
+    spending::so_far(project, root).total()
 }
 
 /// Every brief's line, then the one total that spans both providers.

@@ -74,7 +74,7 @@ pub fn design(
     brief: &Brief,
     budget: Budget,
 ) -> Result<Designing, DesignError> {
-    let estimate = price::estimate(&brief.passage);
+    let estimate = price::estimate(&brief.passage)?;
 
     // The disk first, always: three samples sitting there are the answer to
     // "has this been paid for", whatever anybody expected.

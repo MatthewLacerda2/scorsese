@@ -155,7 +155,10 @@ impl Tool for VoiceDesign {
         .map_err(say)?;
 
         if flag(arguments, "dry_run") {
-            return Ok(estimate(&brief.passage).says().into());
+            return Ok(estimate(&brief.passage)
+                .map_err(|error| format!("{error}"))?
+                .says()
+                .into());
         }
 
         let key = resolve(Provider::ElevenLabs).map_err(|error| format!("{error}"))?;
