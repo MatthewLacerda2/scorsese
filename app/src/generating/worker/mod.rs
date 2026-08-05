@@ -151,7 +151,10 @@ fn sentence(mut parts: Vec<String>, spent: u64, pass: Pass) -> String {
     if spent > 0 {
         // Always with the qualifier. This is a number somebody reads before
         // deciding to spend more, and no provider tells us what was billed.
-        parts.push(format!("about {} spent, by our calculation", dollars(spent)));
+        parts.push(format!(
+            "about {} spent, by our calculation",
+            dollars(spent)
+        ));
     }
     parts.join(" · ")
 }

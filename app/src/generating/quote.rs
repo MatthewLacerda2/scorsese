@@ -266,7 +266,11 @@ mod tests {
 
         let quote = Quote::of(&project);
         assert_eq!(quote.lines[0].cents, 0);
-        assert!(quote.lines[0].shape.contains("no voice"), "{:?}", quote.lines[0].shape);
+        assert!(
+            quote.lines[0].shape.contains("no voice"),
+            "{:?}",
+            quote.lines[0].shape
+        );
         assert!(
             !quote.lines[0].shape.starts_with("vo "),
             "the row already names the asset"
