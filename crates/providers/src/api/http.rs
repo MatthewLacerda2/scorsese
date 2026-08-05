@@ -106,7 +106,7 @@ impl Caller {
     /// A third shape rather than a variation on the other two, because the
     /// asymmetry is the vendor's: ElevenLabs takes JSON and answers with an MP3
     /// when it works and with JSON when it does not. So the reply cannot be
-    /// typed in advance, and it is [`refused`] that decides which of the two
+    /// typed in advance, and the status is what decides which of the two
     /// arrived — a refusal keeps its body whole, which is where the vendor
     /// writes the sentence naming the permission or the plan that was missing.
     pub fn post_bytes<B: Serialize>(
