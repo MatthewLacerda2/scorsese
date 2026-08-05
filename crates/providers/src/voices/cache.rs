@@ -96,11 +96,22 @@ impl Cached {
     }
 }
 
+/// Where a project's cached listings live, whether or not anything has written
+/// one yet.
+///
+/// Public because the directory itself is worth knowing about from outside:
+/// [`cached`](super::cached) answers what is in it *now*, and a window that
+/// stays open needs to notice it change — which is a question about the
+/// directory rather than about any listing in it. Handed out as a path rather
+/// than as two string constants so that where a listing lands stays this
+/// module's business.
+pub fn cache_dir(root: &Path) -> PathBuf {
+    root.join(CACHE_DIR).join(VOICES_DIR)
+}
+
 /// Where a query's answer is kept, inside `root`.
 fn file(root: &Path, key: &str) -> PathBuf {
-    root.join(CACHE_DIR)
-        .join(VOICES_DIR)
-        .join(format!("{}.json", hash_bytes(key.as_bytes())))
+    cache_dir(root).join(format!("{}.json", hash_bytes(key.as_bytes())))
 }
 
 /// The cached answer to `key`, if there is a readable one.

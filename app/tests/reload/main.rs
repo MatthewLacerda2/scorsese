@@ -1,4 +1,5 @@
-//! The window following the document while something else edits it.
+//! The window following what changes underneath it: the document, and the
+//! voice listings cached beside it.
 //!
 //! This is the loop scorsese is built around — an assistant edits over MCP, a
 //! person watches — so these drive the real `draw`, with a real project on
@@ -8,6 +9,7 @@
 mod fixture;
 
 mod following;
+mod voices;
 
 use egui_kittest::Harness;
 use scorsese_app::Scorsese;

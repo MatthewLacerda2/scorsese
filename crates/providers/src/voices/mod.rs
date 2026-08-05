@@ -63,7 +63,7 @@ mod error;
 mod refusal;
 mod run;
 
-pub use cache::REFRESH_AFTER_DAYS;
+pub use cache::{REFRESH_AFTER_DAYS, cache_dir};
 pub use catalogue::{Availability, Catalogue, More, Page, Unusable, Voice};
 pub use elevenlabs::ElevenLabsVoices;
 pub use error::VoiceError;

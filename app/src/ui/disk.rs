@@ -5,6 +5,12 @@
 //! watches. What lives here is everything about noticing that, and the rule
 //! for what happens when both want the document at once — which is stated in
 //! [`crate::project::watch`] and enforced in [`Scorsese::follow_disk`].
+//!
+//! The same repaint carries the other thing the watch follows: the voice
+//! listings cached under the project, which `scorsese voices` writes from a
+//! terminal. That one is not a [`Disk`] state and says nothing in the bar — the
+//! document did not change, so there is nothing to report — it only tells the
+//! inspector to read the list again.
 
 use crate::project::watch;
 use crate::project::{Refused, open};
@@ -75,6 +81,14 @@ impl Scorsese {
             return;
         };
         ctx.request_repaint_after(watch::POLL);
+        // Asked first, and ahead of every one of the document's early returns.
+        // A voice listing arriving while a hand is on a clip is not a reason to
+        // make the picker wait for the hand to come off, and it is not news the
+        // bar reports either: nothing on screen changed except what a dropdown
+        // has to offer.
+        if watch.voices_changed() {
+            self.inspector.forget_voices();
+        }
         if !watch.pending() {
             return;
         }

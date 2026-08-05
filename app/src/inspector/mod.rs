@@ -71,6 +71,18 @@ impl Inspector {
     /// last one's list would offer voices out of a directory nobody is editing.
     pub(crate) fn reset(&mut self) {
         self.refused = None;
+        self.forget_voices();
+    }
+
+    /// Forgets the voice list, so the next repaint reads it again.
+    ///
+    /// The window's answer to `scorsese voices` being run in the terminal next
+    /// to it: the list the picker is offering came out of a directory that has
+    /// just changed, and the cheapest true thing to do about that is to stop
+    /// remembering it. No new state — this is the same forgetting the `Look
+    /// again` button does, decided by the watch rather than by a person who has
+    /// to know to press it.
+    pub(crate) fn forget_voices(&mut self) {
         self.voices.forget();
     }
 
