@@ -153,6 +153,36 @@ contract.
 
 ## How we work
 
+**Where this is developed.** One machine, one person: a Ryzen 5 3400G — 4
+cores, 8 threads — with 16 GB of RAM and an RTX 2060, on Arch Linux. That is
+a current fact and not a decided invariant; the day there are other
+contributors it is up for review. Until then it is the premise several rules
+below are shaped by, and it is written down so nobody re-derives the industry
+default of many contributors on many cold machines and proposes the tooling
+that goes with it.
+
+- 8 threads and 16 GB are what "as many as the machine can actually carry"
+  means below: **worktrees are cheap, simultaneous builds are not.** Several
+  branches checked out costs disk; several concurrent `make gates` runs costs
+  more memory than there is, and rustc's linking is where it runs out.
+  Parallelise the work, stagger the compiles.
+- **Serialized merging is not a scaling problem waiting to be solved.** Merge
+  queues and speculative CI answer a question this repo does not have — at one
+  contributor, rebase-and-verify is a minute by hand.
+- **A warm `target/` is the fast path.** Cross-machine compilation caches
+  (`sccache` and the like) buy cold-build speed by turning off cargo's
+  incremental compilation, which is the wrong trade on a machine that is
+  always warm.
+- **The GPU is real and CI has none.** The compositor is CPU tiny-skia first
+  regardless — that is settled architecture, not a consequence of hardware.
+  The consequence to hold onto is narrower: anything GPU-dependent can be
+  built and tried here, but **can never be a merge gate.**
+- **CI is a different computer.** GitHub-hosted `ubuntu-24.04`: cold, no GPU,
+  and — Arch being a rolling release — very often a different ffmpeg build
+  than the one that produced a frame locally. "Works here" and "passes CI"
+  are separate claims, which is why golden renders compare frames with
+  tolerance rather than encoded bytes.
+
 - **The gates (push back before you build).** An idea becomes an issue only
   when all three hold; if any fails, **push back instead of complying**:
   1. **Understanding.** Claude actually understands the idea — the user has a
