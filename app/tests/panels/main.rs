@@ -116,9 +116,30 @@ fn a_generated_shot_selected() {
     harness.snapshot("a_generated_shot_selected");
 }
 
-/// The generate dialog: what each unmade shot would cost, the total, and the
-/// two sentences that keep the number honest — that it is our calculation, and
-/// what the ceiling is.
+/// A generated line selected: the words, what they will cost to speak, and the
+/// two states this panel exists to make readable.
+///
+/// The language is **not offered** on the model that silently ignores it — the
+/// reason is on screen, naming the model, rather than arriving as a refusal
+/// after somebody has typed a code. And with nothing in the project's voice
+/// cache the picker says what is missing and which command fills it, which is
+/// what a person meets before they have ever run `scorsese voices`.
+#[test]
+fn a_narration_line_selected() {
+    let project = fixture::project("narration");
+    let mut harness = window(Some(project.path().to_path_buf()));
+    harness.state_mut().select("c-vo");
+    harness.run();
+    harness.snapshot("a_narration_line_selected");
+}
+
+/// The generate dialog: what each unmade shot and each unspoken line would
+/// cost, the total, and the two sentences that keep the number honest — that it
+/// is our calculation, and what the ceiling is.
+///
+/// Shots and narration are counted and subtotalled **separately**, because
+/// their rates are two orders of magnitude apart: a 96¢ shot and a 2¢ line
+/// summed into one figure is a number nobody can act on.
 ///
 /// **The one dialog in this window**, because it is the one moment that is not
 /// an editing operation: money leaves. A number on screen before a

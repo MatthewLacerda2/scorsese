@@ -25,7 +25,7 @@ mod fields;
 mod voices;
 
 use egui::{Grid, Ui};
-use scorsese_core::{Asset, AssetId, AssetKind, Project, SpeechRequest};
+use scorsese_core::{Asset, AssetId, AssetKind, Project, SpeechModel, SpeechRequest};
 
 use crate::inspector::Inspector;
 use crate::inspector::selected::Selected;
@@ -87,15 +87,7 @@ impl Inspector {
             }
             if let Some(model) = fields::model_row(ui, brief.request.model) {
                 self.attempt_brief(open, selected, &brief.asset, "the model", move |asset| {
-                    let request = request_of(asset);
-                    request.model = model;
-                    // A language pinned on a model that drops it is a document
-                    // the project refuses, so the switch takes it along. The
-                    // person who changed the model gets a coherent brief rather
-                    // than a refusal about a field they did not touch.
-                    if !model.takes_language() {
-                        request.language = None;
-                    }
+                    speak_with(request_of(asset), model);
                 });
             }
             if let Some(language) = fields::language_row(ui, &brief.request) {
@@ -121,4 +113,57 @@ impl Inspector {
 /// here because this is the one place that writes it back.
 fn request_of(asset: &mut Asset) -> &mut SpeechRequest {
     asset.speech.get_or_insert_with(SpeechRequest::default)
+}
+
+/// Changes the model, and drops a language the new one would ignore.
+///
+/// **The two together, in one edit.** Leaving the language behind would leave
+/// the brief in a state the project refuses, so the model change would come
+/// back as a refusal about a field nobody touched — and the person reading it
+/// would have to work out that the two were connected. The precedent is
+/// `stills`, which clears a shot's last image when its first one goes: where a
+/// choice makes another meaningless, the choice takes it with it.
+fn speak_with(request: &mut SpeechRequest, model: SpeechModel) {
+    request.model = model;
+    if !model.takes_language() {
+        request.language = None;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A request with a language pinned on a model that honours it.
+    fn pinned() -> SpeechRequest {
+        SpeechRequest {
+            model: SpeechModel::Fast,
+            language: Some(String::from("pt")),
+            ..SpeechRequest::default()
+        }
+    }
+
+    /// The interaction this panel exists to get right, from the other side: a
+    /// person switching to the model that ignores a language does not get a
+    /// refusal about the language, they get a brief without one.
+    #[test]
+    fn switching_to_a_model_that_ignores_a_language_drops_it() {
+        let mut request = pinned();
+        speak_with(&mut request, SpeechModel::Standard);
+        assert_eq!(request.model, SpeechModel::Standard);
+        assert_eq!(request.language, None);
+        assert!(
+            request.conflict().is_none(),
+            "the document must accept what the panel just wrote"
+        );
+    }
+
+    /// And a model that does honour one leaves it exactly where it was — the
+    /// clearing is a consequence of the constraint, not of changing the model.
+    #[test]
+    fn switching_between_models_that_pin_a_language_keeps_it() {
+        let mut request = pinned();
+        speak_with(&mut request, SpeechModel::Expressive);
+        assert_eq!(request.language.as_deref(), Some("pt"));
+    }
 }

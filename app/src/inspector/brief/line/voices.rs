@@ -154,8 +154,50 @@ fn find<'a>(id: &str, known: &'a [Voice]) -> Option<&'a Voice> {
 fn describe(voice: &Voice) -> String {
     let mut said = voice.says();
     if let Some(description) = &voice.description {
-        said.push_str("\n");
+        said.push('\n');
         said.push_str(description);
     }
     said
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// One voice, as a listing fills one in.
+    fn known() -> Vec<Voice> {
+        vec![Voice {
+            id: String::from("v1"),
+            name: String::from("Ana"),
+            traits: vec![String::from("pt"), String::from("female")],
+            description: None,
+            preview: None,
+        }]
+    }
+
+    /// Nothing chosen says so, and says that it has to be — this is the one
+    /// field on the panel that is not optional at the point of spending.
+    #[test]
+    fn no_voice_chosen_reads_as_a_requirement_rather_than_a_default() {
+        assert_eq!(showing(None, &known()), NONE);
+        assert!(note(None, &known()).contains("required"));
+    }
+
+    /// The case with a date on it: every ElevenLabs default voice expires on
+    /// 2026-12-31, so an id the list does not know is expected rather than
+    /// broken. It is shown **as itself** and never swapped for one that works —
+    /// narration in a voice nobody chose would sound perfectly fine.
+    #[test]
+    fn a_voice_the_list_does_not_know_is_shown_as_itself_and_flagged() {
+        assert_eq!(showing(Some("gone"), &known()), "gone");
+        assert!(note(Some("gone"), &known()).contains("withdrawn"));
+    }
+
+    /// A voice that is there reads by name, with whatever the listing said
+    /// about it beside the picker.
+    #[test]
+    fn a_voice_that_is_there_reads_by_name() {
+        assert_eq!(showing(Some("v1"), &known()), "Ana");
+        assert_eq!(note(Some("v1"), &known()), "pt, female");
+    }
 }

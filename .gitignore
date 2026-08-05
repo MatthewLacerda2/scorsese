@@ -31,6 +31,9 @@ cache/
 #.idea/
 
 # Snapshot comparison leaves these beside the references when a panel changed.
-# The reference is committed; what a failing run produced is not.
+# The reference is committed; what a failing run produced is not, and neither
+# is the reference a blessing run replaced — `.old.png` is the picture that was
+# just superseded, which is a thing to look at once and never a thing to keep.
 *.new.png
 *.diff.png
+*.old.png

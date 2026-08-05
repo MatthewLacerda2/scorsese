@@ -10,8 +10,14 @@
 //! person paying for it.
 //!
 //! Nothing here is a new capability: it is `scorsese generate`, given a
-//! surface, calling the same functions with the same rate table and the same
+//! surface, calling the same functions with the same rate tables and the same
 //! ceiling.
+//!
+//! **Two vendors, said apart.** Shots are priced by Veo's table and lines by
+//! ElevenLabs', and the two are two orders of magnitude apart — ninety-six
+//! cents against about two. So they are counted, subtotalled and reported as
+//! separate groups: a single figure covering both is arithmetic nobody can act
+//! on, because it does not say which half to go and change.
 
 mod quote;
 mod worker;
