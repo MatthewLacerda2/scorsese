@@ -55,6 +55,7 @@
 pub mod api;
 pub mod credentials;
 pub mod prices;
+pub mod speech;
 pub mod synth;
 pub mod video;
 pub mod voices;
