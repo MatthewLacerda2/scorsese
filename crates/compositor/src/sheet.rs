@@ -91,11 +91,16 @@ pub enum SheetError {
 
 /// Tiles `cells` into one picture, each labelled along its bottom edge.
 ///
-/// The grid is at most three across: a single row while that fits, two rows
-/// beyond it. Wider would make a sheet a letterbox strip whose cells are
+/// The arrangement is at most three across: a single row while that fits, two
+/// rows beyond it. Wider would make a sheet a letterbox strip whose cells are
 /// unreadable at any sensible width, and taller would put the last frame so
 /// far from the first that the eye stops comparing them.
-pub fn tile(mut cells: Vec<Cell>, font: &Font) -> Result<Frame, SheetError> {
+///
+/// `ruled` draws [`crate::grid`]'s coordinates over **each cell**, which is the
+/// only place they can go: a cell is one whole source frame, so its fractions
+/// are the source's own — which is exactly what a `crop` is written in. Ruling
+/// the finished sheet would measure the tiling instead.
+pub fn tile(mut cells: Vec<Cell>, font: &Font, ruled: bool) -> Result<Frame, SheetError> {
     let cell = layout_size(&cells)?;
     let (columns, rows) = grid(cells.len());
     let canvas_size =
@@ -110,6 +115,12 @@ pub fn tile(mut cells: Vec<Cell>, font: &Font) -> Result<Frame, SheetError> {
 
     for one in &mut cells {
         stamp(one, font);
+        // After the timestamp, not before: the strip that carries it is a
+        // panel of near-black, and a `1.0` drawn under it would be the one
+        // coordinate on the picture nobody could read.
+        if ruled {
+            crate::grid::draw(&mut one.frame);
+        }
     }
 
     let mut canvas = Frame::black(canvas_size);

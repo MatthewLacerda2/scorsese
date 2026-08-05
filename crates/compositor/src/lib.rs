@@ -42,6 +42,12 @@
 //! is. It is a hundred lines that call the other two modules, and it is not a
 //! rendering path of its own — that is the point of it.
 //!
+//! [`mod@grid`] is the one thing here that is part of no picture: a ruler drawn
+//! *over* a finished frame, in the fractions `crop` and `transform.position`
+//! are written in, so a coordinate can be read off a still instead of guessed
+//! at. Nothing that renders a file calls it, and nothing it draws is ever
+//! composited.
+//!
 //! Boundary: no ffmpeg invocation, no encoding, no file I/O on media, no
 //! provider calls, no GUI event loop. It depends on `scorsese-core` for the
 //! model and nothing above it. The shipped faces are compiled in with
@@ -57,7 +63,7 @@
 //! the [`Registry`] that searches it, and the two fades ([`fade_in`],
 //! [`fade_out`]).
 //!
-//! [`text`], [`card`] and [`mod@dissolve`] keep their module path as well,
+//! [`text`], [`card`], [`mod@grid`] and [`mod@dissolve`] keep their module path as well,
 //! because what they publish are *verbs* — `draw`, `draw_in`, `draw_line`,
 //! `dissolve` — and a verb that general needs the noun in front of it to read.
 //! `text::draw` and `card::draw` could not both sit at the root in any case.
@@ -75,6 +81,7 @@ mod compose;
 mod cpu;
 pub mod dissolve;
 mod frame;
+pub mod grid;
 mod properties;
 mod registry;
 pub mod sheet;

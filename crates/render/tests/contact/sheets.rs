@@ -46,6 +46,7 @@ fn the_cells_are_the_moments_that_were_asked_for() {
             from_seconds: 2.0,
             to_seconds: None,
             count: 3,
+            ..Look::default()
         },
     )
     .expect("a sheet of a 15-second file");

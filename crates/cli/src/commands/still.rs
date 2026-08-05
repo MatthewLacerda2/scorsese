@@ -22,11 +22,16 @@ use scorsese_render::{Cue, RenderSettings, Renderer, Resolution, Tools, frames};
 /// once — the same bargain `render --stills` makes, for the same reason: an
 /// agent that asks about a boundary and about the time that boundary falls at
 /// has asked one question.
+///
+/// `grid` rules each frame with coordinates before it is written. The PNG is
+/// the only thing this command produces, so that is where the ruler goes: a
+/// flag kept off the one file it makes would do nothing at all.
 pub(crate) fn run(
     project_dir: &Path,
     out: &Path,
     at: &[Cue],
     resolution: Resolution,
+    grid: bool,
 ) -> Result<()> {
     let project = Project::load(project_dir)
         .with_context(|| format!("opening the project in {}", project_dir.display()))?;
@@ -48,17 +53,23 @@ pub(crate) fn run(
     let several = wanted.len() > 1;
 
     for frame in wanted {
-        let picture = renderer
+        let mut picture = renderer
             .still(&project, project_dir, frame)
             .with_context(|| format!("compositing timeline frame {}", frame.get()))?;
+        // After compositing, over the finished frame — the ruler is furniture
+        // for reading the picture, not a layer of it.
+        if grid {
+            scorsese_render::grid::draw(&mut picture);
+        }
         let path = destination(out, frame, several);
         frames::write_png(&tools, &path, &picture)
             .with_context(|| format!("writing {}", path.display()))?;
         println!(
-            "Wrote {} — frame {} ({:.2}s) at {resolution}",
+            "Wrote {} — frame {} ({:.2}s) at {resolution}{}",
             path.display(),
             frame.get(),
-            fps.seconds(frame)
+            fps.seconds(frame),
+            if grid { ", ruled in fractions" } else { "" }
         );
     }
     Ok(())

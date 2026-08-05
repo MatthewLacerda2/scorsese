@@ -67,6 +67,7 @@ fn a_named_range_spreads_evenly_across_itself() {
         from_seconds: 0.0,
         to_seconds: Some(10.0),
         count: 5,
+        ..Look::default()
     };
     assert_eq!(asked.moments(60.0), [0.0, 2.5, 5.0, 7.5, 10.0]);
 }
@@ -77,6 +78,7 @@ fn a_range_running_past_the_end_stops_at_the_end() {
         from_seconds: 8.0,
         to_seconds: Some(400.0),
         count: 3,
+        ..Look::default()
     };
     let moments = asked.moments(12.0);
     assert_eq!(moments.first(), Some(&8.0));

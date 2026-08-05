@@ -112,6 +112,14 @@ pub use scorsese_compositor::{Frame, PIXEL_FORMAT};
 /// project meets the vocabulary of the thing that draws it.
 pub use scorsese_compositor::{DissolveError, Placed, dissolve};
 
+/// The coordinate ruler, which belongs to the compositor because it draws.
+/// Re-exported because the callers that want it — the CLI and the MCP server —
+/// reach a frame through this crate and never depend on the compositor
+/// directly. [`grid::draw`] goes over a finished [`Frame`], once
+/// [`Renderer::still`] has handed one back; a contact sheet rules its cells
+/// inside [`contact::sheet`], where the source's own geometry still exists.
+pub use scorsese_compositor::grid;
+
 pub use contact::{ContactError, Look, Sheet};
 pub use describe::{
     Animated, Commentary, Cue, CueError, Description, Moment, Playing, Shown, Stretch, Travel,

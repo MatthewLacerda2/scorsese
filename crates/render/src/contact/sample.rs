@@ -22,7 +22,7 @@ pub const STEP_SECONDS: f64 = 5.0;
 /// scaled *up*: enlarging pixels adds no information and costs the wire.
 pub const CELL_LONGEST_SIDE: u32 = 480;
 
-/// What part of a file to look at, and how closely.
+/// What part of a file to look at, how closely, and whether to rule it.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Look {
     /// Where to start, in seconds from the beginning of the file.
@@ -32,16 +32,24 @@ pub struct Look {
     pub to_seconds: Option<f64>,
     /// How many frames to take, capped at [`MAX_FRAMES`].
     pub count: usize,
+    /// Whether each cell carries a coordinate grid over it.
+    ///
+    /// Off unless asked for, because the ruler is drawn *on* the picture: it is
+    /// what somebody reading a `crop` off the footage wants and the last thing
+    /// somebody keeping the sheet does. A cell is one whole source frame, so
+    /// the fractions it marks are the source's own — the units `crop` takes.
+    pub grid: bool,
 }
 
 impl Default for Look {
     /// The whole of what a caller who says nothing gets: five frames from the
-    /// start, five seconds apart.
+    /// start, five seconds apart, and no ruler over them.
     fn default() -> Self {
         Self {
             from_seconds: 0.0,
             to_seconds: None,
             count: MAX_FRAMES,
+            grid: false,
         }
     }
 }

@@ -20,7 +20,7 @@
 //! at it would prove nothing.
 
 use scorsese_core::{Fps, Frames};
-use scorsese_render::{Cue, RenderSettings, Renderer, Resolution, Tools, frames};
+use scorsese_render::{Cue, RenderSettings, Renderer, Resolution, Tools, frames, grid};
 use serde_json::Value;
 
 use crate::tools::inspect::load;
@@ -56,7 +56,9 @@ impl Tool for Still {
          project_describe can only assert — that a title is readable, that a \
          layer is where it was meant to be, that a cut lands. Sketch and stale \
          generated assets appear as slug cards, so a frame of an unrealised \
-         shot still shows something."
+         shot still shows something. Pass grid: true to have the frame ruled in \
+         the fractions the document itself takes, so a coordinate is read off \
+         the picture rather than converged on by guessing."
     }
 
     fn costs(&self) -> Costs {
@@ -83,6 +85,21 @@ impl Tool for Still {
                     "description": "The raster to composite at, e.g. 1920x1080. Layout \
                                     is a fraction of the frame, so a smaller one is the \
                                     same picture and a smaller reply. Default 1280x720."
+                },
+                "grid": {
+                    "type": "boolean",
+                    "description": "Rule the picture with coordinates: a line every 0.1 of \
+                                    the frame, heavier at 0.5, labelled along the top and \
+                                    left edges, origin at the top-left corner. Fractions of \
+                                    the raster, which is the unit transform.position.x and \
+                                    transform.position.y are written in — so where a layer \
+                                    sits is read off the picture instead of guessed at, \
+                                    rendered, and guessed again. A position is an offset \
+                                    from where the layer already rests, so what the ruler \
+                                    gives you is the distance to move it. Default false, \
+                                    because the lines are drawn onto the frame itself — \
+                                    including a PNG kept with `out` — so ask for them while \
+                                    measuring and leave them off for a picture to keep."
                 },
                 "out": {
                     "type": "string",
@@ -119,11 +136,21 @@ impl Tool for Still {
         let settings = RenderSettings::new(resolution, project.timeline_fps);
         let renderer = Renderer::new(&tools, settings);
 
+        let ruled = arguments
+            .get("grid")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+
         let mut parts = Vec::with_capacity(instants.len());
         for at in instants {
-            let frame = renderer
+            let mut frame = renderer
                 .still(&project, &dir, at)
                 .map_err(|error| format!("compositing frame {}: {error}", at.get()))?;
+            // After compositing, over the finished frame: the ruler is
+            // furniture for reading the picture, never a layer of the edit.
+            if ruled {
+                grid::draw(&mut frame);
+            }
 
             // Written to a file either way: PNG encoding is ffmpeg's, and
             // ffmpeg writes files. Where it goes is the only difference — a
@@ -136,8 +163,9 @@ impl Tool for Still {
                 .map_err(|error| format!("reading {} back: {error}", png.path.display()))?;
 
             let seconds = project.timeline_fps.seconds(at);
+            let ruler = if ruled { ", ruled 0.0 to 1.0" } else { "" };
             let mut said = format!(
-                "frame {} ({seconds:.2}s) of {} at {resolution}",
+                "frame {} ({seconds:.2}s) of {} at {resolution}{ruler}",
                 at.get(),
                 project.name
             );
