@@ -360,6 +360,47 @@ flips to `generated` and the next tool call proceeds having got a sunset where
 it asked for a sunrise. Generate, look, decide whether to re-prompt — and
 `generate` below is the first half of that loop.
 
+### `grid` — reading a coordinate off the picture
+
+Both tools answer *what is there*, and neither, on its own, answers *where*.
+Every number an assistant writes into a document is a coordinate: a `crop`
+rectangle, a title's `transform.position.y`. Found without a ruler, each one
+costs a round of guess, render, look, guess again — an ffmpeg run and a whole
+image through the client, to learn a number a ruler shows immediately.
+
+`grid: true` rules the picture: a line every `0.1`, heavier at `0.5`, labelled
+along the top and left edges, origin at the top-left corner.
+
+```
+still  { "project": "teaser.scor", "at": "9.1s", "grid": true }
+       → "frame 273 (9.10s) of Teaser at 1280x720, ruled 0.0 to 1.0",
+         and the picture with the ruler on it
+```
+
+**Fractions, never pixels.** Pixels change with the raster and with `still`'s
+`resolution`; fractions are what the document takes, so what is read off the
+picture is what gets typed into it. The two tools rule different things, and
+that difference is the useful part:
+
+| | what `0.0`–`1.0` spans | the unit of |
+| --- | --- | --- |
+| `still` | the render raster | `transform.position.x`, `transform.position.y` |
+| `look` | the **source's** own width and height | a clip's `crop` |
+
+`look` rules **each frame of the sheet** rather than the sheet, because a cell
+is one whole source frame — so a rectangle read off a cell is a rectangle
+`crop` will take. The tiling is never a coordinate.
+
+One thing the ruler does not do for you: `transform.position` is an **offset**
+from where a layer already rests, not the place it lands. On a `still` the grid
+gives you where the layer is and where you want it; the number to write is the
+distance between them.
+
+**Off by default, and drawn on the frame itself** — including a PNG kept with
+`out`, and the one `scorsese still --out` writes. It is what you pass while
+measuring; leave it off for a picture you mean to keep, because there is no
+taking the lines off afterwards.
+
 ## Generating the shots and lines that do not exist yet
 
 `generate` is **the one tool here that costs money**, and everything about its

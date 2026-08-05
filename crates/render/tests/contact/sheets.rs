@@ -57,6 +57,37 @@ fn the_cells_are_the_moments_that_were_asked_for() {
     assert_eq!(band(cell_colour(&sheet.image, 2, 0, 3, 1)), Some("blue"));
 }
 
+/// A ruled sheet marks **each cell** — its own middle, in the source's own
+/// fractions — rather than the tiling. The two heavy rules of a cell cross at
+/// the centre of it, which is exactly where the unruled test above reads a
+/// band's colour: so the same pixel is white here and coloured there.
+#[test]
+fn a_ruled_sheet_marks_the_cells_and_not_the_tiling() {
+    let dir = fixture_dir("contact-ruled");
+    let tools = tools();
+    let file = banded(&tools, &dir);
+
+    let sheet = contact::sheet(
+        &tools,
+        &file,
+        &Look {
+            count: 2,
+            grid: true,
+            ..Look::default()
+        },
+    )
+    .expect("a ruled sheet");
+
+    for cell in 0..2 {
+        let (r, g, b) = cell_colour(&sheet.image, cell, 0, 2, 1);
+        assert!(
+            r > 150 && g > 150 && b > 150,
+            "the middle of cell {cell} came out ({r}, {g}, {b}) — its 0.5 rules \
+             are not crossing there"
+        );
+    }
+}
+
 /// Five cells are three across and two down, so the sheet is twice as tall as
 /// one cell and three times as wide.
 #[test]

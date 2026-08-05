@@ -106,11 +106,14 @@ fn label_size(resolution: Resolution) -> f32 {
 /// What each label reads and where its pen starts — `x` along the top edge,
 /// `y` down the left one.
 ///
-/// A label sits just *inside* the line it belongs to, on the side with the
-/// frame on it, so the last one on each axis turns around rather than falling
-/// off the picture. The `0.0` of the vertical axis is left out: the top-left
-/// corner is already spoken for by the horizontal one, and two labels in one
-/// place are less legible than one.
+/// Horizontal labels all share one row at the top and sit to the right of the
+/// line they name, except the last, which turns around rather than falling off
+/// the picture. Vertical labels sit **above** their line, every one of them:
+/// below would put `0.9` and `1.0` a single line apart at the foot of the
+/// frame, which is the one place two of these ever collide.
+///
+/// The vertical `0.0` is left out. The top-left corner is already spoken for by
+/// the horizontal one, and two labels in one place read as neither.
 fn labels(resolution: Resolution, font: &Font, size: f32) -> Vec<(String, (f32, f32))> {
     let width = resolution.width() as f32;
     let height = resolution.height() as f32;
@@ -119,22 +122,18 @@ fn labels(resolution: Resolution, font: &Font, size: f32) -> Vec<(String, (f32, 
     for step in 0..=DIVISIONS {
         let fraction = step as f32 / DIVISIONS as f32;
         let text = format!("{fraction:.1}");
-        let last = step == DIVISIONS;
 
         let at = width * fraction;
-        let x = if last {
+        let x = if step == DIVISIONS {
             at - gap - text::width(font, &text, size)
         } else {
             at + gap
         };
-        runs.push((text.clone(), (x, size * 1.15)));
+        runs.push((text.clone(), (x, size * 1.05)));
 
-        if step == 0 {
-            continue;
+        if step > 0 {
+            runs.push((text, (gap, height * fraction - gap)));
         }
-        let at = height * fraction;
-        let baseline = if last { at - gap } else { at + size * 0.95 };
-        runs.push((text, (gap, baseline)));
     }
     runs
 }
