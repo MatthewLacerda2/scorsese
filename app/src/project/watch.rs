@@ -288,10 +288,11 @@ mod tests {
     }
 
     /// Answered once and cleared: re-reading a listing every repaint is what
-    /// the picker keeps a copy to avoid.
+    /// the picker keeps a copy to avoid, so a change that stayed true would
+    /// undo the reason the copy exists.
     #[test]
-    fn a_cache_nobody_has_touched_is_never_a_change() {
-        let project = project("quiet-listing");
+    fn a_listing_is_answered_once_and_then_cleared() {
+        let project = project("answered-once");
         listing(&project.0, "[]");
         let mut watch = Watch::on(&project.0);
         listing(&project.0, "[ \"a voice\" ]");
@@ -299,6 +300,20 @@ mod tests {
 
         assert!(watch.voices_changed(), "the change is there to begin with");
         assert!(!watch.voices_changed(), "and asking again does not find it");
+    }
+
+    /// A cache nobody has touched is not news, whether or not there is one.
+    #[test]
+    fn an_untouched_cache_is_never_a_change() {
+        let filled = project("quiet-listing");
+        listing(&filled.0, "[]");
+        let empty = project("quiet-no-listing");
+        let mut watches = [Watch::on(&filled.0), Watch::on(&empty.0)];
+
+        std::thread::sleep(POLL * 2);
+
+        assert!(!watches[0].voices_changed(), "a listing sitting still");
+        assert!(!watches[1].voices_changed(), "and no listing at all");
     }
 
     /// The two are answered separately. A listing arriving is not the document
