@@ -42,8 +42,14 @@ pub fn generate(
     budget: Budget,
 ) -> Result<Vec<(AssetId, Outcome)>, GenerationError> {
     let mut done = Vec::new();
+    let mut spent = 0;
     for id in generated_video_ids(project) {
-        let outcome = one(project, root, provider, budget, &id)?;
+        // Against the ceiling *including what this run has already committed*.
+        // A budget is built once, from what the project had spent before the
+        // run started, so checking every shot against that same figure asks
+        // twenty times whether one more shot fits and never whether twenty do.
+        let outcome = one(project, root, provider, budget.spend(spent), &id)?;
+        spent += outcome.spent_cents();
         done.push((id, outcome));
     }
     Ok(done)
