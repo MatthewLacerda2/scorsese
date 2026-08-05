@@ -73,6 +73,18 @@ pub(crate) fn run_in(dir: &Path, arguments: &[&str]) -> Run {
     capture(command)
 }
 
+/// The same, with extra environment variables set — how a test points a run at
+/// a settings file of its own rather than the one belonging to whoever is
+/// running the tests. A run that read the real settings would find a real key.
+pub(crate) fn run_in_env(dir: &Path, arguments: &[&str], env: &[(&str, &Path)]) -> Run {
+    let mut command = Command::new(env!("CARGO_BIN_EXE_scorsese"));
+    command.args(arguments).arg("--project").arg(dir);
+    for (name, value) in env {
+        command.env(name, value);
+    }
+    capture(command)
+}
+
 /// The same, with ffmpeg and ffprobe pointed at nothing runnable — so a command
 /// that reaches for either fails and names it, and one that does not, cannot.
 pub(crate) fn run_without_tools(dir: &Path, arguments: &[&str]) -> Run {

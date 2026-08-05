@@ -74,6 +74,26 @@ machine is not a guarantee on the next. Every field is optional; a machine
 nobody has configured has an empty file or none at all, and that is not an
 error.
 
+## Asking before spending
+
+`scorsese generate` prints the quote `--dry-run` would have printed and waits to
+be told to go ahead. Anything but a plain `y` is a no, and pressing return is a
+no: the answer somebody unsure gives by reflex has to be the one that spends
+nothing. Declining is not a failure — the run says nothing was sent and exits
+zero.
+
+`--yes` answers in advance, which is what an unattended run passes. **With stdin
+a pipe rather than a terminal and no `--yes`, the run is refused**, and the
+message names the flag: a CI job, an MCP call or an agent's shell has nobody to
+type an answer, and a question asked into one of those hangs until something
+kills it. A run with nothing left to submit is never asked and never refused, so
+`scorsese generate` over a project that is already generated still works from a
+script exactly as it did.
+
+The question sits **above** the ceiling below, and the two are not alternatives:
+one is permission from whoever is there, the other is a number that holds when
+nobody is.
+
 ## The ceiling
 
 `budget_cents` is the most one run may spend, and it is refused **even under
