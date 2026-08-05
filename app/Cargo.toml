@@ -64,6 +64,13 @@ scorsese-core = { path = "../crates/core" }
 # for the compositor directly — is what keeps the window from growing a second
 # way to draw the picture.
 scorsese-render = { path = "../crates/render" }
+# The estimate, the ceiling and the spend a generate dialog shows have to be
+# the same arithmetic `scorsese generate` and the MCP tool use — a window with
+# its own copy of a price table is exactly what docs/prices.md exists to
+# prevent. It costs `ureq` and `rustls` in the app's tree, which is the price
+# of the window being a client of the same library logic rather than a second
+# implementation of it.
+scorsese-providers = { path = "../crates/providers" }
 
 [dev-dependencies]
 egui_kittest = { version = "0.35.0", features = ["wgpu", "snapshot"] }

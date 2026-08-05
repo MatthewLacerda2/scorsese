@@ -29,6 +29,7 @@
 
 mod editing;
 mod files;
+mod generating;
 mod inspector;
 mod preview;
 mod project;

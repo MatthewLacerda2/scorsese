@@ -8,7 +8,7 @@ use std::path::Path;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
-use scorsese_core::Project;
+use scorsese_core::{AssetKind, Project};
 use scorsese_providers::credentials::{Budget, Provider, Settings, resolve};
 use scorsese_providers::prices::dollars;
 use scorsese_providers::video::{Outcome, Run, VeoProvider, collect, generate_waiting};
@@ -76,7 +76,7 @@ fn quote(project: &Project) -> Result<()> {
     for asset in project
         .assets
         .iter()
-        .filter(|asset| asset.kind.is_prompted())
+        .filter(|asset| asset.kind == AssetKind::GeneratedVideo)
     {
         let estimate = scorsese_providers::prices::estimate(&asset.video_request())?;
         println!(

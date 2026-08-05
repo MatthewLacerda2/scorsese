@@ -25,6 +25,7 @@
 //! honestly be said about a group without inventing an edit that acts on all of
 //! them.
 
+mod brief;
 mod controls;
 mod edit;
 #[cfg(test)]
@@ -39,6 +40,7 @@ use scorsese_core::Clip;
 
 use crate::editing::Editing;
 use crate::project::Open;
+use brief::Brief;
 use edit::Refusal;
 use selected::Selected;
 

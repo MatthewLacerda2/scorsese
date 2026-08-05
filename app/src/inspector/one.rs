@@ -22,6 +22,13 @@ impl Inspector {
         identity(ui, selected);
         ui.add_space(8.0);
         self.controls(ui, open, selected);
+        // Under the clip's own fields, because it is about the *asset*: a
+        // person reads what this clip is, then what the shot behind it asked
+        // for. Absent for everything that is not a generated shot, which is
+        // most things.
+        if let Some(brief) = super::Brief::of(&open.project, &selected.asset) {
+            self.brief(ui, open, selected, &brief);
+        }
         self.animation(ui, open, selected);
     }
 
