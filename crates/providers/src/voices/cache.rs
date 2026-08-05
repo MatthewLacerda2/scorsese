@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 
 use scorsese_core::{CACHE_DIR, Timestamp, hash_bytes};
 
-use super::catalogue::Voice;
+use super::catalogue::{More, Page, Voice};
 
 /// How long a cached listing is served before it is fetched again.
 ///
@@ -56,6 +56,19 @@ pub(crate) struct Cached {
     pub(crate) fetched_unix: Option<i64>,
     /// What was in it.
     pub(crate) voices: Vec<Voice>,
+    /// Whether the vendor had more than it sent, saved along with the voices.
+    ///
+    /// Not recomputed on the way out, because there is nothing left to
+    /// recompute it from: the reply that said so is a week gone by then. A
+    /// truncated search whose cached copy read as complete would be the silent
+    /// cap again, with a longer life than the one that produced it.
+    ///
+    /// Defaulted, so an entry written before this field existed reads as a
+    /// complete listing rather than as an unparseable one. That is the wrong
+    /// answer for at most a week — [`REFRESH_AFTER_DAYS`] — and a cache miss
+    /// would cost a fetch to correct something that expires on its own.
+    #[serde(default)]
+    pub(crate) more: Option<More>,
 }
 
 impl Cached {
@@ -129,7 +142,7 @@ pub(crate) fn all(root: &Path) -> Vec<Cached> {
 /// Atomically, for the reason every other write in this crate is: a truncated
 /// file here is not a crash but something worse — a short list that looks like
 /// a complete one, served for a week.
-pub(crate) fn write(root: &Path, key: &str, voices: &[Voice]) -> Result<(), std::io::Error> {
+pub(crate) fn write(root: &Path, key: &str, page: &Page) -> Result<(), std::io::Error> {
     let path = file(root, key);
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
@@ -139,7 +152,8 @@ pub(crate) fn write(root: &Path, key: &str, voices: &[Voice]) -> Result<(), std:
         listing: key.to_owned(),
         fetched_at: unix.and_then(Timestamp::from_unix),
         fetched_unix: unix,
-        voices: voices.to_vec(),
+        voices: page.voices.clone(),
+        more: page.more,
     };
     let text = serde_json::to_string_pretty(&cached)
         .map_err(|error| std::io::Error::other(error.to_string()))?;

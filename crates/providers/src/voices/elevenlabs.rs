@@ -20,10 +20,10 @@
 //! Library is not sold to this account* on a listing and *this voice may not be
 //! used* on a lookup, and no reading of the body could tell those apart.
 
-use crate::api::elevenlabs::voices::{self, Filters, Voices};
+use crate::api::elevenlabs::voices::{self, Filters, Listing, Voices};
 use crate::credentials::Secret;
 
-use super::catalogue::{Availability, Catalogue, Voice};
+use super::catalogue::{Availability, Catalogue, More, Page, Voice};
 use super::error::VoiceError;
 use super::refusal::{NO_VOICE, failure, plan_limited, refused, unusable};
 
@@ -58,7 +58,7 @@ impl Catalogue for ElevenLabsVoices {
         Ok(listing.voices.iter().map(voice).collect())
     }
 
-    fn library(&self, filters: &Filters) -> Result<Vec<Voice>, VoiceError> {
+    fn library(&self, filters: &Filters) -> Result<Page, VoiceError> {
         let listing = self.voices.shared(filters).map_err(|error| {
             // The plan refusal only has a meaning on this endpoint: the Voice
             // Library is the part that is not sold to a free account, and the
@@ -70,7 +70,7 @@ impl Catalogue for ElevenLabsVoices {
                 None => failure(NAME, error),
             }
         })?;
-        Ok(listing.voices.iter().map(voice).collect())
+        Ok(page(&listing))
     }
 
     fn one(&self, voice_id: &str) -> Result<Availability, VoiceError> {
@@ -87,6 +87,22 @@ impl Catalogue for ElevenLabsVoices {
                 None => Err(failure(NAME, error)),
             },
         }
+    }
+}
+
+/// A vendor listing as scorsese carries one, whether it was cut short included.
+///
+/// **`has_more` decides whether there is a [`More`] at all, and `total_count`
+/// only fills it in.** The two answer different questions and the vendor sends
+/// the total on every `/shared-voices` reply — including the ones that returned
+/// everything — so reading the total alone would report a complete search as a
+/// capped one.
+fn page(listing: &Listing) -> Page {
+    Page {
+        voices: listing.voices.iter().map(voice).collect(),
+        more: listing.has_more.then_some(More {
+            total: listing.total_count,
+        }),
     }
 }
 
@@ -146,8 +162,8 @@ fn voice(found: &voices::Voice) -> Voice {
 /// something wrong. Only a captured body can tell those two apart.
 #[cfg(test)]
 mod tests {
+    use super::super::run::{Answer, Freshness};
     use super::*;
-    use crate::api::elevenlabs::voices::Listing;
 
     /// The built-in listing, as the vendor sent it.
     const PREMADE: &str = include_str!("../../fixtures/elevenlabs/premade.json");
@@ -232,6 +248,43 @@ mod tests {
                 "conversational"
             ]
         );
+    }
+
+    /// The wrongness this listing had, read off the body that has it: the
+    /// vendor answered a search for Portuguese with 100 voices, `has_more` and
+    /// a count of 4,274, and every one of those three facts reached a reader as
+    /// the first alone. The captured numbers are what make this a measurement
+    /// rather than a guess about scale.
+    #[test]
+    fn a_capped_library_search_says_it_was_capped() {
+        let page = page(&listing(LIBRARY));
+        let more = page.more.expect("the vendor said there were more");
+        assert_eq!(more.total, Some(4274));
+
+        let answer = Answer {
+            voices: page.voices,
+            more: page.more,
+            freshness: Freshness::Fetched,
+        };
+        let said = answer.summary("the Voice Library", "--refresh");
+        assert!(said.contains("of 4,274 matching voices"), "{said}");
+        assert!(said.contains("narrow with language"), "{said}");
+    }
+
+    /// The other half, and the one a total alone would get wrong: the built-in
+    /// listing is the whole set, so it must not report itself as cut short.
+    #[test]
+    fn a_complete_listing_claims_nothing_beyond_itself() {
+        let page = page(&listing(PREMADE));
+        assert_eq!(page.more, None);
+
+        let answer = Answer {
+            voices: page.voices,
+            more: page.more,
+            freshness: Freshness::Fetched,
+        };
+        let said = answer.summary("built-in", "--refresh");
+        assert!(!said.contains("narrow with"), "{said}");
     }
 
     /// The general form of the bug, over both bodies: nothing the vendor filled

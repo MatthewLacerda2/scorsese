@@ -72,7 +72,8 @@ pub(crate) enum Command {
     Voices {
         /// Search the Voice Library — thousands of voices other people
         /// published — instead of the small built-in set. Needs a paid
-        /// ElevenLabs plan; the built-in voices do not.
+        /// ElevenLabs plan; the built-in voices do not. A search that matched
+        /// more than one page says so, and how many matched in all.
         #[arg(long)]
         library: bool,
         /// Only voices in this language, as an ISO 639-1 code: `pt`, `en`,
@@ -95,7 +96,9 @@ pub(crate) enum Command {
         /// `brazilian`.
         #[arg(long, requires = "library")]
         accent: Option<String>,
-        /// How many to return, at most 100. The vendor's own default is 30.
+        /// How many to return, at most 100. The vendor's own default is 30, and
+        /// 100 is a cap on the reply rather than on what matched — the listing
+        /// says how many it left out.
         #[arg(long, requires = "library")]
         page_size: Option<u32>,
         /// Read the list from ElevenLabs again even if the cached one is still

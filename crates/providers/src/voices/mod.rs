@@ -7,7 +7,7 @@
 //! — it is a guaranteed outage with a date already on it. The list is resolved
 //! at runtime, and that is the whole reason this module exists.
 //!
-//! # Four things hold this together
+//! # Five things hold this together
 //!
 //! **A list is cached, so browsing is not a round trip.** Both listings land
 //! under the project's `cache/` — rebuildable, gitignored, never part of what
@@ -30,6 +30,14 @@
 //! mean a flaky network deleted somebody's voice choice, so [`Unusable`] has no
 //! variant for it — an unreachable provider is a
 //! [`VoiceError::Provider`] and stays one.
+//!
+//! **A listing that was cut short says so.** The Voice Library is thousands of
+//! voices and the vendor sends at most a hundred, so a search for Portuguese
+//! comes back as 100 of 4,274 — and until [`More`] existed it printed exactly
+//! like a search that found a hundred voices in total. [`Page`] carries whether
+//! the vendor had more, [`Answer::summary`] is where it is said, and the cache
+//! keeps it alongside the voices so a saved listing cannot lose the caveat the
+//! fresh one had.
 //!
 //! **A refusal is read once, and not here.** ElevenLabs answers `401` both for
 //! a key that is wrong and for a key that is right but was never granted
@@ -56,7 +64,7 @@ mod refusal;
 mod run;
 
 pub use cache::REFRESH_AFTER_DAYS;
-pub use catalogue::{Availability, Catalogue, Unusable, Voice};
+pub use catalogue::{Availability, Catalogue, More, Page, Unusable, Voice};
 pub use elevenlabs::ElevenLabsVoices;
 pub use error::VoiceError;
 pub use run::{Answer, Freshness, builtin, cached, library, require};

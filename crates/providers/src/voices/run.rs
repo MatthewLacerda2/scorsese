@@ -24,7 +24,7 @@ use scorsese_core::Timestamp;
 use crate::api::elevenlabs::voices::{Filters, MAX_PAGE_SIZE};
 
 use super::cache::{self, REFRESH_AFTER_DAYS};
-use super::catalogue::{Availability, Catalogue, Voice};
+use super::catalogue::{Availability, Catalogue, More, Page, Voice};
 use super::error::VoiceError;
 
 /// Where a list came from.
@@ -101,21 +101,33 @@ fn aged(days: Option<i64>) -> String {
 pub struct Answer {
     /// The voices.
     pub voices: Vec<Voice>,
+    /// What the listing left out, when the vendor had more than it sent.
+    pub more: Option<More>,
     /// Fetched, or out of the cache and how old.
     pub freshness: Freshness,
 }
 
 impl Answer {
-    /// The line that closes a listing: how many voices, and where they came
-    /// from.
+    /// The lines that close a listing: how many voices, where they came from,
+    /// and — where it applies — that they are not all of them.
     ///
     /// `what` names the listing — *built-in*, *the Voice Library* — and
     /// `refresh` is how the reader would force a re-read on the surface they
     /// are looking at.
+    ///
+    /// **The truncation is part of this rather than something a surface adds.**
+    /// A cap nobody mentions reads as coverage, and a notice each surface has
+    /// to remember to print is a notice one of them will not: the GUI is the
+    /// third reader of this and was not written yet when the second forgot.
     pub fn summary(&self, what: &str, refresh: &str) -> String {
         let count = self.voices.len();
         let plural = if count == 1 { "voice" } else { "voices" };
-        format!("{count} {what} {plural}, {}", self.freshness.says(refresh))
+        let mut said = format!("{count} {what} {plural}, {}", self.freshness.says(refresh));
+        if let Some(more) = &self.more {
+            said.push('\n');
+            said.push_str(&more.says(count));
+        }
+        said
     }
 }
 
@@ -125,7 +137,9 @@ pub fn builtin(
     catalogue: &dyn Catalogue,
     refresh: bool,
 ) -> Result<Answer, VoiceError> {
-    listed(root, "builtin", refresh, || catalogue.builtin())
+    listed(root, "builtin", refresh, || {
+        catalogue.builtin().map(Page::whole)
+    })
 }
 
 /// The Voice Library, narrowed by `filters`.
@@ -200,13 +214,14 @@ fn listed(
     root: &Path,
     key: &str,
     refresh: bool,
-    fetch: impl FnOnce() -> Result<Vec<Voice>, VoiceError>,
+    fetch: impl FnOnce() -> Result<Page, VoiceError>,
 ) -> Result<Answer, VoiceError> {
     let now = Timestamp::unix_now();
     let cached = cache::read(root, key);
     if !refresh && let Some(entry) = cached.as_ref().filter(|entry| !entry.is_stale(now)) {
         return Ok(Answer {
             voices: entry.voices.clone(),
+            more: entry.more,
             freshness: Freshness::Cached {
                 days: entry.age_days(now),
                 refusal: None,
@@ -215,12 +230,13 @@ fn listed(
     }
 
     match fetch() {
-        Ok(voices) => {
+        Ok(page) => {
             // A cache that will not be written is not worth failing a listing
             // over: the voices are in hand, and the only cost is asking again.
-            let _ = cache::write(root, key, &voices);
+            let _ = cache::write(root, key, &page);
             Ok(Answer {
-                voices,
+                voices: page.voices,
+                more: page.more,
                 freshness: Freshness::Fetched,
             })
         }
@@ -229,6 +245,7 @@ fn listed(
         Err(error) => match cached {
             Some(entry) => Ok(Answer {
                 voices: entry.voices.clone(),
+                more: entry.more,
                 freshness: Freshness::Cached {
                     days: entry.age_days(now),
                     refusal: Some(error.to_string()),
