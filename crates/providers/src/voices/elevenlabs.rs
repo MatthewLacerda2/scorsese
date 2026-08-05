@@ -97,6 +97,9 @@ impl Catalogue for ElevenLabsVoices {
 /// across top-level fields — so both are read and whatever is present survives.
 /// Flattening here rather than at each surface is what lets a built-in voice
 /// and a Voice Library voice be printed in one list.
+///
+/// The order is the one somebody reads a voice in: where it is from, who is
+/// speaking, what they sound like, and what it is for last.
 fn voice(found: &voices::Voice) -> Voice {
     let mut traits: Vec<String> = Vec::new();
     let mut add = |value: &Option<String>| {
@@ -108,6 +111,7 @@ fn voice(found: &voices::Voice) -> Voice {
     add(&found.gender);
     add(&found.age);
     add(&found.accent);
+    add(&found.descriptive);
     add(&found.use_case);
     // The labels come last and in the vendor's own order, which is alphabetical
     // by key: they are the built-in listing's way of saying the same things,
@@ -127,5 +131,131 @@ fn voice(found: &voices::Voice) -> Voice {
         traits,
         description: found.description.clone(),
         preview: found.preview_url.clone(),
+    }
+}
+
+/// The mapping above, read against what ElevenLabs actually sends.
+///
+/// `fixtures/elevenlabs/` holds two real response bodies — `/v1/voices?\
+/// category=premade` and `/v1/shared-voices?language=pt`, both read on
+/// 2026-08-05 — cut down to three voices each and scrubbed of the account ids
+/// and signed preview URLs they arrived with. Nothing else about them was
+/// changed, and that is the whole point: this mapping was written from the
+/// vendor's reference page, and a field nested somewhere other than documented
+/// deserialises to `None` and then prints as nothing at all rather than as
+/// something wrong. Only a captured body can tell those two apart.
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::api::elevenlabs::voices::Listing;
+
+    /// The built-in listing, as the vendor sent it.
+    const PREMADE: &str = include_str!("../../fixtures/elevenlabs/premade.json");
+
+    /// The Voice Library listing, as the vendor sent it.
+    const LIBRARY: &str = include_str!("../../fixtures/elevenlabs/shared-voices-pt.json");
+
+    /// One captured body, parsed.
+    fn listing(body: &str) -> Listing {
+        serde_json::from_str(body).unwrap()
+    }
+
+    /// Every trait word in one vendor voice, from wherever its listing puts it.
+    fn sent(found: &voices::Voice) -> Vec<String> {
+        [
+            &found.language,
+            &found.gender,
+            &found.age,
+            &found.accent,
+            &found.descriptive,
+            &found.use_case,
+        ]
+        .into_iter()
+        .flatten()
+        .chain(found.labels.values())
+        .cloned()
+        .collect()
+    }
+
+    /// The difference the reference page describes is real: the built-in
+    /// listing nests its traits under `labels` and fills in no top-level ones,
+    /// the Voice Library listing does the exact opposite.
+    #[test]
+    fn the_two_listings_nest_their_traits_differently() {
+        for found in &listing(PREMADE).voices {
+            assert!(!found.labels.is_empty(), "{} has no labels", found.name);
+            assert_eq!(found.language, None);
+            assert_eq!(found.accent, None);
+        }
+        for found in &listing(LIBRARY).voices {
+            assert!(found.labels.is_empty(), "{} has labels", found.name);
+            assert!(found.language.is_some(), "{} has no language", found.name);
+            assert!(found.accent.is_some(), "{} has no accent", found.name);
+        }
+    }
+
+    /// A built-in voice reads its labels, in the vendor's own order — which is
+    /// alphabetical by key, because that is what a `BTreeMap` iterates in.
+    #[test]
+    fn a_built_in_voice_reads_its_labels() {
+        let voices: Vec<Voice> = listing(PREMADE).voices.iter().map(voice).collect();
+        assert_eq!(voices[0].id, "CwhRBWXzGAHq8TQ4Fs17");
+        assert_eq!(
+            voices[0].traits,
+            [
+                "american",
+                "middle_aged",
+                "classy",
+                "male",
+                "en",
+                "conversational"
+            ]
+        );
+    }
+
+    /// A Voice Library voice reads its top-level fields — `descriptive` among
+    /// them, which is the one this fixture was captured to catch. It is not on
+    /// the vendor's list of top-level fields, it is sent for every voice, and
+    /// reading it only out of `labels` left the whole listing without it.
+    #[test]
+    fn a_library_voice_reads_its_top_level_fields() {
+        let voices: Vec<Voice> = listing(LIBRARY).voices.iter().map(voice).collect();
+        assert_eq!(voices[0].id, "KgIElyO5YK92T207OxYh");
+        assert_eq!(
+            voices[0].traits,
+            [
+                "pt",
+                "male",
+                "middle_aged",
+                "brazilian",
+                "calm",
+                "conversational"
+            ]
+        );
+    }
+
+    /// The general form of the bug, over both bodies: nothing the vendor filled
+    /// in is dropped on the way to a [`Voice`]. Whichever listing grows a field
+    /// next is covered by this without anybody adding a case for it.
+    #[test]
+    fn every_trait_the_vendor_sent_survives() {
+        for body in [PREMADE, LIBRARY] {
+            let listing = listing(body);
+            assert!(!listing.voices.is_empty(), "captured body has no voices");
+            for found in &listing.voices {
+                let mapped = voice(found);
+                for word in sent(found) {
+                    assert!(
+                        mapped
+                            .traits
+                            .iter()
+                            .any(|had| had.eq_ignore_ascii_case(&word)),
+                        "{} lost {word:?} — kept {:?}",
+                        found.name,
+                        mapped.traits
+                    );
+                }
+            }
+        }
     }
 }
