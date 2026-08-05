@@ -7,9 +7,7 @@
 use std::cell::RefCell;
 
 use scorsese_providers::video::ProviderError;
-use scorsese_providers::voices::{
-    Availability, Catalogue, Filters, More, Page, Voice, VoiceError,
-};
+use scorsese_providers::voices::{Availability, Catalogue, Filters, More, Page, Voice, VoiceError};
 
 /// A catalogue that answers exactly what it was told to.
 pub(crate) struct Fake {

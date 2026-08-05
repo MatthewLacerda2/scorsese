@@ -96,7 +96,10 @@ impl More {
     /// spell differently and the advice is the same either way.
     pub fn says(&self, shown: usize) -> String {
         let scale = match self.total {
-            Some(total) => format!("That is the first {shown} of {} matching voices", grouped(total)),
+            Some(total) => format!(
+                "That is the first {shown} of {} matching voices",
+                grouped(total)
+            ),
             None => format!("There are more voices past these {shown}"),
         };
         format!("{scale} — narrow with language, accent, age or gender to search a smaller set.")

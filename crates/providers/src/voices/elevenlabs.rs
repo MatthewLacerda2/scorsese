@@ -162,8 +162,8 @@ fn voice(found: &voices::Voice) -> Voice {
 /// something wrong. Only a captured body can tell those two apart.
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::run::{Answer, Freshness};
+    use super::*;
 
     /// The built-in listing, as the vendor sent it.
     const PREMADE: &str = include_str!("../../fixtures/elevenlabs/premade.json");
