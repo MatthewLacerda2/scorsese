@@ -11,6 +11,7 @@ mod keyframes;
 mod paths;
 mod references;
 mod source;
+mod speech;
 mod synth;
 mod text;
 mod timing;

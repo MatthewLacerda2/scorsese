@@ -93,7 +93,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `synth_survey` | Say what every song recipe in the project is made of, and count the same facts across the whole set. | nothing |
 | `audio_level` | Say how a finished sound file came out. | ffmpeg |
 | `voices` | List the ElevenLabs voices a narration can be read in, or check that one still exists. | a key and a network, but no money |
-| `generate` | Realise the sketched shots — the one tool here that costs money. | money, at a provider |
+| `generate` | Realise the sketched briefs — the one tool here that costs money. | money, at a provider |
 | `render` | Render the timeline to a video file. | ffmpeg, and real time |
 | `still` | Look at the edit. | ffmpeg, and seconds |
 | `look` | Look at the footage itself, not the edit. | ffmpeg |
@@ -359,18 +359,25 @@ flips to `generated` and the next tool call proceeds having got a sunset where
 it asked for a sunrise. Generate, look, decide whether to re-prompt — and
 `generate` below is the first half of that loop.
 
-## Generating the shots that do not exist yet
+## Generating the shots and lines that do not exist yet
 
 `generate` is **the one tool here that costs money**, and everything about its
-shape follows from that.
+shape follows from that. It drives both providers: shots go to Veo, narration
+to ElevenLabs.
 
 ```
 generate  { "project": "teaser.scor", "dry_run": true }
           → "hero: $0.96 — 8s of fast at 1080p
              wide: $0.20 — 4s of lite at 720p
-             About $1.16 for the whole run — our arithmetic over published
+             vo-open: $0.01 — 58 characters in fast
+             About $1.17 for the whole run — our arithmetic over published
              rates, never a bill."
 ```
+
+**The two are quoted on separate lines and never averaged.** Eight seconds of
+video is ninety-six cents and a sentence of narration is one — sixty to a
+hundred times less. A per-item average across them would describe nothing that
+exists.
 
 **Quote before you spend.** `dry_run` needs no key and sends nothing. Every
 figure it prints comes from the rate table in
@@ -379,15 +386,24 @@ generation actually cost*, so these are calculations, not receipts. That is why
 the field on the asset is called `estimated_cost_cents`.
 
 **A brief already generated is never sent again.** A generation lands at
-`generated/<asset-id>-<hash of the brief>.mp4`, and the hash covers every field
-of the request *and the bytes of every still it names*. So calling this twice by
-mistake — or after a dropped connection, which is the likelier case — costs
-nothing the second time, and swapping one `face.png` for a different picture of
-the same name *does* count as a new brief.
+`generated/<asset-id>-<hash of the brief>.mp4` — or `.mp3` for a line — and the
+hash covers every field of the request: for a shot, that includes *the bytes of
+every still it names*; for a line, the voice, the model, the language and the
+seed as well as the words. So calling this twice by mistake — or after a dropped
+connection, which is the likelier case — costs nothing the second time, swapping
+one `face.png` for a different picture of the same name *does* count as a new
+brief, and so does changing which voice reads a line.
 
-**It waits, then detaches.** Generation takes minutes. This waits five of them
-by default (`wait_seconds`) and then returns, which loses nothing: a submitted
-shot's ticket is written into `project.json` before anything else can go wrong.
+**A key is asked for only by the half that has work.** A project of nothing but
+narration never needs a Veo key, and one of nothing but shots never needs an
+ElevenLabs key.
+
+**It waits, then detaches — for video only.** A shot takes minutes. This waits
+five of them by default (`wait_seconds`) and then returns, which loses nothing:
+a submitted shot's ticket is written into `project.json` before anything else
+can go wrong. **Narration is never in flight**: a line comes back on the same
+call, so there is no ticket, nothing to poll, and nothing `collect` could pick
+up.
 
 ```
 generate  { "project": "teaser.scor", "collect": true }
@@ -405,6 +421,18 @@ against its own asset and put back to `sketch` so the prompt can be edited; the
 other nineteen shots are still generated and still say so. Only things that make
 the whole run impossible — no key, over the budget ceiling, a still that will
 not read — stop it.
+
+**A line with no voice chosen yet is reported and skipped, not failed.** There
+is no default voice and there cannot be one: every one of ElevenLabs' Default
+voices expires on 2026-12-31. So a narration nobody has chosen a voice for is
+the ordinary state of a cut being written, and it comes back as *not yet* while
+the rest of the run goes ahead. Stopping there would mean re-speaking nineteen
+paid-for lines in order to add the twentieth.
+
+**Narration is measured after it is spoken.** A shot is exactly as long as its
+request asked for, so its length is known in advance; how long a line takes
+depends on the words. `generate` probes what it just wrote, because the mix
+reads `duration_seconds` and an unmeasured line is one the mix skips.
 
 **A queued shot has two days.** Past that the provider deletes the finished
 video and the money is gone, so a wait that old is reported as its own outcome

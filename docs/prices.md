@@ -1,13 +1,13 @@
 # What a generation costs, and why we can only estimate it
 
-Generating a shot costs money. This page is where the numbers live, how they
-are kept honest, and the one thing worth knowing before trusting any total
-scorsese prints: **it is our arithmetic, not a bill.**
+Generating a shot or a line of narration costs money. This page is where the
+numbers live, how they are kept honest, and the one thing worth knowing before
+trusting any total scorsese prints: **it is our arithmetic, not a bill.**
 
 `scorsese prices` prints the table below from the code, with the day each
 figure was last checked and how old that is.
 
-## The table
+## Shots
 
 Veo 3.1, US dollars per second of finished video. Paid tier — there is no free
 tier for video at all.
@@ -56,6 +56,62 @@ bought.
 Rows scorsese does not offer are in the table anyway — Standard, and 4k —
 marked as not offered. The artifact being audited is Google's price list, and a
 list missing rows is one nobody can tick through.
+
+## Narration
+
+ElevenLabs text-to-speech, US cents per **thousand characters of input text**.
+
+| model | on the wire | per 1000 characters | a 200-character line |
+| --- | --- | --- | --- |
+| `expressive` | `eleven_v3` | $0.10 | $0.02 |
+| `standard` | `eleven_multilingual_v2` | $0.10 | $0.02 |
+| `fast` | `eleven_flash_v2_5` | $0.05 | $0.01 |
+
+Last checked against
+[ElevenLabs' pricing page](https://elevenlabs.io/pricing) on **2026-08-05**.
+
+The Turbo models are absent, and that is not the same omission as Veo's
+`Standard` row. Veo's table keeps a tier scorsese does not offer so the vendor's
+page can be ticked through row by row. Turbo is a row the **vendor** tells
+people not to use: its own documentation recommends Flash over Turbo in every
+case, so offering both would be offering a choice with a right answer.
+
+### Narration is priced before the call, not after it
+
+This is the one real difference from video, and it is a pleasant one. A shot is
+priced by its length, which the request fixes. A line is priced by its text,
+which is **already in the document** — so the figure is exact and known before
+anything is sent.
+
+It is still called an estimate, for two reasons that survive the arithmetic
+being exact:
+
+- The rate above is a page somebody copied.
+- A handful of Voice Library voices carry a **credit multiplier** and cost more
+  per character than the base rate. scorsese ignores this deliberately —
+  modelling a credit system to move an advisory counter by a few cents is not
+  worth what it would cost to keep true. So the estimate can be a little low
+  for those voices.
+
+### It rounds up
+
+Unlike video, this does not land on whole cents: 137 characters at 10¢ per
+thousand is 1.37¢. Every fraction rounds **up**.
+
+Rounding down would let a run slip past the ceiling a fraction of a cent at a
+time, and a ceiling that can be crossed a little at a time is not a ceiling.
+Rounding up costs at most a cent per line and is never the wrong side of the
+number somebody set.
+
+### The scale is worth holding on to
+
+A 200-character line of narration is **one or two cents**. Eight seconds of
+Veo at the default is **96 cents** — sixty to a hundred times more. A cut with
+twenty narrated lines and twenty shots costs about $19.40, and $19 of that is
+the picture.
+
+Which is why the two are quoted on separate lines and never summed into one
+per-item average: an average across them would describe nothing that exists.
 
 ## Nobody bills us back
 

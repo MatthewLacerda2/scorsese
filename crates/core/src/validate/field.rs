@@ -70,6 +70,12 @@ pub enum AssetField {
     /// resolution on a narration prompt would be read by nothing, and silence
     /// about it would look exactly like having honoured it.
     Video,
+    /// The rest of a spoken line's brief: model, voice, language, seed.
+    ///
+    /// The sibling of [`AssetField::Video`] and refused everywhere but
+    /// `generated_audio`, on the same reasoning read the other way: a voice on
+    /// a Veo shot would be handed to nobody, and nothing would say so.
+    Speech,
     /// The provider's name for work in flight.
     ///
     /// Only the kinds that queue with somebody else have one. A ticket on an
@@ -99,6 +105,7 @@ impl AssetField {
             Self::State => "state",
             Self::Color => "color",
             Self::Video => "video",
+            Self::Speech => "speech",
             Self::Operation => "operation",
             Self::QueuedAt => "queued_at",
             Self::Cost => "estimated_cost_cents",

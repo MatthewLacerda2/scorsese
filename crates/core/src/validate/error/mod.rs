@@ -12,10 +12,12 @@
 //! checks are: by what has to be looked at to find it.
 
 mod assets;
+mod speech;
 mod timeline;
 mod video;
 
 pub use assets::AssetProblem;
+pub use speech::SpeechProblem;
 pub use timeline::TimelineProblem;
 pub use video::VideoProblem;
 
@@ -65,6 +67,13 @@ pub enum ValidationError {
 /// sit between that and the list.
 impl From<VideoProblem> for ValidationError {
     fn from(problem: VideoProblem) -> Self {
+        Self::Asset(problem.into())
+    }
+}
+
+/// And a speech problem reaches it the same way, for the same reason.
+impl From<SpeechProblem> for ValidationError {
+    fn from(problem: SpeechProblem) -> Self {
         Self::Asset(problem.into())
     }
 }

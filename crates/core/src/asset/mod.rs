@@ -5,6 +5,7 @@
 //! edit in one place.
 
 pub(crate) mod kind;
+pub(crate) mod speech;
 pub(crate) mod video;
 
 use std::fmt;
@@ -18,6 +19,7 @@ use crate::text::TextStyle;
 use crate::time::{Fps, Frames};
 
 pub use kind::{AssetKind, GenerationState};
+pub use speech::{LanguageIgnored, MAX_CHARACTERS, SpeechModel, SpeechRequest};
 pub use video::{
     Aspect, ClipSeconds, LengthLock, MAX_REFERENCE_IMAGES, VideoModel, VideoRequest,
     VideoResolution,
@@ -129,6 +131,18 @@ pub struct Asset {
     /// [`Asset::video_request`], which is how callers should read it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub video: Option<VideoRequest>,
+    /// The rest of the brief for a spoken line: model, voice, language, seed.
+    ///
+    /// The sibling of `video`, and held to the same rules — hashed with the
+    /// prompt, refused on every other kind, and absent meaning every default
+    /// rather than nothing asked for. See [`Asset::speech_request`].
+    ///
+    /// Two blocks rather than one shared `generation` block because they share
+    /// no field: a resolution has no meaning for a voice and a seed has none
+    /// for a shot. One block would be a struct whose valid shape depended on
+    /// `kind`, which is the thing `deny_unknown_fields` exists to stop.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub speech: Option<SpeechRequest>,
     /// When this asset joined the table.
     ///
     /// Bookkeeping, and only that: it is never hashed into a brief and never
@@ -220,6 +234,7 @@ impl Asset {
             color: None,
             note: None,
             video: None,
+            speech: None,
             created_at: None,
             queued_at: None,
             operation: None,
@@ -262,6 +277,16 @@ impl Asset {
     /// building a provider call has to decide what a missing resolution means.
     pub fn video_request(&self) -> VideoRequest {
         self.video.clone().unwrap_or_default()
+    }
+
+    /// The rest of this asset's spoken brief, defaults included.
+    ///
+    /// The sibling of [`Asset::video_request`], and there for the same reason:
+    /// an absent block is every default rather than an absence. The one thing
+    /// it cannot default is the voice, which stays `None` — there is no voice
+    /// it would be safe to invent.
+    pub fn speech_request(&self) -> SpeechRequest {
+        self.speech.clone().unwrap_or_default()
     }
 
     /// How much of this asset there is, in frames of `fps` — the ceiling a

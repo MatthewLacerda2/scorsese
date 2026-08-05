@@ -115,13 +115,19 @@ pub(crate) enum Command {
     /// provider reports what a generation actually cost. Prints as Markdown,
     /// because CI appends this to a job summary.
     Prices,
-    /// Realise every sketched shot: hand each brief to the provider, wait a
-    /// while, and collect what finishes.
+    /// Realise every sketched brief: hand each to its provider, wait a while,
+    /// and collect what finishes.
     ///
-    /// The one command here that spends money. A brief whose file is already
-    /// in generated/ is never sent again, so running this twice costs nothing
-    /// the second time. Whatever is still generating when the wait runs out is
-    /// not lost — its ticket is in project.json, and `--collect` picks it up.
+    /// The one command here that spends money. Shots go to Veo and narration
+    /// to ElevenLabs; a key is asked for only by the half that has work, so a
+    /// project of nothing but narration needs no Veo key. A brief whose file is
+    /// already in generated/ is never sent again, so running this twice costs
+    /// nothing the second time.
+    ///
+    /// Video takes minutes: whatever is still generating when the wait runs out
+    /// is not lost — its ticket is in project.json, and `--collect` picks it
+    /// up. Narration comes back on the same call and is never in flight. A line
+    /// with no voice chosen yet is reported and skipped, not failed.
     Generate {
         /// Say what a run would cost and stop. Needs no key, sends nothing.
         #[arg(long)]

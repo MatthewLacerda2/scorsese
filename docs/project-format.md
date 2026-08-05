@@ -1,4 +1,4 @@
-# `project.json` — schema v15
+# `project.json` — schema v16
 
 The contract between the CLI, the MCP server, the GUI, and every project
 saved on someone's disk. It is meant to be hand-written: an agent should be
@@ -12,7 +12,7 @@ bump and a migration note.
 
 ```json project
 {
-  "schema_version": 15,
+  "schema_version": 16,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -135,6 +135,7 @@ re-importing or regenerating a file is one edit in one place.
 | `color` | `color` | The colour to fill with, as `#rrggbb` or `#rrggbbaa`; colour assets have no `path` |
 | `note` | optional | Why this asset is what it is. Never rendered — see above |
 | `video` | optional, `generated_video` only | The rest of the brief: `model`, `resolution`, `seconds`, `aspect`, `first_image`, `last_image`, `reference_images` — see below |
+| `speech` | optional, `generated_audio` only | The rest of the brief: `model`, `voice_id`, `language`, `seed` — see below |
 | `created_at` | optional | When the asset joined the table, as UTC RFC 3339 (`2026-08-04T14:20:00Z`) |
 | `queued_at` | optional, generated kinds | When a provider took the request. Not the same fact as `created_at` |
 | `operation` | optional, `generated_video` | The provider's name for work in flight, while `queued` |
@@ -268,6 +269,73 @@ shot is built from.
 Switching a shot to `lite` to save money is the case to watch: it is the one
 change that can invalidate a brief rather than merely cheapen it, which is why
 it is refused rather than honoured with the images dropped.
+
+### What a spoken line asks for
+
+A prompt says the words. `speech` says how they are said — which voice, which
+model, and whether the language is pinned or left to the model to infer.
+
+```json asset
+{ "id": "vo-open", "kind": "generated_audio", "state": "sketch",
+  "prompt": "In nineteen seventy-six, nobody had seen a film like this.",
+  "speech": { "model": "expressive", "voice_id": "EXAMPLEvoiceID012345",
+              "language": "en", "seed": 42 } }
+```
+
+Like `video`, every field here is hashed into the brief along with the prompt,
+so editing one makes the asset `stale` exactly as rewording the sentence does.
+
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `model` | `standard` | `expressive`, `standard` or `fast` — see below |
+| `voice_id` | *none, and no default is possible* | The vendor's id for the voice |
+| `language` | absent | ISO 639-1 (`en`, `pt`), pinning what the model would otherwise infer |
+| `seed` | absent | For a reading that comes back the same way twice. Best-effort at the vendor, so worth recording and not worth relying on |
+
+Three models, named for what the choice is *about* rather than for the
+vendor's version strings — a person picks between expression and price, not
+between `v3` and `v2_5`:
+
+| `model` | On the wire | Price | For |
+| --- | --- | --- | --- |
+| `expressive` | `eleven_v3` | 10¢ / 1000 characters | the most expressive reading |
+| `standard` | `eleven_multilingual_v2` | 10¢ / 1000 characters | the default, and the vendor's own |
+| `fast` | `eleven_flash_v2_5` | 5¢ / 1000 characters | half the price, for narration where the reading matters less than the money |
+
+The vendor also publishes Turbo variants, and its own documentation recommends
+Flash over Turbo in every case — so offering both would be offering a choice
+with a right answer.
+
+**There is no default voice, and there cannot be one.** Every one of the
+vendor's Default voices expires on 2026-12-31 and the set is being replaced
+before then, so a fallback written into this format would be a guaranteed
+outage with a date on it. A narration with no `voice_id` is still a legitimate
+document; it is refused at the moment of spending, the way a shot with no
+prompt is.
+
+The id above is illustrative and is not a voice. Real ones are resolved from
+the provider at runtime — which is the same reason none is written here as a
+default.
+
+#### The combinations that are refused
+
+| Refused | Because |
+| --- | --- |
+| `language` on the `standard` model | that model **silently ignores** the field |
+| a `prompt` over 40,000 characters | the vendor speaks at most that many in one request |
+| an empty `voice_id` | it looks chosen and is not — leave it out instead |
+
+The first is the one worth reading twice, because it is the only refusal in
+this document that rejects a request the vendor would have **accepted**. The
+API takes it, charges for it, and drops the field; the narration comes back
+read in whatever language the model guessed. That failure has no symptom
+except somebody listening to it, so the document is the only place it can be
+caught at all.
+
+Characters are counted as characters and not as bytes. Portuguese is one of
+the two languages this is built for, and its accented letters are two bytes
+each — counting bytes would refuse a legal script a quarter short of the
+limit, and would have priced it wrong as well.
 
 ### Synthesised audio
 
@@ -1001,6 +1069,27 @@ without opening anything, and a number outside OpenType's own 1–1000 is not a
 weight for any face. What only the *file* can answer — whether it is variable
 at all, and how far its `wght` axis runs — is refused at the render, in the
 same breath as "this is not a font I can read".
+
+## Migrating from v15
+
+v16 adds one optional field and takes nothing away: `speech` on a
+`generated_audio` asset. No v15 document can contain it, and **absent means
+what absent has always meant** — a narration made of a sentence and every
+default. So no v15 document means anything different under v16: converting one
+is changing `"schema_version": 15` to `"schema_version": 16` and nothing else.
+
+The field is the sibling of `video`, and it is a second block rather than a
+shared one because the two share no field: a resolution has no meaning for a
+voice, and a seed has none for a shot. One `generation` block covering both
+would be a structure whose legal shape depended on `kind`, which is exactly
+what `deny_unknown_fields` exists to refuse.
+
+One thing does **not** default, and cannot: `voice_id`. Every one of the
+vendor's Default voices expires on 2026-12-31 and the set is being replaced
+before then, so a fallback written into the format would be a guaranteed outage
+with a date on it. A narration with no voice is a legitimate document — a
+sketch nobody has finished — and is refused at the moment of spending rather
+than at the moment of writing, exactly as a shot with no prompt yet is.
 
 ## Migrating from v14
 

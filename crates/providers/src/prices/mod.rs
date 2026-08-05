@@ -30,12 +30,13 @@
 //! cents per second, so nothing rounds on the way in either.
 
 pub mod checked;
+pub mod elevenlabs;
 pub mod veo;
 
 pub use checked::{Checked, STALE_AFTER_DAYS};
 pub use veo::{Quality, Rate, Tier};
 
-use scorsese_core::VideoRequest;
+use scorsese_core::{SpeechModel, VideoRequest};
 
 /// What a generation is expected to cost, and what that was worked out from.
 ///
@@ -82,6 +83,53 @@ pub fn estimate(request: &VideoRequest) -> Result<Estimate, Unpriced> {
         cents: rate.cents_per_second * u64::from(seconds),
         rate,
         seconds,
+    })
+}
+
+/// What speaking a line is expected to cost, and what that was worked out from.
+///
+/// The sibling of [`Estimate`], carrying characters where that one carries
+/// seconds — because that is what each vendor bills by, and an estimate
+/// somebody is about to approve should be checkable without re-deriving it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SpeechEstimate {
+    /// The total, in US cents. **Our calculation, never a billed figure.**
+    pub cents: u64,
+    /// The rate it came from, date included.
+    pub rate: elevenlabs::Rate,
+    /// How many characters were priced.
+    pub characters: usize,
+}
+
+/// A model with no rate in the table.
+///
+/// Unreachable today — every model scorsese speaks with has a published rate,
+/// and a test holds that true. It exists so that adding a model without a price
+/// is a refusal somebody has to answer for rather than a zero nobody notices.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[error("there is no published rate for the {} speech model", model.label())]
+pub struct UnpricedSpeech {
+    /// The model with no rate.
+    pub model: elevenlabs::Model,
+}
+
+/// What speaking `characters` in this model is expected to cost.
+///
+/// **Rounds up**, and that is the one arithmetic decision here worth stating.
+/// Unlike video, this does not land on whole cents: a 137-character line at
+/// 10¢ per thousand is 1.37¢. Rounding down would let a run slip past
+/// [`Budget::check`](crate::credentials::Budget::check) by a fraction of a cent
+/// per line, and a ceiling that can be crossed a little at a time is not a
+/// ceiling. Rounding up costs at most a cent per line and is never the wrong
+/// side of the number somebody set.
+pub fn speech(model: SpeechModel, characters: usize) -> Result<SpeechEstimate, UnpricedSpeech> {
+    let model = elevenlabs::Model::from(model);
+    let rate = elevenlabs::rate(model).ok_or(UnpricedSpeech { model })?;
+    let thousandths = (characters as u64).saturating_mul(rate.cents_per_1k_chars);
+    Ok(SpeechEstimate {
+        cents: thousandths.div_ceil(1000),
+        rate,
+        characters,
     })
 }
 

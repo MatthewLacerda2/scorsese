@@ -3,7 +3,7 @@
 
 use crate::asset::{AssetId, AssetKind};
 use crate::path::{PathProblem, ProjectPath};
-use crate::validate::error::VideoProblem;
+use crate::validate::error::{SpeechProblem, VideoProblem};
 use crate::validate::field::AssetField;
 
 /// One thing wrong with a row of the assets table.
@@ -150,6 +150,15 @@ pub enum AssetProblem {
     /// — see [`VideoProblem`] for why that difference is worth a split.
     #[error(transparent)]
     Video(#[from] VideoProblem),
+
+    /// Something wrong with what a spoken line is asking for.
+    ///
+    /// Split from the rest for the reason [`VideoProblem`] is, and one more of
+    /// its own: one finding in it describes a request the vendor **accepts**
+    /// and charges for, so the document is the only place it can be caught.
+    /// See [`SpeechProblem`].
+    #[error(transparent)]
+    Speech(#[from] SpeechProblem),
 
     /// Not the shape a SHA-256 comes in, so it can never match a real file —
     /// truncated, uppercase, or an algorithm that is not SHA-256.
