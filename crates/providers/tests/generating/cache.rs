@@ -128,6 +128,41 @@ fn fingerprint(project: &scorsese_core::Project, dir: &std::path::Path, id: &Ass
         .to_owned()
 }
 
+/// A ceiling that admits one shot must refuse the second.
+///
+/// The regression is invisible from the outside without this: every individual
+/// number stays correct, and the run reports what it spent only after having
+/// spent it. Before the fix, a $1.00 ceiling let twenty 96¢ shots through —
+/// each check asked whether *one* more fitted, and one always did.
+#[test]
+fn a_ceiling_counts_what_this_run_has_already_committed() {
+    let (dir, mut project, _) = sketched("running-total", "the first shot");
+    project.assets.push(Asset::sketch(
+        AssetId::new("second"),
+        AssetKind::GeneratedVideo,
+        "the second shot",
+    ));
+    let provider = Mock::answering(
+        "shot",
+        vec![
+            Answer::Ready(b"ONE".to_vec()),
+            Answer::Ready(b"TWO".to_vec()),
+        ],
+    );
+
+    // 150 cents admits one 96-cent shot and cannot admit two.
+    let refused = generate(&mut project, &dir, &provider, Budget::new(150, 0))
+        .expect_err("two shots at 96 cents is over a 150-cent ceiling");
+
+    assert!(refused.to_string().contains("ceiling"), "{refused}");
+    assert_eq!(
+        provider.submissions(),
+        1,
+        "the first shot fits and the second must not"
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}
+
 /// A ceiling nobody may cross, checked before the call that spends anything.
 #[test]
 fn a_run_over_the_ceiling_submits_nothing() {

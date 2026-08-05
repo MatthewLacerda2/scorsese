@@ -62,6 +62,24 @@ impl Budget {
         }
     }
 
+    /// The same budget, with `more` cents counted as already spent.
+    ///
+    /// What a run uses to hold itself to the ceiling **as it goes**. A budget is
+    /// built once, before the first request, from what the project had spent up
+    /// to then — so checking every request against that same figure asks, over
+    /// and over, whether *one* more fits. It never asks whether the run fits.
+    /// Twenty shots that each fit under the ceiling individually would all go
+    /// through, and the ceiling would end up crossed by nineteen of them.
+    ///
+    /// Returns a new budget rather than mutating, so a caller cannot lose the
+    /// original and cannot carry one run's spending into another by accident.
+    pub fn spend(self, more: u64) -> Self {
+        Self {
+            ceiling: self.ceiling,
+            spent: self.spent.saturating_add(more),
+        }
+    }
+
     /// What is left before the ceiling, or `None` when there is not one.
     pub fn remaining(self) -> Option<u64> {
         self.ceiling
