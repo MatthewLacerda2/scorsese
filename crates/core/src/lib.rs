@@ -76,8 +76,9 @@ pub(crate) mod validate;
 pub mod write;
 
 pub use asset::{
-    Aspect, Asset, AssetId, AssetKind, ClipSeconds, GenerationState, LengthLock,
-    MAX_REFERENCE_IMAGES, MediaMetadata, VideoModel, VideoRequest, VideoResolution,
+    Aspect, Asset, AssetId, AssetKind, ClipSeconds, GenerationState, LanguageIgnored, LengthLock,
+    MAX_CHARACTERS, MAX_REFERENCE_IMAGES, MediaMetadata, SpeechModel, SpeechRequest, VideoModel,
+    VideoRequest, VideoResolution,
 };
 pub use color::{ColorError, Rgba};
 pub use dip::{Dip, Ducked, Under, duck_track};
@@ -102,5 +103,6 @@ pub use text::{FontChoice, MAX_WEIGHT, MIN_WEIGHT, TextAlign, TextStyle};
 pub use time::{Fps, FpsError, FpsParseError, Frames, Speed};
 pub use timeline::{Anchor, AnchorX, AnchorY, Clip, ClipId, Crop, Fit, Track, TrackId, TrackKind};
 pub use validate::{
-    AssetField, AssetProblem, TimelineProblem, ValidationError, ValidationErrors, VideoProblem,
+    AssetField, AssetProblem, SpeechProblem, TimelineProblem, ValidationError, ValidationErrors,
+    VideoProblem,
 };

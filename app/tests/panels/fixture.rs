@@ -83,7 +83,7 @@ const PIXEL: &[u8] = &[
 ];
 
 const DOCUMENT: &str = r##"{
-  "schema_version": 15,
+  "schema_version": 16,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [
