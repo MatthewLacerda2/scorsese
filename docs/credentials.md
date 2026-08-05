@@ -39,6 +39,25 @@ window writes there and why the resolver reads both.
 survive `scp -r` to another machine, and a credential inside one would travel
 with it.
 
+## A key can be perfectly valid and still be refused
+
+**ElevenLabs keys carry permissions**, chosen when the key is created, and a key
+missing one is refused with a `401` — the same status an absent or wrong key
+gets. The two are fixed in opposite places, so scorsese reads the refusal body
+rather than the status code and reports them differently:
+
+| What the vendor says | What it means | Where to fix it |
+| --- | --- | --- |
+| `missing_permissions` | The key is fine and lacks a named scope, e.g. `voices_read` | The ElevenLabs dashboard, under Profile → API Keys |
+| anything else at `401` | No key, or the wrong one | `.env`, or the settings file below |
+
+The refusal names the exact permission, and scorsese passes that sentence
+through whole rather than summarising it. Telling somebody to check `.env` when
+their key is already correct is the most expensive kind of wrong error message:
+it is confidently specific, and it points the wrong way.
+
+Gemini has no equivalent — a Gemini key either works or it does not.
+
 ## The settings file
 
 ```json

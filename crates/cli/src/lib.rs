@@ -1,7 +1,8 @@
 //! # scorsese-cli — the headless binary
 //!
 //! Responsibility: the `scorsese` command-line surface — `new`, `import`,
-//! `check`, `render`, `still`, `synth`, `duck`, `generate`, `assets`, `diff`.
+//! `check`, `render`, `still`, `synth`, `duck`, `voices`, `generate`,
+//! `assets`, `diff`.
 //! This is how an agent (or a CI
 //! job) assembles and renders a video with no human and no screen: every
 //! editing capability the GUI will ever have must be reachable from here
@@ -38,6 +39,7 @@ pub use cli::Cli;
 pub use commands::check::media;
 
 use cli::{AssetsAction, Command, SynthAction};
+use scorsese_providers::voices::Filters;
 use scorsese_render::contact::Look;
 
 /// Parses the command line and runs it.
@@ -65,6 +67,32 @@ fn dispatch(cli: Cli) -> Result<()> {
                 commands::generate::run(&directory, std::time::Duration::from_secs(wait), dry_run)
             }
         }
+        Command::Voices {
+            library,
+            language,
+            locale,
+            gender,
+            age,
+            accent,
+            page_size,
+            refresh,
+            check,
+        } => commands::voices::run(
+            &directory,
+            &commands::voices::Options {
+                library,
+                filters: Filters {
+                    language,
+                    locale,
+                    gender,
+                    age,
+                    accent,
+                    page_size,
+                },
+                refresh,
+                check,
+            },
+        ),
         Command::Prices => commands::prices::run(),
         Command::Probe { all } => commands::probe::run(&directory, all),
         Command::Check { verify } => commands::check::run(&directory, verify),

@@ -92,6 +92,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `synth_bake` | Render every synth_audio recipe whose sound is not already on disk, into generated/. | nothing |
 | `synth_survey` | Say what every song recipe in the project is made of, and count the same facts across the whole set. | nothing |
 | `audio_level` | Say how a finished sound file came out. | ffmpeg |
+| `voices` | List the ElevenLabs voices a narration can be read in, or check that one still exists. | a key and a network, but no money |
 | `generate` | Realise the sketched shots — the one tool here that costs money. | money, at a provider |
 | `render` | Render the timeline to a video file. | ffmpeg, and real time |
 | `still` | Look at the edit. | ffmpeg, and seconds |
@@ -408,6 +409,71 @@ not read — stop it.
 **A queued shot has two days.** Past that the provider deletes the finished
 video and the money is gone, so a wait that old is reported as its own outcome
 rather than as a longer wait: the two call for opposite things.
+
+## Choosing a voice
+
+`voices` answers the question a narration cannot be generated without: **what
+goes in `voice_id`**. It costs no credits, and the answer is cached inside the
+project, so browsing it is free in both senses.
+
+```
+voices  { "project": "teaser.scor" }
+        → "21m00Tcm4TlvDq8ikWAM  Rachel  (female, young, american, narration)
+           …
+           19 built-in voices, read from ElevenLabs just now."
+```
+
+**There is no default voice, and there never will be.** Every ElevenLabs
+default voice **expires on 2026-12-31**, and the default set is being replaced
+before then. A voice id written into scorsese would therefore not be a shortcut
+with a small cost — it would be a guaranteed outage with a date already on it.
+So the list is resolved at runtime, and a voice is *picked* rather than
+remembered.
+
+**Two lists, and the second is where a language lives.** Without `library` you
+get the small built-in set an account already has. With it you get the Voice
+Library — thousands of voices other people published — narrowed by `language`,
+`locale`, `gender`, `age` and `accent`. `language` is the filter worth reaching
+for first: it is what surfaces people who actually *speak* pt-BR rather than an
+English voice reading it.
+
+```
+voices  { "project": "teaser.scor", "library": true,
+          "language": "pt", "gender": "female", "page_size": 50 }
+```
+
+The Voice Library is **not available through the API on a free plan**. When it
+is refused, the reply says exactly that and points at the built-in voices,
+which generate the same way. No subscription tier is detected to produce that
+message — it is only ever what the vendor answered when asked.
+
+**Ask about one id with `check`, and believe the answer.** A voice that can no
+longer be generated with is reported as such, with the reason: it has gone, or
+this account may not use it. Nothing is ever silently substituted — the
+alternative is narration produced, billed and read aloud in a voice nobody
+chose, which would sound perfectly fine and be wrong.
+
+```
+voices  { "project": "teaser.scor", "check": "21m00Tcm4TlvDq8ikWAM" }
+        → "21m00Tcm4TlvDq8ikWAM cannot be used at ElevenLabs: nothing there
+           answers to it. …  Run `scorsese voices` and pick another — nothing
+           has been changed."
+```
+
+**A listing says how old it is, every time.** The lists live under the
+project's `cache/`, which is rebuildable and gitignored, so a second call
+touches no network and an offline call still answers from what it has. An entry
+older than a week re-reads itself, and `refresh` forces it sooner. The
+provenance line is never omitted, because *these are the voices* and *these
+were the voices last time anyone could ask* are different claims — and only
+`check` is guaranteed to have asked just now.
+
+**A `401` from this vendor is two different problems.** A key that is absent or
+wrong is fixed in `.env` or the settings file; a key that is perfectly valid and
+was never granted the `voices_read` permission is fixed in the ElevenLabs
+dashboard. The refusal body names which it is, so the two get different advice —
+sending somebody to check a credential that is already correct is the most
+expensive kind of wrong error message.
 
 ## Rendering part of the timeline
 
