@@ -5,6 +5,7 @@
 pub(crate) mod assets;
 pub(crate) mod check;
 pub(crate) mod describe;
+pub(crate) mod design;
 pub(crate) mod dissolve;
 pub(crate) mod duck;
 pub(crate) mod generate;

@@ -12,16 +12,17 @@
 //! withdrawn voice from one this account may not use, and those four call for
 //! four different sentences. So each call maps the status *and* the vendor's
 //! own `detail` onto the state it actually means, and everything unrecognised
-//! stays a plain provider failure rather than being guessed at.
+//! stays a plain provider failure rather than being guessed at. *Reading* that
+//! vocabulary is [`refusal`](super::refusal)'s job, because designing a voice
+//! is refused in the same words; deciding what a refusal means **on this
+//! endpoint** is this file's, because that part differs.
 
-use crate::api::elevenlabs::refusal::{self, Detail, MISSING_PERMISSIONS, PAID_PLAN_REQUIRED};
 use crate::api::elevenlabs::voices::{self, Filters, Voices};
-use crate::api::http::HttpError;
 use crate::credentials::Secret;
-use crate::video::ProviderError;
 
 use super::catalogue::{Availability, Catalogue, Unusable, Voice};
 use super::error::VoiceError;
+use super::refusal::{failure, plan_limited, refused, said};
 
 /// What this catalogue is called wherever a message names it.
 const NAME: &str = "ElevenLabs";
@@ -47,7 +48,10 @@ impl Catalogue for ElevenLabsVoices {
     }
 
     fn builtin(&self) -> Result<Vec<Voice>, VoiceError> {
-        let listing = self.voices.premade().map_err(listing_failure)?;
+        let listing = self
+            .voices
+            .premade()
+            .map_err(|error| failure(NAME, error))?;
         Ok(listing.voices.iter().map(voice).collect())
     }
 
@@ -62,7 +66,7 @@ impl Catalogue for ElevenLabsVoices {
                         said: said(&error, &detail).to_owned(),
                     }
                 }
-                _ => listing_failure(error),
+                _ => failure(NAME, error),
             }
         })?;
         Ok(listing.voices.iter().map(voice).collect())
@@ -84,59 +88,10 @@ impl Catalogue for ElevenLabsVoices {
                 // a failure to *ask*, and says nothing about the voice. Turning
                 // one of those into "unusable" is how a bad afternoon on the
                 // network would look like a voice being withdrawn.
-                _ => Err(listing_failure(error)),
+                _ => Err(failure(NAME, error)),
             },
         }
     }
-}
-
-/// A refusal's status and whatever the vendor said inside it.
-///
-/// `None` for anything that never got an answer at all — no network, DNS, TLS,
-/// a timeout — because those have no status to interpret and must not be
-/// mistaken for one.
-fn refused(error: &HttpError) -> Option<(u16, Detail)> {
-    match error {
-        HttpError::Refused { status, body, .. } => Some((*status, refusal::read(body))),
-        _ => None,
-    }
-}
-
-/// Whether this refusal is the account's plan rather than its request.
-///
-/// Both spellings the vendor uses: `402 paid_plan_required` on a voice a free
-/// account may not generate with, and a bare `403` on the Voice Library. The
-/// status word is checked first where there is one, because it is the vendor
-/// being explicit and the number is only ever an inference.
-fn plan_limited(status: u16, detail: &Detail) -> bool {
-    detail.is(PAID_PLAN_REQUIRED) || matches!(status, 402 | 403)
-}
-
-/// The best sentence available about a refusal.
-fn said<'a>(error: &'a HttpError, detail: &'a Detail) -> &'a str {
-    match error {
-        HttpError::Refused { body, .. } => detail.says(body),
-        _ => "",
-    }
-}
-
-/// A failed call as the error it actually is.
-///
-/// The one distinction worth making here is the one a status code cannot make:
-/// a `401` because the key is absent or wrong, against a `401` because the key
-/// is perfectly good and was never granted `voices_read`. They are fixed in
-/// different places — one in `.env`, one in the vendor's dashboard — so
-/// reporting them the same way sends half of the people who hit this to look at
-/// something that is not wrong.
-fn listing_failure(error: HttpError) -> VoiceError {
-    if let Some((_, detail)) = refused(&error)
-        && detail.is(MISSING_PERMISSIONS)
-    {
-        return VoiceError::MissingPermission {
-            said: said(&error, &detail).to_owned(),
-        };
-    }
-    VoiceError::Provider(ProviderError::new(NAME, error))
 }
 
 /// A vendor voice as scorsese carries one.

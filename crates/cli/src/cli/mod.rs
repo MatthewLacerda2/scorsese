@@ -108,6 +108,50 @@ pub(crate) enum Command {
         #[arg(long, conflicts_with = "library", value_name = "VOICE_ID")]
         check: Option<String>,
     },
+    /// Design a voice from a description, when no voice in either list is the
+    /// one the video needs.
+    ///
+    /// Spends money, and spends it oddly: one call answers with three
+    /// candidates and is billed **once**, for the preview text. Keeping one of
+    /// them costs nothing more. What it creates lives in your ElevenLabs
+    /// account rather than in the project, so the description and the seed are
+    /// written into designed-voices.json — a voice that is later lost can then
+    /// be asked for again.
+    VoiceDesign {
+        /// What the voice should be like, in a sentence: age, accent, pace,
+        /// warmth. 20 to 1000 characters, and not the name of a real person.
+        #[arg(long, conflicts_with_all = ["keep", "list"])]
+        prompt: Option<String>,
+        /// What the three candidates read aloud. 100 to 1000 characters, and
+        /// the only thing this is billed for — a longer passage is a better
+        /// audition and a dearer one.
+        #[arg(long, value_name = "TEXT", conflicts_with_all = ["keep", "list"])]
+        text: Option<String>,
+        /// Ask for the same candidates again as far as the vendor manages it.
+        /// Best-effort, and worth passing for a voice you might want back.
+        #[arg(long, requires = "prompt")]
+        seed: Option<u32>,
+        /// How literally to follow the description. Higher is more literal and
+        /// less varied; left out, the vendor chooses.
+        #[arg(long, requires = "prompt")]
+        guidance: Option<f64>,
+        /// Say what a design would cost and stop. Needs no key, sends nothing.
+        #[arg(long, requires = "prompt")]
+        dry_run: bool,
+        /// Keep this candidate: make it a real voice in your ElevenLabs
+        /// account, with a voice_id a narration can name. Costs nothing — the
+        /// candidate was paid for when it was designed.
+        #[arg(long, value_name = "CANDIDATE_ID", requires = "name")]
+        keep: Option<String>,
+        /// What to call the kept voice. The only name you will recognise it by
+        /// in your ElevenLabs account.
+        #[arg(long, requires = "keep")]
+        name: Option<String>,
+        /// List the voices this project has designed, with the description and
+        /// seed that made each one. Touches no network.
+        #[arg(long, conflicts_with_all = ["prompt", "keep"])]
+        list: bool,
+    },
     /// Print what a generated shot costs, per tier and per size, with the day
     /// each figure was last read off the vendor's page.
     ///

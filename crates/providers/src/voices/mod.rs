@@ -45,8 +45,10 @@
 
 mod cache;
 mod catalogue;
+pub mod design;
 mod elevenlabs;
 mod error;
+mod refusal;
 mod run;
 
 pub use cache::REFRESH_AFTER_DAYS;
