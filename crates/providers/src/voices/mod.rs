@@ -31,11 +31,13 @@
 //! variant for it — an unreachable provider is a
 //! [`VoiceError::Provider`] and stays one.
 //!
-//! **A refusal is read, not just counted.** ElevenLabs answers `401` both for a
-//! key that is wrong and for a key that is right but was never granted
+//! **A refusal is read once, and not here.** ElevenLabs answers `401` both for
+//! a key that is wrong and for a key that is right but was never granted
 //! `voices_read`, and those are fixed in different places. The body carries the
-//! word that tells them apart, so the body is what gets read — see
-//! [`refusal`](crate::api::elevenlabs::refusal).
+//! word that tells them apart, so the body is what gets read — in
+//! [`refusal`](crate::api::elevenlabs::refusal), for every caller there is.
+//! [`Unusable`] is that one answer narrowed to the question this module asks,
+//! and this module's own `refusal` is the whole of the narrowing.
 //!
 //! # The trait is the test seam
 //!

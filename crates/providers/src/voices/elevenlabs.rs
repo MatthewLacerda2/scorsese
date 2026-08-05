@@ -12,17 +12,20 @@
 //! withdrawn voice from one this account may not use, and those four call for
 //! four different sentences. So each call maps the status *and* the vendor's
 //! own `detail` onto the state it actually means, and everything unrecognised
-//! stays a plain provider failure rather than being guessed at. *Reading* that
-//! vocabulary is [`refusal`](super::refusal)'s job, because designing a voice
-//! is refused in the same words; deciding what a refusal means **on this
-//! endpoint** is this file's, because that part differs.
+//! stays a plain provider failure rather than being guessed at. *Sorting* a
+//! refusal happens once for the whole of scorsese, in
+//! [`Refusal`](crate::api::elevenlabs::refusal::Refusal), and reaches this file
+//! already sorted through [`refusal`](super::refusal). What is left here is the
+//! part that genuinely differs per endpoint: a plan limit means *the Voice
+//! Library is not sold to this account* on a listing and *this voice may not be
+//! used* on a lookup, and no reading of the body could tell those apart.
 
 use crate::api::elevenlabs::voices::{self, Filters, Voices};
 use crate::credentials::Secret;
 
-use super::catalogue::{Availability, Catalogue, Unusable, Voice};
+use super::catalogue::{Availability, Catalogue, Voice};
 use super::error::VoiceError;
-use super::refusal::{failure, plan_limited, refused, said};
+use super::refusal::{NO_VOICE, failure, plan_limited, refused, unusable};
 
 /// What this catalogue is called wherever a message names it.
 const NAME: &str = "ElevenLabs";
@@ -60,13 +63,11 @@ impl Catalogue for ElevenLabsVoices {
             // The plan refusal only has a meaning on this endpoint: the Voice
             // Library is the part that is not sold to a free account, and the
             // built-in listing above is never refused for that reason.
-            match refused(&error) {
-                Some((status, detail)) if plan_limited(status, &detail) => {
-                    VoiceError::NoLibraryOnThisPlan {
-                        said: said(&error, &detail).to_owned(),
-                    }
-                }
-                _ => failure(NAME, error),
+            match refused(NO_VOICE, &error).as_ref().and_then(plan_limited) {
+                Some(said) => VoiceError::NoLibraryOnThisPlan {
+                    said: said.to_owned(),
+                },
+                None => failure(NAME, error),
             }
         })?;
         Ok(listing.voices.iter().map(voice).collect())
@@ -75,20 +76,15 @@ impl Catalogue for ElevenLabsVoices {
     fn one(&self, voice_id: &str) -> Result<Availability, VoiceError> {
         match self.voices.one(voice_id) {
             Ok(found) => Ok(Availability::Available(voice(&found))),
-            Err(error) => match refused(&error) {
-                // The case with a date on it. Nothing answers to the id, which
-                // is what an expired default voice looks like from here.
-                Some((404, _)) => Ok(Availability::Unusable(Unusable::Gone)),
-                Some((status, detail)) if plan_limited(status, &detail) => {
-                    Ok(Availability::Unusable(Unusable::NotOnThisPlan {
-                        said: said(&error, &detail).to_owned(),
-                    }))
-                }
-                // Everything else — a timeout, a 500, a key with no scope — is
-                // a failure to *ask*, and says nothing about the voice. Turning
-                // one of those into "unusable" is how a bad afternoon on the
-                // network would look like a voice being withdrawn.
-                _ => Err(failure(NAME, error)),
+            // A withdrawn voice and one this account may not use are both
+            // answers about the voice — the first is the case with a date on
+            // it. Everything else — a timeout, a 500, a key with no scope — is
+            // a failure to *ask*, and says nothing about the voice. Turning one
+            // of those into "unusable" is how a bad afternoon on the network
+            // would look like a voice being withdrawn.
+            Err(error) => match refused(voice_id, &error).as_ref().and_then(unusable) {
+                Some(why) => Ok(Availability::Unusable(why)),
+                None => Err(failure(NAME, error)),
             },
         }
     }

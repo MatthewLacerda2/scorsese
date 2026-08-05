@@ -75,6 +75,14 @@ impl Voice {
 /// nothing whatever about the voice, and giving it a variant is how a flaky
 /// connection would come to look like a withdrawn one — at which point
 /// somebody's chosen narrator gets quietly replaced.
+///
+/// **This is a projection, not a second reading of the vendor.** What a refusal
+/// means is decided once, in
+/// [`Refusal`](crate::api::elevenlabs::refusal::Refusal), and these two
+/// variants are the part of that answer which is a fact about a voice —
+/// `VoiceGone` and `PlanRequired`. Working them out from the body again here
+/// would be a second opinion about a sentence the vendor is already scheduled
+/// to change.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Unusable {
     /// Nothing at the provider answers to that id.

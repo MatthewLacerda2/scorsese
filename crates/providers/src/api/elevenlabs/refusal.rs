@@ -22,7 +22,11 @@
 //! what it would have had anyway.
 //!
 //! [`Refusal`] is the other half: where [`read`] says what the vendor *said*,
-//! that says what it **means**, and it is what the text-to-speech path acts on.
+//! that says what it **means**, and it is the **one** place that decides.
+//! Every caller — speaking a line, listing voices, designing one — sorts a
+//! refusal here and then projects that answer onto whatever its own question
+//! was. Reading the same body a second time somewhere else is how two parts of
+//! scorsese come to disagree about whether a voice is gone.
 
 use serde_json::Value;
 
@@ -125,10 +129,13 @@ fn string(value: Option<&Value>) -> Option<String> {
 /// the `401` split exists at all. Read from documentation, a `401` is one
 /// thing.
 ///
-/// [`voices`](crate::voices) reaches its own conclusions from [`read`] rather
-/// than from this, because it predates it and answers a narrower question —
-/// *may this voice be used*. The two agree; that they are not yet one call is
-/// worth tidying, not worth a rewrite inside a feature branch.
+/// **Everything that reads an ElevenLabs refusal starts here.**
+/// [`voices`](crate::voices) asks a narrower question — *may this voice be
+/// used* — and answers it by projecting this onto
+/// [`Unusable`](crate::voices::Unusable) rather than by sorting the body again.
+/// Two derivations of one refusal is not a bug until the vendor changes the
+/// shape of one, and then it is two: one gets fixed and the other keeps its old
+/// opinion, and the two disagree about exactly the thing somebody is asking.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum Refusal {
     /// The key is wrong, or there is not one.
@@ -250,10 +257,15 @@ impl Wait {
 impl Refusal {
     /// Sorts a refusal out of the status and body the vendor sent.
     ///
-    /// The `code` is consulted before the status, not after, because the two
-    /// disagree about which fact matters: an exhausted quota has been seen
-    /// behind more than one status, and its code says so unambiguously either
-    /// way.
+    /// **The vendor's words are read before its number**, and in that order for
+    /// one reason: the number is an inference and the words are the vendor
+    /// being explicit. An exhausted quota has been seen behind more than one
+    /// status and its `code` says so either way; a key missing a scope is a
+    /// `401` today and its `status` would still name it if it were not.
+    ///
+    /// The number then answers what is left. `402` and `403` are one case — the
+    /// vendor uses both for *the account's plan does not cover this* — and `404`
+    /// is the one with a date on it: every default voice expires 2026-12-31.
     pub fn of(status: u16, voice_id: &str, body: &str) -> Self {
         let detail = read(body);
         let message = detail.says(body).to_owned();
@@ -273,11 +285,16 @@ impl Refusal {
                 wait: Wait::While,
             };
         }
+        if detail.is(MISSING_PERMISSIONS) {
+            return Self::MissingPermission { message };
+        }
+        if detail.is(PAID_PLAN_REQUIRED) {
+            return Self::PlanRequired { message };
+        }
 
         match status {
-            401 if detail.is(MISSING_PERMISSIONS) => Self::MissingPermission { message },
             401 => Self::BadKey { message },
-            402 => Self::PlanRequired { message },
+            402 | 403 => Self::PlanRequired { message },
             404 => Self::VoiceGone {
                 voice_id: voice_id.to_owned(),
             },
