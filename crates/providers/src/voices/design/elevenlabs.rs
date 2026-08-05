@@ -27,7 +27,7 @@ use crate::api::http::HttpError;
 use crate::credentials::Secret;
 use crate::video::ProviderError;
 
-use super::super::refusal::{failure, plan_limited, refused, said};
+use super::super::refusal::{NO_VOICE, failure, plan_limited, refused};
 use super::super::{Voice, VoiceError};
 use super::brief::Brief;
 use super::error::DesignError;
@@ -125,10 +125,10 @@ fn candidate(sample: &PreviewSample) -> Result<Candidate, DesignError> {
 /// timeout, a `500`, a key that is simply wrong — is a failure to *ask*, and is
 /// carried through as one rather than guessed at.
 fn refusal(error: HttpError) -> DesignError {
-    match refused(&error) {
-        Some((status, detail)) if plan_limited(status, &detail) => DesignError::NotOnThisPlan {
-            said: said(&error, &detail).to_owned(),
+    match refused(NO_VOICE, &error).as_ref().and_then(plan_limited) {
+        Some(said) => DesignError::NotOnThisPlan {
+            said: said.to_owned(),
         },
-        _ => DesignError::Voice(failure(NAME, error)),
+        None => DesignError::Voice(failure(NAME, error)),
     }
 }
