@@ -75,4 +75,3 @@ pub(super) fn said(spoken: &[(AssetId, Outcome)]) -> Vec<String> {
     .flatten()
     .collect()
 }
-
