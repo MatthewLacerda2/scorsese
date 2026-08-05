@@ -4,8 +4,7 @@
 use std::path::Path;
 
 use scorsese_core::{
-    Asset, AssetId, AssetKind, GenerationState, MediaMetadata, Project, ProjectPath, Timestamp,
-    hash_bytes,
+    AssetId, AssetKind, GenerationState, Project, ProjectPath, Timestamp, hash_bytes,
 };
 
 use crate::credentials::Budget;
@@ -205,7 +204,22 @@ fn cutoff() -> Option<Timestamp> {
     Timestamp::from_unix(Timestamp::unix_now()? - RETENTION_DAYS * A_DAY)
 }
 
-/// Points the asset at what is now on disk, and says what is in it.
+/// Points the asset at what is now on disk, and says what it cost.
+///
+/// **No `media` is written**, and it used to be. Two of those fields a brief
+/// does know — Veo delivers exactly the length and the raster it was asked for
+/// — so this filled them in from the request as a shortcut, on the promise that
+/// a probe would overwrite them with what ffprobe found. **That promise was
+/// false.** A probe skips any asset that already carries a `media` block, so
+/// the fields the brief could *not* know stayed unknown for ever. One of them
+/// is `audio_channels`, and Veo returns video with sound on it — engines,
+/// shouting, a room — which the render then read as absent and planned silence
+/// for. See #249.
+///
+/// So the shape arrives when something measures the file, exactly as a spoken
+/// line's length does, and for the same reason: what a brief *asked for* is not
+/// a measurement and must not be written where measurements live. The commands
+/// that call this probe afterwards.
 fn record(project: &mut Project, id: &AssetId, path: &ProjectPath, bytes: &[u8], brief: &Brief) {
     let estimate = prices::estimate(&brief.request).ok();
     let Some(asset) = project.assets.iter_mut().find(|asset| &asset.id == id) else {
@@ -221,33 +235,6 @@ fn record(project: &mut Project, id: &AssetId, path: &ProjectPath, bytes: &[u8],
     // `prices`. Written at the moment of generating so the table cannot drift
     // out from under it afterwards.
     asset.estimated_cost_cents = estimate.map(|estimate| estimate.cents);
-    fill_shape(asset, brief);
-}
-
-/// Records the shape we asked for, on an asset that has none yet.
-///
-/// The length and the raster are not measured here — they are what the brief
-/// *asked* for, and Veo delivers exactly them. Which makes this a shortcut and
-/// it is worth saying so: `scorsese probe` is still what measures a file, and
-/// it will overwrite these with what ffprobe finds. What this buys is that an
-/// agent which has just generated a shot can place a clip of the right length
-/// without a second call.
-fn fill_shape(asset: &mut Asset, brief: &Brief) {
-    if asset.media.is_some() {
-        return;
-    }
-    let (width, height) = match (brief.request.resolution, brief.request.aspect) {
-        (scorsese_core::VideoResolution::P720, scorsese_core::Aspect::Wide) => (1280, 720),
-        (scorsese_core::VideoResolution::P720, scorsese_core::Aspect::Tall) => (720, 1280),
-        (scorsese_core::VideoResolution::P1080, scorsese_core::Aspect::Wide) => (1920, 1080),
-        (scorsese_core::VideoResolution::P1080, scorsese_core::Aspect::Tall) => (1080, 1920),
-    };
-    asset.media = Some(MediaMetadata {
-        duration_seconds: Some(f64::from(brief.request.seconds.get())),
-        width: Some(width),
-        height: Some(height),
-        ..MediaMetadata::default()
-    });
 }
 
 /// Writes the generation, creating `generated/` if this is the project's first.

@@ -49,6 +49,17 @@ pub(super) fn pass(
     }
 }
 
+/// Whether a shot arrived on disk on this pass, and so has something to
+/// measure.
+///
+/// A cache hit is not one: its file was already there, and whatever ran when it
+/// first landed has had every chance to look at it.
+pub(super) fn arrived(outcomes: &[(AssetId, Outcome)]) -> bool {
+    outcomes
+        .iter()
+        .any(|(_, outcome)| matches!(outcome, Outcome::Generated { .. }))
+}
+
 /// What became of the shots, as clauses for the one line the dialog shows.
 pub(super) fn said(outcomes: &[(AssetId, Outcome)]) -> Vec<String> {
     let count = |wanted: fn(&Outcome) -> bool| {

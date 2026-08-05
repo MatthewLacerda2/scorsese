@@ -28,9 +28,10 @@ mod shots;
 use std::path::Path;
 use std::sync::mpsc::{Receiver, TryRecvError, channel};
 
-use scorsese_core::{Asset, AssetKind, Project};
+use scorsese_core::{Asset, AssetKind, Project, Reprobe, probe_assets};
 use scorsese_providers::credentials::{Budget, Settings};
 use scorsese_providers::prices::dollars;
+use scorsese_render::Ffprobe;
 
 /// What one background pass did.
 pub(crate) struct Report {
@@ -103,6 +104,11 @@ fn run(pass: Pass, mut project: Project, root: &Path) -> Report {
         Err(said) => return stopped(&project, root, said),
     };
 
+    // Before the save, so what was measured is in the document the window
+    // reloads rather than in a copy this thread is about to drop.
+    if shots::arrived(&made.outcomes) || lines::arrived(&spoken) {
+        measure(&mut project, root);
+    }
     if let Err(error) = project.save(root) {
         return failure(format!("saving the project: {error}"));
     }
@@ -117,6 +123,27 @@ fn run(pass: Pass, mut project: Project, root: &Path) -> Report {
         said: sentence(parts, made.spent_cents + lines::spent(&spoken), pass),
         failed: false,
     }
+}
+
+/// Measures whatever has just landed, for both vendors at once.
+///
+/// **A generation has no measured shape until something looks**, and neither
+/// kind of brief can supply one. How long a line takes depends on the words;
+/// whether Veo put an engine note under a shot is not in the prompt either, and
+/// it routinely does. `scorsese-providers` can answer neither — it has no
+/// decoder and must not grow one. The mix reads `duration_seconds` and
+/// `audio_channels`, so a generation nobody probed is a line the mix skips and
+/// a shot that plays silent.
+///
+/// A failure here is not reported and not an error. The media is on disk and
+/// has been paid for; a machine with no ffprobe should not be told its run
+/// failed, and both `scorsese probe` and this window's own open-time pass are
+/// still there to close the gap.
+fn measure(project: &mut Project, root: &Path) {
+    let Ok(probe) = Ffprobe::discover() else {
+        return;
+    };
+    probe_assets(project, root, &probe, Reprobe::Skip);
 }
 
 /// A pass that stopped partway, with the document saved first.

@@ -1,8 +1,8 @@
 //! The sound that came in the video file, rather than beside it.
 
 use crate::common::audio::{
-    SHOT_LEVEL, assert_audible, assert_silent, level, soundtrack, talking_picture, tone_asset,
-    with_volume,
+    SHOT_LEVEL, assert_audible, assert_silent, generated_talking_shot, level, soundtrack,
+    talking_picture, tone_asset, with_volume,
 };
 use crate::common::ffmpeg::{fixture_dir, tools};
 use crate::common::{audio_track, clip, project, video_track};
@@ -25,6 +25,36 @@ fn a_video_clips_own_sound_is_heard() {
     let heard = soundtrack(&tools, &out);
 
     assert_audible(level(&heard, 0.2, 1.8), "a video clip's own sound");
+    assert_eq!(report.seconds_of_audio, Some(2.0));
+    assert!(
+        report.notes.is_empty(),
+        "nothing to warn about: {:?}",
+        report.notes
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn a_generated_shots_own_sound_is_heard_too() {
+    // #249: Veo returns video with sound on it, and the provider used to write
+    // a media block from what the brief asked for — which no probe ever
+    // overwrites, so the sound nobody had measured was planned as silence. A
+    // generated shot arrives unmeasured now, like any other unprobed file, and
+    // the render finds out what is on it.
+    let tools = tools();
+    let dir = fixture_dir("embedded-generated");
+    let shot = generated_talking_shot(&tools, &dir, "pit-lane", 2, 440);
+    let project = project(
+        vec![shot],
+        vec![video_track("v1", vec![clip("c1", "pit-lane", 0, 60)])],
+    );
+
+    let (out, report) = render(&tools, &project, &dir);
+
+    assert_audible(
+        level(&soundtrack(&tools, &out), 0.2, 1.8),
+        "a generated shot's own sound",
+    );
     assert_eq!(report.seconds_of_audio, Some(2.0));
     assert!(
         report.notes.is_empty(),

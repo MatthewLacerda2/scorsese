@@ -7,7 +7,7 @@ use scorsese_core::{
 };
 use scorsese_render::Tools;
 
-use crate::common::ffmpeg::generate_asset;
+use crate::common::ffmpeg::{generate, generate_asset};
 
 /// What the fixtures are generated and analysed at.
 pub(crate) const RATE: u32 = 48_000;
@@ -68,14 +68,41 @@ pub(crate) fn talking_picture(
     seconds: u32,
     hz: u32,
 ) -> Asset {
+    talking(tools, &root.join("assets").join(name(id)), seconds, hz);
+    crate::common::file_asset(id, AssetKind::Video)
+}
+
+/// The same file, written where a **generated** shot lands, and described by an
+/// asset in the state one is in when it lands there.
+///
+/// Veo returns video with sound on it, and a shot that has just been generated
+/// carries no `media` block — nothing has measured it, and its brief could not
+/// have said. Which makes this the fixture for the render finding out for
+/// itself, and the shape of the film that #249 rendered silent.
+pub(crate) fn generated_talking_shot(
+    tools: &Tools,
+    root: &Path,
+    id: &str,
+    seconds: u32,
+    hz: u32,
+) -> Asset {
+    talking(tools, &root.join("generated").join(name(id)), seconds, hz);
+    crate::common::generated_asset(id, AssetKind::GeneratedVideo)
+}
+
+/// What both of the above are named after their asset id.
+fn name(id: &str) -> String {
+    format!("{id}.mp4")
+}
+
+/// Writes a black picture with a tone recorded on it to `file`.
+fn talking(tools: &Tools, file: &Path, seconds: u32, hz: u32) {
     let graph = format!(
         "aevalsrc=exprs={SHOT_LEVEL}*sin(2*PI*{hz}*t):duration={seconds}:sample_rate={RATE}"
     );
-    generate_asset(
+    generate(
         tools,
-        root,
-        id,
-        AssetKind::Video,
+        file,
         &[
             "-f",
             "lavfi",
@@ -89,7 +116,7 @@ pub(crate) fn talking_picture(
             "-pix_fmt",
             "yuv420p",
         ],
-    )
+    );
 }
 
 /// Writes a volume keyframe track onto a clip, in one call, since every audio

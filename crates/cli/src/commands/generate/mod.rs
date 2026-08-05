@@ -24,7 +24,7 @@ use scorsese_core::{Asset, AssetKind, Project, Reprobe, probe_assets};
 use scorsese_providers::credentials::{Budget, Settings};
 use scorsese_providers::prices::dollars;
 use scorsese_providers::spending;
-use scorsese_providers::video::Run;
+use scorsese_providers::video::{Outcome, Run};
 use scorsese_render::Ffprobe;
 
 /// Realises every sketched brief, waiting up to `patience` for the shots.
@@ -48,17 +48,30 @@ pub(crate) fn run(project_dir: &Path, patience: Duration, dry_run: bool) -> Resu
         .with_context(|| format!("saving {}", project_dir.display()))?;
     outcome?;
 
-    let spoke = lines.iter().any(|(_, outcome)| {
-        matches!(
-            outcome,
-            scorsese_providers::speech::Outcome::Generated { .. }
-        )
-    });
-    if spoke {
+    if landed(&shots.outcomes, &lines) {
         measure(&mut project, project_dir)?;
     }
     report(&shots, &lines);
     Ok(())
+}
+
+/// What became of this run's narration.
+type Spoken = [(scorsese_core::AssetId, scorsese_providers::speech::Outcome)];
+
+/// Whether anything arrived on disk that nothing has measured yet.
+///
+/// A cache hit is not one of them: its file was already there, and whatever ran
+/// when it first landed has had every chance to look at it.
+fn landed(shots: &[(scorsese_core::AssetId, Outcome)], lines: &Spoken) -> bool {
+    shots
+        .iter()
+        .any(|(_, outcome)| matches!(outcome, Outcome::Generated { .. }))
+        || lines.iter().any(|(_, outcome)| {
+            matches!(
+                outcome,
+                scorsese_providers::speech::Outcome::Generated { .. }
+            )
+        })
 }
 
 /// Both passes, each run only if it has something to do.
@@ -135,6 +148,11 @@ pub(crate) fn sweep(project_dir: &Path) -> Result<()> {
         println!("Nothing is in flight.");
         return Ok(());
     }
+    // A shot collected here is a shot nothing has looked at, exactly as if the
+    // run that submitted it had waited for it.
+    if landed(&collected, &[]) {
+        measure(&mut project, project_dir)?;
+    }
     // A sweep spends nothing by construction, so its total is zero and saying
     // so is honest rather than a gap.
     shots::report(&Run {
@@ -149,16 +167,18 @@ pub(crate) fn sweep(project_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Measures what was just spoken.
+/// Measures what has just been generated.
 ///
-/// **Narration has no length until something looks.** A shot comes back exactly
-/// as long as its request asked, so the provider fills that in from the brief;
-/// how long a line takes depends on the words, and `scorsese-providers` has no
-/// decoder to measure an MP3 with — nor should it grow one. The mix reads
-/// `duration_seconds`, so an unprobed line is a line the mix skips. This is
-/// where that gap is closed, above both crates, which is where it belongs.
+/// **A generation has no measured shape until something looks**, and neither
+/// kind of brief can supply one. How long a line takes depends on the words;
+/// whether Veo put an engine note under a shot is not in the prompt either, and
+/// it routinely does. `scorsese-providers` can answer neither question — it has
+/// no decoder and must not grow one. The mix reads `duration_seconds` and
+/// `audio_channels`, so a generation nobody probed is a line the mix skips and
+/// a shot that plays silent. This is where that gap is closed, above both
+/// crates, which is where it belongs.
 fn measure(project: &mut Project, project_dir: &Path) -> Result<()> {
-    let probe = Ffprobe::discover().context("ffprobe is needed to measure generated narration")?;
+    let probe = Ffprobe::discover().context("ffprobe is needed to measure what was generated")?;
     probe_assets(project, project_dir, &probe, Reprobe::Skip);
     project
         .save(project_dir)
