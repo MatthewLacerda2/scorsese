@@ -14,7 +14,7 @@
 //! `scp -r` has to carry — which is also what lets an offline `scorsese
 //! voices` still answer. A cache that never expired would be the failure this
 //! module is about, so a stale one refreshes itself and every answer says how
-//! old it is. See [`cache`].
+//! old it is — see [`REFRESH_AFTER_DAYS`] and [`Freshness`].
 //!
 //! **A voice that cannot be used is a named state, not a crash.**
 //! [`Availability`] is what a lookup answers with, [`Unusable`] says which
