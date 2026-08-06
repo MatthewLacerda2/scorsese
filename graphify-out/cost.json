@@ -1,0 +1,13 @@
+{
+  "runs": [
+    {
+      "date": "2026-08-06T01:09:39.104237+00:00",
+      "input_tokens": 383007,
+      "output_tokens": 0,
+      "files": 661,
+      "note": "subagent tokens reported combined (in+out) by the Agent tool; recorded under input_tokens"
+    }
+  ],
+  "total_input_tokens": 383007,
+  "total_output_tokens": 0
+}

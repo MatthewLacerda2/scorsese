@@ -37,3 +37,13 @@ cache/
 *.new.png
 *.diff.png
 *.old.png
+
+# graphify writes the graph itself, and beside it the bookkeeping of the
+# machine that built it. The graph is committed; the bookkeeping is not.
+# `.graphify_python` and `.graphify_root` are absolute paths on whoever ran it,
+# `manifest.json` is that checkout's mtimes — on a second machine every file
+# reads as changed, so it buys no incremental re-extraction and only leaks
+# where the run happened. `cache/` above already covers `graphify-out/cache/`.
+graphify-out/manifest.json
+graphify-out/.graphify_python
+graphify-out/.graphify_root
