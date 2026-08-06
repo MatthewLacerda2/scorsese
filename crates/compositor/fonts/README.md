@@ -42,7 +42,20 @@ own licence — the OFL covers the font files and nothing else. Subsetting them
 to save space would count as modifying them, which is why they are committed
 whole.
 
-One regular weight of each rather than a family: bold and italic are a real
-feature with a real vocabulary (`weight`, `slant`) and shipping four more files
-against a field nothing can select would be a megabyte pretending to be a
-choice. Liberation Mono is deliberately left out until something asks for it.
+One regular weight of each rather than a family. The reason given here used to
+be that no field could select a weight, so extra files would be a megabyte
+pretending to be a choice — and **half of that stopped being true at schema
+v11**, which added `style.weight` and taught the compositor to read a variable
+face's `wght` axis. A project carrying its own variable font gets every weight
+in its range today; the two faces here do not, because they are static files
+nobody has replaced yet. That is the honest reason, and `weight` beside `sans`
+or `serif` is refused for exactly that reason and no deeper one.
+
+It also stopped being a question of four more files. A variable face is **one
+file covering the whole range**, which is the trade the format already makes
+for project-carried fonts. Swapping these two for variable faces is
+[#267](https://github.com/MatthewLacerda2/scorsese/issues/267).
+
+Italic is the half that still stands: there is no `slant` field, so an italic
+file would be a face nothing could ask for. Liberation Mono is deliberately
+left out until something asks for it.
