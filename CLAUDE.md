@@ -54,6 +54,9 @@ elaborate feature, and equally a reason to *build* an obvious one well.
 - **docs/prompts.md** — the other brief: what a provider actually does with
   certain words, each entry learned by paying for a generation. Read it before
   writing a prompt, because being wrong about one is not free.
+- **docs/prices.md** — what "not free" comes to: the provider rate tables, how
+  they are kept honest, and why a cost is only ever an estimate. Read it before
+  quoting a number at the user.
 - **docs/golden-renders.md** — the pixel gate: what a fixture is, how frames are
   compared, and when re-blessing a reference is legitimate. Read it before
   changing anything a render's output depends on.
