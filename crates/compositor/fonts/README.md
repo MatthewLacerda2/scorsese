@@ -57,5 +57,4 @@ for project-carried fonts. Swapping these two for variable faces is
 [#267](https://github.com/MatthewLacerda2/scorsese/issues/267).
 
 Italic is the half that still stands: there is no `slant` field, so an italic
-file would be a face nothing could ask for. Liberation Mono is deliberately
-left out until something asks for it.
+file would be a face nothing could ask for. There is no monospace face.

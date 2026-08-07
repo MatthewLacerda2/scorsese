@@ -154,8 +154,7 @@ draws or hears, and the assets table is that list rather than a file browser.
 
 What a folder import does is fixed so that it can be relied on:
 
-- the media **directly inside it**, one asset each, and **no recursion** —
-  walking a tree invents structure nobody asked for;
+- the media **directly inside it**, one asset each, and **no recursion**;
 - **sorted by file name**, so the same folder imports to the same ids in the
   same order every time;
 - files that are not media — a font, a licence, a `.DS_Store` — are **skipped

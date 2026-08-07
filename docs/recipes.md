@@ -258,9 +258,7 @@ Three things worth knowing before you write one:
   a transpose is legal should not depend on the register of a pattern written
   months ago.
 
-Inversion, retrograde, augmentation and fragmentation are deliberately absent.
-They are real compositional operations and also the ones nobody reaches for by
-hand; if a real song wants one, that is a request with the song attached.
+Inversion, retrograde, augmentation and fragmentation are not supported.
 
 ### Playing it, rather than clocking it
 
@@ -419,7 +417,7 @@ under a one-line summary is the same sentence twice.
 *crest* is peak minus mean: the cheapest proxy there is for "does this have
 dynamics, or is it a wall". The three band shares are a coarse split at 250 Hz
 and 4 kHz, enough to say **muddy**, **thin** or **balanced** — not a spectrum
-analyser, and deliberately not one.
+analyser.
 
 ### Which layer is taking up the room
 

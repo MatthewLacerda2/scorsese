@@ -88,10 +88,8 @@ being exact:
 
 - The rate above is a page somebody copied.
 - A handful of Voice Library voices carry a **credit multiplier** and cost more
-  per character than the base rate. scorsese ignores this deliberately —
-  modelling a credit system to move an advisory counter by a few cents is not
-  worth what it would cost to keep true. So the estimate can be a little low
-  for those voices.
+  per character than the base rate. scorsese does not model it, so the estimate
+  can be a little low for those voices.
 
 ### It rounds up
 
