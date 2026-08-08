@@ -145,6 +145,36 @@ different ffmpeg still passes when its frames match.
 decoder difference is the same illegitimate act as re-blessing for any other
 reason, and it would bake one machine's decoder into the reference.
 
+## The faces, which sit upstream of it just as much
+
+The decoder is not the only input the environment would otherwise choose. **The
+two shipped faces are the other**, and they are held still for exactly the
+reason ffmpeg is: a system-font lookup resolves to a different file on Linux,
+macOS and Windows, so text drawn on one machine would not match text drawn on
+another and a reference blessed anywhere would fail everywhere else. Two faces
+compiled in with `include_bytes!` are to text what a pinned runner image is to
+decoding — refuse to let the environment pick, carry the input instead. The
+provenance, the licence conditions and the full reasoning are in
+[`crates/compositor/fonts/README.md`](../crates/compositor/fonts/README.md);
+this section exists so the rulebook names both things the gate rests on rather
+than one of them.
+
+This is a different claim from the font mentioned under *What a fixture is*.
+There a face is a fixture **asset** — the case of a project bringing its own,
+which `weight` is the fixture for, and which a fixture directory records. Here
+it is the default `sans` and `serif` every other text fixture draws with, which
+nothing in a fixture directory records at all.
+
+What follows from it is the part a rule is for. **The shipped faces may not be
+swapped, subsetted, or resolved from the system without re-blessing every text
+fixture.** Subsetting counts as modifying the file, and modifying the file moves
+the pixels. `anchored`, `paragraph`, `serif`, `title`, `title_moved`, `wash` and
+`weight` all render text — 7 of the 24 fixtures — so this is not a corner of the
+gate. Such a re-blessing is legitimate only under the rules below: a deliberate
+visual change, said out loud in the PR description, arriving as image diffs a
+human can look at. It is never legitimate as a way to get a text fixture green
+again.
+
 ## Re-blessing
 
 ```sh
@@ -179,9 +209,11 @@ The failure names every frame that fell outside tolerance, its scores, and two
 paths: the committed reference and the frame that was actually produced. It
 also names the ffmpeg that decoded them, and whether that is the one the
 references were recorded under — see the decoder section above for what to do
-with that, and what not to. The render itself is kept on disk rather than
-cleaned up, because watching it is usually the fastest diagnosis. In CI those
-frames are uploaded as the `golden-failures` artifact.
+with that, and what not to. If the fixture renders text, the shipped faces are
+the other upstream input to rule out before suspecting the code — the section
+on them above names the seven that do. The render itself is kept on disk rather
+than cleaned up, because watching it is usually the fastest diagnosis. In CI
+those frames are uploaded as the `golden-failures` artifact.
 
 ## Adding a fixture
 
