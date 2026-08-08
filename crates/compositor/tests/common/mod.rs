@@ -116,5 +116,5 @@ pub(crate) fn clip(duration: u64) -> Clip {
 
 /// The opacity a clip's own keyframes give at `t`.
 pub(crate) fn opacity_at(clip: &Clip, t: u64) -> f64 {
-    Properties::at(&clip.keyframes, Frames(t)).opacity
+    Properties::at(clip, Frames(t)).opacity
 }

@@ -19,7 +19,7 @@
 //! of known properties, adding one becomes a core change and the generality
 //! rule is gone.
 
-use scorsese_core::{Clip, Easing, Frames, Keyframe, KeyframeTrack, PropertyPath};
+use scorsese_core::{Clip, Easing, Frames, Grade, Keyframe, KeyframeTrack, PropertyPath};
 
 use crate::registry::Property;
 
@@ -57,6 +57,21 @@ pub mod path {
     /// would call "flipping horizontally" — see [`FLIP_X`] for why the
     /// convention is worth stating rather than guessing at.
     pub const FLIP_Y: &str = "transform.flip.y";
+    /// How much colour, about each pixel's own grey. `1.0` untouched, `0.0`
+    /// fully grey, above `1.0` oversaturated.
+    pub const SATURATION: &str = "grade.saturation";
+    /// Which way the whites lean. `0.0` untouched, negative cooler, positive
+    /// warmer.
+    pub const TEMPERATURE: &str = "grade.temperature";
+    /// Light added, as an offset. `0.0` untouched, negative darker, positive
+    /// lighter.
+    pub const BRIGHTNESS: &str = "grade.brightness";
+    /// How steep the range is about mid-grey. `1.0` untouched, below flattens,
+    /// above steepens.
+    pub const CONTRAST: &str = "grade.contrast";
+    /// How much the layer's own corners are darkened. `0.0` none, `1.0` takes
+    /// them to black.
+    pub const VIGNETTE: &str = "grade.vignette";
 }
 
 /// What this compositor animates, and what animating it does.
@@ -98,6 +113,26 @@ pub const ANIMATED: &[Property] = &[
         path: path::FLIP_Y,
         describes: "how far the layer is turned about its own vertical axis, in degrees",
     },
+    Property {
+        path: path::SATURATION,
+        describes: "how much colour the layer has, as a multiplier about each pixel's own grey",
+    },
+    Property {
+        path: path::TEMPERATURE,
+        describes: "which way the layer's whites lean: negative cooler, positive warmer",
+    },
+    Property {
+        path: path::BRIGHTNESS,
+        describes: "how much light is added to the layer, as an offset",
+    },
+    Property {
+        path: path::CONTRAST,
+        describes: "how steep the layer's range is about mid-grey",
+    },
+    Property {
+        path: path::VIGNETTE,
+        describes: "how much the layer's own corners are darkened",
+    },
 ];
 
 /// What a layer looks like at one instant.
@@ -126,6 +161,15 @@ pub struct Properties {
     pub flip: (f64, f64),
     /// `0.0` invisible, `1.0` solid.
     pub opacity: f64,
+    /// The colour treatment applied to the layer's own pixels, before any of
+    /// the geometry above.
+    ///
+    /// **Before**, and that is the whole reason it lives on the layer rather
+    /// than on the frame: a vignette is measured from the layer's own centre
+    /// and a saturation applies to the layer's own pixels, so both have to
+    /// happen while the layer is still a rectangle of its own rather than a
+    /// contribution to somebody else's canvas.
+    pub grade: Grade,
 }
 
 impl Default for Properties {
@@ -138,18 +182,34 @@ impl Default for Properties {
             rotation: 0.0,
             flip: (0.0, 0.0),
             opacity: 1.0,
+            grade: Grade::NEUTRAL,
         }
     }
 }
 
 impl Properties {
-    /// Resolves a clip's animated properties at `t`, in frames from the clip's
-    /// own start.
+    /// Resolves a clip's properties at `t`, in frames from the clip's own
+    /// start.
     ///
     /// Anything the clip does not animate keeps its default, so a clip with no
     /// keyframes at all composites as a plain copy.
-    pub fn at(tracks: &[KeyframeTrack], t: Frames) -> Self {
-        let mut properties = Self::default();
+    ///
+    /// The clip rather than its keyframes alone, because [`Grade`] is the one
+    /// property that is *both* a field and animatable. The field is what this
+    /// starts from; a `grade.*` track then takes that property over for the
+    /// whole clip, the same way a track overrides the default for every other
+    /// property here — which are animated or nothing.
+    pub fn at(clip: &Clip, t: Frames) -> Self {
+        Self::over(clip.grade, &clip.keyframes, t)
+    }
+
+    /// The same, from a grade and a set of tracks — for callers that have
+    /// tracks without a clip around them, which in practice means tests.
+    pub fn over(grade: Grade, tracks: &[KeyframeTrack], t: Frames) -> Self {
+        let mut properties = Self {
+            grade,
+            ..Self::default()
+        };
         for track in tracks {
             let Some(value) = track.value_at(t) else {
                 continue;
@@ -163,6 +223,11 @@ impl Properties {
                 path::ROTATION => properties.rotation = value,
                 path::FLIP_X => properties.flip.0 = value,
                 path::FLIP_Y => properties.flip.1 = value,
+                path::SATURATION => properties.grade.saturation = value,
+                path::TEMPERATURE => properties.grade.temperature = value,
+                path::BRIGHTNESS => properties.grade.brightness = value,
+                path::CONTRAST => properties.grade.contrast = value,
+                path::VIGNETTE => properties.grade.vignette = value,
                 _ => {}
             }
         }
@@ -205,6 +270,11 @@ impl Properties {
             // A turned layer is never a plain copy, however slight the turn.
             && self.rotation.abs() < EPSILON
             && (self.opacity - 1.0).abs() < EPSILON
+            // A graded layer is not its own pixels, which is the whole point of
+            // grading it. Left out, the copy path below would hand the ungraded
+            // source straight to the canvas and the grade would silently do
+            // nothing on exactly the clips it costs least to apply to.
+            && self.grade.is_neutral()
     }
 
     /// True when the layer would contribute nothing, so it can be skipped

@@ -112,7 +112,7 @@ impl Pass<'_> {
                 .zip(sources.iter())
                 .map(|(shot, source)| Layer {
                     source,
-                    properties: Properties::at(&shot.clip.keyframes, elapsed(at, shot.clip)),
+                    properties: Properties::at(shot.clip, elapsed(at, shot.clip)),
                     anchor: shot.clip.anchor,
                 })
                 .collect();

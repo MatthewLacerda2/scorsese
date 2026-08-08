@@ -1,0 +1,14 @@
+{
+  "description": "The clip carries a grade of its own -- saturation 1.0 and vignette 0.8 -- and a keyframe track ramping saturation from 0.0 to 1.0 across its 15 frames. Both halves of the rule are asserted at once. The track takes over saturation outright, so frame 0 is grey where the field alone would have left it mauve; the field still supplies every property no track names, so both frames are vignetted. A build that ignored the track gives two saturated frames, one that ignored the field gives two unvignetted ones, and one that added the two instead of letting the track win gives a frame 0 that is not grey.",
+  "media": {
+    "plate": "color=c=0x8060a0:s=64x64:d=1:r=30"
+  },
+  "render": {
+    "resolution": "64x64",
+    "fps": "30"
+  },
+  "frames": [
+    0,
+    14
+  ]
+}

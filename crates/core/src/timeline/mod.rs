@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 pub(crate) mod placement;
 
 use crate::asset::AssetId;
+use crate::grade::Grade;
 use crate::keyframe::KeyframeTrack;
 use crate::time::{Frames, Speed};
 
@@ -172,6 +173,20 @@ pub struct Clip {
     /// animated part.
     #[serde(default, skip_serializing_if = "Anchor::is_default")]
     pub anchor: Anchor,
+    /// How this clip's pixels are graded before they are composited. Absent
+    /// means untouched, which is what every clip did before the field existed.
+    ///
+    /// A field **and** five animatable properties, which is a combination no
+    /// other clip property has. The field is the clip's baseline and a
+    /// `grade.*` keyframe track takes that one property over, because both
+    /// readings are ordinary: most of the time a shot has *a* look, said once
+    /// and left alone; sometimes the look arrives over three seconds, and that
+    /// is a ramp between two numbers like any other.
+    ///
+    /// Picture only. An audio clip has no pixels, and this says nothing about
+    /// one.
+    #[serde(default, skip_serializing_if = "Grade::is_neutral")]
+    pub grade: Grade,
     /// Why this clip is the way it is. Never rendered — see [`super::Track::note`].
     ///
     /// The commonest place a note belongs, because most decisions are decisions
@@ -201,6 +216,7 @@ impl Clip {
             fit: Fit::default(),
             crop: None,
             anchor: Anchor::default(),
+            grade: Grade::NEUTRAL,
             keyframes: Vec::new(),
             note: None,
         }

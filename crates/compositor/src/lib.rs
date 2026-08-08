@@ -81,6 +81,7 @@ mod compose;
 mod cpu;
 pub mod dissolve;
 mod frame;
+mod grade;
 pub mod grid;
 mod properties;
 mod registry;

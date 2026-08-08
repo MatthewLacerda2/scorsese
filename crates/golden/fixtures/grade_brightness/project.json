@@ -1,0 +1,32 @@
+{
+  "schema_version": 17,
+  "name": "grade_brightness",
+  "timeline_fps": {
+    "num": 30,
+    "den": 1
+  },
+  "assets": [
+    {
+      "id": "plate",
+      "kind": "video",
+      "path": "assets/plate.mp4"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-plate",
+          "asset": "plate",
+          "start": 0,
+          "duration": 15,
+          "grade": {
+            "brightness": 0.2
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -774,6 +774,77 @@ Scale and rotation stay centre-anchored about the layer's own middle — the
 anchor decides where the layer sits, and those decide what it does about its
 own centre once it is there.
 
+### How it looks: `grade`
+
+```json clip
+{ "id": "c-arrival", "asset": "shot-a", "start": 0, "duration": 120,
+  "grade": { "saturation": 0.18, "temperature": 0.12, "vignette": 0.35 } }
+```
+
+Five numbers, all optional, every default the **neutral** one — so a grade that
+says nothing changes nothing, and a clip with no `grade` at all is the clip
+exactly as it arrived.
+
+| property | neutral | which way it runs |
+| --- | --- | --- |
+| `saturation` | `1.0` | `0.0` is fully grey; above `1.0` oversaturates |
+| `temperature` | `0.0` | negative is cooler (blue), positive is warmer (amber) |
+| `brightness` | `0.0` | negative darkens, positive lightens |
+| `contrast` | `1.0` | below `1.0` flattens, above `1.0` steepens |
+| `vignette` | `0.0` | `0.0` is none; higher darkens the corners further |
+
+**It applies to every layer kind, not only video.** The compositor does not care
+what produced the pixels it is handed, and a title card that does not warm along
+with the shot behind it is the wrong result. An image, a text layer and a
+generated shot all take a grade on the same terms.
+
+**Numbers, never named looks.** The generality rule — core defines property
+*types*, never property *values* — rules out a `"look": "70s"` field here as
+surely as it rules out "make text red". `saturation: 0.18` is a property; the
+70s look is five values somebody chose, and those belong in a project, a
+document, or an assistant's suggestion.
+
+**A field *and* five animatable properties**, which no other clip property is.
+The field is the clip's baseline; a `grade.*` keyframe track **takes that one
+property over** for the whole clip, since a track holds its first and last
+values outside its own range and so always has an answer. Every property no
+track names still comes from the field, which is what makes "warm throughout,
+and desaturate over the first second" two lines rather than a choice between
+them.
+
+Both readings are ordinary — most of the time a shot has *a* look, written once;
+sometimes the look arrives over three seconds, which is a ramp between two
+numbers like any other:
+
+```json clip
+{ "id": "c-bloom", "asset": "shot-a", "start": 0, "duration": 90,
+  "grade": { "saturation": 0.0 },
+  "keyframes": [ { "property": "grade.saturation",
+                   "keyframes": [ { "t": 0, "value": 0.0 },
+                                  { "t": 90, "value": 1.0 } ] } ] }
+```
+
+**What is deliberately absent**: curves, LUTs, colour wheels, per-channel
+lift/gamma/gain, scopes, and any primary/secondary distinction. Each of those is
+what "scorsese is not a compositing suite" is refusing, and each is only legible
+to somebody who already grades professionally. `contrast` is in, and is the one
+entry that had a real question against that line: it is one number on a slider,
+which is the shape this is measured against, and not the beginning of a curves
+editor.
+
+**Order of operations**, because a grade is more than one thing happening and
+the order changes the picture: saturation, then temperature, then contrast,
+then brightness, then vignette. Saturation runs first so that warming a
+desaturated shot warms it rather than being undone by the desaturation;
+brightness runs after contrast so that the contrast knob does not shift the
+exposure as a side effect. Everything is clamped to the displayable range on the
+way out — an overshoot is a blown highlight, not a wrapped one.
+
+The vignette is measured from **the layer's own centre**, not the frame's, so
+one on a picture-in-picture darkens that picture's corners rather than a ring it
+happens to sit inside. Alpha is never touched, by the vignette or anything else:
+a grade changes what colour a pixel is, never how much of it there is.
+
 ### Playing faster or slower: `speed`
 
 ```json clip
@@ -958,6 +1029,11 @@ attention than the ducking was avoiding.
 | `transform.rotation` | turn about the layer's centre, in **degrees clockwise** | `0.0` upright |
 | `transform.flip.x` | turn about the layer's own **horizontal** axis, in degrees | `0.0` face on |
 | `transform.flip.y` | turn about the layer's own **vertical** axis, in degrees | `0.0` face on |
+| `grade.saturation` | how much colour, about each pixel's own grey | `1.0` untouched, `0.0` fully grey |
+| `grade.temperature` | which way the whites lean: negative cooler, positive warmer | `0.0` untouched |
+| `grade.brightness` | light added to the layer, as an offset | `0.0` untouched |
+| `grade.contrast` | how steep the layer's range is about mid-grey | `1.0` untouched |
+| `grade.vignette` | how much the layer's own corners are darkened | `0.0` none, `1.0` corners black |
 | `volume` | how loud a clip plays, on either kind of track | `1.0` as recorded, `0.0` silent |
 
 Scale, rotation and flip are all **centre-anchored**, so shrinking a clip does
@@ -1140,6 +1216,22 @@ caption and every slug card is set in a different face, so a project re-rendered
 under v17 is not frame-identical to the same project under v16. That is a
 deliberate visual change and not a migration step — there is nothing to write
 into a document to keep the old faces, because they are no longer shipped.
+
+## Migrating from v16
+
+v17 adds one optional field and takes nothing away: `grade` on a clip. No v16
+document can contain it, and **absent means what absent has always meant** —
+the clip's pixels, untouched. So no v16 document means anything different under
+v17: converting one is changing `"schema_version": 16` to `"schema_version": 17`
+and nothing else.
+
+The version moved because the *accepted value space* did, in two places. A
+`grade` object is refused by a v16 build, and the five `grade.*` keyframe paths
+were paths nothing animated — which a v16 build ignores with a warning rather
+than refusing, so a document written against v17 would render there without its
+look and say only that it did not recognise a property. A number that stops a
+build reading the document is the honest way to say "this needs a newer
+scorsese", and that is what a version bump is for.
 
 ## Migrating from v15
 

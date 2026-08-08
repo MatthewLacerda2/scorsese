@@ -9,19 +9,36 @@ use tiny_skia::{BlendMode, FilterQuality, PixmapMut, PixmapPaint, PixmapRef, Tra
 
 use crate::compose::{CompositeError, Compositor, Layer};
 use crate::frame::{BYTES_PER_PIXEL, Frame};
+use crate::grade;
 
 /// Composites on the CPU.
 #[derive(Debug, Default)]
 pub struct CpuCompositor {
-    /// A premultiplied copy of a layer whose alpha is not already solid. Kept
-    /// between frames so a render allocates it once rather than per frame.
-    scratch: Vec<u8>,
+    scratch: Scratch,
+}
+
+/// The two copies of a layer this compositor may have to make, kept between
+/// frames so a render allocates them once rather than eight megabytes thirty
+/// times a second.
+///
+/// Two rather than one because a layer can need both, in this order: a graded
+/// layer is graded in **straight** alpha — that is what the arithmetic is
+/// written against — and premultiplying is the last thing that happens before
+/// the rasteriser sees it. Grading a premultiplied pixel would scale the colour
+/// by its own transparency and call the result a colour.
+#[derive(Debug, Default)]
+struct Scratch {
+    /// The layer with its grade applied, still straight RGBA.
+    graded: Vec<u8>,
+    /// Colour channels multiplied by alpha, which is the form tiny-skia blends
+    /// in.
+    premultiplied: Vec<u8>,
 }
 
 impl CpuCompositor {
-    /// One with no scratch buffer yet. It grows to fit the first layer that
-    /// needs premultiplying and is reused for every frame after that, so a
-    /// compositor is worth keeping across a render rather than per frame.
+    /// One with no scratch buffers yet. They grow to fit the first layer that
+    /// needs each and are reused for every frame after that, so a compositor is
+    /// worth keeping across a render rather than per frame.
     pub fn new() -> Self {
         Self::default()
     }
@@ -63,18 +80,33 @@ fn copied(canvas: &mut Frame, layer: &Layer<'_>) -> bool {
 }
 
 fn draw(
-    scratch: &mut Vec<u8>,
+    scratch: &mut Scratch,
     canvas: &mut Frame,
     layer: &Layer<'_>,
 ) -> Result<(), CompositeError> {
     let source_resolution = layer.source.resolution();
+    // Destructured so the two buffers can be borrowed at once: the graded copy
+    // is read while the premultiplied one is written.
+    let Scratch {
+        graded,
+        premultiplied,
+    } = scratch;
+    // The grade runs on the layer's own pixels, before anything below moves
+    // them: a vignette is measured from this rectangle's centre, and a
+    // saturation is about these pixels rather than the canvas they land on.
+    let straight: &[u8] = if layer.properties.grade.is_neutral() {
+        layer.source.bytes()
+    } else {
+        grade::into(graded, layer.source, layer.properties.grade);
+        graded.as_slice()
+    };
     // An opaque frame is already in the form the rasteriser wants; anything
     // else has to be premultiplied first.
     let source_bytes: &[u8] = if layer.source.is_opaque() {
-        layer.source.bytes()
+        straight
     } else {
-        premultiply_into(scratch, layer.source);
-        scratch.as_slice()
+        premultiply_into(premultiplied, straight);
+        premultiplied.as_slice()
     };
     let source = PixmapRef::from_bytes(
         source_bytes,
@@ -247,10 +279,10 @@ fn transform_of(
 }
 
 /// Multiplies colour channels by alpha, which is the form tiny-skia blends in.
-fn premultiply_into(scratch: &mut Vec<u8>, source: &Frame) {
+fn premultiply_into(scratch: &mut Vec<u8>, source: &[u8]) {
     scratch.clear();
-    scratch.reserve(source.byte_count());
-    for pixel in source.bytes().chunks_exact(BYTES_PER_PIXEL) {
+    scratch.reserve(source.len());
+    for pixel in source.chunks_exact(BYTES_PER_PIXEL) {
         let alpha = u32::from(pixel[3]);
         let scale = |channel: u8| ((u32::from(channel) * alpha + 127) / 255) as u8;
         scratch.extend_from_slice(&[scale(pixel[0]), scale(pixel[1]), scale(pixel[2]), pixel[3]]);

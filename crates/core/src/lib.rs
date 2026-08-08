@@ -61,6 +61,7 @@
 pub(crate) mod asset;
 pub(crate) mod color;
 pub mod dip;
+pub(crate) mod grade;
 pub(crate) mod keyframe;
 pub mod note;
 pub mod pacing;
@@ -82,6 +83,7 @@ pub use asset::{
 };
 pub use color::{ColorError, Rgba};
 pub use dip::{Dip, Ducked, Under, duck_track};
+pub use grade::Grade;
 pub use keyframe::{Easing, Keyframe, KeyframeTrack, PropertyPath};
 pub use note::{Annotated, Noted};
 // The function itself is deliberately left behind the module — see
