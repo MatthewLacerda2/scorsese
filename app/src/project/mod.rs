@@ -102,10 +102,13 @@ impl Refused {
 pub(crate) fn open(root: &Path) -> Result<Open, Refused> {
     let file = root.join(PROJECT_FILE_NAME);
     let json = std::fs::read_to_string(&file).map_err(|source| {
-        refused(root, LoadError::Io {
-            path: file.clone(),
-            source,
-        })
+        refused(
+            root,
+            LoadError::Io {
+                path: file.clone(),
+                source,
+            },
+        )
     })?;
     let project = Project::from_json(&json).map_err(|error| refused(root, error))?;
     let mut open = Open {
