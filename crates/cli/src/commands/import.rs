@@ -47,6 +47,13 @@ fn print(project: &Project, report: &Import) {
         if let Some(media) = &asset.media {
             println!("  {media}");
         }
+        // Said here rather than left to be discovered. Someone who imported
+        // `intro.mp4` and reads `intro-2` on the line above knows straight away
+        // which id to write on a clip; the alternative is finding out later, by
+        // asking for `intro` and getting somebody else's shot.
+        if let Some(wanted) = &one.wanted {
+            println!("  renamed: `{wanted}` was already taken");
+        }
     }
     for skipped in &report.skipped {
         println!("{} — skipped: {}", skipped.source, skipped.why);

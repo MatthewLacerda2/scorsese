@@ -217,8 +217,10 @@ pub(crate) enum Command {
     ///
     /// A directory brings in the media directly inside it, one asset each,
     /// sorted by file name and without recursing — the directory itself never
-    /// becomes an asset. Files that are not media are skipped and named, and a
-    /// file whose id an asset already answers to is refused with nothing
+    /// becomes an asset. Files that are not media are skipped and named. A
+    /// single file whose id is already taken is suffixed out of the way —
+    /// intro.mp4 lands as intro-2 — and the report says which id it wanted;
+    /// the same collision inside a directory refuses the batch with nothing
     /// copied at all.
     Import {
         /// The file or directory to import. What comes in is copied, never
