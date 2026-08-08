@@ -81,7 +81,7 @@ NEXTEST_CHECK = command -v cargo-nextest >/dev/null 2>&1 || { \
 # `app/`, so without it make sees the target as already built and `make app`
 # prints "up to date" without running a thing. A check that silently does
 # nothing is worse than no check.
-.PHONY: help setup gates pre-commit inventory $(GATES) app-gates release format-fix mcp-table coverage mutants mergeable
+.PHONY: help setup gates pre-commit target-dir inventory $(GATES) app-gates release format-fix mcp-table coverage mutants mergeable
 
 ##@ Everyday
 
@@ -117,7 +117,7 @@ pre-commit: format size ## The fast half: what the pre-commit hook runs
 # `inventory` was written to prevent, and skipping the app gates silently would
 # be that failure mode arriving by a different door.
 gates: APP := scoped
-gates: inventory $(GATES) ## Everything CI blocks on. Run this before opening a PR
+gates: target-dir inventory $(GATES) ## Everything CI blocks on. Run this before opening a PR
 	@if $(TOUCHES_APP); then \
 		echo "gates: all green -- $(GATES)"; \
 	else \
@@ -352,6 +352,51 @@ format-fix: ## Rewrite files to satisfy the format gate
 mcp-table: ## Rewrite docs/mcp.md's tool table from the MCP registry
 	UPDATE_MCP_TABLE=1 cargo test --locked -p scorsese-mcp --test table
 	@echo "mcp-table: docs/mcp.md now says what the registry says."
+
+# Neither a gate nor a signal: it checks the room the gates are about to run
+# in, so it comes before them and is not one of them. `inventory` below is the
+# same shape — both ask whether an answer from this Makefile would mean
+# anything, before spending a build finding one out.
+#
+# Cargo keys build artifacts by package, version, features and profile, never
+# by source path. Two worktrees pointed at one target directory therefore write
+# the same `libscorsese_core.rlib` and the same test binaries to the same
+# place, and each build overwrites the other's output for every crate it did
+# not itself just rebuild. The phantom red that produces — a golden failing on
+# a branch that touches no rendering code, a test that does not exist on this
+# branch — costs an hour and announces itself. The false *green* does not: it
+# says the gates passed on code that was never compiled, which is precisely the
+# claim CLAUDE.md says a **ready** pull request makes. CI is unaffected, being
+# a cold clean machine per branch, so the corrupted signal is the local one an
+# agent is told to trust.
+#
+# Refusing beats documenting because the override is *tempting* — it looks like
+# free disk — and a rule in a document gets re-derived away by the next session
+# that wants some. There is nothing to configure here: cargo's default is
+# already right, so an unset variable is the passing case.
+#
+# `CARGO_BUILD_TARGET_DIR` is checked beside it because cargo reads both, and a
+# check that names only one of two doors is a check people walk around.
+target-dir:
+	@here=$$(pwd -P); \
+	root=$$(git rev-parse --show-toplevel 2>/dev/null || printf '%s' "$$here"); \
+	root=$$(cd "$$root" && pwd -P); \
+	for pair in "CARGO_TARGET_DIR:$$CARGO_TARGET_DIR" \
+	            "CARGO_BUILD_TARGET_DIR:$$CARGO_BUILD_TARGET_DIR"; do \
+		var=$${pair%%:*}; dir=$${pair#*:}; \
+		[ -n "$$dir" ] || continue; \
+		case "$$dir" in /*) abs=$$dir;; *) abs=$$here/$$dir;; esac; \
+		abs=$$(cd "$$abs" 2>/dev/null && pwd -P || printf '%s' "$$abs"); \
+		case "$$abs" in "$$root"|"$$root"/*) continue;; esac; \
+		echo "target-dir: $$var points outside this worktree -- the gates would not be about this branch." >&2; \
+		echo "  $$var = $$dir" >&2; \
+		echo "  worktree = $$root" >&2; \
+		echo "  Cargo keys artifacts by package, not by path, so worktrees sharing one" >&2; \
+		echo "  target directory overwrite each other and a green run stops meaning" >&2; \
+		echo "  this branch compiled. Unset it -- cargo's default gives every worktree" >&2; \
+		echo "  its own target/, which is the configuration this repo wants. See #259." >&2; \
+		exit 1; \
+	done
 
 # `make gates` is only trustworthy if it runs every gate, and the failure mode
 # that matters is a gate quietly dropped from $(GATES) while its target stays
