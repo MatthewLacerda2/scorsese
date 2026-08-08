@@ -1,8 +1,12 @@
 //! What size a source's frames arrive at.
 //!
-//! Two of the three fit modes answer this from the render settings alone — a
-//! fitted or filled source *becomes* the raster. `native` is the one that has
-//! to ask the media how big it is, and this is where that asking is confined.
+//! One of the three fit modes answers this from the render settings alone: a
+//! *filled* source becomes the raster, because covering it is what filling
+//! means. The other two have to ask the media how big it is, and this is where
+//! that asking is confined. `native` needs it to leave the source alone;
+//! `fit` needs it to know the rectangle the picture ends up occupying, which
+//! is smaller than the raster whenever the aspects differ and is the whole
+//! reason an anchor has anything to rest against.
 //!
 //! The assets table is meant to already hold the answer, so the probed
 //! metadata is used whenever it is there and a probe happens only when it is
@@ -25,11 +29,12 @@ use crate::tools::Tools;
 /// before any frame is decoded.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub(crate) struct Sizes {
-    native: HashMap<AssetId, Resolution>,
+    measured: HashMap<AssetId, Resolution>,
 }
 
 impl Sizes {
-    /// Measures every asset a clip in this plan wants at its native size.
+    /// Measures every asset a clip in this plan needs a source size for, which
+    /// is every `native` one and every `fit` one.
     ///
     /// Up front rather than per segment, because a clip cut across three
     /// segments by boundaries on other tracks is one source, and asking ffprobe
@@ -39,17 +44,17 @@ impl Sizes {
         plan: &Plan<'_>,
         project_root: &Path,
     ) -> Result<Self, RenderError> {
-        let mut native: HashMap<AssetId, Resolution> = HashMap::new();
+        let mut measured: HashMap<AssetId, Resolution> = HashMap::new();
         let probe = Ffprobe::new(tools.clone());
 
         for shot in plan.segments().iter().flat_map(|segment| &segment.layers) {
-            // A drawn asset has no native size to measure: text and slug cards
-            // are rasterised at whatever the render's raster is, so `fit` says
-            // nothing about them and there is no file to ask.
-            if shot.clip.fit != Fit::Native
+            // A drawn asset has no size of its own to measure: text and slug
+            // cards are rasterised at whatever the render's raster is, so `fit`
+            // says nothing about them and there is no file to ask.
+            if !matches!(shot.clip.fit, Fit::Native | Fit::Fit)
                 || !shot.asset.kind.is_file_backed()
                 || shot.showing != Showing::Media
-                || native.contains_key(&shot.asset.id)
+                || measured.contains_key(&shot.asset.id)
             {
                 continue;
             }
@@ -70,37 +75,65 @@ impl Sizes {
                     reason,
                 }
             })?;
-            native.insert(shot.asset.id.clone(), size);
+            measured.insert(shot.asset.id.clone(), size);
         }
-        Ok(Self { native })
+        Ok(Self { measured })
     }
 
     /// How this shot meets the raster.
     ///
-    /// A native shot whose size was never measured cannot happen — every one in
-    /// the plan is measured — and falling back to fitting it is the safe way to
-    /// be wrong: the picture is the wrong size, rather than the pipe being read
-    /// at the wrong stride and every later frame sliding.
+    /// A shot whose size was never measured cannot happen — every one in the
+    /// plan that needs one is measured — and the fallbacks are the safe way to
+    /// be wrong. A native layer falls back to being fitted and a fitted one to
+    /// being padded by ffmpeg: in both, the picture is somewhere unintended,
+    /// rather than the pipe being read at the wrong stride and every later
+    /// frame sliding.
     ///
-    /// A **cropped** native layer is the cropped pixels at their own size,
-    /// which is what "native" has to mean if it means anything: the crop runs
-    /// before the fit, so by the time `native` is deciding what arrives, the
-    /// source is already the rectangle rather than the file. Getting this
-    /// wrong would not merely be the wrong size on screen — the buffer reading
-    /// the pipe is sized from this, so it would be read at the wrong stride
-    /// and every later frame would slide.
-    pub(crate) fn fitting(&self, shot: &Shot<'_>) -> Fitting {
-        match shot.clip.fit {
-            Fit::Fit => Fitting::Fit,
-            Fit::Fill => Fitting::Fill,
-            Fit::Native => self
-                .native
+    /// A **cropped** layer is the cropped pixels, for `native` and `fit`
+    /// alike: the crop runs before the fit, so by the time either is deciding
+    /// what arrives, the source is already the rectangle rather than the file.
+    /// Getting this wrong would not merely be the wrong size on screen — the
+    /// buffer reading the pipe is sized from this, so it would be read at the
+    /// wrong stride and every later frame would slide.
+    pub(crate) fn fitting(&self, shot: &Shot<'_>, raster: Resolution) -> Fitting {
+        let source = || {
+            self.measured
                 .get(&shot.asset.id)
-                .map_or(Fitting::Fit, |&size| {
-                    Fitting::Native(cropped(size, shot.clip.crop))
-                }),
+                .map(|&size| cropped(size, shot.clip.crop))
+        };
+        match shot.clip.fit {
+            Fit::Fit => source().map_or(Fitting::FitPadded, |size| {
+                Fitting::Fit(fitted_inside(size, raster))
+            }),
+            Fit::Fill => Fitting::Fill,
+            Fit::Native => source().map_or(Fitting::FitPadded, Fitting::Native),
         }
     }
+}
+
+/// The largest rectangle with the source's aspect that fits inside the raster.
+///
+/// This is what `scale=…:force_original_aspect_ratio=decrease` computes, worked
+/// out here instead so the number in the filter and the number the read buffer
+/// is sized from are the same number rather than two that agree by inspection.
+///
+/// A source already inside the raster is still scaled **up** to meet an edge,
+/// which is what fitting has always done and is not the same question as
+/// whether it should — `native` is the fit mode for leaving a source alone.
+///
+/// Both axes are kept at a pixel or more. A source so much wider than the
+/// raster that its height rounds to nothing is a picture nothing can be read
+/// into, and a one-pixel line is a better answer than a failed render.
+fn fitted_inside(source: Resolution, raster: Resolution) -> Resolution {
+    let scale = f64::from(raster.width()) / f64::from(source.width());
+    let scale = scale.min(f64::from(raster.height()) / f64::from(source.height()));
+    let width = (f64::from(source.width()) * scale).round() as u32;
+    let height = (f64::from(source.height()) * scale).round() as u32;
+    Resolution::source(
+        width.clamp(1, raster.width()),
+        height.clamp(1, raster.height()),
+    )
+    .unwrap_or(raster)
 }
 
 /// What a crop leaves of a source, in pixels.

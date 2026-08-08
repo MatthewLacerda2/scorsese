@@ -67,6 +67,7 @@ goldens!(
     flip,
     gap_above,
     letterbox,
+    letterbox_anchored,
     native,
     overlay,
     paragraph,

@@ -1,0 +1,8 @@
+{
+  "description": "A 64x32 source fitted into a 64x64 raster and anchored to the bottom, over a dark plate. The same geometry the bug was reported in, one axis and two orders of magnitude down: 1920x1080 inside 1920x1440. The reference is orange across the bottom half and plate across the top. Three failures are visible here and nowhere else in the set. A build that pads the fitted picture out to the raster before compositing puts the orange in the middle with plate above and below, which is what writing no anchor at all does — that is the bug this fixture exists for. A build that pads with black rather than letting the canvas through hides the plate. A build that rests the layer on the wrong edge puts the orange at the top. `letterbox` beside this one holds the centred case still, so a fix that moved every fitted layer would fail there.",
+  "media": {
+    "wide": "color=c=orange:s=64x32:d=1:r=30"
+  },
+  "render": { "resolution": "64x64", "fps": "30" },
+  "frames": [0, 14]
+}
