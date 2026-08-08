@@ -93,6 +93,39 @@ fn a_document_that_will_not_load_leaves_the_last_good_one_on_screen() {
     assert!(note.contains("last good version"), "got {note}");
 }
 
+/// A document that **parses** and does not validate gets the same treatment on
+/// a re-read, and that is the line rather than an oversight.
+///
+/// Opening one of these shows it read-only, because an empty window is the only
+/// alternative. Re-reading into one has a better alternative right there on
+/// screen — the version that worked — and the writer that produced this state
+/// is very likely still mid-edit.
+#[test]
+fn a_document_that_stops_validating_leaves_the_last_good_one_on_screen() {
+    let project = fixture::project("reload-invalid");
+    let mut harness = window(project.path());
+    harness.run();
+    let good = harness.state().showing().expect("open").clone();
+
+    rewrite(project.path(), |document| {
+        document.replace(r#""asset": "bed""#, r#""asset": "ghost""#)
+    });
+    std::thread::sleep(SETTLE);
+    harness.run();
+
+    assert_eq!(
+        harness.state().showing(),
+        Some(&good),
+        "the last good document must stay on screen"
+    );
+    let note = harness
+        .state()
+        .disk_note()
+        .expect("the window has to say so");
+    assert!(note.contains("1 problem"), "got {note}");
+    assert!(note.contains("last good version"), "got {note}");
+}
+
 /// The window's own save looks like an outside edit from the filesystem's
 /// point of view: the file is replaced, so its size and modification time both
 /// move. Announcing that would make every drag look like somebody else's work.

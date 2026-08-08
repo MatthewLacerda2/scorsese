@@ -43,11 +43,35 @@ pub(super) fn nothing_open<T>(ui: &mut Ui, open: impl FnOnce(&mut T), window: &m
 /// able to see the whole job, which is the promise validation already makes to
 /// the CLI.
 pub(super) fn refusal(ui: &mut Ui, refused: &Refused) {
+    listing(ui, &refused.heading, &refused.problems);
+}
+
+/// What is wrong with a project that **did** open, in the space the preview
+/// would have had.
+///
+/// The same list as a refusal, and deliberately the same shape. The two used to
+/// be one state from the outside — "does not validate" and "is not a project"
+/// both meant a window with nothing in it — and what separates them now is
+/// everything *else* on the screen rather than anything in this panel.
+pub(super) fn invalid(ui: &mut Ui, problems: &[String]) {
+    listing(ui, &crate::project::heading(problems.len()), problems);
+    ui.add_space(12.0);
+    ui.label(
+        RichText::new(
+            "The timeline, the pool and the inspector are here to read. \
+             Nothing in this window will change the file until these are fixed.",
+        )
+        .weak(),
+    );
+}
+
+/// A heading and every problem under it, one to a line.
+fn listing(ui: &mut Ui, heading: &str, problems: &[String]) {
     ui.add_space(24.0);
-    ui.heading(RichText::new(&refused.heading).color(Color32::from_rgb(220, 90, 80)));
+    ui.heading(RichText::new(heading).color(Color32::from_rgb(220, 90, 80)));
     ui.add_space(8.0);
     egui::ScrollArea::vertical().show(ui, |ui| {
-        for problem in &refused.problems {
+        for problem in problems {
             ui.label(format!("· {problem}"));
         }
     });

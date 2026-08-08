@@ -145,11 +145,24 @@ impl Catalogue for Fake {
 }
 
 /// The same project with a clip pointing at an asset that is not there.
+///
+/// Parses; does not validate. That is the case the window **opens** —
+/// read-only, with the problem on screen — because the document is right there
+/// and which clip is wrong is what somebody needs to see.
 pub(crate) fn broken(label: &str) -> Fixture {
     write(
         label,
         &DOCUMENT.replace(r#""asset": "bed""#, r#""asset": "ghost""#),
     )
+}
+
+/// A `project.json` that is not JSON at all.
+///
+/// The other half of the pair, and kept beside [`broken`] because the two used
+/// to be one state: nothing parses, so there is no document to show and no clip
+/// to point at, and refusing is the only honest answer.
+pub(crate) fn unparseable(label: &str) -> Fixture {
+    write(label, "{ this was never a document")
 }
 
 /// Named for the label alone — no process id, no counter.

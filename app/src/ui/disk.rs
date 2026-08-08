@@ -124,6 +124,15 @@ impl Scorsese {
                     self.disk = Disk::Quiet;
                     return;
                 }
+                // Opening an invalid project beats an empty window; re-reading
+                // into one does not. Here there *is* a good version on screen
+                // and something else is mid-write, which is the case this
+                // type's doc already draws the line at — say so in the bar and
+                // keep showing what works.
+                if fresh.read_only() {
+                    self.disk = Disk::Unreadable(Refused::invalid(fresh.problems));
+                    return;
+                }
                 self.opened = Some(fresh);
                 self.disk = Disk::Reloaded;
                 if let Some(open) = &self.opened {

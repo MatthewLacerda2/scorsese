@@ -94,14 +94,39 @@ fn a_scale_in_flight() {
     harness.snapshot("a_scale_in_flight");
 }
 
-/// A project that will not load. Every problem at once, in the window rather
-/// than in a terminal — the promise validation already makes to the CLI.
+/// A project that does not validate, **open**: the timeline, the pool and the
+/// inspector drawn and inert, `read-only` beside the project's name, and every
+/// problem at once where the preview would be.
+///
+/// The picture is the point. This used to be an empty window with a list in it,
+/// indistinguishable from picking a folder that was never a project — and
+/// seeing which clip is the broken one is the reason somebody opens a broken
+/// film in an editor.
 #[test]
-fn a_project_that_will_not_load() {
+fn a_project_that_does_not_validate() {
     let project = fixture::broken("broken");
     let mut harness = window(Some(project.path().to_path_buf()));
     harness.run();
-    harness.snapshot("a_project_that_will_not_load");
+    assert!(
+        harness.state().showing().is_some(),
+        "it has to really be open, not drawn around"
+    );
+    harness.snapshot("a_project_that_does_not_validate");
+}
+
+/// A `project.json` that is not JSON. Nothing parsed, so there is no document
+/// to show and no clip to point at, and the window says so and stops — which is
+/// what makes the state above a different one rather than the same one.
+#[test]
+fn a_document_that_will_not_parse() {
+    let project = fixture::unparseable("unparseable");
+    let mut harness = window(Some(project.path().to_path_buf()));
+    harness.run();
+    assert!(
+        harness.state().showing().is_none(),
+        "there is no document to show"
+    );
+    harness.snapshot("a_document_that_will_not_parse");
 }
 
 /// A generated shot selected: the brief under the clip's own fields, every
