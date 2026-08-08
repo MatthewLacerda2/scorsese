@@ -338,6 +338,24 @@ pub(crate) enum Command {
         #[arg(long)]
         grid: bool,
     },
+    /// Hear a sound file: its waveform, drawn as one PNG with the level and
+    /// the length written on it.
+    ///
+    /// The audio counterpart of `look`, and it answers the questions a
+    /// duration and a byte hash cannot: is it silent, is it clipped, does it
+    /// start late or end early, is it the length it should be, where are the
+    /// pauses. It cannot tell you whether the voice, the language or the
+    /// pronunciation are right — those need hearing. For numbers rather than a
+    /// shape, `audio-level` is the other tool.
+    Hear {
+        /// The sound file to look at. A rendered video works too; its sound is
+        /// what is read.
+        file: PathBuf,
+        /// Where to write the PNG. Defaults to `<file>.wave.png`, beside the
+        /// source.
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
     /// Look at a video file: frames sampled from it, tiled into one PNG with
     /// each frame's timestamp on it.
     ///

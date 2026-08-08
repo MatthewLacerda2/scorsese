@@ -98,6 +98,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `render` | Render the timeline to a video file. | ffmpeg, and real time |
 | `still` | Look at the edit. | ffmpeg, and seconds |
 | `look` | Look at the footage itself, not the edit. | ffmpeg |
+| `hear` | See what a sound file looks like: its waveform, drawn as one picture, with the level and the length written on it. | ffmpeg |
 <!-- END TOOLS -->
 
 **A project is a directory, and `project_new` is what makes one.**
@@ -711,6 +712,42 @@ refusal says what the recipe does take, so learning that costs no extra call.
 What it writes is an ordinary recipe in the format's own canonical form, still
 readable and still editable by hand, and its asset goes stale by exactly the
 arithmetic a full write does.
+
+## Seeing a sound: `hear`
+
+`look` samples a video into a contact sheet so a client can see what a shot is.
+`hear` is the same trick one medium over: a sound file becomes **one picture of
+its waveform**, amplitude over time, with the level and the length written along
+the top and a time axis under it.
+
+```
+hear  { "project": "teaser.scor", "file": "generated/vo-01.mp3" }
+```
+
+**Why it exists is narrower than it looks, and worth stating.** Everything
+audible in scorsese used to be either imported — somebody heard it before
+importing it — or synthesised, which is deterministic and reproducible from the
+document. Generated narration is neither: it costs money, it cannot be
+reproduced from the project alone, and it is the first output **nobody has ever
+heard**. Three lines were once verified by file size, byte hash and a probed
+duration of 3.67 seconds, every one of which 3.67 seconds of silence passes
+identically.
+
+**What the picture answers**: is it silent, is it clipped, does it start late or
+end early, is it the length it should be, where are the pauses. Every one of
+those is a shape on the line, and a client that cannot see the image gets all of
+them in the reply's words as well.
+
+**What it does not answer**: the wrong voice, the wrong language, a
+mispronunciation, a flat read. Those need hearing, and nothing here pretends
+otherwise — a picture that claimed to answer them would be worse than no picture
+at all. Carrying the audio itself back as an MCP audio block would answer them
+and is a separate question, because it depends on the client handling audio and
+this server may not assume which client is on the other end.
+
+`hear` and `audio_level` are not two ways to do one thing. A shape says *where*;
+a number says *how much*. "The pause after the second line is a beat too long"
+is only visible, and "the sub is 96% below 250 Hz" is only measurable.
 
 ## Listening, for a client that cannot hear
 

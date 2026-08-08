@@ -163,6 +163,7 @@ fn dispatch(cli: Cli) -> Result<()> {
             resolution,
             grid,
         } => commands::still::run(&directory, &out, &at, resolution, grid),
+        Command::Hear { file, out } => commands::hear::run(&file, out),
         Command::Look {
             file,
             out,
