@@ -87,6 +87,7 @@ mod properties;
 mod registry;
 pub mod sheet;
 pub mod text;
+pub mod waveform;
 
 pub use compose::{CompositeError, Compositor, Layer};
 pub use cpu::CpuCompositor;
