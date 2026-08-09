@@ -12,7 +12,7 @@ bump and a migration note.
 
 ```json project
 {
-  "schema_version": 16,
+  "schema_version": 17,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -386,7 +386,7 @@ which is the title most people meant.
 
 | Field | Default | Meaning |
 | --- | --- | --- |
-| `font` | `sans` | `sans`, `serif`, or a path to a font file inside the project |
+| `font` | `sans` | `sans` (Inter), `serif` (Source Serif 4), or a path to a font file inside the project |
 | `weight` | *none* | How heavy, 1–1000 — **required** for a variable font, refused for anything else |
 | `size` | `0.1` | Em size as a fraction of the frame's **height** |
 | `color` | `#ffffff` | `#rrggbb`, or `#rrggbbaa` for text you can see through |
@@ -402,13 +402,13 @@ the rule is the format's rather than this table's: `max_width` and
 `transform.position.*` are fractions for the same reason.
 
 **Two font names are reserved.** `sans` and `serif` are the faces scorsese
-ships: Liberation Sans and Liberation Serif, metric-compatible with Arial and
-Times New Roman, under the SIL Open Font License. Anything else in `font` is
-read as a path to a font file the project carries, relative to the project root
-like every other path — `assets/Inter-Regular.ttf`. The fonts are committed to
-the repository rather than looked up on the system, because a system lookup
-resolves differently on every platform and text has to render identically
-everywhere.
+ships: **Inter** and **Source Serif 4**, both as variable files covering
+`wght` 100–900 and 200–900, both under the SIL Open Font License. Anything else
+in `font` is read as a path to a font file the project carries, relative to the
+project root like every other path — `assets/Manrope[wght].ttf`. The fonts are
+committed to the repository rather than looked up on the system, because a
+system lookup resolves differently on every platform and text has to render
+identically everywhere.
 
 #### Weight, and the variable font that would otherwise render hairline
 
@@ -445,12 +445,31 @@ The other three cases follow from the same rule:
 - **A weight on a static font is refused.** A file with no `wght` axis has one
   weight; silently ignoring a field you wrote is how you come to insist your
   bold is broken.
-- **A weight on `sans` or `serif` is refused.** The shipped faces are one
-  static weight each. This one is caught by validation rather than at the
-  render, because it needs no file to know.
+- **A weight the shipped faces do not reach is refused too**, at the render and
+  not at validation. Inter starts at 100 and Source Serif 4 at 200, which is a
+  fact about a file like any other.
+
+**`sans` and `serif` default to weight 400, and no other font does.** Written
+as its own rule rather than left to look like an exception to the one above,
+because the two only appear to contradict each other until the reason is on the
+page. The refusal protects against a file scorsese cannot know: Manrope defaults
+to 200 and would render hairline while the document looked entirely correct, and
+nothing here has read that file. It knows these two — their axes are published
+in `crates/compositor/fonts/README.md` and their default is Regular. That is the
+same split the format already draws everywhere else, between what the
+*document* can answer and what only opening the *file* can, and it lands on the
+right side of it.
+
+The rule is also what keeps every project ever written valid. A weight beside
+`sans` used to be refused, so **no existing document carries one** — which means
+every one of them relies on an unweighted reserved name going on meaning
+Regular.
 
 `weight` is the *only* axis read. Optical size, width and slant are real axes
-and none of them is what "make this bold" means.
+and none of them is what "make this bold" means. Which axes the shipped faces
+carry, and what each is therefore left at, is recorded in
+`crates/compositor/fonts/README.md` — Source Serif 4's `opsz` sits at its
+text-size default, and that is a stated consequence rather than an oversight.
 
 **One file, every weight**, which is the other half of what this buys. A
 project wanting a bold title and a regular caption points both at the same
@@ -1094,12 +1113,33 @@ the render's to find out. So is the `script`, and its missing file is a warning:
 a project that has lost its brief still renders.
 
 `style.weight` splits the same way, and the split is worth reading once. What
-the document alone can say is checked here: `sans` and `serif` are faces
-scorsese ships and knows to be static, so a weight beside one is refused
-without opening anything, and a number outside OpenType's own 1–1000 is not a
-weight for any face. What only the *file* can answer — whether it is variable
-at all, and how far its `wght` axis runs — is refused at the render, in the
-same breath as "this is not a font I can read".
+the document alone can say is checked here, and it is one thing: a number
+outside OpenType's own 1–1000 is not a weight for any face. What only the
+*file* can answer — whether it is variable at all, and how far its `wght` axis
+runs — is refused at the render, in the same breath as "this is not a font I can
+read". That holds for `sans` and `serif` as much as for a font the project
+carries; they are files too, and scorsese happens to be the one carrying them.
+
+## Migrating from v16
+
+v17 changes no field and removes none. What moves is the **accepted value
+space**: `weight` beside `sans` or `serif` was refused under v16 and is accepted
+under v17, because the two shipped faces became variable. No v16 document can
+contain that pairing — it would not have validated — so **no v16 document means
+anything different under v17**, and converting one is changing
+`"schema_version": 16` to `"schema_version": 17` and nothing else.
+
+The number moved because a document written against v17 would be *rejected* by a
+build claiming v16, which is the situation a version exists to make legible. It
+did not move because anything needs converting.
+
+**One thing does change without the document changing, and it should be said
+plainly: text looks different.** `sans` is Inter where it was Liberation Sans,
+and `serif` is Source Serif 4 where it was Liberation Serif. Every title, every
+caption and every slug card is set in a different face, so a project re-rendered
+under v17 is not frame-identical to the same project under v16. That is a
+deliberate visual change and not a migration step — there is nothing to write
+into a document to keep the old faces, because they are no longer shipped.
 
 ## Migrating from v15
 

@@ -30,7 +30,7 @@ mod shape;
 
 pub use draw::draw_line;
 pub(crate) use draw::{draw_runs, fill_rects};
-pub use font::{Font, FontError};
+pub use font::{Font, FontError, SHIPPED_WEIGHT, Shipped};
 
 use std::ops::Range;
 

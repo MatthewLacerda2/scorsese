@@ -1,21 +1,49 @@
 # The fonts scorsese ships
 
-Two faces, one weight each, compiled into `scorsese-compositor` with
+Two faces, **one variable file each**, compiled into `scorsese-compositor` with
 `include_bytes!`. They are the `sans` and `serif` a `text` asset's `style` can
 name; a project may name a font file of its own instead.
 
-| File | Face | Metric-compatible with |
+| File | Face | `wght` axis | Bytes |
+| --- | --- | --- | --- |
+| `Inter-V.ttf` | Inter | 100 – 900, default 400 | 805,396 |
+| `SourceSerif4Variable-Roman.ttf` | Source Serif 4 | 200 – 900, default 400 | 1,204,208 |
+
+Inter from **Inter 3.19**, unmodified, as `Inter Desktop/Inter-V.ttf`:
+<https://github.com/rsms/inter>
+
+Source Serif 4 from **4.005**, unmodified, as `VAR/SourceSerif4Variable-Roman.ttf`
+on the `release` branch: <https://github.com/adobe-fonts/source-serif>
+
+```
+sha256  69b1af837d101ab90b003d61d4ccc5e5320a6dcaefeb69906fa31c01a06e5837  Inter-V.ttf
+sha256  14d360ee1b76655da9276628b229e11671bc1f5d1083636144db6677d452cf55  SourceSerif4Variable-Roman.ttf
+```
+
+## Which axes each file carries, and what is done with them
+
+Only `wght` is read. Every other axis is left where the file's own `fvar` puts
+it, so which axes a file has is a thing to check before choosing it rather than
+after seeing a golden diff.
+
+| File | Axes | Left at |
 | --- | --- | --- |
-| `LiberationSans-Regular.ttf` | Liberation Sans | Arial |
-| `LiberationSerif-Regular.ttf` | Liberation Serif | Times New Roman |
+| `Inter-V.ttf` | `wght` 100–900, `slnt` −10–0 | `slnt` 0, which is upright |
+| `SourceSerif4Variable-Roman.ttf` | `wght` 200–900, `opsz` 8–60 | `opsz` 20 |
 
-Both from **liberation-fonts 2.1.5**, unmodified:
-<https://github.com/liberationfonts/liberation-fonts>
+**Inter 3.19 rather than 4.x, and that is a deliberate choice.** Inter 4's
+`InterVariable.ttf` carries an `opsz` axis running 14–32 whose default is **14**
+— a design tuned for small text — so every title scorsese drew would be set at
+the caption design and nothing would say so. 3.19's `Inter-V.ttf` has no `opsz`
+at all, so there is no axis sitting at a value nobody chose. Its `slnt` default
+of 0 is upright, which is the only slant this project has a field for.
 
-```
-sha256  76d04c18ea243f426b7de1f3ad208e927008f961dc5945e5aad352d0dfde8ee8  LiberationSans-Regular.ttf
-sha256  058ea80864aef09a23f45cbec2bb5400bc3dfbdea01c3f10538a21fcb497fb74  LiberationSerif-Regular.ttf
-```
+**Source Serif 4's `opsz` sits at 20, and there is no build without it.** That
+is the text-size design, and a title at display size is therefore drawn slightly
+off-design — heavier in the stems and tighter in the spacing than the face's own
+display master. It is recorded here rather than discovered later. Optical sizing
+is a real feature with a real rule (which pixel size maps to which `opsz`), and
+it is not this.
 
 ## Why they are committed
 
@@ -29,41 +57,51 @@ it, and [`docs/golden-renders.md`](../../../docs/golden-renders.md) says so on
 its own page — the faces sit upstream of the gate the way the decoder does, and
 neither may be let go of quietly. The rule that follows lives there with the
 other re-blessing rules: **swapping, subsetting or system-resolving these faces
-re-blesses every text fixture**, which is seven of the twenty-four, and is
-legitimate only as a deliberate visual change explained in the pull request.
-
-Arial and Times New Roman themselves are proprietary — Monotype, licensed
-through Microsoft — and cannot be committed to a public repository. Liberation
-Sans and Liberation Serif are the well-trodden open substitutes: metric
-compatible, so a line set in one breaks in the same places as the same line set
-in the other.
+re-blesses every fixture that draws text**, and is legitimate only as a
+deliberate visual change explained in the pull request. The desktop app's own
+reference images are in the same position, for the same reason: its preview
+draws a compositor frame.
 
 ## Licence
 
-SIL Open Font License 1.1 — the full text is in `OFL.txt`, exactly as it
-shipped with the fonts.
+SIL Open Font License 1.1 for both — the full texts are in `Inter-OFL.txt` and
+`SourceSerif4-OFL.txt`, exactly as they shipped with the fonts.
 
 The two conditions that matter here: the files are redistributed **unmodified**
-and under their own names, and `Liberation` is a Reserved Font Name, so a
-modified copy would have to be renamed. Neither is a constraint on scorsese's
-own licence — the OFL covers the font files and nothing else. Subsetting them
-to save space would count as modifying them, which is why they are committed
-whole.
+and under their own names, and both families carry Reserved Font Names —
+`Inter` and `Source` — so a modified copy would have to be renamed. Neither is a
+constraint on scorsese's own licence; the OFL covers the font files and nothing
+else. Subsetting them to save space would count as modifying them, which is why
+they are committed whole.
 
-One regular weight of each rather than a family. The reason given here used to
-be that no field could select a weight, so extra files would be a megabyte
-pretending to be a choice — and **half of that stopped being true at schema
-v11**, which added `style.weight` and taught the compositor to read a variable
-face's `wght` axis. A project carrying its own variable font gets every weight
-in its range today; the two faces here do not, because they are static files
-nobody has replaced yet. That is the honest reason, and `weight` beside `sans`
-or `serif` is refused for exactly that reason and no deeper one.
+## One file each, rather than one weight each
 
-It also stopped being a question of four more files. A variable face is **one
-file covering the whole range**, which is the trade the format already makes
-for project-carried fonts. Swapping these two for variable faces is
-[#267](https://github.com/MatthewLacerda2/scorsese/issues/267).
+The size argument for shipping a single weight per family died when `weight`
+arrived at schema v11. A variable face is **one file covering the whole range**,
+which is the trade `docs/project-format.md` already makes the case for on a
+project's own fonts — so it is the trade the shipped ones make too.
+
+It costs 1.2 MB: 1,963 KB of variable faces against the 785 KB of static ones
+they replace, for every weight from 100 (or 200) to 900 instead of Regular. A
+bold title used to require leaving the program to find a variable font, check
+its licence and copy it into `assets/`, for the most ordinary thing anybody asks
+of text.
+
+`sans` and `serif` **default to weight 400 when none is given**, and that is a
+rule rather than an exception — its reasoning is in `docs/project-format.md`
+beside the general one it appears to contradict.
 
 Italic is the half that still stands: there is no `slant` field, so an italic
-file would be a face nothing could ask for. Liberation Mono is deliberately
-left out until something asks for it.
+file would be a face nothing could ask for. Neither family's monospace is
+shipped, for the same reason Liberation Mono was not.
+
+## What was here before
+
+Liberation Sans and Liberation Serif, one static weight each, chosen because
+they are metric-compatible with Arial and Times New Roman. **That
+compatibility is retired rather than lost**: it matters for document
+interchange, where a line has to break in the same place as it did in Word, and
+nothing in a video editor depends on it. Seven golden fixtures were re-blessed
+when the faces changed — the six that draw a `text` asset plus `slugs`, whose
+cards are drawn in `sans` too. `weight` was not among them, because it sets its
+title in a font the project itself carries, which is the point of that fixture.

@@ -168,12 +168,24 @@ nothing in a fixture directory records at all.
 What follows from it is the part a rule is for. **The shipped faces may not be
 swapped, subsetted, or resolved from the system without re-blessing every text
 fixture.** Subsetting counts as modifying the file, and modifying the file moves
-the pixels. `anchored`, `paragraph`, `serif`, `title`, `title_moved`, `wash` and
-`weight` all render text — 7 of the 24 fixtures — so this is not a corner of the
-gate. Such a re-blessing is legitimate only under the rules below: a deliberate
-visual change, said out loud in the PR description, arriving as image diffs a
-human can look at. It is never legitimate as a way to get a text fixture green
-again.
+the pixels. `anchored`, `paragraph`, `serif`, `slugs`, `title`, `title_moved`
+and `wash` are drawn with them — so this is not a corner of the gate.
+
+`slugs` is on that list because a slug card's text is set in `sans` like any
+other, which is easy to miss when looking for fixtures with a `text` asset in
+them. `weight` is **not**, and the reason is worth knowing: it sets its title in
+a font the *project* carries, which is the whole of what that fixture tests. It
+is the one that stays still when the shipped faces move, and that is a feature.
+
+The **desktop app's reference images are in the same position**, and are not in
+this directory. `app/tests/snapshots/` holds pictures of the window, and the
+window's preview draws a compositor frame — so a change to the shipped faces
+moves those too, under the same rules, even though nothing under `crates/golden`
+noticed.
+
+Such a re-blessing is legitimate only under the rules below: a deliberate visual
+change, said out loud in the PR description, arriving as image diffs a human can
+look at. It is never legitimate as a way to get a text fixture green again.
 
 ## Re-blessing
 

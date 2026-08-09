@@ -24,28 +24,34 @@ fn own_font() -> FontChoice {
     FontChoice::File(ProjectPath::new("assets/Manrope[wght].ttf"))
 }
 
-/// The shipped faces are one static weight each. Refusing says so and points
-/// at the only way to get a weight at all; ignoring it would look exactly like
-/// honouring it.
+/// The shipped faces are variable, so a weight beside one is an ordinary
+/// request and not a mistake. This is the compatibility rule stated as a test:
+/// it used to be the one refusal a document could earn without a font file
+/// being opened, and every project that ever wrote `"font": "sans"` depends on
+/// the other half of it — an unweighted reserved name is still fine.
 #[test]
-fn a_weight_beside_a_reserved_name_is_refused() {
+fn a_weight_beside_a_reserved_name_is_accepted() {
     let mut p = project();
     styled(&mut p, FontChoice::Sans, Some(700));
-    assert_only_problem(
-        &p,
-        E::WeightOnReservedFont {
-            asset: asset_id("title"),
-            font: "sans".to_owned(),
-            weight: 700,
-        },
-    );
+    assert!(problems(&p).is_empty(), "sans reaches 700");
 }
 
 #[test]
-fn the_serif_name_is_refused_a_weight_too() {
+fn the_serif_name_takes_a_weight_too() {
     let mut p = project();
     styled(&mut p, FontChoice::Serif, Some(400));
-    assert_eq!(problems(&p).len(), 1, "the reserved name is the problem");
+    assert!(problems(&p).is_empty(), "serif reaches 400");
+}
+
+/// Whether a *particular* face reaches a weight is a fact about bytes and is
+/// refused at the render. What the document alone can still say is that a
+/// number is not a weight on anybody's scale, and it still says it — for a
+/// reserved name as much as for a file.
+#[test]
+fn a_number_off_every_scale_is_still_refused_beside_a_reserved_name() {
+    let mut p = project();
+    styled(&mut p, FontChoice::Sans, Some(1200));
+    assert_eq!(problems(&p).len(), 1, "1200 is not a weight");
 }
 
 /// The bounds are the format's, so this needs no file. A number outside them

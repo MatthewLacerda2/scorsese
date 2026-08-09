@@ -17,7 +17,11 @@ const VARIABLE: &[u8] = include_bytes!("../fonts/Manrope[wght].ttf");
 
 /// A static file, to prove every rule below is about the *file* and not about
 /// the weight being present or absent on its own.
-const STATIC: &[u8] = include_bytes!("../../fonts/LiberationSans-Regular.ttf");
+///
+/// Test data rather than a shipped face, and it has to be: since #267 the two
+/// faces scorsese ships are both variable, so neither can stand in for "a file
+/// with one weight in it".
+const STATIC: &[u8] = include_bytes!("../fonts/SpaceMono-Regular.ttf");
 
 fn set_at(weight: u16) -> scorsese_compositor::Frame {
     let font = Font::from_bytes(VARIABLE, Some(weight)).expect("Manrope reaches this weight");
@@ -93,7 +97,7 @@ fn a_weight_the_axis_does_not_reach_is_refused_with_the_range() {
 /// honouring it, which is how someone comes to insist their bold is broken.
 #[test]
 fn a_weight_named_for_a_static_font_is_refused() {
-    let error = Font::from_bytes(STATIC, Some(700)).expect_err("Liberation Sans is static");
+    let error = Font::from_bytes(STATIC, Some(700)).expect_err("Space Mono is static");
 
     assert!(
         matches!(error, FontError::StaticWithWeight { weight: 700 }),
