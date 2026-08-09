@@ -55,18 +55,28 @@ pub struct TextStyle {
     pub font: FontChoice,
     /// How heavy to set the glyphs, on the usual scale where 400 is regular
     /// and 700 is bold — read only from a **variable** font file, which is what
-    /// most modern open faces now ship as.
+    /// most modern open faces now ship as, the two shipped ones included.
     ///
-    /// **There is no default, and that is the point.** A variable font's own
-    /// `fvar` table names a default instance, and it is very often not 400:
-    /// Manrope's is 200 and Outfit's is 100. A build that quietly fell back to
-    /// it would set a title card in hairline Thin and never say so — a shot
-    /// rendered wrong that no error mentions, which is the same failure the
-    /// `color` asset was deliberately designed against. So a variable font with
-    /// no weight named is refused at the point the file is read, rather than
-    /// guessed at. A static file has exactly one weight and needs nothing said
-    /// about it; naming one there is refused too, because a field nobody reads
-    /// is how someone comes to insist their bold is broken.
+    /// **There is no default for a font the project carries, and that is the
+    /// point.** A variable font's own `fvar` table names a default instance,
+    /// and it is very often not 400: Manrope's is 200 and Outfit's is 100. A
+    /// build that quietly fell back to it would set a title card in hairline
+    /// Thin and never say so — a shot rendered wrong that no error mentions,
+    /// which is the same failure the `color` asset was deliberately designed
+    /// against. So a variable font with no weight named is refused at the point
+    /// the file is read, rather than guessed at. A static file has exactly one
+    /// weight and needs nothing said about it; naming one there is refused too,
+    /// because a field nobody reads is how someone comes to insist their bold
+    /// is broken.
+    ///
+    /// **`sans` and `serif` are the exception, and it is a rule rather than an
+    /// exception once the reason is said.** They default to 400. The refusal
+    /// above protects against a file scorsese cannot know; these two it ships,
+    /// and it publishes their axes. That is the same split the format draws
+    /// everywhere — what the document can answer against what only opening the
+    /// file can — and it is also what keeps every project ever written valid,
+    /// since a weight beside a reserved name used to be refused and so no
+    /// existing document carries one.
     ///
     /// Only the `wght` axis is read. Optical size, width and slant are real
     /// axes and none of them is what "make this bold" means.
