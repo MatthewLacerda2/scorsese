@@ -1,5 +1,5 @@
 {
-  "schema_version": 17,
+  "schema_version": 18,
   "name": "wash",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [

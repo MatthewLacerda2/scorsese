@@ -1,0 +1,14 @@
+{
+  "description": "The source is a flat mauve 0x8060a0 -- three channels, all mid-range and all different -- so every knob moves it visibly and none of them moves it by accident. Contrast at 2.0 doubles the distance of every channel from mid-grey: red barely moves because it is already there, green falls a long way, blue rises. A build pivoting about black rather than mid-grey would simply double all three, which is a different picture and a brighter one.",
+  "media": {
+    "plate": "color=c=0x8060a0:s=64x64:d=1:r=30"
+  },
+  "render": {
+    "resolution": "64x64",
+    "fps": "30"
+  },
+  "frames": [
+    0,
+    14
+  ]
+}

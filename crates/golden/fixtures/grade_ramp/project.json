@@ -1,0 +1,48 @@
+{
+  "schema_version": 18,
+  "name": "grade_ramp",
+  "timeline_fps": {
+    "num": 30,
+    "den": 1
+  },
+  "assets": [
+    {
+      "id": "plate",
+      "kind": "video",
+      "path": "assets/plate.mp4"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-plate",
+          "asset": "plate",
+          "start": 0,
+          "duration": 15,
+          "grade": {
+            "saturation": 1.0,
+            "vignette": 0.8
+          },
+          "keyframes": [
+            {
+              "property": "grade.saturation",
+              "keyframes": [
+                {
+                  "t": 0,
+                  "value": 0.0
+                },
+                {
+                  "t": 15,
+                  "value": 1.0
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
