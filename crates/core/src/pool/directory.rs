@@ -49,12 +49,20 @@ pub fn import_path(
         return import_directory(project, project_root, path, kind, probe);
     }
     let before = project.assets.len();
+    let asked_for = wanted_asset_id(path);
     let id = import_asset(project, project_root, path, kind, probe)?;
+    let reused = project.assets.len() == before;
     Ok(Import {
         imported: vec![Imported {
+            // Reuse is not a rename. The id that comes back for content the
+            // pool already holds is whatever *that* asset was called, which has
+            // nothing to do with the name of the file just handed over — and
+            // reporting it as a rename would put a warning on the one case that
+            // is working exactly as intended.
+            wanted: (!reused && id != asked_for).then_some(asked_for),
             id,
             source: file_name(path),
-            reused: project.assets.len() == before,
+            reused,
         }],
         skipped: Vec::new(),
     })
@@ -80,6 +88,19 @@ pub struct Imported {
     /// True when the pool already held these bytes: `id` is the asset that
     /// already existed and nothing was copied.
     pub reused: bool,
+    /// The id the file's name asked for, and **only** when it did not get it.
+    ///
+    /// `Some` means something already answered to that id and this asset was
+    /// suffixed out of the way — `intro.mp4` landing as `intro-2`. Suffixing is
+    /// the right answer for a single file, and refusing over a name collision
+    /// would make the common case fail for no good reason; what was missing was
+    /// saying so. Whoever imported `intro.mp4` otherwise finds out when they go
+    /// looking for `intro` and get the wrong clip.
+    ///
+    /// Always `None` for a directory import, where a taken id is refused
+    /// outright before anything is copied. That asymmetry is deliberate and its
+    /// reasoning is on [`ImportError::IdTaken`].
+    pub wanted: Option<AssetId>,
 }
 
 /// One file that was passed over, and why.
@@ -181,7 +202,11 @@ fn import_directory(
                 id,
                 source: name,
                 reused: true,
+                wanted: None,
             },
+            // Never a rename: the id was checked for collisions above and the
+            // whole batch refused if it was taken, so `place` is handed the id
+            // that was planned and returns that same one.
             Step::Copy(planned) => Imported {
                 id: place(
                     project,
@@ -194,6 +219,7 @@ fn import_directory(
                 )?,
                 source: planned.name,
                 reused: false,
+                wanted: None,
             },
         });
     }

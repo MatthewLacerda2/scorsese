@@ -147,6 +147,15 @@ path it landed at. The path in the call is used once to find the media and is
 never written down — which is the whole reason a project survives `scp -r`.
 `kind` overrides what the extension says, exactly as on the command line.
 
+**A single file whose id is already taken is suffixed, and the reply says so.**
+An id comes from the file's name, so two *different* shots both called
+`intro.mp4` ask for the same one; the second lands as `intro-2`, and the reply
+names the id it asked for beside the id it got. Refusing instead would fail the
+common case over a name, and saying nothing is how somebody writes `intro` on a
+clip and gets the wrong shot. **Take the id from the reply, not from the file
+name.** Bytes already in the pool are a different thing and not a collision —
+see below.
+
 **`path` may be a directory, and a directory imports its contents, never
 itself.** A folder has no duration, no pixels and no samples, so no clip could
 ever point at one; assets are the things a clip references and the compositor

@@ -34,9 +34,13 @@ impl Tool for Import {
          project: writing an asset into project.json points at a file that is \
          already there. Everything is copied, never referenced in place, and \
          everything is probed as it comes in. Files that are not media are \
-         skipped and named. A file whose id an asset already answers to is \
-         refused with nothing copied at all; media already in the pool is not a \
-         collision — it comes back as the asset that already holds those bytes."
+         skipped and named. A single file whose id is already taken is suffixed \
+         out of the way — `intro.mp4` lands as `intro-2` — and the reply says \
+         so, so the id to write on a clip is the one the reply names rather than \
+         the one the file name suggests. The same collision inside a directory \
+         refuses the whole batch with nothing copied at all. Media already in \
+         the pool is not a collision — it comes back as the asset that already \
+         holds those bytes."
     }
 
     fn costs(&self) -> Costs {
@@ -142,8 +146,15 @@ fn said(project: &Project, report: &Report) -> String {
             continue;
         };
         let path = asset.path.as_ref().map(ToString::to_string);
+        // On the same line as the id, because the id is what the caller is
+        // about to write on a clip and "which id" and "not the one you asked
+        // for" are one fact rather than two.
+        let renamed = one
+            .wanted
+            .as_ref()
+            .map_or_else(String::new, |wanted| format!(", renamed: `{wanted}` taken"));
         lines.push(format!(
-            "{} — {:?}, {} ({})",
+            "{} — {:?}, {} ({}){renamed}",
             one.id,
             asset.kind,
             asset

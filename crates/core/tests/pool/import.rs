@@ -2,7 +2,7 @@
 
 use crate::common::stub_probe::StubProbe;
 use crate::common::{new_project, source_file};
-use scorsese_core::{AssetKind, Project, import_asset};
+use scorsese_core::{AssetKind, Project, import_asset, import_path};
 
 #[test]
 fn import_copies_hashes_and_probes() {
@@ -74,6 +74,47 @@ fn two_files_with_one_name_both_survive() {
             .map(|p| p.as_str()),
         Some("assets/clip-2.mp4")
     );
+}
+
+/// The suffix is right; being quiet about it was not. Two *different* files
+/// that happen to share a name is the case — byte-identical content is deduped
+/// before any of this and is the test below.
+#[test]
+fn a_suffixed_import_says_which_id_it_asked_for() {
+    let (dir, mut project) = new_project("import-says-renamed");
+    let first = source_file(&dir, "clip.mp4", b"first video");
+    let second = source_file(&dir, "other/clip.mp4", b"second video");
+
+    let one = import_path(&mut project, &dir, &first, None, &StubProbe::video()).expect("first");
+    assert_eq!(one.imported[0].wanted, None, "it got the id it asked for");
+
+    let two = import_path(&mut project, &dir, &second, None, &StubProbe::video()).expect("second");
+    let two = &two.imported[0];
+    assert_eq!(two.id.as_str(), "clip-2");
+    assert_eq!(
+        two.wanted.as_ref().map(|id| id.as_str()),
+        Some("clip"),
+        "the id it wanted, so the report can say the suffix fired"
+    );
+}
+
+/// Content already in the pool comes back as the asset that holds it, whatever
+/// that asset is called. That is dedup working, not a rename, and reporting it
+/// as one would put a warning on the case an import loop hits every re-run.
+#[test]
+fn reusing_content_already_in_the_pool_is_not_a_rename() {
+    let (dir, mut project) = new_project("import-reuse-not-rename");
+    let first = source_file(&dir, "clip.mp4", b"identical bytes");
+    let second = source_file(&dir, "copy-of-clip.mp4", b"identical bytes");
+
+    import_path(&mut project, &dir, &first, None, &StubProbe::video()).expect("first");
+    let report =
+        import_path(&mut project, &dir, &second, None, &StubProbe::video()).expect("again");
+
+    let one = &report.imported[0];
+    assert!(one.reused, "same bytes, same asset");
+    assert_eq!(one.id.as_str(), "clip");
+    assert_eq!(one.wanted, None, "reuse is not a rename");
 }
 
 #[test]
