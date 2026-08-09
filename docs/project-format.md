@@ -12,7 +12,7 @@ bump and a migration note.
 
 ```json project
 {
-  "schema_version": 18,
+  "schema_version": 19,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -386,7 +386,7 @@ which is the title most people meant.
 
 | Field | Default | Meaning |
 | --- | --- | --- |
-| `font` | `sans` | `sans` (Inter), `serif` (Source Serif 4), or a path to a font file inside the project |
+| `font` | `sans` | one of the eight shipped names, or a path to a font file inside the project |
 | `weight` | *none* | How heavy, 1–1000 — **required** for a variable font, refused for anything else |
 | `size` | `0.1` | Em size as a fraction of the frame's **height** |
 | `color` | `#ffffff` | `#rrggbb`, or `#rrggbbaa` for text you can see through |
@@ -401,14 +401,42 @@ so a title written as `72` pixels would be a different title in each.
 the rule is the format's rather than this table's: `max_width` and
 `transform.position.*` are fractions for the same reason.
 
-**Two font names are reserved.** `sans` and `serif` are the faces scorsese
-ships: **Inter** and **Source Serif 4**, both as variable files covering
-`wght` 100–900 and 200–900, both under the SIL Open Font License. Anything else
-in `font` is read as a path to a font file the project carries, relative to the
-project root like every other path — `assets/Manrope[wght].ttf`. The fonts are
-committed to the repository rather than looked up on the system, because a
-system lookup resolves differently on every platform and text has to render
-identically everywhere.
+**A bare word is a font scorsese ships; anything with a slash or a dot in it is
+a font file the project carries** — `assets/Manrope[wght].ttf`, relative to the
+project root like every other path. Eight families ship, all under the SIL Open
+Font License:
+
+| name | family | weights | for |
+| --- | --- | --- | --- |
+| `inter` | Inter | 100 – 900 | the default sans; a modern interface face |
+| `source-serif` | Source Serif 4 | 200 – 900 | the default serif; readable at caption size |
+| `liberation-sans` | Liberation Sans | 400, 700 | **the Arial look** |
+| `liberation-serif` | Liberation Serif | 400, 700 | **the Times New Roman look** |
+| `montserrat` | Montserrat | 100 – 900 | geometric, for titles |
+| `lora` | Lora | 400 – 700 | a warm text serif |
+| `playfair-display` | Playfair Display | 400 – 900 | high contrast, for a title card |
+| `jetbrains-mono` | JetBrains Mono | 100 – 800 | monospace |
+
+**`sans` and `serif` are aliases**, for `inter` and `source-serif`. They are what
+every project written before this list existed says, and they go on meaning the
+default sans and the default serif — which is the point of an alias: the thing
+they point at can change without a document changing.
+
+**Arial and Times New Roman themselves can never ship.** They are Monotype's and
+cannot be committed to a public repository. `liberation-sans` and
+`liberation-serif` are the open substitutes: metric-compatible, the same advance
+widths, and to anyone who is not a typographer the same look.
+
+The fonts are committed to the repository rather than looked up on the system,
+because a system lookup resolves differently on every platform and text has to
+render identically everywhere. Which files, from which release, with which
+hashes, is `crates/compositor/fonts/README.md`.
+
+**A name nothing ships is refused with the list**, at the render and by
+`scorsese check`, rather than being read as a filename. So writing `"Arial"`
+gets *"there is no font called `Arial`. The ones scorsese ships are: …"* rather
+than a complaint about a missing file, which is the sentence somebody who typed
+it actually needs.
 
 #### Weight, and the variable font that would otherwise render hairline
 
@@ -445,24 +473,34 @@ The other three cases follow from the same rule:
 - **A weight on a static font is refused.** A file with no `wght` axis has one
   weight; silently ignoring a field you wrote is how you come to insist your
   bold is broken.
-- **A weight the shipped faces do not reach is refused too**, at the render and
+- **A weight a shipped family does not reach is refused too**, at the render and
   not at validation. Inter starts at 100 and Source Serif 4 at 200, which is a
   fact about a file like any other.
+- **A weight a *drawn* family was not drawn at is refused with the weights it
+  has.** Liberation is four separate files rather than an axis — there is no
+  variable build of it anywhere — so `liberation-sans` has 400 and 700 and
+  nothing between. `600` is an error naming both, not a quiet 700: snapping is
+  the same silent substitution as clamping, one step along. Every other shipped
+  family is variable, where any weight inside the range is a real position on
+  the axis.
 
-**`sans` and `serif` default to weight 400, and no other font does.** Written
+**A shipped family defaults to weight 400; a font the project carries does
+not.** Written
 as its own rule rather than left to look like an exception to the one above,
 because the two only appear to contradict each other until the reason is on the
-page. The refusal protects against a file scorsese cannot know: Manrope defaults
-to 200 and would render hairline while the document looked entirely correct, and
-nothing here has read that file. It knows these two — their axes are published
-in `crates/compositor/fonts/README.md` and their default is Regular. That is the
+page. The refusal protects against a file scorsese cannot know: Manrope defaults to
+200 and would render hairline while the document looked entirely correct, and
+nothing here has read that file. It knows the shipped ones — their axes are
+published in `crates/compositor/fonts/README.md`. Montserrat's own default is
+100, and shipping it is exactly why the rule is "400" rather than "whatever the
+file says". That is the
 same split the format already draws everywhere else, between what the
 *document* can answer and what only opening the *file* can, and it lands on the
 right side of it.
 
 The rule is also what keeps every project ever written valid. A weight beside
 `sans` used to be refused, so **no existing document carries one** — which means
-every one of them relies on an unweighted reserved name going on meaning
+every one of them relies on an unweighted shipped name going on meaning
 Regular.
 
 `weight` is the *only* axis read. Optical size, width and slant are real axes
@@ -1195,6 +1233,22 @@ outside OpenType's own 1–1000 is not a weight for any face. What only the
 runs — is refused at the render, in the same breath as "this is not a font I can
 read". That holds for `sans` and `serif` as much as for a font the project
 carries; they are files too, and scorsese happens to be the one carrying them.
+
+## Migrating from v18
+
+v19 changes no field and removes none. What moves is the **accepted value
+space**, in the friendly direction: `font` took two names and now takes eight,
+plus the same paths it always did. `sans` and `serif` are aliases for `inter`
+and `source-serif`, so **no v18 document means anything different under v19** —
+converting one is changing `"schema_version": 18` to `"schema_version": 19` and
+nothing else.
+
+The number moved because a document written against v19 would be *rejected* by a
+v18 build, which does not ship `liberation-sans` and would read the word as a
+filename. That is the situation a version exists to make legible.
+
+Nothing re-renders differently. `sans` and `serif` resolve to the faces they
+resolved to under v18, which is what the aliases are for.
 
 ## Migrating from v17
 

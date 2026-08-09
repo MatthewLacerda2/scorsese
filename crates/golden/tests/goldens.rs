@@ -62,6 +62,7 @@ goldens!(
     blend,
     crop,
     cuts,
+    drawn_weight,
     fade,
     fill,
     flip,

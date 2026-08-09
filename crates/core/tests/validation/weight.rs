@@ -32,14 +32,14 @@ fn own_font() -> FontChoice {
 #[test]
 fn a_weight_beside_a_reserved_name_is_accepted() {
     let mut p = project();
-    styled(&mut p, FontChoice::Sans, Some(700));
+    styled(&mut p, FontChoice::Named("sans".to_owned()), Some(700));
     assert!(problems(&p).is_empty(), "sans reaches 700");
 }
 
 #[test]
 fn the_serif_name_takes_a_weight_too() {
     let mut p = project();
-    styled(&mut p, FontChoice::Serif, Some(400));
+    styled(&mut p, FontChoice::Named("serif".to_owned()), Some(400));
     assert!(problems(&p).is_empty(), "serif reaches 400");
 }
 
@@ -50,7 +50,7 @@ fn the_serif_name_takes_a_weight_too() {
 #[test]
 fn a_number_off_every_scale_is_still_refused_beside_a_reserved_name() {
     let mut p = project();
-    styled(&mut p, FontChoice::Sans, Some(1200));
+    styled(&mut p, FontChoice::Named("sans".to_owned()), Some(1200));
     assert_eq!(problems(&p).len(), 1, "1200 is not a weight");
 }
 

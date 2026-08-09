@@ -51,20 +51,11 @@ use skrifa::{FontRef, GlyphId, MetadataProvider};
 
 use super::shape::{self, Shaped};
 
+mod shipped;
 mod weight;
 
+pub use shipped::{Cut, Family, SHIPPED, family, names};
 use weight::locate;
-
-/// Inter, as one variable file covering `wght` 100 to 900.
-///
-/// One *file* per family rather than one weight per family, which is the trade
-/// the format already makes for a font a project carries: four static files
-/// would be four faces against one field, and a variable file is the whole
-/// range against the same field.
-const SANS: &[u8] = include_bytes!("../../../fonts/Inter-V.ttf");
-
-/// Source Serif 4, as one variable file covering `wght` 200 to 900.
-const SERIF: &[u8] = include_bytes!("../../../fonts/SourceSerif4Variable-Roman.ttf");
 
 /// What a shipped face is drawn at when the document names no weight.
 ///
@@ -103,58 +94,73 @@ pub struct Font {
     instance: ShaperInstance,
 }
 
-/// One of the two faces scorsese ships, named rather than found.
-///
-/// A name and not a path, because these are not files anybody can reach: they
-/// are compiled into this crate, and a caller asking for one is asking for a
-/// face rather than for something on disk.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Shipped {
-    /// Inter.
-    Sans,
-    /// Source Serif 4.
-    Serif,
-}
-
-impl Shipped {
-    /// The file, as compiled in.
-    fn bytes(self) -> &'static [u8] {
-        match self {
-            Self::Sans => SANS,
-            Self::Serif => SERIF,
-        }
-    }
-}
-
 impl Font {
     /// The shipped sans face at [`SHIPPED_WEIGHT`], read once for the process.
     ///
     /// The common case and the cheap one: no weight named is what every
     /// document said before there was a weight to name, and what a slug card, a
     /// contact sheet's labels and a ruled grid all want. A weight named on top
-    /// of it goes through [`Font::shipped_at`], which builds a face rather than
+    /// of it goes through [`Font::shipped`], which builds a face rather than
     /// borrowing this one.
     pub fn sans() -> &'static Self {
         static FONT: OnceLock<Font> = OnceLock::new();
-        FONT.get_or_init(|| Self::shipped(SANS))
+        FONT.get_or_init(|| Self::compiled_in("sans"))
     }
 
     /// The shipped serif face, under the same rule as [`Font::sans`].
     pub fn serif() -> &'static Self {
         static FONT: OnceLock<Font> = OnceLock::new();
-        FONT.get_or_init(|| Self::shipped(SERIF))
+        FONT.get_or_init(|| Self::compiled_in("serif"))
     }
 
-    /// A shipped face at the weight a document asked for.
+    /// A shipped family, by the name a document wrote, at the weight it asked
+    /// for.
     ///
     /// `None` means [`SHIPPED_WEIGHT`], so this and [`Font::sans`] agree about
-    /// what an unweighted `sans` is. A weight the face's axis does not reach is
-    /// refused with the range it does reach — Source Serif 4 starts at 200,
-    /// where Inter starts at 100, and clamping one to the other would be a
-    /// silent substitution of exactly the kind the weight rules exist to
-    /// prevent.
-    pub fn shipped_at(face: Shipped, weight: Option<u16>) -> Result<Self, FontError> {
-        Self::from_bytes(face.bytes(), Some(weight.unwrap_or(SHIPPED_WEIGHT)))
+    /// what an unweighted `sans` is.
+    ///
+    /// Three refusals, and each one is a different question:
+    ///
+    /// - **no such family** — this build ships none by that name, and the
+    ///   message carries the ones it does, because that is the question being
+    ///   asked whenever somebody gets a name wrong;
+    /// - **a variable family that does not reach the weight** — refused with
+    ///   the range it does reach, since clamping is a silent substitution;
+    /// - **a drawn family that was not drawn at it** — refused with the weights
+    ///   it *was* drawn at. Liberation has Regular and Bold and nothing
+    ///   between, and snapping 600 to 700 would be the same substitution one
+    ///   step along.
+    pub fn shipped(name: &str, weight: Option<u16>) -> Result<Self, FontError> {
+        let family = shipped::family(name).ok_or_else(|| FontError::NoSuchFamily {
+            name: name.to_owned(),
+            available: shipped::names().collect::<Vec<_>>().join(", "),
+        })?;
+        let wanted = weight.unwrap_or(SHIPPED_WEIGHT);
+        match family.cut {
+            // The axis answers, and refuses what it does not reach.
+            Cut::Variable(bytes) => Self::from_bytes(bytes, Some(wanted)),
+            // No axis to ask, so the table is the whole answer. `None` on the
+            // way in because each of these files is static and naming a weight
+            // at a static file is itself refused.
+            Cut::Drawn(files) => files
+                .iter()
+                .find(|(drawn, _)| *drawn == wanted)
+                .map_or_else(
+                    || {
+                        Err(FontError::WeightNotDrawn {
+                            weight: wanted,
+                            family: family.family.to_owned(),
+                            drawn: family
+                                .drawn_weights()
+                                .iter()
+                                .map(u16::to_string)
+                                .collect::<Vec<_>>()
+                                .join(", "),
+                        })
+                    },
+                    |(_, bytes)| Self::from_bytes(bytes, None),
+                ),
+        }
     }
 
     /// Parses a font file a project brought with it — a TrueType or OpenType
@@ -220,8 +226,8 @@ impl Font {
 
     /// Reads a face this build ships. Its bytes are compiled in, so failing
     /// here would mean a corrupt binary rather than a bad project.
-    fn shipped(bytes: &[u8]) -> Self {
-        Self::from_bytes(bytes, Some(SHIPPED_WEIGHT))
+    fn compiled_in(name: &str) -> Self {
+        Self::shipped(name, None)
             .expect("a font compiled into this binary parses, and reaches its own default weight")
     }
 }
@@ -315,6 +321,39 @@ pub enum FontError {
         default: f32,
         /// The heaviest weight the file offers.
         max: f32,
+    },
+
+    /// A name no family in this build answers to.
+    ///
+    /// The list goes in the message rather than being left to be looked up,
+    /// because "which fonts are there?" is the question somebody is asking at
+    /// the moment they see this, and a refusal that does not answer it sends
+    /// them to the documentation for one line.
+    #[error("there is no font called `{name}`. The ones scorsese ships are: {available}")]
+    NoSuchFamily {
+        /// The name the document wrote.
+        name: String,
+        /// Every name this build answers to, aliases included.
+        available: String,
+    },
+
+    /// A weight a **drawn** family was not drawn at.
+    ///
+    /// Distinct from [`FontError::WeightOffAxis`] because the answer is a list
+    /// rather than a range: there is no axis to be off, only the weights the
+    /// designer actually drew, and 600 is not one of them however close it
+    /// looks to 700.
+    #[error(
+        "{family} is drawn at {drawn} — it has no weight {weight}, and there is no axis \
+             between them to interpolate one from"
+    )]
+    WeightNotDrawn {
+        /// The weight asked for.
+        weight: u16,
+        /// The family, by its own name.
+        family: String,
+        /// The weights it does have.
+        drawn: String,
     },
 
     /// A weight this file's axis does not reach. Refused rather than clamped:

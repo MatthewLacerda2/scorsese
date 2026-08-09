@@ -22,7 +22,7 @@
 
 mod font;
 
-pub use font::{FontChoice, MAX_WEIGHT, MIN_WEIGHT};
+pub use font::{DEFAULT_FONT, FontChoice, MAX_WEIGHT, MIN_WEIGHT};
 
 use serde::{Deserialize, Serialize};
 

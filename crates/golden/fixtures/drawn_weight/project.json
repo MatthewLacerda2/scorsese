@@ -1,0 +1,39 @@
+{
+  "schema_version": 19,
+  "name": "drawn_weight",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    { "id": "plate", "kind": "color", "color": "#101820" },
+    {
+      "id": "regular",
+      "kind": "text",
+      "text": "Aa",
+      "style": { "font": "liberation-sans", "weight": 400, "size": 0.42, "color": "#ffffff" }
+    },
+    {
+      "id": "bold",
+      "kind": "text",
+      "text": "Aa",
+      "style": { "font": "liberation-sans", "weight": 700, "size": 0.42, "color": "#ffcc00" }
+    }
+  ],
+  "tracks": [
+    { "id": "v1", "kind": "video", "clips": [{ "id": "c-plate", "asset": "plate", "start": 0, "duration": 15 }] },
+    {
+      "id": "v2",
+      "kind": "video",
+      "clips": [
+        { "id": "c-regular", "asset": "regular", "start": 0, "duration": 15,
+          "anchor": { "x": "center", "y": "top" } }
+      ]
+    },
+    {
+      "id": "v3",
+      "kind": "video",
+      "clips": [
+        { "id": "c-bold", "asset": "bold", "start": 0, "duration": 15,
+          "anchor": { "x": "center", "y": "bottom" } }
+      ]
+    }
+  ]
+}

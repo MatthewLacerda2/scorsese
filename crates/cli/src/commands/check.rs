@@ -6,9 +6,9 @@ use std::path::Path;
 
 use anyhow::{Context, Result, bail};
 use scorsese_core::{
-    HashCheck, PROJECT_FILE_NAME, Project, ProjectPath, ValidationErrors, asset_status,
+    AssetId, HashCheck, PROJECT_FILE_NAME, Project, ProjectPath, ValidationErrors, asset_status,
 };
-use scorsese_render::unknown_in;
+use scorsese_render::{unknown_fonts, unknown_in};
 
 use media::{Finding, Severity};
 
@@ -19,7 +19,8 @@ use media::{Finding, Severity};
 ///
 /// - **Problems** make a render impossible — a dangling asset reference, two
 ///   clips fighting over the same instant, a file a clip references that is
-///   not on disk. This exits non-zero.
+///   not on disk, a `style.font` naming a face this build does not ship. This
+///   exits non-zero.
 /// - **Warnings** are things that render perfectly well and are probably not
 ///   what anyone meant: a keyframe track naming a property nobody animates, a
 ///   file whose content changed since it was imported.
@@ -72,7 +73,16 @@ pub(crate) fn run(project_dir: &Path, verify: bool) -> Result<()> {
     } else {
         HashCheck::Skip
     };
-    let media = media::findings(&asset_status(&project, project_dir, hashes));
+    // Folded in with the media findings because it is the same kind of answer:
+    // a face this build cannot find stops a render exactly as a missing file
+    // does, and whoever reads the log should not have to know which half of the
+    // command noticed which.
+    let mut media = media::findings(&asset_status(&project, project_dir, hashes));
+    media.extend(unknown_fonts(&project).into_iter().map(|unknown| Finding {
+        asset: AssetId::new(unknown.asset.clone()),
+        severity: Severity::Problem,
+        detail: unknown.to_string(),
+    }));
     for finding in &media {
         println!("{}: {finding}", finding.severity);
     }
