@@ -210,24 +210,21 @@ fn check_style(asset: &Asset, errors: &mut Vec<AssetProblem>) {
 
 /// What can be said about a `weight` without opening a font file.
 ///
-/// Two things, and deliberately only two. A reserved name is a face scorsese
-/// ships and knows to be static, so a weight beside one can be refused from the
-/// document alone. A number outside OpenType's own `wght` range is not a weight
-/// for any face, so it can be refused the same way. Everything else — whether
-/// this file is variable at all, and whether its axis reaches 900 — is a fact
-/// about bytes on disk, and lives where the file is read. Validation is about
-/// the document and stops at the edge of it, exactly as it does for `path`.
+/// One thing, and deliberately only one: a number outside OpenType's own `wght`
+/// range is not a weight for any face. Everything else — whether this file is
+/// variable at all, and whether its axis reaches 900 — is a fact about bytes,
+/// and lives where the file is read. Validation is about the document and stops
+/// at the edge of it, exactly as it does for `path`.
+///
+/// A weight beside `sans` or `serif` used to be refused here, on the grounds
+/// that the shipped faces were one static weight each. They are variable now,
+/// so the refusal went with the reason for it. Whether Source Serif 4's axis
+/// reaches the 100 that Inter's does is a fact about a file like any other, and
+/// is refused at the render — from where the answer actually is.
 fn check_weight(asset: &Asset, style: &TextStyle, errors: &mut Vec<AssetProblem>) {
     let Some(weight) = style.weight else {
         return;
     };
-    if style.font.is_reserved() {
-        errors.push(AssetProblem::WeightOnReservedFont {
-            asset: asset.id.clone(),
-            font: String::from(style.font.clone()),
-            weight,
-        });
-    }
     if !(MIN_WEIGHT..=MAX_WEIGHT).contains(&weight) {
         errors.push(AssetProblem::WeightOutOfRange {
             asset: asset.id.clone(),

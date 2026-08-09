@@ -16,26 +16,67 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use scorsese_compositor::Frame;
-use scorsese_compositor::text::{self, Font, Style};
+use scorsese_compositor::text::{self, Font, Shipped, Style};
 use scorsese_core::{Anchor, Asset, FontChoice, TextStyle};
 
 use crate::error::RenderError;
+
+/// Parses one face, saying which asset asked for it when it will not parse.
+///
+/// The error names a path even for a shipped face, where there is none to name:
+/// the face's own name goes in its place, because "`sans` does not reach weight
+/// 100" is the useful sentence and a blank path is not.
+fn open(key: &Face, asset: &Asset) -> Result<Font, RenderError> {
+    let unusable = |path: PathBuf, detail: String| RenderError::UnusableFont {
+        asset: asset.id.to_string(),
+        path,
+        detail,
+    };
+    match key {
+        Face::Shipped(face, weight) => Font::shipped_at(*face, Some(*weight)).map_err(|error| {
+            let named = match face {
+                Shipped::Sans => "sans",
+                Shipped::Serif => "serif",
+            };
+            unusable(PathBuf::from(named), error.to_string())
+        }),
+        Face::File(path, weight) => {
+            let bytes =
+                std::fs::read(path).map_err(|source| unusable(path.clone(), source.to_string()))?;
+            Font::from_bytes(&bytes, *weight)
+                .map_err(|error| unusable(path.clone(), error.to_string()))
+        }
+    }
+}
 
 /// Draws text assets, holding on to the fonts it has opened.
 ///
 /// Kept for a whole render rather than made per clip: parsing a face costs
 /// milliseconds, and a cut with a title on every shot would otherwise pay that
-/// for each one. The two shipped faces are the compositor's and are parsed once
-/// per process; only a project's own font lands in this map.
+/// for each one.
 ///
-/// **Keyed by file *and* weight**, because one variable file is many faces: a
-/// project setting its titles in Manrope at 800 and its captions in the same
-/// file at 400 has two instances, and they must not share a cache slot. That
-/// is the whole point of the feature — one file where the per-weight file tax
-/// used to be — so the cache has to be able to hold both at once.
+/// **Keyed by face *and* weight**, because one variable file is many faces: a
+/// project setting its titles in Inter at 800 and its captions in the same face
+/// at 400 has two instances, and they must not share a cache slot. That is the
+/// whole point of the feature — one file where the per-weight file tax used to
+/// be — so the cache has to be able to hold both at once.
+///
+/// A shipped face at its default weight is the exception and is not in here at
+/// all: it is a `&'static` the compositor parses once per process, which is
+/// what every project written before `weight` existed asks for.
 #[derive(Debug, Default)]
 pub(crate) struct Painter {
-    fonts: HashMap<(PathBuf, Option<u16>), Font>,
+    fonts: HashMap<Face, Font>,
+}
+
+/// Which face, at which weight — everything that decides whether two text
+/// assets can share one parsed instance.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum Face {
+    /// One scorsese ships, at a weight other than its default.
+    Shipped(Shipped, u16),
+    /// One the project carries.
+    File(PathBuf, Option<u16>),
 }
 
 impl Painter {
@@ -71,36 +112,27 @@ impl Painter {
     /// The face a style names, at the weight it names, opening and keeping a
     /// project's own font file the first time it is asked for.
     ///
-    /// The two reserved names come back unweighted, and a `weight` beside one
-    /// of them never reaches here: the shipped faces are static and known to be
-    /// static without opening anything, so [`Project::validate`] refuses that
-    /// pairing before a render can start. Everything a *file* has to say about
-    /// its own weights — whether it is variable at all, and how far its axis
-    /// runs — is a fact about bytes on disk, so the refusal lives here, where
-    /// the bytes are.
-    ///
-    /// [`Project::validate`]: scorsese_core::Project::validate
+    /// A reserved name with no weight comes back as the compositor's own
+    /// `&'static`, which is the common case and costs nothing. A weight beside
+    /// one is an ordinary instance of a variable face and is cached like any
+    /// other — and whether the face's axis actually reaches that weight is a
+    /// fact about bytes, so it is refused here rather than at validation, the
+    /// same as for a file the project carries.
     fn font(
         &mut self,
         style: &TextStyle,
         asset: &Asset,
         project_root: &Path,
     ) -> Result<&Font, RenderError> {
-        let path = match &style.font {
-            FontChoice::Sans => return Ok(Font::sans()),
-            FontChoice::Serif => return Ok(Font::serif()),
-            FontChoice::File(path) => path.resolve(project_root),
+        let key = match (&style.font, style.weight) {
+            (FontChoice::Sans, None) => return Ok(Font::sans()),
+            (FontChoice::Serif, None) => return Ok(Font::serif()),
+            (FontChoice::Sans, Some(weight)) => Face::Shipped(Shipped::Sans, weight),
+            (FontChoice::Serif, Some(weight)) => Face::Shipped(Shipped::Serif, weight),
+            (FontChoice::File(path), weight) => Face::File(path.resolve(project_root), weight),
         };
-        let key = (path, style.weight);
         if !self.fonts.contains_key(&key) {
-            let unusable = |detail: String| RenderError::UnusableFont {
-                asset: asset.id.to_string(),
-                path: key.0.clone(),
-                detail,
-            };
-            let bytes = std::fs::read(&key.0).map_err(|source| unusable(source.to_string()))?;
-            let font = Font::from_bytes(&bytes, style.weight)
-                .map_err(|error| unusable(error.to_string()))?;
+            let font = open(&key, asset)?;
             self.fonts.insert(key.clone(), font);
         }
         Ok(&self.fonts[&key])

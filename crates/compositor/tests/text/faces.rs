@@ -7,8 +7,8 @@ use crate::ink::{self, canvas, style};
 
 /// The same bytes the crate compiles in, read again through the public door —
 /// so `from_bytes` is proven to be a real path rather than one only the two
-/// statics use.
-const SERIF_FILE: &[u8] = include_bytes!("../../fonts/LiberationSerif-Regular.ttf");
+/// shipped faces use.
+const SERIF_FILE: &[u8] = include_bytes!("../../fonts/SourceSerif4Variable-Roman.ttf");
 
 fn set_in(font: &Font) -> scorsese_compositor::Frame {
     let mut frame = canvas();
@@ -51,7 +51,12 @@ fn the_two_faces_set_a_title_to_about_the_same_width() {
 
 #[test]
 fn a_project_can_bring_a_font_of_its_own() {
-    let brought = Font::from_bytes(SERIF_FILE, None).expect("a real font file parses");
+    // With the weight named, because the file is variable: an unweighted
+    // variable file is refused, and `sans`/`serif` default to 400 only because
+    // scorsese knows *those* two. Naming it here is the same 400 by the other
+    // door, which is exactly what makes the comparison below mean anything.
+    let brought =
+        Font::from_bytes(SERIF_FILE, Some(text::SHIPPED_WEIGHT)).expect("a real font file parses");
     assert_eq!(
         set_in(&brought).bytes(),
         set_in(Font::serif()).bytes(),

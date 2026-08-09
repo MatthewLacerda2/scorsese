@@ -83,25 +83,6 @@ pub enum AssetProblem {
         problem: PathProblem,
     },
 
-    /// A `weight` beside `sans` or `serif`.
-    ///
-    /// The two shipped faces are one static weight each, so nothing could act
-    /// on the number — and a field nothing reads is how someone comes to
-    /// insist their bold is broken. The message points at the way to get a
-    /// weight at all: a variable font file the project carries.
-    #[error(
-        "asset `{asset}`: `{font}` is one of the faces scorsese ships and has a single weight, \
-         so `weight` ({weight}) cannot apply to it — name a variable font file instead"
-    )]
-    WeightOnReservedFont {
-        /// The text asset naming it.
-        asset: AssetId,
-        /// Which reserved name was written.
-        font: String,
-        /// The weight that could not be honoured.
-        weight: u16,
-    },
-
     /// A number that is not a weight on anybody's scale.
     ///
     /// The bounds are OpenType's for the `wght` axis, so this is checkable from

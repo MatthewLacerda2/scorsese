@@ -52,14 +52,28 @@ mod weight;
 
 use weight::locate;
 
-/// Liberation Sans, regular weight. One weight of each face rather than a
-/// family: bold and italic are a real feature with a real vocabulary
-/// (`weight`, `slant`), and shipping four files against a `style` nothing can
-/// select would be a megabyte pretending to be a choice.
-const SANS: &[u8] = include_bytes!("../../../fonts/LiberationSans-Regular.ttf");
+/// Inter, as one variable file covering `wght` 100 to 900.
+///
+/// One *file* per family rather than one weight per family, which is the trade
+/// the format already makes for a font a project carries: four static files
+/// would be four faces against one field, and a variable file is the whole
+/// range against the same field.
+const SANS: &[u8] = include_bytes!("../../../fonts/Inter-V.ttf");
 
-/// Liberation Serif, regular weight, under the same rule.
-const SERIF: &[u8] = include_bytes!("../../../fonts/LiberationSerif-Regular.ttf");
+/// Source Serif 4, as one variable file covering `wght` 200 to 900.
+const SERIF: &[u8] = include_bytes!("../../../fonts/SourceSerif4Variable-Roman.ttf");
+
+/// What a shipped face is drawn at when the document names no weight.
+///
+/// Regular, and it is the whole of the compatibility story. The general rule is
+/// that a **variable file with no weight is refused**, because the file's own
+/// `fvar` default is 200 in Manrope and 100 in Outfit and "it will be Regular"
+/// is not a safe guess about a file nobody here has seen. That reasoning is
+/// about a file scorsese cannot know. It does not apply to a face scorsese
+/// ships and whose axis it publishes — so these two default, and every document
+/// ever written against `"font": "sans"` goes on rendering at the weight it
+/// always did.
+pub const SHIPPED_WEIGHT: u16 = 400;
 
 /// A face, checked and ready to draw with.
 ///
@@ -86,8 +100,37 @@ pub struct Font {
     instance: ShaperInstance,
 }
 
+/// One of the two faces scorsese ships, named rather than found.
+///
+/// A name and not a path, because these are not files anybody can reach: they
+/// are compiled into this crate, and a caller asking for one is asking for a
+/// face rather than for something on disk.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Shipped {
+    /// Inter.
+    Sans,
+    /// Source Serif 4.
+    Serif,
+}
+
+impl Shipped {
+    /// The file, as compiled in.
+    fn bytes(self) -> &'static [u8] {
+        match self {
+            Self::Sans => SANS,
+            Self::Serif => SERIF,
+        }
+    }
+}
+
 impl Font {
-    /// The shipped sans face, read once for the process.
+    /// The shipped sans face at [`SHIPPED_WEIGHT`], read once for the process.
+    ///
+    /// The common case and the cheap one: no weight named is what every
+    /// document said before there was a weight to name, and what a slug card, a
+    /// contact sheet's labels and a ruled grid all want. A weight named on top
+    /// of it goes through [`Font::shipped_at`], which builds a face rather than
+    /// borrowing this one.
     pub fn sans() -> &'static Self {
         static FONT: OnceLock<Font> = OnceLock::new();
         FONT.get_or_init(|| Self::shipped(SANS))
@@ -97,6 +140,18 @@ impl Font {
     pub fn serif() -> &'static Self {
         static FONT: OnceLock<Font> = OnceLock::new();
         FONT.get_or_init(|| Self::shipped(SERIF))
+    }
+
+    /// A shipped face at the weight a document asked for.
+    ///
+    /// `None` means [`SHIPPED_WEIGHT`], so this and [`Font::sans`] agree about
+    /// what an unweighted `sans` is. A weight the face's axis does not reach is
+    /// refused with the range it does reach — Source Serif 4 starts at 200,
+    /// where Inter starts at 100, and clamping one to the other would be a
+    /// silent substitution of exactly the kind the weight rules exist to
+    /// prevent.
+    pub fn shipped_at(face: Shipped, weight: Option<u16>) -> Result<Self, FontError> {
+        Self::from_bytes(face.bytes(), Some(weight.unwrap_or(SHIPPED_WEIGHT)))
     }
 
     /// Parses a font file a project brought with it — a TrueType or OpenType
@@ -163,7 +218,8 @@ impl Font {
     /// Reads a face this build ships. Its bytes are compiled in, so failing
     /// here would mean a corrupt binary rather than a bad project.
     fn shipped(bytes: &[u8]) -> Self {
-        Self::from_bytes(bytes, None).expect("a font compiled into this binary parses")
+        Self::from_bytes(bytes, Some(SHIPPED_WEIGHT))
+            .expect("a font compiled into this binary parses, and reaches its own default weight")
     }
 }
 

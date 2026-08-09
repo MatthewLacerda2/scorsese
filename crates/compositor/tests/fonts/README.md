@@ -1,19 +1,22 @@
-# A variable font, for the tests only
+# Two fonts, for the tests only
 
-`Manrope[wght].ttf` is **not** shipped. It is not compiled into the crate, it
-is not one of the faces `style.font` can name, and nothing under `src/` reads
-it. It is test data, and it is here because the rule it tests cannot be tested
-without a real one.
+Neither is shipped. Neither is compiled into the crate, neither is a face
+`style.font` can name, and nothing under `src/` reads either. They are test
+data, and they are here because the rules they test cannot be tested without
+real files.
 
-| File | Face | Axis |
+| File | Face | Axes |
 | --- | --- | --- |
 | `Manrope[wght].ttf` | Manrope | `wght` 200 – 800, **defaulting to 200** |
+| `SpaceMono-Regular.ttf` | Space Mono | none — **static** |
 
-From **google/fonts**, unmodified:
-<https://github.com/google/fonts/tree/main/ofl/manrope>
+Both from **google/fonts**, unmodified:
+<https://github.com/google/fonts/tree/main/ofl/manrope> and
+<https://github.com/google/fonts/tree/main/ofl/spacemono>
 
 ```
 sha256  d0639be45d0af36e798172419d7bd173c4bd4f29e2b76cbb69db1d11bf8b0a40  Manrope[wght].ttf
+sha256  95837e182baeeada83368f7748db28357f0a1b75c6b84ff7065b5edf933c8e18  SpaceMono-Regular.ttf
 ```
 
 ## Why this one
@@ -33,6 +36,14 @@ OpenType's own 1–1000, so a weight of 900 is a number the *format* allows and
 this *file* does not — which is exactly the split between what validation can
 check from the document and what only opening the file can answer.
 
+## Why the static one
+
+Because "a weight beside a file that has only one" is a rule too, and since
+#267 **both shipped faces are variable** — so neither can stand in for a static
+file any more. Space Mono is the smallest thing that can: no `fvar` at all, 97
+KB, and a family nothing else here uses, so a test failing on it cannot be
+confused with a test failing on a face scorsese draws with.
+
 ## Why it is committed rather than fetched
 
 Same reason the two shipped faces are: a test that needs a network is a bug,
@@ -48,8 +59,9 @@ boundary: nothing depends on `crates/golden`.
 
 ## Licence
 
-SIL Open Font License 1.1 — the full text is in `OFL.txt`, exactly as it ships
-with the font. The file is redistributed **unmodified** and under its own name;
-`Manrope` is a Reserved Font Name, so a subset copy — which is what "modified"
-would mean here — would have to be renamed. Keeping it whole is cheaper than
-being careful about that, and it is the same call the shipped faces made.
+SIL Open Font License 1.1 for both — the full texts are in `Manrope-OFL.txt`
+and `SpaceMono-OFL.txt`, exactly as they ship with the fonts. Both files are
+redistributed **unmodified** and under their own names; `Manrope` is a Reserved
+Font Name, so a subset copy — which is what "modified" would mean here — would
+have to be renamed. Keeping them whole is cheaper than being careful about that,
+and it is the same call the shipped faces made.
