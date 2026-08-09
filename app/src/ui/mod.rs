@@ -109,7 +109,16 @@ impl Scorsese {
                     // Started here and nowhere else: opening is the one moment
                     // a whole pool arrives at once, and it is the moment
                     // nobody is holding a clip.
-                    self.probing = Probing::start(&open.project, &open.root);
+                    //
+                    // Not started at all on a read-only project, and that is
+                    // the sharpest edge of this rather than a tidy-up: the
+                    // probe records what it learns and saves, so on a document
+                    // that already does not validate it would write the broken
+                    // state back out — and a length arriving late is how a
+                    // project gets into this state to begin with.
+                    self.probing = (!open.read_only())
+                        .then(|| Probing::start(&open.project, &open.root))
+                        .flatten();
                 }
             }
             Err(refused) => self.refused = Some(refused),
@@ -132,8 +141,22 @@ impl Scorsese {
         let Some(open) = &mut self.opened else {
             return;
         };
+        // Said twice on purpose. Nothing starts a probe on a read-only project,
+        // and nothing writes one either — a guard that only exists at the point
+        // work is started is a guard that lasts until somebody starts it
+        // somewhere else.
+        if open.read_only() {
+            return;
+        }
         if probing::record(&mut open.project, &found) {
             let _ = open.project.save(&open.root);
+            // What was just learned can be what makes the document stop
+            // validating — a clip reaching past media nobody had measured is
+            // not wrong until somebody measures it — so the answer is asked
+            // again here. Without this the window would carry on offering to
+            // edit a document it has just made invalid, and every drag would be
+            // refused over some clip other than the one under the pointer.
+            open.revalidate();
             self.files.refresh(open);
         }
     }
@@ -266,6 +289,15 @@ impl Scorsese {
     /// The project, for the panels that draw it.
     pub(crate) fn project(&self) -> Option<&Open> {
         self.opened.as_ref()
+    }
+
+    /// Whether what is open may be changed.
+    ///
+    /// False when nothing is open, because there is nothing to protect — the
+    /// panels ask this to decide whether to accept interaction, and an empty
+    /// window has none to accept.
+    pub(crate) fn read_only(&self) -> bool {
+        self.opened.as_ref().is_some_and(Open::read_only)
     }
 
     /// The files panel, the project it lists, and the view state it sets.
