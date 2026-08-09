@@ -12,7 +12,7 @@ bump and a migration note.
 
 ```json project
 {
-  "schema_version": 17,
+  "schema_version": 18,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -1196,6 +1196,22 @@ runs — is refused at the render, in the same breath as "this is not a font I c
 read". That holds for `sans` and `serif` as much as for a font the project
 carries; they are files too, and scorsese happens to be the one carrying them.
 
+## Migrating from v17
+
+v18 adds one optional field and takes nothing away: `grade` on a clip. No v17
+document can contain it, and **absent means what absent has always meant** —
+the clip's pixels, untouched. So no v17 document means anything different under
+v18: converting one is changing `"schema_version": 17` to `"schema_version": 18`
+and nothing else.
+
+The version moved because the *accepted value space* did, in two places. A
+`grade` object is refused by a v17 build, and the five `grade.*` keyframe paths
+were paths nothing animated — which a v17 build ignores with a warning rather
+than refusing, so a document written against v18 would render there without its
+look and say only that it did not recognise a property. A number that stops a
+build reading the document is the honest way to say "this needs a newer
+scorsese", and that is what a version bump is for.
+
 ## Migrating from v16
 
 v17 changes no field and removes none. What moves is the **accepted value
@@ -1216,22 +1232,6 @@ caption and every slug card is set in a different face, so a project re-rendered
 under v17 is not frame-identical to the same project under v16. That is a
 deliberate visual change and not a migration step — there is nothing to write
 into a document to keep the old faces, because they are no longer shipped.
-
-## Migrating from v16
-
-v17 adds one optional field and takes nothing away: `grade` on a clip. No v16
-document can contain it, and **absent means what absent has always meant** —
-the clip's pixels, untouched. So no v16 document means anything different under
-v17: converting one is changing `"schema_version": 16` to `"schema_version": 17`
-and nothing else.
-
-The version moved because the *accepted value space* did, in two places. A
-`grade` object is refused by a v16 build, and the five `grade.*` keyframe paths
-were paths nothing animated — which a v16 build ignores with a warning rather
-than refusing, so a document written against v17 would render there without its
-look and say only that it did not recognise a property. A number that stops a
-build reading the document is the honest way to say "this needs a newer
-scorsese", and that is what a version bump is for.
 
 ## Migrating from v15
 
