@@ -211,7 +211,7 @@ const PIXEL: &[u8] = &[
 const LINE: &str = r#"{ "id": "vo", "kind": "generated_audio", "state": "sketch","#;
 
 const DOCUMENT: &str = r##"{
-  "schema_version": 19,
+  "schema_version": 20,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [

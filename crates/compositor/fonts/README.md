@@ -1,23 +1,30 @@
 # The fonts scorsese ships
 
-Eight families, compiled into `scorsese-compositor` with `include_bytes!`.
-These are the names a `text` asset's `style` can write; a project may name a
-font file of its own instead.
+Eight families, **upright and italic**, compiled into `scorsese-compositor`
+with `include_bytes!`. These are the names a `text` asset's `style` can write; a
+project may name a font file of its own instead.
 
 **The list itself lives in `src/text/font/shipped.rs`**, beside the
 `include_bytes!` that make each one real. This file is the provenance: where
 each came from, what it weighs, and what its licence asks for.
 
-| name | family | weights | shape |
-| --- | --- | --- | --- |
-| `inter` — alias `sans` | Inter | 100 – 900 | variable |
-| `source-serif` — alias `serif` | Source Serif 4 | 200 – 900 | variable |
-| `liberation-sans` | Liberation Sans | 400, 700 | **drawn** |
-| `liberation-serif` | Liberation Serif | 400, 700 | **drawn** |
-| `montserrat` | Montserrat | 100 – 900 | variable |
-| `lora` | Lora | 400 – 700 | variable |
-| `playfair-display` | Playfair Display | 400 – 900 | variable |
-| `jetbrains-mono` | JetBrains Mono | 100 – 800 | variable |
+| name | family | weights | shape | italic |
+| --- | --- | --- | --- | --- |
+| `inter` — alias `sans` | Inter | 100 – 900 | variable | drawn, separate file |
+| `source-serif` — alias `serif` | Source Serif 4 | 200 – 900 | variable | drawn, separate file |
+| `liberation-sans` | Liberation Sans | 400, 700 | **drawn** | Italic + BoldItalic |
+| `liberation-serif` | Liberation Serif | 400, 700 | **drawn** | Italic + BoldItalic |
+| `montserrat` | Montserrat | 100 – 900 | variable | drawn, separate file |
+| `lora` | Lora | 400 – 700 | variable | drawn, separate file |
+| `playfair-display` | Playfair Display | 400 – 900 | variable | drawn, separate file |
+| `jetbrains-mono` | JetBrains Mono | 100 – 800 | variable | drawn, separate file |
+
+**Every family has a real italic, and none of them is an oblique.** An italic is
+a different drawing — a redrawn `a`, `f` and `g` rather than the upright leaned
+over — so it is a second set of files keyed by weight exactly like the first.
+Inter is the case that proves the point: its `Inter-V.ttf` carries a `slnt` axis
+that would produce a perfectly good oblique, and `italic: true` ignores it in
+favour of `Inter-Italic.ttf`, where the letters are actually different.
 
 ## Variable and drawn, and why the difference is in the code
 
@@ -53,18 +60,34 @@ Montserrat, Lora, Playfair Display and JetBrains Mono from **google/fonts**,
 each the `[wght]` variable file under `ofl/<family>/`:
 <https://github.com/google/fonts>
 
-All unmodified. 4,926 KB of faces in total.
+Italics from the same releases: Inter's from `Inter Variable/Single axis/
+Inter-italic.ttf`, Source Serif's from `VAR/SourceSerif4Variable-Italic.ttf`,
+Liberation's Italic and BoldItalic from the same tarball, and the four Google
+families' from `<family>-Italic[wght].ttf` beside their uprights.
+
+All unmodified. **9,314 KB of faces in total**, across 20 files — italic roughly
+doubles it, and it buys the third thing anybody does to text.
 
 ```
+sha256  ae7f78865f4e4c77c50f1ee0fbe603665e48539c3da815c04d99ffec8afc3c6d  Inter-Italic.ttf
 sha256  69b1af837d101ab90b003d61d4ccc5e5320a6dcaefeb69906fa31c01a06e5837  Inter-V.ttf
+sha256  85ae2a5cd3f56baf1ce1c21a851322c58e3d8fbe8e8ad4a4d090a820dd7fe558  JetBrainsMono-Italic[wght].ttf
 sha256  48715a42ec242c21e9f02692891e147d022299a52e48d5e413e1a942193ffeda  JetBrainsMono[wght].ttf
+sha256  698da70fc191cc5f33ad4d6d3fe830fe4624b898ea2e3169955928b7c491f1ee  LiberationSans-BoldItalic.ttf
 sha256  788abee4c806d660e8aee46689dd8540cd4bb98da03dcc9d171ce3efd99a9173  LiberationSans-Bold.ttf
+sha256  e5bae5c4cde31f22142753855f4f8fb86da6ff39955ed3c0a11248b0d16948b0  LiberationSans-Italic.ttf
 sha256  76d04c18ea243f426b7de1f3ad208e927008f961dc5945e5aad352d0dfde8ee8  LiberationSans-Regular.ttf
+sha256  f17db8af71e24d2066b587546021d4f0b296be389512b658dec3c09affeb11a7  LiberationSerif-BoldItalic.ttf
 sha256  d754ba427cfe0bca54ae052384baa8f842da5bd6550ad4da024ac441e7a7d5ce  LiberationSerif-Bold.ttf
+sha256  0e3dea9f8d613e006ccfa62201f33e265d19167bd0907725c3e145368b04fc2e  LiberationSerif-Italic.ttf
 sha256  058ea80864aef09a23f45cbec2bb5400bc3dfbdea01c3f10538a21fcb497fb74  LiberationSerif-Regular.ttf
+sha256  22d8d8854b53807aa664ca34f2031a9ed57a1d0dea296b8b96cdd3aad937a2b3  Lora-Italic[wght].ttf
 sha256  822a6621ccbe8d97d20ac88c1c41f5615c9c2c202eaa75f272cd452aac6475a7  Lora[wght].ttf
+sha256  51607f316bc020e59f03cbf51543eecffbea501c0b31d73e5b82927c5cca442c  Montserrat-Italic[wght].ttf
 sha256  0f7b311b2f3279e4eef9b2f968bcdbab6e28f4daeb1f049f4f278a902bcd82f7  Montserrat[wght].ttf
+sha256  a5e26dc5e2e77fb2803a0bf02fd4f81ee136ec8dea863ccdb0c59a263b21378b  PlayfairDisplay-Italic[wght].ttf
 sha256  c40f2293766a503bc70cce9e512ef844a4ccb7cbcde792fe2ea31d191917d8d6  PlayfairDisplay[wght].ttf
+sha256  6a059a64838978d54e8fab71ed86b0d82e948c0e12b2664d0c15166326dcff82  SourceSerif4Variable-Italic.ttf
 sha256  14d360ee1b76655da9276628b229e11671bc1f5d1083636144db6677d452cf55  SourceSerif4Variable-Roman.ttf
 ```
 
@@ -137,8 +160,6 @@ is the entire reason Liberation exists: metric-compatible open substitutes, the
 same advance widths, the same look to anyone who is not a typographer. If you
 want the Arial look, `liberation-sans` is it.
 
-Italic is the half still missing: there is no `slant` field, so an italic file
-would be a face nothing could ask for. Liberation ships Italic and BoldItalic
-upstream and Inter and Source Serif both have separate italic files, so the
-files are there whenever the field is —
-[#279](https://github.com/MatthewLacerda2/scorsese/issues/279).
+What is still missing is a **condensed** or a **wide**, which would be a `wdth`
+axis and a third field. Nobody has asked, and the same rule would apply: a real
+width is a drawing, not a horizontal scale.

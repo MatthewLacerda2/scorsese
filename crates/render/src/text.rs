@@ -16,7 +16,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use scorsese_compositor::Frame;
-use scorsese_compositor::text::{self, Font, Style};
+use scorsese_compositor::text::{self, Font, Slant, Style};
 use scorsese_core::{Anchor, Asset, AssetKind, FontChoice, Project, TextStyle};
 
 use crate::error::RenderError;
@@ -33,7 +33,7 @@ fn open(key: &Face, asset: &Asset) -> Result<Font, RenderError> {
         detail,
     };
     match key {
-        Face::Shipped(name, weight) => Font::shipped(name, Some(*weight))
+        Face::Shipped(name, weight, slant) => Font::shipped(name, Some(*weight), *slant)
             .map_err(|error| unusable(PathBuf::from(name), error.to_string())),
         Face::File(path, weight) => {
             let bytes =
@@ -68,8 +68,8 @@ pub(crate) struct Painter {
 /// assets can share one parsed instance.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum Face {
-    /// One scorsese ships, at a weight other than its default.
-    Shipped(String, u16),
+    /// One scorsese ships, at a weight and a slant.
+    Shipped(String, u16, Slant),
     /// One the project carries.
     File(PathBuf, Option<u16>),
 }
@@ -123,10 +123,29 @@ impl Painter {
             // The two names every project written before this one uses, at the
             // weight they have always meant. Answered from the compositor's own
             // statics, so the common case allocates nothing.
-            (FontChoice::Named(name), None) if name == "sans" => return Ok(Font::sans()),
-            (FontChoice::Named(name), None) if name == "serif" => return Ok(Font::serif()),
-            (FontChoice::Named(name), weight) => {
-                Face::Shipped(name.clone(), weight.unwrap_or(text::SHIPPED_WEIGHT))
+            (FontChoice::Named(name), None) if name == "sans" && !style.italic => {
+                return Ok(Font::sans());
+            }
+            (FontChoice::Named(name), None) if name == "serif" && !style.italic => {
+                return Ok(Font::serif());
+            }
+            (FontChoice::Named(name), weight) => Face::Shipped(
+                name.clone(),
+                weight.unwrap_or(text::SHIPPED_WEIGHT),
+                slant(style.italic),
+            ),
+            // A file is one drawing and has no second table to reach for, so
+            // the field is refused rather than quietly dropped. The message
+            // says the thing to do instead, which is to name the italic file.
+            (FontChoice::File(path), _) if style.italic => {
+                return Err(RenderError::UnusableFont {
+                    asset: asset.id.to_string(),
+                    path: path.resolve(project_root),
+                    detail: "`italic` applies to a font scorsese ships, which carries its \
+                             italic beside its upright. A font the project carries is one \
+                             file — name the italic file itself instead"
+                        .to_owned(),
+                });
             }
             (FontChoice::File(path), weight) => Face::File(path.resolve(project_root), weight),
         };
@@ -211,4 +230,13 @@ pub fn unknown_fonts(project: &Project) -> Vec<UnknownFont> {
             })
         })
         .collect()
+}
+
+/// The document's boolean as the compositor's named pair.
+const fn slant(italic: bool) -> Slant {
+    if italic {
+        Slant::Italic
+    } else {
+        Slant::Upright
+    }
 }

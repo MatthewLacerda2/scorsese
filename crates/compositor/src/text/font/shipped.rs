@@ -26,12 +26,38 @@
 //! substitution the variable rules already refuse when a weight falls off the
 //! end of an axis, and being wrong quietly about which weight you got is worse
 //! than being told to write 700 instead of 600.
+//!
+//! ## Italic is a second table, not an effect
+//!
+//! Every family here carries a whole second set of files for its italic,
+//! because **a real italic is a different drawing** — different letterforms,
+//! not the upright ones leaned over. Inter makes the point on its own: its
+//! `Inter-V.ttf` has a `slnt` axis, which produces an *oblique*, and the
+//! separate `Inter-italic.ttf` is the drawn italic with the letters actually
+//! redrawn. The drawn one is what `italic: true` reaches, every time.
+//!
+//! A family with no italic is [`Family::italic`] of `None`, and asking for one
+//! is refused rather than faked. None of the eight is that today; the shape
+//! exists so that adding a family without one cannot quietly start shearing.
 
 /// Where the files sit, relative to this source file.
 macro_rules! face {
     ($file:literal) => {
         include_bytes!(concat!("../../../fonts/", $file))
     };
+}
+
+/// Upright or italic — which of a family's two tables to read.
+///
+/// A named pair rather than a `bool`, so a call site says which it means. A
+/// third argument spelled `true` is a thing nobody can read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum Slant {
+    /// The upright drawing.
+    #[default]
+    Upright,
+    /// The drawn italic, when the family has one.
+    Italic,
 }
 
 /// How a family's weights are made.
@@ -57,8 +83,14 @@ pub struct Family {
     pub aliases: &'static [&'static str],
     /// The family's own name, for a message a person reads.
     pub family: &'static str,
-    /// How its weights are made.
+    /// How its upright weights are made.
     pub cut: Cut,
+    /// The same, for its italic, when the family has one drawn.
+    ///
+    /// `None` is a family with no italic, and asking for one is an error. It is
+    /// never a licence to slant the upright: an oblique is a different thing
+    /// and looks like one.
+    pub italic: Option<Cut>,
 }
 
 /// Every face this build ships, in the order a list of them should read:
@@ -69,12 +101,14 @@ pub const SHIPPED: &[Family] = &[
         aliases: &["sans"],
         family: "Inter",
         cut: Cut::Variable(face!("Inter-V.ttf")),
+        italic: Some(Cut::Variable(face!("Inter-Italic.ttf"))),
     },
     Family {
         name: "source-serif",
         aliases: &["serif"],
         family: "Source Serif 4",
         cut: Cut::Variable(face!("SourceSerif4Variable-Roman.ttf")),
+        italic: Some(Cut::Variable(face!("SourceSerif4Variable-Italic.ttf"))),
     },
     Family {
         name: "liberation-sans",
@@ -84,6 +118,10 @@ pub const SHIPPED: &[Family] = &[
             (400, face!("LiberationSans-Regular.ttf")),
             (700, face!("LiberationSans-Bold.ttf")),
         ]),
+        italic: Some(Cut::Drawn(&[
+            (400, face!("LiberationSans-Italic.ttf")),
+            (700, face!("LiberationSans-BoldItalic.ttf")),
+        ])),
     },
     Family {
         name: "liberation-serif",
@@ -93,30 +131,38 @@ pub const SHIPPED: &[Family] = &[
             (400, face!("LiberationSerif-Regular.ttf")),
             (700, face!("LiberationSerif-Bold.ttf")),
         ]),
+        italic: Some(Cut::Drawn(&[
+            (400, face!("LiberationSerif-Italic.ttf")),
+            (700, face!("LiberationSerif-BoldItalic.ttf")),
+        ])),
     },
     Family {
         name: "montserrat",
         aliases: &[],
         family: "Montserrat",
         cut: Cut::Variable(face!("Montserrat[wght].ttf")),
+        italic: Some(Cut::Variable(face!("Montserrat-Italic[wght].ttf"))),
     },
     Family {
         name: "lora",
         aliases: &[],
         family: "Lora",
         cut: Cut::Variable(face!("Lora[wght].ttf")),
+        italic: Some(Cut::Variable(face!("Lora-Italic[wght].ttf"))),
     },
     Family {
         name: "playfair-display",
         aliases: &[],
         family: "Playfair Display",
         cut: Cut::Variable(face!("PlayfairDisplay[wght].ttf")),
+        italic: Some(Cut::Variable(face!("PlayfairDisplay-Italic[wght].ttf"))),
     },
     Family {
         name: "jetbrains-mono",
         aliases: &[],
         family: "JetBrains Mono",
         cut: Cut::Variable(face!("JetBrainsMono[wght].ttf")),
+        italic: Some(Cut::Variable(face!("JetBrainsMono-Italic[wght].ttf"))),
     },
 ];
 
@@ -126,13 +172,21 @@ impl Family {
         self.name == wanted || self.aliases.contains(&wanted)
     }
 
+    /// The table for one slant, or `None` when the family has no italic drawn.
+    pub fn table(&self, slant: Slant) -> Option<Cut> {
+        match slant {
+            Slant::Upright => Some(self.cut),
+            Slant::Italic => self.italic,
+        }
+    }
+
     /// The weights a drawn family was drawn at, for a message that has to say
     /// what to write instead. Empty for a variable family, whose answer is a
     /// range rather than a list.
-    pub fn drawn_weights(&self) -> Vec<u16> {
-        match self.cut {
-            Cut::Variable(_) => Vec::new(),
-            Cut::Drawn(files) => files.iter().map(|(weight, _)| *weight).collect(),
+    pub fn drawn_weights(&self, slant: Slant) -> Vec<u16> {
+        match self.table(slant) {
+            Some(Cut::Drawn(files)) => files.iter().map(|(weight, _)| *weight).collect(),
+            _ => Vec::new(),
         }
     }
 }
