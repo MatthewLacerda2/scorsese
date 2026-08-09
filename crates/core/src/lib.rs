@@ -101,7 +101,7 @@ pub use project::{
     SCHEMA_VERSION, SaveError,
 };
 pub use stamp::{Timestamp, TimestampError};
-pub use text::{FontChoice, MAX_WEIGHT, MIN_WEIGHT, TextAlign, TextStyle};
+pub use text::{DEFAULT_FONT, FontChoice, MAX_WEIGHT, MIN_WEIGHT, TextAlign, TextStyle};
 pub use time::{Fps, FpsError, FpsParseError, Frames, Speed};
 pub use timeline::{Anchor, AnchorX, AnchorY, Clip, ClipId, Crop, Fit, Track, TrackId, TrackKind};
 pub use validate::{

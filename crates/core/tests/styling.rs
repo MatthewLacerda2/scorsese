@@ -10,7 +10,7 @@ fn the_worked_example_carries_a_style() {
     let project = project();
     let title = project.asset(&asset_id("title")).expect("the title asset");
     let style = title.text_style();
-    assert_eq!(style.font, FontChoice::Serif);
+    assert_eq!(style.font, FontChoice::Named("serif".to_owned()));
     assert_eq!(style.color, Rgba::opaque(0xf5, 0xf0, 0xe6));
     assert_eq!(style.size, 0.16);
     // Absent in the document, so it is the default rather than nothing.
@@ -26,7 +26,10 @@ fn an_asset_without_a_style_is_the_default_style() {
     let bare = scorsese_core::Asset::text(asset_id("card"), "hello");
     assert_eq!(bare.style, None);
     assert_eq!(bare.text_style(), TextStyle::default());
-    assert_eq!(TextStyle::default().font, FontChoice::Sans);
+    assert_eq!(
+        TextStyle::default().font,
+        FontChoice::Named("sans".to_owned())
+    );
     assert_eq!(TextStyle::default().color, Rgba::WHITE);
 }
 
@@ -42,21 +45,24 @@ fn a_style_round_trips_through_the_document() {
 /// project brought with it, which is what keeps the shipped pair defaults
 /// rather than the whole vocabulary.
 #[test]
-fn a_font_is_either_a_reserved_name_or_a_file() {
+fn a_font_is_either_a_shipped_name_or_a_file() {
     let read = |written: &str| {
         let json = format!(r#""{written}""#);
         serde_json::from_str::<FontChoice>(&json).expect("a font name parses")
     };
-    assert_eq!(read("sans"), FontChoice::Sans);
-    assert_eq!(read("serif"), FontChoice::Serif);
+    assert_eq!(read("sans"), FontChoice::Named("sans".to_owned()));
+    assert_eq!(read("serif"), FontChoice::Named("serif".to_owned()));
     assert_eq!(
-        read("assets/Inter-Regular.ttf"),
-        FontChoice::File(ProjectPath::new("assets/Inter-Regular.ttf"))
+        read("assets/Manrope[wght].ttf"),
+        FontChoice::File(ProjectPath::new("assets/Manrope[wght].ttf"))
     );
+    // A bare word nobody ships is still a **name**, so what comes back is
+    // "there is no face called that" rather than a complaint about a filename.
+    assert_eq!(read("Arial"), FontChoice::Named("Arial".to_owned()));
     for font in [
-        FontChoice::Sans,
-        FontChoice::Serif,
-        FontChoice::File(ProjectPath::new("assets/Inter-Regular.ttf")),
+        FontChoice::Named("sans".to_owned()),
+        FontChoice::Named("serif".to_owned()),
+        FontChoice::File(ProjectPath::new("assets/Manrope[wght].ttf")),
     ] {
         let written = serde_json::to_string(&font).expect("serialises");
         assert_eq!(read(written.trim_matches('"')), font);

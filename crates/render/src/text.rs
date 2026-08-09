@@ -16,8 +16,8 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use scorsese_compositor::Frame;
-use scorsese_compositor::text::{self, Font, Shipped, Style};
-use scorsese_core::{Anchor, Asset, FontChoice, TextStyle};
+use scorsese_compositor::text::{self, Font, Style};
+use scorsese_core::{Anchor, Asset, AssetKind, FontChoice, Project, TextStyle};
 
 use crate::error::RenderError;
 
@@ -33,13 +33,8 @@ fn open(key: &Face, asset: &Asset) -> Result<Font, RenderError> {
         detail,
     };
     match key {
-        Face::Shipped(face, weight) => Font::shipped_at(*face, Some(*weight)).map_err(|error| {
-            let named = match face {
-                Shipped::Sans => "sans",
-                Shipped::Serif => "serif",
-            };
-            unusable(PathBuf::from(named), error.to_string())
-        }),
+        Face::Shipped(name, weight) => Font::shipped(name, Some(*weight))
+            .map_err(|error| unusable(PathBuf::from(name), error.to_string())),
         Face::File(path, weight) => {
             let bytes =
                 std::fs::read(path).map_err(|source| unusable(path.clone(), source.to_string()))?;
@@ -74,7 +69,7 @@ pub(crate) struct Painter {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum Face {
     /// One scorsese ships, at a weight other than its default.
-    Shipped(Shipped, u16),
+    Shipped(String, u16),
     /// One the project carries.
     File(PathBuf, Option<u16>),
 }
@@ -125,10 +120,14 @@ impl Painter {
         project_root: &Path,
     ) -> Result<&Font, RenderError> {
         let key = match (&style.font, style.weight) {
-            (FontChoice::Sans, None) => return Ok(Font::sans()),
-            (FontChoice::Serif, None) => return Ok(Font::serif()),
-            (FontChoice::Sans, Some(weight)) => Face::Shipped(Shipped::Sans, weight),
-            (FontChoice::Serif, Some(weight)) => Face::Shipped(Shipped::Serif, weight),
+            // The two names every project written before this one uses, at the
+            // weight they have always meant. Answered from the compositor's own
+            // statics, so the common case allocates nothing.
+            (FontChoice::Named(name), None) if name == "sans" => return Ok(Font::sans()),
+            (FontChoice::Named(name), None) if name == "serif" => return Ok(Font::serif()),
+            (FontChoice::Named(name), weight) => {
+                Face::Shipped(name.clone(), weight.unwrap_or(text::SHIPPED_WEIGHT))
+            }
             (FontChoice::File(path), weight) => Face::File(path.resolve(project_root), weight),
         };
         if !self.fonts.contains_key(&key) {
@@ -164,4 +163,52 @@ fn resolve(
         // legitimately sit in two different corners.
         anchor,
     }
+}
+
+/// A text asset naming a font this build does not ship.
+///
+/// A **problem** rather than a warning, unlike an unknown keyframe property:
+/// a track nothing animates leaves a render that is merely missing a fade,
+/// where a face nothing can find leaves no render at all. So it is worth
+/// finding before an encode starts rather than partway through one, which is
+/// the whole reason `scorsese check` exists.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UnknownFont {
+    /// The text asset naming it.
+    pub asset: String,
+    /// The name as authored, quoted back so it can be searched for.
+    pub named: String,
+    /// Every name this build does answer to — the question being asked at the
+    /// moment somebody reads this.
+    pub available: String,
+}
+
+impl std::fmt::Display for UnknownFont {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "there is no font called `{}`. The ones scorsese ships are: {}",
+            self.named, self.available
+        )
+    }
+}
+
+/// Every text asset in the project naming a shipped face that does not exist.
+///
+/// Only names: a `font` that is a **path** is a file on disk, and whether it is
+/// there is `check`'s media pass to answer, alongside every other missing file.
+pub fn unknown_fonts(project: &Project) -> Vec<UnknownFont> {
+    project
+        .assets
+        .iter()
+        .filter(|asset| asset.kind == AssetKind::Text)
+        .filter_map(|asset| {
+            let named = asset.text_style().font.name()?.to_owned();
+            text::family(&named).is_none().then(|| UnknownFont {
+                asset: asset.id.to_string(),
+                named,
+                available: text::names().collect::<Vec<_>>().join(", "),
+            })
+        })
+        .collect()
 }
