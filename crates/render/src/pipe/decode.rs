@@ -13,12 +13,28 @@ use scorsese_core::{Crop, Speed};
 /// How a source meets the render's raster, resolved to pixels.
 ///
 /// [`scorsese_core::Fit`] says what the author asked for; this is what the
-/// decoder does about it, which for one of the three means already knowing the
+/// decoder does about it, which for two of the three means already knowing the
 /// source's own size.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Fitting {
-    /// Scale to fit inside the raster; pad the rest transparent.
-    Fit,
+    /// Scale to fit inside the raster, and stop there. The resolution is the
+    /// **fitted picture's own rectangle**, smaller than the raster on whichever
+    /// axis letterboxes.
+    ///
+    /// Nothing is padded. The bars are the canvas showing through rather than
+    /// transparent pixels belonging to the layer, which is what leaves an
+    /// anchor a gap to rest the picture against — see `transform_of` in the
+    /// compositor. Padding here would bake the gap into the layer's alpha,
+    /// where nothing downstream can see it.
+    Fit(Resolution),
+    /// Scale to fit inside the raster and let ffmpeg pad the rest transparent.
+    ///
+    /// The one case the rectangle above cannot be worked out in: a source whose
+    /// own size could not be had. The layer then arrives raster-sized and an
+    /// anchor on it is a no-op, which is worse than [`Self::Fit`] and better
+    /// than refusing to render — being wrong about where the picture rests
+    /// beats not producing one.
+    FitPadded,
     /// Scale to cover the raster; crop the overflow off the edges.
     Fill,
     /// Leave the source alone. It arrives at this — its own — size.
@@ -27,12 +43,13 @@ pub(crate) enum Fitting {
 
 impl Fitting {
     /// The size frames come out at, and so the size of the buffer that reads
-    /// them. Fitting and filling produce the render's raster by construction;
-    /// native produces whatever the source happens to be.
+    /// them. Filling produces the render's raster by construction; fitting
+    /// produces the picture's own rectangle, and native whatever the source
+    /// happens to be.
     pub(crate) fn raster(self, settings: &RenderSettings) -> Resolution {
         match self {
-            Self::Fit | Self::Fill => settings.resolution,
-            Self::Native(source) => source,
+            Self::FitPadded | Self::Fill => settings.resolution,
+            Self::Fit(fitted) | Self::Native(fitted) => fitted,
         }
     }
 }
@@ -183,11 +200,18 @@ impl Decoder {
 /// to be the graph it sent before this field existed, or every reference frame
 /// in the golden set is asserting something new.
 ///
-/// `fit` letterboxes and the bars are **transparent**, not black; `format=rgba`
-/// before the pad is what keeps them so. On the bottom layer the difference is
-/// invisible — the canvas underneath is black anyway — but on an upper track it
-/// is the whole point: a narrow clip over a wide one shows the wide one at the
-/// sides rather than blacking it out.
+/// `fit` scales the source to the largest rectangle that sits inside the raster
+/// and **stops there**: the bars a letterbox leaves are the canvas showing
+/// through, not pixels the layer owns. On the bottom layer that is
+/// indistinguishable from padding transparently — the canvas underneath is
+/// black anyway — but on an upper track it is the whole point twice over. A
+/// narrow clip over a wide one shows the wide one at the sides, and an `anchor`
+/// on the narrow one has a gap to rest it against, which it does not once the
+/// gap has been baked into the layer's alpha.
+///
+/// [`Fitting::FitPadded`] is the older form of the same thing and reaches this
+/// only when the source's size could not be measured, where `format=rgba`
+/// before the `pad` is what keeps the bars transparent rather than black.
 ///
 /// `fill` is the same scale with the rounding turned the other way, so the
 /// source covers the raster instead of sitting inside it, and a centred crop
@@ -227,7 +251,16 @@ fn video_filter(settings: &RenderSettings, source: &Source) -> String {
     let width = settings.resolution.width();
     let height = settings.resolution.height();
     match fitting {
-        Fitting::Fit => format!(
+        // Explicit numbers rather than `force_original_aspect_ratio=decrease`,
+        // because the buffer reading this pipe is sized from the same
+        // rectangle: the two have to agree exactly, and the only way to be sure
+        // they do is for one of them to have decided it.
+        Fitting::Fit(fitted) => format!(
+            "{rate},scale={}:{},format=rgba",
+            fitted.width(),
+            fitted.height()
+        ),
+        Fitting::FitPadded => format!(
             "{rate},\
              scale={width}:{height}:force_original_aspect_ratio=decrease,\
              format=rgba,\

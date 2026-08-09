@@ -196,7 +196,7 @@ impl Pass<'_> {
                 file,
                 self.plan.timeline_fps(),
                 frames,
-                self.sizes.fitting(shot),
+                self.sizes.fitting(shot, self.settings.resolution),
             ),
             &self.settings,
         )?;

@@ -171,9 +171,16 @@ fn draw(
 ///
 /// A layer the size of the canvas rests at the origin whatever its anchor,
 /// since every edge already meets the matching one. That is what keeps every
-/// existing reference frame meaning what it meant, and it is also why an anchor
-/// says nothing about a `fit` or `fill` layer: those *are* the raster. The layer
-/// that is not canvas-sized is what [`scorsese_core::Fit::Native`] produces.
+/// existing reference frame meaning what it meant — and it is a fact about the
+/// **geometry**, not about which fit mode produced it. An anchor is a no-op
+/// exactly when there is no spare: always for `fill`, which covers the raster
+/// by construction, and for a `native` or `fit` layer only when its aspect
+/// happens to match the render's. A letterboxed `fit` — 1920×1080 inside
+/// 1920×1440 — has 360 pixels of spare, and an anchor rests the picture on the
+/// edge of it. That case reaches here only because the decode stage hands over
+/// the fitted picture's own rectangle rather than padding it out to the raster
+/// first; padded, the spare is inside the layer's alpha where this cannot see
+/// it.
 fn transform_of(
     layer: &Layer<'_>,
     source: crate::frame::Resolution,

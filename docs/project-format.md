@@ -724,9 +724,29 @@ layout one word rather than a sign change.
 plausibly mean either, and only the block keeps a column's left edge still when
 the wording changes. `align` still places each line inside that block.
 
-**A `fit` or `fill` layer is unaffected**, and that falls out rather than being
-a special case: such a layer *is* the raster, so every edge already meets the
-matching one. An anchor moves a `native` layer, a cropped one, and a text block.
+**An anchor moves a layer exactly when there is somewhere to move it**, which
+falls out of the geometry rather than being a rule about fit modes. A layer the
+size of the raster rests at the origin whatever its anchor, because every edge
+already meets the matching one. So:
+
+- **`fill` is always a no-op.** Covering the raster is what filling means;
+  there is no spare by construction.
+- **`fit` is a no-op only when the aspects match.** A letterboxed clip —
+  1920×1080 inside a 1920×1440 raster — has 360 pixels of spare, and
+  `"anchor": { "y": "bottom" }` rests the picture on the frame's bottom edge.
+  That is what a caption band above a wide clip is made of, and the alternative
+  is `transform.position.y: 0.125`: a number derived on paper from a raster the
+  project is not supposed to know about, which stops being right the moment the
+  render's resolution changes.
+- **`native` is a no-op only when the source happens to be raster-sized**, for
+  the same reason.
+
+An anchor that lands on a no-op is accepted rather than refused. For `fit` and
+`native`, whether it does cannot be answered from the document at all — it
+depends on the source's pixel size, which only opening the file can say — so
+refusing would mean either a `fill`-shaped special case or a validation rule
+that needs the media present. Neither is worth it for a field whose no-op is
+free.
 
 **It is a field, not an animatable property**, and deliberately: an anchor says
 how a coordinate is to be *read*, and animating that would slide a layer by
