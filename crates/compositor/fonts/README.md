@@ -24,6 +24,14 @@ Text drawn from one would not match text drawn from another, so a golden
 reference blessed on one machine would fail on every other and the pixel gate
 would become noise. Deterministic text means a font we ship.
 
+That makes these two files part of the pixel gate rather than a detail beneath
+it, and [`docs/golden-renders.md`](../../../docs/golden-renders.md) says so on
+its own page — the faces sit upstream of the gate the way the decoder does, and
+neither may be let go of quietly. The rule that follows lives there with the
+other re-blessing rules: **swapping, subsetting or system-resolving these faces
+re-blesses every text fixture**, which is seven of the twenty-four, and is
+legitimate only as a deliberate visual change explained in the pull request.
+
 Arial and Times New Roman themselves are proprietary — Monotype, licensed
 through Microsoft — and cannot be committed to a public repository. Liberation
 Sans and Liberation Serif are the well-trodden open substitutes: metric
