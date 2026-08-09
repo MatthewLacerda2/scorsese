@@ -32,18 +32,19 @@ pub const MAX_WEIGHT: u16 = 1000;
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(from = "String", into = "String")]
 pub enum FontChoice {
-    /// The shipped sans face — Liberation Sans, metric-compatible with Arial.
-    /// The default: a caption reads as a caption in a sans face.
+    /// The shipped sans face — Inter, as one variable file covering `wght` 100
+    /// to 900. The default: a caption reads as a caption in a sans face.
     #[default]
     Sans,
-    /// The shipped serif face — Liberation Serif, metric-compatible with Times
-    /// New Roman.
+    /// The shipped serif face — Source Serif 4, variable over `wght` 200 to
+    /// 900.
     Serif,
     /// A font file of the project's own, at a path relative to the project
     /// root like every other path in the document. This is what keeps the two
     /// shipped faces defaults rather than the whole vocabulary.
     File(
-        /// Where the file sits inside the project, e.g. `assets/Inter.ttf`.
+        /// Where the file sits inside the project, e.g.
+        /// `assets/Manrope[wght].ttf`.
         ProjectPath,
     ),
 }
@@ -55,16 +56,6 @@ impl FontChoice {
             Self::File(path) => Some(path),
             _ => None,
         }
-    }
-
-    /// True for the two names scorsese reserves, whose faces it ships itself.
-    ///
-    /// Worth asking because the shipped faces are **static, one weight each**,
-    /// so a `weight` beside one of them can never be honoured. That is a fact
-    /// about the reserved name rather than about any file on disk, which is
-    /// what lets validation refuse it without opening anything.
-    pub fn is_reserved(&self) -> bool {
-        matches!(self, Self::Sans | Self::Serif)
     }
 }
 

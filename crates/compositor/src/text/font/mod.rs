@@ -7,10 +7,13 @@
 //! another and the pixel gate would become noise. Deterministic text means a
 //! font we ship.
 //!
-//! Liberation Sans and Liberation Serif are *metric-compatible* with Arial and
-//! Times New Roman — the same advance widths, so text laid out in one breaks
-//! lines in the same places as the other. The names an author reaches for are
-//! proprietary and cannot be committed; these are the well-trodden stand-ins.
+//! Inter and Source Serif 4 are the two, both as **one variable file each**
+//! covering their whole weight range — which is what lets `weight` mean
+//! something on a fresh install rather than only on a font somebody went and
+//! fetched. Which release of each, which axes it carries, and what every axis
+//! other than `wght` is therefore left at, are recorded in
+//! `crates/compositor/fonts/README.md`.
+//!
 //! They are defaults, not the vocabulary: [`Font::from_bytes`] takes any font
 //! file a project brings with it.
 //!
