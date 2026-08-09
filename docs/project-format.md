@@ -12,7 +12,7 @@ bump and a migration note.
 
 ```json project
 {
-  "schema_version": 19,
+  "schema_version": 20,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -503,8 +503,43 @@ The rule is also what keeps every project ever written valid. A weight beside
 every one of them relies on an unweighted shipped name going on meaning
 Regular.
 
+#### Italic
+
+```json asset
+{ "id": "aside", "kind": "text", "text": "later that year",
+  "style": { "font": "liberation-serif", "italic": true, "size": 0.08 } }
+```
+
+**A boolean, not an angle**, because a real italic is a *different drawing*
+rather than the upright leaned over — different letterforms, often a
+single-storey `a` and an entirely redrawn `f`. A number would promise a
+continuum between the two that does not exist.
+
+Every shipped family carries its italic beside its upright, **keyed by weight
+the same way**, so `italic` composes with `weight`: `liberation-serif` at `700`
+with `italic: true` is the BoldItalic the designer drew, not a bold that has
+been slanted.
+
+Inter is the clearest case for why this is a second set of files rather than an
+effect. Its variable file has a `slnt` axis, which produces an **oblique** — the
+upright leaned over — and it also ships a separate italic where the letters are
+actually redrawn. `italic: true` reaches the second, every time.
+
+**`italic` on a font the project carries is refused.** That file is one drawing
+and has no second table to reach for, so the way to get an italic there is to
+name the italic file: `"font": "assets/Manrope-Italic[wght].ttf"`. Same rule as
+a weight beside a static file, and for the same reason — a field nobody reads is
+how somebody comes to insist their italic is broken.
+
+A family with no italic drawn would refuse one rather than shear its upright.
+None of the eight is that today; the rule is written down because the shape
+allows it and a future family might be.
+
+#### The axes, and the one that is read
+
 `weight` is the *only* axis read. Optical size, width and slant are real axes
-and none of them is what "make this bold" means. Which axes the shipped faces
+and none of them is what "make this bold" means — slant least of all, which is
+exactly why `italic` reaches a drawn file instead of that axis. Which axes the shipped faces
 carry, and what each is therefore left at, is recorded in
 `crates/compositor/fonts/README.md` — Source Serif 4's `opsz` sits at its
 text-size default, and that is a stated consequence rather than an oversight.
@@ -1233,6 +1268,17 @@ outside OpenType's own 1–1000 is not a weight for any face. What only the
 runs — is refused at the render, in the same breath as "this is not a font I can
 read". That holds for `sans` and `serif` as much as for a font the project
 carries; they are files too, and scorsese happens to be the one carrying them.
+
+## Migrating from v19
+
+v20 adds one optional field and takes nothing away: `italic` on a text asset's
+`style`. No v19 document can contain it, and **absent means what absent has
+always meant** — upright. So no v19 document means anything different under v20:
+converting one is changing `"schema_version": 19` to `"schema_version": 20` and
+nothing else.
+
+The number moved because the accepted value space did: `"italic": true` is
+refused outright by a v19 build, which has never heard of the field.
 
 ## Migrating from v18
 

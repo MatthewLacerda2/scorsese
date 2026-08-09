@@ -1,5 +1,5 @@
 {
-  "schema_version": 19,
+  "schema_version": 20,
   "name": "slice",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [{ "id": "bands", "kind": "video", "path": "assets/bands.mp4" }],

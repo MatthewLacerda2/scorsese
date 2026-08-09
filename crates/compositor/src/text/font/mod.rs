@@ -54,7 +54,7 @@ use super::shape::{self, Shaped};
 mod shipped;
 mod weight;
 
-pub use shipped::{Cut, Family, SHIPPED, family, names};
+pub use shipped::{Cut, Family, SHIPPED, Slant, family, names};
 use weight::locate;
 
 /// What a shipped face is drawn at when the document names no weight.
@@ -129,14 +129,19 @@ impl Font {
     /// - **a drawn family that was not drawn at it** — refused with the weights
     ///   it *was* drawn at. Liberation has Regular and Bold and nothing
     ///   between, and snapping 600 to 700 would be the same substitution one
-    ///   step along.
-    pub fn shipped(name: &str, weight: Option<u16>) -> Result<Self, FontError> {
+    ///   step along;
+    /// - **a family with no italic, asked for one** — refused rather than
+    ///   slanted, because an oblique is a different drawing and looks like one.
+    pub fn shipped(name: &str, weight: Option<u16>, slant: Slant) -> Result<Self, FontError> {
         let family = shipped::family(name).ok_or_else(|| FontError::NoSuchFamily {
             name: name.to_owned(),
             available: shipped::names().collect::<Vec<_>>().join(", "),
         })?;
+        let table = family.table(slant).ok_or_else(|| FontError::NoItalic {
+            family: family.family.to_owned(),
+        })?;
         let wanted = weight.unwrap_or(SHIPPED_WEIGHT);
-        match family.cut {
+        match table {
             // The axis answers, and refuses what it does not reach.
             Cut::Variable(bytes) => Self::from_bytes(bytes, Some(wanted)),
             // No axis to ask, so the table is the whole answer. `None` on the
@@ -151,7 +156,7 @@ impl Font {
                             weight: wanted,
                             family: family.family.to_owned(),
                             drawn: family
-                                .drawn_weights()
+                                .drawn_weights(slant)
                                 .iter()
                                 .map(u16::to_string)
                                 .collect::<Vec<_>>()
@@ -227,7 +232,7 @@ impl Font {
     /// Reads a face this build ships. Its bytes are compiled in, so failing
     /// here would mean a corrupt binary rather than a bad project.
     fn compiled_in(name: &str) -> Self {
-        Self::shipped(name, None)
+        Self::shipped(name, None, Slant::Upright)
             .expect("a font compiled into this binary parses, and reaches its own default weight")
     }
 }
@@ -321,6 +326,19 @@ pub enum FontError {
         default: f32,
         /// The heaviest weight the file offers.
         max: f32,
+    },
+
+    /// An italic asked of a family that has none drawn.
+    ///
+    /// Refused rather than obliged by slanting the upright. A real italic is a
+    /// different drawing — Inter's italic redraws the letters, where its `slnt`
+    /// axis merely leans them — and handing back the second while the document
+    /// asked for the first is the silent substitution this file refuses
+    /// everywhere else.
+    #[error("{family} has no italic — it is drawn upright only, so `italic` cannot apply to it")]
+    NoItalic {
+        /// The family, by its own name.
+        family: String,
     },
 
     /// A name no family in this build answers to.

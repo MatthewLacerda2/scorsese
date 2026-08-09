@@ -82,6 +82,20 @@ pub struct TextStyle {
     /// axes and none of them is what "make this bold" means.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub weight: Option<u16>,
+    /// Whether to set the text in the family's **italic**.
+    ///
+    /// A boolean and not an angle, because a real italic is a *different
+    /// drawing* rather than the upright leaned over — different letterforms,
+    /// often a single-storey `a` and an entirely redrawn `f`. A number would
+    /// promise a continuum between the two that does not exist.
+    ///
+    /// It applies to a family scorsese ships, which carries its italic beside
+    /// its upright. A font the **project** carries is one file and is whatever
+    /// it is, so `italic` beside one is refused rather than ignored — the way
+    /// to get an italic there is to name the italic file. Same rule as a weight
+    /// beside a static file, and for the same reason: a field nobody reads is
+    /// how someone comes to insist their italic is broken.
+    pub italic: bool,
     /// The em size, as a fraction of the **frame's height**. `0.1` is a tenth
     /// of the picture — a title — and means the same thing at every render
     /// resolution.
@@ -118,6 +132,7 @@ impl Default for TextStyle {
         Self {
             font: FontChoice::default(),
             weight: None,
+            italic: false,
             size: Self::DEFAULT_SIZE,
             color: Rgba::WHITE,
             align: TextAlign::default(),

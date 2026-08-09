@@ -1,0 +1,84 @@
+{
+  "schema_version": 20,
+  "name": "italic",
+  "timeline_fps": {
+    "num": 30,
+    "den": 1
+  },
+  "assets": [
+    {
+      "id": "plate",
+      "kind": "color",
+      "color": "#101820"
+    },
+    {
+      "id": "upright",
+      "kind": "text",
+      "text": "Afg",
+      "style": {
+        "font": "liberation-serif",
+        "weight": 400,
+        "size": 0.38,
+        "color": "#ffffff"
+      }
+    },
+    {
+      "id": "slanted",
+      "kind": "text",
+      "text": "Afg",
+      "style": {
+        "font": "liberation-serif",
+        "weight": 700,
+        "italic": true,
+        "size": 0.38,
+        "color": "#ffcc00"
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-plate",
+          "asset": "plate",
+          "start": 0,
+          "duration": 15
+        }
+      ]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-upright",
+          "asset": "upright",
+          "start": 0,
+          "duration": 15,
+          "anchor": {
+            "x": "center",
+            "y": "top"
+          }
+        }
+      ]
+    },
+    {
+      "id": "v3",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-slanted",
+          "asset": "slanted",
+          "start": 0,
+          "duration": 15,
+          "anchor": {
+            "x": "center",
+            "y": "bottom"
+          }
+        }
+      ]
+    }
+  ]
+}
