@@ -172,6 +172,18 @@ that goes with it.
   branches checked out costs disk; several concurrent `make gates` runs costs
   more memory than there is, and rustc's linking is where it runs out.
   Parallelise the work, stagger the compiles.
+- **One worktree, one `target/`. Never a shared `CARGO_TARGET_DIR`.** Cargo
+  keys build artifacts by package, version, features and profile — never by
+  source path — so worktrees pointed at one target directory overwrite each
+  other's output for every crate a given build did not itself rebuild. The
+  phantom failures that causes waste an hour; the false *green* is the reason
+  this is a rule, because it says the gates passed on code that was never
+  compiled, which is exactly the claim a **ready** pull request makes.
+  Cargo's default is already correct — unset, every worktree gets its own
+  `target/` — so the rule is to stop overriding it, not to configure anything,
+  and `make gates` refuses to run under an override rather than trusting
+  anyone to remember. This is unrelated to staggering the compiles above:
+  that one is about memory during linking, this one about artifacts colliding.
 - **Serialized merging is not a scaling problem waiting to be solved.** Merge
   queues and speculative CI answer a question this repo does not have — at one
   contributor, rebase-and-verify is a minute by hand.
