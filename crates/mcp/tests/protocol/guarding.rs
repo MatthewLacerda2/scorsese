@@ -34,7 +34,10 @@ fn a_write_built_on_a_document_something_else_replaced_is_refused() {
 
     assert!(failed, "a stale write must be refused: {text}");
     assert!(text.contains("nothing written"), "got {text}");
-    assert!(text.to_lowercase().contains("read the project again"), "got {text}");
+    assert!(
+        text.to_lowercase().contains("read the project again"),
+        "got {text}"
+    );
     assert_eq!(
         std::fs::read_to_string(dir.join("project.json")).expect("read back"),
         landed,

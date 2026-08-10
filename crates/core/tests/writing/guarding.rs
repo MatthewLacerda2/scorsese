@@ -24,7 +24,10 @@ fn a_save_built_on_a_read_something_else_overtook_is_refused() {
     second.name = "the second writer's edit".to_owned();
     let refused = second.save(&dir).expect_err("the second save is refused");
 
-    assert!(matches!(refused, SaveError::Stale { .. }), "got {refused:?}");
+    assert!(
+        matches!(refused, SaveError::Stale { .. }),
+        "got {refused:?}"
+    );
     assert_eq!(
         Project::load(&dir).expect("the project still loads").name,
         "the first writer's edit",
@@ -75,7 +78,9 @@ fn a_first_save_into_a_directory_with_no_document_is_allowed() {
     let dir = common::temp_project_dir("guard-first");
     let project = common::project();
 
-    project.save(&dir).expect("nothing is there to be overwritten");
+    project
+        .save(&dir)
+        .expect("nothing is there to be overwritten");
 
     assert!(dir.join(PROJECT_FILE_NAME).is_file());
     project.save(&dir).expect("and the same writer saves again");
@@ -114,12 +119,19 @@ fn a_document_carrying_the_fingerprint_of_what_is_there_is_allowed() {
         .expect("the document parses");
     project.baseline = Baseline::claimed(fingerprint_of(&read));
     project.name = "written back".to_owned();
-    project.save(&dir).expect("the fingerprint is the one on disk");
+    project
+        .save(&dir)
+        .expect("the fingerprint is the one on disk");
 
     assert_eq!(Project::load(&dir).expect("load").name, "written back");
 
     let mut behind = Project::from_json(&String::from_utf8(read).expect("utf-8")).expect("parses");
     behind.baseline = Baseline::claimed(fingerprint_of(b"some other document"));
-    let refused = behind.save(&dir).expect_err("a stale fingerprint is refused");
-    assert!(matches!(refused, SaveError::Stale { .. }), "got {refused:?}");
+    let refused = behind
+        .save(&dir)
+        .expect_err("a stale fingerprint is refused");
+    assert!(
+        matches!(refused, SaveError::Stale { .. }),
+        "got {refused:?}"
+    );
 }

@@ -238,10 +238,8 @@ impl Project {
         let file = project_dir.join(PROJECT_FILE_NAME);
         let json = self.to_json()?;
         self.baseline.guard(&file)?;
-        crate::write::atomically(&file, &json).map_err(|source| SaveError::Io {
-            path: file,
-            source,
-        })?;
+        crate::write::atomically(&file, &json)
+            .map_err(|source| SaveError::Io { path: file, source })?;
         // What this document is a change to is now what it just wrote: an
         // editor saving twice is one writer, and the second save must be
         // measured against the first rather than against what preceded both.
