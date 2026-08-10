@@ -10,7 +10,7 @@ use scorsese_core::{AssetKind, Project};
 use scorsese_providers::credentials::{Budget, Provider, resolve};
 use scorsese_providers::prices::{dollars, estimate};
 use scorsese_providers::video::{
-    Outcome, RETENTION_DAYS, Run, VeoProvider, collect, generate_waiting,
+    Outcome, Plan, RETENTION_DAYS, Run, VeoProvider, collect, generate_waiting, plan,
 };
 
 /// Realises every sketched shot, waiting up to `patience`.
@@ -46,26 +46,56 @@ pub(super) fn pass(
     outcome.map_err(|error| format!("{error}"))
 }
 
-/// What the sketched shots would cost, without a key and without sending
-/// anything.
-pub(super) fn quote(project: &Project, lines: &mut Vec<String>) -> Result<u64, String> {
+/// What this run would spend on shots, decided the way the run decides it.
+///
+/// Each asset is priced by its [`Plan`]: only a brief that would actually be
+/// handed over reaches the total. A quote that priced every shot regardless
+/// told somebody with three generated shots and one stale one that the run
+/// would cost four shots' worth — a number the run could never spend.
+pub(super) fn quote(
+    project: &Project,
+    dir: &std::path::Path,
+    lines: &mut Vec<String>,
+) -> Result<u64, String> {
     let mut total = 0;
     for asset in project
         .assets
         .iter()
         .filter(|asset| asset.kind == AssetKind::GeneratedVideo)
     {
-        let request = asset.video_request();
-        let priced = estimate(&request).map_err(|error| format!("{error}"))?;
-        lines.push(format!(
-            "{}: {} — {}s of {} at {}",
-            asset.id,
-            dollars(priced.cents),
-            priced.seconds,
-            request.model.as_str(),
-            request.resolution.as_str()
-        ));
-        total += priced.cents;
+        total += match plan(project, dir, asset) {
+            Plan::Realized(path) => {
+                lines.push(format!(
+                    "{}: already generated — {path} — nothing to pay",
+                    asset.id
+                ));
+                0
+            }
+            Plan::InFlight => {
+                lines.push(format!(
+                    "{}: still generating — already paid for, collected free",
+                    asset.id
+                ));
+                0
+            }
+            Plan::Unready(why) => {
+                lines.push(format!("{}: would not be sent — {why}", asset.id));
+                0
+            }
+            Plan::Submit => {
+                let request = asset.video_request();
+                let priced = estimate(&request).map_err(|error| format!("{error}"))?;
+                lines.push(format!(
+                    "{}: {} — {}s of {} at {}",
+                    asset.id,
+                    dollars(priced.cents),
+                    priced.seconds,
+                    request.model.as_str(),
+                    request.resolution.as_str()
+                ));
+                priced.cents
+            }
+        };
     }
     Ok(total)
 }

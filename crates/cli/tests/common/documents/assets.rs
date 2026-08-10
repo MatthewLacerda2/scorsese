@@ -53,6 +53,15 @@ pub(crate) fn generated(id: &str, kind: &str, extension: &str) -> String {
     )
 }
 
+/// A prompt edited after it generated: the state says so, and the path still
+/// points at the *previous* generation's file — which may well still exist.
+pub(crate) fn stale(id: &str) -> String {
+    format!(
+        r#"{{ "id": "{id}", "kind": "generated_video", "prompt": "a different boat",
+              "state": "stale", "path": "generated/{id}.mp4" }}"#
+    )
+}
+
 /// A title: the one kind with no file behind it at all.
 pub(crate) fn text(id: &str, content: &str) -> String {
     format!(r#"{{ "id": "{id}", "kind": "text", "text": "{content}" }}"#)

@@ -48,7 +48,7 @@ pub use brief::{Brief, Still};
 pub use error::GenerationError;
 pub use patience::{POLL_EVERY, Run, WAIT_FOR, generate_waiting};
 pub use provider::{Progress, ProviderError, Ready, Ticket, VideoProvider};
-pub use run::{RETENTION_DAYS, collect, generate};
+pub use run::{Plan, RETENTION_DAYS, collect, generate, pending, plan};
 pub use veo::VeoProvider;
 
 /// What happened to one asset in a run.

@@ -12,7 +12,7 @@ mod common;
 
 use std::path::{Path, PathBuf};
 
-use common::{documents, run_in_env, temp_dir};
+use common::{documents, reload, run_in_env, temp_dir};
 
 /// A project with one shot nobody has paid for.
 fn sketched(label: &str) -> PathBuf {
@@ -113,11 +113,69 @@ fn a_project_with_nothing_to_send_is_never_asked() {
         &[documents::assets::generated("shot", "video", "mp4")],
         &[documents::clip("c1", "shot", 0)],
     );
-    documents::file_at(&dir, "generated/shot.mp4", b"");
+    // The file that answers "anything to do?" is the *current brief's* output
+    // in generated/, named for the brief's hash — never the recorded path.
+    documents::file_at(&dir, &brief_output(&dir, "shot"), b"");
     let home = machine("generate-nothing-to-do-home", 0);
 
     // No question, no refusal, no key: a run that would spend nothing has
     // nothing to confirm, and a script that runs this twice must not break the
     // second time.
     run_in_env(&dir, &["generate"], &at(&home)).ok();
+}
+
+/// Where the current brief of `id` would land — the file the run checks for,
+/// computed the way the run computes it.
+fn brief_output(dir: &Path, id: &str) -> String {
+    let project = reload(dir);
+    let asset = project
+        .assets
+        .iter()
+        .find(|asset| asset.id.to_string() == id)
+        .expect("the asset is in the table");
+    scorsese_providers::video::Brief::of(&project, dir, asset)
+        .expect("gather the brief")
+        .output()
+        .as_str()
+        .to_owned()
+}
+
+/// The bug that was hit in real use: a stale shot whose *old* generation is
+/// still on disk at the recorded path. The run used to consult that path,
+/// find the file, print "No generated assets in this project." and submit
+/// nothing. The ceiling refusing it here proves the run now wants to send the
+/// edited brief — the refusal is checked inside the pass, before any call.
+#[test]
+fn a_stale_shot_with_its_old_file_present_is_still_sent() {
+    let dir = documents::project(
+        "generate-stale",
+        &[documents::assets::stale("shot")],
+        &[documents::clip("c1", "shot", 0)],
+    );
+    documents::file_at(&dir, "generated/shot.mp4", b"the old take");
+    let home = machine("generate-stale-home", 0);
+
+    let run = run_in_env(&dir, &["generate", "--yes"], &at(&home));
+
+    assert!(
+        run.failed,
+        "the old file hid the stale shot:\n{}",
+        run.output
+    );
+    run.says("ceiling");
+}
+
+/// The quote prices what THIS run would send. A brief whose output is already
+/// in generated/ is listed at nothing — it used to be priced like a sketch,
+/// quoting money the run could never spend.
+#[test]
+fn the_quote_charges_nothing_for_a_brief_already_generated() {
+    let dir = sketched("generate-quote-cached");
+    documents::file_at(&dir, &brief_output(&dir, "shot"), b"the take");
+    let home = machine("generate-quote-cached-home", 0);
+
+    let run = run_in_env(&dir, &["generate", "--dry-run"], &at(&home)).ok();
+
+    run.says("already generated");
+    run.says("$0.00 for the whole run");
 }

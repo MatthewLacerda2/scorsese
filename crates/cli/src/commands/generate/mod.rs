@@ -11,7 +11,8 @@
 //!
 //! **A key is asked for only by a pass that has work.** Resolving both up front
 //! would mean a project of nothing but narration could not be generated without
-//! a Veo key, and the other way round. Which is what [`wants`] decides.
+//! a Veo key, and the other way round. Which is what each provider's `pending`
+//! decides — from the current brief, never the asset's recorded state.
 //!
 //! **Spending is opt-in.** Nothing is submitted until the quote has been shown
 //! and somebody has said go ahead — see [`confirm`]. The ceiling is checked
@@ -25,11 +26,11 @@ use std::path::Path;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
-use scorsese_core::{Asset, AssetKind, Project, Reprobe, probe_assets};
+use scorsese_core::{Project, Reprobe, probe_assets};
 use scorsese_providers::credentials::{Budget, Settings};
 use scorsese_providers::prices::dollars;
-use scorsese_providers::spending;
 use scorsese_providers::video::{Outcome, Run};
+use scorsese_providers::{speech, spending, video};
 use scorsese_render::Ffprobe;
 
 /// Realises every sketched brief, waiting up to `patience` for the shots.
@@ -38,10 +39,10 @@ pub(crate) fn run(project_dir: &Path, patience: Duration, dry_run: bool, yes: bo
         .with_context(|| format!("opening the project in {}", project_dir.display()))?;
 
     if dry_run {
-        return quote(&project);
+        return quote(&project, project_dir);
     }
 
-    if pending(&project, project_dir) && !permitted(&project, yes)? {
+    if pending(&project, project_dir) && !permitted(&project, project_dir, yes)? {
         println!("Nothing was sent.");
         return Ok(());
     }
@@ -101,13 +102,13 @@ fn passes(project: &mut Project, project_dir: &Path, budget: Budget, patience: D
     };
     let mut lines = Vec::new();
 
-    if wants(project, project_dir, AssetKind::GeneratedVideo) {
+    if video::pending(project, project_dir) {
         match shots::pass(project, project_dir, budget, patience) {
             Ok(run) => shots = run,
             Err(error) => return (shots, lines, Err(error)),
         }
     }
-    if wants(project, project_dir, AssetKind::GeneratedAudio) {
+    if speech::pending(project, project_dir) {
         // The ceiling carries across: what the shots committed is already spent
         // as far as the narration is concerned.
         match lines::pass(project, project_dir, budget.spend(shots.spent_cents)) {
@@ -123,12 +124,12 @@ fn passes(project: &mut Project, project_dir: &Path, budget: Budget, patience: D
 /// The quote is printed **only when somebody is going to be asked**, because it
 /// is there to be decided on. A run that already carries its answer prints what
 /// it did, not what it was about to do.
-fn permitted(project: &Project, yes: bool) -> Result<bool> {
+fn permitted(project: &Project, root: &Path, yes: bool) -> Result<bool> {
     match confirm::verdict(yes, confirm::interactive()) {
         confirm::Verdict::Ahead => Ok(true),
         confirm::Verdict::NobodyThere => Err(anyhow::anyhow!(confirm::NOBODY_THERE)),
         confirm::Verdict::Ask => {
-            quote(project)?;
+            quote(project, root)?;
             confirm::asked()
         }
     }
@@ -140,35 +141,14 @@ fn permitted(project: &Project, yes: bool) -> Result<bool> {
 /// having no terminal: there is no decision to take when the answer costs
 /// nothing either way. It is what keeps `scorsese generate` over a project that
 /// is already generated working from a script, exactly as it did before.
+///
+/// Asked of each provider's [`plan`](video::plan), which consults the
+/// **current brief's** output file — never the asset's recorded `path`. The
+/// recorded path is the previous generation's file: after an edit it still
+/// exists and still resolves, and consulting it is how a stale shot used to be
+/// skipped as *nothing to do*.
 fn pending(project: &Project, root: &Path) -> bool {
-    wants(project, root, AssetKind::GeneratedVideo)
-        || wants(project, root, AssetKind::GeneratedAudio)
-}
-
-/// Whether this kind has anything left to do, and so whether its key is needed.
-///
-/// True when a brief of that kind has no file behind it yet, or has work in
-/// flight. A project whose shots are all generated and present asks for no Veo
-/// key at all — which is what makes a narration-only run possible for somebody
-/// who has one vendor's key and not the other's.
-fn wants(project: &Project, root: &Path, kind: AssetKind) -> bool {
-    project
-        .assets
-        .iter()
-        .filter(|asset| asset.kind == kind)
-        .any(|asset| asset.operation.is_some() || !is_present(asset, root))
-}
-
-/// Whether this asset's media is actually on disk.
-///
-/// The disk and not the document, deliberately. An asset can say `generated`
-/// and have lost its file — deleted, or never copied along with the project —
-/// and that one does need generating again, whatever the state field claims.
-fn is_present(asset: &Asset, root: &Path) -> bool {
-    asset
-        .path
-        .as_ref()
-        .is_some_and(|path| path.resolve(root).is_file())
+    video::pending(project, root) || speech::pending(project, root)
 }
 
 /// Picks up whatever finished while nobody was watching. Submits nothing.
@@ -223,8 +203,12 @@ fn measure(project: &mut Project, project_dir: &Path) -> Result<()> {
 }
 
 /// What a run would cost, without a key and without spending anything.
-fn quote(project: &Project) -> Result<()> {
-    let total = shots::quote(project)? + lines::quote(project)?;
+///
+/// What **this** run would spend, not what the project's briefs would cost
+/// from scratch: a brief whose output already sits in `generated/` is listed
+/// at nothing, because the run will find its file and send nothing.
+fn quote(project: &Project, root: &Path) -> Result<()> {
+    let total = shots::quote(project, root)? + lines::quote(project, root)?;
     println!();
     println!(
         "About {} for the whole run — calculated from the published rates, never a bill. \

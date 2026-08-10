@@ -7,7 +7,7 @@
 use scorsese_core::{AssetId, AssetKind, Project};
 use scorsese_providers::credentials::{Budget, Provider, resolve};
 use scorsese_providers::prices::{dollars, speech};
-use scorsese_providers::speech::{ElevenLabsProvider, Outcome, generate};
+use scorsese_providers::speech::{ElevenLabsProvider, Outcome, Plan, generate, plan};
 
 /// What one narration run produced.
 pub(super) type Spoken = Vec<(AssetId, Outcome)>;
@@ -27,30 +27,51 @@ pub(super) fn pass(
     generate(project, dir, &provider, budget).map_err(|error| format!("{error}"))
 }
 
-/// What the narration would cost, without a key and without sending anything.
+/// What this run would spend on narration, decided the way the run decides it.
 ///
-/// Exact before anything is sent, because the vendor bills by character and the
-/// characters are already in the document. Still an estimate: the rate is a
-/// page somebody copied, and library-voice multipliers are deliberately
-/// ignored.
-pub(super) fn quote(project: &Project, lines: &mut Vec<String>) -> Result<u64, String> {
+/// Each line is priced by its [`Plan`]: only one that would actually be spoken
+/// reaches the total — a line whose reading already sits in `generated/` costs
+/// this run nothing. What does go in is exact before anything is sent, because
+/// the vendor bills by character; still an estimate, since the rate is a page
+/// somebody copied and library-voice multipliers are deliberately ignored.
+pub(super) fn quote(
+    project: &Project,
+    dir: &std::path::Path,
+    lines: &mut Vec<String>,
+) -> Result<u64, String> {
     let mut total = 0;
     for asset in project
         .assets
         .iter()
         .filter(|asset| asset.kind == AssetKind::GeneratedAudio)
     {
-        let request = asset.speech_request();
-        let characters = asset.prompt.as_ref().map_or(0, |line| line.chars().count());
-        let priced = speech(request.model, characters).map_err(|error| format!("{error}"))?;
-        lines.push(format!(
-            "{}: {} — {} characters in {}",
-            asset.id,
-            dollars(priced.cents),
-            priced.characters,
-            request.model.as_str()
-        ));
-        total += priced.cents;
+        total += match plan(dir, asset) {
+            Plan::Realized(path) => {
+                lines.push(format!(
+                    "{}: already spoken — {path} — nothing to pay",
+                    asset.id
+                ));
+                0
+            }
+            Plan::Unready(why) => {
+                lines.push(format!("{}: not yet — {why}", asset.id));
+                0
+            }
+            Plan::Submit => {
+                let request = asset.speech_request();
+                let characters = asset.prompt.as_ref().map_or(0, |line| line.chars().count());
+                let priced =
+                    speech(request.model, characters).map_err(|error| format!("{error}"))?;
+                lines.push(format!(
+                    "{}: {} — {} characters in {}",
+                    asset.id,
+                    dollars(priced.cents),
+                    priced.characters,
+                    request.model.as_str()
+                ));
+                priced.cents
+            }
+        };
     }
     Ok(total)
 }

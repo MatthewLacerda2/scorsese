@@ -4,7 +4,7 @@
 use std::path::Path;
 
 use scorsese_core::{
-    AssetId, AssetKind, GenerationState, Project, ProjectPath, Timestamp, hash_bytes,
+    Asset, AssetId, AssetKind, GenerationState, Project, ProjectPath, Timestamp, hash_bytes,
 };
 
 use crate::credentials::Budget;
@@ -79,6 +79,64 @@ pub fn collect(
     Ok(done)
 }
 
+/// What a run would do with one asset, read without doing it.
+///
+/// [`one`]'s decision order — the cache first, then the ticket, then a
+/// submission — answered before any key is resolved and without spending
+/// anything. It exists for the callers that come *before* a run: the dry-run
+/// quote, and the check that decides whether a pass is worth resolving a key
+/// for. Both used to consult the asset's recorded `path` instead, and that is
+/// the file the *previous* generation landed in — after an edit it still
+/// exists and still resolves, which is exactly how a stale shot got skipped.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Plan {
+    /// The current brief's output is already in `generated/`. Nothing would be
+    /// sent and nothing paid.
+    Realized(
+        /// Where it is, project-relative.
+        ProjectPath,
+    ),
+    /// A ticket is in flight. A run polls it and spends nothing new.
+    InFlight,
+    /// The brief would be handed to the provider and billed.
+    Submit,
+    /// The brief cannot be gathered, in the words a run would refuse it with.
+    Unready(
+        /// What is wrong with it.
+        String,
+    ),
+}
+
+/// What a run would do with `asset` — see [`Plan`].
+pub fn plan(project: &Project, root: &Path, asset: &Asset) -> Plan {
+    let brief = match Brief::of(project, root, asset) {
+        Ok(brief) => brief,
+        Err(why) => return Plan::Unready(why.to_string()),
+    };
+    if brief.realized(root) {
+        return Plan::Realized(brief.output());
+    }
+    if asset.operation.is_some() {
+        return Plan::InFlight;
+    }
+    Plan::Submit
+}
+
+/// Whether a run over this project's shots would have anything to do at all.
+///
+/// A dangling ticket counts even when the cache would answer it — the run
+/// still clears it out of the document. An ungatherable brief counts too,
+/// because the pass is where that refusal is voiced, naming what is missing.
+pub fn pending(project: &Project, root: &Path) -> bool {
+    project
+        .assets
+        .iter()
+        .filter(|asset| asset.kind == AssetKind::GeneratedVideo)
+        .any(|asset| {
+            asset.operation.is_some() || !matches!(plan(project, root, asset), Plan::Realized(_))
+        })
+}
+
 /// Every `generated_video` asset, by id.
 fn generated_video_ids(project: &Project) -> Vec<AssetId> {
     project
@@ -106,7 +164,7 @@ fn one(
     // The cache, and it is checked before anything else on purpose: a file
     // already sitting there is the answer to "has this brief been paid for",
     // whatever the document happens to claim about the asset's state.
-    if output.resolve(root).is_file() {
+    if brief.realized(root) {
         let bytes = std::fs::read(output.resolve(root)).unwrap_or_default();
         record(project, id, &output, &bytes, &brief);
         return Ok(Outcome::Cached { path: output });
