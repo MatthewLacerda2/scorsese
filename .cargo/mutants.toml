@@ -28,6 +28,17 @@
 # - `crates/render/src/plan/`, `src/audio/mix.rs`, `src/audio/gain.rs` —
 #   sequencing, sample mixing, gain. Arithmetic decisions whose wrong answer is
 #   a wrong video, and none of them shell out.
+# - `crates/zimmer` — synthesis: oscillators, envelopes, filters, effects, the
+#   level maths, the tracker-style arrangement. It scores on both halves of the
+#   rule above harder than anything else here. *Accurate*, because the crate's
+#   stated boundary is no I/O of any kind and no dependency on `scorsese-core`
+#   — every output is a pure function of the documents handed in, so a survivor
+#   cannot be blamed on a stub, a fixture or a clock. *Cheap*, because nothing
+#   in it decodes media. And its arithmetic is the shape mutation reads best: a
+#   flipped operator in an envelope makes sound that is *wrong* rather than
+#   sound that is absent, and a test measuring a range rather than a value will
+#   not object — the same failure as `Mix::add` mixing by subtraction with the
+#   whole suite green (#60).
 #
 # Deliberately out of scope:
 #
@@ -52,6 +63,7 @@ examine_globs = [
     "crates/render/src/plan/**/*.rs",
     "crates/render/src/audio/mix.rs",
     "crates/render/src/audio/gain.rs",
+    "crates/zimmer/src/**/*.rs",
 ]
 
 # `examine_globs` already decides this — these say it a second time because a

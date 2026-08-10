@@ -53,9 +53,9 @@ So the two are complements:
 
 ## What gets mutated
 
-The pure-logic surface only: `crates/core`, `crates/compositor`, and the plan
-and audio arithmetic of `crates/render`. The ffmpeg command builders and
-`crates/golden` are excluded on purpose.
+The pure-logic surface only: `crates/core`, `crates/compositor`, `crates/zimmer`,
+and the plan and audio arithmetic of `crates/render`. The ffmpeg command builders
+and `crates/golden` are excluded on purpose.
 
 `.cargo/mutants.toml` is the authority on that list and gives the reason for
 every inclusion and exclusion. Read it there rather than trusting this
