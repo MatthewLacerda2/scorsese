@@ -1,17 +1,18 @@
 //! The tools that change something, and what they refuse to change.
 
-use super::fixture::{DOCUMENT, project};
+use super::fixture::{DOCUMENT, fingerprint, project};
 use crate::{call, said};
 use serde_json::json;
 
-/// The whole edit is the document, so writing it is how any change is made.
+/// The whole edit is the document, so writing it is how any change is made:
+/// read it, change it, write it back with the fingerprint that read reported.
 #[test]
 fn writing_a_document_replaces_it() {
     let dir = project("write");
     let renamed = DOCUMENT.replace("Teaser", "Trailer");
     let (text, failed) = said(&call(
         "project_write",
-        json!({ "project": dir, "document": renamed }),
+        json!({ "project": dir, "document": renamed, "fingerprint": fingerprint(&dir) }),
     ));
     assert!(!failed, "{text}");
     let on_disk = std::fs::read_to_string(dir.join("project.json")).expect("read back");

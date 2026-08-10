@@ -41,7 +41,10 @@
 //! [`TextStyle`], [`Rgba`], [`ProjectPath`] — is `scorsese_core::Thing` and
 //! nothing longer. Six crates and the desktop app all read and write the same
 //! document, and a model type with two import paths is a model type that gets
-//! spelled two ways.
+//! spelled two ways. [`Baseline`] and [`fingerprint_of`] sit there too, one
+//! step out from the rest: not a part of a `project.json`, but what a
+//! [`Project`] remembers about the file it was read from, so that saving it
+//! cannot quietly land on somebody else's edit.
 //!
 //! **Five modules keep their path**, because what they publish is an
 //! *operation* on a project rather than a part of one, and the verb needs the
@@ -59,6 +62,7 @@
 //! them differently.
 
 pub(crate) mod asset;
+pub(crate) mod baseline;
 pub(crate) mod color;
 pub mod dip;
 pub(crate) mod grade;
@@ -81,6 +85,7 @@ pub use asset::{
     MAX_CHARACTERS, MAX_REFERENCE_IMAGES, MediaMetadata, SpeechModel, SpeechRequest, VideoModel,
     VideoRequest, VideoResolution,
 };
+pub use baseline::{Baseline, fingerprint_of};
 pub use color::{ColorError, Rgba};
 pub use dip::{Dip, Ducked, Under, duck_track};
 pub use grade::Grade;

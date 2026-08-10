@@ -3,6 +3,21 @@
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 
+/// The fingerprint `project_read` reports for the project in `dir`, taken the
+/// way a client takes it — out of the reply rather than computed beside the
+/// server. It is what `project_write` has to be handed.
+pub(crate) fn fingerprint(dir: &std::path::Path) -> String {
+    let reply = crate::call("project_read", serde_json::json!({ "project": dir }));
+    let note = reply["result"]["content"][1]["text"]
+        .as_str()
+        .unwrap_or_else(|| panic!("project_read reported no fingerprint: {reply}"));
+    note.trim_start_matches("fingerprint: ")
+        .split_whitespace()
+        .next()
+        .expect("a fingerprint is one word")
+        .to_owned()
+}
+
 /// A project directory with a title over a music bed and a line of narration.
 ///
 /// A title rather than footage because a `text` asset needs no file on disk,

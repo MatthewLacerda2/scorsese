@@ -6,7 +6,7 @@ pub(crate) mod watch;
 
 use std::path::{Path, PathBuf};
 
-use scorsese_core::{LoadError, PROJECT_FILE_NAME, Project, ValidationErrors};
+use scorsese_core::{Baseline, LoadError, PROJECT_FILE_NAME, Project, ValidationErrors};
 
 /// A project directory, loaded.
 pub(crate) struct Open {
@@ -110,7 +110,13 @@ pub(crate) fn open(root: &Path) -> Result<Open, Refused> {
             },
         )
     })?;
-    let project = Project::from_json(&json).map_err(|error| refused(root, error))?;
+    let mut project = Project::from_json(&json).map_err(|error| refused(root, error))?;
+    // `from_json` cannot record what it was read from — it is handed a string,
+    // which in every other caller was not read from anywhere. Here it was, and
+    // saying so is what lets this window save at all: a document with no
+    // baseline is refused over one that exists, because there would be no
+    // telling what it was about to overwrite.
+    project.baseline = Baseline::of(json.as_bytes());
     let mut open = Open {
         root: root.to_path_buf(),
         project,
