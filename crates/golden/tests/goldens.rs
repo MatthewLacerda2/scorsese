@@ -58,6 +58,7 @@ macro_rules! goldens {
 }
 
 goldens!(
+    alpha,
     anchored,
     blend,
     crop,
