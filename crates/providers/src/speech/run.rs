@@ -23,7 +23,7 @@
 use std::path::Path;
 
 use scorsese_core::{
-    AssetId, AssetKind, GenerationState, Project, ProjectPath, SpeechModel, hash_bytes,
+    Asset, AssetId, AssetKind, GenerationState, Project, ProjectPath, SpeechModel, hash_bytes,
 };
 
 use crate::credentials::Budget;
@@ -55,6 +55,53 @@ pub fn generate(
         done.push((id, outcome));
     }
     Ok(done)
+}
+
+/// What a run would do with one line, read without doing it.
+///
+/// The sibling of [`video::Plan`](crate::video::Plan), minus the in-flight
+/// variant nothing here can be in. It exists for the callers that come
+/// *before* a run — the dry-run quote, and the check that decides whether a
+/// pass is worth resolving a key for — so they consult the same brief-derived
+/// answer the pass will, rather than the asset's recorded `path`, which after
+/// a rewrite still points at the previous reading.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Plan {
+    /// The current brief's output is already in `generated/`. Nothing would be
+    /// sent and nothing paid.
+    Realized(
+        /// Where it is, project-relative.
+        ProjectPath,
+    ),
+    /// The line would be handed to the provider and billed.
+    Submit,
+    /// Not ready to be spoken, in [`Incomplete`](super::Incomplete)'s words —
+    /// the ordinary state of a line somebody is still writing.
+    Unready(
+        /// What it is still missing.
+        String,
+    ),
+}
+
+/// What a run would do with `asset` — see [`Plan`].
+pub fn plan(root: &Path, asset: &Asset) -> Plan {
+    match Brief::of(asset) {
+        Err(why) => Plan::Unready(why.to_string()),
+        Ok(brief) if brief.realized(root) => Plan::Realized(brief.output()),
+        Ok(_) => Plan::Submit,
+    }
+}
+
+/// Whether a run over this project's narration would have anything to do.
+///
+/// An incomplete line counts, because the pass is where *not yet* is voiced,
+/// naming the line and what it is missing.
+pub fn pending(project: &Project, root: &Path) -> bool {
+    project
+        .assets
+        .iter()
+        .filter(|asset| asset.kind == AssetKind::GeneratedAudio)
+        .any(|asset| !matches!(plan(root, asset), Plan::Realized(_)))
 }
 
 /// Every `generated_audio` asset, by id.
@@ -104,7 +151,7 @@ fn one(
     // The cache, checked before anything else on purpose: a file already
     // sitting there is the answer to "has this been paid for", whatever the
     // document happens to claim about the asset's state.
-    if output.resolve(root).is_file() {
+    if brief.realized(root) {
         let bytes = std::fs::read(output.resolve(root)).unwrap_or_default();
         record(project, id, &output, &bytes, &brief)?;
         return Ok(Outcome::Cached { path: output });

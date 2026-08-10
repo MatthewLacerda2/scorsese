@@ -158,6 +158,17 @@ impl Brief {
     pub fn output(&self) -> ProjectPath {
         ProjectPath::new(format!("{GENERATED_DIR}/{}-{}.mp3", self.id, self.digest()))
     }
+
+    /// Whether a generation of this brief is already on disk.
+    ///
+    /// The answer to *has this been paid for*, whatever the document claims
+    /// about the asset — and the **current** brief's file, never the asset's
+    /// recorded `path`, which after a rewrite still points at the previous
+    /// reading. Every decision about whether a run has work goes through here
+    /// so it cannot be made both ways.
+    pub fn realized(&self, root: &std::path::Path) -> bool {
+        self.output().resolve(root).is_file()
+    }
 }
 
 /// A value, or the word that stands in for one that is not there.

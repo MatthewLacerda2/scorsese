@@ -12,12 +12,12 @@ use anyhow::Result;
 use scorsese_core::{AssetKind, Project};
 use scorsese_providers::credentials::{Budget, Provider, resolve};
 use scorsese_providers::prices::dollars;
-use scorsese_providers::video::{Outcome, Run, VeoProvider, collect, generate_waiting};
+use scorsese_providers::video::{Outcome, Plan, Run, VeoProvider, collect, generate_waiting, plan};
 
 /// Realises every sketched shot, waiting up to `patience` for the results.
 ///
 /// The key is resolved **here**, not by the caller, and only when this pass has
-/// something to do — see [`super::wants`]. A project whose only generated
+/// something to do — see [`super::pending`]. A project whose only generated
 /// assets are narration must never be asked for a Veo key.
 pub(super) fn pass(
     project: &mut Project,
@@ -47,24 +47,51 @@ pub(super) fn sweep(
     Ok(collect(project, project_dir, &provider)?)
 }
 
-/// What the sketched shots in this project would cost to realise.
-pub(super) fn quote(project: &Project) -> Result<u64> {
+/// What this run would spend on shots, decided the way the run decides it.
+///
+/// Each asset is priced by its [`Plan`]: only a brief that would actually be
+/// handed over reaches the total. A quote that priced every shot regardless
+/// told somebody with three generated shots and one stale one that the run
+/// would cost four shots' worth — a number the run could never spend.
+pub(super) fn quote(project: &Project, root: &std::path::Path) -> Result<u64> {
     let mut total = 0;
     for asset in project
         .assets
         .iter()
         .filter(|asset| asset.kind == AssetKind::GeneratedVideo)
     {
-        let estimate = scorsese_providers::prices::estimate(&asset.video_request())?;
-        println!(
-            "{:<24} {} — {}s of {} at {}",
-            asset.id,
-            dollars(estimate.cents),
-            estimate.seconds,
-            asset.video_request().model.as_str(),
-            asset.video_request().resolution.as_str(),
-        );
-        total += estimate.cents;
+        total += match plan(project, root, asset) {
+            Plan::Realized(path) => {
+                println!(
+                    "{:<24} already generated — {path} — nothing to pay",
+                    asset.id
+                );
+                0
+            }
+            Plan::InFlight => {
+                println!(
+                    "{:<24} still generating — already paid for, collected free",
+                    asset.id
+                );
+                0
+            }
+            Plan::Unready(why) => {
+                println!("{:<24} would not be sent — {why}", asset.id);
+                0
+            }
+            Plan::Submit => {
+                let estimate = scorsese_providers::prices::estimate(&asset.video_request())?;
+                println!(
+                    "{:<24} {} — {}s of {} at {}",
+                    asset.id,
+                    dollars(estimate.cents),
+                    estimate.seconds,
+                    asset.video_request().model.as_str(),
+                    asset.video_request().resolution.as_str(),
+                );
+                estimate.cents
+            }
+        };
     }
     Ok(total)
 }

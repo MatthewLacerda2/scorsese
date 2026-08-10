@@ -10,12 +10,12 @@ use anyhow::Result;
 use scorsese_core::{AssetId, AssetKind, Project};
 use scorsese_providers::credentials::{Budget, Provider, resolve};
 use scorsese_providers::prices::dollars;
-use scorsese_providers::speech::{ElevenLabsProvider, Outcome, generate};
+use scorsese_providers::speech::{ElevenLabsProvider, Outcome, Plan, generate, plan};
 
 /// Speaks every line that needs it.
 ///
 /// The key is resolved **here**, and only when this pass has something to do —
-/// see [`super::wants`]. A project of nothing but Veo shots must never be
+/// see [`super::pending`]. A project of nothing but Veo shots must never be
 /// asked for an ElevenLabs key.
 pub(super) fn pass(
     project: &mut Project,
@@ -27,30 +27,44 @@ pub(super) fn pass(
     Ok(generate(project, project_dir, &provider, budget)?)
 }
 
-/// What the narration in this project would cost to speak.
+/// What this run would spend on narration, decided the way the run decides it.
 ///
-/// Priced from the text that is already in the document, so unlike a shot this
-/// is exact before anything is sent — the vendor bills by character. It is
-/// still an estimate: the rate is a page somebody copied, and library-voice
-/// multipliers are deliberately ignored.
-pub(super) fn quote(project: &Project) -> Result<u64> {
+/// Each line is priced by its [`Plan`]: only one that would actually be spoken
+/// reaches the total — a line whose reading already sits in `generated/` costs
+/// this run nothing, however much it cost the run that paid for it. What does
+/// go in is exact before anything is sent, because the vendor bills by
+/// character; still an estimate, since the rate is a page somebody copied and
+/// library-voice multipliers are deliberately ignored.
+pub(super) fn quote(project: &Project, root: &Path) -> Result<u64> {
     let mut total = 0;
     for asset in project
         .assets
         .iter()
         .filter(|asset| asset.kind == AssetKind::GeneratedAudio)
     {
-        let request = asset.speech_request();
-        let characters = asset.prompt.as_ref().map_or(0, |line| line.chars().count());
-        let estimate = scorsese_providers::prices::speech(request.model, characters)?;
-        println!(
-            "{:<24} {} — {} characters in {}",
-            asset.id,
-            dollars(estimate.cents),
-            estimate.characters,
-            request.model.as_str(),
-        );
-        total += estimate.cents;
+        total += match plan(root, asset) {
+            Plan::Realized(path) => {
+                println!("{:<24} already spoken — {path} — nothing to pay", asset.id);
+                0
+            }
+            Plan::Unready(why) => {
+                println!("{:<24} not yet — {why}", asset.id);
+                0
+            }
+            Plan::Submit => {
+                let request = asset.speech_request();
+                let characters = asset.prompt.as_ref().map_or(0, |line| line.chars().count());
+                let estimate = scorsese_providers::prices::speech(request.model, characters)?;
+                println!(
+                    "{:<24} {} — {} characters in {}",
+                    asset.id,
+                    dollars(estimate.cents),
+                    estimate.characters,
+                    request.model.as_str(),
+                );
+                estimate.cents
+            }
+        };
     }
     Ok(total)
 }

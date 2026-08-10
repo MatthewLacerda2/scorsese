@@ -39,7 +39,7 @@ pub use brief::Brief;
 pub use elevenlabs::ElevenLabsProvider;
 pub use error::{Incomplete, SpeechError};
 pub use provider::{ProviderError, SpeechProvider};
-pub use run::{generate, quote};
+pub use run::{Plan, generate, pending, plan, quote};
 
 /// What happened to one line in a run.
 ///

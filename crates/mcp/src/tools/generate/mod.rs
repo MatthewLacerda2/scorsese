@@ -21,11 +21,11 @@ mod shots;
 use std::path::Path;
 use std::time::Duration;
 
-use scorsese_core::{Asset, AssetKind, Project, Reprobe, probe_assets};
+use scorsese_core::{Project, Reprobe, probe_assets};
 use scorsese_providers::credentials::{Budget, Settings};
 use scorsese_providers::prices::dollars;
-use scorsese_providers::spending;
 use scorsese_providers::video::{Run, WAIT_FOR};
+use scorsese_providers::{speech, spending, video};
 use scorsese_render::Ffprobe;
 use serde_json::Value;
 
@@ -93,7 +93,7 @@ impl Tool for Generate {
         let dir = project_dir(arguments)?;
         let mut project = load(&dir)?;
         if flag(arguments, "dry_run") {
-            return quote(&project);
+            return quote(&project, &dir);
         }
 
         let settings = Settings::load().unwrap_or_default();
@@ -146,38 +146,21 @@ fn run(
     shots: &mut Run,
     spoken: &mut lines::Spoken,
 ) -> Result<(), String> {
-    if wants(project, dir, AssetKind::GeneratedVideo) {
+    // Whether a pass runs at all is each provider's `pending`, which consults
+    // the **current brief's** output file — never the asset's recorded `path`.
+    // The recorded path is the previous generation's file: after an edit it
+    // still exists and still resolves, and consulting it is how a stale shot
+    // used to be skipped as *nothing to do*.
+    if video::pending(project, dir) {
         *shots = shots::pass(project, dir, asked.budget, asked.patience, asked.collecting)?;
     }
     // Collecting submits nothing by definition, and narration is never in
     // flight — so there is nothing for this pass to collect and asking for a
     // key would be asking for one to do nothing with.
-    if !asked.collecting && wants(project, dir, AssetKind::GeneratedAudio) {
+    if !asked.collecting && speech::pending(project, dir) {
         *spoken = lines::pass(project, dir, asked.budget.spend(shots.spent_cents))?;
     }
     Ok(())
-}
-
-/// Whether this kind has anything left to do, and so whether its key is needed.
-///
-/// True when a brief of that kind has no file behind it yet, or has work in
-/// flight. Asked of the **disk** and not only the document: an asset can say
-/// `generated` and have lost its file, and that one does need generating again
-/// whatever the state field claims.
-fn wants(project: &Project, root: &std::path::Path, kind: AssetKind) -> bool {
-    project
-        .assets
-        .iter()
-        .filter(|asset| asset.kind == kind)
-        .any(|asset| asset.operation.is_some() || !is_present(asset, root))
-}
-
-/// Whether this asset's media is actually on disk.
-fn is_present(asset: &Asset, root: &std::path::Path) -> bool {
-    asset
-        .path
-        .as_ref()
-        .is_some_and(|path| path.resolve(root).is_file())
 }
 
 /// Measures what has just been generated.
@@ -259,9 +242,13 @@ fn spent_so_far(project: &Project, root: &Path) -> u64 {
 }
 
 /// What a run would cost, without a key and without sending anything.
-fn quote(project: &Project) -> Result<Reply, String> {
+///
+/// What **this** run would spend, not what the project's briefs would cost
+/// from scratch: a brief whose output already sits in `generated/` is listed
+/// at nothing, because the run will find its file and send nothing.
+fn quote(project: &Project, dir: &Path) -> Result<Reply, String> {
     let mut lines = Vec::new();
-    let total = shots::quote(project, &mut lines)? + lines::quote(project, &mut lines)?;
+    let total = shots::quote(project, dir, &mut lines)? + lines::quote(project, dir, &mut lines)?;
     if lines.is_empty() {
         return Ok("Nothing to generate: this project has no prompted assets.".into());
     }
