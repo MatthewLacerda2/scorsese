@@ -21,6 +21,7 @@ impl StubProbe {
             width: Some(320),
             height: Some(240),
             frame_rate: Some(Fps::THIRTY),
+            has_alpha: Some(false),
             audio_channels: None,
             sample_rate: None,
         })

@@ -33,6 +33,7 @@ fn a_video_reports_size_rate_and_duration() {
     let duration = media.duration_seconds.expect("a duration");
     assert!((duration - 2.0).abs() < 0.1, "duration was {duration}");
     assert_eq!(media.audio_channels, None, "this clip is silent");
+    assert_eq!(media.has_alpha, Some(false), "yuv420p has no alpha plane");
     std::fs::remove_dir_all(&dir).ok();
 }
 
@@ -52,6 +53,7 @@ fn audio_reports_channels_and_sample_rate() {
     assert_eq!(media.audio_channels, Some(1));
     assert_eq!(media.sample_rate, Some(44_100));
     assert_eq!(media.width, None, "there is no picture in a wav");
+    assert_eq!(media.has_alpha, None, "and so nothing to have alpha");
     let duration = media.duration_seconds.expect("a duration");
     assert!((duration - 3.0).abs() < 0.1, "duration was {duration}");
     std::fs::remove_dir_all(&dir).ok();
@@ -81,6 +83,34 @@ fn a_still_image_has_size_but_no_real_frame_rate() {
 
     assert_eq!((media.width, media.height), (Some(64), Some(64)));
     assert_eq!(media.audio_channels, None);
+    assert_eq!(media.has_alpha, Some(false), "an rgb24 png is opaque");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn a_transparent_image_is_recorded_as_carrying_alpha() {
+    // The fact the decode chain acts on: a source with alpha is premultiplied
+    // around its scale, and a source without is left exactly as it was. Read
+    // off the pixel format, which is all ffprobe reports about transparency.
+    let tools = tools();
+    let dir = fixture_dir("transparent");
+    let file = dir.join("badge.png");
+    generate(
+        &tools,
+        &file,
+        &[
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=blue:s=16x16:d=1,format=rgba,pad=32:32:8:8:color=black@0.0",
+            "-frames:v",
+            "1",
+        ],
+    );
+
+    let media = Ffprobe::new(tools).probe(&file).expect("probe");
+
+    assert_eq!(media.has_alpha, Some(true));
     std::fs::remove_dir_all(&dir).ok();
 }
 

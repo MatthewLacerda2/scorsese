@@ -76,6 +76,13 @@ pub(crate) struct Source {
     pub(crate) frames: u64,
     /// How this source meets the raster.
     pub(crate) fitting: Fitting,
+    /// Whether the file carries an alpha channel, as the document records it.
+    /// An asset nobody has probed collapses to `false` here: the difference
+    /// between "no alpha" and "nobody looked" matters where the fact is
+    /// recorded, and this is the stage that has to act on one answer or the
+    /// other. Acting as though there is none is what the decoder did before
+    /// the fact existed.
+    pub(crate) has_alpha: bool,
     /// Which rectangle of the source is shown. Absent means all of it.
     pub(crate) crop: Option<Crop>,
 }
@@ -250,28 +257,137 @@ fn video_filter(settings: &RenderSettings, source: &Source) -> String {
     };
     let width = settings.resolution.width();
     let height = settings.resolution.height();
+    let scale = |arguments: &str| resample(arguments, source.has_alpha);
     match fitting {
         // Explicit numbers rather than `force_original_aspect_ratio=decrease`,
         // because the buffer reading this pipe is sized from the same
         // rectangle: the two have to agree exactly, and the only way to be sure
         // they do is for one of them to have decided it.
-        Fitting::Fit(fitted) => format!(
-            "{rate},scale={}:{},format=rgba",
-            fitted.width(),
-            fitted.height()
-        ),
-        Fitting::FitPadded => format!(
-            "{rate},\
-             scale={width}:{height}:force_original_aspect_ratio=decrease,\
-             format=rgba,\
-             pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=black@0.0"
-        ),
-        Fitting::Fill => format!(
-            "{rate},\
-             scale={width}:{height}:force_original_aspect_ratio=increase,\
-             format=rgba,\
-             crop={width}:{height}"
-        ),
+        Fitting::Fit(fitted) => {
+            let scale = scale(&format!("{}:{}", fitted.width(), fitted.height()));
+            format!("{rate},{scale},format=rgba")
+        }
+        Fitting::FitPadded => {
+            let scale = scale(&format!(
+                "{width}:{height}:force_original_aspect_ratio=decrease"
+            ));
+            format!(
+                "{rate},{scale},\
+                 format=rgba,\
+                 pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=black@0.0"
+            )
+        }
+        Fitting::Fill => {
+            let scale = scale(&format!(
+                "{width}:{height}:force_original_aspect_ratio=increase"
+            ));
+            format!("{rate},{scale},format=rgba,crop={width}:{height}")
+        }
+        // Nothing is resampled, so there is nothing alpha could be smeared by.
         Fitting::Native(_) => format!("{rate},format=rgba"),
+    }
+}
+
+/// One `scale`, with the premultiply a transparent source needs around it.
+///
+/// swscale resamples each channel on its own, in **straight** alpha, where the
+/// colour of a fully transparent pixel means nothing and is almost always
+/// black. Average an opaque white pixel with one of those and the alpha comes
+/// out right — half coverage — while the colour comes out grey, which on the
+/// edge of a logo is a dark rim all the way round. Premultiplying first makes
+/// the transparent pixel's colour weigh nothing, which is the whole of the fix.
+/// The compositor already does this for the same reason before it hands a layer
+/// to the rasteriser; this is the same care at the other end of the pipe.
+///
+/// **Only when the source really has alpha.** Wrapping an opaque source is not
+/// a no-op: `premultiply` accepts only alpha-capable pixel formats, so a
+/// `yuv420p` source gets a different conversion path into swscale and its
+/// pixels move by a level or two. They are small differences, inside every
+/// tolerance the golden gate uses — and they are differences to every frame of
+/// every opaque source in the project, bought for a source that has no alpha to
+/// protect.
+fn resample(arguments: &str, has_alpha: bool) -> String {
+    if has_alpha {
+        format!("premultiply=inplace=1,scale={arguments},unpremultiply=inplace=1")
+    } else {
+        format!("scale={arguments}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use scorsese_core::Fps;
+
+    fn source(fitting: Fitting, has_alpha: bool) -> Source {
+        Source {
+            file: PathBuf::from("shot.mp4"),
+            still: false,
+            seek_seconds: 0.0,
+            speed: Speed::NORMAL,
+            frames: 30,
+            fitting,
+            has_alpha,
+            crop: None,
+        }
+    }
+
+    fn settings() -> RenderSettings {
+        RenderSettings::new(
+            Resolution::new(64, 64).expect("64x64 is a resolution"),
+            Fps::THIRTY,
+        )
+    }
+
+    fn filter(fitting: Fitting, has_alpha: bool) -> String {
+        video_filter(&settings(), &source(fitting, has_alpha))
+    }
+
+    fn fitted() -> Fitting {
+        Fitting::Fit(Resolution::new(64, 32).expect("64x32 is a resolution"))
+    }
+
+    /// The acceptance criterion of the change that added the premultiply: a
+    /// source with no alpha — which is every opaque one, and every one nobody
+    /// has probed — reaches ffmpeg with the chain it reached ffmpeg with
+    /// before. Every golden reference in the repository was blessed against
+    /// these exact strings.
+    #[test]
+    fn a_source_without_alpha_gets_the_chain_it_always_got() {
+        assert_eq!(filter(fitted(), false), "fps=30/1,scale=64:32,format=rgba");
+        assert_eq!(
+            filter(Fitting::FitPadded, false),
+            "fps=30/1,scale=64:64:force_original_aspect_ratio=decrease,format=rgba,\
+             pad=64:64:(ow-iw)/2:(oh-ih)/2:color=black@0.0"
+        );
+        assert_eq!(
+            filter(Fitting::Fill, false),
+            "fps=30/1,scale=64:64:force_original_aspect_ratio=increase,format=rgba,crop=64:64"
+        );
+    }
+
+    #[test]
+    fn a_source_with_alpha_is_premultiplied_around_every_scale() {
+        assert_eq!(
+            filter(fitted(), true),
+            "fps=30/1,premultiply=inplace=1,scale=64:32,unpremultiply=inplace=1,format=rgba"
+        );
+        assert!(filter(Fitting::FitPadded, true).contains(
+            "premultiply=inplace=1,scale=64:64:force_original_aspect_ratio=decrease,\
+             unpremultiply=inplace=1"
+        ));
+        assert!(filter(Fitting::Fill, true).contains(
+            "premultiply=inplace=1,scale=64:64:force_original_aspect_ratio=increase,\
+             unpremultiply=inplace=1"
+        ));
+    }
+
+    /// `native` resamples nothing, so there is nothing for alpha to be smeared
+    /// by and no filter pair to pay for.
+    #[test]
+    fn a_native_source_is_untouched_either_way() {
+        let native = Fitting::Native(Resolution::new(32, 32).expect("32x32 is a resolution"));
+        assert_eq!(filter(native, true), "fps=30/1,format=rgba");
+        assert_eq!(filter(native, false), filter(native, true));
     }
 }
