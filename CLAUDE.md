@@ -305,9 +305,14 @@ that goes with it.
 - **Assign the user when you start.** The moment work begins on an issue,
   assign the user to it so it's visibly taken. Unassigned = fair game;
   assigned = in progress by someone.
-- **Never file an issue and start it in the same breath** — unless the work is
-  a direct consequence of another, already-decided issue. An idea still being
-  shaped has to settle before anyone codes it.
+- **A stage label is the only thing that stops an issue being started.** `idea`,
+  `planning` and `human` mean *not yet*, and they are absolute — an idea still
+  being shaped has to settle before anyone codes it. Absent one, an issue is
+  startable the moment it exists, including one Claude filed a minute ago. The
+  judgement about whether something is ready to be worked is made **when the
+  label goes on**, or when it deliberately does not; asking the same question a
+  second time at the moment work begins adds nothing, and leaves a clear bug
+  sitting in the codebase for the length of a round trip.
 - **Gates vs. signals — block on correctness, inform on quality.** A check
   that proves **correctness** — build, test, `clippy -D warnings`, the golden
   renders, the size gate — is a **hard gate**: green-to-merge, no exceptions.
@@ -416,9 +421,14 @@ that goes with it.
   tool would be useful more than once. Only things whose benefit outweighs the
   cost of implementing them get an issue. If a Claude-written issue is a
   breaking change, changes human-interfacing features, or needs a human's
-  judgement call, it must carry one of `idea`, `planning` or `human`. Filing is
-  Claude's; deciding is not — the rule against starting an issue in the same
-  breath as filing it holds here without exception.
+  judgement call, it must carry one of `idea`, `planning` or `human` — and so
+  must a structural change Claude proposes, which carries `planning` until the
+  user has settled the approach. Filing is Claude's, and so is starting, past
+  those labels: with no stage label on it, Claude may start an issue in the same
+  breath as filing it. A `bug` usually should be — it is specific, the deciding
+  already happened when the code broke, and nothing is gained by making it wait.
+  The label is where the judgement lives, so put it on honestly: broad or vague
+  is what `planning` is for.
 - **Priority by label:** **architecture → infrastructure → bug → foundation →
   feature.** If the way we build isn't solid — a structural shape or
   convention missing (**architecture**), a tool or guardrail missing
@@ -436,7 +446,8 @@ Stage labels (at most one; absence means ready):
 - **planning** — has value, but the architecture/GUI approach is still being
   discussed. Must **NOT** be started.
 - *(no stage label)* — ready: anyone (human or Claude) can tell a Claude agent:
-  "do issue N" and Claude can read it, implement it and merge it
+  "do issue N" and Claude can read it, implement it and merge it. This includes
+  an issue Claude has just filed itself.
 
 Type labels (combinable with a stage label):
 
