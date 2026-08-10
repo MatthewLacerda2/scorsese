@@ -83,12 +83,12 @@ fn generate(brief: &Brief) -> Generate {
     Generate {
         instances: [Instance {
             prompt: brief.prompt.clone(),
-            image: brief.first_image.as_ref().map(inline),
-            last_frame: brief.last_image.as_ref().map(inline),
+            image: brief.first_image.as_ref().map(encoded),
+            last_frame: brief.last_image.as_ref().map(encoded),
             reference_images: brief
                 .reference_images
                 .iter()
-                .map(|still| inline(still).as_asset())
+                .map(|still| encoded(still).as_asset())
                 .collect(),
         }],
         parameters: Parameters {
@@ -101,8 +101,8 @@ fn generate(brief: &Brief) -> Generate {
 
 /// A still as the vendor carries one: base64 in the body, because Google has no
 /// way to reach a file on this machine.
-fn inline(still: &Still) -> Image {
-    Image::inline(&still.mime_type, base64(&still.bytes))
+fn encoded(still: &Still) -> Image {
+    Image::encoded(&still.mime_type, base64(&still.bytes))
 }
 
 /// How the brief's aspect is spelled on the wire.
