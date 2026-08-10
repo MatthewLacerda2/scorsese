@@ -70,7 +70,7 @@ the size of the change rather than the size of the codebase.
 cargo install cargo-mutants --locked
 
 make mutants                                      # what CI runs: this branch's diff
-cargo mutants                                     # the whole scoped surface, ~16 min
+cargo mutants                                     # the whole scoped surface, 3018 mutants
 cargo mutants -F '^crates/core/src/keyframe\.rs'  # one file, while writing it
 ```
 

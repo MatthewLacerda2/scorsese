@@ -457,8 +457,13 @@ jobs:
   # with the reasoning for every inclusion and exclusion, plus the
   # equivalent-mutant policy; `--in-diff` below is the second, and it is what
   # makes the cost track the size of the change rather than the size of the
-  # codebase. Measured on the full scoped surface: 592 mutants, ~12 minutes at
-  # `-j 3`. A per-PR run sees a small fraction of that.
+  # codebase. The full scoped surface is 3018 mutants at cargo-mutants 27.1.0;
+  # a per-PR run sees a small fraction of that. This line read "592 mutants,
+  # ~12 minutes at `-j 3`" until #289, and both halves of that drifted for
+  # reasons worth separating: the surface grew when `crates/zimmer` was added
+  # to it, and the count grew *again* on the same source because a newer
+  # cargo-mutants generates mutations the older one did not. Hence the version
+  # stamp — a count here is only ever a count for one tool version.
   #
   # Pull requests only. `--in-diff` needs two commits to compare, and a push to
   # `main` has no base to be a diff *from*. If a full sweep is ever wanted, it

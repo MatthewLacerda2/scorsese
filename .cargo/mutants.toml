@@ -9,7 +9,7 @@
 # Run it:
 #
 #     make mutants     # this branch's diff, exactly as the CI job scopes it
-#     cargo mutants    # the whole surface below, ~16 minutes
+#     cargo mutants    # the whole surface below, 3018 mutants
 #
 # ---------------------------------------------------------------------------
 # The mutated surface
@@ -57,6 +57,35 @@
 #
 # Adding a crate here is a deliberate change: it moves per-PR CI cost, so make
 # it in its own commit with the measured before-and-after.
+#
+# What zimmer cost, measured for #289:
+#
+# - **The surface, exactly.** 1718 mutants before, 3018 after — zimmer is 1300
+#   of them, +76%. `cargo mutants --list` builds nothing and runs nothing, so
+#   this number depends only on the source and the tool version and is the same
+#   on every machine. Stamped, because it moves with the tool: cargo-mutants
+#   27.1.0.
+# - **What CI pays per pull request: nothing extra, for almost every PR.** The
+#   `mutants` job runs `--in-diff`, so this file decides which of a diff's
+#   changed lines are *mutable*, never how many get mutated. A PR that does not
+#   touch `crates/zimmer` costs exactly what it did before. A PR that does now
+#   gets a signal where it previously got silence, priced by the size of its own
+#   diff — not by the 1300 above, which is a ceiling nobody pays per PR.
+# - **Is the surface earning its keep?** A *partial* sweep — 53 of zimmer's
+#   1300 mutants, stopped on purpose rather than run out — came back 38 caught,
+#   10 missed, 5 unviable. A catch rate around four in five on first contact is
+#   the answer that makes a surface worth having: the crate's tests already
+#   object to most of what this tool can break, so the report is a short list to
+#   read rather than a wall to ignore. The survivors are not this file's
+#   business — per docs/mutation-testing.md a survivor is its own issue.
+# - **Wall clock is deliberately not quoted here.** The one measurement taken
+#   was on darwin/arm64 with four other cargo builds running (load average ~33
+#   on ten cores), where the same tool reported anything from 1s to 128s to
+#   build a mutant. That is a number about a busy laptop, not about a cold
+#   GitHub-hosted `ubuntu-24.04` runner at `--jobs 2`, and quoting it would be
+#   inventing a CI figure. The mutant count is the honest before-and-after; the
+#   job's own `timeout-minutes: 30` is the backstop if a zimmer-heavy diff ever
+#   turns out to be slow in practice.
 examine_globs = [
     "crates/core/src/**/*.rs",
     "crates/compositor/src/**/*.rs",
