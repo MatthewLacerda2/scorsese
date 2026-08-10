@@ -178,3 +178,149 @@ fn tremolo(lfo: Option<Lfo>, i: usize) -> f32 {
         _ => 1.0,
     }
 }
+
+/// The pitch-bend path by the number, not the range.
+///
+/// What defends these two functions otherwise is a suite that asks whether a
+/// note has audio in it and whether the level moves — which has no opinion
+/// about *which* note is playing. A wrong operator here ships sound that is
+/// wrong rather than sound that is absent, in the crate whose whole promise is
+/// that one recipe always makes one file.
+///
+/// Every expected value below is worked out by hand from what the two
+/// functions document and written as a literal; recomputing the formula in the
+/// test would only assert that the code agrees with itself.
+///
+/// **On exactness.** These are `f32`, and each assertion says which it is:
+/// `assert_eq!` where the maths is exact in binary — `sin(0)`, `2^0 = 1`,
+/// `2^±1 = 2` and `0.5`, and the identity multiplies through them — and a tight
+/// epsilon only where an irrational lands between two floats, with the reason
+/// named. A tolerance wide enough to hide a swapped operator would defeat the
+/// point of the file.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The pitch every bend below is measured from: A4, and a round number of
+    /// Hz, so an octave up and an octave down are round numbers too.
+    const BASE: f32 = 440.0;
+
+    /// The rate every wave below runs at. **Not 1 Hz**: `TAU * rate` and
+    /// `TAU / rate` are the same expression at 1, so a rate of one would let
+    /// that mutation through. 5 Hz also divides [`RATE`] evenly four ways,
+    /// which is what makes the quarter-cycle index an integer.
+    const RATE_HZ: f32 = 5.0;
+
+    /// A quarter of a cycle at [`RATE_HZ`]: `44_100 / (4 * 5)`. The peak.
+    const PEAK: usize = 2_205;
+
+    /// Three quarters of a cycle: the trough.
+    const TROUGH: usize = 6_615;
+
+    /// A whole cycle, and one sample longer than the tracks need to be.
+    const CYCLE: usize = 8_820;
+
+    fn lfo(depth: f32, target: LfoTarget) -> Lfo {
+        Lfo {
+            rate: RATE_HZ,
+            depth,
+            target,
+        }
+    }
+
+    /// `sin(0)` is zero however fast the LFO is running, so the first sample
+    /// pins the rate term out of the way of everything after it.
+    #[test]
+    fn the_wave_starts_at_zero_whatever_the_rate() {
+        for rate in [0.0, 0.1, 1.0, RATE_HZ, 440.0] {
+            let l = Lfo {
+                rate,
+                depth: 1.0,
+                target: LfoTarget::Pitch,
+            };
+            assert_eq!(lfo_wave(&l, 0), 0.0, "rate {rate}");
+        }
+    }
+
+    /// A quarter cycle in, the phase is `TAU/4` and the sine is at its peak;
+    /// three quarters in, its trough. Both are exact: the nearest `f32` to
+    /// `sin` of the nearest `f32` to a right angle is 1 itself, because the
+    /// sine is flat there.
+    #[test]
+    fn a_quarter_cycle_in_the_wave_is_at_its_peak() {
+        let l = lfo(1.0, LfoTarget::Pitch);
+        assert_eq!(lfo_wave(&l, PEAK), 1.0);
+        assert_eq!(lfo_wave(&l, TROUGH), -1.0);
+    }
+
+    /// A whole cycle is back at zero — the one value here that cannot be
+    /// exact, because `TAU` is irrational and the `f32` nearest it is a
+    /// fraction of a degree past the turn. The error is the gap in `TAU`, not
+    /// slack for an operator to hide in.
+    #[test]
+    fn a_whole_cycle_returns_to_zero() {
+        assert!(lfo_wave(&lfo(1.0, LfoTarget::Pitch), CYCLE).abs() < 1e-6);
+    }
+
+    /// A negative rate is clamped to nothing rather than run backwards, so the
+    /// wave is held at zero for the whole track.
+    #[test]
+    fn a_negative_rate_holds_the_wave_still() {
+        let l = Lfo {
+            rate: -RATE_HZ,
+            depth: 1.0,
+            target: LfoTarget::Pitch,
+        };
+        for i in [0, PEAK, TROUGH, CYCLE] {
+            assert_eq!(lfo_wave(&l, i), 0.0, "sample {i}");
+        }
+    }
+
+    /// The wave is zero at the first sample, so the bend is `2^0 = 1` and the
+    /// pitch is the one that was played — for any depth at all, including one
+    /// deep enough to be audible two octaves away.
+    #[test]
+    fn the_first_sample_is_the_played_pitch_whatever_the_depth() {
+        for depth in [0.0, 2.0, 12.0, -7.0, 24.0] {
+            let track = pitch_track(Some(lfo(depth, LfoTarget::Pitch)), BASE, 8);
+            assert_eq!(track[0], BASE, "depth {depth}");
+        }
+    }
+
+    /// Twelve semitones is an octave: at the peak the bend is `2^(12/12) = 2`
+    /// and A4 is A5, at the trough it is A3. Both numbers move under every
+    /// mutation of the semitones-to-octaves divide, of the depth multiply and
+    /// of the multiply that applies the bend to the pitch.
+    #[test]
+    fn twelve_semitones_bends_a_whole_octave_each_way() {
+        let track = pitch_track(Some(lfo(12.0, LfoTarget::Pitch)), BASE, CYCLE);
+        assert_eq!(track[PEAK], 880.0);
+        assert_eq!(track[TROUGH], 220.0);
+    }
+
+    /// Twice the depth is twice the octaves, not twice the frequency — the
+    /// difference between a bend that is exponential in semitones and one that
+    /// is anything else.
+    #[test]
+    fn twice_the_depth_is_twice_the_octaves() {
+        let track = pitch_track(Some(lfo(24.0, LfoTarget::Pitch)), BASE, CYCLE);
+        assert_eq!(track[PEAK], 1760.0);
+        assert_eq!(track[TROUGH], 110.0);
+    }
+
+    /// An LFO aimed at the filter or the amplifier does not touch the pitch,
+    /// however deep it is — the whole track is the played note.
+    #[test]
+    fn an_lfo_aimed_elsewhere_leaves_the_pitch_flat() {
+        for target in [LfoTarget::Cutoff, LfoTarget::Amp] {
+            let track = pitch_track(Some(lfo(12.0, target)), BASE, CYCLE);
+            assert_eq!(track, vec![BASE; CYCLE], "target {target:?}");
+        }
+    }
+
+    /// And no LFO at all is the same flat track, at the length asked for.
+    #[test]
+    fn no_lfo_is_a_flat_track_of_the_length_asked_for() {
+        assert_eq!(pitch_track(None, BASE, 512), vec![BASE; 512]);
+    }
+}
