@@ -81,7 +81,7 @@ pub fn collect(
 
 /// What a run would do with one asset, read without doing it.
 ///
-/// [`one`]'s decision order — the cache first, then the ticket, then a
+/// The pass's own decision order — the cache first, then the ticket, then a
 /// submission — answered before any key is resolved and without spending
 /// anything. It exists for the callers that come *before* a run: the dry-run
 /// quote, and the check that decides whether a pass is worth resolving a key

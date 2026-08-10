@@ -63,7 +63,7 @@ pub fn generate(
 /// variant nothing here can be in. It exists for the callers that come
 /// *before* a run — the dry-run quote, and the check that decides whether a
 /// pass is worth resolving a key for — so they consult the same brief-derived
-/// answer [`one`] will, rather than the asset's recorded `path`, which after
+/// answer the pass will, rather than the asset's recorded `path`, which after
 /// a rewrite still points at the previous reading.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Plan {
