@@ -125,6 +125,40 @@ change at all is read it, change it, write it back. The format is
 refused with every problem listed and the file on disk is left exactly as it
 was — so a half-formed edit cannot destroy a working one.
 
+**The loop carries a fingerprint.** `project_read` answers in two blocks: the
+document, exactly as it is on disk, and then a line reporting a `fingerprint`
+for it. `project_write` takes that fingerprint alongside the document, and it
+is not optional — it is what says *which* version of the file this edit is a
+change to.
+
+```
+project_read   { "project": "teaser.scor" }
+               → the document
+               → "fingerprint: 9f2c…"
+project_write  { "project": "teaser.scor", "document": "…", "fingerprint": "9f2c…" }
+```
+
+If something else replaced the document between the read and the write, the
+write is **refused and nothing is written**; the message says so, and says to
+read the project again. Redo the change on what is there now and write it back
+— a cheap round trip, and the correct outcome. Every other tool reads the
+document for itself inside the one call, so this concerns the read/write pair
+alone.
+
+Without it, two callers editing one project both succeed and the later one
+silently takes the earlier one's work with it. That needs no misbehaviour at
+all to happen: `generate` holds a document for the minutes a provider takes, so
+a caller that read before any of that landed and wrote after it would erase a
+shot somebody has already paid for.
+
+**It is not a lock and it is not coordination.** Nothing is held between calls,
+and nothing here schedules callers or partitions work. Keeping to disjoint
+scopes — one caller per track, and nobody running `scale_pacing` while another
+is mid-edit — is still the convention, and it works because clips carry
+absolute `start` frames, so genuinely independent work genuinely is
+independent. The fingerprint only makes it impossible to break that convention
+quietly.
+
 **Call `project_probe` after adding assets by writing the document.** Import
 measures what it brings in; an asset that arrived by being written into
 `project.json` carries a path and nothing recorded about the file behind it,
@@ -825,6 +859,12 @@ would get optimised. A project of fewer than two songs has no set to report on.
 There is no server-side "open project". Every call names the project it works
 on, so a client may crash, reconnect, or run two conversations against one
 project without anything getting out of step.
+
+The fingerprint the read/write pair passes is not an exception to that. It
+travels with the call rather than being remembered here, and it is derived from
+the bytes on disk — so a client that disappears mid-edit leaves nothing behind
+to time out, and a fingerprint from an hour ago means exactly what one from a
+second ago does.
 
 ## Every tool describes itself, and that is a gate
 

@@ -9,6 +9,7 @@
 mod changing;
 mod composing;
 mod fixture;
+mod guarding;
 mod handshake;
 mod importing;
 mod looking;

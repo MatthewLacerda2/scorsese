@@ -2,11 +2,11 @@
 //!
 //! None of these change anything, and none of them cost anything to run.
 
-use scorsese_core::{HashCheck, Project, asset_status};
+use scorsese_core::{HashCheck, Project, asset_status, fingerprint_of};
 use scorsese_render::{Commentary, Description, FrameRange, Note, Plan, unknown_in};
 use serde_json::Value;
 
-use super::{Costs, Reply, Tool, project_dir, project_only_schema};
+use super::{Costs, Part, Reply, Tool, project_dir, project_only_schema};
 
 /// The project document itself.
 pub(super) struct Read;
@@ -19,7 +19,10 @@ impl Tool for Read {
     fn description(&self) -> &'static str {
         "Read a project's project.json exactly as it is on disk. The whole edit \
          is in this document — assets, tracks, clips, keyframes — so this is the \
-         starting point for any change. Pair with project_write to edit it. The \
+         starting point for any change. Pair with project_write to edit it, and \
+         hand it the `fingerprint` this reports: it says which document the edit \
+         was made against, so a write cannot silently land on a change somebody \
+         else made in the meantime. The \
          format is documented in docs/project-format.md."
     }
 
@@ -36,9 +39,22 @@ impl Tool for Read {
         // Read rather than load-and-serialise, so what comes back is the file
         // as written — including whatever a hand edit left in it. A document
         // that will not validate is exactly when reading it matters most.
-        std::fs::read_to_string(dir.join(scorsese_core::PROJECT_FILE_NAME))
-            .map(Into::into)
-            .map_err(|error| format!("reading the project: {error}"))
+        let document = std::fs::read_to_string(dir.join(scorsese_core::PROJECT_FILE_NAME))
+            .map_err(|error| format!("reading the project: {error}"))?;
+        // Its own part, after the document rather than woven into it: the
+        // first block is the file and nothing else, so a client that parses
+        // what it was handed still gets a project.
+        let fingerprint = fingerprint_of(document.as_bytes());
+        Ok(vec![
+            Part::words(document),
+            Part::words(format!(
+                "fingerprint: {fingerprint}\nPass this to project_write with the edit. It \
+                 says which document the edit was made against, and a write built on one \
+                 something else has since replaced is refused rather than dropping that \
+                 change."
+            )),
+        ]
+        .into())
     }
 }
 

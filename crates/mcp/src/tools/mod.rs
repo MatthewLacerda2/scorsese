@@ -56,6 +56,17 @@ pub struct Part {
 }
 
 impl Part {
+    /// Words, with nothing to show. What a reply of several parts is built
+    /// from when none of them is a picture — a whole document and the note
+    /// that goes with it, kept in separate blocks so the document arrives
+    /// exactly as it is on disk.
+    pub(crate) fn words(text: impl Into<String>) -> Self {
+        Self {
+            text: text.into(),
+            image: None,
+        }
+    }
+
     /// A picture, and the words that go with it.
     pub(crate) fn picture(text: String, png: &[u8]) -> Self {
         Self {
