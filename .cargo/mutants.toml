@@ -115,8 +115,8 @@ examine_globs = [
 # — it is just not a promise about which files get tested. Those 14 strays ride
 # along from wherever they live and the report describes them too, so read past
 # any `delete field` row from a file you did not name. `-p scorsese-core` narrows
-# to a whole crate with no strays at all, because it is a file filter. Nothing
-# narrows to exactly one file.
+# to a whole crate with no strays at all, because it decides what to visit rather
+# than what to keep. Nothing narrows to exactly one file.
 exclude_globs = [
     "crates/render/src/pipe/**/*.rs",
     "crates/golden/**/*.rs",
