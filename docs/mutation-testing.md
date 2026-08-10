@@ -53,9 +53,9 @@ So the two are complements:
 
 ## What gets mutated
 
-The pure-logic surface only: `crates/core`, `crates/compositor`, and the plan
-and audio arithmetic of `crates/render`. The ffmpeg command builders and
-`crates/golden` are excluded on purpose.
+The pure-logic surface only: `crates/core`, `crates/compositor`, `crates/zimmer`,
+and the plan and audio arithmetic of `crates/render`. The ffmpeg command builders
+and `crates/golden` are excluded on purpose.
 
 `.cargo/mutants.toml` is the authority on that list and gives the reason for
 every inclusion and exclusion. Read it there rather than trusting this
@@ -70,7 +70,7 @@ the size of the change rather than the size of the codebase.
 cargo install cargo-mutants --locked
 
 make mutants                                      # what CI runs: this branch's diff
-cargo mutants                                     # the whole scoped surface, ~16 min
+cargo mutants                                     # the whole scoped surface, 3018 mutants
 cargo mutants -F '^crates/core/src/keyframe\.rs'  # one file, while writing it
 ```
 

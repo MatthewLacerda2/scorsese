@@ -294,7 +294,7 @@ coverage: ## Which pub items no test reaches. A signal: no threshold, blocks not
 # Diff-scoped, exactly as the `mutants` job runs it, because the useful question
 # before a push is "would anything notice if what I just wrote were wrong?" and
 # not "how is the whole codebase doing". `cargo mutants` on its own sweeps the
-# full scoped surface — ~16 minutes — and is there when that is what you want.
+# full scoped surface — 3018 mutants — and is there when that is what you want.
 #
 # Surviving mutants exit 2 and timeouts exit 3; neither is a failure of the run,
 # so neither fails this target. Anything else is the tool breaking and does.
