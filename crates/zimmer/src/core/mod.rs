@@ -313,14 +313,23 @@ mod tests {
     #[test]
     fn an_lfo_aimed_elsewhere_leaves_the_pitch_flat() {
         for target in [LfoTarget::Cutoff, LfoTarget::Amp] {
-            let track = pitch_track(Some(lfo(12.0, target)), BASE, CYCLE);
-            assert_eq!(track, vec![BASE; CYCLE], "target {target:?}");
+            flat(&pitch_track(Some(lfo(12.0, target)), BASE, CYCLE), CYCLE);
         }
     }
 
     /// And no LFO at all is the same flat track, at the length asked for.
     #[test]
     fn no_lfo_is_a_flat_track_of_the_length_asked_for() {
-        assert_eq!(pitch_track(None, BASE, 512), vec![BASE; 512]);
+        flat(&pitch_track(None, BASE, 512), 512);
+    }
+
+    /// `n` samples, every one of them the played pitch. Sample by sample
+    /// rather than against a whole `Vec`, so a track that bends names the
+    /// sample that first did instead of printing several thousand floats.
+    fn flat(track: &[f32], n: usize) {
+        assert_eq!(track.len(), n);
+        for (i, f) in track.iter().enumerate() {
+            assert_eq!(*f, BASE, "sample {i}");
+        }
     }
 }
