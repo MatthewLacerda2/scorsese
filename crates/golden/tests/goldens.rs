@@ -9,6 +9,16 @@
 //! These need ffmpeg on PATH, which CI installs. They do not skip themselves
 //! when it is absent: a correctness gate that passes by doing nothing is worse
 //! than no gate.
+//!
+//! They do skip themselves off Linux, which is a different claim and the only
+//! one of its kind here. References are blessed on Linux and CI compares them
+//! on Linux; everywhere else the comparison measures the local ffmpeg's decode
+//! path as much as it measures the compositor, and the tolerances were never
+//! sized for that. So the fixtures are `#[ignore]`d on any other target — not
+//! compiled out, so they still have to build and can still be run on purpose
+//! with `--run-ignored all`, and reported as *skipped* by the runner rather
+//! than passing silently. `docs/golden-renders.md` holds the whole reasoning,
+//! including why this is keyed on the platform and not on a decoder mismatch.
 
 use std::path::{Path, PathBuf};
 
@@ -50,6 +60,12 @@ macro_rules! goldens {
 
         $(
             #[test]
+            // Off Linux the frames are not ours to judge — see the module doc.
+            // `ignore` rather than `cfg` so the runner counts them and says so.
+            #[cfg_attr(
+                not(target_os = "linux"),
+                ignore = "the pixel gate is authoritative only on Linux, where the references were blessed"
+            )]
             fn $name() {
                 check(stringify!($name));
             }
