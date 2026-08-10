@@ -84,8 +84,31 @@ Results land in `mutants.out/` (gitignored). `mutants.out/missed.txt` is the
 survivor list; `mutants.out/diff/` holds the actual edit that survived, which
 is usually the fastest way to see what a survivor means.
 
+`make mutants` finishes by rendering that as the Markdown CI posts — see
+[Reading the report](#reading-the-report) for what it does and does not list.
+
+## Reading the report
+
 `python3 .github/scripts/mutants-summary.py mutants.out/outcomes.json` renders
-it as the Markdown CI posts.
+the run as the Markdown CI posts, and it is a **worklist**: rows are survivors
+somebody can act on one at a time.
+
+Two things never become rows, because they are one finding rather than many:
+
+- **A file where nothing at all was caught** — every mutant of it survived, and
+  there were at least three. That is one statement about the module: *no test
+  in the mutated crate asserts on this code.* The cause is usually structural.
+  `test_workspace = false` runs only the mutated package's own tests, so a
+  module whose assertions live in another crate has every mutant survive by
+  construction, and no per-line reading of the list would have found that out.
+  The response is one assertion next to the code, or one written reason it
+  belongs elsewhere.
+- **A file with more than eight survivors** — collapsed to a count whatever was
+  caught in it. Past that length nobody triages the rows individually, and what
+  the fifteenth says is what the first said.
+
+Everything else is listed in full; the report does not paginate. A table with
+rows in it is short because there is genuinely something to read.
 
 ## Triaging a survivor
 
