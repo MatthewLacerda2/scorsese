@@ -1,0 +1,9 @@
+{
+  "description": "A blue square with a transparent surround, over a red bed. The surround must let the red through: what this catches is alpha that arrived in the file being flattened somewhere between the decoder and the canvas, which every other fixture's media — all opaque lavfi sources — is structurally unable to notice. Expect a blue square centred on red. A black surround means the alpha was lost; a blue full frame means the layer was drawn opaque. The badge is `fit: native` so nothing scales it, which keeps this fixture about one thing only: alpha survived the decode and composited.",
+  "media": {
+    "bed": "color=c=red:s=64x64:d=1:r=30",
+    "badge": "color=c=blue:s=32x32:d=1,format=rgba,pad=64:64:16:16:color=black@0.0"
+  },
+  "render": { "resolution": "64x64", "fps": "30" },
+  "frames": [0]
+}
