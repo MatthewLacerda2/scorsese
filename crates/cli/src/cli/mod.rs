@@ -234,7 +234,8 @@ pub(crate) enum Command {
     },
     /// Ask ffprobe about every asset that has a file and no recorded
     /// metadata, and write down what it says: how long the source is, how big
-    /// it is, and whether it carries sound.
+    /// it is, whether its picture carries transparency, and whether it carries
+    /// sound.
     ///
     /// Import already does this for what it brings in; this is for everything
     /// that reached `project.json` another way. Safe to re-run — an

@@ -24,8 +24,8 @@ impl Tool for Probe {
     fn description(&self) -> &'static str {
         "Ask ffprobe about every asset that has a file and no recorded \
          metadata, and write down what it says. That is how long the source is, \
-         its width and height, its frame rate, and whether it carries sound. \
-         Import does this \
+         its width and height, its frame rate, whether its picture carries \
+         transparency, and whether it carries sound. Import does this \
          for what it brings in, so this is for the assets that reached \
          project.json another way — which is every asset you added by writing \
          the document. Call it after adding assets by hand: features that need \

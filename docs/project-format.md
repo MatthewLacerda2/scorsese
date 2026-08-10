@@ -1294,9 +1294,9 @@ v20 build.
 
 Nothing re-renders differently on its own. A `media` block written before v21
 has no `has_alpha` in it, which reads as "nobody has looked" and leaves the
-render doing exactly what it did under v20. That matters for one asset kind: a
-transparent source that is scaled comes back with a dark rim around its edges
-until the fact is recorded. `scorsese probe --all` re-reads every asset and
+render doing exactly what it did under v20. That matters for one kind of
+source: a transparent one that is scaled comes back with a dark rim around its
+edges until the fact is recorded. `scorsese probe --all` re-reads every asset and
 writes it, and is the whole of the migration for a project that has one.
 
 ## Migrating from v19

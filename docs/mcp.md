@@ -162,9 +162,11 @@ quietly.
 **Call `project_probe` after adding assets by writing the document.** Import
 measures what it brings in; an asset that arrived by being written into
 `project.json` carries a path and nothing recorded about the file behind it,
-and every feature that needs the source's own length — the ceiling on a right
-trim among them — has no choice but to skip it. This asks ffprobe about each
-such asset and writes down what it says. Safe to call after every edit: one
+and every feature that needs a measured fact about it — the source's own
+length, which is the ceiling on a right trim; whether its picture carries
+transparency, which is what keeps a scaled logo's edges from going dark — has
+no choice but to skip it. This asks ffprobe about each such asset and writes
+down what it says. Safe to call after every edit: one
 already probed is left alone unless `all` is set.
 
 ## Getting media into the project
