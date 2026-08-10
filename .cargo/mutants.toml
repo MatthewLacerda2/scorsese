@@ -98,8 +98,25 @@ examine_globs = [
 # `examine_globs` already decides this — these say it a second time because a
 # `--file` on the command line is *unioned* with the globs above rather than
 # narrowing them, so a hand-run can widen the scope by accident. Exclusions are
-# applied after, which is what makes them hold. (To narrow a run to one file,
-# use `--re '^path/to/file\.rs'`, not `--file`.)
+# applied after, which is what makes them hold.
+#
+# Narrowing a hand-run further splits the flags into two kinds, and only one of
+# them is trustworthy. *File* filters — these globs, `--exclude`, `--package` —
+# pick the files before a single mutant is generated, so they hold for every kind
+# of mutant there is. *Name* filters — `--re`, and `exclude_re` below — sieve the
+# mutants afterwards by the string `--list` prints, and in cargo-mutants 27.1.0
+# one genre slips through the sieve: the struct-field deletions
+# (`delete field … from struct …`, a mutation only added in 26.0.0) are neither
+# kept out by `--re` nor removed by `--exclude-re`. There are 14 of them on the
+# surface above, and `cargo mutants --list --re 'matches nothing at all'` prints
+# all 14 and nothing else, which is the whole demonstration.
+#
+# So `--re '^path/to/file\.rs'` is still the way to point a hand-run at one file
+# — it is just not a promise about which files get tested. Those 14 strays ride
+# along from wherever they live and the report describes them too, so read past
+# any `delete field` row from a file you did not name. `-p scorsese-core` narrows
+# to a whole crate with no strays at all, because it decides what to visit rather
+# than what to keep. Nothing narrows to exactly one file.
 exclude_globs = [
     "crates/render/src/pipe/**/*.rs",
     "crates/golden/**/*.rs",
@@ -122,6 +139,10 @@ exclude_globs = [
 # an entry names one mutation of one function and cannot silently grow to cover
 # a real gap that appears next to it later. The reason goes here, next to the
 # entry — not in a commit message nobody will find.
+#
+# One exception, per the note above `exclude_globs`: a struct-field deletion
+# cannot be excluded here at all — an entry for one is accepted and does
+# nothing, and the mutant is still reported.
 exclude_re = [
     # `Properties::is_identity` compares five `f64` differences against a
     # tolerance: `(x - 1.0).abs() < 1e-9`. Widening `<` to `<=` changes the
