@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::asset::{Asset, AssetId};
+use crate::baseline::Baseline;
 use crate::note::Noted;
 use crate::path::ProjectPath;
 use crate::time::Fps;
@@ -90,6 +91,15 @@ pub struct Project {
     /// layer. Audio tracks are unordered among themselves.
     #[serde(default)]
     pub tracks: Vec<Track>,
+    /// Which document on disk this one is a change to — see [`Baseline`] for
+    /// what [`Project::save`] does with it and why.
+    ///
+    /// **Never serialised**, and never part of the format: it is derived from
+    /// the bytes the document was read from, so writing it into the document
+    /// would be a file describing its own hash. A project read from another
+    /// build, or hand-edited, needs no field for this to work.
+    #[serde(skip)]
+    pub baseline: Baseline,
 }
 
 impl Project {
@@ -102,6 +112,7 @@ impl Project {
             script: None,
             assets: Vec::new(),
             tracks: Vec::new(),
+            baseline: Baseline::unread(),
         }
     }
 
@@ -201,6 +212,10 @@ impl Project {
         })?;
         let project = Self::from_json(&json)?;
         project.validate()?;
+        // Recorded here and nowhere else in this file: `from_json` parses a
+        // string that was not necessarily read from anything, and inventing a
+        // baseline for one would be asserting something nobody checked.
+        project.baseline.moved_to(json.as_bytes());
         Ok(project)
     }
 
@@ -212,10 +227,26 @@ impl Project {
     ///
     /// The write is atomic — see [`crate::write`] — so a reader arriving
     /// mid-save gets the previous document whole, never half of this one.
+    ///
+    /// **Refuses to publish over a document this one is not a change to.** The
+    /// file is re-read and compared against the [`Baseline`] before anything
+    /// is written, so a save built on a read that something else has since
+    /// overtaken fails loudly instead of taking the other writer's work with
+    /// it. It is a compare-and-swap and not a transaction — [`Baseline`] says
+    /// exactly how far the promise goes.
     pub fn save(&self, project_dir: &Path) -> Result<(), SaveError> {
         let file = project_dir.join(PROJECT_FILE_NAME);
         let json = self.to_json()?;
-        crate::write::atomically(&file, json).map_err(|source| SaveError::Io { path: file, source })
+        self.baseline.guard(&file)?;
+        crate::write::atomically(&file, &json).map_err(|source| SaveError::Io {
+            path: file,
+            source,
+        })?;
+        // What this document is a change to is now what it just wrote: an
+        // editor saving twice is one writer, and the second save must be
+        // measured against the first rather than against what preceded both.
+        self.baseline.moved_to(json.as_bytes());
+        Ok(())
     }
 }
 
@@ -302,6 +333,33 @@ pub enum SaveError {
     #[error("{} is already a scorsese project", path.display())]
     AlreadyAProject {
         /// The directory that already holds a `project.json`.
+        path: PathBuf,
+    },
+    /// Somebody else saved this project since it was read, so publishing would
+    /// take their work with it. Nothing was written.
+    #[error(
+        "{} changed since it was read, and saving would drop that change — nothing was \
+         written. Read the project again and redo this edit on what is there now",
+        path.display()
+    )]
+    Stale {
+        /// The `project.json` that has moved on.
+        path: PathBuf,
+    },
+    /// A document that was never read from this file, saved over one that is
+    /// there. Nothing was written.
+    ///
+    /// Its own variant rather than [`SaveError::Stale`]: nothing *changed*
+    /// here, and telling a caller to re-read something it never read would
+    /// send it looking for a difference it cannot find.
+    #[error(
+        "refusing to overwrite {}: this document was not read from it, so there is no \
+         telling what is already there — nothing was written. Read the project and save \
+         with the fingerprint that read reported",
+        path.display()
+    )]
+    Unread {
+        /// The `project.json` that would have been overwritten blind.
         path: PathBuf,
     },
 }
