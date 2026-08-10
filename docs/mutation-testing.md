@@ -77,8 +77,16 @@ cargo mutants -F '^crates/core/src/keyframe\.rs'  # one file, while writing it
 `-F` and not `-f` for that last one, and the difference is a trap worth
 knowing: `--file` is *unioned* with the config's `examine_globs`, so
 `-f one/file.rs` widens the run to everything rather than narrowing it to one
-thing. `--re` filters the mutant names, which start with the path, so it
-narrows as expected.
+thing. `--re` filters the mutant names, which start with the path, so it does
+narrow — but not perfectly. As of **cargo-mutants 27.1.0**, struct-field
+deletions (`delete field … from struct …`) ignore the name filters entirely:
+they are neither selected by `--re` nor removable by `--exclude-re`. Fourteen of
+them live on the scoped surface, so every `-F` run carries all fourteen along
+from wherever they are, and the report describes files you did not name. Read
+past any `delete field` row from a file you did not ask about — or reach for
+`-p scorsese-core`, which narrows to a whole crate with none of that, because
+package and glob filters choose files before mutants exist. Nothing narrows to
+exactly one file.
 
 Results land in `mutants.out/` (gitignored). `mutants.out/missed.txt` is the
 survivor list; `mutants.out/diff/` holds the actual edit that survived, which
