@@ -8,7 +8,10 @@ golden renders are what stands between "CI is green" and "the video is actually
 right".
 
 They are a **hard gate**. They run inside `make test` — the workspace suite,
-through `cargo nextest run` — and they are green-to-merge, no exceptions.
+through `cargo nextest run` — and they are green-to-merge, no exceptions. They
+run **on Linux**, and are skipped and reported as skipped anywhere else. That
+is a statement about where this comparison is authoritative rather than a
+softening of the one before it; *The platform* below is the whole of why.
 
 **Pixels only.** Sound is guarded a different way, in
 `crates/render/tests/audio/`: those tests render real projects and ask how loud
@@ -145,6 +148,64 @@ different ffmpeg still passes when its frames match.
 decoder difference is the same illegitimate act as re-blessing for any other
 reason, and it would bake one machine's decoder into the reference.
 
+## The platform, which decides whether any of that runs
+
+The section above is about a decoder difference these tolerances survive.
+There is one they do not, and it is why this gate has a platform at all.
+
+**The fixture tests run on Linux and are skipped everywhere else.** Not
+compiled out — `#[ignore]`d, so they still have to build, so
+`cargo nextest run -p scorsese-golden --run-ignored all` still runs them on
+purpose, and so the runner *counts* the skip instead of reporting a pass over
+it. `make test` and `make gates` then say it in a sentence, exactly as
+`make gates` says the desktop app's gates did not run: never green over a check
+that did not run.
+
+What forced it: on macOS with homebrew's ffmpeg `8.1.2`, four grade fixtures —
+`grade_brightness`, `grade_contrast`, `grade_ramp`, `grade_saturation` — fail on
+an unmodified `main`. SSIM is 0.9992, so the pixels are in the right *places*;
+the entire failure is a mean error of about three levels out of 255, uniform and
+always positive. The arithmetic is not in doubt: `crates/compositor` asserts
+exact grade output values in memory, with no tolerance and no ffmpeg anywhere,
+and every one of those passes on that machine. The shift lives entirely in the
+encode/decode round trip the golden path goes through. There is no bug to fix,
+which is what makes this a question about the gate rather than about the code.
+
+**Keyed on the platform, not on a decoder mismatch.** Those two look like the
+same rule from the machine that prompted this, and they are opposites where it
+matters. `alpha`'s reference was blessed under ffmpeg `8.1.2` and passes on CI's
+`6.1.1-3ubuntu5` — two majors apart, no complaint. A rule that skipped whenever
+the running ffmpeg differed from `decoder.txt` would therefore have skipped on
+CI, which is the one place this gate must run. Linux is where references are
+blessed and where a merge is gated, so the platform is the honest thing to key
+on and the record stays what it already was: context for a failure, never a
+switch.
+
+**Not by widening a tolerance**, which was the first instinct and the wrong one.
+`max_mean_error` is not per-platform: raising it to absorb three levels on macOS
+raises it on Linux too, and a grade fixture that tolerates a three-level shift
+cannot catch a three-level grade bug — anywhere, ever. That trades away
+sensitivity on the platform where the gate works in order to accommodate the one
+where it does not. **And not by re-blessing**, for the reason the section above
+already gives.
+
+What it costs, said out loud: someone working off Linux can break a fixture and
+not find out until CI. That is accepted. It is already true of the desktop app's
+gates for the same kind of reason, the gate still gates — it gates later — and
+the alternative was in force for a while and was worse. It was every agent on
+that machine being told that four named failures are fine to ignore: a standing
+exception that has to be judged correctly every session, over a set that only
+grows, in a repo whose whole merge story is that a green gate means something.
+
+**The harness's own tests are not skipped**, and keeping that distinction
+straight matters. `comparing.rs` compares images it builds itself; `failing.rs`
+and `provenance.rs` vandalise a private copy of `letterbox` and insist the
+harness notices, names the frame, and leaves the evidence. Those ask whether the
+*comparison* works, which is a question with the same answer on every platform.
+So does `every_fixture_is_covered`, which reads the fixture directory and no
+frames at all. What is Linux-only is the claim that the shipped pixels are
+right.
+
 ## The faces, which sit upstream of it just as much
 
 The decoder is not the only input the environment would otherwise choose. **The
@@ -197,6 +258,14 @@ This rewrites every reference frame of every fixture. Because references are
 PNGs, the change arrives in review as an **image diff** — which is the only form
 in which a human can judge whether it was legitimate.
 
+**On Linux**, and that is not a detail. Off it the fixtures are ignored, so this
+command blesses nothing at all until `-- --include-ignored` is added — a small
+hurdle standing in front of exactly the act that should never be casual. A
+reference blessed elsewhere holds that machine's decode of the frames and
+records that machine's ffmpeg in `decoder.txt`, and the next thing to compare it
+against is CI. A set of references nobody has checked on the platform that gates
+is a whole fixture set going red for a reason no diff explains.
+
 **Re-blessing is legitimate when** the render changed on purpose and the new
 frames are what was intended: a compositor capability that alters output by
 design, a fixture deliberately re-aimed at something else, an intentional change
@@ -234,7 +303,8 @@ those frames are uploaded as the `golden-failures` artifact.
    you forget, `every_fixture_is_covered` fails — an untested fixture sitting in
    the repository looking like coverage is exactly the failure mode this whole
    file exists to prevent.
-3. Create the references with `UPDATE_GOLDENS=1`, then **look at them** before
+3. Create the references with `UPDATE_GOLDENS=1`, on Linux — see *Re-blessing*
+   for why the platform is part of the instruction. Then **look at them** before
    committing. A blessed reference is an assertion about what is correct; if you
    did not check it, you have asserted that whatever the code did was right.
    The same run writes `expected/decoder.txt` naming the ffmpeg that produced

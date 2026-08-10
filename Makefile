@@ -21,6 +21,11 @@
 # putting a `wgpu` build on the path of every headless commit. Its reasoning is
 # at the target.
 #
+# One gate is *narrower* off Linux, which is a different thing: `test` runs
+# everywhere, but the golden fixtures inside it skip themselves on any other
+# platform. Both `test` and `gates` say so out loud, for the same reason `app`
+# does — see `PIXEL_GATE_RUNS` below.
+#
 # Gates block; signals inform (CLAUDE.md, "Gates vs. signals"). `make gates`
 # runs only gates. `make coverage` and `make mutants` are signals and are
 # opt-in precisely so a local run never trains anyone to treat one as the other.
@@ -64,6 +69,25 @@ TOUCHES_APP = { \
 	! git rev-parse --verify --quiet origin/main >/dev/null 2>&1 \
 	|| ! git diff --quiet origin/main...HEAD -- $(APP_PATHS) \
 	|| [ -n "$$(git status --porcelain -- $(APP_PATHS))" ]; }
+
+# Whether the golden fixtures are among the tests `test` just ran. They are
+# `#[ignore]`d on any target that is not Linux, because the references are
+# blessed on Linux and compared on Linux by CI — off it the comparison measures
+# the local ffmpeg's decode path as much as it measures the compositor, and the
+# tolerances were never sized for that. `docs/golden-renders.md` argues it in
+# full, including why this is keyed on the platform rather than on a decoder
+# mismatch; #300 is where it was decided.
+#
+# Said here because nextest reports the skip only as a count, and a number in a
+# summary is not a reader noticing that the pixel gate did not run. The rule is
+# the app gate's: never green over a check that did not run.
+#
+# `uname -s` is the host, and `#[cfg]` is the target. Those are the same answer
+# for every way this repo is built — nothing here cross-compiles, and the suite
+# has to run on the machine it was built for anyway — so the duplication has no
+# room to disagree. The day a cross-compile appears, this is the line to fix.
+PIXEL_GATE_RUNS = [ "$$(uname -s)" = "Linux" ]
+PIXEL_GATE_SKIPPED = pixel gate not run -- the golden fixtures are skipped on $$(uname -s); they are authoritative on Linux, where the references were blessed. See docs/golden-renders.md.
 
 # Both test gates run through nextest, so both ask for it the same way, and a
 # missing runner says what it is and how to get it rather than surfacing as
@@ -124,6 +148,10 @@ gates: target-dir inventory $(GATES) ## Everything CI blocks on. Run this before
 		echo "gates: all green -- $(filter-out app,$(GATES))"; \
 		echo "gates: app not run -- this branch changes nothing under app/."; \
 	fi
+# `test` did run, and is on that list; part of what it covers did not. So this
+# narrows the claim rather than removing a gate from it — which is why it reads
+# differently from the app line above and has to be here at all.
+	@$(PIXEL_GATE_RUNS) || echo "gates: $(PIXEL_GATE_SKIPPED)"
 
 # For a delivery render, and not much else. The dev profile is optimised (see
 # the note in Cargo.toml), so the ordinary `cargo build` is already fast enough
@@ -191,6 +219,9 @@ test: ## [gate] The whole suite, golden renders included (needs ffmpeg, nextest)
 	@$(NEXTEST_CHECK)
 	cargo nextest run --workspace --locked
 	cargo test --doc --workspace --locked
+# Last, so it is the line still on screen when the suite goes green. nextest
+# has already counted the skip; this is what makes it a sentence.
+	@$(PIXEL_GATE_RUNS) || echo "test: $(PIXEL_GATE_SKIPPED)"
 
 # The two Python scripts render the coverage and mutation signals, and a signal
 # that dies rendering its own report reads as the tool being broken — which is
