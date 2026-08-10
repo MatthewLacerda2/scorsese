@@ -1,6 +1,6 @@
 {
   "schema_version": 21,
-  "name": "alpha",
+  "name": "alpha_scaled",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [
     { "id": "bed", "kind": "video", "path": "assets/bed.mp4" },
@@ -18,7 +18,7 @@
       "kind": "video",
       "name": "badge",
       "clips": [
-        { "id": "c-badge", "asset": "badge", "start": 0, "duration": 15, "fit": "native" }
+        { "id": "c-badge", "asset": "badge", "start": 0, "duration": 15, "fit": "fit" }
       ]
     }
   ]

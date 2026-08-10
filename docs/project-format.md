@@ -12,7 +12,7 @@ bump and a migration note.
 
 ```json project
 {
-  "schema_version": 20,
+  "schema_version": 21,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -126,7 +126,7 @@ re-importing or regenerating a file is one edit in one place.
 | `kind` | all | `video`, `image`, `audio`, `text`, `color`, `generated_video`, `generated_audio`, `synth_audio` |
 | `path` | file-backed kinds | Relative to the project root |
 | `sha256` | optional | 64 lowercase hex chars, of the file at `path` |
-| `media` | optional | What ffprobe found: `duration_seconds`, `width`, `height`, `frame_rate` (a rational), `audio_channels`, `sample_rate` — see below |
+| `media` | optional | What ffprobe found: `duration_seconds`, `width`, `height`, `frame_rate` (a rational), `has_alpha`, `audio_channels`, `sample_rate` — see below |
 | `prompt` | `generated_*` | What to generate, in words |
 | `recipe` | `synth_audio` | Path to the document to synthesise from, by convention under `recipes/` |
 | `state` | `generated_*`, `synth_audio` | `sketch`, `queued`, `generated`, `stale` |
@@ -153,6 +153,17 @@ import does the same for what it brings in, and the window does it in the
 background when it opens a project. Anything that needs a source's own length
 reads `duration_seconds`, so an asset nobody has probed is one those features
 skip — which is why `scorsese assets` counts it as needing attention.
+
+`has_alpha` is the one `media` field a render acts on for *picture* rather than
+sound, and it says whether the file's pixel format carries transparency. A
+source with alpha has to be premultiplied before it is scaled and
+unpremultiplied afterwards, or the black that exporters leave behind fully
+transparent pixels gets averaged into the opaque ones beside them and every
+scaled edge comes back with a dark rim — the thing a transparent logo is
+brought into an edit to avoid. Absent means nobody has looked, and a render
+that has not been told treats the source as opaque: it scales exactly as it did
+before the field existed. A palette image is recorded as having alpha, because
+its transparency lives in the palette where the pixel format cannot show it.
 
 A **still** is the one deliberate gap in that: its `media` carries a size and
 never a `duration_seconds` or a `frame_rate`. ffprobe calls a still a one-frame
@@ -1268,6 +1279,25 @@ outside OpenType's own 1–1000 is not a weight for any face. What only the
 runs — is refused at the render, in the same breath as "this is not a font I can
 read". That holds for `sans` and `serif` as much as for a font the project
 carries; they are files too, and scorsese happens to be the one carrying them.
+
+## Migrating from v20
+
+v21 adds one optional field and takes nothing away: `has_alpha` inside an
+asset's `media`. No v20 document can contain it, and **absent means what absent
+has always meant of a `media` field** — nobody has looked. So no v20 document
+means anything different under v21: converting one is changing
+`"schema_version": 20` to `"schema_version": 21` and nothing else.
+
+The number moved because the accepted value space did: a `media` block refuses
+fields it has never heard of, so `"has_alpha": true` is rejected outright by a
+v20 build.
+
+Nothing re-renders differently on its own. A `media` block written before v21
+has no `has_alpha` in it, which reads as "nobody has looked" and leaves the
+render doing exactly what it did under v20. That matters for one asset kind: a
+transparent source that is scaled comes back with a dark rim around its edges
+until the fact is recorded. `scorsese probe --all` re-reads every asset and
+writes it, and is the whole of the migration for a project that has one.
 
 ## Migrating from v19
 

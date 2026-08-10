@@ -233,6 +233,14 @@ fn source_for(
         speed: shot.clip.speed,
         frames,
         fitting,
+        // Read off the document, which is where a probe writes it. An asset
+        // nobody probed reads as opaque — the same answer, and the same filter
+        // chain, as before there was a field to read.
+        has_alpha: shot
+            .asset
+            .media
+            .and_then(|media| media.has_alpha)
+            .unwrap_or(false),
         crop: shot.clip.crop,
     }
 }

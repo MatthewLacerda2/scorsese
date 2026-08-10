@@ -376,6 +376,19 @@ pub struct MediaMetadata {
     /// the drift the timeline grid exists to avoid.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub frame_rate: Option<Fps>,
+    /// Whether the picture carries an alpha channel, read off the source's
+    /// pixel format. Absent means nobody has looked, exactly as
+    /// `audio_channels` does — and for the same reason: it is the field that
+    /// decides whether a later stage has work to do.
+    ///
+    /// The work in question is scaling. Alpha has to be premultiplied before a
+    /// resample and unpremultiplied after, or the colour of a fully transparent
+    /// pixel — which is unconstrained, and almost always black — gets averaged
+    /// into its opaque neighbours and every scaled edge comes back with a dark
+    /// rim. Doing that to a source with no alpha is not free either, so the
+    /// decision needs this fact rather than a guess.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub has_alpha: Option<bool>,
     /// How many audio channels the file carries. This is what says whether a
     /// clip on a *video* track has sound of its own to mix; absent means
     /// nobody has looked, not that the file is silent.

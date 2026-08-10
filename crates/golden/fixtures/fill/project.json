@@ -1,5 +1,5 @@
 {
-  "schema_version": 20,
+  "schema_version": 21,
   "name": "fill",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [{ "id": "wide", "kind": "video", "path": "assets/wide.mp4" }],
