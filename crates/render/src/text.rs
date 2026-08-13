@@ -75,11 +75,6 @@ enum Face {
 }
 
 impl Painter {
-    /// One with nothing opened yet.
-    pub(crate) fn new() -> Self {
-        Self::default()
-    }
-
     /// Draws `asset`'s text across the whole of `frame`.
     ///
     /// The frame is cleared to transparent first: a text layer is glyphs and

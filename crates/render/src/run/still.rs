@@ -41,7 +41,7 @@ pub(super) fn compose(
 ) -> Result<Frame, RenderError> {
     let plan = Plan::build(project, settings.fps, FrameRange::just(at))?;
     let sizes = Sizes::measure(tools, &plan, project_root)?;
-    let mut stage = Stage::for_plan(&plan, settings);
+    let mut stage = Stage::new();
     let pass = Pass {
         tools,
         settings,

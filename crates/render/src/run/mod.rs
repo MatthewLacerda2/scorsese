@@ -88,7 +88,7 @@ impl<'a> Renderer<'a> {
         let levels = mixed.as_ref().map(|(_, _, levels)| levels.finish());
 
         let mut encoder = Encoder::start(self.tools, &self.settings, mix, out)?;
-        let mut stage = Stage::for_plan(&plan, self.settings);
+        let mut stage = Stage::new();
         let pass = Pass {
             tools: self.tools,
             settings: self.settings,
