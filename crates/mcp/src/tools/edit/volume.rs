@@ -145,14 +145,7 @@ fn audible(arguments: &Value, key: &str) -> Result<Option<f64>, String> {
 /// What the tool just wrote, in the terms it was asked for.
 fn wrote(clip: &ClipId, level: Level) -> String {
     match level {
-        Level::Flat(value) if value == 0.0 => {
-            format!("`{clip}` is muted — volume 0.0 for the whole clip, as one ordinary keyframe.")
-        }
-        Level::Flat(value) => format!(
-            "`{clip}` plays at {} for the whole clip — one ordinary volume keyframe, \
-             editable and deletable.",
-            said(value)
-        ),
+        Level::Flat(value) => flat(clip, value),
         Level::Ramp { from, to, at, over } => format!(
             "`{clip}` fades {} → {} over {over} frames from frame {at} of the clip, and plays \
              at {} after that — two ordinary volume keyframes, editable and deletable.",
@@ -160,6 +153,20 @@ fn wrote(clip: &ClipId, level: Level) -> String {
             said(to),
             said(to)
         ),
+    }
+}
+
+/// A flat level, said as the edit it is: a mute is worth naming, because
+/// "plays at 0.0" is a sentence nobody would write about a silent clip.
+fn flat(clip: &ClipId, value: f64) -> String {
+    if value == 0.0 {
+        format!("`{clip}` is muted — volume 0.0 for the whole clip, as one ordinary keyframe.")
+    } else {
+        format!(
+            "`{clip}` plays at {} for the whole clip — one ordinary volume keyframe, editable \
+             and deletable.",
+            said(value)
+        )
     }
 }
 
