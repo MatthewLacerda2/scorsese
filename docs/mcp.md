@@ -85,6 +85,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `trim_clip` | Move a clip already on the timeline, or change how long it runs or where in its source it opens — in seconds, rounded onto the project's frame grid. | nothing |
 | `dissolve` | Dissolve one shot into the next, by writing ordinary opacity keyframes on both clips — the same ones you would place by hand, and they stay editable afterwards. | nothing |
 | `duck_music` | Lower a music track while narration plays over it, by writing ordinary volume keyframes on its clips. | nothing |
+| `set_volume` | Set how loud one clip plays — a level, a mute, or a fade between two points — by writing the ordinary volume keyframes you would place by hand, which stay editable afterwards. | nothing |
 | `scale_pacing` | Move some clips toward or away from one instant, all by the same factor — the operation for pacing. | nothing |
 | `synth_new` | Start a new sound: writes a starter recipe into recipes/ and adds the synth_audio asset that points at it. | nothing |
 | `synth_read` | Read a recipe file as it is on disk. | nothing |
@@ -316,12 +317,13 @@ it is free — `rooftop`, then `rooftop-2` — exactly as an imported asset gets
 own, and the reply names what it wrote. **Take the id from the reply**, the same
 rule `import` asks for.
 
-## The two operations that write keyframes for you
+## The three operations that write keyframes for you
 
-`dissolve` and `duck_music` are sugar, and both keep the same bargain: what
-they write is **ordinary keyframes** — the ones you would have placed by hand —
-which stay visible, editable and deletable afterwards. Neither adds a stage to
-the renderer, which is why a dissolve composes with a move or a turn for free.
+`dissolve`, `duck_music` and `set_volume` are sugar, and all three keep the same
+bargain: what they write is **ordinary keyframes** — the ones you would have
+placed by hand — which stay visible, editable and deletable afterwards. None of
+them adds a stage to the renderer, which is why a dissolve composes with a move
+or a turn for free.
 
 `dissolve` has one behaviour worth knowing before calling it: **it moves the
 incoming clip to a track above.** Two clips on one track may not overlap, and a
@@ -334,6 +336,30 @@ It refuses, changing nothing at all, when the two clips do not currently meet
 at a cut, when either is shorter than the crossover, or when the crossover
 would round to no frames. A dissolve with no defined crossover has no shape,
 and guessing at one is worse than saying so.
+
+`set_volume` is the fader. A `level` on its own is flat for the whole clip —
+`1.0` is the source as recorded, `0.0` is silence, and **muting a clip is a
+level of `0.0`** rather than a flag. Add `from_level` and `seconds` and the
+level arrives as a fade instead, starting at `at_seconds` into the clip:
+
+```
+set_volume  { "project": "teaser.scor", "clip": "m1", "level": 0.4 }
+set_volume  { "project": "teaser.scor", "clip": "m1", "level": 0.0,
+              "from_level": 0.4, "at_seconds": 18.0, "seconds": 2.0 }
+```
+
+**A clip animates volume from one track, so `set_volume` takes that lane over.**
+Whatever was animating the clip's volume is replaced — a fade you wrote by hand,
+or a dip `duck_music` signed — and the reply names each one it displaced, how
+many points it had, and who wrote it. Two tracks on one property would be a
+document where the second silently never plays, which is a worse answer than
+saying what went. When the dip was among them the reply says to run `duck_music`
+again if it is still wanted; `duck_music` itself is unchanged, and still replaces
+only what it signed.
+
+It refuses, changing nothing at all, a negative level (volume is a multiplier,
+so below zero inverts the phase rather than muting), a fade missing one of its
+two halves, and a fade that would finish after the clip ends.
 
 ## Pacing: the same clips, spread differently
 
