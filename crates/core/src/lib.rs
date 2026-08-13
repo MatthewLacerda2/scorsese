@@ -46,15 +46,16 @@
 //! [`Project`] remembers about the file it was read from, so that saving it
 //! cannot quietly land on somebody else's edit.
 //!
-//! **Six modules keep their path**, because what they publish is an
+//! **Seven modules keep their path**, because what they publish is an
 //! *operation* on a project rather than a part of one, and the verb needs the
 //! noun in front of it: [`mod@pool`] brings media in, hashes it, probes it and
 //! collects what nothing references; [`mod@placing`] puts a clip on a track and
 //! moves or trims one already there; [`mod@pacing`] retimes a cut;
-//! [`mod@dip`] is auto-ducking; [`mod@probe`] is the seam an ffprobe lives
-//! behind, so this crate can reason about media without spawning anything;
-//! and [`mod@write`] is the one way a file leaves here. [`note`] keeps its own
-//! as well — the paragraph above sends the reader to it.
+//! [`mod@dip`] is auto-ducking; [`mod@level`] holds one clip's property at a
+//! value; [`mod@probe`] is the seam an ffprobe lives behind, so this crate can
+//! reason about media without spawning anything; and [`mod@write`] is the one
+//! way a file leaves here. [`note`] keeps its own as well — the paragraph
+//! above sends the reader to it.
 //!
 //! **Everything else is `pub(crate)`.** How the document is parsed and saved,
 //! how the frame grid does its arithmetic, how a font choice and a colour are
@@ -68,6 +69,7 @@ pub(crate) mod color;
 pub mod dip;
 pub(crate) mod grade;
 pub(crate) mod keyframe;
+pub mod level;
 pub mod note;
 pub mod pacing;
 pub(crate) mod path;
@@ -92,6 +94,9 @@ pub use color::{ColorError, Rgba};
 pub use dip::{Dip, Ducked, Under, duck_track};
 pub use grade::Grade;
 pub use keyframe::{Easing, Keyframe, KeyframeTrack, PropertyPath};
+// As with `pacing::scale`, the function stays behind its module: a bare
+// `scorsese_core::set` names nothing at all.
+pub use level::{Level, LevelError, Levelled};
 pub use note::{Annotated, Noted};
 // The function itself is deliberately left behind the module — see
 // [`pacing`] for why `scorsese_core::scale` would be the wrong name.

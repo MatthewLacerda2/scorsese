@@ -1,6 +1,6 @@
 //! Tools that change something: bring media in, write the document, place and
-//! trim clips, edit a brief, dissolve a cut, duck the music, scale a run of
-//! clips, render.
+//! trim clips, edit a brief, dissolve a cut, duck the music, set a clip's
+//! volume, scale a run of clips, render.
 //!
 //! One file per tool. They were one file until the dissolve arrived and put
 //! it over the size gate, which is the gate doing its job: tools that happen
@@ -15,6 +15,7 @@ mod place;
 mod probe;
 mod render;
 mod trim;
+mod volume;
 mod write;
 
 pub(crate) use brief::Rebrief;
@@ -26,10 +27,20 @@ pub(crate) use place::PlaceClip;
 pub(crate) use probe::Probe;
 pub(crate) use render::Render;
 pub(crate) use trim::TrimClip;
+pub(crate) use volume::SetVolume;
 pub(crate) use write::Write;
 
 use scorsese_core::{Clip, Fps, Frames};
 use serde_json::Value;
+
+/// A required clip id argument, named so the refusal says which one was
+/// missing.
+fn clip_id<'a>(arguments: &'a Value, key: &str) -> Result<&'a str, String> {
+    arguments
+        .get(key)
+        .and_then(Value::as_str)
+        .ok_or_else(|| format!("`{key}` is required: a clip id"))
+}
 
 /// A number argument, or its default.
 fn number(arguments: &Value, key: &str, fallback: f64) -> f64 {

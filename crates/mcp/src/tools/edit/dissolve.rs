@@ -4,7 +4,7 @@ use scorsese_core::ClipId;
 use scorsese_render::dissolve;
 use serde_json::Value;
 
-use super::{frames, number};
+use super::{clip_id, frames, number};
 use crate::tools::inspect::load;
 use crate::tools::{Costs, Reply, Tool, project_dir, project_property};
 
@@ -85,12 +85,4 @@ impl Tool for Dissolve {
         )
         .into())
     }
-}
-
-/// A required clip id argument.
-fn clip_id<'a>(arguments: &'a Value, key: &str) -> Result<&'a str, String> {
-    arguments
-        .get(key)
-        .and_then(Value::as_str)
-        .ok_or_else(|| format!("`{key}` is required: a clip id"))
 }
