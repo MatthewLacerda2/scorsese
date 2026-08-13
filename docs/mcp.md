@@ -81,6 +81,8 @@ the tools relate to each other, which is knowledge no single tool has.
 | `script_read` | Read the document this edit is being cut from — the brief, the outline, whatever the project's `script` field points at. | nothing |
 | `script_write` | Write the project's script — the document the edit is cut from. | nothing |
 | `project_write` | Replace a project's project.json with the document given. | nothing |
+| `place_clip` | Put a clip on a track: which asset, which track, when it starts and how long it runs — all in seconds, rounded onto the project's frame grid for you. | nothing |
+| `trim_clip` | Move a clip already on the timeline, or change how long it runs or where in its source it opens — in seconds, rounded onto the project's frame grid. | nothing |
 | `dissolve` | Dissolve one shot into the next, by writing ordinary opacity keyframes on both clips — the same ones you would place by hand, and they stay editable afterwards. | nothing |
 | `duck_music` | Lower a music track while narration plays over it, by writing ordinary volume keyframes on its clips. | nothing |
 | `scale_pacing` | Move some clips toward or away from one instant, all by the same factor — the operation for pacing. | nothing |
@@ -242,6 +244,76 @@ document pointing at it would have every project claiming to carry one.
 
 **Neither ever renders**, in any version of this tool. Text meant to be seen is
 a `text` asset.
+
+## Putting a clip on the timeline, and adjusting it afterwards
+
+`place_clip` and `trim_clip` are the pair that assembles a cut, and everything
+about them follows from one fact: **a clip is described in seconds and stored in
+frames.** "Two seconds into the take, run it to sixteen, start it at
+forty-eight" becomes `start: 1152, duration: 336, source_in: 48` on a 24fps
+grid, and doing that conversion by hand is the one editing mistake that reaches
+the finished video in silence — a window half a second off validates perfectly,
+and a J-cut one frame off is only ever caught by watching.
+
+```
+place_clip  { "project": "teaser.scor", "asset": "rooftop", "track": "v1",
+              "start_seconds": 48.0, "source_in_seconds": 2.0,
+              "duration_seconds": 14.0 }
+            → "`rooftop` placed on `v1`: starts at 48.00s (frame 1152), runs
+               14.00s (336 frames) to 62.00s (frame 1488), opening 2.00s
+               (frame 48) into `rooftop`."
+```
+
+**The reply says it in both units, always.** Seconds because that is what was
+asked for, frames because that is what the document now holds — and a caller
+that cannot read the frame back has no way to tell which side of a rounding its
+cut landed on.
+
+**`source_in_seconds` is a time in the source, and the framerates are not your
+problem.** It is written down as `source_in` in *timeline* frames, so "skip the
+first two seconds" means the same thing whether the take was shot at 25fps and
+the timeline runs at 24 or the other way round; the conform rule in
+[`project-format.md`](project-format.md) is what turns it into a source frame at
+render time.
+
+**Leave `duration_seconds` out and the clip runs the rest of the source.** "Put
+this shot in" is a whole request on its own and the answer is written down
+already — the asset's measured length, less wherever the clip opens. An asset
+with no measured length has no rest to take: a title, a still, a colour, a brief
+nobody has generated, and a file nobody has probed. There the duration is
+required, and the refusal says so rather than guessing a length.
+
+**`trim_clip` sets fields, not edges.** Each argument changes the field of the
+same name and nothing else, so a `start_seconds` on its own *moves* the clip, a
+`duration_seconds` on its own holds the start and moves the end, and a
+`source_in_seconds` on its own shows a later part of the media in the same slot.
+An editor's drag handles would make one argument mean different things depending
+on which others came with it; this does not.
+
+```
+trim_clip  { "project": "teaser.scor", "clip": "vo-open", "start_seconds": 37.7 }
+           → "`vo-open` now starts at 37.70s (frame 1131), runs 11.90s (357
+              frames) to 49.60s (frame 1488), from the head of `vo-open`."
+```
+
+**Both refuse whole, and a refusal writes nothing at all.** A clip landing on
+one already on that track, a window reaching past the end of the media, a clip
+that would cover no frame, a negative time — each comes back with the reason and
+leaves `project.json` byte-for-byte as it was, so a client may keep asking until
+it asks for something possible.
+
+Two things they deliberately do not do. **A track is never created**: a track
+invented from a mistyped id would take the clip with it, and a clip on a track
+nobody meant to have is invisible in every way except the render — so a missing
+track is refused, and the refusal names the tracks there are. **A clip never
+changes track**: which track a clip sits on decides what is drawn over what,
+which is a different edit with a different consequence, and it stays a
+`project_write`.
+
+The clip's id is optional. Without one it comes from the asset's, suffixed until
+it is free — `rooftop`, then `rooftop-2` — exactly as an imported asset gets its
+own, and the reply names what it wrote. **Take the id from the reply**, the same
+rule `import` asks for.
 
 ## The two operations that write keyframes for you
 
