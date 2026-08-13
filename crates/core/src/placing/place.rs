@@ -270,22 +270,49 @@ mod tests {
         assert_eq!(project, before, "nothing was written");
     }
 
-    /// A second placement of the same asset is an ordinary thing to want, so
-    /// the derived id gets out of its own way rather than refusing.
+    /// Opening exactly where the media ends leaves no rest of the source, and
+    /// the refusal has to say *that* — "there is none of it left" and "you
+    /// asked for a clip of no length" send a caller to different fixes.
     #[test]
-    fn a_derived_id_is_suffixed_until_it_is_free() {
+    fn opening_at_the_very_end_of_the_media_says_the_source_ran_out() {
         let mut project = project();
-        place(&mut project, &placement()).expect("the first one fits");
-        let clip = place(
+        let error = place(
             &mut project,
             &Placement {
-                start: Frames(200),
-                duration: Some(Frames(30)),
+                source_in: Frames(120),
                 ..placement()
             },
         )
-        .expect("the second one fits");
-        assert_eq!(clip.id.as_str(), "shot-2");
+        .expect_err("frame 120 is one past the last one");
+        assert!(
+            matches!(error, PlaceError::PastTheEnd { .. }),
+            "got {error}"
+        );
+    }
+
+    /// A second placement of the same asset is an ordinary thing to want, so
+    /// the derived id gets out of its own way rather than refusing — and goes
+    /// on counting up for the third.
+    #[test]
+    fn a_derived_id_is_suffixed_until_it_is_free() {
+        let mut project = project();
+        let mut at = 0;
+        let mut next = || {
+            at += 200;
+            place(
+                &mut project,
+                &Placement {
+                    start: Frames(at),
+                    duration: Some(Frames(30)),
+                    ..placement()
+                },
+            )
+            .expect("each one fits")
+            .id
+        };
+        assert_eq!(next().as_str(), "shot");
+        assert_eq!(next().as_str(), "shot-2");
+        assert_eq!(next().as_str(), "shot-3");
     }
 
     #[test]
