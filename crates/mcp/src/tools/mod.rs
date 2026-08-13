@@ -250,6 +250,10 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(level::Level),
         Box::new(voices::Voices),
         Box::new(design::VoiceDesign),
+        // Beside the tool it feeds rather than with the other document verbs:
+        // editing a brief and realising it are one thought, and a client
+        // reading this list in order should meet them together.
+        Box::new(edit::Rebrief),
         Box::new(generate::Generate),
         Box::new(edit::Render),
         Box::new(still::Still),
