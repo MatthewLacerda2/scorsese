@@ -24,6 +24,7 @@ use crate::plan::{FrameRange, Plan};
 use crate::raster::Sizes;
 use crate::settings::RenderSettings;
 use crate::tools::Tools;
+use crate::workers::Workers;
 
 use super::segment::{Pass, Stage};
 
@@ -48,6 +49,10 @@ pub(super) fn compose(
         plan: &plan,
         sizes: &sizes,
         project_root,
+        // One frame has nothing to parallelise, and a still is one frame. The
+        // pool would be capped to this anyway; saying it here means a scrub
+        // never asks the machine how many threads it has.
+        workers: Workers::new(1),
     };
 
     // A one-frame range has one segment by construction: the cuts a plan splits

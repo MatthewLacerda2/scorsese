@@ -302,6 +302,13 @@ pub(crate) enum Command {
         /// `--video-codec`, to what the container is written with.
         #[arg(long)]
         audio_codec: Option<AudioCodec>,
+        /// How many threads composite frames at once. Defaults to one fewer
+        /// than the machine says it can run, leaving a thread for the ffmpeg
+        /// processes decoding and encoding beside them. Worth setting where
+        /// the machine's answer is wrong — a container granted two cores on an
+        /// eight-core host would otherwise oversubscribe itself.
+        #[arg(long, value_parser = clap::value_parser!(u16).range(1..))]
+        threads: Option<u16>,
         /// Also write PNG stills of the finished file into this directory, so
         /// the pixels can be looked at without watching the video. The
         /// description says what the edit claims; these are what it did.

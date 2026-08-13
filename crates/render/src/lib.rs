@@ -53,7 +53,8 @@
 //! **A render, at the crate root.** [`Tools`] locates the binaries, [`Plan`]
 //! decides what occupies every frame, [`Renderer`] produces the file and
 //! [`RenderReport`] says what happened while it did; [`RenderSettings`] and
-//! [`OutputFormat`] are what the caller chose. The review half is
+//! [`OutputFormat`] are what the caller chose about the file, with [`Workers`]
+//! for how much of the machine to spend producing it. The review half is
 //! [`Description`] — with [`Stretch`], [`Playing`] and [`Shown`] under it —
 //! and [`Cue`], which names a frame in the delivered file. Media enters a
 //! project through [`Ffprobe`] and [`fill_media`], and [`ANIMATABLE`] with
@@ -100,6 +101,7 @@ pub(crate) mod settings;
 pub(crate) mod slug;
 pub(crate) mod text;
 pub mod tools;
+pub(crate) mod workers;
 
 /// The frame buffer and raster types, which belong to the compositor — a frame
 /// is what it produces. Re-exported so callers need not care which crate
@@ -137,3 +139,4 @@ pub use settings::{
 pub use slug::{Absent, wording};
 pub use text::{UnknownFont, unknown_fonts};
 pub use tools::{Tools, ToolsError};
+pub use workers::Workers;

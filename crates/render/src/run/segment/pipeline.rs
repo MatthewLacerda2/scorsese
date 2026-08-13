@@ -37,12 +37,6 @@ use crate::plan::Segment;
 use super::layers::{Pixels, Slot, elapsed};
 use super::{Pass, Write};
 
-/// How many threads composite at once.
-///
-/// Fixed at one for now: the shape came first, and a pool of one is the shape
-/// with nothing yet asked of it.
-pub(super) const WORKERS: usize = 1;
-
 /// The most frame buffers this stage may be holding at once, in bytes.
 ///
 /// The development machine has 16 GB and is running an ffmpeg per layer beside

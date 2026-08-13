@@ -25,6 +25,7 @@ use crate::report::Note;
 use crate::settings::RenderSettings;
 use crate::text::Painter;
 use crate::tools::Tools;
+use crate::workers::Workers;
 
 use layers::Pixels;
 use pipeline::{Parts, Pools};
@@ -51,6 +52,8 @@ pub(super) struct Pass<'a> {
     pub(super) sizes: &'a Sizes,
     /// What the document's relative paths are relative to.
     pub(super) project_root: &'a Path,
+    /// How many frames may be composited at once.
+    pub(super) workers: Workers,
 }
 
 impl Pass<'_> {
@@ -72,7 +75,9 @@ impl Pass<'_> {
         } = stage;
         // Never more workers than there are frames for them: a still is one
         // frame, and a thread spawned to draw nothing costs more than it saved.
-        let workers = pipeline::WORKERS
+        let workers = self
+            .workers
+            .get()
             .min(usize::try_from(frames).unwrap_or(usize::MAX))
             .max(1);
         if compositors.len() < workers {
