@@ -46,10 +46,11 @@
 //! [`Project`] remembers about the file it was read from, so that saving it
 //! cannot quietly land on somebody else's edit.
 //!
-//! **Five modules keep their path**, because what they publish is an
+//! **Six modules keep their path**, because what they publish is an
 //! *operation* on a project rather than a part of one, and the verb needs the
 //! noun in front of it: [`mod@pool`] brings media in, hashes it, probes it and
-//! collects what nothing references; [`mod@pacing`] retimes a cut;
+//! collects what nothing references; [`mod@placing`] puts a clip on a track and
+//! moves or trims one already there; [`mod@pacing`] retimes a cut;
 //! [`mod@dip`] is auto-ducking; [`mod@probe`] is the seam an ffprobe lives
 //! behind, so this crate can reason about media without spawning anything;
 //! and [`mod@write`] is the one way a file leaves here. [`note`] keeps its own
@@ -70,6 +71,7 @@ pub(crate) mod keyframe;
 pub mod note;
 pub mod pacing;
 pub(crate) mod path;
+pub mod placing;
 pub mod pool;
 pub mod probe;
 pub(crate) mod project;
@@ -95,6 +97,10 @@ pub use note::{Annotated, Noted};
 // [`pacing`] for why `scorsese_core::scale` would be the wrong name.
 pub use pacing::{PaceError, Paced};
 pub use path::{PathProblem, ProjectPath};
+// The two functions stay behind the module, for [`pacing`]'s reason: a bare
+// `scorsese_core::trim` says nothing about what it trims, and `place` reads as
+// spatial.
+pub use placing::{PlaceError, Placement, Trim, TrimError};
 pub use pool::{
     AssetHealth, AssetStatus, HashCheck, Import, ImportError, Imported, ProbeOutcome, Probed,
     Reprobe, SkipReason, Skipped, asset_id_for, asset_status, hash_bytes, import_asset,
