@@ -8,9 +8,7 @@
 
 use std::path::{Path, PathBuf};
 
-use scorsese_core::{
-    AssetKind, Easing, Fps, Frames, Keyframe, KeyframeTrack, Project, PropertyPath,
-};
+use scorsese_core::{Easing, Fps, Frames, Keyframe, KeyframeTrack, Project, PropertyPath};
 use scorsese_render::{FrameRange, Renderer, Tools, Workers, frames};
 
 use crate::common::ffmpeg::{fixture_dir, tools};
