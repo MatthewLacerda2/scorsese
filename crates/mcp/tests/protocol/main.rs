@@ -14,6 +14,7 @@ mod handshake;
 mod importing;
 mod looking;
 mod pacing;
+mod placing;
 mod rendering;
 mod seeing;
 mod starting;

@@ -232,6 +232,11 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(script::Read),
         Box::new(script::Write),
         Box::new(edit::Write),
+        // Before the tools that decorate a cut, because they are how there
+        // comes to be one: a clip has to be on the timeline before anything
+        // can dissolve it or scale it.
+        Box::new(edit::PlaceClip),
+        Box::new(edit::TrimClip),
         Box::new(edit::Dissolve),
         Box::new(edit::Duck),
         Box::new(edit::ScalePacing),
