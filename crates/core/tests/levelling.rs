@@ -117,12 +117,18 @@ fn tracks_animating_anything_else_are_left_exactly_as_they_were() {
 
 /// Every refusal leaves the document exactly as it was — a level is one edit,
 /// and half of one is not an outcome.
+///
+/// Each case is pinned to the refusal it should get, not merely to *some*
+/// error. A level the format cannot carry would eventually be caught by
+/// validation anyway, so asserting `is_err()` alone would pass just as happily
+/// with the up-front check gone — and the caller would be told their document
+/// is broken rather than which number was the problem.
 #[test]
-fn a_refused_level_changes_nothing() {
+fn a_refused_level_changes_nothing_and_says_which_refusal_it_was() {
     let unchanged = common::project();
-    for (asked, clip) in [
-        (Level::Flat(f64::NAN), "c-score"),
-        (Level::Flat(0.5), "c-nothing"),
+    for (asked, clip, said) in [
+        (Level::Flat(f64::NAN), "c-score", "must be a finite number"),
+        (Level::Flat(0.5), "c-nothing", "no clip"),
         (
             Level::Ramp {
                 from: 1.0,
@@ -131,6 +137,7 @@ fn a_refused_level_changes_nothing() {
                 over: Frames::ZERO,
             },
             "c-score",
+            "a ramp of no frames is a jump",
         ),
         (
             Level::Ramp {
@@ -140,13 +147,45 @@ fn a_refused_level_changes_nothing() {
                 over: Frames(30),
             },
             "c-score",
+            "frames long",
         ),
     ] {
         let mut project = common::project();
+        let refused = set(&mut project, clip, asked).expect_err("{asked:?} was not refused");
         assert!(
-            set(&mut project, clip, asked).is_err(),
-            "{asked:?} on {clip}"
+            refused.to_string().contains(said),
+            "{asked:?} on {clip} came back as `{refused}`, which does not say `{said}`"
         );
         assert_eq!(project, unchanged, "{asked:?} on {clip} changed something");
     }
+}
+
+/// A fade that finishes exactly where the clip does is allowed — it is *the*
+/// fade-out, and the boundary is the whole question. One frame further is
+/// [`LevelError::PastTheEnd`]; here the last point lands on the clip's edge,
+/// which is where a hand would drag it.
+#[test]
+fn a_ramp_may_finish_exactly_where_the_clip_does() {
+    let mut project = common::project();
+    let (_, clip) = project
+        .clips()
+        .find(|(_, candidate)| candidate.id.as_str() == "c-score")
+        .expect("the fixture has that clip");
+    let over = Frames(30);
+    let at = Frames(clip.duration.get() - over.get());
+    set(
+        &mut project,
+        "c-score",
+        Level::Ramp {
+            from: 1.0,
+            to: 0.0,
+            at,
+            over,
+        },
+    )
+    .expect("a fade ending with the clip is the ordinary one");
+    assert_eq!(
+        points(&project, "c-score").last(),
+        Some(&(at.get() + 30, 0.0))
+    );
 }
