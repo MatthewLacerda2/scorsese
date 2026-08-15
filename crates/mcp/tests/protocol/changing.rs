@@ -56,6 +56,69 @@ fn ducking_writes_keyframes_and_says_how_many() {
     std::fs::remove_dir_all(dir).ok();
 }
 
+#[test]
+fn setting_a_level_writes_one_keyframe_and_says_what_the_clip_plays_at() {
+    let dir = project("volume");
+    let (text, failed) = said(&call(
+        "set_volume",
+        json!({ "project": dir, "clip": "m1", "level": 0.4 }),
+    ));
+    assert!(!failed, "{text}");
+    assert!(text.contains("plays at 0.4"), "got {text}");
+    let on_disk = std::fs::read_to_string(dir.join("project.json")).expect("read back");
+    assert!(on_disk.contains(r#""property": "volume""#), "got {on_disk}");
+    assert!(
+        !on_disk.contains(r#""by""#),
+        "a level is not signed: {on_disk}"
+    );
+    std::fs::remove_dir_all(dir).ok();
+}
+
+/// The one interaction worth pinning: a level takes the volume lane over, so a
+/// dip that was there is gone — and the reply has to say so rather than let it
+/// be discovered on playback.
+#[test]
+fn muting_a_ducked_clip_replaces_the_dip_and_names_what_went() {
+    let dir = project("volume-ducked");
+    let (text, failed) = said(&call(
+        "duck_music",
+        json!({ "project": dir, "music": "music" }),
+    ));
+    assert!(!failed, "{text}");
+
+    let (text, failed) = said(&call(
+        "set_volume",
+        json!({ "project": dir, "clip": "m1", "level": 0.0 }),
+    ));
+    assert!(!failed, "{text}");
+    assert!(text.contains("muted"), "got {text}");
+    assert!(text.contains("`duck` wrote"), "got {text}");
+    assert!(text.contains("duck_music"), "got {text}");
+    let on_disk = std::fs::read_to_string(dir.join("project.json")).expect("read back");
+    assert!(!on_disk.contains(r#""by": "duck""#), "got {on_disk}");
+    std::fs::remove_dir_all(dir).ok();
+}
+
+/// A fade that finishes after the clip does is a fade nobody hears the end of,
+/// so it is refused whole rather than quietly shortened.
+#[test]
+fn a_fade_that_runs_off_the_end_of_the_clip_changes_nothing() {
+    let dir = project("volume-overrun");
+    let before = std::fs::read_to_string(dir.join("project.json")).expect("read");
+    let (text, failed) = said(&call(
+        "set_volume",
+        json!({ "project": dir, "clip": "m1", "level": 0.0,
+                "from_level": 1.0, "at_seconds": 19.0, "seconds": 4.0 }),
+    ));
+    assert!(failed, "got {text}");
+    assert!(text.contains("nothing was changed"), "got {text}");
+    assert_eq!(
+        std::fs::read_to_string(dir.join("project.json")).expect("read"),
+        before
+    );
+    std::fs::remove_dir_all(dir).ok();
+}
+
 /// An agent writing `project.json` directly is the path that creates assets
 /// nothing has probed, so the fix has to be reachable from here. This asserts
 /// the half that needs no manufactured media: a file ffprobe cannot read is
