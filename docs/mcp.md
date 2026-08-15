@@ -96,6 +96,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `audio_level` | Say how a finished sound file came out. | ffmpeg |
 | `voices` | List the ElevenLabs voices a narration can be read in, or check that one still exists. | a key and a network, but no money |
 | `voice_design` | Design a new ElevenLabs voice from a description, for when no voice in either list is the one the video needs. | money, at a provider |
+| `rebrief` | Change what a generated asset is to be made from, and mark it stale in the same write. | nothing |
 | `generate` | Realise the sketched briefs — the one tool here that costs money. | money, at a provider |
 | `render` | Render the timeline to a video file. | ffmpeg, and real time |
 | `still` | Look at the edit. | ffmpeg, and seconds |
@@ -518,6 +519,60 @@ distance between them.
 `out`, and the one `scorsese still --out` writes. It is what you pass while
 measuring; leave it off for a picture you mean to keep, because there is no
 taking the lines off afterwards.
+
+## Changing a brief: `rebrief`
+
+A generated asset is a **brief** and a **state**, and the state is the half
+that gets forgotten. `sketch → queued → generated`, and back to `stale` the
+moment the brief is edited — so an asset still marked `generated` after its
+prompt changed is a lie the rest of the system believes: the cut renders the
+previous take rather than a slug card, and nothing anywhere says the take is
+not what the project asks for.
+
+`rebrief` writes both in one call.
+
+```
+rebrief  { "project": "teaser.scor", "asset": "hero",
+           "prompt": "a lone figure on a wet platform, 35mm" }
+         → "`hero`: prompt changed, generated → **stale**. The file on disk is
+            the previous brief's, so the cut shows a slug card until the next
+            generate redoes it."
+```
+
+**The reply states the resulting state, always** — that is the whole point of
+having a tool rather than two edits. It is also why the answer is not always
+*stale*: an asset that has **never** been generated stays `sketch`, because
+there is nothing stale about a brief nobody has realised. Both are states
+`generate` acts on, so nothing is lost by being accurate about which one it is.
+
+**Two kinds of brief, and the tool keeps them two.** `prompt` is for
+`generated_video` and `generated_audio` — a sentence a provider is paid to
+read. `recipe` is for `synth_audio`, and it repoints the asset at a *different*
+recipe file; changing what is **inside** a recipe is `synth_write` or
+`synth_set`, and needs no `rebrief` at all, because a bake is named for the
+hash of its recipe. Passing the brief an asset's kind does not take is refused
+rather than resolved: the call has misunderstood the asset, and guessing which
+half was meant would write the half nobody checked.
+
+**It refuses atomically.** The whole document is validated before anything
+reaches disk, so a refusal — an unknown asset, the wrong kind of brief, a
+recipe path that is not there — leaves `project.json` exactly as it was.
+
+**A queued asset is refused until it is collected.** A ticket is money already
+committed, and what comes back is named after the brief that was sent. Editing
+the brief while a shot is in flight would file the arriving video under a name
+it is not, so the way through is `generate` with `collect` first — it is paid
+for either way.
+
+**An unchanged brief writes nothing** and leaves the state alone. Marking an
+asset stale for an edit that changed nothing would cost a slug card in every
+preview until somebody regenerated it.
+
+**Generating is not triggered.** `rebrief` costs nothing and spends nothing;
+`generate` is still what realises the result, and its cost gate stays where it
+is. The rest of a brief — a shot's `video` block, a line's `speech` block — is
+still a `project_write`, and those fields are hashed into the brief too, so
+changing a voice deserves the same `"state": "stale"` by hand.
 
 ## Generating the shots and lines that do not exist yet
 
