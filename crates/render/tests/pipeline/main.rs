@@ -20,6 +20,7 @@ mod slugs;
 mod sources;
 mod still;
 mod text;
+mod threads;
 mod warnings;
 
 use std::path::{Path, PathBuf};

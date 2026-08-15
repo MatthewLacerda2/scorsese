@@ -139,6 +139,7 @@ scorsese render --project teaser.scor --out small.mp4 \
     --resolution 1280x720 --fps 60 --bitrate 6M
 scorsese render --project teaser.scor --out teaser.mp4 \
     --sample-rate 48000 --audio-bitrate 192k
+scorsese render --project teaser.scor --out teaser.mp4 --threads 2
 scorsese render --project teaser.scor --out legacy.avi
 scorsese render --project teaser.scor --out legacy.avi --video-codec h264
 scorsese render --project teaser.scor --out teaser.mp4 --stills review/

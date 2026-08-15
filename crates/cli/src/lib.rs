@@ -138,6 +138,7 @@ fn dispatch(cli: Cli) -> Result<()> {
             container,
             video_codec,
             audio_codec,
+            threads,
             stills,
             at,
         } => commands::render::run(
@@ -153,6 +154,7 @@ fn dispatch(cli: Cli) -> Result<()> {
                 container,
                 video_codec,
                 audio_codec,
+                threads,
                 stills,
                 at,
             },

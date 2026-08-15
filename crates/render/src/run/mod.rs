@@ -25,6 +25,7 @@ use crate::raster::Sizes;
 use crate::report::{Note, RenderReport};
 use crate::settings::RenderSettings;
 use crate::tools::Tools;
+use crate::workers::Workers;
 
 use segment::{Pass, Stage};
 
@@ -32,13 +33,32 @@ use segment::{Pass, Stage};
 pub struct Renderer<'a> {
     tools: &'a Tools,
     settings: RenderSettings,
+    workers: Workers,
 }
 
 impl<'a> Renderer<'a> {
     /// Borrows the tools rather than discovering its own, so the cost of
     /// checking ffmpeg is paid once however many renders follow.
+    ///
+    /// Composites on [`Workers::available`] threads unless
+    /// [`Renderer::with_workers`] says otherwise.
     pub fn new(tools: &'a Tools, settings: RenderSettings) -> Self {
-        Self { tools, settings }
+        Self {
+            tools,
+            settings,
+            workers: Workers::default(),
+        }
+    }
+
+    /// Composites on `workers` threads rather than as many as the machine has
+    /// to spare.
+    ///
+    /// A separate knob from [`RenderSettings`] on purpose: everything in there
+    /// decides something about the delivered file, and this decides nothing
+    /// about it. The same project rendered on one thread and on eight produces
+    /// the same frames — that is the property the golden renders hold this to.
+    pub fn with_workers(self, workers: Workers) -> Self {
+        Self { workers, ..self }
     }
 
     /// Renders `range` of `project` to `out`.
@@ -88,13 +108,14 @@ impl<'a> Renderer<'a> {
         let levels = mixed.as_ref().map(|(_, _, levels)| levels.finish());
 
         let mut encoder = Encoder::start(self.tools, &self.settings, mix, out)?;
-        let mut stage = Stage::for_plan(&plan, self.settings);
+        let mut stage = Stage::new();
         let pass = Pass {
             tools: self.tools,
             settings: self.settings,
             plan: &plan,
             sizes: &sizes,
             project_root,
+            workers: self.workers,
         };
         let mut written = 0;
 

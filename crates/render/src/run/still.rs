@@ -24,6 +24,7 @@ use crate::plan::{FrameRange, Plan};
 use crate::raster::Sizes;
 use crate::settings::RenderSettings;
 use crate::tools::Tools;
+use crate::workers::Workers;
 
 use super::segment::{Pass, Stage};
 
@@ -41,13 +42,17 @@ pub(super) fn compose(
 ) -> Result<Frame, RenderError> {
     let plan = Plan::build(project, settings.fps, FrameRange::just(at))?;
     let sizes = Sizes::measure(tools, &plan, project_root)?;
-    let mut stage = Stage::for_plan(&plan, settings);
+    let mut stage = Stage::new();
     let pass = Pass {
         tools,
         settings,
         plan: &plan,
         sizes: &sizes,
         project_root,
+        // One frame has nothing to parallelise, and a still is one frame. The
+        // pool would be capped to this anyway; saying it here means a scrub
+        // never asks the machine how many threads it has.
+        workers: Workers::new(1),
     };
 
     // A one-frame range has one segment by construction: the cuts a plan splits

@@ -7,7 +7,7 @@ use scorsese_core::{Fps, Project};
 use scorsese_render::say;
 use scorsese_render::{
     AudioCodec, Bitrate, Container, Cue, FrameRange, OutputFormat, RenderSettings, Renderer,
-    Resolution, SampleRate, Tools, VideoCodec, frames,
+    Resolution, SampleRate, Tools, VideoCodec, Workers, frames,
 };
 
 /// Everything the command line can say about the file to produce. Gathered into
@@ -33,6 +33,9 @@ pub(crate) struct Options {
     pub(crate) video_codec: Option<VideoCodec>,
     /// `None` takes the sound codec the container is written with.
     pub(crate) audio_codec: Option<AudioCodec>,
+    /// How many threads composite at once. `None` leaves it to the machine —
+    /// one fewer than it says it can run.
+    pub(crate) threads: Option<u16>,
     /// Where to write PNG stills of the finished file. `None` writes none.
     pub(crate) stills: Option<PathBuf>,
     /// Which instants to still. Empty means every segment boundary, which is
@@ -66,7 +69,14 @@ pub(crate) fn run(project_dir: &Path, out: &Path, options: Options) -> Result<()
     let range = options.range.unwrap_or(FrameRange::ALL);
 
     let tools = Tools::discover()?;
-    let report = Renderer::new(&tools, settings)
+    // Nothing about the file changes with the thread count — the same project
+    // composites to the same frames however many workers draw them — so this
+    // is the one render choice that never reaches `RenderSettings`.
+    let mut renderer = Renderer::new(&tools, settings);
+    if let Some(threads) = options.threads {
+        renderer = renderer.with_workers(Workers::new(usize::from(threads)));
+    }
+    let report = renderer
         .render(&project, project_dir, range, out)
         .with_context(|| format!("rendering to {}", out.display()))?;
 
