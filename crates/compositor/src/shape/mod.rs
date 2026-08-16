@@ -12,10 +12,10 @@
 //! [`Style`](crate::text::Style) is.
 //!
 //! **A closed shape and an arrow are placed differently, and the split is the
-//! shape of this module.** [`closed`] draws something with an area: it has a
+//! shape of this module.** `closed` draws something with an area: it has a
 //! size, and where it sits inside the raster is decided from its `anchor` —
 //! here rather than by the compositor, because a shape layer is raster-sized
-//! and a raster-sized layer rests at the origin whatever its anchor. [`arrow`]
+//! and a raster-sized layer rests at the origin whatever its anchor. `arrow`
 //! draws a line between two points that already say where they are, so no
 //! anchor reaches it at all.
 //!

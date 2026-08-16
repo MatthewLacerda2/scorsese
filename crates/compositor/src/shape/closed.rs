@@ -21,7 +21,7 @@ use super::{Boxed, Figure, Outline};
 const KAPPA: f32 = 0.552_284_8;
 
 /// Draws a closed figure — anything but an arrow, which has no area and goes
-/// through [`super::arrow`] instead.
+/// through the `arrow` module instead.
 pub(super) fn draw(frame: &mut Frame, figure: &Figure) {
     let Some(path) = path(figure.outline, frame.resolution()) else {
         return;

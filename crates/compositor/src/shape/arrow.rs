@@ -2,7 +2,7 @@
 //!
 //! No anchor reaches here: an arrow's two endpoints already say where they are,
 //! so there is nothing to measure from an edge. That is the whole difference
-//! between this module and [`super::closed`].
+//! between this module and `closed`.
 //!
 //! **The head is aimed along the curve's tangent, not along the straight line
 //! between the ends.** On a bowed arrow those differ by a visible angle, and a
