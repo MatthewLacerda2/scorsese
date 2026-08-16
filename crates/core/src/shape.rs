@@ -19,6 +19,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::color::Rgba;
+use crate::timeline::ClipId;
 
 /// How thick a border is when the document gives it a colour and no width:
 /// about four pixels at 1080p, which is a line you can see without it becoming
@@ -38,7 +39,7 @@ pub const MAX_RADIUS: f64 = 0.5;
 /// block. Both absent would draw nothing at all, which
 /// [`crate::Project::validate`] refuses rather than rendering an empty layer
 /// nobody asked for.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Shape {
     /// The outline itself — the only part a rectangle and an ellipse disagree
@@ -130,7 +131,7 @@ impl Shape {
 /// two endpoints that say where it starts and ends outright. That is why it is
 /// a variant here rather than another pair of numbers: no size to anchor, no
 /// interior to fill.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum Geometry {
     /// Four corners, as square or as rounded as the document says.
@@ -173,10 +174,10 @@ pub enum Geometry {
     /// its own: the two would be the same geometry, the same path and the same
     /// stroke, differing in whether one triangle is filled at the end.
     Arrow {
-        /// Where it starts.
-        from: Point,
+        /// Where it starts: a place on the frame, or a clip to follow.
+        from: Endpoint,
         /// Where it ends, and where the head goes.
-        to: Point,
+        to: Endpoint,
         /// Straight, or bowed into an S.
         #[serde(default)]
         curve: Curve,
@@ -195,8 +196,8 @@ impl Geometry {
     /// no size, and a caller reaching for one has to say what it means to do
     /// about that rather than being handed a zero or a bounding box nobody
     /// wrote.
-    pub fn size(self) -> Option<(f64, f64)> {
-        match self {
+    pub fn size(&self) -> Option<(f64, f64)> {
+        match *self {
             Self::Rectangle { width, height, .. } | Self::Ellipse { width, height } => {
                 Some((width, height))
             }
@@ -207,8 +208,8 @@ impl Geometry {
     /// How rounded the corners are. An ellipse is all corner and an arrow has
     /// none, so for both the question does not arise and the answer is the one
     /// that changes nothing.
-    pub fn radius(self) -> f64 {
-        match self {
+    pub fn radius(&self) -> f64 {
+        match *self {
             Self::Rectangle { radius, .. } => radius,
             Self::Ellipse { .. } | Self::Arrow { .. } => 0.0,
         }
@@ -219,8 +220,116 @@ impl Geometry {
     ///
     /// An arrow is a line, and a line encloses nothing. This is what makes a
     /// `fill` on one a refusal rather than a field quietly ignored.
-    pub fn is_closed(self) -> bool {
+    pub fn is_closed(&self) -> bool {
         !matches!(self, Self::Arrow { .. })
+    }
+}
+
+/// Where one end of an arrow is: a place on the frame, or a clip to follow.
+///
+/// **The two readings are what makes a diagram survive being edited.** A point
+/// is placed once and stays where it was put, so moving the box it pointed at
+/// silently breaks it — which on a diagram of any size is the difference
+/// between a feature somebody uses and one they abandon. An attachment is
+/// resolved from wherever its clip actually is, on every frame, so the arrow
+/// follows.
+///
+/// Untagged, so a point stays written the way it was before attachments
+/// existed: `{ "x": 0.3, "y": 0.4 }` for one, `{ "attach": { … } }` for the
+/// other. The two share no field, so nothing is ambiguous about which was
+/// meant.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Endpoint {
+    /// A fixed place on the frame.
+    At(Point),
+    /// A clip to follow, and which side of it to meet.
+    Attached {
+        /// Which clip, and where on it.
+        attach: Attach,
+    },
+}
+
+impl Endpoint {
+    /// The fixed place this end sits at, if it is one at all.
+    pub fn point(&self) -> Option<Point> {
+        match self {
+            Self::At(point) => Some(*point),
+            Self::Attached { .. } => None,
+        }
+    }
+
+    /// The clip this end follows, if it follows one.
+    pub fn attach(&self) -> Option<&Attach> {
+        match self {
+            Self::Attached { attach } => Some(attach),
+            Self::At(_) => None,
+        }
+    }
+}
+
+impl From<Point> for Endpoint {
+    fn from(point: Point) -> Self {
+        Self::At(point)
+    }
+}
+
+/// An arrow end stuck to a clip.
+///
+/// **Not called `anchor`, deliberately.** That word already means something
+/// else in this format — which edge of the *raster* a layer's position is
+/// measured from — and one word for two unrelated ideas is a document nobody
+/// can read cold. See [`crate::Anchor`] for the other one.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Attach {
+    /// The clip to follow, by the id the timeline gives it.
+    ///
+    /// A **clip**, not an asset: the same box asset can be on screen twice at
+    /// once, and an arrow has to say which of them it means.
+    pub clip: ClipId,
+    /// Which side of that clip the arrow meets.
+    pub side: Side,
+}
+
+/// Which part of a clip an arrow attaches to.
+///
+/// The author says which side, and it stays that side when the boxes move.
+/// Choosing the nearest one automatically is the sort of helpfulness that is
+/// right until it is wrong, and wrong is a diagram whose arrows rearranged
+/// themselves between two renders.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Side {
+    /// The middle of the left edge.
+    Left,
+    /// The middle of the right edge.
+    Right,
+    /// The middle of the top edge.
+    Top,
+    /// The middle of the bottom edge.
+    Bottom,
+    /// The middle of the clip. The default, and the honest answer when the
+    /// arrow is meant to point *at* something rather than to touch it.
+    #[default]
+    Center,
+}
+
+impl Side {
+    /// Where on a rectangle this side is, as fractions of that rectangle:
+    /// `(0, 0)` its top-left corner and `(1, 1)` its bottom-right.
+    ///
+    /// Fractions rather than pixels because the rectangle is not known here —
+    /// only the renderer, holding a resolution and a frame's worth of evaluated
+    /// properties, can say where a clip actually is.
+    pub fn on_unit_rect(self) -> (f64, f64) {
+        match self {
+            Self::Left => (0.0, 0.5),
+            Self::Right => (1.0, 0.5),
+            Self::Top => (0.5, 0.0),
+            Self::Bottom => (0.5, 1.0),
+            Self::Center => (0.5, 0.5),
+        }
     }
 }
 

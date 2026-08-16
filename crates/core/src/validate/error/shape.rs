@@ -13,6 +13,7 @@
 
 use crate::asset::AssetId;
 use crate::shape::Point;
+use crate::timeline::ClipId;
 
 /// One thing wrong with a `shape` asset's geometry or colouring.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
@@ -108,6 +109,51 @@ pub enum ShapeProblem {
     FilledLine {
         /// The arrow asset.
         asset: AssetId,
+    },
+
+    /// An arrow attached to a clip the timeline does not have.
+    ///
+    /// Usually a clip renamed or deleted with the arrow left behind — which is
+    /// exactly the edit this whole feature exists to survive, so it is worth
+    /// saying loudly rather than quietly drawing the arrow at the origin.
+    #[error("asset `{asset}`: an arrow is attached to clip `{clip}`, which is not in the timeline")]
+    AttachedToNothing {
+        /// The arrow asset.
+        asset: AssetId,
+        /// The clip id it names.
+        clip: ClipId,
+    },
+
+    /// An arrow attached to a clip on an audio track.
+    ///
+    /// Sound has no rectangle. Nothing about where a piece of music sits could
+    /// answer where an arrow should point.
+    #[error(
+        "asset `{asset}`: an arrow is attached to clip `{clip}`, which is sound and has no place on screen"
+    )]
+    AttachedToSound {
+        /// The arrow asset.
+        asset: AssetId,
+        /// The clip id it names.
+        clip: ClipId,
+    },
+
+    /// An arrow attached to a clip that is itself an arrow.
+    ///
+    /// **This is the rule that forecloses every cycle**, which is why it is a
+    /// blanket refusal rather than a graph walk: an arrow following an arrow
+    /// following the first has no answer, and nothing resolving endpoints per
+    /// frame should have to discover that at render time. It costs nothing real
+    /// — a line has no rectangle worth meeting — and it covers the degenerate
+    /// case of an arrow attached to a clip showing itself.
+    #[error(
+        "asset `{asset}`: an arrow is attached to clip `{clip}`, which is another arrow — a line has no side to meet"
+    )]
+    AttachedToArrow {
+        /// The arrow asset.
+        asset: AssetId,
+        /// The clip id it names.
+        clip: ClipId,
     },
 
     /// A shape with neither an interior nor a border: a layer that would
