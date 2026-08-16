@@ -2,7 +2,7 @@
 
 use scorsese_compositor::shape::{Figure, Outline, draw};
 
-use crate::{boxed, centred, clear, filled, frame};
+use crate::{bounds, boxed, centred, clear, filled, frame};
 
 #[test]
 fn an_ellipse_fills_its_middle_and_not_its_corners() {
@@ -10,7 +10,7 @@ fn an_ellipse_fills_its_middle_and_not_its_corners() {
     draw(
         &mut frame,
         &Figure {
-            outline: Outline::Ellipse,
+            outline: Outline::Ellipse(bounds((100.0, 100.0), centred())),
             ..boxed((100.0, 100.0), centred())
         },
     );
@@ -30,7 +30,7 @@ fn an_ellipse_takes_both_of_its_dimensions() {
     draw(
         &mut frame,
         &Figure {
-            outline: Outline::Ellipse,
+            outline: Outline::Ellipse(bounds((160.0, 40.0), centred())),
             ..boxed((160.0, 40.0), centred())
         },
     );
@@ -57,7 +57,10 @@ fn a_rounded_corner_is_cut_away_and_a_square_one_is_not() {
     draw(
         &mut round,
         &Figure {
-            outline: Outline::Rectangle { radius: 30.0 },
+            outline: Outline::Rectangle {
+                bounds: bounds((100.0, 100.0), centred()),
+                radius: 30.0,
+            },
             ..boxed((100.0, 100.0), centred())
         },
     );
@@ -72,7 +75,10 @@ fn a_radius_past_the_limit_is_clamped_to_a_pill() {
     draw(
         &mut frame,
         &Figure {
-            outline: Outline::Rectangle { radius: 500.0 },
+            outline: Outline::Rectangle {
+                bounds: bounds((100.0, 60.0), centred()),
+                radius: 500.0,
+            },
             ..boxed((100.0, 60.0), centred())
         },
     );

@@ -1,4 +1,4 @@
-# `project.json` — schema v22
+# `project.json` — schema v23
 
 The contract between the CLI, the MCP server, the GUI, and every project
 saved on someone's disk. It is meant to be hand-written: an agent should be
@@ -12,7 +12,7 @@ bump and a migration note.
 
 ```json project
 {
-  "schema_version": 22,
+  "schema_version": 23,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -632,6 +632,7 @@ won.
 | --- | --- | --- |
 | `rectangle` | `width`, `height`, optional `radius` | four corners, square or rounded |
 | `ellipse` | `width`, `height` | the ellipse inscribed in that box |
+| `arrow` | `from`, `to`, optional `curve`, optional `heads` | a line between two points, with a head on it |
 
 **Everything is a fraction of the raster**, as `transform.position` is:
 `width` of the frame's width, `height` of its height. So a shape is drawn at
@@ -679,11 +680,64 @@ It composites like any other layer, so a box that fades up or slides in is
 keyframes and nothing new. Text inside a shape is likewise nothing new: a text
 clip on the track above a shape clip sits on top of it.
 
-Lines and arrows are not here yet. An open shape is defined by two endpoints
-rather than a position and a size, which is a different enough question to be
-its own piece of work. Polygons, stars, dashed borders, shadows and gradients
-are not planned at all — each is a drawing program growing inside a video
-editor.
+#### Arrows
+
+```json asset
+{ "id": "a-to-b", "kind": "shape",
+  "shape": {
+    "geometry": { "arrow": { "from": { "x": 0.30, "y": 0.40 },
+                             "to":   { "x": 0.62, "y": 0.62 },
+                             "curve": "s", "heads": "end" } },
+    "stroke": "#000000ff",
+    "stroke_width": 0.004
+  } }
+```
+
+An arrow is the part of a diagram that carries the meaning — boxes are its
+nouns and arrows its verb — and it is the one shape with no workaround: a box
+is a scaled colour clip if you are determined, and a line at an angle with a
+head on it is not expressible by anything else in this format.
+
+**It is placed differently from every other shape, and the difference is
+deliberate.** `from` and `to` are **absolute** fractions of the raster: `x` from
+the left edge, `y` from the top, so `{ "x": 0.5, "y": 0.5 }` is the middle of
+the picture at any resolution. That is the one place these fractions differ
+from `transform.position`, which offsets a layer from where it already sits —
+a line has no "already sits" to offset from. **`anchor` is therefore not read
+on an arrow**: there is no rectangle to rest against an edge.
+
+A point outside `0`–`1` is allowed and is not a mistake. An arrow entering from
+off-screen is an ordinary thing to draw, and the only refusals are an endpoint
+that is not a pair of numbers and two endpoints in the same place — which has
+no direction, so no head could be aimed.
+
+`curve` is `straight` (the default) or `s`. The S **leaves the start and
+arrives at the end along the same axis**, which is what a connector between two
+boxes side by side wants; a straight diagonal between them reads as a mistake.
+Which axis it bows along is *inferred* — whichever of the two the ends are
+further apart on — and how far it bows is fixed. Neither is a field, because
+neither is a question an author drawing a diagram has an opinion about.
+
+`heads` is `end` (the default), `both`, or `none`. **A plain connecting line is
+`"heads": "none"`**, which is why there is no `line` outline of its own: it
+would be the same geometry, the same path and the same stroke, differing only
+in whether one triangle is filled. `end` is the default because an arrow is
+drawn to say *this leads to that*, and that reading has a direction. The head
+is sized from `stroke_width`, so it stays in proportion when the line thickens,
+and on a bowed arrow it is aimed along the curve's own tangent rather than
+along the straight line between the ends.
+
+**`fill` is refused on an arrow.** A line encloses nothing, so there is no
+inside for a colour to go in, and a fill there would be read by nothing —
+usually a `stroke` that was meant. `stroke` is the whole of an arrow's
+appearance: no stroke, no arrow.
+
+Elbow and orthogonal routing, obstacle avoidance, editable control points,
+labels riding along the line, dashes and multi-segment paths are not here.
+Neither is an endpoint that follows a box around instead of naming a fixed
+point — that is its own piece of work. Polygons, stars, dashed borders, shadows
+and gradients are not planned at all: each is a drawing program growing inside
+a video editor.
 
 `media.duration_seconds` is wall-clock, and `media.frame_rate` is a rational
 in the same shape as `timeline_fps` — a source's own grid, which is not
@@ -1321,7 +1375,8 @@ What it checks: schema version, duplicate ids, path rules, hash shape, the
 fields each asset kind requires — including that only a `text` asset carries
 `text` or `style`, only a `color` asset carries `color` and only a `shape`
 asset carries `shape`, that a shape has area, a corner it has room to round,
-and something to draw with, that a `style`'s
+and something to draw with — and that an arrow has two ends in different
+places and no `fill`, since a line has no inside — that a `style`'s
 font path, a `synth_audio`'s `recipe` and the document's `script`
 obey the project-path rules, and that each generated kind carries exactly the
 brief it takes: a `prompt` or a `recipe`, never both and never the other's —
@@ -1361,13 +1416,26 @@ runs — is refused at the render, in the same breath as "this is not a font I c
 read". That holds for `sans` and `serif` as much as for a font the project
 carries; they are files too, and scorsese happens to be the one carrying them.
 
+## Migrating from v22
+
+v23 adds one shape outline and takes nothing away: `arrow`, alongside
+`rectangle` and `ellipse` inside a shape's `geometry`. No v22 document can
+contain one — an unknown outline is refused outright by a v22 build — so no v22
+document means anything different under v23, and converting one is changing
+`"schema_version": 22` to `"schema_version": 23` and nothing else.
+
+Nothing renders differently. The rectangles and ellipses a v22 project draws
+come out of the same code and land on the same pixels; what moved underneath
+them is where a closed shape's box is worked out, which is not a behaviour the
+format can see.
+
 ## Migrating from v21
 
 v22 adds one asset kind and takes nothing away: `shape`, with the `shape` block
 that kind carries. No v21 document can contain either — an unknown `kind` and
 an unknown asset field are both refused outright by a v21 build — so no v21
 document means anything different under v22, and converting one is changing
-`"schema_version": 21` to `"schema_version": 22` and nothing else.
+`"schema_version": 21` to `"schema_version": 23` and nothing else.
 
 Nothing renders differently. A project without a shape asset composites exactly
 the layers it composited under v21, in the same order, from the same pixels.

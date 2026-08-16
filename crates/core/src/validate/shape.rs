@@ -11,7 +11,7 @@
 //! mistake that survives all the way into a published video.
 
 use crate::asset::{Asset, AssetKind};
-use crate::shape::MAX_RADIUS;
+use crate::shape::{Geometry, MAX_RADIUS, Point};
 
 use super::error::{AssetProblem, ShapeProblem};
 use super::field::AssetField;
@@ -37,7 +37,34 @@ pub(super) fn check(asset: &Asset, errors: &mut Vec<AssetProblem>) {
         return;
     }
 
-    let (width, height) = (shape.geometry.width(), shape.geometry.height());
+    match shape.geometry {
+        Geometry::Arrow { from, to, .. } => check_arrow(asset, from, to, errors),
+        _ => check_closed(asset, shape.geometry, errors),
+    }
+    if shape.stroke.is_some() && !positive(shape.stroke_width) {
+        errors.push(
+            ShapeProblem::BorderWithoutWidth {
+                asset: id(),
+                width: shape.stroke_width,
+            }
+            .into(),
+        );
+    }
+    if shape.fill.is_some() && !shape.geometry.is_closed() {
+        errors.push(ShapeProblem::FilledLine { asset: id() }.into());
+    }
+    if !shape.draws() {
+        errors.push(ShapeProblem::Invisible { asset: id() }.into());
+    }
+}
+
+/// A rectangle or an ellipse: the questions a shape with an area answers.
+fn check_closed(asset: &Asset, geometry: Geometry, errors: &mut Vec<AssetProblem>) {
+    let id = || asset.id.clone();
+    // The `None` arm is unreachable — an arrow went the other way at the call
+    // site — and answering it as a size of zero rather than unwrapping keeps
+    // that true without a panic if the two ever drift apart.
+    let (width, height) = geometry.size().unwrap_or((0.0, 0.0));
     if !positive(width) || !positive(height) {
         errors.push(
             ShapeProblem::NotSized {
@@ -50,7 +77,7 @@ pub(super) fn check(asset: &Asset, errors: &mut Vec<AssetProblem>) {
     }
     // `contains` answers false for a NaN radius, which is the answer wanted:
     // not a fraction of anything, so not a rounding this can accept.
-    let radius = shape.geometry.radius();
+    let radius = geometry.radius();
     if !(0.0..=MAX_RADIUS).contains(&radius) {
         errors.push(
             ShapeProblem::RadiusOutOfRange {
@@ -61,17 +88,36 @@ pub(super) fn check(asset: &Asset, errors: &mut Vec<AssetProblem>) {
             .into(),
         );
     }
-    if shape.stroke.is_some() && !positive(shape.stroke_width) {
+}
+
+/// An arrow: the two questions a line answers instead.
+///
+/// Neither is about where the points *are*. A point outside the frame is an
+/// arrow entering from off-screen, which is an ordinary thing to draw, so the
+/// only refusals are a point that is not a pair of numbers at all and two
+/// points in the same place — which has no direction, and so no head could be
+/// aimed.
+fn check_arrow(asset: &Asset, from: Point, to: Point, errors: &mut Vec<AssetProblem>) {
+    let id = || asset.id.clone();
+    if !from.is_placed() || !to.is_placed() {
         errors.push(
-            ShapeProblem::BorderWithoutWidth {
+            ShapeProblem::Unplaced {
                 asset: id(),
-                width: shape.stroke_width,
+                from,
+                to,
             }
             .into(),
         );
+        return;
     }
-    if !shape.draws() {
-        errors.push(ShapeProblem::Invisible { asset: id() }.into());
+    if from == to {
+        errors.push(
+            ShapeProblem::NoLength {
+                asset: id(),
+                at: from,
+            }
+            .into(),
+        );
     }
 }
 

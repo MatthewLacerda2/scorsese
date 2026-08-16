@@ -104,18 +104,32 @@ impl Shape {
     /// Whether anything would be drawn at all. The one thing a shape cannot be
     /// allowed to be, since a layer that renders nothing looks exactly like a
     /// layer that failed to render.
+    ///
+    /// **An arrow is judged on its stroke alone.** A line has no interior, so a
+    /// `fill` on one is read by nothing — an arrow with a fill and no stroke
+    /// would come out as an empty frame, which is precisely the case this
+    /// answers `false` for.
     pub fn draws(&self) -> bool {
+        if !self.geometry.is_closed() {
+            return self.stroke.is_some();
+        }
         self.fill.is_some() || self.stroke.is_some()
     }
 }
 
 /// The outline a shape has.
 ///
-/// Two of them, and the list is meant to stay short. A rectangle and an ellipse
-/// are what a diagram is made of; polygons, stars and arbitrary paths are a
-/// drawing program growing inside a video editor. Lines and arrows are the one
-/// planned addition, and they are a different shape of thing entirely — two
-/// endpoints rather than a size — which is why they are not here yet.
+/// Three of them, and the list is meant to stay short. A rectangle, an ellipse
+/// and an arrow are what a diagram is made of — boxes are its nouns and arrows
+/// its verbs; polygons, stars and arbitrary paths are a drawing program growing
+/// inside a video editor.
+///
+/// **The arrow is a different shape of thing from the other two**, and the
+/// difference runs all the way through. A closed shape has a size and is placed
+/// by `anchor` and `transform.position` like every other layer; an arrow has
+/// two endpoints that say where it starts and ends outright. That is why it is
+/// a variant here rather than another pair of numbers: no size to anchor, no
+/// interior to fill.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum Geometry {
@@ -153,29 +167,136 @@ pub enum Geometry {
         /// Down, as a fraction of the raster's height.
         height: f64,
     },
+    /// A stroked line from one point to another, with a head on it.
+    ///
+    /// A plain connecting line is this with no head, rather than a variant of
+    /// its own: the two would be the same geometry, the same path and the same
+    /// stroke, differing in whether one triangle is filled at the end.
+    Arrow {
+        /// Where it starts.
+        from: Point,
+        /// Where it ends, and where the head goes.
+        to: Point,
+        /// Straight, or bowed into an S.
+        #[serde(default)]
+        curve: Curve,
+        /// Which ends carry a head. Absent means the end alone, which is what
+        /// an arrow drawn between two boxes almost always wants.
+        #[serde(default)]
+        heads: Heads,
+    },
 }
 
 impl Geometry {
-    /// How far across the raster the shape reaches, as a fraction of its width.
-    pub fn width(self) -> f64 {
+    /// The box a closed shape is inscribed in, as fractions of the raster —
+    /// width against its width, height against its height.
+    ///
+    /// `None` for an arrow, and that is the point of the method: an arrow has
+    /// no size, and a caller reaching for one has to say what it means to do
+    /// about that rather than being handed a zero or a bounding box nobody
+    /// wrote.
+    pub fn size(self) -> Option<(f64, f64)> {
         match self {
-            Self::Rectangle { width, .. } | Self::Ellipse { width, .. } => width,
+            Self::Rectangle { width, height, .. } | Self::Ellipse { width, height } => {
+                Some((width, height))
+            }
+            Self::Arrow { .. } => None,
         }
     }
 
-    /// How far down the raster the shape reaches, as a fraction of its height.
-    pub fn height(self) -> f64 {
-        match self {
-            Self::Rectangle { height, .. } | Self::Ellipse { height, .. } => height,
-        }
-    }
-
-    /// How rounded the corners are. An ellipse is all corner, so the question
-    /// does not arise and the answer is the one that changes nothing.
+    /// How rounded the corners are. An ellipse is all corner and an arrow has
+    /// none, so for both the question does not arise and the answer is the one
+    /// that changes nothing.
     pub fn radius(self) -> f64 {
         match self {
             Self::Rectangle { radius, .. } => radius,
-            Self::Ellipse { .. } => 0.0,
+            Self::Ellipse { .. } | Self::Arrow { .. } => 0.0,
         }
+    }
+
+    /// True for the shapes with an inside — the ones a `fill` means anything
+    /// to.
+    ///
+    /// An arrow is a line, and a line encloses nothing. This is what makes a
+    /// `fill` on one a refusal rather than a field quietly ignored.
+    pub fn is_closed(self) -> bool {
+        !matches!(self, Self::Arrow { .. })
+    }
+}
+
+/// One end of an arrow, as fractions of the raster.
+///
+/// **Absolute, not an offset.** `x` is a fraction of the frame's width measured
+/// from its left edge and `y` a fraction of its height from the top, so
+/// `{ "x": 0.5, "y": 0.5 }` is the middle of the picture whatever size it is
+/// rendered at. That is the one place these fractions differ from
+/// `transform.position`, which offsets a layer from where it already sits —
+/// a line has no "already sits" to offset from.
+///
+/// A point outside `0`–`1` is allowed and is not a mistake: an arrow entering
+/// from off-screen is an ordinary thing to draw.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Point {
+    /// Across, from the left edge.
+    pub x: f64,
+    /// Down, from the top edge.
+    pub y: f64,
+}
+
+impl Point {
+    /// A point at the given fractions.
+    pub fn new(x: f64, y: f64) -> Self {
+        Self { x, y }
+    }
+
+    /// Whether both coordinates are numbers a frame could be drawn against.
+    pub fn is_placed(self) -> bool {
+        self.x.is_finite() && self.y.is_finite()
+    }
+}
+
+/// How an arrow gets from one end to the other.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Curve {
+    /// The shortest way. The default, and right whenever the two ends face each
+    /// other.
+    #[default]
+    Straight,
+    /// Bowed into an S: it leaves the start and arrives at the end along the
+    /// same axis, which is the shape a connector between two boxes side by side
+    /// wants. A straight diagonal between them reads as a mistake.
+    ///
+    /// Which axis it leaves along is not a field — see
+    /// [`crate::shape::Geometry::Arrow`] and the drawing code, which infer it
+    /// from the run. It is not a question an author has an opinion about.
+    S,
+}
+
+/// Which ends of an arrow carry a head.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Heads {
+    /// A plain connecting line. This is what makes `line` not a variant of its
+    /// own: it is an arrow that points at nothing.
+    None,
+    /// A head at `to` alone. The default, because an arrow is drawn to say
+    /// *this leads to that*, and that reading has a direction.
+    #[default]
+    End,
+    /// A head at both ends — *these two are connected*, without a direction.
+    Both,
+}
+
+impl Heads {
+    /// Whether the `to` end is pointed.
+    pub fn at_end(self) -> bool {
+        matches!(self, Self::End | Self::Both)
+    }
+
+    /// Whether the `from` end is pointed.
+    pub fn at_start(self) -> bool {
+        matches!(self, Self::Both)
     }
 }

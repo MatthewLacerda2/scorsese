@@ -12,6 +12,7 @@
 //! frame's units, and would surface as a picture that looked wrong instead.
 
 use crate::asset::AssetId;
+use crate::shape::Point;
 
 /// One thing wrong with a `shape` asset's geometry or colouring.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
@@ -61,6 +62,52 @@ pub enum ShapeProblem {
         asset: AssetId,
         /// The thickness as written.
         width: f64,
+    },
+
+    /// An arrow endpoint that is not a pair of numbers — a coordinate no frame
+    /// could be measured against at any resolution.
+    ///
+    /// A point *outside* the frame is not this and is not refused: an arrow
+    /// entering from off-screen is an ordinary thing to draw.
+    #[error(
+        "asset `{asset}`: an arrow runs from ({}, {}) to ({}, {}), which is not a pair of places",
+        from.x, from.y, to.x, to.y
+    )]
+    Unplaced {
+        /// The arrow asset.
+        asset: AssetId,
+        /// The start, as written.
+        from: Point,
+        /// The end, as written.
+        to: Point,
+    },
+
+    /// An arrow whose two ends are in the same place.
+    ///
+    /// No length to draw, and no direction to aim a head along — so what
+    /// reaches the screen is either nothing at all or a smudge of ink where the
+    /// head landed. Both readings are somebody having meant a second point.
+    #[error(
+        "asset `{asset}`: an arrow starts and ends at ({}, {}), so it has no direction",
+        at.x, at.y
+    )]
+    NoLength {
+        /// The arrow asset.
+        asset: AssetId,
+        /// The place both ends sit at.
+        at: Point,
+    },
+
+    /// A `fill` on an arrow.
+    ///
+    /// A line encloses nothing, so there is no inside for a colour to go in.
+    /// Refused rather than ignored for the reason every stray field is: nothing
+    /// would read it, and silence about it would look exactly like having drawn
+    /// it. Usually a `stroke` that was meant.
+    #[error("asset `{asset}`: an arrow is a line and has no inside, so `fill` would draw nothing")]
+    FilledLine {
+        /// The arrow asset.
+        asset: AssetId,
     },
 
     /// A shape with neither an interior nor a border: a layer that would
