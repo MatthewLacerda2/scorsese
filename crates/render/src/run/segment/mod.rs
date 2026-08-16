@@ -28,7 +28,7 @@ use crate::text::Painter;
 use crate::tools::Tools;
 use crate::workers::Workers;
 
-use layers::Pixels;
+use layers::{Among, Pixels};
 use pipeline::{Parts, Pools};
 
 /// Where a composited frame goes once it exists.
@@ -109,9 +109,11 @@ impl Pass<'_> {
                 shot,
                 painter,
                 frames,
-                decoders.len(),
-                drawn,
-                &segment.layers,
+                Among {
+                    live: decoders.len(),
+                    drawn,
+                    layers: &segment.layers,
+                },
                 &mut notes,
             )?;
             if matches!(slot.pixels, Pixels::Drawn { .. }) {

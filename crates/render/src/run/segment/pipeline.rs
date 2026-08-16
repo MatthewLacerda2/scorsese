@@ -195,6 +195,13 @@ pub(super) fn drive(
     let live = decoders.len();
     let mut missing = vec![0_u64; decoders.len()];
 
+    let mut feed = Feed {
+        slots,
+        drawn,
+        decoders,
+        missing: &mut missing,
+    };
+
     let (send_job, take_job) = channel::<Job>();
     // Locked around the receive rather than shared some cleverer way: a job is
     // a whole frame's compositing, so the hand-off is thousands of times
@@ -220,16 +227,7 @@ pub(super) fn drive(
                 // The producer blocks here — on its own next decode, or on
                 // waiting below — rather than running ahead of the bound.
                 while produced < frames && produced - written < capacity {
-                    let job = produce(
-                        pass,
-                        segment,
-                        produced,
-                        slots,
-                        drawn,
-                        decoders,
-                        pools,
-                        &mut missing,
-                    )?;
+                    let job = produce(pass, segment, produced, &mut feed, pools)?;
                     produced += 1;
                     if send_job.send(job).is_err() {
                         break;
@@ -263,13 +261,16 @@ fn produce(
     pass: &Pass<'_>,
     segment: &Segment<'_>,
     index: u64,
-    slots: &[Slot],
-    drawn: usize,
-    decoders: &mut [Decoder],
+    feed: &mut Feed<'_>,
     pools: &mut Pools,
-    missing: &mut [u64],
 ) -> Result<Job, RenderError> {
-    let mut job = pools.take(decoders, drawn, pass.settings.resolution);
+    let Feed {
+        slots,
+        drawn,
+        decoders,
+        missing,
+    } = feed;
+    let mut job = pools.take(decoders, *drawn, pass.settings.resolution);
     job.index = index;
     for (at, decoder) in decoders.iter_mut().enumerate() {
         if !decoder.read_into(&mut job.buffers[at])? {
@@ -297,6 +298,23 @@ fn produce(
     // pass over the layers, then the arrows that depend on them.
     draw_attached(slots, decoders.len(), &mut job, pass.settings.resolution);
     Ok(job)
+}
+
+/// Everything the producer fills a job *from*, which is only ever passed as a
+/// set.
+///
+/// The buffer pool is deliberately not in here: the writing stage hands spent
+/// jobs back to it in the same loop, so it stays a separate borrow rather than
+/// one this holds for the whole scope.
+struct Feed<'a> {
+    /// What each layer contributes.
+    slots: &'a [Slot],
+    /// How many of them are redrawn every frame.
+    drawn: usize,
+    /// One per layer read from a source.
+    decoders: &'a mut [Decoder],
+    /// How many frames each source has come up short by so far.
+    missing: &'a mut [u64],
 }
 
 /// Redraws every attached arrow for this frame, from wherever the clips they

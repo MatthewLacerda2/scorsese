@@ -64,6 +64,25 @@ pub(super) enum Pixels {
     },
 }
 
+/// Where a layer sits among the ones being got ready, and what else is on
+/// screen beside it.
+///
+/// One value rather than three arguments, because the three are only ever
+/// passed together and two of them are indices into different lists — which is
+/// exactly the pair a reader would otherwise have to keep straight at every
+/// call.
+pub(super) struct Among<'a> {
+    /// How many layers before this one are read from a decoder, which is the
+    /// buffer index this one takes if it is read too.
+    pub(super) live: usize,
+    /// How many before it are redrawn every frame, which is the buffer index it
+    /// takes if it is one of those.
+    pub(super) drawn: usize,
+    /// Everything on screen in this stretch — what an attachment is resolved
+    /// against.
+    pub(super) layers: &'a [Shot<'a>],
+}
+
 impl Pass<'_> {
     /// Gets one layer ready. `live` is the index its buffer will take among the
     /// layers that are read, which is the same index its decoder takes — so
@@ -73,11 +92,14 @@ impl Pass<'_> {
         shot: &Shot<'_>,
         painter: &mut Painter,
         frames: u64,
-        live: usize,
-        drawn: usize,
-        segment: &[Shot<'_>],
+        among: Among<'_>,
         notes: &mut Vec<Note>,
     ) -> Result<(Slot, Option<Decoder>), RenderError> {
+        let Among {
+            live,
+            drawn,
+            layers: segment,
+        } = among;
         let raster = self.settings.resolution;
         // Both of the drawn kinds are the size of the raster: a title is set at
         // whatever the render is, and a card is a panel of it.
