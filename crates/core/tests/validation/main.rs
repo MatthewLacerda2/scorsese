@@ -10,6 +10,7 @@ mod generated;
 mod keyframes;
 mod paths;
 mod references;
+mod shape;
 mod source;
 mod speech;
 mod synth;

@@ -152,6 +152,7 @@ pub(super) fn kind_name(kind: AssetKind) -> &'static str {
         AssetKind::Audio => "audio",
         AssetKind::Text => "text",
         AssetKind::Color => "colour",
+        AssetKind::Shape => "shape",
         AssetKind::GeneratedVideo => "generated video",
         AssetKind::GeneratedAudio => "generated speech",
         AssetKind::SynthAudio => "synthesised audio",

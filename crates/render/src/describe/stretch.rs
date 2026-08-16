@@ -1,7 +1,7 @@
 //! One stretch of timeline, and what is on it.
 
 use scorsese_compositor::ANIMATED as DRAWN;
-use scorsese_core::{AssetKind, Crop, Fit, Fps, Rgba, Speed};
+use scorsese_core::{AssetKind, Crop, Fit, Fps, Rgba, Shape, Speed};
 
 use crate::audio::gain::ANIMATED as MIXED;
 use crate::audio::path::VOLUME;
@@ -151,8 +151,13 @@ impl Playing {
     }
 }
 
-/// What a clip puts there — the three things a layer can actually be.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// What a clip puts there — the four things a layer can actually be.
+///
+/// `PartialEq` and no `Eq`, since a shape carries the fractions it is drawn
+/// from and a fraction is a float. Nothing sorts or hashes a description, so
+/// the reflexivity `Eq` promises buys nothing here that would pay for keeping
+/// the geometry out.
+#[derive(Debug, Clone, PartialEq)]
 pub enum Shown {
     /// The asset's own media, decoded from the file it names.
     Media,
@@ -162,6 +167,11 @@ pub enum Shown {
     /// a description has to name rather than call "media": a reader counting
     /// layers should be able to tell a background from a shot.
     Color(Rgba),
+    /// A drawn box or ellipse. Named for [`Shown::Color`]'s reason and one of
+    /// its own: a diagram is a dozen small layers, and a reader working out
+    /// which of them came out wrong needs each described as the shape it is
+    /// rather than counted as media.
+    Shape(Shape),
     /// A slug card, because there is nothing generated to show. What makes a
     /// full preview cut of prompt clips cost nothing — and the case a
     /// description most has to name, since a cut made entirely of cards looks
@@ -190,6 +200,14 @@ impl Shown {
         match (shot.asset.kind, shot.asset.text.as_ref()) {
             (AssetKind::Text, Some(text)) => Self::Text(text.clone()),
             (AssetKind::Color, _) => Self::Color(shot.asset.color.unwrap_or_default()),
+            (AssetKind::Shape, _) => match shot.asset.shape {
+                Some(shape) => Self::Shape(shape),
+                // Validation requires it, so this is only reachable through an
+                // asset built in memory. Media rather than an invented
+                // rectangle: describing a shape nobody wrote would be worse
+                // than describing nothing.
+                None => Self::Media,
+            },
             _ => Self::Media,
         }
     }

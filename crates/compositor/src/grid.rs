@@ -22,6 +22,7 @@
 use scorsese_core::Rgba;
 
 use crate::frame::{Frame, Resolution};
+use crate::paint;
 use crate::text::{self, Font};
 
 /// How many divisions the frame is cut into: a line every `0.1`.
@@ -62,8 +63,8 @@ pub fn draw(frame: &mut Frame) {
 
     // The edging first and the rule over it, so every line comes out as a pale
     // core inside a dark outline whatever it is drawn across.
-    text::fill_rects(frame, &rules(resolution, unit * 3.0, unit * 5.0), EDGE);
-    text::fill_rects(frame, &rules(resolution, unit, unit * 3.0), RULE);
+    paint::fill_rects(frame, &rules(resolution, unit * 3.0, unit * 5.0), EDGE);
+    paint::fill_rects(frame, &rules(resolution, unit, unit * 3.0), RULE);
 
     let size = label_size(resolution);
     let font = Font::sans();

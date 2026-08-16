@@ -79,3 +79,10 @@ impl From<SpeechProblem> for ValidationError {
         Self::Asset(problem.into())
     }
 }
+
+/// As does a shape problem.
+impl From<ShapeProblem> for ValidationError {
+    fn from(problem: ShapeProblem) -> Self {
+        Self::Asset(problem.into())
+    }
+}

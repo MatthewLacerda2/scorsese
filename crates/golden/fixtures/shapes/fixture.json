@@ -1,0 +1,6 @@
+{
+  "description": "The three things a drawn shape can be, over a colour bed and with nothing on disk anywhere in the project. Left: a filled blue rectangle, anchored to the left edge — fill with no border, and the anchor reaching the drawing rather than the compositor, which is what stops every shape landing centred. Right: a hollow yellow ellipse, border with no fill, so the bed shows through the middle of it, anchored to the right edge and then nudged back inward by a `transform.position.x` keyframe — an ellipse that filled its own bounding box, one drawn as a circle by measuring both axes against one side, and a shape that ignored the ordinary transform properties all fail here and nowhere else. Bottom: a pill — a rectangle rounded to the limit — in translucent black under a white border, which is the two-colour case and the corner-radius case at once. What a wrong render looks like: hard corners on the pill means the radius was read against the frame instead of the shape; a solid ellipse means the fill was drawn where only a border was asked for; anything centred means the anchor never reached the layout.",
+  "media": {},
+  "render": { "resolution": "192x108", "fps": "30" },
+  "frames": [0]
+}

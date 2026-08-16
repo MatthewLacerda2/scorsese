@@ -1,4 +1,4 @@
-# `project.json` — schema v16
+# `project.json` — schema v22
 
 The contract between the CLI, the MCP server, the GUI, and every project
 saved on someone's disk. It is meant to be hand-written: an agent should be
@@ -12,7 +12,7 @@ bump and a migration note.
 
 ```json project
 {
-  "schema_version": 21,
+  "schema_version": 22,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -582,8 +582,8 @@ already exists.
 { "id": "black", "kind": "color", "color": "#000000" }
 ```
 
-A `color` asset is the other kind with no file behind it, and the simpler of
-the two: it has no content at all, only appearance. It is a background, a
+A `color` asset is the simplest of the kinds with no file behind it: it has no
+content at all, only appearance. It is a background, a
 colour card, a letterbox matte, or the wash under a title — everything that
 would otherwise mean generating a PNG of identical pixels and importing a
 megabyte of them to say one thing.
@@ -605,6 +605,85 @@ black over a shot is how you dim one.
 
 Gradients are not here. A gradient has a direction, stops and an interpolation
 between them, and that is a different feature wearing this one's clothes.
+
+### Shape assets
+
+```json asset
+{ "id": "box-a", "kind": "shape",
+  "shape": {
+    "geometry": { "rectangle": { "width": 0.24, "height": 0.12, "radius": 0.1 } },
+    "fill": "#1e3a8aff",
+    "stroke": "#000000ff",
+    "stroke_width": 0.004
+  } }
+```
+
+The third kind with no file behind it, and the one that draws something with an
+edge: a box or an ellipse, for the diagrams, callouts and legends a video is
+explained with. The alternative is authoring a PNG with alpha in another
+program, importing a megabyte of it, and finding it soft the first time the
+render resolution changes — which is the argument the `color` asset already
+won.
+
+`shape` is required on this kind and refused on every other. Inside it,
+`geometry` is required and is exactly one of:
+
+| Outline | Fields | What it is |
+| --- | --- | --- |
+| `rectangle` | `width`, `height`, optional `radius` | four corners, square or rounded |
+| `ellipse` | `width`, `height` | the ellipse inscribed in that box |
+
+**Everything is a fraction of the raster**, as `transform.position` is:
+`width` of the frame's width, `height` of its height. So a shape is drawn at
+whatever resolution the render turns out to be, with a clean edge at every one
+of them, and there is no size in the document to be wrong at 4K.
+
+That also means `ellipse` rather than `circle` is the primitive. A circle on a
+16:9 frame is an ellipse whose two numbers account for the aspect —
+`0.1 × 0.178` — and naming it `circle` while quietly measuring both against one
+axis would be a different bug on every aspect ratio.
+
+`radius` is the exception, and deliberately: it is a fraction of the **shape's
+own shorter side**, not of the frame. `0` is a square corner and `0.5` is a
+pill, whatever size the box is. Two reasons. It keeps corners circular rather
+than elliptical — one number meaning one distance — and it is checkable from
+the document alone, where a rounding larger than the box it rounds could only
+be caught once a render had turned both into pixels. Above `0.5` is refused.
+
+**`fill` and `stroke` are separate, and each is optional.** Both take the same
+notation a text `style` does: `#rrggbb`, or `#rrggbbaa` for one you can see
+through. A border over an absent fill is a callout that does not hide the shot
+inside it; a fill with no border is a plain block; a green border round a blue
+interior is a legend key. What is refused is *neither* — a shape that would
+draw nothing renders exactly like a shape that failed to render, and a diagram
+quietly missing a box is the kind of mistake that reaches a published video.
+
+`stroke_width` is a fraction of the raster's **height** — the unit a text
+`size` already uses, because a thickness has no axis of its own and one chosen
+unit is easier to remember than two. It defaults to `0.004`, about four pixels
+at 1080p. The line straddles the outline, half inside and half out, so a
+shape's stated size is the size of the shape rather than of its ink.
+
+**Where it sits is `anchor` and `transform.position`**, the same two things
+that place a title. `anchor` puts the shape's own edges against the frame's —
+`{ "x": "left", "y": "top" }` in the corner, absent for centred — and
+`transform.position` offsets from there. There is nothing shape-shaped about
+placement, and there deliberately is not: a second way to say where something
+goes is two things to disagree the first time one is animated.
+
+`fit` is meaningless here for the reason it is meaningless on a colour or a
+title: there is no source raster to reconcile. It is not an error, it is simply
+not read.
+
+It composites like any other layer, so a box that fades up or slides in is
+keyframes and nothing new. Text inside a shape is likewise nothing new: a text
+clip on the track above a shape clip sits on top of it.
+
+Lines and arrows are not here yet. An open shape is defined by two endpoints
+rather than a position and a size, which is a different enough question to be
+its own piece of work. Polygons, stars, dashed borders, shadows and gradients
+are not planned at all — each is a drawing program growing inside a video
+editor.
 
 `media.duration_seconds` is wall-clock, and `media.frame_rate` is a rational
 in the same shape as `timeline_fps` — a source's own grid, which is not
@@ -1240,7 +1319,9 @@ a project unattended sees the whole list at once.
 
 What it checks: schema version, duplicate ids, path rules, hash shape, the
 fields each asset kind requires — including that only a `text` asset carries
-`text` or `style` and only a `color` asset carries `color`, that a `style`'s
+`text` or `style`, only a `color` asset carries `color` and only a `shape`
+asset carries `shape`, that a shape has area, a corner it has room to round,
+and something to draw with, that a `style`'s
 font path, a `synth_audio`'s `recipe` and the document's `script`
 obey the project-path rules, and that each generated kind carries exactly the
 brief it takes: a `prompt` or a `recipe`, never both and never the other's —
@@ -1279,6 +1360,17 @@ outside OpenType's own 1–1000 is not a weight for any face. What only the
 runs — is refused at the render, in the same breath as "this is not a font I can
 read". That holds for `sans` and `serif` as much as for a font the project
 carries; they are files too, and scorsese happens to be the one carrying them.
+
+## Migrating from v21
+
+v22 adds one asset kind and takes nothing away: `shape`, with the `shape` block
+that kind carries. No v21 document can contain either — an unknown `kind` and
+an unknown asset field are both refused outright by a v21 build — so no v21
+document means anything different under v22, and converting one is changing
+`"schema_version": 21` to `"schema_version": 22` and nothing else.
+
+Nothing renders differently. A project without a shape asset composites exactly
+the layers it composited under v21, in the same order, from the same pixels.
 
 ## Migrating from v20
 

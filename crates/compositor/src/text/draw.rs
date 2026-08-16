@@ -1,22 +1,21 @@
 //! Putting glyphs on the raster.
 //!
-//! Outlines in, filled pixels out — through **tiny-skia**, the same rasteriser
-//! every other layer in this crate goes through. A glyph is a path like any
-//! other path, so there is one anti-aliaser in the compositor rather than two
-//! that could disagree, and text inherits whatever platform behaviour the
-//! existing golden references already pin.
+//! Outlines in, filled pixels out. A glyph is a path like any other path, so
+//! it goes onto the raster through [`crate::paint`] — the crate's one
+//! rasteriser and one blend, shared with the shapes and the ruler, so there is
+//! never a second answer to what a soft edge looks like.
 //!
-//! Being the crate's one way onto the raster is also why [`fill_rects`] is
-//! here rather than beside the module that wants it: a rectangle is a path
-//! like a glyph is, and drawing one anywhere else would be a second
-//! anti-aliaser and a second blend to keep in step with this one.
+//! What is left here is the part that is actually about type: turning skrifa's
+//! outlines, which arrive in font space with y upwards, into one tiny-skia path
+//! sitting the right way up on the raster.
 
 use skrifa::outline::OutlinePen;
-use tiny_skia::{FillRule, Paint, Path, PathBuilder, Pixmap, Rect, Transform};
+use tiny_skia::PathBuilder;
 
 use scorsese_core::Rgba;
 
-use crate::frame::{BYTES_PER_PIXEL, Frame};
+use crate::frame::Frame;
+use crate::paint;
 
 use super::font::{Face, Font};
 use super::shape::Shaped;
@@ -67,25 +66,6 @@ pub(crate) fn draw_runs<S: AsRef<str>>(
         line_into(&mut path, &face, &face.shape(text.as_ref()), *origin);
     }
     stamp(frame, path, color);
-}
-
-/// Fills axis-aligned rectangles — `(x, y, width, height)` in pixels — onto
-/// `frame` in `color`, all of them in one pass.
-///
-/// Anti-aliased and blended like everything else here, which is what a
-/// gridline needs: a line at a tenth of a 1280-pixel raster falls at 128.0 for
-/// one tenth and 384.0 for another, and one snapped to whole pixels would sit
-/// at a slightly different fraction than the one it claims to mark.
-pub(crate) fn fill_rects(frame: &mut Frame, rects: &[(f32, f32, f32, f32)], color: Rgba) {
-    let mut builder = PathBuilder::new();
-    for &(x, y, width, height) in rects {
-        if let Some(rect) = Rect::from_xywh(x, y, width, height) {
-            builder.push_rect(rect);
-        }
-    }
-    if let Some(path) = builder.finish() {
-        fill(frame, &path, color);
-    }
 }
 
 /// Traces an already-shaped run into `path`, with the run starting at
@@ -160,80 +140,12 @@ impl OutlinePen for Outlines {
     }
 }
 
-/// Fills the collected outlines onto the frame in one pass.
-///
-/// The fill happens in a scratch pixmap because tiny-skia blends in
-/// **premultiplied** alpha and a [`Frame`] carries **straight** alpha. Over a
-/// transparent start the two differ everywhere the glyph edge is soft, so the
-/// pixels are converted on the way back rather than written through and left
-/// subtly dark at every antialiased edge.
+/// Fills the collected outlines onto the frame in one pass — the whole block
+/// as a single shape, so letters that overlap are blended once rather than
+/// twice at the seam.
 pub(super) fn stamp(frame: &mut Frame, outlines: Outlines, color: Rgba) {
     let Some(path) = outlines.builder.finish() else {
         return;
     };
-    fill(frame, &path, color);
-}
-
-/// Fills one finished path onto the frame — the step [`stamp`] and
-/// [`fill_rects`] share, so glyphs and rectangles cannot come out blended
-/// differently.
-fn fill(frame: &mut Frame, path: &Path, color: Rgba) {
-    let resolution = frame.resolution();
-    let Some(mut pixmap) = Pixmap::new(resolution.width(), resolution.height()) else {
-        return;
-    };
-
-    let mut paint = Paint::default();
-    paint.set_color_rgba8(color.r, color.g, color.b, color.a);
-    // Anti-aliased, because a title with stepped edges is the one thing that
-    // makes a render look amateur at any resolution.
-    paint.anti_alias = true;
-    pixmap.fill_path(path, &paint, FillRule::Winding, Transform::identity(), None);
-
-    for (pixel, drawn) in frame
-        .bytes_mut()
-        .chunks_exact_mut(BYTES_PER_PIXEL)
-        .zip(pixmap.pixels())
-    {
-        if drawn.alpha() == 0 {
-            continue;
-        }
-        let straight = drawn.demultiply();
-        blend(
-            pixel,
-            [
-                straight.red(),
-                straight.green(),
-                straight.blue(),
-                straight.alpha(),
-            ],
-        );
-    }
-}
-
-/// Source-over of one straight-alpha pixel onto another.
-///
-/// Over the transparent frame a text layer starts as, this is a copy. It is
-/// written as the general case anyway because the frame is not always empty —
-/// a slug card draws its prompt over a background it has already filled — and
-/// a copy there would punch a hole in what is underneath at every soft edge.
-fn blend(pixel: &mut [u8], source: [u8; 4]) {
-    let source_alpha = f32::from(source[3]) / 255.0;
-    let kept = f32::from(pixel[3]) / 255.0 * (1.0 - source_alpha);
-    let out_alpha = source_alpha + kept;
-    if out_alpha <= 0.0 {
-        return;
-    }
-    for (channel, &value) in source[..3].iter().enumerate() {
-        let mixed =
-            (f32::from(value) * source_alpha + f32::from(pixel[channel]) * kept) / out_alpha;
-        pixel[channel] = round(mixed);
-    }
-    pixel[3] = round(out_alpha * 255.0);
-}
-
-/// Rounds a channel back to a byte, clamped — floating point drift near the
-/// ends must not wrap a solid pixel round to transparent.
-fn round(value: f32) -> u8 {
-    (value + 0.5).clamp(0.0, 255.0) as u8
+    paint::fill(frame, &path, color);
 }
