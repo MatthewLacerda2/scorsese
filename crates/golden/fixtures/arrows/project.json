@@ -1,0 +1,99 @@
+{
+  "schema_version": 23,
+  "name": "arrows",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    { "id": "bed", "kind": "color", "color": "#101820" },
+    {
+      "id": "straight",
+      "kind": "shape",
+      "shape": {
+        "geometry": {
+          "arrow": {
+            "from": { "x": 0.08, "y": 0.18 },
+            "to": { "x": 0.62, "y": 0.18 }
+          }
+        },
+        "stroke": "#ffcc00ff",
+        "stroke_width": 0.02
+      }
+    },
+    {
+      "id": "bowed",
+      "kind": "shape",
+      "shape": {
+        "geometry": {
+          "arrow": {
+            "from": { "x": 0.08, "y": 0.42 },
+            "to": { "x": 0.72, "y": 0.62 },
+            "curve": "s"
+          }
+        },
+        "stroke": "#66ddffff",
+        "stroke_width": 0.02
+      }
+    },
+    {
+      "id": "both",
+      "kind": "shape",
+      "shape": {
+        "geometry": {
+          "arrow": {
+            "from": { "x": 0.08, "y": 0.86 },
+            "to": { "x": 0.44, "y": 0.86 },
+            "heads": "both"
+          }
+        },
+        "stroke": "#ff6688ff",
+        "stroke_width": 0.02
+      }
+    },
+    {
+      "id": "plain",
+      "kind": "shape",
+      "shape": {
+        "geometry": {
+          "arrow": {
+            "from": { "x": 0.56, "y": 0.86 },
+            "to": { "x": 0.92, "y": 0.86 },
+            "heads": "none"
+          }
+        },
+        "stroke": "#ffffffff",
+        "stroke_width": 0.02
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "name": "bed",
+      "clips": [{ "id": "c-bed", "asset": "bed", "start": 0, "duration": 10 }]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "name": "straight",
+      "clips": [{ "id": "c-straight", "asset": "straight", "start": 0, "duration": 10 }]
+    },
+    {
+      "id": "v3",
+      "kind": "video",
+      "name": "bowed",
+      "clips": [{ "id": "c-bowed", "asset": "bowed", "start": 0, "duration": 10 }]
+    },
+    {
+      "id": "v4",
+      "kind": "video",
+      "name": "both",
+      "clips": [{ "id": "c-both", "asset": "both", "start": 0, "duration": 10 }]
+    },
+    {
+      "id": "v5",
+      "kind": "video",
+      "name": "plain",
+      "clips": [{ "id": "c-plain", "asset": "plain", "start": 0, "duration": 10 }]
+    }
+  ]
+}

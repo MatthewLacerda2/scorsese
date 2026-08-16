@@ -8,7 +8,7 @@
 
 use std::fmt;
 
-use scorsese_core::{AssetKind, Crop, Easing, Fit, Geometry, Shape, Speed};
+use scorsese_core::{AssetKind, Crop, Curve, Easing, Fit, Geometry, Heads, Shape, Speed};
 
 use super::{Animated, Description, Playing, Shown, Stretch, Travel};
 
@@ -227,16 +227,40 @@ const fn fit(fit: Fit) -> &'static str {
 /// in — named only when there is one, so an absent fill reads as absent rather
 /// than as a colour nobody chose.
 fn drawn(shape: &Shape) -> String {
-    let outline = match shape.geometry {
-        Geometry::Rectangle { radius, .. } if radius > 0.0 => "rounded rect",
-        Geometry::Rectangle { .. } => "rect",
-        Geometry::Ellipse { .. } => "ellipse",
+    let mut line = match shape.geometry {
+        // An arrow is described by where it runs, because that is the whole of
+        // it — a size would be a bounding box nobody wrote.
+        Geometry::Arrow {
+            from,
+            to,
+            curve,
+            heads,
+        } => format!(
+            "{} {},{} → {},{}{}",
+            match curve {
+                Curve::Straight => "arrow",
+                Curve::S => "s-arrow",
+            },
+            from.x,
+            from.y,
+            to.x,
+            to.y,
+            match heads {
+                Heads::None => ", no head",
+                Heads::End => "",
+                Heads::Both => ", both heads",
+            }
+        ),
+        Geometry::Rectangle {
+            width,
+            height,
+            radius,
+        } => {
+            let outline = if radius > 0.0 { "rounded rect" } else { "rect" };
+            format!("{outline} {width}×{height}")
+        }
+        Geometry::Ellipse { width, height } => format!("ellipse {width}×{height}"),
     };
-    let mut line = format!(
-        "{outline} {}×{}",
-        shape.geometry.width(),
-        shape.geometry.height()
-    );
     if let Some(fill) = shape.fill {
         line.push_str(&format!(", fill {fill}"));
     }

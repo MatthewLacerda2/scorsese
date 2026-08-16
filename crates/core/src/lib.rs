@@ -117,7 +117,7 @@ pub use project::{
     ASSETS_DIR, CACHE_DIR, GENERATED_DIR, LoadError, PROJECT_FILE_NAME, Project, RECIPES_DIR,
     SCHEMA_VERSION, SaveError,
 };
-pub use shape::{DEFAULT_STROKE_WIDTH, Geometry, MAX_RADIUS, Shape};
+pub use shape::{Curve, DEFAULT_STROKE_WIDTH, Geometry, Heads, MAX_RADIUS, Point, Shape};
 pub use stamp::{Timestamp, TimestampError};
 pub use text::{DEFAULT_FONT, FontChoice, MAX_WEIGHT, MIN_WEIGHT, TextAlign, TextStyle};
 pub use time::{Fps, FpsError, FpsParseError, Frames, Speed};

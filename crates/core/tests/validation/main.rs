@@ -3,6 +3,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod arrow;
 mod assets;
 mod color;
 mod fields;

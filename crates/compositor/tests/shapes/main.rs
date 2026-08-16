@@ -6,11 +6,12 @@
 //! the golden renders' question, and asserting a soft pixel here would be
 //! pinning tiny-skia's rasteriser somewhere no image diff could ever review.
 
+mod arrows;
 mod outlines;
 mod painting;
 mod placing;
 
-use scorsese_compositor::shape::{Figure, Outline};
+use scorsese_compositor::shape::{Boxed, Figure, Outline};
 use scorsese_compositor::{Frame, Resolution};
 use scorsese_core::{Anchor, AnchorX, AnchorY, Rgba};
 
@@ -47,14 +48,21 @@ pub(crate) fn filled(frame: &Frame, x: u32, y: u32) -> bool {
     at(frame, x, y) == (RED.r, RED.g, RED.b, 0xff)
 }
 
+/// A square-cornered rectangle of `size`, filled and unbordered — what most of
+/// these tests vary one thing away from.
 pub(crate) fn boxed(size: (f32, f32), anchor: Anchor) -> Figure {
     Figure {
-        size,
-        outline: Outline::Rectangle { radius: 0.0 },
-        anchor,
+        outline: Outline::Rectangle {
+            bounds: bounds(size, anchor),
+            radius: 0.0,
+        },
         fill: Some(RED),
         border: None,
     }
+}
+
+pub(crate) fn bounds(size: (f32, f32), anchor: Anchor) -> Boxed {
+    Boxed { size, anchor }
 }
 
 pub(crate) fn centred() -> Anchor {
