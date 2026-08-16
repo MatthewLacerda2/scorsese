@@ -86,6 +86,7 @@
 //! this crate's own business: `scorsese-render`, its only dependent, asks it
 //! for a picture and never for the steps that made one.
 
+mod area;
 pub mod card;
 mod compose;
 mod cpu;
@@ -101,6 +102,7 @@ pub mod sheet;
 pub mod text;
 pub mod waveform;
 
+pub use area::{Area, on_canvas};
 pub use compose::{CompositeError, Compositor, Layer};
 pub use cpu::CpuCompositor;
 pub use dissolve::{DissolveError, Placed, dissolve};

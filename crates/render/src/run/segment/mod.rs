@@ -11,6 +11,7 @@
 //! This module is what the two have in common: the settings and the plan they
 //! are worked out against, and the buffers they are worked out in.
 
+mod attach;
 mod layers;
 mod pipeline;
 
@@ -98,8 +99,24 @@ impl Pass<'_> {
         let mut notes = Vec::new();
         let mut slots = Vec::with_capacity(segment.layers.len());
         let mut decoders = Vec::new();
+        // Counted separately from the decoders: a drawn layer's buffer is the
+        // size of the raster and is filled by drawing rather than reading, so
+        // the two sets of buffers are allocated on different grounds even
+        // though a job holds them in one list.
+        let mut drawn = 0;
         for shot in &segment.layers {
-            let (slot, decoder) = self.begin(shot, painter, frames, decoders.len(), &mut notes)?;
+            let (slot, decoder) = self.begin(
+                shot,
+                painter,
+                frames,
+                decoders.len(),
+                drawn,
+                &segment.layers,
+                &mut notes,
+            )?;
+            if matches!(slot.pixels, Pixels::Drawn { .. }) {
+                drawn += 1;
+            }
             slots.push(slot);
             decoders.extend(decoder);
         }
@@ -110,6 +127,7 @@ impl Pass<'_> {
             frames,
             Parts {
                 slots: &slots,
+                drawn,
                 decoders: &mut decoders,
                 compositors: &mut compositors[..workers],
                 pools,
@@ -122,9 +140,10 @@ impl Pass<'_> {
         }
         notes.extend(segment.layers.iter().zip(&slots).filter_map(
             |(shot, slot)| match slot.pixels {
-                // A layer drawn once never runs out of source, so there is
-                // nothing to read and nothing to report short.
-                Pixels::Held(_) => None,
+                // A layer drawn — once, or afresh every frame — never runs out of
+                // source, so there is nothing to read and nothing to report
+                // short.
+                Pixels::Held(_) | Pixels::Drawn { .. } => None,
                 Pixels::Live(at) => (missing[at] > 0).then(|| Note::ClipRanShort {
                     clip: shot.clip.id.to_string(),
                     missing: missing[at],

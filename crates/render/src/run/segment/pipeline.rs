@@ -34,6 +34,7 @@ use crate::error::RenderError;
 use crate::pipe::Decoder;
 use crate::plan::Segment;
 
+use super::attach::End;
 use super::layers::{Pixels, Slot, elapsed};
 use super::{Pass, Write};
 
@@ -82,7 +83,7 @@ impl Pools {
     /// they are the ones the next wide segment would otherwise have to
     /// allocate, and a two-layer stretch between two four-layer ones is the
     /// ordinary shape of a cut.
-    fn take(&mut self, decoders: &[Decoder], resolution: Resolution) -> Job {
+    fn take(&mut self, decoders: &[Decoder], drawn: usize, resolution: Resolution) -> Job {
         let mut job = self.free.pop().unwrap_or_else(|| Job {
             index: 0,
             properties: Vec::new(),
@@ -103,6 +104,19 @@ impl Pools {
         }
         while let Some(decoder) = decoders.get(job.buffers.len()) {
             job.buffers.push(Frame::black(decoder.raster()));
+        }
+        // Then one raster-sized buffer per layer drawn afresh each frame. They
+        // sit after the decoded ones in the same list, which is why a slot
+        // carries its own index rather than deriving one: the two kinds are
+        // counted separately and only the slot knows which it is.
+        let wanted = decoders.len() + drawn;
+        for buffer in job.buffers.iter_mut().skip(decoders.len()) {
+            if buffer.resolution() != resolution {
+                *buffer = Frame::black(resolution);
+            }
+        }
+        while job.buffers.len() < wanted {
+            job.buffers.push(Frame::black(resolution));
         }
         job
     }
@@ -126,7 +140,7 @@ pub(super) fn gap(
     pools: &mut Pools,
     write: Write<'_>,
 ) -> Result<(), RenderError> {
-    let mut job = pools.take(&[], resolution);
+    let mut job = pools.take(&[], 0, resolution);
     compositor.composite(&mut job.canvas, &[])?;
     for _ in 0..frames {
         write(&job.canvas)?;
@@ -139,6 +153,9 @@ pub(super) fn gap(
 pub(super) struct Parts<'a> {
     /// What each layer contributes, in the order they are drawn.
     pub(super) slots: &'a [Slot],
+    /// How many of those are redrawn every frame, which is how many raster-sized
+    /// buffers a job needs beyond the decoded ones.
+    pub(super) drawn: usize,
     /// One decoder per layer that has a source, in [`Pixels::Live`] order.
     pub(super) decoders: &'a mut [Decoder],
     /// One compositor per worker. They carry scratch buffers, which is why
@@ -163,11 +180,19 @@ pub(super) fn drive(
 ) -> Result<Vec<u64>, RenderError> {
     let Parts {
         slots,
+        drawn,
         decoders,
         compositors,
         pools,
     } = parts;
-    let capacity = capacity(compositors.len(), decoders.len(), pass.settings.resolution);
+    let capacity = capacity(
+        compositors.len(),
+        decoders.len() + drawn,
+        pass.settings.resolution,
+    );
+    // How many of a job's buffers are decoded, which is where the drawn ones
+    // start.
+    let live = decoders.len();
     let mut missing = vec![0_u64; decoders.len()];
 
     let (send_job, take_job) = channel::<Job>();
@@ -181,7 +206,7 @@ pub(super) fn drive(
         for compositor in compositors.iter_mut() {
             let take_job = &take_job;
             let send_done = send_done.clone();
-            scope.spawn(move || work(compositor, slots, take_job, &send_done));
+            scope.spawn(move || work(compositor, slots, live, take_job, &send_done));
         }
         // The only remaining sender is the workers': dropping this one is what
         // makes the results channel close when they are all done.
@@ -195,7 +220,16 @@ pub(super) fn drive(
                 // The producer blocks here — on its own next decode, or on
                 // waiting below — rather than running ahead of the bound.
                 while produced < frames && produced - written < capacity {
-                    let job = produce(pass, segment, produced, decoders, pools, &mut missing)?;
+                    let job = produce(
+                        pass,
+                        segment,
+                        produced,
+                        slots,
+                        drawn,
+                        decoders,
+                        pools,
+                        &mut missing,
+                    )?;
                     produced += 1;
                     if send_job.send(job).is_err() {
                         break;
@@ -229,11 +263,13 @@ fn produce(
     pass: &Pass<'_>,
     segment: &Segment<'_>,
     index: u64,
+    slots: &[Slot],
+    drawn: usize,
     decoders: &mut [Decoder],
     pools: &mut Pools,
     missing: &mut [u64],
 ) -> Result<Job, RenderError> {
-    let mut job = pools.take(decoders, pass.settings.resolution);
+    let mut job = pools.take(decoders, drawn, pass.settings.resolution);
     job.index = index;
     for (at, decoder) in decoders.iter_mut().enumerate() {
         if !decoder.read_into(&mut job.buffers[at])? {
@@ -256,13 +292,45 @@ fn produce(
             .iter()
             .map(|shot| Properties::at(shot.clip, elapsed(at, shot.clip))),
     );
+    // Attached arrows last, because they read the properties every other layer
+    // just resolved. This is the whole of the ordering the feature costs: one
+    // pass over the layers, then the arrows that depend on them.
+    draw_attached(slots, decoders.len(), &mut job, pass.settings.resolution);
     Ok(job)
+}
+
+/// Redraws every attached arrow for this frame, from wherever the clips they
+/// follow have got to.
+fn draw_attached(slots: &[Slot], live: usize, job: &mut Job, canvas: Resolution) {
+    for slot in slots {
+        let Pixels::Drawn { at, following } = &slot.pixels else {
+            continue;
+        };
+        let ends = [&following.from, &following.to].map(|end| match end {
+            End::Fixed(x, y) => (
+                (x * f64::from(canvas.width())) as f32,
+                (y * f64::from(canvas.height())) as f32,
+            ),
+            End::Follows { layer, side } => {
+                slots[*layer]
+                    .rect
+                    .point_at(*side, &job.properties[*layer], canvas)
+            }
+        });
+        crate::shape::paint_arrow(
+            &mut job.buffers[live + at],
+            &following.shape,
+            ends[0],
+            ends[1],
+        );
+    }
 }
 
 /// One worker: take a job, draw it, hand it back, until there are none left.
 fn work(
     compositor: &mut CpuCompositor,
     slots: &[Slot],
+    live: usize,
     jobs: &Mutex<Receiver<Job>>,
     done: &Sender<Result<Job, RenderError>>,
 ) {
@@ -285,6 +353,7 @@ fn work(
                 source: match &slot.pixels {
                     Pixels::Held(pixels) => pixels,
                     Pixels::Live(at) => &job.buffers[*at],
+                    Pixels::Drawn { at, .. } => &job.buffers[live + *at],
                 },
                 properties: *properties,
                 anchor: slot.anchor,

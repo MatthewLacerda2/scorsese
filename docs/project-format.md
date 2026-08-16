@@ -1,4 +1,4 @@
-# `project.json` — schema v23
+# `project.json` — schema v24
 
 The contract between the CLI, the MCP server, the GUI, and every project
 saved on someone's disk. It is meant to be hand-written: an agent should be
@@ -12,7 +12,7 @@ bump and a migration note.
 
 ```json project
 {
-  "schema_version": 23,
+  "schema_version": 24,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -1422,7 +1422,7 @@ v23 adds one shape outline and takes nothing away: `arrow`, alongside
 `rectangle` and `ellipse` inside a shape's `geometry`. No v22 document can
 contain one — an unknown outline is refused outright by a v22 build — so no v22
 document means anything different under v23, and converting one is changing
-`"schema_version": 22` to `"schema_version": 23` and nothing else.
+`"schema_version": 22` to `"schema_version": 24` and nothing else.
 
 Nothing renders differently. The rectangles and ellipses a v22 project draws
 come out of the same code and land on the same pixels; what moved underneath
@@ -1435,7 +1435,7 @@ v22 adds one asset kind and takes nothing away: `shape`, with the `shape` block
 that kind carries. No v21 document can contain either — an unknown `kind` and
 an unknown asset field are both refused outright by a v21 build — so no v21
 document means anything different under v22, and converting one is changing
-`"schema_version": 21` to `"schema_version": 23` and nothing else.
+`"schema_version": 21` to `"schema_version": 24` and nothing else.
 
 Nothing renders differently. A project without a shape asset composites exactly
 the layers it composited under v21, in the same order, from the same pixels.

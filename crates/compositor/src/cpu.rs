@@ -4,12 +4,13 @@
 //! same pixels everywhere — which is what makes it the reference a GPU backend
 //! can later be held to.
 
-use scorsese_core::{AnchorX, AnchorY};
+use scorsese_core::{Anchor, AnchorX, AnchorY};
 use tiny_skia::{BlendMode, FilterQuality, PixmapMut, PixmapPaint, PixmapRef, Transform};
 
 use crate::compose::{CompositeError, Compositor, Layer};
 use crate::frame::{BYTES_PER_PIXEL, Frame};
 use crate::grade;
+use crate::properties::Properties;
 
 /// Composites on the CPU.
 #[derive(Debug, Default)]
@@ -125,7 +126,12 @@ fn draw(
         quality: FilterQuality::Bilinear,
         blend_mode: BlendMode::SourceOver,
     };
-    let transform = transform_of(layer, source_resolution, canvas.resolution());
+    let transform = transform_of(
+        &layer.properties,
+        layer.anchor,
+        source_resolution,
+        canvas.resolution(),
+    );
 
     let canvas_resolution = canvas.resolution();
     let bytes = canvas.byte_count();
@@ -213,15 +219,16 @@ fn draw(
 /// the fitted picture's own rectangle rather than padding it out to the raster
 /// first; padded, the spare is inside the layer's alpha where this cannot see
 /// it.
-fn transform_of(
-    layer: &Layer<'_>,
+pub(crate) fn transform_of(
+    properties: &Properties,
+    anchor: Anchor,
     source: crate::frame::Resolution,
     canvas: crate::frame::Resolution,
 ) -> Transform {
     // Resolved in f64 and cast once: the flip's cosine is the one factor here a
     // single-precision cosine could round visibly, and near edge-on it is the
     // difference between a sliver and a smear.
-    let (scale_x, scale_y) = layer.properties.effective_scale();
+    let (scale_x, scale_y) = properties.effective_scale();
     let (scale_x, scale_y) = (scale_x as f32, scale_y as f32);
     let centre_x = source.width() as f32 / 2.0;
     let centre_y = source.height() as f32 / 2.0;
@@ -232,12 +239,12 @@ fn transform_of(
     // the centred case can land on a half pixel; the edges are exact.
     let spare_x = canvas.width() as f32 - source.width() as f32;
     let spare_y = canvas.height() as f32 - source.height() as f32;
-    let rest_x = match layer.anchor.x {
+    let rest_x = match anchor.x {
         AnchorX::Left => 0.0,
         AnchorX::Center => (spare_x / 2.0).round(),
         AnchorX::Right => spare_x,
     };
-    let rest_y = match layer.anchor.y {
+    let rest_y = match anchor.y {
         AnchorY::Top => 0.0,
         AnchorY::Center => (spare_y / 2.0).round(),
         AnchorY::Bottom => spare_y,
@@ -251,19 +258,19 @@ fn transform_of(
     // the same number is the same margin whichever edge it was measured from.
     // Without this, flipping a layout would mean negating every offset, which
     // is the hand arithmetic anchors exist to remove.
-    let inward_x = if layer.anchor.x == AnchorX::Right {
+    let inward_x = if anchor.x == AnchorX::Right {
         -1.0
     } else {
         1.0
     };
-    let inward_y = if layer.anchor.y == AnchorY::Bottom {
+    let inward_y = if anchor.y == AnchorY::Bottom {
         -1.0
     } else {
         1.0
     };
-    let offset_x = layer.properties.position.0 as f32 * canvas.width() as f32 * inward_x;
-    let offset_y = layer.properties.position.1 as f32 * canvas.height() as f32 * inward_y;
-    let (sin, cos) = (layer.properties.rotation as f32).to_radians().sin_cos();
+    let offset_x = properties.position.0 as f32 * canvas.width() as f32 * inward_x;
+    let offset_y = properties.position.1 as f32 * canvas.height() as f32 * inward_y;
+    let (sin, cos) = (properties.rotation as f32).to_radians().sin_cos();
     // The linear part, R·S, in tiny-skia's row order: `from_row(sx, ky, kx, sy,
     // …)` maps `x' = sx·x + kx·y + tx` and `y' = ky·x + sy·y + ty`.
     let (a, kx) = (scale_x * cos, -scale_y * sin);

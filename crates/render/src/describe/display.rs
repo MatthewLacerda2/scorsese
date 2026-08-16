@@ -8,7 +8,7 @@
 
 use std::fmt;
 
-use scorsese_core::{AssetKind, Crop, Curve, Easing, Fit, Geometry, Heads, Shape, Speed};
+use scorsese_core::{AssetKind, Crop, Curve, Easing, Endpoint, Fit, Geometry, Heads, Shape, Speed};
 
 use super::{Animated, Description, Playing, Shown, Stretch, Travel};
 
@@ -227,7 +227,7 @@ const fn fit(fit: Fit) -> &'static str {
 /// in — named only when there is one, so an absent fill reads as absent rather
 /// than as a colour nobody chose.
 fn drawn(shape: &Shape) -> String {
-    let mut line = match shape.geometry {
+    let mut line = match &shape.geometry {
         // An arrow is described by where it runs, because that is the whole of
         // it — a size would be a bounding box nobody wrote.
         Geometry::Arrow {
@@ -236,15 +236,13 @@ fn drawn(shape: &Shape) -> String {
             curve,
             heads,
         } => format!(
-            "{} {},{} → {},{}{}",
+            "{} {} → {}{}",
             match curve {
                 Curve::Straight => "arrow",
                 Curve::S => "s-arrow",
             },
-            from.x,
-            from.y,
-            to.x,
-            to.y,
+            endpoint(from),
+            endpoint(to),
             match heads {
                 Heads::None => ", no head",
                 Heads::End => "",
@@ -256,7 +254,11 @@ fn drawn(shape: &Shape) -> String {
             height,
             radius,
         } => {
-            let outline = if radius > 0.0 { "rounded rect" } else { "rect" };
+            let outline = if *radius > 0.0 {
+                "rounded rect"
+            } else {
+                "rect"
+            };
             format!("{outline} {width}×{height}")
         }
         Geometry::Ellipse { width, height } => format!("ellipse {width}×{height}"),
@@ -268,6 +270,19 @@ fn drawn(shape: &Shape) -> String {
         line.push_str(&format!(", border {stroke}"));
     }
     line
+}
+
+/// One end of an arrow: the place it names, or the clip it follows.
+///
+/// An attachment is said as `clip:side` rather than as a resolved coordinate,
+/// because where it lands is a fact about a frame and a description covers a
+/// stretch of them. What the reader needs is *which box*, which is what the
+/// document said.
+fn endpoint(end: &Endpoint) -> String {
+    match end {
+        Endpoint::At(point) => format!("{},{}", point.x, point.y),
+        Endpoint::Attached { attach } => format!("{}:{:?}", attach.clip, attach.side),
+    }
 }
 
 /// What a document's asset `kind` is called, in the words the format uses.

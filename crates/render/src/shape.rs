@@ -13,7 +13,7 @@
 //! clip goes through.
 
 use scorsese_compositor::shape::{Arrow, Border, Boxed, Figure, Outline};
-use scorsese_compositor::{Frame, Resolution};
+use scorsese_compositor::{Area, Frame, Resolution};
 use scorsese_core::{Anchor, Geometry, Point, Shape};
 
 /// Draws `shape` onto `frame`, sized against the frame's own raster.
@@ -33,7 +33,7 @@ pub(crate) fn paint(frame: &mut Frame, shape: &Shape, anchor: Anchor) {
 fn figure(shape: &Shape, resolution: Resolution, anchor: Anchor) -> Figure {
     let height = f64::from(resolution.height());
     Figure {
-        outline: outline(shape.geometry, resolution, anchor),
+        outline: outline(&shape.geometry, resolution, anchor),
         fill: shape.fill,
         border: shape.stroke.map(|color| Border {
             color,
@@ -42,6 +42,43 @@ fn figure(shape: &Shape, resolution: Resolution, anchor: Anchor) -> Figure {
             width: (shape.stroke_width * height) as f32,
         }),
     }
+}
+
+/// Draws an arrow whose ends have already been worked out, in pixels.
+///
+/// The per-frame path: an attached arrow's ends move with the clips they
+/// follow, so where they are is a fact about one instant rather than about the
+/// document. Everything else about the arrow — its colours, its bow, its heads
+/// — is the same for the whole segment and comes off the shape unchanged.
+pub(crate) fn paint_arrow(frame: &mut Frame, shape: &Shape, from: (f32, f32), to: (f32, f32)) {
+    let Geometry::Arrow { curve, heads, .. } = shape.geometry else {
+        return;
+    };
+    let height = f64::from(frame.resolution().height());
+    let figure = Figure {
+        outline: Outline::Arrow(Arrow {
+            from,
+            to,
+            curve,
+            heads,
+        }),
+        fill: None,
+        border: shape.stroke.map(|color| Border {
+            color,
+            width: (shape.stroke_width * height) as f32,
+        }),
+    };
+    frame.fill_transparent();
+    scorsese_compositor::shape::draw(frame, &figure);
+}
+
+/// Where this shape's own box lands on the raster, in pixels.
+///
+/// `None` for an arrow, which has no box. This is the rectangle an attached
+/// arrow meets: what a reader actually sees, rather than the raster-sized layer
+/// the shape happens to be drawn into.
+pub(crate) fn area(shape: &Shape, resolution: Resolution, anchor: Anchor) -> Option<Area> {
+    scorsese_compositor::shape::area_of(&outline(&shape.geometry, resolution, anchor), resolution)
 }
 
 /// Which outline, in pixels.
@@ -56,16 +93,20 @@ fn figure(shape: &Shape, resolution: Resolution, anchor: Anchor) -> Figure {
 /// the frame. That is what keeps a corner circular, one number turning into one
 /// distance, where a fraction of the frame would turn into two different ones
 /// and round the corner into an ellipse.
-fn outline(geometry: Geometry, resolution: Resolution, anchor: Anchor) -> Outline {
-    match geometry {
+pub(crate) fn outline(geometry: &Geometry, resolution: Resolution, anchor: Anchor) -> Outline {
+    match *geometry {
         Geometry::Arrow {
-            from,
-            to,
+            ref from,
+            ref to,
             curve,
             heads,
         } => Outline::Arrow(Arrow {
-            from: pixels(from, resolution),
-            to: pixels(to, resolution),
+            // An arrow with an attached end never reaches here — the renderer
+            // sends those down the per-frame path, where the clip they follow
+            // can be asked where it is. The origin is the honest answer to an
+            // end that names no place at all.
+            from: pixels(from.point().unwrap_or(Point::new(0.0, 0.0)), resolution),
+            to: pixels(to.point().unwrap_or(Point::new(0.0, 0.0)), resolution),
             curve,
             heads,
         }),

@@ -200,8 +200,8 @@ impl Shown {
         match (shot.asset.kind, shot.asset.text.as_ref()) {
             (AssetKind::Text, Some(text)) => Self::Text(text.clone()),
             (AssetKind::Color, _) => Self::Color(shot.asset.color.unwrap_or_default()),
-            (AssetKind::Shape, _) => match shot.asset.shape {
-                Some(shape) => Self::Shape(shape),
+            (AssetKind::Shape, _) => match &shot.asset.shape {
+                Some(shape) => Self::Shape(shape.clone()),
                 // Validation requires it, so this is only reachable through an
                 // asset built in memory. Media rather than an invented
                 // rectangle: describing a shape nobody wrote would be worse

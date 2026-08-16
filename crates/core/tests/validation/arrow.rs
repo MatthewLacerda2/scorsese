@@ -16,8 +16,8 @@ use scorsese_core::{
 
 fn arrow(from: Point, to: Point) -> Geometry {
     Geometry::Arrow {
-        from,
-        to,
+        from: from.into(),
+        to: to.into(),
         curve: Curve::Straight,
         heads: Heads::End,
     }
@@ -27,10 +27,7 @@ fn arrow(from: Point, to: Point) -> Geometry {
 /// about.
 fn drawn(shape: Shape) -> scorsese_core::Project {
     let mut p = project();
-    p.assets.push(Asset {
-        shape: Some(shape),
-        ..Asset::shape(asset_id("a-to-b"), shape)
-    });
+    p.assets.push(Asset::shape(asset_id("a-to-b"), shape));
     p
 }
 

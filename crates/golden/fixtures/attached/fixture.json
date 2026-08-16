@@ -1,0 +1,6 @@
+{
+  "description": "An arrow attached at both ends, over two frames of a box moving. It runs from the right side of a title's wrapped block to the left side of a blue box, and the box slides right across the sampled frames under a `transform.position.x` keyframe. Frame 0 and frame 9 are the whole point: a single frame cannot prove an arrow followed anything, and two can. The arrow's head must be touching the box's left edge in both, at two different places. What a wrong render looks like: an arrow identical in both frames means the endpoint was resolved once instead of per frame; a head that meets the frame's left edge rather than the words means a title's rectangle was taken as its raster instead of its wrapped block; a head short of the box means the shape's rectangle was taken as its layer rather than its own box.",
+  "media": {},
+  "render": { "resolution": "192x108", "fps": "30" },
+  "frames": [0, 9]
+}

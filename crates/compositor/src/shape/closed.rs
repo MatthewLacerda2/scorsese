@@ -74,7 +74,7 @@ fn path(outline: Outline, resolution: Resolution) -> Option<Path> {
 /// not a number. Validation refuses all three in a loaded project, so this is
 /// the in-memory case, and drawing nothing is the honest answer to a shape with
 /// no area.
-fn bounds(boxed: Boxed, resolution: Resolution) -> Option<Rect> {
+pub(crate) fn bounds(boxed: Boxed, resolution: Resolution) -> Option<Rect> {
     let (width, height) = boxed.size;
     if !width.is_finite() || !height.is_finite() || width <= 0.0 || height <= 0.0 {
         return None;

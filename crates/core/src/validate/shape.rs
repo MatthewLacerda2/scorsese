@@ -150,12 +150,7 @@ fn check_arrow(
 /// — without anyone having to walk a graph, and it costs nothing real, because a
 /// line has no rectangle worth meeting anyway. It also covers the degenerate
 /// case of an arrow attached to a clip showing itself.
-fn check_attach(
-    project: &Project,
-    asset: &Asset,
-    attach: &Attach,
-    errors: &mut Vec<AssetProblem>,
-) {
+fn check_attach(project: &Project, asset: &Asset, attach: &Attach, errors: &mut Vec<AssetProblem>) {
     let id = || asset.id.clone();
     let found = project
         .clips()
