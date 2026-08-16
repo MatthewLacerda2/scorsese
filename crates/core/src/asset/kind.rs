@@ -24,6 +24,12 @@ pub enum AssetKind {
     /// Resolution-independent by construction. It is whatever the render is,
     /// so nothing about it carries a raster the project should not know.
     Color,
+    /// A rectangle or an ellipse, drawn by the render rather than imported as a
+    /// picture of one. The third kind with no file behind it, and
+    /// resolution-independent for [`AssetKind::Color`]'s reason: what it
+    /// carries is fractions of the raster, so the drawing happens at whatever
+    /// size the render turns out to be.
+    Shape,
     /// A Veo prompt: video that does not exist until it is generated.
     GeneratedVideo,
     /// An ElevenLabs TTS prompt: audio that does not exist until generated.
@@ -68,7 +74,12 @@ impl AssetKind {
     pub fn is_visual(self) -> bool {
         matches!(
             self,
-            Self::Video | Self::Image | Self::Text | Self::Color | Self::GeneratedVideo
+            Self::Video
+                | Self::Image
+                | Self::Text
+                | Self::Color
+                | Self::Shape
+                | Self::GeneratedVideo
         )
     }
 
@@ -79,13 +90,13 @@ impl AssetKind {
 
     /// True when a file on disk is what this kind ultimately refers to.
     ///
-    /// The **inline** kinds are the exception — `text` and `color` say what
-    /// they are in the document itself. Most of what follows from that is
-    /// asked here rather than of the kind directly: they cannot be imported,
-    /// there is nothing to hash or probe, and `fit` has no source raster to
-    /// reconcile against.
+    /// The **inline** kinds are the exception — `text`, `color` and `shape`
+    /// say what they are in the document itself. Most of what follows from
+    /// that is asked here rather than of the kind directly: they cannot be
+    /// imported, there is nothing to hash or probe, and `fit` has no source
+    /// raster to reconcile against.
     pub fn is_file_backed(self) -> bool {
-        !matches!(self, Self::Text | Self::Color)
+        !matches!(self, Self::Text | Self::Color | Self::Shape)
     }
 }
 

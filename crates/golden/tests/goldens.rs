@@ -101,6 +101,7 @@ goldens!(
     serif,
     slice,
     slide,
+    shapes,
     slugs,
     speed,
     spin,

@@ -62,6 +62,13 @@ pub enum AssetField {
     /// white because nobody chose is a shot rendered wrong in a way no error
     /// ever mentioned.
     Color,
+    /// The outline a `shape` asset draws, and the two colours it is drawn in.
+    ///
+    /// The third inline kind's whole content, required by it and refused
+    /// everywhere else on the reasoning every stray field is refused on: a
+    /// rectangle described on a video asset would be drawn by nothing, and
+    /// silence about it would look exactly like having drawn it.
+    Shape,
     /// The rest of a generated video's brief: tier, raster, length, aspect and
     /// the stills it is built from.
     ///
@@ -104,6 +111,7 @@ impl AssetField {
             Self::Recipe => "recipe",
             Self::State => "state",
             Self::Color => "color",
+            Self::Shape => "shape",
             Self::Video => "video",
             Self::Speech => "speech",
             Self::Operation => "operation",

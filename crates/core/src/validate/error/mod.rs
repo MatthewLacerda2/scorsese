@@ -12,11 +12,13 @@
 //! checks are: by what has to be looked at to find it.
 
 mod assets;
+mod shape;
 mod speech;
 mod timeline;
 mod video;
 
 pub use assets::AssetProblem;
+pub use shape::ShapeProblem;
 pub use speech::SpeechProblem;
 pub use timeline::TimelineProblem;
 pub use video::VideoProblem;
@@ -74,6 +76,13 @@ impl From<VideoProblem> for ValidationError {
 /// And a speech problem reaches it the same way, for the same reason.
 impl From<SpeechProblem> for ValidationError {
     fn from(problem: SpeechProblem) -> Self {
+        Self::Asset(problem.into())
+    }
+}
+
+/// As does a shape problem.
+impl From<ShapeProblem> for ValidationError {
+    fn from(problem: ShapeProblem) -> Self {
         Self::Asset(problem.into())
     }
 }

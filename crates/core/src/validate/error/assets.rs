@@ -3,7 +3,7 @@
 
 use crate::asset::{AssetId, AssetKind};
 use crate::path::{PathProblem, ProjectPath};
-use crate::validate::error::{SpeechProblem, VideoProblem};
+use crate::validate::error::{ShapeProblem, SpeechProblem, VideoProblem};
 use crate::validate::field::AssetField;
 
 /// One thing wrong with a row of the assets table.
@@ -131,6 +131,14 @@ pub enum AssetProblem {
     /// — see [`VideoProblem`] for why that difference is worth a split.
     #[error(transparent)]
     Video(#[from] VideoProblem),
+
+    /// Something wrong with the outline a `shape` asset describes.
+    ///
+    /// Split for [`VideoProblem`]'s reason — findings about the numbers inside
+    /// one block rather than about whether the block is there. See
+    /// [`ShapeProblem`].
+    #[error(transparent)]
+    Shape(#[from] ShapeProblem),
 
     /// Something wrong with what a spoken line is asking for.
     ///

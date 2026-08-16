@@ -20,11 +20,14 @@ mod assets;
 mod error;
 mod field;
 mod report;
+mod shape;
 mod speech;
 mod timeline;
 mod video;
 
-pub use error::{AssetProblem, SpeechProblem, TimelineProblem, ValidationError, VideoProblem};
+pub use error::{
+    AssetProblem, ShapeProblem, SpeechProblem, TimelineProblem, ValidationError, VideoProblem,
+};
 pub use field::AssetField;
 pub use report::ValidationErrors;
 

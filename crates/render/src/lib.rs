@@ -98,6 +98,7 @@ pub(crate) mod report;
 pub(crate) mod run;
 pub mod say;
 pub(crate) mod settings;
+pub(crate) mod shape;
 pub(crate) mod slug;
 pub(crate) mod text;
 pub mod tools;

@@ -23,6 +23,7 @@ pub(super) fn check(project: &Project) -> Vec<AssetProblem> {
         check_recipe(asset, &mut errors);
         check_sha256(asset, &mut errors);
         check_kind_fields(asset, &mut errors);
+        super::shape::check(asset, &mut errors);
         super::video::check(project, asset, &mut errors);
         super::speech::check(asset, &mut errors);
     }

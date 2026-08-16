@@ -15,6 +15,7 @@ use crate::error::RenderError;
 use crate::pipe::{Decoder, Fitting, Source};
 use crate::plan::Shot;
 use crate::report::{Note, StandIn};
+use crate::shape;
 use crate::slug::{self, Standing};
 use crate::text::Painter;
 
@@ -83,6 +84,17 @@ impl Pass<'_> {
             // would be harder to notice than one that is plainly the wrong
             // colour.
             pixels.fill(shot.asset.color.unwrap_or_default());
+            return held(pixels);
+        }
+
+        if let Some(shape) = &shot.asset.shape {
+            // The anchor reaches the drawing rather than the compositing. A
+            // shape layer is the size of the raster, and a raster-sized layer
+            // rests at the origin whatever its anchor — so where the box sits
+            // *inside* it has to be decided while it is drawn, exactly as a
+            // block of text's is.
+            let mut pixels = raster();
+            shape::paint(&mut pixels, shape, shot.clip.anchor);
             return held(pixels);
         }
 

@@ -29,7 +29,7 @@ mod layout;
 mod shape;
 
 pub use draw::draw_line;
-pub(crate) use draw::{draw_runs, fill_rects};
+pub(crate) use draw::draw_runs;
 pub use font::{Cut, Family, Font, FontError, SHIPPED, SHIPPED_WEIGHT, Slant, family, names};
 
 use std::ops::Range;

@@ -1,0 +1,91 @@
+{
+  "schema_version": 22,
+  "name": "shapes",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    { "id": "bed", "kind": "color", "color": "#204030" },
+    {
+      "id": "plate",
+      "kind": "shape",
+      "shape": {
+        "geometry": { "rectangle": { "width": 0.3, "height": 0.5 } },
+        "fill": "#1e3a8aff"
+      }
+    },
+    {
+      "id": "ring",
+      "kind": "shape",
+      "shape": {
+        "geometry": { "ellipse": { "width": 0.25, "height": 0.44 } },
+        "stroke": "#ffcc00ff",
+        "stroke_width": 0.04
+      }
+    },
+    {
+      "id": "pill",
+      "kind": "shape",
+      "shape": {
+        "geometry": { "rectangle": { "width": 0.4, "height": 0.22, "radius": 0.5 } },
+        "fill": "#00000099",
+        "stroke": "#ffffffff",
+        "stroke_width": 0.03
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "name": "bed",
+      "clips": [{ "id": "c-bed", "asset": "bed", "start": 0, "duration": 10 }]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "name": "filled",
+      "clips": [
+        {
+          "id": "c-plate",
+          "asset": "plate",
+          "start": 0,
+          "duration": 10,
+          "anchor": { "x": "left", "y": "center" }
+        }
+      ]
+    },
+    {
+      "id": "v3",
+      "kind": "video",
+      "name": "hollow",
+      "clips": [
+        {
+          "id": "c-ring",
+          "asset": "ring",
+          "start": 0,
+          "duration": 10,
+          "anchor": { "x": "right", "y": "center" },
+          "keyframes": [
+            {
+              "property": "transform.position.x",
+              "keyframes": [{ "t": 0, "value": 0.06 }]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "v4",
+      "kind": "video",
+      "name": "rounded",
+      "clips": [
+        {
+          "id": "c-pill",
+          "asset": "pill",
+          "start": 0,
+          "duration": 10,
+          "anchor": { "x": "center", "y": "bottom" }
+        }
+      ]
+    }
+  ]
+}

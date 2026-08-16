@@ -8,7 +8,7 @@
 
 use std::fmt;
 
-use scorsese_core::{AssetKind, Crop, Easing, Fit, Speed};
+use scorsese_core::{AssetKind, Crop, Easing, Fit, Geometry, Shape, Speed};
 
 use super::{Animated, Description, Playing, Shown, Stretch, Travel};
 
@@ -108,6 +108,11 @@ fn onscreen(playing: &Playing) -> String {
         // Like a card, a colour is the raster itself rather than something
         // fitted into it, so printing a `fit` would be inventing a fact.
         Shown::Color(color) => format!("{} (color {color})", playing.asset),
+        // A shape is drawn at the raster's own size for the same reason, so
+        // there is no `fit` to print here either. What replaces it is the
+        // shape itself: a diagram is many small layers, and "shape" alone
+        // would not tell two of them apart.
+        Shown::Shape(shape) => format!("{} ({})", playing.asset, drawn(shape)),
         Shown::Media => format!(
             "{} ({}, {}{}{})",
             playing.asset,
@@ -218,6 +223,29 @@ const fn fit(fit: Fit) -> &'static str {
     }
 }
 
+/// One shape in a line: what it is, how big, and the two colours it is drawn
+/// in — named only when there is one, so an absent fill reads as absent rather
+/// than as a colour nobody chose.
+fn drawn(shape: &Shape) -> String {
+    let outline = match shape.geometry {
+        Geometry::Rectangle { radius, .. } if radius > 0.0 => "rounded rect",
+        Geometry::Rectangle { .. } => "rect",
+        Geometry::Ellipse { .. } => "ellipse",
+    };
+    let mut line = format!(
+        "{outline} {}×{}",
+        shape.geometry.width(),
+        shape.geometry.height()
+    );
+    if let Some(fill) = shape.fill {
+        line.push_str(&format!(", fill {fill}"));
+    }
+    if let Some(stroke) = shape.stroke {
+        line.push_str(&format!(", border {stroke}"));
+    }
+    line
+}
+
 /// What a document's asset `kind` is called, in the words the format uses.
 const fn kind(kind: AssetKind) -> &'static str {
     match kind {
@@ -226,6 +254,7 @@ const fn kind(kind: AssetKind) -> &'static str {
         AssetKind::Audio => "audio",
         AssetKind::Text => "text",
         AssetKind::Color => "color",
+        AssetKind::Shape => "shape",
         AssetKind::GeneratedVideo => "generated_video",
         AssetKind::GeneratedAudio => "generated_audio",
         AssetKind::SynthAudio => "synth_audio",

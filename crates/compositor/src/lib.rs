@@ -33,6 +33,15 @@
 //! pixels. What it produces is an ordinary layer, so a title fades and moves
 //! through the properties above rather than through anything of its own.
 //!
+//! [`mod@shape`] is the third: the boxes and ellipses a diagram is drawn from,
+//! and the same bargain text makes — what comes out is an ordinary layer, so a
+//! box that fades or slides is the existing properties acting on a layer that
+//! happens to have a rectangle in it.
+//!
+//! Both of them, and the ruler, reach the raster through `paint`, which is the
+//! crate's **one** rasteriser and one blend. Two would be two answers to what a
+//! soft edge looks like, and pixels are what the golden gate compares.
+//!
 //! [`sheet`] tiles several frames into one labelled picture, so an assistant
 //! can look at footage. It is the same two modules again — a label is a card,
 //! and placing a cell is a layer — which is why it is forty lines of layout
@@ -63,10 +72,11 @@
 //! the [`Registry`] that searches it, and the two fades ([`fade_in`],
 //! [`fade_out`]).
 //!
-//! [`text`], [`card`], [`mod@grid`] and [`mod@dissolve`] keep their module path as well,
-//! because what they publish are *verbs* — `draw`, `draw_in`, `draw_line`,
-//! `dissolve` — and a verb that general needs the noun in front of it to read.
-//! `text::draw` and `card::draw` could not both sit at the root in any case.
+//! [`text`], [`card`], [`mod@shape`], [`mod@grid`] and [`mod@dissolve`] keep
+//! their module path as well, because what they publish are *verbs* — `draw`,
+//! `draw_in`, `draw_line`, `dissolve` — and a verb that general needs the noun
+//! in front of it to read. `text::draw`, `card::draw` and `shape::draw` could
+//! not all sit at the root in any case.
 //! The face those verbs set words in is [`text::Font`], and that is its only
 //! spelling: the root re-export it also had was a second name for a type every
 //! caller already reached through `text`.
@@ -83,8 +93,10 @@ pub mod dissolve;
 mod frame;
 mod grade;
 pub mod grid;
+mod paint;
 mod properties;
 mod registry;
+pub mod shape;
 pub mod sheet;
 pub mod text;
 pub mod waveform;
