@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::color::Rgba;
 use crate::path::ProjectPath;
+use crate::shape::Shape;
 use crate::stamp::Timestamp;
 use crate::text::TextStyle;
 use crate::time::{Fps, Frames};
@@ -108,6 +109,14 @@ pub struct Asset {
     /// and picking one silently is how a film opens on the wrong shade.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub color: Option<Rgba>,
+    /// The outline a `shape` asset draws, and how it is coloured.
+    ///
+    /// The third inline kind's whole content, held to the same rule as the
+    /// other two: required on `shape` and refused everywhere else. A shape on a
+    /// video asset would be read by nothing, and silence about it would look
+    /// exactly like having drawn it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shape: Option<Shape>,
     /// Why this asset is what it is. Never rendered — see
     /// [`crate::Track::note`], which states the invariant in full.
     ///
@@ -232,6 +241,7 @@ impl Asset {
             text: None,
             style: None,
             color: None,
+            shape: None,
             note: None,
             video: None,
             speech: None,
@@ -260,6 +270,19 @@ impl Asset {
         Self {
             color: Some(color),
             ..Self::bare(id, AssetKind::Color)
+        }
+    }
+
+    /// A drawn shape: a box or an ellipse, sized in fractions of whatever
+    /// raster the render is.
+    ///
+    /// The third of the inline kinds, and the same bargain as the other two —
+    /// everything it needs is in the document, so there is no file to import,
+    /// hash or probe, and no resolution it can be wrong at.
+    pub fn shape(id: AssetId, shape: Shape) -> Self {
+        Self {
+            shape: Some(shape),
+            ..Self::bare(id, AssetKind::Shape)
         }
     }
 
@@ -334,7 +357,7 @@ impl Asset {
     /// once realised it is media like any other.
     pub fn has_intrinsic_duration(&self) -> bool {
         match self.kind {
-            AssetKind::Image | AssetKind::Text | AssetKind::Color => false,
+            AssetKind::Image | AssetKind::Text | AssetKind::Color | AssetKind::Shape => false,
             _ => self.state.is_none_or(GenerationState::has_media),
         }
     }

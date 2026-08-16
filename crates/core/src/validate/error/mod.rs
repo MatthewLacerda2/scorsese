@@ -12,11 +12,13 @@
 //! checks are: by what has to be looked at to find it.
 
 mod assets;
+mod shape;
 mod speech;
 mod timeline;
 mod video;
 
 pub use assets::AssetProblem;
+pub use shape::ShapeProblem;
 pub use speech::SpeechProblem;
 pub use timeline::TimelineProblem;
 pub use video::VideoProblem;
