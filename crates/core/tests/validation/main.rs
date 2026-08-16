@@ -5,6 +5,7 @@ mod common;
 
 mod arrow;
 mod assets;
+mod attach;
 mod color;
 mod fields;
 mod generated;

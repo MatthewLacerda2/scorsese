@@ -78,6 +78,7 @@ goldens!(
     alpha_scaled,
     anchored,
     arrows,
+    attached,
     blend,
     crop,
     cuts,

@@ -8,7 +8,7 @@
 //! be waste. What is left — the layers that do have a source — is exactly the
 //! set the producer reads in lockstep, one frame from each per output frame.
 
-use scorsese_compositor::Frame;
+use scorsese_compositor::{Area, Frame};
 use scorsese_core::{Anchor, AssetKind, Clip, Fps, Frames};
 
 use crate::error::RenderError;
@@ -20,6 +20,7 @@ use crate::slug::{self, Standing};
 use crate::text::Painter;
 
 use super::Pass;
+use super::attach::{self, Following, Rect};
 
 /// What one layer contributes to every frame of a segment.
 pub(super) struct Slot {
@@ -29,9 +30,13 @@ pub(super) struct Slot {
     /// clip — an anchor is not animated — so it is read once here rather than
     /// worked out again for every frame.
     pub(super) anchor: Anchor,
+    /// Where this layer's picture sits within its own raster, which is what an
+    /// arrow attaches *to*. Worked out once: animation moves the layer, never
+    /// the rectangle inside it.
+    pub(super) rect: Rect,
 }
 
-/// The two ways a layer has pixels, and the difference is what a worker is
+/// The three ways a layer has pixels, and the difference is what a worker is
 /// allowed to share.
 pub(super) enum Pixels {
     /// Drawn once and held for the whole segment: a title, a colour, a slug
@@ -43,6 +48,39 @@ pub(super) enum Pixels {
     /// the whole segment — which is why one is owned by the job and the other
     /// is not.
     Live(usize),
+    /// Drawn afresh into the job's own buffer for every frame, because what it
+    /// looks like depends on where *another* layer is at that instant.
+    ///
+    /// Only an attached arrow is ever this. Everything else that is drawn — a
+    /// title, a colour, a box, an arrow between two fixed points — is the same
+    /// pixels for the whole segment and is [`Pixels::Held`], which is what
+    /// keeps the common case free of per-frame work.
+    Drawn {
+        /// Which of the job's buffers it is drawn into, counted after the
+        /// decoded ones.
+        at: usize,
+        /// The arrow, and where each of its ends comes from.
+        following: Box<Following>,
+    },
+}
+
+/// Where a layer sits among the ones being got ready, and what else is on
+/// screen beside it.
+///
+/// One value rather than three arguments, because the three are only ever
+/// passed together and two of them are indices into different lists — which is
+/// exactly the pair a reader would otherwise have to keep straight at every
+/// call.
+pub(super) struct Among<'a> {
+    /// How many layers before this one are read from a decoder, which is the
+    /// buffer index this one takes if it is read too.
+    pub(super) live: usize,
+    /// How many before it are redrawn every frame, which is the buffer index it
+    /// takes if it is one of those.
+    pub(super) drawn: usize,
+    /// Everything on screen in this stretch — what an attachment is resolved
+    /// against.
+    pub(super) layers: &'a [Shot<'a>],
 }
 
 impl Pass<'_> {
@@ -54,48 +92,99 @@ impl Pass<'_> {
         shot: &Shot<'_>,
         painter: &mut Painter,
         frames: u64,
-        live: usize,
+        among: Among<'_>,
         notes: &mut Vec<Note>,
     ) -> Result<(Slot, Option<Decoder>), RenderError> {
+        let Among {
+            live,
+            drawn,
+            layers: segment,
+        } = among;
+        let raster = self.settings.resolution;
         // Both of the drawn kinds are the size of the raster: a title is set at
         // whatever the render is, and a card is a panel of it.
-        let held = |pixels: Frame| {
+        let held = |pixels: Frame, area: Area| {
             Ok((
                 Slot {
                     pixels: Pixels::Held(pixels),
                     anchor: shot.clip.anchor,
+                    rect: Rect {
+                        source: raster,
+                        area,
+                        anchor: shot.clip.anchor,
+                    },
                 },
                 None,
             ))
         };
-        let raster = || Frame::black(self.settings.resolution);
+        let blank = || Frame::black(raster);
 
         if shot.asset.kind == AssetKind::Text {
-            let mut pixels = raster();
+            let mut pixels = blank();
             painter.paint(&mut pixels, shot.asset, shot.clip.anchor, self.project_root)?;
-            return held(pixels);
+            // The wrapped block, not the raster it is set on: an arrow attached
+            // to a title has to meet the words, and the layer's own edges are
+            // the frame's.
+            let block = painter.block(shot.asset, shot.clip.anchor, self.project_root, raster)?;
+            return held(pixels, block);
         }
 
         if shot.asset.kind == AssetKind::Color {
-            let mut pixels = raster();
+            let mut pixels = blank();
             // Validation requires the colour, so the default is unreachable
             // through a loaded project. White rather than transparent if a
             // caller ever builds one in memory: a layer that silently vanished
             // would be harder to notice than one that is plainly the wrong
             // colour.
             pixels.fill(shot.asset.color.unwrap_or_default());
-            return held(pixels);
+            // A colour *is* the whole raster, so its rectangle is too.
+            return held(pixels, Area::whole(raster));
         }
 
         if let Some(shape) = &shot.asset.shape {
+            // An arrow with an end that follows a clip cannot be drawn once for
+            // the segment: where it runs depends on where that clip is at each
+            // instant. Everything else here is the same pixels throughout.
+            if attach::is_attached(shape) {
+                let following = attach::following(shape, segment);
+                if following.is_none() {
+                    notes.push(Note::ArrowUnattached {
+                        clip: shot.clip.id.to_string(),
+                    });
+                }
+                return Ok((
+                    Slot {
+                        pixels: match following {
+                            Some(following) => Pixels::Drawn {
+                                at: drawn,
+                                following: Box::new(following),
+                            },
+                            // Its target is not on screen here, so there is
+                            // nothing to point at and nothing to draw.
+                            None => Pixels::Held(transparent(raster)),
+                        },
+                        anchor: shot.clip.anchor,
+                        rect: Rect {
+                            source: raster,
+                            area: Area::whole(raster),
+                            anchor: shot.clip.anchor,
+                        },
+                    },
+                    None,
+                ));
+            }
             // The anchor reaches the drawing rather than the compositing. A
             // shape layer is the size of the raster, and a raster-sized layer
             // rests at the origin whatever its anchor — so where the box sits
             // *inside* it has to be decided while it is drawn, exactly as a
             // block of text's is.
-            let mut pixels = raster();
+            let mut pixels = blank();
             shape::paint(&mut pixels, shape, shot.clip.anchor);
-            return held(pixels);
+            // A box's own box, not the raster it is drawn into — what a reader
+            // sees, and the only rectangle an arrow could sensibly meet.
+            let area =
+                shape::area(shape, raster, shot.clip.anchor).unwrap_or_else(|| Area::whole(raster));
+            return held(pixels, area);
         }
 
         let file = match slug::standing(shot, self.project_root)? {
@@ -108,9 +197,9 @@ impl Pass<'_> {
                         stood_in: StandIn::SlugCard,
                     });
                 }
-                let mut pixels = raster();
+                let mut pixels = blank();
                 slug::paint(&mut pixels, shot.asset, absent);
-                return held(pixels);
+                return held(pixels, Area::whole(raster));
             }
         };
 
@@ -125,14 +214,32 @@ impl Pass<'_> {
             ),
             &self.settings,
         )?;
+        // A decoded picture fills the buffer it is read into, so its rectangle
+        // is that buffer — which for a letterboxed `fit` is the picture and not
+        // the raster, since the decode stage hands over the fitted rectangle
+        // rather than padding it out first.
+        let source = decoder.raster();
         Ok((
             Slot {
                 pixels: Pixels::Live(live),
                 anchor: shot.clip.anchor,
+                rect: Rect {
+                    source,
+                    area: Area::whole(source),
+                    anchor: shot.clip.anchor,
+                },
             },
             Some(decoder),
         ))
     }
+}
+
+/// A raster with nothing on it — what an arrow whose target is absent
+/// contributes.
+fn transparent(resolution: scorsese_compositor::Resolution) -> Frame {
+    let mut frame = Frame::black(resolution);
+    frame.fill_transparent();
+    frame
 }
 
 /// How far into its own clip a timeline frame is.

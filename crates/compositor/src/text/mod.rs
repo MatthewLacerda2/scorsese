@@ -36,6 +36,7 @@ use std::ops::Range;
 
 use scorsese_core::{Anchor, AnchorX, AnchorY, Rgba, TextAlign};
 
+use crate::area::Area;
 use crate::frame::{Frame, Resolution};
 
 /// The horizontal strip of a frame a block of text is set in.
@@ -124,6 +125,86 @@ pub fn draw(frame: &mut Frame, text: &str, font: &Font, style: &Style) {
     draw_in(frame, text, font, style, Band::whole(frame.resolution()));
 }
 
+/// Where a block of `text` would be set, without setting it.
+///
+/// **The wrapped block at `max_width`, not the longest line.** Left-anchored
+/// text could plausibly mean either, and only the block keeps a column's left
+/// edge still as the wording changes — which is the same reason [`Style`]'s
+/// anchor anchors the block. Anything asking *where is this title* has to get
+/// the answer the anchor was reasoning about, or an arrow attached to a title
+/// would meet an edge the title does not have.
+///
+/// Same layout, same wrapping, same anchor arithmetic as [`draw_in`] — it is
+/// literally the step that one takes first — so the two cannot disagree.
+pub fn block_in(
+    text: &str,
+    font: &Font,
+    style: &Style,
+    band: Band,
+    resolution: Resolution,
+) -> Area {
+    Laid::out(text, font, style, band, resolution).block
+}
+
+/// The layout of one block, worked out before any glyph is filled.
+struct Laid<'a> {
+    lines: Vec<layout::Line>,
+    face: super::text::font::Face<'a>,
+    max_width: f32,
+    line_height: f32,
+    ascent: f32,
+    descent: f32,
+    block: Area,
+}
+
+impl<'a> Laid<'a> {
+    fn out(text: &str, font: &'a Font, style: &Style, band: Band, resolution: Resolution) -> Self {
+        let width = resolution.width() as f32;
+        let height = band.height.max(1.0);
+
+        // Every guard below is a `max`, which is also how a NaN is caught: it
+        // returns the other operand. A style that says nothing sane still draws
+        // something rather than looping forever or vanishing.
+        let size = style.size.max(1.0);
+        let line_height = style.line_height.max(size);
+        let max_width = if style.max_width.is_finite() && style.max_width > 0.0 {
+            style.max_width
+        } else {
+            width
+        };
+        let rows = (height / line_height).floor().max(1.0) as usize;
+
+        let face = font.at(size);
+        let lines = layout::wrap(text, &face, max_width, rows);
+        let (ascent, descent) = face.extents();
+        let block_height = line_height * lines.len() as f32;
+        let top = match style.anchor.y {
+            AnchorY::Top => band.top,
+            AnchorY::Center => band.top + (height - block_height) / 2.0,
+            AnchorY::Bottom => band.top + height - block_height,
+        };
+        let left = match style.anchor.x {
+            AnchorX::Left => 0.0,
+            AnchorX::Center => (width - max_width) / 2.0,
+            AnchorX::Right => width - max_width,
+        };
+        Self {
+            lines,
+            face,
+            max_width,
+            line_height,
+            ascent,
+            descent,
+            block: Area {
+                left,
+                top,
+                width: max_width,
+                height: block_height,
+            },
+        }
+    }
+}
+
 /// [`draw`], into one band of the frame rather than the whole of it.
 ///
 /// The block is centred in the band both ways and truncated to it, so a card's
@@ -131,35 +212,17 @@ pub fn draw(frame: &mut Frame, text: &str, font: &Font, style: &Style) {
 /// apart. `draw` is this with the band being the entire frame.
 pub fn draw_in(frame: &mut Frame, text: &str, font: &Font, style: &Style, band: Band) {
     let resolution = frame.resolution();
-    let width = resolution.width() as f32;
-    let height = band.height.max(1.0);
-
-    // Every guard below is a `max`, which is also how a NaN is caught: it
-    // returns the other operand. A style that says nothing sane still draws
-    // something rather than looping forever or vanishing.
-    let size = style.size.max(1.0);
-    let line_height = style.line_height.max(size);
-    let max_width = if style.max_width.is_finite() && style.max_width > 0.0 {
-        style.max_width
-    } else {
-        width
-    };
-    let rows = (height / line_height).floor().max(1.0) as usize;
-
-    let face = font.at(size);
-    let lines = layout::wrap(text, &face, max_width, rows);
-    let (ascent, descent) = face.extents();
-    let block_height = line_height * lines.len() as f32;
-    let top = match style.anchor.y {
-        AnchorY::Top => band.top,
-        AnchorY::Center => band.top + (height - block_height) / 2.0,
-        AnchorY::Bottom => band.top + height - block_height,
-    };
-    let box_left = match style.anchor.x {
-        AnchorX::Left => 0.0,
-        AnchorX::Center => (width - max_width) / 2.0,
-        AnchorX::Right => width - max_width,
-    };
+    let laid = Laid::out(text, font, style, band, resolution);
+    let Laid {
+        lines,
+        face,
+        max_width,
+        line_height,
+        ascent,
+        descent,
+        block,
+    } = laid;
+    let (box_left, top) = (block.left, block.top);
 
     // One path for the whole block, filled once: the rasteriser is entered a
     // single time however many lines there are, and letters that overlap are

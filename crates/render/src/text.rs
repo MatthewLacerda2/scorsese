@@ -15,8 +15,8 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use scorsese_compositor::Frame;
 use scorsese_compositor::text::{self, Font, Slant, Style};
+use scorsese_compositor::{Area, Frame, Resolution};
 use scorsese_core::{Anchor, Asset, AssetKind, FontChoice, Project, TextStyle};
 
 use crate::error::RenderError;
@@ -97,6 +97,31 @@ impl Painter {
         frame.fill_transparent();
         text::draw(frame, &content, font, &resolve(&style, anchor, resolution));
         Ok(())
+    }
+
+    /// Where this asset's words would be set, without setting them.
+    ///
+    /// The **wrapped block**, which is the rectangle the anchor already reasons
+    /// about — so an arrow attached to a title meets the words rather than the
+    /// frame. Same style, same font, same layout as [`Painter::paint`]; the two
+    /// cannot disagree because they share the step that decides it.
+    pub(crate) fn block(
+        &mut self,
+        asset: &Asset,
+        anchor: Anchor,
+        project_root: &Path,
+        resolution: Resolution,
+    ) -> Result<Area, RenderError> {
+        let style = asset.text_style();
+        let content = asset.text.clone().unwrap_or_default();
+        let font = self.font(&style, asset, project_root)?;
+        Ok(text::block_in(
+            &content,
+            font,
+            &resolve(&style, anchor, resolution),
+            text::Band::whole(resolution),
+            resolution,
+        ))
     }
 
     /// The face a style names, at the weight it names, opening and keeping a

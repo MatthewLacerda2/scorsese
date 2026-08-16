@@ -16,6 +16,18 @@ use crate::settings::Resolution;
 /// prevent.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Note {
+    /// An attached arrow whose clip is not on screen in this stretch, so there
+    /// was nothing to point at and the arrow was left out.
+    ///
+    /// Worth a note rather than silence: an arrow that simply does not appear
+    /// looks exactly like one that failed to draw, and the usual cause is a
+    /// timing mistake — the arrow's clip outlasting the box's, or starting
+    /// before it.
+    ArrowUnattached {
+        /// The arrow's clip.
+        clip: String,
+    },
+
     /// Audio carries on past the last picture, and was cut off there.
     AudioTrimmed {
         /// Where the soundtrack would have run to.
@@ -125,6 +137,11 @@ impl fmt::Display for Note {
                 f,
                 "the range asked for frame {} but the timeline ends at {timeline_end}",
                 asked.get()
+            ),
+            Self::ArrowUnattached { clip } => write!(
+                f,
+                "arrow `{clip}` is attached to a clip that is not on screen while it is, \
+                 so it was left out"
             ),
             Self::ClipRanShort { clip, missing } => write!(
                 f,

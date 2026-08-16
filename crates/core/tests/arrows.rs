@@ -10,7 +10,7 @@ use scorsese_core::{Curve, Geometry, Heads, Project, Shape};
 
 /// One arrow asset, with the two optional fields left out.
 const TERSE: &str = r##"{
-  "schema_version": 23,
+  "schema_version": 24,
   "name": "arrows",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [
@@ -26,7 +26,10 @@ const TERSE: &str = r##"{
 
 fn only_shape(json: &str) -> Shape {
     let project = Project::from_json(json).expect("a project with one arrow in it");
-    project.assets[0].shape.expect("the arrow's shape block")
+    project.assets[0]
+        .shape
+        .clone()
+        .expect("the arrow's shape block")
 }
 
 #[test]
@@ -43,6 +46,8 @@ fn the_endpoints_are_read_as_written() {
     let Geometry::Arrow { from, to, .. } = only_shape(TERSE).geometry else {
         panic!("the geometry parsed as something other than an arrow");
     };
+    let from = from.point().expect("a plain point, not an attachment");
+    let to = to.point().expect("a plain point, not an attachment");
     assert_eq!((from.x, from.y), (0.2, 0.3));
     assert_eq!((to.x, to.y), (0.8, 0.7));
 }

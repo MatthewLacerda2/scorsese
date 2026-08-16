@@ -1,4 +1,4 @@
-# `project.json` — schema v23
+# `project.json` — schema v24
 
 The contract between the CLI, the MCP server, the GUI, and every project
 saved on someone's disk. It is meant to be hand-written: an agent should be
@@ -12,7 +12,7 @@ bump and a migration note.
 
 ```json project
 {
-  "schema_version": 23,
+  "schema_version": 24,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -699,9 +699,10 @@ is a scaled colour clip if you are determined, and a line at an angle with a
 head on it is not expressible by anything else in this format.
 
 **It is placed differently from every other shape, and the difference is
-deliberate.** `from` and `to` are **absolute** fractions of the raster: `x` from
-the left edge, `y` from the top, so `{ "x": 0.5, "y": 0.5 }` is the middle of
-the picture at any resolution. That is the one place these fractions differ
+deliberate.** `from` and `to` are each either a place on the frame or a clip to
+follow — see *Arrows that follow a clip* below. A place is written as
+**absolute** fractions of the raster: `x` from the left edge, `y` from the top,
+so `{ "x": 0.5, "y": 0.5 }` is the middle of the picture at any resolution. That is the one place these fractions differ
 from `transform.position`, which offsets a layer from where it already sits —
 a line has no "already sits" to offset from. **`anchor` is therefore not read
 on an arrow**: there is no rectangle to rest against an edge.
@@ -732,12 +733,65 @@ inside for a colour to go in, and a fill there would be read by nothing —
 usually a `stroke` that was meant. `stroke` is the whole of an arrow's
 appearance: no stroke, no arrow.
 
+#### Arrows that follow a clip: `attach`
+
+```json asset
+{ "id": "a-to-b", "kind": "shape",
+  "shape": {
+    "geometry": { "arrow": {
+      "from": { "attach": { "clip": "c-box-a", "side": "right" } },
+      "to":   { "attach": { "clip": "c-box-b", "side": "left" } },
+      "curve": "s" } },
+    "stroke": "#000000ff",
+    "stroke_width": 0.004
+  } }
+```
+
+Either end may name a **clip** and a **side** instead of a place. The endpoint
+is then worked out from wherever that clip actually is, **on every frame** —
+move the box and the arrow follows it, animate the box and the arrow follows it
+frame by frame.
+
+**Without this, every arrow is placed twice**: once when you draw it, and again
+each time you move a box. That is the difference between a diagram you can edit
+and a picture you have to redo, and it is worse for an assistant than for a
+person, because an assistant moving a box has no way to see that it broke three
+arrows.
+
+`clip`, not `asset`. The same box asset can be on screen twice at once, and an
+arrow has to say which of them it means.
+
+`side` is `left`, `right`, `top`, `bottom` or `center`, and `center` is the
+default — the honest answer when an arrow is meant to point *at* something
+rather than touch it. **The side you name stays the side you get.** Choosing
+the nearest one automatically is the kind of helpfulness that is right until it
+is wrong, and wrong here is a diagram whose arrows rearranged themselves between
+two renders.
+
+**What it attaches to is what the clip *shows*, not the layer it is drawn
+into.** For a title that is the **wrapped block** — the same rectangle `anchor`
+reasons about, not the longest line. For a shape it is the shape's own box. Both
+are drawn into a raster the size of the whole frame, so attaching to the layer
+would meet an edge that is not on screen at all. For a picture it is the picture:
+a letterboxed `fit` clip is its fitted rectangle, bars excluded.
+
+Three things are refused, all from the document alone: a clip id the timeline
+does not have, a clip on an **audio** track — sound has no rectangle — and a
+clip that is **itself an arrow**. That last one is a blanket rule rather than a
+cycle check, and it is what makes resolving endpoints per frame safe: an arrow
+following an arrow following the first has no answer, and a line has no side
+worth meeting anyway.
+
+**An arrow whose clip is not on screen while the arrow is** is left out of those
+frames, and the render says so in a note. Holding the endpoint where the box
+would have been draws a line into empty space pointing at nothing, which is a
+worse answer than an absent arrow and a sentence explaining it. Usually it means
+the arrow's clip outlasts the box's, or starts before it.
+
 Elbow and orthogonal routing, obstacle avoidance, editable control points,
 labels riding along the line, dashes and multi-segment paths are not here.
-Neither is an endpoint that follows a box around instead of naming a fixed
-point — that is its own piece of work. Polygons, stars, dashed borders, shadows
-and gradients are not planned at all: each is a drawing program growing inside
-a video editor.
+Polygons, stars, dashed borders, shadows and gradients are not planned at all:
+each is a drawing program growing inside a video editor.
 
 `media.duration_seconds` is wall-clock, and `media.frame_rate` is a rational
 in the same shape as `timeline_fps` — a source's own grid, which is not
@@ -930,6 +984,13 @@ per frame. Animating it would mean moving the fit into the compositor, which is
 its own piece of work.
 
 ### Which edge a position is measured from: `anchor`
+
+**Not to be confused with an arrow's `attach`**, which is a different idea with
+a similar-sounding name: `anchor` says which edge of the *raster* this layer's
+position is measured from, where `attach` says which *clip* an arrow's end
+follows. The two never appear in the same place — one is a clip field, the other
+is inside a shape's geometry — and `attach` is deliberately not called `anchor`
+for exactly this reason.
 
 ```json clip
 { "id": "c-title", "asset": "title", "start": 0, "duration": 112,
@@ -1416,13 +1477,30 @@ runs — is refused at the render, in the same breath as "this is not a font I c
 read". That holds for `sans` and `serif` as much as for a font the project
 carries; they are files too, and scorsese happens to be the one carrying them.
 
+## Migrating from v23
+
+v24 widens one field and takes nothing away: an arrow's `from` and `to` may now
+be `{ "attach": { "clip": …, "side": … } }` as well as `{ "x": …, "y": … }`. No
+v23 document can contain an attachment — a v23 build refuses an endpoint that is
+not a pair of numbers — so no v23 document means anything different under v24,
+and converting one is changing `"schema_version": 23` to `"schema_version": 24`
+and nothing else.
+
+**It is additive in shape and not in spirit, which is worth saying once.** This
+is the first time anything in a project's appearance depends on another *clip*
+rather than on an asset: until now a clip could be understood by reading it and
+the asset it names, and an attached arrow cannot. Renaming or deleting a clip
+can now break a layer somewhere else in the document — which validation reports
+rather than leaves to a render, but it is a new way for an edit to have
+consequences at a distance.
+
 ## Migrating from v22
 
 v23 adds one shape outline and takes nothing away: `arrow`, alongside
 `rectangle` and `ellipse` inside a shape's `geometry`. No v22 document can
 contain one — an unknown outline is refused outright by a v22 build — so no v22
 document means anything different under v23, and converting one is changing
-`"schema_version": 22` to `"schema_version": 23` and nothing else.
+`"schema_version": 22` to `"schema_version": 24` and nothing else.
 
 Nothing renders differently. The rectangles and ellipses a v22 project draws
 come out of the same code and land on the same pixels; what moved underneath
@@ -1435,7 +1513,7 @@ v22 adds one asset kind and takes nothing away: `shape`, with the `shape` block
 that kind carries. No v21 document can contain either — an unknown `kind` and
 an unknown asset field are both refused outright by a v21 build — so no v21
 document means anything different under v22, and converting one is changing
-`"schema_version": 21` to `"schema_version": 23` and nothing else.
+`"schema_version": 21` to `"schema_version": 24` and nothing else.
 
 Nothing renders differently. A project without a shape asset composites exactly
 the layers it composited under v21, in the same order, from the same pixels.

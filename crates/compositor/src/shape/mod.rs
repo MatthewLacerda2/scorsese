@@ -27,7 +27,8 @@ pub(crate) mod closed;
 
 use scorsese_core::{Anchor, Curve, Heads, Rgba};
 
-use crate::frame::Frame;
+use crate::area::Area;
+use crate::frame::{Frame, Resolution};
 
 /// One shape to draw, in pixels of the raster it goes on.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -90,6 +91,26 @@ pub struct Border {
     pub color: Rgba,
     /// How thick the line is, in pixels. It straddles the outline.
     pub width: f32,
+}
+
+/// Where a closed shape's box lands on the raster, in pixels.
+///
+/// `None` for an arrow, which has no box, and for a size that could not
+/// describe a rectangle. This is what an arrow attaches *to*: the shape's own
+/// box rather than the raster-sized layer it is drawn into, because a box is
+/// what a reader sees and the layer's edges are not on screen at all.
+pub fn area_of(outline: &Outline, resolution: Resolution) -> Option<Area> {
+    let rect = match outline {
+        Outline::Rectangle { bounds, .. } => closed::bounds(*bounds, resolution)?,
+        Outline::Ellipse(bounds) => closed::bounds(*bounds, resolution)?,
+        Outline::Arrow(_) => return None,
+    };
+    Some(Area {
+        left: rect.left(),
+        top: rect.top(),
+        width: rect.width(),
+        height: rect.height(),
+    })
 }
 
 /// Draws `figure` onto `frame`.

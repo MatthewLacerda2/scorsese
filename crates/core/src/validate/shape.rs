@@ -11,12 +11,14 @@
 //! mistake that survives all the way into a published video.
 
 use crate::asset::{Asset, AssetKind};
-use crate::shape::{Geometry, MAX_RADIUS, Point};
+use crate::project::Project;
+use crate::shape::{Attach, Endpoint, Geometry, MAX_RADIUS};
+use crate::timeline::TrackKind;
 
 use super::error::{AssetProblem, ShapeProblem};
 use super::field::AssetField;
 
-pub(super) fn check(asset: &Asset, errors: &mut Vec<AssetProblem>) {
+pub(super) fn check(project: &Project, asset: &Asset, errors: &mut Vec<AssetProblem>) {
     let id = || asset.id.clone();
     let Some(shape) = &asset.shape else {
         if asset.kind == AssetKind::Shape {
@@ -37,9 +39,9 @@ pub(super) fn check(asset: &Asset, errors: &mut Vec<AssetProblem>) {
         return;
     }
 
-    match shape.geometry {
-        Geometry::Arrow { from, to, .. } => check_arrow(asset, from, to, errors),
-        _ => check_closed(asset, shape.geometry, errors),
+    match &shape.geometry {
+        Geometry::Arrow { from, to, .. } => check_arrow(project, asset, from, to, errors),
+        geometry => check_closed(asset, geometry, errors),
     }
     if shape.stroke.is_some() && !positive(shape.stroke_width) {
         errors.push(
@@ -59,7 +61,7 @@ pub(super) fn check(asset: &Asset, errors: &mut Vec<AssetProblem>) {
 }
 
 /// A rectangle or an ellipse: the questions a shape with an area answers.
-fn check_closed(asset: &Asset, geometry: Geometry, errors: &mut Vec<AssetProblem>) {
+fn check_closed(asset: &Asset, geometry: &Geometry, errors: &mut Vec<AssetProblem>) {
     let id = || asset.id.clone();
     // The `None` arm is unreachable — an arrow went the other way at the call
     // site — and answering it as a size of zero rather than unwrapping keeps
@@ -90,15 +92,34 @@ fn check_closed(asset: &Asset, geometry: Geometry, errors: &mut Vec<AssetProblem
     }
 }
 
-/// An arrow: the two questions a line answers instead.
+/// An arrow: the questions a line answers instead.
 ///
-/// Neither is about where the points *are*. A point outside the frame is an
-/// arrow entering from off-screen, which is an ordinary thing to draw, so the
-/// only refusals are a point that is not a pair of numbers at all and two
-/// points in the same place — which has no direction, and so no head could be
-/// aimed.
-fn check_arrow(asset: &Asset, from: Point, to: Point, errors: &mut Vec<AssetProblem>) {
+/// None of them is about where a *point* is on the frame. A point outside it is
+/// an arrow entering from off-screen, which is an ordinary thing to draw, so
+/// the only refusals about places are a point that is not a pair of numbers at
+/// all and two points in the same place — which has no direction, and so no
+/// head could be aimed.
+///
+/// Two ends that are both **attached** are never refused for coinciding, and
+/// cannot be: where they land is a fact about a frame, not about the document,
+/// and two boxes that happen to sit on top of each other for one shot are not a
+/// project that failed to load.
+fn check_arrow(
+    project: &Project,
+    asset: &Asset,
+    from: &Endpoint,
+    to: &Endpoint,
+    errors: &mut Vec<AssetProblem>,
+) {
     let id = || asset.id.clone();
+    for end in [from, to] {
+        if let Some(attach) = end.attach() {
+            check_attach(project, asset, attach, errors);
+        }
+    }
+    let (Some(from), Some(to)) = (from.point(), to.point()) else {
+        return;
+    };
     if !from.is_placed() || !to.is_placed() {
         errors.push(
             ShapeProblem::Unplaced {
@@ -115,6 +136,57 @@ fn check_arrow(asset: &Asset, from: Point, to: Point, errors: &mut Vec<AssetProb
             ShapeProblem::NoLength {
                 asset: id(),
                 at: from,
+            }
+            .into(),
+        );
+    }
+}
+
+/// What can be said about an attachment without rendering a frame.
+///
+/// Three things, and the third is the one that matters most: **an arrow may not
+/// attach to a clip that is itself an arrow.** That single rule forecloses
+/// every cycle there could be — an arrow following an arrow following the first
+/// — without anyone having to walk a graph, and it costs nothing real, because a
+/// line has no rectangle worth meeting anyway. It also covers the degenerate
+/// case of an arrow attached to a clip showing itself.
+fn check_attach(project: &Project, asset: &Asset, attach: &Attach, errors: &mut Vec<AssetProblem>) {
+    let id = || asset.id.clone();
+    let found = project
+        .clips()
+        .find(|(_, clip)| clip.id == attach.clip)
+        .map(|(track, clip)| (track.kind, clip));
+    let Some((kind, clip)) = found else {
+        errors.push(
+            ShapeProblem::AttachedToNothing {
+                asset: id(),
+                clip: attach.clip.clone(),
+            }
+            .into(),
+        );
+        return;
+    };
+    if kind != TrackKind::Video {
+        errors.push(
+            ShapeProblem::AttachedToSound {
+                asset: id(),
+                clip: attach.clip.clone(),
+            }
+            .into(),
+        );
+        return;
+    }
+    let target_is_a_line = project
+        .assets
+        .iter()
+        .find(|candidate| candidate.id == clip.asset)
+        .and_then(|target| target.shape.as_ref())
+        .is_some_and(|shape| !shape.geometry.is_closed());
+    if target_is_a_line {
+        errors.push(
+            ShapeProblem::AttachedToArrow {
+                asset: id(),
+                clip: attach.clip.clone(),
             }
             .into(),
         );
