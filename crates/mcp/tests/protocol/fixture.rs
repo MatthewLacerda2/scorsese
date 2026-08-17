@@ -62,6 +62,39 @@ pub(crate) const BED: &str = r#"{
 }
 "#;
 
+/// SHA-256 of nothing, so an empty file matches this recorded hash exactly
+/// and a file with anything in it does not.
+pub(crate) const EMPTY_SHA256: &str =
+    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
+/// The fixture with a shot of footage cut into it, whose asset row carries
+/// `extra` — a recorded hash, or nothing at all.
+///
+/// The file itself is not written here: whether it is there, and whether it is
+/// still what was imported, is what the test is about.
+pub(crate) fn with_footage(extra: &str) -> String {
+    let document = DOCUMENT
+        .replace(
+            r#"{ "id": "title", "kind": "text", "text": "TEASER" },"#,
+            &format!(
+                r#"{{ "id": "title", "kind": "text", "text": "TEASER" }},
+    {{ "id": "boat", "kind": "video", "path": "assets/boat.mp4"{extra} }},"#
+            ),
+        )
+        .replace(
+            r#"[ { "id": "c1", "asset": "title", "start": 0, "duration": 600 } ]"#,
+            r#"[ { "id": "c1", "asset": "title", "start": 0, "duration": 600 },
+                 { "id": "c2", "asset": "boat", "start": 600, "duration": 30 } ]"#,
+        );
+    // The document is edited by matching text, so a reworded fixture would
+    // otherwise leave these tests quietly checking the fixture instead.
+    assert!(
+        document.contains("boat") && document.contains("c2"),
+        "the fixture no longer contains what this edits"
+    );
+    document
+}
+
 pub(crate) const DOCUMENT: &str = r#"{
   "schema_version": 24,
   "name": "Teaser",

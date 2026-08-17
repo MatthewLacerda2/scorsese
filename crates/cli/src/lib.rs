@@ -17,12 +17,14 @@
 //! ## What this publishes
 //!
 //! Almost nothing, which is the right shape for a binary crate: [`run`], which
-//! is what `main` calls, plus the two things this crate's own tests reach for
-//! from outside it. [`Cli`] is the command tree as a value, so the help-text
-//! gate can walk every verb and flag without running any of them, and
-//! [`mod@media`] is the health-to-severity table `check` prints, so the rule
-//! deciding what fails a project can be asserted directly instead of being read
-//! back out of stdout.
+//! is what `main` calls, and the one thing this crate's own tests reach for
+//! from outside it — [`Cli`], the command tree as a value, so the help-text
+//! gate can walk every verb and flag without running any of them.
+//!
+//! What `check` reports is deliberately not here: it is
+//! [`scorsese_render::Checkup`], because the MCP server's `project_check` asks
+//! the same question, and one assembly below both of them is what keeps the
+//! two answers from drifting apart.
 //!
 //! Everything else is `pub(crate)`. Nothing in the workspace depends on this
 //! crate — each `commands` module is one verb's worth of orchestration and
@@ -36,7 +38,6 @@ use anyhow::Result;
 use clap::Parser;
 
 pub use cli::Cli;
-pub use commands::check::media;
 
 use cli::{AssetsAction, Command, SynthAction};
 use scorsese_providers::voices::Filters;

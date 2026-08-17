@@ -1,6 +1,6 @@
 //! The tools that only read: listing, describing, checking, and the pool.
 
-use super::fixture::{DOCUMENT, project};
+use super::fixture::{DOCUMENT, EMPTY_SHA256, project, with_footage};
 use crate::{call, once, said};
 use serde_json::json;
 
@@ -53,6 +53,40 @@ fn checking_a_broken_project_reports_the_problems_as_an_answer() {
     let (text, failed) = said(&call("project_check", json!({ "project": dir })));
     assert!(!failed, "a report of faults is not itself a fault");
     assert!(text.contains("ghost"), "got {text}");
+    std::fs::remove_dir_all(dir).ok();
+}
+
+/// Why #334 was filed: a project whose JSON is flawless and whose footage was
+/// deleted underneath it used to be told there was nothing wrong with it.
+#[test]
+fn checking_reports_a_file_the_document_names_and_the_disk_has_not_got() {
+    let dir = project("check-media");
+    std::fs::write(dir.join("project.json"), with_footage("")).expect("write");
+
+    let (text, failed) = said(&call("project_check", json!({ "project": dir })));
+    assert!(!failed, "a report of faults is not itself a fault");
+    assert!(text.contains("boat"), "got {text}");
+    assert!(text.contains("its file is not there"), "got {text}");
+    std::fs::remove_dir_all(dir).ok();
+}
+
+/// Hashing is opt-in, and both answers are right: media edited behind the
+/// project's back is worth knowing about, and re-reading a whole pool on a
+/// tool called after every edit is not worth paying for.
+#[test]
+fn bytes_that_changed_since_import_are_found_only_when_asked_for() {
+    let dir = project("check-verify");
+    let recorded = format!(r#", "sha256": "{EMPTY_SHA256}""#);
+    std::fs::write(dir.join("project.json"), with_footage(&recorded)).expect("write");
+    std::fs::write(dir.join("assets/boat.mp4"), b"not what was imported").expect("write");
+
+    let (quiet, _) = said(&call("project_check", json!({ "project": dir })));
+    assert!(!quiet.contains("changed since import"), "got {quiet}");
+
+    let asked = call("project_check", json!({ "project": dir, "verify": true }));
+    let (verified, failed) = said(&asked);
+    assert!(!failed, "{verified}");
+    assert!(verified.contains("changed since import"), "got {verified}");
     std::fs::remove_dir_all(dir).ok();
 }
 
