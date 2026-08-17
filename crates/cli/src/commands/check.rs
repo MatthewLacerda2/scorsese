@@ -8,7 +8,7 @@ use anyhow::{Context, Result, bail};
 use scorsese_core::{
     AssetId, HashCheck, PROJECT_FILE_NAME, Project, ProjectPath, ValidationErrors, asset_status,
 };
-use scorsese_render::{unknown_fonts, unknown_in};
+use scorsese_render::{uncovered_glyphs, unknown_fonts, unknown_in};
 
 use media::{Finding, Severity};
 
@@ -83,6 +83,20 @@ pub(crate) fn run(project_dir: &Path, verify: bool) -> Result<()> {
         severity: Severity::Problem,
         detail: unknown.to_string(),
     }));
+    // A warning rather than a problem, and the split is the same one the rest
+    // of this command makes: the render succeeds and every other frame is
+    // right. What earns it a line at all is that the failure is otherwise
+    // invisible — the character is dropped with its advance, so the text
+    // closes up and reads as something nobody wrote.
+    media.extend(
+        uncovered_glyphs(&project, project_dir)
+            .into_iter()
+            .map(|uncovered| Finding {
+                asset: AssetId::new(uncovered.asset.clone()),
+                severity: Severity::Warning,
+                detail: uncovered.to_string(),
+            }),
+    );
     for finding in &media {
         println!("{}: {finding}", finding.severity);
     }

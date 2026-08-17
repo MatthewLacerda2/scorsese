@@ -9,6 +9,7 @@
 mod common;
 
 mod exit_codes;
+mod glyphs;
 mod scripts;
 mod severity;
 mod verify;

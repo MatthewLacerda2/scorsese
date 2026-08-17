@@ -2,6 +2,7 @@
 
 mod bands;
 mod cards;
+mod coverage;
 mod drawing;
 mod faces;
 mod ink;

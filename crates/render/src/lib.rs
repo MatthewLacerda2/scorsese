@@ -138,6 +138,6 @@ pub use settings::{
     Bitrate, BitrateError, RenderSettings, Resolution, ResolutionError, SampleRate, SampleRateError,
 };
 pub use slug::{Absent, wording};
-pub use text::{UnknownFont, unknown_fonts};
+pub use text::{UncoveredGlyphs, UnknownFont, uncovered_glyphs, unknown_fonts};
 pub use tools::{Tools, ToolsError};
 pub use workers::Workers;
