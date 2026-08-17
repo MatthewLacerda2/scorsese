@@ -1,5 +1,5 @@
 {
-  "schema_version": 24,
+  "schema_version": 25,
   "name": "drawn_weight",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [

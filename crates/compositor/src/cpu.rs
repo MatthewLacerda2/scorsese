@@ -7,6 +7,7 @@
 use scorsese_core::{Anchor, AnchorX, AnchorY};
 use tiny_skia::{BlendMode, FilterQuality, PixmapMut, PixmapPaint, PixmapRef, Transform};
 
+use crate::blur;
 use crate::compose::{CompositeError, Compositor, Layer};
 use crate::frame::{BYTES_PER_PIXEL, Frame};
 use crate::grade;
@@ -18,15 +19,19 @@ pub struct CpuCompositor {
     scratch: Scratch,
 }
 
-/// The two copies of a layer this compositor may have to make, kept between
-/// frames so a render allocates them once rather than eight megabytes thirty
-/// times a second.
+/// The copies of a layer this compositor may have to make, kept between frames
+/// so a render allocates them once rather than eight megabytes thirty times a
+/// second.
 ///
-/// Two rather than one because a layer can need both, in this order: a graded
-/// layer is graded in **straight** alpha — that is what the arithmetic is
-/// written against — and premultiplying is the last thing that happens before
-/// the rasteriser sees it. Grading a premultiplied pixel would scale the colour
-/// by its own transparency and call the result a colour.
+/// More than one because a layer can need all of them, and the order they are
+/// listed in is the order they happen in. A graded layer is graded in
+/// **straight** alpha — that is what the arithmetic is written against — and
+/// premultiplying is what turns the result into the form the rasteriser blends;
+/// grading a premultiplied pixel would scale the colour by its own transparency
+/// and call the result a colour. The blur comes **after** premultiplying, for
+/// the mirror-image reason: it averages a neighbourhood, and in straight alpha
+/// a fully transparent pixel still carries a colour that the average would drag
+/// into the visible edge as a halo.
 #[derive(Debug, Default)]
 struct Scratch {
     /// The layer with its grade applied, still straight RGBA.
@@ -34,6 +39,8 @@ struct Scratch {
     /// Colour channels multiplied by alpha, which is the form tiny-skia blends
     /// in.
     premultiplied: Vec<u8>,
+    /// The pair a separable blur ping-pongs between — see [`blur`].
+    blurred: blur::Buffers,
 }
 
 impl CpuCompositor {
@@ -91,6 +98,7 @@ fn draw(
     let Scratch {
         graded,
         premultiplied,
+        blurred,
     } = scratch;
     // The grade runs on the layer's own pixels, before anything below moves
     // them: a vignette is measured from this rectangle's centre, and a
@@ -109,6 +117,18 @@ fn draw(
         premultiply_into(premultiplied, straight);
         premultiplied.as_slice()
     };
+    // After premultiplying and never before it: averaging straight RGBA pulls
+    // the colour stored under fully transparent pixels into the visible edge,
+    // which is the dark halo round every soft-edged layer that this order
+    // avoids. The radius is a fraction of the layer's **own** height, resolved
+    // here where that is finally known — and so measured before the transform
+    // below places the layer, which is what makes a scaled-up clip look softer.
+    let source_bytes = blur::into(
+        blurred,
+        source_bytes,
+        source_resolution,
+        blur::radius(layer.properties.blur, source_resolution.height()),
+    );
     let source = PixmapRef::from_bytes(
         source_bytes,
         source_resolution.width(),

@@ -1,0 +1,25 @@
+{
+  "schema_version": 25,
+  "name": "blur_alpha",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    { "id": "bed", "kind": "video", "path": "assets/bed.mp4" },
+    { "id": "badge", "kind": "image", "path": "assets/badge.png" }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "name": "bed",
+      "clips": [{ "id": "c-bed", "asset": "bed", "start": 0, "duration": 15 }]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "name": "badge",
+      "clips": [
+        { "id": "c-badge", "asset": "badge", "start": 0, "duration": 15, "fit": "native", "blur": 0.1 }
+      ]
+    }
+  ]
+}

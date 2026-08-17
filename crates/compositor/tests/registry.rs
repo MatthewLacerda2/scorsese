@@ -23,6 +23,7 @@ fn every_published_property_is_one_the_compositor_actually_resolves() {
     for property in ANIMATED {
         let animated = Properties::over(
             Grade::NEUTRAL,
+            0.0,
             &[constant(property.path, 0.25)],
             Frames::ZERO,
         );

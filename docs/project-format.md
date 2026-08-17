@@ -1,4 +1,4 @@
-# `project.json` — schema v24
+# `project.json` — schema v25
 
 The contract between the CLI, the MCP server, the GUI, and every project
 saved on someone's disk. It is meant to be hand-written: an agent should be
@@ -12,7 +12,7 @@ bump and a migration note.
 
 ```json project
 {
-  "schema_version": 24,
+  "schema_version": 25,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -1136,6 +1136,60 @@ one on a picture-in-picture darkens that picture's corners rather than a ring it
 happens to sit inside. Alpha is never touched, by the vignette or anything else:
 a grade changes what colour a pixel is, never how much of it there is.
 
+### How soft it is: `blur`
+
+```json clip
+{ "id": "c-rooftop", "asset": "shot-a", "start": 0, "duration": 120, "blur": 0.012 }
+```
+
+One number. `0.0` — and an absent `blur` — leaves the clip exactly as sharp as
+it arrived; small softens it, large takes it to mush. Softening a plate so a
+title reads over it, taking a logo or a plate number out of legibility, dropping
+a background out of focus: all of them are this field, and none of them is a
+round trip through another program any more.
+
+**The unit is a fraction of the layer's own height.** `0.012` on a 1080-tall
+source is about thirteen pixels; the same number on the 4K version of the same
+shot is about twenty-six, which is the same softness on the same picture. A
+pixel count in the document would be wrong the first time the project was
+delivered at another size, which is the reason a `text` size and a `shape`
+stroke are fractions too. Anything under half a pixel is nothing, and costs
+nothing.
+
+**`transform.scale` multiplies the apparent blur.** The softening happens on the
+layer's own pixels, before the transform places them on the canvas — so a clip
+drawn at 200% looks twice as soft as the same number at 100%, and one at 50%
+half as soft. That is what every editor does and what "this shot is soft" means,
+and it is written down here because it is otherwise discovered by surprise.
+
+**A field *and* an animatable property**, like `grade`: the field is the clip's
+baseline, and a `blur` keyframe track takes it over for the whole clip. That is
+what a focus pull is — two numbers and a ramp — with no mechanism of its own:
+
+```json clip
+{ "id": "c-resolve", "asset": "shot-a", "start": 0, "duration": 90,
+  "keyframes": [ { "property": "blur",
+                   "keyframes": [ { "t": 0, "value": 0.05 },
+                                  { "t": 45, "value": 0.0 } ] } ] }
+```
+
+It is `blur` and not `grade.blur` deliberately. A grade is the closed set of
+*colour* properties, and every one of them reads one pixel and writes one pixel;
+a blur reads a neighbourhood. Filing it under a struct that says colour would
+make that description untrue about what it holds.
+
+**It applies to every layer kind**, for the same reason a grade does: the
+compositor is handed a rectangle of pixels and does not know whether a decoder,
+a title or a shape produced them. A blurred title is as ordinary a thing to want
+as a blurred plate.
+
+**What is deliberately absent**: motion blur, zoom blur, bokeh and tilt-shift,
+each of which is a lens being simulated rather than a picture being softened;
+blurring a *region* rather than a whole layer; backdrop blur, which softens what
+is *behind* a layer and is a different operation in a different place; and
+sharpening, which is not negative blur. A negative number here is not an error —
+it simply softens nothing, the way `0.0` does.
+
 ### Playing faster or slower: `speed`
 
 ```json clip
@@ -1313,6 +1367,7 @@ attention than the ducking was avoiding.
 | path | means | `1.0` / `0.0` |
 | --- | --- | --- |
 | `opacity` | how solid the layer is | `1.0` solid, `0.0` invisible |
+| `blur` | how far the layer's own pixels are softened, as a fraction of its own **height** | `0.0` untouched, higher is blurrier |
 | `transform.position.x` | offset right, as a fraction of the raster's **width** | `0.0` unmoved |
 | `transform.position.y` | offset down, as a fraction of the raster's **height** | `0.0` unmoved |
 | `transform.scale.x` | width multiplier about the layer's centre | `1.0` natural size |
@@ -1490,6 +1545,24 @@ runs — is refused at the render, in the same breath as "this is not a font I c
 read". That holds for `sans` and `serif` as much as for a font the project
 carries; they are files too, and scorsese happens to be the one carrying them.
 
+## Migrating from v24
+
+v25 adds one clip field and takes nothing away: `blur`, a number beside
+`opacity` and `grade`, neutral at `0.0` and absent from every document that
+does not use it. No v24 document can contain one — an unknown clip field is
+refused outright by a v24 build — so no v24 document means anything different
+under v25, and converting one is changing `"schema_version": 24` to
+`"schema_version": 25` and nothing else.
+
+Nothing renders differently. A project with no `blur` on any clip composites
+exactly the pixels it composited under v24, through the same code, and the
+golden references for every fixture that predates this are unchanged.
+
+`blur` is also a new animatable property path. A v24 build handed a `blur`
+keyframe track ignores it and warns, which is what it does with any property it
+does not know — so the worst a v25 project does on an older build is come out
+sharp.
+
 ## Migrating from v23
 
 v24 widens one field and takes nothing away: an arrow's `from` and `to` may now
@@ -1513,7 +1586,7 @@ v23 adds one shape outline and takes nothing away: `arrow`, alongside
 `rectangle` and `ellipse` inside a shape's `geometry`. No v22 document can
 contain one — an unknown outline is refused outright by a v22 build — so no v22
 document means anything different under v23, and converting one is changing
-`"schema_version": 22` to `"schema_version": 24` and nothing else.
+`"schema_version": 22` to `"schema_version": 23` and nothing else.
 
 Nothing renders differently. The rectangles and ellipses a v22 project draws
 come out of the same code and land on the same pixels; what moved underneath
@@ -1526,7 +1599,7 @@ v22 adds one asset kind and takes nothing away: `shape`, with the `shape` block
 that kind carries. No v21 document can contain either — an unknown `kind` and
 an unknown asset field are both refused outright by a v21 build — so no v21
 document means anything different under v22, and converting one is changing
-`"schema_version": 21` to `"schema_version": 24` and nothing else.
+`"schema_version": 21` to `"schema_version": 22` and nothing else.
 
 Nothing renders differently. A project without a shape asset composites exactly
 the layers it composited under v21, in the same order, from the same pixels.

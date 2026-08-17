@@ -95,6 +95,7 @@
 //! for a picture and never for the steps that made one.
 
 mod area;
+mod blur;
 pub mod card;
 mod compose;
 mod cpu;
