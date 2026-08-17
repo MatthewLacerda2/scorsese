@@ -37,6 +37,25 @@ fn a_mistyped_name_suggests_the_one_that_was_meant() {
     }
 }
 
+/// And the rule the doc above only describes: past two edits a suggestion is a
+/// guess, however long the name is. `clapboard` is three edits from
+/// `clapperboard` and one from `clipboard`, so the clipboard is offered and the
+/// clapperboard is not — the allowance a long name earns is over the *second*
+/// half of the test, never over the two-edit ceiling.
+#[test]
+fn a_long_name_earns_no_extra_edits() {
+    let found = icon::nearest("clapboard");
+    assert_eq!(
+        found.first().copied(),
+        Some("clipboard"),
+        "one edit away: {found:?}"
+    );
+    assert!(
+        !found.contains(&"clapperboard"),
+        "three edits away is a guess, not a suggestion: {found:?}"
+    );
+}
+
 /// The half-remembered case, which an edit distance alone never finds:
 /// `circle-play` is seven edits from `play`.
 #[test]

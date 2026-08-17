@@ -12,7 +12,7 @@
 # Run it:
 #
 #     make mutants     # this branch's diff, exactly as the CI job scopes it
-#     cargo mutants    # the whole surface below: 3373 mutants today, and
+#     cargo mutants    # the whole surface below: 3677 mutants today, and
 #                      # `cargo mutants --list | wc -l` re-counts it for free —
 #                      # that builds nothing, so the number is exact and cheap
 #
@@ -112,12 +112,12 @@ examine_globs = [
 # mutants afterwards by the string `--list` prints, and in cargo-mutants 27.1.0
 # one genre slips through the sieve: the struct-field deletions
 # (`delete field … from struct …`, a mutation only added in 26.0.0) are neither
-# kept out by `--re` nor removed by `--exclude-re`. There are 14 of them on the
+# kept out by `--re` nor removed by `--exclude-re`. There are 23 of them on the
 # surface above, and `cargo mutants --list --re 'matches nothing at all'` prints
-# all 14 and nothing else, which is the whole demonstration.
+# all 23 and nothing else, which is the whole demonstration.
 #
 # So `--re '^path/to/file\.rs'` is still the way to point a hand-run at one file
-# — it is just not a promise about which files get tested. Those 14 strays ride
+# — it is just not a promise about which files get tested. Those 23 strays ride
 # along from wherever they live and the report describes them too, so read past
 # any `delete field` row from a file you did not name. `-p scorsese-core` narrows
 # to a whole crate with no strays at all, because it decides what to visit rather
@@ -145,6 +145,18 @@ exclude_globs = [
 # a real gap that appears next to it later. The reason goes here, next to the
 # entry — not in a commit message nobody will find.
 #
+# **An entry is a regular expression, not the printed line.** It reads like the
+# line because most mutant names are made of letters, and that is the trap: a
+# mutation *of an operator* puts regex metacharacters in the name, and `||` is
+# the one that costs everything. `replace || with && in unit` is an alternation
+# with an empty branch in it, an empty branch matches every string there is, and
+# a single entry like that therefore excludes the whole surface. It is silent
+# when it happens — the run reports a handful of mutants and passes — so the
+# entries below are TOML *literal* strings (single quotes, no escape processing)
+# and every metacharacter in one is backslash-escaped. `cargo mutants --list |
+# wc -l` is the check: it builds nothing, and the count it prints is four
+# figures. Six is what this file looks like when an entry has eaten everything.
+#
 # One exception, per the note above `exclude_globs`: a struct-field deletion
 # cannot be excluded here at all — an entry for one is accepted and does
 # nothing, and the mutant is still reported.
@@ -158,7 +170,7 @@ exclude_re = [
     # Excluded and not fixed, and the distinction matters: an epsilon boundary
     # that could be hit is a gap, and the identical-looking mutation would be
     # reported as a survivor from a function whose tolerance is reachable.
-    "replace < with <= in Properties::is_identity",
+    'replace < with <= in Properties::is_identity',
 
     # `segments::cuts` collects the frames at which the visible set can change.
     # It seeds the list with `[start, end]`, then adds each clip boundary that
@@ -177,8 +189,8 @@ exclude_re = [
     # *are* caught say so: `>` to `<`, `>` to `==`, `<` to `>` and `<` to `==`
     # each admit boundaries from outside the rendered range and are killed by
     # the range tests. Only the one-frame widening is absorbed.
-    "replace > with >= in cuts",
-    "replace < with <= in cuts",
+    'replace > with >= in cuts',
+    'replace < with <= in cuts',
 
     # `shape::arrow::Run::of` opens with `!dx.is_finite() || !dy.is_finite()`, and
     # every path out of it then goes through `unit`, which takes `dx.hypot(dy)` and
@@ -191,7 +203,7 @@ exclude_re = [
     # The guard stays because it says what the function assumes at the top of it,
     # and the rest of the condition is load-bearing: deleting either `!` refuses
     # every ordinary arrow and is killed by the drawing tests.
-    "replace || with && in Run::of",
+    'replace \\|\\| with && in Run::of',
 
     # `shape::arrow::unit` refuses a run it cannot take a direction from with
     # `!length.is_finite() || length <= 0.0`, where `length` is `dx.hypot(dy)`.
@@ -207,7 +219,7 @@ exclude_re = [
     # The non-finite half of the condition is unreachable from here rather than
     # equivalent: `Run::of` has already refused a non-finite endpoint before
     # `unit` is called on one.
-    "replace || with && in unit",
+    'replace \\|\\| with && in unit',
 
     # `shape::closed::bounds` refuses a size that could not describe a rectangle —
     # zero, negative, or not a number — with
@@ -221,7 +233,7 @@ exclude_re = [
     # The comparisons themselves are still load-bearing, and the mutations that
     # *are* caught say so: deleting either `!`, or widening either `<=` to `>`,
     # refuses sizes that are perfectly good, and the drawing tests kill all four.
-    "replace || with && in bounds",
+    'replace \\|\\| with && in bounds',
 ]
 
 # ---------------------------------------------------------------------------

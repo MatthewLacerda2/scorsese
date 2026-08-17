@@ -5,9 +5,20 @@
 //! conversion dropped, an icon whose contours came out empty. With seventeen
 //! hundred of them, nobody is going to notice that by looking.
 
+//! **Then the arithmetic, which asking for ink cannot reach.** A symbol centred
+//! by an addition instead of a division still puts ink on a raster, so `area`
+//! and `measuring` name the box the ink occupies and the area it covers rather
+//! than sampling it, through the shared helper in `tests/common/extent.rs`.
+
+#[path = "../common/extent.rs"]
+mod extent;
+
 mod aliases;
+mod area;
 mod catalogue;
+mod commands;
 mod drawing;
+mod measuring;
 mod nearest;
 mod search;
 
