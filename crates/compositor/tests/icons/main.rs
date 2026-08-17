@@ -8,6 +8,7 @@
 mod catalogue;
 mod drawing;
 mod nearest;
+mod search;
 
 use scorsese_compositor::icon::{self, Symbol};
 use scorsese_compositor::{BYTES_PER_PIXEL, Frame, Resolution};

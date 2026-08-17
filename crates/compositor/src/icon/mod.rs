@@ -44,6 +44,9 @@
 pub(crate) mod catalogue;
 mod draw;
 mod nearest;
+mod search;
+
+pub use search::Search;
 
 use scorsese_core::{Anchor, Rgba};
 
@@ -156,6 +159,21 @@ pub fn all() -> &'static [Icon] {
 /// about — see the module it lives in for why those are different questions.
 pub fn nearest(name: &str) -> Vec<&'static str> {
     nearest::nearest(name)
+}
+
+/// The icons a word describes, best first — a substring of a name, a tag or a
+/// category.
+///
+/// The way anything reaches this catalogue without reading it: seventeen
+/// hundred names do not fit in a context window, and a caller that wants *the
+/// film camera one* has no way to learn upstream calls it `clapperboard` short
+/// of guessing names until one validates. Costs nothing and needs nothing — the
+/// table is compiled in — so it is free to call on a hunch.
+///
+/// Not [`nearest`], which answers a different question: that one is for a name
+/// that was **nearly right**, and it never looks at what an icon is about.
+pub fn search(query: &str) -> Search {
+    search::search(query)
 }
 
 /// The Lucide release the vendored tree came from.

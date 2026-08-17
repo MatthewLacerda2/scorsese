@@ -123,6 +123,7 @@ fn dispatch(cli: Cli) -> Result<()> {
             },
         ),
         Command::Prices => commands::prices::run(),
+        Command::Icons { query } => commands::icons::run(&query),
         Command::Probe { all } => commands::probe::run(&directory, all),
         Command::Check { verify } => commands::check::run(&directory, verify),
         Command::Import { paths, kind } => {

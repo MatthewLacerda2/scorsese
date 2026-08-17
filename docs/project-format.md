@@ -872,6 +872,13 @@ source raster to reconcile. It composites like any other layer, so an icon that
 fades up, slides in or grows is keyframes and nothing new: **nothing about an
 icon animates on its own**, and one that grows uses `transform.scale`.
 
+**Finding the name is a search, not a list.** Seventeen hundred symbols is far
+too many to read through, so `scorsese icons <word>` — and the `icons` MCP tool
+— match a word against every icon's name *and* against the words upstream files
+it under. That second half is what turns "the film camera one" into
+`clapperboard`, which answers to *movie*, *film*, *cinema* and eight more, none
+of them in its name. What comes back is written here verbatim.
+
 **A name the build does not ship is refused**, and the refusal names the close
 ones — `scorsese check` reports it as a problem, the way it reports a `style`
 naming a face that is not there. The set is too large to list in an error, so
