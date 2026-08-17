@@ -337,17 +337,23 @@ that goes with it.
   reaches a branch. A deliberate work-in-progress commit bypasses it with
   `git commit --no-verify`. Signals stay opt-in and out of `make gates`:
   `make coverage` and `make mutants` are the two, and running either is never
-  part of passing. Not running one is not the same as not reading one, and
-  mutation is where that bites: if the report — `make mutants` locally, or the
-  comment CI leaves once the pull request is ready, which is what
-  `gh pr view --comments` reads — lists survivors in code **this branch
-  wrote**, the exits are **fix it**, **exclude it with a written reason**, or
-  **file it as its own issue**. There is no fourth. A report with nothing in
-  it, or one whose survivors sit in code the branch never touched, needs no
-  reading at all — that condition is the rule and not a softening of it,
-  because *always read the mutation comment* is a line everyone would learn to
-  skip. `docs/mutation-testing.md` is how a survivor gets triaged, and what
-  the report deliberately does not list.
+  part of passing. **Run `make mutants` when the implementation is written and
+  its tests pass** — not as part of marking a pull request ready, and still
+  never a gate: closing a gap is a two-minute edit while the code is still in
+  hand, and a reopened pull request once CI has said so, which is how the
+  report got itself deleted unread. `make gates` ends by saying whether it has
+  been run on this branch and what it found; it never runs it, because a
+  signal inside the target that gets run most would stop being run at all.
+  Not running one is not the same as not reading one, and mutation is where
+  that bites: if the report — `make mutants` locally, or the comment CI leaves
+  once the pull request is ready, which is what `gh pr view --comments` reads
+  — lists survivors in code **this branch wrote**, the exits are **fix it**,
+  **exclude it with a written reason**, or **file it as its own issue**. There
+  is no fourth. A report with nothing in it, or one whose survivors sit in code
+  the branch never touched, needs no reading at all — that condition is the
+  rule and not a softening of it, because *always read the mutation comment* is
+  a line everyone would learn to skip. `docs/mutation-testing.md` is how a
+  survivor gets triaged, and what the report deliberately does not list.
 - **Size gate:** source files ≤ 300 **lines of code**, test files ≤ 150. Blank
   and comment lines do not count — `missing_docs` is a merge gate and the house
   style is to explain the *why*, so a cap that counted prose put those two rules
