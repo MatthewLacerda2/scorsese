@@ -8,7 +8,7 @@
 //! runs off the bottom of it.
 
 use super::font::Face;
-use super::shape::Shaped;
+use super::shape::{NBSP, Shaped};
 
 /// One line, laid out and shaped.
 pub(super) struct Line {
@@ -59,7 +59,7 @@ pub(super) fn wrap(text: &str, face: &Face<'_>, max_width: f32, max_lines: usize
 /// Greedy wrapping: take words until the next one would not fit, then break.
 fn wrap_paragraph(paragraph: &str, face: &Face<'_>, max_width: f32, lines: &mut Vec<Line>) {
     let mut current = String::new();
-    for word in paragraph.split_whitespace() {
+    for word in words(paragraph) {
         let candidate = if current.is_empty() {
             word.to_owned()
         } else {
@@ -81,6 +81,24 @@ fn wrap_paragraph(paragraph: &str, face: &Face<'_>, max_width: f32, lines: &mut 
     if !current.is_empty() || paragraph.trim().is_empty() {
         push(lines, face, current);
     }
+}
+
+/// The break opportunities in a paragraph: whitespace, except the one
+/// character that exists in order not to be one.
+///
+/// `U+00A0` carries the Unicode `White_Space` property, so `split_whitespace`
+/// eats it exactly as it eats a space — which undoes the whole of what a
+/// non-breaking space is for. Treating it as a printing character instead is
+/// what lets a line hold its own spacing: a run of them survives into the word
+/// it is part of, so an indent and a column both reach the raster.
+///
+/// Ordinary runs still collapse, because the words are rejoined with a single
+/// space above. That is the right behaviour for wrapped prose and it is not
+/// what this changes.
+fn words(paragraph: &str) -> impl Iterator<Item = &str> {
+    paragraph
+        .split(|character: char| character.is_whitespace() && character != NBSP)
+        .filter(|word| !word.is_empty())
 }
 
 /// Splits a word too wide for a line, returning whatever tail still fits.
@@ -108,7 +126,14 @@ fn break_word(word: &str, face: &Face<'_>, max_width: f32, lines: &mut Vec<Line>
 fn ellipsise(last: Line, face: &Face<'_>, max_width: f32) -> Line {
     let mut text = last.text;
     loop {
-        let candidate = format!("{}…", text.trim_end());
+        // Trailing whitespace goes before the ellipsis, but a non-breaking
+        // space is not trailing whitespace — it is a space the author asked
+        // for, and `trim_end` would take it for the same reason
+        // `split_whitespace` used to.
+        let candidate = format!(
+            "{}…",
+            text.trim_end_matches(|character: char| character.is_whitespace() && character != NBSP)
+        );
         let shaped = face.shape(&candidate);
         if shaped.width <= max_width || text.is_empty() {
             return Line {
