@@ -5,8 +5,23 @@
 //! reach into the corners of its own box. How an anti-aliased edge comes out is
 //! the golden renders' question, and asserting a soft pixel here would be
 //! pinning tiny-skia's rasteriser somewhere no image diff could ever review.
+//!
+//! **Half of it samples and half of it measures, and the split is deliberate.**
+//! A sampled pixel is the readable way to say *the corner is cut away* or *the
+//! middle is see-through*. It is nearly blind to a shape landing in almost the
+//! right place, which is what a control point or an anchor a few pixels out
+//! produces — so `measuring`, `corners`, `heads` and `bows` name the box the ink
+//! occupies and the area it covers instead, through the shared helper in
+//! `tests/common/extent.rs`.
+
+#[path = "../common/extent.rs"]
+mod extent;
 
 mod arrows;
+mod bows;
+mod corners;
+mod heads;
+mod measuring;
 mod outlines;
 mod painting;
 mod placing;

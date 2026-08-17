@@ -9,6 +9,7 @@ use scorsese_compositor::Frame;
 use scorsese_compositor::shape::{Arrow, Border, Figure, Outline, draw};
 use scorsese_core::{Curve, Heads};
 
+use crate::extent::extent;
 use crate::{BLUE, SIDE, at, clear, frame};
 
 /// Thick enough that a head is many pixels wider than the line it caps.
@@ -125,7 +126,29 @@ fn an_s_curve_hangs_back_where_a_straight_line_has_already_set_off() {
 #[test]
 fn an_arrow_with_no_length_draws_nothing() {
     let frame = drawn(&arrow(FROM, FROM, Curve::Straight, Heads::End));
-    assert!(clear(&frame, 40, 100), "no ink at the point they share");
+    assert_eq!(
+        extent(&frame),
+        None,
+        "no ink anywhere, not merely none at the point the two ends share"
+    );
+}
+
+/// An arrow is its stroke, so a width that is not a width leaves an empty frame.
+/// The check is this module's own — a closed shape reaches the one in `paint`
+/// instead — and it has to cover the head as much as the line: a **negative**
+/// width runs the head's arithmetic backwards, which loses the line and draws a
+/// mirrored triangle behind the tip instead of nothing at all.
+#[test]
+fn an_arrow_whose_border_has_no_width_draws_nothing() {
+    for width in [0.0, -4.0, f32::NAN, f32::INFINITY] {
+        let mut figure = arrow(FROM, TO, Curve::Straight, Heads::Both);
+        figure.border = Some(Border { color: BLUE, width });
+        assert_eq!(
+            extent(&drawn(&figure)),
+            None,
+            "a border {width} wide is not a border"
+        );
+    }
 }
 
 /// A line is its stroke and nothing else, so there is no second way for one to
