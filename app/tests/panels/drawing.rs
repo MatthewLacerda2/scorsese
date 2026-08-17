@@ -32,6 +32,17 @@ const WINDOW: [f32; 2] = [1280.0, 800.0];
 /// Makefile is not the only way these get run, and a rule that only holds when
 /// invoked the blessed way is a rule that will be broken by someone typing
 /// `cargo test`. It costs nothing: the four together take about a second.
+///
+/// It is not the whole rule, and the half that was missing broke along exactly
+/// the line that argument draws. A `static` covers one **process**, which is
+/// what `cargo test` gives it; nextest runs a **process per test**, so across
+/// those this holds nothing and every snapshot in the binary builds its own
+/// device at once. That fails differently — `RequestDeviceError(OutOfMemory)`
+/// from `egui_kittest`, no frame drawn and so no `.diff.png` to look at, about
+/// one run in two. `app/.config/nextest.toml` is the other half: it pins this
+/// binary to one test at a time, and it lives in the runner's own config for
+/// the reason above, because the runner reads it however it was invoked. Two
+/// runners, two mechanisms, and dropping either brings back its own failure.
 static ONE_AT_A_TIME: Mutex<()> = Mutex::new(());
 
 /// A harness with the drawing lock held.

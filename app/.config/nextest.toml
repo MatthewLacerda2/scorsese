@@ -1,0 +1,40 @@
+# How the snapshots are scheduled, and why the runner is told rather than the
+# Makefile.
+#
+# nextest reads this from the workspace root it was pointed at, so it binds for
+# `make app`, for CI's `desktop app` job, and for a person typing
+# `cargo nextest run --manifest-path app/Cargo.toml` by hand. That is the whole
+# reason it lives here: the same argument `tests/panels/drawing.rs` makes about
+# its mutex — a rule that only holds when invoked the blessed way is a rule that
+# will be broken — applied to the runner instead of the caller.
+
+# One wgpu device at a time, across processes.
+#
+# The snapshots draw through wgpu, and **two devices being created at once fail
+# to be created at all**: `RequestDeviceError(Device(OutOfMemory))` out of
+# `egui_kittest`, with no `.diff.png` written because no frame was ever drawn.
+# Not a picture disagreeing — a device that never existed. On the development
+# machine that was roughly one run in two, a different test each time.
+#
+# `drawing.rs` already serialises this in-process, and that lock is still doing
+# its job: `cargo test` runs a **thread** per test, which is what it was written
+# against. nextest runs a **process** per test, so a `static Mutex` holds
+# nothing across them and every snapshot in the binary can build its own device
+# simultaneously. The two mechanisms cover the two runners and neither replaces
+# the other.
+#
+# `max-threads = 1` on a group, rather than `test-threads = 1` on the profile:
+# the profile setting is global and would serialise the whole app suite for the
+# sake of one binary. This leaves everything else at full parallelism, which it
+# can have — nothing outside `panels` ever asks for a device. `egui_kittest`
+# builds one lazily on the first render, and only a `snapshot()` call renders.
+[test-groups.wgpu-device]
+max-threads = 1
+
+# The whole binary, not the snapshot tests by name. A snapshot added later
+# inherits the serialisation instead of having to remember it, which is the same
+# reason `drawing::window` arms the watchdog and takes the lock for every test
+# rather than each test doing it itself.
+[[profile.default.overrides]]
+filter = 'binary_id(scorsese-app::panels)'
+test-group = 'wgpu-device'
