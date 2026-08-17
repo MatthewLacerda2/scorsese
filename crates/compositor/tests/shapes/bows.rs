@@ -11,6 +11,13 @@
 //! along the straight line between the ends; on a bowed arrow those differ by a
 //! visible angle. A head aimed at the chord is the classic bug in this feature,
 //! and it looks like a mistake in the diagram rather than in the renderer.
+//!
+//! **And both ways along an axis, not just both axes.** A tangent taken along the
+//! bowed axis has nothing in its other component — the control point sits exactly
+//! above or beside the end it belongs to — so everything that reaches the drawing
+//! from that arithmetic is one *sign*. An arrow and its own reverse agree about
+//! the size of that number and disagree about the sign, which makes one direction
+//! tested half the branch tested.
 
 use scorsese_compositor::Frame;
 use scorsese_compositor::shape::{Arrow, Border, Figure, Outline, draw};
@@ -31,6 +38,12 @@ const TALL: ((f32, f32), (f32, f32)) = ((60.0, 30.0), (140.0, 170.0));
 /// puts a head on the far side of the arrow from its own tip, which a rightward
 /// arrow could not tell apart from a length.
 const WIDE: ((f32, f32), (f32, f32)) = ((160.0, 60.0), (40.0, 140.0));
+
+/// Taller than it is wide like `TALL`, so the bow is along `y` — **and running
+/// upwards**, so `dy` is negative and both tangents point the negative way. Set a
+/// clear head's length in from the top and bottom edges, so a head pointing the
+/// wrong way lands on the raster and is measured rather than clipped off it.
+const RISING: ((f32, f32), (f32, f32)) = ((60.0, 150.0), (140.0, 50.0));
 
 /// A quarter of the way along, the tall S has already dropped to y ≈ 72 while
 /// the straight line between the same two ends is only at y ≈ 52. Measured a
@@ -82,6 +95,32 @@ fn a_bowed_arrows_heads_are_aimed_along_the_curve_and_not_the_chord() {
         &two,
         (40, 47, 159, 152),
         "so the heads, not the curve, are what reaches furthest up and down",
+    );
+}
+
+/// Both heads point *inwards*, so the whole drawing fits between the arrow's own
+/// two ends: the tangents are vertical, the head at the top aims up from a base
+/// below its tip, the head at the bottom aims back down from a base above its
+/// own, and a butt cap adds nothing past either end. So the ink reaches exactly
+/// the two ends' `y` and no further, and sideways exactly a head's spread — 12.8
+/// at this thickness — either side of each end's `x`.
+///
+/// **That is a statement about the sign of the tangent, and it is the reason this
+/// arrow runs upwards.** A bowed tangent's `y` is `to.1 - second.1` at the end and
+/// `first.1 - arrow.from.1` at the start, and reading either as a *ratio* of the
+/// same two numbers instead of a difference gives a value of a different size but
+/// the same sign — on an arrow running *down* the frame, where both coordinates
+/// and their difference are positive. Running up, the difference is negative and
+/// the ratio still is not: the head turns through 180° and reaches a whole head's
+/// length past the end it belongs to. Nothing about a downward arrow can say so.
+#[test]
+fn a_bow_running_upwards_keeps_both_heads_inside_its_own_run() {
+    let two = drawn(RISING, Curve::S, Heads::Both);
+
+    assert_extent(
+        &two,
+        (47, 50, 152, 149),
+        "an upward bow's heads both point back into the run",
     );
 }
 
