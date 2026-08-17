@@ -20,13 +20,14 @@ use scorsese_app::Scorsese;
 /// felt.
 pub(crate) const SETTLE: std::time::Duration = std::time::Duration::from_millis(400);
 
-/// A window open on `project`, drawn the way the app draws it.
+/// A window open on `project`, drawn the way the app draws it, on the machine
+/// [`fixture::machine`] states.
 pub(crate) fn window(project: &std::path::Path) -> Harness<'static, Scorsese> {
     Harness::builder()
         .with_size(egui::vec2(1280.0, 800.0))
         .build_ui_state(
             |ui, window: &mut Scorsese| window.draw(ui),
-            Scorsese::opening(Some(project.to_path_buf())),
+            Scorsese::opening_with(Some(project.to_path_buf()), fixture::machine()),
         )
 }
 

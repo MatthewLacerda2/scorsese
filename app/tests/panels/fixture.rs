@@ -11,9 +11,26 @@
 
 use std::path::{Path, PathBuf};
 
+use scorsese_providers::credentials::Settings;
 use scorsese_providers::voices::{
     Availability, Catalogue, Filters, Page, Unusable, Voice, VoiceError,
 };
+
+/// The machine every test window here is opened on: no keys, and **no
+/// ceiling**.
+///
+/// Stated rather than inherited, and that is the whole of it. `Scorsese::opening`
+/// reads the settings file of whoever is at the keyboard, and the generate
+/// dialog draws the ceiling it finds there — so two references passed on a
+/// runner with no such file and failed, in one region and by the same 291
+/// pixels, on the machine they were written on. A test that reads a developer's
+/// own configuration is a test of the developer.
+///
+/// A fresh install rather than an invented number, because that is the state
+/// the references were drawn in and the one every reader of them can reproduce.
+pub(crate) fn machine() -> Settings {
+    Settings::default()
+}
 
 /// A project directory that removes itself when the test ends.
 pub(crate) struct Fixture(PathBuf);

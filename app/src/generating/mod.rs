@@ -18,6 +18,14 @@
 //! cents against about two. So they are counted, subtotalled and reported as
 //! separate groups: a single figure covering both is arithmetic nobody can act
 //! on, because it does not say which half to go and change.
+//!
+//! **What is drawn and what is spent read the ceiling in different places, and
+//! that is deliberate.** Everything here draws the [`Settings`] the window was
+//! handed, so what appears on screen is a stated machine rather than whichever
+//! one happens to be running — which is what a snapshot needs to mean anything.
+//! [`worker`] asks the machine itself, on its own thread, at the moment it
+//! submits: that is when the money leaves, and a ceiling is worth what it says
+//! then rather than what it said when the window opened.
 
 mod quote;
 mod worker;
@@ -98,7 +106,11 @@ impl Generating {
     }
 
     /// Draws the dialog, when it is open.
-    pub(crate) fn show(&mut self, ctx: &Context, open: &mut Open) {
+    ///
+    /// `settings` is the window's copy of what this machine knows — see
+    /// [`Scorsese`](crate::Scorsese) for why it is passed in rather than read
+    /// here. Taken by `&mut` because the ceiling field below sets it.
+    pub(crate) fn show(&mut self, ctx: &Context, open: &mut Open, settings: &mut Settings) {
         if !self.open {
             return;
         }
@@ -106,13 +118,13 @@ impl Generating {
         Window::new("Generate")
             .open(&mut showing)
             .resizable(false)
-            .show(ctx, |ui| self.body(ui, open));
+            .show(ctx, |ui| self.body(ui, open, settings));
         self.open = showing;
     }
 
     /// What the dialog says and offers.
-    fn body(&mut self, ui: &mut Ui, open: &mut Open) {
-        let quote = Quote::of(&open.project);
+    fn body(&mut self, ui: &mut Ui, open: &mut Open, settings: &mut Settings) {
+        let quote = Quote::of(&open.project, settings);
 
         if quote.empty() && quote.in_flight == 0 {
             ui.label("Every shot and every line in this project is already made.");
@@ -143,7 +155,7 @@ impl Generating {
             );
         }
 
-        budget(ui, &quote);
+        budget(ui, &quote, settings);
         ui.separator();
         self.actions(ui, open, &quote);
 
@@ -226,7 +238,7 @@ fn group(ui: &mut Ui, heading: &str, priced: &[quote::Priced]) {
 /// Here rather than behind a settings menu of its own, because this is the
 /// moment the number matters: a person deciding whether to spend is the person
 /// who would change the limit.
-fn budget(ui: &mut Ui, quote: &Quote) {
+fn budget(ui: &mut Ui, quote: &Quote, settings: &mut Settings) {
     ui.add_space(4.0);
     match quote.ceiling() {
         Some(line) => ui.label(RichText::new(line).weak().small()),
@@ -247,7 +259,6 @@ fn budget(ui: &mut Ui, quote: &Quote) {
         );
     }
 
-    let mut settings = Settings::load().unwrap_or_default();
     let mut ceiling = settings.budget_cents.unwrap_or(0) / 100;
     ui.horizontal(|ui| {
         ui.label(RichText::new("Ceiling $").small());

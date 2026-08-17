@@ -20,6 +20,7 @@ mod panels;
 
 use eframe::{App, Frame};
 use egui::Ui;
+use scorsese_providers::credentials::Settings;
 
 use crate::editing::Editing;
 use crate::files::Files;
@@ -58,11 +59,33 @@ pub struct Scorsese {
     preview: Preview,
     /// The generate dialog, and whatever it has running.
     generating: Generating,
+    /// What this machine knows and no project does: the keys, and the ceiling
+    /// on what one run may spend.
+    ///
+    /// Held rather than read where it is needed, because it is the one thing
+    /// this window draws that comes from neither the document nor the person at
+    /// the keyboard. A panel that called `Settings::load` drew a different
+    /// sentence for every machine, and a reference image of it was a picture of
+    /// whoever last ran the test — see [`Scorsese::opening_with`].
+    settings: Settings,
 }
 
 impl Scorsese {
-    /// A window, optionally starting on a directory given on the command line.
+    /// A window, optionally starting on a directory given on the command line,
+    /// reading this machine's settings.
     pub fn opening(directory: Option<std::path::PathBuf>) -> Self {
+        Self::opening_with(directory, Settings::load().unwrap_or_default())
+    }
+
+    /// The same window, told what machine it is on instead of asking.
+    ///
+    /// **What the tests open with.** The generate dialog reads a ceiling, and
+    /// `~/.config/scorsese/settings.json` is where one lives — so a snapshot
+    /// drawn through [`Scorsese::opening`] is a test of the developer's own
+    /// configuration, green for a runner that has none and red for anybody who
+    /// has ever set one. Stating the settings is the only thing an environment
+    /// variable cannot get in front of: there is no file to point at.
+    pub fn opening_with(directory: Option<std::path::PathBuf>, settings: Settings) -> Self {
         let mut window = Self {
             opened: None,
             refused: None,
@@ -75,6 +98,7 @@ impl Scorsese {
             inspector: Inspector::default(),
             preview: Preview::default(),
             generating: Generating::default(),
+            settings,
         };
         if let Some(directory) = directory {
             window.open(&directory);
@@ -274,7 +298,7 @@ impl Scorsese {
         // Last, and floating: a dialog belongs over the panels rather than
         // taking an edge from them.
         if let Some(open) = &mut self.opened {
-            self.generating.show(ui.ctx(), open);
+            self.generating.show(ui.ctx(), open, &mut self.settings);
         }
     }
 }
