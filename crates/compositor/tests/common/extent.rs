@@ -132,6 +132,13 @@ pub(crate) fn assert_extent(frame: &Frame, expected: (u32, u32, u32, u32), what:
 /// run: a 100×100 square is 10000, the ellipse inside it is π/4 of that. Naming
 /// the value is the whole point — a measurement asserted to be "in a range"
 /// is satisfied by more than one arithmetic.
+///
+/// `slack` is a pixel for a straight-edged shape and needs to be more for a
+/// curved one, because **a cubic is not an arc**: four of them stand *inside* a
+/// circle rather than on it, so a curve measures about a tenth of a percent
+/// short of its formula — 10 pixels on a circle of radius 50, 12 on an ellipse
+/// four times as wide as it is tall. Still a small fraction of what any wrong
+/// arithmetic does.
 #[track_caller]
 pub(crate) fn assert_coverage(frame: &Frame, expected: f64, slack: f64, what: &str) {
     let found = coverage(frame);

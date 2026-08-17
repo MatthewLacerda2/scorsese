@@ -11,14 +11,19 @@
 //! are drawn from one pattern of the same arithmetic, so a square box comes out
 //! symmetric about both axes; a mistake in a single corner breaks that while
 //! moving the total by a fraction of a percent.
+//!
+//! **And then a border**, because neither of those can see a path that goes
+//! somewhere and comes straight back: a point wrong along an edge leaves a sliver
+//! with no area in it, which a fill draws as nothing at all. Stroking the same
+//! outline draws the sliver as a line.
 
 use std::f64::consts::PI;
 
 use scorsese_compositor::Frame;
-use scorsese_compositor::shape::{Figure, Outline, draw};
+use scorsese_compositor::shape::{Border, Figure, Outline, draw};
 
 use crate::extent::{assert_coverage, assert_extent, column, row};
-use crate::{SIDE, bounds, boxed, centred, frame};
+use crate::{BLUE, SIDE, bounds, boxed, centred, frame};
 
 /// A 100-square: centred on a 200 raster it runs 50..150 on both axes, which is
 /// where every number below comes from.
@@ -27,6 +32,10 @@ const SIZE: (f32, f32) = (100.0, 100.0);
 /// Rounded by 30 — tens of pixels of corner, and short of the limit so there is
 /// still a straight edge between two of them to get wrong.
 const RADIUS: f32 = 30.0;
+
+/// Thick enough that the border straddling the outline is three whole pixels
+/// either side of it.
+const BORDER: f32 = 6.0;
 
 /// Twelve pixels' worth of ink, over the seven to nine thousand a rounded box
 /// covers.
@@ -110,6 +119,49 @@ fn every_corner_is_the_same_corner() {
             "column {i} holds {left} pixels' worth of ink against {right} in its mirror"
         );
     }
+}
+
+/// **A fill cannot see a path that goes somewhere and comes straight back.** The
+/// outline is drawn as one closed loop, so a point placed wrong along an edge
+/// leaves a sliver of no area at all — filling it puts down nothing, and the area
+/// and the symmetry above both come out exactly right. A *border* draws the loop
+/// itself, so the sliver shows as a line reaching out to wherever the point went.
+///
+/// The border straddles the outline, half either side, so a hollow rounded box
+/// reaches three pixels outside its own box and no further — and covers its
+/// perimeter times its width, which for a smooth closed curve is exact: what the
+/// outer half of a corner gains, the inner half gives back.
+#[test]
+fn a_bordered_rounded_box_is_its_own_outline_and_no_line_besides() {
+    let mut frame = frame();
+    draw(
+        &mut frame,
+        &Figure {
+            outline: Outline::Rectangle {
+                bounds: bounds(SIZE, centred()),
+                radius: RADIUS,
+            },
+            fill: None,
+            border: Some(Border {
+                color: BLUE,
+                width: BORDER,
+            }),
+        },
+    );
+
+    assert_extent(
+        &frame,
+        (47, 47, 152, 152),
+        "a 6-wide border on a 100-square rounded by 30",
+    );
+    let straight = 2.0 * (100.0 - 2.0 * f64::from(RADIUS));
+    let perimeter = 2.0 * straight + 2.0 * PI * f64::from(RADIUS);
+    assert_coverage(
+        &frame,
+        perimeter * f64::from(BORDER),
+        SLACK,
+        "the outline, six pixels thick",
+    );
 }
 
 /// The area four corners of `radius` take off a rectangle: for each, the square

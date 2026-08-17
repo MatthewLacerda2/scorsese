@@ -25,11 +25,16 @@ const WIDTH: f32 = 8.0;
 const LENGTH: f64 = 4.0 * WIDTH as f64;
 const SPREAD: f64 = 1.6 * WIDTH as f64;
 
-/// The ink a head adds over the line it caps: its own triangle, less the part of
-/// it the stroke had already covered. Half the stroke's thickness is 4, which the
-/// head's taper reaches 10 pixels back from the tip — so the overlap is a
-/// tapering wedge for those 10 and the full 8 across for the remaining 22.
-const HEAD: f64 = SPREAD * LENGTH - (0.4 * 10.0 * 10.0 + 8.0 * 22.0);
+/// How fast a head widens as it goes back from its tip, and how far back it takes
+/// to reach the half-thickness of the line underneath it.
+const TAPER: f64 = SPREAD / LENGTH;
+const REACH: f64 = (WIDTH as f64 / 2.0) / TAPER;
+
+/// The ink a head adds over the line it caps: its own triangle, less the part
+/// the stroke had already covered. That overlap is a tapering wedge for the
+/// first `REACH` pixels back from the tip and the stroke's full width for the
+/// rest — 216 of the head's 409.6 at this thickness, so a head adds 193.6.
+const HEAD: f64 = SPREAD * LENGTH - (TAPER * REACH * REACH + WIDTH as f64 * (LENGTH - REACH));
 
 /// A hundred and twenty pixels of straight line, eight thick.
 const LINE: f64 = 120.0 * WIDTH as f64;
@@ -64,9 +69,10 @@ fn a_head_reaches_four_widths_back_and_spreads_sixteen_tenths_either_side() {
 /// and it is what a half-reversed direction breaks.
 #[test]
 fn the_head_at_the_start_is_the_one_at_the_end_reversed() {
-    let plain = coverage(&across(Heads::None));
-    let one = coverage(&across(Heads::End)) - plain;
-    let two = coverage(&across(Heads::Both)) - plain;
+    let pointed = across(Heads::Both);
+    let bare = coverage(&across(Heads::None));
+    let one = coverage(&across(Heads::End)) - bare;
+    let two = coverage(&pointed) - bare;
 
     assert!(
         (one - HEAD).abs() <= SLACK,
@@ -77,7 +83,7 @@ fn the_head_at_the_start_is_the_one_at_the_end_reversed() {
         "two heads are twice one: {two} against {one}"
     );
     assert_extent(
-        &across(Heads::Both),
+        &pointed,
         (47, 47, 152, 152),
         "and both lie along the run rather than out to the side of it",
     );
