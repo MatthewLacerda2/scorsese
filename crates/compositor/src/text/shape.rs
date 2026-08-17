@@ -28,6 +28,14 @@
 use harfrust::{ShapeOptions, Shaper, UnicodeBuffer};
 use skrifa::GlyphId;
 
+/// The non-breaking space.
+///
+/// Named here because both halves of honouring it live one call apart:
+/// [`super::layout`] must not break a line at one, and this module must not
+/// drop one for want of a glyph. A face that has no `U+00A0` of its own still
+/// has a space, and that is the width the author asked for.
+pub(super) const NBSP: char = '\u{a0}';
+
 /// A run of text, shaped: which glyphs, and where each one goes.
 pub(super) struct Shaped {
     /// The glyphs in the order they are drawn, which for a right-to-left run

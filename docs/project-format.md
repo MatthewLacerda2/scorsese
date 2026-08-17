@@ -405,6 +405,19 @@ which is the title most people meant.
 | `line_height` | `1.25` | Baseline to baseline, as a multiple of `size` |
 | `max_width` | `0.9` | Where lines wrap, as a fraction of the frame's **width** |
 
+**A newline in `text` is honoured and ordinary whitespace is not.** An author
+who broke a title in two meant it, so `\n` starts a new line; runs of spaces
+and tabs inside a line collapse to one, because that is what wrapped prose
+wants and a stray double space is almost never deliberate.
+
+**When it *is* deliberate, write a non-breaking space** — `U+00A0`, the
+character that exists to opt out of exactly that. A run of them survives whole,
+one at the start of a line indents it, and no line ever breaks at one. That is
+what makes a column or an indent expressible: `size` and `max_width` say how
+big the text is and where it wraps, and NBSP is the only thing that says where
+the spacing inside a line goes. It pairs with `jetbrains-mono` below, which is
+the face those columns are usually set in.
+
 **Measurements are fractions of the raster, not pixels.** Resolution is a
 render setting — the same project is previewed at 640×360 and delivered at 4K —
 so a title written as `72` pixels would be a different title in each.
