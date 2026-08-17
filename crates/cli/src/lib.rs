@@ -124,8 +124,8 @@ fn dispatch(cli: Cli) -> Result<()> {
         Command::Prices => commands::prices::run(),
         Command::Probe { all } => commands::probe::run(&directory, all),
         Command::Check { verify } => commands::check::run(&directory, verify),
-        Command::Import { path, kind } => {
-            commands::import::run(&directory, &path, kind.map(Into::into))
+        Command::Import { paths, kind } => {
+            commands::import::run(&directory, &paths, kind.map(Into::into))
         }
         Command::Render {
             out,

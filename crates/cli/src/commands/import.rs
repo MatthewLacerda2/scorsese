@@ -1,8 +1,8 @@
 //! `scorsese import`
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use scorsese_core::{AssetKind, Import, Project, import_path};
 use scorsese_render::Ffprobe;
 
@@ -13,19 +13,66 @@ use scorsese_render::Ffprobe;
 /// hashes to the asset that already exists and comes back with that id,
 /// nothing copied. Which makes an import loop safe to re-run — the thing an
 /// agent does by accident.
-pub(crate) fn run(project_dir: &Path, path: &Path, kind: Option<AssetKind>) -> Result<()> {
+///
+/// Several paths import in one pass, because media arrives in sets. **One that
+/// fails does not abort the ones behind it**: everything that worked is saved
+/// and reported, the failures are listed after, and the command still exits
+/// non-zero so a script is not told a partial import was a whole one.
+pub(crate) fn run(project_dir: &Path, paths: &[PathBuf], kind: Option<AssetKind>) -> Result<()> {
     let mut project = Project::load(project_dir)
         .with_context(|| format!("opening the project in {}", project_dir.display()))?;
     let probe = Ffprobe::discover().context("ffprobe is needed to import media")?;
 
-    let report = import_path(&mut project, project_dir, path, kind, &probe)
-        .with_context(|| format!("importing {}", path.display()))?;
-
-    if report.imported.iter().any(|one| !one.reused) {
+    let mut reports = Vec::new();
+    let mut failures = Vec::new();
+    let mut copied = false;
+    for path in paths {
+        match import_path(&mut project, project_dir, path, kind, &probe) {
+            Ok(report) => {
+                copied |= report.imported.iter().any(|one| !one.reused);
+                reports.push(report);
+            }
+            Err(why) => failures.push((path.clone(), why)),
+        }
+    }
+    // Saved before anything is printed, and once rather than per path: an id
+    // on screen has to already be an id on disk, and a crash between two
+    // paths must not leave the pool describing files it never copied.
+    if copied {
         project.save(project_dir).context("saving the project")?;
     }
-    print(&project, &report);
-    Ok(())
+    for report in &reports {
+        print(&project, report);
+    }
+    if paths.len() > 1 {
+        total(&reports);
+    }
+    if failures.is_empty() {
+        return Ok(());
+    }
+    for (path, why) in &failures {
+        println!("{} — failed: {why:#}", path.display());
+    }
+    bail!(
+        "{} of {} path(s) failed to import",
+        failures.len(),
+        paths.len()
+    );
+}
+
+/// The tally, for when one command covered several paths and the per-asset
+/// lines above are too long to count by eye.
+fn total(reports: &[Import]) {
+    let all = reports.iter().flat_map(|report| &report.imported);
+    let (fresh, reused) = all.fold((0, 0), |(fresh, reused), one| {
+        if one.reused {
+            (fresh, reused + 1)
+        } else {
+            (fresh + 1, reused)
+        }
+    });
+    let skipped: usize = reports.iter().map(|report| report.skipped.len()).sum();
+    println!("{fresh} imported, {reused} already in the pool, {skipped} skipped");
 }
 
 /// What came in, then what did not. The skips go last because they are the

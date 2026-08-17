@@ -6,6 +6,7 @@
 
 mod folders;
 mod kinds;
+mod several;
 
 use std::path::{Path, PathBuf};
 
