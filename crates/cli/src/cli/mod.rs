@@ -223,9 +223,11 @@ pub(crate) enum Command {
     /// the same collision inside a directory refuses the batch with nothing
     /// copied at all.
     Import {
-        /// The file or directory to import. What comes in is copied, never
-        /// referenced in place.
-        path: PathBuf,
+        /// The files or directories to import. What comes in is copied, never
+        /// referenced in place. Media arrives in sets, so several may be named
+        /// at once; one that fails does not stop the ones behind it.
+        #[arg(required = true)]
+        paths: Vec<PathBuf>,
         /// Override the kind instead of inferring it from the extension. For a
         /// directory this says what the media in it is; which files count as
         /// media at all is still the extension's answer.

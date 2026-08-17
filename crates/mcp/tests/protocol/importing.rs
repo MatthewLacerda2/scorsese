@@ -110,3 +110,63 @@ fn a_kind_that_carries_no_file_is_refused_by_name() {
     );
     std::fs::remove_dir_all(dir).ok();
 }
+
+#[test]
+fn a_list_of_paths_comes_in_from_one_call() {
+    // The round trip is the point: an assistant handed five files should pay
+    // for one call, not five.
+    let dir = project("import-list");
+    let outside = footage("import-list-sources");
+    let named = |name: &str| outside.join(name).to_str().expect("utf-8").to_owned();
+
+    let (text, failed) = said(&call(
+        "import",
+        json!({ "project": dir, "path": [named("wide.mp4"), named("close.mp4")] }),
+    ));
+
+    assert!(!failed, "{text}");
+    assert!(text.contains("wide — Video, 64x64"), "got {text}");
+    assert!(text.contains("close — Video, 64x64"), "got {text}");
+    assert!(dir.join("assets/wide.mp4").is_file(), "wide was copied in");
+    assert!(
+        dir.join("assets/close.mp4").is_file(),
+        "close was copied in"
+    );
+
+    std::fs::remove_dir_all(dir).ok();
+    std::fs::remove_dir_all(outside).ok();
+}
+
+#[test]
+fn one_bad_path_among_good_ones_keeps_the_good_ones() {
+    // A mistyped name in the middle of a set is a typo, not a reason to import
+    // nothing — and the reply still has to say what did not land.
+    let dir = project("import-partial");
+    let outside = footage("import-partial-sources");
+    let named = |name: &str| outside.join(name).to_str().expect("utf-8").to_owned();
+
+    let (text, failed) = said(&call(
+        "import",
+        json!({ "project": dir, "path": [named("wide.mp4"), named("nope.mp4")] }),
+    ));
+
+    assert!(!failed, "something landed, so this is a reply: {text}");
+    assert!(text.contains("wide — Video, 64x64"), "got {text}");
+    assert!(text.contains("nope.mp4 — failed"), "got {text}");
+    assert!(dir.join("assets/wide.mp4").is_file(), "wide still landed");
+
+    std::fs::remove_dir_all(dir).ok();
+    std::fs::remove_dir_all(outside).ok();
+}
+
+#[test]
+fn every_path_failing_is_still_an_error() {
+    let dir = project("import-none");
+    let (text, failed) = said(&call(
+        "import",
+        json!({ "project": dir, "path": ["/nowhere-a.mp4", "/nowhere-b.mp4"] }),
+    ));
+    assert!(failed, "nothing landed, so this is an error: {text}");
+    assert!(text.contains("nothing was imported"), "got {text}");
+    std::fs::remove_dir_all(dir).ok();
+}

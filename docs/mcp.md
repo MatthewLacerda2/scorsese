@@ -76,7 +76,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `project_describe` | Say what the cut contains, shot by shot and sound by sound. | nothing |
 | `project_check` | Report everything wrong or questionable about a project — the document and the media it references — without rendering. | nothing |
 | `project_assets` | List the media pool: every asset, its kind, what state it is in, and how many clips use it. | nothing |
-| `import` | Copy a media file into the project's assets/ and add it to the assets table, ready for a clip to reference. | ffprobe |
+| `import` | Copy media into the project's assets/ and add it to the assets table, ready for a clip to reference. | ffprobe |
 | `project_probe` | Ask ffprobe about every asset that has a file and no recorded metadata, and write down what it says. | ffprobe |
 | `script_read` | Read the document this edit is being cut from — the brief, the outline, whatever the project's `script` field points at. | nothing |
 | `script_write` | Write the project's script — the document the edit is cut from. | nothing |

@@ -26,8 +26,10 @@ impl Tool for Import {
     }
 
     fn description(&self) -> &'static str {
-        "Copy a media file into the project's assets/ and add it to the assets \
-         table, ready for a clip to reference. `path` may also be a directory, \
+        "Copy media into the project's assets/ and add it to the assets \
+         table, ready for a clip to reference. `path` is one path or a list of \
+         them — media arrives in sets, and naming the set costs one call \
+         instead of one per file. A path may also be a directory, \
          which imports the media directly inside it — one asset each, sorted by \
          file name, without recursing; the folder itself never becomes an \
          asset. This is the only way to bring media in from outside the \
@@ -40,7 +42,9 @@ impl Tool for Import {
          the one the file name suggests. The same collision inside a directory \
          refuses the whole batch with nothing copied at all. Media already in \
          the pool is not a collision — it comes back as the asset that already \
-         holds those bytes."
+         holds those bytes. When several paths are named, one that fails does \
+         not cost the others: everything that worked is saved and reported, \
+         and the failures are named at the end."
     }
 
     fn costs(&self) -> Costs {
@@ -53,12 +57,13 @@ impl Tool for Import {
             "properties": {
                 "project": project_property(),
                 "path": {
-                    "type": "string",
+                    "type": ["string", "array"],
+                    "items": { "type": "string" },
                     "description": "The file or directory to import, anywhere on \
-                                    disk. A directory brings in the media directly \
-                                    inside it and does not recurse. This path is \
-                                    used to find the media and is never written \
-                                    into the project."
+                                    disk, or a list of them. A directory brings in \
+                                    the media directly inside it and does not \
+                                    recurse. These paths are used to find the media \
+                                    and are never written into the project."
                 },
                 "kind": {
                     "type": "string",
@@ -76,7 +81,7 @@ impl Tool for Import {
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let dir = project_dir(arguments)?;
-        let path = argument(arguments, "path")?;
+        let paths = paths(arguments)?;
         let kind = kind(arguments)?;
         let mut project = load(&dir)?;
 
@@ -84,32 +89,62 @@ impl Tool for Import {
         // does it: a server that found ffprobe at startup would keep insisting
         // it was there after someone uninstalled it.
         let probe = Ffprobe::discover().map_err(|error| format!("{error}"))?;
-        let report = import_path(
-            &mut project,
-            &dir,
-            std::path::Path::new(&path),
-            kind,
-            &probe,
-        )
-        .map_err(|error| format!("importing {path}: {error} — nothing was imported"))?;
-
-        if report.imported.iter().any(|one| !one.reused) {
+        let mut reports = Vec::new();
+        let mut failures = Vec::new();
+        let mut copied = false;
+        for path in &paths {
+            match import_path(&mut project, &dir, std::path::Path::new(path), kind, &probe) {
+                Ok(report) => {
+                    copied |= report.imported.iter().any(|one| !one.reused);
+                    reports.push(report);
+                }
+                Err(error) => failures.push(format!("{path} — failed: {error}")),
+            }
+        }
+        // Once, after the loop: an id in the reply has to already be an id on
+        // disk, and a failure in the middle must not discard what landed
+        // before it.
+        if copied {
             project
                 .save(&dir)
                 .map_err(|error| format!("saving the project: {error}"))?;
         }
-        Ok(said(&project, &report).into())
+        // Everything failing is the single-path error this tool has always
+        // returned; anything landing is a reply, because the caller needs the
+        // ids of what did land and re-importing the rest is free — the same
+        // bytes come back as the asset that already holds them.
+        if reports.is_empty() {
+            return Err(format!("{} — nothing was imported", failures.join("; ")));
+        }
+        Ok(said(&project, &reports, &failures).into())
     }
 }
 
-/// A required string argument.
-fn argument(arguments: &Value, key: &'static str) -> Result<String, String> {
-    arguments
-        .get(key)
-        .and_then(Value::as_str)
-        .filter(|value| !value.trim().is_empty())
-        .map(ToOwned::to_owned)
-        .ok_or_else(|| format!("`{key}` is required"))
+/// The paths to import: one string, or a list of them.
+///
+/// Both spellings rather than a list only, because one file is the common call
+/// and `"path": "intro.mp4"` is what every caller wrote before the list
+/// existed — a schema that broke those would be a worse trade than accepting
+/// two shapes.
+fn paths(arguments: &Value) -> Result<Vec<String>, String> {
+    let named = |value: &Value| {
+        value
+            .as_str()
+            .filter(|text| !text.trim().is_empty())
+            .map(ToOwned::to_owned)
+    };
+    match arguments.get("path") {
+        Some(Value::Array(items)) if !items.is_empty() => items
+            .iter()
+            .map(|item| {
+                named(item).ok_or_else(|| "every `path` must be a non-empty string".to_owned())
+            })
+            .collect(),
+        Some(one) => named(one)
+            .map(|path| vec![path])
+            .ok_or_else(|| "`path` is required".to_owned()),
+        None => Err("`path` is required".to_owned()),
+    }
 }
 
 /// The kind override, if one was named.
@@ -132,9 +167,9 @@ fn kind(arguments: &Value) -> Result<Option<AssetKind>, String> {
 /// The skips go last because they are the part a caller has to act on, and a
 /// licence file quietly standing in for a mistyped video is exactly what
 /// naming them prevents.
-fn said(project: &Project, report: &Report) -> String {
+fn said(project: &Project, reports: &[Report], failures: &[String]) -> String {
     let mut lines = Vec::new();
-    for one in &report.imported {
+    for one in reports.iter().flat_map(|report| &report.imported) {
         if one.reused {
             lines.push(format!(
                 "{} — already in the pool, nothing copied ({})",
@@ -164,9 +199,12 @@ fn said(project: &Project, report: &Report) -> String {
             path.unwrap_or_else(|| one.source.clone())
         ));
     }
-    for skipped in &report.skipped {
+    for skipped in reports.iter().flat_map(|report| &report.skipped) {
         lines.push(format!("{} — skipped: {}", skipped.source, skipped.why));
     }
+    // Last, with the skips, and for the same reason: what the caller has to
+    // act on reads worst buried above a list of successes.
+    lines.extend(failures.iter().cloned());
     if lines.is_empty() {
         return "nothing to import: that directory holds no media".to_owned();
     }
