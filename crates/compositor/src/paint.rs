@@ -17,7 +17,9 @@
 //! transparent start a drawn layer has, the two differ everywhere an edge is
 //! soft. Writing through would leave every anti-aliased boundary subtly dark.
 
-use tiny_skia::{FillRule, Paint, Path, PathBuilder, Pixmap, Rect, Stroke, Transform};
+use tiny_skia::{
+    FillRule, LineCap, LineJoin, Paint, Path, PathBuilder, Pixmap, Rect, Stroke, Transform,
+};
 
 use scorsese_core::Rgba;
 
@@ -36,15 +38,36 @@ pub(crate) fn fill(frame: &mut Frame, path: &Path, color: Rgba) {
 /// behaviour and every drawing program's, and is what keeps a shape's stated
 /// size the size of the shape rather than of its ink.
 ///
+/// Square ends and mitred corners, which is what a box, an ellipse and an
+/// arrow are drawn with. [`stroke_round`] is the other one.
+pub(crate) fn stroke(frame: &mut Frame, path: &Path, color: Rgba, width: f32) {
+    lined(frame, path, color, width, LineCap::Butt, LineJoin::Miter);
+}
+
+/// The same, with the line's ends and corners rounded off.
+///
+/// An icon's, and only an icon's. Lucide draws every one of its symbols with
+/// `stroke-linecap: round` and `stroke-linejoin: round`, and those are not a
+/// finish applied afterwards — they are part of the drawing. A stroke that
+/// stopped square would give every icon in the set blunt ends and spiked
+/// corners, which is a different set of icons.
+pub(crate) fn stroke_round(frame: &mut Frame, path: &Path, color: Rgba, width: f32) {
+    lined(frame, path, color, width, LineCap::Round, LineJoin::Round);
+}
+
+/// Strokes with the ends and corners the caller asks for.
+///
 /// A width that is zero, negative or not a number draws nothing. There is no
 /// sensible line to invent for any of them, and a default would be a border
 /// nobody asked for on a shape that said it had none.
-pub(crate) fn stroke(frame: &mut Frame, path: &Path, color: Rgba, width: f32) {
+fn lined(frame: &mut Frame, path: &Path, color: Rgba, width: f32, cap: LineCap, join: LineJoin) {
     if !width.is_finite() || width <= 0.0 {
         return;
     }
     let stroke = Stroke {
         width,
+        line_cap: cap,
+        line_join: join,
         ..Stroke::default()
     };
     onto(frame, color, |pixmap, paint| {

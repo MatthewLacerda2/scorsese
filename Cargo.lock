@@ -733,6 +733,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "scorsese-icon-vendor"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
 name = "scorsese-mcp"
 version = "0.1.0"
 dependencies = [

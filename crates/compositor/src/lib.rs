@@ -38,7 +38,13 @@
 //! box that fades or slides is the existing properties acting on a layer that
 //! happens to have a rectangle in it.
 //!
-//! Both of them, and the ruler, reach the raster through `paint`, which is the
+//! [`mod@icon`] is the fourth, and it is the same argument the shapes won:
+//! **the symbols this build ships**, vendored from Lucide and compiled in the
+//! way the faces are. A named symbol drawn at the render's own resolution
+//! rather than a PNG with alpha that goes soft the moment that resolution
+//! changes, and one more layer once it is drawn.
+//!
+//! All of them, and the ruler, reach the raster through `paint`, which is the
 //! crate's **one** rasteriser and one blend. Two would be two answers to what a
 //! soft edge looks like, and pixels are what the golden gate compares.
 //!
@@ -61,7 +67,8 @@
 //! provider calls, no GUI event loop. It depends on `scorsese-core` for the
 //! model and nothing above it. The shipped faces are compiled in with
 //! `include_bytes!` rather than read at runtime, which is what keeps that
-//! true; a project's own font arrives as bytes somebody else opened.
+//! true; a project's own font arrives as bytes somebody else opened, and the
+//! icon catalogue is compiled in the same way for the same reason.
 //!
 //! ## What this publishes
 //!
@@ -72,7 +79,8 @@
 //! the [`Registry`] that searches it, and the two fades ([`fade_in`],
 //! [`fade_out`]).
 //!
-//! [`text`], [`card`], [`mod@shape`], [`mod@grid`] and [`mod@dissolve`] keep
+//! [`text`], [`card`], [`mod@shape`], [`mod@icon`], [`mod@grid`] and
+//! [`mod@dissolve`] keep
 //! their module path as well, because what they publish are *verbs* — `draw`,
 //! `draw_in`, `draw_line`, `dissolve` — and a verb that general needs the noun
 //! in front of it to read. `text::draw`, `card::draw` and `shape::draw` could
@@ -94,6 +102,7 @@ pub mod dissolve;
 mod frame;
 mod grade;
 pub mod grid;
+pub mod icon;
 mod paint;
 mod properties;
 mod registry;
