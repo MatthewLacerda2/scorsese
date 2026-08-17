@@ -874,10 +874,15 @@ icon animates on its own**, and one that grows uses `transform.scale`.
 
 **Finding the name is a search, not a list.** Seventeen hundred symbols is far
 too many to read through, so `scorsese icons <word>` — and the `icons` MCP tool
-— match a word against every icon's name *and* against the words upstream files
-it under. That second half is what turns "the film camera one" into
-`clapperboard`, which answers to *movie*, *film*, *cinema* and eight more, none
-of them in its name. What comes back is written here verbatim.
+— match a word against every icon's name, against the words upstream files it
+under, *and* against the names upstream has retired. The second of those is what
+turns "the film camera one" into `clapperboard`, which answers to *movie*,
+*film*, *cinema* and eight more, none of them in its name; the third is what
+turns `unlock` into `lock-open`. What comes back is written here verbatim — a
+hit that only a retired name matched sorts last and says so
+(`lock-open (formerly unlock)`), and the name to write is the one before the
+brackets. **A retired name is findable, never writable**: `"name": "unlock"` is
+refused exactly as any other unknown name is.
 
 **A name the build does not ship is refused**, and the refusal names the close
 ones — `scorsese check` reports it as a problem, the way it reports a `style`

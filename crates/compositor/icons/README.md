@@ -8,8 +8,8 @@ LICENSE          upstream's, verbatim: ISC, plus the MIT section for the icons
                  that descend from Feather
 VERSION          the pinned release, and the only place it is written down
 lucide/          upstream's `icons/` directory, verbatim: 1767 `.svg` files and
-                 the `.json` beside each one, which carries its tags and
-                 categories
+                 the `.json` beside each one, which carries its tags, its
+                 categories and any name it used to have
 catalogue.bin    what the compositor actually compiles in
 ```
 
@@ -53,6 +53,18 @@ compositor's own suite already draws every entry the blob claims to have.
 The format is specified in `crates/compositor/src/icon/catalogue.rs`, which
 reads it; `tools/icons/src/blob.rs` writes it. Neither is allowed to be the only
 one that changes.
+
+A record carries a name, its tags, its categories, the names upstream retired
+for it, and its two contour lists. The format's own version is a byte in the
+header and moves whenever that list does — it is at **2**, aliases having joined
+a record after the first cut — so a blob a newer tool wrote is refused by an
+older reader rather than read short. Moving it means regenerating and committing
+the blob in the same change, which is what `--check` above then confirms.
+
+Upstream's `aliases` are objects — a retired `name` beside the reason it was
+retired — and it is the name the blob carries. They are there to be **found**,
+never to be written: the catalogue has one name per icon, and an `icon` asset
+naming a retired one is refused like any other unknown name.
 
 The conversion happens here, at vendor time, rather than in the compositor: the
 elements Lucide draws with are `path`, `circle`, `line`, `rect`, `polyline`,

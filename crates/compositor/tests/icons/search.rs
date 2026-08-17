@@ -11,7 +11,7 @@ use scorsese_compositor::icon;
 fn a_word_the_name_does_not_contain_still_finds_the_icon() {
     for word in ["film", "cinema", "movie", "entertainment"] {
         assert!(
-            icon::search(word).names.contains(&"clapperboard"),
+            icon::search(word).names().contains(&"clapperboard"),
             "`{word}` did not find the clapperboard"
         );
     }
@@ -21,8 +21,8 @@ fn a_word_the_name_does_not_contain_still_finds_the_icon() {
 /// guess that has to be right.
 #[test]
 fn a_fragment_of_a_name_matches_it() {
-    assert!(icon::search("clap").names.contains(&"clapperboard"));
-    assert!(icon::search("perboa").names.contains(&"clapperboard"));
+    assert!(icon::search("clap").names().contains(&"clapperboard"));
+    assert!(icon::search("perboa").names().contains(&"clapperboard"));
 }
 
 /// Case and stray spaces are the caller's, not the catalogue's.
@@ -30,14 +30,17 @@ fn a_fragment_of_a_name_matches_it() {
 fn the_query_is_tidied_and_case_does_not_matter() {
     let found = icon::search("  CAMERA ");
     assert_eq!(found.query, "camera");
-    assert_eq!(found.names, icon::search("camera").names);
+    assert_eq!(found.names(), icon::search("camera").names());
 }
 
 /// A caller confirming a name it already has should read one word, not ten.
 #[test]
 fn an_exact_name_comes_first() {
-    assert_eq!(icon::search("film").names.first().copied(), Some("film"));
-    assert_eq!(icon::search("video").names.first().copied(), Some("video"));
+    assert_eq!(icon::search("film").names().first().copied(), Some("film"));
+    assert_eq!(
+        icon::search("video").names().first().copied(),
+        Some("video")
+    );
 }
 
 /// Then names, then tags — the order of the evidence, so the icons actually
@@ -48,7 +51,7 @@ fn names_come_before_the_icons_a_tag_matched() {
     let found = icon::search("camera");
     let named = |name: &str| {
         found
-            .names
+            .names()
             .iter()
             .position(|found| *found == name)
             .unwrap_or_else(|| panic!("`{name}` is in the answer"))
@@ -63,10 +66,10 @@ fn names_come_before_the_icons_a_tag_matched() {
 fn a_broad_word_is_capped_and_says_so() {
     let found = icon::search("arrow");
     assert!(found.is_capped(), "`arrow` matches more than it shows");
-    assert!(found.total > found.names.len());
+    assert!(found.total > found.hits.len());
     let said = found.to_string();
     assert!(said.contains(&found.total.to_string()), "{said}");
-    assert!(said.contains(&found.names.len().to_string()), "{said}");
+    assert!(said.contains(&found.hits.len().to_string()), "{said}");
 }
 
 /// And a word that matches a handful is not capped, and says the one number.
@@ -74,7 +77,7 @@ fn a_broad_word_is_capped_and_says_so() {
 fn a_narrow_word_shows_everything_it_found() {
     let found = icon::search("cinema");
     assert!(!found.is_capped(), "{found}");
-    assert_eq!(found.total, found.names.len());
+    assert_eq!(found.total, found.hits.len());
 }
 
 /// Nothing found is an answer, and it reads as one.
@@ -98,7 +101,7 @@ fn an_empty_query_finds_nothing() {
 /// makes it safe to write straight into an `icon` asset.
 #[test]
 fn every_name_answered_is_a_name_that_draws() {
-    for name in icon::search("music").names {
+    for name in icon::search("music").names() {
         assert!(icon::find(name).is_some(), "`{name}` is not findable");
     }
 }
@@ -107,5 +110,5 @@ fn every_name_answered_is_a_name_that_draws() {
 /// reordered itself between runs would be a diff nobody wrote.
 #[test]
 fn the_answer_is_the_same_every_time() {
-    assert_eq!(icon::search("play").names, icon::search("play").names);
+    assert_eq!(icon::search("play").names(), icon::search("play").names());
 }

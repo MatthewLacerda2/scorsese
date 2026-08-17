@@ -16,13 +16,14 @@
 //!
 //! ```text
 //! header   "SCORICON"  8 bytes
-//!          format      u8      the layout below, currently 1
+//!          format      u8      the layout below, currently 2
 //!          version     short   the Lucide release the tree was vendored from
 //!          count       u32     how many records follow
 //!
 //! record   name        short
 //!          tags        words
 //!          categories  words
+//!          aliases     words   names upstream retired for this one
 //!          stroked     block   contours drawn with a line
 //!          filled      block   contours drawn solid — a handful of dots
 //!
@@ -54,8 +55,9 @@ static BLOB: &[u8] = include_bytes!("../../icons/catalogue.bin");
 /// What the first bytes say, when the blob is one of ours.
 const MAGIC: &[u8] = b"SCORICON";
 
-/// The only layout this reader understands.
-const FORMAT: u8 = 1;
+/// The only layout this reader understands. A blob written before aliases
+/// joined a record said 1, and is refused rather than read short.
+const FORMAT: u8 = 2;
 
 /// The parsed index: the Lucide release, and every icon in name order.
 static CATALOGUE: OnceLock<(&'static str, Vec<Icon>)> = OnceLock::new();
@@ -90,6 +92,7 @@ fn parse(blob: &'static [u8]) -> Option<(&'static str, Vec<Icon>)> {
             name: reader.short()?,
             tags: reader.words()?,
             categories: reader.words()?,
+            aliases: reader.words()?,
             stroked: reader.block()?,
             filled: reader.block()?,
         };

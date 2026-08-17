@@ -50,6 +50,17 @@ fn the_refusal_names_what_to_write_instead() {
     checked("icon-compound", "clapper").says("`clapperboard`");
 }
 
+/// A name upstream retired is **findable and not writable**: `scorsese icons
+/// unlock` answers `lock-open`, and this is the other half of that — the
+/// catalogue has one name per icon, and the retired one is refused like any
+/// other name nothing ships.
+#[test]
+fn a_name_upstream_retired_is_refused_like_any_other() {
+    let run = checked("icon-retired", "unlock");
+    assert!(run.failed, "a retired name draws nothing:\n{}", run.output);
+    run.says("there is no icon called `unlock`");
+}
+
 /// Nothing to suggest is an honest answer, and the message still has to be a
 /// sentence rather than trailing off into an empty list.
 #[test]
