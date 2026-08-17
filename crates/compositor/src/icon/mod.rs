@@ -37,16 +37,18 @@
 //! exclamation mark — carry it as a filled circle rather than a stroked one,
 //! and those are an icon's filled contours. Same colour, no second choice.
 //!
-//! Tags and categories come along with the geometry. They are upstream's own,
-//! they are what makes seventeen hundred icons findable at all, and dropping
-//! them at conversion time is the decision that would have to be undone.
+//! Tags, categories and former names come along with the geometry. They are
+//! upstream's own, they are what makes seventeen hundred icons findable at all,
+//! and dropping them at conversion time is the decision that would have to be
+//! undone. A former name is carried for finding and nothing else: there is one
+//! name per icon and it is the one a document writes.
 
 pub(crate) mod catalogue;
 mod draw;
 mod nearest;
 mod search;
 
-pub use search::Search;
+pub use search::{Hit, Search};
 
 use scorsese_core::{Anchor, Rgba};
 
@@ -69,6 +71,7 @@ pub struct Icon {
     name: &'static str,
     tags: Vec<&'static str>,
     categories: Vec<&'static str>,
+    aliases: Vec<&'static str>,
     stroked: &'static [u8],
     filled: &'static [u8],
 }
@@ -90,6 +93,16 @@ impl Icon {
     /// Upstream's broader grouping — *multimedia*, *arrows*, *weather*.
     pub fn categories(&self) -> &[&'static str] {
         &self.categories
+    }
+
+    /// The names upstream retired for this one — `lock-open` was `unlock`.
+    ///
+    /// **Findable, never writable.** A former name is the most likely wrong
+    /// guess a caller makes, so [`search`] matches these; [`find`] does not,
+    /// and validation still refuses one, because the catalogue has exactly one
+    /// name per icon and that is the name a document writes.
+    pub fn aliases(&self) -> &[&'static str] {
+        &self.aliases
     }
 
     /// How many path commands the icon draws, stroked and filled together.
@@ -161,8 +174,8 @@ pub fn nearest(name: &str) -> Vec<&'static str> {
     nearest::nearest(name)
 }
 
-/// The icons a word describes, best first — a substring of a name, a tag or a
-/// category.
+/// The icons a word describes, best first — a substring of a name, a tag, a
+/// category or a name upstream retired.
 ///
 /// The way anything reaches this catalogue without reading it: seventeen
 /// hundred names do not fit in a context window, and a caller that wants *the
@@ -172,6 +185,10 @@ pub fn nearest(name: &str) -> Vec<&'static str> {
 ///
 /// Not [`nearest`], which answers a different question: that one is for a name
 /// that was **nearly right**, and it never looks at what an icon is about.
+///
+/// A hit matched only by a retired name says so ([`Hit::formerly`]) and sorts
+/// after every current one, and the name it carries is still the catalogue's —
+/// this makes a former name *findable*, never *writable*.
 pub fn search(query: &str) -> Search {
     search::search(query)
 }

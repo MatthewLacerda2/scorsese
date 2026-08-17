@@ -5,6 +5,7 @@
 //! conversion dropped, an icon whose contours came out empty. With seventeen
 //! hundred of them, nobody is going to notice that by looking.
 
+mod aliases;
 mod catalogue;
 mod drawing;
 mod nearest;

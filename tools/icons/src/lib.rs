@@ -117,8 +117,35 @@ fn entry(file: &Path) -> Result<Entry, String> {
         name,
         tags: words(&metadata, "tags")?,
         categories: words(&metadata, "categories")?,
+        aliases: aliases(&metadata)?,
         drawing,
     })
+}
+
+/// The names an icon used to answer to, out of its metadata.
+///
+/// Its own reader rather than [`words`] because an alias is not a word:
+/// upstream writes each one as an object carrying the former `name` beside the
+/// reason it was retired, and the bare-string form the same field once took is
+/// still accepted so a version bump does not fall over on one. Anything else is
+/// an error, which is upstream changing shape and a thing for whoever is
+/// vendoring to look at.
+fn aliases(metadata: &serde_json::Value) -> Result<Vec<String>, String> {
+    let Some(value) = metadata.get("aliases") else {
+        return Ok(Vec::new());
+    };
+    value
+        .as_array()
+        .ok_or("its 'aliases' is not a list")?
+        .iter()
+        .map(|alias| {
+            alias
+                .as_str()
+                .or_else(|| alias.get("name").and_then(serde_json::Value::as_str))
+                .map(str::to_string)
+                .ok_or_else(|| "its 'aliases' holds something with no name".to_string())
+        })
+        .collect()
 }
 
 /// One list of words out of an icon's metadata. Absent is empty; present and

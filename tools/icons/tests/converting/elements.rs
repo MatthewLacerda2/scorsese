@@ -97,6 +97,7 @@ fn the_blob_announces_itself() {
         name: "dot".to_string(),
         tags: vec!["point".to_string()],
         categories: Vec::new(),
+        aliases: vec!["pip".to_string()],
         drawing: parse(&icon(r#"<circle cx="9" cy="9" r="1" />"#)).expect("an icon"),
     };
     let bytes = blob::encode("1.31.0", &[entry]).expect("a legal catalogue");

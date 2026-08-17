@@ -8,6 +8,11 @@
 //! names do not fit in a context window, which is the whole reason a search
 //! exists rather than a listing.
 //!
+//! The likeliest wrong guess of all is a name the icon *used* to have, so those
+//! are searched too and marked when they match. What comes back is still the
+//! catalogue's own name either way, which is what keeps the answer something to
+//! paste rather than something to interpret.
+//!
 //! It costs nothing and needs nothing: no bake, no ffmpeg, no network, no
 //! provider. The table is compiled into this binary, so this is the standing
 //! `synth_survey` has — a tool to call on a hunch rather than one to budget for.
@@ -33,11 +38,15 @@ impl Tool for Icons {
          write as an `icon` asset's `name`. This build ships the whole Lucide \
          set, seventeen hundred symbols, which is far too many to list: a word \
          is how you reach it. `query` is matched as a plain substring, \
-         case-insensitive and never fuzzy, first against every icon's name and \
+         case-insensitive and never fuzzy, first against every icon's name, \
          then against the words it is filed under — which is what finds \
          `clapperboard` for \"film\", \"cinema\" or \"movie\", none of which is \
-         in its name. Exact names come first, then names containing the word, \
-         then everything a tag matched. The answer is capped and says both how \
+         in its name — and last against the names upstream retired, which is \
+         what finds `lock-open` for \"unlock\". Exact names come first, then \
+         names containing the word, then everything a tag matched, then \
+         anything only a retired name matched, which is written \
+         `lock-open (formerly unlock)`: the name to write is the one before \
+         the brackets, always. The answer is capped and says both how \
          many matched and how many are shown, so a long list is never mistaken \
          for the whole of one; when it is capped, a narrower word is the way to \
          the rest. Nothing matching is an answer rather than an error — try \
@@ -58,9 +67,11 @@ impl Tool for Icons {
                 "query": {
                     "type": "string",
                     "description": "The word to look for — `camera`, `film`, \
-                                    `warning`, `arrow`. Matched inside names and \
-                                    tags alike, so a fragment works: `clap` finds \
-                                    the clapperboard."
+                                    `warning`, `arrow`. Matched inside names, \
+                                    tags and retired names alike, so a fragment \
+                                    works (`clap` finds the clapperboard) and so \
+                                    does the name an icon used to have (`unlock` \
+                                    finds `lock-open`)."
                 }
             },
             "required": ["project", "query"]

@@ -251,8 +251,28 @@ there is nothing to predict and nothing to be surprised by: a fragment matches
 (`clap` finds the clapperboard), and a word that finds nothing means the
 catalogue has nothing filed under it. Ordering is the one thing that is not
 alphabetical — an exact name first, then names containing the word, then
-everything a tag matched — because a caller confirming a name it already has
-should not read past nine others to do so.
+everything a tag matched, then anything only a retired name matched — because a
+caller confirming a name it already has should not read past nine others to do
+so.
+
+**It also matches the name an icon used to have, and says when it did.**
+Upstream renames things, and a former name is the likeliest wrong guess there
+is: `unlock` is what the rest of the world calls what Lucide now files as
+`lock-open`, and `file-json` and `text-select` are the same story.
+
+```
+icons  { "project": "teaser.scor", "query": "unlock" }
+       → "1 icon matches `unlock`: lock-open (formerly unlock). A name in
+          brackets is one upstream retired — write the name before it."
+```
+
+A retired name sorts **after** every current one, because it is the weakest
+evidence in the record and somebody who typed a current name must not be pushed
+down the list by one. It is **marked** because an unexplained hit on a word that
+is nowhere in the icon reads exactly like the fuzziness this search refuses. And
+it is never writable: `"name": "unlock"` is still refused with the near-match
+message, and the name outside the brackets is the only one the catalogue answers
+to.
 
 **The answer is capped at forty and says both numbers.** A one-letter query
 matches most of the set; the reply states how many matched as well as how many

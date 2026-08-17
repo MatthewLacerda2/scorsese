@@ -166,18 +166,22 @@ pub(crate) enum Command {
     ///
     /// The set is seventeen hundred symbols and nobody can read that list, so a
     /// word is how you get at it. The query is matched as a plain substring —
-    /// case-insensitive, never fuzzy — against each icon's name and then
-    /// against the words it is filed under, which is what finds `clapperboard`
-    /// for "film" and "cinema". Exact names come first, then names containing
-    /// the word, then everything a tag matched.
+    /// case-insensitive, never fuzzy — against each icon's name, then against
+    /// the words it is filed under, which is what finds `clapperboard` for
+    /// "film" and "cinema", and last against the names upstream retired, which
+    /// is what finds `lock-open` for "unlock". Exact names come first, then
+    /// names containing the word, then everything a tag matched, then anything
+    /// only a retired name matched — printed `lock-open (formerly unlock)`,
+    /// where the name to write is the one before the brackets.
     ///
     /// The answer is capped, and says how many matched as well as how many are
     /// shown. Nothing matching is an answer too: the table is compiled into
     /// this binary, so a search touches no project, no network and no file.
     Icons {
         /// The word to look for — `camera`, `film`, `warning`, `arrow`. Matched
-        /// inside names and tags alike, so a fragment works: `clap` finds the
-        /// clapperboard.
+        /// inside names, tags and retired names alike, so a fragment works
+        /// (`clap` finds the clapperboard) and so does a name an icon used to
+        /// have (`unlock` finds `lock-open`).
         query: String,
     },
     /// Realise every sketched brief: hand each to its provider, wait a while,

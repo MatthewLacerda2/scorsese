@@ -16,8 +16,8 @@ pub const MAGIC: &[u8] = b"SCORICON";
 
 /// The format's own version, which is not Lucide's. It moves when the layout
 /// below changes, so a blob written by an older tool is refused rather than
-/// misread.
-pub const FORMAT: u8 = 1;
+/// misread. Moved to 2 when aliases joined a record.
+pub const FORMAT: u8 = 2;
 
 /// One icon, as the tool has it before it is written down.
 pub struct Entry {
@@ -27,6 +27,9 @@ pub struct Entry {
     pub tags: Vec<String>,
     /// Upstream's `categories`, in upstream's order.
     pub categories: Vec<String>,
+    /// The names this icon used to answer to upstream, in upstream's order.
+    /// Findable, never writable — see the compositor's `icon::search`.
+    pub aliases: Vec<String>,
     /// The two contour lists.
     pub drawing: Drawing,
 }
@@ -44,6 +47,7 @@ pub fn encode(version: &str, icons: &[Entry]) -> Result<Vec<u8>, String> {
         short(&mut out, icon.name.as_bytes(), &icon.name)?;
         words(&mut out, &icon.tags, &icon.name)?;
         words(&mut out, &icon.categories, &icon.name)?;
+        words(&mut out, &icon.aliases, &icon.name)?;
         block(&mut out, &icon.drawing.stroked);
         block(&mut out, &icon.drawing.filled);
     }
