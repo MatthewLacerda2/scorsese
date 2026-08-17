@@ -215,7 +215,10 @@ fn retimed(speed: Speed) -> String {
 }
 
 /// What a document's `fit` value is called, in the words the format uses.
-const fn fit(fit: Fit) -> &'static str {
+///
+/// Shared with [`crate::layout`] for [`kind`]'s reason: a clip's `fit` is
+/// named in both answers, and it has to be the word the document spells.
+pub(crate) const fn fit(fit: Fit) -> &'static str {
     match fit {
         Fit::Fit => "fit",
         Fit::Fill => "fill",
@@ -286,7 +289,10 @@ fn endpoint(end: &Endpoint) -> String {
 }
 
 /// What a document's asset `kind` is called, in the words the format uses.
-const fn kind(kind: AssetKind) -> &'static str {
+///
+/// Shared with [`crate::layout`], which names the same kinds in the same
+/// breath: two spellings of `generated_video` would read as two things.
+pub(crate) const fn kind(kind: AssetKind) -> &'static str {
     match kind {
         AssetKind::Video => "video",
         AssetKind::Image => "image",

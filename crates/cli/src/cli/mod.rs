@@ -400,6 +400,7 @@ pub(crate) enum Command {
     },
     /// Say what the timeline contains — what is on screen when, on which
     /// track, at what fit, with what animated, and what is audible under it.
+    /// With `--at`, also *where* on the frame each thing lands.
     /// No render, no ffmpeg, no cost.
     Describe {
         /// Describe the cut as it would be rendered at this framerate.
@@ -410,6 +411,18 @@ pub(crate) enum Command {
         /// frames 30 up to 120, `30:` runs to the end, `:120` from the start.
         #[arg(long)]
         range: Option<FrameRange>,
+        /// Also say where each clip's content lands at this instant — `2.5s`
+        /// for a time, `75` for a timeline frame. The rectangle a title's
+        /// wrapped block, a shape's box or a fitted picture covers, in
+        /// fractions of the frame, which is the unit the document is written
+        /// in. Repeatable: a block that fits at `0:12` may not at `0:48`.
+        #[arg(long, value_delimiter = ',')]
+        at: Vec<Cue>,
+        /// The frame `--at` is measured against. The answer is in fractions,
+        /// but the frame's shape still decides it: a `fit` picture letterboxes
+        /// against this aspect and a title wraps against this width.
+        #[arg(long, default_value = "1920x1080")]
+        resolution: Resolution,
     },
     /// Make sound from a recipe the project carries: an effect, or a score.
     /// No key, no network, no cost, and the same bytes every time.

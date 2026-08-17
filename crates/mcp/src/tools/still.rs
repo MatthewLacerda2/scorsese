@@ -187,7 +187,11 @@ const WANTED: &str = "`at` is required: a time like 9.1s, a frame like 285, or a
 /// `render --stills`. A list of instants is a list of questions, and the
 /// answers have to line up with them — a client that asked about the end and
 /// then the start reads the reply in that order.
-fn instants(arguments: &Value, fps: Fps) -> Result<Vec<Frames>, String> {
+///
+/// Shared with `project_describe`, which takes the same argument for the same
+/// reason: `at` has to mean one thing across the whole server, so a client
+/// that learned `["0s", "9.1s"]` here can write it there.
+pub(super) fn instants(arguments: &Value, fps: Fps) -> Result<Vec<Frames>, String> {
     let asked = match arguments.get("at") {
         Some(Value::String(one)) => vec![one.as_str()],
         Some(Value::Array(many)) => many

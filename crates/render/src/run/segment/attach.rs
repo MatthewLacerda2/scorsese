@@ -13,10 +13,15 @@
 //! would have been — draws a line into empty space, pointing at nothing, which
 //! is a worse answer than an absent arrow and a note explaining it.
 
-use scorsese_compositor::{Area, Properties, Resolution};
-use scorsese_core::{Anchor, Attach, Endpoint, Geometry, Shape, Side};
+use scorsese_core::{Attach, Endpoint, Geometry, Shape, Side};
 
 use crate::plan::Shot;
+
+/// Where a layer sits within its own raster, and how to ask where that lands
+/// on the canvas. Shared with the query that reports the same rectangle
+/// without drawing anything — [`crate::content`] says why there is only one of
+/// them.
+pub(super) use crate::content::Rect;
 
 /// One arrow that has to be redrawn as its ends move.
 pub(super) struct Following {
@@ -40,47 +45,6 @@ pub(super) enum End {
         /// Which side of that layer's own rectangle.
         side: Side,
     },
-}
-
-/// Where a layer sits, everything an attachment needs to ask about it.
-///
-/// Two rectangles are in play and confusing them is the bug this type exists to
-/// prevent. `source` is the raster the layer's pixels live on; `area` is the
-/// part of it the layer actually *shows* — a title's wrapped block, a box's own
-/// box — which for a decoded picture is all of it and for a shape is very much
-/// not.
-#[derive(Debug, Clone, Copy)]
-pub(super) struct Rect {
-    /// The layer's own raster.
-    pub(super) source: Resolution,
-    /// What it shows within that raster.
-    pub(super) area: Area,
-    /// Which edges of the frame it rests against.
-    pub(super) anchor: Anchor,
-}
-
-impl Rect {
-    /// Where `side` of this layer is on the canvas, for one instant.
-    ///
-    /// The layer's own transform is applied by the compositor's matrix rather
-    /// than a copy of it: a second implementation of *where does a layer land*
-    /// would drift from the first, and the drift would look like an arrow
-    /// missing its box by a few pixels.
-    pub(super) fn point_at(
-        self,
-        side: Side,
-        properties: &Properties,
-        canvas: Resolution,
-    ) -> (f32, f32) {
-        let (across, down) = side.on_unit_rect();
-        scorsese_compositor::on_canvas(
-            properties,
-            self.anchor,
-            self.source,
-            canvas,
-            self.area.at(across, down),
-        )
-    }
 }
 
 /// Turns an arrow's authored endpoints into ends this segment can resolve.

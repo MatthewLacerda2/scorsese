@@ -399,6 +399,64 @@ Refusals change nothing at all: a factor that is not positive, a clip that
 would land before the start of the timeline, a clip that would round away to
 less than a frame, and any result the document would not load.
 
+## Where things land on the frame: `project_describe` with `at`
+
+`project_describe` says what is on screen. **`at` says where it is.**
+
+```
+project_describe  { "project": "teaser.scor", "at": "12s" }
+                  → the cut, and then:
+
+where things land at 12.00s (frame 288), on a 1920x1080 frame — as fractions of it
+  bg/panel        shape    x 0.150–0.850  y 0.350–0.650  (0.700 × 0.300)
+  titles/caption  text     x 0.180–0.820  y 0.402–0.598  (0.640 × 0.196)
+  not on screen here: open, rooftop, end-card
+```
+
+Every number is a **fraction of the frame**, which is the unit the document is
+written in: `transform.position`, a text `size`, a shape's `width`. So a figure
+read here can be written straight back into `project.json` — a panel made to sit
+behind that caption is `height: 0.196` plus whatever padding you want, rather
+than a guess refined by looking at three renders.
+
+**It is the compositor's own rectangle, not a second calculation of it.** The
+same matrix that draws the layer places these corners, so the answer cannot
+drift from the picture. That is the whole reason this exists: predicting a
+wrapped block's height as `lines × size × 1.45` is arithmetic the renderer has
+already done exactly, and being close enough is a bug waiting for a font to
+change.
+
+**A layer that is turned reports the smallest upright rectangle containing it.**
+A rotated block has no upright rectangle of its own, and the box around it is
+the answer a caller can use.
+
+**`at` takes a list**, and should, whenever a layout has to hold at more than one
+point: `{ "at": ["4s", "12s", "48s"] }`. A caption that fits at 0:12 may not at
+0:48, where a longer one has taken its place — which is exactly the mistake
+nobody catches until the film is watched.
+
+**Clips with no rectangle are named, with the reason**, because the reasons are
+different things to do about it:
+
+- *not on screen here* — it is somewhere else on the timeline. Ask at an instant
+  it plays.
+- *in the mix, not on the picture* — it is a sound. A narration **sketch** is not
+  this: an ungenerated prompt draws a slug card, and a card has a rectangle like
+  anything else.
+- *no rectangle for …* — it is on screen and could not be measured. An arrow (a
+  line between two points has no box of its own), a media file that has gone
+  missing, or a source whose pixel size the document never recorded, which
+  `project_probe` writes down.
+
+`resolution` sets the frame it is measured against, default `1920x1080`. The
+answer is in fractions either way, but the frame's *shape* still decides it: a
+`fit` picture letterboxes against that aspect and a title wraps against that
+width. Nothing is composited, no ffmpeg runs, and it costs nothing.
+
+**It reports; it never moves anything.** There is no tool that centres, packs or
+un-collides a layout, and there will not be one — knowing where a thing is does
+not make the editor the one to move it.
+
 ## Looking at the frames
 
 Two tools answer with something other than words, and the split between them is
