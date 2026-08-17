@@ -1,7 +1,7 @@
 //! One stretch of timeline, and what is on it.
 
 use scorsese_compositor::ANIMATED as DRAWN;
-use scorsese_core::{AssetKind, Crop, Fit, Fps, Rgba, Shape, Speed};
+use scorsese_core::{AssetKind, Crop, Fit, Fps, Icon, Rgba, Shape, Speed};
 
 use crate::audio::gain::ANIMATED as MIXED;
 use crate::audio::path::VOLUME;
@@ -151,7 +151,7 @@ impl Playing {
     }
 }
 
-/// What a clip puts there — the four things a layer can actually be.
+/// What a clip puts there — the things a layer can actually be.
 ///
 /// `PartialEq` and no `Eq`, since a shape carries the fractions it is drawn
 /// from and a fraction is a float. Nothing sorts or hashes a description, so
@@ -172,6 +172,11 @@ pub enum Shown {
     /// which of them came out wrong needs each described as the shape it is
     /// rather than counted as media.
     Shape(Shape),
+    /// A named symbol from the set this build ships. Named for
+    /// [`Shown::Shape`]'s reason and one more: the name is the one part of an
+    /// icon that can be wrong without anything else about the clip looking odd,
+    /// so a description that hid it behind "media" would hide the mistake too.
+    Icon(Icon),
     /// A slug card, because there is nothing generated to show. What makes a
     /// full preview cut of prompt clips cost nothing — and the case a
     /// description most has to name, since a cut made entirely of cards looks
@@ -206,6 +211,12 @@ impl Shown {
                 // asset built in memory. Media rather than an invented
                 // rectangle: describing a shape nobody wrote would be worse
                 // than describing nothing.
+                None => Self::Media,
+            },
+            // Same reading, and the same unreachable arm: an icon nobody named
+            // is better described as nothing than as a symbol invented here.
+            (AssetKind::Icon, _) => match &shot.asset.icon {
+                Some(icon) => Self::Icon(icon.clone()),
                 None => Self::Media,
             },
             _ => Self::Media,

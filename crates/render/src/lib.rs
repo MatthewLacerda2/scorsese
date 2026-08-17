@@ -116,6 +116,7 @@ pub mod say;
 pub(crate) mod settings;
 pub(crate) mod shape;
 pub(crate) mod slug;
+pub(crate) mod symbol;
 pub(crate) mod text;
 pub mod tools;
 pub(crate) mod workers;
@@ -146,7 +147,9 @@ pub use scorsese_compositor::grid;
 /// same reason: the CLI and the MCP server reach the shipped faces through this
 /// crate rather than depending on the compositor, and the shipped symbols are
 /// the second catalogue of exactly that kind. [`icon::find`] answers whether a
-/// name is one of them, and [`icon::all`] is what a listing or a search reads.
+/// name is one of them, [`icon::nearest`] is what a refusal says instead of
+/// listing seventeen hundred, and [`icon::all`] is what a listing or a search
+/// reads.
 pub use scorsese_compositor::icon;
 
 pub use checkup::Checkup;
@@ -166,6 +169,7 @@ pub use settings::{
     Bitrate, BitrateError, RenderSettings, Resolution, ResolutionError, SampleRate, SampleRateError,
 };
 pub use slug::{Absent, wording};
+pub use symbol::{UnknownIcon, unknown_icons};
 pub use text::{UncoveredGlyphs, UnknownFont, uncovered_glyphs, unknown_fonts};
 pub use tools::{Tools, ToolsError};
 pub use workers::Workers;

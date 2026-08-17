@@ -19,6 +19,7 @@
 mod assets;
 mod error;
 mod field;
+mod icon;
 mod report;
 mod shape;
 mod speech;
@@ -26,7 +27,8 @@ mod timeline;
 mod video;
 
 pub use error::{
-    AssetProblem, ShapeProblem, SpeechProblem, TimelineProblem, ValidationError, VideoProblem,
+    AssetProblem, IconProblem, ShapeProblem, SpeechProblem, TimelineProblem, ValidationError,
+    VideoProblem,
 };
 pub use field::AssetField;
 pub use report::ValidationErrors;

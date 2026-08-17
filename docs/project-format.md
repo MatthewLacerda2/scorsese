@@ -1,4 +1,4 @@
-# `project.json` — schema v25
+# `project.json` — schema v26
 
 The contract between the CLI, the MCP server, the GUI, and every project
 saved on someone's disk. It is meant to be hand-written: an agent should be
@@ -12,7 +12,7 @@ bump and a migration note.
 
 ```json project
 {
-  "schema_version": 25,
+  "schema_version": 26,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -123,7 +123,7 @@ re-importing or regenerating a file is one edit in one place.
 | Field | Required for | Meaning |
 | --- | --- | --- |
 | `id` | all | Unique within the project |
-| `kind` | all | `video`, `image`, `audio`, `text`, `color`, `generated_video`, `generated_audio`, `synth_audio` |
+| `kind` | all | `video`, `image`, `audio`, `text`, `color`, `shape`, `icon`, `generated_video`, `generated_audio`, `synth_audio` |
 | `path` | file-backed kinds | Relative to the project root |
 | `sha256` | optional | 64 lowercase hex chars, of the file at `path` |
 | `media` | optional | What ffprobe found: `duration_seconds`, `width`, `height`, `frame_rate` (a rational), `has_alpha`, `audio_channels`, `sample_rate` — see below |
@@ -133,6 +133,8 @@ re-importing or regenerating a file is one edit in one place.
 | `text` | `text` | The string to render; text assets carry content inline and have no `path` |
 | `style` | optional, `text` only | How that string looks: `font`, `weight`, `size`, `color`, `align`, `line_height`, `max_width` — see below |
 | `color` | `color` | The colour to fill with, as `#rrggbb` or `#rrggbbaa`; colour assets have no `path` |
+| `shape` | `shape` | The outline to draw and how it is coloured — see below |
+| `icon` | `icon` | Which symbol to draw, how big and in what colour — see below |
 | `note` | optional | Why this asset is what it is. Never rendered — see above |
 | `video` | optional, `generated_video` only | The rest of the brief: `model`, `resolution`, `seconds`, `aspect`, `first_image`, `last_image`, `reference_images` — see below |
 | `speech` | optional, `generated_audio` only | The rest of the brief: `model`, `voice_id`, `language`, `seed` — see below |
@@ -805,6 +807,84 @@ Elbow and orthogonal routing, obstacle avoidance, editable control points,
 labels riding along the line, dashes and multi-segment paths are not here.
 Polygons, stars, dashed borders, shadows and gradients are not planned at all:
 each is a drawing program growing inside a video editor.
+
+### Icon assets
+
+```json asset
+{ "id": "play-badge", "kind": "icon",
+  "icon": {
+    "name": "clapperboard",
+    "size": 0.12,
+    "color": "#ffffffff",
+    "stroke_width": 0.08
+  } }
+```
+
+The fourth kind with no file behind it, and the one that draws a **symbol this
+build already ships** — the play triangle, the clapperboard, the arrow, the
+warning triangle a video is annotated with. scorsese carries the
+[Lucide](https://lucide.dev) set, so a document names one the way a `style`
+names a font.
+
+**A name is portable in a way a path is not.** `"clapperboard"` survives
+`scp -r` between machines because the symbols travel with the binary, and it is
+a few bytes instead of the megabyte a PNG of the same drawing costs — sharp at
+4K, and recoloured by editing one string rather than by going back to the other
+program.
+
+`icon` is required on this kind and refused on every other. Inside it:
+
+| Field | Required | Meaning |
+| --- | --- | --- |
+| `name` | yes | Which symbol, by Lucide's own name for it — lowercase and hyphenated |
+| `size` | yes | How big, as a fraction of the raster's **height** |
+| `color` | yes | The one colour it is drawn in, as `#rrggbb` or `#rrggbbaa` |
+| `stroke_width` | no | How thick its line is, as a fraction of the **icon's own box**. Defaults to `0.0833` — Lucide's own `2/24` |
+
+**`size` is one number against one axis, and the icon stays square.** This is
+the one place the unit differs from the neighbouring kind, so it is worth
+reading twice: a `shape` takes a `width` against the frame's width and a
+`height` against its height, because a rectangle has two independent sides. An
+icon does not — every symbol is drawn in a 24×24 square — so it takes one
+measurement, against the same axis a text `size` uses. The same number of pixels
+comes out both ways, on every aspect ratio. `0.12` on a 1080-line render is a
+130-pixel square whether the frame is 16:9 or vertical.
+
+**`stroke_width` is a fraction of the icon, not of the frame**, and that is the
+opposite choice from a shape's `stroke_width`. A shape's border is a fraction of
+the raster's height and deliberately does *not* scale with the box: a callout
+wants the same visible weight whatever size it is. A symbol wants the opposite.
+Halve an icon whose stroke is measured against the frame and the line stays as
+thick while the drawing shrinks around it, until the counters close up and the
+symbol reads as a blob. Written against its own box, a half-size icon is simply
+the same picture, half the size. `0.08` is a little heavier than the default;
+`0.05` is a fine hairline on a large symbol.
+
+**One colour, because a symbol has one.** The whole visual vocabulary of the set
+is a single stroke, so there is no `fill` and there is no second colour — and
+`fill` is not merely absent but meaningless: Lucide paths are open strokes, and
+painting an interior across them produces garbage rather than a filled icon.
+There is no default colour, for the reason a `color` asset has none.
+
+**Where it sits is `anchor` and `transform.position`**, exactly as for a shape
+or a title, and `fit` is meaningless here for the same reason — there is no
+source raster to reconcile. It composites like any other layer, so an icon that
+fades up, slides in or grows is keyframes and nothing new: **nothing about an
+icon animates on its own**, and one that grows uses `transform.scale`.
+
+**A name the build does not ship is refused**, and the refusal names the close
+ones — `scorsese check` reports it as a problem, the way it reports a `style`
+naming a face that is not there. The set is too large to list in an error, so
+what a wrong name gets back is the near matches — for a typo
+(`clapperbord` → `clapperboard`), for a half-remembered compound
+(`play` → `play`, `circle-play`, `square-play`), and for the start of a name
+(`clapper` → `clapperboard`). Nothing is suggested when nothing is close, which
+is an honest answer rather than a guess. A render that meets an unknown name
+anyway draws an empty layer and says so in its report rather than stopping.
+
+Not here: user-supplied SVG, multi-colour icons, any set beyond the one that
+ships, and gradients — the last for the reason the `color` section already
+gives.
 
 `media.duration_seconds` is wall-clock, and `media.frame_rate` is a rational
 in the same shape as `timeline_fps` — a source's own grid, which is not
@@ -1502,8 +1582,9 @@ a project unattended sees the whole list at once.
 
 What it checks: schema version, duplicate ids, path rules, hash shape, the
 fields each asset kind requires — including that only a `text` asset carries
-`text` or `style`, only a `color` asset carries `color` and only a `shape`
-asset carries `shape`, that a shape has area, a corner it has room to round,
+`text` or `style`, only a `color` asset carries `color`, only a `shape`
+asset carries `shape` and only an `icon` asset carries `icon`, that an icon has
+a size and a thickness to draw with, that a shape has area, a corner it has room to round,
 and something to draw with — and that an arrow has two ends in different
 places and no `fill`, since a line has no inside — that a `style`'s
 font path, a `synth_audio`'s `recipe` and the document's `script`
@@ -1537,6 +1618,14 @@ applies: the shape is validated here, and whether the face is really on disk is
 the render's to find out. So is the `script`, and its missing file is a warning:
 a project that has lost its brief still renders.
 
+**An `icon`'s `name` splits the same way, and the reason is the generality
+rule.** The format says an icon *has* a name; which names exist is a set of
+property values, and that list lives beside the code that draws them rather
+than in the model. So validation checks the block is on the right kind and that
+its numbers describe something with ink in it, and *whether the symbol exists*
+is `check`'s answer and the render's — a problem, reported with the near
+matches, exactly as an unknown font name is.
+
 `style.weight` splits the same way, and the split is worth reading once. What
 the document alone can say is checked here, and it is one thing: a number
 outside OpenType's own 1–1000 is not a weight for any face. What only the
@@ -1544,6 +1633,20 @@ outside OpenType's own 1–1000 is not a weight for any face. What only the
 runs — is refused at the render, in the same breath as "this is not a font I can
 read". That holds for `sans` and `serif` as much as for a font the project
 carries; they are files too, and scorsese happens to be the one carrying them.
+
+## Migrating from v25
+
+v26 adds one asset kind and takes nothing away: `icon`, alongside `text`,
+`color` and `shape` among the kinds with no file behind them, carrying an
+`icon` block of its own. No v25 document can contain one — a v25 build refuses
+both an unknown `kind` and an unknown field — so no v25 document means anything
+different under v26, and converting one is changing `"schema_version": 25` to
+`"schema_version": 26` and nothing else.
+
+Nothing renders differently, and nothing new animates. Every existing kind is
+drawn by exactly the code that drew it before, and an icon that grows or fades
+does it through `transform.scale` and `opacity` — the properties every layer
+already has — so the animatable-property table below is unchanged.
 
 ## Migrating from v24
 

@@ -3,7 +3,7 @@
 
 use crate::asset::{AssetId, AssetKind};
 use crate::path::{PathProblem, ProjectPath};
-use crate::validate::error::{ShapeProblem, SpeechProblem, VideoProblem};
+use crate::validate::error::{IconProblem, ShapeProblem, SpeechProblem, VideoProblem};
 use crate::validate::field::AssetField;
 
 /// One thing wrong with a row of the assets table.
@@ -139,6 +139,15 @@ pub enum AssetProblem {
     /// [`ShapeProblem`].
     #[error(transparent)]
     Shape(#[from] ShapeProblem),
+
+    /// Something wrong with the symbol an `icon` asset describes.
+    ///
+    /// Split for [`ShapeProblem`]'s reason, and kept apart from it for the
+    /// reason the kinds are kept apart: the same field names mean different
+    /// things on the two, so one catalogue would report a thickness against the
+    /// wrong unit. See [`IconProblem`].
+    #[error(transparent)]
+    Icon(#[from] IconProblem),
 
     /// Something wrong with what a spoken line is asking for.
     ///

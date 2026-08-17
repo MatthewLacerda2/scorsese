@@ -96,6 +96,7 @@ goldens!(
     grade_saturation,
     grade_temperature,
     grade_vignette,
+    icons,
     italic,
     letterbox,
     letterbox_anchored,

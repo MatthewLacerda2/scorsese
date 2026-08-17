@@ -11,5 +11,6 @@ mod common;
 
 mod exit_codes;
 mod glyphs;
+mod icons;
 mod scripts;
 mod verify;
