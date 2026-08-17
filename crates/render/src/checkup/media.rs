@@ -1,7 +1,8 @@
-//! Turning pool health into `check` findings.
+//! Turning pool health into a checkup's findings.
 //!
 //! [`scorsese_core::asset_status`] answers *what state is this file in?*; this
-//! module answers the question `check` is actually asked — *will this render?*
+//! module answers the question a checkup is actually asked — *will this
+//! render?*
 //! The two are not the same, and the difference is the timeline. A missing
 //! file nothing references cannot stop a render, and a prompt that has not
 //! been generated yet is the normal state of a project before GO, not damage.
@@ -16,7 +17,7 @@ use scorsese_core::{AssetHealth, AssetId, AssetStatus};
 /// How much a finding matters, and therefore what it does to the exit code.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Severity {
-    /// The render cannot succeed. `check` exits non-zero.
+    /// The render cannot succeed. `scorsese check` exits non-zero.
     Problem,
     /// The render succeeds, but probably not the way anyone meant. Exit code
     /// stays zero — a signal that fails a build is a gate.

@@ -61,7 +61,13 @@
 //! [`unknown_in`] is the vocabulary of animatable property paths a project is
 //! checked against.
 //!
-//! **Five modules keep their path.** Three of them publish *verbs*, which need
+//! **What is wrong with a project is [`Checkup`]**, and it is here rather than
+//! in `core` because a font is a file this crate opens. It is the whole answer
+//! `scorsese check` prints and the whole answer the MCP server's
+//! `project_check` returns — one assembly, so the two can never come to
+//! different conclusions about the same project.
+//!
+//! **Six modules keep their path.** Three of them publish *verbs*, which need
 //! their noun in front of them to read: [`mod@audio`] mixes
 //! ([`audio::mixdown`]), measures ([`audio::measure`]) and owns the one
 //! property name a volume keyframe spells ([`audio::path::VOLUME`]);
@@ -72,7 +78,11 @@
 //! [`say::survey`], [`say::comparison`]). [`mod@tools`] holds the two
 //! environment variables that point the binaries somewhere else
 //! ([`tools::FFMPEG_ENV`], [`tools::FFPROBE_ENV`]) beside the [`Tools`] the
-//! root publishes. [`mod@plan`] is open because [`Segment`](plan::Segment) and
+//! root publishes. [`mod@checkup`] keeps its path for the verb reason too —
+//! [`checkup::findings`] is the health-to-severity table on its own, and
+//! [`checkup::Line`], [`checkup::Severity`] and [`checkup::Verdict`] are what
+//! a [`Checkup`] is made of rather than things to hold. [`mod@plan`] is open
+//! because [`Segment`](plan::Segment) and
 //! [`Shot`](plan::Shot) are what walking a plan means naming — its [`Plan`]
 //! and [`FrameRange`] are reachable both ways, which is one path more than
 //! anything needs and the next thing to tidy here.
@@ -84,6 +94,7 @@
 //! second caller of any of them would be a second renderer.
 
 pub mod audio;
+pub mod checkup;
 pub mod contact;
 pub(crate) mod describe;
 pub(crate) mod error;
@@ -123,6 +134,7 @@ pub use scorsese_compositor::{DissolveError, Placed, dissolve};
 /// inside [`contact::sheet`], where the source's own geometry still exists.
 pub use scorsese_compositor::grid;
 
+pub use checkup::Checkup;
 pub use contact::{ContactError, Look, Sheet};
 pub use describe::{
     Animated, Commentary, Cue, CueError, Description, Moment, Playing, Shown, Stretch, Travel,

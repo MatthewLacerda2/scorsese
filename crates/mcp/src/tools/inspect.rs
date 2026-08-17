@@ -3,7 +3,7 @@
 //! None of these change anything, and none of them cost anything to run.
 
 use scorsese_core::{HashCheck, Project, asset_status, fingerprint_of};
-use scorsese_render::{Commentary, Description, FrameRange, Note, Plan, unknown_in};
+use scorsese_render::{Checkup, Commentary, Description, FrameRange, Note, Plan, unknown_in};
 use serde_json::Value;
 
 use super::{Costs, Part, Reply, Tool, project_dir, project_only_schema};
@@ -128,17 +128,60 @@ impl Tool for Check {
     }
 
     fn schema(&self) -> Value {
-        project_only_schema()
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "project": super::project_property(),
+                "verify": {
+                    "type": "boolean",
+                    "description": "Re-hash every file to catch media edited behind \
+                                    the project's back since it was imported. Off by \
+                                    default, because this is the tool to call after \
+                                    every edit and re-reading a whole pool is slow: \
+                                    whether a file is *there* is checked either way \
+                                    and costs nothing."
+                }
+            },
+            "required": ["project"]
+        })
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let dir = project_dir(arguments)?;
-        match Project::load(&dir) {
-            Ok(_) => Ok("no problems with the document".into()),
-            // A failure here is the answer, not an error: being asked what is
-            // wrong and finding something is this tool working.
-            Err(problems) => Ok(problems.to_string().into()),
+        let file = dir.join(scorsese_core::PROJECT_FILE_NAME);
+        let json = std::fs::read_to_string(&file)
+            .map_err(|error| format!("opening {}: {error}", file.display()))?;
+        // Parsed rather than loaded, because `Project::load` validates and
+        // returns nothing to warn about when it refuses — and a document that
+        // does not validate is exactly the one there is most to say about. A
+        // document that will not *parse* is as far as this can get, and saying
+        // so is the answer rather than an error: being asked what is wrong and
+        // finding something is this tool working.
+        let project = match Project::from_json(&json) {
+            Ok(project) => project,
+            Err(problem) => return Ok(problem.to_string().into()),
+        };
+
+        let verify = arguments.get("verify").and_then(Value::as_bool) == Some(true);
+        let hashes = if verify {
+            HashCheck::Verify
+        } else {
+            HashCheck::Skip
+        };
+        // The same assembly `scorsese check` prints, so one project cannot get
+        // two different answers depending on which surface asked.
+        let checkup = Checkup::of(&project, &dir, hashes);
+        let mut out = String::new();
+        for line in checkup.lines() {
+            out.push_str(&format!("{line}\n"));
         }
+        out.push_str(checkup.summary());
+        out.push('\n');
+        if !verify {
+            out.push_str("(hashes not checked — pass verify: true to re-hash every file)\n");
+        }
+        out.push_str(checkup.verdict().says());
+        Ok(out.into())
     }
 }
 

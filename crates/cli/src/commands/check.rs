@@ -1,21 +1,20 @@
 //! `scorsese check`
 
-pub mod media;
-
 use std::path::Path;
 
 use anyhow::{Context, Result, bail};
-use scorsese_core::{
-    AssetId, HashCheck, PROJECT_FILE_NAME, Project, ProjectPath, ValidationErrors, asset_status,
-};
-use scorsese_render::{uncovered_glyphs, unknown_fonts, unknown_in};
-
-use media::{Finding, Severity};
+use scorsese_core::{HashCheck, PROJECT_FILE_NAME, Project};
+use scorsese_render::Checkup;
+use scorsese_render::checkup::Verdict;
 
 /// Reads the project and reports everything wrong or questionable about it in
 /// one pass, without rendering anything.
 ///
-/// Two kinds of finding, and the difference is the point:
+/// What counts as wrong is [`Checkup`]'s to decide and not this command's: the
+/// MCP server's `project_check` asks the same question and has to get the same
+/// answer, so all this does is print it and turn the verdict into an exit
+/// code. Two kinds of finding, and the difference is what the exit code is
+/// made of:
 ///
 /// - **Problems** make a render impossible — a dangling asset reference, two
 ///   clips fighting over the same instant, a file a clip references that is
@@ -46,138 +45,29 @@ pub(crate) fn run(project_dir: &Path, verify: bool) -> Result<()> {
     let project =
         Project::from_json(&json).with_context(|| format!("reading {}", file.display()))?;
 
-    let warnings = unknown_in(&project);
-    for warning in &warnings {
-        print!(
-            "warning: clip `{}`: nothing animates `{}`",
-            warning.clip, warning.property
-        );
-        match warning.did_you_mean {
-            Some(known) => println!(" — did you mean `{known}`?"),
-            None => println!(),
-        }
-    }
-
-    // A warning and never a problem, for the same reason a missing generated
-    // file is one: a project that has lost its brief still renders, and the
-    // frames it produces are not one pixel different for it. Worth saying
-    // loudly all the same — the script is the only part of the edit that
-    // cannot be reconstructed by looking at the film.
-    let lost_script = missing_script(&project, project_dir);
-    if let Some(path) = &lost_script {
-        println!("warning: the project's script `{path}` is not there");
-    }
-
     let hashes = if verify {
         HashCheck::Verify
     } else {
         HashCheck::Skip
     };
-    // Folded in with the media findings because it is the same kind of answer:
-    // a face this build cannot find stops a render exactly as a missing file
-    // does, and whoever reads the log should not have to know which half of the
-    // command noticed which.
-    let mut media = media::findings(&asset_status(&project, project_dir, hashes));
-    media.extend(unknown_fonts(&project).into_iter().map(|unknown| Finding {
-        asset: AssetId::new(unknown.asset.clone()),
-        severity: Severity::Problem,
-        detail: unknown.to_string(),
-    }));
-    // A warning rather than a problem, and the split is the same one the rest
-    // of this command makes: the render succeeds and every other frame is
-    // right. What earns it a line at all is that the failure is otherwise
-    // invisible — the character is dropped with its advance, so the text
-    // closes up and reads as something nobody wrote.
-    media.extend(
-        uncovered_glyphs(&project, project_dir)
-            .into_iter()
-            .map(|uncovered| Finding {
-                asset: AssetId::new(uncovered.asset.clone()),
-                severity: Severity::Warning,
-                detail: uncovered.to_string(),
-            }),
-    );
-    for finding in &media {
-        println!("{}: {finding}", finding.severity);
+    let checkup = Checkup::of(&project, project_dir, hashes);
+    for line in checkup.lines() {
+        println!("{line}");
     }
-
-    println!(
-        "{} — {} asset(s), {} track(s), {} clip(s)",
-        project.name,
-        project.assets.len(),
-        project.tracks.len(),
-        project.clips().count()
-    );
+    println!("{}", checkup.summary());
     if !verify {
         println!("(hashes not checked — pass --verify to re-hash every file)");
     }
 
-    let invalid = project.validate().err();
-    let warning_count =
-        warnings.len() + count(&media, Severity::Warning) + usize::from(lost_script.is_some());
-    match problem_report(invalid.as_ref(), &media) {
+    match checkup.verdict() {
         // Non-zero, and carrying the problems themselves rather than a count:
         // whatever runs this unattended reads the message and nothing else.
-        Some(report) => bail!(report),
-        None if warning_count == 0 => {
-            println!("no problems, nothing to warn about");
-            Ok(())
-        }
+        Verdict::Problems(report) => bail!(report),
         // Warnings alone are green. They audit quality; they do not prove
         // anything wrong, and a signal that fails a build is a gate.
-        None => {
-            println!("no problems, {warning_count} warning(s)");
+        Verdict::Clear(words) => {
+            println!("{words}");
             Ok(())
         }
     }
-}
-
-/// The failure message, or `None` when nothing blocks a render.
-///
-/// Document problems and media problems land in one list under one heading:
-/// they are the same answer to the same question, and whoever reads the log
-/// should not have to know which half of the command produced which line.
-fn problem_report(invalid: Option<&ValidationErrors>, media: &[Finding]) -> Option<String> {
-    let mut lines: Vec<String> = invalid
-        .map(|errors| errors.as_slice().iter().map(ToString::to_string).collect())
-        .unwrap_or_default();
-    lines.extend(
-        media
-            .iter()
-            .filter(|finding| finding.severity == Severity::Problem)
-            .map(ToString::to_string),
-    );
-    if lines.is_empty() {
-        return None;
-    }
-
-    let plural = if lines.len() == 1 {
-        "problem"
-    } else {
-        "problems"
-    };
-    let mut report = format!("{} {plural} in this project:", lines.len());
-    for line in &lines {
-        report.push_str("\n  - ");
-        report.push_str(line);
-    }
-    Some(report)
-}
-
-/// The script the document names, when there is no file where it says.
-///
-/// A path that breaks the project-path rules is validation's to report and not
-/// this function's, so a badly-shaped one is left alone here rather than
-/// producing a second complaint about the same field.
-fn missing_script(project: &Project, project_dir: &Path) -> Option<ProjectPath> {
-    let script = project.script.clone()?;
-    script.check().ok()?;
-    (!script.resolve(project_dir).is_file()).then_some(script)
-}
-
-fn count(media: &[Finding], severity: Severity) -> usize {
-    media
-        .iter()
-        .filter(|finding| finding.severity == severity)
-        .count()
 }
