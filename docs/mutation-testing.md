@@ -95,6 +95,20 @@ is usually the fastest way to see what a survivor means.
 `make mutants` finishes by rendering that as the Markdown CI posts — see
 [Reading the report](#reading-the-report) for what it does and does not list.
 
+**When to run it:** once the implementation is written and its tests pass, which
+is where CLAUDE.md puts it. That is when a survivor is cheapest to answer — the
+code is still in hand and the missing assertion is a two-minute edit — and it is
+why the run is not left to CI, whose comment arrives on a pull request that has
+already been declared finished.
+
+`make gates` ends with a line about it: whether `make mutants` has been run on
+this branch, and what it found if it has. It never runs it, because a signal
+inside the target that gets run most would stop being run at all — so the line
+is a report, and it says *not run* rather than going quiet over an answer it
+does not have. It knows because `make mutants` leaves `target/mutants-signal`
+behind, stamped with the branch it ran on and what the run found; a Rust file
+changed after that stamp makes the line read *stale* instead.
+
 ## Reading the report
 
 `python3 .github/scripts/mutants-summary.py mutants.out/outcomes.json` renders

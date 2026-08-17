@@ -29,6 +29,15 @@
 # Gates block; signals inform (CLAUDE.md, "Gates vs. signals"). `make gates`
 # runs only gates. `make coverage` and `make mutants` are signals and are
 # opt-in precisely so a local run never trains anyone to treat one as the other.
+#
+# The last line `gates` prints is about one of those signals, and it is a
+# *report* rather than a run: whether `make mutants` has been run on this
+# branch, and what it found if it has. Running it from here would put minutes
+# on the target that gets run most, which is how a signal turns into something
+# people route around; saying nothing left the first sighting of it to a CI
+# comment written after the branch was declared finished, which is where a
+# report gets deleted unread (#340). So the line names the command, and never
+# claims a result it does not have — the app gate's rule, applied to a signal.
 
 # Prerequisites run in order, and a gate that fails should be the last thing
 # printed rather than one of several racing to the terminal.
@@ -89,6 +98,55 @@ TOUCHES_APP = { \
 PIXEL_GATE_RUNS = [ "$$(uname -s)" = "Linux" ]
 PIXEL_GATE_SKIPPED = pixel gate not run -- the golden fixtures are skipped on $$(uname -s); they are authoritative on Linux, where the references were blessed. See docs/golden-renders.md.
 
+# What `make mutants` leaves behind so that `make gates` can say whether it
+# ran: line 1 the branch it ran on, line 2 what it found, and its mtime the
+# moment it finished. Under `target/`, which is gitignored, never shared
+# between worktrees (see `target-dir`) and wiped by `cargo clean` — all three
+# of which are the behaviour wanted here, the last one included: a stamp that
+# is gone reads as *not run*, which is the safe direction to be wrong in.
+#
+# The branch is on it because `target/` outlives a checkout of a different
+# branch in the same worktree, and a stamp from other work reporting a clean
+# result on this one is exactly the false green this line exists to avoid.
+MUTANTS_STAMP := target/mutants-signal
+
+# What the run found, in one sentence, counted from the lists cargo-mutants
+# writes beside its report rather than parsed back out of `outcomes.json`:
+# those files are one mutant per line, so `wc -l` cannot half-understand a
+# schema, and the Markdown report remains the one thing that reads the JSON.
+#
+# No `mutants.out` at all is the case the summary script calls "no mutants to
+# run" — cargo-mutants writes nothing when the diff it was handed has no
+# mutable lines in it, which is what a branch that only adds tests produces.
+#
+# The two cases below it are there so that an absence never renders as a clean
+# bill of health: a `mutants.out` with no lists in it, and lists that add up to
+# no mutants, are both a run that proved nothing, and they say so. Counting the
+# empty file as zero survivors is what would turn either into "all 0 mutations
+# were caught".
+MUTANTS_VERDICT = \
+	if [ ! -d mutants.out ]; then \
+		echo "nothing in the changed lines is in the mutated surface"; \
+	elif [ ! -f mutants.out/missed.txt ]; then \
+		echo "the run left no result lists behind, so there is nothing to report"; \
+	else \
+		missed=$$(wc -l < mutants.out/missed.txt); \
+		caught=$$(wc -l < mutants.out/caught.txt 2>/dev/null || echo 0); \
+		timeout=$$(wc -l < mutants.out/timeout.txt 2>/dev/null || echo 0); \
+		viable=$$((missed + caught + timeout)); \
+		if [ "$$viable" -eq 0 ]; then \
+			said="the run tested no mutants"; \
+		elif [ "$$missed" -eq 0 ]; then \
+			said="all $$viable mutations were caught"; \
+			if [ "$$timeout" -gt 0 ]; then said="$$said ($$timeout by timing out)"; fi; \
+		else \
+			said="$$missed of $$viable mutations survived"; \
+			if [ "$$timeout" -gt 0 ]; then said="$$said, $$timeout timed out"; fi; \
+			said="$$said; they are listed in mutants.out/missed.txt"; \
+		fi; \
+		echo "$$said"; \
+	fi
+
 # Both test gates run through nextest, so both ask for it the same way, and a
 # missing runner says what it is and how to get it rather than surfacing as
 # `error: no such command: nextest` from cargo. The prebuilt tarball is offered
@@ -105,7 +163,7 @@ NEXTEST_CHECK = command -v cargo-nextest >/dev/null 2>&1 || { \
 # `app/`, so without it make sees the target as already built and `make app`
 # prints "up to date" without running a thing. A check that silently does
 # nothing is worse than no check.
-.PHONY: help setup gates pre-commit target-dir inventory $(GATES) app-gates release format-fix mcp-table coverage mutants mergeable
+.PHONY: help setup gates pre-commit target-dir inventory $(GATES) app-gates release format-fix mcp-table coverage mutants mutants-status mergeable
 
 ##@ Everyday
 
@@ -152,6 +210,9 @@ gates: target-dir inventory $(GATES) ## Everything CI blocks on. Run this before
 # narrows the claim rather than removing a gate from it — which is why it reads
 # differently from the app line above and has to be here at all.
 	@$(PIXEL_GATE_RUNS) || echo "gates: $(PIXEL_GATE_SKIPPED)"
+# Last, and about a signal rather than a gate — so it comes after the green
+# line and can never change it. See `mutants-status`.
+	@$(MAKE) --no-print-directory mutants-status
 
 # For a delivery render, and not much else. The dev profile is optimised (see
 # the note in Cargo.toml), so the ordinary `cargo build` is already fast enough
@@ -343,6 +404,12 @@ coverage: ## Which pub items no test reaches. A signal: no threshold, blocks not
 # rather than guarded here, which is what keeps this and the CI job saying the
 # same thing.
 #
+# Every path out of here writes $(MUTANTS_STAMP), including the two that run
+# no mutants, because "it was run and there was nothing to do" is an answer and
+# `make gates` has to be able to tell it from silence. A run that dies for a
+# reason that is not a surviving mutant writes nothing, and is then reported as
+# never having happened — which it effectively did not.
+#
 # What gets mutated, and what to do with a survivor: docs/mutation-testing.md.
 mutants: ## Which changes to the code no test would notice. A signal: blocks nothing
 	@command -v cargo-mutants >/dev/null 2>&1 || { \
@@ -357,12 +424,49 @@ mutants: ## Which changes to the code no test would notice. A signal: blocks not
 	@git diff origin/main...HEAD -- '*.rs' > target/pr.diff
 	@if [ ! -s target/pr.diff ]; then \
 		echo "mutants: this branch changes no Rust source against origin/main."; \
+		said="this branch changed no Rust source"; \
 	else \
 		rm -rf mutants.out; \
 		cargo mutants --in-diff target/pr.diff; status=$$?; \
 		case $$status in 0|2|3) ;; *) exit $$status ;; esac; \
 		python3 .github/scripts/mutants-summary.py mutants.out/outcomes.json; \
-	fi
+		said=$$($(MUTANTS_VERDICT)); \
+	fi; \
+	printf '%s\n%s\n' "$$(git rev-parse --abbrev-ref HEAD)" "$$said" > $(MUTANTS_STAMP)
+
+# The line `make gates` ends on, and the reason it is reached from the recipe
+# rather than sitting in $(GATES): it runs nothing, it can fail nothing, and a
+# signal that could redden the gate summary would have stopped being a signal.
+# It costs two `git diff --name-only` calls and a stat, so `make gates` is not
+# measurably slower for having it.
+#
+# Three answers, and the middle one is why mtimes are consulted at all. A stamp
+# from before the last edit describes code that no longer exists, and reporting
+# what it said would be the false green in slow motion — so it is reported as
+# stale, naming the file that outdates it.
+#
+# "Changed Rust" is asked in three parts because `make mutants` scopes itself
+# to the committed diff and `make gates` is most often run with an edit still
+# in the working tree: an uncommitted or untracked `.rs` is code the signal
+# demonstrably has not seen, whatever the stamp says. Nothing is printed at all
+# when the branch changes no Rust — there is no signal to be missing, and a
+# documentation branch does not need telling.
+mutants-status:
+	@changed=$$( { git diff --name-only origin/main...HEAD -- '*.rs' 2>/dev/null; \
+	               git diff --name-only HEAD -- '*.rs' 2>/dev/null; \
+	               git ls-files --others --exclude-standard -- '*.rs'; } | sort -u); \
+	[ -n "$$changed" ] || exit 0; \
+	if [ ! -f $(MUTANTS_STAMP) ] || \
+	   [ "$$(head -n 1 $(MUTANTS_STAMP))" != "$$(git rev-parse --abbrev-ref HEAD)" ]; then \
+		echo "gates: mutation signal not run -- this branch changes Rust and 'make mutants' has not run on it; it blocks nothing, and it is cheapest to act on now. See docs/mutation-testing.md."; \
+		exit 0; \
+	fi; \
+	for file in $$changed; do \
+		[ -e "$$file" ] && [ "$$file" -nt $(MUTANTS_STAMP) ] || continue; \
+		echo "gates: mutation signal is stale -- $$file changed after the last 'make mutants'."; \
+		exit 0; \
+	done; \
+	echo "gates: mutation signal -- $$(tail -n 1 $(MUTANTS_STAMP))."
 
 ##@ Fixing
 
