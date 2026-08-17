@@ -27,6 +27,13 @@ use crate::registry::Property;
 pub mod path {
     /// How solid the layer is: `0.0` invisible, `1.0` opaque.
     pub const OPACITY: &str = "opacity";
+    /// How far the layer's own pixels are softened, as a fraction of the
+    /// layer's own **height**. `0.0` untouched, higher is blurrier.
+    ///
+    /// Animated as `blur` and not `grade.blur`: a grade is the closed set of
+    /// colour properties, each of which reads one pixel and writes one, and
+    /// this one reads a neighbourhood.
+    pub const BLUR: &str = "blur";
     /// Horizontal offset from where the layer naturally sits, as a fraction of
     /// the canvas **width**: `0.25` is a quarter of the way across it.
     pub const POSITION_X: &str = "transform.position.x";
@@ -84,6 +91,10 @@ pub const ANIMATED: &[Property] = &[
     Property {
         path: path::OPACITY,
         describes: "how solid the layer is",
+    },
+    Property {
+        path: path::BLUR,
+        describes: "how far the layer's own pixels are softened, as a fraction of its own height",
     },
     Property {
         path: path::POSITION_X,
@@ -161,6 +172,14 @@ pub struct Properties {
     pub flip: (f64, f64),
     /// `0.0` invisible, `1.0` solid.
     pub opacity: f64,
+    /// How far the layer's own pixels are softened before it is placed, as a
+    /// fraction of the layer's own **height**. `0.0` leaves it alone.
+    ///
+    /// **Of the layer's height and not the canvas's**, which is what makes the
+    /// number mean the same softness at 1080p and at 4K — and what makes
+    /// `scale` multiply the apparent blur, since the softening happens on
+    /// these pixels before the transform above places them.
+    pub blur: f64,
     /// The colour treatment applied to the layer's own pixels, before any of
     /// the geometry above.
     ///
@@ -182,6 +201,7 @@ impl Default for Properties {
             rotation: 0.0,
             flip: (0.0, 0.0),
             opacity: 1.0,
+            blur: 0.0,
             grade: Grade::NEUTRAL,
         }
     }
@@ -194,20 +214,23 @@ impl Properties {
     /// Anything the clip does not animate keeps its default, so a clip with no
     /// keyframes at all composites as a plain copy.
     ///
-    /// The clip rather than its keyframes alone, because [`Grade`] is the one
-    /// property that is *both* a field and animatable. The field is what this
-    /// starts from; a `grade.*` track then takes that property over for the
-    /// whole clip, the same way a track overrides the default for every other
-    /// property here — which are animated or nothing.
+    /// The clip rather than its keyframes alone, because [`Grade`] and
+    /// [`Clip::blur`] are the properties that are *both* a field and
+    /// animatable. The fields are what this starts from; a `grade.*` or `blur`
+    /// track then takes that property over for the whole clip, the same way a
+    /// track overrides the default for every other property here — which are
+    /// animated or nothing.
     pub fn at(clip: &Clip, t: Frames) -> Self {
-        Self::over(clip.grade, &clip.keyframes, t)
+        Self::over(clip.grade, clip.blur, &clip.keyframes, t)
     }
 
-    /// The same, from a grade and a set of tracks — for callers that have
-    /// tracks without a clip around them, which in practice means tests.
-    pub fn over(grade: Grade, tracks: &[KeyframeTrack], t: Frames) -> Self {
+    /// The same, from the two baseline fields and a set of tracks — for
+    /// callers that have tracks without a clip around them, which in practice
+    /// means tests.
+    pub fn over(grade: Grade, blur: f64, tracks: &[KeyframeTrack], t: Frames) -> Self {
         let mut properties = Self {
             grade,
+            blur,
             ..Self::default()
         };
         for track in tracks {
@@ -216,6 +239,7 @@ impl Properties {
             };
             match track.property.as_str() {
                 path::OPACITY => properties.opacity = value,
+                path::BLUR => properties.blur = value,
                 path::POSITION_X => properties.position.0 = value,
                 path::POSITION_Y => properties.position.1 = value,
                 path::SCALE_X => properties.scale.0 = value,
@@ -270,6 +294,14 @@ impl Properties {
             // A turned layer is never a plain copy, however slight the turn.
             && self.rotation.abs() < EPSILON
             && (self.opacity - 1.0).abs() < EPSILON
+            // A softened layer is not its own pixels either, and this is the
+            // easiest of these to forget: a blurred clip that is otherwise
+            // untouched satisfies every other line here, so leaving it out
+            // would send exactly the commonest blur — one on a full-frame plate
+            // with no transform on it — down the copy path and render it sharp.
+            // A negative number is not a blur and softens nothing, so it copies
+            // like zero does.
+            && self.blur <= EPSILON
             // A graded layer is not its own pixels, which is the whole point of
             // grading it. Left out, the copy path below would hand the ungraded
             // source straight to the canvas and the grade would silently do

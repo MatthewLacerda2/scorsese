@@ -187,6 +187,27 @@ pub struct Clip {
     /// one.
     #[serde(default, skip_serializing_if = "Grade::is_neutral")]
     pub grade: Grade,
+    /// How far this clip's pixels are softened before they are composited, as
+    /// a fraction of the layer's own **height**. `0.0` — and an absent field —
+    /// is the picture exactly as sharp as it arrived; more is blurrier.
+    ///
+    /// A fraction rather than a count of pixels, for the reason a `text` size
+    /// is one: the same number has to mean the same softness whether the
+    /// source is 1080p or 4K, and at whatever resolution the next render is
+    /// delivered. It is resolved against the layer's own pixels, so
+    /// `transform.scale` multiplies the apparent blur — a clip drawn at 200%
+    /// looks twice as soft as the same number at 100%.
+    ///
+    /// **Beside [`Grade`] and deliberately not inside it.** A grade is the
+    /// closed set of *colour* properties, and every one of them reads one
+    /// pixel and writes one pixel. A blur reads a neighbourhood, so filing it
+    /// under a struct that says colour would make that doc untrue about what
+    /// it holds.
+    ///
+    /// Picture only. An audio clip has no pixels, and this says nothing about
+    /// one.
+    #[serde(default, skip_serializing_if = "is_sharp")]
+    pub blur: f64,
     /// Why this clip is the way it is. Never rendered — see [`super::Track::note`].
     ///
     /// The commonest place a note belongs, because most decisions are decisions
@@ -200,6 +221,16 @@ pub struct Clip {
     /// Properties animated over this clip.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub keyframes: Vec<KeyframeTrack>,
+}
+
+/// Whether a clip's [`Clip::blur`] is the neutral one, so it can be left out
+/// of the document entirely.
+///
+/// Exactly zero, rather than anything at or below it: a negative number is not
+/// a blur and the compositor treats it as none, but dropping it on save would
+/// be this crate silently editing somebody's document on its way past.
+fn is_sharp(blur: &f64) -> bool {
+    *blur == 0.0
 }
 
 impl Clip {
@@ -217,6 +248,7 @@ impl Clip {
             crop: None,
             anchor: Anchor::default(),
             grade: Grade::NEUTRAL,
+            blur: 0.0,
             keyframes: Vec::new(),
             note: None,
         }

@@ -14,7 +14,7 @@ use common::constant;
 #[test]
 fn a_clip_that_animates_nothing_composites_as_it_arrived() {
     assert_eq!(
-        Properties::over(Grade::NEUTRAL, &[], Frames(7)),
+        Properties::over(Grade::NEUTRAL, 0.0, &[], Frames(7)),
         Properties::default()
     );
     assert!(Properties::default().is_identity());
@@ -32,7 +32,7 @@ fn every_known_path_reaches_its_property() {
         constant(path::FLIP_X, 30.0),
         constant(path::FLIP_Y, 45.0),
     ];
-    let properties = Properties::over(Grade::NEUTRAL, &tracks, Frames::ZERO);
+    let properties = Properties::over(Grade::NEUTRAL, 0.0, &tracks, Frames::ZERO);
     assert_eq!(properties.opacity, 0.25);
     assert_eq!(properties.position, (0.1, -0.04));
     assert_eq!(properties.scale, (2.0, 0.5));
@@ -46,7 +46,7 @@ fn an_unknown_path_is_ignored_rather_than_fatal() {
     // older one. The cost is that a typo does nothing quietly, which is why
     // warning about unknown paths is its own piece of work.
     let tracks = vec![constant("opactiy", 0.1), constant(path::OPACITY, 0.5)];
-    let properties = Properties::over(Grade::NEUTRAL, &tracks, Frames::ZERO);
+    let properties = Properties::over(Grade::NEUTRAL, 0.0, &tracks, Frames::ZERO);
     assert_eq!(properties.opacity, 0.5, "the real path still lands");
 }
 
