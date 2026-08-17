@@ -9,6 +9,12 @@ members = [
     "crates/cli",
     "crates/mcp",
     "crates/golden",
+    # A tool rather than a crate that ships, and a member all the same: being
+    # one is what puts it under the same fmt, clippy and doc gates as the code
+    # it maintains, with nothing added to the Makefile or to CI. Nothing
+    # depends on it and no build runs it — it converts the vendored icon tree
+    # into the blob the compositor compiles in, by hand, when that tree moves.
+    "tools/icons",
 ]
 
 [workspace.package]

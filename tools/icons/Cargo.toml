@@ -1,0 +1,35 @@
+# The vendoring converter: the vendored Lucide tree in, the catalogue blob the
+# compositor compiles in out. Run by hand when the pinned version moves, never
+# by a build — that is the whole reason the blob is committed.
+#
+# A member of the repo-root workspace rather than a workspace of its own, which
+# `tools/lint` is. The reasoning is the opposite of that one's: the size gate
+# has to run without building scorsese or having ffmpeg on PATH, so isolation
+# buys it something. This tool has no such need, and being a member is what
+# puts it under `cargo fmt --all`, `cargo clippy --workspace` and `cargo doc
+# --workspace` with nothing added to the Makefile or to CI. A second unchecked
+# workspace would be code the gates do not read.
+[package]
+name = "scorsese-icon-vendor"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+# One dependency, and it is already in the tree: the per-icon metadata is JSON
+# and `scorsese-core` reads JSON with this. Everything else here — the SVG
+# subset, the path grammar, the blob — is written out, because a full SVG
+# implementation is exactly what converting at vendor time exists to avoid.
+[dependencies]
+serde_json = "1.0.151"
+
+[lib]
+name = "scorsese_icon_vendor"
+path = "src/lib.rs"
+
+[[bin]]
+name = "vendor-icons"
+path = "src/main.rs"

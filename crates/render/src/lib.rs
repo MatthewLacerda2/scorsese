@@ -134,6 +134,16 @@ pub use scorsese_compositor::{DissolveError, Placed, dissolve};
 /// inside [`contact::sheet`], where the source's own geometry still exists.
 pub use scorsese_compositor::grid;
 
+/// The symbols this build ships, which belong to the compositor because a
+/// catalogue of drawings is a set of property *values*.
+///
+/// Re-exported through the door [`unknown_fonts`] already uses, and for the
+/// same reason: the CLI and the MCP server reach the shipped faces through this
+/// crate rather than depending on the compositor, and the shipped symbols are
+/// the second catalogue of exactly that kind. [`icon::find`] answers whether a
+/// name is one of them, and [`icon::all`] is what a listing or a search reads.
+pub use scorsese_compositor::icon;
+
 pub use checkup::Checkup;
 pub use contact::{ContactError, Look, Sheet};
 pub use describe::{
