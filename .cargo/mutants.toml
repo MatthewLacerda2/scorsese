@@ -179,6 +179,49 @@ exclude_re = [
     # the range tests. Only the one-frame widening is absorbed.
     "replace > with >= in cuts",
     "replace < with <= in cuts",
+
+    # `shape::arrow::Run::of` opens with `!dx.is_finite() || !dy.is_finite()`, and
+    # every path out of it then goes through `unit`, which takes `dx.hypot(dy)` and
+    # answers `None` unless that length is finite and above zero. A non-finite
+    # component makes the hypotenuse non-finite whichever component it was — so
+    # with `&&`, an arrow carrying one bad coordinate is not turned away here, it
+    # is turned away one call later. `Run::of` answers `None` for the same set of
+    # inputs either way, and an arrow it answers `None` for draws nothing.
+    #
+    # The guard stays because it says what the function assumes at the top of it,
+    # and the rest of the condition is load-bearing: deleting either `!` refuses
+    # every ordinary arrow and is killed by the drawing tests.
+    "replace || with && in Run::of",
+
+    # `shape::arrow::unit` refuses a run it cannot take a direction from with
+    # `!length.is_finite() || length <= 0.0`, where `length` is `dx.hypot(dy)`.
+    # A hypotenuse is never negative, so `<= 0.0` means *exactly* zero, and it is
+    # only zero when both components are — the two ends of the arrow in the same
+    # place. Narrowing to `&&` lets that one case through to `dx / length`, which
+    # is `0.0 / 0.0` and therefore `NaN`, and tiny-skia's `PathBuilder` refuses a
+    # non-finite point: the head's path comes back empty and the zero-length line
+    # under it strokes to nothing. Both versions leave the raster untouched, which
+    # is what `arrows.rs` asserts by measuring the whole frame's extent rather
+    # than one pixel of it.
+    #
+    # The non-finite half of the condition is unreachable from here rather than
+    # equivalent: `Run::of` has already refused a non-finite endpoint before
+    # `unit` is called on one.
+    "replace || with && in unit",
+
+    # `shape::closed::bounds` refuses a size that could not describe a rectangle —
+    # zero, negative, or not a number — with
+    # `!w.is_finite() || !h.is_finite() || w <= 0.0 || h <= 0.0`, and then hands
+    # the numbers it kept to `Rect::from_xywh`, which refuses *exactly* the same
+    # set and answers `None` for it. Narrowing any one of the three `||`s to `&&`
+    # lets a bad size past the early return and straight into a constructor that
+    # turns it away, so `bounds` answers `None` for every input either way. Three
+    # mutants and one entry, because there is one reason.
+    #
+    # The comparisons themselves are still load-bearing, and the mutations that
+    # *are* caught say so: deleting either `!`, or widening either `<=` to `>`,
+    # refuses sizes that are perfectly good, and the drawing tests kill all four.
+    "replace || with && in bounds",
 ]
 
 # ---------------------------------------------------------------------------
@@ -199,11 +242,50 @@ minimum_test_timeout = 30.0
 
 # Tests from the mutated package only, not the whole workspace. This is the
 # decision that makes the cost bearable: a mutant in `crates/core` runs core's
-# tests in ~0.2s instead of dragging the golden renders along for ~10 minutes.
+# tests in ~0.2s instead of rebuilding every crate behind it and rendering the
+# golden fixtures, which #323 measured at 81s of build and 48s of tests for one
+# mutant of `crates/compositor`.
 #
 # The trade-off is real and accepted: a `core` mutant that *only* a golden
 # render would have caught is reported as surviving. That is the conservative
 # direction to be wrong in — it over-reports work rather than under-reporting
 # it — and it matches what the signal is for. A behaviour whose only assertion
 # is a pixel comparison three crates away is a thin assertion in its own right.
+#
+# **Asked and answered for `crates/compositor` in #323, which is the crate this
+# is least comfortable about**: its strongest assertions really are the golden
+# fixtures, so it is where `false` over-reports most, and the question was
+# whether to turn the setting on for it. The answer is no. The numbers, from the
+# 224 mutants of `shape/` and `paint.rs` run as configured, and fourteen of their
+# survivors run again with `--test-package scorsese-compositor --test-package
+# scorsese-golden` — the narrowest way to put the pixel gate in front of a
+# compositor mutant:
+#
+# - **26× per mutant.** 3–5s build + 1–2s test becomes 81s + 48s, because a
+#   change to `scorsese-compositor` rebuilds `scorsese-render` and
+#   `scorsese-golden` behind it and then renders 44 fixtures through ffmpeg.
+#   Those 224 go from about twelve minutes to over four hours on the machine this
+#   is developed on, against the six-hour job limit the weekly sweep already
+#   sizes itself to.
+# - **It is two settings, not one.** At the 30-second floor above, the
+#   golden-inclusive run reports TIMEOUT instead of an outcome — two of its first
+#   three mutants did — because a 48-second test against a baseline timed at two
+#   seconds is indistinguishable from a hang. A timeout is neither caught nor
+#   missed, so the floor would have to move too, and the floor is what stops a
+#   genuine infinite loop being waited on for six hours.
+# - **It buys 6 of 14.** The fixtures kill six — the blend arithmetic, `area_of`,
+#   a head's spread, and three of the rounded rectangle's control points — and
+#   miss eight. All eight are in the arrow, where each fixture draws one bow along
+#   one axis and the mutations live in the branch it does not take. So the
+#   fixtures are not a substitute for assertions beside the code; they are a
+#   second and much slower opinion about part of it.
+#
+# What settles it is that the six are not lost by leaving this `false`. #323 wrote
+# unit tests that kill them for nothing — a shape's extent and the area it covers,
+# measured rather than sampled — and those run on every pull request in two
+# seconds. A mutant killed cheaply is worth strictly more than the same mutant
+# killed expensively, because only the cheap one is affordable per diff. So the
+# over-reporting above reads as an instruction rather than as a defect: it says
+# *put the assertion next to the code*, and doing that is both the cheaper answer
+# and the better one.
 test_workspace = false
