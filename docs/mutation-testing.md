@@ -64,15 +64,50 @@ paragraph — this one is a summary and the config is the thing that runs.
 Per pull request the run is narrowed again with `--in-diff`, so the cost tracks
 the size of the change rather than the size of the codebase.
 
+## The scheduled sweep
+
+`--in-diff` has a consequence worth naming: a line is audited **once**, on the
+pull request that wrote it, and never again. A module whose tests were later
+weakened, or whose assertions moved to another crate, has nothing looking at
+it. So `.github/workflows/mutation-sweep.yml` sweeps the rest — no `--in-diff`,
+the whole crate — every Monday, **one crate at a time, cycling**: `core`,
+`compositor`, `render`, `zimmer`, which covers the surface every four weeks.
+
+Rotation and not one big monthly run, for a reason that was measured rather
+than assumed: the whole surface extrapolates to seven to ten hours on a
+GitHub-hosted runner against a six-hour job limit, and a monthly cadence would
+also miss the seven-day cache eviction and build cold every time. The workflow's
+header carries the arithmetic and says plainly which half of it is a
+measurement.
+
+It reports into **one issue that rewrites itself** — [#341][sweep] — using the
+same renderer the pull-request comment goes through. The report at the top is
+replaced every run; the catch-rate table underneath only ever gains a row,
+because one catch rate is a number and the question is whether it is moving.
+
+A sweep that is cut short says so, in the report and in its history row. A
+truncated sweep reporting as a complete one is the one outcome worse than no
+sweep at all.
+
+Same standing as the per-pull-request job: `continue-on-error`, nothing it
+finds blocks anything, and a survivor it turns up is triaged exactly as below.
+
+[sweep]: https://github.com/MatthewLacerda2/scorsese/issues/341
+
 ## Running it
 
 ```sh
 cargo install cargo-mutants --locked
 
 make mutants                                      # what CI runs: this branch's diff
-cargo mutants                                     # the whole scoped surface, 3018 mutants
+cargo mutants                                     # the whole scoped surface, 3373 mutants
+cargo mutants -p scorsese-zimmer                  # one crate, as the sweep runs it
 cargo mutants -F '^crates/core/src/keyframe\.rs'  # one file, while writing it
 ```
+
+That 3373 moves with the source and with the tool version, and
+`cargo mutants --list | wc -l` is how to re-read it: `--list` builds nothing
+and runs nothing, so the count costs a second and is exact.
 
 `-F` and not `-f` for that last one, and the difference is a trap worth
 knowing: `--file` is *unioned* with the config's `examine_globs`, so

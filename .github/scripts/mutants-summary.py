@@ -23,6 +23,13 @@ here. By hand, against a sweep of the whole scoped surface:
 Python and not jq for the reason coverage gives: python3 is the one of the two
 that is always already there.
 
+There are two callers and one renderer, which is the point. The `mutants` job
+in `.github/workflows/ci.yml` takes the report as it comes out above and posts
+it as a pull-request comment. `mutation-sweep.yml` asks for `--issue-body`
+instead: the same report, wrapped as the body of the sweep's tracking issue and
+followed by a catch-rate history that carries over from the body it is handed.
+A second renderer for the same data is how the two would drift.
+
 This never exits non-zero over a surviving mutant. Mutation audits quality; it
 does not prove correctness, and some survivors are *equivalent mutants* that
 are correct to leave alone. See `.cargo/mutants.toml` for that policy and the
@@ -31,9 +38,11 @@ are correct to leave alone. See `.cargo/mutants.toml` for that policy and the
 
 from __future__ import annotations
 
+import argparse
 import json
+import re
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Above this many survivors in one file, the rows stop being a worklist: what a
@@ -260,16 +269,166 @@ def read(path: Path) -> dict:
     return json.loads(path.read_text())
 
 
+# ---------------------------------------------------------------------------
+# The sweep's issue body
+# ---------------------------------------------------------------------------
+#
+# `--in-diff` audits a line once, on the pull request that wrote it. The
+# scheduled sweep audits the rest, one crate at a time, and reports into a
+# single issue it rewrites in place — a monthly pile of comments is a pile
+# nobody reads, which is the same argument the PR comment's marker makes.
+#
+# What must *not* be rewritten in place is the number. One catch rate says
+# nothing; the question the sweep exists for is whether assertion health is
+# getting better or worse, and that needs a predecessor. So the report on top
+# is replaced every run and the table underneath only ever gains a row.
+
+SWEEP_MARKER = "<!-- mutation-sweep -->"
+
+# Everything below this line is history and survives the rewrite. It is a
+# marker rather than a heading because a heading is something a human might
+# reasonably rename, and renaming it would silently start the trend over.
+HISTORY_MARKER = "<!-- mutation-sweep:history -->"
+
+HISTORY_HEADING = [
+    "## Catch rate over time",
+    "",
+    "One row per sweep, newest first. A single catch rate is not a finding —"
+    " the shape of the column is.",
+    "",
+    "| Swept | Crate | Viable | Caught | Survived | Catch rate | Run |",
+    "| --- | --- | --- | --- | --- | --- | --- |",
+]
+
+# Two years and change of weekly rows. The cap exists because an issue body is
+# capped too (65 536 characters), and a trend that silently stopped updating
+# because the body got too long would be the worst of both.
+HISTORY_LIMIT = 120
+
+# A history row, recognised by the date it starts with. Deliberately not "any
+# table row": the heading and its separator are rewritten every run, and only
+# the data has to survive.
+HISTORY_ROW = re.compile(r"^\| \d{4}-\d{2}-\d{2} \|")
+
+CUT_SHORT = (
+    "> **This sweep did not finish.** cargo-mutants recorded a start and no"
+    " end, so the run was stopped rather than completed — a step timeout, a"
+    " cancelled job, or the tool killed under it. What follows describes the"
+    " mutants that *did* run and not the crate, and its history row says so."
+    " A truncated sweep reporting as a complete one is the outcome this"
+    " schedule exists to avoid."
+)
+
+
+def cut_short(data: dict) -> bool:
+    """Whether the run was stopped rather than finished.
+
+    cargo-mutants writes `outcomes.json` as it goes and stamps `end_time` only
+    on the way out, so a file with a start and no end is a run that was killed.
+    Its running totals are real — they are just totals for a fraction of the
+    crate. A run that recorded neither time is a fixture or an empty run, and
+    claiming *that* was truncated would be inventing a failure.
+    """
+    return bool(data.get("start_time")) and not data.get("end_time")
+
+
+def history_row(data: dict, subject: str, when: str, run_url: str) -> str:
+    """This run as the line it adds to the trend.
+
+    `viable` matches the headline's arithmetic — mutants that did not compile
+    say nothing about the tests and are left out of both halves. A timeout
+    counts as noticed for the same reason it does above: the tests can only
+    hang on code they run.
+    """
+    total, unviable = data["total_mutants"], data["unviable"]
+    noticed = data["caught"] + data["timeout"]
+    viable = total - unviable
+    rate = f"{100 * noticed / viable:.0f}%" if viable else "—"
+    counted = f"{viable} (cut short)" if cut_short(data) else str(viable)
+    run = f"[log]({run_url})" if run_url else "—"
+    return (
+        f"| {when} | `{subject}` | {counted} | {noticed} |"
+        f" {data['missed']} | {rate} | {run} |"
+    )
+
+
+def previous_rows(body: str) -> list[str]:
+    """The history already in the issue, oldest rows dropped past the cap."""
+    _, _, history = body.partition(HISTORY_MARKER)
+    return [line for line in history.splitlines() if HISTORY_ROW.match(line)][
+        : HISTORY_LIMIT - 1
+    ]
+
+
+def sweep_body(report: str, rows: list[str]) -> str:
+    """The whole issue body: the latest report, then every reading so far."""
+    return "\n".join(
+        [
+            SWEEP_MARKER,
+            "",
+            "*Written by `.github/workflows/mutation-sweep.yml`, which rewrites"
+            " this issue after every run. Edits above the history marker are"
+            " overwritten; the table below is never rewritten, only added to.*",
+            "",
+            report,
+            "",
+            HISTORY_MARKER,
+            "",
+            *HISTORY_HEADING,
+            *rows,
+            "",
+        ]
+    )
+
+
+def parse_args(argv: list[str]) -> argparse.Namespace:
+    """The argv contract, which the PR comment and the sweep share."""
+    parser = argparse.ArgumentParser(
+        prog="mutants-summary.py",
+        description="Render a cargo-mutants run as the Markdown an agent reads.",
+    )
+    parser.add_argument("outcomes", type=Path, help="the run's outcomes.json")
+    parser.add_argument(
+        "scope",
+        nargs="?",
+        default="",
+        help="one line saying what was mutated, printed above the report",
+    )
+    parser.add_argument(
+        "--issue-body",
+        type=Path,
+        metavar="CURRENT",
+        help="render the sweep's whole issue body instead of the bare report,"
+        " carrying the catch-rate history over from the issue's current body"
+        " in this file (an empty or missing file starts the history)",
+    )
+    parser.add_argument(
+        "--subject",
+        default="",
+        help="what this sweep covered, named in its history row (e.g. a crate)",
+    )
+    parser.add_argument(
+        "--run-url", default="", help="the CI run this reading came from, linked in its row"
+    )
+    parser.add_argument(
+        "--now",
+        default=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        help="the date recorded in the history row; defaults to today, UTC",
+    )
+    return parser.parse_args(argv)
+
+
 def main() -> None:
-    if len(sys.argv) < 2:
-        sys.exit("usage: mutants-summary.py <outcomes.json> [scope-note]")
-    scope = sys.argv[2] if len(sys.argv) > 2 else ""
-    data = read(Path(sys.argv[1]))
+    args = parse_args(sys.argv[1:])
+    scope = args.scope
+    data = read(args.outcomes)
     outcomes = data.get("outcomes", [])
 
     tally = census(outcomes)
 
     out = headline(data, scope)
+    if cut_short(data):
+        out += [CUT_SHORT, ""]
     out += section(
         mutant_rows(outcomes, "Timeout"),
         tally,
@@ -285,7 +444,15 @@ def main() -> None:
         " passing.",
         structural=True,
     )
-    print("\n".join(out + [FOOTER]))
+    report = "\n".join(out + [FOOTER])
+
+    if args.issue_body is None:
+        print(report)
+        return
+
+    current = args.issue_body.read_text() if args.issue_body.exists() else ""
+    row = history_row(data, args.subject or "the scoped surface", args.now, args.run_url)
+    print(sweep_body(report, [row, *previous_rows(current)]))
 
 
 if __name__ == "__main__":
