@@ -166,3 +166,183 @@ fn pass(
         }
     }
 }
+
+/// The arithmetic, on buffers small enough to work out by hand.
+///
+/// Here rather than in `tests/blurring.rs` because that is where the *effect*
+/// is asserted — an edge comes out soft, a corner does not go dark — and an
+/// effect is satisfied by more than one arithmetic. The three functions above
+/// take a buffer and a radius and produce bytes, so the value to name is the
+/// bytes; naming them needs `pass` itself, which nothing outside this file can
+/// reach. The golden fixtures `blur_soft`, `blur_heavy` and `blur_alpha` are the
+/// other half of this and cost a render each; these cost nothing and run on
+/// every pull request.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// One pixel: the value in red, a constant in green so a channel reading its
+    /// neighbour's byte is visible, nothing in blue, opaque.
+    fn pixel(value: u8) -> [u8; BYTES_PER_PIXEL] {
+        [value, 200, 0, u8::MAX]
+    }
+
+    /// A line of those, one per value.
+    fn line(values: &[u8]) -> Vec<u8> {
+        values.iter().flat_map(|&v| pixel(v)).collect()
+    }
+
+    /// One channel of a line, back out.
+    fn channel(bytes: &[u8], channel: usize) -> Vec<u8> {
+        bytes
+            .iter()
+            .skip(channel)
+            .step_by(BYTES_PER_PIXEL)
+            .copied()
+            .collect()
+    }
+
+    /// One pass, worked out on paper. Eight pixels stepping from 40 to 240 in
+    /// the middle, at a radius of three — a seven-wide window, so each output is
+    /// the seven pixels around it averaged, with everything off either end
+    /// reading the pixel at that end.
+    ///
+    /// The windows left to right sum to 280, 480, 680, 880, 1080, 1280, 1480 and
+    /// 1680. Over seven that is 40, 68.57, 97.14, 125.71, 154.29, 182.86, 211.43
+    /// and 240 — and **to nearest**, which is what the bias added before the
+    /// divide buys and what the row below says: 69 and not 68, 126 and not 125.
+    #[test]
+    fn one_pass_averages_a_window_and_rounds_to_nearest() {
+        let source = line(&[40, 40, 40, 40, 240, 240, 240, 240]);
+        let mut out = vec![0; source.len()];
+        pass(&source, &mut out, 1, 8, 8, 1, 3);
+
+        assert_eq!(channel(&out, 0), [40, 69, 97, 126, 154, 183, 211, 240]);
+        assert_eq!(channel(&out, 1), [200; 8], "a flat channel comes out flat");
+        assert_eq!(channel(&out, 2), [0; 8]);
+        assert_eq!(channel(&out, 3), [u8::MAX; 8], "and opaque stays opaque");
+    }
+
+    /// The two directions are one function, and this is the sentence that says
+    /// so: a vertical pass over a buffer's transpose is the transpose of a
+    /// horizontal pass over the buffer.
+    ///
+    /// Nothing in it depends on the numbers. What it pins is that `line_step`
+    /// and `step` are the *whole* difference between the two directions — an
+    /// arithmetic mistake in either is invisible along a row, where both are one
+    /// or zero, and changes the answer down a column, where neither is.
+    #[test]
+    fn a_column_is_a_row_of_the_transpose() {
+        const W: usize = 4;
+        const H: usize = 3;
+        let grid = [[10, 20, 30, 40], [50, 60, 70, 80], [90, 100, 110, 120]];
+
+        let mut rows = Vec::new();
+        for row in &grid {
+            rows.extend(line(row));
+        }
+        let mut columns = Vec::new();
+        for x in 0..W {
+            for row in &grid {
+                columns.extend(pixel(row[x]));
+            }
+        }
+
+        // A row is `W` pixels one apart, `W` apart; a column of the transpose is
+        // `W` pixels `H` apart, one apart — the two calls `into` itself makes.
+        let mut blurred_rows = vec![0; rows.len()];
+        pass(&rows, &mut blurred_rows, H, W, W, 1, 1);
+        let mut blurred_columns = vec![0; columns.len()];
+        pass(&columns, &mut blurred_columns, H, W, 1, H, 1);
+
+        for y in 0..H {
+            for x in 0..W {
+                let along = (y * W + x) * BYTES_PER_PIXEL;
+                let down = (x * H + y) * BYTES_PER_PIXEL;
+                assert_eq!(
+                    blurred_columns[down..down + BYTES_PER_PIXEL],
+                    blurred_rows[along..along + BYTES_PER_PIXEL],
+                    "pixel ({x}, {y})"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn half_a_pixel_is_the_narrowest_blur_there_is() {
+        // Exactly half a pixel, and exactly is the word: 0.5/64 is representable
+        // in binary and 64 is a power of two, so this is the boundary itself
+        // rather than a number near it. Rounded and not truncated, so the
+        // narrowest blur that does anything is the narrowest one asked for.
+        assert_eq!(radius(0.5 / 64.0, 64), 1);
+        assert_eq!(radius(0.49 / 64.0, 64), 0, "anything narrower is nothing");
+        assert_eq!(radius(0.0, 64), 0, "and so is nothing");
+        assert_eq!(radius(-1.0, 64), 0, "a negative number is not a blur");
+        assert_eq!(radius(f64::NAN, 64), 0, "nor is a non-number");
+        assert_eq!(radius(0.1, 64), 6, "a tenth of the height, in its pixels");
+        assert_eq!(radius(4.0, 64), 64, "never wider than the layer is tall");
+    }
+
+    #[test]
+    fn nothing_to_do_is_no_work_at_all() {
+        let resolution = Resolution::new(8, 2).expect("a legal raster");
+        let source = vec![7; 8 * 2 * BYTES_PER_PIXEL];
+        let mut buffers = Buffers::default();
+
+        assert_eq!(into(&mut buffers, &source, resolution, 0), &source[..]);
+        assert!(
+            buffers.back.is_empty(),
+            "a zero radius runs no pass and allocates nothing"
+        );
+
+        // A buffer whose length disagrees with the resolution it claims is not
+        // this function's to report — it is refused a few lines later, where
+        // every other malformed layer is. So it comes back untouched rather than
+        // being indexed off its end.
+        let short = vec![7; 8 * BYTES_PER_PIXEL];
+        assert_eq!(into(&mut buffers, &short, resolution, 3), &short[..]);
+        assert!(buffers.back.is_empty());
+    }
+
+    /// How far a blur reaches, which is the only thing that says how many passes
+    /// ran.
+    ///
+    /// Sixteen pixels stepping from 40 to 240 between 7 and 8, radius one, and
+    /// two identical rows — a column of one value averages to itself, so the
+    /// vertical passes are the identity here and what is left is the horizontal
+    /// one, three times over.
+    ///
+    /// One pass reaches `radius` pixels either side of an edge; three reach
+    /// `3·radius` and not a pixel further. So 4 is still the 40 it started as, 5
+    /// has moved, 10 has moved, and 11 is back to a flat 240. A symmetric window
+    /// also makes the ramp between them **antisymmetric**: two pixels the same
+    /// distance either side of the edge sum to 40 + 240, which no partial number
+    /// of passes and no off-centre window satisfies.
+    #[test]
+    fn three_passes_reach_exactly_three_radii() {
+        let row = [
+            40, 40, 40, 40, 40, 40, 40, 40, 240, 240, 240, 240, 240, 240, 240, 240,
+        ];
+        let mut source = line(&row);
+        source.extend(line(&row));
+        let resolution = Resolution::new(16, 2).expect("a legal raster");
+        let mut buffers = Buffers::default();
+
+        let blurred = into(&mut buffers, &source, resolution, 1).to_vec();
+        let (top, bottom) = blurred.split_at(16 * BYTES_PER_PIXEL);
+        assert_eq!(top, bottom, "the vertical passes moved nothing");
+
+        let soft = channel(top, 0);
+        assert_eq!(soft[4], 40, "three radii short of the edge, still flat");
+        assert_eq!(soft[11], 240, "and three radii past it, flat again");
+        assert!(soft[5] > 40 && soft[10] < 240, "found {soft:?}");
+        for distance in 0..4 {
+            let (left, right) = (soft[7 - distance], soft[8 + distance]);
+            assert_eq!(
+                u32::from(left) + u32::from(right),
+                280,
+                "{distance} either side of the edge: {left} and {right}"
+            );
+        }
+    }
+}

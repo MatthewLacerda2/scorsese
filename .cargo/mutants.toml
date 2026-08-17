@@ -234,6 +234,31 @@ exclude_re = [
     # *are* caught say so: deleting either `!`, or widening either `<=` to `>`,
     # refuses sizes that are perfectly good, and the drawing tests kill all four.
     'replace \\|\\| with && in bounds',
+
+    # `blur::radius` turns a fraction of a layer's height into a count of pixels
+    # and refuses everything that softens nothing with
+    # `pixels.is_nan() || pixels < 0.5`. Narrowing it to `&&` makes the guard
+    # unreachable rather than narrower — NaN is not less than anything, so the
+    # conjunction is false for *every* input — and each input the early return
+    # used to catch falls through to the one expression the function ends in,
+    # `(pixels.round() as usize).min(height as usize)`, which answers zero for all
+    # of them: Rust's float-to-integer cast saturates, so NaN becomes 0 and a
+    # negative becomes 0, and anything in `[0, 0.5)` rounds to 0 before the cast
+    # sees it. Both infinities agree too — `-inf` saturates to 0, `inf` saturates
+    # past `height` and is clamped to it, either way round. Same answer for every
+    # `f64` there is, confirmed by hand as well as by the tool: with `&&` in place
+    # of `||`, the whole of `scorsese-compositor`'s suite passes.
+    #
+    # The guard stays because it names NaN where somebody reads the function
+    # instead of leaving the answer to a cast's saturation rule, which is what its
+    # comment says. And the comparison in it is load-bearing: `< 0.5` widened to
+    # `<= 0.5`, or turned into `== 0.5`, changes the answer at *exactly* half a
+    # pixel — a boundary that is reachable, exactly representable, and now
+    # asserted by `half_a_pixel_is_the_narrowest_blur_there_is`.
+    #
+    # The `||` is escaped because this is a regex and not the printed line: see
+    # #363, which is what an unescaped one does to the whole surface.
+    'replace \\|\\| with && in radius',
 ]
 
 # ---------------------------------------------------------------------------
