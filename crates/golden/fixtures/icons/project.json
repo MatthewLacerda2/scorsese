@@ -1,0 +1,78 @@
+{
+  "schema_version": 26,
+  "name": "icons",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    { "id": "bed", "kind": "video", "path": "assets/bed.mp4" },
+    {
+      "id": "big",
+      "kind": "icon",
+      "icon": { "name": "clapperboard", "size": 0.62, "color": "#ffffffff" }
+    },
+    {
+      "id": "small",
+      "kind": "icon",
+      "icon": { "name": "clapperboard", "size": 0.22, "color": "#ffffffff" }
+    },
+    {
+      "id": "heavy",
+      "kind": "icon",
+      "icon": {
+        "name": "circle-play",
+        "size": 0.44,
+        "color": "#ffcc00ff",
+        "stroke_width": 0.16
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "name": "bed",
+      "clips": [{ "id": "c-bed", "asset": "bed", "start": 0, "duration": 10 }]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "name": "large",
+      "clips": [
+        {
+          "id": "c-big",
+          "asset": "big",
+          "start": 0,
+          "duration": 10,
+          "anchor": { "x": "left", "y": "center" }
+        }
+      ]
+    },
+    {
+      "id": "v3",
+      "kind": "video",
+      "name": "same symbol, smaller",
+      "clips": [
+        {
+          "id": "c-small",
+          "asset": "small",
+          "start": 0,
+          "duration": 10,
+          "anchor": { "x": "right", "y": "center" }
+        }
+      ]
+    },
+    {
+      "id": "v4",
+      "kind": "video",
+      "name": "coloured and heavier",
+      "clips": [
+        {
+          "id": "c-heavy",
+          "asset": "heavy",
+          "start": 0,
+          "duration": 10,
+          "anchor": { "x": "center", "y": "bottom" }
+        }
+      ]
+    }
+  ]
+}

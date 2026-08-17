@@ -168,6 +168,15 @@ pub(crate) fn within(
         // A colour *is* the whole raster, so its rectangle is too.
         return Ok(Content::Drawn(Area::whole(raster)));
     }
+    if let Some(icon) = &shot.asset.icon {
+        // The symbol's own square, not the raster it is drawn into — what a
+        // reader sees, and the only rectangle an arrow could sensibly meet. An
+        // icon is always bounded: unlike an arrow, there is no open-ended
+        // geometry here, so a missing square means the raster is degenerate
+        // rather than that the drawing has no box.
+        return Ok(crate::symbol::area(icon, raster, shot.clip.anchor)
+            .map_or(Content::Unbounded, Content::Drawn));
+    }
     if let Some(shape) = &shot.asset.shape {
         // A box's own box, not the raster it is drawn into. `None` is an
         // arrow, which is the one drawn thing with no box to report.

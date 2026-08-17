@@ -68,6 +68,7 @@ pub(crate) mod baseline;
 pub(crate) mod color;
 pub mod dip;
 pub(crate) mod grade;
+pub(crate) mod icon;
 pub(crate) mod keyframe;
 pub mod level;
 pub mod note;
@@ -94,6 +95,7 @@ pub use baseline::{Baseline, fingerprint_of};
 pub use color::{ColorError, Rgba};
 pub use dip::{Dip, Ducked, Under, duck_track};
 pub use grade::Grade;
+pub use icon::{DEFAULT_ICON_STROKE_WIDTH, Icon};
 pub use keyframe::{Easing, Keyframe, KeyframeTrack, PropertyPath};
 // As with `pacing::scale`, the function stays behind its module: a bare
 // `scorsese_core::set` names nothing at all.
@@ -125,6 +127,6 @@ pub use text::{DEFAULT_FONT, FontChoice, MAX_WEIGHT, MIN_WEIGHT, TextAlign, Text
 pub use time::{Fps, FpsError, FpsParseError, Frames, Speed};
 pub use timeline::{Anchor, AnchorX, AnchorY, Clip, ClipId, Crop, Fit, Track, TrackId, TrackKind};
 pub use validate::{
-    AssetField, AssetProblem, ShapeProblem, SpeechProblem, TimelineProblem, ValidationError,
-    ValidationErrors, VideoProblem,
+    AssetField, AssetProblem, IconProblem, ShapeProblem, SpeechProblem, TimelineProblem,
+    ValidationError, ValidationErrors, VideoProblem,
 };

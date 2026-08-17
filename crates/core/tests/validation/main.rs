@@ -9,6 +9,7 @@ mod attach;
 mod color;
 mod fields;
 mod generated;
+mod icon;
 mod keyframes;
 mod paths;
 mod references;

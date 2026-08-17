@@ -7,8 +7,11 @@
 //! draws it — and adding one is a change to the vendored tree, never a change
 //! to the format.
 //!
-//! Nothing in a `project.json` can name an icon yet. This module is the
-//! groundwork: the set vendored, converted, compiled in and drawable.
+//! A `project.json` reaches this through an `icon` asset, which carries a name
+//! and nothing else about which symbol it is — so this module is the whole of
+//! what "which symbols exist" means in this build: the set vendored, converted,
+//! compiled in, drawable, and answerable when a document names one that is not
+//! here.
 //!
 //! ## Why this set, and why bundled
 //!
@@ -40,10 +43,12 @@
 
 pub(crate) mod catalogue;
 mod draw;
+mod nearest;
 
 use scorsese_core::{Anchor, Rgba};
 
-use crate::frame::Frame;
+use crate::area::Area;
+use crate::frame::{Frame, Resolution};
 
 /// The side of the square every icon is drawn in, in its own units.
 pub const VIEWBOX: f32 = 24.0;
@@ -141,6 +146,18 @@ pub fn all() -> &'static [Icon] {
     catalogue::all()
 }
 
+/// The names closest to one the set does not have, best first, for the sentence
+/// that refuses it.
+///
+/// Seventeen hundred names cannot be listed the way the shipped faces can, so
+/// this is what a refusal says instead of *the ones scorsese ships are…*. It
+/// catches a mistyped name and a half-remembered one, and it is empty when
+/// there is honestly nothing near. It is **not** a search over what an icon is
+/// about — see the module it lives in for why those are different questions.
+pub fn nearest(name: &str) -> Vec<&'static str> {
+    nearest::nearest(name)
+}
+
 /// The Lucide release the vendored tree came from.
 ///
 /// Pinned, recorded in `icons/VERSION`, and moved deliberately: upstream
@@ -157,4 +174,25 @@ pub fn version() -> &'static str {
 /// are not.
 pub fn draw(frame: &mut Frame, symbol: &Symbol) {
     draw::draw(frame, symbol);
+}
+
+/// Where this symbol's square lands on the raster, in pixels.
+///
+/// `None` for a size that could not describe a square. This is the rectangle an
+/// attached arrow meets — the icon's own box rather than the raster-sized layer
+/// it is drawn into, because the box is what a reader sees and the layer's edges
+/// are not on screen at all. The same answer [`crate::shape::area_of`] gives for
+/// a box, for the same reason.
+pub fn area_of(symbol: &Symbol, resolution: Resolution) -> Option<Area> {
+    let size = symbol.size;
+    if !size.is_finite() || size <= 0.0 {
+        return None;
+    }
+    let (left, top) = draw::origin(size, symbol, resolution);
+    Some(Area {
+        left,
+        top,
+        width: size,
+        height: size,
+    })
 }

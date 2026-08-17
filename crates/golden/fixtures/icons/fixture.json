@@ -1,0 +1,8 @@
+{
+  "description": "Named symbols over real footage, which is the whole of what an `icon` asset draws. Left: a white `clapperboard` at 0.62 of the frame's height, anchored to the left edge, at the thickness the document does not state — Lucide's own 2/24. Right: the same symbol at 0.22, anchored to the right edge, with `stroke_width` left out again. Those two together are the reference's real subject: **a stroke width is a fraction of the icon's own box, so the small one has to be the same drawing at a third the size**, with a line a third as thick. If the width were read against the raster the way a shape's border is, the small clapperboard would come out with a line as heavy as the big one's, its slate lines fused and its interior filled in — a blob rather than a symbol, and visible here in one glance. Bottom: an amber `circle-play` at an explicit `stroke_width` of 0.16, roughly double the default, which pins both that the colour is the document's and that an explicit thickness is honoured against the icon rather than the frame. What else a wrong render looks like: three symbols stacked in the middle means the anchor never reached the drawing, as it must for a raster-sized layer; a square icon that is taller than it is wide means the one `size` was resolved against both axes instead of against the height alone; a blank frame over the bed means an unknown name drew nothing, and the render's report will say so.",
+  "media": {
+    "bed": "color=c=0x203040:s=192x108:d=2:r=30"
+  },
+  "render": { "resolution": "192x108", "fps": "30" },
+  "frames": [0, 9]
+}

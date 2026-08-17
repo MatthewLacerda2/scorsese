@@ -30,6 +30,15 @@ pub enum AssetKind {
     /// carries is fractions of the raster, so the drawing happens at whatever
     /// size the render turns out to be.
     Shape,
+    /// A symbol from the set this build ships, named rather than imported —
+    /// the fourth kind with no file behind it, and the only one whose content
+    /// is a *reference* to something the binary carries.
+    ///
+    /// A name is portable in a way a path is not: `clapperboard` survives
+    /// `scp -r` because the symbols travel with the binary, exactly as a
+    /// `style`'s `sans` does. Which names exist is not this crate's business —
+    /// see [`crate::Icon`].
+    Icon,
     /// A Veo prompt: video that does not exist until it is generated.
     GeneratedVideo,
     /// An ElevenLabs TTS prompt: audio that does not exist until generated.
@@ -79,6 +88,7 @@ impl AssetKind {
                 | Self::Text
                 | Self::Color
                 | Self::Shape
+                | Self::Icon
                 | Self::GeneratedVideo
         )
     }
@@ -90,13 +100,17 @@ impl AssetKind {
 
     /// True when a file on disk is what this kind ultimately refers to.
     ///
-    /// The **inline** kinds are the exception — `text`, `color` and `shape`
-    /// say what they are in the document itself. Most of what follows from
-    /// that is asked here rather than of the kind directly: they cannot be
+    /// The **inline** kinds are the exception — `text`, `color`, `shape` and
+    /// `icon` say what they are in the document itself. Most of what follows
+    /// from that is asked here rather than of the kind directly: they cannot be
     /// imported, there is nothing to hash or probe, and `fit` has no source
     /// raster to reconcile against.
+    ///
+    /// An `icon` belongs with them even though something is read to draw it:
+    /// what it names is compiled into the binary, so there is no path in the
+    /// project and nothing that could be missing after a copy.
     pub fn is_file_backed(self) -> bool {
-        !matches!(self, Self::Text | Self::Color | Self::Shape)
+        !matches!(self, Self::Text | Self::Color | Self::Shape | Self::Icon)
     }
 }
 

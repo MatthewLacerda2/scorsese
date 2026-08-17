@@ -18,8 +18,8 @@ use scorsese_render::checkup::Verdict;
 ///
 /// - **Problems** make a render impossible — a dangling asset reference, two
 ///   clips fighting over the same instant, a file a clip references that is
-///   not on disk, a `style.font` naming a face this build does not ship. This
-///   exits non-zero.
+///   not on disk, a `style.font` naming a face this build does not ship, an
+///   `icon` naming a symbol it does not ship either. This exits non-zero.
 /// - **Warnings** are things that render perfectly well and are probably not
 ///   what anyone meant: a keyframe track naming a property nobody animates, a
 ///   file whose content changed since it was imported.

@@ -86,6 +86,22 @@ pub enum Note {
         /// What was put there instead.
         stood_in: StandIn,
     },
+    /// An icon asset names a symbol this build does not ship, so its layer came
+    /// out empty.
+    ///
+    /// A note rather than a refusal for [`Note::GeneratedMissing`]'s reason: one
+    /// mistyped string should not cost a whole preview. Worth saying loudly all
+    /// the same, because an empty layer is invisible to anything counting
+    /// frames — `scorsese check` reports the same fault as a *problem*, before
+    /// an encode is ever started, and names the near matches with it.
+    UnknownIcon {
+        /// The clip whose layer came out empty.
+        clip: String,
+        /// The asset naming it.
+        asset: String,
+        /// The name as authored.
+        named: String,
+    },
     /// A keyframe track animates a property nothing in this build resolves, so
     /// it will never do anything.
     UnknownProperty {
@@ -164,6 +180,11 @@ impl fmt::Display for Note {
                 f,
                 "clip `{clip}` shows asset `{asset}`, which the project says was \
                  generated but has no file on disk — {stood_in} stood in for it"
+            ),
+            Self::UnknownIcon { clip, asset, named } => write!(
+                f,
+                "clip `{clip}` shows asset `{asset}`, which names no icon this build \
+                 ships (`{named}`), so it drew nothing"
             ),
             Self::UnknownProperty {
                 clip,

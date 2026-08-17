@@ -12,12 +12,14 @@
 //! checks are: by what has to be looked at to find it.
 
 mod assets;
+mod icon;
 mod shape;
 mod speech;
 mod timeline;
 mod video;
 
 pub use assets::AssetProblem;
+pub use icon::IconProblem;
 pub use shape::ShapeProblem;
 pub use speech::SpeechProblem;
 pub use timeline::TimelineProblem;
@@ -83,6 +85,13 @@ impl From<SpeechProblem> for ValidationError {
 /// As does a shape problem.
 impl From<ShapeProblem> for ValidationError {
     fn from(problem: ShapeProblem) -> Self {
+        Self::Asset(problem.into())
+    }
+}
+
+/// And an icon problem.
+impl From<IconProblem> for ValidationError {
+    fn from(problem: IconProblem) -> Self {
         Self::Asset(problem.into())
     }
 }

@@ -69,6 +69,14 @@ pub enum AssetField {
     /// rectangle described on a video asset would be drawn by nothing, and
     /// silence about it would look exactly like having drawn it.
     Shape,
+    /// Which symbol an `icon` asset names, how big it is drawn and in what
+    /// colour.
+    ///
+    /// The fourth inline kind's whole content, required by it and refused
+    /// everywhere else for the reason [`AssetField::Shape`] is. What it does
+    /// *not* cover is whether the name is a symbol at all: the catalogue is a
+    /// set of property values, so that answer lives where the drawing does.
+    Icon,
     /// The rest of a generated video's brief: tier, raster, length, aspect and
     /// the stills it is built from.
     ///
@@ -112,6 +120,7 @@ impl AssetField {
             Self::State => "state",
             Self::Color => "color",
             Self::Shape => "shape",
+            Self::Icon => "icon",
             Self::Video => "video",
             Self::Speech => "speech",
             Self::Operation => "operation",

@@ -13,6 +13,8 @@
 
 use scorsese_core::PropertyPath;
 
+use crate::distance;
+
 /// One property something in this workspace can animate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Property {
@@ -64,7 +66,7 @@ impl Registry {
 
         let mut ranked: Vec<(usize, &'static Property)> = self
             .properties()
-            .map(|property| (distance(path.as_str(), property.path), property))
+            .map(|property| (distance::between(path.as_str(), property.path), property))
             .collect();
         ranked.sort_by_key(|(distance, property)| (*distance, property.path));
         let (best, property) = *ranked.first()?;
@@ -78,23 +80,4 @@ impl Registry {
             _ => Some(property),
         }
     }
-}
-
-/// Levenshtein distance: how many single-character edits turn one string into
-/// the other. Two rows rather than a full matrix, because the paths involved
-/// are short and this runs once per keyframe track.
-fn distance(from: &str, to: &str) -> usize {
-    let (from, to): (Vec<char>, Vec<char>) = (from.chars().collect(), to.chars().collect());
-    let mut previous: Vec<usize> = (0..=to.len()).collect();
-    let mut current = vec![0; to.len() + 1];
-
-    for (i, from_char) in from.iter().enumerate() {
-        current[0] = i + 1;
-        for (j, to_char) in to.iter().enumerate() {
-            let substitution = previous[j] + usize::from(from_char != to_char);
-            current[j + 1] = substitution.min(previous[j + 1] + 1).min(current[j] + 1);
-        }
-        std::mem::swap(&mut previous, &mut current);
-    }
-    previous[to.len()]
 }

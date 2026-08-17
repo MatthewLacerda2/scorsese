@@ -18,6 +18,7 @@ use crate::plan::Shot;
 use crate::report::{Note, StandIn};
 use crate::shape;
 use crate::slug::{self, Standing};
+use crate::symbol;
 use crate::text::Painter;
 
 use super::Pass;
@@ -137,6 +138,27 @@ impl Pass<'_> {
             // would be harder to notice than one that is plainly the wrong
             // colour.
             pixels.fill(shot.asset.color.unwrap_or_default());
+            return held(pixels);
+        }
+
+        if let Some(icon) = &shot.asset.icon {
+            // The anchor reaches the drawing rather than the compositing, for
+            // the reason a shape's does: an icon layer is the size of the
+            // raster, and a raster-sized layer rests at the origin whatever its
+            // anchor says.
+            let mut pixels = blank();
+            symbol::paint(&mut pixels, icon, shot.clip.anchor);
+            if symbol::is_unknown(icon) {
+                notes.push(Note::UnknownIcon {
+                    clip: shot.clip.id.to_string(),
+                    asset: shot.asset.id.to_string(),
+                    named: icon.name.clone(),
+                });
+            }
+            // The rectangle is [`crate::content`]'s to decide and not this call
+            // site's — the symbol's own square rather than the raster it is
+            // drawn into, worked out once for the render and for anything asking
+            // where the clip landed.
             return held(pixels);
         }
 

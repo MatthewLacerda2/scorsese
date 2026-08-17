@@ -113,6 +113,13 @@ fn onscreen(playing: &Playing) -> String {
         // shape itself: a diagram is many small layers, and "shape" alone
         // would not tell two of them apart.
         Shown::Shape(shape) => format!("{} ({})", playing.asset, drawn(shape)),
+        // And an icon for the shape's reason again — no `fit`, and the name
+        // rather than the word "icon", since the name is what a reader is
+        // checking.
+        Shown::Icon(icon) => format!(
+            "{} (icon `{}` {}, {})",
+            playing.asset, icon.name, icon.size, icon.color
+        ),
         Shown::Media => format!(
             "{} ({}, {}{}{})",
             playing.asset,
@@ -300,6 +307,7 @@ pub(crate) const fn kind(kind: AssetKind) -> &'static str {
         AssetKind::Text => "text",
         AssetKind::Color => "color",
         AssetKind::Shape => "shape",
+        AssetKind::Icon => "icon",
         AssetKind::GeneratedVideo => "generated_video",
         AssetKind::GeneratedAudio => "generated_audio",
         AssetKind::SynthAudio => "synth_audio",

@@ -7,12 +7,13 @@
 //! hand. A caller here decides how to print the answer and what to do about
 //! it; it never decides what the answer is.
 //!
-//! Four sources meet, and no other command can see all four at once — the
+//! Five sources meet, and no other command can see all five at once — the
 //! pool's health ([`scorsese_core::asset_status`]), the fonts a text asset
-//! names ([`crate::unknown_fonts`], [`crate::uncovered_glyphs`]), the
-//! properties a keyframe track animates ([`crate::unknown_in`]) and the
-//! document's own validation. That is why the assembly sits in this crate
-//! rather than in `core`: a face is a file this crate opens.
+//! names ([`crate::unknown_fonts`], [`crate::uncovered_glyphs`]), the symbols
+//! an icon asset names ([`crate::unknown_icons`]), the properties a keyframe
+//! track animates ([`crate::unknown_in`]) and the document's own validation.
+//! That is why the assembly sits in this crate rather than in `core`: a face is
+//! a file this crate opens, and a symbol is a catalogue it re-exports.
 //!
 //! **No ffmpeg.** Existence and hashing are questions about files, and a
 //! checkup answers them without probing anything — so it stays cheap enough to
@@ -27,6 +28,7 @@ use scorsese_core::{AssetId, HashCheck, Project, ProjectPath, ValidationErrors, 
 
 use crate::properties::unknown_in;
 use crate::report::Note;
+use crate::symbol::unknown_icons;
 use crate::text::{uncovered_glyphs, unknown_fonts};
 
 pub use media::{Finding, Severity, findings};
@@ -221,6 +223,15 @@ impl Checkup {
 fn media(project: &Project, project_dir: &Path, hashes: HashCheck) -> Vec<Finding> {
     let mut found = findings(&asset_status(project, project_dir, hashes));
     found.extend(unknown_fonts(project).into_iter().map(|unknown| Finding {
+        asset: AssetId::new(unknown.asset.clone()),
+        severity: Severity::Problem,
+        detail: unknown.to_string(),
+    }));
+    // A symbol this build does not ship, for the same reason and with the same
+    // severity: the render carries on, and the layer it carries on with is
+    // empty. The catalogue is too large to list, so the finding names the near
+    // matches instead — which is the part that makes it actionable.
+    found.extend(unknown_icons(project).into_iter().map(|unknown| Finding {
         asset: AssetId::new(unknown.asset.clone()),
         severity: Severity::Problem,
         detail: unknown.to_string(),

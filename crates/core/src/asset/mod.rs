@@ -13,6 +13,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::color::Rgba;
+use crate::icon::Icon;
 use crate::path::ProjectPath;
 use crate::shape::Shape;
 use crate::stamp::Timestamp;
@@ -117,6 +118,15 @@ pub struct Asset {
     /// exactly like having drawn it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub shape: Option<Shape>,
+    /// Which symbol an `icon` asset names, how big it is drawn, and in what
+    /// colour.
+    ///
+    /// The fourth inline kind's whole content, held to the same rule as the
+    /// other three: required on `icon` and refused everywhere else. A symbol
+    /// named on a video asset would be drawn by nothing, and silence about it
+    /// would look exactly like having drawn it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<Icon>,
     /// Why this asset is what it is. Never rendered — see
     /// [`crate::Track::note`], which states the invariant in full.
     ///
@@ -242,6 +252,7 @@ impl Asset {
             style: None,
             color: None,
             shape: None,
+            icon: None,
             note: None,
             video: None,
             speech: None,
@@ -283,6 +294,21 @@ impl Asset {
         Self {
             shape: Some(shape),
             ..Self::bare(id, AssetKind::Shape)
+        }
+    }
+
+    /// A named symbol from the set this build ships, sized in fractions of
+    /// whatever raster the render is.
+    ///
+    /// The fourth of the inline kinds, and the same bargain again — the
+    /// document says everything, so there is no file to import, hash or probe.
+    /// The one thing it does not say is whether the name is real: that is the
+    /// catalogue's answer, and it is given by `scorsese check` and by the
+    /// render.
+    pub fn icon(id: AssetId, icon: Icon) -> Self {
+        Self {
+            icon: Some(icon),
+            ..Self::bare(id, AssetKind::Icon)
         }
     }
 
@@ -357,7 +383,11 @@ impl Asset {
     /// once realised it is media like any other.
     pub fn has_intrinsic_duration(&self) -> bool {
         match self.kind {
-            AssetKind::Image | AssetKind::Text | AssetKind::Color | AssetKind::Shape => false,
+            AssetKind::Image
+            | AssetKind::Text
+            | AssetKind::Color
+            | AssetKind::Shape
+            | AssetKind::Icon => false,
             _ => self.state.is_none_or(GenerationState::has_media),
         }
     }

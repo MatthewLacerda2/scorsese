@@ -82,7 +82,11 @@ pub(super) fn count(commands: &[u8]) -> Option<usize> {
 }
 
 /// Where the icon's square sits on the raster, in pixels.
-fn origin(size: f32, symbol: &Symbol, resolution: Resolution) -> (f32, f32) {
+///
+/// Published up to [`super::area_of`] so that the rectangle an arrow attaches
+/// to is worked out by the code that decides where the square goes, rather than
+/// by a second copy of the same arithmetic that could drift from it.
+pub(super) fn origin(size: f32, symbol: &Symbol, resolution: Resolution) -> (f32, f32) {
     let (width, height) = (resolution.width() as f32, resolution.height() as f32);
     let x = match symbol.anchor.x {
         AnchorX::Left => 0.0,
