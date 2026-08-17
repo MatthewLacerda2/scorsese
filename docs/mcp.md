@@ -74,7 +74,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `project_new` | Create a *.scor project directory: project.json, and the assets/, generated/, recipes/ and cache/ folders beside it. | nothing |
 | `project_read` | Read a project's project.json exactly as it is on disk. | nothing |
 | `project_describe` | Say what the cut contains, shot by shot and sound by sound. | nothing |
-| `project_check` | Report everything wrong or questionable about a project — the document and the media it references — without rendering. | nothing |
+| `project_check` | Report everything wrong or questionable about a project — the document, the media it references, and the layers it draws over each other — without rendering. | nothing |
 | `project_assets` | List the media pool: every asset, its kind, what state it is in, and how many clips use it. | nothing |
 | `import` | Copy media into the project's assets/ and add it to the assets table, ready for a clip to reference. | ffprobe |
 | `project_probe` | Ask ffprobe about every asset that has a file and no recorded metadata, and write down what it says. | ffprobe |
@@ -510,6 +510,20 @@ width. Nothing is composited, no ffmpeg runs, and it costs nothing.
 un-collides a layout, and there will not be one — knowing where a thing is does
 not make the editor the one to move it.
 
+**Asking about an instant is not asking about the film.** `at` answers where
+things are *here*, and a caption lying across a diagram three minutes later is
+found only if somebody thought to ask there too. `project_check` asks at every
+instant where the visible set changes, and warns about the pairs of layers drawn
+across each other — with the span, because a pair overlapping for two frames
+during a dissolve is noise and a pair overlapping for nine seconds is the bug.
+The deliberate stacks are filtered out on purpose: a full-frame background, a
+label inside its box, anything much smaller than what it sits on. Text is
+filtered hardest, because a text layer's rectangle is its wrap box and not its
+glyphs — two captions can share a quarter of their boxes with clear air between
+the words. It under-reports rather than crying wolf, so a quiet `project_check`
+is not a proof that every frame is right — it is one fewer reason to go and look
+at one.
+
 ## Looking at the frames
 
 Two tools answer with something other than words, and the split between them is
@@ -523,8 +537,8 @@ of shots nobody has looked at.
 Everything else here *describes*: what the document says,
 what the cut contains, what is wrong with it. An assistant that writes a title
 and reads back "CHAPTER ONE, centred, 0.14 of the frame" still has no idea
-whether it is readable, whether it collides with the shot under it, or whether
-it is on screen at all.
+whether it is readable, whether the shot under it leaves the words legible, or
+whether it is on screen at all.
 
 ```
 still  { "project": "teaser.scor", "at": "9.1s" }

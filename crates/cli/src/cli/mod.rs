@@ -268,8 +268,8 @@ pub(crate) enum Command {
         all: bool,
     },
     /// Report everything wrong or questionable about the project — the
-    /// document and the media it references — without rendering. Problems
-    /// fail; warnings do not.
+    /// document, the media it references, and the layers it draws over each
+    /// other — without rendering. Problems fail; warnings do not.
     Check {
         /// Re-hash every file to catch media that changed since import.
         /// Existence is always checked; hashing a whole pool costs real I/O

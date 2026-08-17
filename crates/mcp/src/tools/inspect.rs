@@ -197,10 +197,11 @@ impl Tool for Check {
     }
 
     fn description(&self) -> &'static str {
-        "Report everything wrong or questionable about a project — the document \
-         and the media it references — without rendering. Returns every problem \
-         at once rather than stopping at the first, so one call is the whole \
-         repair job. Call this after any edit."
+        "Report everything wrong or questionable about a project — the document, \
+         the media it references, and the layers it draws over each other — \
+         without rendering. Returns every problem at once rather than stopping \
+         at the first, so one call is the whole repair job. Call this after any \
+         edit."
     }
 
     fn costs(&self) -> Costs {

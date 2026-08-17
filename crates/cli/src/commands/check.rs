@@ -22,12 +22,16 @@ use scorsese_render::checkup::Verdict;
 ///   `icon` naming a symbol it does not ship either. This exits non-zero.
 /// - **Warnings** are things that render perfectly well and are probably not
 ///   what anyone meant: a keyframe track naming a property nobody animates, a
-///   file whose content changed since it was imported.
+///   file whose content changed since it was imported, two layers of
+///   comparable size drawn across each other for seconds at a time.
 ///
-/// The document and the media it points at are both in scope. A project whose
-/// JSON is flawless still cannot render if the footage was deleted underneath
-/// it, and finding that out from the renderer partway through an encode is
-/// exactly what running this instead is meant to avoid.
+/// The document, the media it points at, and the picture it would produce are
+/// all in scope. A project whose JSON is flawless still cannot render if the
+/// footage was deleted underneath it, and finding that out from the renderer
+/// partway through an encode is exactly what running this instead is meant to
+/// avoid. A caption lying across a diagram is the same problem one step on:
+/// nothing in the document says so, and until this said it the only way to
+/// find out was to composite a frame and look at it.
 ///
 /// `verify` re-hashes every file. It is off by default: existence is cheap and
 /// always checked, hashing a whole pool is not, and everything hashing can

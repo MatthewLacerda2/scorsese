@@ -1633,6 +1633,46 @@ its numbers describe something with ink in it, and *whether the symbol exists*
 is `check`'s answer and the render's — a problem, reported with the near
 matches, exactly as an unknown font name is.
 
+`check` also reports what the *picture* stacks, which is the one thing neither
+the document nor the pool can show you. Every layer is placed independently, in
+fractions, against a frame it does not otherwise know about — so two of them
+colliding is not a field anybody can read. It is an emergent fact about numbers
+that were each individually reasonable, and the only way to find it used to be to
+composite a still and look at it, which finds the collisions at the instants
+somebody happened to sample. At every instant where the visible set changes,
+`check` compares the content rectangles of clips on different video tracks — the
+compositor's own rectangles, the ones `scorsese describe --at` reports — and
+names the pairs drawn across each other, with the span and how deep the overlap
+gets. Always a warning: layers overlapping on purpose is what most films are made
+of, and a title over a shot can never fail a render or move an exit code.
+
+Which is why most of that pass is a filter, and why it deliberately
+under-reports — a warning that always fires is a warning nobody reads. A layer
+covering 85% or more of the frame is a background or a scrim, and overlaps
+everything above it by construction. A pair whose smaller rectangle is under a
+quarter of the larger's area is decoration on it rather than a collision with
+it — that one is what keeps a caption over a shot, or a badge on a plate,
+silent. An overlap covering less than a fifth of the smaller rectangle is two
+upright bounding boxes grazing. And one lasting under a second is a transition:
+`scorsese dissolve` writes exactly this shape — two clips on different tracks,
+over each other — for half a second, by default.
+
+**Text is filtered harder, and the reason is the rectangle.** A text layer's
+rectangle is its wrapped block — `max_width` wide, whatever the words come to —
+because that is the box the anchor reasons about and the box an arrow attaches
+to. It is generous by design: a label reading `T` in a `max_width` of `0.048`
+has a box many times the width of the letter, and two centred captions side by
+side can share a quarter of their boxes with clear air between the words. So
+when either layer is text the overlap has to cover **between a half and 85%** of
+the smaller rectangle. Below a half, what the two share may be nothing but the
+margin the wrap box added; above 85%, one is inside the other, which is the
+label-in-a-box arrangement this format encourages most. A pair with no text in
+it has no upper bound — one picture wholly hiding another the same size is not a
+label, it is a layer nobody can see.
+
+What is left is partial overlap between two layers of comparable size, held for
+seconds, which is what an authoring mistake actually looks like.
+
 `style.weight` splits the same way, and the split is worth reading once. What
 the document alone can say is checked here, and it is one thing: a number
 outside OpenType's own 1–1000 is not a weight for any face. What only the

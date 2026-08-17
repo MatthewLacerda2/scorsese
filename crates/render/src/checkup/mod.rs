@@ -7,19 +7,25 @@
 //! hand. A caller here decides how to print the answer and what to do about
 //! it; it never decides what the answer is.
 //!
-//! Five sources meet, and no other command can see all five at once — the
-//! pool's health ([`scorsese_core::asset_status`]), the fonts a text asset
-//! names ([`crate::unknown_fonts`], [`crate::uncovered_glyphs`]), the symbols
-//! an icon asset names ([`crate::unknown_icons`]), the properties a keyframe
-//! track animates ([`crate::unknown_in`]) and the document's own validation.
-//! That is why the assembly sits in this crate rather than in `core`: a face is
-//! a file this crate opens, and a symbol is a catalogue it re-exports.
+//! Six sources meet, and no other command can see all six at once — the pool's
+//! health ([`scorsese_core::asset_status`]), the fonts a text asset names
+//! ([`crate::unknown_fonts`], [`crate::uncovered_glyphs`]), the symbols an icon
+//! asset names ([`crate::unknown_icons`]), the properties a keyframe track
+//! animates ([`crate::unknown_in`]), what the picture draws on top of what
+//! ([`crate::Layout`], filtered down to the stacks nobody meant) and the
+//! document's own validation. That is why the assembly sits in this crate rather
+//! than in `core`: a face is a file this crate opens, a symbol is a catalogue it
+//! re-exports, and where a title lands is this crate's own matrix.
 //!
 //! **No ffmpeg.** Existence and hashing are questions about files, and a
 //! checkup answers them without probing anything — so it stays cheap enough to
-//! run after every edit, which is when it is worth running.
+//! run after every edit, which is when it is worth running. That holds for the
+//! overlap pass too: it sequences the timeline and reads rectangles off the
+//! plan, and a clip whose source size nobody recorded is one it stays quiet
+//! about rather than spawning a probe for.
 
 mod media;
+mod overlap;
 
 use std::fmt;
 use std::path::Path;
@@ -96,7 +102,8 @@ impl Verdict {
 /// - **Warnings** are things that render perfectly well and are probably not
 ///   what anyone meant: a keyframe track naming a property nobody animates, a
 ///   file whose content changed since it was imported, a script the document
-///   names and the disk does not have.
+///   names and the disk does not have, two layers of comparable size drawn
+///   across each other for long enough that it was probably not a transition.
 ///
 /// Both are collected even when there are problems: an agent repairing a
 /// project unattended should see the whole list, not discover it one
@@ -143,6 +150,15 @@ impl Checkup {
                     says: finding.to_string(),
                 }),
         );
+        // Last, and never a problem. Two layers over each other renders
+        // perfectly — a title over a shot is the arrangement most films are
+        // made of — so this can only ever be a note that something might not
+        // have been meant, in the report the author is already reading.
+        lines.extend(
+            overlap::collisions(project, project_dir)
+                .into_iter()
+                .map(Line::warning),
+        );
 
         Self {
             summary: format!(
@@ -163,7 +179,8 @@ impl Checkup {
     }
 
     /// Every finding, in the order to read them: the document's own oddities
-    /// first, then the media, asset by asset.
+    /// first, then the media, asset by asset, then what the picture draws over
+    /// what, in the order the timeline runs.
     pub fn lines(&self) -> &[Line] {
         &self.lines
     }
