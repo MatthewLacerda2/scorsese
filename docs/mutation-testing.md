@@ -183,6 +183,16 @@ rows in it is short because there is genuinely something to read.
    Record it as an `exclude_re` entry in `.cargo/mutants.toml` with a written
    reason.
 
+**Where the code draws, the value to name is a measurement.** The compositor's
+survivors are nearly all one shape (#323, #350, #352): a test samples a pixel
+inside a drawing, which says the drawing is roughly where it belongs and nothing
+about it landing in *almost* the right place — a Bézier control point a few
+pixels out, an origin computed by an addition. That is "name the value, not the
+range" read visually, and the values are there to be named: the box a drawing's
+ink occupies and the area it covers are both things the geometry can be asked for
+on paper. `crates/compositor/tests/common/extent.rs` is that measurement, shared
+by the shape, icon and blur tests rather than written three times.
+
 What is never a correct response is **weakening or deleting an assertion** to
 make the report quieter. A test changed to suit a tool has stopped testing the
 code. This is the same rule as re-blessing a golden reference to make CI green

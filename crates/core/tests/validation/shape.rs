@@ -7,8 +7,8 @@
 
 use crate::common::{assert_only_problem, asset_id, asset_mut, problems, project};
 use scorsese_core::{
-    Asset, AssetField as F, AssetKind, AssetProblem as E, Geometry, MAX_RADIUS, Rgba, Shape,
-    ShapeProblem as S, ValidationError as V,
+    Asset, AssetField as F, AssetKind, AssetProblem as E, DEFAULT_STROKE_WIDTH, Geometry,
+    MAX_RADIUS, Rgba, Shape, ShapeProblem as S, ValidationError as V,
 };
 
 fn box_of(width: f64, height: f64) -> Geometry {
@@ -19,22 +19,24 @@ fn box_of(width: f64, height: f64) -> Geometry {
     }
 }
 
-/// A shape asset in an otherwise valid project, on the video track the fixture
-/// already has.
-fn with_a_shape(shape: Option<Shape>) -> scorsese_core::Project {
+/// A shape asset in an otherwise valid project, built by the constructor a
+/// caller actually reaches for.
+///
+/// **Nothing here writes over the block the constructor attached**, and that is
+/// the point of the shape of it: a helper that assembled the asset field by
+/// field would leave `Asset::shape` asserted by nothing at all, and it could
+/// stop attaching a shape with every test in this file still green.
+fn drawn(shape: Shape) -> scorsese_core::Project {
     let mut p = project();
-    p.assets.push(Asset {
-        shape,
-        ..Asset::shape(
-            asset_id("box"),
-            Shape::filled(box_of(0.2, 0.1), Rgba::WHITE),
-        )
-    });
+    p.assets.push(Asset::shape(asset_id("box"), shape));
     p
 }
 
-fn drawn(shape: Shape) -> scorsese_core::Project {
-    with_a_shape(Some(shape))
+/// The one case that has to undo what the constructor did, and the only one.
+fn without_a_shape() -> scorsese_core::Project {
+    let mut p = drawn(Shape::filled(box_of(0.2, 0.1), Rgba::WHITE));
+    asset_mut(&mut p, "box").shape = None;
+    p
 }
 
 #[test]
@@ -48,7 +50,7 @@ fn a_shape_asset_is_valid_on_its_own() {
 #[test]
 fn a_shape_asset_needs_a_shape() {
     assert_only_problem(
-        &with_a_shape(None),
+        &without_a_shape(),
         E::MissingField {
             asset: asset_id("box"),
             field: F::Shape,
@@ -155,5 +157,26 @@ fn a_border_over_no_fill_is_the_callout_case_and_is_fine() {
     assert_eq!(
         drawn(Shape::outlined(box_of(0.2, 0.1), Rgba::BLACK)).validate(),
         Ok(())
+    );
+}
+
+/// The width a document gets by leaving `stroke_width` out, which nothing else
+/// here can see: every constructor sets it, so only a parse reads the default.
+/// Unasserted it could be `0.0` — and a border of no width draws nothing, which
+/// is the one failure a finished render cannot report, since an invisible layer
+/// and a layer that failed look identical.
+#[test]
+fn an_omitted_border_width_is_four_thousandths_of_the_height() {
+    let json = r##"{ "id": "box", "kind": "shape",
+                     "shape": { "geometry": { "rectangle": { "width": 0.2, "height": 0.1 } },
+                                "stroke": "#000000ff" } }"##;
+    let asset: Asset = serde_json::from_str(json).expect("a shape asset parses");
+    let shape = asset.shape.expect("the block is there");
+    assert_eq!(shape.stroke_width, DEFAULT_STROKE_WIDTH);
+    assert!((shape.stroke_width - 0.004).abs() < f64::EPSILON);
+    assert_eq!(
+        drawn(shape).validate(),
+        Ok(()),
+        "and a width validation accepts, which zero would not be"
     );
 }
