@@ -31,7 +31,7 @@ use std::path::{Path, PathBuf};
 
 use scorsese_compositor::card::{self, Card};
 use scorsese_compositor::text::{Band, Font, Style};
-use scorsese_compositor::{Frame, Resolution};
+use scorsese_compositor::{Area, Frame, Resolution};
 use scorsese_core::{Asset, AssetKind, GenerationState, Rgba, TextAlign};
 
 use crate::error::RenderError;
@@ -233,6 +233,23 @@ pub(crate) fn standing(shot: &Shot<'_>, project_root: &Path) -> Result<Standing,
         asset: shot.asset.id.to_string(),
         path: file,
     })
+}
+
+/// The part of a raster this asset's card actually covers.
+///
+/// The whole frame for a picture card, and the band across the foot for a
+/// narration one — which is what a reader sees, so it is what an arrow
+/// attaching to a card meets and what a question about where things sit is
+/// answered with. Read off the same [`Look`] the drawing is, so the two cannot
+/// disagree about where the panel is.
+pub(crate) fn area(asset: &Asset, resolution: Resolution) -> Area {
+    let band = Look::of(asset.kind).band(resolution);
+    Area {
+        left: 0.0,
+        top: band.top,
+        width: resolution.width() as f32,
+        height: band.height,
+    }
 }
 
 /// Draws `asset`'s card into `frame`, which is cleared first.

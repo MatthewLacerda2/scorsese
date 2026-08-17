@@ -44,8 +44,41 @@ impl Sizes {
         plan: &Plan<'_>,
         project_root: &Path,
     ) -> Result<Self, RenderError> {
+        Self::build(plan, project_root, Some(&Ffprobe::new(tools.clone())))
+    }
+
+    /// Only the sizes the document already records — no subprocess, and a
+    /// source it says nothing about is simply absent.
+    ///
+    /// What a **query** about a layout can afford. Measuring costs an ffprobe
+    /// per unprobed file, which is a price worth paying to produce a video and
+    /// not to answer a question about one; [`Sizes::is_unmeasured`] is how the
+    /// caller says so out loud rather than quietly answering with the wrong
+    /// rectangle.
+    pub(crate) fn recorded(plan: &Plan<'_>, project_root: &Path) -> Self {
+        Self::build(plan, project_root, None).unwrap_or_default()
+    }
+
+    /// True when this shot's own size decides where its picture lands and
+    /// nothing established it — so any rectangle claimed for it would be a
+    /// guess.
+    pub(crate) fn is_unmeasured(&self, shot: &Shot<'_>) -> bool {
+        matches!(shot.clip.fit, Fit::Native | Fit::Fit)
+            && !self.measured.contains_key(&shot.asset.id)
+    }
+
+    /// Every source size this plan needs: from the document, and — when there
+    /// is a `probe` to ask — from the file itself when the document is silent.
+    ///
+    /// Without one, a size nothing recorded is left out rather than refused.
+    /// Nothing is being rendered, so being unable to answer about one clip is
+    /// an answer about that clip and not a failure of the whole call.
+    fn build(
+        plan: &Plan<'_>,
+        project_root: &Path,
+        probe: Option<&Ffprobe>,
+    ) -> Result<Self, RenderError> {
         let mut measured: HashMap<AssetId, Resolution> = HashMap::new();
-        let probe = Ffprobe::new(tools.clone());
 
         for shot in plan.segments().iter().flat_map(|segment| &segment.layers) {
             // A drawn asset has no size of its own to measure: text and slug
@@ -62,13 +95,21 @@ impl Sizes {
             // probing it would be a subprocess spent to fail. Asked of the
             // filesystem rather than the document, which is the only place the
             // answer is.
-            if matches!(
-                crate::slug::standing(shot, project_root)?,
-                crate::slug::Standing::Card(_)
-            ) {
-                continue;
+            match crate::slug::standing(shot, project_root) {
+                Ok(crate::slug::Standing::Card(_)) => continue,
+                Ok(crate::slug::Standing::Media(_)) => {}
+                // A file that is not there stops a render. It does not stop a
+                // question about one: the caller reports that clip and answers
+                // about the rest of the frame.
+                Err(_) if probe.is_none() => continue,
+                Err(error) => return Err(error),
             }
-            let size = measure_one(&probe, shot.asset, project_root).map_err(|reason| {
+            let Some(probe) = probe else {
+                measured
+                    .extend(dimensions_of(shot.asset).map(|size| (shot.asset.id.clone(), size)));
+                continue;
+            };
+            let size = measure_one(probe, shot.asset, project_root).map_err(|reason| {
                 RenderError::UnknownSourceSize {
                     clip: shot.clip.id.to_string(),
                     asset: shot.asset.id.to_string(),
@@ -155,7 +196,7 @@ fn cropped(size: Resolution, crop: Option<scorsese_core::Crop>) -> Resolution {
 /// The asset's own pixel size, from what was probed at import or from a probe
 /// run now. The `Err` is why it could not be had, in words a report can carry.
 fn measure_one(probe: &Ffprobe, asset: &Asset, project_root: &Path) -> Result<Resolution, String> {
-    if let Some(size) = asset.media.and_then(dimensions) {
+    if let Some(size) = dimensions_of(asset) {
         return Ok(size);
     }
     let path = asset
@@ -166,6 +207,12 @@ fn measure_one(probe: &Ffprobe, asset: &Asset, project_root: &Path) -> Result<Re
         .probe(&path.resolve(project_root))
         .map_err(|error| error.message)?;
     dimensions(media).ok_or_else(|| "the file reports no picture size".to_owned())
+}
+
+/// The size an asset's probed metadata already records, if it records one —
+/// the answer a measurement gets for free, and the only one a query takes.
+fn dimensions_of(asset: &Asset) -> Option<Resolution> {
+    asset.media.and_then(dimensions)
 }
 
 /// A metadata row's width and height as a raster, when it has both. The even

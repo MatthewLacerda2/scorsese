@@ -56,7 +56,10 @@
 //! [`OutputFormat`] are what the caller chose about the file, with [`Workers`]
 //! for how much of the machine to spend producing it. The review half is
 //! [`Description`] — with [`Stretch`], [`Playing`] and [`Shown`] under it —
-//! and [`Cue`], which names a frame in the delivered file. Media enters a
+//! and [`Cue`], which names a frame in the delivered file. [`Layout`] is the
+//! same review asked *where*: the rectangle each clip's content covers at one
+//! instant, in fractions of the frame, read off the compositor's own matrix
+//! rather than worked out a second time. Media enters a
 //! project through [`Ffprobe`] and [`fill_media`], and [`ANIMATABLE`] with
 //! [`unknown_in`] is the vocabulary of animatable property paths a project is
 //! checked against.
@@ -96,10 +99,12 @@
 pub mod audio;
 pub mod checkup;
 pub mod contact;
+pub(crate) mod content;
 pub(crate) mod describe;
 pub(crate) mod error;
 pub(crate) mod format;
 pub mod frames;
+pub mod layout;
 pub(crate) mod pipe;
 pub mod plan;
 pub(crate) mod probe;
@@ -151,6 +156,7 @@ pub use describe::{
 };
 pub use error::{RenderError, Stage};
 pub use format::{AudioCodec, Container, FormatError, OutputFormat, VideoCodec};
+pub use layout::{Absence, Layout, Placement, Region, Unplaced};
 pub use plan::{FrameRange, FrameRangeError, Plan, PlanError, Showing};
 pub use probe::{Ffprobe, fill_media};
 pub use properties::{ANIMATABLE, Unknown, unknown_in};

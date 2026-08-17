@@ -29,7 +29,7 @@
 mod animation;
 mod commentary;
 mod cue;
-mod display;
+pub(crate) mod display;
 mod stretch;
 
 use scorsese_core::{Fps, Frames};

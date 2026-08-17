@@ -9,8 +9,9 @@
 //! set the producer reads in lockstep, one frame from each per output frame.
 
 use scorsese_compositor::{Area, Frame};
-use scorsese_core::{Anchor, AssetKind, Clip, Fps, Frames};
+use scorsese_core::{Anchor, AssetKind, Fps};
 
+use crate::content;
 use crate::error::RenderError;
 use crate::pipe::{Decoder, Fitting, Source};
 use crate::plan::Shot;
@@ -101,9 +102,12 @@ impl Pass<'_> {
             layers: segment,
         } = among;
         let raster = self.settings.resolution;
-        // Both of the drawn kinds are the size of the raster: a title is set at
-        // whatever the render is, and a card is a panel of it.
-        let held = |pixels: Frame, area: Area| {
+        // What this layer *shows* within its own raster, decided in one place
+        // for the render and for anything asking where a clip landed — see
+        // [`crate::content`]. Every drawn kind is the size of the raster: a
+        // title is set at whatever the render is, and a card is a panel of it.
+        let area = content::within(shot, painter, raster, self.project_root)?.or_whole(raster);
+        let held = |pixels: Frame| {
             Ok((
                 Slot {
                     pixels: Pixels::Held(pixels),
@@ -122,11 +126,7 @@ impl Pass<'_> {
         if shot.asset.kind == AssetKind::Text {
             let mut pixels = blank();
             painter.paint(&mut pixels, shot.asset, shot.clip.anchor, self.project_root)?;
-            // The wrapped block, not the raster it is set on: an arrow attached
-            // to a title has to meet the words, and the layer's own edges are
-            // the frame's.
-            let block = painter.block(shot.asset, shot.clip.anchor, self.project_root, raster)?;
-            return held(pixels, block);
+            return held(pixels);
         }
 
         if shot.asset.kind == AssetKind::Color {
@@ -137,8 +137,7 @@ impl Pass<'_> {
             // would be harder to notice than one that is plainly the wrong
             // colour.
             pixels.fill(shot.asset.color.unwrap_or_default());
-            // A colour *is* the whole raster, so its rectangle is too.
-            return held(pixels, Area::whole(raster));
+            return held(pixels);
         }
 
         if let Some(shape) = &shot.asset.shape {
@@ -180,11 +179,7 @@ impl Pass<'_> {
             // block of text's is.
             let mut pixels = blank();
             shape::paint(&mut pixels, shape, shot.clip.anchor);
-            // A box's own box, not the raster it is drawn into — what a reader
-            // sees, and the only rectangle an arrow could sensibly meet.
-            let area =
-                shape::area(shape, raster, shot.clip.anchor).unwrap_or_else(|| Area::whole(raster));
-            return held(pixels, area);
+            return held(pixels);
         }
 
         let file = match slug::standing(shot, self.project_root)? {
@@ -199,7 +194,7 @@ impl Pass<'_> {
                 }
                 let mut pixels = blank();
                 slug::paint(&mut pixels, shot.asset, absent);
-                return held(pixels, Area::whole(raster));
+                return held(pixels);
             }
         };
 
@@ -240,11 +235,6 @@ fn transparent(resolution: scorsese_compositor::Resolution) -> Frame {
     let mut frame = Frame::black(resolution);
     frame.fill_transparent();
     frame
-}
-
-/// How far into its own clip a timeline frame is.
-pub(super) fn elapsed(at: Frames, clip: &Clip) -> Frames {
-    Frames(at.get().saturating_sub(clip.start.get()))
 }
 
 /// How to read a shot's media, given where it is.

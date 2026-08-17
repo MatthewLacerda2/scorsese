@@ -113,6 +113,32 @@ fn a_description_carries_the_script_and_the_notes() {
     std::fs::remove_dir_all(&dir).ok();
 }
 
+/// The same review asked the other question — not what is on screen, but
+/// where — and still with no ffmpeg on the machine, because a rectangle is
+/// knowable from the document.
+#[test]
+fn at_says_where_each_clip_lands_in_fractions_of_the_frame() {
+    let dir = project("where");
+    let (succeeded, output) = describe(&dir, &["--at", "0.5s"]);
+
+    assert!(succeeded, "{output}");
+    assert!(!output.contains("install ffmpeg"), "{output}");
+    assert!(
+        output.contains("where things land at 0.50s (frame 15)"),
+        "{output}"
+    );
+    // The narration sketch draws its card across the foot of the frame, so it
+    // has a rectangle although nothing has been generated.
+    assert!(
+        output.contains("a1/vo1") && output.contains("y 0.700–1.000"),
+        "{output}"
+    );
+    // The shot's media is not on this machine, which costs that clip its
+    // answer and nothing else.
+    assert!(output.contains("no rectangle for v1/c1"), "{output}");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
 /// A shot, a narration prompt over its first half, then two seconds of nothing
 /// — one of each thing a description has to name.
 const DOCUMENT: &str = r#"{

@@ -47,8 +47,16 @@ impl Fitting {
     /// produces the picture's own rectangle, and native whatever the source
     /// happens to be.
     pub(crate) fn raster(self, settings: &RenderSettings) -> Resolution {
+        self.raster_at(settings.resolution)
+    }
+
+    /// The same, against a raster rather than a whole set of settings — for a
+    /// caller asking where a picture would land without rendering one, which
+    /// has no settings to hand. Nothing about the size a source arrives at
+    /// depends on any of the others.
+    pub(crate) const fn raster_at(self, raster: Resolution) -> Resolution {
         match self {
-            Self::FitPadded | Self::Fill => settings.resolution,
+            Self::FitPadded | Self::Fill => raster,
             Self::Fit(fitted) | Self::Native(fitted) => fitted,
         }
     }

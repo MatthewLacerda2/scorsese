@@ -30,12 +30,13 @@ use scorsese_compositor::{
     BYTES_PER_PIXEL, Compositor, CpuCompositor, Frame, Layer, Properties, Resolution,
 };
 
+use crate::content::elapsed;
 use crate::error::RenderError;
 use crate::pipe::Decoder;
 use crate::plan::Segment;
 
 use super::attach::End;
-use super::layers::{Pixels, Slot, elapsed};
+use super::layers::{Pixels, Slot};
 use super::{Pass, Write};
 
 /// The most frame buffers this stage may be holding at once, in bytes.

@@ -34,6 +34,32 @@ fn describing_a_project_says_what_is_in_the_cut() {
     std::fs::remove_dir_all(dir).ok();
 }
 
+/// The half an assistant laying out a frame needs: not what is on screen, but
+/// where it is — in the unit the document is written in, so the number comes
+/// back ready to write back.
+#[test]
+fn describing_with_an_instant_also_says_where_everything_lands() {
+    let dir = project("where");
+    let (text, failed) = said(&call(
+        "project_describe",
+        json!({ "project": dir, "at": ["1s", "3s"] }),
+    ));
+    assert!(!failed, "{text}");
+    assert!(text.contains("where things land at 1.00s"), "got {text}");
+    assert!(text.contains("where things land at 3.00s"), "got {text}");
+    // The title runs throughout, so it has a rectangle at both instants.
+    assert!(text.contains("v1/c1"), "got {text}");
+    // The narration sketch starts at 2s: not on screen at the first instant,
+    // and a card across the foot of the frame at the second — two different
+    // answers about one clip, which is the point of naming both.
+    assert!(text.contains("not on screen here: v1c"), "got {text}");
+    assert!(
+        text.contains("vo/v1c") && text.contains("y 0.700–1.000"),
+        "got {text}"
+    );
+    std::fs::remove_dir_all(dir).ok();
+}
+
 #[test]
 fn checking_a_healthy_project_says_so() {
     let dir = project("check");

@@ -2,11 +2,20 @@
 //!
 //! None of these change anything, and none of them cost anything to run.
 
-use scorsese_core::{HashCheck, Project, asset_status, fingerprint_of};
-use scorsese_render::{Checkup, Commentary, Description, FrameRange, Note, Plan, unknown_in};
+use scorsese_core::{Frames, HashCheck, Project, asset_status, fingerprint_of};
+use scorsese_render::{
+    Checkup, Commentary, Description, FrameRange, Layout, Note, Plan, Resolution, unknown_in,
+};
 use serde_json::Value;
 
 use super::{Costs, Part, Reply, Tool, project_dir, project_only_schema};
+
+/// The frame a layout question is answered against when nobody names one.
+///
+/// The delivery raster rather than the smaller one `still` composites at:
+/// nothing is drawn here, so there is no reply size to save, and the shape a
+/// caller is reasoning about is the one they will deliver.
+const DEFAULT_RASTER: &str = "1920x1080";
 
 /// The project document itself.
 pub(super) struct Read;
@@ -72,7 +81,13 @@ impl Tool for Describe {
          animated, and what is audible under it — and every note left on an \
          asset, track or clip saying why it is that way. \
          Sequences the timeline exactly as a render would but produces no file, \
-         so it is the cheapest way to check an edit is right. No ffmpeg, no cost."
+         so it is the cheapest way to check an edit is right. No ffmpeg, no cost. \
+         Pass `at` to also get *where* each clip's content lands at that instant: \
+         the rectangle a title's wrapped block, a shape's box or a fitted picture \
+         covers, in fractions of the frame. That is the number you would \
+         otherwise guess at, render, look at and adjust — and it is the \
+         compositor's own rather than a second calculation of it, so a panel \
+         sized from it fits the text it sits behind."
     }
 
     fn costs(&self) -> Costs {
@@ -80,12 +95,45 @@ impl Tool for Describe {
     }
 
     fn schema(&self) -> Value {
-        project_only_schema()
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "project": super::project_property(),
+                "at": {
+                    "type": ["string", "array"],
+                    "items": { "type": "string" },
+                    "description": "Also say where every clip's content lands at this \
+                                    instant: a time like 9.1s, or a timeline frame number \
+                                    like 285. A bare decimal is refused — say which unit \
+                                    you mean. Give a list, e.g. [\"0s\", \"9.1s\", \"400\"], \
+                                    to ask about several: a block that fits at one instant \
+                                    may not at another, where a longer caption has taken \
+                                    its place. Every rectangle comes back in fractions of \
+                                    the frame — the unit transform.position, a text size \
+                                    and a shape's width are all written in — so a number \
+                                    read here can be written straight back into the \
+                                    document. Clips with no rectangle are named too, with \
+                                    the reason: not on screen at that instant, sound only, \
+                                    or on screen and immeasurable."
+                },
+                "resolution": {
+                    "type": "string",
+                    "description": "The frame `at` is measured against, e.g. 1920x1080, \
+                                    which is the default. The answer is in fractions, but \
+                                    the frame's shape still decides it: a `fit` picture \
+                                    letterboxes against this aspect and a title wraps \
+                                    against this width. Nothing is composited either way."
+                }
+            },
+            "required": ["project"]
+        })
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let dir = project_dir(arguments)?;
         let project = load(&dir)?;
+        let instants = asked_about(arguments, project.timeline_fps)?;
+        let raster = raster(arguments)?;
         let plan = Plan::build(&project, project.timeline_fps, FrameRange::ALL)
             .map_err(|error| format!("sequencing the timeline: {error}"))?;
 
@@ -104,7 +152,39 @@ impl Tool for Describe {
         for unknown in unknown_in(&project) {
             out.push_str(&format!("  note: {}\n", Note::from(unknown)));
         }
+        // Each instant on its own and in the order it was asked about: a list
+        // of instants is a list of questions, and the answers have to line up
+        // with them.
+        for at in instants {
+            let layout = Layout::at(&project, &dir, raster, at)
+                .map_err(|error| format!("frame {}: {error}", at.get()))?;
+            out.push_str(&format!("\n{layout}\n"));
+        }
         Ok(out.into())
+    }
+}
+
+/// The raster a layout question is measured against — the delivery size unless
+/// the caller named another.
+///
+/// A default at all, rather than the project's own anything, because a project
+/// does not carry a raster: resolution is chosen per render, and a question
+/// about where a title sits has to be asked against *some* frame.
+fn raster(arguments: &Value) -> Result<Resolution, String> {
+    arguments
+        .get("resolution")
+        .and_then(Value::as_str)
+        .unwrap_or(DEFAULT_RASTER)
+        .parse()
+        .map_err(|problem| format!("resolution: {problem}"))
+}
+
+/// Which instants the caller wants a layout for, if any. No `at` is the
+/// question this tool always answered, and it stays a whole answer on its own.
+fn asked_about(arguments: &Value, fps: scorsese_core::Fps) -> Result<Vec<Frames>, String> {
+    match arguments.get("at") {
+        None | Some(Value::Null) => Ok(Vec::new()),
+        Some(_) => super::still::instants(arguments, fps),
     }
 }
 

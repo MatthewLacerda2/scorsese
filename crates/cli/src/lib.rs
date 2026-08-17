@@ -184,7 +184,12 @@ fn dispatch(cli: Cli) -> Result<()> {
                 grid,
             },
         ),
-        Command::Describe { fps, range } => commands::describe::run(&directory, fps, range),
+        Command::Describe {
+            fps,
+            range,
+            at,
+            resolution,
+        } => commands::describe::run(&directory, fps, range, &at, resolution),
         Command::Synth { action } => match action {
             Some(SynthAction::New { name, kind }) => {
                 commands::synth::new(&directory, &name, kind.into())
