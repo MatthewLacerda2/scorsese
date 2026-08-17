@@ -252,6 +252,85 @@ pub fn unknown_fonts(project: &Project) -> Vec<UnknownFont> {
         .collect()
 }
 
+/// A text asset whose face cannot draw some of what it says.
+///
+/// A warning and never a problem: the render succeeds, the frames are fine
+/// everywhere else, and swapping the face or the character is the author's
+/// call rather than this command's. What makes it worth saying at all is that
+/// the alternative to saying it is finding out by eye — an unmapped character
+/// is dropped **with its advance**, so the line closes up and looks like text
+/// nobody wrote rather than text that failed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UncoveredGlyphs {
+    /// The text asset whose content it is.
+    pub asset: String,
+    /// The face as authored — a shipped name or a path — so the answer is
+    /// "swap this" rather than "swap something".
+    pub face: String,
+    /// The characters it cannot draw, each named once, in the order they
+    /// first appear.
+    pub characters: Vec<char>,
+}
+
+impl std::fmt::Display for UncoveredGlyphs {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // The code point beside the character, because half of these are
+        // invisible in a terminal and `U+2713` is the searchable half.
+        let listed = self
+            .characters
+            .iter()
+            .map(|character| format!("`{character}` (U+{:04X})", *character as u32))
+            .collect::<Vec<_>>()
+            .join(", ");
+        write!(
+            f,
+            "`{}` has no glyph for {listed} — they are dropped, not drawn",
+            self.face
+        )
+    }
+}
+
+/// Every text asset saying something its own face cannot draw.
+///
+/// Resolves each asset's face exactly as a render would, through the same
+/// painter, so this can never disagree with what the frames do. A face that
+/// will not open at all is not reported here — that is `unknown_fonts` above,
+/// or the media pass, and reporting it twice would be two findings for one
+/// fault.
+pub fn uncovered_glyphs(project: &Project, project_root: &Path) -> Vec<UncoveredGlyphs> {
+    let mut painter = Painter::default();
+    let mut found = Vec::new();
+    for asset in project.assets.iter().filter(|a| a.kind == AssetKind::Text) {
+        let Some(content) = asset.text.as_ref() else {
+            continue;
+        };
+        let style = asset.text_style();
+        let Ok(font) = painter.font(&style, asset, project_root) else {
+            continue;
+        };
+        let characters = font.uncovered(content);
+        if characters.is_empty() {
+            continue;
+        }
+        found.push(UncoveredGlyphs {
+            asset: asset.id.to_string(),
+            face: face_named(&style.font),
+            characters,
+        });
+    }
+    found
+}
+
+/// The face as the document wrote it — a shipped name, or the path the
+/// project carries. `FontChoice` is serialised as a plain string either way,
+/// which is the same string an author would search for.
+fn face_named(choice: &FontChoice) -> String {
+    match choice {
+        FontChoice::Named(name) => name.clone(),
+        FontChoice::File(path) => path.to_string(),
+    }
+}
+
 /// The document's boolean as the compositor's named pair.
 const fn slant(italic: bool) -> Slant {
     if italic {

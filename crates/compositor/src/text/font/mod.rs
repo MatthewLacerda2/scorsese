@@ -197,6 +197,34 @@ impl Font {
         })
     }
 
+    /// The characters in `text` this face has no glyph for, in the order they
+    /// first appear and each named once.
+    ///
+    /// A face covering everything is not a thing that exists — eight families
+    /// ship and none of them covers Unicode — so this is ordinary information
+    /// rather than a fault. What is not ordinary is finding out by looking at
+    /// the frame: an unmapped character shapes to `.notdef`, which
+    /// [`super::super::shape`] drops **with its advance**, so the text closes
+    /// up as though it had never been written. The document says one thing and
+    /// the raster says another, and nothing in between reports the difference.
+    /// This is what lets `check` report it.
+    pub fn uncovered(&self, text: &str) -> Vec<char> {
+        let font = FontRef::new(&self.bytes).expect("these bytes parsed when the font was made");
+        let charmap = font.charmap();
+        let mut missing: Vec<char> = Vec::new();
+        for character in text.chars() {
+            // A newline is an instruction to the line breaker and is never
+            // handed to a face to draw, so a face not mapping one says nothing.
+            if character == '\n' || missing.contains(&character) {
+                continue;
+            }
+            if charmap.map(character).is_none() {
+                missing.push(character);
+            }
+        }
+        missing
+    }
+
     /// The face set at one size, which is the form everything else here wants.
     pub(super) fn at(&self, size: f32) -> Face<'_> {
         let font = FontRef::new(&self.bytes).expect("these bytes parsed when the font was made");
