@@ -22,12 +22,18 @@ const START: Pos2 = pos2(500.0, 700.0);
 /// gesture shows up as a test to re-read rather than as a silent pass.
 const DOUBLED: Pos2 = pos2(740.0, 700.0);
 
+/// A window on `project`, on the machine [`fixture::machine`] states.
+///
+/// Nothing here draws a ceiling, so stating it changes no assertion today. It
+/// is here because *every* window a test opens should be on a machine somebody
+/// wrote down: the alternative is finding out which tests inherited the
+/// developer's configuration one failure at a time.
 fn window(project: &std::path::Path) -> Harness<'static, Scorsese> {
     Harness::builder()
         .with_size(egui::vec2(1280.0, 800.0))
         .build_ui_state(
             |ui, window: &mut Scorsese| window.draw(ui),
-            Scorsese::opening(Some(project.to_path_buf())),
+            Scorsese::opening_with(Some(project.to_path_buf()), fixture::machine()),
         )
 }
 

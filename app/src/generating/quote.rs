@@ -54,11 +54,18 @@ pub(crate) struct Quote {
 }
 
 impl Quote {
-    /// Reads what this project would cost to realise.
-    pub(crate) fn of(project: &Project) -> Self {
+    /// Reads what this project would cost to realise, against the ceiling in
+    /// `settings`.
+    ///
+    /// The ceiling is **handed in** rather than loaded here, and that is what
+    /// makes this quote reproducible. `Settings::load` reads a file belonging
+    /// to whoever is at the machine, so a quote that called it drew a different
+    /// sentence for every person — which is exactly how the two generate-dialog
+    /// references came to pass on a runner with no settings file and fail on the
+    /// machine they were written on.
+    pub(crate) fn of(project: &Project, settings: &Settings) -> Self {
         let (shots, in_flight) = shots(project);
         let lines = lines(project);
-        let settings = Settings::load().unwrap_or_default();
         Self {
             total_cents: shots
                 .iter()
@@ -210,6 +217,15 @@ pub(crate) fn spent(project: &Project) -> u64 {
 mod tests {
     use super::Quote;
     use scorsese_core::{Asset, AssetId, AssetKind, Fps, Project, SpeechRequest};
+    use scorsese_providers::credentials::Settings;
+
+    /// A machine nobody has configured: no keys, and no ceiling.
+    ///
+    /// Stated rather than loaded, so these assertions are about the arithmetic
+    /// and not about whoever ran them.
+    fn fresh() -> Settings {
+        Settings::default()
+    }
 
     /// A project with one shot to make and one line of narration.
     fn project() -> Project {
@@ -242,7 +258,7 @@ mod tests {
     /// at a cent rather than through the video table at ninety-six.
     #[test]
     fn narration_is_not_quoted_as_a_video_shot() {
-        let quote = Quote::of(&project());
+        let quote = Quote::of(&project(), &fresh());
         assert_eq!(quote.shots.len(), 1, "only the video shot is a shot");
         assert_eq!(quote.shots[0].asset.as_str(), "shot");
         assert_eq!(quote.shots[0].cents, 96, "eight seconds of Fast at 1080p");
@@ -264,7 +280,7 @@ mod tests {
         let mut project = project();
         project.assets[1].speech = None;
 
-        let quote = Quote::of(&project);
+        let quote = Quote::of(&project, &fresh());
         assert_eq!(quote.lines[0].cents, 0);
         assert!(
             quote.lines[0].shape.contains("no voice"),
@@ -279,8 +295,26 @@ mod tests {
     }
 
     /// No ceiling refuses nothing — a limit nobody set is not a limit.
+    ///
+    /// It said that before this took its settings as an argument, but it could
+    /// not *prove* it: the ceiling came off the machine, so on one with none
+    /// this passed for the stated reason and on one with a generous number it
+    /// passed for a different one.
     #[test]
     fn a_run_with_no_ceiling_is_never_over_budget() {
-        assert!(!Quote::of(&project()).over_budget());
+        assert!(!Quote::of(&project(), &fresh()).over_budget());
+    }
+
+    /// And the other half, which nothing here could state until now: a ceiling
+    /// the run would cross is read off the settings it was handed.
+    #[test]
+    fn a_ceiling_the_run_would_cross_is_refused() {
+        let settings = Settings {
+            budget_cents: Some(50),
+            ..Settings::default()
+        };
+        let quote = Quote::of(&project(), &settings);
+        assert_eq!(quote.total_cents, 97, "97c against a 50c ceiling");
+        assert!(quote.over_budget());
     }
 }

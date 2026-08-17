@@ -11,6 +11,7 @@ use std::sync::{Mutex, MutexGuard};
 use egui_kittest::Harness;
 use scorsese_app::Scorsese;
 
+use crate::fixture;
 use crate::watchdog;
 
 /// The window's size in these snapshots.
@@ -58,12 +59,13 @@ impl DerefMut for Drawing {
     }
 }
 
-/// A harness drawing the whole window over `project`.
+/// A harness drawing the whole window over `project`, on the machine
+/// [`fixture::machine`] describes.
 ///
-/// Every test starts here, which is why the [`watchdog`] is armed and the
-/// drawing lock taken here rather than in each test: a snapshot added later
-/// cannot forget to do either, and forgetting would restore exactly the failure
-/// mode they guard against.
+/// Every test starts here, which is why the [`watchdog`] is armed, the drawing
+/// lock taken and the machine stated here rather than in each test: a snapshot
+/// added later cannot forget to do any of the three, and forgetting would
+/// restore exactly the failure modes they guard against.
 pub(crate) fn window(project: Option<std::path::PathBuf>) -> Drawing {
     watchdog::arm();
     // A poisoned lock is a snapshot that panicked while holding it — a failure
@@ -77,7 +79,7 @@ pub(crate) fn window(project: Option<std::path::PathBuf>) -> Drawing {
             .with_size(egui::vec2(WINDOW[0], WINDOW[1]))
             .build_ui_state(
                 |ui, window: &mut Scorsese| window.draw(ui),
-                Scorsese::opening(project),
+                Scorsese::opening_with(project, fixture::machine()),
             ),
         _one_at_a_time: one_at_a_time,
     }
