@@ -2,14 +2,19 @@
 #
 # Mutation testing answers the question coverage cannot: *if this line were
 # wrong, would anything notice?* A line can be executed by ten tests and
-# asserted on by none. See the `mutants` job in `.github/workflows/ci.yml` for
-# how the result is routed, and `docs/mutation-testing.md` for the policy this
-# file implements — including what to do with a survivor.
+# asserted on by none. Two things route the result: the `mutants` job in
+# `.github/workflows/ci.yml`, which scopes to a pull request's own diff, and
+# `.github/workflows/mutation-sweep.yml`, which sweeps one whole crate of the
+# surface below every week so that the code no recent diff touched is audited
+# too. `docs/mutation-testing.md` holds the policy this file implements —
+# including what to do with a survivor.
 #
 # Run it:
 #
 #     make mutants     # this branch's diff, exactly as the CI job scopes it
-#     cargo mutants    # the whole surface below, 3018 mutants
+#     cargo mutants    # the whole surface below: 3373 mutants today, and
+#                      # `cargo mutants --list | wc -l` re-counts it for free —
+#                      # that builds nothing, so the number is exact and cheap
 #
 # ---------------------------------------------------------------------------
 # The mutated surface

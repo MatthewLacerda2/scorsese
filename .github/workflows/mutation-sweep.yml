@@ -1,0 +1,282 @@
+# The mutation sweep: everything the pull requests never looked at.
+#
+# Its own file, and that is the first decision rather than a filing preference.
+# `ci.yml`'s header states what CI is for in as many words — *CI speaks in two
+# situations and no others: a pull request claims to be finished, and `main`
+# moves* — and that sentence is load-bearing, because it is the reason drafts
+# are silent. A cron is a third situation. Putting this job in that file would
+# make the header false, so it lives here instead.
+#
+# What it is for. The `mutants` job in `ci.yml` runs `--in-diff`, which is the
+# right call per pull request: cost tracks the size of the change rather than
+# the size of the codebase. The consequence is that a line is audited once, on
+# the pull request that wrote it, and never again — a module whose tests were
+# later weakened, or whose assertions moved to another crate, has nothing
+# looking at it. This is what looks at it. (#339)
+#
+# It is a signal and never a gate, the same as the job it complements. It runs
+# on a schedule, so it is not on any pull request's clock, and there is nothing
+# here that can block a merge. Do not name this in a branch-protection required
+# checks list — it never runs on a pull request, so the only thing that would
+# achieve is a check that can never be satisfied.
+#
+# Where it reports: issue #341, rewritten in place. Not a pull request, because
+# there is no pull request to attach it to, and not a new comment per run,
+# because a monthly pile of comments is a pile nobody reads. The report on top
+# of that issue is replaced every run; the catch-rate table underneath is only
+# ever added to, which is the part that makes drift visible.
+#
+# ---------------------------------------------------------------------------
+# Cadence, and the number behind it
+# ---------------------------------------------------------------------------
+#
+# Measured, on the development machine (Ryzen 5 3400G, 8 threads) with four
+# other cargo builds running, cargo-mutants 27.1.0 at `--jobs 2`:
+#
+#   cargo mutants -p scorsese-core --shard 1/16
+#   → 56 mutants in 3m 19s, baseline build included. 3.6s per mutant.
+#
+# That is the only wall-clock figure taken, and it is a bounded sample of one
+# crate rather than a sweep. Everything that follows from it is arithmetic, and
+# is labelled as such — `.cargo/mutants.toml` refuses to quote a wall clock for
+# exactly this reason, and an extrapolation presented as a measurement would be
+# the same sin with more steps.
+#
+# The mutant counts are not extrapolated. `cargo mutants --list` builds nothing
+# and runs nothing, so these are exact for this source at this tool version —
+# 3373 on the scoped surface today (up from the 3018 recorded at #289, which
+# the compositor's shape work has since moved):
+#
+#   scorsese-core 884 · scorsese-compositor 1033 · scorsese-render 156 ·
+#   scorsese-zimmer 1300
+#
+# **Extrapolated, not measured:** 3373 × 3.6s ≈ 3h 20m on that machine. A
+# GitHub-hosted runner is cold and narrower — four cores on a public repo, two
+# in the estimate #339 worked from — so two to three times that is the honest
+# band: **seven to ten hours for the whole surface, against a six-hour job
+# limit.** A single crate at the same multiple is 2-4 hours, which fits with
+# room to spare.
+#
+# So: **rotation, not truncation.** One crate a week, cycling, which sweeps the
+# whole surface every four weeks — #339's guess of monthly, delivered in pieces
+# that fit. Three things make weekly-in-pieces better than monthly-in-one, and
+# only the first is about the six-hour limit:
+#
+# - A monthly run would never see a warm cache. GitHub evicts a cache after
+#   seven days without a read, so every monthly sweep would pay a cold build
+#   for four crates. A weekly one keeps the cache alive for the next.
+# - A trend needs a stable subject. `--shard 2/4` would divide the surface
+#   evenly, but shard membership moves whenever the source does, so last
+#   month's shard 2 and this month's are not the same code and their catch
+#   rates are not comparable. A crate is the same crate.
+# - Four readings a month beats one, at the same total cost.
+#
+# If a crate ever outgrows the limit anyway, the report says so rather than
+# rounding down: cargo-mutants stamps an end time on the way out, and the
+# renderer reads a start with no end as a run that was stopped — the reading is
+# banner-marked and its history row says `cut short`. A truncated sweep
+# reporting as a complete one is the one outcome worse than no sweep.
+#
+# One caveat that belongs to `schedule:` and not to this workflow: a scheduled
+# run only ever fires from the default branch, and GitHub disables the schedule
+# after 60 days without repository activity. Neither is visible from a branch,
+# so a sweep that has gone quiet is checked on the Actions tab, not here.
+name: Mutation sweep
+
+on:
+  # Mondays, 04:17 UTC. Off the hour on purpose: scheduled runs pile up at the
+  # top of every hour across all of GitHub and are dispatched late when they do.
+  schedule:
+    - cron: "17 4 * * 1"
+
+  # For running one deliberately — after adding a crate to the mutated surface,
+  # or to re-read one whose survivors have just been worked through.
+  workflow_dispatch:
+    inputs:
+      crate:
+        description: "Crate to sweep. 'rotation' takes whichever the week is on."
+        default: rotation
+        type: choice
+        options:
+          - rotation
+          - scorsese-core
+          - scorsese-compositor
+          - scorsese-render
+          - scorsese-zimmer
+
+permissions:
+  contents: read
+  # To rewrite the tracking issue's body. Nothing else here writes anything.
+  issues: write
+
+env:
+  # Where the report lands: "Mutation sweep: the standing catch-rate report".
+  # A number and not a search, so a sweep pointed at an issue that has been
+  # closed or renamed stops and says so instead of quietly reporting nowhere.
+  TRACKING_ISSUE: 341
+
+jobs:
+  sweep:
+    name: mutation sweep (signal)
+    runs-on: ubuntu-24.04
+    # The same structural guarantee the per-pull-request `mutants` job relies
+    # on: whatever happens in here — survivors, a broken flag, cargo-mutants
+    # falling over — the run stays green. Surviving mutants are a result, not a
+    # failure, and this workflow has no claim to break.
+    continue-on-error: true
+    # Under GitHub's six-hour ceiling, with the sweep step stopping earlier
+    # still (below) so there is time left to report what it did manage.
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+
+      # Which crate this week is on. Weeks since the epoch rather than an ISO
+      # week number, because `%V` has a 53rd week that would repeat or skip a
+      # crate once a year. The epoch was a Thursday, so the boundary is Thursday
+      # 00:00 UTC and the Monday cron fires four days clear of it — no run can
+      # land on the seam and pick the wrong side of it.
+      - name: This week's crate
+        id: pick
+        env:
+          REQUESTED: ${{ inputs.crate }}
+        run: |
+          set -euo pipefail
+          crates=(scorsese-core scorsese-compositor scorsese-render scorsese-zimmer)
+          crate="${REQUESTED:-rotation}"
+          if [ "$crate" = rotation ]; then
+            week=$(( $(date -u +%s) / 604800 ))
+            crate="${crates[$(( week % ${#crates[@]} ))]}"
+          fi
+          echo "crate=$crate" >> "$GITHUB_OUTPUT"
+          echo "Sweeping $crate." >> "$GITHUB_STEP_SUMMARY"
+
+      # The tracking issue is the only place this run reports, so its absence
+      # is the one thing here worth failing over. Checked before anything
+      # expensive: three hours of mutation with nowhere to write the answer is
+      # three hours wasted, and it would be discovered at the end.
+      - name: The report has somewhere to go
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          state=$(gh api "repos/$REPO/issues/$TRACKING_ISSUE" --jq .state)
+          if [ "$state" != "open" ]; then
+            echo "::error::issue #$TRACKING_ISSUE is $state; the sweep has" \
+                 "nowhere to report. Reopen it, or point TRACKING_ISSUE at" \
+                 "its replacement."
+            exit 1
+          fi
+
+      # Mutants in `crates/render/src/plan/` and `src/audio/` run that crate's
+      # tests, which decode real fixture media. Installed on every week's run
+      # rather than the render week's, because a conditional apt-get is a
+      # branch that is wrong four times out of five and never exercised.
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+
+      # One cache for the rotation, not one per crate. A per-crate key would be
+      # read once every four weeks, and GitHub evicts a cache after seven days
+      # without a read — so each week would restore nothing and build cold. The
+      # crates share most of their dependency tree anyway.
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: mutation-sweep
+
+      - name: Install cargo-mutants
+        uses: taiki-e/install-action@cargo-mutants
+
+      # `--list` builds nothing and runs nothing, so this is exact and costs a
+      # second. It goes in the report as the number the reading should be read
+      # against: a sweep that was cut short is obvious when the planned total
+      # is stated next to it.
+      - name: What is in scope
+        id: scope
+        env:
+          CRATE: ${{ steps.pick.outputs.crate }}
+        run: |
+          set -euo pipefail
+          planned=$(cargo mutants --list --colors never -p "$CRATE" | wc -l)
+          version=$(cargo mutants --version)
+          echo "Swept \`$CRATE\`, the whole crate and not a diff:" \
+               "$planned mutants planned on the surface" \
+               "\`.cargo/mutants.toml\` scopes, at $version." > scope.txt
+          cat scope.txt
+
+      # cargo-mutants builds each mutant in a copy of the tree that includes a
+      # copy of `target/`, so a warm one here is the difference between an
+      # incremental relink per mutant and a cold build per mutant — over a
+      # thousand times, on the zimmer week.
+      - name: Warm the build
+        env:
+          CRATE: ${{ steps.pick.outputs.crate }}
+        run: cargo build -p "$CRATE" --tests --locked
+
+      # No `--in-diff`: the whole crate, which is the entire point of this
+      # workflow existing.
+      #
+      # Its own timeout, thirty minutes under the job's, so a crate that
+      # overruns still leaves time for the steps below to report what did run
+      # and to mark the reading as partial. A job-level timeout would cancel
+      # those steps too and the run would say nothing at all.
+      #
+      # `--jobs 2` matches the per-pull-request job. A public repo's runner has
+      # four cores, so 3 is available if a crate ever needs the headroom —
+      # cargo's own parallelism inside each mutant is what makes that a
+      # judgement call rather than free.
+      - name: Sweep
+        id: sweep
+        timeout-minutes: 300
+        env:
+          CRATE: ${{ steps.pick.outputs.crate }}
+        run: |
+          cargo mutants -p "$CRATE" --jobs 2 --colors never && status=0 || status=$?
+          echo "MUTANTS_STATUS=$status" >> "$GITHUB_ENV"
+
+      # One renderer, two callers: `.github/scripts/mutants-summary.py` is what
+      # the pull-request comment goes through, and `--issue-body` is the same
+      # report wrapped as this issue's body with the catch-rate history carried
+      # over from the body it is replacing. A second renderer for the same data
+      # is how the two would drift.
+      #
+      # The history is read from the issue itself rather than from a file in
+      # the repo, which keeps this workflow out of `contents: write` and off
+      # `main`'s history — a weekly commit whose only content is a number is a
+      # weekly commit nobody wants to see in `git log`.
+      #
+      # Gated on the scope step rather than on `always()`: if the run never got
+      # as far as deciding what it was sweeping — no crate, no issue to write
+      # to — there is nothing to report and a second failure here would only
+      # bury the first one.
+      - name: Rewrite the tracking issue
+        if: always() && steps.scope.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          CRATE: ${{ steps.pick.outputs.crate }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$REPO/issues/$TRACKING_ISSUE" --jq '.body // ""' > current.md
+          python3 .github/scripts/mutants-summary.py \
+            mutants.out/outcomes.json "$(cat scope.txt)" \
+            --issue-body current.md --subject "$CRATE" --run-url "$RUN_URL" \
+            > body.md
+          gh api -X PATCH "repos/$REPO/issues/$TRACKING_ISSUE" -F body=@body.md
+          cat body.md >> "$GITHUB_STEP_SUMMARY"
+
+      # The only thing here that can go red, and it is reserved for the signal
+      # being broken rather than the code being unasserted. cargo-mutants
+      # distinguishes them: 2 is "found survivors" and 3 is "something timed
+      # out", both ordinary results. An unset status is the sweep step hitting
+      # its own timeout — not a broken tool either, and the report has already
+      # said the run was cut short.
+      - name: Fail only if the tool itself broke
+        if: always()
+        run: |
+          case "${MUTANTS_STATUS:-cut-short}" in
+            0|2|3) echo "cargo-mutants ran (exit $MUTANTS_STATUS)" ;;
+            cut-short) echo "::warning::the sweep was stopped before it finished" ;;
+            *) echo "::error::cargo-mutants exited $MUTANTS_STATUS"; exit 1 ;;
+          esac
