@@ -11,8 +11,9 @@ pub(crate) use plans::{audio_shape, audio_source_ins, shape, source_ins};
 pub(crate) use prompts::{generated_asset, narration_asset, sketch_asset, stale_asset};
 
 use scorsese_core::{
-    Asset, AssetId, AssetKind, Clip, ClipId, Fit, FontChoice, Fps, Frames, MediaMetadata, Project,
-    ProjectPath, Speed, TextStyle, Track, TrackId, TrackKind,
+    Asset, AssetId, AssetKind, Clip, ClipId, Easing, Fit, FontChoice, Fps, Frames, Geometry,
+    Keyframe, KeyframeTrack, MediaMetadata, Project, ProjectPath, PropertyPath, Rgba, Shape, Speed,
+    TextStyle, Track, TrackId, TrackKind,
 };
 
 /// An asset with a path under `assets/`, which is what makes the plan treat it
@@ -67,6 +68,36 @@ pub(crate) fn silent_asset(id: &str, kind: AssetKind) -> Asset {
 /// A text asset: content inline, no file anywhere, drawn by the compositor.
 pub(crate) fn text_asset(id: &str) -> Asset {
     Asset::text(AssetId::new(id), "THE END")
+}
+
+/// A filled rectangle of `width` by `height`, in fractions of the raster.
+pub(crate) fn shape_asset(id: &str, width: f64, height: f64) -> Asset {
+    Asset::shape(
+        AssetId::new(id),
+        Shape::filled(
+            Geometry::Rectangle {
+                width,
+                height,
+                radius: 0.0,
+            },
+            Rgba::WHITE,
+        ),
+    )
+}
+
+/// A clip with one keyframe on `property`, which holds it at `value` for the
+/// whole of its length — the only way to move a layer, a position being an
+/// animated property and never a field.
+pub(crate) fn held(mut clip: Clip, property: &str, value: f64) -> Clip {
+    clip.keyframes.push(KeyframeTrack::new(
+        PropertyPath::new(property),
+        vec![Keyframe {
+            t: Frames(0),
+            value,
+            easing: Easing::Linear,
+        }],
+    ));
+    clip
 }
 
 /// A text asset set in a face the project brings with it, at `path`.

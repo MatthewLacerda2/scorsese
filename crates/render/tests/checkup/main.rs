@@ -12,4 +12,5 @@
 mod common;
 
 mod assembly;
+mod overlaps;
 mod severity;
