@@ -11,21 +11,24 @@ use scorsese_core::{
     IconProblem as I, Rgba, ValidationError as V,
 };
 
-/// An icon asset in an otherwise valid project.
-fn with_an_icon(icon: Option<Icon>) -> scorsese_core::Project {
+/// An icon asset in an otherwise valid project, built by the constructor a
+/// caller actually reaches for.
+///
+/// **Nothing here writes over the block the constructor attached**, and that is
+/// the point of the shape of it: a helper that took an `Option` and assigned it
+/// afterwards would leave `Asset::icon` asserted by nothing at all, and it could
+/// stop attaching an icon with every test in this file still green.
+fn drawn(icon: Icon) -> scorsese_core::Project {
     let mut p = project();
-    p.assets.push(Asset {
-        icon,
-        ..Asset::icon(
-            asset_id("badge"),
-            Icon::new("clapperboard", 0.12, Rgba::WHITE),
-        )
-    });
+    p.assets.push(Asset::icon(asset_id("badge"), icon));
     p
 }
 
-fn drawn(icon: Icon) -> scorsese_core::Project {
-    with_an_icon(Some(icon))
+/// The one case that has to undo what the constructor did, and the only one.
+fn without_an_icon() -> scorsese_core::Project {
+    let mut p = drawn(Icon::new("clapperboard", 0.12, Rgba::WHITE));
+    asset_mut(&mut p, "badge").icon = None;
+    p
 }
 
 #[test]
@@ -48,7 +51,7 @@ fn a_name_no_catalogue_has_is_not_a_document_problem() {
 #[test]
 fn an_icon_asset_needs_an_icon() {
     assert_only_problem(
-        &with_an_icon(None),
+        &without_an_icon(),
         E::MissingField {
             asset: asset_id("badge"),
             field: F::Icon,

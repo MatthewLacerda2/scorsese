@@ -8,25 +8,34 @@ use crate::common::{assert_only_problem, asset_id, asset_mut, problems, project}
 use scorsese_core::{Asset, AssetField as F, AssetKind, AssetProblem as E, Rgba};
 
 /// A colour asset in an otherwise valid project, on the video track the
-/// fixture already has.
-fn with_a_colour(color: Option<Rgba>) -> scorsese_core::Project {
+/// fixture already has, built by the constructor a caller actually reaches for.
+///
+/// **Nothing here writes over the colour the constructor attached**, and that is
+/// the point of the shape of it: a helper that took an `Option` and assigned it
+/// afterwards would leave `Asset::color` asserted by nothing at all, and it
+/// could stop attaching a colour with every test in this file still green.
+fn with_a_colour(color: Rgba) -> scorsese_core::Project {
     let mut p = project();
-    p.assets.push(Asset {
-        color,
-        ..Asset::color(asset_id("bg"), Rgba::BLACK)
-    });
+    p.assets.push(Asset::color(asset_id("bg"), color));
+    p
+}
+
+/// The one case that has to undo what the constructor did, and the only one.
+fn without_a_colour() -> scorsese_core::Project {
+    let mut p = with_a_colour(Rgba::BLACK);
+    asset_mut(&mut p, "bg").color = None;
     p
 }
 
 #[test]
 fn a_colour_asset_is_valid_on_its_own() {
-    assert_eq!(with_a_colour(Some(Rgba::BLACK)).validate(), Ok(()));
+    assert_eq!(with_a_colour(Rgba::BLACK).validate(), Ok(()));
 }
 
 #[test]
 fn a_colour_asset_needs_a_colour() {
     assert_only_problem(
-        &with_a_colour(None),
+        &without_a_colour(),
         E::MissingField {
             asset: asset_id("bg"),
             field: F::Color,
@@ -54,7 +63,7 @@ fn nothing_but_a_colour_asset_may_carry_a_colour() {
 /// is one value in the document.
 #[test]
 fn a_colour_asset_needs_no_path() {
-    let found = problems(&with_a_colour(Some(Rgba::BLACK)));
+    let found = problems(&with_a_colour(Rgba::BLACK));
     assert!(
         found.is_empty(),
         "a colour has no file behind it, so nothing should ask for one: {found:?}"
