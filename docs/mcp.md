@@ -95,6 +95,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `synth_bake` | Render every synth_audio recipe whose sound is not already on disk, into generated/. | nothing |
 | `synth_survey` | Say what every song recipe in the project is made of, and count the same facts across the whole set. | nothing |
 | `audio_level` | Say how a finished sound file came out. | ffmpeg |
+| `icons` | Find an icon by a word, and answer with names — each one a string to write as an `icon` asset's `name`. | nothing |
 | `voices` | List the ElevenLabs voices a narration can be read in, or check that one still exists. | a key and a network, but no money |
 | `voice_design` | Design a new ElevenLabs voice from a description, for when no voice in either list is the one the video needs. | money, at a provider |
 | `rebrief` | Change what a generated asset is to be made from, and mark it stale in the same write. | nothing |
@@ -220,6 +221,58 @@ What a folder import does is fixed so that it can be relied on:
 
 The reply names what came in, what each was measured to be, and what was
 passed over — so nothing needs a `project_probe` after it.
+
+## Finding the symbol you meant: `icons`
+
+An `icon` asset is a name and nothing else — `clapperboard`, `triangle-alert`,
+`volume-2` — and that name is the one thing about it nobody can work out from
+the document. This build ships the whole Lucide set, **seventeen hundred
+symbols**, which is far too many to list at a client: a word is how you reach
+them.
+
+```
+icons  { "project": "teaser.scor", "query": "film" }
+       → "15 icons match `film`: film, cctv, cctv-off, clapperboard, file-play,
+          file-video-camera, monitor-pause, monitor-play, …"
+```
+
+**What comes back is the string to write as an `icon` asset's `name`** — every
+one of them, verbatim. There is no second step and nothing to translate.
+
+**It searches what an icon is *about*, not only what it is called.** The query
+is matched against each icon's name and then against the words upstream files it
+under, which is the half that earns the tool: `clapperboard` answers to *movie,
+film, video, camera, cinema, cut, action, television, tv, show, entertainment*,
+and none of those is in its name. A search over names alone would miss it for
+every word anybody would actually type.
+
+**A plain substring, case-insensitive, never fuzzy.** No scoring function, so
+there is nothing to predict and nothing to be surprised by: a fragment matches
+(`clap` finds the clapperboard), and a word that finds nothing means the
+catalogue has nothing filed under it. Ordering is the one thing that is not
+alphabetical — an exact name first, then names containing the word, then
+everything a tag matched — because a caller confirming a name it already has
+should not read past nine others to do so.
+
+**The answer is capped at forty and says both numbers.** A one-letter query
+matches most of the set; the reply states how many matched as well as how many
+are shown, and a capped one asks for a narrower word. There is no page two:
+narrowing is the way to the rest. A silent truncation would read as *that is all
+there is*, which for this tool is a wrong answer rather than a short one.
+
+**Nothing matching is an answer, not an error.** The reply says so, and says
+what was searched, so the next move is another word rather than a bug report.
+
+It costs nothing and needs nothing — no bake, no ffmpeg, no network — the same
+standing `synth_survey` has, and for the same reason: the catalogue is compiled
+into the binary. That also means the set is **the same for every project**; the
+`project` argument is the uniform shape every tool here has rather than a
+filter, and no project carries symbols of its own. `scorsese icons <query>` is
+the same lookup on the command line, over the same function.
+
+A name that is *nearly* right is a different question and has a different
+answer: `project_check` refuses an unknown icon with the closest names beside it.
+Use this when you do not know the name, and read that when you thought you did.
 
 ## Why the edit was made this way
 

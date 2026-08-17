@@ -148,8 +148,8 @@ pub use scorsese_compositor::grid;
 /// crate rather than depending on the compositor, and the shipped symbols are
 /// the second catalogue of exactly that kind. [`icon::find`] answers whether a
 /// name is one of them, [`icon::nearest`] is what a refusal says instead of
-/// listing seventeen hundred, and [`icon::all`] is what a listing or a search
-/// reads.
+/// listing seventeen hundred, [`icon::search`] is how a caller finds one by a
+/// word rather than by its name, and [`icon::all`] is what both of those read.
 pub use scorsese_compositor::icon;
 
 pub use checkup::Checkup;

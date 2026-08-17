@@ -17,6 +17,7 @@ mod looking;
 mod pacing;
 mod placing;
 mod rendering;
+mod searching;
 mod seeing;
 mod starting;
 mod surveying;

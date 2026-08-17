@@ -162,6 +162,24 @@ pub(crate) enum Command {
     /// provider reports what a generation actually cost. Prints as Markdown,
     /// because CI appends this to a job summary.
     Prices,
+    /// Find an icon by a word: what to write as an icon asset's `name`.
+    ///
+    /// The set is seventeen hundred symbols and nobody can read that list, so a
+    /// word is how you get at it. The query is matched as a plain substring —
+    /// case-insensitive, never fuzzy — against each icon's name and then
+    /// against the words it is filed under, which is what finds `clapperboard`
+    /// for "film" and "cinema". Exact names come first, then names containing
+    /// the word, then everything a tag matched.
+    ///
+    /// The answer is capped, and says how many matched as well as how many are
+    /// shown. Nothing matching is an answer too: the table is compiled into
+    /// this binary, so a search touches no project, no network and no file.
+    Icons {
+        /// The word to look for — `camera`, `film`, `warning`, `arrow`. Matched
+        /// inside names and tags alike, so a fragment works: `clap` finds the
+        /// clapperboard.
+        query: String,
+    },
     /// Realise every sketched brief: hand each to its provider, wait a while,
     /// and collect what finishes.
     ///
