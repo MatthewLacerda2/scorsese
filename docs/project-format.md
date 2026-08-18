@@ -172,6 +172,15 @@ never a `duration_seconds` or a `frame_rate`. ffprobe calls a still a one-frame
 video and invents both, and how long a still is on screen is the clip's
 business, not the file's.
 
+An `image` may carry an **animation** — a gif or an avif with more than one
+frame in it. It is still an image and still held for as long as its clip says:
+the picture it holds moves, and when the clip outlasts the animation it starts
+again from the top. That follows from the gap above rather than working around
+it — the file has no say in how long it is on screen, so filling the clip means
+looping. An animated **webp** is the exception, and it is ffmpeg's rather than
+ours: there is no decoder for the animation, so the file measures `0x0` and is
+refused at import instead of reaching a render nothing can draw.
+
 A generated asset with no media renders as a **slug card** — the brief on a
 gray card, with what kind of brief it is and what state it is in written above
 it. That is what makes previewing a full cut cost nothing. `GO` generates
