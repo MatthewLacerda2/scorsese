@@ -52,23 +52,29 @@ fn a_file_whose_extension_lies_is_caught() {
 /// ffmpeg cannot decode an animated webp, and says so by measuring it as
 /// nothing at all. Reaching a render, that file hangs the decode rather than
 /// failing it, so the door is where it has to be caught.
+///
+/// Either dimension alone settles it. A file that reports one real number and
+/// one zero is no more decodable than one reporting two zeroes, and reading it
+/// as "no width *and* no height" would let the half-measured ones through.
 #[test]
 fn a_picture_with_no_measurable_size_is_refused() {
-    let (dir, mut project) = new_project("refuse-sizeless");
-    let source = source_file(&dir, "sticker.webp", b"animated, to ffmpeg's regret");
-    let sizeless = StubProbe::reporting(MediaMetadata {
-        width: Some(0),
-        height: Some(0),
-        ..MediaMetadata::default()
-    });
+    for (width, height) in [(0, 0), (0, 64), (64, 0)] {
+        let (dir, mut project) = new_project(&format!("refuse-sizeless-{width}x{height}"));
+        let source = source_file(&dir, "sticker.webp", b"animated, to ffmpeg's regret");
+        let sizeless = StubProbe::reporting(MediaMetadata {
+            width: Some(width),
+            height: Some(height),
+            ..MediaMetadata::default()
+        });
 
-    let error = import_asset(&mut project, &dir, &source, None, &sizeless)
-        .expect_err("a picture of no size is not a picture");
-    assert!(
-        matches!(error, ImportError::KindMismatch { .. }),
-        "got {error:?}"
-    );
-    assert!(project.assets.is_empty(), "nothing was recorded");
+        let error = import_asset(&mut project, &dir, &source, None, &sizeless)
+            .expect_err("a picture of no size is not a picture");
+        assert!(
+            matches!(error, ImportError::KindMismatch { .. }),
+            "{width}x{height} got {error:?}"
+        );
+        assert!(project.assets.is_empty(), "nothing was recorded");
+    }
 }
 
 #[test]
