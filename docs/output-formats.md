@@ -5,6 +5,14 @@ format-agnostic and costs nothing — the decode pipe says `-i <file>` and asks
 for raw RGBA back, so wmv, avi, mov, mkv and mp4 all import and sit on a
 timeline with no code that knows what any of them are.
 
+One exception, and it is about *stills* rather than containers: holding one
+picture for a clip's length is an ffmpeg option, and the cheap way to say it —
+`-loop` — belongs to the demuxer that reads png and jpeg rather than to ffmpeg
+itself. So a format with frames of its own, a gif or an avif, is held by
+looping the container instead. That is the only place the decode side knows
+what a file is, and [project-format.md](project-format.md) says what it means
+for an animation.
+
 Encoding is the opposite: every file we write is a choice, and it used to be
 made by accident. The container came from whatever extension the output path
 happened to have, and the codecs were two hardcoded strings in the encoder. So

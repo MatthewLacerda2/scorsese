@@ -3,7 +3,7 @@
 
 use crate::common::stub_probe::StubProbe;
 use crate::common::{new_project, source_file};
-use scorsese_core::{AssetKind, ImportError, import_asset};
+use scorsese_core::{AssetKind, ImportError, MediaMetadata, import_asset};
 
 #[test]
 fn an_unknown_extension_asks_rather_than_guesses() {
@@ -47,6 +47,28 @@ fn a_file_whose_extension_lies_is_caught() {
         matches!(error, ImportError::KindMismatch { .. }),
         "got {error:?}"
     );
+}
+
+/// ffmpeg cannot decode an animated webp, and says so by measuring it as
+/// nothing at all. Reaching a render, that file hangs the decode rather than
+/// failing it, so the door is where it has to be caught.
+#[test]
+fn a_picture_with_no_measurable_size_is_refused() {
+    let (dir, mut project) = new_project("refuse-sizeless");
+    let source = source_file(&dir, "sticker.webp", b"animated, to ffmpeg's regret");
+    let sizeless = StubProbe::reporting(MediaMetadata {
+        width: Some(0),
+        height: Some(0),
+        ..MediaMetadata::default()
+    });
+
+    let error = import_asset(&mut project, &dir, &source, None, &sizeless)
+        .expect_err("a picture of no size is not a picture");
+    assert!(
+        matches!(error, ImportError::KindMismatch { .. }),
+        "got {error:?}"
+    );
+    assert!(project.assets.is_empty(), "nothing was recorded");
 }
 
 #[test]
