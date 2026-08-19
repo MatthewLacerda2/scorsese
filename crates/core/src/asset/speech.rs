@@ -39,23 +39,28 @@ pub const MAX_CHARACTERS: usize = 40_000;
 pub enum SpeechModel {
     /// The most expressive of the three — `eleven_v3`.
     ///
-    /// Same price as [`SpeechModel::Standard`], so the choice between them is
-    /// about the reading rather than the money.
+    /// Same price as [`SpeechModel::Standard`], so the choice between those two
+    /// is about the reading rather than the money. Both are twice
+    /// [`SpeechModel::Fast`], which is the choice that costs something.
     Expressive,
-    /// The default, and the vendor's own — `eleven_multilingual_v2`.
+    /// The vendor's own default — `eleven_multilingual_v2`.
     ///
-    /// Default here because it is the model the API uses when a request names
-    /// none, which means an asset that says nothing about its model and a
-    /// request that says nothing about it produce the same audio. The one
-    /// model that **ignores** [`SpeechRequest::language`] — see
-    /// [`SpeechModel::takes_language`].
-    #[default]
+    /// The vendor's, and no longer ours: it is what the API reaches for when a
+    /// request names no model, but scorsese always names one, so the symmetry
+    /// that used to argue for it was with a request this codebase never sends.
+    /// The one model that **ignores** [`SpeechRequest::language`] — see
+    /// [`SpeechModel::takes_language`] — which is the other half of why the
+    /// default moved off it.
     Standard,
-    /// Low latency, and half the price — `eleven_flash_v2_5`.
+    /// Low latency, half the price, and the default — `eleven_flash_v2_5`.
     ///
-    /// For narration where the reading matters less than the money, which is
-    /// the same judgement [`VideoModel::Lite`](super::VideoModel::Lite) exists
-    /// for on the picture side.
+    /// Default because of the price and nothing else. [`SpeechModel::Standard`]
+    /// and [`SpeechModel::Expressive`] cost the same as each other, so the only
+    /// choice the rate card actually poses is *fast or not*, and a reading
+    /// nobody configured should not quietly be the dearer one. It is also the
+    /// same judgement [`VideoModel::Lite`](super::VideoModel::Lite) exists for
+    /// on the picture side.
+    #[default]
     Fast,
 }
 

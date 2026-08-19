@@ -8,10 +8,11 @@
 //!
 //! # The language row is the whole argument of this panel
 //!
-//! [`SpeechModel::Standard`] is the vendor's own default, and it **silently
-//! ignores** a language code. So a person who pins `pt` on it gets narration in
-//! whatever language the words looked like, having paid for it, with nothing
-//! anywhere saying why. The document refuses that combination outright — which
+//! [`SpeechModel::Standard`] is the vendor's own default — not scorsese's,
+//! which is [`SpeechModel::Fast`] — and it **silently ignores** a language
+//! code. So a person who pins `pt` on it gets narration in whatever language
+//! the words looked like, having paid for it, with nothing anywhere saying
+//! why. The document refuses that combination outright — which
 //! is the guarantee — and this panel does not offer it in the first place,
 //! which is the courtesy. What appears instead is the reason, naming the model,
 //! because the model is the choice a person might reconsider.
