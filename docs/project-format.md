@@ -1,4 +1,4 @@
-# `project.json` — schema v26
+# `project.json` — schema v27
 
 The contract between the CLI, the MCP server, the GUI, and every project
 saved on someone's disk. It is meant to be hand-written: an agent should be
@@ -6,13 +6,16 @@ able to author a whole video in this file and render it without touching a
 mouse.
 
 Changing this format is `architecture` work — it needs a `schema_version`
-bump and a migration note.
+bump. It does not need a migration note: **nothing here is kept working for
+the sake of a project saved by an older build.** The bump is what makes a
+break honest rather than what softens it — an older document is refused on
+sight instead of being read as something it no longer means.
 
 ## The document
 
 ```json project
 {
-  "schema_version": 26,
+  "schema_version": 27,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -305,7 +308,7 @@ so editing one makes the asset `stale` exactly as rewording the sentence does.
 
 | Field | Default | Meaning |
 | --- | --- | --- |
-| `model` | `standard` | `expressive`, `standard` or `fast` — see below |
+| `model` | `fast` | `expressive`, `standard` or `fast` — see below |
 | `voice_id` | *none, and no default is possible* | The vendor's id for the voice |
 | `language` | absent | ISO 639-1 (`en`, `pt`), pinning what the model would otherwise infer |
 | `seed` | absent | For a reading that comes back the same way twice. Best-effort at the vendor, so worth recording and not worth relying on |
@@ -317,12 +320,21 @@ between `v3` and `v2_5`:
 | `model` | On the wire | Price | For |
 | --- | --- | --- | --- |
 | `expressive` | `eleven_v3` | 10¢ / 1000 characters | the most expressive reading |
-| `standard` | `eleven_multilingual_v2` | 10¢ / 1000 characters | the default, and the vendor's own |
-| `fast` | `eleven_flash_v2_5` | 5¢ / 1000 characters | half the price, for narration where the reading matters less than the money |
+| `standard` | `eleven_multilingual_v2` | 10¢ / 1000 characters | the vendor's own default, and the one model that ignores `language` |
+| `fast` | `eleven_flash_v2_5` | 5¢ / 1000 characters | **the default** — half the price, and the vendor's pick over its Turbo variants |
+
+**`fast` is the default, and the reason is the price.** `standard` and
+`expressive` cost the same as each other, so the only choice the rate card
+actually poses is *fast or not* — and a reading nobody configured should not
+quietly be the dearer one. Name `expressive` when the reading matters; it costs
+exactly what `standard` does, so there is never a money argument for `standard`
+over it.
 
 The vendor also publishes Turbo variants, and its own documentation recommends
 Flash over Turbo in every case — so offering both would be offering a choice
-with a right answer.
+with a right answer. That recommendation is Flash over *Turbo* and not Flash
+over everything: ElevenLabs positions `eleven_v3` as the expressive one. The
+argument for the default above is scorsese's, not theirs.
 
 **There is no default voice, and there cannot be one.** Every one of the
 vendor's Default voices expires on 2026-12-31 and the set is being replaced
@@ -1685,6 +1697,20 @@ outside OpenType's own 1–1000 is not a weight for any face. What only the
 runs — is refused at the render, in the same breath as "this is not a font I can
 read". That holds for `sans` and `serif` as much as for a font the project
 carries; they are files too, and scorsese happens to be the one carrying them.
+
+## Migration notes stop at v26
+
+There is no *Migrating from v26* section, and there will be none for the
+versions after it. **Nothing here is kept working for the sake of a project
+saved by an older build** — a document whose `schema_version` is not this
+build's is refused on sight, and that refusal is the whole of the story. The
+sections below are what was written while the other policy held; they are left
+as history rather than maintained as a path.
+
+v27 is the first version this applies to, and it is a version where it matters:
+the default `speech.model` moved from `standard` to `fast`, so a v26 document
+that named no model would have read in a different voice at a different price
+had anything tried to carry it forward. Nothing does. It stops instead.
 
 ## Migrating from v25
 

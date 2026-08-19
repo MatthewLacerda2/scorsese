@@ -83,7 +83,8 @@ fn the_model_the_language_and_the_seed_all_move_the_fingerprint() {
     for change in [0, 1, 2, 3] {
         let mut request = project.asset(&id).expect("the asset").speech_request();
         match change {
-            1 => request.model = scorsese_core::SpeechModel::Fast,
+            // Any model but the default, or this case is the baseline again.
+            1 => request.model = scorsese_core::SpeechModel::Expressive,
             2 => request.language = Some(String::from("pt")),
             3 => request.seed = Some(7),
             _ => {}

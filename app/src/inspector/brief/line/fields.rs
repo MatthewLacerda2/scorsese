@@ -165,9 +165,9 @@ fn name(model: SpeechModel) -> &'static str {
 /// What choosing a model is actually a choice about.
 fn about(model: SpeechModel) -> &'static str {
     match model {
-        SpeechModel::Expressive => "The most expressive reading",
-        SpeechModel::Standard => "The vendor's default, and it ignores a pinned language",
-        SpeechModel::Fast => "Quickest, and half the price",
+        SpeechModel::Expressive => "The most expressive reading, at the same price as Standard",
+        SpeechModel::Standard => "The vendor's own default, and it ignores a pinned language",
+        SpeechModel::Fast => "The default: quickest, and half the price",
     }
 }
 

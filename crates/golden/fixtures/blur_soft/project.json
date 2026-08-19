@@ -1,5 +1,5 @@
 {
-  "schema_version": 26,
+  "schema_version": 27,
   "name": "blur_soft",
   "timeline_fps": {
     "num": 30,

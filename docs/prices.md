@@ -67,6 +67,10 @@ ElevenLabs text-to-speech, US cents per **thousand characters of input text**.
 | `standard` | `eleven_multilingual_v2` | $0.10 | $0.02 |
 | `fast` | `eleven_flash_v2_5` | $0.05 | $0.01 |
 
+`fast` is the default, and this table is the reason: `standard` and
+`expressive` cost the same, so the only choice with money in it is *fast or
+not*, and a line nobody configured takes the cheap side of it.
+
 Last checked against
 [ElevenLabs' pricing page](https://elevenlabs.io/pricing) on **2026-08-05**.
 

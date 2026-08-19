@@ -403,8 +403,22 @@ that goes with it.
   this never proves is that the prose is *true*: it stops the shape from
   drifting silently, and reading is still how correctness gets checked.
 - **`project.json` format changes are `architecture`-label work** and require
-  a schema version bump plus a migration note. The format is the contract
-  between the CLI, the MCP server, the GUI, and every saved project.
+  a schema version bump. The format is the contract between the CLI, the MCP
+  server and the GUI — the contract *now*, not across time.
+- **There is no backwards compatibility, and that is the policy until the user
+  says otherwise.** Nothing is kept working for the sake of a `project.json`
+  saved by an older build: no migration notes, no reading an older
+  `schema_version`, no field kept alive because something might still write it.
+  There is one machine and one person, and no saved project anybody would mind
+  losing — so compatibility written now is weight carried on behalf of a user
+  who does not exist, and it is the kind of weight that makes every format
+  change expensive enough to argue about, which is how a format ossifies while
+  it is still wrong. **The version bump is not compatibility work and it stays
+  mandatory**: `Project::load` refuses a document whose `schema_version` is not
+  this build's, so bumping is exactly what turns a silent reinterpretation into
+  a loud refusal. Breaking loudly is the point. The day somebody has a project
+  they cannot afford to lose, this rule is the one to revisit — and it is the
+  user's call, not a thing to infer from a project having got big.
 - **The lint set is chosen, not inherited.** `[workspace.lints]` in the root
   `Cargo.toml` is the whole policy; every crate takes it with
   `lints.workspace = true`. Because CI denies warnings, **each lint there is a

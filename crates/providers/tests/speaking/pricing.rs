@@ -53,16 +53,21 @@ fn no_model_scorsese_offers_is_unpriced() {
 /// it started.
 #[test]
 fn the_ceiling_counts_what_this_run_has_already_committed() {
-    let (dir, mut project, _) = sketched("ceiling", &"a".repeat(1000));
+    let (dir, mut project, id) = sketched("ceiling", &"a".repeat(1000));
     let mut second = Asset::sketch(
         AssetId::new("vo-second"),
         AssetKind::GeneratedAudio,
         "b".repeat(1000),
     );
-    second.speech = Some(SpeechRequest {
+    // Both lines name their model rather than taking the default, so the
+    // arithmetic below is the test's own and does not move when the default does.
+    let dearer = SpeechRequest {
+        model: SpeechModel::Standard,
         voice_id: Some(String::from("a-voice")),
         ..SpeechRequest::default()
-    });
+    };
+    second.speech = Some(dearer.clone());
+    crate::asset_mut(&mut project, &id).speech = Some(dearer);
     project.assets.push(second);
     let provider = Mock::willing();
 
