@@ -53,7 +53,9 @@ impl Tool for TextNew {
             serde_json::json!({
                 "type": "string",
                 "description": "What it says. Newlines are kept, and anything longer \
-                                than `max_width` wraps on its own."
+                                than `max_width` wraps on its own. An emoji renders, in \
+                                colour and at the size of the line it sits in — nothing \
+                                selects it and nothing has to."
             }),
         );
         properties.insert("asset".to_owned(), id_property("its opening words"));
