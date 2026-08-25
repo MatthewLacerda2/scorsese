@@ -1025,7 +1025,7 @@ A clip chooses this with `fit`, which is `fit` when absent:
 | --- | --- | --- |
 | `fit` | scaled to sit **inside** the raster, keeping proportions; the leftover is **transparent** | the default — the whole shot, bars allowed |
 | `fill` | scaled to **cover** the raster, keeping proportions; the overflow is cropped off the edges | a background plate that must not have bars |
-| `native` | not scaled at all; the source arrives at its **own pixel size**, resting centred | a logo or badge at the size it was authored |
+| `native` | not scaled at all; the source arrives at its **own pixel size**, resting centred — so it covers a **different fraction of the frame at every render size** | a logo or badge at the size it was authored, where its own pixels are the point |
 
 ```json clip
 { "id": "c-logo", "asset": "logo", "start": 0, "duration": 60, "fit": "native" }
@@ -1043,6 +1043,47 @@ That number means nothing to a reader, it stops being right the moment the
 render's resolution changes, and working it out means arithmetic against a
 raster the project is not supposed to know about. `native` says "the logo, at
 its size, moved here", which is what the author meant.
+
+**And what that costs: `native` is a promise about pixels.** A pixel is the one
+unit the rest of this format refuses to measure anything in — `size`,
+`max_width`, `crop` and `transform.position.*` are fractions precisely because
+resolution is a render setting. `native` opts out of that rule deliberately,
+and it keeps its promise exactly as written: the same source is the same
+*number* of pixels at 720p, 1080p and 4K, and therefore a **different fraction
+of the picture** at each. `fit` with a `transform.scale` makes the opposite
+promise — a fitted layer is derived from the raster by construction, so a scale
+on it is a fraction of a fraction, and the layer is the same share of the frame
+at every resolution of that shape. Both are coherent and they disagree, so the
+sentence above is about the *pixel size* that `0.06` was worked out to produce:
+that is what stops being right when the resolution changes, and the fraction is
+what survives it.
+
+**A `native` layer previewed at one resolution is not the layout the render
+delivers.** `scorsese still` and the `still` tool composite at whatever raster
+they are asked for — 1920×1080 by default on the command line, 1280×720 over
+MCP — and for everything measured in fractions a smaller one is the same
+picture with fewer pixels in it. A `native` layer is the exception, because the
+same count of pixels in a smaller frame is a bigger layer: a 1402-pixel-wide
+logo at `transform.scale.x: 0.105` is 147 pixels wide in both, which is 11.5%
+of the width of a 1280×720 preview and 7.7% of the 1920×1080 it is delivered
+at. Still it at the raster the render will use, or judge everything about it
+except its size.
+
+**A layer whose size is a proportion of the picture belongs on `fit`.** A
+corner logo, a badge, a watermark — anything whose real specification is "about
+a tenth of the frame" — is `fit` with a `transform.scale`, and the scale being
+a number that means nothing to a reader is what that reading costs. `native` is
+for the other case, the one it was named for: where the source's own pixels are
+the point.
+
+**Scaling a `native` layer loses both readings at once, and is worth avoiding.**
+It is no longer the size the source was authored at, and it was never a fraction
+of the frame, so the number means "these pixels, times this, whatever the render
+turns out to be" — which is neither thing a fit mode exists to give. A `native`
+clip carrying a `transform.scale` almost always wants `fit` and the same number.
+It is accepted rather than refused because the source's pixel size is not in the
+document — only opening the file says what it is — so from here a deliberate one
+and a mistake look identical.
 
 `native` rests the source **centred**, and `transform.position.*` offsets from
 there. Centred, because the alternative — a corner — is an arbitrary edge of
