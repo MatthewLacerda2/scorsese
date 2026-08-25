@@ -7,6 +7,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod asking;
 mod scaling;
 mod turning;
 

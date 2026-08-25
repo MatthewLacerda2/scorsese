@@ -60,28 +60,45 @@ fn a_left_origin_holds_the_left_edge_at_every_scale() {
 #[test]
 fn a_position_moves_a_pivoted_layer_exactly_as_it_moves_a_centred_one() {
     // Position is applied *after* the pivot, so an origin cannot change what a
-    // move is worth. A quarter of the canvas is 16 pixels whichever edge the
-    // half-width layer was grown from, and that is what makes the field free
-    // to set on a clip that is only being placed.
+    // move is worth. A quarter of the canvas is 16 pixels across and 16 down
+    // whichever corner the half-size layer was grown from, and that is what
+    // makes the field free to set on a clip that is only being placed. Both
+    // axes, because a sign is per-axis and a test of one proves nothing of the
+    // other.
     let source = solid(RED);
     let moved = |origin| {
         drawn(
             &source,
             Properties {
-                scale: (0.5, 1.0),
-                position: (0.25, 0.0),
+                scale: (0.5, 0.5),
+                position: (0.25, 0.25),
                 ..Properties::default()
             },
             origin,
         )
     };
-    let row = |frame: &Frame| span(frame, |x| (x, CENTRE.1));
 
-    let left = moved(at(OriginX::Left, OriginY::Center));
-    assert_span(row(&left), (16, 47), "grown from the left, then moved");
-
+    // Grown about the middle the layer covers 16–47, and the move takes it to
+    // 32–63 on both axes. Each line is sampled through the middle of where the
+    // layer is expected to be, so a wrong answer is a miss rather than a
+    // fringe.
     let centre = moved(Origin::default());
-    assert_span(row(&centre), (32, 63), "grown about the middle, then moved");
+    assert_span(
+        span(&centre, |x| (x, 48)),
+        (32, 63),
+        "centred, moved across",
+    );
+    assert_span(span(&centre, |y| (48, y)), (32, 63), "centred, moved down");
+
+    // Grown from its top-left corner it covers 0–31, and the same move takes
+    // it to 16–47 — the same sixteen pixels, on both axes.
+    let corner = moved(at(OriginX::Left, OriginY::Top));
+    assert_span(
+        span(&corner, |x| (x, 32)),
+        (16, 47),
+        "cornered, moved across",
+    );
+    assert_span(span(&corner, |y| (32, y)), (16, 47), "cornered, moved down");
 }
 
 /// A bar that fills from its left edge over `duration` frames, on a curve.
