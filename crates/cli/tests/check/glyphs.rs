@@ -1,10 +1,14 @@
-//! A character the chosen face cannot draw.
+//! A character **no face scorsese has** can draw.
 //!
 //! A warning, never a problem: the render succeeds and every other frame is
 //! right. What earns it a line at all is that the failure is otherwise
 //! invisible — an unmapped character shapes to `.notdef`, which is dropped
 //! **with its advance**, so the line closes up and reads as text nobody wrote
 //! rather than as text that failed.
+//!
+//! The named face is not the question on its own. A character it lacks and the
+//! fallback face draws is on the frame, so the finding is about what the whole
+//! chain cannot say.
 
 use crate::common::documents::{clip, project};
 use crate::common::run_in;
@@ -38,6 +42,9 @@ fn a_character_the_face_cannot_draw_warns_and_still_passes() {
     );
     run.says("warning: asset `legend`");
     run.says("has no glyph for");
+    // The finding is about the whole chain and says so: a fallback face having
+    // drawn it would have meant no finding at all.
+    run.says("nor does any face scorsese falls back to");
     // The code point beside the character, because half of these are invisible
     // in a terminal and the escape is the searchable half.
     run.says("(U+2713)");
@@ -74,6 +81,17 @@ fn each_missing_character_is_named_once() {
         line.contains("U+2717"),
         "and the other one is there: {line}"
     );
+}
+
+#[test]
+fn an_emoji_is_drawn_by_the_fallback_and_so_is_not_a_finding() {
+    // Inter has no fire, and it does not need one: the chain has a face that
+    // does, so the character reaches the frame. Warning about it would be an
+    // objection to something that renders correctly.
+    let run = checked("glyph-emoji", set_in("legend", "inter", "Ship it 🔥"));
+    assert!(!run.failed, "{}", run.output);
+    run.silent_about("has no glyph");
+    run.says("no problems, nothing to warn about");
 }
 
 #[test]

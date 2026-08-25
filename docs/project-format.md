@@ -493,6 +493,41 @@ gets *"there is no font called `Arial`. The ones scorsese ships are: …"* rathe
 than a complaint about a missing file, which is the sentence somebody who typed
 it actually needs.
 
+#### An emoji in a caption renders, and nothing selects it
+
+Write `"text": "Ship it 🔥"` and the fire appears, in colour, at the size the
+rest of the line is set at. No field turns that on, no field turns it off, and
+no asset kind is involved — a standalone 🎉 filling half the frame is a `text`
+asset holding one character at a large `size`, composited and faded like any
+other layer.
+
+**It works because a font is the head of a chain rather than the whole of it.**
+No face covers Unicode; none of the eight above has a fire. So a character the
+face a document *named* has no glyph for is drawn by the next face that does,
+and one such face ships: **Noto Color Emoji**, in its COLRv1 vector build, so a
+large emoji stays sharp at 4K. Everything the named face *can* draw, it draws —
+a text face with a `☺` in it sets `☺` in text, not in colour — and the fallback
+is only ever reached by a gap.
+
+Three consequences worth knowing before writing one:
+
+- **Line height comes from the named face alone.** A caption with an emoji in
+  it is exactly as tall as the same caption without one, and its words wrap in
+  the same places. The fallback contributes its glyphs' widths and nothing else.
+- **A colour glyph is not tinted.** `color` sets the letters; the fire is the
+  fire's own orange whatever colour the caption is. The one exception is a
+  glyph the font itself asks to be drawn in the text's colour, which some
+  symbols do.
+- **Sequences are one drawing.** 👍🏽 is a thumb plus a skin-tone modifier and
+  👨‍👩‍👧 is three people joined by zero-width joiners; each sets as a single glyph,
+  and no line ever breaks inside one.
+
+**A character no face at all covers is still dropped and still reported.** That
+is unchanged: it draws nothing, takes no width, and `scorsese check` names it
+with its code point before an encode is ever started. What changed is only that
+the report is now about the whole chain, so it no longer objects to an emoji
+that renders perfectly well.
+
 #### Weight, and the variable font that would otherwise render hairline
 
 ```json asset

@@ -209,7 +209,7 @@ right.
 ## The faces, which sit upstream of it just as much
 
 The decoder is not the only input the environment would otherwise choose. **The
-two shipped faces are the other**, and they are held still for exactly the
+shipped faces are the other**, and they are held still for exactly the
 reason ffmpeg is: a system-font lookup resolves to a different file on Linux,
 macOS and Windows, so text drawn on one machine would not match text drawn on
 another and a reference blessed anywhere would fail everywhere else. Two faces
@@ -226,11 +226,19 @@ which `weight` is the fixture for, and which a fixture directory records. Here
 it is the default `sans` and `serif` every other text fixture draws with, which
 nothing in a fixture directory records at all.
 
+**The fallback face is in the same position and is easier to forget**, because
+no document names it. A character the named face has no glyph for is drawn from
+Noto Color Emoji, so that file is an input to `emoji`'s reference exactly as
+Inter is to `title`'s — and it is reached by *coverage*, which means a face
+whose coverage changed would move pixels in a fixture whose `project.json` says
+nothing about it.
+
 What follows from it is the part a rule is for. **The shipped faces may not be
 swapped, subsetted, or resolved from the system without re-blessing every text
 fixture.** Subsetting counts as modifying the file, and modifying the file moves
-the pixels. `anchored`, `paragraph`, `serif`, `slugs`, `title`, `title_moved`
-and `wash` are drawn with them — so this is not a corner of the gate.
+the pixels. `anchored`, `emoji`, `paragraph`, `serif`, `slugs`, `title`,
+`title_moved` and `wash` are drawn with them — so this is not a corner of the
+gate.
 
 `slugs` is on that list because a slug card's text is set in `sans` like any
 other, which is easy to miss when looking for fixtures with a `text` asset in

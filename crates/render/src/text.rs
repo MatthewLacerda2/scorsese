@@ -307,8 +307,8 @@ impl std::fmt::Display for UncoveredGlyphs {
             .join(", ");
         write!(
             f,
-            "nothing scorsese can set `{}` in has a glyph for {listed} — they \
-             are dropped, not drawn",
+            "`{}` has no glyph for {listed}, and nor does any face scorsese \
+             falls back to — they are dropped, not drawn",
             self.face
         )
     }
