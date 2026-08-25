@@ -138,6 +138,8 @@ fn check_kind_against_media(
 ) -> Result<(), ImportError> {
     let expectation = if kind.is_visual() && media.width.is_none() {
         Some("no video stream")
+    } else if kind.is_visual() && has_no_measurable_picture(media) {
+        Some("no picture ffmpeg can read")
     } else if kind.is_audible() && media.audio_channels.is_none() {
         Some("no audio stream")
     } else {
@@ -151,6 +153,21 @@ fn check_kind_against_media(
         }),
         None => Ok(()),
     }
+}
+
+/// A picture the prober recognised but could not measure.
+///
+/// ffprobe answers `0x0` for a file whose container it reads and whose frames
+/// it cannot decode. An **animated webp** is what brought this in: ffmpeg has
+/// no decoder for the animation, so it reports neither the size nor a single
+/// pixel, while still looking enough like a picture to pass the check above.
+///
+/// It is worth its own refusal because of how it fails otherwise. A file with
+/// no decodable frame does not stop a render — the decoder waits on frames
+/// that never arrive, and an unattended render hangs instead of failing. One
+/// refused import at the door is the cheap end of that.
+fn has_no_measurable_picture(media: &MediaMetadata) -> bool {
+    media.width == Some(0) || media.height == Some(0)
 }
 
 /// Why a file could not be imported.
