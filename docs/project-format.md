@@ -137,7 +137,7 @@ re-importing or regenerating a file is one edit in one place.
 | `recipe` | `synth_audio` | Path to the document to synthesise from, by convention under `recipes/` |
 | `state` | `generated_*`, `synth_audio` | `sketch`, `queued`, `generated`, `stale` |
 | `text` | `text` | The string to render; text assets carry content inline and have no `path` |
-| `style` | optional, `text` only | How that string looks: `font`, `weight`, `size`, `color`, `align`, `line_height`, `max_width` — see below |
+| `style` | optional, `text` only | How that string looks: `font`, `weight`, `size`, `color`, `align`, `line_height`, `max_width`, `stroke` — see below |
 | `color` | `color` | The colour to fill with, as `#rrggbb` or `#rrggbbaa`; colour assets have no `path` |
 | `shape` | `shape` | The outline to draw and how it is coloured — see below |
 | `icon` | `icon` | Which symbol to draw, how big and in what colour — see below |
@@ -430,6 +430,8 @@ which is the title most people meant.
 | `align` | `center` | `left`, `center`, `right` — within the wrapped block |
 | `line_height` | `1.25` | Baseline to baseline, as a multiple of `size` |
 | `max_width` | `0.9` | Where lines wrap, as a fraction of the frame's **width** |
+| `stroke` | *none* | `#rrggbb` or `#rrggbbaa` — a rim round the glyphs; absent means no edge |
+| `stroke_width` | `0.002` | How far that rim reaches outward, as a fraction of the frame's **height** |
 
 **A newline in `text` is honoured and ordinary whitespace is not.** An author
 who broke a title in two meant it, so `\n` starts a new line; runs of spaces
@@ -585,6 +587,45 @@ A family with no italic drawn would refuse one rather than shear its upright.
 None of the eight is that today; the rule is written down because the shape
 allows it and a future family might be.
 
+#### The stroke, which is what makes a caption survive the shot behind it
+
+```json asset
+{ "id": "leg-01", "kind": "text", "text": "the last lap",
+  "style": { "font": "playfair-display", "weight": 600, "size": 0.040,
+             "color": "#ffffff", "stroke": "#050b12ff", "stroke_width": 0.0022 } }
+```
+
+A caption burned into the picture is the main way a video reaches somebody
+scrolling with the sound off, and white letters over a bright frame are
+letters nobody can read. `stroke` is the edge that fixes it: the same
+notation as `color` and as a shape's `fill` — `#rrggbb`, or `#rrggbbaa` for
+one you can see through — and **absent means no edge**, which is what every
+document that says nothing about it means.
+
+`stroke_width` is a fraction of the raster's **height**, the unit `size` and a
+shape's `stroke_width` already use, because a thickness has no axis of its own
+and one chosen unit is easier to remember than three. It defaults to `0.002`,
+about two pixels at 1080p. One number means one thickness in every direction
+and at every aspect ratio — which offsetting a second copy of the words could
+never manage, since a fraction of each axis is 1.4× as far on the diagonals and
+a different thickness the moment the render's shape changes.
+
+**The rim is drawn behind the fill, and grows outward only.** This is the one
+place `text` and `shape` share a field name and not a geometry, and it is
+deliberate: a shape's border straddles its outline so that the shape's stated
+size stays the size of the shape, while half a width eating *inward* on a
+letter is exactly the half a caption cannot spare. It closes the eye of an `e`
+and the bowl of an `a` at the sizes captions are set at, and the failure is
+invisible in the document — it shows up as mush on a finished video. So the
+glyph is drawn whole on top of its own rim and keeps its shape; what the two
+kinds share is the field names and the unit.
+
+**A `stroke` with a width of zero is refused**, the same way a shape's border
+without one is. *I meant no edge* and *I meant an edge and got the width
+wrong* look identical in the frame, and only one of them is what the document
+says. A `stroke_width` with no `stroke` beside it is not refused — it is a
+number nothing reads, which is what it is on every text asset ever written.
+
 #### The axes, and the one that is read
 
 `weight` is the *only* axis read. Optical size, width and slant are real axes
@@ -610,7 +651,7 @@ slides and fades needs nothing here. `fit` is meaningless on a text clip:
 there is no source raster to reconcile, since the text is drawn at whatever
 size the render is.
 
-Italic, per-character animation, outlines and shadows are not here yet. Bold is
+Per-character animation and shadows are not here yet. Bold is
 `weight` on a variable font, and nothing more than that: there is no `bold`
 flag, because a flag would be a second, coarser way to say a number that
 already exists.
@@ -702,7 +743,9 @@ quietly missing a box is the kind of mistake that reaches a published video.
 `size` already uses, because a thickness has no axis of its own and one chosen
 unit is easier to remember than two. It defaults to `0.004`, about four pixels
 at 1080p. The line straddles the outline, half inside and half out, so a
-shape's stated size is the size of the shape rather than of its ink.
+shape's stated size is the size of the shape rather than of its ink. **A
+text `stroke` of the same name is drawn the other way** — entirely outside the
+letterform — and the text section above says why the two differ.
 
 **Where it sits is `anchor` and `transform.position`**, the same two things
 that place a title. `anchor` puts the shape's own edges against the frame's —

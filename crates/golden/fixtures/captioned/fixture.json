@@ -1,0 +1,8 @@
+{
+  "description": "A burned-in caption over footage that is dark on top and white underneath, with the words centred across the seam. White letters with a black `stroke`: the upper half of every glyph reads because the fill is bright against the dark, and the lower half reads only because of the rim — on the white bed a caption with no edge would simply disappear from the waist down, which is the whole reason the field exists. That makes the reference discriminating in a way a title on black is not: if the stroke stopped being drawn, or were drawn in front of the fill instead of behind it, or straddled the outline the way a shape's border does, the bottom of the word changes and the letters thin out. Both frames are compared because a text layer is drawn once for a clip and reused, so a broken reuse would leave the first frame right and the last one bare.",
+  "media": {
+    "shot": "color=c=white:s=192x54:d=1:r=30,pad=192:108:0:54:color=0x204060"
+  },
+  "render": { "resolution": "192x108", "fps": "30" },
+  "frames": [0, 9]
+}

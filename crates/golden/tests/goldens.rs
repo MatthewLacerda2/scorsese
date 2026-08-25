@@ -83,6 +83,7 @@ goldens!(
     blur_alpha,
     blur_heavy,
     blur_soft,
+    captioned,
     crop,
     cuts,
     drawn_weight,
