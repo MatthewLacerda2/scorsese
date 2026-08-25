@@ -12,10 +12,10 @@
 //! the broken version is two or three. Nothing else tells them apart from the
 //! outside.
 
-use scorsese_compositor::text::{self, Font};
+use scorsese_compositor::text::{self, Font, Style};
 use scorsese_core::Rgba;
 
-use crate::ink::{bounds, canvas};
+use crate::ink::{bounds, canvas, lines, style};
 
 const SIZE: f32 = 32.0;
 
@@ -133,4 +133,30 @@ fn a_keycap_takes_the_face_that_has_the_enclosing_mark() {
         "the keycap is a different, wider drawing than the digit alone"
     );
     assert!(Font::sans().uncovered("1\u{fe0f}\u{20e3}").is_empty());
+}
+
+/// **And no line ever breaks inside one.** A word too wide for its box is
+/// broken between characters, which for a sequence would leave a hand at the
+/// end of one line and its skin tone at the start of the next — drawn there as
+/// a bare colour swatch, which is the same silent half-right output one line
+/// down. The break goes between clusters instead.
+///
+/// The box is narrower than a single thumb, so the rule that puts at least one
+/// cluster on every line is the only thing deciding: three thumbs take three
+/// lines. Broken between the characters they would take six, because each half
+/// would be a line of its own.
+#[test]
+fn a_line_never_breaks_between_a_hand_and_its_skin_tone() {
+    let boxed = Style {
+        max_width: SIZE * 0.5,
+        line_height: 40.0,
+        ..style(SIZE, Rgba::WHITE)
+    };
+    let mut frame = canvas();
+    text::draw(&mut frame, "👍🏽👍🏽👍🏽", Font::sans(), &boxed);
+    assert_eq!(
+        lines(&frame),
+        3,
+        "one thumb to a line — more would mean a thumb was split from its tone"
+    );
 }
