@@ -113,6 +113,18 @@ fn onto(frame: &mut Frame, color: Rgba, draw: impl FnOnce(&mut Pixmap, &Paint)) 
     paint.anti_alias = true;
     draw(&mut pixmap, &paint);
 
+    blend_pixmap(frame, &pixmap);
+}
+
+/// Blends a finished pixmap onto the frame, source-over.
+///
+/// The second half of [`onto`], published because one drawing does not build
+/// its own pixmap: a colour glyph is walked onto a scratch raster by
+/// [`crate::text`] over many calls and blended once at the end. Coming back
+/// through here is what keeps it the same premultiplied-to-straight conversion
+/// and the same blend every other drawing gets — the point the module doc
+/// makes about a second answer to a soft edge.
+pub(crate) fn blend_pixmap(frame: &mut Frame, pixmap: &Pixmap) {
     for (pixel, drawn) in frame
         .bytes_mut()
         .chunks_exact_mut(BYTES_PER_PIXEL)

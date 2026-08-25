@@ -8,17 +8,24 @@
 //! What is left here is the part that is actually about type: turning skrifa's
 //! outlines, which arrive in font space with y upwards, into one tiny-skia path
 //! sitting the right way up on the raster.
+//!
+//! **Some glyphs are drawings rather than shapes**, and those take the other
+//! road: an emoji carries its own colours in layers and cannot be a stretch of
+//! one path filled in one colour. [`super::colr`] walks it onto a scratch
+//! raster, and the two halves of a block — the letters as a path, the drawings
+//! as pixels — meet at [`Ink::stamp`].
 
 use skrifa::outline::OutlinePen;
-use tiny_skia::PathBuilder;
+use tiny_skia::{PathBuilder, Pixmap};
 
 use scorsese_core::Rgba;
 
-use crate::frame::Frame;
+use crate::frame::{Frame, Resolution};
 use crate::paint;
 
 use super::Edge;
-use super::font::{Face, Font};
+use super::colr::{self, Unpaintable};
+use super::font::{Faces, Font};
 use super::shape::Shaped;
 
 /// Draws one line of `text` into `frame`, in `color`, at `size` pixels per em.
@@ -33,6 +40,9 @@ use super::shape::Shaped;
 /// Nothing is wrapped and nothing is clipped to a box; a glyph falling off the
 /// edge of the frame is simply not drawn. Deciding what fits is the wrapping
 /// layer's job, one level up.
+///
+/// What comes back is whatever a colour glyph on the line asked for and could
+/// not be given — empty for every line of letters, which is almost all of them.
 pub fn draw_line(
     frame: &mut Frame,
     text: &str,
@@ -40,11 +50,11 @@ pub fn draw_line(
     size: f32,
     color: Rgba,
     origin: (f32, f32),
-) {
-    let face = font.at(size.max(1.0));
-    let mut path = Outlines::default();
-    line_into(&mut path, &face, &face.shape(text), origin);
-    stamp(frame, path, color, None);
+) -> Vec<Unpaintable> {
+    let faces = font.faces(size.max(1.0));
+    let mut ink = Ink::new(frame.resolution(), color, None);
+    ink.line(&faces, &faces.shape(text), origin);
+    ink.stamp(frame)
 }
 
 /// Draws several unrelated lines in one pass of the rasteriser.
@@ -60,29 +70,103 @@ pub(crate) fn draw_runs<S: AsRef<str>>(
     size: f32,
     color: Rgba,
     runs: &[(S, (f32, f32))],
-) {
-    let face = font.at(size.max(1.0));
-    let mut path = Outlines::default();
+) -> Vec<Unpaintable> {
+    let faces = font.faces(size.max(1.0));
+    let mut ink = Ink::new(frame.resolution(), color, None);
     for (text, origin) in runs {
-        line_into(&mut path, &face, &face.shape(text.as_ref()), *origin);
+        ink.line(&faces, &faces.shape(text.as_ref()), *origin);
     }
-    stamp(frame, path, color, None);
+    ink.stamp(frame)
 }
 
-/// Traces an already-shaped run into `path`, with the run starting at
-/// `origin`.
+/// What a block of text draws, collected before any of it reaches the frame.
 ///
-/// Shaped rather than plain text because where a glyph goes was decided
-/// upstream — the shaper applied the face's kerning, and a run that was
-/// measured to fit a line has to be drawn as the same run it was measured as.
-pub(super) fn line_into(path: &mut Outlines, face: &Face<'_>, shaped: &Shaped, origin: (f32, f32)) {
-    let (left, baseline) = origin;
-    for glyph in &shaped.glyphs {
-        // The run's offsets are font-space — y upwards — and a baseline is a
-        // row of the raster, so a glyph lifted off the baseline moves up the
-        // frame, which is towards zero.
-        path.place(left + glyph.at.0, baseline - glyph.at.1);
-        face.outline(glyph.id, path);
+/// Two halves that cannot be one. The letters are outlines filled in a single
+/// colour, so they are one path entered into the rasteriser once — overlapping
+/// letters blend at their seam rather than over each other. A colour glyph is
+/// its own layered drawing in its own colours, so it is walked onto a scratch
+/// raster instead, and only where a block actually has one: the pixmap is a
+/// full frame of memory and a caption with no emoji in it never allocates one.
+pub(super) struct Ink {
+    outlines: Outlines,
+    /// The raster a colour glyph would be walked onto, kept so that making one
+    /// stays the first colour glyph's business rather than every block's.
+    resolution: Resolution,
+    /// The colour glyphs so far, `None` until the block turns out to have one.
+    colours: Option<Pixmap>,
+    /// What the letters are filled in, and what a colour glyph gets when it
+    /// asks for the text's own colour by name.
+    colour: Rgba,
+    /// The rim grown off the letterforms, if the style asked for one.
+    ///
+    /// **The letters only.** A rim is a stroke of the path being filled, and a
+    /// colour glyph is not that path — it is a drawing of its own, in its own
+    /// colours, with no single outline to grow anything off. So a 🔥 in a
+    /// captioned line is drawn as itself while the letters beside it keep
+    /// their rim, which is also what it should look like: an emoji is already
+    /// its own high-contrast shape and a rim round it would read as a sticker
+    /// border rather than as legibility.
+    edge: Option<Edge>,
+    said: Vec<Unpaintable>,
+}
+
+impl Ink {
+    pub(super) fn new(resolution: Resolution, colour: Rgba, edge: Option<Edge>) -> Self {
+        Self {
+            outlines: Outlines::default(),
+            resolution,
+            colours: None,
+            colour,
+            edge,
+            said: Vec::new(),
+        }
+    }
+
+    /// Traces an already-shaped run, with the run starting at `origin`.
+    ///
+    /// Shaped rather than plain text because where a glyph goes was decided
+    /// upstream — the shaper applied the face's kerning, and a run that was
+    /// measured to fit a line has to be drawn as the same run it was measured
+    /// as. Which face each glyph came from was decided there too.
+    pub(super) fn line(&mut self, faces: &Faces<'_>, shaped: &Shaped, origin: (f32, f32)) {
+        let (left, baseline) = origin;
+        for glyph in &shaped.glyphs {
+            // The run's offsets are font-space — y upwards — and a baseline is
+            // a row of the raster, so a glyph lifted off the baseline moves up
+            // the frame, which is towards zero.
+            let at = (left + glyph.at.0, baseline - glyph.at.1);
+            let face = faces.face(glyph.face);
+            match face.colour(glyph.id) {
+                Some(drawing) => {
+                    if self.colours.is_none() {
+                        self.colours =
+                            Pixmap::new(self.resolution.width(), self.resolution.height());
+                    }
+                    if let Some(pixmap) = self.colours.as_mut() {
+                        colr::paint(pixmap, face, &drawing, at, self.colour, &mut self.said);
+                    }
+                }
+                None => {
+                    self.outlines.place(at.0, at.1);
+                    face.outline(glyph.id, &mut self.outlines);
+                }
+            }
+        }
+    }
+
+    /// Fills everything collected onto the frame and hands back what could not
+    /// be drawn as the font asked.
+    ///
+    /// Letters first and drawings over them. They do not overlap in any real
+    /// caption — an advance is an advance — so this is an order rather than a
+    /// decision, and it is the one that puts an emoji in front of a letter it
+    /// was placed on top of instead of behind it.
+    pub(super) fn stamp(self, frame: &mut Frame) -> Vec<Unpaintable> {
+        stamp(frame, self.outlines, self.colour, self.edge);
+        if let Some(pixmap) = &self.colours {
+            paint::blend_pixmap(frame, pixmap);
+        }
+        self.said
     }
 }
 
@@ -157,7 +241,7 @@ impl OutlinePen for Outlines {
 /// outline turns a sharp corner — the apex of an `A`, the vertices of a `W`,
 /// every serif — so a rim meant to follow the letter would instead grow horns
 /// off it.
-pub(super) fn stamp(frame: &mut Frame, outlines: Outlines, color: Rgba, edge: Option<Edge>) {
+fn stamp(frame: &mut Frame, outlines: Outlines, color: Rgba, edge: Option<Edge>) {
     let Some(path) = outlines.builder.finish() else {
         return;
     };
