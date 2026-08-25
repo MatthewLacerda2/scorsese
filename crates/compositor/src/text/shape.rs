@@ -24,6 +24,11 @@
 //! shaped as one segment, in the direction and script guessed from its own
 //! characters, and where the lines break is still [`super::layout`]'s
 //! decision.
+//!
+//! **A line is not necessarily one run.** Which face sets which stretch is
+//! [`super::runs`]'s decision, and each stretch is shaped here against that
+//! face on its own — so a glyph carries the face it came from, and the shaped
+//! runs are laid end to end by [`Shaped::append`].
 
 use harfrust::{ShapeOptions, Shaper, UnicodeBuffer};
 use skrifa::GlyphId;
@@ -37,6 +42,7 @@ use skrifa::GlyphId;
 pub(super) const NBSP: char = '\u{a0}';
 
 /// A run of text, shaped: which glyphs, and where each one goes.
+#[derive(Default)]
 pub(super) struct Shaped {
     /// The glyphs in the order they are drawn, which for a right-to-left run
     /// is already the visual order the shaper put them in.
@@ -57,6 +63,26 @@ pub(super) struct Placed {
     pub id: GlyphId,
     /// Where to put it, relative to the run's origin.
     pub at: (f32, f32),
+    /// Which face in the chain drew it — a glyph id means nothing without the
+    /// face it indexes into, and a line may be set from more than one.
+    pub face: usize,
+}
+
+impl Shaped {
+    /// Lays `other` immediately after this run, shifting its glyphs by the
+    /// width already accumulated.
+    ///
+    /// Positions rather than a second pen: the runs of one line are one line,
+    /// and something asking how wide the whole of it sets must not have to walk
+    /// a list of pieces to find out.
+    pub(super) fn append(&mut self, other: Self) {
+        let offset = self.width;
+        self.glyphs.extend(other.glyphs.into_iter().map(|glyph| Placed {
+            at: (glyph.at.0 + offset, glyph.at.1),
+            ..glyph
+        }));
+        self.width += other.width;
+    }
 }
 
 /// Shapes `text` with `shaper`, scaling font units to pixels by `scale`.
@@ -68,7 +94,12 @@ pub(super) struct Placed {
 /// loud. Taking no width and drawing nothing is what "this face cannot say
 /// that" has looked like here since text was first drawn, and kerning is no
 /// reason to change it.
-pub(super) fn shape(shaper: &Shaper<'_>, text: &str, scale: f32) -> Shaped {
+///
+/// **That is now the last resort rather than the first answer.** A character
+/// this face lacks was handed to a face that has it before anything got here,
+/// and reaches this line only when nothing in the chain covers it — which is
+/// exactly the case `check` reports and the frame drops.
+pub(super) fn shape(shaper: &Shaper<'_>, text: &str, scale: f32, face: usize) -> Shaped {
     let mut buffer = UnicodeBuffer::new();
     buffer.push_str(text);
     // Direction, script and language read off the characters themselves. A
@@ -89,6 +120,7 @@ pub(super) fn shape(shaper: &Shaper<'_>, text: &str, scale: f32) -> Shaped {
                 pen + position.x_offset as f32 * scale,
                 position.y_offset as f32 * scale,
             ),
+            face,
         });
         pen += position.x_advance as f32 * scale;
     }
