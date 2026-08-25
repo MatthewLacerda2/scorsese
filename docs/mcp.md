@@ -81,6 +81,12 @@ the tools relate to each other, which is knowledge no single tool has.
 | `script_read` | Read the document this edit is being cut from — the brief, the outline, whatever the project's `script` field points at. | nothing |
 | `script_write` | Write the project's script — the document the edit is cut from. | nothing |
 | `project_write` | Replace a project's project.json with the document given. | nothing |
+| `track_new` | Add a track — a lane for clips, carrying either picture or sound. | nothing |
+| `text_new` | Add a text asset — a caption, a title, a lower third: what it says, and the look it is set in. | nothing |
+| `color_new` | Add a colour asset: a solid fill for a background, a colour card, or a wash under a title. | nothing |
+| `shape_new` | Add a shape asset: a rectangle, an ellipse or an arrow, drawn by the render rather than imported as a picture of one. | nothing |
+| `icon_new` | Add an icon asset: one of the seventeen hundred symbols this build ships, named rather than imported. | nothing |
+| `asset_set` | Change a field on an asset that carries its content in the document — a text, color, shape or icon asset: its wording, its size, its colour. | nothing |
 | `place_clip` | Put a clip on a track: which asset, which track, when it starts and how long it runs — all in seconds, rounded onto the project's frame grid for you. | nothing |
 | `trim_clip` | Move a clip already on the timeline, or change how long it runs or where in its source it opens — in seconds, rounded onto the project's frame grid. | nothing |
 | `dissolve` | Dissolve one shot into the next, by writing ordinary opacity keyframes on both clips — the same ones you would place by hand, and they stay editable afterwards. | nothing |
