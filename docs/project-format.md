@@ -1200,12 +1200,14 @@ its own piece of work.
 
 ### Which edge a position is measured from: `anchor`
 
-**Not to be confused with an arrow's `attach`**, which is a different idea with
-a similar-sounding name: `anchor` says which edge of the *raster* this layer's
-position is measured from, where `attach` says which *clip* an arrow's end
-follows. The two never appear in the same place — one is a clip field, the other
-is inside a shape's geometry — and `attach` is deliberately not called `anchor`
-for exactly this reason.
+**Three near-neighbours, and which of the three answers your question.**
+`anchor` says which edge of the *frame* this layer rests against — where the
+layer sits. `origin`, below, says which point of the *layer* its own scale and
+rotation pivot on — what the layer does about itself once it is there. An
+arrow's `attach` says which *clip* an end of it follows, and is inside a shape's
+geometry rather than on a clip at all. All three deliberately carry different
+words, because a format with two things called `anchor` is a format nobody can
+read back.
 
 ```json clip
 { "id": "c-title", "asset": "title", "start": 0, "duration": 112,
@@ -1263,9 +1265,62 @@ free.
 **It is a field, not an animatable property**, and deliberately: an anchor says
 how a coordinate is to be *read*, and animating that would slide a layer by
 changing what its number means. `transform.position` stays the animated part.
-Scale and rotation stay centre-anchored about the layer's own middle — the
-anchor decides where the layer sits, and those decide what it does about its
-own centre once it is there.
+What scale and rotation happen *about* is a separate question with a separate
+answer, and it is the next section.
+
+### Which point it turns about: `origin`
+
+```json clip
+{ "id": "c-bar", "asset": "bar", "start": 0, "duration": 1440,
+  "anchor": { "x": "left", "y": "bottom" },
+  "origin": { "x": "left", "y": "center" },
+  "keyframes": [ { "property": "transform.scale.x",
+                   "keyframes": [ { "t": 0, "value": 0.0 },
+                                  { "t": 1440, "value": 1.0 } ] } ] }
+```
+
+`x` is `left`, `center` or `right`; `y` is `top`, `center` or `bottom`. Absent
+means the layer's own centre on both axes, which is what every scale and every
+turn did before the field existed — so no document written before this changes
+by a pixel.
+
+**It is the point `transform.scale` and `transform.rotation` pivot on.** That
+is the clip above: a gold rule along the foot of the frame that fills from the
+left over sixty seconds, as **one** keyframe track. Without an origin, scale
+turns about the middle, so the same bar needs a second track sliding it left by
+`(s − 1) / 2` on every frame — a number nobody can read back as *the left edge
+stays put*, and one that is only right while the scale is linear in time. Put an
+`ease_out` on the scale and the two come apart: the bar slides while it grows.
+The document still validates and the render still succeeds; the only symptom is
+watching it.
+
+**Scale and rotation both.** A card hinging on its left edge is the same request
+as a bar filling from it, and one pivot for the two transforms is the coherent
+reading of *the point the layer turns about*. A second field for rotation alone
+would be a near-synonym the format cannot afford.
+
+**`transform.position` is applied after both and is unaffected.** A pivot cannot
+move a layer that is not being scaled or turned, which is what makes the field
+free to set on a clip that is only being placed.
+
+**What it is a point *of* is the layer's own box** — the raster its pixels
+arrive on. For a decoded picture that rectangle is the picture. For anything
+drawn — a title, a shape, an icon — the layer is the size of the render's
+raster, with the content placed inside it by `anchor`, so `left` is the frame's
+left edge. That is exactly right for the full-width bar above, and worth knowing
+before pivoting a shape that occupies a corner of the frame.
+
+**Named points rather than a pair of fractions**, which would be more general
+and would be a fourth coordinate space in a format that already has three —
+fractions of the *output* raster (`transform.position`), fractions of the
+*source* raster (`crop`), and fractions of the frame's **height** (a text
+`size`, an icon's). `anchor` established this vocabulary and this is the same
+vocabulary; a reader who knows one knows the other.
+
+**It is a field, not an animatable property**, for the reason `anchor` is one:
+it says how a transform is to be *read*, and animating it would move a layer by
+changing what its numbers mean. If the pivot itself has to travel, that is
+`transform.position` — the property whose job that is.
 
 ### How it looks: `grade`
 
@@ -1572,9 +1627,9 @@ attention than the ducking was avoiding.
 | `blur` | how far the layer's own pixels are softened, as a fraction of its own **height** | `0.0` untouched, higher is blurrier |
 | `transform.position.x` | offset right, as a fraction of the raster's **width** | `0.0` unmoved |
 | `transform.position.y` | offset down, as a fraction of the raster's **height** | `0.0` unmoved |
-| `transform.scale.x` | width multiplier about the layer's centre | `1.0` natural size |
-| `transform.scale.y` | height multiplier about the layer's centre | `1.0` natural size |
-| `transform.rotation` | turn about the layer's centre, in **degrees clockwise** | `0.0` upright |
+| `transform.scale.x` | width multiplier about the layer's `origin` | `1.0` natural size |
+| `transform.scale.y` | height multiplier about the layer's `origin` | `1.0` natural size |
+| `transform.rotation` | turn about the layer's `origin`, in **degrees clockwise** | `0.0` upright |
 | `transform.flip.x` | turn about the layer's own **horizontal** axis, in degrees | `0.0` face on |
 | `transform.flip.y` | turn about the layer's own **vertical** axis, in degrees | `0.0` face on |
 | `grade.saturation` | how much colour, about each pixel's own grey | `1.0` untouched, `0.0` fully grey |

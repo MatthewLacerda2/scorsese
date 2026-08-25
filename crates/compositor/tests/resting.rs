@@ -51,12 +51,11 @@ fn position_offsets_a_small_layer_from_where_it_rests() {
     // visible in the assertions rather than hidden in a rounder number.
     let badge = solid_of(RED, SMALL, SMALL);
     let canvas = composited(&[Layer {
-        source: &badge,
         properties: Properties {
             position: (0.125, 0.0),
             ..Properties::default()
         },
-        anchor: scorsese_core::Anchor::default(),
+        ..Layer::plain(&badge)
     }]);
 
     assert_pixel(&canvas, (FIRST + 8, CENTRE.1), RED, "moved right by eight");

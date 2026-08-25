@@ -63,9 +63,8 @@ pub(crate) fn composited(layers: &[Layer<'_>]) -> Frame {
 /// A layer with properties other than the defaults.
 pub(crate) fn with(source: &Frame, properties: Properties) -> Layer<'_> {
     Layer {
-        source,
         properties,
-        anchor: scorsese_core::Anchor::default(),
+        ..Layer::plain(source)
     }
 }
 
