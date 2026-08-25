@@ -62,19 +62,22 @@ pub fn add_track(project: &mut Project, lane: &Lane) -> Result<TrackId, AuthorEr
 
 /// The lowest free `v`/`a` number for this kind — the names an editor's lanes
 /// have had since long before this one.
+///
+/// **Counted to a bound rather than searched until something gives.** `n`
+/// tracks cannot take all of `n + 1` numbers, so one of `1..=n+1` is always
+/// free and the range is a proof rather than a guess. A bare `loop` would find
+/// the same id and would also be a naming rule that *can* spin — the mutation
+/// signal hangs on it rather than failing, which is what a real spin would do
+/// to a test run.
 fn numbered(project: &Project, kind: TrackKind) -> TrackId {
     let letter = match kind {
         TrackKind::Video => 'v',
         TrackKind::Audio => 'a',
     };
-    let mut number = 1;
-    loop {
-        let candidate = format!("{letter}{number}");
-        if !project.tracks.iter().any(|t| t.id.as_str() == candidate) {
-            return TrackId::new(candidate);
-        }
-        number += 1;
-    }
+    (1..=project.tracks.len() + 1)
+        .map(|number| TrackId::new(format!("{letter}{number}")))
+        .find(|candidate| !project.tracks.iter().any(|track| &track.id == candidate))
+        .expect("n tracks cannot take every one of n + 1 numbers")
 }
 
 #[cfg(test)]
@@ -107,6 +110,27 @@ mod tests {
         add_track(&mut project, &Lane::of(TrackKind::Video)).expect("under");
         let over = add_track(&mut project, &Lane::of(TrackKind::Video)).expect("over");
         assert_eq!(project.tracks.last().expect("two lanes").id, over);
+    }
+
+    /// The bound the numbering counts to has to clear the ids already taken:
+    /// a lane named `v1` by hand is one of them, so the next automatic video
+    /// lane is `v2` and not a second `v1` — and with three lanes filed under
+    /// the first three numbers, the search still reaches a free fourth.
+    #[test]
+    fn a_hand_named_lane_is_counted_among_the_numbers_taken() {
+        let mut project = project();
+        for name in ["v1", "v2", "v3"] {
+            add_track(
+                &mut project,
+                &Lane {
+                    id: Some(TrackId::new(name)),
+                    ..Lane::of(TrackKind::Video)
+                },
+            )
+            .expect("a hand-named lane");
+        }
+        let next = add_track(&mut project, &Lane::of(TrackKind::Video)).expect("the next one");
+        assert_eq!(next.as_str(), "v4");
     }
 
     #[test]
