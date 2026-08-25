@@ -1063,11 +1063,10 @@ delivers.** `scorsese still` and the `still` tool composite at whatever raster
 they are asked for — 1920×1080 by default on the command line, 1280×720 over
 MCP — and for everything measured in fractions a smaller one is the same
 picture with fewer pixels in it. A `native` layer is the exception, because the
-same count of pixels in a smaller frame is a bigger layer: a 1402-pixel-wide
-logo at `transform.scale.x: 0.105` is 147 pixels wide in both, which is 11.5%
-of the width of a 1280×720 preview and 7.7% of the 1920×1080 it is delivered
-at. Still it at the raster the render will use, or judge everything about it
-except its size.
+same count of pixels in a smaller frame is a bigger layer: a badge 240 pixels
+across is 240 pixels across in either, which is 18.8% of the width of a
+1280×720 preview and 12.5% of a 1920×1080 delivery. Still it at the raster the
+render will use, or judge everything about it except its size.
 
 **A layer whose size is a proportion of the picture belongs on `fit`.** A
 corner logo, a badge, a watermark — anything whose real specification is "about
@@ -1079,11 +1078,14 @@ the point.
 **Scaling a `native` layer loses both readings at once, and is worth avoiding.**
 It is no longer the size the source was authored at, and it was never a fraction
 of the frame, so the number means "these pixels, times this, whatever the render
-turns out to be" — which is neither thing a fit mode exists to give. A `native`
-clip carrying a `transform.scale` almost always wants `fit` and the same number.
-It is accepted rather than refused because the source's pixel size is not in the
-document — only opening the file says what it is — so from here a deliberate one
-and a mistake look identical.
+turns out to be" — which is neither thing a fit mode exists to give. A
+1402-pixel-wide logo at `transform.scale.x: 0.105` is 147 pixels wide at every
+resolution, which is 11.5% of a 1280×720 frame and 7.7% of a 1920×1080 one; the
+same `0.105` on the same logo under `fit` is 8.8% of the frame at both. So a
+`native` clip carrying a `transform.scale` almost always wants `fit` and the
+same number. It is accepted rather than refused because the source's pixel size
+is not in the document — only opening the file says what it is — so from here a
+deliberate one and a mistake look identical.
 
 `native` rests the source **centred**, and `transform.position.*` offsets from
 there. Centred, because the alternative — a corner — is an arbitrary edge of
