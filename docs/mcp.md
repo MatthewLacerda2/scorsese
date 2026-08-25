@@ -81,6 +81,12 @@ the tools relate to each other, which is knowledge no single tool has.
 | `script_read` | Read the document this edit is being cut from — the brief, the outline, whatever the project's `script` field points at. | nothing |
 | `script_write` | Write the project's script — the document the edit is cut from. | nothing |
 | `project_write` | Replace a project's project.json with the document given. | nothing |
+| `track_new` | Add a track — a lane for clips, carrying either picture or sound. | nothing |
+| `text_new` | Add a text asset — a caption, a title, a lower third: what it says, and the look it is set in. | nothing |
+| `color_new` | Add a colour asset: a solid fill for a background, a colour card, or a wash under a title. | nothing |
+| `shape_new` | Add a shape asset: a rectangle, an ellipse or an arrow, drawn by the render rather than imported as a picture of one. | nothing |
+| `icon_new` | Add an icon asset: one of the seventeen hundred symbols this build ships, named rather than imported. | nothing |
+| `asset_set` | Change a field on an asset that carries its content in the document — a text, color, shape or icon asset: its wording, its size, its colour. | nothing |
 | `place_clip` | Put a clip on a track: which asset, which track, when it starts and how long it runs — all in seconds, rounded onto the project's frame grid for you. | nothing |
 | `trim_clip` | Move a clip already on the timeline, or change how long it runs or where in its source it opens — in seconds, rounded onto the project's frame grid. | nothing |
 | `dissolve` | Dissolve one shot into the next, by writing ordinary opacity keyframes on both clips — the same ones you would place by hand, and they stay editable afterwards. | nothing |
@@ -221,6 +227,81 @@ What a folder import does is fixed so that it can be relied on:
 
 The reply names what came in, what each was measured to be, and what was
 passed over — so nothing needs a `project_probe` after it.
+
+## The assets nothing brings in
+
+Four asset kinds have no file behind them — `text`, `color`, `shape`, `icon` —
+and that is deliberate: a caption, a colour card, a panel and a symbol are
+things a cut should not need to import a megabyte of, go soft at the next
+resolution, or leave the tool to change. The document *is* the asset.
+
+Each has its own verb, and there is one for a lane to put them on:
+
+```
+track_new  { "project": "teaser.scor", "kind": "video" }
+           → "`v2` — a video track, over every video track already there."
+text_new   { "project": "teaser.scor", "text": "THE VESSEL ARRIVES",
+             "size": 0.08, "color": "#ffcc00" }
+           → "`the-vessel-arrives` — a text asset."
+place_clip { "project": "teaser.scor", "asset": "the-vessel-arrives",
+             "track": "v2", "start_seconds": 25, "duration_seconds": 2 }
+```
+
+`color_new`, `shape_new` and `icon_new` are the same shape. All of them
+validate the whole document before writing, refuse an id already in use, and
+say which id they wrote — the contract `place_clip` has. Sizes are fractions of
+the frame rather than pixels, so one number reads the same at every render
+resolution.
+
+**Why one verb per kind rather than one `asset_new` with a `kind`.** What a
+kind *requires* is different for each: a colour asset must carry a colour, a
+symbol must carry a name and a size, a shape must draw something. A single verb
+could only take those as one free-form block, and a block cannot describe its
+own fields — which is the rule the whole page ends on. `synth_new` is the same
+argument one kind further along.
+
+**A new video track composites over the ones already there.** That is what
+makes `track_new` the answer to the commonest refusal in the tool: clips on one
+track may not overlap, so a caption over a shot is two lanes, not a
+rearrangement. Audio tracks are unordered among themselves — everything
+audible is summed.
+
+### Changing one afterwards: `asset_set`
+
+Editing a caption's wording, or dropping its size by a hundredth, is a loop
+rather than a single edit: change it, composite a still, look, change it again.
+
+```
+asset_set  { "project": "teaser.scor", "asset": "the-vessel-arrives",
+             "size": 0.06 }
+           → "`the-vessel-arrives`: size: 0.08 → 0.06. Nothing else changed."
+```
+
+**Every field you leave out is left exactly as it is.** That is the one
+decision in this verb worth stating: it *merges*. A verb that took a whole
+`style` block would be simpler and would silently lose every field the caller
+did not restate — so the second call, the one shrinking a title, would also put
+the font back to the default and say nothing about it. The reply names what
+each field **was** as well as what it is now, because the caller cannot see the
+document and *was* is what proves the change landed where it was aimed.
+
+One verb here rather than four, for the mirror image of the reason above:
+`asset_set` requires nothing but the asset, so every field on it is optional by
+construction and each one still describes itself and says which kinds it
+belongs to.
+
+A field the asset's kind has no use for is **refused by name** — a `fill` on a
+caption is not a caption with something extra, and ignoring it would look
+exactly like having applied it. What a *generated* asset is made from is
+[`rebrief`](#changing-a-brief-rebrief), and what a file-backed one is lives in
+the file.
+
+**There is no verb here that deletes an asset**, and that is a deliberate gap
+rather than an oversight: removing one has to answer what becomes of the clips
+that show it, and "refuse while it is used" and "take its clips with it" are
+both defensible and are not the same tool. That question is
+[#396](https://github.com/MatthewLacerda2/scorsese/issues/396), not a flag on
+one of these.
 
 ## Finding the symbol you meant: `icons`
 
