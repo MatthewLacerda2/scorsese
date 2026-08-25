@@ -45,7 +45,8 @@ fn words(arguments: &Value, key: &str, what: &str) -> Result<String, String> {
         .ok_or_else(|| format!("`{key}` is required: {what}"))
 }
 
-/// An optional string argument, absent when it is blank.
+/// An optional string argument, absent when it is blank — which is also how
+/// the id a caller asked the new thing to be called is read.
 fn maybe(arguments: &Value, key: &str) -> Option<String> {
     arguments
         .get(key)
@@ -53,11 +54,6 @@ fn maybe(arguments: &Value, key: &str) -> Option<String> {
         .map(str::trim)
         .filter(|text| !text.is_empty())
         .map(str::to_owned)
-}
-
-/// The id a caller asked the new thing to be called, if it asked for one.
-fn wanted(arguments: &Value, key: &str) -> Option<String> {
-    maybe(arguments, key)
 }
 
 /// A number argument, refused rather than rounded when it is not one.
@@ -155,6 +151,14 @@ fn style(arguments: &Value) -> Result<Option<TextStyle>, String> {
         style.align = align;
         said = true;
     }
+    if let Some(stroke) = color(arguments, "stroke")? {
+        style.stroke = Some(stroke);
+        said = true;
+    }
+    if let Some(width) = number(arguments, "stroke_width")? {
+        style.stroke_width = width;
+        said = true;
+    }
     Ok(said.then_some(style))
 }
 
@@ -207,12 +211,15 @@ fn described(field: &str) -> Value {
             "description": "What the inside of the shape is painted, as `#rrggbb`. Leave \
                             it out for a see-through middle — a callout over footage." }),
         "stroke" => serde_json::json!({ "type": "string",
-            "description": "What the border is drawn in, as `#rrggbb`. Left out, there is \
-                            no border at all." }),
+            "description": "The rim, as `#rrggbb`. On a shape it is the border; on a \
+                            caption it is an outline added OUTSIDE the letterform, \
+                            which is what keeps burned-in words legible over footage. \
+                            Left out, there is no rim at all." }),
         "stroke_width" => serde_json::json!({ "type": "number",
-            "description": "How thick the line is. On a shape, a fraction of the frame's \
-                            height (0.004 by default); on an icon, a fraction of the \
-                            icon's own box, so it scales with the symbol." }),
+            "description": "How thick that rim is. On a shape or a caption, a fraction \
+                            of the frame's height (0.004 and 0.002 by default); on an \
+                            icon, a fraction of the icon's own box, so it scales with \
+                            the symbol." }),
         "width" => serde_json::json!({ "type": "number",
             "description": "Across, as a fraction of the frame's width. A closed shape \
                             only — an arrow is its two endpoints." }),
@@ -249,4 +256,36 @@ fn id_property(what: &str) -> Value {
              to write it onto a clip."
         )
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every property a schema carries has to describe itself — that is the
+    /// gate `tests/described.rs` walks. A field name nobody wrote a
+    /// description for still gets one rather than an undescribed property,
+    /// because a bug in this build should not turn into a capability a client
+    /// cannot see.
+    #[test]
+    fn even_an_unknown_field_describes_itself() {
+        let described = described("nonsense");
+        let said = described["description"].as_str().expect("a description");
+        assert!(said.contains("nonsense"), "got {said}");
+    }
+
+    /// The shared descriptions are the reason this table exists: a `size` says
+    /// the same thing wherever it is asked for.
+    #[test]
+    fn the_project_comes_first_and_every_named_field_follows() {
+        let properties = properties(&["size", "color"]);
+        assert!(properties.contains_key("project"));
+        assert_eq!(properties.len(), 3);
+        for field in ["size", "color"] {
+            assert!(
+                properties[field]["description"].is_string(),
+                "`{field}` says nothing about itself"
+            );
+        }
+    }
 }

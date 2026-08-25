@@ -3,7 +3,7 @@
 use scorsese_core::{Inline, authoring};
 use serde_json::Value;
 
-use super::{id_property, properties, refused, save, style, wanted, words};
+use super::{id_property, maybe, properties, refused, save, style, words};
 use crate::tools::inspect::load;
 use crate::tools::{Costs, Reply, Tool, project_dir};
 
@@ -23,7 +23,9 @@ impl Tool for TextNew {
          no file to import, hash or probe, and nothing to generate. Sizes are \
          fractions of the frame rather than pixels, so one number reads the same \
          at every render resolution. Say nothing about the look and it is a \
-         white, centred, sans title. Validated before it is written — a document \
+         white, centred, sans title; a `stroke` adds a rim outside the \
+         letterforms, which is what keeps words legible over footage. \
+         Validated before it is written — a document \
          that would not load is refused with the reason and the project is left \
          exactly as it was. Then place_clip puts it on a video track, and it has \
          no length of its own, so that call needs a duration."
@@ -43,6 +45,8 @@ impl Tool for TextNew {
             "align",
             "line_height",
             "max_width",
+            "stroke",
+            "stroke_width",
         ]);
         properties.insert(
             "text".to_owned(),
@@ -67,7 +71,7 @@ impl Tool for TextNew {
             text: words(arguments, "text", "what the caption says")?,
             style: style(arguments)?,
         };
-        let id = authoring::add_asset(&mut project, wanted(arguments, "asset").as_deref(), content)
+        let id = authoring::add_asset(&mut project, maybe(arguments, "asset").as_deref(), content)
             .map_err(refused)?;
         save(&project, &dir)?;
         Ok(format!(

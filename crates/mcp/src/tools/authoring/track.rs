@@ -3,7 +3,7 @@
 use scorsese_core::{Lane, TrackKind, authoring};
 use serde_json::Value;
 
-use super::{maybe, refused, save, wanted};
+use super::{maybe, refused, save};
 use crate::tools::inspect::load;
 use crate::tools::{Costs, Reply, Tool, project_dir, project_property};
 
@@ -78,7 +78,7 @@ impl Tool for TrackNew {
         };
         let lane = Lane {
             kind,
-            id: wanted(arguments, "track").map(scorsese_core::TrackId::new),
+            id: maybe(arguments, "track").map(scorsese_core::TrackId::new),
             name: maybe(arguments, "name"),
             note: maybe(arguments, "note"),
         };

@@ -3,7 +3,7 @@
 use scorsese_core::{Inline, authoring};
 use serde_json::Value;
 
-use super::{id_property, properties, refused, required_color, save, wanted};
+use super::{id_property, maybe, properties, refused, required_color, save};
 use crate::tools::inspect::load;
 use crate::tools::{Costs, Reply, Tool, project_dir};
 
@@ -46,7 +46,7 @@ impl Tool for ColorNew {
         let color = required_color(arguments, "color", "the colour the card is")?;
         let id = authoring::add_asset(
             &mut project,
-            wanted(arguments, "asset").as_deref(),
+            maybe(arguments, "asset").as_deref(),
             Inline::Color(color),
         )
         .map_err(refused)?;

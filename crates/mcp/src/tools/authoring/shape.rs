@@ -3,9 +3,7 @@
 use scorsese_core::{Curve, Geometry, Heads, Inline, Shape, authoring};
 use serde_json::Value;
 
-use super::{
-    color, id_property, maybe, number, properties, refused, required_number, save, wanted,
-};
+use super::{color, id_property, maybe, number, properties, refused, required_number, save};
 use crate::tools::inspect::load;
 use crate::tools::{Costs, Reply, Tool, project_dir};
 
@@ -85,7 +83,7 @@ impl Tool for ShapeNew {
         };
         let id = authoring::add_asset(
             &mut project,
-            wanted(arguments, "asset").as_deref(),
+            maybe(arguments, "asset").as_deref(),
             Inline::Shape(shape),
         )
         .map_err(refused)?;

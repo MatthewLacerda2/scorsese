@@ -17,7 +17,7 @@ fn a_caption_is_authored_and_then_placed() {
     let (text, failed) = said(&call(
         "text_new",
         json!({ "project": dir, "text": "THE VESSEL ARRIVES", "size": 0.08,
-                "color": "#ffcc00" }),
+                "color": "#ffcc00", "stroke": "#101820", "stroke_width": 0.003 }),
     ));
     assert!(!failed, "{text}");
     assert!(text.contains("`the-vessel-arrives`"), "got {text}");
@@ -28,7 +28,15 @@ fn a_caption_is_authored_and_then_placed() {
                 "start_seconds": 25.0, "duration_seconds": 2.0 }),
     ));
     assert!(!failed, "{text}");
-    assert!(document(&dir).contains("#ffcc00"), "the style was written");
+    let written = document(&dir);
+    assert!(written.contains("#ffcc00"), "the style was written");
+    // The rim is what keeps a burned-in caption legible over footage, and it
+    // is a field this verb had to learn rather than one it inherited.
+    assert!(
+        written.contains("stroke"),
+        "the rim came with it: {written}"
+    );
+    assert!(written.contains("#101820"), "and its colour: {written}");
     std::fs::remove_dir_all(dir).ok();
 }
 

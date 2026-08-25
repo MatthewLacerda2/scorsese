@@ -42,9 +42,10 @@ pub struct Edit {
     pub icon: Option<String>,
     /// What a `shape`'s interior is painted.
     pub fill: Option<Rgba>,
-    /// What a `shape`'s border is drawn in.
+    /// The rim: a `shape`'s border, or the outline a `text` asset carries
+    /// outside its letterforms.
     pub stroke: Option<Rgba>,
-    /// How thick that border is, or an `icon`'s own line.
+    /// How thick that rim is, or an `icon`'s own line.
     pub stroke_width: Option<f64>,
     /// A closed shape's width, as a fraction of the raster's width.
     pub width: Option<f64>,
@@ -82,7 +83,9 @@ impl Edit {
     }
 }
 
-/// What a `text` asset takes.
+/// What a `text` asset takes. `stroke` and `stroke_width` are here as well as
+/// on a shape: they are the same two words in the same unit, and the rim they
+/// put on a caption is what makes it survive whatever is behind it.
 const TEXT: &[&str] = &[
     "text",
     "font",
@@ -93,6 +96,8 @@ const TEXT: &[&str] = &[
     "align",
     "line_height",
     "max_width",
+    "stroke",
+    "stroke_width",
 ];
 
 /// What a `color` asset takes, which is the whole of what it is.
@@ -215,6 +220,50 @@ mod tests {
         )
         .expect("a reworded caption");
         assert_eq!(said, vec![r#"text: "DAWN" → "DUSK""#]);
+    }
+
+    /// The two fields whose value is a *word* rather than a number, so the
+    /// line has to name both faces and both edges rather than print an enum.
+    #[test]
+    fn a_face_and_an_alignment_read_back_as_words() {
+        let mut project = project();
+        let said = set_asset(
+            &mut project,
+            &AssetId::new("caption"),
+            &Edit {
+                font: Some("sans".to_owned()),
+                align: Some(TextAlign::Left),
+                ..edit()
+            },
+        )
+        .expect("another face, another edge");
+        assert_eq!(said, vec!["font: serif → sans", "align: center → left"]);
+    }
+
+    /// A caption's rim is set through the same two words a shape's border
+    /// takes, and setting it must leave the face and the size alone — the
+    /// whole reason this verb merges.
+    #[test]
+    fn a_caption_takes_a_rim_of_its_own() {
+        let mut project = project();
+        let said = set_asset(
+            &mut project,
+            &AssetId::new("caption"),
+            &Edit {
+                stroke: Some(Rgba::BLACK),
+                stroke_width: Some(0.004),
+                ..edit()
+            },
+        )
+        .expect("an outlined caption");
+        assert_eq!(
+            said,
+            vec!["stroke: none → #000000", "stroke_width: 0.002 → 0.004"]
+        );
+        let style = styled(&project);
+        assert_eq!(style.stroke, Some(Rgba::BLACK));
+        assert_eq!(style.font.name(), Some("serif"));
+        assert_eq!(style.size, 0.12);
     }
 
     #[test]

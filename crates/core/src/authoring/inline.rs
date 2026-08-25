@@ -191,6 +191,29 @@ mod tests {
         assert!(project.assets.is_empty());
     }
 
+    /// A caption authored with a look keeps it. Dropping the style on the way
+    /// into the table would render a title in the wrong face and size, and
+    /// nothing about the document would say so.
+    #[test]
+    fn a_style_asked_for_is_the_style_that_lands() {
+        let mut project = project();
+        let style = TextStyle {
+            size: 0.06,
+            ..TextStyle::default()
+        };
+        let id = add_asset(
+            &mut project,
+            None,
+            Inline::Text {
+                text: "DAWN".to_owned(),
+                style: Some(style),
+            },
+        )
+        .expect("a styled caption");
+        let asset = project.asset(&id).expect("it was written");
+        assert_eq!(asset.style.as_ref().map(|style| style.size), Some(0.06));
+    }
+
     #[test]
     fn an_icon_is_named_for_its_symbol() {
         let mut project = project();

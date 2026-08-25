@@ -91,6 +91,16 @@ fn text(asset: &mut Asset, edit: &Edit, said: &mut Vec<String>) {
         style.max_width = max_width;
         styled = true;
     }
+    if let Some(stroke) = edit.stroke {
+        said.push(became("stroke", show(style.stroke), stroke));
+        style.stroke = Some(stroke);
+        styled = true;
+    }
+    if let Some(width) = edit.stroke_width {
+        said.push(became("stroke_width", style.stroke_width, width));
+        style.stroke_width = width;
+        styled = true;
+    }
     if styled {
         asset.style = Some(style);
     }
@@ -297,7 +307,9 @@ mod tests {
             },
         );
         let problem = refused.expect_err("an arrow has no width");
-        assert!(problem.to_string().contains("an arrow"), "{problem}");
+        let said = problem.to_string();
+        assert!(said.contains("`width` is not a field"), "{said}");
+        assert!(said.contains("an arrow"), "{said}");
     }
 
     #[test]

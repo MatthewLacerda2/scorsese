@@ -299,7 +299,9 @@ the file.
 **There is no verb here that deletes an asset**, and that is a deliberate gap
 rather than an oversight: removing one has to answer what becomes of the clips
 that show it, and "refuse while it is used" and "take its clips with it" are
-both defensible and are not the same tool. That question gets its own issue.
+both defensible and are not the same tool. That question is
+[#396](https://github.com/MatthewLacerda2/scorsese/issues/396), not a flag on
+one of these.
 
 ## Finding the symbol you meant: `icons`
 

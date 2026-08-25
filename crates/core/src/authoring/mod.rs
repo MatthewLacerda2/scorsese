@@ -17,15 +17,15 @@
 //!   lane the answer far more often than a rearrangement does.
 //!
 //! **All three are all-or-nothing**, exactly as [`crate::placing`] is: the
-//! change is made on a copy, and only a copy [`Project::validate`] accepts
-//! becomes the document. A style that names a font path nobody could resolve,
-//! or a shape that would draw nothing at all, leaves the project byte for byte
-//! as it was.
+//! change is made on a copy, and only a copy [`crate::Project::validate`]
+//! accepts becomes the document. A style that names a font path nobody could
+//! resolve, or a shape that would draw nothing at all, leaves the project byte
+//! for byte as it was.
 //!
 //! **What is deliberately not here is deletion.** Removing an asset has to say
 //! what becomes of the clips that show it, and "refuse while it is used" and
 //! "take its clips with it" are both defensible and are not the same tool.
-//! That question gets its own issue rather than a flag on one of these.
+//! That question is its own issue rather than a flag on one of these.
 
 mod apply;
 mod edit;
@@ -132,7 +132,7 @@ mod fixture {
     use crate::project::Project;
 
     const DOCUMENT: &str = r##"{
-      "schema_version": 27,
+      "schema_version": 28,
       "name": "T",
       "timeline_fps": { "num": 30, "den": 1 },
       "assets": [

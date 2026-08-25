@@ -4,7 +4,7 @@ use scorsese_core::{Icon, Inline, authoring};
 use serde_json::Value;
 
 use super::{
-    id_property, number, properties, refused, required_color, required_number, save, wanted, words,
+    id_property, maybe, number, properties, refused, required_color, required_number, save, words,
 };
 use crate::tools::inspect::load;
 use crate::tools::{Costs, Reply, Tool, project_dir};
@@ -71,7 +71,7 @@ impl Tool for IconNew {
         let name = icon.name.clone();
         let id = authoring::add_asset(
             &mut project,
-            wanted(arguments, "asset").as_deref(),
+            maybe(arguments, "asset").as_deref(),
             Inline::Icon(icon),
         )
         .map_err(refused)?;
