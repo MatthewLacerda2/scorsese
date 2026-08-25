@@ -52,11 +52,12 @@ impl Area {
 pub fn on_canvas(
     properties: &crate::properties::Properties,
     anchor: scorsese_core::Anchor,
+    origin: scorsese_core::Origin,
     source: crate::frame::Resolution,
     canvas: crate::frame::Resolution,
     point: (f32, f32),
 ) -> (f32, f32) {
-    let transform = crate::cpu::transform_of(properties, anchor, source, canvas);
+    let transform = crate::cpu::transform_of(properties, anchor, origin, source, canvas);
     let mut mapped = [tiny_skia::Point::from_xy(point.0, point.1)];
     transform.map_points(&mut mapped);
     (mapped[0].x, mapped[0].y)

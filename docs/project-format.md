@@ -1,4 +1,4 @@
-# `project.json` — schema v27
+# `project.json` — schema v28
 
 The contract between the CLI, the MCP server and the GUI — the contract *now*,
 not across time. It is meant to be hand-written: an agent should be able to

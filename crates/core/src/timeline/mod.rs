@@ -1,7 +1,7 @@
 //! Tracks and clips: where assets sit in time.
 //!
 //! How fast a clip runs against the timeline is `speed`, below. Where its
-//! picture sits in *space* — `fit`, `crop`, `anchor` — is
+//! picture sits in *space* — `fit`, `crop`, `anchor`, `origin` — is
 //! [`placement`].
 
 use std::fmt;
@@ -15,7 +15,7 @@ use crate::grade::Grade;
 use crate::keyframe::KeyframeTrack;
 use crate::time::{Frames, Speed};
 
-pub use placement::{Anchor, AnchorX, AnchorY, Crop, Fit};
+pub use placement::{Anchor, AnchorX, AnchorY, Crop, Fit, Origin, OriginX, OriginY};
 
 /// Identifies a track within one project.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
@@ -173,6 +173,22 @@ pub struct Clip {
     /// animated part.
     #[serde(default, skip_serializing_if = "Anchor::is_default")]
     pub anchor: Anchor,
+    /// Which point of the layer's own box `transform.scale` and
+    /// `transform.rotation` turn about. Absent means its centre, which is what
+    /// every layer did before the field existed.
+    ///
+    /// **This is what makes a bar that fills from its left edge one keyframe
+    /// track.** Centre-anchored, that same bar is a scale *and* a position
+    /// track cancelling half of it out — two properties carrying one
+    /// intention, agreeing only while the scale happens to be linear in time.
+    ///
+    /// A **field and not an animatable property**, for the reason [`Anchor`]
+    /// is one: it says how a transform is to be *read*, and animating it would
+    /// move a layer by changing what its numbers mean.
+    ///
+    /// `transform.position` is applied after the pivot and is unaffected.
+    #[serde(default, skip_serializing_if = "Origin::is_default")]
+    pub origin: Origin,
     /// How this clip's pixels are graded before they are composited. Absent
     /// means untouched, which is what every clip did before the field existed.
     ///
@@ -247,6 +263,7 @@ impl Clip {
             fit: Fit::default(),
             crop: None,
             anchor: Anchor::default(),
+            origin: Origin::default(),
             grade: Grade::NEUTRAL,
             blur: 0.0,
             keyframes: Vec::new(),

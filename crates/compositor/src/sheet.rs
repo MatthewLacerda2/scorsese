@@ -134,6 +134,9 @@ pub fn tile(mut cells: Vec<Cell>, font: &Font, ruled: bool) -> Result<Frame, She
                 x: AnchorX::Left,
                 y: AnchorY::Top,
             },
+            // A contact sheet places its cells and never turns them, so the
+            // pivot is the one thing here that cannot matter.
+            origin: scorsese_core::Origin::default(),
         })
         .collect();
     CpuCompositor::new().composite(&mut canvas, &layers)?;

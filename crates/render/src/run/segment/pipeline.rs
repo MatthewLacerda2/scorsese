@@ -376,6 +376,7 @@ fn work(
                 },
                 properties: *properties,
                 anchor: slot.anchor,
+                origin: slot.origin,
             })
             .collect();
         let outcome = compositor.composite(&mut job.canvas, &layers);

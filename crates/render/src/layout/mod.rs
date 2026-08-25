@@ -264,6 +264,7 @@ fn rectangle(
         source,
         area,
         anchor: shot.clip.anchor,
+        origin: shot.clip.origin,
     };
     let content = content::within(shot, painter, raster, project_root)
         // A font that will not open, or media that has gone missing. Both are
