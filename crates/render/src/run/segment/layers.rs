@@ -32,8 +32,8 @@ pub(super) struct Slot {
     /// clip — an anchor is not animated — so it is read once here rather than
     /// worked out again for every frame.
     pub(super) anchor: Anchor,
-    /// Which point of its own raster its scale and rotation turn about. Fixed
-    /// for the clip, for the same reason the anchor is.
+    /// Which point of its own raster its transform turns about. Fixed for the
+    /// clip, for the same reason the anchor is.
     pub(super) origin: Origin,
     /// Where this layer's picture sits within its own raster, which is what an
     /// arrow attaches *to*. Worked out once: animation moves the layer, never

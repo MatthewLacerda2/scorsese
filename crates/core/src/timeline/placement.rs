@@ -110,7 +110,7 @@ pub enum AnchorY {
     Bottom,
 }
 
-/// The point of a layer's own box that its scale and rotation turn about.
+/// The point of a layer's own box that its transform turns about.
 ///
 /// **Without it, growing a layer from one edge is two coupled keyframe tracks
 /// and arithmetic done on paper.** A progress bar that fills from the left is
@@ -124,11 +124,14 @@ pub enum AnchorY {
 /// With an origin the same bar is one track and one word, and the easing is
 /// free.
 ///
-/// **Scale and rotation both**, because a card hinging on its left edge is the
-/// same request as a bar filling from it, and one pivot for the two is the
-/// coherent reading of *the point the transform turns about*. `position` is
-/// applied after both and is unaffected — a pivot cannot move a layer that is
-/// not being scaled or turned, which is what makes the field free to set.
+/// **Scale, rotation and flip alike**, because a card hinging on its left edge
+/// is the same request as a bar filling from it, and one pivot for all three is
+/// the coherent reading of *the point the transform turns about*. A flip is one
+/// of them because a flip *is* a foreshortening — the same part of the same
+/// matrix a scale uses — so a flipped card hinges on its left edge rather than
+/// swinging about its own spine. `position` is applied after all of them and is
+/// unaffected: a pivot cannot move a layer that is not being scaled, turned or
+/// flipped, which is what makes the field free to set.
 ///
 /// **The layer's own box**, which is the raster its pixels arrive on: for a
 /// decoded picture that rectangle is the picture, and for anything drawn — a

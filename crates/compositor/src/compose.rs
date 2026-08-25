@@ -25,8 +25,8 @@ pub struct Layer<'a> {
     /// become so: it says how the position is to be *read*, and animating that
     /// would move a layer by changing what its number means.
     pub anchor: Anchor,
-    /// Which point of the layer's own raster its scale and rotation turn
-    /// about.
+    /// Which point of the layer's own raster its scale, rotation and flip
+    /// turn about.
     ///
     /// Separate from [`Properties`] for the reason [`Layer::anchor`] is: it
     /// says how a transform is to be *read*, and animating it would move a

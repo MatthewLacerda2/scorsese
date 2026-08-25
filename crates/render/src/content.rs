@@ -39,9 +39,9 @@ pub(crate) struct Rect {
     pub(crate) area: Area,
     /// Which edges of the frame it rests against.
     pub(crate) anchor: Anchor,
-    /// Which point of the layer its scale and rotation pivot on — part of the
-    /// same matrix, so an attachment that ignored it would meet a box that is
-    /// no longer where it was drawn.
+    /// Which point of the layer its transform pivots on — part of the same
+    /// matrix, so an attachment that ignored it would meet a box that is no
+    /// longer where it was drawn.
     pub(crate) origin: Origin,
 }
 

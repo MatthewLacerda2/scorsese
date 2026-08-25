@@ -1284,7 +1284,8 @@ means the layer's own centre on both axes, which is what every scale and every
 turn did before the field existed — so no document written before this changes
 by a pixel.
 
-**It is the point `transform.scale` and `transform.rotation` pivot on.** That
+**It is the point `transform.scale`, `transform.rotation` and `transform.flip`
+pivot on.** That
 is the clip above: a gold rule along the foot of the frame that fills from the
 left over sixty seconds, as **one** keyframe track. Without an origin, scale
 turns about the middle, so the same bar needs a second track sliding it left by
@@ -1294,14 +1295,17 @@ stays put*, and one that is only right while the scale is linear in time. Put an
 The document still validates and the render still succeeds; the only symptom is
 watching it.
 
-**Scale and rotation both.** A card hinging on its left edge is the same request
-as a bar filling from it, and one pivot for the two transforms is the coherent
+**Scale, rotation and flip alike.** A card hinging on its left edge is the same
+request as a bar filling from it, and one pivot for all three is the coherent
 reading of *the point the layer turns about*. A second field for rotation alone
-would be a near-synonym the format cannot afford.
+would be a near-synonym the format cannot afford. A flip is included because a
+flip *is* a foreshortening — the same part of the same matrix a scale uses — so
+`transform.flip.y` about a `left` origin is the page-turn hinged on the layer's
+left edge rather than swung about its own spine.
 
-**`transform.position` is applied after both and is unaffected.** A pivot cannot
-move a layer that is not being scaled or turned, which is what makes the field
-free to set on a clip that is only being placed.
+**`transform.position` is applied after all of them and is unaffected.** A pivot
+cannot move a layer that is not being scaled, turned or flipped, which is what
+makes the field free to set on a clip that is only being placed.
 
 **What it is a point *of* is the layer's own box** — the raster its pixels
 arrive on. For a decoded picture that rectangle is the picture. For anything
@@ -1639,11 +1643,13 @@ attention than the ducking was avoiding.
 | `grade.vignette` | how much the layer's own corners are darkened | `0.0` none, `1.0` corners black |
 | `volume` | how loud a clip plays, on either kind of track | `1.0` as recorded, `0.0` silent |
 
-Scale, rotation and flip are all **centre-anchored**, so shrinking a clip does
-not also slide it into a corner and turning one does not swing it around an
-edge. Rotation is in degrees and **positive turns clockwise** — nobody should
-have to render a frame to find that out. The layer is scaled first and then
-turned, both about its own centre; position is applied after both.
+Scale, rotation and flip all pivot on the clip's `origin`, which is the layer's
+own **centre** unless the clip names another point — so by default shrinking a
+clip does not also slide it into a corner and turning one does not swing it
+around an edge. Rotation is in degrees and **positive turns clockwise** — nobody
+should have to render a frame to find that out. The layer is scaled first and
+then turned, both about that one point; position is applied after both, and an
+origin does not change what a position is worth.
 
 **A flip turns the layer over.** `transform.flip.y` turns it about its
 **vertical** axis — the page-turn, one side edge swinging toward you — and

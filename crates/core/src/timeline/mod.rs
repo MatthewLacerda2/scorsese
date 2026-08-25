@@ -173,9 +173,9 @@ pub struct Clip {
     /// animated part.
     #[serde(default, skip_serializing_if = "Anchor::is_default")]
     pub anchor: Anchor,
-    /// Which point of the layer's own box `transform.scale` and
-    /// `transform.rotation` turn about. Absent means its centre, which is what
-    /// every layer did before the field existed.
+    /// Which point of the layer's own box `transform.scale`,
+    /// `transform.rotation` and `transform.flip` turn about. Absent means its
+    /// centre, which is what every layer did before the field existed.
     ///
     /// **This is what makes a bar that fills from its left edge one keyframe
     /// track.** Centre-anchored, that same bar is a scale *and* a position

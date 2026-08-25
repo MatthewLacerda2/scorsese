@@ -1,70 +1,13 @@
-//! What a scale and a turn happen *about*: `origin`.
-//!
-//! These measure where an edge landed rather than sampling a pixel inside the
-//! layer, because where the edge landed is the entire question — the middle of
-//! a bar is red whichever end of it the pivot was on.
+//! Growing a layer: which of its edges the scale leaves where it was.
 
-mod common;
-
-use scorsese_compositor::{Frame, Layer, Properties};
+use scorsese_compositor::{Frame, Properties};
 use scorsese_core::{
     AssetId, Clip, ClipId, Easing, Frames, Keyframe, KeyframeTrack, Origin, OriginX, OriginY,
     PropertyPath,
 };
 
-use common::{BLACK, CENTRE, RED, SIZE, assert_pixel, composited, pixel, solid, solid_of};
-
-fn at(x: OriginX, y: OriginY) -> Origin {
-    Origin { x, y }
-}
-
-/// One layer drawn with `properties` about `origin`, and nothing else on the
-/// canvas.
-fn drawn(source: &Frame, properties: Properties, origin: Origin) -> Frame {
-    composited(&[Layer {
-        properties,
-        origin,
-        ..Layer::plain(source)
-    }])
-}
-
-fn scaled(source: &Frame, scale: (f64, f64), origin: Origin) -> Frame {
-    drawn(
-        source,
-        Properties {
-            scale,
-            ..Properties::default()
-        },
-        origin,
-    )
-}
-
-/// The first and last step along a line of the canvas carrying the layer's own
-/// colour, where `along` turns a step into a pixel.
-fn span(frame: &Frame, along: impl Fn(u32) -> (u32, u32)) -> (u32, u32) {
-    let inked: Vec<u32> = (0..SIZE)
-        .filter(|&step| {
-            let (x, y) = along(step);
-            pixel(frame, x, y).0 > 128
-        })
-        .collect();
-    let first = *inked
-        .first()
-        .expect("the layer drew something on this line");
-    let last = *inked.last().expect("and so has a far end");
-    (first, last)
-}
-
-/// Both edges to within a pixel — what an anti-aliased edge falling on a pixel
-/// boundary costs, and far less than any wrong pivot.
-#[track_caller]
-fn assert_span(found: (u32, u32), expected: (u32, u32), what: &str) {
-    let close = |a: u32, b: u32| a.abs_diff(b) <= 1;
-    assert!(
-        close(found.0, expected.0) && close(found.1, expected.1),
-        "{what}: expected the layer to span {expected:?}, found {found:?}"
-    );
-}
+use crate::common::{CENTRE, RED, SIZE, solid};
+use crate::{assert_span, at, drawn, scaled, span};
 
 #[test]
 fn each_horizontal_origin_holds_its_own_edge_still() {
@@ -114,6 +57,33 @@ fn a_left_origin_holds_the_left_edge_at_every_scale() {
     }
 }
 
+#[test]
+fn a_position_moves_a_pivoted_layer_exactly_as_it_moves_a_centred_one() {
+    // Position is applied *after* the pivot, so an origin cannot change what a
+    // move is worth. A quarter of the canvas is 16 pixels whichever edge the
+    // half-width layer was grown from, and that is what makes the field free
+    // to set on a clip that is only being placed.
+    let source = solid(RED);
+    let moved = |origin| {
+        drawn(
+            &source,
+            Properties {
+                scale: (0.5, 1.0),
+                position: (0.25, 0.0),
+                ..Properties::default()
+            },
+            origin,
+        )
+    };
+    let row = |frame: &Frame| span(frame, |x| (x, CENTRE.1));
+
+    let left = moved(at(OriginX::Left, OriginY::Center));
+    assert_span(row(&left), (16, 47), "grown from the left, then moved");
+
+    let centre = moved(Origin::default());
+    assert_span(row(&centre), (32, 63), "grown about the middle, then moved");
+}
+
 /// A bar that fills from its left edge over `duration` frames, on a curve.
 fn filling(duration: u64) -> Clip {
     let mut clip = Clip::new(
@@ -159,35 +129,4 @@ fn an_eased_fill_holds_its_left_edge_where_two_tracks_would_not() {
             &format!("at frame {t}, scaled to {}", properties.scale.0),
         );
     }
-}
-
-/// A bar as wide as the canvas and a quarter as tall, resting across the
-/// middle. A quarter turn about its own centre stands it upright through the
-/// middle; about its left edge it swings away from there entirely.
-fn bar() -> Frame {
-    solid_of(RED, SIZE, SIZE / 4)
-}
-
-#[test]
-fn a_turn_happens_about_the_origin_too() {
-    let source = bar();
-    let quarter = Properties {
-        rotation: 90.0,
-        ..Properties::default()
-    };
-
-    let centred = drawn(&source, quarter, Origin::default());
-    assert_pixel(&centred, CENTRE, RED, "a centred turn stays in the middle");
-
-    // Pivoting on the left edge, the bar's near end is 8 pixels either side of
-    // where it rested and its far end swings down off the canvas — so what is
-    // left is a strip 16 wide, half of it past the left edge.
-    let hinged = drawn(&source, quarter, at(OriginX::Left, OriginY::Center));
-    assert_pixel(&hinged, CENTRE, BLACK, "a hinged one no longer crosses it");
-    assert_span(
-        span(&hinged, |x| (x, 40)),
-        (0, 7),
-        "hinged on its left edge",
-    );
-    assert_pixel(&hinged, (4, 24), BLACK, "and swung clockwise, not up");
 }
