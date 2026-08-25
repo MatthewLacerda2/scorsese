@@ -29,9 +29,12 @@ use crate::tools::{Costs, Part, Reply, Tool, project_dir, project_property};
 
 /// What the frame is composited at when nobody says.
 ///
-/// Smaller than a delivery raster on purpose, and it costs nothing in fidelity:
-/// everything a title or a layout is placed by is a fraction of the frame, so
-/// 1280x720 is the same picture as 1920x1080 with fewer pixels in it. What it
+/// Smaller than a delivery raster on purpose, and it costs almost nothing in
+/// fidelity: everything a title or a layout is placed by is a fraction of the
+/// frame, so 1280x720 is the same picture as 1920x1080 with fewer pixels in it.
+/// The exception is a clip with `fit: native`, which is a fixed count of pixels
+/// rather than a fraction and so covers more of the smaller frame — a caller
+/// judging one of those has to ask for the raster the render will use. What it
 /// saves is the wire — an image block is base64 inside one JSON line, and a
 /// client asking for a frame while it works should not be sending megabytes to
 /// see a cut. A caller who wants the delivery raster asks for it.
@@ -84,7 +87,11 @@ impl Tool for Still {
                     "type": "string",
                     "description": "The raster to composite at, e.g. 1920x1080. Layout \
                                     is a fraction of the frame, so a smaller one is the \
-                                    same picture and a smaller reply. Default 1280x720."
+                                    same picture and a smaller reply. The exception is a \
+                                    clip with fit: native, which is a fixed count of \
+                                    pixels and so looks bigger in a smaller frame than it \
+                                    will in the delivery — ask for the delivery raster to \
+                                    judge the size of one. Default 1280x720."
                 },
                 "grid": {
                     "type": "boolean",

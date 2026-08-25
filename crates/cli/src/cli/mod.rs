@@ -356,9 +356,12 @@ pub(crate) enum Command {
         /// frame number is added to the name: `frame-00285.png`.
         #[arg(long)]
         out: PathBuf,
-        /// The raster to composite at, and so the size of the PNG. Everything
-        /// a title or a layout is placed by is a fraction of the frame, so a
-        /// smaller one is the same picture and costs less to make.
+        /// The raster to composite at, and so the size of the PNG. Almost
+        /// everything a title or a layout is placed by is a fraction of the
+        /// frame, so a smaller one is the same picture and costs less to
+        /// make. A clip with `fit: native` is the exception — it is a fixed
+        /// count of pixels, so it covers more of a small frame than of a
+        /// large one, and its size has to be judged at the delivery raster.
         #[arg(long, default_value = "1920x1080")]
         resolution: Resolution,
         /// Rule the frame with coordinates: a line every 0.1 of the raster,

@@ -592,7 +592,11 @@ cards, exactly as they would in a preview cut.
 
 The default raster is 1280x720 rather than a delivery size, because layout is a
 fraction of the frame — the same picture with a fraction of the wire cost. Pass
-`resolution` for delivery size. Pass `out` to keep the PNG on disk as well;
+`resolution` for delivery size. **A clip with `fit: "native"` is the one
+exception**: it is a fixed count of pixels rather than a fraction, so it covers
+more of a small frame than of a large one and looks bigger in the default raster
+than it will in the delivery. Ask for the delivery raster before judging the
+size of one — `docs/project-format.md` has the whole of why. Pass `out` to keep the PNG on disk as well;
 without it, nothing is left behind.
 
 **`out` is for one instant, and a list with `out` is refused.** A path names a
