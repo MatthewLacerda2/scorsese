@@ -78,7 +78,10 @@ pub(super) fn paint(
         said,
     };
     if let Err(error) = glyph.paint(face.location(), &mut canvas) {
-        report(said, format!("a colour glyph its own font describes wrongly: {error}"));
+        report(
+            said,
+            format!("a colour glyph its own font describes wrongly: {error}"),
+        );
     }
 }
 
@@ -161,7 +164,10 @@ impl Canvas<'_, '_> {
     fn brushed(&mut self, brush: &Brush<'_>, over: Option<Paint>) -> Option<Brushed<'static>> {
         // A brush's own transform applies inside the current one: the gradient
         // is described in the space the shape is described in.
-        let space = over.map_or_else(|| self.matrix(), |extra| self.matrix().pre_concat(affine(extra)));
+        let space = over.map_or_else(
+            || self.matrix(),
+            |extra| self.matrix().pre_concat(affine(extra)),
+        );
         let shader = shader(brush, &self.palette, space, self.said)?;
         Some(Brushed {
             shader,
@@ -173,7 +179,8 @@ impl Canvas<'_, '_> {
 
 impl ColorPainter for Canvas<'_, '_> {
     fn push_transform(&mut self, transform: Paint) {
-        self.transforms.push(self.matrix().pre_concat(affine(transform)));
+        self.transforms
+            .push(self.matrix().pre_concat(affine(transform)));
     }
 
     fn pop_transform(&mut self) {
@@ -258,7 +265,9 @@ impl ColorPainter for Canvas<'_, '_> {
 /// skrifa's matrix in tiny-skia's row order. Both are the same affine map —
 /// `x' = xx·x + xy·y + dx` — written with the terms in a different order.
 fn affine(matrix: Paint) -> Transform {
-    Transform::from_row(matrix.xx, matrix.yx, matrix.xy, matrix.yy, matrix.dx, matrix.dy)
+    Transform::from_row(
+        matrix.xx, matrix.yx, matrix.xy, matrix.yy, matrix.dx, matrix.dy,
+    )
 }
 
 /// The format's compositing modes in tiny-skia's names. Every one the format
@@ -295,16 +304,18 @@ fn blend(mode: CompositeMode, said: &mut Vec<Unpaintable>) -> BlendMode {
         CompositeMode::HslColor => BlendMode::Color,
         CompositeMode::HslLuminosity => BlendMode::Luminosity,
         _ => {
-            report(said, "a compositing mode this build does not know".to_owned());
+            report(
+                said,
+                "a compositing mode this build does not know".to_owned(),
+            );
             BlendMode::SourceOver
         }
     }
 }
 
 fn into_size(size: (u32, u32)) -> tiny_skia::IntSize {
-    tiny_skia::IntSize::from_wh(size.0.max(1), size.1.max(1)).unwrap_or_else(|| {
-        tiny_skia::IntSize::from_wh(1, 1).expect("a one-pixel size is legal")
-    })
+    tiny_skia::IntSize::from_wh(size.0.max(1), size.1.max(1))
+        .unwrap_or_else(|| tiny_skia::IntSize::from_wh(1, 1).expect("a one-pixel size is legal"))
 }
 
 /// Collects an outline into a path, in the units it arrives in.

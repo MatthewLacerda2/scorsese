@@ -378,7 +378,10 @@ impl<'a> Face<'a> {
         let Some(glyph) = self.glyphs.get(id) else {
             return;
         };
-        let _ = glyph.draw(DrawSettings::unhinted(Size::unscaled(), self.location()), pen);
+        let _ = glyph.draw(
+            DrawSettings::unhinted(Size::unscaled(), self.location()),
+            pen,
+        );
     }
 
     /// How far the tallest glyph reaches above the baseline and the lowest

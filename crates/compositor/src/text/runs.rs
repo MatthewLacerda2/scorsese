@@ -184,7 +184,10 @@ mod tests {
 
     #[test]
     fn a_joined_family_is_one_run() {
-        assert_eq!(faced("👨\u{200d}👩\u{200d}👧"), vec![(1, "👨\u{200d}👩\u{200d}👧")]);
+        assert_eq!(
+            faced("👨\u{200d}👩\u{200d}👧"),
+            vec![(1, "👨\u{200d}👩\u{200d}👧")]
+        );
     }
 
     #[test]
@@ -203,7 +206,13 @@ mod tests {
     fn a_cluster_no_face_covers_falls_to_the_first() {
         // Neither face claims it, and face 0 is where it lands: shaped to
         // `.notdef`, dropped, and reported by `uncovered` rather than drawn.
-        assert_eq!(split("x", 2, |_, _| false), vec![Run { face: 0, range: 0..1 }]);
+        assert_eq!(
+            split("x", 2, |_, _| false),
+            vec![Run {
+                face: 0,
+                range: 0..1
+            }]
+        );
     }
 
     #[test]

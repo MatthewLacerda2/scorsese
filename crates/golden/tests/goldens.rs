@@ -87,6 +87,7 @@ goldens!(
     crop,
     cuts,
     drawn_weight,
+    emoji,
     fade,
     fill,
     flip,
