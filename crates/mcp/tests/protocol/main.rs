@@ -6,6 +6,7 @@
 //! is never flushed, or a notification that gets one, hangs a session just as
 //! surely as a wrong result.
 
+mod authoring;
 mod briefing;
 mod changing;
 mod composing;
@@ -19,6 +20,7 @@ mod placing;
 mod rendering;
 mod searching;
 mod seeing;
+mod setting;
 mod starting;
 mod surveying;
 mod tuning;

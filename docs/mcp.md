@@ -222,6 +222,79 @@ What a folder import does is fixed so that it can be relied on:
 The reply names what came in, what each was measured to be, and what was
 passed over — so nothing needs a `project_probe` after it.
 
+## The assets nothing brings in
+
+Four asset kinds have no file behind them — `text`, `color`, `shape`, `icon` —
+and that is deliberate: a caption, a colour card, a panel and a symbol are
+things a cut should not need to import a megabyte of, go soft at the next
+resolution, or leave the tool to change. The document *is* the asset.
+
+Each has its own verb, and there is one for a lane to put them on:
+
+```
+track_new  { "project": "teaser.scor", "kind": "video" }
+           → "`v2` — a video track, over every video track already there."
+text_new   { "project": "teaser.scor", "text": "THE VESSEL ARRIVES",
+             "size": 0.08, "color": "#ffcc00" }
+           → "`the-vessel-arrives` — a text asset."
+place_clip { "project": "teaser.scor", "asset": "the-vessel-arrives",
+             "track": "v2", "start_seconds": 25, "duration_seconds": 2 }
+```
+
+`color_new`, `shape_new` and `icon_new` are the same shape. All of them
+validate the whole document before writing, refuse an id already in use, and
+say which id they wrote — the contract `place_clip` has. Sizes are fractions of
+the frame rather than pixels, so one number reads the same at every render
+resolution.
+
+**Why one verb per kind rather than one `asset_new` with a `kind`.** What a
+kind *requires* is different for each: a colour asset must carry a colour, a
+symbol must carry a name and a size, a shape must draw something. A single verb
+could only take those as one free-form block, and a block cannot describe its
+own fields — which is the rule the whole page ends on. `synth_new` is the same
+argument one kind further along.
+
+**A new video track composites over the ones already there.** That is what
+makes `track_new` the answer to the commonest refusal in the tool: clips on one
+track may not overlap, so a caption over a shot is two lanes, not a
+rearrangement. Audio tracks are unordered among themselves — everything
+audible is summed.
+
+### Changing one afterwards: `asset_set`
+
+Editing a caption's wording, or dropping its size by a hundredth, is a loop
+rather than a single edit: change it, composite a still, look, change it again.
+
+```
+asset_set  { "project": "teaser.scor", "asset": "the-vessel-arrives",
+             "size": 0.06 }
+           → "`the-vessel-arrives`: size: 0.08 → 0.06. Nothing else changed."
+```
+
+**Every field you leave out is left exactly as it is.** That is the one
+decision in this verb worth stating: it *merges*. A verb that took a whole
+`style` block would be simpler and would silently lose every field the caller
+did not restate — so the second call, the one shrinking a title, would also put
+the font back to the default and say nothing about it. The reply names what
+each field **was** as well as what it is now, because the caller cannot see the
+document and *was* is what proves the change landed where it was aimed.
+
+One verb here rather than four, for the mirror image of the reason above:
+`asset_set` requires nothing but the asset, so every field on it is optional by
+construction and each one still describes itself and says which kinds it
+belongs to.
+
+A field the asset's kind has no use for is **refused by name** — a `fill` on a
+caption is not a caption with something extra, and ignoring it would look
+exactly like having applied it. What a *generated* asset is made from is
+[`rebrief`](#changing-a-brief-rebrief), and what a file-backed one is lives in
+the file.
+
+**There is no verb here that deletes an asset**, and that is a deliberate gap
+rather than an oversight: removing one has to answer what becomes of the clips
+that show it, and "refuse while it is used" and "take its clips with it" are
+both defensible and are not the same tool. That question gets its own issue.
+
 ## Finding the symbol you meant: `icons`
 
 An `icon` asset is a name and nothing else — `clapperboard`, `triangle-alert`,

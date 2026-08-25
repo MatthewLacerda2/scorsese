@@ -13,6 +13,7 @@
 //! or run two conversations against one project without a server-side notion
 //! of "the open project" going stale behind its back.
 
+mod authoring;
 mod create;
 mod design;
 mod edit;
@@ -233,6 +234,15 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(script::Read),
         Box::new(script::Write),
         Box::new(edit::Write),
+        // Before place_clip, because they are how there comes to be anything
+        // to place and anywhere to put it: a lane, and the four kinds of asset
+        // that no import and no provider brings in.
+        Box::new(authoring::TrackNew),
+        Box::new(authoring::TextNew),
+        Box::new(authoring::ColorNew),
+        Box::new(authoring::ShapeNew),
+        Box::new(authoring::IconNew),
+        Box::new(authoring::AssetSet),
         // Before the tools that decorate a cut, because they are how there
         // comes to be one: a clip has to be on the timeline before anything
         // can dissolve it or scale it.
