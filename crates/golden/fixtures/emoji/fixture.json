@@ -1,0 +1,6 @@
+{
+  "description": "A caption with an emoji set in it: `Ship it 🔥` in the shipped sans face, white, a quarter of the frame's height, centred on black. The fire is not in Inter — it is drawn from Noto Color Emoji, the one entry in the fallback chain, and it is drawn in the font's own orange rather than in the caption's white. So this fixture fails if fallback stops happening (the fire disappears and the line closes up), if the colour glyph is filled flat in the style's colour instead of painted from its own COLRv1 layers, if the letters move because a run boundary lost an advance, or if the line's height changes because the block took its extents from the emoji face rather than the named one. Both frames are compared for the reason `title` compares both: a text layer is drawn once for a clip and reused. Nothing here has a file.",
+  "media": {},
+  "render": { "resolution": "192x108", "fps": "30" },
+  "frames": [0, 9]
+}

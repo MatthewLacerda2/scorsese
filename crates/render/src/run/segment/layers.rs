@@ -131,7 +131,13 @@ impl Pass<'_> {
 
         if shot.asset.kind == AssetKind::Text {
             let mut pixels = blank();
-            painter.paint(&mut pixels, shot.asset, shot.clip.anchor, self.project_root)?;
+            let unpaintable =
+                painter.paint(&mut pixels, shot.asset, shot.clip.anchor, self.project_root)?;
+            notes.extend(unpaintable.into_iter().map(|glyph| Note::UnpaintableGlyph {
+                clip: shot.clip.id.to_string(),
+                asset: shot.asset.id.to_string(),
+                wanted: glyph.wanted,
+            }));
             return held(pixels);
         }
 

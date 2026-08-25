@@ -50,9 +50,10 @@ pub(in crate::text) fn palette(font: &FontRef<'_>) -> Vec<Rgba> {
     let Some(Ok(records)) = cpal.color_records_array() else {
         return Vec::new();
     };
-    let first = cpal.color_record_indices().first().map_or(0, |index| {
-        usize::from(index.get()).min(records.len())
-    });
+    let first = cpal
+        .color_record_indices()
+        .first()
+        .map_or(0, |index| usize::from(index.get()).min(records.len()));
     let entries = usize::from(cpal.num_palette_entries()).min(records.len() - first);
     records[first..first + entries]
         .iter()
@@ -88,7 +89,10 @@ impl Palette<'_> {
             self.entries.get(usize::from(index)).copied()
         };
         let Some(colour) = found else {
-            report(said, format!("colour {index}, which its own palette has no entry for"));
+            report(
+                said,
+                format!("colour {index}, which its own palette has no entry for"),
+            );
             return None;
         };
         Some(Color::from_rgba8(
@@ -192,7 +196,10 @@ pub(super) fn shader(
 /// left after a palette that could not answer.
 fn built(shader: Option<Shader<'static>>, said: &mut Vec<Unpaintable>) -> Option<Shader<'static>> {
     if shader.is_none() {
-        report(said, "a gradient with no shape tiny-skia can build".to_owned());
+        report(
+            said,
+            "a gradient with no shape tiny-skia can build".to_owned(),
+        );
     }
     shader
 }
@@ -209,7 +216,10 @@ fn spread(extend: Extend, said: &mut Vec<Unpaintable>) -> SpreadMode {
         Extend::Pad => SpreadMode::Pad,
         // Only a malformed file reaches this: the format defines three.
         _ => {
-            report(said, "a gradient spread this build does not know".to_owned());
+            report(
+                said,
+                "a gradient spread this build does not know".to_owned(),
+            );
             SpreadMode::Pad
         }
     }

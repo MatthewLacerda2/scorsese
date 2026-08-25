@@ -77,10 +77,11 @@ impl Shaped {
     /// a list of pieces to find out.
     pub(super) fn append(&mut self, other: Self) {
         let offset = self.width;
-        self.glyphs.extend(other.glyphs.into_iter().map(|glyph| Placed {
-            at: (glyph.at.0 + offset, glyph.at.1),
-            ..glyph
-        }));
+        self.glyphs
+            .extend(other.glyphs.into_iter().map(|glyph| Placed {
+                at: (glyph.at.0 + offset, glyph.at.1),
+                ..glyph
+            }));
         self.width += other.width;
     }
 }
