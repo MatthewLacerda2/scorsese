@@ -12,9 +12,33 @@
 # Run it:
 #
 #     make mutants     # this branch's diff, exactly as the CI job scopes it
-#     cargo mutants    # the whole surface below: 3677 mutants today, and
+#     cargo mutants    # the whole surface below: 3676 mutants today, and
 #                      # `cargo mutants --list | wc -l` re-counts it for free —
 #                      # that builds nothing, so the number is exact and cheap
+#
+# ---------------------------------------------------------------------------
+# The floor under that count
+# ---------------------------------------------------------------------------
+#
+# A *floor*, and not the count itself. Writing code adds mutants and must never
+# break a check; what this is here to notice is the surface being **deleted** —
+# #363 and #365, where three `exclude_re` entries below were regexes that
+# matched every mutant there is and left six. So the number below sits well
+# under today's count with room for an ordinary refactor or a deliberate
+# exclusion, and nowhere near the two-digit wreckage a runaway entry leaves.
+#
+# `.github/scripts/mutation-surface.py` reads the line — a comment and not a
+# config key, because cargo-mutants rejects an unknown field outright and
+# `surface_floor = 3000` here would break every run to guard against runs being
+# broken. `make mutants` checks it before it mutates anything and the `mutants`
+# CI job checks it first; neither is in `make gates`, because this proves the
+# *instrument* works rather than that the code is right.
+#
+# Lower it only in the same commit that shrinks the surface on purpose, with
+# the reason. Lowering it to make the check quiet is the same move as
+# re-blessing a golden reference to make CI green.
+#
+# surface-floor: 3000
 #
 # ---------------------------------------------------------------------------
 # The mutated surface
