@@ -204,15 +204,22 @@ jobs:
                "\`.cargo/mutants.toml\` scopes, at $version." > scope.txt
           cat scope.txt
 
-      # The same warming the `mutants` job in `ci.yml` does, with the same
-      # caveat on it: the copy each mutant is built in has no `target/` in it,
-      # so nothing compiled here is reused -- only the crate downloads in
-      # `~/.cargo` reach a mutant build, and the cache above carries those.
-      # #394 is whether the step earns a crate-sized build once a week.
-      - name: Warm the build
-        env:
-          CRATE: ${{ steps.pick.outputs.crate }}
-        run: cargo build -p "$CRATE" --tests --locked
+      # No warm-up build, for the reason spelled out at the same place in
+      # `ci.yml`'s `mutants` job: the copy each mutant is built in has no
+      # `target/` in it, so a build here compiles into a directory the sweep
+      # never reads. Only the crate downloads in `~/.cargo` reach a mutant
+      # build, and the cache above carries those.
+      #
+      # This one ran `cargo build -p "$CRATE" --tests --locked`, and the answer
+      # is the same as the per-pull-request job's even though the workloads are
+      # not: what the step buys does not scale with the number of mutants, so
+      # #394's measurement — the mutation step and cargo-mutants' own baseline
+      # build unchanged, warmed or cold, while the step itself cost about three
+      # minutes — settles both. It is a smaller share of a sweep that runs for
+      # hours than of a job that runs for five minutes; it is not a smaller
+      # waste. The one thing it did that this does not is fail early on a
+      # workspace that no longer compiles, and cargo-mutants' baseline reports
+      # that too, in the run's own words rather than a step's.
 
       # No `--in-diff`: the whole crate, which is the entire point of this
       # workflow existing.

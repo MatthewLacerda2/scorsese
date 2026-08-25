@@ -566,17 +566,27 @@ jobs:
           if [ -s pr.diff ]; then echo "rust=yes" >> "$GITHUB_OUTPUT"
           else echo "rust=no" >> "$GITHUB_OUTPUT"; fi
 
-      # A warm workspace, and what it does *not* warm. cargo-mutants builds
-      # each mutant in a copy of the tree, and that copy has no `target/` in it
-      # -- excluded by default since 25.1.0, and unusable anyway since 1.0.2,
-      # because cargo-mutants sets its own RUSTFLAGS and would not match these
-      # build products. What does survive into a mutant build is the crate
-      # downloads in `~/.cargo`, which the cache above carries between runs.
-      # Whether that is worth a full workspace build per pull request is #394:
-      # a measurement on the runner, not a guess from a comment.
-      - name: Warm the build
-        if: steps.diff.outputs.rust == 'yes'
-        run: cargo build --workspace --tests --locked
+      # There is deliberately no warm-up build here, and this is the note that
+      # stops one being added back. cargo-mutants builds every mutant in a copy
+      # of the tree, and that copy has no `target/` in it: `copy_target` has
+      # defaulted to false since it was reintroduced in 25.1.0, and 1.0.2
+      # stopped copying `target/` at all on the grounds that cargo-mutants sets
+      # its own `RUSTFLAGS` and would not match those build products anyway. So
+      # a `cargo build` in this step compiles into a directory no mutant build
+      # ever reads. The one thing that does reach a mutant is the crate
+      # downloads in `~/.cargo`, and the cache above carries those — for free,
+      # and the mutation run below populates them itself when it does not.
+      #
+      # This job used to carry `cargo build --workspace --tests --locked` here.
+      # #394 measured it on the runner rather than arguing about it: the same
+      # job body, with and without the step, twice each, side by side on one
+      # commit from one cache. The mutation step took 154s and 161s warmed
+      # against 153s and 167s cold, and cargo-mutants timed its own baseline
+      # build at 43-46s in all four — identical, warmed or not. The step cost
+      # 177s and changed nothing downstream of it. Across the seventeen real
+      # runs before that, it averaged 153s and was 60% of the job's wall clock,
+      # and in thirteen of them the mutation step that followed it finished in
+      # under a second because the diff's Rust was all test files.
 
       # Never fails on its own: surviving mutants are an ordinary result, not
       # an error, and the exit code that says so must not be confused with the
