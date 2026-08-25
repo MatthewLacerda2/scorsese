@@ -141,6 +141,16 @@ development machine is a tmpfs and a copy that will not fit in RAM fails with a
 message about disk (#392). A run that dies before reporting on any mutant says
 which directory it was copying into.
 
+The copy has no `target/` in it either — `copy_target` has been off by default
+since 25.1.0, and before that 1.0.2 stopped copying it at all, because
+cargo-mutants sets its own `RUSTFLAGS` and existing build products would not
+match. So **nothing built in advance is reused.** Every mutant compiles from
+scratch out of the crate downloads in `~/.cargo`, and those are the only thing
+worth having ready. Both CI workflows used to run a `cargo build` before the
+mutation step on the opposite assumption; #394 measured it on the runner —
+mutation step and cargo-mutants' own baseline build unchanged, warmed or cold,
+for about three minutes a run — and took it out.
+
 **When to run it:** once the implementation is written and its tests pass, which
 is where CLAUDE.md puts it. That is when a survivor is cheapest to answer — the
 code is still in hand and the missing assertion is a two-minute edit — and it is
