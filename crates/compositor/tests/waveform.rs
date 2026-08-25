@@ -25,6 +25,16 @@ const BODY: (u8, u8, u8, u8) = (0x9e, 0xd8, 0xff, 255);
 const CLIPPED: (u8, u8, u8, u8) = (0xe0, 0x5a, 0x50, 255);
 const RULE: (u8, u8, u8, u8) = (0x3a, 0x40, 0x4a, 255);
 
+/// The rows that hold the axis labels and nothing else: the wave area's bottom
+/// rule is row 216 and the three ticks under it reach row 221.
+fn axis() -> std::ops::Range<u32> {
+    222..260
+}
+
+/// The width the three timecodes are aligned against — the picture less the
+/// ten pixels of margin `label` sets its block in either side.
+const BLOCK: u32 = 960 - 20;
+
 /// One slice of a file: how loud it got, and how loud it was on average.
 fn column(peak: f32, rms: f32) -> Column {
     Column { peak, rms }
@@ -151,4 +161,51 @@ fn columns_past_the_width_are_dropped() {
     let frame = picture(&vec![column(1.0, 1.0); COLUMNS + 40]);
     assert_eq!(frame.resolution().width(), COLUMNS as u32);
     assert_eq!(pixel(&frame, COLUMNS as u32 - 1, TOP), BODY);
+}
+
+/// The first and last column of the axis rows carrying anything at all, inside
+/// `columns`.
+fn stamped(frame: &Frame, columns: std::ops::Range<u32>) -> Option<(u32, u32)> {
+    let inked = |x: u32| axis().any(|y| pixel(frame, x, y) != BACKGROUND);
+    Some((
+        columns.clone().find(|&x| inked(x))?,
+        columns.rev().find(|&x| inked(x))?,
+    ))
+}
+
+/// The axis is one label function called three times and placed by alignment
+/// alone — left, centre and right against one width — so what says all three
+/// arrived is that they arrived in three different columns. A version that drew
+/// one of them, or drew all three over each other, leaves two thirds of the
+/// axis blank; one that lost the alignment puts them somewhere other than the
+/// ticks they belong to.
+///
+/// They are set on one line under those ticks and not over the picture: the
+/// block starts 226 pixels down, so a 15-pixel em on an 18-pixel line puts the
+/// ink between rows 229 and 240.
+#[test]
+fn the_three_timecodes_land_in_three_different_columns() {
+    let frame = picture(&[]);
+    let third = COLUMNS as u32 / 3;
+    let start = stamped(&frame, 0..third).expect("the file's start is stamped");
+    let middle = stamped(&frame, third..third * 2).expect("its midpoint is stamped");
+    let end = stamped(&frame, third * 2..COLUMNS as u32).expect("its end is stamped");
+    let rows: Vec<u32> = axis()
+        .filter(|&y| (0..COLUMNS as u32).any(|x| pixel(&frame, x, y) != BACKGROUND))
+        .collect();
+
+    assert!(
+        start.0 <= 1 && end.1 >= BLOCK - 3,
+        "the outer two sit against the block's edges, found {start:?} and {end:?}"
+    );
+    let centre = f64::from(middle.0 + middle.1) / 2.0;
+    assert!(
+        (centre - f64::from(BLOCK) / 2.0).abs() <= 2.0,
+        "and the middle one is centred on the same width, found {centre}"
+    );
+    assert_eq!(
+        (rows.first().copied(), rows.last().copied()),
+        (Some(229), Some(240)),
+        "all three are one line of type under the ticks, found {rows:?}"
+    );
 }
