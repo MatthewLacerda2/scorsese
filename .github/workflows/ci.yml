@@ -577,16 +577,21 @@ jobs:
       # downloads in `~/.cargo`, and the cache above carries those — for free,
       # and the mutation run below populates them itself when it does not.
       #
-      # This job used to carry `cargo build --workspace --tests --locked` here.
-      # #394 measured it on the runner rather than arguing about it: the same
-      # job body, with and without the step, twice each, side by side on one
-      # commit from one cache. The mutation step took 154s and 161s warmed
-      # against 153s and 167s cold, and cargo-mutants timed its own baseline
-      # build at 43-46s in all four — identical, warmed or not. The step cost
-      # 177s and changed nothing downstream of it. Across the seventeen real
-      # runs before that, it averaged 153s and was 60% of the job's wall clock,
-      # and in thirteen of them the mutation step that followed it finished in
-      # under a second because the diff's Rust was all test files.
+      # This job used to carry `cargo build --workspace --tests --locked` here,
+      # and #394 measured it on the runner rather than arguing about it: this
+      # job body with and without the step, six pairs, each pair side by side
+      # on one commit over the same fixed ten-mutant workload. The mutation
+      # step averaged **150s warmed against 147s cold** — the warmed side
+      # fractionally slower, which is what no effect looks like against a
+      # spread of about 17s — and cargo-mutants' own baseline build inside the
+      # scratch copy came in at 33-45s on both sides, its spread following the
+      # runner rather than the warming. The step itself cost 73-178s. Whole
+      # job: **368s warmed, 203s cold.**
+      #
+      # The seventeen real runs before that agree about the bill. It averaged
+      # 153s there and was 60% of the job's wall clock, and in thirteen of them
+      # the mutation step that followed it finished in under a second, because
+      # the diff's Rust was all test files and there was nothing to mutate.
 
       # Never fails on its own: surviving mutants are an ordinary result, not
       # an error, and the exit code that says so must not be confused with the
