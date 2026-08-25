@@ -27,6 +27,7 @@ caller already captured, so it can be tested on a list that no cargo produced.
 
 from __future__ import annotations
 
+import os
 import re
 import sys
 from pathlib import Path
@@ -96,7 +97,12 @@ def main(argv: list[str]) -> int:
     count = counted(Path(argv[0]))
 
     if count < floor:
-        print(COLLAPSED.format(count=count, floor=floor, config=config), file=sys.stderr)
+        # Relative to where the reader is standing: the message quotes shell
+        # commands, and an absolute path from a CI checkout is one nobody can
+        # paste. `relpath` answers with the absolute path when there is no
+        # relative one -- a different drive, or a path outside the tree.
+        where = os.path.relpath(config, Path.cwd())
+        print(COLLAPSED.format(count=count, floor=floor, config=where), file=sys.stderr)
         return 1
 
     print(f"mutation surface: {count} mutants, floor {floor}. Intact.")
