@@ -91,12 +91,21 @@ impl<'a> Faces<'a> {
     /// How far the tallest glyph reaches above the baseline and the lowest
     /// below it — **from the named face, always**.
     ///
-    /// A fallback supplies its own glyphs' advances and nothing else. Noto
-    /// Color Emoji sets much taller than Inter does, so a caption whose extents
-    /// came off whichever faces happened to be in it would grow a line the
-    /// moment somebody typed an emoji into it and shrink again when they
-    /// deleted one. The block is the named face's block; the emoji is a guest
-    /// in it.
+    /// A fallback supplies its own glyphs' advances and nothing else. The block
+    /// is the named face's block and the emoji is a guest in it: a caption
+    /// whose extents came off whichever faces happened to be in it would move
+    /// its words the moment somebody typed an emoji, and move them back when
+    /// they deleted one.
+    ///
+    /// **With the one face shipped today the difference would be invisible**,
+    /// and that is worth writing down rather than discovering later. Noto Color
+    /// Emoji reaches 0.928 em above the baseline and 0.244 em below it, which
+    /// sits inside Inter's 0.969 and 0.242 — so nothing about the *current*
+    /// chain could show a caption as having moved, whichever way this was
+    /// written. The rule is here for the face after it: a CJK face reaches past
+    /// 1.15 em, and would drop every caption in the project the first time one
+    /// was typed into. So the test below holds the mechanism rather than the
+    /// pixels, because at this point the pixels cannot say.
     pub(in crate::text) fn extents(&self) -> (f32, f32) {
         self.named().extents()
     }
@@ -111,5 +120,50 @@ impl<'a> Faces<'a> {
 
     fn named(&self) -> &Face<'a> {
         &self.faces[0]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::Slant;
+    use super::*;
+
+    /// A face whose extents Noto's exceed **both** ways, so a chain-wide answer
+    /// could not accidentally land on the right numbers.
+    fn named() -> Font {
+        Font::shipped("liberation-sans", None, Slant::Upright).expect("a family this build ships")
+    }
+
+    const SIZE: f32 = 100.0;
+
+    /// The named face's extents are the block's, exactly — not the tallest in
+    /// the chain, not a blend of them, not rounded together.
+    ///
+    /// Asserted as the numbers rather than as a drawn caption, because a drawn
+    /// caption cannot tell the difference. A chain is built from the named font
+    /// and never from the content, so a block that *did* take the chain's
+    /// extents would take them for every caption equally, and a caption with an
+    /// emoji in it would still agree with one without. What would be wrong is
+    /// the thing they both agreed on.
+    #[test]
+    fn the_extents_are_the_named_face_s_and_not_the_chain_s() {
+        let named = named();
+        assert_eq!(
+            Faces::of(&named, SIZE).extents(),
+            named.at(SIZE).extents(),
+            "the block is set to the extents of the face the document named"
+        );
+    }
+
+    /// …and the fallback really does answer with different numbers, so the
+    /// equality above is a claim and not a coincidence.
+    #[test]
+    fn the_fallback_has_extents_of_its_own_to_have_been_confused_with() {
+        let fallback = chain()
+            .first()
+            .expect("one face is shipped")
+            .at(SIZE)
+            .extents();
+        assert_ne!(fallback, named().at(SIZE).extents());
     }
 }

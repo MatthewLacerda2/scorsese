@@ -88,9 +88,12 @@ fn the_fire_is_drawn_in_its_own_colours() {
 #[test]
 fn a_caption_is_no_taller_for_having_an_emoji_in_it() {
     // Line height and the baseline come from the named face and from nothing
-    // else. Noto Color Emoji sets far taller than Inter does, so a block that
-    // took its extents from whichever faces happened to be in it would drop its
-    // letters down the frame the moment somebody typed one.
+    // else, so this is the criterion stated as a caption: the words sit where
+    // they sat. It holds *structurally* — a chain is built from the named font
+    // and never from the content, so the extents of a caption with an emoji in
+    // it and one without are the same values — and the unit test beside
+    // `Faces::extents` is what holds that mechanism still. What this one adds
+    // is the promise in the form somebody would check it in.
     let block = |content: &str| {
         let mut frame = canvas();
         text::draw(&mut frame, content, Font::sans(), &style(SIZE, Rgba::WHITE));
