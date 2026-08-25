@@ -222,7 +222,7 @@ impl Font {
     /// the raster says another, and nothing in between reports the difference.
     /// This is what lets `check` report it.
     ///
-    /// **The chain, not this face**, since [`fallback`] arrived: a character
+    /// **The chain, not this face**, since font fallback arrived: a character
     /// the named face lacks and the emoji face draws is not missing from the
     /// frame, so reporting it would be `check` objecting to something that
     /// renders correctly. What is still reported is what still vanishes — a

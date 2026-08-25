@@ -509,7 +509,7 @@ large emoji stays sharp at 4K. Everything the named face *can* draw, it draws �
 a text face with a `☺` in it sets `☺` in text, not in colour — and the fallback
 is only ever reached by a gap.
 
-Three consequences worth knowing before writing one:
+Four consequences worth knowing before writing one:
 
 - **Line height comes from the named face alone.** A caption with an emoji in
   it is exactly as tall as the same caption without one, and its words wrap in
@@ -521,6 +521,9 @@ Three consequences worth knowing before writing one:
 - **Sequences are one drawing.** 👍🏽 is a thumb plus a skin-tone modifier and
   👨‍👩‍👧 is three people joined by zero-width joiners; each sets as a single glyph,
   and no line ever breaks inside one.
+- **`stroke` is for letters.** A caption's rim is grown off a letterform's
+  outline, and a colour glyph has none — so the words carry their rim and the
+  emoji between them is drawn as itself. The stroke section below says why.
 
 **A character no face at all covers is still dropped and still reported.** That
 is unchanged: it draws nothing, takes no width, and `scorsese check` names it
@@ -657,6 +660,14 @@ and the bowl of an `a` at the sizes captions are set at, and the failure is
 invisible in the document — it shows up as mush on a finished video. So the
 glyph is drawn whole on top of its own rim and keeps its shape; what the two
 kinds share is the field names and the unit.
+
+**A colour glyph takes no rim.** A rim is a stroke of the path being filled,
+and an emoji is not that path — it is a layered drawing in its own colours,
+with no single outline to grow anything off. So `Ship it 🔥` with a stroke on
+it comes out as rimmed letters beside a fire drawn as itself. That is also the
+reading worth having: the letters get the legibility they asked for, and the
+emoji does not acquire a sticker border it never needed, being its own
+high-contrast shape already.
 
 **A `stroke` with a width of zero is refused**, the same way a shape's border
 without one is. *I meant no edge* and *I meant an edge and got the width
