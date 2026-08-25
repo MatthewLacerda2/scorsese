@@ -18,7 +18,7 @@ A complete worked example lives in
 
 ```json project
 {
-  "schema_version": 27,
+  "schema_version": 28,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],

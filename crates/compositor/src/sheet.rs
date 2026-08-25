@@ -210,6 +210,9 @@ fn stamp(cell: &mut Cell, font: &Font) {
                 align: TextAlign::Center,
                 line_height: strip as f32,
                 max_width: resolution.width() as f32,
+                // A contact-sheet label sits on its own panel of colour, so
+                // there is nothing behind it for a rim to rescue it from.
+                edge: None,
                 anchor: Anchor::default(),
             },
         },

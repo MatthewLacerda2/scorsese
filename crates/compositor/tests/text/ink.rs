@@ -30,6 +30,7 @@ pub(crate) fn style(size: f32, color: Rgba) -> Style {
         align: TextAlign::Center,
         line_height: size * 1.25,
         max_width: WIDTH as f32 * 0.9,
+        edge: None,
     }
 }
 

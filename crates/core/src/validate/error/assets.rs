@@ -167,4 +167,19 @@ pub enum AssetProblem {
         /// The string that is not a hash.
         value: String,
     },
+
+    /// A rim colour on a text style with no thickness to draw it at.
+    ///
+    /// The same refusal a shape's border gets, for the same reason: *I meant no
+    /// edge* and *I meant an edge and got the width wrong* look identical in
+    /// the rendered frame, and only one of them is what the document says. On a
+    /// caption it is the worse of the two to guess at, since the whole job of
+    /// the rim is to be there over footage nobody has looked at yet.
+    #[error("asset `{asset}`: a text stroke is {width} thick, so nothing would be drawn")]
+    StrokeWithoutWidth {
+        /// The text asset.
+        asset: AssetId,
+        /// The thickness as written.
+        width: f64,
+    },
 }

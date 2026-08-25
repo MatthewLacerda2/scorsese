@@ -17,6 +17,7 @@ use scorsese_core::Rgba;
 use crate::frame::Frame;
 use crate::paint;
 
+use super::Edge;
 use super::font::{Face, Font};
 use super::shape::Shaped;
 
@@ -43,7 +44,7 @@ pub fn draw_line(
     let face = font.at(size.max(1.0));
     let mut path = Outlines::default();
     line_into(&mut path, &face, &face.shape(text), origin);
-    stamp(frame, path, color);
+    stamp(frame, path, color, None);
 }
 
 /// Draws several unrelated lines in one pass of the rasteriser.
@@ -65,7 +66,7 @@ pub(crate) fn draw_runs<S: AsRef<str>>(
     for (text, origin) in runs {
         line_into(&mut path, &face, &face.shape(text.as_ref()), *origin);
     }
-    stamp(frame, path, color);
+    stamp(frame, path, color, None);
 }
 
 /// Traces an already-shaped run into `path`, with the run starting at
@@ -143,9 +144,25 @@ impl OutlinePen for Outlines {
 /// Fills the collected outlines onto the frame in one pass — the whole block
 /// as a single shape, so letters that overlap are blended once rather than
 /// twice at the seam.
-pub(super) fn stamp(frame: &mut Frame, outlines: Outlines, color: Rgba) {
+///
+/// **An `edge` goes down first, and the fill covers half of it.** tiny-skia
+/// strokes centred on a path, so a rim that shows `width` pixels outside the
+/// letterform is a stroke of twice that with the glyph filled over the inner
+/// half — which is what makes this a rim *added* to the letter rather than a
+/// line eating into it. Two passes rather than one because they are two
+/// colours; the whole block goes down in each, so an overlapping pair of
+/// letters is still one shape and the seam between them is not drawn twice.
+///
+/// Round joins, and that is not a finish. A mitred one spikes wherever the
+/// outline turns a sharp corner — the apex of an `A`, the vertices of a `W`,
+/// every serif — so a rim meant to follow the letter would instead grow horns
+/// off it.
+pub(super) fn stamp(frame: &mut Frame, outlines: Outlines, color: Rgba, edge: Option<Edge>) {
     let Some(path) = outlines.builder.finish() else {
         return;
     };
+    if let Some(edge) = edge {
+        paint::stroke_round(frame, &path, edge.color, edge.width * 2.0);
+    }
     paint::fill(frame, &path, color);
 }

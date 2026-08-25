@@ -208,6 +208,25 @@ fn check_style(asset: &Asset, errors: &mut Vec<AssetProblem>) {
         });
     }
     check_weight(asset, style, errors);
+    check_stroke(asset, style, errors);
+}
+
+/// What can be said about a rim without a raster: that a colour was given and
+/// no thickness to draw it at.
+///
+/// The thickness itself is a fraction like every other measurement here, so
+/// zero, a negative and a NaN are the three ways of writing an edge nothing
+/// would put on the frame. A width with no colour beside it is *not* refused —
+/// it is a number nothing reads, the way `stroke_width` sits at its default on
+/// every text asset ever written.
+fn check_stroke(asset: &Asset, style: &TextStyle, errors: &mut Vec<AssetProblem>) {
+    let drawable = style.stroke_width.is_finite() && style.stroke_width > 0.0;
+    if style.stroke.is_some() && !drawable {
+        errors.push(AssetProblem::StrokeWithoutWidth {
+            asset: asset.id.clone(),
+            width: style.stroke_width,
+        });
+    }
 }
 
 /// What can be said about a `weight` without opening a font file.

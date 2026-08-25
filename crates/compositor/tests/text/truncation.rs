@@ -23,6 +23,7 @@ fn narrow() -> Style {
         align: TextAlign::Center,
         line_height: 30.0,
         max_width: 90.0,
+        edge: None,
     }
 }
 
