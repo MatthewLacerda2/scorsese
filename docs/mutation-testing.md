@@ -130,6 +130,17 @@ is usually the fastest way to see what a survivor means.
 `make mutants` finishes by rendering that as the Markdown CI posts — see
 [Reading the report](#reading-the-report) for what it does and does not list.
 
+**Where it builds:** not here. cargo-mutants copies the worktree into a scratch
+directory and compiles every mutant in the copy, which is why a mutation run
+does not disturb `target/` and why it needs somewhere to put several gigabytes.
+Two settings keep that honest: `gitignore = true` in `.cargo/mutants.toml`, so
+build output is left behind rather than copied — `app/target/` is the one that
+matters, ~8.5 GB of a workspace no mutant lives in — and `TMPDIR`, which
+`make mutants` points at `~/.cache/scorsese/mutants` because `/tmp` on the
+development machine is a tmpfs and a copy that will not fit in RAM fails with a
+message about disk (#392). A run that dies before reporting on any mutant says
+which directory it was copying into.
+
 **When to run it:** once the implementation is written and its tests pass, which
 is where CLAUDE.md puts it. That is when a survivor is cheapest to answer — the
 code is still in hand and the missing assertion is a two-minute edit — and it is
