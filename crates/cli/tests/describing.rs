@@ -142,7 +142,7 @@ fn at_says_where_each_clip_lands_in_fractions_of_the_frame() {
 /// A shot, a narration prompt over its first half, then two seconds of nothing
 /// — one of each thing a description has to name.
 const DOCUMENT: &str = r#"{
-  "schema_version": 28,
+  "schema_version": 29,
   "name": "Teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [
