@@ -125,6 +125,16 @@ MUTANTS_STAMP := target/mutants-signal
 # place a leftover is not litter.
 MUTANTS_TMPDIR := $(or $(XDG_CACHE_HOME),$(HOME)/.cache)/scorsese/mutants
 
+# A directory per run inside it, deleted on the way out — including when the
+# run is interrupted, which is what the `trap` is for. Two reasons, and the
+# second is the one that would otherwise bite: two worktrees can run this at
+# once, so a blanket clean would delete the other one's scratch; and `TMPDIR`
+# is where *the tests* put their own temporary directories too. The project
+# fixtures under `crates/core/tests/common/` create a `scorsese-<label>.scor`
+# per call and never remove it, which is invisible while it lands in a /tmp
+# that is wiped at boot and would be a slow leak in a cache directory that is
+# not. A run cleans up after itself instead.
+
 # What the run found, in one sentence, counted from the lists cargo-mutants
 # writes beside its report rather than parsed back out of `outcomes.json`:
 # those files are one mutant per line, so `wc -l` cannot half-understand a
@@ -463,7 +473,9 @@ mutants: ## Which changes to the code no test would notice. A signal: blocks not
 	else \
 		rm -rf mutants.out; \
 		mkdir -p $(MUTANTS_TMPDIR); \
-		TMPDIR=$(MUTANTS_TMPDIR) cargo mutants --in-diff target/pr.diff; status=$$?; \
+		scratch=$$(mktemp -d $(MUTANTS_TMPDIR)/run-XXXXXX); \
+		trap 'rm -rf "$$scratch"' EXIT INT TERM; \
+		TMPDIR=$$scratch cargo mutants --in-diff target/pr.diff; status=$$?; \
 		case $$status in \
 			0|2|3) ;; \
 			4) exit $$status ;; \
