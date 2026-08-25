@@ -410,6 +410,17 @@ coverage: ## Which pub items no test reaches. A signal: no threshold, blocks not
 # reason that is not a surviving mutant writes nothing, and is then reported as
 # never having happened — which it effectively did not.
 #
+# Before any of that, the surface itself is checked -- see the `surface-floor:`
+# line in `.cargo/mutants.toml`, and #363 for what it is checking against. A
+# run over a surface that has been excluded down to nothing reports *nothing to
+# report*, which is exactly what a healthy branch touching no mutated lines
+# reports, so the silence is unreadable and everything after it is worthless.
+# It costs `cargo mutants --list`, which builds nothing and answers in under a
+# second, and it aborts the target rather than mutating on top of a broken
+# instrument. It is deliberately not in $(GATES): it proves the instrument
+# works rather than that the code is right, and `make gates` should not grow a
+# dependency on a tool it otherwise never invokes.
+#
 # What gets mutated, and what to do with a survivor: docs/mutation-testing.md.
 mutants: ## Which changes to the code no test would notice. A signal: blocks nothing
 	@command -v cargo-mutants >/dev/null 2>&1 || { \
@@ -421,6 +432,8 @@ mutants: ## Which changes to the code no test would notice. A signal: blocks not
 		echo "         Fetch it with: git fetch origin main" >&2; \
 		exit 1; }
 	@mkdir -p target
+	@cargo mutants --list > target/mutants-list.txt
+	@python3 .github/scripts/mutation-surface.py target/mutants-list.txt
 	@git diff origin/main...HEAD -- '*.rs' > target/pr.diff
 	@if [ ! -s target/pr.diff ]; then \
 		echo "mutants: this branch changes no Rust source against origin/main."; \

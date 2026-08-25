@@ -100,12 +100,12 @@ finds blocks anything, and a survivor it turns up is triaged exactly as below.
 cargo install cargo-mutants --locked
 
 make mutants                                      # what CI runs: this branch's diff
-cargo mutants                                     # the whole scoped surface, 3373 mutants
+cargo mutants                                     # the whole scoped surface, 3676 mutants
 cargo mutants -p scorsese-zimmer                  # one crate, as the sweep runs it
 cargo mutants -F '^crates/core/src/keyframe\.rs'  # one file, while writing it
 ```
 
-That 3373 moves with the source and with the tool version, and
+That 3676 moves with the source and with the tool version, and
 `cargo mutants --list | wc -l` is how to re-read it: `--list` builds nothing
 and runs nothing, so the count costs a second and is exact.
 
@@ -182,6 +182,45 @@ rows in it is short because there is genuinely something to read.
    branch always overwrites, a `#[derive]`-adjacent helper with one caller.
    Record it as an `exclude_re` entry in `.cargo/mutants.toml` with a written
    reason.
+
+### Writing the exclusion: an entry is a regex
+
+**`exclude_re` holds regular expressions, not the lines `cargo mutants --list`
+prints.** The two look identical for most mutants, because most mutant names are
+made of letters — and that is the trap. A mutation *of an operator* puts regex
+metacharacters into the name, and `|` is the one that costs everything:
+`replace || with && in unit` is an alternation with an empty branch, an empty
+branch matches every string there is, and so that single entry excludes the
+**whole surface**.
+
+It is silent when it happens. The run reports a handful of mutants, finds no
+survivors, and passes — which is also what a healthy branch touching no mutated
+lines looks like. #363 and #365 were that bug, and it went unnoticed across ten
+merged pull requests.
+
+So, when writing an entry:
+
+- Use a TOML **literal** string — single quotes, no escape processing — and
+  backslash-escape every metacharacter in it: `'replace \|\| with && in unit'`.
+- Check the surface afterwards with `cargo mutants --list | wc -l`. It builds
+  nothing, and the answer is four figures. Six is what the config looks like
+  when an entry has eaten everything.
+
+That check is wired up rather than remembered: `.cargo/mutants.toml` records a
+`surface-floor:` line, and `.github/scripts/mutation-surface.py` compares the
+count against it — inside `make mutants` before it mutates anything, and as the
+`mutants` CI job's first step. A **floor** and not the count itself, so writing
+code never trips it and deleting the surface does. It is deliberately not part
+of `make gates`: it proves the instrument works, not that the code is right.
+
+If the surface genuinely shrinks — a crate deliberately dropped from
+`examine_globs` — the floor moves in the same commit, with the reason. Lowering
+it to quiet the check is the same move as re-blessing a golden reference to make
+CI green.
+
+One thing no entry can exclude, per `.cargo/mutants.toml`'s note on name
+filters: a struct-field deletion (`delete field … from struct …`). An entry for
+one is accepted, does nothing, and the mutant is still reported.
 
 **Where the code draws, the value to name is a measurement.** The compositor's
 survivors are nearly all one shape (#323, #350, #352): a test samples a pixel

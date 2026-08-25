@@ -518,6 +518,23 @@ jobs:
       - name: Install cargo-mutants
         uses: taiki-e/install-action@cargo-mutants
 
+      # The first thing measured, and before anything is scoped to this pull
+      # request: is there a surface left to mutate at all? #363 and #365 were
+      # `exclude_re` entries written as the line `--list` prints when the field
+      # holds regular expressions -- `||` is an alternation with an empty
+      # branch, an empty branch matches every mutant there is, and the surface
+      # went to six. This job passed anyway for ten merged pull requests,
+      # because "nothing to report" is also what a healthy diff says.
+      #
+      # `--list` builds nothing and runs nothing, so this costs a second and
+      # runs whether or not the diff below turns out to hold any Rust: what it
+      # checks is the instrument, not the change. Red here means the signal is
+      # broken, which is the one thing this job is allowed to go red for.
+      - name: The surface is still there
+        run: |
+          cargo mutants --list > mutants-list.txt
+          python3 .github/scripts/mutation-surface.py mutants-list.txt
+
       # Every failure here is fatal on purpose. The one thing this job must
       # never do is compare against nothing and call the silence good news, so
       # a base that cannot be resolved, or a diff that comes out empty when a
