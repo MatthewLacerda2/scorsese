@@ -1,0 +1,69 @@
+# TEMPORARY. Deleted before #394's pull request is marked ready.
+#
+# The question: does `Warm the build` in the `mutants` job (and its twin in
+# `mutation-sweep.yml`) buy anything? Its comment used to claim cargo-mutants
+# copies `target/` into the scratch tree each mutant is built in. That has been
+# false since 1.0.2 and is false in 27.1.0's `copy_tree.rs`. What is left is a
+# guess, and CLAUDE.md is explicit that a guess about a `ubuntu-24.04` runner
+# taken on an Arch desktop is not a measurement.
+#
+# So: the same job body twice, once with the warming step and once without,
+# side by side on the same commit, at the same moment, from the same cache. Two
+# replicates of each, because one pair of numbers off a shared runner pool is an
+# anecdote.
+#
+# The workload is fixed rather than diff-scoped: `-p scorsese-core --shard
+# 1/100` is about nine mutants, which is the size of an ordinary pull request's
+# diff (recent real runs: 7 and 16), and it does not move between variants the
+# way `--in-diff` would.
+#
+# The cache is the one confound worth controlling. `Swatinem/rust-cache` is
+# branch-scoped, so the first push here finds nothing and all four jobs build
+# cold; exactly one of them saves, so the second push finds a full match and all
+# four start warm. Both states get measured, because the real job sees both: a
+# branch's first mutation run reports "No cache found" and its later ones
+# restore a full match.
+name: "394 experiment (temporary)"
+
+on: pull_request
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    name: "mutants: warm=${{ matrix.warm }} rep=${{ matrix.rep }}"
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        warm: ["yes", "no"]
+        rep: [1, 2]
+    steps:
+      - uses: actions/checkout@v4
+
+      # The real job installs it, so this one does too: constant across the
+      # variants, and leaving it out would measure a job that does not exist.
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+
+      # One key for all four jobs. Only one of them may write it, or the four
+      # would race to save four different trees under one name — and two of
+      # those trees have never had a workspace build in them.
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: e394
+          save-if: ${{ matrix.warm == 'yes' && matrix.rep == 1 }}
+
+      - name: Install cargo-mutants
+        uses: taiki-e/install-action@cargo-mutants
+
+      - name: Warm the build
+        if: matrix.warm == 'yes'
+        run: cargo build --workspace --tests --locked
+
+      - name: Mutate
+        run: cargo mutants -p scorsese-core --shard 1/100 --jobs 2 --colors never || true
