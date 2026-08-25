@@ -152,16 +152,18 @@ fn is_regional(character: char) -> bool {
 mod tests {
     use super::*;
 
-    /// A chain of two: face 0 takes ASCII, face 1 takes everything above it.
-    fn ascii_then_rest(face: usize, character: char) -> bool {
-        match face {
-            0 => character.is_ascii(),
-            _ => !character.is_ascii(),
-        }
+    /// A chain of two: face 0 takes ASCII, face 1 takes anything at all.
+    ///
+    /// Face 1 covering the ASCII as well is the shape the real chain has and
+    /// not a convenience — Noto Color Emoji maps the digits, because a keycap
+    /// is a digit with an enclosing mark over it. A fallback that covered only
+    /// what the first face lacked could never set one.
+    fn ascii_then_anything(face: usize, character: char) -> bool {
+        face > 0 || character.is_ascii()
     }
 
     fn faced(text: &str) -> Vec<(usize, &str)> {
-        split(text, 2, ascii_then_rest)
+        split(text, 2, ascii_then_anything)
             .into_iter()
             .map(|run| (run.face, &text[run.range]))
             .collect()
@@ -193,7 +195,8 @@ mod tests {
     #[test]
     fn a_keycap_follows_its_enclosing_mark_rather_than_its_digit() {
         // `1` is ASCII, so face 0 could set it — and face 0 has no keycap, so
-        // the cluster as a whole belongs to face 1.
+        // the only face that can set the whole cluster is face 1, and the
+        // whole cluster is what is chosen for.
         assert_eq!(faced("1\u{fe0f}\u{20e3}"), vec![(1, "1\u{fe0f}\u{20e3}")]);
     }
 
@@ -218,7 +221,7 @@ mod tests {
     #[test]
     fn runs_cover_the_line_in_order_with_no_gaps() {
         let text = "a🔥b🔥c";
-        let runs = split(text, 2, ascii_then_rest);
+        let runs = split(text, 2, ascii_then_anything);
         let mut at = 0;
         for run in &runs {
             assert_eq!(run.range.start, at);

@@ -125,3 +125,35 @@ fn a_font_file_that_is_not_a_font_stops_the_render() {
     );
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// An emoji survives the trip through the renderer's own text path, and the
+/// channel that would say it did not stays empty.
+///
+/// The golden fixture pins what the fire looks like; only a pipeline test says
+/// that the caption's colour does not reach it — white letters were asked for
+/// and an orange frame comes back — and that a face which paints cleanly leaves
+/// no note, so a note in a report means something when one appears.
+#[test]
+fn an_emoji_reaches_the_file_in_its_own_colours_and_notes_nothing() {
+    let tools = tools();
+    let dir = fixture_dir("text-emoji");
+    let project = project(
+        vec![titled("title", "🔥", Rgba::WHITE)],
+        vec![video_track("v1", vec![clip("c1", "title", 0, 10)])],
+    );
+
+    let (out, report) = render_at(&tools, &project, &dir).expect("a text clip renders");
+
+    assert!(
+        report.notes.is_empty(),
+        "everything Noto asks for can be painted: {:?}",
+        report.notes
+    );
+    let (red, green, blue) = mean_rgb(&tools, &out, 5);
+    assert!(
+        red > blue + 4 && green > blue,
+        "the fire keeps its own orange whatever colour the caption is; \
+         found {red},{green},{blue}"
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}
