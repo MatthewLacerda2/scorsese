@@ -433,7 +433,7 @@ which is the title most people meant.
 | `align` | `center` | `left`, `center`, `right` — within the wrapped block |
 | `line_height` | `1.25` | Baseline to baseline, as a multiple of `size` |
 | `max_width` | `0.9` | Where lines wrap, as a fraction of the frame's **width** |
-| `stroke` | *none* | `#rrggbb` or `#rrggbbaa` — a rim round the glyphs; absent means no edge |
+| `stroke` | *none* | `#rrggbb` or `#rrggbbaa` — a rim round the letters; absent means no edge |
 | `stroke_width` | `0.002` | How far that rim reaches outward, as a fraction of the frame's **height** |
 
 **A newline in `text` is honoured and ordinary whitespace is not.** An author
