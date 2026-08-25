@@ -166,3 +166,96 @@ pub(super) fn stamp(frame: &mut Frame, outlines: Outlines, color: Rgba, edge: Op
     }
     paint::fill(frame, &path, color);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::frame::{BYTES_PER_PIXEL, Resolution};
+
+    /// Room for two short runs well clear of each other and of every edge.
+    const WIDTH: u32 = 320;
+    const HEIGHT: u32 = 120;
+
+    /// A transparent frame, which is what a text layer starts as.
+    fn canvas() -> Frame {
+        let mut frame = Frame::black(Resolution::new(WIDTH, HEIGHT).expect("a legal raster"));
+        frame.fill_transparent();
+        frame
+    }
+
+    /// How many pixels carry any ink at all.
+    fn inked(frame: &Frame) -> usize {
+        frame
+            .bytes()
+            .chunks_exact(BYTES_PER_PIXEL)
+            .filter(|pixel| pixel[3] > 0)
+            .count()
+    }
+
+    /// The one claim [`draw_runs`] makes: it is [`draw_line`] for each run, done
+    /// in a single pass of the rasteriser rather than one pass per run.
+    ///
+    /// So the assertion is the whole raster, byte for byte, against the runs
+    /// drawn one at a time — not "some ink arrived". Two runs that do not
+    /// overlap are the case where the two paths must agree exactly: every
+    /// inked pixel is touched once either way, so a difference anywhere is a
+    /// glyph the batch put somewhere else, drew at another size or colour, or
+    /// did not draw at all.
+    #[test]
+    fn runs_drawn_in_one_pass_land_where_the_lines_do() {
+        const SIZE: f32 = 24.0;
+        let runs = [("Left", (12.0, 40.0)), ("Right", (160.0, 96.0))];
+        let font = Font::sans();
+
+        let mut batched = canvas();
+        draw_runs(&mut batched, font, SIZE, Rgba::WHITE, &runs);
+
+        let mut one_at_a_time = canvas();
+        for (text, origin) in runs {
+            draw_line(&mut one_at_a_time, text, font, SIZE, Rgba::WHITE, origin);
+        }
+
+        assert!(
+            inked(&one_at_a_time) > 100,
+            "the primitive itself drew the two runs"
+        );
+        assert_eq!(
+            inked(&batched),
+            inked(&one_at_a_time),
+            "one pass over two runs inks as many pixels as two passes do"
+        );
+        assert!(
+            batched.bytes() == one_at_a_time.bytes(),
+            "one pass over two runs is the same raster as a pass each"
+        );
+    }
+
+    /// And every run is drawn, not just the first: dropping either one changes
+    /// the picture, so the batch cannot be satisfied by half of its argument.
+    #[test]
+    fn every_run_reaches_the_raster() {
+        const SIZE: f32 = 24.0;
+        let runs = [("Left", (12.0, 40.0)), ("Right", (160.0, 96.0))];
+        let font = Font::sans();
+
+        let mut both = canvas();
+        draw_runs(&mut both, font, SIZE, Rgba::WHITE, &runs);
+
+        for run in &runs {
+            let mut alone = canvas();
+            draw_runs(
+                &mut alone,
+                font,
+                SIZE,
+                Rgba::WHITE,
+                std::slice::from_ref(run),
+            );
+            assert!(
+                inked(&alone) > 0 && inked(&alone) < inked(&both),
+                "`{}` is one of two runs, so it inks fewer pixels than the pair",
+                run.0
+            );
+        }
+    }
+}
