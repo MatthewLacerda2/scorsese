@@ -212,7 +212,7 @@ The decoder is not the only input the environment would otherwise choose. **The
 shipped faces are the other**, and they are held still for exactly the
 reason ffmpeg is: a system-font lookup resolves to a different file on Linux,
 macOS and Windows, so text drawn on one machine would not match text drawn on
-another and a reference blessed anywhere would fail everywhere else. Two faces
+another and a reference blessed anywhere would fail everywhere else. Faces
 compiled in with `include_bytes!` are to text what a pinned runner image is to
 decoding — refuse to let the environment pick, carry the input instead. The
 provenance, the licence conditions and the full reasoning are in
@@ -236,9 +236,9 @@ nothing about it.
 What follows from it is the part a rule is for. **The shipped faces may not be
 swapped, subsetted, or resolved from the system without re-blessing every text
 fixture.** Subsetting counts as modifying the file, and modifying the file moves
-the pixels. `anchored`, `emoji`, `paragraph`, `serif`, `slugs`, `title`,
-`title_moved` and `wash` are drawn with them — so this is not a corner of the
-gate.
+the pixels. `anchored`, `captioned`, `emoji`, `paragraph`, `serif`, `slugs`,
+`title`, `title_moved` and `wash` are drawn with them — so this is not a corner
+of the gate.
 
 `slugs` is on that list because a slug card's text is set in `sans` like any
 other, which is easy to miss when looking for fixtures with a `text` asset in
