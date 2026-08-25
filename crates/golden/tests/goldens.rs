@@ -104,6 +104,7 @@ goldens!(
     native,
     overlay,
     paragraph,
+    pivot,
     resume,
     serif,
     slice,
