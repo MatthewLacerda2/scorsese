@@ -350,3 +350,33 @@ minimum_test_timeout = 30.0
 # *put the assertion next to the code*, and doing that is both the cheaper answer
 # and the better one.
 test_workspace = false
+
+# ---------------------------------------------------------------------------
+# What gets copied
+# ---------------------------------------------------------------------------
+#
+# Every mutant is built in a *copy* of this worktree, made under `$TMPDIR`, and
+# in cargo-mutants 27.1.0 that copy is taken with gitignore matching **off by
+# default**: every byte of build output in the tree is copied for a run that
+# will never mutate a line of it. The top-level `target/` escapes only by a
+# special case of its own — `copy_target`, false by default and top-level only.
+# `app/target/` is neither. It is a separate cargo workspace that
+# `examine_globs` above scopes no mutants into at all, and once the app gate has
+# built it, it is about 8.5 GB; on the development machine `/tmp` is a 7.8 GB
+# tmpfs — RAM, not disk — so the copy died of "Disk quota exceeded" before a
+# single mutant existed (#392). The ordering made it a trap rather than a
+# nuisance: `make gates` runs the app gate last, and the mutation signal is run
+# right after it.
+#
+# Turning gitignore matching on is the fix, and it is the honest one because it
+# reuses the answer this repo already gives to *what here is build output*
+# rather than keeping a second list beside `.gitignore` for it to drift from.
+# Nothing it excludes can be needed: a gitignored path is not in a fresh clone,
+# and the tests pass in one. It subsumes `copy_target` too — a gitignored
+# `target/` is not copied whatever that setting says — so there is one key here
+# and one reason for it.
+#
+# This shrinks the copy; it does not decide where the copy lands. `make mutants`
+# sets `TMPDIR` to a disk-backed directory for that, because a run that assumes
+# `/tmp` is disk is one machine away from being wrong again.
+gitignore = true

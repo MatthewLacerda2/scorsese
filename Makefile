@@ -110,6 +110,21 @@ PIXEL_GATE_SKIPPED = pixel gate not run -- the golden fixtures are skipped on $$
 # result on this one is exactly the false green this line exists to avoid.
 MUTANTS_STAMP := target/mutants-signal
 
+# Where cargo-mutants builds. It copies this worktree under `$TMPDIR` and
+# compiles every mutant in the copy, and the default `/tmp` on the development
+# machine is a 7.8 GB tmpfs — RAM, shared with the compile that is running in
+# it. So the scratch goes on disk instead: a run neither competes for memory
+# with itself nor depends on how much room /tmp happens to have (#392).
+#
+# `~/.cache` and not `target/`, deliberately. It is outside the tree being
+# copied, which is what makes a scratch copy of the worktree structurally
+# unable to land inside the worktree; it is per-user rather than per-worktree,
+# and cargo-mutants names each run's directory uniquely, so parallel branches
+# do not collide. cargo-mutants deletes its own directory when the run ends,
+# and what a killed run leaves behind is in a cache directory, which is the one
+# place a leftover is not litter.
+MUTANTS_TMPDIR := $(or $(XDG_CACHE_HOME),$(HOME)/.cache)/scorsese/mutants
+
 # What the run found, in one sentence, counted from the lists cargo-mutants
 # writes beside its report rather than parsed back out of `outcomes.json`:
 # those files are one mutant per line, so `wc -l` cannot half-understand a
@@ -389,7 +404,14 @@ coverage: ## Which pub items no test reaches. A signal: no threshold, blocks not
 # full scoped surface — 3018 mutants — and is there when that is what you want.
 #
 # Surviving mutants exit 2 and timeouts exit 3; neither is a failure of the run,
-# so neither fails this target. Anything else is the tool breaking and does.
+# so neither fails this target. Anything else is the tool breaking and does —
+# and 1 is the one worth a sentence, because it is what a copy that would not
+# fit exits with. #392 is that failure with the reason stripped off it: "Disk
+# quota exceeded", from a copy of a build directory the run had no use for,
+# reads as *this machine is out of space* and gets answered by deleting things.
+# So an unexpected status names the scratch copy and how much room it has.
+# Exit 4 is excluded from that: the tests failing unmutated is an answer about
+# the code, and pointing at a directory would be misdirection.
 #
 # An empty diff is answered here rather than passed on: `cargo mutants` treats
 # one as "nothing to do", exits 0 and leaves any previous `mutants.out` where it
@@ -440,8 +462,17 @@ mutants: ## Which changes to the code no test would notice. A signal: blocks not
 		said="this branch changed no Rust source"; \
 	else \
 		rm -rf mutants.out; \
-		cargo mutants --in-diff target/pr.diff; status=$$?; \
-		case $$status in 0|2|3) ;; *) exit $$status ;; esac; \
+		mkdir -p $(MUTANTS_TMPDIR); \
+		TMPDIR=$(MUTANTS_TMPDIR) cargo mutants --in-diff target/pr.diff; status=$$?; \
+		case $$status in \
+			0|2|3) ;; \
+			4) exit $$status ;; \
+			*) echo "mutants: cargo-mutants exited $$status without reporting on a single mutant." >&2; \
+			   echo "         It builds each mutant in a copy of this worktree under" >&2; \
+			   echo "         $(MUTANTS_TMPDIR) ($$(df -Ph $(MUTANTS_TMPDIR) 2>/dev/null | awk 'NR==2 {print $$4}') free)," >&2; \
+			   echo "         so a message about space or a quota is about that copy, not about the repo." >&2; \
+			   exit $$status ;; \
+		esac; \
 		python3 .github/scripts/mutants-summary.py mutants.out/outcomes.json; \
 		said=$$($(MUTANTS_VERDICT)); \
 	fi; \
