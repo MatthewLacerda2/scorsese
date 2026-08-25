@@ -46,10 +46,12 @@
 //! [`Project`] remembers about the file it was read from, so that saving it
 //! cannot quietly land on somebody else's edit.
 //!
-//! **Seven modules keep their path**, because what they publish is an
+//! **Eight modules keep their path**, because what they publish is an
 //! *operation* on a project rather than a part of one, and the verb needs the
 //! noun in front of it: [`mod@pool`] brings media in, hashes it, probes it and
-//! collects what nothing references; [`mod@placing`] puts a clip on a track and
+//! collects what nothing references; [`mod@authoring`] writes down the assets
+//! nothing brings in — a caption, a colour, a shape, a symbol — and adds the
+//! lanes they sit on; [`mod@placing`] puts a clip on a track and
 //! moves or trims one already there; [`mod@pacing`] retimes a cut;
 //! [`mod@dip`] is auto-ducking; [`mod@level`] holds one clip's property at a
 //! value; [`mod@probe`] is the seam an ffprobe lives behind, so this crate can
@@ -64,6 +66,7 @@
 //! them differently.
 
 pub(crate) mod asset;
+pub mod authoring;
 pub(crate) mod baseline;
 pub(crate) mod color;
 pub mod dip;
@@ -91,6 +94,10 @@ pub use asset::{
     MAX_CHARACTERS, MAX_REFERENCE_IMAGES, MediaMetadata, SpeechModel, SpeechRequest, VideoModel,
     VideoRequest, VideoResolution,
 };
+// The three verbs stay behind the module for [`pacing`]'s reason: a bare
+// `scorsese_core::add_asset` reads as an import, and `set_asset` says nothing
+// about what it sets.
+pub use authoring::{AuthorError, Edit, Inline, Lane};
 pub use baseline::{Baseline, fingerprint_of};
 pub use color::{ColorError, Rgba};
 pub use dip::{Dip, Ducked, Under, duck_track};
