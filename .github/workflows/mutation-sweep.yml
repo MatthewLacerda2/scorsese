@@ -204,10 +204,11 @@ jobs:
                "\`.cargo/mutants.toml\` scopes, at $version." > scope.txt
           cat scope.txt
 
-      # cargo-mutants builds each mutant in a copy of the tree that includes a
-      # copy of `target/`, so a warm one here is the difference between an
-      # incremental relink per mutant and a cold build per mutant — over a
-      # thousand times, on the zimmer week.
+      # The same warming the `mutants` job in `ci.yml` does, with the same
+      # caveat on it: the copy each mutant is built in has no `target/` in it,
+      # so nothing compiled here is reused -- only the crate downloads in
+      # `~/.cargo` reach a mutant build, and the cache above carries those.
+      # #394 is whether the step earns a crate-sized build once a week.
       - name: Warm the build
         env:
           CRATE: ${{ steps.pick.outputs.crate }}

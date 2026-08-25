@@ -566,9 +566,14 @@ jobs:
           if [ -s pr.diff ]; then echo "rust=yes" >> "$GITHUB_OUTPUT"
           else echo "rust=no" >> "$GITHUB_OUTPUT"; fi
 
-      # cargo-mutants builds each mutant in a copy of the tree that includes a
-      # copy of `target/`, so a warm one here is the difference between an
-      # incremental relink per mutant and a cold build per mutant.
+      # A warm workspace, and what it does *not* warm. cargo-mutants builds
+      # each mutant in a copy of the tree, and that copy has no `target/` in it
+      # -- excluded by default since 25.1.0, and unusable anyway since 1.0.2,
+      # because cargo-mutants sets its own RUSTFLAGS and would not match these
+      # build products. What does survive into a mutant build is the crate
+      # downloads in `~/.cargo`, which the cache above carries between runs.
+      # Whether that is worth a full workspace build per pull request is #394:
+      # a measurement on the runner, not a guess from a comment.
       - name: Warm the build
         if: steps.diff.outputs.rust == 'yes'
         run: cargo build --workspace --tests --locked
