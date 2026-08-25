@@ -125,7 +125,10 @@ pub use shape::{
 pub use stamp::{Timestamp, TimestampError};
 pub use text::{DEFAULT_FONT, FontChoice, MAX_WEIGHT, MIN_WEIGHT, TextAlign, TextStyle};
 pub use time::{Fps, FpsError, FpsParseError, Frames, Speed};
-pub use timeline::{Anchor, AnchorX, AnchorY, Clip, ClipId, Crop, Fit, Track, TrackId, TrackKind};
+pub use timeline::{
+    Anchor, AnchorX, AnchorY, Clip, ClipId, Crop, Fit, Origin, OriginX, OriginY, Track, TrackId,
+    TrackKind,
+};
 pub use validate::{
     AssetField, AssetProblem, IconProblem, ShapeProblem, SpeechProblem, TimelineProblem,
     ValidationError, ValidationErrors, VideoProblem,

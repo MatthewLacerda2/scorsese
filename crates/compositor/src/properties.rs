@@ -40,11 +40,13 @@ pub mod path {
     /// Vertical offset, as a fraction of the canvas **height**. Positive is
     /// down, as on the raster.
     pub const POSITION_Y: &str = "transform.position.y";
-    /// Horizontal size multiplier about the layer's own centre.
+    /// Horizontal size multiplier about the layer's `origin`, which is its
+    /// own centre unless the clip named another point.
     pub const SCALE_X: &str = "transform.scale.x";
-    /// Vertical size multiplier about the layer's own centre.
+    /// Vertical size multiplier about the layer's `origin`, which is its own
+    /// centre unless the clip named another point.
     pub const SCALE_Y: &str = "transform.scale.y";
-    /// Turn about the layer's own centre, in degrees. **Positive is
+    /// Turn about the layer's `origin`, in degrees. **Positive is
     /// clockwise** — nobody should have to render a frame to find that out.
     pub const ROTATION: &str = "transform.rotation";
     /// Turn about the layer's own **horizontal** axis, in degrees: the top edge
@@ -106,15 +108,15 @@ pub const ANIMATED: &[Property] = &[
     },
     Property {
         path: path::SCALE_X,
-        describes: "the layer's width, as a multiplier about its own centre",
+        describes: "the layer's width, as a multiplier about its own origin",
     },
     Property {
         path: path::SCALE_Y,
-        describes: "the layer's height, as a multiplier about its own centre",
+        describes: "the layer's height, as a multiplier about its own origin",
     },
     Property {
         path: path::ROTATION,
-        describes: "how far the layer is turned clockwise about its own centre, in degrees",
+        describes: "how far the layer is turned clockwise about its own origin, in degrees",
     },
     Property {
         path: path::FLIP_X,
@@ -154,12 +156,13 @@ pub struct Properties {
     /// layer nudged by a number of pixels would sit somewhere else the moment
     /// the same project was delivered at a different size.
     pub position: (f64, f64),
-    /// Size multiplier about the layer's own centre. `1.0` is natural size, so
+    /// Size multiplier about the layer's `origin`. `1.0` is natural size, so
     /// scaling a layer does not also move it.
     pub scale: (f64, f64),
-    /// Turn about the layer's own centre, in degrees, clockwise. The same
-    /// anchor scale uses, for the same reason: any other anchor is an
-    /// arbitrary edge of a raster the project is not supposed to know about.
+    /// Turn about the layer's `origin`, in degrees, clockwise. The same pivot
+    /// scale uses, because a card hinging on its left edge and a bar filling
+    /// from one are the same request, and one point for both is what makes
+    /// them so.
     pub rotation: f64,
     /// Turn about the layer's own axes, in degrees — `.0` about its
     /// **horizontal** axis and `.1` about its **vertical** one, which is the

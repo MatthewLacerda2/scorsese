@@ -1,12 +1,14 @@
-//! How a clip's picture meets the raster: fitted, cropped, anchored.
+//! How a clip's picture meets the raster: fitted, cropped, anchored,
+//! pivoted.
 //!
-//! Three fields that answer three halves of one question — *what of the source
-//! is shown*, *how it is scaled to the frame*, and *where in the frame it
-//! sits*. They are here rather than beside [`Clip`](super::Clip) because a clip
-//! is a placement in **time** and these are placements in **space**, and
-//! because between them they carry most of the reasoning in this file.
+//! Four fields that answer four parts of one question — *what of the source
+//! is shown*, *how it is scaled to the frame*, *where in the frame it
+//! sits*, and *what point of itself it turns about*. They are here rather
+//! than beside [`Clip`](super::Clip) because a clip is a placement in **time**
+//! and these are placements in **space**, and because between them they carry
+//! most of the reasoning in this file.
 //!
-//! All three are absent by default and every default is what the format did
+//! All four are absent by default and every default is what the format did
 //! before the field existed, so a document that says nothing about any of them
 //! means exactly what it always did.
 
@@ -105,6 +107,106 @@ pub enum AnchorY {
     Center,
     /// The layer's bottom edge, from the frame's bottom edge, so a positive
     /// offset moves it further in.
+    Bottom,
+}
+
+/// The point of a layer's own box that its transform turns about.
+///
+/// **Without it, growing a layer from one edge is two coupled keyframe tracks
+/// and arithmetic done on paper.** A progress bar that fills from the left is
+/// a scale on `x` from `0` to `1`; because scale turns about the centre, the
+/// bar also has to be slid left by `(s − 1) / 2` on every frame, which is a
+/// second track holding a number nobody can read back as *the left edge stays
+/// put*. Worse, the two only agree while the scale is linear in time: put an
+/// `ease_out` on it and the bar slides while it grows. The document still
+/// validates and the render still succeeds — the only symptom is watching it.
+///
+/// With an origin the same bar is one track and one word, and the easing is
+/// free.
+///
+/// **Scale, rotation and flip alike**, because a card hinging on its left edge
+/// is the same request as a bar filling from it, and one pivot for all three is
+/// the coherent reading of *the point the transform turns about*. A flip is one
+/// of them because a flip *is* a foreshortening — the same part of the same
+/// matrix a scale uses — so a flipped card hinges on its left edge rather than
+/// swinging about its own spine. `position` is applied after all of them and is
+/// unaffected: a pivot cannot move a layer that is not being scaled, turned or
+/// flipped, which is what makes the field free to set.
+///
+/// **The layer's own box**, which is the raster its pixels arrive on: for a
+/// decoded picture that rectangle is the picture, and for anything drawn — a
+/// title, a shape, an icon — it is the render's raster, since those are drawn
+/// at full size with the content placed inside them by [`Anchor`].
+///
+/// **Not to be confused with [`Anchor`]**, which answers a different question:
+/// an anchor says which edge of the *frame* a layer rests against, an origin
+/// says which point of the *layer* its own transform pivots on. An anchor
+/// decides where a layer sits; an origin decides what it does about itself
+/// once it is there.
+///
+/// Absent means centred on both axes, which is what every layer did before the
+/// field existed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, default)]
+pub struct Origin {
+    /// Which point across the layer's box the transform pivots on.
+    pub x: OriginX,
+    /// Which point down the layer's box the transform pivots on.
+    pub y: OriginY,
+}
+
+impl Origin {
+    /// True for the layer's own centre — what a clip that says nothing means,
+    /// and what keeps the field out of documents that do not set it.
+    pub fn is_default(&self) -> bool {
+        *self == Self::default()
+    }
+
+    /// The pivot as fractions of the layer's own box: `(0.0, 0.0)` is its
+    /// top-left corner and `(1.0, 1.0)` its bottom-right.
+    ///
+    /// Fractions rather than pixels, so the answer is the same whatever
+    /// raster the layer turns out to arrive at — and one function rather than
+    /// a match at each use, so the compositor and anything asking where a
+    /// layer landed cannot disagree about what `left` means.
+    pub fn fractions(self) -> (f64, f64) {
+        let across = match self.x {
+            OriginX::Left => 0.0,
+            OriginX::Center => 0.5,
+            OriginX::Right => 1.0,
+        };
+        let down = match self.y {
+            OriginY::Top => 0.0,
+            OriginY::Center => 0.5,
+            OriginY::Bottom => 1.0,
+        };
+        (across, down)
+    }
+}
+
+/// Which point across a layer's own box its transform pivots on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OriginX {
+    /// The layer's left edge, which stays put as the layer grows rightward.
+    Left,
+    /// The layer's middle — what scaling and turning always did.
+    #[default]
+    Center,
+    /// The layer's right edge, which stays put as the layer grows leftward.
+    Right,
+}
+
+/// Which point down a layer's own box its transform pivots on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OriginY {
+    /// The layer's top edge, which stays put as the layer grows downward.
+    Top,
+    /// The layer's middle — what scaling and turning always did.
+    #[default]
+    Center,
+    /// The layer's bottom edge, which stays put as the layer grows upward.
     Bottom,
 }
 

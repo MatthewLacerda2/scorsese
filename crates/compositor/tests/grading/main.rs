@@ -18,7 +18,7 @@ mod vignette;
 use scorsese_compositor::{
     BYTES_PER_PIXEL, Compositor, CpuCompositor, Frame, Layer, Properties, Resolution,
 };
-use scorsese_core::{Anchor, Grade};
+use scorsese_core::Grade;
 
 /// The square these tests grade. 64 on a side, so a pixel's distance from the
 /// centre is a fraction with a power of two under it and the vignette's
@@ -38,12 +38,11 @@ pub(crate) fn solid(colour: (u8, u8, u8)) -> Frame {
 /// canvas is the graded pixel and nothing a rasteriser did on the way.
 pub(crate) fn layer(source: &Frame, grade: Grade) -> Layer<'_> {
     Layer {
-        source,
         properties: Properties {
             grade,
             ..Properties::default()
         },
-        anchor: Anchor::default(),
+        ..Layer::plain(source)
     }
 }
 

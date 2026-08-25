@@ -232,8 +232,11 @@ properties, evaluated per frame and drawn by our own compositor rather than by
 ffmpeg. `docs/project-format.md` lists the property paths and what they mean,
 and `scorsese check` warns — never fails — when a keyframe track names one
 nothing animates, suggesting what a typo was probably meant to be.
-Scale is centre-anchored, and a fade is nothing but opacity keyframes — so it
-composes with a move or a zoom for free.
+Scale and rotation turn about the layer's centre unless the clip's `origin`
+names another point of it — `left` is what makes a bar that fills from its left
+edge one keyframe track instead of two that only agree while the scale is
+linear in time. A fade is nothing but opacity keyframes, so it composes with a
+move or a zoom for free.
 
 **Video tracks layer.** They composite bottom to top in the order they appear
 in the project, each with its own transforms and opacity, so an overlay is just

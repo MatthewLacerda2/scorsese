@@ -4,7 +4,7 @@
 //! same pixels everywhere — which is what makes it the reference a GPU backend
 //! can later be held to.
 
-use scorsese_core::{Anchor, AnchorX, AnchorY};
+use scorsese_core::{Anchor, AnchorX, AnchorY, Origin};
 use tiny_skia::{BlendMode, FilterQuality, PixmapMut, PixmapPaint, PixmapRef, Transform};
 
 use crate::blur;
@@ -149,6 +149,7 @@ fn draw(
     let transform = transform_of(
         &layer.properties,
         layer.anchor,
+        layer.origin,
         source_resolution,
         canvas.resolution(),
     );
@@ -171,14 +172,14 @@ fn draw(
     Ok(())
 }
 
-/// Rest the layer centred on the canvas, scale and turn it about its own
-/// centre, then offset by its position.
+/// Rest the layer on the canvas, scale and turn it about its own pivot, then
+/// offset by its position.
 ///
 /// Written out as one matrix rather than composed from four, because the
 /// composition order of scale-and-rotate-about-a-point is the classic place to
 /// introduce a bug that only shows up off-centre. The mapping is
 /// `p' = rest + position + c + R·S·(p − c)`: scale first, then turn, both about
-/// the layer's own centre `c`, and everything else translates after. So the
+/// the layer's own pivot `c`, and everything else translates after. So the
 /// linear part is
 ///
 /// ```text
@@ -197,6 +198,16 @@ fn draw(
 /// reaching the edge of a 16:9 frame reads more plainly than a diagonal that
 /// keeps its angle across aspect ratios.
 ///
+/// **The origin decides where `c` is, and nothing else about it.** It is a
+/// point of the layer's own raster, as fractions of it: centred — the default
+/// — puts `c` at `width / 2`, which is the arithmetic this always did, and
+/// `left` puts it at `0`, so the layer's left edge is the one point the scale
+/// and the turn both leave alone. That is what makes a bar filling from its
+/// left edge one keyframe track on `transform.scale.x` rather than that track
+/// plus a position track cancelling half of it out — and it holds under any
+/// easing, where the two-track version only agrees while the scale is linear
+/// in time.
+///
 /// **At θ = 0 this is exactly the matrix it always was** — `cos 0 = 1`,
 /// `sin 0 = 0`, so it reduces to `tx = rest + c·(1 − sx) + position` — which is
 /// what keeps every existing reference frame meaning what it meant. That is
@@ -214,7 +225,7 @@ fn draw(
 /// applying it after `R` is also what makes the axis the *layer's* and not the
 /// frame's: a layer already turned 30° flips about its own edge, which is the
 /// only reading of "its vertical axis" that survives a rotation. At `180°` the
-/// factor is `−1`, so the same matrix mirrors about the same centre, which is
+/// factor is `−1`, so the same matrix mirrors about the same pivot, which is
 /// exactly what the back of a card is — there is no backface branch because
 /// there is nothing for one to do.
 ///
@@ -242,6 +253,7 @@ fn draw(
 pub(crate) fn transform_of(
     properties: &Properties,
     anchor: Anchor,
+    origin: Origin,
     source: crate::frame::Resolution,
     canvas: crate::frame::Resolution,
 ) -> Transform {
@@ -250,8 +262,14 @@ pub(crate) fn transform_of(
     // difference between a sliver and a smear.
     let (scale_x, scale_y) = properties.effective_scale();
     let (scale_x, scale_y) = (scale_x as f32, scale_y as f32);
-    let centre_x = source.width() as f32 / 2.0;
-    let centre_y = source.height() as f32 / 2.0;
+    // The pivot: the point of the layer's own raster the scale and the turn
+    // both happen about. A centred origin makes this `width / 2`, which is the
+    // arithmetic this always did — so every existing reference frame keeps
+    // meaning what it meant, and `left` is the same matrix with `c` on the
+    // edge rather than a second code path.
+    let (across, down) = origin.fractions();
+    let pivot_x = source.width() as f32 * across as f32;
+    let pivot_y = source.height() as f32 * down as f32;
     // Rounded to whole pixels: a layer an odd number of pixels narrower than the
     // canvas cannot sit exactly in the middle of it, and half a pixel out is a
     // bilinear smear across every edge in the layer. Crisp beats exact when the
@@ -300,8 +318,8 @@ pub(crate) fn transform_of(
         ky,
         kx,
         d,
-        rest_x + centre_x - (a * centre_x + kx * centre_y) + offset_x,
-        rest_y + centre_y - (ky * centre_x + d * centre_y) + offset_y,
+        rest_x + pivot_x - (a * pivot_x + kx * pivot_y) + offset_x,
+        rest_y + pivot_y - (ky * pivot_x + d * pivot_y) + offset_y,
     )
 }
 

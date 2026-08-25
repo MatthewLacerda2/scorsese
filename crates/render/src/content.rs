@@ -16,7 +16,7 @@
 use std::path::Path;
 
 use scorsese_compositor::{Area, Properties, Resolution};
-use scorsese_core::{Anchor, AssetKind, Clip, Frames, Side};
+use scorsese_core::{Anchor, AssetKind, Clip, Frames, Origin, Side};
 
 use crate::error::RenderError;
 use crate::plan::Shot;
@@ -39,6 +39,10 @@ pub(crate) struct Rect {
     pub(crate) area: Area,
     /// Which edges of the frame it rests against.
     pub(crate) anchor: Anchor,
+    /// Which point of the layer its transform pivots on — part of the same
+    /// matrix, so an attachment that ignored it would meet a box that is no
+    /// longer where it was drawn.
+    pub(crate) origin: Origin,
 }
 
 impl Rect {
@@ -104,6 +108,7 @@ impl Rect {
         scorsese_compositor::on_canvas(
             properties,
             self.anchor,
+            self.origin,
             self.source,
             canvas,
             self.area.at(across, down),

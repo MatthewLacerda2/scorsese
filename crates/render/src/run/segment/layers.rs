@@ -9,7 +9,7 @@
 //! set the producer reads in lockstep, one frame from each per output frame.
 
 use scorsese_compositor::{Area, Frame};
-use scorsese_core::{Anchor, AssetKind, Fps};
+use scorsese_core::{Anchor, AssetKind, Fps, Origin};
 
 use crate::content;
 use crate::error::RenderError;
@@ -32,6 +32,9 @@ pub(super) struct Slot {
     /// clip — an anchor is not animated — so it is read once here rather than
     /// worked out again for every frame.
     pub(super) anchor: Anchor,
+    /// Which point of its own raster its transform turns about. Fixed for the
+    /// clip, for the same reason the anchor is.
+    pub(super) origin: Origin,
     /// Where this layer's picture sits within its own raster, which is what an
     /// arrow attaches *to*. Worked out once: animation moves the layer, never
     /// the rectangle inside it.
@@ -113,10 +116,12 @@ impl Pass<'_> {
                 Slot {
                     pixels: Pixels::Held(pixels),
                     anchor: shot.clip.anchor,
+                    origin: shot.clip.origin,
                     rect: Rect {
                         source: raster,
                         area,
                         anchor: shot.clip.anchor,
+                        origin: shot.clip.origin,
                     },
                 },
                 None,
@@ -185,10 +190,12 @@ impl Pass<'_> {
                             None => Pixels::Held(transparent(raster)),
                         },
                         anchor: shot.clip.anchor,
+                        origin: shot.clip.origin,
                         rect: Rect {
                             source: raster,
                             area: Area::whole(raster),
                             anchor: shot.clip.anchor,
+                            origin: shot.clip.origin,
                         },
                     },
                     None,
@@ -240,10 +247,12 @@ impl Pass<'_> {
             Slot {
                 pixels: Pixels::Live(live),
                 anchor: shot.clip.anchor,
+                origin: shot.clip.origin,
                 rect: Rect {
                     source,
                     area: Area::whole(source),
                     anchor: shot.clip.anchor,
+                    origin: shot.clip.origin,
                 },
             },
             Some(decoder),
