@@ -1,0 +1,35 @@
+{
+  "schema_version": 28,
+  "name": "captioned",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    { "id": "shot", "kind": "video", "path": "assets/shot.mp4" },
+    {
+      "id": "caption",
+      "kind": "text",
+      "text": "CAPTION",
+      "style": {
+        "font": "sans",
+        "weight": 700,
+        "size": 0.18,
+        "color": "#ffffff",
+        "stroke": "#000000",
+        "stroke_width": 0.02
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "name": "shot",
+      "clips": [{ "id": "c-shot", "asset": "shot", "start": 0, "duration": 10 }]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "name": "caption",
+      "clips": [{ "id": "c-caption", "asset": "caption", "start": 0, "duration": 10 }]
+    }
+  ]
+}

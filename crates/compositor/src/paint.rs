@@ -46,11 +46,14 @@ pub(crate) fn stroke(frame: &mut Frame, path: &Path, color: Rgba, width: f32) {
 
 /// The same, with the line's ends and corners rounded off.
 ///
-/// An icon's, and only an icon's. Lucide draws every one of its symbols with
-/// `stroke-linecap: round` and `stroke-linejoin: round`, and those are not a
-/// finish applied afterwards — they are part of the drawing. A stroke that
-/// stopped square would give every icon in the set blunt ends and spiked
-/// corners, which is a different set of icons.
+/// An icon's and a caption's rim, and for the same reason in both: a mitred
+/// corner spikes wherever the outline turns sharply. Lucide draws every one of
+/// its symbols with `stroke-linecap: round` and `stroke-linejoin: round`, and
+/// those are not a finish applied afterwards — they are part of the drawing; a
+/// stroke that stopped square would give every icon in the set blunt ends and
+/// spiked corners, which is a different set of icons. A rim round type meets
+/// the apex of an `A` and the vertices of a `W`, and a mitred join there grows
+/// horns off the letter instead of following it.
 pub(crate) fn stroke_round(frame: &mut Frame, path: &Path, color: Rgba, width: f32) {
     lined(frame, path, color, width, LineCap::Round, LineJoin::Round);
 }

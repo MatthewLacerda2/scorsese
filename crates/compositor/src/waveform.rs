@@ -190,6 +190,8 @@ fn label(frame: &mut Frame, words: &str, font: &Font, top: f32, align: TextAlign
         align,
         line_height: LABEL_SIZE * 1.2,
         max_width: WIDTH as f32 - MARGIN * 2.0,
+        // Drawn on a plain background this picture chose itself.
+        edge: None,
         anchor: Anchor {
             x: AnchorX::Left,
             y: AnchorY::Top,

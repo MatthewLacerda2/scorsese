@@ -15,7 +15,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use scorsese_compositor::text::{self, Font, Slant, Style};
+use scorsese_compositor::text::{self, Edge, Font, Slant, Style};
 use scorsese_compositor::{Area, Frame, Resolution};
 use scorsese_core::{Anchor, Asset, AssetKind, FontChoice, Project, TextStyle};
 
@@ -197,6 +197,15 @@ fn resolve(
         align: style.align,
         line_height: (size * style.line_height) as f32,
         max_width: (style.max_width * width) as f32,
+        // A rim is a thickness, and a thickness has no axis of its own — so it
+        // takes the height, the same one `size` takes and the same one a
+        // shape's border takes. A caption is the same weight of edge at 4:3 and
+        // at 16:9, which the eight-offset-copies workaround this replaces could
+        // never be.
+        edge: style.stroke.map(|color| Edge {
+            color,
+            width: (style.stroke_width * height) as f32,
+        }),
         // The anchor comes off the **clip**, not the style: it is where this
         // placement of the text sits, and the same text asset used twice may
         // legitimately sit in two different corners.

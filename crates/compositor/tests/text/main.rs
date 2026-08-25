@@ -9,6 +9,7 @@ mod ink;
 mod kerning;
 mod shipped;
 mod spacing;
+mod stroke;
 mod truncation;
 mod weight;
 mod wrapping;

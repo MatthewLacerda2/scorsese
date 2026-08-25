@@ -87,6 +87,8 @@ pub struct Style {
     pub line_height: f32,
     /// How wide the block may run before a line wraps, in pixels.
     pub max_width: f32,
+    /// The rim drawn round the outside of the glyphs, if there is one.
+    pub edge: Option<Edge>,
     /// Which edges of the frame the block's own edges are measured from.
     ///
     /// A text layer is drawn into a frame the size of the whole raster, so
@@ -96,6 +98,26 @@ pub struct Style {
     /// left-anchored text could plausibly mean either, and only the first keeps
     /// a column's left edge still when the wording changes.
     pub anchor: Anchor,
+}
+
+/// A rim round the outside of a letterform, in pixels.
+///
+/// **Outside, and not straddling the path.** A [`crate::shape::Border`] is the
+/// other thing with these two fields and it is drawn the other way — half
+/// inside the outline, half out — which is right for a box whose stated size
+/// should be the size of the box. It is wrong for type: half the width eating
+/// inward closes the counters of an `e` or an `a` at the sizes a caption is set
+/// at. So the glyph keeps its own shape and the rim is grown off it.
+///
+/// [`width`](Edge::width) is the thickness of what shows, not what is handed to
+/// the rasteriser — the drawing strokes twice that and fills the letterform
+/// over the inner half.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Edge {
+    /// The colour the rim is drawn in, alpha included.
+    pub color: Rgba,
+    /// How far out of the letterform it reaches, in pixels.
+    pub width: f32,
 }
 
 /// How wide one line of `text` sets at `size`, in pixels.
@@ -245,5 +267,5 @@ pub fn draw_in(frame: &mut Frame, text: &str, font: &Font, style: &Style, band: 
         let baseline = top + line_height * (row as f32 + 0.5) + (ascent + descent) / 2.0;
         draw::line_into(&mut outlines, &face, &line.shaped, (left, baseline));
     }
-    draw::stamp(frame, outlines, style.color);
+    draw::stamp(frame, outlines, style.color, style.edge);
 }

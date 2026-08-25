@@ -122,6 +122,9 @@ impl Look {
             align: TextAlign::Center,
             line_height: (size * LINE_HEIGHT) as f32,
             max_width: (MAX_WIDTH * f64::from(resolution.width())) as f32,
+            // A slug card is ink on a flat panel this code drew a moment ago,
+            // not a caption over footage nobody has seen.
+            edge: None,
         }
     }
 }

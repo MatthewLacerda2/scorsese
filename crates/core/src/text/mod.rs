@@ -113,6 +113,32 @@ pub struct TextStyle {
     /// **frame's width**. The default leaves a margin down each side, so a
     /// title never touches the edge of the picture.
     pub max_width: f64,
+    /// What colour to rim the glyphs with, alpha included. Absent means no
+    /// edge at all, which is what a title over a black plate wants and what
+    /// every document written without this field says.
+    ///
+    /// It is the one thing that makes a caption survive whatever is behind it.
+    /// A burned-in line over footage is the main way a video reaches somebody
+    /// scrolling with the sound off, and without an edge the only ways to keep
+    /// it legible are an opaque plate — the look the caption was avoiding — or
+    /// eight offset copies of the same words.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stroke: Option<Rgba>,
+    /// How thick that rim is, as a fraction of the raster's **height** — the
+    /// unit [`TextStyle::size`] and a shape's `stroke_width` already use, and
+    /// for the same reason: a thickness has no axis of its own, so it needs one
+    /// chosen for it, and choosing the same one three times is two fewer things
+    /// to remember.
+    ///
+    /// **The geometry is not a shape's, and that is deliberate.** A shape's
+    /// border straddles its outline, half inside and half out; this rim is
+    /// added entirely *outside* the letterform, which is then drawn whole on
+    /// top of it. Half a width eating inward is exactly the half a caption
+    /// cannot spare — it closes the eye of an `e` and the bowl of an `a` at the
+    /// sizes captions are actually set at, and the failure is invisible in the
+    /// document and shows up only as mush on a finished video. So `text` and
+    /// `shape` share the field names and the unit, and nothing else.
+    pub stroke_width: f64,
 }
 
 impl TextStyle {
@@ -125,6 +151,12 @@ impl TextStyle {
 
     /// Loose enough that two lines of a paragraph do not touch.
     pub const DEFAULT_LINE_HEIGHT: f64 = 1.25;
+
+    /// How thick a rim is when the document gives it a colour and no width:
+    /// about two pixels at 1080p, and — because this rim grows outward only —
+    /// exactly as much ink outside the path as a shape's own default border
+    /// puts there. The same edge, measured the way each of them is drawn.
+    pub const DEFAULT_STROKE_WIDTH: f64 = 0.002;
 }
 
 impl Default for TextStyle {
@@ -138,6 +170,8 @@ impl Default for TextStyle {
             align: TextAlign::default(),
             line_height: Self::DEFAULT_LINE_HEIGHT,
             max_width: Self::DEFAULT_MAX_WIDTH,
+            stroke: None,
+            stroke_width: Self::DEFAULT_STROKE_WIDTH,
         }
     }
 }

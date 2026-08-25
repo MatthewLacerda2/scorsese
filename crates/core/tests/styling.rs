@@ -142,3 +142,32 @@ fn an_unknown_style_field_fails_the_load() {
         "a typo in a style key is a typo, not a field to drop"
     );
 }
+
+/// The rim is the same notation as everything else that takes a colour, and it
+/// keeps whichever thickness the document wrote — read back, because a caption
+/// that saves and reloads a shade lighter is a caption nobody can trust.
+#[test]
+fn a_stroke_survives_a_save_and_a_load() {
+    let json = document(
+        r##""assets": [{ "id": "t", "kind": "text", "text": "hi",
+                         "style": { "stroke": "#050b12ff", "stroke_width": 0.0022 } }]"##,
+    );
+    let project = Project::from_json(&json).expect("a stroke parses");
+    let style = project.assets[0].text_style();
+    assert_eq!(style.stroke, Some(Rgba::new(0x05, 0x0b, 0x12, 0xff)));
+    assert_eq!(style.stroke_width, 0.0022);
+    let again = Project::from_json(&project.to_json().expect("serialises")).expect("parses back");
+    assert_eq!(again, project);
+}
+
+/// Absent means no edge, which is what every document written before the field
+/// existed says — and the width beside it is a number nothing reads until a
+/// colour arrives.
+#[test]
+fn no_stroke_is_the_default_and_means_no_edge() {
+    assert_eq!(TextStyle::default().stroke, None);
+    assert_eq!(
+        TextStyle::default().stroke_width,
+        TextStyle::DEFAULT_STROKE_WIDTH
+    );
+}
