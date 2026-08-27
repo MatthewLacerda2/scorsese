@@ -26,8 +26,11 @@ asserts on. A mutation that **survives** is a change nobody objected to.
 ## It is a signal, never a gate
 
 Per CLAUDE.md's gates-vs-signals rule, this audits quality; it does not prove
-correctness. The `mutants` job in `.github/workflows/ci.yml` is
-`continue-on-error`, and nothing it finds can fail a build or block a merge.
+correctness. The `mutants` jobs in `.github/workflows/ci.yml` — the plan, the
+shards, and the report they merge into — are all `continue-on-error`, and
+nothing they find can fail a build or block a merge. What *can* turn one of
+their checks red is the instrument being broken: a collapsed surface, a base
+that cannot be resolved, or a report with no plan behind it to write from.
 
 That is a deliberate design decision and not a soft start. Mutation produces
 **equivalent mutants** — changes that alter the code without altering its
