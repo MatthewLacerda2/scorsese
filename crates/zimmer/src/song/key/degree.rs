@@ -214,20 +214,24 @@ mod tests {
             voiced(&degree(Degree::Plain(5), Some(4)), None),
             Err(SynthError::DegreeWithoutKey { .. })
         ));
-        for written in [
-            Degree::Plain(0),
-            Degree::Plain(-1),
-            Degree::Altered("0".to_owned()),
-            Degree::Altered("3b".to_owned()),
-            Degree::Altered("".to_owned()),
-            Degree::Altered("s3".to_owned()),
+        // The refusal quotes the degree **as the document spelled it**, which
+        // is the whole of the fix it hands back — a message naming some other
+        // degree, or none, sends the reader to the wrong line.
+        for (written, quoted) in [
+            (Degree::Plain(0), "0"),
+            (Degree::Plain(-1), "-1"),
+            (Degree::Altered("0".to_owned()), "0"),
+            (Degree::Altered("3b".to_owned()), "3b"),
+            (Degree::Altered(String::new()), ""),
+            (Degree::Altered("s3".to_owned()), "s3"),
         ] {
-            assert!(
-                matches!(
-                    voiced(&degree(written.clone(), Some(4)), Some("C major")),
-                    Err(SynthError::BadDegree { .. })
-                ),
-                "`{written:?}` should not have resolved"
+            let refusal = voiced(&degree(written.clone(), Some(4)), Some("C major"));
+            assert_eq!(
+                refusal,
+                Err(SynthError::BadDegree {
+                    degree: quoted.to_owned()
+                }),
+                "`{written:?}` should have been refused by name"
             );
         }
     }
@@ -236,9 +240,16 @@ mod tests {
     /// keyboard is: the octave is in the same entry and can be corrected.
     #[test]
     fn a_degree_off_the_keyboard_is_refused() {
-        assert!(matches!(
-            voiced(&degree(Degree::Plain(9), Some(9)), Some("C major")),
-            Err(SynthError::DegreeOutOfRange { midi, .. }) if midi > 127
-        ));
+        assert_eq!(
+            voiced(
+                &degree(Degree::Altered("#9".to_owned()), Some(9)),
+                Some("C major")
+            ),
+            Err(SynthError::DegreeOutOfRange {
+                degree: "#9".to_owned(),
+                oct: 9,
+                midi: 135,
+            })
+        );
     }
 }

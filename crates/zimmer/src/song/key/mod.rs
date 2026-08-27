@@ -197,6 +197,13 @@ impl Key {
     ///
     /// Fractional MIDI survives it: a microtonal pitch moves by whatever its
     /// whole part moved by, and keeps its fraction.
+    ///
+    /// **A shift of no steps is exactly the identity**, for a pitch in the key
+    /// and for one outside it alike — the decomposition and the recomposition
+    /// are inverses. That is load-bearing rather than incidental:
+    /// [`played_pitch`](crate::song::ArrangementEntry::played_pitch) runs every note of a
+    /// keyed song through here rather than branching around an entry that
+    /// lifts by nothing.
     pub fn shift(&self, midi: f32, steps: i32) -> f32 {
         let whole = midi.floor();
         let fraction = midi - whole;
@@ -291,6 +298,23 @@ mod tests {
         assert_eq!(key.shift(73.0, 1), 75.0);
         // A microtonal pitch keeps its fraction through the move.
         assert_eq!(key.shift(62.5, 1), 64.5);
+    }
+
+    /// A lift of no steps leaves every pitch exactly where it was.
+    ///
+    /// Stated as its own test because something depends on it: an arrangement
+    /// entry does not branch around a `transpose_degrees` of zero, so if the
+    /// decomposition here ever stopped being reversible — snapping an
+    /// accidental into the key, say — every note of every keyed song would
+    /// move and no other test would be looking.
+    #[test]
+    fn a_shift_of_no_steps_is_the_identity() {
+        for text in ["C major", "D minor", "F# lydian", "B locrian"] {
+            let key = Key::parse(text).expect("a key");
+            for midi in [0.0, 21.0, 60.0, 62.5, 73.0, 100.75, 127.0] {
+                assert_eq!(key.shift(midi, 0), midi, "{text} moved {midi}");
+            }
+        }
     }
 
     /// The grammar is closed: a key is a tonic and a mode, both spelled the

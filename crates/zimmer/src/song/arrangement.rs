@@ -129,11 +129,16 @@ impl ArrangementEntry {
     /// pitch pushed off the end is clamped rather than refused — whether a
     /// transpose is legal must not depend on the register of a pattern written
     /// months earlier.
+    ///
+    /// A keyed song runs every note through [`Key::shift`], including the
+    /// notes of an entry that lifts by nothing. Skipping that for a lift of
+    /// zero would be a branch around an operation that is
+    /// [the identity](Key::shift) — a few integer operations saved per note,
+    /// against a condition nothing could ever observe being wrong.
     pub fn played_pitch(&self, midi: f32, key: Option<&Key>) -> f32 {
-        let steps = self.transpose_degrees();
         let moved = match key {
-            Some(key) if steps != 0 => key.shift(midi, steps),
-            _ => midi,
+            Some(key) => key.shift(midi, self.transpose_degrees()),
+            None => midi,
         };
         (moved + self.transpose()).clamp(MIDI_RANGE.0, MIDI_RANGE.1)
     }
