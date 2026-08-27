@@ -164,7 +164,7 @@
 #   built the sweep to answer, in miniature. A fifth rotation slot would stretch
 #   every other crate's re-audit from four weeks to five to buy a sweep that
 #   finishes in minutes, which is a judgement about a report a person reads
-#   rather than a line of config — so it is #429, and until then the crate is
+#   rather than a line of config — so it is #431, and until then the crate is
 #   reachable from that workflow's `workflow_dispatch` list by hand.
 examine_globs = [
     "crates/core/src/**/*.rs",
@@ -188,9 +188,9 @@ examine_globs = [
 # mutants afterwards by the string `--list` prints, and in cargo-mutants 27.1.0
 # one genre slips through the sieve: the struct-field deletions
 # (`delete field … from struct …`, a mutation only added in 26.0.0) are neither
-# kept out by `--re` nor removed by `--exclude-re`. There are 23 of them on the
+# kept out by `--re` nor removed by `--exclude-re`. There are 27 of them on the
 # surface above, and `cargo mutants --list --re 'matches nothing at all'` prints
-# all 23 and nothing else, which is the whole demonstration.
+# all 27 and nothing else, which is the whole demonstration.
 #
 # So `--re '^path/to/file\.rs'` is still the way to point a hand-run at one file
 # — it is just not a promise about which files get tested. Those 23 strays ride
