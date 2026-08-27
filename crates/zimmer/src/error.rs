@@ -327,6 +327,83 @@ pub enum SynthError {
         vel: f32,
     },
 
+    /// A `key` the grammar does not read. Refused rather than ignored: a song
+    /// that declares a key nobody can parse is one whose every degree would
+    /// resolve somewhere else, and silently.
+    #[error(
+        "song: `{key}` is not a key — write a tonic and a mode, like `D minor`, \
+         `F# lydian` or `Bb major`"
+    )]
+    BadKey {
+        /// The key as written.
+        key: String,
+    },
+
+    /// A degree that is not a degree: zero or below, or text that is not
+    /// accidentals in front of a number. Degrees count from **one**, so a zero
+    /// is exactly what a writer who assumed otherwise would have written, and
+    /// reading it as the tonic would put a whole part a step flat.
+    #[error(
+        "song: `{degree}` is not a scale degree — they count from 1, \
+         with accidentals in front (`b3`, `#4`)"
+    )]
+    BadDegree {
+        /// The degree as written.
+        degree: String,
+    },
+
+    /// A note written as a degree in a song that declares no `key`. There is
+    /// no scale for it to be a degree *of*, and inferring one from the other
+    /// notes is analysis this crate does not do.
+    #[error("song: track `{track}` at beat {start}: a `degree` needs the song to declare a `key`")]
+    DegreeWithoutKey {
+        /// The track the note is on.
+        track: String,
+        /// Where in the pattern it sits, in beats.
+        start: f32,
+    },
+
+    /// A degree that lands off the end of the keyboard. Refused rather than
+    /// clamped, for the reason [`SynthError::ChordOutOfRange`] is: the octave
+    /// is in the same entry and can simply be corrected.
+    #[error(
+        "song: degree `{degree}` with the tonic at octave {oct} reaches MIDI {midi}, \
+         outside 0..=127"
+    )]
+    DegreeOutOfRange {
+        /// The degree as written.
+        degree: String,
+        /// The octave its tonic was placed in.
+        oct: i32,
+        /// What it worked out to.
+        midi: i32,
+    },
+
+    /// An arrangement entry asks for a diatonic lift in a song with no `key`.
+    /// There is no scale to step along, and guessing one would put a whole
+    /// section somewhere nobody chose.
+    #[error(
+        "song: arrangement entry for `{pattern}`: `transpose_degrees` needs the song to \
+         declare a `key` — or use `transpose` for a chromatic shift"
+    )]
+    DiatonicWithoutKey {
+        /// The pattern the entry plays.
+        pattern: String,
+    },
+
+    /// One entry asking for both lifts. Which applies first changes the
+    /// answer and no convention decides it, so the document has to say which
+    /// one it means — see
+    /// [`transpose_degrees`](crate::song::Play::transpose_degrees).
+    #[error(
+        "song: arrangement entry for `{pattern}`: `transpose` is chromatic and \
+         `transpose_degrees` moves within the key — write one or the other"
+    )]
+    TwoTransposes {
+        /// The pattern the entry plays.
+        pattern: String,
+    },
+
     /// A swing outside the range where it still means "the off-beat sits
     /// late". At 1 the off-beat eighth lands on the following beat — the two
     /// have swapped places rather than been felt — and below 0 the off-beats

@@ -46,7 +46,7 @@ use crate::error::SynthError;
 use crate::fx::limiter;
 use crate::hash::hash3;
 use crate::level::Layer;
-use crate::note::{MIDI_RANGE, NoteOpts};
+use crate::note::NoteOpts;
 use crate::patch::Patch;
 
 /// Supplies the patch behind a track that names its instrument rather than
@@ -124,14 +124,19 @@ pub(crate) fn mix_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Mixdo
     // sample is produced: `fit` is a property of the whole piece, and deciding
     // it per note would mean rendering the wrong notes and cutting afterwards.
     let (bpm, passes) = plan(song);
-    // Chords become their voices here, once per pattern and before a sample is
-    // produced — so everything below this line sees ordinary notes, and each
-    // voice of a chord picks up its own ordinal, its own swing displacement and
-    // its own humanise nudge rather than the chord landing as one rigid block.
+    // Read once: every degree in the song resolves against it, and so does
+    // every diatonic lift in the arrangement.
+    let key = song.key()?;
+    // Every written form becomes ordinary notes here — a chord its voices, a
+    // step string its hits, a degree its pitch — once per pattern and before a
+    // sample is produced. So everything below this line sees notes and nothing
+    // else, and each of them picks up its own ordinal, its own swing
+    // displacement and its own humanise nudge, rather than a chord landing as
+    // one rigid block or a hi-hat part as one photocopied strike.
     let voiced: HashMap<&str, Vec<Note>> = song
         .patterns
         .iter()
-        .map(|(name, pattern)| Ok((name.as_str(), pattern.voices()?)))
+        .map(|(name, pattern)| Ok((name.as_str(), pattern.voices(key.as_ref())?)))
         .collect::<Result<_, SynthError>>()?;
     let track_index: HashMap<&str, usize> = song
         .tracks
@@ -194,10 +199,10 @@ pub(crate) fn mix_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Mixdo
                 timbre: feel.timbre(velocity, track, place, song.seed),
                 seed,
             };
-            // Clamped rather than refused: refusing would make a legal
-            // transpose depend on the register of a pattern written months ago.
-            let pitch =
-                (note.note.to_midi()? + entry.transpose()).clamp(MIDI_RANGE.0, MIDI_RANGE.1);
+            // Both transposes, applied in one place — and clamped rather than
+            // refused, since refusing would make a legal transpose depend on
+            // the register of a pattern written months ago.
+            let pitch = entry.played_pitch(note.note.to_midi()?, key.as_ref());
             let rendered = core::render_note(&patches[track], pitch, &opts)?;
             // Swing first, humanise second: swing is where the beat *is*, and
             // humanise is how well the player hit it. Clamped at zero rather

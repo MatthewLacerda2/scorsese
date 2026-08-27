@@ -105,6 +105,7 @@ fn four_bars() -> Song {
     Song {
         bpm: 96.0,
         seed: 1,
+        key: None,
         tracks: vec![Track {
             name: "lead".to_owned(),
             patch: PatchRef::Inline(Box::new(pluck())),

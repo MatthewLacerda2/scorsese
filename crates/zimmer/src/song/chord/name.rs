@@ -126,7 +126,12 @@ pub(crate) fn spell(name: &str) -> Result<Spelling, SynthError> {
 ///
 /// `None` when the first character is not a natural — there is no root, so
 /// there is no chord.
-fn split_root(text: &str) -> Option<(i32, &str)> {
+///
+/// The single place text becomes a root, which is why
+/// [`Key::parse`](crate::song::Key::parse) reads its tonic through it too: a
+/// key's tonic is spelled exactly the way a chord's root is, and two copies of
+/// the rule would be two places for `Bb` to mean different things.
+pub(crate) fn split_root(text: &str) -> Option<(i32, &str)> {
     let mut chars = text.chars();
     let letter = chars.next()?;
     let natural = NATURALS

@@ -8,7 +8,7 @@
 
 use std::fmt;
 
-use crate::note::{midi_to_name, pitch_class_name};
+use crate::note::{DIATONIC, midi_to_name, pitch_class_name};
 
 /// The lowest and highest pitch some notes reach, as MIDI numbers.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -69,9 +69,6 @@ impl fmt::Display for Register {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct PitchClasses(u16);
 
-/// The diatonic collection, as offsets from its major root.
-const DIATONIC: [u32; 7] = [0, 2, 4, 5, 7, 9, 11];
-
 impl PitchClasses {
     /// Adds the class `midi` belongs to, rounded to the nearest semitone.
     pub fn add(&mut self, midi: f32) {
@@ -107,7 +104,7 @@ impl PitchClasses {
             .find(|root| {
                 let mask: u16 = DIATONIC
                     .iter()
-                    .map(|step| 1u16 << ((root + step) % 12))
+                    .map(|step| 1u16 << ((root + *step as u32) % 12))
                     .sum();
                 mask == self.0
             })

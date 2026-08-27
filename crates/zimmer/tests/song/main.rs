@@ -8,6 +8,7 @@ mod document;
 mod effects;
 mod eq;
 mod feel;
+mod keys;
 mod lengths;
 mod mixing;
 mod steps;

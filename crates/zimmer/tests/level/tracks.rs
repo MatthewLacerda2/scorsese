@@ -51,6 +51,7 @@ fn duet() -> Song {
     Song {
         bpm: 120.0,
         seed: 7,
+        key: None,
         tracks: vec![track("sub", 1.0), track("bell", 1.0)],
         patterns,
         arrangement: vec!["verse".into()],
