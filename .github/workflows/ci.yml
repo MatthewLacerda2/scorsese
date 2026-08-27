@@ -598,6 +598,10 @@ jobs:
       # one that says the tool broke. cargo-mutants distinguishes them — 2 is
       # "found survivors", 3 is "something timed out", and the guard at the end
       # of this job turns anything else red.
+      #
+      # `--jobs 2` because the config file has nowhere to hold it: the argument
+      # for the number, and for it being the same one `make mutants` and the
+      # sweep pass, is in `.cargo/mutants.toml` under "How wide a run fans out".
       - name: Mutate
         if: steps.diff.outputs.rust == 'yes'
         run: |

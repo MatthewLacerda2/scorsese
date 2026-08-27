@@ -289,6 +289,41 @@ exclude_re = [
 # Execution
 # ---------------------------------------------------------------------------
 
+# How wide a run fans out: **two jobs**, everywhere.
+#
+# The one number in this section that is not a key below it, and not for want
+# of trying. cargo-mutants 27.1.0 takes `--jobs` from the command line or from
+# `CARGO_MUTANTS_JOBS`, and from nowhere else — `cargo mutants --emit-schema
+# config` prints what a config file is allowed to hold and `jobs` is not on the
+# list. So all three callers pass the flag: the `mutants` target in `Makefile`,
+# the `mutants` job in `.github/workflows/ci.yml`, and the sweep in
+# `.github/workflows/mutation-sweep.yml`. This is where the reason lives, once,
+# and each of them points here rather than restating it — three places holding
+# a bare number and no argument is how they came apart to begin with (#398).
+#
+# Left unset the default is the CPU count, and that is the wrong resource to
+# size against. Every job is a whole cargo build inside its own copy of the
+# worktree, and what runs out first is not threads but memory: rustc's peak is
+# measured in gigabytes and linking is where it lands. Eight of them took the
+# development machine down twice in one day, and the OOM killer named the
+# editor session rather than the compiler that had eaten the RAM.
+#
+# Two on both machines for the same reason rather than by imitation. They
+# differ in threads — 8 here against a public repo's four-core hosted runner —
+# and agree at around 16 GB of RAM, so the constraint that binds is the one
+# they share. What the runner does not carry is everything else on a desktop:
+# an editor, a browser, the agent session itself, and per CLAUDE.md as many
+# sibling worktrees compiling as the machine can stand. Local headroom is
+# smaller than CI's and never larger, so the local number does not go above
+# CI's; `MUTANTS_JOBS` in the `Makefile` exists for the afternoon it should go
+# below.
+#
+# Two jobs is not six threads left idle. cargo's own parallelism inside each
+# mutant fills them, bounded across every child process by the jobserver
+# (`--jobserver-tasks`, NCPUS by default). What this caps is how many *builds*
+# are in flight at once, which is what peak memory tracks — not how much of the
+# machine any one of them may use.
+
 # The failure mode this exists for: a mutant that turns a loop bound into a
 # constant produces code that never terminates, and without a timeout the job
 # waits for the runner's six-hour limit instead of reporting it. cargo-mutants

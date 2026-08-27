@@ -141,6 +141,20 @@ development machine is a tmpfs and a copy that will not fit in RAM fails with a
 message about disk (#392). A run that dies before reporting on any mutant says
 which directory it was copying into.
 
+**How much of the machine it takes:** two mutants at a time, not eight. Left to
+itself cargo-mutants sets `--jobs` from the CPU count, and since each job is a
+whole cargo build in its own copy of the worktree, that sizes the run by the
+resource that is not scarce — what runs out is memory, and rustc's peak is
+measured in gigabytes. On the development machine the default OOM-killed the
+agent session twice in one day, and the kernel named the wrong thing when it
+did: Claude Code runs with `oom_score_adj: 200`, so it is reaped as the
+preferred victim while the compilers that ate the RAM carry on. The symptom is
+a dead terminal, three layers from the cause (#398). All three callers pass
+`--jobs 2` — `make mutants`, the CI job and the sweep — and the argument for
+the number is written once, in `.cargo/mutants.toml` under *How wide a run fans
+out*, because cargo-mutants has no config key to hold it. A run that needs to
+be gentler still than that: `make mutants MUTANTS_JOBS=1`.
+
 The copy has no `target/` in it either — `copy_target` has been off by default
 since 25.1.0, and before that 1.0.2 stopped copying it at all, because
 cargo-mutants sets its own `RUSTFLAGS` and existing build products would not
