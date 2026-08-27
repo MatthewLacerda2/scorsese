@@ -289,11 +289,46 @@ mod tests {
         }
     }
 
+    /// The offset is a fraction of the velocity the note is played at, so a
+    /// note struck softly strays less in absolute terms than a loud one — and
+    /// neither can stray further than the amount asked for.
+    #[test]
+    fn a_timbre_nudge_is_bounded_by_the_velocity_it_scatters() {
+        let feel = Humanize {
+            timbre: 0.2,
+            ..Humanize::default()
+        };
+        let mut moved = false;
+        for ordinal in 0..256 {
+            let loud = feel.timbre(1.0, 0, ordinal, 9);
+            let soft = feel.timbre(0.25, 0, ordinal, 9);
+            assert!(loud.abs() <= 0.2, "offset {loud} escaped the band");
+            assert!((soft - loud * 0.25).abs() < 1e-6, "not a fraction of it");
+            moved |= loud.abs() > 1e-6;
+        }
+        assert!(moved, "nothing was scattered at all");
+    }
+
     #[test]
     fn nothing_is_drawn_when_nothing_was_asked_for() {
         let nothing = Humanize::default();
         assert!(nothing.is_nothing());
         assert_eq!(nothing.onset_seconds(0, 7, 1), 0.0);
         assert_eq!(nothing.velocity(0.3, 0, 7, 1), 0.3);
+        assert_eq!(nothing.timbre(0.9, 0, 7, 1), 0.0);
+    }
+
+    /// One field asked for is not all three drawn: a song that scatters only
+    /// tone must land its notes where they were written, at the level written.
+    #[test]
+    fn the_three_axes_are_drawn_apart() {
+        let tone_only = Humanize {
+            timbre: 0.2,
+            ..Humanize::default()
+        };
+        assert!(!tone_only.is_nothing());
+        assert_eq!(tone_only.onset_seconds(0, 7, 1), 0.0);
+        assert_eq!(tone_only.velocity(0.3, 0, 7, 1), 0.3);
+        assert_ne!(tone_only.timbre(1.0, 0, 7, 1), 0.0);
     }
 }

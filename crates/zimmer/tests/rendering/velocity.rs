@@ -88,6 +88,61 @@ fn velocity_alone_is_still_only_a_fader() {
     }
 }
 
+/// A note struck at one level can still be played brighter or duller: that is
+/// the whole of `timbre`, and it reaches a patch through the same two routings
+/// a velocity does.
+#[test]
+fn timbre_brightens_a_note_without_striking_it_harder() {
+    let mut filtered = saw_patch();
+    filtered.filter = Some(lowpass(400.0, 4000.0));
+    for patch in [filtered, fm(1.0, 8.0)] {
+        let played = |timbre: f32| {
+            render(
+                &patch,
+                45.0,
+                &NoteOpts {
+                    velocity: 0.5,
+                    timbre,
+                    ..opts(0.5)
+                },
+            )
+        };
+        let duller = brightness(&played(-0.3));
+        let brighter = brightness(&played(0.3));
+        assert!(
+            brighter > duller * 1.5,
+            "touch did not move the tone: {duller} -> {brighter}"
+        );
+    }
+}
+
+/// And where a patch names no brightness routing there is nothing for it to
+/// move: an instrument decides what "brighter" means, and one that never said
+/// is not one to guess for.
+#[test]
+fn timbre_is_silent_on_a_patch_that_routes_no_brightness() {
+    let patch = saw_patch();
+    let played = |timbre: f32| {
+        render(
+            &patch,
+            45.0,
+            &NoteOpts {
+                velocity: 0.5,
+                timbre,
+                ..opts(0.5)
+            },
+        )
+    };
+    let plain = played(0.0);
+    assert!(peak(&plain) > 0.1, "there is a signal to compare at all");
+    assert_eq!(
+        plain,
+        played(0.4),
+        "brighter moved a note that has no route"
+    );
+    assert_eq!(plain, played(-0.4), "and neither may duller");
+}
+
 /// Negative is legal, and it is a real instrument rather than a mistake to
 /// tolerate: a sound that closes down as it is played harder.
 #[test]

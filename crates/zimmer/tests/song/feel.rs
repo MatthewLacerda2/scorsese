@@ -2,6 +2,7 @@
 
 use crate::common::songs::{song, verse};
 use crate::common::{peak, saw_patch};
+use scorsese_zimmer::patch::{Adsr, Filter, FilterKind};
 use scorsese_zimmer::song::{Humanize, InlineOnly, PatchRef};
 use scorsese_zimmer::{SAMPLE_RATE, Song, render_song};
 
@@ -119,6 +120,44 @@ fn a_repeated_note_is_not_the_same_waveform_twice() {
         render(&steady()),
         "and the piece still replays exactly"
     );
+}
+
+/// The fixture again, with an instrument that routes velocity at its filter —
+/// the only kind of patch `timbre` can reach, and the kind that shows it.
+fn expressive() -> Song {
+    let mut patch = saw_patch();
+    patch.filter = Some(Filter {
+        kind: FilterKind::Lowpass,
+        cutoff: 400.0,
+        resonance: 0.0,
+        env_amount: 0.0,
+        vel_cutoff: 4000.0,
+        adsr: Adsr::default(),
+    });
+    let mut expressive = steady();
+    expressive.tracks[0].patch = PatchRef::Inline(Box::new(patch));
+    expressive
+}
+
+/// `timbre` scatters the tone and nothing else: the notes land where the score
+/// put them, and what arrives there is played with a different touch each time.
+#[test]
+fn a_timbre_amount_moves_the_tone_and_leaves_the_timing_alone() {
+    let one = pass(&expressive());
+    let rigid = render(&expressive());
+    let played = render(&Song {
+        humanize: Some(Humanize {
+            timbre: 0.4,
+            ..Humanize::default()
+        }),
+        ..expressive()
+    });
+    assert_eq!(
+        onset(&rigid[..one]),
+        onset(&played[..one]),
+        "a tone nudge moved a note off its beat"
+    );
+    assert_ne!(rigid, played, "the touch never reached the instrument");
 }
 
 /// A note written on beat zero and nudged early has nowhere to go, so it is
