@@ -159,6 +159,38 @@ fn a_step_entry_is_told_apart_by_its_fields_and_survives_a_round_trip() {
     }
 }
 
+/// `start` is written down when it says something and left out when it does
+/// not, and both halves are load-bearing.
+///
+/// Leaving it out is not tidiness: a bake is addressed by the hash of its
+/// recipe's bytes, so a serialiser that began writing a default into every step
+/// entry would invalidate every cached bake in every project at once, for no
+/// change in the audio. Writing it out when it *is* something is the other
+/// half, and the one whose failure is silent — a string moved back to the top
+/// of its bar by a save nobody watched.
+#[test]
+fn a_step_entry_writes_down_its_start_only_when_it_has_one() {
+    // The string alone, so the only `start` that could appear is its own —
+    // every other entry kind writes one unconditionally.
+    let json = playing(vec![steps("x-xX").into()])
+        .to_json()
+        .expect("serialise");
+    assert!(
+        !json.contains("\"start\""),
+        "a string starting at the top of its pattern wrote a `start` it did not need:\n{json}"
+    );
+
+    let late = playing(vec![
+        Steps {
+            start: 1.0,
+            ..steps("xX")
+        }
+        .into(),
+    ]);
+    let reloaded = Song::from_json(&late.to_json().expect("serialise")).expect("deserialise");
+    assert_eq!(reloaded, late, "a `start` that was not the top was lost");
+}
+
 /// A step string is written where its track is named, so a typo'd track is the
 /// same silence — and the same message — as a typo'd track on a note.
 #[test]
