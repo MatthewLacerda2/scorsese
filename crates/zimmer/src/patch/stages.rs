@@ -458,6 +458,56 @@ pub enum Fx {
         /// off, and it costs nothing over a full-wet setting.
         mix: f32,
     },
+    /// A compressor: the level control that acts on the loud moments and
+    /// leaves the quiet ones, which is what makes a part *sit* rather than
+    /// merely be at a volume.
+    ///
+    /// A limiter is not this at another setting — see [`crate::fx`] — and the
+    /// two are the difference between a device that guarantees a file and one
+    /// that is meant to be heard.
+    Compress {
+        /// The level above which the signal is pushed down, in dBFS. Clamped
+        /// to −60…0: full scale is where the limiter's job starts.
+        threshold: f32,
+        /// How much of each decibel over the threshold survives, as `n:1` —
+        /// `2` is gentle, `4` is the workhorse, `10` is a part pinned in
+        /// place. `1` is no compression at all, and is an exact bypass unless
+        /// `makeup` is asking for something. Clamped at 20:1, past which this
+        /// would be a limiter.
+        ratio: f32,
+        /// Seconds the gain takes to arrive at full reduction. Because this
+        /// renders offline the duck is *ready* when the peak lands rather than
+        /// chasing it — [`crate::fx`] has what that changes.
+        #[serde(default = "attack_default")]
+        attack: f32,
+        /// Seconds the gain takes to recover afterwards. Too short and the
+        /// mix breathes audibly between hits; a tenth of a second upwards is
+        /// the usual range.
+        #[serde(default = "release_default")]
+        release: f32,
+        /// Decibels handed back to the compressed copy, to replace what the
+        /// reduction took. Clamped to ±24.
+        #[serde(default)]
+        makeup: f32,
+        /// Wet/dry blend, `0..=1`. Below 1 this is **parallel** ("New York")
+        /// compression: a squashed copy under an untouched one, which adds
+        /// density without flattening the transients. `0.0` is an exact
+        /// bypass.
+        #[serde(default = "one")]
+        mix: f32,
+        /// Another track, by name, whose part the detector listens to instead
+        /// of this one's — the kick pressing the bass down on every beat.
+        ///
+        /// **A track chain only.** A patch chain runs per note and the song's
+        /// runs on the sum; neither sits anywhere a track name can be read, so
+        /// both refuse this rather than ignoring it. The part handed over is
+        /// the key track's *as played* — before its own chain, its `gain` and
+        /// its `pan` — so `crate::song`'s mixer has the reasoning and the
+        /// consequence: two tracks may key each other, because neither is
+        /// waiting on the other's output.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        sidechain: Option<String>,
+    },
     /// A small stack of filter bands: the treatment for what the bake report
     /// diagnoses. A gain fader answers a muddy pad by removing the pad; this
     /// answers it by removing 250 Hz and keeping the rest.
@@ -487,4 +537,17 @@ fn damping_default() -> f32 {
 
 fn mod_decay_default() -> f32 {
     0.3
+}
+
+/// A compressor's attack when the recipe does not say: 10 ms, fast enough to
+/// catch a hit and slow enough not to be shaping the waveform.
+fn attack_default() -> f32 {
+    0.01
+}
+
+/// A compressor's release when the recipe does not say: 150 ms, roughly one
+/// beat at a mid tempo, which is where a sidechain duck sounds like the track
+/// rather than like an effect.
+fn release_default() -> f32 {
+    0.15
 }

@@ -45,6 +45,35 @@ pub(crate) fn check_chain(chain: &[Fx]) -> Result<(), SynthError> {
     Ok(())
 }
 
+/// Every track a chain is keyed from, in list order.
+///
+/// It lives beside the patch for the reason [`check_chain`] does: a chain is a
+/// chain wherever it is written, and both the mixer that honours a sidechain
+/// and the validation that refuses one read it through this.
+pub(crate) fn sidechains(chain: &[Fx]) -> impl Iterator<Item = &str> {
+    chain.iter().filter_map(|fx| match fx {
+        Fx::Compress { sidechain, .. } => sidechain.as_deref(),
+        _ => None,
+    })
+}
+
+/// Rejects a chain that names a track from somewhere no track can be named.
+///
+/// A patch's chain runs per note and the song's runs on the sum; in neither
+/// does a track exist as a thing to listen to. Refusing is the crate's usual
+/// answer to what it cannot honour — a silently ignored `sidechain` would be a
+/// duck the recipe wrote and never got, which is exactly the failure the song
+/// validator exists to prevent.
+pub(crate) fn check_no_sidechain(chain: &[Fx], place: &'static str) -> Result<(), SynthError> {
+    match sidechains(chain).next() {
+        Some(key) => Err(SynthError::MisplacedSidechain {
+            place,
+            key: key.to_owned(),
+        }),
+        None => Ok(()),
+    }
+}
+
 /// One instrument.
 ///
 /// `source` and `amp` are mandatory — a sound needs a tone and a shape.
@@ -102,7 +131,8 @@ impl Patch {
         {
             return Err(SynthError::NegativeLfoRate { rate: lfo.rate });
         }
-        check_chain(&self.fx)
+        check_chain(&self.fx)?;
+        check_no_sidechain(&self.fx, "patch")
     }
 
     /// The head of the signal path, which is where every unrenderable patch so

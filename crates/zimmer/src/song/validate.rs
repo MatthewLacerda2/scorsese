@@ -45,8 +45,42 @@ impl Song {
         for track in &self.tracks {
             crate::patch::check_chain(&track.fx)?;
         }
+        self.check_sidechains()?;
         self.check_feel()?;
         self.check_shape()
+    }
+
+    /// Who is keyed from whom.
+    ///
+    /// A sidechain names a track, and a track name means something in exactly
+    /// one of the three places a chain can live — so the song's own chain
+    /// refuses one outright, and a track's has to name a real track that is
+    /// not itself. Both are the typo that would otherwise be *a duck that
+    /// never happens*, which is the same failure mode as a typo'd track name
+    /// and gets the same treatment.
+    ///
+    /// What is deliberately **not** here is a cycle check. The part a key
+    /// hands over is the instrument as played, before any chain runs, so two
+    /// tracks pressing each other down is well defined rather than circular —
+    /// `super::mix` has the reasoning.
+    fn check_sidechains(&self) -> Result<(), SynthError> {
+        crate::patch::check_no_sidechain(&self.fx, "song")?;
+        for track in &self.tracks {
+            for key in crate::patch::sidechains(&track.fx) {
+                if key == track.name {
+                    return Err(SynthError::SelfSidechain {
+                        track: track.name.clone(),
+                    });
+                }
+                if !self.tracks.iter().any(|it| it.name == key) {
+                    return Err(SynthError::UnknownSidechain {
+                        track: track.name.clone(),
+                        key: key.to_owned(),
+                    });
+                }
+            }
+        }
+        Ok(())
     }
 
     /// The performance fields: how much the song swings, and how far its player
