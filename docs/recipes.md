@@ -121,6 +121,7 @@ where 1.0 dips to silence.
 | `saturate` | `drive`, `mix` 0..=1 | soft clip: warmth, weight, glue |
 | `eq` | `bands`: up to 8 of `{ kind, freq, gain_db, q }` | takes a region away, or adds one |
 | `compress` | `threshold` dBFS, `ratio`, `attack`/`release` in seconds, `makeup` dB, `mix` 0..=1, `sidechain` | takes the loud moments down — glue, and ducking |
+| `chorus` | `rate` in Hz, `depth` 0..=1, `voices` 2–4, `mix` 0..=1 | several detuned copies, spread wide — one instrument becomes a **section** |
 
 A limiter always runs after them and is not listed — a bake must not clip, and
 that is not the recipe's decision. It holds the **true** peak at −1 dBTP: the
@@ -184,6 +185,54 @@ Four things are worth knowing:
   Makeup is for replacing what the reduction took, not for getting loud.
 - **`sidechain` names another track** — the kick pressing the bass down. It is a
   track chain only, and [Where an effect goes](#where-an-effect-goes) has it.
+
+`chorus` is the answer to *this sounds like one synthesiser playing one note*,
+and it is worth knowing why it works, because it is mechanical rather than
+tasteful. Five violinists are not one violinist five times louder — they are
+five copies that disagree slightly about pitch and about when the note started,
+and the disagreement **is** the sound of a section. That is what this makes: two
+to four copies of the signal, each delayed by a few hundredths of a second and
+each detuned by a slow sweep of that delay, placed across the stereo field
+around the untouched original.
+
+- `rate` is how fast each copy sweeps, in Hz. `0.3`–`1.5` is the usual range;
+  much faster and the detune stops sounding like a section and starts sounding
+  like a special effect. The copies are spread slightly either side of the
+  number so the ensemble does not breathe in unison.
+- `depth` is how far apart it pushes them. `0.3` is a shimmer, `0.8` is a wide
+  ensemble, `1.0` starts to sound seasick on a long held note.
+- `voices` is **thickness, not width or level**. Width is carried by the
+  outermost pair, so two copies panned hard is already the widest this gets and
+  four is the thickest; the copies are normalised, so adding one does not turn
+  the effect up. It defaults to `3`, which is a section.
+- `mix` is how far the source spreads. The dry signal stays exactly where it
+  was and the copies arrive around it, so `0.3`–`0.6` is a pad becoming
+  strings and `1.0` leaves nothing in the middle.
+
+It rings on for a fortieth of a second and no longer — the deepest its delay
+reaches — so unlike a reverb it costs a recipe almost no extra length.
+
+A synth pad turned into strings, which is the move this exists for. Take the
+chorus out and the same recipe is one detuned saw sitting in the middle:
+
+```json recipe
+{
+  "recipe": "patch",
+  "note": "D3",
+  "duration": 2.0,
+  "patch": {
+    "source": { "kind": "osc_stack", "oscs": [
+      { "wave": "saw", "detune_cents": -6 },
+      { "wave": "saw", "detune_cents": 6 }
+    ] },
+    "amp": { "a": 0.35, "d": 0.4, "s": 0.7, "r": 0.8, "curve": 2.0 },
+    "filter": { "kind": "lowpass", "cutoff": 2200, "resonance": 0.2 },
+    "fx": [
+      { "fx": "chorus", "rate": 0.5, "depth": 0.7, "voices": 4, "mix": 0.5 }
+    ]
+  }
+}
+```
 
 This chain is the *instrument's own*: it is applied to each note separately. A
 song has two more places to put one, and reverb almost always wants one of them
@@ -842,6 +891,18 @@ the song it is **glue** — every track pushed gently into the same curve, which
 is much of what stops a mix sounding like separate parts added together, and
 the reason a low `drive` at a partial `mix` over the whole piece is worth trying
 before anything else. The three stack, so keep each modest.
+
+**Chorus belongs on the instrument or the part — never on the room**, and it is
+the exact opposite of the reverb rule above for the exact opposite reason. A
+reverb is one *place*, so it is shared: put it on the song and everything is in
+it. A chorus is one *instrument being several of itself*, so it is owned: the
+pad becomes strings and the bass does not, because the bass is not a section.
+Put it on the song and every part is chorused at once, which is not a mix of
+sections — it is a mix that has been smeared, and the first casualties are the
+things that must stay in one place, the kick and the bass. On the patch it is
+part of the voice; on the track it thickens that one part. Both are right and
+the difference barely matters, so prefer the patch when the chorus *is* the
+instrument's sound.
 
 **EQ belongs on a track, nearly always.** It is the one effect here that is a
 mixing decision rather than a sound, and a mix is made of instruments sitting

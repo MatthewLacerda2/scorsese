@@ -207,7 +207,12 @@ pub use song::{PatchResolver, Song, render_song};
 /// every LFO target and every existing effect came back byte-identical across
 /// the change. A recipe that does not name the new thing renders what it
 /// always did, by construction rather than by luck, and that is the case where
-/// leaving this number alone is right.
+/// leaving this number alone is right. The chorus is the second effect to take
+/// that answer rather than re-derive it, and it was checked the same way: 30
+/// probes, the eleven earlier ones plus a chain of four effects and eight
+/// songs covering swing, humanise, a track bus, a song chain, a fade, a `fit`,
+/// an arrangement transform, a key with degrees and a step string — all 30
+/// byte-identical against `84ad2a3`.
 ///
 /// The **compressor** is the second one of those, and it went further into the
 /// mixer than the EQ did — a new buffer per keyed track, and a second entry
