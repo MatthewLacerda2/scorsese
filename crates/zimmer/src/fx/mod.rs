@@ -1,18 +1,22 @@
-//! fx — the post-chain: delay, reverb, and the mandatory limiter
+//! fx — the post-chain: delay, reverb, drive, and the mandatory limiter
 //!
-//! Three effects, deliberately. [`delay`] and [`reverb`] are the two that place a
-//! dry synthesized sound *somewhere* — the difference between a gunshot recorded in
-//! an anechoic chamber and one fired in a corridor — and a recipe chooses them per
-//! patch, applied in list order. [`limiter`] is not a choice: every bake passes
-//! through it, because a clipped WAV is a broken asset, not a stylistic option.
+//! Three a recipe chooses, one it does not. [`delay`] and [`reverb`] place a dry
+//! synthesized sound *somewhere* — the difference between a gunshot recorded in an
+//! anechoic chamber and one fired in a corridor. [`saturate`] is the odd one out,
+//! and the only nonlinearity in the crate: it does not move a sound, it changes
+//! what is *in* one, which is the difference between a clean sum of waveforms and
+//! something that sounds recorded. All three are chosen per chain and applied in
+//! list order. [`limiter`] is not a choice: every bake passes through it, because a
+//! clipped WAV is a broken asset, not a stylistic option.
 //!
-//! Distortion, chorus and the rest wait until a real sound cannot be made without
-//! them (the layer's standing rule). Effects are added here, not in the patch
-//! document's signal path, so the fixed source → filter → amp contract stays fixed.
+//! Chorus and the rest wait until a real sound cannot be made without them (the
+//! layer's standing rule). Effects are added here, not in the patch document's
+//! signal path, so the fixed source → filter → amp contract stays fixed.
 
 pub(crate) mod delay;
 pub(crate) mod limiter;
 pub(crate) mod reverb;
+pub(crate) mod saturate;
 
 use crate::patch::Fx;
 
@@ -30,13 +34,16 @@ pub(crate) fn apply_chain(buf: &mut [f32], chain: &[Fx], rate: f32) {
                 mix,
             } => delay::apply(buf, time, feedback, mix, rate),
             Fx::Reverb { size, damp, mix } => reverb::apply(buf, size, damp, mix, rate),
+            Fx::Saturate { drive, mix } => saturate::apply(buf, drive, mix),
         }
     }
 }
 
 /// How much extra time the chain needs to ring out after the note itself ends —
 /// what the renderer pads the buffer by, so an echo or a reverb tail is never cut
-/// off mid-repeat. A fully dry effect asks for nothing.
+/// off mid-repeat. A fully dry effect asks for nothing, and neither does a
+/// waveshaper: [`saturate`] is memoryless, so there is no state left in it to
+/// decay once the signal stops.
 pub(crate) fn tail_seconds(chain: &[Fx]) -> f32 {
     let total: f32 = chain
         .iter()
@@ -124,6 +131,27 @@ mod tests {
             tail_seconds(&long),
             MAX_TAIL,
             "capped, however long the chain"
+        );
+    }
+
+    #[test]
+    fn a_waveshaper_reaches_the_signal_and_still_asks_for_no_tail() {
+        let drive = [Fx::Saturate {
+            drive: 4.0,
+            mix: 1.0,
+        }];
+        assert_eq!(tail_seconds(&drive), 0.0, "there is no state to decay");
+        let mut buf = vec![0.0; 512];
+        buf[0] = 0.5;
+        apply_chain(&mut buf, &drive, 44_100.0);
+        assert!(
+            buf[0] > 0.9,
+            "the sample was shaped, not passed: {}",
+            buf[0]
+        );
+        assert!(
+            buf[1..].iter().all(|s| *s == 0.0),
+            "and nothing after it moved, because there is no memory"
         );
     }
 

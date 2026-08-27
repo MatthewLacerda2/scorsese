@@ -258,6 +258,20 @@ pub enum Fx {
         /// Wet/dry blend, `0..=1`.
         mix: f32,
     },
+    /// A `tanh` soft clip: the one nonlinearity in the signal path, and so the
+    /// only stage that can put a harmonic into the output that was not in the
+    /// input. What "warm" and "glued" are made of.
+    Saturate {
+        /// How hard the signal is pushed into the curve. `0` is the identity
+        /// line, `1`–`2` is warmth, `4` is audible drive; clamped at a ceiling
+        /// past which a soft clip is a fuzz pedal. It is gain-compensated, so
+        /// this changes the shape of the wave and not its peak.
+        drive: f32,
+        /// Wet/dry blend, `0..=1`. Parallel drive — a hard-driven copy under a
+        /// clean one — is how weight is added without rounding the transients
+        /// off, and it costs nothing over a full-wet setting.
+        mix: f32,
+    },
 }
 
 fn one() -> f32 {
