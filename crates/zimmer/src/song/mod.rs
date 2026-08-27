@@ -491,14 +491,4 @@ impl Song {
     pub fn humanize(&self) -> Humanize {
         self.humanize.unwrap_or_default()
     }
-
-    /// The curve moving `param` on `track`, if one is written.
-    ///
-    /// Validation refuses a second curve on the same pair, so there is never a
-    /// choice to make about which of two applies.
-    pub fn curve(&self, track: &str, param: Param) -> Option<&Automation> {
-        self.automation
-            .iter()
-            .find(|curve| curve.track == track && curve.param == param)
-    }
 }
