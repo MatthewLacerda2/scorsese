@@ -73,7 +73,7 @@ source ─► filter ─► amp envelope ─► fx
    └─────── lfo ──────────┘        one target: pitch | cutoff | amp
 ```
 
-**`source`** — one of four, tagged by `kind`:
+**`source`** — one of five, tagged by `kind`:
 
 | `kind` | Fields | Good for |
 | --- | --- | --- |
@@ -81,9 +81,11 @@ source ─► filter ─► amp envelope ─► fx
 | `karplus` | `damping` 0..1, `brightness` 0..1 | plucked strings, marimbas |
 | `noise` | — | gunshots, impacts, footsteps, wind |
 | `fm2` | `ratio`, `index`, `vel_index`, `mod_decay` | bells, electric pianos, metal |
+| `additive` | `partials`: up to 16 of `{ ratio, gain, detune_cents, decay }` | organs, bowed and blown sustains, glass |
 
 `wave` is `sine`, `triangle`, `saw` or `square`. Integer `ratio` on `fm2` stays
-tonal; a fractional one goes metallic.
+tonal; a fractional one goes metallic. `additive` is the odd one out and has
+[a section of its own](#stating-a-spectrum-instead-of-carving-one).
 
 **`amp`** — an ADSR: `{ "a": 0.005, "d": 0.15, "s": 0.4, "r": 0.2 }`. Attack,
 decay and release are seconds; sustain is a level in `0..=1`. **Required.**
@@ -237,6 +239,128 @@ chorus out and the same recipe is one detuned saw sitting in the middle:
 This chain is the *instrument's own*: it is applied to each note separately. A
 song has two more places to put one, and reverb almost always wants one of them
 — see [Where an effect goes](#where-an-effect-goes).
+
+### Stating a spectrum instead of carving one
+
+The other four sources all *shape*. `osc_stack` makes something rich and hands
+it to a filter to carve down; `karplus` excites a string and lets it ring;
+`fm2` bends one sine with another and takes whatever sidebands come out. In
+every case the timbre is what a filter shape or a modulation depth happened to
+arrive at.
+
+`additive` works the other way round: it says what the spectrum *is*. A tone is
+a list of partials — sine components, each at some multiple of the played pitch
+— and the recipe writes that list out. The clean analogy is a drawbar organ,
+where the drawbars **are** the per-partial gains and pulling one out adds
+exactly one harmonic. That is this source, with three more things a drawbar
+cannot do.
+
+```json recipe
+{
+  "recipe": "patch",
+  "note": "C4",
+  "duration": 1.2,
+  "patch": {
+    "source": {
+      "kind": "additive",
+      "partials": [
+        { "ratio": 0.5, "gain": 0.8 },
+        { "ratio": 1,   "gain": 1.0 },
+        { "ratio": 1.5, "gain": 0.8 },
+        { "ratio": 2,   "gain": 0.6 },
+        { "ratio": 3,   "gain": 0.4 },
+        { "ratio": 4,   "gain": 0.3 },
+        { "ratio": 6,   "gain": 0.2 },
+        { "ratio": 8,   "gain": 0.2 }
+      ]
+    },
+    "amp": { "a": 0.01, "d": 0.0, "s": 1.0, "r": 0.08 }
+  }
+}
+```
+
+That is a drawbar registration, in the order an organ's drawbars sit in: a
+sub-octave under the fundamental, a fifth above it, then the octave, the
+twelfth and so on. Pull the `0.5` gain down and it thins out; take `1.5` away
+and it stops sounding like an organ, because that fifth is most of what the
+word means. Nothing is filtered at all.
+
+Each partial takes four fields, and only `ratio` is required:
+
+| field | means | default |
+| --- | --- | --- |
+| `ratio` | frequency as a multiple of the played pitch | — (must be positive) |
+| `gain` | its weight in the mix | `1.0` |
+| `detune_cents` | how far off `ratio` it is bent, in cents | `0.0` |
+| `decay` | seconds for this partial's **own** exponential fade | `0.0` — it does not fade |
+
+**`decay` is the field the source is really for.** On anything bowed, blown or
+struck, the upper partials arrive with the note and die well before the
+fundamental does — that is what makes a bow stroke settle into its body rather
+than sit at one colour, and it is the one thing no filter sweep quite fakes.
+Give the fundamental a long decay and the upper partials progressively shorter
+ones:
+
+```json recipe
+{
+  "recipe": "patch",
+  "note": "G3",
+  "duration": 1.6,
+  "patch": {
+    "source": {
+      "kind": "additive",
+      "partials": [
+        { "ratio": 1, "gain": 1.0,  "decay": 6.0 },
+        { "ratio": 2, "gain": 0.7,  "decay": 2.5 },
+        { "ratio": 3, "gain": 0.5,  "decay": 1.2 },
+        { "ratio": 4, "gain": 0.35, "decay": 0.7 },
+        { "ratio": 5, "gain": 0.25, "decay": 0.4, "detune_cents": 4 },
+        { "ratio": 6, "gain": 0.18, "decay": 0.25, "detune_cents": 6 },
+        { "ratio": 8, "gain": 0.12, "decay": 0.15, "detune_cents": 10 }
+      ]
+    },
+    "amp": { "a": 0.12, "d": 0.0, "s": 1.0, "r": 0.4, "curve": 2.0 },
+    "fx": [{ "fx": "reverb", "size": 0.5, "damp": 0.5, "mix": 0.18 }]
+  }
+}
+```
+
+The `detune_cents` climbing up the series is the other thing worth reaching
+for: real strings are slightly *stretched*, their upper partials sitting
+progressively sharp of the whole numbers, and a perfectly harmonic series is
+what an organ sounds like precisely because it has none of that. A few cents
+per partial is a string; a hundred is a bell. It is the deliberate route to
+inharmonicity, where `fm2`'s fractional `ratio` is an accidental one.
+
+Four rules govern the rest, and the first is the one to read twice:
+
+- **A partial's `decay` and the patch's `amp` envelope multiply, and the
+  shorter one always wins.** They are two envelopes stacked, not alternatives.
+  The amp envelope cannot bring back a partial its own decay has taken, and a
+  partial's decay cannot outlast the release. So a percussive amp envelope over
+  percussive partial decays makes a note that dies twice — much shorter and
+  duller than either was written for. Let the partials carry the movement and
+  give the amp envelope a **sustain** (`"s": 1.0`), as both examples above do.
+- **Partials above Nyquist are dropped, not folded.** A 16th partial of a note
+  at 2 kHz would sit at 32 kHz, which the file cannot hold; rendering it anyway
+  would fold it back down into the audible band as inharmonic garbage. It is
+  simply not rendered. The decision is made **per note**, so one series is a
+  full sixteen partials in the bass and a handful at the top of the keyboard —
+  which is also what a real instrument does.
+- **Gains are weights, not levels.** The series is normalised by the total gain
+  of the partials that actually sound, so adding one thickens the tone without
+  making it louder, and doubling every gain changes nothing at all. Normalising
+  over what *sounds* is what keeps a high note from going quiet just because
+  more of its series fell off the top.
+- **Sixteen is the cap**, for the reason `osc_stack` stops at four: past it the
+  arithmetic buys nothing anyone can hear. A series past the cap, an empty one,
+  one weighted entirely to zero, or one with a `ratio` at or below zero is
+  refused with the offending partial's index.
+
+It is the most expensive source here — about 10 ms of CPU per second of audio
+at sixteen decaying partials, against 1.6 ms for a full oscillator stack. That
+is a rounding error on an offline bake and is not a reason to write fewer
+partials than a sound wants.
 
 ### Playing harder, not just louder
 
