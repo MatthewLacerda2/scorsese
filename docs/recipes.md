@@ -332,9 +332,14 @@ hundreds of lines, and every edit becomes a merge conflict with itself.
 
 ### Writing a chord as a chord
 
-An entry in `notes` is **one note or one chord**, told apart by which field it
-carries — `note` or `chord`. Here are two bars of `Dm7 – Gm7 – A7` written both
-ways. First, one pitch at a time:
+An entry in `notes` is one of four things, told apart by which field it
+carries: **a note** (`note`), **a degree** of the song's key (`degree`), **a
+chord** (`chord`), or **a step string** (`steps`). The last three are the
+subject of this section and the two after it; an entry carrying two of the four
+is refused rather than read as whichever one tolerated it.
+
+Here are two bars of `Dm7 – Gm7 – A7` written both ways. First, one pitch at a
+time:
 
 ```json fields
 "tracks": [{ "name": "keys", "patch": {
@@ -1150,23 +1155,27 @@ not either, a `vel_scale` below zero, a `swing` outside `0..1` (at 1 the
 off-beat lands on the next beat, which reorders the music), and a negative
 `humanize` amount.
 
-Chords and keys are refused for a second reason: none of what follows would be
-silence, they would be *different notes*, which nothing downstream can notice.
-A chord name off the [quality table](#writing-a-chord-as-a-chord), a chord
-voiced past either end of the keyboard, an empty list of pitches, and `oct`
-written beside a chord that spelled its pitches out. A `key` that is not a
-tonic and a [mode](#saying-what-key-it-is-in), a degree of zero or below, a
-degree or a `transpose_degrees` in a song that declares no key, a degree that
-lands off the keyboard, and `transpose` beside `transpose_degrees` on one
-entry.
+The three notations that stand for several notes are refused for a **second
+reason**, and it is why those checks exist at all: none of what follows would
+be silence. Each would be *different notes* or a *different rhythm*, which is
+exactly what nothing downstream can notice.
 
-[Step strings](#writing-a-rhythm-as-a-rhythm) are refused for the same second
-reason, and it is why the checks are there at all: a character that is not
-`x`, `X` or `-`, a string whose length is not the length its grid needs, a
-`div` no whole number of steps fits the slot with, and both cases used beside a
-`vel` of 1, where the accents the page shows would not be in the audio. Every
-one of those would otherwise be *a different rhythm* — usually a shorter one,
-which is the failure nobody hears until much later.
+- **[Chords](#writing-a-chord-as-a-chord)** — a name off the quality table, a
+  chord voiced past either end of the keyboard, an empty list of pitches, and
+  `oct` written beside a chord that spelled its pitches out.
+- **[Step strings](#writing-a-rhythm-as-a-rhythm)** — a character that is not
+  `x`, `X` or `-`, a string whose length is not the length its grid needs, a
+  `div` no whole number of steps fits the slot with, and both cases used beside
+  a `vel` of 1, where the accents the page shows would not be in the audio.
+  Each of those is a shorter or differently spaced bar, which is the failure
+  nobody hears until much later.
+- **[Keys and degrees](#saying-what-key-it-is-in)** — a `key` that is not a
+  tonic and a mode, a degree of zero or below, a degree that lands off the
+  keyboard, a degree or a `transpose_degrees` in a song that declares no key,
+  and `transpose` beside `transpose_degrees` on one entry.
+
+An entry that carries the fields of two of the four kinds is refused too, by
+all four rather than by whichever is declared first.
 
 Musical taste is not checked. An ugly patch renders.
 
