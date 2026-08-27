@@ -19,8 +19,10 @@ pub(crate) fn saw_patch() -> Patch {
             d: 0.0,
             s: 1.0,
             r: 0.0,
+            curve: 0.0,
         },
         filter: None,
+        pitch_env: None,
         lfo: None,
         fx: vec![],
     }
@@ -32,6 +34,7 @@ pub(crate) fn minimal(source: Source) -> Patch {
         source,
         amp: Adsr::default(),
         filter: None,
+        pitch_env: None,
         lfo: None,
         fx: vec![],
     }
@@ -50,7 +53,13 @@ pub(crate) fn osc(wave: Wave, detune_cents: f32, octave: i32) -> Osc {
 /// An ADSR, positionally — the four numbers read better than four fields when
 /// a test is about the shape rather than the names.
 pub(crate) fn adsr(a: f32, d: f32, s: f32, r: f32) -> Adsr {
-    Adsr { a, d, s, r }
+    Adsr {
+        a,
+        d,
+        s,
+        r,
+        curve: 0.0,
+    }
 }
 
 /// A note of `duration` seconds, struck at full velocity, seed zero, its

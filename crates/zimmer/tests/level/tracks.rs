@@ -23,6 +23,7 @@ fn tone() -> Patch {
         },
         amp: adsr(0.0, 0.0, 1.0, 0.0),
         filter: None,
+        pitch_env: None,
         lfo: None,
         fx: vec![],
     }

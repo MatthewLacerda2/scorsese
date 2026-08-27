@@ -2,7 +2,9 @@
 
 use crate::common::{adsr, osc};
 use scorsese_zimmer::Patch;
-use scorsese_zimmer::patch::{Filter, FilterKind, Fx, Lfo, LfoTarget, Source, Wave};
+use scorsese_zimmer::patch::{
+    Adsr, Filter, FilterKind, Fx, Lfo, LfoTarget, PitchEnv, Source, Wave,
+};
 
 /// A patch touching every optional stage — the round-trip has to carry all of
 /// them, so the fixture has all of them.
@@ -19,6 +21,13 @@ fn full_patch() -> Patch {
             env_amount: 2000.0,
             vel_cutoff: 2500.0,
             adsr: adsr(0.01, 0.2, 0.3, 0.2),
+        }),
+        pitch_env: Some(PitchEnv {
+            semitones: -12.0,
+            adsr: Adsr {
+                curve: 4.0,
+                ..adsr(0.0, 0.04, 0.0, 0.0)
+            },
         }),
         lfo: Some(Lfo {
             rate: 5.0,
@@ -97,6 +106,37 @@ fn velocity_routing_is_off_unless_a_recipe_asks_for_it() {
         Source::Fm2 { vel_index, .. } => assert_eq!(vel_index, 0.0, "nor any FM depth"),
         other => panic!("wrong source: {other:?}"),
     }
+}
+
+/// The same promise, for the two envelope fields — and it is the stronger half
+/// that matters here: a serialiser that wrote `"curve": 0.0` into every
+/// envelope of every document it re-saved would change no audio at all and
+/// still invalidate every cached bake in every project, because a bake is
+/// addressed by the hash of the recipe's *bytes*.
+#[test]
+fn a_straight_envelope_and_an_unswept_pitch_are_absent_from_the_document() {
+    let json = r#"{
+        "source": { "kind": "noise" },
+        "amp": { "a": 0.01, "d": 0.1, "s": 0.5, "r": 0.2 }
+    }"#;
+    let patch = Patch::from_json(json).expect("parses without either");
+    assert_eq!(patch.amp.curve, 0.0, "an envelope is straight by default");
+    assert!(patch.pitch_env.is_none(), "and the pitch holds still");
+
+    let saved = patch.to_json().expect("serialise");
+    assert!(!saved.contains("curve"), "curve written back: {saved}");
+    assert!(
+        !saved.contains("pitch_env"),
+        "pitch_env written back: {saved}"
+    );
+
+    let bent = Patch::from_json(&saved.replace(r#""s": 0.5"#, r#""s": 0.5, "curve": 3.0"#))
+        .expect("parses with a curve");
+    assert_eq!(bent.amp.curve, 3.0, "and a curve that is asked for arrives");
+    assert!(
+        bent.to_json().expect("serialise").contains("curve"),
+        "and survives the round trip"
+    );
 }
 
 #[test]

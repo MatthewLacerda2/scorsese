@@ -15,8 +15,10 @@ pub(crate) fn blip() -> Patch {
             d: 0.05,
             s: 0.0,
             r: 0.05,
+            curve: 0.0,
         },
         filter: None,
+        pitch_env: None,
         lfo: None,
         fx: vec![],
     }
