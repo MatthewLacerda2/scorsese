@@ -9,7 +9,7 @@
 mod common;
 
 use common::songs::song;
-use common::{measured_hz, minimal, opts, saw_patch};
+use common::{measured_hz, minimal, noise, opts, saw_patch};
 use scorsese_zimmer::patch::{Adsr, Osc, Patch, Source, Wave};
 use scorsese_zimmer::song::{Humanize, InlineOnly};
 use scorsese_zimmer::{NoteOpts, Song, bake_named_note, bake_note, bake_song};
@@ -32,6 +32,8 @@ fn sine() -> Patch {
                 detune_cents: 0.0,
                 gain: 1.0,
                 octave: 0,
+                voices: 1,
+                spread: 12.0,
             }],
         })
     }
@@ -103,7 +105,7 @@ fn the_same_recipe_bakes_the_same_bytes() {
 /// has to be reproducible, and a different seed still has to differ.
 #[test]
 fn seeded_noise_is_reproducible_and_a_new_seed_is_not() {
-    let noise = minimal(Source::Noise);
+    let noise = minimal(noise());
     let seeded =
         |seed: u64| bake_note(&noise, 60.0, &NoteOpts { seed, ..opts(0.2) }).expect("bakes");
     assert_eq!(seeded(11), seeded(11));

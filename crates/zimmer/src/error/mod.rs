@@ -54,6 +54,19 @@ pub enum SynthError {
     /// never what was meant.
     SilentOscStack,
 
+    /// A unison count outside what one oscillator may sound at once. Both ends
+    /// refuse: zero voices is an oscillator asked to make no sound without
+    /// saying so, and past the limit is
+    /// [`SynthError::TooManyOscs`]'s argument one level down — the copies stop
+    /// separating and the arithmetic keeps growing.
+    #[error("patch: an oscillator sounds 1 to {limit} voices, got {found}")]
+    BadVoiceCount {
+        /// How many the oscillator asked for.
+        found: usize,
+        /// The most it may have.
+        limit: usize,
+    },
+
     /// The FM modulator's frequency is a multiple of the played pitch, so a
     /// non-positive ratio has no sound to describe.
     BadFmRatio {

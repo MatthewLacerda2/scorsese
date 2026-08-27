@@ -39,7 +39,8 @@ use crate::stereo::Stereo;
 /// `seed` is the note's. Four of the six sources draw on it: the noise
 /// source is nothing but, the Karplus excitation is a burst of it, and an
 /// oscillator stack and an additive series each start their voices somewhere
-/// in their cycle rather than all of them at zero.
+/// in their cycle rather than all of them at zero — for the stack that is per
+/// oscillator *and* per unison voice.
 ///
 /// The sum is resolved here rather than inside [`fm`] so that module stays the
 /// FM algorithm and nothing else: it is handed the index to use, not the
@@ -55,9 +56,9 @@ pub(crate) fn render(
     frames: usize,
     rate: f32,
 ) -> Stereo {
-    if matches!(source, Source::Noise) {
+    if let Source::Noise { color } = source {
         let mut out = Stereo::silence(frames);
-        noise::fill(&mut out, seed);
+        noise::fill(&mut out, *color, seed);
         return out;
     }
     let mut mono = vec![0.0; frames];
@@ -104,7 +105,7 @@ fn one_waveform(
         Source::Additive { partials } => additive::render(partials, freqs, seed, out, rate),
         // [`render`] sends this one down its own path before narrowing the
         // signal to one channel: it is the only source that draws two.
-        Source::Noise => {}
+        Source::Noise { .. } => {}
     }
 }
 
@@ -141,13 +142,13 @@ fn fm_levels(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::patch::{Osc, Partial, Wave};
+    use crate::patch::{NoiseColor, Osc, Partial, Wave};
 
     fn render_kind(source: &Source) -> Stereo {
         render(source, &vec![220.0; 8192], 5, 1.0, 1.0, 8192, 44_100.0)
     }
 
-    fn every_kind() -> [Source; 6] {
+    fn every_kind() -> [Source; 8] {
         [
             Source::OscStack {
                 oscs: vec![Osc {
@@ -155,13 +156,23 @@ mod tests {
                     detune_cents: 0.0,
                     gain: 1.0,
                     octave: 0,
+                    voices: 5,
+                    spread: 20.0,
                 }],
             },
             Source::Karplus {
                 damping: 0.99,
                 brightness: 0.5,
             },
-            Source::Noise,
+            Source::Noise {
+                color: NoiseColor::White,
+            },
+            Source::Noise {
+                color: NoiseColor::Pink,
+            },
+            Source::Noise {
+                color: NoiseColor::Brown,
+            },
             Source::Fm2 {
                 ratio: 2.0,
                 index: 4.0,
@@ -202,6 +213,21 @@ mod tests {
         }
     }
 
+    /// How loud a source may come out.
+    ///
+    /// One for everything with a waveform, which is normalised to it by
+    /// construction. Coloured noise is the exception, and the number is its
+    /// crest factor rather than a slackening: it is scaled to white's *RMS*,
+    /// and a Gaussian-ish signal at the RMS of a uniform one peaks about twice
+    /// as high. `crate::core::noise::color` argues that trade; the master
+    /// limiter is where this crate answers for peaks.
+    fn ceiling(source: &Source) -> f32 {
+        match source {
+            Source::Noise { color } if *color != NoiseColor::White => 2.5,
+            _ => 1.0 + 1e-3,
+        }
+    }
+
     #[test]
     fn every_source_kind_produces_audible_finite_samples() {
         for source in every_kind() {
@@ -213,7 +239,7 @@ mod tests {
                 );
                 let peak = buf.iter().fold(0.0f32, |m, s| m.max(s.abs()));
                 assert!(peak > 0.2, "{source:?} is inaudible (peak {peak})");
-                assert!(peak <= 1.0 + 1e-3, "{source:?} peaked at {peak}");
+                assert!(peak <= ceiling(&source), "{source:?} peaked at {peak}");
             }
         }
     }
@@ -225,7 +251,7 @@ mod tests {
     fn only_noise_arrives_already_wide() {
         for source in every_kind() {
             let stereo = render_kind(&source);
-            if matches!(source, Source::Noise) {
+            if matches!(source, Source::Noise { .. }) {
                 assert_ne!(stereo.l, stereo.r, "noise draws each side its own");
             } else {
                 assert_eq!(stereo.l, stereo.r, "{source:?} is one waveform, centred");
@@ -236,7 +262,9 @@ mod tests {
     #[test]
     fn an_empty_frequency_track_does_not_panic() {
         for source in [
-            Source::Noise,
+            Source::Noise {
+                color: NoiseColor::Brown,
+            },
             Source::Karplus {
                 damping: 0.9,
                 brightness: 0.5,

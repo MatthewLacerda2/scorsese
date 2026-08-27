@@ -1,10 +1,10 @@
 //! The EQ as a *document*: how a band is written down, what an omitted field
 //! means, and how many bands is too many.
 
-use crate::common::minimal;
+use crate::common::{minimal, noise};
 use scorsese_zimmer::Patch;
 use scorsese_zimmer::SynthError;
-use scorsese_zimmer::patch::{EqBand, EqKind, Fx, MAX_EQ_BANDS, Source};
+use scorsese_zimmer::patch::{EqBand, EqKind, Fx, MAX_EQ_BANDS};
 
 /// A band with everything spelled out.
 fn band(kind: EqKind, freq: f32, gain_db: f32, q: f32) -> EqBand {
@@ -20,7 +20,7 @@ fn band(kind: EqKind, freq: f32, gain_db: f32, q: f32) -> EqBand {
 fn with_bands(bands: Vec<EqBand>) -> Patch {
     Patch {
         fx: vec![Fx::Eq { bands }],
-        ..minimal(Source::Noise)
+        ..minimal(noise())
     }
 }
 

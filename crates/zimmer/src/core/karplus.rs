@@ -62,7 +62,7 @@ fn delay_len(freq: f32, rate: f32) -> usize {
 /// itself as `brightness` falls toward 0.
 fn excitation(len: usize, brightness: f32, seed: u64) -> Vec<f32> {
     let white: Vec<f32> = (0..len)
-        .map(|i| noise::white(i, EXCITATION_CHANNEL, seed))
+        .map(|i| noise::white(i as i64, EXCITATION_CHANNEL, seed))
         .collect();
     (0..len)
         .map(|i| {

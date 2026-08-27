@@ -4,7 +4,7 @@
 
 pub(crate) mod songs;
 
-use scorsese_zimmer::patch::{Adsr, Osc, Patch, Source, Wave};
+use scorsese_zimmer::patch::{Adsr, NoiseColor, Osc, Patch, Source, Wave};
 use scorsese_zimmer::{NoteOpts, SynthError};
 
 /// A plain saw through a fully-sustaining envelope — the control case for
@@ -40,13 +40,23 @@ pub(crate) fn minimal(source: Source) -> Patch {
     }
 }
 
-/// One oscillator, spelled out.
+/// One oscillator, spelled out — a single voice, which is what an `Osc` meant
+/// before unison existed.
 pub(crate) fn osc(wave: Wave, detune_cents: f32, octave: i32) -> Osc {
     Osc {
         wave,
         detune_cents,
         gain: 1.0,
         octave,
+        voices: 1,
+        spread: 12.0,
+    }
+}
+
+/// The plain hiss: the noise source every test that predates colour meant.
+pub(crate) fn noise() -> Source {
+    Source::Noise {
+        color: NoiseColor::White,
     }
 }
 
