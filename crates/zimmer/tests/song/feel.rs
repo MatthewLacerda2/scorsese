@@ -1,6 +1,6 @@
 //! `swing` and `humanize`: a song played rather than clocked.
 
-use crate::common::songs::{song, verse};
+use crate::common::songs::{song, verse, voice};
 use crate::common::{peak, saw_patch};
 use scorsese_zimmer::patch::{Adsr, Filter, FilterKind};
 use scorsese_zimmer::song::{Humanize, InlineOnly, PatchRef};
@@ -32,11 +32,11 @@ fn pass(song: &Song) -> usize {
 #[test]
 fn swinging_equals_writing_the_off_beats_late() {
     let mut swung = song();
-    verse(&mut swung).notes[1].start = 0.5;
+    voice(verse(&mut swung), 1).start = 0.5;
     swung.swing = 0.5;
 
     let mut by_hand = song();
-    verse(&mut by_hand).notes[1].start = 0.75;
+    voice(verse(&mut by_hand), 1).start = 0.75;
 
     assert_eq!(render(&swung), render(&by_hand));
 }
@@ -49,7 +49,7 @@ fn a_note_on_the_beat_does_not_move_however_hard_the_song_swings() {
     let on_the_beat = straight.patterns["verse"]
         .notes
         .iter()
-        .all(|note| note.start.fract() == 0.0);
+        .all(|note| note.start().fract() == 0.0);
     assert!(on_the_beat, "the fixture is written on the beat");
 
     let swung = Song {

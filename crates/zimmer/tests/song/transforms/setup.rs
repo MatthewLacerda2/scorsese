@@ -1,6 +1,6 @@
 //! Shared setup for the arrangement-transform tests.
 
-use scorsese_zimmer::song::{InlineOnly, Note, Pattern, Play};
+use scorsese_zimmer::song::{InlineOnly, Note, Pattern, PatternEntry, Play};
 use scorsese_zimmer::{Song, render_song};
 
 /// Renders a song whose instruments are all inline.
@@ -22,6 +22,7 @@ pub(crate) fn play(pattern: &str) -> Play {
 /// A second two-beat pattern named `higher`, for the by-hand half of a
 /// comparison — the same slot length as the fixture's `verse`.
 pub(crate) fn alongside(song: &mut Song, notes: Vec<Note>) {
+    let notes = notes.into_iter().map(PatternEntry::from).collect();
     song.patterns
         .insert("higher".to_owned(), Pattern { beats: 2.0, notes });
 }

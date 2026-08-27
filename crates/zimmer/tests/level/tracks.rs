@@ -7,7 +7,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::common::songs::note;
+use crate::common::songs::{note, played};
 use crate::common::{adsr, osc};
 use scorsese_zimmer::level::Layer;
 use scorsese_zimmer::patch::{Patch, Source, Wave};
@@ -42,7 +42,10 @@ fn duet() -> Song {
         "verse".to_owned(),
         Pattern {
             beats: 2.0,
-            notes: vec![note("sub", "E1", 0.0, 2.0), note("bell", "E5", 0.0, 2.0)],
+            notes: played(vec![
+                note("sub", "E1", 0.0, 2.0),
+                note("bell", "E5", 0.0, 2.0),
+            ]),
         },
     );
     Song {
@@ -118,7 +121,8 @@ fn a_row_is_what_the_track_contributes_after_its_gain() {
 #[test]
 fn a_track_that_never_plays_is_reported_silent() {
     let mut absent = duet();
-    absent.patterns.get_mut("verse").expect("verse").notes = vec![note("sub", "E1", 0.0, 2.0)];
+    absent.patterns.get_mut("verse").expect("verse").notes =
+        played(vec![note("sub", "E1", 0.0, 2.0)]);
     let tracks = bake(&absent).tracks;
     assert_eq!(tracks.len(), 2, "a silent track is still a track");
     assert!(row(&tracks, "bell").level.loudness.is_silent());
@@ -130,7 +134,8 @@ fn a_track_that_never_plays_is_reported_silent() {
 fn a_song_of_one_track_gets_no_rows() {
     let mut alone = duet();
     alone.tracks.truncate(1);
-    alone.patterns.get_mut("verse").expect("verse").notes = vec![note("sub", "E1", 0.0, 2.0)];
+    alone.patterns.get_mut("verse").expect("verse").notes =
+        played(vec![note("sub", "E1", 0.0, 2.0)]);
     assert!(bake(&alone).tracks.is_empty());
 }
 

@@ -21,7 +21,8 @@
 //!   "tracks": [{ "name": "bass", "patch": "recipes/bass.json", "gain": 0.8 }],
 //!   "patterns": {
 //!     "verse": { "beats": 8, "notes": [
-//!       { "track": "bass", "note": "E2", "start": 0.0, "dur": 0.5, "vel": 1.0 }] }
+//!       { "track": "bass", "note": "E2", "start": 0.0, "dur": 0.5, "vel": 1.0 },
+//!       { "track": "keys", "chord": "Em7", "oct": 3, "start": 0.0, "dur": 2.0 }] }
 //!   },
 //!   "arrangement": ["verse", { "pattern": "verse", "transpose": 12 }]
 //! }
@@ -31,11 +32,16 @@
 //! repeat that can vary is the difference between music that develops and music
 //! that only repeats.
 //!
+//! An entry in a pattern is one note or one [`Chord`] — the same idea one level
+//! down, and for the same reason: four notes that are one chord should be one
+//! thing in the document, or nothing records that they are.
+//!
 //! Rendering lives in [`render_song`]; this file is the document alone — plain
 //! serde data that round-trips losslessly, the same "document as truth" rule
 //! the patch follows.
 
 pub(crate) mod arrangement;
+pub(crate) mod chord;
 pub(crate) mod feel;
 mod mix;
 pub(crate) mod render;
@@ -52,6 +58,7 @@ use crate::error::SynthError;
 use crate::patch::{Fx, Patch};
 
 pub use arrangement::{ArrangementEntry, Play};
+pub use chord::{Chord, Voicing};
 pub use feel::Humanize;
 pub use render::{InlineOnly, PatchResolver, render_song};
 pub use timing::{Fade, Fit, FitMode, Tail};
@@ -186,11 +193,95 @@ pub struct Pattern {
     /// is the *slot*, not the sound.
     pub beats: f32,
     /// What is played, and when within the slot.
-    pub notes: Vec<Note>,
+    pub notes: Vec<PatternEntry>,
+}
+
+impl Pattern {
+    /// Every note this pattern plays, chords expanded to their voices, in
+    /// document order.
+    ///
+    /// The renderer works from this rather than from the written entries, so
+    /// each voice of a chord is an ordinary note by the time swing, humanise
+    /// and the per-note seed reach it — see [`chord`].
+    pub(crate) fn voices(&self) -> Result<Vec<Note>, SynthError> {
+        let mut voiced = Vec::with_capacity(self.notes.len());
+        for entry in &self.notes {
+            entry.voice_into(&mut voiced)?;
+        }
+        Ok(voiced)
+    }
+}
+
+/// One entry in a pattern: a single note, or a chord that sounds as several.
+///
+/// Untagged, told apart by **which field is present** — `note` or `chord` —
+/// the way [`Pitch`] tells a name from a MIDI number. Both variants
+/// [deny unknown fields](https://serde.rs/container-attrs.html), so an entry
+/// carrying both, or one with a misspelled field, is refused rather than read
+/// as whichever variant happened to tolerate it. Guessing between the two is
+/// the one outcome worse than either.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum PatternEntry {
+    /// One note, exactly as patterns have always been written.
+    Note(Note),
+    /// A chord, expanded to its voices before anything is rendered.
+    Chord(Chord),
+}
+
+impl PatternEntry {
+    /// The [`Track::name`] that plays it.
+    pub fn track(&self) -> &str {
+        match self {
+            Self::Note(note) => &note.track,
+            Self::Chord(chord) => &chord.track,
+        }
+    }
+
+    /// Onset in beats from the start of its pattern.
+    pub fn start(&self) -> f32 {
+        match self {
+            Self::Note(note) => note.start,
+            Self::Chord(chord) => chord.start,
+        }
+    }
+
+    /// Gate length in beats.
+    pub fn dur(&self) -> f32 {
+        match self {
+            Self::Note(note) => note.dur,
+            Self::Chord(chord) => chord.dur,
+        }
+    }
+
+    /// Appends what this entry sounds as to `out` — one note, or a chord's
+    /// voices low to high. Nothing is appended when it is refused.
+    pub(crate) fn voice_into(&self, out: &mut Vec<Note>) -> Result<(), SynthError> {
+        match self {
+            Self::Note(note) => {
+                out.push(note.clone());
+                Ok(())
+            }
+            Self::Chord(chord) => chord.voice_into(out),
+        }
+    }
+}
+
+impl From<Note> for PatternEntry {
+    fn from(note: Note) -> Self {
+        Self::Note(note)
+    }
+}
+
+impl From<Chord> for PatternEntry {
+    fn from(chord: Chord) -> Self {
+        Self::Chord(chord)
+    }
 }
 
 /// One note: which track plays it, what pitch, when, for how long, how hard.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Note {
     /// The [`Track::name`] that plays it.
     pub track: String,

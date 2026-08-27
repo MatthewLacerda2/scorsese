@@ -112,7 +112,15 @@ fn played(song: &Song) -> Played {
         let Some(pattern) = song.patterns.get(entry.pattern()) else {
             continue;
         };
-        for note in &pattern.notes {
+        let mut voiced = Vec::new();
+        for written in &pattern.notes {
+            // Entry by entry, so a chord this survey cannot spell costs the
+            // survey that chord and not the pattern around it: a report reads
+            // documents the renderer would refuse, and reporting on the rest of
+            // one is more use than reporting on none of it.
+            let _ = written.voice_into(&mut voiced);
+        }
+        for note in &voiced {
             if !entry.plays(&note.track) {
                 continue;
             }

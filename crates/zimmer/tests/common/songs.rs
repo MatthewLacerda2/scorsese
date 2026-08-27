@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 
 use scorsese_zimmer::patch::{Adsr, Patch, Source};
-use scorsese_zimmer::song::{Note, PatchRef, Pattern, Pitch, Song, Track};
+use scorsese_zimmer::song::{Note, PatchRef, Pattern, PatternEntry, Pitch, Song, Track};
 
 /// A short noise blip. Cheap to render, and *stochastic*, so it exercises the
 /// per-note seeding path rather than a purely deterministic oscillator.
@@ -35,6 +35,20 @@ pub(crate) fn note(track: &str, name: &str, start: f32, dur: f32) -> Note {
     }
 }
 
+/// Plain notes as the pattern entries they become — a chord is the other kind.
+pub(crate) fn played(notes: Vec<Note>) -> Vec<PatternEntry> {
+    notes.into_iter().map(PatternEntry::from).collect()
+}
+
+/// The `index`-th entry of `pattern` as the plain note it is, for the tests
+/// that reach in and change one field of it.
+pub(crate) fn voice(pattern: &mut Pattern, index: usize) -> &mut Note {
+    let PatternEntry::Note(note) = &mut pattern.notes[index] else {
+        panic!("entry {index} is a chord, and this fixture's notes are plain")
+    };
+    note
+}
+
 /// Two beats, two notes, one track, arranged twice.
 pub(crate) fn song() -> Song {
     let mut patterns = BTreeMap::new();
@@ -42,7 +56,10 @@ pub(crate) fn song() -> Song {
         "verse".to_owned(),
         Pattern {
             beats: 2.0,
-            notes: vec![note("bass", "E2", 0.0, 0.5), note("bass", "B2", 1.0, 0.5)],
+            notes: played(vec![
+                note("bass", "E2", 0.0, 0.5),
+                note("bass", "B2", 1.0, 0.5),
+            ]),
         },
     );
     Song {

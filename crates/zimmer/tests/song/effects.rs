@@ -1,7 +1,7 @@
 //! Chains that belong to a track or to the whole mix, rather than to a patch.
 
 use crate::common::peak;
-use crate::common::songs::{note, song, verse};
+use crate::common::songs::{note, played, song, verse};
 use scorsese_zimmer::patch::Fx;
 use scorsese_zimmer::song::{InlineOnly, PatchRef, Song, Tail, Track};
 use scorsese_zimmer::{SAMPLE_RATE, render_song};
@@ -91,7 +91,10 @@ fn a_track_chain_shapes_its_own_instrument_and_leaves_the_rest_alone() {
         name: "lead".to_owned(),
         ..duet.tracks[0].clone()
     });
-    verse(&mut duet).notes = vec![note("bass", "E2", 0.0, 0.4), note("lead", "B4", 1.0, 0.4)];
+    verse(&mut duet).notes = played(vec![
+        note("bass", "E2", 0.0, 0.4),
+        note("lead", "B4", 1.0, 0.4),
+    ]);
     duet.arrangement = vec!["verse".into()];
 
     let mut on_the_lead = duet.clone();

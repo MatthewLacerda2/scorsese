@@ -1,7 +1,7 @@
 //! `transpose`: the same music, somewhere else on the keyboard.
 
 use crate::common::peak;
-use crate::common::songs::{note, song, verse};
+use crate::common::songs::{note, song, verse, voice};
 use scorsese_zimmer::song::{ArrangementEntry, Note, Pitch, Play};
 
 use super::setup::{alongside, play, render};
@@ -45,7 +45,7 @@ fn transposing_an_entry_equals_writing_the_notes_higher() {
 #[test]
 fn transposing_works_on_a_midi_pitch_as_it_does_on_a_name() {
     let mut written = song();
-    verse(&mut written).notes[0].note = Pitch::Midi(40.5);
+    voice(verse(&mut written), 0).note = Pitch::Midi(40.5);
 
     let mut up = written.clone();
     up.arrangement = vec![
@@ -77,7 +77,7 @@ fn transposing_works_on_a_midi_pitch_as_it_does_on_a_name() {
 #[test]
 fn a_transpose_past_the_top_of_the_range_is_clamped_rather_than_refused() {
     let mut high = song();
-    verse(&mut high).notes[0].note = Pitch::Name("G9".to_owned());
+    voice(verse(&mut high), 0).note = Pitch::Name("G9".to_owned());
     high.arrangement = vec![ArrangementEntry::Transformed(Play {
         transpose: Some(24.0),
         ..play("verse")

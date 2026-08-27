@@ -2,7 +2,7 @@
 //! the same song renders the same samples every time.
 
 use crate::common::peak;
-use crate::common::songs::{blip, note, song, verse};
+use crate::common::songs::{blip, note, played, song, verse, voice};
 use scorsese_zimmer::song::{InlineOnly, PatchRef};
 use scorsese_zimmer::{SAMPLE_RATE, Song, SynthError, render_song};
 
@@ -36,7 +36,7 @@ fn a_song_ending_on_a_rest_keeps_the_rest() {
 #[test]
 fn a_note_held_past_the_final_beat_rings_out_rather_than_being_cut() {
     let mut rings_out = song();
-    verse(&mut rings_out).notes[1].dur = 4.0;
+    voice(verse(&mut rings_out), 1).dur = 4.0;
     assert!(render(&rings_out).len() > arrangement_end(&rings_out));
 }
 
@@ -45,7 +45,7 @@ fn a_note_held_past_the_final_beat_rings_out_rather_than_being_cut() {
 #[test]
 fn the_mix_never_clips() {
     let mut piled = song();
-    verse(&mut piled).notes = (0..12).map(|_| note("bass", "E2", 0.0, 1.0)).collect();
+    verse(&mut piled).notes = played((0..12).map(|_| note("bass", "E2", 0.0, 1.0)).collect());
     piled.tracks[0].gain = 1.0;
     let peak = peak(&render(&piled));
     assert!(peak <= 1.0, "the master limiter let {peak} through");

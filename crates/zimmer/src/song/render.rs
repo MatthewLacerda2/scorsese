@@ -40,7 +40,7 @@ use std::collections::HashMap;
 use super::feel::swung;
 use super::mix::Mix;
 use super::shape::{plan, shape};
-use super::{PatchRef, Song};
+use super::{Note, PatchRef, Song};
 use crate::core::{self, RATE};
 use crate::error::SynthError;
 use crate::fx::limiter;
@@ -124,6 +124,15 @@ pub(crate) fn mix_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Mixdo
     // sample is produced: `fit` is a property of the whole piece, and deciding
     // it per note would mean rendering the wrong notes and cutting afterwards.
     let (bpm, passes) = plan(song);
+    // Chords become their voices here, once per pattern and before a sample is
+    // produced — so everything below this line sees ordinary notes, and each
+    // voice of a chord picks up its own ordinal, its own swing displacement and
+    // its own humanise nudge rather than the chord landing as one rigid block.
+    let voiced: HashMap<&str, Vec<Note>> = song
+        .patterns
+        .iter()
+        .map(|(name, pattern)| Ok((name.as_str(), pattern.voices()?)))
+        .collect::<Result<_, SynthError>>()?;
     let track_index: HashMap<&str, usize> = song
         .tracks
         .iter()
@@ -161,7 +170,7 @@ pub(crate) fn mix_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Mixdo
                 .ok_or_else(|| SynthError::UnknownPattern {
                     pattern: entry.pattern().to_owned(),
                 })?;
-        for note in &pattern.notes {
+        for note in voiced.get(entry.pattern()).into_iter().flatten() {
             // A silenced track still consumes its ordinal, so muting one for
             // eight bars does not re-roll the noise of every note after it.
             let track = track_index[note.track.as_str()];

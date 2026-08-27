@@ -1,7 +1,7 @@
 //! Writing a song down: the round trip, how a pitch may be spelled, and what
 //! the renderer refuses before it starts.
 
-use crate::common::songs::{song, verse};
+use crate::common::songs::{song, verse, voice};
 use scorsese_zimmer::SynthError;
 use scorsese_zimmer::song::{Humanize, Pitch, Song};
 
@@ -56,7 +56,7 @@ fn an_arrangement_naming_a_pattern_that_does_not_exist_is_refused() {
 #[test]
 fn a_note_on_a_track_that_does_not_exist_is_refused_by_position() {
     let mut song = song();
-    verse(&mut song).notes[1].track = "lead".to_owned();
+    voice(verse(&mut song), 1).track = "lead".to_owned();
     assert_eq!(
         song.validate(),
         Err(SynthError::UnknownTrack {
@@ -70,7 +70,7 @@ fn a_note_on_a_track_that_does_not_exist_is_refused_by_position() {
 #[test]
 fn a_note_held_for_no_time_is_refused() {
     let mut song = song();
-    verse(&mut song).notes[0].dur = 0.0;
+    voice(verse(&mut song), 0).dur = 0.0;
     assert_eq!(
         song.validate(),
         Err(SynthError::BadNoteDuration {

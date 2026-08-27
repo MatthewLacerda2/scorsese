@@ -5,7 +5,7 @@
 //! even notice. So every name is resolved and every number is checked up front.
 
 use super::timing::MAX_STRETCH;
-use super::{ArrangementEntry, Note, Pattern, Song, Track};
+use super::{ArrangementEntry, Pattern, PatternEntry, Song, Track};
 use crate::error::SynthError;
 
 impl Song {
@@ -150,40 +150,44 @@ impl Pattern {
                 beats: self.beats,
             });
         }
-        for (index, note) in self.notes.iter().enumerate() {
-            note.validate(name, index, tracks)?;
+        for (index, entry) in self.notes.iter().enumerate() {
+            entry.validate(name, index, tracks)?;
         }
         Ok(())
     }
 }
 
-impl Note {
-    /// Checks that one note names a real track, starts somewhere, lasts for
-    /// some time, and has a pitch that parses.
+impl PatternEntry {
+    /// Checks that one entry names a real track, starts somewhere, lasts for
+    /// some time, and has pitches that resolve.
+    ///
+    /// A chord resolves by being expanded, which is the same work the renderer
+    /// does and therefore the same answer: a name off the table, or a voicing
+    /// pushed off the keyboard, is refused here rather than discovered at the
+    /// sample loop.
     fn validate(&self, pattern: &str, index: usize, tracks: &[Track]) -> Result<(), SynthError> {
         let pattern = || pattern.to_owned();
-        if !tracks.iter().any(|track| track.name == self.track) {
+        if !tracks.iter().any(|track| track.name == self.track()) {
             return Err(SynthError::UnknownTrack {
                 pattern: pattern(),
                 index,
-                track: self.track.clone(),
+                track: self.track().to_owned(),
             });
         }
-        if !(self.start.is_finite() && self.start >= 0.0) {
+        if !(self.start().is_finite() && self.start() >= 0.0) {
             return Err(SynthError::BadNoteStart {
                 pattern: pattern(),
                 index,
-                start: self.start,
+                start: self.start(),
             });
         }
-        if !(self.dur.is_finite() && self.dur > 0.0) {
+        if !(self.dur().is_finite() && self.dur() > 0.0) {
             return Err(SynthError::BadNoteDuration {
                 pattern: pattern(),
                 index,
-                dur: self.dur,
+                dur: self.dur(),
             });
         }
-        self.note.to_midi()?;
-        Ok(())
+        self.voice_into(&mut Vec::new())
     }
 }
