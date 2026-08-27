@@ -404,7 +404,40 @@ mod tests {
                 damp: 0.5,
                 mix: 0.0,
             },
+            Fx::Chorus {
+                rate: 0.5,
+                depth: 1.0,
+                voices: 4,
+                mix: 0.0,
+            },
         ];
         assert_eq!(tail_seconds(&dry), 0.0);
+    }
+
+    /// A chorus asks for the length of its own deepest read and nothing more:
+    /// a fortieth of a second against a room's seconds. Both halves of the
+    /// `mix` guard are here — a dry one is in the test above, a wet one is
+    /// this, and the number moves with `depth` because the delay does.
+    #[test]
+    fn a_chorus_asks_for_its_deepest_read_and_no_more() {
+        let ensemble = |depth, mix| {
+            [Fx::Chorus {
+                rate: 0.5,
+                depth,
+                voices: 4,
+                mix,
+            }]
+        };
+        let shallow = tail_seconds(&ensemble(0.0, 1.0));
+        let deep = tail_seconds(&ensemble(1.0, 1.0));
+        assert!(shallow > 0.0, "a wet chorus does ring on: {shallow}");
+        assert!(deep > shallow, "and further when it sweeps further");
+        assert!(deep < 0.03, "but it is not a room: {deep}");
+        let room = tail_seconds(&[Fx::Reverb {
+            size: 0.5,
+            damp: 0.5,
+            mix: 1.0,
+        }]);
+        assert!(deep < room / 10.0, "{deep} against a small room's {room}");
     }
 }

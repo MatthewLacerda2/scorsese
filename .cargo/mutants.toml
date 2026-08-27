@@ -383,6 +383,31 @@ exclude_re = [
     # (`replace * with +`) that an entry without the path would exclude every
     # multiply on the surface.
     'wav\.rs:23:47: replace \* with \+',
+
+    # `chorus::voices::rate_scale` hands back a voice's sweep rate as a multiple
+    # of the written one: a hash draw mapped to `1.0 + RATE_SPREAD * deviation`,
+    # where `deviation` is uniform over `-1..1`. Flipping that `+` to a `-`
+    # negates the deviation, which swaps *which* voices come out fast and which
+    # slow and changes nothing else — the ensemble is still spread the same
+    # distance either side of the written rate, still has no two voices sharing
+    # one, and still drifts in and out of agreement at the same speed.
+    #
+    # Which voice is the fast one is a property of the hash and of nothing
+    # anybody decided, so there is no behaviour here to assert. A test that
+    # pinned it — "voice 0 runs slow" — would be asserting a hash accident, and
+    # would have to be rewritten the day the seed or the channel numbering
+    # moved, having protected nothing in between. That is the case this list is
+    # for.
+    #
+    # `rate_scale` is its own function so that this entry can name one site.
+    # The same expression inline in `ensemble` would have shared a printed name
+    # with `(ordinal + unit2(…)) * slice` one line above, whose `+` *is*
+    # load-bearing — it is what stratifies the phases — and is caught by
+    # `each_voice_draws_its_phase_from_its_own_slice_of_the_cycle`. The other
+    # three mutations of `rate_scale` are caught too: replacing the whole
+    # function with `1.0` puts every voice exactly on the written rate, and
+    # `0.0` and `-1.0` are outside the spread the assertions allow.
+    'replace \+ with - in rate_scale',
 ]
 
 # ---------------------------------------------------------------------------

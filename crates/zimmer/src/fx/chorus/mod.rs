@@ -15,31 +15,20 @@
 //! delays themselves are short enough that the copies fuse into one thickened
 //! event rather than being heard as echoes.
 //!
-//! ## Linear interpolation is not an optimisation to skip
+//! ## The two halves, and where each lives
 //!
-//! A modulated delay read at integer sample positions steps between whole
-//! samples, and each step is a discontinuity: what should be a smooth glide in
-//! pitch arrives as a staircase of them, audible as zipper noise riding on the
-//! effect. Linear interpolation between the two samples either side of the
-//! fractional read position is the **minimum** that makes this a chorus rather
-//! than a broken one, and it is what is done here. A higher-order interpolator
-//! would buy a little high-frequency accuracy; it is not the difference
-//! between working and not.
+//! [`line`] is the delay and the reader, and it carries the argument for
+//! **linear interpolation** — the detail that separates a chorus from a broken
+//! one, because a modulated delay read at whole sample positions is a
+//! staircase of discontinuities rather than a glide in pitch.
 //!
-//! ## Deterministic, and stratified
-//!
-//! The per-voice phase offsets and rate deviations come from [`crate::hash`]
-//! under a fixed seed, so the ensemble is a pure function of the effect's own
-//! settings — never of a counter carried between calls, and never of where in
-//! a buffer processing began. That is the crate's determinism contract, and a
-//! free-running LFO would break it the moment the same chain ran on a bus
+//! [`voices`] is who the copies are: how many, where each sweep starts, how
+//! fast it runs and where it sits. It carries the determinism argument — every
+//! number in it comes from [`crate::hash`] under a fixed seed, so the ensemble
+//! is a pure function of the effect's own settings and never of a counter
+//! carried between calls or of where in a buffer processing began. A
+//! free-running LFO would break that the moment the same chain ran on a bus
 //! instead of on a note.
-//!
-//! The phases are **stratified** rather than drawn uniformly: voice `v` takes
-//! its offset from inside the `v`-th slice of the cycle. A uniform draw over
-//! four voices will sometimes put two of them within a few degrees of each
-//! other, and two voices in phase are not two voices — they are one voice
-//! 6 dB louder, which is the exact failure the effect exists to avoid.
 //!
 //! ## Where the width comes from
 //!
@@ -49,16 +38,8 @@
 //! sitting outside the dry signal is half of what a chorus is, and the half a
 //! mono implementation cannot have.
 //!
-//! Each side's voice gains are normalised to sum to one, so the wet signal
-//! arrives at the level of the dry it is blended against however many voices
-//! there are — a voice count is a thickness control, not a fader.
-//!
-//! It is not a width control either, and that is worth stating because it
-//! reads like one. The voices are placed evenly across the field with both
-//! ends occupied, so **the width is carried by the outermost pair** and the
-//! ones between them fill the field in rather than stretching it: two voices
-//! panned hard is the widest thing this makes, and four is the thickest. More
-//! copies is more disagreement in the middle, which is what a section is.
+//! `voices` is neither a fader nor a width control, and both of those read the
+//! other way round — [`voices`] argues each where the placement is done.
 //!
 //! ## A flanger is a separate variant, and is not this one
 //!
@@ -76,10 +57,14 @@
 //! an effect arrives when a real sound cannot be made without it — and nothing
 //! has needed one yet.
 
+pub(crate) mod line;
+pub(crate) mod voices;
+
 use std::f32::consts::TAU;
 
-use crate::hash::unit2;
-use crate::stereo::{Stereo, pan_gains};
+use crate::stereo::Stereo;
+use line::read;
+use voices::{MAX_VOICES, MIN_VOICES, ensemble};
 
 /// Where a voice's delay sits before the sweep moves it, in seconds.
 ///
@@ -94,60 +79,10 @@ const BASE_SECONDS: f32 = 0.015;
 /// usable rate — audible as richness, not as being out of tune.
 const SWEEP_SECONDS: f32 = 0.010;
 
-/// The fewest voices an ensemble is made of. Two: one copy is a detuned double
-/// of the source with nowhere to be but beside it, and the field has two sides
-/// to fill.
-const MIN_VOICES: usize = 2;
-
-/// The most voices an ensemble is made of.
-///
-/// Four is already a section. Past it each added voice sits closer to one
-/// already there — the ear stops counting copies somewhere around three — and
-/// the cost is another interpolated line read per sample for a thickness
-/// nobody can name. It is the argument [`crate::patch::MAX_OSCS`] makes about
-/// a stack, applied to arithmetic that runs over every sample.
-const MAX_VOICES: usize = 4;
-
 /// The fastest the sweep may run, in Hz. Past this a chorus is a ring
 /// modulator: the sidebands the modulation puts either side of every partial
 /// stop reading as a detune and start being inharmonic tones of their own.
 const MAX_RATE: f32 = 10.0;
-
-/// How far apart the voices' sweep rates are pulled, as a fraction of `rate`.
-///
-/// One shared rate gives an ensemble that breathes in unison, which is a
-/// chorus pedal rather than a section. A tenth is enough that the voices drift
-/// in and out of agreement over a few seconds without any of them running at a
-/// noticeably different speed from the one written.
-const RATE_SPREAD: f32 = 0.1;
-
-/// The seed the phase and rate spreads are drawn under.
-///
-/// Fixed, and deliberately not the note's or the song's seed: the spread is a
-/// property of *the effect*, so a chorus is the same ensemble on every note of
-/// a part. Re-rolling it per note would make each note a differently-arranged
-/// section, which is not what a section is.
-///
-/// The number is `chorus` in ASCII. Any constant would do — this one is only
-/// so that a reader who wonders where it came from has an answer.
-const SPREAD_SEED: u64 = 0x0000_6368_6f72_7573;
-
-/// The hash channel a voice's phase offset is drawn on.
-const PHASE: u64 = 0;
-
-/// The hash channel a voice's rate deviation is drawn on, so it does not
-/// correlate with that voice's phase.
-const DEVIATION: u64 = 1;
-
-/// One modulated tap: where its sweep is, how fast it moves, where it sits.
-struct Voice {
-    /// Sweep phase in radians, advanced once per sample.
-    phase: f32,
-    /// Radians per sample — this voice's own rate, spread off the written one.
-    step: f32,
-    /// Left and right gains, already normalised across the ensemble.
-    gains: (f32, f32),
-}
 
 /// Blend a modulated ensemble of `buf` into `buf`, in place.
 ///
@@ -162,10 +97,17 @@ pub(crate) fn apply(
     mix: f32,
     rate: f32,
 ) {
-    let mix = clamp_unit(mix);
-    if mix <= 0.0 || buf.is_empty() || !rate.is_finite() || rate <= 0.0 {
+    // Only the sample rate is guarded, and it is guarded because a rate of
+    // zero gives a delay line too short to hold the taps that read it. A
+    // `mix` of zero and an empty buffer were both early returns here once,
+    // and both are gone: the blend at the bottom already hands back the dry
+    // sample exactly at zero mix, and a buffer of no frames already runs the
+    // loop no times. Neither clause could change an output, which makes them
+    // branches to delete rather than branches to test.
+    if !rate.is_finite() || rate <= 0.0 {
         return;
     }
+    let mix = clamp_unit(mix);
     let depth = clamp_unit(depth);
     let lfo_rate = if lfo_rate.is_finite() {
         lfo_rate.clamp(0.0, MAX_RATE)
@@ -206,48 +148,6 @@ pub(crate) fn tail_seconds(depth: f32) -> f32 {
     BASE_SECONDS + clamp_unit(depth) * SWEEP_SECONDS
 }
 
-/// The voices, with their phases, rates and normalised placements resolved.
-fn ensemble(count: usize, lfo_rate: f32, rate: f32) -> Vec<Voice> {
-    let slice = TAU / count as f32;
-    let mut voices: Vec<Voice> = (0..count)
-        .map(|index| {
-            let (ordinal, cell) = (index as f32, index as i64);
-            // Stratified: the v-th offset lands inside the v-th slice of the
-            // cycle, so no two voices can draw their way into agreement.
-            let phase = (ordinal + unit2(cell, 0, PHASE, SPREAD_SEED)) * slice;
-            let deviation = unit2(cell, 0, DEVIATION, SPREAD_SEED) * 2.0 - 1.0;
-            Voice {
-                phase,
-                step: TAU * lfo_rate * (1.0 + RATE_SPREAD * deviation) / rate,
-                // Evenly across the field, both ends included: the outermost
-                // pair is what the width is carried by.
-                gains: pan_gains(-1.0 + 2.0 * ordinal / (count - 1) as f32),
-            }
-        })
-        .collect();
-    let left: f32 = voices.iter().map(|voice| voice.gains.0).sum();
-    let right: f32 = voices.iter().map(|voice| voice.gains.1).sum();
-    for voice in &mut voices {
-        voice.gains = (voice.gains.0 / left, voice.gains.1 / right);
-    }
-    voices
-}
-
-/// The line read `delay` samples behind write position `write`, linearly
-/// interpolated between the two samples either side of that position.
-///
-/// `near` is the whole-sample part and `far` is one sample further back, so
-/// the fraction weights *backwards* in time — the direction the delay grows.
-fn read(line: &[f32], write: usize, delay: f32) -> f32 {
-    let len = line.len();
-    let whole = delay.floor();
-    let frac = delay - whole;
-    let back = (whole as usize).clamp(1, len - 2);
-    let near = (write + len - back) % len;
-    let far = (near + len - 1) % len;
-    line[near] * (1.0 - frac) + line[far] * frac
-}
-
 /// A `0..=1` control, with anything that is not a number read as zero.
 fn clamp_unit(value: f32) -> f32 {
     if value.is_finite() {
@@ -270,6 +170,22 @@ mod tests {
                 .map(|i| (TAU * freq * i as f32 / RATE).sin())
                 .collect(),
         )
+    }
+
+    /// A single full-scale impulse in both channels, then silence — the
+    /// fixture that turns "what did this do to the sound" into "where, and
+    /// how much", which is what the arithmetic below can actually be read off.
+    fn impulse(frames: usize) -> Stereo {
+        let mut mono = vec![0.0; frames];
+        mono[0] = 1.0;
+        Stereo::centred(mono)
+    }
+
+    /// Every sample index carrying audible energy, over both channels.
+    fn arrivals(buf: &Stereo) -> Vec<usize> {
+        (0..buf.frames())
+            .filter(|i| buf.l[*i].abs() + buf.r[*i].abs() > 1e-3)
+            .collect()
     }
 
     /// How alike the two channels are, `1.0` being identical.
@@ -302,36 +218,6 @@ mod tests {
     }
 
     #[test]
-    fn the_voices_never_share_a_phase_or_a_rate() {
-        for count in MIN_VOICES..=MAX_VOICES {
-            let voices = ensemble(count, 1.0, RATE);
-            assert_eq!(voices.len(), count);
-            for (a, b) in voices.iter().zip(voices.iter().skip(1)) {
-                assert!(b.phase > a.phase, "stratified, so strictly ordered");
-                assert!((b.phase - a.phase) > 0.1, "and never near-coincident");
-                assert_ne!(a.step, b.step, "each voice sweeps at its own rate");
-            }
-            let left: f32 = voices.iter().map(|v| v.gains.0).sum();
-            assert!((left - 1.0).abs() < 1e-5, "the side sums to unity: {left}");
-        }
-    }
-
-    #[test]
-    fn the_modulated_read_glides_rather_than_stepping() {
-        // A ramp read back at a slowly growing delay: with integer reads the
-        // output would repeat samples and then jump. Linear interpolation
-        // makes every consecutive difference smaller than one whole step.
-        let line: Vec<f32> = (0..64).map(|i| i as f32).collect();
-        let taps: Vec<f32> = (0..40)
-            .map(|i| read(&line, 63, 8.0 + i as f32 * 0.05))
-            .collect();
-        for (a, b) in taps.iter().zip(taps.iter().skip(1)) {
-            let step = (b - a).abs();
-            assert!(step > 0.0 && step < 0.5, "a staircase step of {step}");
-        }
-    }
-
-    #[test]
     fn a_dry_mix_and_a_degenerate_setting_change_nothing() {
         let original = tone(330.0);
         let mut dry = original.clone();
@@ -346,6 +232,123 @@ mod tests {
             let mut buf = original.clone();
             apply(&mut buf, lfo_rate, depth, 3, 1.0, rate);
             assert!(buf.l.iter().chain(&buf.r).all(|s| s.is_finite()));
+        }
+    }
+
+    /// Where a copy actually lands. At `depth` 0 every voice is frozen on the
+    /// centre delay, which at this rate is 661.5 samples — deliberately not a
+    /// whole number, so an impulse can only come back split evenly across two
+    /// samples if the read is interpolated at all.
+    #[test]
+    fn a_copy_arrives_exactly_the_centre_delay_behind_the_dry_signal() {
+        let mut buf = impulse(4096);
+        apply(&mut buf, 0.0, 0.0, 4, 1.0, RATE);
+        let at = BASE_SECONDS * RATE;
+        assert!(
+            (at.fract() - 0.5).abs() < 1e-3,
+            "the fixture rests on a half"
+        );
+        let near = at.floor() as usize;
+        assert!((buf.l[near] - 0.5).abs() < 1e-4, "near tap {}", buf.l[near]);
+        assert!(
+            (buf.l[near + 1] - 0.5).abs() < 1e-4,
+            "far tap {}",
+            buf.l[near + 1]
+        );
+        assert_eq!(buf.l[near - 1], 0.0, "and silence either side of the pair");
+        assert_eq!(buf.l[near + 2], 0.0);
+        assert_eq!(buf.l[0], 0.0, "fully wet keeps no dry signal");
+    }
+
+    /// What `depth` buys, held still where it can be read off: a rate of zero
+    /// freezes each voice at its own phase, so instead of sweeping through its
+    /// delays the ensemble sits at a fixed spread of them.
+    #[test]
+    fn depth_places_each_voice_at_its_own_delay_inside_the_documented_range() {
+        let mut buf = impulse(4096);
+        apply(&mut buf, 0.0, 1.0, 4, 1.0, RATE);
+        let (centre, sweep) = (BASE_SECONDS * RATE, SWEEP_SECONDS * RATE);
+        let landed = arrivals(&buf);
+        for voice in ensemble(4, 0.0, RATE) {
+            let at = (centre + sweep * voice.phase.sin()).floor() as usize;
+            assert!(
+                landed.contains(&at) || landed.contains(&(at + 1)),
+                "no copy at {at}; energy is at {landed:?}"
+            );
+        }
+        let (first, last) = (landed[0] as f32, landed[landed.len() - 1] as f32);
+        assert!(
+            first >= centre - sweep - 1.0,
+            "nothing arrives before the range"
+        );
+        assert!(last <= centre + sweep + 1.0, "nor after it");
+        assert!(
+            last - first > sweep,
+            "and they are spread across most of it"
+        );
+
+        // Two voices, so the left channel carries the first one alone and
+        // nothing else. That is what pins the *direction* the sweep is applied
+        // in: a spread measured over both channels is very nearly its own
+        // mirror image, so it cannot tell `centre + sweep` from
+        // `centre - sweep`, and one voice on one side can.
+        let mut pair = impulse(4096);
+        apply(&mut pair, 0.0, 1.0, 2, 1.0, RATE);
+        let alone = &ensemble(2, 0.0, RATE)[0];
+        let at = (centre + sweep * alone.phase.sin()).floor() as usize;
+        let caught = pair.l[at] + pair.l[at + 1];
+        assert!(caught > 0.9, "the copy is not at {at}: {caught} of it is");
+    }
+
+    /// The sweep is a sweep. Probed half a cycle apart a copy comes back at a
+    /// very different delay, and probed a whole cycle apart it is home again.
+    ///
+    /// The cycle is **that voice's own**, not the written rate: the voices are
+    /// deliberately pulled a little either side of it, so a period taken from
+    /// `rate` would be a period none of them actually has.
+    #[test]
+    fn a_copy_sweeps_through_its_delays_and_is_back_after_one_of_its_cycles() {
+        let hz = 4.0;
+        // Two voices, so the left channel is the first one alone and the peak
+        // found below belongs to one sweep rather than to a sum of them.
+        let period = (TAU / ensemble(2, hz, RATE)[0].step).round() as usize;
+        let mut buf = Stereo::silence(period + 4096);
+        for probe in [0, period / 2, period] {
+            buf.l[probe] = 1.0;
+            buf.r[probe] = 1.0;
+        }
+        apply(&mut buf, hz, 1.0, 2, 1.0, RATE);
+        let loudest = |from: usize| {
+            (from..from + 2048)
+                .max_by(|a, b| buf.l[*a].abs().total_cmp(&buf.l[*b].abs()))
+                .expect("a window to search")
+                - from
+        };
+        let (start, middle, end) = (loudest(0), loudest(period / 2), loudest(period));
+        assert!(
+            start.abs_diff(end) <= 4,
+            "a cycle on, back where it began: {start} then {end}"
+        );
+        assert!(
+            start.abs_diff(middle) > 100,
+            "and half a cycle on, somewhere else: {start} then {middle}"
+        );
+    }
+
+    /// The blend, the way every other effect here states it: half way across
+    /// is the arithmetic mean of the two ends, exactly.
+    #[test]
+    fn mix_blends_wet_against_dry() {
+        let dry = tone(220.0);
+        let mut wet = dry.clone();
+        apply(&mut wet, 0.7, 0.6, 3, 1.0, RATE);
+        let mut half = dry.clone();
+        apply(&mut half, 0.7, 0.6, 3, 0.5, RATE);
+        for i in 0..dry.frames() {
+            let expected = (dry.l[i] + wet.l[i]) * 0.5;
+            assert!((half.l[i] - expected).abs() < 1e-5, "left at {i}");
+            let expected = (dry.r[i] + wet.r[i]) * 0.5;
+            assert!((half.r[i] - expected).abs() < 1e-5, "right at {i}");
         }
     }
 
