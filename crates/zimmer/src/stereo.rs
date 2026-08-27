@@ -76,10 +76,13 @@ impl Stereo {
     }
 
     /// Grows both channels to at least `frames`, leaving a longer signal alone.
+    ///
+    /// Written as a `max` rather than as a guarded resize because the guard
+    /// has no edge to get wrong: resizing to the length it already is does
+    /// nothing, so `>` and `>=` would behave identically and no test could
+    /// ever tell them apart.
     pub(crate) fn grow_to(&mut self, frames: usize) {
-        if frames > self.frames() {
-            self.resize(frames);
-        }
+        self.resize(frames.max(self.frames()));
     }
 
     /// Runs `apply` over each channel in turn.

@@ -59,6 +59,15 @@ fn a_pitch_lfo_bends_the_note() {
     );
 }
 
+/// Three quarters of a cycle at 6 Hz: `44_100 * 3 / (4 * 6)`, where the wave
+/// is at its trough and a full-depth tremolo is holding the note at silence.
+const TROUGH: usize = 5_512;
+
+/// A window around it, a couple of saw periods wide, so the assertion is about
+/// the gain over a stretch rather than about one sample that might have been
+/// near a zero crossing anyway.
+const AROUND: usize = 60;
+
 /// The distinction the LFO targets exist to make: tremolo is a level move, so
 /// it must leave the pitch alone entirely.
 #[test]
@@ -77,6 +86,15 @@ fn a_tremolo_lfo_touches_level_and_not_pitch() {
         "tremolo is not a pitch move"
     );
     assert!(peak(&tremolo) > 0.5, "but it is not silence either");
+    // Full depth dips all the way *to* silence and never past unity, which is
+    // the tremolo multiplying into the gain rather than dividing it: a divide
+    // reaches infinity at the trough and the note is a click instead.
+    assert!(
+        tremolo.iter().all(|sample| sample.abs() <= 1.0 + 1e-3),
+        "a tremolo must not make a note louder than the note"
+    );
+    let trough = peak(&tremolo[TROUGH - AROUND..TROUGH + AROUND]);
+    assert!(trough < 0.01, "full depth must reach silence, not {trough}");
 }
 
 #[test]

@@ -136,3 +136,55 @@ fn fade_out(buf: &mut [f32], length: usize) {
         *sample *= 1.0 - (index as f32 / length as f32);
     }
 }
+
+/// The seam, by which side of it a length falls on.
+///
+/// [`resize`] is the one place here that behaves differently depending on a
+/// comparison, and the case it has to get right is the boring one: a target
+/// that is exactly the length already rendered. Fading there would put a
+/// twenty-millisecond dip on the end of a song that was never cut — audible,
+/// and invisible to every test that asks how long the result is.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A signal that is 1.0 all the way through, so a fade is the only thing
+    /// that can make any sample anything else.
+    fn flat(frames: usize) -> Stereo {
+        Stereo::centred(vec![1.0; frames])
+    }
+
+    /// The seam, in samples — long enough that a cut has room to fade.
+    fn seam() -> usize {
+        samples(SEAM)
+    }
+
+    #[test]
+    fn a_cut_is_faded_so_it_does_not_click() {
+        let mut buf = flat(seam() * 4);
+        resize(&mut buf, seam() * 2);
+        assert_eq!(buf.frames(), seam() * 2);
+        assert_eq!(buf.l[0], 1.0, "the front of it is untouched");
+        assert!(buf.l[seam() * 2 - 1] < 0.01, "and the seam runs to silence");
+        assert_eq!(buf.l, buf.r, "both sides fade together");
+    }
+
+    #[test]
+    fn a_target_that_is_already_the_length_changes_nothing() {
+        let mut buf = flat(seam() * 4);
+        resize(&mut buf, seam() * 4);
+        assert_eq!(buf, flat(seam() * 4), "nothing was cut, so nothing fades");
+    }
+
+    #[test]
+    fn a_longer_target_is_padded_with_silence_and_not_faded() {
+        let mut buf = flat(seam());
+        resize(&mut buf, seam() * 2);
+        assert_eq!(buf.frames(), seam() * 2);
+        assert!(
+            buf.l[..seam()].iter().all(|s| *s == 1.0),
+            "the music is left alone"
+        );
+        assert!(buf.l[seam()..].iter().all(|s| *s == 0.0), "and padded");
+    }
+}

@@ -118,6 +118,29 @@ fn a_row_is_what_the_track_contributes_after_its_gain() {
     );
 }
 
+/// Every row is measured over the **finished mix's** length, not its own, which
+/// is the only thing that lets the rows be read against each other: a part that
+/// plays for half the piece is taking up half as much room, and a mean over its
+/// own extent would say it was just as present as the pad under it.
+#[test]
+fn a_track_that_plays_for_half_the_piece_reads_half_as_present() {
+    let throughout = bake(&duet()).tracks;
+    let mut briefly = duet();
+    briefly.patterns.get_mut("verse").expect("verse").notes =
+        vec![note("sub", "E1", 0.0, 2.0), note("bell", "E5", 0.0, 1.0)];
+    let cut_short = bake(&briefly).tracks;
+
+    let moved = mean(&throughout, "bell") - mean(&cut_short, "bell");
+    assert!(
+        (moved - 3.01).abs() < 0.2,
+        "half the window is 3 dB down, not {moved}"
+    );
+    assert!(
+        (mean(&throughout, "sub") - mean(&cut_short, "sub")).abs() < 0.01,
+        "the track that kept playing did not move"
+    );
+}
+
 /// A track that plays nothing still gets a row saying so. A missing row reads
 /// as an oversight; "the bell is not in this mix" is a finding.
 #[test]

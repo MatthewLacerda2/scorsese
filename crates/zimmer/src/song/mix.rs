@@ -254,3 +254,89 @@ fn mix_into(dst: &mut Stereo, src: &Stereo, at: usize, (left, right): (f32, f32)
         }
     }
 }
+
+/// The arithmetic, by the number rather than by the piece of music.
+///
+/// What defends this module otherwise is a suite that renders whole songs and
+/// asks how long they are and how loud they came out — questions a mixer that
+/// **subtracted** would answer correctly, because a peak is a magnitude and a
+/// length does not care about a sign. That is #60, the bug this crate's
+/// mutation surface was widened to catch: `Mix::add` mixing by subtraction with
+/// the whole suite green.
+///
+/// So these say where a part lands, which way up, and at what gain on each
+/// side — the three things a sum has to get right and that nothing measuring a
+/// finished mix can see.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A signal that is `value` on the left and its negative on the right, so
+    /// a test can tell the two channels apart and a sign flip cannot hide in a
+    /// symmetry.
+    fn lopsided(frames: usize, value: f32) -> Stereo {
+        Stereo {
+            l: vec![value; frames],
+            r: vec![-value; frames],
+        }
+    }
+
+    /// The sum is a sum: the source arrives on top of what was there, the same
+    /// way up, at the frame it was given.
+    #[test]
+    fn a_part_is_added_where_it_starts_and_the_way_up_it_came() {
+        let mut master = Stereo::centred(vec![0.25; 6]);
+        mix_into(&mut master, &lopsided(2, 1.0), 3, UNITY);
+        assert_eq!(master.l, vec![0.25, 0.25, 0.25, 1.25, 1.25, 0.25]);
+        assert_eq!(master.r, vec![0.25, 0.25, 0.25, -0.75, -0.75, 0.25]);
+    }
+
+    /// The destination grows to fit rather than truncating — this is what lets
+    /// a song ring out past its final beat.
+    #[test]
+    fn a_part_landing_past_the_end_extends_the_mix() {
+        let mut master = Stereo::silence(2);
+        mix_into(&mut master, &lopsided(3, 0.5), 4, UNITY);
+        assert_eq!(master.frames(), 7, "four frames in, three long");
+        assert_eq!(master.l, vec![0.0, 0.0, 0.0, 0.0, 0.5, 0.5, 0.5]);
+    }
+
+    /// Each side is scaled by its own number on the way in, so a placement is
+    /// applied once and in the same pass as the fader.
+    #[test]
+    fn each_side_arrives_at_its_own_gain() {
+        let mut master = Stereo::silence(1);
+        mix_into(&mut master, &Stereo::centred(vec![1.0]), 0, (0.25, 0.75));
+        assert_eq!(master.l, vec![0.25]);
+        assert_eq!(master.r, vec![0.75]);
+    }
+
+    /// [`scale`] multiplies, and multiplies each side by its own gain — the
+    /// pass that puts a bussed track's fader and pan onto the copy that gets
+    /// measured.
+    #[test]
+    fn scaling_a_bus_multiplies_each_side_by_its_own_gain() {
+        let mut bus = lopsided(2, 1.0);
+        scale(&mut bus, (0.5, 0.25));
+        assert_eq!(bus.l, vec![0.5, 0.5]);
+        assert_eq!(bus.r, vec![-0.25, -0.25]);
+    }
+
+    /// A fader and a position multiply into one number per side, and a centred
+    /// track's is exactly its fader — the promise `pan` has to keep.
+    #[test]
+    fn a_placement_is_the_fader_times_the_position() {
+        assert_eq!(placement(0.8, 0.0), (0.8, 0.8));
+        let (l, r) = placement(0.5, -1.0);
+        assert!(
+            (l - 0.5 * std::f32::consts::SQRT_2).abs() < 1e-6,
+            "left {l}"
+        );
+        assert_eq!(r, 0.0);
+        assert_eq!(
+            UNITY,
+            placement(1.0, 0.0),
+            "a bus is summed at the identity"
+        );
+    }
+}

@@ -288,6 +288,48 @@ mod tests {
         assert_eq!(rung(4096, 0.7, 0.5, 0.0), impulse(4096));
     }
 
+    /// `mix` blends the tail **into** the dry signal rather than out of it.
+    ///
+    /// Every other test here reads a magnitude — an energy, a peak, a
+    /// difference between neighbours — and a room subtracted from its source
+    /// measures exactly like a room added to it. This is the one assertion
+    /// that has an opinion about which way up the tail arrives, and it asks it
+    /// the way the waveshaper's does: the half-wet signal has to be the
+    /// average of the dry one and the fully wet one, sample for sample.
+    #[test]
+    fn the_tail_is_blended_into_the_dry_signal_and_not_out_of_it() {
+        let dry = impulse(8192);
+        let wet = rung(8192, 0.8, 0.5, 1.0);
+        let half = rung(8192, 0.8, 0.5, 0.5);
+        let mut compared = 0;
+        for ((h, d), w) in half.l.iter().zip(&dry.l).zip(&wet.l) {
+            assert!((h - (d + w) * 0.5).abs() < 1e-6, "half of the way across");
+            if w.abs() > 1e-4 {
+                compared += 1;
+            }
+        }
+        assert!(compared > 100, "only {compared} samples carried any tail");
+    }
+
+    /// A render rate of nothing is a nonsense a caller can hand in, and the
+    /// answer is the tuning's own rate rather than a rescale by zero — which
+    /// would collapse all twelve delay lines to a single sample and turn the
+    /// room into a buzz.
+    #[test]
+    fn a_rate_of_nothing_falls_back_to_the_rate_the_tunings_were_chosen_at() {
+        let rung_at = |rate: f32| {
+            let mut buf = impulse(8192);
+            apply(&mut buf, 0.8, 0.5, 1.0, rate);
+            buf
+        };
+        assert_eq!(rung_at(0.0), rung_at(TUNED_RATE));
+        assert!(energy(&rung_at(0.0).l) > 0.5, "and it is still a room");
+        // And a rate that *is* a rate rescales, so the fallback is a fallback
+        // rather than the only path: at twice the tuning rate every delay line
+        // is twice as long, which is a different room.
+        assert_ne!(rung_at(TUNED_RATE * 2.0), rung_at(TUNED_RATE));
+    }
+
     #[test]
     fn silence_in_is_silence_out_and_stays_finite() {
         let mut buf = Stereo::silence(4096);
