@@ -112,9 +112,12 @@
 #   on ten cores), where the same tool reported anything from 1s to 128s to
 #   build a mutant. That is a number about a busy laptop, not about a cold
 #   GitHub-hosted `ubuntu-24.04` runner at `--jobs 2`, and quoting it would be
-#   inventing a CI figure. The mutant count is the honest before-and-after; the
-#   job's own `timeout-minutes: 30` is the backstop if a zimmer-heavy diff ever
-#   turns out to be slow in practice.
+#   inventing a CI figure. The mutant count is the honest before-and-after, and
+#   it is also what the CI job now *acts* on: it counts the mutations a diff
+#   puts in scope with `--list --in-diff` before building anything, and shards
+#   the run across runners when one will not fit in the time a per-PR signal is
+#   allowed (#399). A zimmer-heavy diff being slow is therefore a question of
+#   how many shards it takes rather than of whether a report arrives at all.
 examine_globs = [
     "crates/core/src/**/*.rs",
     "crates/compositor/src/**/*.rs",

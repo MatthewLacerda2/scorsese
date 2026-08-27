@@ -26,8 +26,11 @@ asserts on. A mutation that **survives** is a change nobody objected to.
 ## It is a signal, never a gate
 
 Per CLAUDE.md's gates-vs-signals rule, this audits quality; it does not prove
-correctness. The `mutants` job in `.github/workflows/ci.yml` is
-`continue-on-error`, and nothing it finds can fail a build or block a merge.
+correctness. The `mutants` jobs in `.github/workflows/ci.yml` — the plan, the
+shards, and the report they merge into — are all `continue-on-error`, and
+nothing they find can fail a build or block a merge. What *can* turn one of
+their checks red is the instrument being broken: a collapsed surface, a base
+that cannot be resolved, or a report with no plan behind it to write from.
 
 That is a deliberate design decision and not a soft start. Mutation produces
 **equivalent mutants** — changes that alter the code without altering its
@@ -63,6 +66,38 @@ paragraph — this one is a summary and the config is the thing that runs.
 
 Per pull request the run is narrowed again with `--in-diff`, so the cost tracks
 the size of the change rather than the size of the codebase.
+
+## Sharding, and the report a diff too large still gets
+
+`--in-diff` makes the cost track the diff, and for a while that was the end of
+it: a large enough diff simply ran past the job's `timeout-minutes: 30` and was
+cancelled having said nothing at all. #383 is the case — 233 mutants, a whole
+COLRv1 painter, **no report**. The signal was least available exactly where it
+was most useful, and a cancelled job looks identical to a broken one, which
+inverts what a red check here means.
+
+So the job decides what it is about to do before it does any of it.
+`cargo mutants --list --in-diff` builds nothing and answers in well under a
+second, so the count of mutations in scope is free *up front*:
+
+- **Under the budget** — one runner, exactly as before. Most pull requests.
+- **Over it** — `cargo mutants --shard k/n` across up to four runners in
+  parallel, sized from the count. 80 mutations per shard, from #394's measured
+  ~10.5s per mutant on a runner against a 20-minute per-shard budget.
+- **Over even that** — the shards run what they can and the report says what it
+  did not reach. `.github/scripts/mutants-merge.py` puts the shards back
+  together, and a shard that was stopped, or that never reported at all, leaves
+  the merged run stamped as unfinished.
+
+The 30 minutes was not raised, and raising it is not the fix: it is a judgement
+about what a per-pull-request signal may cost, and a run needing an hour has
+stopped being the thing the job is for. The budget is enforced *inside* the
+step instead, so a shard that runs out of time ends by uploading what it
+measured rather than by being killed with the report unwritten.
+
+Nor is there a deliberate *sample*. Sharding is what makes one unnecessary, and
+what is left when even sharding will not fit is not a designed subset — it is
+whatever the clock allowed, reported as that and counted.
 
 ## The scheduled sweep
 
@@ -152,7 +187,10 @@ preferred victim while the compilers that ate the RAM carry on. The symptom is
 a dead terminal, three layers from the cause (#398). All three callers pass
 `--jobs 2` — `make mutants`, the CI job and the sweep — and the argument for
 the number is written once, in `.cargo/mutants.toml` under *How wide a run fans
-out*, because cargo-mutants has no config key to hold it. A run that needs to
+out*, because cargo-mutants has no config key to hold it. It is two *per
+shard*, and stays two when the CI job fans out across several: each shard is
+its own runner, so four of them do not share the cores and the memory the
+number is sized against. A run that needs to
 be gentler still than that: `make mutants MUTANTS_JOBS=1`.
 
 The copy has no `target/` in it either — `copy_target` has been off by default
@@ -202,6 +240,24 @@ Two things never become rows, because they are one finding rather than many:
 Everything else is listed in full; the report does not paginate. A table with
 rows in it is short because there is genuinely something to read.
 
+### A report that says it did not cover everything
+
+Two banners, and they are separate claims:
+
+- **"This run did not finish"** — cargo-mutants recorded a start and no end, so
+  it was stopped rather than completed. For the sweep that is a crate outgrowing
+  the six-hour job limit; for a pull request it is a shard reaching its budget.
+- **"N of M mutations in this diff were not measured"** — how much of the diff
+  nobody looked at, in mutations. Only the pull-request job prints it, because
+  only it knows the number `--list --in-diff` gave before the run started.
+
+A gap is **not** a survivor and it is not a catch. Nothing is known about those
+mutations, and the absence of rows for them says nothing at all — which is the
+point of printing the number rather than leaving it to be inferred. If the gap
+covers code this branch wrote and the answer matters, `make mutants` locally has
+no thirty-minute clock; the alternative is to say in the pull request which part
+went unmeasured, so the next reader is not left to guess.
+
 ## Triaging a survivor
 
 **A survivor is a test gap until it is shown to be equivalent.** In order:
@@ -244,7 +300,8 @@ So, when writing an entry:
 That check is wired up rather than remembered: `.cargo/mutants.toml` records a
 `surface-floor:` line, and `.github/scripts/mutation-surface.py` compares the
 count against it — inside `make mutants` before it mutates anything, and as the
-`mutants` CI job's first step. A **floor** and not the count itself, so writing
+first thing the `mutants: plan` CI job does, before it has decided anything
+about the diff at all. A **floor** and not the count itself, so writing
 code never trips it and deleting the surface does. It is deliberately not part
 of `make gates`: it proves the instrument works, not that the code is right.
 

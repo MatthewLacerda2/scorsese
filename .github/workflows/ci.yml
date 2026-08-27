@@ -473,27 +473,77 @@ jobs:
   # an agent to act on before claiming the work is finished, so a draft is a
   # branch with nothing claimed about it yet — and the survivor list it would
   # comment is one an in-progress branch has not finished earning.
-  mutants:
-    name: mutants (signal)
+  #
+  # ---------------------------------------------------------------------------
+  # Three jobs, because a diff can be larger than half an hour
+  # ---------------------------------------------------------------------------
+  #
+  # #399: the branch that added a COLRv1 painter put 233 mutants in scope, ran
+  # past `timeout-minutes: 30`, and was cancelled having said **nothing**. The
+  # signal was therefore least available exactly where it was most useful — a
+  # one-line fix gets a report in ninety seconds, a branch adding a subsystem
+  # got silence — and a cancelled job renders identically to a broken one,
+  # which inverts what a red check here is supposed to mean.
+  #
+  # The answer is two halves of one thing, and neither works alone:
+  #
+  # - **Decide first, then fan out.** `cargo mutants --list --in-diff` builds
+  #   nothing and answers in well under a second (0.6s measured on the
+  #   development machine at 27.1.0), so the count of what is in scope is free
+  #   *before* anything is compiled. `mutants-plan` takes it and picks a shard
+  #   count; `mutants-shard` runs that many `--shard k/n` jobs in parallel.
+  #   A one-line fix still costs one runner, because the count said so.
+  # - **Say what was not reached.** Four shards is not infinity. When the count
+  #   exceeds what they can cover, the shards run what they can and the report
+  #   names the shortfall in mutations — `--in-scope` below carries the number
+  #   the plan measured, and a report describing fewer says so and by how many.
+  #   A named gap is worth far more than a cancelled job; it is also the only
+  #   form in which CLAUDE.md's exits (fix it, exclude it, file it) can be
+  #   applied to work nobody looked at.
+  #
+  # What this deliberately does not do is **raise the timeout**, which #399
+  # rules out and the comment on it explains: thirty minutes is a judgement
+  # about what a per-PR signal may cost, and a run needing an hour has stopped
+  # being the thing this job is for. Nor does it fall back to a labelled
+  # *sample*: sharding is what makes a sample unnecessary, and what is left
+  # when even sharding will not fit is not a designed subset — it is whatever
+  # the clock allowed, and it is reported as that rather than dressed up.
+  #
+  # The per-shard budget, and where the numbers come from. #394 measured this
+  # job on the runner: ten mutants in ~147s including cargo-mutants' own
+  # ~40s baseline build, so **~10.5s per mutant at `--jobs 2`** — the one
+  # figure here that is a measurement. The rest is arithmetic and labelled as
+  # such: a 20-minute budget less a baseline build is ~19 minutes, or ~108
+  # mutants, so `MUTANTS_PER_SHARD` is set to **80** to keep about a quarter in
+  # hand for a slower runner. Four shards is the cap, which puts 320 mutants
+  # inside the budget — #383's 233 becomes three shards of ~78.
+  #
+  # `timeout-minutes: 30` stays on every job below and is untouched. The point
+  # is that nothing reaches it any more: the budget is enforced *inside* the
+  # step with `timeout`, so a shard that runs out of time ends by uploading
+  # what it measured instead of by being killed with the report unwritten.
+  mutants-plan:
+    name: "mutants: plan (signal)"
     runs-on: ubuntu-24.04
     if: >
       github.event_name == 'pull_request' &&
       github.event.pull_request.draft == false
-    # The same structural guarantee `coverage` relies on: whatever happens in
-    # here — survivors, a broken flag, cargo-mutants itself falling over — the
-    # workflow run stays green and the PR stays mergeable. The job's own check
-    # can still go red, which is where "your signal is broken" belongs. Naming
-    # this job in a branch-protection required-checks list would undo all of
-    # that: don't.
+    # Same standing as every job in this signal: whatever happens here, the
+    # workflow run stays green and the PR stays mergeable. This job's own check
+    # can go red, and that is reserved for the instrument being broken — a
+    # collapsed surface, or a base that cannot be resolved.
     continue-on-error: true
-    # A backstop under the per-mutant timeout in `.cargo/mutants.toml`. That
-    # one catches a single mutant that hangs; this one catches a diff so large
-    # that the run stops being a per-PR signal, and ends it rather than letting
-    # it wander towards the six-hour default.
     timeout-minutes: 30
     permissions:
       contents: read
-      pull-requests: write
+    outputs:
+      # How many shards to run, the matrix to run them as, and how many
+      # mutations they are collectively answering about. The last is the one
+      # that survives the run being cut short, which is why it is taken here
+      # rather than counted from what came back.
+      shards: ${{ steps.plan.outputs.shards }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+      in_scope: ${{ steps.plan.outputs.in_scope }}
     steps:
       # `fetch-depth: 0`, and this is load-bearing. `--in-diff` compares
       # against the base commit, and the default shallow checkout does not
@@ -505,15 +555,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Mutants in `crates/render/src/plan/` and `src/audio/` run that crate's
-      # tests, which decode real fixture media.
-      - name: Install ffmpeg
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
-
+      # Nothing here builds, but `cargo mutants --list` still resolves the
+      # workspace, and that wants the registry index. Restore only: the shards
+      # below are what populate this cache, and four jobs racing to save the
+      # same key is noise rather than a second copy.
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
         with:
           key: mutants
+          save-if: false
 
       - name: Install cargo-mutants
         uses: taiki-e/install-action@cargo-mutants
@@ -542,7 +592,6 @@ jobs:
       # producing a clean report. The base and the file count go into the
       # report too, so a reader can see what was compared rather than assume.
       - name: The lines this PR changed
-        id: diff
         env:
           BASE: origin/${{ github.event.pull_request.base.ref }}
         run: |
@@ -563,8 +612,139 @@ jobs:
           echo "Diff-scoped to this pull request: $rust of $changed changed" \
                "files are Rust, against \`$BASE\` (merge base" \
                "\`$(git rev-parse --short "$merge_base")\`)." > scope.txt
-          if [ -s pr.diff ]; then echo "rust=yes" >> "$GITHUB_OUTPUT"
-          else echo "rust=no" >> "$GITHUB_OUTPUT"; fi
+
+      # The decision #399 asked for, made before a line is compiled. `--list`
+      # against the same diff the shards will be given answers in under a
+      # second, so the count is exact, free, and — the part that matters — known
+      # even in the case where the run itself will not finish.
+      #
+      # The scope line gains a sentence here rather than in the step above,
+      # because what a reader wants beside "12 of 30 files are Rust" is how
+      # much of it was mutable and how the work was split.
+      - name: How much of that is in the mutated surface
+        id: plan
+        env:
+          MUTANTS_PER_SHARD: 80
+          MUTANTS_MAX_SHARDS: 4
+        run: |
+          cargo mutants --list --in-diff pr.diff > in-scope.txt
+          in_scope=$(wc -l < in-scope.txt)
+          shards=$(( (in_scope + MUTANTS_PER_SHARD - 1) / MUTANTS_PER_SHARD ))
+          over=no
+          if [ "$shards" -gt "$MUTANTS_MAX_SHARDS" ]; then
+            shards=$MUTANTS_MAX_SHARDS
+            over=yes
+          fi
+          # `seq 0 -1` prints nothing, so a diff with no mutable lines produces
+          # `[]` and GitHub runs no shard at all -- which is the honest answer
+          # and costs nothing. Shards are 0-based: cargo-mutants 27.1.0 refuses
+          # `--shard 3/3` with "shard k must be less than n".
+          matrix="[$(seq 0 $((shards - 1)) | paste -sd, -)]"
+          {
+            echo "in_scope=$in_scope"
+            echo "shards=$shards"
+            echo "matrix=$matrix"
+          } >> "$GITHUB_OUTPUT"
+          # The scope note is read by a person, so it is written like one. Both
+          # counts reach 1 often enough that "1 mutations across 1 shard(s)"
+          # would be the usual reading rather than an edge case.
+          noun=mutations; verb=are
+          [ "$in_scope" -ne 1 ] || { noun=mutation; verb=is; }
+          many=shards
+          [ "$shards" -ne 1 ] || many=shard
+          if [ "$in_scope" -eq 0 ]; then
+            echo "Nothing in those lines is mutable." >> scope.txt
+          elif [ "$over" = yes ]; then
+            echo "$in_scope $noun $verb in scope -- more than $shards $many" \
+                 "cover in their time budget, so each runs what it can and the" \
+                 "report says what it missed." >> scope.txt
+          else
+            echo "$in_scope $noun $verb in scope, across $shards $many." >> scope.txt
+          fi
+          cat scope.txt
+          # On the run page as well as in the log. The decision this job exists
+          # to make is the one thing a reader wants from it, and a summary that
+          # only the report job writes to would leave "why four shards?"
+          # answerable only by opening a step's output.
+          { echo "## Mutation plan"; echo; sed 's/$/  /' scope.txt; } \
+            >> "$GITHUB_STEP_SUMMARY"
+
+      # Handed to the shards rather than recomputed by each of them. Two
+      # reasons and the second is the one that matters: it saves every shard a
+      # full-depth checkout, and it guarantees all of them mutate the *same*
+      # diff, which a per-shard `git diff` against a moving base would not.
+      - name: Hand the plan to the shards
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutants-plan
+          path: |
+            pr.diff
+            scope.txt
+          retention-days: 1
+
+  # One shard of the run. Everything expensive is in here and nothing else
+  # depends on it: a shard that dies takes its own slice of the report with it
+  # and the rest still reports, which the merge below counts and names.
+  mutants-shard:
+    # The shard number is in the name because four checks called the same thing
+    # are four checks nobody can tell apart. The cost is that a diff needing no
+    # shards leaves one skipped check still showing the unexpanded expression —
+    # there was no matrix to substitute from. Dropping the name would tidy that
+    # one case and lose "(signal)", which is the word that tells a reader the
+    # check cannot block a merge; the skipped case is the case where nothing
+    # happened, so it is the right one to leave untidy.
+    name: "mutants: shard ${{ matrix.shard }} (signal)"
+    needs: mutants-plan
+    # Both halves are needed. An empty string is what an output reads as when
+    # the plan job never got to set it, and `fromJSON('')` is a workflow error
+    # rather than a skipped job — so a broken plan must stop here, not fan out.
+    if: >
+      needs.mutants-plan.outputs.shards != '' &&
+      needs.mutants-plan.outputs.shards != '0'
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    timeout-minutes: 30
+    strategy:
+      # One shard failing must not cancel the others. A partial report is the
+      # thing this whole design is for; cancelling its siblings to be tidy
+      # would throw away the measurements that did succeed.
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.mutants-plan.outputs.matrix) }}
+    permissions:
+      contents: read
+    env:
+      # The budget the step ends on, inside the 30-minute job timeout. The gap
+      # between the two is deliberate: it is the room for checkout, ffmpeg,
+      # cargo-mutants, and the upload that makes a stopped shard still count.
+      BUDGET: 20m
+    steps:
+      # Shallow, and that is now safe: the diff arrives as an artifact rather
+      # than being recomputed from history, so nothing here needs the base
+      # commit. `--in-diff` reads the file and the working tree.
+      - uses: actions/checkout@v4
+
+      # Mutants in `crates/render/src/plan/` and `src/audio/` run that crate's
+      # tests, which decode real fixture media.
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+
+      # One shard saves, the rest restore. Every shard computes the same key,
+      # so letting all four save means three "cache already exists" warnings
+      # for one copy of the same crate downloads.
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: mutants
+          save-if: ${{ matrix.shard == 0 }}
+
+      - name: Install cargo-mutants
+        uses: taiki-e/install-action@cargo-mutants
+
+      - name: The plan
+        uses: actions/download-artifact@v4
+        with:
+          name: mutants-plan
 
       # There is deliberately no warm-up build here, and this is the note that
       # stops one being added back. cargo-mutants builds every mutant in a copy
@@ -596,30 +776,129 @@ jobs:
       # Never fails on its own: surviving mutants are an ordinary result, not
       # an error, and the exit code that says so must not be confused with the
       # one that says the tool broke. cargo-mutants distinguishes them — 2 is
-      # "found survivors", 3 is "something timed out", and the guard at the end
-      # of this job turns anything else red.
+      # "found survivors", 3 is "something timed out" — and 124 is `timeout`
+      # saying this shard reached its budget, which is a *reportable* outcome
+      # and not a failure: cargo-mutants writes `outcomes.json` as it goes, so
+      # what it measured up to that point is on disk and gets uploaded below.
+      # Anything else is the tool having broken, and turns this shard red.
       #
       # `--jobs 2` because the config file has nowhere to hold it: the argument
       # for the number, and for it being the same one `make mutants` and the
       # sweep pass, is in `.cargo/mutants.toml` under "How wide a run fans out".
+      # It is per shard, and stays 2 for the same reason: each shard is its own
+      # runner, so four of them do not share the two cores the number is about.
       - name: Mutate
-        if: steps.diff.outputs.rust == 'yes'
+        env:
+          SHARD: ${{ matrix.shard }}
+          SHARDS: ${{ needs.mutants-plan.outputs.shards }}
         run: |
-          cargo mutants --in-diff pr.diff --jobs 2 --colors never && status=0 || status=$?
-          echo "MUTANTS_STATUS=$status" >> "$GITHUB_ENV"
+          set +e
+          timeout --kill-after=60s "$BUDGET" \
+            cargo mutants --in-diff pr.diff --shard "$SHARD/$SHARDS" \
+              --jobs 2 --colors never
+          status=$?
+          set -e
+          case "$status" in
+            0|2|3)
+              echo "cargo-mutants ran (exit $status)" ;;
+            124|137)
+              echo "::notice::shard $SHARD stopped at its $BUDGET budget;" \
+                   "the report will name what it did not cover" ;;
+            *)
+              echo "::error::cargo-mutants exited $status"
+              exit 1 ;;
+          esac
 
-      - name: Render the report
+      # `always()` and `if-no-files-found: ignore`, because the case worth
+      # keeping is precisely the one where things went wrong. A shard that was
+      # stopped has a partial `outcomes.json` worth merging; a shard that never
+      # got that far has nothing, and the merge counts it as a shard that did
+      # not report rather than as one that found nothing.
+      - name: What this shard measured
         if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutants-shard-${{ matrix.shard }}
+          path: mutants.out/outcomes.json
+          if-no-files-found: ignore
+          retention-days: 1
+
+  # The report, and the check that keeps the name the other two are scaffolding
+  # for. One comment on the pull request whatever the shape of the run behind
+  # it: one shard, four shards, or four shards of which one was stopped.
+  mutants:
+    name: mutants (signal)
+    needs: [mutants-plan, mutants-shard]
+    # `always()`, because the shards are allowed to fail and be reported on —
+    # that is the whole point. The draft and event conditions are repeated
+    # rather than inherited from `needs`, because `always()` would otherwise
+    # run this on a pull request where the plan job never did.
+    if: >
+      always() &&
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # Both downloads may legitimately find nothing — no shard ran, or the
+      # plan job failed — so neither is allowed to end the job. What must not
+      # happen is rendering a clean report over an absence, and the step after
+      # them is where that is refused.
+      - name: The plan
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: mutants-plan
+
+      - name: What the shards measured
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: mutants-shard-*
+          path: shards
+
+      # The merge is `mutants-merge.py`'s job and the report is
+      # `mutants-summary.py`'s, and the seam between them is deliberate: how a
+      # run was executed is a property of this workflow, and the sweep — which
+      # never shards — calls the same renderer with the file cargo-mutants
+      # wrote. `--expect` is what turns a shard that vanished into a sentence
+      # rather than into a smaller-looking run.
+      #
+      # The refusal at the top is the one that matters. If the plan did not
+      # deliver — no scope line, no counts — then the surface, the base or the
+      # size of the job is unknown, and every number below would be invented.
+      # So this goes red, which is what a broken signal is supposed to look
+      # like, rather than reporting a clean bill of health for a run that never
+      # happened. It is written against what the plan *left behind* and not
+      # against `needs.mutants-plan.result`, because `continue-on-error` is on
+      # and a job result under it is not a thing to hang correctness on.
+      - name: Render the report
+        env:
+          PLAN: ${{ needs.mutants-plan.result }}
+          SHARDS: ${{ needs.mutants-plan.outputs.shards }}
+          IN_SCOPE: ${{ needs.mutants-plan.outputs.in_scope }}
         run: |
-          scope=$(cat scope.txt 2>/dev/null || echo "Scope unknown.")
-          # One path, and deliberately: the summary script renders a run that
-          # had nothing to do as readily as one that did, so a missing
-          # `outcomes.json` is no longer read here as breakage. It is the
-          # ordinary result for a pull request whose Rust changes are all test
-          # files — which used to land in the `else` below and report "the run
-          # did not produce a report", saying the tool broke when it had not.
-          python3 .github/scripts/mutants-summary.py mutants.out/outcomes.json "$scope" \
-            > mutants.md
+          if [ ! -f scope.txt ] || [ -z "$SHARDS" ] || [ -z "$IN_SCOPE" ]; then
+            echo "::error::the plan job (result: $PLAN) left no scope or counts" \
+                 "behind, so nothing about this diff is known and there is no" \
+                 "honest report to write"
+            exit 1
+          fi
+          shopt -s nullglob
+          measured=(shards/*/outcomes.json)
+          python3 .github/scripts/mutants-merge.py --expect "$SHARDS" \
+            "${measured[@]}" > merged.json
+          # One line, because the renderer italicises it as one: scope.txt is
+          # written a sentence at a time and read as a single note.
+          scope=$(tr '\n' ' ' < scope.txt | sed 's/ *$//')
+          python3 .github/scripts/mutants-summary.py merged.json \
+            "$scope" --in-scope "$IN_SCOPE" > mutants.md
           tee -a "$GITHUB_STEP_SUMMARY" < mutants.md
 
       # One comment that rewrites itself, keyed on the marker — the same shape
@@ -628,6 +907,12 @@ jobs:
       # not, which is how a survivor list clears itself once a re-push fixes
       # it; what it never does is open a fresh comment on a PR that has nothing
       # to report. Skipped for forks, whose token has no write scope.
+      #
+      # What counts as "something to say" is decided by the renderer and marked
+      # in the report, not grepped for out of a heading here. #399 is why: a
+      # report saying *this diff was too large to measure* has no survivors and
+      # no timeouts, so a grep for tables would have kept the one message this
+      # change exists to deliver out of the pull request entirely.
       - name: Comment on the PR
         if: >
           always() &&
@@ -637,27 +922,18 @@ jobs:
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
         run: |
+          [ -f mutants.md ] || { echo "no report was rendered"; exit 0; }
           { echo '<!-- mutation-signal -->'; cat mutants.md; } > comment.md
           existing=$(gh api "repos/$REPO/issues/$PR/comments?per_page=100" \
             --jq 'map(select(.body | startswith("<!-- mutation-signal -->")))
                   | .[0].id // empty')
           if [ -n "$existing" ]; then
             gh api -X PATCH "repos/$REPO/issues/comments/$existing" -F body=@comment.md
-          elif grep -qE '^### (.* survived|Timed out)' mutants.md; then
+          elif grep -q '<!-- mutation-signal:notable -->' mutants.md; then
             gh pr comment "$PR" --body-file comment.md
           else
             echo "nothing to report and no comment to clear"
           fi
-
-      # The only thing in this job that can go red, and it is reserved for the
-      # signal being broken rather than the code being unasserted.
-      - name: Fail only if the tool itself broke
-        if: always() && steps.diff.outputs.rust == 'yes'
-        run: |
-          case "$MUTANTS_STATUS" in
-            0|2|3) echo "cargo-mutants ran (exit $MUTANTS_STATUS)" ;;
-            *) echo "::error::cargo-mutants exited $MUTANTS_STATUS"; exit 1 ;;
-          esac
 
   # Supply chain. Nothing else in this workflow looks at what our transitive
   # dependencies are or what they are licensed under; a RUSTSEC advisory would
