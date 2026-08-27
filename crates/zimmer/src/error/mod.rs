@@ -91,6 +91,36 @@ pub enum SynthError {
         ratio: f32,
     },
 
+    /// One operator of an `fm4` source with no pitch to describe.
+    /// [`SynthError::BadPartialRatio`] for a routing rather than a series, and
+    /// its own variant for the same reason that one is: the fix has to name
+    /// *which* entry is wrong.
+    ///
+    /// Counted from **one**, unlike a partial, because an operator's number is
+    /// part of the algorithm's own vocabulary rather than a place in a list —
+    /// operator 3 is a row of the diagram, and the field name says as much.
+    #[error("patch: `fm4` operator {operator} needs a positive `ratio`, got {ratio}")]
+    BadOperatorRatio {
+        /// Which operator, numbered from one as the recipe and the algorithm
+        /// diagrams number them.
+        operator: usize,
+        /// The ratio as written.
+        ratio: f32,
+    },
+
+    /// Every operator an `fm4` algorithm is heard through is at level zero, so
+    /// the source renders silence. [`SynthError::SilentPartials`] one
+    /// indirection further away: which operators are audible is a property of
+    /// the algorithm rather than of the list, so the message names it.
+    #[error(
+        "patch: `fm4` algorithm `{algorithm}` is heard through its carriers, \
+         and every one of them is at level zero"
+    )]
+    SilentCarriers {
+        /// The algorithm, as the document spells it.
+        algorithm: &'static str,
+    },
+
     /// A cutoff at or below zero Hz leaves the filter with nothing to pass.
     BadCutoff {
         /// The cutoff as written.

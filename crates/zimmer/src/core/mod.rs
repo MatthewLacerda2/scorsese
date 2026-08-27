@@ -47,9 +47,10 @@
 //! reverb lives, needs no special case for the one-shot that reached it dry.
 //!
 //! Module layout: [`osc`] (band-limited oscillator stack), [`karplus`] (plucked
-//! string), [`fm`] (2-op FM), [`additive`] (a stated harmonic series),
-//! [`noise`] (the one seeded RNG), [`source`] (which of
-//! those runs), [`mod@env`] (ADSR), [`filter`] (state-variable filter).
+//! string), [`fm`] (FM, two operators or four), [`additive`] (a stated
+//! harmonic series), [`noise`] (the one seeded RNG), [`nyquist`] (what any of
+//! them may place above the played pitch), [`source`] (which of those runs),
+//! [`mod@env`] (ADSR), [`filter`] (state-variable filter).
 
 pub(crate) mod additive;
 pub(crate) mod env;
@@ -57,6 +58,7 @@ pub(crate) mod filter;
 pub(crate) mod fm;
 pub(crate) mod karplus;
 pub(crate) mod noise;
+pub(crate) mod nyquist;
 pub(crate) mod osc;
 pub(crate) mod source;
 
@@ -109,7 +111,7 @@ pub(crate) fn render_note(patch: &Patch, midi: f32, opts: &NoteOpts) -> Result<S
     let brightness = (opts.velocity + opts.timbre).clamp(0.0, 1.0);
 
     let freqs = pitch_track(patch.lfo, patch.pitch_env, midi_to_freq(midi), gate, n);
-    let mut buf = source::render(&patch.source, &freqs, opts.seed, brightness, n, RATE);
+    let mut buf = source::render(&patch.source, &freqs, opts.seed, brightness, gate, n, RATE);
     if let Some(f) = patch.filter {
         // One cutoff track, both channels: the filter's *state* belongs to a
         // channel, and the curve it is following belongs to the note.

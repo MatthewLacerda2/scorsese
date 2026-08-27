@@ -58,6 +58,23 @@ fn every_example_is_actually_playable() {
     }
 }
 
+/// The page's algorithm table, held to the routings the code publishes.
+///
+/// An `fm4` recipe picks a routing by name, so a name the page does not list
+/// is one nobody can find and a name it lists that the code dropped is one
+/// nobody can use. Neither shows up in a parse — the examples only ever name
+/// the one or two routings they use — so the table is checked directly.
+#[test]
+fn the_page_names_every_fm_algorithm() {
+    for algorithm in scorsese_zimmer::patch::Algorithm::ALL {
+        let row = format!("| `{}` |", algorithm.name());
+        assert!(
+            pages::DOC.contains(&row),
+            "docs/recipes.md has no algorithm row starting `{row}`"
+        );
+    }
+}
+
 /// Something audible to stand in for a patch the page names but does not carry.
 fn stub() -> scorsese_zimmer::Patch {
     scorsese_zimmer::Patch {
