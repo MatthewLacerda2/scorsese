@@ -14,8 +14,12 @@
 //!
 //! This is the free half of scorsese's generated content. A `synth_audio`
 //! asset costs no money, needs no key and no network, and produces the **same
-//! bytes every time**, which is what lets `generated/` address a bake by the
-//! hash of the recipe that made it.
+//! bytes every time** — *given a fixed synthesiser*, which is a real
+//! qualifier and not a hedge. A recipe is a pure function of its document, and
+//! this crate is the other argument to it: change a filter here and every
+//! recipe in every project renders to something new. That is what
+//! [`SYNTH_VERSION`] is for, and why the address of a bake carries it
+//! alongside the hash of the recipe.
 //!
 //! ## Boundary
 //!
@@ -38,8 +42,8 @@
 //! to do something with them other than write them down. Around those sit the
 //! documents they take ([`Patch`], [`Song`], [`NoteOpts`]), the
 //! [`PatchResolver`] a song's references resolve through, [`SynthError`],
-//! [`SAMPLE_RATE`], and [`parse_note`] and [`midi_to_freq`] for turning what a
-//! score writes into what the renderer plays.
+//! [`SAMPLE_RATE`], [`SYNTH_VERSION`], and [`parse_note`] and [`midi_to_freq`]
+//! for turning what a score writes into what the renderer plays.
 //!
 //! **Five modules keep their own path**, because each is a vocabulary rather
 //! than a handful of names:
@@ -83,7 +87,11 @@
 //! Nothing here reads a clock or a random number generator. Every stochastic
 //! element — noise, the Karplus excitation — draws from one seeded integer
 //! hash, so the same recipe and seed produce identical samples in any process,
-//! on any machine, on any run.
+//! on any machine, on any run — *of this version of this crate*. Determinism
+//! across versions is not claimed and never was: a change to a source, a
+//! filter or an effect changes what every recipe renders to, deliberately.
+//! [`SYNTH_VERSION`] is how that shows up outside, and bumping it is part of
+//! making such a change.
 //!
 //! ## Rate and channels
 //!
@@ -127,6 +135,26 @@ pub use error::SynthError;
 pub use note::{NoteOpts, midi_to_freq, parse_note};
 pub use patch::Patch;
 pub use song::{PatchResolver, Song, render_song};
+
+/// The synthesiser's own version: the number that changes when the same
+/// recipe would render to different samples.
+///
+/// A bake is addressed by a digest of its recipe **and** this number, so
+/// bumping it is what makes every affected file miss the cache and be
+/// re-rendered. Without it the address describes only the document, and a
+/// project keeps serving audio its own recipe no longer describes.
+///
+/// It is **declared, not derived**. The tempting derivation — hash the
+/// rendered output of a few probe recipes — cannot work here: every voice in
+/// this crate rides on the platform's `sin`, `exp` and `powf`, which are not
+/// bit-identical between a glibc box and a Mac, and a digest has no tolerance
+/// to spend. A derived version would announce a synthesiser change every time
+/// a project moved machine, which is the opposite of what an address is for.
+///
+/// So it is a number a person has to bump, and the rule is the one
+/// `schema_version` already lives by: **bump it in the same change that makes
+/// a recipe render differently**, and let everything break loudly.
+pub const SYNTH_VERSION: u32 = 1;
 
 /// Render one note of `patch` and encode it as a mono 16-bit PCM WAV.
 ///
