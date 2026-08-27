@@ -38,6 +38,7 @@ fn duet(left: f32, right: f32) -> Song {
     Song {
         bpm: 120.0,
         seed: 7,
+        key: None,
         tracks: vec![track("near", left), track("far", right)],
         patterns,
         arrangement: vec!["verse".into()],
