@@ -7,8 +7,16 @@
 //! ```text
 //!   source ─► filter ─► amp envelope ─► fx chain
 //!      ▲         ▲            ▲
+//!      ├──── envelopes ───────┘   (amp always; pitch and cutoff optional)
 //!      └─────── LFO ──────────┘   (one target: pitch | cutoff | amp)
 //! ```
+//!
+//! An envelope has three possible destinations — the amplifier always, and
+//! optionally the filter cutoff and the note's own pitch. The pitch envelope is
+//! the one-shot the LFO is not: a sweep that happens once and settles, which is
+//! what a kick drum, a tom, an 808 and a laser zap all are. It writes into the
+//! same per-sample frequency track a vibrato does, in semitones, and the two
+//! **add** — so a note may fall onto its pitch and then wobble around it.
 //!
 //! A note's **velocity** taps that path in up to three places, not one. It
 //! always scales the amp envelope; a patch may also aim it at the filter cutoff
@@ -46,7 +54,7 @@ use std::f32::consts::TAU;
 use super::error::SynthError;
 use super::fx;
 use super::note::{NoteOpts, midi_to_freq};
-use super::patch::{Filter, Lfo, LfoTarget, Patch};
+use super::patch::{Filter, Lfo, LfoTarget, Patch, PitchEnv};
 
 /// The one rate everything here renders at. 44.1 kHz is CD rate: the full
 /// audible band.
@@ -88,7 +96,7 @@ pub fn render_note(patch: &Patch, midi: f32, opts: &NoteOpts) -> Result<Vec<f32>
     let velocity = opts.velocity.clamp(0.0, 1.0);
     let brightness = (opts.velocity + opts.timbre).clamp(0.0, 1.0);
 
-    let freqs = pitch_track(patch.lfo, midi_to_freq(midi), n);
+    let freqs = pitch_track(patch.lfo, patch.pitch_env, midi_to_freq(midi), gate, n);
     let mut buf = vec![0.0; n];
     source::render(&patch.source, &freqs, opts.seed, brightness, &mut buf, RATE);
     if let Some(f) = patch.filter {
@@ -135,15 +143,60 @@ fn lfo_wave(lfo: &Lfo, i: usize) -> f32 {
     (TAU * lfo.rate.max(0.0) * i as f32 / RATE).sin()
 }
 
-/// The per-sample frequency track: the played pitch, bent by an LFO aimed at
+/// The largest pitch offset the track will carry, either way: ten octaves.
+///
+/// A guard, not a musical limit, and the same kind as [`MAX_SECONDS`]. The
+/// offset is an exponent, so an unbounded one reaches `inf` Hz, and an `inf`
+/// frequency becomes a `NaN` sample the moment [`fm`] takes the fractional part
+/// of a phase. Ten octaves either way is past the audible band from any note,
+/// so nothing that was making a sound is affected by the bound existing.
+///
+/// It is nonetheless the **one thing in this crate's envelope work that a
+/// recipe can notice**, and the reason [`SYNTH_VERSION`](crate::SYNTH_VERSION)
+/// went to 2: a vibrato deeper than this renders differently than it used to.
+/// It rendered aliasing before and renders aliasing now — but differently, and
+/// the rule that constant lives by does not have a clause for *only garbage
+/// moved*.
+const MAX_PITCH_OFFSET: f32 = 120.0;
+
+/// The per-sample frequency track: the played pitch, swept once by a pitch
+/// envelope (`semitones` at full level) and bent cyclically by an LFO aimed at
 /// `pitch` (`depth` semitones either way).
-fn pitch_track(lfo: Option<Lfo>, base: f32, n: usize) -> Vec<f32> {
-    match lfo {
-        Some(l) if l.target == LfoTarget::Pitch => (0..n)
-            .map(|i| base * (l.depth * lfo_wave(&l, i) / 12.0).exp2())
-            .collect(),
-        _ => vec![base; n],
+///
+/// The two are summed **in semitones and then applied once**, rather than each
+/// scaling the frequency in turn. That is the same "sources of movement add"
+/// rule the cutoff already follows, and here it is also the only version that
+/// is musically coherent: pitch is logarithmic, so semitones are what add, and
+/// a sweep of −12 with a vibrato of ±1 is an octave drop with a semitone of
+/// wobble on it however deep either one is.
+///
+/// A patch with neither takes the flat track, which is both faster and the
+/// literal guarantee that a document written before this stage existed still
+/// renders the frequency it always did.
+fn pitch_track(
+    lfo: Option<Lfo>,
+    pitch_env: Option<PitchEnv>,
+    base: f32,
+    gate: f32,
+    n: usize,
+) -> Vec<f32> {
+    let vibrato = lfo.filter(|l| l.target == LfoTarget::Pitch);
+    let sweep = pitch_env.map(|p| (p.semitones, env::track(&p.adsr, gate, n, RATE)));
+    if vibrato.is_none() && sweep.is_none() {
+        return vec![base; n];
     }
+    (0..n)
+        .map(|i| {
+            let mut semitones = 0.0;
+            if let Some(l) = &vibrato {
+                semitones += l.depth * lfo_wave(l, i);
+            }
+            if let Some((amount, envelope)) = &sweep {
+                semitones += amount * envelope[i];
+            }
+            base * (semitones.clamp(-MAX_PITCH_OFFSET, MAX_PITCH_OFFSET) / 12.0).exp2()
+        })
+        .collect()
 }
 
 /// The per-sample cutoff track: the base cutoff, offset by how hard the note
@@ -215,6 +268,7 @@ fn tremolo(lfo: Option<Lfo>, i: usize) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::patch::Adsr;
 
     /// The pitch every bend below is measured from: A4, and a round number of
     /// Hz, so an octave up and an octave down are round numbers too.
@@ -240,6 +294,113 @@ mod tests {
             rate: RATE_HZ,
             depth,
             target,
+        }
+    }
+
+    /// The frequency track a vibrato alone produces. The gate is a second —
+    /// long enough to be irrelevant, since with no sweep nothing reads it.
+    fn vibrato_track(lfo: Option<Lfo>, n: usize) -> Vec<f32> {
+        pitch_track(lfo, None, BASE, 1.0, n)
+    }
+
+    /// A pitch envelope of `semitones` under `adsr`.
+    fn sweep(semitones: f32, adsr: Adsr) -> PitchEnv {
+        PitchEnv { semitones, adsr }
+    }
+
+    /// The drum shape: full offset immediately, decaying to the played note
+    /// over one second. Straight, so the level at a moment is a number this
+    /// file can state rather than derive.
+    fn falling() -> Adsr {
+        Adsr {
+            a: 0.0,
+            d: 1.0,
+            s: 0.0,
+            r: 0.0,
+            curve: 0.0,
+        }
+    }
+
+    /// An envelope pinned at full level for the whole gate. Not a shape a drum
+    /// wants, but the one that makes every sum below a round number.
+    fn held() -> Adsr {
+        Adsr {
+            a: 0.0,
+            d: 0.0,
+            s: 1.0,
+            r: 0.0,
+            curve: 0.0,
+        }
+    }
+
+    /// The frequency track a sweep alone produces, over a one-second gate so a
+    /// sample index divided by [`RATE`] *is* the envelope's progress.
+    fn sweep_track(semitones: f32, adsr: Adsr, n: usize) -> Vec<f32> {
+        pitch_track(None, Some(sweep(semitones, adsr)), BASE, 1.0, n)
+    }
+
+    /// A downward sweep starts high and arrives on the played note. Twenty-four
+    /// semitones is two octaves, so half a straight decay is one octave and A4
+    /// is A5 — both exact, because `2^2` and `2^1` are.
+    ///
+    /// The very first sample is the played pitch rather than the top of the
+    /// sweep: [`env::level_at`] is zero at `t = 0` for every envelope there
+    /// is, which is what keeps an amp envelope from starting with a step. One
+    /// sample is 23 µs, so the sweep is audibly at its top from the start.
+    #[test]
+    fn a_pitch_envelope_starts_off_the_note_and_lands_on_it() {
+        let track = sweep_track(24.0, falling(), 44_100);
+        assert_eq!(track[0], BASE, "the envelope is still at zero");
+        assert!(track[1] > 1_759.0, "two octaves up, at {}", track[1]);
+        assert_eq!(track[22_050], 880.0, "one octave left at half the decay");
+        assert!(
+            (track[44_099] - BASE).abs() < 0.1,
+            "and settles on the note, at {}",
+            track[44_099]
+        );
+    }
+
+    /// Negative sweeps the other way — up onto the note from below, not the
+    /// same direction scaled.
+    #[test]
+    fn a_negative_amount_sweeps_up_onto_the_note_from_below() {
+        let track = sweep_track(-12.0, held(), 8);
+        assert_eq!(track[1], 220.0, "an octave below at full level");
+    }
+
+    /// The two modulators add **in semitones**: at the vibrato's peak the two
+    /// twelves make two octaves, and at its trough they cancel exactly. A
+    /// version that multiplied frequencies, or that let one replace the other,
+    /// moves both numbers.
+    #[test]
+    fn a_sweep_and_a_vibrato_add_in_semitones() {
+        let track = pitch_track(
+            Some(lfo(12.0, LfoTarget::Pitch)),
+            Some(sweep(12.0, held())),
+            BASE,
+            1.0,
+            CYCLE,
+        );
+        assert_eq!(track[PEAK], 1_760.0, "an octave of sweep plus one of bend");
+        assert_eq!(track[TROUGH], BASE, "and the bend cancels the sweep");
+    }
+
+    /// A pitch envelope with no LFO at all still sweeps — the vibrato is not
+    /// the thing that switches the modulated path on.
+    #[test]
+    fn a_sweep_needs_no_lfo_to_reach_the_track() {
+        assert_eq!(sweep_track(12.0, held(), 8)[1], 880.0);
+    }
+
+    /// Ten octaves is the ceiling, so an amount past it cannot reach `inf` Hz —
+    /// and an `inf` frequency is a `NaN` sample as soon as a phase is wrapped.
+    #[test]
+    fn an_absurd_sweep_is_clamped_instead_of_reaching_infinity() {
+        for semitones in [1e9, -1e9, f32::MAX, f32::MIN] {
+            let track = sweep_track(semitones, held(), 16);
+            for (i, f) in track.iter().enumerate() {
+                assert!(f.is_finite() && *f > 0.0, "{semitones} at {i} gave {f}");
+            }
         }
     }
 
@@ -297,7 +458,7 @@ mod tests {
     #[test]
     fn the_first_sample_is_the_played_pitch_whatever_the_depth() {
         for depth in [0.0, 2.0, 12.0, -7.0, 24.0] {
-            let track = pitch_track(Some(lfo(depth, LfoTarget::Pitch)), BASE, 8);
+            let track = vibrato_track(Some(lfo(depth, LfoTarget::Pitch)), 8);
             assert_eq!(track[0], BASE, "depth {depth}");
         }
     }
@@ -308,7 +469,7 @@ mod tests {
     /// of the multiply that applies the bend to the pitch.
     #[test]
     fn twelve_semitones_bends_a_whole_octave_each_way() {
-        let track = pitch_track(Some(lfo(12.0, LfoTarget::Pitch)), BASE, CYCLE);
+        let track = vibrato_track(Some(lfo(12.0, LfoTarget::Pitch)), CYCLE);
         assert_eq!(track[PEAK], 880.0);
         assert_eq!(track[TROUGH], 220.0);
     }
@@ -318,7 +479,7 @@ mod tests {
     /// is anything else.
     #[test]
     fn twice_the_depth_is_twice_the_octaves() {
-        let track = pitch_track(Some(lfo(24.0, LfoTarget::Pitch)), BASE, CYCLE);
+        let track = vibrato_track(Some(lfo(24.0, LfoTarget::Pitch)), CYCLE);
         assert_eq!(track[PEAK], 1760.0);
         assert_eq!(track[TROUGH], 110.0);
     }
@@ -328,14 +489,14 @@ mod tests {
     #[test]
     fn an_lfo_aimed_elsewhere_leaves_the_pitch_flat() {
         for target in [LfoTarget::Cutoff, LfoTarget::Amp] {
-            flat(&pitch_track(Some(lfo(12.0, target)), BASE, CYCLE), CYCLE);
+            flat(&vibrato_track(Some(lfo(12.0, target)), CYCLE), CYCLE);
         }
     }
 
     /// And no LFO at all is the same flat track, at the length asked for.
     #[test]
     fn no_lfo_is_a_flat_track_of_the_length_asked_for() {
-        flat(&pitch_track(None, BASE, 512), 512);
+        flat(&vibrato_track(None, 512), 512);
     }
 
     /// `n` samples, every one of them the played pitch. Sample by sample

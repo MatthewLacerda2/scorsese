@@ -20,7 +20,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::SynthError;
 
-pub use stages::{Adsr, Filter, FilterKind, Fx, Lfo, LfoTarget, MAX_OSCS, Osc, Source, Wave};
+pub use stages::{
+    Adsr, Filter, FilterKind, Fx, Lfo, LfoTarget, MAX_OSCS, Osc, PitchEnv, Source, Wave,
+};
 
 /// One instrument.
 ///
@@ -35,6 +37,11 @@ pub struct Patch {
     /// The optional filter stage, with its own envelope.
     #[serde(default)]
     pub filter: Option<Filter>,
+    /// An optional one-shot sweep of the note's own pitch. Absent means the
+    /// note holds the pitch it was played at, which is what every patch
+    /// written before this stage existed already meant.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pitch_env: Option<PitchEnv>,
     /// The optional low-frequency oscillator, bending one stage.
     #[serde(default)]
     pub lfo: Option<Lfo>,

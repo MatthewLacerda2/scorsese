@@ -283,6 +283,36 @@ exclude_re = [
     # The `||` is escaped because this is a regex and not the printed line: see
     # #363, which is what an unescaped one does to the whole surface.
     'replace \|\| with && in radius',
+
+    # `env::held_level` opens each of its two segments with a guard that the
+    # segment has a length at all — `adsr.a > 0.0 && t < adsr.a`, and the same
+    # shape for `d`. Widening either `>` to `>=` changes the answer only when
+    # that length is *exactly* zero, and in both cases the comparison beside it
+    # then refuses the branch on its own:
+    #
+    # - with `a == 0.0` the attack guard reads `t < 0.0`, and `held_level` is
+    #   reached only from `level_at`, which has already answered for every
+    #   `t <= 0`;
+    # - with `d == 0.0` the decay guard reads `since_attack < 0.0`, and
+    #   `since_attack` is `t - a.max(0.0)` on a path where `t >= a` whenever
+    #   `a` is positive, so it is never negative.
+    #
+    # Confirmed by sweeping both versions over every combination of attack,
+    # decay, sustain, curve and time worth trying, boundary instants included:
+    # not one input separates them, and zimmer's whole suite passes with either
+    # mutation applied by hand.
+    #
+    # **Line-qualified on purpose.** The unqualified name covers both of these,
+    # which is fine because both are equivalent — but the sibling mutations on
+    # the very same two lines are not. `t <= adsr.a` spikes an attack-then-hold
+    # envelope to full level for one instant, and `since_attack <= adsr.d`
+    # leaves the sustain one ulp high; both are real gaps, both were found this
+    # way, and both are now asserted by name in `env.rs`. An entry loose enough
+    # to cover those would have hidden them. If the lines move, these stop
+    # matching and the mutants come back into the report, which is the right
+    # direction for this to fail in.
+    'env\.rs:51:15: replace > with >= in held_level',
+    'env\.rs:56:15: replace > with >= in held_level',
 ]
 
 # ---------------------------------------------------------------------------

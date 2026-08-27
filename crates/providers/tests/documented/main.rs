@@ -64,6 +64,7 @@ fn stub() -> scorsese_zimmer::Patch {
         source: scorsese_zimmer::patch::Source::Noise,
         amp: scorsese_zimmer::patch::Adsr::default(),
         filter: None,
+        pitch_env: None,
         lfo: None,
         fx: vec![],
     }

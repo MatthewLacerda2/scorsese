@@ -120,7 +120,7 @@ impl Source {
     }
 }
 
-/// A linear-segment ADSR envelope.
+/// An ADSR envelope: three timed segments and a level held between them.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Adsr {
     /// Attack: seconds from silence to full level.
@@ -132,6 +132,45 @@ pub struct Adsr {
     /// Release: seconds from the sustain level back to silence once the gate
     /// closes. This is why a rendered note is longer than its duration.
     pub r: f32,
+    /// How the three timed segments bend on their way to their destination.
+    /// `0.0` is the straight line every envelope was before this field
+    /// existed; positive is the exponential approach a physical thing makes.
+    ///
+    /// Nothing physical decays in a straight line. A plucked string, a struck
+    /// bell and a decaying room all lose energy in proportion to how much they
+    /// still have, which is an exponential, and the ear is unusually good at
+    /// telling the two apart: a linear decay holds up too long and then
+    /// arrives at silence too abruptly, and that *sag* is one of the handful
+    /// of cues that reliably says "synthesised" about an otherwise well-made
+    /// sound.
+    ///
+    /// One number for the whole envelope rather than one per segment, because
+    /// the same curve is the right one in all three places — attack, decay and
+    /// release are each an approach to a destination, and an exponential
+    /// approach means *fast at first, easing in*. On the way up that is a
+    /// capacitor charging; on the way down it is the same capacitor
+    /// discharging.
+    ///
+    /// Negative is legal and inverts the bend into a slow start and a sudden
+    /// arrival — not a shape anything physical makes, but a deliberate and
+    /// useful one for a swell. Magnitudes past what the renderer can evaluate
+    /// without overflowing are clamped; the `env` module names the number.
+    ///
+    /// **Defaulting to linear is load-bearing, not timidity.** A bake is
+    /// addressed by the hash of its recipe's bytes, so an envelope that
+    /// started curving on its own — or a serialiser that started writing
+    /// `"curve": 0.0` into every document — would invalidate every cached bake
+    /// in every project at once. Changing this default later is therefore a
+    /// deliberate one-time break, argued in its own pull request, never a
+    /// quiet tweak.
+    #[serde(default, skip_serializing_if = "is_linear")]
+    pub curve: f32,
+}
+
+/// Whether an envelope bends at all — the test that keeps `"curve": 0.0` out
+/// of every saved document, for the reason [`Adsr::curve`] gives.
+fn is_linear(curve: &f32) -> bool {
+    *curve == 0.0
 }
 
 impl Default for Adsr {
@@ -143,8 +182,51 @@ impl Default for Adsr {
             d: 0.0,
             s: 1.0,
             r: 0.05,
+            curve: 0.0,
         }
     }
+}
+
+/// An envelope aimed at the note's own pitch: a sweep that happens once and
+/// settles.
+///
+/// This is the primitive an [`Lfo`] aimed at [`LfoTarget::Pitch`] is not. A
+/// vibrato is cyclic — it wobbles around the played note for as long as the
+/// note lasts. A great many instruments instead start *off* their pitch and
+/// arrive on it exactly once: a kick drum starts near 90 Hz and is at 50 in
+/// about 40 ms, and a tom, an 808, a timpani and a laser zap are the same move
+/// at different speeds and depths. Without this the only way to write one is
+/// to fake it through the filter, which approximates the brightness of the
+/// gesture and none of the pitch.
+///
+/// It stacks additively with a vibrato rather than replacing it, the way
+/// [`Filter::env_amount`] and [`Filter::vel_cutoff`] do: a patch may sweep down
+/// onto its note and then wobble around it.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PitchEnv {
+    /// How many semitones the envelope adds at full level.
+    ///
+    /// The played note is where the sweep **ends**, not where it starts: under
+    /// the usual shape — full immediately, decaying to nothing — the note
+    /// begins `semitones` away and arrives on the pitch it was played at. So
+    /// **positive falls onto the note from above**, which is what a kick, a
+    /// tom and an 808 do, and negative rises onto it from below, which is a
+    /// reverse zap. Both directions are one sign apart and neither is
+    /// privileged; naming the destination is what makes a drum patch transpose
+    /// like an instrument.
+    ///
+    /// Semitones rather than Hz because pitch is logarithmic: the same number
+    /// of Hz is an octave low down and a rounding error high up, so a sweep
+    /// written in Hz stops meaning the same gesture the moment the patch is
+    /// played at another pitch. In semitones it transposes with the note.
+    pub semitones: f32,
+    /// The envelope doing the sweeping, with its own timings and curve.
+    ///
+    /// Defaults to [`Adsr::default`], which sustains — so a sweep worth
+    /// hearing spells out a decay and a sustain of zero, the shape that says
+    /// "move once, then settle".
+    #[serde(default)]
+    pub adsr: Adsr,
 }
 
 /// Which side of the filter is kept.

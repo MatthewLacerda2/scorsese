@@ -4,6 +4,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod envelopes;
 mod shape;
 mod stages;
 mod velocity;

@@ -24,6 +24,7 @@ fn sine() -> Patch {
             d: 0.0,
             s: 1.0,
             r: 0.0,
+            curve: 0.0,
         },
         ..minimal(Source::OscStack {
             oscs: vec![Osc {

@@ -67,6 +67,7 @@ fn pluck() -> Patch {
             d: 0.25,
             s: 0.0,
             r: 0.12,
+            curve: 0.0,
         },
         filter: Some(Filter {
             kind: FilterKind::Lowpass,
@@ -81,8 +82,10 @@ fn pluck() -> Patch {
                 d: 0.18,
                 s: 0.0,
                 r: 0.1,
+                curve: 0.0,
             },
         }),
+        pitch_env: None,
         lfo: None,
         fx: vec![Fx::Reverb {
             size: 0.45,
