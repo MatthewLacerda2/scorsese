@@ -41,6 +41,22 @@ fn an_fx_chain_lengthens_the_buffer_so_its_tail_survives() {
     );
 }
 
+/// The other half of that rule. A waveshaper has no memory, so it colours the
+/// note without adding a millisecond to it — and a note that grew would mean
+/// state had crept into an effect that is a per-sample function.
+#[test]
+fn a_saturator_colours_the_note_without_lengthening_it() {
+    let mut patch = saw_patch();
+    patch.fx = vec![Fx::Saturate {
+        drive: 4.0,
+        mix: 1.0,
+    }];
+    let dry = render(&saw_patch(), 60.0, &opts(0.2));
+    let driven = render(&patch, 60.0, &opts(0.2));
+    assert_eq!(driven.len(), dry.len(), "no tail to make room for");
+    assert_ne!(driven, dry, "but the signal itself is not the one it was");
+}
+
 #[test]
 fn a_note_with_no_length_is_refused_by_the_number_that_is_wrong() {
     for duration in [0.0, -1.0] {
