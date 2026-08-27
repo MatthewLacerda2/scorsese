@@ -7,7 +7,7 @@
 //! ```text
 //!   source ─► filter ─► amp envelope ─► fx chain
 //!      ▲         ▲            ▲
-//!      │         └─────── envelopes ───┘   (amp, and optionally cutoff/pitch)
+//!      ├──── envelopes ───────┘   (amp always; pitch and cutoff optional)
 //!      └─────── LFO ──────────┘   (one target: pitch | cutoff | amp)
 //! ```
 //!

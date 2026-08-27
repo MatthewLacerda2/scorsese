@@ -193,7 +193,7 @@ impl Default for Adsr {
 /// This is the primitive an [`Lfo`] aimed at [`LfoTarget::Pitch`] is not. A
 /// vibrato is cyclic — it wobbles around the played note for as long as the
 /// note lasts. A great many instruments instead start *off* their pitch and
-/// fall onto it exactly once: a kick drum starts near 90 Hz and is at 50 in
+/// arrive on it exactly once: a kick drum starts near 90 Hz and is at 50 in
 /// about 40 ms, and a tom, an 808, a timpani and a laser zap are the same move
 /// at different speeds and depths. Without this the only way to write one is
 /// to fake it through the filter, which approximates the brightness of the
@@ -204,9 +204,16 @@ impl Default for Adsr {
 /// onto its note and then wobble around it.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PitchEnv {
-    /// How many semitones the envelope adds at full level. Negative sweeps
-    /// downward, which is the common case — nearly every drum falls onto its
-    /// note rather than rising to it.
+    /// How many semitones the envelope adds at full level.
+    ///
+    /// The played note is where the sweep **ends**, not where it starts: under
+    /// the usual shape — full immediately, decaying to nothing — the note
+    /// begins `semitones` away and arrives on the pitch it was played at. So
+    /// **positive falls onto the note from above**, which is what a kick, a
+    /// tom and an 808 do, and negative rises onto it from below, which is a
+    /// reverse zap. Both directions are one sign apart and neither is
+    /// privileged; naming the destination is what makes a drum patch transpose
+    /// like an instrument.
     ///
     /// Semitones rather than Hz because pitch is logarithmic: the same number
     /// of Hz is an octave low down and a rounding error high up, so a sweep

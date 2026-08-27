@@ -69,6 +69,7 @@ they connect:
 ```
 source ─► filter ─► amp envelope ─► fx
    ▲         ▲            ▲
+   ├──── envelopes ───────┘        amp always; pitch and cutoff optional
    └─────── lfo ──────────┘        one target: pitch | cutoff | amp
 ```
 
@@ -87,11 +88,25 @@ tonal; a fractional one goes metallic.
 **`amp`** — an ADSR: `{ "a": 0.005, "d": 0.15, "s": 0.4, "r": 0.2 }`. Attack,
 decay and release are seconds; sustain is a level in `0..=1`. **Required.**
 
+Every ADSR — the amp one, the filter's, the pitch one — also takes an optional
+`curve`, and it is worth reaching for. `0.0` is a straight line and the
+default; positive bends the three timed segments into the exponential a
+physical thing makes, falling fast and then trailing. Nothing real decays in a
+straight line, and the ear knows: a linear decay holds up too long and then
+arrives at silence too abruptly, which is one of the few cues that reliably
+says *synthesised* about an otherwise well-made sound. Try `3.0` to `5.0` on
+anything plucked, struck or hit; `8.0` is the steepest accepted. Negative
+mirrors it into a slow start and a sudden arrival — a swell, not a decay.
+
 **`filter`** *(optional)* — `kind` is `lowpass` or `highpass`, plus `cutoff` in
 Hz, `resonance` 0..1, `env_amount` in Hz, `vel_cutoff` in Hz, and its own
 `adsr`. `env_amount` is what makes a patch expressive rather than static: it
 opens the cutoff on the attack and closes it as the note decays. A pluck is a
 lowpass with a big positive `env_amount` and a fast filter decay.
+
+**`pitch_env`** *(optional)* — `{ "semitones": 10, "adsr": { … } }`. A sweep of
+the note's own pitch that happens once and settles — see
+[Sweeping the pitch](#sweeping-the-pitch-not-just-wobbling-it) below.
 
 **`lfo`** *(optional)* — `{ "rate": 5.0, "depth": 0.5, "target": "pitch" }`.
 `pitch` is vibrato in semitones, `cutoff` is wobble in octaves, `amp` is tremolo
@@ -190,6 +205,53 @@ Three things worth knowing:
   `"vel_scale": 0.6` (below) sounds softer rather than merely quieter,
   which is most of the difference between a section that reads as a dynamic and
   one that reads as a volume knob.
+
+### Sweeping the pitch, not just wobbling it
+
+An `lfo` aimed at `pitch` is a vibrato: it wobbles around the played note for
+as long as the note lasts. A great many sounds do the opposite — they start
+*off* their pitch and arrive on it exactly once. A kick drum starts near 90 Hz
+and is at 50 in about 40 ms; a tom, an 808, a timpani and a laser zap are the
+same move at other speeds and depths. That gesture is `pitch_env`.
+
+```json recipe
+{
+  "recipe": "patch",
+  "note": "A1",
+  "duration": 0.12,
+  "patch": {
+    "source": { "kind": "osc_stack", "oscs": [{ "wave": "sine" }] },
+    "amp": { "a": 0.001, "d": 0.22, "s": 0.0, "r": 0.02, "curve": 4.0 },
+    "pitch_env": {
+      "semitones": 10,
+      "adsr": { "a": 0.0, "d": 0.04, "s": 0.0, "r": 0.0, "curve": 5.0 }
+    }
+  }
+}
+```
+
+That is a kick drum, and it is a sine wave. Everything that makes it a kick is
+in the two envelopes: the pitch falls ten semitones onto A1 in 40 ms, and the
+level sheds most of itself immediately and trails. Take either `curve` out and
+it turns back into a synthesised approximation of a drum.
+
+Three things worth knowing:
+
+- **The note is where the sweep ends, not where it starts.** With the usual
+  shape — full straight away, decaying to nothing — the sound begins
+  `semitones` away and lands on the pitch it was played at. So positive falls
+  onto the note from above (the drum case) and negative rises onto it from
+  below (a reverse zap). Naming the destination is what lets one drum patch be
+  played at several pitches and stay the same instrument.
+- **Semitones, not Hz.** Pitch is logarithmic: the same number of Hz is an
+  octave low down and a rounding error high up, so a sweep written in Hz would
+  stop meaning the same gesture the moment the patch was played elsewhere.
+- **It adds to a vibrato rather than replacing one.** The two offsets are
+  summed in semitones and applied once, the same way `env_amount` and
+  `vel_cutoff` add at the cutoff — so a note can fall onto its pitch and then
+  wobble around it. `karplus` is the exception and always was: its delay line
+  is sized once when the string is plucked, so neither an LFO nor a pitch
+  envelope reaches it.
 
 ## Music: `"recipe": "song"`
 
