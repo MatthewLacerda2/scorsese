@@ -309,13 +309,13 @@ pub use song::{PatchResolver, Song, render_song};
 /// for the same reason: a mark is an optional field on each of the four ways an
 /// entry is written, and a document written before it existed names none of
 /// them, so every note in it is played exactly as written. Checked against
-/// `9e73ead` rather than argued from that sentence —
-/// 25 probes covering all five sources, every envelope corner and curve, a
-/// pitch envelope, all three LFO targets, both filter kinds, a velocity-routed
-/// cutoff, every effect wet and dry, a chain of several, chords, step strings,
-/// keys and degrees, swing, all three humanise axes, the arrangement
-/// transforms and the track filter, a pan, a track bus, a song chain, a fit, a
-/// fade and a tail — came back byte-identical, encoded bytes and length both.
+/// `3b2c627` rather than argued from that sentence — 25 probes covering all
+/// five sources, every envelope corner and curve, a pitch envelope, all three
+/// LFO targets, both filter kinds, a velocity-routed cutoff, every effect wet
+/// and dry, a chain of several, chords, step strings, keys and degrees, swing,
+/// all three humanise axes, the arrangement transforms and the track filter, a
+/// pan, a track bus, a song chain, a fit, a fade and a tail — came back
+/// byte-identical, encoded bytes and length both.
 ///
 /// **Version 3 is the far end of that scale** and needs no argument at all: the
 /// crate went stereo, so every bake in every project is a different file, of a
