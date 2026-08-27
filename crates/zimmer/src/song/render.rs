@@ -35,8 +35,10 @@
 //! puts no asterisk on any of that — and neither does the note renderer
 //! starting each oscillator somewhere in its cycle, which reads the same seed.
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 
+use super::automate::{self, Automation};
 use super::feel::swung;
 use super::mix::Mix;
 use super::shape::{plan, shape};
@@ -125,6 +127,12 @@ pub fn render_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Vec<f32>,
 pub(crate) fn mix_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Mixdown, SynthError> {
     song.validate()?;
     let patches = resolve_patches(song, resolve)?;
+    // The one check that needs an instrument rather than a document: a cutoff
+    // curve on a patch with no filter moves nothing, and a curve that moves
+    // nothing is the failure automation is validated against.
+    super::validate::check_resolved(song, &patches)?;
+    // Which curves ride which track, looked up once rather than per note.
+    let riding = automate::riding(song);
     // How fast to play it and how many times through, worked out before a
     // sample is produced: `fit` is a property of the whole piece, and deciding
     // it per note would mean rendering the wrong notes and cutting afterwards.
@@ -158,7 +166,10 @@ pub(crate) fn mix_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Mixdo
     // the samples happen to stop. Tails then extend it past this.
     let played = song.arrangement_beats() * passes as f32;
     let arrangement_end = (played * beat * RATE).round() as usize;
-    let mut mix = Mix::new(song, arrangement_end);
+    // Beats per sample at the tempo this is actually rendered at — the
+    // stretched one under a `stretch` fit, which is what makes a build stretch
+    // with the music instead of landing somewhere else in it.
+    let mut mix = Mix::new(song, arrangement_end, bpm / (60.0 * RATE));
     let mut cursor_beats = 0.0f32;
     let mut ordinal: u64 = 0;
     // Resolved once: an absent `humanize` is one that scatters nothing, so the
@@ -208,13 +219,19 @@ pub(crate) fn mix_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Mixdo
             // refused, since refusing would make a legal transpose depend on
             // the register of a pattern written months ago.
             let pitch = entry.played_pitch(note.note.to_midi()?, key.as_ref());
-            let rendered = core::render_note(&patches[track], pitch, &opts)?;
+            // Where this note sits in the piece, in beats: the one coordinate
+            // an automation curve is read at. Swung, because that is where the
+            // note is actually played — but *not* humanised, since a curve
+            // read at a scattered onset would put the player's jitter on the
+            // build as well as on the note.
+            let beat_at = cursor_beats + swung(note.start, song.swing);
+            let instrument = tuned(&patches[track], riding[track].cutoff, beat_at);
+            let rendered = core::render_note(&instrument, pitch, &opts)?;
             // Swing first, humanise second: swing is where the beat *is*, and
             // humanise is how well the player hit it. Clamped at zero rather
             // than wrapped — a note nudged early on the very first beat has
             // nowhere to go, and a negative sample index is not a time.
-            let onset = (cursor_beats + swung(note.start, song.swing)) * beat
-                + feel.onset_seconds(track, place, song.seed);
+            let onset = beat_at * beat + feel.onset_seconds(track, place, song.seed);
             let at = (onset * RATE).round().max(0.0) as usize;
             // Added to the track's own bus rather than straight to the master:
             // where a note lands is timing, which bus it lands on is routing,
@@ -234,6 +251,26 @@ pub(crate) fn mix_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Mixdo
     // Then length and level, in that order, on the limited signal.
     shape(song, &mut master, arrangement_end);
     Ok(Mixdown { master, tracks })
+}
+
+/// The instrument this note is played on, with a moving cutoff set to what it
+/// reads at this note's onset.
+///
+/// Borrowed when nothing moves, which is every note of every song written
+/// before automation existed: the curve is the only thing that can make a copy
+/// of a patch happen, and it makes one per note of the track it rides. A note
+/// is a whole buffer through a filter whose cutoff is chosen when the voice
+/// starts, so this is where a sweep is read — `super::automate` argues the
+/// resolution.
+fn tuned<'p>(patch: &'p Patch, curve: Option<&Automation>, beat: f32) -> Cow<'p, Patch> {
+    let Some(cutoff) = curve.and_then(|curve| curve.value_at(beat)) else {
+        return Cow::Borrowed(patch);
+    };
+    let mut tuned = patch.clone();
+    if let Some(filter) = tuned.filter.as_mut() {
+        filter.cutoff = cutoff;
+    }
+    Cow::Owned(tuned)
 }
 
 /// One seed per note, from `(song seed, track, ordinal)`.

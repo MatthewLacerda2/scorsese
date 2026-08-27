@@ -47,6 +47,7 @@
 //! the patch follows.
 
 pub(crate) mod arrangement;
+pub(crate) mod automate;
 pub(crate) mod chord;
 pub(crate) mod feel;
 pub(crate) mod key;
@@ -66,6 +67,7 @@ use crate::error::SynthError;
 use crate::patch::{Fx, Patch};
 
 pub use arrangement::{ArrangementEntry, Play};
+pub use automate::{Automation, Easing, Param, Point};
 pub use chord::{Chord, Voicing};
 pub use feel::Humanize;
 pub use key::{Degree, DegreeNote, Key, Mode};
@@ -153,6 +155,12 @@ pub struct Song {
     /// was summed. The `song::mix` module has the reasoning.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub fx: Vec<Fx>,
+    /// Values that move across the piece: a filter opening over eight bars, a
+    /// part rising into a chorus. Empty means every number in the recipe is
+    /// the one number it always was, which is what every song written before
+    /// this field existed meant. [`automate`] has the whole of it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub automation: Vec<Automation>,
     /// A length the piece has to come out at, when the picture decides that
     /// rather than the music. Absent means the song is as long as it is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -482,5 +490,15 @@ impl Song {
     /// renderer has one path rather than two.
     pub fn humanize(&self) -> Humanize {
         self.humanize.unwrap_or_default()
+    }
+
+    /// The curve moving `param` on `track`, if one is written.
+    ///
+    /// Validation refuses a second curve on the same pair, so there is never a
+    /// choice to make about which of two applies.
+    pub fn curve(&self, track: &str, param: Param) -> Option<&Automation> {
+        self.automation
+            .iter()
+            .find(|curve| curve.track == track && curve.param == param)
     }
 }

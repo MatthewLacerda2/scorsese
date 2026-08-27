@@ -497,6 +497,79 @@ pub enum SynthError {
         amount: f32,
     },
 
+    /// A curve moving a parameter of a track this song does not have. The same
+    /// typo as an unknown track anywhere else, with the same consequence: a
+    /// build the recipe says is there and nothing can hear.
+    #[error("song: automation of `{param}` names `{track}`, which is not a track here")]
+    UnknownAutomationTrack {
+        /// The name that matched no track.
+        track: String,
+        /// The parameter the curve moves, as the document spells it.
+        param: &'static str,
+    },
+
+    /// Two curves on one track and parameter. Which one applies is not a
+    /// question with an answer, so it is refused rather than resolved by
+    /// declaration order.
+    #[error("song: track `{track}` has two curves for `{param}` — one parameter moves one way")]
+    DuplicateAutomation {
+        /// The track carrying both.
+        track: String,
+        /// The parameter both claim.
+        param: &'static str,
+    },
+
+    /// A list of points that is not a curve: none at all, which moves nothing,
+    /// or points that do not ascend in time. A curve is read as a path from
+    /// each point to the next, so an out-of-order list is a path nobody wrote
+    /// — refused rather than sorted, because silently reordering an author's
+    /// document is worse than declining it.
+    #[error("song: automation of `{param}` on track `{track}`: {why}")]
+    BadAutomationCurve {
+        /// The track the curve rides.
+        track: String,
+        /// The parameter it claims to move.
+        param: &'static str,
+        /// What is wrong with the list, in the words the message carries.
+        why: &'static str,
+    },
+
+    /// A control point at a time that is not a time, or holding a value that
+    /// is not a number. A NaN would spread through the mix as a whole song of
+    /// silence, a long way from the field that caused it.
+    #[error("song: automation of `{param}` on `{track}`: bad `{field}`, got {value}")]
+    BadAutomationPoint {
+        /// The track the curve rides.
+        track: String,
+        /// The parameter it moves.
+        param: &'static str,
+        /// Which of a point's two numbers is at fault — `beat`, which must be
+        /// finite and at or after zero, or `value`, which must be finite.
+        field: &'static str,
+        /// The number as written.
+        value: f32,
+    },
+
+    /// A cutoff curve passing through zero Hz or below — refused for the
+    /// reason [`SynthError::BadCutoff`] refuses a written one, at every point
+    /// rather than once.
+    #[error("song: automation of `cutoff` on `{track}`: must be positive Hz, got {cutoff}")]
+    BadAutomationCutoff {
+        /// The track the curve rides.
+        track: String,
+        /// The offending point's value.
+        cutoff: f32,
+    },
+
+    /// A `cutoff` curve on an instrument with no filter: there is nothing for
+    /// it to move. Caught only once the track's patch is resolved, since a
+    /// track may name its instrument rather than carry it.
+    #[error("song: automation of `cutoff` on track `{track}`, whose patch has no filter")]
+    AutomationWithoutFilter {
+        /// The track whose instrument has no filter stage.
+        track: String,
+    },
+
     /// A target length that is not a length.
     #[error("song: `fit.seconds` must be positive, got {seconds}")]
     BadFitSeconds {
