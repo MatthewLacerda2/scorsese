@@ -12,7 +12,7 @@
 # Run it:
 #
 #     make mutants     # this branch's diff, exactly as the CI job scopes it
-#     cargo mutants    # the whole surface below: 3676 mutants today, and
+#     cargo mutants    # the whole surface below: 3875 mutants today, and
 #                      # `cargo mutants --list | wc -l` re-counts it for free —
 #                      # that builds nothing, so the number is exact and cheap
 #
@@ -68,6 +68,23 @@
 #   sound that is absent, and a test measuring a range rather than a value will
 #   not object — the same failure as `Mix::add` mixing by subtraction with the
 #   whole suite green (#60).
+# - `crates/providers/src/synth/` — the one subtree of that crate with no
+#   provider in it: the recipe document, the tuner that moves one number in it,
+#   the starter templates, and the address a bake is cached under. Its own
+#   `mod.rs` states the boundary that puts it here — *no mock, and no test that
+#   spends money; every path here is local arithmetic* — which is the sentence
+#   the rest of the crate cannot say, and is exactly why the exclusion below
+#   stops where it does.
+#
+#   Named as a **directory** and not as the single file #428 was filed about.
+#   That issue is what happens when load-bearing arithmetic lands in a crate
+#   nobody had globbed: #427 added `synth/address.rs`, which decides what a
+#   bake is *named* and therefore whether a cached file is found or re-rendered,
+#   and CI's mutation job answered *no mutants to run* on the very pull request
+#   that wrote it. An empty report and an unexamined one read identically. A
+#   one-file glob would fix that case and re-make the mistake one level down —
+#   the next pure module to land beside `address.rs` would be outside the
+#   surface again, unnoticed for the same reason as the first.
 #
 # Deliberately out of scope:
 #
@@ -79,9 +96,19 @@
 #   argument, plus every mutant costs a real decode.
 # - `crates/golden` — test infrastructure. Measuring whether the tests test the
 #   test harness measures the wrong thing.
-# - `crates/cli`, `crates/mcp`, `crates/providers` — thin wrappers and
-#   trait definitions over the logic above; mutating an argument-parsing arm
-#   reports on `clap`, not on us.
+# - `crates/cli`, `crates/mcp`, and the **rest** of `crates/providers` — thin
+#   wrappers and trait definitions over the logic above; mutating an
+#   argument-parsing arm reports on `clap`, not on us.
+#
+#   Left out with the reason written down rather than by not being thought of,
+#   because #428 is what the second one costs: `prices/`, `credentials/budget.rs`,
+#   `api/base64.rs` and `video/patience.rs` are all pure and deterministic, and
+#   are still out. They are pure *arithmetic about a vendor* — a rate table, a
+#   ceiling in cents, an encoding a reply happens to use, how long to wait before
+#   detaching — and what makes `synth/` different is that its arithmetic decides
+#   what scorsese itself produces and where it lands. That is a line worth
+#   drawing on purpose; moving it is a change to this comment, not an oversight
+#   to be corrected quietly.
 # - `tools/lint` — its own workspace, not reachable from this one at all.
 #
 # Adding a crate here is a deliberate change: it moves per-PR CI cost, so make
@@ -118,6 +145,27 @@
 #   the run across runners when one will not fit in the time a per-PR signal is
 #   allowed (#399). A zimmer-heavy diff being slow is therefore a question of
 #   how many shards it takes rather than of whether a report arrives at all.
+#
+# What `crates/providers/src/synth/` cost, measured for #428:
+#
+# - **The surface, exactly.** 3809 mutants before, 3875 after — 66 of them,
+#   +1.7%. By file: `tune.rs` 27, `mod.rs` 16, `recipe.rs` 11, `address.rs` 5,
+#   `starter.rs` 4, `create.rs` 2, `survey.rs` 1. As with the zimmer figures
+#   above this is `cargo mutants --list`, which builds and runs nothing, so it
+#   depends only on the source and the tool version: cargo-mutants 27.1.0.
+# - **What CI pays per pull request: nothing, unless the diff is in `synth/`.**
+#   The `mutants` job runs `--in-diff`, so this file decides which of a diff's
+#   changed lines are mutable and never how many get mutated. 66 is a ceiling
+#   nobody pays per pull request.
+# - **What the weekly sweep pays: nothing — and that is a gap, not a saving.**
+#   `mutation-sweep.yml` rotates over four crates *by name*, and
+#   `scorsese-providers` is not one of them, so these 66 are audited by the diff
+#   that writes them and never again. That is the "audited once" problem #339
+#   built the sweep to answer, in miniature. A fifth rotation slot would stretch
+#   every other crate's re-audit from four weeks to five to buy a sweep that
+#   finishes in minutes, which is a judgement about a report a person reads
+#   rather than a line of config — so it is #429, and until then the crate is
+#   reachable from that workflow's `workflow_dispatch` list by hand.
 examine_globs = [
     "crates/core/src/**/*.rs",
     "crates/compositor/src/**/*.rs",
@@ -125,6 +173,7 @@ examine_globs = [
     "crates/render/src/audio/mix.rs",
     "crates/render/src/audio/gain.rs",
     "crates/zimmer/src/**/*.rs",
+    "crates/providers/src/synth/**/*.rs",
 ]
 
 # `examine_globs` already decides this — these say it a second time because a
