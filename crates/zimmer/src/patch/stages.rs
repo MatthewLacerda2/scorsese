@@ -13,6 +13,21 @@ use crate::level::bands;
 /// fat analog lead; past that it is CPU for no audible gain.
 pub const MAX_OSCS: usize = 4;
 
+/// The most partials one additive series may carry.
+///
+/// Sixteen, and the number is argued the way [`MAX_OSCS`] is rather than
+/// copied from it. Sixteen partials cover the whole audible harmonic series of
+/// any note up to about 1.3 kHz; above that the top of the series is over
+/// 22 kHz and is dropped at Nyquist regardless of this cap. Below it, the
+/// seventeenth harmonic of any timbre this crate is for sits far enough down
+/// that nothing is missed by its absence — a drawbar organ offers nine, and
+/// the ear stops separating partials well before it stops hearing them.
+///
+/// Past the cap it is one more sine oscillator per note for no audible gain,
+/// and an uncapped list is an unbounded allocation, which is one of the few
+/// things this crate refuses outright.
+pub const MAX_PARTIALS: usize = 16;
+
 /// One oscillator's waveform.
 ///
 /// `saw` and `square` are band-limited (polyBLEP) at render time — the naive
@@ -46,6 +61,65 @@ pub struct Osc {
     /// Whole-octave transpose, e.g. `-1` for a sub-oscillator.
     #[serde(default)]
     pub octave: i32,
+}
+
+/// One partial of an additive series: where it sits, how much of it there is,
+/// how far off the harmonic grid it is bent, and how fast it dies on its own.
+///
+/// A drawbar, in other words — and that is the whole idea of the source. Every
+/// other head of the signal path generates something rich and lets a filter
+/// carve it down; a table of these *states* the spectrum, so the timbre is the
+/// numbers rather than what a filter shape happened to arrive at.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Partial {
+    /// Frequency as a multiple of the played pitch: `1` is the fundamental,
+    /// `2` the octave above it, `3` the twelfth above that.
+    ///
+    /// Whole numbers keep the series harmonic, which is what a tone with a
+    /// definite pitch is made of. Fractional ones are legal and go inharmonic
+    /// — a bell, a struck plate, a glass — and unlike the fractional ratio an
+    /// [`Source::Fm2`] modulator takes, each partial is *placed* rather than
+    /// arriving as a sideband of one number chosen for its overall effect.
+    ///
+    /// A ratio at or below zero is refused: it names no frequency, and zero in
+    /// particular is a DC offset rather than a sound.
+    pub ratio: f32,
+    /// Weight in the mix. The series is normalised by the sum of the gains of
+    /// the partials that actually sound, so adding one thickens the tone
+    /// without making it louder.
+    #[serde(default = "one")]
+    pub gain: f32,
+    /// Detune off `ratio`, in cents (100 cents = a semitone).
+    ///
+    /// The route to *chosen* inharmonicity. Real strings are slightly
+    /// stretched — a piano's upper partials sit progressively sharp of the
+    /// whole numbers, and that stretch is a good part of why a piano sounds
+    /// like a piano while a perfectly harmonic stack sounds like an organ. A
+    /// few cents more on each partial than the last is exactly that, written
+    /// down.
+    ///
+    /// Cents rather than Hz for the reason [`PitchEnv::semitones`] gives:
+    /// pitch is logarithmic, so a detune in Hz would mean a different interval
+    /// at every pitch the patch is played at.
+    #[serde(default)]
+    pub detune_cents: f32,
+    /// Seconds for this partial's **own** exponential decay, underneath the
+    /// patch's amp envelope. `0` — the default — is a partial that does not
+    /// fade by itself.
+    ///
+    /// This is the field the source is really for. On anything bowed, blown or
+    /// struck the upper partials die sooner than the fundamental, and a tone
+    /// whose partials all fade together is the one thing no filter sweep quite
+    /// fakes. Give the fundamental a long decay and the sixth partial a short
+    /// one and the note is bright at its attack and settles into its body,
+    /// which is what a real one does.
+    ///
+    /// The two envelopes **multiply**, and the shorter always wins. The
+    /// renderer's own module doc states that relationship in full; the short
+    /// version is that a patch letting the partials do the shaping wants an
+    /// amp envelope that sustains, or the note dies twice.
+    #[serde(default)]
+    pub decay: f32,
 }
 
 /// What generates the raw tone. Exactly one per patch — the head of the fixed
@@ -104,6 +178,18 @@ pub enum Source {
         #[serde(default = "mod_decay_default")]
         mod_decay: f32,
     },
+    /// An additive series: up to [`MAX_PARTIALS`] sine partials, each placed,
+    /// weighted and faded on its own, summed into one tone. Organs, bowed and
+    /// blown sustains, glass, and bells that are not FM-metallic.
+    ///
+    /// The one source here that states a spectrum instead of shaping one.
+    Additive {
+        /// The partials, summed and normalised by the sum of the gains of the
+        /// ones that sound. Order carries no meaning — a series is a set of
+        /// frequencies, not a chain — but it is what decides which partial a
+        /// refusal is counted against.
+        partials: Vec<Partial>,
+    },
 }
 
 impl Source {
@@ -118,6 +204,7 @@ impl Source {
             Self::Karplus { .. } => "karplus",
             Self::Noise => "noise",
             Self::Fm2 { .. } => "fm2",
+            Self::Additive { .. } => "additive",
         }
     }
 }

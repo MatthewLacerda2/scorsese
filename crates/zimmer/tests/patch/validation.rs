@@ -5,7 +5,9 @@
 
 use crate::common::{minimal, osc};
 use scorsese_zimmer::SynthError;
-use scorsese_zimmer::patch::{Adsr, Filter, FilterKind, Lfo, LfoTarget, MAX_OSCS, Source, Wave};
+use scorsese_zimmer::patch::{
+    Adsr, Filter, FilterKind, Lfo, LfoTarget, MAX_OSCS, Partial, Source, Wave,
+};
 
 #[test]
 fn every_source_kind_is_playable() {
@@ -23,6 +25,14 @@ fn every_source_kind_is_playable() {
             index: 3.0,
             vel_index: 0.0,
             mod_decay: 0.3,
+        },
+        Source::Additive {
+            partials: vec![Partial {
+                ratio: 1.0,
+                gain: 1.0,
+                detune_cents: 0.0,
+                decay: 0.0,
+            }],
         },
     ] {
         minimal(source).validate().expect("a legal patch");

@@ -47,9 +47,11 @@
 //! reverb lives, needs no special case for the one-shot that reached it dry.
 //!
 //! Module layout: [`osc`] (band-limited oscillator stack), [`karplus`] (plucked
-//! string), [`fm`] (2-op FM), [`noise`] (the one seeded RNG), [`source`] (which of
+//! string), [`fm`] (2-op FM), [`additive`] (a stated harmonic series),
+//! [`noise`] (the one seeded RNG), [`source`] (which of
 //! those runs), [`mod@env`] (ADSR), [`filter`] (state-variable filter).
 
+pub(crate) mod additive;
 pub(crate) mod env;
 pub(crate) mod filter;
 pub(crate) mod fm;

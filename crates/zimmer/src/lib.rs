@@ -229,6 +229,18 @@ pub use song::{PatchResolver, Song, render_song};
 /// arrangement transform, a key with degrees and a step string. All 30 came
 /// back byte-identical.
 ///
+/// **A new *source* is the same case as a new effect**, and it was checked the
+/// same way rather than reasoned from that sentence. `additive` added a
+/// [`Source`](patch::Source) variant, a `Partial` type, a renderer module and
+/// four refusals reachable only from the new arm; 46 probes — every source,
+/// all three envelope curves, all three LFO targets, both filter kinds, a
+/// pitch envelope, every effect and a two-stage chain, each at two velocities,
+/// plus six songs covering swing, all three humanise axes, a pan, a track bus,
+/// a song chain, a fade, an arrangement transform, a `fit` and a key, as
+/// `360ac75` had them — came back byte-identical. The measure is the one above and not
+/// the size of the diff: *can a recipe written before this change name the new
+/// thing?*
+///
 /// **New notation is the same case**, and worth naming separately because it
 /// does not look like it. A song key and scale degrees added a `Song` field
 /// and a fourth kind of pattern entry, reordered the enum holding the other
