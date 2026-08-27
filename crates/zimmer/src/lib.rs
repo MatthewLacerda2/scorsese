@@ -207,12 +207,7 @@ pub use song::{PatchResolver, Song, render_song};
 /// every LFO target and every existing effect came back byte-identical across
 /// the change. A recipe that does not name the new thing renders what it
 /// always did, by construction rather than by luck, and that is the case where
-/// leaving this number alone is right. The chorus is the second effect to take
-/// that answer rather than re-derive it, and it was checked the same way: 30
-/// probes, the eleven earlier ones plus a chain of four effects and eight
-/// songs covering swing, humanise, a track bus, a song chain, a fade, a `fit`,
-/// an arrangement transform, a key with degrees and a step string — all 30
-/// byte-identical against `84ad2a3`.
+/// leaving this number alone is right.
 ///
 /// The **compressor** is the second one of those, and it went further into the
 /// mixer than the EQ did — a new buffer per keyed track, and a second entry
@@ -223,6 +218,16 @@ pub use song::{PatchResolver, Song, render_song};
 /// fit, fade and tail fields came back byte-identical. The extra buffer is
 /// only kept for a track something names, and nothing names one in a recipe
 /// written before this existed.
+///
+/// The **chorus** is the third, and the plainest of the three: a new `Fx`
+/// variant, two modules nothing calls without one, and no field of any
+/// existing variant touched. Checked anyway, against `84ad2a3` — 30 probes
+/// covering all four sources, every envelope corner including curves and a
+/// pitch envelope, all three LFO targets, a velocity-routed filter, every
+/// effect that existed then wet and dry, a chain of four, and eight songs
+/// spanning swing, humanise, a track bus, a song chain, a fade, a `fit`, an
+/// arrangement transform, a key with degrees and a step string. All 30 came
+/// back byte-identical.
 ///
 /// **New notation is the same case**, and worth naming separately because it
 /// does not look like it. A song key and scale degrees added a `Song` field
