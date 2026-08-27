@@ -6,6 +6,7 @@ mod common;
 mod chords;
 mod document;
 mod effects;
+mod eq;
 mod feel;
 mod lengths;
 mod mixing;

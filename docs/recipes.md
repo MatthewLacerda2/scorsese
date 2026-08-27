@@ -119,6 +119,7 @@ where 1.0 dips to silence.
 | `delay` | `time` in seconds, `feedback` 0..1, `mix` 0..=1 | feedback echo — a slapback, a corridor |
 | `reverb` | `size` 0..=1, `damp` 0..=1, `mix` 0..=1 | a room the sound is in |
 | `saturate` | `drive`, `mix` 0..=1 | soft clip: warmth, weight, glue |
+| `eq` | `bands`: up to 8 of `{ kind, freq, gain_db, q }` | takes a region away, or adds one |
 
 A limiter always runs after them and is not listed — a bake must not clip, and
 that is not the recipe's decision.
@@ -130,6 +131,31 @@ shape of the wave rather than its level, and `0` is clean, `1`–`2` is warmth
 and `4` is audible drive. Past `4` the invented harmonics start folding back as
 inharmonic ringing on a bright source — fine on a bass or a drum, not on a lead
 — and `8` is the ceiling.
+
+`eq` is the other odd one, and it is the only effect here that is a **mixing
+move** rather than a sound. A band's `kind` is one of:
+
+| `kind` | reads `gain_db`? | what it does |
+| --- | --- | --- |
+| `high_pass` | no | everything below `freq` goes |
+| `low_shelf` | yes | everything below `freq` moves by `gain_db`, together |
+| `peak` | yes | a bump or a dip centred on `freq`, `q` wide |
+| `high_shelf` | yes | everything above `freq` moves by `gain_db`, together |
+| `low_pass` | no | everything above `freq` goes |
+
+`q` is how narrow the band is — `0.7` is the gentle default, `2` is a
+noticeable notch, `8` is surgical — and it means the same thing for all five.
+Two things are worth knowing before writing one:
+
+- **`freq` may be left out, and its default is the number the bake report
+  splits at.** The three kinds that work on the bottom default to **250 Hz**
+  and the two that work on the top default to **4 kHz**, so a report reading
+  `low 61%` is answered by `{ "kind": "low_shelf", "gain_db": -3 }` with no
+  arithmetic in between. Spell `freq` out whenever the ear says somewhere else.
+- **`gain_db: 0.0` is a bypass**, exactly — a band at zero gain is not applied
+  at all, so it is sample-identical to leaving it out. List the bands you are
+  thinking about and sweep one; the parked ones colour nothing. (The two pass
+  filters have no gain to ask for, so this does not switch them off.)
 
 This chain is the *instrument's own*: it is applied to each note separately. A
 song has two more places to put one, and reverb almost always wants one of them
@@ -527,6 +553,13 @@ is much of what stops a mix sounding like separate parts added together, and
 the reason a low `drive` at a partial `mix` over the whole piece is worth trying
 before anything else. The three stack, so keep each modest.
 
+**EQ belongs on a track, nearly always.** It is the one effect here that is a
+mixing decision rather than a sound, and a mix is made of instruments sitting
+out of each other's way — which is a statement about one track at a time. On
+the song it is a last, gentle move over everything (a shelf of a decibel or
+two); on a patch it is rare and usually means the instrument itself was written
+wrong, which is cheaper to fix at the source than to correct downstream.
+
 Both fields default to empty, and an empty one is not written down — a song that
 does not use them is exactly the song it was before they existed.
 
@@ -711,6 +744,84 @@ failure. Nor is it a critic. Measurement finds defects — too quiet, clipping,
 muddy, a section flat where the arrangement said climax. It does not find
 taste, and a metric treated as an ear produces music that optimises the number
 and gets worse.
+
+### Worked: from a report to a fix
+
+Take the report at the top of this section at its word. Three readings come out
+of it, and only one of them is a problem:
+
+- **`0:24-0:40 chorus … low 61%`** against 42% and 38% for the two sections
+  before it. Something joins in at the chorus and it is all bottom end. The
+  piece will read as *muddy* there and nowhere else.
+- **`sub … low 96%`** is not the fault. A sub is supposed to be entirely low;
+  a row saying so is an instrument doing its job.
+- **`pad … low 71%`** is. A pad's job is the middle, and this one is putting
+  most of its energy underneath the sub — two instruments stacked in one
+  octave, which is the textbook cause of exactly the reading above.
+
+The old answer was the pad's `gain`, and it does not work: turning the pad down
+takes the chords out of the chorus along with the mud. The answer is to leave
+the pad exactly as loud as it is and take the bottom out of *it*.
+
+Here are the two tracks the finding is about, on their own — a sub holding the
+root and a pad written a little too far down on top of it, which is how a mix
+gets into this state in the first place:
+
+```json recipe
+{
+  "recipe": "song",
+  "bpm": 96,
+  "tracks": [
+    { "name": "sub", "gain": 0.9,
+      "patch": {
+        "source": { "kind": "osc_stack", "oscs": [ { "wave": "sine" } ] },
+        "amp": { "a": 0.02, "d": 0.3, "s": 0.8, "r": 0.3 }
+      } },
+    { "name": "pad", "gain": 0.7,
+      "patch": {
+        "source": { "kind": "osc_stack", "oscs": [
+          { "wave": "saw", "detune_cents": -6 },
+          { "wave": "saw", "detune_cents": 6 }
+        ] },
+        "amp": { "a": 0.4, "d": 0.6, "s": 0.6, "r": 0.8, "curve": 3.0 }
+      },
+      "fx": [ { "fx": "eq", "bands": [
+        { "kind": "high_pass" },
+        { "kind": "peak", "freq": 400, "gain_db": -4, "q": 1.2 }
+      ] } ] }
+  ],
+  "patterns": {
+    "chorus": { "beats": 4, "notes": [
+      { "track": "sub", "note": "E1", "start": 0, "dur": 4 },
+      { "track": "pad", "note": "E2", "start": 0, "dur": 4 },
+      { "track": "pad", "note": "B2", "start": 0, "dur": 4 }
+    ] }
+  },
+  "arrangement": ["chorus"],
+  "fx": [ { "fx": "eq", "bands": [ { "kind": "high_shelf", "gain_db": 2 } ] } ]
+}
+```
+
+Four lines, and each one is a line of the report answered:
+
+- `{ "kind": "high_pass" }` on the pad, at its default 250 Hz — **the same
+  boundary the `low` column is measured at**. Everything the report counted as
+  the pad's low share is gone, and the bottom of the piece is the sub's alone.
+- `{ "kind": "peak", "freq": 400, "gain_db": -4, "q": 1.2 }`, just above it. A
+  high-pass leaves the 250–500 Hz box untouched and that is where a mix goes
+  *boxy* rather than *boomy*; a moderate dip there is the second half of the
+  same fix.
+- `{ "kind": "high_shelf", "gain_db": 2 }` on the song, at its default 4 kHz —
+  the boundary the `high` column is measured at. The summary said `high 8%`,
+  and with the low end no longer crowded there is now room to hear the top.
+- Nothing moved a `gain`. The balance the piece was written with is the balance
+  it still has.
+
+Then bake it again and read the same rows, because the report is how the fix is
+checked as well as how it was found. On the sketch above the pad's row goes from
+`low 76% mid 24%` to `low 27% mid 71%`, and the sub's row does not move at all —
+that second half is the real check, because a fix that moved both would have
+been a fix aimed at the mix rather than at the layer the mix said was wrong.
 
 ## What the whole set is made of
 

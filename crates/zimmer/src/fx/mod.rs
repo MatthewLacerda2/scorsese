@@ -1,24 +1,29 @@
-//! fx — the post-chain: delay, reverb, drive, and the mandatory limiter
+//! fx — the post-chain: delay, reverb, drive, EQ, and the mandatory limiter
 //!
-//! Three a recipe chooses, one it does not. [`delay`] and [`reverb`] place a dry
+//! Four a recipe chooses, one it does not. [`delay`] and [`reverb`] place a dry
 //! synthesized sound *somewhere* — the difference between a gunshot recorded in an
 //! anechoic chamber and one fired in a corridor. [`saturate`] is the odd one out,
 //! and the only nonlinearity in the crate: it does not move a sound, it changes
 //! what is *in* one, which is the difference between a clean sum of waveforms and
-//! something that sounds recorded. All three are chosen per chain and applied in
-//! list order. [`limiter`] is not a choice: every bake passes through it, because a
-//! clipped WAV is a broken asset, not a stylistic option.
+//! something that sounds recorded. [`eq`] takes things *away* — it is the only one
+//! here that is a mixing move rather than a sound, and the treatment for what
+//! [`crate::level::bands`] already diagnoses. All four are chosen per chain and
+//! applied in list order. [`limiter`] is not a choice: every bake passes through
+//! it, because a clipped WAV is a broken asset, not a stylistic option.
 //!
 //! Chorus and the rest wait until a real sound cannot be made without them (the
 //! layer's standing rule). Effects are added here, not in the patch document's
 //! signal path, so the fixed source → filter → amp contract stays fixed.
 
 pub(crate) mod delay;
+pub(crate) mod eq;
 pub(crate) mod limiter;
 pub(crate) mod reverb;
 pub(crate) mod saturate;
 
 use crate::patch::Fx;
+#[cfg(test)]
+use crate::patch::{EqBand, EqKind};
 
 /// Longest fx tail a note is padded by, in seconds. A chain of long effects should
 /// not turn a 200 ms blip into a half-minute file.
@@ -27,14 +32,15 @@ const MAX_TAIL: f32 = 6.0;
 /// Apply the chain to `buf` in place, in list order.
 pub(crate) fn apply_chain(buf: &mut [f32], chain: &[Fx], rate: f32) {
     for fx in chain {
-        match *fx {
+        match fx {
             Fx::Delay {
                 time,
                 feedback,
                 mix,
-            } => delay::apply(buf, time, feedback, mix, rate),
-            Fx::Reverb { size, damp, mix } => reverb::apply(buf, size, damp, mix, rate),
-            Fx::Saturate { drive, mix } => saturate::apply(buf, drive, mix),
+            } => delay::apply(buf, *time, *feedback, *mix, rate),
+            Fx::Reverb { size, damp, mix } => reverb::apply(buf, *size, *damp, *mix, rate),
+            Fx::Saturate { drive, mix } => saturate::apply(buf, *drive, *mix),
+            Fx::Eq { bands } => eq::apply(buf, bands, rate),
         }
     }
 }
@@ -43,17 +49,18 @@ pub(crate) fn apply_chain(buf: &mut [f32], chain: &[Fx], rate: f32) {
 /// what the renderer pads the buffer by, so an echo or a reverb tail is never cut
 /// off mid-repeat. A fully dry effect asks for nothing, and neither does a
 /// waveshaper: [`saturate`] is memoryless, so there is no state left in it to
-/// decay once the signal stops.
+/// decay once the signal stops. Nor does [`eq`], which does have state but
+/// neither delays nor repeats — its own module doc argues that one.
 pub(crate) fn tail_seconds(chain: &[Fx]) -> f32 {
     let total: f32 = chain
         .iter()
-        .map(|fx| match *fx {
+        .map(|fx| match fx {
             Fx::Delay {
                 time,
                 feedback,
                 mix,
-            } if mix > 0.0 => delay::tail_seconds(time, feedback),
-            Fx::Reverb { size, mix, .. } if mix > 0.0 => reverb::tail_seconds(size),
+            } if *mix > 0.0 => delay::tail_seconds(*time, *feedback),
+            Fx::Reverb { size, mix, .. } if *mix > 0.0 => reverb::tail_seconds(*size),
             _ => 0.0,
         })
         .sum();
@@ -97,7 +104,11 @@ mod tests {
         let mut forward = impulse(22_050);
         let mut reversed = impulse(22_050);
         apply_chain(&mut forward, &chain, 44_100.0);
-        apply_chain(&mut reversed, &[chain[1], chain[0]], 44_100.0);
+        apply_chain(
+            &mut reversed,
+            &[chain[1].clone(), chain[0].clone()],
+            44_100.0,
+        );
         assert_ne!(forward, reversed);
         assert!(forward.iter().all(|s| s.is_finite()));
     }
@@ -152,6 +163,35 @@ mod tests {
         assert!(
             buf[1..].iter().all(|s| *s == 0.0),
             "and nothing after it moved, because there is no memory"
+        );
+    }
+
+    #[test]
+    fn an_eq_reaches_the_signal_and_still_asks_for_no_tail() {
+        // A biquad has state, unlike the waveshaper above, so this is the
+        // claim `eq`'s module doc makes rather than a definition: a filter
+        // neither delays nor repeats, so a note carrying one does not grow.
+        let carve = [Fx::Eq {
+            bands: vec![EqBand {
+                kind: EqKind::Peak,
+                freq: Some(250.0),
+                gain_db: -12.0,
+                q: 2.0,
+            }],
+        }];
+        assert_eq!(tail_seconds(&carve), 0.0, "no echo to be cut off");
+        let mut buf: Vec<f32> = (0..4410)
+            .map(|i| (std::f32::consts::TAU * 250.0 * i as f32 / 44_100.0).sin())
+            .collect();
+        // Read past the filter's own start-up transient, which is louder than
+        // the settled response and is not what is being asserted about.
+        let peak = |buf: &[f32]| buf[2205..].iter().fold(0.0f32, |m, s| m.max(s.abs()));
+        let before = peak(&buf);
+        apply_chain(&mut buf, &carve, 44_100.0);
+        let after = peak(&buf);
+        assert!(
+            after < before * 0.5,
+            "the band was cut: {before} to {after}"
         );
     }
 

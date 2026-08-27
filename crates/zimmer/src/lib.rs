@@ -167,6 +167,16 @@ pub use song::{PatchResolver, Song, render_song};
 /// turns out identical; a missed one leaves a project serving samples its
 /// recipe no longer describes, which is the failure this constant exists to
 /// prevent — so where the two are in tension, bump.
+///
+/// **What has not moved it**, since the easy half of the rule is worth writing
+/// down beside the hard half: a **new** effect, source or stage that an
+/// existing recipe cannot be using. The EQ arrived as a new `Fx` variant and a
+/// module nothing calls without one, and no field of any existing variant
+/// changed — 25 probe recipes covering every source, every envelope corner,
+/// every LFO target and every existing effect came back byte-identical across
+/// the change. A recipe that does not name the new thing renders what it
+/// always did, by construction rather than by luck, and that is the case where
+/// leaving this number alone is right.
 pub const SYNTH_VERSION: u32 = 2;
 
 /// Render one note of `patch` and encode it as a mono 16-bit PCM WAV.
