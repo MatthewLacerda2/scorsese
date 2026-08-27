@@ -130,6 +130,35 @@ fn a_string_that_does_not_fill_its_pattern_is_refused() {
     ));
 }
 
+/// Untagged variants are told apart by which field is present, so a step
+/// string has to survive a save and come back one — and an entry that names
+/// two things to play, or misspells a field, has to be refused rather than
+/// read as whichever arm tolerated it.
+#[test]
+fn a_step_entry_is_told_apart_by_its_fields_and_survives_a_round_trip() {
+    let written = stepped();
+    let reloaded = Song::from_json(&written.to_json().expect("serialise")).expect("deserialise");
+    assert_eq!(reloaded, written);
+    assert!(
+        matches!(reloaded.patterns["verse"].notes[0], PatternEntry::Steps(_)),
+        "a step entry came back as something else"
+    );
+
+    for confused in [
+        // A chord and a rhythm are two different things to play.
+        r#"{ "track": "b", "chord": "Dm7", "steps": "x-xX", "div": 0.5, "start": 0, "dur": 1 }"#,
+        // A misspelled field, which would otherwise be a velocity silently at 1.
+        r#"{ "track": "b", "steps": "x-xX", "div": 0.5, "vell": 0.4 }"#,
+        // A string with no grid says nothing about when its hits fall.
+        r#"{ "track": "b", "steps": "x-xX" }"#,
+    ] {
+        assert!(
+            serde_json::from_str::<PatternEntry>(confused).is_err(),
+            "`{confused}` should not have parsed"
+        );
+    }
+}
+
 /// A step string is written where its track is named, so a typo'd track is the
 /// same silence — and the same message — as a typo'd track on a note.
 #[test]
