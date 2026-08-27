@@ -53,7 +53,7 @@ fn two_curves_on_one_parameter_are_refused_rather_than_ordered() {
 fn a_curve_with_no_points_is_refused() {
     assert!(matches!(
         refused(vec![curve(Param::Gain, vec![])]),
-        SynthError::BadAutomationCurve { ref why, .. } if why.contains("no points")
+        SynthError::BadAutomationCurve { why, .. } if why.contains("no points")
     ));
 }
 
@@ -65,7 +65,7 @@ fn points_that_do_not_ascend_are_refused_rather_than_sorted() {
     ] {
         assert!(matches!(
             refused(vec![curve(Param::Gain, points)]),
-            SynthError::BadAutomationCurve { ref why, .. } if why.contains("ascend")
+            SynthError::BadAutomationCurve { why, .. } if why.contains("ascend")
         ));
     }
 }

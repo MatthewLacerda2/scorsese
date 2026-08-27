@@ -158,7 +158,7 @@ pub struct Song {
     /// Values that move across the piece: a filter opening over eight bars, a
     /// part rising into a chorus. Empty means every number in the recipe is
     /// the one number it always was, which is what every song written before
-    /// this field existed meant. [`automate`] has the whole of it.
+    /// this field existed meant. [`Automation`] has the whole of it.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub automation: Vec<Automation>,
     /// A length the piece has to come out at, when the picture decides that
