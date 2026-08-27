@@ -58,6 +58,10 @@ impl OneShot {
         NoteOpts {
             duration: self.duration,
             velocity: self.velocity,
+            // A one-shot is one strike, so there is no performance around it
+            // to have played this note brighter than the last: its brightness
+            // is the velocity it was given, exactly.
+            timbre: 0.0,
             seed: self.seed,
         }
     }

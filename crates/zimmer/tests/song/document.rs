@@ -92,13 +92,13 @@ fn a_swing_that_would_reorder_the_music_is_refused() {
     }
 }
 
-/// Both humanise fields are magnitudes — how far a player may stray, either
+/// Every humanise field is a magnitude — how far a player may stray, either
 /// way — so the refusal has to name which one is nonsense.
 #[test]
 fn a_humanise_amount_that_is_not_an_amount_is_refused_by_name() {
     let backwards = Humanize {
         timing: -0.01,
-        velocity: 0.0,
+        ..Humanize::default()
     };
     assert_eq!(
         Song {
@@ -113,8 +113,8 @@ fn a_humanise_amount_that_is_not_an_amount_is_refused_by_name() {
     );
 
     let nonsense = Humanize {
-        timing: 0.0,
         velocity: f32::NAN,
+        ..Humanize::default()
     };
     assert!(matches!(
         Song {
@@ -127,6 +127,22 @@ fn a_humanise_amount_that_is_not_an_amount_is_refused_by_name() {
             ..
         })
     ));
+
+    let untuned = Humanize {
+        timbre: -1.0,
+        ..Humanize::default()
+    };
+    assert_eq!(
+        Song {
+            humanize: Some(untuned),
+            ..song()
+        }
+        .validate(),
+        Err(SynthError::BadHumanize {
+            field: "timbre",
+            amount: -1.0,
+        })
+    );
 }
 
 #[test]

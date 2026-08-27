@@ -285,7 +285,7 @@ fields say otherwise, and both are absent by default.
 
 ```json fields
   "swing": 0.15,
-  "humanize": { "timing": 0.012, "velocity": 0.08 }
+  "humanize": { "timing": 0.012, "velocity": 0.08, "timbre": 0.12 }
 ```
 
 **`swing`** sits the off-beat eighths late: `0` is straight, `0.33` is roughly
@@ -296,19 +296,34 @@ what the document says it is. It is a property of the performance, so it is
 song-level: a rhythm section that swings while the lead does not is a specific
 effect, not a default.
 
-**`humanize`** scatters each note by a bounded amount. `timing` is the widest
-an onset may be nudged either way, **in seconds** — not beats, because a player
-is not three times sloppier at 40 bpm — and `velocity` is the widest a velocity
-may be scaled, as a fraction of what was written. Twelve milliseconds and 8% is
-a natural band; forty and 20% is a loose one. A note written at full velocity
-can only come out quieter, so a piece that wants dynamics in both directions
-writes its notes below `1.0`.
+**`humanize`** scatters each note by a bounded amount, on three axes:
 
-Both draw from the same seed chain everything stochastic here draws from, keyed
-per note in *arrangement* order. So the piece stays byte-identical across runs,
-`seed` re-rolls the whole performance at once, and a pattern played twice is
-played differently the second time — which is the point. A repeat nudged
+| field | scatters | a natural band | a loose one |
+| --- | --- | --- | --- |
+| `timing` | when the note lands, **in seconds** either way — not beats, because a player is not three times sloppier at 40 bpm | `0.012` | `0.04` |
+| `velocity` | how hard it is struck, as a fraction of the velocity written — level *and* the brightness that comes with it | `0.08` | `0.2` |
+| `timbre` | how it is struck: the brightness alone, as a fraction of the velocity played, with the level left where it is | `0.12` | `0.3` |
+
+A note written at full velocity can only come out quieter, so a piece that
+wants dynamics in both directions writes its notes below `1.0`. `timbre` is not
+a milder `velocity`: leaning on a note makes it louder *and* brighter, which is
+what `velocity` does, while changing the touch makes it brighter at the same
+level. It reaches an instrument through the two routings that already read
+velocity as effort — a filter's `vel_cutoff` and `fm2`'s `vel_index` — so a
+patch that names neither hears nothing from it, which is the right silence:
+what "brighter" means belongs to the instrument.
+
+All three draw from the same seed chain everything stochastic here draws from,
+keyed per note in *arrangement* order. So the piece stays byte-identical across
+runs, `seed` re-rolls the whole performance at once, and a pattern played twice
+is played differently the second time — which is the point. A repeat nudged
 identically both times is still a photocopy, just a crooked one.
+
+The oscillators themselves start somewhere in their cycle rather than at zero,
+drawn from that same chain, so two hits of one patch are not the same waveform
+and a detuned pair is already drifting at the attack. Nothing asks for it and
+nothing can turn it off: a repeat that was a photocopy is the thing this whole
+section is about, and it was one before any of these fields were written.
 
 ### Where an effect goes
 

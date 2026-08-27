@@ -18,6 +18,12 @@
 //! harmonics, and a velocity that only reaches a fader is the reason a
 //! carefully written part can still sound mechanical.
 //!
+//! Those last two are shown a velocity of their **own**: the same number,
+//! unless a performance moved this strike's tone off its level, which is what
+//! [`NoteOpts::timbre`] carries. Tone and loudness are two hands, and a part
+//! whose every note brightens exactly as much as it gets louder is a part
+//! played with one.
+//!
 //! Everything is `f32` in `−1..=1` end to end; the only quantisation is the WAV
 //! encoder's. The rendered buffer is **longer than the note**: the amp
 //! envelope's release rings out after the gate closes, and an fx chain adds its
@@ -67,17 +73,26 @@ const MAX_SECONDS: f32 = 60.0;
 /// it. Three stages now do — the FM source, the filter and the amp envelope —
 /// and if each clamped for itself, one of them eventually would not, and a
 /// note would be struck at three subtly different strengths at once.
+///
+/// It arrives as **two** numbers rather than one, and they part company only
+/// by [`NoteOpts::timbre`]: the level the amp envelope multiplies by, and the
+/// velocity the brightness routings are shown. A player varies tone and
+/// loudness separately — bow pressure against bow speed — and the routings are
+/// where that difference already lives. They are clamped in the same place, to
+/// the same band, for the reason above; `timbre` of zero collapses them back
+/// into the single number every note was struck at before.
 pub fn render_note(patch: &Patch, midi: f32, opts: &NoteOpts) -> Result<Vec<f32>, SynthError> {
     patch.validate()?;
     let gate = gate_length(opts.duration)?;
     let n = sample_count(gate + patch.amp.r.max(0.0) + fx::tail_seconds(&patch.fx));
     let velocity = opts.velocity.clamp(0.0, 1.0);
+    let brightness = (opts.velocity + opts.timbre).clamp(0.0, 1.0);
 
     let freqs = pitch_track(patch.lfo, midi_to_freq(midi), n);
     let mut buf = vec![0.0; n];
-    source::render(&patch.source, &freqs, opts.seed, velocity, &mut buf, RATE);
+    source::render(&patch.source, &freqs, opts.seed, brightness, &mut buf, RATE);
     if let Some(f) = patch.filter {
-        let cutoffs = cutoff_track(&f, patch.lfo, gate, n, velocity);
+        let cutoffs = cutoff_track(&f, patch.lfo, gate, n, brightness);
         filter::apply(&mut buf, &f, &cutoffs, RATE);
     }
     apply_amp(&mut buf, patch, gate, velocity);

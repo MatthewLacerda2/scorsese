@@ -53,6 +53,16 @@ pub struct NoteOpts {
     pub duration: f32,
     /// Striking force in `0..=1`, scaling the note's peak amplitude.
     pub velocity: f32,
+    /// How far this strike's *brightness* sits from its level, in the units
+    /// `velocity` is in.
+    ///
+    /// Added to `velocity` for the two routings that read velocity as effort —
+    /// a filter's `vel_cutoff` and two-operator FM's `vel_index` — and nowhere
+    /// else, so a note can be played a shade brighter or duller without being
+    /// played louder. `0.0` means the two are one number, which is what every
+    /// note meant before a performance could scatter them apart (see
+    /// [`Humanize::timbre`](field@crate::song::Humanize::timbre)).
+    pub timbre: f32,
     /// Seed for every stochastic source; the same seed replays the same noise.
     pub seed: u64,
 }
@@ -63,6 +73,7 @@ impl Default for NoteOpts {
         Self {
             duration: 0.5,
             velocity: 0.8,
+            timbre: 0.0,
             seed: 0,
         }
     }

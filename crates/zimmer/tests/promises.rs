@@ -9,13 +9,14 @@
 mod common;
 
 use common::songs::song;
-use common::{minimal, opts, rising_crossings, saw_patch};
+use common::{measured_hz, minimal, opts, saw_patch};
 use scorsese_zimmer::patch::{Adsr, Osc, Patch, Source, Wave};
 use scorsese_zimmer::song::{Humanize, InlineOnly};
 use scorsese_zimmer::{NoteOpts, Song, bake_named_note, bake_note, bake_song};
 
-/// A bare sine with no envelope movement, so rising zero-crossings *are* the
-/// frequency and the pitch can be asserted without an FFT.
+/// A bare sine with no envelope movement, so the spacing of its rising
+/// zero-crossings *is* the frequency and the pitch can be asserted without an
+/// FFT.
 fn sine() -> Patch {
     Patch {
         amp: Adsr {
@@ -40,15 +41,23 @@ fn a_note_lands_on_the_pitch_it_was_asked_for() {
     let one_second = NoteOpts {
         duration: 1.0,
         velocity: 1.0,
+        timbre: 0.0,
         seed: 0,
     };
     let hz = |midi: f32| {
         let buf = scorsese_zimmer::render_note(&sine(), midi, &one_second).expect("renders");
-        rising_crossings(&buf[..44_100])
+        measured_hz(&buf[..44_100], 44_100.0)
     };
-    assert_eq!(hz(69.0), 440, "A4 is 440 Hz");
-    assert_eq!(hz(57.0), 220, "an octave down halves it");
-    assert_eq!(hz(81.0), 880, "an octave up doubles it");
+    let close = |midi: f32, expected: f32| {
+        let measured = hz(midi);
+        assert!(
+            (measured - expected).abs() < 0.5,
+            "asked for {expected} Hz, got {measured}"
+        );
+    };
+    close(69.0, 440.0);
+    close(57.0, 220.0);
+    close(81.0, 880.0);
 }
 
 /// The claim `generated/` rests on. If this ever fails, a cache hit is serving
@@ -87,6 +96,7 @@ fn a_humanised_song_bakes_the_same_bytes_and_a_new_seed_does_not() {
             humanize: Some(Humanize {
                 timing: 0.02,
                 velocity: 0.1,
+                timbre: 0.08,
             }),
             ..song()
         };
