@@ -4,4 +4,5 @@
 mod common;
 
 mod document;
+mod eq;
 mod validation;
