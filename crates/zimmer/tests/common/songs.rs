@@ -34,6 +34,7 @@ pub(crate) fn note(track: &str, name: &str, start: f32, dur: f32) -> Note {
         start,
         dur,
         vel: 1.0,
+        articulation: None,
     }
 }
 

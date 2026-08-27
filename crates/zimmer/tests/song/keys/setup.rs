@@ -42,6 +42,7 @@ pub(crate) fn degree(written: Degree, oct: i32, start: f32) -> PatternEntry {
         start,
         dur: 0.5,
         vel: 1.0,
+        articulation: None,
     }
     .into()
 }
