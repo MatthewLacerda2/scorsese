@@ -186,6 +186,12 @@ fn ratio_ceiling(freqs: &[f32], sample_rate: f32) -> f32 {
 /// a pitch, or at or above Nyquist, where it would fold back into the note as
 /// inharmonic garbage. Both comparisons are false for a `NaN` ratio, which is
 /// the right answer for that too.
+///
+/// **Both bounds are exclusive, and the upper one deliberately so.** A partial
+/// landing exactly on Nyquist advances exactly half a cycle per sample, so it
+/// renders as an alternating ±A whose amplitude is decided by wherever in its
+/// cycle the note happened to start — no converter can reproduce it and nobody
+/// chose its level, which makes it the same unusable signal as one that folded.
 fn sounding(partial: &Partial, ceiling: f32) -> Option<f32> {
     let ratio = partial.ratio * (partial.detune_cents / 1200.0).exp2();
     (ratio > 0.0 && ratio < ceiling).then_some(ratio)
@@ -301,6 +307,44 @@ mod tests {
         assert!(level_at(&buf, BASE * 5.0) < 1e-3);
     }
 
+    /// The two things a magnitude spectrum cannot see, and so the two nothing
+    /// in this file asserted until mutation testing said so: a partial is
+    /// **added** into the buffer, and its phase walks **forward**.
+    ///
+    /// A one-bin DFT reports a magnitude, and a magnitude is blind to both.
+    /// Negating the whole buffer leaves every level in it exactly where it
+    /// was, and a sine whose phase runs backwards is a sine of the same
+    /// frequency at the same amplitude — so every other assertion here passes
+    /// with the sum inverted, the oscillator running in reverse, or both.
+    ///
+    /// Two samples of a lone partial settle it. Both expected values are
+    /// worked out from what the module documents — a sine of `2π × phase`,
+    /// starting at [`start_phase`] and advancing by `f / rate` a sample — and
+    /// written as literals, because recomputing the renderer's own expression
+    /// here would only assert that the code agrees with itself.
+    ///
+    /// - **Sample 0** is `sin(2π × 0.378687)`, the phase seed 11 draws for a
+    ///   first partial. Its sign belongs to the accumulation: subtracting
+    ///   rather than adding puts −0.6905 here, while running backwards does
+    ///   not move it at all, since no step has been taken yet.
+    /// - **Sample 110** is a hair past a quarter of a cycle at 100 Hz, which
+    ///   is where the two directions are furthest apart: forward lands on
+    ///   −0.7208 and backward on +0.7258, either side of zero.
+    #[test]
+    fn a_partial_is_added_in_and_walks_forward_through_its_cycle() {
+        let buf = series(&[partial(1.0, 1.0)], 128);
+        assert!(
+            (buf[0] - 0.690_537).abs() < 1e-4,
+            "sample 0 read {}",
+            buf[0]
+        );
+        assert!(
+            (buf[110] + 0.720_838).abs() < 1e-4,
+            "sample 110 read {}, where backwards would read +0.7258",
+            buf[110]
+        );
+    }
+
     /// Gains are weights and not levels: doubling every one of them changes
     /// nothing at all, sample for sample.
     #[test]
@@ -361,6 +405,27 @@ mod tests {
             (fundamental - 1.0).abs() < 1e-3,
             "the survivor read {fundamental}"
         );
+    }
+
+    /// The boundary itself — the half of the Nyquist rule the test above does
+    /// not reach, since a sixteenth partial of a 2 kHz note is far past the
+    /// line rather than sitting on it.
+    ///
+    /// A partial landing **exactly** on Nyquist is dropped. At half the sample
+    /// rate a sine advances exactly half a cycle per sample, so what renders
+    /// is an alternating ±A whose amplitude depends entirely on where in the
+    /// cycle the note happened to start — a signal no converter can reproduce
+    /// and nobody chose the level of, which is precisely what the rule is for.
+    /// One part in ten thousand under the line still sounds.
+    #[test]
+    fn a_partial_landing_exactly_on_nyquist_is_dropped() {
+        let ceiling = ratio_ceiling(&[BASE], RATE);
+        assert_eq!(ceiling, 220.5, "half the rate over the played pitch");
+        assert_eq!(sounding(&partial(ceiling, 1.0), ceiling), None);
+        assert!(sounding(&partial(220.49, 1.0), ceiling).is_some());
+        // Were it kept, it would render at full level rather than not at all.
+        let buf = series(&[partial(ceiling, 1.0)], 8);
+        assert!(buf.iter().all(|s| *s == 0.0), "got {buf:?}");
     }
 
     /// It is decided per note, not per patch: the same series keeps a partial
