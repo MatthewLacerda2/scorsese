@@ -33,7 +33,8 @@
 //! the pitch of the one before it — passes that test easily and is deliberately
 //! not here: it is the only one of the four with real DSP behind it, and it
 //! needs the previous note on its track, which the renderer's *notes are
-//! independent* claim does not currently allow. It is its own issue and its own
+//! independent* claim does not currently allow. That is a claim to withdraw
+//! deliberately rather than as a side effect, so it is #448 and its own
 //! argument.
 //!
 //! ## One articulation, not a set of them

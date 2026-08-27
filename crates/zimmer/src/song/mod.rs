@@ -426,8 +426,8 @@ pub struct Note {
     /// same thing by it: [`Chord`] plays every voice that way, [`Steps`] plays
     /// every hit that way, and a [`DegreeNote`] is one note like this one. It
     /// survives expansion because it is copied onto the notes an entry becomes
-    /// — nothing downstream of [`Pattern::voices`] knows which form the page
-    /// used, so this is the only place it could live.
+    /// — nothing downstream of that expansion knows which form the page used,
+    /// so this is the only place it could live.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub articulation: Option<Articulation>,
 }
