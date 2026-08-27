@@ -206,9 +206,35 @@ mod tests {
         }
     }
 
-    /// The warm-up, read where it is audible: a coloured source is at full
-    /// level from its very first sample rather than fading in over the ten
-    /// milliseconds a listener identifies an impact by.
+    /// The warm-up, asserted where it cannot hide: sample zero is **not** what
+    /// a filter starting from rest would have produced from that same draw. An
+    /// unwarmed source begins at silence and climbs out of it over the ten
+    /// milliseconds a listener identifies an impact by, and the climb is
+    /// mostly in the slowest pole — which is to say it is a change of
+    /// *spectrum* far more than of level, and a level check alone lets it
+    /// through.
+    #[test]
+    fn a_coloured_source_does_not_begin_at_rest() {
+        for color in [NoiseColor::Pink, NoiseColor::Brown] {
+            let mut cold = Coloring::new(color);
+            let from_rest = cold.step(white(0, LEFT_CHANNEL, 17));
+            assert_ne!(
+                filled(64, color, 17).l[0],
+                from_rest,
+                "{color:?} started from rest"
+            );
+        }
+        // White has nothing to settle, so it *is* the cold value — the arm
+        // that keeps an existing recipe's samples where they were.
+        let mut cold = Coloring::new(NoiseColor::White);
+        assert_eq!(
+            filled(64, NoiseColor::White, 17).l[0],
+            cold.step(white(0, LEFT_CHANNEL, 17))
+        );
+    }
+
+    /// And the audible half of the same thing: a coloured source is already at
+    /// its own level in the first hundredth of a second.
     #[test]
     fn a_coloured_source_starts_at_the_level_it_continues_at() {
         for color in [NoiseColor::Pink, NoiseColor::Brown] {

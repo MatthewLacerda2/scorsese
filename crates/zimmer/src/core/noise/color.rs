@@ -196,7 +196,7 @@ mod tests {
     /// this crate and fail here.
     #[test]
     fn the_brown_integrator_leaks_rather_than_running_away() {
-        assert!(BROWN_LEAK < 1.0, "an unleaky integrator is a random walk");
+        const { assert!(BROWN_LEAK < 1.0, "an unleaky integrator is a random walk") };
         let mut brown = Coloring::new(NoiseColor::Brown);
         let mut last = 0.0;
         for _ in 0..200_000 {
@@ -242,7 +242,7 @@ mod tests {
         for color in [NoiseColor::Pink, NoiseColor::Brown] {
             assert_eq!(Coloring::new(color).warmup(), WARMUP, "{color:?}");
         }
-        assert!(WARMUP > 4 * 425, "the slowest pink pole needs longer");
+        const { assert!(WARMUP > 4 * 425, "the slowest pink pole needs longer") };
     }
 
     /// Every pink pole is in play: knocking any single one out of the bank
@@ -274,6 +274,6 @@ mod tests {
         for at in 0..PINK_POLES.len() {
             assert_ne!(run(Some(at)), whole, "pole {at} changes nothing");
         }
-        assert!(PINK_DIRECT > 0.0, "the raw draw is part of the sum");
+        const { assert!(PINK_DIRECT > 0.0, "the raw draw is part of the sum") };
     }
 }
