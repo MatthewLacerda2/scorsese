@@ -209,6 +209,16 @@ pub use song::{PatchResolver, Song, render_song};
 /// always did, by construction rather than by luck, and that is the case where
 /// leaving this number alone is right.
 ///
+/// The **compressor** is the second one of those, and it went further into the
+/// mixer than the EQ did — a new buffer per keyed track, and a second entry
+/// point into the fx chain — so it was checked rather than argued: 24 probes
+/// across all four sources, every envelope corner, all three LFO targets,
+/// every existing effect, all three chain locations, chords, step strings,
+/// keys and degrees, swing and humanise, the arrangement transforms and the
+/// fit, fade and tail fields came back byte-identical. The extra buffer is
+/// only kept for a track something names, and nothing names one in a recipe
+/// written before this existed.
+///
 /// **New notation is the same case**, and worth naming separately because it
 /// does not look like it. A song key and scale degrees added a `Song` field
 /// and a fourth kind of pattern entry, reordered the enum holding the other
