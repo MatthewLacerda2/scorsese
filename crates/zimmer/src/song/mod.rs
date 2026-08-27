@@ -190,6 +190,10 @@ pub struct Track {
     /// **Constant power** (see [`Song`]'s renderer), so moving a part off
     /// centre does not quieten it, and centre is exactly unity — a track that
     /// never mentions this field renders the samples it always did.
+    ///
+    /// It is a **balance**, not a rotation: an instrument that already arrived
+    /// wide — a `noise` source is the only one that does — loses the far side
+    /// as this moves away from it, which is what turning one down means.
     #[serde(default, skip_serializing_if = "centred")]
     pub pan: f32,
     /// Effects on this instrument's whole part, applied to the sum of its

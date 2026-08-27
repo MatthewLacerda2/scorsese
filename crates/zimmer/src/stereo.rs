@@ -121,7 +121,10 @@ impl Stereo {
 /// written at and lets a hard-panned one arrive 3 dB up on the side it went
 /// to. The other would have quietened every existing recipe by 3 dB for
 /// changing nothing, and a bake that comes back under the version it replaced
-/// is the exact defect [`crate::level`] exists to catch.
+/// is the exact defect [`crate::level`] exists to catch. What it costs is that
+/// moving a part that was already near full scale hands the master limiter 3 dB
+/// to deal with — which is what the master limiter is for, and a quieter
+/// version of every recipe is not.
 ///
 /// Dead centre is returned as a literal `(1.0, 1.0)` rather than computed:
 /// `√2·cos(π/4)` is `0.99999994` in `f32`, and a track that never mentioned

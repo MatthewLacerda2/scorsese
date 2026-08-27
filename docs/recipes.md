@@ -117,7 +117,7 @@ where 1.0 dips to silence.
 | `fx` | Fields | What it does |
 | --- | --- | --- |
 | `delay` | `time` in seconds, `feedback` 0..1, `mix` 0..=1 | feedback echo — a slapback, a corridor |
-| `reverb` | `size` 0..=1, `damp` 0..=1, `mix` 0..=1 | a room the sound is in |
+| `reverb` | `size` 0..=1, `damp` 0..=1, `mix` 0..=1 | a room the sound is in — the one effect here that is **wide** |
 | `saturate` | `drive`, `mix` 0..=1 | soft clip: warmth, weight, glue |
 | `eq` | `bands`: up to 8 of `{ kind, freq, gain_db, q }` | takes a region away, or adds one |
 
@@ -318,7 +318,8 @@ changing the tempo of a finished piece is one number.
 - **`tracks`** — the instruments. `patch` is either the document inline or a
   project-relative path to a bare patch file, so several songs can share one
   instrument. That path obeys the same rules every path in a project does: no
-  absolute paths, no `..`, forward slashes.
+  absolute paths, no `..`, forward slashes. `gain` is how loud it sits and
+  `pan` is where — see [Where a part sits](#where-a-part-sits).
 - **`patterns`** — named blocks. `beats` is the *slot* the block occupies; notes
   may ring out past it and the next pattern still starts on time.
 - **`arrangement`** — which patterns play, in order.
@@ -734,6 +735,37 @@ and a detuned pair is already drifting at the attack. Nothing asks for it and
 nothing can turn it off: a repeat that was a photocopy is the thing this whole
 section is about, and it was one before any of these fields were written.
 
+### Where a part sits
+
+Every track has a **`pan`**: `-1.0` hard left, `0.0` centre, `1.0` hard right.
+Absent means centre, and a track that never mentions it renders exactly what it
+always did.
+
+```json fields
+  "tracks": [
+    { "name": "t", "gain": 0.7, "pan": -0.4,
+      "patch": {
+        "source": { "kind": "noise" },
+        "amp": { "a": 0.001, "d": 0.05, "s": 0.0, "r": 0.02 }
+      } }
+  ]
+```
+
+Five instruments all at zero is five things stacked at one point in space, and
+that — more than any single effect — is what makes a score sound unproduced.
+The move that fixes it is dull and reliable: **keep the bottom and the backbeat
+in the middle**, because a bass or a kick off to one side reads as a mistake,
+and spread everything else a little. A pad at `-0.4` against a counter-line at
+`0.4`, hats slightly off-axis, one doubled part either side of centre.
+
+The law is **constant power**, so a part does not get quieter as it moves; hard
+over is 3 dB up on the side it went to, which the master limiter deals with as
+it deals with everything else. Values past ±1 are clamped rather than refused.
+
+A pan is a **balance**, so on the one source that is already wide — `noise`,
+which draws its two sides independently — moving it away from a side turns that
+side down rather than rotating it across.
+
 ### Where an effect goes
 
 A chain can live in three places. Which one you pick is most of the difference
@@ -765,6 +797,13 @@ own room, drifting apart the moment one of them is tuned; put it on the song and
 it is one setting, decaying once across everything and ringing past the last
 note as a single tail. It is also less work for the machine: one room, convolved
 once, instead of the same room convolved for every note in the piece.
+
+It is also the piece's **width**. The reverb is stereo — its two sides are the
+same room heard at two slightly different sets of delays — and the tail is
+therefore the widest thing in the mix, arriving from around the parts rather
+than from where each one was panned. A dry mix of panned instruments is placed;
+a mix with one room over it is in a place. `mix` between `0.1` and `0.2` over
+the whole song is usually enough.
 
 **Drive belongs in all three, for three different reasons.** It is the one
 effect with a real use in each place, because it is not describing a space — it
@@ -873,12 +912,14 @@ time a project moved machine. **Changing what a recipe renders to means bumping
 it in the same commit**, the way a `project.json` format change means bumping
 `schema_version`.
 
-Output is **mono, 16-bit PCM, 44.1 kHz**. A render resamples and upmixes it
+Output is **stereo, 16-bit PCM, 44.1 kHz**. A render resamples and remixes it
 into the mix exactly as it would any imported file, so a recipe never has to
 know what the finished video will be delivered at.
 
-Mono is a settled decision rather than a stage on the way to stereo, so there
-is no panning and no width: a recipe places a sound in *time*, never in space.
+Width belongs to the **mix**, not to a note. There is a `pan` on every track
+and a reverb that arrives from both sides; there is no per-note pan, no
+mid/side and no stereo *source* — a recipe places an instrument in space, and
+places a sound in time.
 
 ## How a bake came out
 
