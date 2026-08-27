@@ -322,6 +322,9 @@ changing the tempo of a finished piece is one number.
 - **`patterns`** — named blocks. `beats` is the *slot* the block occupies; notes
   may ring out past it and the next pattern still starts on time.
 - **`arrangement`** — which patterns play, in order.
+- **`key`** — optional, `"D minor"`. Lets a note be written as a
+  [scale degree](#saying-what-key-it-is-in) and lets a section lift within the
+  key instead of out of it.
 
 Write repetition as repetition. A melody with any structure is a few short
 patterns and a list naming them; the same music as one flat note list is
@@ -553,7 +556,8 @@ note.
 
 | field | does |
 | --- | --- |
-| `transpose` | adds semitones to every note — a key change, an octave double, a lifted final chorus |
+| `transpose` | adds semitones to every note — an octave double, or a move to a different key |
+| `transpose_degrees` | moves every note that many steps **within the song's key** — the lift, see [below](#saying-what-key-it-is-in) |
 | `vel_scale` | multiplies every velocity — a quiet reprise, a half-time breakdown |
 | `tracks` | plays only these tracks; everything else is silent for that entry |
 
@@ -581,6 +585,100 @@ Three things worth knowing before you write one:
 Inversion, retrograde, augmentation and fragmentation are deliberately absent.
 They are real compositional operations and also the ones nobody reaches for by
 hand; if a real song wants one, that is a request with the song attached.
+
+### Saying what key it is in
+
+A song may declare one — `"key": "D minor"`, beside `bpm` at the top level —
+and two things become writable that were not.
+
+**A note can be a degree.** `1` is the tonic, `5` is the dominant, and which
+notes those *are* is settled once, at the top of the document, instead of two
+hundred times in your head:
+
+```json fields
+"key": "D minor",
+"patterns": { "a": { "beats": 4, "notes": [
+  { "track": "t", "degree": 1, "oct": 4, "start": 0, "dur": 0.5 },
+  { "track": "t", "degree": 3, "oct": 4, "start": 1, "dur": 0.5 },
+  { "track": "t", "degree": 5, "oct": 4, "start": 2, "dur": 0.5 },
+  { "track": "t", "degree": "#7", "oct": 4, "start": 3, "dur": 0.5 }
+] } },
+"arrangement": ["a"]
+```
+
+That is `D4 F4 A4 C#5`. Written as names, the third note is an `F` and the
+fourth is a `C#`, and one of them being wrong is a sour note that nothing
+downstream can catch — not validation, not the bake report, only ears. As
+degrees it is not a mistake the notation can express.
+
+- **Degrees count from 1**, the way musicians count them. `8` is the octave
+  above the tonic, `9` is the ninth, and there is **no degree 0** — it is
+  refused rather than read as the tonic, so assuming zero-based fails loudly
+  instead of putting a whole part a step flat.
+- **`oct` places the tonic**, and degrees climb away from it. `1` in `D minor`
+  at `oct: 4` is D4 and `7` is C5, not the C4 underneath. Absent, `oct` is 4.
+- **Accidentals go in front of the number**, as `#` and `b`, stacking:
+  `"b3"`, `"#4"`, `"bb7"`. A degree with one is a JSON string; a plain degree
+  is a number. Without these, every borrowed chord and every leading tone in a
+  minor key would be back to absolute names — which is most of the interesting
+  music.
+
+**And a chorus can lift.** `transpose` moves every note by the same semitones,
+which is right for an octave double and moves the music into a *different*
+key. What people mean by lifting a chorus is up a step **inside** the key, and
+that is `transpose_degrees`:
+
+```json fields
+"key": "D minor",
+"patterns": { "chorus": { "beats": 4, "notes": [
+  { "track": "t", "degree": 1, "start": 0, "dur": 1 },
+  { "track": "t", "degree": 5, "start": 1, "dur": 1 },
+  { "track": "t", "degree": 4, "start": 2, "dur": 2 }
+] } },
+"arrangement": [
+  "chorus",
+  "chorus",
+  { "pattern": "chorus", "transpose_degrees": 1 }
+]
+```
+
+The last chorus is `E Bb A` where the others were `D A G` — three notes moved
+by 2, 1 and 2 semitones, which no single chromatic number can do. A note the
+key does not contain keeps its distance above the scale note under it, so a
+deliberate accidental comes out as the same accidental in its new position
+rather than being snapped into the key or refused.
+
+**The modes, and only these.** Each is a rotation of the same seven notes;
+`major` and `minor` are the words people say for two of them.
+
+| written | what it is |
+| --- | --- |
+| `major`, `ionian` | the major scale |
+| `minor`, `aeolian` | the natural minor scale |
+| `dorian` | minor with a raised sixth |
+| `phrygian` | minor with a flattened second |
+| `lydian` | major with a raised fourth |
+| `mixolydian` | major with a flattened seventh |
+| `locrian` | minor with a flattened second and a diminished fifth |
+
+The tonic is spelled the way a chord root is — an **upper case** letter `A`–`G`
+with `#` or `b` after it — and the mode word is required, in any case. So
+`"D minor"`, `"F# lydian"` and `"Bb Major"` are keys, and `"D"`, `"d minor"`
+and `"D harmonic minor"` are refusals. Harmonic and melodic minor are absent
+because they are not rotations of anything and differ going up from going
+down; the raised seventh that anybody wants them for is `"#7"`.
+
+**Absolute names stay exactly as they were**, in a song with a key as much as
+in one without. A deliberate accidental is a real thing, `"C#4"` in D minor
+plays as `C#4`, and there is no reason to rewrite a document that already
+reads well.
+
+Two refusals rather than guesses: a **degree in a song with no key**, and a
+**`transpose_degrees` in a song with no key**. There is no scale to count
+along, and inferring one from the notes already written is analysis, not
+notation. `transpose` and `transpose_degrees` on the *same* entry are refused
+too — which applies first changes the answer, no convention settles it, and a
+reader should be able to tell at a glance which kind of lift an entry is.
 
 ### Playing it, rather than clocking it
 
@@ -1052,11 +1150,15 @@ not either, a `vel_scale` below zero, a `swing` outside `0..1` (at 1 the
 off-beat lands on the next beat, which reorders the music), and a negative
 `humanize` amount.
 
-Chords are the one place something is refused for a second reason: a name off
-the [quality table](#writing-a-chord-as-a-chord), a chord voiced past either
-end of the keyboard, an empty list of pitches, and `oct` written beside a
-chord that spelled its pitches out. None of those would be silence — they
-would be *a different chord*, which nothing downstream can notice.
+Chords and keys are refused for a second reason: none of what follows would be
+silence, they would be *different notes*, which nothing downstream can notice.
+A chord name off the [quality table](#writing-a-chord-as-a-chord), a chord
+voiced past either end of the keyboard, an empty list of pitches, and `oct`
+written beside a chord that spelled its pitches out. A `key` that is not a
+tonic and a [mode](#saying-what-key-it-is-in), a degree of zero or below, a
+degree or a `transpose_degrees` in a song that declares no key, a degree that
+lands off the keyboard, and `transpose` beside `transpose_degrees` on one
+entry.
 
 [Step strings](#writing-a-rhythm-as-a-rhythm) are refused for the same second
 reason, and it is why the checks are there at all: a character that is not

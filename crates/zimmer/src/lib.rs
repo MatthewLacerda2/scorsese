@@ -177,6 +177,15 @@ pub use song::{PatchResolver, Song, render_song};
 /// the change. A recipe that does not name the new thing renders what it
 /// always did, by construction rather than by luck, and that is the case where
 /// leaving this number alone is right.
+///
+/// **New notation is the same case**, and worth naming separately because it
+/// does not look like it: a song key and scale degrees added a `Song` field
+/// and a third kind of pattern entry, which rewrote the note loop's pitch step
+/// and the pattern's expansion — and 16 probes across the arrangement
+/// transforms, swing, all three humanise axes, the fit modes, the fades, the
+/// chains and all four sources still came back byte-identical. The measure is
+/// the same one either way: *can a recipe written before this change name the
+/// new thing?* Not *did the code around it move*.
 pub const SYNTH_VERSION: u32 = 2;
 
 /// Render one note of `patch` and encode it as a mono 16-bit PCM WAV.
