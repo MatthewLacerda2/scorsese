@@ -6,20 +6,43 @@
 //! reading prose. Every variant carries the offending value, so the fix is in
 //! the error rather than in a second look at the document.
 //!
+//! ## Where a new variant goes
+//!
+//! The variants sit in four labelled groups below — **an instrument and its
+//! chain**, **a note as it is written**, **a piece**, and **the caller's
+//! resolver**. A new refusal joins the group its subject belongs to; the words
+//! it is printed with go in the same group of [`wording`], and that match is
+//! exhaustive, so the compiler will not let a variant be added without them.
+//!
+//! The words are in a second file because this one does not fit under the size
+//! gate otherwise, and they are the half that can leave: nothing matches on a
+//! message. The variants themselves cannot be split, because [`SynthError`] is
+//! one flat public enum — callers and tests match its variants by name, so
+//! nesting a group behind a second enum would be an API change rather than a
+//! file-layout one, and Rust has no way to write one enum across two files.
+//!
 //! Only what would produce silence, a divide-by-zero, an unstable filter or an
 //! unbounded allocation is rejected. Musical taste is the recipe's business:
 //! an ugly patch renders.
 
+mod wording;
+
 /// A recipe the synthesiser cannot honour.
-#[derive(Debug, Clone, PartialEq, thiserror::Error)]
+///
+/// Flat and public deliberately: a caller matches a variant by name. What each
+/// one *says* is in the `wording` module beside this one.
+#[derive(Debug, Clone, PartialEq)]
 pub enum SynthError {
+    // ────────────────────────────────────────────────────────────────────
+    // An instrument and its chain: what a source, a filter, an envelope, an
+    // LFO or an effect is refused for. An fx chain is a patch's own stage, so
+    // the three refusals a `sidechain` earns sit here too.
+    // ────────────────────────────────────────────────────────────────────
     /// An oscillator stack with nothing in it makes no sound at all.
-    #[error("patch: `osc_stack` needs at least one oscillator")]
     EmptyOscStack,
 
     /// Past a handful of oscillators the stack costs CPU for no audible gain,
     /// so the cap is stated rather than discovered.
-    #[error("patch: `osc_stack` takes at most {limit} oscillators, got {found}")]
     TooManyOscs {
         /// How many the stack asked for.
         found: usize,
@@ -29,12 +52,10 @@ pub enum SynthError {
 
     /// Every oscillator weighted zero: a stack that renders silence, which is
     /// never what was meant.
-    #[error("patch: every oscillator gain is zero — the stack is silent")]
     SilentOscStack,
 
     /// The FM modulator's frequency is a multiple of the played pitch, so a
     /// non-positive ratio has no sound to describe.
-    #[error("patch: `fm2` needs a positive `ratio`, got {ratio}")]
     BadFmRatio {
         /// The ratio as written.
         ratio: f32,
@@ -42,14 +63,12 @@ pub enum SynthError {
 
     /// An additive series with nothing in it states no spectrum, so there is
     /// no tone for it to make.
-    #[error("patch: `additive` needs at least one partial")]
     EmptyPartials,
 
     /// Past a handful of partials the series costs one sine oscillator per
     /// note per sample for no audible gain — the same argument
     /// [`SynthError::TooManyOscs`] makes about a stack, at a higher count
     /// because a spectrum genuinely needs more entries than a stack does.
-    #[error("patch: `additive` takes at most {limit} partials, got {found}")]
     TooManyPartials {
         /// How many the series asked for.
         found: usize,
@@ -59,14 +78,12 @@ pub enum SynthError {
 
     /// Every partial weighted zero: a series that renders silence, which is
     /// never what was meant.
-    #[error("patch: every partial gain is zero — the series is silent")]
     SilentPartials,
 
     /// A partial's frequency is a multiple of the played pitch, so a
     /// non-positive multiple names no frequency. Zero in particular is a DC
     /// offset — inaudible, and it eats the headroom the rest of the series
     /// needs.
-    #[error("patch: `additive` partial {index} needs a positive `ratio`, got {ratio}")]
     BadPartialRatio {
         /// Which partial of the series it is, counting from zero.
         index: usize,
@@ -75,7 +92,6 @@ pub enum SynthError {
     },
 
     /// A cutoff at or below zero Hz leaves the filter with nothing to pass.
-    #[error("patch: filter `cutoff` must be positive Hz, got {cutoff}")]
     BadCutoff {
         /// The cutoff as written.
         cutoff: f32,
@@ -88,7 +104,6 @@ pub enum SynthError {
     ///
     /// Named `fx` rather than `patch`, because a chain lives in three places
     /// and the message has to be true in all of them.
-    #[error("fx: `eq` takes at most {limit} bands, got {found}")]
     TooManyEqBands {
         /// How many the band list asked for.
         found: usize,
@@ -98,7 +113,6 @@ pub enum SynthError {
 
     /// A compressor keyed from a track this song does not have — the typo that
     /// would otherwise be a duck the recipe wrote and never heard.
-    #[error("song: track `{track}` is keyed from `{key}`, which is not a track in this song")]
     UnknownSidechain {
         /// The track carrying the compressor.
         track: String,
@@ -108,10 +122,6 @@ pub enum SynthError {
 
     /// A track keyed from itself is an ordinary compressor written the long
     /// way round, and far more likely a name that was meant to be another's.
-    #[error(
-        "song: track `{track}` is keyed from itself — leave `sidechain` out for a compressor \
-             that listens to its own part"
-    )]
     SelfSidechain {
         /// The track that named itself.
         track: String,
@@ -120,10 +130,6 @@ pub enum SynthError {
     /// A `sidechain` outside a track's own chain. A patch's chain runs per note
     /// and the song's runs on the sum; in neither is there a track to listen
     /// to, so it is refused rather than quietly dropped.
-    #[error(
-        "{place}: `compress` is keyed from `{key}`, and only a track's own chain sits where \
-             one track can listen to another"
-    )]
     MisplacedSidechain {
         /// Which chain it was written on — `patch` or `song`.
         place: &'static str,
@@ -132,26 +138,25 @@ pub enum SynthError {
     },
 
     /// An LFO running backwards is not a shape the modulators can follow.
-    #[error("patch: lfo `rate` must not be negative, got {rate}")]
     NegativeLfoRate {
         /// The rate as written.
         rate: f32,
     },
 
+    // ────────────────────────────────────────────────────────────────────
+    // A note as it is written: how long it lasts, and what it is called.
+    // ────────────────────────────────────────────────────────────────────
     /// A note with no length renders no samples.
-    #[error("note: `duration` must be positive seconds, got {duration}")]
     BadDuration {
         /// The duration as written.
         duration: f32,
     },
 
     /// A note name with nothing in it.
-    #[error("empty note name")]
     EmptyNoteName,
 
     /// Note names start with a letter A–G; anything else is a typo rather than
     /// an exotic tuning.
-    #[error("note `{name}`: expected a letter A–G, got `{letter}`")]
     BadNoteLetter {
         /// The name as written.
         name: String,
@@ -160,7 +165,6 @@ pub enum SynthError {
     },
 
     /// The octave is the number after the letter and any accidentals.
-    #[error("note `{name}`: `{octave}` is not an octave number")]
     BadOctave {
         /// The name as written.
         name: String,
@@ -169,7 +173,6 @@ pub enum SynthError {
     },
 
     /// MIDI numbers run 0–127, so a note outside that has no pitch to render.
-    #[error("note `{name}`: MIDI {midi} is outside 0..=127")]
     NoteOutOfRange {
         /// The name as written.
         name: String,
@@ -177,24 +180,25 @@ pub enum SynthError {
         midi: i32,
     },
 
+    // ────────────────────────────────────────────────────────────────────
+    // A piece: its tempo, its tracks, its patterns and arrangement, how it is
+    // played, the curves that move a value across it, and the length it has to
+    // come out at.
+    // ────────────────────────────────────────────────────────────────────
     /// Tempo divides into every duration in the song.
-    #[error("song: bpm must be positive, got {bpm}")]
     BadBpm {
         /// The tempo as written.
         bpm: f32,
     },
 
     /// A song with no tracks has no instruments to play anything on.
-    #[error("song: no tracks")]
     NoTracks,
 
     /// An arrangement is the running order; an empty one renders nothing.
-    #[error("song: arrangement is empty — nothing would be rendered")]
     EmptyArrangement,
 
     /// The arrangement names a pattern the song does not define — a typo that
     /// would otherwise be silence in the middle of a piece.
-    #[error("song: arrangement names pattern `{pattern}`, which is not defined")]
     UnknownPattern {
         /// The name that matched no pattern.
         pattern: String,
@@ -203,7 +207,6 @@ pub enum SynthError {
     /// An arrangement entry's `tracks` filter names an instrument the song does
     /// not have — the same typo as an unknown pattern, with the same
     /// consequence: something that silently never plays.
-    #[error("song: arrangement entry for `{pattern}`: no track named `{track}` to play")]
     UnknownTrackFilter {
         /// The pattern the entry plays.
         pattern: String,
@@ -213,7 +216,6 @@ pub enum SynthError {
 
     /// An arrangement entry asks to transpose by something that is not a
     /// number of semitones.
-    #[error("song: arrangement entry for `{pattern}`: transpose must be finite, got {transpose}")]
     BadTranspose {
         /// The pattern the entry plays.
         pattern: String,
@@ -224,7 +226,6 @@ pub enum SynthError {
     /// An arrangement entry scales velocity by something that is not a
     /// non-negative number. Negative would be a phase inversion by another
     /// name, which is not what "quieter" means.
-    #[error("song: arrangement entry for `{pattern}`: vel_scale must be >= 0, got {scale}")]
     BadVelocityScale {
         /// The pattern the entry plays.
         pattern: String,
@@ -233,7 +234,6 @@ pub enum SynthError {
     },
 
     /// A pattern's slot length decides where the next one starts.
-    #[error("song: pattern `{pattern}`: beats must be positive, got {beats}")]
     BadPatternBeats {
         /// The pattern at fault.
         pattern: String,
@@ -242,7 +242,6 @@ pub enum SynthError {
     },
 
     /// A note assigned to an instrument the song does not have.
-    #[error("song: pattern `{pattern}` note {index}: no track named `{track}`")]
     UnknownTrack {
         /// The pattern holding the note.
         pattern: String,
@@ -253,7 +252,6 @@ pub enum SynthError {
     },
 
     /// A note starting before the pattern does, or at no time at all.
-    #[error("song: pattern `{pattern}` note {index}: start must be >= 0, got {start}")]
     BadNoteStart {
         /// The pattern holding the note.
         pattern: String,
@@ -264,7 +262,6 @@ pub enum SynthError {
     },
 
     /// A note that is held for no time.
-    #[error("song: pattern `{pattern}` note {index}: dur must be positive, got {dur}")]
     BadNoteDuration {
         /// The pattern holding the note.
         pattern: String,
@@ -277,10 +274,6 @@ pub enum SynthError {
     /// A chord name the grammar does not carry. Refused rather than guessed:
     /// a chord that quietly means something other than what was written is
     /// worse than the notes it replaced, because the notes were visible.
-    #[error(
-        "song: `{chord}` is not a chord name — see the table in docs/recipes.md, \
-         or write the pitches out as `[\"D3\", \"F3\", \"A3\"]`"
-    )]
     UnknownChord {
         /// The name as written.
         chord: String,
@@ -290,7 +283,6 @@ pub enum SynthError {
     /// unlike an arrangement's transpose: the octave is right there in the same
     /// entry, so this is a document that can be fixed rather than a pattern
     /// meeting a transform written elsewhere.
-    #[error("song: chord `{chord}` at octave {oct} reaches MIDI {midi}, outside 0..=127")]
     ChordOutOfRange {
         /// The name as written.
         chord: String,
@@ -303,7 +295,6 @@ pub enum SynthError {
     /// `oct` places the root of a *named* chord. A chord written as pitches
     /// already carries an octave per voice, so the two together say two
     /// different things about the same chord.
-    #[error("song: track `{track}` at beat {start}: `oct` means nothing beside spelled pitches")]
     SpelledChordOctave {
         /// The track the chord is on.
         track: String,
@@ -315,7 +306,6 @@ pub enum SynthError {
 
     /// A chord spelled as an empty list of pitches: an entry that sounds
     /// nothing, which is never what a chord was written for.
-    #[error("song: track `{track}` at beat {start}: a chord needs at least one pitch")]
     EmptyChord {
         /// The track the chord is on.
         track: String,
@@ -327,10 +317,6 @@ pub enum SynthError {
     /// skipped: every character is one step and the count is what proves the
     /// string covers its pattern, so a character that is quietly not a step
     /// takes the grid with it.
-    #[error(
-        "song: track `{track}`: `{character}` at step {step} is not a step — \
-         use `x` (a hit), `X` (an accent) or `-` (a rest), and nothing else"
-    )]
     BadStep {
         /// The track the step string is on.
         track: String,
@@ -343,10 +329,6 @@ pub enum SynthError {
     /// A step string whose length is not the length its grid needs. This is
     /// the error the notation exists to make loud: fifteen sixteenths read as
     /// a bar on the page, and silent truncation would leave the ear to find it.
-    #[error(
-        "song: track `{track}`: {written} steps of {div} beats from beat {start} \
-         do not fill the pattern's {beats} — {needed} would"
-    )]
     StepsDoNotFit {
         /// The track the step string is on.
         track: String,
@@ -366,10 +348,6 @@ pub enum SynthError {
     /// — including one that is zero, negative or not a number. Its own error
     /// rather than a length mismatch because the fix is different: `div` is
     /// what has to change, not the string.
-    #[error(
-        "song: track `{track}`: no whole number of {div}-beat steps fills the \
-         {beats} beats from beat {start}"
-    )]
     BadStepDiv {
         /// The track the step string is on.
         track: String,
@@ -385,10 +363,6 @@ pub enum SynthError {
     /// An `X` plays at full velocity, so beside a `vel` of 1 it is the same
     /// hit as an `x` — and the page would show accents the audio does not
     /// have, which is the one thing worse than no accents at all.
-    #[error(
-        "song: track `{track}`: `X` and `x` are the same hit at `vel` {vel} — \
-         write a `vel` below 1 for the plain hits to be softer than the accents"
-    )]
     AccentWithoutHeadroom {
         /// The track the step string is on.
         track: String,
@@ -399,10 +373,6 @@ pub enum SynthError {
     /// A `key` the grammar does not read. Refused rather than ignored: a song
     /// that declares a key nobody can parse is one whose every degree would
     /// resolve somewhere else, and silently.
-    #[error(
-        "song: `{key}` is not a key — write a tonic and a mode, like `D minor`, \
-         `F# lydian` or `Bb major`"
-    )]
     BadKey {
         /// The key as written.
         key: String,
@@ -412,10 +382,6 @@ pub enum SynthError {
     /// accidentals in front of a number. Degrees count from **one**, so a zero
     /// is exactly what a writer who assumed otherwise would have written, and
     /// reading it as the tonic would put a whole part a step flat.
-    #[error(
-        "song: `{degree}` is not a scale degree — they count from 1, \
-         with accidentals in front (`b3`, `#4`)"
-    )]
     BadDegree {
         /// The degree as written.
         degree: String,
@@ -424,7 +390,6 @@ pub enum SynthError {
     /// A note written as a degree in a song that declares no `key`. There is
     /// no scale for it to be a degree *of*, and inferring one from the other
     /// notes is analysis this crate does not do.
-    #[error("song: track `{track}` at beat {start}: a `degree` needs the song to declare a `key`")]
     DegreeWithoutKey {
         /// The track the note is on.
         track: String,
@@ -435,10 +400,6 @@ pub enum SynthError {
     /// A degree that lands off the end of the keyboard. Refused rather than
     /// clamped, for the reason [`SynthError::ChordOutOfRange`] is: the octave
     /// is in the same entry and can simply be corrected.
-    #[error(
-        "song: degree `{degree}` with the tonic at octave {oct} reaches MIDI {midi}, \
-         outside 0..=127"
-    )]
     DegreeOutOfRange {
         /// The degree as written.
         degree: String,
@@ -451,10 +412,6 @@ pub enum SynthError {
     /// An arrangement entry asks for a diatonic lift in a song with no `key`.
     /// There is no scale to step along, and guessing one would put a whole
     /// section somewhere nobody chose.
-    #[error(
-        "song: arrangement entry for `{pattern}`: `transpose_degrees` needs the song to \
-         declare a `key` — or use `transpose` for a chromatic shift"
-    )]
     DiatonicWithoutKey {
         /// The pattern the entry plays.
         pattern: String,
@@ -464,10 +421,6 @@ pub enum SynthError {
     /// answer and no convention decides it, so the document has to say which
     /// one it means — see
     /// [`transpose_degrees`](crate::song::Play::transpose_degrees).
-    #[error(
-        "song: arrangement entry for `{pattern}`: `transpose` is chromatic and \
-         `transpose_degrees` moves within the key — write one or the other"
-    )]
     TwoTransposes {
         /// The pattern the entry plays.
         pattern: String,
@@ -477,9 +430,6 @@ pub enum SynthError {
     /// late". At 1 the off-beat eighth lands on the following beat — the two
     /// have swapped places rather than been felt — and below 0 the off-beats
     /// run early, which is not swing under any name.
-    #[error(
-        "song: `swing` must be at least 0 and below 1 (0 is straight, 0.33 swings), got {swing}"
-    )]
     BadSwing {
         /// The swing as written.
         swing: f32,
@@ -488,7 +438,6 @@ pub enum SynthError {
     /// A humanise amount that is not an amount. Both fields are magnitudes —
     /// how far a player may stray, either way — so a negative one is not the
     /// other direction, it is nonsense.
-    #[error("song: `humanize.{field}` must be zero or more, got {amount}")]
     BadHumanize {
         /// Which of the two fields is at fault, as it is spelled in the
         /// document.
@@ -500,7 +449,6 @@ pub enum SynthError {
     /// A curve moving a parameter of a track this song does not have. The same
     /// typo as an unknown track anywhere else, with the same consequence: a
     /// build the recipe says is there and nothing can hear.
-    #[error("song: automation of `{param}` names `{track}`, which is not a track here")]
     UnknownAutomationTrack {
         /// The name that matched no track.
         track: String,
@@ -511,7 +459,6 @@ pub enum SynthError {
     /// Two curves on one track and parameter. Which one applies is not a
     /// question with an answer, so it is refused rather than resolved by
     /// declaration order.
-    #[error("song: track `{track}` has two curves for `{param}` — one parameter moves one way")]
     DuplicateAutomation {
         /// The track carrying both.
         track: String,
@@ -524,7 +471,6 @@ pub enum SynthError {
     /// each point to the next, so an out-of-order list is a path nobody wrote
     /// — refused rather than sorted, because silently reordering an author's
     /// document is worse than declining it.
-    #[error("song: automation of `{param}` on track `{track}`: {why}")]
     BadAutomationCurve {
         /// The track the curve rides.
         track: String,
@@ -537,7 +483,6 @@ pub enum SynthError {
     /// A control point at a time that is not a time, or holding a value that
     /// is not a number. A NaN would spread through the mix as a whole song of
     /// silence, a long way from the field that caused it.
-    #[error("song: automation of `{param}` on `{track}`: bad `{field}`, got {value}")]
     BadAutomationPoint {
         /// The track the curve rides.
         track: String,
@@ -553,7 +498,6 @@ pub enum SynthError {
     /// A cutoff curve passing through zero Hz or below — refused for the
     /// reason [`SynthError::BadCutoff`] refuses a written one, at every point
     /// rather than once.
-    #[error("song: automation of `cutoff` on `{track}`: must be positive Hz, got {cutoff}")]
     BadAutomationCutoff {
         /// The track the curve rides.
         track: String,
@@ -564,21 +508,18 @@ pub enum SynthError {
     /// A `cutoff` curve on an instrument with no filter: there is nothing for
     /// it to move. Caught only once the track's patch is resolved, since a
     /// track may name its instrument rather than carry it.
-    #[error("song: automation of `cutoff` on track `{track}`, whose patch has no filter")]
     AutomationWithoutFilter {
         /// The track whose instrument has no filter stage.
         track: String,
     },
 
     /// A target length that is not a length.
-    #[error("song: `fit.seconds` must be positive, got {seconds}")]
     BadFitSeconds {
         /// The target as written.
         seconds: f32,
     },
 
     /// A fade that runs for a negative or nonsensical time.
-    #[error("song: a fade must be zero or more seconds, got {seconds}")]
     BadFade {
         /// The offending length.
         seconds: f32,
@@ -590,11 +531,6 @@ pub enum SynthError {
     ///
     /// Carries the tempo it would have needed, so the caller can decide
     /// between a different target, a different arrangement, and `loop`.
-    #[error(
-        "song: fitting this at `stretch` needs {needed:.1} bpm against {bpm:.1} written, \
-         further than the {}% a piece survives — use `loop`, or change the arrangement",
-        (limit * 100.0).round()
-    )]
     StretchTooFar {
         /// The tempo the song is written at.
         bpm: f32,
@@ -604,10 +540,12 @@ pub enum SynthError {
         limit: f32,
     },
 
+    // ────────────────────────────────────────────────────────────────────
+    // The caller's resolver — the one refusal this crate does not make itself.
+    // ────────────────────────────────────────────────────────────────────
     /// A track named its instrument by reference and the caller's resolver
     /// could not produce it. What "could not" means is the caller's to say —
     /// this crate never opens anything itself.
-    #[error("song: track `{track}`: cannot resolve patch `{reference}`: {reason}")]
     UnresolvedPatch {
         /// The track whose instrument is missing.
         track: String,
@@ -616,4 +554,12 @@ pub enum SynthError {
         /// What the resolver said about it.
         reason: String,
     },
+}
+
+impl std::error::Error for SynthError {}
+
+impl std::fmt::Display for SynthError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.say(f)
+    }
 }

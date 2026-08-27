@@ -301,3 +301,67 @@ pub(super) fn ride(bus: &mut Stereo, track: &Track, riding: Riding<'_>, beats_pe
         bus.r[frame] *= level * right;
     }
 }
+
+/// Which curve puts a track on a bus of its own.
+///
+/// A mix asserts what it sounds like, and that is exactly the wrong instrument
+/// for this: whether a track is bussed changes the *rounding* of a sum and
+/// nothing else, so a predicate stuck at "yes" sounds identical to one that
+/// works. It is asked here, by the number.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A curve of one point on `param` — enough to occupy a slot.
+    fn parked(param: Param) -> Automation {
+        Automation {
+            track: "pad".to_owned(),
+            param,
+            points: vec![Point {
+                beat: 0.0,
+                value: 1.0,
+                easing: Easing::Linear,
+            }],
+        }
+    }
+
+    /// The faders, and only the faders. A `cutoff` is read once at a note's
+    /// onset and changes nothing about how the part is summed, so a track that
+    /// only sweeps its filter keeps the straight-to-master path a track with no
+    /// curves at all takes — which is the path the bit-identical promise rests
+    /// on.
+    #[test]
+    fn a_fader_puts_a_track_on_a_bus_and_a_sweep_does_not() {
+        let (gain, pan, cutoff) = (
+            parked(Param::Gain),
+            parked(Param::Pan),
+            parked(Param::Cutoff),
+        );
+        for (moves, riding) in [
+            (false, Riding::default()),
+            (
+                true,
+                Riding {
+                    gain: Some(&gain),
+                    ..Riding::default()
+                },
+            ),
+            (
+                true,
+                Riding {
+                    pan: Some(&pan),
+                    ..Riding::default()
+                },
+            ),
+            (
+                false,
+                Riding {
+                    cutoff: Some(&cutoff),
+                    ..Riding::default()
+                },
+            ),
+        ] {
+            assert_eq!(riding.moves_the_fader(), moves, "{riding:?}");
+        }
+    }
+}

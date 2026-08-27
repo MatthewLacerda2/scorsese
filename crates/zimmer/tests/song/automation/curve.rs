@@ -61,6 +61,32 @@ fn a_held_segment_jumps_at_the_next_point_rather_than_travelling() {
     assert_eq!(stepped.value_at(4.0), Some(0.9), "and now it has");
 }
 
+/// The boundary, which is where a segment search goes wrong quietly: a beat
+/// landing *exactly* on an interior point belongs to the segment that starts
+/// there, not to the one that ends there.
+///
+/// `hold` is what asks it, because every other easing arrives at the same
+/// number from both sides — the two readings of a boundary are only telling
+/// apart when the segment before it did not travel.
+#[test]
+fn a_beat_exactly_on_a_point_reads_the_segment_that_starts_there() {
+    let stepped = curve(
+        Param::Gain,
+        vec![
+            eased(0.0, 0.125, Easing::Hold),
+            at(4.0, 0.75),
+            at(8.0, 0.25),
+        ],
+    );
+    assert_eq!(
+        stepped.value_at(3.999),
+        Some(0.125),
+        "the step has not come"
+    );
+    assert_eq!(stepped.value_at(4.0), Some(0.75), "and now it has");
+    assert_eq!(stepped.value_at(6.0), Some(0.5), "then it travels on");
+}
+
 /// Outside the written span the value holds. Extrapolating would make a
 /// two-point build keep climbing forever, which is nobody's reading of two
 /// points.

@@ -2,8 +2,8 @@
 //! the same song renders the same samples every time.
 
 use crate::common::songs::{blip, note, played, song, verse, voice};
-use crate::common::{channel, peak};
-use scorsese_zimmer::song::{InlineOnly, PatchRef};
+use crate::common::{channel, peak, saw_patch};
+use scorsese_zimmer::song::{Humanize, InlineOnly, PatchRef};
 use scorsese_zimmer::{SAMPLE_RATE, Song, SynthError, render_song};
 
 /// Renders a song whose instruments are all inline — every fixture here — as
@@ -119,4 +119,59 @@ fn a_named_instrument_is_taken_from_the_resolver() {
         render(&song()),
         "same instrument, same samples"
     );
+}
+
+/// The fixture as one saw note on beat 1, played by a player who leans by
+/// `timing` seconds either way — or by a machine, when that is `None`.
+///
+/// One note, because the claim below is about *that* note's onset; beat 1
+/// rather than beat 0, because an early nudge on the very first beat has
+/// nowhere to go and is clamped, which is the one case that hides a sign.
+fn leaning(seed: u64, timing: Option<f32>) -> Song {
+    let mut song = Song {
+        seed,
+        humanize: timing.map(|timing| Humanize {
+            timing,
+            ..Humanize::default()
+        }),
+        ..song()
+    };
+    song.tracks[0].patch = PatchRef::Inline(Box::new(saw_patch()));
+    let verse = verse(&mut song);
+    verse.notes.truncate(1);
+    voice(verse, 0).start = 1.0;
+    song
+}
+
+/// The first sample that is not silence.
+fn onset(mix: &[f32]) -> i64 {
+    mix.iter()
+        .position(|sample| sample.abs() > 1e-6)
+        .expect("the note sounds") as i64
+}
+
+/// A note lands at where it is written **plus** how the player leant, and the
+/// sign is the whole of the claim: one who drags starts late and one who
+/// rushes starts early.
+///
+/// Nothing that measures *scatter* can see that — flip the sign and every note
+/// still moves by the same amount, in the other direction — so this pins two
+/// seeds that lean opposite ways. The nudge is drawn from `(track, ordinal,
+/// song seed)` and nothing else, so those two say the same thing about any
+/// song whose first note is the one being measured.
+#[test]
+fn a_note_lands_where_it_is_written_plus_the_way_the_player_leant() {
+    for (seed, drags) in [(0, true), (3, false)] {
+        let shift =
+            onset(&render(&leaning(seed, Some(0.2)))) - onset(&render(&leaning(seed, None)));
+        assert_eq!(
+            shift > 0,
+            drags,
+            "seed {seed} moved its first note by {shift} samples"
+        );
+        assert!(
+            shift.abs() > i64::from(SAMPLE_RATE) / 20,
+            "seed {seed} barely moved at all: {shift} samples"
+        );
+    }
 }
