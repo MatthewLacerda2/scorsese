@@ -358,6 +358,32 @@ mod tests {
         }
     }
 
+    /// The stack **adds** its oscillators into the buffer, and the sign of
+    /// that accumulation is the one thing every other assertion in this file
+    /// is blind to: peaks, rising-crossing counts and equality between two
+    /// renders all survive negating the whole output, so `+=` could become
+    /// `-=` and nothing here would notice.
+    ///
+    /// Read against the waveform the oscillator's own start phase implies,
+    /// which is the only reading with a sign in it. The run is a third of a
+    /// cycle wide so it cannot sit entirely on a zero crossing, and the guard
+    /// at the end is what proves that: it has to contain a sample the mutation
+    /// would move a long way, not one it leaves near zero either way.
+    #[test]
+    fn the_stack_adds_its_oscillators_rather_than_subtracting_them() {
+        let (hz, seed) = (2205.0, 5);
+        let out = render_stack(&[osc(Wave::Sine, 1.0, 0, 0.0)], hz, 7, seed);
+        let dt = hz / 44_100.0;
+        let start = start_phase(0, 0, seed);
+        let mut loudest = 0.0f32;
+        for (n, got) in out.iter().enumerate() {
+            let want = sample(Wave::Sine, (start + dt * n as f32).fract(), dt);
+            assert!((got - want).abs() < 1e-5, "sample {n} is {got}, not {want}");
+            loudest = loudest.max(want.abs());
+        }
+        assert!(loudest > 0.5, "every sample sat near zero ({loudest})");
+    }
+
     #[test]
     fn a_stack_with_no_gain_left_is_silence_not_a_divide_by_zero() {
         // `Patch::validate` refuses this stack, so it can only arrive by calling the
