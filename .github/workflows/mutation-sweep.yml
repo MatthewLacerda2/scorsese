@@ -68,7 +68,10 @@
 # - A trend needs a stable subject. `--shard 2/4` would divide the surface
 #   evenly, but shard membership moves whenever the source does, so last
 #   month's shard 2 and this month's are not the same code and their catch
-#   rates are not comparable. A crate is the same crate.
+#   rates are not comparable. A crate is the same crate. (The `mutants` job in
+#   `ci.yml` does shard, and there is no contradiction: it reports on one diff
+#   once and merges its shards back into a single report, so nothing there is
+#   ever compared to a shard of a different week.)
 # - Four readings a month beats one, at the same total cost.
 #
 # If a crate ever outgrows the limit anyway, the report says so rather than
