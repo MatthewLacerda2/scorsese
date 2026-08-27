@@ -113,6 +113,37 @@ mod tests {
         buf
     }
 
+    /// A tone at a quarter of the sample rate, offset so every sample lands
+    /// halfway up the slope: the samples read `amplitude / √2` and the
+    /// waveform between them reaches `amplitude`. Hats, a bright saw and any
+    /// sharp transient all carry energy up here.
+    fn intersample_tone(n: usize, amplitude: f32) -> Vec<f32> {
+        (0..n)
+            .map(|i| amplitude * (TAU * i as f32 / 4.0 + std::f32::consts::FRAC_PI_4).sin())
+            .collect()
+    }
+
+    /// The bake put through the same meter `scorsese level` prints from.
+    fn measured(buf: &Stereo) -> crate::level::Loudness {
+        let mut meter = crate::level::Meter::new(crate::stereo::CHANNELS);
+        meter.feed(&buf.interleaved());
+        meter.finish()
+    }
+
+    #[test]
+    fn repro_the_meter_must_not_call_a_limited_bake_clipping() {
+        let buf = limited(Stereo::centred(intersample_tone(4410, 3.0)));
+        let loud = measured(&buf);
+        println!(
+            "sample peak {:?}, true peak {:?}, clipping {}",
+            loud.peak_dbfs,
+            loud.true_peak_dbfs,
+            loud.is_clipping()
+        );
+        assert!(peak(&buf.l) <= CEILING + 1e-6, "the sample peak is held");
+        assert!(!loud.is_clipping(), "and yet the meter says it clips");
+    }
+
     #[test]
     fn a_hot_signal_is_brought_under_the_ceiling() {
         let buf = limited(Stereo::centred(sine(44_100, 220.0, 3.0)));
