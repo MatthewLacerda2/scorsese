@@ -5,7 +5,7 @@
 //! even notice. So every name is resolved and every number is checked up front.
 
 use super::timing::MAX_STRETCH;
-use super::{ArrangementEntry, Pattern, PatternEntry, Song, Track};
+use super::{ArrangementEntry, Context, Key, Pattern, PatternEntry, Song, Track};
 use crate::error::SynthError;
 
 impl Song {
@@ -23,16 +23,20 @@ impl Song {
         if self.arrangement.is_empty() {
             return Err(SynthError::EmptyArrangement);
         }
+        // The key first: a degree and a diatonic lift are both refused for
+        // lack of one, so "there is no key" has to be told from "the key does
+        // not parse" before either is reported.
+        let key = self.key()?;
         for entry in &self.arrangement {
             if !self.patterns.contains_key(entry.pattern()) {
                 return Err(SynthError::UnknownPattern {
                     pattern: entry.pattern().to_owned(),
                 });
             }
-            self.check_entry(entry)?;
+            self.check_entry(entry, key.as_ref())?;
         }
         for (name, pattern) in &self.patterns {
-            pattern.validate(name, &self.tracks)?;
+            pattern.validate(name, &self.tracks, key.as_ref())?;
         }
         // The two chains the song owns. A track's inline patch carries a third,
         // and it is checked where every other patch field is — at the moment a
@@ -80,7 +84,11 @@ impl Song {
     /// A transpose or a scale that is not a finite number is refused here
     /// too: a NaN reaches the mix as a whole song of silence, which is a long
     /// way from the field that caused it.
-    fn check_entry(&self, entry: &ArrangementEntry) -> Result<(), SynthError> {
+    ///
+    /// The diatonic transpose is refused for two further reasons, both of them
+    /// decisions rather than arithmetic — see
+    /// [`transpose_degrees`](super::Play::transpose_degrees).
+    fn check_entry(&self, entry: &ArrangementEntry, key: Option<&Key>) -> Result<(), SynthError> {
         let ArrangementEntry::Transformed(play) = entry else {
             return Ok(());
         };
@@ -91,6 +99,18 @@ impl Song {
                 pattern: play.pattern.clone(),
                 transpose,
             });
+        }
+        if play.transpose_degrees.is_some() {
+            if play.transpose.is_some() {
+                return Err(SynthError::TwoTransposes {
+                    pattern: play.pattern.clone(),
+                });
+            }
+            if key.is_none() {
+                return Err(SynthError::DiatonicWithoutKey {
+                    pattern: play.pattern.clone(),
+                });
+            }
         }
         if let Some(scale) = play.vel_scale
             && !(scale.is_finite() && scale >= 0.0)
@@ -150,15 +170,19 @@ impl Song {
 
 impl Pattern {
     /// Checks one pattern's slot length and every note in it.
-    fn validate(&self, name: &str, tracks: &[Track]) -> Result<(), SynthError> {
+    fn validate(&self, name: &str, tracks: &[Track], key: Option<&Key>) -> Result<(), SynthError> {
         if !(self.beats.is_finite() && self.beats > 0.0) {
             return Err(SynthError::BadPatternBeats {
                 pattern: name.to_owned(),
                 beats: self.beats,
             });
         }
+        let around = Context {
+            beats: self.beats,
+            key,
+        };
         for (index, entry) in self.notes.iter().enumerate() {
-            entry.validate(name, index, tracks, self.beats)?;
+            entry.validate(name, index, tracks, around)?;
         }
         Ok(())
     }
@@ -168,11 +192,12 @@ impl PatternEntry {
     /// Checks that one entry names a real track, starts somewhere, lasts for
     /// some time, and has pitches that resolve.
     ///
-    /// A chord or a step string resolves by being expanded, which is the same
-    /// work the renderer does and therefore the same answer: a name off the
-    /// table, a voicing pushed off the keyboard, or a step string that does not
-    /// fill its pattern is refused here rather than discovered at the sample
-    /// loop.
+    /// Every entry that is not already a pitch resolves by being expanded,
+    /// which is the same work the renderer does and therefore the same answer:
+    /// a chord name off the table, a voicing pushed off the keyboard, a step
+    /// string that does not fill its pattern, a degree that counts from zero
+    /// or is written where the song declares no key — all refused here rather
+    /// than discovered at the sample loop.
     ///
     /// Expansion runs **before** the gate is checked, because a step string's
     /// gate defaults to its step length: a `div` that is not a length would
@@ -183,7 +208,7 @@ impl PatternEntry {
         pattern: &str,
         index: usize,
         tracks: &[Track],
-        beats: f32,
+        around: Context<'_>,
     ) -> Result<(), SynthError> {
         let pattern = || pattern.to_owned();
         if !tracks.iter().any(|track| track.name == self.track()) {
@@ -200,7 +225,7 @@ impl PatternEntry {
                 start: self.start(),
             });
         }
-        self.voice_into(beats, &mut Vec::new())?;
+        self.voice_into(around, &mut Vec::new())?;
         if !(self.dur().is_finite() && self.dur() > 0.0) {
             return Err(SynthError::BadNoteDuration {
                 pattern: pattern(),

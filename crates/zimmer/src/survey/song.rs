@@ -10,10 +10,9 @@ use std::collections::{BTreeSet, HashMap};
 
 use super::duty::Sounding;
 use super::{PitchClasses, Register, SongSurvey, TrackSurvey};
-use crate::note::MIDI_RANGE;
 use crate::patch::Patch;
 use crate::song::shape::plan;
-use crate::song::{PatchRef, PatchResolver, Song};
+use crate::song::{Context, PatchRef, PatchResolver, Song};
 
 impl SongSurvey {
     /// Surveys one song, resolving any track that names its instrument rather
@@ -108,18 +107,31 @@ fn played(song: &Song) -> Played {
     let mut by_track: HashMap<String, Vec<f32>> = HashMap::new();
     let mut sounding: HashMap<String, Sounding> = HashMap::new();
     let mut at = 0.0;
+    // A key this survey cannot read is no key: a report is not the place a
+    // document gets refused, so a degree under an unreadable key goes unread
+    // the way an unspellable chord does, and every absolute note is unaffected.
+    let key = song.key().ok().flatten();
     for entry in &song.arrangement {
         let Some(pattern) = song.patterns.get(entry.pattern()) else {
             continue;
         };
+        let around = Context {
+            beats: pattern.beats,
+            key: key.as_ref(),
+        };
         let mut voiced = Vec::new();
         for written in &pattern.notes {
             // Entry by entry, so an entry this survey cannot expand — a chord
-            // off the table, a step string that does not fill its slot — costs
-            // the survey that entry and not the pattern around it: a report
-            // reads documents the renderer would refuse, and reporting on the
-            // rest of one is more use than reporting on none of it.
-            let _ = written.voice_into(pattern.beats, &mut voiced);
+            // off the table, a step string that does not fill its slot, a
+            // degree of a key the song does not declare — costs the survey that
+            // entry and not the pattern around it: a report reads documents the
+            // renderer would refuse, and reporting on the rest of one is more
+            // use than reporting on none of it.
+            //
+            // What comes out is ordinary notes whichever form wrote them, so
+            // every one of the four is measured the same way below. There is no
+            // fall-through here that would report a kind of entry as nothing.
+            let _ = written.voice_into(around, &mut voiced);
         }
         for note in &voiced {
             if !entry.plays(&note.track) {
@@ -135,7 +147,7 @@ fn played(song: &Song) -> Played {
             let Ok(written) = note.note.to_midi() else {
                 continue;
             };
-            let midi = (written + entry.transpose()).clamp(MIDI_RANGE.0, MIDI_RANGE.1);
+            let midi = entry.played_pitch(written, key.as_ref());
             register =
                 Some(register.map_or_else(|| Register::at(midi), |so_far| so_far.with(midi)));
             pitches.add(midi);

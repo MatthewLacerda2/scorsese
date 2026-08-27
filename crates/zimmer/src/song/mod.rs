@@ -18,14 +18,16 @@
 //! {
 //!   "bpm": 120,
 //!   "seed": 7,
+//!   "key": "E minor",
 //!   "tracks": [{ "name": "bass", "patch": "recipes/bass.json", "gain": 0.8 }],
 //!   "patterns": {
 //!     "verse": { "beats": 8, "notes": [
 //!       { "track": "bass", "note": "E2", "start": 0.0, "dur": 0.5, "vel": 1.0 },
+//!       { "track": "lead", "degree": 5, "oct": 4, "start": 1.0, "dur": 0.5 },
 //!       { "track": "keys", "chord": "Em7", "oct": 3, "start": 0.0, "dur": 2.0 },
 //!       { "track": "hat", "steps": "x-x-x-x-x-x-x-xX", "div": 0.5, "vel": 0.4 }] }
 //!   },
-//!   "arrangement": ["verse", { "pattern": "verse", "transpose": 12 }]
+//!   "arrangement": ["verse", { "pattern": "verse", "transpose_degrees": 1 }]
 //! }
 //! ```
 //!
@@ -33,10 +35,12 @@
 //! repeat that can vary is the difference between music that develops and music
 //! that only repeats.
 //!
-//! An entry in a pattern is one note, one [`Chord`], or one run of [`Steps`] —
-//! the same idea one level down, and for the same reason: four notes that are
-//! one chord, or sixteen that are one hi-hat part, should be one thing in the
-//! document, or nothing records that they are.
+//! An entry in a pattern is one note — written absolutely, or as a degree of
+//! the song's [`Key`] — or one [`Chord`], or one run of [`Steps`]. That is the
+//! same idea one level down, and for the same reason: four notes that are one
+//! chord, or sixteen that are one hi-hat part, should be one thing in the
+//! document, or nothing records that they are; and a melody that is in a key
+//! should say so once rather than two hundred times.
 //!
 //! Rendering lives in [`render_song`]; this file is the document alone — plain
 //! serde data that round-trips losslessly, the same "document as truth" rule
@@ -45,6 +49,7 @@
 pub(crate) mod arrangement;
 pub(crate) mod chord;
 pub(crate) mod feel;
+pub(crate) mod key;
 mod mix;
 pub(crate) mod render;
 pub(crate) mod sections;
@@ -63,6 +68,7 @@ use crate::patch::{Fx, Patch};
 pub use arrangement::{ArrangementEntry, Play};
 pub use chord::{Chord, Voicing};
 pub use feel::Humanize;
+pub use key::{Degree, DegreeNote, Key, Mode};
 pub use render::{InlineOnly, PatchResolver, render_song};
 pub use steps::Steps;
 pub use timing::{Fade, Fit, FitMode, Tail};
@@ -94,6 +100,18 @@ pub struct Song {
     /// stochastic source in the piece while keeping it reproducible.
     #[serde(default)]
     pub seed: u64,
+    /// What key the piece is in — `"D minor"`, `"F# lydian"` — which is what
+    /// lets a note be written as a **degree** and an arrangement entry lift a
+    /// section **within** the key rather than out of it. Absent means the song
+    /// declares no key, and everything behaves exactly as it did before the
+    /// field existed: absolute pitches, chromatic transposes.
+    ///
+    /// Kept as the text it was written as, resolved through [`Song::key`], the
+    /// way a [`Pitch::Name`] is kept and resolved — so a document round-trips
+    /// as its author spelled it and `Db minor` is never saved back as
+    /// `C# minor`. [`Key`] has the numbering, the modes and the reasoning.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
     /// The instruments, in a fixed order — the order is part of the seed
     /// derivation, so it is data, not presentation.
     pub tracks: Vec<Track>,
@@ -201,36 +219,69 @@ pub struct Pattern {
 }
 
 impl Pattern {
-    /// Every note this pattern plays, chords expanded to their voices and step
-    /// strings to their hits, in document order.
+    /// Every note this pattern plays — chords expanded to their voices, step
+    /// strings to their hits, degrees resolved against the song's key — in
+    /// document order.
     ///
     /// The renderer works from this rather than from the written entries, so
-    /// each voice of a chord and each hit of a step string is an ordinary note
-    /// by the time swing, humanise and the per-note seed reach it — see
-    /// [`chord`] and [`steps`].
-    pub(crate) fn voices(&self) -> Result<Vec<Note>, SynthError> {
+    /// every one of those is an ordinary note by the time swing, humanise and
+    /// the per-note seed reach it — see [`chord`], [`steps`] and [`key`].
+    pub(crate) fn voices(&self, key: Option<&Key>) -> Result<Vec<Note>, SynthError> {
+        let around = Context {
+            beats: self.beats,
+            key,
+        };
         let mut voiced = Vec::with_capacity(self.notes.len());
         for entry in &self.notes {
-            entry.voice_into(self.beats, &mut voiced)?;
+            entry.voice_into(around, &mut voiced)?;
         }
         Ok(voiced)
     }
 }
 
-/// One entry in a pattern: a single note, a chord that sounds as several, or a
-/// step string that sounds as a rhythm.
+/// What an entry is expanded *against*: the slot it sits in, and the key the
+/// song is in.
 ///
-/// Untagged, told apart by **which field is present** — `note`, `chord` or
-/// `steps` — the way [`Pitch`] tells a name from a MIDI number. Every variant
-/// [denies unknown fields](https://serde.rs/container-attrs.html), so an entry
-/// carrying two of them, or one with a misspelled field, is refused rather than
-/// read as whichever variant happened to tolerate it. Guessing between them is
-/// the one outcome worse than any of them.
+/// One parameter rather than one per fact, because each fact is read by
+/// exactly one kind of entry — a step string checks its grid against `beats`,
+/// a degree looks itself up in `key`, and a plain note reads neither. Passed
+/// separately those would be a list of arguments that grows by one every time
+/// a notation is added and is ignored by every variant but the new one, which
+/// is how a signature stops describing anything. Named, it says the one thing
+/// that is true of all of them: an entry means what it means in a context, and
+/// this is the whole of that context.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Context<'a> {
+    /// The slot of the pattern holding the entry, in beats.
+    pub(crate) beats: f32,
+    /// The key the song declared, if it declared one.
+    pub(crate) key: Option<&'a Key>,
+}
+
+/// One entry in a pattern, in the four forms one is written in.
+///
+/// They are **two pairs**, which is the order they are declared in: two ways to
+/// write a single note — absolutely, or as a [`Degree`] of the song's key — and
+/// two ways to write several notes as one idea, [`Chord`] for the harmony and
+/// [`Steps`] for the rhythm. Every one of them expands to ordinary notes before
+/// a sample is produced, so this enum is about how a part is *written*, and
+/// nothing past that expansion knows which form the page used.
+///
+/// Untagged, told apart by **which field is present** — `note`, `degree`,
+/// `chord` or `steps` — the way [`Pitch`] tells a name from a MIDI number.
+/// Every variant [denies unknown fields](https://serde.rs/container-attrs.html),
+/// which is what keeps that discrimination honest as the list grows: an entry
+/// carrying two of the four is refused by all four rather than resolved by
+/// declaration order, and so is one with a misspelled field. Guessing between
+/// them is the one outcome worse than any of them.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum PatternEntry {
     /// One note, exactly as patterns have always been written.
     Note(Note),
+    /// One note, named as a degree of the song's [key](Song::key) and resolved
+    /// to a pitch before anything is rendered.
+    Degree(DegreeNote),
     /// A chord, expanded to its voices before anything is rendered.
     Chord(Chord),
     /// A run of evenly spaced hits, expanded to notes before anything is
@@ -243,6 +294,7 @@ impl PatternEntry {
     pub fn track(&self) -> &str {
         match self {
             Self::Note(note) => &note.track,
+            Self::Degree(degree) => &degree.track,
             Self::Chord(chord) => &chord.track,
             Self::Steps(steps) => &steps.track,
         }
@@ -252,6 +304,7 @@ impl PatternEntry {
     pub fn start(&self) -> f32 {
         match self {
             Self::Note(note) => note.start,
+            Self::Degree(degree) => degree.start,
             Self::Chord(chord) => chord.start,
             Self::Steps(steps) => steps.start,
         }
@@ -261,27 +314,34 @@ impl PatternEntry {
     pub fn dur(&self) -> f32 {
         match self {
             Self::Note(note) => note.dur,
+            Self::Degree(degree) => degree.dur,
             Self::Chord(chord) => chord.dur,
             Self::Steps(steps) => steps.gate(),
         }
     }
 
-    /// Appends what this entry sounds as to `out` — one note, a chord's voices
-    /// low to high, or a step string's hits in time order. Nothing is appended
-    /// when it is refused.
+    /// Appends what this entry sounds as to `out` — one note, the pitch a
+    /// degree names, a chord's voices low to high, or a step string's hits in
+    /// time order. Nothing is appended when it is refused.
     ///
-    /// `beats` is the slot of the pattern holding the entry, which only a step
-    /// string reads: its grid is checked against the slot it claims to cover,
-    /// and that check is the one thing standing between a string one character
-    /// short and a bar that quietly is not one.
-    pub(crate) fn voice_into(&self, beats: f32, out: &mut Vec<Note>) -> Result<(), SynthError> {
+    /// Each form reads the part of [`Context`] it needs and no more: a step
+    /// string checks its grid against the pattern's slot, which is the one
+    /// thing standing between a string one character short and a bar that
+    /// quietly is not one; a degree looks itself up in the key, and is refused
+    /// when the song declared none.
+    pub(crate) fn voice_into(
+        &self,
+        around: Context<'_>,
+        out: &mut Vec<Note>,
+    ) -> Result<(), SynthError> {
         match self {
             Self::Note(note) => {
                 out.push(note.clone());
                 Ok(())
             }
+            Self::Degree(degree) => degree.voice_into(around.key, out),
             Self::Chord(chord) => chord.voice_into(out),
-            Self::Steps(steps) => steps.voice_into(beats, out),
+            Self::Steps(steps) => steps.voice_into(around.beats, out),
         }
     }
 }
@@ -289,6 +349,12 @@ impl PatternEntry {
 impl From<Note> for PatternEntry {
     fn from(note: Note) -> Self {
         Self::Note(note)
+    }
+}
+
+impl From<DegreeNote> for PatternEntry {
+    fn from(degree: DegreeNote) -> Self {
+        Self::Degree(degree)
     }
 }
 
@@ -377,6 +443,14 @@ impl Song {
     /// caller never has to decide what an absent field meant.
     pub fn tail(&self) -> Tail {
         self.tail.unwrap_or_default()
+    }
+
+    /// The key this song declares, read, or a refusal if it is not a key.
+    ///
+    /// `Ok(None)` is a song that declares none, which is a legal and complete
+    /// document — it just cannot write a degree or lift a section diatonically.
+    pub fn key(&self) -> Result<Option<Key>, SynthError> {
+        self.key.as_deref().map(Key::parse).transpose()
     }
 
     /// How far this song's player strays from the page, defaults included.

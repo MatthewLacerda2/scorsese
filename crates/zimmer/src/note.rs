@@ -41,6 +41,15 @@ const NATURALS: [(char, i32); 7] = [
     ('b', 11),
 ];
 
+/// The diatonic collection, as semitones above the root of its major mode.
+///
+/// One array rather than two, because two things count against it and they
+/// must not be able to disagree: [`song::key`](crate::song::key) rotates it to
+/// get every mode's scale, and [`survey`](crate::survey) matches a piece's
+/// pitch classes against it to name the collection they *are*. It lives here
+/// because this module owns the pitch axis those two share.
+pub(crate) const DIATONIC: [i32; 7] = [0, 2, 4, 5, 7, 9, 11];
+
 /// How one note is rendered: how long the key is held, how hard it is struck, and
 /// the seed the stochastic sources (noise, Karplus excitation) draw from.
 ///

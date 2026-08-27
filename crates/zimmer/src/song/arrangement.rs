@@ -22,6 +22,9 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::Key;
+use crate::note::MIDI_RANGE;
+
 /// One entry in the running order.
 ///
 /// Untagged, with the bare string first: a JSON string can only be a pattern
@@ -58,6 +61,26 @@ pub struct Play {
     /// register of a pattern written months earlier.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transpose: Option<f32>,
+    /// Scale steps added to every note **within the song's key** — the lift.
+    ///
+    /// The distinct one, and the distinction is the whole reason it exists.
+    /// [`transpose`](Play::transpose) is chromatic: it moves everything by the
+    /// same semitones, which is exactly right for an octave double and moves
+    /// the music into a *different key*. `transpose_degrees: 1` moves every
+    /// note one step up the scale it is already in, which is what anybody
+    /// means by "lift the last chorus" — see [`Key::shift`] for what happens
+    /// to a note that is not in the key.
+    ///
+    /// **Refused in a song with no `key`**, rather than guessed at. There is
+    /// no scale to step along, and inferring one from the notes is analysis
+    /// this crate does not do.
+    ///
+    /// **Refused beside `transpose`**, rather than composed with it. Which of
+    /// the two applies first changes the answer, no chart convention decides
+    /// it, and a reader should be able to tell which kind of lift an entry is
+    /// at a glance. Two moves are two entries, or two tracks.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transpose_degrees: Option<i32>,
     /// Multiplies every note's velocity — the dynamics dial, for a quiet
     /// reprise or a half-time breakdown.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -88,6 +111,31 @@ impl ArrangementEntry {
             Self::Name(_) => 0.0,
             Self::Transformed(play) => play.transpose.unwrap_or(0.0),
         }
+    }
+
+    /// Scale steps to move every note within the key, `0` for a bare name.
+    pub fn transpose_degrees(&self) -> i32 {
+        match self {
+            Self::Name(_) => 0,
+            Self::Transformed(play) => play.transpose_degrees.unwrap_or(0),
+        }
+    }
+
+    /// Where a written pitch actually sounds in this playing: moved within the
+    /// key, or by semitones, and clamped onto the keyboard either way.
+    ///
+    /// The one place both transposes are applied, so the renderer and the
+    /// survey cannot come to different answers about what a section plays. A
+    /// pitch pushed off the end is clamped rather than refused — whether a
+    /// transpose is legal must not depend on the register of a pattern written
+    /// months earlier.
+    pub fn played_pitch(&self, midi: f32, key: Option<&Key>) -> f32 {
+        let steps = self.transpose_degrees();
+        let moved = match key {
+            Some(key) if steps != 0 => key.shift(midi, steps),
+            _ => midi,
+        };
+        (moved + self.transpose()).clamp(MIDI_RANGE.0, MIDI_RANGE.1)
     }
 
     /// What to multiply every velocity by, `1.0` for a bare name.

@@ -107,6 +107,7 @@ fn an_arrangement_transposes_every_voice_of_a_chord_together() {
     up.arrangement = vec![ArrangementEntry::Transformed(Play {
         pattern: "verse".to_owned(),
         transpose: Some(2.0),
+        transpose_degrees: None,
         vel_scale: None,
         tracks: None,
     })];

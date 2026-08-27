@@ -14,6 +14,7 @@ pub(crate) fn play(pattern: &str) -> Play {
     Play {
         pattern: pattern.to_owned(),
         transpose: None,
+        transpose_degrees: None,
         vel_scale: None,
         tracks: None,
     }
