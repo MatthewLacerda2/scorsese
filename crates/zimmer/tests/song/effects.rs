@@ -1,14 +1,18 @@
 //! Chains that belong to a track or to the whole mix, rather than to a patch.
 
-use crate::common::peak;
 use crate::common::songs::{note, played, song, verse};
+use crate::common::{channel, peak};
 use scorsese_zimmer::patch::Fx;
 use scorsese_zimmer::song::{InlineOnly, PatchRef, Song, Tail, Track};
 use scorsese_zimmer::{SAMPLE_RATE, render_song};
 
-/// Renders a song whose instruments are all inline — every fixture here.
+/// Renders a song whose instruments are all inline — every fixture here — as
+/// one channel of it. These tests ask where a chain runs, not how wide it is.
 fn render(song: &Song) -> Vec<f32> {
-    render_song(song, &InlineOnly).expect("the song renders")
+    channel(
+        &render_song(song, &InlineOnly).expect("the song renders"),
+        0,
+    )
 }
 
 /// Where the arrangement ends, in samples.

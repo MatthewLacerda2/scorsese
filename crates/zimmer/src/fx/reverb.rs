@@ -10,11 +10,43 @@
 //! The comb/allpass lengths are the original prime-ish tunings, chosen at 44.1 kHz
 //! and rescaled if a bake ever runs at another rate. `size` sets the comb feedback
 //! (room size), `damp` how fast the tail loses its highs, `mix` the wet/dry blend.
+//!
+//! ## Both halves of it
+//!
+//! Freeverb is a **stereo** algorithm and always was: two banks of the same
+//! twelve filters, the right one's delay lines a fixed [`STEREO_SPREAD`]
+//! longer than the left's. That offset is the whole trick — the same room, but
+//! its reflections arrive at the two ears at times that never quite line up,
+//! which is what a room actually does and what a copy of one channel into the
+//! other can never be. This crate carried only the left bank while it was
+//! mono; restoring the right one is restoring a constant.
+//!
+//! Both banks are fed the **mono fold-down** of the input, which is what the
+//! original does with its two inputs and what a physical send is: one room,
+//! everything in front of it going in, the width appearing on the way out
+//! rather than being carried in. A signal already dead centre therefore feeds
+//! it at exactly its own level, and its left channel comes back the tail this
+//! reverb has always produced.
+//!
+//! Jezar's `width` control, which bleeds each wet channel into the other, is
+//! not carried across. At its default it is a no-op, and every setting other
+//! than the default narrows the image the spread above just created — a knob
+//! whose whole range is *less of the effect* is not a knob.
+
+use crate::stereo::Stereo;
 
 /// The eight parallel comb-filter lengths, in samples at 44.1 kHz.
 const COMB_LENGTHS: [usize; 8] = [1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617];
 /// The four series allpass lengths, in samples at 44.1 kHz.
 const ALLPASS_LENGTHS: [usize; 4] = [556, 441, 341, 225];
+/// How much longer every delay line in the right bank is, in samples at
+/// 44.1 kHz.
+///
+/// Jezar's `stereospread`, unchanged. Half a millisecond: far too short to
+/// hear as an echo, and comfortably long enough that the two banks' comb
+/// resonances land on different frequencies, which is what makes the tail
+/// arrive from a width rather than from a point.
+const STEREO_SPREAD: usize = 23;
 /// The rate the tunings above were chosen at.
 ///
 /// Equal to [`crate::SAMPLE_RATE`] today, so the rescale below is a no-op and
@@ -83,29 +115,59 @@ impl Allpass {
     }
 }
 
+/// One side of the room: the eight combs and four allpasses one channel's wet
+/// signal passes through.
+struct Bank {
+    combs: Vec<Comb>,
+    allpasses: Vec<Allpass>,
+}
+
+impl Bank {
+    /// The bank for one side, its delay lines `offset` samples longer than the
+    /// tuning table says and rescaled by `scale` if the render rate ever moves
+    /// off the one the tunings were chosen at.
+    fn new(offset: usize, scale: f32) -> Self {
+        let scaled = |len: usize| (((len + offset) as f32 * scale).round() as usize).max(1);
+        Self {
+            combs: COMB_LENGTHS.iter().map(|l| Comb::new(scaled(*l))).collect(),
+            allpasses: ALLPASS_LENGTHS
+                .iter()
+                .map(|l| Allpass::new(scaled(*l)))
+                .collect(),
+        }
+    }
+
+    /// One sample of send in, one sample of tail out.
+    fn step(&mut self, send: f32, feedback: f32, damp: f32) -> f32 {
+        let mut wet: f32 = self
+            .combs
+            .iter_mut()
+            .map(|c| c.step(send, feedback, damp))
+            .sum();
+        for ap in self.allpasses.iter_mut() {
+            wet = ap.step(wet);
+        }
+        wet
+    }
+}
+
 /// Apply Freeverb to `buf` in place.
-pub(crate) fn apply(buf: &mut [f32], size: f32, damp: f32, mix: f32, rate: f32) {
+pub(crate) fn apply(buf: &mut Stereo, size: f32, damp: f32, mix: f32, rate: f32) {
     let scale = if rate > 0.0 { rate / TUNED_RATE } else { 1.0 };
-    let scaled = |len: usize| ((len as f32 * scale).round() as usize).max(1);
-    let mut combs: Vec<Comb> = COMB_LENGTHS.iter().map(|l| Comb::new(scaled(*l))).collect();
-    let mut allpasses: Vec<Allpass> = ALLPASS_LENGTHS
-        .iter()
-        .map(|l| Allpass::new(scaled(*l)))
-        .collect();
+    let mut left = Bank::new(0, scale);
+    let mut right = Bank::new(STEREO_SPREAD, scale);
 
     let feedback = size.clamp(0.0, 1.0) * ROOM_SCALE + ROOM_OFFSET;
     let damp = damp.clamp(0.0, 1.0) * DAMP_SCALE;
     let mix = mix.clamp(0.0, 1.0);
-    for s in buf.iter_mut() {
-        let input = *s * FIXED_GAIN;
-        let mut wet: f32 = combs
-            .iter_mut()
-            .map(|c| c.step(input, feedback, damp))
-            .sum();
-        for ap in allpasses.iter_mut() {
-            wet = ap.step(wet);
-        }
-        *s = *s * (1.0 - mix) + wet * mix;
+    for (l, r) in buf.l.iter_mut().zip(buf.r.iter_mut()) {
+        // One send, taken before either side is overwritten — the room hears
+        // the mix, not the half of it that happens to be on this channel.
+        let send = (*l + *r) * 0.5 * FIXED_GAIN;
+        let wet_l = left.step(send, feedback, damp);
+        let wet_r = right.step(send, feedback, damp);
+        *l = *l * (1.0 - mix) + wet_l * mix;
+        *r = *r * (1.0 - mix) + wet_r * mix;
     }
 }
 
@@ -119,11 +181,12 @@ pub(crate) fn tail_seconds(size: f32) -> f32 {
 mod tests {
     use super::*;
 
-    /// A full-scale impulse then silence — the classic reverb probe.
-    fn impulse(n: usize) -> Vec<f32> {
-        let mut buf = vec![0.0; n];
-        buf[0] = 1.0;
-        buf
+    /// A full-scale impulse then silence, dead centre — the classic reverb
+    /// probe.
+    fn impulse(n: usize) -> Stereo {
+        let mut mono = vec![0.0; n];
+        mono[0] = 1.0;
+        Stereo::centred(mono)
     }
 
     /// Total energy in a window, the measure a tail is judged by.
@@ -131,24 +194,99 @@ mod tests {
         buf.iter().map(|s| s.abs()).sum()
     }
 
+    /// The reverb's answer to a centred impulse.
+    fn rung(n: usize, size: f32, damp: f32, mix: f32) -> Stereo {
+        let mut buf = impulse(n);
+        apply(&mut buf, size, damp, mix, 44_100.0);
+        buf
+    }
+
+    /// The first reflection, by the number: the send itself, arriving at the
+    /// shortest comb's delay, on both sides, **the same way up it went in**.
+    ///
+    /// This is the one assertion here that nothing relative can make. The
+    /// send being the *average* of the channels and not their sum is a claim
+    /// about an absolute level — doubling it doubles every wet sample, and
+    /// every comparison between two renders agrees with itself either way.
+    /// The **sign** is worse: a blend that subtracted instead of adding
+    /// negates the fully-wet render and the half-wet one alike, so even
+    /// "half of the way across" above cannot see it. That is the reverb's
+    /// version of #60.
+    ///
+    /// So it is checked against numbers that are exact rather than measured.
+    /// A centred impulse of `1.0` folds down to `1.0` and is scaled by
+    /// [`FIXED_GAIN`]; the combs' lines are still empty, so the shortest one
+    /// hands that straight back at [`COMB_LENGTHS`]`[0]`, and the four
+    /// allpasses each negate what they are given — four negations being none.
+    /// So exactly `+FIXED_GAIN` comes out, and on the right it comes out
+    /// [`STEREO_SPREAD`] samples later, which pins the offset too.
+    #[test]
+    fn the_first_reflection_is_the_send_itself_the_same_way_up() {
+        let buf = rung(44_100, 0.8, 0.5, 1.0);
+        let first = |channel: &[f32]| {
+            channel
+                .iter()
+                .enumerate()
+                .find(|(_, sample)| sample.abs() > 1e-9)
+                .map(|(at, sample)| (at, *sample))
+                .expect("the room answered")
+        };
+        assert_eq!(
+            first(&buf.l),
+            (COMB_LENGTHS[0], FIXED_GAIN),
+            "the left tail is the send, not twice it and not its negative"
+        );
+        assert_eq!(
+            first(&buf.r),
+            (COMB_LENGTHS[0] + STEREO_SPREAD, FIXED_GAIN),
+            "and the right is the same, a stereo spread later"
+        );
+    }
+
     #[test]
     fn an_impulse_becomes_a_decaying_tail() {
-        let mut buf = impulse(88_200);
+        let buf = rung(88_200, 0.8, 0.5, 1.0);
+        for channel in [&buf.l, &buf.r] {
+            let early = energy(&channel[..22_050]);
+            let late = energy(&channel[66_150..]);
+            assert!(early > 0.5, "the reverb produced almost nothing ({early})");
+            assert!(late < early, "the tail must decay: {early} → {late}");
+            assert!(channel.iter().all(|s| s.abs() <= 1.0), "and never clip");
+        }
+    }
+
+    /// What the stereo spread is for: one room, but the two sides of it are
+    /// different signals rather than one signal twice. Both carry a tail — a
+    /// bank that had silently failed to build would read as "different" too.
+    #[test]
+    fn the_two_sides_of_the_room_are_not_the_same_tail() {
+        let buf = rung(44_100, 0.8, 0.5, 1.0);
+        assert_ne!(buf.l, buf.r);
+        let (left, right) = (energy(&buf.l[4410..]), energy(&buf.r[4410..]));
+        assert!(left > 0.5 && right > 0.5, "{left} / {right}");
+        // Neither side is favoured: the same twelve filters, offset, so the
+        // tails carry comparable energy.
+        assert!(
+            (left - right).abs() < left.max(right) * 0.5,
+            "one side is far louder: {left} / {right}"
+        );
+    }
+
+    /// A hard-panned source still reaches both sides of the room, because the
+    /// send is the mix rather than the channel. A reverb that only wet the
+    /// channel it was given would put a panned instrument's tail in the same
+    /// place as the instrument, which is not what a room does.
+    #[test]
+    fn a_one_sided_source_still_rings_on_both_sides() {
+        let mut buf = Stereo::silence(44_100);
+        buf.l[0] = 1.0;
         apply(&mut buf, 0.8, 0.5, 1.0, 44_100.0);
-        let early = energy(&buf[..22_050]);
-        let late = energy(&buf[66_150..]);
-        assert!(early > 0.5, "the reverb produced almost nothing ({early})");
-        assert!(late < early, "the tail must decay: {early} → {late}");
-        assert!(buf.iter().all(|s| s.abs() <= 1.0), "and never clip");
+        assert!(energy(&buf.r[4410..]) > 0.2, "the right side stayed dry");
     }
 
     #[test]
     fn a_bigger_room_rings_longer() {
-        let tail = |size: f32| {
-            let mut buf = impulse(88_200);
-            apply(&mut buf, size, 0.5, 1.0, 44_100.0);
-            energy(&buf[44_100..])
-        };
+        let tail = |size: f32| energy(&rung(88_200, size, 0.5, 1.0).l[44_100..]);
         assert!(tail(1.0) > tail(0.2) * 2.0);
         assert!(tail_seconds(1.0) > tail_seconds(0.0));
     }
@@ -156,9 +294,7 @@ mod tests {
     #[test]
     fn damping_dulls_the_tail() {
         let roughness = |damp: f32| {
-            let mut buf = impulse(44_100);
-            apply(&mut buf, 0.8, damp, 1.0, 44_100.0);
-            buf[22_050..]
+            rung(44_100, 0.8, damp, 1.0).l[22_050..]
                 .windows(2)
                 .map(|w| (w[1] - w[0]).abs())
                 .sum::<f32>()
@@ -168,18 +304,61 @@ mod tests {
 
     #[test]
     fn a_dry_mix_leaves_the_signal_alone() {
-        let mut buf = impulse(4096);
-        apply(&mut buf, 0.7, 0.5, 0.0, 44_100.0);
-        assert_eq!(buf, impulse(4096));
+        assert_eq!(rung(4096, 0.7, 0.5, 0.0), impulse(4096));
+    }
+
+    /// `mix` blends the tail **into** the dry signal rather than out of it.
+    ///
+    /// Every other test here reads a magnitude — an energy, a peak, a
+    /// difference between neighbours — and a room subtracted from its source
+    /// measures exactly like a room added to it. This is the one assertion
+    /// that has an opinion about which way up the tail arrives, and it asks it
+    /// the way the waveshaper's does: the half-wet signal has to be the
+    /// average of the dry one and the fully wet one, sample for sample.
+    #[test]
+    fn the_tail_is_blended_into_the_dry_signal_and_not_out_of_it() {
+        let dry = impulse(8192);
+        let wet = rung(8192, 0.8, 0.5, 1.0);
+        let half = rung(8192, 0.8, 0.5, 0.5);
+        let mut compared = 0;
+        for ((h, d), w) in half.l.iter().zip(&dry.l).zip(&wet.l) {
+            assert!((h - (d + w) * 0.5).abs() < 1e-6, "half of the way across");
+            if w.abs() > 1e-4 {
+                compared += 1;
+            }
+        }
+        assert!(compared > 100, "only {compared} samples carried any tail");
+    }
+
+    /// A render rate of nothing is a nonsense a caller can hand in, and the
+    /// answer is the tuning's own rate rather than a rescale by zero — which
+    /// would collapse all twelve delay lines to a single sample and turn the
+    /// room into a buzz.
+    #[test]
+    fn a_rate_of_nothing_falls_back_to_the_rate_the_tunings_were_chosen_at() {
+        let rung_at = |rate: f32| {
+            let mut buf = impulse(8192);
+            apply(&mut buf, 0.8, 0.5, 1.0, rate);
+            buf
+        };
+        assert_eq!(rung_at(0.0), rung_at(TUNED_RATE));
+        assert!(energy(&rung_at(0.0).l) > 0.5, "and it is still a room");
+        // And a rate that *is* a rate rescales, so the fallback is a fallback
+        // rather than the only path: at twice the tuning rate every delay line
+        // is twice as long, which is a different room.
+        assert_ne!(rung_at(TUNED_RATE * 2.0), rung_at(TUNED_RATE));
     }
 
     #[test]
     fn silence_in_is_silence_out_and_stays_finite() {
-        let mut buf = vec![0.0; 4096];
+        let mut buf = Stereo::silence(4096);
         apply(&mut buf, 0.9, 0.2, 1.0, 44_100.0);
-        assert!(buf.iter().all(|s| *s == 0.0));
+        assert!(buf.l.iter().chain(&buf.r).all(|s| *s == 0.0));
         let mut buf = impulse(4096);
         apply(&mut buf, 2.0, -1.0, 3.0, 0.0);
-        assert!(buf.iter().all(|s| s.is_finite()), "clamped, not exploded");
+        assert!(
+            buf.l.iter().chain(&buf.r).all(|s| s.is_finite()),
+            "clamped, not exploded"
+        );
     }
 }

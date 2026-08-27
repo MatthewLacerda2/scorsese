@@ -5,12 +5,22 @@
 //! that can follow a moving pitch take the per-sample frequency track; Karplus-Strong
 //! takes only the starting frequency, because its delay-line length is fixed once the
 //! string is plucked.
+//!
+//! **This is where mono becomes stereo, and mostly it does not.** An
+//! oscillator stack, a plucked string and an FM pair are each one waveform, so
+//! each is rendered once and placed in both channels — identically, which is
+//! what makes a centred part carry exactly the samples it always did. Width is
+//! a decision the mix makes, downstream, and a source that invented its own
+//! would take that decision away from it.
+//!
+//! [`noise`] is the exception and owns the reason for it.
 
 use super::{fm, karplus, noise, osc};
 use crate::patch::Source;
+use crate::stereo::Stereo;
 
-/// Render `source` into `out` (which the caller sized and zeroed), following the
-/// per-sample frequency track `freqs`.
+/// Render `frames` samples of `source`, following the per-sample frequency
+/// track `freqs`.
 ///
 /// `velocity` is how hard the note was struck, already clamped to `0..=1` by
 /// the caller — the *brightness* velocity, which a performance may scatter a
@@ -33,6 +43,25 @@ pub(crate) fn render(
     freqs: &[f32],
     seed: u64,
     velocity: f32,
+    frames: usize,
+    rate: f32,
+) -> Stereo {
+    if matches!(source, Source::Noise) {
+        let mut out = Stereo::silence(frames);
+        noise::fill(&mut out, seed);
+        return out;
+    }
+    let mut mono = vec![0.0; frames];
+    one_waveform(source, freqs, seed, velocity, &mut mono, rate);
+    Stereo::centred(mono)
+}
+
+/// The single waveform every source but `noise` produces.
+fn one_waveform(
+    source: &Source,
+    freqs: &[f32],
+    seed: u64,
+    velocity: f32,
     out: &mut [f32],
     rate: f32,
 ) {
@@ -45,7 +74,6 @@ pub(crate) fn render(
             let freq = freqs.first().copied().unwrap_or(0.0);
             karplus::render(out, freq, *damping, *brightness, seed, rate);
         }
-        Source::Noise => noise::fill(out, seed),
         Source::Fm2 {
             ratio,
             index,
@@ -55,6 +83,9 @@ pub(crate) fn render(
             let depth = (index + vel_index * velocity).max(0.0);
             fm::render(out, freqs, *ratio, depth, *mod_decay, rate);
         }
+        // [`render`] sends this one down its own path before narrowing the
+        // signal to one channel: it is the only source that draws two.
+        Source::Noise => {}
     }
 }
 
@@ -63,15 +94,12 @@ mod tests {
     use super::*;
     use crate::patch::{Osc, Wave};
 
-    fn render_kind(source: &Source) -> Vec<f32> {
-        let mut out = vec![0.0; 8192];
-        render(source, &vec![220.0; 8192], 5, 1.0, &mut out, 44_100.0);
-        out
+    fn render_kind(source: &Source) -> Stereo {
+        render(source, &vec![220.0; 8192], 5, 1.0, 8192, 44_100.0)
     }
 
-    #[test]
-    fn every_source_kind_produces_audible_finite_samples() {
-        let kinds = [
+    fn every_kind() -> [Source; 4] {
+        [
             Source::OscStack {
                 oscs: vec![Osc {
                     wave: Wave::Saw,
@@ -91,22 +119,42 @@ mod tests {
                 vel_index: 0.0,
                 mod_decay: 0.3,
             },
-        ];
-        for source in kinds {
-            let buf = render_kind(&source);
-            assert!(
-                buf.iter().all(|s| s.is_finite()),
-                "{source:?} went non-finite"
-            );
-            let peak = buf.iter().fold(0.0f32, |m, s| m.max(s.abs()));
-            assert!(peak > 0.2, "{source:?} is inaudible (peak {peak})");
-            assert!(peak <= 1.0 + 1e-3, "{source:?} peaked at {peak}");
+        ]
+    }
+
+    #[test]
+    fn every_source_kind_produces_audible_finite_samples() {
+        for source in every_kind() {
+            let stereo = render_kind(&source);
+            for buf in [&stereo.l, &stereo.r] {
+                assert!(
+                    buf.iter().all(|s| s.is_finite()),
+                    "{source:?} went non-finite"
+                );
+                let peak = buf.iter().fold(0.0f32, |m, s| m.max(s.abs()));
+                assert!(peak > 0.2, "{source:?} is inaudible (peak {peak})");
+                assert!(peak <= 1.0 + 1e-3, "{source:?} peaked at {peak}");
+            }
+        }
+    }
+
+    /// The rule the module doc states, checked one source at a time: a
+    /// generator makes one waveform and both channels get it, and `noise` is
+    /// the single exception.
+    #[test]
+    fn only_noise_arrives_already_wide() {
+        for source in every_kind() {
+            let stereo = render_kind(&source);
+            if matches!(source, Source::Noise) {
+                assert_ne!(stereo.l, stereo.r, "noise draws each side its own");
+            } else {
+                assert_eq!(stereo.l, stereo.r, "{source:?} is one waveform, centred");
+            }
         }
     }
 
     #[test]
     fn an_empty_frequency_track_does_not_panic() {
-        let mut out = vec![];
         for source in [
             Source::Noise,
             Source::Karplus {
@@ -114,8 +162,7 @@ mod tests {
                 brightness: 0.5,
             },
         ] {
-            render(&source, &[], 1, 1.0, &mut out, 44_100.0);
+            assert!(render(&source, &[], 1, 1.0, 0, 44_100.0).is_empty());
         }
-        assert!(out.is_empty());
     }
 }

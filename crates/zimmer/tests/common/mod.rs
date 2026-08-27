@@ -120,8 +120,28 @@ pub(crate) fn brightness(buf: &[f32]) -> f32 {
     if signal > 0.0 { edges / signal } else { 0.0 }
 }
 
+/// One channel of an interleaved stereo buffer, `0` being the left.
+///
+/// Everything this crate renders is stereo, and almost every question a test
+/// asks — what pitch is this, how bright is it, when did the envelope open —
+/// is a question about a waveform rather than about width. A source produces
+/// one waveform and both channels carry it, so one channel is the whole
+/// answer, and reading the interleaved buffer as if it were mono would double
+/// every measured frequency.
+pub(crate) fn channel(buf: &[f32], index: usize) -> Vec<f32> {
+    buf.iter().skip(index).step_by(2).copied().collect()
+}
+
 /// Renders a note, failing the test with the synth's own words if it will not.
+///
+/// The **left channel** of it, for the reason [`channel`] gives.
 pub(crate) fn render(patch: &Patch, midi: f32, opts: &NoteOpts) -> Vec<f32> {
+    channel(&render_stereo(patch, midi, opts), 0)
+}
+
+/// Renders a note and hands back both channels, interleaved — for the tests
+/// that are about width rather than about waveform.
+pub(crate) fn render_stereo(patch: &Patch, midi: f32, opts: &NoteOpts) -> Vec<f32> {
     scorsese_zimmer::render_note(patch, midi, opts).expect("the patch renders")
 }
 

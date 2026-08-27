@@ -35,7 +35,7 @@ fn a_bake_records_how_long_it_is() {
         (10.0..12.0).contains(&seconds),
         "the starter song should be about ten seconds, got {seconds}"
     );
-    assert_eq!(media.audio_channels, Some(1));
+    assert_eq!(media.audio_channels, Some(2), "synthesis bakes in stereo");
     assert_eq!(media.sample_rate, Some(44_100));
     assert_eq!(media.width, None, "sound has no picture");
 }

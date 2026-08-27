@@ -106,6 +106,7 @@ fn the_report_s_own_rows_show_the_treated_track_moving_and_the_others_still() {
         name: "pad".to_owned(),
         patch: PatchRef::Inline(Box::new(pad)),
         gain: 0.8,
+        pan: 0.0,
         fx: vec![],
     });
     // A plain note is one kind of pattern entry, and a chord is the other; the

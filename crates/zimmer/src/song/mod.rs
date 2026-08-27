@@ -91,7 +91,13 @@ fn no_swing(swing: &f32) -> bool {
     *swing == 0.0
 }
 
-/// A complete piece of music, renderable to one mono buffer.
+/// Whether a track sits dead centre — the test that keeps `"pan": 0.0` out of
+/// every saved document, for the reason [`no_swing`] gives.
+fn centred(pan: &f32) -> bool {
+    *pan == 0.0
+}
+
+/// A complete piece of music, renderable to one stereo buffer.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Song {
     /// Tempo in beats per minute; the one place beats become seconds.
@@ -172,6 +178,24 @@ pub struct Track {
     /// safety one.
     #[serde(default = "one")]
     pub gain: f32,
+    /// Where this instrument sits across the stereo image: `-1.0` hard left,
+    /// `0.0` centre, `1.0` hard right. Out-of-range values are clamped rather
+    /// than refused — there is no position past hard over for them to mean.
+    ///
+    /// A property of the *mix*, so it is per track and not per note. Five
+    /// instruments all at zero is five things stacked at one point in space,
+    /// which is most of what makes a score sound unproduced; spreading a pad
+    /// against a centred bass and kick is the cheapest width there is.
+    ///
+    /// **Constant power** (see [`Song`]'s renderer), so moving a part off
+    /// centre does not quieten it, and centre is exactly unity — a track that
+    /// never mentions this field renders the samples it always did.
+    ///
+    /// It is a **balance**, not a rotation: an instrument that already arrived
+    /// wide — a `noise` source is the only one that does — loses the far side
+    /// as this moves away from it, which is what turning one down means.
+    #[serde(default, skip_serializing_if = "centred")]
+    pub pan: f32,
     /// Effects on this instrument's whole part, applied to the sum of its
     /// notes *before* [`Track::gain`] reaches the master — a delay that
     /// belongs to the keys rather than to one chord of them. Distinct from

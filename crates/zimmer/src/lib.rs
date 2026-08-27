@@ -38,8 +38,9 @@
 //! **The crate root is the way in.** [`bake_note`], [`bake_named_note`] and
 //! [`bake_song`] each take a document and hand back a [`Bake`] — a finished
 //! file and how it came out. [`render_note`] and [`render_song`] are the same
-//! two jobs stopping one step earlier, at the samples, for a caller that wants
-//! to do something with them other than write them down. Around those sit the
+//! two jobs stopping one step earlier, at the samples — interleaved stereo, as
+//! a file holds them — for a caller that wants to do something with them other
+//! than write them down. Around those sit the
 //! documents they take ([`Patch`], [`Song`], [`NoteOpts`]), the
 //! [`PatchResolver`] a song's references resolve through, [`SynthError`],
 //! [`SAMPLE_RATE`], [`SYNTH_VERSION`], and [`parse_note`] and [`midi_to_freq`]
@@ -95,10 +96,9 @@
 //!
 //! ## Rate and channels
 //!
-//! Everything renders at [`SAMPLE_RATE`], in mono. Both are deliberate rather
-//! than limitations to work around, and they are deliberate for **different
-//! reasons** — which is worth separating, because one argument does not carry
-//! the other.
+//! Everything renders at [`SAMPLE_RATE`], in stereo. Both are fixed rather
+//! than chosen per call, and they are fixed for **different reasons** — which
+//! is worth separating, because one argument does not carry the other.
 //!
 //! The **rate** is fixed because a bake is addressed by the hash of its recipe,
 //! so it must not depend on what some later render happens to ask for. A rate
@@ -106,17 +106,47 @@
 //! one hash.
 //!
 //! That argument says nothing about **channels**: it asks only that the count
-//! be fixed, and two is as fixed as one. Mono is chosen on its own terms, and
-//! the terms are simplicity. Every buffer in this crate is one `Vec<f32>`, so
-//! every source, filter, envelope and effect is a single-buffer function; the
-//! limiter clamps one signal rather than linking two so a stereo image does not
-//! lurch when it acts; and no recipe, and no agent writing one, ever has to
-//! think about width. **Stereo and panning are declined, not deferred** — a
-//! song-level effects bus is where they would naturally arrive, and they do not
-//! arrive there either.
+//! be fixed, and two is as fixed as one. Two is chosen on its own terms, and
+//! the terms are fidelity. A mono, centred, dry mix is not merely narrower
+//! than a stereo one — it is a specific and dated sound, because everything a
+//! listener hears as *produced* is width: a reverb arriving from both sides, a
+//! pad spread against a centred bass, hats sitting slightly off-axis. Without
+//! any of it, five instruments are five things stacked at one point rather
+//! than a mix. This crate was mono until [`SYNTH_VERSION`] 3, on a simplicity
+//! argument that was true and did not weigh that bill. What the width costs is
+//! a second pass of arithmetic over a channel that, for every source but one,
+//! is identical to the first — which is a price an offline renderer can pay,
+//! and `core`'s own doc is where it is charged.
+//!
+//! **The samples are two `Vec<f32>`, not one `Vec<[f32; 2]>`.** The
+//! alternative — interleaved frames — was the other real candidate, and it
+//! loses on what this crate is mostly made of: functions that take
+//! `&mut [f32]` and walk it. A filter, an envelope, a waveshaper, a delay
+//! line, the polyBLEP oscillator stack: every one of them is a mono algorithm
+//! with mono state, and under the split form every one of them stays written
+//! exactly that way, with `Stereo::each` handing it one channel at a time. The
+//! interleaved form would have made each of them either stride by two and
+//! carry an array of its own state, or be wrapped in a de-interleave; the
+//! first is a change to every module and the second is the split form, paid
+//! for twice. The stages that genuinely need both sides at once are countable
+//! — the linked limiter, the reverb's mono send, the pan — and they reach for
+//! `l` and `r` by name, which reads as what it is. Interleaving then happens
+//! at exactly two edges, the WAV encoder and the meter, where a whole buffer
+//! was wanted anyway.
+//!
+//! **Width belongs to the mix, never to a note.** A source is one signal: an
+//! oscillator stack, a plucked string and an FM pair each produce a single
+//! waveform, and it reaches both channels identically. `noise` is the one
+//! exception — an uncorrelated second draw is a free and legitimate way to
+//! make a noise source wide, and the seeded hash already takes a channel
+//! discriminator. Everything else that widens a sound happens downstream, in
+//! the places a mix decision lives: a track's `pan`, and the stereo reverb.
+//! There is no per-note pan and no mid/side processing, for the same reason
+//! there is no node graph — that is a compositing suite's craft, not an
+//! editor's.
 //!
 //! `scorsese-render` resamples and upmixes every audio source on the way into
-//! the mix — a synthesised file takes exactly the path an imported mono file
+//! the mix — a synthesised file takes exactly the path an imported stereo file
 //! does.
 
 pub(crate) mod core;
@@ -127,10 +157,11 @@ pub mod level;
 pub(crate) mod note;
 pub mod patch;
 pub mod song;
+pub(crate) mod stereo;
 pub mod survey;
 pub mod wav;
 
-pub use core::{SAMPLE_RATE, render_note};
+pub use core::SAMPLE_RATE;
 pub use error::SynthError;
 pub use note::{NoteOpts, midi_to_freq, parse_note};
 pub use patch::Patch;
@@ -187,9 +218,14 @@ pub use song::{PatchResolver, Song, render_song};
 /// came back byte-identical. The measure is the same one either way: *can a
 /// recipe written before this change name the new thing?* Not *did the code
 /// around it move*.
-pub const SYNTH_VERSION: u32 = 2;
+///
+/// **Version 3 is the far end of that scale** and needs no argument at all: the
+/// crate went stereo, so every bake in every project is a different file, of a
+/// different channel count, and there is no recipe anywhere that renders to
+/// what it used to.
+pub const SYNTH_VERSION: u32 = 3;
 
-/// Render one note of `patch` and encode it as a mono 16-bit PCM WAV.
+/// Render one note of `patch` and encode it as a stereo 16-bit PCM WAV.
 ///
 /// The one-call front door for an effect: a gunshot, a footstep, a UI blip.
 /// The returned bytes are a complete file — a caller writes them wherever the
@@ -213,7 +249,20 @@ pub fn bake_named_note(patch: &Patch, note: &str, opts: &NoteOpts) -> Result<Bak
     bake_note(patch, parse_note(note)?, opts)
 }
 
-/// Render `song` and encode it as a mono 16-bit PCM WAV.
+/// Render one note of `patch`, handing back the samples rather than a file.
+///
+/// **Interleaved stereo**, left sample first — the form a WAV holds and the
+/// form [`level`] measures, which is what every caller of raw samples in this
+/// workspace already speaks. The split pair the signal path itself works in is
+/// this crate's own business; see [the crate doc](self).
+///
+/// Pre-limiter, unlike [`bake_note`]: a caller summing several of these wants
+/// to limit the sum rather than each part of it.
+pub fn render_note(patch: &Patch, midi: f32, opts: &NoteOpts) -> Result<Vec<f32>, SynthError> {
+    Ok(core::render_note(patch, midi, opts)?.interleaved())
+}
+
+/// Render `song` and encode it as a stereo 16-bit PCM WAV.
 ///
 /// `resolve` supplies the patch behind any track that names its instrument by
 /// reference rather than carrying it inline — see [`PatchResolver`].
@@ -239,7 +288,7 @@ pub fn bake_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Bake, Synth
 /// here is catching it before it is ever mixed.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Bake {
-    /// The encoded file, mono 16-bit PCM.
+    /// The encoded file, stereo 16-bit PCM.
     pub wav: Vec<u8>,
     /// How it came out — over its whole length, and section by section.
     pub profile: level::Profile,
@@ -255,14 +304,19 @@ impl Bake {
         self.profile.loudness()
     }
 
-    /// Encodes and measures one buffer, cutting it where `sections` says and
+    /// Encodes and measures one signal, cutting it where `sections` says and
     /// carrying the rows its layers were already measured into.
-    /// Mono, as everything this crate makes is.
-    fn of(samples: &[f32], sections: Vec<level::Cut>, tracks: Vec<level::Layer>) -> Self {
-        let mut profiler = level::Profiler::sectioned(1, SAMPLE_RATE, sections);
-        profiler.feed(samples);
+    ///
+    /// The channels are woven together once and the file and the measurement
+    /// are both taken from that one buffer, because they must agree: a report
+    /// that measured the samples and a file that carried different ones would
+    /// be two answers to one question.
+    fn of(samples: &stereo::Stereo, sections: Vec<level::Cut>, tracks: Vec<level::Layer>) -> Self {
+        let interleaved = samples.interleaved();
+        let mut profiler = level::Profiler::sectioned(stereo::CHANNELS, SAMPLE_RATE, sections);
+        profiler.feed(&interleaved);
         Self {
-            wav: wav::encode(samples),
+            wav: wav::encode(&interleaved),
             profile: profiler.finish(),
             tracks,
         }

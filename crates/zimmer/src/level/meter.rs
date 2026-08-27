@@ -84,11 +84,11 @@ pub struct Meter {
 impl Meter {
     /// A meter for a signal of `channels` interleaved channels.
     ///
-    /// The count is asked for rather than assumed because the two callers
-    /// differ: a bake is mono and a render's mix is stereo, and interpolating
-    /// between a left sample and the right sample beside it is interpolating
-    /// between two different signals — it would invent excursions at every
-    /// frame boundary.
+    /// The count is asked for rather than assumed because the caller knows and
+    /// this does not — an imported file may be anything — and because getting
+    /// it wrong is not a rounding error: interpolating between a left sample
+    /// and the right sample beside it is interpolating between two different
+    /// signals, and would invent excursions at every frame boundary.
     pub fn new(channels: usize) -> Self {
         Self {
             channels: channels.max(1),

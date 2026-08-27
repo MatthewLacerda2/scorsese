@@ -1,14 +1,18 @@
 //! Summing the notes: how long the result is, that it never clips, and that
 //! the same song renders the same samples every time.
 
-use crate::common::peak;
 use crate::common::songs::{blip, note, played, song, verse, voice};
+use crate::common::{channel, peak};
 use scorsese_zimmer::song::{InlineOnly, PatchRef};
 use scorsese_zimmer::{SAMPLE_RATE, Song, SynthError, render_song};
 
-/// Renders a song whose instruments are all inline — every fixture here.
+/// Renders a song whose instruments are all inline — every fixture here — as
+/// one channel of it. Mixing is addition, and both sides are added the same.
 fn render(song: &Song) -> Vec<f32> {
-    render_song(song, &InlineOnly).expect("the song renders")
+    channel(
+        &render_song(song, &InlineOnly).expect("the song renders"),
+        0,
+    )
 }
 
 /// Where the arrangement ends, in samples.
@@ -110,5 +114,9 @@ fn a_named_instrument_is_taken_from_the_resolver() {
     let mut named = song();
     named.tracks[0].patch = PatchRef::Named("bass".to_owned());
     let resolved = render_song(&named, &|_: &str| Ok(blip())).expect("the resolver supplies it");
-    assert_eq!(resolved, render(&song()), "same instrument, same samples");
+    assert_eq!(
+        channel(&resolved, 0),
+        render(&song()),
+        "same instrument, same samples"
+    );
 }

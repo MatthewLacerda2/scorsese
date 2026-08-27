@@ -70,6 +70,7 @@ pub(crate) fn song() -> Song {
             name: "bass".to_owned(),
             patch: PatchRef::Inline(Box::new(blip())),
             gain: 0.8,
+            pan: 0.0,
             fx: vec![],
         }],
         patterns,

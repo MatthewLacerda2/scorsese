@@ -365,6 +365,24 @@ exclude_re = [
     # direction for this to fail in.
     'env\.rs:51:15: replace > with >= in held_level',
     'env\.rs:56:15: replace > with >= in held_level',
+
+    # `wav::BYTES_PER_FRAME` is `BYTES_PER_SAMPLE * CHANNELS as u32`, and this
+    # crate writes 16-bit stereo: both operands are 2, so the sum and the
+    # product are both 4. No test can separate them, because there is nothing
+    # to separate — the mutant computes the same number.
+    #
+    # Equivalent *by arithmetic coincidence* rather than by structure, which is
+    # unusual enough to say out loud: it stops being equivalent the day either
+    # the bit depth or the channel count moves, and the entry is line-qualified
+    # so a file that changed enough to move it puts the mutant back in the
+    # report. The sibling mutation is not equivalent and is caught — `/` makes
+    # it 1, and the header assertions in `wav.rs` say the block align is 4.
+    #
+    # The name is line-qualified for a second reason too: a constant's mutant
+    # carries no function to name it by, so the printed name is bare enough
+    # (`replace * with +`) that an entry without the path would exclude every
+    # multiply on the surface.
+    'wav\.rs:23:47: replace \* with \+',
 ]
 
 # ---------------------------------------------------------------------------

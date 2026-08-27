@@ -1,14 +1,18 @@
 //! `swing` and `humanize`: a song played rather than clocked.
 
 use crate::common::songs::{song, verse, voice};
-use crate::common::{peak, saw_patch};
+use crate::common::{channel, peak, saw_patch};
 use scorsese_zimmer::patch::{Adsr, Filter, FilterKind};
 use scorsese_zimmer::song::{Humanize, InlineOnly, PatchRef};
 use scorsese_zimmer::{SAMPLE_RATE, Song, render_song};
 
-/// Renders a song whose instruments are all inline.
+/// Renders a song whose instruments are all inline, as one channel of it —
+/// a performance is a matter of when and how hard, not of where.
 fn render(song: &Song) -> Vec<f32> {
-    render_song(song, &InlineOnly).expect("the song renders")
+    channel(
+        &render_song(song, &InlineOnly).expect("the song renders"),
+        0,
+    )
 }
 
 /// The fixture with a *deterministic* instrument.
