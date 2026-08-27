@@ -100,6 +100,7 @@
 //! for.
 
 use super::Song;
+use super::automate::{self, Riding};
 use crate::core::{RATE, SAMPLE_RATE};
 use crate::fx;
 use crate::level::Layer;
@@ -137,6 +138,16 @@ pub(super) struct Mix<'a> {
     /// False for a song of fewer than two tracks, whose rows are not reported
     /// at all — see the module doc.
     measured: bool,
+    /// One slot per track: which of its parameters move across the piece.
+    ///
+    /// A track whose fader moves is bussed whether or not it asked for a
+    /// chain, because a moving gain or pan cannot be one number applied on the
+    /// way past — it has to be written onto that track's own part, and the
+    /// part is what a bus is.
+    riding: Vec<Riding<'a>>,
+    /// How far one sample advances the beat, at the tempo this render is
+    /// actually running at. The only place a curve's beats become samples.
+    beats_per_sample: f32,
 }
 
 impl<'a> Mix<'a> {
@@ -145,13 +156,15 @@ impl<'a> Mix<'a> {
     /// Starting at the arrangement's own length rather than growing from empty
     /// is what keeps a song that ends on a rest that long; see
     /// [`super::render`].
-    pub(super) fn new(song: &'a Song, arrangement_end: usize) -> Self {
+    pub(super) fn new(song: &'a Song, arrangement_end: usize, beats_per_sample: f32) -> Self {
         Self {
             song,
             master: Stereo::silence(arrangement_end),
             parts: song.tracks.iter().map(|_| None).collect(),
             keys: keyed(song),
             measured: song.tracks.len() > 1,
+            riding: automate::riding(song),
+            beats_per_sample,
         }
     }
 
@@ -168,7 +181,7 @@ impl<'a> Mix<'a> {
             mix_into(key, src, at, UNITY);
         }
         let played = &self.song.tracks[track];
-        if !played.fx.is_empty() {
+        if !played.fx.is_empty() || self.riding[track].moves_the_fader() {
             mix_into(self.parts[track].get_or_insert_default(), src, at, UNITY);
             return;
         }
@@ -195,12 +208,22 @@ impl<'a> Mix<'a> {
             song,
             parts: std::mem::take(&mut self.keys),
         };
-        for (track, part) in song.tracks.iter().zip(&mut parts) {
-            let Some(bus) = part.as_mut().filter(|_| !track.fx.is_empty()) else {
+        for (index, (track, part)) in song.tracks.iter().zip(&mut parts).enumerate() {
+            let rides = self.riding[index].moves_the_fader();
+            let Some(bus) = part.as_mut().filter(|_| !track.fx.is_empty() || rides) else {
                 continue;
             };
             ring_out(bus, &track.fx);
             fx::apply_chain_keyed(bus, &track.fx, RATE, &keys);
+            if rides {
+                // The fader is written onto the part itself and the part then
+                // arrives at unity, because there is no single number to add
+                // it at. After the chain, for the reason a static fader is:
+                // the chain is the instrument, and the fader is where it sits.
+                automate::ride(bus, track, self.riding[index], self.beats_per_sample);
+                mix_into(&mut self.master, bus, 0, UNITY);
+                continue;
+            }
             let placed = placement(track.gain, track.pan);
             mix_into(&mut self.master, bus, 0, placed);
             // Scaled after the fold-down rather than before it, so the master

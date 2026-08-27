@@ -45,6 +45,7 @@ fn duet(left: f32, right: f32) -> Song {
         swing: 0.0,
         humanize: None,
         fx: vec![],
+        automation: vec![],
         fit: None,
         fade: None,
         tail: None,

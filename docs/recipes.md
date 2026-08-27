@@ -1091,6 +1091,90 @@ A song chain runs **before** the limiter, always. Nothing may add gain after the
 thing that guarantees a bake does not clip. Fades still come last, after
 limiting, as they always did.
 
+### Making something build
+
+Every other number in a recipe is one number for the whole piece. A track's
+`gain` is one number, a filter's `cutoff` is one number; envelopes and the LFO
+move things *within a note*, and across the piece nothing moves at all. That
+leaves a **section louder than the one before it**, which is a step — not a
+build.
+
+`automation` is where a value moves. This is the build: eight bars of a
+sixteenth-note part with the filter opening and the level coming up under it.
+
+```json fields
+  "bpm": 120,
+  "tracks": [
+    { "name": "t", "gain": 0.9,
+      "patch": {
+        "source": { "kind": "osc_stack", "oscs": [
+          { "wave": "saw", "detune_cents": -6.0 },
+          { "wave": "saw", "detune_cents": 6.0 }
+        ] },
+        "amp": { "a": 0.002, "d": 0.06, "s": 0.5, "r": 0.08 },
+        "filter": { "kind": "lowpass", "cutoff": 300.0, "resonance": 0.5 } } }
+  ],
+  "patterns": { "a": { "beats": 4, "notes": [
+    { "track": "t", "steps": "xxxxxxxxxxxxxxxx", "div": 0.25, "note": "A2" }
+  ] } },
+  "arrangement": ["a", "a", "a", "a"],
+  "automation": [
+    { "track": "t", "param": "cutoff", "points": [
+      { "beat": 0.0, "value": 300.0 },
+      { "beat": 16.0, "value": 7000.0, "easing": "ease_in" } ] },
+    { "track": "t", "param": "gain", "points": [
+      { "beat": 0.0, "value": 0.25 },
+      { "beat": 16.0, "value": 0.9 } ] }
+  ]
+```
+
+An entry names a **track**, a **`param`** and its **`points`**. Each point is a
+`beat`, a `value` in that parameter's own units, and how the value travels from
+there to the next. It is the same `(time, value, easing)` shape a clip's
+keyframes use in `project.json`, in **beats** rather than frames — so changing
+the tempo of a piece with a build in it is still one number.
+
+| `param` | units | reach for it for |
+| --- | --- | --- |
+| `gain` | linear, like the track's own `gain` | a part rising into a chorus, a riser, a fade-in on one instrument |
+| `pan` | `-1.0` to `1.0`, like the track's own `pan` | a part drifting across the image |
+| `cutoff` | Hz | the build, and anything getting brighter as the piece intensifies |
+
+The list is closed on purpose. A misspelled `param` is **refused**, against the
+three words that work, rather than parsed into a curve that moves nothing — and
+a curve that moves nothing is worse than no curve at all, because the recipe
+still says the build is there.
+
+**`easing`** is `linear` (the default), `ease_in`, `ease_out`, `ease_in_out` or
+`hold`, and it belongs to the point the value is travelling *from*. `hold` is a
+step written on purpose: the value stays put and jumps at the next point.
+`ease_in` is the one a build usually wants — slow at first and arriving fast,
+which is what makes a drop land.
+
+Two more things a curve does, and both are what anyone would guess:
+
+- **Outside the points, the value holds.** Before the first point it is the
+  first value; after the last it is the last. Nothing extrapolates, so a
+  two-point build does not keep climbing past the end of the piece.
+- **One point is a constant**, which is a legitimate thing to write: a value
+  for the whole piece, said once.
+
+**A cutoff moves once per note, a fader moves every sample.** A note is
+rendered as one buffer through a filter set when the voice starts, so a
+`cutoff` curve is read at each note's onset and holds for that note — which
+means a sweep is as smooth as the part playing it. Sixteenths give it 32 steps
+a bar and it sounds continuous; one chord held across eight bars gets one
+value, and the fix is to write the part as the repeated notes it would be
+played as. `gain` and `pan` are faders, so they are read every sample and a
+held chord does swell.
+
+**Under `fit`, beats keep counting from the start of the rendered piece.** A
+`stretch` moves the tempo and leaves the beats alone, so the build stretches
+with the music. A `loop` repeats the *arrangement* and the curve does not go
+back with it — a build that restarted every pass would be a saw — so a bed
+looping to 45 seconds carries one curve across all of it, written over as many
+beats as the whole thing takes.
+
 ### Fitting a song to the cut
 
 A song's natural length is whatever its notes add up to, plus the ring-out.
@@ -1476,6 +1560,13 @@ exactly what nothing downstream can notice.
   tonic and a mode, a degree of zero or below, a degree that lands off the
   keyboard, a degree or a `transpose_degrees` in a song that declares no key,
   and `transpose` beside `transpose_degrees` on one entry.
+
+- **[Automation](#making-something-build)** — a curve naming a track the song
+  does not have, two curves on one track and parameter, a list with no points
+  in it, `beat`s that do not ascend, a `beat` or a `value` that is not a
+  number, a `cutoff` point at or below 0 Hz, and a `cutoff` curve on an
+  instrument that has no filter to move. Every one of them is the same defect:
+  a curve the recipe wrote and nothing can hear.
 
 An entry that carries the fields of two of the four kinds is refused too, by
 all four rather than by whichever is declared first.
