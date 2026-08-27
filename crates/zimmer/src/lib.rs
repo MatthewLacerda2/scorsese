@@ -288,20 +288,21 @@ pub use song::{PatchResolver, Song, render_song};
 /// again — further into shipping code than the change before it, and so
 /// measured instead of reasoned about.
 ///
-/// **Noise colour and oscillator unison are the fourth of the leave-it-alone
-/// cases**, and the first where the new thing is a *field on an existing
-/// variant* rather than a new variant — which is the shape that usually does
-/// move this number, so it was checked rather than argued. `Source::Noise`
-/// grew a `color` and `Osc` grew `voices` and `spread`, each defaulting to
-/// what the crate already did and each skipped on the way out. 33 probes
-/// against `e9f2bfa` — all four sources, a stack of four, every envelope
-/// corner including both directions of curve, a pitch envelope, the filter
-/// swept and velocity-routed, all three LFO targets, every effect, a chain of
-/// four, and eight songs covering step strings, chords, a key with degrees,
-/// swing, humanise, a track bus, a song chain, a sidechain, panning, `fit`,
-/// `fade`, `tail` and an arrangement transform — came back byte-identical.
-/// A recipe that names neither field renders what it always did, and the
-/// defaults are what make that true by construction.
+/// **Noise colour and oscillator unison are a leave-it-alone case of a new
+/// shape**: the first where the new thing is a *field on an existing variant*
+/// rather than a variant of its own, which is the shape that usually does move
+/// this number — so it was checked rather than argued. `Source::Noise` grew a
+/// `color` and `Osc` grew `voices` and `spread`, each defaulting to what the
+/// crate already did and each skipped on the way out. 35 probes against
+/// `9e73ead` — all five sources, a stack of four, an additive series both
+/// harmonic and stretched, every envelope corner including both directions of
+/// curve, a pitch envelope, the filter swept and velocity-routed, all three
+/// LFO targets, every effect, a chain of four, and eight songs covering step
+/// strings, chords, a key with degrees, swing, humanise, a track bus, a song
+/// chain, a sidechain, panning, `fit`, `fade`, `tail` and an arrangement
+/// transform — came back byte-identical. A recipe that names neither field
+/// renders what it always did, and the defaults are what make that true by
+/// construction.
 ///
 /// **Version 3 is the far end of that scale** and needs no argument at all: the
 /// crate went stereo, so every bake in every project is a different file, of a
