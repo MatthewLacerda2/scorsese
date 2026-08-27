@@ -48,6 +48,7 @@ use crate::hash::hash3;
 use crate::level::Layer;
 use crate::note::NoteOpts;
 use crate::patch::Patch;
+use crate::stereo::Stereo;
 
 /// Supplies the patch behind a track that names its instrument rather than
 /// carrying it inline.
@@ -93,8 +94,8 @@ impl PatchResolver for InlineOnly {
 /// that was already in hand.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Mixdown {
-    /// The finished mono buffer — the thing that gets encoded.
-    pub(crate) master: Vec<f32>,
+    /// The finished stereo buffer — the thing that gets encoded.
+    pub(crate) master: Stereo,
     /// One row per track, in track order, **post-gain**: what that instrument
     /// takes up in the mix rather than what it would sound like alone.
     ///
@@ -109,10 +110,14 @@ pub(crate) struct Mixdown {
     pub(crate) tracks: Vec<Layer>,
 }
 
-/// Renders `song` to a mono sample buffer at [`crate::SAMPLE_RATE`],
-/// master-limited, and the length the song asks to be.
+/// Renders `song` to an interleaved stereo sample buffer at
+/// [`crate::SAMPLE_RATE`], master-limited, and the length the song asks to be.
+///
+/// Interleaved — left sample first — because that is the form a WAV holds and
+/// the form [`crate::level`] measures, so a caller doing anything at all with
+/// raw samples already speaks it.
 pub fn render_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Vec<f32>, SynthError> {
-    Ok(mix_song(song, resolve)?.master)
+    Ok(mix_song(song, resolve)?.master.interleaved())
 }
 
 /// [`render_song`], keeping what each track contributed on its way into the

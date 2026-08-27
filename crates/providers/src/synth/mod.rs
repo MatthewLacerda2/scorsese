@@ -266,7 +266,7 @@ fn record(project: &mut Project, id: &AssetId, baked: &Baked, project_root: &Pat
     // long it is makes an agent guess the length of the clip it just made.
     asset.media = Some(MediaMetadata {
         duration_seconds: Some(wav::seconds_in(wav.len())),
-        audio_channels: Some(1),
+        audio_channels: Some(2),
         sample_rate: Some(SAMPLE_RATE),
         ..MediaMetadata::default()
     });

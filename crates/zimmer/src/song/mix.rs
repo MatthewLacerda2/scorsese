@@ -15,9 +15,9 @@
 //! the whole design:
 //!
 //! ```text
-//!   notes ─► patch fx ─► track bus ─► track fx ─► × gain ─┐
-//!                                                         ├─► song fx ─► limiter
-//!   notes ─► patch fx ──────────────────────────► × gain ─┘
+//!   notes ─► patch fx ─► track bus ─► track fx ─► × gain × pan ─┐
+//!                                                               ├─► song fx ─► limiter
+//!   notes ─► patch fx ──────────────────────────► × gain × pan ─┘
 //! ```
 //!
 //! A **track** chain runs on that instrument's whole part, before its gain
@@ -41,7 +41,21 @@
 //!   *bit-identical* one. Summing into a bus at unity and scaling once at
 //!   fold-down is algebraically the same, but `(a + b)·g` and `a·g + b·g` are
 //!   not the same `f32`, and a field whose whole promise is that leaving it out
-//!   changes nothing cannot afford "nothing, to within rounding".
+//!   changes nothing cannot afford "nothing, to within rounding". `pan` keeps
+//!   that promise the same way: dead centre is a literal `1.0` per side rather
+//!   than the `0.99999994` the pan law computes there.
+//!
+//! ## Where a part is put
+//!
+//! **`pan` is applied at the same moment `gain` is** — on the way into the
+//! master, and never before. Both are answers to "where does this instrument
+//! sit", one in level and one in position, and a track's own fx chain is the
+//! instrument rather than its place in the mix: a delay that ran after the pan
+//! would echo from wherever the fader had put the part, which is a delay that
+//! changes character when an instrument is moved.
+//!
+//! The two multiply into one gain per side, so a note is walked once per
+//! channel and not twice. [`crate::stereo::pan_gains`] carries the law.
 //!
 //! ## Measuring on the way past
 //!
@@ -65,6 +79,7 @@ use crate::core::{RATE, SAMPLE_RATE};
 use crate::fx;
 use crate::level::Layer;
 use crate::patch::Fx;
+use crate::stereo::{self, Stereo};
 
 /// The buses a song is summed through: one master, and a private buffer for
 /// each track that asked for a chain of its own.
@@ -75,7 +90,7 @@ use crate::patch::Fx;
 /// against another song's tracks.
 pub(super) struct Mix<'a> {
     song: &'a Song,
-    master: Vec<f32>,
+    master: Stereo,
     /// One slot per track, in track order: that track's own part of the mix.
     /// `None` until its first note arrives.
     ///
@@ -83,7 +98,7 @@ pub(super) struct Mix<'a> {
     /// measurement-only tap for one that did not — either way it holds what
     /// that instrument contributes and nothing else, which is what both jobs
     /// want.
-    parts: Vec<Option<Vec<f32>>>,
+    parts: Vec<Option<Stereo>>,
     /// Whether a tap is kept for the tracks that have no chain of their own.
     ///
     /// False for a song of fewer than two tracks, whose rows are not reported
@@ -100,7 +115,7 @@ impl<'a> Mix<'a> {
     pub(super) fn new(song: &'a Song, arrangement_end: usize) -> Self {
         Self {
             song,
-            master: vec![0.0f32; arrangement_end],
+            master: Stereo::silence(arrangement_end),
             parts: song.tracks.iter().map(|_| None).collect(),
             measured: song.tracks.len() > 1,
         }
@@ -108,29 +123,29 @@ impl<'a> Mix<'a> {
 
     /// Adds one rendered note of `track`, starting at sample `at`.
     ///
-    /// Either straight into the master at the track's gain, or into that
-    /// track's bus at unity so its chain sees the instrument's whole part
-    /// before the gain is applied.
-    pub(super) fn add(&mut self, track: usize, src: &[f32], at: usize) {
+    /// Either straight into the master at the track's gain and pan, or into
+    /// that track's bus at unity and dead centre, so its chain sees the
+    /// instrument's whole part before either is applied.
+    pub(super) fn add(&mut self, track: usize, src: &Stereo, at: usize) {
         let played = &self.song.tracks[track];
         if !played.fx.is_empty() {
-            mix_into(self.parts[track].get_or_insert_default(), src, at, 1.0);
+            mix_into(self.parts[track].get_or_insert_default(), src, at, UNITY);
             return;
         }
-        mix_into(&mut self.master, src, at, played.gain);
+        let placed = placement(played.gain, played.pan);
+        mix_into(&mut self.master, src, at, placed);
         if self.measured {
-            // At gain, like the master addition beside it and unlike a bus:
-            // there is no chain here to see the part before the fader, and the
-            // row this ends up in is post-gain.
-            let gain = played.gain;
-            mix_into(self.parts[track].get_or_insert_default(), src, at, gain);
+            // At gain and pan, like the master addition beside it and unlike a
+            // bus: there is no chain here to see the part before the fader,
+            // and the row this ends up in is what the track contributes.
+            mix_into(self.parts[track].get_or_insert_default(), src, at, placed);
         }
     }
 
     /// Folds every bus down and applies the song's own chain, handing back the
     /// summed mix **unlimited** — limiting is the renderer's last word, not the
     /// mixer's — and one measured row per track.
-    pub(super) fn finish(mut self) -> (Vec<f32>, Vec<Layer>) {
+    pub(super) fn finish(mut self) -> (Stereo, Vec<Layer>) {
         let song = self.song;
         let mut parts = std::mem::take(&mut self.parts);
         for (track, part) in song.tracks.iter().zip(&mut parts) {
@@ -139,24 +154,39 @@ impl<'a> Mix<'a> {
             };
             ring_out(bus, &track.fx);
             fx::apply_chain(bus, &track.fx, RATE);
-            mix_into(&mut self.master, bus, 0, track.gain);
+            let placed = placement(track.gain, track.pan);
+            mix_into(&mut self.master, bus, 0, placed);
             // Scaled after the fold-down rather than before it, so the master
             // is summed from exactly the samples it always was and only the
             // copy being measured moves.
-            for sample in bus.iter_mut() {
-                *sample *= track.gain;
-            }
+            scale(bus, placed);
         }
         ring_out(&mut self.master, &song.fx);
         fx::apply_chain(&mut self.master, &song.fx, RATE);
         let layers = if self.measured {
-            measure(song, parts, self.master.len())
+            measure(song, parts, self.master.frames())
         } else {
             Vec::new()
         };
         (self.master, layers)
     }
 }
+
+/// The gain each side of a track's part is added at: its fader and its
+/// position, multiplied into one number per channel.
+///
+/// One multiply rather than two passes, and the reason [`UNITY`] exists as a
+/// value rather than a special case — everything that adds into a buffer here
+/// adds at *some* placement, and a bus's happens to be the identity.
+fn placement(gain: f32, pan: f32) -> (f32, f32) {
+    let (l, r) = stereo::pan_gains(pan);
+    (gain * l, gain * r)
+}
+
+/// A placement that changes nothing: unity on both sides. What a track's own
+/// bus is summed at, because its fader and its pan are applied later, on the
+/// way to the master.
+const UNITY: (f32, f32) = (1.0, 1.0);
 
 /// One row per track, each measured over the length of the finished mix.
 ///
@@ -167,16 +197,26 @@ impl<'a> Mix<'a> {
 ///
 /// A track that never played still gets a row, saying it is silent. A missing
 /// row reads as an oversight, and "the arp is not in this mix" is a finding.
-fn measure(song: &Song, parts: Vec<Option<Vec<f32>>>, frames: usize) -> Vec<Layer> {
+/// A row is measured on **both channels**, interleaved, exactly as the mix
+/// above it is. That is what keeps a hard-panned part from reading quiet: its
+/// energy is all on one side, and a measurement of one side, or of a fold-down,
+/// would report a number that says the instrument is missing rather than that
+/// it is over there.
+fn measure(song: &Song, parts: Vec<Option<Stereo>>, frames: usize) -> Vec<Layer> {
     song.tracks
         .iter()
         .zip(parts)
         .map(|(track, part)| {
             let mut part = part.unwrap_or_default();
             if !part.is_empty() {
-                part.resize(frames.max(part.len()), 0.0);
+                part.grow_to(frames);
             }
-            Layer::of(track.name.clone(), &part, 1, SAMPLE_RATE)
+            Layer::of(
+                track.name.clone(),
+                &part.interleaved(),
+                stereo::CHANNELS,
+                SAMPLE_RATE,
+            )
         })
         .collect()
 }
@@ -185,21 +225,31 @@ fn measure(song: &Song, parts: Vec<Option<Vec<f32>>>, frames: usize) -> Vec<Laye
 ///
 /// A dry chain, and no chain at all, ask for nothing — so this is a no-op on
 /// the path every existing song takes.
-fn ring_out(buf: &mut Vec<f32>, chain: &[Fx]) {
+fn ring_out(buf: &mut Stereo, chain: &[Fx]) {
     let tail = (fx::tail_seconds(chain) * RATE).round() as usize;
-    buf.resize(buf.len() + tail, 0.0);
+    buf.resize(buf.frames() + tail);
 }
 
-/// Adds `src * gain` into `dst` starting at sample `at`, growing `dst` to fit.
+/// Scales every sample of `buf` by a per-side gain.
+fn scale(buf: &mut Stereo, (left, right): (f32, f32)) {
+    for (slot, gain) in [(&mut buf.l, left), (&mut buf.r, right)] {
+        for sample in slot.iter_mut() {
+            *sample *= gain;
+        }
+    }
+}
+
+/// Adds `src` into `dst` starting at sample-frame `at`, at a per-side gain,
+/// growing `dst` to fit.
 ///
 /// The growth is what lets a song ring out: the last note's release tail
 /// extends the buffer past the final beat instead of being truncated to it.
-fn mix_into(dst: &mut Vec<f32>, src: &[f32], at: usize, gain: f32) {
-    let end = at + src.len();
-    if dst.len() < end {
-        dst.resize(end, 0.0);
-    }
-    for (slot, sample) in dst[at..end].iter_mut().zip(src) {
-        *slot += sample * gain;
+fn mix_into(dst: &mut Stereo, src: &Stereo, at: usize, (left, right): (f32, f32)) {
+    let end = at + src.frames();
+    dst.grow_to(end);
+    for (slot, (source, gain)) in [(&mut dst.l, (&src.l, left)), (&mut dst.r, (&src.r, right))] {
+        for (into, sample) in slot[at..end].iter_mut().zip(source) {
+            *into += sample * gain;
+        }
     }
 }

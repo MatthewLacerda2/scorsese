@@ -3,9 +3,15 @@
 use scorsese_zimmer::song::{InlineOnly, Note, Pattern, PatternEntry, Play};
 use scorsese_zimmer::{Song, render_song};
 
-/// Renders a song whose instruments are all inline.
+use crate::common::channel;
+
+/// Renders a song whose instruments are all inline, as one channel of it — a
+/// transform changes what is played, never where it is played from.
 pub(crate) fn render(song: &Song) -> Vec<f32> {
-    render_song(song, &InlineOnly).expect("the song renders")
+    channel(
+        &render_song(song, &InlineOnly).expect("the song renders"),
+        0,
+    )
 }
 
 /// The long form of `pattern`, with nothing changed about it — the base every

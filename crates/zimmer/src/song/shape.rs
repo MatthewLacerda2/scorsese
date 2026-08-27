@@ -15,6 +15,7 @@
 use super::Song;
 use super::timing::{Fade, Fit, FitMode, Tail};
 use crate::core::RATE;
+use crate::stereo::Stereo;
 
 /// How long a cut is faded over so it does not click, in seconds.
 ///
@@ -26,7 +27,11 @@ const SEAM: f32 = 0.02;
 ///
 /// `arrangement_end` is where the last beat falls, which is the only length
 /// the buffer itself cannot tell you: past that point everything is ring-out.
-pub(crate) fn shape(song: &Song, buf: &mut Vec<f32>, arrangement_end: usize) {
+///
+/// Length and level are both properties of the *piece*, so every step here is
+/// the same step on each channel — a fade that reached one side sooner than
+/// the other would be a pan nobody asked for.
+pub(crate) fn shape(song: &Song, buf: &mut Stereo, arrangement_end: usize) {
     if song.tail() == Tail::Exact {
         resize(buf, arrangement_end);
     }
@@ -35,7 +40,7 @@ pub(crate) fn shape(song: &Song, buf: &mut Vec<f32>, arrangement_end: usize) {
     }
     let fade = song.fade.unwrap_or_default();
     if !fade.is_silent_about_everything() {
-        apply_fade(buf, fade);
+        buf.each(|channel| apply_fade(channel, fade));
     }
 }
 
@@ -103,12 +108,11 @@ pub(crate) fn samples(seconds: f32) -> usize {
 
 /// Cuts or pads `buf` to exactly `wanted` samples, fading a cut so it does not
 /// click.
-fn resize(buf: &mut Vec<f32>, wanted: usize) {
-    if buf.len() > wanted {
-        buf.truncate(wanted);
-        fade_out(buf, samples(SEAM));
-    } else {
-        buf.resize(wanted, 0.0);
+fn resize(buf: &mut Stereo, wanted: usize) {
+    let cut = buf.frames() > wanted;
+    buf.resize(wanted);
+    if cut {
+        buf.each(|channel| fade_out(channel, samples(SEAM)));
     }
 }
 

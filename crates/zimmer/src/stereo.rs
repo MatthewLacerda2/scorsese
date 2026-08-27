@@ -92,19 +92,6 @@ impl Stereo {
         apply(&mut self.r);
     }
 
-    /// The mono fold-down: the average of the two channels.
-    ///
-    /// What a stereo effect sends into a shared tail — one room, fed by
-    /// everything in front of it. The average rather than the sum, so a signal
-    /// already dead centre feeds the effect at exactly its own level.
-    pub(crate) fn fold_down(&self) -> Vec<f32> {
-        self.l
-            .iter()
-            .zip(&self.r)
-            .map(|(l, r)| (l + r) * 0.5)
-            .collect()
-    }
-
     /// The two channels woven into one buffer, left sample first.
     ///
     /// The interchange form: what a WAV file holds and what [`crate::level`]
@@ -169,7 +156,6 @@ mod tests {
             stereo.interleaved(),
             vec![0.0, 0.0, 1.0, 1.0, 2.0, 2.0, 3.0, 3.0]
         );
-        assert_eq!(stereo.fold_down(), ramp(4), "the average of two equals is it");
     }
 
     #[test]
@@ -205,15 +191,6 @@ mod tests {
         assert_eq!(seen, vec![1.0, 2.0], "left first, then right");
         assert_eq!(stereo.l, vec![10.0]);
         assert_eq!(stereo.r, vec![20.0]);
-    }
-
-    #[test]
-    fn the_fold_down_averages_rather_than_sums() {
-        let stereo = Stereo {
-            l: vec![1.0, 0.0],
-            r: vec![0.0, -1.0],
-        };
-        assert_eq!(stereo.fold_down(), vec![0.5, -0.5]);
     }
 
     /// The promise a default has to keep: a track that never says `pan` is

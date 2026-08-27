@@ -110,6 +110,10 @@ fn four_bars() -> Song {
             name: "lead".to_owned(),
             patch: PatchRef::Inline(Box::new(pluck())),
             gain: 0.9,
+            // The one instrument in the piece, so it belongs in the middle —
+            // and being the default, it stays out of the file a starter is
+            // read as a worked example of.
+            pan: 0.0,
             fx: vec![],
         }],
         patterns,

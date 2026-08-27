@@ -35,6 +35,7 @@ fn duet() -> Song {
         name: name.to_owned(),
         patch: PatchRef::Inline(Box::new(tone())),
         gain,
+        pan: 0.0,
         fx: vec![],
     };
     let mut patterns = BTreeMap::new();

@@ -46,7 +46,7 @@ fn a_note_lands_on_the_pitch_it_was_asked_for() {
         seed: 0,
     };
     let hz = |midi: f32| {
-        let buf = scorsese_zimmer::render_note(&sine(), midi, &one_second).expect("renders");
+        let buf = common::render(&sine(), midi, &one_second);
         measured_hz(&buf[..44_100], 44_100.0)
     };
     let close = |midi: f32, expected: f32| {

@@ -1,4 +1,4 @@
-//! core — the note renderer: patch + note → `f32` buffer.
+//! core — the note renderer: patch + note → a stereo pair of `f32` buffers.
 //!
 //! This is the layer's contract made executable: *(pitch, velocity, duration) in →
 //! buffer out*. The signal path is fixed, which is the whole point of a structured
@@ -37,6 +37,15 @@
 //! envelope's release rings out after the gate closes, and an fx chain adds its
 //! own tail (an echo cut off mid-repeat is a click, not an echo).
 //!
+//! **Both channels take the whole path**, from the source stage onward. For
+//! every source but `noise` the two are computed from identical inputs and so
+//! come out bit-identical, which is arithmetic done twice for one answer — and
+//! that is the price of the path being uniform. The alternative was a flag
+//! saying whether the sides had parted company yet, read by every stage
+//! downstream, which is a mode; this is an offline renderer and it can afford
+//! the multiply instead. What it buys is that the fx chain, where a stereo
+//! reverb lives, needs no special case for the one-shot that reached it dry.
+//!
 //! Module layout: [`osc`] (band-limited oscillator stack), [`karplus`] (plucked
 //! string), [`fm`] (2-op FM), [`noise`] (the one seeded RNG), [`source`] (which of
 //! those runs), [`mod@env`] (ADSR), [`filter`] (state-variable filter).
@@ -55,6 +64,7 @@ use super::error::SynthError;
 use super::fx;
 use super::note::{NoteOpts, midi_to_freq};
 use super::patch::{Filter, Lfo, LfoTarget, Patch, PitchEnv};
+use super::stereo::Stereo;
 
 /// The one rate everything here renders at. 44.1 kHz is CD rate: the full
 /// audible band.
@@ -89,7 +99,7 @@ const MAX_SECONDS: f32 = 60.0;
 /// where that difference already lives. They are clamped in the same place, to
 /// the same band, for the reason above; `timbre` of zero collapses them back
 /// into the single number every note was struck at before.
-pub fn render_note(patch: &Patch, midi: f32, opts: &NoteOpts) -> Result<Vec<f32>, SynthError> {
+pub(crate) fn render_note(patch: &Patch, midi: f32, opts: &NoteOpts) -> Result<Stereo, SynthError> {
     patch.validate()?;
     let gate = gate_length(opts.duration)?;
     let n = sample_count(gate + patch.amp.r.max(0.0) + fx::tail_seconds(&patch.fx));
@@ -97,11 +107,12 @@ pub fn render_note(patch: &Patch, midi: f32, opts: &NoteOpts) -> Result<Vec<f32>
     let brightness = (opts.velocity + opts.timbre).clamp(0.0, 1.0);
 
     let freqs = pitch_track(patch.lfo, patch.pitch_env, midi_to_freq(midi), gate, n);
-    let mut buf = vec![0.0; n];
-    source::render(&patch.source, &freqs, opts.seed, brightness, &mut buf, RATE);
+    let mut buf = source::render(&patch.source, &freqs, opts.seed, brightness, n, RATE);
     if let Some(f) = patch.filter {
+        // One cutoff track, both channels: the filter's *state* belongs to a
+        // channel, and the curve it is following belongs to the note.
         let cutoffs = cutoff_track(&f, patch.lfo, gate, n, brightness);
-        filter::apply(&mut buf, &f, &cutoffs, RATE);
+        buf.each(|channel| filter::apply(channel, &f, &cutoffs, RATE));
     }
     apply_amp(&mut buf, patch, gate, velocity);
     fx::apply_chain(&mut buf, &patch.fx, RATE);
@@ -127,7 +138,7 @@ pub(crate) fn render_limited(
     patch: &Patch,
     midi: f32,
     opts: &NoteOpts,
-) -> Result<Vec<f32>, SynthError> {
+) -> Result<Stereo, SynthError> {
     let mut buf = render_note(patch, midi, opts)?;
     fx::limiter::apply(&mut buf, RATE);
     Ok(buf)
@@ -229,11 +240,20 @@ fn cutoff_track(f: &Filter, lfo: Option<Lfo>, gate: f32, n: usize, velocity: f32
 /// Apply velocity, the amp envelope and any tremolo — the stage that turns a
 /// continuous tone into a note. `velocity` arrives already clamped from
 /// [`render_note`].
-fn apply_amp(buf: &mut [f32], patch: &Patch, gate: f32, velocity: f32) {
-    let envelope = env::track(&patch.amp, gate, buf.len(), RATE);
-    for (i, s) in buf.iter_mut().enumerate() {
-        *s *= velocity * envelope[i] * tremolo(patch.lfo, i);
-    }
+fn apply_amp(buf: &mut Stereo, patch: &Patch, gate: f32, velocity: f32) {
+    let envelope = env::track(&patch.amp, gate, buf.frames(), RATE);
+    // The gain curve is worked out once and both channels are walked with it:
+    // an envelope is a property of the note, and a tremolo that ran at a
+    // slightly different phase on each side would be a stereo effect nobody
+    // asked for.
+    let gains: Vec<f32> = (0..buf.frames())
+        .map(|i| velocity * envelope[i] * tremolo(patch.lfo, i))
+        .collect();
+    buf.each(|channel| {
+        for (s, gain) in channel.iter_mut().zip(&gains) {
+            *s *= gain;
+        }
+    });
 }
 
 /// The tremolo gain at sample `i`: an LFO aimed at `amp` dips the level by `depth`

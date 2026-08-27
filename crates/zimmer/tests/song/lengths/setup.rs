@@ -3,11 +3,17 @@
 use scorsese_zimmer::song::{Fit, FitMode, InlineOnly};
 use scorsese_zimmer::{SAMPLE_RATE, Song, render_song};
 
+use crate::common::channel;
 use crate::common::songs::song;
 
-/// Renders a song whose instruments are all inline.
+/// Renders a song whose instruments are all inline, as one channel of it —
+/// every question below is about length or level, and both sides carry the
+/// same one.
 pub(crate) fn render(song: &Song) -> Vec<f32> {
-    render_song(song, &InlineOnly).expect("the song renders")
+    channel(
+        &render_song(song, &InlineOnly).expect("the song renders"),
+        0,
+    )
 }
 
 /// Samples in `seconds`, the way the renderer counts them.
