@@ -44,21 +44,32 @@
 #
 # The mutant counts are not extrapolated. `cargo mutants --list` builds nothing
 # and runs nothing, so these are exact for this source at this tool version —
-# 3373 on the scoped surface today (up from the 3018 recorded at #289, which
-# the compositor's shape work has since moved):
+# 3875 on the scoped surface today (up from the 3018 recorded at #289, which
+# the compositor's shape work, zimmer's own growth and #428 have since moved):
 #
-#   scorsese-core 884 · scorsese-compositor 1033 · scorsese-render 156 ·
-#   scorsese-zimmer 1300
+#   scorsese-core 991 · scorsese-compositor 1305 · scorsese-render 156 ·
+#   scorsese-zimmer 1357 · scorsese-providers 66
 #
-# **Extrapolated, not measured:** 3373 × 3.6s ≈ 3h 20m on that machine. A
+# **The last of those is on the surface and not in the rotation below**, and
+# that is a gap rather than a saving: #428 put `crates/providers/src/synth/`
+# into `examine_globs`, and this workflow picks its crate from a hand-written
+# list that does not include `scorsese-providers`. So those 66 mutants are
+# audited by the pull request that writes them and never again — the exact
+# thing the paragraph above says this workflow exists to prevent. A fifth slot
+# costs every other crate a week of re-audit cadence to buy a sweep that
+# finishes in minutes, which is a judgement about a report a person reads: #431
+# holds it. Until it is settled, the crate is in the `workflow_dispatch` list
+# below and can be swept by hand.
+#
+# **Extrapolated, not measured:** 3875 × 3.6s ≈ 3h 52m on that machine. A
 # GitHub-hosted runner is cold and narrower — four cores on a public repo, two
 # in the estimate #339 worked from — so two to three times that is the honest
 # band: **seven to ten hours for the whole surface, against a six-hour job
 # limit.** A single crate at the same multiple is 2-4 hours, which fits with
 # room to spare.
 #
-# So: **rotation, not truncation.** One crate a week, cycling, which sweeps the
-# whole surface every four weeks — #339's guess of monthly, delivered in pieces
+# So: **rotation, not truncation.** One crate a week, cycling, which sweeps all
+# four of them every four weeks — #339's guess of monthly, delivered in pieces
 # that fit. Three things make weekly-in-pieces better than monthly-in-one, and
 # only the first is about the six-hour limit:
 #
@@ -106,6 +117,9 @@ on:
           - scorsese-compositor
           - scorsese-render
           - scorsese-zimmer
+          # On the surface, but not in the rotation above — see the header, and
+          # #431. Reachable only from here until that is settled.
+          - scorsese-providers
 
 permissions:
   contents: read

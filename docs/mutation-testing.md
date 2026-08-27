@@ -57,8 +57,11 @@ So the two are complements:
 ## What gets mutated
 
 The pure-logic surface only: `crates/core`, `crates/compositor`, `crates/zimmer`,
-and the plan and audio arithmetic of `crates/render`. The ffmpeg command builders
-and `crates/golden` are excluded on purpose.
+the plan and audio arithmetic of `crates/render`, and `crates/providers`'
+`src/synth/` — the one subtree of that crate with no provider in it, which is
+where a recipe is parsed, tuned, and turned into the address its bake is cached
+under. The ffmpeg command builders and `crates/golden` are excluded on purpose,
+and so is the rest of `crates/providers`.
 
 `.cargo/mutants.toml` is the authority on that list and gives the reason for
 every inclusion and exclusion. Read it there rather than trusting this
@@ -106,7 +109,14 @@ pull request that wrote it, and never again. A module whose tests were later
 weakened, or whose assertions moved to another crate, has nothing looking at
 it. So `.github/workflows/mutation-sweep.yml` sweeps the rest — no `--in-diff`,
 the whole crate — every Monday, **one crate at a time, cycling**: `core`,
-`compositor`, `render`, `zimmer`, which covers the surface every four weeks.
+`compositor`, `render`, `zimmer`, which covers those four every four weeks.
+
+`providers`' `synth/` subtree is on the surface and **not** in that rotation,
+which the workflow picks from a list of crate names. So those mutants are
+audited by the pull request that writes them and never again — the very thing
+the sweep exists to stop, in miniature. Whether that earns a fifth weekly slot
+is #431; until it does, the sweep can be pointed at `scorsese-providers` by
+hand from its `workflow_dispatch` input.
 
 Rotation and not one big monthly run, for a reason that was measured rather
 than assumed: the whole surface extrapolates to seven to ten hours on a
@@ -135,12 +145,12 @@ finds blocks anything, and a survivor it turns up is triaged exactly as below.
 cargo install cargo-mutants --locked
 
 make mutants                                      # what CI runs: this branch's diff
-cargo mutants                                     # the whole scoped surface, 3676 mutants
+cargo mutants                                     # the whole scoped surface, 3875 mutants
 cargo mutants -p scorsese-zimmer                  # one crate, as the sweep runs it
 cargo mutants -F '^crates/core/src/keyframe\.rs'  # one file, while writing it
 ```
 
-That 3676 moves with the source and with the tool version, and
+That 3875 moves with the source and with the tool version, and
 `cargo mutants --list | wc -l` is how to re-read it: `--list` builds nothing
 and runs nothing, so the count costs a second and is exact.
 
@@ -150,10 +160,11 @@ knowing: `--file` is *unioned* with the config's `examine_globs`, so
 thing. `--re` filters the mutant names, which start with the path, so it does
 narrow — but not perfectly. As of **cargo-mutants 27.1.0**, struct-field
 deletions (`delete field … from struct …`) ignore the name filters entirely:
-they are neither selected by `--re` nor removable by `--exclude-re`. Fourteen of
-them live on the scoped surface, so every `-F` run carries all fourteen along
-from wherever they are, and the report describes files you did not name. Read
-past any `delete field` row from a file you did not ask about — or reach for
+they are neither selected by `--re` nor removable by `--exclude-re`.
+Twenty-seven of them live on the scoped surface, so every `-F` run carries all
+twenty-seven along from wherever they are, and the report describes files you
+did not name. Read past any `delete field` row from a file you did not ask
+about — or reach for
 `-p scorsese-core`, which narrows to a whole crate with none of that, because
 package and glob filters choose files before mutants exist. Nothing narrows to
 exactly one file.

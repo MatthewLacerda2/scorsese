@@ -58,9 +58,9 @@ class Surface(unittest.TestCase):
         return self.config(f"# a comment\n# surface-floor: {n}\nexamine_globs = []\n")
 
     def test_an_intact_surface_passes_and_says_both_numbers(self) -> None:
-        done = run(self.listing(3676), self.floor(3000))
+        done = run(self.listing(3875), self.floor(3000))
         self.assertEqual(done.returncode, 0, done.stderr)
-        self.assertIn("3676", done.stdout)
+        self.assertIn("3875", done.stdout)
         self.assertIn("3000", done.stdout)
 
     def test_a_collapsed_surface_fails_and_names_the_cause(self) -> None:
@@ -83,7 +83,7 @@ class Surface(unittest.TestCase):
 
     def test_a_config_with_no_floor_fails_rather_than_passing(self) -> None:
         """Deleting the line must not read as satisfying it."""
-        done = run(self.listing(3676), self.config("examine_globs = []\n"))
+        done = run(self.listing(3875), self.config("examine_globs = []\n"))
         self.assertNotEqual(done.returncode, 0)
         self.assertIn("surface-floor", done.stderr)
 
