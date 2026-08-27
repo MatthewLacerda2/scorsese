@@ -21,7 +21,8 @@
 //!   "tracks": [{ "name": "bass", "patch": "recipes/bass.json", "gain": 0.8 }],
 //!   "patterns": {
 //!     "verse": { "beats": 8, "notes": [
-//!       { "track": "bass", "note": "E2", "start": 0.0, "dur": 0.5, "vel": 1.0 }] }
+//!       { "track": "bass", "note": "E2", "start": 0.0, "dur": 0.5, "vel": 1.0 },
+//!       { "track": "keys", "chord": "Em7", "oct": 3, "start": 0.0, "dur": 2.0 }] }
 //!   },
 //!   "arrangement": ["verse", { "pattern": "verse", "transpose": 12 }]
 //! }
@@ -30,6 +31,10 @@
 //! An arrangement entry is a pattern's name, or that name with transforms: a
 //! repeat that can vary is the difference between music that develops and music
 //! that only repeats.
+//!
+//! An entry in a pattern is one note or one [`Chord`] — the same idea one level
+//! down, and for the same reason: four notes that are one chord should be one
+//! thing in the document, or nothing records that they are.
 //!
 //! Rendering lives in [`render_song`]; this file is the document alone — plain
 //! serde data that round-trips losslessly, the same "document as truth" rule
@@ -226,7 +231,7 @@ pub enum PatternEntry {
 
 impl PatternEntry {
     /// The [`Track::name`] that plays it.
-    pub(crate) fn track(&self) -> &str {
+    pub fn track(&self) -> &str {
         match self {
             Self::Note(note) => &note.track,
             Self::Chord(chord) => &chord.track,
@@ -234,7 +239,7 @@ impl PatternEntry {
     }
 
     /// Onset in beats from the start of its pattern.
-    pub(crate) fn start(&self) -> f32 {
+    pub fn start(&self) -> f32 {
         match self {
             Self::Note(note) => note.start,
             Self::Chord(chord) => chord.start,
@@ -242,7 +247,7 @@ impl PatternEntry {
     }
 
     /// Gate length in beats.
-    pub(crate) fn dur(&self) -> f32 {
+    pub fn dur(&self) -> f32 {
         match self {
             Self::Note(note) => note.dur,
             Self::Chord(chord) => chord.dur,

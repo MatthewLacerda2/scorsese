@@ -2,7 +2,7 @@
 
 use super::setup::{fitted, render, samples};
 use crate::common::peak;
-use crate::common::songs::{song, verse};
+use crate::common::songs::{song, verse, voice};
 use scorsese_zimmer::song::{Fade, FitMode, Tail};
 use scorsese_zimmer::{Song, SynthError};
 
@@ -11,7 +11,7 @@ use scorsese_zimmer::{Song, SynthError};
 #[test]
 fn an_exact_tail_ends_on_the_final_beat() {
     let mut rings_out = song();
-    verse(&mut rings_out).notes[1].dur = 8.0;
+    voice(verse(&mut rings_out), 1).dur = 8.0;
     let arrangement_end = samples(4.0 * rings_out.beat_seconds());
     assert!(
         render(&rings_out).len() > arrangement_end,

@@ -129,12 +129,15 @@ fn phrase(notes: [&str; 4]) -> Pattern {
         notes: notes
             .iter()
             .enumerate()
-            .map(|(beat, name)| Note {
-                track: "lead".to_owned(),
-                note: Pitch::Name((*name).to_owned()),
-                start: beat as f32,
-                dur: 0.9,
-                vel: 1.0,
+            .map(|(beat, name)| {
+                Note {
+                    track: "lead".to_owned(),
+                    note: Pitch::Name((*name).to_owned()),
+                    start: beat as f32,
+                    dur: 0.9,
+                    vel: 1.0,
+                }
+                .into()
             })
             .collect(),
     }

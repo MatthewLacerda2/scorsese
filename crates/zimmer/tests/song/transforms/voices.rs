@@ -1,7 +1,7 @@
 //! `vel_scale` and `tracks`: how hard a section is played, and by whom.
 
 use crate::common::peak;
-use crate::common::songs::{note, song, verse};
+use crate::common::songs::{note, played, song, verse, voice};
 use scorsese_zimmer::SAMPLE_RATE;
 use scorsese_zimmer::song::{ArrangementEntry, Play, Track};
 
@@ -17,8 +17,9 @@ fn scaling_velocity_equals_writing_the_notes_quieter() {
 
     let mut by_hand = song();
     by_hand.arrangement = vec!["verse".into()];
-    for note in &mut verse(&mut by_hand).notes {
-        note.vel *= 0.5;
+    let pattern = verse(&mut by_hand);
+    for index in 0..pattern.notes.len() {
+        voice(pattern, index).vel *= 0.5;
     }
 
     assert_eq!(render(&scaled), render(&by_hand));
@@ -35,7 +36,10 @@ fn a_tracks_filter_silences_exactly_the_tracks_it_does_not_name() {
         name: "lead".to_owned(),
         ..duet.tracks[0].clone()
     });
-    verse(&mut duet).notes = vec![note("bass", "E2", 0.0, 0.4), note("lead", "B4", 1.0, 0.4)];
+    verse(&mut duet).notes = played(vec![
+        note("bass", "E2", 0.0, 0.4),
+        note("lead", "B4", 1.0, 0.4),
+    ]);
     duet.arrangement = vec!["verse".into()];
 
     let beat = (duet.beat_seconds() * SAMPLE_RATE as f32) as usize;
@@ -68,7 +72,10 @@ fn silencing_a_track_leaves_the_other_notes_bit_identical() {
         name: "lead".to_owned(),
         ..duet.tracks[0].clone()
     });
-    verse(&mut duet).notes = vec![note("bass", "E2", 0.0, 0.4), note("lead", "B4", 1.0, 0.4)];
+    verse(&mut duet).notes = played(vec![
+        note("bass", "E2", 0.0, 0.4),
+        note("lead", "B4", 1.0, 0.4),
+    ]);
 
     let mut filtered = duet.clone();
     filtered.arrangement = vec![
