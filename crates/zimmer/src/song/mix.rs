@@ -57,6 +57,31 @@
 //! The two multiply into one gain per side, so a note is walked once per
 //! channel and not twice. [`crate::stereo::pan_gains`] carries the law.
 //!
+//! ## Keying one track from another
+//!
+//! A [`Fx::Compress`] on a track chain may name another track to listen to, and
+//! this is the moment that can be honoured: the sum is the one place every
+//! track exists separately, so it is the only place one part can be handed to
+//! an effect running on a different one.
+//!
+//! **The part a key hands over is the instrument as played** — at unity, before
+//! its own chain, its `gain` and its `pan`. Three things follow, and each is
+//! the reason for the last:
+//!
+//! - **Turning the key track down does not stop it ducking.** A threshold is
+//!   written against the part, so a duck that came unstuck the moment somebody
+//!   moved a fader would be a setting nobody could keep. A kick that is felt
+//!   rather than heard still presses the bass out of the way.
+//! - **There is no ordering between tracks, so there is no cycle to refuse.**
+//!   Two tracks keying each other is perfectly well defined here, because
+//!   neither is waiting on the other's *output* — the pathological case the
+//!   issue asked about simply cannot arise from this choice. Naming a track
+//!   that does not exist is still refused, and so is a track keying itself,
+//!   which is an ordinary compressor written the long way round.
+//! - **It costs a buffer, and only where one was asked for.** A key is a third
+//!   parallel copy alongside the bus and the measurement tap, kept for the
+//!   tracks something actually names and for no others.
+//!
 //! ## Measuring on the way past
 //!
 //! The sum is also the one moment at which every track exists separately, so it
@@ -78,7 +103,7 @@ use super::Song;
 use crate::core::{RATE, SAMPLE_RATE};
 use crate::fx;
 use crate::level::Layer;
-use crate::patch::Fx;
+use crate::patch::{Fx, sidechains};
 use crate::stereo::{self, Stereo};
 
 /// The buses a song is summed through: one master, and a private buffer for
@@ -99,6 +124,14 @@ pub(super) struct Mix<'a> {
     /// that instrument contributes and nothing else, which is what both jobs
     /// want.
     parts: Vec<Option<Stereo>>,
+    /// One slot per track, holding that track's part **as played** for the
+    /// tracks some sidechain names, and `None` for every other.
+    ///
+    /// Separate from [`Mix::parts`] rather than shared with it because the two
+    /// hold different signals: a bus is consumed by its own chain and a
+    /// chainless track's tap is stored at its fader, and a key is neither —
+    /// see the module doc.
+    keys: Vec<Option<Stereo>>,
     /// Whether a tap is kept for the tracks that have no chain of their own.
     ///
     /// False for a song of fewer than two tracks, whose rows are not reported
@@ -117,6 +150,7 @@ impl<'a> Mix<'a> {
             song,
             master: Stereo::silence(arrangement_end),
             parts: song.tracks.iter().map(|_| None).collect(),
+            keys: keyed(song),
             measured: song.tracks.len() > 1,
         }
     }
@@ -127,6 +161,12 @@ impl<'a> Mix<'a> {
     /// that track's bus at unity and dead centre, so its chain sees the
     /// instrument's whole part before either is applied.
     pub(super) fn add(&mut self, track: usize, src: &Stereo, at: usize) {
+        // A track something is keyed from keeps its own copy, at unity and
+        // ahead of everything else that happens to a part — which is what
+        // makes a duck a property of the playing rather than of the mix.
+        if let Some(key) = self.keys[track].as_mut() {
+            mix_into(key, src, at, UNITY);
+        }
         let played = &self.song.tracks[track];
         if !played.fx.is_empty() {
             mix_into(self.parts[track].get_or_insert_default(), src, at, UNITY);
@@ -148,12 +188,19 @@ impl<'a> Mix<'a> {
     pub(super) fn finish(mut self) -> (Stereo, Vec<Layer>) {
         let song = self.song;
         let mut parts = std::mem::take(&mut self.parts);
+        // Taken out whole before any chain runs, so every track's chain sees
+        // the same keys: what a key holds does not depend on how far down the
+        // fold-down has got, which is what makes mutual keying meaningful.
+        let keys = Keyed {
+            song,
+            parts: std::mem::take(&mut self.keys),
+        };
         for (track, part) in song.tracks.iter().zip(&mut parts) {
             let Some(bus) = part.as_mut().filter(|_| !track.fx.is_empty()) else {
                 continue;
             };
             ring_out(bus, &track.fx);
-            fx::apply_chain(bus, &track.fx, RATE);
+            fx::apply_chain_keyed(bus, &track.fx, RATE, &keys);
             let placed = placement(track.gain, track.pan);
             mix_into(&mut self.master, bus, 0, placed);
             // Scaled after the fold-down rather than before it, so the master
@@ -169,6 +216,39 @@ impl<'a> Mix<'a> {
             Vec::new()
         };
         (self.master, layers)
+    }
+}
+
+/// A slot per track, empty and ready to collect a part for the tracks some
+/// sidechain names, and `None` for the rest.
+///
+/// Seeded up front rather than on demand because [`Mix::add`] is the note loop:
+/// it has to know whether to keep a copy without asking the document about it
+/// once per note.
+fn keyed(song: &Song) -> Vec<Option<Stereo>> {
+    let mut keys: Vec<Option<Stereo>> = song.tracks.iter().map(|_| None).collect();
+    let named = song.tracks.iter().flat_map(|track| sidechains(&track.fx));
+    for name in named {
+        if let Some(index) = song.tracks.iter().position(|track| track.name == name) {
+            keys[index] = Some(Stereo::default());
+        }
+    }
+    keys
+}
+
+/// The parts a sidechained compressor on a track chain is allowed to listen to.
+///
+/// A name rather than an index, because a document names tracks and nothing in
+/// it should have to know their order.
+struct Keyed<'a> {
+    song: &'a Song,
+    parts: Vec<Option<Stereo>>,
+}
+
+impl fx::Keys for Keyed<'_> {
+    fn part(&self, track: &str) -> Option<&Stereo> {
+        let index = self.song.tracks.iter().position(|it| it.name == track)?;
+        self.parts.get(index)?.as_ref()
     }
 }
 

@@ -120,6 +120,7 @@ where 1.0 dips to silence.
 | `reverb` | `size` 0..=1, `damp` 0..=1, `mix` 0..=1 | a room the sound is in — the one effect here that is **wide** |
 | `saturate` | `drive`, `mix` 0..=1 | soft clip: warmth, weight, glue |
 | `eq` | `bands`: up to 8 of `{ kind, freq, gain_db, q }` | takes a region away, or adds one |
+| `compress` | `threshold` dBFS, `ratio`, `attack`/`release` in seconds, `makeup` dB, `mix` 0..=1, `sidechain` | takes the loud moments down — glue, and ducking |
 
 A limiter always runs after them and is not listed — a bake must not clip, and
 that is not the recipe's decision. It holds the **true** peak at −1 dBTP: the
@@ -160,6 +161,29 @@ Two things are worth knowing before writing one:
   at all, so it is sample-identical to leaving it out. List the bands you are
   thinking about and sweep one; the parked ones colour nothing. (The two pass
   filters have no gain to ask for, so this does not switch them off.)
+
+`compress` is the level control that acts on the loud moments and leaves the
+quiet ones, which is what makes a part *sit* rather than merely be at a volume.
+Only `threshold` and `ratio` have to be written: `attack` defaults to `0.01`,
+`release` to `0.15`, `makeup` to `0`, `mix` to `1`. Start at
+`{ "fx": "compress", "threshold": -18, "ratio": 4 }` and move the threshold
+until it is doing something.
+
+It is **not the limiter at another setting**. A limiter always runs, it is not
+listed above, and it does nothing until a peak threatens the ceiling — its job
+is that the file cannot clip. A compressor is chosen and meant to be audible.
+Four things are worth knowing:
+
+- **`ratio: 1` and `mix: 0` are exact bypasses**, the way a band at `0 dB` is —
+  sample-identical to leaving the effect out, so a parked one colours nothing.
+- **`mix` below 1 is parallel ("New York") compression**: a squashed copy under
+  an untouched one. It is the safest way to add density, because the transients
+  come through the dry half.
+- **`makeup` cannot get a mix past the ceiling.** A song's chain runs before the
+  limiter, so 24 dB of makeup on the sum is 24 dB the limiter then takes back.
+  Makeup is for replacing what the reduction took, not for getting loud.
+- **`sidechain` names another track** — the kick pressing the bass down. It is a
+  track chain only, and [Where an effect goes](#where-an-effect-goes) has it.
 
 This chain is the *instrument's own*: it is applied to each note separately. A
 song has two more places to put one, and reverb almost always wants one of them
@@ -825,6 +849,55 @@ out of each other's way — which is a statement about one track at a time. On
 the song it is a last, gentle move over everything (a shelf of a decibel or
 two); on a patch it is rare and usually means the instrument itself was written
 wrong, which is cheaper to fix at the source than to correct downstream.
+
+**A compressor means a different thing in each of the three, more than anything
+else here does.** On a patch it is part of the instrument — a bass that holds
+one level however hard it is played — and it runs per note, which is rarely
+what anyone means. On a track it is how that part *sits*: it is where a
+compressor usually belongs, and it is the only place a `sidechain` can be
+written. On the song it is **glue** — one gentle pass over everything, a couple
+of decibels of reduction at most, which is the difference between a mix that
+reads as one performance and one that reads as parts summed. The same six
+numbers, three unrelated jobs.
+
+Glue is worth a paragraph on its own, because it is the whole reason a mix with
+no compression anywhere sounds wrong. Such a mix has an enormous **crest
+factor** — its peaks tower over its body — so it measures loud and sounds
+quiet, and nothing binds the parts. `{ "threshold": -12, "ratio": 2,
+"attack": 0.02, "release": 0.2, "makeup": 3 }` over the sum is most of the fix.
+Keep it modest: the master limiter runs after this and will take back anything
+`makeup` overreaches by.
+
+**Ducking is the sidechain**, and it is the recognisable half:
+
+```json fields
+  "tracks": [
+    { "name": "kick", "patch": {
+        "source": { "kind": "noise" },
+        "amp": { "a": 0.001, "d": 0.06, "s": 0.0, "r": 0.02 } } },
+    { "name": "t", "gain": 0.7,
+      "patch": {
+        "source": { "kind": "osc_stack", "oscs": [{ "wave": "saw" }] },
+        "amp": { "a": 0.05, "d": 0.0, "s": 1.0, "r": 0.3 } },
+      "fx": [
+        { "fx": "compress", "threshold": -24, "ratio": 8,
+          "attack": 0.005, "release": 0.12, "sidechain": "kick" }
+      ] }
+  ]
+```
+
+The pad's compressor listens to the kick's part and applies the gain to the
+pad, so the two take turns in the low end rather than fighting over it. Three
+rules go with it:
+
+- **The key is the named track *as played*** — before its own effects, its
+  `gain` and its `pan`. So a kick that is felt more than heard still ducks, and
+  moving its fader does not quietly break the setting.
+- **Two tracks may key each other.** Nothing waits on anything else's output,
+  so there is no cycle to worry about.
+- **The name has to be another real track**, and `sidechain` on a patch chain
+  or the song's own chain is refused rather than ignored — neither of those
+  sits anywhere a track exists to listen to.
 
 Both fields default to empty, and an empty one is not written down — a song that
 does not use them is exactly the song it was before they existed.

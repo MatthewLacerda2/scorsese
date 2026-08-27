@@ -62,6 +62,41 @@ pub enum SynthError {
         limit: usize,
     },
 
+    /// A compressor keyed from a track this song does not have — the typo that
+    /// would otherwise be a duck the recipe wrote and never heard.
+    #[error("song: track `{track}` is keyed from `{key}`, which is not a track in this song")]
+    UnknownSidechain {
+        /// The track carrying the compressor.
+        track: String,
+        /// The name it asked to listen to.
+        key: String,
+    },
+
+    /// A track keyed from itself is an ordinary compressor written the long
+    /// way round, and far more likely a name that was meant to be another's.
+    #[error(
+        "song: track `{track}` is keyed from itself — leave `sidechain` out for a compressor \
+             that listens to its own part"
+    )]
+    SelfSidechain {
+        /// The track that named itself.
+        track: String,
+    },
+
+    /// A `sidechain` outside a track's own chain. A patch's chain runs per note
+    /// and the song's runs on the sum; in neither is there a track to listen
+    /// to, so it is refused rather than quietly dropped.
+    #[error(
+        "{place}: `compress` is keyed from `{key}`, and only a track's own chain sits where \
+             one track can listen to another"
+    )]
+    MisplacedSidechain {
+        /// Which chain it was written on — `patch` or `song`.
+        place: &'static str,
+        /// The name it asked to listen to.
+        key: String,
+    },
+
     /// An LFO running backwards is not a shape the modulators can follow.
     #[error("patch: lfo `rate` must not be negative, got {rate}")]
     NegativeLfoRate {
