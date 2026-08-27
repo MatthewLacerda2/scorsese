@@ -135,8 +135,9 @@
 //! was wanted anyway.
 //!
 //! **Width belongs to the mix, never to a note.** A source is one signal: an
-//! oscillator stack, a plucked string and an FM pair each produce a single
-//! waveform, and it reaches both channels identically. `noise` is the one
+//! oscillator stack, a plucked string and an FM voice — of two operators or of
+//! four — each produce a single waveform, and it reaches both channels
+//! identically. `noise` is the one
 //! exception — an uncorrelated second draw is a free and legitimate way to
 //! make a noise source wide, and the seeded hash already takes a channel
 //! discriminator. Everything else that widens a sound happens downstream, in
@@ -250,6 +251,22 @@ pub use song::{PatchResolver, Song, render_song};
 /// came back byte-identical. The measure is the same one either way: *can a
 /// recipe written before this change name the new thing?* Not *did the code
 /// around it move*.
+///
+/// **A fourth source is the fourth**, and it went further into the note
+/// renderer than any of the three above: the source stage takes a new argument
+/// (the gate, which the four-operator source's per-operator envelopes need),
+/// `core/fm.rs` became a directory, and a fifth arm joined the `match` every
+/// note passes through. None of that is a field of an existing variant, and a
+/// recipe written before it cannot name `fm4` — so the measure is the same one
+/// and the answer is the same. Checked rather than argued, against `e9f2bfa`:
+/// 28 probes covering all four existing sources, both FM ratio kinds, curved
+/// envelopes either way, a pitch envelope, all three LFO targets, both filter
+/// kinds with a velocity routing and a negative envelope amount, every effect
+/// that existed, a chain of four, and seven songs spanning chords, step
+/// strings, a key with degrees and a diatonic lift, swing and all three
+/// humanise axes, a stretch `fit` with fades and an exact tail, a sidechained
+/// track chain beside a song chain, and a patch named by reference. All 28
+/// came back byte-identical.
 ///
 /// **Version 3 is the far end of that scale** and needs no argument at all: the
 /// crate went stereo, so every bake in every project is a different file, of a

@@ -8,4 +8,5 @@ mod chorus;
 mod compress;
 mod document;
 mod eq;
+mod fm4;
 mod validation;
