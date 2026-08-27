@@ -53,6 +53,13 @@
 //! arrives at the level of the dry it is blended against however many voices
 //! there are — a voice count is a thickness control, not a fader.
 //!
+//! It is not a width control either, and that is worth stating because it
+//! reads like one. The voices are placed evenly across the field with both
+//! ends occupied, so **the width is carried by the outermost pair** and the
+//! ones between them fill the field in rather than stretching it: two voices
+//! panned hard is the widest thing this makes, and four is the thickest. More
+//! copies is more disagreement in the middle, which is what a section is.
+//!
 //! ## A flanger is a separate variant, and is not this one
 //!
 //! The structures look alike — a flanger is also a modulated delay line — and
