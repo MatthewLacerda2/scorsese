@@ -58,30 +58,66 @@ fn a_note_on_the_beat_does_not_move_however_hard_the_song_swings() {
     assert_eq!(render(&swung), render(&straight));
 }
 
+/// Where the first note of a pass sounds, as a sample offset inside it.
+///
+/// The fixture's saw sustains fully and releases instantly, so a pass holds
+/// nothing of the one before it and the first sample with any signal in it is
+/// the onset.
+fn onset(pass: &[f32]) -> usize {
+    pass.iter()
+        .position(|sample| sample.abs() > 0.01)
+        .expect("the pass has a note in it")
+}
+
 /// The point of keying the draw on the note's ordinal rather than on its
 /// pattern: eight bars nudged identically both times round is still a
 /// photocopy, just a crooked one.
+///
+/// Measured as *where the note lands* rather than by comparing the samples,
+/// because the samples of two passes already differ — each note starts its
+/// oscillators somewhere in their cycle, drawn from its own seed — and a
+/// comparison that passed on that alone would say nothing about humanising.
 #[test]
 fn a_pattern_played_twice_is_humanised_differently_each_time() {
-    let rigid = render(&steady());
     let one = pass(&steady());
+    let rigid = render(&steady());
     assert_eq!(
-        rigid[..one],
-        rigid[one..2 * one],
-        "the fixture must be identical pass to pass, or this proves nothing"
+        onset(&rigid[..one]),
+        onset(&rigid[one..2 * one]),
+        "a song with no feel plays both passes on the same sample"
     );
 
     let played = render(&Song {
         humanize: Some(Humanize {
             timing: 0.02,
             velocity: 0.1,
+            ..Humanize::default()
         }),
         ..steady()
     });
     assert_ne!(
-        played[..one],
-        played[one..2 * one],
+        onset(&played[..one]),
+        onset(&played[one..2 * one]),
         "the second pass through a pattern must be played afresh"
+    );
+}
+
+/// And a repeat is not a photocopy even with no `humanize` written at all: the
+/// note the second pass plays is the same note struck a second time, which no
+/// instrument has ever answered identically.
+#[test]
+fn a_repeated_note_is_not_the_same_waveform_twice() {
+    let one = pass(&steady());
+    let rigid = render(&steady());
+    assert_ne!(
+        rigid[..one],
+        rigid[one..2 * one],
+        "the second pass is a copy of the first"
+    );
+    assert_eq!(
+        rigid,
+        render(&steady()),
+        "and the piece still replays exactly"
     );
 }
 
@@ -95,7 +131,7 @@ fn an_early_nudge_on_the_very_first_beat_still_sounds() {
             seed,
             humanize: Some(Humanize {
                 timing: 0.5,
-                velocity: 0.0,
+                ..Humanize::default()
             }),
             ..steady()
         };

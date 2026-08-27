@@ -12,7 +12,8 @@
 //!   amount every time, because almost nothing outside classical music is
 //!   played on straight eighths. It is a feel, not an error.
 //! - **Humanise** is the error. Each onset a little early or late, each note a
-//!   little harder or softer, never twice the same.
+//!   little harder or softer and a little brighter or duller, never twice the
+//!   same.
 //!
 //! They compose in that order — swing says where the beat *is*, humanise says
 //! how well the player hit it — and both are absent by default. An absent
@@ -43,6 +44,13 @@ const ONSET: u64 = 2;
 /// The channel of the per-note hash a velocity nudge is drawn on.
 const VELOCITY: u64 = 3;
 
+/// The channel of the per-note hash a timbre nudge is drawn on.
+///
+/// Its own channel rather than the velocity one, or the two would move
+/// together — and a brightness that tracks the level exactly is the single
+/// hand this field exists to split in two.
+const TIMBRE: u64 = 4;
+
 /// The quietest a humanised note may be pushed, as a fraction of the velocity
 /// written.
 ///
@@ -54,8 +62,15 @@ const QUIETEST: f32 = 0.05;
 
 /// How far a player strays from the written page.
 ///
-/// Both fields are magnitudes: how wide the scatter is, either way. Absent
+/// Every field is a magnitude: how wide the scatter is, either way. Absent
 /// means a machine plays the part, which is what happened before this existed.
+///
+/// Three axes, because a player has three: *when* the note lands, *how hard*
+/// it is struck, and *how it is struck* — the tone that comes of bow pressure,
+/// pick angle, how squarely a key is hit. The third is not a shade of the
+/// second: leaning on a note makes it louder **and** brighter together, which
+/// is `velocity`; changing the touch makes it brighter at the same level,
+/// which is `timbre`.
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Humanize {
@@ -78,11 +93,24 @@ pub struct Humanize {
     /// a score does anyway.
     #[serde(default)]
     pub velocity: f32,
+    /// The widest a note's *brightness* may stray from its level, as a
+    /// fraction of the velocity it ends up played at: `0.15` shows the
+    /// brightness routings a velocity between 85% and 115% of the one the
+    /// fader got, and moves the fader by none of it.
+    ///
+    /// It reaches a patch through the two routings that already read velocity
+    /// as effort — a filter's `vel_cutoff` and two-operator FM's `vel_index`
+    /// — so a patch that names neither hears nothing from this field. That is
+    /// the right silence rather than a gap: what "brighter" means belongs to
+    /// the instrument, and an instrument that never said is not one to guess
+    /// for.
+    #[serde(default)]
+    pub timbre: f32,
 }
 
 impl Humanize {
-    /// True when neither field does anything, so nothing has to be drawn and
-    /// the render is what it was before the field existed.
+    /// True when no field does anything, so nothing has to be drawn and the
+    /// render is what it was before the fields existed.
     // Its own test is the only caller outside a test build: this is the
     // shortcut a renderer takes before drawing per-note nudges, and nothing
     // takes it yet. Silent until `Humanize` stopped being reachable from
@@ -92,7 +120,7 @@ impl Humanize {
         expect(dead_code, reason = "no caller yet outside its own test")
     )]
     pub(crate) fn is_nothing(self) -> bool {
-        self.timing <= 0.0 && self.velocity <= 0.0
+        self.timing <= 0.0 && self.velocity <= 0.0 && self.timbre <= 0.0
     }
 
     /// Seconds to shift one note's onset by — positive is late.
@@ -119,6 +147,22 @@ impl Humanize {
         }
         let scale = 1.0 + self.velocity * symmetric(VELOCITY, track, ordinal, song_seed);
         written * scale.max(QUIETEST)
+    }
+
+    /// How far to move the velocity the *brightness* routings see, given the
+    /// velocity `played` the note is actually struck at.
+    ///
+    /// An offset rather than a replacement, because the note renderer adds it
+    /// to the played velocity and clamps the pair once — a second scale
+    /// applied in a second place is a second chance to clamp differently. A
+    /// fraction of the played velocity rather than of full scale, so a note
+    /// struck softly strays less in absolute terms than one struck hard, which
+    /// is what a hand does.
+    pub(crate) fn timbre(self, played: f32, track: usize, ordinal: u64, song_seed: u64) -> f32 {
+        if self.timbre <= 0.0 {
+            return 0.0;
+        }
+        played * self.timbre * symmetric(TIMBRE, track, ordinal, song_seed)
     }
 }
 
@@ -222,6 +266,7 @@ mod tests {
         let feel = Humanize {
             timing: 0.02,
             velocity: 0.1,
+            timbre: 0.0,
         };
         for ordinal in 0..256 {
             let seconds = feel.onset_seconds(0, ordinal, 9);
@@ -237,6 +282,7 @@ mod tests {
         let wild = Humanize {
             timing: 0.0,
             velocity: 4.0,
+            timbre: 0.0,
         };
         for ordinal in 0..256 {
             assert!(wild.velocity(0.5, 0, ordinal, 3) >= 0.5 * QUIETEST);

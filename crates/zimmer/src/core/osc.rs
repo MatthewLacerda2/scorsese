@@ -14,31 +14,79 @@
 //! Each oscillator keeps its own phase in `0..1`, advanced per sample by
 //! `frequency / sample_rate`, so a per-sample frequency track (an LFO vibrato) needs
 //! no special handling.
+//!
+//! **Where that phase starts is drawn from the note's seed, per oscillator.**
+//! Starting every one of them at zero — which is what this did until it was
+//! argued about — is three problems wearing one coat. A detuned pair begins
+//! locked, so the drift the detune exists for starts from the same instant
+//! every time and the first tens of milliseconds, the part the ear identifies a
+//! sound by, are a photocopy. Two hits of one patch are then literally the same
+//! samples, which no struck instrument has ever managed. And notes stacked into
+//! a chord reinforce and cancel at exactly the same points, which is a
+//! comb-filtered chord rather than a chord.
+//!
+//! The draw costs nothing and takes nothing away: it is a pure function of
+//! `(seed, oscillator index)` through [`crate::hash`], so one recipe still bakes
+//! one file, and [`crate::song`] already hands each note in an arrangement its
+//! own seed, so a repeat differs from the note it repeats without the document
+//! saying a word.
+//!
+//! **There is deliberately no way to hard-sync it.** The case for one is a
+//! percussive one-shot whose transient is its identity — a kick whose click
+//! varies is worse, not better — and it does not survive contact with this
+//! stack. Phase zero is not the quiet place a hard sync would want: a saw
+//! starts at −1, a triangle and a square at their extremes, and only a sine
+//! ever began at silence, so a drawn phase is on average *closer* to a clean
+//! start than the locked one it replaces. A one-shot bake carries its own seed
+//! and so is identical every time it is used regardless; the only place a
+//! strike varies is inside a song, where the percussive sources — noise, and
+//! the Karplus excitation — have redrawn per note since they were written. The
+//! field to add, the day a patch genuinely wants a stated start, is a phase per
+//! oscillator rather than a boolean, and it should arrive with that patch
+//! rather than ahead of it.
 
 use std::f32::consts::TAU;
 
+use crate::hash::unit2;
 use crate::patch::{Osc, Wave};
+
+/// Hash channel the start phases draw on, so a stack never mirrors the noise a
+/// `noise` source or a Karplus excitation draws from the same note seed.
+const PHASE_CHANNEL: u64 = 0x4f53; // "OS"
 
 /// Render the summed stack for `freqs` (one base frequency per output sample) into
 /// `out`. The mix is normalized by the total gain, so adding oscillators thickens
 /// the tone without making it louder.
-pub(crate) fn render(oscs: &[Osc], freqs: &[f32], out: &mut [f32], sample_rate: f32) {
+///
+/// `seed` is the note's, and decides only where each oscillator starts in its
+/// cycle — see the module doc for why that is not zero.
+pub(crate) fn render(oscs: &[Osc], freqs: &[f32], seed: u64, out: &mut [f32], sample_rate: f32) {
     let total_gain: f32 = oscs.iter().map(|o| o.gain.max(0.0)).sum();
     let norm = if total_gain > 0.0 {
         1.0 / total_gain
     } else {
         0.0
     };
-    for osc in oscs {
+    for (index, osc) in oscs.iter().enumerate() {
         let ratio = pitch_ratio(osc);
         let gain = osc.gain.max(0.0) * norm;
-        let mut phase = 0.0f32;
+        let mut phase = start_phase(index, seed);
         for (s, base) in out.iter_mut().zip(freqs) {
             let dt = (base * ratio / sample_rate).clamp(0.0, 0.5);
             *s += gain * sample(osc.wave, phase, dt);
             phase = (phase + dt).fract();
         }
     }
+}
+
+/// Where oscillator `index` of a note seeded `seed` starts in its cycle, in
+/// `0..1`.
+///
+/// Per oscillator rather than per stack: one draw shared across the stack would
+/// move a detuned pair together, which is the locked attack again wearing a
+/// different offset.
+fn start_phase(index: usize, seed: u64) -> f32 {
+    unit2(index as i64, 0, PHASE_CHANNEL, seed)
 }
 
 /// The frequency multiplier an oscillator's octave transpose and cent detune imply.
@@ -93,8 +141,20 @@ mod tests {
 
     fn render_one(wave: Wave, hz: f32, n: usize) -> Vec<f32> {
         let mut out = vec![0.0; n];
-        render(&[osc(wave, 1.0, 0, 0.0)], &vec![hz; n], &mut out, 44_100.0);
+        render(
+            &[osc(wave, 1.0, 0, 0.0)],
+            &vec![hz; n],
+            7,
+            &mut out,
+            44_100.0,
+        );
         out
+    }
+
+    /// Rising zero-crossings in a buffer — one per cycle, wherever the cycle
+    /// began.
+    fn rising(buf: &[f32]) -> usize {
+        buf.windows(2).filter(|w| w[0] <= 0.0 && w[1] > 0.0).count()
     }
 
     #[test]
@@ -108,11 +168,13 @@ mod tests {
     }
 
     #[test]
-    fn a_sine_completes_exactly_its_frequency_in_cycles() {
-        // 100 Hz over one second: 100 zero-crossings going positive.
-        let buf = render_one(Wave::Sine, 100.0, 44_100);
-        let rising = buf.windows(2).filter(|w| w[0] <= 0.0 && w[1] > 0.0).count();
-        assert_eq!(rising, 100);
+    fn a_sine_completes_its_frequency_in_cycles() {
+        // 100 Hz over one second: 100 zero-crossings going positive, give or
+        // take the one at the edge — the buffer no longer begins at phase zero,
+        // so whether the hundredth crossing lands inside it depends on where in
+        // its first cycle the oscillator started.
+        let count = rising(&render_one(Wave::Sine, 100.0, 44_100));
+        assert!((99..=100).contains(&count), "counted {count} cycles");
     }
 
     #[test]
@@ -146,30 +208,69 @@ mod tests {
         render(
             &[osc(Wave::Sine, 1.0, 0, 0.0)],
             &vec![200.0; n],
+            3,
             &mut base,
             44_100.0,
         );
         render(
             &[osc(Wave::Sine, 1.0, -1, 0.0)],
             &vec![200.0; n],
+            3,
             &mut down,
             44_100.0,
         );
-        let count = |b: &[f32]| b.windows(2).filter(|w| w[0] <= 0.0 && w[1] > 0.0).count();
-        assert_eq!(count(&base), 200);
-        assert_eq!(count(&down), 100);
+        assert!((199..=200).contains(&rising(&base)));
+        assert!((99..=100).contains(&rising(&down)));
         assert!((pitch_ratio(&osc(Wave::Saw, 1.0, 0, 1200.0)) - 2.0).abs() < 1e-5);
     }
 
     #[test]
     fn the_stack_is_normalized_by_total_gain() {
-        // Two unity-gain sines at the same pitch sum to a unity-peak sine, not two.
+        // Gains are weights, not levels: doubling every one of them changes
+        // nothing, and a second oscillator thickens the tone without making it
+        // louder. Both halves are read off peaks rather than samples because
+        // the two oscillators no longer start in step.
         let n = 4410;
-        let mut out = vec![0.0; n];
-        let oscs = [osc(Wave::Sine, 1.0, 0, 0.0), osc(Wave::Sine, 1.0, 0, 0.0)];
-        render(&oscs, &vec![440.0; n], &mut out, 44_100.0);
-        let peak = out.iter().fold(0.0f32, |m, s| m.max(s.abs()));
-        assert!((peak - 1.0).abs() < 0.05, "peak {peak} is not normalized");
+        let freqs = vec![440.0; n];
+        let loudest = |oscs: &[Osc]| {
+            let mut out = vec![0.0; n];
+            render(oscs, &freqs, 5, &mut out, 44_100.0);
+            out.iter().fold(0.0f32, |m, s| m.max(s.abs()))
+        };
+        let one = loudest(&[osc(Wave::Sine, 1.0, 0, 0.0)]);
+        assert!((one - 1.0).abs() < 0.05, "a lone sine peaks at {one}");
+        assert_eq!(loudest(&[osc(Wave::Sine, 8.0, 0, 0.0)]), one);
+        let both = loudest(&[osc(Wave::Sine, 1.0, 0, 0.0), osc(Wave::Sine, 1.0, 0, 0.0)]);
+        assert!(both <= one + 1e-3, "two peaked at {both}, one at {one}");
+    }
+
+    /// The whole point of drawing the phase, and the promise it must not cost:
+    /// two notes of one patch differ, and either of them replays exactly.
+    #[test]
+    fn a_second_strike_differs_but_each_one_replays() {
+        let struck = |seed: u64| {
+            let mut out = vec![0.0; 2048];
+            render(
+                &[osc(Wave::Saw, 1.0, 0, 0.0), osc(Wave::Saw, 1.0, 0, 7.0)],
+                &vec![220.0; 2048],
+                seed,
+                &mut out,
+                44_100.0,
+            );
+            out
+        };
+        assert_eq!(struck(4), struck(4), "same seed, same samples");
+        assert_ne!(struck(4), struck(5), "a second strike is not the first");
+    }
+
+    #[test]
+    fn a_detuned_pair_does_not_start_in_step() {
+        assert_ne!(start_phase(0, 9), start_phase(1, 9));
+        assert_ne!(start_phase(0, 9), start_phase(0, 10));
+        for index in 0..4 {
+            let phase = start_phase(index, 9);
+            assert!((0.0..1.0).contains(&phase), "phase {phase} is not a phase");
+        }
     }
 
     #[test]
@@ -179,7 +280,7 @@ mod tests {
         let n = 512;
         let mut out = vec![0.0; n];
         let oscs = [osc(Wave::Saw, 0.0, 0, 0.0), osc(Wave::Sine, -1.0, 0, 0.0)];
-        render(&oscs, &vec![440.0; n], &mut out, 44_100.0);
+        render(&oscs, &vec![440.0; n], 1, &mut out, 44_100.0);
         assert!(out.iter().all(|s| *s == 0.0), "got {:?}", &out[..8]);
     }
 }

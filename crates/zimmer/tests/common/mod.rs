@@ -53,11 +53,13 @@ pub(crate) fn adsr(a: f32, d: f32, s: f32, r: f32) -> Adsr {
     Adsr { a, d, s, r }
 }
 
-/// A note of `duration` seconds, struck at full velocity, seed zero.
+/// A note of `duration` seconds, struck at full velocity, seed zero, its
+/// brightness exactly its level.
 pub(crate) fn opts(duration: f32) -> NoteOpts {
     NoteOpts {
         duration,
         velocity: 1.0,
+        timbre: 0.0,
         seed: 0,
     }
 }
@@ -75,6 +77,27 @@ pub(crate) fn rising_crossings(buf: &[f32]) -> usize {
     buf.windows(2)
         .filter(|pair| pair[0] <= 0.0 && pair[1] > 0.0)
         .count()
+}
+
+/// The pitch of a simple waveform, in Hz, measured *between* its rising
+/// crossings.
+///
+/// Between rather than across the whole buffer because an oscillator starts
+/// somewhere in its cycle rather than at zero, so the part-cycle at either end
+/// of a window is not a pitch error and must not be counted as one.
+pub(crate) fn measured_hz(buf: &[f32], sample_rate: f32) -> f32 {
+    let crossings: Vec<usize> = buf
+        .windows(2)
+        .enumerate()
+        .filter(|(_, pair)| pair[0] <= 0.0 && pair[1] > 0.0)
+        .map(|(index, _)| index)
+        .collect();
+    let (first, last) = (
+        *crossings.first().expect("the buffer holds a waveform"),
+        *crossings.last().expect("the buffer holds a waveform"),
+    );
+    assert!(last > first, "one crossing says nothing about a period");
+    (crossings.len() - 1) as f32 * sample_rate / (last - first) as f32
 }
 
 /// High-frequency content: the energy of the first difference relative to the

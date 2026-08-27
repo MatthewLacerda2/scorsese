@@ -30,9 +30,10 @@
 //! here uses — no `rand`, no wall clock. The ordinal counts notes in
 //! arrangement order, so a pattern played twice gets two different noise draws
 //! (a repeated snare should not be a photocopy) while the whole piece stays
-//! byte-identical across runs and processes. [`super::feel`] draws its onset
-//! and velocity nudges from the same coordinates, so humanising a song puts no
-//! asterisk on any of that.
+//! byte-identical across runs and processes. [`super::feel`] draws its onset,
+//! velocity and timbre nudges from the same coordinates, so humanising a song
+//! puts no asterisk on any of that — and neither does the note renderer
+//! starting each oscillator somewhere in its cycle, which reads the same seed.
 
 use std::collections::HashMap;
 
@@ -174,9 +175,14 @@ pub(crate) fn mix_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Mixdo
             // than to whatever the previous entry produced: they do not stack
             // across entries, so the tenth repeat is not nine octaves up and
             // the document still says what it does.
+            // The level first, then how far this strike's tone sits from it:
+            // `timbre` is a fraction of the velocity actually played, so the
+            // two are drawn in that order rather than independently.
+            let velocity = feel.velocity(note.vel * entry.vel_scale(), track, place, song.seed);
             let opts = NoteOpts {
                 duration: note.dur * beat,
-                velocity: feel.velocity(note.vel * entry.vel_scale(), track, place, song.seed),
+                velocity,
+                timbre: feel.timbre(velocity, track, place, song.seed),
                 seed,
             };
             // Clamped rather than refused: refusing would make a legal
@@ -217,8 +223,9 @@ pub(crate) fn mix_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Mixdo
 /// renderer wants, so the full seed space is used rather than the low 32 bits.
 ///
 /// Those are channels **0 and 1** of these coordinates; [`super::feel`] draws
-/// its onset and velocity nudges from 2 and 3 of the same pair, which is what
-/// keeps a note's timing, its loudness and its noise from moving together.
+/// its onset, velocity and timbre nudges from 2, 3 and 4 of the same pair,
+/// which is what keeps a note's timing, its loudness, its tone and its noise
+/// from moving together.
 fn note_seed(song_seed: u64, track: usize, ordinal: u64) -> u64 {
     let hi = u64::from(hash3(track as i64, ordinal as i64, 0, song_seed));
     let lo = u64::from(hash3(track as i64, ordinal as i64, 1, song_seed));

@@ -13,10 +13,17 @@ use crate::patch::Source;
 /// per-sample frequency track `freqs`.
 ///
 /// `velocity` is how hard the note was struck, already clamped to `0..=1` by
-/// the caller. Only FM reads it here — its `vel_index` is depth a hard strike
-/// adds to the modulator, and depth is the one place a source's *own*
-/// brightness is a number the patch already carries. Every other source takes
-/// its velocity further down the path, at the filter and the amp envelope.
+/// the caller — the *brightness* velocity, which a performance may scatter a
+/// little either side of the one the fader got. Only FM reads it here — its
+/// `vel_index` is depth a hard strike adds to the modulator, and depth is the
+/// one place a source's *own* brightness is a number the patch already
+/// carries. Every other source takes its velocity further down the path, at
+/// the filter and the amp envelope.
+///
+/// `seed` is the note's. Three of the four sources draw on it: the noise
+/// source is nothing but, the Karplus excitation is a burst of it, and an
+/// oscillator stack starts each of its oscillators somewhere in its cycle
+/// rather than all of them at zero.
 ///
 /// The sum is resolved here rather than inside [`fm`] so that module stays the
 /// FM algorithm and nothing else: it is handed the index to use, not the
@@ -30,7 +37,7 @@ pub(crate) fn render(
     rate: f32,
 ) {
     match source {
-        Source::OscStack { oscs } => osc::render(oscs, freqs, out, rate),
+        Source::OscStack { oscs } => osc::render(oscs, freqs, seed, out, rate),
         Source::Karplus {
             damping,
             brightness,

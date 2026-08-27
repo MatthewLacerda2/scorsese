@@ -53,7 +53,11 @@ impl Song {
         let Some(feel) = self.humanize else {
             return Ok(());
         };
-        for (field, amount) in [("timing", feel.timing), ("velocity", feel.velocity)] {
+        for (field, amount) in [
+            ("timing", feel.timing),
+            ("velocity", feel.velocity),
+            ("timbre", feel.timbre),
+        ] {
             if !(amount.is_finite() && amount >= 0.0) {
                 return Err(SynthError::BadHumanize { field, amount });
             }
