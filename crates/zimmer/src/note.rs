@@ -61,7 +61,7 @@ pub struct NoteOpts {
     /// else, so a note can be played a shade brighter or duller without being
     /// played louder. `0.0` means the two are one number, which is what every
     /// note meant before a performance could scatter them apart (see
-    /// [`Humanize::timbre`](crate::song::Humanize::timbre)).
+    /// [`Humanize::timbre`](field@crate::song::Humanize::timbre)).
     pub timbre: f32,
     /// Seed for every stochastic source; the same seed replays the same noise.
     pub seed: u64,

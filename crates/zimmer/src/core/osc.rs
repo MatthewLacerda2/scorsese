@@ -16,8 +16,8 @@
 //! no special handling.
 //!
 //! **Where that phase starts is drawn from the note's seed, per oscillator.**
-//! Starting every one of them at zero — which is what this did until it was
-//! argued about — is three problems wearing one coat. A detuned pair begins
+//! Starting every one of them at zero instead is three problems wearing one
+//! coat, and none of them announces itself. A detuned pair begins
 //! locked, so the drift the detune exists for starts from the same instant
 //! every time and the first tens of milliseconds, the part the ear identifies a
 //! sound by, are a photocopy. Two hits of one patch are then literally the same
