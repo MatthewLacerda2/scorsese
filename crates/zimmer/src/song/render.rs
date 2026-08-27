@@ -250,9 +250,8 @@ pub(crate) fn mix_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Mixdo
             // arithmetic needs. Clamped at zero rather than wrapped — a note
             // nudged early on the very first beat has nowhere to go, and a
             // negative sample index is not a time.
-            let onset = beat_at * beat
-                + stroke.onset_seconds
-                + feel.onset_seconds(track, place, song.seed);
+            let onset =
+                beat_at * beat + stroke.onset_seconds + feel.onset_seconds(track, place, song.seed);
             let at = (onset * RATE).round().max(0.0) as usize;
             // Added to the track's own bus rather than straight to the master:
             // where a note lands is timing, which bus it lands on is routing,

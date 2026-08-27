@@ -1182,6 +1182,17 @@ decision and never overrules one. And the mark is inside it — an accented note
 under a `vel_scale` and a `humanize` comes out as exactly the note written at
 the level that product comes to.
 
+**An [automation curve](#making-something-build) is not in that list**, and
+that is worth saying rather than leaving to be worked out. A `gain` or `pan`
+curve is a fader on the mix, read every sample from the track's summed bus long
+after any note was struck: it moves the part, never the playing. A `cutoff`
+curve moves the **base** a mark's brightness is added to — a filter's cutoff is
+`cutoff + env_amount × env + vel_cutoff × velocity`, so a build opening the
+filter and an accent opening it further are two terms of one sum and neither is
+applied first. The only ordering there is *where the curve is read*: at the
+note's swung onset, before the mark and before `humanize` displace it, so a
+ghost sitting a hair early does not read the build a hair early with it.
+
 One consequence worth stating: an accent needs headroom. A note already written
 at `vel: 1.0` cannot be struck harder than full, so it comes out unaccented —
 the same rule `humanize` lives by, and the reason a piece with dynamics writes

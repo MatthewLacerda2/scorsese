@@ -4,10 +4,12 @@
 //! only claim worth making: a mark is a difference from the note as written,
 //! and a measurement of one render alone could not tell one from the other.
 
-use super::setup::{gate, note, playing, rendered, samples, sounding};
+use super::setup::{TRACK, gate, note, playing, rendered, samples, sounding};
 use crate::common::{brightness, peak, saw_patch};
 use scorsese_zimmer::song::Articulation::{Accent, Ghost, Staccato};
-use scorsese_zimmer::song::{Articulation, Humanize, PatchRef, Play};
+use scorsese_zimmer::song::{
+    Articulation, Automation, Easing, Humanize, Param, PatchRef, Play, Point,
+};
 
 /// The two renders a test compares: the note as written, and the same note
 /// with a mark over it.
@@ -130,4 +132,32 @@ fn a_mark_multiplies_what_the_section_and_the_page_already_decided() {
     for (mark, plain) in accented.iter().zip(&written_louder) {
         assert!((mark - plain).abs() < 1e-6, "{mark} against {plain}");
     }
+}
+
+/// A `cutoff` curve and a mark are two terms of one sum: the curve moves the
+/// base the filter sits at, and the mark adds to it. So an accent under a
+/// build is still brighter than the note beside it — the composition the page
+/// claims, and the one a reader would want checked.
+#[test]
+fn a_mark_still_opens_a_filter_a_curve_has_already_moved() {
+    let under_a_build = |mark| {
+        let mut song = playing(vec![note("E2", 1.0, 1.0, 0.5, mark).into()]);
+        let point = |beat, value| Point {
+            beat,
+            value,
+            easing: Easing::Linear,
+        };
+        song.automation = vec![Automation {
+            track: TRACK.to_owned(),
+            param: Param::Cutoff,
+            points: vec![point(0.0, 500.0), point(4.0, 3000.0)],
+        }];
+        rendered(&song)
+    };
+    let (plain, accented) = (under_a_build(None), under_a_build(Some(Accent)));
+    assert!(
+        brightness(&accented) > brightness(&plain),
+        "the mark was lost"
+    );
+    assert!(peak(&accented) > peak(&plain), "and so was its level");
 }
