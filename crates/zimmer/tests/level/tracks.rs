@@ -126,8 +126,10 @@ fn a_row_is_what_the_track_contributes_after_its_gain() {
 fn a_track_that_plays_for_half_the_piece_reads_half_as_present() {
     let throughout = bake(&duet()).tracks;
     let mut briefly = duet();
-    briefly.patterns.get_mut("verse").expect("verse").notes =
-        vec![note("sub", "E1", 0.0, 2.0), note("bell", "E5", 0.0, 1.0)];
+    briefly.patterns.get_mut("verse").expect("verse").notes = played(vec![
+        note("sub", "E1", 0.0, 2.0),
+        note("bell", "E5", 0.0, 1.0),
+    ]);
     let cut_short = bake(&briefly).tracks;
 
     let moved = mean(&throughout, "bell") - mean(&cut_short, "bell");

@@ -235,19 +235,24 @@ mod tests {
             }],
         }];
         assert_eq!(tail_seconds(&carve), 0.0, "no echo to be cut off");
-        let mut buf: Vec<f32> = (0..4410)
+        let tone: Vec<f32> = (0..4410)
             .map(|i| (std::f32::consts::TAU * 250.0 * i as f32 / 44_100.0).sin())
             .collect();
+        let mut buf = Stereo::centred(tone);
         // Read past the filter's own start-up transient, which is louder than
         // the settled response and is not what is being asserted about.
         let peak = |buf: &[f32]| buf[2205..].iter().fold(0.0f32, |m, s| m.max(s.abs()));
-        let before = peak(&buf);
+        let before = peak(&buf.l);
         apply_chain(&mut buf, &carve, 44_100.0);
-        let after = peak(&buf);
+        let after = peak(&buf.l);
         assert!(
             after < before * 0.5,
             "the band was cut: {before} to {after}"
         );
+        // A biquad's state belongs to the channel it is on, so both sides get
+        // their own and a centred tone comes back centred: an EQ is a mixing
+        // move, never a width one.
+        assert_eq!(buf.l, buf.r);
     }
 
     #[test]

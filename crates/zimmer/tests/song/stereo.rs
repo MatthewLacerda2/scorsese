@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::common::songs::note;
+use crate::common::songs::{note, played};
 use crate::common::{channel, peak, saw_patch};
 use scorsese_zimmer::song::{InlineOnly, PatchRef, Pattern, Song, Track};
 use scorsese_zimmer::{bake_song, render_song};
@@ -29,7 +29,10 @@ fn duet(left: f32, right: f32) -> Song {
         "verse".to_owned(),
         Pattern {
             beats: 2.0,
-            notes: vec![note("near", "E3", 0.0, 1.0), note("far", "E3", 0.0, 1.0)],
+            notes: played(vec![
+                note("near", "E3", 0.0, 1.0),
+                note("far", "E3", 0.0, 1.0),
+            ]),
         },
     );
     Song {
