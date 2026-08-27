@@ -65,9 +65,11 @@ fn one() -> f32 {
 /// every saved document.
 ///
 /// A field that is absent when it does nothing matters more here than
-/// elsewhere: a bake is addressed by the hash of the recipe's bytes, so a
-/// serialiser that started writing a default into every song would invalidate
-/// every cached bake in every project at once, for no change in the audio.
+/// elsewhere: a bake is addressed by the hash of the recipe's bytes, alongside
+/// [`SYNTH_VERSION`](crate::SYNTH_VERSION), so a serialiser that started
+/// writing a default into every song would invalidate every cached bake in
+/// every project at once, for no change in the audio — which is the cost this
+/// crate pays deliberately when the audio *does* change, and never otherwise.
 fn no_swing(swing: &f32) -> bool {
     *swing == 0.0
 }
