@@ -187,7 +187,10 @@ preferred victim while the compilers that ate the RAM carry on. The symptom is
 a dead terminal, three layers from the cause (#398). All three callers pass
 `--jobs 2` — `make mutants`, the CI job and the sweep — and the argument for
 the number is written once, in `.cargo/mutants.toml` under *How wide a run fans
-out*, because cargo-mutants has no config key to hold it. A run that needs to
+out*, because cargo-mutants has no config key to hold it. It is two *per
+shard*, and stays two when the CI job fans out across several: each shard is
+its own runner, so four of them do not share the cores and the memory the
+number is sized against. A run that needs to
 be gentler still than that: `make mutants MUTANTS_JOBS=1`.
 
 The copy has no `target/` in it either — `copy_target` has been off by default
