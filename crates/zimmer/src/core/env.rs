@@ -135,6 +135,37 @@ mod tests {
         assert_eq!(level_at(&e, 1.0, 0.5), 0.0);
     }
 
+    /// The attack segment ends *at* its own end rather than including it: at
+    /// exactly `t = a` the note has arrived, and what it has arrived at is
+    /// whatever comes next. With no decay segment that is the sustain, so an
+    /// envelope written as "up in 10 ms, then hold at half" must read half at
+    /// the 10 ms mark — not spike to full level for one sample on its way
+    /// there.
+    #[test]
+    fn the_attack_ends_at_its_own_end_rather_than_including_it() {
+        let straight_to_sustain = adsr(0.01, 0.0, 0.5, 0.1);
+        assert_eq!(level_at(&straight_to_sustain, 0.01, 1.0), 0.5);
+        let with_a_decay = adsr(0.01, 0.2, 0.5, 0.1);
+        assert!((level_at(&with_a_decay, 0.01, 1.0) - 1.0).abs() < 1e-6);
+    }
+
+    /// Past its decay the envelope sits at **exactly** the sustain the
+    /// document asked for, the instant the decay ends included.
+    ///
+    /// The near-miss worth guarding against is letting the decay expression
+    /// run to or past its own end, where [`approach`] clamps to 1 and the
+    /// arithmetic comes out as `1 − (1 − s)`. That is not `s` for every `f32`
+    /// — 0.09 comes back one ulp high — and a pad holds this number for its
+    /// whole length, so exact is the honest assertion here.
+    #[test]
+    fn the_sustain_is_exactly_the_number_the_document_asked_for() {
+        for s in [0.09, 0.1, 0.3, 0.7] {
+            let e = adsr(0.0, 0.25, s, 0.1);
+            assert_eq!(level_at(&e, 0.25, 1.0), s, "{s}, as the decay ends");
+            assert_eq!(level_at(&e, 0.5, 1.0), s, "{s}, well past it");
+        }
+    }
+
     #[test]
     fn zero_length_segments_degrade_instead_of_dividing_by_zero() {
         let e = adsr(0.0, 0.0, 0.8, 0.0);
