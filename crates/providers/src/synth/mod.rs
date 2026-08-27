@@ -3,23 +3,27 @@
 //! The first real occupant of this crate, and the one that costs nothing. A
 //! recipe is a brief exactly as a prompt is — the difference is that realising
 //! it needs no key, no network and no money, and produces the same bytes every
-//! time.
+//! time from one synthesiser.
 //!
-//! That last property is what the cache rests on. A bake is written to
-//! `generated/<sha256 of the recipe's bytes>.wav`, so the path an asset holds
-//! *is* the record of which recipe produced it:
+//! That last clause is not a hedge, and the cache is built around it. A render
+//! has **two** inputs: the recipe, and the version of `scorsese-zimmer` that
+//! reads it. So a bake is addressed by both — the `address` module is where
+//! that name is made — and the path an asset holds *is* the record of what
+//! produced it:
 //!
-//! - the recipe hashes to what `path` already names → nothing to do;
-//! - it hashes to something else → the recipe was edited, and the asset is
-//!   stale whatever the document claims.
+//! - recipe and synthesiser hash to what `path` already names → nothing to do;
+//! - either of them differs → the asset is stale whatever the document claims,
+//!   and the next bake redoes it.
 //!
 //! Nothing has to remember to mark an asset stale, which matters because the
-//! thing that edits a recipe is usually not the thing that bakes it.
+//! thing that edits a recipe is usually not the thing that bakes it — and
+//! because the thing that changes a filter is nowhere near either of them.
 //!
 //! **No mock, and no test that spends money.** Every path here is local
 //! arithmetic, so the no-real-provider-calls rule is satisfied by construction
 //! rather than by a trait nobody can see through.
 
+mod address;
 mod create;
 mod error;
 mod recipe;
@@ -30,7 +34,7 @@ mod tune;
 use std::path::{Path, PathBuf};
 
 use scorsese_core::{
-    Asset, AssetId, GENERATED_DIR, GenerationState, MediaMetadata, Project, ProjectPath, hash_bytes,
+    Asset, AssetId, GenerationState, MediaMetadata, Project, ProjectPath, hash_bytes,
 };
 use scorsese_zimmer::level::{Layer, Profile};
 use scorsese_zimmer::{Bake, Patch, SAMPLE_RATE, bake_note, bake_song, wav};
@@ -66,7 +70,8 @@ pub enum Baked {
         /// would repeat the summary above it.
         tracks: Vec<Layer>,
     },
-    /// The file for this exact recipe was already there.
+    /// The file for this recipe, rendered by this synthesiser, was already
+    /// there.
     Cached {
         /// Where it is, project-relative.
         path: ProjectPath,
@@ -90,10 +95,11 @@ impl Baked {
 /// Realises every `synth_audio` asset that is not already up to date, and
 /// records the result on the project.
 ///
-/// Up to date means *the file this recipe hashes to is on disk*, which is a
-/// stronger question than the document's `state`: an asset marked `generated`
-/// whose recipe has since been edited is rebaked here, without anyone having
-/// had to mark it stale first.
+/// Up to date means *the file this recipe and this synthesiser hash to is on
+/// disk*, which is a stronger question than the document's `state`: an asset
+/// marked `generated` whose recipe has since been edited — or whose bake
+/// predates a change to the synthesiser — is rebaked here, without anyone
+/// having had to mark it stale first.
 ///
 /// The project is left describing what is on disk. Saving it is the caller's.
 pub fn bake_pending(
@@ -126,7 +132,7 @@ pub fn bake_asset(
     }
 
     let (recipe, file, digest) = read_recipe(asset, project_root)?;
-    let output = ProjectPath::new(format!("{GENERATED_DIR}/{digest}.wav"));
+    let output = address::output(&digest);
     let on_disk = output.resolve(project_root);
 
     let baked = if on_disk.is_file() {
@@ -146,7 +152,7 @@ pub fn bake_asset(
 }
 
 /// Reads and parses an asset's recipe, returning it with the file it came from
-/// and the digest that names its output.
+/// and the digest of its bytes, which is half of what names its output.
 fn read_recipe(
     asset: &Asset,
     project_root: &Path,
@@ -177,10 +183,11 @@ fn read_recipe(
         path: file.clone(),
         source,
     })?;
-    // The digest is of the file's own bytes, not of the parsed document: two
-    // recipes that mean the same thing but are written differently are still
-    // two recipes, and pretending otherwise would make a cache hit depend on
-    // serde's formatting rather than on what the author wrote.
+    // Of the file's own bytes, not of the parsed document: two recipes that
+    // mean the same thing but are written differently are still two recipes,
+    // and pretending otherwise would make a cache hit depend on serde's
+    // formatting rather than on what the author wrote. The synthesiser's own
+    // version joins it in `address`.
     let digest = hash_bytes(&bytes);
     Ok((recipe, file, digest))
 }
@@ -229,7 +236,8 @@ fn write(path: &Path, wav: &[u8]) -> Result<(), SynthesisError> {
     }
     // Atomic, and here it is the cache that depends on it: a bake is named for
     // the hash of its brief, so a truncated file is indistinguishable from a
-    // finished one and would be served as the bake for ever after.
+    // finished one and would be served as the bake for ever after — a stale
+    // one at least gets redone the next time the synthesiser moves.
     //
     // `write` is this module's own function, so the shared one is named in
     // full rather than imported over it.

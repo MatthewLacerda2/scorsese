@@ -66,6 +66,24 @@ fn editing_a_recipe_rebakes_it_without_being_told() {
     assert_ne!(before, after, "a new recipe means a new file");
 }
 
+/// A bake left by an older synthesiser sits at the address the recipe alone
+/// hashes to, and this one does not read that address. So it is not mistaken
+/// for a cache hit, and nobody had to find it or delete it first.
+#[test]
+fn a_bake_named_for_the_recipe_alone_is_not_served_as_cached() {
+    let dir = new_project("synth-old-synth");
+    run_in(&dir, &["synth", "new", "zap"]).ok();
+
+    let recipe = std::fs::read(dir.join("recipes/zap.json")).expect("the recipe");
+    let stale = format!("generated/{}.wav", scorsese_core::hash_bytes(&recipe));
+    std::fs::create_dir_all(dir.join("generated")).expect("generated/");
+    std::fs::write(dir.join(&stale), b"what an older synthesiser left").expect("the stale bake");
+
+    run_in(&dir, &["synth", "bake"]).ok().says("1 rendered");
+    let (path, _) = media(&dir);
+    assert_ne!(path, stale, "the old file was served as this recipe's bake");
+}
+
 /// Content addressing, from the outside: the same recipe under two names is
 /// one file on disk, because the name is the hash of what is in it.
 #[test]

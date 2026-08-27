@@ -2,8 +2,9 @@
 
 A **recipe** is a JSON file under `recipes/` that a `synth_audio` asset is made
 from. Rendering one costs nothing, needs no key and no network, and produces
-the same bytes every time — so a project can carry its whole sound design as
-text and rebuild it anywhere.
+the same bytes every time a given build of scorsese renders it — so a project
+can carry its whole sound design as text and rebuild it anywhere. What that
+last clause is doing is [below](#the-synthesiser-is-the-other-half-of-a-bake).
 
 Two shapes, told apart by the `recipe` field: **`patch`** is one instrument
 playing one note (an effect), **`song`** is a piece of music.
@@ -418,12 +419,44 @@ the whole piece stays byte-identical across runs.
 ## What a bake is, and when it happens
 
 `synth bake` renders every recipe whose output is not already on disk, and
-writes it to `generated/<sha256 of the recipe's bytes>.wav`.
+writes it to `generated/<digest>.wav` — the digest being a hash of the recipe's
+bytes together with the version of the synthesiser that rendered them.
 
-That naming is the whole cache. The path an asset holds *is* the record of
-which recipe produced it, so editing a recipe makes the asset stale by
-arithmetic — nobody has to mark it, and re-running `bake` is free when nothing
-changed.
+That naming is the whole cache. The path an asset holds *is* the record of what
+produced it, so editing a recipe makes the asset stale by arithmetic — nobody
+has to mark it, and re-running `bake` is free when nothing changed.
+
+### The synthesiser is the other half of a bake
+
+A recipe is one of **two** inputs to a render. The other is the synthesiser,
+and it moves too: a change to a source, a filter, an envelope or an effect
+changes what every recipe in every project renders to. "The same bytes every
+time" is a promise about a document handed twice to *one* synthesiser, and it
+was never a promise across versions of scorsese.
+
+So the address carries a version number, and the effect is the one you would
+want:
+
+- **Nothing to do, ever.** When the synthesiser changes, the recipe you have
+  not touched hashes to an address the old file is not at. The next
+  `synth bake` misses, re-renders it and points the asset at the new file — the
+  same path an edited recipe takes. There is no migration, no flag and no list
+  of affected projects to work through.
+- **The superseded file is left where it is**, exactly as an edited recipe's
+  previous bake is. `generated/` is rebuildable output, and a bake nothing
+  points at is a few hundred kilobytes rather than a problem.
+- **The re-bake is free.** Seconds of CPU and no network, which is the reason
+  re-rendering is the right answer here rather than reporting a mismatch and
+  asking somebody to decide.
+
+The number is `SYNTH_VERSION` in `crates/zimmer/src/lib.rs`. It is declared
+rather than computed: the honest way to derive it would be to hash rendered
+output, and this crate's voices ride on the platform's `sin`, `exp` and `powf`,
+which are not bit-identical between Linux and macOS. A digest has no tolerance
+to spend, so a derived version would claim the synthesiser had changed every
+time a project moved machine. **Changing what a recipe renders to means bumping
+it in the same commit**, the way a `project.json` format change means bumping
+`schema_version`.
 
 Output is **mono, 16-bit PCM, 44.1 kHz**. A render resamples and upmixes it
 into the mix exactly as it would any imported file, so a recipe never has to

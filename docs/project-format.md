@@ -394,10 +394,13 @@ mix until then, a cache hit once it exists.
 
 What differs is everything about the cost. Realising one needs no network, no
 key and no money, and it is **deterministic** — the same recipe produces the
-same bytes on any machine, on any run. So the generated file is named for the
-SHA-256 of the recipe's bytes, and `path` pointing at a hash the recipe no
-longer has *is* what `stale` means for this kind. Nothing else has to record
-it.
+same bytes on any machine, on any run of a given build. So the generated file
+is named for a hash of the recipe's bytes *and* the version of the synthesiser
+that rendered them, and `path` pointing at a hash the recipe no longer has —
+or that this build's synthesiser no longer produces — *is* what `stale` means
+for this kind. Nothing else has to record it, and a bake that a newer
+synthesiser has superseded is redone by the next `synth bake` without anyone
+finding it first. [`recipes.md`](recipes.md) has the whole of it.
 
 The recipe is a separate file rather than inline JSON because a recipe is
 long: a song is tracks, patterns and an arrangement, and inlining one would

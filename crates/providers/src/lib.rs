@@ -28,9 +28,9 @@
 //! [`synth`], by that one path: the verbs (`create`, `check`, `bake_asset` and
 //! `bake_pending`, `survey`, `set`), the [`Recipe`](synth::Recipe) they read and
 //! write, the [`Starter`](synth::Starter) a new one is cut from, and what they
-//! answer with. How a recipe becomes samples — reading it, hashing it,
-//! resolving the instruments it names — is this crate's own business, so those
-//! modules are private.
+//! answer with. How a recipe becomes samples — reading it, addressing the bake
+//! by the recipe and the synthesiser both, resolving the instruments it names
+//! — is this crate's own business, so those modules are private.
 //!
 //! [`prices`], which is what a prompted brief costs before anyone commits to
 //! it. It publishes no client and makes no call: it is a table somebody copied
