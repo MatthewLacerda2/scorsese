@@ -21,7 +21,7 @@
 /// Four is what ITU-R BS.1770 asks for at these rates, and it is enough: the
 /// error left over is a few hundredths of a decibel, which is well inside the
 /// headroom a true-peak ceiling leaves anyway.
-pub(crate) const OVERSAMPLE: usize = 4;
+const OVERSAMPLE: usize = 4;
 
 /// Half-width of the interpolating kernel, in input samples either side.
 ///
