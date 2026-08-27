@@ -61,6 +61,31 @@ fn a_note_lands_on_the_pitch_it_was_asked_for() {
     close(81.0, 880.0);
 }
 
+/// The limiter's promise, checked with the meter that reports on the same
+/// bake — because a guarantee and a measurement that disagree are worse than
+/// either alone.
+///
+/// Judged on the **true** peak, which is what a converter or a lossy encoder
+/// has to reproduce. An ordinary song is the case worth asserting on rather
+/// than a contrived one: this one's loudest *sample* sits nearly two decibels
+/// under the ceiling, so the limiter barely engages, and the waveform between
+/// its samples went past full scale anyway.
+#[test]
+fn a_bake_does_not_clip() {
+    let song = bake_song(&song(), &InlineOnly).expect("bakes");
+    assert!(
+        !song.loudness().is_clipping(),
+        "the song clips: {:?}",
+        song.loudness()
+    );
+    let note = bake_note(&saw_patch(), 93.0, &opts(0.3)).expect("bakes");
+    assert!(
+        !note.loudness().is_clipping(),
+        "the one-shot clips: {:?}",
+        note.loudness()
+    );
+}
+
 /// The claim `generated/` rests on. If this ever fails, a cache hit is serving
 /// bytes the recipe no longer describes.
 #[test]

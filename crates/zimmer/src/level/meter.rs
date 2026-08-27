@@ -5,6 +5,14 @@
 //! is or what part of it this is — [`super::profile`] decides that by handing
 //! one of these a stretch at a time, and [`super::bands`] answers the other
 //! question a report asks, which is **where** the energy sits.
+//!
+//! The **true** peak is the one that takes work, and [`super::intersample`]
+//! does it: sample peak under-reads what a lossy encoder will produce, because
+//! the waveform between two samples can exceed both of them, so a mix reading
+//! −0.2 dBFS can clip after AAC. That is precisely the case a delivery render
+//! should mention and precisely the one a sample peak cannot see.
+
+use super::intersample::Channel;
 
 /// Full scale, as the number a sample of `1.0` is.
 const FULL_SCALE: f64 = 1.0;
@@ -12,25 +20,12 @@ const FULL_SCALE: f64 = 1.0;
 /// How far above full scale is worth calling out. Sample peak exactly at `1.0`
 /// is what a mix is clamped to on its way to a file, so equality is the
 /// interesting case rather than a strict excess.
+///
+/// Held against the true peak, and so is the [limiter](crate::fx::limiter)'s
+/// own ceiling — a decibel under this one, from the same reconstruction. That
+/// is what makes the guarantee and the measurement agree rather than two
+/// files each being reasonable on its own.
 const CLIPPING: f64 = FULL_SCALE;
-
-/// Oversampling factor for true peak.
-///
-/// Four is what ITU-R BS.1770 asks for at these rates, and the reason it is
-/// worth the arithmetic is that **sample peak under-reads what a lossy encoder
-/// will produce**: the waveform between two samples can exceed both of them, so
-/// a mix reading -0.2 dBFS can clip after AAC. That is precisely the case a
-/// delivery render should mention, and precisely the one a sample peak cannot
-/// see.
-const OVERSAMPLE: usize = 4;
-
-/// Half-width of the interpolating kernel, in input samples either side.
-///
-/// Eight taps total. A windowed sinc rather than linear interpolation, because
-/// linear interpolation between two samples never exceeds the larger of them —
-/// it would report the sample peak again under a longer name, which is worse
-/// than not reporting it.
-const TAPS: usize = 4;
 
 /// How loud a signal is, in dBFS.
 ///
@@ -138,63 +133,17 @@ impl Meter {
     fn measure_true_peak(&mut self, samples: &[f32]) {
         let mut joined = std::mem::take(&mut self.tail);
         joined.extend_from_slice(samples);
-        let frames = joined.len() / self.channels;
-        for channel in 0..self.channels {
-            for frame in 0..frames {
-                for step in 1..OVERSAMPLE {
-                    let between = interpolate(&joined, self.channels, channel, frames, frame, step);
-                    self.true_peak = self.true_peak.max(between.abs());
-                }
+        for index in 0..self.channels {
+            let channel = Channel::of(&joined, self.channels, index);
+            for frame in 0..channel.frames() {
+                self.true_peak = self.true_peak.max(channel.peak_from(frame));
             }
         }
         // Keep enough of the end that the next run's first frames have their
         // left-hand taps.
-        let keep = (TAPS * self.channels).min(joined.len());
+        let keep = (super::intersample::TAPS * self.channels).min(joined.len());
         self.tail = joined.split_off(joined.len() - keep);
     }
-}
-
-/// One channel's value `step`/[`OVERSAMPLE`] of the way past `frame`.
-///
-/// A Lanczos-windowed sinc over [`TAPS`] samples either side. Frames outside
-/// the run read as zero, which is what the signal is before it starts and
-/// after it ends.
-fn interpolate(
-    joined: &[f32],
-    channels: usize,
-    channel: usize,
-    frames: usize,
-    frame: usize,
-    step: usize,
-) -> f64 {
-    let offset = step as f64 / OVERSAMPLE as f64;
-    let mut sum = 0.0;
-    for tap in -(TAPS as isize)..=(TAPS as isize) {
-        let at = frame as isize + tap;
-        if at < 0 || at as usize >= frames {
-            continue;
-        }
-        let sample = f64::from(joined[at as usize * channels + channel]);
-        sum += sample * lanczos(tap as f64 - offset);
-    }
-    sum
-}
-
-/// The Lanczos kernel, zero outside [`TAPS`].
-fn lanczos(x: f64) -> f64 {
-    if x.abs() >= TAPS as f64 {
-        return 0.0;
-    }
-    sinc(x) * sinc(x / TAPS as f64)
-}
-
-/// Normalised sinc, `1` at zero.
-fn sinc(x: f64) -> f64 {
-    if x == 0.0 {
-        return 1.0;
-    }
-    let x = std::f64::consts::PI * x;
-    x.sin() / x
 }
 
 /// A linear amplitude ratio as decibels below full scale.

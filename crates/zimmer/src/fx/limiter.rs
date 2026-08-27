@@ -5,6 +5,17 @@
 //! add up — any of which can push a buffer past ±1, where 16-bit quantization turns
 //! the overshoot into a click. So the last thing a bake does is limit.
 //!
+//! **The peak it is held to is the *true* peak**, not the loudest sample. A sample
+//! is a point on a band-limited curve, and the curve between two samples routinely
+//! exceeds both of them — so a buffer whose every sample sat under the old ceiling
+//! of 0.98 could still pass full scale the moment a converter, `scorsese-render`'s
+//! resampler or a delivery codec reconstructed it. That is not a tolerance quibble:
+//! it is a promise this module made and did not keep, on files
+//! [`crate::level::meter`] was already reporting as clipping. The required gain is
+//! therefore computed from [`crate::level::intersample`] — the same reconstruction
+//! the meter measures with, so the guarantee and the report cannot drift apart
+//! again.
+//!
 //! Because we render offline we can do this properly, with **lookahead**: compute
 //! the gain each sample needs, then walk the track backwards so the gain is already
 //! down *before* a peak arrives (a short attack ramp instead of an instant duck),
@@ -21,11 +32,26 @@
 //! costs a `max`; not linking costs the stereo image, and a peak on one side
 //! genuinely *is* a moment when the mix is too loud.
 
+use crate::level::intersample::Channel;
 use crate::stereo::Stereo;
 
-/// The peak the output is held under. A hair below full scale, so quantization
-/// rounding cannot reach ±1.0.
-const CEILING: f32 = 0.98;
+/// The true peak the output is held under: **−1.0 dBTP**.
+///
+/// Chosen rather than inherited. A decibel of headroom is the broadcast
+/// convention for material that will be lossily encoded, and every bake here is
+/// on its way into a video that will be: an MP3 or AAC encoder reconstructs the
+/// waveform its own way and lands a few tenths of a decibel either side of what
+/// the source measured, so a master pressed against full scale arrives clipped
+/// on the far end however carefully it was limited. The old ceiling of 0.98
+/// (≈ −0.18 dBFS) left a codec nothing.
+///
+/// The same decibel pays for the approximation below. The gain track is one
+/// number per sample-frame while an overshoot lives *between* frames, so the
+/// gain the reconstruction actually sees around a peak is a hair higher than
+/// the one that peak asked for. That error is fractions of a percent against
+/// 10% of headroom — but it is why the ceiling is a considered number and not
+/// the largest one that fits.
+const CEILING: f32 = 0.891_251; // 10^(-1/20)
 /// Lookahead / attack ramp, in seconds — long enough to duck without a click.
 const ATTACK: f32 = 0.002;
 /// Recovery, in seconds. Slower than the attack, or the gain pumps audibly.
@@ -45,30 +71,53 @@ pub(crate) fn apply(buf: &mut Stereo, rate: f32) {
 }
 
 /// The instantaneous gain each sample-frame needs to sit under the ceiling —
-/// 1.0 wherever the signal is already quiet enough. Sanitizes `buf` on the way
-/// past.
+/// 1.0 wherever the signal is already quiet enough.
 ///
-/// One number per frame, from the louder of the two channels: that is what
-/// links them.
+/// Written as a ratio clamped at unity rather than as a test and a ratio,
+/// because the test had no edge to get wrong: at a peak of exactly the ceiling
+/// the ratio is exactly `1.0`, so `>` and `>=` were the same function, and a
+/// silent frame divides to an infinity the clamp takes back to unity. A branch
+/// no input can tell apart from its alternative is complexity worth deleting
+/// rather than complexity worth explaining.
 fn required_gain(buf: &mut Stereo) -> Vec<f32> {
-    buf.l
-        .iter_mut()
-        .zip(buf.r.iter_mut())
-        .map(|(l, r)| {
-            let peak = sanitised(l).max(sanitised(r));
-            if peak > CEILING { CEILING / peak } else { 1.0 }
-        })
+    frame_peaks(buf)
+        .into_iter()
+        .map(|peak| (CEILING / peak).min(1.0))
         .collect()
 }
 
-/// How loud one sample is, flushing a non-finite one to silence on the way —
-/// a `NaN` that reached the file would be a click, and a `NaN` left in the
-/// gain arithmetic would silence everything around it.
-fn sanitised(sample: &mut f32) -> f32 {
-    if !sample.is_finite() {
-        *sample = 0.0;
-    }
-    sample.abs()
+/// The loudest the waveform gets over each sample-frame — the sample itself
+/// and the reconstruction up to the next one, which
+/// [`Channel::peak_from`](crate::level::intersample::Channel::peak_from)
+/// covers in one number. Sanitizes `buf` first.
+///
+/// One number per frame, from the louder of the two channels: that is what
+/// links them. Reconstructing each channel separately and taking the maximum,
+/// rather than reconstructing some sum of them, because an overshoot on either
+/// side is a real one — the two are played through different speakers.
+fn frame_peaks(buf: &mut Stereo) -> Vec<f32> {
+    sanitise(buf);
+    let (left, right) = (Channel::mono(&buf.l), Channel::mono(&buf.r));
+    (0..buf.frames())
+        .map(|frame| left.peak_from(frame).max(right.peak_from(frame)) as f32)
+        .collect()
+}
+
+/// Flushes every non-finite sample to silence — a `NaN` that reached the file
+/// would be a click, and a `NaN` left in the gain arithmetic would silence
+/// everything around it.
+///
+/// Before anything is measured rather than as it is measured, because the
+/// reconstruction reads eight samples either side: one `NaN` left in the buffer
+/// would poison every frame near it, not merely its own.
+fn sanitise(buf: &mut Stereo) {
+    buf.each(|channel| {
+        for sample in channel {
+            if !sample.is_finite() {
+                *sample = 0.0;
+            }
+        }
+    });
 }
 
 /// Backward pass: the gain may fall no faster than `slope` per sample, so it is
@@ -113,12 +162,65 @@ mod tests {
         buf
     }
 
+    /// A tone at a quarter of the sample rate, offset so every sample lands
+    /// halfway up the slope: the samples read `amplitude / √2` and the
+    /// waveform between them reaches `amplitude`. Hats, a bright saw and any
+    /// sharp transient all carry energy up here.
+    fn intersample_tone(n: usize, amplitude: f32) -> Vec<f32> {
+        (0..n)
+            .map(|i| amplitude * (TAU * i as f32 / 4.0 + std::f32::consts::FRAC_PI_4).sin())
+            .collect()
+    }
+
+    /// The bake put through the same meter `scorsese level` prints from.
+    fn measured(buf: &Stereo) -> crate::level::Loudness {
+        let mut meter = crate::level::Meter::new(crate::stereo::CHANNELS);
+        meter.feed(&buf.interleaved());
+        meter.finish()
+    }
+
+    /// The failure this module was fixed for, in its purest form: every sample
+    /// under the old ceiling, and the waveform between them three decibels
+    /// over full scale. The signal is real — hats and bright saws all carry
+    /// energy this high — and it is the case a sample-peak limiter cannot see.
+    #[test]
+    fn the_waveform_between_the_samples_is_held_down_too() {
+        let buf = limited(Stereo::centred(intersample_tone(4410, 3.0)));
+        let loud = measured(&buf);
+        assert!(!loud.is_clipping(), "the meter still calls this clipping");
+        let true_peak = loud.true_peak_dbfs.expect("it is not silent");
+        assert!(true_peak < -0.9, "true peak {true_peak} dBFS");
+        // Which cost it real level: the samples now sit well under the
+        // ceiling, because it is not the samples the ceiling is about.
+        assert!(peak(&buf.l) < CEILING * 0.8, "peaked at {}", peak(&buf.l));
+    }
+
     #[test]
     fn a_hot_signal_is_brought_under_the_ceiling() {
         let buf = limited(Stereo::centred(sine(44_100, 220.0, 3.0)));
         assert!(peak(&buf.l) <= CEILING + 1e-6, "peaked at {}", peak(&buf.l));
         assert!(peak(&buf.l) > 0.5, "but it is still a loud signal");
         assert_eq!(buf.l, buf.r, "and both sides took the same treatment");
+    }
+
+    /// The linking has to survive the change: an overshoot that exists only
+    /// *between* one side's samples still ducks both, or the image lurches
+    /// away from it exactly as it would for a sampled peak.
+    #[test]
+    fn an_overshoot_between_one_sides_samples_ducks_both() {
+        let mut buf = Stereo {
+            l: intersample_tone(4410, 1.2),
+            r: sine(4410, 220.0, 0.4),
+        };
+        let before = peak(&buf.r);
+        apply(&mut buf, 44_100.0);
+        assert!(peak(&buf.l) < CEILING, "the loud side never reached it");
+        let after = peak(&buf.r);
+        assert!(
+            after < before * 0.95,
+            "the quiet side did not follow: {before} → {after}"
+        );
+        assert!(!measured(&buf).is_clipping());
     }
 
     #[test]
@@ -189,5 +291,19 @@ mod tests {
     #[test]
     fn an_empty_buffer_is_a_no_op() {
         assert!(limited(Stereo::silence(0)).is_empty());
+    }
+
+    /// Silence is the edge the gain is a division at: nothing over nothing is
+    /// an infinity, and an infinity that reached the samples would make the
+    /// whole file a `NaN` rather than a quiet passage.
+    #[test]
+    fn silence_stays_silent_rather_than_dividing_into_nothing() {
+        let quiet = limited(Stereo::silence(512));
+        assert!(quiet.l.iter().chain(&quiet.r).all(|s| *s == 0.0));
+        assert!(
+            required_gain(&mut Stereo::silence(512))
+                .iter()
+                .all(|g| *g == 1.0)
+        );
     }
 }

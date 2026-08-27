@@ -223,7 +223,15 @@ pub use song::{PatchResolver, Song, render_song};
 /// crate went stereo, so every bake in every project is a different file, of a
 /// different channel count, and there is no recipe anywhere that renders to
 /// what it used to.
-pub const SYNTH_VERSION: u32 = 3;
+///
+/// **Version 4 is the master limiter changing what it limits against** — the
+/// true peak rather than the loudest sample, under a ceiling of −1 dBTP rather
+/// than 0.98. Every bake passes through it, so this is the *any representable
+/// recipe* case at its widest: a recipe that used to touch the limiter comes
+/// back about a decibel down, and one that never did comes back reconstructed
+/// against a lower number and touches it now. There is no defaults argument to
+/// have here and no probe worth running.
+pub const SYNTH_VERSION: u32 = 4;
 
 /// Render one note of `patch` and encode it as a stereo 16-bit PCM WAV.
 ///

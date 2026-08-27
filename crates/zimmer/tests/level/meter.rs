@@ -105,28 +105,44 @@ fn true_peak_is_never_under_the_sample_peak() {
 
 /// Fed a run at a time, because a render's mix is written segment by segment
 /// and never held whole. The answer must not depend on where the seams fell.
+///
+/// Asserted on a signal that **has** something between its samples, which a
+/// gentle sine does not: the quarter-rate pattern below overshoots its own
+/// samples by a decibel, and every left-hand tap of the kernel is carrying
+/// part of that. Fed a run at a time with too short a tail the overshoot
+/// reads a third of a decibel *high* — truncating the kernel drops
+/// negatively-weighted taps, so a seam inflates rather than flattens — and on
+/// a sine the same mistake moves the answer by a hundredth of a decibel and
+/// nothing notices. The signal is what makes this test about the tail.
 #[test]
 fn the_answer_does_not_depend_on_how_the_samples_arrived() {
-    let signal: Vec<f32> = (0..600).map(|i| (i as f32 * 0.1).sin() * 0.6).collect();
+    let gentle: Vec<f32> = (0..600).map(|i| (i as f32 * 0.1).sin() * 0.6).collect();
+    // Both channels alternate every two frames, which is a tone at a quarter
+    // of the sample rate sampled on its way past the peak rather than at it.
+    let overshooting: Vec<f32> = (0..600)
+        .map(|i| if (i / 4) % 2 == 0 { 0.7 } else { -0.7 })
+        .collect();
 
-    let whole = measured(&signal, 2);
-    let mut piecewise = Meter::new(2);
-    for run in signal.chunks(64) {
-        piecewise.feed(run);
+    for signal in [gentle, overshooting] {
+        let whole = measured(&signal, 2);
+        let mut piecewise = Meter::new(2);
+        for run in signal.chunks(64) {
+            piecewise.feed(run);
+        }
+        let split = piecewise.finish();
+
+        assert_eq!(whole.peak_dbfs, split.peak_dbfs);
+        assert_eq!(whole.mean_dbfs, split.mean_dbfs);
+        // True peak is the one that could differ, since the interpolator looks
+        // either side of a sample — which is why the meter keeps the tail of
+        // the previous run rather than treating every seam as an edge.
+        let (whole_true, split_true) = (
+            whole.true_peak_dbfs.expect("audible"),
+            split.true_peak_dbfs.expect("audible"),
+        );
+        assert!(
+            (whole_true - split_true).abs() < SLACK,
+            "seams moved the true peak: {whole_true:.3} whole, {split_true:.3} in runs"
+        );
     }
-    let split = piecewise.finish();
-
-    assert_eq!(whole.peak_dbfs, split.peak_dbfs);
-    assert_eq!(whole.mean_dbfs, split.mean_dbfs);
-    // True peak is the one that could differ, since the interpolator looks
-    // either side of a sample — which is why the meter keeps the tail of the
-    // previous run rather than treating every seam as an edge.
-    let (whole_true, split_true) = (
-        whole.true_peak_dbfs.expect("audible"),
-        split.true_peak_dbfs.expect("audible"),
-    );
-    assert!(
-        (whole_true - split_true).abs() < SLACK,
-        "seams moved the true peak: {whole_true:.3} whole, {split_true:.3} in runs"
-    );
 }

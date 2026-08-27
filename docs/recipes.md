@@ -122,7 +122,11 @@ where 1.0 dips to silence.
 | `eq` | `bands`: up to 8 of `{ kind, freq, gain_db, q }` | takes a region away, or adds one |
 
 A limiter always runs after them and is not listed — a bake must not clip, and
-that is not the recipe's decision.
+that is not the recipe's decision. It holds the **true** peak at −1 dBTP: the
+loudest point of the waveform *between* the samples, which is what a converter
+or a delivery codec has to reproduce, rather than the loudest sample. So a bake
+comes back a decibel under full scale by design, and the level a recipe is
+written at is a decision about the mix rather than a race to the ceiling.
 
 `saturate` is the only stage anywhere in synthesis that adds frequencies the
 source did not have, which is what "warm" and "analog" are made of; everything
