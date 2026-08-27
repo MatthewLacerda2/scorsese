@@ -21,8 +21,8 @@ use serde::{Deserialize, Serialize};
 use crate::error::SynthError;
 
 pub use stages::{
-    Adsr, EqBand, EqKind, Filter, FilterKind, Fx, Lfo, LfoTarget, MAX_EQ_BANDS, MAX_OSCS, Osc,
-    PitchEnv, Source, Wave,
+    Adsr, EqBand, EqKind, Filter, FilterKind, Fx, Lfo, LfoTarget, MAX_EQ_BANDS, MAX_OSCS,
+    MAX_PARTIALS, Osc, Partial, PitchEnv, Source, Wave,
 };
 
 /// Rejects an fx chain the renderer cannot honour.
@@ -150,7 +150,45 @@ impl Patch {
             Source::Fm2 { ratio, .. } if *ratio <= 0.0 => {
                 Err(SynthError::BadFmRatio { ratio: *ratio })
             }
+            Source::Additive { partials } => check_partials(partials),
             _ => Ok(()),
         }
     }
+}
+
+/// Rejects an additive series the renderer cannot honour.
+///
+/// The same four questions `check_source` asks of an oscillator stack — is
+/// there anything in it, is there too much of it, does each entry name a
+/// frequency, and does any of it sound — because a series is the same kind of
+/// table with the same ways of being wrong.
+///
+/// **Not asked: whether a partial is above Nyquist.** That depends on the
+/// pitch played, and a patch is validated once while it is played at many
+/// pitches, so refusing here would refuse a legal organ for the top note of a
+/// part. The renderer drops those per note instead.
+fn check_partials(partials: &[Partial]) -> Result<(), SynthError> {
+    if partials.is_empty() {
+        return Err(SynthError::EmptyPartials);
+    }
+    if partials.len() > MAX_PARTIALS {
+        return Err(SynthError::TooManyPartials {
+            found: partials.len(),
+            limit: MAX_PARTIALS,
+        });
+    }
+    if let Some((index, partial)) = partials
+        .iter()
+        .enumerate()
+        .find(|(_, partial)| partial.ratio <= 0.0 || !partial.ratio.is_finite())
+    {
+        return Err(SynthError::BadPartialRatio {
+            index,
+            ratio: partial.ratio,
+        });
+    }
+    if partials.iter().all(|partial| partial.gain <= 0.0) {
+        return Err(SynthError::SilentPartials);
+    }
+    Ok(())
 }

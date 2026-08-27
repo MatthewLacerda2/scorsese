@@ -15,7 +15,7 @@
 //!
 //! [`noise`] is the exception and owns the reason for it.
 
-use super::{fm, karplus, noise, osc};
+use super::{additive, fm, karplus, noise, osc};
 use crate::patch::Source;
 use crate::stereo::Stereo;
 
@@ -30,10 +30,10 @@ use crate::stereo::Stereo;
 /// carries. Every other source takes its velocity further down the path, at
 /// the filter and the amp envelope.
 ///
-/// `seed` is the note's. Three of the four sources draw on it: the noise
+/// `seed` is the note's. Four of the five sources draw on it: the noise
 /// source is nothing but, the Karplus excitation is a burst of it, and an
-/// oscillator stack starts each of its oscillators somewhere in its cycle
-/// rather than all of them at zero.
+/// oscillator stack and an additive series each start their voices somewhere
+/// in their cycle rather than all of them at zero.
 ///
 /// The sum is resolved here rather than inside [`fm`] so that module stays the
 /// FM algorithm and nothing else: it is handed the index to use, not the
@@ -83,6 +83,7 @@ fn one_waveform(
             let depth = (index + vel_index * velocity).max(0.0);
             fm::render(out, freqs, *ratio, depth, *mod_decay, rate);
         }
+        Source::Additive { partials } => additive::render(partials, freqs, seed, out, rate),
         // [`render`] sends this one down its own path before narrowing the
         // signal to one channel: it is the only source that draws two.
         Source::Noise => {}
@@ -92,13 +93,13 @@ fn one_waveform(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::patch::{Osc, Wave};
+    use crate::patch::{Osc, Partial, Wave};
 
     fn render_kind(source: &Source) -> Stereo {
         render(source, &vec![220.0; 8192], 5, 1.0, 8192, 44_100.0)
     }
 
-    fn every_kind() -> [Source; 4] {
+    fn every_kind() -> [Source; 5] {
         [
             Source::OscStack {
                 oscs: vec![Osc {
@@ -118,6 +119,22 @@ mod tests {
                 index: 4.0,
                 vel_index: 0.0,
                 mod_decay: 0.3,
+            },
+            Source::Additive {
+                partials: vec![
+                    Partial {
+                        ratio: 1.0,
+                        gain: 1.0,
+                        detune_cents: 0.0,
+                        decay: 0.0,
+                    },
+                    Partial {
+                        ratio: 2.0,
+                        gain: 0.5,
+                        detune_cents: 0.0,
+                        decay: 0.0,
+                    },
+                ],
             },
         ]
     }

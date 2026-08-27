@@ -40,6 +40,40 @@ pub enum SynthError {
         ratio: f32,
     },
 
+    /// An additive series with nothing in it states no spectrum, so there is
+    /// no tone for it to make.
+    #[error("patch: `additive` needs at least one partial")]
+    EmptyPartials,
+
+    /// Past a handful of partials the series costs one sine oscillator per
+    /// note per sample for no audible gain — the same argument
+    /// [`SynthError::TooManyOscs`] makes about a stack, at a higher count
+    /// because a spectrum genuinely needs more entries than a stack does.
+    #[error("patch: `additive` takes at most {limit} partials, got {found}")]
+    TooManyPartials {
+        /// How many the series asked for.
+        found: usize,
+        /// The most it may have.
+        limit: usize,
+    },
+
+    /// Every partial weighted zero: a series that renders silence, which is
+    /// never what was meant.
+    #[error("patch: every partial gain is zero — the series is silent")]
+    SilentPartials,
+
+    /// A partial's frequency is a multiple of the played pitch, so a
+    /// non-positive multiple names no frequency. Zero in particular is a DC
+    /// offset — inaudible, and it eats the headroom the rest of the series
+    /// needs.
+    #[error("patch: `additive` partial {index} needs a positive `ratio`, got {ratio}")]
+    BadPartialRatio {
+        /// Which partial of the series it is, counting from zero.
+        index: usize,
+        /// The ratio as written.
+        ratio: f32,
+    },
+
     /// A cutoff at or below zero Hz leaves the filter with nothing to pass.
     #[error("patch: filter `cutoff` must be positive Hz, got {cutoff}")]
     BadCutoff {
