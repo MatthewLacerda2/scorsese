@@ -47,6 +47,21 @@ pub enum SynthError {
         cutoff: f32,
     },
 
+    /// Past a handful of bands an EQ is a filter bank being assembled one band
+    /// at a time, which is a different tool — the same argument
+    /// [`SynthError::TooManyOscs`] makes about a stack, applied to arithmetic
+    /// that runs over every sample.
+    ///
+    /// Named `fx` rather than `patch`, because a chain lives in three places
+    /// and the message has to be true in all of them.
+    #[error("fx: `eq` takes at most {limit} bands, got {found}")]
+    TooManyEqBands {
+        /// How many the band list asked for.
+        found: usize,
+        /// The most it may have.
+        limit: usize,
+    },
+
     /// An LFO running backwards is not a shape the modulators can follow.
     #[error("patch: lfo `rate` must not be negative, got {rate}")]
     NegativeLfoRate {

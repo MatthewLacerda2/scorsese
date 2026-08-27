@@ -21,8 +21,29 @@ use serde::{Deserialize, Serialize};
 use crate::error::SynthError;
 
 pub use stages::{
-    Adsr, Filter, FilterKind, Fx, Lfo, LfoTarget, MAX_OSCS, Osc, PitchEnv, Source, Wave,
+    Adsr, EqBand, EqKind, Filter, FilterKind, Fx, Lfo, LfoTarget, MAX_EQ_BANDS, MAX_OSCS, Osc,
+    PitchEnv, Source, Wave,
 };
+
+/// Rejects an fx chain the renderer cannot honour.
+///
+/// It lives beside the patch rather than inside it because a chain lives in
+/// **three** places — a patch, a track and the song — and one check for all
+/// three is what stops the cap being a property of where the chain happens to
+/// be written. The song's own validation calls this for the other two.
+pub(crate) fn check_chain(chain: &[Fx]) -> Result<(), SynthError> {
+    for fx in chain {
+        if let Fx::Eq { bands } = fx
+            && bands.len() > MAX_EQ_BANDS
+        {
+            return Err(SynthError::TooManyEqBands {
+                found: bands.len(),
+                limit: MAX_EQ_BANDS,
+            });
+        }
+    }
+    Ok(())
+}
 
 /// One instrument.
 ///
@@ -81,7 +102,7 @@ impl Patch {
         {
             return Err(SynthError::NegativeLfoRate { rate: lfo.rate });
         }
-        Ok(())
+        check_chain(&self.fx)
     }
 
     /// The head of the signal path, which is where every unrenderable patch so

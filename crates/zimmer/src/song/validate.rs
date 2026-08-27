@@ -34,6 +34,13 @@ impl Song {
         for (name, pattern) in &self.patterns {
             pattern.validate(name, &self.tracks)?;
         }
+        // The two chains the song owns. A track's inline patch carries a third,
+        // and it is checked where every other patch field is — at the moment a
+        // note of it is rendered.
+        crate::patch::check_chain(&self.fx)?;
+        for track in &self.tracks {
+            crate::patch::check_chain(&track.fx)?;
+        }
         self.check_feel()?;
         self.check_shape()
     }
