@@ -56,10 +56,11 @@
 //! interpolation and decimation filters it needs are memory, and being memoryless is
 //! what lets this effect claim a tail of exactly zero.
 
-/// Below this, the curve and the identity line differ by less than the 16-bit
-/// floor, so there is nothing to compute — and the reciprocal of `tanh(drive)`
-/// stays finite, which it would not for a subnormal.
-const MIN_DRIVE: f32 = 1e-3;
+/// The smallest drive that is computed at all. At the floor itself the curve
+/// departs from the identity line by 1.3 × 10⁻⁵ — a third of one 16-bit step —
+/// so everything under it is a no-op worth skipping, which also keeps the
+/// reciprocal of `tanh(drive)` away from the subnormals.
+const MIN_DRIVE: f32 = 0.01;
 
 /// The hardest push allowed. It is where the table above stops being reassuring:
 /// past it the folded harmonics of any bright source sit within 20 dB of the
@@ -189,6 +190,27 @@ mod tests {
             apply(&mut buf, drive, 1.0);
             assert_eq!(buf, original, "drive {drive} must change nothing");
         }
+    }
+
+    #[test]
+    fn the_floor_is_where_computing_the_curve_starts_being_worth_it() {
+        // Both sides of it, because the constant is a claim about audibility
+        // and not a guess: at the floor the curve is computed and does bend the
+        // signal, by well under one 16-bit step; below it nothing runs at all.
+        let original = sine(220.0);
+        let mut at_the_floor = original.clone();
+        apply(&mut at_the_floor, MIN_DRIVE, 1.0);
+        let moved = at_the_floor
+            .iter()
+            .zip(&original)
+            .fold(0.0f32, |most, (a, b)| most.max((a - b).abs()));
+        assert!(
+            (1e-6..1e-4).contains(&moved),
+            "the floor moved the signal by {moved}"
+        );
+        let mut under = original.clone();
+        apply(&mut under, MIN_DRIVE * 0.9, 1.0);
+        assert_eq!(under, original, "under the floor, nothing is computed");
     }
 
     #[test]
