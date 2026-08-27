@@ -127,7 +127,10 @@ const RATE_SPREAD: f32 = 0.1;
 /// property of *the effect*, so a chorus is the same ensemble on every note of
 /// a part. Re-rolling it per note would make each note a differently-arranged
 /// section, which is not what a section is.
-const SPREAD_SEED: u64 = 0x0063_686f_7275_73;
+///
+/// The number is `chorus` in ASCII. Any constant would do — this one is only
+/// so that a reader who wonders where it came from has an answer.
+const SPREAD_SEED: u64 = 0x0000_6368_6f72_7573;
 
 /// The hash channel a voice's phase offset is drawn on.
 const PHASE: u64 = 0;
