@@ -86,17 +86,33 @@
 //! ## What it costs
 //!
 //! Sixteen partials is sixteen sine oscillators per note, which is more
-//! arithmetic than anything else in this crate. Measured on the machine this
-//! is developed on (Ryzen 5 3400G, `--release`), one second of a sixteen-partial
-//! note — 44 100 samples — renders in **about 4 ms**, against about 0.4 ms for
-//! a single-oscillator saw stack. A note with decays on every partial costs
-//! about 8 ms, the difference being one `exp` per partial per sample.
+//! arithmetic than any other source here. That claim deserved a number rather
+//! than a shrug, so here is one: a whole second of one note through
+//! `render_note` — source, amp envelope, allocation, interleave and all — on
+//! the machine this is developed on (Ryzen 5 3400G), `--release`, averaged
+//! over 200 runs.
 //!
-//! Four milliseconds per second of audio is a real-time factor of roughly 250×.
-//! `song/render.rs` already rests the voice allocator on the same argument and
-//! it holds here: this is not a real-time synth, it is a buffer being built,
-//! and a minute-long piece scored thickly on this source spends under a second
-//! of its bake inside this module.
+//! | source | ms per second of audio |
+//! | --- | --- |
+//! | one saw oscillator | 0.8 |
+//! | four saw oscillators | 1.6 |
+//! | `fm2` | 1.8 |
+//! | four partials | 2.3 |
+//! | sixteen partials | 8.0 |
+//! | sixteen partials, every one decaying | 10.5 |
+//!
+//! So the worst case this source can be asked for is about **10 ms of CPU per
+//! second of audio** — a real-time factor near 100×, and five to six times a
+//! full oscillator stack. The last row is the `exp` per partial per sample
+//! that a decay costs, which is why [`decay_at`] returns early rather than
+//! evaluating `exp(0)`: an organ, where no partial decays, pays the 8 ms and
+//! not the 10.5.
+//!
+//! `song/render.rs` already rests its voice allocator on the argument this
+//! sits on, and it holds here: this is not a real-time synth, it is a buffer
+//! being built. A three-minute piece with every one of its tracks on a
+//! sixteen-partial series still spends a couple of seconds of its bake inside
+//! this module.
 
 use std::f32::consts::TAU;
 
