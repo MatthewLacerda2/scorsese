@@ -96,10 +96,24 @@ lowpass with a big positive `env_amount` and a fast filter decay.
 `pitch` is vibrato in semitones, `cutoff` is wobble in octaves, `amp` is tremolo
 where 1.0 dips to silence.
 
-**`fx`** *(optional)* — a list, applied in order: `{ "fx": "delay", "time",
-"feedback", "mix" }` and `{ "fx": "reverb", "size", "damp", "mix" }`. A limiter
-always runs after them and is not listed — a bake must not clip, and that is
-not the recipe's decision.
+**`fx`** *(optional)* — a list, applied in order. Each entry is tagged by `fx`:
+
+| `fx` | Fields | What it does |
+| --- | --- | --- |
+| `delay` | `time` in seconds, `feedback` 0..1, `mix` 0..=1 | feedback echo — a slapback, a corridor |
+| `reverb` | `size` 0..=1, `damp` 0..=1, `mix` 0..=1 | a room the sound is in |
+| `saturate` | `drive`, `mix` 0..=1 | soft clip: warmth, weight, glue |
+
+A limiter always runs after them and is not listed — a bake must not clip, and
+that is not the recipe's decision.
+
+`saturate` is the only stage anywhere in synthesis that adds frequencies the
+source did not have, which is what "warm" and "analog" are made of; everything
+else is a straight line. Its `drive` is gain-compensated, so it changes the
+shape of the wave rather than its level, and `0` is clean, `1`–`2` is warmth
+and `4` is audible drive. Past `4` the invented harmonics start folding back as
+inharmonic ringing on a bright source — fine on a bass or a drum, not on a lead
+— and `8` is the ceiling.
 
 This chain is the *instrument's own*: it is applied to each note separately. A
 song has two more places to put one, and reverb almost always wants one of them
@@ -310,7 +324,10 @@ between *some synth parts* and *a piece of music*, so it is worth a moment.
       },
       "fx": [{ "fx": "delay", "time": 0.28, "feedback": 0.35, "mix": 0.2 }] }
   ],
-  "fx": [{ "fx": "reverb", "size": 0.7, "damp": 0.4, "mix": 0.18 }]
+  "fx": [
+    { "fx": "reverb", "size": 0.7, "damp": 0.4, "mix": 0.18 },
+    { "fx": "saturate", "drive": 1.5, "mix": 0.5 }
+  ]
 ```
 
 | where | runs on | reach for it when the effect is |
@@ -324,6 +341,16 @@ own room, drifting apart the moment one of them is tuned; put it on the song and
 it is one setting, decaying once across everything and ringing past the last
 note as a single tail. It is also less work for the machine: one room, convolved
 once, instead of the same room convolved for every note in the piece.
+
+**Drive belongs in all three, for three different reasons.** It is the one
+effect with a real use in each place, because it is not describing a space — it
+is changing the thing itself, and there are three different things. On a patch
+it is part of the instrument's voice: a bass that growls the harder it is
+played. On a track it thickens that one part and leaves the others alone. On
+the song it is **glue** — every track pushed gently into the same curve, which
+is much of what stops a mix sounding like separate parts added together, and
+the reason a low `drive` at a partial `mix` over the whole piece is worth trying
+before anything else. The three stack, so keep each modest.
 
 Both fields default to empty, and an empty one is not written down — a song that
 does not use them is exactly the song it was before they existed.
