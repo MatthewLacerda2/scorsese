@@ -45,10 +45,13 @@
 //! the audio would silently not have the accents the page shows.
 //!
 //! A third level — a ghost note under the plain hits — is deliberately not a
-//! fourth character. Ghosts are articulation rather than notation, they are one
-//! of the things a hand-written [`Note`] beside the string is still for, and a
+//! fourth character. Ghosts are articulation rather than notation, and a
 //! character whose velocity nobody could name would put a value in this crate
-//! that belongs in the document.
+//! that belongs in the document. What the entry *can* say is how the whole run
+//! is played, in [`articulation`](Steps::articulation): a hat part played
+//! staccato, a snare run played as ghosts. A single ghost under otherwise plain
+//! hits is one hand-written [`Note`] beside the string, which is the other
+//! thing that field does not replace.
 //!
 //! ## No holds: `dur` is a field
 //!
@@ -103,7 +106,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::{Note, Pitch, one};
+use super::{Articulation, Note, Pitch, one};
 use crate::error::SynthError;
 
 /// A step that sounds at the entry's own velocity.
@@ -179,6 +182,15 @@ pub struct Steps {
     /// this is the *distance* between an ordinary hit and an accented one.
     #[serde(default = "one")]
     pub vel: f32,
+    /// How **every** hit is played — see [`Note::articulation`]. A run is one
+    /// gesture repeated, so this says how the hand plays the whole of it: a
+    /// staccato hat part, a ghosted snare run.
+    ///
+    /// The one combination refused is
+    /// [`accent` beside an `X`](SynthError::TwiceAccented), because the string
+    /// already has a way to say that and the two cannot both be the accent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub articulation: Option<Articulation>,
 }
 
 impl Steps {
@@ -223,6 +235,7 @@ impl Steps {
                 start: self.start + step as f32 * self.div,
                 dur: self.gate(),
                 vel,
+                articulation: self.articulation,
             });
         }
         // Checked after the characters, so a string with both faults reports
@@ -231,6 +244,11 @@ impl Steps {
             return Err(SynthError::AccentWithoutHeadroom {
                 track: self.track.clone(),
                 vel: self.vel,
+            });
+        }
+        if accented && self.articulation == Some(Articulation::Accent) {
+            return Err(SynthError::TwiceAccented {
+                track: self.track.clone(),
             });
         }
         out.extend(hits);
@@ -289,6 +307,7 @@ mod tests {
             dur: None,
             note: None,
             vel: 0.4,
+            articulation: None,
         }
     }
 

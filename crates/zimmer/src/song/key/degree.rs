@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use super::Key;
 use crate::error::SynthError;
 use crate::note::MIDI_RANGE;
-use crate::song::{Note, Pitch, one};
+use crate::song::{Articulation, Note, Pitch, one};
 
 /// Where the tonic sits when the document does not say.
 ///
@@ -50,6 +50,11 @@ pub struct DegreeNote {
     /// Velocity in `0..=1`, scaling this note's peak amplitude.
     #[serde(default = "one")]
     pub vel: f32,
+    /// How it is played — see [`Note::articulation`]. A degree is one note
+    /// written a different way, so it carries the field for the same reason a
+    /// note does.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub articulation: Option<Articulation>,
 }
 
 /// Which degree, and whether an accidental is on it.
@@ -151,6 +156,7 @@ impl DegreeNote {
             start: self.start,
             dur: self.dur,
             vel: self.vel,
+            articulation: self.articulation,
         });
         Ok(())
     }
@@ -169,6 +175,7 @@ mod tests {
             start: 0.0,
             dur: 1.0,
             vel: 0.8,
+            articulation: None,
         }
     }
 

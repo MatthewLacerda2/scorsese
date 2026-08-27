@@ -407,6 +407,16 @@ pub enum SynthError {
         vel: f32,
     },
 
+    /// A step string saying `accent` twice, in two vocabularies. `X` marks
+    /// which hits of a run are accented; an `articulation` of `accent` plays
+    /// every hit of it accented. Together they say the accents are also
+    /// accented, which is not a distinction either notation can make — so the
+    /// document is refused rather than read as whichever one is applied last.
+    TwiceAccented {
+        /// The track the step string is on.
+        track: String,
+    },
+
     /// A `key` the grammar does not read. Refused rather than ignored: a song
     /// that declares a key nobody can parse is one whose every degree would
     /// resolve somewhere else, and silently.
