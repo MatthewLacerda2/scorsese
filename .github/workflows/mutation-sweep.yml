@@ -229,10 +229,13 @@ jobs:
       # and to mark the reading as partial. A job-level timeout would cancel
       # those steps too and the run would say nothing at all.
       #
-      # `--jobs 2` matches the per-pull-request job. A public repo's runner has
-      # four cores, so 3 is available if a crate ever needs the headroom —
-      # cargo's own parallelism inside each mutant is what makes that a
-      # judgement call rather than free.
+      # `--jobs 2` matches the per-pull-request job and `make mutants`, and
+      # `.cargo/mutants.toml` argues the number once, under "How wide a run
+      # fans out" — memory rather than cores is what bounds it, and this runner
+      # has about as much of that as the development machine. A public repo's
+      # runner has four cores, so 3 is available if a crate ever needs the
+      # headroom — cargo's own parallelism inside each mutant is what makes
+      # that a judgement call rather than free.
       - name: Sweep
         id: sweep
         timeout-minutes: 300
