@@ -462,9 +462,9 @@ pub enum Fx {
     /// leaves the quiet ones, which is what makes a part *sit* rather than
     /// merely be at a volume.
     ///
-    /// A limiter is not this at another setting — see [`crate::fx`] — and the
-    /// two are the difference between a device that guarantees a file and one
-    /// that is meant to be heard.
+    /// A limiter is not this at another setting: one is chosen and meant to be
+    /// heard, the other is unconditional and is the promise that a bake cannot
+    /// clip. The `fx::compress` module carries the whole argument.
     Compress {
         /// The level above which the signal is pushed down, in dBFS. Clamped
         /// to −60…0: full scale is where the limiter's job starts.
@@ -477,7 +477,9 @@ pub enum Fx {
         ratio: f32,
         /// Seconds the gain takes to arrive at full reduction. Because this
         /// renders offline the duck is *ready* when the peak lands rather than
-        /// chasing it — [`crate::fx`] has what that changes.
+        /// chasing it, which is a more transparent attack than a hardware
+        /// compressor's and lets a transient through less; `mix` is how a
+        /// recipe keeps one.
         #[serde(default = "attack_default")]
         attack: f32,
         /// Seconds the gain takes to recover afterwards. Too short and the
