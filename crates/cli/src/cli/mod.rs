@@ -450,7 +450,9 @@ pub(crate) enum Command {
         resolution: Resolution,
     },
     /// Make sound from a recipe the project carries: an effect, or a score.
-    /// No key, no network, no cost, and the same bytes every time.
+    /// No key, no network, no cost, and the same bytes every time this build
+    /// renders it — a bake is named for the recipe and the synthesiser both,
+    /// so a newer synthesiser redoes it rather than serving what is on disk.
     Synth {
         /// What to do. Without one, the pending recipes are baked.
         #[command(subcommand)]

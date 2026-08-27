@@ -109,7 +109,9 @@ impl Tool for Bake {
         "Render every synth_audio recipe whose sound is not already on disk, \
          into generated/. Safe to call repeatedly and free every time: a recipe \
          that has not changed is a cache hit that renders nothing, and one that \
-         has changed is redone without anyone having to mark it stale. Says how \
+         has changed is redone without anyone having to mark it stale. A bake \
+         is named for the recipe and for the synthesiser that rendered it, so \
+         an upgrade that changes how a recipe sounds is redone here too. Says how \
          each one came out: level and spectral balance for the whole file, then \
          a row per section of the arrangement, then a row per track of a song \
          saying which instrument is taking up the room. A signal, never a gate \
@@ -274,7 +276,9 @@ impl Tool for Write {
          written — a document that is not a recipe is refused and the file on \
          disk is left as it was. Writing a recipe makes its asset stale by \
          arithmetic: the bake is named for the recipe's hash, so the next \
-         synth_bake redoes it and nothing has to be marked."
+         synth_bake redoes it and nothing has to be marked. The synthesiser's \
+         own version is in that name too, so a bake never outlives the code \
+         that made it."
     }
 
     fn costs(&self) -> Costs {

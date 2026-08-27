@@ -405,6 +405,18 @@ that goes with it.
 - **`project.json` format changes are `architecture`-label work** and require
   a schema version bump. The format is the contract between the CLI, the MCP
   server and the GUI — the contract *now*, not across time.
+- **A change to what a recipe renders to requires a `SYNTH_VERSION` bump**, in
+  the same commit, for the same reason a format change requires a
+  `schema_version` bump: breaking loudly is the point. A bake in `generated/`
+  is addressed by a hash of the recipe **and** that number, so bumping it is
+  what makes every affected file miss the cache and be re-rendered — and not
+  bumping it leaves every project on disk holding audio its own recipe no
+  longer describes, silently. The number is declared rather than derived
+  because deriving it means hashing rendered output, and a digest has no
+  tolerance to spend on a platform's `sin` and `exp` differing; the constant's
+  own doc in `crates/zimmer/src/lib.rs` carries the whole argument. So: touch a
+  source, a filter, an envelope or an effect in `zimmer` and the samples move —
+  bump it. Touch only prose, a name or a document type — leave it alone.
 - **There is no backwards compatibility, and that is the policy until the user
   says otherwise.** Nothing is kept working for the sake of a `project.json`
   saved by an older build: no migration notes, no reading an older
