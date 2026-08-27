@@ -11,6 +11,6 @@ mod feel;
 mod keys;
 mod lengths;
 mod mixing;
-mod stereo;
 mod steps;
+mod stereo;
 mod transforms;

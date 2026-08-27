@@ -201,26 +201,45 @@ mod tests {
         buf
     }
 
-    /// The send is the **average** of the two channels and not their sum,
-    /// which is what makes a signal already dead centre feed the room at
-    /// exactly its own level — and therefore what makes this reverb's left
-    /// channel the tail it produced while the crate was mono.
+    /// The first reflection, by the number: the send itself, arriving at the
+    /// shortest comb's delay, on both sides, **the same way up it went in**.
     ///
-    /// That is a claim about an absolute level, so nothing relative can
-    /// defend it: doubling the send doubles every wet sample, and every other
-    /// test here would pass unchanged. So it is pinned to a measured number
-    /// instead. A full-scale centred impulse, fully wet, comes back peaking at
-    /// 0.037, which is what eight combs at [`FIXED_GAIN`] through four
-    /// allpasses do with unity; a summing send returns twice that. The band is
-    /// wide enough to survive an `f32` and far too narrow to survive a factor
-    /// of two.
+    /// This is the one assertion here that nothing relative can make. The
+    /// send being the *average* of the channels and not their sum is a claim
+    /// about an absolute level — doubling it doubles every wet sample, and
+    /// every comparison between two renders agrees with itself either way.
+    /// The **sign** is worse: a blend that subtracted instead of adding
+    /// negates the fully-wet render and the half-wet one alike, so even
+    /// "half of the way across" above cannot see it. That is the reverb's
+    /// version of #60.
+    ///
+    /// So it is checked against numbers that are exact rather than measured.
+    /// A centred impulse of `1.0` folds down to `1.0` and is scaled by
+    /// [`FIXED_GAIN`]; the combs' lines are still empty, so the shortest one
+    /// hands that straight back at [`COMB_LENGTHS`]`[0]`, and the four
+    /// allpasses each negate what they are given — four negations being none.
+    /// So exactly `+FIXED_GAIN` comes out, and on the right it comes out
+    /// [`STEREO_SPREAD`] samples later, which pins the offset too.
     #[test]
-    fn the_room_is_fed_the_mix_at_its_own_level() {
+    fn the_first_reflection_is_the_send_itself_the_same_way_up() {
         let buf = rung(44_100, 0.8, 0.5, 1.0);
-        let peak = buf.l.iter().fold(0.0f32, |m, s| m.max(s.abs()));
-        assert!(
-            (0.030..0.045).contains(&peak),
-            "a full-scale impulse came back peaking at {peak}"
+        let first = |channel: &[f32]| {
+            channel
+                .iter()
+                .enumerate()
+                .find(|(_, sample)| sample.abs() > 1e-9)
+                .map(|(at, sample)| (at, *sample))
+                .expect("the room answered")
+        };
+        assert_eq!(
+            first(&buf.l),
+            (COMB_LENGTHS[0], FIXED_GAIN),
+            "the left tail is the send, not twice it and not its negative"
+        );
+        assert_eq!(
+            first(&buf.r),
+            (COMB_LENGTHS[0] + STEREO_SPREAD, FIXED_GAIN),
+            "and the right is the same, a stereo spread later"
         );
     }
 
