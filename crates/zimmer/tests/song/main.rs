@@ -4,6 +4,7 @@
 mod common;
 
 mod chords;
+mod compress;
 mod document;
 mod effects;
 mod eq;
