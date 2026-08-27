@@ -120,12 +120,21 @@ fn a_written_operator_round_trips_and_a_bare_one_stays_bare() {
     assert_eq!(Patch::from_json(&json).expect("and parses back"), patch);
 }
 
-/// A ratio is a multiple of the played pitch, so a non-positive one describes
-/// no sound — and the error says *which* of the four, because four ratios is
-/// exactly where an unlabelled complaint sends a reader hunting.
+/// A ratio is a multiple of the played pitch, so anything that is not a
+/// positive number describes no sound — and the error says *which* of the
+/// four, because four ratios is exactly where an unlabelled complaint sends a
+/// reader hunting. Counted from **one**, unlike an additive partial's index,
+/// because an operator's number is a row of the algorithm diagram rather than
+/// a place in a list.
 #[test]
-fn a_non_positive_ratio_is_refused_by_the_operator_it_is_on() {
-    for (index, ratio) in [(1, 0.0), (2, -1.0), (3, -0.5), (4, 0.0)] {
+fn a_ratio_that_is_not_a_positive_number_is_refused_by_the_operator_it_is_on() {
+    for (index, ratio) in [
+        (1, 0.0),
+        (2, -1.0),
+        (3, f32::NAN),
+        (4, f32::INFINITY),
+        (4, 0.0),
+    ] {
         let mut operators = [op(1.0), op(2.0), op(3.0), op(4.0)];
         operators[index - 1].ratio = ratio;
         let patch = minimal(Source::Fm4 {
@@ -133,13 +142,17 @@ fn a_non_positive_ratio_is_refused_by_the_operator_it_is_on() {
             operators,
             vel_index: 0.0,
         });
-        assert_eq!(
-            patch.validate(),
-            Err(SynthError::BadOperatorRatio {
-                operator: index,
-                ratio
-            })
-        );
+        match patch.validate() {
+            // Compared field by field because `NaN != NaN`, so the whole
+            // error is not equal to itself and `assert_eq!` would pass for a
+            // check that never fired.
+            Err(SynthError::BadOperatorRatio { operator, ratio: r }) => {
+                assert_eq!(operator, index);
+                assert_eq!(r.is_nan(), ratio.is_nan());
+                assert!(r.is_nan() || r == ratio, "reported {r} for {ratio}");
+            }
+            other => panic!("operator {index} at ratio {ratio} gave {other:?}"),
+        }
     }
 }
 
@@ -160,7 +173,7 @@ fn an_algorithm_with_every_carrier_at_zero_is_refused() {
     };
     assert_eq!(
         silent(Algorithm::Chain),
-        Err(SynthError::SilentFm4 { algorithm: "chain" })
+        Err(SynthError::SilentCarriers { algorithm: "chain" })
     );
     // The same operators under a routing with a second carrier still sound,
     // which is the whole point of the check being about the algorithm.

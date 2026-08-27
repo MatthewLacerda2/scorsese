@@ -252,21 +252,41 @@ pub use song::{PatchResolver, Song, render_song};
 /// recipe written before this change name the new thing?* Not *did the code
 /// around it move*.
 ///
-/// **A fourth source is the fourth**, and it went further into the note
-/// renderer than any of the three above: the source stage takes a new argument
-/// (the gate, which the four-operator source's per-operator envelopes need),
-/// `core/fm.rs` became a directory, and a fifth arm joined the `match` every
-/// note passes through. None of that is a field of an existing variant, and a
-/// recipe written before it cannot name `fm4` — so the measure is the same one
-/// and the answer is the same. Checked rather than argued, against `e9f2bfa`:
-/// 28 probes covering all four existing sources, both FM ratio kinds, curved
-/// envelopes either way, a pitch envelope, all three LFO targets, both filter
-/// kinds with a velocity routing and a negative envelope amount, every effect
-/// that existed, a chain of four, and seven songs spanning chords, step
-/// strings, a key with degrees and a diatonic lift, swing and all three
-/// humanise axes, a stretch `fit` with fades and an exact tail, a sidechained
-/// track chain beside a song chain, and a patch named by reference. All 28
-/// came back byte-identical.
+/// **`fm4` is the second new source, and it needed a wider probe than the
+/// first**, which is the part worth writing down rather than the verdict. The
+/// verdict is the one above: a recipe written before it cannot name `fm4`, so
+/// the number does not move.
+///
+/// What made the check different is that this one **touched code an existing
+/// recipe does reach**. The source stage takes a new argument — the gate, for
+/// the per-operator envelopes — so every source's call site moved; `core/fm.rs`
+/// became a directory; and `additive`'s own Nyquist helper was folded into a
+/// shared `core::nyquist` module, which means the *previous*
+/// source was edited by this change. So the probes had two jobs, not one: show
+/// that nothing can name `fm4`, and show that `additive` still renders exactly
+/// what it rendered yesterday.
+///
+/// 34 probes against `9e73ead`, all byte-identical. Twenty-one cover the
+/// sources that predate `additive`, both FM ratio kinds, curved envelopes
+/// either way, a pitch envelope, all three LFO targets, both filter kinds with
+/// a velocity routing and a negative envelope amount, every effect, and a
+/// chain of four. Four are `additive` alone, deliberately placed to work the
+/// helper that moved: a sixteen-partial series played low enough to carry all
+/// of it, high enough to lose most of it, and at the top of the keyboard where
+/// almost nothing survives. Nine are songs — chords, step strings, a key with
+/// degrees and a diatonic lift, swing and all three humanise axes, a stretch
+/// `fit` with fades and an exact tail, a sidechained track chain beside a song
+/// chain, a patch named by reference, and two additive songs, one of them
+/// under a vibrato so the ceiling is decided by a moving pitch track rather
+/// than a flat one.
+///
+/// Editing a source is normally exactly the case that bumps this number, and
+/// the reason it does not here is worth being explicit about rather than
+/// leaving to a reader to infer: the rule is *the samples move*, and the four
+/// `additive` probes exist precisely because that claim about the helper's
+/// move is the one nobody should take on trust. This is the compressor's case
+/// again — further into shipping code than the change before it, and so
+/// measured instead of reasoned about.
 ///
 /// **Version 3 is the far end of that scale** and needs no argument at all: the
 /// crate went stereo, so every bake in every project is a different file, of a
