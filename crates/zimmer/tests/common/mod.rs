@@ -3,6 +3,7 @@
 #![allow(dead_code)]
 
 pub(crate) mod songs;
+pub(crate) mod spectrum;
 
 use scorsese_zimmer::patch::{Adsr, NoiseColor, Osc, Patch, Source, Wave};
 use scorsese_zimmer::{NoteOpts, SynthError};

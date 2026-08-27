@@ -9,4 +9,6 @@ mod compress;
 mod document;
 mod eq;
 mod fm4;
+mod noise;
+mod unison;
 mod validation;

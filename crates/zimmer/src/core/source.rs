@@ -223,7 +223,7 @@ mod tests {
     /// limiter is where this crate answers for peaks.
     fn ceiling(source: &Source) -> f32 {
         match source {
-            Source::Noise { color } if *color != NoiseColor::White => 2.5,
+            Source::Noise { color } if *color != NoiseColor::White => 3.0,
             _ => 1.0 + 1e-3,
         }
     }

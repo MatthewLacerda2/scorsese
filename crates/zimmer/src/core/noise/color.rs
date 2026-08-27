@@ -66,10 +66,14 @@
 //!
 //! What it costs is the **crest factor**. White here is a uniform draw and
 //! peaks at exactly 1.0; pink and brown are sums of many draws and so are
-//! Gaussian-ish, peaking around 2.0 at a note's length once they are on
-//! white's RMS. That is what noise of those colours is, the peak is not a
-//! defect to be clipped out of it, and the master limiter every bake passes
-//! through is where this crate has always answered for peaks.
+//! Gaussian-ish, and over a two-second note they measure 2.4 and 2.1 at the
+//! same RMS. That is what noise of those colours is, the peak is not a defect
+//! to be clipped out of it, and the master limiter every bake passes through
+//! is where this crate has always answered for peaks.
+//!
+//! Measured end to end, off a rendered note rather than off the filter: white
+//! −0.05 dB per octave, pink −3.06, brown −5.97, at 0.07 and 0.15 dB from
+//! white's level. `zimmer/tests/patch/noise.rs` is where those are asserted.
 
 use crate::patch::NoiseColor;
 
