@@ -72,16 +72,24 @@ pub(crate) fn apply(buf: &mut Stereo, rate: f32) {
 
 /// The instantaneous gain each sample-frame needs to sit under the ceiling —
 /// 1.0 wherever the signal is already quiet enough.
+///
+/// Written as a ratio clamped at unity rather than as a test and a ratio,
+/// because the test had no edge to get wrong: at a peak of exactly the ceiling
+/// the ratio is exactly `1.0`, so `>` and `>=` were the same function, and a
+/// silent frame divides to an infinity the clamp takes back to unity. A branch
+/// no input can tell apart from its alternative is complexity worth deleting
+/// rather than complexity worth explaining.
 fn required_gain(buf: &mut Stereo) -> Vec<f32> {
     frame_peaks(buf)
         .into_iter()
-        .map(|peak| if peak > CEILING { CEILING / peak } else { 1.0 })
+        .map(|peak| (CEILING / peak).min(1.0))
         .collect()
 }
 
-/// The loudest the waveform gets at each sample-frame: the two samples
-/// themselves, and the reconstruction between this frame and the next.
-/// Sanitizes `buf` first.
+/// The loudest the waveform gets over each sample-frame — the sample itself
+/// and the reconstruction up to the next one, which
+/// [`Channel::peak_from`](crate::level::intersample::Channel::peak_from)
+/// covers in one number. Sanitizes `buf` first.
 ///
 /// One number per frame, from the louder of the two channels: that is what
 /// links them. Reconstructing each channel separately and taking the maximum,
@@ -91,11 +99,7 @@ fn frame_peaks(buf: &mut Stereo) -> Vec<f32> {
     sanitise(buf);
     let (left, right) = (Channel::mono(&buf.l), Channel::mono(&buf.r));
     (0..buf.frames())
-        .map(|frame| {
-            let sampled = buf.l[frame].abs().max(buf.r[frame].abs());
-            let between = left.peak_past(frame).max(right.peak_past(frame)) as f32;
-            sampled.max(between)
-        })
+        .map(|frame| left.peak_from(frame).max(right.peak_from(frame)) as f32)
         .collect()
 }
 
@@ -287,5 +291,19 @@ mod tests {
     #[test]
     fn an_empty_buffer_is_a_no_op() {
         assert!(limited(Stereo::silence(0)).is_empty());
+    }
+
+    /// Silence is the edge the gain is a division at: nothing over nothing is
+    /// an infinity, and an infinity that reached the samples would make the
+    /// whole file a `NaN` rather than a quiet passage.
+    #[test]
+    fn silence_stays_silent_rather_than_dividing_into_nothing() {
+        let quiet = limited(Stereo::silence(512));
+        assert!(quiet.l.iter().chain(&quiet.r).all(|s| *s == 0.0));
+        assert!(
+            required_gain(&mut Stereo::silence(512))
+                .iter()
+                .all(|g| *g == 1.0)
+        );
     }
 }

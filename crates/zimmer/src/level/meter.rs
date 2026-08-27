@@ -136,7 +136,7 @@ impl Meter {
         for index in 0..self.channels {
             let channel = Channel::of(&joined, self.channels, index);
             for frame in 0..channel.frames() {
-                self.true_peak = self.true_peak.max(channel.peak_past(frame));
+                self.true_peak = self.true_peak.max(channel.peak_from(frame));
             }
         }
         // Keep enough of the end that the next run's first frames have their

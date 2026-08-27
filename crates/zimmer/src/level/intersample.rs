@@ -35,9 +35,6 @@ const OVERSAMPLE: usize = 4;
 /// boundary from being reconstructed as a pair of edges.
 pub(crate) const TAPS: usize = 4;
 
-/// How many points are computed strictly between one sample and the next.
-const STEPS: usize = OVERSAMPLE - 1;
-
 /// One channel of an interleaved run, read as the continuous signal it stands
 /// for.
 ///
@@ -53,21 +50,22 @@ pub(crate) struct Channel<'a> {
     /// The kernel, evaluated once per channel rather than once per sample.
     ///
     /// The weights depend only on which tap and which sub-sample position, so
-    /// there are `STEPS × (2·TAPS + 1)` of them for any signal of any length.
+    /// there are `OVERSAMPLE × (2·TAPS + 1)` of them for any signal of any
+    /// length.
     /// Computing them inline meant two `sin` calls per tap per step per frame —
     /// fifty-four transcendentals to place one sample — which was affordable
     /// while the meter was the only caller and is not now that the limiter
     /// reconstructs every bake as well.
-    weights: [[f64; TAPS * 2 + 1]; STEPS],
+    weights: [[f64; TAPS * 2 + 1]; OVERSAMPLE],
 }
 
 impl<'a> Channel<'a> {
     /// The `channel`th of `channels` woven together in `samples`.
     pub(crate) fn of(samples: &'a [f32], channels: usize, channel: usize) -> Self {
         let channels = channels.max(1);
-        let mut weights = [[0.0; TAPS * 2 + 1]; STEPS];
+        let mut weights = [[0.0; TAPS * 2 + 1]; OVERSAMPLE];
         for (step, row) in weights.iter_mut().enumerate() {
-            let offset = (step + 1) as f64 / OVERSAMPLE as f64;
+            let offset = step as f64 / OVERSAMPLE as f64;
             for (tap, weight) in row.iter_mut().enumerate() {
                 *weight = lanczos(tap as f64 - TAPS as f64 - offset);
             }
@@ -91,17 +89,22 @@ impl<'a> Channel<'a> {
         self.frames
     }
 
-    /// The largest excursion between `frame` and the frame after it.
+    /// The largest excursion over the stretch `frame` names: from the sample
+    /// itself up to, but not including, the next one.
     ///
-    /// The samples themselves are not included: a caller that has them in hand
-    /// already knows how loud they are, and every caller here does.
-    pub(crate) fn peak_past(&self, frame: usize) -> f64 {
-        (0..STEPS)
+    /// Half-open, so walking every frame covers the signal once with nothing
+    /// counted twice. The sample itself is the first of the [`OVERSAMPLE`]
+    /// points, and it costs nothing to include — at an offset of zero the
+    /// kernel is `1` on the centre tap and a zero-crossing on every other, so
+    /// the reconstruction *is* the sample. That is what makes this the true
+    /// peak of the stretch rather than only of the gaps in it.
+    pub(crate) fn peak_from(&self, frame: usize) -> f64 {
+        (0..OVERSAMPLE)
             .map(|step| self.between(frame, step).abs())
             .fold(0.0, f64::max)
     }
 
-    /// The value `step + 1` sub-samples of the way past `frame`.
+    /// The value `step` sub-samples of the way past `frame`, with sign.
     fn between(&self, frame: usize, step: usize) -> f64 {
         let mut sum = 0.0;
         for (tap, weight) in self.weights[step].iter().enumerate() {
@@ -142,6 +145,13 @@ fn sinc(x: f64) -> f64 {
 mod tests {
     use super::*;
 
+    /// A lone spike in silence, `at` frames from the start.
+    fn spike(len: usize, at: usize) -> Vec<f32> {
+        let mut buf = vec![0.0; len];
+        buf[at] = 1.0;
+        buf
+    }
+
     /// The case the whole module exists for, in three samples: a signal whose
     /// samples are all under full scale and whose waveform is not.
     #[test]
@@ -152,29 +162,72 @@ mod tests {
             .map(|i| if (i / 2) % 2 == 0 { a } else { -a })
             .collect();
         let channel = Channel::mono(&tone);
-        let peak = (16..48).map(|f| channel.peak_past(f)).fold(0.0, f64::max);
+        let peak = (16..48).map(|f| channel.peak_from(f)).fold(0.0, f64::max);
         assert!(peak > f64::from(a) * 1.2, "read only {peak}");
     }
 
-    /// A signal that is not moving has nothing between its samples to find —
+    /// A signal that is not moving reconstructs to itself, **sign and all** —
     /// to within a quarter of a percent, which is where the truncated kernel
     /// lands and is the error every reading here carries.
     ///
-    /// It errs *upward*, which is the direction both callers want: a meter
-    /// that over-reports full scale by two hundredths of a decibel says
-    /// "clipping" a shade early, and a limiter reading the same way ducks a
-    /// shade harder than it had to.
+    /// Asserted on the signed value rather than on the magnitude, because both
+    /// callers take an absolute value and a reconstruction that came back
+    /// negated would satisfy every one of their assertions. The error errs
+    /// *upward*, which is the direction both want: a meter that over-reports
+    /// full scale by two hundredths of a decibel says "clipping" a shade
+    /// early, and a limiter reading the same way ducks a shade harder than it
+    /// had to.
     #[test]
-    fn a_constant_reconstructs_to_itself() {
+    fn a_constant_reconstructs_to_itself_sign_and_all() {
         let flat = vec![0.5; 64];
         let channel = Channel::mono(&flat);
         for frame in 8..56 {
-            let between = channel.peak_past(frame);
-            assert!(
-                between >= 0.5,
-                "frame {frame} read under the signal: {between}"
-            );
-            assert!(between < 0.5 * 1.005, "frame {frame} read {between}");
+            for step in 0..OVERSAMPLE {
+                let read = channel.between(frame, step);
+                assert!(read >= 0.5, "frame {frame} step {step} read {read}");
+                assert!(read < 0.5 * 1.005, "frame {frame} step {step} read {read}");
+            }
+        }
+    }
+
+    /// A frame's stretch begins *at* the frame, and the kernel is built so
+    /// that costs nothing: at an offset of zero every tap but the centre one
+    /// sits on a zero of the sinc, so the reading is the sample itself.
+    ///
+    /// The first and last frames are asserted on rather than a comfortable
+    /// middle. A reconstruction filter goes wrong at its edges, and a bake's
+    /// loudest transient is very often its opening sample.
+    #[test]
+    fn the_stretch_begins_at_the_sample_itself() {
+        for at in [0, 1, 3, 30, 63] {
+            let buf = spike(64, at);
+            let channel = Channel::mono(&buf);
+            let read = channel.between(at, 0);
+            assert!((read - 1.0).abs() < 1e-9, "frame {at} read as {read}");
+            assert!(channel.peak_from(at) >= 1.0, "and so does its stretch");
+        }
+    }
+
+    /// A reading is about the stretch it names and no other, and it falls away
+    /// with distance. A reading that found a distant spike *loudly* would be a
+    /// kernel centred somewhere other than the frame it was asked about, which
+    /// is exactly what a mis-scaled sub-sample offset builds.
+    #[test]
+    fn a_reading_covers_the_stretch_it_names_and_no_other() {
+        let buf = spike(64, 32);
+        let channel = Channel::mono(&buf);
+        assert!(channel.peak_from(32) >= 1.0, "the stretch holding it");
+        assert!(
+            channel.peak_from(31) > 0.1,
+            "and its neighbour hears the near side of it"
+        );
+        // Four frames out, only the outermost tap still touches it, faintly.
+        let edge = channel.peak_from(28);
+        assert!(edge < 0.1, "the spike carried four frames at {edge}");
+        // Five and further, the kernel does not reach at all.
+        for far in [18, 22, 27, 37, 41, 45] {
+            let read = channel.peak_from(far);
+            assert!(read < 1e-9, "frame {far} reached frame 32: {read}");
         }
     }
 
@@ -191,15 +244,17 @@ mod tests {
         let right = Channel::of(&interleaved, 2, 1);
         assert_eq!(left.frames(), 32);
         assert_eq!(right.frames(), 32);
-        assert!((left.peak_past(16) - 1.0).abs() < 0.005);
-        assert!((right.peak_past(16) - 1.0).abs() < 0.005);
+        assert!(left.between(16, 0) > 0.0, "the left side is the high one");
+        assert!(right.between(16, 0) < 0.0, "and the right is not");
+        assert!((left.peak_from(16) - 1.0).abs() < 0.005);
+        assert!((right.peak_from(16) - 1.0).abs() < 0.005);
     }
 
     #[test]
     fn an_empty_run_has_no_frames_and_reads_as_silence() {
         let channel = Channel::mono(&[]);
         assert_eq!(channel.frames(), 0);
-        assert_eq!(channel.peak_past(0), 0.0);
+        assert_eq!(channel.peak_from(0), 0.0);
         assert_eq!(channel.at(-1), 0.0);
     }
 }
