@@ -662,6 +662,12 @@ jobs:
             echo "$in_scope $noun $verb in scope, across $shards $many." >> scope.txt
           fi
           cat scope.txt
+          # On the run page as well as in the log. The decision this job exists
+          # to make is the one thing a reader wants from it, and a summary that
+          # only the report job writes to would leave "why four shards?"
+          # answerable only by opening a step's output.
+          { echo "## Mutation plan"; echo; sed 's/$/  /' scope.txt; } \
+            >> "$GITHUB_STEP_SUMMARY"
 
       # Handed to the shards rather than recomputed by each of them. Two
       # reasons and the second is the one that matters: it saves every shard a
