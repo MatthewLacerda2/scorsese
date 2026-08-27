@@ -47,6 +47,16 @@
 //! actually needs, and the form in which two of the three defects above were
 //! ever visible.
 //!
+//! ## The one piece of this that is not a report
+//!
+//! The `intersample` module reconstructs the waveform *between* two samples,
+//! and it is the only thing here read from outside: the master limiter holds a
+//! bake under a ceiling measured exactly the way [`Loudness::true_peak_dbfs`]
+//! reports it. That sharing is deliberate. A guarantee and a measurement that
+//! disagree about where a waveform goes between its samples is how a bake came
+//! to be limited and reported as clipping at the same time, and neither file
+//! could have caught it alone.
+//!
 //! ## What this is deliberately not
 //!
 //! **Not a critic, and not a substitute for ears.** Measurement finds
@@ -67,6 +77,7 @@
 
 pub(crate) mod bands;
 pub(crate) mod diff;
+pub(crate) mod intersample;
 pub(crate) mod layer;
 pub(crate) mod meter;
 pub(crate) mod profile;
