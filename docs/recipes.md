@@ -301,6 +301,103 @@ Write repetition as repetition. A melody with any structure is a few short
 patterns and a list naming them; the same music as one flat note list is
 hundreds of lines, and every edit becomes a merge conflict with itself.
 
+### Writing a chord as a chord
+
+An entry in `notes` is **one note or one chord**, told apart by which field it
+carries — `note` or `chord`. Here are two bars of `Dm7 – Gm7 – A7` written both
+ways. First, one pitch at a time:
+
+```json fields
+"tracks": [{ "name": "keys", "patch": {
+  "source": { "kind": "karplus", "damping": 0.99, "brightness": 0.4 },
+  "amp": { "a": 0.002, "d": 0.6, "s": 0.0, "r": 0.3 } } }],
+"patterns": { "a": { "beats": 8, "notes": [
+  { "track": "keys", "note": "D3",  "start": 0, "dur": 2, "vel": 0.8 },
+  { "track": "keys", "note": "F3",  "start": 0, "dur": 2, "vel": 0.8 },
+  { "track": "keys", "note": "A3",  "start": 0, "dur": 2, "vel": 0.8 },
+  { "track": "keys", "note": "C4",  "start": 0, "dur": 2, "vel": 0.8 },
+  { "track": "keys", "note": "G3",  "start": 2, "dur": 2, "vel": 0.8 },
+  { "track": "keys", "note": "Bb3", "start": 2, "dur": 2, "vel": 0.8 },
+  { "track": "keys", "note": "D4",  "start": 2, "dur": 2, "vel": 0.8 },
+  { "track": "keys", "note": "F4",  "start": 2, "dur": 2, "vel": 0.8 },
+  { "track": "keys", "note": "A3",  "start": 4, "dur": 4, "vel": 0.7 },
+  { "track": "keys", "note": "C#4", "start": 4, "dur": 4, "vel": 0.7 },
+  { "track": "keys", "note": "E4",  "start": 4, "dur": 4, "vel": 0.7 },
+  { "track": "keys", "note": "G4",  "start": 4, "dur": 4, "vel": 0.7 }
+] } },
+"arrangement": ["a"]
+```
+
+And the same two bars as three chords, which render to exactly those twelve
+notes:
+
+```json fields
+"tracks": [{ "name": "keys", "patch": {
+  "source": { "kind": "karplus", "damping": 0.99, "brightness": 0.4 },
+  "amp": { "a": 0.002, "d": 0.6, "s": 0.0, "r": 0.3 } } }],
+"patterns": { "a": { "beats": 8, "notes": [
+  { "track": "keys", "chord": "Dm7", "oct": 3, "start": 0, "dur": 2, "vel": 0.8 },
+  { "track": "keys", "chord": "Gm7", "oct": 3, "start": 2, "dur": 2, "vel": 0.8 },
+  { "track": "keys", "chord": "A7",  "oct": 3, "start": 4, "dur": 4, "vel": 0.7 }
+] } },
+"arrangement": ["a"]
+```
+
+Twelve objects to three is the small half of the argument. The larger half is
+that the first version says nothing about those four notes being one thing:
+transposing the chord is four coordinated edits, changing its quality is four
+more, and any one of them can disagree with the others — leaving a chord that
+is not wrong enough to be refused and not right enough to be what was meant.
+Nothing catches that; only ears find it.
+
+**How a chord is voiced.** `oct` places the **root** in scientific pitch
+notation, and the rest of the chord is stacked upward from it in close
+position, nothing dropped and nothing spread: `Dm7` at octave 3 is `D3 F3 A3
+C4`. Absent, `oct` is 3, which puts a seventh chord across middle C. The
+boring voicing is the deliberate one — it is what the name literally says, a
+reader can work it out in their head, and it re-qualifies and transposes
+without moving notes nobody asked about. Anything cleverer is taste, and taste
+belongs to the document.
+
+**The names, and only these names.** A name is looked up in this table or the
+song is refused; nothing is guessed at. The root is a letter `A`–`G`, **upper
+case**, optionally followed by `#` or `b`. A `/bass` suffix puts that pitch
+class in the octave below the root, which is how an inversion is written.
+
+| family | qualities |
+| --- | --- |
+| triads | *(none)*, `maj`, `m`, `min`, `dim`, `aug`, `sus2`, `sus4`, `5` |
+| sixths | `6`, `m6` |
+| sevenths | `7`, `maj7`, `m7`, `min7`, `mmaj7`, `m7b5`, `dim7`, `aug7`, `7sus4` |
+| altered sevenths | `7b5`, `7b9`, `7#9` |
+| ninths | `9`, `maj9`, `m9`, `add9`, `madd9` |
+
+So `Dm7`, `F#maj9`, `Bb7`, `Absus4`, `C/G` and `Gm7/D` are all chords, and
+`CM7`, `dm7`, `C11` and `Cmaj13` are all refusals. `M` is absent because it is
+one shift key from `m` and means the opposite. Elevenths and thirteenths are
+absent because they are named for a tone they add and played by dropping
+others, and which ones to drop is a judgement — which is exactly what a closed
+table must not make on your behalf.
+
+**When no name fits**, write the pitches instead. `chord` takes either a name
+or a list, and a list keeps what the name form was for: one `start`, one `dur`
+and one `vel` across voices that stay one idea in the document.
+
+```json fields
+"patterns": { "a": { "beats": 4, "notes": [
+  { "track": "t", "chord": ["D2", "A3", "D4", "F4", "C5"], "start": 0, "dur": 4 }
+] } },
+"arrangement": ["a"]
+```
+
+A spelled chord already carries an octave per voice, so `oct` beside one is
+refused rather than ignored.
+
+**Each voice is a note from there on.** Expansion happens before the
+performance, so a chord picks up [swing and humanise](#playing-it-rather-than-clocking-it)
+one voice at a time and does not land as a perfectly simultaneous block — which
+is a real part of sounding played, and free.
+
 ### Repeating a pattern differently
 
 An arrangement entry is a pattern's **name**, or that name with **transforms**.
@@ -723,6 +820,12 @@ a note on a track that does not exist, a `tracks` filter naming one that does
 not either, a `vel_scale` below zero, a `swing` outside `0..1` (at 1 the
 off-beat lands on the next beat, which reorders the music), and a negative
 `humanize` amount.
+
+Chords are the one place something is refused for a second reason: a name off
+the [quality table](#writing-a-chord-as-a-chord), a chord voiced past either
+end of the keyboard, an empty list of pitches, and `oct` written beside a
+chord that spelled its pitches out. None of those would be silence — they
+would be *a different chord*, which nothing downstream can notice.
 
 Musical taste is not checked. An ugly patch renders.
 

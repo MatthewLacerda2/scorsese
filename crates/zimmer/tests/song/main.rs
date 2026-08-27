@@ -3,6 +3,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod chords;
 mod document;
 mod effects;
 mod feel;

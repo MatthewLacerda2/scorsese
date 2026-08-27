@@ -115,46 +115,55 @@ impl Chord {
     /// allocation and the ordinals the renderer hands out stay in document
     /// order. Nothing is appended when the chord is refused.
     pub(crate) fn voice_into(&self, out: &mut Vec<Note>) -> Result<(), SynthError> {
-        match &self.chord {
-            Voicing::Name(name) => {
-                let spelled = name::spell(name)?;
-                let root = (self.oct.unwrap_or(DEFAULT_OCT) + 1) * 12 + spelled.root;
-                let range = MIDI_RANGE.0 as i32..=MIDI_RANGE.1 as i32;
-                for offset in &spelled.offsets {
-                    let midi = root + offset;
-                    if !range.contains(&midi) {
-                        return Err(SynthError::ChordOutOfRange {
-                            chord: name.clone(),
-                            oct: self.oct.unwrap_or(DEFAULT_OCT),
-                            midi,
-                        });
-                    }
-                    out.push(self.voice(Pitch::Midi(midi as f32)));
-                }
-            }
-            Voicing::Pitches(pitches) => {
-                if let Some(oct) = self.oct {
-                    return Err(SynthError::SpelledChordOctave {
-                        track: self.track.clone(),
-                        start: self.start,
-                        oct,
-                    });
-                }
-                if pitches.is_empty() {
-                    return Err(SynthError::EmptyChord {
-                        track: self.track.clone(),
-                        start: self.start,
-                    });
-                }
-                for pitch in pitches {
-                    // Checked here so a nonsense name is reported against the
-                    // chord that holds it rather than at the sample loop.
-                    pitch.to_midi()?;
-                    out.push(self.voice(pitch.clone()));
-                }
-            }
-        }
+        let voices = match &self.chord {
+            Voicing::Name(name) => self.named(name)?,
+            Voicing::Pitches(pitches) => self.spelled(pitches)?,
+        };
+        out.extend(voices);
         Ok(())
+    }
+
+    /// The voices of a named chord: close position from its root at `oct`.
+    fn named(&self, name: &str) -> Result<Vec<Note>, SynthError> {
+        let oct = self.oct.unwrap_or(DEFAULT_OCT);
+        let spelled = name::spell(name)?;
+        let root = (oct + 1) * 12 + spelled.root;
+        let range = MIDI_RANGE.0 as i32..=MIDI_RANGE.1 as i32;
+        spelled
+            .offsets
+            .iter()
+            .map(|offset| {
+                let midi = root + offset;
+                if range.contains(&midi) {
+                    Ok(self.voice(Pitch::Midi(midi as f32)))
+                } else {
+                    Err(SynthError::ChordOutOfRange {
+                        chord: name.to_owned(),
+                        oct,
+                        midi,
+                    })
+                }
+            })
+            .collect()
+    }
+
+    /// The voices of a chord written as pitches, which are the pitches.
+    fn spelled(&self, pitches: &[Pitch]) -> Result<Vec<Note>, SynthError> {
+        let where_it_is = || (self.track.clone(), self.start);
+        if let Some(oct) = self.oct {
+            let (track, start) = where_it_is();
+            return Err(SynthError::SpelledChordOctave { track, start, oct });
+        }
+        if pitches.is_empty() {
+            let (track, start) = where_it_is();
+            return Err(SynthError::EmptyChord { track, start });
+        }
+        pitches
+            .iter()
+            // Resolved here so a pitch that does not parse is reported against
+            // the chord holding it rather than at the sample loop.
+            .map(|pitch| pitch.to_midi().map(|_| self.voice(pitch.clone())))
+            .collect()
     }
 
     /// One voice of this chord: the chord's timing and force, one pitch.
@@ -166,5 +175,113 @@ impl Chord {
             dur: self.dur,
             vel: self.vel,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A chord to voice, at the octave the document gave it.
+    fn chord(name: &str, oct: Option<i32>) -> Chord {
+        Chord {
+            track: "keys".to_owned(),
+            chord: Voicing::Name(name.to_owned()),
+            oct,
+            start: 0.0,
+            dur: 1.0,
+            vel: 0.8,
+        }
+    }
+
+    /// The MIDI numbers a chord comes out as.
+    fn voiced(chord: &Chord) -> Result<Vec<f32>, SynthError> {
+        let mut out = Vec::new();
+        chord.voice_into(&mut out)?;
+        out.iter().map(|note| note.note.to_midi()).collect()
+    }
+
+    /// The voicing rule, stated as numbers: close position, root upward.
+    #[test]
+    fn a_name_voices_close_position_from_its_root() {
+        // D3 F3 A3 C4 — the chord the module doc promises.
+        assert_eq!(
+            voiced(&chord("Dm7", Some(3))).expect("Dm7 voices"),
+            vec![50.0, 53.0, 57.0, 60.0]
+        );
+        // C4 E4 G4, and the same triad over a slash bass under it.
+        assert_eq!(
+            voiced(&chord("C", Some(4))).expect("C voices"),
+            vec![60.0, 64.0, 67.0]
+        );
+        assert_eq!(
+            voiced(&chord("C/G", Some(4))).expect("C/G voices"),
+            vec![55.0, 60.0, 64.0, 67.0]
+        );
+    }
+
+    /// An absent octave is a documented default rather than a guess, and it is
+    /// the one the field's own doc names.
+    #[test]
+    fn an_absent_octave_roots_the_chord_at_three() {
+        assert_eq!(
+            voiced(&chord("Dm7", None)).expect("voices"),
+            voiced(&chord("Dm7", Some(DEFAULT_OCT))).expect("voices")
+        );
+        assert_eq!(DEFAULT_OCT, 3, "the doc on `oct` says three");
+    }
+
+    /// Every voice keeps the chord's timing and force — that shared line is
+    /// the whole point of writing it as one entry.
+    #[test]
+    fn every_voice_carries_the_chord_it_came_from() {
+        let mut out = Vec::new();
+        chord("Dm7", Some(3)).voice_into(&mut out).expect("voices");
+        assert_eq!(out.len(), 4, "a seventh chord is four voices");
+        assert!(
+            out.iter().all(|note| note.track == "keys"
+                && note.start == 0.0
+                && note.dur == 1.0
+                && note.vel == 0.8),
+            "a voice disagreed with the chord that wrote it"
+        );
+    }
+
+    /// Refused rather than clamped: the octave is in the same entry, so this
+    /// is a document that can be corrected rather than a pattern meeting a
+    /// transform written somewhere else.
+    #[test]
+    fn a_chord_voiced_off_the_keyboard_is_refused() {
+        assert!(matches!(
+            voiced(&chord("Cmaj9", Some(9))),
+            Err(SynthError::ChordOutOfRange { midi, .. }) if midi > 127
+        ));
+        assert!(matches!(
+            voiced(&chord("C/G", Some(-1))),
+            Err(SynthError::ChordOutOfRange { midi, .. }) if midi < 0
+        ));
+    }
+
+    /// The escape hatch, and the two ways of writing it that say nothing.
+    #[test]
+    fn spelled_pitches_are_the_chord_and_take_no_octave() {
+        let spelled = |oct, pitches: Vec<Pitch>| Chord {
+            chord: Voicing::Pitches(pitches),
+            oct,
+            ..chord("unused", None)
+        };
+        let both_spellings = vec![Pitch::Name("D3".to_owned()), Pitch::Midi(65.0)];
+        assert_eq!(
+            voiced(&spelled(None, both_spellings)).expect("voices"),
+            vec![50.0, 65.0]
+        );
+        assert!(matches!(
+            voiced(&spelled(Some(3), vec![Pitch::Midi(60.0)])),
+            Err(SynthError::SpelledChordOctave { .. })
+        ));
+        assert!(matches!(
+            voiced(&spelled(None, vec![])),
+            Err(SynthError::EmptyChord { .. })
+        ));
     }
 }
