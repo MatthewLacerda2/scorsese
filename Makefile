@@ -135,6 +135,22 @@ MUTANTS_TMPDIR := $(or $(XDG_CACHE_HOME),$(HOME)/.cache)/scorsese/mutants
 # that is wiped at boot and would be a slow leak in a cache directory that is
 # not. A run cleans up after itself instead.
 
+# How many mutants are built and tested at once. Left unset, cargo-mutants
+# takes the CPU count — 8 here — and each of those jobs is a full rustc build
+# in a copy of the worktree, so the default sizes the run by the resource this
+# machine has spare and ignores the one it does not. That is what OOM-killed
+# the agent session twice in one day (#398), and it does not announce itself:
+# Claude Code runs with `oom_score_adj: 200`, so the kernel reaps the session
+# and leaves the compiler that ate the memory running.
+#
+# The number and the argument for it are in `.cargo/mutants.toml`, under "How
+# wide a run fans out" — one place, because CI passes the same flag and
+# cargo-mutants 27.1.0 has no config key to read it from. What belongs here
+# instead is the override: a machine carrying more than usual asks for less
+# with `make mutants MUTANTS_JOBS=1`, which beats editing a shared file for
+# one afternoon's load.
+MUTANTS_JOBS ?= 2
+
 # What the run found, in one sentence, counted from the lists cargo-mutants
 # writes beside its report rather than parsed back out of `outcomes.json`:
 # those files are one mutant per line, so `wc -l` cannot half-understand a
@@ -475,7 +491,8 @@ mutants: ## Which changes to the code no test would notice. A signal: blocks not
 		mkdir -p $(MUTANTS_TMPDIR); \
 		scratch=$$(mktemp -d $(MUTANTS_TMPDIR)/run-XXXXXX); \
 		trap 'rm -rf "$$scratch"' EXIT INT TERM; \
-		TMPDIR=$$scratch cargo mutants --in-diff target/pr.diff; status=$$?; \
+		TMPDIR=$$scratch cargo mutants --in-diff target/pr.diff \
+			--jobs $(MUTANTS_JOBS); status=$$?; \
 		case $$status in \
 			0|2|3) ;; \
 			4) exit $$status ;; \
