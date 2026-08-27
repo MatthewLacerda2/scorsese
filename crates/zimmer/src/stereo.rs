@@ -218,12 +218,16 @@ mod tests {
         let (l, r) = pan_gains(1.0);
         assert_eq!(l, 0.0);
         assert!((r - SQRT_2).abs() < 1e-6, "right is {r}");
+        // Three and minus three rather than some larger absurdity: the law is
+        // a quarter circle, so a big enough number comes back around onto a
+        // legal-looking pair by accident. These two land on the far side of
+        // it, where an unclamped law returns silence.
         assert_eq!(
-            pan_gains(-9.0),
+            pan_gains(-3.0),
             pan_gains(-1.0),
             "past hard over is hard over"
         );
-        assert_eq!(pan_gains(9.0), pan_gains(1.0));
+        assert_eq!(pan_gains(3.0), pan_gains(1.0));
     }
 
     /// The property the law is named for, and the one a linear law does not

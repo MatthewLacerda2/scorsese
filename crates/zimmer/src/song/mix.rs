@@ -172,21 +172,21 @@ impl<'a> Mix<'a> {
     }
 }
 
-/// The gain each side of a track's part is added at: its fader and its
-/// position, multiplied into one number per channel.
-///
-/// One multiply rather than two passes, and the reason [`UNITY`] exists as a
-/// value rather than a special case — everything that adds into a buffer here
-/// adds at *some* placement, and a bus's happens to be the identity.
-fn placement(gain: f32, pan: f32) -> (f32, f32) {
-    let (l, r) = stereo::pan_gains(pan);
-    (gain * l, gain * r)
-}
-
 /// A placement that changes nothing: unity on both sides. What a track's own
 /// bus is summed at, because its fader and its pan are applied later, on the
 /// way to the master.
 const UNITY: (f32, f32) = (1.0, 1.0);
+
+/// The gain each side of a track's part is added at: its fader and its
+/// position, multiplied into one number per channel.
+///
+/// One multiply rather than two passes, and the reason [`UNITY`] is a value
+/// rather than a special case — everything that adds into a buffer here adds
+/// at *some* placement, and a bus's happens to be the identity.
+fn placement(gain: f32, pan: f32) -> (f32, f32) {
+    let (l, r) = stereo::pan_gains(pan);
+    (gain * l, gain * r)
+}
 
 /// One row per track, each measured over the length of the finished mix.
 ///
@@ -197,6 +197,7 @@ const UNITY: (f32, f32) = (1.0, 1.0);
 ///
 /// A track that never played still gets a row, saying it is silent. A missing
 /// row reads as an oversight, and "the arp is not in this mix" is a finding.
+///
 /// A row is measured on **both channels**, interleaved, exactly as the mix
 /// above it is. That is what keeps a hard-panned part from reading quiet: its
 /// energy is all on one side, and a measurement of one side, or of a fold-down,

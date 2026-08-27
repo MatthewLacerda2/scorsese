@@ -201,6 +201,29 @@ mod tests {
         buf
     }
 
+    /// The send is the **average** of the two channels and not their sum,
+    /// which is what makes a signal already dead centre feed the room at
+    /// exactly its own level — and therefore what makes this reverb's left
+    /// channel the tail it produced while the crate was mono.
+    ///
+    /// That is a claim about an absolute level, so nothing relative can
+    /// defend it: doubling the send doubles every wet sample, and every other
+    /// test here would pass unchanged. So it is pinned to a measured number
+    /// instead. A full-scale centred impulse, fully wet, comes back peaking at
+    /// 0.037, which is what eight combs at [`FIXED_GAIN`] through four
+    /// allpasses do with unity; a summing send returns twice that. The band is
+    /// wide enough to survive an `f32` and far too narrow to survive a factor
+    /// of two.
+    #[test]
+    fn the_room_is_fed_the_mix_at_its_own_level() {
+        let buf = rung(44_100, 0.8, 0.5, 1.0);
+        let peak = buf.l.iter().fold(0.0f32, |m, s| m.max(s.abs()));
+        assert!(
+            (0.030..0.045).contains(&peak),
+            "a full-scale impulse came back peaking at {peak}"
+        );
+    }
+
     #[test]
     fn an_impulse_becomes_a_decaying_tail() {
         let buf = rung(88_200, 0.8, 0.5, 1.0);

@@ -38,8 +38,9 @@
 //! **The crate root is the way in.** [`bake_note`], [`bake_named_note`] and
 //! [`bake_song`] each take a document and hand back a [`Bake`] — a finished
 //! file and how it came out. [`render_note`] and [`render_song`] are the same
-//! two jobs stopping one step earlier, at the samples, for a caller that wants
-//! to do something with them other than write them down. Around those sit the
+//! two jobs stopping one step earlier, at the samples — interleaved stereo, as
+//! a file holds them — for a caller that wants to do something with them other
+//! than write them down. Around those sit the
 //! documents they take ([`Patch`], [`Song`], [`NoteOpts`]), the
 //! [`PatchResolver`] a song's references resolve through, [`SynthError`],
 //! [`SAMPLE_RATE`], [`SYNTH_VERSION`], and [`parse_note`] and [`midi_to_freq`]
@@ -112,8 +113,10 @@
 //! pad spread against a centred bass, hats sitting slightly off-axis. Without
 //! any of it, five instruments are five things stacked at one point rather
 //! than a mix. This crate was mono until [`SYNTH_VERSION`] 3, on a simplicity
-//! argument that was true and did not weigh that bill; the width is worth what
-//! it costs, and what it costs is the paragraph below.
+//! argument that was true and did not weigh that bill. What the width costs is
+//! a second pass of arithmetic over a channel that, for every source but one,
+//! is identical to the first — which is a price an offline renderer can pay,
+//! and `core`'s own doc is where it is charged.
 //!
 //! **The samples are two `Vec<f32>`, not one `Vec<[f32; 2]>`.** The
 //! alternative — interleaved frames — was the other real candidate, and it

@@ -83,9 +83,9 @@ pub(crate) const RATE: f32 = SAMPLE_RATE as f32;
 /// `duration` should fail loudly rather than allocate for an hour of audio.
 const MAX_SECONDS: f32 = 60.0;
 
-/// Renders one note of `patch` at MIDI pitch `midi` under `opts`, returning the
-/// raw `f32` buffer — **pre-limiter**, so a caller summing several notes can
-/// limit the sum instead of each part of it.
+/// Renders one note of `patch` at MIDI pitch `midi` under `opts`, returning
+/// the raw stereo pair — **pre-limiter**, so a caller summing several notes
+/// can limit the sum instead of each part of it.
 ///
 /// Velocity is clamped once, here, and then handed to every stage that reads
 /// it. Three stages now do — the FM source, the filter and the amp envelope —

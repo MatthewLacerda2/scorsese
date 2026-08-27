@@ -158,5 +158,5 @@ fn a_centred_track_writes_no_pan_and_a_placed_one_does() {
 /// position past the edge for a bigger number to mean.
 #[test]
 fn a_pan_past_the_edge_is_the_edge() {
-    assert_eq!(sides(&duet(-9.0, 0.0)), sides(&duet(-1.0, 0.0)));
+    assert_eq!(sides(&duet(-3.0, 0.0)), sides(&duet(-1.0, 0.0)));
 }
