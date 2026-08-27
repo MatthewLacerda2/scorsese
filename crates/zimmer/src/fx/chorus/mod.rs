@@ -116,9 +116,7 @@ pub(crate) fn apply(
     };
     let mut ensemble = ensemble(voices.clamp(MIN_VOICES, MAX_VOICES), lfo_rate, rate);
 
-    // Two longer than the deepest read, so the interpolator's second tap can
-    // never reach the sample being written this iteration.
-    let len = (tail_seconds(depth) * rate).ceil() as usize + 2;
+    let len = line_len(depth, rate);
     let mut line = vec![0.0f32; len];
     let centre = BASE_SECONDS * rate;
     let sweep = depth * SWEEP_SECONDS * rate;
@@ -131,11 +129,34 @@ pub(crate) fn apply(
             let tap = read(&line, i, centre + sweep * voice.phase.sin());
             wet_l += tap * voice.gains.0;
             wet_r += tap * voice.gains.1;
-            voice.phase = (voice.phase + voice.step) % TAU;
+            voice.phase = advance(voice.phase, voice.step);
         }
         buf.l[i] = dry_l * (1.0 - mix) + wet_l * mix;
         buf.r[i] = dry_r * (1.0 - mix) + wet_r * mix;
     }
+}
+
+/// How many samples of delay line the deepest read needs behind it.
+///
+/// Two longer than that read, so the interpolator's second tap can never reach
+/// the sample being written this iteration. It is a **lower bound and not a
+/// size**: any longer line holds the same samples at the same distances behind
+/// the write position, so nothing downstream can tell one from a longer one —
+/// which is why `.cargo/mutants.toml` excludes the two mutations here that only
+/// make it bigger, and why the one that makes it smaller is caught.
+fn line_len(depth: f32, rate: f32) -> usize {
+    (tail_seconds(depth) * rate).ceil() as usize + 2
+}
+
+/// One sample's worth of sweep, wrapped so the phase cannot grow without bound
+/// and lose its precision over a long buffer.
+///
+/// Its own function so that the *direction* it advances in can be excluded by
+/// name in `.cargo/mutants.toml`: a voice's starting phase is an arbitrary draw
+/// from the hash, so sweeping backwards from it is sweeping forwards from a
+/// different draw, and there is no behaviour between the two to assert.
+fn advance(phase: f32, step: f32) -> f32 {
+    (phase + step) % TAU
 }
 
 /// How long the ensemble rings on after the signal stops, in seconds: the
@@ -249,15 +270,20 @@ mod tests {
             "the fixture rests on a half"
         );
         let near = at.floor() as usize;
-        assert!((buf.l[near] - 0.5).abs() < 1e-4, "near tap {}", buf.l[near]);
-        assert!(
-            (buf.l[near + 1] - 0.5).abs() < 1e-4,
-            "far tap {}",
-            buf.l[near + 1]
-        );
-        assert_eq!(buf.l[near - 1], 0.0, "and silence either side of the pair");
-        assert_eq!(buf.l[near + 2], 0.0);
-        assert_eq!(buf.l[0], 0.0, "fully wet keeps no dry signal");
+        // Both sides, and that is not belt and braces: the two channels are
+        // summed and blended by separate lines of arithmetic, so a claim made
+        // only about the left one leaves the right one unasserted.
+        for side in [&buf.l, &buf.r] {
+            assert!((side[near] - 0.5).abs() < 1e-4, "near tap {}", side[near]);
+            assert!(
+                (side[near + 1] - 0.5).abs() < 1e-4,
+                "far tap {}",
+                side[near + 1]
+            );
+            assert_eq!(side[near - 1], 0.0, "and silence either side of the pair");
+            assert_eq!(side[near + 2], 0.0);
+            assert_eq!(side[0], 0.0, "fully wet keeps no dry signal");
+        }
     }
 
     /// What `depth` buys, held still where it can be read off: a rate of zero
@@ -313,7 +339,7 @@ mod tests {
         // found below belongs to one sweep rather than to a sum of them.
         let period = (TAU / ensemble(2, hz, RATE)[0].step).round() as usize;
         let mut buf = Stereo::silence(period + 4096);
-        for probe in [0, period / 2, period] {
+        for probe in [0, period / 4, period / 2, period] {
             buf.l[probe] = 1.0;
             buf.r[probe] = 1.0;
         }
@@ -332,6 +358,14 @@ mod tests {
         assert!(
             start.abs_diff(middle) > 100,
             "and half a cycle on, somewhere else: {start} then {middle}"
+        );
+
+        // A quarter cycle on is somewhere else again, so the sweep is
+        // visiting its delays rather than jumping between two of them.
+        let quarter = loudest(period / 4);
+        assert!(
+            quarter.abs_diff(start) > 50 && quarter.abs_diff(middle) > 50,
+            "a quarter cycle is its own place: {start}, {quarter}, {middle}"
         );
     }
 

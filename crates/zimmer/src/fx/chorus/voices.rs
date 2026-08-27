@@ -183,6 +183,17 @@ mod tests {
         }
         assert!(voices.iter().any(|v| v.step < nominal), "some run slower");
         assert!(voices.iter().any(|v| v.step > nominal), "and some faster");
+        // Each step is the written rate carrying *that* voice's scale. A
+        // spread read only in aggregate cannot pin this: dividing by the scale
+        // instead of multiplying by it gives a spread of much the same width,
+        // made of the wrong voices.
+        for (cell, voice) in voices.iter().enumerate() {
+            let scaled = nominal * rate_scale(cell as i64);
+            assert!(
+                (voice.step - scaled).abs() < 1e-9,
+                "voice {cell} of {count}"
+            );
+        }
     }
 
     /// The placement: the outermost pair is hard over on either side — which
