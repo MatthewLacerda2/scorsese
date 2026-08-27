@@ -10,4 +10,5 @@ mod eq;
 mod feel;
 mod lengths;
 mod mixing;
+mod steps;
 mod transforms;

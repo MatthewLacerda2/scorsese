@@ -254,6 +254,79 @@ pub enum SynthError {
         start: f32,
     },
 
+    /// A character in a step string that is not a step. Refused rather than
+    /// skipped: every character is one step and the count is what proves the
+    /// string covers its pattern, so a character that is quietly not a step
+    /// takes the grid with it.
+    #[error(
+        "song: track `{track}`: `{character}` at step {step} is not a step — \
+         use `x` (a hit), `X` (an accent) or `-` (a rest), and nothing else"
+    )]
+    BadStep {
+        /// The track the step string is on.
+        track: String,
+        /// The character as written.
+        character: char,
+        /// Which step of the string it is, counting from zero.
+        step: usize,
+    },
+
+    /// A step string whose length is not the length its grid needs. This is
+    /// the error the notation exists to make loud: fifteen sixteenths read as
+    /// a bar on the page, and silent truncation would leave the ear to find it.
+    #[error(
+        "song: track `{track}`: {written} steps of {div} beats from beat {start} \
+         do not fill the pattern's {beats} — {needed} would"
+    )]
+    StepsDoNotFit {
+        /// The track the step string is on.
+        track: String,
+        /// Where in the pattern the string starts, in beats.
+        start: f32,
+        /// The step length as written.
+        div: f32,
+        /// The slot the pattern occupies, in beats.
+        beats: f32,
+        /// How many steps the string has.
+        written: usize,
+        /// How many it would need to reach the end of the slot.
+        needed: usize,
+    },
+
+    /// A step length that no whole number of steps fits into the pattern with
+    /// — including one that is zero, negative or not a number. Its own error
+    /// rather than a length mismatch because the fix is different: `div` is
+    /// what has to change, not the string.
+    #[error(
+        "song: track `{track}`: no whole number of {div}-beat steps fills the \
+         {beats} beats from beat {start}"
+    )]
+    BadStepDiv {
+        /// The track the step string is on.
+        track: String,
+        /// Where in the pattern the string starts, in beats.
+        start: f32,
+        /// The step length as written.
+        div: f32,
+        /// The slot the pattern occupies, in beats.
+        beats: f32,
+    },
+
+    /// A step string drawing a distinction its velocity leaves no room for.
+    /// An `X` plays at full velocity, so beside a `vel` of 1 it is the same
+    /// hit as an `x` — and the page would show accents the audio does not
+    /// have, which is the one thing worse than no accents at all.
+    #[error(
+        "song: track `{track}`: `X` and `x` are the same hit at `vel` {vel} — \
+         write a `vel` below 1 for the plain hits to be softer than the accents"
+    )]
+    AccentWithoutHeadroom {
+        /// The track the step string is on.
+        track: String,
+        /// The velocity as written.
+        vel: f32,
+    },
+
     /// A swing outside the range where it still means "the off-beat sits
     /// late". At 1 the off-beat eighth lands on the following beat — the two
     /// have swapped places rather than been felt — and below 0 the off-beats

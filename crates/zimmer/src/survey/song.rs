@@ -114,11 +114,12 @@ fn played(song: &Song) -> Played {
         };
         let mut voiced = Vec::new();
         for written in &pattern.notes {
-            // Entry by entry, so a chord this survey cannot spell costs the
-            // survey that chord and not the pattern around it: a report reads
-            // documents the renderer would refuse, and reporting on the rest of
-            // one is more use than reporting on none of it.
-            let _ = written.voice_into(&mut voiced);
+            // Entry by entry, so an entry this survey cannot expand — a chord
+            // off the table, a step string that does not fill its slot — costs
+            // the survey that entry and not the pattern around it: a report
+            // reads documents the renderer would refuse, and reporting on the
+            // rest of one is more use than reporting on none of it.
+            let _ = written.voice_into(pattern.beats, &mut voiced);
         }
         for note in &voiced {
             if !entry.plays(&note.track) {

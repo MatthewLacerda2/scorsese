@@ -22,7 +22,8 @@
 //!   "patterns": {
 //!     "verse": { "beats": 8, "notes": [
 //!       { "track": "bass", "note": "E2", "start": 0.0, "dur": 0.5, "vel": 1.0 },
-//!       { "track": "keys", "chord": "Em7", "oct": 3, "start": 0.0, "dur": 2.0 }] }
+//!       { "track": "keys", "chord": "Em7", "oct": 3, "start": 0.0, "dur": 2.0 },
+//!       { "track": "hat", "steps": "x-x-x-x-x-x-x-xX", "div": 0.5, "vel": 0.4 }] }
 //!   },
 //!   "arrangement": ["verse", { "pattern": "verse", "transpose": 12 }]
 //! }
@@ -32,9 +33,10 @@
 //! repeat that can vary is the difference between music that develops and music
 //! that only repeats.
 //!
-//! An entry in a pattern is one note or one [`Chord`] — the same idea one level
-//! down, and for the same reason: four notes that are one chord should be one
-//! thing in the document, or nothing records that they are.
+//! An entry in a pattern is one note, one [`Chord`], or one run of [`Steps`] —
+//! the same idea one level down, and for the same reason: four notes that are
+//! one chord, or sixteen that are one hi-hat part, should be one thing in the
+//! document, or nothing records that they are.
 //!
 //! Rendering lives in [`render_song`]; this file is the document alone — plain
 //! serde data that round-trips losslessly, the same "document as truth" rule
@@ -47,6 +49,7 @@ mod mix;
 pub(crate) mod render;
 pub(crate) mod sections;
 pub(crate) mod shape;
+pub(crate) mod steps;
 pub(crate) mod timing;
 mod validate;
 
@@ -61,6 +64,7 @@ pub use arrangement::{ArrangementEntry, Play};
 pub use chord::{Chord, Voicing};
 pub use feel::Humanize;
 pub use render::{InlineOnly, PatchResolver, render_song};
+pub use steps::Steps;
 pub use timing::{Fade, Fit, FitMode, Tail};
 
 /// Default for a per-track or per-note gain: unity, i.e. "as written".
@@ -197,29 +201,31 @@ pub struct Pattern {
 }
 
 impl Pattern {
-    /// Every note this pattern plays, chords expanded to their voices, in
-    /// document order.
+    /// Every note this pattern plays, chords expanded to their voices and step
+    /// strings to their hits, in document order.
     ///
     /// The renderer works from this rather than from the written entries, so
-    /// each voice of a chord is an ordinary note by the time swing, humanise
-    /// and the per-note seed reach it — see [`chord`].
+    /// each voice of a chord and each hit of a step string is an ordinary note
+    /// by the time swing, humanise and the per-note seed reach it — see
+    /// [`chord`] and [`steps`].
     pub(crate) fn voices(&self) -> Result<Vec<Note>, SynthError> {
         let mut voiced = Vec::with_capacity(self.notes.len());
         for entry in &self.notes {
-            entry.voice_into(&mut voiced)?;
+            entry.voice_into(self.beats, &mut voiced)?;
         }
         Ok(voiced)
     }
 }
 
-/// One entry in a pattern: a single note, or a chord that sounds as several.
+/// One entry in a pattern: a single note, a chord that sounds as several, or a
+/// step string that sounds as a rhythm.
 ///
-/// Untagged, told apart by **which field is present** — `note` or `chord` —
-/// the way [`Pitch`] tells a name from a MIDI number. Both variants
-/// [deny unknown fields](https://serde.rs/container-attrs.html), so an entry
-/// carrying both, or one with a misspelled field, is refused rather than read
-/// as whichever variant happened to tolerate it. Guessing between the two is
-/// the one outcome worse than either.
+/// Untagged, told apart by **which field is present** — `note`, `chord` or
+/// `steps` — the way [`Pitch`] tells a name from a MIDI number. Every variant
+/// [denies unknown fields](https://serde.rs/container-attrs.html), so an entry
+/// carrying two of them, or one with a misspelled field, is refused rather than
+/// read as whichever variant happened to tolerate it. Guessing between them is
+/// the one outcome worse than any of them.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum PatternEntry {
@@ -227,6 +233,9 @@ pub enum PatternEntry {
     Note(Note),
     /// A chord, expanded to its voices before anything is rendered.
     Chord(Chord),
+    /// A run of evenly spaced hits, expanded to notes before anything is
+    /// rendered.
+    Steps(Steps),
 }
 
 impl PatternEntry {
@@ -235,6 +244,7 @@ impl PatternEntry {
         match self {
             Self::Note(note) => &note.track,
             Self::Chord(chord) => &chord.track,
+            Self::Steps(steps) => &steps.track,
         }
     }
 
@@ -243,26 +253,35 @@ impl PatternEntry {
         match self {
             Self::Note(note) => note.start,
             Self::Chord(chord) => chord.start,
+            Self::Steps(steps) => steps.start,
         }
     }
 
-    /// Gate length in beats.
+    /// Gate length in beats — of every hit, for an entry that is several.
     pub fn dur(&self) -> f32 {
         match self {
             Self::Note(note) => note.dur,
             Self::Chord(chord) => chord.dur,
+            Self::Steps(steps) => steps.gate(),
         }
     }
 
-    /// Appends what this entry sounds as to `out` — one note, or a chord's
-    /// voices low to high. Nothing is appended when it is refused.
-    pub(crate) fn voice_into(&self, out: &mut Vec<Note>) -> Result<(), SynthError> {
+    /// Appends what this entry sounds as to `out` — one note, a chord's voices
+    /// low to high, or a step string's hits in time order. Nothing is appended
+    /// when it is refused.
+    ///
+    /// `beats` is the slot of the pattern holding the entry, which only a step
+    /// string reads: its grid is checked against the slot it claims to cover,
+    /// and that check is the one thing standing between a string one character
+    /// short and a bar that quietly is not one.
+    pub(crate) fn voice_into(&self, beats: f32, out: &mut Vec<Note>) -> Result<(), SynthError> {
         match self {
             Self::Note(note) => {
                 out.push(note.clone());
                 Ok(())
             }
             Self::Chord(chord) => chord.voice_into(out),
+            Self::Steps(steps) => steps.voice_into(beats, out),
         }
     }
 }
@@ -276,6 +295,12 @@ impl From<Note> for PatternEntry {
 impl From<Chord> for PatternEntry {
     fn from(chord: Chord) -> Self {
         Self::Chord(chord)
+    }
+}
+
+impl From<Steps> for PatternEntry {
+    fn from(steps: Steps) -> Self {
+        Self::Steps(steps)
     }
 }
 

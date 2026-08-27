@@ -67,6 +67,25 @@ fn a_note_on_a_track_that_does_not_exist_is_refused_by_position() {
     );
 }
 
+/// Where an entry begins is checked as strictly as how long it lasts. A
+/// negative onset places a note *before* the pattern holding it, and the
+/// renderer clamps a negative sample index to zero rather than refusing one —
+/// so without this the piece would quietly play something the document does
+/// not say.
+#[test]
+fn a_note_starting_before_its_pattern_is_refused_by_position() {
+    let mut song = song();
+    voice(verse(&mut song), 1).start = -0.5;
+    assert_eq!(
+        song.validate(),
+        Err(SynthError::BadNoteStart {
+            pattern: "verse".to_owned(),
+            index: 1,
+            start: -0.5,
+        })
+    );
+}
+
 #[test]
 fn a_note_held_for_no_time_is_refused() {
     let mut song = song();

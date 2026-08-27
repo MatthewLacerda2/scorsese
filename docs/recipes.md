@@ -424,6 +424,126 @@ performance, so a chord picks up [swing and humanise](#playing-it-rather-than-cl
 one voice at a time and does not land as a perfectly simultaneous block — which
 is a real part of sounding played, and free.
 
+### Writing a rhythm as a rhythm
+
+A percussion part is one entry too, told apart by carrying `steps`. Here is one
+bar of sixteenth-note hi-hats, accented on the quarters. First, one hit at a
+time:
+
+```json fields
+"tracks": [{ "name": "hat", "gain": 0.5, "patch": {
+  "source": { "kind": "noise" },
+  "amp": { "a": 0.001, "d": 0.04, "s": 0, "r": 0.03 },
+  "filter": { "kind": "highpass", "cutoff": 6000 } } }],
+"patterns": { "a": { "beats": 4, "notes": [
+  { "track": "hat", "note": "C4", "start": 0.00, "dur": 0.25, "vel": 1.0 },
+  { "track": "hat", "note": "C4", "start": 0.25, "dur": 0.25, "vel": 0.45 },
+  { "track": "hat", "note": "C4", "start": 0.50, "dur": 0.25, "vel": 0.45 },
+  { "track": "hat", "note": "C4", "start": 0.75, "dur": 0.25, "vel": 0.45 },
+  { "track": "hat", "note": "C4", "start": 1.00, "dur": 0.25, "vel": 1.0 },
+  { "track": "hat", "note": "C4", "start": 1.25, "dur": 0.25, "vel": 0.45 },
+  { "track": "hat", "note": "C4", "start": 1.50, "dur": 0.25, "vel": 0.45 },
+  { "track": "hat", "note": "C4", "start": 1.75, "dur": 0.25, "vel": 0.45 },
+  { "track": "hat", "note": "C4", "start": 2.00, "dur": 0.25, "vel": 1.0 },
+  { "track": "hat", "note": "C4", "start": 2.25, "dur": 0.25, "vel": 0.45 },
+  { "track": "hat", "note": "C4", "start": 2.50, "dur": 0.25, "vel": 0.45 },
+  { "track": "hat", "note": "C4", "start": 2.75, "dur": 0.25, "vel": 0.45 },
+  { "track": "hat", "note": "C4", "start": 3.00, "dur": 0.25, "vel": 1.0 },
+  { "track": "hat", "note": "C4", "start": 3.25, "dur": 0.25, "vel": 0.45 },
+  { "track": "hat", "note": "C4", "start": 3.50, "dur": 0.25, "vel": 0.45 },
+  { "track": "hat", "note": "C4", "start": 3.75, "dur": 0.25, "vel": 0.45 }
+] } },
+"arrangement": ["a"]
+```
+
+And the same bar as one string, which renders to exactly those sixteen notes:
+
+```json fields
+"tracks": [{ "name": "hat", "gain": 0.5, "patch": {
+  "source": { "kind": "noise" },
+  "amp": { "a": 0.001, "d": 0.04, "s": 0, "r": 0.03 },
+  "filter": { "kind": "highpass", "cutoff": 6000 } } }],
+"patterns": { "a": { "beats": 4, "notes": [
+  { "track": "hat", "steps": "XxxxXxxxXxxxXxxx", "div": 0.25, "vel": 0.45 }
+] } },
+"arrangement": ["a"]
+```
+
+Sixteen objects to one is the smaller half of the argument. The larger half is
+that the second version **can be read as a rhythm**: the hits and the gaps are
+where they sound, so a whole bar arrives at a glance and a revision is one
+character. A list of objects with float `start` values has to be counted, and
+most of the work on a piece of music is revision.
+
+**Three characters, and no fourth.** `x` is a hit, `X` is an accent, `-` is a
+rest, and anything else is refused — including the `|` bar lines and the spaces
+a tracker screen would have drawn for you. Every character is one step, the
+count is what proves the string covers its bar, and a character that looked
+like a step but was not would take that with it.
+
+| field | means |
+| --- | --- |
+| `steps` | the string itself, one character per step |
+| `div` | how long one step is, in beats — `0.5` an eighth, `0.25` a sixteenth |
+| `start` | where the **first step** falls, in beats. Absent means 0 |
+| `dur` | gate length for every hit. Absent means one step |
+| `note` | what pitch every hit plays. Absent means middle C |
+| `vel` | velocity of a plain `x`. An `X` always plays at 1 |
+
+**Velocity is the shift key.** Two levels is all the notation carries, because
+`4-4-4-4-4-4-4-49` makes you compare digits to find the accent where
+`x-x-x-x-x-x-x-xX` shows it as a silhouette. What the two levels *mean* is
+still yours: an accent is the hardest an instrument is struck, which is
+velocity 1, so `vel` is the plain hit and the distance between them is the one
+number you write. `vel` at 0.4 is a quiet hat with a hard accent; at 0.85 it is
+a nearly even one; at 1 the two cases are the same hit, and a string using both
+is **refused** rather than played flat.
+
+**The string covers its pattern exactly**, from `start` to the end of the slot,
+rests included — so a figure in the last bar is written with the rests in front
+of it rather than positioned by a number:
+
+```json fields
+"tracks": [
+  { "name": "kick", "patch": {
+    "source": { "kind": "osc_stack", "oscs": [{ "wave": "sine" }] },
+    "amp": { "a": 0.001, "d": 0.22, "s": 0, "r": 0.02, "curve": 4.0 },
+    "pitch_env": { "semitones": 10,
+      "adsr": { "a": 0, "d": 0.04, "s": 0, "r": 0, "curve": 5.0 } } } },
+  { "name": "snare", "gain": 0.6, "patch": { "source": { "kind": "noise" },
+    "amp": { "a": 0.001, "d": 0.14, "s": 0, "r": 0.06 },
+    "filter": { "kind": "highpass", "cutoff": 1200 } } }
+],
+"patterns": { "a": { "beats": 8, "notes": [
+  { "track": "kick",  "steps": "X--x--X---x-X---", "div": 0.5, "note": "C1", "vel": 0.7 },
+  { "track": "snare", "steps": "----X-------X-xX", "div": 0.5, "vel": 0.6 }
+] } },
+"arrangement": ["a"]
+```
+
+`div` is therefore redundant — it could be derived from the length and the
+slot — and **the redundancy is the check**. A string one character short reads
+as a bar until the ear finds it, and comparing the count you typed against the
+count the grid needs is the only thing that catches it. So fifteen sixteenths
+in a four-beat pattern is refused, and told how many it needed.
+
+**Each hit is a note from there on.** Expansion happens before the performance,
+so a step string picks up [swing and humanise](#playing-it-rather-than-clocking-it)
+one hit at a time and is played rather than clocked — the same way a chord's
+voices are.
+
+**One pitch per entry, and no melody.** A percussion track plays one sound
+throughout, so `note` sits on the entry. A pitch per step would need a
+character per pitch, and at that point the string is no longer legible as a
+shape, which is what it was for. Melody is written as notes.
+
+A **Euclidean generator** (`{ "hits": 5, "steps": 16 }`) is deliberately
+absent, for the reason inversion and retrograde are: it is elegant, and it is
+one idea past what anybody reaches for by hand. It would also cost the thing
+this notation buys — a generated rhythm cannot be seen without running the
+algorithm in your head — and it saves eleven characters over writing out what
+it would have produced.
+
 ### Repeating a pattern differently
 
 An arrangement entry is a pattern's **name**, or that name with **transforms**.
@@ -937,6 +1057,14 @@ the [quality table](#writing-a-chord-as-a-chord), a chord voiced past either
 end of the keyboard, an empty list of pitches, and `oct` written beside a
 chord that spelled its pitches out. None of those would be silence — they
 would be *a different chord*, which nothing downstream can notice.
+
+[Step strings](#writing-a-rhythm-as-a-rhythm) are refused for the same second
+reason, and it is why the checks are there at all: a character that is not
+`x`, `X` or `-`, a string whose length is not the length its grid needs, a
+`div` no whole number of steps fits the slot with, and both cases used beside a
+`vel` of 1, where the accents the page shows would not be in the audio. Every
+one of those would otherwise be *a different rhythm* — usually a shorter one,
+which is the failure nobody hears until much later.
 
 Musical taste is not checked. An ugly patch renders.
 
