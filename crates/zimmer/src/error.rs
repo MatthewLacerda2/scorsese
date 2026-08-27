@@ -190,6 +190,55 @@ pub enum SynthError {
         dur: f32,
     },
 
+    /// A chord name the grammar does not carry. Refused rather than guessed:
+    /// a chord that quietly means something other than what was written is
+    /// worse than the notes it replaced, because the notes were visible.
+    #[error(
+        "song: `{chord}` is not a chord name — see the table in docs/recipes.md, \
+         or write the pitches out as `[\"D3\", \"F3\", \"A3\"]`"
+    )]
+    UnknownChord {
+        /// The name as written.
+        chord: String,
+    },
+
+    /// A chord voiced off the end of the keyboard. Refused rather than clamped,
+    /// unlike an arrangement's transpose: the octave is right there in the same
+    /// entry, so this is a document that can be fixed rather than a pattern
+    /// meeting a transform written elsewhere.
+    #[error("song: chord `{chord}` at octave {oct} reaches MIDI {midi}, outside 0..=127")]
+    ChordOutOfRange {
+        /// The name as written.
+        chord: String,
+        /// The octave its root was placed in.
+        oct: i32,
+        /// The voice that fell outside the range.
+        midi: i32,
+    },
+
+    /// `oct` places the root of a *named* chord. A chord written as pitches
+    /// already carries an octave per voice, so the two together say two
+    /// different things about the same chord.
+    #[error("song: track `{track}` at beat {start}: `oct` means nothing beside spelled pitches")]
+    SpelledChordOctave {
+        /// The track the chord is on.
+        track: String,
+        /// Where in the pattern it sits, in beats.
+        start: f32,
+        /// The octave as written.
+        oct: i32,
+    },
+
+    /// A chord spelled as an empty list of pitches: an entry that sounds
+    /// nothing, which is never what a chord was written for.
+    #[error("song: track `{track}` at beat {start}: a chord needs at least one pitch")]
+    EmptyChord {
+        /// The track the chord is on.
+        track: String,
+        /// Where in the pattern it sits, in beats.
+        start: f32,
+    },
+
     /// A swing outside the range where it still means "the off-beat sits
     /// late". At 1 the off-beat eighth lands on the following beat — the two
     /// have swapped places rather than been felt — and below 0 the off-beats
