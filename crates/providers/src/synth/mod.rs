@@ -7,8 +7,9 @@
 //!
 //! That last clause is not a hedge, and the cache is built around it. A render
 //! has **two** inputs: the recipe, and the version of `scorsese-zimmer` that
-//! reads it. So a bake is addressed by both — see [`address`] — and the path
-//! an asset holds *is* the record of what produced it:
+//! reads it. So a bake is addressed by both — the `address` module is where
+//! that name is made — and the path an asset holds *is* the record of what
+//! produced it:
 //!
 //! - recipe and synthesiser hash to what `path` already names → nothing to do;
 //! - either of them differs → the asset is stale whatever the document claims,
