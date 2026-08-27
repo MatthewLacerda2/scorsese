@@ -158,7 +158,7 @@ impl Pattern {
             });
         }
         for (index, entry) in self.notes.iter().enumerate() {
-            entry.validate(name, index, tracks)?;
+            entry.validate(name, index, tracks, self.beats)?;
         }
         Ok(())
     }
@@ -168,11 +168,23 @@ impl PatternEntry {
     /// Checks that one entry names a real track, starts somewhere, lasts for
     /// some time, and has pitches that resolve.
     ///
-    /// A chord resolves by being expanded, which is the same work the renderer
-    /// does and therefore the same answer: a name off the table, or a voicing
-    /// pushed off the keyboard, is refused here rather than discovered at the
-    /// sample loop.
-    fn validate(&self, pattern: &str, index: usize, tracks: &[Track]) -> Result<(), SynthError> {
+    /// A chord or a step string resolves by being expanded, which is the same
+    /// work the renderer does and therefore the same answer: a name off the
+    /// table, a voicing pushed off the keyboard, or a step string that does not
+    /// fill its pattern is refused here rather than discovered at the sample
+    /// loop.
+    ///
+    /// Expansion runs **before** the gate is checked, because a step string's
+    /// gate defaults to its step length: a `div` that is not a length would
+    /// otherwise be reported as a bad `dur`, naming a field the document does
+    /// not have.
+    fn validate(
+        &self,
+        pattern: &str,
+        index: usize,
+        tracks: &[Track],
+        beats: f32,
+    ) -> Result<(), SynthError> {
         let pattern = || pattern.to_owned();
         if !tracks.iter().any(|track| track.name == self.track()) {
             return Err(SynthError::UnknownTrack {
@@ -188,6 +200,7 @@ impl PatternEntry {
                 start: self.start(),
             });
         }
+        self.voice_into(beats, &mut Vec::new())?;
         if !(self.dur().is_finite() && self.dur() > 0.0) {
             return Err(SynthError::BadNoteDuration {
                 pattern: pattern(),
@@ -195,6 +208,6 @@ impl PatternEntry {
                 dur: self.dur(),
             });
         }
-        self.voice_into(&mut Vec::new())
+        Ok(())
     }
 }
