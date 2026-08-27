@@ -3,6 +3,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod chorus;
 mod compress;
 mod document;
 mod eq;

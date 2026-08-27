@@ -510,6 +510,31 @@ pub enum Fx {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         sidechain: Option<String>,
     },
+    /// Several detuned, delayed copies of the signal, spread across the
+    /// stereo field: the difference between one synthesiser playing a note and
+    /// a section playing it. The only effect here that makes one source sound
+    /// like more than one thing.
+    Chorus {
+        /// How fast each copy's delay sweeps, in Hz. `0.3`–`1.5` is the usual
+        /// range; the voices are spread slightly either side of it so the
+        /// ensemble does not breathe in unison. Clamped at 10, past which the
+        /// modulation sidebands stop being a detune.
+        rate: f32,
+        /// How far the sweep moves, `0..=1` — how far apart the copies are
+        /// pushed in pitch. Around `0.3` is a shimmer, `0.8` is a wide
+        /// ensemble, and `1.0` starts to sound seasick on a sustained note.
+        depth: f32,
+        /// How many copies, clamped to 2–4. Two is a double-tracked part, four
+        /// is a section; past four each new voice sits on top of one already
+        /// there. It is a thickness control and not a fader — the copies are
+        /// normalised, so the wet signal is the same level whatever this says.
+        #[serde(default = "voices_default")]
+        voices: usize,
+        /// Wet/dry blend, `0..=1`. The dry signal stays exactly where it was
+        /// and the copies arrive around it, so this is how far the source
+        /// spreads rather than how loud the effect is.
+        mix: f32,
+    },
     /// A small stack of filter bands: the treatment for what the bake report
     /// diagnoses. A gain fader answers a muddy pad by removing the pad; this
     /// answers it by removing 250 Hz and keeping the rest.
@@ -552,4 +577,8 @@ fn attack_default() -> f32 {
 /// rather than like an effect.
 fn release_default() -> f32 {
     0.15
+}
+
+fn voices_default() -> usize {
+    3
 }

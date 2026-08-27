@@ -219,6 +219,16 @@ pub use song::{PatchResolver, Song, render_song};
 /// only kept for a track something names, and nothing names one in a recipe
 /// written before this existed.
 ///
+/// The **chorus** is the third, and the plainest of the three: a new `Fx`
+/// variant, two modules nothing calls without one, and no field of any
+/// existing variant touched. Checked anyway, against `84ad2a3` — 30 probes
+/// covering all four sources, every envelope corner including curves and a
+/// pitch envelope, all three LFO targets, a velocity-routed filter, every
+/// effect that existed then wet and dry, a chain of four, and eight songs
+/// spanning swing, humanise, a track bus, a song chain, a fade, a `fit`, an
+/// arrangement transform, a key with degrees and a step string. All 30 came
+/// back byte-identical.
+///
 /// **New notation is the same case**, and worth naming separately because it
 /// does not look like it. A song key and scale degrees added a `Song` field
 /// and a fourth kind of pattern entry, reordered the enum holding the other

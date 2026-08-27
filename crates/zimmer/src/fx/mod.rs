@@ -1,7 +1,7 @@
-//! fx — the post-chain: delay, reverb, drive, EQ, compression, and the
+//! fx — the post-chain: delay, reverb, drive, EQ, compression, chorus, and the
 //! mandatory limiter
 //!
-//! Five a recipe chooses, one it does not. [`delay`] and [`reverb`] place a dry
+//! Six a recipe chooses, one it does not. [`delay`] and [`reverb`] place a dry
 //! synthesized sound *somewhere* — the difference between a gunshot recorded in an
 //! anechoic chamber and one fired in a corridor. [`saturate`] is the odd one out,
 //! and the only nonlinearity in the crate: it does not move a sound, it changes
@@ -9,10 +9,14 @@
 //! something that sounds recorded. [`eq`] and [`compress`] are the two mixing
 //! moves: one takes a *region* away and is the treatment for what
 //! [`crate::level::bands`] already diagnoses, the other takes the *loud moments*
-//! down and is what makes a part sit rather than merely be at a volume. All five
-//! are chosen per chain and applied in list order. [`limiter`] is not a choice:
-//! every bake passes through it, because a clipped WAV is a broken asset, not a
-//! stylistic option.
+//! down and is what makes a part sit rather than merely be at a volume.
+//! [`chorus`] is the odd one against all of those: it does not place a sound,
+//! colour it or take anything away — it makes **several** of it, slightly
+//! detuned and slightly late, which is the only thing in this crate that can
+//! stop one source sounding like one instrument playing. All six are chosen per
+//! chain and applied in list order. [`limiter`] is not a choice: every bake
+//! passes through it, because a clipped WAV is a broken asset, not a stylistic
+//! option.
 //!
 //! **[`compress`] and [`limiter`] are not the same device.** They share the shape
 //! of their implementation — a gain track computed for every sample, then ramped
@@ -22,15 +26,24 @@
 //! limiter and never after: makeup gain past the ceiling would withdraw the
 //! promise quietly, and [`crate::song`]'s mixer states the rule.
 //!
-//! Chorus and the rest wait until a real sound cannot be made without them (the
-//! layer's standing rule). Effects are added here, not in the patch document's
-//! signal path, so the fixed source → filter → amp contract stays fixed.
+//! Distortion, a flanger and the rest wait until a real sound cannot be made
+//! without them (the layer's standing rule) — and a flanger is not a corner of
+//! [`chorus`], for the reason that module's own doc gives. Effects are added
+//! here, not in the patch document's signal path, so the fixed
+//! source → filter → amp contract stays fixed.
 //!
 //! ## Which of these knows it is in stereo
 //!
-//! [`reverb`] does, and it is the only one that has to: Freeverb was always a
+//! [`reverb`] does, and it was the first that had to: Freeverb was always a
 //! stereo algorithm, and the two sides of a room are not the same room heard
-//! twice. It is also where most of the width in a finished piece comes from.
+//! twice. It is where most of the width in a finished piece comes from.
+//!
+//! [`chorus`] is the other, and it is the one that is not merely aware of two
+//! channels but *makes* them: its copies read a mono sum and are panned across
+//! the field, so a centred source comes back wider than it went in. That is
+//! half of what a chorus is, and the half a per-channel implementation could
+//! not have — which is why it was built after the crate went stereo rather
+//! than twice.
 //!
 //! [`delay`], [`saturate`] and [`eq`] run **per channel, independently**. A
 //! waveshaper is memoryless, and a delay line's and a biquad's memory each
@@ -47,6 +60,7 @@
 //! pulling the image sideways every time it acted, which is worse than one
 //! that acts too much.
 
+pub(crate) mod chorus;
 pub(crate) mod compress;
 pub(crate) mod delay;
 pub(crate) mod eq;
@@ -124,6 +138,14 @@ pub(crate) fn apply_chain_keyed(buf: &mut Stereo, chain: &[Fx], rate: f32, keys:
                 compress::Compressor::new(*threshold, *ratio, *attack, *release, *makeup, *mix)
                     .apply(buf, key, rate);
             }
+            // Not through `each`: an ensemble is made of copies placed
+            // *against* each other, so it needs both sides at once.
+            Fx::Chorus {
+                rate: sweep,
+                depth,
+                voices,
+                mix,
+            } => chorus::apply(buf, *sweep, *depth, *voices, *mix, rate),
         }
     }
 }
@@ -137,6 +159,10 @@ pub(crate) fn apply_chain_keyed(buf: &mut Stereo, chain: &[Fx], rate: f32, keys:
 /// [`compress`], for the plainest reason of the three: it only ever scales the
 /// samples it was handed, so silence stays silence however long the release
 /// says the gain takes to come back.
+///
+/// [`chorus`] does ask, and asks for very little: it has no feedback path, so
+/// its tail is exactly the deepest its delay line is ever read from — a
+/// fortieth of a second rather than a decay to be estimated.
 pub(crate) fn tail_seconds(chain: &[Fx]) -> f32 {
     let total: f32 = chain
         .iter()
@@ -147,6 +173,7 @@ pub(crate) fn tail_seconds(chain: &[Fx]) -> f32 {
                 mix,
             } if *mix > 0.0 => delay::tail_seconds(*time, *feedback),
             Fx::Reverb { size, mix, .. } if *mix > 0.0 => reverb::tail_seconds(*size),
+            Fx::Chorus { depth, mix, .. } if *mix > 0.0 => chorus::tail_seconds(*depth),
             _ => 0.0,
         })
         .sum();
@@ -200,10 +227,10 @@ mod tests {
     }
 
     /// Which effects widen a signal, checked rather than asserted in prose:
-    /// the reverb is the one that does, and the other two hand back what they
-    /// were given, in the place they were given it.
+    /// the reverb and the chorus are the two that do, and the others hand back
+    /// what they were given, in the place they were given it.
     #[test]
-    fn only_the_reverb_takes_a_centred_signal_off_centre() {
+    fn only_the_room_and_the_ensemble_take_a_centred_signal_off_centre() {
         let mut room = impulse(22_050);
         apply_chain(
             &mut room,
@@ -215,6 +242,18 @@ mod tests {
             44_100.0,
         );
         assert_ne!(room.l, room.r, "a room has two sides");
+        let mut section = impulse(22_050);
+        apply_chain(
+            &mut section,
+            &[Fx::Chorus {
+                rate: 0.8,
+                depth: 0.7,
+                voices: 4,
+                mix: 1.0,
+            }],
+            44_100.0,
+        );
+        assert_ne!(section.l, section.r, "the copies are placed apart");
         let mut narrow = impulse(22_050);
         apply_chain(
             &mut narrow,
@@ -365,7 +404,40 @@ mod tests {
                 damp: 0.5,
                 mix: 0.0,
             },
+            Fx::Chorus {
+                rate: 0.5,
+                depth: 1.0,
+                voices: 4,
+                mix: 0.0,
+            },
         ];
         assert_eq!(tail_seconds(&dry), 0.0);
+    }
+
+    /// A chorus asks for the length of its own deepest read and nothing more:
+    /// a fortieth of a second against a room's seconds. Both halves of the
+    /// `mix` guard are here — a dry one is in the test above, a wet one is
+    /// this, and the number moves with `depth` because the delay does.
+    #[test]
+    fn a_chorus_asks_for_its_deepest_read_and_no_more() {
+        let ensemble = |depth, mix| {
+            [Fx::Chorus {
+                rate: 0.5,
+                depth,
+                voices: 4,
+                mix,
+            }]
+        };
+        let shallow = tail_seconds(&ensemble(0.0, 1.0));
+        let deep = tail_seconds(&ensemble(1.0, 1.0));
+        assert!(shallow > 0.0, "a wet chorus does ring on: {shallow}");
+        assert!(deep > shallow, "and further when it sweeps further");
+        assert!(deep < 0.03, "but it is not a room: {deep}");
+        let room = tail_seconds(&[Fx::Reverb {
+            size: 0.5,
+            damp: 0.5,
+            mix: 1.0,
+        }]);
+        assert!(deep < room / 10.0, "{deep} against a small room's {room}");
     }
 }

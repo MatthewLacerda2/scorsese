@@ -383,6 +383,73 @@ exclude_re = [
     # (`replace * with +`) that an entry without the path would exclude every
     # multiply on the surface.
     'wav\.rs:23:47: replace \* with \+',
+
+    # `chorus::voices::rate_scale` hands back a voice's sweep rate as a multiple
+    # of the written one: a hash draw mapped to `1.0 + RATE_SPREAD * deviation`,
+    # where `deviation` is uniform over `-1..1`. Flipping that `+` to a `-`
+    # negates the deviation, which swaps *which* voices come out fast and which
+    # slow and changes nothing else — the ensemble is still spread the same
+    # distance either side of the written rate, still has no two voices sharing
+    # one, and still drifts in and out of agreement at the same speed.
+    #
+    # Which voice is the fast one is a property of the hash and of nothing
+    # anybody decided, so there is no behaviour here to assert. A test that
+    # pinned it — "voice 0 runs slow" — would be asserting a hash accident, and
+    # would have to be rewritten the day the seed or the channel numbering
+    # moved, having protected nothing in between. That is the case this list is
+    # for.
+    #
+    # `rate_scale` is its own function so that this entry can name one site.
+    # The same expression inline in `ensemble` would have shared a printed name
+    # with `(ordinal + unit2(…)) * slice` one line above, whose `+` *is*
+    # load-bearing — it is what stratifies the phases — and is caught by
+    # `each_voice_draws_its_phase_from_its_own_slice_of_the_cycle`. The other
+    # three mutations of `rate_scale` are caught too: replacing the whole
+    # function with `1.0` puts every voice exactly on the written rate, and
+    # `0.0` and `-1.0` are outside the spread the assertions allow.
+    'replace \+ with - in rate_scale',
+
+    # `chorus::line_len` sizes the delay line: two samples longer than the
+    # deepest read any voice makes. It is a **lower bound and not a size** —
+    # the write walks the ring with `i % len` and every read addresses
+    # `i - back` through the same modulus, so a longer line holds the same
+    # samples at the same distances behind the write position. Nothing
+    # downstream can tell one length from a longer one.
+    #
+    # Both entries below only ever make it bigger: `+ 2` to `* 2` doubles it,
+    # and `tail * rate` to `tail + rate` turns 662 samples into 44 103. The
+    # mutations in the other direction are the load-bearing ones and are
+    # caught: `+ 2` to `- 2` leaves the line too short for the deepest read,
+    # the clamp in `line::read` pulls the tap in, and the copy arrives at the
+    # wrong delay — `a_copy_arrives_exactly_the_centre_delay_behind_the_dry_signal`
+    # says where it should have been, to the sample.
+    #
+    # The function exists to carry these two entries by name. Inline in
+    # `apply`, the same printed names covered the mono sum, the blend and the
+    # tap position, every one of which is asserted on.
+    'replace \+ with \* in line_len',
+    'replace \* with \+ in line_len',
+
+    # `chorus::advance` moves one voice's sweep on by a sample, `(phase +
+    # step) % TAU`. Flipping that `+` runs the sweep backwards — and a voice's
+    # starting phase is a draw from the seeded hash, so sweeping backwards from
+    # it is sweeping forwards from a different draw. The delays visited over a
+    # cycle are the same set, arrived at in the opposite order, and which of
+    # the two a given voice gets is a property of the hash rather than of
+    # anything decided.
+    #
+    # An assertion was tried and withdrawn rather than left in place looking
+    # like cover: comparing a short move against the sine the voice rides only
+    # separates the directions where that sine is monotonic, and over the
+    # probe spacing the fixture can use it is not — near a peak, both
+    # directions move the same way. A test that has to first establish
+    # monotonicity to make its assertion is asserting on the fixture.
+    #
+    # The other three mutations here are caught. `%` to `+` or `/` breaks the
+    # wrap and the sweep stops returning to where it began, which
+    # `a_copy_sweeps_through_its_delays_and_is_back_after_one_of_its_cycles`
+    # measures; `+` to `*` stops the phase advancing at all.
+    'replace \+ with - in advance',
 ]
 
 # ---------------------------------------------------------------------------
