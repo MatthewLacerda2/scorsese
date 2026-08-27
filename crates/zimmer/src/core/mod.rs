@@ -150,6 +150,13 @@ fn lfo_wave(lfo: &Lfo, i: usize) -> f32 {
 /// frequency becomes a `NaN` sample the moment [`fm`] takes the fractional part
 /// of a phase. Ten octaves either way is past the audible band from any note,
 /// so nothing that was making a sound is affected by the bound existing.
+///
+/// It is nonetheless the **one thing in this crate's envelope work that a
+/// recipe can notice**, and the reason [`SYNTH_VERSION`](crate::SYNTH_VERSION)
+/// went to 2: a vibrato deeper than this renders differently than it used to.
+/// It rendered aliasing before and renders aliasing now — but differently, and
+/// the rule that constant lives by does not have a clause for *only garbage
+/// moved*.
 const MAX_PITCH_OFFSET: f32 = 120.0;
 
 /// The per-sample frequency track: the played pitch, swept once by a pitch

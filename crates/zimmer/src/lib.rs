@@ -154,7 +154,20 @@ pub use song::{PatchResolver, Song, render_song};
 /// So it is a number a person has to bump, and the rule is the one
 /// `schema_version` already lives by: **bump it in the same change that makes
 /// a recipe render differently**, and let everything break loudly.
-pub const SYNTH_VERSION: u32 = 1;
+///
+/// **What "differently" has meant so far**, because the first change to face
+/// this question was an ambiguous one and the answer is easier to reuse than
+/// to re-derive: *any* representable recipe, not *most* recipes and not an
+/// audible difference. Version 2 added curved envelope segments and a pitch
+/// envelope, both no-ops at their defaults — 23 of 25 probe recipes came back
+/// byte-identical, every envelope corner and every sane vibrato among them.
+/// The two that moved were pitch LFOs deeper than the ten octaves the
+/// frequency track now bounds, which render nothing but aliasing either way.
+/// It was bumped regardless. A spurious bump costs one re-render of audio that
+/// turns out identical; a missed one leaves a project serving samples its
+/// recipe no longer describes, which is the failure this constant exists to
+/// prevent — so where the two are in tension, bump.
+pub const SYNTH_VERSION: u32 = 2;
 
 /// Render one note of `patch` and encode it as a mono 16-bit PCM WAV.
 ///
