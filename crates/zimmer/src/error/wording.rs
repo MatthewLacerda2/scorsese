@@ -48,6 +48,16 @@ impl SynthError {
                 f,
                 "patch: `additive` partial {index} needs a positive `ratio`, got {ratio}"
             ),
+            Self::BadOperatorRatio {
+                operator, ratio, ..
+            } => write!(
+                f,
+                "patch: `fm4` operator {operator} needs a positive `ratio`, got {ratio}"
+            ),
+            Self::SilentCarriers { algorithm, .. } => write!(
+                f,
+                "patch: `fm4` algorithm `{algorithm}` is heard through its carriers, and every one of them is at level zero"
+            ),
             Self::BadCutoff { cutoff, .. } => write!(
                 f,
                 "patch: filter `cutoff` must be positive Hz, got {cutoff}"
