@@ -16,8 +16,8 @@ impl Tool for Set {
 
     fn description(&self) -> &'static str {
         "Change one number in a recipe and leave the rest of the document alone: \
-         a track's gain, or the recipe's own bpm, seed, swing, duration or \
-         velocity. Reach for this while **tuning** — chasing a level over \
+         a track's gain or pan, or the recipe's own bpm, seed, swing, duration \
+         or velocity. Reach for this while **tuning** — chasing a level over \
          several bakes — where synth_write would re-send every note in the piece \
          to move one float. Refused whole, changing nothing, if the field or the \
          track named is not there. The result is an ordinary recipe, and its \
@@ -38,15 +38,16 @@ impl Tool for Set {
                     "type": "string",
                     "enum": synth::FIELDS,
                     "description": "Which number to change. On a song: `bpm`, `seed`, \
-                                    `swing`, or `gain` — and `gain` is a track's, so it \
-                                    needs `track`. On a patch: `duration`, `velocity`, \
-                                    `seed`. Anything else, including a note or an \
-                                    arrangement entry, is a synth_write."
+                                    `swing`, `gain` or `pan` — and the last two are a \
+                                    track's, so they need `track`. On a patch: \
+                                    `duration`, `velocity`, `seed`. Anything else, \
+                                    including a note or an arrangement entry, is a \
+                                    synth_write."
                 },
                 "track": {
                     "type": "string",
-                    "description": "The name of the track whose gain to change — the \
-                                    same name the song's notes use. Only for `gain`."
+                    "description": "The name of the track to change — the same name the \
+                                    song's notes use. Only for `gain` and `pan`."
                 },
                 "value": {
                     "type": "number",

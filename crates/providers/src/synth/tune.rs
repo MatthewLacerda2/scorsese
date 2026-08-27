@@ -8,10 +8,11 @@
 //!
 //! This is a **named operation**, not a patch language, and the narrowness is
 //! the point. What it can address is what the recipe *names*: the recipe's own
-//! top-level numbers, and a track's `gain`. Tracks have names; notes and
-//! arrangement entries do not, and inventing an index for them is how a narrow
-//! tool becomes JSON Patch with worse ergonomics — addressing that means
-//! something different the moment a note is inserted above it.
+//! top-level numbers, and where a track sits — its `gain` and its `pan`.
+//! Tracks have names; notes and arrangement entries do not, and inventing an
+//! index for them is how a narrow tool becomes JSON Patch with worse
+//! ergonomics — addressing that means something different the moment a note is
+//! inserted above it.
 //!
 //! The result is an ordinary recipe in the format's own canonical form: parsed
 //! before it is handed back, still readable, still editable by hand, and still
@@ -25,10 +26,17 @@ use super::recipe::{OneShot, Recipe};
 /// Every field name [`set`] accepts, for a schema to publish and a client to
 /// choose from. Which of them applies depends on the recipe's shape, and a
 /// refusal says so.
-pub const FIELDS: [&str; 6] = ["bpm", "seed", "swing", "gain", "duration", "velocity"];
+pub const FIELDS: [&str; 7] = [
+    "bpm", "seed", "swing", "gain", "pan", "duration", "velocity",
+];
+
+/// The fields a **track** owns rather than the song: where that instrument
+/// sits, in level and in position. Both need a `track` and neither means
+/// anything without one.
+const TRACK_FIELDS: [&str; 2] = ["gain", "pan"];
 
 /// What a song recipe offers, worded for a refusal.
-const IN_A_SONG: &str = "bpm, seed, swing, or a track's gain";
+const IN_A_SONG: &str = "bpm, seed, swing, or a track's gain or pan";
 
 /// What a patch recipe offers, worded for a refusal.
 const IN_A_PATCH: &str = "duration, velocity, or seed";
@@ -42,7 +50,7 @@ const SEED_CEILING: f64 = 9_007_199_254_740_992.0;
 pub struct Setting<'a> {
     /// The field's name, spelled the way the recipe spells it.
     pub field: &'a str,
-    /// The track that owns it, for the one field a track owns. Named, never
+    /// The track that owns it, for the fields a track owns. Named, never
     /// numbered — a song's tracks already have names and its notes use them.
     pub track: Option<&'a str>,
     /// What the field becomes.
@@ -96,10 +104,10 @@ pub fn set(json: &str, setting: &Setting) -> Result<Change, String> {
     })
 }
 
-/// The song's own numbers, and the one its tracks own.
+/// The song's own numbers, and the ones its tracks own.
 fn in_song(song: &mut Song, setting: &Setting) -> Result<String, String> {
-    if setting.field == "gain" {
-        return gain(song, setting);
+    if TRACK_FIELDS.contains(&setting.field) {
+        return on_track(song, setting);
     }
     if let Some(name) = setting.track {
         return Err(format!(
@@ -115,13 +123,16 @@ fn in_song(song: &mut Song, setting: &Setting) -> Result<String, String> {
     }
 }
 
-/// A named track's level in the mix — the number this whole operation exists
-/// for, because it is the one a client re-tunes after every listen.
-fn gain(song: &mut Song, setting: &Setting) -> Result<String, String> {
+/// Where a named track sits in the mix — its level, or its position across the
+/// image. These are the numbers this whole operation exists for, because they
+/// are the ones a client re-tunes after every listen.
+fn on_track(song: &mut Song, setting: &Setting) -> Result<String, String> {
+    let field = setting.field;
     let name = setting.track.ok_or_else(|| {
-        "`gain` belongs to a track, so `track` is required: the name the song's \
-         notes already use"
-            .to_owned()
+        format!(
+            "`{field}` belongs to a track, so `track` is required: the name the \
+             song's notes already use"
+        )
     })?;
     let named: Vec<&str> = song
         .tracks
@@ -134,10 +145,17 @@ fn gain(song: &mut Song, setting: &Setting) -> Result<String, String> {
         .iter_mut()
         .find(|track| track.name == name)
         .ok_or_else(|| format!("no track `{name}` in this song — it has: {known}"))?;
-    real(&mut track.gain, setting.value)
+    // Out of range is not refused here, because it is not refused anywhere:
+    // the renderer clamps a pan to hard over, there being no position past it.
+    match field {
+        "pan" => real(&mut track.pan, setting.value),
+        _ => real(&mut track.gain, setting.value),
+    }
 }
 
-/// A one-shot's own numbers. It has no tracks, so it has no `gain`.
+/// A one-shot's own numbers. It has no tracks, so it has neither `gain` nor
+/// `pan`: there is nothing for a fader to balance and nowhere for one voice to
+/// sit relative to another.
 fn in_patch(one_shot: &mut OneShot, setting: &Setting) -> Result<String, String> {
     if let Some(name) = setting.track {
         return Err(format!(
@@ -180,4 +198,119 @@ fn whole(field: &mut u64, value: f64) -> Result<String, String> {
 /// what to ask for instead.
 fn unknown(field: &str, kind: &str, takes: &str) -> String {
     format!("a {kind} recipe has no `{field}` to set — it takes {takes}")
+}
+
+/// The routing, by the field name rather than through a server.
+///
+/// `synth_set` is checked end to end over MCP; what is easier to state here is
+/// that each name reaches the value it names and that the ones a shape does
+/// not have are refused. A field routed to its neighbour writes a legal
+/// document that says something the caller did not ask for, which is the
+/// failure a "changed nothing on a refusal" test cannot see.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A two-track song, spelled out, so a test can say which track moved.
+    const SONG: &str = r#"{
+        "recipe": "song", "bpm": 96.0, "seed": 1,
+        "tracks": [
+            { "name": "lead", "gain": 0.9,
+              "patch": { "source": { "kind": "noise" },
+                         "amp": { "a": 0.001, "d": 0.05, "s": 0.0, "r": 0.02 } } },
+            { "name": "bass", "gain": 0.5,
+              "patch": { "source": { "kind": "noise" },
+                         "amp": { "a": 0.001, "d": 0.05, "s": 0.0, "r": 0.02 } } }
+        ],
+        "patterns": { "a": { "beats": 4.0, "notes": [
+            { "track": "lead", "note": "C3", "start": 0.0, "dur": 1.0 } ] } },
+        "arrangement": ["a"]
+    }"#;
+
+    /// A one-shot, which has no tracks and therefore neither track field.
+    const PATCH: &str = r#"{
+        "recipe": "patch", "note": "C4", "duration": 0.4, "velocity": 1.0, "seed": 0,
+        "patch": { "source": { "kind": "noise" },
+                   "amp": { "a": 0.001, "d": 0.05, "s": 0.0, "r": 0.02 } }
+    }"#;
+
+    fn tune(json: &str, field: &str, track: Option<&str>, value: f64) -> Result<Change, String> {
+        set(
+            json,
+            &Setting {
+                field,
+                track,
+                value,
+            },
+        )
+    }
+
+    /// The new field reaches the new value, on the named track and no other.
+    #[test]
+    fn pan_places_the_track_it_names() {
+        let change = tune(SONG, "pan", Some("bass"), -0.4).expect("a track's pan is settable");
+        assert_eq!(change.was, "0", "it was dead centre");
+        assert!(
+            change.document.contains("\"pan\": -0.4"),
+            "{}",
+            change.document
+        );
+        assert!(
+            change.document.contains("\"gain\": 0.5"),
+            "the fader is untouched"
+        );
+        let tracks: Vec<&str> = change
+            .document
+            .match_indices("\"pan\"")
+            .map(|(_, s)| s)
+            .collect();
+        assert_eq!(tracks.len(), 1, "only the named track was placed");
+    }
+
+    /// Centre is the default, so setting it back removes the field again —
+    /// the recipe's bytes are its cache key, and a tuned-then-untuned song has
+    /// to hash to what it always did.
+    #[test]
+    fn setting_a_pan_back_to_centre_writes_no_pan_at_all() {
+        let placed = tune(SONG, "pan", Some("lead"), 0.6).expect("settable");
+        let centred = tune(&placed.document, "pan", Some("lead"), 0.0).expect("settable");
+        assert!(
+            !centred.document.contains("\"pan\""),
+            "{}",
+            centred.document
+        );
+    }
+
+    /// Both track fields need a track, and say so rather than guessing one.
+    #[test]
+    fn a_track_field_without_a_track_is_refused_by_name() {
+        for field in TRACK_FIELDS {
+            let refusal = tune(SONG, field, None, 0.5).expect_err("it belongs to a track");
+            assert!(refusal.contains(field), "the refusal names it: {refusal}");
+            assert!(refusal.contains("`track` is required"), "got {refusal}");
+        }
+    }
+
+    /// A one-shot has no tracks, so it has neither field — and the refusal
+    /// says what it does take, which is what saves a round trip.
+    #[test]
+    fn a_patch_has_neither_of_the_track_fields() {
+        for field in TRACK_FIELDS {
+            let refusal = tune(PATCH, field, None, 0.5).expect_err("a patch has no tracks");
+            assert!(refusal.contains(IN_A_PATCH), "got {refusal}");
+        }
+    }
+
+    /// The song's own fields still refuse a track, so `pan` joining the track
+    /// side did not move `bpm` onto it.
+    #[test]
+    fn the_songs_own_fields_still_belong_to_the_song() {
+        let refusal = tune(SONG, "bpm", Some("lead"), 72.0).expect_err("bpm is the song's");
+        assert!(refusal.contains("leave `track` out"), "got {refusal}");
+        assert_eq!(
+            tune(SONG, "bpm", None, 72.0).expect("settable").was,
+            "96",
+            "and it still sets without one"
+        );
+    }
 }
