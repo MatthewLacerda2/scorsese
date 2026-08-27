@@ -30,6 +30,17 @@ instead: the same report, wrapped as the body of the sweep's tracking issue and
 followed by a catch-rate history that carries over from the body it is handed.
 A second renderer for the same data is how the two would drift.
 
+The pull-request job shards a large diff across several runners, and this
+renderer is deliberately unaware of that: `mutants-merge.py` puts the shards
+back together first, and what arrives here is the run they add up to. What the
+job does hand over is `--in-scope`, the count `cargo mutants --list --in-diff`
+gave it before anything was built. That number is what makes an incomplete
+report say *how* incomplete: a run stopped by its time budget describes the
+mutants it reached, and the difference between the two counts is the gap it is
+silent about. Naming that gap is the whole of #399 — a cancelled job reads
+exactly like a broken one, and neither reads like the honest answer, which is
+*this diff was too large to measure in the time allowed*.
+
 This never exits non-zero over a surviving mutant. Mutation audits quality; it
 does not prove correctness, and some survivors are *equivalent mutants* that
 are correct to leave alone. See `.cargo/mutants.toml` for that policy and the
@@ -248,6 +259,96 @@ FOOTER = (
     " <code>.cargo/mutants.toml</code>.</sub>"
 )
 
+# Whether this report is worth putting in front of somebody, decided here
+# rather than by the workflow grepping for a heading it hopes is still spelled
+# the same way. The `mutants` job opens a pull-request comment only when this
+# line is present, so the rule about what deserves one lives beside the rule
+# about what gets written — survivors, timeouts, and a run that did not cover
+# what it was asked to.
+#
+# An HTML comment, so it is invisible wherever the Markdown is rendered: the
+# pull-request comment and the sweep's issue body both carry it and neither
+# shows it. It is deliberately *not* the marker the comment is keyed on —
+# `<!-- mutation-signal -->` still opens the body, and this one only ever
+# appears at the end.
+NOTABLE = "<!-- mutation-signal:notable -->"
+
+
+# ---------------------------------------------------------------------------
+# When the report describes less than it was asked about
+# ---------------------------------------------------------------------------
+#
+# Both callers can hand over a run that did not cover its subject, and for the
+# same underlying reason: a clock ran out. The sweep meets it when a crate
+# outgrows the six-hour job limit; the pull-request job meets it when a diff is
+# large enough that even sharded across several runners its mutants do not fit
+# in the time each shard is given (#399). One vocabulary for both, because a
+# reader of either has the same question — *what is this silent about?*
+#
+# The rule underneath is the one this repo applies to every signal: an absence
+# must never render as a clean bill of health. A partial run is worth having;
+# a partial run mistaken for a complete one is worse than no run at all.
+
+CUT_SHORT = (
+    "> **This run did not finish.** cargo-mutants recorded a start and no end,"
+    " so it was stopped rather than completed — a time budget, a cancelled job,"
+    " or the tool killed under it. What follows describes the mutants that"
+    " *did* run, and not the whole of what was in scope."
+)
+
+# The size of the silence, in the only unit that means anything: mutations that
+# were in scope and were never run. It is not the same claim as CUT_SHORT and
+# both can appear — that one says the run stopped, this one says how much of the
+# diff went unmeasured. Neither is a survivor and neither is a catch: what is
+# known about these mutations is nothing at all, which is exactly why the number
+# has to be printed rather than left to be inferred from a job that vanished.
+GAP = (
+    "> **{missing} of {in_scope} mutations in this diff were not measured.**"
+    " The report below describes {measured}. Nothing is known about the rest —"
+    " they are neither caught nor survivors, and no absence of rows here says"
+    " anything about them."
+)
+
+
+def cut_short(data: dict) -> bool:
+    """Whether the run was stopped rather than finished.
+
+    cargo-mutants writes `outcomes.json` as it goes and stamps `end_time` only
+    on the way out, so a file with a start and no end is a run that was killed.
+    Its running totals are real — they are just totals for a fraction of the
+    subject. A run that recorded neither time is a fixture or an empty run, and
+    claiming *that* was truncated would be inventing a failure.
+
+    A sharded run inherits the same reading: `mutants-merge.py` gives the merged
+    document an end only when every expected shard reported one, so one shard
+    stopped by its budget makes the whole run read as stopped.
+    """
+    return bool(data.get("start_time")) and not data.get("end_time")
+
+
+def measured(data: dict) -> int:
+    """How many mutations this run actually reports an outcome for.
+
+    Counted from the outcomes themselves and not from `total_mutants`, which is
+    a statement about the work that was *planned*. The two differ for exactly
+    the run this matters on. The baseline is skipped the same way `mutant_rows`
+    skips it: its scenario is the string `"Baseline"` rather than a mutant, and
+    counting it would overstate a sharded run by one per shard.
+    """
+    return sum(
+        1 for outcome in data.get("outcomes", []) if isinstance(outcome.get("scenario"), dict)
+    )
+
+
+def shortfall(data: dict, in_scope: int | None) -> list[str]:
+    """The banners this run owes its reader, in the order they are read."""
+    said = [CUT_SHORT, ""] if cut_short(data) else []
+    if in_scope is not None:
+        done = measured(data)
+        if in_scope > done:
+            said += [GAP.format(missing=in_scope - done, in_scope=in_scope, measured=done), ""]
+    return said
+
 
 # What a run that had nothing to do leaves behind, expressed as the report it
 # would have written. cargo-mutants writes no `outcomes.json` *at all* when the
@@ -309,28 +410,6 @@ HISTORY_LIMIT = 120
 # table row": the heading and its separator are rewritten every run, and only
 # the data has to survive.
 HISTORY_ROW = re.compile(r"^\| \d{4}-\d{2}-\d{2} \|")
-
-CUT_SHORT = (
-    "> **This sweep did not finish.** cargo-mutants recorded a start and no"
-    " end, so the run was stopped rather than completed — a step timeout, a"
-    " cancelled job, or the tool killed under it. What follows describes the"
-    " mutants that *did* run and not the crate, and its history row says so."
-    " A truncated sweep reporting as a complete one is the outcome this"
-    " schedule exists to avoid."
-)
-
-
-def cut_short(data: dict) -> bool:
-    """Whether the run was stopped rather than finished.
-
-    cargo-mutants writes `outcomes.json` as it goes and stamps `end_time` only
-    on the way out, so a file with a start and no end is a run that was killed.
-    Its running totals are real — they are just totals for a fraction of the
-    crate. A run that recorded neither time is a fixture or an empty run, and
-    claiming *that* was truncated would be inventing a failure.
-    """
-    return bool(data.get("start_time")) and not data.get("end_time")
-
 
 def history_row(data: dict, subject: str, when: str, run_url: str) -> str:
     """This run as the line it adds to the trend.
@@ -395,6 +474,15 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="one line saying what was mutated, printed above the report",
     )
     parser.add_argument(
+        "--in-scope",
+        type=int,
+        metavar="N",
+        help="how many mutations the run was asked about, from"
+        " `cargo mutants --list --in-diff` — which builds nothing, so the"
+        " number is known before the run and survives the run being stopped."
+        " A report that covers fewer than this says so, and by how many",
+    )
+    parser.add_argument(
         "--issue-body",
         type=Path,
         metavar="CURRENT",
@@ -427,24 +515,31 @@ def main() -> None:
     tally = census(outcomes)
 
     out = headline(data, scope)
-    if cut_short(data):
-        out += [CUT_SHORT, ""]
+    unfinished = shortfall(data, args.in_scope)
+    out += unfinished
+    timeouts = mutant_rows(outcomes, "Timeout")
+    survivors = mutant_rows(outcomes, "MissedMutant")
     out += section(
-        mutant_rows(outcomes, "Timeout"),
+        timeouts,
         tally,
         "Timed out",
         "These mutations made the tests hang rather than fail. Usually a loop"
         " bound: worth a look, because a test that can hang can hang for real.",
     )
     out += section(
-        mutant_rows(outcomes, "MissedMutant"),
+        survivors,
         tally,
         "Survivors",
         "Each row is a change that was made to the code with every test still"
         " passing.",
         structural=True,
     )
-    report = "\n".join(out + [FOOTER])
+    # Three things earn a reader: work to do, and — the addition #399 asked for
+    # — a report that does not cover what it was asked about. The last one has
+    # no rows at all, which is precisely why it needs saying: silence is what
+    # the old cancelled job produced.
+    notable = [NOTABLE] if (timeouts or survivors or unfinished) else []
+    report = "\n".join(out + [FOOTER] + notable)
 
     if args.issue_body is None:
         print(report)
