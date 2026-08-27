@@ -59,7 +59,6 @@ pub enum SynthError {
     /// saying so, and past the limit is
     /// [`SynthError::TooManyOscs`]'s argument one level down — the copies stop
     /// separating and the arithmetic keeps growing.
-    #[error("patch: an oscillator sounds 1 to {limit} voices, got {found}")]
     BadVoiceCount {
         /// How many the oscillator asked for.
         found: usize,

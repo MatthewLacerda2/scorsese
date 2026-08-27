@@ -32,6 +32,10 @@ impl SynthError {
                 f,
                 "patch: every oscillator gain is zero — the stack is silent"
             ),
+            Self::BadVoiceCount { found, limit, .. } => write!(
+                f,
+                "patch: an oscillator sounds 1 to {limit} voices, got {found}"
+            ),
             Self::BadFmRatio { ratio, .. } => {
                 write!(f, "patch: `fm2` needs a positive `ratio`, got {ratio}")
             }
