@@ -109,8 +109,11 @@ pub struct Song {
     /// without withdrawing the promise that a bake cannot clip. This is where a
     /// piece gets a **room**: one reverb over everything, decaying once, rather
     /// than the same settings copied into every patch and drifting apart the
-    /// first time one of them is tuned. Empty means the mix reaches the limiter
-    /// exactly as it was summed. The `song::mix` module has the reasoning.
+    /// first time one of them is tuned. It is also where a piece gets **glue**:
+    /// a modest [`Fx::Saturate`] over the sum pushes every track through one
+    /// curve, which is much of what stops a mix sounding like separate parts
+    /// added together. Empty means the mix reaches the limiter exactly as it
+    /// was summed. The `song::mix` module has the reasoning.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub fx: Vec<Fx>,
     /// A length the piece has to come out at, when the picture decides that
