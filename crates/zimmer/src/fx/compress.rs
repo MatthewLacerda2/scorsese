@@ -323,6 +323,98 @@ mod tests {
         }
     }
 
+    /// The lookahead, asserted on the gain track itself rather than inferred
+    /// from the output — because "the peak came out quieter" is equally true of
+    /// a compressor with no ramp at all, and the ramp is the whole difference
+    /// between a duck and a step.
+    ///
+    /// Two claims, and each rules out one way of getting the other right by
+    /// accident: the gain is **already moving** before the peak arrives, and it
+    /// gets there **by a ramp** rather than by collapsing to nothing.
+    #[test]
+    fn the_gain_is_already_on_its_way_down_before_the_peak_arrives() {
+        let mut key = Stereo::silence(2000);
+        for slot in key.l[1000..].iter_mut().chain(&mut key.r[1000..]) {
+            *slot = 1.0;
+        }
+        let gain = four_to_one().gain_track(&key, 2000, RATE);
+        // A 5 ms attack is 220 samples, so nothing has moved 300 frames out.
+        assert_eq!(gain[700], 1.0, "well before the peak, nothing has moved");
+        assert!(gain[900] < 1.0, "100 frames out it is on its way down");
+        assert!(
+            gain[900] > gain[999] && gain[999] > gain[1000],
+            "and still falling as the peak lands: {} {} {}",
+            gain[900],
+            gain[999],
+            gain[1000]
+        );
+        assert!(
+            gain[900] > 0.5,
+            "by a ramp, not by collapsing to nothing: {}",
+            gain[900]
+        );
+    }
+
+    /// The exactness the module doc claims for a parked compressor, at the
+    /// setting that would give it away: at `mix` 0.3 a "bypass" computed as
+    /// `0.7·s + 0.3·s` is *not* `s` in `f32`, so a compressor that ran its
+    /// arithmetic at unity instead of standing aside would change the bytes of
+    /// every bake carrying one — and a bake is addressed by a hash.
+    #[test]
+    fn a_parked_compressor_hands_back_the_signal_it_was_given() {
+        let original = Stereo::centred(tone(0.7, 8820));
+        let mut parked = original.clone();
+        Compressor::new(-20.0, 1.0, 0.005, 0.05, 0.0, 0.3).apply(&mut parked, None, RATE);
+        assert_eq!(parked, original, "1:1 with no makeup is not an effect");
+    }
+
+    /// Parallel — "New York" — compression: a hard-compressed copy under an
+    /// untouched one, which is the whole reason `mix` is a field rather than
+    /// always 1. Asserted sample by sample against the two copies it is made
+    /// of, so neither side of the blend can be reaching the arithmetic
+    /// sideways.
+    #[test]
+    fn a_partial_mix_is_the_two_copies_blended() {
+        let original = Stereo::centred(tone(1.0, 8820));
+        let at = |mix| Compressor::new(-20.0, 4.0, 0.005, 0.05, 6.0, mix);
+        let mut squashed = original.clone();
+        at(1.0).apply(&mut squashed, None, RATE);
+        let mut blended = original.clone();
+        at(0.25).apply(&mut blended, None, RATE);
+        for (frame, ((dry, wet), out)) in original
+            .l
+            .iter()
+            .zip(&squashed.l)
+            .zip(&blended.l)
+            .enumerate()
+        {
+            let expected = dry * 0.75 + wet * 0.25;
+            assert!(
+                (out - expected).abs() < 1e-6,
+                "frame {frame}: {out} against {expected}"
+            );
+        }
+        assert!(
+            peak(&blended.l) > peak(&squashed.l),
+            "three quarters of the signal never went through it"
+        );
+    }
+
+    /// A key is another track's part, so unlike the signal it is not flushed on
+    /// the way past and the guard has to be in the detector. A frame it cannot
+    /// read is silence rather than a peak: read as one, an infinity asks for
+    /// infinite reduction and punches a hole in a track that did nothing.
+    #[test]
+    fn a_frame_of_the_key_that_cannot_be_read_ducks_nothing() {
+        let mut key = Stereo::silence(4410);
+        key.l[2205] = f32::INFINITY;
+        key.r[2205] = 0.5;
+        let quiet = Stereo::centred(tone(0.05, 4410));
+        let mut buf = quiet.clone();
+        four_to_one().apply(&mut buf, Some(&key), RATE);
+        assert_eq!(buf, quiet, "an unreadable frame is not a loud one");
+    }
+
     #[test]
     fn nonsense_settings_and_an_empty_buffer_produce_no_nonsense() {
         let mut buf = Stereo {

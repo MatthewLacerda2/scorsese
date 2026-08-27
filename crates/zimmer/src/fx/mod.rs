@@ -321,6 +321,37 @@ mod tests {
         assert_eq!(buf.l, buf.r);
     }
 
+    /// What a chain with no tracks to name does with a compressor that asks
+    /// for one anyway: it reads its own level, exactly as a compressor with no
+    /// `sidechain` does.
+    ///
+    /// Nothing valid arrives here — a patch chain and the song's own both
+    /// refuse a `sidechain` in validation — but the fallback still has to be
+    /// *the effect*, not *no effect*. A lookup that answered with an empty
+    /// buffer would read as silence at every frame, and a compressor keyed
+    /// from silence never acts, so the failure would be a chain that quietly
+    /// stopped compressing rather than one that said something.
+    #[test]
+    fn a_chain_with_no_tracks_to_name_keys_a_compressor_from_its_own_signal() {
+        let asked = [Fx::Compress {
+            threshold: -20.0,
+            ratio: 8.0,
+            attack: 0.005,
+            release: 0.05,
+            makeup: 0.0,
+            mix: 1.0,
+            sidechain: Some("nowhere".to_owned()),
+        }];
+        let mut buf = Stereo::centred(vec![0.9; 4410]);
+        apply_chain(&mut buf, &asked, 44_100.0);
+        assert!(
+            buf.l[2205] < 0.5,
+            "it compressed nothing, so it read nothing: {}",
+            buf.l[2205]
+        );
+        assert_eq!(buf.l, buf.r, "and one gain reached both sides");
+    }
+
     #[test]
     fn a_dry_effect_asks_for_no_tail() {
         let dry = [
