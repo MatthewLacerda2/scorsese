@@ -205,7 +205,8 @@ pub enum Source {
     /// two numbers rather than a routing and four operators, and it covers
     /// bells, electric pianos and struck metal well. Reach for this when the
     /// sound needs a modulator with its *own* modulator, or two voices layered
-    /// into one note — see [`patch::fm`](super::fm).
+    /// into one note — see [`Algorithm`] for the routings and [`Operator`] for
+    /// what each of the four carries.
     Fm4 {
         /// How the four are wired. There is no default: the routing is the
         /// parameter that decides what kind of sound this is, and a silent one

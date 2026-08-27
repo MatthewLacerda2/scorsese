@@ -355,11 +355,11 @@ operator envelopes:
   single cue the ear reads as a brass instrument — a player's air taking a
   moment to fill the bore — and there is nowhere to write it with two
   operators, because `fm2`'s modulator can only decay.
-- **Operators 3 and 4 are the section under it.** The same idea a fifth slower
-  and at half the weight, on a modulator an octave up, so the edge of the sound
-  arrives *after* the body and slightly apart from it. One horn played by two
-  people is not one horn twice as loud; it is two entries that do not quite
-  line up.
+- **Operators 3 and 4 are the section under it.** The same idea at half the
+  speed and under half the weight, on a modulator an octave up, so the edge of
+  the sound arrives *after* the body and slightly apart from it. One horn
+  played by two people is not one horn twice as loud; it is two entries that do
+  not quite line up.
 - **`vel_index` is how hard it is being played.** A soft note is nearly a sine
   and a hard one is a blare, and the `vel_cutoff` on the filter pushes the same
   way — the difference between a horn played quietly and a horn turned down.

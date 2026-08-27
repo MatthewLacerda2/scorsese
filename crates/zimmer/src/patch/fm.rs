@@ -119,8 +119,18 @@ fn one() -> f32 {
 /// How the four operators are wired: which of them modulate which, and which
 /// of them are heard.
 ///
-/// The eight routings of Yamaha's four-operator chips, in their order — see
-/// [the module doc](self) for where they come from and why the list is closed.
+/// The eight routings of Yamaha's four-operator chips — the YM2151 (OPM) and
+/// YM2612 (OPN2), and the same eight the DX21/TX81Z family puts on its panel —
+/// transcribed in the order those chips list them, so a patch written against
+/// a hardware diagram carries across.
+///
+/// **The list is closed, and that is the design.** A routing a recipe could
+/// draw for itself would let it describe a cycle with no output or a stage
+/// that never settles, which is the one thing a [`Patch`](super::Patch) may
+/// never be. Every row here is a DAG by construction: each edge runs from a
+/// lower-numbered operator to a higher-numbered one, so a single pass in
+/// operator order is always enough and a cycle cannot be written down.
+///
 /// Operators are numbered **1 to 4** in the diagrams below, matching the order
 /// a recipe writes them in.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -138,7 +148,11 @@ pub enum Algorithm {
     /// the same tone.
     Branch,
     /// `1 → 2`, then `(2 + 3) → 4`. [`Algorithm::Branch`]'s shape with the
-    /// operators renumbered — see [the module doc](self).
+    /// operators renumbered, and kept because the diagrams keep it: on the
+    /// hardware, feedback is wired to operator 1 and cannot be moved, so which
+    /// operator heads the two-deep chain is a real difference there. Here
+    /// [`Operator::feedback`] is per operator, so the two rows differ only in
+    /// where a recipe writes its numbers.
     Fork,
     /// `(1 → 2) + (3 → 4)`. Two independent two-operator voices, mixed. The
     /// workhorse: a bright, fast pair layered over a slow, warm one is how a
