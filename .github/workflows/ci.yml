@@ -686,6 +686,13 @@ jobs:
   # depends on it: a shard that dies takes its own slice of the report with it
   # and the rest still reports, which the merge below counts and names.
   mutants-shard:
+    # The shard number is in the name because four checks called the same thing
+    # are four checks nobody can tell apart. The cost is that a diff needing no
+    # shards leaves one skipped check still showing the unexpanded expression —
+    # there was no matrix to substitute from. Dropping the name would tidy that
+    # one case and lose "(signal)", which is the word that tells a reader the
+    # check cannot block a merge; the skipped case is the case where nothing
+    # happened, so it is the right one to leave untidy.
     name: "mutants: shard ${{ matrix.shard }} (signal)"
     needs: mutants-plan
     # Both halves are needed. An empty string is what an output reads as when
@@ -889,8 +896,9 @@ jobs:
             "${measured[@]}" > merged.json
           # One line, because the renderer italicises it as one: scope.txt is
           # written a sentence at a time and read as a single note.
+          scope=$(tr '\n' ' ' < scope.txt | sed 's/ *$//')
           python3 .github/scripts/mutants-summary.py merged.json \
-            "$(tr '\n' ' ' < scope.txt)" --in-scope "$IN_SCOPE" > mutants.md
+            "$scope" --in-scope "$IN_SCOPE" > mutants.md
           tee -a "$GITHUB_STEP_SUMMARY" < mutants.md
 
       # One comment that rewrites itself, keyed on the marker — the same shape
