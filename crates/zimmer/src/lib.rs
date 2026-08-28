@@ -308,14 +308,24 @@ pub use song::{PatchResolver, Song, render_song};
 /// **Per-note articulation is that case again**, and it came out the same way
 /// for the same reason: a mark is an optional field on each of the four ways an
 /// entry is written, and a document written before it existed names none of
-/// them, so every note in it is played exactly as written. Checked against
-/// `3b2c627` rather than argued from that sentence — 25 probes covering all
-/// five sources, every envelope corner and curve, a pitch envelope, all three
-/// LFO targets, both filter kinds, a velocity-routed cutoff, every effect wet
-/// and dry, a chain of several, chords, step strings, keys and degrees, swing,
-/// all three humanise axes, the arrangement transforms and the track filter, a
-/// pan, a track bus, a song chain, a fit, a fade and a tail — came back
-/// byte-identical, encoded bytes and length both.
+/// them, so every note in it is played exactly as written.
+///
+/// Checked against `0b4fd58` rather than argued from that sentence — 30 probes,
+/// all byte-identical, encoded bytes and length both. All six sources,
+/// including `fm4` with per-operator envelopes and a velocity index and both
+/// coloured noises; a unison stack; every envelope corner and both directions
+/// of curve; a pitch envelope; all three LFO targets; both filter kinds with a
+/// velocity routing; every effect wet and dry, and a chain of several.
+/// Twenty-one of them are songs, covering chords, step strings, keys and
+/// degrees, swing, all three humanise axes, the arrangement transforms and the
+/// track filter, a pan, a track bus, a song chain, a sidechain, an automated
+/// cutoff and an automated fader, a fit, a fade and a tail.
+///
+/// The measure is the one this section keeps returning to, and it is worth
+/// saying plainly for a notation: the note loop was edited — every note now
+/// reads a mark before its gate, its velocity and its onset are decided — and
+/// that is exactly why the probes were run rather than the sentence trusted. A
+/// document that names no mark takes the identity through all three.
 ///
 /// **Version 3 is the far end of that scale** and needs no argument at all: the
 /// crate went stereo, so every bake in every project is a different file, of a
