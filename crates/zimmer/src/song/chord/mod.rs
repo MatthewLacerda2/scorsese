@@ -51,7 +51,7 @@ pub(crate) mod name;
 
 use serde::{Deserialize, Serialize};
 
-use super::{Note, Pitch, one};
+use super::{Articulation, Note, Pitch, one};
 use crate::error::SynthError;
 use crate::note::MIDI_RANGE;
 
@@ -91,6 +91,12 @@ pub struct Chord {
     /// them apart.
     #[serde(default = "one")]
     pub vel: f32,
+    /// How every voice is played — see [`Note::articulation`]. A chord is one
+    /// gesture of a hand, so an articulation belongs to the whole of it rather
+    /// than to one of its voices; a voice that is played differently from the
+    /// others is a note beside the chord, not a chord with an exception in it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub articulation: Option<Articulation>,
 }
 
 /// What a chord is: a name for the grammar to read, or the pitches themselves.
@@ -166,7 +172,8 @@ impl Chord {
             .collect()
     }
 
-    /// One voice of this chord: the chord's timing and force, one pitch.
+    /// One voice of this chord: the chord's timing, force and articulation,
+    /// one pitch.
     fn voice(&self, note: Pitch) -> Note {
         Note {
             track: self.track.clone(),
@@ -174,6 +181,7 @@ impl Chord {
             start: self.start,
             dur: self.dur,
             vel: self.vel,
+            articulation: self.articulation,
         }
     }
 }
@@ -191,6 +199,7 @@ mod tests {
             start: 0.0,
             dur: 1.0,
             vel: 0.8,
+            articulation: None,
         }
     }
 

@@ -68,6 +68,7 @@ fn a_degree_is_checked_the_way_every_other_entry_is() {
             start: 0.0,
             dur: 0.5,
             vel: 1.0,
+            articulation: None,
         };
         edit(&mut written);
         written

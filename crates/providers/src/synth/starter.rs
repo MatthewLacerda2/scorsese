@@ -146,6 +146,7 @@ fn phrase(notes: [&str; 4]) -> Pattern {
                     start: beat as f32,
                     dur: 0.9,
                     vel: 1.0,
+                    articulation: None,
                 }
                 .into()
             })

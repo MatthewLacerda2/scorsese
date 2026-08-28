@@ -47,6 +47,7 @@
 //! the patch follows.
 
 pub(crate) mod arrangement;
+pub(crate) mod articulation;
 pub(crate) mod automate;
 pub(crate) mod chord;
 pub(crate) mod feel;
@@ -67,6 +68,7 @@ use crate::error::SynthError;
 use crate::patch::{Fx, Patch};
 
 pub use arrangement::{ArrangementEntry, Play};
+pub use articulation::Articulation;
 pub use automate::{Automation, Easing, Param, Point};
 pub use chord::{Chord, Voicing};
 pub use feel::Humanize;
@@ -417,6 +419,17 @@ pub struct Note {
     /// Velocity in `0..=1`, scaling this note's peak amplitude.
     #[serde(default = "one")]
     pub vel: f32,
+    /// How it is played, as opposed to which note it is — an [`Articulation`],
+    /// or nothing, which is the note exactly as written.
+    ///
+    /// The four written forms all carry this field, and each of them means the
+    /// same thing by it: [`Chord`] plays every voice that way, [`Steps`] plays
+    /// every hit that way, and a [`DegreeNote`] is one note like this one. It
+    /// survives expansion because it is copied onto the notes an entry becomes
+    /// — nothing downstream of that expansion knows which form the page used,
+    /// so this is the only place it could live.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub articulation: Option<Articulation>,
 }
 
 /// A pitch, written the way a score does or as a raw MIDI number.

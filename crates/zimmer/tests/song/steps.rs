@@ -29,6 +29,7 @@ fn steps(pattern: &str) -> Steps {
         dur: None,
         note: None,
         vel: PLAIN,
+        articulation: None,
     }
 }
 
@@ -41,6 +42,7 @@ fn hit(start: f32, vel: f32) -> Note {
         start,
         dur: 0.5,
         vel,
+        articulation: None,
     }
 }
 

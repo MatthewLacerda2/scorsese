@@ -1126,6 +1126,86 @@ and a detuned pair is already drifting at the attack. Nothing asks for it and
 nothing can turn it off: a repeat that was a photocopy is the thing this whole
 section is about, and it was one before any of these fields were written.
 
+### Saying how a note is played
+
+The two fields above are the performance the player did *not* intend — where
+the beat is, and how well he hit it. An **articulation** is what he did intend,
+written over one note. Any entry may carry one, in any of the four forms:
+
+```json fields
+  "patterns": { "a": { "beats": 4, "notes": [
+    { "track": "t", "note": "E2", "start": 0,    "dur": 1,   "vel": 0.7, "articulation": "accent" },
+    { "track": "t", "note": "E2", "start": 0.75, "dur": 0.25, "vel": 0.7, "articulation": "ghost" },
+    { "track": "t", "note": "B2", "start": 1,    "dur": 1,   "vel": 0.7, "articulation": "staccato" },
+    { "track": "t", "note": "E2", "start": 2,    "dur": 2,   "vel": 0.7 }
+  ] } }
+```
+
+Three marks, and that is the whole set:
+
+| mark | the player | what it moves |
+| --- | --- | --- |
+| `accent` | leans on it | velocity ×1.3, **and** the brightness with it |
+| `staccato` | stops it short | the gate, to half the written `dur` — which stays written |
+| `ghost` | barely plays it | velocity ×0.35, gate ×0.4, duller, and 12 ms early |
+
+**Named rather than spelled as numbers**, which is the point of the field. Each
+of the three is a combination the document could write itself — a smaller `vel`,
+a shorter `dur` — and then nothing would record that it was a *ghost*, every
+ghost in the piece would be a slightly different one, and changing what a ghost
+means would be an edit to every note that is one.
+
+A ghost is the clearest case that velocity cannot stand in. It is not a quiet
+note: it is quiet **and** short **and** dull **and** a hair ahead of the beat,
+four things a hand does together and nobody writes out four times. An accent is
+the same argument in the other direction — leaning on a string makes it louder
+*and* brighter, so the mark reaches the same two velocity-to-brightness
+routings `humanize`'s `timbre` does, and a patch that names neither hears only
+the level.
+
+**A mark belongs to whatever the entry is.** A `chord` plays every voice that
+way, a `steps` string plays every hit that way, a `degree` is one note like any
+other — a chord is one gesture of a hand, and a run is one gesture repeated. A
+voice or a hit played differently from the rest is a note written beside it.
+
+**The order it composes in**, since that is where the surprises would be:
+
+| what | the order |
+| --- | --- |
+| velocity | written `vel` × the section's `vel_scale` × the mark, then `humanize` scatters that |
+| gate | `dur` × the mark; `swing` never touched `dur` either |
+| brightness | the mark's offset plus `humanize`'s, both fractions of the velocity actually played |
+| onset | `swing`, then the mark, then `humanize` |
+
+`humanize` is last every time, because it is the error term: it scatters a
+decision and never overrules one. And the mark is inside it — an accented note
+under a `vel_scale` and a `humanize` comes out as exactly the note written at
+the level that product comes to.
+
+**An [automation curve](#making-something-build) is not in that list**, and
+that is worth saying rather than leaving to be worked out. A `gain` or `pan`
+curve is a fader on the mix, read every sample from the track's summed bus long
+after any note was struck: it moves the part, never the playing. A `cutoff`
+curve moves the **base** a mark's brightness is added to — a filter's cutoff is
+`cutoff + env_amount × env + vel_cutoff × velocity`, so a build opening the
+filter and an accent opening it further are two terms of one sum and neither is
+applied first. The only ordering there is *where the curve is read*: at the
+note's swung onset, before the mark and before `humanize` displace it, so a
+ghost sitting a hair early does not read the build a hair early with it.
+
+One consequence worth stating: an accent needs headroom. A note already written
+at `vel: 1.0` cannot be struck harder than full, so it comes out unaccented —
+the same rule `humanize` lives by, and the reason a piece with dynamics writes
+its notes below `1.0`. It is not refused, because a `vel` of 1 under a
+`"vel_scale": 0.6` has all the room it needs.
+
+**Glide is not here**, and it is the one that is missed. A portamento up into a
+note is what a bassline is half made of, and it is the only articulation with
+real signal processing behind it: it needs the pitch of the *previous* note on
+the track, where everything else here is a property of the note itself. That is
+a change to how the renderer is built rather than a fourth word, so it is its
+own piece of work.
+
 ### Where a part sits
 
 Every track has a **`pan`**: `-1.0` hard left, `0.0` centre, `1.0` hard right.
@@ -1752,8 +1832,10 @@ exactly what nothing downstream can notice.
   `oct` written beside a chord that spelled its pitches out.
 - **[Step strings](#writing-a-rhythm-as-a-rhythm)** — a character that is not
   `x`, `X` or `-`, a string whose length is not the length its grid needs, a
-  `div` no whole number of steps fits the slot with, and both cases used beside
-  a `vel` of 1, where the accents the page shows would not be in the audio.
+  `div` no whole number of steps fits the slot with, both cases used beside
+  a `vel` of 1, where the accents the page shows would not be in the audio, and
+  an `"articulation": "accent"` on a string that already marks its accents with
+  `X` — which is the word said twice, in two vocabularies.
   Each of those is a shorter or differently spaced bar, which is the failure
   nobody hears until much later.
 - **[Keys and degrees](#saying-what-key-it-is-in)** — a `key` that is not a

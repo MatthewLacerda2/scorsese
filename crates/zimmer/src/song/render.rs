@@ -38,6 +38,7 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 
+use super::articulation::Stroke;
 use super::automate::{self, Automation};
 use super::feel::swung;
 use super::mix::Mix;
@@ -205,14 +206,27 @@ pub(crate) fn mix_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Mixdo
             // than to whatever the previous entry produced: they do not stack
             // across entries, so the tenth repeat is not nine octaves up and
             // the document still says what it does.
-            // The level first, then how far this strike's tone sits from it:
-            // `timbre` is a fraction of the velocity actually played, so the
-            // two are drawn in that order rather than independently.
-            let velocity = feel.velocity(note.vel * entry.vel_scale(), track, place, song.seed);
+            let stroke = Stroke::of(note.articulation);
+            // Velocity, in the order the three things that scale it were
+            // decided: what the page wrote, then what the section does to the
+            // whole pattern (`vel_scale`), then what the mark over this one
+            // note does (an accent, a ghost), and only then the player's own
+            // inaccuracy on top of all three. Humanise is last because it is
+            // the error term: it scatters a decision and never overrules one.
+            let written = note.vel * entry.vel_scale() * stroke.velocity;
+            let velocity = feel.velocity(written, track, place, song.seed);
             let opts = NoteOpts {
-                duration: note.dur * beat,
+                // The gate, not the written `dur`: staccato and ghost shorten
+                // how long the note is held and leave the rhythm on the page
+                // exactly as it reads.
+                duration: note.dur * stroke.gate * beat,
                 velocity,
-                timbre: feel.timbre(velocity, track, place, song.seed),
+                // How far this strike's tone sits from its level — the mark's
+                // own offset plus the player's. Both are fractions of the
+                // velocity actually played, in the same units against the same
+                // number, which is what lets them simply add: intent first,
+                // then the error on it.
+                timbre: stroke.timbre(velocity) + feel.timbre(velocity, track, place, song.seed),
                 seed,
             };
             // Both transposes, applied in one place — and clamped rather than
@@ -221,17 +235,23 @@ pub(crate) fn mix_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Mixdo
             let pitch = entry.played_pitch(note.note.to_midi()?, key.as_ref());
             // Where this note sits in the piece, in beats: the one coordinate
             // an automation curve is read at. Swung, because that is where the
-            // note is actually played — but *not* humanised, since a curve
-            // read at a scattered onset would put the player's jitter on the
-            // build as well as on the note.
+            // note is actually played — but neither marked nor humanised,
+            // since a curve read at a displaced onset would put a ghost's
+            // earliness and the player's jitter on the build as well as on the
+            // note.
             let beat_at = cursor_beats + swung(note.start, song.swing);
             let instrument = tuned(&patches[track], riding[track].cutoff, beat_at);
             let rendered = core::render_note(&instrument, pitch, &opts)?;
-            // Swing first, humanise second: swing is where the beat *is*, and
-            // humanise is how well the player hit it. Clamped at zero rather
-            // than wrapped — a note nudged early on the very first beat has
-            // nowhere to go, and a negative sample index is not a time.
-            let onset = beat_at * beat + feel.onset_seconds(track, place, song.seed);
+            // Swing first, then the mark, then humanise: swing is where the
+            // beat *is*, an articulation is where the player meant to put the
+            // note against it (a ghost sits a hair ahead), and humanise is how
+            // well he hit what he meant. The last two are seconds added to the
+            // same number, so the order is what they mean rather than what the
+            // arithmetic needs. Clamped at zero rather than wrapped — a note
+            // nudged early on the very first beat has nowhere to go, and a
+            // negative sample index is not a time.
+            let onset =
+                beat_at * beat + stroke.onset_seconds + feel.onset_seconds(track, place, song.seed);
             let at = (onset * RATE).round().max(0.0) as usize;
             // Added to the track's own bus rather than straight to the master:
             // where a note lands is timing, which bus it lands on is routing,

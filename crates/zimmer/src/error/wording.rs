@@ -215,6 +215,10 @@ impl SynthError {
                 f,
                 "song: track `{track}`: `X` and `x` are the same hit at `vel` {vel} — write a `vel` below 1 for the plain hits to be softer than the accents"
             ),
+            Self::TwiceAccented { track, .. } => write!(
+                f,
+                "song: track `{track}`: a step string cannot be played `accent` and also mark accents with `X` — accent the whole run, or mark the hits"
+            ),
             Self::BadKey { key, .. } => write!(
                 f,
                 "song: `{key}` is not a key — write a tonic and a mode, like `D minor`, `F# lydian` or `Bb major`"
