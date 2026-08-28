@@ -66,7 +66,7 @@
 
 use std::f32::consts::TAU;
 
-use super::feedback;
+use super::{feedback, voicing};
 use crate::core::{env, nyquist};
 use crate::patch::{Algorithm, FM_OPERATORS, Operator};
 
@@ -87,9 +87,8 @@ pub(crate) fn render(
     rate: f32,
 ) {
     let ceiling = nyquist::ratio_ceiling(freqs, rate);
-    let sounding: [bool; FM_OPERATORS] =
-        std::array::from_fn(|i| operators[i].ratio > 0.0 && operators[i].ratio < ceiling);
-    let norm = normaliser(algorithm, levels, &sounding);
+    let sounding = voicing::sounding(operators, ceiling);
+    let norm = voicing::normaliser(algorithm, levels, &sounding);
     let mut phase = [0.0f32; FM_OPERATORS];
     let mut fed = [[0.0f32; 2]; FM_OPERATORS];
     for (i, s) in out.iter_mut().enumerate() {
@@ -113,28 +112,6 @@ pub(crate) fn render(
         }
         *s = mix * norm;
     }
-}
-
-/// What the summed carriers are divided by: the total level of the carriers
-/// that actually sound.
-///
-/// Dropped operators are left out on purpose: a source whose level fell away
-/// as it was played higher, purely because more of it had gone past Nyquist,
-/// would fight every gain decision the mix makes, and a note high enough to be
-/// a lone carrier would arrive as a whisper rather than as a sine.
-///
-/// Zero when nothing sounds, which silences the note rather than dividing by
-/// nothing.
-fn normaliser(
-    algorithm: Algorithm,
-    levels: &[f32; FM_OPERATORS],
-    sounding: &[bool; FM_OPERATORS],
-) -> f32 {
-    let total: f32 = (0..FM_OPERATORS)
-        .filter(|op| sounding[*op] && algorithm.is_carrier(*op))
-        .map(|op| levels[op].max(0.0))
-        .sum();
-    if total > 0.0 { 1.0 / total } else { 0.0 }
 }
 
 /// How far this operator's modulators bend its phase, in radians: each one's
@@ -386,6 +363,47 @@ mod tests {
         assert!(buf.iter().any(|s| s.abs() > 0.5), "and it is not silence");
     }
 
+    /// The two bends an operator takes — from its modulators and from its own
+    /// feedback — are **summed**, not differenced, and only a signed sample can
+    /// say so. Every spectral assertion in this file reads a magnitude, and a
+    /// magnitude is blind to the sign of one term inside a phase; the two
+    /// tests above each hold one of the terms at zero, so neither notices
+    /// either.
+    ///
+    /// One carrier at ratio 1 with feedback at full, under one modulator at
+    /// ratio 1 and index 2, played at an eighth of the sample rate so a sample
+    /// is an eighth of a cycle and the recursion is short enough to work by
+    /// hand. Sample 0 is `sin(0)`; sample 1 has nothing fed back yet, so it is
+    /// `sin(π/4 + 2 sin(π/4)) = 0.8087` either way. **Sample 2 is where they
+    /// part**: the fed-back average is `π × 0.8087 / 2 = 1.2700`, so the
+    /// forward sum reads `sin(π/2 + 2 + 1.2700) = −0.9917` and a difference
+    /// would read `sin(π/2 + 2 − 1.2700) = +0.7454`. Opposite signs, and more
+    /// than 1.7 apart.
+    #[test]
+    fn the_modulators_and_the_feedback_add_rather_than_cancel() {
+        let mut carrier = op(1.0, 1.0);
+        carrier.feedback = 1.0;
+        // An eighth of the sample rate: 5512.5 Hz, whose ratio ceiling is
+        // exactly 4, so every operator here is comfortably inside it.
+        let buf = voice(
+            Algorithm::Twin,
+            [op(1.0, 2.0), carrier, op(1.0, 0.0), op(1.0, 0.0)],
+            RATE / 8.0,
+            8,
+        );
+        assert_eq!(buf[0], 0.0, "both phases start at zero");
+        assert!(
+            (buf[1] - 0.808_725).abs() < 1e-4,
+            "sample 1 read {}",
+            buf[1]
+        );
+        assert!(
+            (buf[2] + 0.991_723).abs() < 1e-4,
+            "sample 2 read {}, where a difference reads +0.7454",
+            buf[2]
+        );
+    }
+
     /// And it is audible: a fed-back operator is no longer a sine, so harmonics
     /// appear that a clean one has none of.
     #[test]
@@ -483,20 +501,5 @@ mod tests {
             assert!(peak <= 1.0, "{algorithm:?} peaked at {peak}");
             assert!(peak > 0.2, "{algorithm:?} is inaudible ({peak})");
         }
-    }
-
-    /// Carriers with nothing but zero between them render silence rather than
-    /// dividing by nothing. Validation refuses this patch, so what is checked
-    /// here is that the renderer does not produce a `NaN` if one ever reaches
-    /// it another way.
-    #[test]
-    fn carriers_at_no_level_at_all_render_silence() {
-        let buf = voice(
-            Algorithm::Chain,
-            [op(1.0, 3.0), op(1.0, 3.0), op(1.0, 3.0), op(1.0, 0.0)],
-            BASE,
-            256,
-        );
-        assert!(buf.iter().all(|s| *s == 0.0));
     }
 }
