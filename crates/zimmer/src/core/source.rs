@@ -7,16 +7,17 @@
 //! string is plucked.
 //!
 //! **This is where mono becomes stereo, and mostly it does not.** An
-//! oscillator stack, a plucked string and an FM pair are each one waveform, so
-//! each is rendered once and placed in both channels — identically, which is
-//! what makes a centred part carry exactly the samples it always did. Width is
-//! a decision the mix makes, downstream, and a source that invented its own
-//! would take that decision away from it.
+//! oscillator stack, a plucked string, an FM voice — of two operators or of
+//! four — and an additive series are each one waveform, so each is rendered
+//! once and placed in both channels, identically, which is what makes a
+//! centred part carry exactly the samples it always did. Width is a decision
+//! the mix makes, downstream, and a source that invented its own would take
+//! that decision away from it.
 //!
 //! [`noise`] is the exception and owns the reason for it.
 
 use super::{additive, fm, karplus, noise, osc};
-use crate::patch::Source;
+use crate::patch::{Algorithm, FM_OPERATORS, Operator, Source};
 use crate::stereo::Stereo;
 
 /// Render `frames` samples of `source`, following the per-sample frequency
@@ -30,19 +31,27 @@ use crate::stereo::Stereo;
 /// carries. Every other source takes its velocity further down the path, at
 /// the filter and the amp envelope.
 ///
-/// `seed` is the note's. Four of the five sources draw on it: the noise
+/// `gate` is how long the note is held. Only `fm4` reads it here, for its
+/// per-operator envelopes — every other source's shaping over time either
+/// belongs to the note (the amp envelope, downstream) or is measured from the
+/// start of it rather than from the gate closing.
+///
+/// `seed` is the note's. Four of the six sources draw on it: the noise
 /// source is nothing but, the Karplus excitation is a burst of it, and an
 /// oscillator stack and an additive series each start their voices somewhere
 /// in their cycle rather than all of them at zero.
 ///
 /// The sum is resolved here rather than inside [`fm`] so that module stays the
 /// FM algorithm and nothing else: it is handed the index to use, not the
-/// bookkeeping that arrived at one.
+/// bookkeeping that arrived at one. `fm4` is the same rule over four
+/// operators — which of them velocity reaches is a question the routing
+/// answers, and [`fm_levels`] is where the two meet.
 pub(crate) fn render(
     source: &Source,
     freqs: &[f32],
     seed: u64,
     velocity: f32,
+    gate: f32,
     frames: usize,
     rate: f32,
 ) -> Stereo {
@@ -52,7 +61,7 @@ pub(crate) fn render(
         return out;
     }
     let mut mono = vec![0.0; frames];
-    one_waveform(source, freqs, seed, velocity, &mut mono, rate);
+    one_waveform(source, freqs, seed, velocity, gate, &mut mono, rate);
     Stereo::centred(mono)
 }
 
@@ -62,6 +71,7 @@ fn one_waveform(
     freqs: &[f32],
     seed: u64,
     velocity: f32,
+    gate: f32,
     out: &mut [f32],
     rate: f32,
 ) {
@@ -81,7 +91,15 @@ fn one_waveform(
             mod_decay,
         } => {
             let depth = (index + vel_index * velocity).max(0.0);
-            fm::render(out, freqs, *ratio, depth, *mod_decay, rate);
+            fm::two::render(out, freqs, *ratio, depth, *mod_decay, rate);
+        }
+        Source::Fm4 {
+            algorithm,
+            operators,
+            vel_index,
+        } => {
+            let levels = fm_levels(*algorithm, operators, *vel_index, velocity);
+            fm::four::render(out, freqs, *algorithm, operators, &levels, gate, rate);
         }
         Source::Additive { partials } => additive::render(partials, freqs, seed, out, rate),
         // [`render`] sends this one down its own path before narrowing the
@@ -90,16 +108,46 @@ fn one_waveform(
     }
 }
 
+/// Each operator's level with velocity resolved into it: `vel_index` at full
+/// strength added to every operator the routing makes a **modulator**, and
+/// nothing at all added to a carrier.
+///
+/// The split is the whole point. A modulator's level is an index — depth in
+/// radians, and therefore brightness — which is what a harder strike changes
+/// on any real instrument. A carrier's level is its share of the mix, and
+/// velocity already reaches the level through the amp envelope; adding to it
+/// here would move the balance between the carriers as well, so a horn leaned
+/// on would come out as a different horn rather than a brighter one.
+///
+/// Floored at zero for the reason `Fm2`'s `vel_index` is: a negative index
+/// only mirrors the modulator and sounds exactly as bright, so an unclamped
+/// sum would make a darkening routing brighten again once it crossed over.
+fn fm_levels(
+    algorithm: Algorithm,
+    operators: &[Operator; FM_OPERATORS],
+    vel_index: f32,
+    velocity: f32,
+) -> [f32; FM_OPERATORS] {
+    std::array::from_fn(|i| {
+        let level = operators[i].level;
+        if algorithm.is_carrier(i) {
+            level
+        } else {
+            (level + vel_index * velocity).max(0.0)
+        }
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::patch::{Osc, Partial, Wave};
 
     fn render_kind(source: &Source) -> Stereo {
-        render(source, &vec![220.0; 8192], 5, 1.0, 8192, 44_100.0)
+        render(source, &vec![220.0; 8192], 5, 1.0, 1.0, 8192, 44_100.0)
     }
 
-    fn every_kind() -> [Source; 5] {
+    fn every_kind() -> [Source; 6] {
         [
             Source::OscStack {
                 oscs: vec![Osc {
@@ -120,6 +168,11 @@ mod tests {
                 vel_index: 0.0,
                 mod_decay: 0.3,
             },
+            Source::Fm4 {
+                algorithm: Algorithm::Twin,
+                operators: [operator(2.0), operator(1.0), operator(3.0), operator(1.0)],
+                vel_index: 0.0,
+            },
             Source::Additive {
                 partials: vec![
                     Partial {
@@ -137,6 +190,16 @@ mod tests {
                 ],
             },
         ]
+    }
+
+    /// A plain operator at `ratio`, full level, no feedback and no envelope.
+    fn operator(ratio: f32) -> Operator {
+        Operator {
+            ratio,
+            level: 1.0,
+            feedback: 0.0,
+            env: None,
+        }
     }
 
     #[test]
@@ -179,7 +242,81 @@ mod tests {
                 brightness: 0.5,
             },
         ] {
-            assert!(render(&source, &[], 1, 1.0, 0, 44_100.0).is_empty());
+            assert!(render(&source, &[], 1, 1.0, 1.0, 0, 44_100.0).is_empty());
         }
+    }
+
+    /// Velocity reaches the modulators and stops there. Under `chain` every
+    /// operator but the last is a modulator, so a hard strike brightens the
+    /// note; under `parallel` every one of them is a carrier, so the same
+    /// `vel_index` — absurdly large, to leave no room for a small effect —
+    /// changes nothing at all, sample for sample.
+    #[test]
+    fn velocity_moves_a_modulator_and_never_a_carrier() {
+        let operators = [operator(1.0), operator(2.0), operator(3.0), operator(1.0)];
+        let bright = |algorithm, velocity| {
+            let source = Source::Fm4 {
+                algorithm,
+                operators,
+                vel_index: 6.0,
+            };
+            render(
+                &source,
+                &vec![220.0; 4096],
+                5,
+                velocity,
+                1.0,
+                4096,
+                44_100.0,
+            )
+            .l
+        };
+        let (soft, hard) = (bright(Algorithm::Chain, 0.0), bright(Algorithm::Chain, 1.0));
+        assert!(
+            roughness(&hard) > roughness(&soft) * 2.0,
+            "a harder strike should be brighter: {} against {}",
+            roughness(&hard),
+            roughness(&soft)
+        );
+        assert_eq!(
+            bright(Algorithm::Parallel, 0.0),
+            bright(Algorithm::Parallel, 1.0),
+            "with no modulator there is nothing for velocity to reach"
+        );
+    }
+
+    /// The levels a routing hands the renderer: `vel_index` on the three
+    /// modulators of a chain, and the carrier left exactly as written.
+    #[test]
+    fn only_the_modulators_take_the_velocity_index() {
+        let operators = [operator(1.0), operator(2.0), operator(3.0), operator(1.0)];
+        assert_eq!(
+            fm_levels(Algorithm::Chain, &operators, 4.0, 0.5),
+            [3.0, 3.0, 3.0, 1.0]
+        );
+        assert_eq!(
+            fm_levels(Algorithm::Twin, &operators, 4.0, 1.0),
+            [5.0, 1.0, 5.0, 1.0]
+        );
+        assert_eq!(
+            fm_levels(Algorithm::Parallel, &operators, 4.0, 1.0),
+            [1.0, 1.0, 1.0, 1.0]
+        );
+    }
+
+    /// A darkening routing bottoms out at a bare carrier rather than turning
+    /// around and brightening again.
+    #[test]
+    fn a_negative_index_is_floored_rather_than_mirrored() {
+        let operators = [operator(1.0), operator(2.0), operator(3.0), operator(1.0)];
+        assert_eq!(
+            fm_levels(Algorithm::Chain, &operators, -9.0, 1.0),
+            [0.0, 0.0, 0.0, 1.0]
+        );
+    }
+
+    /// Sum of absolute sample-to-sample change — a cheap brightness proxy.
+    fn roughness(buf: &[f32]) -> f32 {
+        buf.windows(2).map(|w| (w[1] - w[0]).abs()).sum()
     }
 }

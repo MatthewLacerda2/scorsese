@@ -6,7 +6,7 @@
 use serde_json::{Value, json};
 
 /// The page, embedded at compile time so editing it reruns this.
-const DOC: &str = include_str!("../../../../docs/recipes.md");
+pub(crate) const DOC: &str = include_str!("../../../../docs/recipes.md");
 
 /// One fenced block: what it claims to be, and what is inside it.
 pub(crate) struct Example {

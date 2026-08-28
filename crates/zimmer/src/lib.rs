@@ -135,8 +135,9 @@
 //! was wanted anyway.
 //!
 //! **Width belongs to the mix, never to a note.** A source is one signal: an
-//! oscillator stack, a plucked string and an FM pair each produce a single
-//! waveform, and it reaches both channels identically. `noise` is the one
+//! oscillator stack, a plucked string and an FM voice — of two operators or of
+//! four — each produce a single waveform, and it reaches both channels
+//! identically. `noise` is the one
 //! exception — an uncorrelated second draw is a free and legitimate way to
 //! make a noise source wide, and the seeded hash already takes a channel
 //! discriminator. Everything else that widens a sound happens downstream, in
@@ -250,6 +251,42 @@ pub use song::{PatchResolver, Song, render_song};
 /// came back byte-identical. The measure is the same one either way: *can a
 /// recipe written before this change name the new thing?* Not *did the code
 /// around it move*.
+///
+/// **`fm4` is the second new source, and it needed a wider probe than the
+/// first**, which is the part worth writing down rather than the verdict. The
+/// verdict is the one above: a recipe written before it cannot name `fm4`, so
+/// the number does not move.
+///
+/// What made the check different is that this one **touched code an existing
+/// recipe does reach**. The source stage takes a new argument — the gate, for
+/// the per-operator envelopes — so every source's call site moved; `core/fm.rs`
+/// became a directory; and `additive`'s own Nyquist helper was folded into a
+/// shared `core::nyquist` module, which means the *previous*
+/// source was edited by this change. So the probes had two jobs, not one: show
+/// that nothing can name `fm4`, and show that `additive` still renders exactly
+/// what it rendered yesterday.
+///
+/// 34 probes against `9e73ead`, all byte-identical. Twenty-one cover the
+/// sources that predate `additive`, both FM ratio kinds, curved envelopes
+/// either way, a pitch envelope, all three LFO targets, both filter kinds with
+/// a velocity routing and a negative envelope amount, every effect, and a
+/// chain of four. Four are `additive` alone, deliberately placed to work the
+/// helper that moved: a sixteen-partial series played low enough to carry all
+/// of it, high enough to lose most of it, and at the top of the keyboard where
+/// almost nothing survives. Nine are songs — chords, step strings, a key with
+/// degrees and a diatonic lift, swing and all three humanise axes, a stretch
+/// `fit` with fades and an exact tail, a sidechained track chain beside a song
+/// chain, a patch named by reference, and two additive songs, one of them
+/// under a vibrato so the ceiling is decided by a moving pitch track rather
+/// than a flat one.
+///
+/// Editing a source is normally exactly the case that bumps this number, and
+/// the reason it does not here is worth being explicit about rather than
+/// leaving to a reader to infer: the rule is *the samples move*, and the four
+/// `additive` probes exist precisely because that claim about the helper's
+/// move is the one nobody should take on trust. This is the compressor's case
+/// again — further into shipping code than the change before it, and so
+/// measured instead of reasoned about.
 ///
 /// **Version 3 is the far end of that scale** and needs no argument at all: the
 /// crate went stereo, so every bake in every project is a different file, of a

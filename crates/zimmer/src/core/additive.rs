@@ -116,6 +116,7 @@
 
 use std::f32::consts::TAU;
 
+use crate::core::nyquist;
 use crate::hash::unit2;
 use crate::patch::Partial;
 
@@ -136,7 +137,7 @@ pub(crate) fn render(
     out: &mut [f32],
     sample_rate: f32,
 ) {
-    let ceiling = ratio_ceiling(freqs, sample_rate);
+    let ceiling = nyquist::ratio_ceiling(freqs, sample_rate);
     let total_gain: f32 = partials
         .iter()
         .filter(|partial| sounding(partial, ceiling).is_some())
@@ -157,25 +158,6 @@ pub(crate) fn render(
             *s += gain * decay_at(i as f32 / sample_rate, partial.decay) * (TAU * phase).sin();
             phase = (phase + base * ratio / sample_rate).fract();
         }
-    }
-}
-
-/// The largest ratio a partial may take and still stay below Nyquist for this
-/// note.
-///
-/// Measured against the **highest** frequency the track reaches rather than
-/// the note's nominal pitch, so a partial that would cross the line at the top
-/// of a vibrato is dropped for the whole note instead of blinking in and out
-/// of it.
-///
-/// A track that never rises above zero has no pitch to place partials against,
-/// so nothing sounds: a ceiling of zero drops every one of them.
-fn ratio_ceiling(freqs: &[f32], sample_rate: f32) -> f32 {
-    let top = freqs.iter().fold(0.0f32, |high, f| high.max(*f));
-    if top > 0.0 {
-        sample_rate * 0.5 / top
-    } else {
-        0.0
     }
 }
 
@@ -419,7 +401,7 @@ mod tests {
     /// One part in ten thousand under the line still sounds.
     #[test]
     fn a_partial_landing_exactly_on_nyquist_is_dropped() {
-        let ceiling = ratio_ceiling(&[BASE], RATE);
+        let ceiling = nyquist::ratio_ceiling(&[BASE], RATE);
         assert_eq!(ceiling, 220.5, "half the rate over the played pitch");
         assert_eq!(sounding(&partial(ceiling, 1.0), ceiling), None);
         assert!(sounding(&partial(220.49, 1.0), ceiling).is_some());
@@ -432,21 +414,11 @@ mod tests {
     /// low down that it drops at the top of the keyboard.
     #[test]
     fn which_partials_are_legal_depends_on_the_note() {
-        let ceiling = |hz: f32| ratio_ceiling(&[hz], RATE);
+        let ceiling = |hz: f32| nyquist::ratio_ceiling(&[hz], RATE);
         assert_eq!(ceiling(100.0), 220.5);
         assert_eq!(ceiling(2000.0), 11.025);
         assert!(sounding(&partial(16.0, 1.0), ceiling(100.0)).is_some());
         assert!(sounding(&partial(16.0, 1.0), ceiling(2000.0)).is_none());
-    }
-
-    /// The whole track decides, not its first sample — a partial that would
-    /// cross Nyquist at the top of a vibrato is dropped for the note rather
-    /// than blinking out part-way through it.
-    #[test]
-    fn the_ceiling_follows_the_highest_pitch_the_note_reaches() {
-        assert_eq!(ratio_ceiling(&[100.0, 400.0, 200.0], RATE), 55.125);
-        assert_eq!(ratio_ceiling(&[], RATE), 0.0, "no track, no partials");
-        assert_eq!(ratio_ceiling(&[0.0, -100.0], RATE), 0.0, "nor no pitch");
     }
 
     /// A partial at or below DC names no frequency, so the renderer refuses it

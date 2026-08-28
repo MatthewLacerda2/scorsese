@@ -73,7 +73,7 @@ source ─► filter ─► amp envelope ─► fx
    └─────── lfo ──────────┘        one target: pitch | cutoff | amp
 ```
 
-**`source`** — one of five, tagged by `kind`:
+**`source`** — one of six, tagged by `kind`:
 
 | `kind` | Fields | Good for |
 | --- | --- | --- |
@@ -81,11 +81,25 @@ source ─► filter ─► amp envelope ─► fx
 | `karplus` | `damping` 0..1, `brightness` 0..1 | plucked strings, marimbas |
 | `noise` | — | gunshots, impacts, footsteps, wind |
 | `fm2` | `ratio`, `index`, `vel_index`, `mod_decay` | bells, electric pianos, metal |
+| `fm4` | `algorithm`, `operators`: exactly 4, `vel_index` | brass, pads, FM basses, layered bells |
 | `additive` | `partials`: up to 16 of `{ ratio, gain, detune_cents, decay }` | organs, bowed and blown sustains, glass |
 
 `wave` is `sine`, `triangle`, `saw` or `square`. Integer `ratio` on `fm2` stays
-tonal; a fractional one goes metallic. `additive` is the odd one out and has
-[a section of its own](#stating-a-spectrum-instead-of-carving-one).
+tonal; a fractional one goes metallic.
+
+Read the list as three groups, because that is how you choose from it. The
+first three **make something rich and carve it**, at the filter. The two FM
+sources **bend one sine with another**, and the spectrum is whatever falls out
+of the depth you asked for. `additive` **states the spectrum outright**, with
+nothing left for a filter to arrive at.
+
+The last three have sections of their own, and the two FM ones are two sizes of
+one idea. **`fm2` is usually the right one**: it is two numbers, which is a
+thing you can hold in your head, and it covers the percussive end FM is famous
+for. Reach for [`fm4`](#four-operators-and-the-wiring-between-them) when the
+sound needs something two operators structurally cannot do, and for
+[`additive`](#stating-a-spectrum-instead-of-carving-one) when you know what the
+spectrum is rather than what to remove from one.
 
 **`amp`** — an ADSR: `{ "a": 0.005, "d": 0.15, "s": 0.4, "r": 0.2 }`. Attack,
 decay and release are seconds; sustain is a level in `0..=1`. **Required.**
@@ -240,13 +254,131 @@ This chain is the *instrument's own*: it is applied to each note separately. A
 song has two more places to put one, and reverb almost always wants one of them
 — see [Where an effect goes](#where-an-effect-goes).
 
+### Four operators, and the wiring between them
+
+Two operators can only produce **one** modulator-carrier relationship. That
+reaches bells, electric pianos and struck metal and then stops, because
+everything else people mean by "FM synthesis" needs a second relationship: a
+modulator that is itself modulated, two unrelated modulators colouring one
+carrier, or two complete voices layered into one note. Brass, sustained pads,
+most FM basses and any bell-into-body layer live there.
+
+`fm4` is four sine **operators** and a choice about how they are wired. That
+choice is what a DX7 calls an *algorithm*, and it is picked from a list of
+eight rather than described — a routing you could draw yourself would let a
+recipe write a loop with no output, which is the one thing a patch may never
+be. The eight are Yamaha's four-operator set, the same table the YM2151 and
+YM2612 chips and the DX21/TX81Z panel use, so a patch transcribed off a
+hardware diagram lands where it did on the hardware.
+
+Operators are numbered **1 to 4**, in the order `operators` lists them.
+
+| `algorithm` | Wiring | Reach for it when |
+| --- | --- | --- |
+| `chain` | 1 → 2 → 3 → 4 | the brightest, most extreme routing — goes inharmonic fastest |
+| `stack` | (1 + 2) → 3 → 4 | two unrelated ratios colour one wave, and that wave shapes the tone |
+| `branch` | 2 → 3, then (1 + 3) → 4 | one simple partial and one complex one on the same tone |
+| `fork` | 1 → 2, then (2 + 3) → 4 | `branch`'s shape with the operators numbered the other way |
+| `twin` | (1 → 2) + (3 → 4) | **the workhorse** — two voices mixed: brass, electric pianos, FM basses |
+| `fan` | 1 → (2, 3, 4) | one modulator across three carriers — organ-ish, choral |
+| `pair_and_two` | (1 → 2) + 3 + 4 | an FM tone with a plain additive body under it |
+| `parallel` | 1 + 2 + 3 + 4 | four sines, no modulation — the flat floor to start from |
+
+Each operator is `{ ratio, level, feedback, env }` and only `ratio` is
+required. **What `level` means depends on where the routing put the
+operator**, and the table above says which is which:
+
+- A **carrier** is heard, and its `level` is its weight in the mix. The
+  carriers are normalised by their total, so raising one changes the balance
+  rather than the volume.
+- A **modulator** is not heard, and its `level` is the **index** — modulation
+  depth in radians, the same number and the same feel as `fm2`'s `index`. `1`
+  is a gentle colouring, `5` is bright, `10` is aggressive.
+
+No operator is ever both, under any of the eight.
+
+`env` is an ordinary ADSR, driven by the same gate as the amp envelope, and it
+is most of what makes four operators expressive: a modulator that decays fast
+over a carrier that sustains *is* a bright attack settling into a body. The amp
+envelope multiplies whatever the operator envelopes leave, so **the shorter of
+the two always wins** — a carrier written with a 50 ms release under a long amp
+release cuts its own tail off. Leave `env` out for an operator held at full
+level throughout, which is what most carriers want.
+
+`feedback` is `0..=1` and is an operator bending its own phase. Low down it
+fattens a sine toward a saw; near `1` the operator breaks up into a growl,
+which is the aggressive, noise-adjacent corner nothing else here reaches. It
+cannot run away — the loop is one sample deep and bounded to half a cycle of
+phase — so any number is safe to try.
+
+```json recipe
+{
+  "recipe": "patch",
+  "note": "F3",
+  "duration": 1.2,
+  "velocity": 0.9,
+  "patch": {
+    "source": {
+      "kind": "fm4",
+      "algorithm": "twin",
+      "vel_index": 3.0,
+      "operators": [
+        {
+          "ratio": 1.0, "level": 5.0,
+          "env": { "a": 0.07, "d": 0.45, "s": 0.45, "r": 0.15 }
+        },
+        { "ratio": 1.0, "level": 1.0 },
+        {
+          "ratio": 2.0, "level": 2.5,
+          "env": { "a": 0.14, "d": 0.5, "s": 0.25, "r": 0.15 }
+        },
+        { "ratio": 1.0, "level": 0.6 }
+      ]
+    },
+    "amp": { "a": 0.05, "d": 0.15, "s": 0.85, "r": 0.2 },
+    "filter": {
+      "kind": "lowpass", "cutoff": 3000, "vel_cutoff": 2500,
+      "adsr": { "a": 0.06, "d": 0.5, "s": 0.6, "r": 0.2 }
+    },
+    "fx": [{ "fx": "reverb", "size": 0.5, "damp": 0.5, "mix": 0.12 }]
+  }
+}
+```
+
+That is a brass section, and it is the timbre `fm2` cannot get to. Everything
+that makes it read as *brass* rather than as *a synthesiser* is in the two
+operator envelopes:
+
+- **Operators 1 and 2 are the horn.** The modulator's index is at zero when the
+  note starts and takes 70 ms to arrive, so the tone **blooms** from a near-sine
+  into a bright one instead of being bright immediately. That swell is the
+  single cue the ear reads as a brass instrument — a player's air taking a
+  moment to fill the bore — and there is nowhere to write it with two
+  operators, because `fm2`'s modulator can only decay.
+- **Operators 3 and 4 are the section under it.** The same idea at half the
+  speed and under half the weight, on a modulator an octave up, so the edge of
+  the sound arrives *after* the body and slightly apart from it. One horn
+  played by two people is not one horn twice as loud; it is two entries that do
+  not quite line up.
+- **`vel_index` is how hard it is being played.** A soft note is nearly a sine
+  and a hard one is a blare, and the `vel_cutoff` on the filter pushes the same
+  way — the difference between a horn played quietly and a horn turned down.
+  Both are [Playing harder, not just louder](#playing-harder-not-just-louder),
+  below, and on `fm4` the depth reaches every operator the routing made a
+  modulator and no carrier.
+
+Start from that and move one thing at a time: raise operator 1's `level` for a
+harder, more nasal instrument, lengthen its attack for something closer to a
+string section, or set operator 1's `feedback` to `0.4` for a growl on the
+front of the note.
+
 ### Stating a spectrum instead of carving one
 
-The other four sources all *shape*. `osc_stack` makes something rich and hands
+The other five sources all *shape*. `osc_stack` makes something rich and hands
 it to a filter to carve down; `karplus` excites a string and lets it ring;
-`fm2` bends one sine with another and takes whatever sidebands come out. In
-every case the timbre is what a filter shape or a modulation depth happened to
-arrive at.
+`fm2` and `fm4` bend sines with each other and take whatever sidebands come
+out. In every case the timbre is what a filter shape or a modulation depth
+happened to arrive at.
 
 `additive` works the other way round: it says what the spectrum *is*. A tone is
 a list of partials — sine components, each at some multiple of the played pitch
@@ -377,6 +509,7 @@ Two optional fields aim velocity at the stages that decide brightness:
 | --- | --- | --- |
 | `vel_cutoff` | `filter` | adds this many Hz to the cutoff at full velocity |
 | `vel_index` | `fm2` | adds this much modulation depth at full velocity |
+| `vel_index` | `fm4` | adds this much depth to every **modulator** of the routing |
 
 Both default to `0.0`, and a recipe that does not mention them bakes exactly
 the file it always did.
@@ -1534,13 +1667,23 @@ tempo, no arrangement and no mix to be the loudest thing in.
 ## What is refused
 
 Only what would produce silence, a divide-by-zero, an unstable filter or an
-unbounded allocation: an empty oscillator stack, a stack weighted entirely to
-zero, a non-positive `fm2` ratio, a cutoff at or below 0 Hz, a negative LFO
-rate, a note of no length, an arrangement naming a pattern that does not exist,
-a note on a track that does not exist, a `tracks` filter naming one that does
-not either, a `vel_scale` below zero, a `swing` outside `0..1` (at 1 the
-off-beat lands on the next beat, which reorders the music), and a negative
-`humanize` amount.
+unbounded allocation.
+
+**Sources**, which is where most of it is, and the questions are the same for
+each of them: is there anything in it, is there too much of it, does every
+entry name a frequency, and does any of it sound. So: an empty oscillator stack
+or additive series; a stack of more than 4 oscillators or a series of more than
+16 partials; a stack or a series weighted entirely to zero, or an `fm4`
+algorithm whose every carrier is at level zero; a non-positive `fm2` ratio, and
+a `ratio` that is not a positive number on any partial or on any of an `fm4`
+source's four operators. The last two name the entry they are complaining about
+— a partial by its index, an operator by its number.
+
+**Everywhere else**: a cutoff at or below 0 Hz, a negative LFO rate, a note of
+no length, an arrangement naming a pattern that does not exist, a note on a
+track that does not exist, a `tracks` filter naming one that does not either, a
+`vel_scale` below zero, a `swing` outside `0..1` (at 1 the off-beat lands on
+the next beat, which reorders the music), and a negative `humanize` amount.
 
 The three notations that stand for several notes are refused for a **second
 reason**, and it is why those checks exist at all: none of what follows would

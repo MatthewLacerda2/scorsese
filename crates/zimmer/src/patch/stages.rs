@@ -7,6 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::fm::{Algorithm, FM_OPERATORS, Operator};
 use crate::level::bands;
 
 /// The most oscillators one stack may carry. Four detuned saws is already a
@@ -124,6 +125,23 @@ pub struct Partial {
 
 /// What generates the raw tone. Exactly one per patch — the head of the fixed
 /// signal path.
+///
+/// Six of them, in three groups, and they are listed in that order because it
+/// is also how a recipe chooses:
+///
+/// - **Make something rich and carve it.**
+///   [`OscStack`](Source::OscStack) generates every harmonic,
+///   [`Karplus`](Source::Karplus) excites a string and lets it ring, and
+///   [`Noise`](Source::Noise) is every frequency at once. What the patch says
+///   is mostly what to take *away*, downstream at the filter.
+/// - **Bend one sine with another.** [`Fm2`](Source::Fm2) is one modulator on
+///   one carrier; [`Fm4`](Source::Fm4) is four operators wired by a chosen
+///   algorithm. What the patch says is a *depth*, and the spectrum is whatever
+///   falls out of it. They are two sizes of one idea and both are kept — a
+///   recipe that has outgrown the smaller one knows exactly what it wants next.
+/// - **State the spectrum outright.** [`Additive`](Source::Additive) is a
+///   table of partials, each placed, weighted and faded on its own. What the
+///   patch says *is* the answer, with nothing left for a filter to arrive at.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Source {
@@ -178,6 +196,44 @@ pub enum Source {
         #[serde(default = "mod_decay_default")]
         mod_decay: f32,
     },
+    /// Four-operator FM: four sines wired by a chosen algorithm. Brass,
+    /// basses, sustained pads, and bell-into-body layers — the FM territory
+    /// two operators cannot reach, because two of them can only produce one
+    /// modulator-carrier relationship.
+    ///
+    /// [`Source::Fm2`] is not superseded and is usually the right one: it is
+    /// two numbers rather than a routing and four operators, and it covers
+    /// bells, electric pianos and struck metal well. Reach for this when the
+    /// sound needs a modulator with its *own* modulator, or two voices layered
+    /// into one note — see [`Algorithm`] for the routings and [`Operator`] for
+    /// what each of the four carries.
+    Fm4 {
+        /// How the four are wired. There is no default: the routing is the
+        /// parameter that decides what kind of sound this is, and a silent one
+        /// would make eight very different instruments look like one.
+        algorithm: Algorithm,
+        /// The four operators, in the order the algorithm diagrams number them
+        /// — exactly [`FM_OPERATORS`] of them, so a list of three is refused as
+        /// it is parsed rather than rendered with a stand-in.
+        operators: [Operator; FM_OPERATORS],
+        /// How much modulation depth a full-velocity strike adds to **every
+        /// operator the algorithm uses as a modulator**.
+        ///
+        /// The [`Source::Fm2`] field of the same name, applied to a routing:
+        /// in FM the index *is* the brightness, so this is the difference
+        /// between a horn played softly and one leaned on. Carriers are left
+        /// alone — a carrier's level is its share of the mix, and velocity
+        /// already reaches the level through the amp envelope.
+        ///
+        /// Defaults to `0.0`. Added to each modulator's level and then floored
+        /// at zero, for the reason [`Source::Fm2`]'s `vel_index` is: a
+        /// negative index only mirrors the modulator and sounds exactly as
+        /// bright as its positive twin, so an unclamped sum would make a
+        /// darkening routing start brightening again the moment it crossed
+        /// over.
+        #[serde(default)]
+        vel_index: f32,
+    },
     /// An additive series: up to [`MAX_PARTIALS`] sine partials, each placed,
     /// weighted and faded on its own, summed into one tone. Organs, bowed and
     /// blown sustains, glass, and bells that are not FM-metallic.
@@ -204,6 +260,7 @@ impl Source {
             Self::Karplus { .. } => "karplus",
             Self::Noise => "noise",
             Self::Fm2 { .. } => "fm2",
+            Self::Fm4 { .. } => "fm4",
             Self::Additive { .. } => "additive",
         }
     }

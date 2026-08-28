@@ -14,12 +14,14 @@
 //! Patch-as-truth: no buffers and no handles, so it round-trips losslessly.
 //! [`render_note`](crate::render_note) renders it.
 
+pub(crate) mod fm;
 pub(crate) mod stages;
 
 use serde::{Deserialize, Serialize};
 
 use crate::error::SynthError;
 
+pub use fm::{Algorithm, FM_OPERATORS, Operator};
 pub use stages::{
     Adsr, EqBand, EqKind, Filter, FilterKind, Fx, Lfo, LfoTarget, MAX_EQ_BANDS, MAX_OSCS,
     MAX_PARTIALS, Osc, Partial, PitchEnv, Source, Wave,
@@ -150,6 +152,11 @@ impl Patch {
             Source::Fm2 { ratio, .. } if *ratio <= 0.0 => {
                 Err(SynthError::BadFmRatio { ratio: *ratio })
             }
+            Source::Fm4 {
+                algorithm,
+                operators,
+                ..
+            } => check_operators(*algorithm, operators),
             Source::Additive { partials } => check_partials(partials),
             _ => Ok(()),
         }
@@ -189,6 +196,57 @@ fn check_partials(partials: &[Partial]) -> Result<(), SynthError> {
     }
     if partials.iter().all(|partial| partial.gain <= 0.0) {
         return Err(SynthError::SilentPartials);
+    }
+    Ok(())
+}
+
+/// Rejects a four-operator source the renderer cannot honour.
+///
+/// Two of the four questions [`check_partials`] asks, because the shape of the
+/// document has already answered the other two: an `fm4` source carries
+/// exactly [`FM_OPERATORS`] operators as a fixed-size array, so it can be
+/// neither empty nor oversized by the time serde has finished with it.
+///
+/// What is left is the same pair. Does each entry name a frequency — the
+/// [`SynthError::BadPartialRatio`] question, and refusing a non-finite one for
+/// the same reason. And does any of it sound: the
+/// [`SynthError::SilentOscStack`] question, one indirection further away,
+/// because which operators are audible is a property of the *algorithm* rather
+/// than of the list. A recipe that picks [`Algorithm::Chain`] and then writes
+/// its levels as if they were faders silences the whole source by zeroing the
+/// one operator it happens to be heard through, with nothing on the page to
+/// say so.
+///
+/// **Not asked: whether an operator is above Nyquist** — the same answer
+/// [`check_partials`] gives, for the same reason. That depends on the pitch
+/// played, and a patch is validated once while it is played at many pitches.
+/// The renderer drops those per note instead.
+fn check_operators(
+    algorithm: Algorithm,
+    operators: &[Operator; FM_OPERATORS],
+) -> Result<(), SynthError> {
+    if let Some((index, operator)) = operators
+        .iter()
+        .enumerate()
+        .find(|(_, operator)| operator.ratio <= 0.0 || !operator.ratio.is_finite())
+    {
+        return Err(SynthError::BadOperatorRatio {
+            // Numbered from **one**, unlike a partial's index, and the field
+            // name says which: a partial's is its place in a list whose order
+            // carries no meaning, while an operator's number is part of the
+            // algorithm's own vocabulary. An error reading "operator 0" would
+            // send a reader looking for a row that is not on the page.
+            operator: index + 1,
+            ratio: operator.ratio,
+        });
+    }
+    if (0..FM_OPERATORS)
+        .filter(|index| algorithm.is_carrier(*index))
+        .all(|index| operators[index].level <= 0.0)
+    {
+        return Err(SynthError::SilentCarriers {
+            algorithm: algorithm.name(),
+        });
     }
     Ok(())
 }
