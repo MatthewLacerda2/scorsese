@@ -69,6 +69,21 @@ elaborate feature, and equally a reason to *build* an obvious one well.
 - Crate boundaries live in each crate's `lib.rs` module doc — read them before
   adding a dependency between crates.
 
+**Three skills carry the working protocols**, so this file can hold the reasoning
+and they can hold the steps. Invoke them rather than reconstructing a procedure
+from memory, and name them when briefing a subagent:
+
+- **`issue-write`** — what an issue must contain, which label it carries, when
+  Claude may file one unprompted.
+- **`issue-batch`** — how a set of issues is worked: how many branches at once,
+  which can safely run together, worktrees, re-reading the board.
+- **`ci-merge`** — how a finished branch becomes a merged one: gates, CI,
+  `make mergeable`, rebasing, and triaging the mutation signal.
+
+Where a rule below is stated in one line and a skill has ten, the line is the
+rule and the skill is how to keep it. Where they disagree, this file wins and the
+skill is wrong.
+
 ## Architecture — decided, do not redesign
 
 These decisions are settled. Changing one is `architecture`-label work, not a
@@ -213,106 +228,49 @@ that goes with it.
      it doesn't, say so and propose the right shape.
 - **Flow:** idea → issue → branch → PR → CI green → merge. New work starts as
   an issue, not a surprise diff, and the PR references the issue it closes.
-  **Issue-less PRs are allowed only** for documentation updates or bug fixes;
-  everything else starts as an issue. Either way the PR description still has
-  to clear the three gates.
-- **Pull requests — open early, draft until ready.** The moment a branch has
-  its first commit, open a PR for it — as a **draft**. Draft while in progress
-  or blocked (say why in the description); **ready for review** once done and
-  nothing further is needed from the user. The description says **what
-  changed and the effect** — not process; how you got there appears only when
-  it's needed to understand the diff.
-- **A ready pull request claims it passes; a draft makes no such claim.** That
-  is what the two states mean here, and **CI runs on ready pull requests and on
-  `main`, nowhere else.** A draft is not decoration on unfinished work — it is
-  how work survives, and all three cases it covers are ones where pushing is
-  the point: a genuine question surfaced mid-issue and needs the user, CI went
-  red and the ≈3-attempts rule fired, or the run was stopped or died mid-work.
-  None of them asserts the work is finished, so there is nothing for CI to
-  check; a red run therefore always means a claim was broken, which is worth a
-  notification every time.
-  - **Run `make gates` before marking a pull request ready** — deliberately
-    *not* before every push. GitHub should not be the first thing that compiles
-    the code, and checkpoint commits have to stay cheap, which is the same
-    reasoning that keeps the pre-commit hook to formatting and the size gate.
-  - **A red ready pull request stays ready** and is fixed in the next commit. It
-    does not go back to draft. The next commit usually resolves it, so the real
-    cost is one notification per genuine failure; repeated failure is
-    self-limiting, because by the third attempt the ≈3-attempts rule has fired
-    and the work is being handed over — a moment that *should* be loud.
-  - **Nothing depends on a hand-back comment existing.** A draft is a saved
-    state as best the last session could manage, and a session cut short may
-    never have got to explain itself. The durable context is the **issue**,
-    written before the work started and meant to be read cold. Write a comment
-    when there is a chance to; never rely on one being there.
-- **Branch naming.** A PR that closes an issue uses `{issue_number}-short-slug`
-  (e.g. `3-render-pipeline`). An issue-less PR uses a readable short slug of
-  its subject. Lowercase-hyphenated, brief.
-- **One worktree per issue, and every unblocked issue at once.** Issues that
-  block neither each other nor a common third are worked **in parallel, all of
-  them** — five unblocked issues means five branches being built right now, not
-  the best one of the five — and each gets **its own git worktree** branched
-  off the latest `main`: one checkout per branch, never two branches taking
-  turns in one. Start as many as the machine can actually carry; if it cannot
-  carry them all, priority order decides which go first. The isolation
-  is what makes a branch's gates mean anything: a shared checkout mixes
-  another issue's edits into `make gates` and thrashes `target/` between
-  builds. Each branch runs its own CI as a **signal** that it is healthy; the
-  run that **gates** a merge is the one on the rebased state below, so
-  re-running the other open PRs after every merge proves nothing — each gets
-  its green when its turn to rebase comes.
-- **Merging — serialized, one at a time.** Rebase the PR onto the latest
-  `main` → CI green on that rebased state → `make mergeable PR=N` → merge →
-  repeat, one PR at a time.
-  **`make mergeable` is not optional and its answer is not negotiable.** It
-  asks GitHub whether a run genuinely happened on the head commit, because
-  "the checks look green" and "the checks ran" are different claims, and #153
-  is what happens when they diverge: a ready pull request whose only run was a
-  skipped one reads as passing and compiled nothing. `gh pr checks` is not a
-  substitute — it blends runs, which is how a skipped one hides behind a real
-  one.
-  Rust is compiled: two PRs can each be green alone yet break `main` together,
-  so merging cannot be parallelized. The only exception is a PR touching
-  **only** Markdown — CI skips those, so they merge freely. `docs/project-format.md`
-  is not one of those: tests parse its examples and check its property table,
-  so CI runs for it like any source file. If a PR takes ≈3 fix attempts at the
-  same failure, or needs a decision you can't make, mark it draft and hand it
-  to the user.
+  **Issue-less PRs are allowed only** for documentation updates or bug fixes.
+  Either way the PR description still has to clear the three gates.
+  **The `issue-write` skill** has what an issue must contain and which label it
+  carries; **`issue-batch`** has how a set of them is worked; **`ci-merge`** has
+  how a branch gets from finished to merged. Invoke them rather than
+  reconstructing the steps, and tell a subagent to invoke them too.
+- **A ready pull request claims it passes; a draft makes no such claim.** CI runs
+  on ready pull requests and on `main`, nowhere else, so a red run always means a
+  claim was broken — worth a notification every time. A draft is not decoration
+  on unfinished work; it is **how work survives** a session that ends badly, and
+  the durable context is the **issue**, written to be read cold. Never rely on a
+  hand-back comment existing. A red ready pull request **stays ready** and is
+  fixed forward.
+- **Merging is serialized, one branch at a time**, because Rust is compiled: two
+  pull requests can each be green alone and break `main` together. The only
+  exception is a PR touching **only** Markdown, which CI skips.
+  **`make mergeable` is not optional and its answer is not negotiable** — it asks
+  whether a run genuinely happened on the head commit, because "the checks look
+  green" and "the checks ran" are different claims, and #153 is what happens when
+  they diverge. `gh pr checks` is not a substitute; it blends runs.
+- **Coding parallelises; merging does not**, so the merge queue is the
+  bottleneck and every branch behind another pays a rebase per merge ahead of it.
+  Two branches in flight — one merging, one being written — is the shape that
+  keeps a queue moving without paying for it twice. The binding constraint is
+  **file collision**, not branch count. `issue-batch` has the arithmetic.
+- **One worktree per branch**, off the latest `main`, removed the moment it
+  merges. The isolation is what makes a branch's gates mean anything, and each
+  worktree carries a full `target/` measured in gigabytes.
 - **Architecture- then infrastructure-first (NOT "make it up as we go").**
   When we find a problem — something that bites or will bite more than once, a
   pattern worth adopting, or a gold-standard practice we should have had — we
   document it and fix it **before** continuing. Architecture and
   infrastructure problems **halt feature work**. Each such fix gets its own
   issue when it carries its own responsibility.
-- **Dependencies (not batches).** Record how issues relate using GitHub's
-  native **Blocked by / Blocks** relationships, and **sub-issues** when one
-  issue is literal groundwork for another. Link two issues when one lays the
-  groundwork for the next, makes it meaningfully easier, or would conflict too
-  much if done concurrently. There are no rigid batches: **the dependency
-  graph is the plan.** Any issue with no open blockers and no stage label is
-  fair game.
-- **Re-read the board after every merge, not after a batch.** A merge changes
-  the graph: whatever the merged issue blocked is fair game the moment it
-  lands. So the decision is one merge wide — merge, re-read the board, and
-  start **every** issue that is now unblocked, unassigned and free of a stage
-  label, each in its own worktree — repeating until the board has none left.
-  One merge that unblocks three means three more branches, not the best of the
-  three: priority orders what gets **merged**, never what gets **worked**, and
-  an unblocked issue left unstarted is capacity going to waste. Choosing a
-  batch up front and re-checking only once it is done is what this replaces:
-  that batch is already stale by its second issue, and work unblocked by the
-  first sits waiting on the rest of it for no reason.
-- **Assign the user when you start.** The moment work begins on an issue,
-  assign the user to it so it's visibly taken. Unassigned = fair game;
-  assigned = in progress by someone.
+- **The dependency graph is the plan.** Record how issues relate with GitHub's
+  **Blocked by / Blocks** and **sub-issues**; there are no rigid batches. Split
+  by responsibility, never by parallelism — sub-issues that all touch the same
+  type are one branch.
 - **A stage label is the only thing that stops an issue being started.** `idea`,
-  `planning` and `human` mean *not yet*, and they are absolute — an idea still
-  being shaped has to settle before anyone codes it. Absent one, an issue is
-  startable the moment it exists, including one Claude filed a minute ago. The
-  judgement about whether something is ready to be worked is made **when the
-  label goes on**, or when it deliberately does not; asking the same question a
-  second time at the moment work begins adds nothing, and leaves a clear bug
-  sitting in the codebase for the length of a round trip.
+  `planning` and `human` mean *not yet*, and they are absolute. Absent one, an
+  issue is startable the moment it exists, including one Claude filed a minute
+  ago. The judgement lives in the label; asking the question a second time at
+  the moment work begins adds nothing.
 - **Gates vs. signals — block on correctness, inform on quality.** A check
   that proves **correctness** — build, test, `clippy -D warnings`, the golden
   renders, the size gate — is a **hard gate**: green-to-merge, no exceptions.
@@ -321,39 +279,24 @@ that goes with it.
   summary or PR comment), never blocking a merge. Don't reach for a hard gate
   where a signal does the job.
 - **Run the gates before claiming the work is finished, not after CI says so.**
-  In practice that is before marking a pull request **ready for review**, which
-  is the moment CI is asked to check anything at all. `make gates` runs every
-  gate CI blocks on — format, size, the signal renderers, clippy, docs, tests,
-  supply chain, and the desktop app's own workspace — and
-  `make help` lists them, so the target list is the answer to "what has to be
-  green?" rather than `ci.yml` being read for it. The app gate is the only
-  conditional one: `app/` is a separate cargo workspace precisely so a headless
-  change never builds a graphics dependency tree, so it runs when the branch
-  touches `app/` and is reported as skipped when it does not — never green over
-  a check that did not run. `make setup`, once per
-  clone, points git at the committed hooks in `.githooks/`; from then on
-  `make pre-commit` (formatting and the size gate — no build, well under a
-  second) runs before every commit, so a file over the line limit never
-  reaches a branch. A deliberate work-in-progress commit bypasses it with
-  `git commit --no-verify`. Signals stay opt-in and out of `make gates`:
-  `make coverage` and `make mutants` are the two, and running either is never
-  part of passing. **Run `make mutants` when the implementation is written and
-  its tests pass** — not as part of marking a pull request ready, and still
-  never a gate: closing a gap is a two-minute edit while the code is still in
-  hand, and a reopened pull request once CI has said so, which is how the
-  report got itself deleted unread. `make gates` ends by saying whether it has
-  been run on this branch and what it found; it never runs it, because a
-  signal inside the target that gets run most would stop being run at all.
-  Not running one is not the same as not reading one, and mutation is where
-  that bites: if the report — `make mutants` locally, or the comment CI leaves
-  once the pull request is ready, which is what `gh pr view --comments` reads
-  — lists survivors in code **this branch wrote**, the exits are **fix it**,
-  **exclude it with a written reason**, or **file it as its own issue**. There
-  is no fourth. A report with nothing in it, or one whose survivors sit in code
-  the branch never touched, needs no reading at all — that condition is the
-  rule and not a softening of it, because *always read the mutation comment* is
-  a line everyone would learn to skip. `docs/mutation-testing.md` is how a
-  survivor gets triaged, and what the report deliberately does not list.
+  In practice that is before marking a pull request **ready for review**, which is
+  the moment CI is asked to check anything at all. `make gates` runs every gate CI
+  blocks on and `make help` lists them, so the target list — not `ci.yml` — is the
+  answer to "what has to be green?". The app gate is the only conditional one and
+  reports **skipped** when a branch touches nothing under `app/`; skipped is never
+  green over a check that did not run. `make setup`, once per clone, points git at
+  the committed hooks; from then on `make pre-commit` — formatting and the size
+  gate, no build — runs before every commit, so an oversized file never reaches a
+  branch. `git commit --no-verify` bypasses it for a deliberate work-in-progress.
+- **Signals stay opt-in and out of `make gates`:** `make coverage` and
+  `make mutants`. Running either is never part of passing, and **a signal never
+  holds a merge** — that is what makes it a signal. Read the mutation report when
+  it lists survivors in code **this branch wrote**; a report with nothing in it,
+  or whose survivors sit in untouched code, needs no reading at all. The exits are
+  **fix it**, **exclude it with a written reason**, or **file it as its own
+  issue** — there is no fourth, and none of them blocks the queue. The
+  **`ci-merge` skill** has how to sort them and how to triage a survivor;
+  `docs/mutation-testing.md` has what the report deliberately does not list.
 - **Size gate:** source files ≤ 300 **lines of code**, test files ≤ 150. Blank
   and comment lines do not count — `missing_docs` is a merge gate and the house
   style is to explain the *why*, so a cap that counted prose put those two rules
@@ -364,6 +307,15 @@ that goes with it.
   `make size`, and the pre-commit hook runs it too. Which cap applies to a
   given path is decided and documented in `tools/lint/src/classify.rs`, and
   nothing is grandfathered: a file over the limit gets split, not excused.
+- **Which model does what — a hint, not a rule.** Design, implementation,
+  triage and anything needing a judgement call want the strongest model
+  available; a rebase, a merge conflict in a module list, moving an attribute
+  between files and other mechanical work do not. Most of an agent's sessions on
+  a branch are the second kind, and paying top rate for them is where a night's
+  budget quietly goes. A hint because the line is not crisp — a "mechanical"
+  rebase that turns out to need two authors' prose reconciled is not mechanical —
+  so whoever spawns the work calls it, and gets it wrong upwards.
+
 - **Agent velocity is first-class.** Agents drive this repo, often unattended.
   Write code that is readable by design and lean — clear code is cheaper to
   reason about and faster for the next agent to extend. Keep CI fast. This is
@@ -417,6 +369,12 @@ that goes with it.
   own doc in `crates/zimmer/src/lib.rs` carries the whole argument. So: touch a
   source, a filter, an envelope or an effect in `zimmer` and the samples move —
   bump it. Touch only prose, a name or a document type — leave it alone.
+  **Verify by rendering only when the change touches rendering maths.** Baking a
+  probe corpus against two checkouts settles a genuine doubt — an edited note
+  loop, a shared helper moved, a stage reordered — and is waste when the diff
+  already answers it: a new optional field defaulting to old behaviour cannot
+  move an existing recipe's bytes. Say so in one line and move on. The
+  constant's own doc records what previous branches checked, and why.
 - **There is no backwards compatibility, and that is the policy until the user
   says otherwise.** Nothing is kept working for the sake of a `project.json`
   saved by an older build: no migration notes, no reading an older
@@ -454,59 +412,32 @@ that goes with it.
 ## Issues, labels & priority
 
 - **Issues come before PRs.** The unit of work is a well-specified issue: the
-  **what**, **why it belongs in the project**, and the **roadmap — not the
-  implementation intrinsics**. A good issue makes clear what the idea is:
-  a future Claude reads it cold and says *"I understand the assignment, i know
-  how to proceed."* That's what lets an issue run unattended, even overnight.
-- **File what you notice.** Claude may open an issue autonomously — for
-  anything that will be a recurring theme or problem, or when it realises a
-  tool would be useful more than once. Only things whose benefit outweighs the
-  cost of implementing them get an issue. If a Claude-written issue is a
-  breaking change, changes human-interfacing features, or needs a human's
-  judgement call, it must carry one of `idea`, `planning` or `human` — and so
-  must a structural change Claude proposes, which carries `planning` until the
-  user has settled the approach. Filing is Claude's, and so is starting, past
-  those labels: with no stage label on it, Claude may start an issue in the same
-  breath as filing it. A `bug` usually should be — it is specific, the deciding
-  already happened when the code broke, and nothing is gained by making it wait.
-  The label is where the judgement lives, so put it on honestly: broad or vague
-  is what `planning` is for.
+  **what**, **why it belongs**, and the **roadmap — not the implementation
+  intrinsics**. A future Claude reads it cold and says *"I understand the
+  assignment, I know how to proceed."* That is what lets an issue run unattended,
+  even overnight.
+- **File what you notice.** Claude may open an issue autonomously — for anything
+  that will recur, or when a tool would be useful more than once — provided the
+  benefit outweighs the cost of building it. The strongest issues come out of
+  doing the work.
 - **Priority by label:** **architecture → infrastructure → bug → foundation →
-  feature.** If the way we build isn't solid — a structural shape or
-  convention missing (**architecture**), a tool or guardrail missing
-  (**infrastructure**), or something broken (**bug**) — we halt and fix that
-  first. Then **foundation** work makes the editor itself more complete. Then
-  **feature** work serves Claude, the user or the video being made with it.
-  **documentation** can be done at any time and never waits its turn.
-
-### Labels
-
-Stage labels (at most one; absence means ready):
-
-- **idea** — might not add value; parked until the user decides. Must **NOT**
-  be started.
-- **planning** — has value, but the architecture/GUI approach is still being
-  discussed. Must **NOT** be started.
-- *(no stage label)* — ready: anyone (human or Claude) can tell a Claude agent:
-  "do issue N" and Claude can read it, implement it and merge it. This includes
-  an issue Claude has just filed itself.
-
-Type labels (combinable with a stage label):
-
-- **architecture** — the project's communication structure, conventions,
-  `project.json` format changes, crate boundaries.
-- **infrastructure** — tools and guardrails for the development process: CI,
-  the golden-render harness, gates.
-- **bug** — something isn't working.
-- **documentation** — edit/add documentation; never waits its turn.
-- **feature** — a new editor capability serving the videos made with it.
-- **foundation** — groundworks that make the editor itself more complete.
-- **human** — AI can't do this end-to-end; needs a human in the loop.
-
-If a `planning` issue would affect how another issue gets implemented or is
-thought of, that other issue must be marked **blocked by** the planning issue.
-We prioritize anything that accelerates the improvement of the project itself.
-Increasing derivatives takes precedence over increasing the variables they aim at.
+  feature.** If the way we build isn't solid — a structural shape or convention
+  missing (**architecture**), a tool or guardrail missing (**infrastructure**), or
+  something broken (**bug**) — we halt and fix that first. Then **foundation**
+  work makes the editor itself more complete. Then **feature** work serves Claude,
+  the user or the video being made with it. **documentation** can be done at any
+  time and never waits its turn. Priority orders what gets **merged**, never what
+  gets **worked**.
+- **Stage labels — at most one, and absence means ready.** `idea` (might not add
+  value; parked until the user decides), `planning` (has value, approach still
+  being discussed), `human` (needs a human end-to-end). All three mean **do not
+  start**. A Claude-written issue must carry one if it is a breaking change,
+  changes human-facing behaviour, needs a judgement call, or proposes a structural
+  change. A `bug` usually should not — the deciding already happened when the code
+  broke.
+- **The `issue-write` skill** has the rest: what each type label means, what a
+  good issue body contains, how relationships are recorded, and the three gates in
+  full.
 
 ## Overrides
 

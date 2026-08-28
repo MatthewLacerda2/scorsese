@@ -37,3 +37,10 @@ cache/
 *.new.png
 *.diff.png
 *.old.png
+
+# Claude Code's per-clone state. `skills/` is committed — the working protocols
+# travel with the repo or they are not protocols — and nothing else here is:
+# `worktrees/` is scratch checkouts measured in gigabytes, and
+# `settings.local.json` is one machine's permissions.
+.claude/*
+!.claude/skills/
