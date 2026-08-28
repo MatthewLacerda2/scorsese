@@ -3,7 +3,7 @@
 //! Only the settings that would produce silence, a divide-by-zero or an
 //! unstable filter are rejected. Everything else renders, however ugly.
 
-use crate::common::{minimal, osc};
+use crate::common::{minimal, noise, osc};
 use scorsese_zimmer::SynthError;
 use scorsese_zimmer::patch::{
     Adsr, Filter, FilterKind, Lfo, LfoTarget, MAX_OSCS, Partial, Source, Wave,
@@ -19,7 +19,7 @@ fn every_source_kind_is_playable() {
             damping: 0.99,
             brightness: 0.5,
         },
-        Source::Noise,
+        noise(),
         Source::Fm2 {
             ratio: 2.0,
             index: 3.0,
@@ -74,7 +74,7 @@ fn a_stack_weighted_entirely_to_zero_is_refused() {
 
 #[test]
 fn a_zero_cutoff_is_not_a_filter() {
-    let mut patch = minimal(Source::Noise);
+    let mut patch = minimal(noise());
     patch.filter = Some(Filter {
         kind: FilterKind::Lowpass,
         cutoff: 0.0,
@@ -88,7 +88,7 @@ fn a_zero_cutoff_is_not_a_filter() {
 
 #[test]
 fn a_negative_lfo_rate_is_not_a_rate() {
-    let mut patch = minimal(Source::Noise);
+    let mut patch = minimal(noise());
     patch.lfo = Some(Lfo {
         rate: -1.0,
         depth: 0.5,
@@ -118,7 +118,7 @@ fn an_fm_modulator_needs_somewhere_to_sit() {
 /// unattended can fix it from the error alone.
 #[test]
 fn a_refusal_names_the_value_that_caused_it() {
-    let mut patch = minimal(Source::Noise);
+    let mut patch = minimal(noise());
     patch.filter = Some(Filter {
         kind: FilterKind::Highpass,
         cutoff: -40.0,

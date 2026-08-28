@@ -77,9 +77,9 @@ source ─► filter ─► amp envelope ─► fx
 
 | `kind` | Fields | Good for |
 | --- | --- | --- |
-| `osc_stack` | `oscs`: up to 4 of `{ wave, detune_cents, gain, octave }` | leads, basses, pads |
+| `osc_stack` | `oscs`: up to 4 of `{ wave, detune_cents, gain, octave, voices, spread }` | leads, basses, pads |
 | `karplus` | `damping` 0..1, `brightness` 0..1 | plucked strings, marimbas |
-| `noise` | — | gunshots, impacts, footsteps, wind |
+| `noise` | `color`: `white`, `pink` or `brown` | gunshots, impacts, wind, thunder |
 | `fm2` | `ratio`, `index`, `vel_index`, `mod_decay` | bells, electric pianos, metal |
 | `fm4` | `algorithm`, `operators`: exactly 4, `vel_index` | brass, pads, FM basses, layered bells |
 | `additive` | `partials`: up to 16 of `{ ratio, gain, detune_cents, decay }` | organs, bowed and blown sustains, glass |
@@ -100,6 +100,63 @@ for. Reach for [`fm4`](#four-operators-and-the-wiring-between-them) when the
 sound needs something two operators structurally cannot do, and for
 [`additive`](#stating-a-spectrum-instead-of-carving-one) when you know what the
 spectrum is rather than what to remove from one.
+
+**Noise has a colour, and it is not a filter setting.** `white` is equal energy
+per hertz, so most of it sits in the top octave — which is why it is a *hiss*,
+and why almost nothing in the world is white. The other two fall away with
+frequency, and the fall is the sound:
+
+| `color` | Falls | Is |
+| --- | --- | --- |
+| `white` | flat | cymbals, static, air. The default |
+| `pink` | −3 dB/octave | wind, surf, rain, room tone, the body of a snare |
+| `brown` | −6 dB/octave | thunder, rumble, distant traffic, the low half of an impact |
+
+Reaching for `{ "kind": "noise" }` under a lowpass is the move this replaces,
+and it does not do the same thing: a filter bends the slope **only at its
+cutoff** and leaves everything below it flat, so what comes out is a hiss with
+the top taken off. A snare body wants `pink`; distant thunder wants `brown` and
+then a lowpass on top if it needs to be further away. The three are level
+matched, so trying another one is not also a fader move.
+
+```json fields
+"tracks": [{ "name": "thunder", "gain": 0.7, "patch": {
+  "source": { "kind": "noise", "color": "brown" },
+  "amp": { "a": 0.005, "d": 1.6, "s": 0, "r": 0.6, "curve": 4.0 },
+  "filter": { "kind": "lowpass", "cutoff": 900 } } }],
+"patterns": { "a": { "beats": 4, "notes": [
+  { "track": "thunder", "note": "C2", "start": 0, "dur": 2 }
+] } },
+"arrangement": ["a"]
+```
+
+**An oscillator can be several oscillators.** `voices` sounds that many detuned
+copies of one entry, spaced evenly across `spread` cents and centred on the
+pitch it was written at — unison, and on a saw at seven voices it is the
+supersaw. It defaults to `1`, and `spread` defaults to `12` cents, which is a
+shimmer; `25` is a fat lead, and past `50` the copies start to be heard as a
+chord rather than as one thick note. At most **7** voices, and a recipe asking
+for more is refused rather than trimmed.
+
+```json fields
+"tracks": [{ "name": "lead", "gain": 0.6, "patch": {
+  "source": { "kind": "osc_stack", "oscs": [
+    { "wave": "saw", "voices": 7, "spread": 25 },
+    { "wave": "sine", "octave": -1, "gain": 0.4 }
+  ] },
+  "amp": { "a": 0.02, "d": 0.3, "s": 0.7, "r": 0.3 } } }],
+"patterns": { "a": { "beats": 4, "notes": [
+  { "track": "lead", "note": "A3", "start": 0, "dur": 4 }
+] } },
+"arrangement": ["a"]
+```
+
+Writing those seven copies out by hand would cost the whole four-oscillator
+budget and still be two short, which is the reason the field is on the
+oscillator rather than in the stack — here the sub-oscillator underneath is
+free. The copies are normalised by their own count, so `voices` is a thickness
+control and never a level one: widening an entry does not make it louder, and
+no gain anywhere else has to move.
 
 **`amp`** — an ADSR: `{ "a": 0.005, "d": 0.15, "s": 0.4, "r": 0.2 }`. Attack,
 decay and release are seconds; sustain is a level in `0..=1`. **Required.**

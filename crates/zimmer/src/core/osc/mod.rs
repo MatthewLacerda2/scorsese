@@ -11,11 +11,22 @@
 //! hundred Hz. PolyBLEP subtracts a small polynomial around each discontinuity,
 //! costs ~20 lines, and removes the worst of that aliasing.
 //!
+//! **One entry can be several oscillators.** `voices` turns an `Osc` into that
+//! many copies of itself, spread evenly across `spread` cents and centred on
+//! the detune it was written at — unison, and at seven voices on a saw it is
+//! the supersaw. It lives on the oscillator rather than being written out as
+//! separate stack entries for two reasons: it is one timbre, and spelling it
+//! out costs the whole four-oscillator budget on a single sound, leaving
+//! nothing for the sub-oscillator underneath it. The copies are normalised by
+//! their own count, so widening an entry is a change of thickness and never of
+//! level.
+//!
 //! Each oscillator keeps its own phase in `0..1`, advanced per sample by
 //! `frequency / sample_rate`, so a per-sample frequency track (an LFO vibrato) needs
 //! no special handling.
 //!
-//! **Where that phase starts is drawn from the note's seed, per oscillator.**
+//! **Where that phase starts is drawn from the note's seed, per oscillator and
+//! per unison voice.**
 //! Starting every one of them at zero instead is three problems wearing one
 //! coat, and none of them announces itself. A detuned pair begins
 //! locked, so the drift the detune exists for starts from the same instant
@@ -45,21 +56,20 @@
 //! oscillator rather than a boolean, and it should arrive with that patch
 //! rather than ahead of it.
 
+mod unison;
+
 use std::f32::consts::TAU;
 
-use crate::hash::unit2;
 use crate::patch::{Osc, Wave};
-
-/// Hash channel the start phases draw on, so a stack never mirrors the noise a
-/// `noise` source or a Karplus excitation draws from the same note seed.
-const PHASE_CHANNEL: u64 = 0x4f53; // "OS"
+use unison::{start_phase, voice_detune, voice_gain, voices};
 
 /// Render the summed stack for `freqs` (one base frequency per output sample) into
 /// `out`. The mix is normalized by the total gain, so adding oscillators thickens
 /// the tone without making it louder.
 ///
-/// `seed` is the note's, and decides only where each oscillator starts in its
-/// cycle — see the module doc for why that is not zero.
+/// `seed` is the note's, and decides only where each oscillator and each of its
+/// unison voices starts in its cycle — see the module doc for why that is not
+/// zero.
 pub(crate) fn render(oscs: &[Osc], freqs: &[f32], seed: u64, out: &mut [f32], sample_rate: f32) {
     let total_gain: f32 = oscs.iter().map(|o| o.gain.max(0.0)).sum();
     let norm = if total_gain > 0.0 {
@@ -68,30 +78,24 @@ pub(crate) fn render(oscs: &[Osc], freqs: &[f32], seed: u64, out: &mut [f32], sa
         0.0
     };
     for (index, osc) in oscs.iter().enumerate() {
-        let ratio = pitch_ratio(osc);
-        let gain = osc.gain.max(0.0) * norm;
-        let mut phase = start_phase(index, seed);
-        for (s, base) in out.iter_mut().zip(freqs) {
-            let dt = (base * ratio / sample_rate).clamp(0.0, 0.5);
-            *s += gain * sample(osc.wave, phase, dt);
-            phase = (phase + dt).fract();
+        let voices = voices(osc);
+        let gain = voice_gain(osc, norm);
+        for voice in 0..voices {
+            let ratio = pitch_ratio(osc, voice_detune(osc, voice));
+            let mut phase = start_phase(index, voice, seed);
+            for (s, base) in out.iter_mut().zip(freqs) {
+                let dt = (base * ratio / sample_rate).clamp(0.0, 0.5);
+                *s += gain * sample(osc.wave, phase, dt);
+                phase = (phase + dt).fract();
+            }
         }
     }
 }
 
-/// Where oscillator `index` of a note seeded `seed` starts in its cycle, in
-/// `0..1`.
-///
-/// Per oscillator rather than per stack: one draw shared across the stack would
-/// move a detuned pair together, which is the locked attack again wearing a
-/// different offset.
-fn start_phase(index: usize, seed: u64) -> f32 {
-    unit2(index as i64, 0, PHASE_CHANNEL, seed)
-}
-
-/// The frequency multiplier an oscillator's octave transpose and cent detune imply.
-fn pitch_ratio(osc: &Osc) -> f32 {
-    (osc.octave as f32 + osc.detune_cents / 1200.0).exp2()
+/// The frequency multiplier an oscillator's octave transpose and cent detune
+/// imply, with `offset` more cents of unison detune on top.
+fn pitch_ratio(osc: &Osc, offset: f32) -> f32 {
+    (osc.octave as f32 + (osc.detune_cents + offset) / 1200.0).exp2()
 }
 
 /// One sample of `wave` at normalized `phase` (`0..1`), where `dt` is the phase
@@ -129,6 +133,7 @@ fn poly_blep(phase: f32, dt: f32) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::patch::MAX_VOICES;
 
     fn osc(wave: Wave, gain: f32, octave: i32, detune_cents: f32) -> Osc {
         Osc {
@@ -136,7 +141,24 @@ mod tests {
             detune_cents,
             gain,
             octave,
+            voices: 1,
+            spread: 12.0,
         }
+    }
+
+    /// The same oscillator, widened into `voices` copies `spread` cents apart.
+    fn unison(wave: Wave, voices: usize, spread: f32) -> Osc {
+        Osc {
+            voices,
+            spread,
+            ..osc(wave, 1.0, 0, 0.0)
+        }
+    }
+
+    fn render_stack(oscs: &[Osc], hz: f32, n: usize, seed: u64) -> Vec<f32> {
+        let mut out = vec![0.0; n];
+        render(oscs, &vec![hz; n], seed, &mut out, 44_100.0);
+        out
     }
 
     fn render_one(wave: Wave, hz: f32, n: usize) -> Vec<f32> {
@@ -221,7 +243,9 @@ mod tests {
         );
         assert!((199..=200).contains(&rising(&base)));
         assert!((99..=100).contains(&rising(&down)));
-        assert!((pitch_ratio(&osc(Wave::Saw, 1.0, 0, 1200.0)) - 2.0).abs() < 1e-5);
+        assert!((pitch_ratio(&osc(Wave::Saw, 1.0, 0, 1200.0), 0.0) - 2.0).abs() < 1e-5);
+        // Unison detune arrives in the same cents and adds to the written one.
+        assert!((pitch_ratio(&osc(Wave::Saw, 1.0, 0, 600.0), 600.0) - 2.0).abs() < 1e-5);
     }
 
     #[test]
@@ -263,14 +287,101 @@ mod tests {
         assert_ne!(struck(4), struck(5), "a second strike is not the first");
     }
 
+    /// The promise the count exists to keep: widening an entry thickens it
+    /// without turning it up. Read off the peak, because unison voices beat
+    /// against each other and a single sample says nothing.
     #[test]
-    fn a_detuned_pair_does_not_start_in_step() {
-        assert_ne!(start_phase(0, 9), start_phase(1, 9));
-        assert_ne!(start_phase(0, 9), start_phase(0, 10));
-        for index in 0..4 {
-            let phase = start_phase(index, 9);
-            assert!((0.0..1.0).contains(&phase), "phase {phase} is not a phase");
+    fn unison_thickens_without_raising_the_level() {
+        let loudest = |oscs: &[Osc]| {
+            render_stack(oscs, 220.0, 22_050, 5)
+                .iter()
+                .fold(0.0f32, |m, s| m.max(s.abs()))
+        };
+        let one = loudest(&[unison(Wave::Saw, 1, 12.0)]);
+        for voices in 2..=MAX_VOICES {
+            let many = loudest(&[unison(Wave::Saw, voices, 18.0)]);
+            assert!(
+                many <= one + 1e-3,
+                "{voices} voices peaked at {many}, one at {one}"
+            );
+            assert!(
+                many > 0.3 * one,
+                "{voices} voices all but cancelled ({many})"
+            );
         }
+    }
+
+    /// Unison is the detune doing the work, not the phases: seven voices
+    /// genuinely at seven pitches beat against each other, so the sound's own
+    /// envelope moves where a single oscillator's is flat. A `spread` that
+    /// never reached the pitch would leave this dead level.
+    #[test]
+    fn detuned_voices_beat_against_each_other() {
+        let swing = |osc: Osc| {
+            let buf = render_stack(&[osc], 220.0, 44_100, 3);
+            let peaks: Vec<f32> = buf
+                .chunks_exact(2205)
+                .map(|c| c.iter().fold(0.0f32, |m, s| m.max(s.abs())))
+                .collect();
+            let high = peaks.iter().copied().fold(0.0f32, f32::max);
+            let low = peaks.iter().copied().fold(f32::MAX, f32::min);
+            high - low
+        };
+        let steady = swing(unison(Wave::Sine, 1, 30.0));
+        let beating = swing(unison(Wave::Sine, 5, 30.0));
+        assert!(
+            steady < 0.02,
+            "a lone sine should hold level, swung {steady}"
+        );
+        assert!(
+            beating > 0.15,
+            "five detuned voices barely moved ({beating})"
+        );
+    }
+
+    /// Nothing about unison arriving may change what a patch without it
+    /// renders to — including the spread, which a single voice has nothing to
+    /// be spread against.
+    #[test]
+    fn one_voice_is_the_oscillator_it_always_was() {
+        let plain = render_stack(&[osc(Wave::Saw, 1.0, 0, 7.0)], 220.0, 4096, 11);
+        for spread in [0.0, 12.0, 60.0] {
+            let widened = Osc {
+                spread,
+                ..osc(Wave::Saw, 1.0, 0, 7.0)
+            };
+            assert_eq!(
+                render_stack(&[widened], 220.0, 4096, 11),
+                plain,
+                "spread {spread} moved a single voice"
+            );
+        }
+    }
+
+    /// The stack **adds** its oscillators into the buffer, and the sign of
+    /// that accumulation is the one thing every other assertion in this file
+    /// is blind to: peaks, rising-crossing counts and equality between two
+    /// renders all survive negating the whole output, so `+=` could become
+    /// `-=` and nothing here would notice.
+    ///
+    /// Read against the waveform the oscillator's own start phase implies,
+    /// which is the only reading with a sign in it. The run is a third of a
+    /// cycle wide so it cannot sit entirely on a zero crossing, and the guard
+    /// at the end is what proves that: it has to contain a sample the mutation
+    /// would move a long way, not one it leaves near zero either way.
+    #[test]
+    fn the_stack_adds_its_oscillators_rather_than_subtracting_them() {
+        let (hz, seed) = (2205.0, 5);
+        let out = render_stack(&[osc(Wave::Sine, 1.0, 0, 0.0)], hz, 7, seed);
+        let dt = hz / 44_100.0;
+        let start = start_phase(0, 0, seed);
+        let mut loudest = 0.0f32;
+        for (n, got) in out.iter().enumerate() {
+            let want = sample(Wave::Sine, (start + dt * n as f32).fract(), dt);
+            assert!((got - want).abs() < 1e-5, "sample {n} is {got}, not {want}");
+            loudest = loudest.max(want.abs());
+        }
+        assert!(loudest > 0.5, "every sample sat near zero ({loudest})");
     }
 
     #[test]

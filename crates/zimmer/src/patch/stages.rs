@@ -14,6 +14,17 @@ use crate::level::bands;
 /// fat analog lead; past that it is CPU for no audible gain.
 pub const MAX_OSCS: usize = 4;
 
+/// The most detuned copies one oscillator may sound at once.
+///
+/// Seven, which is the supersaw's own number and not a round one: the voice
+/// count the JP-8000 shipped with is what the sound is, and every unison patch
+/// written since has been reaching for it. Past seven the copies land closer
+/// together than the ear separates them, and the arithmetic is the whole
+/// oscillator again — the same argument [`MAX_OSCS`] makes, applied one level
+/// down, where a stack of four at seven voices is already twenty-eight
+/// oscillators for one note.
+pub const MAX_VOICES: usize = 7;
+
 /// The most partials one additive series may carry.
 ///
 /// Sixteen, and the number is argued the way [`MAX_OSCS`] is rather than
@@ -46,8 +57,32 @@ pub enum Wave {
     Square,
 }
 
+/// How a noise source's energy is spread across the spectrum.
+///
+/// Named for the slope rather than the use, because one colour is many
+/// sounds: pink is wind, surf, rain and room tone as well as the body of a
+/// snare. What each one *is* — the filter behind it, the measured slope, and
+/// why a lowpass over white is not a substitute for either — is
+/// `core::noise::color`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NoiseColor {
+    /// Equal energy per hertz, so most of it is in the top octave: a hiss.
+    /// Cymbals, static, air.
+    #[default]
+    White,
+    /// −3 dB per octave — equal energy per octave, the balance most natural
+    /// sound falls in. Wind, surf, rain, room tone, and a far better snare or
+    /// cymbal body than white under a filter.
+    Pink,
+    /// −6 dB per octave, an integrated draw. Thunder, rumble, distant
+    /// traffic, and the low half of an impact.
+    Brown,
+}
+
 /// One oscillator in a stack: its wave, its detune from the played pitch, its
-/// weight in the mix, and a whole-octave transpose.
+/// weight in the mix, a whole-octave transpose, and how many detuned copies of
+/// itself it sounds at once.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Osc {
     /// Which waveform this oscillator produces.
@@ -62,6 +97,39 @@ pub struct Osc {
     /// Whole-octave transpose, e.g. `-1` for a sub-oscillator.
     #[serde(default)]
     pub octave: i32,
+    /// How many detuned copies of this oscillator sound at once — unison.
+    ///
+    /// `1`, the default, is one oscillator and is exactly what every patch
+    /// written before this field existed already meant. Past that the entry
+    /// becomes `voices` copies spaced evenly across [`Osc::spread`], each with
+    /// its own start phase, which is the supersaw.
+    ///
+    /// **Unison lives here rather than in the stack** because it is one timbre
+    /// and not several. Written out as separate oscillators it costs the whole
+    /// [`MAX_OSCS`] budget on a single sound and leaves nothing for the
+    /// sub-oscillator or the second wave that a patch actually wants beside
+    /// it, and every one of those entries repeats the same wave, gain and
+    /// octave to say one thing.
+    ///
+    /// **It is a thickness control and not a fader.** The copies are
+    /// normalised by their own count, so `voices: 7` is the same weight in the
+    /// stack that `voices: 1` was; without that, adding unison to one
+    /// oscillator would move every gain in the song.
+    ///
+    /// At most [`MAX_VOICES`], and at least one — a stack refuses both ends
+    /// rather than quietly rendering something the recipe did not write.
+    #[serde(default = "solo", skip_serializing_if = "is_solo")]
+    pub voices: usize,
+    /// How far apart the outermost unison voices sit, in cents — the full
+    /// width of the spread, not the distance from the centre.
+    ///
+    /// Read only when [`Osc::voices`] is above one, and centred on
+    /// [`Osc::detune_cents`], so a spread never moves the pitch the
+    /// oscillator was written at. The default is a shimmer; `25` is a fat
+    /// lead and past `50` the voices start to be heard as a chord rather than
+    /// as one thick note.
+    #[serde(default = "spread_default", skip_serializing_if = "is_default_spread")]
+    pub spread: f32,
 }
 
 /// One partial of an additive series: where it sits, how much of it there is,
@@ -132,8 +200,9 @@ pub struct Partial {
 /// - **Make something rich and carve it.**
 ///   [`OscStack`](Source::OscStack) generates every harmonic,
 ///   [`Karplus`](Source::Karplus) excites a string and lets it ring, and
-///   [`Noise`](Source::Noise) is every frequency at once. What the patch says
-///   is mostly what to take *away*, downstream at the filter.
+///   [`Noise`](Source::Noise) is every frequency at once, in whichever balance
+///   its [`color`](NoiseColor) names. What the patch says is mostly what to
+///   take *away*, downstream at the filter.
 /// - **Bend one sine with another.** [`Fm2`](Source::Fm2) is one modulator on
 ///   one carrier; [`Fm4`](Source::Fm4) is four operators wired by a chosen
 ///   algorithm. What the patch says is a *depth*, and the spectrum is whatever
@@ -162,9 +231,14 @@ pub enum Source {
         #[serde(default = "half")]
         brightness: f32,
     },
-    /// Raw white noise — the head of every gunshot, impact and footstep,
-    /// shaped by the filter and amp envelope.
-    Noise,
+    /// Raw noise — the head of every gunshot, impact and footstep, shaped by
+    /// the filter and amp envelope.
+    Noise {
+        /// How its energy is spread across the spectrum. Absent means
+        /// [`NoiseColor::White`], the hiss this source has always been.
+        #[serde(default, skip_serializing_if = "is_white")]
+        color: NoiseColor,
+    },
     /// Two-operator FM: a sine modulator at `ratio × f` bending a sine
     /// carrier. Electric pianos, bells, metallic hits.
     Fm2 {
@@ -258,7 +332,7 @@ impl Source {
         match self {
             Self::OscStack { .. } => "osc_stack",
             Self::Karplus { .. } => "karplus",
-            Self::Noise => "noise",
+            Self::Noise { .. } => "noise",
             Self::Fm2 { .. } => "fm2",
             Self::Fm4 { .. } => "fm4",
             Self::Additive { .. } => "additive",
@@ -692,6 +766,37 @@ pub enum Fx {
 
 fn one() -> f32 {
     1.0
+}
+
+/// Whether a noise source is the plain hiss — the test that keeps
+/// `"color": "white"` out of every saved document, for the reason
+/// [`Adsr::curve`] gives about defaults and cached bakes.
+fn is_white(color: &NoiseColor) -> bool {
+    matches!(color, NoiseColor::White)
+}
+
+/// One oscillator, undoubled: what an `Osc` meant before unison existed.
+fn solo() -> usize {
+    1
+}
+
+/// Whether an oscillator is a single voice — the test that keeps
+/// `"voices": 1` out of every saved document, for the reason [`is_white`]
+/// gives.
+fn is_solo(voices: &usize) -> bool {
+    *voices == 1
+}
+
+/// How far apart unison voices sit when the recipe does not say: 12 cents
+/// end to end, an eighth of a semitone, which is a shimmer rather than a
+/// chord.
+fn spread_default() -> f32 {
+    12.0
+}
+
+/// Whether a spread is the written-nothing one, so it is not saved either.
+fn is_default_spread(spread: &f32) -> bool {
+    *spread == spread_default()
 }
 
 fn gentle_q() -> f32 {

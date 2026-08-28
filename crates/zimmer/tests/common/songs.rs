@@ -2,14 +2,16 @@
 
 use std::collections::BTreeMap;
 
-use scorsese_zimmer::patch::{Adsr, Patch, Source};
+use scorsese_zimmer::patch::{Adsr, NoiseColor, Patch, Source};
 use scorsese_zimmer::song::{Note, PatchRef, Pattern, PatternEntry, Pitch, Song, Track};
 
 /// A short noise blip. Cheap to render, and *stochastic*, so it exercises the
 /// per-note seeding path rather than a purely deterministic oscillator.
 pub(crate) fn blip() -> Patch {
     Patch {
-        source: Source::Noise,
+        source: Source::Noise {
+            color: NoiseColor::White,
+        },
         amp: Adsr {
             a: 0.001,
             d: 0.05,

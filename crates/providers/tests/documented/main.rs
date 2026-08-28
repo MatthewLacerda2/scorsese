@@ -78,7 +78,9 @@ fn the_page_names_every_fm_algorithm() {
 /// Something audible to stand in for a patch the page names but does not carry.
 fn stub() -> scorsese_zimmer::Patch {
     scorsese_zimmer::Patch {
-        source: scorsese_zimmer::patch::Source::Noise,
+        source: scorsese_zimmer::patch::Source::Noise {
+            color: scorsese_zimmer::patch::NoiseColor::White,
+        },
         amp: scorsese_zimmer::patch::Adsr::default(),
         filter: None,
         pitch_env: None,

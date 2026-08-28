@@ -24,7 +24,7 @@ use crate::error::SynthError;
 pub use fm::{Algorithm, FM_OPERATORS, Operator};
 pub use stages::{
     Adsr, EqBand, EqKind, Filter, FilterKind, Fx, Lfo, LfoTarget, MAX_EQ_BANDS, MAX_OSCS,
-    MAX_PARTIALS, Osc, Partial, PitchEnv, Source, Wave,
+    MAX_PARTIALS, MAX_VOICES, NoiseColor, Osc, Partial, PitchEnv, Source, Wave,
 };
 
 /// Rejects an fx chain the renderer cannot honour.
@@ -149,6 +149,19 @@ impl Patch {
             Source::OscStack { oscs } if oscs.iter().all(|osc| osc.gain <= 0.0) => {
                 Err(SynthError::SilentOscStack)
             }
+            // Both ends of the unison range, in one pass: no voices at all is
+            // an oscillator the recipe asked to be silent without saying so,
+            // and too many is [`MAX_VOICES`]'s argument.
+            Source::OscStack { oscs } => match oscs
+                .iter()
+                .find(|osc| !(1..=MAX_VOICES).contains(&osc.voices))
+            {
+                Some(osc) => Err(SynthError::BadVoiceCount {
+                    found: osc.voices,
+                    limit: MAX_VOICES,
+                }),
+                None => Ok(()),
+            },
             Source::Fm2 { ratio, .. } if *ratio <= 0.0 => {
                 Err(SynthError::BadFmRatio { ratio: *ratio })
             }
