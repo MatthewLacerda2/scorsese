@@ -293,16 +293,16 @@ pub use song::{PatchResolver, Song, render_song};
 /// rather than a variant of its own, which is the shape that usually does move
 /// this number — so it was checked rather than argued. `Source::Noise` grew a
 /// `color` and `Osc` grew `voices` and `spread`, each defaulting to what the
-/// crate already did and each skipped on the way out. 35 probes against
-/// `9e73ead` — all five sources, a stack of four, an additive series both
+/// crate already did and each skipped on the way out. 36 probes against
+/// `3b2c627` — all five sources, a stack of four, an additive series both
 /// harmonic and stretched, every envelope corner including both directions of
 /// curve, a pitch envelope, the filter swept and velocity-routed, all three
-/// LFO targets, every effect, a chain of four, and eight songs covering step
+/// LFO targets, every effect, a chain of four, and nine songs covering step
 /// strings, chords, a key with degrees, swing, humanise, a track bus, a song
-/// chain, a sidechain, panning, `fit`, `fade`, `tail` and an arrangement
-/// transform — came back byte-identical. A recipe that names neither field
-/// renders what it always did, and the defaults are what make that true by
-/// construction.
+/// chain, a sidechain, panning, an automated fader and a drifting pan, `fit`,
+/// `fade`, `tail` and an arrangement transform — came back byte-identical. A
+/// recipe that names neither field renders what it always did, and the
+/// defaults are what make that true by construction.
 ///
 /// **Version 3 is the far end of that scale** and needs no argument at all: the
 /// crate went stereo, so every bake in every project is a different file, of a
