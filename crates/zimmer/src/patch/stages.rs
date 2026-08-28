@@ -200,8 +200,9 @@ pub struct Partial {
 /// - **Make something rich and carve it.**
 ///   [`OscStack`](Source::OscStack) generates every harmonic,
 ///   [`Karplus`](Source::Karplus) excites a string and lets it ring, and
-///   [`Noise`](Source::Noise) is every frequency at once. What the patch says
-///   is mostly what to take *away*, downstream at the filter.
+///   [`Noise`](Source::Noise) is every frequency at once, in whichever balance
+///   its [`color`](NoiseColor) names. What the patch says is mostly what to
+///   take *away*, downstream at the filter.
 /// - **Bend one sine with another.** [`Fm2`](Source::Fm2) is one modulator on
 ///   one carrier; [`Fm4`](Source::Fm4) is four operators wired by a chosen
 ///   algorithm. What the patch says is a *depth*, and the spectrum is whatever
