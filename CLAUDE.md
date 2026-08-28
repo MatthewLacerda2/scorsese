@@ -248,19 +248,31 @@ that goes with it.
 - **Branch naming.** A PR that closes an issue uses `{issue_number}-short-slug`
   (e.g. `3-render-pipeline`). An issue-less PR uses a readable short slug of
   its subject. Lowercase-hyphenated, brief.
-- **One worktree per issue, and every unblocked issue at once.** Issues that
-  block neither each other nor a common third are worked **in parallel, all of
-  them** — five unblocked issues means five branches being built right now, not
-  the best one of the five — and each gets **its own git worktree** branched
-  off the latest `main`: one checkout per branch, never two branches taking
-  turns in one. Start as many as the machine can actually carry; if it cannot
-  carry them all, priority order decides which go first. The isolation
-  is what makes a branch's gates mean anything: a shared checkout mixes
-  another issue's edits into `make gates` and thrashes `target/` between
-  builds. Each branch runs its own CI as a **signal** that it is healthy; the
-  run that **gates** a merge is the one on the rebased state below, so
-  re-running the other open PRs after every merge proves nothing — each gets
-  its green when its turn to rebase comes.
+- **Two branches in flight, pipelined — not as many as the machine can carry.**
+  Coding parallelises; **merging does not**, because Rust is compiled and two
+  green branches can still break `main` together. So the merge queue is the
+  bottleneck, and every branch that is not first pays a rebase for each merge
+  ahead of it: for N branches over the same code that is **N(N−1)/2 rebases**.
+  Two costs one, three costs three, four costs six — and a rebase buys no
+  correctness whatsoever. Two in flight is the sweet spot: one going through
+  CI and the merge gate, one being written, so nothing idles through a
+  ten-minute run and nothing rebases twice.
+- **The real limit is file collision, not branch count.** Two branches adding a
+  variant to the same enum cost more than four branches in genuinely separate
+  areas — one in `song/`, one in `fx/`, one in CI config barely touch each
+  other, and a clean rebase is seconds of `git` rather than a session. So the
+  question before starting a second branch is *does it edit the same types as
+  the first?*, and the count falls out of the answer. A shared file to watch:
+  anything every feature appends to (an error list, a source enum, a document
+  type) is where branches collide by construction.
+- **Each gets its own git worktree**, branched off the latest `main` — one
+  checkout per branch, never two branches taking turns in one. The isolation is
+  what makes a branch's gates mean anything: a shared checkout mixes another
+  issue's edits into `make gates` and thrashes `target/` between builds. Each
+  branch runs its own CI as a **signal** that it is healthy; the run that
+  **gates** a merge is the one on the rebased state below, so re-running the
+  other open PRs after every merge proves nothing — each gets its green when
+  its turn to rebase comes.
 - **Merging — serialized, one at a time.** Rebase the PR onto the latest
   `main` → CI green on that rebased state → `make mergeable PR=N` → merge →
   repeat, one PR at a time.
@@ -289,16 +301,25 @@ that goes with it.
   issue is literal groundwork for another. Link two issues when one lays the
   groundwork for the next, makes it meaningfully easier, or would conflict too
   much if done concurrently. There are no rigid batches: **the dependency
-  graph is the plan.** Any issue with no open blockers and no stage label is
+  graph is the plan.**
+  **Split by responsibility, not by parallelism** — and if a parent's
+  sub-issues all touch the same type, they are **one branch**, not one each.
+  Splitting an issue so several agents can run at once optimises the half that
+  was never the bottleneck, and manufactures the collisions the rule above is
+  about: four sub-issues each adding a variant to one enum is four rebases,
+  four CI cycles and four mutation reports for one coherent change. Sub-issues
+  are for work that is genuinely separable *in the code*, not for work that is
+  merely listable. Any issue with no open blockers and no stage label is
   fair game.
 - **Re-read the board after every merge, not after a batch.** A merge changes
   the graph: whatever the merged issue blocked is fair game the moment it
   lands. So the decision is one merge wide — merge, re-read the board, and
   start **every** issue that is now unblocked, unassigned and free of a stage
   label, each in its own worktree — repeating until the board has none left.
-  One merge that unblocks three means three more branches, not the best of the
-  three: priority orders what gets **merged**, never what gets **worked**, and
-  an unblocked issue left unstarted is capacity going to waste. Choosing a
+  One merge that unblocks three does **not** mean three more branches — start
+  the next one, and keep the second slot for whatever is furthest along.
+  Priority orders what gets **merged**; an unblocked issue left unstarted is
+  not capacity going to waste, it is a rebase not yet paid for. Choosing a
   batch up front and re-checking only once it is done is what this replaces:
   that batch is already stale by its second issue, and work unblocked by the
   first sits waiting on the rest of it for no reason.
@@ -349,7 +370,17 @@ that goes with it.
   once the pull request is ready, which is what `gh pr view --comments` reads
   — lists survivors in code **this branch wrote**, the exits are **fix it**,
   **exclude it with a written reason**, or **file it as its own issue**. There
-  is no fourth. A report with nothing in it, or one whose survivors sit in code
+  is no fourth. **None of them holds the merge** — mutation is a signal and a
+  signal never blocks, so the sorting is by cost rather than by ceremony: fix
+  what is cheap while the code is still in hand; file what is a real bug and
+  fix it *after* the current branch has merged; file what is an architectural
+  or foundational crack and **do not start it without the user's judgement**.
+  Holding a green pull request hostage to a signal is the failure to avoid —
+  it converts an informational check into a gate the rules deliberately say it
+  is not, and it is how a queue of finished work stops moving. The one case
+  worth stopping for is a report saying a *module* has nothing asserting its
+  mechanism at all; that is not a list of survivors, it is one finding about
+  the tests. A report with nothing in it, or one whose survivors sit in code
   the branch never touched, needs no reading at all — that condition is the
   rule and not a softening of it, because *always read the mutation comment* is
   a line everyone would learn to skip. `docs/mutation-testing.md` is how a
@@ -364,6 +395,17 @@ that goes with it.
   `make size`, and the pre-commit hook runs it too. Which cap applies to a
   given path is decided and documented in `tools/lint/src/classify.rs`, and
   nothing is grandfathered: a file over the limit gets split, not excused.
+- **Which model does what — a hint, not a rule.** Design, implementation,
+  triage and anything needing a judgement call want the strongest model
+  available; a rebase, a merge conflict in a module list, moving an attribute
+  between files and other work that is mechanical rather than considered do
+  not. Most of an agent's sessions on a branch are the second kind, and paying
+  top rate for them is where a night's budget quietly goes. This is a hint
+  because the line is not crisp — a "mechanical" rebase that turns out to need
+  two authors' prose reconciled is not mechanical — so the person or agent
+  spawning the work makes the call, and gets it wrong upwards rather than
+  downwards.
+
 - **Agent velocity is first-class.** Agents drive this repo, often unattended.
   Write code that is readable by design and lean — clear code is cheaper to
   reason about and faster for the next agent to extend. Keep CI fast. This is
@@ -417,6 +459,14 @@ that goes with it.
   own doc in `crates/zimmer/src/lib.rs` carries the whole argument. So: touch a
   source, a filter, an envelope or an effect in `zimmer` and the samples move —
   bump it. Touch only prose, a name or a document type — leave it alone.
+  **Verify by rendering only when the change touches rendering maths.** Building
+  a probe corpus and baking it against two checkouts is the right way to settle
+  a genuine doubt — an edited note loop, a shared helper moved, a stage
+  reordered — and it is waste when the answer is already visible in the diff. A
+  new optional field that defaults to the old behaviour, or a variant nothing
+  existing can name, cannot move an existing recipe's bytes: say so in one line
+  and move on. The constant's own doc records what previous branches checked and
+  why, which is usually enough to answer the question without running anything.
 - **There is no backwards compatibility, and that is the policy until the user
   says otherwise.** Nothing is kept working for the sake of a `project.json`
   saved by an older build: no migration notes, no reading an older
