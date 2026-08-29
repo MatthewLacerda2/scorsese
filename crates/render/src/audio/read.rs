@@ -102,23 +102,34 @@ pub(crate) fn decode(
         .stdout
         .take()
         .expect("stdout was piped when the process was spawned");
-    read_all(&mut stdout, &mut take)?;
+    read_all(&mut stdout, channels, &mut take)?;
     // Waited on only after the pipe has run dry: ffmpeg blocks writing into a
     // full pipe, so a process we stopped reading from would never exit.
     crate::pipe::finish(child, Stage::Measure, &subject)
 }
 
-/// Reads every sample ffmpeg produces into `take`.
+/// Reads every sample ffmpeg produces into `take`, a whole number of
+/// sample-frames at a time.
 ///
-/// A word can straddle two reads — a pipe is free to hand back any number of
-/// bytes — so the remainder of an incomplete one is carried into the next
-/// chunk. Dropping it instead would shift every later sample by up to three
-/// bytes, which is not a rounding error but a different signal.
-fn read_all(source: &mut impl Read, take: &mut impl FnMut(&[f32])) -> Result<(), RenderError> {
-    let word = size_of::<f32>();
-    let mut bytes = vec![0_u8; CHUNK];
+/// A pipe is free to hand back any number of bytes, so what is left over at the
+/// end of a read is carried into the next one. Dropping it would shift every
+/// later sample, which is not a rounding error but a different signal.
+///
+/// **Frames and not words**, which is the part that only matters once there is
+/// more than one channel: a run ending half way through a frame would hand a
+/// left sample over without the right one beside it, and every later run would
+/// have its channels the wrong way round. What a meter does with that is invent
+/// an excursion at the seam — a centred sine peaking at 0.9 read as clipping
+/// before this counted in frames.
+fn read_all(
+    source: &mut impl Read,
+    channels: usize,
+    take: &mut impl FnMut(&[f32]),
+) -> Result<(), RenderError> {
+    let frame = size_of::<f32>() * channels;
+    let mut bytes = vec![0_u8; CHUNK.max(frame)];
     let mut carried = 0;
-    let mut samples = Vec::with_capacity(CHUNK / word);
+    let mut samples = Vec::with_capacity(bytes.len() / size_of::<f32>());
     loop {
         let read = source
             .read(&mut bytes[carried..])
@@ -130,14 +141,16 @@ fn read_all(source: &mut impl Read, take: &mut impl FnMut(&[f32])) -> Result<(),
             return Ok(());
         }
         let filled = carried + read;
-        let whole = filled / word * word;
-        samples.clear();
-        samples.extend(
-            bytes[..whole]
-                .chunks_exact(word)
-                .map(|word| f32::from_le_bytes(word.try_into().expect("four bytes"))),
-        );
-        take(&samples);
+        let whole = filled / frame * frame;
+        if whole > 0 {
+            samples.clear();
+            samples.extend(
+                bytes[..whole]
+                    .chunks_exact(size_of::<f32>())
+                    .map(|word| f32::from_le_bytes(word.try_into().expect("four bytes"))),
+            );
+            take(&samples);
+        }
         bytes.copy_within(whole..filled, 0);
         carried = filled - whole;
     }
