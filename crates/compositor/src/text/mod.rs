@@ -14,9 +14,11 @@
 //! Unicode, so a character the one a document named has no glyph for is drawn
 //! by the next face that does — one entry ships, Noto Color Emoji, and nothing
 //! in `project.json` names it, turns it off or knows it is there. What the
-//! named face *can* draw, it draws; the fallback is only ever reached by a gap.
-//! Line height is the named face's alone, so a caption is not taller for having
-//! an emoji in it. `font::fallback` is where the chain is stated.
+//! named face *can* draw, it draws; the fallback is reached by a gap, or by a
+//! cluster that asked for colour with a `U+FE0F` after it — which is what a
+//! phone keyboard puts in `❤️`. Line height is the named face's alone, so a
+//! caption is not taller for having an emoji in it. `font::fallback` is where
+//! the chain is stated and `runs` is where a cluster's face is chosen.
 //!
 //! **Text is a layer like any other.** What this module produces is pixels on a
 //! frame; that frame then goes through the same [`Compositor`](crate::Compositor)

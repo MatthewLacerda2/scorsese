@@ -507,9 +507,18 @@ face a document *named* has no glyph for is drawn by the next face that does,
 and one such face ships: **Noto Color Emoji**, in its COLRv1 vector build, so a
 large emoji stays sharp at 4K. Everything the named face *can* draw, it draws —
 a text face with a `☺` in it sets `☺` in text, not in colour — and the fallback
-is only ever reached by a gap.
+is reached by a gap, or by a caption that asked for colour in so many words.
 
-Four consequences worth knowing before writing one:
+Five consequences worth knowing before writing one:
+
+- **`❤️` and `❤` are different pictures, and a keyboard sends the first.**
+  `U+FE0F`, the emoji presentation selector, is an invisible character that
+  means *draw the one before me in colour*, and iOS and Android put it after
+  every emoji whose base character predates emoji — `❤️ ☀️ ⚠️ ▶️ ⬆️` are each
+  two characters, not one. So a character **both** faces have goes to the emoji
+  face when the caption carries one and stays with the named face when it does
+  not. `U+FE0E` asks the other way, for the named face's own outline. Neither
+  is ever visible in the string, and neither is a field.
 
 - **Line height comes from the named face alone.** A caption with an emoji in
   it is exactly as tall as the same caption without one, and its words wrap in

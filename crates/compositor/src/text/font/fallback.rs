@@ -12,10 +12,15 @@
 //! [`chain`] and nowhere else. Written as *the emoji face*, adding one would be
 //! a rewrite; written as a chain, it is a line.
 //!
-//! **Order is the whole of the policy.** The face the document named is always
-//! tried first, so a character it can draw is drawn by it — a text face that
-//! has `☺` sets `☺` in text, not in colour. Only what it cannot say reaches
-//! this list, and within the list the first face that can say something wins.
+//! **Order is the whole of the policy, and a variation selector is the one
+//! thing that reorders it.** The face the document named is tried first, so a
+//! character it can draw is drawn by it — a text face that has `☺` sets `☺` in
+//! text, not in colour. Only what it cannot say reaches this list, and within
+//! the list the first face that can say something wins. What changes that is a
+//! cluster that *asked*: `❤️` is `U+2764 U+FE0F`, and the selector says draw it
+//! in colour, so the first face in the chain with a colour drawing of it sets
+//! it however far down the chain that is. [`crate::text::runs`] is where that
+//! is decided.
 
 use std::sync::OnceLock;
 
@@ -80,7 +85,7 @@ impl<'a> Faces<'a> {
     pub(in crate::text) fn shape(&self, text: &str) -> Shaped {
         let mut whole = Shaped::default();
         for run in runs::split(text, self.faces.len(), |face, character| {
-            self.faces[face].covers(character)
+            self.faces[face].draws(character)
         }) {
             let face = &self.faces[run.face];
             whole.append(face.shape(&text[run.range], run.face));
