@@ -138,11 +138,13 @@ pub(crate) fn bleed(row: &[Sample], out: &mut [(f64, f64)], window: usize) {
     // the first pixel repeated across the whole of it.
     let (mut cb, mut cr) = (first.cb * count, first.cr * count);
     for (x, out) in out.iter_mut().enumerate() {
-        if x > 0 {
-            let leaving = row[x.saturating_sub(window)];
-            cb += row[x].cb - leaving.cb;
-            cr += row[x].cr - leaving.cr;
-        }
+        // Unconditionally, including at the first pixel — where the arriving
+        // and the leaving sample are both the clamped first one, so the sum is
+        // the window it started as. A guard there would be a branch nothing can
+        // ever take a different answer from, which is a line no test can pin.
+        let leaving = row[x.saturating_sub(window)];
+        cb += row[x].cb - leaving.cb;
+        cr += row[x].cr - leaving.cr;
         *out = (cb / count, cr / count);
     }
 }
@@ -183,6 +185,12 @@ mod tests {
         // 0.018 × 0.08 × 1000 is 1.44, under the bar; 0.019 is 1.52, over it.
         assert_eq!(window(0.018, 1000), 1);
         assert_eq!(window(0.019, 1000), 2);
+        // And the bar itself, exactly: a 25-wide raster puts `0.75 × 0.08 × 25`
+        // at precisely `1.5` in binary, with nothing rounded on the way. A pixel
+        // and a half **is** a smear — the narrowest one that does anything is
+        // the narrowest one asked for, which is the same claim `blur::radius`
+        // and `aberration::spread` each make at their own half pixel.
+        assert_eq!(window(0.75, 25), 2);
     }
 
     /// Clamped at the top as well as the bottom, so a keyframe track that

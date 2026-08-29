@@ -21,6 +21,7 @@
 mod colour;
 mod lines;
 mod paths;
+mod pinned;
 mod snow;
 mod tracking;
 
