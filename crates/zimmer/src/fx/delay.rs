@@ -190,12 +190,31 @@ mod tests {
 
     /// The send is the mono fold-down, so a centred signal feeds it at exactly
     /// its own level and `mix` blends against the dry side it was on.
+    ///
+    /// **Both sides**, and the right one is not a formality. It is the only
+    /// channel whose dry signal never becomes an echo of its own — every
+    /// repeat it carries arrived from the left line — so a blend that was
+    /// wrong there would leave the left one reading correctly throughout, and
+    /// the fully-wet test above cannot see it because at `mix` of one the dry
+    /// term is multiplied by zero.
     #[test]
     fn a_centred_signal_feeds_it_at_its_own_level() {
         let mut buf = Stereo::centred(impulse(22_050));
         ping_pong(&mut buf, 0.1, 0.0, 0.25, 44_100.0);
         assert!((buf.l[0] - 0.75).abs() < 1e-6, "dry is scaled by 1 - mix");
         assert!((buf.l[4410] - 0.25).abs() < 1e-6, "and the repeat by mix");
+
+        // The right side under the same rule, at a feedback that gives it a
+        // repeat to blend: the second echo is 0.5 before the blend, so it
+        // arrives at a quarter of that, over a dry impulse at three quarters.
+        let mut both = Stereo::centred(impulse(22_050));
+        ping_pong(&mut both, 0.1, 0.5, 0.25, 44_100.0);
+        assert!((both.r[0] - 0.75).abs() < 1e-6, "right dry: {}", both.r[0]);
+        assert!(
+            (both.r[8820] - 0.125).abs() < 1e-6,
+            "right repeat: {}",
+            both.r[8820]
+        );
         // Hard left in, and half of it reaches the line — the same fold-down
         // a reverb send does, so a wide input is not louder than a centred one.
         let mut side = Stereo {
