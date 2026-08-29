@@ -325,12 +325,54 @@ mod tests {
         }
     }
 
+    /// Which kinds read a `gain_db`, asserted on [`EqKind::takes_gain`]
+    /// directly — because the classification is the contract and no
+    /// measurement can see it move (#485).
+    ///
+    /// The function gates the zero-gain bypass and nothing else: the gain
+    /// reaches the coefficients whatever it says, and the cookbook's `A` at
+    /// 0 dB is exactly 1, which makes a parked band's biquad an exact identity
+    /// rather than an approximate one. So `takes_gain` returning `false` for
+    /// all five kinds costs a pass over the buffer and moves no sample — which
+    /// is why the bypass can promise bit-equality in the first place, and why
+    /// pinning it means saying which kinds are in the set. The same three are
+    /// what `docs/recipes.md` promises whoever writes the band.
     #[test]
-    fn a_pass_filter_ignores_gain_rather_than_being_bypassed_by_it() {
-        // The other half of the rule above: `gain_db` is not a field these two
-        // read, so leaving it at zero must not switch them off.
-        let filtered = response_db(band(EqKind::HighPass, 250.0, 0.0, 0.707), 60.0);
-        assert!(filtered < -18.0, "still a high-pass: {filtered}");
+    fn every_kind_that_reads_a_gain_moves_its_own_band_by_it() {
+        for (kind, corner, probe) in [
+            (EqKind::LowShelf, 250.0, 40.0),
+            (EqKind::Peak, 250.0, 250.0),
+            (EqKind::HighShelf, 4000.0, 16_000.0),
+        ] {
+            assert!(kind.takes_gain(), "{kind:?} is written with a gain");
+            let flat = response_db(band(kind, corner, 0.0, 0.707), probe);
+            let lifted = response_db(band(kind, corner, 6.0, 0.707), probe);
+            assert!(flat.abs() < 0.4, "{kind:?} at 0 dB leaves it alone: {flat}");
+            assert!(
+                (lifted - flat - 6.0).abs() < 0.6,
+                "{kind:?} at +6 dB lifts its own band by it: {flat} to {lifted}"
+            );
+        }
+    }
+
+    /// The mirror, and the half of the rule a bare `false` would also satisfy:
+    /// `gain_db` is not a field these two read, so writing one changes nothing
+    /// — not within rounding, but the same samples. That a zero gain does not
+    /// switch them off, the way it switches off the three above, is what the
+    /// filtering test over these same two bands already says.
+    #[test]
+    fn the_pass_filters_have_no_gain_to_read() {
+        for (kind, corner, probe) in [
+            (EqKind::HighPass, 250.0, 60.0),
+            (EqKind::LowPass, 4000.0, 16_000.0),
+        ] {
+            assert!(!kind.takes_gain(), "{kind:?} has no amount of gone to ask");
+            assert_eq!(
+                response_db(band(kind, corner, 0.0, 0.707), probe),
+                response_db(band(kind, corner, 6.0, 0.707), probe),
+                "{kind:?} read a gain it does not have"
+            );
+        }
     }
 
     #[test]
