@@ -12,7 +12,7 @@
 //! −0.2 dBFS can clip after AAC. That is precisely the case a delivery render
 //! should mention and precisely the one a sample peak cannot see.
 
-use super::intersample::Channel;
+use super::intersample::{Channel, TAPS};
 
 /// Full scale, as the number a sample of `1.0` is.
 const FULL_SCALE: f64 = 1.0;
@@ -71,9 +71,15 @@ pub struct Meter {
     true_peak: f64,
     sum_of_squares: f64,
     counted: u64,
-    /// The tail of the previous run, so the interpolator sees across the seam
-    /// rather than treating every segment boundary as a pair of edges.
-    tail: Vec<f32>,
+    /// The end of the signal so far: the frames not yet measured, preceded by
+    /// the [`TAPS`] already-measured frames that are their left-hand context.
+    ///
+    /// Never more than twice that many frames, whatever a caller feeds — this
+    /// is a window on the seam and not a copy of the signal.
+    recent: Vec<f32>,
+    /// How many leading frames of [`Meter::recent`] have already been counted.
+    /// The rest are waiting for their right-hand neighbours to arrive.
+    settled: usize,
 }
 
 impl Meter {
@@ -91,7 +97,8 @@ impl Meter {
             true_peak: 0.0,
             sum_of_squares: 0.0,
             counted: 0,
-            tail: Vec::new(),
+            recent: Vec::new(),
+            settled: 0,
         }
     }
 
@@ -121,7 +128,7 @@ impl Meter {
             // Never below the sample peak: the interpolated curve passes
             // through every sample, so a kernel that somehow read lower would
             // be reporting a waveform that does not contain its own samples.
-            true_peak_dbfs: Some(ratio_to_dbfs(self.true_peak.max(self.peak))),
+            true_peak_dbfs: Some(ratio_to_dbfs(self.true_peak().max(self.peak))),
             mean_dbfs: Some(ratio_to_dbfs(mean_square.sqrt())),
         }
     }
@@ -130,19 +137,56 @@ impl Meter {
     ///
     /// Per channel rather than across the interleaved buffer — see
     /// [`Meter::new`] for why that distinction matters.
+    ///
+    /// **A frame is only measurable once both its neighbourhoods exist.** The
+    /// kernel reaches [`TAPS`] frames either side of the frame it reconstructs,
+    /// and anything outside the buffer reads as zero — so a frame measured
+    /// while it still sits at the end of the newest run is measured against a
+    /// silence that is about to be replaced by real samples. That fabricated edge rings, the ringing is an
+    /// excursion, and a running maximum keeps it forever: a signal fed in
+    /// 4 KB runs used to read a decibel hotter than the same signal fed whole.
+    ///
+    /// So each run measures the frames from [`Meter::settled`] up to `TAPS`
+    /// short of the end, keeps the last `TAPS` measured frames as the next
+    /// run's left-hand context, and holds the rest back. The one place the
+    /// zeros are real is the end of the signal, which is
+    /// [`Meter::true_peak`]'s business.
     fn measure_true_peak(&mut self, samples: &[f32]) {
-        let mut joined = std::mem::take(&mut self.tail);
+        let mut joined = std::mem::take(&mut self.recent);
         joined.extend_from_slice(samples);
+        let frames = joined.len() / self.channels;
+        // `max` rather than a bare subtraction: a run shorter than the kernel
+        // adds no measurable frames at all, and must not un-measure any.
+        let ready = frames.saturating_sub(TAPS).max(self.settled);
         for index in 0..self.channels {
             let channel = Channel::of(&joined, self.channels, index);
-            for frame in 0..channel.frames() {
+            for frame in self.settled..ready {
                 self.true_peak = self.true_peak.max(channel.peak_from(frame));
             }
         }
-        // Keep enough of the end that the next run's first frames have their
-        // left-hand taps.
-        let keep = (super::intersample::TAPS * self.channels).min(joined.len());
-        self.tail = joined.split_off(joined.len() - keep);
+        let drop = ready.saturating_sub(TAPS);
+        self.settled = ready - drop;
+        joined.drain(..drop * self.channels);
+        self.recent = joined;
+    }
+
+    /// The largest excursion anywhere, including the frames still held back.
+    ///
+    /// Those are measured here rather than in [`Meter::feed`] because here is
+    /// the only moment their right-hand neighbours are known to be silence:
+    /// whoever is asking has stopped feeding, so the signal ends where the
+    /// buffer does. Read rather than accumulated, so asking twice — or asking
+    /// and then feeding more — gives the answer for the signal as it stands
+    /// each time.
+    fn true_peak(&self) -> f64 {
+        let mut peak = self.true_peak;
+        for index in 0..self.channels {
+            let channel = Channel::of(&self.recent, self.channels, index);
+            for frame in self.settled..channel.frames() {
+                peak = peak.max(channel.peak_from(frame));
+            }
+        }
+        peak
     }
 }
 
