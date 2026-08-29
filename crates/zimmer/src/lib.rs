@@ -416,6 +416,25 @@ pub use song::{Excerpt, PatchResolver, Song, Span, Window, render_excerpt, rende
 /// The two are on one branch and share one bump on purpose. A bump misses
 /// every cached bake in every project on disk, and doing that twice in a night
 /// for two changes that could travel together is a cost paid for nothing.
+///
+/// Checked rather than reasoned about, since the `fm4` half is rendering
+/// maths: **50 probes against `4240a67f`**, the `main` this branch was cut
+/// from — and still the right base after a rebase onto `87315e07`, which
+/// changed nothing under `crates/zimmer` —
+/// every source including all three noise colours, a unison stack, an additive
+/// series, `karplus`, `fm2` and six `fm4` patches; all four filter kinds, both
+/// slopes, an envelope-and-velocity cutoff and all three LFO targets; a pitch
+/// envelope and both signs of amp curve; every effect on its own and a chain
+/// of four; five songs covering swing, all three humanise axes, a song chain,
+/// a pan and a track delay; and every worked example in `docs/recipes.md`.
+///
+/// **Eleven moved and thirty-nine did not**, which is exactly the split the
+/// two halves predict. The eleven are the six `fm4` patches, the `fm4` worked
+/// example, and the four songs whose bass track is an `fm4` — nothing else.
+/// Every delay probe came back byte-identical, encoded bytes and length both,
+/// including the song whose lead track carries one: the flag defaults to the
+/// per-channel lines, and a recipe that does not write it is not a different
+/// document.
 pub const SYNTH_VERSION: u32 = 7;
 
 /// Render one note of `patch` and encode it as a stereo 16-bit PCM WAV.
