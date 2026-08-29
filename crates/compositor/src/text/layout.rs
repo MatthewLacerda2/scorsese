@@ -7,7 +7,8 @@
 //! without wrapping runs off the side of the picture and without truncation
 //! runs off the bottom of it.
 
-use super::font::Face;
+use super::font::Faces;
+use super::runs;
 use super::shape::{NBSP, Shaped};
 
 /// One line, laid out and shaped.
@@ -25,8 +26,13 @@ pub(super) struct Line {
 
 /// How wide `text` sets in one line. The one measurement in this module, so
 /// wrapping and drawing can never disagree about where a line ends.
-pub(super) fn measure(face: &Face<'_>, text: &str) -> f32 {
-    face.shape(text).width
+///
+/// **The chain rather than a face**, and every function below takes it for the
+/// same reason: a line may be set from more than one face, and a width worked
+/// out from the named one alone would be the width of a line with the emoji
+/// missing. Wrapping would then break where the drawn text does not.
+pub(super) fn measure(faces: &Faces<'_>, text: &str) -> f32 {
+    faces.shape(text).width
 }
 
 /// Wraps `text` to `max_width`, keeping at most `max_lines` of it.
@@ -41,23 +47,23 @@ pub(super) fn measure(face: &Face<'_>, text: &str) -> f32 {
 /// ellipsis. Truncating rather than overflowing is the honest failure: text
 /// running off the bottom of the frame looks like a render bug, where an
 /// ellipsis says "there is more here than fits" to whoever is watching.
-pub(super) fn wrap(text: &str, face: &Face<'_>, max_width: f32, max_lines: usize) -> Vec<Line> {
+pub(super) fn wrap(text: &str, faces: &Faces<'_>, max_width: f32, max_lines: usize) -> Vec<Line> {
     let mut lines = Vec::new();
     for paragraph in text.split('\n') {
-        wrap_paragraph(paragraph, face, max_width, &mut lines);
+        wrap_paragraph(paragraph, faces, max_width, &mut lines);
     }
     if lines.len() <= max_lines {
         return lines;
     }
     lines.truncate(max_lines.max(1));
     if let Some(last) = lines.pop() {
-        lines.push(ellipsise(last, face, max_width));
+        lines.push(ellipsise(last, faces, max_width));
     }
     lines
 }
 
 /// Greedy wrapping: take words until the next one would not fit, then break.
-fn wrap_paragraph(paragraph: &str, face: &Face<'_>, max_width: f32, lines: &mut Vec<Line>) {
+fn wrap_paragraph(paragraph: &str, faces: &Faces<'_>, max_width: f32, lines: &mut Vec<Line>) {
     let mut current = String::new();
     for word in words(paragraph) {
         let candidate = if current.is_empty() {
@@ -65,21 +71,21 @@ fn wrap_paragraph(paragraph: &str, face: &Face<'_>, max_width: f32, lines: &mut 
         } else {
             format!("{current} {word}")
         };
-        if measure(face, &candidate) <= max_width {
+        if measure(faces, &candidate) <= max_width {
             current = candidate;
             continue;
         }
         if !current.is_empty() {
-            push(lines, face, std::mem::take(&mut current));
+            push(lines, faces, std::mem::take(&mut current));
         }
         // The word now starts a line of its own; if it does not fit even
         // there, it is broken between characters and the tail carries on.
-        current = break_word(word, face, max_width, lines);
+        current = break_word(word, faces, max_width, lines);
     }
     // A blank line in the content is a blank line on screen, so an empty
     // paragraph still contributes one.
     if !current.is_empty() || paragraph.trim().is_empty() {
-        push(lines, face, current);
+        push(lines, faces, current);
     }
 }
 
@@ -102,28 +108,33 @@ fn words(paragraph: &str) -> impl Iterator<Item = &str> {
 }
 
 /// Splits a word too wide for a line, returning whatever tail still fits.
-fn break_word(word: &str, face: &Face<'_>, max_width: f32, lines: &mut Vec<Line>) -> String {
+///
+/// **Between clusters, not between characters.** 👍🏽 is a hand and a skin tone
+/// and 👨‍👩‍👧 is three people and two joiners; each is one drawing, and a break
+/// inside one would put half a picture at the end of a line and the rest at the
+/// start of the next. The same rule [`super::runs`] applies to which face draws
+/// what applies to where a line ends, and for the same reason.
+fn break_word(word: &str, faces: &Faces<'_>, max_width: f32, lines: &mut Vec<Line>) -> String {
     let mut rest = word.to_owned();
-    while measure(face, &rest) > max_width {
-        let mut head = String::new();
-        for character in rest.chars() {
-            let mut candidate = head.clone();
-            candidate.push(character);
-            // At least one character per line, whatever the width: a max_width
+    while measure(faces, &rest) > max_width {
+        let mut head = 0;
+        for cluster in runs::clusters(&rest) {
+            // At least one cluster per line, whatever the width: a max_width
             // narrower than a single glyph must not loop forever.
-            if !head.is_empty() && measure(face, &candidate) > max_width {
+            if head > 0 && measure(faces, &rest[..cluster.end]) > max_width {
                 break;
             }
-            head = candidate;
+            head = cluster.end;
         }
-        rest = rest[head.len()..].to_owned();
-        push(lines, face, head);
+        let taken = rest[..head].to_owned();
+        rest = rest[head..].to_owned();
+        push(lines, faces, taken);
     }
     rest
 }
 
 /// Replaces the tail of a line with an ellipsis, narrowing it until it fits.
-fn ellipsise(last: Line, face: &Face<'_>, max_width: f32) -> Line {
+fn ellipsise(last: Line, faces: &Faces<'_>, max_width: f32) -> Line {
     let mut text = last.text;
     loop {
         // Trailing whitespace goes before the ellipsis, but a non-breaking
@@ -134,7 +145,7 @@ fn ellipsise(last: Line, face: &Face<'_>, max_width: f32) -> Line {
             "{}…",
             text.trim_end_matches(|character: char| character.is_whitespace() && character != NBSP)
         );
-        let shaped = face.shape(&candidate);
+        let shaped = faces.shape(&candidate);
         if shaped.width <= max_width || text.is_empty() {
             return Line {
                 text: candidate,
@@ -145,7 +156,7 @@ fn ellipsise(last: Line, face: &Face<'_>, max_width: f32) -> Line {
     }
 }
 
-fn push(lines: &mut Vec<Line>, face: &Face<'_>, text: String) {
-    let shaped = face.shape(&text);
+fn push(lines: &mut Vec<Line>, faces: &Faces<'_>, text: String) {
+    let shaped = faces.shape(&text);
     lines.push(Line { text, shaped });
 }

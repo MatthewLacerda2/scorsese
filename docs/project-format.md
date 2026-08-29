@@ -433,7 +433,7 @@ which is the title most people meant.
 | `align` | `center` | `left`, `center`, `right` — within the wrapped block |
 | `line_height` | `1.25` | Baseline to baseline, as a multiple of `size` |
 | `max_width` | `0.9` | Where lines wrap, as a fraction of the frame's **width** |
-| `stroke` | *none* | `#rrggbb` or `#rrggbbaa` — a rim round the glyphs; absent means no edge |
+| `stroke` | *none* | `#rrggbb` or `#rrggbbaa` — a rim round the letters; absent means no edge |
 | `stroke_width` | `0.002` | How far that rim reaches outward, as a fraction of the frame's **height** |
 
 **A newline in `text` is honoured and ordinary whitespace is not.** An author
@@ -492,6 +492,44 @@ hashes, is `crates/compositor/fonts/README.md`.
 gets *"there is no font called `Arial`. The ones scorsese ships are: …"* rather
 than a complaint about a missing file, which is the sentence somebody who typed
 it actually needs.
+
+#### An emoji in a caption renders, and nothing selects it
+
+Write `"text": "Ship it 🔥"` and the fire appears, in colour, at the size the
+rest of the line is set at. No field turns that on, no field turns it off, and
+no asset kind is involved — a standalone 🎉 filling half the frame is a `text`
+asset holding one character at a large `size`, composited and faded like any
+other layer.
+
+**It works because a font is the head of a chain rather than the whole of it.**
+No face covers Unicode; none of the eight above has a fire. So a character the
+face a document *named* has no glyph for is drawn by the next face that does,
+and one such face ships: **Noto Color Emoji**, in its COLRv1 vector build, so a
+large emoji stays sharp at 4K. Everything the named face *can* draw, it draws —
+a text face with a `☺` in it sets `☺` in text, not in colour — and the fallback
+is only ever reached by a gap.
+
+Four consequences worth knowing before writing one:
+
+- **Line height comes from the named face alone.** A caption with an emoji in
+  it is exactly as tall as the same caption without one, and its words wrap in
+  the same places. The fallback contributes its glyphs' widths and nothing else.
+- **A colour glyph is not tinted.** `color` sets the letters; the fire is the
+  fire's own orange whatever colour the caption is. The one exception is a
+  glyph the font itself asks to be drawn in the text's colour, which some
+  symbols do.
+- **Sequences are one drawing.** 👍🏽 is a thumb plus a skin-tone modifier and
+  👨‍👩‍👧 is three people joined by zero-width joiners; each sets as a single glyph,
+  and no line ever breaks inside one.
+- **`stroke` is for letters.** A caption's rim is grown off a letterform's
+  outline, and a colour glyph has none — so the words carry their rim and the
+  emoji between them is drawn as itself. The stroke section below says why.
+
+**A character no face at all covers is still dropped and still reported.** That
+is unchanged: it draws nothing, takes no width, and `scorsese check` names it
+with its code point before an encode is ever started. What changed is only that
+the report is now about the whole chain, so it no longer objects to an emoji
+that renders perfectly well.
 
 #### Weight, and the variable font that would otherwise render hairline
 
@@ -622,6 +660,14 @@ and the bowl of an `a` at the sizes captions are set at, and the failure is
 invisible in the document — it shows up as mush on a finished video. So the
 glyph is drawn whole on top of its own rim and keeps its shape; what the two
 kinds share is the field names and the unit.
+
+**A colour glyph takes no rim.** A rim is a stroke of the path being filled,
+and an emoji is not that path — it is a layered drawing in its own colours,
+with no single outline to grow anything off. So `Ship it 🔥` with a stroke on
+it comes out as rimmed letters beside a fire drawn as itself. That is also the
+reading worth having: the letters get the legibility they asked for, and the
+emoji does not acquire a sticker border it never needed, being its own
+high-contrast shape already.
 
 **A `stroke` with a width of zero is refused**, the same way a shape's border
 without one is. *I meant no edge* and *I meant an edge and got the width

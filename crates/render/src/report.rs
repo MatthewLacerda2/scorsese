@@ -102,6 +102,23 @@ pub enum Note {
         /// The name as authored.
         named: String,
     },
+    /// A colour glyph in a text asset asked for a drawing instruction the
+    /// compositor could not carry out, so that part of it came out different
+    /// from what the font describes.
+    ///
+    /// The rest of the glyph, and the rest of the title, are drawn — which is
+    /// what makes this a note and not a refusal. It is said out loud because
+    /// the alternative is a slightly wrong emoji on a frame with nothing
+    /// anywhere mentioning it, and silence about a glyph is exactly the fault
+    /// font fallback was built to end.
+    UnpaintableGlyph {
+        /// The clip carrying the text.
+        clip: String,
+        /// The text asset it shows.
+        asset: String,
+        /// What the font asked for, in its own terms.
+        wanted: String,
+    },
     /// A keyframe track animates a property nothing in this build resolves, so
     /// it will never do anything.
     UnknownProperty {
@@ -185,6 +202,15 @@ impl fmt::Display for Note {
                 f,
                 "clip `{clip}` shows asset `{asset}`, which names no icon this build \
                  ships (`{named}`), so it drew nothing"
+            ),
+            Self::UnpaintableGlyph {
+                clip,
+                asset,
+                wanted,
+            } => write!(
+                f,
+                "clip `{clip}` shows asset `{asset}`, whose text has a colour glyph \
+                 asking for {wanted} — that part was not drawn as the font describes it"
             ),
             Self::UnknownProperty {
                 clip,

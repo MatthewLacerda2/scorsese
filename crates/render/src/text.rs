@@ -15,7 +15,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use scorsese_compositor::text::{self, Edge, Font, Slant, Style};
+use scorsese_compositor::text::{self, Edge, Font, Slant, Style, Unpaintable};
 use scorsese_compositor::{Area, Frame, Resolution};
 use scorsese_core::{Anchor, Asset, AssetKind, FontChoice, Project, TextStyle};
 
@@ -82,21 +82,30 @@ impl Painter {
     /// show through. Where the block sits is what `anchor` says — the frame's
     /// centre unless the clip asked otherwise — and moving it from there is
     /// `transform.position.*` like any other layer.
+    ///
+    /// What comes back is whatever a colour glyph in the content asked for and
+    /// could not be given — empty for text made of letters, which is nearly all
+    /// of it. The caller turns each into a note, because a glyph drawn short
+    /// with nothing saying so is the failure this whole path exists to end.
     pub(crate) fn paint(
         &mut self,
         frame: &mut Frame,
         asset: &Asset,
         anchor: Anchor,
         project_root: &Path,
-    ) -> Result<(), RenderError> {
+    ) -> Result<Vec<Unpaintable>, RenderError> {
         let style = asset.text_style();
         let content = asset.text.clone().unwrap_or_default();
         let resolution = frame.resolution();
         let font = self.font(&style, asset, project_root)?;
 
         frame.fill_transparent();
-        text::draw(frame, &content, font, &resolve(&style, anchor, resolution));
-        Ok(())
+        Ok(text::draw(
+            frame,
+            &content,
+            font,
+            &resolve(&style, anchor, resolution),
+        ))
     }
 
     /// Where this asset's words would be set, without setting them.
@@ -261,7 +270,7 @@ pub fn unknown_fonts(project: &Project) -> Vec<UnknownFont> {
         .collect()
 }
 
-/// A text asset whose face cannot draw some of what it says.
+/// A text asset saying something **no face scorsese has** can draw.
 ///
 /// A warning and never a problem: the render succeeds, the frames are fine
 /// everywhere else, and swapping the face or the character is the author's
@@ -269,6 +278,11 @@ pub fn unknown_fonts(project: &Project) -> Vec<UnknownFont> {
 /// the alternative to saying it is finding out by eye — an unmapped character
 /// is dropped **with its advance**, so the line closes up and looks like text
 /// nobody wrote rather than text that failed.
+///
+/// The named face is not the whole question, since font fallback arrived: a
+/// character it lacks and the emoji face draws reaches the frame, and objecting
+/// to it would be a warning about something correct. What is left here is what
+/// still vanishes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UncoveredGlyphs {
     /// The text asset whose content it is.
@@ -293,13 +307,14 @@ impl std::fmt::Display for UncoveredGlyphs {
             .join(", ");
         write!(
             f,
-            "`{}` has no glyph for {listed} — they are dropped, not drawn",
+            "`{}` has no glyph for {listed}, and nor does any face scorsese \
+             falls back to — they are dropped, not drawn",
             self.face
         )
     }
 }
 
-/// Every text asset saying something its own face cannot draw.
+/// Every text asset saying something no face in its chain can draw.
 ///
 /// Resolves each asset's face exactly as a render would, through the same
 /// painter, so this can never disagree with what the frames do. A face that

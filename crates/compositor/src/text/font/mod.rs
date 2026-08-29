@@ -45,15 +45,22 @@ use std::fmt;
 use std::sync::OnceLock;
 
 use harfrust::{Shaper, ShaperData, ShaperInstance};
+use skrifa::charmap::Charmap;
+use skrifa::color::{ColorGlyph, ColorGlyphCollection};
 use skrifa::instance::{Location, LocationRef, Size};
 use skrifa::outline::{DrawSettings, OutlineGlyphCollection, OutlinePen};
 use skrifa::{FontRef, GlyphId, MetadataProvider};
 
+use scorsese_core::Rgba;
+
+use super::colr;
 use super::shape::{self, Shaped};
 
+mod fallback;
 mod shipped;
 mod weight;
 
+pub(super) use fallback::Faces;
 pub use shipped::{Cut, Family, SHIPPED, Slant, family, names};
 use weight::locate;
 
@@ -83,6 +90,11 @@ pub const SHIPPED_WEIGHT: u16 = 400;
 /// every block, every line and every frame that face ever sets.
 pub struct Font {
     bytes: Vec<u8>,
+    /// The face's own colours, entry by entry — palette 0 of its `CPAL` table,
+    /// empty for a face with none. Read once here rather than per glyph: a
+    /// colour glyph names its fills by index into this, and Noto Color Emoji
+    /// has thousands of entries.
+    palette: Vec<Rgba>,
     /// Where in variation space to draw. Empty for a static file, and one
     /// normalised coordinate per `fvar` axis for a variable one — computed
     /// once when the face is made, because it is the same for every glyph.
@@ -192,13 +204,14 @@ impl Font {
         Ok(Self {
             instance: ShaperInstance::from_coords(&font, location.coords().iter().copied()),
             shaping: ShaperData::new(&font),
+            palette: colr::palette(&font),
             bytes: bytes.to_vec(),
             location,
         })
     }
 
-    /// The characters in `text` this face has no glyph for, in the order they
-    /// first appear and each named once.
+    /// The characters in `text` **nothing in the chain** has a glyph for, in
+    /// the order they first appear and each named once.
     ///
     /// A face covering everything is not a thing that exists — eight families
     /// ship and none of them covers Unicode — so this is ordinary information
@@ -208,21 +221,42 @@ impl Font {
     /// up as though it had never been written. The document says one thing and
     /// the raster says another, and nothing in between reports the difference.
     /// This is what lets `check` report it.
+    ///
+    /// **The chain, not this face**, since font fallback arrived: a character
+    /// the named face lacks and the emoji face draws is not missing from the
+    /// frame, so reporting it would be `check` objecting to something that
+    /// renders correctly. What is still reported is what still vanishes — a
+    /// character no face at all covers.
     pub fn uncovered(&self, text: &str) -> Vec<char> {
-        let font = FontRef::new(&self.bytes).expect("these bytes parsed when the font was made");
-        let charmap = font.charmap();
         let mut missing: Vec<char> = Vec::new();
         for character in text.chars() {
             // A newline is an instruction to the line breaker and is never
             // handed to a face to draw, so a face not mapping one says nothing.
-            if character == '\n' || missing.contains(&character) {
+            // Nor does a joiner or a variation selector: a shaper consumes
+            // those, and no face is asked for an outline for one.
+            if character == '\n'
+                || super::runs::is_ignorable(character)
+                || missing.contains(&character)
+            {
                 continue;
             }
-            if charmap.map(character).is_none() {
+            if !self.has(character) && !fallback::covers(character) {
                 missing.push(character);
             }
         }
         missing
+    }
+
+    /// Whether this face itself has a glyph for `character`.
+    pub(super) fn has(&self, character: char) -> bool {
+        let font = FontRef::new(&self.bytes).expect("these bytes parsed when the font was made");
+        font.charmap().map(character).is_some()
+    }
+
+    /// The face and its fallbacks, all at one size — the form everything that
+    /// measures or draws a line of text wants.
+    pub(super) fn faces(&self, size: f32) -> Faces<'_> {
+        Faces::of(self, size)
     }
 
     /// The face set at one size, which is the form everything else here wants.
@@ -248,6 +282,9 @@ impl Font {
         let units = shaper.units_per_em().max(1) as f32;
         Face {
             glyphs: font.outline_glyphs(),
+            colours: font.color_glyphs(),
+            charmap: font.charmap(),
+            palette: &self.palette,
             shaper,
             scale: size / units,
             ascent: line.ascent,
@@ -277,6 +314,11 @@ impl fmt::Debug for Font {
 /// once instead of per character.
 pub(super) struct Face<'a> {
     glyphs: OutlineGlyphCollection<'a>,
+    /// The same glyphs' colour drawings, where the face has any. Empty for
+    /// every face without a `COLR` table, which is all eight nameable ones.
+    colours: ColorGlyphCollection<'a>,
+    charmap: Charmap<'a>,
+    palette: &'a [Rgba],
     shaper: Shaper<'a>,
     /// Font units to pixels, at the size this face was taken at.
     scale: f32,
@@ -288,14 +330,58 @@ pub(super) struct Face<'a> {
     location: Location,
 }
 
-impl Face<'_> {
-    /// Which glyphs set `text` and where each one goes, kerning applied.
+impl<'a> Face<'a> {
+    /// Which glyphs set `text` and where each one goes, kerning applied, every
+    /// one of them stamped with `index` so whoever draws it can find its way
+    /// back to this face.
     ///
     /// The only way to a width in this module: measuring a string any other
     /// way would answer with the spacing the face did *not* ask for, and
     /// wrapping would then break lines in places the drawn text does not.
-    pub(super) fn shape(&self, text: &str) -> Shaped {
-        shape::shape(&self.shaper, text, self.scale)
+    pub(super) fn shape(&self, text: &str, index: usize) -> Shaped {
+        shape::shape(&self.shaper, text, self.scale, index)
+    }
+
+    /// Whether this face has a glyph for `character`.
+    pub(super) fn covers(&self, character: char) -> bool {
+        self.charmap.map(character).is_some()
+    }
+
+    /// Glyph `id`'s colour drawing, when the face has one for it.
+    ///
+    /// `Some` is what sends a glyph down [`super::colr`]'s path instead of into
+    /// the block's one monochrome outline: a colour glyph is layers of its own
+    /// fills and is not tinted by the style's colour.
+    pub(super) fn colour(&self, id: GlyphId) -> Option<ColorGlyph<'a>> {
+        self.colours.get(id)
+    }
+
+    /// The face's own colours, which a colour glyph's fills index into.
+    pub(super) fn palette(&self) -> &'a [Rgba] {
+        self.palette
+    }
+
+    /// Font units to pixels at the size this face was taken at. A colour glyph
+    /// is walked in font units, so this is the scale its canvas needs.
+    pub(super) fn scale(&self) -> f32 {
+        self.scale
+    }
+
+    /// Where in variation space this face draws, for a colour glyph's own walk.
+    pub(super) fn location(&self) -> LocationRef<'_> {
+        LocationRef::from(&self.location)
+    }
+
+    /// The unscaled outline of glyph `id`, in font units, as a path — what a
+    /// colour glyph clips its fills to.
+    pub(super) fn unscaled(&self, id: GlyphId, pen: &mut impl OutlinePen) {
+        let Some(glyph) = self.glyphs.get(id) else {
+            return;
+        };
+        let _ = glyph.draw(
+            DrawSettings::unhinted(Size::unscaled(), self.location()),
+            pen,
+        );
     }
 
     /// How far the tallest glyph reaches above the baseline and the lowest

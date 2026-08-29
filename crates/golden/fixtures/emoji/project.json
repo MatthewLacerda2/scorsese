@@ -1,0 +1,20 @@
+{
+  "schema_version": 29,
+  "name": "emoji",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    {
+      "id": "caption",
+      "kind": "text",
+      "text": "Ship it 🔥",
+      "style": { "font": "sans", "size": 0.25, "color": "#ffffff" }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [{ "id": "c-caption", "asset": "caption", "start": 0, "duration": 10 }]
+    }
+  ]
+}

@@ -138,3 +138,39 @@ fn a_translucent_rim_keeps_its_alpha() {
         alphas.len()
     );
 }
+
+/// **A colour glyph takes no rim.** A rim is a stroke of the path being filled,
+/// and an emoji is not that path — it is a layered drawing in its own colours,
+/// with no single outline to grow anything off. So a fire asked for a rim comes
+/// out the same bytes as a fire that never was, while the letters beside it are
+/// still rimmed: the caption keeps its legibility and the drawing keeps its
+/// shape, rather than the fire acquiring a sticker border.
+#[test]
+fn a_colour_glyph_is_drawn_as_itself_rather_than_rimmed() {
+    let set = |content: &str, edge| {
+        let mut frame = canvas();
+        let style = Style {
+            edge,
+            ..style(SIZE, Rgba::WHITE)
+        };
+        text::draw(&mut frame, content, Font::sans(), &style);
+        frame
+    };
+    let thick = Some(Edge {
+        color: RIM,
+        width: THICK,
+    });
+    let bare = set("🔥", None);
+    assert!(ink::bounds(&bare).is_some(), "the fire was drawn");
+    assert_eq!(
+        bare.bytes(),
+        set("🔥", thick).bytes(),
+        "an emoji has no letterform to grow a rim off, so a rim changes nothing"
+    );
+    // And the same style on the same line still rims what it can: this is the
+    // colour glyph being left alone, not the edge being dropped.
+    assert!(
+        run(&set("I🔥", thick), RIM) > 0,
+        "the letter beside the fire still carries its rim"
+    );
+}

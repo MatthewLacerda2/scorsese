@@ -120,3 +120,35 @@ fn the_three_alignments_put_a_short_line_in_three_places() {
         "left, centred and right are three distinct places; found {left}, {centre}, {right}"
     );
 }
+
+/// A line of emoji is held to the box exactly as a line of words is.
+///
+/// The wrapper asks the chain for its widths, so a glyph the named face never
+/// had is as wide to the measuring as it is on the frame. Measured against the
+/// named face alone, every one of these would be nothing at all — the line
+/// would never look too long, would never be broken, and would be drawn running
+/// straight out of the box the document asked for. That is the one way
+/// measuring and drawing can still disagree once there is more than one face,
+/// and it is silent: no error, just a title over the edge of the picture.
+#[test]
+fn a_line_of_emoji_is_wrapped_to_the_width_it_is_drawn_at() {
+    let boxed = Style {
+        max_width: 100.0,
+        line_height: 40.0,
+        ..style(24.0, Rgba::WHITE)
+    };
+    let mut frame = canvas();
+    text::draw(&mut frame, "🔥🔥🔥🔥🔥🔥", Font::sans(), &boxed);
+
+    assert!(
+        ink::lines(&frame) > 1,
+        "six fires are far wider than a 100px box, so they have to break"
+    );
+    let (left, _, right, _) = ink::bounds(&frame).expect("the fires were drawn");
+    assert!(
+        f32::from(u16::try_from(right - left).expect("a raster this size")) <= boxed.max_width,
+        "what was drawn has to be what was measured: {left}..{right} in a \
+         {}px box",
+        boxed.max_width
+    );
+}
