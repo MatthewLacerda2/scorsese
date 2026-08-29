@@ -177,6 +177,33 @@ def push_needed(before: str, after: str) -> bool:
     return before != after
 
 
+def head_state(
+    seen: str, pushed: str, before: str, waited: float
+) -> tuple[str, list[str]]:
+    """Whether the head GitHub reports is the one this queue put there.
+
+    Three answers, and the middle one is why this is a function. A force-push
+    and GitHub's view of it are not simultaneous, so the first poll after one
+    routinely still reports `before` — the pre-push head. Reading that as
+    *somebody else pushed* would hand back nearly every branch this script
+    touches, and reading any other sha as *fine* would let it merge a commit it
+    never watched. So: the pushed head goes, the pre-push head waits while the
+    grace lasts, and a third sha is somebody else and stops.
+    """
+    if seen == pushed:
+        return GO, []
+    if seen == before and waited < RUN_APPEARS_SECONDS:
+        return WAIT, [
+            f"GitHub still reports {before[:7]}; it has not caught up with the"
+            " push yet."
+        ]
+    return STOP, [
+        f"the head is {seen[:7]}, not the {pushed[:7]} this queue pushed.",
+        "Somebody else pushed. Handed back rather than merging a commit this"
+        " queue never watched.",
+    ]
+
+
 def progress(
     pull: dict, runs: list[dict], jobs: dict[int, list[dict]], waited: float
 ) -> tuple[str, list[str]]:
@@ -218,10 +245,11 @@ def progress(
     if mergeable.failed_runs(runs):
         return STOP, mergeable.judge(pull, runs, jobs)[1]
 
-    if mergeable.unfinished(runs):
+    live = mergeable.unfinished(runs)
+    if live:
         return WAIT, [
             f"a {mergeable.WORKFLOW} run for {short} is"
-            f" {mergeable.unfinished(runs)[0].get('status')}."
+            f" {live[0].get('status')}."
         ]
 
     ok, lines = mergeable.judge(pull, runs, jobs)
@@ -287,12 +315,22 @@ def evidence(repo: str, sha: str) -> tuple[list[dict], dict[int, list[dict]]]:
     return runs, jobs
 
 
-def rebase(branch: str, head: str, root: str) -> tuple[str | None, list[str]]:
-    """Rebase `branch` onto `origin/main` in a worktree of this script's own.
+def advance(branch: str, head: str, root: str) -> tuple[str | None, list[str]]:
+    """Put `branch` on `main`'s tip, remotely. Returns the new head, or why not.
 
-    Returns the new head, or `None` and the reason. Detached and disposable:
-    an agent may be sitting in this branch's real worktree, and rewriting that
-    underneath them is not a thing a merge queue gets to do.
+    The rebase happens in a **detached, disposable worktree this function
+    creates and removes**: an agent may be sitting in this branch's real
+    worktree, and rewriting that underneath them is not a thing a merge queue
+    gets to do.
+
+    The push happens from inside that worktree, before it goes away, so the
+    rebased commits are still referenced by something when they are sent. The
+    lease is the head the pull request had when this branch's turn began, so a
+    push from anywhere else in the meantime is refused rather than overwritten.
+
+    Whether it pushed at all is [`push_needed`], which the caller asks again
+    rather than being told — it is pure, and one answer is easier to trust than
+    two.
     """
     with tempfile.TemporaryDirectory(prefix="scorsese-queue-") as tmp:
         work = os.path.join(tmp, "wt")
@@ -319,32 +357,51 @@ def rebase(branch: str, head: str, root: str) -> tuple[str | None, list[str]]:
                     " `SYNTH_VERSION` is the standing example, where the answer"
                     " is the next number and neither side is right.",
                 ]
-            return git("rev-parse", "HEAD", cwd=work).stdout.strip(), []
+            fresh = git("rev-parse", "HEAD", cwd=work).stdout.strip()
+            if push_needed(head, fresh):
+                pushed = git(
+                    "push",
+                    f"--force-with-lease=refs/heads/{branch}:{head}",
+                    "origin",
+                    f"HEAD:refs/heads/{branch}",
+                    cwd=work,
+                )
+                if pushed.returncode != 0:
+                    return None, [
+                        f"the force-push of {branch} was refused:"
+                        f" {pushed.stderr.strip()}",
+                        "The lease held the head this queue started from, so"
+                        " something else has pushed since. Handed back.",
+                    ]
+            return fresh, []
         finally:
             git("worktree", "remove", "--force", work, cwd=root)
 
 
-def wait_for(repo: str, number: int, sha: str, deadline: float, poll: float) -> tuple[str, list[str]]:
+def wait_for(
+    repo: str, number: int, sha: str, before: str, deadline: float, poll: float
+) -> tuple[str, list[str]]:
     """Poll until the run on `sha` settles, or the deadline says stop.
 
     Never treats an absent check as a settled one — that is the trap the
     `ci-merge` skill names, and [`progress`] is where the two are told apart.
+    [`head_state`] is the same distinction one level up: GitHub's view of the
+    push lags the push.
     """
     began = time.monotonic()
     while True:
         pull = look(number)
-        if pull.get("headRefOid") != sha:
-            return STOP, [
-                f"the head moved to {pull.get('headRefOid', '')[:7]} while this"
-                f" was waiting on {sha[:7]}.",
-                "Somebody else pushed. Handed back rather than merging a commit"
-                " this queue never watched.",
-            ]
-        runs, jobs = evidence(repo, sha)
         waited = time.monotonic() - began
-        state, lines = progress(pull, runs, jobs, waited)
-        if state != WAIT:
+        state, lines = head_state(
+            pull.get("headRefOid", ""), sha, before, waited
+        )
+        if state == STOP:
             return state, lines
+        if state == GO:
+            runs, jobs = evidence(repo, sha)
+            state, lines = progress(pull, runs, jobs, waited)
+            if state != WAIT:
+                return state, lines
         if waited > deadline:
             return STOP, [
                 f"still waiting on {sha[:7]} after {deadline / 60:.0f} minutes.",
@@ -370,30 +427,19 @@ def take(repo: str, number: int, opts: argparse.Namespace) -> tuple[int, str, st
     say(f"#{number} ({branch}): rebasing {head[:7]} onto origin/main.")
     git("fetch", "origin", cwd=opts.root)
 
-    fresh, why = rebase(branch, head, opts.root)
+    fresh, refused = advance(branch, head, opts.root)
     if fresh is None:
-        say(f"#{number}: {why[0]}", *why[1:])
-        return number, HANDED_BACK, why[0]
+        say(f"#{number}: {refused[0]}", *refused[1:])
+        return number, HANDED_BACK, refused[0]
 
     if push_needed(head, fresh):
-        pushed = git(
-            "push",
-            f"--force-with-lease=refs/heads/{branch}:{head}",
-            "origin",
-            f"{fresh}:refs/heads/{branch}",
-            cwd=opts.root,
-        )
-        if pushed.returncode != 0:
-            why = f"the force-push was refused: {pushed.stderr.strip()}"
-            say(f"#{number}: {why}")
-            return number, HANDED_BACK, why
         say(f"#{number}: pushed {fresh[:7]}; waiting for CI.")
     else:
         # The one sound skip — see `push_needed`.
         say(f"#{number}: already on `main`; the run on record is a run on it.")
 
     state, lines = wait_for(
-        repo, number, fresh, opts.deadline * 60, opts.poll
+        repo, number, fresh, head, opts.deadline * 60, opts.poll
     )
     say(f"#{number}: {lines[0]}", *lines[1:])
     if state != GO:
@@ -408,9 +454,9 @@ def take(repo: str, number: int, opts: argparse.Namespace) -> tuple[int, str, st
         check=False,
     )
     if done.returncode != 0:
-        why = f"CI passed but the merge was refused: {done.stderr.strip()}"
-        say(f"#{number}: {why}")
-        return number, HANDED_BACK, why
+        blocked = f"CI passed but the merge was refused: {done.stderr.strip()}"
+        say(f"#{number}: {blocked}")
+        return number, HANDED_BACK, blocked
     say(f"#{number}: merged.")
     return number, MERGED, lines[0]
 

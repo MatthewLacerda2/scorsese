@@ -144,6 +144,36 @@ class Rebasing(unittest.TestCase):
         self.assertFalse(queue.push_needed(SHA, SHA))
         self.assertTrue(queue.push_needed(SHA, "0" * 40))
 
+    def test_the_pre_push_head_is_gitHub_lagging_and_not_somebody_else(self):
+        """The race that would otherwise hand back every branch this pushes.
+
+        A force-push and GitHub's view of it are not simultaneous, so the first
+        poll after one routinely still reports the pre-push head.
+        """
+        state, lines = queue.head_state(SHA, "1" * 40, SHA, waited=1.0)
+        self.assertEqual(state, queue.WAIT)
+        self.assertIn("not caught up", " ".join(lines))
+
+    def test_the_pre_push_head_stops_being_an_excuse_once_the_grace_is_spent(self):
+        state, _ = queue.head_state(
+            SHA, "1" * 40, SHA, waited=queue.RUN_APPEARS_SECONDS + 1
+        )
+        self.assertEqual(state, queue.STOP)
+
+    def test_a_third_sha_is_somebody_else_and_stops_immediately(self):
+        # Never waited out: merging a commit this queue did not watch is the
+        # direction that must not be given the benefit of the doubt.
+        state, lines = queue.head_state("2" * 40, "1" * 40, SHA, waited=0.0)
+        self.assertEqual(state, queue.STOP)
+        self.assertIn("Somebody else pushed", " ".join(lines))
+
+    def test_the_pushed_head_goes(self):
+        self.assertEqual(queue.head_state(SHA, SHA, "0" * 40, 0.0)[0], queue.GO)
+
+    def test_a_rebase_that_pushed_nothing_still_reads_as_the_right_head(self):
+        # `push_needed` was False, so pushed and before are the same commit.
+        self.assertEqual(queue.head_state(SHA, SHA, SHA, 0.0)[0], queue.GO)
+
     def test_conflicted_paths_are_named_one_per_line(self):
         named = queue.conflicts("crates/zimmer/src/lib.rs\ncrates/zimmer/src/fx.rs\n")
         self.assertEqual(named, ["crates/zimmer/src/lib.rs", "crates/zimmer/src/fx.rs"])

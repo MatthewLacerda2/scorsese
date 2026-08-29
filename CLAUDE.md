@@ -217,6 +217,14 @@ that goes with it.
   computer* below — it is why golden renders compare with tolerance), and the
   mutation signal never becomes a precondition, because a gate people route
   around teaches everyone to route around gates.
+  That work is **`make queue`**, and `ci-merge` has when to reach for it. The
+  cheaper answer it was weighed against — *skip the run when the rebase changed
+  nothing that matters* — turns out not to exist: a run's verdict is about a
+  **tree**, and it carries only to the same tree. Anything weaker than that is
+  speculative merging under a friendlier name, and measured over the batch above
+  the sound rule would have skipped **none** of its twenty-three re-runs. So the
+  ten minutes are real and the only thing to take off the critical path is who
+  spends them.
 - **A warm `target/` is the fast path.** Cross-machine compilation caches
   (`sccache` and the like) buy cold-build speed by turning off cargo's
   incremental compilation, which is the wrong trade on a machine that is

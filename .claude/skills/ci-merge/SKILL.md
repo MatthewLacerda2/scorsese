@@ -34,6 +34,31 @@ alone and break `main` together. The only exception is a pull request touching
 **only** Markdown, which CI skips. `docs/project-format.md` is not one of those —
 tests parse its examples.
 
+### `make queue` does steps 1–5, so nobody sits through step 3
+
+    make queue PRS="486 488 489"
+
+Reach for it whenever more than one branch is finished at once — that is the
+case where step 3 costs ten minutes per branch and an agent holds a worktree
+open through every one of them. It merges one at a time, in the order given,
+re-fetching `main` between each; it asks `mergeable` about every branch before
+merging it; and it stops on anything it cannot do safely:
+
+- **Any conflict at all** — the branch is handed back with the conflicting
+  paths named, and the queue moves on. It never picks a side. `SYNTH_VERSION`
+  is the standing reason: the right answer there is *the next number*, which is
+  neither side.
+- **A red run, an absent run, a moved head, a draft** — handed back, never
+  merged, and the summary at the end says which and why.
+
+It builds nothing locally (`make gates` is still yours to run before marking a
+pull request ready) and reads no mutation report. It also does not remove
+worktrees or delete branches — an agent may be standing in one — so step 5's
+cleanup stays yours, and the summary lists what to clean.
+
+Doing it by hand is still fine for a single branch. The script's own docstring
+has the reasoning, including why it does not try to *skip* CI runs instead.
+
 ## `make mergeable` is the gate, and its answer is final
 
 It asks GitHub whether a run genuinely happened on the head commit. `gh pr checks`
