@@ -355,7 +355,44 @@ pub use song::{PatchResolver, Song, render_song};
 /// that does moved by construction. Baking a corpus would be confirming a
 /// sentence the diff already settles, which is the case this section names as
 /// waste.
-pub const SYNTH_VERSION: u32 = 5;
+///
+/// **Version 6 is a filter that modulates in octaves**, and it is the *any
+/// representable recipe* case again: a cutoff is now
+/// `cutoff × 2^(env_octaves × env + vel_octaves × vel + lfo)` where it used to
+/// be `cutoff + env_amount × env + vel_cutoff × vel`, then multiplied by the
+/// LFO. Every filtered patch that modulates at all comes back different, and
+/// the ones that do not — no envelope depth, no velocity routing, no cutoff
+/// LFO — come back identical, because a zero exponent is a multiply by one
+/// exactly as a zero offset was an add of nothing.
+///
+/// That last sentence is the half worth checking rather than asserting, since
+/// it is a change to the arithmetic and not a new optional field. Checked
+/// against `b2f3fbf8`, the commit before it — **33 probes, all
+/// byte-identical**, encoded bytes and length both. Every source, including
+/// `fm4` with per-operator envelopes, an additive series, a unison stack and
+/// all three noise colours; a static lowpass and a static highpass, which read
+/// a cutoff and modulate nothing; a pitch LFO and an amp LFO; a pitch
+/// envelope; both signs of envelope curve; every effect on its own and a chain
+/// of four; five songs covering swing with all three humanise axes, a song
+/// chain, an automated fader and an automated pan; and five of the worked
+/// examples out of `docs/recipes.md`.
+///
+/// The other half needs no probe: the old build has no field in which to write
+/// the new depth, so a recipe that modulates its filter is a different
+/// document on either side of this line rather than the same one rendered
+/// twice.
+///
+/// **The same version carries the filter's two new modes and its slope**, and
+/// neither would have earned a bump alone. [`FilterKind::Bandpass`](patch::FilterKind::Bandpass) and
+/// [`FilterKind::Notch`](patch::FilterKind::Notch) are new words, so no document that exists can be
+/// reinterpreted by them; [`Filter::slope`](patch::Filter::slope) is a new optional field defaulting
+/// to the single pole pair every patch on disk already had, which is the case
+/// this section says a diff answers without rendering anything. It was
+/// re-checked anyway, because the pole pair is now reached through a cascade
+/// rather than called directly and that is a stage reordered rather than a
+/// field added: the same 33 probes, run once more over the whole branch, all
+/// byte-identical again.
+pub const SYNTH_VERSION: u32 = 6;
 
 /// Render one note of `patch` and encode it as a stereo 16-bit PCM WAV.
 ///

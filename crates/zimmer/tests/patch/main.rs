@@ -8,6 +8,7 @@ mod chorus;
 mod compress;
 mod document;
 mod eq;
+mod filter;
 mod fm4;
 mod noise;
 mod unison;

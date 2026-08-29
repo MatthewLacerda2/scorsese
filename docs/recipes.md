@@ -41,7 +41,7 @@ Both starters make a sound as written. Bake first, listen, then edit.
     "amp": { "a": 0.001, "d": 0.12, "s": 0.0, "r": 0.05 },
     "filter": {
       "kind": "lowpass", "cutoff": 400, "resonance": 0.3,
-      "env_amount": 5000,
+      "env_octaves": 3.75,
       "adsr": { "a": 0.0, "d": 0.08, "s": 0.0, "r": 0.05 }
     },
     "fx": [{ "fx": "reverb", "size": 0.3, "damp": 0.6, "mix": 0.15 }]
@@ -79,7 +79,7 @@ source ─► filter ─► amp envelope ─► fx
 | --- | --- | --- |
 | `osc_stack` | `oscs`: up to 4 of `{ wave, detune_cents, gain, octave, voices, spread }` | leads, basses, pads |
 | `karplus` | `damping` 0..1, `brightness` 0..1 | plucked strings, marimbas |
-| `noise` | `color`: `white`, `pink` or `brown` | gunshots, impacts, wind, thunder |
+| `noise` | `color`: `white`, `pink` or `brown` | gunshots, impacts, wind, thunder. A `bandpass` over one narrows it to a pitched whistle, a telephone hiss or a hi-hat |
 | `fm2` | `ratio`, `index`, `vel_index`, `mod_decay` | bells, electric pianos, metal |
 | `fm4` | `algorithm`, `operators`: exactly 4, `vel_index` | brass, pads, FM basses, layered bells |
 | `additive` | `partials`: up to 16 of `{ ratio, gain, detune_cents, decay }` | organs, bowed and blown sustains, glass |
@@ -171,11 +171,37 @@ says *synthesised* about an otherwise well-made sound. Try `3.0` to `5.0` on
 anything plucked, struck or hit; `8.0` is the steepest accepted. Negative
 mirrors it into a slow start and a sudden arrival — a swell, not a decay.
 
-**`filter`** *(optional)* — `kind` is `lowpass` or `highpass`, plus `cutoff` in
-Hz, `resonance` 0..1, `env_amount` in Hz, `vel_cutoff` in Hz, and its own
-`adsr`. `env_amount` is what makes a patch expressive rather than static: it
-opens the cutoff on the attack and closes it as the note decays. A pluck is a
-lowpass with a big positive `env_amount` and a fast filter decay.
+**`filter`** *(optional)* — `kind`, plus `cutoff` in Hz, `slope`,
+`resonance` 0..1, `env_octaves`, `vel_octaves`, and its own `adsr`. Four kinds
+come out of the one filter:
+
+| `kind` | Keeps | Reach for it when |
+| --- | --- | --- |
+| `lowpass` | everything below the cutoff | darkening anything; the default move on a saw stack |
+| `highpass` | everything above it | thinning a sound out, or simulating a small speaker |
+| `bandpass` | a band around the cutoff, both ends gone | a telephone or radio voice, a wah, a resonant sweep that does not also change how loud the sound is, noise narrow enough to read as pitched |
+| `notch` | everything except a band around the cutoff | a phaser (sweep one through a sustained chord), or taking one ringing region out of a noisy source |
+
+`slope` is `"12db"` (the default) or `"24db"` — one pole pair or two in
+series. That is the difference between a gentle tone control and the aggressive
+sweep people mean when they say "filter". **`resonance` is a different control
+at `"24db"`**: the emphasis is applied once per pair, so a setting that merely
+coloured the cutoff at 12 dB rings at 24, and one that rang self-oscillates.
+Moving a patch to the steeper slope usually means backing its resonance off
+rather than keeping it.
+
+`env_octaves` is what makes a patch expressive rather than static: it opens the
+cutoff on the attack and closes it as the note decays. A pluck is a lowpass
+with a big positive `env_octaves` and a fast filter decay.
+
+**The two depths are in octaves, and the cutoff is in Hz.** That looks
+inconsistent and is not: a cutoff is a place and a depth is a distance, and the
+ear measures distance in ratios. `2.0` opens the filter two octaves wherever it
+is written — the same gesture at 200 Hz and at 6.8 kHz — so a value can be
+carried from one instrument to another and a patch can be transposed without
+the character of its sweep changing. `3.0` to `4.0` is a wide, obvious sweep,
+`1.0` is a clear move, `0.3` is a nudge. An LFO on `cutoff` was always written
+this way; all three now add into one exponent.
 
 **`pitch_env`** *(optional)* — `{ "semitones": 10, "adsr": { … } }`. A sweep of
 the note's own pitch that happens once and settles — see
@@ -216,11 +242,20 @@ move** rather than a sound. A band's `kind` is one of:
 
 | `kind` | reads `gain_db`? | what it does |
 | --- | --- | --- |
-| `high_pass` | no | everything below `freq` goes |
-| `low_shelf` | yes | everything below `freq` moves by `gain_db`, together |
+| `highpass` | no | everything below `freq` goes |
+| `lowshelf` | yes | everything below `freq` moves by `gain_db`, together |
 | `peak` | yes | a bump or a dip centred on `freq`, `q` wide |
-| `high_shelf` | yes | everything above `freq` moves by `gain_db`, together |
-| `low_pass` | no | everything above `freq` goes |
+| `highshelf` | yes | everything above `freq` moves by `gain_db`, together |
+| `lowpass` | no | everything above `freq` goes |
+
+**Every filter name in this file is one word with no underscore** — `lowpass`,
+`highpass`, `bandpass`, `notch`, `lowshelf`, `highshelf`, `peak` — on an EQ band
+and on a patch's `filter` alike. That is the one place the format is not
+snake_case, and it is deliberate rather than an oversight: these are terms
+imported from a domain that already spells them this way, `lowpass` is what
+anybody arriving from a synthesiser types without thinking, and the Web Audio
+API spells all of them exactly so. Nothing else in a recipe follows this rule;
+`detune_cents`, `gain_db` and `env_octaves` are snake_case as usual.
 
 `q` is how narrow the band is — `0.7` is the gentle default, `2` is a
 noticeable notch, `8` is surgical — and it means the same thing for all five.
@@ -229,7 +264,7 @@ Two things are worth knowing before writing one:
 - **`freq` may be left out, and its default is the number the bake report
   splits at.** The three kinds that work on the bottom default to **250 Hz**
   and the two that work on the top default to **4 kHz**, so a report reading
-  `low 61%` is answered by `{ "kind": "low_shelf", "gain_db": -3 }` with no
+  `low 61%` is answered by `{ "kind": "lowshelf", "gain_db": -3 }` with no
   arithmetic in between. Spell `freq` out whenever the ear says somewhere else.
 - **`gain_db: 0.0` is a bypass**, exactly — a band at zero gain is not applied
   at all, so it is sample-identical to leaving it out. List the bands you are
@@ -430,7 +465,7 @@ phase — so any number is safe to try.
     },
     "amp": { "a": 0.05, "d": 0.15, "s": 0.85, "r": 0.2 },
     "filter": {
-      "kind": "lowpass", "cutoff": 3000, "vel_cutoff": 2500,
+      "kind": "lowpass", "cutoff": 3000, "vel_octaves": 0.9,
       "adsr": { "a": 0.06, "d": 0.5, "s": 0.6, "r": 0.2 }
     },
     "fx": [{ "fx": "reverb", "size": 0.5, "damp": 0.5, "mix": 0.12 }]
@@ -454,7 +489,7 @@ operator envelopes:
   played by two people is not one horn twice as loud; it is two entries that do
   not quite line up.
 - **`vel_index` is how hard it is being played.** A soft note is nearly a sine
-  and a hard one is a blare, and the `vel_cutoff` on the filter pushes the same
+  and a hard one is a blare, and the `vel_octaves` on the filter pushes the same
   way — the difference between a horn played quietly and a horn turned down.
   Both are [Playing harder, not just louder](#playing-harder-not-just-louder),
   below, and on `fm4` the depth reaches every operator the routing made a
@@ -600,7 +635,7 @@ Two optional fields aim velocity at the stages that decide brightness:
 
 | field | on | does |
 | --- | --- | --- |
-| `vel_cutoff` | `filter` | adds this many Hz to the cutoff at full velocity |
+| `vel_octaves` | `filter` | opens the cutoff by this many octaves at full velocity |
 | `vel_index` | `fm2` | adds this much modulation depth at full velocity |
 | `vel_index` | `fm4` | adds this much depth to every **modulator** of the routing |
 
@@ -624,7 +659,7 @@ when one instrument is played at two strengths — songs are the section below.
         },
         "amp": { "a": 0.002, "d": 0.6, "s": 0.0, "r": 0.2 },
         "filter": {
-          "kind": "lowpass", "cutoff": 900, "vel_cutoff": 3500,
+          "kind": "lowpass", "cutoff": 900, "vel_octaves": 2.3,
           "adsr": { "a": 0.001, "d": 0.3, "s": 0.0, "r": 0.1 }
         }
       }
@@ -646,11 +681,13 @@ is a different, softer sound — a key touched rather than struck.
 
 Three things worth knowing:
 
-- **They add, they do not scale.** The cutoff is
-  `cutoff + env_amount × envelope + vel_cutoff × velocity`, so each source of
-  movement stays independent and a zero stays harmless. Start `vel_cutoff`
-  somewhere near `env_amount` and adjust by ear; they are the same quantity
-  from different places.
+- **They add, they do not scale.** The depths are added to each other and the
+  sum opens the cutoff:
+  `cutoff × 2^(env_octaves × envelope + vel_octaves × velocity)`, so each
+  source of movement stays independent and a zero stays harmless. Start
+  `vel_octaves` somewhere near `env_octaves` and adjust by ear; they are the
+  same quantity from different places, and in octaves that advice is one
+  number copied rather than an arithmetic against the cutoff.
 - **Negative is legal**, and means velocity *darkens* — a real instrument, if
   an unusual one. A negative `vel_index` bottoms out at a bare carrier rather
   than turning around and brightening again.
@@ -700,8 +737,8 @@ Three things worth knowing:
   octave low down and a rounding error high up, so a sweep written in Hz would
   stop meaning the same gesture the moment the patch was played elsewhere.
 - **It adds to a vibrato rather than replacing one.** The two offsets are
-  summed in semitones and applied once, the same way `env_amount` and
-  `vel_cutoff` add at the cutoff — so a note can fall onto its pitch and then
+  summed in semitones and applied once, the same way `env_octaves` and
+  `vel_octaves` add at the cutoff — so a note can fall onto its pitch and then
   wobble around it. `karplus` is the exception and always was: its delay line
   is sized once when the string is plucked, so neither an LFO nor a pitch
   envelope reaches it.
@@ -1146,7 +1183,7 @@ wants dynamics in both directions writes its notes below `1.0`. `timbre` is not
 a milder `velocity`: leaning on a note makes it louder *and* brighter, which is
 what `velocity` does, while changing the touch makes it brighter at the same
 level. It reaches an instrument through the two routings that already read
-velocity as effort — a filter's `vel_cutoff` and `fm2`'s `vel_index` — so a
+velocity as effort — a filter's `vel_octaves` and `fm2`'s `vel_index` — so a
 patch that names neither hears nothing from it, which is the right silence:
 what "brighter" means belongs to the instrument.
 
@@ -1226,10 +1263,12 @@ the level that product comes to.
 that is worth saying rather than leaving to be worked out. A `gain` or `pan`
 curve is a fader on the mix, read every sample from the track's summed bus long
 after any note was struck: it moves the part, never the playing. A `cutoff`
-curve moves the **base** a mark's brightness is added to — a filter's cutoff is
-`cutoff + env_amount × env + vel_cutoff × velocity`, so a build opening the
-filter and an accent opening it further are two terms of one sum and neither is
-applied first. The only ordering there is *where the curve is read*: at the
+curve moves the **base** a mark's brightness opens from — a filter's cutoff is
+`cutoff × 2^(env_octaves × env + vel_octaves × velocity)`, so a build opening
+the filter and an accent opening it further are two terms of one sum and
+neither is applied first. The curve is still in Hz, because it moves the place
+rather than the distance: a build that raises the base raises everything the
+depths open from with it. The only ordering there is *where the curve is read*: at the
 note's swung onset, before the mark and before `humanize` displace it, so a
 ghost sitting a hair early does not read the build a hair early with it.
 
@@ -1771,7 +1810,7 @@ gets into this state in the first place:
         "amp": { "a": 0.4, "d": 0.6, "s": 0.6, "r": 0.8, "curve": 3.0 }
       },
       "fx": [ { "fx": "eq", "bands": [
-        { "kind": "high_pass" },
+        { "kind": "highpass" },
         { "kind": "peak", "freq": 400, "gain_db": -4, "q": 1.2 }
       ] } ] }
   ],
@@ -1783,20 +1822,20 @@ gets into this state in the first place:
     ] }
   },
   "arrangement": ["chorus"],
-  "fx": [ { "fx": "eq", "bands": [ { "kind": "high_shelf", "gain_db": 2 } ] } ]
+  "fx": [ { "fx": "eq", "bands": [ { "kind": "highshelf", "gain_db": 2 } ] } ]
 }
 ```
 
 Four lines, and each one is a line of the report answered:
 
-- `{ "kind": "high_pass" }` on the pad, at its default 250 Hz — **the same
+- `{ "kind": "highpass" }` on the pad, at its default 250 Hz — **the same
   boundary the `low` column is measured at**. Everything the report counted as
   the pad's low share is gone, and the bottom of the piece is the sub's alone.
 - `{ "kind": "peak", "freq": 400, "gain_db": -4, "q": 1.2 }`, just above it. A
   high-pass leaves the 250–500 Hz box untouched and that is where a mix goes
   *boxy* rather than *boomy*; a moderate dip there is the second half of the
   same fix.
-- `{ "kind": "high_shelf", "gain_db": 2 }` on the song, at its default 4 kHz —
+- `{ "kind": "highshelf", "gain_db": 2 }` on the song, at its default 4 kHz —
   the boundary the `high` column is measured at. The summary said `high 8%`,
   and with the low end no longer crowded there is now room to hear the top.
 - Nothing moved a `gain`. The balance the piece was written with is the balance

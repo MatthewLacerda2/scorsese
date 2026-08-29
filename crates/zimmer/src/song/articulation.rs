@@ -18,7 +18,7 @@
 //!
 //! Each of these is a combination of things the engine already does: velocity,
 //! gate length, the velocity-to-brightness routings a patch may carry
-//! (`vel_cutoff`, `vel_index`), and where the note sits against the beat. A
+//! (`vel_octaves`, `vel_index`), and where the note sits against the beat. A
 //! document could write those numbers itself — and then nothing would record
 //! that they were an *accent*, every accent in the piece would be a slightly
 //! different one, and changing what an accent means would be an edit to every

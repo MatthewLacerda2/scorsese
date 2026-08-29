@@ -38,24 +38,36 @@ fn an_eq_round_trips_through_json_with_every_kind_in_it() {
 }
 
 /// The tags are the words a recipe is written in, so they are the contract
-/// rather than a detail of the derive.
+/// rather than a detail of the derive — and a band is spelled the way a patch
+/// filter is, one word with no underscore, which is the whole of #456.
 #[test]
-fn tags_are_snake_case_and_named_as_documented() {
+fn tags_are_one_word_and_named_as_documented() {
     let json = serde_json::to_string(&Fx::Eq {
         bands: vec![band(EqKind::HighPass, 250.0, 0.0, 0.707)],
     })
     .expect("serialise");
     assert!(json.contains(r#""fx":"eq""#), "got {json}");
-    assert!(json.contains(r#""kind":"high_pass""#), "got {json}");
+    assert!(json.contains(r#""kind":"highpass""#), "got {json}");
 
     for (kind, spelling) in [
-        (EqKind::LowShelf, "low_shelf"),
+        (EqKind::LowShelf, "lowshelf"),
         (EqKind::Peak, "peak"),
-        (EqKind::HighShelf, "high_shelf"),
-        (EqKind::LowPass, "low_pass"),
+        (EqKind::HighShelf, "highshelf"),
+        (EqKind::LowPass, "lowpass"),
     ] {
         let json = serde_json::to_string(&kind).expect("serialise");
         assert_eq!(json, format!("\"{spelling}\""));
+    }
+}
+
+/// The underscored spellings are gone rather than accepted alongside the new
+/// ones. A parser that took both would keep the lookup this change exists to
+/// remove, and the refusal is what makes a stale recipe loud.
+#[test]
+fn the_underscored_spellings_are_refused() {
+    for stale in ["high_pass", "low_shelf", "high_shelf", "low_pass"] {
+        let json = format!(r#"{{ "fx": "eq", "bands": [ {{ "kind": "{stale}" }} ] }}"#);
+        serde_json::from_str::<Fx>(&json).expect_err(stale);
     }
 }
 
@@ -65,11 +77,11 @@ fn tags_are_snake_case_and_named_as_documented() {
 #[test]
 fn an_omitted_frequency_is_the_bake_report_s_own_crossover() {
     let json = r#"{ "fx": "eq", "bands": [
-        { "kind": "high_pass" },
-        { "kind": "low_shelf", "gain_db": -3 },
+        { "kind": "highpass" },
+        { "kind": "lowshelf", "gain_db": -3 },
         { "kind": "peak", "gain_db": -6 },
-        { "kind": "high_shelf", "gain_db": 2 },
-        { "kind": "low_pass" }
+        { "kind": "highshelf", "gain_db": 2 },
+        { "kind": "lowpass" }
     ] }"#;
     let Fx::Eq { bands } = serde_json::from_str(json).expect("parses without a frequency") else {
         panic!("that is an eq");

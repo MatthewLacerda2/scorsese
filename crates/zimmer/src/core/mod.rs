@@ -20,7 +20,7 @@
 //!
 //! A note's **velocity** taps that path in up to three places, not one. It
 //! always scales the amp envelope; a patch may also aim it at the filter cutoff
-//! (`vel_cutoff`) and at the FM modulator's depth (`vel_index`), both defaulting
+//! (`vel_octaves`) and at the FM modulator's depth (`vel_index`), both defaulting
 //! to zero. That is what separates a note that was *played* from one that was
 //! turned up — striking an instrument harder moves energy into the upper
 //! harmonics, and a velocity that only reaches a fader is the reason a
@@ -214,29 +214,38 @@ fn pitch_track(
         .collect()
 }
 
-/// The per-sample cutoff track: the base cutoff, offset by how hard the note
-/// was struck (`vel_cutoff` Hz at full velocity), swept by the filter envelope
-/// (`env_amount` Hz at full level) and wobbled by an LFO aimed at `cutoff`
+/// The per-sample cutoff track: the base cutoff, opened by how hard the note
+/// was struck (`vel_octaves` at full velocity), swept by the filter envelope
+/// (`env_octaves` at full level) and wobbled by an LFO aimed at `cutoff`
 /// (`depth` octaves either way).
 ///
-/// The velocity offset joins the sum rather than scaling it, and lands *inside*
-/// the LFO's multiply: velocity says how bright this strike is, and the wobble
-/// then rides that brightness in octaves either way, as it already did the
-/// envelope's. Nothing here bounds the result — [`filter::apply`] clamps every
-/// cutoff into the SVF's stable band anyway, and doing it twice would only
-/// invite the two clamps to disagree.
+/// **All three depths are octaves, so all three are summed into one exponent**
+/// and the base cutoff is multiplied by it once. That is the whole of the unit
+/// change: the terms are still *added* to each other, so each source of
+/// movement stays independent and a zero stays harmless, but the sum scales
+/// the cutoff instead of offsetting it — three octaves is three octaves from
+/// wherever the filter happens to sit, which is what the ear hears and what a
+/// patch author can carry from one instrument to the next.
+///
+/// The LFO used to be the one term already written this way and was applied as
+/// a separate multiply outside the sum; folding it in changes nothing about
+/// what it does and removes the one place the two conventions met.
+///
+/// Nothing here bounds the result — [`filter::apply`] clamps every cutoff into
+/// the SVF's stable band anyway, and doing it twice would only invite the two
+/// clamps to disagree. An absurd depth exponentiates to zero or to infinity
+/// and both land on an end of that clamp.
 fn cutoff_track(f: &Filter, lfo: Option<Lfo>, gate: f32, n: usize, velocity: f32) -> Vec<f32> {
     let envelope = env::track(&f.adsr, gate, n, RATE);
-    let struck = f.cutoff + f.vel_cutoff * velocity;
+    let struck = f.vel_octaves * velocity;
     (0..n)
         .map(|i| {
-            let swept = struck + f.env_amount * envelope[i];
-            match lfo {
-                Some(l) if l.target == LfoTarget::Cutoff => {
-                    swept * (l.depth * lfo_wave(&l, i)).exp2()
-                }
-                _ => swept,
-            }
+            let octaves = struck + f.env_octaves * envelope[i];
+            let wobble = match lfo {
+                Some(l) if l.target == LfoTarget::Cutoff => l.depth * lfo_wave(&l, i),
+                _ => 0.0,
+            };
+            f.cutoff * (octaves + wobble).exp2()
         })
         .collect()
 }

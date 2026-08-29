@@ -254,7 +254,7 @@ pub enum Source {
         /// existed already meant.
         ///
         /// The FM half of the velocity routing described on
-        /// [`Filter::vel_cutoff`], and the more literal half: in two-operator
+        /// [`Filter::vel_octaves`], and the more literal half: in two-operator
         /// FM the index *is* the brightness, so this is the whole difference
         /// between a bell tapped and a bell hit.
         ///
@@ -420,8 +420,8 @@ impl Default for Adsr {
 /// gesture and none of the pitch.
 ///
 /// It stacks additively with a vibrato rather than replacing it, the way
-/// [`Filter::env_amount`] and [`Filter::vel_cutoff`] do: a patch may sweep down
-/// onto its note and then wobble around it.
+/// [`Filter::env_octaves`] and [`Filter::vel_octaves`] do: a patch may sweep
+/// down onto its note and then wobble around it.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PitchEnv {
     /// How many semitones the envelope adds at full level.
@@ -450,36 +450,147 @@ pub struct PitchEnv {
 }
 
 /// Which side of the filter is kept.
+///
+/// **The spelling rule for every filter name in this crate lives here**, and
+/// it is deliberate rather than an oversight. `lowpass`, `highpass`,
+/// `bandpass`, `notch`, and — over in [`EqKind`] — `lowshelf`, `highshelf`
+/// and `peak` are written as **one word with no underscore**, which is the
+/// odd one out in a format that otherwise spells `detune_cents`, `gain_db`
+/// and `env_octaves` in snake_case.
+///
+/// The reason is not tradition. In prose the tradition writes *low-pass*, and
+/// both `lowpass` and `low_pass` render that into an identifier equally
+/// faithfully, so the tradition does not reach as far as the underscore. The
+/// reason is **reflex and precedent**: `lowpass` is what somebody arriving
+/// from any synthesiser types without thinking about it, and the Web Audio
+/// API — the most widely used audio API there is — spells all of these
+/// exactly this way. That is what a reader and a model already carry in
+/// memory, and a vocabulary that has to be looked up costs a round trip every
+/// single time it is written.
+///
+/// So these are terms imported from a domain that already spells them, and
+/// the inconsistency with the rest of the format is the accepted price. It
+/// buys one spelling of `low`/`high` + `pass` across the whole crate, which is
+/// the thing that was actually going wrong: the two surfaces used to disagree,
+/// and both parsers are strict, so every disagreement was a refusal.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "lowercase")]
 pub enum FilterKind {
     /// Keep what is below the cutoff: the darkening move.
     Lowpass,
     /// Keep what is above it: thins a sound out, and is how a small speaker
     /// gets simulated.
     Highpass,
+    /// Keep a band around the cutoff and drop both ends. A telephone, a radio,
+    /// a wah, and the one way to sweep a resonant peak across a sound without
+    /// also changing how loud the whole thing is.
+    Bandpass,
+    /// Drop a band around the cutoff and keep both ends — the mirror of
+    /// [`FilterKind::Bandpass`]. Sweeping one through a sustained chord is a
+    /// phaser's whole trick, and taking one ringing region out of a noisy
+    /// source is the other use.
+    Notch,
+}
+
+/// How steeply a filter falls away past its cutoff.
+///
+/// The difference between a tone control and the thing people mean when they
+/// say "filter". One pole pair rolls off gently enough that a lowpass still
+/// lets a good deal of the top through; two in series is the aggressive,
+/// obviously-filtered sweep, and it is the single most-missed control on a
+/// subtractive synth that lacks it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Slope {
+    /// One pole pair — 12 dB per octave. The default, because it is what every
+    /// patch written before this field existed already had.
+    #[default]
+    #[serde(rename = "12db")]
+    Db12,
+    /// Two pole pairs in series — 24 dB per octave.
+    ///
+    /// **[`Filter::resonance`] is a different control here.** The emphasis is
+    /// applied once per pair, so a setting that merely coloured the cutoff at
+    /// 12 dB rings at 24 and one that rang self-oscillates. That is the sound
+    /// people are after; it is also why a patch moved from one slope to the
+    /// other usually wants its resonance backed off rather than kept.
+    #[serde(rename = "24db")]
+    Db24,
+}
+
+impl Slope {
+    /// How many pole pairs are run in series.
+    pub(crate) fn pole_pairs(self) -> usize {
+        match self {
+            Self::Db12 => 1,
+            Self::Db24 => 2,
+        }
+    }
+}
+
+/// Whether a filter is at the gentler of the two slopes — the test that keeps
+/// `"slope": "12db"` out of every saved document, for the reason
+/// `no_swing` gives over in `song/mod.rs`: a bake is addressed by the hash
+/// of the recipe's bytes, so a serialiser that started writing a default into
+/// every patch would invalidate every cached bake in every project at once,
+/// for no change in the audio.
+///
+/// This branch bumps [`SYNTH_VERSION`](crate::SYNTH_VERSION) anyway, so every
+/// bake misses its cache on the way through regardless. The discipline is
+/// about every *future* save, which is a separate and still-real concern.
+fn gentle(slope: &Slope) -> bool {
+    matches!(slope, Slope::Db12)
 }
 
 /// The optional filter stage: a Chamberlin state-variable filter whose cutoff
 /// is swept by its own envelope — the move that makes a subtractive patch
 /// expressive rather than static.
+///
+/// **Unknown fields are refused**, which is what makes renaming one of these
+/// a loud break rather than a quiet one. `env_amount` and `vel_cutoff` were
+/// this stage's modulation depths in Hz; they are now [`Filter::env_octaves`]
+/// and [`Filter::vel_octaves`] in octaves. Without this, a recipe still
+/// naming the old words would parse, take the `0.0` default for the new ones,
+/// and render a filter that simply never moves — the sound silently gone and
+/// nothing on the page to say so. With it, serde names the offending word and
+/// lists the ones that work.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Filter {
     /// Which side of the cutoff survives.
     pub kind: FilterKind,
     /// Base cutoff in Hz.
     pub cutoff: f32,
+    /// How steeply it falls away past the cutoff. Defaults to
+    /// [`Slope::Db12`], which is what every patch written before this field
+    /// existed already had.
+    #[serde(default, skip_serializing_if = "gentle")]
+    pub slope: Slope,
     /// Resonance in `0..1`: emphasis at the cutoff. Near 1 the filter
-    /// self-rings.
+    /// self-rings — sooner at [`Slope::Db24`], where the emphasis is applied
+    /// once per pole pair.
     #[serde(default)]
     pub resonance: f32,
-    /// How many Hz the filter envelope adds to the cutoff at full level.
-    /// Negative sweeps downward.
+    /// How many **octaves** the filter envelope opens the cutoff by at full
+    /// level. Negative sweeps downward.
+    ///
+    /// Octaves rather than Hz for the reason [`PitchEnv::semitones`] gives
+    /// about pitch, and it applies to a cutoff just as hard: the ear hears
+    /// ratios, so the same number of Hz is a chasm low down and a rounding
+    /// error high up. `3200` used to be an enormous sweep on a filter sitting
+    /// at 200 Hz and a modest one on a filter sitting at 6800, which meant the
+    /// written number could not be judged, carried from one instrument to
+    /// another, or left alone while the patch was transposed. `2.0` opens two
+    /// octaves wherever it is written, and that is what the ear was going to
+    /// hear anyway.
+    ///
+    /// The field was **renamed** along with its unit rather than quietly
+    /// reinterpreted: an old recipe naming `env_amount` now fails to parse,
+    /// which is a refusal rather than a wrong sound.
     #[serde(default)]
-    pub env_amount: f32,
-    /// How many Hz a full-velocity strike adds to the cutoff. Defaults to
-    /// `0.0`, which is velocity doing nothing here — exactly what every patch
-    /// written before this field existed already meant.
+    pub env_octaves: f32,
+    /// How many **octaves** a full-velocity strike opens the cutoff by.
+    /// Defaults to `0.0`, which is velocity doing nothing here — exactly what
+    /// every patch written before this field existed already meant.
     ///
     /// This is what makes a note read as *played* rather than *turned up*. On
     /// any real instrument, more energy in means more energy in the upper
@@ -488,21 +599,25 @@ pub struct Filter {
     /// Velocity aimed only at the fader is a large part of why a carefully
     /// written synthesised part still sounds like a machine.
     ///
-    /// Same Hz unit and same sign convention as [`Filter::env_amount`],
+    /// Same octave unit and same sign convention as [`Filter::env_octaves`],
     /// because it is the same quantity arriving from a different source — one
     /// mental model, and the two are directly comparable when both are set.
-    /// The terms are **added**, `cutoff + env_amount × env + vel_cutoff × vel`,
-    /// so each stays independent of the others and a zero stays harmless;
-    /// multiplying would let `vel = 0` shut the filter outright, which is a
-    /// different and worse instrument.
+    /// The terms are **added**, and so is an [`Lfo`] aimed at
+    /// [`LfoTarget::Cutoff`], which was already written in octaves:
+    /// `cutoff × 2^(env_octaves × env + vel_octaves × vel + lfo)`. Adding the
+    /// depths rather than multiplying the results is what keeps each source of
+    /// movement independent of the others and a zero harmless; multiplying
+    /// would let `vel = 0` shut the filter outright, which is a different and
+    /// worse instrument. The sum is an exponent rather than an offset, so
+    /// three octaves is three octaves from wherever the cutoff happens to be.
     ///
     /// Negative is legal and means velocity *darkens* — a perfectly good
     /// instrument, and the reason this is not validated as positive. The
     /// resulting cutoff is clamped into the filter's stable band per sample,
-    /// exactly as a negative `env_amount`'s already is, so no value here can
+    /// exactly as a negative `env_octaves`'s already is, so no value here can
     /// produce an unstable filter.
     #[serde(default)]
-    pub vel_cutoff: f32,
+    pub vel_octaves: f32,
     /// The cutoff envelope. Defaults to the same fast shape as
     /// [`Adsr::default`].
     #[serde(default)]
@@ -549,8 +664,10 @@ pub const MAX_EQ_BANDS: usize = 8;
 /// Five, and they are the five a mix is actually made of. Two remove an end of
 /// the range outright and have no amount to ask for; three change how much of
 /// a region there is, and so read their `gain_db`.
+/// Spelled the way [`FilterKind`] is, and its doc carries the argument: one
+/// word, no underscore, on both surfaces.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "lowercase")]
 pub enum EqKind {
     /// Everything below the frequency goes — the first move any engineer makes
     /// on anything that is not the bass.
@@ -586,7 +703,7 @@ impl EqKind {
     /// should be reachable without the reader converting anything: the three
     /// kinds that work on the bottom default to the low crossover and the two
     /// that work on the top default to the high one. So
-    /// `{ "kind": "low_shelf", "gain_db": -3 }` reads as *take 3 dB off the
+    /// `{ "kind": "lowshelf", "gain_db": -3 }` reads as *take 3 dB off the
     /// thing the report just called low*.
     pub fn crossover(self) -> f32 {
         match self {

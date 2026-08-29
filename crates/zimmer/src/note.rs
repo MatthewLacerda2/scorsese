@@ -66,7 +66,7 @@ pub struct NoteOpts {
     /// `velocity` is in.
     ///
     /// Added to `velocity` for the two routings that read velocity as effort —
-    /// a filter's `vel_cutoff` and two-operator FM's `vel_index` — and nowhere
+    /// a filter's `vel_octaves` and two-operator FM's `vel_index` — and nowhere
     /// else, so a note can be played a shade brighter or duller without being
     /// played louder. `0.0` means the two are one number, which is what every
     /// note meant before a performance could scatter them apart (see

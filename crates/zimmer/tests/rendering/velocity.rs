@@ -9,7 +9,7 @@
 
 use crate::common::{brightness, minimal, opts, peak, render, saw_patch};
 use scorsese_zimmer::NoteOpts;
-use scorsese_zimmer::patch::{Adsr, Filter, FilterKind, Patch, Source};
+use scorsese_zimmer::patch::{Adsr, Filter, FilterKind, Patch, Slope, Source};
 
 /// Half a second of `patch`, struck at `velocity`.
 fn struck(patch: &Patch, velocity: f32) -> Vec<f32> {
@@ -25,13 +25,14 @@ fn struck(patch: &Patch, velocity: f32) -> Vec<f32> {
 
 /// A lowpass with no envelope movement of its own, so velocity is the only
 /// thing left that can move the cutoff.
-fn lowpass(cutoff: f32, vel_cutoff: f32) -> Filter {
+fn lowpass(cutoff: f32, vel_octaves: f32) -> Filter {
     Filter {
         kind: FilterKind::Lowpass,
+        slope: Slope::Db12,
         cutoff,
         resonance: 0.0,
-        env_amount: 0.0,
-        vel_cutoff,
+        env_octaves: 0.0,
+        vel_octaves,
         adsr: Adsr::default(),
     }
 }
@@ -48,9 +49,9 @@ fn fm(index: f32, vel_index: f32) -> Patch {
 }
 
 #[test]
-fn vel_cutoff_makes_a_hard_strike_brighter_than_a_soft_one() {
+fn vel_octaves_makes_a_hard_strike_brighter_than_a_soft_one() {
     let mut patch = saw_patch();
-    patch.filter = Some(lowpass(400.0, 4000.0));
+    patch.filter = Some(lowpass(400.0, 3.5));
     let soft = brightness(&struck(&patch, 0.2));
     let hard = brightness(&struck(&patch, 1.0));
     assert!(
@@ -94,7 +95,7 @@ fn velocity_alone_is_still_only_a_fader() {
 #[test]
 fn timbre_brightens_a_note_without_striking_it_harder() {
     let mut filtered = saw_patch();
-    filtered.filter = Some(lowpass(400.0, 4000.0));
+    filtered.filter = Some(lowpass(400.0, 3.5));
     for patch in [filtered, fm(1.0, 8.0)] {
         let played = |timbre: f32| {
             render(
@@ -146,9 +147,9 @@ fn timbre_is_silent_on_a_patch_that_routes_no_brightness() {
 /// Negative is legal, and it is a real instrument rather than a mistake to
 /// tolerate: a sound that closes down as it is played harder.
 #[test]
-fn a_negative_vel_cutoff_darkens_instead_of_brightening() {
+fn a_negative_vel_octaves_darkens_instead_of_brightening() {
     let mut patch = saw_patch();
-    patch.filter = Some(lowpass(6000.0, -5500.0));
+    patch.filter = Some(lowpass(6000.0, -5.0));
     let soft = brightness(&struck(&patch, 0.1));
     let hard = brightness(&struck(&patch, 1.0));
     assert!(
@@ -159,19 +160,19 @@ fn a_negative_vel_cutoff_darkens_instead_of_brightening() {
 
 /// Nothing a recipe writes in these fields can produce an unstable filter: the
 /// cutoff is clamped into the SVF's stable band per sample, exactly as it
-/// already was for a `cutoff` swept off the end by `env_amount`.
+/// already was for a `cutoff` swept off the end by `env_octaves`.
 #[test]
-fn an_extreme_vel_cutoff_cannot_destabilise_the_filter() {
-    for vel_cutoff in [-1e9, 1e9] {
+fn an_extreme_vel_octaves_cannot_destabilise_the_filter() {
+    for vel_octaves in [-1e9, 1e9] {
         let mut patch = saw_patch();
         patch.filter = Some(Filter {
             resonance: 0.99,
-            ..lowpass(1000.0, vel_cutoff)
+            ..lowpass(1000.0, vel_octaves)
         });
         let buf = struck(&patch, 1.0);
         assert!(
             buf.iter().all(|sample| sample.is_finite()),
-            "vel_cutoff {vel_cutoff} produced non-finite samples"
+            "vel_octaves {vel_octaves} produced non-finite samples"
         );
     }
 }
