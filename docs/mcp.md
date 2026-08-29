@@ -1104,6 +1104,30 @@ so changing the recipe changes which file the asset wants, and the next
 
 What to write in a recipe is [`recipes.md`](recipes.md).
 
+### Baking part of one, which is not baking
+
+`synth_bake` given `beats`, `seconds` or `only` renders **less** of one recipe:
+a stretch of the piece, or a few of its tracks. It is the other half of the
+tuning argument below — `synth_set` stops a small change costing a whole
+document, and this stops reading the change back costing a whole render.
+
+```
+synth_bake { "project": "trilhas.scor", "asset": "trilha", "beats": "0:32" }
+synth_bake { "project": "trilhas.scor", "asset": "trilha", "only": ["pad"] }
+```
+
+Beats rather than bars, because a song has no time signature; eight bars of four
+is `0:32`. A window counts along the piece as rendered, so under a `loop` fit it
+is not the written arrangement's beats. What comes back over a window is
+sample-for-sample what a whole bake would have there, so a number read off it is
+a number about the real file.
+
+**It is not cached and it is not the asset's audio.** The file lands in `cache/`,
+the project is untouched, and a plain `synth_bake` with no window is still what
+makes the audio a clip plays. `recipes.md` has the whole of why: a fragment
+filed under the address of the whole recipe would leave a project serving audio
+its own recipe does not describe.
+
 ### Tuning, which is not writing
 
 **Reach for `synth_set` when the music is already right and a number is not.**

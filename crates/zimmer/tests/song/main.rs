@@ -10,6 +10,7 @@ mod compress;
 mod document;
 mod effects;
 mod eq;
+mod excerpt;
 mod feel;
 mod keys;
 mod lengths;

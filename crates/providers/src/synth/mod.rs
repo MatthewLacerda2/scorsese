@@ -26,6 +26,7 @@
 mod address;
 mod create;
 mod error;
+mod partial;
 mod recipe;
 mod starter;
 mod survey;
@@ -39,8 +40,17 @@ use scorsese_core::{
 use scorsese_zimmer::level::{Layer, Profile};
 use scorsese_zimmer::{Bake, Patch, SAMPLE_RATE, bake_note, bake_song, wav};
 
+/// The vocabulary of an excerpt, re-exported.
+///
+/// A caller asking for less of a recipe says so in the synthesiser's own
+/// types, and re-exporting them here is what keeps `cli` and `mcp` from taking
+/// a dependency on `scorsese-zimmer` to name one — the same way [`Baked`]
+/// hands out a `Profile` without either of them having heard of it.
+pub use scorsese_zimmer::{Excerpt, Span, Window};
+
 pub use create::{check, create};
 pub use error::SynthesisError;
+pub use partial::{Partial, bake_partial};
 pub use recipe::{OneShot, Recipe};
 pub use starter::Starter;
 pub use survey::survey;
@@ -153,7 +163,7 @@ pub fn bake_asset(
 
 /// Reads and parses an asset's recipe, returning it with the file it came from
 /// and the digest of its bytes, which is half of what names its output.
-fn read_recipe(
+pub(super) fn read_recipe(
     asset: &Asset,
     project_root: &Path,
 ) -> Result<(Recipe, PathBuf, String), SynthesisError> {
@@ -213,7 +223,7 @@ fn render(recipe: &Recipe, file: &Path, project_root: &Path) -> Result<Bake, Syn
 /// project-relative path, checked by the same rules every other path in the
 /// document obeys, read and parsed as a bare patch. The synthesiser never
 /// learns that a project exists.
-fn instruments(project_root: &Path) -> impl Fn(&str) -> Result<Patch, String> {
+pub(super) fn instruments(project_root: &Path) -> impl Fn(&str) -> Result<Patch, String> {
     let root = project_root.to_path_buf();
     move |reference: &str| {
         let relative = ProjectPath::new(reference);
@@ -227,7 +237,7 @@ fn instruments(project_root: &Path) -> impl Fn(&str) -> Result<Patch, String> {
 }
 
 /// Writes the bake, creating `generated/` if this is the project's first one.
-fn write(path: &Path, wav: &[u8]) -> Result<(), SynthesisError> {
+pub(super) fn write(path: &Path, wav: &[u8]) -> Result<(), SynthesisError> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|source| SynthesisError::Write {
             path: parent.to_path_buf(),

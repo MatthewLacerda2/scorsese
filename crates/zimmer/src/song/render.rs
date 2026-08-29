@@ -40,15 +40,16 @@ use std::collections::HashMap;
 
 use super::articulation::Stroke;
 use super::automate::{self, Automation};
+use super::excerpt::{Excerpt, Scope};
 use super::feel::swung;
 use super::mix::Mix;
 use super::shape::{plan, shape};
-use super::{Note, PatchRef, Song};
+use super::{Note, PatchRef, Song, sections};
 use crate::core::{self, RATE};
 use crate::error::SynthError;
 use crate::fx::limiter;
 use crate::hash::hash3;
-use crate::level::Layer;
+use crate::level::{Cut, Layer};
 use crate::note::NoteOpts;
 use crate::patch::Patch;
 use crate::stereo::Stereo;
@@ -111,6 +112,13 @@ pub(crate) struct Mixdown {
     /// [`crate::level::Profile`] already holds sections to: one row under a
     /// one-line summary is the same sentence twice.
     pub(crate) tracks: Vec<Layer>,
+    /// Where the arrangement's own sections fall in what came back, which
+    /// under an excerpt is not where they fall in the piece.
+    ///
+    /// Handed out with the samples rather than worked out again beside them,
+    /// because the tempo and pass count they are measured against are decided
+    /// here — and under a `fit` they are not the ones written down.
+    pub(crate) sections: Vec<Cut>,
 }
 
 /// Renders `song` to an interleaved stereo sample buffer at
@@ -120,12 +128,26 @@ pub(crate) struct Mixdown {
 /// the form [`crate::level`] measures, so a caller doing anything at all with
 /// raw samples already speaks it.
 pub fn render_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Vec<f32>, SynthError> {
-    Ok(mix_song(song, resolve)?.master.interleaved())
+    render_excerpt(song, resolve, &Excerpt::default())
+}
+
+/// [`render_song`], of less of the song: a stretch of it, some of its tracks,
+/// or both. [`Excerpt`] has what that means and what it promises.
+pub fn render_excerpt(
+    song: &Song,
+    resolve: &dyn PatchResolver,
+    excerpt: &Excerpt,
+) -> Result<Vec<f32>, SynthError> {
+    Ok(mix_song(song, resolve, excerpt)?.master.interleaved())
 }
 
 /// [`render_song`], keeping what each track contributed on its way into the
 /// mix — see [`Mixdown::tracks`].
-pub(crate) fn mix_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Mixdown, SynthError> {
+pub(crate) fn mix_song(
+    song: &Song,
+    resolve: &dyn PatchResolver,
+    excerpt: &Excerpt,
+) -> Result<Mixdown, SynthError> {
     song.validate()?;
     let patches = resolve_patches(song, resolve)?;
     // The one check that needs an instrument rather than a document: a cutoff
@@ -138,6 +160,10 @@ pub(crate) fn mix_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Mixdo
     // sample is produced: `fit` is a property of the whole piece, and deciding
     // it per note would mean rendering the wrong notes and cutting afterwards.
     let (bpm, passes) = plan(song);
+    // What less of this piece was asked for, resolved against the tempo it is
+    // actually rendered at. A whole render resolves to one that keeps
+    // everything, so there is one path below rather than two.
+    let scope = Scope::of(song, excerpt, bpm)?;
     // Read once: every degree in the song resolves against it, and so does
     // every diatonic lift in the arrangement.
     let key = song.key()?;
@@ -170,7 +196,7 @@ pub(crate) fn mix_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Mixdo
     // Beats per sample at the tempo this is actually rendered at — the
     // stretched one under a `stretch` fit, which is what makes a build stretch
     // with the music instead of landing somewhere else in it.
-    let mut mix = Mix::new(song, arrangement_end, bpm / (60.0 * RATE));
+    let mut mix = Mix::new(song, arrangement_end, bpm / (60.0 * RATE), &scope);
     let mut cursor_beats = 0.0f32;
     let mut ordinal: u64 = 0;
     // Resolved once: an absent `humanize` is one that scatters nothing, so the
@@ -200,6 +226,13 @@ pub(crate) fn mix_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Mixdo
             let seed = note_seed(song.seed, track, place);
             ordinal += 1;
             if !entry.plays(&note.track) {
+                continue;
+            }
+            // A track a solo left out, and that nothing is keyed from, is not
+            // rendered at all — which is where a solo's saving is. The ordinal
+            // above it has already been spent, so what is left of the mix
+            // sounds exactly as it does in the whole piece.
+            if !mix.needs(track) {
                 continue;
             }
             // The entry's transforms, applied to the *written* pattern rather
@@ -240,8 +273,6 @@ pub(crate) fn mix_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Mixdo
             // earliness and the player's jitter on the build as well as on the
             // note.
             let beat_at = cursor_beats + swung(note.start, song.swing);
-            let instrument = tuned(&patches[track], riding[track].cutoff, beat_at);
-            let rendered = core::render_note(&instrument, pitch, &opts)?;
             // Swing first, then the mark, then humanise: swing is where the
             // beat *is*, an articulation is where the player meant to put the
             // note against it (a ghost sits a hair ahead), and humanise is how
@@ -253,6 +284,15 @@ pub(crate) fn mix_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Mixdo
             let onset =
                 beat_at * beat + stroke.onset_seconds + feel.onset_seconds(track, place, song.seed);
             let at = (onset * RATE).round().max(0.0) as usize;
+            // Worked out before the note is synthesised rather than after,
+            // because a note landing past what a window can hear is the one
+            // this loop wants to *not* pay for. Everything above it is
+            // arithmetic; `render_note` is the buffer.
+            if !scope.reaches(at) {
+                continue;
+            }
+            let instrument = tuned(&patches[track], riding[track].cutoff, beat_at);
+            let rendered = core::render_note(&instrument, pitch, &opts)?;
             // Added to the track's own bus rather than straight to the master:
             // where a note lands is timing, which bus it lands on is routing,
             // and the two answer to different fields.
@@ -270,7 +310,16 @@ pub(crate) fn mix_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Mixdo
     limiter::apply(&mut master, RATE);
     // Then length and level, in that order, on the limited signal.
     shape(song, &mut master, arrangement_end);
-    Ok(Mixdown { master, tracks })
+    // And only now is the window taken, which is what makes it exactly the
+    // stretch a whole render would have had there: every stage above ran on
+    // the piece, not on the excerpt.
+    let (from, to) = scope.keep(master.frames());
+    master.cut(from, to);
+    Ok(Mixdown {
+        master,
+        tracks,
+        sections: sections::of(song, scope.opens_at_seconds()),
+    })
 }
 
 /// The instrument this note is played on, with a moving cutoff set to what it

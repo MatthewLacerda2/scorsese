@@ -85,6 +85,23 @@ impl Stereo {
         self.resize(frames.max(self.frames()));
     }
 
+    /// Keeps only the frames `from..to`, clamped to what is there.
+    ///
+    /// The one operation that moves a signal's start: everything else here
+    /// grows or trims an end. What it exists for is an excerpt — a whole
+    /// render, cut down to the stretch that was asked about — so it drops the
+    /// front rather than fading it. A window's edge is not an edit, it is a
+    /// place to read numbers off; nothing plays across it.
+    pub(crate) fn cut(&mut self, from: usize, to: usize) {
+        let frames = self.frames();
+        let from = from.min(frames);
+        let to = to.clamp(from, frames);
+        for channel in [&mut self.l, &mut self.r] {
+            channel.truncate(to);
+            channel.drain(..from);
+        }
+    }
+
     /// Runs `apply` over each channel in turn.
     ///
     /// The way every mono stage reaches a stereo signal: a filter, an
