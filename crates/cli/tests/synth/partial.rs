@@ -32,8 +32,8 @@ fn size(path: &Path) -> usize {
 #[test]
 fn a_window_lands_in_the_cache_and_leaves_the_bake_alone() {
     let dir = scored("synth-window");
-    let run = run_in(&dir, &["synth", "bake", "theme", "--beats", "0:4"]).ok();
-    run.says("part of it");
+    let run = run_in(&dir, &["synth", "bake", "theme", "--beats", "0:32"]).ok();
+    run.says("part of it (beats 0:32)");
     run.says("cache/synth/theme.wav");
     run.says("not cached");
 
@@ -79,12 +79,13 @@ fn out_puts_the_file_where_it_is_told() {
     let dir = scored("synth-out");
     let elsewhere = dir.join("cache/eight-bars.wav");
     let named = elsewhere.display().to_string();
-    run_in(
+    let run = run_in(
         &dir,
         &["synth", "bake", "theme", "--only", "lead", "--out", &named],
     )
-    .ok()
-    .says(&named);
+    .ok();
+    run.says(&named);
+    run.says("only lead");
     assert!(elsewhere.is_file(), "nothing at {named}");
     assert!(
         !dir.join("cache/synth/theme.wav").exists(),

@@ -86,7 +86,12 @@ fn looped() -> Song {
 fn a_window_is_exactly_that_stretch_of_the_whole_bake() {
     for song in [mixed(), looped()] {
         let all = whole(&song);
-        for (from, to) in [(0.0, 1.0), (0.75, 2.25), (2.0, 3.5)] {
+        // The third of these is the one that pins the guard: the pad's
+        // compressor is keyed from the bass, which strikes on the beat at one
+        // second, and its fifty-millisecond attack means the duck begins
+        // *inside* a window that closes at 0.98. A render that stopped at the
+        // window's own edge would miss the note that causes it.
+        for (from, to) in [(0.0, 1.0), (0.75, 2.25), (0.0, 0.98), (2.0, 3.5)] {
             let cut = part(&song, &seconds(from, to));
             assert_eq!(
                 cut,

@@ -73,3 +73,75 @@ pub(crate) fn of(song: &Song, start_seconds: f64) -> Vec<Cut> {
         .filter(|cut| cut.end_seconds > 0.0)
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::song::{Pattern, Song};
+    use std::collections::BTreeMap;
+
+    /// Two named blocks, four beats each, at a tempo where a beat is half a
+    /// second — so a boundary is a round number and a shift is readable.
+    fn two_sections() -> Song {
+        let mut patterns = BTreeMap::new();
+        for name in ["verse", "chorus"] {
+            patterns.insert(
+                name.to_owned(),
+                Pattern {
+                    beats: 4.0,
+                    notes: Vec::new(),
+                },
+            );
+        }
+        Song {
+            bpm: 120.0,
+            seed: 0,
+            key: None,
+            tracks: Vec::new(),
+            patterns,
+            arrangement: vec!["verse".into(), "chorus".into()],
+            swing: 0.0,
+            humanize: None,
+            fx: Vec::new(),
+            automation: Vec::new(),
+            fit: None,
+            fade: None,
+            tail: None,
+        }
+    }
+
+    fn ends(cuts: &[Cut]) -> Vec<(String, f64)> {
+        cuts.iter()
+            .map(|cut| (cut.label.clone(), cut.end_seconds))
+            .collect()
+    }
+
+    #[test]
+    fn a_whole_piece_is_reported_from_its_own_start() {
+        assert_eq!(
+            ends(&of(&two_sections(), 0.0)),
+            vec![("verse".to_owned(), 2.0), ("chorus".to_owned(), 4.0)]
+        );
+    }
+
+    /// A window opening inside the verse keeps the verse — with the time that
+    /// is left of it — and every later boundary moves with it.
+    #[test]
+    fn a_window_moves_every_boundary_back_by_where_it_opened() {
+        assert_eq!(
+            ends(&of(&two_sections(), 1.5)),
+            vec![("verse".to_owned(), 0.5), ("chorus".to_owned(), 2.5)]
+        );
+    }
+
+    /// A window opening exactly on a boundary starts in the section *after*
+    /// it. A row for the one that has just finished would be a stretch of no
+    /// length, sending its reader to look for music the file does not carry.
+    #[test]
+    fn a_section_that_has_already_ended_gets_no_row() {
+        assert_eq!(
+            ends(&of(&two_sections(), 2.0)),
+            vec![("chorus".to_owned(), 2.0)]
+        );
+    }
+}

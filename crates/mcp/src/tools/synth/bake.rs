@@ -126,7 +126,7 @@ impl Tool for Bake {
             let out = arguments.get("out").and_then(Value::as_str).map(Path::new);
             let partial = synth::bake_partial(&project, &dir, &id, &excerpt, out)
                 .map_err(|error| format!("{error}"))?;
-            return Ok(said_partial(&id, &partial).into());
+            return Ok(said_partial(&id, &excerpt, &partial).into());
         }
 
         let baked = match asset {
@@ -227,9 +227,12 @@ fn said(id: &AssetId, outcome: &Baked) -> String {
 
 /// The same report for a partial bake, ending in the sentence that keeps this
 /// file from being mistaken for the asset's own.
-fn said_partial(id: &AssetId, partial: &Partial) -> String {
+fn said_partial(id: &AssetId, excerpt: &Excerpt, partial: &Partial) -> String {
+    // The excerpt is in the headline because a level is a different finding
+    // over eight bars than over the whole piece, and this line is the only
+    // place a client is told which one it is reading.
     let head = format!(
-        "{id} — part of it, {} KB, {}, {}",
+        "{id} — part of it ({excerpt}), {} KB, {}, {}",
         partial.bytes / 1024,
         partial.shown,
         scorsese_render::say::summary(&partial.profile)

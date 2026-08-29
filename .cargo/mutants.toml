@@ -450,6 +450,27 @@ exclude_re = [
     # `a_copy_sweeps_through_its_delays_and_is_back_after_one_of_its_cycles`
     # measures; `+` to `*` stops the phase advancing at all.
     'replace \+ with - in advance',
+
+    # `Mix::needs` says whether a note of this track is worth *synthesising*.
+    # Answering `true` for every track renders the notes a solo left out and
+    # then throws each of them away one line later — `Mix::add` returns before
+    # the master addition for a track that is not heard, and a track nothing is
+    # keyed from has no key buffer to reach either. So the mutant produces the
+    # same samples, the same measurements and the same file; the only thing it
+    # changes is how long the render takes.
+    #
+    # That makes it equivalent for everything a test can observe. A test that
+    # tried to catch it would be asserting on wall-clock time, which is the
+    # kind of assertion that goes red on a loaded machine and teaches everyone
+    # to rerun the suite. What the saving *is* stays asserted where it can be:
+    # `Scope::reaches` has unit tests either side of the guard, and
+    # `a_window_is_shorter_than_the_whole_piece` in the CLI suite measures the
+    # file a window produces against the whole one.
+    #
+    # The `[^>]` in the pattern is the lifetime's apostrophe, which a TOML
+    # literal string cannot carry — the entry is still line-qualified to this
+    # one mutation of this one function.
+    'replace Mix<[^>]a>::needs -> bool with true',
 ]
 
 # ---------------------------------------------------------------------------

@@ -82,7 +82,7 @@ pub(crate) fn bake(project_dir: &Path, only: Option<&str>, less: &Less) -> Resul
             less.out.as_deref(),
         )
         .with_context(|| format!("baking part of `{id}`"))?;
-        report_partial(&id, &partial);
+        report_partial(&id, &excerpt, &partial);
         return Ok(());
     }
     let mut project = open(project_dir)?;
@@ -179,8 +179,11 @@ fn report(baked: &[(AssetId, Baked)]) {
 
 /// What a partial bake did, and the one line that says it is not the file the
 /// project will use.
-fn report_partial(id: &AssetId, partial: &Partial) {
-    println!("{id} — part of it, {} KB", partial.bytes / 1024);
+fn report_partial(id: &AssetId, excerpt: &Excerpt, partial: &Partial) {
+    // Named in the headline, because a level is a different finding over eight
+    // bars than over the whole piece and this line is the only place a reader
+    // is told which they are looking at.
+    println!("{id} — part of it ({excerpt}), {} KB", partial.bytes / 1024);
     println!("  {}", partial.shown);
     println!("  {}", say::summary(&partial.profile));
     for row in say::sections(&partial.profile) {

@@ -56,6 +56,17 @@ pub struct Partial {
 ///
 /// The project is read and never written. See the module doc for why that is
 /// the whole point rather than an omission.
+///
+/// **What asserts this lives in `crates/cli`**, the way `super::record`'s does
+/// and for the same reason: every claim here is about a file on disk and
+/// a project that did *not* change, so checking one means baking for real and
+/// reading the directory back. `cli/tests/synth/partial.rs` does exactly that
+/// — the cache path, the size against a whole bake, the `--out` destination,
+/// the empty `generated/` and the untouched asset. Restating it here would
+/// need a project, a recipe and a bake inside a unit test to arrive at a
+/// weaker version of a test that already exists, so this shows up in the
+/// mutation report as a function nothing next to it catches. That is its
+/// written reason.
 pub fn bake_partial(
     project: &Project,
     project_root: &Path,
