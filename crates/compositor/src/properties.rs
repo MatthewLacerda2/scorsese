@@ -19,7 +19,9 @@
 //! of known properties, adding one becomes a core change and the generality
 //! rule is gone.
 
-use scorsese_core::{Clip, Easing, Frames, Grade, Keyframe, KeyframeTrack, PropertyPath};
+use scorsese_core::{
+    ChromaKey, Clip, Easing, Frames, Grade, Keyframe, KeyframeTrack, PropertyPath,
+};
 
 use crate::registry::Property;
 
@@ -43,6 +45,18 @@ pub mod path {
     /// pixels to write one, where every field of a grade reads the one it is
     /// writing.
     pub const ABERRATION: &str = "aberration";
+    /// How far a pixel's colour may sit from the keyed screen colour and still
+    /// be screen. `0.0` keys only an exact match; higher takes more with it.
+    ///
+    /// **Does nothing on a clip with no `chroma_key`**, and that is not the
+    /// ignore-an-unknown-property rule: the path is known and resolved, there
+    /// is simply no key for it to be a tolerance *of*. A key needs a colour,
+    /// and a colour is not a number a track can carry.
+    pub const KEY_TOLERANCE: &str = "chroma_key.tolerance";
+    /// How wide the ramp from screen to subject is, measured outward from
+    /// [`KEY_TOLERANCE`]. `0.0` is a hard cutout. Does nothing without a key,
+    /// for the reason above.
+    pub const KEY_SOFTNESS: &str = "chroma_key.softness";
     /// Horizontal offset from where the layer naturally sits, as a fraction of
     /// the canvas **width**: `0.25` is a quarter of the way across it.
     pub const POSITION_X: &str = "transform.position.x";
@@ -118,6 +132,15 @@ pub const ANIMATED: &[Property] = &[
         path: path::ABERRATION,
         describes: "how far the layer's colour channels are pulled apart from its centre outward, \
                     as a fraction of its own height",
+    },
+    Property {
+        path: path::KEY_TOLERANCE,
+        describes: "how far a pixel's colour may sit from the keyed screen colour and still be \
+                    keyed out",
+    },
+    Property {
+        path: path::KEY_SOFTNESS,
+        describes: "how wide the ramp from screen to subject is, outward from the tolerance",
     },
     Property {
         path: path::POSITION_X,
@@ -218,6 +241,14 @@ pub struct Properties {
     /// like [`Properties::blur`], so the same number is the same fringing at
     /// 1080p and at 4K.
     pub aberration: f64,
+    /// Which of the layer's pixels are not there, or `None` — which is almost
+    /// every layer — for a picture whose only alpha is the alpha it arrived
+    /// with.
+    ///
+    /// **The first thing that happens to the pixels**, before the grade below
+    /// and so before everything: a grade shifts the screen's colour, and a key
+    /// run afterwards would be aimed at a colour that is no longer there.
+    pub chroma_key: Option<ChromaKey>,
     /// The colour treatment applied to the layer's own pixels, before any of
     /// the geometry above.
     ///
@@ -259,6 +290,7 @@ impl Default for Properties {
             opacity: 1.0,
             blur: 0.0,
             aberration: 0.0,
+            chroma_key: None,
             grade: Grade::NEUTRAL,
             grain_seed: 0,
         }
@@ -285,6 +317,7 @@ impl Properties {
                 grade: clip.grade,
                 blur: clip.blur,
                 aberration: clip.aberration,
+                chroma_key: clip.chroma_key,
                 ..Self::default()
             },
             &clip.keyframes,
@@ -316,6 +349,19 @@ impl Properties {
             };
             match track.property.as_str() {
                 path::OPACITY => properties.opacity = value,
+                // Only when there is a key: a tolerance without a screen colour
+                // is a number about nothing, and inventing a colour to hang it
+                // on would key whatever that invention happened to be.
+                path::KEY_TOLERANCE => {
+                    if let Some(key) = properties.chroma_key.as_mut() {
+                        key.tolerance = value;
+                    }
+                }
+                path::KEY_SOFTNESS => {
+                    if let Some(key) = properties.chroma_key.as_mut() {
+                        key.softness = value;
+                    }
+                }
                 path::BLUR => properties.blur = value,
                 path::ABERRATION => properties.aberration = value,
                 path::POSITION_X => properties.position.0 = value,
@@ -393,6 +439,12 @@ impl Properties {
             // leaving it out would copy the source through and render the one
             // case this costs least to apply to with no fringing at all.
             && self.aberration <= EPSILON
+            // And a keyed layer is not its own pixels in the one way none of
+            // the lines above would catch: the key writes *alpha*, so a layer
+            // carrying nothing but a key satisfies every other condition here
+            // and the copy path would hand the screen straight through, fully
+            // opaque, with the key silently doing nothing at all.
+            && self.chroma_key.is_none()
             // A graded layer is not its own pixels, which is the whole point of
             // grading it. Left out, the copy path below would hand the ungraded
             // source straight to the canvas and the grade would silently do

@@ -2,6 +2,7 @@
 //! overlap, and keyframe shape.
 
 use crate::asset::{AssetId, AssetKind};
+use crate::color::Rgba;
 use crate::keyframe::PropertyPath;
 use crate::time::Frames;
 use crate::timeline::{ClipId, TrackId, TrackKind};
@@ -120,6 +121,39 @@ pub enum TimelineProblem {
         clip: ClipId,
         /// What its asset actually is.
         asset_kind: AssetKind,
+    },
+
+    /// A chroma key on a kind that draws its own alpha: `text`, `color`,
+    /// `shape` or `icon`.
+    ///
+    /// Not forward compatibility, which is what the compositor's
+    /// ignore-what-you-do-not-know rule protects. This build drew those pixels
+    /// with exactly the alpha the document asked for, so a key on one asks it
+    /// to undo its own drawing — and there is no later build in which that
+    /// means something else.
+    #[error("clip `{clip}` keys `{asset}`, a {asset_kind:?} asset, which draws its own alpha")]
+    KeyedInlineAsset {
+        /// The clip carrying the key.
+        clip: ClipId,
+        /// The asset it is aimed at.
+        asset: AssetId,
+        /// What that asset actually is.
+        asset_kind: AssetKind,
+    },
+
+    /// A key colour with no hue: black, white, or a grey between them.
+    ///
+    /// A key measures how far a pixel's colour is from the screen's, so a
+    /// screen colour with no hue leaves only brightness to separate pixels by
+    /// — which is a luma key, and a luma key takes the eyes, the teeth and the
+    /// shine on the hair with the background. scorsese does not have one, and
+    /// this is the check that says so.
+    #[error("clip `{clip}` is keyed on `{color}`, which is too near grey to be a screen colour")]
+    NeutralKeyColor {
+        /// The clip carrying the key.
+        clip: ClipId,
+        /// The colour as written, so the message quotes the document.
+        color: Rgba,
     },
 
     /// A keyframe track claiming a tool wrote it, and naming no tool.

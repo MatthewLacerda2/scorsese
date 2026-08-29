@@ -19,7 +19,7 @@
 
 use scorsese_core::Grade;
 
-use crate::frame::{BYTES_PER_PIXEL, Frame, Resolution};
+use crate::frame::{BYTES_PER_PIXEL, Resolution};
 use crate::grain::Grain;
 
 /// Rec.709 luma weights, which is what "the grey of this pixel" means here.
@@ -41,13 +41,22 @@ const TEMPERATURE_GAIN: f64 = 0.25;
 /// frames — a render grading a 1080p layer allocates this once rather than
 /// eight megabytes thirty times a second.
 ///
+/// `bytes` is straight RGBA at `resolution` rather than a [`crate::Frame`], because
+/// what reaches here may be a layer the key has already been through — see
+/// [`crate::chroma`], which runs first and hands on a buffer rather than a
+/// frame.
+///
 /// `seed` is where this layer's noise field starts at this instant, resolved by
 /// [`crate::Properties`] because that is where the clip and the frame are both
 /// known — see [`crate::grain::seed`]. It is read only when there is grain to
 /// draw, so an ungrained layer never looks at it.
-pub(crate) fn into(out: &mut Vec<u8>, source: &Frame, grade: Grade, seed: u64) {
-    let resolution = source.resolution();
-    let bytes = source.bytes();
+pub(crate) fn into(
+    out: &mut Vec<u8>,
+    bytes: &[u8],
+    resolution: Resolution,
+    grade: Grade,
+    seed: u64,
+) {
     out.clear();
     out.reserve(bytes.len());
 

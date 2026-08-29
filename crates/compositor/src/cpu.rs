@@ -9,6 +9,7 @@ use tiny_skia::{BlendMode, FilterQuality, PixmapMut, PixmapPaint, PixmapRef, Tra
 
 use crate::aberration;
 use crate::blur;
+use crate::chroma;
 use crate::compose::{CompositeError, Compositor, Layer};
 use crate::frame::{BYTES_PER_PIXEL, Frame};
 use crate::grade;
@@ -25,7 +26,13 @@ pub struct CpuCompositor {
 /// second.
 ///
 /// More than one because a layer can need all of them, and the order they are
-/// listed in is the order they happen in. A graded layer is graded in
+/// listed in is the order they happen in. **The key runs first**, before
+/// anything has touched a colour: a grade shifts the screen's own colour, and a
+/// key aimed at what the screen used to be then misses it — which is a matte
+/// that quietly stops working the moment somebody warms the shot. It is also
+/// the only stage here that writes alpha rather than colour, so everything
+/// below it, premultiplication included, sees the layer the key left behind
+/// rather than the one the decoder handed over. A graded layer is graded in
 /// **straight** alpha — that is what the arithmetic is written against — and
 /// premultiplying is what turns the result into the form the rasteriser blends;
 /// grading a premultiplied pixel would scale the colour by its own transparency
@@ -53,6 +60,9 @@ pub struct CpuCompositor {
 /// the note saying the measurement was taken and what it measured.
 #[derive(Debug, Default)]
 struct Scratch {
+    /// The layer with its screen keyed out — straight RGBA, and the only
+    /// stage whose alpha differs from the source's. See [`chroma`].
+    keyed: Vec<u8>,
     /// The layer with its grade applied, still straight RGBA.
     graded: Vec<u8>,
     /// Colour channels multiplied by alpha, which is the form tiny-skia blends
@@ -117,28 +127,39 @@ fn draw(
     // Destructured so the two buffers can be borrowed at once: the graded copy
     // is read while the premultiplied one is written.
     let Scratch {
+        keyed,
         graded,
         premultiplied,
         blurred,
         aberrated,
     } = scratch;
+    // First, and on the colours the decoder produced: everything below this
+    // line changes what colour a pixel is, and the screen the key is aimed at
+    // is the one the camera recorded.
+    let key = layer.properties.chroma_key;
+    let source_bytes = chroma::into(keyed, layer.source.bytes(), key);
     // The grade runs on the layer's own pixels, before anything below moves
     // them: a vignette is measured from this rectangle's centre, and a
     // saturation is about these pixels rather than the canvas they land on.
     let straight: &[u8] = if layer.properties.grade.is_neutral() {
-        layer.source.bytes()
+        source_bytes
     } else {
         grade::into(
             graded,
-            layer.source,
+            source_bytes,
+            source_resolution,
             layer.properties.grade,
             layer.properties.grain_seed,
         );
         graded.as_slice()
     };
     // An opaque frame is already in the form the rasteriser wants; anything
-    // else has to be premultiplied first.
-    let source_bytes: &[u8] = if layer.source.is_opaque() {
+    // else has to be premultiplied first — and a keyed one is the second kind
+    // whatever the source was, since the key is what put the transparency
+    // there. Asking the *source* alone would send a keyed opaque plate to the
+    // rasteriser with its colours unscaled, which is the one bug this
+    // ordering can produce.
+    let source_bytes: &[u8] = if layer.source.is_opaque() && key.is_none() {
         straight
     } else {
         premultiply_into(premultiplied, straight);

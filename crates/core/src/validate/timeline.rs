@@ -29,6 +29,7 @@ pub(super) fn check(project: &Project) -> Vec<TimelineProblem> {
             }
             if let Some(asset) = check_reference(project, track, clip, &mut errors) {
                 check_source_range(project.timeline_fps, asset, clip, &mut errors);
+                check_chroma_key(asset, clip, &mut errors);
             }
             check_duration(clip, &mut errors);
             check_speed(clip, &mut errors);
@@ -143,6 +144,42 @@ fn check_crop(clip: &Clip, errors: &mut Vec<TimelineProblem>) {
                 .edges()
                 .map(|(field, value)| format!("{field} {value}"))
                 .join(", "),
+        });
+    }
+}
+
+/// A key is aimed at a colour a camera recorded, so two things about it can be
+/// decided from the document alone.
+///
+/// **What it is aimed at has to be a colour.** A key on a grey separates pixels
+/// by how bright they are, which is a luma key, which this model deliberately
+/// does not have — see [`crate::ChromaKey`] for why. Refused here rather than clamped
+/// where the pixels are, because "your screen colour is grey" is a sentence
+/// about the document and a silently ignored key is a render that looks wrong
+/// for no stated reason.
+///
+/// **And what it is applied to has to be footage.** `text`, `color`, `shape`
+/// and `icon` are drawn by this build with exactly the alpha the document asked
+/// for, so a key on one asks us to undo our own drawing. That is a stated
+/// impossibility, which is what separates it from the compositor's rule that an
+/// unknown property is ignored: that rule exists so a document written against
+/// a newer build still renders, and there is no newer build in which this
+/// means something.
+fn check_chroma_key(asset: &Asset, clip: &Clip, errors: &mut Vec<TimelineProblem>) {
+    let Some(key) = clip.chroma_key else {
+        return;
+    };
+    if !asset.kind.is_file_backed() {
+        errors.push(TimelineProblem::KeyedInlineAsset {
+            clip: clip.id.clone(),
+            asset: asset.id.clone(),
+            asset_kind: asset.kind,
+        });
+    }
+    if !key.is_keyable() {
+        errors.push(TimelineProblem::NeutralKeyColor {
+            clip: clip.id.clone(),
+            color: key.color,
         });
     }
 }
