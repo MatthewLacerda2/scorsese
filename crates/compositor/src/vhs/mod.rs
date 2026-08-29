@@ -218,3 +218,111 @@ pub(crate) fn into<'a>(
     }
     out.as_slice()
 }
+
+/// The two questions this file answers before any pixel is touched: is there a
+/// tape at all, and is this buffer one.
+///
+/// Here rather than in `tests/taping/` because both are decisions rather than
+/// effects — one of them, `mono` on its own, produces no picture to assert
+/// against through the compositor's copy path, which is exactly the case it
+/// exists to catch.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn raster() -> Resolution {
+        Resolution::new(8, 4).expect("a legal raster")
+    }
+
+    /// A tape nobody asked for is no tape, so a layer with the field left alone
+    /// costs this stage nothing at all — and **`mono` alone is a tape**, every
+    /// number neutral and the picture still changing, which is the one case a
+    /// reading of "are the numbers zero" gets wrong.
+    #[test]
+    fn a_neutral_tape_is_no_tape_and_mono_alone_is_one() {
+        assert!(Tape::new(Vhs::NONE, 1, raster()).is_none());
+        assert!(
+            Tape::new(
+                Vhs {
+                    mono: true,
+                    ..Vhs::NONE
+                },
+                1,
+                raster()
+            )
+            .is_some()
+        );
+        for vhs in [
+            Vhs {
+                chroma_bleed: 0.5,
+                ..Vhs::NONE
+            },
+            Vhs {
+                noise: 0.5,
+                ..Vhs::NONE
+            },
+            Vhs {
+                scanlines: 0.5,
+                ..Vhs::NONE
+            },
+            Vhs {
+                jitter: 0.5,
+                ..Vhs::NONE
+            },
+            Vhs {
+                head_switch: 0.5,
+                ..Vhs::NONE
+            },
+        ] {
+            assert!(Tape::new(vhs, 1, raster()).is_some(), "{vhs:?}");
+        }
+    }
+
+    /// The snow's three fields are three fields. Drawn from one seed they would
+    /// be one texture counted three times, which is not three textures — it is
+    /// one at three times the height, and the colour would fall on a single
+    /// axis instead of speckling.
+    #[test]
+    fn the_snow_s_three_fields_are_three_different_ones() {
+        let tape = Tape::new(
+            Vhs {
+                noise: 0.5,
+                ..Vhs::NONE
+            },
+            7,
+            raster(),
+        )
+        .expect("a tape");
+        let (blue, red) = tape.speckle.expect("a colour tape speckles");
+        let luma = tape.snow.expect("and lays snow");
+        assert_ne!(luma.at(3, 0.5), blue.at(3, 0.5));
+        assert_ne!(luma.at(3, 0.5), red.at(3, 0.5));
+        assert_ne!(blue.at(3, 0.5), red.at(3, 0.5));
+    }
+
+    /// Nothing to do is no work at all, and a buffer that disagrees with its
+    /// own resolution is somebody else's to refuse. The second half is the one
+    /// that matters: with the conditions joined the other way round, a
+    /// malformed layer would fall through to a loop that indexes off the end of
+    /// it.
+    #[test]
+    fn nothing_to_do_is_no_work_at_all() {
+        let source = vec![7; 8 * 4 * BYTES_PER_PIXEL];
+        let mut buffers = Buffers::default();
+
+        assert_eq!(into(&mut buffers, &source, raster(), None), &source[..]);
+        assert!(buffers.out.is_empty(), "no tape allocates nothing");
+
+        let tape = Tape::new(
+            Vhs {
+                scanlines: 1.0,
+                ..Vhs::NONE
+            },
+            1,
+            raster(),
+        );
+        let short = vec![7; 8 * BYTES_PER_PIXEL];
+        assert_eq!(into(&mut buffers, &short, raster(), tape), &short[..]);
+        assert!(buffers.out.is_empty(), "and neither does a malformed layer");
+    }
+}
