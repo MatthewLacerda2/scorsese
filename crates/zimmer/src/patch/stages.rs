@@ -450,8 +450,31 @@ pub struct PitchEnv {
 }
 
 /// Which side of the filter is kept.
+///
+/// **The spelling rule for every filter name in this crate lives here**, and
+/// it is deliberate rather than an oversight. `lowpass`, `highpass`,
+/// `bandpass`, `notch`, and — over in [`EqKind`] — `lowshelf`, `highshelf`
+/// and `peak` are written as **one word with no underscore**, which is the
+/// odd one out in a format that otherwise spells `detune_cents`, `gain_db`
+/// and `env_octaves` in snake_case.
+///
+/// The reason is not tradition. In prose the tradition writes *low-pass*, and
+/// both `lowpass` and `low_pass` render that into an identifier equally
+/// faithfully, so the tradition does not reach as far as the underscore. The
+/// reason is **reflex and precedent**: `lowpass` is what somebody arriving
+/// from any synthesiser types without thinking about it, and the Web Audio
+/// API — the most widely used audio API there is — spells all of these
+/// exactly this way. That is what a reader and a model already carry in
+/// memory, and a vocabulary that has to be looked up costs a round trip every
+/// single time it is written.
+///
+/// So these are terms imported from a domain that already spells them, and
+/// the inconsistency with the rest of the format is the accepted price. It
+/// buys one spelling of `low`/`high` + `pass` across the whole crate, which is
+/// the thing that was actually going wrong: the two surfaces used to disagree,
+/// and both parsers are strict, so every disagreement was a refusal.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "lowercase")]
 pub enum FilterKind {
     /// Keep what is below the cutoff: the darkening move.
     Lowpass,
@@ -549,8 +572,10 @@ pub const MAX_EQ_BANDS: usize = 8;
 /// Five, and they are the five a mix is actually made of. Two remove an end of
 /// the range outright and have no amount to ask for; three change how much of
 /// a region there is, and so read their `gain_db`.
+/// Spelled the way [`FilterKind`] is, and its doc carries the argument: one
+/// word, no underscore, on both surfaces.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "lowercase")]
 pub enum EqKind {
     /// Everything below the frequency goes — the first move any engineer makes
     /// on anything that is not the bass.
@@ -586,7 +611,7 @@ impl EqKind {
     /// should be reachable without the reader converting anything: the three
     /// kinds that work on the bottom default to the low crossover and the two
     /// that work on the top default to the high one. So
-    /// `{ "kind": "low_shelf", "gain_db": -3 }` reads as *take 3 dB off the
+    /// `{ "kind": "lowshelf", "gain_db": -3 }` reads as *take 3 dB off the
     /// thing the report just called low*.
     pub fn crossover(self) -> f32 {
         match self {

@@ -216,11 +216,20 @@ move** rather than a sound. A band's `kind` is one of:
 
 | `kind` | reads `gain_db`? | what it does |
 | --- | --- | --- |
-| `high_pass` | no | everything below `freq` goes |
-| `low_shelf` | yes | everything below `freq` moves by `gain_db`, together |
+| `highpass` | no | everything below `freq` goes |
+| `lowshelf` | yes | everything below `freq` moves by `gain_db`, together |
 | `peak` | yes | a bump or a dip centred on `freq`, `q` wide |
-| `high_shelf` | yes | everything above `freq` moves by `gain_db`, together |
-| `low_pass` | no | everything above `freq` goes |
+| `highshelf` | yes | everything above `freq` moves by `gain_db`, together |
+| `lowpass` | no | everything above `freq` goes |
+
+**Every filter name in this file is one word with no underscore** — `lowpass`,
+`highpass`, `bandpass`, `notch`, `lowshelf`, `highshelf`, `peak` — on an EQ band
+and on a patch's `filter` alike. That is the one place the format is not
+snake_case, and it is deliberate rather than an oversight: these are terms
+imported from a domain that already spells them this way, `lowpass` is what
+anybody arriving from a synthesiser types without thinking, and the Web Audio
+API spells all of them exactly so. Nothing else in a recipe follows this rule;
+`detune_cents`, `gain_db` and `env_octaves` are snake_case as usual.
 
 `q` is how narrow the band is — `0.7` is the gentle default, `2` is a
 noticeable notch, `8` is surgical — and it means the same thing for all five.
@@ -229,7 +238,7 @@ Two things are worth knowing before writing one:
 - **`freq` may be left out, and its default is the number the bake report
   splits at.** The three kinds that work on the bottom default to **250 Hz**
   and the two that work on the top default to **4 kHz**, so a report reading
-  `low 61%` is answered by `{ "kind": "low_shelf", "gain_db": -3 }` with no
+  `low 61%` is answered by `{ "kind": "lowshelf", "gain_db": -3 }` with no
   arithmetic in between. Spell `freq` out whenever the ear says somewhere else.
 - **`gain_db: 0.0` is a bypass**, exactly — a band at zero gain is not applied
   at all, so it is sample-identical to leaving it out. List the bands you are
@@ -1771,7 +1780,7 @@ gets into this state in the first place:
         "amp": { "a": 0.4, "d": 0.6, "s": 0.6, "r": 0.8, "curve": 3.0 }
       },
       "fx": [ { "fx": "eq", "bands": [
-        { "kind": "high_pass" },
+        { "kind": "highpass" },
         { "kind": "peak", "freq": 400, "gain_db": -4, "q": 1.2 }
       ] } ] }
   ],
@@ -1783,20 +1792,20 @@ gets into this state in the first place:
     ] }
   },
   "arrangement": ["chorus"],
-  "fx": [ { "fx": "eq", "bands": [ { "kind": "high_shelf", "gain_db": 2 } ] } ]
+  "fx": [ { "fx": "eq", "bands": [ { "kind": "highshelf", "gain_db": 2 } ] } ]
 }
 ```
 
 Four lines, and each one is a line of the report answered:
 
-- `{ "kind": "high_pass" }` on the pad, at its default 250 Hz — **the same
+- `{ "kind": "highpass" }` on the pad, at its default 250 Hz — **the same
   boundary the `low` column is measured at**. Everything the report counted as
   the pad's low share is gone, and the bottom of the piece is the sub's alone.
 - `{ "kind": "peak", "freq": 400, "gain_db": -4, "q": 1.2 }`, just above it. A
   high-pass leaves the 250–500 Hz box untouched and that is where a mix goes
   *boxy* rather than *boomy*; a moderate dip there is the second half of the
   same fix.
-- `{ "kind": "high_shelf", "gain_db": 2 }` on the song, at its default 4 kHz —
+- `{ "kind": "highshelf", "gain_db": 2 }` on the song, at its default 4 kHz —
   the boundary the `high` column is measured at. The summary said `high 8%`,
   and with the low end no longer crowded there is now room to hear the top.
 - Nothing moved a `gain`. The balance the piece was written with is the balance
