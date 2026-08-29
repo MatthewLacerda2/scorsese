@@ -88,6 +88,7 @@ pub(crate) mod text;
 pub(crate) mod time;
 pub(crate) mod timeline;
 pub(crate) mod validate;
+pub(crate) mod vhs;
 pub mod write;
 
 pub use asset::{
@@ -142,3 +143,4 @@ pub use validate::{
     AssetField, AssetProblem, IconProblem, ShapeProblem, SpeechProblem, TimelineProblem,
     ValidationError, ValidationErrors, VideoProblem,
 };
+pub use vhs::Vhs;

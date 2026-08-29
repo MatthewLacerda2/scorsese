@@ -14,6 +14,7 @@ use crate::compose::{CompositeError, Compositor, Layer};
 use crate::frame::{BYTES_PER_PIXEL, Frame};
 use crate::grade;
 use crate::properties::Properties;
+use crate::vhs::{self, Tape};
 
 /// Composites on the CPU.
 #[derive(Debug, Default)]
@@ -50,7 +51,14 @@ pub struct CpuCompositor {
 /// shift-invariant, and the aberration is locally a translation, so the two
 /// commute up to how much the displacement varies across one blur window.
 ///
-/// So it is ordered on what is easiest to reason about instead. Everything
+/// The tape comes last of the four, and that one is not a tie. Everything
+/// above it is what a camera did — the grade is what it saw, the blur is its
+/// focus, the aberration is its glass — and a tape is what *held* the result,
+/// so it goes over the finished picture rather than under it. It is also the
+/// only stage that moves whole rows sideways, so running anything after it
+/// would be filtering across a tear the filter knows nothing about.
+///
+/// So the middle two are ordered on what is easiest to reason about instead. Everything
 /// above this line answers *what colour is this pixel* — the grade from the
 /// pixel itself, the blur from its neighbourhood, both writing where they read.
 /// The aberration is the first stage that answers *which pixel*, and the
@@ -72,6 +80,9 @@ struct Scratch {
     blurred: blur::Buffers,
     /// The layer with its colour channels pulled apart — see [`aberration`].
     aberrated: Vec<u8>,
+    /// The layer as a tape held it, and the row buffers that took it there —
+    /// see [`vhs`].
+    taped: vhs::Buffers,
 }
 
 impl CpuCompositor {
@@ -132,6 +143,7 @@ fn draw(
         premultiplied,
         blurred,
         aberrated,
+        taped,
     } = scratch;
     // First, and on the colours the decoder produced: everything below this
     // line changes what colour a pixel is, and the screen the key is aimed at
@@ -189,6 +201,21 @@ fn draw(
         source_bytes,
         source_resolution,
         aberration::spread(layer.properties.aberration, source_resolution),
+    );
+    // Last, and premultiplied like the two above it: the tape smears colour
+    // along a row and displaces whole rows sideways, so it reads pixels it is
+    // not writing, and a transparent one has to contribute nothing rather than
+    // whatever colour it was stored as. The seed is what carries the frame into
+    // it, which is what makes the wobble move — see [`Properties::vhs_seed`].
+    let source_bytes = vhs::into(
+        taped,
+        source_bytes,
+        source_resolution,
+        Tape::new(
+            layer.properties.vhs,
+            layer.properties.vhs_seed,
+            source_resolution,
+        ),
     );
     let source = PixmapRef::from_bytes(
         source_bytes,

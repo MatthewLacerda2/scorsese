@@ -15,6 +15,7 @@ use crate::chroma::ChromaKey;
 use crate::grade::Grade;
 use crate::keyframe::KeyframeTrack;
 use crate::time::{Frames, Speed};
+use crate::vhs::Vhs;
 
 pub use placement::{Anchor, AnchorX, AnchorY, Crop, Fit, Origin, OriginX, OriginY};
 
@@ -271,6 +272,25 @@ pub struct Clip {
     /// Picture only, like the three above it. An audio clip has no pixels.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chroma_key: Option<ChromaKey>,
+    /// What tape this clip was recorded onto: the VHS look, as five numbers and
+    /// a mode. Absent — and `"vhs": {}` — is a picture no tape ever held.
+    ///
+    /// A **named effect with parameters**, which is the one shape that satisfies
+    /// both rules pulling at it: the generality rule, because every field is a
+    /// type with a neutral and none of them is a value somebody chose; and the
+    /// scope rule, because "make it look like VHS" is what a person with an idea
+    /// actually reaches for. [`Vhs`]'s own doc carries the argument in full, and
+    /// why this is neither one knob nor five loose ones.
+    ///
+    /// A field **and** five animatable properties, like [`Grade`]: `vhs.noise`,
+    /// `vhs.jitter` and the rest each take their one number over for the whole
+    /// clip when a track names them. [`Vhs::mono`] is not among them, because it
+    /// decides what the other five *mean*.
+    ///
+    /// Picture only. An audio clip has no pixels, and this says nothing about
+    /// one.
+    #[serde(default, skip_serializing_if = "Vhs::is_none")]
+    pub vhs: Vhs,
     /// Why this clip is the way it is. Never rendered — see [`super::Track::note`].
     ///
     /// The commonest place a note belongs, because most decisions are decisions
@@ -321,6 +341,7 @@ impl Clip {
             blur: 0.0,
             aberration: 0.0,
             chroma_key: None,
+            vhs: Vhs::NONE,
             keyframes: Vec::new(),
             note: None,
         }

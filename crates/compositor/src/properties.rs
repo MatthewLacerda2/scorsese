@@ -20,7 +20,7 @@
 //! rule is gone.
 
 use scorsese_core::{
-    ChromaKey, Clip, Easing, Frames, Grade, Keyframe, KeyframeTrack, PropertyPath,
+    ChromaKey, Clip, Easing, Frames, Grade, Keyframe, KeyframeTrack, PropertyPath, Vhs,
 };
 
 use crate::registry::Property;
@@ -111,6 +111,25 @@ pub mod path {
     /// for being part of a grade. That it also consults the frame is what makes
     /// it move, not what makes it something else.
     pub const GRAIN: &str = "grade.grain";
+    /// How far the tape smeared colour sideways, as a fraction of the layer's
+    /// own **width**. `0.0` none, `1.0` heaviest. Nothing at all in `mono`,
+    /// where there is no chroma path to smear.
+    pub const CHROMA_BLEED: &str = "vhs.chroma_bleed";
+    /// How much snow the tape laid over the layer. `0.0` none, `1.0` heaviest.
+    ///
+    /// The tape's noise rather than the emulsion's, and a clip may carry both:
+    /// this one speckles the colour differences as well as the luma, which is
+    /// what makes tape noise coloured where [`GRAIN`] is not.
+    pub const TAPE_NOISE: &str = "vhs.noise";
+    /// How dark the tape's alternate lines are. `0.0` none, `1.0` darkest.
+    pub const SCANLINES: &str = "vhs.scanlines";
+    /// How far the tracking wobbles, as a fraction of the layer's own
+    /// **width** — the one measurement here that is, because a row is
+    /// displaced along itself. `0.0` holds still.
+    pub const JITTER: &str = "vhs.jitter";
+    /// How torn the band at the bottom of the picture is, where the tape's
+    /// heads hand over. `0.0` leaves the bottom of frame alone.
+    pub const HEAD_SWITCH: &str = "vhs.head_switch";
 }
 
 /// What this compositor animates, and what animating it does.
@@ -194,6 +213,30 @@ pub const ANIMATED: &[Property] = &[
         path: path::GRAIN,
         describes: "how much grain is laid over the layer, strongest through the midtones",
     },
+    Property {
+        path: path::CHROMA_BLEED,
+        describes: "how far the tape smeared the layer's colour sideways, as a fraction of its \
+                    own width",
+    },
+    Property {
+        path: path::TAPE_NOISE,
+        describes: "how much snow the tape laid over the layer, on its colour as well as its \
+                    brightness",
+    },
+    Property {
+        path: path::SCANLINES,
+        describes: "how dark the tape's alternate lines are",
+    },
+    Property {
+        path: path::JITTER,
+        describes: "how far the tape's tracking wobbles the layer sideways, as a fraction of its \
+                    own width",
+    },
+    Property {
+        path: path::HEAD_SWITCH,
+        describes: "how torn the band at the bottom of the layer is, where the tape's heads \
+                    hand over",
+    },
 ];
 
 /// What a layer looks like at one instant.
@@ -258,6 +301,28 @@ pub struct Properties {
     /// happen while the layer is still a rectangle of its own rather than a
     /// contribution to somebody else's canvas.
     pub grade: Grade,
+    /// The tape this layer was recorded onto, applied after everything above.
+    ///
+    /// **Last, because it is the recorder.** The grade is what the camera saw,
+    /// the blur is its focus and the aberration is its glass; a tape is what
+    /// held the result, so it goes over the finished picture rather than under
+    /// it. It is also the only stage that displaces whole rows, which is the
+    /// other reason it is where it is — see [`crate::CpuCompositor`]'s scratch.
+    pub vhs: Vhs,
+    /// Where this layer's tape noise, wobble and tear start, at this instant.
+    ///
+    /// **This is how the frame index reaches the tape**, and it is
+    /// [`Properties::grain_seed`]'s argument a second time: a compositor draws
+    /// one moment and animates nothing itself, so time reaches it only through
+    /// this struct. The tape needs it more than the grade does — the wobble and
+    /// the tear vary over time as well as down the picture, so both would be
+    /// still pictures without it.
+    ///
+    /// **Zero unless there is a tape**, for the reason the grain's seed is zero
+    /// unless there is grain: a seed nothing reads says nothing about the layer,
+    /// and resolving one anyway would make two instants of an untaped clip
+    /// compare unequal over a number neither of them uses.
+    pub vhs_seed: u64,
     /// Where this layer's grain starts, at this instant — the noise field's
     /// seed, and nothing an author writes.
     ///
@@ -292,6 +357,8 @@ impl Default for Properties {
             aberration: 0.0,
             chroma_key: None,
             grade: Grade::NEUTRAL,
+            vhs: Vhs::NONE,
+            vhs_seed: 0,
             grain_seed: 0,
         }
     }
@@ -318,6 +385,7 @@ impl Properties {
                 blur: clip.blur,
                 aberration: clip.aberration,
                 chroma_key: clip.chroma_key,
+                vhs: clip.vhs,
                 ..Self::default()
             },
             &clip.keyframes,
@@ -377,6 +445,11 @@ impl Properties {
                 path::CONTRAST => properties.grade.contrast = value,
                 path::VIGNETTE => properties.grade.vignette = value,
                 path::GRAIN => properties.grade.grain = value,
+                path::CHROMA_BLEED => properties.vhs.chroma_bleed = value,
+                path::TAPE_NOISE => properties.vhs.noise = value,
+                path::SCANLINES => properties.vhs.scanlines = value,
+                path::JITTER => properties.vhs.jitter = value,
+                path::HEAD_SWITCH => properties.vhs.head_switch = value,
                 _ => {}
             }
         }
@@ -385,6 +458,15 @@ impl Properties {
         // grain, so a layer without any stays exactly its own defaults.
         if properties.grade.grain > 0.0 {
             properties.grain_seed = crate::grain::seed(clip, t);
+        }
+        // And the same again for the tape. The same instant's seed, and a
+        // separate field of this struct because either effect can be present
+        // without the other — a tape reading the grain's seed would be a tape
+        // that only wobbled on graded clips. What keeps a clip carrying both
+        // from wearing one speckle twice is `grain::field`, which the tape
+        // splits this into on the way in.
+        if !properties.vhs.is_none() {
+            properties.vhs_seed = crate::grain::seed(clip, t);
         }
         properties
     }
@@ -445,6 +527,12 @@ impl Properties {
             // and the copy path would hand the screen straight through, fully
             // opaque, with the key silently doing nothing at all.
             && self.chroma_key.is_none()
+            // And a taped layer is not its own pixels, for the same reason
+            // again: a plate carrying nothing but a `vhs` satisfies every other
+            // line here, so leaving it out would copy the source through and
+            // render the whole look away on exactly the clips it costs least to
+            // apply to.
+            && self.vhs.is_none()
             // A graded layer is not its own pixels, which is the whole point of
             // grading it. Left out, the copy path below would hand the ungraded
             // source straight to the canvas and the grade would silently do
