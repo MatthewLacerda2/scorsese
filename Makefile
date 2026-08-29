@@ -204,7 +204,7 @@ NEXTEST_CHECK = command -v cargo-nextest >/dev/null 2>&1 || { \
 # `app/`, so without it make sees the target as already built and `make app`
 # prints "up to date" without running a thing. A check that silently does
 # nothing is worse than no check.
-.PHONY: help setup gates pre-commit target-dir inventory $(GATES) app-gates release format-fix mcp-table coverage mutants mutants-status mergeable
+.PHONY: help setup gates pre-commit target-dir inventory $(GATES) app-gates release format-fix mcp-table coverage mutants mutants-status mergeable queue
 
 ##@ Everyday
 
@@ -410,6 +410,20 @@ mergeable: ## Did CI really run on this PR's head? make mergeable PR=171
 		echo "mergeable: which pull request? e.g. make mergeable PR=171" >&2; \
 		exit 1; }
 	@python3 .github/scripts/mergeable.py $(PR)
+
+# The same question in a loop, with the rebase and the waiting done for you.
+# Merging stays serialized — this merges one branch at a time, in the order
+# given, and asks `mergeable` about every one of them before it does. What it
+# removes is an agent sitting through twenty cold CI runs holding worktrees
+# open; what it never does is resolve a conflict, build anything locally, or
+# look at the mutation signal. The script's docstring has the reasoning, the
+# measurement behind it, and what it deliberately leaves for a human to clean
+# up afterwards.
+queue: ## Rebase, wait for CI and merge each in turn. make queue PRS="486 488"
+	@test -n "$(PRS)" || { \
+		echo "queue: which pull requests? e.g. make queue PRS=\"486 488\"" >&2; \
+		exit 1; }
+	@python3 .github/scripts/merge-queue.py $(PRS)
 
 ##@ Signals — informational, never a merge gate
 
