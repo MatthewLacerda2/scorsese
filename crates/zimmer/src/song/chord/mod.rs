@@ -111,7 +111,7 @@ pub struct Chord {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub articulation: Option<Articulation>,
     /// Play the voices one at a time, in this order, rather than all at once —
-    /// see [`arp`] for the three words and what each of them walks. Absent is a
+    /// see [`Arp`] for the three words and what each of them walks. Absent is a
     /// block chord, which is what every chord written before this field existed
     /// was.
     ///
