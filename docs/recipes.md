@@ -816,8 +816,8 @@ hundreds of lines, and every edit becomes a merge conflict with itself.
 An entry in `notes` is one of four things, told apart by which field it
 carries: **a note** (`note`), **a degree** of the song's key (`degree`), **a
 chord** (`chord`), or **a step string** (`steps`). The last three are the
-subject of this section and the two after it; an entry carrying two of the four
-is refused rather than read as whichever one tolerated it.
+subject of this section and two of those below it; an entry carrying two of the
+four is refused rather than read as whichever one tolerated it.
 
 Here are two bars of `Dm7 – Gm7 – A7` written both ways. First, one pitch at a
 time:
@@ -912,6 +912,94 @@ refused rather than ignored.
 performance, so a chord picks up [swing and humanise](#playing-it-rather-than-clocking-it)
 one voice at a time and does not land as a perfectly simultaneous block — which
 is a real part of sounding played, and free.
+
+### Playing a chord instead of stating it
+
+Everything above is a chord *stated* — every voice at once, for the length of
+the entry. Add `arp` and the same entry is that chord **played**: one voice at
+a time, as a figure that repeats until the chord is over. A plucked ostinato
+under a four-chord loop is four entries rather than thirty-two notes.
+
+```json fields
+"tracks": [{ "name": "pluck", "patch": {
+  "source": { "kind": "karplus", "damping": 0.994, "brightness": 0.45 },
+  "amp": { "a": 0.001, "d": 0.4, "s": 0.0, "r": 0.2 } } }],
+"patterns": { "a": { "beats": 16, "notes": [
+  { "track": "pluck", "chord": "Dadd9", "oct": 3, "start": 0,  "dur": 4, "arp": "up", "div": 0.5 },
+  { "track": "pluck", "chord": "Bm7",   "oct": 3, "start": 4,  "dur": 4, "arp": "up", "div": 0.5 },
+  { "track": "pluck", "chord": "Gmaj7", "oct": 2, "start": 8,  "dur": 4, "arp": "up", "div": 0.5 },
+  { "track": "pluck", "chord": "A",     "oct": 3, "start": 12, "dur": 4, "arp": "up", "div": 0.5 }
+] } },
+"arrangement": ["a"]
+```
+
+That is the thing worth stating plainly, because it has already gone wrong
+once: without this notation the same part gets written as a **pedal** — one
+pitch through a `steps` string, on a melodic track, in a document whose own
+rules say `steps` is not for that. It is what the format made cheap, and a
+listener heard it as somebody fretting one string and playing it over and over.
+Notation that costs thirty times more than the wrong thing beside it does not
+get used.
+
+| field | means |
+| --- | --- |
+| `arp` | the order the voices are walked: `up`, `down`, `up_down` |
+| `div` | how long one step of the figure is, in beats. Required beside an `arp` |
+| `dur` | how long the **chord** lasts — the slot the figure fills and repeats in |
+| `gate` | how long one note of the figure sounds. Absent means one step |
+
+**Three words, and no fourth.** `up` is the voices low to high, `down` is that
+reversed, and `up_down` turns without playing either end twice — `Dm7` is
+`D3 F3 A3 C4 A3 F3`, then round again. A written index sequence (`"0 2 1 2"`)
+is a second way to write a note list and can name a voice the chord has not
+got; `random` cannot be read at all, which is the objection that keeps
+Euclidean rhythms out of `steps`; and `as_played` would be a synonym for `up`,
+since the voices arrive in the order the page wrote them.
+
+**It orders the voices, it never invents one.** Every pitch an arpeggio plays
+is a pitch the chord already spelled — by name, or as a list when no name fits,
+and a spelled list arpeggiates in the order it was written rather than being
+sorted behind your back.
+
+**`dur` says whether it is an ostinato or a strum**, so there is no fourth word
+for that either. The figure repeats until the chord is over and truncates
+wherever that lands, so a chord as long as the harmony is an ostinato and a
+chord exactly one traversal long plays its voices once and stops:
+
+```json fields
+"tracks": [{ "name": "harp", "patch": {
+  "source": { "kind": "karplus", "damping": 0.996, "brightness": 0.5 },
+  "amp": { "a": 0.001, "d": 0.8, "s": 0.0, "r": 0.4 } } }],
+"patterns": { "a": { "beats": 8, "notes": [
+  { "track": "harp", "chord": "Cmaj9", "oct": 3, "start": 0, "dur": 1.25,
+    "arp": "up", "div": 0.25, "gate": 3 },
+  { "track": "harp", "chord": ["G2", "D3", "G3", "B3", "D4", "F#4"], "start": 4,
+    "dur": 1.5, "arp": "up", "div": 0.25, "gate": 3 }
+] } },
+"arrangement": ["a"]
+```
+
+Truncation is deliberate: a triad in eighths over four beats is `1 2 3 1 2 3
+1 2`, which is what an arpeggiator has always done. A step string is refused
+when it does not fill its bar because the count is written down twice and the
+redundancy catches a typo — an arpeggio writes it once, so a mismatch is not
+evidence of anything and refusing it would only force `div` gymnastics around a
+three-note chord.
+
+**`gate` is the other half of a figure's sound.** One step is the default, the
+same one a step string's absent `dur` gives, and it is right for anything
+plucked. A gate longer than the step is how an arpeggio on a sustaining patch
+accumulates into the chord it came from — which is what the two entries above
+are doing, and it is why they read as rolled chords rather than as runs.
+
+`div` and `gate` mean nothing without an `arp` and are refused beside a chord
+that does not carry one, the same way `oct` is refused beside spelled pitches.
+
+**Each note is a note from there on**, so a figure picks up
+[swing and humanise](#playing-it-rather-than-clocking-it) and an
+[articulation](#saying-how-a-note-is-played) exactly as the notes it stands for
+would — one at a time, and free, because expansion happens before the
+performance.
 
 ### Writing a rhythm as a rhythm
 
@@ -2076,7 +2164,13 @@ exactly what nothing downstream can notice.
 
 - **[Chords](#writing-a-chord-as-a-chord)** — a name off the quality table, a
   chord voiced past either end of the keyboard, an empty list of pitches, and
-  `oct` written beside a chord that spelled its pitches out.
+  `oct` written beside a chord that spelled its pitches out. An
+  **[arpeggio](#playing-a-chord-instead-of-stating-it)** adds five: an `arp`
+  with no `div`, a `div` or a `gate` that is not a positive number of beats, a
+  `div` longer than the chord it divides so that nothing sounds, a figure of
+  more than 4096 notes — which is a texture rather than a figure, and an
+  allocation nobody meant — and either of those two fields written on a chord
+  that carries no `arp` at all.
 - **[Step strings](#writing-a-rhythm-as-a-rhythm)** — a character that is not
   `x`, `X` or `-`, a string whose length is not the length its grid needs, a
   `div` no whole number of steps fits the slot with, both cases used beside
