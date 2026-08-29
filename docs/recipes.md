@@ -1322,20 +1322,22 @@ written over one note. Any entry may carry one, in any of the four forms:
     { "track": "t", "note": "E2", "start": 0,    "dur": 1,   "vel": 0.7, "articulation": "accent" },
     { "track": "t", "note": "E2", "start": 0.75, "dur": 0.25, "vel": 0.7, "articulation": "ghost" },
     { "track": "t", "note": "B2", "start": 1,    "dur": 1,   "vel": 0.7, "articulation": "staccato" },
-    { "track": "t", "note": "E2", "start": 2,    "dur": 2,   "vel": 0.7 }
+    { "track": "t", "note": "E2", "start": 2,    "dur": 1,   "vel": 0.7 },
+    { "track": "t", "note": "E3", "start": 3,    "dur": 1,   "vel": 0.7, "articulation": "glide" }
   ] } }
 ```
 
-Three marks, and that is the whole set:
+Four marks, and that is the whole set:
 
 | mark | the player | what it moves |
 | --- | --- | --- |
 | `accent` | leans on it | velocity ×1.3, **and** the brightness with it |
 | `staccato` | stops it short | the gate, to half the written `dur` — which stays written |
 | `ghost` | barely plays it | velocity ×0.35, gate ×0.4, duller, and 12 ms early |
+| `glide` | slides into it | the pitch: it starts on the previous note of the track and arrives over 60 ms |
 
-**Named rather than spelled as numbers**, which is the point of the field. Each
-of the three is a combination the document could write itself — a smaller `vel`,
+**Named rather than spelled as numbers**, which is the point of the field. Three
+of the four are a combination the document could write itself — a smaller `vel`,
 a shorter `dur` — and then nothing would record that it was a *ghost*, every
 ghost in the piece would be a slightly different one, and changing what a ghost
 means would be an edit to every note that is one.
@@ -1361,6 +1363,7 @@ voice or a hit played differently from the rest is a note written beside it.
 | gate | `dur` × the mark; `swing` never touched `dur` either |
 | brightness | the mark's offset plus `humanize`'s, both fractions of the velocity actually played |
 | onset | `swing`, then the mark, then `humanize` |
+| pitch | both of an entry's transposes, and a `glide` then slides in from where the previous note sat **after** them |
 
 `humanize` is last every time, because it is the error term: it scatters a
 decision and never overrules one. And the mark is inside it — an accented note
@@ -1386,12 +1389,33 @@ the same rule `humanize` lives by, and the reason a piece with dynamics writes
 its notes below `1.0`. It is not refused, because a `vel` of 1 under a
 `"vel_scale": 0.6` has all the room it needs.
 
-**Glide is not here**, and it is the one that is missed. A portamento up into a
-note is what a bassline is half made of, and it is the only articulation with
-real signal processing behind it: it needs the pitch of the *previous* note on
-the track, where everything else here is a property of the note itself. That is
-a change to how the renderer is built rather than a fourth word, so it is its
-own piece of work.
+**What a glide slides from**, since it is the one mark whose effect is not a
+property of the note it is written over. The pitch it starts on belongs to the
+note before it, and which note that is is decided rather than left to fall out
+of how the document happens to have been typed:
+
+- **The note that last *started* on the same track** — in time, not in the
+  order the entries are written. Reordering a `notes` array changes nothing
+  about the music today, and a glide does not become the exception.
+- **Notes that start together are one moment.** A chord's voices each slide
+  from whatever preceded the chord rather than from each other, and the line
+  goes on from the top voice. A chord marked `glide` therefore arrives from one
+  pitch and opens out into its voicing — a real gesture, but not the parallel
+  slide of a hand moving a shape up the neck, which is not writable here.
+- **A note the arrangement silenced still counts.** A `tracks` filter drops a
+  note from what you hear and never from what was played, so muting eight bars
+  cannot change how the ninth is played — and rendering a window of a song
+  gives the notes inside it exactly the slides the whole piece would have.
+- **The gap does not matter.** A glide slides from the previous note however
+  long ago it stopped. It is not the legato mode of a mono synth, which would
+  put the meaning of one note's mark inside another note's `dur` — shortening
+  the note before it would silently switch the slide off. The only note that
+  cannot slide is the first one on its track: it has nothing to slide from, and
+  is played exactly as written.
+
+The slide itself takes **60 ms**, or half the note when the note is shorter than
+120 ms, so even a sixteenth arrives on its written pitch with time to spare.
+Fixed rather than a number per note, for the reason the other three are fixed.
 
 ### Where a part sits
 
