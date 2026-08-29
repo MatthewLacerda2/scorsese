@@ -13,6 +13,7 @@
 mod common;
 
 mod fitting;
+mod grain;
 mod icons;
 mod output;
 mod partial;

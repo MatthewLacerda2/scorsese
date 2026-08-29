@@ -94,6 +94,48 @@ Neither alone is enough and each catches what the other waves through;
 platform's x264 and far tighter than any real regression — red against blue
 scores 0.70 and 169.
 
+## What this gate cannot hold: a picture made of noise
+
+Both measures above assume a picture the encoder reproduces. **Grain breaks that
+assumption**, and it breaks it in a way that cannot be tuned around, so a
+committed reference of a grained frame is not a fixture anybody should add.
+
+Measured, at 64×64 and `-crf 18`, encoding the same noisy frames at two very
+different x264 presets — a smaller perturbation than two x264 *versions*:
+
+| noise | worst-block SSIM | mean error |
+| --- | --- | --- |
+| σ ≈ 2 | 0.985 | 0.76 |
+| σ ≈ 4 | 0.954 | 1.09 |
+| σ ≈ 8 | 0.949 | 1.4 |
+
+The SSIM column is the problem, and the reason is structural rather than
+incidental: on a flat plate under noise the whole of a block's variance *is* the
+noise, so the structure term collapses to how well two encoders happened to
+agree about it. It sits at the 0.95 bar in the direction that must pass. It sits
+there in the other direction too — a frame whose grain had vanished entirely
+scores about the same — so widening the tolerance does not buy a working gate,
+it buys one that accepts everything. And the light grain that would keep SSIM
+comfortable is a grain x264 deletes outright: at σ ≈ 3 on a flat plate, a P
+frame came back **bit-identical to the ungrained plate**.
+
+So grain, and anything else whose output is fine noise, is pinned where the
+claim can be exact instead:
+
+- **`crates/compositor/tests/grading/grain.rs`** — the pixels themselves, before
+  an encoder has seen them: the same seed twice, a frame drawn alone against the
+  same frame drawn after five others, one value on all three channels.
+- **`crates/render/tests/pipeline/grain.rs`** — through a real render, in the
+  two places a whole file is what is being claimed about: two renders of one
+  project extract to identical frames, and a `--range` out of the middle of a
+  timeline lands the same grain on the same timeline frame. The second compares
+  *distances* rather than colours, because a ten-frame encode and a thirty-frame
+  one legitimately differ.
+
+This is not a hole in the pixel gate so much as its edge, written down. The
+fixtures here are flat synthetic colour, which is what makes their tolerances
+mean what they say.
+
 ## The decoder, which sits upstream of all of that
 
 "Frames are ours to assert on" is a claim about the **encoder** at the end of a
