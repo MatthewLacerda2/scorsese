@@ -66,6 +66,13 @@
 //! a composite retro look shifts channels through this rather than growing a
 //! second one.
 //!
+//! `chroma` is the only thing in this crate that decides whether a pixel is
+//! *there*: a screen colour, a distance from it, and the alpha that follows.
+//! It runs before the grade rather than after, because grading first moves the
+//! screen's colour and the key then misses it. Callable in its own right, so a
+//! composite look that has to cut something out builds a `Keyer` rather than
+//! growing a second answer to what green is.
+//!
 //! `grain` is the one operation in the grade that is not a function of the
 //! pixel alone: film-like noise, hashed from the clip, the frame and the pixel
 //! so that it moves without a generator and so that a frame can be drawn by any
@@ -114,6 +121,7 @@ mod aberration;
 mod area;
 mod blur;
 pub mod card;
+mod chroma;
 mod compose;
 mod cpu;
 pub mod dissolve;

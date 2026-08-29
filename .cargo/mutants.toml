@@ -297,6 +297,25 @@ exclude_re = [
     # `unit` is called on one.
     'replace \|\| with && in unit',
 
+    # `chroma::sane` turns anything that is not a distance into zero:
+    # `if value.is_nan() || value < 0.0 { 0.0 } else { value }`. Widening to
+    # `<=` changes which branch a value of exactly zero takes and nothing else —
+    # and both branches hand back zero. The only trace the two could leave is
+    # the *sign* of it: `<` returns the `-0.0` it was given, `<=` returns
+    # `0.0`.
+    #
+    # Measured rather than argued, because the sign of zero is exactly the kind
+    # of thing that reasoning gets wrong. A keyer built with `-0.0` for both its
+    # tolerance and its softness and one built with `0.0` were run over 614,125
+    # pixels spanning the whole 8-bit cube, despill on: every byte out is
+    # identical, and `sane(-0.0).is_sign_negative()` confirmed the two branches
+    # really were the ones being compared. There is no input that tells them
+    # apart, so no test is owed one.
+    #
+    # Line-qualified to this function: the same widening elsewhere is a
+    # boundary somebody can stand on, and this entry must not swallow it.
+    'replace < with <= in sane',
+
     # `shape::closed::bounds` refuses a size that could not describe a rectangle —
     # zero, negative, or not a number — with
     # `!w.is_finite() || !h.is_finite() || w <= 0.0 || h <= 0.0`, and then hands

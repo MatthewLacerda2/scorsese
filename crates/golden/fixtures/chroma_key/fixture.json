@@ -1,0 +1,8 @@
+{
+  "description": "A green screen with a subject on it, keyed out over a blue bed, with spill suppression on. The plate is `#00b140` everywhere except a large block the screen has bounced green onto -- `#78be78`, which is what a lit edge facing a screen actually looks like -- with a neutral `#d8d0c8` core inside it that the bounce never reached. Expect blue everywhere the screen was, the core standing untouched, and the block around it coming back at about `(155, 179, 131)`: still light, no longer green. The block is deliberately half the frame rather than a rim a few pixels wide, and that is a measurement rather than a preference -- at rim width the despill moves the mean error by a fifth of a level and this gate cannot see it at all. What a wrong render looks like: any green left on the frame means the key did not run, which is what the copy path does to a layer nothing else has touched; a fully blue frame means the tolerance ate the subject as well as the screen; the block still at `#78be78` means the key ran and the suppression did not; a block that came back grey but visibly darker than it went in means the despill pulled the green down without putting the luma back, which is the grey rim it exists to avoid. This is a fixture the pixel gate can hold and grain could not: what a key produces is a boundary between two solid colours, which is structure -- see docs/golden-renders.md for the measurement.",
+  "media": {
+    "plate": "color=c=0x00b140:s=192x108,format=rgb24,drawbox=x=32:y=14:w=128:h=80:color=0x78be78:t=fill,drawbox=x=64:y=32:w=64:h=44:color=0xd8d0c8:t=fill"
+  },
+  "render": { "resolution": "192x108", "fps": "30" },
+  "frames": [0]
+}

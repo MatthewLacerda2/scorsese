@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 pub(crate) mod placement;
 
 use crate::asset::AssetId;
+use crate::chroma::ChromaKey;
 use crate::grade::Grade;
 use crate::keyframe::KeyframeTrack;
 use crate::time::{Frames, Speed};
@@ -247,6 +248,29 @@ pub struct Clip {
     /// one.
     #[serde(default, skip_serializing_if = "is_achromatic")]
     pub aberration: f64,
+    /// Which of this clip's pixels are not there: the screen colour to key
+    /// out, how far from it still counts as screen, how soft the edge is, and
+    /// whether the screen's bounce is pulled back off the subject. Absent —
+    /// and it is absent on almost every clip — is a picture whose only alpha is
+    /// the alpha it arrived with.
+    ///
+    /// **An `Option` where a [`Grade`] is a struct**, because absence is the
+    /// only neutral a key has: it needs a colour, and no colour means "do not
+    /// key". A key that is present is a key that is doing something.
+    ///
+    /// **The first thing that happens to the pixels**, before the grade and so
+    /// before anything else: grading first shifts the screen's colour and the
+    /// key then misses it. See [`ChromaKey`] for what the four values are and
+    /// `docs/project-format.md` for what to write.
+    ///
+    /// **Footage only, and validation says so.** `text`, `color`, `shape` and
+    /// `icon` are drawn by this build with exactly the alpha the document asked
+    /// for, so keying one is asking us to undo our own drawing — a stated
+    /// impossibility rather than a thing a newer build might mean.
+    ///
+    /// Picture only, like the three above it. An audio clip has no pixels.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chroma_key: Option<ChromaKey>,
     /// Why this clip is the way it is. Never rendered — see [`super::Track::note`].
     ///
     /// The commonest place a note belongs, because most decisions are decisions
@@ -296,6 +320,7 @@ impl Clip {
             grade: Grade::NEUTRAL,
             blur: 0.0,
             aberration: 0.0,
+            chroma_key: None,
             keyframes: Vec::new(),
             note: None,
         }

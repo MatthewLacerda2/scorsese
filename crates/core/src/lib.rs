@@ -68,6 +68,7 @@
 pub(crate) mod asset;
 pub mod authoring;
 pub(crate) mod baseline;
+pub(crate) mod chroma;
 pub(crate) mod color;
 pub mod dip;
 pub(crate) mod grade;
@@ -99,6 +100,7 @@ pub use asset::{
 // about what it sets.
 pub use authoring::{AuthorError, Edit, Inline, Lane};
 pub use baseline::{Baseline, fingerprint_of};
+pub use chroma::{ChromaKey, MIN_KEY_SPREAD};
 pub use color::{ColorError, Rgba};
 pub use dip::{Dip, Ducked, Under, duck_track};
 pub use grade::Grade;

@@ -85,6 +85,8 @@ goldens!(
     blur_heavy,
     blur_soft,
     captioned,
+    chroma_key,
+    chroma_key_lit,
     crop,
     cuts,
     drawn_weight,

@@ -183,6 +183,49 @@ None of this weakens the section above. Grain is still unfixturable and this is
 still why: the question is never "is the effect subtle" but "is what it produces
 a thing an encoder reproduces", and noise and edges answer it differently.
 
+## And where it falls easily: a picture made of regions
+
+The two sections above are the hard cases. A **chroma key** is the easy one, and
+it is worth the paragraph because it shows which measure does the work.
+
+What a key produces is a *region* — a boundary between two solid colours, in a
+new place. That is the most reproducible thing an encoder handles, so the two
+`chroma_key` fixtures discriminate by more than an order of magnitude. Measured
+the same way as the two above, `-crf 18` at `ultrafast` against `veryslow`
+alongside what the gate scores with the effect taken away and the reference left
+in place:
+
+| the claim | encoder noise, two presets | with it removed |
+| --- | --- | --- |
+| `chroma_key`, the matte | 0.9981 / 0.43 | 0.7763 / **52.96** |
+| `chroma_key`, the despill alone | 0.9981 / 0.43 | 0.9917 / **7.17** |
+| `chroma_key_lit`, the matte | 0.9707 / 0.18 | 0.6017 / **61.37** |
+| `chroma_key_lit`, against an RGB keyer | 0.9707 / 0.18 | 0.6009 / **34.90** |
+
+Worst-block SSIM and mean error again; the bars are 0.95 and 2.0. The last row
+is not the effect removed but the effect *implemented wrongly* — a keyer
+measuring distance in RGB rather than with the light divided out, which keys the
+lit third of that fixture's screen and leaves the other two thirds standing.
+That is the bug the fixture exists for, and it is caught as loudly as no key at
+all.
+
+**The second row is the one worth reading.** SSIM does not catch the despill —
+0.9917, comfortably inside a 0.95 bar — because a despill changes what a region
+*is* without moving where it is, and structure is exactly what SSIM measures.
+The mean error catches it three and a half times over. That is the two-measure
+rule paying for itself rather than being asserted: neither number alone is a
+gate, and here it is the one grain and aberration were both judged on that says
+nothing at all.
+
+**It is also why that fixture's spilled block is half the frame.** At the width
+a spill rim actually is — six pixels around a block — the same removal moved the
+mean error by 0.83, inside the bar, and the fixture asserted the matte while
+looking as though it asserted the suppression too. A mean is a mean over the
+whole frame, so an effect confined to a thin border has to be given area before
+this gate can see it, exactly as an aberration has to be given width. Both are
+the same rule wearing different clothes: **make the fixture exaggerate whatever
+the gate measures the effect by**, and say in the description that it does.
+
 ## The decoder, which sits upstream of all of that
 
 "Frames are ours to assert on" is a claim about the **encoder** at the end of a

@@ -11,6 +11,7 @@ mod fields;
 mod generated;
 mod icon;
 mod keyframes;
+mod keying;
 mod paths;
 mod references;
 mod shape;
