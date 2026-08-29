@@ -236,3 +236,6 @@ pub(super) fn report(said: &mut Vec<Unpaintable>, wanted: String) {
         said.push(note);
     }
 }
+
+#[cfg(test)]
+mod tests;
