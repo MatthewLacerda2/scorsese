@@ -84,11 +84,34 @@ fn choose(cluster: &str, faces: usize, covers: &impl Fn(usize, char) -> bool) ->
 pub(super) fn clusters(text: &str) -> Vec<Range<usize>> {
     let mut found: Vec<Range<usize>> = Vec::new();
     let mut previous = '\0';
+    // How many regional indicators the cluster in progress already holds.
+    // Counted rather than merely detected, because **a flag is exactly two of
+    // them**: `🇧🇷🇵🇹` is Brazil and Portugal, and a rule that only asked
+    // whether the neighbour was one as well would run all four into a single
+    // cluster that no face has a glyph for and no line may break inside.
+    let mut regionals = 0usize;
     for (at, character) in text.char_indices() {
         let end = at + character.len_utf8();
+        let continues = if is_regional(character) {
+            is_regional(previous) && regionals % 2 == 1
+        } else {
+            extends(previous, character)
+        };
         match found.last_mut() {
-            Some(last) if extends(previous, character) => last.end = end,
-            _ => found.push(at..end),
+            Some(last) if continues => {
+                last.end = end;
+                // Anything else in the cluster ends the pair: a flag's two
+                // letters are adjacent or they are not a flag.
+                regionals = if is_regional(character) {
+                    regionals + 1
+                } else {
+                    0
+                };
+            }
+            _ => {
+                found.push(at..end);
+                regionals = usize::from(is_regional(character));
+            }
         }
         previous = character;
     }
@@ -100,6 +123,11 @@ pub(super) fn clusters(text: &str) -> Vec<Range<usize>> {
 /// Everything here is a character that has no standing of its own — it modifies,
 /// joins or selects a presentation for what it follows — so putting a run
 /// boundary in front of one would separate a mark from the thing it marks.
+///
+/// Regional indicators are **not** here, and that is the reason this takes only
+/// the character before it. They pair, and pairing is a fact about how many
+/// have been seen rather than about the neighbour — so [`clusters`] counts
+/// them and this stays stateless.
 fn extends(previous: char, character: char) -> bool {
     // After a joiner comes the thing being joined, whatever it is: that is the
     // one rule that makes 👨‍👩‍👧 a single cluster rather than three.
@@ -108,7 +136,6 @@ fn extends(previous: char, character: char) -> bool {
         || is_ignorable(character)
         || is_combining(character)
         || matches!(character, '\u{1f3fb}'..='\u{1f3ff}')
-        || (is_regional(previous) && is_regional(character))
 }
 
 /// Zero-width joiner: the character that makes several emoji into one.
@@ -216,6 +243,52 @@ mod tests {
                 range: 0..1
             }]
         );
+    }
+
+    /// The cluster rules asserted on [`clusters`] directly, because
+    /// [`split`] cannot see them.
+    ///
+    /// A run is a *maximal* stretch on one face, so neighbouring clusters that
+    /// chose the same face are merged into one run — and an emoji sequence
+    /// chooses the same face all the way through by construction. So every
+    /// assertion above about a sequence being one run passes whether the
+    /// clustering worked or not, and the mutation report is where that showed:
+    /// `is_regional` returning `false` and the joiner arm of [`extends`] both
+    /// survived every test in this file.
+    ///
+    /// It is not a cosmetic gap. Clustering is what [`super::layout`] breaks a
+    /// line on, so a rule that quietly stopped working would put a flag's two
+    /// halves — or a family and its joiner — on separate lines.
+    #[test]
+    fn a_flag_is_one_cluster_and_two_flags_are_two() {
+        // Regional indicators pair up, and only in pairs: four of them are two
+        // flags rather than one long one.
+        assert_eq!(clusters("🇧🇷").len(), 1);
+        assert_eq!(clusters("🇧🇷🇵🇹").len(), 2);
+        // And a lone one is a cluster of its own rather than joining the
+        // letter beside it.
+        assert_eq!(clusters("a🇧").len(), 2);
+    }
+
+    #[test]
+    fn a_joiner_takes_what_follows_it_into_the_cluster() {
+        // `👩` is neither ignorable nor combining nor a modifier, so the only
+        // reason it belongs with what came before is that a joiner preceded
+        // it. Three people joined are one cluster; the same three unjoined are
+        // three.
+        assert_eq!(clusters("👨\u{200d}👩\u{200d}👧").len(), 1);
+        assert_eq!(clusters("👨👩👧").len(), 3);
+    }
+
+    #[test]
+    fn a_skin_tone_and_a_mark_extend_the_cluster_they_follow() {
+        assert_eq!(clusters("👍🏽").len(), 1);
+        assert_eq!(clusters("e\u{301}").len(), 1);
+        assert_eq!(clusters("1\u{fe0f}\u{20e3}").len(), 1);
+        // Ordinary characters do not: two letters are two clusters, so the
+        // rules above are additions to a per-character default rather than a
+        // clustering that swallows everything.
+        assert_eq!(clusters("ab").len(), 2);
     }
 
     #[test]
