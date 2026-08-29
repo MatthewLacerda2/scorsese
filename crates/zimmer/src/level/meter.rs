@@ -252,3 +252,34 @@ impl Meter {
 fn ratio_to_dbfs(ratio: f64) -> f64 {
     20.0 * ratio.log10()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// **A meter never holds the signal**, which is the reason it is fed a run
+    /// at a time at all: a minute of stereo float is sixty megabytes to learn
+    /// three numbers. What it keeps between runs is a window on the seam — the
+    /// frames whose right-hand taps have not arrived, and the [`TAPS`] measured
+    /// frames that are their left-hand context — so twice the kernel's reach is
+    /// the ceiling, whatever it is fed and however often.
+    ///
+    /// Asserted from inside the module because the buffer is private and there
+    /// is no reason for it not to be. The invariant is real all the same: a
+    /// meter that quietly retained everything would report exactly the same
+    /// numbers and would make a long render run out of memory.
+    #[test]
+    fn a_meter_keeps_a_window_on_the_seam_and_never_the_signal() {
+        for channels in [1, 2] {
+            let mut meter = Meter::new(channels);
+            for _ in 0..20 {
+                meter.feed(&vec![0.5; 4_096]);
+                assert!(
+                    meter.recent.len() <= 2 * TAPS * channels,
+                    "{channels} channels held {} samples",
+                    meter.recent.len()
+                );
+            }
+        }
+    }
+}

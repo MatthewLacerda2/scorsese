@@ -127,3 +127,36 @@ fn a_mono_file_has_no_width_to_be_compared_against() {
         "and the fields both sides do have still compare"
     );
 }
+
+/// A threshold is a **strict** floor: a move of exactly the smallest amount
+/// that counts as nothing is still a move. A boundary belonging to neither
+/// side is how a change lands precisely on a limit and is reported as no
+/// change at all — and `is_nothing` is what a re-bake is judged by.
+#[test]
+fn a_move_of_exactly_the_threshold_is_still_a_move() {
+    let unmoved = Difference {
+        mean_db: Some(0.0),
+        peak_db: Some(0.0),
+        crest_db: Some(0.0),
+        bands: None,
+        correlation: Some(0.0),
+        seconds: 0.0,
+    };
+    assert!(unmoved.is_nothing(), "nothing moved at all");
+    // A hundredth of a decibel is where two levels stop being the same level,
+    // and half a hundredth of a unit is where two widths do.
+    assert!(
+        !Difference {
+            mean_db: Some(0.01),
+            ..unmoved
+        }
+        .is_nothing()
+    );
+    assert!(
+        !Difference {
+            correlation: Some(0.005),
+            ..unmoved
+        }
+        .is_nothing()
+    );
+}

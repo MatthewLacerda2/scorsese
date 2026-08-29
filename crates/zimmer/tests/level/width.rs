@@ -58,6 +58,28 @@ fn a_channel_against_its_own_negation_reads_as_cancelling() {
     assert!(read >= -1.0, "and never under the range it is defined on");
 }
 
+/// Half in common, and the arithmetic says exactly how much: the same tone in
+/// both ears with an octave added to one side. Over a whole number of periods
+/// the two partials are orthogonal, so `Σlr` and `Σl²` are both `N/2` while
+/// `Σr²` is `N`, and the answer is `1/√2` and nothing else.
+///
+/// The two readings either end of the range are both fixed points of the
+/// arithmetic — `+1` and `-1` come back out of a great many wrong formulas,
+/// and the clamp hands them back besides. A value in between is what says the
+/// normalisation is the one it claims to be.
+#[test]
+fn a_signal_half_in_common_reads_as_half_in_common() {
+    let fundamental = tone(440.0);
+    let octave = tone(880.0);
+    let buf = interleaved(48_000, &fundamental, |f| fundamental(f) + octave(f));
+    let read = correlation(&buf, 2).expect("two channels have a width");
+    let expected = 1.0 / 2.0f64.sqrt();
+    assert!(
+        (read - expected).abs() < 1e-4,
+        "half in common is {expected}, and read {read}"
+    );
+}
+
 /// Two tones that share no period have nothing in common, which is what `0`
 /// means — neither the same signal nor the opposite of it.
 #[test]
