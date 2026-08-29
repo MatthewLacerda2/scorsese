@@ -3,10 +3,12 @@
 
 `merge-queue.py` differs from `mergeable.py` in one respect and it is the one
 worth testing hardest: it is asked repeatedly, of a commit it pushed seconds
-ago, so "no run exists" starts out meaning *GitHub has not made one* and ends
-up meaning #153. Getting that backwards either refuses every branch it pushes
-or merges one nothing compiled, and the second is the failure this repo calls
-worse than a red gate.
+ago, so an **absence of evidence** — no run, or only runs that skipped
+everything — starts out meaning *GitHub has not caught up* and ends up meaning
+#153. Getting that backwards either refuses every branch it pushes or merges
+one nothing compiled, and the second is the failure this repo calls worse than
+a red gate. Only a red run is trusted immediately, because a failure is not
+eventually consistent and an absence demonstrably is.
 
 Tested by import, because the states are ones GitHub produces on its own
 schedule and no network test can arrange. Nothing here talks to `gh` or `git`.
@@ -67,7 +69,40 @@ class Polling(unittest.TestCase):
         # would hand back every single one of them.
         state, lines = asked(waited=1.0)
         self.assertEqual(state, queue.WAIT)
-        self.assertIn("not created one", " ".join(lines))
+        self.assertIn("nothing has built", " ".join(lines))
+
+    def test_a_listing_that_omits_the_live_run_is_absence_and_not_an_answer(self):
+        """Observed on 2026-08-29, on this branch, from this endpoint.
+
+        `actions/runs?head_sha=…` returned the commit's skipped draft run and
+        omitted its live one, seconds after `gh run list` had shown both. Read
+        literally that poll says nothing built the commit — the same thing a
+        draft's run says — and a queue without the grace would have handed back
+        a branch three minutes from green.
+        """
+        state, lines = asked(run(conclusion="skipped"), waited=1.0, jobs={})
+        self.assertEqual(state, queue.WAIT)
+        self.assertIn("nothing has built", " ".join(lines))
+
+    def test_that_grace_does_not_outlast_the_window(self):
+        # Past it, a commit whose every run skipped everything is #153, and
+        # `judge`'s wording is the one that says so.
+        state, lines = asked(
+            run(conclusion="skipped"),
+            waited=queue.RUN_APPEARS_SECONDS + 1,
+            jobs={},
+        )
+        self.assertEqual(state, queue.STOP)
+        self.assertIn("ran a single job", " ".join(lines))
+
+    def test_a_red_run_still_stops_inside_the_grace(self):
+        # Absence is eventually consistent; a failure is not. Waiting one out
+        # would sit through the window to say what the red run already said.
+        state, lines = asked(
+            run(conclusion="failure"), waited=0.0, jobs={1: [job("t", "failure")]}
+        )
+        self.assertEqual(state, queue.STOP)
+        self.assertIn("failure", " ".join(lines))
 
     def test_a_missing_run_becomes_the_answer_once_the_grace_is_spent(self):
         # Past the grace it is #153 or #429, and `mergeable.no_run` is what
@@ -111,13 +146,6 @@ class Polling(unittest.TestCase):
         self.assertEqual(state, queue.STOP)
         self.assertIn("draft", " ".join(lines).lower())
 
-    def test_a_run_that_skipped_everything_is_stopped_not_waited_on(self):
-        # Success over nothing. Waiting on it would wait forever, because it is
-        # already as finished as it is ever going to get.
-        state, lines = asked(run(), jobs={1: []})
-        self.assertEqual(state, queue.STOP)
-        self.assertIn("ran a single job", " ".join(lines))
-
     def test_a_genuine_pass_goes(self):
         state, lines = asked(run(), jobs={1: [job("test", "success")]})
         self.assertEqual(state, queue.GO)
@@ -126,12 +154,14 @@ class Polling(unittest.TestCase):
     def test_the_verdict_is_mergeables_and_not_a_second_opinion(self):
         # Whatever `judge` refuses, this refuses. Two definitions of "CI
         # passed" would drift silently in the direction that merges.
+        spent = queue.RUN_APPEARS_SECONDS + 1
         for runs, jobs in (
             ((run(conclusion="failure"),), {1: [job("t", "failure")]}),
             ((run(),), {1: [job("t", "skipped")]}),
         ):
             with self.subTest(jobs=jobs):
-                self.assertEqual(asked(*runs, jobs=jobs)[0], queue.STOP)
+                verdict = asked(*runs, jobs=jobs, waited=spent)
+                self.assertEqual(verdict[0], queue.STOP)
 
 
 class Rebasing(unittest.TestCase):

@@ -218,10 +218,20 @@ def progress(
     already answered — waiting out the live one would sit through ten minutes
     to be told what the red one said at the start.
 
-    The `waited` grace on an absent run is the other half. `judge` is right to
-    call no-run a refusal: it is asked once, of a commit that has been sitting
-    there. Here the commit was pushed seconds ago, and a run that does not
-    exist yet is the ordinary case for the first poll.
+    The `waited` grace is the other half, and it covers **absence of evidence**
+    rather than only an absent run. `judge` is right to call both no-run and
+    every-run-skipped a refusal: it is asked once, of a commit that has been
+    sitting there. Here the commit was pushed seconds ago, and neither shape is
+    an answer yet.
+
+    That the grace has to cover the second shape and not only the first was
+    learned from this endpoint on 2026-08-29, watching this very branch:
+    `actions/runs?head_sha=…` returned the commit's skipped draft run and
+    *omitted its live one*, seconds after `gh run list` had shown both. Read
+    literally that poll says "nothing built this commit" — which is exactly
+    what a run against a draft says, and would have handed back a branch that
+    was three minutes from green. Absence is eventually-consistent; a red run
+    is not, which is why only red stops inside the grace.
     """
     sha = pull.get("headRefOid", "")
     short = sha[:7]
@@ -234,14 +244,6 @@ def progress(
             "CI does not run on drafts. Mark it ready before queueing it.",
         ]
 
-    if not runs:
-        if waited < RUN_APPEARS_SECONDS:
-            return WAIT, [
-                f"no run for {short} yet; GitHub has not created one.",
-                "Ordinary this soon after a push, and not yet an answer.",
-            ]
-        return STOP, mergeable.no_run(pull, short)
-
     if mergeable.failed_runs(runs):
         return STOP, mergeable.judge(pull, runs, jobs)[1]
 
@@ -251,6 +253,17 @@ def progress(
             f"a {mergeable.WORKFLOW} run for {short} is"
             f" {live[0].get('status')}."
         ]
+
+    # Nothing has compiled this commit — either no run at all, or only runs
+    # that skipped everything. Both are absences, and both get the grace.
+    if not [run for run in runs if mergeable.ran_something(run, jobs)]:
+        if waited < RUN_APPEARS_SECONDS:
+            return WAIT, [
+                f"nothing has built {short} yet.",
+                "Ordinary this soon after a push, and not yet an answer.",
+            ]
+        if not runs:
+            return STOP, mergeable.no_run(pull, short)
 
     ok, lines = mergeable.judge(pull, runs, jobs)
     return (GO if ok else STOP), lines
