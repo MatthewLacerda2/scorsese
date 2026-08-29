@@ -160,6 +160,12 @@ mod tests {
             assert_eq!(wide, Stereo::centred(original.clone()), "time {time}");
         }
         assert_eq!(line_length(0.1, 44_100, 44_100.0), Some(4410));
+        // The far bound exactly, where an echo stops being one worth running:
+        // a line eight times the buffer is skipped and one sample under it is
+        // not. Read at a rate and a length that make the boundary a round
+        // number — 1000 frames at 8 kHz put it at exactly one second.
+        assert_eq!(line_length(1.0, 1000, 8000.0), None, "eight times over");
+        assert_eq!(line_length(0.999_875, 1000, 8000.0), Some(7999));
     }
 
     /// The whole of what `ping_pong` is: the repeats walk across the field
