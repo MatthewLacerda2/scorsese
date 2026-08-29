@@ -45,6 +45,9 @@ pub fn comparison(this: &Profile, that: &Profile) -> Vec<String> {
             &moved,
         ));
     }
+    if let Some(correlation) = this.whole.correlation {
+        lines.push(width(correlation, difference.correlation));
+    }
     if difference.seconds.abs() >= WORTH_SAYING_SECONDS {
         lines.push(format!(
             "length  {:>6.1} s     ( {:+.1} s )",
@@ -102,6 +105,30 @@ fn decibels(field: &str, value: Option<f64>, by: Option<f64>, sense: Sense) -> S
     }
 }
 
+/// The width row: how much of the signal is common to both channels, and which
+/// way it went.
+///
+/// The direction is spelled out for the same reason [`Sense`] exists, and more
+/// urgently: correlation going **up** means the mix got **narrower**, which is
+/// the one move in this whole report a reader will guess backwards from the
+/// sign alone.
+fn width(value: f64, by: Option<f64>) -> String {
+    match by {
+        Some(by) if by.abs() >= WORTH_SAYING_CORRELATION => {
+            let way = if by > 0.0 { "narrower" } else { "wider" };
+            format!("corr    {value:>+6.2}        ( {by:+.2} {way} )")
+        }
+        Some(_) => format!("corr    {value:>+6.2}        ( unchanged )"),
+        None => format!("corr    {value:>+6.2}        ( the other has no width )"),
+    }
+}
+
+/// How far a correlation has to move before it is worth calling a move. Two
+/// hundredths of a range two units wide is under anything anyone would hear as
+/// a change in width, and printing a smaller one trains a reader to ignore the
+/// column it is in.
+const WORTH_SAYING_CORRELATION: f64 = 0.02;
+
 /// How far a level has to move before it is worth calling a move, in decibels.
 /// A tenth of a decibel is inaudible, and printing one trains a reader to
 /// ignore the column it is in.
@@ -121,4 +148,24 @@ fn balance(shares: &[(&str, u32); 3], moved: &BandsDifference) -> String {
         said.push_str(&format!("{name} {share:>3}% ( {by:+.0} pts )"));
     }
     format!("bands   {said}")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// **Up is narrower**, and the row has to say the word: a reader scanning
+    /// a column of signed numbers will read `+0.31` as "more width" every
+    /// time, and it is the opposite.
+    #[test]
+    fn the_width_row_says_which_way_it_went_in_words() {
+        assert!(width(0.62, Some(0.31)).contains("narrower"));
+        assert!(width(0.31, Some(-0.31)).contains("wider"));
+        assert!(width(0.62, Some(0.001)).contains("unchanged"));
+        assert!(width(0.62, None).contains("no width"));
+        assert!(
+            width(-0.42, Some(-0.5)).contains("-0.42"),
+            "and carries a sign"
+        );
+    }
 }

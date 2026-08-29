@@ -21,6 +21,9 @@ pub fn summary(profile: &Profile) -> String {
     if let Some(bands) = profile.whole.bands {
         said.push_str(&format!(", {}", balance(&bands)));
     }
+    if let Some(correlation) = profile.whole.correlation {
+        said.push_str(&format!(", {}", width(correlation)));
+    }
     said
 }
 
@@ -91,6 +94,9 @@ pub(super) fn columns(span: &Span) -> String {
     if let Some(bands) = span.bands {
         said.push_str(&format!("   {}", balance(&bands)));
     }
+    if let Some(correlation) = span.correlation {
+        said.push_str(&format!("   {}", width(correlation)));
+    }
     said
 }
 
@@ -102,6 +108,21 @@ pub(super) fn columns(span: &Span) -> String {
 fn balance(bands: &Bands) -> String {
     let (low, mid, high) = bands.percentages();
     format!("low {low:>3}%  mid {mid:>3}%  high {high:>3}%")
+}
+
+/// How much of the signal is common to both channels, signed.
+///
+/// Signed always, and that is the whole formatting decision: every other
+/// column here is a magnitude, and this is the one where the *sign* is the
+/// finding. `+1.00` is a mix that is the same in both ears; anything with a
+/// minus in front of it is two channels cancelling, and a reader scanning the
+/// column has to be able to find that without reading the digits.
+///
+/// Last on the row, after the bands, because it is the third question a report
+/// answers and the one asked least often — and because putting it there leaves
+/// every column that was already being scanned exactly where it was.
+fn width(correlation: f64) -> String {
+    format!("corr {correlation:>+5.2}")
 }
 
 #[cfg(test)]
@@ -143,6 +164,32 @@ mod tests {
         assert!(rows[1].contains("chorus"), "{}", rows[1]);
         assert!(rows[1].contains("mean    0.0"), "{}", rows[1]);
         assert!(rows[0].starts_with(" 0:00-0:01"), "{}", rows[0]);
+    }
+
+    /// The width column is on the row and on the summary above it, and it
+    /// carries its sign — the one column here where the sign is the finding
+    /// rather than an artefact of which way round a subtraction went.
+    #[test]
+    fn a_stereo_row_says_how_wide_it_is_and_a_mono_one_says_nothing() {
+        let mut profiler = Profiler::new(2, 1_000);
+        // The same square in both channels: mono in a stereo container.
+        profiler.feed(&vec![0.5; 2_000]);
+        let profile = profiler.finish();
+        assert!(
+            columns(&profile.whole).ends_with("corr +1.00"),
+            "{}",
+            columns(&profile.whole)
+        );
+        assert!(
+            summary(&profile).contains("corr +1.00"),
+            "{}",
+            summary(&profile)
+        );
+
+        let mut mono = Profiler::new(1, 1_000);
+        mono.feed(&vec![0.5; 2_000]);
+        let mono = mono.finish();
+        assert!(!summary(&mono).contains("corr"), "a mono file has no width");
     }
 
     /// One stretch is the whole file said twice, so there is no table at all.

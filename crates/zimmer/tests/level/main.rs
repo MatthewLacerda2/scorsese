@@ -15,6 +15,7 @@ mod diff;
 mod meter;
 mod sections;
 mod tracks;
+mod width;
 
 /// Decibels of slack. The measurement is exact arithmetic, so this is
 /// tolerance for the assertions' own rounding rather than for the meter.

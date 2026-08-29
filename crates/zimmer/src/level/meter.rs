@@ -12,7 +12,7 @@
 //! −0.2 dBFS can clip after AAC. That is precisely the case a delivery render
 //! should mention and precisely the one a sample peak cannot see.
 
-use super::intersample::Channel;
+use super::intersample::{Channel, TAPS};
 
 /// Full scale, as the number a sample of `1.0` is.
 const FULL_SCALE: f64 = 1.0;
@@ -26,6 +26,13 @@ const FULL_SCALE: f64 = 1.0;
 /// is what makes the guarantee and the measurement agree rather than two
 /// files each being reasonable on its own.
 const CLIPPING: f64 = FULL_SCALE;
+
+/// How many channels a correlation is a statement about.
+///
+/// Two, and only two. Width is a relationship between a *pair* of channels: a
+/// mono signal has no second channel to be wide against, and a signal of more
+/// than two has no one pair the number would be about.
+const STEREO: usize = 2;
 
 /// How loud a signal is, in dBFS.
 ///
@@ -71,9 +78,24 @@ pub struct Meter {
     true_peak: f64,
     sum_of_squares: f64,
     counted: u64,
-    /// The tail of the previous run, so the interpolator sees across the seam
-    /// rather than treating every segment boundary as a pair of edges.
-    tail: Vec<f32>,
+    /// Sum of `l·r` over every frame — how much the two channels agree, and
+    /// the numerator of [`Meter::correlation`].
+    sum_of_products: f64,
+    /// Each channel's own energy, `Σl²` and `Σr²`, which is what that
+    /// numerator has to be normalised by. Kept apart from
+    /// [`Meter::sum_of_squares`], which is both channels together: a mean is
+    /// about the signal and a correlation is about the two sides of it.
+    sum_of_left: f64,
+    sum_of_right: f64,
+    /// The end of the signal so far: the frames not yet measured, preceded by
+    /// the [`TAPS`] already-measured frames that are their left-hand context.
+    ///
+    /// Never more than twice that many frames, whatever a caller feeds — this
+    /// is a window on the seam and not a copy of the signal.
+    recent: Vec<f32>,
+    /// How many leading frames of [`Meter::recent`] have already been counted.
+    /// The rest are waiting for their right-hand neighbours to arrive.
+    settled: usize,
 }
 
 impl Meter {
@@ -91,7 +113,11 @@ impl Meter {
             true_peak: 0.0,
             sum_of_squares: 0.0,
             counted: 0,
-            tail: Vec::new(),
+            sum_of_products: 0.0,
+            sum_of_left: 0.0,
+            sum_of_right: 0.0,
+            recent: Vec::new(),
+            settled: 0,
         }
     }
 
@@ -103,6 +129,14 @@ impl Meter {
             self.sum_of_squares += f64::from(sample) * f64::from(sample);
         }
         self.counted += samples.len() as u64;
+        if self.channels == STEREO {
+            for frame in samples.chunks_exact(STEREO) {
+                let (left, right) = (f64::from(frame[0]), f64::from(frame[1]));
+                self.sum_of_products += left * right;
+                self.sum_of_left += left * left;
+                self.sum_of_right += right * right;
+            }
+        }
         self.measure_true_peak(samples);
     }
 
@@ -121,32 +155,131 @@ impl Meter {
             // Never below the sample peak: the interpolated curve passes
             // through every sample, so a kernel that somehow read lower would
             // be reporting a waveform that does not contain its own samples.
-            true_peak_dbfs: Some(ratio_to_dbfs(self.true_peak.max(self.peak))),
+            true_peak_dbfs: Some(ratio_to_dbfs(self.true_peak().max(self.peak))),
             mean_dbfs: Some(ratio_to_dbfs(mean_square.sqrt())),
         }
+    }
+
+    /// How much of the signal is common to both channels, in `-1..=1`.
+    ///
+    /// The third question a row answers, after how loud and where. `1.0` is
+    /// the same waveform in both ears — mono in a stereo container, which is
+    /// what a score that never used the `pan` it has comes out as. `0.0` is
+    /// two channels with nothing in common.
+    ///
+    /// **Negative is the defect.** It means the channels are cancelling, and
+    /// the energy that cancels is gone the moment anything folds the mix down
+    /// to mono — which is not hypothetical for a video played on a phone or a
+    /// laptop. Everything above zero is a taste; below it is a fault.
+    ///
+    /// `None` where there is no width to speak of: a meter of anything other
+    /// than two channels, and a signal with a silent channel, where the
+    /// arithmetic is a division by zero rather than a zero.
+    pub fn correlation(&self) -> Option<f64> {
+        if self.channels != STEREO {
+            return None;
+        }
+        let energy = self.sum_of_left * self.sum_of_right;
+        if energy <= 0.0 {
+            return None;
+        }
+        // Clamped because the arithmetic lands a hair outside the range it is
+        // defined over in the case that matters most: two identical channels
+        // sum to the same number three times and divide to 1.0 give or take an
+        // ulp, and a report saying a signal is 1.0000000002 wide reads as a
+        // bug in the meter rather than as the mono it is.
+        Some((self.sum_of_products / energy.sqrt()).clamp(-1.0, 1.0))
     }
 
     /// Oversamples each channel and keeps the largest excursion found.
     ///
     /// Per channel rather than across the interleaved buffer — see
     /// [`Meter::new`] for why that distinction matters.
+    ///
+    /// **A frame is only measurable once both its neighbourhoods exist.** The
+    /// kernel reaches [`TAPS`] frames either side of the frame it reconstructs,
+    /// and anything outside the buffer reads as zero — so a frame measured
+    /// while it still sits at the end of the newest run is measured against a
+    /// silence that is about to be replaced by real samples. That fabricated edge rings, the ringing is an
+    /// excursion, and a running maximum keeps it forever: a signal fed in
+    /// 4 KB runs used to read a decibel hotter than the same signal fed whole.
+    ///
+    /// So each run measures the frames from [`Meter::settled`] up to `TAPS`
+    /// short of the end, keeps the last `TAPS` measured frames as the next
+    /// run's left-hand context, and holds the rest back. The one place the
+    /// zeros are real is the end of the signal, which is
+    /// [`Meter::true_peak`]'s business.
     fn measure_true_peak(&mut self, samples: &[f32]) {
-        let mut joined = std::mem::take(&mut self.tail);
+        let mut joined = std::mem::take(&mut self.recent);
         joined.extend_from_slice(samples);
+        let frames = joined.len() / self.channels;
+        // `max` rather than a bare subtraction: a run shorter than the kernel
+        // adds no measurable frames at all, and must not un-measure any.
+        let ready = frames.saturating_sub(TAPS).max(self.settled);
         for index in 0..self.channels {
             let channel = Channel::of(&joined, self.channels, index);
-            for frame in 0..channel.frames() {
+            for frame in self.settled..ready {
                 self.true_peak = self.true_peak.max(channel.peak_from(frame));
             }
         }
-        // Keep enough of the end that the next run's first frames have their
-        // left-hand taps.
-        let keep = (super::intersample::TAPS * self.channels).min(joined.len());
-        self.tail = joined.split_off(joined.len() - keep);
+        let drop = ready.saturating_sub(TAPS);
+        self.settled = ready - drop;
+        joined.drain(..drop * self.channels);
+        self.recent = joined;
+    }
+
+    /// The largest excursion anywhere, including the frames still held back.
+    ///
+    /// Those are measured here rather than in [`Meter::feed`] because here is
+    /// the only moment their right-hand neighbours are known to be silence:
+    /// whoever is asking has stopped feeding, so the signal ends where the
+    /// buffer does. Read rather than accumulated, so asking twice — or asking
+    /// and then feeding more — gives the answer for the signal as it stands
+    /// each time.
+    fn true_peak(&self) -> f64 {
+        let mut peak = self.true_peak;
+        for index in 0..self.channels {
+            let channel = Channel::of(&self.recent, self.channels, index);
+            for frame in self.settled..channel.frames() {
+                peak = peak.max(channel.peak_from(frame));
+            }
+        }
+        peak
     }
 }
 
 /// A linear amplitude ratio as decibels below full scale.
 fn ratio_to_dbfs(ratio: f64) -> f64 {
     20.0 * ratio.log10()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// **A meter never holds the signal**, which is the reason it is fed a run
+    /// at a time at all: a minute of stereo float is sixty megabytes to learn
+    /// three numbers. What it keeps between runs is a window on the seam — the
+    /// frames whose right-hand taps have not arrived, and the [`TAPS`] measured
+    /// frames that are their left-hand context — so twice the kernel's reach is
+    /// the ceiling, whatever it is fed and however often.
+    ///
+    /// Asserted from inside the module because the buffer is private and there
+    /// is no reason for it not to be. The invariant is real all the same: a
+    /// meter that quietly retained everything would report exactly the same
+    /// numbers and would make a long render run out of memory.
+    #[test]
+    fn a_meter_keeps_a_window_on_the_seam_and_never_the_signal() {
+        for channels in [1, 2] {
+            let mut meter = Meter::new(channels);
+            for _ in 0..20 {
+                meter.feed(&vec![0.5; 4_096]);
+                assert!(
+                    meter.recent.len() <= 2 * TAPS * channels,
+                    "{channels} channels held {} samples",
+                    meter.recent.len()
+                );
+            }
+        }
+    }
 }

@@ -112,7 +112,8 @@ impl Tool for Bake {
          has changed is redone without anyone having to mark it stale. A bake \
          is named for the recipe and for the synthesiser that rendered it, so \
          an upgrade that changes how a recipe sounds is redone here too. Says how \
-         each one came out: level and spectral balance for the whole file, then \
+         each one came out: level, spectral balance and stereo width for the \
+         whole file, then \
          a row per section of the arrangement, then a row per track of a song \
          saying which instrument is taking up the room. A signal, never a gate \
          — nothing about a level can fail a bake."

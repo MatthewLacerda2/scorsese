@@ -146,3 +146,64 @@ fn the_answer_does_not_depend_on_how_the_samples_arrived() {
         );
     }
 }
+
+/// Decibels of slack for two readings that must be the *same* reading rather
+/// than merely a close one. Once no frame is measured against a fabricated
+/// edge, every frame is measured exactly once against its real neighbours
+/// whatever the run length was — the same arithmetic on the same samples in
+/// the same order — so the two answers agree to the last bit, and a tolerance
+/// this far below the kernel's own error is a way of saying so.
+const IDENTICAL: f64 = 1e-9;
+
+/// **The run length must not be in the answer**, and it was: every run
+/// boundary used to be reconstructed as an edge in silence, and the ringing
+/// off that fabricated edge was counted as an intersample peak. A 440 Hz sine
+/// at 0.9 read −0.894 dBTP fed whole and +0.078 fed in 4 KB runs — 0.97 dB of
+/// pure artefact, enough on its own to call a file at −1 dBTP clipping.
+///
+/// A sine at a tenth of the sample rate is the signal that makes this visible:
+/// it has essentially nothing between its samples, so the right answer is its
+/// own amplitude and *everything* above that is the seam. The absolute
+/// assertion is the one that matters — two wrong readings that agree would
+/// satisfy the comparison on its own.
+#[test]
+fn the_run_length_is_not_in_the_true_peak() {
+    let sine: Vec<f32> = (0..96_000)
+        .map(|i| (std::f64::consts::TAU * 440.0 * i as f64 / 48_000.0).sin() as f32 * 0.9)
+        .collect();
+
+    let whole = measured(&sine, 1).true_peak_dbfs.expect("audible");
+    let amplitude = 20.0 * 0.9f64.log10();
+    assert!(
+        (whole - amplitude).abs() < SLACK,
+        "a 0.9 sine peaks at {amplitude:.3} dBTP, and read {whole:.3}"
+    );
+
+    for run in [1_024, 4_096, 16_384] {
+        let mut meter = Meter::new(1);
+        for chunk in sine.chunks(run) {
+            meter.feed(chunk);
+        }
+        let split = meter.finish().true_peak_dbfs.expect("audible");
+        assert!(
+            (whole - split).abs() < IDENTICAL,
+            "runs of {run} read {split:.3} dBTP where the whole signal reads {whole:.3}"
+        );
+    }
+}
+
+/// The end of the signal is the one place the silence either side of a run is
+/// real, so the frames held back for their right-hand neighbours must still be
+/// measured when nobody feeds any more. A spike in the last few frames is what
+/// goes missing if they are not.
+#[test]
+fn the_last_frames_of_a_signal_are_still_measured() {
+    let mut ending = vec![0.1f32; 200];
+    ending[199] = 0.95;
+    let level = measured(&ending, 1);
+    assert!(
+        level.true_peak_dbfs.expect("audible") >= level.peak_dbfs.expect("audible"),
+        "the closing spike has to be in the reading"
+    );
+    assert!((level.peak_dbfs.expect("audible") - 20.0 * 0.95f64.log10()).abs() < SLACK);
+}

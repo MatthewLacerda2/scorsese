@@ -47,7 +47,8 @@ impl Tool for Hear {
          need hearing, and nothing here can tell you about them. Works on any \
          audio the project can reach and on a rendered video too, since ffmpeg \
          does the decoding. For numbers rather than a shape — mean, peak, crest, \
-         spectral balance, section by section — use `audio_level` instead; the \
+         spectral balance, stereo width, section by section — use `audio_level` \
+         instead; the \
          two answer different questions and neither replaces the other."
     }
 

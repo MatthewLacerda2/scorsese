@@ -1613,19 +1613,20 @@ places a sound in time.
 
 A bake says how it turned out, and so does a render — mean and peak for the
 whole thing, then the same again for each stretch of it, plus the share of its
-energy that is low, mid and high:
+energy that is low, mid and high, and how much of it is common to both
+channels:
 
 ```
 trilha — baked, 3702 KB
   generated/9f3c….wav
-  43.0 s  mean -14.4 dBFS, peak -2.9 dBFS, low  47%  mid  45%  high   8%
-     0:00-0:08 intro   mean  -19.1   peak   -8.2   crest  10.9   low  42%  mid  51%  high   7%
-     0:08-0:24 verse   mean  -13.8   peak   -3.1   crest  10.7   low  38%  mid  49%  high  13%
-     0:24-0:40 chorus  mean  -13.9   peak   -2.9   crest  11.0   low  61%  mid  33%  high   6%
-     sub     mean  -18.9   peak   -6.1   crest  12.8   low  96%  mid   4%  high   0%
-     pad     mean  -21.4   peak  -11.0   crest  10.4   low  71%  mid  28%  high   1%
-     arp     mean  -25.2   peak  -12.7   crest  12.5   low   6%  mid  88%  high   6%
-     hat     mean  -33.7   peak  -14.2   crest  19.5   low   3%  mid  22%  high  75%
+  43.0 s  mean -14.4 dBFS, peak -2.9 dBFS, low  47%  mid  45%  high   8%, corr +0.62
+     0:00-0:08 intro   mean  -19.1   peak   -8.2   crest  10.9   low  42%  mid  51%  high   7%   corr +0.74
+     0:08-0:24 verse   mean  -13.8   peak   -3.1   crest  10.7   low  38%  mid  49%  high  13%   corr +0.60
+     0:24-0:40 chorus  mean  -13.9   peak   -2.9   crest  11.0   low  61%  mid  33%  high   6%   corr +0.58
+     sub     mean  -18.9   peak   -6.1   crest  12.8   low  96%  mid   4%  high   0%   corr +1.00
+     pad     mean  -21.4   peak  -11.0   crest  10.4   low  71%  mid  28%  high   1%   corr +0.29
+     arp     mean  -25.2   peak  -12.7   crest  12.5   low   6%  mid  88%  high   6%   corr +0.81
+     hat     mean  -33.7   peak  -14.2   crest  19.5   low   3%  mid  22%  high  75%   corr +0.94
 ```
 
 The rows with a clock on them are the **arrangement's own sections** when there
@@ -1639,6 +1640,33 @@ under a one-line summary is the same sentence twice.
 dynamics, or is it a wall". The three band shares are a coarse split at 250 Hz
 and 4 kHz, enough to say **muddy**, **thin** or **balanced** — not a spectrum
 analyser, and deliberately not one.
+
+*corr* is the third question, after how loud and where: **how wide**. It is how
+much of the signal is common to both channels, from `+1.00` to `-1.00`.
+
+- **`+1.00` is mono in a stereo container** — the same waveform in both ears.
+  On a `sub` that is an instrument doing its job, the way `low 96%` is. On a
+  whole mix it is the one number that says a score never used the `pan` it has.
+- **Down towards `0.00` is wide**: the two sides increasingly disagree, which is
+  what a `pan` spread, a stereo `reverb` and a `chorus` are all for. There is no
+  correct value here — a bed can be wide and a sting can be dead centre, and
+  neither is a mistake.
+- **Below zero is the defect**, and it is the only reading in this column that
+  is one. The channels are *cancelling*: the energy that cancels is gone the
+  moment anything sums the mix to mono, and a video gets played on phones and
+  laptops where that is not hypothetical. A piece that measures well and
+  vanishes on a phone speaker is exactly the failure this number exists to
+  catch, and nothing else in a report can see it. The way a recipe arrives
+  there today is a **fully wet `chorus`** on a sustained tone: its copies are
+  panned hard apart, and if they land out of step the two sides subtract
+  instead of adding. Lowering its `mix` so the dry signal is back in the middle
+  is the fix.
+
+A row per track is where that becomes actionable. "This mix collapses in mono"
+has nowhere to go until something says which of the five things playing is
+doing it — the same reason the rows exist at all — so every layer row carries
+its own *corr* beside its level. Nothing is ever refused for its width; like
+everything else here it is a signal.
 
 ### Which layer is taking up the room
 
@@ -1683,6 +1711,7 @@ trilha.wav  vs  trilha.prev.wav
   peak      -2.9 dB     ( -0.2 dB quieter )
   crest     11.5 dB     ( +1.2 dB more dynamic )
   bands   low  47% ( +9 pts )   mid  45% ( -3 pts )   high   8% ( -6 pts )
+  corr     +0.62        ( +0.18 narrower )
 ```
 
 That is the form with the most teeth. An absolute number is hard to judge — is
