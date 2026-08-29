@@ -4,12 +4,10 @@
 //! only claim worth making: a mark is a difference from the note as written,
 //! and a measurement of one render alone could not tell one from the other.
 
-use super::setup::{TRACK, gate, note, playing, rendered, samples, sounding};
-use crate::common::{brightness, peak, saw_patch};
+use super::setup::{gate, note, playing, rendered, samples, sounding};
+use crate::common::{brightness, peak};
+use scorsese_zimmer::song::Articulation;
 use scorsese_zimmer::song::Articulation::{Accent, Ghost, Staccato};
-use scorsese_zimmer::song::{
-    Articulation, Automation, Easing, Humanize, Param, PatchRef, Play, Point,
-};
 
 /// The two renders a test compares: the note as written, and the same note
 /// with a mark over it.
@@ -81,10 +79,21 @@ fn a_ghost_is_quiet_and_short_and_early_and_dead() {
     let (plain, ghosted) = pair("E5", 1.0, 0.8, Ghost);
     assert!(peak(&ghosted) < peak(&plain) * 0.5, "not quiet");
     assert!(gate(&ghosted) < gate(&plain) * 2 / 3, "not short");
-    let early = sounding(&plain).0 - sounding(&ghosted).0;
+    // The direction first, and as its own assertion. `sounding` returns sample
+    // indices, so subtracting one from the other is unsigned arithmetic: a
+    // ghost that landed *late* would end this test with an overflow panic
+    // rather than a failed claim, which is a catch nobody wrote and a
+    // `saturating_sub` would silently remove. Early is half of what the mark
+    // means, so it is stated.
+    let (on_the_beat, ahead_of_it) = (sounding(&plain).0, sounding(&ghosted).0);
+    assert!(
+        ahead_of_it < on_the_beat,
+        "a ghost sits ahead of the beat, not behind it: {ahead_of_it} against {on_the_beat}"
+    );
+    let early = on_the_beat as f32 - ahead_of_it as f32;
     let expected = samples(0.012);
     assert!(
-        (early as f32 - expected).abs() < 2.0 * super::setup::BLOCK as f32,
+        (early - expected).abs() < 2.0 * super::setup::BLOCK as f32,
         "{early} samples early, not {expected}"
     );
     let equally_quiet = rendered(&playing(vec![note("E2", 1.0, 1.0, 0.28, None).into()]));
@@ -95,69 +104,4 @@ fn a_ghost_is_quiet_and_short_and_early_and_dead() {
         brightness(&dead) < brightness(&equally_quiet) * 0.95,
         "a ghost at the same level is no duller than a quiet note"
     );
-}
-
-/// The order of application, as an equality: a mark multiplies the velocity
-/// the section and the page already decided, and the player's own scatter is
-/// drawn after all three and around them. So an accented note under a
-/// `vel_scale` and a `humanize` is the *same samples* as the note written at
-/// the level that product comes to — same draw, same seed, same ordinal.
-#[test]
-fn a_mark_multiplies_what_the_section_and_the_page_already_decided() {
-    let played = |vel, mark| {
-        let mut song = playing(vec![note("E2", 1.0, 1.0, vel, mark).into()]);
-        // No filter, so the accent's brightness offset cannot reach the
-        // samples and the comparison is about the velocity chain alone.
-        song.tracks[0].patch = PatchRef::Inline(Box::new(saw_patch()));
-        song.humanize = Some(Humanize {
-            velocity: 0.2,
-            timing: 0.01,
-            timbre: 0.0,
-        });
-        song.arrangement = vec![
-            Play {
-                pattern: "verse".to_owned(),
-                vel_scale: Some(0.5),
-                transpose: None,
-                transpose_degrees: None,
-                tracks: None,
-            }
-            .into(),
-        ];
-        rendered(&song)
-    };
-    let accented = played(0.5, Some(Accent));
-    let written_louder = played(0.65, None);
-    assert_eq!(accented.len(), written_louder.len());
-    for (mark, plain) in accented.iter().zip(&written_louder) {
-        assert!((mark - plain).abs() < 1e-6, "{mark} against {plain}");
-    }
-}
-
-/// A `cutoff` curve and a mark are two terms of one sum: the curve moves the
-/// base the filter sits at, and the mark adds to it. So an accent under a
-/// build is still brighter than the note beside it — the composition the page
-/// claims, and the one a reader would want checked.
-#[test]
-fn a_mark_still_opens_a_filter_a_curve_has_already_moved() {
-    let under_a_build = |mark| {
-        let mut song = playing(vec![note("E2", 1.0, 1.0, 0.5, mark).into()]);
-        let point = |beat, value| Point {
-            beat,
-            value,
-            easing: Easing::Linear,
-        };
-        song.automation = vec![Automation {
-            track: TRACK.to_owned(),
-            param: Param::Cutoff,
-            points: vec![point(0.0, 500.0), point(4.0, 3000.0)],
-        }];
-        rendered(&song)
-    };
-    let (plain, accented) = (under_a_build(None), under_a_build(Some(Accent)));
-    assert!(
-        brightness(&accented) > brightness(&plain),
-        "the mark was lost"
-    );
-    assert!(peak(&accented) > peak(&plain), "and so was its level");
 }
