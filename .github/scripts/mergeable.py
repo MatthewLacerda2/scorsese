@@ -31,6 +31,16 @@ run its jobs.** A skipped run beside a real one then decides nothing, and a
 failing run beside a green one refuses — which is the only safe reading of a
 commit whose evidence disagrees with itself.
 
+**A commit can also have no run because the branch conflicts with `main`**,
+and that is #429. GitHub cannot compute a merge commit for a conflicted
+branch, so it never evaluates `on.pull_request.paths`, so it creates no run, no
+check and no error anywhere. The symptom is identical to #153's — a ready pull
+request with no checks — and the repo's instinct sends a reader at the workflow
+YAML, which is fine, for as long as it takes to notice (45 minutes, on #418).
+The tell nobody would guess: an actually-invalid workflow *does* produce a run,
+a `push`-event `startup_failure`. *No run whatsoever* is a conflict. So the
+no-run answer is split rather than left to be guessed at — see [`no_run`].
+
 Branch protection is the obvious alternative and probably does not work here.
 GitHub generally treats a skipped job as satisfying a required check, and our
 jobs skip by design on drafts — so a required-checks rule would look at exactly
@@ -58,6 +68,18 @@ import sys
 # future workflow — is not the one being asked about, and counting it would be
 # the same mistake in a new costume.
 WORKFLOW = "CI"
+
+# What GitHub calls a branch it cannot merge, in the two fields that say so:
+# `mergeable` is the yes/no, `mergeStateStatus` the longer story. Both are
+# read, because either alone has been seen to lag the other by a poll.
+CONFLICTED = ("CONFLICTING", "DIRTY")
+
+# Not "no": *not computed yet*. GitHub works out mergeability in the
+# background when asked, so a fresh push reads UNKNOWN for a second or two.
+# Treated as its own answer rather than folded into either — asserting "not
+# conflicted" from a field that means "ask again" is exactly the confident
+# wrong answer this script exists to refuse.
+UNKNOWN = "UNKNOWN"
 
 
 def gh(*args: str) -> object:
@@ -101,6 +123,55 @@ def ran_something(run: dict, jobs: dict[int, list[dict]]) -> bool:
     )
 
 
+def no_run(pull: dict, short: str) -> list[str]:
+    """Why this commit has no run at all — and there is more than one why.
+
+    #153 is the one this script was written for: readied moments after a push,
+    and the run went missing. #429 is the other, and it is not a CI fault at
+    all — a branch that conflicts with `main` gets no run because GitHub never
+    gets far enough to make one. Same symptom, different file to go and edit,
+    and 45 minutes went into the wrong one before anybody wrote it down.
+
+    So the two are told apart here rather than in prose somebody reads
+    afterwards. The reader is already looking at this output; the answer may as
+    well be in it.
+    """
+    state, status = pull.get("mergeable"), pull.get("mergeStateStatus")
+    head = f"no {WORKFLOW} run exists for the head commit {short}."
+
+    if state in CONFLICTED or status in CONFLICTED:
+        return [
+            f"{head} The branch conflicts with `main`.",
+            "That is the cause and not a coincidence: GitHub cannot compute a"
+            " merge commit for a conflicted branch, so it never evaluates the"
+            " workflow's triggers and creates no run, no check and no error"
+            " anywhere. The workflow file is fine — do not edit it (#429).",
+            "Rebase onto `main` and force-push. It is the same rebase the merge"
+            " routine asks for anyway, so this costs nothing but the order.",
+        ]
+
+    lines = [
+        head,
+        "This is #153: marking a pull request ready right after a push can"
+        " lose the run entirely. The checks are not green, they are absent.",
+        "Force one with an empty commit, or draft and ready it again with a"
+        " pause in between.",
+        "Before editing any workflow YAML: an invalid one still produces a run,"
+        " a `push`-event `startup_failure`. No run whatsoever means a conflict"
+        " with `main`, not a syntax error (#429).",
+    ]
+    if state == UNKNOWN:
+        # Said out loud, because the conflict branch above could not fire and
+        # silence would read as "checked, and it is not that".
+        lines.append(
+            "GitHub has not finished computing whether this branch merges"
+            " cleanly. Ask again in a moment before believing the rest."
+        )
+    elif status and status != "CLEAN":
+        lines.append(f"GitHub reports this branch as {status}.")
+    return lines
+
+
 def judge(
     pull: dict, runs: list[dict], jobs: dict[int, list[dict]]
 ) -> tuple[bool, list[str]]:
@@ -124,13 +195,7 @@ def judge(
         ]
 
     if not runs:
-        return False, [
-            f"no {WORKFLOW} run exists for the head commit {short}.",
-            "This is #153: marking a pull request ready right after a push can"
-            " lose the run entirely. The checks are not green, they are absent.",
-            "Force one with an empty commit, or draft and ready it again with a"
-            " pause in between.",
-        ]
+        return False, no_run(pull, short)
 
     # A failure anywhere in the set refuses, and it is asked first. A commit
     # whose evidence disagrees with itself has exactly one safe reading, and a
@@ -204,7 +269,15 @@ def main() -> int:
     number = sys.argv[1]
 
     repo = gh("repo", "view", "--json", "nameWithOwner")["nameWithOwner"]
-    pull = gh("pr", "view", number, "--json", "isDraft,headRefOid,number")
+    pull = gh(
+        "pr",
+        "view",
+        number,
+        "--json",
+        # The last two are only ever read when there is no run to judge, and
+        # they are what makes that answer specific rather than a guess (#429).
+        "isDraft,headRefOid,number,mergeable,mergeStateStatus",
+    )
     sha = pull["headRefOid"]
 
     listed = gh("api", f"repos/{repo}/actions/runs?head_sha={sha}&per_page=100")

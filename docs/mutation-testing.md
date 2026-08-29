@@ -237,13 +237,11 @@ somebody can act on one at a time.
 Two things never become rows, because they are one finding rather than many:
 
 - **A file where nothing at all was caught** — every mutant of it survived, and
-  there were at least three. That is one statement about the module: *no test
-  in the mutated crate asserts on this code.* The cause is usually structural.
-  `test_workspace = false` runs only the mutated package's own tests, so a
-  module whose assertions live in another crate has every mutant survive by
-  construction, and no per-line reading of the list would have found that out.
-  The response is one assertion next to the code, or one written reason it
-  belongs elsewhere.
+  there were at least three. That is one statement about the file: *nothing in
+  the mutated package asserts on this code.* It is one piece of work, not a
+  list — but **which** piece is not something the counts can tell you, and the
+  report deliberately no longer guesses: *Triaging a file where nothing was
+  caught*, below, has the three candidates and the command that decides.
 - **A file with more than eight survivors** — collapsed to a count whatever was
   caught in it. Past that length nobody triages the rows individually, and what
   the fifteenth says is what the first said.
@@ -268,6 +266,38 @@ point of printing the number rather than leaving it to be inferred. If the gap
 covers code this branch wrote and the answer matters, `make mutants` locally has
 no thirty-minute clock; the alternative is to say in the pull request which part
 went unmeasured, so the next reader is not left to guess.
+
+## Triaging a file where nothing was caught
+
+**Check the cause before deciding what to do about it.** The report used to
+name one — *usually structural, assertions living in another crate* — and it
+was wrong both times it appeared: #442's six survivors were that branch's own
+`#[serde(default)]` functions, tested from the same package and simply not
+tested yet; #444's four were `Song::curve`, a public convenience method with
+**zero callers anywhere in the workspace**. Two for two, two different real
+causes, neither the one named. #449 took the guess out, because a wrong
+diagnosis is worse than none: it points a reader at *exclude with a written
+reason* before they have looked, and an exclusion carrying a plausible
+argument is approximately permanent.
+
+**The check is cheap.** `cargo mutants --list` names the functions and builds
+nothing; in both cases above it answered in seconds. Run it, then grep the
+workspace for the names it prints.
+
+The three causes, in no particular order:
+
+- **The code has no test.** Ordinary, and the fix is ordinary: one assertion
+  next to the code. This is what #442 was.
+- **The code has no callers.** Nothing in the workspace reaches it, which is
+  why nothing asserts on it. **Deleting it is the fix**, and the mutants go
+  with it — CLAUDE.md's *nothing in the codebase is temporary* and the
+  `unreachable_pub` gate both say the same thing about `pub` nobody can reach.
+  This is what #444 was, and a mutation report is a good place to notice it.
+- **Its assertions live in another crate.** Real — `providers`' `record`
+  carries exactly such a note — and `test_workspace = false` (see
+  `.cargo/mutants.toml`) runs only the mutated package's own tests, so every
+  mutant survives by construction. The response is one written reason, not a
+  weakened test.
 
 ## Triaging a survivor
 

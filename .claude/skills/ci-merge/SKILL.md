@@ -49,9 +49,15 @@ Three failure shapes it catches, all seen in practice:
   build a merge ref for a conflicted branch, so it creates nothing — no run, no
   check, no error. This reads exactly like a broken workflow file.
 
-**Telling the last two apart:** an actually-invalid workflow *does* produce a
-run, a `push`-event `startup_failure`. *No run whatsoever* means conflict, and
-the fix is a rebase. Check `mergeStateStatus` before editing any YAML.
+**Telling the last two apart** — three lines, and `make mergeable` now says them
+itself, so read its output before doing anything else:
+
+1. **No run at all on a ready pull request → check whether the branch conflicts
+   with `main`**, before touching a workflow file.
+2. **An invalid workflow produces a run** — a `push`-event `startup_failure`.
+   That is how the two are told apart. No run whatsoever means conflict.
+3. **The fix is a rebase**, and it is the same rebase the merge routine above
+   asks for anyway — so it costs nothing but doing it now.
 
 **Never hand-roll a "wait for CI" loop that treats zero checks as success.**
 Absent and passing are different states; a loop counting non-completed checks
