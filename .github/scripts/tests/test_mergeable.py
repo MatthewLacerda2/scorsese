@@ -226,6 +226,25 @@ class Picking(unittest.TestCase):
         kept = mergeable.runs_for([newest, older], SHA)
         self.assertEqual([it["id"] for it in kept], [2, 1])
 
+    def test_failed_and_unfinished_are_one_definition_each(self):
+        """Named so `merge-queue.py` polls on the same predicates `judge` uses.
+
+        A polling loop has to ask "already answered?" before "still running?",
+        which `judge` does not expose as separate questions. Two spellings of
+        *failed* would drift, and the drift would be silent in the direction
+        that merges.
+        """
+        red = run(id=1, conclusion="failure")
+        live = run(id=2, status="in_progress", conclusion=None)
+        skipped = run(id=3, conclusion="skipped")
+        self.assertEqual(mergeable.failed_runs([red, live, skipped]), [red])
+        self.assertEqual(mergeable.unfinished([red, live, skipped]), [live])
+
+    def test_a_skipped_run_is_not_a_failed_one(self):
+        # It is what CI does to a draft and to a Markdown-only change; reading
+        # it as a failure would refuse both.
+        self.assertEqual(mergeable.failed_runs([run(conclusion="skipped")]), [])
+
     def test_a_run_counts_as_having_built_something_only_if_a_job_passed(self):
         self.assertTrue(mergeable.ran_something(run(), {1: [job("t", "success")]}))
         self.assertFalse(mergeable.ran_something(run(), {1: [job("t", "skipped")]}))

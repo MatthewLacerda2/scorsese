@@ -52,6 +52,10 @@ Run it against a live pull request:
 
     python3 .github/scripts/mergeable.py 171
 
+`merge-queue.py` beside this file is the same question asked in a loop: it
+rebases, pushes, and polls until [`judge`] answers, so that nobody has to sit
+through the run. It imports this decision rather than restating it.
+
 Python and not Rust because it is a few `gh` calls and a decision, and because
 `.github/scripts/` is already where that kind of thing lives. The decision
 itself is [`judge`], which is pure and takes plain dictionaries, so the whole
@@ -121,6 +125,31 @@ def ran_something(run: dict, jobs: dict[int, list[dict]]) -> bool:
     return any(
         job.get("conclusion") == "success" for job in jobs.get(run.get("id"), [])
     )
+
+
+def failed_runs(runs: list[dict]) -> list[dict]:
+    """The runs in this set that concluded badly.
+
+    `skipped` is not a failure — it is what CI does to a draft, and to a
+    Markdown-only change — so the predicate is "completed, and not one of the
+    two conclusions that mean nothing went wrong".
+
+    Named rather than written inline because [`judge`] is not the only reader:
+    `merge-queue.py` polls, and a polling loop has to ask "is this already
+    answered?" before "is something still running?". Two spellings of *failed*
+    would drift, and the drift would be silent in the direction that merges.
+    """
+    return [
+        run
+        for run in runs
+        if run.get("status") == "completed"
+        and run.get("conclusion") not in ("success", "skipped")
+    ]
+
+
+def unfinished(runs: list[dict]) -> list[dict]:
+    """The runs in this set that have not concluded. See [`failed_runs`]."""
+    return [run for run in runs if run.get("status") != "completed"]
 
 
 def no_run(pull: dict, short: str) -> list[str]:
@@ -200,12 +229,7 @@ def judge(
     # A failure anywhere in the set refuses, and it is asked first. A commit
     # whose evidence disagrees with itself has exactly one safe reading, and a
     # green run sitting beside a red one does not make the red one go away.
-    failed = [
-        run
-        for run in runs
-        if run.get("status") == "completed"
-        and run.get("conclusion") not in ("success", "skipped")
-    ]
+    failed = failed_runs(runs)
     if failed:
         run = failed[0]
         return False, [
@@ -222,7 +246,7 @@ def judge(
             ),
         ]
 
-    running = [run for run in runs if run.get("status") != "completed"]
+    running = unfinished(runs)
     if running:
         return False, [
             f"a {WORKFLOW} run for {short} is {running[0].get('status')}.",
