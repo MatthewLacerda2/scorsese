@@ -471,6 +471,60 @@ exclude_re = [
     # literal string cannot carry — the entry is still line-qualified to this
     # one mutation of this one function.
     'replace Mix<[^>]a>::needs -> bool with true',
+
+    # `render::glides` says whether any note in the piece is slid onto, and so
+    # whether the walk that works out what each note slides *from* is built at
+    # all. Answering `true` for every song builds it for songs that have no
+    # glide in them, where every note then asks `Stroke::slide_seconds` for a
+    # slide time, is told `None`, and is rendered exactly as it was — the same
+    # shape `Mix::needs` above has, and equivalent for the same reason: the
+    # function decides whether work is *done*, never what it produces.
+    #
+    # Measured rather than argued: with the mutation applied by hand, zimmer's
+    # whole suite passes and all 36 recipes of this branch's probe corpus — the
+    # worked examples on `docs/recipes.md` and a set covering every modulation
+    # path — bake to byte-identical files.
+    #
+    # The one thing the mutant does change is that a *broken* document fails
+    # sooner: the walk resolves every voiced note's pitch, so a song carrying
+    # an unparseable note name on a track no arrangement entry plays would be
+    # refused rather than rendered around. That is not behaviour to pin down
+    # with a test — a test for it would promise that a typo stays unnoticed.
+    #
+    # The other two mutations of this function are caught, which is what says
+    # the predicate itself is asserted: `false` turns every glide in the piece
+    # off, and `==` to `!=` turns them off for a part where *every* note is
+    # slid onto, which is the ordinary shape of a bassline —
+    # `a_line_of_nothing_but_glides_still_slides` is the test that objects.
+    'render\.rs:432:5: replace glides -> bool with true',
+
+    # `core::tracks::pitch_track` carries a glide as a straight line from the
+    # note it slid from to the note itself: `1.0 - i / samples`, added while
+    # that is above zero, and `samples` is `seconds * RATE`. Two `>` in this
+    # function widen to `>=` without changing a sample, and both are here:
+    #
+    # - `g.seconds > 0.0` (line 82) drops a slide over no time before the loop
+    #   runs. Letting a zero through gives `samples == 0.0`, and then the
+    #   fraction is `0/0` at the first sample and `i/0` after it — a `NaN` and
+    #   an infinity, neither of which is above zero, so not one sample is bent
+    #   either way. The guard stays because it says what a slide is, and
+    #   because the *other* direction is load-bearing: a negative `seconds`
+    #   makes `1 - i/samples` grow without bound and is caught.
+    # - `left > 0.0` (line 98) stops the term once the slide has arrived. At
+    #   exactly zero the term is `from * 0.0`, which adds nothing, so the two
+    #   versions agree on that sample and disagree nowhere.
+    #
+    # Measured with both applied at once: zimmer's whole suite passes, and four
+    # glide-carrying songs — a slid bassline, a run of sixteenths short enough
+    # that the gate caps the slide, a line that slides onto its own pitch, and
+    # a chord marked `glide` — bake to byte-identical files.
+    #
+    # Line-qualified, because the sibling mutations on both lines are real:
+    # `>` to `<` or `==` at either site changes which samples are bent, and the
+    # glide tests in `tracks.rs` and `tests/song/articulation/glide.rs` kill
+    # all four.
+    'tracks\.rs:82:53: replace > with >= in pitch_track',
+    'tracks\.rs:98:25: replace > with >= in pitch_track',
 ]
 
 # ---------------------------------------------------------------------------

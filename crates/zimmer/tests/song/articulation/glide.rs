@@ -75,6 +75,23 @@ fn a_glide_with_nothing_before_it_is_the_plain_note() {
     assert_eq!(alone(Some(Glide)), alone(None));
 }
 
+/// A part where *every* note is slid onto still slides. The mark is on each
+/// note rather than on the piece, so a line of nothing but glides is the
+/// ordinary case for a bassline and not a special one.
+#[test]
+fn a_line_of_nothing_but_glides_still_slides() {
+    let all_slid = rendered(&playing(vec![
+        note("E5", 0.0, 1.0, 0.5, Some(Glide)).into(),
+        note("E4", 2.0, 1.0, 0.5, Some(Glide)).into(),
+    ]));
+    let written = hz(&after(None), ONSET, 2.0, 25.0);
+    let slid = hz(&all_slid, ONSET, 2.0, 25.0);
+    assert!(
+        slid > written * 1.3,
+        "a line of glides did not slide: {slid} against {written}"
+    );
+}
+
 /// A note the arrangement silenced is still where the hand was. The first pass
 /// below plays nothing at all, and the note opening the second pass slides
 /// from it anyway — which is what keeps muting eight bars from changing how

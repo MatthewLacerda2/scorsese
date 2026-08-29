@@ -427,6 +427,37 @@ mod tests {
         }
     }
 
+    /// The tremolo reads an LFO aimed at the **amplifier** and no other: a
+    /// vibrato is not a tremolo and a filter wobble is not one either, and a
+    /// guard that let either through would dip the level of every patch that
+    /// wobbles anything at all.
+    #[test]
+    fn only_an_lfo_aimed_at_the_amp_dips_the_level() {
+        for elsewhere in [LfoTarget::Pitch, LfoTarget::Cutoff] {
+            for i in [0, PEAK, TROUGH] {
+                let held = tremolo(Some(lfo(1.0, elsewhere)), i);
+                assert_eq!(held, 1.0, "{elsewhere:?} at {i} moved the level");
+            }
+        }
+        for i in [0, PEAK, TROUGH] {
+            assert_eq!(tremolo(None, i), 1.0, "no LFO at {i}");
+        }
+    }
+
+    /// And what it does when it is aimed there: a full-depth dip is half way
+    /// down where the wave is zero, untouched at its peak, and silent at its
+    /// trough — the whole of `1 − depth × (1 − wave) / 2`, in three exact
+    /// numbers.
+    #[test]
+    fn a_full_depth_tremolo_swings_from_silence_to_the_note() {
+        let amp = Some(lfo(1.0, LfoTarget::Amp));
+        assert_eq!(tremolo(amp, 0), 0.5, "the wave starts halfway");
+        assert_eq!(tremolo(amp, PEAK), 1.0, "and reaches the level written");
+        assert_eq!(tremolo(amp, TROUGH), 0.0, "and dips to nothing");
+        let gentle = Some(lfo(0.5, LfoTarget::Amp));
+        assert_eq!(tremolo(gentle, TROUGH), 0.5, "half the depth, half the dip");
+    }
+
     /// The wave is zero at the first sample, so the bend is `2^0 = 1` and the
     /// pitch is the one that was played — for any depth at all, including one
     /// deep enough to be audible two octaves away.

@@ -83,12 +83,15 @@ impl Slides {
             // Walked as runs of one onset rather than note by note, which is
             // the whole of the tie rule: `ended` is the top of the last run to
             // finish and every note of the run in progress slides from it.
+            // `running` is `None` only before the first note of the line, and
+            // the first note of a line has no predecessor either, so the two
+            // are the same nothing.
             let mut ended = None;
             let mut running: Option<usize> = None;
             let mut at = f32::NEG_INFINITY;
             for index in line {
                 if notes[index].start > at {
-                    ended = running.or(ended);
+                    ended = running;
                     at = notes[index].start;
                 }
                 previous[index] = ended;
