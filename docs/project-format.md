@@ -1605,6 +1605,99 @@ the other, and turning the blur up does not quietly delete the fringing.
 **It applies to every layer kind**, for the reason a grade and a blur do: the
 compositor is handed a rectangle of pixels and does not know what produced them.
 
+### Taking the background out: `chroma_key`
+
+```json clip
+{ "id": "c-host", "asset": "shot-b", "start": 0, "duration": 240,
+  "chroma_key": { "color": "#00b140", "tolerance": 0.25, "softness": 0.1, "spill": true } }
+```
+
+A chroma key: the colour of the screen the shot was filmed against, how far
+from it still counts as screen, how soft the edge is, and whether the colour
+the screen bounced back onto the subject is pulled off again. It is **the only
+thing in scorsese that can make a source's own pixels transparent** — every
+other property answers what colour a pixel is, and this one answers whether
+there is a pixel at all.
+
+Absent — and it is absent on nearly every clip — means no key. That is the only
+neutral there is: a key needs a colour, and there is no colour that means "do
+not key", which is why this is one object rather than four fields with
+harmless defaults.
+
+**Four values, and that is the whole feature.** Garbage mattes, animated masks
+or splines, light wrap, per-channel despill controls and combined
+luma-plus-chroma mattes are a compositing suite's answers to a question nobody
+editing a video asks.
+
+**`color` is the colour the camera saw**, not the colour the screen was sold
+as. A lit green screen is never `#00ff00` — it is something like `#00b140`, and
+under a warm key light something else again — so sample it from a frame rather
+than guessing. Its alpha is ignored; a recorded colour is opaque, and the
+notation carries an alpha because one notation reads every colour in this
+document.
+
+**`tolerance` and `softness` are the two thresholds every keyer has.** Below the
+tolerance a pixel is entirely gone; past tolerance plus softness it is entirely
+kept; between them the alpha ramps straight down. `0.0` softness is a hard
+cutout, which reads as a paper doll on anything with a soft edge — a little is
+what lets hair and motion blur survive.
+
+**What they are a distance in**, because a number needs a scale. The key
+measures colour with the light divided out: each pixel is reduced to the
+proportions of its three channels, and those are laid out as a triangle with
+white at the centre, **each pure primary exactly `1.0` from white**, and two
+primaries `√3` apart. So `0.25` is a quarter of the way from a pure primary to
+neutral grey. For orientation, against a `#00b140` screen: skin sits about
+`0.70` away, and a strand of hair three-quarters covered by the screen sits
+about `0.29`.
+
+**It survives an unevenly lit screen, and that is what the plane is for.** A
+real screen is one chroma and many lumas — brighter where the lights point,
+darker in the subject's shadow — and dividing the light out is exactly what
+makes those the same point. The same `#00b140` at full light, at 42% and at 20%
+sits `0.003` and `0.009` from itself here, where a plain RGB distance would put
+them `0.41` and `0.53` apart and one key could not take both.
+
+**A pixel with almost no light in it is kept**, because proportions of nearly
+nothing are noise rather than a colour. The shadow so deep it stays opaque is a
+mark on the matte somebody can see and fix; the alternative speckles the
+subject.
+
+**`spill` is one boolean.** With it on, the amount of the keyed hue a pixel
+carries beyond what its other channels account for is taken back off it, and
+the pixel is then put back at the brightness it had — because green carries 72%
+of perceived luma, and a despill that skips that step leaves a grey rim where
+there was a green one. It is about the hue that was keyed and not about green:
+a magenta screen spills magenta and the same boolean pulls red and blue down
+instead.
+
+It costs something, and the cost is worth knowing: the suppression applies to
+the whole layer, so a genuinely green jacket in front of a green screen comes
+back less green. That is the price of one boolean, and turning it off is the
+escape hatch.
+
+**`tolerance` and `softness` are animatable**, as `chroma_key.tolerance` and
+`chroma_key.softness` — the field is the clip's baseline and a track takes that
+one setting over for the whole clip, exactly as `grade.*` does. `color` and
+`spill` are not: a colour is not a number, and a boolean ramped halfway is not a
+state anything is in. **A track on either does nothing on a clip with no
+`chroma_key`**, because there is no key for it to be a setting of.
+
+**The key runs first**, before the grade and so before everything else. Grading
+first shifts the screen's own colour and a key aimed at what it used to be then
+misses it — a matte that quietly stops working the moment somebody warms the
+shot.
+
+**Footage only.** A `text`, `color`, `shape` or `icon` asset is drawn by this
+build with exactly the alpha the document asked for, so a key on one asks it to
+undo its own drawing; validation refuses it. And **the screen colour must have a
+hue** — its strongest and weakest channels at least 16 levels apart — because a
+key on a grey separates pixels by brightness alone. That is a luma key, and
+scorsese deliberately does not have one: knocking out a white or a black
+background also knocks out every white and black *in the picture* — eyes, teeth,
+the shine on hair. The answer to "I want a cutout" is to shoot or generate
+against a saturated colour.
+
 ### Playing faster or slower: `speed`
 
 ```json clip
@@ -1787,6 +1880,8 @@ attention than the ducking was avoiding.
 | `opacity` | how solid the layer is | `1.0` solid, `0.0` invisible |
 | `blur` | how far the layer's own pixels are softened, as a fraction of its own **height** | `0.0` untouched, higher is blurrier |
 | `aberration` | how far the layer's colour channels are pulled apart from its centre outward, as a fraction of its own **height** | `0.0` untouched, higher fringes harder |
+| `chroma_key.tolerance` | how far a pixel's colour may sit from the keyed screen colour and still be keyed out | `0.25` by default; nothing without a `chroma_key` |
+| `chroma_key.softness` | how wide the ramp from screen to subject is, outward from the tolerance | `0.1` by default; `0.0` is a hard cutout |
 | `transform.position.x` | offset right, as a fraction of the raster's **width** | `0.0` unmoved |
 | `transform.position.y` | offset down, as a fraction of the raster's **height** | `0.0` unmoved |
 | `transform.scale.x` | width multiplier about the layer's `origin` | `1.0` natural size |

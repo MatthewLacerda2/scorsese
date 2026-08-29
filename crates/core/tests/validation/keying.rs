@@ -1,7 +1,7 @@
 //! The two things about a chroma key a document can be wrong about: what it is
 //! aimed at, and what it is applied to.
 
-use crate::common::{asset_id, assert_only_problem, clip_id, problems, project};
+use crate::common::{assert_only_problem, asset_id, clip_id, problems, project};
 use scorsese_core::{AssetKind, ChromaKey, MIN_KEY_SPREAD, Rgba, TimelineProblem as E};
 
 /// The green most screens are painted, and a grey that is not a screen at all.

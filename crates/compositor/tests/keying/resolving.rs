@@ -68,9 +68,13 @@ fn a_track_takes_one_setting_over_and_leaves_the_rest() {
     assert!(key.spill, "and the suppression");
 
     let softened = constant(path::KEY_SOFTNESS, 0.33);
-    let key = Properties::over(Properties::at(&clip, Frames::ZERO), &[softened], Frames::ZERO)
-        .chroma_key
-        .expect("the key is still there");
+    let key = Properties::over(
+        Properties::at(&clip, Frames::ZERO),
+        &[softened],
+        Frames::ZERO,
+    )
+    .chroma_key
+    .expect("the key is still there");
     assert!((key.softness - 0.33).abs() < f64::EPSILON);
 }
 

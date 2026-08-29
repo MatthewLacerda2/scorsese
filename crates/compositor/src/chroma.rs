@@ -266,11 +266,7 @@ impl Spill {
 /// [`crate::aberration::into`] have, and for one of the same two reasons: a
 /// buffer whose length disagrees with the resolution it claims is refused a few
 /// lines later, where every other malformed layer is.
-pub(crate) fn into<'a>(
-    out: &'a mut Vec<u8>,
-    source: &'a [u8],
-    key: Option<ChromaKey>,
-) -> &'a [u8] {
+pub(crate) fn into<'a>(out: &'a mut Vec<u8>, source: &'a [u8], key: Option<ChromaKey>) -> &'a [u8] {
     let Some(keyer) = key.and_then(Keyer::new) else {
         return source;
     };
@@ -317,7 +313,11 @@ fn luma(r: f64, g: f64, b: f64) -> f64 {
 /// A distance somebody wrote, with everything that is not one turned into
 /// zero: a negative distance is not one, and neither is a NaN.
 fn sane(value: f64) -> f64 {
-    if value.is_nan() || value < 0.0 { 0.0 } else { value }
+    if value.is_nan() || value < 0.0 {
+        0.0
+    } else {
+        value
+    }
 }
 
 /// One channel back to a byte, clamped for [`crate::grade`]'s reason — the
@@ -446,7 +446,10 @@ mod tests {
         // whole: `(0.6 − 0.2) / 0.4` is a hair under one in binary, and a byte
         // of alpha rounds it to 255 either way — `tests/keying/` is where the
         // claim about the byte is made.
-        assert!((keyer.kept(0.6) - 1.0).abs() < 1e-12, "the far end is whole");
+        assert!(
+            (keyer.kept(0.6) - 1.0).abs() < 1e-12,
+            "the far end is whole"
+        );
         assert_eq!(keyer.kept(9.0), 1.0, "and nothing past it is more");
         // A hair inside each end, so a boundary moved by an epsilon is caught
         // rather than landing on the same answer.
