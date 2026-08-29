@@ -41,7 +41,8 @@
 //! two jobs stopping one step earlier, at the samples — interleaved stereo, as
 //! a file holds them — for a caller that wants to do something with them other
 //! than write them down. Around those sit the
-//! documents they take ([`Patch`], [`Song`], [`NoteOpts`]), the
+//! documents they take ([`Patch`], [`Song`], [`NoteOpts`] and the [`Glide`] it
+//! may carry), the
 //! [`PatchResolver`] a song's references resolve through, [`SynthError`],
 //! [`SAMPLE_RATE`], [`SYNTH_VERSION`], and [`parse_note`] and [`midi_to_freq`]
 //! for turning what a score writes into what the renderer plays.
@@ -164,7 +165,7 @@ pub mod wav;
 
 pub use core::SAMPLE_RATE;
 pub use error::SynthError;
-pub use note::{NoteOpts, midi_to_freq, parse_note};
+pub use note::{Glide, NoteOpts, midi_to_freq, parse_note};
 pub use patch::Patch;
 pub use song::{Excerpt, PatchResolver, Song, Span, Window, render_excerpt, render_song};
 

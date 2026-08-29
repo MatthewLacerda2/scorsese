@@ -1,11 +1,50 @@
 //! Walk the arrangement, sum the notes, limit the result.
 //!
 //! The whole renderer is one idea: **mixing is addition**. Every note is
-//! rendered independently through the note renderer, and its buffer is added
+//! rendered on its own through the note renderer — independently of the
+//! others, with the single exception stated below — and its buffer is added
 //! into the master at its start offset. There is no streaming, no voice
 //! allocation and no voice-stealing, because none of that buys anything here —
 //! this is not a real-time synth, it is a buffer being built, and memory is
 //! cheap.
+//!
+//! **One note is not independent of the others, and it is the exception this
+//! paragraph exists to state.** A note marked `glide` starts at the pitch of
+//! the note before it on its track, so the loop below carries a per-track
+//! *hand* — where that line has got to — rather than reading each note alone.
+//! Nothing else about a note asks that question, and nothing else should:
+//! independence is what makes the rest of this file a sum. What "the note
+//! before it" means is decided here rather than left to fall out of the shape
+//! of the document, and [`super::glide`] is where it is worked out:
+//!
+//! - **The note that last *started* on the track**, in time — not the one
+//!   written above it in the file. The loop walks a pattern's entries in
+//!   document order, which is not time order, and reordering a `notes` array
+//!   changes no music today. A glide must not be the first thing that makes
+//!   it: a slide is a hand moving from where it was, and where it was is a
+//!   fact about the clock.
+//! - **Notes that start together are one moment.** A chord's voices, or two
+//!   notes written on one beat, each slide from whatever preceded the moment
+//!   rather than from each other, and the line goes on from the **highest** of
+//!   them, which is the voice an ear follows. A chord marked `glide`
+//!   therefore arrives from one pitch and opens out into its voicing — a real
+//!   gesture, but not the parallel slide a guitarist means, and a document
+//!   that wants that writes the voices as separate notes. A run of voices at
+//!   *different* onsets is not this case at all: each slides from the one
+//!   before it, which is what an arpeggio should do.
+//! - **A note that did not sound was still played.** A `tracks` filter and a
+//!   solo skip notes without spending the score, exactly as they spend an
+//!   ordinal without playing one. Two things need that: muting eight bars must
+//!   not change how the ninth is *played*, and an excerpt promises the notes
+//!   it keeps sound as they do in the whole piece — which a hand that only
+//!   moved on what the window rendered would break.
+//! - **Nothing is conditional on the gap.** A glide slides from the previous
+//!   note however long ago it stopped. Legato mode on a mono synth is
+//!   conditional, and copying it would put the meaning of one note's mark in
+//!   another note's `dur`: shortening the note before it, or marking that one
+//!   `staccato`, would silently turn the slide off. The mark says slide. Only
+//!   the first note of a track has nothing to slide from, and that one is
+//!   played plain.
 //!
 //! Two deliberate consequences:
 //!
@@ -42,15 +81,16 @@ use super::articulation::Stroke;
 use super::automate::{self, Automation};
 use super::excerpt::{Excerpt, Scope};
 use super::feel::swung;
+use super::glide::{Slides, Trail};
 use super::mix::Mix;
 use super::shape::{plan, shape};
-use super::{Note, PatchRef, Song, sections};
+use super::{Articulation, Note, PatchRef, Song, sections};
 use crate::core::{self, RATE};
 use crate::error::SynthError;
 use crate::fx::limiter;
 use crate::hash::hash3;
 use crate::level::{Cut, Layer};
-use crate::note::NoteOpts;
+use crate::note::{Glide, NoteOpts};
 use crate::patch::Patch;
 use crate::stereo::Stereo;
 
@@ -184,6 +224,19 @@ pub(crate) fn mix_song(
         .enumerate()
         .map(|(index, track)| (track.name.as_str(), index))
         .collect();
+    // Who each note slides from — worked out per pattern, and only for a song
+    // that writes the one mark that asks. A piece with no glide in it takes
+    // exactly the walk it took before this existed, resolving no pitch it has
+    // no reason to look at; the empty map below is what says so.
+    let slides: HashMap<&str, Slides> = if glides(&voiced) {
+        voiced
+            .iter()
+            .map(|(name, notes)| Ok((*name, Slides::of(notes, &track_index, song.tracks.len())?)))
+            .collect::<Result<_, SynthError>>()?
+    } else {
+        HashMap::new()
+    };
+    let mut trail = Trail::new(song.tracks.len());
 
     let beat = 60.0 / bpm;
     // Start at the arrangement's own length rather than growing from empty, so
@@ -218,7 +271,13 @@ pub(crate) fn mix_song(
                 .ok_or_else(|| SynthError::UnknownPattern {
                     pattern: entry.pattern().to_owned(),
                 })?;
-        for note in voiced.get(entry.pattern()).into_iter().flatten() {
+        let sliding = slides.get(entry.pattern());
+        for (index, note) in voiced
+            .get(entry.pattern())
+            .into_iter()
+            .flatten()
+            .enumerate()
+        {
             // A silenced track still consumes its ordinal, so muting one for
             // eight bars does not re-roll the noise of every note after it.
             let track = track_index[note.track.as_str()];
@@ -248,11 +307,29 @@ pub(crate) fn mix_song(
             // the error term: it scatters a decision and never overrules one.
             let written = note.vel * entry.vel_scale() * stroke.velocity;
             let velocity = feel.velocity(written, track, place, song.seed);
+            // The gate, not the written `dur`: staccato and ghost shorten how
+            // long the note is held and leave the rhythm on the page exactly
+            // as it reads.
+            let gate = note.dur * stroke.gate * beat;
+            // Both transposes, applied in one place — and clamped rather than
+            // refused, since refusing would make a legal transpose depend on
+            // the register of a pattern written months ago.
+            let pitch = entry.played_pitch(note.note.to_midi()?, key.as_ref());
+            // Where the hand was. A mark that found nothing to slide from —
+            // the first note of a track — is played plain rather than
+            // refused: what a glide needs is another note, and the top of a
+            // piece has not got one yet.
+            let glide = match (stroke.slide_seconds(gate), sliding) {
+                (Some(seconds), Some(slides)) => trail
+                    .from(slides, index, track, entry, key.as_ref())
+                    .map(|from| Glide {
+                        semitones: from - pitch,
+                        seconds,
+                    }),
+                _ => None,
+            };
             let opts = NoteOpts {
-                // The gate, not the written `dur`: staccato and ghost shorten
-                // how long the note is held and leave the rhythm on the page
-                // exactly as it reads.
-                duration: note.dur * stroke.gate * beat,
+                duration: gate,
                 velocity,
                 // How far this strike's tone sits from its level — the mark's
                 // own offset plus the player's. Both are fractions of the
@@ -260,12 +337,9 @@ pub(crate) fn mix_song(
                 // number, which is what lets them simply add: intent first,
                 // then the error on it.
                 timbre: stroke.timbre(velocity) + feel.timbre(velocity, track, place, song.seed),
+                glide,
                 seed,
             };
-            // Both transposes, applied in one place — and clamped rather than
-            // refused, since refusing would make a legal transpose depend on
-            // the register of a pattern written months ago.
-            let pitch = entry.played_pitch(note.note.to_midi()?, key.as_ref());
             // Where this note sits in the piece, in beats: the one coordinate
             // an automation curve is read at. Swung, because that is where the
             // note is actually played — but neither marked nor humanised,
@@ -297,6 +371,11 @@ pub(crate) fn mix_song(
             // where a note lands is timing, which bus it lands on is routing,
             // and the two answer to different fields.
             mix.add(track, &rendered, at);
+        }
+        // Every hand moves to where this playing left it, whether or not the
+        // notes that moved it were allowed to sound — see the module doc.
+        if let Some(slides) = sliding {
+            trail.advance(slides, entry, key.as_ref());
         }
         cursor_beats += pattern.beats;
     }
@@ -340,6 +419,19 @@ fn tuned<'p>(patch: &'p Patch, curve: Option<&Automation>, beat: f32) -> Cow<'p,
         filter.cutoff = cutoff;
     }
     Cow::Owned(tuned)
+}
+
+/// Whether any note in the piece is slid onto — the one question that decides
+/// whether a render has to know what came before a note.
+///
+/// Asked of the *voiced* notes rather than of the written entries, so it costs
+/// one pass over notes that have already been expanded and cannot disagree
+/// with what the loop below sees.
+fn glides(voiced: &HashMap<&str, Vec<Note>>) -> bool {
+    voiced
+        .values()
+        .flatten()
+        .any(|note| note.articulation == Some(Articulation::Glide))
 }
 
 /// One seed per note, from `(song seed, track, ordinal)`.

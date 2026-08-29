@@ -62,6 +62,8 @@ impl OneShot {
             // to have played this note brighter than the last: its brightness
             // is the velocity it was given, exactly.
             timbre: 0.0,
+            // Nor a note before it to slide from: a one-shot is not a line.
+            glide: None,
             seed: self.seed,
         }
     }
