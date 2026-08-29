@@ -55,9 +55,9 @@ pub(crate) const DIATONIC: [i32; 7] = [0, 2, 4, 5, 7, 9, 11];
 /// A **glide** is the one thing about a note that is not a property of the
 /// note: it says *this pitch is arrived at*, from somewhere the note itself
 /// does not name. What that somewhere is belongs to whoever is playing a line
-/// — [`song::glide`](crate::song::glide) works it out from the note before —
-/// and by the time it reaches here it is a distance and a time, which is all
-/// the frequency track needs.
+/// — the song renderer works it out from the note before — and by the time it
+/// reaches here it is a distance and a time, which is all the frequency track
+/// needs.
 ///
 /// Semitones rather than a start pitch, because pitch is logarithmic and every
 /// other thing that bends a note here is in semitones too: a glide, a vibrato

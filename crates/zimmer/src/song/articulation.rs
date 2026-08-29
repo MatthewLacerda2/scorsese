@@ -158,8 +158,9 @@ pub enum Articulation {
     /// Quiet, short, dull and a hair early — the note between the notes.
     Ghost,
     /// Slid onto from the pitch of the note before it on the track — the
-    /// gesture a bassline is half made of. [`super::glide`] decides which note
-    /// that is; the first note of a track has none and is played plain.
+    /// gesture a bassline is half made of. Which note that is, and what
+    /// "before" means, is the song renderer's to decide; the first note of a
+    /// track has none and is played plain.
     Glide,
 }
 
