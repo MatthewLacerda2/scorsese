@@ -65,9 +65,9 @@ pub struct Excerpt {
     pub window: Option<Window>,
     /// Which tracks reach the mix, by name. Empty is all of them.
     ///
-    /// A track left out is still **played** when something is keyed off it —
-    /// see [`Scope`] — so a solo shows the duck the mix has rather than one it
-    /// does not.
+    /// A track left out is still **played** when something is keyed off it, so
+    /// a solo shows the duck the mix has rather than one it does not. It is
+    /// simply not heard.
     pub only: Vec<String>,
 }
 
@@ -285,7 +285,7 @@ impl Scope {
 
     /// Where the kept stretch starts, in seconds — what the section rows of a
     /// report are measured from.
-    pub(crate) fn from_seconds(&self) -> f64 {
+    pub(crate) fn opens_at_seconds(&self) -> f64 {
         self.from as f64 / f64::from(RATE)
     }
 }
@@ -394,7 +394,7 @@ mod tests {
     fn a_whole_render_hears_everything() {
         let scope = scope(&Excerpt::default());
         assert_eq!(scope.heard_count(), 2);
-        assert_eq!(scope.from_seconds(), 0.0);
+        assert_eq!(scope.opens_at_seconds(), 0.0);
         assert!(Excerpt::default().is_whole());
     }
 

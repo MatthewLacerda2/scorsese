@@ -318,7 +318,7 @@ pub(crate) fn mix_song(
     Ok(Mixdown {
         master,
         tracks,
-        sections: sections::of(song, scope.from_seconds()),
+        sections: sections::of(song, scope.opens_at_seconds()),
     })
 }
 

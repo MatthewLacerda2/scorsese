@@ -22,7 +22,7 @@ pub(super) use set::Set;
 pub(super) use survey::Survey;
 
 use scorsese_core::ProjectPath;
-use scorsese_providers::synth::{self, Baked, Starter};
+use scorsese_providers::synth::{self, Starter};
 use serde_json::Value;
 
 use super::inspect::load;

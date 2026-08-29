@@ -31,7 +31,9 @@ fn at(seconds: f32) -> usize {
 }
 
 fn seconds(from: f32, to: f32) -> Excerpt {
-    Excerpt::of(Window::seconds(Span::new(from, Some(to)).unwrap()))
+    Excerpt::of(Window::seconds(
+        Span::new(from, Some(to)).expect("a legal span"),
+    ))
 }
 
 /// The fixture song with a second instrument, a sidechained compressor on it,
@@ -102,7 +104,7 @@ fn a_window_is_exactly_that_stretch_of_the_whole_bake() {
 fn a_window_in_beats_counts_along_the_rendered_piece() {
     let song = looped();
     let all = whole(&song);
-    let window = Window::beats(Span::new(8.0, Some(12.0)).unwrap());
+    let window = Window::beats(Span::new(8.0, Some(12.0)).expect("a legal span"));
     let cut = part(&song, &Excerpt::of(window));
     // 120 bpm, so a beat is half a second and this is seconds 4 to 6.
     assert_eq!(cut, all[at(4.0)..at(6.0)], "beats 8..12 are seconds 4..6");
@@ -115,7 +117,7 @@ fn an_open_window_runs_to_the_end_of_the_piece() {
     let all = whole(&song);
     let cut = part(
         &song,
-        &Excerpt::of(Window::beats(Span::new(2.0, None).unwrap())),
+        &Excerpt::of(Window::beats(Span::new(2.0, None).expect("a legal span"))),
     );
     assert_eq!(cut, all[at(1.0)..], "beat 2 onwards is second 1 onwards");
 }
