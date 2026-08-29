@@ -24,7 +24,7 @@ use crate::error::SynthError;
 pub use fm::{Algorithm, FM_OPERATORS, Operator};
 pub use stages::{
     Adsr, EqBand, EqKind, Filter, FilterKind, Fx, Lfo, LfoTarget, MAX_EQ_BANDS, MAX_OSCS,
-    MAX_PARTIALS, MAX_VOICES, NoiseColor, Osc, Partial, PitchEnv, Source, Wave,
+    MAX_PARTIALS, MAX_VOICES, NoiseColor, Osc, Partial, PitchEnv, Slope, Source, Wave,
 };
 
 /// Rejects an fx chain the renderer cannot honour.

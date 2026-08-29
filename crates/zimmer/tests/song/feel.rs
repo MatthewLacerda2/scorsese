@@ -2,7 +2,7 @@
 
 use crate::common::songs::{song, verse, voice};
 use crate::common::{channel, peak, saw_patch};
-use scorsese_zimmer::patch::{Adsr, Filter, FilterKind};
+use scorsese_zimmer::patch::{Adsr, Filter, FilterKind, Slope};
 use scorsese_zimmer::song::{Humanize, InlineOnly, PatchRef};
 use scorsese_zimmer::{SAMPLE_RATE, Song, render_song};
 
@@ -132,6 +132,7 @@ fn expressive() -> Song {
     let mut patch = saw_patch();
     patch.filter = Some(Filter {
         kind: FilterKind::Lowpass,
+        slope: Slope::Db12,
         cutoff: 400.0,
         resonance: 0.0,
         env_octaves: 0.0,

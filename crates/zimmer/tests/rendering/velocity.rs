@@ -9,7 +9,7 @@
 
 use crate::common::{brightness, minimal, opts, peak, render, saw_patch};
 use scorsese_zimmer::NoteOpts;
-use scorsese_zimmer::patch::{Adsr, Filter, FilterKind, Patch, Source};
+use scorsese_zimmer::patch::{Adsr, Filter, FilterKind, Patch, Slope, Source};
 
 /// Half a second of `patch`, struck at `velocity`.
 fn struck(patch: &Patch, velocity: f32) -> Vec<f32> {
@@ -28,6 +28,7 @@ fn struck(patch: &Patch, velocity: f32) -> Vec<f32> {
 fn lowpass(cutoff: f32, vel_octaves: f32) -> Filter {
     Filter {
         kind: FilterKind::Lowpass,
+        slope: Slope::Db12,
         cutoff,
         resonance: 0.0,
         env_octaves: 0.0,

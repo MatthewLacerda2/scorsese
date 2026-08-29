@@ -2,12 +2,13 @@
 //! never about whether the code ran.
 
 use crate::common::{adsr, brightness, opts, peak, render, rising_crossings, saw_patch};
-use scorsese_zimmer::patch::{Adsr, Filter, FilterKind, Lfo, LfoTarget};
+use scorsese_zimmer::patch::{Adsr, Filter, FilterKind, Lfo, LfoTarget, Slope};
 
 /// A lowpass at `cutoff` with no envelope movement.
 fn lowpass(cutoff: f32, resonance: f32) -> Filter {
     Filter {
         kind: FilterKind::Lowpass,
+        slope: Slope::Db12,
         cutoff,
         resonance,
         env_octaves: 0.0,

@@ -481,6 +481,64 @@ pub enum FilterKind {
     /// Keep what is above it: thins a sound out, and is how a small speaker
     /// gets simulated.
     Highpass,
+    /// Keep a band around the cutoff and drop both ends. A telephone, a radio,
+    /// a wah, and the one way to sweep a resonant peak across a sound without
+    /// also changing how loud the whole thing is.
+    Bandpass,
+    /// Drop a band around the cutoff and keep both ends — the mirror of
+    /// [`FilterKind::Bandpass`]. Sweeping one through a sustained chord is a
+    /// phaser's whole trick, and taking one ringing region out of a noisy
+    /// source is the other use.
+    Notch,
+}
+
+/// How steeply a filter falls away past its cutoff.
+///
+/// The difference between a tone control and the thing people mean when they
+/// say "filter". One pole pair rolls off gently enough that a lowpass still
+/// lets a good deal of the top through; two in series is the aggressive,
+/// obviously-filtered sweep, and it is the single most-missed control on a
+/// subtractive synth that lacks it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Slope {
+    /// One pole pair — 12 dB per octave. The default, because it is what every
+    /// patch written before this field existed already had.
+    #[default]
+    #[serde(rename = "12db")]
+    Db12,
+    /// Two pole pairs in series — 24 dB per octave.
+    ///
+    /// **[`Filter::resonance`] is a different control here.** The emphasis is
+    /// applied once per pair, so a setting that merely coloured the cutoff at
+    /// 12 dB rings at 24 and one that rang self-oscillates. That is the sound
+    /// people are after; it is also why a patch moved from one slope to the
+    /// other usually wants its resonance backed off rather than kept.
+    #[serde(rename = "24db")]
+    Db24,
+}
+
+impl Slope {
+    /// How many pole pairs are run in series.
+    pub(crate) fn pole_pairs(self) -> usize {
+        match self {
+            Self::Db12 => 1,
+            Self::Db24 => 2,
+        }
+    }
+}
+
+/// Whether a filter is at the gentler of the two slopes — the test that keeps
+/// `"slope": "12db"` out of every saved document, for the reason
+/// `no_swing` gives over in `song/mod.rs`: a bake is addressed by the hash
+/// of the recipe's bytes, so a serialiser that started writing a default into
+/// every patch would invalidate every cached bake in every project at once,
+/// for no change in the audio.
+///
+/// This branch bumps [`SYNTH_VERSION`](crate::SYNTH_VERSION) anyway, so every
+/// bake misses its cache on the way through regardless. The discipline is
+/// about every *future* save, which is a separate and still-real concern.
+fn gentle(slope: &Slope) -> bool {
+    matches!(slope, Slope::Db12)
 }
 
 /// The optional filter stage: a Chamberlin state-variable filter whose cutoff
@@ -502,8 +560,14 @@ pub struct Filter {
     pub kind: FilterKind,
     /// Base cutoff in Hz.
     pub cutoff: f32,
+    /// How steeply it falls away past the cutoff. Defaults to
+    /// [`Slope::Db12`], which is what every patch written before this field
+    /// existed already had.
+    #[serde(default, skip_serializing_if = "gentle")]
+    pub slope: Slope,
     /// Resonance in `0..1`: emphasis at the cutoff. Near 1 the filter
-    /// self-rings.
+    /// self-rings — sooner at [`Slope::Db24`], where the emphasis is applied
+    /// once per pole pair.
     #[serde(default)]
     pub resonance: f32,
     /// How many **octaves** the filter envelope opens the cutoff by at full

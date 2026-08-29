@@ -12,7 +12,7 @@
 use std::collections::BTreeMap;
 
 use scorsese_zimmer::Patch;
-use scorsese_zimmer::patch::{Adsr, Filter, FilterKind, Fx, Osc, Source, Wave};
+use scorsese_zimmer::patch::{Adsr, Filter, FilterKind, Fx, Osc, Slope, Source, Wave};
 use scorsese_zimmer::song::{Note, PatchRef, Pattern, Pitch, Song, Track};
 
 use super::recipe::{OneShot, Recipe};
@@ -76,6 +76,7 @@ fn pluck() -> Patch {
         filter: Some(Filter {
             kind: FilterKind::Lowpass,
             cutoff: 700.0,
+            slope: Slope::Db12,
             resonance: 0.2,
             // The move that makes it a pluck rather than a pad: the cutoff
             // opens on the attack and closes as the note decays. Two and a

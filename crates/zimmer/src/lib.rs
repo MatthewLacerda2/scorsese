@@ -381,6 +381,17 @@ pub use song::{PatchResolver, Song, render_song};
 /// the new depth, so a recipe that modulates its filter is a different
 /// document on either side of this line rather than the same one rendered
 /// twice.
+///
+/// **The same version carries the filter's two new modes and its slope**, and
+/// neither would have earned a bump alone. [`FilterKind::Bandpass`](patch::FilterKind::Bandpass) and
+/// [`FilterKind::Notch`](patch::FilterKind::Notch) are new words, so no document that exists can be
+/// reinterpreted by them; [`Filter::slope`](patch::Filter::slope) is a new optional field defaulting
+/// to the single pole pair every patch on disk already had, which is the case
+/// this section says a diff answers without rendering anything. It was
+/// re-checked anyway, because the pole pair is now reached through a cascade
+/// rather than called directly and that is a stage reordered rather than a
+/// field added: the same 33 probes against `2ccbd14`, all byte-identical
+/// again.
 pub const SYNTH_VERSION: u32 = 6;
 
 /// Render one note of `patch` and encode it as a stereo 16-bit PCM WAV.

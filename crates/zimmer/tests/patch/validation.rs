@@ -6,7 +6,7 @@
 use crate::common::{minimal, noise, osc};
 use scorsese_zimmer::SynthError;
 use scorsese_zimmer::patch::{
-    Adsr, Filter, FilterKind, Lfo, LfoTarget, MAX_OSCS, Partial, Source, Wave,
+    Adsr, Filter, FilterKind, Lfo, LfoTarget, MAX_OSCS, Partial, Slope, Source, Wave,
 };
 
 #[test]
@@ -77,6 +77,7 @@ fn a_zero_cutoff_is_not_a_filter() {
     let mut patch = minimal(noise());
     patch.filter = Some(Filter {
         kind: FilterKind::Lowpass,
+        slope: Slope::Db12,
         cutoff: 0.0,
         resonance: 0.0,
         env_octaves: 0.0,
@@ -121,6 +122,7 @@ fn a_refusal_names_the_value_that_caused_it() {
     let mut patch = minimal(noise());
     patch.filter = Some(Filter {
         kind: FilterKind::Highpass,
+        slope: Slope::Db12,
         cutoff: -40.0,
         resonance: 0.0,
         env_octaves: 0.0,

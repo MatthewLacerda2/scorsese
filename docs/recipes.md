@@ -79,7 +79,7 @@ source ─► filter ─► amp envelope ─► fx
 | --- | --- | --- |
 | `osc_stack` | `oscs`: up to 4 of `{ wave, detune_cents, gain, octave, voices, spread }` | leads, basses, pads |
 | `karplus` | `damping` 0..1, `brightness` 0..1 | plucked strings, marimbas |
-| `noise` | `color`: `white`, `pink` or `brown` | gunshots, impacts, wind, thunder |
+| `noise` | `color`: `white`, `pink` or `brown` | gunshots, impacts, wind, thunder. A `bandpass` over one narrows it to a pitched whistle, a telephone hiss or a hi-hat |
 | `fm2` | `ratio`, `index`, `vel_index`, `mod_decay` | bells, electric pianos, metal |
 | `fm4` | `algorithm`, `operators`: exactly 4, `vel_index` | brass, pads, FM basses, layered bells |
 | `additive` | `partials`: up to 16 of `{ ratio, gain, detune_cents, decay }` | organs, bowed and blown sustains, glass |
@@ -171,8 +171,25 @@ says *synthesised* about an otherwise well-made sound. Try `3.0` to `5.0` on
 anything plucked, struck or hit; `8.0` is the steepest accepted. Negative
 mirrors it into a slow start and a sudden arrival — a swell, not a decay.
 
-**`filter`** *(optional)* — `kind` is `lowpass` or `highpass`, plus `cutoff` in
-Hz, `resonance` 0..1, `env_octaves`, `vel_octaves`, and its own `adsr`.
+**`filter`** *(optional)* — `kind`, plus `cutoff` in Hz, `slope`,
+`resonance` 0..1, `env_octaves`, `vel_octaves`, and its own `adsr`. Four kinds
+come out of the one filter:
+
+| `kind` | Keeps | Reach for it when |
+| --- | --- | --- |
+| `lowpass` | everything below the cutoff | darkening anything; the default move on a saw stack |
+| `highpass` | everything above it | thinning a sound out, or simulating a small speaker |
+| `bandpass` | a band around the cutoff, both ends gone | a telephone or radio voice, a wah, a resonant sweep that does not also change how loud the sound is, noise narrow enough to read as pitched |
+| `notch` | everything except a band around the cutoff | a phaser (sweep one through a sustained chord), or taking one ringing region out of a noisy source |
+
+`slope` is `"12db"` (the default) or `"24db"` — one pole pair or two in
+series. That is the difference between a gentle tone control and the aggressive
+sweep people mean when they say "filter". **`resonance` is a different control
+at `"24db"`**: the emphasis is applied once per pair, so a setting that merely
+coloured the cutoff at 12 dB rings at 24, and one that rang self-oscillates.
+Moving a patch to the steeper slope usually means backing its resonance off
+rather than keeping it.
+
 `env_octaves` is what makes a patch expressive rather than static: it opens the
 cutoff on the attack and closes it as the note decays. A pluck is a lowpass
 with a big positive `env_octaves` and a fast filter decay.

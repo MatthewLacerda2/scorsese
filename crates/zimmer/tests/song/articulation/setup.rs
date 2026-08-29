@@ -9,7 +9,7 @@
 
 use crate::common::songs::{song, verse};
 use crate::common::{channel, saw_patch};
-use scorsese_zimmer::patch::{Adsr, Filter, FilterKind, Patch};
+use scorsese_zimmer::patch::{Adsr, Filter, FilterKind, Patch, Slope};
 use scorsese_zimmer::song::{Articulation, InlineOnly, Note, PatchRef, PatternEntry, Pitch};
 use scorsese_zimmer::{SAMPLE_RATE, Song, render_song};
 
@@ -27,6 +27,7 @@ pub(crate) fn instrument() -> Patch {
     Patch {
         filter: Some(Filter {
             kind: FilterKind::Lowpass,
+            slope: Slope::Db12,
             cutoff: 300.0,
             resonance: 0.0,
             env_octaves: 0.0,

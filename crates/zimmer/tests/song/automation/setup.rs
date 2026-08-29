@@ -7,7 +7,7 @@
 
 use std::collections::BTreeMap;
 
-use scorsese_zimmer::patch::{Adsr, Filter, FilterKind, Patch};
+use scorsese_zimmer::patch::{Adsr, Filter, FilterKind, Patch, Slope};
 use scorsese_zimmer::song::{
     Automation, Easing, InlineOnly, Param, PatchRef, Pattern, Point, Song, Track,
 };
@@ -63,6 +63,7 @@ pub(crate) fn filtered(cutoff: f32) -> Patch {
     Patch {
         filter: Some(Filter {
             kind: FilterKind::Lowpass,
+            slope: Slope::Db12,
             cutoff,
             resonance: 0.0,
             env_octaves: 0.0,

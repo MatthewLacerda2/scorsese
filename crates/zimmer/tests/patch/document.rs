@@ -3,7 +3,7 @@
 use crate::common::{adsr, osc};
 use scorsese_zimmer::Patch;
 use scorsese_zimmer::patch::{
-    Adsr, Filter, FilterKind, Fx, Lfo, LfoTarget, PitchEnv, Source, Wave,
+    Adsr, Filter, FilterKind, Fx, Lfo, LfoTarget, PitchEnv, Slope, Source, Wave,
 };
 
 /// A patch touching every optional stage — the round-trip has to carry all of
@@ -16,6 +16,7 @@ fn full_patch() -> Patch {
         amp: adsr(0.005, 0.1, 0.7, 0.3),
         filter: Some(Filter {
             kind: FilterKind::Lowpass,
+            slope: Slope::Db12,
             cutoff: 1200.0,
             resonance: 0.4,
             env_octaves: 1.5,
