@@ -456,7 +456,7 @@ pub struct PitchEnv {
 ///
 /// **The spelling rule for every filter name in this crate lives here**, and
 /// it is deliberate rather than an oversight. `lowpass`, `highpass`,
-/// `bandpass`, `notch`, and — over in [`EqKind`] — `lowshelf`, `highshelf`
+/// `bandpass`, `notch`, and — over in [`EqKind`](super::fx::EqKind) — `lowshelf`, `highshelf`
 /// and `peak` are written as **one word with no underscore**, which is the
 /// odd one out in a format that otherwise spells `detune_cents`, `gain_db`
 /// and `env_octaves` in snake_case.

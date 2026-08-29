@@ -21,7 +21,7 @@ use crate::level::bands;
 /// Five kinds exist and a thorough treatment is rarely more than one of each —
 /// a high-pass, a shelf at either end and a couple of peaks. Past that a
 /// recipe is assembling a filter bank one band at a time, which is a different
-/// tool from the one this is; the cap is the argument [`MAX_OSCS`] makes about
+/// tool from the one this is; the cap is the argument [`MAX_OSCS`](super::stages::MAX_OSCS) makes about
 /// a stack, applied to arithmetic that runs over every sample of every note.
 pub const MAX_EQ_BANDS: usize = 8;
 
@@ -30,7 +30,7 @@ pub const MAX_EQ_BANDS: usize = 8;
 /// Five, and they are the five a mix is actually made of. Two remove an end of
 /// the range outright and have no amount to ask for; three change how much of
 /// a region there is, and so read their `gain_db`.
-/// Spelled the way [`FilterKind`] is, and its doc carries the argument: one
+/// Spelled the way [`FilterKind`](super::stages::FilterKind) is, and its doc carries the argument: one
 /// word, no underscore, on both surfaces.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
