@@ -9,10 +9,11 @@ survivors, with the mutation spelled out, ordered by file so it reads as a
 worklist.
 
 A worklist is the thing it has to stay, which is what the collapsing below is
-for. `test_workspace = false` runs only the mutated package's own tests, so a
-module whose assertions live in another crate has *every* mutant survive by
-construction — 125 rows saying one thing. That is one finding, and it is
-reported as one sentence; the rows that remain are rows somebody can act on.
+for. A file the mutated package's own tests never reach has *every* mutant of
+it survive — 125 rows saying one thing. That is one finding, and it is reported
+as one sentence; the rows that remain are rows somebody can act on. *Why* the
+tests never reach it, this deliberately does not guess: see [`NOTHING_CAUGHT`]
+and #449 for what guessing cost.
 
 `make mutants` runs exactly what CI runs and then feeds the result through
 here. By hand, against a sweep of the whole scoped surface:
@@ -63,7 +64,7 @@ from pathlib import Path
 COLLAPSE_AT = 8
 
 # Below this many mutants in a file, "nothing was caught here" is not yet
-# evidence of anything: one survivor is one survivor, and the structural
+# evidence of anything: one survivor is one survivor, and the whole-file
 # reading below needs a file the run actually sampled.
 ENOUGH_TO_CONCLUDE = 3
 
@@ -111,13 +112,13 @@ def by_file(mutants: list[dict]) -> dict[str, list[dict]]:
 
 
 def unasserted(tally: dict[str, dict[str, int]]) -> set[str]:
-    """Files the mutated crate's own tests do not assert on at all.
+    """Files the mutated package's own tests do not assert on at all.
 
     Every mutant of the file survived, and there were enough of them for that
-    to mean something. The cause is structural far more often than it is
-    per-line: `test_workspace = false` (see `.cargo/mutants.toml`) runs only
-    the mutated package's tests, so a module tested from another crate lands
-    here whatever its assertions are worth.
+    to mean something. That is the whole of what this knows — the membership
+    test is a count, and a count cannot tell a module tested from another crate
+    from one nothing tests yet or one nothing calls. Naming a cause here is
+    what [`NOTHING_CAUGHT`] stopped doing.
     """
     return {
         file
@@ -190,14 +191,29 @@ def headline(data: dict, scope: str) -> list[str]:
 
 ONE_FINDING = "These files are one finding each, and not one per mutation:"
 
-STRUCTURAL = (
+# What the report says about a file nothing was caught in — and, since #449,
+# what it no longer says. It used to name a likely cause ("usually structural"),
+# and that cause was wrong both times it appeared: #442 was a branch's own
+# untested `serde` defaults, #444 was a public method with no callers anywhere
+# in the workspace. Two for two, two different real causes, neither the one
+# named. A wrong diagnosis is worse than none, because CLAUDE.md's three exits
+# for a survivor include *exclude with a written reason* — and an exclusion
+# carrying a plausible argument is approximately permanent.
+#
+# So this states the one thing the counts actually establish, lists the causes
+# without ranking them, and points at the command that settles it in seconds.
+NOTHING_CAUGHT = (
     "Where **nothing at all** was caught, read it as one statement about the"
-    " module rather than as a list: *no test in the mutated crate asserts on"
-    " this code.* That is usually structural — `test_workspace = false` runs"
-    " only the mutated package's own tests, so a module whose assertions live"
-    " in another crate has every mutant survive by construction. The answer is"
-    " one assertion next to the code, or one written reason it belongs"
-    " elsewhere — never one piece of work per mutation."
+    " file rather than as a list. What is certain: *nothing in the mutated"
+    " package asserts on this code.* Why is not — check before deciding, and"
+    " `cargo mutants --list` answers it in seconds because it names the"
+    " functions and builds nothing. Three causes, in no particular order: the"
+    " code has **no test** yet, and one assertion next to it is the fix; the"
+    " code has **no callers** anywhere, and deleting it is the fix — the"
+    " mutants go with it; or its **assertions live in another crate**, which"
+    " `test_workspace = false` does not run, and one written reason is the fix."
+    " Whichever it is, it is one piece of work — never one per mutation — and"
+    " an exclusion written before the check is a guess nobody will revisit."
 )
 
 
@@ -220,17 +236,17 @@ def section(
     title: str,
     note: str,
     *,
-    structural: bool = False,
+    nothing_caught: bool = False,
 ) -> list[str]:
     """One heading: the files that collapse to a sentence, then the rows left.
 
-    `structural` turns on the unasserted-module reading, which belongs to
+    `nothing_caught` turns on the whole-file reading, which belongs to
     survivors and not to timeouts — a mutation that hung the tests proves they
     reach it.
     """
     if not mutants:
         return []
-    silent = unasserted(tally) if structural else set()
+    silent = unasserted(tally) if nothing_caught else set()
     summaries, rows = [], []
     for file, group in by_file(mutants).items():
         counts = tally.get(file, {"noticed": 0, "survived": len(group)})
@@ -243,7 +259,7 @@ def section(
     if summaries:
         out += [ONE_FINDING, "", *summaries, ""]
         if silent:
-            out += [STRUCTURAL, ""]
+            out += [NOTHING_CAUGHT, ""]
     if rows:
         out += [note, "", "| Where | Function | Mutation |", "| --- | --- | --- |"]
         out += [row(m) for m in rows] + [""]
@@ -532,7 +548,7 @@ def main() -> None:
         "Survivors",
         "Each row is a change that was made to the code with every test still"
         " passing.",
-        structural=True,
+        nothing_caught=True,
     )
     # Three things earn a reader: work to do, and — the addition #399 asked for
     # — a report that does not cover what it was asked about. The last one has
