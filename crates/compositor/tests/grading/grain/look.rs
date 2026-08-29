@@ -2,7 +2,7 @@
 
 use crate::{SIZE, composited, pixel, solid};
 
-use super::{MID, grain, grained};
+use super::{MID, colour_at, grain, grained, grained_raster};
 
 #[test]
 fn no_grain_is_the_picture_exactly_as_it_arrived() {
@@ -92,4 +92,23 @@ fn grain_adds_texture_and_not_exposure() {
         "the mean red is {mean:.2} where the source is {}",
         MID.0
     );
+}
+
+#[test]
+fn the_grain_is_coarser_on_a_taller_layer() {
+    // Grain has a **size**, and it is a size on the film rather than a count of
+    // pixels: a 4K delivery of an edit must not come out finer-grained than the
+    // 1080p one, the same way a `blur` measured in pixels would be wrong the
+    // first time a project was delivered at another size. So above 1080 a cell
+    // covers more than one pixel and the pixels inside it share a value.
+    //
+    // Nothing at 64×64 can see this, which is exactly why it is here: a cell
+    // there is one pixel, and dividing by one is the same arithmetic as
+    // multiplying by it.
+    let tall = grained_raster(4, 2160, 1.0, 4);
+    let at = |x, y| colour_at(&tall, x, y);
+    assert_eq!(at(0, 0), at(1, 0), "at 2160 tall a cell is two pixels wide");
+    assert_eq!(at(0, 0), at(0, 1), "and two pixels tall");
+    assert_ne!(at(0, 0), at(2, 0), "the next cell across is its own");
+    assert_ne!(at(0, 0), at(0, 2), "and so is the next one down");
 }

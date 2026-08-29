@@ -25,7 +25,9 @@ mod determinism;
 mod look;
 mod pinned;
 
-use scorsese_compositor::{Compositor, CpuCompositor, Frame, Layer, Properties};
+use scorsese_compositor::{
+    BYTES_PER_PIXEL, Compositor, CpuCompositor, Frame, Layer, Properties, Resolution,
+};
 use scorsese_core::{AssetId, Clip, ClipId, Frames, Grade};
 
 use super::raster;
@@ -83,4 +85,31 @@ fn drawn(clip: &Clip, source: &Frame, frames: impl IntoIterator<Item = u64>) -> 
             .expect("compositing succeeds");
     }
     canvas
+}
+
+/// A grained layer of an arbitrary raster, composited onto a canvas its own
+/// size.
+///
+/// The 64×64 helpers in [`super`] cannot make the one claim that is about a
+/// **tall** layer: a grain cell there is one pixel, and at one pixel the
+/// arithmetic that sizes a cell has nothing left to do.
+fn grained_raster(width: u32, height: u32, amount: f64, seed: u64) -> Frame {
+    let resolution = Resolution::new(width, height).expect("a legal raster");
+    let mut source = Frame::black(resolution);
+    for pixel in source.bytes_mut().chunks_exact_mut(BYTES_PER_PIXEL) {
+        pixel.copy_from_slice(&[MID.0, MID.1, MID.2, u8::MAX]);
+    }
+    let mut canvas = Frame::black(resolution);
+    CpuCompositor::new()
+        .composite(&mut canvas, &[grained(&source, amount, seed)])
+        .expect("compositing succeeds");
+    canvas
+}
+
+/// One pixel of a frame of any width, as `(r, g, b)`.
+fn colour_at(frame: &Frame, x: u32, y: u32) -> (u8, u8, u8) {
+    let width = frame.resolution().width() as usize;
+    let at = (y as usize * width + x as usize) * BYTES_PER_PIXEL;
+    let bytes = &frame.bytes()[at..at + BYTES_PER_PIXEL];
+    (bytes[0], bytes[1], bytes[2])
 }
