@@ -1,11 +1,45 @@
 //! `scorsese synth`
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
 use scorsese_core::{AssetId, Project};
-use scorsese_providers::synth::{self, Baked, Starter};
+use scorsese_providers::synth::{self, Baked, Excerpt, Partial, Span, Starter, Window};
 use scorsese_render::say;
+
+/// What `synth bake` was asked for beyond "everything that is not on disk".
+///
+/// Together they make an [`Excerpt`], and *whether any of them was given* is
+/// what decides between the two things this command does: the ordinary cached
+/// bake, and a partial one that is never cached.
+#[derive(Debug, Default)]
+pub(crate) struct Less {
+    /// A window in beats of the rendered piece.
+    pub(crate) beats: Option<Span>,
+    /// The same window in seconds. Clap refuses both at once.
+    pub(crate) seconds: Option<Span>,
+    /// The tracks to hear, by name. Empty is all of them.
+    pub(crate) only: Vec<String>,
+    /// Where a partial bake goes. `None` is `cache/synth/<asset>.wav`.
+    pub(crate) out: Option<PathBuf>,
+}
+
+impl Less {
+    /// The excerpt this asks for, or `None` when it asks for the whole piece.
+    fn excerpt(&self) -> Option<Excerpt> {
+        let window = self
+            .beats
+            .map(Window::beats)
+            .or_else(|| self.seconds.map(Window::seconds));
+        if window.is_none() && self.only.is_empty() {
+            return None;
+        }
+        Some(Excerpt {
+            window,
+            only: self.only.clone(),
+        })
+    }
+}
 
 /// Writes a starter recipe and the asset that points at it.
 pub(crate) fn new(project_dir: &Path, name: &str, starter: Starter) -> Result<()> {
@@ -27,7 +61,30 @@ pub(crate) fn new(project_dir: &Path, name: &str, starter: Starter) -> Result<()
 /// With no id this covers every one of them, and it is deliberately safe to
 /// re-run: an asset whose recipe has not changed is a cache hit that renders
 /// nothing.
-pub(crate) fn bake(project_dir: &Path, only: Option<&str>) -> Result<()> {
+pub(crate) fn bake(project_dir: &Path, only: Option<&str>, less: &Less) -> Result<()> {
+    if let Some(excerpt) = less.excerpt() {
+        // An excerpt is a question about one piece of music: which eight bars,
+        // which track. Applying it across every recipe in the project would be
+        // asking it of documents that never heard it, so the asset is
+        // required rather than guessed at.
+        let Some(id) = only else {
+            bail!(
+                "a window or a solo is a question about one recipe — name the asset, \
+                 as in `scorsese synth bake trilha --beats 0:32`"
+            );
+        };
+        let id = AssetId::new(id);
+        let partial = synth::bake_partial(
+            &open(project_dir)?,
+            project_dir,
+            &id,
+            &excerpt,
+            less.out.as_deref(),
+        )
+        .with_context(|| format!("baking part of `{id}`"))?;
+        report_partial(&id, &partial);
+        return Ok(());
+    }
     let mut project = open(project_dir)?;
     let baked = match only {
         Some(id) => {
@@ -118,6 +175,23 @@ fn report(baked: &[(AssetId, Baked)]) {
     }
     let fresh = baked.iter().filter(|(_, it)| it.is_fresh()).count();
     println!("{fresh} rendered, {} cached, $0.00", baked.len() - fresh);
+}
+
+/// What a partial bake did, and the one line that says it is not the file the
+/// project will use.
+fn report_partial(id: &AssetId, partial: &Partial) {
+    println!("{id} — part of it, {} KB", partial.bytes / 1024);
+    println!("  {}", partial.shown);
+    println!("  {}", say::summary(&partial.profile));
+    for row in say::sections(&partial.profile) {
+        println!("    {row}");
+    }
+    for row in say::layers(&partial.tracks) {
+        println!("    {row}");
+    }
+    // Said every time rather than once in the help, because the whole risk
+    // this feature carries is somebody reaching for this file as the bake.
+    println!("  not cached, and not the asset's bake — `scorsese synth bake {id}` makes that");
 }
 
 fn open(project_dir: &Path) -> Result<Project> {

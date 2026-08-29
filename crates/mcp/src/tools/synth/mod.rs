@@ -12,10 +12,12 @@
 //! times over, and paying for the entire piece to move a track's `gain` is
 //! bookkeeping again in a new place.
 
+mod bake;
 mod recipes;
 mod set;
 mod survey;
 
+pub(super) use bake::Bake;
 pub(super) use set::Set;
 pub(super) use survey::Survey;
 
@@ -92,111 +94,6 @@ impl Tool for New {
         Ok(format!(
             "{id} — synth_audio, sketch\n{recipe}\nEdit it with synth_write, then \
              synth_bake to hear it."
-        )
-        .into())
-    }
-}
-
-/// Render the recipes that are not already baked.
-pub(super) struct Bake;
-
-impl Tool for Bake {
-    fn name(&self) -> &'static str {
-        "synth_bake"
-    }
-
-    fn description(&self) -> &'static str {
-        "Render every synth_audio recipe whose sound is not already on disk, \
-         into generated/. Safe to call repeatedly and free every time: a recipe \
-         that has not changed is a cache hit that renders nothing, and one that \
-         has changed is redone without anyone having to mark it stale. A bake \
-         is named for the recipe and for the synthesiser that rendered it, so \
-         an upgrade that changes how a recipe sounds is redone here too. Says how \
-         each one came out: level, spectral balance and stereo width for the \
-         whole file, then \
-         a row per section of the arrangement, then a row per track of a song \
-         saying which instrument is taking up the room. A signal, never a gate \
-         — nothing about a level can fail a bake."
-    }
-
-    fn costs(&self) -> Costs {
-        Costs::Nothing
-    }
-
-    fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "asset": {
-                    "type": "string",
-                    "description": "Bake only this asset. Omit and every synth_audio \
-                                    asset is considered."
-                }
-            },
-            "required": ["project"]
-        })
-    }
-
-    fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let mut project = load(&dir)?;
-
-        let baked = match arguments.get("asset").and_then(Value::as_str) {
-            Some(id) => {
-                let id = scorsese_core::AssetId::new(id);
-                let one = synth::bake_asset(&mut project, &dir, &id)
-                    .map_err(|error| format!("{error}"))?;
-                vec![(id, one)]
-            }
-            None => synth::bake_pending(&mut project, &dir).map_err(|error| format!("{error}"))?,
-        };
-        if baked.is_empty() {
-            return Ok("no synth_audio assets — synth_new starts one".into());
-        }
-        project
-            .save(&dir)
-            .map_err(|error| format!("saving the project: {error}"))?;
-
-        let fresh = baked.iter().filter(|(_, it)| it.is_fresh()).count();
-        let lines: Vec<String> = baked
-            .iter()
-            .map(|(id, outcome)| match outcome {
-                Baked::Rendered {
-                    path,
-                    bytes,
-                    profile,
-                    tracks,
-                } => {
-                    // An assistant that just rewrote a score should be able to
-                    // read back how it came out without asking a human to
-                    // listen — and the whole table, not one number, because the
-                    // question it is usually answering is *where* in the piece
-                    // the change landed.
-                    let mut said = format!(
-                        "{id} — baked, {} KB, {path}, {}",
-                        bytes / 1024,
-                        scorsese_render::say::summary(profile)
-                    );
-                    for row in scorsese_render::say::sections(profile) {
-                        said.push_str(&format!("\n  {row}"));
-                    }
-                    // And *which layer* the energy is in, which is the other
-                    // half of the same question: a client that cannot hear can
-                    // be told a mix is muddy, and can do nothing with that
-                    // until it is told which of five instruments is the mud.
-                    for row in scorsese_render::say::layers(tracks) {
-                        said.push_str(&format!("\n  {row}"));
-                    }
-                    said
-                }
-                Baked::Cached { path } => format!("{id} — already baked, {path}"),
-            })
-            .collect();
-        Ok(format!(
-            "{}\n{fresh} rendered, {} cached, $0.00",
-            lines.join("\n"),
-            baked.len() - fresh
         )
         .into())
     }

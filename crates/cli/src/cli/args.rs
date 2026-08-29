@@ -12,7 +12,7 @@ use std::path::PathBuf;
 use clap::{Subcommand, ValueEnum};
 
 use scorsese_core::AssetKind;
-use scorsese_providers::synth::Starter;
+use scorsese_providers::synth::{Span, Starter};
 
 /// The things `synth` does. Baking is the default, so the common case needs
 /// no verb at all.
@@ -32,9 +32,36 @@ pub(crate) enum SynthAction {
     },
     /// Render the recipes that are not already baked, into `generated/`.
     /// Safe to re-run: an unchanged recipe is a cache hit.
+    ///
+    /// Given `--beats`, `--seconds` or `--only`, it bakes *less* of one
+    /// recipe instead: a stretch of the piece, or a few of its tracks. That
+    /// output is **not** cached — it goes to `cache/synth/`, or wherever
+    /// `--out` says — because a fragment stored under the address of the whole
+    /// recipe would leave the project holding audio its recipe does not
+    /// describe.
     Bake {
         /// Bake only this asset. Without it, every synth asset is considered.
         asset: Option<String>,
+        /// Render only these beats of the rendered piece: `0:32`, `16:`,
+        /// `:32`. Beats, not bars — a song has no time signature, so eight
+        /// bars of four is `0:32`. Counted along what is rendered, which under
+        /// a `loop` fit is not the written arrangement. Not cached.
+        #[arg(long, value_name = "FROM:TO", conflicts_with = "seconds")]
+        beats: Option<Span>,
+        /// The same window said in seconds of the rendered piece: `0:12`,
+        /// `8:`, `:12`. Not cached.
+        #[arg(long, value_name = "FROM:TO")]
+        seconds: Option<Span>,
+        /// Render only this track, by the name the song's notes use. Repeat it
+        /// for several. The song's own fx and the master limiter still run, so
+        /// what comes back is the mix with fewer parts in it rather than a
+        /// bare instrument. Not cached.
+        #[arg(long, value_name = "TRACK")]
+        only: Vec<String>,
+        /// Where to write a partial bake. Without it, one lands in
+        /// `cache/synth/<asset>.wav` and the next overwrites it.
+        #[arg(long, value_name = "FILE")]
+        out: Option<PathBuf>,
     },
     /// Parse a recipe and report what it is, without rendering it — so a
     /// malformed document costs milliseconds rather than a bake.

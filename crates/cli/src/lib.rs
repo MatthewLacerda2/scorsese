@@ -196,11 +196,24 @@ fn dispatch(cli: Cli) -> Result<()> {
                 commands::synth::new(&directory, &name, kind.into())
             }
             Some(SynthAction::Check { recipe }) => commands::synth::check(&recipe),
-            Some(SynthAction::Bake { asset }) => {
-                commands::synth::bake(&directory, asset.as_deref())
-            }
+            Some(SynthAction::Bake {
+                asset,
+                beats,
+                seconds,
+                only,
+                out,
+            }) => commands::synth::bake(
+                &directory,
+                asset.as_deref(),
+                &commands::synth::Less {
+                    beats,
+                    seconds,
+                    only,
+                    out,
+                },
+            ),
             Some(SynthAction::Survey) => commands::synth::survey(&directory),
-            None => commands::synth::bake(&directory, None),
+            None => commands::synth::bake(&directory, None, &commands::synth::Less::default()),
         },
         Command::Dissolve { from, to, seconds } => {
             commands::dissolve::run(&directory, &from, &to, seconds)

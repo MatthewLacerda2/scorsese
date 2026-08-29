@@ -1611,6 +1611,68 @@ That naming is the whole cache. The path an asset holds *is* the record of what
 produced it, so editing a recipe makes the asset stale by arithmetic — nobody
 has to mark it, and re-running `bake` is free when nothing changed.
 
+### Baking less than the whole
+
+There is one exception to the sentence above, and it is deliberately not a
+cache. Mixing is a loop — bake, read the report, move one number, bake again —
+and the loop above prices every turn of it at the entire piece, however small
+the question is. So a bake can be asked for **less** of one recipe:
+
+```
+scorsese synth bake trilha --beats 0:32          # the first eight bars of four
+scorsese synth bake trilha --seconds 0:12        # the same window, in seconds
+scorsese synth bake trilha --only pad --only sub # two tracks, whole piece
+scorsese synth bake trilha --beats 0:32 --out /tmp/opening.wav
+```
+
+The two halves answer to different readers. A **window** is for whoever reads
+the report: the numbers for eight bars answer the same question as the numbers
+for sixty seconds, at a fraction of the render. A **solo** is for whoever
+listens: no measurement will ever tell you the pad's chorus is warbling.
+
+**Beats, not bars.** A song has no time signature — patterns are N beats and
+nothing in the renderer needs a bar — so `--bars` would be inventing a unit the
+format does not have. Beats are what `start`, `beats` and every `automation`
+point are already written in. Eight bars of four is `0:32`. Both forms are
+end-exclusive and both accept an open end: `16:` runs to the end of the piece,
+`:32` from its start.
+
+**A window counts along the piece that is rendered, not the arrangement as
+written.** Those are the same thing until a `fit` is involved, and then they are
+not: a sixteen-beat arrangement looped to fill forty seconds plays through
+several times, and beat 40 of it is in the third pass. That is what you hear at
+beat 40, so that is what a window of beat 40 gives you — the same clock
+`automation` reads its points off, and the same one the section rows of a report
+are printed against.
+
+**What comes back is exactly what the whole bake has there.** Not to a
+tolerance: sample for sample. A window renders the piece from the top and keeps
+the stretch asked for, because a note before the window rings into it and
+because the limiter and any compressor look *ahead* — a peak just past the
+window pulls the gain down inside it. So the saving is every note after the
+window rather than every note outside it, and a window at the very end of a
+long piece saves nothing. You cannot know what the last bar sounds like without
+playing up to it.
+
+A **solo** runs the song's own `fx` chain and the master limiter as usual, so
+what it hands back is the mix with fewer parts in it rather than a bare
+instrument — the pad as it sits, not the pad as it was recorded. A track that
+something is **sidechained** from is still played when a solo leaves it out; it
+is simply not heard. Otherwise the solo would show a duck the mix does not have.
+Every other excluded track is not rendered at all, which is where a solo's
+saving is.
+
+**None of this is cached, and none of it touches the asset.** The output goes to
+`cache/synth/<asset>.wav` — or wherever `--out` names — and the next partial
+bake of the same recipe overwrites it, so a mix session leaves one file behind
+rather than a pile to delete by hand. `generated/` is not written to, the
+asset's `path`, `sha256` and `state` are left alone, and the project is not
+saved. That is the rule the rest of this section explains: a bake in
+`generated/` is addressed by the recipe and the synthesiser, and a *fragment*
+filed under that name would be a project serving audio its own recipe does not
+describe, silently. A plain `scorsese synth bake` is still what makes the file a
+clip plays.
+
 ### The synthesiser is the other half of a bake
 
 A recipe is one of **two** inputs to a render. The other is the synthesiser,

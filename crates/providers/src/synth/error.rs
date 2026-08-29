@@ -25,6 +25,16 @@ pub enum SynthesisError {
         id: AssetId,
     },
 
+    /// A window or a solo asked of a one-shot. A patch is one gesture played
+    /// by one voice: there is no arrangement to take a stretch of and no
+    /// tracks to leave out, so the request is refused rather than quietly
+    /// rendering the whole thing.
+    #[error("asset `{id}` is a one-shot, and only a song has a stretch or tracks to ask for")]
+    NotASong {
+        /// The asset an excerpt was asked of.
+        id: AssetId,
+    },
+
     /// A `synth_audio` asset with no `recipe`. Validation catches this on
     /// load, so reaching it here means the project was assembled in memory.
     #[error("asset `{id}` has no `recipe` to synthesise from")]
