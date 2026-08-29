@@ -45,6 +45,7 @@ fn a_note_lands_on_the_pitch_it_was_asked_for() {
         duration: 1.0,
         velocity: 1.0,
         timbre: 0.0,
+        glide: None,
         seed: 0,
     };
     let hz = |midi: f32| {

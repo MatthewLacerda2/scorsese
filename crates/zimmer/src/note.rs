@@ -50,6 +50,30 @@ const NATURALS: [(char, i32); 7] = [
 /// because this module owns the pitch axis those two share.
 pub(crate) const DIATONIC: [i32; 7] = [0, 2, 4, 5, 7, 9, 11];
 
+/// Where a note starts, when it does not start on its own pitch.
+///
+/// A **glide** is the one thing about a note that is not a property of the
+/// note: it says *this pitch is arrived at*, from somewhere the note itself
+/// does not name. What that somewhere is belongs to whoever is playing a line
+/// — the song renderer works it out from the note before — and by the time it
+/// reaches here it is a distance and a time, which is all the frequency track
+/// needs.
+///
+/// Semitones rather than a start pitch, because pitch is logarithmic and every
+/// other thing that bends a note here is in semitones too: a glide, a vibrato
+/// and a pitch envelope are three terms of one sum, and a term in Hz could not
+/// be added to the other two.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Glide {
+    /// How far from its own pitch the note starts, in semitones. Positive
+    /// starts above and falls onto the note; a slide *up* into one is
+    /// negative.
+    pub semitones: f32,
+    /// How long the slide takes. The note is on the pitch it was written at
+    /// from there until it is released.
+    pub seconds: f32,
+}
+
 /// How one note is rendered: how long the key is held, how hard it is struck, and
 /// the seed the stochastic sources (noise, Karplus excitation) draw from.
 ///
@@ -72,6 +96,15 @@ pub struct NoteOpts {
     /// note meant before a performance could scatter them apart (see
     /// [`Humanize::timbre`](field@crate::song::Humanize::timbre)).
     pub timbre: f32,
+    /// Where this note slides in from, or nothing — struck on its own pitch,
+    /// which is what every note meant before a line could be played legato.
+    ///
+    /// It sits with the performance rather than with the patch, beside the
+    /// velocity and the gate, because that is what it is: a
+    /// [`PitchEnv`](crate::patch::PitchEnv) is a shape the *instrument* puts
+    /// on every note it plays, and a glide is where the hand happened to be
+    /// before this one.
+    pub glide: Option<Glide>,
     /// Seed for every stochastic source; the same seed replays the same noise.
     pub seed: u64,
 }
@@ -83,6 +116,7 @@ impl Default for NoteOpts {
             duration: 0.5,
             velocity: 0.8,
             timbre: 0.0,
+            glide: None,
             seed: 0,
         }
     }

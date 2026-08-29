@@ -62,6 +62,8 @@ impl OneShot {
             // to have played this note brighter than the last: its brightness
             // is the velocity it was given, exactly.
             timbre: 0.0,
+            // Nor a note before it to slide from: a one-shot is not a line.
+            glide: None,
             seed: self.seed,
         }
     }
@@ -97,4 +99,48 @@ fn default_duration() -> f32 {
 
 fn default_velocity() -> f32 {
     1.0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A one-shot is rendered with the numbers **its own document** wrote, and
+    /// the defaults are what an absent field means rather than what every
+    /// recipe gets. Three fields travel that way, and a mutation that dropped
+    /// any of them would render a plausible note of the wrong length, at the
+    /// wrong force, from the wrong noise.
+    #[test]
+    fn a_one_shot_is_played_with_the_numbers_it_was_written_with() {
+        let json = r#"{ "recipe": "patch", "note": "C4", "duration": 2.25,
+            "velocity": 0.3, "seed": 91,
+            "patch": { "source": { "kind": "noise" },
+                       "amp": { "a": 0.0, "d": 0.1, "s": 0.0, "r": 0.0 } } }"#;
+        let Recipe::Patch(one_shot) = Recipe::from_json(json).expect("parses") else {
+            panic!("a `patch` recipe is a one-shot")
+        };
+        let opts = one_shot.opts();
+        assert_eq!(opts.duration, 2.25, "the gate the document wrote");
+        assert_eq!(opts.velocity, 0.3, "the force it wrote");
+        assert_eq!(opts.seed, 91, "and the seed its noise draws from");
+        assert_eq!(opts.timbre, 0.0, "a one strike has no performance on it");
+        assert_eq!(opts.glide, None, "and no note before it to slide from");
+    }
+
+    /// What an *absent* field means, which is the other half of the same
+    /// claim: a document that says only which note to play gets the defaults
+    /// this module names, and nothing else does.
+    #[test]
+    fn the_defaults_are_what_an_unwritten_field_means() {
+        let json = r#"{ "recipe": "patch", "note": "C4",
+            "patch": { "source": { "kind": "noise" },
+                       "amp": { "a": 0.0, "d": 0.1, "s": 0.0, "r": 0.0 } } }"#;
+        let Recipe::Patch(one_shot) = Recipe::from_json(json).expect("parses") else {
+            panic!("a `patch` recipe is a one-shot")
+        };
+        let opts = one_shot.opts();
+        assert_eq!(opts.duration, default_duration());
+        assert_eq!(opts.velocity, default_velocity());
+        assert_eq!(opts.seed, 0);
+    }
 }

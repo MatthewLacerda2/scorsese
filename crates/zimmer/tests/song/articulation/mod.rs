@@ -9,12 +9,14 @@
 //! the reason a test of "it changed" would pass for a mark that did the wrong
 //! thing.
 //!
-//! Three files: [`marks`] for what each mark does to the samples,
+//! Four files: [`marks`] for what each mark does to the samples,
 //! [`composition`] for how one meets the section, the curve and the player that
-//! also have a say in the note, and [`forms`] for the mark surviving every way
-//! an entry can be written.
+//! also have a say in the note, [`forms`] for the mark surviving every way an
+//! entry can be written, and [`glide`] for the one mark whose effect is a pitch
+//! and therefore has a *direction* to get wrong.
 
 mod composition;
 mod forms;
+mod glide;
 mod marks;
 mod setup;

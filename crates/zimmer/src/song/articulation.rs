@@ -4,8 +4,9 @@
 //! whole of *what* is played and none of *how*, and the gap is most audible in
 //! the place a score most often sounds sequenced. A bassline is the clear case:
 //! what makes one sound played rather than programmed is almost entirely
-//! articulation — a ghost note between the real ones, a couple of accents
-//! carrying the groove, a staccato stop where the phrase breathes.
+//! articulation — a slide up into the root of the bar, a ghost note between the
+//! real ones, a couple of accents carrying the groove, a staccato stop where
+//! the phrase breathes.
 //!
 //! **This is not the same thing as [`feel`](super::feel), and the difference is
 //! the reason both exist.** Swing and humanise scatter a performance the player
@@ -16,8 +17,8 @@
 //!
 //! ## Named, never numbers
 //!
-//! Each of these is a combination of things the engine already does: velocity,
-//! gate length, the velocity-to-brightness routings a patch may carry
+//! Three of these are a combination of things the engine already does:
+//! velocity, gate length, the velocity-to-brightness routings a patch may carry
 //! (`vel_octaves`, `vel_index`), and where the note sits against the beat. A
 //! document could write those numbers itself — and then nothing would record
 //! that they were an *accent*, every accent in the piece would be a slightly
@@ -25,17 +26,18 @@
 //! note carrying one. A name says what was meant, and the meaning lives in one
 //! place: the table of constants below.
 //!
-//! ## The set is closed, and it is three
+//! **A glide is the fourth and it is different in kind.** It is not a
+//! rearrangement of anything a note carries, because the pitch it starts on is
+//! not a property of that note at all: it belongs to the note before it on the
+//! same track. This module still owns what the *mark* means — how long the
+//! slide takes — while [`super::glide`] owns the harder half, which is what
+//! "the note before it" is allowed to mean.
 //!
-//! `accent`, `staccato`, `ghost`. The test for a fourth is the one
+//! ## The set is closed, and it is four
+//!
+//! `accent`, `staccato`, `ghost`, `glide`. The test for a fifth is the one
 //! `docs/recipes.md` already applies to inversion and retrograde: whether a
-//! person reaches for it by hand. **Glide** — a portamento up into a note from
-//! the pitch of the one before it — passes that test easily and is deliberately
-//! not here: it is the only one of the four with real DSP behind it, and it
-//! needs the previous note on its track, which the renderer's *notes are
-//! independent* claim does not currently allow. That is a claim to withdraw
-//! deliberately rather than as a side effect, so it is #448 and its own
-//! argument.
+//! person reaches for it by hand.
 //!
 //! ## One articulation, not a set of them
 //!
@@ -117,10 +119,33 @@ const GHOST_BRIGHTNESS: f32 = -0.4;
 /// *ahead* rather than as a different rhythm.
 const GHOST_EARLY: f32 = -0.012;
 
+/// How long a glide takes to arrive on the note it is written over, in
+/// seconds.
+///
+/// Seconds rather than beats, for the reason [`GHOST_EARLY`] is in seconds: a
+/// slide is a hand crossing a distance, and it does not take three times as
+/// long because the piece is played at 40 bpm. Sixty milliseconds is the fast
+/// slide a bass player makes — long enough to hear as one note arriving from
+/// somewhere rather than as two notes, short enough that the note is on its
+/// own pitch for the part of it anybody is listening to.
+///
+/// Fixed rather than a parameter, for the reason [`STACCATO_GATE`] is fixed: a
+/// time per note is the raw number this module exists to replace.
+const GLIDE_SECONDS: f32 = 0.06;
+
+/// The most of a note's gate a glide may spend arriving.
+///
+/// A cap, not a second opinion about the time. A sixteenth at 140 bpm is a
+/// hundred milliseconds, and a slide still moving when the gate shuts is a
+/// note that never played what the page said it was — a run of them is a part
+/// with no pitches in it. Half leaves the back half of every note on the
+/// written pitch, however short the note.
+const GLIDE_GATE: f32 = 0.5;
+
 /// How a note is played: the mark a score would write over it.
 ///
-/// One of a closed set of three; this module's own doc says what is
-/// deliberately not in it, and why.
+/// One of a closed set of four; this module's own doc says what the test for
+/// a fifth is, and why they are named rather than spelled as numbers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Articulation {
@@ -132,11 +157,16 @@ pub enum Articulation {
     Staccato,
     /// Quiet, short, dull and a hair early — the note between the notes.
     Ghost,
+    /// Slid onto from the pitch of the note before it on the track — the
+    /// gesture a bassline is half made of. Which note that is, and what
+    /// "before" means, is the song renderer's to decide; the first note of a
+    /// track has none and is played plain.
+    Glide,
 }
 
-/// What an articulation does to one note, as four numbers.
+/// What an articulation does to one note: four numbers, and whether it slides.
 ///
-/// One lookup per note rather than four, and one place where the whole meaning
+/// One lookup per note rather than five, and one place where the whole meaning
 /// of a mark is visible at once. [`PLAIN`](Self::PLAIN) is the absent
 /// articulation, so the renderer has a single path rather than a branch per
 /// note — the same shape an absent [`Humanize`](super::Humanize) already takes.
@@ -152,6 +182,11 @@ pub(crate) struct Stroke {
     brightness: f32,
     /// Moves the onset, in seconds; negative is early.
     pub(crate) onset_seconds: f32,
+    /// Whether the note is slid onto rather than struck on its own pitch. A
+    /// flag rather than a number because *how far* is not the mark's to say —
+    /// it is wherever the previous note left the hand. Read through
+    /// [`Stroke::slide_seconds`].
+    slides: bool,
 }
 
 impl Stroke {
@@ -162,6 +197,7 @@ impl Stroke {
         gate: 1.0,
         brightness: 0.0,
         onset_seconds: 0.0,
+        slides: false,
     };
 
     /// What an entry's articulation does, or [`PLAIN`](Self::PLAIN) if it
@@ -180,10 +216,22 @@ impl Stroke {
     pub(crate) fn timbre(self, played: f32) -> f32 {
         played * self.brightness
     }
+
+    /// How long this note spends sliding onto its pitch, given the `gate` in
+    /// seconds it is held for — `None` for a mark that does not slide, which
+    /// is every mark but one.
+    ///
+    /// The gate is an argument because [`GLIDE_GATE`] caps the slide against
+    /// it, and how long the note is held is a fact about the tempo and the
+    /// written `dur` rather than about the mark — the same sixteenth is 107 ms
+    /// at 140 bpm and 375 ms at 40.
+    pub(crate) fn slide_seconds(self, gate: f32) -> Option<f32> {
+        self.slides.then(|| GLIDE_SECONDS.min(gate * GLIDE_GATE))
+    }
 }
 
 impl Articulation {
-    /// The four numbers this mark stands for.
+    /// What this mark stands for.
     pub(crate) fn stroke(self) -> Stroke {
         match self {
             Self::Accent => Stroke {
@@ -200,6 +248,11 @@ impl Articulation {
                 gate: GHOST_GATE,
                 brightness: GHOST_BRIGHTNESS,
                 onset_seconds: GHOST_EARLY,
+                ..Stroke::PLAIN
+            },
+            Self::Glide => Stroke {
+                slides: true,
+                ..Stroke::PLAIN
             },
         }
     }
@@ -219,6 +272,42 @@ mod tests {
         assert_eq!(plain.gate, 1.0);
         assert_eq!(plain.timbre(0.8), 0.0);
         assert_eq!(plain.onset_seconds, 0.0);
+        assert_eq!(plain.slide_seconds(1.0), None);
+    }
+
+    /// A glide is the pitch and only the pitch: the note is struck exactly as
+    /// written, and the one thing that moves is where it comes from.
+    #[test]
+    fn a_glide_slides_and_changes_nothing_else() {
+        let slid = Stroke::of(Some(Articulation::Glide));
+        assert_eq!(slid.slide_seconds(1.0), Some(GLIDE_SECONDS));
+        assert_eq!(slid.velocity, 1.0, "a glide is not a louder note");
+        assert_eq!(slid.gate, 1.0, "nor a shorter one");
+        assert_eq!(slid.timbre(0.6), 0.0, "nor a brighter one");
+        assert_eq!(slid.onset_seconds, 0.0, "nor a displaced one");
+    }
+
+    /// Nothing else slides. A mark that quietly did would be a portamento
+    /// nobody wrote, on the note after every ghost.
+    #[test]
+    fn the_other_marks_do_not_slide() {
+        for mark in [
+            Articulation::Accent,
+            Articulation::Staccato,
+            Articulation::Ghost,
+        ] {
+            assert_eq!(Stroke::of(Some(mark)).slide_seconds(1.0), None, "{mark:?}");
+        }
+    }
+
+    /// A slide never spends more than half the note arriving, so a short one
+    /// still plays the pitch it was written at — and a long one is the plain
+    /// slide, not a fraction of itself.
+    #[test]
+    fn a_slide_onto_a_short_note_is_shortened_with_it() {
+        let slid = Stroke::of(Some(Articulation::Glide));
+        assert_eq!(slid.slide_seconds(0.04), Some(0.02), "half of a short gate");
+        assert_eq!(slid.slide_seconds(10.0), Some(GLIDE_SECONDS), "not scaled");
     }
 
     /// An accent is louder **and** brighter, and it is nothing else: it does
@@ -283,6 +372,7 @@ mod tests {
             (Articulation::Accent, "\"accent\""),
             (Articulation::Staccato, "\"staccato\""),
             (Articulation::Ghost, "\"ghost\""),
+            (Articulation::Glide, "\"glide\""),
         ] {
             let json = serde_json::to_string(&mark).expect("a mark serialises");
             assert_eq!(json, written);

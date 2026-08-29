@@ -80,6 +80,7 @@ pub(crate) fn opts(duration: f32) -> NoteOpts {
         duration,
         velocity: 1.0,
         timbre: 0.0,
+        glide: None,
         seed: 0,
     }
 }

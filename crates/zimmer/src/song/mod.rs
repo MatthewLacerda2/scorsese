@@ -52,6 +52,7 @@ pub(crate) mod automate;
 pub(crate) mod chord;
 pub(crate) mod excerpt;
 pub(crate) mod feel;
+pub(crate) mod glide;
 pub(crate) mod key;
 mod mix;
 pub(crate) mod render;
