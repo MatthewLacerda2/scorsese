@@ -239,9 +239,40 @@ Two things are worth knowing before writing one:
 `compress` is the level control that acts on the loud moments and leaves the
 quiet ones, which is what makes a part *sit* rather than merely be at a volume.
 Only `threshold` and `ratio` have to be written: `attack` defaults to `0.01`,
-`release` to `0.15`, `makeup` to `0`, `mix` to `1`. Start at
-`{ "fx": "compress", "threshold": -18, "ratio": 4 }` and move the threshold
-until it is doing something.
+`release` to `0.15`, `makeup` to `0`, `mix` to `1`.
+
+**The threshold comes from the track's own `peak`, never from a constant.** A
+threshold is the level the peaks are measured against, so where it belongs is
+decided by where the peaks are — and [the bake report](#how-a-bake-came-out)
+prints that, per track, in the row for the part you are about to compress.
+Start a few dB *under* that row's `peak` and let `ratio` decide how hard: a
+track reading `peak -11.0` starts around `-14`, one reading `peak 3.0` starts
+around `0`. A fixed number cannot do that job — `-18` is a reasonable threshold
+for a part already sitting near full scale and it is 20 dB too low for a struck
+one, which is most of what a compressor gets put on. At `peak 3.0` a threshold
+of `-18` is 21 dB over, and 21 dB over at `ratio: 4` is around 15 dB of
+reduction: that is the part removed, not compressed.
+
+Two more figures turn it into a reading rather than a guess:
+
+- **`crest` says how much room there is.** It is peak minus mean, printed
+  beside the peak in the same row. Around 10 dB is a sustained part whose body
+  sits close to its peaks, and a threshold a few dB down bites gently. Above
+  about 20 dB the peaks tower over the body — a struck key, a snare, a plucked
+  string — and there every dB the threshold comes down from the peak is a dB
+  taken off the whole part. A high crest is the tell that a threshold picked
+  blind will do the most damage.
+- **Over-compression is legible in the next bake.** The row's `mean` falls with
+  its `peak` and its `crest` closes: quieter and flatter, when the point was
+  denser. Worth knowing because it does not announce itself as compression —
+  the mix comes back duller, which reads as a balance problem, and the natural
+  next move is to raise the fader on the part that was just crushed.
+
+Read the peak from a bake taken **before** the compressor goes on, since
+afterwards the row is what the compressor left behind. And a row is measured at
+the fader while a track's chain runs *before* it, so a part written well below
+`1.0` reaches its own compressor hotter than its row reads: at `gain: 0.5`, by
+6 dB.
 
 It is **not the limiter at another setting**. A limiter always runs, it is not
 listed above, and it does nothing until a peak threatens the ceiling — its job
@@ -250,9 +281,14 @@ Four things are worth knowing:
 
 - **`ratio: 1` and `mix: 0` are exact bypasses**, the way a band at `0 dB` is —
   sample-identical to leaving the effect out, so a parked one colours nothing.
-- **`mix` below 1 is parallel ("New York") compression**: a squashed copy under
-  an untouched one. It is the safest way to add density, because the transients
-  come through the dry half.
+- **`mix` below 1 is parallel ("New York") compression**, and it is closer to a
+  default than to an advanced setting: a squashed copy under an untouched one,
+  so the transients come through the dry half. That makes it both the safest
+  way to add density and the cheapest insurance against a threshold set too
+  low — the two halves are crossfaded, so at `mix: 0.6` a reduction of 15 dB
+  costs the part about 6 dB rather than 15. Reach for `0.5` to `0.7` on
+  anything with a transient in it and keep `1.0` for a decision made on
+  purpose.
 - **`makeup` cannot get a mix past the ceiling.** A song's chain runs before the
   limiter, so 24 dB of makeup on the sum is 24 dB the limiter then takes back.
   Makeup is for replacing what the reduction took, not for getting loud.
@@ -1320,8 +1356,10 @@ no compression anywhere sounds wrong. Such a mix has an enormous **crest
 factor** — its peaks tower over its body — so it measures loud and sounds
 quiet, and nothing binds the parts. `{ "threshold": -12, "ratio": 2,
 "attack": 0.02, "release": 0.2, "makeup": 3 }` over the sum is most of the fix.
-Keep it modest: the master limiter runs after this and will take back anything
-`makeup` overreaches by.
+A constant is safe here and is not on a track, because the sum's peak is a
+known quantity: the summary line reads a few dB under full scale on anything
+mixed, so `-12` lands where it was meant to. Keep it modest: the master limiter
+runs after this and will take back anything `makeup` overreaches by.
 
 **Ducking is the sidechain**, and it is the recognisable half:
 
@@ -1390,8 +1428,8 @@ sixteenth-note part with the filter opening and the level coming up under it.
   "arrangement": ["a", "a", "a", "a"],
   "automation": [
     { "track": "t", "param": "cutoff", "points": [
-      { "beat": 0.0, "value": 300.0 },
-      { "beat": 16.0, "value": 7000.0, "easing": "ease_in" } ] },
+      { "beat": 0.0, "value": 300.0, "easing": "ease_in" },
+      { "beat": 16.0, "value": 7000.0 } ] },
     { "track": "t", "param": "gain", "points": [
       { "beat": 0.0, "value": 0.25 },
       { "beat": 16.0, "value": 0.9 } ] }
@@ -1410,16 +1448,50 @@ the tempo of a piece with a build in it is still one number.
 | `pan` | `-1.0` to `1.0`, like the track's own `pan` | a part drifting across the image |
 | `cutoff` | Hz | the build, and anything getting brighter as the piece intensifies |
 
+**A curve replaces the value the track wrote; it does not scale it.** A `gain`
+curve reaching `0.72` puts that track at `0.72`, whatever its own `gain` says —
+the written number is what a parameter with *no* curve keeps, which is why a
+track that automates only its level stays at the `pan` it was written at, and
+the other way round. So there is nothing to compensate for and no arithmetic to
+do: write the level you want to hear at each point. Writing `"gain": 1.0` on an
+automated track to be safe is the one thing not to do — it is correct under
+either reading and it makes a part written at a third of full level look like it
+is at the top of its fader.
+
+The written value is **not** refused when a curve overrides it, deliberately.
+It is where the track lands the moment the curve is deleted, which is what makes
+a build safe to try and safe to remove; refusing it would turn deleting a curve
+into a two-step edit and would make an unfinished recipe unrenderable.
+(*"One point is a constant"*, below, is the same fact from the other side: a
+one-point `gain` curve *is* a written gain, said in the automation list.)
+
 The list is closed on purpose. A misspelled `param` is **refused**, against the
 three words that work, rather than parsed into a curve that moves nothing — and
 a curve that moves nothing is worse than no curve at all, because the recipe
 still says the build is there.
 
+**And it is closed at the mixing desk, which is the rule.** All three params are
+properties of a *track* — level, position, and brightness at the fader — and
+that boundary is chosen rather than inherited: **automation moves the mix; what
+an instrument *is* belongs to its envelope and its LFO**, which are per note
+because a note is where an instrument's identity lives. So a reverb's `mix`
+cannot open across the last ten seconds, an `fm2`'s `index` cannot brighten
+through a build, and there is deliberately no way to name a thing *inside* a
+track — a curve names a track, and a track has exactly one gain, one pan and
+one filter. When a piece wants one of those gestures, the move is at the fader:
+bring the part up, or bring what sits over it down.
+
 **`easing`** is `linear` (the default), `ease_in`, `ease_out`, `ease_in_out` or
-`hold`, and it belongs to the point the value is travelling *from*. `hold` is a
-step written on purpose: the value stays put and jumps at the next point.
-`ease_in` is the one a build usually wants — slow at first and arriving fast,
-which is what makes a drop land.
+`hold`, and it belongs to the point the value is travelling *from*. That is
+the one thing about it worth reading twice: an `easing` on the **last** point
+of a curve does nothing at all, because nothing travels from it, and the curve
+renders as the straight line it would have been. Nothing refuses it and no
+report line mentions it — a build that is merely linear measures exactly like
+one that is not, because the endpoints are the same. The example above puts
+`ease_in` on the point at beat 0, which is what makes the sixteen bars into it
+a build. `hold` is a step written on purpose: the value stays put and jumps at
+the next point. `ease_in` is the one a build usually wants — slow at first and
+arriving fast, which is what makes a drop land.
 
 Two more things a curve does, and both are what anyone would guess:
 

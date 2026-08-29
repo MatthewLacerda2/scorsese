@@ -34,6 +34,28 @@
 //! on a track that does not exist, or a `cutoff` curve on an instrument with
 //! no filter, is refused too — see the song's validation.
 //!
+//! ## Where the list closes, which is the mixing desk
+//!
+//! Closure is one decision and *where* it closes is another, so: all three
+//! params are properties of a [`Track`] — level, position, and brightness at
+//! the fader — and that is the boundary, chosen rather than inherited from
+//! whatever happened to be a field of this struct. **Automation moves the mix;
+//! what an instrument *is* belongs to its envelope and its LFO**, which are per
+//! note because a note is where an instrument's identity lives.
+//!
+//! The two gestures that fall on the far side of that line are an effect's
+//! `mix` opening through a closing bar and a source's own depth — an
+//! [`fm2`](crate::patch::Source) index brightening through a build. Both were
+//! wanted once, in one piece, and the fader move that replaced them was good
+//! enough. Neither is out because it is hard to render; they are out because
+//! reaching them means addressing a thing *inside* a track, and a curve names a
+//! track precisely because a track has exactly one gain, one pan and one
+//! filter. A chain is an ordered list with no names in it and a source's fields
+//! are per kind, so the alternative is a naming scheme with a long tail, bought
+//! for a want that a fader has so far always covered. If it comes back with a
+//! concrete piece that the fader cannot serve, it reopens with that case in
+//! hand — which is a stronger argument than this paragraph is.
+//!
 //! ## Where it is sampled, which is not one answer
 //!
 //! A curve is sampled **where the thing it moves is decided**, and the two
@@ -83,10 +105,11 @@ use crate::stereo::{self, Stereo};
 /// number that was already a field of the document and was already constant
 /// for the whole piece.
 ///
-/// **An fx parameter is deliberately not here yet.** Every effect has
-/// different fields, so naming one is a path into a chain rather than a word —
-/// a second design — and a chain runs once over a whole bus, so honouring it
-/// would mean a time-varying parameter inside every effect.
+/// **An fx parameter is deliberately not here.** Every effect has different
+/// fields, so naming one is a path into a chain rather than a word — a second
+/// design — and a chain runs once over a whole bus, so honouring it would mean
+/// a time-varying parameter inside every effect. The module doc has the rest of
+/// that argument, and the line it draws: the mix moves, the instrument does not.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Param {

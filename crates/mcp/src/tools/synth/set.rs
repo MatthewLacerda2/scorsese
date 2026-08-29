@@ -21,7 +21,10 @@ impl Tool for Set {
          several bakes — where synth_write would re-send every note in the piece \
          to move one float. Refused whole, changing nothing, if the field or the \
          track named is not there. The result is an ordinary recipe, and its \
-         asset goes stale by the same arithmetic a full write does."
+         asset goes stale by the same arithmetic a full write does. One thing it \
+         cannot reach: a track whose `gain` or `pan` is under an automation curve \
+         plays the curve and not the written number, so setting it there changes \
+         a value nothing reads — move the curve's points with synth_write."
     }
 
     fn costs(&self) -> Costs {
