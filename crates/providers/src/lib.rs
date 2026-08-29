@@ -15,13 +15,17 @@
 //!
 //! Credentials come from one resolver and one order — see [`credentials`]:
 //! the environment first (an exported variable, or the `.env` at the root of a
-//! checkout), then the settings file a shipped build keeps per machine. Real provider calls are NEVER made in tests — every networked
-//! provider is mocked behind a trait. Synthesis needs no such arrangement: it
-//! is arithmetic, so its tests are the real thing.
+//! checkout), then the settings file a shipped build keeps per machine. Real
+//! provider calls are NEVER made in tests — every networked provider is mocked
+//! behind a trait. Synthesis needs no such arrangement: it is arithmetic, so
+//! its tests are the real thing.
 //!
 //! Boundary: no rendering, no compositing, no GUI. This crate turns briefs
-//! into media files on disk and updates asset state; it depends on
-//! `scorsese-core` and `scorsese-zimmer` only.
+//! into media files on disk and updates asset state; of the workspace crates it
+//! depends on `scorsese-core` and `scorsese-zimmer` only. It is also the only
+//! crate in the workspace holding an HTTP client: every call scorsese makes to
+//! a vendor is made from here, through [`api`], and nothing else has a reason
+//! to reach a network.
 //!
 //! ## What this publishes
 //!
@@ -39,10 +43,29 @@
 //! reports what a generation cost, so every figure is our own estimate and the
 //! naming says so throughout.
 //!
-//! The providers proper have no surface here yet. When Veo and ElevenLabs
-//! arrive they get a module of their own beside this one, because a prompt and
-//! a recipe are not the same kind of brief and sharing an entry point is how
-//! that distinction would go quietly missing.
+//! [`video`] and [`speech`], the two prompted providers — Veo for a shot,
+//! ElevenLabs for a line of narration. They are a module each rather than one
+//! `providers` entry point, and so is [`synth`] beside them, because a prompt
+//! and a recipe are not the same kind of brief and sharing an entry point is
+//! how that distinction would go quietly missing. Each owns its own brief type,
+//! its own outcomes, and its own **provider trait** — which is what makes *no
+//! test ever spends a cent* true by construction rather than by anyone
+//! remembering.
+//!
+//! The two are not a pair of the same thing either, and their module docs carry
+//! the differences rather than this one: a shot is long-running, so a submitted
+//! generation writes a ticket into `project.json` and is collected later by
+//! whoever opens the project next; a reading comes back on the call, and cannot
+//! be measured without a decoder this crate has none of and must not grow, so
+//! its caller probes the file afterwards.
+//!
+//! [`api`], underneath both, which is the vendors' wire and nothing else.
+//! Neither Google nor ElevenLabs ships a Rust client, so every request and
+//! reply is a serde type written out by hand in the shape the vendor documents,
+//! and exactly one module names an HTTP library. It deliberately knows nothing
+//! about a sketch, a cache or a price: those are scorsese's business, and a
+//! reader checking a payload against a vendor's page should not have to read
+//! past them.
 //!
 //! [`voices`], which is where a narration's `voice_id` comes from. It spends
 //! nothing — reading a list is free — but it is the module that keeps the

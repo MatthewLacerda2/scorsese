@@ -1156,9 +1156,13 @@ runs, `seed` re-rolls the whole performance at once, and a pattern played twice
 is played differently the second time — which is the point. A repeat nudged
 identically both times is still a photocopy, just a crooked one.
 
-The oscillators themselves start somewhere in their cycle rather than at zero,
-drawn from that same chain, so two hits of one patch are not the same waveform
-and a detuned pair is already drifting at the attack. Nothing asks for it and
+The voices themselves start somewhere in their cycle rather than at zero, drawn
+from that same chain, so two hits of one patch are not the same waveform and a
+detuned pair is already drifting at the attack. That is every oscillator of a
+stack, every unison copy of one, every partial of an additive series, and both
+operators of an `fm2` voice — the last drawn apart from each other, because in
+two-operator FM the distance between the carrier and the modulator *is* the
+timbre, and a pair that started together would ring the same bell every time. Nothing asks for it and
 nothing can turn it off: a repeat that was a photocopy is the thing this whole
 section is about, and it was one before any of these fields were written.
 

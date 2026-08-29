@@ -315,6 +315,42 @@ The three causes, in no particular order:
    Record it as an `exclude_re` entry in `.cargo/mutants.toml` with a written
    reason.
 
+### The shape that fools step 3: a flipped sign
+
+**When a mutation flips a sign and nothing fails, look at what the assertions
+measure before concluding the mutant is equivalent.** The pattern is one
+sentence: *a measurement that discards sign cannot test an operation that
+changes it.* Magnitudes, DFT bins, peaks, absolute values, rising-crossing
+counts and render-to-render inequality all discard it, and every one of them
+reads like a real assertion — which is exactly why step 3 above is tempting.
+
+Four modules hit this in a single day, and the survivors were real gaps in all
+four:
+
+- `core/additive.rs` — fifteen tests read a one-bin DFT **magnitude**, which is
+  invariant under a sign flip, so `+=` → `-=` walked through every one.
+- `core/osc/mod.rs` — sixteen tests read peaks, rising-crossing counts, or
+  equality between two renders. All three survive negation.
+- `core/fm/four.rs` — two feedback tests each held one term at zero, so `+` and
+  `-` were *literally identical* in both.
+- `song/render.rs` — a humanise offset added to the tone: the test asserted the
+  tone had **moved**, which a renderer subtracting the offset does just as far
+  (#451).
+
+The fix is never a new kind of test. It is asserting the direction the code
+already claims: which of two renders is brighter, which of two onsets is
+earlier, what the sample at a known instant actually is. Two coordinates chosen
+so the correct code points opposite ways — a seed that draws up and one that
+draws down, a note ahead of the beat and one behind it — turn "it changed" into
+a claim a sign flip cannot satisfy.
+
+One corollary worth stating, because it looks like a pass and is not: an
+unsigned subtraction between two indices (`later - earlier` on `usize`) does
+catch a flip, but it catches it as an **arithmetic overflow panic** rather than
+as a failed assertion. Nobody wrote that catch, its message says nothing about
+the mark or the offset it was checking, and a `saturating_sub` added later for
+tidiness removes it silently. Assert the order, then measure the distance.
+
 ### Writing the exclusion: an entry is a regex
 
 **`exclude_re` holds regular expressions, not the lines `cargo mutants --list`

@@ -36,11 +36,12 @@ use crate::stereo::Stereo;
 /// belongs to the note (the amp envelope, downstream) or is measured from the
 /// start of it rather than from the gate closing.
 ///
-/// `seed` is the note's. Four of the six sources draw on it: the noise
+/// `seed` is the note's. Five of the six sources draw on it: the noise
 /// source is nothing but, the Karplus excitation is a burst of it, and an
-/// oscillator stack and an additive series each start their voices somewhere
-/// in their cycle rather than all of them at zero — for the stack that is per
-/// oscillator *and* per unison voice.
+/// oscillator stack, an additive series and a two-operator FM voice each start
+/// their voices somewhere in their cycle rather than all of them at zero — for
+/// the stack that is per oscillator *and* per unison voice, and for `fm2` it is
+/// the carrier and the modulator drawn apart from each other.
 ///
 /// The sum is resolved here rather than inside [`fm`] so that module stays the
 /// FM algorithm and nothing else: it is handed the index to use, not the
@@ -92,7 +93,7 @@ fn one_waveform(
             mod_decay,
         } => {
             let depth = (index + vel_index * velocity).max(0.0);
-            fm::two::render(out, freqs, *ratio, depth, *mod_decay, rate);
+            fm::two::render(out, freqs, *ratio, depth, *mod_decay, seed, rate);
         }
         Source::Fm4 {
             algorithm,
