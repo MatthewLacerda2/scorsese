@@ -154,6 +154,13 @@ impl<'a, 'f> Canvas<'a, 'f> {
         let shader = shader(brush, &self.palette, space, self.said)?;
         Some(Brushed {
             shader,
+            // Said rather than inherited, because a colour glyph having the
+            // same soft edge as every other path in the crate is a decision
+            // and not a detail. tiny-skia's own default happens to agree, so
+            // deleting this line changes nothing a test could see — that
+            // mutation is genuinely equivalent, and a struct-field deletion
+            // is the one kind `.cargo/mutants.toml` cannot exclude, so the
+            // reason lives here instead.
             anti_alias: true,
             ..Brushed::default()
         })

@@ -391,6 +391,48 @@ mod tests {
         );
     }
 
+    /// A chain the other way up: the face the document named draws in colour
+    /// and the fallback has only the outline.
+    ///
+    /// Contrived-looking and not contrived — [`super::super::font::Font::from_bytes`]
+    /// takes any file a project brings with it, an emoji face included. It is
+    /// also the **only** shape in which `U+FE0E` can be told from no selector
+    /// at all: with a text face at the head of the chain both answers are the
+    /// named face, so a chain that read the selector and one that ignored it
+    /// would draw the same picture.
+    fn colour_first(face: usize, _: char) -> Drawn {
+        if face == 0 {
+            Drawn::Colour
+        } else {
+            Drawn::Outline
+        }
+    }
+
+    #[test]
+    fn the_text_selector_reaches_past_a_colour_face_for_an_outline() {
+        let chosen = |text: &str| {
+            split(text, 2, colour_first)
+                .first()
+                .expect("one cluster is one run")
+                .face
+        };
+        assert_eq!(
+            chosen("\u{2764}"),
+            0,
+            "no selector: the named face wins, colour and all"
+        );
+        assert_eq!(
+            chosen("\u{2764}\u{fe0f}"),
+            0,
+            "…and asking for colour asks for what it already gives"
+        );
+        assert_eq!(
+            chosen("\u{2764}\u{fe0e}"),
+            1,
+            "but asking for an outline reaches past it to the face that has one"
+        );
+    }
+
     #[test]
     fn a_selector_no_face_can_honour_is_dropped_rather_than_obeyed() {
         // Only face 1 has a star at all, so a text presentation is not on

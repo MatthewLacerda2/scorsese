@@ -186,6 +186,43 @@ fn box_of(x_min: f32, y_min: f32, x_max: f32, y_max: f32) -> BoundingBox<f32> {
     }
 }
 
+/// Font units to pixels for the face these tests draw with.
+fn scale() -> f32 {
+    Font::sans().at(SIZE).scale()
+}
+
+/// The font-unit x that lands on raster column `x` under the base transform.
+fn at_column(x: f32) -> f32 {
+    (x - ORIGIN.0) / scale()
+}
+
+/// The font-unit y that lands on raster row `y` — the flip is here, which is
+/// why a box's `y_min` is the *lower* row on the screen.
+fn at_row(y: f32) -> f32 {
+    (ORIGIN.1 - y) / scale()
+}
+
+#[test]
+fn a_clip_box_is_the_rectangle_it_names_and_not_one_near_it() {
+    // A clip box is the only geometry the walk hands over as four numbers
+    // rather than as an outline, and each of its sides is a subtraction — so
+    // `x_max - x_min` read as `x_max + x_min` is the same rectangle whenever
+    // `x_min` happens to be zero and a wrong one otherwise. This box has
+    // neither corner at the origin and the assertion is its exact area, so
+    // no arithmetic but the right one lands on it.
+    let clipped = walked(|canvas, _| {
+        canvas.push_clip_box(box_of(
+            at_column(60.0),
+            at_row(160.0),
+            at_column(160.0),
+            at_row(60.0),
+        ));
+        canvas.fill(INK);
+    });
+    assert_eq!(bounds(&clipped), Some((60, 60, 159, 159)));
+    assert_eq!(inked(&clipped), 100 * 100);
+}
+
 #[test]
 fn a_layer_reaches_the_frame_only_when_it_is_popped() {
     let held = inked(&walked(|canvas, id| {
