@@ -13,6 +13,13 @@
 //! property; the 70s look is five values somebody chose, and those belong in a
 //! project, a document, or an assistant's suggestion.
 //!
+//! **The test for belonging here is one pixel in, one pixel out.** Every field
+//! below reads the pixel it is writing and nothing else, which is why `blur`
+//! sits beside a grade rather than inside one — it reads a neighbourhood. The
+//! test is about the *shape* of the operation and not about colour in the
+//! narrow sense: `vignette` also consults where the pixel is, and `grain` also
+//! consults which frame it is, and both still write one pixel from one pixel.
+//!
 //! What the numbers *do* to pixels is `scorsese-compositor`'s to say, and it
 //! says it in one place, next to the arithmetic. What lives here is the shape,
 //! the neutrals, and the direction each one runs in.
@@ -26,7 +33,7 @@ use serde::{Deserialize, Serialize};
 /// one whose every field is left out. That is what lets the field be added to
 /// the format without touching a single existing document.
 ///
-/// All five are animatable through the ordinary keyframe mechanism, as
+/// All six are animatable through the ordinary keyframe mechanism, as
 /// `grade.saturation`, `grade.temperature` and so on. A grade written here is
 /// the clip's **baseline**, and a keyframe track on one of those paths **takes
 /// that property over outright** — a track always has a value, holding its
@@ -77,6 +84,21 @@ pub struct Grade {
     /// than a ring the layer happens to sit inside.
     #[serde(default)]
     pub vignette: f64,
+    /// How much grain is laid over the picture. `0.0` is none — the clean,
+    /// computed image — and `1.0` is the heaviest this offers.
+    ///
+    /// The one thing in this set that is **not a function of the pixel alone**:
+    /// the noise moves with the frame, because grain that held still would read
+    /// as dirt on the lens rather than as film. It still writes one pixel from
+    /// one pixel, which is the test for belonging in a grade.
+    ///
+    /// **Nothing seeds it in the document, deliberately.** The noise field is
+    /// derived from the clip's own id, so two clips of the same footage never
+    /// carry the same grain, and the same project renders the same grain on
+    /// every machine and in every run. A seed in the format would be a number
+    /// nobody could choose meaningfully and everybody could copy by accident.
+    #[serde(default)]
+    pub grain: f64,
 }
 
 /// The multiplicative neutral, for the two fields whose is not zero.
@@ -92,6 +114,7 @@ impl Grade {
         brightness: 0.0,
         contrast: 1.0,
         vignette: 0.0,
+        grain: 0.0,
     };
 
     /// True when this grade would leave every pixel exactly as it found it.

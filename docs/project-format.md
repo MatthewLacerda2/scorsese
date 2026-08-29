@@ -18,7 +18,7 @@ A complete worked example lives in
 
 ```json project
 {
-  "schema_version": 29,
+  "schema_version": 30,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -1379,10 +1379,11 @@ changing what its numbers mean. If the pivot itself has to travel, that is
 
 ```json clip
 { "id": "c-arrival", "asset": "shot-a", "start": 0, "duration": 120,
-  "grade": { "saturation": 0.18, "temperature": 0.12, "vignette": 0.35 } }
+  "grade": { "saturation": 0.18, "temperature": 0.12, "vignette": 0.35,
+             "grain": 0.08 } }
 ```
 
-Five numbers, all optional, every default the **neutral** one — so a grade that
+Six numbers, all optional, every default the **neutral** one — so a grade that
 says nothing changes nothing, and a clip with no `grade` at all is the clip
 exactly as it arrived.
 
@@ -1393,6 +1394,7 @@ exactly as it arrived.
 | `brightness` | `0.0` | negative darkens, positive lightens |
 | `contrast` | `1.0` | below `1.0` flattens, above `1.0` steepens |
 | `vignette` | `0.0` | `0.0` is none; higher darkens the corners further |
+| `grain` | `0.0` | `0.0` is a perfectly clean picture; `1.0` is the heaviest |
 
 **It applies to every layer kind, not only video.** The compositor does not care
 what produced the pixels it is handed, and a title card that does not warm along
@@ -1405,7 +1407,7 @@ surely as it rules out "make text red". `saturation: 0.18` is a property; the
 70s look is five values somebody chose, and those belong in a project, a
 document, or an assistant's suggestion.
 
-**A field *and* five animatable properties**, which no other clip property is.
+**A field *and* six animatable properties**, which no other clip property is.
 The field is the clip's baseline; a `grade.*` keyframe track **takes that one
 property over** for the whole clip, since a track holds its first and last
 values outside its own range and so always has an answer. Every property no
@@ -1435,16 +1437,52 @@ editor.
 
 **Order of operations**, because a grade is more than one thing happening and
 the order changes the picture: saturation, then temperature, then contrast,
-then brightness, then vignette. Saturation runs first so that warming a
-desaturated shot warms it rather than being undone by the desaturation;
-brightness runs after contrast so that the contrast knob does not shift the
-exposure as a side effect. Everything is clamped to the displayable range on the
-way out — an overshoot is a blown highlight, not a wrapped one.
+then brightness, then vignette, then grain. Saturation runs first so that
+warming a desaturated shot warms it rather than being undone by the
+desaturation; brightness runs after contrast so that the contrast knob does not
+shift the exposure as a side effect; grain runs last because it is the emulsion
+and not the scene, so the amount asked for is the amount seen rather than an
+amount the contrast knob has since steepened. Everything is clamped to the
+displayable range on the way out — an overshoot is a blown highlight, not a
+wrapped one.
 
 The vignette is measured from **the layer's own centre**, not the frame's, so
 one on a picture-in-picture darkens that picture's corners rather than a ring it
 happens to sit inside. Alpha is never touched, by the vignette or anything else:
 a grade changes what colour a pixel is, never how much of it there is.
+
+**`grain` is the one of the six that moves.** A picture can be warmed,
+flattened, darkened, softened and vignetted and still read as computed, because
+a photochemical image is never clean and a computed one always is; grain is what
+closes that gap, and it does a second job nothing else does — a common grain
+over a whole cut is the oldest way of making shots that were generated or
+sourced separately sit together. It is **monochrome**, because silver halide
+crystals are not coloured and independent noise per channel is the speckle of a
+video sensor rather than the texture of film; and it is **strongest through the
+midtones**, falling away to nothing at both ends of the range, because uniform
+noise in the blown highlights and the crushed blacks is exactly what reads as
+noise added in post. Its size is a fraction of the layer's own height, like
+`blur`, so the same number is the same texture at 1080p and at 4K. Sensible
+values are small: `0.05` is a clean stock, `0.15` is heavy, and `1.0` is the
+most the field will do.
+
+**Nothing seeds it, deliberately.** The noise field is derived from the clip's
+own `id` and the frame the clip has reached, so two clips of the same footage
+never carry the same grain, and the pattern **animates** rather than sitting
+still like dirt on the lens. It is a hash and never a generator: the same
+project renders the same grain on every machine and in every run, a frame never
+depends on a frame rendered before it, and rendering a `--range` out of the
+middle of a timeline gives the same frames the whole render would have. A seed
+in the document would be a number nobody could choose meaningfully and everybody
+would copy by accident.
+
+**Grain costs bitrate, and a lossy delivery will eat some of it.** Noise is the
+most expensive thing there is to encode, so what reaches a viewer is always less
+grain than the compositor drew — at a low bitrate, or a light amount, possibly
+none of it. That is a fact about video compression rather than about this field:
+if a render comes back cleaner than the preview looked, the answer is a higher
+bitrate or a larger number, and `docs/golden-renders.md` has the measurements
+that make the same point about the pixel gate.
 
 ### How soft it is: `blur`
 
@@ -1483,10 +1521,12 @@ what a focus pull is — two numbers and a ramp — with no mechanism of its own
                                   { "t": 45, "value": 0.0 } ] } ] }
 ```
 
-It is `blur` and not `grade.blur` deliberately. A grade is the closed set of
-*colour* properties, and every one of them reads one pixel and writes one pixel;
-a blur reads a neighbourhood. Filing it under a struct that says colour would
-make that description untrue about what it holds.
+It is `blur` and not `grade.blur` deliberately. **The test for belonging to a
+grade is one pixel in, one pixel out**, and every field of one passes it — a
+`vignette` also consults where the pixel is and `grain` also consults which
+frame it is, and both still write one pixel from one pixel. A blur reads a
+neighbourhood, which is a different shape of operation and belongs beside a
+grade rather than inside one.
 
 **It applies to every layer kind**, for the same reason a grade does: the
 compositor is handed a rectangle of pixels and does not know whether a decoder,
@@ -1693,6 +1733,7 @@ attention than the ducking was avoiding.
 | `grade.brightness` | light added to the layer, as an offset | `0.0` untouched |
 | `grade.contrast` | how steep the layer's range is about mid-grey | `1.0` untouched |
 | `grade.vignette` | how much the layer's own corners are darkened | `0.0` none, `1.0` corners black |
+| `grade.grain` | how much grain is laid over the layer, strongest through the midtones | `0.0` none, `1.0` heaviest |
 | `volume` | how loud a clip plays, on either kind of track | `1.0` as recorded, `0.0` silent |
 
 Scale, rotation and flip all pivot on the clip's `origin`, which is the layer's

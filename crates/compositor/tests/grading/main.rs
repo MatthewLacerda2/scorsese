@@ -2,7 +2,7 @@
 //!
 //! What defends `grade.rs` otherwise is the golden set: whole 1080p frames
 //! matching PNGs. That catches a wrong operator but cannot say *which* of the
-//! five knobs turned it, needs ffmpeg and fixture media, and takes minutes. So
+//! six knobs turned it, needs ffmpeg and fixture media, and takes minutes. So
 //! these feed one known colour to one knob and assert the byte that comes back.
 //!
 //! Every expected value here was worked out by hand from what `grade.rs`
@@ -10,8 +10,13 @@
 //! the contrast pivot, brightness as a plain offset, and a squared distance to
 //! the corner — and written down as a literal. Recomputing the arithmetic in
 //! the test would assert only that the code agrees with itself.
+//!
+//! [`grain`] is the one that cannot work that way, and says so in its own doc:
+//! the expected value of a hash is the hash, so what it asserts are the
+//! *properties* the noise has to have instead.
 
 mod colour;
+mod grain;
 mod tone;
 mod vignette;
 
@@ -69,6 +74,6 @@ pub(crate) fn graded(colour: (u8, u8, u8), grade: Grade) -> (u8, u8, u8, u8) {
     pixel(&composited(&[layer(&source, grade)]), SIZE / 2, SIZE / 2)
 }
 
-fn raster() -> Resolution {
+pub(crate) fn raster() -> Resolution {
     Resolution::new(SIZE, SIZE).expect("a legal raster")
 }
