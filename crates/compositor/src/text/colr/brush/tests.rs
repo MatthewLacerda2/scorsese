@@ -170,6 +170,91 @@ fn the_three_spreads_the_format_defines_are_three_different_spreads() {
     assert_eq!(said.len(), 1, "{said:?}");
 }
 
+/// A point in the font units a brush's geometry is always given in.
+fn point(x: f32, y: f32) -> skrifa::raw::types::Point<f32> {
+    skrifa::raw::types::Point::new(x, y)
+}
+
+/// Two stops that resolve against `resolved`, so what a gradient test measures
+/// is the geometry and never the palette.
+const RAMP: [ColorStop; 2] = [
+    ColorStop {
+        offset: 0.0,
+        palette_index: 0,
+        alpha: 1.0,
+    },
+    ColorStop {
+        offset: 1.0,
+        palette_index: 1,
+        alpha: 1.0,
+    },
+];
+
+#[test]
+fn every_gradient_the_format_has_is_one_tiny_skia_can_build() {
+    // Linear, radial, and the sweep `SweepGradient` describes: all three, so
+    // the claim in this module's own documentation — that the translation is
+    // total in practice and `Unpaintable` is for a *malformed* file — is
+    // asserted rather than asserted about. A missing arm would show up as one
+    // fill quietly dropped from one emoji in ten, which is exactly the
+    // failure nothing end to end can see.
+    let kinds = [
+        Brush::LinearGradient {
+            p0: point(0.0, 0.0),
+            p1: point(100.0, 0.0),
+            color_stops: &RAMP,
+            extend: Extend::Pad,
+        },
+        Brush::RadialGradient {
+            c0: point(50.0, 50.0),
+            r0: 0.0,
+            c1: point(50.0, 50.0),
+            r1: 100.0,
+            color_stops: &RAMP,
+            extend: Extend::Repeat,
+        },
+        Brush::SweepGradient {
+            c0: point(50.0, 50.0),
+            start_angle: 0.0,
+            end_angle: 180.0,
+            color_stops: &RAMP,
+            extend: Extend::Reflect,
+        },
+    ];
+    let mut said = Vec::new();
+    for brush in kinds {
+        assert!(
+            shader(&brush, &resolved(), Transform::identity(), &mut said).is_some(),
+            "{brush:?}"
+        );
+    }
+    assert!(said.is_empty(), "{said:?}");
+}
+
+#[test]
+fn a_radius_below_zero_is_clamped_rather_than_refused() {
+    // A normalised colour line can put a radius below zero, which no circle
+    // has — but the stops either side of it are still the gradient the
+    // designer drew, so the fill is kept. Refusing here would drop a layer
+    // over a number the font never meant as a measurement.
+    let mut said = Vec::new();
+    let built = shader(
+        &Brush::RadialGradient {
+            c0: point(50.0, 50.0),
+            r0: -20.0,
+            c1: point(50.0, 50.0),
+            r1: 100.0,
+            color_stops: &RAMP,
+            extend: Extend::Pad,
+        },
+        &resolved(),
+        Transform::identity(),
+        &mut said,
+    );
+    assert!(built.is_some());
+    assert!(said.is_empty(), "{said:?}");
+}
+
 #[test]
 fn a_gradient_with_no_stops_left_is_refused_and_said_out_loud() {
     // Every stop names an index the palette does not have, so what reaches
