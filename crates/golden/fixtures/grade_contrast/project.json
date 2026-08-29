@@ -1,5 +1,5 @@
 {
-  "schema_version": 31,
+  "schema_version": 32,
   "name": "grade_contrast",
   "timeline_fps": {
     "num": 30,

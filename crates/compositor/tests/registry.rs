@@ -3,7 +3,7 @@
 mod common;
 
 use scorsese_compositor::{ANIMATED, Properties, Registry, path};
-use scorsese_core::{Frames, PropertyPath};
+use scorsese_core::{ChromaKey, Frames, PropertyPath, Rgba};
 
 use common::constant;
 
@@ -20,15 +20,21 @@ fn every_published_property_is_one_the_compositor_actually_resolves() {
     // The two halves that must not drift: a name here with no implementation is
     // a promise nothing keeps. Each published path is set to a value no default
     // has, so a path that resolved to nothing would leave the defaults standing.
+    // `0.375` rather than a rounder number because `chroma_key.tolerance`
+    // defaults to `0.25`, and a probe equal to the default proves nothing.
+    // The baseline carries a key, because two of these paths are settings *of*
+    // one: a `chroma_key.tolerance` track on a clip with no screen colour has
+    // no key to be a tolerance of, and resolves to nothing for a reason that is
+    // about the document rather than about the compositor. Every other property
+    // is at its default here exactly as before.
+    let baseline = Properties {
+        chroma_key: Some(ChromaKey::new(Rgba::opaque(0, 177, 64))),
+        ..Properties::default()
+    };
     for property in ANIMATED {
-        let animated = Properties::over(
-            Properties::default(),
-            &[constant(property.path, 0.25)],
-            Frames::ZERO,
-        );
+        let animated = Properties::over(baseline, &[constant(property.path, 0.375)], Frames::ZERO);
         assert_ne!(
-            animated,
-            Properties::default(),
+            animated, baseline,
             "`{}` is published but resolves to nothing",
             property.path
         );

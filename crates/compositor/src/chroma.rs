@@ -56,8 +56,27 @@
 //! it down leaves the edge it was pulled from visibly darker — a grey rim
 //! replacing the green one, which is not an improvement. Scaling the despilled
 //! pixel back to the luma it had restores the brightness while keeping the hue
-//! the despill just corrected. Both refinements were judged on a rendered frame
-//! rather than argued; see this branch's pull request for the numbers.
+//! the despill just corrected.
+//!
+//! **Both of those were settled on a rendered frame**, on a plate keyed against
+//! `#00b140` with a half-covered strand of hair carrying heavy bounce. On that
+//! strand, `(99, 168, 102)` at luma 148.6:
+//!
+//! | despill | the strand | luma |
+//! | --- | --- | --- |
+//! | none | `(99, 168, 102)` | 148.6 |
+//! | clamped to the strongest other channel | `(99, 117, 83)` | 110.7 |
+//! | blended to their average | `(99, 118, 84)` | 111.5 |
+//! | and put back at its own luma | `(132, 157, 112)` | 148.4 |
+//!
+//! The last row is what ships, and the third column is why: a quarter of the
+//! strand's brightness leaves with the green, which is a grey rim where there
+//! was a green one. What separates the middle two is not that row but a
+//! *mildly* spilled pixel — `(199, 201, 155)` on the body's lit edge, which the
+//! average pulls to `(199, 194, 152)` and the hard clamp leaves exactly alone,
+//! because the strongest other channel is always at least their average and on
+//! a bright pixel it is far above it. So the clamp is the one that misses the
+//! spill nobody would otherwise notice until it is next to a background.
 
 use scorsese_core::{ChromaKey, Rgba};
 
@@ -306,4 +325,226 @@ fn sane(value: f64) -> f64 {
 /// channel that wrapped would put a black speckle in the middle of it.
 fn quantise(value: f64) -> u8 {
     (value.clamp(0.0, 1.0) * 255.0).round() as u8
+}
+
+/// The plane and the ramp, which nothing outside this file can reach.
+///
+/// Here rather than in `tests/keying/` for [`crate::aberration`]'s reason: that
+/// is where the *effect* is asserted — a screen goes, an edge ramps, a rim
+/// loses its colour — and an effect is satisfied by more than one arithmetic.
+/// What these name are the numbers themselves.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The screen most of them are painted, and the one the docs quote.
+    const SCREEN: Rgba = Rgba::opaque(0, 177, 64);
+
+    fn at(color: Rgba) -> (f64, f64) {
+        chromaticity(normalise(color)).expect("a colour with light in it")
+    }
+
+    fn distance(a: (f64, f64), b: (f64, f64)) -> f64 {
+        (a.0 - b.0).hypot(a.1 - b.1)
+    }
+
+    /// White at the origin and each primary exactly one out, which is the whole
+    /// claim the plane makes and what makes a tolerance mean one thing in every
+    /// direction. The obvious `(r, g)` plane fails this: green would be 0.745
+    /// from white and blue 0.471.
+    #[test]
+    fn every_primary_is_exactly_one_from_white() {
+        let white = at(Rgba::opaque(255, 255, 255));
+        assert!(white.0.abs() < 1e-12 && white.1.abs() < 1e-12, "{white:?}");
+        for primary in [
+            Rgba::opaque(255, 0, 0),
+            Rgba::opaque(0, 255, 0),
+            Rgba::opaque(0, 0, 255),
+        ] {
+            let out = distance(at(primary), white);
+            assert!((out - 1.0).abs() < 1e-12, "{primary} sits at {out}");
+        }
+        // And two primaries are √3 apart, which is the same statement made
+        // where a wrong scale on one axis alone would still satisfy the first.
+        let split = distance(at(Rgba::opaque(255, 0, 0)), at(Rgba::opaque(0, 255, 0)));
+        assert!((split - 3.0_f64.sqrt()).abs() < 1e-12, "{split}");
+    }
+
+    /// The requirement the whole plane exists for: a screen lit unevenly is one
+    /// chroma and many lumas, and only the chroma decides.
+    ///
+    /// The same point to the last rounding error, because dividing by the sum is
+    /// what scaling all three channels leaves alone. A plane that merely put
+    /// them *near* each other would drift apart on a screen lit twice as
+    /// brightly at one end; this one cannot, and the test says so at a
+    /// thousandth of the loosest tolerance anybody would write.
+    ///
+    /// The other half of the assertion is what makes it worth having: measured
+    /// in RGB, the darkest of these sits 0.65 from the lit one — further than a
+    /// primary is from white — so an RGB keyer takes the lit end of a screen
+    /// and leaves the shadowed end standing.
+    #[test]
+    fn the_same_colour_at_any_exposure_is_the_same_point() {
+        let lit = normalise(SCREEN);
+        for shade in [0.68, 0.42, 0.12] {
+            let dimmed = (lit.0 * shade, lit.1 * shade, lit.2 * shade);
+            let (here, there) = (
+                chromaticity(dimmed).expect("light in it"),
+                chromaticity(lit).expect("light in it"),
+            );
+            assert!(distance(here, there) < 1e-12, "at {shade}: {here:?}");
+        }
+        let darkest = (lit.0 * 0.12, lit.1 * 0.12, lit.2 * 0.12);
+        let in_rgb = ((lit.0 - darkest.0).powi(2)
+            + (lit.1 - darkest.1).powi(2)
+            + (lit.2 - darkest.2).powi(2))
+        .sqrt();
+        assert!(in_rgb > 0.6, "an RGB distance would be {in_rgb}");
+        // And once quantised to the eight bits a decoder hands over, near
+        // enough that a tolerance never notices: an eighth of the light is
+        // eight levels of green, where a rounded level moves the proportions
+        // more than the light does.
+        let dimmed = Rgba::opaque(0, 74, 27);
+        assert!(distance(at(dimmed), at(SCREEN)) < 0.005);
+    }
+
+    /// Below the floor there is no colour to measure, so the pixel is kept —
+    /// and the boundary is the boundary, not a number beside it.
+    #[test]
+    fn a_pixel_with_no_light_in_it_has_no_chromaticity() {
+        assert_eq!(chromaticity((0.0, 0.0, 0.0)), None);
+        // DARK is a sum of three channels, so an even split of it sits exactly
+        // on the boundary and is admitted; one level less is not.
+        let third = DARK / 3.0;
+        assert!(chromaticity((third, third, third)).is_some());
+        let under = (DARK - 1.0 / 255.0) / 3.0;
+        assert_eq!(chromaticity((under, under, under)), None);
+        // And it is the whole pixel that survives, alpha included, rather than
+        // being keyed on proportions that are noise.
+        let keyer = Keyer::new(ChromaKey::new(SCREEN)).expect("a keyer");
+        assert_eq!(keyer.at([1, 2, 1, 255]), [1, 2, 1, 255]);
+    }
+
+    /// The two thresholds every keyer has, at the two points that pin them.
+    ///
+    /// Both ends stated, because an assertion that a ramp exists is satisfied by
+    /// a ramp running the other way, and each boundary is inclusive on the side
+    /// its comparison says it is.
+    #[test]
+    fn the_ramp_runs_from_gone_at_the_tolerance_to_whole_past_the_softness() {
+        let keyer = Keyer::new(ChromaKey {
+            color: SCREEN,
+            tolerance: 0.2,
+            softness: 0.4,
+            spill: false,
+        })
+        .expect("a keyer");
+        assert_eq!(keyer.kept(0.0), 0.0, "the screen itself is gone");
+        assert_eq!(keyer.kept(0.2), 0.0, "and so is the tolerance exactly");
+        assert!((keyer.kept(0.4) - 0.5).abs() < 1e-12, "half way is half");
+        // Within a rounding error of whole at the far end exactly, rather than
+        // whole: `(0.6 − 0.2) / 0.4` is a hair under one in binary, and a byte
+        // of alpha rounds it to 255 either way — `tests/keying/` is where the
+        // claim about the byte is made.
+        assert!((keyer.kept(0.6) - 1.0).abs() < 1e-12, "the far end is whole");
+        assert_eq!(keyer.kept(9.0), 1.0, "and nothing past it is more");
+        // A hair inside each end, so a boundary moved by an epsilon is caught
+        // rather than landing on the same answer.
+        assert!(keyer.kept(0.2001) > 0.0);
+        assert!(keyer.kept(0.5999) < 1.0);
+    }
+
+    /// No softness is a hard cutout, which is the one case the ramp's division
+    /// cannot express — and the case a `<= 0.0` mutated to `< 0.0` would send
+    /// through it.
+    #[test]
+    fn no_softness_is_a_cutout_rather_than_a_division_by_zero() {
+        let keyer = Keyer::new(ChromaKey {
+            color: SCREEN,
+            tolerance: 0.2,
+            softness: 0.0,
+            spill: false,
+        })
+        .expect("a keyer");
+        assert_eq!(keyer.kept(0.2), 0.0);
+        assert_eq!(keyer.kept(0.200_001), 1.0);
+    }
+
+    /// Nothing that is not a distance is one, and both leave by zero's door.
+    #[test]
+    fn a_negative_or_a_non_number_keys_only_an_exact_match() {
+        let keyer = Keyer::new(ChromaKey {
+            color: SCREEN,
+            tolerance: -1.0,
+            softness: f64::NAN,
+            spill: false,
+        })
+        .expect("a keyer");
+        assert_eq!(keyer.kept(0.0), 0.0, "the screen itself still goes");
+        assert_eq!(keyer.kept(0.000_001), 1.0, "and nothing else does");
+    }
+
+    /// The despill is about the hue that was keyed and not about green, which
+    /// is the whole reason the weights exist.
+    #[test]
+    fn the_despill_pulls_down_whichever_hue_was_keyed() {
+        let green = Spill::new(Rgba::opaque(0, 255, 0)).expect("a despill");
+        // A pure green key is exactly the classic `g → (r + b) / 2`.
+        let (r, g, b) = green.at(0.4, 0.8, 0.2);
+        assert!((g / (r + b) - 0.5).abs() < 1e-9, "({r}, {g}, {b})");
+        // Magenta pulls red and blue toward green instead, which is the same
+        // sentence about a different screen.
+        let magenta = Spill::new(Rgba::opaque(255, 0, 255)).expect("a despill");
+        let (r, g, b) = magenta.at(0.8, 0.2, 0.6);
+        assert!((g / (r + b) - 0.5).abs() < 1e-9, "({r}, {g}, {b})");
+    }
+
+    /// And it puts the light back, which is what stops a despilled edge reading
+    /// as a grey rim where there was a green one.
+    #[test]
+    fn a_despilled_pixel_keeps_the_brightness_it_had() {
+        let spill = Spill::new(SCREEN).expect("a despill");
+        let (before, after) = ((0.39, 0.66, 0.4), spill.at(0.39, 0.66, 0.4));
+        assert!(after.1 < before.1, "the green came down: {after:?}");
+        let (was, is) = (
+            luma(before.0, before.1, before.2),
+            luma(after.0, after.1, after.2),
+        );
+        assert!((was - is).abs() < 1e-9, "{was} became {is}");
+    }
+
+    /// A colour the scene had is a colour the scene keeps: nothing is pulled
+    /// out of a pixel that carries no more of the key's hue than the rest of it
+    /// accounts for.
+    #[test]
+    fn a_pixel_with_no_bounce_on_it_is_left_alone() {
+        let spill = Spill::new(SCREEN).expect("a despill");
+        for pixel in [(0.78, 0.63, 0.55), (1.0, 1.0, 1.0), (0.2, 0.2, 0.2)] {
+            let out = spill.at(pixel.0, pixel.1, pixel.2);
+            assert!(
+                (out.0 - pixel.0).abs() < 1e-12
+                    && (out.1 - pixel.1).abs() < 1e-12
+                    && (out.2 - pixel.2).abs() < 1e-12,
+                "{pixel:?} became {out:?}"
+            );
+        }
+    }
+
+    /// Nothing to do is no work at all, and a key nothing can be measured from
+    /// is refused rather than measured from noise.
+    #[test]
+    fn nothing_to_key_against_is_no_work_at_all() {
+        let source = vec![7; 4 * BYTES_PER_PIXEL];
+        let mut out = Vec::new();
+        assert_eq!(into(&mut out, &source, None), &source[..]);
+        assert!(out.is_empty(), "no key allocates nothing");
+        let black = Some(ChromaKey::new(Rgba::opaque(0, 0, 0)));
+        assert_eq!(into(&mut out, &source, black), &source[..]);
+        assert!(out.is_empty(), "and neither does a screen with no colour");
+        assert!(Keyer::new(ChromaKey::new(Rgba::opaque(0, 0, 0))).is_none());
+        // The despill has the other end of that: white is along the key in
+        // every channel, so there is nothing left to pull a pixel back to.
+        assert!(Spill::new(Rgba::opaque(255, 255, 255)).is_none());
+        assert!(Spill::new(Rgba::opaque(0, 0, 0)).is_none());
+    }
 }
