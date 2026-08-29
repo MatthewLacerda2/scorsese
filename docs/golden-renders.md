@@ -225,13 +225,14 @@ whole frame, so an effect confined to a thin border has to be given area before
 this gate can see it, exactly as an aberration has to be given width. Both are
 the same rule wearing different clothes: **make the fixture exaggerate whatever
 the gate measures the effect by**, and say in the description that it does.
+
 ## Both answers in one fixture: the tape
 
-The two sections above are one effect each and opposite answers. **`vhs`** is
-five artefacts at once and gets *both* answers inside a single fixture, which is
-what makes it the useful worked example: displacement is structure and survives
-an encode, per-pixel snow is texture and does not, and the fixture is built out
-of the first and carries none of the second.
+Each section above is one effect and one answer. **`vhs`** is five artefacts at
+once and gets *both* answers inside a single fixture, which is what makes it the
+useful worked example: displacement is structure and survives an encode,
+per-pixel snow is texture and does not, and the fixture is built out of the
+first and carries none of the second.
 
 Measured on the `vhs` fixture as it stands — 320×180, one shape over a bed,
 `chroma_bleed` 0.75, `scanlines` 0.5, `jitter` 0.12, `head_switch` 0.6, and

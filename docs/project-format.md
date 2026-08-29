@@ -1706,6 +1706,7 @@ scorsese deliberately does not have one: knocking out a white or a black
 background also knocks out every white and black *in the picture* — eyes, teeth,
 the shine on hair. The answer to "I want a cutout" is to shoot or generate
 against a saturated colour.
+
 ### What the tape did to it: `vhs`
 
 ```json clip
