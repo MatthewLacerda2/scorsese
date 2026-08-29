@@ -1,6 +1,6 @@
 //! What a [`Grade`] does to pixels.
 //!
-//! `scorsese-core` says what the five numbers *are* — their neutrals, and which
+//! `scorsese-core` says what the six numbers *are* — their neutrals, and which
 //! way each one runs. This is where they acquire arithmetic, in one place, next
 //! to the loop that runs it. Same split as [`crate::properties`]: the format
 //! holds the shape, the crate that implements it holds the meaning.
@@ -20,6 +20,7 @@
 use scorsese_core::Grade;
 
 use crate::frame::{BYTES_PER_PIXEL, Frame, Resolution};
+use crate::grain::Grain;
 
 /// Rec.709 luma weights, which is what "the grey of this pixel" means here.
 /// Green carries most of the perceived brightness, so an average of the three
@@ -39,7 +40,12 @@ const TEMPERATURE_GAIN: f64 = 0.25;
 /// `out` is resized to fit and is the caller's scratch buffer, reused across
 /// frames — a render grading a 1080p layer allocates this once rather than
 /// eight megabytes thirty times a second.
-pub(crate) fn into(out: &mut Vec<u8>, source: &Frame, grade: Grade) {
+///
+/// `seed` is where this layer's noise field starts at this instant, resolved by
+/// [`crate::Properties`] because that is where the clip and the frame are both
+/// known — see [`crate::grain::seed`]. It is read only when there is grain to
+/// draw, so an ungrained layer never looks at it.
+pub(crate) fn into(out: &mut Vec<u8>, source: &Frame, grade: Grade, seed: u64) {
     let resolution = source.resolution();
     let bytes = source.bytes();
     out.clear();
@@ -54,6 +60,7 @@ pub(crate) fn into(out: &mut Vec<u8>, source: &Frame, grade: Grade) {
         1.0 - grade.temperature * TEMPERATURE_GAIN,
     );
     let vignette = grade.vignette.clamp(0.0, 1.0);
+    let grain = Grain::new(seed, grade.grain, resolution);
 
     for (index, pixel) in bytes.chunks_exact(BYTES_PER_PIXEL).enumerate() {
         let (mut r, mut g, mut b) = (
@@ -86,6 +93,21 @@ pub(crate) fn into(out: &mut Vec<u8>, source: &Frame, grade: Grade) {
             r *= fall;
             g *= fall;
             b *= fall;
+        }
+
+        // Grain last, and on the graded pixel rather than the source one. Last
+        // because it is the emulsion and not the scene: run before the contrast
+        // knob it would be steepened or flattened by it, so the amount asked
+        // for would not be the amount seen. On the graded pixel because the
+        // luma that decides how much grain a pixel gets has to be the luma of
+        // the pixel somebody is actually looking at — a shot lifted into the
+        // highlights should lose its grain there, not keep the grain its
+        // shadows had before the lift.
+        if let Some(grain) = grain {
+            let noise = grain.at(index, LUMA.0 * r + LUMA.1 * g + LUMA.2 * b);
+            r += noise;
+            g += noise;
+            b += noise;
         }
 
         out.push(quantise(r));

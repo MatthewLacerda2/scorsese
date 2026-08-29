@@ -81,6 +81,13 @@ pub mod path {
     /// How much the layer's own corners are darkened. `0.0` none, `1.0` takes
     /// them to black.
     pub const VIGNETTE: &str = "grade.vignette";
+    /// How much grain is laid over the layer. `0.0` none, `1.0` heaviest.
+    ///
+    /// Animated as `grade.grain` and not as a property of its own, unlike
+    /// [`BLUR`]: grain reads one pixel and writes one pixel, which is the test
+    /// for being part of a grade. That it also consults the frame is what makes
+    /// it move, not what makes it something else.
+    pub const GRAIN: &str = "grade.grain";
 }
 
 /// What this compositor animates, and what animating it does.
@@ -146,6 +153,10 @@ pub const ANIMATED: &[Property] = &[
         path: path::VIGNETTE,
         describes: "how much the layer's own corners are darkened",
     },
+    Property {
+        path: path::GRAIN,
+        describes: "how much grain is laid over the layer, strongest through the midtones",
+    },
 ];
 
 /// What a layer looks like at one instant.
@@ -192,6 +203,23 @@ pub struct Properties {
     /// happen while the layer is still a rectangle of its own rather than a
     /// contribution to somebody else's canvas.
     pub grade: Grade,
+    /// Where this layer's grain starts, at this instant — the noise field's
+    /// seed, and nothing an author writes.
+    ///
+    /// **This is how the frame index reaches the grade.** A compositor draws
+    /// one moment and animates nothing itself, so time reaches it only through
+    /// this struct; the noise field's origin is part of what a layer looks like
+    /// at an instant exactly as its opacity is. [`Properties::at`] folds the
+    /// clip's id and its elapsed frame into it, which is the one place both are
+    /// known — see [`crate::grain::seed`] for why it is those two and nothing
+    /// else.
+    ///
+    /// **Zero unless [`Grade::grain`] is above zero**, and that is not a
+    /// default so much as the honest value: a seed for a noise field nobody
+    /// draws says nothing about the layer, and resolving one anyway would make
+    /// two instants of an ungrained clip compare unequal over a number neither
+    /// of them uses.
+    pub grain_seed: u64,
 }
 
 impl Default for Properties {
@@ -206,6 +234,7 @@ impl Default for Properties {
             opacity: 1.0,
             blur: 0.0,
             grade: Grade::NEUTRAL,
+            grain_seed: 0,
         }
     }
 }
@@ -224,13 +253,21 @@ impl Properties {
     /// track overrides the default for every other property here — which are
     /// animated or nothing.
     pub fn at(clip: &Clip, t: Frames) -> Self {
-        Self::over(clip.grade, clip.blur, &clip.keyframes, t)
+        Self::resolve(clip.id.as_str(), clip.grade, clip.blur, &clip.keyframes, t)
     }
 
     /// The same, from the two baseline fields and a set of tracks — for
     /// callers that have tracks without a clip around them, which in practice
     /// means tests.
     pub fn over(grade: Grade, blur: f64, tracks: &[KeyframeTrack], t: Frames) -> Self {
+        // The empty id is the honest one for a caller with no clip: the grain
+        // still animates, because `t` is here, and every such layer shares one
+        // noise field, because there is nothing to tell them apart by.
+        Self::resolve("", grade, blur, tracks, t)
+    }
+
+    /// Both of the above, which differ only in whether there is a clip to name.
+    fn resolve(clip: &str, grade: Grade, blur: f64, tracks: &[KeyframeTrack], t: Frames) -> Self {
         let mut properties = Self {
             grade,
             blur,
@@ -255,8 +292,15 @@ impl Properties {
                 path::BRIGHTNESS => properties.grade.brightness = value,
                 path::CONTRAST => properties.grade.contrast = value,
                 path::VIGNETTE => properties.grade.vignette = value,
+                path::GRAIN => properties.grade.grain = value,
                 _ => {}
             }
+        }
+        // After the tracks and not before them, because a `grade.grain` track
+        // is one of the ways grain gets turned on — and only when there is
+        // grain, so a layer without any stays exactly its own defaults.
+        if properties.grade.grain > 0.0 {
+            properties.grain_seed = crate::grain::seed(clip, t);
         }
         properties
     }

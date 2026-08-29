@@ -96,7 +96,7 @@ pub(crate) fn with_footage(extra: &str) -> String {
 }
 
 pub(crate) const DOCUMENT: &str = r#"{
-  "schema_version": 29,
+  "schema_version": 30,
   "name": "Teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [

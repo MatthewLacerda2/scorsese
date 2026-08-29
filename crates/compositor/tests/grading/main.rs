@@ -2,7 +2,7 @@
 //!
 //! What defends `grade.rs` otherwise is the golden set: whole 1080p frames
 //! matching PNGs. That catches a wrong operator but cannot say *which* of the
-//! five knobs turned it, needs ffmpeg and fixture media, and takes minutes. So
+//! six knobs turned it, needs ffmpeg and fixture media, and takes minutes. So
 //! these feed one known colour to one knob and assert the byte that comes back.
 //!
 //! Every expected value here was worked out by hand from what `grade.rs`
@@ -12,6 +12,7 @@
 //! the test would assert only that the code agrees with itself.
 
 mod colour;
+mod grain;
 mod tone;
 mod vignette;
 
@@ -69,6 +70,6 @@ pub(crate) fn graded(colour: (u8, u8, u8), grade: Grade) -> (u8, u8, u8, u8) {
     pixel(&composited(&[layer(&source, grade)]), SIZE / 2, SIZE / 2)
 }
 
-fn raster() -> Resolution {
+pub(crate) fn raster() -> Resolution {
     Resolution::new(SIZE, SIZE).expect("a legal raster")
 }

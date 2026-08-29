@@ -106,7 +106,12 @@ fn draw(
     let straight: &[u8] = if layer.properties.grade.is_neutral() {
         layer.source.bytes()
     } else {
-        grade::into(graded, layer.source, layer.properties.grade);
+        grade::into(
+            graded,
+            layer.source,
+            layer.properties.grade,
+            layer.properties.grain_seed,
+        );
         graded.as_slice()
     };
     // An opaque frame is already in the form the rasteriser wants; anything
