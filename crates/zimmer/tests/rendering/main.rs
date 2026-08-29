@@ -8,3 +8,4 @@ mod envelopes;
 mod shape;
 mod stages;
 mod velocity;
+mod wobble;
