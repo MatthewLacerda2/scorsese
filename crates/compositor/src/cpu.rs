@@ -7,6 +7,7 @@
 use scorsese_core::{Anchor, AnchorX, AnchorY, Origin};
 use tiny_skia::{BlendMode, FilterQuality, PixmapMut, PixmapPaint, PixmapRef, Transform};
 
+use crate::aberration;
 use crate::blur;
 use crate::compose::{CompositeError, Compositor, Layer};
 use crate::frame::{BYTES_PER_PIXEL, Frame};
@@ -32,6 +33,18 @@ pub struct CpuCompositor {
 /// the mirror-image reason: it averages a neighbourhood, and in straight alpha
 /// a fully transparent pixel still carries a colour that the average would drag
 /// into the visible edge as a halo.
+///
+/// The aberration comes **after** the blur, and that one was decided on a
+/// rendered frame rather than argued from first principles. Either order is
+/// defensible from the optics — one piece of glass does both — so what settled
+/// it is what the two look like: run first, the fringe is a fine detail and the
+/// blur is a low-pass filter over exactly the scale it lives at, so a clip
+/// carrying both comes back with the softening asked for and no fringing worth
+/// the name. Run last, the channels of an already-soft picture separate and
+/// stay separated. A knob that quietly does nothing when another knob is turned
+/// up is the worse of the two, and this way round is also what a defocused
+/// picture through real glass looks like: the aberration is a property of the
+/// lens and survives whatever the focus is doing.
 #[derive(Debug, Default)]
 struct Scratch {
     /// The layer with its grade applied, still straight RGBA.
@@ -41,6 +54,8 @@ struct Scratch {
     premultiplied: Vec<u8>,
     /// The pair a separable blur ping-pongs between — see [`blur`].
     blurred: blur::Buffers,
+    /// The layer with its colour channels pulled apart — see [`aberration`].
+    aberrated: Vec<u8>,
 }
 
 impl CpuCompositor {
@@ -99,6 +114,7 @@ fn draw(
         graded,
         premultiplied,
         blurred,
+        aberrated,
     } = scratch;
     // The grade runs on the layer's own pixels, before anything below moves
     // them: a vignette is measured from this rectangle's centre, and a
@@ -133,6 +149,18 @@ fn draw(
         source_bytes,
         source_resolution,
         blur::radius(layer.properties.blur, source_resolution.height()),
+    );
+    // After the blur, for the reason [`Scratch`] gives, and premultiplied for
+    // the reason the blur is: red and blue arrive from pixels with alpha of
+    // their own, and only in premultiplied form does a transparent neighbour
+    // contribute nothing rather than whatever colour it was stored as. The
+    // spread is a fraction of the layer's **own** height, resolved here where
+    // that is known — so, like the blur, a scaled-up clip fringes further.
+    let source_bytes = aberration::into(
+        aberrated,
+        source_bytes,
+        source_resolution,
+        aberration::spread(layer.properties.aberration, source_resolution),
     );
     let source = PixmapRef::from_bytes(
         source_bytes,

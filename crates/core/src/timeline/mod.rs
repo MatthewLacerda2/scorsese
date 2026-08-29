@@ -224,6 +224,29 @@ pub struct Clip {
     /// one.
     #[serde(default, skip_serializing_if = "is_sharp")]
     pub blur: f64,
+    /// How far this clip's colour channels are pulled apart by the lens, as a
+    /// fraction of the layer's own **height** measured at its top and bottom
+    /// edges. `0.0` — and an absent field — is a picture no glass ever touched.
+    ///
+    /// Radial chromatic aberration, which is the other half of the argument
+    /// [`Grade::grain`] makes: grain is the film, this is the lens. Every real
+    /// lens splits the channels a little, growing from nothing at the centre of
+    /// frame to its worst at the edges, and the total absence of it is one of
+    /// the quiet tells of a computed image.
+    ///
+    /// **One number**, deliberately. Independent per-channel amounts, the
+    /// lateral/longitudinal distinction and lens distortion of any kind are a
+    /// compositing suite's answers to a question nobody editing a video asks.
+    ///
+    /// **Beside [`Grade`] for the reason [`Clip::blur`] is**, and it is the same
+    /// sentence: a grade is the closed set of colour properties, every one of
+    /// which reads one pixel and writes one. This reads *three* source pixels to
+    /// write one, so it fails that test as squarely as a blur does.
+    ///
+    /// Picture only. An audio clip has no pixels, and this says nothing about
+    /// one.
+    #[serde(default, skip_serializing_if = "is_achromatic")]
+    pub aberration: f64,
     /// Why this clip is the way it is. Never rendered — see [`super::Track::note`].
     ///
     /// The commonest place a note belongs, because most decisions are decisions
@@ -249,6 +272,12 @@ fn is_sharp(blur: &f64) -> bool {
     *blur == 0.0
 }
 
+/// Whether a clip's [`Clip::aberration`] is the neutral one, so it can be left
+/// out of the document entirely. Exactly zero, for [`is_sharp`]'s reason.
+fn is_achromatic(aberration: &f64) -> bool {
+    *aberration == 0.0
+}
+
 impl Clip {
     /// A clip at its defaults: from the head of the source, fitted, and
     /// animating nothing.
@@ -266,6 +295,7 @@ impl Clip {
             origin: Origin::default(),
             grade: Grade::NEUTRAL,
             blur: 0.0,
+            aberration: 0.0,
             keyframes: Vec::new(),
             note: None,
         }

@@ -34,6 +34,15 @@ pub mod path {
     /// colour properties, each of which reads one pixel and writes one, and
     /// this one reads a neighbourhood.
     pub const BLUR: &str = "blur";
+    /// How far the layer's colour channels are pulled apart by the lens, as a
+    /// fraction of the layer's own **height** at its top and bottom edges.
+    /// `0.0` is glass nobody ever looked through; higher fringes harder.
+    ///
+    /// Animated as `aberration` and not `grade.aberration`, for [`BLUR`]'s
+    /// reason and more plainly than blur has it: this reads *three* source
+    /// pixels to write one, where every field of a grade reads the one it is
+    /// writing.
+    pub const ABERRATION: &str = "aberration";
     /// Horizontal offset from where the layer naturally sits, as a fraction of
     /// the canvas **width**: `0.25` is a quarter of the way across it.
     pub const POSITION_X: &str = "transform.position.x";
@@ -104,6 +113,11 @@ pub const ANIMATED: &[Property] = &[
     Property {
         path: path::BLUR,
         describes: "how far the layer's own pixels are softened, as a fraction of its own height",
+    },
+    Property {
+        path: path::ABERRATION,
+        describes: "how far the layer's colour channels are pulled apart from its centre outward, \
+                    as a fraction of its own height",
     },
     Property {
         path: path::POSITION_X,
@@ -194,6 +208,16 @@ pub struct Properties {
     /// `scale` multiply the apparent blur, since the softening happens on
     /// these pixels before the transform above places them.
     pub blur: f64,
+    /// How far the layer's colour channels are pulled apart before it is
+    /// placed, as a fraction of the layer's own **height** at its top and
+    /// bottom edges. `0.0` leaves them exactly on top of one another.
+    ///
+    /// Radial from the layer's own centre, so it is zero in the middle and
+    /// worst at the corners — which is what makes it read as a lens rather
+    /// than as a misregistration. Of the layer's height and not the canvas's,
+    /// like [`Properties::blur`], so the same number is the same fringing at
+    /// 1080p and at 4K.
+    pub aberration: f64,
     /// The colour treatment applied to the layer's own pixels, before any of
     /// the geometry above.
     ///
@@ -234,6 +258,7 @@ impl Default for Properties {
             flip: (0.0, 0.0),
             opacity: 1.0,
             blur: 0.0,
+            aberration: 0.0,
             grade: Grade::NEUTRAL,
             grain_seed: 0,
         }
@@ -247,33 +272,44 @@ impl Properties {
     /// Anything the clip does not animate keeps its default, so a clip with no
     /// keyframes at all composites as a plain copy.
     ///
-    /// The clip rather than its keyframes alone, because [`Grade`] and
-    /// [`Clip::blur`] are the properties that are *both* a field and
-    /// animatable. The fields are what this starts from; a `grade.*` or `blur`
-    /// track then takes that property over for the whole clip, the same way a
-    /// track overrides the default for every other property here — which are
-    /// animated or nothing.
+    /// The clip rather than its keyframes alone, because [`Grade`],
+    /// [`Clip::blur`] and [`Clip::aberration`] are the properties that are
+    /// *both* a field and animatable. The fields are what this starts from; a
+    /// `grade.*`, `blur` or `aberration` track then takes that property over
+    /// for the whole clip, the same way a track overrides the default for
+    /// every other property here — which are animated or nothing.
     pub fn at(clip: &Clip, t: Frames) -> Self {
-        Self::resolve(clip.id.as_str(), clip.grade, clip.blur, &clip.keyframes, t)
+        Self::resolve(
+            clip.id.as_str(),
+            Self {
+                grade: clip.grade,
+                blur: clip.blur,
+                aberration: clip.aberration,
+                ..Self::default()
+            },
+            &clip.keyframes,
+            t,
+        )
     }
 
-    /// The same, from the two baseline fields and a set of tracks — for
-    /// callers that have tracks without a clip around them, which in practice
-    /// means tests.
-    pub fn over(grade: Grade, blur: f64, tracks: &[KeyframeTrack], t: Frames) -> Self {
+    /// The same, from a baseline and a set of tracks — for callers that have
+    /// tracks without a clip around them, which in practice means tests.
+    ///
+    /// The baseline is a whole [`Properties`] rather than the handful of fields
+    /// a clip actually carries, and that is what stops this signature growing a
+    /// positional `f64` every time a property becomes a field as well: a caller
+    /// writes the one it means and takes [`Properties::default`] for the rest,
+    /// which is the idiom every other caller of this type already uses.
+    pub fn over(baseline: Self, tracks: &[KeyframeTrack], t: Frames) -> Self {
         // The empty id is the honest one for a caller with no clip: the grain
         // still animates, because `t` is here, and every such layer shares one
         // noise field, because there is nothing to tell them apart by.
-        Self::resolve("", grade, blur, tracks, t)
+        Self::resolve("", baseline, tracks, t)
     }
 
     /// Both of the above, which differ only in whether there is a clip to name.
-    fn resolve(clip: &str, grade: Grade, blur: f64, tracks: &[KeyframeTrack], t: Frames) -> Self {
-        let mut properties = Self {
-            grade,
-            blur,
-            ..Self::default()
-        };
+    fn resolve(clip: &str, baseline: Self, tracks: &[KeyframeTrack], t: Frames) -> Self {
+        let mut properties = baseline;
         for track in tracks {
             let Some(value) = track.value_at(t) else {
                 continue;
@@ -281,6 +317,7 @@ impl Properties {
             match track.property.as_str() {
                 path::OPACITY => properties.opacity = value,
                 path::BLUR => properties.blur = value,
+                path::ABERRATION => properties.aberration = value,
                 path::POSITION_X => properties.position.0 = value,
                 path::POSITION_Y => properties.position.1 = value,
                 path::SCALE_X => properties.scale.0 = value,
@@ -350,6 +387,12 @@ impl Properties {
             // A negative number is not a blur and softens nothing, so it copies
             // like zero does.
             && self.blur <= EPSILON
+            // And a layer whose channels have been pulled apart is not its own
+            // pixels either, for exactly the reason above: a plate with nothing
+            // on it but an aberration satisfies every other line here, so
+            // leaving it out would copy the source through and render the one
+            // case this costs least to apply to with no fringing at all.
+            && self.aberration <= EPSILON
             // A graded layer is not its own pixels, which is the whole point of
             // grading it. Left out, the copy path below would hand the ungraded
             // source straight to the canvas and the grade would silently do
