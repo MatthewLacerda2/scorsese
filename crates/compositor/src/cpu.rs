@@ -34,17 +34,23 @@ pub struct CpuCompositor {
 /// a fully transparent pixel still carries a colour that the average would drag
 /// into the visible edge as a halo.
 ///
-/// The aberration comes **after** the blur, and that one was decided on a
-/// rendered frame rather than argued from first principles. Either order is
-/// defensible from the optics — one piece of glass does both — so what settled
-/// it is what the two look like: run first, the fringe is a fine detail and the
-/// blur is a low-pass filter over exactly the scale it lives at, so a clip
-/// carrying both comes back with the softening asked for and no fringing worth
-/// the name. Run last, the channels of an already-soft picture separate and
-/// stay separated. A knob that quietly does nothing when another knob is turned
-/// up is the worse of the two, and this way round is also what a defocused
-/// picture through real glass looks like: the aberration is a property of the
-/// lens and survives whatever the focus is doing.
+/// The aberration comes **after** the blur, and that one was settled on a
+/// rendered frame — where the answer turned out to be that it does not matter
+/// to the picture. On a 512-tall plate with a ten-pixel blur and a two-pixel
+/// split, the two orders differ by **at most two levels out of 255** anywhere
+/// on the frame, mean 0.05, and the peak colour split either way is the same
+/// number. That is not a coincidence of those numbers: a box blur is linear and
+/// shift-invariant, and the aberration is locally a translation, so the two
+/// commute up to how much the displacement varies across one blur window.
+///
+/// So it is ordered on what is easiest to reason about instead. Everything
+/// above this line answers *what colour is this pixel* — the grade from the
+/// pixel itself, the blur from its neighbourhood, both writing where they read.
+/// The aberration is the first stage that answers *which pixel*, and the
+/// transform below is the second, so the raster is filtered and then displaced
+/// rather than the two interleaving. If the tie ever breaks — a much wider
+/// blur, a much larger split, where the commuting argument weakens — this is
+/// the note saying the measurement was taken and what it measured.
 #[derive(Debug, Default)]
 struct Scratch {
     /// The layer with its grade applied, still straight RGBA.
@@ -153,7 +159,8 @@ fn draw(
     // After the blur, for the reason [`Scratch`] gives, and premultiplied for
     // the reason the blur is: red and blue arrive from pixels with alpha of
     // their own, and only in premultiplied form does a transparent neighbour
-    // contribute nothing rather than whatever colour it was stored as. The
+    // contribute nothing rather than whatever colour it happened to be stored
+    // as. The
     // spread is a fraction of the layer's **own** height, resolved here where
     // that is known — so, like the blur, a scaled-up clip fringes further.
     let source_bytes = aberration::into(

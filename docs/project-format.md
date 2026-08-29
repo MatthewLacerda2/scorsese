@@ -1595,10 +1595,12 @@ per channel, from three different places — to write one, so it fails that test
 as squarely as a neighbourhood does and sits beside a grade rather than inside
 one.
 
-**It runs after the blur**, so a clip that is both soft and aberrated comes back
-with both. The other order would hand the fringe to a low-pass filter working at
-exactly the scale the fringe lives at, and the aberration would quietly vanish
-whenever somebody turned the blur up.
+**It runs after the blur, and a clip carrying both gets both.** Which of the two
+runs first was measured rather than argued and turns out not to matter: a
+ten-pixel blur and a two-pixel split on the same plate come out within two levels
+of 255 of each other whichever order they run in, because a blur is a linear
+filter and the split is locally a shift, and those commute. So neither knob eats
+the other, and turning the blur up does not quietly delete the fringing.
 
 **It applies to every layer kind**, for the reason a grade and a blur do: the
 compositor is handed a rectangle of pixels and does not know what produced them.

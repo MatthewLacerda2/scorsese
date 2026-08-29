@@ -133,3 +133,54 @@ fn sample(source: &[u8], resolution: Resolution, point: (f64, f64), channel: usi
     let lower = at(left, bottom) + (at(right, bottom) - at(left, bottom)) * fx;
     (upper + (lower - upper) * fy).round() as u8
 }
+
+/// The threshold arithmetic, which nothing outside this file can reach.
+///
+/// Here rather than in `tests/aberrating/` for [`crate::blur`]'s reason: that is
+/// where the *effect* is asserted — a fringe grows outward, an edge keeps its
+/// alpha — and an effect is satisfied by more than one arithmetic. The number
+/// this hands back is the whole of what the clip's one number means, so the
+/// value to name is the number.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn raster(width: u32, height: u32) -> Resolution {
+        Resolution::new(width, height).expect("a legal raster")
+    }
+
+    /// Two, not one: the clip's number is measured half the height out from the
+    /// centre, so the scale on a **full** radius is twice it.
+    #[test]
+    fn the_clip_s_number_is_measured_at_half_the_height() {
+        assert!((spread(0.01, raster(64, 64)) - 0.02).abs() < f64::EPSILON);
+        assert!((spread(0.25, raster(64, 64)) - 0.5).abs() < f64::EPSILON);
+    }
+
+    /// Under half a pixel **at the corner** — the furthest any pixel sits from
+    /// the centre, and so where the displacement is largest — is nothing at all.
+    ///
+    /// A 64×64 raster has a corner radius of `√(64² + 64²) / 2`, about 45.25
+    /// pixels, so the smallest spread that moves anything is `0.5 / 45.25` and
+    /// the clip's number is half of that. The two either side of it are the
+    /// boundary, and a threshold moved to the layer's *height* instead of its
+    /// diagonal would let the first of them through.
+    #[test]
+    fn under_half_a_pixel_at_the_corner_is_nothing() {
+        let corner = (64.0_f64 * 64.0 + 64.0 * 64.0).sqrt() / 2.0;
+        let smallest = 0.5 / corner / 2.0;
+        assert!(spread(smallest * 1.01, raster(64, 64)) > 0.0);
+        assert_eq!(spread(smallest * 0.99, raster(64, 64)), 0.0);
+        // The same number on a raster four times the size does move a pixel,
+        // which is the whole of why the threshold is in pixels and the field is
+        // a fraction.
+        assert!(spread(smallest * 0.99, raster(256, 256)) > 0.0);
+    }
+
+    #[test]
+    fn nothing_that_is_not_a_positive_number_splits_anything() {
+        assert_eq!(spread(0.0, raster(64, 64)), 0.0, "nothing is nothing");
+        assert_eq!(spread(-0.1, raster(64, 64)), 0.0, "and so is a negative");
+        assert_eq!(spread(f64::NAN, raster(64, 64)), 0.0, "and a non-number");
+    }
+}
