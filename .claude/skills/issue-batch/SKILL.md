@@ -116,3 +116,18 @@ sessions on a branch are the second kind. The line is not crisp, so err upwards.
 
 When working unattended, prefer leaving a comment on the issue and continuing
 over stalling the night on a question.
+
+## Reporting back
+
+The user is not reading the transcript of a batch. They take long — often hours,
+usually overnight — and the transcript is, if anything, notes for Claude itself.
+
+**When things go well, say what the result was.** When things did not go as one
+would expect, say what the surprise was. That does not necessarily mean things
+went badly: we write it down because the more we can predict, the better we
+improve.
+
+Two things still interrupt, because they are the ones the user would want to
+overrule and overruling is only possible while the batch is still running: **a
+change to the user's own files** outside the repo, and **a decision reversed** —
+where the issue said one thing and the branch did another.

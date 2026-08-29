@@ -420,6 +420,11 @@ that goes with it.
   that will recur, or when a tool would be useful more than once — provided the
   benefit outweighs the cost of building it. The strongest issues come out of
   doing the work.
+- **A bug is always filable.** Claude may open a `bug` issue autonomously the
+  moment it spots one — the test above is about whether something is worth
+  *building*, and never about whether a defect is worth *recording*. If the bug
+  questions a decision or surfaces a foundational problem, tell the user, because
+  that is a judgement call. Otherwise keep the description brief and carry on.
 - **Priority by label:** **architecture → infrastructure → bug → foundation →
   feature.** If the way we build isn't solid — a structural shape or convention
   missing (**architecture**), a tool or guardrail missing (**infrastructure**), or
