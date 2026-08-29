@@ -85,8 +85,8 @@ mod tests {
             kind,
             cutoff,
             resonance: 0.0,
-            env_amount: 0.0,
-            vel_cutoff: 0.0,
+            env_octaves: 0.0,
+            vel_octaves: 0.0,
             adsr: Adsr::default(),
         }
     }

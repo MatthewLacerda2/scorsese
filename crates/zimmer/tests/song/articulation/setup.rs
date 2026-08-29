@@ -21,16 +21,16 @@ pub(crate) const TRACK: &str = "bass";
 /// 529 samples early and a gate under test is twelve thousand long.
 pub(crate) const BLOCK: usize = 64;
 
-/// The instrument: a saw whose cutoff a full-velocity strike opens by 5 kHz,
-/// so a change in tone that is not a change in level still shows.
+/// The instrument: a saw whose cutoff a full-velocity strike opens by four
+/// octaves, so a change in tone that is not a change in level still shows.
 pub(crate) fn instrument() -> Patch {
     Patch {
         filter: Some(Filter {
             kind: FilterKind::Lowpass,
             cutoff: 300.0,
             resonance: 0.0,
-            env_amount: 0.0,
-            vel_cutoff: 5000.0,
+            env_octaves: 0.0,
+            vel_octaves: 4.0,
             adsr: Adsr::default(),
         }),
         ..saw_patch()

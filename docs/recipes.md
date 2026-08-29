@@ -41,7 +41,7 @@ Both starters make a sound as written. Bake first, listen, then edit.
     "amp": { "a": 0.001, "d": 0.12, "s": 0.0, "r": 0.05 },
     "filter": {
       "kind": "lowpass", "cutoff": 400, "resonance": 0.3,
-      "env_amount": 5000,
+      "env_octaves": 3.75,
       "adsr": { "a": 0.0, "d": 0.08, "s": 0.0, "r": 0.05 }
     },
     "fx": [{ "fx": "reverb", "size": 0.3, "damp": 0.6, "mix": 0.15 }]
@@ -172,10 +172,19 @@ anything plucked, struck or hit; `8.0` is the steepest accepted. Negative
 mirrors it into a slow start and a sudden arrival — a swell, not a decay.
 
 **`filter`** *(optional)* — `kind` is `lowpass` or `highpass`, plus `cutoff` in
-Hz, `resonance` 0..1, `env_amount` in Hz, `vel_cutoff` in Hz, and its own
-`adsr`. `env_amount` is what makes a patch expressive rather than static: it
-opens the cutoff on the attack and closes it as the note decays. A pluck is a
-lowpass with a big positive `env_amount` and a fast filter decay.
+Hz, `resonance` 0..1, `env_octaves`, `vel_octaves`, and its own `adsr`.
+`env_octaves` is what makes a patch expressive rather than static: it opens the
+cutoff on the attack and closes it as the note decays. A pluck is a lowpass
+with a big positive `env_octaves` and a fast filter decay.
+
+**The two depths are in octaves, and the cutoff is in Hz.** That looks
+inconsistent and is not: a cutoff is a place and a depth is a distance, and the
+ear measures distance in ratios. `2.0` opens the filter two octaves wherever it
+is written — the same gesture at 200 Hz and at 6.8 kHz — so a value can be
+carried from one instrument to another and a patch can be transposed without
+the character of its sweep changing. `3.0` to `4.0` is a wide, obvious sweep,
+`1.0` is a clear move, `0.3` is a nudge. An LFO on `cutoff` was always written
+this way; all three now add into one exponent.
 
 **`pitch_env`** *(optional)* — `{ "semitones": 10, "adsr": { … } }`. A sweep of
 the note's own pitch that happens once and settles — see
@@ -439,7 +448,7 @@ phase — so any number is safe to try.
     },
     "amp": { "a": 0.05, "d": 0.15, "s": 0.85, "r": 0.2 },
     "filter": {
-      "kind": "lowpass", "cutoff": 3000, "vel_cutoff": 2500,
+      "kind": "lowpass", "cutoff": 3000, "vel_octaves": 0.9,
       "adsr": { "a": 0.06, "d": 0.5, "s": 0.6, "r": 0.2 }
     },
     "fx": [{ "fx": "reverb", "size": 0.5, "damp": 0.5, "mix": 0.12 }]
@@ -463,7 +472,7 @@ operator envelopes:
   played by two people is not one horn twice as loud; it is two entries that do
   not quite line up.
 - **`vel_index` is how hard it is being played.** A soft note is nearly a sine
-  and a hard one is a blare, and the `vel_cutoff` on the filter pushes the same
+  and a hard one is a blare, and the `vel_octaves` on the filter pushes the same
   way — the difference between a horn played quietly and a horn turned down.
   Both are [Playing harder, not just louder](#playing-harder-not-just-louder),
   below, and on `fm4` the depth reaches every operator the routing made a
@@ -609,7 +618,7 @@ Two optional fields aim velocity at the stages that decide brightness:
 
 | field | on | does |
 | --- | --- | --- |
-| `vel_cutoff` | `filter` | adds this many Hz to the cutoff at full velocity |
+| `vel_octaves` | `filter` | opens the cutoff by this many octaves at full velocity |
 | `vel_index` | `fm2` | adds this much modulation depth at full velocity |
 | `vel_index` | `fm4` | adds this much depth to every **modulator** of the routing |
 
@@ -633,7 +642,7 @@ when one instrument is played at two strengths — songs are the section below.
         },
         "amp": { "a": 0.002, "d": 0.6, "s": 0.0, "r": 0.2 },
         "filter": {
-          "kind": "lowpass", "cutoff": 900, "vel_cutoff": 3500,
+          "kind": "lowpass", "cutoff": 900, "vel_octaves": 2.3,
           "adsr": { "a": 0.001, "d": 0.3, "s": 0.0, "r": 0.1 }
         }
       }
@@ -655,11 +664,13 @@ is a different, softer sound — a key touched rather than struck.
 
 Three things worth knowing:
 
-- **They add, they do not scale.** The cutoff is
-  `cutoff + env_amount × envelope + vel_cutoff × velocity`, so each source of
-  movement stays independent and a zero stays harmless. Start `vel_cutoff`
-  somewhere near `env_amount` and adjust by ear; they are the same quantity
-  from different places.
+- **They add, they do not scale.** The depths are added to each other and the
+  sum opens the cutoff:
+  `cutoff × 2^(env_octaves × envelope + vel_octaves × velocity)`, so each
+  source of movement stays independent and a zero stays harmless. Start
+  `vel_octaves` somewhere near `env_octaves` and adjust by ear; they are the
+  same quantity from different places, and in octaves that advice is one
+  number copied rather than an arithmetic against the cutoff.
 - **Negative is legal**, and means velocity *darkens* — a real instrument, if
   an unusual one. A negative `vel_index` bottoms out at a bare carrier rather
   than turning around and brightening again.
@@ -709,8 +720,8 @@ Three things worth knowing:
   octave low down and a rounding error high up, so a sweep written in Hz would
   stop meaning the same gesture the moment the patch was played elsewhere.
 - **It adds to a vibrato rather than replacing one.** The two offsets are
-  summed in semitones and applied once, the same way `env_amount` and
-  `vel_cutoff` add at the cutoff — so a note can fall onto its pitch and then
+  summed in semitones and applied once, the same way `env_octaves` and
+  `vel_octaves` add at the cutoff — so a note can fall onto its pitch and then
   wobble around it. `karplus` is the exception and always was: its delay line
   is sized once when the string is plucked, so neither an LFO nor a pitch
   envelope reaches it.
@@ -1155,7 +1166,7 @@ wants dynamics in both directions writes its notes below `1.0`. `timbre` is not
 a milder `velocity`: leaning on a note makes it louder *and* brighter, which is
 what `velocity` does, while changing the touch makes it brighter at the same
 level. It reaches an instrument through the two routings that already read
-velocity as effort — a filter's `vel_cutoff` and `fm2`'s `vel_index` — so a
+velocity as effort — a filter's `vel_octaves` and `fm2`'s `vel_index` — so a
 patch that names neither hears nothing from it, which is the right silence:
 what "brighter" means belongs to the instrument.
 
@@ -1235,10 +1246,12 @@ the level that product comes to.
 that is worth saying rather than leaving to be worked out. A `gain` or `pan`
 curve is a fader on the mix, read every sample from the track's summed bus long
 after any note was struck: it moves the part, never the playing. A `cutoff`
-curve moves the **base** a mark's brightness is added to — a filter's cutoff is
-`cutoff + env_amount × env + vel_cutoff × velocity`, so a build opening the
-filter and an accent opening it further are two terms of one sum and neither is
-applied first. The only ordering there is *where the curve is read*: at the
+curve moves the **base** a mark's brightness opens from — a filter's cutoff is
+`cutoff × 2^(env_octaves × env + vel_octaves × velocity)`, so a build opening
+the filter and an accent opening it further are two terms of one sum and
+neither is applied first. The curve is still in Hz, because it moves the place
+rather than the distance: a build that raises the base raises everything the
+depths open from with it. The only ordering there is *where the curve is read*: at the
 note's swung onset, before the mark and before `humanize` displace it, so a
 ghost sitting a hair early does not read the build a hair early with it.
 

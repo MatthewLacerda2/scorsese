@@ -355,7 +355,24 @@ pub use song::{PatchResolver, Song, render_song};
 /// that does moved by construction. Baking a corpus would be confirming a
 /// sentence the diff already settles, which is the case this section names as
 /// waste.
-pub const SYNTH_VERSION: u32 = 5;
+///
+/// **Version 6 is a filter that modulates in octaves**, and it is the *any
+/// representable recipe* case again: a cutoff is now
+/// `cutoff × 2^(env_octaves × env + vel_octaves × vel + lfo)` where it used to
+/// be `cutoff + env_amount × env + vel_cutoff × vel`, then multiplied by the
+/// LFO. Every filtered patch that modulates at all comes back different, and
+/// the ones that do not — no envelope depth, no velocity routing, no cutoff
+/// LFO — come back identical, because a zero exponent is a multiply by one
+/// exactly as a zero offset was an add of nothing.
+///
+/// That last sentence is the half worth checking rather than asserting, since
+/// it is a change to the arithmetic and not a new optional field. Checked
+/// against `d829817` — 24 probes. The nine that name no filter modulation
+/// (every source, both coloured noises, a unison stack, a pitch envelope, a
+/// pitch and an amp LFO, a chain of effects, and four songs covering chords,
+/// swing, a sidechain and an automated fader) came back byte-identical. The
+/// rest move, which is the point.
+pub const SYNTH_VERSION: u32 = 6;
 
 /// Render one note of `patch` and encode it as a stereo 16-bit PCM WAV.
 ///

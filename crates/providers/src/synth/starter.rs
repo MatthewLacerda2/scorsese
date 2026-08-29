@@ -78,9 +78,10 @@ fn pluck() -> Patch {
             cutoff: 700.0,
             resonance: 0.2,
             // The move that makes it a pluck rather than a pad: the cutoff
-            // opens on the attack and closes as the note decays.
-            env_amount: 3200.0,
-            vel_cutoff: 0.0,
+            // opens on the attack and closes as the note decays. Two and a
+            // half octaves takes 700 Hz to just under 4 kHz.
+            env_octaves: 2.5,
+            vel_octaves: 0.0,
             adsr: Adsr {
                 a: 0.001,
                 d: 0.18,

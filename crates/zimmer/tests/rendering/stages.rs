@@ -10,8 +10,8 @@ fn lowpass(cutoff: f32, resonance: f32) -> Filter {
         kind: FilterKind::Lowpass,
         cutoff,
         resonance,
-        env_amount: 0.0,
-        vel_cutoff: 0.0,
+        env_octaves: 0.0,
+        vel_octaves: 0.0,
         adsr: Adsr::default(),
     }
 }
@@ -32,7 +32,7 @@ fn the_filter_stage_removes_harmonics() {
 fn the_filter_envelope_sweeps_the_cutoff_over_the_note() {
     let mut patch = saw_patch();
     patch.filter = Some(Filter {
-        env_amount: 6000.0,
+        env_octaves: 5.0,
         adsr: adsr(0.0, 0.4, 0.0, 0.0),
         ..lowpass(200.0, 0.0)
     });

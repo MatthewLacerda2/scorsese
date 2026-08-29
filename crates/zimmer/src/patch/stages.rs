@@ -254,7 +254,7 @@ pub enum Source {
         /// existed already meant.
         ///
         /// The FM half of the velocity routing described on
-        /// [`Filter::vel_cutoff`], and the more literal half: in two-operator
+        /// [`Filter::vel_octaves`], and the more literal half: in two-operator
         /// FM the index *is* the brightness, so this is the whole difference
         /// between a bell tapped and a bell hit.
         ///
@@ -420,8 +420,8 @@ impl Default for Adsr {
 /// gesture and none of the pitch.
 ///
 /// It stacks additively with a vibrato rather than replacing it, the way
-/// [`Filter::env_amount`] and [`Filter::vel_cutoff`] do: a patch may sweep down
-/// onto its note and then wobble around it.
+/// [`Filter::env_octaves`] and [`Filter::vel_octaves`] do: a patch may sweep
+/// down onto its note and then wobble around it.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PitchEnv {
     /// How many semitones the envelope adds at full level.
@@ -486,7 +486,17 @@ pub enum FilterKind {
 /// The optional filter stage: a Chamberlin state-variable filter whose cutoff
 /// is swept by its own envelope — the move that makes a subtractive patch
 /// expressive rather than static.
+///
+/// **Unknown fields are refused**, which is what makes renaming one of these
+/// a loud break rather than a quiet one. `env_amount` and `vel_cutoff` were
+/// this stage's modulation depths in Hz; they are now [`Filter::env_octaves`]
+/// and [`Filter::vel_octaves`] in octaves. Without this, a recipe still
+/// naming the old words would parse, take the `0.0` default for the new ones,
+/// and render a filter that simply never moves — the sound silently gone and
+/// nothing on the page to say so. With it, serde names the offending word and
+/// lists the ones that work.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Filter {
     /// Which side of the cutoff survives.
     pub kind: FilterKind,
@@ -496,13 +506,27 @@ pub struct Filter {
     /// self-rings.
     #[serde(default)]
     pub resonance: f32,
-    /// How many Hz the filter envelope adds to the cutoff at full level.
-    /// Negative sweeps downward.
+    /// How many **octaves** the filter envelope opens the cutoff by at full
+    /// level. Negative sweeps downward.
+    ///
+    /// Octaves rather than Hz for the reason [`PitchEnv::semitones`] gives
+    /// about pitch, and it applies to a cutoff just as hard: the ear hears
+    /// ratios, so the same number of Hz is a chasm low down and a rounding
+    /// error high up. `3200` used to be an enormous sweep on a filter sitting
+    /// at 200 Hz and a modest one on a filter sitting at 6800, which meant the
+    /// written number could not be judged, carried from one instrument to
+    /// another, or left alone while the patch was transposed. `2.0` opens two
+    /// octaves wherever it is written, and that is what the ear was going to
+    /// hear anyway.
+    ///
+    /// The field was **renamed** along with its unit rather than quietly
+    /// reinterpreted: an old recipe naming `env_amount` now fails to parse,
+    /// which is a refusal rather than a wrong sound.
     #[serde(default)]
-    pub env_amount: f32,
-    /// How many Hz a full-velocity strike adds to the cutoff. Defaults to
-    /// `0.0`, which is velocity doing nothing here — exactly what every patch
-    /// written before this field existed already meant.
+    pub env_octaves: f32,
+    /// How many **octaves** a full-velocity strike opens the cutoff by.
+    /// Defaults to `0.0`, which is velocity doing nothing here — exactly what
+    /// every patch written before this field existed already meant.
     ///
     /// This is what makes a note read as *played* rather than *turned up*. On
     /// any real instrument, more energy in means more energy in the upper
@@ -511,21 +535,25 @@ pub struct Filter {
     /// Velocity aimed only at the fader is a large part of why a carefully
     /// written synthesised part still sounds like a machine.
     ///
-    /// Same Hz unit and same sign convention as [`Filter::env_amount`],
+    /// Same octave unit and same sign convention as [`Filter::env_octaves`],
     /// because it is the same quantity arriving from a different source — one
     /// mental model, and the two are directly comparable when both are set.
-    /// The terms are **added**, `cutoff + env_amount × env + vel_cutoff × vel`,
-    /// so each stays independent of the others and a zero stays harmless;
-    /// multiplying would let `vel = 0` shut the filter outright, which is a
-    /// different and worse instrument.
+    /// The terms are **added**, and so is an [`Lfo`] aimed at
+    /// [`LfoTarget::Cutoff`], which was already written in octaves:
+    /// `cutoff × 2^(env_octaves × env + vel_octaves × vel + lfo)`. Adding the
+    /// depths rather than multiplying the results is what keeps each source of
+    /// movement independent of the others and a zero harmless; multiplying
+    /// would let `vel = 0` shut the filter outright, which is a different and
+    /// worse instrument. The sum is an exponent rather than an offset, so
+    /// three octaves is three octaves from wherever the cutoff happens to be.
     ///
     /// Negative is legal and means velocity *darkens* — a perfectly good
     /// instrument, and the reason this is not validated as positive. The
     /// resulting cutoff is clamped into the filter's stable band per sample,
-    /// exactly as a negative `env_amount`'s already is, so no value here can
+    /// exactly as a negative `env_octaves`'s already is, so no value here can
     /// produce an unstable filter.
     #[serde(default)]
-    pub vel_cutoff: f32,
+    pub vel_octaves: f32,
     /// The cutoff envelope. Defaults to the same fast shape as
     /// [`Adsr::default`].
     #[serde(default)]

@@ -18,8 +18,8 @@ fn full_patch() -> Patch {
             kind: FilterKind::Lowpass,
             cutoff: 1200.0,
             resonance: 0.4,
-            env_amount: 2000.0,
-            vel_cutoff: 2500.0,
+            env_octaves: 1.5,
+            vel_octaves: 1.75,
             adsr: adsr(0.01, 0.2, 0.3, 0.2),
         }),
         pitch_env: Some(PitchEnv {
@@ -99,7 +99,10 @@ fn optional_stages_and_osc_fields_have_defaults() {
 fn velocity_routing_is_off_unless_a_recipe_asks_for_it() {
     let json = r#"{ "kind": "lowpass", "cutoff": 800 }"#;
     let filter: Filter = serde_json::from_str(json).expect("parses");
-    assert_eq!(filter.vel_cutoff, 0.0, "velocity adds no cutoff by default");
+    assert_eq!(
+        filter.vel_octaves, 0.0,
+        "velocity opens the cutoff by nothing"
+    );
 
     let json = r#"{ "kind": "fm2", "ratio": 2.0, "index": 3.0 }"#;
     match serde_json::from_str::<Source>(json).expect("parses") {

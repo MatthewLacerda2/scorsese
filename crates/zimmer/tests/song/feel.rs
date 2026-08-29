@@ -134,8 +134,8 @@ fn expressive() -> Song {
         kind: FilterKind::Lowpass,
         cutoff: 400.0,
         resonance: 0.0,
-        env_amount: 0.0,
-        vel_cutoff: 4000.0,
+        env_octaves: 0.0,
+        vel_octaves: 3.5,
         adsr: Adsr::default(),
     });
     let mut expressive = steady();

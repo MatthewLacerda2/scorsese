@@ -99,7 +99,7 @@ pub struct Humanize {
     /// fader got, and moves the fader by none of it.
     ///
     /// It reaches a patch through the two routings that already read velocity
-    /// as effort — a filter's `vel_cutoff` and two-operator FM's `vel_index`
+    /// as effort — a filter's `vel_octaves` and two-operator FM's `vel_index`
     /// — so a patch that names neither hears nothing from this field. That is
     /// the right silence rather than a gap: what "brighter" means belongs to
     /// the instrument, and an instrument that never said is not one to guess
