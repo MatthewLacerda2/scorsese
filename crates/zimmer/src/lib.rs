@@ -367,7 +367,7 @@ pub use song::{PatchResolver, Song, render_song};
 ///
 /// That last sentence is the half worth checking rather than asserting, since
 /// it is a change to the arithmetic and not a new optional field. Checked
-/// against `d829817`, the commit before it — **33 probes, all
+/// against `b2f3fbf8`, the commit before it — **33 probes, all
 /// byte-identical**, encoded bytes and length both. Every source, including
 /// `fm4` with per-operator envelopes, an additive series, a unison stack and
 /// all three noise colours; a static lowpass and a static highpass, which read
@@ -390,8 +390,8 @@ pub use song::{PatchResolver, Song, render_song};
 /// this section says a diff answers without rendering anything. It was
 /// re-checked anyway, because the pole pair is now reached through a cascade
 /// rather than called directly and that is a stage reordered rather than a
-/// field added: the same 33 probes against `2ccbd14`, all byte-identical
-/// again.
+/// field added: the same 33 probes, run once more over the whole branch, all
+/// byte-identical again.
 pub const SYNTH_VERSION: u32 = 6;
 
 /// Render one note of `patch` and encode it as a stereo 16-bit PCM WAV.
