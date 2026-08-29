@@ -12,35 +12,26 @@
 //!
 //! ffmpeg decodes and we do the rest, exactly as everywhere else in this crate.
 //! That is also what makes this work on a delivered `.mp4` as readily as on a
-//! `.wav`: the analysis never learns what container it came out of.
+//! `.wav`: the analysis never learns what container it came out of. The decode
+//! itself is [`super::read`]'s, which is where the reason a file is metered at
+//! its own channel count is written down.
+//!
+//! **One table, whatever the file has in it.** The report is about the file and
+//! not about its channels: loudness and spectral balance are answered for the
+//! whole of it at once, and measuring the channels separately would produce two
+//! tables to read where the finding — this stretch is quiet, this one is
+//! muddy — is the same in both.
 
-use std::io::Read;
 use std::path::Path;
-use std::process::Stdio;
 
 use scorsese_zimmer::level::{Cut, Profile, Profiler};
 
-use crate::error::{RenderError, Stage};
-use crate::pipe::SAMPLE_FORMAT;
+use crate::error::RenderError;
 use crate::tools::Tools;
 
-/// The rate a file is analysed at, whatever it was recorded at.
-///
-/// Fixed rather than taken from the source, so two files compared with each
-/// other are measured on one clock. A resample changes no answer this reports —
-/// mean, peak and three band shares are all properties of the waveform rather
-/// than of the grid it is sampled on.
-pub(crate) const ANALYSIS_RATE: u32 = 48_000;
-
-/// How many bytes to pull from ffmpeg at a time.
-const CHUNK: usize = 1 << 16;
+use super::read::{self, ANALYSIS_RATE};
 
 /// How `file` came out, over its whole length and section by section.
-///
-/// **Mono**, because loudness and spectral balance are the questions and a
-/// downmix answers both for the whole file at once. Measuring the two channels
-/// separately would produce two tables to read where the finding — this stretch
-/// is quiet, this one is muddy — is the same in both.
 pub fn measure(tools: &Tools, file: &Path) -> Result<Profile, RenderError> {
     profile(tools, file, Vec::new())
 }
@@ -54,66 +45,10 @@ pub(crate) fn profile(
     file: &Path,
     sections: Vec<Cut>,
 ) -> Result<Profile, RenderError> {
-    let subject = file.display().to_string();
-    let mut command = tools.ffmpeg();
-    command
-        .args(["-nostdin", "-v", "error"])
-        .arg("-i")
-        .arg(file)
-        .args(["-vn", "-ar", &ANALYSIS_RATE.to_string()])
-        .args(["-ac", "1", "-f", SAMPLE_FORMAT, "-"])
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-
-    let mut child = command.spawn().map_err(|source| RenderError::Spawn {
-        stage: Stage::Measure,
-        source,
-    })?;
-    let mut stdout = child
-        .stdout
-        .take()
-        .expect("stdout was piped when the process was spawned");
-
-    let mut profiler = Profiler::sectioned(1, ANALYSIS_RATE, sections);
-    read_into(&mut stdout, &mut profiler)?;
-    // Waited on only after the pipe has run dry: ffmpeg blocks writing into a
-    // full pipe, so a process we stopped reading from would never exit.
-    crate::pipe::finish(child, Stage::Measure, &subject)?;
+    // The count reaches the profiler and ffmpeg from one place, so the grid the
+    // sections are cut on and the grid the samples arrive on cannot disagree.
+    let channels = read::channels(tools, file);
+    let mut profiler = Profiler::sectioned(channels, ANALYSIS_RATE, sections);
+    read::decode(tools, file, channels, |samples| profiler.feed(samples))?;
     Ok(profiler.finish())
-}
-
-/// Reads every sample ffmpeg produces into the profiler.
-///
-/// A word can straddle two reads — a pipe is free to hand back any number of
-/// bytes — so the remainder of an incomplete one is carried into the next
-/// chunk. Dropping it instead would shift every later sample by up to three
-/// bytes, which is not a rounding error but a different signal.
-fn read_into(source: &mut impl Read, profiler: &mut Profiler) -> Result<(), RenderError> {
-    let word = size_of::<f32>();
-    let mut bytes = vec![0_u8; CHUNK];
-    let mut carried = 0;
-    let mut samples = Vec::with_capacity(CHUNK / 4);
-    loop {
-        let read = source
-            .read(&mut bytes[carried..])
-            .map_err(|source| RenderError::Pipe {
-                stage: Stage::Measure,
-                source,
-            })?;
-        if read == 0 {
-            return Ok(());
-        }
-        let filled = carried + read;
-        let whole = filled / word * word;
-        samples.clear();
-        samples.extend(
-            bytes[..whole]
-                .chunks_exact(word)
-                .map(|word| f32::from_le_bytes(word.try_into().expect("four bytes"))),
-        );
-        profiler.feed(&samples);
-        bytes.copy_within(whole..filled, 0);
-        carried = filled - whole;
-    }
 }
