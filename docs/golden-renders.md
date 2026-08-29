@@ -124,7 +124,11 @@ claim can be exact instead:
 
 - **`crates/compositor/tests/grading/grain/`** — the pixels themselves, before
   an encoder has seen them: the same seed twice, a frame drawn alone against the
-  same frame drawn after five others, one value on all three channels.
+  same frame drawn after five others, one value on all three channels. And
+  `pinned.rs`, which is this gate's job done another way — one exact frame and
+  one exact seed written down as literals, so "the same project renders the same
+  picture on every machine" is asserted rather than assumed. Exact rather than
+  within a tolerance, because no encoder stands between.
 - **`crates/render/tests/pipeline/grain.rs`** — through a real render, in the
   two places a whole file is what is being claimed about: two renders of one
   project extract to identical frames, and a `--range` out of the middle of a

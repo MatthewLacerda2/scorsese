@@ -1,23 +1,29 @@
 //! Grain: that it moves, that it is the same every time, and that it looks the
 //! way film does rather than the way a sensor does.
 //!
-//! Two files, because the two are different questions with different failure
-//! modes. [`determinism`] asks whether the noise is a hash — the same project
-//! twice, and a frame drawn alone against the same frame drawn after five
-//! others. [`look`] asks what it does to a picture — monochrome, centred on
-//! zero, and gone in the highlights.
+//! Three files, because these are three different questions with three
+//! different failure modes. [`determinism`] asks whether the noise is a hash —
+//! the same project twice, and a frame drawn alone against the same frame drawn
+//! after five others. [`look`] asks what it does to a picture — monochrome,
+//! centred on zero, and gone in the highlights. [`pinned`] asks whether it is
+//! *this* noise, which the other two cannot: every assertion they make is a
+//! comparison or a property, and almost any hash at all satisfies every one of
+//! them, so between them they would not notice the noise function being
+//! replaced wholesale.
 //!
-//! **Nothing here is a hand-computed literal**, unlike its siblings, and it
-//! cannot be: the expected value of a hash is the hash, and writing one down
-//! would assert that the code agrees with itself. What is asserted instead are
-//! the properties the noise has to have.
+//! That is why [`pinned`] holds literals where the rest of `grading` holds
+//! hand-computed arithmetic. A hand-computed expected value is impossible here
+//! — the expected value of a hash is the hash — but writing the answer down is
+//! not the same thing as letting the code agree with itself, because what it
+//! pins is that *this project renders this picture, on every machine, forever*.
 //!
-//! The golden fixtures make neither claim, and `docs/golden-renders.md` says
-//! why: a committed reference of a noisy frame sits on the SSIM bar in both
-//! directions at once.
+//! The golden fixtures make none of these claims, and `docs/golden-renders.md`
+//! says why: a committed reference of a noisy frame sits on the SSIM bar in
+//! both directions at once.
 
 mod determinism;
 mod look;
+mod pinned;
 
 use scorsese_compositor::{Compositor, CpuCompositor, Frame, Layer, Properties};
 use scorsese_core::{AssetId, Clip, ClipId, Frames, Grade};
