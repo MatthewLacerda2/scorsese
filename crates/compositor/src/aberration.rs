@@ -177,6 +177,41 @@ mod tests {
         assert!(spread(smallest * 0.99, raster(256, 256)) > 0.0);
     }
 
+    /// Exactly half a pixel at the corner **is** a split, and *exactly* is the
+    /// word: a 6×8 raster's corner sits at `√(6² + 8²) / 2`, which is 5.0 with
+    /// nothing rounded, and `0.05` doubles to `0.1`, whose product with 5.0 is
+    /// exactly `0.5` in binary. So this is the boundary itself rather than a
+    /// number beside it — the same claim `blur::radius` makes at exactly half a
+    /// pixel, for the same reason: the narrowest split that does anything is the
+    /// narrowest one that is asked for.
+    #[test]
+    fn exactly_half_a_pixel_at_the_corner_is_still_a_split() {
+        let boundary = raster(6, 8);
+        assert!((spread(0.05, boundary) - 0.1).abs() < f64::EPSILON);
+        assert_eq!(spread(0.049, boundary), 0.0, "and a hair under it is not");
+    }
+
+    /// Nothing to do is no work at all, and a buffer that disagrees with its
+    /// own resolution is somebody else's to refuse.
+    ///
+    /// The second half is the one that matters here: with the two conditions
+    /// joined the other way round, a malformed layer would fall through to a
+    /// loop that indexes off the end of it, and a zero split would resample a
+    /// whole raster to move nothing.
+    #[test]
+    fn nothing_to_do_is_no_work_at_all() {
+        let resolution = raster(8, 2);
+        let source = vec![7; 8 * 2 * BYTES_PER_PIXEL];
+        let mut out = Vec::new();
+
+        assert_eq!(into(&mut out, &source, resolution, 0.0), &source[..]);
+        assert!(out.is_empty(), "a zero spread allocates nothing");
+
+        let short = vec![7; 8 * BYTES_PER_PIXEL];
+        assert_eq!(into(&mut out, &short, resolution, 3.0), &short[..]);
+        assert!(out.is_empty(), "and neither does a malformed layer");
+    }
+
     #[test]
     fn nothing_that_is_not_a_positive_number_splits_anything() {
         assert_eq!(spread(0.0, raster(64, 64)), 0.0, "nothing is nothing");

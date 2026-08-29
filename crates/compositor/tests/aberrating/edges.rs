@@ -2,7 +2,7 @@
 //! skipped — and the two ways a clip asks for it.
 
 use scorsese_compositor::{BYTES_PER_PIXEL, Frame, Properties, Resolution, path};
-use scorsese_core::Frames;
+use scorsese_core::{AssetId, Clip, ClipId, Frames};
 
 use super::{SIZE, STRONG, aberrated, pixel, ramp};
 
@@ -93,6 +93,33 @@ fn an_aberrated_layer_is_never_a_plain_copy() {
     };
     assert!(!aberrated.is_identity());
     assert!(Properties::default().is_identity());
+}
+
+/// The clip's **own** fields reach the properties it resolves to, which is the
+/// path a render actually takes.
+///
+/// Everything else here goes through [`Properties::over`], which never sees a
+/// [`Clip`] — so without this, a clip could carry a baseline aberration and a
+/// baseline blur and composite as though it carried neither, with the whole
+/// suite green. The two are asserted together because they are the same line of
+/// the same struct literal.
+#[test]
+fn a_clips_own_numbers_reach_the_properties_it_resolves_to() {
+    let mut clip = Clip::new(
+        ClipId::new("c1"),
+        AssetId::new("a1"),
+        Frames::ZERO,
+        Frames(30),
+    );
+    clip.blur = 0.02;
+    clip.aberration = STRONG;
+
+    let properties = Properties::at(&clip, Frames(7));
+    assert!((properties.blur - 0.02).abs() < f64::EPSILON, "blur");
+    assert!(
+        (properties.aberration - STRONG).abs() < f64::EPSILON,
+        "aberration"
+    );
 }
 
 /// A field *and* an animatable property: the field is the clip's baseline, a
