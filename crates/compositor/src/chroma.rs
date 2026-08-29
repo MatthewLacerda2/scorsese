@@ -521,6 +521,29 @@ mod tests {
         assert!((was - is).abs() < 1e-9, "{was} became {is}");
     }
 
+    /// A pixel that is nothing but the screen's own hue despills to black, and
+    /// black has no brightness to be restored *to* — so it keeps what the pull
+    /// left it rather than being scaled by a ratio with nothing under it.
+    ///
+    /// Unreachable through [`Keyer::at`], which is what makes it worth pinning
+    /// here: a pixel exactly on the key's chromaticity is at distance zero and
+    /// so is keyed out whatever the tolerance, so the only way to ask this
+    /// question is to ask [`Spill`] directly — which is exactly what a caller
+    /// reaching for the despill on its own would do.
+    #[test]
+    fn a_pixel_the_despill_takes_to_black_keeps_the_black() {
+        let green = Spill::new(Rgba::opaque(0, 255, 0)).expect("a despill");
+        // Nothing but green: every channel the key does not use is zero, so the
+        // pull takes the one it does use all the way down.
+        assert_eq!(green.at(0.0, 0.8, 0.0), (0.0, 0.0, 0.0));
+        // Said as the property rather than as three zeroes, because the failure
+        // this is here for is a division by a luma of zero, and what comes back
+        // from one is a NaN that compares unequal to everything including
+        // itself — including, therefore, the assertion above.
+        let (r, g, b) = green.at(0.0, 0.8, 0.0);
+        assert!(r.is_finite() && g.is_finite() && b.is_finite());
+    }
+
     /// A colour the scene had is a colour the scene keeps: nothing is pulled
     /// out of a pixel that carries no more of the key's hue than the rest of it
     /// accounts for.
