@@ -240,7 +240,8 @@ Two things never become rows, because they are one finding rather than many:
   there were at least three. That is one statement about the file: *nothing in
   the mutated package asserts on this code.* It is one piece of work, not a
   list — but **which** piece is not something the counts can tell you, and the
-  report deliberately no longer guesses. See below.
+  report deliberately no longer guesses: *Triaging a file where nothing was
+  caught*, below, has the three candidates and the command that decides.
 - **A file with more than eight survivors** — collapsed to a count whatever was
   caught in it. Past that length nobody triages the rows individually, and what
   the fifteenth says is what the first said.
