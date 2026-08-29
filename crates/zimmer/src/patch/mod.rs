@@ -15,6 +15,7 @@
 //! [`render_note`](crate::render_note) renders it.
 
 pub(crate) mod fm;
+pub(crate) mod fx;
 pub(crate) mod stages;
 
 use serde::{Deserialize, Serialize};
@@ -22,9 +23,10 @@ use serde::{Deserialize, Serialize};
 use crate::error::SynthError;
 
 pub use fm::{Algorithm, FM_OPERATORS, Operator};
+pub use fx::{EqBand, EqKind, Fx, MAX_EQ_BANDS};
 pub use stages::{
-    Adsr, EqBand, EqKind, Filter, FilterKind, Fx, Lfo, LfoTarget, MAX_EQ_BANDS, MAX_OSCS,
-    MAX_PARTIALS, MAX_VOICES, NoiseColor, Osc, Partial, PitchEnv, Slope, Source, Wave,
+    Adsr, Filter, FilterKind, Lfo, LfoTarget, MAX_OSCS, MAX_PARTIALS, MAX_VOICES, NoiseColor, Osc,
+    Partial, PitchEnv, Slope, Source, Wave,
 };
 
 /// Rejects an fx chain the renderer cannot honour.

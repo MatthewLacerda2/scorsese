@@ -45,14 +45,16 @@
 //! not have — which is why it was built after the crate went stereo rather
 //! than twice.
 //!
-//! [`delay`], [`saturate`] and [`eq`] run **per channel, independently**. A
-//! waveshaper is memoryless, and a delay line's and a biquad's memory each
-//! belong to the side they are on, so every one of them gets its own and none
-//! needs to see the other. On a signal that is still centred all three come
-//! back centred, which is correct — a slapback is not a width effect and
-//! neither is a shelf. A ping-pong delay, which *is*, is deliberately not
-//! here: it needs a field on the document to ask for, and a field is a
-//! decision to take with a recipe in front of you.
+//! [`delay`] is the one that is **both**, and the document says which. Left to
+//! itself it runs per channel, independently, and a centred signal comes back
+//! centred — a slapback is not a width effect. Asked for `ping_pong`, it
+//! cannot run per channel at all: the left line's output is the right line's
+//! input, so it is handed both sides at once like the two above.
+//!
+//! [`saturate`] and [`eq`] have no such second mode and never will. A
+//! waveshaper is memoryless and a biquad's memory belongs to the side it is
+//! on, so each gets its own and neither needs to see the other; a shelf that
+//! moved one side and not the other would be a fault rather than a feature.
 //!
 //! [`limiter`] and [`compress`] are the third case: one gain, both channels —
 //! see the limiter's own doc for the argument, which the compressor inherits
@@ -114,10 +116,21 @@ pub(crate) fn apply_chain(buf: &mut Stereo, chain: &[Fx], rate: f32) {
 pub(crate) fn apply_chain_keyed(buf: &mut Stereo, chain: &[Fx], rate: f32, keys: &dyn Keys) {
     for fx in chain {
         match fx {
+            // Not through `each` when the repeats cross: one line's output is
+            // the other line's input, so the two sides are one delay rather
+            // than two of it — the same reason the reverb and the chorus are
+            // handed both channels at once.
             Fx::Delay {
                 time,
                 feedback,
                 mix,
+                ping_pong: true,
+            } => delay::ping_pong(buf, *time, *feedback, *mix, rate),
+            Fx::Delay {
+                time,
+                feedback,
+                mix,
+                ping_pong: false,
             } => buf.each(|channel| delay::apply(channel, *time, *feedback, *mix, rate)),
             Fx::Reverb { size, damp, mix } => reverb::apply(buf, *size, *damp, *mix, rate),
             Fx::Saturate { drive, mix } => {
@@ -164,7 +177,6 @@ mod tests {
         let mut buf = impulse(512);
         apply_chain(&mut buf, &[], 44_100.0);
         assert_eq!(buf, impulse(512));
-        assert_eq!(tail_seconds(&[]), 0.0);
     }
 
     #[test]
@@ -176,6 +188,7 @@ mod tests {
                 time: 0.05,
                 feedback: 0.4,
                 mix: 0.5,
+                ping_pong: false,
             },
             Fx::Reverb {
                 size: 0.6,
@@ -196,10 +209,11 @@ mod tests {
     }
 
     /// Which effects widen a signal, checked rather than asserted in prose:
-    /// the reverb and the chorus are the two that do, and the others hand back
-    /// what they were given, in the place they were given it.
+    /// the reverb, the chorus and a delay that was **asked** to are the three
+    /// that do, and the others hand back what they were given, in the place
+    /// they were given it.
     #[test]
-    fn only_the_room_and_the_ensemble_take_a_centred_signal_off_centre() {
+    fn only_the_room_the_ensemble_and_a_ping_pong_go_off_centre() {
         let mut room = impulse(22_050);
         apply_chain(
             &mut room,
@@ -231,6 +245,7 @@ mod tests {
                     time: 0.05,
                     feedback: 0.4,
                     mix: 0.5,
+                    ping_pong: false,
                 },
                 Fx::Saturate {
                     drive: 4.0,
@@ -240,15 +255,29 @@ mod tests {
             44_100.0,
         );
         assert_eq!(narrow.l, narrow.r, "neither of these is a width effect");
+        // The same delay with the flag on is, and the flag is the only
+        // difference between the two chains — which is also what says the
+        // chain reads it rather than picking an arm by luck.
+        let mut walked = impulse(22_050);
+        apply_chain(
+            &mut walked,
+            &[Fx::Delay {
+                time: 0.05,
+                feedback: 0.4,
+                mix: 0.5,
+                ping_pong: true,
+            }],
+            44_100.0,
+        );
+        assert_ne!(walked.l, walked.r, "the repeats crossed over");
     }
 
     #[test]
-    fn a_waveshaper_reaches_the_signal_and_still_asks_for_no_tail() {
+    fn a_waveshaper_reaches_the_signal_it_was_handed() {
         let drive = [Fx::Saturate {
             drive: 4.0,
             mix: 1.0,
         }];
-        assert_eq!(tail_seconds(&drive), 0.0, "there is no state to decay");
         let mut buf = Stereo::centred(vec![0.5]);
         buf.resize(512);
         apply_chain(&mut buf, &drive, 44_100.0);
@@ -264,7 +293,7 @@ mod tests {
     }
 
     #[test]
-    fn an_eq_reaches_the_signal_and_still_asks_for_no_tail() {
+    fn an_eq_reaches_the_signal_it_was_handed() {
         // A biquad has state, unlike the waveshaper above, so this is the
         // claim `eq`'s module doc makes rather than a definition: a filter
         // neither delays nor repeats, so a note carrying one does not grow.
@@ -276,7 +305,6 @@ mod tests {
                 q: 2.0,
             }],
         }];
-        assert_eq!(tail_seconds(&carve), 0.0, "no echo to be cut off");
         let tone: Vec<f32> = (0..4410)
             .map(|i| (std::f32::consts::TAU * 250.0 * i as f32 / 44_100.0).sin())
             .collect();

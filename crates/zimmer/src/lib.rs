@@ -392,7 +392,49 @@ pub use song::{Excerpt, PatchResolver, Song, Span, Window, render_excerpt, rende
 /// rather than called directly and that is a stage reordered rather than a
 /// field added: the same 33 probes, run once more over the whole branch, all
 /// byte-identical again.
-pub const SYNTH_VERSION: u32 = 6;
+///
+/// **Version 7 is `fm4`'s four operators starting where the note's seed
+/// says**, and it closes the set: no source in this crate is phase-locked any
+/// more. It is version 5's change one source further along, and the ordinary
+/// case of the rule rather than an argument about defaults — the phases were
+/// never in the document, so there is no field to leave unwritten and no
+/// recipe that opts out. Every note of every `fm4` patch is different samples,
+/// and a `fm4` patch is the one this matters most at: four operators stand in
+/// six relationships where `fm2`'s two stand in one, and in FM a relationship
+/// between operators is the timbre rather than a decoration on it.
+///
+/// **The same version carries a ping-pong `delay`**, which is the opposite
+/// case and would have earned nothing on its own.
+/// [`Fx::Delay`](patch::Fx::Delay)'s `ping_pong` is a new optional flag,
+/// `false` by default and skipped when it is, so a recipe that never writes it
+/// serialises to the bytes it always did and renders through the same
+/// per-channel lines it always did — the case this section says a diff answers
+/// without rendering anything. A recipe that *does* write it is a different
+/// document on either side of this line rather than the same one rendered
+/// twice, since the old build has no field to write it in.
+///
+/// The two are on one branch and share one bump on purpose. A bump misses
+/// every cached bake in every project on disk, and doing that twice in a night
+/// for two changes that could travel together is a cost paid for nothing.
+///
+/// Checked rather than reasoned about, since the `fm4` half is rendering
+/// maths: **50 probes against `3f33e49e`**, the `main` this branch merges
+/// into —
+/// every source including all three noise colours, a unison stack, an additive
+/// series, `karplus`, `fm2` and six `fm4` patches; all four filter kinds, both
+/// slopes, an envelope-and-velocity cutoff and all three LFO targets; a pitch
+/// envelope and both signs of amp curve; every effect on its own and a chain
+/// of four; five songs covering swing, all three humanise axes, a song chain,
+/// a pan and a track delay; and every worked example in `docs/recipes.md`.
+///
+/// **Eleven moved and thirty-nine did not**, which is exactly the split the
+/// two halves predict. The eleven are the six `fm4` patches, the `fm4` worked
+/// example, and the four songs whose bass track is an `fm4` — nothing else.
+/// Every delay probe came back byte-identical, encoded bytes and length both,
+/// including the song whose lead track carries one: the flag defaults to the
+/// per-channel lines, and a recipe that does not write it is not a different
+/// document.
+pub const SYNTH_VERSION: u32 = 7;
 
 /// Render one note of `patch` and encode it as a stereo 16-bit PCM WAV.
 ///
