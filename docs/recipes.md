@@ -1356,9 +1356,9 @@ no compression anywhere sounds wrong. Such a mix has an enormous **crest
 factor** — its peaks tower over its body — so it measures loud and sounds
 quiet, and nothing binds the parts. `{ "threshold": -12, "ratio": 2,
 "attack": 0.02, "release": 0.2, "makeup": 3 }` over the sum is most of the fix.
-A constant is safe here and is not on a track, because the sum's peak is a
-known quantity: the summary line reads a few dB under full scale on anything
-mixed, so `-12` lands where it was meant to. Keep it modest: the master limiter
+A constant is safe here in a way it is not on a track, because the sum's peak
+is a known quantity: the summary line reads a few dB under full scale on
+anything mixed, so `-12` lands where it was meant to. Keep it modest: the master limiter
 runs after this and will take back anything `makeup` overreaches by.
 
 **Ducking is the sidechain**, and it is the recognisable half:
@@ -1454,9 +1454,9 @@ the written number is what a parameter with *no* curve keeps, which is why a
 track that automates only its level stays at the `pan` it was written at, and
 the other way round. So there is nothing to compensate for and no arithmetic to
 do: write the level you want to hear at each point. Writing `"gain": 1.0` on an
-automated track to be safe is the one thing not to do — it is correct under
-either reading and it makes a part written at a third of full level look like it
-is at the top of its fader.
+automated track to be safe is the one thing not to do — it buys nothing, and it
+makes a part written at a third of full level look like it is at the top of its
+fader.
 
 The written value is **not** refused when a curve overrides it, deliberately.
 It is where the track lands the moment the curve is deleted, which is what makes
@@ -1488,8 +1488,8 @@ of a curve does nothing at all, because nothing travels from it, and the curve
 renders as the straight line it would have been. Nothing refuses it and no
 report line mentions it — a build that is merely linear measures exactly like
 one that is not, because the endpoints are the same. The example above puts
-`ease_in` on the point at beat 0, which is what makes the sixteen bars into it
-a build. `hold` is a step written on purpose: the value stays put and jumps at
+`ease_in` on the point at beat 0, which is what makes the sweep that arrives at
+beat 16 a build rather than a ramp. `hold` is a step written on purpose: the value stays put and jumps at
 the next point. `ease_in` is the one a build usually wants — slow at first and
 arriving fast, which is what makes a drop land.
 

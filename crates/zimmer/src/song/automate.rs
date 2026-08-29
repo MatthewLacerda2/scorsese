@@ -38,8 +38,8 @@
 //!
 //! Closure is one decision and *where* it closes is another, so: all three
 //! params are properties of a [`Track`] — level, position, and brightness at
-//! the fader — and that is the boundary, chosen rather than inherited from
-//! whatever happened to be a field of this struct. **Automation moves the mix;
+//! the fader — and that is the boundary, chosen rather than merely inherited
+//! from what a track happens to hold. **Automation moves the mix;
 //! what an instrument *is* belongs to its envelope and its LFO**, which are per
 //! note because a note is where an instrument's identity lives.
 //!
