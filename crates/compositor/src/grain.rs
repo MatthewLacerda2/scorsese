@@ -71,6 +71,33 @@ const fn mix(mut z: u64) -> u64 {
     z ^ (z >> 31)
 }
 
+/// A different noise field over the same seed.
+///
+/// One layer can want more than one. A tape lays snow on the luma *and* on each
+/// of the two colour-difference channels, and three fields drawn from one seed
+/// would not be three textures — they would be one texture counted three times,
+/// which is the same speckle at three times the height. `which` names the
+/// field, and the finaliser does the rest, so each comes out as well mixed as
+/// the first and none of them is a shift of another.
+///
+/// Here rather than in the caller because there is one hash in this crate and
+/// there should go on being one: a second answer to "what is a deterministic
+/// random number" is a second thing to keep platform-exact.
+pub(crate) const fn field(seed: u64, which: u64) -> u64 {
+    mix(seed ^ which.wrapping_mul(DOWN))
+}
+
+/// One well-mixed number in `-1.0..=1.0`, from a seed and a coordinate along
+/// one axis.
+///
+/// [`Grain`] is the two-dimensional case and is what anything wanting noise
+/// *per pixel* should build. This is for the one-dimensional ones — how far a
+/// row of the picture is displaced, say — where a whole grain field would be a
+/// raster's worth of hashing to read one value per line.
+pub(crate) fn value(seed: u64, at: u64) -> f64 {
+    signed(field(seed, at))
+}
+
 /// Where a clip's noise field starts at one instant.
 ///
 /// **Seeded from the clip's id and the frame, and from nothing else.** From the

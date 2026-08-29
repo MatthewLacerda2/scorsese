@@ -226,6 +226,81 @@ this gate can see it, exactly as an aberration has to be given width. Both are
 the same rule wearing different clothes: **make the fixture exaggerate whatever
 the gate measures the effect by**, and say in the description that it does.
 
+## Both answers in one fixture: the tape
+
+Each section above is one effect and one answer. **`vhs`** is five artefacts at
+once and gets *both* answers inside a single fixture, which is what makes it the
+useful worked example: displacement is structure and survives an encode,
+per-pixel snow is texture and does not, and the fixture is built out of the
+first and carries none of the second.
+
+Measured on the `vhs` fixture as it stands — 320×180, one shape over a bed,
+`chroma_bleed` 0.75, `scanlines` 0.5, `jitter` 0.12, `head_switch` 0.6, and
+**no `noise` at all**. The perturbation is the one grain and aberration were
+measured under, `-crf 18` at `ultrafast` against `veryslow`, on the frames as
+the compositor produced them:
+
+| the fixture's frames | worst-block SSIM | mean error |
+| --- | --- | --- |
+| 0, colour | 0.9653 | 1.29 |
+| 2, colour, two frames later | 0.9708 | 1.33 |
+| 5, `mono` | 0.9666 | 0.74 |
+
+For scale, the `shapes` fixture measured the same way on the same afternoon
+scores **0.9312**, so a taped frame is *more* robust to an encoder difference
+than one already gating merges.
+
+**What each artefact is worth, one at a time.** Each row is that one sub-value
+turned off and the committed references left in place, worst of the three
+frames; the bars are 0.95 and 2.0.
+
+| taken away | worst SSIM | worst mean error | caught by |
+| --- | --- | --- | --- |
+| the whole `vhs` | 0.0348 | 32.88 | both, overwhelmingly |
+| `head_switch` | −0.2907 | 2.65 | both |
+| `jitter` | 0.0495 | **1.41** | **SSIM alone** |
+| `scanlines` | 0.1751 | 12.01 | both |
+| `chroma_bleed` | **0.9642** | 2.22 | **mean error alone** |
+| `mono` flipped | **0.9341** | 22.48 | **mean error alone** |
+
+**The two bold rows are why this gate measures two things.** Take the wobble
+away and every pixel is still very nearly the right colour — mean error 1.41,
+comfortably inside the bar — but nothing is where it was, and SSIM reads 0.05.
+Take the chroma bleed away, or flip `mono`, and the picture is structurally
+identical — SSIM 0.96 and 0.93, one of them a *pass* — while the colours are
+wrong by 2.2 and 22.5. Neither measure alone holds this fixture, and each waves
+through exactly what the other catches. `chroma_bleed`'s margin is the narrowest
+here (2.22 against a bar of 2.0, over encoder noise of 1.33) and that is
+inherent: a change confined to the colour-difference axes moves nothing a luma
+SSIM can see, so it is pinned exactly in `crates/compositor/tests/taping/` as
+well.
+
+**And the snow, which is grain's answer again.** With `vhs.noise` at `0.15` the
+same fixture measures:
+
+| | worst-block SSIM | mean error |
+| --- | --- | --- |
+| encoder noise, two presets | 0.9110 | 2.08 |
+| with the snow removed | 0.9285 | 1.94 |
+
+Those are the same two numbers. The gate cannot tell "the encoder wobbled" from
+"the snow vanished", and it fails on the first — which is the grain finding
+exactly, arrived at from the other direction. At `0.35` both sides fail
+outright, so there is no amount that works: light snow is deleted by x264 and
+heavy snow makes the frame unencodable to a tolerance. **So the fixture carries
+no `noise`, and what the tape adds per pixel is pinned before an encoder has
+seen it**, in `crates/compositor/tests/taping/snow.rs`, exactly as grain is.
+
+**One more thing worth recording, because it cost an afternoon.** The first
+version of this fixture used `smptebars` as its plate, on the reasoning that
+colour bars are what you point a chroma effect at. Measured bare — no tape on it
+at all — colour bars at 192×108 score **0.89** under the two-preset
+perturbation, and at 320×180 **0.70 to 0.83**. Saturated primaries at 4:2:0 are
+the hardest thing in the world to encode twice the same way, so the *source* was
+failing the gate before the effect was applied. A flat bed with one shape on it
+scores 0.99 bare. **If a fixture is marginal, measure its plate before blaming
+its effect.**
+
 ## The decoder, which sits upstream of all of that
 
 "Frames are ours to assert on" is a claim about the **encoder** at the end of a

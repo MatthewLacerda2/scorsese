@@ -80,6 +80,16 @@
 //! is a texture anything could want, not only the grade — a composite retro
 //! effect calls the same code rather than growing a second noise function.
 //!
+//! `vhs` is the third of that family and the one that is a *look* rather than a
+//! single artefact: five numbers and a mode, and what they add up to is a tape.
+//! It calls `grain` for its snow rather than growing a second noise function,
+//! which is the whole reason that module sits beside the grade rather than
+//! inside it; it shifts colour the way `aberration` does, and so lives here for
+//! the same reason — it reads pixels it is not writing, and it is the only
+//! stage that displaces whole rows. Nothing in it is composited: there is no
+//! overlay footage and no noise plate, only arithmetic over the layer's own
+//! pixels.
+//!
 //! [`mod@grid`] is the one thing here that is part of no picture: a ruler drawn
 //! *over* a finished frame, in the fractions `crop` and `transform.position`
 //! are written in, so a coordinate can be read off a still instead of guessed
@@ -137,6 +147,7 @@ mod registry;
 pub mod shape;
 pub mod sheet;
 pub mod text;
+mod vhs;
 pub mod waveform;
 
 pub use area::{Area, on_canvas};

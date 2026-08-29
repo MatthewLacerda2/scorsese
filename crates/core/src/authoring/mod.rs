@@ -132,7 +132,7 @@ mod fixture {
     use crate::project::Project;
 
     const DOCUMENT: &str = r##"{
-      "schema_version": 32,
+      "schema_version": 33,
       "name": "T",
       "timeline_fps": { "num": 30, "den": 1 },
       "assets": [
