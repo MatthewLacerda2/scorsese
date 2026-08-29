@@ -122,7 +122,7 @@ frame came back **bit-identical to the ungrained plate**.
 So grain, and anything else whose output is fine noise, is pinned where the
 claim can be exact instead:
 
-- **`crates/compositor/tests/grading/grain.rs`** — the pixels themselves, before
+- **`crates/compositor/tests/grading/grain/`** — the pixels themselves, before
   an encoder has seen them: the same seed twice, a frame drawn alone against the
   same frame drawn after five others, one value on all three channels.
 - **`crates/render/tests/pipeline/grain.rs`** — through a real render, in the

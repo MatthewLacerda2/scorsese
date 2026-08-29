@@ -10,6 +10,10 @@
 //! the contrast pivot, brightness as a plain offset, and a squared distance to
 //! the corner — and written down as a literal. Recomputing the arithmetic in
 //! the test would assert only that the code agrees with itself.
+//!
+//! [`grain`] is the one that cannot work that way, and says so in its own doc:
+//! the expected value of a hash is the hash, so what it asserts are the
+//! *properties* the noise has to have instead.
 
 mod colour;
 mod grain;

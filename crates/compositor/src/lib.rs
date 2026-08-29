@@ -57,13 +57,12 @@
 //! is. It is a hundred lines that call the other two modules, and it is not a
 //! rendering path of its own — that is the point of it.
 //!
-//! [`mod@grain`] is the one operation in the grade that is not a function of
-//! the pixel alone: film-like noise, hashed from the clip, the frame and the
-//! pixel so that it moves without a generator and so that a frame can be drawn
-//! by any worker in any order. It sits beside [`mod@grade`] rather than inside
-//! it because it is a texture anything could want, not only the grade — a
-//! composite retro effect calls the same code rather than growing a second
-//! noise function.
+//! `grain` is the one operation in the grade that is not a function of the
+//! pixel alone: film-like noise, hashed from the clip, the frame and the pixel
+//! so that it moves without a generator and so that a frame can be drawn by any
+//! worker in any order. It sits beside `grade` rather than inside it because it
+//! is a texture anything could want, not only the grade — a composite retro
+//! effect calls the same code rather than growing a second noise function.
 //!
 //! [`mod@grid`] is the one thing here that is part of no picture: a ruler drawn
 //! *over* a finished frame, in the fractions `crop` and `transform.position`

@@ -211,8 +211,9 @@ pub struct Properties {
     /// this struct; the noise field's origin is part of what a layer looks like
     /// at an instant exactly as its opacity is. [`Properties::at`] folds the
     /// clip's id and its elapsed frame into it, which is the one place both are
-    /// known — see [`crate::grain::seed`] for why it is those two and nothing
-    /// else.
+    /// known: from the id, so two clips of the same footage never carry the
+    /// same grain; from the frame, so the noise moves; and from nothing else,
+    /// so a frame never depends on a frame drawn before it.
     ///
     /// **Zero unless [`Grade::grain`] is above zero**, and that is not a
     /// default so much as the honest value: a seed for a noise field nobody
