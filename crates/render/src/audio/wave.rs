@@ -12,27 +12,24 @@
 //! `.mp3` a provider returned: the analysis never learns what container it came
 //! out of.
 //!
-//! The picture is drawn by `scorsese-compositor`, because compositing is ours.
-//! What this module owns is the decode, the slicing, and the handful of facts
-//! that go back **in words** beside the picture — a client that cannot see
-//! images still has to get a useful answer, which is the rule the other
-//! picture-returning tools already follow.
+//! The picture is drawn by `scorsese-compositor`, because compositing is ours,
+//! and the samples arrive through the same decode the level report reads a
+//! file with — one module for both, so the picture and the numbers beside it
+//! cannot disagree about what is in a file. What this module owns is the
+//! slicing and the handful of facts that go back **in words** beside the
+//! picture: a client that cannot see images still has to get a useful answer,
+//! which is the rule the other picture-returning tools already follow.
 
-use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::process::Stdio;
 
 use scorsese_compositor::text::Font;
 use scorsese_compositor::waveform::{self, COLUMNS, Column, Wave};
 use scorsese_compositor::{Frame, ResolutionError};
 
-use crate::audio::measure::ANALYSIS_RATE;
-use crate::error::{RenderError, Stage};
-use crate::pipe::SAMPLE_FORMAT;
+use crate::error::RenderError;
 use crate::tools::Tools;
 
-/// How many bytes to pull from ffmpeg at a time.
-const CHUNK: usize = 1 << 16;
+use super::read::{self, ANALYSIS_RATE};
 
 /// Below this the picture and the report both call a slice silent.
 ///
@@ -96,9 +93,11 @@ impl Findings {
 /// and a caller that had to name one would be a caller that could name the
 /// wrong one.
 pub fn waveform(tools: &Tools, file: &Path) -> Result<Waveform, WaveError> {
-    let samples = decode(tools, file)?;
-    let seconds = samples.len() as f64 / f64::from(ANALYSIS_RATE);
-    let columns = slice(&samples);
+    let channels = read::channels(tools, file);
+    let mut samples = Vec::new();
+    read::decode(tools, file, channels, |run| samples.extend_from_slice(run))?;
+    let seconds = (samples.len() / channels) as f64 / f64::from(ANALYSIS_RATE);
+    let columns = slice(&samples, channels);
     let findings = summarise(&columns, seconds);
     let image = waveform::draw(
         &Wave {
@@ -128,84 +127,26 @@ pub enum WaveError {
     Raster(#[from] ResolutionError),
 }
 
-/// Every sample of the file, mono, at the analysis rate.
-///
-/// Mono for the same reason the level report is: whether a line is silent, late
-/// or clipped is the same finding in both channels, and two waveforms to read
-/// would be two pictures where one answers.
-fn decode(tools: &Tools, file: &Path) -> Result<Vec<f32>, RenderError> {
-    let subject = file.display().to_string();
-    let mut command = tools.ffmpeg();
-    command
-        .args(["-nostdin", "-v", "error"])
-        .arg("-i")
-        .arg(file)
-        .args(["-vn", "-ar", &ANALYSIS_RATE.to_string()])
-        .args(["-ac", "1", "-f", SAMPLE_FORMAT, "-"])
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-
-    let mut child = command.spawn().map_err(|source| RenderError::Spawn {
-        stage: Stage::Measure,
-        source,
-    })?;
-    let mut stdout = child
-        .stdout
-        .take()
-        .expect("stdout was piped when the process was spawned");
-    let samples = read_all(&mut stdout)?;
-    // Waited on only after the pipe has run dry: ffmpeg blocks writing into a
-    // full pipe, so a process we stopped reading from would never exit.
-    crate::pipe::finish(child, Stage::Measure, &subject)?;
-    Ok(samples)
-}
-
-/// Reads every sample ffmpeg produces.
-///
-/// A word can straddle two reads — a pipe hands back any number of bytes — so
-/// the remainder of an incomplete one is carried into the next chunk. Dropping
-/// it would shift every later sample by up to three bytes, which is not a
-/// rounding error but a different signal.
-fn read_all(source: &mut impl Read) -> Result<Vec<f32>, RenderError> {
-    let word = size_of::<f32>();
-    let mut bytes = vec![0_u8; CHUNK];
-    let mut samples = Vec::new();
-    let mut carried = 0;
-    loop {
-        let read = source
-            .read(&mut bytes[carried..])
-            .map_err(|source| RenderError::Pipe {
-                stage: Stage::Measure,
-                source,
-            })?;
-        if read == 0 {
-            return Ok(samples);
-        }
-        let filled = carried + read;
-        let whole = filled / word * word;
-        samples.extend(
-            bytes[..whole]
-                .chunks_exact(word)
-                .map(|word| f32::from_le_bytes(word.try_into().expect("four bytes"))),
-        );
-        bytes.copy_within(whole..filled, 0);
-        carried = filled - whole;
-    }
-}
-
 /// Cuts the samples into one slice per pixel column.
 ///
 /// A short file gets fewer columns rather than a stretched picture: one column
 /// per pixel is the most faithful summary there is, and inventing columns a
 /// file has no samples for would draw detail that is not in it.
-fn slice(samples: &[f32]) -> Vec<Column> {
-    if samples.is_empty() {
+///
+/// **One picture for the whole file**, whatever it has in it: a column's peak
+/// is the loudest sample in any channel over that stretch and its level is the
+/// mean square of all of them, so the drawn envelope is the file's own and a
+/// clip mark means the file clipped. Two waveforms to read would be two
+/// pictures where one answers — and cutting the columns on **frames** is what
+/// keeps a column from holding one channel of an instant without the other.
+fn slice(samples: &[f32], channels: usize) -> Vec<Column> {
+    let frames = samples.len() / channels;
+    if frames == 0 {
         return Vec::new();
     }
-    let per = samples.len().div_ceil(COLUMNS).max(1);
-    samples
-        .chunks(per)
+    let per = frames.div_ceil(COLUMNS).max(1);
+    samples[..frames * channels]
+        .chunks(per * channels)
         .map(|slice| {
             let peak = slice.iter().fold(0.0_f32, |most, one| most.max(one.abs()));
             let sum: f64 = slice

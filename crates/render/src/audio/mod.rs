@@ -21,6 +21,7 @@ pub(crate) mod gain;
 pub(crate) mod level;
 pub(crate) mod measure;
 pub(crate) mod mix;
+pub(crate) mod read;
 pub mod wave;
 
 use std::fs::File;

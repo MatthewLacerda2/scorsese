@@ -20,6 +20,7 @@ mod mixing;
 mod prompts;
 mod retiming;
 mod sources;
+mod stereo;
 mod volume;
 
 use std::path::{Path, PathBuf};
