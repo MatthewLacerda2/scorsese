@@ -403,6 +403,19 @@ pub use song::{Excerpt, PatchResolver, Song, Span, Window, render_excerpt, rende
 /// six relationships where `fm2`'s two stand in one, and in FM a relationship
 /// between operators is the timbre rather than a decoration on it.
 ///
+/// **The same version carries a ping-pong `delay`**, which is the opposite
+/// case and would have earned nothing on its own.
+/// [`Fx::Delay`](patch::Fx::Delay)'s `ping_pong` is a new optional flag,
+/// `false` by default and skipped when it is, so a recipe that never writes it
+/// serialises to the bytes it always did and renders through the same
+/// per-channel lines it always did — the case this section says a diff answers
+/// without rendering anything. A recipe that *does* write it is a different
+/// document on either side of this line rather than the same one rendered
+/// twice, since the old build has no field to write it in.
+///
+/// The two are on one branch and share one bump on purpose. A bump misses
+/// every cached bake in every project on disk, and doing that twice in a night
+/// for two changes that could travel together is a cost paid for nothing.
 pub const SYNTH_VERSION: u32 = 7;
 
 /// Render one note of `patch` and encode it as a stereo 16-bit PCM WAV.

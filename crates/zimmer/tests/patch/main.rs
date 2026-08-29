@@ -6,6 +6,7 @@ mod common;
 mod additive;
 mod chorus;
 mod compress;
+mod delay;
 mod document;
 mod eq;
 mod filter;

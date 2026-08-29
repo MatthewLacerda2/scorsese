@@ -40,6 +40,7 @@ fn full_patch() -> Patch {
                 time: 0.25,
                 feedback: 0.35,
                 mix: 0.3,
+                ping_pong: false,
             },
             Fx::Reverb {
                 size: 0.6,
@@ -68,6 +69,7 @@ fn tags_are_snake_case_and_named_as_documented() {
         time: 0.1,
         feedback: 0.2,
         mix: 0.3,
+        ping_pong: false,
     })
     .expect("serialise");
     assert!(json.contains(r#""fx":"delay""#), "got {json}");

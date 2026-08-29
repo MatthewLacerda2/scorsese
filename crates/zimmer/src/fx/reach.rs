@@ -64,10 +64,14 @@ pub(crate) fn tail_seconds(chain: &[Fx]) -> f32 {
     let total: f32 = chain
         .iter()
         .map(|fx| match fx {
+            // `ping_pong` is not read: the repeats are the same repeats,
+            // decaying at the same rate, and only the side they land on
+            // differs — so the tail is the same length either way.
             Fx::Delay {
                 time,
                 feedback,
                 mix,
+                ..
             } if *mix > 0.0 => delay::tail_seconds(*time, *feedback),
             Fx::Reverb { size, mix, .. } if *mix > 0.0 => reverb::tail_seconds(*size),
             Fx::Chorus { depth, mix, .. } if *mix > 0.0 => chorus::tail_seconds(*depth),
@@ -88,6 +92,7 @@ mod tests {
                 time: 0.25,
                 feedback: 0.5,
                 mix: 0.5,
+                ping_pong: false,
             },
             Fx::Reverb {
                 size: 1.0,
@@ -120,6 +125,7 @@ mod tests {
                 time: 1.0,
                 feedback: 0.9,
                 mix: 0.0,
+                ping_pong: false,
             },
             Fx::Reverb {
                 size: 1.0,

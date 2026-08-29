@@ -215,8 +215,8 @@ where 1.0 dips to silence.
 
 | `fx` | Fields | What it does |
 | --- | --- | --- |
-| `delay` | `time` in seconds, `feedback` 0..1, `mix` 0..=1 | feedback echo — a slapback, a corridor |
-| `reverb` | `size` 0..=1, `damp` 0..=1, `mix` 0..=1 | a room the sound is in — the one effect here that is **wide** |
+| `delay` | `time` in seconds, `feedback` 0..1, `mix` 0..=1, `ping_pong` | feedback echo — a slapback, a corridor; `ping_pong: true` walks the repeats **side to side** |
+| `reverb` | `size` 0..=1, `damp` 0..=1, `mix` 0..=1 | a room the sound is in — the widest thing in a mix |
 | `saturate` | `drive`, `mix` 0..=1 | soft clip: warmth, weight, glue |
 | `eq` | `bands`: up to 8 of `{ kind, freq, gain_db, q }` | takes a region away, or adds one |
 | `compress` | `threshold` dBFS, `ratio`, `attack`/`release` in seconds, `makeup` dB, `mix` 0..=1, `sidechain` | takes the loud moments down — glue, and ducking |
@@ -228,6 +228,22 @@ loudest point of the waveform *between* the samples, which is what a converter
 or a delivery codec has to reproduce, rather than the loudest sample. So a bake
 comes back a decibel under full scale by design, and the level a recipe is
 written at is a decision about the mix rather than a race to the ceiling.
+
+`delay` is the only effect with two shapes rather than one setting. Left alone
+it is a line per channel: both sides get the same echoes, which places a sound
+in **time** and never in width — a slapback on a gunshot, a corridor on a
+footstep. `"ping_pong": true` crosses the two lines over, so the first repeat
+lands on the left, the next on the right and the tail walks across the field.
+Same `time`, same `feedback`, same tail length; only the side each repeat lands
+on changes. It is width, so it belongs in the conversation
+[Where a part sits](#where-a-part-sits) is about — and read the warning there
+before writing it fully wet.
+
+There is deliberately no second `time` for the right channel. A few
+milliseconds' offset between the sides is a Haas spread rather than an echo —
+a different effect wearing this one's name — and it is a number that is much
+easier to set wrong than a flag is; a recipe that genuinely wants two delays in
+two places can write two of them on two tracks and pan those.
 
 `saturate` is the only stage anywhere in synthesis that adds frequencies the
 source did not have, which is what "warm" and "analog" are made of; everything
@@ -1320,6 +1336,17 @@ A pan is a **balance**, so on the one source that is already wide — `noise`,
 which draws its two sides independently — moving it away from a side turns that
 side down rather than rotating it across.
 
+**A `pan` is not the only thing that decides where a part is.** A `reverb`
+arrives from around a part rather than from where it was put, a `chorus` places
+its copies either side of it, and a `delay` with `"ping_pong": true` answers a
+phrase from the other side of the field. A pan is the position; those three are
+the space. The call-and-response one is the cheapest of them: a counter-line
+panned a little left with a ping-pong on it fills the right without a second
+part being written.
+
+All three can be overdone in the same way, and the bake report's *corr* column
+is where it shows up — see [How a bake came out](#how-a-bake-came-out).
+
 ### Where an effect goes
 
 A chain can live in three places. Which one you pick is most of the difference
@@ -1765,11 +1792,21 @@ much of the signal is common to both channels, from `+1.00` to `-1.00`.
   moment anything sums the mix to mono, and a video gets played on phones and
   laptops where that is not hypothetical. A piece that measures well and
   vanishes on a phone speaker is exactly the failure this number exists to
-  catch, and nothing else in a report can see it. The way a recipe arrives
-  there today is a **fully wet `chorus`** on a sustained tone: its copies are
-  panned hard apart, and if they land out of step the two sides subtract
-  instead of adding. Lowering its `mix` so the dry signal is back in the middle
-  is the fix.
+  catch, and nothing else in a report can see it. Two things in this
+  synthesiser can put a recipe there, and both are fully wet effects on a
+  **sustained** tone. A **fully wet `chorus`** panning its copies hard apart,
+  which subtract instead of adding when they land out of step; and a **fully
+  wet ping-pong `delay`**, whose odd repeats are on one side and even ones on
+  the other, so a note still ringing when its own echo returns hears itself
+  against a delayed copy of itself — and where the delay is near an odd number
+  of half-periods of the note, the two sides are opposites. That one reaches
+  −1.00, which is further than the chorus goes.
+
+  The fix is the same for both, and it is one number: lower the `mix` so the
+  dry signal is back in the middle. On a **hit** rather than a sustained tone a
+  ping-pong measures dead `0.00` even fully wet — the two sides carry echoes at
+  different instants, so there is nothing in common and nothing cancelling —
+  which is why it is safe on percussion and worth watching on a pad.
 
 A row per track is where that becomes actionable. "This mix collapses in mono"
 has nowhere to go until something says which of the five things playing is
