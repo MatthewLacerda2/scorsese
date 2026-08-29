@@ -46,10 +46,21 @@
 //!
 //! A `/bass` in the name covers the common inversion cheaply — see
 //! [`name`] for the grammar and for what it refuses.
+//!
+//! ## Stated, or played
+//!
+//! Everything above is a chord *stated*: every voice at once, for the length of
+//! the entry. An [`arp`](Chord::arp) plays the same voices one at a time
+//! instead — a figure that repeats until the chord is over. It is the same
+//! entry, the same pitches and the same grammar; only the order and the onsets
+//! change, and [`arp`] has the whole of it.
 
+pub(crate) mod arp;
 pub(crate) mod name;
 
 use serde::{Deserialize, Serialize};
+
+pub use arp::Arp;
 
 use super::{Articulation, Note, Pitch, one};
 use crate::error::SynthError;
@@ -84,8 +95,10 @@ pub struct Chord {
     pub oct: Option<i32>,
     /// Onset in beats from the start of its pattern.
     pub start: f32,
-    /// Gate length in beats, for every voice. The patch's release rings out
-    /// after it.
+    /// How long the chord lasts, in beats. Stated as a block that is every
+    /// voice's gate; [arpeggiated](Self::arp) it is the slot the figure fills,
+    /// and each note's gate is [`gate`](Self::gate) instead. The patch's
+    /// release rings out after either.
     pub dur: f32,
     /// Velocity in `0..=1` for every voice, before the performance scatters
     /// them apart.
@@ -97,6 +110,29 @@ pub struct Chord {
     /// others is a note beside the chord, not a chord with an exception in it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub articulation: Option<Articulation>,
+    /// Play the voices one at a time, in this order, rather than all at once —
+    /// see [`arp`] for the three words and what each of them walks. Absent is a
+    /// block chord, which is what every chord written before this field existed
+    /// was.
+    ///
+    /// It orders the voices this entry already has and never invents one, so an
+    /// arpeggio is notation rather than a generator.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub arp: Option<Arp>,
+    /// How long one step of the figure is, in beats: `0.5` an eighth, `0.25` a
+    /// sixteenth. Required beside an [`arp`](Self::arp) — no default is right,
+    /// because it is the number that decides what the figure *is* — and
+    /// meaningless without one, so it is refused there rather than ignored.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub div: Option<f32>,
+    /// Gate length in beats for every note of the figure. Absent means one
+    /// step, which is what a step sequencer means by a step and what
+    /// [`Steps`](super::Steps) already means by an absent `dur`; a longer gate
+    /// is how an arpeggio on a sustaining patch accumulates into its chord.
+    /// Meaningless without an [`arp`](Self::arp) — a block chord's gate is its
+    /// `dur` — and refused there.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gate: Option<f32>,
 }
 
 /// What a chord is: a name for the grammar to read, or the pitches themselves.
@@ -125,7 +161,47 @@ impl Chord {
             Voicing::Name(name) => self.named(name)?,
             Voicing::Pitches(pitches) => self.spelled(pitches)?,
         };
-        out.extend(voices);
+        // Here rather than beside the spelling that can produce one, because an
+        // arpeggio walks whatever this is and "no voices" has to be a refusal
+        // before anything walks it.
+        if voices.is_empty() {
+            return Err(SynthError::EmptyChord {
+                track: self.track.clone(),
+                start: self.start,
+            });
+        }
+        match self.arp {
+            Some(arp) => arp::spread(self, arp, &voices, out),
+            None => {
+                self.check_no_arp_fields()?;
+                out.extend(voices);
+                Ok(())
+            }
+        }
+    }
+
+    /// That `div` and `gate` are not written on a chord that is not
+    /// arpeggiated.
+    ///
+    /// Refused rather than ignored, for the reason `oct` beside spelled
+    /// pitches is: a field the entry cannot act on is a sentence the writer
+    /// believes they wrote, and silence is the worst answer to it.
+    fn check_no_arp_fields(&self) -> Result<(), SynthError> {
+        let refuse = |why| {
+            Err(SynthError::BadArp {
+                track: self.track.clone(),
+                start: self.start,
+                why,
+            })
+        };
+        if self.div.is_some() {
+            return refuse("`div` is the step of a figure, so it means nothing without an `arp`");
+        }
+        if self.gate.is_some() {
+            return refuse(
+                "`gate` is the length of one note of a figure, so it means nothing without an `arp` — a block chord's gate is its `dur`",
+            );
+        }
         Ok(())
     }
 
@@ -155,14 +231,12 @@ impl Chord {
 
     /// The voices of a chord written as pitches, which are the pitches.
     fn spelled(&self, pitches: &[Pitch]) -> Result<Vec<Note>, SynthError> {
-        let where_it_is = || (self.track.clone(), self.start);
         if let Some(oct) = self.oct {
-            let (track, start) = where_it_is();
-            return Err(SynthError::SpelledChordOctave { track, start, oct });
-        }
-        if pitches.is_empty() {
-            let (track, start) = where_it_is();
-            return Err(SynthError::EmptyChord { track, start });
+            return Err(SynthError::SpelledChordOctave {
+                track: self.track.clone(),
+                start: self.start,
+                oct,
+            });
         }
         pitches
             .iter()
@@ -200,6 +274,9 @@ mod tests {
             dur: 1.0,
             vel: 0.8,
             articulation: None,
+            arp: None,
+            div: None,
+            gate: None,
         }
     }
 

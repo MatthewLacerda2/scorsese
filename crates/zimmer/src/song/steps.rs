@@ -131,14 +131,16 @@ const ACCENT_VEL: f32 = 1.0;
 /// because no default is right for both.
 const DEFAULT_PITCH: f32 = 60.0;
 
-/// How far the grid may miss the end of the slot and still be called exact, in
-/// beats.
+/// How far a beat grid may miss the mark and still be called exact, in beats.
+///
+/// Shared with [an arpeggio's](super::chord::arp) step count, which divides a
+/// chord's length the same way and inherits the same representation problem.
 ///
 /// Not zero, because a triplet grid is not representable: twelve steps of a
 /// third of a beat land a hair off four beats in `f32` and are obviously
 /// correct. A thousandth of a beat is under half a millisecond at any tempo
 /// anybody writes, and a step count off by one misses by a whole `div`.
-const GRID_EPSILON: f32 = 1e-3;
+pub(super) const GRID_EPSILON: f32 = 1e-3;
 
 /// True when a step string starts at the top of its pattern, which is where
 /// almost all of them start — kept out of the saved document so the common

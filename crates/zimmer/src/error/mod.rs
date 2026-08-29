@@ -361,6 +361,21 @@ pub enum SynthError {
         start: f32,
     },
 
+    /// An arpeggio that cannot be walked: an `arp` with no `div`, a `div` or a
+    /// `gate` that is not a length, a step longer than the chord it divides, or
+    /// one of those two fields written on a chord that is not arpeggiated at
+    /// all. One variant with a written reason rather than five, because every
+    /// one of them is repaired by editing the same three fields of the same
+    /// entry, and the sentence is what says which.
+    BadArp {
+        /// The track the chord is on.
+        track: String,
+        /// Where in the pattern it sits, in beats.
+        start: f32,
+        /// What is wrong with it, in the words the message carries.
+        why: &'static str,
+    },
+
     /// A character in a step string that is not a step. Refused rather than
     /// skipped: every character is one step and the count is what proves the
     /// string covers its pattern, so a character that is quietly not a step

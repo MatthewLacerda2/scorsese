@@ -71,7 +71,7 @@ use crate::patch::{Fx, Patch};
 pub use arrangement::{ArrangementEntry, Play};
 pub use articulation::Articulation;
 pub use automate::{Automation, Easing, Param, Point};
-pub use chord::{Chord, Voicing};
+pub use chord::{Arp, Chord, Voicing};
 pub use excerpt::{Excerpt, Span, SpanError, Unit, Window};
 pub use feel::Humanize;
 pub use key::{Degree, DegreeNote, Key, Mode};
@@ -318,7 +318,8 @@ pub enum PatternEntry {
     /// One note, named as a degree of the song's [key](Song::key) and resolved
     /// to a pitch before anything is rendered.
     Degree(DegreeNote),
-    /// A chord, expanded to its voices before anything is rendered.
+    /// A chord, expanded to its voices before anything is rendered — all at
+    /// once, or [one at a time](Arp) as a figure that repeats.
     Chord(Chord),
     /// A run of evenly spaced hits, expanded to notes before anything is
     /// rendered.
@@ -346,7 +347,9 @@ impl PatternEntry {
         }
     }
 
-    /// Gate length in beats — of every hit, for an entry that is several.
+    /// Gate length in beats — of every hit, for an entry that is several, and
+    /// of the whole figure for an [arpeggiated](Arp) chord, whose notes are
+    /// each one step long.
     pub fn dur(&self) -> f32 {
         match self {
             Self::Note(note) => note.dur,

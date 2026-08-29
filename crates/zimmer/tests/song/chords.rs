@@ -28,6 +28,9 @@ fn chord(name: &str, oct: Option<i32>) -> PatternEntry {
         dur: 1.0,
         vel: 0.9,
         articulation: None,
+        arp: None,
+        div: None,
+        gate: None,
     }
     .into()
 }
@@ -174,6 +177,9 @@ fn a_chord_spelled_as_pitches_plays_those_pitches() {
         dur: 1.0,
         vel: 0.9,
         articulation: None,
+        arp: None,
+        div: None,
+        gate: None,
     };
     let by_hand = playing(played(vec![
         voice(Pitch::Name("D2".to_owned())),
