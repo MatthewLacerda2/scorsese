@@ -7,7 +7,8 @@
 //! its rematrix for integer output only, so the command *summed* the channels
 //! instead of averaging them. Every number both tools printed was up to 6 dB
 //! hot on centred content and they declared clipping on files that do not clip
-//! (#452). One decode, in one place, is what stops that happening a third time.
+//! (#452). One decode, in one place, is what stops the next correction having
+//! to be made twice.
 //!
 //! **A file is measured as it is**, at its own channel count, rather than
 //! folded down to one. That is not merely the cheaper fix, it is the honest
@@ -118,9 +119,10 @@ pub(crate) fn decode(
 /// **Frames and not words**, which is the part that only matters once there is
 /// more than one channel: a run ending half way through a frame would hand a
 /// left sample over without the right one beside it, and every later run would
-/// have its channels the wrong way round. What a meter does with that is invent
-/// an excursion at the seam — a centred sine peaking at 0.9 read as clipping
-/// before this counted in frames.
+/// have its channels the wrong way round. A meter reconstructing one channel
+/// then interpolates across two different signals and invents an excursion at
+/// the seam — a true peak that is a fact about the buffering rather than about
+/// the file.
 fn read_all(
     source: &mut impl Read,
     channels: usize,
