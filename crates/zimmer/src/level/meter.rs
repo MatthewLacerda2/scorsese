@@ -27,6 +27,13 @@ const FULL_SCALE: f64 = 1.0;
 /// files each being reasonable on its own.
 const CLIPPING: f64 = FULL_SCALE;
 
+/// How many channels a correlation is a statement about.
+///
+/// Two, and only two. Width is a relationship between a *pair* of channels: a
+/// mono signal has no second channel to be wide against, and a signal of more
+/// than two has no one pair the number would be about.
+const STEREO: usize = 2;
+
 /// How loud a signal is, in dBFS.
 ///
 /// Every field is `None` for a signal that is entirely silent. A silence is not
@@ -71,6 +78,15 @@ pub struct Meter {
     true_peak: f64,
     sum_of_squares: f64,
     counted: u64,
+    /// Sum of `l·r` over every frame — how much the two channels agree, and
+    /// the numerator of [`Meter::correlation`].
+    sum_of_products: f64,
+    /// Each channel's own energy, `Σl²` and `Σr²`, which is what that
+    /// numerator has to be normalised by. Kept apart from
+    /// [`Meter::sum_of_squares`], which is both channels together: a mean is
+    /// about the signal and a correlation is about the two sides of it.
+    sum_of_left: f64,
+    sum_of_right: f64,
     /// The end of the signal so far: the frames not yet measured, preceded by
     /// the [`TAPS`] already-measured frames that are their left-hand context.
     ///
@@ -97,6 +113,9 @@ impl Meter {
             true_peak: 0.0,
             sum_of_squares: 0.0,
             counted: 0,
+            sum_of_products: 0.0,
+            sum_of_left: 0.0,
+            sum_of_right: 0.0,
             recent: Vec::new(),
             settled: 0,
         }
@@ -110,6 +129,14 @@ impl Meter {
             self.sum_of_squares += f64::from(sample) * f64::from(sample);
         }
         self.counted += samples.len() as u64;
+        if self.channels == STEREO {
+            for frame in samples.chunks_exact(STEREO) {
+                let (left, right) = (f64::from(frame[0]), f64::from(frame[1]));
+                self.sum_of_products += left * right;
+                self.sum_of_left += left * left;
+                self.sum_of_right += right * right;
+            }
+        }
         self.measure_true_peak(samples);
     }
 
@@ -131,6 +158,37 @@ impl Meter {
             true_peak_dbfs: Some(ratio_to_dbfs(self.true_peak().max(self.peak))),
             mean_dbfs: Some(ratio_to_dbfs(mean_square.sqrt())),
         }
+    }
+
+    /// How much of the signal is common to both channels, in `-1..=1`.
+    ///
+    /// The third question a row answers, after how loud and where. `1.0` is
+    /// the same waveform in both ears — mono in a stereo container, which is
+    /// what a score that never used the `pan` it has comes out as. `0.0` is
+    /// two channels with nothing in common.
+    ///
+    /// **Negative is the defect.** It means the channels are cancelling, and
+    /// the energy that cancels is gone the moment anything folds the mix down
+    /// to mono — which is not hypothetical for a video played on a phone or a
+    /// laptop. Everything above zero is a taste; below it is a fault.
+    ///
+    /// `None` where there is no width to speak of: a meter of anything other
+    /// than two channels, and a signal with a silent channel, where the
+    /// arithmetic is a division by zero rather than a zero.
+    pub fn correlation(&self) -> Option<f64> {
+        if self.channels != STEREO {
+            return None;
+        }
+        let energy = self.sum_of_left * self.sum_of_right;
+        if energy <= 0.0 {
+            return None;
+        }
+        // Clamped because the arithmetic lands a hair outside the range it is
+        // defined over in the case that matters most: two identical channels
+        // sum to the same number three times and divide to 1.0 give or take an
+        // ulp, and a report saying a signal is 1.0000000002 wide reads as a
+        // bug in the meter rather than as the mono it is.
+        Some((self.sum_of_products / energy.sqrt()).clamp(-1.0, 1.0))
     }
 
     /// Oversamples each channel and keeps the largest excursion found.

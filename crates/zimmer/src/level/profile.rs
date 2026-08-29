@@ -59,6 +59,17 @@ pub struct Span {
     pub loudness: Loudness,
     /// Where its energy sat. `None` for a silence, which has no balance.
     pub bands: Option<Bands>,
+    /// How wide it was: how much of the signal is common to both channels, in
+    /// `-1..=1`. `None` for anything that is not two channels, and for a
+    /// signal with a silent channel — the same way [`Bands`] is `None` for a
+    /// silence.
+    ///
+    /// On [`Span`] rather than beside it because a span is what every row of
+    /// every table here is made of, and being the same fields in the same
+    /// order is the only reason those rows can be read against each other.
+    /// `1.0` is mono in a stereo container; **negative is the defect**, and
+    /// [`super::Meter::correlation`] carries the whole of what it means.
+    pub correlation: Option<f64>,
 }
 
 impl Span {
@@ -260,6 +271,7 @@ impl Section {
             to_seconds: self.seconds(until),
             loudness: self.level.finish(),
             bands: self.bands.finish(),
+            correlation: self.level.correlation(),
         }
     }
 

@@ -67,6 +67,7 @@ mod tests {
                     mid: 1.0 - low,
                     high: 0.0,
                 }),
+                correlation: Some(0.42),
             },
         }
     }
@@ -81,6 +82,9 @@ mod tests {
         assert!(rows[0].contains("mean  -18.4"), "{}", rows[0]);
         assert!(rows[0].contains("low  96%"), "{}", rows[0]);
         assert!(rows[1].contains("high   0%"), "{}", rows[1]);
+        // A layer row carries the width figure too, which is what turns "this
+        // mix collapses in mono" from a finding into an address.
+        assert!(rows[0].contains("corr +0.42"), "{}", rows[0]);
     }
 
     /// Names are padded to the longest, so the columns line up down the table

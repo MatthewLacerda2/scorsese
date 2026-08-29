@@ -30,9 +30,13 @@ const OVERSAMPLE: usize = 4;
 /// it would report the sample peak again under a longer name, which is worse
 /// than not reporting it.
 ///
-/// Also how far a caller feeding a signal a run at a time has to see back:
-/// keeping this many frames of the previous run is what stops every segment
-/// boundary from being reconstructed as a pair of edges.
+/// Also how far a caller feeding a signal a run at a time has to see in **both**
+/// directions: this many frames of the previous run, for the left-hand taps of
+/// the frames that follow it, and this many frames held back at the end of the
+/// newest run until their right-hand taps arrive. Either half missing
+/// reconstructs a segment boundary as an edge in silence, and the ringing off
+/// that edge reads as an intersample peak — which is what a meter fed in runs
+/// used to report, a decibel hotter than the same signal fed whole.
 pub(crate) const TAPS: usize = 4;
 
 /// One channel of an interleaved run, read as the continuous signal it stands

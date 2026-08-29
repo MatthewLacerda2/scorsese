@@ -30,7 +30,10 @@ impl Tool for Level {
     fn description(&self) -> &'static str {
         "Say how a finished sound file came out. Mean, peak and crest over its \
          whole length, then the same again for each section of it, plus the \
-         share of its energy that is low, mid and high. Give `against` and the \
+         share of its energy that is low, mid and high and how much of it is \
+         common to both channels (`corr`: +1.00 is mono in a stereo container, \
+         and a negative reading means the two sides are cancelling and the mix \
+         collapses in mono). Give `against` and the \
          two are compared field by field, which is the form that actually \
          answers \"did my change land?\" — an absolute level is hard to judge \
          and a difference is not. A signal, never a gate: there is no correct \

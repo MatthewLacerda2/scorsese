@@ -11,6 +11,15 @@
 //! sum it sits under, which is what lets the rows be read as a column: the
 //! numbers are comparable because they are the same numbers.
 //!
+//! **Including how wide it is**, which is the column that most needs an
+//! address. A mix that reads negative — cancelling, and about to collapse the
+//! moment anything folds it to mono — is a finding with nowhere to go until
+//! something says *which of the five things playing* is doing it; that is the
+//! same argument this file exists for. The column is free besides: a layer row
+//! and a section row are printed by one formatter precisely so the two can be
+//! read as one column of numbers, and suppressing it here would take a flag
+//! and would break that.
+//!
 //! **Whole only, never sectioned.** One line per layer for the whole piece.
 //! Five instruments over four sections is twenty rows in a report that is
 //! usually read as "fine, carry on", and the per-section detail is already on
@@ -57,6 +66,7 @@ impl Layer {
                 to_seconds: seconds(samples.len() / channels, rate),
                 loudness: level.finish(),
                 bands: bands.finish(),
+                correlation: level.correlation(),
             },
         }
     }

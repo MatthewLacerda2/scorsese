@@ -1182,8 +1182,8 @@ is only visible, and "the sub is 96% below 250 Hz" is only measurable.
 
 `synth_bake` reports how what it just made came out, and `audio_level` reports
 the same about any finished file — mean, peak and crest over the whole thing,
-the same again per section, and the share of the energy that is low, mid and
-high. Give `audio_level` an `against` and the two files are compared field by
+the same again per section, the share of the energy that is low, mid and high,
+and how much of it is common to both channels. Give `audio_level` an `against` and the two files are compared field by
 field.
 
 **That is the loop closing.** For every other part of this project a client can

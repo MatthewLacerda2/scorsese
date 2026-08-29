@@ -37,6 +37,14 @@ pub struct Difference {
     pub crest_db: Option<f64>,
     /// Band shares, in percentage points.
     pub bands: Option<BandsDifference>,
+    /// Width, as a plain subtraction in the same `-1..=1` units the
+    /// correlation itself is in.
+    ///
+    /// **Positive means narrower** — more of the signal common to both
+    /// channels — and it is the one field here whose sign a reader will guess
+    /// backwards, since every other one goes up when there is more of
+    /// something. Worth saying out loud wherever this is printed.
+    pub correlation: Option<f64>,
     /// Running time, in seconds.
     pub seconds: f64,
 }
@@ -63,6 +71,7 @@ impl Difference {
                 (Some(this), Some(that)) => Some(BandsDifference::between(&this, &that)),
                 _ => None,
             },
+            correlation: subtract(this.correlation, that.correlation),
             seconds: this.seconds() - that.seconds(),
         }
     }
@@ -75,13 +84,14 @@ impl Difference {
     /// defect it was built to find. A file compared with itself is the case that
     /// has to come out true.
     pub fn is_nothing(&self) -> bool {
-        let settled = |field: Option<f64>| field.is_none_or(|by| by.abs() < NOTHING_DB);
+        let settled = |field: Option<f64>| settled_by(field, NOTHING_DB);
         settled(self.mean_db)
             && settled(self.peak_db)
             && settled(self.crest_db)
             && self
                 .bands
                 .is_none_or(|bands| bands.largest() < NOTHING_POINTS)
+            && settled_by(self.correlation, NOTHING_CORRELATION)
             && self.seconds.abs() < NOTHING_SECONDS
     }
 }
@@ -108,8 +118,19 @@ const NOTHING_DB: f64 = 0.01;
 /// Below this many percentage points, two balances are the same balance.
 const NOTHING_POINTS: f64 = 0.05;
 
+/// Below this much correlation, two widths are the same width. A quarter of a
+/// percent of a range two units wide, which is the same claim the decibel
+/// threshold above makes: this answers "is this the same audio?" and not "is
+/// this close enough?".
+const NOTHING_CORRELATION: f64 = 0.005;
+
 /// Below this many seconds, two lengths are the same length.
 const NOTHING_SECONDS: f64 = 0.001;
+
+/// True when a field moved by less than `threshold`, or did not exist to move.
+fn settled_by(field: Option<f64>, threshold: f64) -> bool {
+    field.is_none_or(|by| by.abs() < threshold)
+}
 
 /// A difference, or nothing when either side is missing.
 fn subtract(this: Option<f64>, that: Option<f64>) -> Option<f64> {
