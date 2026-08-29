@@ -1,0 +1,13 @@
+{
+  "description": "Colour bars through a tape, twice: the same five numbers in colour on frames 0 and 2, and in `mono` on frame 5. Everything the look is made of is visible on vertical colour edges. The chroma bleed drags each bar's colour rightward across the boundary into the next one, and only rightward -- the left side of every boundary stays clean, because the colour arrived late rather than being blurred. The scanlines darken alternate rows. The tracking wobble displaces whole rows sideways by a pixel or two, smoothly down the frame, so the bar boundaries lean; frames 0 and 2 are the same picture leaning differently, which is the whole of the claim that the wobble is a function of the frame. The head-switching band tears the bottom rows hard to the right and takes their colour out. Frame 5 is the mono mode, and the difference is exactly that the chroma path is not modelled at all: grey bars, no smear, everything else intact. What a wrong render looks like: colour smeared both ways means the window is centred rather than trailing, which is a lens and not a tape; frames 0 and 2 identical means the wobble is not reading the frame, and a golden gate over a still wobble proves nothing; a coloured band at the bottom means the head switch is displacing rows without taking their colour; a frame 5 with colour in it means `mono` is a preset rather than a mode. There is no `noise` here on purpose -- what the tape adds per pixel is fine texture, which an encoder does not reproduce and this gate therefore cannot hold. docs/golden-renders.md has the measurement for both halves and the numbers that separate them.",
+  "media": {},
+  "render": {
+    "resolution": "320x180",
+    "fps": "30"
+  },
+  "frames": [
+    0,
+    2,
+    5
+  ]
+}

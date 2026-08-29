@@ -1,0 +1,75 @@
+{
+  "schema_version": 32,
+  "name": "vhs",
+  "timeline_fps": {
+    "num": 30,
+    "den": 1
+  },
+  "assets": [
+    {
+      "id": "bed",
+      "kind": "color",
+      "color": "#101820"
+    },
+    {
+      "id": "block",
+      "kind": "shape",
+      "shape": {
+        "geometry": {
+          "rectangle": {
+            "width": 0.6,
+            "height": 1.0
+          }
+        },
+        "fill": "#c04070ff"
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "name": "bed",
+      "clips": [
+        {
+          "id": "c-bed",
+          "asset": "bed",
+          "start": 0,
+          "duration": 10
+        }
+      ]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "name": "taped",
+      "clips": [
+        {
+          "id": "c-colour",
+          "asset": "block",
+          "start": 0,
+          "duration": 5,
+          "vhs": {
+            "chroma_bleed": 0.75,
+            "scanlines": 0.5,
+            "jitter": 0.12,
+            "head_switch": 0.6
+          }
+        },
+        {
+          "id": "c-mono",
+          "asset": "block",
+          "start": 5,
+          "duration": 5,
+          "vhs": {
+            "chroma_bleed": 0.75,
+            "scanlines": 0.5,
+            "jitter": 0.12,
+            "head_switch": 0.6,
+            "mono": true
+          }
+        }
+      ]
+    }
+  ]
+}

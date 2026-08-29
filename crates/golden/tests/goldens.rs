@@ -119,6 +119,7 @@ goldens!(
     spin,
     title,
     title_moved,
+    vhs,
     wash,
     weight,
     zoom

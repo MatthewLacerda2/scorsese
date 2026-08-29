@@ -105,3 +105,65 @@ impl Band {
         Some((y - self.top + 1) as f64 / self.rows as f64)
     }
 }
+
+/// The row arithmetic, named where it is decided. `tests/taping/` asserts what
+/// a darkened row and a torn band *look* like; these are the two numbers that
+/// decide which rows they are.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A count of line pairs down the picture and never a pitch in pixels, so
+    /// the texture is the same at every delivery size — and never finer than
+    /// two rows, because a pattern of two states has nothing finer to be.
+    #[test]
+    fn the_pitch_is_a_count_and_bottoms_out_at_two_rows() {
+        assert_eq!(Lines::new(0.5, 1080).period, 4);
+        assert_eq!(Lines::new(0.5, 480).period, 2);
+        assert_eq!(Lines::new(0.5, 64).period, 2, "and never below it");
+    }
+
+    /// The first half of a period is the dark one. Which half is invisible to
+    /// anyone reasoning about it and decides every reference frame, so it is
+    /// asserted rather than left to whichever way the comparison was written.
+    #[test]
+    fn the_first_half_of_a_period_is_the_dark_half() {
+        let lines = Lines::new(1.0, 1080);
+        assert_eq!((lines.fall(0), lines.fall(1)), (0.4, 0.4));
+        assert_eq!((lines.fall(2), lines.fall(3)), (1.0, 1.0));
+        assert_eq!(lines.fall(4), 0.4, "and the pattern repeats");
+    }
+
+    /// Most of the way to black at `1.0`, and clamped there — a track
+    /// overshooting past the top of the range must not invert a row.
+    #[test]
+    fn a_dark_row_keeps_a_fixed_share_of_its_brightness() {
+        assert_eq!(Lines::new(0.0, 1080).fall(0), 1.0);
+        assert_eq!(Lines::new(0.5, 1080).fall(0), 0.7);
+        assert_eq!(Lines::new(4.0, 1080).fall(0), 0.4);
+        assert_eq!(Lines::new(-1.0, 1080).fall(0), 1.0);
+    }
+
+    /// A twelfth of the height at `1.0`, measured from the bottom.
+    #[test]
+    fn the_band_is_a_fraction_of_the_height_at_the_bottom() {
+        let band = Band::new(1.0, 1000);
+        assert_eq!((band.top, band.rows), (920, 80));
+        assert_eq!(band.depth(919), None, "the row above it is untouched");
+        assert_eq!(band.depth(920), Some(1.0 / 80.0));
+        assert_eq!(band.depth(999), Some(1.0), "and the last row is the worst");
+    }
+
+    /// **Under half a row is no band**, so a knob barely off its stop costs
+    /// nothing rather than tearing one row by a pixel.
+    #[test]
+    fn nothing_worth_tearing_is_no_band_at_all() {
+        for asked in [0.0, -1.0, f64::NAN, 0.006] {
+            let band = Band::new(asked, 1000);
+            assert_eq!(band.rows, 0, "{asked}");
+            assert_eq!(band.depth(999), None, "{asked}");
+        }
+        // 0.006 × 0.08 × 1000 is 0.48, under the bar; 0.007 is 0.56, over it.
+        assert_eq!(Band::new(0.007, 1000).rows, 1);
+    }
+}

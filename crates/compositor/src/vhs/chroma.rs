@@ -89,7 +89,11 @@ pub(crate) fn split(pixel: &[u8]) -> Sample {
 /// one — the same clamp [`crate::aberration`] applies for the same reason, and
 /// here it is the smear and the snow that can push a channel past it.
 pub(crate) fn join(out: &mut Vec<u8>, luma: f64, cb: f64, cr: f64, alpha: f64) {
-    let green = (luma - LUMA.0 * cr - LUMA.2 * cb) / LUMA.1;
+    // Only the correction is divided by green's weight, not the luma with it:
+    // `Y = 0.2126(Y + cr) + 0.7152G + 0.0722(Y + cb)` rearranges to this, and
+    // the version that divides the whole numerator is a picture that goes
+    // green the moment the colour is taken out of it.
+    let green = luma - (LUMA.0 * cr + LUMA.2 * cb) / LUMA.1;
     let channel = |value: f64| value.clamp(0.0, alpha).round() as u8;
     out.push(channel(luma + cr));
     out.push(channel(green));
@@ -140,5 +144,77 @@ pub(crate) fn bleed(row: &[Sample], out: &mut [(f64, f64)], window: usize) {
             cr += row[x].cr - leaving.cr;
         }
         *out = (cb / count, cr / count);
+    }
+}
+
+/// The threshold arithmetic, which nothing outside this file can reach.
+///
+/// Here rather than in `tests/taping/` for [`crate::aberration`]'s reason: that
+/// is where the *effect* is asserted — colour runs rightward and not leftward,
+/// the brightness survives — and an effect is satisfied by more than one
+/// arithmetic. The number this hands back is the whole of what the clip's
+/// `chroma_bleed` means, so the value to name is the number.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A twelfth of the width at `1.0`, and proportionally below it: `0.08`
+    /// times the width, rounded. The factor is what decides how wide the
+    /// heaviest smear anybody can ask for is, and nothing about the shape of
+    /// the picture would say if it changed.
+    #[test]
+    fn the_window_is_a_fraction_of_the_width() {
+        assert_eq!(window(1.0, 1000), 80);
+        assert_eq!(window(0.5, 1000), 40);
+        assert_eq!(window(1.0, 64), 5, "5.12 rounds down");
+        assert_eq!(window(1.0, 80), 6, "6.4 rounds down");
+        assert_eq!(window(1.0, 95), 8, "7.6 rounds up");
+    }
+
+    /// **Under a pixel and a half is no smear**, and a window of one *is* no
+    /// smear — a mean over a single pixel is that pixel. So the smallest window
+    /// this ever returns above one is two, and a keyframe track ramping up from
+    /// zero runs no moving average until it would move something.
+    #[test]
+    fn nothing_worth_smearing_is_a_window_of_one() {
+        assert_eq!(window(0.0, 1000), 1, "nothing is nothing");
+        assert_eq!(window(-1.0, 1000), 1, "and so is a negative");
+        assert_eq!(window(f64::NAN, 1000), 1, "and a non-number");
+        // 0.018 × 0.08 × 1000 is 1.44, under the bar; 0.019 is 1.52, over it.
+        assert_eq!(window(0.018, 1000), 1);
+        assert_eq!(window(0.019, 1000), 2);
+    }
+
+    /// Clamped at the top as well as the bottom, so a keyframe track that
+    /// overshoots past `1.0` asks for the heaviest smear rather than one wider
+    /// than the picture.
+    #[test]
+    fn past_the_top_of_the_range_is_the_top_of_the_range() {
+        assert_eq!(window(4.0, 1000), window(1.0, 1000));
+    }
+
+    /// The window ending at the first pixel is entirely off the raster, so it
+    /// reads that pixel repeated — which is what keeps the left edge of a
+    /// picture the colour it already was instead of a colour nobody put there.
+    #[test]
+    fn the_left_edge_reads_itself_rather_than_nothing() {
+        let row = [
+            Sample {
+                luma: 10.0,
+                cb: 100.0,
+                cr: -50.0,
+                alpha: 255.0,
+            },
+            Sample::default(),
+            Sample::default(),
+            Sample::default(),
+        ];
+        let mut out = [(0.0, 0.0); 4];
+        bleed(&row, &mut out, 4);
+        assert_eq!(out[0], (100.0, -50.0), "the first pixel is its own mean");
+        // And it leaves the window as it goes: a quarter of it by the second
+        // pixel, none of it by the fifth, which there is not one of here.
+        assert_eq!(out[1], (75.0, -37.5));
+        assert_eq!(out[3], (25.0, -12.5));
     }
 }

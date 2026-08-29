@@ -113,3 +113,98 @@ impl Tracking {
         1.0 + RAGGED * grain::value(self.tear_field, y as u64)
     }
 }
+
+/// The displacement arithmetic, named where it is decided. `tests/taping/`
+/// asserts what a wobbling picture *looks* like — whole pixels, varying down
+/// the frame, moving with it — and every one of those claims is satisfied by
+/// more than one set of numbers. These are the numbers.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tracking(jitter: f64, head_switch: f64) -> Tracking {
+        Tracking::new(1234, jitter, head_switch, 1000, 800)
+    }
+
+    /// A twentieth of the **width** at `1.0`, and clamped at both ends of the
+    /// range: a negative wobble is not a wobble the other way, there being no
+    /// such thing to an author holding one number.
+    #[test]
+    fn the_amplitude_is_a_fraction_of_the_width() {
+        let near = |got: f64, want: f64| assert!((got - want).abs() < 1e-9, "{got} against {want}");
+        near(tracking(1.0, 0.0).amplitude, 50.0);
+        near(tracking(0.2, 0.0).amplitude, 10.0);
+        near(tracking(0.0, 0.0).amplitude, 0.0);
+        near(tracking(-1.0, 0.0).amplitude, 0.0);
+        near(tracking(4.0, 0.0).amplitude, 50.0);
+    }
+
+    /// Eight waves down the frame however tall it is, and never a wave of no
+    /// rows — which would divide by zero on the very smallest layer.
+    #[test]
+    fn there_are_eight_waves_down_the_frame() {
+        assert_eq!(tracking(1.0, 0.0).wave, 100);
+        assert_eq!(Tracking::new(1, 1.0, 0.0, 10, 4).wave, 1);
+    }
+
+    /// A third of the width at the bottom row at `1.0`, and clamped like the
+    /// wobble.
+    #[test]
+    fn the_tear_is_a_larger_fraction_of_the_same_width() {
+        let near = |got: f64, want: f64| assert!((got - want).abs() < 1e-9, "{got} against {want}");
+        near(tracking(0.0, 1.0).tear, 300.0);
+        near(tracking(0.0, 0.5).tear, 150.0);
+        near(tracking(0.0, -1.0).tear, 0.0);
+    }
+
+    /// The wave's own value at every boundary, and something strictly between
+    /// its ends in between — which is what says the two are interpolated rather
+    /// than the row's own hash being read directly, and that the interpolation
+    /// is not a step.
+    #[test]
+    fn the_wobble_lands_on_its_hashed_value_at_each_boundary() {
+        let tracking = tracking(1.0, 0.0);
+        for wave in 0..3u64 {
+            let want = grain::value(tracking.wobble, wave);
+            let got = tracking.wobble(wave as usize * tracking.wave);
+            assert!((got - want).abs() < f64::EPSILON, "wave {wave}");
+        }
+        let (from, to) = (
+            grain::value(tracking.wobble, 0),
+            grain::value(tracking.wobble, 1),
+        );
+        let middle = tracking.wobble(tracking.wave / 2);
+        assert!(
+            (middle - (from + to) / 2.0).abs() < 1e-9,
+            "the midpoint of a smoothstep is the midpoint of its ends"
+        );
+        assert_ne!(middle, from);
+        assert_ne!(middle, to);
+    }
+
+    /// Every row outside the band moves by the wobble alone; the tear is added
+    /// to it and never in place of it, so a taped picture does not stop
+    /// wobbling where it starts tearing.
+    #[test]
+    fn the_tear_is_added_to_the_wobble_rather_than_replacing_it() {
+        let tracking = tracking(1.0, 1.0);
+        let wobble = tracking.shift(700, None);
+        let torn = tracking.shift(700, Some(1.0));
+        assert_eq!(
+            torn - wobble,
+            (tracking.tear * tracking.ragged(700)).round() as isize
+        );
+        assert!(torn.abs() > wobble.abs(), "and it is much the larger");
+    }
+
+    /// The wobble stays inside `-1.0..=1.0`, so the amplitude above is the
+    /// whole of what bounds a displacement.
+    #[test]
+    fn the_wobble_never_leaves_its_range() {
+        let tracking = tracking(1.0, 0.0);
+        for y in 0..800 {
+            let wobble = tracking.wobble(y);
+            assert!((-1.0..=1.0).contains(&wobble), "row {y}: {wobble}");
+        }
+    }
+}

@@ -1706,6 +1706,104 @@ scorsese deliberately does not have one: knocking out a white or a black
 background also knocks out every white and black *in the picture* — eyes, teeth,
 the shine on hair. The answer to "I want a cutout" is to shoot or generate
 against a saturated colour.
+### What the tape did to it: `vhs`
+
+```json clip
+{ "id": "c-rooftop", "asset": "shot-a", "start": 0, "duration": 120,
+  "vhs": { "chroma_bleed": 0.4, "noise": 0.2, "scanlines": 0.3, "jitter": 0.1,
+           "head_switch": 0.25 } }
+```
+
+The VHS look, computed. Five numbers and a mode, all five running `0.0` (none)
+to `1.0` (the heaviest this offers), and an absent `vhs` — or `"vhs": {}` — is a
+picture no tape ever held.
+
+**Nothing is composited here.** No overlay footage, no noise plate, no imported
+asset of any kind: every artefact below is arithmetic over the clip's own
+pixels. That is what makes the look free, deterministic, and portable — a
+project carrying it survives `scp -r`, and rendering it twice gives the same
+picture.
+
+| field | what it is | at `1.0` |
+| --- | --- | --- |
+| `chroma_bleed` | colour smeared sideways, as a fraction of the layer's **width** | a twelfth of the picture |
+| `noise` | snow, on the colour as well as the brightness | the heaviest this offers |
+| `scanlines` | how dark the alternate lines go | most of the way to black |
+| `jitter` | the tracking wobble, as a fraction of the layer's **width** | a twentieth of the picture |
+| `head_switch` | the torn band at the bottom, where the heads hand over | a twelfth of the height, torn a third of the width |
+| `mono` | whether the chroma path is modelled at all | — |
+
+**Why one named effect and not five loose ones.** Nobody assembles a VHS look
+from first principles by accident: these five are always set together, and five
+top-level properties that only ever move as a group are one thing wearing five
+hats. And not one `vhs: 0.7` either — a single knob is unfixable the moment it
+is wrong on a shot, because turning the wobble down turns the whole look down
+with it. A named effect *with parameters* is the middle of those two, and it is
+also what squares the generality rule with the Filmora one: every field here is
+a property **type** with a neutral, and none of them is a value somebody chose.
+
+**`chroma_bleed` runs one way only, and that is the point.** A tape recorded
+colour at a small fraction of the brightness's bandwidth, so the colour arrives
+*late*: it runs on past the right-hand side of an edge and the left-hand side
+stays clean. A smear that fringed both sides equally is a lens, which is what
+`aberration` already is, and the two do not look alike. The errors land on the
+colour-difference axes rather than on red, green and blue independently, which
+is where the green and magenta of a bad tape comes from.
+
+**`noise` is the tape's snow and `grade.grain` is the film's emulsion**, and a
+clip may carry both without them cancelling or doubling — each draws its own
+noise field from the same instant. They differ in what they colour: grain is
+monochrome, because silver halide is not coloured; tape snow speckles the
+colour-difference channels too, which is why it reads as coloured.
+
+**`jitter` is the one measurement in this format taken against the width.**
+Everything else — `blur`, `aberration`, a `text` size — is a fraction of the
+layer's height. A tracking error displaces a row *along itself*, so how far it
+can go is bounded by how long the row is, and the width is the honest thing to
+measure it against. It varies smoothly down the frame and changes every frame,
+because a line read late is a fresh accident each time.
+
+**`scanlines` is a count and not a pixel pitch.** The picture is divided into a
+fixed number of line pairs top to bottom, so the same number reads as the same
+texture at 480 lines and at 2160 — the same reasoning that makes a blur a
+fraction rather than a count of pixels.
+
+**`head_switch` sets both how tall the band is and how far it is torn**, because
+a band nobody can see and a tear nobody can see are the same thing not
+happening. The band loses its colour along with its position: what is left of
+the signal where the heads hand over is not a picture with a cast, it is not a
+picture.
+
+**`mono` is a mode, not a preset**, and the difference is whether the chroma
+path is modelled at all. With it there is colour to smear and colour to speckle,
+and the result reads green and magenta. Without one the picture is grey and what
+is left is snow, scanlines and a wobble — which is a different real artefact:
+early black-and-white tape, or a security camera, rather than a rented film. It
+is a field only and not animatable, for the reason `anchor` is one: it decides
+what the other five *mean*, and a mode ramping between two readings over half a
+second is not a thing anybody means.
+
+**A field *and* five animatable properties**, like `grade`: the field is the
+clip's baseline and a `vhs.jitter` track — or any of the other four — takes that
+one number over for the whole clip. A tape that goes wrong for a second and
+settles is one keyframe track.
+
+**Softness and ringing are deliberately absent.** A tape is soft, and `blur`
+already softens a clip honestly and composes with this on the same clip. What is
+left of the sixth artefact is the *ringing* a sharpener leaves on either side of
+an edge, which is a second filter for a halo most people would read as "somebody
+sharpened this". Five knobs that each name an artefact anybody can point at is
+worth more than six where the sixth needs explaining.
+
+**It runs last of everything applied to the layer** — after the key, the grade,
+the blur and the aberration, and before the transform places it. Those are what a
+camera did, or what was taken out of what it saw; a tape is what held the result. It also applies to every layer kind,
+for the reason a grade does: the compositor is handed a rectangle of pixels and
+does not know whether a decoder, a title or a shape produced them.
+
+**What is deliberately out of scope**: emulating a named tape format to spec,
+dropout compensation, timebase-corrector modelling, and any imported overlay of
+noise or tracking damage. The whole point is that this is computed.
 
 ### Playing faster or slower: `speed`
 
@@ -1904,6 +2002,11 @@ attention than the ducking was avoiding.
 | `grade.contrast` | how steep the layer's range is about mid-grey | `1.0` untouched |
 | `grade.vignette` | how much the layer's own corners are darkened | `0.0` none, `1.0` corners black |
 | `grade.grain` | how much grain is laid over the layer, strongest through the midtones | `0.0` none, `1.0` heaviest |
+| `vhs.chroma_bleed` | how far the tape smeared the layer's colour sideways, as a fraction of its own **width** | `0.0` none, `1.0` heaviest |
+| `vhs.noise` | how much snow the tape laid over the layer, on its colour as well as its brightness | `0.0` none, `1.0` heaviest |
+| `vhs.scanlines` | how dark the tape's alternate lines are | `0.0` none, `1.0` darkest |
+| `vhs.jitter` | how far the tape's tracking wobbles the layer sideways, as a fraction of its own **width** | `0.0` holds still |
+| `vhs.head_switch` | how torn the band at the bottom of the layer is, where the tape's heads hand over | `0.0` none, `1.0` worst |
 | `volume` | how loud a clip plays, on either kind of track | `1.0` as recorded, `0.0` silent |
 
 Scale, rotation and flip all pivot on the clip's `origin`, which is the layer's
