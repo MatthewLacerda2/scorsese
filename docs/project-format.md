@@ -1575,7 +1575,10 @@ Frames are enough resolution even for audio. Keyframes are *control points*
 and the value travels continuously between them, so putting the points on the
 frame grid does not make a ramp steppy — it only quantises where the ramp's
 corners sit, to 1/30s, which is well below audible for a fade. `easing` is
-`linear` (default), `ease_in`, `ease_out`, `ease_in_out`, or `hold`.
+`linear` (default), `ease_in`, `ease_out`, `ease_in_out`, or `hold`, and it
+belongs to the keyframe the value travels **from** — so one written on the last
+keyframe of a track does nothing at all, and the ramp into it is the straight
+line it would have been anyway.
 
 `property` is a dotted string — `opacity`, `transform.position.x`, `volume`
 — and core does **not** check that it names a property that exists. That is
@@ -1592,8 +1595,8 @@ A keyframe track may carry an optional `by` naming the tool that generated it:
   "id": "c-bed", "asset": "bed", "start": 0, "duration": 300,
   "keyframes": [
     { "property": "volume", "by": "duck", "keyframes": [
-        { "t": 0, "value": 1.0 },
-        { "t": 9, "value": 0.25, "easing": "ease_out" }
+        { "t": 0, "value": 1.0, "easing": "ease_out" },
+        { "t": 9, "value": 0.25 }
     ]}
   ]
 }

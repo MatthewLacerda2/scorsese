@@ -1128,6 +1128,13 @@ Anything else, a note or an arrangement entry included, is a
 `synth_write`: notes and entries have no names, and addressing them by position
 would mean something different the moment one is inserted above them.
 
+**One number it cannot reach is a track under an automation curve.** A curve on
+`gain` or `pan` *replaces* the track's written value for the whole piece rather
+than scaling it, so setting that field on an automated track writes a number
+nothing plays — and nothing refuses it, because the field is there and the
+value is legal. The build lives in the curve's points, and moving those is a
+`synth_write`. [`recipes.md`](recipes.md#making-something-build) has the rule.
+
 It refuses, **changing nothing**, on a field that recipe's shape does not have,
 a track that is not in the song, or a value the field cannot hold — and the
 refusal says what the recipe does take, so learning that costs no extra call.
