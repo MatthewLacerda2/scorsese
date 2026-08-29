@@ -74,6 +74,7 @@ macro_rules! goldens {
 }
 
 goldens!(
+    aberration,
     alpha,
     alpha_scaled,
     anchored,

@@ -18,7 +18,7 @@ A complete worked example lives in
 
 ```json project
 {
-  "schema_version": 30,
+  "schema_version": 31,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -1540,6 +1540,71 @@ is *behind* a layer and is a different operation in a different place; and
 sharpening, which is not negative blur. A negative number here is not an error —
 it simply softens nothing, the way `0.0` does.
 
+### What the lens did to it: `aberration`
+
+```json clip
+{ "id": "c-rooftop", "asset": "shot-a", "start": 0, "duration": 120, "aberration": 0.0015 }
+```
+
+Radial chromatic aberration: red and blue sampled at slightly different
+distances from the layer's own centre than green, so the three channels separate
+as they move away from the middle of frame. `0.0` — and an absent field — is a
+picture no glass ever touched.
+
+**This is the other half of `grade.grain`.** Grain is the film; this is the
+lens. Every real lens splits the channels a little, because it does not bring
+every wavelength to the same place, and the total absence of that is one of the
+quiet tells of an image that was computed rather than photographed. Ordinary
+values are small — `0.001` to `0.003` on a full-frame plate is a fringe you feel
+rather than see, which is the point of it.
+
+**Zero at the centre, worst at the edges**, which is what makes it read as a
+lens rather than as a misregistration. The displacement grows in proportion to
+how far a pixel sits from the layer's own centre, so a title in the middle of
+frame is untouched by the same number that fringes the corners.
+
+**The unit is a fraction of the layer's own height**, measured at its top and
+bottom edges — half the height out from the centre, which is where the height is
+the thing to measure against. `0.001` on a 1080-tall layer moves red about a
+pixel there and blue about a pixel the other way; at the corners of a 16:9 frame
+it is roughly twice that, because the corners are further out. The same number
+is the same fringing at 1080p and at 4K, for the reason `blur` is a fraction too.
+Anything under half a pixel everywhere on the raster is nothing, and costs
+nothing.
+
+**Red goes outward and blue inward**, stated here so nobody has to render a
+frame to find out: red is sampled *nearer* the centre than the pixel it lands
+on, so a bright edge picks up a warm fringe on its outer side and a cool one on
+its inner side. Green does not move at all — the conventional choice, and the
+one that keeps the picture from softening or shifting as a whole while its
+colours separate.
+
+**One number**, deliberately. Independent per-channel amounts, the
+lateral/longitudinal distinction, and lens distortion of any kind — barrel,
+pincushion, anything needing to know a focal length — are a compositing suite's
+answers to a question nobody editing a video asks.
+
+**A field *and* an animatable property**, like `blur` and `grade`: the field is
+the clip's baseline and an `aberration` keyframe track takes it over for the
+whole clip.
+
+It is `aberration` and not `grade.aberration` for the reason `blur` is not
+`grade.blur`, and more plainly than blur has it. **The test for belonging to a
+grade is one pixel in, one pixel out**; this reads *three* source pixels — one
+per channel, from three different places — to write one, so it fails that test
+as squarely as a neighbourhood does and sits beside a grade rather than inside
+one.
+
+**It runs after the blur, and a clip carrying both gets both.** Which of the two
+runs first was measured rather than argued and turns out not to matter: a
+ten-pixel blur and a two-pixel split on the same plate come out within two levels
+of 255 of each other whichever order they run in, because a blur is a linear
+filter and the split is locally a shift, and those commute. So neither knob eats
+the other, and turning the blur up does not quietly delete the fringing.
+
+**It applies to every layer kind**, for the reason a grade and a blur do: the
+compositor is handed a rectangle of pixels and does not know what produced them.
+
 ### Playing faster or slower: `speed`
 
 ```json clip
@@ -1721,6 +1786,7 @@ attention than the ducking was avoiding.
 | --- | --- | --- |
 | `opacity` | how solid the layer is | `1.0` solid, `0.0` invisible |
 | `blur` | how far the layer's own pixels are softened, as a fraction of its own **height** | `0.0` untouched, higher is blurrier |
+| `aberration` | how far the layer's colour channels are pulled apart from its centre outward, as a fraction of its own **height** | `0.0` untouched, higher fringes harder |
 | `transform.position.x` | offset right, as a fraction of the raster's **width** | `0.0` unmoved |
 | `transform.position.y` | offset down, as a fraction of the raster's **height** | `0.0` unmoved |
 | `transform.scale.x` | width multiplier about the layer's `origin` | `1.0` natural size |

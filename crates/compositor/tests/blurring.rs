@@ -4,7 +4,7 @@
 mod common;
 
 use scorsese_compositor::{BYTES_PER_PIXEL, Frame, Layer, Properties, Resolution, path};
-use scorsese_core::{Frames, Grade};
+use scorsese_core::Frames;
 
 use common::{BLUE, RED, SIZE, composited, constant, pixel, raster, solid, with};
 
@@ -143,14 +143,9 @@ fn a_soft_edge_over_a_bed_carries_no_dark_halo() {
 
 #[test]
 fn blur_is_a_baseline_and_a_track_takes_it_over() {
-    let baseline = Properties::over(Grade::NEUTRAL, 0.03, &[], Frames::ZERO);
+    let baseline = Properties::over(softened(0.03), &[], Frames::ZERO);
     assert!((baseline.blur - 0.03).abs() < f64::EPSILON);
 
-    let animated = Properties::over(
-        Grade::NEUTRAL,
-        0.03,
-        &[constant(path::BLUR, 0.5)],
-        Frames::ZERO,
-    );
+    let animated = Properties::over(softened(0.03), &[constant(path::BLUR, 0.5)], Frames::ZERO);
     assert!((animated.blur - 0.5).abs() < f64::EPSILON);
 }

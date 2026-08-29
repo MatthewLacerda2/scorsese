@@ -1,0 +1,49 @@
+{
+  "schema_version": 31,
+  "name": "aberration",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    { "id": "bed", "kind": "color", "color": "#101010" },
+    {
+      "id": "border",
+      "kind": "shape",
+      "shape": {
+        "geometry": { "rectangle": { "width": 0.92, "height": 0.86 } },
+        "stroke": "#ffffffff",
+        "stroke_width": 0.12
+      }
+    },
+    {
+      "id": "pip",
+      "kind": "shape",
+      "shape": {
+        "geometry": { "rectangle": { "width": 0.16, "height": 0.24 } },
+        "fill": "#ffffffff"
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "name": "bed",
+      "clips": [{ "id": "c-bed", "asset": "bed", "start": 0, "duration": 10 }]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "name": "border",
+      "clips": [
+        { "id": "c-border", "asset": "border", "start": 0, "duration": 10, "aberration": 0.015 }
+      ]
+    },
+    {
+      "id": "v3",
+      "kind": "video",
+      "name": "pip",
+      "clips": [
+        { "id": "c-pip", "asset": "pip", "start": 0, "duration": 10, "aberration": 0.015 }
+      ]
+    }
+  ]
+}

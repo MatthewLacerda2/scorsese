@@ -3,7 +3,7 @@
 mod common;
 
 use scorsese_compositor::{ANIMATED, Properties, Registry, path};
-use scorsese_core::{Frames, Grade, PropertyPath};
+use scorsese_core::{Frames, PropertyPath};
 
 use common::constant;
 
@@ -22,8 +22,7 @@ fn every_published_property_is_one_the_compositor_actually_resolves() {
     // has, so a path that resolved to nothing would leave the defaults standing.
     for property in ANIMATED {
         let animated = Properties::over(
-            Grade::NEUTRAL,
-            0.0,
+            Properties::default(),
             &[constant(property.path, 0.25)],
             Frames::ZERO,
         );

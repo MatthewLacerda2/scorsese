@@ -57,6 +57,15 @@
 //! is. It is a hundred lines that call the other two modules, and it is not a
 //! rendering path of its own — that is the point of it.
 //!
+//! `aberration` is the lens to `grain`'s film: red and blue sampled at slightly
+//! different distances from the layer's own centre than green, so the channels
+//! separate toward the edges of frame and not at all in the middle. It sits
+//! beside `blur` rather than inside the grade for the reason `blur` does, and
+//! more plainly — it reads *three* source pixels to write one, where every
+//! field of a grade reads the one it is writing. Callable in its own right, so
+//! a composite retro look shifts channels through this rather than growing a
+//! second one.
+//!
 //! `grain` is the one operation in the grade that is not a function of the
 //! pixel alone: film-like noise, hashed from the clip, the frame and the pixel
 //! so that it moves without a generator and so that a frame can be drawn by any
@@ -101,6 +110,7 @@
 //! this crate's own business: `scorsese-render`, its only dependent, asks it
 //! for a picture and never for the steps that made one.
 
+mod aberration;
 mod area;
 mod blur;
 pub mod card;

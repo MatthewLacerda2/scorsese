@@ -1,4 +1,4 @@
-//! How a clip looks, as five numbers.
+//! How a clip looks, as six numbers.
 //!
 //! A **grade** is the closed set of colour properties a clip can carry, and the
 //! word "closed" is what keeps this inside the project's scope. scorsese is not

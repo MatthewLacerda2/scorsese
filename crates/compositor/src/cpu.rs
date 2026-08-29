@@ -7,6 +7,7 @@
 use scorsese_core::{Anchor, AnchorX, AnchorY, Origin};
 use tiny_skia::{BlendMode, FilterQuality, PixmapMut, PixmapPaint, PixmapRef, Transform};
 
+use crate::aberration;
 use crate::blur;
 use crate::compose::{CompositeError, Compositor, Layer};
 use crate::frame::{BYTES_PER_PIXEL, Frame};
@@ -32,6 +33,24 @@ pub struct CpuCompositor {
 /// the mirror-image reason: it averages a neighbourhood, and in straight alpha
 /// a fully transparent pixel still carries a colour that the average would drag
 /// into the visible edge as a halo.
+///
+/// The aberration comes **after** the blur, and that one was settled on a
+/// rendered frame — where the answer turned out to be that it does not matter
+/// to the picture. On a 512-tall plate with a ten-pixel blur and a two-pixel
+/// split, the two orders differ by **at most two levels out of 255** anywhere
+/// on the frame, mean 0.05, and the peak colour split either way is the same
+/// number. That is not a coincidence of those numbers: a box blur is linear and
+/// shift-invariant, and the aberration is locally a translation, so the two
+/// commute up to how much the displacement varies across one blur window.
+///
+/// So it is ordered on what is easiest to reason about instead. Everything
+/// above this line answers *what colour is this pixel* — the grade from the
+/// pixel itself, the blur from its neighbourhood, both writing where they read.
+/// The aberration is the first stage that answers *which pixel*, and the
+/// transform below is the second, so the raster is filtered and then displaced
+/// rather than the two interleaving. If the tie ever breaks — a much wider
+/// blur, a much larger split, where the commuting argument weakens — this is
+/// the note saying the measurement was taken and what it measured.
 #[derive(Debug, Default)]
 struct Scratch {
     /// The layer with its grade applied, still straight RGBA.
@@ -41,6 +60,8 @@ struct Scratch {
     premultiplied: Vec<u8>,
     /// The pair a separable blur ping-pongs between — see [`blur`].
     blurred: blur::Buffers,
+    /// The layer with its colour channels pulled apart — see [`aberration`].
+    aberrated: Vec<u8>,
 }
 
 impl CpuCompositor {
@@ -99,6 +120,7 @@ fn draw(
         graded,
         premultiplied,
         blurred,
+        aberrated,
     } = scratch;
     // The grade runs on the layer's own pixels, before anything below moves
     // them: a vignette is measured from this rectangle's centre, and a
@@ -133,6 +155,19 @@ fn draw(
         source_bytes,
         source_resolution,
         blur::radius(layer.properties.blur, source_resolution.height()),
+    );
+    // After the blur, for the reason [`Scratch`] gives, and premultiplied for
+    // the reason the blur is: red and blue arrive from pixels with alpha of
+    // their own, and only in premultiplied form does a transparent neighbour
+    // contribute nothing rather than whatever colour it happened to be stored
+    // as. The
+    // spread is a fraction of the layer's **own** height, resolved here where
+    // that is known — so, like the blur, a scaled-up clip fringes further.
+    let source_bytes = aberration::into(
+        aberrated,
+        source_bytes,
+        source_resolution,
+        aberration::spread(layer.properties.aberration, source_resolution),
     );
     let source = PixmapRef::from_bytes(
         source_bytes,

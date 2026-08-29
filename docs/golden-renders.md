@@ -140,6 +140,49 @@ This is not a hole in the pixel gate so much as its edge, written down. The
 fixtures here are flat synthetic colour, which is what makes their tolerances
 mean what they say.
 
+## What it can hold, and where that line falls: a picture made of edges
+
+The section above is the answer for one effect, not a rule about effects, and
+the next one asked the same question and got the opposite answer. **Chromatic
+aberration** (`aberration`) displaces red and blue against green, which sounds
+like a small change and is not the same *kind* of small change: what it produces
+is a band of solid colour a couple of pixels wide along every edge in the
+picture. That is structure, and structure is what an encoder is built to keep.
+
+Measured on the `aberration` fixture as it stands — the same two-preset
+perturbation grain was measured under, `-crf 18` at `ultrafast` and `veryslow`,
+alongside what the gate scores when the effect is removed and the reference is
+left in place:
+
+| the fixture's `aberration` | encoder noise, two presets | with the effect removed |
+| --- | --- | --- |
+| `0.008` — fringes under a pixel | 0.9597 / 0.77 | 0.9582 / 5.49 |
+| `0.015` — the committed fixture | **0.9889 / 0.98** | **0.8877 / 9.48** |
+| `0.025` | 0.9630 / 0.96 | 0.8128 / 14.68 |
+
+Each cell is worst-block SSIM and mean error; the bars are 0.95 and 2.0.
+
+At `0.015` the gate works and works with room: encoder noise leaves SSIM at
+0.9889, and taking the effect away drops it to 0.8877 — the bar sits between the
+two rather than on top of either, which is exactly what grain could not manage.
+For scale, the `shapes` fixture already in this set scores **0.9708** under the
+same two-preset perturbation, so an aberrated frame is *more* robust to an
+encoder difference than one already gating merges.
+
+**The bottom row of that table is the finding worth keeping.** At `0.008` the
+fringes are under a pixel wide, and the two numbers collapse onto each other —
+0.9597 against 0.9582, both within a whisker of the bar, on opposite sides of a
+question the gate then cannot answer. A sub-pixel split is not structure, it is
+texture, and it fails here for grain's reason. So the rule this fixture is built
+on is: **the split has to be wider than the encoder's smallest honest detail**,
+and a fixture demonstrating a *tasteful* aberration would be a fixture that
+asserts nothing. `0.015` on a 192×108 raster is far past what anybody would put
+in a project, and that is deliberate, the same way `blur_heavy` is.
+
+None of this weakens the section above. Grain is still unfixturable and this is
+still why: the question is never "is the effect subtle" but "is what it produces
+a thing an encoder reproduces", and noise and edges answer it differently.
+
 ## The decoder, which sits upstream of all of that
 
 "Frames are ours to assert on" is a claim about the **encoder** at the end of a
