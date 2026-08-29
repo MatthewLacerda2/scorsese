@@ -199,9 +199,24 @@ that goes with it.
   and `make gates` refuses to run under an override rather than trusting
   anyone to remember. This is unrelated to staggering the compiles above:
   that one is about memory during linking, this one about artifacts colliding.
-- **Serialized merging is not a scaling problem waiting to be solved.** Merge
-  queues and speculative CI answer a question this repo does not have — at one
-  contributor, rebase-and-verify is a minute by hand.
+- **Merging stays serialized; the *waiting* is what may be automated.** Two pull
+  requests can each be green alone and break `main` together, because Rust
+  type-checks and links across crate boundaries — a changed signature in one
+  crate and a new caller in another compile apart and not together. That is the
+  compiler's doing and no tooling repeals it, so **speculative CI and parallel
+  merging stay out**: they answer a question this repo does not have.
+  What *was* wrong is the reason this rule used to give — "at one contributor,
+  rebase-and-verify is a minute by hand". The rebase is a minute; the verify is a
+  **cold CI run**, and it is the verify that serialises. A batch of 31 issues on
+  2026-08-29 paid that twenty times, twice over on one branch whose code did not
+  change between attempts. At a branch a week that is invisible; at fifteen in a
+  night it is most of the wall clock. So automating **who does the waiting** is
+  legitimate work (#491, #492) — under three constraints that are not negotiable:
+  a conflict is never resolved by a machine that cannot say *why* the code is
+  shaped as it is, **local green is never CI green** (see *CI is a different
+  computer* below — it is why golden renders compare with tolerance), and the
+  mutation signal never becomes a precondition, because a gate people route
+  around teaches everyone to route around gates.
 - **A warm `target/` is the fast path.** Cross-machine compilation caches
   (`sccache` and the like) buy cold-build speed by turning off cargo's
   incremental compilation, which is the wrong trade on a machine that is
