@@ -13,8 +13,8 @@
 //! out of.
 //!
 //! The picture is drawn by `scorsese-compositor`, because compositing is ours,
-//! and the samples arrive through [`super::read`], which is the same decode the
-//! level report reads a file with — so the picture and the numbers beside it
+//! and the samples arrive through the same decode the level report reads a
+//! file with — one module for both, so the picture and the numbers beside it
 //! cannot disagree about what is in a file. What this module owns is the
 //! slicing and the handful of facts that go back **in words** beside the
 //! picture: a client that cannot see images still has to get a useful answer,
