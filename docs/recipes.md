@@ -1399,9 +1399,12 @@ of how the document happens to have been typed:
   about the music today, and a glide does not become the exception.
 - **Notes that start together are one moment.** A chord's voices each slide
   from whatever preceded the chord rather than from each other, and the line
-  goes on from the top voice. A chord marked `glide` therefore arrives from one
-  pitch and opens out into its voicing — a real gesture, but not the parallel
-  slide of a hand moving a shape up the neck, which is not writable here.
+  goes on from the top voice. A *block* chord marked `glide` therefore arrives
+  from one pitch and opens out into its voicing — a real gesture, but not the
+  parallel slide of a hand moving a shape up the neck, which is not writable
+  here. An [`arp`](#playing-a-chord-instead-of-stating-it) is the other case:
+  its voices land one after another, so each slides from the one before it and
+  the figure crawls up the chord rather than jumping about in it.
 - **A note the arrangement silenced still counts.** A `tracks` filter drops a
   note from what you hear and never from what was played, so muting eight bars
   cannot change how the ninth is played — and rendering a window of a song

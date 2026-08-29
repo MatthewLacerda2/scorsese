@@ -26,12 +26,13 @@
 //! - **Notes that start together are one moment.** A chord's voices, or two
 //!   notes written on one beat, each slide from whatever preceded the moment
 //!   rather than from each other, and the line goes on from the **highest** of
-//!   them, which is the voice an ear follows. A chord marked `glide`
+//!   them, which is the voice an ear follows. A *block* chord marked `glide`
 //!   therefore arrives from one pitch and opens out into its voicing — a real
 //!   gesture, but not the parallel slide a guitarist means, and a document
-//!   that wants that writes the voices as separate notes. A run of voices at
-//!   *different* onsets is not this case at all: each slides from the one
-//!   before it, which is what an arpeggio should do.
+//!   that wants that writes the voices as separate notes. An
+//!   [`Arp`](super::Arp) is not this case at all, because its voices land at
+//!   different onsets: each slides from the one before it, and the figure
+//!   crawls up the chord instead of jumping about in it.
 //! - **A note that did not sound was still played.** A `tracks` filter and a
 //!   solo skip notes without spending the score, exactly as they spend an
 //!   ordinal without playing one. Two things need that: muting eight bars must
