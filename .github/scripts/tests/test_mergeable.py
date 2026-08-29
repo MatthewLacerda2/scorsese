@@ -27,7 +27,13 @@ mergeable = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(mergeable)
 
 SHA = "c23b7c4f0000000000000000000000000000000a"
-READY = {"isDraft": False, "headRefOid": SHA, "number": 171}
+READY = {
+    "isDraft": False,
+    "headRefOid": SHA,
+    "number": 171,
+    "mergeable": "MERGEABLE",
+    "mergeStateStatus": "CLEAN",
+}
 
 
 def run(**fields: object) -> dict:
@@ -70,6 +76,56 @@ class Judgement(unittest.TestCase):
     def test_no_run_at_all_is_refused_and_named_as_the_bug(self):
         # The headline case: not a red check but an absent one.
         self.assert_refused(mergeable.judge(READY, [], {}), "no ci run exists")
+
+    def test_no_run_on_a_clean_branch_still_warns_off_the_workflow_file(self):
+        """#429's tell, in the branch where the conflict reading does not fire.
+
+        An invalid workflow produces a run — a `push`-event `startup_failure`.
+        Nothing at all does not. A reader here has to be told which of the two
+        they are looking at before they open any YAML.
+        """
+        _, lines = mergeable.judge(READY, [], {})
+        said = " ".join(lines).lower()
+        self.assertIn("startup_failure", said)
+        self.assertIn("conflict", said)
+
+    def test_a_conflicted_branch_is_told_it_is_conflicted_not_told_about_153(self):
+        """#429: the fourth state, and the one whose cause is not in CI at all.
+
+        GitHub cannot build a merge commit for a conflicted branch, so it makes
+        no run. Reported as #153 — "force one with an empty commit" — it sends
+        somebody to do the one thing that cannot work.
+        """
+        conflicted = {**READY, "mergeable": "CONFLICTING", "mergeStateStatus": "DIRTY"}
+        ok, lines = mergeable.judge(conflicted, [], {})
+        said = " ".join(lines).lower()
+        self.assertFalse(ok, lines)
+        self.assertIn("conflicts with `main`", said)
+        self.assertIn("rebase", said)
+        self.assertNotIn("#153", said)
+        self.assertNotIn("empty commit", said)
+
+    def test_either_field_alone_is_enough_to_read_a_conflict(self):
+        # The two lag each other by a poll, and one of them saying so is the
+        # whole evidence there is going to be.
+        for field, value in (("mergeable", "CONFLICTING"), ("mergeStateStatus", "DIRTY")):
+            with self.subTest(field=field):
+                _, lines = mergeable.judge({**READY, field: value}, [], {})
+                self.assertIn("conflicts with `main`", " ".join(lines).lower())
+
+    def test_mergeability_not_yet_computed_is_not_read_as_no_conflict(self):
+        # UNKNOWN means "ask again", and treating it as "not conflicted" is the
+        # confident wrong answer this script exists to refuse.
+        _, lines = mergeable.judge({**READY, "mergeable": "UNKNOWN"}, [], {})
+        self.assertIn("has not finished computing", " ".join(lines))
+
+    def test_a_branch_that_is_merely_behind_is_named_but_not_blamed(self):
+        # BEHIND does not stop a run, so it is reported as context rather than
+        # as the cause — the difference between this and the banner #449 fixed.
+        _, lines = mergeable.judge({**READY, "mergeStateStatus": "BEHIND"}, [], {})
+        said = " ".join(lines)
+        self.assertIn("BEHIND", said)
+        self.assertIn("#153", said)
 
     def test_a_run_still_in_flight_is_refused(self):
         self.assert_refused(
