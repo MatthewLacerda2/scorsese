@@ -39,6 +39,14 @@
 //! state it needs — two past samples per operator — is kept here, because it
 //! belongs to the pass rather than to the arithmetic.
 //!
+//! ## Where the four start
+//!
+//! Not at zero, and not all together: each operator begins somewhere in its
+//! cycle drawn from the note's own seed. [`phase`] carries the argument, which
+//! is stronger here than at any other source in the crate — four operators
+//! stand in six relationships, and in FM a relationship between operators is
+//! not decoration on the timbre, it is the timbre.
+//!
 //! ## Above Nyquist: an operator is dropped, sidebands are not
 //!
 //! An operator whose own frequency is at or past half the sample rate is not
@@ -64,11 +72,33 @@
 //! inaudible. High ratios and high indices belong on low notes, which is also
 //! where they sound like anything.
 
+mod phase;
+mod routing;
+
 use std::f32::consts::TAU;
 
 use super::{feedback, voicing};
 use crate::core::{env, nyquist};
 use crate::patch::{Algorithm, FM_OPERATORS, Operator};
+
+/// The note being played, as against the instrument playing it.
+///
+/// Three scalars that belong to *this* strike rather than to the patch: how
+/// long it is held, which seed decides where its operators start, and the rate
+/// it is rendered at. They travel together because [`render`]'s other four
+/// arguments are the instrument, and because eight arguments in a row is a
+/// signature nobody reads.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Note {
+    /// How long the note is held, in seconds — what the per-operator
+    /// envelopes are driven by.
+    pub(crate) gate: f32,
+    /// The note's seed. It decides one thing here: where the four operators
+    /// start in their cycles. See [`phase`].
+    pub(crate) seed: u64,
+    /// Sample rate, in Hz.
+    pub(crate) rate: f32,
+}
 
 /// Render four-operator FM into `out`, following the per-sample frequency
 /// track `freqs`.
@@ -83,13 +113,40 @@ pub(crate) fn render(
     algorithm: Algorithm,
     operators: &[Operator; FM_OPERATORS],
     levels: &[f32; FM_OPERATORS],
-    gate: f32,
-    rate: f32,
+    note: Note,
 ) {
+    render_from(
+        phase::starts(note.seed),
+        out,
+        freqs,
+        algorithm,
+        operators,
+        levels,
+        note,
+    );
+}
+
+/// [`render`], from a stated set of start phases rather than the note's own
+/// draw.
+///
+/// The seam exists because the two claims a magnitude spectrum cannot make —
+/// that a modulator is *added* into a phase and that a phase walks *forward* —
+/// are made against hand-computed samples, and a hand-computed sample needs to
+/// know where the walk began. Everything above this line is the pass; the draw
+/// is [`render`]'s one job.
+fn render_from(
+    mut phase: [f32; FM_OPERATORS],
+    out: &mut [f32],
+    freqs: &[f32],
+    algorithm: Algorithm,
+    operators: &[Operator; FM_OPERATORS],
+    levels: &[f32; FM_OPERATORS],
+    note: Note,
+) {
+    let Note { gate, rate, .. } = note;
     let ceiling = nyquist::ratio_ceiling(freqs, rate);
     let sounding = voicing::sounding(operators, ceiling);
     let norm = voicing::normaliser(algorithm, levels, &sounding);
-    let mut phase = [0.0f32; FM_OPERATORS];
     let mut fed = [[0.0f32; 2]; FM_OPERATORS];
     for (i, s) in out.iter_mut().enumerate() {
         let t = i as f32 / rate;
@@ -101,7 +158,7 @@ pub(crate) fn render(
                 continue;
             }
             let operator = &operators[op];
-            let bend = modulation(algorithm.modulators(op), levels, &shaped)
+            let bend = routing::modulation(algorithm.modulators(op), levels, &shaped)
                 + feedback::bend(operator.feedback, fed[op]);
             shaped[op] = envelope(operator, t, gate) * (TAU * phase[op] + bend).sin();
             fed[op] = [shaped[op], fed[op][0]];
@@ -114,18 +171,6 @@ pub(crate) fn render(
     }
 }
 
-/// How far this operator's modulators bend its phase, in radians: each one's
-/// level times its already-shaped output.
-///
-/// `mask` only ever names operators below this one, so every value it reads
-/// out of `shaped` was written earlier in the same pass.
-fn modulation(mask: u8, levels: &[f32; FM_OPERATORS], shaped: &[f32; FM_OPERATORS]) -> f32 {
-    (0..FM_OPERATORS)
-        .filter(|op| mask & (1 << op) != 0)
-        .map(|op| levels[op] * shaped[op])
-        .sum()
-}
-
 /// An operator's own envelope at time `t`, or a flat full level for an operator
 /// that does not carry one.
 #[inline]
@@ -136,19 +181,18 @@ fn envelope(operator: &Operator, t: f32, gate: f32) -> f32 {
     }
 }
 
-/// The routings by what they put in the spectrum, the feedback by its bound,
-/// and the envelopes by the fact that they are *per operator*.
-///
-/// Read as levels out of a one-bin DFT, with one window and one fundamental
-/// chosen so that every frequency asserted lands exactly on a bin: 100 Hz over
-/// 4410 samples, a tenth of a second, in which partial `k` completes exactly
-/// `10k` cycles. There is no leakage for a wrong number to hide in.
+/// The pass by what it puts in a *sample*: the feedback by its bound, the
+/// envelopes by the fact that they are per operator, and the two signs a
+/// spectrum cannot see.
 ///
 /// A magnitude is blind to a sign flip and to a phase running backwards, so a
 /// file of nothing but spectral assertions would pass with the whole buffer
 /// negated or every oscillator running in reverse.
 /// [`the_carrier_is_added_in_and_walks_forward`] closes both against
-/// hand-computed samples instead.
+/// hand-computed samples instead, which is why there is a
+/// [`render_from`] to hand stated phases to: a literal worked out by hand has
+/// to know where the walk began. [`routing`] holds the spectral half, and
+/// [`phase`] the draw itself.
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -168,6 +212,10 @@ mod tests {
     /// release unless a test puts it there.
     const HELD: f32 = 10.0;
 
+    /// The one seed every test that is not about seeding plays under, so a
+    /// comparison between two renders is a comparison of the numbers varied.
+    const SEED: u64 = 7;
+
     fn op(ratio: f32, level: f32) -> Operator {
         Operator {
             ratio,
@@ -178,18 +226,55 @@ mod tests {
     }
 
     /// `operators` rendered under `algorithm` at `hz`, over `n` samples, with
-    /// each operator's level taken as written.
+    /// each operator's level taken as written and the note played under
+    /// [`SEED`].
     fn voice(algorithm: Algorithm, operators: [Operator; 4], hz: f32, n: usize) -> Vec<f32> {
+        seeded(algorithm, operators, hz, n, SEED)
+    }
+
+    /// [`voice`], under a stated seed — so the draw is what varies.
+    fn seeded(
+        algorithm: Algorithm,
+        operators: [Operator; 4],
+        hz: f32,
+        n: usize,
+        seed: u64,
+    ) -> Vec<f32> {
         let levels = std::array::from_fn(|i| operators[i].level);
         let mut out = vec![0.0; n];
-        render(
+        let note = Note {
+            gate: HELD,
+            seed,
+            rate: RATE,
+        };
+        render(&mut out, &vec![hz; n], algorithm, &operators, &levels, note);
+        out
+    }
+
+    /// [`voice`], from stated start phases — what the two hand-computed tests
+    /// below read, since a literal has to know where each operator began.
+    fn from_phases(
+        phase: [f32; FM_OPERATORS],
+        algorithm: Algorithm,
+        operators: [Operator; 4],
+        hz: f32,
+        n: usize,
+    ) -> Vec<f32> {
+        let levels = std::array::from_fn(|i| operators[i].level);
+        let mut out = vec![0.0; n];
+        let note = Note {
+            gate: HELD,
+            seed: SEED,
+            rate: RATE,
+        };
+        render_from(
+            phase,
             &mut out,
             &vec![hz; n],
             algorithm,
             &operators,
             &levels,
-            HELD,
-            RATE,
+            note,
         );
         out
     }
@@ -205,129 +290,20 @@ mod tests {
         (2.0 * re.hypot(im) / buf.len() as f64) as f32
     }
 
-    /// Which operators are heard, read out of the spectrum rather than off the
-    /// table: two carriers at different ratios put energy at two frequencies,
-    /// and a routing that hears only the last of them puts energy at one.
-    ///
-    /// Operator 3's level is zero in both, so operator 4 is an unmodulated sine
-    /// either way and the only difference between the two spectra is whether
-    /// operator 2 reached the output at all.
-    #[test]
-    fn a_carrier_is_heard_and_a_modulator_is_not() {
-        let operators = [op(2.0, 0.0), op(1.0, 1.0), op(5.0, 0.0), op(3.0, 1.0)];
-        let twin = voice(Algorithm::Twin, operators, BASE, WINDOW);
-        assert!(
-            (level_at(&twin, BASE) - 0.5).abs() < 1e-3,
-            "operator 2 is a carrier under twin, at half the mix"
-        );
-        assert!((level_at(&twin, BASE * 3.0) - 0.5).abs() < 1e-3);
-        let chain = voice(Algorithm::Chain, operators, BASE, WINDOW);
-        assert!(
-            level_at(&chain, BASE) < 1e-3,
-            "under chain only operator 4 is heard"
-        );
-        assert!(
-            (level_at(&chain, BASE * 3.0) - 1.0).abs() < 1e-3,
-            "and it has the whole mix to itself"
-        );
-    }
-
-    /// A sideband that only one routing produces. Operator 1 modulates all
-    /// three carriers under `fan` and only operator 2 under `pair_and_two`, so
-    /// with operator 3 at ratio 5 the two routings differ at 4×: a sideband
-    /// under one, silence under the other.
-    #[test]
-    fn one_modulator_reaches_three_carriers_only_under_fan() {
-        // Three ratios whose sideband combs never meet: operator 2 puts energy
-        // at whole multiples of the pitch, operator 3 at halves and operator 4
-        // at quarters. Two carriers bent by one modulator would otherwise land
-        // sidebands on each other and could cancel, which is a fact about FM
-        // rather than about the routing under test. The window is doubled so a
-        // quarter-multiple still falls exactly on a bin.
-        let operators = [op(1.0, 3.0), op(1.0, 1.0), op(5.5, 1.0), op(9.25, 1.0)];
-        let fan = voice(Algorithm::Fan, operators, BASE, WINDOW * 2);
-        assert!(
-            level_at(&fan, BASE * 4.5) > 0.05,
-            "operator 3 is bent, so 5.5× − 1× is in the spectrum"
-        );
-        assert!(level_at(&fan, BASE * 8.25) > 0.05, "and so is 9.25× − 1×");
-        let pair = voice(Algorithm::PairAndTwo, operators, BASE, WINDOW * 2);
-        assert!(
-            level_at(&pair, BASE * 4.5) < 1e-3,
-            "under pair_and_two operators 3 and 4 are plain sines"
-        );
-        assert!(level_at(&pair, BASE * 8.25) < 1e-3);
-        assert!(
-            (level_at(&pair, BASE * 5.5) - 1.0 / 3.0).abs() < 1e-3,
-            "and operator 3 is at its own ratio, at a third of the mix"
-        );
-    }
-
-    /// `branch` and `fork` are the same shape numbered differently, which is a
-    /// claim about *where a recipe writes its numbers* — so one operator list
-    /// has to sound different under the two. Operator 2 at level 6 is a
-    /// dead-end modulator of operator 3 under `branch` (whose own level is
-    /// zero, so nothing reaches the carrier) and a modulator of the carrier
-    /// itself under `fork`.
-    #[test]
-    fn the_same_operators_route_differently_under_branch_and_fork() {
-        // The carrier sits at 8× so that every sideband it could grow stays
-        // above zero Hz: a sideband that folded around DC would land back on
-        // one of its own siblings and could cancel it, which is a fact about
-        // FM rather than about the routing under test.
-        let operators = [op(3.0, 0.0), op(1.0, 3.0), op(7.0, 0.0), op(8.0, 1.0)];
-        let branch = voice(Algorithm::Branch, operators, BASE, WINDOW);
-        assert!(
-            (level_at(&branch, BASE * 8.0) - 1.0).abs() < 1e-3,
-            "under branch the carrier is a bare sine"
-        );
-        assert!(level_at(&branch, BASE * 7.0) < 1e-3, "with no sidebands");
-        assert!(level_at(&branch, BASE * 9.0) < 1e-3);
-        let fork = voice(Algorithm::Fork, operators, BASE, WINDOW);
-        assert!(
-            level_at(&fork, BASE * 7.0) > 0.2,
-            "under fork operator 2 bends the carrier, so 8× − 1× is there"
-        );
-        assert!(level_at(&fork, BASE * 9.0) > 0.2, "and 8× + 1×");
-    }
-
-    /// Depth stacks through a chain: under `stack` operator 1 bends operator 3
-    /// directly, and under `chain` it reaches the carrier only through operator
-    /// 2 — whose level is zero here, so the carrier comes out clean.
-    #[test]
-    fn a_chain_carries_depth_only_through_the_operator_between() {
-        let operators = [op(1.0, 5.0), op(1.0, 0.0), op(1.0, 5.0), op(1.0, 1.0)];
-        let chain = voice(Algorithm::Chain, operators, BASE, WINDOW);
-        let stack = voice(Algorithm::Stack, operators, BASE, WINDOW);
-        assert!(
-            spread(&stack) > spread(&chain) * 1.5,
-            "stack {} should out-spread chain {}",
-            spread(&stack),
-            spread(&chain)
-        );
-    }
-
-    /// How much of the buffer's energy sits above the fourth harmonic — a
-    /// brightness measure that a level change alone cannot move, since it is a
-    /// share rather than an amount.
-    fn spread(buf: &[f32]) -> f32 {
-        let high: f32 = (5..20).map(|k| level_at(buf, BASE * k as f32)).sum();
-        let all: f32 = (1..20).map(|k| level_at(buf, BASE * k as f32)).sum();
-        high / all
-    }
-
     /// The two things a magnitude spectrum cannot see: that a modulator is
     /// **added** into the carrier's phase, and that a phase walks **forward**.
     ///
-    /// One carrier at ratio 1 bent by one modulator at ratio 1 and index 2, so
-    /// the buffer is `sin(x + 2 sin x)` with `x = 2π × 100 t` — both phases
-    /// start at zero, and the normalisation is 1 because the lone carrier is
-    /// the only one at any level. The literals below are worked out from that
-    /// formula by hand; recomputing the renderer's expression here would only
-    /// assert that the code agrees with itself.
+    /// One carrier at ratio 1 bent by one modulator at ratio 1 and index 2,
+    /// both **stated** to start at zero, so the buffer is `sin(x + 2 sin x)`
+    /// with `x = 2π × 100 t` — and the normalisation is 1 because the lone
+    /// carrier is the only one at any level. The literals below are worked out
+    /// from that formula by hand; recomputing the renderer's expression here
+    /// would only assert that the code agrees with itself.
     ///
     /// - **Sample 0** is `sin(0)`, which every variant agrees on — it is here
-    ///   to state that the phases start where the module says they do.
+    ///   to state that the pass starts where it was *told* to, which is the
+    ///   half of the claim that survived the operators no longer starting at
+    ///   zero on their own.
     /// - **Sample 40** is `x = 0.5699`, where the three readings are furthest
     ///   apart: `sin(0.5699 + 1.0795) = 0.9969` forward, `sin(0.5699 − 1.0795)
     ///   = −0.4875` if the modulator were subtracted, and `−0.9969` if the
@@ -335,13 +311,14 @@ mod tests {
     ///   other.
     #[test]
     fn the_carrier_is_added_in_and_walks_forward() {
-        let buf = voice(
+        let buf = from_phases(
+            [0.0; FM_OPERATORS],
             Algorithm::Twin,
             [op(1.0, 2.0), op(1.0, 1.0), op(1.0, 0.0), op(1.0, 0.0)],
             BASE,
             512,
         );
-        assert_eq!(buf[0], 0.0, "both phases start at zero, so sin(0)");
+        assert_eq!(buf[0], 0.0, "both phases were stated at zero, so sin(0)");
         assert!(
             (buf[40] - 0.996_94).abs() < 1e-4,
             "sample 40 read {}, where subtracting reads −0.4875 and a \
@@ -352,8 +329,8 @@ mod tests {
 
     /// A note rendered with the feedback path driven as hard as a document can
     /// ask for still stays inside unity and still makes a sound — the bound
-    /// [`feedback`](super::feedback) proves arithmetically, seen through a
-    /// whole buffer.
+    /// [`feedback`](super::super::feedback) proves arithmetically, seen through
+    /// a whole buffer.
     #[test]
     fn feedback_is_bounded_however_it_is_written() {
         let mut driven = op(1.0, 1.0);
@@ -365,33 +342,35 @@ mod tests {
 
     /// The two bends an operator takes — from its modulators and from its own
     /// feedback — are **summed**, not differenced, and only a signed sample can
-    /// say so. Every spectral assertion in this file reads a magnitude, and a
+    /// say so. Every spectral assertion in [`routing`] reads a magnitude, and a
     /// magnitude is blind to the sign of one term inside a phase; the two
     /// tests above each hold one of the terms at zero, so neither notices
     /// either.
     ///
     /// One carrier at ratio 1 with feedback at full, under one modulator at
-    /// ratio 1 and index 2, played at an eighth of the sample rate so a sample
-    /// is an eighth of a cycle and the recursion is short enough to work by
-    /// hand. Sample 0 is `sin(0)`; sample 1 has nothing fed back yet, so it is
-    /// `sin(π/4 + 2 sin(π/4)) = 0.8087` either way. **Sample 2 is where they
-    /// part**: the fed-back average is `π × 0.8087 / 2 = 1.2700`, so the
-    /// forward sum reads `sin(π/2 + 2 + 1.2700) = −0.9917` and a difference
-    /// would read `sin(π/2 + 2 − 1.2700) = +0.7454`. Opposite signs, and more
-    /// than 1.7 apart.
+    /// ratio 1 and index 2, both stated to start at zero, played at an eighth
+    /// of the sample rate so a sample is an eighth of a cycle and the recursion
+    /// is short enough to work by hand. Sample 0 is `sin(0)`; sample 1 has
+    /// nothing fed back yet, so it is `sin(π/4 + 2 sin(π/4)) = 0.8087` either
+    /// way. **Sample 2 is where they part**: the fed-back average is
+    /// `π × 0.8087 / 2 = 1.2700`, so the forward sum reads
+    /// `sin(π/2 + 2 + 1.2700) = −0.9917` and a difference would read
+    /// `sin(π/2 + 2 − 1.2700) = +0.7454`. Opposite signs, and more than 1.7
+    /// apart.
     #[test]
     fn the_modulators_and_the_feedback_add_rather_than_cancel() {
         let mut carrier = op(1.0, 1.0);
         carrier.feedback = 1.0;
         // An eighth of the sample rate: 5512.5 Hz, whose ratio ceiling is
         // exactly 4, so every operator here is comfortably inside it.
-        let buf = voice(
+        let buf = from_phases(
+            [0.0; FM_OPERATORS],
             Algorithm::Twin,
             [op(1.0, 2.0), carrier, op(1.0, 0.0), op(1.0, 0.0)],
             RATE / 8.0,
             8,
         );
-        assert_eq!(buf[0], 0.0, "both phases start at zero");
+        assert_eq!(buf[0], 0.0, "both phases were stated at zero");
         assert!(
             (buf[1] - 0.808_725).abs() < 1e-4,
             "sample 1 read {}",
@@ -404,15 +383,41 @@ mod tests {
         );
     }
 
+    /// The other end of that seam: what [`render`] hands the pass is the
+    /// note's **own** draw, so a strike is reproducible under one seed, a
+    /// different strike under another, and neither of them is the locked
+    /// buffer this source used to produce.
+    ///
+    /// The last assertion is the one with work to do. A determinism test and a
+    /// two-seeds-differ test would both pass on a renderer that had gone back
+    /// to starting every operator at zero and folded the seed in somewhere
+    /// else; only a comparison against the stated-zero render says the draw
+    /// reaches the phases.
+    #[test]
+    fn a_note_starts_where_its_seed_says() {
+        let operators = [op(1.0, 3.0), op(1.41, 2.0), op(2.0, 1.0), op(3.0, 1.0)];
+        let strike = |seed| seeded(Algorithm::Fan, operators, BASE, WINDOW, seed);
+        assert_eq!(strike(11), strike(11), "an fm4 note is not reproducible");
+        assert_ne!(strike(11), strike(12), "two strikes are the same samples");
+        let locked = from_phases([0.0; FM_OPERATORS], Algorithm::Fan, operators, BASE, WINDOW);
+        assert_ne!(strike(11), locked, "the operators still start at zero");
+    }
+
     /// And it is audible: a fed-back operator is no longer a sine, so harmonics
     /// appear that a clean one has none of.
+    ///
+    /// One sounding carrier under `parallel` rather than four copies of it —
+    /// the claim is about an operator, and four of them at four drawn start
+    /// phases sum their harmonics at four different angles, which is a fact
+    /// about the summing and not about the feedback.
     #[test]
     fn feedback_turns_a_sine_into_something_with_harmonics() {
-        let clean = voice(Algorithm::Parallel, [op(1.0, 1.0); 4], BASE, WINDOW);
+        let lone = |operator| [operator, op(1.0, 0.0), op(1.0, 0.0), op(1.0, 0.0)];
+        let clean = voice(Algorithm::Parallel, lone(op(1.0, 1.0)), BASE, WINDOW);
         assert!(level_at(&clean, BASE * 2.0) < 1e-3, "a sine has no second");
         let mut rough = op(1.0, 1.0);
         rough.feedback = 0.9;
-        let buf = voice(Algorithm::Parallel, [rough; 4], BASE, WINDOW);
+        let buf = voice(Algorithm::Parallel, lone(rough), BASE, WINDOW);
         assert!(level_at(&buf, BASE * 2.0) > 0.05, "the fed-back one does");
         assert!(level_at(&buf, BASE * 3.0) > 0.05);
     }

@@ -392,7 +392,18 @@ pub use song::{Excerpt, PatchResolver, Song, Span, Window, render_excerpt, rende
 /// rather than called directly and that is a stage reordered rather than a
 /// field added: the same 33 probes, run once more over the whole branch, all
 /// byte-identical again.
-pub const SYNTH_VERSION: u32 = 6;
+///
+/// **Version 7 is `fm4`'s four operators starting where the note's seed
+/// says**, and it closes the set: no source in this crate is phase-locked any
+/// more. It is version 5's change one source further along, and the ordinary
+/// case of the rule rather than an argument about defaults — the phases were
+/// never in the document, so there is no field to leave unwritten and no
+/// recipe that opts out. Every note of every `fm4` patch is different samples,
+/// and a `fm4` patch is the one this matters most at: four operators stand in
+/// six relationships where `fm2`'s two stand in one, and in FM a relationship
+/// between operators is the timbre rather than a decoration on it.
+///
+pub const SYNTH_VERSION: u32 = 7;
 
 /// Render one note of `patch` and encode it as a stereo 16-bit PCM WAV.
 ///

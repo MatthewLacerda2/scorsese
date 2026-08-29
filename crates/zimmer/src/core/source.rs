@@ -36,12 +36,13 @@ use crate::stereo::Stereo;
 /// belongs to the note (the amp envelope, downstream) or is measured from the
 /// start of it rather than from the gate closing.
 ///
-/// `seed` is the note's. Five of the six sources draw on it: the noise
-/// source is nothing but, the Karplus excitation is a burst of it, and an
-/// oscillator stack, an additive series and a two-operator FM voice each start
-/// their voices somewhere in their cycle rather than all of them at zero — for
-/// the stack that is per oscillator *and* per unison voice, and for `fm2` it is
-/// the carrier and the modulator drawn apart from each other.
+/// `seed` is the note's, and **every** source draws on it: the noise source is
+/// nothing but, the Karplus excitation is a burst of it, and an oscillator
+/// stack, an additive series and an FM voice of either width each start their
+/// voices somewhere in their cycle rather than all of them at zero — for the
+/// stack that is per oscillator *and* per unison voice, for `fm2` the carrier
+/// and the modulator drawn apart from each other, and for `fm4` all four
+/// operators drawn apart, which is six relationships rather than one.
 ///
 /// The sum is resolved here rather than inside [`fm`] so that module stays the
 /// FM algorithm and nothing else: it is handed the index to use, not the
@@ -101,7 +102,8 @@ fn one_waveform(
             vel_index,
         } => {
             let levels = fm_levels(*algorithm, operators, *vel_index, velocity);
-            fm::four::render(out, freqs, *algorithm, operators, &levels, gate, rate);
+            let note = fm::four::Note { gate, seed, rate };
+            fm::four::render(out, freqs, *algorithm, operators, &levels, note);
         }
         Source::Additive { partials } => additive::render(partials, freqs, seed, out, rate),
         // [`render`] sends this one down its own path before narrowing the
