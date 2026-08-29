@@ -191,16 +191,21 @@ impl Keyer {
     /// Linear, because it is the neutral shape and the one anybody turning the
     /// two knobs can predict — the same reason a fade is linear until somebody
     /// says otherwise.
+    /// Written as how far *past* the tolerance the pixel is rather than as
+    /// where it sits, which is what makes a softness of zero an ordinary case
+    /// instead of a division to guard against: any pixel past the tolerance is
+    /// already at or past a ramp of no width. It is also what makes the far end
+    /// a ramp that reaches exactly `1.0` rather than one that has to be
+    /// clamped down to it.
     fn kept(&self, distance: f64) -> f64 {
-        if distance <= self.tolerance {
+        let past = distance - self.tolerance;
+        if past <= 0.0 {
             return 0.0;
         }
-        // A hard cutout is what zero softness means, and it is also the case
-        // the division below cannot express.
-        if self.softness <= 0.0 {
+        if past >= self.softness {
             return 1.0;
         }
-        ((distance - self.tolerance) / self.softness).min(1.0)
+        past / self.softness
     }
 }
 
@@ -413,12 +418,11 @@ mod tests {
     #[test]
     fn a_pixel_with_no_light_in_it_has_no_chromaticity() {
         assert_eq!(chromaticity((0.0, 0.0, 0.0)), None);
-        // DARK is a sum of three channels, so an even split of it sits exactly
-        // on the boundary and is admitted; one level less is not.
-        let third = DARK / 3.0;
-        assert!(chromaticity((third, third, third)).is_some());
-        let under = (DARK - 1.0 / 255.0) / 3.0;
-        assert_eq!(chromaticity((under, under, under)), None);
+        // The boundary itself, in one channel so the sum is exactly `DARK`
+        // rather than three thirds of it that need not add back up: at the
+        // floor a pixel still has a colour, and a hair under it does not.
+        assert!(chromaticity((DARK, 0.0, 0.0)).is_some(), "the floor itself");
+        assert_eq!(chromaticity((DARK - f64::EPSILON, 0.0, 0.0)), None);
         // And it is the whole pixel that survives, alpha included, rather than
         // being keyed on proportions that are noise.
         let keyer = Keyer::new(ChromaKey::new(SCREEN)).expect("a keyer");
@@ -442,14 +446,15 @@ mod tests {
         assert_eq!(keyer.kept(0.0), 0.0, "the screen itself is gone");
         assert_eq!(keyer.kept(0.2), 0.0, "and so is the tolerance exactly");
         assert!((keyer.kept(0.4) - 0.5).abs() < 1e-12, "half way is half");
-        // Within a rounding error of whole at the far end exactly, rather than
-        // whole: `(0.6 − 0.2) / 0.4` is a hair under one in binary, and a byte
-        // of alpha rounds it to 255 either way — `tests/keying/` is where the
-        // claim about the byte is made.
+        // Within a rounding error of whole at the far end, not exactly whole:
+        // `0.6 − 0.2` is a hair under `0.4` in binary, so the ramp is taken
+        // rather than the far branch. A byte of alpha rounds it to 255 either
+        // way, and `tests/keying/` is where the claim about the byte is made.
         assert!(
             (keyer.kept(0.6) - 1.0).abs() < 1e-12,
             "the far end is whole"
         );
+        assert_eq!(keyer.kept(0.61), 1.0, "and past it exactly whole");
         assert_eq!(keyer.kept(9.0), 1.0, "and nothing past it is more");
         // A hair inside each end, so a boundary moved by an epsilon is caught
         // rather than landing on the same answer.
