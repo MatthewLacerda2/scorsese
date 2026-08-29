@@ -54,6 +54,7 @@ use skrifa::{FontRef, GlyphId, MetadataProvider};
 use scorsese_core::Rgba;
 
 use super::colr;
+use super::runs::Drawn;
 use super::shape::{self, Shaped};
 
 mod fallback;
@@ -342,9 +343,18 @@ impl<'a> Face<'a> {
         shape::shape(&self.shaper, text, self.scale, index)
     }
 
-    /// Whether this face has a glyph for `character`.
-    pub(super) fn covers(&self, character: char) -> bool {
-        self.charmap.map(character).is_some()
+    /// How this face draws `character`, if it can at all.
+    ///
+    /// Two lookups rather than one — the `cmap` for a glyph, then the `COLR`
+    /// table for a drawing of it — because *whether* a face has the character
+    /// and *how* it would draw it are separate questions and a variation
+    /// selector asks the second. See [`super::super::runs::Drawn`].
+    pub(super) fn draws(&self, character: char) -> Drawn {
+        match self.charmap.map(character) {
+            None => Drawn::Not,
+            Some(id) if self.colours.get(id).is_some() => Drawn::Colour,
+            Some(_) => Drawn::Outline,
+        }
     }
 
     /// Glyph `id`'s colour drawing, when the face has one for it.

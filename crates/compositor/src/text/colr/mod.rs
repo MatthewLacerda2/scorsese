@@ -24,26 +24,30 @@
 //! an [`Unpaintable`], and the render says so in its report. Silence is the bug
 //! font fallback exists to end; reintroducing it one layer down would be
 //! absurd.
+//!
+//! **Three files, by what each answers to.** [`brush`] is the colours — `CPAL`
+//! and the gradients, said in tiny-skia's words. [`canvas`] is the stacks — the
+//! transform, clip and layer discipline the callbacks are. What is left here is
+//! the entry point and the two translations that are pure tables: skrifa's
+//! matrix in tiny-skia's row order, and the format's compositing modes in
+//! tiny-skia's names.
 
-use skrifa::GlyphId;
-use skrifa::color::{Brush, ColorGlyph, ColorPainter, CompositeMode, Transform as Paint};
+use skrifa::color::{ColorGlyph, CompositeMode, Transform as Paint};
 use skrifa::outline::OutlinePen;
-use skrifa::raw::types::BoundingBox;
-use tiny_skia::{
-    BlendMode, FillRule, Mask, Paint as Brushed, Path, PathBuilder, Pixmap, PixmapPaint, Rect,
-    Transform,
-};
+use tiny_skia::{BlendMode, Path, PathBuilder, Pixmap, Transform};
 
 use scorsese_core::Rgba;
 
 use super::font::Face;
 
 mod brush;
+mod canvas;
 
 pub use brush::Unpaintable;
 pub(in crate::text) use brush::palette;
 
-use brush::{Palette, report, shader};
+use brush::report;
+use canvas::Canvas;
 
 /// Draws `glyph`'s colour layers into `into`, with the glyph's origin at
 /// `origin` on the raster.
@@ -58,207 +62,12 @@ pub(super) fn paint(
     foreground: Rgba,
     said: &mut Vec<Unpaintable>,
 ) {
-    // The walk reports in font units with y upwards, and a baseline is a row of
-    // the raster with y downwards — so the scale that takes one to the other is
-    // negative in y, and the origin lands where the pen is.
-    let scale = face.scale();
-    let base = Transform::from_row(scale, 0.0, 0.0, -scale, origin.0, origin.1);
-    let size = (into.width(), into.height());
-    let mut canvas = Canvas {
-        into,
-        layers: Vec::new(),
-        transforms: vec![base],
-        clips: Vec::new(),
-        face,
-        palette: Palette {
-            entries: face.palette(),
-            foreground,
-        },
-        size,
-        said,
-    };
+    let mut canvas = Canvas::new(into, face, origin, foreground, said);
     if let Err(error) = glyph.paint(face.location(), &mut canvas) {
         report(
             said,
             format!("a colour glyph its own font describes wrongly: {error}"),
         );
-    }
-}
-
-/// The raster a colour glyph is walked onto, and the stacks the walk keeps.
-struct Canvas<'a, 'f> {
-    into: &'a mut Pixmap,
-    /// Layers opened by a compositing paint, innermost last. `None` is one that
-    /// could not be allocated, which draws into whatever is beneath it rather
-    /// than unbalancing the stack.
-    layers: Vec<Option<Pixmap>>,
-    /// The current matrix is the last, already concatenated. Never empty: the
-    /// base transform below it is never popped.
-    transforms: Vec<Transform>,
-    /// The clip in force is the last, already intersected with every one
-    /// outside it. Empty is no clip at all.
-    clips: Vec<Mask>,
-    face: &'a Face<'f>,
-    palette: Palette<'a>,
-    size: (u32, u32),
-    said: &'a mut Vec<Unpaintable>,
-}
-
-impl Canvas<'_, '_> {
-    fn matrix(&self) -> Transform {
-        *self
-            .transforms
-            .last()
-            .expect("the base transform is never popped")
-    }
-
-    /// Fills a path already in raster space, through whatever clip is in force,
-    /// onto whichever layer is being drawn into.
-    fn fill_path(&mut self, path: &Path, paint: &Brushed<'_>) {
-        let Self {
-            into,
-            layers,
-            clips,
-            ..
-        } = self;
-        let target: &mut Pixmap = match layers.iter_mut().rev().flatten().next() {
-            Some(layer) => layer,
-            None => into,
-        };
-        // Non-zero winding, which is what the format specifies and what an
-        // outline with a counter in it needs to keep the counter open.
-        target.fill_path(
-            path,
-            paint,
-            FillRule::Winding,
-            Transform::identity(),
-            clips.last(),
-        );
-    }
-
-    /// One glyph's outline in raster space, ready to fill or to clip with.
-    fn outline(&self, id: GlyphId) -> Option<Path> {
-        let mut pen = Trace(PathBuilder::new());
-        self.face.unscaled(id, &mut pen);
-        pen.0.finish()?.transform(self.matrix())
-    }
-
-    /// Narrows the clip in force by `path`, which is already in raster space.
-    fn narrow(&mut self, path: &Path) {
-        let mut mask = match self.clips.last() {
-            Some(outer) => outer.clone(),
-            // No clip yet means everything is drawable, which is an all-white
-            // mask rather than the all-black one a fresh `Mask` is.
-            None => {
-                let area = (self.size.0 as usize) * (self.size.1 as usize);
-                let Some(open) = Mask::from_vec(vec![u8::MAX; area], into_size(self.size)) else {
-                    return;
-                };
-                open
-            }
-        };
-        mask.intersect_path(path, FillRule::Winding, true, Transform::identity());
-        self.clips.push(mask);
-    }
-
-    fn brushed(&mut self, brush: &Brush<'_>, over: Option<Paint>) -> Option<Brushed<'static>> {
-        // A brush's own transform applies inside the current one: the gradient
-        // is described in the space the shape is described in.
-        let space = over.map_or_else(
-            || self.matrix(),
-            |extra| self.matrix().pre_concat(affine(extra)),
-        );
-        let shader = shader(brush, &self.palette, space, self.said)?;
-        Some(Brushed {
-            shader,
-            anti_alias: true,
-            ..Brushed::default()
-        })
-    }
-}
-
-impl ColorPainter for Canvas<'_, '_> {
-    fn push_transform(&mut self, transform: Paint) {
-        self.transforms
-            .push(self.matrix().pre_concat(affine(transform)));
-    }
-
-    fn pop_transform(&mut self) {
-        // The base transform stays: popping it would leave the walk with no
-        // way back to the raster at all.
-        if self.transforms.len() > 1 {
-            self.transforms.pop();
-        }
-    }
-
-    fn push_clip_glyph(&mut self, glyph_id: GlyphId) {
-        if let Some(path) = self.outline(glyph_id) {
-            self.narrow(&path);
-        }
-    }
-
-    fn push_clip_box(&mut self, clip_box: BoundingBox<f32>) {
-        let width = clip_box.x_max - clip_box.x_min;
-        let height = clip_box.y_max - clip_box.y_min;
-        let Some(rect) = Rect::from_xywh(clip_box.x_min, clip_box.y_min, width, height) else {
-            return;
-        };
-        let Some(path) = PathBuilder::from_rect(rect).transform(self.matrix()) else {
-            return;
-        };
-        self.narrow(&path);
-    }
-
-    fn pop_clip(&mut self) {
-        self.clips.pop();
-    }
-
-    fn fill(&mut self, brush: Brush<'_>) {
-        // No shape of its own: this fills the clip in force, which is why the
-        // rectangle is the whole raster.
-        let Some(rect) = Rect::from_xywh(0.0, 0.0, self.size.0 as f32, self.size.1 as f32) else {
-            return;
-        };
-        let Some(paint) = self.brushed(&brush, None) else {
-            return;
-        };
-        self.fill_path(&PathBuilder::from_rect(rect), &paint);
-    }
-
-    fn fill_glyph(&mut self, glyph_id: GlyphId, brush_transform: Option<Paint>, brush: Brush<'_>) {
-        // Overridden rather than left to the default, which would build a
-        // full-raster mask for every fill. A glyph filled with its own brush is
-        // what almost every layer of almost every emoji is.
-        let Some(path) = self.outline(glyph_id) else {
-            return;
-        };
-        let Some(paint) = self.brushed(&brush, brush_transform) else {
-            return;
-        };
-        self.fill_path(&path, &paint);
-    }
-
-    fn push_layer(&mut self, _composite_mode: CompositeMode) {
-        self.layers.push(Pixmap::new(self.size.0, self.size.1));
-    }
-
-    fn pop_layer_with_mode(&mut self, composite_mode: CompositeMode) {
-        let Some(layer) = self.layers.pop() else {
-            return;
-        };
-        let Some(layer) = layer else {
-            return;
-        };
-        let paint = PixmapPaint {
-            blend_mode: blend(composite_mode, self.said),
-            ..PixmapPaint::default()
-        };
-        let Self { into, layers, .. } = self;
-        let target: &mut Pixmap = match layers.iter_mut().rev().flatten().next() {
-            Some(under) => under,
-            None => into,
-        };
-        target.draw_pixmap(0, 0, layer.as_ref(), &paint, Transform::identity(), None);
     }
 }
 
@@ -313,17 +122,21 @@ fn blend(mode: CompositeMode, said: &mut Vec<Unpaintable>) -> BlendMode {
     }
 }
 
-fn into_size(size: (u32, u32)) -> tiny_skia::IntSize {
-    tiny_skia::IntSize::from_wh(size.0.max(1), size.1.max(1))
-        .unwrap_or_else(|| tiny_skia::IntSize::from_wh(1, 1).expect("a one-pixel size is legal"))
-}
-
 /// Collects an outline into a path, in the units it arrives in.
 ///
 /// Unlike [`super::draw::Outlines`] it does not flip anything: a colour glyph
 /// is walked under a matrix that already carries the flip, and doing it twice
 /// would draw every emoji upside down.
+#[derive(Default)]
 struct Trace(PathBuilder);
+
+impl Trace {
+    /// The path traced so far, or `None` for an outline with nothing in it —
+    /// which is what an empty glyph, or one the face could not draw, leaves.
+    fn finish(self) -> Option<Path> {
+        self.0.finish()
+    }
+}
 
 impl OutlinePen for Trace {
     fn move_to(&mut self, x: f32, y: f32) {
@@ -344,5 +157,139 @@ impl OutlinePen for Trace {
 
     fn close(&mut self) {
         self.0.close();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+
+    use skrifa::color::CompositeMode as Mode;
+
+    use super::*;
+
+    /// Every compositing mode the format defines, and the tiny-skia blend each
+    /// one is.
+    ///
+    /// Written out rather than derived from [`blend`]: a table generated from
+    /// the code would agree with it after a mistake exactly as well as before
+    /// one. This is the specification's list, in the specification's order —
+    /// `COLR`'s composite modes are numbered 0 to 27 — so a reader can check it
+    /// against the document rather than against us.
+    const TABLE: [(Mode, BlendMode); 28] = [
+        (Mode::Clear, BlendMode::Clear),
+        (Mode::Src, BlendMode::Source),
+        (Mode::Dest, BlendMode::Destination),
+        (Mode::SrcOver, BlendMode::SourceOver),
+        (Mode::DestOver, BlendMode::DestinationOver),
+        (Mode::SrcIn, BlendMode::SourceIn),
+        (Mode::DestIn, BlendMode::DestinationIn),
+        (Mode::SrcOut, BlendMode::SourceOut),
+        (Mode::DestOut, BlendMode::DestinationOut),
+        (Mode::SrcAtop, BlendMode::SourceAtop),
+        (Mode::DestAtop, BlendMode::DestinationAtop),
+        (Mode::Xor, BlendMode::Xor),
+        (Mode::Plus, BlendMode::Plus),
+        (Mode::Screen, BlendMode::Screen),
+        (Mode::Overlay, BlendMode::Overlay),
+        (Mode::Darken, BlendMode::Darken),
+        (Mode::Lighten, BlendMode::Lighten),
+        (Mode::ColorDodge, BlendMode::ColorDodge),
+        (Mode::ColorBurn, BlendMode::ColorBurn),
+        (Mode::HardLight, BlendMode::HardLight),
+        (Mode::SoftLight, BlendMode::SoftLight),
+        (Mode::Difference, BlendMode::Difference),
+        (Mode::Exclusion, BlendMode::Exclusion),
+        (Mode::Multiply, BlendMode::Multiply),
+        (Mode::HslHue, BlendMode::Hue),
+        (Mode::HslSaturation, BlendMode::Saturation),
+        (Mode::HslColor, BlendMode::Color),
+        (Mode::HslLuminosity, BlendMode::Luminosity),
+    ];
+
+    #[test]
+    fn every_mode_the_format_defines_maps_to_the_blend_that_names_it() {
+        let mut said = Vec::new();
+        for (mode, blends_as) in TABLE {
+            assert_eq!(blend(mode, &mut said), blends_as, "{mode:?}");
+        }
+        assert!(
+            said.is_empty(),
+            "every mode the format defines has an equivalent, so none of them \
+             is unpaintable: {said:?}"
+        );
+    }
+
+    #[test]
+    fn no_two_modes_are_the_same_blend() {
+        // What the table above is for. A translation that sent half the modes
+        // to `SourceOver` would still produce a plausible coloured emoji, and
+        // every end-to-end assertion in the crate would go on passing — so the
+        // claim that has to be made explicitly is that the modes are told
+        // apart at all.
+        let blends: HashSet<String> = TABLE.iter().map(|(_, to)| format!("{to:?}")).collect();
+        assert_eq!(blends.len(), TABLE.len());
+    }
+
+    #[test]
+    fn a_mode_this_build_does_not_know_is_said_out_loud_and_drawn_over() {
+        // Only a malformed file reaches this, and it is drawn rather than
+        // dropped — but never silently, which is the rule the whole module is
+        // downstream of.
+        let mut said = Vec::new();
+        assert_eq!(blend(Mode::Unknown, &mut said), BlendMode::SourceOver);
+        assert_eq!(said.len(), 1, "and it said so: {said:?}");
+    }
+
+    #[test]
+    fn a_matrix_keeps_the_map_it_describes_through_the_change_of_order() {
+        // The one place a transposition would hide: both libraries list six
+        // terms and neither lists them in the other's order. Six different
+        // numbers and a point that is neither symmetric nor at the origin, so
+        // no swapped pair can come out right by coincidence.
+        let matrix = Paint {
+            xx: 2.0,
+            yx: 3.0,
+            xy: 5.0,
+            yy: 7.0,
+            dx: 11.0,
+            dy: 13.0,
+        };
+        let mut mapped = [tiny_skia::Point::from_xy(1.0, 10.0)];
+        affine(matrix).map_points(&mut mapped);
+        assert_eq!(
+            mapped[0],
+            tiny_skia::Point::from_xy(2.0 + 5.0 * 10.0 + 11.0, 3.0 + 7.0 * 10.0 + 13.0),
+            "x' = xx·x + xy·y + dx and y' = yx·x + yy·y + dy"
+        );
+    }
+
+    #[test]
+    fn the_pen_traces_every_kind_of_segment_and_flips_nothing() {
+        // Each callback is its own mutation: a `quad_to` that dropped its
+        // control point or a `close` that did nothing would change a glyph's
+        // shape without changing where it sits, which is what the pixel
+        // assertions elsewhere measure.
+        let mut pen = Trace::default();
+        pen.move_to(10.0, 20.0);
+        pen.line_to(30.0, 20.0);
+        pen.quad_to(40.0, 40.0, 30.0, 60.0);
+        pen.curve_to(20.0, 70.0, 15.0, 80.0, 10.0, 90.0);
+        pen.close();
+        let path = pen.finish().expect("four segments and a close are a path");
+        assert_eq!(path.segments().count(), 5, "one verb per callback");
+        let bounds = path.bounds();
+        // y arrives 20 and stays 20: the flip lives in the matrix the walk
+        // runs under, and doing it here as well would draw every emoji upside
+        // down.
+        assert_eq!((bounds.left(), bounds.top()), (10.0, 20.0));
+        assert!(bounds.right() >= 30.0 && bounds.bottom() >= 90.0);
+    }
+
+    #[test]
+    fn an_outline_with_nothing_in_it_is_no_path_at_all() {
+        // What a glyph the face could not draw leaves, and the reason every
+        // caller of `outline` is written to skip rather than to fill.
+        assert!(Trace::default().finish().is_none());
     }
 }

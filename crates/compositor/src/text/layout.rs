@@ -160,3 +160,42 @@ fn push(lines: &mut Vec<Line>, faces: &Faces<'_>, text: String) {
     let shaped = faces.shape(&text);
     lines.push(Line { text, shaped });
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::text::font::Font;
+
+    use super::*;
+
+    /// A word exactly as wide as its line stays on it; a hair wider does not.
+    ///
+    /// The boundary [`break_word`] is written on, and the mutation report is
+    /// where the gap showed: the comparison survived being loosened to `>=`,
+    /// because nothing had ever handed it a prefix measuring *exactly* the
+    /// width it was given. Loosened, it drops the last cluster of every word
+    /// that just fits — which is not a wrapping bug anybody would look at and
+    /// call one, because the line still ends where a line should.
+    ///
+    /// Six of one letter, so that both halves measure the same and the second
+    /// line's fit is the same claim as the first's.
+    #[test]
+    fn a_word_exactly_as_wide_as_its_line_is_broken_after_it_and_not_before() {
+        let font = Font::sans();
+        let faces = font.faces(20.0);
+        let exact = measure(&faces, "aaa");
+        let broken = |max_width: f32| {
+            wrap("aaaaaa", &faces, max_width, 8)
+                .into_iter()
+                .map(|line| line.text)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(broken(exact), vec!["aaa".to_owned(), "aaa".to_owned()]);
+        // …and half a pixel narrower does not fit, so the equality above is
+        // the thing being asserted rather than a rounding accident.
+        assert_eq!(
+            broken(exact - 0.5).first().map(String::as_str),
+            Some("aa"),
+            "one pixel over the line is over the line"
+        );
+    }
+}

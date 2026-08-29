@@ -9,6 +9,7 @@ mod faces;
 mod fallback;
 mod ink;
 mod kerning;
+mod presentation;
 mod shipped;
 mod spacing;
 mod stroke;

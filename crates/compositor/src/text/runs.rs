@@ -14,6 +14,18 @@
 //! than like a bug, and that no error mentions. So a cluster is chosen for as a
 //! unit: whichever face can set all of it, sets all of it.
 //!
+//! **A cluster can also say how it wants to be drawn.** `U+FE0F` is the emoji
+//! presentation selector — *draw the one before me in colour* — and `U+FE0E` is
+//! its opposite. Neither is a character any face draws, but the presence of one
+//! is a statement about which face should win, and it is the half of emoji a
+//! phone keyboard actually emits: `❤️` is `U+2764 U+FE0F`, never the bare
+//! `U+2764`, and the same holds for `☀️ ⚠️ ✔️ ▶️` and most of Miscellaneous
+//! Symbols. A chain that only asked *can this face say it* would hand every one
+//! of those to the named text face, which has a small black outline of it, and
+//! the author would get that instead of the colour drawing they chose — nothing
+//! dropped, nothing reported, and the wrong picture on the frame. So coverage
+//! is a three-way answer ([`Drawn`]) rather than a yes or no.
+//!
 //! There is no Unicode segmentation crate behind this and there does not need
 //! to be. What decides a boundary here is a short list of characters that
 //! *continue* what came before them — joiners, modifiers, variation selectors,
@@ -32,17 +44,90 @@ pub(super) struct Run {
     pub range: Range<usize>,
 }
 
-/// Splits `text` into runs, asking `covers(face, character)` which faces can
+/// How a face can draw one character.
+///
+/// Three answers rather than two, because a variation selector asks about the
+/// third. `U+FE0F` wants the colour drawing and `U+FE0E` wants the outline, and
+/// a chain that only knew *whether* a face had a glyph could satisfy neither —
+/// every face that has the character at all would look like the same answer.
+///
+/// The ordering is coverage: [`Drawn::Not`] is the only one that is not a
+/// glyph, which is what [`Drawn::at_all`] asks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum Drawn {
+    /// The face has no glyph for it.
+    Not,
+    /// One outline, filled in whatever colour the caption is set in.
+    Outline,
+    /// The face's own layered drawing, in the font's own colours — a `COLR`
+    /// glyph, which [`super::colr`] walks rather than fills.
+    Colour,
+}
+
+impl Drawn {
+    /// Whether the face can say it at all, which is the coverage question and
+    /// the only one asked of a cluster carrying no selector.
+    pub(super) fn at_all(self) -> bool {
+        self != Self::Not
+    }
+}
+
+/// What a cluster's variation selector asks of the face that sets it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Wanted {
+    /// `U+FE0F`: the colour drawing, wherever in the chain one is.
+    Colour,
+    /// `U+FE0E`: the outline, in preference to a colour drawing of the same
+    /// character.
+    Outline,
+    /// No selector, so the chain's order is the whole of the answer and the
+    /// named face wins whatever it has.
+    Either,
+}
+
+impl Wanted {
+    /// What `cluster` asks for. The first selector in it decides: a cluster
+    /// carrying both is malformed, and reading the first is the only reading
+    /// that does not depend on how far the malformation went.
+    fn of(cluster: &str) -> Self {
+        cluster
+            .chars()
+            .find_map(|character| match character {
+                EMOJI_SELECTOR => Some(Self::Colour),
+                TEXT_SELECTOR => Some(Self::Outline),
+                _ => None,
+            })
+            .unwrap_or(Self::Either)
+    }
+
+    /// Whether a face drawing the base character as `drawn` gives what was
+    /// asked for.
+    fn met_by(self, drawn: Drawn) -> bool {
+        match self {
+            Self::Colour => drawn == Drawn::Colour,
+            Self::Outline => drawn == Drawn::Outline,
+            Self::Either => drawn.at_all(),
+        }
+    }
+}
+
+/// The emoji presentation selector: *draw the one before me in colour*.
+const EMOJI_SELECTOR: char = '\u{fe0f}';
+
+/// The text presentation selector, which asks for the opposite.
+const TEXT_SELECTOR: char = '\u{fe0e}';
+
+/// Splits `text` into runs, asking `draws(face, character)` how each face can
 /// say what.
 ///
 /// `faces` is how many there are to try. A cluster nothing covers is given to
 /// face `0`, which is what keeps the old behaviour exactly: it shapes to
 /// `.notdef`, [`super::shape`] drops it with its advance, and
 /// [`super::font::Font::uncovered`] is what says so.
-pub(super) fn split(text: &str, faces: usize, covers: impl Fn(usize, char) -> bool) -> Vec<Run> {
+pub(super) fn split(text: &str, faces: usize, draws: impl Fn(usize, char) -> Drawn) -> Vec<Run> {
     let mut runs: Vec<Run> = Vec::new();
     for cluster in clusters(text) {
-        let face = choose(&text[cluster.clone()], faces, &covers);
+        let face = choose(&text[cluster.clone()], faces, &draws);
         // Neighbouring clusters on the same face are one run, so a word is
         // shaped as a word: kerning is a per-pair feature, and a line split
         // into one run per character would lose every pair in it.
@@ -57,21 +142,41 @@ pub(super) fn split(text: &str, faces: usize, covers: impl Fn(usize, char) -> bo
     runs
 }
 
-/// The first face that can set the whole of `cluster`, falling back to the
-/// first that can set its base character, and to face `0` when none can.
+/// The face that sets `cluster`: the first one that can say all of it and
+/// draws it the way the cluster asked, then the first that can say all of it
+/// at all, and face `0` when none can.
 ///
-/// Two questions rather than one, because a cluster can be mixed: `1️⃣` is a
-/// digit every text face has followed by an enclosing keycap almost none does.
-/// Asking only about the base would hand that to the text face and lose the
-/// keycap; asking only about the whole would find no face at all and lose both.
-fn choose(cluster: &str, faces: usize, covers: &impl Fn(usize, char) -> bool) -> usize {
+/// **Coverage narrows the field and the selector chooses within it**, in that
+/// order and never the other way round. Two questions about coverage rather
+/// than one, because a cluster can be mixed: `1️⃣` is a digit every text face
+/// has followed by an enclosing keycap almost none does. Asking only about the
+/// base would hand that to the text face and lose the keycap; asking only about
+/// the whole would find no face at all and lose both.
+///
+/// A selector that no face in the field can honour is dropped rather than
+/// obeyed — `⭐︎` asks for an outline and only the emoji face has a star at all,
+/// so it is drawn in colour. The alternative is drawing nothing, which is the
+/// silence this whole chain exists to end.
+fn choose(cluster: &str, faces: usize, draws: &impl Fn(usize, char) -> Drawn) -> usize {
     let significant = || cluster.chars().filter(|c| !is_ignorable(*c));
-    let whole = (0..faces).find(|face| significant().all(|c| covers(*face, c)));
-    whole
-        .or_else(|| {
-            let base = significant().next()?;
-            (0..faces).find(|face| covers(*face, base))
-        })
+    let Some(base) = significant().next() else {
+        return 0;
+    };
+    let sets_all = |face: usize| significant().all(|c| draws(face, c).at_all());
+    // Whether any face can set the whole cluster decides which of the two
+    // coverage questions is being asked, so it is asked once up front.
+    let whole = (0..faces).any(sets_all);
+    let candidate = |face: usize| {
+        if whole {
+            sets_all(face)
+        } else {
+            draws(face, base).at_all()
+        }
+    };
+    let wanted = Wanted::of(cluster);
+    (0..faces)
+        .find(|face| candidate(*face) && wanted.met_by(draws(*face, base)))
+        .or_else(|| (0..faces).find(|face| candidate(*face)))
         .unwrap_or(0)
 }
 
@@ -179,14 +284,19 @@ fn is_regional(character: char) -> bool {
 mod tests {
     use super::*;
 
-    /// A chain of two: face 0 takes ASCII, face 1 takes anything at all.
+    /// A chain of two: face 0 takes ASCII as outlines, face 1 takes anything at
+    /// all and draws everything but ASCII in colour.
     ///
     /// Face 1 covering the ASCII as well is the shape the real chain has and
     /// not a convenience — Noto Color Emoji maps the digits, because a keycap
     /// is a digit with an enclosing mark over it. A fallback that covered only
     /// what the first face lacked could never set one.
-    fn ascii_then_anything(face: usize, character: char) -> bool {
-        face > 0 || character.is_ascii()
+    fn ascii_then_anything(face: usize, character: char) -> Drawn {
+        match (face, character.is_ascii()) {
+            (_, true) => Drawn::Outline,
+            (0, false) => Drawn::Not,
+            (_, false) => Drawn::Colour,
+        }
     }
 
     fn faced(text: &str) -> Vec<(usize, &str)> {
@@ -194,6 +304,24 @@ mod tests {
             .into_iter()
             .map(|run| (run.face, &text[run.range]))
             .collect()
+    }
+
+    /// A chain where **both** faces have the character, one as an outline and
+    /// one in colour — which is exactly the case a presentation selector is
+    /// about, and the case a two-valued coverage answer could not describe.
+    fn both_have_it(face: usize, _: char) -> Drawn {
+        if face == 0 {
+            Drawn::Outline
+        } else {
+            Drawn::Colour
+        }
+    }
+
+    fn chosen(text: &str) -> usize {
+        split(text, 2, both_have_it)
+            .first()
+            .expect("one cluster is one run")
+            .face
     }
 
     #[test]
@@ -237,12 +365,89 @@ mod tests {
         // Neither face claims it, and face 0 is where it lands: shaped to
         // `.notdef`, dropped, and reported by `uncovered` rather than drawn.
         assert_eq!(
-            split("x", 2, |_, _| false),
+            split("x", 2, |_, _| Drawn::Not),
             vec![Run {
                 face: 0,
                 range: 0..1
             }]
         );
+    }
+
+    /// The three readings of one character, side by side, so none of them can
+    /// be right by accident: bare takes the chain's order, `U+FE0F` overrides
+    /// it towards colour, `U+FE0E` back towards the outline.
+    #[test]
+    fn a_presentation_selector_chooses_between_faces_that_both_have_it() {
+        assert_eq!(chosen("\u{2764}"), 0, "no selector: the named face wins");
+        assert_eq!(
+            chosen("\u{2764}\u{fe0f}"),
+            1,
+            "`U+FE0F` asks for the colour drawing, which only face 1 has"
+        );
+        assert_eq!(
+            chosen("\u{2764}\u{fe0e}"),
+            0,
+            "`U+FE0E` asks for the outline, which face 0 has"
+        );
+    }
+
+    /// A chain the other way up: the face the document named draws in colour
+    /// and the fallback has only the outline.
+    ///
+    /// Contrived-looking and not contrived — [`super::super::font::Font::from_bytes`]
+    /// takes any file a project brings with it, an emoji face included. It is
+    /// also the **only** shape in which `U+FE0E` can be told from no selector
+    /// at all: with a text face at the head of the chain both answers are the
+    /// named face, so a chain that read the selector and one that ignored it
+    /// would draw the same picture.
+    fn colour_first(face: usize, _: char) -> Drawn {
+        if face == 0 {
+            Drawn::Colour
+        } else {
+            Drawn::Outline
+        }
+    }
+
+    #[test]
+    fn the_text_selector_reaches_past_a_colour_face_for_an_outline() {
+        let chosen = |text: &str| {
+            split(text, 2, colour_first)
+                .first()
+                .expect("one cluster is one run")
+                .face
+        };
+        assert_eq!(
+            chosen("\u{2764}"),
+            0,
+            "no selector: the named face wins, colour and all"
+        );
+        assert_eq!(
+            chosen("\u{2764}\u{fe0f}"),
+            0,
+            "…and asking for colour asks for what it already gives"
+        );
+        assert_eq!(
+            chosen("\u{2764}\u{fe0e}"),
+            1,
+            "but asking for an outline reaches past it to the face that has one"
+        );
+    }
+
+    #[test]
+    fn a_selector_no_face_can_honour_is_dropped_rather_than_obeyed() {
+        // Only face 1 has a star at all, so a text presentation is not on
+        // offer — and drawing it in colour beats drawing nothing.
+        assert_eq!(faced("\u{2b50}\u{fe0e}"), vec![(1, "\u{2b50}\u{fe0e}")]);
+    }
+
+    #[test]
+    fn coverage_narrows_the_field_before_the_selector_chooses_inside_it() {
+        // `1️⃣` carries `U+FE0F`, and face 1 draws the ASCII `1` as an outline
+        // in this chain — so a selector allowed to override coverage would
+        // send the cluster to face 0, which has no enclosing keycap. The face
+        // that can set the whole of it wins first, and the selector only ever
+        // chooses among the faces that can.
+        assert_eq!(faced("1\u{fe0f}\u{20e3}"), vec![(1, "1\u{fe0f}\u{20e3}")]);
     }
 
     /// The cluster rules asserted on [`clusters`] directly, because

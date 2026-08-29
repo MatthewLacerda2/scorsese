@@ -138,3 +138,69 @@ fn labels(resolution: Resolution, font: &Font, size: f32) -> Vec<(String, (f32, 
     }
     runs
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::frame::BYTES_PER_PIXEL;
+
+    use super::*;
+
+    /// 1080p, where a label is 48 pixels and every number below is far enough
+    /// from its neighbour that a pixel of anti-aliasing cannot reach it.
+    fn hd() -> Resolution {
+        Resolution::new(1920, 1080).expect("a legal raster")
+    }
+
+    /// How far right the **ink** of `text` reaches, drawn from `x = 0`.
+    ///
+    /// Measured off a raster rather than asked of [`text::width`], because
+    /// that is the function this is here to hold: a placement worked out from
+    /// a broken measurement would look perfectly correct to a test that used
+    /// the same broken measurement.
+    fn ink_reaches(text: &str, size: f32) -> f32 {
+        let mut frame = Frame::black(hd());
+        frame.fill_transparent();
+        let origin = (0.0, size * 1.5);
+        text::draw_line(&mut frame, text, Font::sans(), size, Rgba::WHITE, origin);
+        let width = hd().width() as usize;
+        let right = frame
+            .bytes()
+            .chunks_exact(BYTES_PER_PIXEL)
+            .enumerate()
+            .filter(|(_, pixel)| pixel[3] > 0)
+            .map(|(at, _)| at % width)
+            .max()
+            .expect("the label drew something");
+        right as f32 + 1.0
+    }
+
+    #[test]
+    fn the_last_label_turns_around_rather_than_falling_off_the_picture() {
+        // `1.0` is the only label that has to know how wide it is. Every other
+        // one starts at the line it names and runs rightwards; this one would
+        // run off the picture doing that, so it is placed by its right edge
+        // instead — which is the single call to `text::width` in the crate,
+        // and what nothing was asserting.
+        let resolution = hd();
+        let size = label_size(resolution);
+        let gap = size * 0.3;
+        let (text, (x, _)) = labels(resolution, Font::sans(), size)
+            .into_iter()
+            .find(|(text, (_, y))| text == "1.0" && (*y - size * 1.05).abs() < 0.01)
+            .expect("the ruler labels the right-hand edge of the frame");
+        let reaches = ink_reaches(&text, size);
+        let edge = resolution.width() as f32;
+        assert!(
+            x + reaches <= edge - gap,
+            "`1.0` reaches {} on a frame {edge} wide, so it is not the gap \
+             short of the edge it was placed at",
+            x + reaches
+        );
+        assert!(
+            x + reaches > edge - gap - size,
+            "…and it is still against that edge rather than somewhere left of \
+             it: {}",
+            x + reaches
+        );
+    }
+}
