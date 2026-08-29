@@ -339,7 +339,23 @@ pub use song::{PatchResolver, Song, render_song};
 /// back about a decibel down, and one that never did comes back reconstructed
 /// against a lower number and touches it now. There is no defaults argument to
 /// have here and no probe worth running.
-pub const SYNTH_VERSION: u32 = 4;
+///
+/// **Version 5 is `fm2`'s two operators starting where the note's seed says**
+/// rather than both at zero — the last source that was still phase-locked, and
+/// the leftover from the change that unlocked the oscillator stack. Every note
+/// of every `fm2` patch is different samples, so this is the ordinary case of
+/// the rule rather than an argument about defaults: there is no field to leave
+/// unwritten and no recipe that opts out, because the phases were never in the
+/// document.
+///
+/// No probe corpus, and the diff is why. The only edit outside `core/fm/two.rs`
+/// is the call site handing it the seed it already had in hand — no shared
+/// helper moved, no stage was reordered, and nothing any other source reads was
+/// touched — so a recipe that does not name `fm2` cannot have moved, and one
+/// that does moved by construction. Baking a corpus would be confirming a
+/// sentence the diff already settles, which is the case this section names as
+/// waste.
+pub const SYNTH_VERSION: u32 = 5;
 
 /// Render one note of `patch` and encode it as a stereo 16-bit PCM WAV.
 ///
