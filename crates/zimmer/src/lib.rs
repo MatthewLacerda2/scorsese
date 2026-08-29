@@ -418,9 +418,8 @@ pub use song::{Excerpt, PatchResolver, Song, Span, Window, render_excerpt, rende
 /// for two changes that could travel together is a cost paid for nothing.
 ///
 /// Checked rather than reasoned about, since the `fm4` half is rendering
-/// maths: **50 probes against `4240a67f`**, the `main` this branch was cut
-/// from — and still the right base after a rebase onto `87315e07`, which
-/// changed nothing under `crates/zimmer` —
+/// maths: **50 probes against `3f33e49e`**, the `main` this branch merges
+/// into —
 /// every source including all three noise colours, a unison stack, an additive
 /// series, `karplus`, `fm2` and six `fm4` patches; all four filter kinds, both
 /// slopes, an envelope-and-velocity cutoff and all three LFO targets; a pitch
