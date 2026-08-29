@@ -65,8 +65,11 @@ pub(crate) mod compress;
 pub(crate) mod delay;
 pub(crate) mod eq;
 pub(crate) mod limiter;
+pub(crate) mod reach;
 pub(crate) mod reverb;
 pub(crate) mod saturate;
+
+pub(crate) use reach::{lookahead_seconds, tail_seconds};
 
 use crate::patch::Fx;
 #[cfg(test)]
@@ -96,10 +99,6 @@ impl Keys for NoKeys {
         None
     }
 }
-
-/// Longest fx tail a note is padded by, in seconds. A chain of long effects should
-/// not turn a 200 ms blip into a half-minute file.
-const MAX_TAIL: f32 = 6.0;
 
 /// Apply the chain to `buf` in place, in list order.
 ///
@@ -148,36 +147,6 @@ pub(crate) fn apply_chain_keyed(buf: &mut Stereo, chain: &[Fx], rate: f32, keys:
             } => chorus::apply(buf, *sweep, *depth, *voices, *mix, rate),
         }
     }
-}
-
-/// How much extra time the chain needs to ring out after the note itself ends —
-/// what the renderer pads the buffer by, so an echo or a reverb tail is never cut
-/// off mid-repeat. A fully dry effect asks for nothing, and neither does a
-/// waveshaper: [`saturate`] is memoryless, so there is no state left in it to
-/// decay once the signal stops. Nor does [`eq`], which does have state but
-/// neither delays nor repeats — its own module doc argues that one. Nor does
-/// [`compress`], for the plainest reason of the three: it only ever scales the
-/// samples it was handed, so silence stays silence however long the release
-/// says the gain takes to come back.
-///
-/// [`chorus`] does ask, and asks for very little: it has no feedback path, so
-/// its tail is exactly the deepest its delay line is ever read from — a
-/// fortieth of a second rather than a decay to be estimated.
-pub(crate) fn tail_seconds(chain: &[Fx]) -> f32 {
-    let total: f32 = chain
-        .iter()
-        .map(|fx| match fx {
-            Fx::Delay {
-                time,
-                feedback,
-                mix,
-            } if *mix > 0.0 => delay::tail_seconds(*time, *feedback),
-            Fx::Reverb { size, mix, .. } if *mix > 0.0 => reverb::tail_seconds(*size),
-            Fx::Chorus { depth, mix, .. } if *mix > 0.0 => chorus::tail_seconds(*depth),
-            _ => 0.0,
-        })
-        .sum();
-    total.min(MAX_TAIL)
 }
 
 #[cfg(test)]
@@ -274,38 +243,6 @@ mod tests {
     }
 
     #[test]
-    fn the_tail_covers_every_wet_effect_but_stays_bounded() {
-        let wet = [
-            Fx::Delay {
-                time: 0.25,
-                feedback: 0.5,
-                mix: 0.5,
-            },
-            Fx::Reverb {
-                size: 1.0,
-                damp: 0.5,
-                mix: 0.5,
-            },
-        ];
-        assert!(tail_seconds(&wet[..1]) > 0.0);
-        assert!(tail_seconds(&wet) > tail_seconds(&wet[..1]));
-        assert!(tail_seconds(&wet) <= MAX_TAIL);
-        let long = vec![
-            Fx::Reverb {
-                size: 1.0,
-                damp: 0.5,
-                mix: 1.0,
-            };
-            8
-        ];
-        assert_eq!(
-            tail_seconds(&long),
-            MAX_TAIL,
-            "capped, however long the chain"
-        );
-    }
-
-    #[test]
     fn a_waveshaper_reaches_the_signal_and_still_asks_for_no_tail() {
         let drive = [Fx::Saturate {
             drive: 4.0,
@@ -389,55 +326,5 @@ mod tests {
             buf.l[2205]
         );
         assert_eq!(buf.l, buf.r, "and one gain reached both sides");
-    }
-
-    #[test]
-    fn a_dry_effect_asks_for_no_tail() {
-        let dry = [
-            Fx::Delay {
-                time: 1.0,
-                feedback: 0.9,
-                mix: 0.0,
-            },
-            Fx::Reverb {
-                size: 1.0,
-                damp: 0.5,
-                mix: 0.0,
-            },
-            Fx::Chorus {
-                rate: 0.5,
-                depth: 1.0,
-                voices: 4,
-                mix: 0.0,
-            },
-        ];
-        assert_eq!(tail_seconds(&dry), 0.0);
-    }
-
-    /// A chorus asks for the length of its own deepest read and nothing more:
-    /// a fortieth of a second against a room's seconds. Both halves of the
-    /// `mix` guard are here — a dry one is in the test above, a wet one is
-    /// this, and the number moves with `depth` because the delay does.
-    #[test]
-    fn a_chorus_asks_for_its_deepest_read_and_no_more() {
-        let ensemble = |depth, mix| {
-            [Fx::Chorus {
-                rate: 0.5,
-                depth,
-                voices: 4,
-                mix,
-            }]
-        };
-        let shallow = tail_seconds(&ensemble(0.0, 1.0));
-        let deep = tail_seconds(&ensemble(1.0, 1.0));
-        assert!(shallow > 0.0, "a wet chorus does ring on: {shallow}");
-        assert!(deep > shallow, "and further when it sweeps further");
-        assert!(deep < 0.03, "but it is not a room: {deep}");
-        let room = tail_seconds(&[Fx::Reverb {
-            size: 0.5,
-            damp: 0.5,
-            mix: 1.0,
-        }]);
-        assert!(deep < room / 10.0, "{deep} against a small room's {room}");
     }
 }

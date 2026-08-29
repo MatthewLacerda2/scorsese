@@ -27,7 +27,7 @@ use crate::level::Cut;
 /// a piece rings out past its final beat, and that ring-out is left to the
 /// profiler's fixed-interval fallback rather than being folded into the last
 /// pattern, which did not play it.
-pub(crate) fn of(song: &Song) -> Vec<Cut> {
+fn whole(song: &Song) -> Vec<Cut> {
     let (bpm, passes) = plan(song);
     if bpm <= 0.0 {
         return Vec::new();
@@ -51,4 +51,25 @@ pub(crate) fn of(song: &Song) -> Vec<Cut> {
         });
     }
     cuts
+}
+
+/// The same boundaries, measured from `start_seconds` into the piece — which
+/// is where an excerpt's rows begin.
+///
+/// A section that has already finished by then is dropped rather than kept at
+/// a negative end: it is not in what was rendered, and a row for it would send
+/// its reader to look for music that is not in the file. The one it lands in
+/// the middle of keeps its name and its own end, so a window opening halfway
+/// through a chorus is reported as being in that chorus. Nothing clips the far
+/// end, because nothing has to — the profiler already runs out of boundaries
+/// before the buffer does, which is how a ring-out is reported.
+pub(crate) fn of(song: &Song, start_seconds: f64) -> Vec<Cut> {
+    whole(song)
+        .into_iter()
+        .map(|cut| Cut {
+            end_seconds: cut.end_seconds - start_seconds,
+            ..cut
+        })
+        .filter(|cut| cut.end_seconds > 0.0)
+        .collect()
 }

@@ -166,7 +166,7 @@ pub use core::SAMPLE_RATE;
 pub use error::SynthError;
 pub use note::{NoteOpts, midi_to_freq, parse_note};
 pub use patch::Patch;
-pub use song::{PatchResolver, Song, render_song};
+pub use song::{Excerpt, PatchResolver, Song, Span, Window, render_excerpt, render_song};
 
 /// The synthesiser's own version: the number that changes when the same
 /// recipe would render to different samples.
@@ -436,16 +436,35 @@ pub fn render_note(patch: &Patch, midi: f32, opts: &NoteOpts) -> Result<Vec<f32>
 /// `resolve` supplies the patch behind any track that names its instrument by
 /// reference rather than carrying it inline — see [`PatchResolver`].
 pub fn bake_song(song: &Song, resolve: &dyn PatchResolver) -> Result<Bake, SynthError> {
+    bake_excerpt(song, resolve, &Excerpt::default())
+}
+
+/// Render **less** of `song` and encode that: a stretch of it, some of its
+/// tracks, or both.
+///
+/// Not a second renderer and not a second sound. What comes back over a window
+/// is bit for bit what [`bake_song`] would have put there — [`Excerpt`] has
+/// the argument, and it is the property the crate's tests pin. A solo is the
+/// same claim one axis over: each track is played, chained and placed exactly
+/// as the mix plays it, and only the sum is of fewer parts.
+///
+/// **Nothing here decides where a file goes.** This crate does no I/O, and the
+/// rule that a partial bake never lands in a project's `generated/` is the
+/// caller's to keep — a fragment stored under the address of the whole recipe
+/// is exactly the failure `SYNTH_VERSION` exists to make loud.
+pub fn bake_excerpt(
+    song: &Song,
+    resolve: &dyn PatchResolver,
+    excerpt: &Excerpt,
+) -> Result<Bake, SynthError> {
     // The song's own arrangement decides the rows of the report, which is what
     // makes a row say "the second chorus is the quiet one" rather than "seconds
     // 24 to 32 are quiet". Its tracks decide the other table: which instrument
     // is taking up the room, which is the half a section row cannot answer.
-    let mixed = song::render::mix_song(song, resolve)?;
-    Ok(Bake::of(
-        &mixed.master,
-        song::sections::of(song),
-        mixed.tracks,
-    ))
+    // Both come back from the render, because under an excerpt neither is
+    // where the document alone would put it.
+    let mixed = song::render::mix_song(song, resolve, excerpt)?;
+    Ok(Bake::of(&mixed.master, mixed.sections, mixed.tracks))
 }
 
 /// A finished bake: the file, and how it came out.

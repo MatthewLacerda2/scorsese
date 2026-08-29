@@ -53,7 +53,12 @@ use crate::stereo::Stereo;
 /// the largest one that fits.
 const CEILING: f32 = 0.891_251; // 10^(-1/20)
 /// Lookahead / attack ramp, in seconds — long enough to duck without a click.
-const ATTACK: f32 = 0.002;
+///
+/// Also the distance a peak reaches **backwards**: the gain may fall no faster
+/// than this ramp, so nothing further ahead than it can change a sample here.
+/// [`crate::song::excerpt`] renders that far past a window for exactly that
+/// reason, which is why the number is published rather than private.
+pub(crate) const LOOKAHEAD: f32 = 0.002;
 /// Recovery, in seconds. Slower than the attack, or the gain pumps audibly.
 const RELEASE: f32 = 0.06;
 
@@ -61,7 +66,7 @@ const RELEASE: f32 = 0.06;
 /// a pathological patch) are flushed to silence rather than written to the file.
 pub(crate) fn apply(buf: &mut Stereo, rate: f32) {
     let mut gain = required_gain(buf);
-    ramp_down_before_peaks(&mut gain, slope(ATTACK, rate));
+    ramp_down_before_peaks(&mut gain, slope(LOOKAHEAD, rate));
     ramp_up_after_peaks(&mut gain, slope(RELEASE, rate));
     buf.each(|channel| {
         for (s, g) in channel.iter_mut().zip(&gain) {
@@ -268,7 +273,7 @@ mod tests {
         assert!(buf.l[2205] <= CEILING + 1e-6);
         // The gain ramps back over the release, not instantly.
         let mut gain = required_gain(&mut Stereo::centred(vec![0.0, 10.0, 0.0, 0.0]));
-        ramp_down_before_peaks(&mut gain, slope(ATTACK, 44_100.0));
+        ramp_down_before_peaks(&mut gain, slope(LOOKAHEAD, 44_100.0));
         ramp_up_after_peaks(&mut gain, slope(RELEASE, 44_100.0));
         assert!(gain[0] < 1.0, "ducked before the peak");
         assert!(gain[2] < 1.0, "and recovers gradually after it");

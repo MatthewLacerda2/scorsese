@@ -21,7 +21,7 @@ use crate::stereo::Stereo;
 ///
 /// Short enough to be inaudible as a fade, long enough to be inaudible as an
 /// edge — about a wavelength at the bottom of hearing.
-const SEAM: f32 = 0.02;
+pub(super) const SEAM: f32 = 0.02;
 
 /// Applies `tail`, `fit` and `fade` to a rendered buffer, in that order.
 ///

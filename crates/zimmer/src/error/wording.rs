@@ -135,6 +135,9 @@ impl SynthError {
                 f,
                 "song: pattern `{pattern}`: beats must be positive, got {beats}"
             ),
+            Self::UnknownSoloTrack { track } => {
+                write!(f, "song: no track named `{track}` to render on its own")
+            }
             Self::UnknownTrack {
                 pattern,
                 index,

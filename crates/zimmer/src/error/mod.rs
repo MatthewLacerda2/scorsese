@@ -278,6 +278,17 @@ pub enum SynthError {
         beats: f32,
     },
 
+    /// A solo naming an instrument the song does not have.
+    ///
+    /// Separate from [`SynthError::UnknownTrack`] because the two are
+    /// different mistakes with different repairs: that one is a note in a
+    /// pattern pointing at nothing, written into the document; this one is an
+    /// argument to a render, and the document is fine.
+    UnknownSoloTrack {
+        /// The name that matched no track.
+        track: String,
+    },
+
     /// A note assigned to an instrument the song does not have.
     UnknownTrack {
         /// The pattern holding the note.

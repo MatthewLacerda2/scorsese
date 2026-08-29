@@ -101,6 +101,7 @@
 
 use super::Song;
 use super::automate::{self, Riding};
+use super::excerpt::Scope;
 use crate::core::{RATE, SAMPLE_RATE};
 use crate::fx;
 use crate::level::Layer;
@@ -135,9 +136,15 @@ pub(super) struct Mix<'a> {
     keys: Vec<Option<Stereo>>,
     /// Whether a tap is kept for the tracks that have no chain of their own.
     ///
-    /// False for a song of fewer than two tracks, whose rows are not reported
-    /// at all — see the module doc.
+    /// False for a mix of fewer than two heard tracks, whose rows are not
+    /// reported at all — see the module doc.
     measured: bool,
+    /// How much of the song is being rendered: which tracks are heard, and
+    /// which stretch of the result is kept.
+    ///
+    /// A whole render passes one that answers *everything*, so there is one
+    /// path through this module rather than two.
+    scope: &'a Scope,
     /// One slot per track: which of its parameters move across the piece.
     ///
     /// A track whose fader moves is bussed whether or not it asked for a
@@ -156,16 +163,33 @@ impl<'a> Mix<'a> {
     /// Starting at the arrangement's own length rather than growing from empty
     /// is what keeps a song that ends on a rest that long; see
     /// [`super::render`].
-    pub(super) fn new(song: &'a Song, arrangement_end: usize, beats_per_sample: f32) -> Self {
+    pub(super) fn new(
+        song: &'a Song,
+        arrangement_end: usize,
+        beats_per_sample: f32,
+        scope: &'a Scope,
+    ) -> Self {
         Self {
             song,
             master: Stereo::silence(arrangement_end),
             parts: song.tracks.iter().map(|_| None).collect(),
             keys: keyed(song),
-            measured: song.tracks.len() > 1,
+            measured: scope.heard_count() > 1,
             riding: automate::riding(song),
             beats_per_sample,
+            scope,
         }
+    }
+
+    /// Whether a note of this track is worth rendering at all.
+    ///
+    /// A track left out of a solo usually is not — that is the saving. The
+    /// exception is a track something else is **keyed** from: it is played and
+    /// not heard, so the duck a solo shows is the duck the mix has. Refusing
+    /// the excerpt instead would be refusing the one question a solo of a
+    /// ducked bass is usually asked to answer.
+    pub(super) fn needs(&self, track: usize) -> bool {
+        self.scope.heard(track) || self.keys[track].is_some()
     }
 
     /// Adds one rendered note of `track`, starting at sample `at`.
@@ -179,6 +203,11 @@ impl<'a> Mix<'a> {
         // makes a duck a property of the playing rather than of the mix.
         if let Some(key) = self.keys[track].as_mut() {
             mix_into(key, src, at, UNITY);
+        }
+        // Ahead of everything but the key, which is the whole of what a track
+        // left out of a solo still does.
+        if !self.scope.heard(track) {
+            return;
         }
         let played = &self.song.tracks[track];
         if !played.fx.is_empty() || self.riding[track].moves_the_fader() {
@@ -234,7 +263,7 @@ impl<'a> Mix<'a> {
         ring_out(&mut self.master, &song.fx);
         fx::apply_chain(&mut self.master, &song.fx, RATE);
         let layers = if self.measured {
-            measure(song, parts, self.master.frames())
+            measure(song, parts, self.master.frames(), self.scope)
         } else {
             Vec::new()
         };
@@ -306,14 +335,25 @@ fn placement(gain: f32, pan: f32) -> (f32, f32) {
 /// energy is all on one side, and a measurement of one side, or of a fold-down,
 /// would report a number that says the instrument is missing rather than that
 /// it is over there.
-fn measure(song: &Song, parts: Vec<Option<Stereo>>, frames: usize) -> Vec<Layer> {
+fn measure(song: &Song, parts: Vec<Option<Stereo>>, frames: usize, scope: &Scope) -> Vec<Layer> {
+    let (from, to) = scope.keep(frames);
     song.tracks
         .iter()
         .zip(parts)
-        .map(|(track, part)| {
+        .enumerate()
+        // A track a solo left out has no row: it is not in this mix, and a
+        // silent row would read as an instrument that failed to play rather
+        // than one nobody asked for.
+        .filter(|(index, _)| scope.heard(*index))
+        .map(|(_, (track, part))| {
             let mut part = part.unwrap_or_default();
             if !part.is_empty() {
                 part.grow_to(frames);
+                // Over the same stretch the summary above it covers, for the
+                // reason the padding beside it exists: these rows are read
+                // against each other and against the whole, so all three have
+                // to be measurements of the same piece of time.
+                part.cut(from, to);
             }
             Layer::of(
                 track.name.clone(),
