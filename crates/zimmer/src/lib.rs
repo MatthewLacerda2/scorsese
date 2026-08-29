@@ -367,11 +367,20 @@ pub use song::{PatchResolver, Song, render_song};
 ///
 /// That last sentence is the half worth checking rather than asserting, since
 /// it is a change to the arithmetic and not a new optional field. Checked
-/// against `d829817` — 24 probes. The nine that name no filter modulation
-/// (every source, both coloured noises, a unison stack, a pitch envelope, a
-/// pitch and an amp LFO, a chain of effects, and four songs covering chords,
-/// swing, a sidechain and an automated fader) came back byte-identical. The
-/// rest move, which is the point.
+/// against `d829817`, the commit before it — **33 probes, all
+/// byte-identical**, encoded bytes and length both. Every source, including
+/// `fm4` with per-operator envelopes, an additive series, a unison stack and
+/// all three noise colours; a static lowpass and a static highpass, which read
+/// a cutoff and modulate nothing; a pitch LFO and an amp LFO; a pitch
+/// envelope; both signs of envelope curve; every effect on its own and a chain
+/// of four; five songs covering swing with all three humanise axes, a song
+/// chain, an automated fader and an automated pan; and five of the worked
+/// examples out of `docs/recipes.md`.
+///
+/// The other half needs no probe: the old build has no field in which to write
+/// the new depth, so a recipe that modulates its filter is a different
+/// document on either side of this line rather than the same one rendered
+/// twice.
 pub const SYNTH_VERSION: u32 = 6;
 
 /// Render one note of `patch` and encode it as a stereo 16-bit PCM WAV.
