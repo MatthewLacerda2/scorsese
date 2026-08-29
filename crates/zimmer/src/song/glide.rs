@@ -193,14 +193,16 @@ mod tests {
 
     /// Notes that start together are one moment: each slides from what
     /// preceded the moment rather than from each other, and the line goes on
-    /// from the top of the chord.
+    /// from the top of the chord — the **highest** voice of it, which is not
+    /// the same claim as the last one written. The chord here is spelled with
+    /// its top voice first, so the two answers differ.
     #[test]
     fn simultaneous_notes_share_a_previous_and_the_highest_leads_on() {
         let chord = [
             note("keys", "C3", 0.0),
+            note("keys", "A4", 1.0),
             note("keys", "D4", 1.0),
             note("keys", "F4", 1.0),
-            note("keys", "A4", 1.0),
             note("keys", "B4", 2.0),
         ];
         let root = Some(48.0);
