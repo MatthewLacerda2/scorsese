@@ -82,7 +82,7 @@ keep the second slot for whatever is furthest along.** Priority orders what gets
 merged. An unblocked issue left unstarted is not wasted capacity; it is a rebase
 not yet paid for.
 
-**A stage label is the only absolute stop.** `idea`, `planning` and `human` mean
+**A stage label is the only absolute stop.** `planning` and `human` mean
 *not yet*, and no amount of the issue looking ready overrides that. Everything
 else is startable the moment it exists, including an issue filed a minute ago.
 

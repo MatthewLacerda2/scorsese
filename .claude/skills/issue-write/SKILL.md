@@ -56,9 +56,8 @@ A branch that grows to cover everything it noticed is a branch nobody can review
 
 **At most one stage label. Its absence means ready.**
 
-- `idea` — might not add value; parked until the user decides. **Never started.**
-- `planning` — has value, but the approach is still being discussed. **Never
-  started.**
+- `planning` — nobody has decided this is worth doing, or the approach is not
+  settled. **Never started.**
 - `human` — needs a human in the loop end to end. **Treat as not-ready**: do not
   start it.
 - *(none)* — anyone can tell an agent "do issue N".
