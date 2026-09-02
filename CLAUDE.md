@@ -69,16 +69,11 @@ elaborate feature, and equally a reason to *build* an obvious one well.
 - Crate boundaries live in each crate's `lib.rs` module doc — read them before
   adding a dependency between crates.
 
-**Three skills carry the working protocols**, so this file can hold the reasoning
-and they can hold the steps. Invoke them rather than reconstructing a procedure
-from memory, and name them when briefing a subagent:
-
-- **`issue-write`** — what an issue must contain, which label it carries, when
-  Claude may file one unprompted.
-- **`issue-batch`** — how a set of issues is worked: how many branches at once,
-  which can safely run together, worktrees, re-reading the board.
-- **`ci-merge`** — how a finished branch becomes a merged one: gates, CI,
-  `make mergeable`, rebasing, and triaging the mutation signal.
+**Three skills carry the working protocols** — `issue-write`, `issue-batch` and
+`ci-merge` — so this file can hold the reasoning and they can hold the steps.
+Each one names its own scope and when to reach for it, so this file does not
+restate them; invoke them rather than reconstructing a procedure from memory, and
+name them when briefing a subagent.
 
 Where a rule below is stated in one line and a skill has ten, the line is the
 rule and the skill is how to keep it. Where they disagree, this file wins and the
