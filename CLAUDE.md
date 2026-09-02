@@ -284,7 +284,7 @@ that goes with it.
   **Blocked by / Blocks** and **sub-issues**; there are no rigid batches. Split
   by responsibility, never by parallelism — sub-issues that all touch the same
   type are one branch.
-- **A stage label is the only thing that stops an issue being started.** `idea`,
+- **A stage label is the only thing that stops an issue being started.**
   `planning` and `human` mean *not yet*, and they are absolute. Absent one, an
   issue is startable the moment it exists, including one Claude filed a minute
   ago. The judgement lives in the label; asking the question a second time at
@@ -451,10 +451,10 @@ that goes with it.
   the user or the video being made with it. **documentation** can be done at any
   time and never waits its turn. Priority orders what gets **merged**, never what
   gets **worked**.
-- **Stage labels — at most one, and absence means ready.** `idea` (might not add
-  value; parked until the user decides), `planning` (has value, approach still
-  being discussed), `human` (needs a human end-to-end). All three mean **do not
-  start**. A Claude-written issue must carry one if it is a breaking change,
+- **Stage labels — at most one, and absence means ready.** `planning` (nobody
+  has decided this is worth doing, or the approach is not settled), `human`
+  (needs a human end-to-end). Both mean **do not start**. A Claude-written issue
+  must carry one if it is a breaking change,
   changes human-facing behaviour, needs a judgement call, or proposes a structural
   change. A `bug` usually should not — the deciding already happened when the code
   broke.
@@ -465,8 +465,8 @@ that goes with it.
 ## Overrides
 
 Any rule in this file may be overridden by the user's explicit say-so — in the
-current prompt or a previous one. The **one exception**: an issue carrying a
-planning-stage label (`idea` or `planning`) must never be started while the
-label is on it. The user may tell you to **remove the label and then do it** —
+current prompt or a previous one. The **one exception**: an issue tagged
+`planning` must never be started while the label is on it. The user may tell
+you to **remove the label and then do it** —
 never to do it with the label still on. (The user *may* greenlight an issue
 that is blocked by another; doing so lifts that block.)
