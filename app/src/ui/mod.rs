@@ -7,6 +7,8 @@
 //! │                          │ project files│
 //! ├──────────────────────────┴──────────────┤
 //! │  ▏  timeline                            │
+//! ├─────────────────────────────────────────┤
+//! │ status                                  │
 //! └─────────────────────────────────────────┘
 //! ```
 //!
@@ -16,7 +18,9 @@
 
 mod disk;
 mod empty;
+mod keys;
 mod panels;
+mod status;
 
 use eframe::{App, Frame};
 use egui::Ui;
@@ -280,8 +284,16 @@ impl Scorsese {
     /// window nobody can look at in a test, and six panels were built that way
     /// before this existed.
     pub fn draw(&mut self, ui: &mut Ui) {
+        // Here and not in `main.rs`, so that the offscreen harness draws the
+        // same window a person sees. See [`crate::theme`].
+        crate::theme::apply(ui.ctx());
         self.follow_disk(ui.ctx());
         self.follow_probe();
+        // Before the panels, so a key pressed this frame moves the playhead
+        // that this frame's timeline and preview are drawn from — read after
+        // them and every keypress would show up one frame late, which at a held
+        // arrow key is a scrub that lags the hand.
+        self.follow_keyboard(ui);
         // Polled every repaint and blocking on nothing: a submit or a sweep
         // that has finished is folded in here, and one still going leaves the
         // window exactly as responsive as it was.
@@ -292,6 +304,7 @@ impl Scorsese {
         // takes its edge and leaves the rest to the next. The centre goes last
         // and gets whatever is left.
         panels::menu(ui, self);
+        panels::status(ui, self);
         panels::timeline(ui, self);
         panels::side(ui, self);
         panels::centre(ui, self);

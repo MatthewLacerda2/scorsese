@@ -286,6 +286,39 @@ a slug card. Slug cards and generation each have an issue; the
 [issue tracker](https://github.com/MatthewLacerda2/scorsese/issues) is the
 plan.
 
+## The window
+
+`scorsese-app` opens a `*.scor` directory and draws it: the picture at the
+playhead, the pool, the clip you have selected, and the timeline. It is
+deliberately thin — it gets the operations a person reaches for *with a mouse,
+often* — and everything with structure to it is a sentence to an assistant over
+MCP. It reads and writes the same document through the same library, so it can
+never disagree with what the CLI and the MCP server see, and it follows the file
+while an assistant is editing it.
+
+It is dark, and colour in it means exactly one thing: **what a thing is**. The
+hue on a clip in the timeline, the chip beside an asset in the pool and the one
+in the inspector are the same code — footage, a still, a title, a graphic, music,
+a voice. A clip whose asset is a brief nobody has generated is hatched rather
+than filled, because which of those you are looking at is the question asked
+before pressing the button that spends money. A volume ramp is drawn across the
+clip that carries it, so a duck is visible without opening anything.
+
+The keyboard is the ordinary one. Nothing here edits — moving around a film is
+not a change to it, and every structural edit goes through the document.
+
+| key | |
+| --- | --- |
+| `Space` | play or pause |
+| `←` `→` | one frame; with `shift`, one second |
+| `Home` `End` | the first frame, and the last |
+| `+` `-` | zoom the timeline; `F` fits the whole edit in the width |
+| `S` | scale the selected clips about the playhead — pointer drives it, `Enter` keeps it, `Esc` puts it back |
+
+Dragging a clip moves it and dragging its edges trims it; dragging anywhere else
+scrubs. Ctrl and the wheel zoom. None of the keys fire while a text field has the
+keyboard.
+
 ## Crate map
 
 | Crate | Responsibility |
@@ -297,7 +330,7 @@ plan.
 | `crates/cli` | The headless `scorsese` binary: `new`, `import`, `render`, `generate`, `assets`, `diff` |
 | `crates/mcp` | MCP server — the same operations as MCP tools for Claude agents |
 | `crates/golden` | Test infrastructure: the golden-render gate ([docs](docs/golden-renders.md)) |
-| `app/` | Tauri GUI (placeholder — arrives with its seed issue) |
+| `app/` | The desktop window: `egui`, its own cargo workspace, a client of the same library the CLI and the MCP server use |
 
 `core` and `cli` never touch a display. Each crate's `lib.rs` states its
 responsibility and what it must never depend on.

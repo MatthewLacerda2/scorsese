@@ -28,13 +28,23 @@ mod still;
 mod transport;
 
 use egui::{Panel, Ui};
-use scorsese_core::{Fps, Frames};
+use scorsese_core::{Fps, Frames, Project};
 
 use crate::editing::{Editing, length};
 use crate::project::Open;
 use save::Saved;
 use still::Still;
 use transport::Command;
+
+/// The last frame the playhead may stand on in `project`.
+///
+/// Published from here because the transport is what decides where "the end"
+/// is — `length` counts frames and the last one is below it — and the keyboard
+/// needs the same answer. Two spellings of it would be two ends of the same
+/// film.
+pub(crate) fn last_frame(project: &Project) -> Frames {
+    transport::last_frame(length(project))
+}
 
 /// The preview panel's own state.
 #[derive(Default)]
@@ -135,6 +145,17 @@ impl Preview {
         // picture of an instant the film does not contain. Showing the last
         // frame is what a person means by parking at the end.
         self.picture.show(ui, open, editing.playhead.min(last));
+    }
+
+    /// Starts or stops the transport, for the key that does what the button
+    /// under the picture does.
+    pub(crate) fn toggle_playback(&mut self, open: &Open, at: Frames, last: Frames) {
+        self.toggle(open, at, last);
+    }
+
+    /// Stops it, for anything that takes hold of the playhead.
+    pub(crate) fn stop(&mut self) {
+        self.playing = None;
     }
 
     /// Starts or stops the transport.

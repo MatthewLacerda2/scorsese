@@ -19,6 +19,14 @@
 //!
 //! It is also its own cargo workspace. A graphics stack has no business being
 //! compiled by `cargo test --workspace`, which every headless change runs.
+//!
+//! ## The look
+//!
+//! One module decides it, `theme`. Every colour, every weight and every gap
+//! is named there, and a panel that reaches for a literal `Color32` is a bug
+//! rather than a shortcut — three of them had drifted apart before it existed.
+//! It is applied from [`Scorsese::draw`] and not from the binary, so what the
+//! reference images in `tests/snapshots/` show is what a person sees.
 
 //! ## Testable without a window
 //!
@@ -33,6 +41,7 @@ mod generating;
 mod inspector;
 mod preview;
 mod project;
+mod theme;
 mod timeline;
 mod ui;
 

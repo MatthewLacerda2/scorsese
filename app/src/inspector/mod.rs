@@ -35,18 +35,19 @@ mod selected;
 mod several;
 mod time;
 
-use egui::{Color32, RichText, Ui};
+use egui::{RichText, Ui};
 use scorsese_core::Clip;
 
 use crate::editing::Editing;
 use crate::project::Open;
+use crate::theme::{marks, palette};
 use brief::{Brief, Voices};
 use edit::Refusal;
 use selected::Selected;
 
 /// The colour a refusal is said in — the same red as a project that will not
 /// open, because it is the same kind of news.
-const REFUSED: Color32 = Color32::from_rgb(220, 90, 80);
+const REFUSED: egui::Color32 = palette::ALERT;
 
 /// The panel's own state: the last thing it had to refuse, and the one list it
 /// cannot read out of the document.
@@ -88,7 +89,7 @@ impl Inspector {
 
     /// Draws the panel.
     pub(crate) fn show(&mut self, ui: &mut Ui, open: &mut Open, editing: &Editing) {
-        ui.heading("Inspector");
+        marks::section(ui, "Inspector");
         // A refusal belongs to the clip that earned it. Leaving that clip — for
         // another, for none, or for a group it is merely part of — is how it
         // gets dismissed, and coming back later must not re-open a complaint
@@ -159,7 +160,8 @@ fn nothing(ui: &mut Ui) {
     ui.add_space(4.0);
     ui.label(
         RichText::new("select a clip to see what it is")
-            .weak()
-            .italics(),
+            .italics()
+            .small()
+            .color(palette::FAINT),
     );
 }
