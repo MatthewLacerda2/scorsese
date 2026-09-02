@@ -6,15 +6,16 @@
 //! the app being broken, which is a worse first impression than saying "not
 //! yet".
 
-use egui::{Color32, RichText, Ui};
+use egui::{RichText, Ui};
 
 use crate::project::Refused;
+use crate::theme::palette;
 
 /// A quiet line standing in for something that is not built yet, or has
 /// nothing in it. Dimmed, so it never reads as content.
 pub(super) fn placeholder(ui: &mut Ui, what: &str) {
     ui.add_space(4.0);
-    ui.label(RichText::new(what).weak().italics());
+    ui.label(RichText::new(what).italics().small().color(palette::FAINT));
 }
 
 /// The window with no project open — the first thing anyone sees.
@@ -25,11 +26,27 @@ pub(super) fn placeholder(ui: &mut Ui, what: &str) {
 pub(super) fn nothing_open<T>(ui: &mut Ui, open: impl FnOnce(&mut T), window: &mut T) {
     let mut clicked = false;
     ui.vertical_centered(|ui| {
-        ui.add_space(80.0);
-        ui.heading("No project open");
-        ui.add_space(8.0);
-        ui.label("Open a *.scor directory to get started.");
-        ui.add_space(16.0);
+        ui.add_space(120.0);
+        // The wordmark, at the one size in this window it gets to be large.
+        // An empty editor is the only screen with room for the program to say
+        // its own name, and it is the screen a person is most likely to have
+        // opened by accident.
+        ui.label(
+            RichText::new("SCORSESE")
+                .size(30.0)
+                .extra_letter_spacing(11.0)
+                .color(palette::ACCENT),
+        );
+        ui.add_space(2.0);
+        ui.label(
+            RichText::new("NO PROJECT OPEN")
+                .small()
+                .extra_letter_spacing(3.0)
+                .color(palette::DIM),
+        );
+        ui.add_space(18.0);
+        ui.label(RichText::new("Open a *.scor directory to get started.").color(palette::DIM));
+        ui.add_space(14.0);
         clicked = ui.button("Open project…").clicked();
     });
     if clicked {
@@ -56,23 +73,34 @@ pub(super) fn refusal(ui: &mut Ui, refused: &Refused) {
 pub(super) fn invalid(ui: &mut Ui, problems: &[String]) {
     listing(ui, &crate::project::heading(problems.len()), problems);
     ui.add_space(12.0);
-    ui.label(
-        RichText::new(
-            "The timeline, the pool and the inspector are here to read. \
-             Nothing in this window will change the file until these are fixed.",
-        )
-        .weak(),
-    );
+    ui.indent("what to do", |ui| {
+        ui.label(
+            RichText::new(
+                "The timeline, the pool and the inspector are here to read. \
+                 Nothing in this window will change the file until these are fixed.",
+            )
+            .color(palette::DIM),
+        );
+    });
 }
 
 /// A heading and every problem under it, one to a line.
 fn listing(ui: &mut Ui, heading: &str, problems: &[String]) {
     ui.add_space(24.0);
-    ui.heading(RichText::new(heading).color(Color32::from_rgb(220, 90, 80)));
-    ui.add_space(8.0);
-    egui::ScrollArea::vertical().show(ui, |ui| {
-        for problem in problems {
-            ui.label(format!("· {problem}"));
-        }
+    ui.indent("problems", |ui| {
+        ui.heading(RichText::new(heading).color(palette::ALERT));
+        ui.add_space(6.0);
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            for problem in problems {
+                ui.horizontal(|ui| {
+                    // The bullet in the alert colour and the problem in plain
+                    // text: a whole panel of red is a panel nobody reads to the
+                    // end, and what is red should be the mark that counts them
+                    // rather than the words that say what to do.
+                    ui.label(RichText::new("·").color(palette::ALERT).strong());
+                    ui.label(problem);
+                });
+            }
+        });
     });
 }

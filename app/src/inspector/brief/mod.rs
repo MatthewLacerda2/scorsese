@@ -42,7 +42,7 @@
 mod line;
 mod shot;
 
-use egui::{RichText, Ui};
+use egui::Ui;
 use scorsese_core::{Asset, AssetId, Project};
 
 use super::selected::Selected;
@@ -82,7 +82,7 @@ impl Inspector {
         brief: &Brief,
     ) {
         ui.add_space(10.0);
-        ui.label(RichText::new("BRIEF").strong().small());
+        ui.label(crate::theme::marks::subheading("Brief"));
         match brief {
             Brief::Shot(shot) => self.shot(ui, open, selected, shot),
             Brief::Line(line) => self.line(ui, open, selected, line),

@@ -19,6 +19,7 @@
 use egui::{Align, Layout, Rect, RichText, Sense, Stroke, Ui, pos2, vec2};
 use scorsese_core::{Fps, Frames};
 
+use crate::theme::{marks, palette};
 use crate::timeline::timecode;
 
 /// How tall the scrub bar's strip is, and how far the knob may travel from the
@@ -26,6 +27,8 @@ use crate::timeline::timecode;
 const BAR: f32 = 18.0;
 /// The knob's radius.
 const KNOB: f32 = 5.0;
+/// How thick the rail is.
+const RAIL: f32 = 3.0;
 
 /// What a control on the transport meant.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -68,9 +71,9 @@ pub(super) fn show(
     // reason, or the reason someone reaches for is "the sound is broken".
     if let Some(why) = silent {
         ui.label(
-            egui::RichText::new(format!("no sound — {why}"))
-                .weak()
-                .small(),
+            RichText::new(format!("no sound — {why}"))
+                .small()
+                .color(palette::DIM),
         );
     }
     // The scrub bar wins a tie, because a drag is continuous and a click is
@@ -90,18 +93,24 @@ fn scrubber(ui: &mut Ui, at: Frames, last: Frames) -> Option<Frames> {
     let track = travel(rect);
     let painter = ui.painter();
     let middle = rect.center().y;
-    let visuals = ui.visuals();
     let knob = pos2(track.left() + along(at, last) * track.width(), middle);
 
+    // The rail is the whole film and the filled part is how much of it is
+    // behind you — the one reading on this bar that is taken in without
+    // looking at it.
     painter.line_segment(
         [pos2(track.left(), middle), pos2(track.right(), middle)],
-        Stroke::new(2.0, visuals.widgets.inactive.bg_fill),
+        Stroke::new(RAIL, palette::ACTIVE),
     );
     painter.line_segment(
         [pos2(track.left(), middle), knob],
-        Stroke::new(2.0, visuals.widgets.active.bg_fill),
+        Stroke::new(RAIL, palette::ACCENT_DIM),
     );
-    painter.circle_filled(knob, KNOB, visuals.strong_text_color());
+    // The knob in the playhead's own colour, because it *is* the playhead —
+    // this bar and the line down the timeline are one position with two views,
+    // and drawing them in two colours would be the window disagreeing with
+    // itself about which mark to follow.
+    painter.circle_filled(knob, KNOB, palette::PLAYHEAD);
 
     // A bar squeezed to nothing has no fraction to read off it, and dividing by
     // its width would put the playhead at a `NaN`.
@@ -142,11 +151,11 @@ fn buttons(ui: &mut Ui, fps: Fps, at: Frames, last: Frames) -> Option<Command> {
         }
 
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            ui.label(
-                RichText::new(format!("{}  ·  frame {}", timecode(at, fps), at.get()))
-                    .monospace()
-                    .weak(),
-            );
+            // Added in this order because the layout is right-to-left: the
+            // frame count lands on the right and the timecode beside it, which
+            // is the order they read in.
+            ui.label(marks::figure_dim(format!("f {}", at.get())));
+            ui.label(marks::figure(timecode(at, fps)));
         });
     });
     command

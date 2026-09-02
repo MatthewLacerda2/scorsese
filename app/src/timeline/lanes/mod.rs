@@ -13,14 +13,18 @@ use scorsese_core::{ClipId, Project, Track, TrackId, TrackKind};
 
 use super::view::View;
 
-pub(super) use paint::{Paint, draw, gutter};
+pub(super) use paint::{Paint, draw, ground, gutter};
 
 /// How tall one lane is.
-pub(super) const LANE: f32 = 30.0;
+///
+/// Roomier than it was, and the extra four pixels are not air: a clip now
+/// carries a colour strip along its top and a volume ramp through its middle,
+/// and both of those want room under the label rather than through it.
+pub(super) const LANE: f32 = 34.0;
 /// The gap between lanes.
-pub(super) const GAP: f32 = 3.0;
+pub(super) const GAP: f32 = 4.0;
 /// The gap where video meets audio, wide enough to read as a division.
-pub(super) const DIVIDE: f32 = 9.0;
+pub(super) const DIVIDE: f32 = 12.0;
 
 /// Every track in drawing order — video first, then audio — with the lane's
 /// top offset from the start of the lane area.

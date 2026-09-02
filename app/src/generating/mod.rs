@@ -217,7 +217,7 @@ fn group(ui: &mut Ui, heading: &str, priced: &[quote::Priced]) {
     let subtotal: u64 = priced.iter().map(|one| one.cents).sum();
     ui.add_space(4.0);
     ui.horizontal(|ui| {
-        ui.label(RichText::new(heading).strong().small());
+        ui.label(crate::theme::marks::subheading(heading));
         ui.label(
             RichText::new(format!("{} · {}", priced.len(), dollars(subtotal)))
                 .weak()

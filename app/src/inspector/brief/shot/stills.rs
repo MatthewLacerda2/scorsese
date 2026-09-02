@@ -99,7 +99,7 @@ fn references(
     ui.add_space(6.0);
     let chosen = &brief.request.reference_images;
     ui.horizontal(|ui| {
-        ui.label(RichText::new("Reference images").strong().small());
+        ui.label(crate::theme::marks::subheading("Reference images"));
         ui.label(RichText::new(OPTIONAL).weak().small());
     });
 

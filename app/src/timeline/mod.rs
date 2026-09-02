@@ -18,6 +18,7 @@ use scorsese_core::Project;
 
 use crate::editing::{Editing, length};
 use crate::project::Open;
+use crate::theme::{marks, palette};
 use gesture::Gesture;
 use view::View;
 
@@ -28,14 +29,37 @@ use view::View;
 pub(crate) use view::timecode;
 
 /// How wide the track-label gutter is.
-const GUTTER: f32 = 96.0;
+///
+/// Wide enough for a tag and a name beside it: `V1` and `Main` is the shape a
+/// track head has, and one that truncated the name would be answering the
+/// question with the half nobody chose.
+const GUTTER: f32 = 124.0;
 /// How much one notch of the wheel magnifies.
 const ZOOM_STEP: f32 = 1.15;
+
+/// A change to the view somebody asked for with a key.
+///
+/// Deferred rather than applied where it was pressed, because every one of them
+/// needs a width — how far to zoom about the playhead, how much timeline has to
+/// fit — and the width is not known until the panel is being laid out. The
+/// alternative is the keyboard reaching into the panel's geometry, which is the
+/// panel's own and changes every time the window is resized.
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum Look {
+    /// Magnify, about the playhead.
+    In,
+    /// And out.
+    Out,
+    /// Put the whole edit in the width.
+    Fit,
+}
 
 /// The timeline's own state: where it is looking, and what a hand is doing.
 #[derive(Debug, Default)]
 pub(crate) struct Timeline {
     view: View,
+    /// A view change asked for by a key, waiting for a width to be applied to.
+    asked: Option<Look>,
     /// Whether the view has been fitted to the project that is open. Fitting
     /// once on open and never again — a view that re-fits itself would undo
     /// every zoom the moment anything changed.
@@ -52,6 +76,41 @@ impl Timeline {
     /// Forgets the fit, so the next project shown gets its own.
     pub(crate) fn reset(&mut self) {
         *self = Self::default();
+    }
+
+    /// Asks for a change to the view, to be applied on the next repaint.
+    ///
+    /// Last one wins, which is right for a key held down: three presses between
+    /// two frames mean the person wants to be zoomed further in, and applying
+    /// all three would make one held key travel three times as fast as the wheel.
+    pub(crate) fn ask(&mut self, look: Look) {
+        self.asked = Some(look);
+    }
+
+    /// Applies whatever a key asked for, now that there is a width to do it in.
+    ///
+    /// Zoom is anchored on the **playhead** rather than on the pointer, which
+    /// is the one place this differs from the wheel — and it differs for the
+    /// same reason the wheel is anchored at all. A wheel zoom is aimed: the cut
+    /// you are looking at is under the pointer. A keyboard zoom is not aimed at
+    /// anything, and the thing a person is looking at is where the playhead is
+    /// standing.
+    fn look(&mut self, area: Rect, project: &Project, playhead: scorsese_core::Frames) {
+        let Some(asked) = self.asked.take() else {
+            return;
+        };
+        match asked {
+            Look::Fit => self.view.fit(length(project), area.width()),
+            Look::In | Look::Out => {
+                let anchor = self.view.offset_of(playhead).clamp(0.0, area.width());
+                let factor = if matches!(asked, Look::In) {
+                    ZOOM_STEP
+                } else {
+                    1.0 / ZOOM_STEP
+                };
+                self.view.zoom(factor, anchor);
+            }
+        }
     }
 
     /// Whether a hand is on something right now.
@@ -71,6 +130,7 @@ impl Timeline {
             self.view.fit(length(&open.project), area.width());
             self.fitted = true;
         }
+        self.look(area, &open.project, editing.playhead);
 
         let response = ui.allocate_rect(full, Sense::click_and_drag());
         // `interact_pointer_pos` first: while a button is down it is the
@@ -95,35 +155,49 @@ impl Timeline {
             self.act(ui, &response, area, hit.as_ref(), open, editing);
         }
 
-        let painter = ui.painter_at(full);
-        ruler::draw(
-            ui,
-            &painter,
-            ruler_rect(area),
-            self.view,
-            open.project.timeline_fps,
-        );
-        divider(ui, &painter, area, &open.project);
+        let whole = ui.painter_at(full);
+        let fps = open.project.timeline_fps;
+        whole.rect_filled(full, 0.0, palette::INK);
+        whole.rect_filled(gutter, 0.0, palette::VOID);
+        heading(&whole, gutter, area);
+
+        // Two painters, and the clip between them is what makes the gutter a
+        // gutter. A clip scrolled off the left of the view is drawn at a
+        // negative offset; with one painter over the whole strip it slides
+        // under the track heads and out the other side, which is the one thing
+        // a fixed column of labels must never let happen.
+        let heads = whole.with_clip_rect(gutter);
+        let painter = whole.with_clip_rect(area);
+        ruler::draw(&painter, ruler_rect(area), self.view, fps);
         rows(
             &lanes::Paint {
-                ui,
                 painter: &painter,
                 project: &open.project,
                 view: self.view,
                 selected: &editing.selected,
                 highlighted: editing.highlighted.clone(),
             },
+            &heads,
             gutter,
             area,
         );
+        beyond(&painter, area, self.view, &open.project);
+        divider(&painter, area, &open.project);
+        // The gutter's own edge, drawn last of the furniture so nothing lands
+        // on top of the line that says where the labels stop.
+        marks::rule(
+            &whole,
+            gutter.right_top(),
+            gutter.right_bottom(),
+            palette::EDGE,
+        );
 
-        self.snap_line(ui, &painter, area);
-        self.note(ui, &painter, area);
+        self.snap_line(&painter, area);
+        self.note(&painter, area);
         ruler::playhead(
             &painter,
             area,
             area.left() + self.view.offset_of(editing.playhead),
-            ui.visuals().error_fg_color,
         );
     }
 
@@ -154,7 +228,7 @@ impl Timeline {
     ///
     /// Only while a gesture is live and only when one was actually taken: an
     /// indicator that is always on says nothing.
-    fn snap_line(&self, ui: &Ui, painter: &egui::Painter, area: Rect) {
+    fn snap_line(&self, painter: &egui::Painter, area: Rect) {
         let Some(Gesture::Clip(held)) = &self.gesture else {
             return;
         };
@@ -165,12 +239,11 @@ impl Timeline {
         if !area.x_range().contains(x) {
             return;
         }
-        painter.line_segment(
-            [
-                egui::pos2(x, area.top() + ruler::HEIGHT),
-                egui::pos2(x, area.bottom()),
-            ],
-            egui::Stroke::new(1.0, ui.visuals().warn_fg_color),
+        marks::rule(
+            painter,
+            egui::pos2(x, area.top() + ruler::HEIGHT),
+            egui::pos2(x, area.bottom()),
+            palette::WARM,
         );
     }
 
@@ -180,38 +253,49 @@ impl Timeline {
     /// Both in one corner and stacked, because they are two halves of one
     /// answer during a scale — the factor asked for, and the reason the clips
     /// stopped following it.
-    fn note(&self, ui: &Ui, painter: &egui::Painter, area: Rect) {
-        let mut at = area.right_top() + vec2(-6.0, 4.0);
-        let mut line = |text: &str, color| {
-            painter.text(
-                at,
-                egui::Align2::RIGHT_TOP,
-                text,
-                egui::FontId::proportional(11.0),
-                color,
-            );
-            at.y += 14.0;
-        };
+    fn note(&self, painter: &egui::Painter, area: Rect) {
+        // Under the ruler and on a plate of its own. Both halves are the same
+        // lesson: this was painted as bare text in the ruler's own strip, over
+        // the timecodes, and a sentence you have to read *through* a row of
+        // numbers is one nobody reads at all — least of all mid-gesture, which
+        // is the only moment it is ever on screen.
+        let mut at = egui::pos2(area.right() - 8.0, area.top() + ruler::HEIGHT + 6.0);
+        for (text, colour) in self.said() {
+            at.y += marks::plate(painter, at, &text, colour) + 5.0;
+        }
+    }
+
+    /// What the panel has to say this frame, top line first.
+    fn said(&self) -> Vec<(String, egui::Color32)> {
+        let mut lines = Vec::new();
         if let Some(Gesture::Pace(pace)) = &self.gesture {
-            line(&pace.readout(), ui.visuals().strong_text_color());
+            lines.push((pace.readout(), palette::ACCENT));
         }
         if let Some(text) = &self.trouble {
-            line(text, ui.visuals().error_fg_color);
+            lines.push((text.clone(), palette::ALERT));
         }
+        lines
     }
 }
 
-/// Every lane, gutter label and clip.
-fn rows(paint: &lanes::Paint<'_>, gutter: Rect, area: Rect) {
+/// Every lane, track head and clip — in three passes, and the order is the
+/// whole point.
+///
+/// Grounds first, then the grid over them, then the blocks over the grid. A
+/// grid drawn under the lane grounds would be invisible; one drawn over the
+/// blocks would stripe every label. Between the two it shows exactly where
+/// there is no clip, which is where somebody is looking when they are judging
+/// whether two cuts land on the same beat.
+fn rows(paint: &lanes::Paint<'_>, heads: &egui::Painter, gutter: Rect, area: Rect) {
     let top = area.top() + ruler::HEIGHT;
-    for (track, offset) in lanes::laid_out(paint.project) {
-        lanes::gutter(
-            paint.ui,
-            paint.painter,
-            lanes::lane_rect(gutter, top, offset),
-            track,
-        );
-        lanes::draw(paint, lanes::lane_rect(area, top, offset), track);
+    let laid = lanes::laid_out(paint.project);
+    for (track, offset) in &laid {
+        lanes::gutter(heads, lanes::lane_rect(gutter, top, *offset), track);
+        lanes::ground(paint.painter, lanes::lane_rect(area, top, *offset));
+    }
+    ruler::grid(paint.painter, area, paint.view, paint.project.timeline_fps);
+    for (track, offset) in &laid {
+        lanes::draw(paint, lanes::lane_rect(area, top, *offset), track);
     }
 }
 
@@ -224,19 +308,26 @@ fn rows(paint: &lanes::Paint<'_>, gutter: Rect, area: Rect) {
 /// project with many tracks does not swallow the preview; past the clamp the
 /// panel is resizable by hand.
 pub(crate) fn desired_height(project: &Project) -> f32 {
-    let wanted = ruler::HEIGHT + lanes::height(project) + 12.0;
-    wanted.clamp(120.0, 320.0)
+    let wanted = ruler::HEIGHT + lanes::height(project) + 14.0;
+    wanted.clamp(120.0, 340.0)
 }
 
 /// The line where picture stops and sound begins.
-fn divider(ui: &Ui, painter: &egui::Painter, area: Rect, project: &Project) {
+///
+/// Brighter than the hairline under a lane, because it divides two *kinds* of
+/// row rather than two rows: video tracks composite in array order and audio
+/// tracks all sum, so the halves mean different things and must not read as one
+/// list.
+fn divider(painter: &egui::Painter, area: Rect, project: &Project) {
     let Some(offset) = lanes::divider(project) else {
         return;
     };
     let y = area.top() + ruler::HEIGHT + offset;
-    painter.line_segment(
-        [egui::pos2(area.left(), y), egui::pos2(area.right(), y)],
-        egui::Stroke::new(1.0, ui.visuals().widgets.noninteractive.bg_stroke.color),
+    marks::rule(
+        painter,
+        egui::pos2(area.left(), y),
+        egui::pos2(area.right(), y),
+        palette::EDGE,
     );
 }
 
@@ -245,6 +336,53 @@ fn split(full: Rect) -> (Rect, Rect) {
     let gutter = Rect::from_min_size(full.min, vec2(GUTTER, full.height()));
     let area = Rect::from_min_max(egui::pos2(full.left() + GUTTER, full.top()), full.max);
     (gutter, area)
+}
+
+/// Where the film stops.
+///
+/// Everything past the last frame anything occupies is knocked back and a line
+/// is drawn at the edge. Without it a timeline zoomed out looks the same a
+/// second after the film ends as it does an hour after — and "how much of this
+/// strip is the actual cut" is a thing you should be able to see rather than
+/// work out from the ruler.
+///
+/// Over the lane grounds and under the clips, like the grid, for the same
+/// reason: nothing this draws may dim a block somebody is looking at.
+fn beyond(painter: &egui::Painter, area: Rect, view: View, project: &Project) {
+    let end = area.left() + view.offset_of(length(project));
+    if end >= area.right() {
+        return;
+    }
+    let from = end.max(area.left());
+    painter.rect_filled(
+        Rect::from_min_max(egui::pos2(from, area.top() + ruler::HEIGHT), area.max),
+        0.0,
+        palette::VOID.gamma_multiply(0.55),
+    );
+    if end >= area.left() {
+        marks::rule(
+            painter,
+            egui::pos2(end, area.top() + ruler::HEIGHT),
+            egui::pos2(end, area.bottom()),
+            palette::EDGE,
+        );
+    }
+}
+
+/// The panel's own name, in the corner the ruler leaves empty above the track
+/// heads.
+///
+/// There is nowhere else for it now that the timeline has no widget heading of
+/// its own, and the corner is otherwise the one piece of this window that is
+/// dark and says nothing at all.
+fn heading(painter: &egui::Painter, gutter: Rect, area: Rect) {
+    painter.text(
+        egui::pos2(gutter.left() + 10.0, area.top() + ruler::HEIGHT / 2.0),
+        egui::Align2::LEFT_CENTER,
+        "TIMELINE",
+        egui::FontId::proportional(9.5),
+        palette::ACCENT_DIM,
+    );
 }
 
 /// The ruler's strip across the top of the clip area.

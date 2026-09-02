@@ -15,6 +15,7 @@ use super::Inspector;
 use super::controls::{fit_row, frames_row, speed_row};
 use super::selected::Selected;
 use crate::project::Open;
+use crate::theme::{ROUND, marks, palette};
 
 impl Inspector {
     /// Draws the panel for one clip.
@@ -81,7 +82,7 @@ impl Inspector {
             return;
         }
         ui.add_space(10.0);
-        ui.label(RichText::new("ANIMATED").strong().small());
+        ui.label(marks::subheading("Animated"));
         for animated in &selected.animated {
             let property = animated.property.as_str();
             ui.horizontal(|ui| {
@@ -117,13 +118,24 @@ impl Inspector {
 fn identity(ui: &mut Ui, selected: &Selected) {
     ui.add_space(4.0);
     ui.horizontal(|ui| {
+        // The kind's own colour, in the same square the pool uses and the same
+        // hue the block on the timeline is drawn in. Three panels, one code.
+        if let Some(kind) = selected.kind {
+            let (rect, _) = ui.allocate_exact_size(egui::vec2(8.0, 8.0), egui::Sense::hover());
+            ui.painter()
+                .rect_filled(rect, ROUND, palette::of_kind(kind));
+        }
         ui.label(RichText::new(selected.asset.as_str()).strong());
-        ui.label(RichText::new(describe(selected)).weak().small());
     });
     ui.label(
+        RichText::new(describe(selected))
+            .small()
+            .color(palette::DIM),
+    );
+    ui.label(
         RichText::new(format!("on track {}", selected.track))
-            .weak()
-            .small(),
+            .small()
+            .color(palette::FAINT),
     );
 }
 

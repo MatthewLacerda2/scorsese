@@ -94,6 +94,31 @@ fn a_scale_in_flight() {
     harness.snapshot("a_scale_in_flight");
 }
 
+/// The timeline zoomed out past the end of the film.
+///
+/// Two things are only visible here. The **end of the edit** — everything past
+/// the last frame anything occupies is knocked back and a line is drawn at the
+/// edge, so how much of the strip is the actual cut is something you see rather
+/// than work out from the ruler. And the **ruler choosing a coarser step**: at
+/// this magnification a label a second would be a smear, so it steps up the
+/// ladder and keeps its minor ticks between.
+///
+/// Reached with the zoom key, which is also the only picture in this suite that
+/// shows one of the new keys doing anything at all. The view is the timeline's
+/// own and nothing outside it can read a magnification off — so a snapshot is
+/// the only way anybody looks at this.
+#[test]
+fn the_timeline_zoomed_out_past_the_end() {
+    let project = fixture::project("beyond");
+    let mut harness = window(Some(project.path().to_path_buf()));
+    harness.run();
+    for _ in 0..8 {
+        harness.key_press(egui::Key::Minus);
+        harness.run();
+    }
+    harness.snapshot("the_timeline_zoomed_out_past_the_end");
+}
+
 /// A project that does not validate, **open**: the timeline, the pool and the
 /// inspector drawn and inert, `read-only` beside the project's name, and every
 /// problem at once where the preview would be.

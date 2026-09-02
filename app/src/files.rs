@@ -7,11 +7,19 @@
 //! Grouped by what a thing *is*, because that is how someone looks for one:
 //! footage, sound, titles, and the things that do not exist yet.
 
-use egui::{Grid, RichText, ScrollArea, Ui};
+use egui::{Grid, RichText, ScrollArea, Ui, vec2};
 use scorsese_core::{AssetHealth, AssetKind, AssetStatus, HashCheck, Project, asset_status};
 
 use crate::editing::Editing;
 use crate::project::Open;
+use crate::theme::{ROUND, marks, palette};
+
+/// How big the colour chip beside an asset's name is.
+///
+/// A square rather than a swatch the width of the row: the chip is an *index*
+/// into the timeline's colours, and it only has to be big enough to tell a blue
+/// from a green at a glance.
+const CHIP: f32 = 8.0;
 
 /// The panel's own state: the pool as it was last looked at.
 #[derive(Debug, Default)]
@@ -41,7 +49,7 @@ impl Files {
     /// Draws the panel.
     pub(crate) fn show(&mut self, ui: &mut Ui, open: &Open, editing: &mut Editing) {
         ui.horizontal(|ui| {
-            ui.heading("Project files");
+            ui.label(marks::heading("Project files"));
             if ui
                 .small_button("↻")
                 .on_hover_text("Re-read the pool")
@@ -53,7 +61,12 @@ impl Files {
 
         if self.status.is_empty() {
             ui.add_space(4.0);
-            ui.label(RichText::new("nothing imported yet").weak().italics());
+            ui.label(
+                RichText::new("nothing imported yet")
+                    .italics()
+                    .small()
+                    .color(palette::FAINT),
+            );
             return;
         }
 
@@ -82,9 +95,9 @@ impl Files {
             return;
         }
         ui.add_space(6.0);
-        ui.label(RichText::new(heading).strong().small());
+        ui.label(marks::subheading(heading));
         Grid::new(heading)
-            .num_columns(2)
+            .num_columns(3)
             .striped(true)
             .show(ui, |ui| {
                 for status in rows {
@@ -118,6 +131,7 @@ const GROUPS: &[(&str, &[AssetKind])] = &[
 /// "where does this actually get used?", which the table alone cannot give.
 fn row(ui: &mut Ui, project: &Project, editing: &mut Editing, status: &AssetStatus) {
     let picked = editing.highlighted.as_ref() == Some(&status.id);
+    chip(ui, status.kind);
     if ui
         .selectable_label(picked, status.id.as_str())
         .on_hover_text(used_by(status))
@@ -129,6 +143,15 @@ fn row(ui: &mut Ui, project: &Project, editing: &mut Editing, status: &AssetStat
     }
     ui.label(note(project, status));
     ui.end_row();
+}
+
+/// The colour that says what this asset is — the same one its clips are drawn
+/// in, which is the whole of what makes the pool and the timeline one picture
+/// rather than two lists.
+fn chip(ui: &mut Ui, kind: AssetKind) {
+    let (rect, _) = ui.allocate_exact_size(vec2(CHIP, CHIP), egui::Sense::hover());
+    ui.painter()
+        .rect_filled(rect, ROUND, palette::of_kind(kind));
 }
 
 /// The short right-hand note: what is worth knowing at a glance.
@@ -146,9 +169,9 @@ fn note(project: &Project, status: &AssetStatus) -> RichText {
     };
     let text = RichText::new(text).small();
     if status.health.needs_attention() {
-        text.color(egui::Color32::from_rgb(220, 140, 90))
+        text.color(palette::WARM)
     } else {
-        text.weak()
+        text.color(palette::DIM)
     }
 }
 
