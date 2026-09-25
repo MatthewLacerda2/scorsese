@@ -425,6 +425,14 @@ asked for, frames because that is what the document now holds — and a caller
 that cannot read the frame back has no way to tell which side of a rounding its
 cut landed on.
 
+**The end is put on the grid, not the length.** A clip's last frame is where
+`start_seconds + duration_seconds` rounds to — the same frame a clip *starting*
+at that instant rounds to — so two clips placed back to back on one boundary
+tile instead of overlapping by a frame. That is how a caption per musical
+section is placed: `start_seconds` is a section's start as the bake report says
+it, `duration_seconds` is its end minus its start, and the next caption starts
+at that end.
+
 **`source_in_seconds` is a time in the source, and the framerates are not your
 problem.** It is written down as `source_in` in *timeline* frames, so "skip the
 first two seconds" means the same thing whether the take was shot at 25fps and
@@ -1271,6 +1279,16 @@ that has to be asked for is one an unattended client never sees — and only a
 song of more than one track has them. `audio_level` measures a finished file,
 which no longer has tracks in it, so it reports the sum alone. What the rows
 mean, in full, is in [`recipes.md`](recipes.md#which-layer-is-taking-up-the-room).
+Under them is a grid, one row per track and one column per section, with each
+track's mean in each section — the question neither table answers alone,
+*which instrument is quiet in the trio*.
+
+**Every section row starts with its bounds in seconds, to the millisecond** —
+`8.000-24.000` — which is what `place_clip` takes: the start is
+`start_seconds`, and the end minus the start is `duration_seconds`. A bake that
+was already on disk measures nothing, but still lists where its sections are,
+because that is arithmetic on the recipe and costs nothing; a caption can be put
+on a section without re-baking to find it.
 
 It is a **signal and never a gate** — there is no correct loudness — and it is
 not a critic. It finds defects: too quiet, clipping, muddy, a section flat

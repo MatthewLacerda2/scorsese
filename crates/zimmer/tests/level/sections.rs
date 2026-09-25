@@ -1,9 +1,11 @@
 //! The same statistics again, a stretch at a time.
 
 use scorsese_zimmer::level::{Cut, Profiler};
-use scorsese_zimmer::{SAMPLE_RATE, bake_song, song::InlineOnly};
+use scorsese_zimmer::song::{Fit, FitMode, InlineOnly};
+use scorsese_zimmer::{SAMPLE_RATE, bake_song};
 
 use super::{SLACK, common::songs, square};
+use crate::common::songs::played;
 
 /// The claim the whole table makes: a signal whose halves differ by a known
 /// number of decibels says so **on the right rows**, where a whole-file mean
@@ -104,4 +106,58 @@ fn a_bake_of_a_song_is_sectioned_by_its_arrangement() {
         bake.profile.seconds() >= 2.0,
         "and the piece rings out past it"
     );
+}
+
+/// The document says where a bake cut its sections without baking it — to the
+/// sample, and at the tempo it was rendered at rather than the one written, so
+/// a caption put on a boundary read off a cached bake lands on the music.
+#[test]
+fn the_document_says_where_the_bake_cut_its_sections() {
+    let mut song = songs::song();
+    // Two seconds as written, stretched to 2.2: every boundary moves with it.
+    song.fit = Some(Fit {
+        seconds: 2.2,
+        mode: FitMode::Stretch,
+    });
+    let bake = bake_song(&song, &InlineOnly).expect("the fixture song renders");
+    let said: Vec<f64> = song.sections().iter().map(|cut| cut.end_seconds).collect();
+    let cut: Vec<f64> = bake
+        .profile
+        .sections
+        .iter()
+        .map(|span| span.to_seconds)
+        .collect();
+    assert_eq!(said.len(), cut.len(), "{said:?} against {cut:?}");
+    let sample = 1.0 / f64::from(SAMPLE_RATE);
+    for (said, cut) in said.iter().zip(&cut) {
+        assert!((said - cut).abs() <= sample, "{said} against {cut}");
+    }
+    assert!(
+        (said[0] - 1.1).abs() < 1e-4,
+        "stretched, not written: {said:?}"
+    );
+}
+
+/// Every track is cut where the sum is, so the grid's columns and the section
+/// rows above it are the same stretches of the piece.
+#[test]
+fn each_track_is_cut_at_the_sections_the_sum_is() {
+    let mut song = songs::song();
+    let mut lead = song.tracks[0].clone();
+    lead.name = "lead".to_owned();
+    song.tracks.push(lead);
+    songs::verse(&mut song)
+        .notes
+        .extend(played(vec![songs::note("lead", "E4", 0.0, 1.0)]));
+    let bake = bake_song(&song, &InlineOnly).expect("the fixture song renders");
+    assert_eq!(bake.tracks.len(), 2);
+    let bounds = |spans: &[scorsese_zimmer::level::Span]| -> Vec<(f64, f64)> {
+        spans
+            .iter()
+            .map(|span| (span.from_seconds, span.to_seconds))
+            .collect()
+    };
+    for track in &bake.tracks {
+        assert_eq!(bounds(&track.sections), bounds(&bake.profile.sections));
+    }
 }

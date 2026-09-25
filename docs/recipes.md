@@ -1871,21 +1871,45 @@ channels:
 trilha — baked, 3702 KB
   generated/9f3c….wav
   43.0 s  mean -14.4 dBFS, peak -2.9 dBFS, low  47%  mid  45%  high   8%, corr +0.62
-     0:00-0:08 intro   mean  -19.1   peak   -8.2   crest  10.9   low  42%  mid  51%  high   7%   corr +0.74
-     0:08-0:24 verse   mean  -13.8   peak   -3.1   crest  10.7   low  38%  mid  49%  high  13%   corr +0.60
-     0:24-0:40 chorus  mean  -13.9   peak   -2.9   crest  11.0   low  61%  mid  33%  high   6%   corr +0.58
+       0.000-8.000    intro   mean  -19.1   peak   -8.2   crest  10.9   low  42%  mid  51%  high   7%   corr +0.74
+       8.000-24.000   verse   mean  -13.8   peak   -3.1   crest  10.7   low  38%  mid  49%  high  13%   corr +0.60
+      24.000-40.000   chorus  mean  -13.9   peak   -2.9   crest  11.0   low  61%  mid  33%  high   6%   corr +0.58
+      40.000-43.000           mean  -38.2   peak  -21.5   crest  16.7   low  52%  mid  44%  high   4%   corr +0.35
      sub     mean  -18.9   peak   -6.1   crest  12.8   low  96%  mid   4%  high   0%   corr +1.00
      pad     mean  -21.4   peak  -11.0   crest  10.4   low  71%  mid  28%  high   1%   corr +0.29
      arp     mean  -25.2   peak  -12.7   crest  12.5   low   6%  mid  88%  high   6%   corr +0.81
      hat     mean  -33.7   peak  -14.2   crest  19.5   low   3%  mid  22%  high  75%   corr +0.94
+     mean by section   intro   verse  chorus    tail
+     sub               -24.0   -17.9   -17.2   -41.3
+     pad               -19.8   -21.0   -22.6   -40.0
+     arp              silent   -22.4   -24.1  silent
+     hat              silent  silent   -29.8  silent
 ```
 
-The rows with a clock on them are the **arrangement's own sections** when there
+The rows with times on them are the **arrangement's own sections** when there
 is an arrangement, which is what lets a finding be "the second chorus is the
 quiet one" rather than "seconds 24 to 32 are quiet". A one-shot, an imported
 file and a rendered mixdown have no arrangement, so those are cut on a fixed
 interval instead. A piece with only one stretch gets no rows at all — one row
 under a one-line summary is the same sentence twice.
+
+**The times are seconds, to the millisecond**, and they are exact: they come
+from the same conversion the notes were placed with, so a section that starts
+at `24.000` starts on the sample the chorus's first downbeat was put on —
+under a `stretch` fit at the stretched tempo, and under a `loop` fit once per
+pass. That is precise enough to put a caption, a cut or a title on a musical
+boundary: [`place_clip`](mcp.md#putting-a-clip-on-the-timeline-and-adjusting-it-afterwards)
+takes the start as `start_seconds` and the end minus the start as
+`duration_seconds`, and it rounds the end onto the frame grid the way it rounds
+the next clip's start, so captions placed section by section tile. The row
+past the last section is the ring-out, cut on the fixed interval.
+
+A bake that was **already on disk** measures nothing — its numbers were
+computed when it was made — but it still lists its sections' bounds, in the
+same form and without a label column's worth of figures after them, because
+where the sections are is arithmetic on the recipe rather than a measurement.
+A song of one long pattern gets its one row there too, since that is still a
+time somebody may want to place a clip against.
 
 *crest* is peak minus mean: the cheapest proxy there is for "does this have
 dynamics, or is it a wall". The three band shares are a coarse split at 250 Hz
@@ -1945,9 +1969,10 @@ of it, so those are the two faders worth touching.
   own effects, the master limiter and the fades are not in these numbers;
   they belong to the sum, and a row that included them would answer a question
   about the piece under the name of a track.
-- **One line per track for the whole piece**, never per section. Five
-  instruments over four sections is twenty rows in a report usually read as
-  "fine, carry on", and the per-section detail is already on the sum above.
+- **One line per track for the whole piece**, never a full row per section.
+  Five instruments over four sections is twenty rows in a report usually read
+  as "fine, carry on", and the per-section detail is already on the sum above.
+  Which track is quiet in which section is the grid's — see below.
 - **Measured over the length of the piece**, so a hat that plays in one section
   does not read as louder than the pad it sits over.
 - **A track that never played says `silent`**, which is a finding rather than a
@@ -1956,6 +1981,37 @@ of it, so those are the two faders worth touching.
 - **Only for a song of more than one track.** A one-shot is one gesture played
   by one voice, and a single track's row would repeat the summary above it —
   the same rule the section rows follow.
+
+### Which layer is quiet in which section
+
+The last table is a **grid**: a row per track, a column per section, and in
+each cell that track's mean over that section, post-gain like its row above.
+It answers the question the two tables before it each answer half of. A
+section row says *that* the trio came out a decibel quieter — it is the whole
+mix; a track row says the brass averages −25 dB — over the whole song, half of
+which it sits out. *Which instrument is down in the trio* used to be an
+inference from which tracks the arrangement plays where. In the grid it is a
+cell.
+
+- **Only the mean.** The level is what the question is about, and a cell with
+  the band shares and the width in it too is a table nobody scans. Those stay
+  on the rows above, whole-piece.
+- **As tall as the mix has tracks**, the same height as the table above it; it
+  spends width on sections instead. A `loop` fit repeats its arrangement, and
+  every pass is a column, which makes a wide grid — it is still exactly what
+  played.
+- **`silent`** where a track played nothing in that section, which is how an
+  arrangement that mutes an instrument for a strain shows up — and also where
+  all it left there is under −96 dBFS, the floor of the 16-bit file: the last
+  whisper of a note from the section before is a true number and a misleading
+  cell, because it reads as the instrument playing softly. **`tail`** heads
+  the ring-out past the last section.
+- **Always printed**, never on request. The question comes up while reading the
+  report that raised it, and by then the bake is cached and measured nothing:
+  a grid that had to be asked for would cost a re-render to get. Nor is it
+  trimmed to the tracks that change by more than some threshold, because the
+  trio that prompted it was one decibel down, and any threshold loose enough to
+  shorten a report hides a finding that size.
 
 There is nothing to switch on: the rows are always printed, in
 `scorsese synth bake` and over MCP in `synth_bake`. `scorsese level` and
@@ -1992,7 +2048,7 @@ and gets worse.
 Take the report at the top of this section at its word. Three readings come out
 of it, and only one of them is a problem:
 
-- **`0:24-0:40 chorus … low 61%`** against 42% and 38% for the two sections
+- **`24.000-40.000 chorus … low 61%`** against 42% and 38% for the two sections
   before it. Something joins in at the chorus and it is all bottom end. The
   piece will read as *muddy* there and nowhere else.
 - **`sub … low 96%`** is not the fault. A sub is supposed to be entirely low;

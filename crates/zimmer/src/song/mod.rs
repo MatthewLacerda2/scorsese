@@ -50,6 +50,7 @@ pub(crate) mod arrangement;
 pub(crate) mod articulation;
 pub(crate) mod automate;
 pub(crate) mod chord;
+pub(crate) mod clock;
 pub(crate) mod excerpt;
 pub(crate) mod feel;
 pub(crate) mod glide;

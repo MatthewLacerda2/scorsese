@@ -10,9 +10,10 @@
 //! Same columns, same widths, same order as a section row, so the two tables
 //! and the summary above them are read as one column of numbers.
 //!
-//! **One line per layer for the whole piece**, never per section: five
-//! instruments over four sections is twenty rows in a report usually read as
-//! "fine, carry on", and the per-section detail is already on the sum.
+//! **One line per layer for the whole piece**, never a full row per section:
+//! five instruments over four sections is twenty rows in a report usually read
+//! as "fine, carry on". Which instrument is quiet in which section is the
+//! grid's, one number a cell — see [`super::grid`].
 
 use scorsese_zimmer::level::Layer;
 
@@ -69,6 +70,7 @@ mod tests {
                 }),
                 correlation: Some(0.42),
             },
+            sections: Vec::new(),
         }
     }
 

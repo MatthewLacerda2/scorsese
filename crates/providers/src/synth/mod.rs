@@ -37,7 +37,7 @@ use std::path::{Path, PathBuf};
 use scorsese_core::{
     Asset, AssetId, GenerationState, MediaMetadata, Project, ProjectPath, hash_bytes,
 };
-use scorsese_zimmer::level::{Layer, Profile};
+use scorsese_zimmer::level::{Cut, Layer, Profile};
 use scorsese_zimmer::{Bake, Patch, SAMPLE_RATE, bake_note, bake_song, wav};
 
 /// The vocabulary of an excerpt, re-exported.
@@ -85,6 +85,12 @@ pub enum Baked {
     Cached {
         /// Where it is, project-relative.
         path: ProjectPath,
+        /// Where the arrangement's sections fall in it, for a song — worked
+        /// out from the recipe, not measured, which is why a cache hit can
+        /// still say them: they are arithmetic on the document and cost
+        /// nothing, and a caller placing a caption on a section wants them
+        /// whether or not this run rendered anything. Empty for a one-shot.
+        sections: Vec<Cut>,
     },
 }
 
@@ -92,7 +98,7 @@ impl Baked {
     /// Where the media is, either way.
     pub fn path(&self) -> &ProjectPath {
         match self {
-            Self::Rendered { path, .. } | Self::Cached { path } => path,
+            Self::Rendered { path, .. } | Self::Cached { path, .. } => path,
         }
     }
 
@@ -146,7 +152,10 @@ pub fn bake_asset(
     let on_disk = output.resolve(project_root);
 
     let baked = if on_disk.is_file() {
-        Baked::Cached { path: output }
+        Baked::Cached {
+            path: output,
+            sections: sections(&recipe),
+        }
     } else {
         let bake = render(&recipe, &file, project_root)?;
         write(&on_disk, &bake.wav)?;
@@ -214,6 +223,15 @@ fn render(recipe: &Recipe, file: &Path, project_root: &Path) -> Result<Bake, Syn
             bake_note(&one_shot.patch, midi, &one_shot.opts()).map_err(unrenderable)
         }
         Recipe::Song(song) => bake_song(song, &instruments(project_root)).map_err(unrenderable),
+    }
+}
+
+/// Where a recipe's sections fall, without rendering it: a song's
+/// arrangement, and nothing for a one-shot, which has none.
+fn sections(recipe: &Recipe) -> Vec<Cut> {
+    match recipe {
+        Recipe::Patch(_) => Vec::new(),
+        Recipe::Song(song) => song.sections(),
     }
 }
 

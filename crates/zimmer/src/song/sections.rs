@@ -11,6 +11,7 @@
 //! not say — see [`crate::level::profile`].
 
 use super::Song;
+use super::clock::Clock;
 use super::shape::plan;
 use crate::level::Cut;
 
@@ -32,8 +33,11 @@ fn whole(song: &Song) -> Vec<Cut> {
     if bpm <= 0.0 {
         return Vec::new();
     }
-    let beat = f64::from(60.0 / bpm);
-    let mut end = 0.0;
+    // Beats are summed and converted, rather than seconds summed, because that
+    // is how the renderer walks the arrangement: a boundary is then the exact
+    // number a note written on that downbeat was placed at.
+    let clock = Clock::at(bpm);
+    let mut beats = 0.0f32;
     let mut cuts = Vec::new();
     for entry in song
         .arrangement
@@ -44,13 +48,32 @@ fn whole(song: &Song) -> Vec<Cut> {
         let Some(pattern) = song.patterns.get(entry.pattern()) else {
             continue;
         };
-        end += f64::from(pattern.beats) * beat;
+        beats += pattern.beats;
         cuts.push(Cut {
             label: entry.pattern().to_owned(),
-            end_seconds: end,
+            end_seconds: f64::from(clock.seconds(beats)),
         });
     }
     cuts
+}
+
+impl Song {
+    /// Where each entry of the arrangement ends, in seconds of the piece this
+    /// song renders to — worked out from the document, without rendering it.
+    ///
+    /// The same boundaries a bake's section rows are cut at, and through the
+    /// same conversion the notes are placed with, so a clip put on one of
+    /// them lands on the music. Public for the caller that has a bake already
+    /// on disk and still wants to know where its sections are: those are
+    /// arithmetic on the document rather than a measurement, so answering
+    /// costs nothing and needs no render.
+    ///
+    /// One per arrangement entry per pass, in order; each section starts where
+    /// the one before it ends, and the first at zero. The ring-out past the
+    /// last one is not a section — nothing in the arrangement played it.
+    pub fn sections(&self) -> Vec<Cut> {
+        whole(self)
+    }
 }
 
 /// The same boundaries, measured from `start_seconds` into the piece — which
