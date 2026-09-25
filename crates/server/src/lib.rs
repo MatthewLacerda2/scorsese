@@ -55,6 +55,11 @@
 //! - It costs this crate next to nothing: `scorsese-mcp` is hand-rolled, and
 //!   beyond `serde` it depends only on the library crates this one is a
 //!   client of anyway.
+//! - It does not bend the boundary above. The editing logic a tool performs
+//!   already lives in `core`, `render` and `providers`; what `scorsese-mcp`
+//!   adds on top is protocol — each tool's self-description and the message
+//!   handling around it — which is exactly what a second transport for the
+//!   same tools should reuse rather than re-derive.
 //!
 //! The constraint every later issue inherits: **`scorsese-mcp` never learns
 //! about users or Postgres.** It stays stateless and database-free, and
