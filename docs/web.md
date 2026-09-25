@@ -57,7 +57,8 @@ large single request.
 **One user can never see or touch another's projects, files, generations or
 chat.** There is no sharing and no co-working in v1; a global shared library is
 a someday idea. This is a hard rule, and it is enforced so that forgetting it in
-a new query **fails loudly** rather than leaking (#533 decides the mechanism).
+a new query **fails loudly** rather than leaking — Postgres row-level security,
+argued under *Accounts* below.
 
 It reaches into caching too: a generated Veo shot is reused for free across the
 **same user's** projects by its brief hash, and **never** across users.
@@ -315,6 +316,99 @@ remote, by the same path. Then:
 **On a new machine** after losing this one: first-time setup steps 1–6 with the
 same remote and credentials (the tunnel's token is in the dashboard still),
 then the restore above.
+
+## Accounts
+
+Who may use the server, and how each request proves it (#533). The code is
+`crates/server/src/accounts/`, and each module's doc carries its argument; this
+is the whole of it in one place.
+
+**No public sign-up.** The operator creates accounts, resets passwords and
+deletes accounts from the server's own binary, run where the server runs:
+
+```text
+docker compose exec scorsese-server scorsese-server user create ana@example.com
+scorsese-server user reset-password ana@example.com   # also logs out every browser
+scorsese-server user delete ana@example.com --yes     # rows and files, for good
+scorsese-server user list
+scorsese-server token create ana@example.com "ana's laptop"
+```
+
+Passwords are **generated and printed once**, never typed on a command line
+(shell history, `ps`); the user changes theirs from the web app
+(`POST /api/me/password`). Stored as **argon2id** PHC strings with the crate's
+OWASP-minimum parameters, which travel inside each hash, so raising them later
+breaks nobody.
+
+**The browser holds a session cookie**: 32 random bytes, of which Postgres
+keeps only the SHA-256, valid 30 days from login and not extended by use.
+`HttpOnly; Secure; SameSite=Strict; Path=/api` — the web app and the API share
+one origin, so Strict costs nothing, and with every write taking a JSON body
+it is the CSRF defence. Server-side rather than signed, so logout, a reset and
+a deletion end sessions *now* — and so **there is no signing key**: the server
+has no secret of its own for `docs/credentials.md`'s resolver to find.
+
+**Anything that is not a browser sends a per-user API token** —
+`Authorization: Bearer scor_…`. That is the answer for web MCP (#539) in v1:
+the MCP spec's remote authorization is OAuth 2.1, but the clients people will
+point at it first accept a static bearer header, and an authorization server
+(client registration, consent, refresh, PKCE) is a large surface for no client
+that needs it yet. When one that *only* speaks OAuth matters — claude.ai's
+custom connectors are the likely one — that is its own issue, and its flow ends
+by issuing these same tokens. Tokens are shown once, hashed like sessions,
+revoked one at a time, and **issued only from a browser session**, so a leaked
+token cannot mint its own replacement.
+
+| route | who | what |
+| --- | --- | --- |
+| `POST /api/login` | anyone | `{email, password}` → the account, and the cookie |
+| `POST /api/logout` | a member | ends the session |
+| `GET /api/me` | a member | the account |
+| `POST /api/me/password` | a member | `{current, new}`, at least 8 characters |
+| `GET /api/tokens` | a member | their tokens, never the values |
+| `POST /api/tokens` | a member, by session | `{name}` → `{id, token}`, shown once |
+| `DELETE /api/tokens/{id}` | a member | `404` for an id that is not theirs |
+
+An unknown email and a wrong password get the same answer in the same time.
+
+### Per-user isolation: how a new table follows it
+
+Enforced by Postgres, so that forgetting it is an error rather than a leak.
+`crates/server/src/db/scope.rs` has the argument; the rule for whoever adds a
+table (projects, library, jobs, credits…) is:
+
+1. **The table carries `user_id BIGINT NOT NULL REFERENCES users (id) ON
+   DELETE CASCADE`**, enables row-level security, and has a policy
+   `USING (user_id = (SELECT member_id()))` — copy `0001_accounts.sql`.
+   `tests/isolation.rs` reads the catalog and fails on any table that does
+   not. The cascade is also what makes account deletion complete.
+2. **Queries that act for a user run in `db::scoped(pool, user)`**, and need no
+   owner filter: the policy is the filter. Inserts write `member_id()` as the
+   owner, so a user id never travels through query text.
+3. **`db::privileged` is only for what is cross-user by nature** — finding
+   whose a cookie or token is, logging in, operator commands. Keep that list
+   short; every call is a place review reads twice.
+
+What makes forgetting loud: the server's connections sit in
+`scorsese_unscoped`, a role granted no table at all, so a query on the pool
+directly is `permission denied` — on the first run of the first test, even
+against an empty table. Only a scoped transaction steps into
+`scorsese_member`, the role the policies bind. This guards against mistakes,
+not SQL injection (`SET ROLE NONE` is open to any role); binding values is the
+injection defence. It also means **the login role must be a superuser or hold
+`CREATEROLE`**, because migration `0001` creates those two roles — the compose
+file's `POSTGRES_USER` is a superuser, so nothing needs configuring.
+
+**A user's files live under `$SCORSESE_STORAGE/users/<user id>/`** and
+nowhere else, so deleting an account is one directory. Named by id, never
+email: an email is personal data with no business in a path or a backup
+listing. Deletion removes the rows first, then the directory; if the files
+cannot all be removed, the command names the directory for the operator to
+finish by hand.
+
+Not in v1: a login rate limit (Cloudflare's rules sit in front, and argon2
+makes each guess cost tens of milliseconds), password-reset email, OAuth,
+public sign-up.
 
 ## Out of scope for now
 
