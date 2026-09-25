@@ -18,6 +18,7 @@
 //! everywhere this has to run.
 
 pub(crate) mod gain;
+pub(crate) mod headroom;
 pub(crate) mod level;
 pub(crate) mod measure;
 pub(crate) mod mix;
@@ -39,6 +40,7 @@ use crate::slug::Standing;
 use crate::tools::Tools;
 
 pub use gain::{Gain, path};
+pub use headroom::{DELIVERY_CEILING_DBTP, Trim};
 pub use level::{Levels, SoundLevels};
 pub use measure::measure;
 pub use mix::{CHANNELS, Mix, Ramp};
@@ -239,12 +241,17 @@ fn audio_source(shot: &Shot<'_>, file: PathBuf, plan: &Plan<'_>, frames: u64) ->
     }
 }
 
-/// Where to put the mix while it is being made: beside the output, hidden, and
-/// named after it so two concurrent renders never collide.
+/// Where to put the mix while it is being made.
 fn scratch_path(out: &Path) -> PathBuf {
+    scratch_beside(out, "scorsese-mix.pcm")
+}
+
+/// A scratch file beside the output, hidden, and named after it so two
+/// concurrent renders never collide. `tag` says which scratch file it is.
+fn scratch_beside(out: &Path, tag: &str) -> PathBuf {
     let name = out
         .file_name()
         .map(|name| name.to_string_lossy().into_owned())
         .unwrap_or_else(|| "render".to_owned());
-    out.with_file_name(format!(".{name}.scorsese-mix.pcm"))
+    out.with_file_name(format!(".{name}.{tag}"))
 }

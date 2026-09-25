@@ -117,6 +117,23 @@ impl AudioCodec {
         self.name()
     }
 
+    /// Whether this encoder reconstructs a *different* waveform from the one it
+    /// was given, rather than the same samples back.
+    ///
+    /// What decides whether a render has to leave the encoder headroom
+    /// (`crate::audio::headroom`): a lossy codec rebuilds the signal from
+    /// what it kept of the spectrum, and the rebuilt peaks land above the
+    /// originals by an amount that depends on the material. Asked of the codec
+    /// rather than of any one of them by name, so an audio-only delivery in
+    /// another lossy codec inherits the same protection without anyone
+    /// remembering to extend a match on `aac`.
+    pub const fn is_lossy(self) -> bool {
+        match self {
+            Self::Aac | Self::Wmav2 => true,
+            Self::PcmS16Le => false,
+        }
+    }
+
     /// Whether a target bitrate means anything here. Uncompressed audio has
     /// exactly one rate — its sample rate times its width — so `-b:a` against
     /// it is a setting that silently does nothing, and we would rather not

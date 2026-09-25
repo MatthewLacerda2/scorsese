@@ -15,6 +15,7 @@
 //! level.
 
 mod clips;
+mod headroom;
 mod measuring;
 mod mix;
 

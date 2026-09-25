@@ -16,7 +16,9 @@
 //! 1. [`plan`] reads the timeline and works out what occupies every frame of
 //!    the requested range — no ffmpeg, no bytes, testable entirely on its own.
 //! 2. [`audio`] decodes and sums the audible clips into one finished mix, which
-//!    the encoder then takes as an input file.
+//!    the encoder then takes as an input file. When the delivery's audio codec
+//!    is lossy the mix is rehearsed through it first, and turned down if the
+//!    codec would carry it over full scale (`audio::headroom`).
 //! 3. `pipe` runs the ffmpeg processes: one decoding a source into raw frames
 //!    or raw samples, one encoding them back into a file.
 //! 4. [`Renderer`] walks the plan, pulling frames from the first and handing

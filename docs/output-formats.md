@@ -104,3 +104,28 @@ That is structural rather than a check somebody has to remember to run. A
 `RenderSettings` holds an `OutputFormat`, and an `OutputFormat` cannot be
 constructed around a combination we do not write — so a combination that would
 produce a file nobody wants has no way to reach an encoder.
+
+## A lossy codec gets room to overshoot
+
+`aac` and `wmav2` are **lossy**: they keep what they can afford of the spectrum
+and rebuild a waveform from it, and the rebuilt peaks land above the originals.
+How far depends on the material — about 1 dB on one synth score, 3.3 dB on a
+denser one, both measured on real projects (#503) — so a mix sitting safely at
+−1 dBTP could come out of the encoder over full scale, clipped in the file a
+viewer plays.
+
+So before a lossy delivery is encoded, the finished mix is **rehearsed**:
+encoded on its own with the same codec, bitrate and container, decoded, and
+measured. If it comes back over **−1 dBTP** — the ceiling a synthesis bake is
+already limited to — the whole mix is turned down by exactly the excess, and
+rehearsed again. It is a uniform trim, never a limiter, so the mix's dynamics
+are the author's; and it is paid only when the codec is lossy and only as far
+as that material needs. `pcm_s16le` hands back what it was given and is never
+touched.
+
+The render says what it did. Its report carries the delivered file's own level,
+read back out of the file after encoding, beside the mix's — they differ
+whenever the codec is lossy, and the file's is the one a clipping verdict is
+about — and a line saying how far the soundtrack was turned down, when it was.
+`crates/render/tests/audio/loudness/headroom.rs` holds this to a square wave
+that overshoots AAC by more than 3 dB.
