@@ -95,6 +95,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `scale_pacing` | Move some clips toward or away from one instant, all by the same factor — the operation for pacing. | nothing |
 | `synth_new` | Start a new sound: writes a starter recipe into recipes/ and adds the synth_audio asset that points at it. | nothing |
 | `synth_import` | Read a Standard MIDI File into a song recipe in recipes/ and add the synth_audio asset that points at it, the way synth_new does. | nothing |
+| `synth_export` | Write a song recipe out as a Standard MIDI File, to open in a DAW — synth_import the other way round. | nothing |
 | `synth_read` | Read a recipe file as it is on disk. | nothing |
 | `synth_write` | Replace a recipe file with the document given. | nothing |
 | `synth_set` | Change one number in a recipe and leave the rest of the document alone: a track's gain or pan, or the recipe's own bpm, seed, swing, duration or velocity. | nothing |
@@ -1168,6 +1169,16 @@ reply names what the song could not hold — the sustain pedal, pitch bends,
 program numbers — so a client can tell the user why the bake sounds drier than
 the file. `path` is relative to the project, like every path here, or absolute.
 [`recipes.md`](recipes.md#starting-from-a-midi-file) has the whole mapping.
+
+`synth_export` is the other way round: a song recipe out as a `.mid` a DAW
+opens, written as the song *plays* — the arrangement once with its transforms,
+chords and step strings as notes, swing and articulations applied, a tempo ramp
+as a step every sixteenth. A song cannot say which of its tracks are drums, so
+`drums` names them (`"kick=36"` puts every note of a track on General MIDI's
+kick; `"drums"` keeps an imported kit's keys). `out` is relative to the project
+like every path here, and defaults to `cache/midi/<asset>.mid`; the project is
+not changed. The reply names what the file could not carry.
+[`recipes.md`](recipes.md#writing-a-song-out-as-midi) has the whole mapping.
 
 ### Baking part of one, which is not baking
 

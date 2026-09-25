@@ -60,9 +60,10 @@
 //!   whole.
 //! - [`survey`] is what a *set* of recipes is made of, counted from the
 //!   documents without baking any of them.
-//! - [`midi`] is the way *in* from outside: a Standard MIDI File's bytes read
-//!   as a [`Song`]. A converter rather than a renderer, which is why it keeps
-//!   a path of its own instead of joining the bakes at the root.
+//! - [`midi`] is the way in from outside and back out: a Standard MIDI File's
+//!   bytes read as a [`Song`], and a song written as those bytes for a DAW.
+//!   A converter rather than a renderer, which is why it keeps a path of its
+//!   own instead of joining the bakes at the root.
 //! - [`wav`] publishes one function, [`wav::seconds_in`], and keeps its module
 //!   because the noun is what makes the verb readable.
 //!

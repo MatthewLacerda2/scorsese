@@ -10,6 +10,7 @@
 //! sounded finished would be one they might not make.
 
 use crate::patch::{Adsr, NoiseColor, Osc, Patch, Source, Wave};
+use crate::song::{Key, Mode};
 
 /// A pitched part's voice: one triangle, held for as long as the key is.
 ///
@@ -93,15 +94,18 @@ pub(super) fn spell(key: u8, flats: bool) -> String {
     )
 }
 
+/// Every major key a signature can name, flattest first: index `sharps + 7`.
+const MAJOR: [&str; 15] = [
+    "Cb", "Gb", "Db", "Ab", "Eb", "Bb", "F", "C", "G", "D", "A", "E", "B", "F#", "C#",
+];
+/// Every minor key a signature can name, the same way round.
+const MINOR: [&str; 15] = [
+    "Ab", "Eb", "Bb", "F", "C", "G", "D", "A", "E", "B", "F#", "C#", "G#", "D#", "A#",
+];
+
 /// The key a signature names — `-3, false` is `"Eb major"` — or nothing for a
 /// signature past seven accidentals, which no key has.
 pub(super) fn key_name(sharps: i8, minor: bool) -> Option<String> {
-    const MAJOR: [&str; 15] = [
-        "Cb", "Gb", "Db", "Ab", "Eb", "Bb", "F", "C", "G", "D", "A", "E", "B", "F#", "C#",
-    ];
-    const MINOR: [&str; 15] = [
-        "Ab", "Eb", "Bb", "F", "C", "G", "D", "A", "E", "B", "F#", "C#", "G#", "D#", "A#",
-    ];
     let index = usize::try_from(i32::from(sharps) + 7).ok()?;
     let (tonics, mode) = if minor {
         (MINOR, "minor")
@@ -109,6 +113,41 @@ pub(super) fn key_name(sharps: i8, minor: bool) -> Option<String> {
         (MAJOR, "major")
     };
     tonics.get(index).map(|tonic| format!("{tonic} {mode}"))
+}
+
+/// The signature a key is written with — [`key_name`] the other way round —
+/// or nothing for a mode a signature cannot say. `written` is the song's
+/// `key` as the author spelled it, and `key` the same text read.
+///
+/// A MIDI key signature knows two modes, major and minor, so `D dorian` has
+/// none: writing C major's would claim the piece is in C. The tonic is read
+/// as the author spelled it, so `Db major` is five flats; a spelling no
+/// signature uses (`D# major`, nine sharps) falls back to the one of the same
+/// pitch with the fewest accidentals, which is how a score would write it.
+pub(super) fn signature(written: &str, key: &Key) -> Option<(i8, bool)> {
+    let minor = match key.mode {
+        Mode::Ionian => false,
+        Mode::Aeolian => true,
+        _ => return None,
+    };
+    let tonics = if minor { MINOR } else { MAJOR };
+    let written = written.split_whitespace().next().unwrap_or_default();
+    let index = tonics
+        .iter()
+        .position(|tonic| *tonic == written)
+        .or_else(|| {
+            (0..tonics.len())
+                .filter(|&index| pitch_class(tonics[index]) == Some(key.tonic))
+                .min_by_key(|&index| index.abs_diff(7))
+        })?;
+    Some((index as i8 - 7, minor))
+}
+
+/// The pitch class a tonic's name spells, `0` for C.
+fn pitch_class(tonic: &str) -> Option<i32> {
+    crate::parse_note(&format!("{tonic}4"))
+        .ok()
+        .map(|midi| (midi as i32).rem_euclid(12))
 }
 
 #[cfg(test)]
@@ -138,5 +177,16 @@ mod tests {
         assert_eq!(key_name(-3, false).as_deref(), Some("Eb major"));
         assert_eq!(key_name(0, true).as_deref(), Some("A minor"));
         assert_eq!(key_name(8, false), None);
+    }
+
+    #[test]
+    fn a_signature_reads_back_as_the_key_it_names() {
+        for sharps in -7..=7 {
+            for minor in [false, true] {
+                let name = key_name(sharps, minor).expect("in range");
+                let key = Key::parse(&name).expect(&name);
+                assert_eq!(signature(&name, &key), Some((sharps, minor)), "{name}");
+            }
+        }
     }
 }

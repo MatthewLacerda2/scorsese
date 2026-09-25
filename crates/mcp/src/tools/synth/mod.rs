@@ -13,12 +13,14 @@
 //! bookkeeping again in a new place.
 
 mod bake;
+mod export;
 mod import;
 mod recipes;
 mod set;
 mod survey;
 
 pub(super) use bake::Bake;
+pub(super) use export::Export;
 pub(super) use import::Import;
 pub(super) use set::Set;
 pub(super) use survey::Survey;

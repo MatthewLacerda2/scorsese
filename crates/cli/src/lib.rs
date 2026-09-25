@@ -198,6 +198,9 @@ fn dispatch(cli: Cli) -> Result<()> {
             Some(SynthAction::Import { file, name }) => {
                 commands::synth::import(&directory, &file, name.as_deref())
             }
+            Some(SynthAction::Export { asset, out, drums }) => {
+                commands::synth::export(&directory, &asset, out.as_deref(), &drums)
+            }
             Some(SynthAction::Check { recipe }) => commands::synth::check(&recipe),
             Some(SynthAction::Bake {
                 asset,

@@ -1,4 +1,5 @@
-//! `synth import`: a MIDI file in as a song recipe.
+//! `synth import` and `synth export`: a MIDI file in as a song recipe, and
+//! a song recipe back out as one.
 
 use crate::common::{holds, new_project, reload, run_in};
 use scorsese_core::AssetKind;
@@ -75,4 +76,73 @@ fn a_name_can_be_given_and_a_file_that_is_not_midi_is_refused() {
         refused.output
     );
     assert_eq!(reload(&dir).assets.len(), 1, "nothing was added");
+}
+
+#[test]
+fn export_writes_the_song_as_midi_and_leaves_the_project_alone() {
+    let dir = new_project("synth-export");
+    let file = dir.join("tune.mid");
+    std::fs::write(&file, TUNE).expect("write the fixture");
+    run_in(&dir, &["synth", "import", file.to_str().expect("utf-8")]).ok();
+    let before = std::fs::read(dir.join("project.json")).expect("the project");
+
+    let said = run_in(&dir, &["synth", "export", "tune"]).ok();
+    assert!(
+        said.output
+            .contains("tune — written as MIDI to cache/midi/tune.mid"),
+        "{}",
+        said.output
+    );
+    assert!(
+        said.output.contains("1 track(s), 2 notes"),
+        "{}",
+        said.output
+    );
+    let written = std::fs::read(dir.join("cache/midi/tune.mid")).expect("the file");
+    assert!(written.starts_with(b"MThd"), "a Standard MIDI File");
+    assert_eq!(
+        std::fs::read(dir.join("project.json")).expect("the project"),
+        before,
+        "an export is not an asset"
+    );
+
+    // Out where the caller says, and back in again as the same two notes.
+    let out = dir.join("for-the-daw.mid");
+    let path = out.to_str().expect("utf-8");
+    run_in(&dir, &["synth", "export", "tune", "--out", path]).ok();
+    let again = run_in(&dir, &["synth", "import", path, "--name", "again"]).ok();
+    assert!(
+        again.output.contains("1 track(s), 2 notes"),
+        "{}",
+        again.output
+    );
+}
+
+#[test]
+fn export_refuses_a_one_shot_and_a_drum_that_is_not_a_track() {
+    let dir = new_project("synth-export-refused");
+    run_in(&dir, &["synth", "new", "zap"]).ok();
+    let refused = run_in(&dir, &["synth", "export", "zap"]);
+    assert!(
+        refused.failed && refused.output.contains("one-shot"),
+        "{}",
+        refused.output
+    );
+
+    let file = dir.join("tune.mid");
+    std::fs::write(&file, TUNE).expect("write the fixture");
+    run_in(&dir, &["synth", "import", file.to_str().expect("utf-8")]).ok();
+    let refused = run_in(&dir, &["synth", "export", "tune", "--drum", "kick=36"]);
+    assert!(refused.failed, "{}", refused.output);
+    assert!(
+        refused.output.contains("no track by that name"),
+        "{}",
+        refused.output
+    );
+    let refused = run_in(&dir, &["synth", "export", "tune", "--drum", "track-1=300"]);
+    assert!(
+        refused.failed && refused.output.contains("0 to 127"),
+        "{}",
+        refused.output
+    );
 }

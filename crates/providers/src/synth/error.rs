@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use scorsese_core::{AssetId, PathProblem, ProjectPath};
 use scorsese_zimmer::SynthError;
-use scorsese_zimmer::midi::MidiError;
+use scorsese_zimmer::midi::{ExportError, MidiError};
 
 /// Why an asset could not be synthesised.
 #[derive(Debug, thiserror::Error)]
@@ -109,6 +109,25 @@ pub enum SynthesisError {
         path: PathBuf,
         /// Why it was refused.
         why: MidiError,
+    },
+
+    /// A one-shot asked to be written as MIDI. A patch is one sound, with no
+    /// notes in time to write, so the request is refused rather than
+    /// answered with a file of one note nobody wrote.
+    #[error("asset `{id}` is a one-shot, and only a song has notes to write as MIDI")]
+    NoScore {
+        /// The asset that was asked for.
+        id: AssetId,
+    },
+
+    /// A song could not be written as MIDI: it does not render, or a drum
+    /// track named is not one of its tracks.
+    #[error("asset `{id}`: {why}")]
+    MidiExport {
+        /// The asset whose song it is.
+        id: AssetId,
+        /// Why it was refused.
+        why: ExportError,
     },
 
     /// The bake could not be written into `generated/`.
