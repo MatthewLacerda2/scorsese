@@ -90,6 +90,12 @@ kills it. A run with nothing left to submit is never asked and never refused, so
 `scorsese generate` over a project that is already generated still works from a
 script exactly as it did.
 
+**A tool call has no terminal, so the MCP tools ask differently**: the first
+call answers with the quote and a token, and only a second call handing the
+token back spends — on exactly what was quoted, once, within fifteen minutes.
+There is no `--yes` there and no one-step path; see *Paid tools quote first* in
+[mcp.md](mcp.md).
+
 The question sits **above** the ceiling below, and the two are not alternatives:
 one is permission from whoever is there, the other is a number that holds when
 nobody is.

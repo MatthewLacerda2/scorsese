@@ -18,6 +18,7 @@ mod common;
 mod fake;
 mod keeping;
 mod money;
+mod quoting;
 
 use scorsese_providers::voices::design::Brief;
 

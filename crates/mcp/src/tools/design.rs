@@ -6,8 +6,12 @@
 //! **One call, three answers, one charge.** A design is billed once, for the
 //! preview text, and answers with three candidates. A client that assumed three
 //! charges would quote three times the price and talk somebody out of a feature
-//! that costs a cent — so the description says it outright, and `dry_run`
-//! answers the same question for free.
+//! that costs a cent — so the description says it outright, and the quote a
+//! first call answers with says it again, for free.
+//!
+//! **Quote first, like every paid tool.** A design call without `confirm`
+//! quotes and sends nothing; see [`confirm`](super::confirm). `keep` and `list`
+//! spend nothing and take no token.
 //!
 //! **It leaves something behind that the project cannot carry.** A kept voice
 //! lives in somebody's ElevenLabs account, so the id travels with the project
@@ -23,12 +27,12 @@ use scorsese_providers::credentials::{Budget, Provider, Settings, resolve};
 use scorsese_providers::spending;
 use scorsese_providers::voices::design::{
     Brief, DesignError, Designing, ElevenLabsStudio, Kept, LEDGER_FILE, PASSAGE, PROMPT, design,
-    designed, estimate, keep,
+    designed, keep, quote,
 };
 use serde_json::Value;
 
 use crate::tools::inspect::load;
-use crate::tools::{Costs, Reply, Tool, project_dir, project_property};
+use crate::tools::{Costs, Reply, Tool, confirm, project_dir, project_property};
 
 /// Designing a voice from a description.
 pub(crate) struct VoiceDesign;
@@ -40,18 +44,20 @@ impl Tool for VoiceDesign {
 
     fn description(&self) -> &'static str {
         "Design a new ElevenLabs voice from a description, for when no voice in \
-         either list is the one the video needs. Costs money: one call is billed \
-         once for the preview text and answers with three candidates to choose \
-         between — not three charges — and dry_run quotes it without a key or a \
-         request. Pass prompt and text to design; pass keep with a candidate id \
-         and name to turn one of them into a real voice_id, which costs nothing \
-         more because the candidate was already paid for. Pass list to read back \
-         what this project has designed. What keep creates lives in the user's \
-         ElevenLabs account rather than in the project, so the description and \
-         the seed are recorded in designed-voices.json — a voice that is later \
-         deleted, or a project opened under another account, can then be asked \
-         for again. Voice cloning from someone's recorded speech is not offered \
-         here in any form."
+         either list is the one the video needs. Costs money, and quotes before it \
+         spends: a call with prompt and text but no confirm sends nothing and needs no \
+         key — it answers with the price and a token. Show that to whoever is paying; \
+         only a second call with the same prompt and text and confirm set to the token \
+         designs. One design is billed once for the preview text and answers with \
+         three candidates to choose between — not three charges. A design already \
+         paid for is answered from disk with no token. Pass keep with a candidate id \
+         and name to turn one of them into a real voice_id, which costs nothing more \
+         and takes no token. Pass list to read back what this project has designed. \
+         What keep creates lives in the user's ElevenLabs account rather than in the \
+         project, so the description and the seed are recorded in \
+         designed-voices.json — a voice that is later deleted, or a project opened \
+         under another account, can then be asked for again. Voice cloning from \
+         someone's recorded speech is not offered here in any form."
     }
 
     fn costs(&self) -> Costs {
@@ -97,12 +103,7 @@ impl Tool for VoiceDesign {
                                     Higher is more literal and less varied. Left out, the \
                                     vendor chooses."
                 },
-                "dry_run": {
-                    "type": "boolean",
-                    "description": "Say what the design would cost and stop. Needs no key and \
-                                    sends nothing. Worth doing first — this is one of two \
-                                    tools here that spends real money."
-                },
+                "confirm": confirm::property(),
                 "keep": {
                     "type": "string",
                     "description": "A candidate id from a design in this project. Turns it \
@@ -154,11 +155,9 @@ impl Tool for VoiceDesign {
         )
         .map_err(say)?;
 
-        if flag(arguments, "dry_run") {
-            return Ok(estimate(&brief.passage)
-                .map_err(|error| format!("{error}"))?
-                .says()
-                .into());
+        let quoted = quote(&dir, &brief).map_err(|error| format!("{error}"))?;
+        if let Some(asking) = confirm::gate(&dir, arguments, &quoted, self.name())? {
+            return Ok(asking);
         }
 
         let key = resolve(Provider::ElevenLabs).map_err(|error| format!("{error}"))?;

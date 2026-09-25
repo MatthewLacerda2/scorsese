@@ -82,6 +82,14 @@
 //! a file beside `project.json`: the id travels with an `scp -r` and the voice
 //! itself does not.
 //!
+//! [`quote`], which is how a paid call is agreed to before it spends. Every
+//! surface that has no terminal to ask `[y/N]` at — the MCP tools, the hosted
+//! server — answers a first call with a quote and a token, and spends only on a
+//! second call carrying that token. The rules (bound to exactly what was
+//! quoted, single use, fifteen minutes) live there once; where tokens are kept
+//! is a trait, because a project directory and a server's tables are two
+//! stores with one set of rules.
+//!
 //! [`spending`], the one answer to *what has this project cost so far*. A
 //! ceiling asks it to decide whether the next call may go ahead and a person
 //! asks it to decide whether they want to; two answers to that would first be
@@ -90,6 +98,7 @@
 pub mod api;
 pub mod credentials;
 pub mod prices;
+pub mod quote;
 pub mod speech;
 pub mod spending;
 pub mod synth;

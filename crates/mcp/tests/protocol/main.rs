@@ -18,6 +18,7 @@ mod importing;
 mod landing;
 mod looking;
 mod pacing;
+mod paying;
 mod placing;
 mod rendering;
 mod searching;
