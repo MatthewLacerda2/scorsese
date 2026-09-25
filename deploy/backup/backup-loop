@@ -1,0 +1,19 @@
+#!/bin/sh
+# Run `backup` whenever the last good one is older than
+# SCORSESE_BACKUP_EVERY_HOURS, checking hourly.
+#
+# Due-by-age rather than a clock time, on purpose: a machine that was off at
+# 04:00 (a power cut, a trip) backs up within the hour it comes back, instead
+# of waiting for tomorrow's slot. A failed backup is retried the next hour, and
+# stays visible in the meantime through backup-fresh and these logs.
+set -eu
+
+every=$SCORSESE_BACKUP_EVERY_HOURS
+
+while true; do
+    if [ -z "$(find /data/backups/last-success -mmin "-$((every * 60))" 2>/dev/null)" ]; then
+        echo "backup: due, starting at $(date -u)"
+        backup || echo "backup: FAILED -- retrying in an hour; nothing has left this machine since $(cat /data/backups/last-success 2>/dev/null || echo 'ever')" >&2
+    fi
+    sleep 3600
+done

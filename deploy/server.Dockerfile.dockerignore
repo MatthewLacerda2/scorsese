@@ -1,0 +1,11 @@
+# The server image is built from the repo root, and that root holds gigabytes
+# the build must never upload: every `target/`, and on a development machine
+# the worktrees themselves under .claude/. So this is an allow-list: what cargo
+# needs to build the workspace, and nothing else.
+*
+!Cargo.toml
+!Cargo.lock
+!rust-toolchain.toml
+!crates/
+!tools/icons/
+**/target/

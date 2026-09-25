@@ -363,6 +363,22 @@ jobs:
       - name: Test
         run: python3 -m unittest discover --start-directory .github/scripts/tests --verbose
 
+  # The deploy's compose file (#532): it parses, and deploy/.env.example
+  # documents every variable it reads. `make deploy` is the whole of it — the
+  # Makefile has why it is a gate and why it builds no image. The runner has
+  # Docker and Compose already, so it costs a checkout and a second.
+  deploy:
+    name: deploy config
+    runs-on: ubuntu-24.04
+    # Drafts assert nothing, so there is nothing to check. See the top of
+    # this file; `ready_for_review` in `types:` is what makes it fire at all.
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check
+        run: make deploy
+
   # Coverage. A signal, never a gate — the one job here that cannot turn
   # anything red, by design.
   #

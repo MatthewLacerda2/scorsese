@@ -1,0 +1,7 @@
+# Built from the repo root, which holds every `target/`; an allow-list keeps
+# the upload to what this image is made of.
+*
+!web/
+!deploy/nginx.conf
+web/node_modules/
+web/dist/

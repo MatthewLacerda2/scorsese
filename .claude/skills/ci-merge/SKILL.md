@@ -10,8 +10,8 @@ The steps, and the traps. `CLAUDE.md` carries why these exist; this is how.
 ## Before marking a pull request ready
 
 `make gates` must be green. It runs every gate CI blocks on — format, size, the
-signal renderers, clippy, docs, tests, supply chain, the web front-end and the
-desktop app's workspace. `make help` lists them.
+signal renderers, clippy, docs, tests, supply chain, the deploy's compose file,
+the web front-end and the desktop app's workspace. `make help` lists them.
 
 The web and app gates are the only conditional ones, and each reports
 **skipped** when the branch touches nothing under `web/` or `app/`. Skipped is

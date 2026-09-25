@@ -1,0 +1,8 @@
+#!/bin/sh
+# The health check: healthy while the last good backup is younger than two
+# intervals. One missed run is a retry in progress; two is a backup that has
+# stopped working, and `docker compose ps` should say so.
+set -eu
+
+limit=$((SCORSESE_BACKUP_EVERY_HOURS * 60 * 2))
+[ -n "$(find /data/backups/last-success -mmin "-$limit" 2>/dev/null)" ]
