@@ -10,12 +10,12 @@ The steps, and the traps. `CLAUDE.md` carries why these exist; this is how.
 ## Before marking a pull request ready
 
 `make gates` must be green. It runs every gate CI blocks on — format, size, the
-signal renderers, clippy, docs, tests, supply chain, and the desktop app's
-workspace. `make help` lists them.
+signal renderers, clippy, docs, tests, supply chain, the web front-end and the
+desktop app's workspace. `make help` lists them.
 
-The app gate is the only conditional one, and it reports **skipped** when the
-branch touches nothing under `app/`. Skipped is the honest answer; never read it
-as green.
+The web and app gates are the only conditional ones, and each reports
+**skipped** when the branch touches nothing under `web/` or `app/`. Skipped is
+the honest answer; never read it as green.
 
 Deliberately **not** before every push. Checkpoint commits stay cheap — the
 pre-commit hook is formatting and the size gate only, well under a second.

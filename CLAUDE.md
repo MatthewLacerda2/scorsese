@@ -82,6 +82,8 @@ settled shape.
 - **docs/web.md** — the hosted web app: its containers, per-user isolation,
   why the edit is a JSON document while everything around it is tables, and
   money as integer micro-dollars. Read it before touching the server or `web/`.
+- **web/README.md** — the React front-end: running it, its dev proxy to the
+  server, and its gate (`make web`).
 - Crate boundaries live in each crate's `lib.rs` module doc — read them before
   adding a dependency between crates.
 
@@ -337,12 +339,12 @@ that goes with it.
   In practice that is before marking a pull request **ready for review**, which is
   the moment CI is asked to check anything at all. `make gates` runs every gate CI
   blocks on and `make help` lists them, so the target list — not `ci.yml` — is the
-  answer to "what has to be green?". The app gate is the only conditional one and
-  reports **skipped** when a branch touches nothing under `app/`; skipped is never
-  green over a check that did not run. `make setup`, once per clone, points git at
-  the committed hooks; from then on `make pre-commit` — formatting and the size
-  gate, no build — runs before every commit, so an oversized file never reaches a
-  branch. `git commit --no-verify` bypasses it for a deliberate work-in-progress.
+  answer to "what has to be green?". The app and web gates are the only
+  conditional ones, and each reports **skipped** when a branch touches nothing
+  under `app/` or `web/`; skipped is never green over a check that did not run.
+  `make setup`, once per clone, points git at the committed hooks; from then on
+  `make pre-commit` — formatting and the size gate, no build — runs before every
+  commit, so an oversized file never reaches a branch. `git commit --no-verify` bypasses it for a deliberate work-in-progress.
 - **Signals stay opt-in and out of `make gates`:** `make coverage` and
   `make mutants`. Running either is never part of passing, and **a signal never
   holds a merge** — that is what makes it a signal. Read the mutation report when

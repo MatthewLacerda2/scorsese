@@ -15,11 +15,12 @@
 #
 # Clippy is on the slow side deliberately — see the `clippy` target.
 #
-# One gate is conditional, and only one: `app` runs when the branch touches
-# `app/` and is skipped — reported, never silently — when it does not. That is
-# what lets the desktop app's separate workspace be covered here without
-# putting a `wgpu` build on the path of every headless commit. Its reasoning is
-# at the target.
+# Two gates are conditional: `app` runs when the branch touches `app/`, and
+# `web` when it touches `web/`, and each is skipped — reported, never silently —
+# when it does not. That is what lets the desktop app's separate workspace be
+# covered here without putting a `wgpu` build on the path of every headless
+# commit, and the React front-end without asking every Rust branch for Bun.
+# The reasoning is at the `app` target; `web` is the same argument.
 #
 # One gate is *narrower* off Linux, which is a different thing: `test` runs
 # everywhere, but the golden fixtures inside it skip themselves on any other
@@ -49,10 +50,11 @@ LINT := --manifest-path tools/lint/Cargo.toml
 
 # The hard gates, in the order `make gates` runs them: cheapest first, so the
 # feedback that costs nothing arrives before the feedback that costs a build.
-# `inventory` below holds this list to the ones documented as gates. `app` is
-# last because it is the only one that can build a graphics dependency tree,
-# and because it is the only one that may decide not to run at all — see it.
-GATES := format size scripts clippy docs test deny app
+# `inventory` below holds this list to the ones documented as gates. The two
+# conditional ones come last, because they are the ones that may decide not to
+# run at all; `app` after `web` because it is the one that can build a graphics
+# dependency tree.
+GATES := format size scripts clippy docs test deny web app
 
 # Whether this branch touches the desktop app, and so whether its gates are on
 # the path of this change. The question is asked in two places — the `app` gate
@@ -73,11 +75,15 @@ GATES := format size scripts clippy docs test deny app
 # When `origin/main` is not in the clone the question cannot be answered, and
 # the answer is then *yes*. A skip has to be a decision; it must never be what
 # not knowing looks like.
-APP_PATHS := app/ ':(exclude)*.md'
-TOUCHES_APP = { \
+#
+# Written once as `TOUCHES`, with the paths as its argument, because the web
+# gate asks the same question about `web/` and two copies of this would drift.
+TOUCHES = { \
 	! git rev-parse --verify --quiet origin/main >/dev/null 2>&1 \
-	|| ! git diff --quiet origin/main...HEAD -- $(APP_PATHS) \
-	|| [ -n "$$(git status --porcelain -- $(APP_PATHS))" ]; }
+	|| ! git diff --quiet origin/main...HEAD -- $(1) \
+	|| [ -n "$$(git status --porcelain -- $(1))" ]; }
+TOUCHES_APP = $(call TOUCHES,app/ ':(exclude)*.md')
+TOUCHES_WEB = $(call TOUCHES,web/ ':(exclude)*.md')
 
 # Whether the golden fixtures are among the tests `test` just ran. They are
 # `#[ignore]`d on any target that is not Linux, because the references are
@@ -200,11 +206,11 @@ NEXTEST_CHECK = command -v cargo-nextest >/dev/null 2>&1 || { \
 	exit 1; }
 
 .DEFAULT_GOAL := help
-# `app` is on this list for a reason worth stating: there is a directory called
-# `app/`, so without it make sees the target as already built and `make app`
-# prints "up to date" without running a thing. A check that silently does
-# nothing is worse than no check.
-.PHONY: help setup gates pre-commit target-dir inventory $(GATES) app-gates release format-fix mcp-table coverage mutants mutants-status mergeable queue
+# `app` and `web` are on this list for a reason worth stating: there are
+# directories called `app/` and `web/`, so without it make sees the target as
+# already built and `make app` prints "up to date" without running a thing. A
+# check that silently does nothing is worse than no check.
+.PHONY: help setup gates pre-commit target-dir inventory $(GATES) app-gates web-gates release format-fix mcp-table coverage mutants mutants-status mergeable queue
 
 ##@ Everyday
 
@@ -231,22 +237,23 @@ setup: ## Once per clone: the committed git hooks, and the tools a gate needs
 pre-commit: format size ## The fast half: what the pre-commit hook runs
 	@echo "pre-commit: ok"
 
-# `APP` is target-specific, so it reaches `app` below as a prerequisite of this
-# and nowhere else: reaching a gate through `make gates` is scoped to the diff,
-# asking for `make app` by name is not.
+# `APP` and `WEB` are target-specific, so they reach `app` and `web` below as
+# prerequisites of this and nowhere else: reaching a gate through `make gates`
+# is scoped to the diff, asking for `make app` by name is not.
 #
 # The summary says which gates were run rather than which exist. A runner that
 # prints "all green" over a check it decided not to run is the failure mode
-# `inventory` was written to prevent, and skipping the app gates silently would
-# be that failure mode arriving by a different door.
+# `inventory` was written to prevent, and skipping a conditional gate silently
+# would be that failure mode arriving by a different door.
 gates: APP := scoped
+gates: WEB := scoped
 gates: target-dir inventory $(GATES) ## Everything CI blocks on. Run this before opening a PR
-	@if $(TOUCHES_APP); then \
-		echo "gates: all green -- $(GATES)"; \
-	else \
-		echo "gates: all green -- $(filter-out app,$(GATES))"; \
-		echo "gates: app not run -- this branch changes nothing under app/."; \
-	fi
+	@ran="$(filter-out web app,$(GATES))"; \
+	if $(TOUCHES_WEB); then ran="$$ran web"; fi; \
+	if $(TOUCHES_APP); then ran="$$ran app"; fi; \
+	echo "gates: all green -- $$ran"
+	@$(TOUCHES_WEB) || echo "gates: web not run -- this branch changes nothing under web/."
+	@$(TOUCHES_APP) || echo "gates: app not run -- this branch changes nothing under app/."
 # `test` did run, and is on that list; part of what it covers did not. So this
 # narrows the claim rather than removing a gate from it — which is why it reads
 # differently from the app line above and has to be here at all.
@@ -396,6 +403,36 @@ app-gates:
 # beside it, so "the tests" means one thing in this repo rather than two.
 	cargo nextest run --manifest-path app/Cargo.toml --locked
 	cargo test --doc --manifest-path app/Cargo.toml --locked
+
+# The React front-end (#531), gated the way `app` is and for the same reason:
+# `web/` is its own project with its own toolchain, and a Rust-only branch must
+# not need Bun installed to pass `make gates`. So it runs when the branch
+# touches `web/` and says so when it does not; CI's `web` job runs either way.
+#
+# $(WEB) is `scoped` only when reached through `make gates`, exactly as $(APP).
+web: ## [gate] The web front-end, when the branch touches web/
+	@if [ "$(WEB)" != "scoped" ] || $(TOUCHES_WEB); then \
+		$(MAKE) --no-print-directory web-gates; \
+	else \
+		echo "web: this branch changes nothing under web/ -- not run."; \
+	fi
+
+# The same commands CI's `web` job runs, in the same order. `--frozen-lockfile`
+# is `--locked`'s counterpart: an install that would change `bun.lock` fails
+# instead, so the packages checked are the packages committed. Biome is both
+# the linter and the formatter, so `lint` is also the format check. `build` is
+# on the list because it is what the deploy ships — a page that typechecks and
+# does not bundle is not a page.
+web-gates:
+	@command -v bun >/dev/null 2>&1 || { \
+		echo "web: bun is not installed -- the web front-end builds with it." >&2; \
+		echo "     https://bun.com/docs/installation  (the version is pinned in web/package.json)" >&2; \
+		exit 1; }
+	cd web && bun install --frozen-lockfile
+	cd web && bun run lint
+	cd web && bun run typecheck
+	cd web && bun test
+	cd web && bun run build
 
 ##@ Merging — asked of GitHub, not of the code
 
