@@ -17,8 +17,10 @@ mod common;
 mod containers;
 mod defaults;
 mod documented;
+mod encoder;
 mod probing;
 mod refusals;
+mod sound;
 
 use std::path::{Path, PathBuf};
 

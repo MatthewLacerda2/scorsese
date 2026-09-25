@@ -12,7 +12,7 @@ use scorsese_render::{AudioCodec, Container, OutputFormat, VideoCodec};
 fn the_default_format_is_what_delivery_has_always_meant() {
     let format = OutputFormat::default();
     assert_eq!(format.container(), Container::Mp4);
-    assert_eq!(format.video(), VideoCodec::H264);
+    assert_eq!(format.video(), Some(VideoCodec::H264));
     assert_eq!(format.audio(), AudioCodec::Aac);
 }
 
@@ -22,14 +22,21 @@ fn the_default_format_is_what_delivery_has_always_meant() {
 #[test]
 fn each_container_defaults_to_its_own_codecs() {
     let pairs = [
-        (Container::Mp4, VideoCodec::H264, AudioCodec::Aac),
-        (Container::Mkv, VideoCodec::H264, AudioCodec::Aac),
-        (Container::Avi, VideoCodec::Mpeg4, AudioCodec::PcmS16Le),
-        (Container::Wmv, VideoCodec::Wmv2, AudioCodec::Wmav2),
+        (Container::Mp4, Some(VideoCodec::H264), AudioCodec::Aac),
+        (Container::Mkv, Some(VideoCodec::H264), AudioCodec::Aac),
+        (
+            Container::Avi,
+            Some(VideoCodec::Mpeg4),
+            AudioCodec::PcmS16Le,
+        ),
+        (Container::Wmv, Some(VideoCodec::Wmv2), AudioCodec::Wmav2),
+        (Container::Mp3, None, AudioCodec::Mp3),
+        (Container::Wav, None, AudioCodec::PcmS16Le),
+        (Container::M4a, None, AudioCodec::Aac),
     ];
     for (container, video, audio) in pairs {
         let format = OutputFormat::defaults_for(container);
-        assert_eq!(format.video(), video, "{container} defaults to {video}");
+        assert_eq!(format.video(), video, "{container} defaults to {video:?}");
         assert_eq!(format.audio(), audio, "{container} defaults to {audio}");
     }
 }
@@ -50,7 +57,7 @@ fn naming_no_codec_takes_the_containers_own() {
 fn the_default_is_the_first_codec_listed() {
     for container in Container::ALL {
         let format = OutputFormat::defaults_for(container);
-        assert_eq!(Some(&format.video()), container.video_codecs().first());
+        assert_eq!(format.video().as_ref(), container.video_codecs().first());
         assert_eq!(Some(&format.audio()), container.audio_codecs().first());
     }
 }
@@ -110,10 +117,34 @@ fn a_path_supplies_the_container_unless_one_is_named() {
     let with_codec =
         OutputFormat::for_path(Path::new("cut.avi"), None, Some(VideoCodec::H264), None)
             .expect("h264 in an avi is written on request");
-    assert_eq!(with_codec.video(), VideoCodec::H264);
+    assert_eq!(with_codec.video(), Some(VideoCodec::H264));
     assert_eq!(with_codec.audio(), AudioCodec::PcmS16Le);
 
     // A named container means no extension is needed at all.
     let unnamed = OutputFormat::for_path(Path::new("cut"), Some(Container::Wmv), None, None);
     assert_eq!(unnamed, Ok(OutputFormat::defaults_for(Container::Wmv)));
+}
+
+/// Sound only is a property of the container, and the format says so: no
+/// picture codec, and nothing for the renderer to composite.
+#[test]
+fn a_sound_container_has_no_picture_and_every_other_one_does() {
+    for container in Container::ALL {
+        let format = OutputFormat::defaults_for(container);
+        let sound_only = matches!(container, Container::Mp3 | Container::Wav | Container::M4a);
+        assert_eq!(container.is_sound_only(), sound_only, "{container}");
+        assert_eq!(format.has_picture(), !sound_only, "{container}");
+    }
+}
+
+/// mp3 and m4a overshoot the way AAC does in an mp4, so they get the same
+/// rehearsal and trim (#503); a wav is PCM and hands back what it was given.
+#[test]
+fn the_sound_codecs_are_lossy_exactly_where_they_rebuild_the_waveform() {
+    assert!(AudioCodec::Mp3.is_lossy());
+    assert!(AudioCodec::Aac.is_lossy());
+    assert!(!AudioCodec::PcmS16Le.is_lossy());
+    assert_eq!(AudioCodec::Mp3.encoder(), "libmp3lame");
+    assert_eq!(AudioCodec::Mp3.library(), Some("libmp3lame"));
+    assert_eq!(AudioCodec::Aac.library(), None, "built into ffmpeg itself");
 }

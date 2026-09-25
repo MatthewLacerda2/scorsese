@@ -19,7 +19,7 @@ use scorsese_core::{Frames, Project};
 
 use crate::audio;
 use crate::error::RenderError;
-use crate::pipe::Encoder;
+use crate::pipe::{Encoder, encode_mix};
 use crate::plan::{FrameRange, Plan};
 use crate::raster::Sizes;
 use crate::report::{Note, RenderReport};
@@ -65,6 +65,10 @@ impl<'a> Renderer<'a> {
     ///
     /// Expects a project that already validated — [`Project::load`] does that,
     /// and rendering an incoherent timeline is not a thing worth defining.
+    ///
+    /// A format with no picture in it ([`crate::OutputFormat::has_picture`])
+    /// never reaches the compositor: the mix is made exactly as it would be
+    /// for the video, and encoded on its own.
     pub fn render(
         &self,
         project: &Project,
@@ -72,11 +76,28 @@ impl<'a> Renderer<'a> {
         range: FrameRange,
         out: &Path,
     ) -> Result<RenderReport, RenderError> {
+        let picture = self.settings.format.has_picture();
+        // First, before anything is probed or mixed: an encoder this ffmpeg
+        // was built without is a refusal that costs nothing now and an encode
+        // later.
+        let codec = self.settings.format.audio();
+        if let Some(library) = codec.library()
+            && !self.tools.has_encoder(library)?
+        {
+            return Err(RenderError::MissingEncoder {
+                codec: codec.name(),
+                library,
+            });
+        }
         // What a video clip's file has on it decides whether its sound is
         // mixed, so anything the project never recorded is found out here —
         // before the plan, which is a pure function of the document.
         let (project, probe_notes) = crate::probe::fill_media(self.tools, project, project_root);
-        let plan = Plan::build(&project, self.settings.fps, range)?;
+        let plan = if picture {
+            Plan::build(&project, self.settings.fps, range)?
+        } else {
+            Plan::build_sound(&project, self.settings.fps, range)?
+        };
         let mut notes = plan.notes().to_vec();
         notes.extend(probe_notes);
         // Said at the start, about the whole project rather than the range: a
@@ -91,8 +112,13 @@ impl<'a> Renderer<'a> {
         // Before anything is spawned: a clip asking for its source's own size
         // needs that size established, and this is the cheap place to fail if
         // it cannot be. What the probe above filled in is answer enough for
-        // most of them, so this rarely spawns anything of its own.
-        let sizes = Sizes::measure(self.tools, &plan, project_root)?;
+        // most of them, so this rarely spawns anything of its own. A delivery
+        // with no picture draws nothing, so it has no sizes to establish.
+        let sizes = if picture {
+            Some(Sizes::measure(self.tools, &plan, project_root)?)
+        } else {
+            None
+        };
 
         // Sound before picture, because the encoder needs the finished mix as
         // an input file. It is also the cheaper half: a mix that fails on a
@@ -116,27 +142,22 @@ impl<'a> Renderer<'a> {
             None => None,
         };
 
-        let mut encoder = Encoder::start(self.tools, &self.settings, mix, out)?;
-        let mut stage = Stage::new();
-        let pass = Pass {
-            tools: self.tools,
-            settings: self.settings,
-            plan: &plan,
-            sizes: &sizes,
-            project_root,
-            workers: self.workers,
+        let written = match (&sizes, mix) {
+            (Some(sizes), _) => {
+                let (written, picture_notes) =
+                    self.picture(&plan, sizes, project_root, mix, out)?;
+                notes.extend(picture_notes);
+                written
+            }
+            // The whole of a sound-only render's encode: the mix, in the
+            // delivery's codec — the same call that rehearsed it above, so
+            // what was measured there is what is written here.
+            (None, Some(mix)) => {
+                encode_mix(self.tools, &self.settings, mix, out)?;
+                0
+            }
+            (None, None) => return Err(RenderError::NothingAudible),
         };
-        let mut written = 0;
-
-        for segment in plan.segments() {
-            let frames = plan.out_frames_of(segment);
-            notes.extend(pass.render(segment, frames, &mut stage, &mut |frame| {
-                encoder.write(frame)
-            })?);
-            written += frames;
-        }
-
-        encoder.finish()?;
         // Only now is the scratch mix expendable: dropping it removes the file,
         // and the encoder has been reading from it until this point.
         drop(mixed);
@@ -151,7 +172,7 @@ impl<'a> Renderer<'a> {
         Ok(RenderReport {
             frames: written,
             fps: self.settings.fps,
-            resolution: self.settings.resolution,
+            resolution: picture.then_some(self.settings.resolution),
             seconds_of_audio: has_audio.then(|| {
                 plan.total_samples(self.settings.sample_rate.hz()) as f64
                     / f64::from(self.settings.sample_rate.hz())
@@ -162,6 +183,40 @@ impl<'a> Renderer<'a> {
             notes,
             description: crate::describe::Description::of(&plan),
         })
+    }
+
+    /// Composites every frame of `plan` and encodes it to `out`, with the
+    /// finished `mix` muxed in when there is one. Hands back how many frames
+    /// were written and what drawing them noticed.
+    fn picture(
+        &self,
+        plan: &Plan<'_>,
+        sizes: &Sizes,
+        project_root: &Path,
+        mix: Option<&Path>,
+        out: &Path,
+    ) -> Result<(u64, Vec<Note>), RenderError> {
+        let mut encoder = Encoder::start(self.tools, &self.settings, mix, out)?;
+        let mut stage = Stage::new();
+        let pass = Pass {
+            tools: self.tools,
+            settings: self.settings,
+            plan,
+            sizes,
+            project_root,
+            workers: self.workers,
+        };
+        let mut written = 0;
+        let mut notes = Vec::new();
+        for segment in plan.segments() {
+            let frames = plan.out_frames_of(segment);
+            notes.extend(pass.render(segment, frames, &mut stage, &mut |frame| {
+                encoder.write(frame)
+            })?);
+            written += frames;
+        }
+        encoder.finish()?;
+        Ok((written, notes))
     }
 
     /// One frame of `project` at timeline frame `at`, composited and handed

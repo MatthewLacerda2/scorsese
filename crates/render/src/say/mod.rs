@@ -1,8 +1,9 @@
 //! Saying a measurement out loud.
 //!
 //! One phrasing, used by `scorsese render`, `scorsese synth bake`, `scorsese
-//! level` and the MCP tools that wrap them. Three copies of a decibel format is
-//! three chances to disagree about what "mean" means.
+//! level` and the MCP tools that wrap them — including what a render says
+//! about the file it delivered ([`written`], [`delivery`]). Three copies of a
+//! decibel format is three chances to disagree about what "mean" means.
 //!
 //! **Numbers, not pictures.** A spectrogram is the intuitive answer and it is
 //! the wrong one for the reader this is written for: an assistant reads text
@@ -12,6 +13,7 @@
 //! hear, and who is scrubbing.
 
 mod compare;
+mod delivery;
 mod layers;
 mod survey;
 mod table;
@@ -19,6 +21,7 @@ mod table;
 use scorsese_zimmer::level::Loudness;
 
 pub use compare::comparison;
+pub use delivery::{delivery, written};
 pub use layers::layers;
 pub use survey::survey;
 pub use table::{headline, sections, summary};

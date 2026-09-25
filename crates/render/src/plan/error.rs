@@ -17,6 +17,10 @@ pub enum PlanError {
     #[error("there is nothing to render: no video track has any clips")]
     NothingToRender,
 
+    /// A sound-only delivery of a project with no clips on any track.
+    #[error("there is nothing to render: no track has any clips")]
+    NothingToHear,
+
     /// Typically a stale `--range` left over from a longer cut.
     #[error("range {range} selects no frames of a timeline {timeline_end} long")]
     EmptyRange {

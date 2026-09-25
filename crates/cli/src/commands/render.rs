@@ -15,7 +15,9 @@ use scorsese_render::{
 /// `Option<Bitrate>` next to each other are a bug waiting to be written.
 pub(crate) struct Options {
     /// The canvas every layer is composited onto, and so the size of the file.
-    pub(crate) resolution: Resolution,
+    /// `None` means 1920x1080, which is also what a sound-only render takes,
+    /// having no canvas to ask about.
+    pub(crate) resolution: Option<Resolution>,
     /// `None` means the project's own timeline rate — the one output rate that
     /// conforms nothing.
     pub(crate) fps: Option<Fps>,
@@ -56,6 +58,20 @@ pub(crate) fn run(project_dir: &Path, out: &Path, options: Options) -> Result<()
         options.video_codec,
         options.audio_codec,
     )?;
+    // Then every flag that only means something to a picture, against a
+    // format that may have none: refused rather than ignored, because a flag
+    // that silently does nothing is the worse of the two.
+    for (given, setting) in [
+        (options.resolution.is_some(), "a resolution"),
+        (options.fps.is_some(), "a frame rate"),
+        (options.bitrate.is_some(), "a video bitrate"),
+        (options.threads.is_some(), "a compositing thread count"),
+        (options.stills.is_some(), "stills"),
+    ] {
+        if given {
+            format.picture_setting(setting)?;
+        }
+    }
 
     let project = Project::load(project_dir)
         .with_context(|| format!("opening the project in {}", project_dir.display()))?;
@@ -63,7 +79,8 @@ pub(crate) fn run(project_dir: &Path, out: &Path, options: Options) -> Result<()
     // The project's own grid is the right default: rendering at the rate the
     // edit was authored against is the one output rate that needs no conform.
     let fps = options.fps.unwrap_or(project.timeline_fps);
-    let settings = RenderSettings::new(options.resolution, fps)
+    let resolution = options.resolution.unwrap_or(Resolution::HD);
+    let settings = RenderSettings::new(resolution, fps)
         .with_bitrate(options.bitrate)
         .with_audio(options.sample_rate, options.audio_bitrate)
         .with_format(format);
@@ -81,13 +98,7 @@ pub(crate) fn run(project_dir: &Path, out: &Path, options: Options) -> Result<()
         .render(&project, project_dir, range, out)
         .with_context(|| format!("rendering to {}", out.display()))?;
 
-    println!(
-        "Wrote {} — {} frames at {fps} fps, {} ({:.2}s)",
-        out.display(),
-        report.frames,
-        report.resolution,
-        report.seconds()
-    );
+    println!("Wrote {} — {}", out.display(), say::written(&report));
     // Said every time, not only when a flag asked for it: the shape of the
     // file used to be an inference, and an inference nobody printed is one
     // nobody checks.
@@ -115,11 +126,8 @@ pub(crate) fn run(project_dir: &Path, out: &Path, options: Options) -> Result<()
     // The file itself, read back — which is a different number from the mix
     // above whenever the codec is lossy, and the one a clipping verdict is
     // about. Then what was done to keep it under full scale, if anything was.
-    if let Some(delivered) = &report.delivered {
-        println!("  file   {}", say::loudness(delivered));
-    }
-    if let Some(trim) = &report.trim {
-        println!("  note: the soundtrack was {trim}");
+    for line in say::delivery(&report) {
+        println!("  {line}");
     }
     if let Some(bitrate) = options.bitrate {
         println!("  bitrate {bitrate}");

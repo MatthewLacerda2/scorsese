@@ -123,11 +123,45 @@ impl<'a> Plan<'a> {
     /// clip lasts, so that a cut driven by its voice-over can be watched before
     /// a word of it has been paid for.
     pub fn build(project: &'a Project, out_fps: Fps, range: FrameRange) -> Result<Self, PlanError> {
-        let tracks = segments::tracks_of(project, TrackKind::Video);
-        if tracks.is_empty() {
+        if segments::tracks_of(project, TrackKind::Video).is_empty() {
             return Err(PlanError::NothingToRender);
         }
-        let timeline_end = segments::timeline_end(&tracks);
+        Self::sequence(project, out_fps, range)
+    }
+
+    /// [`Plan::build`], for a delivery with no picture in it — an mp3 of the
+    /// soundtrack.
+    ///
+    /// **Identical wherever there is picture**, so the mix a sound-only file
+    /// carries is exactly the one the video of the same project would: the
+    /// same length, the same bed trimmed at the last shot, the same notes.
+    /// It differs only for a project with nothing on a video track at all,
+    /// which a video render refuses for having no length. There the audio
+    /// tracks are the whole of the edit, so they decide how long it runs —
+    /// a jingle or a score made of nothing but sound is a soundtrack, not an
+    /// empty video.
+    pub fn build_sound(
+        project: &'a Project,
+        out_fps: Fps,
+        range: FrameRange,
+    ) -> Result<Self, PlanError> {
+        if segments::tracks_of(project, TrackKind::Video).is_empty()
+            && segments::tracks_of(project, TrackKind::Audio).is_empty()
+        {
+            return Err(PlanError::NothingToHear);
+        }
+        Self::sequence(project, out_fps, range)
+    }
+
+    /// The sequencing both constructors share. Picture decides the length
+    /// when there is any, and the audio tracks do when there is none.
+    fn sequence(project: &'a Project, out_fps: Fps, range: FrameRange) -> Result<Self, PlanError> {
+        let tracks = segments::tracks_of(project, TrackKind::Video);
+        let timeline_end = if tracks.is_empty() {
+            segments::timeline_end(&segments::tracks_of(project, TrackKind::Audio))
+        } else {
+            segments::timeline_end(&tracks)
+        };
         let audible = |track: &Track, clip: &Clip| segments::is_audible(project, track, clip);
         let audio_tracks =
             segments::taking_part(project, &[TrackKind::Video, TrackKind::Audio], audible);

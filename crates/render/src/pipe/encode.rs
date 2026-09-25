@@ -58,7 +58,10 @@ impl Encoder {
             mix_input(&mut command, settings, mix);
         }
         let format = settings.format;
-        command.args(["-c:v", format.video().encoder()]);
+        let video = format
+            .video()
+            .expect("picture is only ever encoded for a format that has one");
+        command.args(["-c:v", video.encoder()]);
         command.args(["-pix_fmt", ENCODED_PIXELS]);
         // A size budget is the exception, not the rule — most renders want
         // "look right", and a fixed bitrate spends the same bits on a still
@@ -66,7 +69,7 @@ impl Encoder {
         // business: `-crf` is x264's and means nothing to the other two.
         match settings.bitrate {
             Some(bitrate) => command.args(["-b:v", &bitrate.ffmpeg_value()]),
-            None => command.args(format.video().quality()),
+            None => command.args(video.quality()),
         };
         match mix {
             // The raw float samples we mixed in would be enormous and
@@ -132,6 +135,9 @@ impl Encoder {
 /// and look. Audio alone is seconds of work against the minutes the picture
 /// costs, and the audio encoder does not know or care that a video stream is
 /// muxed beside it.
+///
+/// It is also the whole encode of a delivery with no picture in it, which is
+/// why the rehearsal and the real thing cannot drift: they are one call.
 pub(crate) fn encode_mix(
     tools: &Tools,
     settings: &RenderSettings,

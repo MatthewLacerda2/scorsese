@@ -106,7 +106,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `voice_design` | Design a new ElevenLabs voice from a description, for when no voice in either list is the one the video needs. | money, at a provider |
 | `rebrief` | Change what a generated asset is to be made from, and mark it stale in the same write. | nothing |
 | `generate` | Realise the sketched briefs — the one tool here that costs money. | money, at a provider |
-| `render` | Render the timeline to a video file. | ffmpeg, and real time |
+| `render` | Render the timeline to a video file, or to a sound file of its mix alone. | ffmpeg, and real time |
 | `still` | Look at the edit. | ffmpeg, and seconds |
 | `look` | Look at the footage itself, not the edit. | ffmpeg |
 | `hear` | See what a sound file looks like: its waveform, drawn as one picture, with the level and the length written on it. | ffmpeg |
@@ -1085,15 +1085,29 @@ a range either client refuses is refused by both, with the same words.
 ## Choosing the file's format
 
 `render` delivers in whatever container `out`'s extension names — mp4, mkv, avi
-or wmv, with the codecs [output-formats.md](output-formats.md) lists for each.
-`container`, `video_codec` and `audio_codec` are `scorsese render`'s
-`--container`, `--video-codec` and `--audio-codec`, with the same defaults.
+or wmv for video, mp3, wav or m4a for the soundtrack alone — with the codecs
+[output-formats.md](output-formats.md) lists for each. `container`,
+`video_codec` and `audio_codec` are `scorsese render`'s `--container`,
+`--video-codec` and `--audio-codec`, with the same defaults.
 
 ```
 render  { "project": "trilhas.scor", "out": "cut.avi" }                          → avi (mpeg4 + pcm_s16le)
 render  { "project": "trilhas.scor", "out": "cut.avi", "video_codec": "h264" }   → avi (h264 + pcm_s16le)
 render  { "project": "trilhas.scor", "out": "cut.wmv", "video_codec": "h264" }   → refused
+render  { "project": "trilhas.scor", "out": "score.mp3" }                        → mp3 (mp3, sound only)
+render  { "project": "trilhas.scor", "out": "score.mp3", "resolution": "1280x720" } → refused
 ```
+
+A sound-only format never composites a frame, and its mix is the one the video
+of the same project would carry. `resolution` and `video_codec` mean nothing
+to it, so they are refused rather than quietly ignored.
+
+The reply ends with what `scorsese render` prints about sound, in the same
+words: the level the delivered file came out at, and — when a lossy codec
+would have carried the mix over full scale — how far the soundtrack was turned
+down to prevent it. An agent is the caller least able to hear the result, so
+it is told rather than left to ask `audio_level` a question it had no reason
+to think of.
 
 Both clients build the format with the same constructor, so an extension, an
 override and every refusal mean the same thing from either one — and the
