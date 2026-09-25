@@ -11,14 +11,12 @@
 //! The failure this guards against is not a wasted render; it is somebody
 //! reaching for a fragment as though it were the bake.
 
-use std::path::Path;
-
 use scorsese_core::AssetId;
 use scorsese_providers::synth::{self, Baked, Excerpt, Partial, Span, Window};
 use serde_json::Value;
 
 use super::super::inspect::load;
-use super::super::{Costs, Reply, Tool, project_dir, project_property};
+use super::super::{Costs, Reply, Tool, project_dir, project_property, under};
 
 /// Render the recipes that are not already baked — or a stretch of one.
 pub(in crate::tools) struct Bake;
@@ -101,8 +99,13 @@ impl Tool for Bake {
                 },
                 "out": {
                     "type": "string",
-                    "description": "Where to write a partial bake. Omit and it lands \
-                                    in cache/synth/<asset>.wav, which the next \
+                    "description": "Where to write a partial bake. A relative path \
+                                    is relative to the project, like every other \
+                                    path here — cache/solo.wav lands in the \
+                                    project's cache/ and is what to hand hear or \
+                                    audio_level next; an absolute path is used as \
+                                    given. Omit and it lands in \
+                                    cache/synth/<asset>.wav, which the next \
                                     partial bake of the same recipe overwrites."
                 }
             },
@@ -123,9 +126,18 @@ impl Tool for Bake {
                 );
             };
             let id = AssetId::new(id);
-            let out = arguments.get("out").and_then(Value::as_str).map(Path::new);
-            let partial = synth::bake_partial(&project, &dir, &id, &excerpt, out)
+            // Resolved here and not in `bake_partial`, because the CLI's
+            // `--out` is typed at a shell and rightly means what a relative
+            // path means there. This server has no working directory worth
+            // the name, so a relative `out` is the project's, like every other
+            // path a client hands it — and the reply says it back in the
+            // caller's own words, which now resolve from the project too.
+            let out = under(&dir, arguments, "out")?;
+            let mut partial = synth::bake_partial(&project, &dir, &id, &excerpt, out.as_deref())
                 .map_err(|error| format!("{error}"))?;
+            if let Some(given) = arguments.get("out").and_then(Value::as_str) {
+                given.clone_into(&mut partial.shown);
+            }
             return Ok(said_partial(&id, &excerpt, &partial).into());
         }
 
