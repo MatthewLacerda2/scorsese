@@ -14,6 +14,7 @@
 //! of "the open project" going stale behind its back.
 
 mod authoring;
+mod confirm;
 mod create;
 mod design;
 mod edit;

@@ -107,7 +107,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `voices` | List the ElevenLabs voices a narration can be read in, or check that one still exists. | a key and a network, but no money |
 | `voice_design` | Design a new ElevenLabs voice from a description, for when no voice in either list is the one the video needs. | money, at a provider |
 | `rebrief` | Change what a generated asset is to be made from, and mark it stale in the same write. | nothing |
-| `generate` | Realise the sketched briefs — the one tool here that costs money. | money, at a provider |
+| `generate` | Realise the sketched briefs — the one tool here that costs money, and it quotes before it spends. | money, at a provider |
 | `render` | Render the timeline to a video file, or to a sound file of its mix alone. | ffmpeg, and real time |
 | `still` | Look at the edit. | ffmpeg, and seconds |
 | `look` | Look at the footage itself, not the edit. | ffmpeg |

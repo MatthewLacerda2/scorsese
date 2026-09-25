@@ -2,8 +2,9 @@
 //!
 //! Every other tool here costs a subprocess at most. This one hands briefs to a
 //! provider and is billed for them, which is why its description says so in the
-//! first sentence, why `dry_run` exists, and why the reply always names what
-//! the run is estimated to have cost.
+//! first sentence, why a call without `confirm` only quotes — see
+//! [`confirm`](super::confirm) — and why the reply always names what the run is
+//! estimated to have cost.
 //!
 //! **A brief already generated is never sent again.** The cache is keyed on a
 //! hash of everything the brief asks for, so calling this twice by mistake — or
@@ -24,13 +25,14 @@ use std::time::Duration;
 use scorsese_core::{Project, Reprobe, probe_assets};
 use scorsese_providers::credentials::{Budget, Settings};
 use scorsese_providers::prices::dollars;
+use scorsese_providers::quote::generation;
 use scorsese_providers::video::{Run, WAIT_FOR};
 use scorsese_providers::{speech, spending, video};
 use scorsese_render::Ffprobe;
 use serde_json::Value;
 
 use crate::tools::inspect::load;
-use crate::tools::{Costs, Reply, Tool, project_dir, project_property};
+use crate::tools::{Costs, Reply, Tool, confirm, project_dir, project_property};
 
 /// Realising generated video and narration.
 pub(crate) struct Generate;
@@ -41,19 +43,21 @@ impl Tool for Generate {
     }
 
     fn description(&self) -> &'static str {
-        "Realise the sketched briefs — the one tool here that costs money. Each \
-         generated_video asset whose brief has not been paid for is handed to \
-         Veo, and each generated_audio asset to ElevenLabs; the reply says what \
-         each did and what the run is estimated to have cost. A brief already \
-         generated is never sent again, so calling this twice costs nothing the \
-         second time. Pass dry_run to be quoted a price and send nothing. Video \
-         takes minutes, so this waits a while and then detaches: whatever is \
-         still going has its ticket written into project.json, and calling \
-         again — or with collect — picks it up, even from another machine. \
-         Narration comes back on the same call and is never left in flight. A \
-         line with no voice chosen yet is reported and skipped rather than \
-         failing the run. Every figure is our own arithmetic over published \
-         rates, never a bill."
+        "Realise the sketched briefs — the one tool here that costs money, and it \
+         quotes before it spends. Called without confirm it sends nothing and needs no \
+         key: it answers with what each generated_video (Veo) and generated_audio \
+         (ElevenLabs) brief would cost, and a token. Show that quote to whoever is \
+         paying; only a second call with confirm set to the token spends, and only on \
+         exactly the briefs quoted — edit one in between and the call is refused and \
+         must be quoted again. A run with nothing to pay for (everything already \
+         generated, or shots only waiting to be collected) needs no token. A brief \
+         already generated is never sent again. Video takes minutes, so a confirmed \
+         run waits a while and then detaches: whatever is still going has its ticket \
+         written into project.json, and calling with collect picks it up — collect \
+         never spends and never needs a token. Narration comes back on the same \
+         call. A line with no voice chosen yet is reported and skipped rather than \
+         failing the run. Every figure is our own arithmetic over published rates, \
+         never a bill."
     }
 
     fn costs(&self) -> Costs {
@@ -65,12 +69,7 @@ impl Tool for Generate {
             "type": "object",
             "properties": {
                 "project": project_property(),
-                "dry_run": {
-                    "type": "boolean",
-                    "description": "Say what a run would cost and send nothing. Needs no \
-                                    key. Worth doing before any run somebody has not \
-                                    agreed to the price of."
-                },
+                "confirm": confirm::property(),
                 "collect": {
                     "type": "boolean",
                     "description": "Collect whatever has finished and submit nothing at \
@@ -92,13 +91,19 @@ impl Tool for Generate {
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let dir = project_dir(arguments)?;
         let mut project = load(&dir)?;
-        if flag(arguments, "dry_run") {
-            return quote(&project, &dir);
+        let collecting = flag(arguments, "collect");
+        // Collecting submits nothing by construction, so there is nothing to
+        // agree to. Everything else is quoted, and goes ahead only on a token
+        // bound to that quote — or on a quote with nothing in it to pay for.
+        if !collecting {
+            let quote = generation(&project, &dir).map_err(|error| format!("{error}"))?;
+            if let Some(quoted) = confirm::gate(&dir, arguments, &quote, self.name())? {
+                return Ok(quoted);
+            }
         }
 
         let settings = Settings::load().unwrap_or_default();
         let budget = Budget::from_settings(&settings, spent_so_far(&project, &dir));
-        let collecting = flag(arguments, "collect");
         let patience = patience(arguments)?;
 
         let mut shots = Run {
@@ -239,24 +244,6 @@ fn patience(arguments: &Value) -> Result<Duration, String> {
 /// wherever they are *reported*; see [`spending`].
 fn spent_so_far(project: &Project, root: &Path) -> u64 {
     spending::so_far(project, root).total()
-}
-
-/// What a run would cost, without a key and without sending anything.
-///
-/// What **this** run would spend, not what the project's briefs would cost
-/// from scratch: a brief whose output already sits in `generated/` is listed
-/// at nothing, because the run will find its file and send nothing.
-fn quote(project: &Project, dir: &Path) -> Result<Reply, String> {
-    let mut lines = Vec::new();
-    let total = shots::quote(project, dir, &mut lines)? + lines::quote(project, dir, &mut lines)?;
-    if lines.is_empty() {
-        return Ok("Nothing to generate: this project has no prompted assets.".into());
-    }
-    lines.push(format!(
-        "About {} for the whole run — our arithmetic over published rates, never a bill.",
-        dollars(total)
-    ));
-    Ok(lines.join("\n").into())
 }
 
 /// What the run reads as.

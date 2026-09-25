@@ -206,14 +206,20 @@ fn measure(project: &mut Project, project_dir: &Path) -> Result<()> {
 ///
 /// What **this** run would spend, not what the project's briefs would cost
 /// from scratch: a brief whose output already sits in `generated/` is listed
-/// at nothing, because the run will find its file and send nothing.
+/// at nothing, because the run will find its file and send nothing. The
+/// arithmetic is [`scorsese_providers::quote::generation`]'s — the same quote
+/// the MCP tool binds its token to, so the terminal and a tool call cannot
+/// price one project differently.
 fn quote(project: &Project, root: &Path) -> Result<()> {
-    let total = shots::quote(project, root)? + lines::quote(project, root)?;
+    let quote = scorsese_providers::quote::generation(project, root)?;
+    for item in &quote.items {
+        println!("{:<24} {}", item.subject, item.says);
+    }
     println!();
     println!(
         "About {} for the whole run — calculated from the published rates, never a bill. \
          See docs/prices.md.",
-        dollars(total)
+        dollars(quote.cents())
     );
     Ok(())
 }

@@ -71,7 +71,7 @@ pub use brief::Brief;
 pub use elevenlabs::ElevenLabsStudio;
 pub use error::DesignError;
 pub use ledger::{Designed, LEDGER_FILE, read as designed, spent};
-pub use price::{Estimate, estimate};
+pub use price::{Estimate, estimate, quote};
 pub use run::{Designing, Kept, design, keep};
 pub use session::{Sample, Session};
 pub use studio::{Candidate, Studio};

@@ -31,7 +31,13 @@
 
 use scorsese_core::SpeechModel;
 
+use std::path::Path;
+
 use crate::prices::{self, SpeechEstimate, UnpricedSpeech, dollars};
+use crate::quote::{Charge, Item, Quote, Spend};
+
+use super::brief::Brief;
+use super::session;
 
 /// Which rate a design is billed at.
 ///
@@ -101,6 +107,36 @@ impl From<SpeechEstimate> for Estimate {
 /// bytes would overcharge exactly the audience this feature exists for.
 pub fn estimate(passage: &str) -> Result<Estimate, UnpricedSpeech> {
     prices::speech(BILLED_AS, passage.chars().count()).map(Estimate::from)
+}
+
+/// What [`design`](super::design) would spend on this brief, right now.
+///
+/// Nothing, when the three samples are already on disk — the same check the
+/// design itself makes first — and the [`estimate`] otherwise, charged against
+/// the hash of the brief the samples would be filed under.
+pub fn quote(root: &Path, brief: &Brief) -> Result<Quote, UnpricedSpeech> {
+    let digest = brief.digest();
+    let item = if session::read(root, &digest).is_some() {
+        Item {
+            subject: String::from("design"),
+            says: String::from("already designed — the three samples are on disk, nothing to pay"),
+            charge: None,
+        }
+    } else {
+        let estimate = estimate(&brief.passage)?;
+        Item {
+            subject: String::from("design"),
+            says: estimate.says(),
+            charge: Some(Charge {
+                brief: digest,
+                cents: estimate.cents,
+            }),
+        }
+    };
+    Ok(Quote {
+        spend: Spend::VoiceDesign,
+        items: vec![item],
+    })
 }
 
 #[cfg(test)]

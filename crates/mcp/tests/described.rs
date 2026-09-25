@@ -20,7 +20,7 @@
 //! The half that *is* testable moved to `tests/table.rs`: a description's first
 //! sentence is the cell `docs/mcp.md` carries, so it has to stand on its own.
 
-use scorsese_mcp::registry;
+use scorsese_mcp::{Costs, registry};
 use serde_json::Value;
 
 /// Long enough to be a sentence rather than a restatement of the name.
@@ -118,6 +118,35 @@ fn every_tool_takes_the_project_the_same_way() {
         assert!(
             required.contains(&"project"),
             "`{}` does not require a `project`",
+            tool.name()
+        );
+    }
+}
+
+/// A tool that spends money says, in its own words, that it quotes first — and
+/// takes the token that makes the second call spend. A client reads the
+/// description to decide how to call a tool, so a paid tool whose description
+/// did not say this would be one a client calls expecting it to spend, and
+/// then reads the quote it gets back as a failure.
+#[test]
+fn every_paid_tool_says_it_quotes_first_and_takes_the_token() {
+    let paid: Vec<_> = registry()
+        .into_iter()
+        .filter(|tool| tool.costs() == Costs::Money)
+        .collect();
+    assert!(
+        !paid.is_empty(),
+        "no paid tools — this would pass vacuously"
+    );
+    for tool in paid {
+        assert!(
+            tool.description().contains("quotes before it spends"),
+            "`{}` spends money and does not say it quotes first",
+            tool.name()
+        );
+        assert!(
+            tool.schema()["properties"].get("confirm").is_some(),
+            "`{}` spends money and takes no confirm token",
             tool.name()
         );
     }
