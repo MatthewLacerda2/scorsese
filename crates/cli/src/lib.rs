@@ -195,6 +195,9 @@ fn dispatch(cli: Cli) -> Result<()> {
             Some(SynthAction::New { name, kind }) => {
                 commands::synth::new(&directory, &name, kind.into())
             }
+            Some(SynthAction::Import { file, name }) => {
+                commands::synth::import(&directory, &file, name.as_deref())
+            }
             Some(SynthAction::Check { recipe }) => commands::synth::check(&recipe),
             Some(SynthAction::Bake {
                 asset,

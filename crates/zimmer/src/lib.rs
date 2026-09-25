@@ -47,7 +47,7 @@
 //! [`SAMPLE_RATE`], [`SYNTH_VERSION`], and [`parse_note`] and [`midi_to_freq`]
 //! for turning what a score writes into what the renderer plays.
 //!
-//! **Five modules keep their own path**, because each is a vocabulary rather
+//! **Six modules keep their own path**, because each is a vocabulary rather
 //! than a handful of names:
 //!
 //! - [`patch`] and [`song`] are the two recipe documents — every type a
@@ -60,6 +60,9 @@
 //!   whole.
 //! - [`survey`] is what a *set* of recipes is made of, counted from the
 //!   documents without baking any of them.
+//! - [`midi`] is the way *in* from outside: a Standard MIDI File's bytes read
+//!   as a [`Song`]. A converter rather than a renderer, which is why it keeps
+//!   a path of its own instead of joining the bakes at the root.
 //! - [`wav`] publishes one function, [`wav::seconds_in`], and keeps its module
 //!   because the noun is what makes the verb readable.
 //!
@@ -156,6 +159,7 @@ pub(crate) mod error;
 pub(crate) mod fx;
 pub(crate) mod hash;
 pub mod level;
+pub mod midi;
 pub(crate) mod note;
 pub mod patch;
 pub mod song;

@@ -56,6 +56,26 @@ pub(crate) fn new(project_dir: &Path, name: &str, starter: Starter) -> Result<()
     Ok(())
 }
 
+/// Reads a MIDI file into a song recipe and the asset that points at it.
+pub(crate) fn import(project_dir: &Path, file: &Path, name: Option<&str>) -> Result<()> {
+    let mut project = open(project_dir)?;
+    // No context of its own: the error already names the file, and a second
+    // mention would print the path twice.
+    let imported = synth::import_midi(&mut project, project_dir, file, name)?;
+    project.save(project_dir).context("saving the project")?;
+
+    let id = &imported.id;
+    let asset = project.asset(id).expect("the asset just created");
+    let recipe = asset.recipe.as_ref().expect("a synth asset has a recipe");
+    println!("{id} — synth_audio, sketch, from {}", file.display());
+    println!("  {recipe}");
+    for line in imported.lines() {
+        println!("  {line}");
+    }
+    println!("  choose the sounds, then `scorsese synth bake {id}` to hear it");
+    Ok(())
+}
+
 /// Realises the synth assets whose recipes are not already baked.
 ///
 /// With no id this covers every one of them, and it is deliberately safe to

@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use scorsese_core::{AssetId, PathProblem, ProjectPath};
 use scorsese_zimmer::SynthError;
+use scorsese_zimmer::midi::MidiError;
 
 /// Why an asset could not be synthesised.
 #[derive(Debug, thiserror::Error)]
@@ -85,6 +86,29 @@ pub enum SynthesisError {
         /// What the synthesiser refused it for.
         #[source]
         source: SynthError,
+    },
+
+    /// A MIDI file to import could not be read off the disk.
+    ///
+    /// The cause is carried as `why` rather than as a `#[source]`, in this
+    /// variant and the next: the message already says it, and a chain would
+    /// have the command line print it twice.
+    #[error("reading {}: {why}", path.display())]
+    MidiRead {
+        /// The file named.
+        path: PathBuf,
+        /// What the operating system said.
+        why: std::io::Error,
+    },
+
+    /// A MIDI file was read and is not one a song can be made from: not MIDI
+    /// at all, timed in frames, or without a note in it.
+    #[error("{}: {why}", path.display())]
+    Midi {
+        /// The file named.
+        path: PathBuf,
+        /// Why it was refused.
+        why: MidiError,
     },
 
     /// The bake could not be written into `generated/`.

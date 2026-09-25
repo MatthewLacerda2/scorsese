@@ -21,11 +21,14 @@ is what lets everything on this page promise free and deterministic.
 ```
 scorsese synth new zap                 # a patch recipe, and its asset
 scorsese synth new theme --kind song   # a song recipe, and its asset
+scorsese synth import rag.mid          # a song recipe from a MIDI file
 scorsese synth bake                    # render everything not already baked
 scorsese synth check recipes/theme.json
 ```
 
-Both starters make a sound as written. Bake first, listen, then edit.
+Both starters make a sound as written. Bake first, listen, then edit. An
+arrangement that already exists as a `.mid` starts
+[from the file](#starting-from-a-midi-file) instead.
 
 ## Effects: `"recipe": "patch"`
 
@@ -1791,6 +1794,59 @@ against something.
 `seed` re-rolls every stochastic source in the piece at once. A pattern played
 twice does not repeat its noise — a repeated snare is not a photocopy — while
 the whole piece stays byte-identical across runs.
+
+### Starting from a MIDI file
+
+When the notes already exist — a DAW export, a keyboard take, a transcription
+from a sheet-music site — `scorsese synth import rag.mid` (`synth_import` over
+MCP) reads the file into a song recipe and adds its asset exactly as
+`synth new` would: `recipes/rag.json`, in `sketch`. `--name` picks another
+name; otherwise the file's does.
+
+**It maps the file's structure and interprets nothing.** What comes across,
+and as what:
+
+| In the file | In the recipe |
+| --- | --- |
+| each MIDI track, per channel it plays on | one `track`, named for the file's track name (`Piano`), else `track-N`; `-chN` is added when one MIDI track plays on several channels |
+| channel 10 | a drum track (`drums` if unnamed), whose notes stay **key numbers** — `36`, `38` — because on that channel a number names a drum, not a pitch |
+| each note | a `note` entry: a name (`C#4`, or `Db4` when the key signature has flats), `start` and `dur` in beats, `vel` to three places |
+| the first tempo, and every later one | `bpm`, and a [jump](#a-tempo-that-moves) in `tempo` for each change |
+| the first key signature | `key` — notes are still written as pitches, not degrees |
+| time signatures | where the bars fall, and nothing else: a song has no meter |
+
+```jsonc
+"arrangement": ["bars-1-8", "bars-9-16", "bars-17-24", "bar-25"],
+"patterns": { "bars-9-16": { "beats": 32.0, "notes": [
+  { "track": "Piano", "note": "Eb4", "start": 0.0, "dur": 0.5, "vel": 0.787 },
+  { "track": "drums", "note": 36.0, "start": 0.0, "dur": 0.25, "vel": 0.874 } ] } }
+```
+
+**Patterns are a grid of eight bars**, counted from the file's time signatures
+(4/4 when it writes none) and named for the bars they hold, so the
+[bake report](#how-a-bake-came-out) has a row per eight bars that you can find
+on the sheet music. It is a grid and not an analysis: no repeat is detected, no
+pattern is reused, and a pickup bar shifts every boundary by one, exactly as it
+would on the page. A note that rings across a boundary stays whole, in the
+pattern it starts in.
+
+**What it leaves to you**, deliberately: a piano part on one track stays one
+track — which notes are the bass is a reading of the music the file never
+wrote. A drum part is not split into kick and snare. And **every track plays a
+plain placeholder patch** — a triangle for pitched parts, a noise burst for
+drums — because a program number is General MIDI's name for a sound library
+this crate does not have. Choosing the sounds is the first `synth_write`.
+
+**What the song cannot hold is named, not dropped.** The sustain pedal and
+other controllers, pitch bends, aftertouch and program numbers each get a
+`left out:` line in the report, as do notes the file never released (they end
+where their track does) and notes released on the tick they started (given one
+tick). A file timed in SMPTE frames, a format-2 file of independent sequences,
+and a file with no notes are refused.
+
+`synth import` reads the file and does not copy it: the recipe is what the
+project keeps. Going the other way — a recipe out to a `.mid` for a DAW — is
+not built yet (#508).
 
 ## What a bake is, and when it happens
 

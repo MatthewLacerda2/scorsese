@@ -253,6 +253,7 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(edit::SetVolume),
         Box::new(edit::ScalePacing),
         Box::new(synth::New),
+        Box::new(synth::Import),
         Box::new(synth::Read),
         Box::new(synth::Write),
         Box::new(synth::Set),

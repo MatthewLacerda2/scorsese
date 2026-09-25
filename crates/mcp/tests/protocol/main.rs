@@ -27,6 +27,7 @@ mod setting;
 mod sounding;
 mod starting;
 mod surveying;
+mod transcribing;
 mod tuning;
 mod watching;
 

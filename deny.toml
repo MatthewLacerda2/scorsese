@@ -79,6 +79,11 @@ allow = [
     # HTTPS means having something to trust, and shipping our own trust list is
     # the alternative nobody wants.
     "CDLA-Permissive-2.0",
+    # `midly`, which `scorsese-zimmer` reads a Standard MIDI File with (#508).
+    # The Unlicense is a dedication to the public domain with a permissive
+    # fallback where a dedication is not recognised — the same decision as
+    # CC0 below, and it asks nothing of us at all, not even the notice.
+    "Unlicense",
 
     # Everything below this line arrives with the desktop app's graphics stack
     # and nothing else. All of it is permissive — none is copyleft, none asks

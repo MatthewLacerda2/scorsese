@@ -12,3 +12,4 @@ mod measuring;
 mod metadata;
 mod partial;
 mod surveying;
+mod transcribing;

@@ -30,6 +30,26 @@ pub(crate) enum SynthAction {
         #[arg(long, default_value = "patch")]
         kind: StarterArg,
     },
+    /// Read a Standard MIDI File into a song recipe in `recipes/`, and add
+    /// the asset that points at it — the way `new` does, from a `.mid`
+    /// instead of a starter.
+    ///
+    /// The file's structure comes across as written: one song track per MIDI
+    /// track and channel, channel 10 as a drum part, the tempo map, the key
+    /// signature, every note with its velocity, cut into patterns of eight
+    /// bars. Nothing is interpreted — no hands split, no repeats found — and
+    /// every track plays a plain placeholder patch. What the song cannot hold
+    /// (the sustain pedal, pitch bends, program numbers) is listed, not
+    /// dropped silently.
+    Import {
+        /// The `.mid` file to read. It is not copied into the project: the
+        /// recipe it becomes is what the project keeps.
+        file: PathBuf,
+        /// What to call the asset and its recipe. Defaults to the file's name
+        /// without `.mid`, suffixed if that is taken.
+        #[arg(long)]
+        name: Option<String>,
+    },
     /// Render the recipes that are not already baked, into `generated/`.
     /// Safe to re-run: an unchanged recipe is a cache hit.
     ///
