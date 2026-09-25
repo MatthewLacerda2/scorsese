@@ -26,7 +26,14 @@ pub(crate) fn examples() -> Vec<Example> {
     let mut found = Vec::new();
     let mut lines = DOC.lines().enumerate();
     while let Some((number, line)) = lines.next() {
-        let Some(marker) = line.trim_end().strip_prefix("```json") else {
+        // `jsonc` shares the prefix, and is the one fence the page promises is
+        // *not* checked — so it is told apart here rather than read as a
+        // `json` block marked `c`.
+        let Some(marker) = line
+            .trim_end()
+            .strip_prefix("```json")
+            .filter(|rest| !rest.starts_with('c'))
+        else {
             continue;
         };
         let marker = marker.trim().to_owned();
