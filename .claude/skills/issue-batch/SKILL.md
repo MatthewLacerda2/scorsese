@@ -1,6 +1,6 @@
 ---
 name: issue-batch
-description: Run a set of issues from board to merged — how many branches at once, which ones can safely run together, worktrees, and re-reading the board. Use when starting work on one or more issues, when deciding what to start next, or when told to "do the issues".
+description: Run a set of issues from board to merged — how many branches at once, which ones can safely run together, worktrees, re-reading the board, and the cleanup and local rebuild that finish a batch. Use when starting work on one or more issues, when deciding what to start next, or when told to "do the issues".
 ---
 
 # Working a batch of issues
@@ -116,6 +116,28 @@ sessions on a branch are the second kind. The line is not crisp, so err upwards.
 
 When working unattended, prefer leaving a comment on the issue and continuing
 over stalling the night on a question.
+
+## Finishing a batch
+
+The batch is not done when the last branch merges — it is done when the main
+checkout runs what was merged. Last, once nothing is compiling:
+
+1. **Clean up what is finished.** Remove the worktree and delete the local
+   branch of every pull request that is `MERGED` — ask `gh pr view N --json
+   state`, never its exit code, which is 0 for an open one too. `git branch
+   --merged` cannot see a squash merge, so it is not the test. A branch with
+   **no commits beyond `main`** (`git rev-list --count origin/main..BRANCH` is
+   0) goes too, once its worktree has nothing uncommitted and no agent is still
+   standing in it. Anything else stays: unmerged work is only ever deleted by
+   the user.
+2. **Bring the main checkout up to date** — `git pull --ff-only` on `main`.
+3. **Rebuild the local tools, and launch nothing.** `make release` builds
+   `scorsese` and `scorsese-mcp` — the MCP server a local client is pointed at
+   is `target/release/scorsese-mcp`, so until this runs every session drives the
+   old code. Then `cargo build --release --manifest-path app/Cargo.toml` for the
+   desktop app. One after the other, never beside a sibling's build. A client
+   already connected keeps the old server process until it reconnects; say so
+   in the report.
 
 ## Reporting back
 
