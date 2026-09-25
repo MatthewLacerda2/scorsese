@@ -22,7 +22,7 @@ async fn it_migrates_serves_and_stops_cleanly(pool: PgPool) {
         stopped.await.ok();
     }));
 
-    let (status, body) = common::get(address, "/health").await;
+    let (status, body) = common::get(address, "/api/health").await;
     assert_eq!((status, body.as_str()), (200, "ok"));
 
     // Migrations ran before the first request was answered.
@@ -67,7 +67,7 @@ async fn health_says_unavailable_when_the_database_is_unreachable() {
     let router = http::router(http::AppState { pool });
     let server = tokio::spawn(http::serve(listener, router, std::future::pending()));
 
-    let (status, body) = common::get(address, "/health").await;
+    let (status, body) = common::get(address, "/api/health").await;
     assert_eq!((status, body.as_str()), (503, "database unreachable"));
     server.abort();
 }

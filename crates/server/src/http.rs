@@ -18,11 +18,15 @@ pub struct AppState {
     pub pool: PgPool,
 }
 
-/// Every route the server answers.
+/// Every route the server answers, all of them under `/api`.
+///
+/// One prefix for the whole API, health check included, so the web app's
+/// dev proxy (`web/`, which forwards `/api` unchanged) and whatever fronts the
+/// server in production route it with a single rule — and a path that is not
+/// `/api/...` is never this server's, so it can go to the front-end.
 pub fn router(state: AppState) -> Router {
-    Router::new()
-        .route("/health", get(health))
-        .with_state(state)
+    let api = Router::new().route("/health", get(health));
+    Router::new().nest("/api", api).with_state(state)
 }
 
 /// Whether this server can do its job right now: `200 ok` or `503`.
