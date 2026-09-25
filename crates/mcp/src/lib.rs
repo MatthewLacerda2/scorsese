@@ -58,6 +58,14 @@
 //! "open project" to go stale, so a client may crash, reconnect, or run two
 //! conversations against one project without anything getting out of step.
 //!
+//! ## Paid tools quote first
+//!
+//! A tool that costs money answers its first call with a quote and a token,
+//! and spends only when called again with that token — one rule, with no
+//! one-step path even here, where the key is the operator's own. The tokens
+//! live in the project's `cache/`, so being stateless survives it; the rules
+//! are `scorsese_providers::quote`'s, so the hosted server keeps the same ones.
+//!
 //! ## What this publishes
 //!
 //! `serve`, which is what the binary runs, and `registry` with the `Tool` it

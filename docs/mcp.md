@@ -847,15 +847,24 @@ changing a voice deserves the same `"state": "stale"` by hand.
 
 `generate` is **the one tool here that costs money**, and everything about its
 shape follows from that. It drives both providers: shots go to Veo, narration
-to ElevenLabs.
+to ElevenLabs. Like every paid tool it **quotes first** — see
+[Paid tools quote first](#paid-tools-quote-first) below.
 
 ```
-generate  { "project": "teaser.scor", "dry_run": true }
+generate  { "project": "teaser.scor" }
           → "hero: $0.96 — 8s of fast at 1080p
              wide: $0.20 — 4s of lite at 720p
              vo-open: $0.01 — 58 characters in fast
-             About $1.17 for the whole run — our arithmetic over published
-             rates, never a bill."
+             About $1.17 in all — our arithmetic over published rates, never a
+             bill.
+             Nothing has been sent. To spend this, call generate again with the
+             same arguments and confirm: "quote-9c1e…" — once whoever is paying
+             has agreed to $1.17. …"
+
+generate  { "project": "teaser.scor", "confirm": "quote-9c1e…" }
+          → "hero: queued — models/veo-3.1-fast…/operations/…
+             …
+             About $1.17 spent on this run — our calculation, never a bill."
 ```
 
 **The two are quoted on separate lines and never averaged.** Eight seconds of
@@ -863,8 +872,8 @@ video is ninety-six cents and a sentence of narration is one — sixty to a
 hundred times less. A per-item average across them would describe nothing that
 exists.
 
-**Quote before you spend.** `dry_run` needs no key and sends nothing. Every
-figure it prints comes from the rate table in
+**The quote needs no key and sends nothing.** Every figure it prints comes
+from the rate table in
 [`prices.md`](prices.md) — and *no provider reports what a
 generation actually cost*, so these are calculations, not receipts. That is why
 the field on the asset is called `estimated_cost_cents`.
@@ -923,6 +932,58 @@ a shot that plays silent.
 **A queued shot has two days.** Past that the provider deletes the finished
 video and the money is gone, so a wait that old is reported as its own outcome
 rather than as a longer wait: the two call for opposite things.
+
+## Paid tools quote first
+
+**Every tool that spends money is a two-step exchange**, and there is no
+one-step path — not for the local stdio server either.
+
+1. **Quote.** A call without `confirm` sends nothing and needs no key. It
+   answers with what each brief would cost and a **token**.
+2. **Commit.** Only a second call carrying `confirm: "<token>"` spends — and
+   only on exactly what was quoted.
+
+What happens between the two is the client's business: a confirmation box in
+the web editor, a question in a chat, a line in an agent's plan. The protocol
+guarantees there *is* a between. An assistant should show the quote to whoever
+is paying and pass the token back only once they have agreed to that price.
+
+**The token is bound to what was quoted.** It carries a digest of every brief
+that would be paid for — the asset, the hash of the brief, the cents it was
+priced at. Edit a prompt, add a sketch, or let the rate table change in
+between, and the confirming call is refused with the old and new totals, and
+nothing is sent. A shot that merely finished or was collected meanwhile does
+not count as a change: it is no longer being paid for.
+
+**Good once, for fifteen minutes.** Any attempt to use a token consumes it,
+including a refused one, because the answer to every refusal is the same —
+quote again, which is free. Fifteen minutes is long enough to read a quote and
+say yes, and short enough that a yes cannot drift into a different
+conversation. A token nobody issued is refused because it is not in the store,
+so one cannot be made up.
+
+**A call with nothing to pay for needs no token.** `generate` over a project
+that is already generated, or `collect`, which only picks up what is in flight,
+goes straight through — there is nothing to agree to. So does a voice design
+already on disk.
+
+**The ceiling is still checked, after the token.** `budget_cents`
+([credentials.md](credentials.md)) sits inside the pass that submits, so a
+confirmed quote can still be refused there. The quote is permission from
+whoever is watching; the ceiling is a number that holds when nobody is.
+
+**Why no one-step path locally.** The stdio server spends somebody's own key,
+which is real money just the same. And the same tools are served to other
+clients elsewhere: a client that learned to spend in one call here would spend
+without asking the day it was pointed at the hosted server. One rule, one
+contract.
+
+**Where tokens live.** Locally, a small file each under the project's
+`cache/quotes/` — rebuildable, gitignored, and swept when it expires. In the
+project rather than in the server's memory, so a server restarted between the
+quote and the yes does not turn the yes into a refusal. The rules themselves
+live in `scorsese_providers::quote`, behind a store trait, so a hosted server
+keeps the same record in its own tables.
 
 ## Choosing a voice
 
@@ -1033,8 +1094,11 @@ voice_design  { "project": "teaser.scor",
 
 **One call, three candidates, one charge.** The billing is the thing to get
 right here, because the obvious guess is wrong: three samples come back and the
-*preview text* is billed once. `dry_run` quotes it without a key and without
-sending anything, exactly as `generate`'s does.
+*preview text* is billed once. The first call quotes it without a key and
+without sending anything, and a second call with the same `prompt` and `text`
+and `confirm` set to the token designs — exactly as `generate` does. A design
+already on disk needs no token, and neither do `keep` and `list`, which spend
+nothing.
 
 **Voice design spend is its own line item.** It counts against the same
 spending ceiling — it is real money at the same vendor — but it is never added
