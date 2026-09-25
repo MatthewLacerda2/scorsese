@@ -1,4 +1,4 @@
-//! `size-gate [ROOT]` — fail if any Rust file is over its code-line limit.
+//! `size-gate [ROOT]` — fail if any code file is over its code-line limit.
 //!
 //! Defaults to the current directory, which is the repo root when CI runs it
 //! as `cargo run --manifest-path tools/lint/Cargo.toml`.

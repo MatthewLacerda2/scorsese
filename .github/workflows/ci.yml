@@ -257,6 +257,45 @@ jobs:
       - name: Doctests
         run: cargo test --doc --manifest-path app/Cargo.toml --locked
 
+  # The React front-end (#531): `make web`'s commands, in its order. Its own
+  # job because it shares nothing with the Rust ones — no toolchain, no cache —
+  # and answers in well under a minute beside them. It runs on every ready pull
+  # request, as `app` does, while `make gates` skips it locally on a branch that
+  # does not touch `web/`: the local skip exists to spare a Rust-only branch
+  # from needing Bun installed, and CI always has it.
+  web:
+    name: web front-end
+    runs-on: ubuntu-24.04
+    # Drafts assert nothing, so there is nothing to check. See the top of
+    # this file; `ready_for_review` in `types:` is what makes it fire at all.
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      # The version comes from `packageManager` in web/package.json, so a
+      # bump there is a bump here and the two cannot disagree.
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: web/package.json
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Lint and format
+        run: bun run lint
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Test
+        run: bun test
+
+      - name: Build
+        run: bun run build
+
   size:
     name: size gate
     runs-on: ubuntu-24.04

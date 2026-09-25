@@ -2,15 +2,29 @@
 //!
 //! The rules, stated once so they can be argued with rather than guessed at:
 //!
-//! - **Only `.rs` files are measured.** The cap exists because Rust is what
-//!   gets read and edited to change behaviour; prose and data files are long
-//!   for reasons that splitting them would not improve.
+//! - **Code is measured: `.rs`, and the web front-end's `.ts` and `.tsx`.**
+//!   The cap exists because code is what gets read and edited to change
+//!   behaviour; prose and data files are long for reasons that splitting them
+//!   would not improve.
+//! - **TypeScript takes the same two caps as Rust, and no exception.** `web/`
+//!   is edited by the same agents, under the same constraint of holding one
+//!   file in context at a time, and a React component past 300 lines of code is
+//!   a component doing several things — the same smell a long Rust module is.
+//!   A second pair of numbers would be a second rule to argue about with no
+//!   reason behind the difference. shadcn/ui's components are included: shadcn
+//!   copies them into `web/src/components/ui/` precisely so they are ours to
+//!   edit, which makes them source like any other, and one that arrives over
+//!   the cap is split or not vendored.
 //! - **A file is a *test* file when a directory named `tests` is anywhere in
 //!   its path.** That is the Cargo convention for integration-test targets
 //!   (`crates/*/tests/**`), and it is the file's role in the build that decides
 //!   the cap, not its subject matter. So `crates/golden/src/**` — test
 //!   infrastructure, but compiled as a library others use — is *source*, and
 //!   a helper module under `crates/render/tests/common/` is a *test* file.
+//! - **A TypeScript file is also a test file when its name ends `.test.ts` or
+//!   `.test.tsx`.** That is how `bun test` finds tests — beside the component
+//!   they test, not in a `tests` directory — so it is the same rule: the file's
+//!   role in the build decides the cap.
 //! - **A `#[cfg(test)]` module inside a source file changes nothing.** The unit
 //!   being capped is the file an agent has to hold in its head, and inline
 //!   tests are part of that file. A source file with tests in it gets 300
@@ -69,23 +83,35 @@ impl Kind {
 /// project source — and counting a worktree's files would report every
 /// violation several times over. The named ones are build output and
 /// per-project scratch space: `target/`, and the `generated/`, `cache/`
-/// directories of a `*.scor` project.
+/// directories of a `*.scor` project; and `node_modules/`, the web front-end's
+/// installed packages, which ship `.ts` of their own. (`web/dist/` needs no
+/// entry: a build writes `.js`, which is never measured.)
 pub fn is_skipped_dir(name: &str) -> bool {
     name.starts_with('.') || matches!(name, "target" | "generated" | "cache" | "node_modules")
 }
 
 /// Which cap `path` falls under, or `None` if the gate has no opinion about it
-/// — not Rust, or inside a directory that is never walked.
+/// — not code, or inside a directory that is never walked.
 ///
 /// `path` is interpreted relative to the scan root, so absolute paths from
 /// outside it are answered on the same component rules and nothing else.
 pub fn classify(path: &Path) -> Option<Kind> {
-    if path.extension()? != "rs" {
+    let extension = path.extension()?.to_str()?;
+    if !matches!(extension, "rs" | "ts" | "tsx") {
         return None;
     }
 
     let dirs = path.parent()?.components();
-    let mut kind = Kind::Source;
+    let named_as_test = extension != "rs"
+        && path
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .is_some_and(|stem| stem.ends_with(".test"));
+    let mut kind = if named_as_test {
+        Kind::Test
+    } else {
+        Kind::Source
+    };
     for dir in dirs.filter_map(|c| c.as_os_str().to_str()) {
         if is_skipped_dir(dir) {
             return None;

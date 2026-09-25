@@ -51,10 +51,20 @@ fn code_with_a_trailing_comment_counts() {
 }
 
 #[test]
-fn a_block_comment_is_not_recognised_and_counts_as_code() {
-    // Stated as a test so the limitation is a decision on record rather than
-    // something a later reader has to infer from an unexpected number.
-    assert_eq!(count("/* block */\n"), 1);
+fn a_block_comment_that_starts_a_line_is_a_comment_to_its_end() {
+    // TypeScript's doc comment, which is what the web front-end writes.
+    assert_eq!(count("/**\n * Why.\n *\n */\ncode\n"), 1);
+    assert_eq!(count("/* one line */\ncode\n"), 1);
+    // Inside a block, a line starting `*` is prose, not a Rust deref.
+    assert_eq!(count("/*\n*x = 1;\n*/\n*x = 1;\n"), 1);
+}
+
+#[test]
+fn code_sharing_a_line_with_a_block_comment_counts() {
+    assert_eq!(count("/* why */ code();\n"), 1);
+    assert_eq!(count("/*\n why\n*/ code();\n"), 1);
+    // A block opened after code is not followed; that line is code anyway.
+    assert_eq!(count("code(); /* why\n"), 1);
 }
 
 #[test]

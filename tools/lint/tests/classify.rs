@@ -78,7 +78,31 @@ fn a_build_script_is_source() {
 }
 
 #[test]
-fn only_rust_is_measured() {
+fn the_web_front_ends_typescript_is_measured_under_the_same_caps() {
+    assert_eq!(kind_of("web/src/App.tsx"), Some(Kind::Source));
+    assert_eq!(kind_of("web/src/lib/utils.ts"), Some(Kind::Source));
+    assert_eq!(kind_of("web/vite.config.ts"), Some(Kind::Source));
+    // shadcn/ui copies its components in to be edited: ours, so measured.
+    assert_eq!(
+        kind_of("web/src/components/ui/button.tsx"),
+        Some(Kind::Source)
+    );
+}
+
+#[test]
+fn a_typescript_test_is_named_as_one_where_bun_test_looks() {
+    assert_eq!(kind_of("web/src/App.test.tsx"), Some(Kind::Test));
+    assert_eq!(kind_of("web/src/lib/utils.test.ts"), Some(Kind::Test));
+    assert_eq!(kind_of("web/tests/smoke.ts"), Some(Kind::Test));
+    // The name convention is TypeScript's; a Rust file is still decided by
+    // its directory alone.
+    assert_eq!(kind_of("crates/core/src/x.test.rs"), Some(Kind::Source));
+    // And it is the suffix, not the word: `test` inside a name is source.
+    assert_eq!(kind_of("web/src/latest.tsx"), Some(Kind::Source));
+}
+
+#[test]
+fn only_code_is_measured() {
     // Prose and data are long for reasons splitting them would not improve.
     for path in [
         "CLAUDE.md",
@@ -86,6 +110,9 @@ fn only_rust_is_measured() {
         "docs/project-format.md",
         "crates/core/tests/fixtures/project.json",
         "LICENSE",
+        "web/package.json",
+        "web/src/index.css",
+        "web/index.html",
     ] {
         assert_eq!(kind_of(path), None, "{path}");
     }
@@ -101,6 +128,7 @@ fn build_output_and_hidden_directories_are_not_measured() {
         "some.scor/generated/x.rs",
         "some.scor/cache/x.rs",
         "node_modules/whatever/x.rs",
+        "web/node_modules/react/index.d.ts",
     ] {
         assert_eq!(kind_of(path), None, "{path}");
     }

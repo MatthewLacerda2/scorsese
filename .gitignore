@@ -20,6 +20,11 @@ __pycache__/
 # Secrets — .env.example is committed, real credentials never are
 .env
 
+# The web front-end's installed packages and its build output. `bun.lock` is
+# committed; what it resolves to, and what `vite build` writes, are not.
+web/node_modules/
+web/dist/
+
 # Rebuildable per-project cache inside *.scor/ project directories
 cache/
 

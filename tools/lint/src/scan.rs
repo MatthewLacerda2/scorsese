@@ -68,20 +68,42 @@ impl Report {
 /// off when the seam is real, and a seam chosen by a line count often is not.
 ///
 /// A comment is a line whose first non-whitespace is `//`, which covers `///`
-/// and `//!` too. Block comments are not recognised: there are none in this
-/// repo, and reading them would mean tracking state across lines for a case
-/// that has never come up.
+/// and `//!` too — or a line inside a block comment that *starts* a line,
+/// `/*` through `*/`. Rust in this repo has none of the second kind, but
+/// TypeScript documents with them (`/** … */` is what an editor shows on
+/// hover), and counting those would put the web front-end's prose back in the
+/// opposition described above. A block opened after code on the same line is
+/// not followed: that line is code anyway, and tracking one would mean reading
+/// string literals to know where a comment really starts.
 pub fn code_lines(bytes: &[u8]) -> usize {
-    bytes.split(|&b| b == b'\n').filter(|l| is_code(l)).count()
+    let mut in_block = false;
+    bytes
+        .split(|&b| b == b'\n')
+        .filter(|line| is_code(line.trim_ascii(), &mut in_block))
+        .count()
 }
 
-/// Whether one line, without its terminator, counts toward the limit.
+/// Whether one trimmed line counts toward the limit, given whether a block
+/// comment is open as it starts — and noting whether one is open as it ends.
 ///
 /// Trimming is what makes a `\r` from a Windows ending, and the indentation in
-/// front of a doc comment, both invisible here.
-fn is_code(line: &[u8]) -> bool {
-    let line = line.trim_ascii();
-    !line.is_empty() && !line.starts_with(b"//")
+/// front of a doc comment, both invisible here. Code after a block comment
+/// closes on the same line (`*/ x = 1;`, `/* a */ x = 1;`) still counts.
+fn is_code(line: &[u8], in_block: &mut bool) -> bool {
+    let rest = if *in_block {
+        line
+    } else if let Some(opened) = line.strip_prefix(b"/*") {
+        *in_block = true;
+        opened
+    } else {
+        return !line.is_empty() && !line.starts_with(b"//");
+    };
+    let Some(end) = rest.windows(2).position(|w| w == b"*/") else {
+        return false;
+    };
+    *in_block = false;
+    let after = rest[end + 2..].trim_ascii();
+    !after.is_empty() && !after.starts_with(b"//")
 }
 
 /// Measure every file under `root` the gate has an opinion about.
