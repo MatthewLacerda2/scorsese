@@ -2,7 +2,10 @@
 
 use std::path::Path;
 
-use scorsese_render::{FrameRange, RenderSettings, Renderer, Resolution, Tools};
+use scorsese_render::{
+    AudioCodec, Container, FrameRange, OutputFormat, RenderSettings, Renderer, Resolution, Tools,
+    VideoCodec,
+};
 use serde_json::Value;
 
 use crate::tools::inspect::load;
@@ -35,7 +38,30 @@ impl Tool for Render {
                 "out": {
                     "type": "string",
                     "description": "Where to write the file, e.g. teaser.mp4. The \
-                                    extension chooses the container."
+                                    extension chooses the container unless \
+                                    `container` names one: mp4, mkv, avi or wmv. \
+                                    Any other extension, or none, is refused."
+                },
+                "container": {
+                    "type": "string",
+                    "description": "Container to deliver in: mp4, mkv, avi or wmv. \
+                                    Defaults to what `out`'s extension asks for, so \
+                                    naming the file is usually the whole decision."
+                },
+                "video_codec": {
+                    "type": "string",
+                    "description": "Picture codec: h264, mpeg4 or wmv2. Defaults to \
+                                    what the container is written with — h264 for \
+                                    mp4 and mkv, mpeg4 for avi, wmv2 for wmv. A \
+                                    pairing scorsese does not write is refused \
+                                    before anything is encoded."
+                },
+                "audio_codec": {
+                    "type": "string",
+                    "description": "Sound codec: aac, pcm_s16le or wmav2. Defaults, \
+                                    like video_codec, to what the container is \
+                                    written with — aac for mp4 and mkv, pcm_s16le \
+                                    for avi, wmav2 for wmv."
                 },
                 "resolution": {
                     "type": "string",
@@ -57,11 +83,15 @@ impl Tool for Render {
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let dir = project_dir(arguments)?;
-        let project = load(&dir)?;
         let out = arguments
             .get("out")
             .and_then(Value::as_str)
             .ok_or_else(|| "`out` is required: where to write the file".to_owned())?;
+        // First, before the project is opened — the order `scorsese render`
+        // keeps, for its reason: the shape of the file is the cheapest thing
+        // to get wrong and the most expensive to find out late.
+        let format = format(arguments, Path::new(out))?;
+        let project = load(&dir)?;
 
         let resolution: Resolution = arguments
             .get("resolution")
@@ -87,12 +117,12 @@ impl Tool for Render {
         let tools = Tools::discover().map_err(|error| format!("{error}"))?;
         // The project's own grid by default: rendering at the rate the edit
         // was authored against is the one output rate needing no conform.
-        let settings = RenderSettings::new(resolution, project.timeline_fps);
+        let settings = RenderSettings::new(resolution, project.timeline_fps).with_format(format);
         let report = Renderer::new(&tools, settings)
             .render(&project, &dir, range, Path::new(out))
             .map_err(|error| format!("rendering: {error}"))?;
         Ok(format!(
-            "wrote {out} — {} frames at {} fps, {} ({:.2}s)",
+            "wrote {out} — {} frames at {} fps, {} ({:.2}s), as {format}",
             report.frames,
             settings.fps,
             report.resolution,
@@ -100,4 +130,26 @@ impl Tool for Render {
         )
         .into())
     }
+}
+
+/// The shape of the file, built the way `scorsese render` builds it — by
+/// [`OutputFormat::for_path`] — so a file name, an override and every refusal
+/// read the same from either client. Checked before the project's media or
+/// ffmpeg are touched, because a combination we do not write costs nothing to
+/// refuse and a whole encode to discover.
+fn format(arguments: &Value, out: &Path) -> Result<OutputFormat, String> {
+    let named = |key: &str| arguments.get(key).and_then(Value::as_str);
+    let container = named("container")
+        .map(str::parse::<Container>)
+        .transpose()
+        .map_err(|problem| format!("{problem}"))?;
+    let video = named("video_codec")
+        .map(str::parse::<VideoCodec>)
+        .transpose()
+        .map_err(|problem| format!("{problem}"))?;
+    let audio = named("audio_codec")
+        .map(str::parse::<AudioCodec>)
+        .transpose()
+        .map_err(|problem| format!("{problem}"))?;
+    OutputFormat::for_path(out, container, video, audio).map_err(|problem| format!("{problem}"))
 }
