@@ -87,3 +87,33 @@ fn codecs_are_parsed_from_their_own_names() {
         assert_eq!(codec.to_string().parse(), Ok(codec));
     }
 }
+
+/// What every client that renders to a path builds its format with: the
+/// extension is the default, a named container wins over it, and the codecs
+/// are overridden exactly as [`OutputFormat::new`] allows.
+#[test]
+fn a_path_supplies_the_container_unless_one_is_named() {
+    let named_by_file = OutputFormat::for_path(Path::new("cut.avi"), None, None, None);
+    assert_eq!(
+        named_by_file,
+        Ok(OutputFormat::defaults_for(Container::Avi))
+    );
+
+    let overridden = OutputFormat::for_path(
+        Path::new("cut.avi"),
+        Some(Container::Mkv),
+        None,
+        Some(AudioCodec::Aac),
+    );
+    assert_eq!(overridden, Ok(OutputFormat::defaults_for(Container::Mkv)));
+
+    let with_codec =
+        OutputFormat::for_path(Path::new("cut.avi"), None, Some(VideoCodec::H264), None)
+            .expect("h264 in an avi is written on request");
+    assert_eq!(with_codec.video(), VideoCodec::H264);
+    assert_eq!(with_codec.audio(), AudioCodec::PcmS16Le);
+
+    // A named container means no extension is needed at all.
+    let unnamed = OutputFormat::for_path(Path::new("cut"), Some(Container::Wmv), None, None);
+    assert_eq!(unnamed, Ok(OutputFormat::defaults_for(Container::Wmv)));
+}

@@ -10,6 +10,7 @@ mod authoring;
 mod briefing;
 mod changing;
 mod composing;
+mod delivering;
 mod fixture;
 mod guarding;
 mod handshake;

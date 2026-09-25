@@ -81,6 +81,10 @@ is usually the whole decision and every invocation written before this existed
 still means what it meant. `--video-codec` and `--audio-codec` default to what
 the container is written with.
 
+Over MCP the `render` tool takes the same three choices as `container`,
+`video_codec` and `audio_codec`, built by the same constructor
+(`OutputFormat::for_path`), so a refusal reads identically from either client.
+
 The extension is a **default**, not the answer: `--container` wins over it, and
 the muxer is pinned with ffmpeg's `-f` so the file is what the setting says
 whatever it is called.

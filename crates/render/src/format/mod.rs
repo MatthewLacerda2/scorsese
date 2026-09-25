@@ -26,7 +26,7 @@ mod codecs;
 mod containers;
 
 use std::fmt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub use codecs::{AudioCodec, VideoCodec};
 pub use containers::Container;
@@ -82,6 +82,28 @@ impl OutputFormat {
             video,
             audio,
         })
+    }
+
+    /// The format a render to `out` is delivered in: `container` if one was
+    /// named, else the one `out`'s extension asks for, with either codec
+    /// overridden as [`OutputFormat::new`] allows.
+    ///
+    /// Every client that renders to a path builds its format here — the CLI
+    /// from its flags, the MCP server from its arguments — so a file name,
+    /// an override and every refusal mean the same thing whoever is asking.
+    /// A second copy of these three lines is how the MCP tool once wrote an
+    /// mp4 under whatever extension it was handed.
+    pub fn for_path(
+        out: &Path,
+        container: Option<Container>,
+        video: Option<VideoCodec>,
+        audio: Option<AudioCodec>,
+    ) -> Result<Self, FormatError> {
+        let container = match container {
+            Some(container) => container,
+            None => Container::from_path(out)?,
+        };
+        Self::new(container, video, audio)
     }
 
     /// The container, and so the ffmpeg muxer the encode is pinned to.

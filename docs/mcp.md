@@ -1082,6 +1082,25 @@ It is there because checking one ten-second cue in a sixty-second cut should
 cost ten seconds of encoding rather than sixty. The parser is the CLI's own, so
 a range either client refuses is refused by both, with the same words.
 
+## Choosing the file's format
+
+`render` delivers in whatever container `out`'s extension names — mp4, mkv, avi
+or wmv, with the codecs [output-formats.md](output-formats.md) lists for each.
+`container`, `video_codec` and `audio_codec` are `scorsese render`'s
+`--container`, `--video-codec` and `--audio-codec`, with the same defaults.
+
+```
+render  { "project": "trilhas.scor", "out": "cut.avi" }                          → avi (mpeg4 + pcm_s16le)
+render  { "project": "trilhas.scor", "out": "cut.avi", "video_codec": "h264" }   → avi (h264 + pcm_s16le)
+render  { "project": "trilhas.scor", "out": "cut.wmv", "video_codec": "h264" }   → refused
+```
+
+Both clients build the format with the same constructor, so an extension, an
+override and every refusal mean the same thing from either one — and the
+refusal comes before the project is opened, never after an encode. The reply
+names the format it wrote, because until it did an `.avi` could come back as an
+mp4 under a lying extension and nothing said so.
+
 ## Making sound
 
 `synth_read` and `synth_write` are the pair that has no command-line

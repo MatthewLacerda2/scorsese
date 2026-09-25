@@ -50,11 +50,12 @@ pub(crate) fn run(project_dir: &Path, out: &Path, options: Options) -> Result<()
     // to be is the cheapest thing to get wrong and the most expensive thing to
     // find out late. A combination we do not write is refused here, with
     // nothing spent and no ffmpeg yet located.
-    let container = match options.container {
-        Some(container) => container,
-        None => Container::from_path(out)?,
-    };
-    let format = OutputFormat::new(container, options.video_codec, options.audio_codec)?;
+    let format = OutputFormat::for_path(
+        out,
+        options.container,
+        options.video_codec,
+        options.audio_codec,
+    )?;
 
     let project = Project::load(project_dir)
         .with_context(|| format!("opening the project in {}", project_dir.display()))?;
