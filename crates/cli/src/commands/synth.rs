@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
 use scorsese_core::{AssetId, Project};
-use scorsese_providers::synth::{self, Baked, Excerpt, Partial, Span, Starter, Window};
+use scorsese_providers::synth::{self, Baked, Drum, Excerpt, Partial, Span, Starter, Window};
 use scorsese_render::say;
 
 /// What `synth bake` was asked for beyond "everything that is not on disk".
@@ -73,6 +73,23 @@ pub(crate) fn import(project_dir: &Path, file: &Path, name: Option<&str>) -> Res
         println!("  {line}");
     }
     println!("  choose the sounds, then `scorsese synth bake {id}` to hear it");
+    Ok(())
+}
+
+/// Writes a song recipe out as a Standard MIDI File.
+pub(crate) fn export(
+    project_dir: &Path,
+    id: &str,
+    out: Option<&Path>,
+    drums: &[Drum],
+) -> Result<()> {
+    let id = AssetId::new(id);
+    // No context of its own: the error already names the asset.
+    let exported = synth::export_midi(&open(project_dir)?, project_dir, &id, drums, out)?;
+    println!("{id} — written as MIDI to {}", exported.shown);
+    for line in exported.lines() {
+        println!("  {line}");
+    }
     Ok(())
 }
 

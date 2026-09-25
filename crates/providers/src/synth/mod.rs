@@ -49,9 +49,13 @@ use scorsese_zimmer::{Bake, Patch, SAMPLE_RATE, bake_note, bake_song, wav};
 /// hands out a `Profile` without either of them having heard of it.
 pub use scorsese_zimmer::{Excerpt, Span, Window};
 
+/// A track to export on the drum channel, re-exported for the same reason:
+/// `cli` and `mcp` name it and parse it without depending on the synthesiser.
+pub use scorsese_zimmer::midi::Drum;
+
 pub use create::{check, create};
 pub use error::SynthesisError;
-pub use midi::{FromMidi, import_midi};
+pub use midi::{FromMidi, ToMidi, export_midi, import_midi};
 pub use partial::{Partial, bake_partial};
 pub use recipe::{OneShot, Recipe};
 pub use starter::Starter;

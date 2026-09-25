@@ -22,6 +22,7 @@ is what lets everything on this page promise free and deterministic.
 scorsese synth new zap                 # a patch recipe, and its asset
 scorsese synth new theme --kind song   # a song recipe, and its asset
 scorsese synth import rag.mid          # a song recipe from a MIDI file
+scorsese synth export theme            # a song recipe out to a MIDI file
 scorsese synth bake                    # render everything not already baked
 scorsese synth check recipes/theme.json
 ```
@@ -1845,8 +1846,53 @@ tick). A file timed in SMPTE frames, a format-2 file of independent sequences,
 and a file with no notes are refused.
 
 `synth import` reads the file and does not copy it: the recipe is what the
-project keeps. Going the other way — a recipe out to a `.mid` for a DAW — is
-not built yet (#508).
+project keeps.
+
+### Writing a song out as MIDI
+
+Going the other way, `scorsese synth export theme` (`synth_export` over MCP)
+writes a song recipe as a Standard MIDI File that opens in any DAW — which is
+how you check or finish a score with the tools you already know. It lands in
+`cache/midi/theme.mid` (rebuildable from the recipe, so it is not an asset), or
+wherever `--out` says. The project is not changed.
+
+**What is written is what the song plays**, not how it is written — a MIDI file
+has no patterns, chords or degrees, only notes in time:
+
+| In the recipe | In the file |
+| --- | --- |
+| the arrangement | played once, in order, with each entry's `transpose`, `transpose_degrees`, `vel_scale` and muted `tracks` applied |
+| chords, step strings, degrees | the notes they expand to — the same expansion a bake uses |
+| `swing`, articulations | applied: a swung eighth is written late, an accent harder, staccato and ghost notes shorter |
+| each track | one MIDI track (format 1) named for it, on a channel of its own, with no program change |
+| `bpm` and `tempo` | tempo events after a conductor track; a jump is one event, a ramp is steps (below) |
+| `key` | a key signature, when it is major or minor |
+| resolution | 1920 ticks a beat, which every common file resolution divides — so an imported file's notes land on the ticks they came from |
+
+**Drums are yours to name.** A song does not know which of its tracks are drums
+— a kick is a patch like any other — so nothing goes on General MIDI's drum
+channel (10) unless named: `--drum drums` keeps every note's key (right for a
+drum part [imported](#starting-from-a-midi-file) from a file), and
+`--drum kick=36 --drum snare=38` plays every note of a track on that one key,
+which is what lands a kick written at `C2` on a DAW kit's kick.
+
+**A tempo ramp becomes steps**, because MIDI has only jumps: one every
+sixteenth note, each at the tempo that takes exactly as long over its sixteenth
+as the ramp does. So every sixteenth lands where the recipe puts it, and a note
+between two is off by at most a few milliseconds even in a ramp far steeper
+than music is written — under half a millisecond in an ordinary ritardando.
+
+**What is not written, and is said:** the sounds (patches, effects, gain, pan,
+automation, fades — the file is the score, and every track opens on the DAW's
+default instrument), `humanize` (a scatter drawn per render; a DAW has its own),
+`fit` (the file is the piece as composed, once), glides (a slide is a pitch
+bend), microtonal pitches (written on the nearer key), notes at velocity zero,
+and a key signature for a mode other than major or minor. Each gets a
+`left out:` line in the report.
+
+A file imported, exported and imported again comes back as the same song —
+notes, velocities, tempo map and key — which is the test that holds the two
+halves to each other.
 
 ## What a bake is, and when it happens
 

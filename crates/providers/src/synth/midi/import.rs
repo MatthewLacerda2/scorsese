@@ -11,9 +11,9 @@ use scorsese_core::{AssetId, Project};
 use scorsese_zimmer::midi::{self, BARS_PER_PATTERN};
 use scorsese_zimmer::song::PatternEntry;
 
-use super::create::start;
-use super::error::SynthesisError;
-use super::recipe::Recipe;
+use super::super::create::start;
+use super::super::error::SynthesisError;
+use super::super::recipe::Recipe;
 
 /// What an import made, and what it could not carry.
 #[derive(Debug, Clone, PartialEq)]

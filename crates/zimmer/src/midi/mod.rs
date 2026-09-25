@@ -1,4 +1,5 @@
-//! A Standard MIDI File, read into a [`Song`].
+//! A Standard MIDI File, read into a [`Song`] — and a song written back out
+//! as one, by [`export`], whose own module doc has what that direction keeps.
 //!
 //! The ground truth of almost any arrangement someone brings — a DAW export, a
 //! keyboard take, a transcription off a sheet-music site — is a `.mid`, and
@@ -45,6 +46,7 @@
 
 mod bars;
 mod build;
+mod export;
 mod read;
 mod sound;
 
@@ -53,6 +55,7 @@ use std::fmt;
 use crate::Song;
 
 pub use bars::BARS_PER_PATTERN;
+pub use export::{Drum, ExportError, Exported, TICKS_PER_BEAT, export};
 
 /// A MIDI file read as a song, and what the song could not say.
 #[derive(Debug, Clone, PartialEq)]

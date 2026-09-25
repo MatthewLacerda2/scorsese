@@ -12,7 +12,7 @@ use std::path::PathBuf;
 use clap::{Subcommand, ValueEnum};
 
 use scorsese_core::AssetKind;
-use scorsese_providers::synth::{Span, Starter};
+use scorsese_providers::synth::{Drum, Span, Starter};
 
 /// The things `synth` does. Baking is the default, so the common case needs
 /// no verb at all.
@@ -49,6 +49,31 @@ pub(crate) enum SynthAction {
         /// without `.mid`, suffixed if that is taken.
         #[arg(long)]
         name: Option<String>,
+    },
+    /// Write a song recipe out as a Standard MIDI File, to open in a DAW —
+    /// `import` the other way round.
+    ///
+    /// What is written is what the song plays: the arrangement once, with its
+    /// transposes and mutes, chords and step strings as their notes, swing and
+    /// articulations applied, and the tempo map — a ramp as a step every
+    /// sixteenth note, since MIDI has only jumps. One MIDI track per song
+    /// track, each on a channel of its own. The sounds are not written: the
+    /// file is the score. Humanize, `fit`, glides and microtonal pitches are
+    /// named in the report rather than dropped silently.
+    Export {
+        /// The synth_audio asset whose song to write.
+        asset: String,
+        /// Where to write the file. Without it, it lands in
+        /// `cache/midi/<asset>.mid` — rebuildable from the recipe at any time.
+        #[arg(long, value_name = "FILE")]
+        out: Option<PathBuf>,
+        /// Put this track on channel 10, General MIDI's drum kit: `snare`
+        /// keeps each note's key, `kick=36` plays every note of the track on
+        /// that one key (36 kick, 38 snare, 42 closed hat). Repeat it for
+        /// several. A song cannot say which of its tracks are drums, so
+        /// nothing goes there unless named.
+        #[arg(long = "drum", value_name = "TRACK[=KEY]")]
+        drums: Vec<Drum>,
     },
     /// Render the recipes that are not already baked, into `generated/`.
     /// Safe to re-run: an unchanged recipe is a cache hit.

@@ -5,6 +5,7 @@
 //! `.mid` or produced by the parser's own writer: a fixture that the code
 //! under test also encoded could agree with it about a mistake.
 
+mod export;
 mod file;
 mod parts;
 mod refusals;
