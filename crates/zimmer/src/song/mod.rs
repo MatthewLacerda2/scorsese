@@ -12,7 +12,8 @@
 //! would be a merge conflict with itself.
 //!
 //! Everything is **beats**, never seconds — `bpm` converts once at render time
-//! — so changing the tempo of a finished song is one number.
+//! — so changing the tempo of a finished song is one number. A piece whose
+//! tempo moves says where in a [`tempo`](Song::tempo) map, still in beats.
 //!
 //! ```jsonc
 //! {
@@ -60,6 +61,7 @@ pub(crate) mod render;
 pub(crate) mod sections;
 pub(crate) mod shape;
 pub(crate) mod steps;
+pub(crate) mod tempo;
 pub(crate) mod timing;
 mod validate;
 
@@ -79,6 +81,7 @@ pub use feel::Humanize;
 pub use key::{Degree, DegreeNote, Key, Mode};
 pub use render::{InlineOnly, PatchResolver, render_excerpt, render_song};
 pub use steps::Steps;
+pub use tempo::TempoChange;
 pub use timing::{Fade, Fit, FitMode, Tail};
 
 /// Default for a per-track or per-note gain: unity, i.e. "as written".
@@ -108,8 +111,15 @@ fn centred(pan: &f32) -> bool {
 /// A complete piece of music, renderable to one stereo buffer.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Song {
-    /// Tempo in beats per minute; the one place beats become seconds.
+    /// Tempo in beats per minute — the whole piece's, or where it starts if
+    /// [`tempo`](Self::tempo) moves it.
     pub bpm: f32,
+    /// Where the tempo changes after the first beat, and whether it jumps or
+    /// ramps there. Empty means the song is played at `bpm` throughout, which
+    /// is what every song written before this field existed meant.
+    /// [`TempoChange`] has the whole of it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tempo: Vec<TempoChange>,
     /// Folded into every note's render seed, so one number re-rolls every
     /// stochastic source in the piece while keeping it reproducible.
     #[serde(default)]
@@ -486,7 +496,8 @@ impl Song {
             .sum()
     }
 
-    /// Seconds per beat.
+    /// Seconds per beat at `bpm` — the whole piece's, or its first beat's if
+    /// the song writes a [`tempo`](Self::tempo) map.
     pub fn beat_seconds(&self) -> f32 {
         60.0 / self.bpm
     }

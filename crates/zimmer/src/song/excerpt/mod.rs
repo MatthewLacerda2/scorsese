@@ -130,7 +130,7 @@ impl Window {
     /// `clock` is the tempo the piece is **rendered** at, which under a
     /// `stretch` fit is not the one written down — and the same conversion
     /// the notes were placed with, so a window in beats opens on the beat.
-    fn frames(self, clock: Clock) -> (usize, Option<usize>) {
+    fn frames(self, clock: &Clock) -> (usize, Option<usize>) {
         let seconds = |value: f32| match self.unit {
             Unit::Beats => clock.seconds(value),
             Unit::Seconds => value,

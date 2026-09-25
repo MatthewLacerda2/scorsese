@@ -11,6 +11,7 @@ use std::collections::{BTreeSet, HashMap};
 use super::duty::Sounding;
 use super::{PitchClasses, Register, SongSurvey, TrackSurvey};
 use crate::patch::Patch;
+use crate::song::clock::Clock;
 use crate::song::shape::plan;
 use crate::song::{Context, PatchRef, PatchResolver, Song};
 
@@ -23,12 +24,12 @@ impl SongSurvey {
     /// project, and one unreadable instrument should cost one field rather than
     /// the other five songs.
     pub fn of(name: &str, song: &Song, resolve: &dyn PatchResolver) -> Self {
-        let (bpm, _) = plan(song);
+        let (clock, _) = plan(song);
         let (register, pitches, mut by_track, mut sounding) = played(song);
         let beats = song.arrangement_beats();
         Self {
             name: name.to_owned(),
-            bpm,
+            bpm: clock.bpm(),
             tracks: song
                 .tracks
                 .iter()
@@ -55,7 +56,7 @@ impl SongSurvey {
                     }
                 })
                 .collect(),
-            seconds: length(song, bpm),
+            seconds: length(song, &clock),
             register,
             pitches,
         }
@@ -177,11 +178,11 @@ fn median(mut notes: Vec<f32>) -> Option<f32> {
 /// in this report follows the played tempo rather than the written one — a
 /// density measured against the written length would be beside the music by
 /// exactly the amount the stretch moved it.
-fn length(song: &Song, bpm: f32) -> f32 {
-    if bpm <= 0.0 {
+fn length(song: &Song, clock: &Clock) -> f32 {
+    if clock.bpm() <= 0.0 {
         return 0.0;
     }
-    song.arrangement_beats() * 60.0 / bpm
+    clock.seconds(song.arrangement_beats())
 }
 
 #[cfg(test)]

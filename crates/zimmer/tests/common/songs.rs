@@ -67,6 +67,7 @@ pub(crate) fn song() -> Song {
     );
     Song {
         bpm: 120.0,
+        tempo: vec![],
         seed: 7,
         key: None,
         tracks: vec![Track {

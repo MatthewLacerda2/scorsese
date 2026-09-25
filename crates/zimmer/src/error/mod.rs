@@ -519,6 +519,30 @@ pub enum SynthError {
         amount: f32,
     },
 
+    /// A tempo change the clock cannot read: on or before the first beat, whose
+    /// tempo is the song's own `bpm`, or at a tempo that is not a positive
+    /// number — which divides into every second after it.
+    BadTempoChange {
+        /// Where in the `tempo` list, counting from zero.
+        index: usize,
+        /// The beat as written.
+        beat: f32,
+        /// The tempo as written.
+        bpm: f32,
+    },
+
+    /// A tempo change on a beat no later than the one before it. The map is
+    /// read in order, and a change that went back in time would have the
+    /// piece play a stretch of itself twice.
+    TempoOutOfOrder {
+        /// Where in the `tempo` list, counting from zero.
+        index: usize,
+        /// The beat as written.
+        beat: f32,
+        /// The beat of the change before it.
+        previous: f32,
+    },
+
     /// A curve moving a parameter of a track this song does not have. The same
     /// typo as an unknown track anywhere else, with the same consequence: a
     /// build the recipe says is there and nothing can hear.

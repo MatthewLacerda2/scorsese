@@ -11,7 +11,6 @@
 //! not say — see [`crate::level::profile`].
 
 use super::Song;
-use super::clock::Clock;
 use super::shape::plan;
 use crate::level::Cut;
 
@@ -29,14 +28,14 @@ use crate::level::Cut;
 /// profiler's fixed-interval fallback rather than being folded into the last
 /// pattern, which did not play it.
 fn whole(song: &Song) -> Vec<Cut> {
-    let (bpm, passes) = plan(song);
-    if bpm <= 0.0 {
+    let (clock, passes) = plan(song);
+    if clock.bpm() <= 0.0 {
         return Vec::new();
     }
     // Beats are summed and converted, rather than seconds summed, because that
     // is how the renderer walks the arrangement: a boundary is then the exact
-    // number a note written on that downbeat was placed at.
-    let clock = Clock::at(bpm);
+    // number a note written on that downbeat was placed at — tempo map and
+    // all, since the clock carries it.
     let mut beats = 0.0f32;
     let mut cuts = Vec::new();
     for entry in song
@@ -118,6 +117,7 @@ mod tests {
         }
         Song {
             bpm: 120.0,
+            tempo: vec![],
             seed: 0,
             key: None,
             tracks: Vec::new(),

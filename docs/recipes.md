@@ -793,7 +793,9 @@ Three things worth knowing:
 ```
 
 **Everything is beats, never seconds.** `bpm` converts once at render time, so
-changing the tempo of a finished piece is one number.
+changing the tempo of a finished piece is one number. A piece whose tempo
+moves partway says where in a [`tempo` map](#a-tempo-that-moves), still in
+beats.
 
 - **`tracks`** — the instruments. `patch` is either the document inline or a
   project-relative path to a bare patch file, so several songs can share one
@@ -1706,6 +1708,49 @@ back with it — a build that restarted every pass would be a saw — so a bed
 looping to 45 seconds carries one curve across all of it, written over as many
 beats as the whole thing takes.
 
+### A tempo that moves
+
+`bpm` is the tempo a song **starts** at. A piece that speeds up or winds down
+lists the rest in `tempo`, one point per change, each on a beat of the
+arrangement:
+
+```json fields
+  "tempo": [
+    { "beat": 16, "bpm": 132 },
+    { "beat": 32, "bpm": 150, "ramp": true },
+    { "beat": 44, "bpm": 96, "ramp": true }
+  ]
+```
+
+**A point says what the tempo is on its beat, and `ramp` says how it got
+there.** Without `ramp` the tempo holds until that beat and then jumps — a new
+section, a *più vivo*. With it the tempo moves evenly from the point before (or
+from `bpm`, for the first) and arrives on the beat written — an *accelerando*,
+or the *ritardando* a lot of songs end on. So the map above plays 120 → holds
+to beat 16 → jumps to 132 → pushes up to 150 by beat 32 → slows to 96 by beat
+44, and stays there. "Evenly" is per beat: halfway through a ramp, counted in
+beats, is halfway between its two tempos.
+
+Leave it out and the song plays at `bpm` throughout. Changing `bpm` moves only
+the opening tempo; the points are tempos in their own right, the way a score
+writes ♩=154 rather than "a bit faster".
+
+**Everything keyed in beats follows it**, because there is one clock and every
+beat goes through it: where each note lands and how long it is held (half a
+beat inside a ritardando lasts longer than half a beat before it), `swing`,
+`automation` curves, the section rows of a [bake report](#how-a-bake-came-out),
+and `--beats` windows. `humanize` timing stays in seconds, as it always was —
+a player's sloppiness does not scale with the tempo.
+
+Under `fit`, **a loop plays the map again every pass** — each pass is the
+piece as written, so an accelerando speeds up every time round rather than
+leaving the second pass stuck at the final tempo. A **stretch** moves every
+tempo in the map by one factor, so the shape of the piece is kept and only its
+speed changes; the 25% limit is measured against the opening `bpm`.
+
+A point on or before beat 0 is refused (the tempo there is `bpm`'s to say), so
+is a tempo that is not a positive number, and so are beats that do not ascend.
+
 ### Fitting a song to the cut
 
 A song's natural length is whatever its notes add up to, plus the ring-out.
@@ -2266,6 +2311,9 @@ exactly what nothing downstream can notice.
   tonic and a mode, a degree of zero or below, a degree that lands off the
   keyboard, a degree or a `transpose_degrees` in a song that declares no key,
   and `transpose` beside `transpose_degrees` on one entry.
+
+- **[Tempo](#a-tempo-that-moves)** — a change on or before beat 0, a `bpm`
+  that is not a positive number, and changes whose beats do not ascend.
 
 - **[Automation](#making-something-build)** — a curve naming a track the song
   does not have, two curves on one track and parameter, a list with no points

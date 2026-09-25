@@ -435,6 +435,30 @@ pub use song::{Excerpt, PatchResolver, Song, Span, Window, render_excerpt, rende
 /// including the song whose lead track carries one: the flag defaults to the
 /// per-channel lines, and a recipe that does not write it is not a different
 /// document.
+///
+/// **A song's tempo map left it alone**, and it is the notation case again
+/// with the most shipping code moved under it so far. `tempo` is a new
+/// optional `Song` field, skipped when empty, so no document on disk can name
+/// it — but every beat a song renders now goes through a clock that *might*
+/// carry one: note onsets, gate lengths (now measured from where a note is
+/// played), the arrangement end, the fader's beat per sample, the `fit` plan
+/// including the stretched tempo, and the windows and section rows. The claim
+/// that a song without a map takes the `f32` arithmetic it always did, in the
+/// same order, is exactly the kind nobody should take on trust, so it was
+/// measured.
+///
+/// **24 probes against `3e2adb0c`, all byte-identical**, encoded bytes and
+/// length both: the three worked songs in `docs/recipes.md`, eleven of its
+/// `fields` examples spliced into the 96 bpm one (fit in all three modes, fade,
+/// tail, swing, humanise, a key, the song chain, automation), and nine of a
+/// three-track song — karplus lead with articulations, a filtered saw bass
+/// playing a chord, a step-string hat, degrees in D minor and a diatonic lift
+/// — plain, swung, humanised, with gain, pan and cutoff automation, looped
+/// with a fader curve across passes, stretched with a cutoff curve and fades,
+/// played once with an exact tail, with fades and an exact tail, and with a
+/// song reverb and a track delay. The map's own arithmetic is new rendering
+/// that no existing recipe can reach, and it is held to the analytic
+/// beat-to-seconds integral in `song::clock::map`'s tests instead.
 pub const SYNTH_VERSION: u32 = 7;
 
 /// Render one note of `patch` and encode it as a stereo 16-bit PCM WAV.
