@@ -79,6 +79,32 @@ deleted: that is gigabytes and a checkout somebody may still be standing in,
 and the summary names them instead. Removing a worktree out from under an agent
 to save disk is the same class of mistake as rebasing one.
 
+## A hand-back skips the entry; it does not stop the queue
+
+Decided in #495, and stated here once. A queue can be a *train* — each car
+built on the one before, so a derailment strands everything behind it — or a
+list of **independent entries**. This one is the second, by construction:
+every branch is rebased onto `main` as `main` is *at its own turn*, and CI
+judges that tree. Whatever happened to the entry before — merged, red,
+conflicted, or a merge whose outcome is still unknown — the next one is tested
+against the real `main` and not against a guess about it. So nothing a
+hand-back leaves behind can make a later merge unsound, and stopping would only
+turn one branch's problem into every branch's wait, in exactly the unattended
+run the queue exists for. Each hand-back is named in the summary, and the exit
+status is non-zero if there was any.
+
+## GitHub's answer about a state is not always the state
+
+Three times now, each met in use. The runs listing is eventually consistent
+([`progress`]'s grace); a force-push lags its own poll ([`head_state`]'s); and
+the merge call can answer **502 Bad Gateway having already merged** (#495,
+merging #490). So a failed merge is sorted by what failed. A **transport**
+failure — a 5xx, a timeout, a reset connection — says nothing about the merge,
+and the pull request is asked whether it merged before anything is concluded
+([`transport`], [`landed`]). A **refusal** GitHub reasoned about — a 409, "not
+mergeable", a protected branch — is a real no, and is handed back with no
+second call.
+
 Run it:
 
     python3 .github/scripts/merge-queue.py 486 488 489
@@ -96,7 +122,9 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -126,6 +154,27 @@ RUN_APPEARS_SECONDS = 300
 # that gives up early hands back a branch that was about to go green. Reaching
 # it is never a merge — it is a hand-back saying the run is still out.
 DEADLINE_MINUTES = 40
+
+# How long a merge call that failed in transit is given to show up as merged.
+# The 502 on #490 was answered with the merge already done, but GitHub's
+# pull-request view is not promised to agree the same instant. A minute is
+# generous for that and short beside the ten a run costs; past it the outcome
+# is *unknown*, which is handed back as unknown rather than as a refusal.
+MERGE_SETTLES_SECONDS = 60
+
+# What a failure *in transit* looks like in `gh`'s stderr, as opposed to a
+# refusal. `gh` reports a REST 5xx as "non-200 OK status code: 502 …" and a
+# GraphQL one as "HTTP 502"; the rest are Go's network errors, verbatim.
+TRANSPORT_STATUS = re.compile(r"(status code:|HTTP)\s*5\d\d\b", re.IGNORECASE)
+TRANSPORT_WORDS = (
+    "timeout",
+    "timed out",
+    "deadline exceeded",
+    "connection reset",
+    "connection refused",
+    "broken pipe",
+    "unexpected eof",
+)
 
 WAIT, GO, STOP = "wait", "go", "stop"
 
@@ -269,6 +318,58 @@ def progress(
     return (GO if ok else STOP), lines
 
 
+def transport(stderr: str) -> bool:
+    """Whether a failed merge call failed *in transit* rather than being refused.
+
+    The distinction #495 is about. A 5xx, a timeout or a dropped connection is
+    the network failing to deliver an answer, and a merge may sit behind it
+    already done — so the pull request gets asked. Anything else is GitHub
+    having reasoned about this merge and said no (a 409, "not mergeable", a
+    branch rule), and asking again would only be told the same no.
+
+    Errs towards *refusal*: an unrecognised message is handed back without a
+    second look, which at worst reports a merge as failed — the state this
+    script already had — and never reports one as done that was not.
+    """
+    lowered = stderr.lower()
+    return bool(TRANSPORT_STATUS.search(stderr)) or any(
+        word in lowered for word in TRANSPORT_WORDS
+    )
+
+
+def landed(pull: dict) -> bool:
+    """Whether GitHub's pull-request record says it merged.
+
+    `state` and `mergedAt` both, because either alone is the answer. The
+    commit-ancestry check the issue also offered is deliberately absent: this
+    queue merges with `--squash`, so the branch head is **never** an ancestor
+    of `main` — the squash is a new commit — and that check would answer no to
+    every merge that happened.
+    """
+    return pull.get("state") == "MERGED" or bool(pull.get("mergedAt"))
+
+
+def settled(pull: dict | None, waited: float) -> tuple[str, list[str]]:
+    """After a merge call failed in transit: merged, not yet known, or unknown.
+
+    `pull` is `None` when asking GitHub failed too, which is likely in the
+    same outage that produced the 5xx and is no more an answer than it was.
+    Only a record that says merged is taken as merged; silence is waited on
+    for [`MERGE_SETTLES_SECONDS`], then handed back as *unknown* — a hand-back
+    that says "refused" about a merge that happened invites somebody to merge
+    it again.
+    """
+    if pull is not None and landed(pull):
+        return GO, ["the merge call failed in transit, but it merged."]
+    if waited < MERGE_SETTLES_SECONDS:
+        return WAIT, ["the merge call failed in transit; asking whether it merged."]
+    return STOP, [
+        "the merge call failed in transit and GitHub has not said it merged.",
+        "Whether it did is unknown: look at the pull request before merging it"
+        " again.",
+    ]
+
+
 def summary(results: list[tuple[int, str, str]]) -> list[str]:
     """The report, which is the only thing an unattended run leaves behind.
 
@@ -326,6 +427,37 @@ def evidence(repo: str, sha: str) -> tuple[list[dict], dict[int, list[dict]]]:
         for run in runs
     }
     return runs, jobs
+
+
+def merge_record(number: int) -> dict | None:
+    """The pull request's merge fields, or `None` if GitHub did not answer.
+
+    Not [`look`]: that goes through `mergeable.gh`, which exits on failure, and
+    this is asked during the very outage that made it necessary.
+    """
+    done = subprocess.run(
+        ["gh", "pr", "view", str(number), "--json", "state,mergedAt"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if done.returncode != 0:
+        return None
+    try:
+        return json.loads(done.stdout)
+    except json.JSONDecodeError:
+        return None
+
+
+def confirm(number: int, poll: float) -> tuple[str, list[str]]:
+    """Ask, until [`settled`] says something other than *wait*."""
+    began = time.monotonic()
+    while True:
+        state, lines = settled(merge_record(number), time.monotonic() - began)
+        if state != WAIT:
+            return state, lines
+        say(f"#{number}: {lines[0]}")
+        time.sleep(min(poll, MERGE_SETTLES_SECONDS / 4))
 
 
 def advance(branch: str, head: str, root: str) -> tuple[str | None, list[str]]:
@@ -467,9 +599,16 @@ def take(repo: str, number: int, opts: argparse.Namespace) -> tuple[int, str, st
         check=False,
     )
     if done.returncode != 0:
-        blocked = f"CI passed but the merge was refused: {done.stderr.strip()}"
-        say(f"#{number}: {blocked}")
-        return number, HANDED_BACK, blocked
+        failure = done.stderr.strip()
+        if not transport(failure):
+            blocked = f"CI passed but the merge was refused: {failure}"
+            say(f"#{number}: {blocked}")
+            return number, HANDED_BACK, blocked
+        say(f"#{number}: the merge call failed in transit: {failure}")
+        state, after = confirm(number, opts.poll)
+        say(f"#{number}: {after[0]}", *after[1:])
+        if state != GO:
+            return number, HANDED_BACK, after[0]
     say(f"#{number}: merged.")
     return number, MERGED, lines[0]
 
