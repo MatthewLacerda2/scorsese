@@ -44,6 +44,19 @@ because a professional demanded it.
 This is a scope rule, so it cuts both ways. It is a reason to *refuse* an
 elaborate feature, and equally a reason to *build* an obvious one well.
 
+### The web app is the main product
+
+Scorsese is also a hosted web app (#527), and **that is how everyone other than
+the maintainer uses it**: a URL, a login, a library of their own files and an
+assistant that edits for them. Nobody it is for will install a Rust toolchain.
+The desktop app and the CLI stay, and keep working on local `.scor` folders —
+they are how the maintainer works locally, and they are the proving ground for
+every editing operation the web app then serves. Neither is being retired.
+
+The north star does not change, it widens: *the user* now includes people who
+are not the maintainer, and paying for it. **docs/web.md** has the web side's
+settled shape.
+
 ## Start here
 
 - **docs/project-format.md** — the `project.json` schema: assets, tracks,
@@ -66,6 +79,9 @@ elaborate feature, and equally a reason to *build* an obvious one well.
   every way scorsese is run, and the spending ceiling that lives beside it.
 - **docs/mcp.md** — the tools `scorsese-mcp` exposes, how a client is pointed
   at it, and the rule that every tool and every argument describes itself.
+- **docs/web.md** — the hosted web app: its containers, per-user isolation,
+  why the edit is a JSON document while everything around it is tables, and
+  money as integer micro-dollars. Read it before touching the server or `web/`.
 - Crate boundaries live in each crate's `lib.rs` module doc — read them before
   adding a dependency between crates.
 
@@ -141,6 +157,14 @@ side effect of a feature PR.
   speaks it get the same tools, the same way an HTTP API does not care whether
   a browser, a phone or curl is calling. Claude is who we develop and test
   against, not a dependency. Nothing in the server may assume otherwise.
+- **The web app's built-in assistant is Claude** (Claude Opus 5.5, #540,
+  decided 2026-09-25 after testing it against Gemini — the quality gap ruled
+  everything else out, and the model is not downgraded to save credits). This
+  does not contradict the rule above: choosing a model for **our own client**
+  is a product decision, while the **tool surface** it calls — the registry,
+  every description, web MCP — still assumes nothing about who is calling. A
+  user's own Gemini or GPT pointed at web MCP gets exactly what the built-in
+  assistant gets.
 
 ### Crate map
 
@@ -151,7 +175,13 @@ and no dependency on `core`) ← `crates/providers` (Veo + ElevenLabs +
 synthesis, brief-hash cache) ; `crates/cli` (the headless `scorsese` binary) ;
 `crates/mcp` (MCP server, thin wrapper over the same logic) ; `crates/golden`
 (test infrastructure: the golden-render gate, which nothing ships and nothing
-depends on) ; `app/` (the egui desktop app — its own cargo workspace, so a
+depends on) ; `crates/server` (`scorsese-server`, the web API: HTTP, Postgres,
+the job queue — a thin client of `core` / `render` / `providers` exactly like
+`cli` and `mcp`, with **no editing logic of its own**; code an endpoint needs
+that the CLI does not share belongs a layer down) ; `web/` (the React
+front-end — its own Bun project with its own conditional gate, the way `app/`
+is its own workspace; it talks to the server over HTTP and to nothing else) ;
+`app/` (the egui desktop app — its own cargo workspace, so a
 graphics dependency tree never slows `cargo test --workspace`). Each `lib.rs` doc
 states what its crate must never depend on — those boundaries are enforced in
 review.
@@ -177,6 +207,13 @@ below are shaped by, and it is written down so nobody re-derives the industry
 default of many contributors on many cold machines and proposes the tooling
 that goes with it.
 
+- **The same machine now also hosts the service** (#527, #532): the web app
+  runs on it in Docker Compose and reaches the internet through a Cloudflare
+  Tunnel. So its cores are shared with other people — **their renders and
+  generations queue on it**, behind a concurrency limit per kind of job, and a
+  heavy local build competes with a paying user's render. A power cut is an
+  outage for them too, which is why the job queue recovers on restart and
+  backups leave the machine.
 - 8 threads and 16 GB are what "as many as the machine can actually carry"
   means below: **worktrees are cheap, simultaneous builds are not.** Several
   branches checked out costs disk; several concurrent `make gates` runs costs
@@ -393,20 +430,33 @@ that goes with it.
   already answers it: a new optional field defaulting to old behaviour cannot
   move an existing recipe's bytes. Say so in one line and move on. The
   constant's own doc records what previous branches checked, and why.
-- **There is no backwards compatibility, and that is the policy until the user
-  says otherwise.** Nothing is kept working for the sake of a `project.json`
-  saved by an older build: no migration notes, no reading an older
-  `schema_version`, no field kept alive because something might still write it.
-  There is one machine and one person, and no saved project anybody would mind
-  losing — so compatibility written now is weight carried on behalf of a user
-  who does not exist, and it is the kind of weight that makes every format
-  change expensive enough to argue about, which is how a format ossifies while
-  it is still wrong. **The version bump is not compatibility work and it stays
-  mandatory**: `Project::load` refuses a document whose `schema_version` is not
-  this build's, so bumping is exactly what turns a silent reinterpretation into
-  a loud refusal. Breaking loudly is the point. The day somebody has a project
-  they cannot afford to lose, this rule is the one to revisit — and it is the
-  user's call, not a thing to infer from a project having got big.
+- **A schema bump ships with a migration.** This used to read *there is no
+  backwards compatibility*, and said the day somebody had a project they could
+  not afford to lose was the day to revisit it — and that it was the user's
+  call. The user made it on 2026-09-25: other people's projects now live in
+  Postgres (#534), and a bump that makes them unloadable breaks paying users.
+  So:
+  - **Every `schema_version` bump carries a migration** from the previous
+    version to the new one, in the same pull request, written in `core` as a
+    step over the JSON document (`vN-1 → vN`). Steps chain, so a document
+    several versions behind walks forward one step at a time. The migration is
+    what is compatible — **`Project::load` still refuses any version that is
+    not this build's**, so the bump still turns a silent reinterpretation into
+    a loud refusal, and the only way past the refusal is the migration.
+  - **The server migrates every stored document** when it starts on a new
+    build, before serving a request — a stored project is never read by code
+    that does not understand it.
+  - **Local `.scor` folders are migrated by the same steps, through the CLI**:
+    one command that rewrites a folder's `project.json` to this build's
+    version. One implementation, two callers; the desktop and CLI user is the
+    maintainer, and a separate path for them is a second thing to get wrong.
+  - Each step has a test: a document at the old version, migrated, loads and
+    validates. A step that cannot be written — a change whose old meaning has
+    no new equivalent — is a question for the user **before** the bump, not
+    after it.
+  Nothing else is compatibility: no reading an older version in place, no
+  field kept alive because something might still write it. The migration is the
+  whole of it, and it is what makes the rest unnecessary.
 - **The lint set is chosen, not inherited.** `[workspace.lints]` in the root
   `Cargo.toml` is the whole policy; every crate takes it with
   `lints.workspace = true`. Because CI denies warnings, **each lint there is a

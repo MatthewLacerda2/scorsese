@@ -5,11 +5,14 @@ not across time. It is meant to be hand-written: an agent should be able to
 author a whole video in this file and render it without touching a mouse.
 
 Changing this format is `architecture` work — it needs a `schema_version`
-bump. It does not need a migration note, and there are none here: **nothing is
-kept working for the sake of a project saved by an older build.** The bump is
-what makes a break honest rather than what softens it — a document whose
-version is not this build's is refused on sight instead of being read as
-something it no longer means.
+bump **and a migration** from the previous version, in the same change
+(`CLAUDE.md`, *A schema bump ships with a migration*). Projects stored by the
+web app belong to other people, and a bump that stranded them would break
+them. The bump is still what makes a break honest — a document whose version
+is not this build's is refused on sight instead of being read as something it
+no longer means — and the migration is the only way past that refusal: the
+server runs it over every stored document, and the CLI runs the same steps
+over a local `.scor` folder.
 
 A complete worked example lives in
 `crates/core/tests/fixtures/narrated_teaser.json`.
