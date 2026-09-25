@@ -686,7 +686,10 @@ exception**: it is a fixed count of pixels rather than a fraction, so it covers
 more of a small frame than of a large one and looks bigger in the default raster
 than it will in the delivery. Ask for the delivery raster before judging the
 size of one — `docs/project-format.md` has the whole of why. Pass `out` to keep the PNG on disk as well;
-without it, nothing is left behind.
+without it, nothing is left behind. A relative `out` is relative to the
+project, never the server's working directory, so `review/title.png` lands in
+the project's `review/` folder (which must already exist); an absolute one is
+used as given.
 
 **`out` is for one instant, and a list with `out` is refused.** A path names a
 file and several frames do not fit in one. Reading it as a directory instead
@@ -1116,6 +1119,13 @@ would have carried the mix over full scale — how far the soundtrack was turned
 down to prevent it. An agent is the caller least able to hear the result, so
 it is told rather than left to ask `audio_level` a question it had no reason
 to think of.
+
+**A relative `out` is relative to the project**, like every other path here —
+`cut.avi` above lands in `trilhas.scor/`, never in the server's working
+directory, which belongs to whoever launched it. The reply says back the path
+it was given, so that string is the one to hand `audio_level` or `hear` next.
+An absolute `out` is used as given. `scorsese render` keeps the shell's meaning
+instead, because that one is typed at a prompt.
 
 Both clients build the format with the same constructor, so an extension, an
 override and every refusal mean the same thing from either one — and the

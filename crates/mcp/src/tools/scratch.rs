@@ -5,7 +5,7 @@
 //! `still`, which will keep the file when a caller names a path, and `look`,
 //! which never does.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Where the PNG is written, and whether it survives the call.
 ///
@@ -21,10 +21,10 @@ pub(crate) struct Scratch {
 }
 
 impl Scratch {
-    pub(crate) fn at(kept: Option<&str>) -> Self {
+    pub(crate) fn at(kept: Option<&Path>) -> Self {
         match kept {
             Some(path) => Self {
-                path: PathBuf::from(path),
+                path: path.to_path_buf(),
                 remove: false,
             },
             None => Self {

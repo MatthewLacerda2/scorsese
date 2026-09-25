@@ -9,7 +9,7 @@ use scorsese_render::{
 use serde_json::Value;
 
 use crate::tools::inspect::load;
-use crate::tools::{Costs, Reply, Tool, project_dir, project_property};
+use crate::tools::{Costs, Reply, Tool, project_dir, project_property, under};
 
 /// Encode the timeline to a file.
 pub(crate) struct Render;
@@ -46,7 +46,10 @@ impl Tool for Render {
                                     extension chooses the container unless \
                                     `container` names one: mp4, mkv, avi or wmv \
                                     for video; mp3, wav or m4a for sound only. \
-                                    Any other extension, or none, is refused."
+                                    Any other extension, or none, is refused. \
+                                    A relative path is relative to the project \
+                                    directory, never the server's working \
+                                    directory; an absolute one is used as given."
                 },
                 "container": {
                     "type": "string",
@@ -94,14 +97,20 @@ impl Tool for Render {
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let dir = project_dir(arguments)?;
+        // Against the project, not the server's working directory, which
+        // belongs to whoever launched it (#518). The caller's own string is
+        // what the reply says back, because that is the path the next call —
+        // `audio_level`, `hear` — resolves the same way.
+        let path = under(&dir, arguments, "out")?
+            .ok_or_else(|| "`out` is required: where to write the file".to_owned())?;
         let out = arguments
             .get("out")
             .and_then(Value::as_str)
-            .ok_or_else(|| "`out` is required: where to write the file".to_owned())?;
+            .unwrap_or_default();
         // First, before the project is opened — the order `scorsese render`
         // keeps, for its reason: the shape of the file is the cheapest thing
         // to get wrong and the most expensive to find out late.
-        let format = format(arguments, Path::new(out))?;
+        let format = format(arguments, &path)?;
         let project = load(&dir)?;
 
         // Refused for a format with no picture rather than ignored, in the
@@ -136,7 +145,7 @@ impl Tool for Render {
         // was authored against is the one output rate needing no conform.
         let settings = RenderSettings::new(resolution, project.timeline_fps).with_format(format);
         let report = Renderer::new(&tools, settings)
-            .render(&project, &dir, range, Path::new(out))
+            .render(&project, &dir, range, &path)
             .map_err(|error| format!("rendering: {error}"))?;
         // Then what the CLI prints about sound, in its words: how loud the file
         // came out, and whether it had to be turned down to get there. An agent

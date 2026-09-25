@@ -25,7 +25,7 @@ use serde_json::Value;
 
 use crate::tools::inspect::load;
 use crate::tools::scratch::Scratch;
-use crate::tools::{Costs, Part, Reply, Tool, project_dir, project_property};
+use crate::tools::{Costs, Part, Reply, Tool, project_dir, project_property, under};
 
 /// What the frame is composited at when nobody says.
 ///
@@ -115,7 +115,10 @@ impl Tool for Still {
                                     frames do not fit in one, so asking for a list and a \
                                     path together is refused; `scorsese render --stills` \
                                     is how a set of PNGs gets written. Without it the \
-                                    picture is returned and nothing is left on disk."
+                                    picture is returned and nothing is left on disk. \
+                                    A relative path is relative to the project \
+                                    directory, never the server's working directory; \
+                                    an absolute one is used as given."
                 }
             },
             "required": ["project", "at"]
@@ -126,7 +129,7 @@ impl Tool for Still {
         let dir = project_dir(arguments)?;
         let project = load(&dir)?;
         let instants = instants(arguments, project.timeline_fps)?;
-        let kept = kept(arguments, instants.len())?;
+        let kept = kept(&dir, arguments, instants.len())?;
         let resolution: Resolution = arguments
             .get("resolution")
             .and_then(Value::as_str)
@@ -163,7 +166,7 @@ impl Tool for Still {
             // ffmpeg writes files. Where it goes is the only difference — a
             // path the caller named, kept, or a scratch file that is read back
             // and removed.
-            let png = Scratch::at(kept);
+            let png = Scratch::at(kept.as_ref().map(|(_, path)| path.as_path()));
             frames::write_png(&tools, &png.path, &frame)
                 .map_err(|error| format!("writing the frame: {error}"))?;
             let bytes = std::fs::read(&png.path)
@@ -176,8 +179,8 @@ impl Tool for Still {
                 at.get(),
                 project.name
             );
-            if let Some(path) = kept {
-                said.push_str(&format!(" — written to {path}"));
+            if let Some((given, _)) = &kept {
+                said.push_str(&format!(" — written to {given}"));
             }
             parts.push(Part::picture(said, &bytes));
         }
@@ -234,13 +237,24 @@ pub(super) fn instants(arguments: &Value, fps: Fps) -> Result<Vec<Frames>, Strin
 /// the reply is the point of it — and `scorsese render --stills` already
 /// writes a numbered set of PNGs, so a second, worse version of that here
 /// would be a rule to remember instead of a capability.
-fn kept(arguments: &Value, instants: usize) -> Result<Option<&str>, String> {
-    let out = arguments.get("out").and_then(Value::as_str);
-    match out {
-        Some(path) if instants > 1 => Err(format!(
-            "out: {path} is one path and {instants} instants were asked for. Ask for one \
+///
+/// Comes back as the caller's own words and the file they resolve to: a
+/// relative path is the project's, not the server's working directory (#518),
+/// and the reply says back the string it was given because that is the one a
+/// later call resolves the same way.
+fn kept<'a>(
+    dir: &std::path::Path,
+    arguments: &'a Value,
+    instants: usize,
+) -> Result<Option<(&'a str, std::path::PathBuf)>, String> {
+    let Some(given) = arguments.get("out").and_then(Value::as_str) else {
+        return Ok(None);
+    };
+    if instants > 1 {
+        return Err(format!(
+            "out: {given} is one path and {instants} instants were asked for. Ask for one \
              instant to keep a file, or use `scorsese render --stills` for a set of PNGs."
-        )),
-        _ => Ok(out),
+        ));
     }
+    Ok(under(dir, arguments, "out")?.map(|path| (given, path)))
 }
