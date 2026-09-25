@@ -46,6 +46,30 @@ pub enum RenderError {
     #[error(transparent)]
     Plan(#[from] PlanError),
 
+    /// The delivery's codec comes from a library this ffmpeg was built
+    /// without. Found by asking ffmpeg before anything was mixed or encoded.
+    #[error(
+        "the ffmpeg on hand was built without {library}, which {codec} is encoded \
+         with — install an ffmpeg that has it (distribution and Homebrew builds \
+         do), or deliver the sound as wav or m4a, which need nothing beyond \
+         ffmpeg itself"
+    )]
+    MissingEncoder {
+        /// The codec asked for, as it is written on the command line.
+        codec: &'static str,
+        /// The encoder library it needs.
+        library: &'static str,
+    },
+
+    /// A sound-only delivery of a timeline on which nothing makes a sound.
+    /// Refused rather than written as silence: an mp3 of nothing is a
+    /// plausible-looking wrong file, which is the expensive kind.
+    #[error(
+        "nothing on the timeline makes a sound, so a sound-only file of it \
+         would be silence — deliver a video container instead, or add audio"
+    )]
+    NothingAudible,
+
     /// The assets table and the project directory disagree — a file deleted or
     /// renamed under a project that still expects it.
     #[error("asset `{asset}` points at {}, which is not there", path.display())]

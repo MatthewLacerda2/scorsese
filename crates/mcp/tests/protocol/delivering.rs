@@ -51,6 +51,11 @@ fn an_avi_is_delivered_as_an_avi() {
     let (text, failed) = render(&dir, json!({ "out": out }));
     assert!(!failed, "render refused: {text}");
     assert!(text.contains("avi (mpeg4 + pcm_s16le)"), "got {text}");
+    // What the CLI prints about sound, the reply says too (#519).
+    assert!(
+        text.contains("\nfile   "),
+        "the delivered level is said: {text}"
+    );
     assert_eq!(probe(&out), ("avi".to_owned(), "mpeg4".to_owned()));
     std::fs::remove_dir_all(dir).ok();
 }
@@ -89,15 +94,30 @@ fn a_format_scorsese_does_not_write_is_refused_the_way_the_command_line_refuses_
             "has no extension to take an output format from",
         ),
         (
-            json!({ "out": dir.join("cut.mp4"), "audio_codec": "mp3" }),
-            "`mp3` is not an audio codec scorsese writes",
+            json!({ "out": dir.join("cut.mp4"), "audio_codec": "opus" }),
+            "`opus` is not an audio codec scorsese writes",
+        ),
+        (
+            json!({ "out": dir.join("score.mp3"), "resolution": "160x90" }),
+            "mp3 carries sound only, so a resolution has no picture to apply to",
+        ),
+        (
+            json!({ "out": dir.join("score.wav"), "video_codec": "h264" }),
+            "wav carries sound only, so a video codec has no picture to apply to",
         ),
     ] {
         let (text, failed) = render(&dir, extra.clone());
         assert!(failed, "{extra} must be refused, and got: {text}");
         assert!(text.contains(says), "{extra} said the wrong thing: {text}");
     }
-    for name in ["cut.wmv", "cut.mov", "cut", "cut.mp4"] {
+    for name in [
+        "cut.wmv",
+        "cut.mov",
+        "cut",
+        "cut.mp4",
+        "score.mp3",
+        "score.wav",
+    ] {
         assert!(!dir.join(name).exists(), "a refusal left {name} behind");
     }
     std::fs::remove_dir_all(dir).ok();

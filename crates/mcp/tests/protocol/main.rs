@@ -22,6 +22,7 @@ mod rendering;
 mod searching;
 mod seeing;
 mod setting;
+mod sounding;
 mod starting;
 mod surveying;
 mod tuning;

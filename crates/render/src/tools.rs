@@ -73,6 +73,29 @@ impl Tools {
         Ok(version_from(&String::from_utf8_lossy(&output)))
     }
 
+    /// Whether this ffmpeg was built with the encoder called `name`.
+    ///
+    /// Asked before a render in a codec that comes from an external library
+    /// ([`crate::format::AudioCodec::library`]), because the ffmpeg on hand
+    /// is a shipping decision rather than a constant: a distro build has
+    /// `libmp3lame`, a minimal sidecar may not, and finding out from ffmpeg's
+    /// own complaint part way into an encode is the expensive way to learn it.
+    pub(crate) fn has_encoder(&self, name: &str) -> Result<bool, ToolsError> {
+        let output = self
+            .ffmpeg()
+            .args(["-hide_banner", "-encoders"])
+            .output()
+            .map_err(|source| ToolsError::NotFound {
+                binary: self.ffmpeg.clone(),
+                env: FFMPEG_ENV,
+                source,
+            })?;
+        Ok(lists_encoder(
+            &String::from_utf8_lossy(&output.stdout),
+            name,
+        ))
+    }
+
     fn check(&self, binary: &PathBuf, env: &'static str) -> Result<(), ToolsError> {
         self.run_version(binary, env).map(|_| ())
     }
@@ -110,6 +133,16 @@ fn version_from(output: &str) -> String {
     }
 }
 
+/// Whether `ffmpeg -encoders` lists `name`. Each encoder is a line of six
+/// capability flags, the encoder's name, then a description — so the name is
+/// the second word, matched whole: `mp3` must not be found in `libmp3lame`'s
+/// line, nor `aac` in `aac_at`'s.
+fn lists_encoder(listing: &str, name: &str) -> bool {
+    listing
+        .lines()
+        .any(|line| line.split_whitespace().nth(1) == Some(name))
+}
+
 /// Why the external tools are unusable.
 #[derive(Debug, thiserror::Error)]
 pub enum ToolsError {
@@ -133,7 +166,21 @@ pub enum ToolsError {
 
 #[cfg(test)]
 mod tests {
-    use super::version_from;
+    use super::{lists_encoder, version_from};
+
+    #[test]
+    fn an_encoder_is_found_by_its_whole_name_and_nothing_else() {
+        let listing = "Encoders:\n V..... = Video\n ------\n \
+                       A....D aac                  AAC (Advanced Audio Coding)\n \
+                       A....D libmp3lame           libmp3lame MP3 (MPEG audio layer 3) (codec mp3)\n";
+        assert!(lists_encoder(listing, "libmp3lame"));
+        assert!(lists_encoder(listing, "aac"));
+        assert!(
+            !lists_encoder(listing, "mp3"),
+            "the codec's name in a description is not an encoder"
+        );
+        assert!(!lists_encoder(listing, "wmav2"));
+    }
 
     #[test]
     fn reads_the_version_a_distribution_build_reports() {

@@ -97,3 +97,27 @@ fn the_container_flag_is_what_gets_checked() {
     accepted.says(LOOKED_FOR_FFMPEG);
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// A flag that only means something to a picture, against a file with none,
+/// is refused rather than ignored — and as early as a refused pairing. The
+/// resolution's default is the case worth pinning: had it stayed a clap
+/// default, the command could not tell "asked for" from "left alone".
+#[test]
+fn a_picture_flag_for_a_sound_only_file_never_gets_as_far_as_ffmpeg() {
+    let dir = new_project("sound-only");
+    for flag in [
+        ["--resolution", "1280x720"],
+        ["--fps", "24"],
+        ["--video-codec", "h264"],
+    ] {
+        let mut arguments = vec!["--out", "score.mp3"];
+        arguments.extend_from_slice(&flag);
+        let run = render(&dir, &arguments);
+        assert!(run.failed, "{flag:?} means nothing to an mp3");
+        run.says("mp3 carries sound only");
+        run.silent_about(LOOKED_FOR_FFMPEG);
+    }
+    // Named alone, the same file is accepted all the way to looking for ffmpeg.
+    render(&dir, &["--out", "score.mp3"]).says(LOOKED_FOR_FFMPEG);
+    std::fs::remove_dir_all(&dir).ok();
+}

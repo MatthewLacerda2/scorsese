@@ -41,7 +41,8 @@ pub use containers::Container;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct OutputFormat {
     container: Container,
-    video: VideoCodec,
+    /// `None` exactly when the container carries sound only.
+    video: Option<VideoCodec>,
     audio: AudioCodec,
 }
 
@@ -69,9 +70,15 @@ impl OutputFormat {
         video: Option<VideoCodec>,
         audio: Option<AudioCodec>,
     ) -> Result<Self, FormatError> {
-        let video = video.unwrap_or_else(|| container.default_video());
+        if video.is_some() && container.is_sound_only() {
+            return Err(FormatError::SoundOnly {
+                container,
+                setting: "a video codec",
+            });
+        }
+        let video = video.or_else(|| container.default_video());
         let audio = audio.unwrap_or_else(|| container.default_audio());
-        if !container.video_codecs().contains(&video) {
+        if let Some(video) = video.filter(|video| !container.video_codecs().contains(video)) {
             return Err(FormatError::VideoNotWritten { container, video });
         }
         if !container.audio_codecs().contains(&audio) {
@@ -111,9 +118,34 @@ impl OutputFormat {
         self.container
     }
 
-    /// The video encoder the picture is written with.
-    pub const fn video(self) -> VideoCodec {
+    /// The video encoder the picture is written with, or `None` when the
+    /// container carries sound only and there is no picture to write.
+    pub const fn video(self) -> Option<VideoCodec> {
         self.video
+    }
+
+    /// Whether this delivery has a picture at all. When it has not, a render
+    /// skips the compositor entirely and encodes nothing but the mix.
+    pub const fn has_picture(self) -> bool {
+        self.video.is_some()
+    }
+
+    /// Refuses `setting` — a choice that only means something to a picture,
+    /// such as a resolution or a frame rate — when this format has none.
+    ///
+    /// Refused rather than ignored, because a flag that silently does nothing
+    /// is the worse of the two: whoever passed `--resolution` to an mp3 thought
+    /// it would matter, and the cheapest moment to say it will not is now.
+    /// Every client asks this for each picture setting it was given, so the
+    /// refusal reads the same from the command line and over MCP.
+    pub fn picture_setting(self, setting: &'static str) -> Result<(), FormatError> {
+        match self.video {
+            Some(_) => Ok(()),
+            None => Err(FormatError::SoundOnly {
+                container: self.container,
+                setting,
+            }),
+        }
     }
 
     /// The audio encoder the mix is written with. Silent renders never reach
@@ -133,7 +165,10 @@ impl Default for OutputFormat {
 
 impl fmt::Display for OutputFormat {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} ({} + {})", self.container, self.video, self.audio)
+        match self.video {
+            Some(video) => write!(f, "{} ({video} + {})", self.container, self.audio),
+            None => write!(f, "{} ({}, sound only)", self.container, self.audio),
+        }
     }
 }
 
@@ -207,6 +242,20 @@ pub enum FormatError {
         video: VideoCodec,
     },
 
+    /// A choice about the picture, made for a container that has none — a
+    /// video codec, a resolution or a frame rate asked of an mp3.
+    #[error(
+        "{container} carries sound only, so {setting} has no picture to apply \
+         to — leave it out, or deliver in a container with picture: {}",
+        picture_containers()
+    )]
+    SoundOnly {
+        /// The sound-only container asked for.
+        container: Container,
+        /// The picture setting that was given, as a reader would name it.
+        setting: &'static str,
+    },
+
     /// The sound half of [`FormatError::VideoNotWritten`].
     #[error(
         "scorsese does not write {container} with {audio}; \
@@ -219,6 +268,16 @@ pub enum FormatError {
         /// The audio codec it will not be written with.
         audio: AudioCodec,
     },
+}
+
+/// Every container with picture in it, for [`FormatError::SoundOnly`] to say
+/// where a picture setting would have meant something.
+fn picture_containers() -> String {
+    let with_picture: Vec<Container> = Container::ALL
+        .into_iter()
+        .filter(|container| !container.is_sound_only())
+        .collect();
+    named(&with_picture)
 }
 
 /// A comma-separated list of names, so a refusal always says what it would

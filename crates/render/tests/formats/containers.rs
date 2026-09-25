@@ -1,6 +1,7 @@
 //! Every accepted combination, rendered for real and read back.
 //!
-//! One test per row of `docs/output-formats.md`. A list of formats nobody has
+//! One test per row of `docs/output-formats.md` that has a picture in it; the
+//! sound-only rows are `sound.rs`. A list of formats nobody has
 //! written a file in is a list of assumptions, which is the thing that page
 //! says we will not stand behind.
 

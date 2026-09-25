@@ -2,10 +2,14 @@
 //!
 //! Every one of these is either already required by the default path
 //! (`libx264`) or built into ffmpeg itself with no external library behind it
-//! (`mpeg4`, `wmv2`, `aac`, `pcm_s16le`, `wmav2`). That is deliberate: which
-//! ffmpeg we are talking to is a shipping decision — a distro build in dev and
-//! CI, a bundled sidecar in a shipped build — so a codec list that needs a
-//! particular build is a list we cannot stand behind.
+//! (`mpeg4`, `wmv2`, `aac`, `pcm_s16le`, `wmav2`) — with **one** exception,
+//! `libmp3lame`, taken on purpose. Which ffmpeg we are talking to is a shipping
+//! decision — a distro build in dev and CI, a bundled sidecar in a shipped
+//! build — so a codec list that needs a particular build is a list we cannot
+//! stand behind unless the render asks the build before it spends anything.
+//! [`AudioCodec::library`] is that question, and mp3 is why it exists: it is
+//! the format people mean by "an audio file", and the user asked for it by
+//! name (#505).
 
 use std::fmt;
 use std::str::FromStr;
@@ -96,25 +100,48 @@ pub enum AudioCodec {
     PcmS16Le,
     /// Windows Media Audio 2, the sound half of a real `.wmv`.
     Wmav2,
+    /// MPEG-1 Audio Layer III, via `libmp3lame`. What "an audio file" means to
+    /// almost everyone, and the one codec here an ffmpeg build can be without
+    /// — see [`AudioCodec::library`].
+    Mp3,
 }
 
 impl AudioCodec {
     /// Every codec, in the order they are listed to a reader.
-    pub const ALL: [Self; 3] = [Self::Aac, Self::PcmS16Le, Self::Wmav2];
+    pub const ALL: [Self; 4] = [Self::Aac, Self::PcmS16Le, Self::Wmav2, Self::Mp3];
 
-    /// The name this is written and parsed as, which is also ffmpeg's encoder
-    /// name — none of these come from an external library.
+    /// The name this is written and parsed as, on the command line and in
+    /// `docs/output-formats.md`.
     pub const fn name(self) -> &'static str {
         match self {
             Self::Aac => "aac",
             Self::PcmS16Le => "pcm_s16le",
             Self::Wmav2 => "wmav2",
+            Self::Mp3 => "mp3",
         }
     }
 
-    /// The ffmpeg encoder to ask for.
+    /// The ffmpeg encoder to ask for, which is the codec's own name for every
+    /// encoder built into ffmpeg and the library's for the one that is not.
     pub const fn encoder(self) -> &'static str {
-        self.name()
+        match self.library() {
+            Some(library) => library,
+            None => self.name(),
+        }
+    }
+
+    /// The external library this codec is encoded by, when it is one — an
+    /// encoder a particular ffmpeg build may simply not have.
+    ///
+    /// A render in such a codec asks the ffmpeg on hand whether it has the
+    /// encoder before anything is mixed or encoded, and refuses with this name
+    /// when it does not, rather than failing part way into an encode with
+    /// ffmpeg's own "unknown encoder".
+    pub const fn library(self) -> Option<&'static str> {
+        match self {
+            Self::Mp3 => Some("libmp3lame"),
+            Self::Aac | Self::PcmS16Le | Self::Wmav2 => None,
+        }
     }
 
     /// Whether this encoder reconstructs a *different* waveform from the one it
@@ -129,7 +156,7 @@ impl AudioCodec {
     /// remembering to extend a match on `aac`.
     pub const fn is_lossy(self) -> bool {
         match self {
-            Self::Aac | Self::Wmav2 => true,
+            Self::Aac | Self::Wmav2 | Self::Mp3 => true,
             Self::PcmS16Le => false,
         }
     }
@@ -140,7 +167,7 @@ impl AudioCodec {
     /// send it at all.
     pub const fn takes_bitrate(self) -> bool {
         match self {
-            Self::Aac | Self::Wmav2 => true,
+            Self::Aac | Self::Wmav2 | Self::Mp3 => true,
             Self::PcmS16Le => false,
         }
     }

@@ -281,22 +281,26 @@ pub(crate) enum Command {
         #[arg(long)]
         verify: bool,
     },
-    /// Render the timeline to a video file.
+    /// Render the timeline to a video file — or, named `.mp3`, `.wav` or
+    /// `.m4a`, to a sound file of its mix with no picture at all.
     Render {
-        /// Where to write the encoded file, e.g. `teaser.mp4`.
+        /// Where to write the encoded file, e.g. `teaser.mp4`, or `score.mp3`
+        /// for the soundtrack alone.
         #[arg(long)]
         out: PathBuf,
-        /// Output resolution. Sources of a different shape meet it the way
-        /// each clip's `fit` says — letterboxed, cropped, or left at their own
-        /// size — and are never stretched.
-        #[arg(long, default_value = "1920x1080")]
-        resolution: Resolution,
+        /// Output resolution, default 1920x1080. Sources of a different shape
+        /// meet it the way each clip's `fit` says — letterboxed, cropped, or
+        /// left at their own size — and are never stretched. Refused for a
+        /// sound-only format, which has no picture to size.
+        #[arg(long)]
+        resolution: Option<Resolution>,
         /// Output framerate. Defaults to the project's timeline framerate;
-        /// anything else is conformed from it, nearest frame.
+        /// anything else is conformed from it, nearest frame. Refused for a
+        /// sound-only format.
         #[arg(long)]
         fps: Option<Fps>,
         /// Target video bitrate, e.g. `8M`. Without it the encoder aims for
-        /// constant quality instead.
+        /// constant quality instead. Refused for a sound-only format.
         #[arg(long)]
         bitrate: Option<Bitrate>,
         /// Sample rate the mix is produced at, e.g. `48000` or `48k`. Sources
@@ -311,31 +315,36 @@ pub(crate) enum Command {
         /// 30 up to 120, `30:` runs to the end, `:120` from the start.
         #[arg(long)]
         range: Option<FrameRange>,
-        /// Container to deliver in: `mp4`, `mkv`, `avi`, or `wmv`. Defaults to
-        /// what `--out`'s extension asks for, so naming the file is usually
-        /// the whole of this decision.
+        /// Container to deliver in: `mp4`, `mkv`, `avi` or `wmv` for video;
+        /// `mp3`, `wav` or `m4a` for sound only, which never composites a
+        /// frame. Defaults to what `--out`'s extension asks for, so naming the
+        /// file is usually the whole of this decision.
         #[arg(long)]
         container: Option<Container>,
         /// Picture codec: `h264`, `mpeg4`, or `wmv2`. Defaults to what the
         /// container is written with — H.264 for mp4 and mkv, MPEG-4 Part 2
         /// for avi, WMV 8 for wmv. A pairing scorsese does not write is
-        /// refused before anything is encoded.
+        /// refused before anything is encoded, and so is any picture codec
+        /// for a sound-only container.
         #[arg(long)]
         video_codec: Option<VideoCodec>,
-        /// Sound codec: `aac`, `pcm_s16le`, or `wmav2`. Defaults, like
-        /// `--video-codec`, to what the container is written with.
+        /// Sound codec: `aac`, `pcm_s16le`, `wmav2` or `mp3`. Defaults, like
+        /// `--video-codec`, to what the container is written with — mp3 for
+        /// mp3, pcm_s16le for wav, aac for m4a.
         #[arg(long)]
         audio_codec: Option<AudioCodec>,
         /// How many threads composite frames at once. Defaults to one fewer
         /// than the machine says it can run, leaving a thread for the ffmpeg
         /// processes decoding and encoding beside them. Worth setting where
         /// the machine's answer is wrong — a container granted two cores on an
-        /// eight-core host would otherwise oversubscribe itself.
+        /// eight-core host would otherwise oversubscribe itself. Refused for a
+        /// sound-only format, which composites nothing.
         #[arg(long, value_parser = clap::value_parser!(u16).range(1..))]
         threads: Option<u16>,
         /// Also write PNG stills of the finished file into this directory, so
         /// the pixels can be looked at without watching the video. The
         /// description says what the edit claims; these are what it did.
+        /// Refused for a sound-only format, which has no pixels to look at.
         #[arg(long)]
         stills: Option<PathBuf>,
         /// Which instants to still, comma-separated: `2.5s` for a time, `75`

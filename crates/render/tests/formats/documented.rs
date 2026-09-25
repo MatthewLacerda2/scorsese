@@ -34,8 +34,10 @@ fn rows() -> Vec<Row> {
         .take_while(|line| line.starts_with('|'))
         .map(|line| {
             let cells: Vec<&str> = line.split('|').map(str::trim).collect();
+            // A dash is the page saying the container has no picture at all.
             let names = |cell: &str| {
                 cell.split(',')
+                    .filter(|name| name.trim() != "—")
                     .map(|name| name.trim().trim_matches('`').to_owned())
                     .collect()
             };

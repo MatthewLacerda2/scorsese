@@ -231,14 +231,15 @@ impl fmt::Display for Note {
 /// The outcome of a completed render.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RenderReport {
-    /// How many frames were written.
+    /// How many frames of picture were written — none, for a format that
+    /// carries sound only.
     pub frames: u64,
     /// The rate they were written at, which with [`RenderReport::frames`] is
     /// what makes a running time.
     pub fps: Fps,
     /// The raster they were written at — the settings as honoured, not as
-    /// asked for.
-    pub resolution: Resolution,
+    /// asked for. `None` when the file has no picture at all.
+    pub resolution: Option<Resolution>,
     /// How much soundtrack the output carries. `None` means the render has no
     /// audio stream at all, which is not the same as a stream of silence.
     pub seconds_of_audio: Option<f64>,
@@ -276,8 +277,12 @@ pub struct RenderReport {
 }
 
 impl RenderReport {
-    /// How long the output runs, in wall-clock seconds.
+    /// How long the output runs, in wall-clock seconds: its picture's length,
+    /// or its sound's when it has no picture.
     pub fn seconds(&self) -> f64 {
-        self.fps.seconds(Frames(self.frames))
+        match self.resolution {
+            Some(_) => self.fps.seconds(Frames(self.frames)),
+            None => self.seconds_of_audio.unwrap_or_default(),
+        }
     }
 }

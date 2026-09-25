@@ -90,3 +90,49 @@ fn a_name_that_is_not_a_container_or_a_codec_is_refused() {
     assert!("vp9".parse::<VideoCodec>().is_err());
     assert!("opus".parse::<AudioCodec>().is_err());
 }
+
+/// A picture codec for a file with no picture is refused, and says why — the
+/// same refusal every picture setting gets, so a video codec is not the one
+/// flag that reads differently.
+#[test]
+fn a_sound_container_takes_no_video_codec() {
+    let refused = OutputFormat::new(Container::Mp3, Some(VideoCodec::H264), None);
+    assert_eq!(
+        refused,
+        Err(FormatError::SoundOnly {
+            container: Container::Mp3,
+            setting: "a video codec",
+        })
+    );
+    let said = refused.expect_err("refused").to_string();
+    assert!(said.contains("carries sound only"), "{said}");
+    assert!(
+        said.contains("mp4"),
+        "and names where it would mean something: {said}"
+    );
+}
+
+/// Everything a picture decides — a size, a rate — is refused rather than
+/// ignored for a sound-only format, and passes untouched for one with picture.
+#[test]
+fn a_picture_setting_is_refused_only_where_there_is_no_picture() {
+    let wav = OutputFormat::defaults_for(Container::Wav);
+    assert_eq!(
+        wav.picture_setting("a resolution"),
+        Err(FormatError::SoundOnly {
+            container: Container::Wav,
+            setting: "a resolution",
+        })
+    );
+    assert_eq!(
+        OutputFormat::default().picture_setting("a resolution"),
+        Ok(())
+    );
+}
+
+#[test]
+fn a_sound_container_carries_only_its_own_codec() {
+    assert!(OutputFormat::new(Container::Mp3, None, Some(AudioCodec::Aac)).is_err());
+    assert!(OutputFormat::new(Container::Wav, None, Some(AudioCodec::Mp3)).is_err());
+    assert!(OutputFormat::new(Container::Mp4, None, Some(AudioCodec::Mp3)).is_err());
+}

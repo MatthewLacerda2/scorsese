@@ -24,6 +24,11 @@
 //! 4. [`Renderer`] walks the plan, pulling frames from the first and handing
 //!    them to the second, with compositing in between.
 //!
+//! A delivery with no picture in it — an mp3, a wav, an m4a — stops after the
+//! second step: the mix is encoded on its own, and nothing is decoded,
+//! composited or drawn. The plan and the mix are the ones the same project's
+//! video would carry, so the soundtrack cannot differ between the two.
+//!
 //! The middle steps are where Path B lives: ffmpeg decodes and encodes, and
 //! every decision about what is on screen — or in the mix — happens in our
 //! process. Transforms, opacity, and layer order are `scorsese-compositor`'s,
@@ -80,7 +85,9 @@
 //! ([`frames::extract`], [`frames::stills`], [`frames::read_png`],
 //! [`frames::write_png`]); and [`mod@say`] turns a measurement into rows a
 //! person reads ([`say::summary`], [`say::sections`], [`say::layers`],
-//! [`say::survey`], [`say::comparison`]). [`mod@tools`] holds the two
+//! [`say::survey`], [`say::comparison`]) — and what a render says about the
+//! file it delivered ([`say::written`], [`say::delivery`]), so the two clients
+//! that render say it in the same words. [`mod@tools`] holds the two
 //! environment variables that point the binaries somewhere else
 //! ([`tools::FFMPEG_ENV`], [`tools::FFPROBE_ENV`]) beside the [`Tools`] the
 //! root publishes. [`mod@checkup`] keeps its path for the verb reason too —

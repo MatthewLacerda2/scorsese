@@ -30,12 +30,10 @@ pub struct Resolution {
 }
 
 impl Resolution {
-    #[expect(
-        dead_code,
-        reason = "1920x1080 named once for whoever needs a default in code; the \
-                  CLI and MCP server currently spell theirs as text instead"
-    )]
-    pub(crate) const HD: Self = Self {
+    /// 1920x1080, named once: what a render is delivered at when nobody asks
+    /// for a size. The CLI and the MCP server both default to it, so it lives
+    /// here rather than as text in two argument parsers.
+    pub const HD: Self = Self {
         width: 1920,
         height: 1080,
     };
