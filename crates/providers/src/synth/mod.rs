@@ -26,6 +26,7 @@
 mod address;
 mod create;
 mod error;
+mod midi;
 mod partial;
 mod recipe;
 mod starter;
@@ -50,6 +51,7 @@ pub use scorsese_zimmer::{Excerpt, Span, Window};
 
 pub use create::{check, create};
 pub use error::SynthesisError;
+pub use midi::{FromMidi, import_midi};
 pub use partial::{Partial, bake_partial};
 pub use recipe::{OneShot, Recipe};
 pub use starter::Starter;

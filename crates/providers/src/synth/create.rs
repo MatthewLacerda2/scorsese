@@ -26,14 +26,26 @@ pub fn create(
     name: &str,
     starter: Starter,
 ) -> Result<AssetId, SynthesisError> {
+    start(project, project_root, name, &starter.recipe())
+}
+
+/// Writes `recipe` into `recipes/` under a name made from `name`, and adds the
+/// `synth_audio` asset that points at it, in `sketch`.
+///
+/// The one way a synth asset comes to exist, whoever wrote the document: a
+/// starter and an imported MIDI file land exactly alike, so nothing downstream
+/// can tell — or needs to — which one it is holding.
+pub(super) fn start(
+    project: &mut Project,
+    project_root: &Path,
+    name: &str,
+    recipe: &Recipe,
+) -> Result<AssetId, SynthesisError> {
     let id = asset_id_for(project, name);
     let relative = ProjectPath::new(format!("{RECIPES_DIR}/{id}.json"));
     let file = relative.resolve(project_root);
 
-    let json = starter
-        .recipe()
-        .to_json()
-        .expect("a starter recipe serialises");
+    let json = recipe.to_json().expect("a recipe serialises");
     if let Some(parent) = file.parent() {
         std::fs::create_dir_all(parent).map_err(|source| SynthesisError::Write {
             path: parent.to_path_buf(),

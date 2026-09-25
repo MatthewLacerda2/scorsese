@@ -94,6 +94,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `set_volume` | Set how loud one clip plays — a level, a mute, or a fade between two points — by writing the ordinary volume keyframes you would place by hand, which stay editable afterwards. | nothing |
 | `scale_pacing` | Move some clips toward or away from one instant, all by the same factor — the operation for pacing. | nothing |
 | `synth_new` | Start a new sound: writes a starter recipe into recipes/ and adds the synth_audio asset that points at it. | nothing |
+| `synth_import` | Read a Standard MIDI File into a song recipe in recipes/ and add the synth_audio asset that points at it, the way synth_new does. | nothing |
 | `synth_read` | Read a recipe file as it is on disk. | nothing |
 | `synth_write` | Replace a recipe file with the document given. | nothing |
 | `synth_set` | Change one number in a recipe and leave the rest of the document alone: a track's gain or pan, or the recipe's own bpm, seed, swing, duration or velocity. | nothing |
@@ -1154,6 +1155,19 @@ so changing the recipe changes which file the asset wants, and the next
 `synth_bake` redoes it. Re-baking an unchanged recipe renders nothing.
 
 What to write in a recipe is [`recipes.md`](recipes.md).
+
+### Starting from notes that already exist: `synth_import`
+
+`synth_import` is `synth_new` for a piece that already exists as a Standard
+MIDI File. It writes an ordinary song recipe and its asset, so the loop above
+carries on unchanged — and its first turn is nearly always `synth_write`,
+because every track arrives on a plain placeholder patch. The file maps across
+by structure (a track per MIDI track and channel, channel 10 as drums, the tempo
+map, the key signature, patterns of eight bars) and nothing is interpreted; the
+reply names what the song could not hold — the sustain pedal, pitch bends,
+program numbers — so a client can tell the user why the bake sounds drier than
+the file. `path` is relative to the project, like every path here, or absolute.
+[`recipes.md`](recipes.md#starting-from-a-midi-file) has the whole mapping.
 
 ### Baking part of one, which is not baking
 
