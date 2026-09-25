@@ -66,6 +66,29 @@ pub(super) fn apply_to_asset(
     Ok(())
 }
 
+/// Applies an edit written as a whole-document operation, saves the project,
+/// and keeps the result — or returns every problem, having touched neither the
+/// window nor the disk.
+///
+/// The third sibling, for an edit that `scorsese-core` already knows how to
+/// make — holding a clip's rotation at a value is `level::set`, the call an
+/// assistant's tools make, and the window calling it rather than rewriting its
+/// keyframes by hand is what keeps the two from ever writing different
+/// documents for the same request. The change runs on a copy, as everywhere
+/// else here, so a refusal half-way through a two-property edit leaves nothing.
+pub(super) fn apply_to_project(
+    open: &mut Open,
+    change: impl FnOnce(&mut Project) -> Result<(), Vec<String>>,
+) -> Result<(), Vec<String>> {
+    let mut candidate = open.project.clone();
+    change(&mut candidate)?;
+    candidate
+        .save(&open.root)
+        .map_err(|problem| vec![problem.to_string()])?;
+    open.project = candidate;
+    Ok(())
+}
+
 /// The project as it would be with `change` applied to one asset.
 fn asset_changed(
     project: &Project,

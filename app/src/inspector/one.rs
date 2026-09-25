@@ -23,6 +23,10 @@ impl Inspector {
         identity(ui, selected);
         ui.add_space(8.0);
         self.controls(ui, open, selected);
+        // Where the picture sits, straight under how it meets the raster: fit
+        // and these are one question — where is this in the frame — asked in
+        // two parts.
+        self.transform(ui, open, selected);
         // Under the clip's own fields, because it is about the *asset*: a
         // person reads what this clip is, then what the shot behind it asked
         // for. Absent for everything that is not a generated shot, which is

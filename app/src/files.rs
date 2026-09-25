@@ -6,8 +6,11 @@
 //!
 //! Grouped by what a thing *is*, because that is how someone looks for one:
 //! footage, sound, titles, and the things that do not exist yet.
+//!
+//! It is also where a clip comes from: an asset's name dragged onto a lane of
+//! the timeline places a clip of it there.
 
-use egui::{Grid, RichText, ScrollArea, Ui, vec2};
+use egui::{Grid, RichText, ScrollArea, Sense, Ui, vec2};
 use scorsese_core::{AssetHealth, AssetKind, AssetStatus, HashCheck, Project, asset_status};
 
 use crate::editing::Editing;
@@ -132,11 +135,21 @@ const GROUPS: &[(&str, &[AssetKind])] = &[
 fn row(ui: &mut Ui, project: &Project, editing: &mut Editing, status: &AssetStatus) {
     let picked = editing.highlighted.as_ref() == Some(&status.id);
     chip(ui, status.kind);
-    if ui
+    let name = ui
         .selectable_label(picked, status.id.as_str())
-        .on_hover_text(used_by(status))
-        .clicked()
-    {
+        // Draggable as well as clickable: dragging a name onto a lane is how a
+        // clip of it gets placed — see `timeline::drop`. The payload is the id,
+        // because that is the only thing a clip ever refers to an asset by.
+        .interact(Sense::drag())
+        .on_hover_text(format!(
+            "{} — drag onto a track to place it",
+            used_by(status)
+        ));
+    name.dnd_set_drag_payload(status.id.clone());
+    if name.dragged() {
+        ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
+    }
+    if name.clicked() {
         // Clicking the highlighted one again clears it, so there is a way back
         // to seeing the timeline plainly without hunting for a "none" control.
         editing.highlighted = (!picked).then(|| status.id.clone());

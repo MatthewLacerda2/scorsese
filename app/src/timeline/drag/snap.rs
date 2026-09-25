@@ -40,13 +40,17 @@ impl Targets {
     /// the cut under it, or a sting with the shot it lands on, is most of what
     /// snapping is for. Order is the order they are listed here, and it decides
     /// ties — see [`Targets::nearest`].
+    ///
+    /// `moving` is `None` for a clip that is not in the document yet — an
+    /// asset being dropped onto a lane — which has no edges of its own to
+    /// leave out.
     pub(in crate::timeline) fn gather(
         project: &Project,
         playhead: Frames,
-        moving: &ClipId,
+        moving: Option<&ClipId>,
     ) -> Self {
         let mut at = vec![playhead, Frames::ZERO];
-        for (_, clip) in project.clips().filter(|(_, clip)| &clip.id != moving) {
+        for (_, clip) in project.clips().filter(|(_, clip)| Some(&clip.id) != moving) {
             at.push(clip.start);
             at.push(clip.end());
         }
@@ -99,13 +103,13 @@ mod tests {
 
     #[test]
     fn nothing_within_the_tolerance_snaps_to_nothing() {
-        let targets = Targets::gather(&project(&[("a", 100, 50)]), Frames(900), &ClipId::new("x"));
+        let targets = Targets::gather(&project(&[("a", 100, 50)]), Frames(900), None);
         assert_eq!(targets.nearest(&[Frames(500)], Frames(8)), None);
     }
 
     #[test]
     fn a_clip_edge_within_the_tolerance_pulls_the_drag_onto_it() {
-        let targets = Targets::gather(&project(&[("a", 100, 50)]), Frames(900), &ClipId::new("x"));
+        let targets = Targets::gather(&project(&[("a", 100, 50)]), Frames(900), None);
         let snap = targets
             .nearest(&[Frames(146)], Frames(8))
             .expect("150 is four frames away");
@@ -117,7 +121,7 @@ mod tests {
     /// is, and it is the *trailing* edge that has to find the target.
     #[test]
     fn either_edge_of_a_move_may_be_the_one_that_finds_a_target() {
-        let targets = Targets::gather(&project(&[("a", 100, 50)]), Frames(900), &ClipId::new("x"));
+        let targets = Targets::gather(&project(&[("a", 100, 50)]), Frames(900), None);
         let snap = targets
             .nearest(&[Frames(20), Frames(98)], Frames(8))
             .expect("the tail is two frames short of 100");
@@ -130,7 +134,7 @@ mod tests {
         let targets = Targets::gather(
             &project(&[("a", 100, 50), ("b", 300, 50)]),
             Frames(310),
-            &ClipId::new("x"),
+            None,
         );
         let snap = targets
             .nearest(&[Frames(303)], Frames(20))
@@ -141,7 +145,7 @@ mod tests {
     /// You put the playhead where it is; a cut only happens to be there.
     #[test]
     fn a_tie_goes_to_the_playhead() {
-        let targets = Targets::gather(&project(&[("a", 100, 50)]), Frames(90), &ClipId::new("x"));
+        let targets = Targets::gather(&project(&[("a", 100, 50)]), Frames(90), None);
         let snap = targets
             .nearest(&[Frames(95)], Frames(8))
             .expect("90 and 100 are both five frames away");
@@ -150,7 +154,7 @@ mod tests {
 
     #[test]
     fn the_start_of_the_timeline_is_a_target_even_with_nothing_on_it() {
-        let targets = Targets::gather(&project(&[]), Frames(9_000), &ClipId::new("x"));
+        let targets = Targets::gather(&project(&[]), Frames(9_000), None);
         let snap = targets
             .nearest(&[Frames(3)], Frames(8))
             .expect("frame zero");
@@ -165,7 +169,7 @@ mod tests {
         let targets = Targets::gather(
             &project(&[("a", 100, 50)]),
             Frames(9_000),
-            &ClipId::new("a"),
+            Some(&ClipId::new("a")),
         );
         assert_eq!(
             targets.nearest(&[Frames(101), Frames(151)], Frames(8)),
@@ -178,11 +182,7 @@ mod tests {
     /// reach zoomed in, which is what makes fine work possible at all.
     #[test]
     fn a_tighter_tolerance_lets_go_of_a_target_a_wider_one_holds() {
-        let targets = Targets::gather(
-            &project(&[("a", 100, 50)]),
-            Frames(9_000),
-            &ClipId::new("x"),
-        );
+        let targets = Targets::gather(&project(&[("a", 100, 50)]), Frames(9_000), None);
         assert!(targets.nearest(&[Frames(104)], Frames(8)).is_some());
         assert_eq!(targets.nearest(&[Frames(104)], Frames(2)), None);
         assert!(

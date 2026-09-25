@@ -7,6 +7,7 @@
 //! frame is.
 
 mod drag;
+mod drop;
 mod gesture;
 mod lanes;
 mod pacing;
@@ -154,6 +155,10 @@ impl Timeline {
         if !self.pace(ui, open, editing) {
             self.act(ui, &response, area, hit.as_ref(), open, editing);
         }
+        // An asset carried over from the project files. Not a gesture of this
+        // panel's — the press happened in another one — so it is answered
+        // beside them rather than as one of them.
+        let ghost = self.dropping(ui, &response, area, open, editing);
 
         let whole = ui.painter_at(full);
         let fps = open.project.timeline_fps;
@@ -192,6 +197,9 @@ impl Timeline {
             palette::EDGE,
         );
 
+        if let Some(ghost) = &ghost {
+            drop::ghost(&painter, ghost);
+        }
         self.snap_line(&painter, area);
         self.note(&painter, area);
         ruler::playhead(

@@ -11,6 +11,8 @@ use scorsese_core::{
     Speed, TrackId, TrackKind,
 };
 
+use super::transform::{Transform, shown_as_value};
+
 /// One clip, as the inspector shows it.
 pub(super) struct Selected {
     /// Which clip this is — the handle every edit goes back through.
@@ -38,7 +40,12 @@ pub(super) struct Selected {
     pub(super) fit: Fit,
     /// How fast it runs against the timeline.
     pub(super) speed: Speed,
-    /// Every property something animates over this clip.
+    /// Where its picture sits in the frame. `None` on an audio track, which
+    /// has no frame for anything to sit in.
+    pub(super) transform: Option<Transform>,
+    /// Every property something animates over this clip — less the ones
+    /// [`Transform`] already shows as a single held value, which would
+    /// otherwise be said twice, once of them as "1 point".
     pub(super) animated: Vec<Animated>,
 }
 
@@ -67,18 +74,25 @@ impl Selected {
     pub(super) fn of(project: &Project, clip: &ClipId) -> Option<Self> {
         let (track, found) = project.clips().find(|(_, found)| &found.id == clip)?;
         let asset = project.asset(&found.asset);
+        let picture = track.kind == TrackKind::Video;
         Some(Self {
             clip: found.id.clone(),
             asset: found.asset.clone(),
             kind: asset.map(|asset| asset.kind),
             state: asset.and_then(|asset| asset.state),
             track: track.id.clone(),
-            picture: track.kind == TrackKind::Video,
+            picture,
             start: found.start,
             duration: found.duration,
             fit: found.fit,
             speed: found.speed,
-            animated: found.keyframes.iter().map(Animated::of).collect(),
+            transform: picture.then(|| Transform::of(found)),
+            animated: found
+                .keyframes
+                .iter()
+                .filter(|keyframes| !(picture && shown_as_value(found, keyframes)))
+                .map(Animated::of)
+                .collect(),
         })
     }
 }

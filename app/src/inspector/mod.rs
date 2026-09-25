@@ -17,7 +17,10 @@
 //! animated and offered no single value: one field cannot hold a ramp, and
 //! writing one over an animation would flatten work nobody asked to lose.
 //! Animating a property over time is structured work, and structured work is a
-//! sentence to an assistant rather than a drag.
+//! sentence to an assistant rather than a drag. A property held at **one**
+//! value for the whole clip — a picture moved, turned or resized — is the
+//! exception that is not one: the format says it as a single held point, and
+//! [`transform`] offers exactly that and nothing with a second point in it.
 //!
 //! **A field needs a subject.** Every control here is about *this clip*, so
 //! there are three states and not two: nothing selected, one clip, and several.
@@ -34,6 +37,7 @@ mod one;
 mod selected;
 mod several;
 mod time;
+mod transform;
 
 use egui::{RichText, Ui};
 use scorsese_core::Clip;
