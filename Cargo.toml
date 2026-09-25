@@ -8,6 +8,7 @@ members = [
     "crates/providers",
     "crates/cli",
     "crates/mcp",
+    "crates/server",
     "crates/golden",
     # A tool rather than a crate that ships, and a member all the same: being
     # one is what puts it under the same fmt, clippy and doc gates as the code

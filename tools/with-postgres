@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# Run a command with DATABASE_URL pointing at a Postgres it may do anything to.
+#
+#   tools/with-postgres cargo nextest run --workspace --locked
+#
+# The server's database tests are `#[sqlx::test]`s: each creates a database of
+# its own on the server DATABASE_URL names, and drops it afterwards. Without
+# one they fail rather than skip -- a test gate that goes green over tests it
+# did not run is the false green `make gates` exists to refuse -- so the test
+# gate runs through this, and this makes sure there is one.
+#
+# Where the database comes from, in order:
+#
+# 1. SCORSESE_TEST_DATABASE_URL, when it is set. For a machine that already
+#    runs a Postgres it is happy to let tests create and drop databases on.
+# 2. Otherwise a throwaway container: started here, on a port the OS picks,
+#    with its data in memory, and removed when the command finishes -- however
+#    it finishes. Every worktree gets its own, so parallel runs never meet.
+#
+# An ambient DATABASE_URL is deliberately NOT used. On a development machine
+# that is the database the server itself runs against, and a test run should
+# never be one typo away from it. Hence a name of its own for the opt-in.
+#
+# CI does not come through here: its job has a Postgres service container and
+# sets DATABASE_URL itself (see .github/workflows/ci.yml). The image below is
+# the same one that service runs; change both together.
+
+set -euo pipefail
+
+IMAGE=postgres:17-alpine
+
+if [ -n "${SCORSESE_TEST_DATABASE_URL:-}" ]; then
+    DATABASE_URL=$SCORSESE_TEST_DATABASE_URL exec "$@"
+fi
+
+if ! command -v docker >/dev/null 2>&1; then
+    echo "with-postgres: the server's tests need a Postgres, and docker is not installed." >&2
+    echo "  Install docker, and this starts a throwaway one for the length of the run;" >&2
+    echo "  or point SCORSESE_TEST_DATABASE_URL at a Postgres the tests may create" >&2
+    echo "  and drop databases on." >&2
+    exit 1
+fi
+
+name=scorsese-test-postgres-$$
+trap 'docker rm -f "$name" >/dev/null 2>&1 || true' EXIT INT TERM
+
+# fsync off and the data directory in memory: nothing here outlives the run,
+# so durability is paid for and never used.
+docker run --detach --rm --name "$name" \
+    --env POSTGRES_USER=scorsese --env POSTGRES_PASSWORD=scorsese \
+    --publish 127.0.0.1::5432 \
+    --tmpfs /var/lib/postgresql/data \
+    "$IMAGE" -c fsync=off -c full_page_writes=off >/dev/null
+
+# Over TCP inside the container, and that is load-bearing: the image's first
+# boot runs a temporary server on the Unix socket only while it initialises,
+# then restarts. A socket probe answers yes to that temporary one.
+for _ in $(seq 1 60); do
+    if docker exec "$name" pg_isready --host 127.0.0.1 --username scorsese >/dev/null 2>&1; then
+        break
+    fi
+    sleep 0.5
+done
+docker exec "$name" pg_isready --host 127.0.0.1 --username scorsese >/dev/null || {
+    echo "with-postgres: the Postgres container did not become ready; its log:" >&2
+    docker logs "$name" >&2
+    exit 1
+}
+
+port=$(docker port "$name" 5432/tcp | head -n 1 | sed 's/.*://')
+echo "with-postgres: a throwaway Postgres on 127.0.0.1:$port, removed when this finishes."
+
+DATABASE_URL=postgres://scorsese:scorsese@127.0.0.1:$port/scorsese "$@"

@@ -77,6 +77,21 @@ jobs:
     # Drafts assert nothing, so there is nothing to check. See the top of
     # this file; `ready_for_review` in `types:` is what makes it fire at all.
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    # The server's database tests fail without a Postgres rather than skip, so
+    # the job has one. `make test` gets the same from `tools/with-postgres`,
+    # which runs this same image -- change the two together.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: scorsese
+          POSTGRES_PASSWORD: scorsese
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready --host 127.0.0.1 --username scorsese"
+          --health-interval 2s --health-timeout 5s --health-retries 30
+    env:
+      DATABASE_URL: postgres://scorsese:scorsese@localhost:5432/scorsese
     steps:
       - uses: actions/checkout@v4
 
@@ -408,6 +423,19 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+    # The same tests as `check`, so the same database; see the note there.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: scorsese
+          POSTGRES_PASSWORD: scorsese
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready --host 127.0.0.1 --username scorsese"
+          --health-interval 2s --health-timeout 5s --health-retries 30
+    env:
+      DATABASE_URL: postgres://scorsese:scorsese@localhost:5432/scorsese
     steps:
       - uses: actions/checkout@v4
 

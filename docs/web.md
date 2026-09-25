@@ -119,6 +119,41 @@ client instead. One tool set, two ways in — and nothing in the tool surface ma
 assume the caller is Claude (`CLAUDE.md`, *MCP is a protocol, not a Claude
 feature*).
 
+## `crates/server`
+
+The API (#530): axum over HTTP, sqlx over Postgres. The crate's own `lib.rs`
+doc argues both choices and the tool-registry decision; this is what a
+developer needs to run it.
+
+**Every route lives under `/api`**, the health check included
+(`GET /api/health`: `200` when the database answers, `503` when it does not).
+One prefix is one routing rule — for `web/`'s dev proxy, which forwards `/api`
+unchanged to `SCORSESE_API`, and for whatever fronts the server in production.
+
+**Configuration** comes from the environment, through the same lookup the
+provider keys use, and is documented in `.env.example`:
+
+| Variable | What it is |
+|---|---|
+| `DATABASE_URL` | The Postgres to connect to. Required; the server will not start without reaching it, and it is never printed. |
+| `SCORSESE_STORAGE` | The absolute directory users' files are kept under. Required. |
+| `SCORSESE_BIND` | Where to listen. Defaults to `127.0.0.1:8080`, this machine only. |
+
+**Schema migrations** are embedded in the binary and run at startup, before the
+first request. Files in `crates/server/migrations/` are numbered
+`NNNN_name.sql` without gaps, only go forward, and are never edited once merged
+— the folder's README has the rules, and a test refuses a file sqlx would
+silently skip.
+
+**Database tests run, or they fail — they never skip.** `make test` and
+`make coverage` go through `tools/with-postgres`, which starts a throwaway
+`postgres:17-alpine` container on a random local port and removes it however
+the run ends. So **Docker is needed for `make gates`**, unless
+`SCORSESE_TEST_DATABASE_URL` names a Postgres the tests may create and drop
+databases on. An ambient `DATABASE_URL` is deliberately ignored, so a test run
+never touches the development database. CI's `check` and `coverage` jobs run a
+Postgres service container instead.
+
 ## Out of scope for now
 
 Pix payments (#548), folders in the library, a shared cross-user library,

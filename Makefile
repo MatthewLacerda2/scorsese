@@ -268,7 +268,7 @@ gates: target-dir inventory $(GATES) ## Everything CI blocks on. Run this before
 # and no debug assertions.
 release: ## Optimised binaries, for a final render rather than for iterating
 	cargo build --release
-	@echo "release: binaries in target/release -- scorsese, scorsese-mcp"
+	@echo "release: binaries in target/release -- scorsese, scorsese-mcp, scorsese-server"
 
 ##@ The gates
 
@@ -320,13 +320,19 @@ docs: ## [gate] cargo doc with -D warnings: a broken intra-doc link is a failure
 # ```text or ```jsonc, so there are currently zero compiled doctests and this
 # line takes a second. It is here so that the day someone writes a real one, it
 # does not silently stop being run.
-test: ## [gate] The whole suite, golden renders included (needs ffmpeg, nextest)
+#
+# Postgres joins ffmpeg as something the suite needs rather than something it
+# works around: the server's database tests fail without one instead of
+# skipping, so `tools/with-postgres` supplies one — a throwaway container for
+# the length of the run, or SCORSESE_TEST_DATABASE_URL when set. Its header has
+# the reasoning; CI gets the same from a service container.
+test: ## [gate] The whole suite, golden renders and database included (needs ffmpeg, nextest, docker)
 	@command -v ffmpeg >/dev/null 2>&1 || { \
 		echo "test: ffmpeg is not on PATH -- the render and golden tests need it." >&2; \
 		echo "      Install it from your package manager, or point SCORSESE_FFMPEG at a binary." >&2; \
 		exit 1; }
 	@$(NEXTEST_CHECK)
-	cargo nextest run --workspace --locked
+	tools/with-postgres cargo nextest run --workspace --locked
 	cargo test --doc --workspace --locked
 # Last, so it is the line still on screen when the suite goes green. nextest
 # has already counted the skip; this is what makes it a sentence.
@@ -471,7 +477,7 @@ coverage: ## Which pub items no test reaches. A signal: no threshold, blocks not
 		echo "          It also needs: rustup component add llvm-tools-preview" >&2; \
 		exit 1; }
 	@mkdir -p target
-	cargo llvm-cov --workspace --locked --exclude-from-report scorsese-golden \
+	tools/with-postgres cargo llvm-cov --workspace --locked --exclude-from-report scorsese-golden \
 		--json --output-path target/coverage.json
 	python3 .github/scripts/coverage-summary.py target/coverage.json
 
