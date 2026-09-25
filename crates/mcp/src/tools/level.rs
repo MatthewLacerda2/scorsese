@@ -10,14 +10,14 @@
 //! section A or merely has more notes in it. That is the whole of what this
 //! answers.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use scorsese_render::{Tools, audio::measure, say};
 use serde_json::Value;
 
 use crate::tools::Reply;
 
-use super::{Costs, Tool, project_dir, project_property};
+use super::{Costs, Tool, project_dir, project_property, under};
 
 /// Measure a finished sound file, optionally against another.
 pub(crate) struct Level;
@@ -92,28 +92,6 @@ impl Tool for Level {
         }
         Ok(said.into())
     }
-}
-
-/// One path argument, resolved against the project directory unless it is
-/// already absolute.
-///
-/// Relative-to-the-project is the rule everything else in a project obeys, and
-/// an absolute path is still allowed because a delivered render is as likely to
-/// sit outside the project as in it. Nothing is written here, so the usual
-/// reason to refuse a path that escapes the root does not apply.
-fn under(dir: &Path, arguments: &Value, field: &str) -> Result<Option<PathBuf>, String> {
-    let Some(given) = arguments.get(field).and_then(Value::as_str) else {
-        return Ok(None);
-    };
-    if given.trim().is_empty() {
-        return Err(format!("`{field}` is empty — give a path or leave it out"));
-    }
-    let path = PathBuf::from(given);
-    Ok(Some(if path.is_absolute() {
-        path
-    } else {
-        dir.join(path)
-    }))
 }
 
 /// How a file is named in the reply: its file name, not its whole path. Two

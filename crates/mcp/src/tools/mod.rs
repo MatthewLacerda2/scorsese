@@ -296,6 +296,35 @@ pub(crate) fn project_dir(arguments: &Value) -> Result<std::path::PathBuf, Strin
         .ok_or_else(|| "`project` is required: the path of the *.scor directory".to_owned())
 }
 
+/// One path argument, resolved against the project directory unless it is
+/// already absolute.
+///
+/// Relative-to-the-project is the rule every path in this surface obeys, for
+/// the reason [`project_dir`] gives: the server's working directory belongs to
+/// whoever launched it, so a relative path resolved against it lands somewhere
+/// the caller did not name and cannot read back (#496). An absolute path is
+/// still honoured, because a measured render or a partial bake is as likely to
+/// sit outside the project as in it. Whether a *write* may leave the project is
+/// a separate question this does not answer.
+pub(crate) fn under(
+    dir: &std::path::Path,
+    arguments: &Value,
+    field: &str,
+) -> Result<Option<std::path::PathBuf>, String> {
+    let Some(given) = arguments.get(field).and_then(Value::as_str) else {
+        return Ok(None);
+    };
+    if given.trim().is_empty() {
+        return Err(format!("`{field}` is empty — give a path or leave it out"));
+    }
+    let path = std::path::PathBuf::from(given);
+    Ok(Some(if path.is_absolute() {
+        path
+    } else {
+        dir.join(path)
+    }))
+}
+
 /// The `project` property, spelled the same way in every tool's schema.
 ///
 /// `project_new` writes its own, and only its own: the directory it names is

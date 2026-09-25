@@ -1147,6 +1147,12 @@ makes the audio a clip plays. `recipes.md` has the whole of why: a fragment
 filed under the address of the whole recipe would leave a project serving audio
 its own recipe does not describe.
 
+`out` puts it somewhere else, and a relative `out` is relative to the **project**,
+like every other path here — never to the server's working directory, which
+belongs to whoever launched it. So the path the reply prints is the path to hand
+`hear` or `audio_level` next. `scorsese synth bake --out` keeps the shell's
+meaning instead, because that one is typed at a prompt.
+
 ### Tuning, which is not writing
 
 **Reach for `synth_set` when the music is already right and a number is not.**
