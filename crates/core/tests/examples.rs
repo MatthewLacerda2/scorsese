@@ -132,3 +132,17 @@ fn the_complete_documents_also_validate() {
         );
     }
 }
+
+/// The title names the schema version, and it is the first thing a reader
+/// sees — so it is held to the constant, the way the examples are. An example
+/// that states the wrong version fails to load; a title has no loader, and
+/// drifted four bumps behind before this test existed (#529).
+#[test]
+fn the_title_states_this_builds_schema_version() {
+    let title = DOC.lines().next().unwrap_or_default();
+    let expected = format!("# `project.json` — schema v{SCHEMA_VERSION}");
+    assert_eq!(
+        title, expected,
+        "docs/project-format.md's title is out of step with SCHEMA_VERSION"
+    );
+}

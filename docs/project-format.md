@@ -1,4 +1,4 @@
-# `project.json` — schema v29
+# `project.json` — schema v33
 
 The contract between the CLI, the MCP server and the GUI — the contract *now*,
 not across time. It is meant to be hand-written: an agent should be able to
@@ -2250,6 +2250,9 @@ held to the code it describes rather than to anyone's memory:
   Fragments are parsed but not validated. A fragment may legitimately name an
   asset it does not carry, and failing it for that would be failing it for
   being a fragment.
+- **The title states this build's schema version.** A test holds the page's
+  first line to `SCHEMA_VERSION`, so a bump that forgets the title fails the
+  build instead of leaving it behind.
 - **Every command and flag in `scorsese --help` says something**, so the only
   interface an agent has today cannot grow a silent flag.
 
