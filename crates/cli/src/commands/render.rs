@@ -112,6 +112,15 @@ pub(crate) fn run(project_dir: &Path, out: &Path, options: Options) -> Result<()
             println!("    {clip:<20} {}", say::loudness(level));
         }
     }
+    // The file itself, read back — which is a different number from the mix
+    // above whenever the codec is lossy, and the one a clipping verdict is
+    // about. Then what was done to keep it under full scale, if anything was.
+    if let Some(delivered) = &report.delivered {
+        println!("  file   {}", say::loudness(delivered));
+    }
+    if let Some(trim) = &report.trim {
+        println!("  note: the soundtrack was {trim}");
+    }
     if let Some(bitrate) = options.bitrate {
         println!("  bitrate {bitrate}");
     }

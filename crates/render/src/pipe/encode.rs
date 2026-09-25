@@ -2,7 +2,7 @@
 
 use std::io::Write;
 use std::path::Path;
-use std::process::{Child, ChildStdin, Stdio};
+use std::process::{Child, ChildStdin, Command, Stdio};
 
 use super::audio::SAMPLE_FORMAT;
 use crate::audio::CHANNELS;
@@ -55,12 +55,7 @@ impl Encoder {
             ])
             .args(["-i", "-"]);
         if let Some(mix) = mix {
-            command
-                .args(["-f", SAMPLE_FORMAT])
-                .args(["-ar", &settings.sample_rate.hz().to_string()])
-                .args(["-ac", &CHANNELS.to_string()])
-                .arg("-i")
-                .arg(mix);
+            mix_input(&mut command, settings, mix);
         }
         let format = settings.format;
         command.args(["-c:v", format.video().encoder()]);
@@ -77,15 +72,7 @@ impl Encoder {
             // The raw float samples we mixed in would be enormous and
             // unplayable on half the devices this has to reach, so the mix is
             // always encoded as whatever the container is written with.
-            Some(_) => {
-                command.args(["-c:a", format.audio().encoder()]);
-                match (settings.audio_bitrate, format.audio().takes_bitrate()) {
-                    (Some(bitrate), true) => command.args(["-b:a", &bitrate.ffmpeg_value()]),
-                    // Uncompressed audio has exactly one rate, so `-b:a`
-                    // against it is a setting that would silently do nothing.
-                    _ => &mut command,
-                };
-            }
+            Some(_) => audio_codec(&mut command, settings),
             None => {
                 command.arg("-an");
             }
@@ -133,5 +120,63 @@ impl Encoder {
         // waiting for the process would wait forever.
         drop(stdin);
         super::finish(child, Stage::Encode, &subject)
+    }
+}
+
+/// Encodes a finished mix on its own, into `out`, exactly as a render would
+/// encode it beside picture — same codec, same bitrate, same container.
+///
+/// A rehearsal for the real encode, which is what makes it worth running:
+/// how far a lossy codec overshoots depends on the material, so the only way
+/// to know what the delivered soundtrack will peak at is to encode this one
+/// and look. Audio alone is seconds of work against the minutes the picture
+/// costs, and the audio encoder does not know or care that a video stream is
+/// muxed beside it.
+pub(crate) fn encode_mix(
+    tools: &Tools,
+    settings: &RenderSettings,
+    mix: &Path,
+    out: &Path,
+) -> Result<(), RenderError> {
+    let mut command = tools.ffmpeg();
+    command.args(["-nostdin", "-v", "error", "-y"]);
+    mix_input(&mut command, settings, mix);
+    audio_codec(&mut command, settings);
+    command
+        .args(["-f", settings.format.container().muxer()])
+        .arg(out)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped());
+    let child = command.spawn().map_err(|source| RenderError::Spawn {
+        stage: Stage::Encode,
+        source,
+    })?;
+    super::finish(child, Stage::Encode, &out.display().to_string())
+}
+
+/// Hands a finished mix to ffmpeg as an input: raw float samples, at the
+/// render's rate and our channel count, which it has no header to learn from.
+fn mix_input(command: &mut Command, settings: &RenderSettings, mix: &Path) {
+    command
+        .args(["-f", SAMPLE_FORMAT])
+        .args(["-ar", &settings.sample_rate.hz().to_string()])
+        .args(["-ac", &CHANNELS.to_string()])
+        .arg("-i")
+        .arg(mix);
+}
+
+/// Asks for the audio codec the container is written with, and the bitrate
+/// when one was chosen and the codec has any use for it.
+///
+/// One place for both encodes, so the rehearsal in [`encode_mix`] cannot
+/// quietly encode differently from the delivery it is standing in for.
+fn audio_codec(command: &mut Command, settings: &RenderSettings) {
+    let codec = settings.format.audio();
+    command.args(["-c:a", codec.encoder()]);
+    // Uncompressed audio has exactly one rate, so `-b:a` against it is a
+    // setting that would silently do nothing.
+    if let (Some(bitrate), true) = (settings.audio_bitrate, codec.takes_bitrate()) {
+        command.args(["-b:a", &bitrate.ffmpeg_value()]);
     }
 }

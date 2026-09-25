@@ -107,6 +107,15 @@ impl<'a> Renderer<'a> {
         // file. The numbers outlive the samples they were measured from.
         let levels = mixed.as_ref().map(|(_, _, levels)| levels.finish());
 
+        // Rehearsed through the delivery's codec before the picture is spent
+        // on: a lossy codec overshoots by an amount only the material decides,
+        // and this is the last moment the mix can still be turned down to
+        // leave it room. A no-op for a lossless codec or a mix that fits.
+        let trim = match mix {
+            Some(mix) => audio::headroom::fit(self.tools, &self.settings, mix, out)?,
+            None => None,
+        };
+
         let mut encoder = Encoder::start(self.tools, &self.settings, mix, out)?;
         let mut stage = Stage::new();
         let pass = Pass {
@@ -131,6 +140,14 @@ impl<'a> Renderer<'a> {
         // Only now is the scratch mix expendable: dropping it removes the file,
         // and the encoder has been reading from it until this point.
         drop(mixed);
+        // Read back out of the file as delivered, because the mix's own level
+        // is a statement about the samples we handed the encoder, and a lossy
+        // one hands back different ones.
+        let delivered = if has_audio {
+            Some(audio::headroom::measure(self.tools, out)?)
+        } else {
+            None
+        };
         Ok(RenderReport {
             frames: written,
             fps: self.settings.fps,
@@ -140,6 +157,8 @@ impl<'a> Renderer<'a> {
                     / f64::from(self.settings.sample_rate.hz())
             }),
             levels,
+            delivered,
+            trim,
             notes,
             description: crate::describe::Description::of(&plan),
         })

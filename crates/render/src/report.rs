@@ -4,9 +4,10 @@ use std::fmt;
 
 use scorsese_core::{Fps, Frames};
 
-use crate::audio::SoundLevels;
+use crate::audio::{SoundLevels, Trim};
 use crate::describe::Description;
 use crate::settings::Resolution;
+use scorsese_zimmer::level::Loudness;
 
 /// Something worth saying about a render that is not a reason to refuse it.
 ///
@@ -249,6 +250,18 @@ pub struct RenderReport {
     /// `ffmpeg -af volumedetect` by hand after every render — with a number the
     /// command says on its own.
     pub levels: Option<SoundLevels>,
+    /// How loud the soundtrack came back out of the **delivered file**, decoded
+    /// the way a player would decode it. `None` when there is no audio stream.
+    ///
+    /// Not the same number as the mix in [`RenderReport::levels`] whenever the
+    /// codec is lossy: the mix is what the encoder was handed, and this is what
+    /// it made of it — the one a viewer hears, and the one a clipping verdict
+    /// is about.
+    pub delivered: Option<Loudness>,
+    /// How far the mix was turned down to leave a lossy codec room to
+    /// overshoot, when it had to be. `None` means the delivery is exactly as
+    /// mixed. See [`crate::audio::DELIVERY_CEILING_DBTP`].
+    pub trim: Option<Trim>,
     /// Everything the render wants a second look at. Empty is the good case;
     /// a caller that ignores this is the failure mode [`Note`] exists for.
     pub notes: Vec<Note>,
