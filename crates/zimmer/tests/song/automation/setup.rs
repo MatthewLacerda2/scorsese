@@ -37,6 +37,7 @@ pub(crate) fn voiced(patch: Patch, gain: f32) -> Song {
     );
     Song {
         bpm: 120.0,
+        tempo: vec![],
         seed: 3,
         key: None,
         tracks: vec![Track {

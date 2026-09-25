@@ -110,6 +110,7 @@ fn four_bars() -> Song {
     patterns.insert("b".to_owned(), phrase(["A2", "C3", "E3", "C3"]));
     Song {
         bpm: 96.0,
+        tempo: vec![],
         seed: 1,
         key: None,
         tracks: vec![Track {

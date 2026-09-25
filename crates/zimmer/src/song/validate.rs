@@ -19,6 +19,7 @@ impl Song {
         if !(self.bpm.is_finite() && self.bpm > 0.0) {
             return Err(SynthError::BadBpm { bpm: self.bpm });
         }
+        super::tempo::check(&self.tempo)?;
         if self.tracks.is_empty() {
             return Err(SynthError::NoTracks);
         }

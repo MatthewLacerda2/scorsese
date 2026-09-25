@@ -101,6 +101,7 @@
 
 use super::Song;
 use super::automate::{self, Riding};
+use super::clock::Clock;
 use super::excerpt::Scope;
 use crate::core::{RATE, SAMPLE_RATE};
 use crate::fx;
@@ -152,9 +153,9 @@ pub(super) struct Mix<'a> {
     /// way past — it has to be written onto that track's own part, and the
     /// part is what a bus is.
     riding: Vec<Riding<'a>>,
-    /// How far one sample advances the beat, at the tempo this render is
-    /// actually running at. The only place a curve's beats become samples.
-    beats_per_sample: f32,
+    /// The clock this render is actually running at. The only place a curve's
+    /// beats become samples.
+    clock: &'a Clock,
 }
 
 impl<'a> Mix<'a> {
@@ -166,7 +167,7 @@ impl<'a> Mix<'a> {
     pub(super) fn new(
         song: &'a Song,
         arrangement_end: usize,
-        beats_per_sample: f32,
+        clock: &'a Clock,
         scope: &'a Scope,
     ) -> Self {
         Self {
@@ -176,7 +177,7 @@ impl<'a> Mix<'a> {
             keys: keyed(song),
             measured: scope.heard_count() > 1,
             riding: automate::riding(song),
-            beats_per_sample,
+            clock,
             scope,
         }
     }
@@ -250,7 +251,7 @@ impl<'a> Mix<'a> {
                 // arrives at unity, because there is no single number to add
                 // it at. After the chain, for the reason a static fader is:
                 // the chain is the instrument, and the fader is where it sits.
-                automate::ride(bus, track, self.riding[index], self.beats_per_sample);
+                automate::ride(bus, track, self.riding[index], self.clock);
                 mix_into(&mut self.master, bus, 0, UNITY);
                 continue;
             }

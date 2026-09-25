@@ -13,6 +13,7 @@
 //! back up and undo it.
 
 use super::Song;
+use super::clock::Clock;
 use super::timing::{Fade, Fit, FitMode, Tail};
 use crate::core::RATE;
 use crate::stereo::Stereo;
@@ -44,30 +45,34 @@ pub(crate) fn shape(song: &Song, buf: &mut Stereo, arrangement_end: usize) {
     }
 }
 
-/// The tempo and arrangement this song has to be rendered at to come out at
+/// The clock and arrangement this song has to be rendered at to come out at
 /// its target length, and the number of passes that takes.
 ///
 /// `Loop` and `Once` keep the written tempo and change how many times the
 /// arrangement plays; `Stretch` keeps one whole number of passes and changes
-/// the tempo. The caller renders the result and then calls [`shape`], which is
+/// the tempo — all of it, map and all, by one factor. The caller renders the result and then calls [`shape`], which is
 /// what actually lands it on the target sample.
-pub(crate) fn plan(song: &Song) -> (f32, u32) {
+pub(crate) fn plan(song: &Song) -> (Clock, u32) {
+    let written = Clock::written(song, 1);
     let Some(fit) = song.fit else {
-        return (song.bpm, 1);
+        return (written, 1);
     };
-    let once = song.arrangement_beats() * song.beat_seconds();
+    let once = written.seconds(song.arrangement_beats());
     if once <= 0.0 {
-        return (song.bpm, 1);
+        return (written, 1);
     }
     match fit.mode {
         // Ceil, so the buffer is at least as long as the target and `shape`
         // only ever has to cut. Padding a loop with silence would be a gap in
         // the middle of a bed.
-        FitMode::Loop => (song.bpm, passes(fit.seconds / once, f32::ceil)),
-        FitMode::Once => (song.bpm, 1),
+        FitMode::Loop => {
+            let passes = passes(fit.seconds / once, f32::ceil);
+            (Clock::written(song, passes), passes)
+        }
+        FitMode::Once => (written, 1),
         FitMode::Stretch => {
             let passes = passes(fit.seconds / once, f32::round);
-            (stretched_bpm(song, fit, passes), passes)
+            (Clock::stretched(song, passes, fit.seconds), passes)
         }
     }
 }
@@ -76,18 +81,17 @@ pub(crate) fn plan(song: &Song) -> (f32, u32) {
 ///
 /// Its own function because the refusal wants the number: "it would need
 /// 137 bpm" is actionable, and "it does not fit" is not.
+///
+/// A song whose tempo moves is stretched by moving every tempo in it by the
+/// same factor, so the fraction is the same wherever it is read — and it is
+/// read at the first beat, against the `bpm` the document starts at.
 pub(crate) fn stretch_ratio(song: &Song, fit: Fit) -> Option<f32> {
-    let once = song.arrangement_beats() * song.beat_seconds();
+    let once = Clock::written(song, 1).seconds(song.arrangement_beats());
     if once <= 0.0 || fit.mode != FitMode::Stretch {
         return None;
     }
     let passes = passes(fit.seconds / once, f32::round);
-    Some(stretched_bpm(song, fit, passes) / song.bpm - 1.0)
-}
-
-/// The tempo that lands `passes` whole arrangements exactly on the target.
-fn stretched_bpm(song: &Song, fit: Fit, passes: u32) -> f32 {
-    song.arrangement_beats() * passes as f32 * 60.0 / fit.seconds
+    Some(Clock::stretched(song, passes, fit.seconds).bpm() / song.bpm - 1.0)
 }
 
 /// A pass count of at least one, rounded the way the caller asked.

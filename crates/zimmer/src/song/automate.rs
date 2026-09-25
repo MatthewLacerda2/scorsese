@@ -95,6 +95,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::clock::Clock;
 use super::{Song, Track};
 use crate::stereo::{self, Stereo};
 
@@ -305,13 +306,14 @@ pub(super) fn riding(song: &Song) -> Vec<Riding<'_>> {
 /// behind, so a track that automates only its level keeps the position it was
 /// written at, and the other way round.
 ///
-/// `beats_per_sample` comes from the tempo the piece is actually rendered at,
-/// which is the stretched one under a `stretch` fit — that is what makes a
-/// build stretch with the music rather than land somewhere else in it.
-pub(super) fn ride(bus: &mut Stereo, track: &Track, riding: Riding<'_>, beats_per_sample: f32) {
+/// `clock` is the one the piece is actually rendered at, which is the
+/// stretched one under a `stretch` fit and carries the song's tempo map — that
+/// is what makes a build stretch with the music, and speed up with it, rather
+/// than land somewhere else in it.
+pub(super) fn ride(bus: &mut Stereo, track: &Track, riding: Riding<'_>, clock: &Clock) {
     let fixed = stereo::pan_gains(track.pan);
     for frame in 0..bus.frames() {
-        let beat = frame as f32 * beats_per_sample;
+        let beat = clock.beat_at(frame);
         let level = riding
             .gain
             .and_then(|curve| curve.value_at(beat))

@@ -251,6 +251,18 @@ impl SynthError {
                 f,
                 "song: arrangement entry for `{pattern}`: `transpose` is chromatic and `transpose_degrees` moves within the key — write one or the other"
             ),
+            Self::BadTempoChange { index, beat, bpm } => write!(
+                f,
+                "song: `tempo[{index}]` must be after beat 0 (the tempo there is `bpm`) and at a positive bpm, got beat {beat} at {bpm} bpm"
+            ),
+            Self::TempoOutOfOrder {
+                index,
+                beat,
+                previous,
+            } => write!(
+                f,
+                "song: `tempo[{index}]` is at beat {beat}, not after the change before it at beat {previous} — tempo changes must ascend"
+            ),
             Self::BadSwing { swing, .. } => write!(
                 f,
                 "song: `swing` must be at least 0 and below 1 (0 is straight, 0.33 swings), got {swing}"
