@@ -13,6 +13,7 @@
 
 use scorsese_core::AssetId;
 use scorsese_providers::synth::{self, Baked, Excerpt, Partial, Span, Window};
+use scorsese_render::say;
 use serde_json::Value;
 
 use super::super::inspect::load;
@@ -36,7 +37,13 @@ impl Tool for Bake {
          each one came out: level, spectral balance and stereo width for the \
          whole file, then \
          a row per section of the arrangement, then a row per track of a song \
-         saying which instrument is taking up the room. A signal, never a gate \
+         saying which instrument is taking up the room, then a grid of each \
+         track's mean in each section saying which instrument is quiet where. \
+         Each section row starts with its bounds in seconds to the millisecond \
+         (`8.000-24.000`): that start is place_clip's start_seconds and the end \
+         minus the start its duration_seconds. A recipe already baked measures \
+         nothing but still lists its sections' bounds, which come from the \
+         recipe for free. A signal, never a gate \
          — nothing about a level can fail a bake. \
          Give it `beats`, `seconds` or `only` and it renders LESS of one \
          recipe instead — a stretch of the piece, or a few of its tracks — \
@@ -225,15 +232,27 @@ fn said(id: &AssetId, outcome: &Baked) -> String {
             let head = format!(
                 "{id} — baked, {} KB, {path}, {}",
                 bytes / 1024,
-                scorsese_render::say::summary(profile)
+                say::summary(profile)
             );
             rows(
                 head,
-                &scorsese_render::say::sections(profile),
-                &scorsese_render::say::layers(tracks),
+                &[
+                    say::sections(profile),
+                    say::layers(tracks),
+                    say::grid(tracks),
+                ],
             )
         }
-        Baked::Cached { path } => format!("{id} — already baked, {path}"),
+        // Nothing measured on a cache hit, but the section bounds are the
+        // recipe's arithmetic — and they are what a client places a caption
+        // on, whether or not this call rendered anything.
+        Baked::Cached { path, sections } => {
+            let mut said = format!("{id} — already baked, {path}");
+            for row in say::arrangement(sections) {
+                said.push_str(&format!("\n  {row}"));
+            }
+            said
+        }
     }
 }
 
@@ -247,12 +266,15 @@ fn said_partial(id: &AssetId, excerpt: &Excerpt, partial: &Partial) -> String {
         "{id} — part of it ({excerpt}), {} KB, {}, {}",
         partial.bytes / 1024,
         partial.shown,
-        scorsese_render::say::summary(&partial.profile)
+        say::summary(&partial.profile)
     );
     let mut said = rows(
         head,
-        &scorsese_render::say::sections(&partial.profile),
-        &scorsese_render::say::layers(&partial.tracks),
+        &[
+            say::sections(&partial.profile),
+            say::layers(&partial.tracks),
+            say::grid(&partial.tracks),
+        ],
     );
     said.push_str(&format!(
         "\nnot cached, and not this asset's audio — synth_bake {id} with no window \
@@ -261,9 +283,10 @@ fn said_partial(id: &AssetId, excerpt: &Excerpt, partial: &Partial) -> String {
     said
 }
 
-/// A headline with the section and track tables indented under it.
-fn rows(mut said: String, sections: &[String], layers: &[String]) -> String {
-    for row in sections.iter().chain(layers) {
+/// A headline with the section, track and track-by-section tables indented
+/// under it.
+fn rows(mut said: String, tables: &[Vec<String>]) -> String {
+    for row in tables.iter().flatten() {
         said.push_str(&format!("\n  {row}"));
     }
     said

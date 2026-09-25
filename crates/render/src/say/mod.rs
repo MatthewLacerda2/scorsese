@@ -14,6 +14,7 @@
 
 mod compare;
 mod delivery;
+mod grid;
 mod layers;
 mod survey;
 mod table;
@@ -22,9 +23,10 @@ use scorsese_zimmer::level::Loudness;
 
 pub use compare::comparison;
 pub use delivery::{delivery, written};
+pub use grid::grid;
 pub use layers::layers;
 pub use survey::survey;
-pub use table::{headline, sections, summary};
+pub use table::{arrangement, headline, sections, summary};
 
 /// How loud something came out, as a line to print after the thing it measures.
 ///
@@ -57,34 +59,30 @@ pub fn loudness(level: &Loudness) -> String {
 /// within the noise of the interpolation.
 const TRUE_PEAK_WORTH_SAYING: f64 = 0.1;
 
-/// A time in the piece, as a reader would say it.
+/// A time in the piece, as a caller would place something on it.
 ///
-/// `m:ss` rather than a decimal count of seconds, because these are positions
-/// in a piece of music and that is how anyone looking for one scrubs to it.
-/// Hours appear when there are any and not otherwise — a forty-second bake
-/// reading `0:00:08` puts two units of noise in front of the one that matters.
-pub(crate) fn clock(seconds: f64) -> String {
-    let whole = seconds.max(0.0).round() as u64;
-    let (hours, minutes, seconds) = (whole / 3_600, (whole % 3_600) / 60, whole % 60);
-    if hours > 0 {
-        format!("{hours}:{minutes:02}:{seconds:02}")
-    } else {
-        format!("{minutes}:{seconds:02}")
-    }
+/// Seconds to the millisecond, because that is the unit every tool that puts
+/// something on the timeline takes — `place_clip`'s `start_seconds` among them
+/// — and a millisecond is well inside a frame at any rate a video runs at.
+/// A clock rounded to the whole second, which this used to be, was readable
+/// and useless for the one thing a section boundary is wanted for: putting a
+/// caption, a cut or a title on it. Converting `1:06` back to seconds by hand
+/// is the arithmetic the report exists to save.
+pub(crate) fn moment(seconds: f64) -> String {
+    format!("{:.3}", seconds.max(0.0))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::clock;
+    use super::moment;
 
     #[test]
-    fn a_position_is_said_the_way_someone_scrubbing_would_say_it() {
-        assert_eq!(clock(0.0), "0:00");
-        assert_eq!(clock(8.4), "0:08");
-        assert_eq!(clock(90.0), "1:30");
-        assert_eq!(clock(3_754.0), "1:02:34");
+    fn a_position_is_said_in_seconds_precise_enough_to_place_a_clip_on() {
+        assert_eq!(moment(0.0), "0.000");
+        assert_eq!(moment(43.479_166), "43.479");
+        assert_eq!(moment(90.0), "90.000");
         // Never a negative and never a panic, however the arithmetic that
         // produced it went: a report is not worth aborting a render over.
-        assert_eq!(clock(-5.0), "0:00");
+        assert_eq!(moment(-5.0), "0.000");
     }
 }

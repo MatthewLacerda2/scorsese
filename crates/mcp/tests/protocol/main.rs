@@ -20,6 +20,7 @@ mod pacing;
 mod placing;
 mod rendering;
 mod searching;
+mod sectioning;
 mod seeing;
 mod setting;
 mod sounding;

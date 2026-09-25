@@ -80,6 +80,7 @@ use std::collections::HashMap;
 
 use super::articulation::Stroke;
 use super::automate::{self, Automation};
+use super::clock::Clock;
 use super::excerpt::{Excerpt, Scope};
 use super::feel::swung;
 use super::glide::{Slides, Trail};
@@ -201,10 +202,13 @@ pub(crate) fn mix_song(
     // sample is produced: `fit` is a property of the whole piece, and deciding
     // it per note would mean rendering the wrong notes and cutting afterwards.
     let (bpm, passes) = plan(song);
+    // The one conversion from beats to seconds, shared with the report's
+    // section rows so a boundary is said exactly where the notes were put.
+    let clock = Clock::at(bpm);
     // What less of this piece was asked for, resolved against the tempo it is
     // actually rendered at. A whole render resolves to one that keeps
     // everything, so there is one path below rather than two.
-    let scope = Scope::of(song, excerpt, bpm)?;
+    let scope = Scope::of(song, excerpt, clock)?;
     // Read once: every degree in the song resolves against it, and so does
     // every diatonic lift in the arrangement.
     let key = song.key()?;
@@ -239,18 +243,17 @@ pub(crate) fn mix_song(
     };
     let mut trail = Trail::new(song.tracks.len());
 
-    let beat = 60.0 / bpm;
     // Start at the arrangement's own length rather than growing from empty, so
     // a song whose last pattern ends on a rest keeps that rest. Truncating to
     // the final *note* instead would silently shorten the buffer and put a loop
     // point in the wrong place — the arrangement is the score, not just where
     // the samples happen to stop. Tails then extend it past this.
     let played = song.arrangement_beats() * passes as f32;
-    let arrangement_end = (played * beat * RATE).round() as usize;
+    let arrangement_end = (clock.seconds(played) * RATE).round() as usize;
     // Beats per sample at the tempo this is actually rendered at — the
     // stretched one under a `stretch` fit, which is what makes a build stretch
     // with the music instead of landing somewhere else in it.
-    let mut mix = Mix::new(song, arrangement_end, bpm / (60.0 * RATE), &scope);
+    let mut mix = Mix::new(song, arrangement_end, clock.beats_per_sample(RATE), &scope);
     let mut cursor_beats = 0.0f32;
     let mut ordinal: u64 = 0;
     // Resolved once: an absent `humanize` is one that scatters nothing, so the
@@ -311,7 +314,7 @@ pub(crate) fn mix_song(
             // The gate, not the written `dur`: staccato and ghost shorten how
             // long the note is held and leave the rhythm on the page exactly
             // as it reads.
-            let gate = note.dur * stroke.gate * beat;
+            let gate = clock.seconds(note.dur * stroke.gate);
             // Both transposes, applied in one place — and clamped rather than
             // refused, since refusing would make a legal transpose depend on
             // the register of a pattern written months ago.
@@ -356,8 +359,9 @@ pub(crate) fn mix_song(
             // arithmetic needs. Clamped at zero rather than wrapped — a note
             // nudged early on the very first beat has nowhere to go, and a
             // negative sample index is not a time.
-            let onset =
-                beat_at * beat + stroke.onset_seconds + feel.onset_seconds(track, place, song.seed);
+            let onset = clock.seconds(beat_at)
+                + stroke.onset_seconds
+                + feel.onset_seconds(track, place, song.seed);
             let at = (onset * RATE).round().max(0.0) as usize;
             // Worked out before the note is synthesised rather than after,
             // because a note landing past what a window can hear is the one
@@ -384,7 +388,12 @@ pub(crate) fn mix_song(
     // Track buses folded down and the song's own chain applied — everything
     // that belongs to a sum rather than to a note. Each track is measured as it
     // goes past, which is the only moment it exists on its own.
-    let (mut master, tracks) = mix.finish();
+    // Where the arrangement's sections fall in what comes back, worked out
+    // once: the tracks are cut at them as they are measured, and the sum is
+    // cut at them by the caller, and the two tables only line up if both are
+    // cut at the same numbers.
+    let sections = sections::of(song, scope.opens_at_seconds());
+    let (mut master, tracks) = mix.finish(&sections);
     // The master limiter, always — mixing by addition is exactly the operation
     // that overshoots full scale, so the sum is never handed out unlimited.
     limiter::apply(&mut master, RATE);
@@ -398,7 +407,7 @@ pub(crate) fn mix_song(
     Ok(Mixdown {
         master,
         tracks,
-        sections: sections::of(song, scope.opens_at_seconds()),
+        sections,
     })
 }
 

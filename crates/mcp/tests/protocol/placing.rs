@@ -22,6 +22,34 @@ fn placing_a_clip_writes_it_at_the_frame_the_seconds_round_to() {
     std::fs::remove_dir_all(dir).ok();
 }
 
+/// Two clips back to back on one boundary tile rather than overlap, however
+/// the seconds round: the end is put on the grid the way the next start is.
+/// At 30 fps these two used to collide on frame 916, which is how a caption
+/// per musical section got refused.
+#[test]
+fn clips_placed_end_to_start_on_one_boundary_do_not_overlap() {
+    let dir = project("place-tile");
+    for (start, duration) in [(30.017, 0.517), (30.534, 1.0)] {
+        let (text, failed) = said(&call(
+            "place_clip",
+            json!({ "project": dir, "asset": "title", "track": "v1",
+                    "start_seconds": start, "duration_seconds": duration }),
+        ));
+        assert!(!failed, "{text}");
+    }
+    let project = read(&dir);
+    let clips = project["tracks"][0]["clips"]
+        .as_array()
+        .expect("clips")
+        .len();
+    let (first, second) = (
+        shape(&project, "v1", clips - 2),
+        shape(&project, "v1", clips - 1),
+    );
+    assert_eq!(first.0 + first.1, second.0, "{first:?} then {second:?}");
+    std::fs::remove_dir_all(dir).ok();
+}
+
 /// The refusal the tool exists for. Frames 0-600 of `v1` are taken, and a
 /// document with two clips over one instant of a track does not load.
 #[test]

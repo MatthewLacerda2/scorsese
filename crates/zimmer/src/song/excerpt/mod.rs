@@ -44,6 +44,7 @@ mod span;
 use std::fmt;
 
 use super::Song;
+use super::clock::Clock;
 use crate::core::RATE;
 
 pub(crate) use scope::Scope;
@@ -126,14 +127,15 @@ impl Window {
     /// The first sample-frame kept, and the one just past the last — `None`
     /// meaning however long the piece turns out to be.
     ///
-    /// `bpm` is the tempo the piece is **rendered** at, which under a
-    /// `stretch` fit is not the one written down.
-    fn frames(self, bpm: f32) -> (usize, Option<usize>) {
-        let seconds = match self.unit {
-            Unit::Beats => 60.0 / bpm.max(f32::MIN_POSITIVE),
-            Unit::Seconds => 1.0,
+    /// `clock` is the tempo the piece is **rendered** at, which under a
+    /// `stretch` fit is not the one written down — and the same conversion
+    /// the notes were placed with, so a window in beats opens on the beat.
+    fn frames(self, clock: Clock) -> (usize, Option<usize>) {
+        let seconds = |value: f32| match self.unit {
+            Unit::Beats => clock.seconds(value),
+            Unit::Seconds => value,
         };
-        let frame = |value: f32| (value * seconds * RATE).round().max(0.0) as usize;
+        let frame = |value: f32| (seconds(value) * RATE).round().max(0.0) as usize;
         (frame(self.span.start), self.span.end.map(frame))
     }
 }

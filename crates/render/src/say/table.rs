@@ -7,9 +7,9 @@
 //! the same width — a table that omits a column when it has nothing to say
 //! about it is a table whose rows no longer line up.
 
-use scorsese_zimmer::level::{Bands, Profile, Span};
+use scorsese_zimmer::level::{Bands, Cut, Profile, Span};
 
-use super::{clock, loudness};
+use super::{loudness, moment};
 
 /// The one-line summary: how long it runs, how loud, and where its energy sits.
 pub fn summary(profile: &Profile) -> String {
@@ -57,13 +57,28 @@ pub fn sections(profile: &Profile) -> Vec<String> {
         .collect()
 }
 
+/// Where each section of an arrangement starts and ends, from the document —
+/// one row each, and nothing measured on it.
+///
+/// For a bake that was already on disk: its section rows were measured when
+/// it was made and are not in hand, but where the sections *are* is arithmetic
+/// on the recipe and costs nothing to say. The bounds are the same numbers a
+/// measured row carries, in the same form, so a reader who has seen one kind
+/// of row can read the other.
+pub fn arrangement(cuts: &[Cut]) -> Vec<String> {
+    let mut from = 0.0;
+    cuts.iter()
+        .map(|cut| {
+            let said = format!("{}{}", bounds(from, cut.end_seconds), cut.label);
+            from = cut.end_seconds;
+            said
+        })
+        .collect()
+}
+
 /// One section's row.
 fn row(span: &Span, label_width: Option<usize>) -> String {
-    let mut said = format!(
-        "{:>5}-{:<5}",
-        clock(span.from_seconds),
-        clock(span.to_seconds)
-    );
+    let mut said = bounds(span.from_seconds, span.to_seconds);
     if let Some(width) = label_width {
         said.push_str(&format!(
             "{:<width$}  ",
@@ -73,6 +88,12 @@ fn row(span: &Span, label_width: Option<usize>) -> String {
     }
     said.push_str(&columns(span));
     said
+}
+
+/// Where a row starts and ends, padded so the column after it lines up for
+/// any piece under a thousand seconds.
+fn bounds(from: f64, to: f64) -> String {
+    format!("{:>7}-{:<9}", moment(from), moment(to))
 }
 
 /// The measured columns of a row, without whatever names it.
@@ -163,7 +184,8 @@ mod tests {
         assert!(rows[0].contains("mean   -6.0"), "{}", rows[0]);
         assert!(rows[1].contains("chorus"), "{}", rows[1]);
         assert!(rows[1].contains("mean    0.0"), "{}", rows[1]);
-        assert!(rows[0].starts_with(" 0:00-0:01"), "{}", rows[0]);
+        assert!(rows[0].starts_with("  0.000-1.000"), "{}", rows[0]);
+        assert!(rows[1].starts_with("  1.000-2.000"), "{}", rows[1]);
     }
 
     /// The width column is on the row and on the summary above it, and it
@@ -198,5 +220,22 @@ mod tests {
         let mut profiler = Profiler::new(1, 1_000);
         profiler.feed(&[0.5; 500]);
         assert!(sections(&profiler.finish()).is_empty());
+    }
+
+    /// A bake already on disk still says where its sections are: each starts
+    /// where the one before it ended, the first at zero, in the same form a
+    /// measured row uses.
+    #[test]
+    fn an_arrangement_says_where_each_section_starts_and_ends() {
+        let cut = |label: &str, end_seconds| Cut {
+            label: label.to_owned(),
+            end_seconds,
+        };
+        let rows = arrangement(&[cut("intro", 8.0), cut("verse", 43.479_166)]);
+        assert_eq!(
+            rows,
+            vec!["  0.000-8.000    intro", "  8.000-43.479   verse"]
+        );
+        assert!(arrangement(&[]).is_empty());
     }
 }

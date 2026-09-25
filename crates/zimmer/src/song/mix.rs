@@ -104,7 +104,7 @@ use super::automate::{self, Riding};
 use super::excerpt::Scope;
 use crate::core::{RATE, SAMPLE_RATE};
 use crate::fx;
-use crate::level::Layer;
+use crate::level::{Cut, Layer};
 use crate::patch::{Fx, sidechains};
 use crate::stereo::{self, Stereo};
 
@@ -226,8 +226,9 @@ impl<'a> Mix<'a> {
 
     /// Folds every bus down and applies the song's own chain, handing back the
     /// summed mix **unlimited** — limiting is the renderer's last word, not the
-    /// mixer's — and one measured row per track.
-    pub(super) fn finish(mut self) -> (Stereo, Vec<Layer>) {
+    /// mixer's — and one measured row per track, each cut at `cuts` the way
+    /// the sum's own section rows will be.
+    pub(super) fn finish(mut self, cuts: &[Cut]) -> (Stereo, Vec<Layer>) {
         let song = self.song;
         let mut parts = std::mem::take(&mut self.parts);
         // Taken out whole before any chain runs, so every track's chain sees
@@ -263,7 +264,7 @@ impl<'a> Mix<'a> {
         ring_out(&mut self.master, &song.fx);
         fx::apply_chain(&mut self.master, &song.fx, RATE);
         let layers = if self.measured {
-            measure(song, parts, self.master.frames(), self.scope)
+            measure(song, parts, self.master.frames(), self.scope, cuts)
         } else {
             Vec::new()
         };
@@ -335,7 +336,13 @@ fn placement(gain: f32, pan: f32) -> (f32, f32) {
 /// energy is all on one side, and a measurement of one side, or of a fold-down,
 /// would report a number that says the instrument is missing rather than that
 /// it is over there.
-fn measure(song: &Song, parts: Vec<Option<Stereo>>, frames: usize, scope: &Scope) -> Vec<Layer> {
+fn measure(
+    song: &Song,
+    parts: Vec<Option<Stereo>>,
+    frames: usize,
+    scope: &Scope,
+    cuts: &[Cut],
+) -> Vec<Layer> {
     let (from, to) = scope.keep(frames);
     song.tracks
         .iter()
@@ -360,6 +367,7 @@ fn measure(song: &Song, parts: Vec<Option<Stereo>>, frames: usize, scope: &Scope
                 &part.interleaved(),
                 stereo::CHANNELS,
                 SAMPLE_RATE,
+                cuts.to_vec(),
             )
         })
         .collect()

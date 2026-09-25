@@ -166,10 +166,20 @@ fn report(baked: &[(AssetId, Baked)]) {
                 for row in say::layers(tracks) {
                     println!("    {row}");
                 }
+                // And the question neither table answers alone: which
+                // instrument is quiet in which section.
+                for row in say::grid(tracks) {
+                    println!("    {row}");
+                }
             }
-            Baked::Cached { path } => {
+            Baked::Cached { path, sections } => {
                 println!("{id} — already baked");
                 println!("  {path}");
+                // Nothing was measured, but where the sections are is the
+                // recipe's arithmetic, and it is what a caption is placed on.
+                for row in say::arrangement(sections) {
+                    println!("    {row}");
+                }
             }
         }
     }
@@ -189,7 +199,10 @@ fn report_partial(id: &AssetId, excerpt: &Excerpt, partial: &Partial) {
     for row in say::sections(&partial.profile) {
         println!("    {row}");
     }
-    for row in say::layers(&partial.tracks) {
+    for row in say::layers(&partial.tracks)
+        .iter()
+        .chain(&say::grid(&partial.tracks))
+    {
         println!("    {row}");
     }
     // Said every time rather than once in the help, because the whole risk

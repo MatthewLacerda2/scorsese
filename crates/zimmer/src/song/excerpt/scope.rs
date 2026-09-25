@@ -10,6 +10,7 @@ use super::{Excerpt, Song};
 use crate::core::RATE;
 use crate::error::SynthError;
 use crate::fx;
+use crate::song::clock::Clock;
 use crate::song::shape::SEAM;
 
 /// The extra rendering a window does past its own end so that the stages
@@ -36,7 +37,7 @@ pub(crate) struct Scope {
 
 impl Scope {
     /// Resolves `excerpt` against `song` at the tempo it renders at.
-    pub(crate) fn of(song: &Song, excerpt: &Excerpt, bpm: f32) -> Result<Self, SynthError> {
+    pub(crate) fn of(song: &Song, excerpt: &Excerpt, clock: Clock) -> Result<Self, SynthError> {
         for name in &excerpt.only {
             if !song.tracks.iter().any(|track| &track.name == name) {
                 return Err(SynthError::UnknownSoloTrack {
@@ -51,7 +52,7 @@ impl Scope {
             .collect();
         let (from, to) = excerpt
             .window
-            .map_or((0, None), |window| window.frames(bpm));
+            .map_or((0, None), |window| window.frames(clock));
         Ok(Self {
             from,
             to,
@@ -146,7 +147,7 @@ mod tests {
     }
 
     fn scope(excerpt: &Excerpt) -> Scope {
-        Scope::of(&two_tracks(), excerpt, 120.0).expect("the excerpt resolves")
+        Scope::of(&two_tracks(), excerpt, Clock::at(120.0)).expect("the excerpt resolves")
     }
 
     /// The saving, asserted where it can be: past the guard a note cannot
@@ -279,7 +280,7 @@ mod tests {
     #[test]
     fn beats_become_samples_at_the_rendered_tempo() {
         let window = Window::beats(Span::new(4.0, Some(8.0)).unwrap());
-        let (from, to) = window.frames(120.0);
+        let (from, to) = window.frames(Clock::at(120.0));
         assert_eq!(
             from,
             RATE as usize * 2,
@@ -291,7 +292,7 @@ mod tests {
     #[test]
     fn seconds_are_seconds_whatever_the_tempo() {
         let window = Window::seconds(Span::new(0.0, Some(12.0)).unwrap());
-        assert_eq!(window.frames(75.0).1, Some(RATE as usize * 12));
+        assert_eq!(window.frames(Clock::at(75.0)).1, Some(RATE as usize * 12));
     }
 
     /// The open end is the whole rest of the piece, so nothing is skipped for
@@ -299,6 +300,6 @@ mod tests {
     #[test]
     fn an_open_window_renders_every_note() {
         let window = Window::beats(Span::new(4.0, None).unwrap());
-        assert_eq!(window.frames(120.0).1, None);
+        assert_eq!(window.frames(Clock::at(120.0)).1, None);
     }
 }
