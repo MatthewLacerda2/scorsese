@@ -1,7 +1,7 @@
 //! The $10 monthly fee: which months are owed, and charging them.
 //!
 //! **Each month of an account's life, counted from its first top-up, owes
-//! [`MONTHLY_FEE_MICROS`](super::MONTHLY_FEE_MICROS)** — the first month the
+//! [`MONTHLY_FEE_MICROS`]** — the first month the
 //! moment the first money arrives. From the first top-up, not from the
 //! account's creation: an account the operator made for somebody who never
 //! paid has never owed anything.
