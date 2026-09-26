@@ -117,9 +117,37 @@ the picture.
 Which is why the two are quoted on separate lines and never summed into one
 per-item average: an average across them would describe nothing that exists.
 
+## The assistant
+
+The hosted web app's assistant (#540) is Claude Opus 5.5, priced per **million
+tokens**, each kind at its own rate:
+
+| model | input | output | cache write, 5 min | cache write, 1 h | cache read |
+| --- | --- | --- | --- | --- | --- |
+| `claude-opus-5-5` | $4 | $20 | $5 | $8 | $0.20 |
+
+Last checked against
+[Anthropic's pricing page](https://platform.claude.com/docs/en/about-claude/pricing)
+on **2026-09-25**. Standard tier and global routing only — fast mode, the batch
+discount and US-only inference (1.1×) are rows scorsese never pays, so they are
+not here. Cache reads on this model are 0.05× input, not the usual 0.1×; that is
+the vendor's figure, not a typo.
+
+**This is the one table whose total is not a guess about quantity.** Every
+response carries a `usage` block counting the tokens it was billed for — plain
+input, output, both kinds of cache write, cache reads — so the cost of a call is
+the vendor's own count times this table. The rate is still a page somebody
+copied, which is why the date is here; the count is not an estimate.
+
+**In micro-dollars, rounded up once per call.** A cache-read token is a fifth of
+a micro-dollar, so a call is summed in cent-tokens and divided once, upwards —
+`prices::claude::Usage::micros`. The hosted server's ledger is in micro-dollars
+for exactly this reason (`docs/web.md`, *Money*).
+
 ## Nobody bills us back
 
-**No provider scorsese talks to reports what a generation cost.** This is the
+**No provider scorsese talks to reports what a generation cost** — in money.
+Claude's token counts (above) come closest, and they are still counts. This is the
 part worth reading twice, because every figure downstream inherits it.
 
 A finished Veo operation is this, whole:
@@ -156,10 +184,15 @@ the table is right, and the table is a page somebody copied.
 
 ## In cents, all the way through
 
-Whole US cents everywhere — the rate table, `estimated_cost_cents`, and the
-`budget_cents` ceiling in [credentials.md](credentials.md). A total is a sum,
-and a sum of floats is not the same number twice; a ceiling off by a rounding
-error is a ceiling nobody can reason about.
+Whole US cents everywhere on a local project — the rate tables,
+`estimated_cost_cents`, and the `budget_cents` ceiling in
+[credentials.md](credentials.md). A total is a sum, and a sum of floats is not
+the same number twice; a ceiling off by a rounding error is a ceiling nobody
+can reason about.
+
+The hosted server's credit ledger is the one place finer than a cent — integer
+**micro-dollars**, because an assistant call costs fractions of one. It takes
+a quote's cents at its boundary and multiplies; nothing here changes for it.
 
 It costs nothing here, either: every rate Veo publishes happens to be a whole
 number of cents per second, so nothing rounds on the way in. If a vendor ever

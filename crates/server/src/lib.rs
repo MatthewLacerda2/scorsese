@@ -91,10 +91,12 @@
 //! [`projects`] their edits stored as `project.json` documents, and
 //! [`storage`] where each user's files live. [`jobs`] is the queue long work
 //! waits in and the worker that runs it; [`events`] the live stream a user's
-//! browser hears it on.
+//! browser hears it on. [`credits`] is what each user has paid and spent, and
+//! the record of every paid generation.
 
 pub mod accounts;
 pub mod config;
+pub mod credits;
 pub mod db;
 pub mod events;
 pub mod http;
@@ -152,6 +154,10 @@ pub enum ServerError {
     #[error("could not migrate the stored projects: {0}")]
     Projects(#[from] projects::ProjectError),
 
+    /// Recording or spending credits did not happen.
+    #[error(transparent)]
+    Credit(#[from] credits::CreditError),
+
     /// An irreversible command was not confirmed; the message says how.
     #[error("{0}")]
     Unconfirmed(String),
@@ -190,7 +196,8 @@ pub async fn run(
 /// the code answering it either. Requests are then answered from
 /// [`db::member_pool`], whose connections can read nothing outside a scoped
 /// transaction — per-user isolation, `db::scope`. The job worker
-/// ([`jobs::work`]) runs beside them on the same pool.
+/// ([`jobs::work`]) and the monthly-fee sweep ([`credits::fees::run`]) run
+/// beside them on the same pool.
 ///
 /// On `shutdown` every live stream ends, so the graceful stop is not held
 /// open by them; requests in flight finish; then the worker stops, leaving
@@ -209,6 +216,7 @@ pub async fn start(
     let pool = db::member_pool(&pool).await.map_err(ServerError::Connect)?;
     let state = AppState::new(pool.clone());
     let (stop, stopping) = watch::channel(false);
+    let fees = tokio::spawn(credits::fees::run(pool.clone(), stopping.clone()));
     let worker = tokio::spawn(jobs::work(pool, registry, state.jobs.clone(), stopping));
     let events = state.events.clone();
     let served = http::serve(listener, http::router(state), async move {
@@ -219,6 +227,9 @@ pub async fn start(
     stop.send_replace(true);
     if let Err(error) = worker.await {
         eprintln!("scorsese-server: the job worker failed: {error}");
+    }
+    if let Err(error) = fees.await {
+        eprintln!("scorsese-server: the monthly-fee sweep failed: {error}");
     }
     Ok(served?)
 }

@@ -1,4 +1,5 @@
-//! The operator's commands: `scorsese-server user …`, `token …` and `job …`.
+//! The operator's commands: `scorsese-server user …`, `token …`, `job …` and
+//! `credit …` (the last in [`crate::credits::command`]).
 //!
 //! **There is no public sign-up in v1** (#533): the operator makes each
 //! account by hand for somebody they know, and resets a password the same way
@@ -25,6 +26,7 @@ use sqlx::postgres::PgPool;
 
 use crate::ServerError;
 use crate::accounts::{password, tokens, users};
+pub use crate::credits::command::CreditCommand;
 use crate::jobs::store;
 
 /// What the binary can be asked to do.
@@ -41,6 +43,9 @@ pub enum Command {
     /// See what the job queue has been through.
     #[command(subcommand)]
     Job(JobCommand),
+    /// Record top-ups and refunds, set the display rate, read a balance.
+    #[command(subcommand)]
+    Credit(CreditCommand),
 }
 
 /// `scorsese-server job …`

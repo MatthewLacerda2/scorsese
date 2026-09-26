@@ -8,7 +8,12 @@ use sqlx::postgres::PgPool;
 
 /// Tables that are not a user's data. Adding one here is a decision a
 /// reviewer should see argued in the same pull request.
-const NOT_PER_USER: &[&str] = &["_sqlx_migrations"];
+///
+/// `display_rates` (#537): the reais-per-dollar rate balances are shown at is
+/// one fact about the world, the same for every user, set by the operator.
+/// Members may read it and write nothing — the migration revokes the rest,
+/// and `tests/credits/append_only.rs` holds that.
+const NOT_PER_USER: &[&str] = &["_sqlx_migrations", "display_rates"];
 
 #[sqlx::test]
 async fn every_table_is_owned_cascaded_and_policed(pool: PgPool) {
@@ -61,6 +66,10 @@ async fn a_query_outside_a_scope_is_refused_even_on_an_empty_table(pool: PgPool)
         "SELECT count(*) FROM jobs",
         "SELECT count(*) FROM projects",
         "SELECT count(*) FROM project_assets",
+        "SELECT count(*) FROM credit_entries",
+        "SELECT count(*) FROM veo_generations",
+        "SELECT count(*) FROM speech_generations",
+        "SELECT count(*) FROM display_rates",
     ] {
         let error = sqlx::query(query).execute(&members).await.unwrap_err();
         assert!(
