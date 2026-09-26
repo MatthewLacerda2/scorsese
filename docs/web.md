@@ -32,7 +32,8 @@ TypeScript. It is its own project the way `app/` is its own cargo workspace,
 and it has its own conditional gate. It talks to the server over HTTP and to
 nothing else.
 
-**It runs on the maintainer's machine in Docker Compose**, four containers:
+**It runs on the maintainer's machine in Docker Compose**, four service
+containers and one that keeps them safe:
 
 | container | role |
 | --- | --- |
@@ -40,6 +41,7 @@ nothing else.
 | `scorsese-server` | the Rust server, with ffmpeg inside; library files, render cache and scratch mounted from host disk |
 | `web` | nginx serving the built React files |
 | `cloudflared` | a **Cloudflare Tunnel** — how the site reaches the internet without a static IP; it also terminates HTTPS, so there is no reverse proxy of our own |
+| `backup` | scheduled `pg_dump` plus a sync of the library **off the machine** (#532). Not part of serving a request — the fifth container exists because a home machine has no redundancy, and a backup that depends on someone remembering is not one |
 
 **No message broker.** Long work — renders, Veo shots, ElevenLabs lines,
 thumbnails, proxies — is a row in a Postgres `jobs` table, claimed by workers
