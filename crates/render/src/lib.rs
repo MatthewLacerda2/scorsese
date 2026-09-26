@@ -161,6 +161,20 @@ pub use scorsese_compositor::grid;
 /// word rather than by its name, and [`icon::all`] is what both of those read.
 pub use scorsese_compositor::icon;
 
+/// The names of the properties the compositor draws — `transform.rotation`,
+/// `opacity` and the rest — which belong to the compositor because that is
+/// where they mean anything.
+///
+/// Reachable as `picture::path::ROTATION` beside `audio::path::VOLUME`, and for
+/// the same reason: a caller that edits a project names a property through the
+/// crate it renders with, and never spells the string itself. The desktop app's
+/// inspector is the caller this was opened for — it offers a clip's position,
+/// rotation and scale as plain values, and a window with its own copy of those
+/// names would drift the first time one was renamed.
+pub mod picture {
+    pub use scorsese_compositor::path;
+}
+
 pub use checkup::Checkup;
 pub use contact::{ContactError, Look, Sheet};
 pub use describe::{

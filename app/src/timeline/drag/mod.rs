@@ -13,7 +13,7 @@
 
 mod commit;
 mod shape;
-mod snap;
+pub(super) mod snap;
 
 use egui::{CursorIcon, Pos2, Rect};
 use scorsese_core::{AssetKind, Clip, ClipId, Frames, Project, TrackId};
@@ -33,7 +33,7 @@ const HANDLE: f32 = 6.0;
 /// small because the cost of the two failures is not symmetric: a snap you did
 /// not want is one nudge to undo, and a snap you did not get is a one-frame gap
 /// that renders as a black flash and is never noticed until playback.
-const SNAP: f32 = 8.0;
+pub(super) const SNAP: f32 = 8.0;
 
 /// A clip being moved or trimmed.
 #[derive(Debug)]
@@ -126,7 +126,7 @@ impl Drag {
 
         let taken = (!pull.bypass)
             .then(|| {
-                Targets::gather(pull.project, pull.playhead, &self.clip)
+                Targets::gather(pull.project, pull.playhead, Some(&self.clip))
                     .nearest(&free.edges(self.handle), pull.view.frames_in(SNAP))
             })
             .flatten()
