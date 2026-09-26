@@ -480,6 +480,72 @@ There is no route to enqueue a job directly: the feature that needs one (a
 render, a generation) enqueues it inside its own transaction and announces it.
 Not in v1: priority tiers, cleaning out old finished jobs.
 
+## Projects
+
+A user's projects in Postgres (#534). The code is `crates/server/src/projects/`,
+and its module docs carry each argument; this is the whole of it in one place.
+
+**A row is the whole `project.json`**, in a `JSONB` column, read into
+`scorsese_core::Project` and written back whole. `JSONB` because key order and
+whitespace are not meaning, and it lets Postgres look inside: `name` is a column
+*generated* from the document, so a list never reads documents and the two
+cannot disagree. A new project is `Project::new`, exactly as `scorsese new`
+makes one.
+
+**The conflict rule is a revision number.** Every write adds one; a save names
+the revision its document was read at, and is refused (`409`) when that is no
+longer current — the check and the write are one `UPDATE … WHERE revision = $n`,
+so two racing writers cannot both land. A number rather than a fingerprint of the
+bytes (which `JSONB` does not keep), and a check rather than a lock (a lock held
+while an assistant thinks is a project wedged when it dies). A change that takes
+no time — a rename — is made under the row's lock instead and cannot conflict.
+
+**Media is named by hash; the path is only where it sits.** A stored document
+refers to files exactly as a folder's does — a project-relative `path` and a
+`sha256` — so "no absolute paths, ever" holds and `core` reads it unchanged. A
+library file sits at **`assets/<sha256>.<ext>`** (`projects::media::library_path`):
+unique per file, the same in every project, extension kept. Generated media keeps
+its `generated/…` path.
+
+**`project_assets` is derived, never edited**: one row per distinct `sha256` in
+the document, rewritten in the same transaction as every write. It answers
+"which projects use this file?" for the library (#535). It names a file by
+**(user, sha256)** — the library's own identity for a file — and has no foreign
+key to the library yet: that table does not exist, and adding the key is #535's
+job, with the table. A composite key to `projects (id, user_id)` stops a row
+pointing at another user's project.
+
+**Rendering a stored project** lays it out as a temporary `.scor` folder
+(`projects::media::materialise`): the document written, each file **symlinked**
+from where the user's storage keeps it, looked up **by hash** in that user's
+storage and never by the document's path — so a document cannot point the server
+at another user's file or at the host's. `render` and `compositor` run on it
+unchanged; the folder is removed when dropped. Where it goes and what starts the
+render are the job queue's (#536, #541).
+
+**A schema bump migrates every stored document on start** — the rule in
+`CLAUDE.md`. After the SQL migrations and before listening, the server finds
+every document whose `schema_version` is not this build's and carries it
+forward with `scorsese_core::migrate`, in one transaction: either every project
+is readable by this build or the server does not start, naming the project that
+could not be carried. A document from a *newer* build is that case — an older
+binary deployed over a newer one — and the way back is the dump taken before
+updating. Local folders go through the same steps with `scorsese migrate`.
+
+| route | who | what |
+| --- | --- | --- |
+| `GET /api/projects` | a member | their projects, newest write first, without documents |
+| `POST /api/projects` | a member | `{name, fps?}` → a new empty project, `201` |
+| `GET /api/projects/{id}` | a member | the project, its `document` and `revision` |
+| `PUT /api/projects/{id}` | a member | `{revision, document}` → `{revision}`; `409` if it moved on, `400` for a document this build does not read |
+| `PATCH /api/projects/{id}` | a member | `{name}` → `{revision}` |
+| `DELETE /api/projects/{id}` | a member | `204`; `404` for an id that is not theirs |
+
+Deliberately storage verbs only: what a project *says* is changed by `core`'s
+editing functions, through the tools (#539, #540) and the editor (#545).
+Recipes and a project's `script` are documents rather than media, and have
+nowhere to live in the server yet; the materialiser does not lay them out.
+
 ## Out of scope for now
 
 Pix payments (#548), folders in the library, a shared cross-user library,

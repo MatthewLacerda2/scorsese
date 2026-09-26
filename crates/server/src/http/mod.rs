@@ -13,6 +13,12 @@
 //! | `GET /api/jobs` | a member | their last hundred jobs, newest first |
 //! | `GET /api/jobs/{id}` | a member | one of their jobs |
 //! | `GET /api/events` | a member | their live updates, as server-sent events |
+//! | `GET /api/projects` | a member | their projects, without documents |
+//! | `POST /api/projects` | a member | `{name, fps?}` → a new empty project |
+//! | `GET /api/projects/{id}` | a member | the project, its document and revision |
+//! | `PUT /api/projects/{id}` | a member | `{revision, document}`; `409` if it moved on |
+//! | `PATCH /api/projects/{id}` | a member | `{name}`: rename |
+//! | `DELETE /api/projects/{id}` | a member | deletes one |
 //!
 //! "A member" is a request carrying a session cookie or an API token — see
 //! [`auth`].
@@ -22,6 +28,7 @@ pub mod auth;
 pub mod error;
 pub mod events;
 pub mod jobs;
+pub mod projects;
 pub mod tokens;
 
 use std::future::Future;
@@ -81,7 +88,15 @@ pub fn router(state: AppState) -> Router {
         .route("/tokens/{id}", delete(tokens::revoke))
         .route("/jobs", get(jobs::list))
         .route("/jobs/{id}", get(jobs::get))
-        .route("/events", get(events::stream));
+        .route("/events", get(events::stream))
+        .route("/projects", get(projects::list).post(projects::create))
+        .route(
+            "/projects/{id}",
+            get(projects::open)
+                .put(projects::save)
+                .patch(projects::rename)
+                .delete(projects::delete),
+        );
     Router::new().nest("/api", api).with_state(state)
 }
 

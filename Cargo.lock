@@ -1523,6 +1523,7 @@ dependencies = [
  "clap",
  "futures-util",
  "getrandom 0.4.3",
+ "scorsese-core",
  "scorsese-providers",
  "serde",
  "serde_json",

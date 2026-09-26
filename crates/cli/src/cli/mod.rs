@@ -271,6 +271,14 @@ pub(crate) enum Command {
         #[arg(long)]
         all: bool,
     },
+    /// Rewrite the project's project.json at this build's schema_version,
+    /// after upgrading scorsese past a format change.
+    ///
+    /// A project written by an older build is refused by every other command
+    /// until this has run; it carries the document forward one version at a
+    /// time and saves it. A project that is already current is not touched.
+    /// Nothing goes backwards: a project from a newer build is refused.
+    Migrate,
     /// Report everything wrong or questionable about the project — the
     /// document, the media it references, and the layers it draws over each
     /// other — without rendering. Problems fail; warnings do not.

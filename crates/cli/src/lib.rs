@@ -1,7 +1,7 @@
 //! # scorsese-cli — the headless binary
 //!
 //! Responsibility: the `scorsese` command-line surface — `new`, `import`,
-//! `check`, `render`, `still`, `synth`, `duck`, `voices`, `generate`,
+//! `check`, `migrate`, `render`, `still`, `synth`, `duck`, `voices`, `generate`,
 //! `assets`, `diff`.
 //! This is how an agent (or a CI
 //! job) assembles and renders a video with no human and no screen: every
@@ -126,6 +126,7 @@ fn dispatch(cli: Cli) -> Result<()> {
         Command::Icons { query } => commands::icons::run(&query),
         Command::Probe { all } => commands::probe::run(&directory, all),
         Command::Check { verify } => commands::check::run(&directory, verify),
+        Command::Migrate => commands::migrate::run(&directory),
         Command::Import { paths, kind } => {
             commands::import::run(&directory, &paths, kind.map(Into::into))
         }
