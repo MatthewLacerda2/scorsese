@@ -410,6 +410,76 @@ Not in v1: a login rate limit (Cloudflare's rules sit in front, and argon2
 makes each guess cost tens of milliseconds), password-reset email, OAuth,
 public sign-up.
 
+## Jobs
+
+Long work — a render, a Veo shot, a spoken line, a thumbnail, a proxy — is a
+row in the `jobs` table, run by a worker inside the server (#536). The code is
+`crates/server/src/jobs/`, and its module doc carries the argument.
+
+**States**: `waiting → running → done | failed | stuck`. `stuck` is a provider
+job that outlasted its patience; it is not lost (below).
+
+**Claiming** is the one cross-user thing the worker does — *which job next*,
+whoever's it is — so it runs `db::privileged`, `FOR UPDATE SKIP LOCKED`, and
+returns the owner. Everything after it (keeping a ticket, finishing, whatever a
+handler reads) runs `db::scoped` as that owner. The claim is fair between
+users: whoever has the fewest jobs running goes first, so one person's batch
+does not hold everybody else up.
+
+**Concurrency is per kind**, declared beside each kind in `jobs/kinds.rs`:
+
+| kind | at once | why |
+| --- | --- | --- |
+| `render` | 2 | compositor and encoder each take several of the four cores |
+| `proxy` | 1 | a whole transcode, as heavy as a render |
+| `thumbnail` | 2 | one decoded frame |
+| `veo_shot` | 4 | minutes of waiting on Google, almost no machine |
+| `spoken_line` | 4 | seconds, mostly network |
+
+**No kind has a handler yet.** Rendering a stored project needs #534, and a
+paid generation needs credits (#537), which also rules whether a failed one is
+charged. Each registers its handler in `jobs::kinds::registry()`; until then a
+job of that kind waits rather than failing. The worker, the claim, recovery and
+the event stream are exercised end to end by test handlers, one of which stands
+in for Veo.
+
+**After a crash.** One worker per database, held by a Postgres advisory lock,
+so a job found `running` when the worker starts belongs to a dead process. It
+goes back to `waiting`, stamped `interrupted_at`; after three interruptions it
+is given up on — `failed`, or `stuck` if it holds a ticket. A graceful stop
+(`docker compose stop`, a deploy) takes the same path, so the crash path runs
+on every deploy. Who a power cut affected:
+
+    docker compose exec scorsese-server scorsese-server job interrupted
+
+**Veo: never pay twice.** The rule `scorsese_providers::video` keeps for a
+local project, kept here:
+
+- The moment Google accepts a shot, its operation ticket is committed to the
+  job's row (`Context::keep_ticket`), before the handler does anything else.
+- A job that comes back with a ticket **polls it and never submits again**:
+  Google keeps generating and bills either way, and the video stays fetchable
+  for two days.
+- A Veo job polls for up to **15 minutes** (`PROVIDER_PATIENCE`) — shots have
+  taken ten — then marks the job `stuck`, ticket kept for a later collect.
+
+**Live state** reaches the browser over **`GET /api/events`**, server-sent
+events, one stream per user carrying everything live: each message is a JSON
+object with a `type` — `job` today, the assistant's (#540) as it adds them.
+In memory and allowed to drop: a reader that falls behind gets `resync`, and
+the answer to that, or to reconnecting, is to re-read `GET /api/jobs`. The
+stream ends when the server stops, and `EventSource` reconnects by itself.
+
+| route | who | what |
+| --- | --- | --- |
+| `GET /api/jobs` | a member | their last hundred jobs, newest first |
+| `GET /api/jobs/{id}` | a member | one; `404` for one that is not theirs |
+| `GET /api/events` | a member | their live updates, as server-sent events |
+
+There is no route to enqueue a job directly: the feature that needs one (a
+render, a generation) enqueues it inside its own transaction and announces it.
+Not in v1: priority tiers, cleaning out old finished jobs.
+
 ## Out of scope for now
 
 Pix payments (#548), folders in the library, a shared cross-user library,

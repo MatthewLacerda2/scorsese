@@ -58,6 +58,7 @@ async fn a_query_outside_a_scope_is_refused_even_on_an_empty_table(pool: PgPool)
         "SELECT count(*) FROM users",
         "SELECT count(*) FROM sessions",
         "SELECT count(*) FROM api_tokens",
+        "SELECT count(*) FROM jobs",
     ] {
         let error = sqlx::query(query).execute(&members).await.unwrap_err();
         assert!(

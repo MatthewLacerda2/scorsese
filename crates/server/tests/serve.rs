@@ -5,8 +5,12 @@ mod common;
 use std::time::Duration;
 
 use scorsese_providers::credentials::Secret;
+use scorsese_server::accounts::{tokens, users};
+use scorsese_server::jobs::Registry;
 use scorsese_server::{Config, ServerError, db, http};
 use sqlx::postgres::PgPool;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpStream;
 use tokio::sync::oneshot;
 use tokio::time::timeout;
 
@@ -18,9 +22,14 @@ const STOP: Duration = Duration::from_secs(10);
 async fn it_migrates_serves_and_stops_cleanly(pool: PgPool) {
     let (listener, address) = common::listener().await;
     let (stop, stopped) = oneshot::channel::<()>();
-    let server = tokio::spawn(scorsese_server::start(pool.clone(), listener, async {
-        stopped.await.ok();
-    }));
+    let server = tokio::spawn(scorsese_server::start(
+        pool.clone(),
+        listener,
+        Registry::new(),
+        async {
+            stopped.await.ok();
+        },
+    ));
 
     let (status, body) = common::get(address, "/api/health").await;
     assert_eq!((status, body.as_str()), (200, "ok"));
@@ -64,10 +73,42 @@ async fn health_says_unavailable_when_the_database_is_unreachable() {
         .connect_lazy(NOWHERE)
         .unwrap();
     let (listener, address) = common::listener().await;
-    let router = http::router(http::AppState { pool });
+    let router = http::router(http::AppState::new(pool));
     let server = tokio::spawn(http::serve(listener, router, std::future::pending()));
 
     let (status, body) = common::get(address, "/api/health").await;
     assert_eq!((status, body.as_str()), (503, "database unreachable"));
     server.abort();
+}
+
+#[sqlx::test(migrations = false)]
+async fn an_open_event_stream_does_not_hold_the_server_up(pool: PgPool) {
+    let (listener, address) = common::listener().await;
+    let (stop, stopped) = oneshot::channel::<()>();
+    let server = tokio::spawn(scorsese_server::start(
+        pool.clone(),
+        listener,
+        Registry::new(),
+        async {
+            stopped.await.ok();
+        },
+    ));
+    common::get(address, "/api/health").await; // migrated by now
+    let ana = users::create(&pool, "ana@example.com", "password one")
+        .await
+        .unwrap();
+    let token = tokens::issue(&pool, ana, "t").await.unwrap().token;
+
+    // A browser listening, which never hangs up by itself.
+    let mut stream = TcpStream::connect(address).await.unwrap();
+    let request =
+        format!("GET /api/events HTTP/1.1\r\nHost: t\r\nAuthorization: Bearer {token}\r\n\r\n");
+    stream.write_all(request.as_bytes()).await.unwrap();
+    let mut head = [0u8; 12];
+    stream.read_exact(&mut head).await.unwrap();
+    assert_eq!(&head, b"HTTP/1.1 200");
+
+    stop.send(()).unwrap();
+    let outcome = timeout(STOP, server).await.expect("the server stopped");
+    outcome.unwrap().unwrap();
 }

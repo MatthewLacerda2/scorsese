@@ -30,7 +30,9 @@
 //! The one way around it is [`privileged`], which drops back to the login
 //! role, bypasses the policies, and is for the handful of queries that are
 //! cross-user by nature: finding whose a session cookie or token is, logging
-//! in, and the operator's commands. Every call to it is a place a reviewer
+//! in, the operator's commands, and the job worker's claim and crash recovery
+//! (`jobs::store` — once a job is claimed, the rest runs scoped as its
+//! owner). Every call to it is a place a reviewer
 //! reads twice; it is short on purpose, so `grep privileged` stays a short
 //! list.
 //!

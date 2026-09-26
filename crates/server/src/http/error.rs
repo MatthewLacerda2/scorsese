@@ -45,6 +45,13 @@ impl From<AccountError> for ApiError {
     }
 }
 
+impl From<sqlx::Error> for ApiError {
+    fn from(error: sqlx::Error) -> Self {
+        eprintln!("scorsese-server: {error}");
+        Self::Internal
+    }
+}
+
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let (status, message) = match self {

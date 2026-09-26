@@ -88,12 +88,16 @@
 //! assembled from — [`Config`], [`db`], [`http`] and [`start`] — published
 //! because the tests drive each one from outside the crate. [`accounts`] is
 //! who may use the server, [`operator`] the commands that manage them, and
-//! [`storage`] where each user's files live.
+//! [`storage`] where each user's files live. [`jobs`] is the queue long work
+//! waits in and the worker that runs it; [`events`] the live stream a user's
+//! browser hears it on.
 
 pub mod accounts;
 pub mod config;
 pub mod db;
+pub mod events;
 pub mod http;
+pub mod jobs;
 pub mod operator;
 pub mod storage;
 
@@ -102,6 +106,7 @@ use std::path::PathBuf;
 
 use sqlx::postgres::PgPool;
 use tokio::net::TcpListener;
+use tokio::sync::watch;
 
 pub use accounts::AccountError;
 pub use config::{Config, ConfigError};
@@ -118,6 +123,10 @@ pub enum ServerError {
     /// The database could not be reached.
     #[error("could not connect to the database: {0}")]
     Connect(#[source] sqlx::Error),
+
+    /// A query an operator command ran failed.
+    #[error("the database refused: {0}")]
+    Database(#[source] sqlx::Error),
 
     /// The schema could not be brought up to date.
     #[error("could not migrate the database: {0}")]
@@ -160,26 +169,46 @@ pub async fn run(
         source,
     })?;
     let listener = TcpListener::bind(config.bind).await?;
-    start(pool, listener, shutdown).await
+    start(pool, listener, jobs::kinds::registry(), shutdown).await
 }
 
-/// Migrate, then serve on `listener` until `shutdown`.
+/// Migrate, then serve on `listener` and run `registry`'s jobs until
+/// `shutdown`.
 ///
 /// The half of [`run`] that is handed its resources rather than making them,
-/// so a test can give it a database of its own and a port the OS picked.
-/// Migrations run before the first connection is accepted, so no request ever
-/// meets a schema older than the code answering it. Requests are then
-/// answered from [`db::member_pool`], whose connections can read nothing
-/// outside a scoped transaction — per-user isolation, `db::scope`.
+/// so a test can give it a database of its own, a port the OS picked and
+/// handlers of its own. Migrations run before the first connection is
+/// accepted, so no request ever meets a schema older than the code answering
+/// it. Requests are then answered from [`db::member_pool`], whose connections
+/// can read nothing outside a scoped transaction — per-user isolation,
+/// `db::scope`. The job worker ([`jobs::work`]) runs beside them on the same
+/// pool.
+///
+/// On `shutdown` every live stream ends, so the graceful stop is not held
+/// open by them; requests in flight finish; then the worker stops, leaving
+/// what it was running for the next start to recover.
 pub async fn start(
     pool: PgPool,
     listener: TcpListener,
+    registry: jobs::Registry,
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> Result<(), ServerError> {
     db::migrate(&pool).await?;
     let pool = db::member_pool(&pool).await.map_err(ServerError::Connect)?;
-    http::serve(listener, http::router(AppState { pool }), shutdown).await?;
-    Ok(())
+    let state = AppState::new(pool.clone());
+    let (stop, stopping) = watch::channel(false);
+    let worker = tokio::spawn(jobs::work(pool, registry, state.jobs.clone(), stopping));
+    let events = state.events.clone();
+    let served = http::serve(listener, http::router(state), async move {
+        shutdown.await;
+        events.close();
+    })
+    .await;
+    stop.send_replace(true);
+    if let Err(error) = worker.await {
+        eprintln!("scorsese-server: the job worker failed: {error}");
+    }
+    Ok(served?)
 }
 
 /// Connect to the configured database and bring its schema up to date.
