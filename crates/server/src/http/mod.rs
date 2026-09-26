@@ -10,6 +10,9 @@
 //! | `GET /api/tokens` | a member | their API tokens, without values |
 //! | `POST /api/tokens` | a member, by session | `{name}` → `{id, token}`, shown once |
 //! | `DELETE /api/tokens/{id}` | a member | revokes one |
+//! | `GET /api/jobs` | a member | their last hundred jobs, newest first |
+//! | `GET /api/jobs/{id}` | a member | one of their jobs |
+//! | `GET /api/events` | a member | their live updates, as server-sent events |
 //!
 //! "A member" is a request carrying a session cookie or an API token — see
 //! [`auth`].
@@ -17,6 +20,8 @@
 pub mod account;
 pub mod auth;
 pub mod error;
+pub mod events;
+pub mod jobs;
 pub mod tokens;
 
 use std::future::Future;
@@ -28,6 +33,9 @@ use axum::routing::{delete, get, post};
 use sqlx::postgres::PgPool;
 use tokio::net::TcpListener;
 
+use crate::events::Events;
+use crate::jobs::Queue;
+
 /// What every handler can reach.
 ///
 /// Cheap to clone — a pool is a handle — which is what axum asks of state.
@@ -37,6 +45,23 @@ pub struct AppState {
     /// it: every connection unable to read a table until a handler opens a
     /// scoped or privileged transaction.
     pub pool: PgPool,
+    /// The live stream every user's browser listens on.
+    pub events: Events,
+    /// The job queue, for announcing a job once it is enqueued.
+    pub jobs: Queue,
+}
+
+impl AppState {
+    /// State answering from `pool`, with a new event bus and a queue telling
+    /// it.
+    pub fn new(pool: PgPool) -> Self {
+        let events = Events::new();
+        Self {
+            pool,
+            jobs: Queue::new(events.clone()),
+            events,
+        }
+    }
 }
 
 /// Every route the server answers, all of them under `/api`.
@@ -53,7 +78,10 @@ pub fn router(state: AppState) -> Router {
         .route("/me", get(account::me))
         .route("/me/password", post(account::change_password))
         .route("/tokens", get(tokens::list).post(tokens::issue))
-        .route("/tokens/{id}", delete(tokens::revoke));
+        .route("/tokens/{id}", delete(tokens::revoke))
+        .route("/jobs", get(jobs::list))
+        .route("/jobs/{id}", get(jobs::get))
+        .route("/events", get(events::stream));
     Router::new().nest("/api", api).with_state(state)
 }
 

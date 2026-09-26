@@ -60,6 +60,10 @@ async fn perform(config: Config, command: Command) -> Result<(), ServerError> {
             let pool = scorsese_server::open_database(&config).await?;
             operator::token(&pool, command).await?
         }
+        Command::Job(command) => {
+            let pool = scorsese_server::open_database(&config).await?;
+            operator::job(&pool, command).await?
+        }
     };
     println!("{output}");
     Ok(())

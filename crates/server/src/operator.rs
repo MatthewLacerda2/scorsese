@@ -1,4 +1,4 @@
-//! The operator's commands: `scorsese-server user …` and `token …`.
+//! The operator's commands: `scorsese-server user …`, `token …` and `job …`.
 //!
 //! **There is no public sign-up in v1** (#533): the operator makes each
 //! account by hand for somebody they know, and resets a password the same way
@@ -25,6 +25,7 @@ use sqlx::postgres::PgPool;
 
 use crate::ServerError;
 use crate::accounts::{password, tokens, users};
+use crate::jobs::store;
 
 /// What the binary can be asked to do.
 #[derive(Debug, Subcommand)]
@@ -37,6 +38,17 @@ pub enum Command {
     /// Issue an API token on a user's behalf.
     #[command(subcommand)]
     Token(TokenCommand),
+    /// See what the job queue has been through.
+    #[command(subcommand)]
+    Job(JobCommand),
+}
+
+/// `scorsese-server job …`
+#[derive(Debug, Subcommand)]
+pub enum JobCommand {
+    /// List the jobs a crash or a restart cut off, newest first, with whose
+    /// they are and where each is now — who a power cut affected.
+    Interrupted,
 }
 
 /// `scorsese-server user …`
@@ -134,4 +146,25 @@ pub async fn token(pool: &PgPool, command: TokenCommand) -> Result<String, Serve
         "token {} for {email}, shown once:\n{}",
         issued.id, issued.token
     ))
+}
+
+/// Carry out a `job` command. Returns what to print.
+pub async fn job(pool: &PgPool, command: JobCommand) -> Result<String, ServerError> {
+    let JobCommand::Interrupted = command;
+    let jobs = store::interrupted(pool)
+        .await
+        .map_err(ServerError::Database)?;
+    if jobs.is_empty() {
+        return Ok("no job has been interrupted".to_owned());
+    }
+    Ok(jobs
+        .iter()
+        .map(|job| {
+            format!(
+                "{}\t{}\t{}\t{}\tinterrupted {}",
+                job.id, job.email, job.kind, job.state, job.interrupted_at
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n"))
 }

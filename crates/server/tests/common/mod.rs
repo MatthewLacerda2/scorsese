@@ -34,7 +34,7 @@ pub(crate) async fn serve(pool: PgPool) -> SocketAddr {
     let members = scorsese_server::db::member_pool(&pool)
         .await
         .expect("the member pool connects");
-    let router = http::router(http::AppState { pool: members });
+    let router = http::router(http::AppState::new(members));
     tokio::spawn(http::serve(listener, router, std::future::pending()));
     address
 }
