@@ -11,6 +11,7 @@ use axum::response::{IntoResponse, Response};
 use serde_json::json;
 
 use crate::accounts::AccountError;
+use crate::projects::ProjectError;
 
 /// A request refused or failed, and what to tell its sender.
 #[derive(Debug)]
@@ -24,6 +25,9 @@ pub enum ApiError {
     NotFound,
     /// The request itself is wrong, and the message says how.
     BadRequest(String),
+    /// The request was based on something that has since changed — a save
+    /// naming a revision that is no longer current. Re-read and redo it.
+    Conflict(String),
     /// Something on our side failed; the detail went to the log.
     Internal,
 }
@@ -52,6 +56,22 @@ impl From<sqlx::Error> for ApiError {
     }
 }
 
+impl From<ProjectError> for ApiError {
+    fn from(error: ProjectError) -> Self {
+        match error {
+            ProjectError::NotFound => Self::NotFound,
+            ProjectError::Conflict { .. } => Self::Conflict(error.to_string()),
+            ProjectError::Serialize(_) => Self::BadRequest(error.to_string()),
+            ProjectError::Unreadable { .. }
+            | ProjectError::Migrate { .. }
+            | ProjectError::Database(_) => {
+                eprintln!("scorsese-server: {error}");
+                Self::Internal
+            }
+        }
+    }
+}
+
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let (status, message) = match self {
@@ -59,6 +79,7 @@ impl IntoResponse for ApiError {
             Self::Forbidden(why) => (StatusCode::FORBIDDEN, why.to_owned()),
             Self::NotFound => (StatusCode::NOT_FOUND, "not found".to_owned()),
             Self::BadRequest(why) => (StatusCode::BAD_REQUEST, why),
+            Self::Conflict(why) => (StatusCode::CONFLICT, why),
             Self::Internal => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "something went wrong on the server".to_owned(),

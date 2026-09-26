@@ -87,7 +87,8 @@
 //! [`run`], which is what the binary calls to serve, and the parts it is
 //! assembled from — [`Config`], [`db`], [`http`] and [`start`] — published
 //! because the tests drive each one from outside the crate. [`accounts`] is
-//! who may use the server, [`operator`] the commands that manage them, and
+//! who may use the server, [`operator`] the commands that manage them,
+//! [`projects`] their edits stored as `project.json` documents, and
 //! [`storage`] where each user's files live. [`jobs`] is the queue long work
 //! waits in and the worker that runs it; [`events`] the live stream a user's
 //! browser hears it on.
@@ -99,6 +100,7 @@ pub mod events;
 pub mod http;
 pub mod jobs;
 pub mod operator;
+pub mod projects;
 pub mod storage;
 
 use std::future::Future;
@@ -146,6 +148,10 @@ pub enum ServerError {
     #[error(transparent)]
     Account(#[from] AccountError),
 
+    /// The stored projects could not be brought up to this build's format.
+    #[error("could not migrate the stored projects: {0}")]
+    Projects(#[from] projects::ProjectError),
+
     /// An irreversible command was not confirmed; the message says how.
     #[error("{0}")]
     Unconfirmed(String),
@@ -179,10 +185,12 @@ pub async fn run(
 /// so a test can give it a database of its own, a port the OS picked and
 /// handlers of its own. Migrations run before the first connection is
 /// accepted, so no request ever meets a schema older than the code answering
-/// it. Requests are then answered from [`db::member_pool`], whose connections
-/// can read nothing outside a scoped transaction — per-user isolation,
-/// `db::scope`. The job worker ([`jobs::work`]) runs beside them on the same
-/// pool.
+/// it — and so do the stored projects' own migrations
+/// ([`projects::migrate_stored`]), so no request reads a document older than
+/// the code answering it either. Requests are then answered from
+/// [`db::member_pool`], whose connections can read nothing outside a scoped
+/// transaction — per-user isolation, `db::scope`. The job worker
+/// ([`jobs::work`]) runs beside them on the same pool.
 ///
 /// On `shutdown` every live stream ends, so the graceful stop is not held
 /// open by them; requests in flight finish; then the worker stops, leaving
@@ -194,6 +202,10 @@ pub async fn start(
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> Result<(), ServerError> {
     db::migrate(&pool).await?;
+    let migrated = projects::migrate_stored(&pool).await?;
+    if migrated > 0 {
+        eprintln!("scorsese-server: migrated {migrated} stored projects to this build's format");
+    }
     let pool = db::member_pool(&pool).await.map_err(ServerError::Connect)?;
     let state = AppState::new(pool.clone());
     let (stop, stopping) = watch::channel(false);

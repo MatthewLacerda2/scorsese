@@ -59,6 +59,8 @@ async fn a_query_outside_a_scope_is_refused_even_on_an_empty_table(pool: PgPool)
         "SELECT count(*) FROM sessions",
         "SELECT count(*) FROM api_tokens",
         "SELECT count(*) FROM jobs",
+        "SELECT count(*) FROM projects",
+        "SELECT count(*) FROM project_assets",
     ] {
         let error = sqlx::query(query).execute(&members).await.unwrap_err();
         assert!(
@@ -117,4 +119,36 @@ async fn a_scope_sees_and_writes_only_its_own_rows(pool: PgPool) {
             .await
             .unwrap_err();
     assert!(error.to_string().contains("row-level security"), "{error}");
+}
+
+#[sqlx::test]
+async fn a_row_cannot_claim_another_users_project(pool: PgPool) {
+    // The policy checks the owner column; the composite foreign key is what
+    // stops a row that names *itself* as owner from pointing at somebody
+    // else's project.
+    let ana = users::create(&pool, "ana@example.com", "password one")
+        .await
+        .unwrap();
+    let bia = users::create(&pool, "bia@example.com", "password two")
+        .await
+        .unwrap();
+    let anas: i64 = sqlx::query_scalar(
+        "INSERT INTO projects (user_id, document) VALUES ($1, '{\"name\": \"a\"}') RETURNING id",
+    )
+    .bind(ana.get())
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    let members = db::member_pool(&pool).await.unwrap();
+    let mut tx = db::scoped(&members, bia).await.unwrap();
+    let error = sqlx::query(
+        "INSERT INTO project_assets (project_id, user_id, sha256) VALUES ($1, member_id(), $2)",
+    )
+    .bind(anas)
+    .bind("a".repeat(64))
+    .execute(&mut *tx)
+    .await
+    .unwrap_err();
+    assert!(error.to_string().contains("foreign key"), "{error}");
 }
