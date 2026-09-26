@@ -14,6 +14,7 @@ pub(crate) mod icons;
 pub(crate) mod import;
 pub(crate) mod level;
 pub(crate) mod look;
+pub(crate) mod migrate;
 pub(crate) mod new;
 pub(crate) mod prices;
 pub(crate) mod probe;

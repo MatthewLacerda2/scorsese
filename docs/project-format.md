@@ -11,8 +11,10 @@ web app belong to other people, and a bump that stranded them would break
 them. The bump is still what makes a break honest — a document whose version
 is not this build's is refused on sight instead of being read as something it
 no longer means — and the migration is the only way past that refusal: the
-server runs it over every stored document, and the CLI runs the same steps
-over a local `.scor` folder.
+server runs it over every stored document when it starts, and `scorsese
+migrate` runs the same steps over a local `.scor` folder. The steps live in
+`scorsese_core::migrate`, one per version from v33 (the oldest this build
+carries forward) up to this one.
 
 A complete worked example lives in
 `crates/core/tests/fixtures/narrated_teaser.json`.
