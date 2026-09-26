@@ -29,9 +29,14 @@
 //! transaction as every write, one row per distinct well-formed `sha256`. A
 //! malformed hash names no file anyone could have, so it records nothing
 //! rather than failing the save — `Project::validate` is what reports it.
-//! The foreign key from these rows to the library's own table is #535's to
-//! add alongside that table; until then the pair (user, hash) is the whole of
-//! the reference.
+//!
+//! **Every well-formed hash must be one of the owner's library items** (#535):
+//! the rows carry a foreign key to `library_items (user_id, sha256)`, so a
+//! document naming a file its owner does not have is refused
+//! ([`ProjectError::UnknownFiles`], naming the assets) rather than stored, and
+//! a file a project uses cannot be deleted from the library. Each write also
+//! stamps the items it uses as used now, which is what a library sorted by
+//! "last used" reads.
 
 mod materialise;
 
@@ -79,6 +84,38 @@ pub(super) async fn record(tx: &mut Tx, id: i64, project: &Project) -> Result<()
         .execute(&mut **tx)
         .await?;
     let hashes: Vec<String> = hashes(project).into_iter().map(str::to_owned).collect();
+    let unknown: Vec<String> = sqlx::query_scalar(
+        "SELECT h FROM unnest($2::text[]) AS h WHERE NOT EXISTS (
+             SELECT 1 FROM projects p JOIN library_items l ON l.user_id = p.user_id
+             WHERE p.id = $1 AND l.sha256 = h)",
+    )
+    .bind(id)
+    .bind(&hashes)
+    .fetch_all(&mut **tx)
+    .await?;
+    if !unknown.is_empty() {
+        let mut assets: Vec<String> = project
+            .assets
+            .iter()
+            .filter(|asset| {
+                asset
+                    .sha256
+                    .as_ref()
+                    .is_some_and(|hash| unknown.contains(hash))
+            })
+            .map(|asset| asset.id.to_string())
+            .collect();
+        assets.dedup();
+        return Err(ProjectError::UnknownFiles { assets });
+    }
+    sqlx::query(
+        "UPDATE library_items l SET last_used_at = now() FROM projects p
+         WHERE p.id = $1 AND l.user_id = p.user_id AND l.sha256 = ANY($2::text[])",
+    )
+    .bind(id)
+    .bind(&hashes)
+    .execute(&mut **tx)
+    .await?;
     sqlx::query(
         "INSERT INTO project_assets (project_id, user_id, sha256)
          SELECT p.id, p.user_id, h FROM projects p, unnest($2::text[]) AS h WHERE p.id = $1",

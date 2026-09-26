@@ -16,8 +16,8 @@ use scorsese_server::{Config, ServerError};
 
 /// The scorsese web API, and the operator's commands for its accounts.
 ///
-/// Configured by the environment: DATABASE_URL, SCORSESE_STORAGE and
-/// optionally SCORSESE_BIND (see .env.example).
+/// Configured by the environment: DATABASE_URL, SCORSESE_STORAGE,
+/// SCORSESE_CACHE and optionally SCORSESE_BIND (see .env.example).
 #[derive(Debug, Parser)]
 #[command(name = "scorsese-server", version)]
 struct Cli {
@@ -54,7 +54,7 @@ async fn perform(config: Config, command: Command) -> Result<(), ServerError> {
         }
         Command::User(command) => {
             let pool = scorsese_server::open_database(&config).await?;
-            operator::user(&pool, &config.storage, command).await?
+            operator::user(&pool, &config.files(), command).await?
         }
         Command::Token(command) => {
             let pool = scorsese_server::open_database(&config).await?;

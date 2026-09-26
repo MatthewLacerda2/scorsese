@@ -130,6 +130,19 @@ pub enum ProjectError {
         source: MigrateError,
     },
 
+    /// The document names files its owner's library does not hold.
+    #[error(
+        "{} {} a file that is not in your library; add it to the library first, \
+         or take {} out of the project",
+        .assets.join(", "),
+        if .assets.len() == 1 { "names" } else { "name" },
+        if .assets.len() == 1 { "that asset" } else { "those assets" }
+    )]
+    UnknownFiles {
+        /// The assets, by id.
+        assets: Vec<String>,
+    },
+
     /// The document could not be serialised — a non-finite number in it.
     #[error("serialising the project: {0}")]
     Serialize(#[from] serde_json::Error),

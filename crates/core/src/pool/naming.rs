@@ -18,7 +18,11 @@ const AUDIO: &[&str] = &[
 /// Guesses a kind from the file extension. The probe checks the guess against
 /// what the file actually contains, so a wrong extension is caught rather
 /// than trusted.
-pub(super) fn infer_kind(path: &Path) -> Option<AssetKind> {
+///
+/// Public because this list *is* "the file kinds scorsese supports": anything
+/// that accepts media from outside — import here, an upload to the web app's
+/// library — asks it, so the two can never disagree about what is welcome.
+pub fn infer_kind(path: &Path) -> Option<AssetKind> {
     let extension = path.extension()?.to_str()?.to_ascii_lowercase();
     let extension = extension.as_str();
     if VIDEO.contains(&extension) {

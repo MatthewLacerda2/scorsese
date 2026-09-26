@@ -23,7 +23,8 @@ async fn a_shot_that_worked_is_charged_its_price_plus_ten_percent(pool: PgPool) 
         "held while it runs"
     );
 
-    finish(&pool, ana, paid, &Answer::Worked(Some(42)))
+    let made = crate::common::hold(&pool, ana, &"c".repeat(64)).await;
+    finish(&pool, ana, paid, &Answer::Worked(Some(made)))
         .await
         .unwrap();
     assert_eq!(balance(&pool, ana).await, 10_000_000 - SHOT_PRICE);
@@ -36,7 +37,7 @@ async fn a_shot_that_worked_is_charged_its_price_plus_ten_percent(pool: PgPool) 
             .unwrap();
     assert_eq!(
         (state.as_str(), item, cost),
-        ("generated", Some(42), 960_000)
+        ("generated", Some(made), 960_000)
     );
 }
 

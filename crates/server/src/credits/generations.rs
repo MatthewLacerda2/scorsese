@@ -191,7 +191,7 @@ pub async fn keep_ticket(tx: &mut Tx, shot: i64, ticket: &str) -> Result<(), sql
 /// How the provider answered.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Answer {
-    /// It worked, and produced this library item, once there is a library (#535).
+    /// It worked, and produced this library item (`Library::keep_generated`).
     Worked(Option<i64>),
     /// It failed, and this is why — so it is free.
     Failed(String),

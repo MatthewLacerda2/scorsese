@@ -5,14 +5,12 @@
 //! is — so it runs [`privileged`](crate::db::privileged). That is the short,
 //! reviewable list the isolation doc promises.
 
-use std::path::Path;
-
 use serde::Serialize;
 use sqlx::postgres::PgPool;
 
 use super::{AccountError, normalize_email, password};
 use crate::db::{self, UserId};
-use crate::storage;
+use crate::storage::Storage;
 
 /// An account as the operator's listing shows it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -80,11 +78,7 @@ pub async fn set_password(
 /// Rows first, then files: an account whose files outlived it is an operator
 /// cleaning up a named directory, while files deleted under a live account
 /// would be somebody's work gone with no record of why.
-pub async fn delete(
-    pool: &PgPool,
-    storage_root: &Path,
-    email: &str,
-) -> Result<UserId, AccountError> {
+pub async fn delete(pool: &PgPool, storage: &Storage, email: &str) -> Result<UserId, AccountError> {
     let email = normalize_email(email)?;
     let mut tx = db::privileged(pool).await?;
     let id: Option<i64> = sqlx::query_scalar("DELETE FROM users WHERE email = $1 RETURNING id")
@@ -93,7 +87,8 @@ pub async fn delete(
         .await?;
     let user = UserId::from_row(id.ok_or(AccountError::NoSuchAccount(email))?);
     tx.commit().await?;
-    storage::remove_user(storage_root, user)
+    storage
+        .remove_user(user)
         .map_err(|(path, source)| AccountError::Files { path, source })?;
     Ok(user)
 }

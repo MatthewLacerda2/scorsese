@@ -92,7 +92,7 @@ async fn jobs_and_their_stream_are_the_callers_alone(pool: PgPool) {
     let members = members(&pool).await;
     let ana_token = tokens::issue(&pool, ana, "t").await.unwrap().token;
     let bia_token = tokens::issue(&pool, bia, "t").await.unwrap().token;
-    let state = AppState::new(members.clone());
+    let state = AppState::new(members.clone(), common::files("live"));
     let (listener, address) = common::listener().await;
     let router = http::router(state.clone());
     tokio::spawn(http::serve(listener, router, std::future::pending()));

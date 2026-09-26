@@ -9,8 +9,10 @@ use sha2::{Digest, Sha256};
 /// Streams a file through SHA-256 and returns lowercase hex.
 ///
 /// Streamed rather than read whole: a source video can be gigabytes, and
-/// import must not need it all in memory at once.
-pub(super) fn hash_file(path: &Path) -> io::Result<String> {
+/// import must not need it all in memory at once. Public because a file is
+/// named by this hash wherever it is kept — a project's pool here, a user's
+/// library in `scorsese-server` — and two hashers would be two answers.
+pub fn hash_file(path: &Path) -> io::Result<String> {
     let mut file = File::open(path)?;
     let mut hasher = Sha256::new();
     let mut buffer = vec![0_u8; 64 * 1024];

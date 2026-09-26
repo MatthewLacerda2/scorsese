@@ -15,6 +15,7 @@
 //! the owner of it.
 
 mod stills;
+mod thumbnail;
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -26,6 +27,7 @@ use crate::settings::Resolution;
 use crate::tools::Tools;
 
 pub use stills::{Still, stills};
+pub use thumbnail::{THUMBNAIL_SIZE, Thumbnail, thumbnail};
 
 /// Decodes one frame of a video file by index.
 pub fn extract(

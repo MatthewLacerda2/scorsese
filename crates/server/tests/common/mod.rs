@@ -1,17 +1,22 @@
-//! Talking to a running server the way anything outside it would: over TCP.
-//!
-//! Raw HTTP/1.1 rather than a client library, because a request with
-//! `Connection: close` is a few lines, and an HTTP client is a dependency tree
-//! `cargo deny` would have to clear for the tests alone.
+//! What the server's tests share: a server to talk to, somewhere for users'
+//! files, and a client ([`client`]).
 
 #![allow(dead_code)] // Each test binary uses its own subset of these.
 
 use std::net::SocketAddr;
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicU32, Ordering};
 
-use scorsese_server::http;
+use scorsese_render::Tools;
+use scorsese_server::storage::Storage;
+use scorsese_server::{Files, http};
 use sqlx::postgres::PgPool;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::{TcpListener, TcpStream};
+use tokio::net::TcpListener;
+
+mod client;
+
+#[allow(unused_imports)] // As above: each test binary uses its own subset.
+pub(crate) use client::{Response, get, request, send};
 
 /// A listener on a port the OS picked, and the address it ended up on.
 pub(crate) async fn listener() -> (TcpListener, SocketAddr) {
@@ -24,9 +29,36 @@ pub(crate) async fn listener() -> (TcpListener, SocketAddr) {
     (listener, address)
 }
 
+/// A fresh, empty directory for one test, under the system's temporary one.
+pub(crate) fn scratch(label: &str) -> PathBuf {
+    static COUNTER: AtomicU32 = AtomicU32::new(0);
+    let unique = COUNTER.fetch_add(1, Ordering::Relaxed);
+    let directory = std::env::temp_dir().join(format!(
+        "scorsese-server-{label}-{}-{unique}",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_dir_all(&directory);
+    std::fs::create_dir_all(&directory).expect("a scratch directory can be made");
+    directory
+}
+
+/// ffmpeg and ffprobe, which probing uploads and drawing thumbnails need.
+pub(crate) fn tools() -> Tools {
+    Tools::discover().expect("ffmpeg and ffprobe must be on PATH to run these tests")
+}
+
+/// Users' files in a scratch directory of their own, read with the real tools.
+pub(crate) fn files(label: &str) -> Files {
+    let root = scratch(label);
+    Files {
+        storage: Storage::new(root.join("kept"), root.join("cache")),
+        tools: tools(),
+    }
+}
+
 /// A migrated server on `pool`, answering from the member pool exactly as
-/// production does. Runs until the test ends.
-pub(crate) async fn serve(pool: PgPool) -> SocketAddr {
+/// production does, with users' files in `files`. Runs until the test ends.
+pub(crate) async fn serve_with(pool: PgPool, files: Files) -> (SocketAddr, http::AppState) {
     let (listener, address) = listener().await;
     scorsese_server::db::migrate(&pool)
         .await
@@ -34,79 +66,28 @@ pub(crate) async fn serve(pool: PgPool) -> SocketAddr {
     let members = scorsese_server::db::member_pool(&pool)
         .await
         .expect("the member pool connects");
-    let router = http::router(http::AppState::new(members));
+    let state = http::AppState::new(members, files);
+    let router = http::router(state.clone());
     tokio::spawn(http::serve(listener, router, std::future::pending()));
-    address
+    (address, state)
 }
 
-/// What came back: the status, the headers as lines, and the body.
-pub(crate) struct Response {
-    pub(crate) status: u16,
-    pub(crate) headers: Vec<String>,
-    pub(crate) body: String,
+/// [`serve_with`] files of its own, for a test that uploads nothing.
+pub(crate) async fn serve(pool: PgPool) -> SocketAddr {
+    serve_with(pool, files("serve")).await.0
 }
 
-impl Response {
-    /// The first header named `name`'s value, case-insensitively.
-    pub(crate) fn header(&self, name: &str) -> Option<&str> {
-        self.headers.iter().find_map(|line| {
-            let (key, value) = line.split_once(':')?;
-            key.eq_ignore_ascii_case(name).then(|| value.trim())
-        })
-    }
-
-    /// The body as JSON.
-    pub(crate) fn json(&self) -> serde_json::Value {
-        serde_json::from_str(&self.body).expect("the body is JSON")
-    }
-}
-
-/// `method path` against `address`, with extra header lines and a JSON body.
-pub(crate) async fn request(
-    address: SocketAddr,
-    method: &str,
-    path: &str,
-    headers: &[&str],
-    body: Option<&serde_json::Value>,
-) -> Response {
-    let mut stream = TcpStream::connect(address)
-        .await
-        .expect("the server under test is listening");
-    let body = body.map(ToString::to_string).unwrap_or_default();
-    let mut request = format!("{method} {path} HTTP/1.1\r\nHost: test\r\nConnection: close\r\n");
-    for header in headers {
-        request.push_str(header);
-        request.push_str("\r\n");
-    }
-    if !body.is_empty() {
-        request.push_str("Content-Type: application/json\r\n");
-    }
-    request.push_str(&format!("Content-Length: {}\r\n\r\n{body}", body.len()));
-    stream
-        .write_all(request.as_bytes())
-        .await
-        .expect("the request is written");
-    let mut response = String::new();
-    stream
-        .read_to_string(&mut response)
-        .await
-        .expect("the response is read to the end");
-    let (head, body) = response.split_once("\r\n\r\n").unwrap_or((&response, ""));
-    let mut lines = head.lines();
-    let status = lines
-        .next()
-        .and_then(|line| line.split(' ').nth(1))
-        .and_then(|code| code.parse().ok())
-        .expect("the response starts with a status line");
-    Response {
-        status,
-        headers: lines.map(str::to_owned).collect(),
-        body: body.to_owned(),
-    }
-}
-
-/// `GET path` against `address`: the status code and the body.
-pub(crate) async fn get(address: SocketAddr, path: &str) -> (u16, String) {
-    let response = request(address, "GET", path, &[], None).await;
-    (response.status, response.body)
+/// Put a library row for `sha256` in `user`'s library directly, with no file
+/// behind it — for a test about what may name an item, not about the file.
+/// Its id.
+pub(crate) async fn hold(pool: &PgPool, user: scorsese_server::db::UserId, sha256: &str) -> i64 {
+    sqlx::query_scalar(
+        "INSERT INTO library_items (user_id, sha256, name, kind, extension, size_bytes, media)
+         VALUES ($1, $2, $2, 'video', 'mp4', 0, '{}') RETURNING id",
+    )
+    .bind(user.get())
+    .bind(sha256)
+    .fetch_one(pool)
+    .await
+    .expect("the library row is written")
 }
