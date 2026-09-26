@@ -127,7 +127,13 @@ async fn a_document_this_build_cannot_carry_forward_stops_the_start(pool: PgPool
     .unwrap();
 
     let (listener, _) = common::listener().await;
-    let outcome = scorsese_server::start(pool.clone(), listener, std::future::pending()).await;
+    let outcome = scorsese_server::start(
+        pool.clone(),
+        listener,
+        scorsese_server::jobs::Registry::new(),
+        std::future::pending(),
+    )
+    .await;
     assert!(
         matches!(
             &outcome,
