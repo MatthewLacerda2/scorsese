@@ -26,7 +26,9 @@ fn using(hashes: &[&str]) -> Project {
 }
 
 async fn account(pool: &PgPool, email: &str) -> UserId {
-    users::create(pool, email, "password one").await.unwrap()
+    users::create(pool, email, "password one")
+        .await
+        .expect("the account is created")
 }
 
 async fn files_of(pool: &PgPool, project: i64) -> Vec<String> {
@@ -34,7 +36,7 @@ async fn files_of(pool: &PgPool, project: i64) -> Vec<String> {
         .bind(project)
         .fetch_all(pool)
         .await
-        .unwrap()
+        .expect("project_assets reads")
 }
 
 #[sqlx::test]

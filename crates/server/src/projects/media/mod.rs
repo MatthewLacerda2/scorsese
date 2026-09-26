@@ -25,7 +25,7 @@
 //!
 //! ## `project_assets`
 //!
-//! [`record`] rewrites a project's rows from its document inside the same
+//! `record` rewrites a project's rows from its document inside the same
 //! transaction as every write, one row per distinct well-formed `sha256`. A
 //! malformed hash names no file anyone could have, so it records nothing
 //! rather than failing the save — `Project::validate` is what reports it.

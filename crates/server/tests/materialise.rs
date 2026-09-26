@@ -17,14 +17,14 @@ fn scratch(label: &str) -> PathBuf {
         std::process::id()
     ));
     let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::create_dir_all(&dir).expect("the scratch directory is created");
     dir
 }
 
 /// A user's file with these bytes, stored under its hash; the hash.
 fn store(library: &Path, bytes: &[u8]) -> String {
     let hash = hash_bytes(bytes);
-    std::fs::write(library.join(&hash), bytes).unwrap();
+    std::fs::write(library.join(&hash), bytes).expect("the file is stored");
     hash
 }
 
