@@ -32,7 +32,8 @@
 //! cross-user by nature: finding whose a session cookie or token is, logging
 //! in, the operator's commands, and the job worker's claim and crash recovery
 //! (`jobs::store` — once a job is claimed, the rest runs scoped as its
-//! owner). Every call to it is a place a reviewer
+//! owner), and the render cache's quota and sweep (`renders::evict` — the
+//! quota is the whole machine's). Every call to it is a place a reviewer
 //! reads twice; it is short on purpose, so `grep privileged` stays a short
 //! list.
 //!

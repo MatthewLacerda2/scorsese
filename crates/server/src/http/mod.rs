@@ -29,6 +29,9 @@
 //! | `GET /api/library/{id}/thumbnail` | a member | its thumbnail, or `404` while it is drawn |
 //! | `OPTIONS`, `POST /api/uploads` | a member | tus: what is supported; announce an upload |
 //! | `HEAD`, `PATCH`, `DELETE /api/uploads/{id}` | a member | tus: how far; the next chunk; abandon |
+//! | `POST /api/projects/{id}/renders` | a member | `{container?, video_codec?, audio_codec?, resolution?}` → the kept render (`200`) or its job (`202`) |
+//! | `GET /api/projects/{id}/renders` | a member | the project's kept renders |
+//! | `GET /api/renders/{id}/file` | a member | the file, in ranges; counts as use |
 //!
 //! "A member" is a request carrying a session cookie or an API token — see
 //! [`auth`].
@@ -42,6 +45,7 @@ pub mod jobs;
 pub mod library;
 pub mod projects;
 mod ranges;
+pub mod renders;
 pub mod tokens;
 pub mod uploads;
 
@@ -58,6 +62,7 @@ use crate::Files;
 use crate::events::Events;
 use crate::jobs::Queue;
 use crate::library::Library;
+use crate::renders::RenderCache;
 
 /// What every handler can reach.
 ///
@@ -74,6 +79,8 @@ pub struct AppState {
     pub jobs: Queue,
     /// Every user's files.
     pub library: Library,
+    /// Finished renders, and which of them are being downloaded.
+    pub renders: RenderCache,
 }
 
 impl AppState {
@@ -84,6 +91,7 @@ impl AppState {
         let jobs = Queue::new(events.clone());
         Self {
             library: Library::new(pool.clone(), files.storage, files.tools, jobs.clone()),
+            renders: files.renders,
             pool,
             jobs,
             events,
@@ -118,12 +126,11 @@ pub fn router(state: AppState) -> Router {
                 .delete(projects::delete),
         )
         .merge(credit_routes())
-        .merge(library_routes());
+        .merge(library_routes())
+        .merge(render_routes());
     Router::new().nest("/api", api).with_state(state)
 }
 
-/// The credit routes (#537), kept apart so that the routes each feature adds
-/// sit in a block of their own rather than one long chain every branch edits.
 /// The library's routes (#535): its files, and the tus uploads that fill it.
 fn library_routes() -> Router<AppState> {
     Router::new()
@@ -148,10 +155,22 @@ fn library_routes() -> Router<AppState> {
         )
 }
 
+/// The credit routes (#537), kept apart so that the routes each feature adds
+/// sit in a block of their own rather than one long chain every branch edits.
 fn credit_routes() -> Router<AppState> {
     Router::new()
         .route("/credits", get(credits::balance))
         .route("/credits/history", get(credits::history))
+}
+
+/// The render routes (#541): ask for a render, list a project's, download one.
+fn render_routes() -> Router<AppState> {
+    Router::new()
+        .route(
+            "/projects/{id}/renders",
+            get(renders::list).post(renders::request),
+        )
+        .route("/renders/{id}/file", get(renders::file))
 }
 
 /// Whether this server can do its job right now: `200 ok` or `503`.

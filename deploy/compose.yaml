@@ -66,9 +66,11 @@ services:
     environment:
       DATABASE_URL: postgres://scorsese:${POSTGRES_PASSWORD}@postgres:5432/scorsese
       SCORSESE_STORAGE: /data/library
-      # Beside the library, never inside it: thumbnails and half-arrived
-      # uploads are not worth shipping off the machine every night.
+      # Beside the library, never inside it: thumbnails, half-arrived uploads
+      # and finished renders are not worth shipping off the machine every
+      # night.
       SCORSESE_CACHE: /data/cache
+      SCORSESE_RENDER_QUOTA: ${SCORSESE_RENDER_QUOTA:?set SCORSESE_RENDER_QUOTA in deploy/.env}
       # Every interface of the container, which is only the compose network:
       # no port is published, so nothing outside reaches this but nginx.
       SCORSESE_BIND: 0.0.0.0:8080

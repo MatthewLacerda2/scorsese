@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use scorsese_render::Tools;
+use scorsese_server::renders::{Quota, RenderCache};
 use scorsese_server::storage::Storage;
 use scorsese_server::{Files, http};
 use sqlx::postgres::PgPool;
@@ -53,6 +54,8 @@ pub(crate) fn files(label: &str) -> Files {
     Files {
         storage: Storage::new(root.join("kept"), root.join("cache")),
         tools: tools(),
+        // A quota nothing in a test reaches; the eviction tests make their own.
+        renders: RenderCache::new(root.join("cache"), Quota::bytes(u64::MAX)),
     }
 }
 
