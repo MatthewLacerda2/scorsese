@@ -54,8 +54,8 @@ pub const PROVIDER_PATIENCE: Duration = Duration::from_secs(15 * 60);
 ///
 /// **Empty until the issues that give a kind something to do**: rendering
 /// needs projects stored in Postgres (#534), and a Veo shot or a spoken line
-/// needs credits to charge (#537), which also rules whether a failed one is
-/// free. Each registers its kind here — `.register(RENDER, …)` — and the
+/// pays through `credits::generations` (#537) and needs the library (#535)
+/// to put what it made. Each registers its kind here — `.register(RENDER, …)` — and the
 /// worker starts claiming it. A kind nothing registers is never claimed, so a
 /// job of that kind waits rather than failing.
 pub fn registry() -> Registry {

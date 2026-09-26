@@ -436,9 +436,9 @@ does not hold everybody else up.
 | `veo_shot` | 4 | minutes of waiting on Google, almost no machine |
 | `spoken_line` | 4 | seconds, mostly network |
 
-**No kind has a handler yet.** Rendering a stored project needs #534, and a
-paid generation needs credits (#537), which also rules whether a failed one is
-charged. Each registers its handler in `jobs::kinds::registry()`; until then a
+**No kind has a handler yet.** Rendering a stored project needs #534; a paid
+generation needs credits, which #537 provides (*Credits*, below: a failed one
+is free), and the library (#535) to put its result in. Each registers its handler in `jobs::kinds::registry()`; until then a
 job of that kind waits rather than failing. The worker, the claim, recovery and
 the event stream are exercised end to end by test handlers, one of which stands
 in for Veo.
@@ -545,6 +545,101 @@ Deliberately storage verbs only: what a project *says* is changed by `core`'s
 editing functions, through the tools (#539, #540) and the editor (#545).
 Recipes and a project's `script` are documents rather than media, and have
 nowhere to live in the server yet; the materialiser does not lay them out.
+
+## Credits
+
+What each user has paid in and spent, and the record of every paid generation
+(#537). The code is `crates/server/src/credits/`, and its module docs carry
+each argument; this is the whole of it in one place.
+
+**The ledger is `credit_entries`, and it is append-only.** A balance is the sum
+of a user's entries, in signed integer micro-dollars: money in positive, money
+out negative. An entry is never edited — a correction is a new entry — and
+Postgres holds that, not care: the member role has no `UPDATE` or `DELETE` on
+the table, and a trigger refuses both (and `TRUNCATE`) to everyone else,
+the login role included. The one exception is the delete that cascades from
+deleting the account, which is how a user's rows leave.
+
+| kind | amount | what |
+| --- | --- | --- |
+| `top_up` | + | money the operator received (later, Pix) |
+| `reservation` | − | a paid generation's price, held while the provider works |
+| `release` | + | a reservation given back — the provider answered |
+| `charge` | − | what a generation that worked, or an assistant call, costs |
+| `monthly_fee` | − | the $10 for one month of an account's life |
+| `refund` | + | money given back, with the reason |
+
+**Pricing** is the provider's cost plus 10%, rounded up to the micro-dollar.
+Veo and ElevenLabs are priced by `scorsese_providers::prices` — the same cents
+the quote (#538) showed, converted at the server's boundary; the assistant by
+`prices::claude` from the token counts its response reports, which is exact.
+
+**Spending a generation is reserve, then settle.** `credits::generations::start`
+prices it, takes a lock on the user's own row (so two spends at once cannot
+both see the last dollar), and reserves — or refuses, writing nothing, when the
+balance cannot cover it. When the provider answers, `finish` releases the
+reservation and, if the generation **worked**, charges it — liked or not. A
+generation the provider **failed** nets to zero: free. A unique index allows
+one release per reservation, so nothing is settled twice. A Veo job that goes
+`stuck` settles nothing and its reservation stays held, since Google may still
+be billing. The assistant is charged after each call rather than reserved for:
+its cost exists only once the tokens are counted, so a turn checks the balance
+is positive before starting and the call may dip a little below zero.
+
+**Audit tables.** `veo_generations` (model, resolution, seconds, aspect,
+prompt, brief hash, operation ticket, state, estimated cost, error) and
+`speech_generations` (model, voice, text, characters, settings, estimated cost,
+error) hold one row per paid generation, bound to the ledger entries that paid
+for it. Each carries a nullable `tool_call_id` and `library_item_id`, whose
+foreign keys land with the tables they point at (#540, #535), and a
+`project_id` that deliberately has none: a project can be deleted, and the
+record of what it cost cannot.
+
+**The monthly fee is a sweep in the server**, hourly, not a queued job: the
+queue is for long work with a handler and crash recovery, and a fee is one
+idempotent insert whose unique (user, month) index makes charging twice
+impossible. A month is owed for each month of an account's life **counted from
+its first top-up**, so an account nobody paid for owes nothing. A fee is charged
+**only when the balance covers it** (credits are prepaid; the ledger never
+lends), retried by every sweep while its month lasts, and not charged after
+the month ends uncovered. Both are the conservative reading of what #527 left
+open, asked on #537.
+
+**The display rate** (`display_rates`) is reais per dollar, set by the operator,
+dated. Balances show as "≈ R$ …" at the newest one, with dollars beside,
+because the ledger is in dollars and the dollar moves. It is the one table that
+is nobody's in particular: members read it and write nothing.
+
+**The user's own history** is the same ledger, scoped and written for them: one
+row per thing that moved the balance — a reservation and what settled it fold
+into one row, *charged*, *free: the provider failed*, or *pending* — each with
+the balance after it, the project's name while the project exists, and what set
+its price. Filterable by project, kind and UTC days, paged, with a total over
+everything the filter matched. It is also described as a read-only tool,
+`spending_history` (`credits::tool`), which web MCP (#539) registers: the
+`scorsese-mcp` registry is stateless and database-free by rule, and this tool
+is nothing but a user's rows in Postgres.
+
+| route | who | what |
+| --- | --- | --- |
+| `GET /api/credits` | a member | their balance, in micro-dollars and ≈ centavos, and the rate |
+| `GET /api/credits/history` | a member | `?project=&kind=&since=&until=&before=&limit=` |
+
+The operator's side, where the server runs:
+
+```text
+scorsese-server credit top-up ana@example.com --reais 100 --rate 5.4321
+scorsese-server credit refund ana@example.com --dollars 1.06 --reason "…"
+scorsese-server credit rate 5.43        # the display rate, as of now
+scorsese-server credit balance ana@example.com
+```
+
+A top-up records the reais received and the rate they were converted at, and
+credits the dollars **rounded down** — the one place that direction is right.
+
+Not here yet: the Veo and ElevenLabs job handlers that call `start` and
+`finish` (they need the library, #535, and land with the issue that enqueues
+generations, #539/#540); Pix (#548); the refund policy's text (#547).
 
 ## Out of scope for now
 

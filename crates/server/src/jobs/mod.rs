@@ -71,9 +71,12 @@
 //!   Past it the job is [`Outcome::Stuck`] — not lost: the ticket is still in
 //!   the row for a later collect.
 //!
-//! The Veo and ElevenLabs handlers themselves land with credits (#537), which
-//! decides whether a failed generation is charged; renders land with projects
-//! (#534). **No kind has a handler yet** — see [`kinds::registry`].
+//! The Veo and ElevenLabs handlers pay through [`credits::generations`]
+//! (#537: reserve before submitting, settle on the answer, a failure free) and
+//! land with the issue that enqueues generations, once the library (#535) can
+//! hold what they make; renders land with projects (#534).
+//!
+//! [`credits::generations`]: crate::credits::generations **No kind has a handler yet** — see [`kinds::registry`].
 //!
 //! ## Live state
 //!

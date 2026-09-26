@@ -11,6 +11,7 @@ mod commands;
 mod fees;
 mod filters;
 mod history;
+mod projects;
 mod routes;
 mod spending;
 mod tool;
