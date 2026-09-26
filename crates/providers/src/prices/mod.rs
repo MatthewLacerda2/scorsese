@@ -28,8 +28,17 @@
 //! and for the same reason: a total is a sum, and a sum of floats is not the
 //! same number twice. Every rate Veo publishes happens to be a whole number of
 //! cents per second, so nothing rounds on the way in either.
+//!
+//! # The assistant is the exception that proves the name
+//!
+//! [`claude`] is the one table whose figure is **not** an estimate: a Claude
+//! response counts the tokens it was billed for, so the cost is the vendor's
+//! count times the vendor's page. It is still in cents — per million tokens —
+//! and it answers in micro-dollars, because one call can cost a fraction of a
+//! cent and the hosted server's ledger is kept in micro-dollars (#537).
 
 pub mod checked;
+pub mod claude;
 pub mod elevenlabs;
 pub mod veo;
 

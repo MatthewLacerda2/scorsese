@@ -1,13 +1,13 @@
 //! `scorsese prices` — what a generation costs, and when we last checked.
 //!
-//! Two vendors, two tables, one page. They are billed by different things — a
-//! shot by its length, a line by its characters — so a single table would have
-//! to carry a unit column and would read as though the numbers were
-//! comparable. They are not: eight seconds of video is ninety-six cents and a
+//! Three vendors, three tables, one page. They are billed by different things —
+//! a shot by its length, a line by its characters, a reply by its tokens — so a
+//! single table would have to carry a unit column and would read as though the
+//! numbers were comparable. They are not: eight seconds of video is ninety-six cents and a
 //! sentence of narration is one.
 
 use anyhow::Result;
-use scorsese_providers::prices::{Checked, STALE_AFTER_DAYS, dollars, elevenlabs, veo};
+use scorsese_providers::prices::{Checked, STALE_AFTER_DAYS, claude, dollars, elevenlabs, veo};
 
 /// Prints the rate table, as Markdown.
 ///
@@ -69,6 +69,31 @@ pub(crate) fn run() -> Result<()> {
     }
 
     println!();
+    println!("Claude, per million tokens: the hosted web app's assistant. Exact, not estimated —");
+    println!("a response counts the tokens it was billed for.");
+    println!();
+    println!("| model | input | output | cache write 5m | cache write 1h | cache read | checked |");
+    println!("| --- | --- | --- | --- | --- | --- | --- |");
+    for row in claude::RATES {
+        let rate = row.rate;
+        println!(
+            "| `{}` | {} | {} | {} | {} | {} | {}{} |",
+            row.model,
+            dollars(rate.input),
+            dollars(rate.output),
+            dollars(rate.cache_write_5m),
+            dollars(rate.cache_write_1h),
+            dollars(rate.cache_read),
+            rate.checked,
+            if rate.checked.is_stale_on(today) {
+                " ⚠️"
+            } else {
+                ""
+            },
+        );
+    }
+
+    println!();
     stale_note(today);
     println!();
     println!("Nobody bills these back. No provider reports what a generation cost, so every");
@@ -87,6 +112,7 @@ fn stale_note(today: Checked) {
         .iter()
         .map(|row| row.rate.checked)
         .chain(elevenlabs::RATES.iter().map(|row| row.rate.checked))
+        .chain(claude::RATES.iter().map(|row| row.rate.checked))
         .min();
     let Some(oldest) = oldest else {
         return;
@@ -100,8 +126,9 @@ fn stale_note(today: Checked) {
     if oldest.is_stale_on(today) {
         println!(
             "⚠️ The oldest figure here was checked {ago} ago, over the {STALE_AFTER_DAYS}-day \
-             mark. Worth re-reading <https://ai.google.dev/gemini-api/docs/pricing> \
-             and <https://elevenlabs.io/pricing>."
+             mark. Worth re-reading <https://ai.google.dev/gemini-api/docs/pricing>, \
+             <https://elevenlabs.io/pricing> and \
+             <https://platform.claude.com/docs/en/about-claude/pricing>."
         );
     } else {
         println!("Oldest figure checked {ago} ago; the mark is {STALE_AFTER_DAYS} days.");

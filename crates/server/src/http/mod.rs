@@ -19,12 +19,15 @@
 //! | `PUT /api/projects/{id}` | a member | `{revision, document}`; `409` if it moved on |
 //! | `PATCH /api/projects/{id}` | a member | `{name}`: rename |
 //! | `DELETE /api/projects/{id}` | a member | deletes one |
+//! | `GET /api/credits` | a member | their balance, in dollars and ≈ reais |
+//! | `GET /api/credits/history` | a member | what moved it, filterable, with a total |
 //!
 //! "A member" is a request carrying a session cookie or an API token — see
 //! [`auth`].
 
 pub mod account;
 pub mod auth;
+pub mod credits;
 pub mod error;
 pub mod events;
 pub mod jobs;
@@ -96,8 +99,17 @@ pub fn router(state: AppState) -> Router {
                 .put(projects::save)
                 .patch(projects::rename)
                 .delete(projects::delete),
-        );
+        )
+        .merge(credit_routes());
     Router::new().nest("/api", api).with_state(state)
+}
+
+/// The credit routes (#537), kept apart so that the routes each feature adds
+/// sit in a block of their own rather than one long chain every branch edits.
+fn credit_routes() -> Router<AppState> {
+    Router::new()
+        .route("/credits", get(credits::balance))
+        .route("/credits/history", get(credits::history))
 }
 
 /// Whether this server can do its job right now: `200 ok` or `503`.
