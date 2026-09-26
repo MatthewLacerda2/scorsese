@@ -30,11 +30,21 @@
 //! Forward-only: there are no down migrations. Undoing one on a database that
 //! holds other people's data is a new migration written for the case in hand,
 //! not a script written in advance for a case nobody has seen.
+//!
+//! ## Per-user isolation
+//!
+//! [`scope`] — how a query acts for one user and cannot see another's, and
+//! what a new per-user table must look like. Read it before writing a
+//! migration that adds a table.
+
+pub mod scope;
 
 use std::time::Duration;
 
 use sqlx::migrate::{MigrateError, Migrator};
 use sqlx::postgres::{PgPool, PgPoolOptions};
+
+pub use scope::{Tx, UserId, member_pool, privileged, scoped};
 
 use crate::config::Config;
 

@@ -25,9 +25,12 @@
 //! here is read in the language it was written in — with migrations built in
 //! and embedded in the binary ([`db`]), and a test harness (`#[sqlx::test]`)
 //! that gives every test a database of its own. Its compile-checked
-//! `query!` macros are available and deliberately not used yet: they need a
-//! database or a checked-in `.sqlx/` cache at build time, and there is not a
-//! table to check. The first issue with real queries decides that.
+//! `query!` macros are deliberately **not used** (decided with the first real
+//! queries, #533): they need a live database or a checked-in `.sqlx/` cache
+//! at build time — one more thing for every build and every agent's worktree
+//! to keep in step — while every query here already runs against a real
+//! Postgres in the test gate, which catches a typo'd column just as loudly
+//! and also catches what a type check cannot, like a policy refusing a row.
 //!
 //! Both are default-features-off with only what is used switched on. No TLS
 //! to Postgres: it runs beside the server on one host, reached over the
@@ -81,13 +84,18 @@
 //!
 //! ## What this publishes
 //!
-//! [`run`], which is what the binary calls, and the parts it is assembled
-//! from — [`Config`], [`db`], [`http`] and [`start`] — published because the
-//! tests drive each one from outside the crate.
+//! [`run`], which is what the binary calls to serve, and the parts it is
+//! assembled from — [`Config`], [`db`], [`http`] and [`start`] — published
+//! because the tests drive each one from outside the crate. [`accounts`] is
+//! who may use the server, [`operator`] the commands that manage them, and
+//! [`storage`] where each user's files live.
 
+pub mod accounts;
 pub mod config;
 pub mod db;
 pub mod http;
+pub mod operator;
+pub mod storage;
 
 use std::future::Future;
 use std::path::PathBuf;
@@ -95,6 +103,7 @@ use std::path::PathBuf;
 use sqlx::postgres::PgPool;
 use tokio::net::TcpListener;
 
+pub use accounts::AccountError;
 pub use config::{Config, ConfigError};
 
 use crate::http::AppState;
@@ -124,6 +133,14 @@ pub enum ServerError {
         source: std::io::Error,
     },
 
+    /// An account command could not be carried out.
+    #[error(transparent)]
+    Account(#[from] AccountError),
+
+    /// An irreversible command was not confirmed; the message says how.
+    #[error("{0}")]
+    Unconfirmed(String),
+
     /// The listen address could not be bound, or serving failed.
     #[error("could not serve HTTP: {0}")]
     Serve(#[from] std::io::Error),
@@ -151,13 +168,27 @@ pub async fn run(
 /// The half of [`run`] that is handed its resources rather than making them,
 /// so a test can give it a database of its own and a port the OS picked.
 /// Migrations run before the first connection is accepted, so no request ever
-/// meets a schema older than the code answering it.
+/// meets a schema older than the code answering it. Requests are then
+/// answered from [`db::member_pool`], whose connections can read nothing
+/// outside a scoped transaction — per-user isolation, `db::scope`.
 pub async fn start(
     pool: PgPool,
     listener: TcpListener,
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> Result<(), ServerError> {
     db::migrate(&pool).await?;
+    let pool = db::member_pool(&pool).await.map_err(ServerError::Connect)?;
     http::serve(listener, http::router(AppState { pool }), shutdown).await?;
     Ok(())
+}
+
+/// Connect to the configured database and bring its schema up to date.
+///
+/// What an operator command starts with: the same connection and the same
+/// migrations the server runs, so a command run against a fresh database
+/// works rather than finding no `users` table.
+pub async fn open_database(config: &Config) -> Result<PgPool, ServerError> {
+    let pool = db::connect(config).await.map_err(ServerError::Connect)?;
+    db::migrate(&pool).await?;
+    Ok(pool)
 }

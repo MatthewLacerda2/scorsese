@@ -1,11 +1,30 @@
 //! The HTTP surface: the routes, and serving them until told to stop.
+//!
+//! | route | who | what |
+//! | --- | --- | --- |
+//! | `GET /api/health` | anyone | `200` when the database answers |
+//! | `POST /api/login` | anyone | `{email, password}` → the account, and a session cookie |
+//! | `POST /api/logout` | a member | ends the session |
+//! | `GET /api/me` | a member | the account the request is logged in as |
+//! | `POST /api/me/password` | a member | `{current, new}` |
+//! | `GET /api/tokens` | a member | their API tokens, without values |
+//! | `POST /api/tokens` | a member, by session | `{name}` → `{id, token}`, shown once |
+//! | `DELETE /api/tokens/{id}` | a member | revokes one |
+//!
+//! "A member" is a request carrying a session cookie or an API token — see
+//! [`auth`].
+
+pub mod account;
+pub mod auth;
+pub mod error;
+pub mod tokens;
 
 use std::future::Future;
 
 use axum::Router;
 use axum::extract::State;
 use axum::http::StatusCode;
-use axum::routing::get;
+use axum::routing::{delete, get, post};
 use sqlx::postgres::PgPool;
 use tokio::net::TcpListener;
 
@@ -14,7 +33,9 @@ use tokio::net::TcpListener;
 /// Cheap to clone — a pool is a handle — which is what axum asks of state.
 #[derive(Clone)]
 pub struct AppState {
-    /// The database.
+    /// The database, as [`db::member_pool`](crate::db::member_pool) makes
+    /// it: every connection unable to read a table until a handler opens a
+    /// scoped or privileged transaction.
     pub pool: PgPool,
 }
 
@@ -25,7 +46,14 @@ pub struct AppState {
 /// server in production route it with a single rule — and a path that is not
 /// `/api/...` is never this server's, so it can go to the front-end.
 pub fn router(state: AppState) -> Router {
-    let api = Router::new().route("/health", get(health));
+    let api = Router::new()
+        .route("/health", get(health))
+        .route("/login", post(account::login))
+        .route("/logout", post(account::logout))
+        .route("/me", get(account::me))
+        .route("/me/password", post(account::change_password))
+        .route("/tokens", get(tokens::list).post(tokens::issue))
+        .route("/tokens/{id}", delete(tokens::revoke));
     Router::new().nest("/api", api).with_state(state)
 }
 
