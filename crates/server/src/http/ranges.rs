@@ -78,7 +78,9 @@ pub(super) async fn serve(served: &Served<'_>, headers: &HeaderMap) -> Result<Re
             return Ok(response);
         }
     };
-    file.seek(SeekFrom::Start(start)).await.map_err(|_| ApiError::Internal)?;
+    file.seek(SeekFrom::Start(start))
+        .await
+        .map_err(|_| ApiError::Internal)?;
 
     let pieces = stream::unfold((file, length), |(mut file, left)| async move {
         if left == 0 {
@@ -100,11 +102,19 @@ pub(super) async fn serve(served: &Served<'_>, headers: &HeaderMap) -> Result<Re
     insert(&mut response, CONTENT_LENGTH, &length.to_string());
     insert(&mut response, ACCEPT_RANGES, "bytes");
     insert(&mut response, ETAG, &format!("\"{}\"", served.etag));
-    insert(&mut response, CACHE_CONTROL, "private, max-age=31536000, immutable");
+    insert(
+        &mut response,
+        CACHE_CONTROL,
+        "private, max-age=31536000, immutable",
+    );
     insert(&mut response, X_CONTENT_TYPE_OPTIONS, "nosniff");
     if status == StatusCode::PARTIAL_CONTENT {
         let end = start + length - 1;
-        insert(&mut response, CONTENT_RANGE, &format!("bytes {start}-{end}/{size}"));
+        insert(
+            &mut response,
+            CONTENT_RANGE,
+            &format!("bytes {start}-{end}/{size}"),
+        );
     }
     Ok(response)
 }
@@ -146,7 +156,10 @@ pub(crate) fn range(header: &str, size: u64) -> Ask {
             Some(n) => (size.saturating_sub(n), size.saturating_sub(1)),
             None => return Ask::Whole,
         },
-        (false, _) => match (number(first), last.is_empty().then_some(u64::MAX).or_else(|| number(last))) {
+        (false, _) => match (
+            number(first),
+            last.is_empty().then_some(u64::MAX).or_else(|| number(last)),
+        ) {
             (Some(start), Some(end)) if start <= end => (start, end.min(size.saturating_sub(1))),
             _ => return Ask::Whole,
         },

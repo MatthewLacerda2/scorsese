@@ -25,7 +25,7 @@
 //!
 //! `project_assets` has a foreign key to this table (migration `0005`), so a
 //! stored document cannot name a file its owner does not have, and an item a
-//! project uses cannot be deleted. [`delete`] refuses first, naming the
+//! project uses cannot be deleted. [`Library::delete`] refuses first, naming the
 //! projects, and the key is what holds if two requests race. Generated media is
 //! included: a Veo shot, a spoken line and a synthesis bake are items too.
 //!

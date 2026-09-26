@@ -99,11 +99,7 @@ impl Library {
     /// `None` says to ask again later. A file whose thumbnail just failed is
     /// left an hour before trying again, so a list that keeps asking does not
     /// keep a broken file's job running.
-    pub async fn thumbnail(
-        &self,
-        user: UserId,
-        id: i64,
-    ) -> Result<Option<PathBuf>, LibraryError> {
+    pub async fn thumbnail(&self, user: UserId, id: i64) -> Result<Option<PathBuf>, LibraryError> {
         let item = self.get(user, id).await?;
         let file = path(&self.storage, user, &item.sha256, item.kind);
         if file.is_file() {

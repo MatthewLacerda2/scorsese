@@ -92,9 +92,14 @@ type UploadRow = (String, String, String, String, i64);
 
 impl Library {
     /// Announce an upload for `user`; its id.
-    pub async fn start_upload(&self, user: UserId, announced: &Announced) -> Result<i64, LibraryError> {
+    pub async fn start_upload(
+        &self,
+        user: UserId,
+        announced: &Announced,
+    ) -> Result<i64, LibraryError> {
         let name = announced.name.trim();
-        let kind = Kind::of_file_name(name).ok_or_else(|| LibraryError::Unsupported(name.to_owned()))?;
+        let kind =
+            Kind::of_file_name(name).ok_or_else(|| LibraryError::Unsupported(name.to_owned()))?;
         let extension = extension_of(name);
         let sha256 = announced.sha256.trim().to_ascii_lowercase();
         if sha256.len() != 64 || !sha256.bytes().all(|b| b.is_ascii_hexdigit()) {
@@ -171,14 +176,20 @@ impl Library {
         if offset != at {
             return Err(LibraryError::Offset { expected: at });
         }
-        let mut file = tokio::fs::OpenOptions::new().append(true).create(true).open(&path).await?;
+        let mut file = tokio::fs::OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(&path)
+            .await?;
         let mut body = body;
         let mut failed = None;
         while let Some(chunk) = body.next().await {
             let chunk = match chunk {
                 Ok(chunk) => chunk,
                 Err(error) => {
-                    failed = Some(LibraryError::Invalid(format!("the upload broke off: {error}")));
+                    failed = Some(LibraryError::Invalid(format!(
+                        "the upload broke off: {error}"
+                    )));
                     break;
                 }
             };
@@ -228,10 +239,12 @@ impl Library {
 
     async fn upload(&self, user: UserId, id: i64) -> Result<UploadRow, LibraryError> {
         let mut tx = db::scoped(&self.pool, user).await?;
-        let row = sqlx::query_as("SELECT name, kind, extension, sha256, length FROM uploads WHERE id = $1")
-            .bind(id)
-            .fetch_optional(&mut *tx)
-            .await?;
+        let row = sqlx::query_as(
+            "SELECT name, kind, extension, sha256, length FROM uploads WHERE id = $1",
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?;
         tx.commit().await?;
         row.ok_or(LibraryError::NotFound)
     }

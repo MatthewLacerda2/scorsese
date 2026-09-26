@@ -33,8 +33,19 @@ pub(super) type ItemRow = (
 
 /// The item a row describes.
 pub(super) fn item(row: ItemRow) -> Result<Item, LibraryError> {
-    let (id, name, kind, sha256, extension, size_bytes, media, description, brief_hash, created_at, last_used_at) =
-        row;
+    let (
+        id,
+        name,
+        kind,
+        sha256,
+        extension,
+        size_bytes,
+        media,
+        description,
+        brief_hash,
+        created_at,
+        last_used_at,
+    ) = row;
     let kind = Kind::try_from(kind).map_err(LibraryError::Invalid)?;
     let media = serde_json::from_str(&media)
         .map_err(|error| LibraryError::Invalid(format!("item {id}'s media: {error}")))?;
@@ -117,7 +128,12 @@ impl Library {
     }
 
     /// Rename or describe item `id`.
-    pub async fn update(&self, user: UserId, id: i64, change: &Change) -> Result<Item, LibraryError> {
+    pub async fn update(
+        &self,
+        user: UserId,
+        id: i64,
+        change: &Change,
+    ) -> Result<Item, LibraryError> {
         let name = match change.name.as_deref().map(str::trim) {
             Some("") => return Err(LibraryError::Invalid("a file needs a name".to_owned())),
             name => name,
@@ -172,10 +188,16 @@ impl Library {
         let (sha256, extension, kind) = item;
         let kind = Kind::try_from(kind).map_err(LibraryError::Invalid)?;
         let thumbnail = super::thumbnail::path(&self.storage, user, &sha256, kind);
-        for file in [self.storage.library_file(user, &sha256, &extension), thumbnail] {
+        for file in [
+            self.storage.library_file(user, &sha256, &extension),
+            thumbnail,
+        ] {
             match std::fs::remove_file(&file) {
                 Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
-                    eprintln!("scorsese-server: could not remove {}: {error}", file.display());
+                    eprintln!(
+                        "scorsese-server: could not remove {}: {error}",
+                        file.display()
+                    );
                 }
                 _ => {}
             }
@@ -198,7 +220,10 @@ pub(super) async fn read(tx: &mut Tx, id: i64) -> Result<Item, LibraryError> {
 }
 
 /// The item holding these bytes in `tx`'s scope, as `(id, name)`.
-pub(super) async fn holding(tx: &mut Tx, sha256: &str) -> Result<Option<(i64, String)>, sqlx::Error> {
+pub(super) async fn holding(
+    tx: &mut Tx,
+    sha256: &str,
+) -> Result<Option<(i64, String)>, sqlx::Error> {
     sqlx::query_as("SELECT id, name FROM library_items WHERE sha256 = $1")
         .bind(sha256)
         .fetch_optional(&mut **tx)

@@ -97,7 +97,12 @@ pub(super) async fn record(tx: &mut Tx, id: i64, project: &Project) -> Result<()
         let mut assets: Vec<String> = project
             .assets
             .iter()
-            .filter(|asset| asset.sha256.as_ref().is_some_and(|hash| unknown.contains(hash)))
+            .filter(|asset| {
+                asset
+                    .sha256
+                    .as_ref()
+                    .is_some_and(|hash| unknown.contains(hash))
+            })
             .map(|asset| asset.id.to_string())
             .collect();
         assets.dedup();

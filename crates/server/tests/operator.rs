@@ -2,14 +2,17 @@
 
 use scorsese_server::accounts::{password, tokens, users};
 use scorsese_server::operator::{self, TokenCommand, UserCommand};
-use scorsese_server::{AccountError, ServerError};
 use scorsese_server::storage::Storage;
+use scorsese_server::{AccountError, ServerError};
 use sqlx::postgres::PgPool;
 
 /// Where an account's files would be, if these tests gave it any.
 fn files() -> Storage {
     let temp = std::env::temp_dir();
-    Storage::new(temp.join("scorsese-operator-kept"), temp.join("scorsese-operator-cache"))
+    Storage::new(
+        temp.join("scorsese-operator-kept"),
+        temp.join("scorsese-operator-cache"),
+    )
 }
 
 /// The line after `label` in a command's output.

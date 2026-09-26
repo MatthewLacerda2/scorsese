@@ -136,7 +136,10 @@ fn library_routes() -> Router<AppState> {
         )
         .route("/library/{id}/file", get(library::file))
         .route("/library/{id}/thumbnail", get(library::thumbnail))
-        .route("/uploads", post(uploads::announce).options(uploads::options))
+        .route(
+            "/uploads",
+            post(uploads::announce).options(uploads::options),
+        )
         .route(
             "/uploads/{id}",
             head(uploads::progress)

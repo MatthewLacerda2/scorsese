@@ -67,14 +67,20 @@ pub async fn announce(
         Ok(announced) => announced,
         Err(refused) => return tus(refused.into_response()),
     };
-    tus(match state.library.start_upload(member.user, &announced).await {
-        Ok(id) => {
-            let mut response = StatusCode::CREATED.into_response();
-            set(&mut response, LOCATION.as_str(), &format!("/api/uploads/{id}"));
-            response
-        }
-        Err(error) => ApiError::from(error).into_response(),
-    })
+    tus(
+        match state.library.start_upload(member.user, &announced).await {
+            Ok(id) => {
+                let mut response = StatusCode::CREATED.into_response();
+                set(
+                    &mut response,
+                    LOCATION.as_str(),
+                    &format!("/api/uploads/{id}"),
+                );
+                response
+            }
+            Err(error) => ApiError::from(error).into_response(),
+        },
+    )
 }
 
 /// `HEAD /api/uploads/{id}`: how far it got.
@@ -168,9 +174,8 @@ fn announcement(headers: &HeaderMap) -> Result<Announced, ApiError> {
             .find(|(key, _)| keys.contains(&key.as_str()))
             .map(|(_, value)| value.clone())
     };
-    let name = find(&["filename", "name"]).ok_or_else(|| {
-        refused(StatusCode::BAD_REQUEST, "Upload-Metadata names no filename")
-    })?;
+    let name = find(&["filename", "name"])
+        .ok_or_else(|| refused(StatusCode::BAD_REQUEST, "Upload-Metadata names no filename"))?;
     let sha256 = find(&["sha256"]).ok_or_else(|| {
         refused(
             StatusCode::BAD_REQUEST,

@@ -23,7 +23,11 @@ fn each_kind_of_source_draws_a_thumbnail_that_fits_and_is_never_enlarged() {
     let dir = fixture_dir("thumbnails");
     let video = dir.join("wide.mp4");
     let wide = ["-f", "lavfi", "-i", "testsrc=s=640x360:d=2:r=30"];
-    generate(&tools, &video, &[&wide[..], &["-pix_fmt", "yuv420p"]].concat());
+    generate(
+        &tools,
+        &video,
+        &[&wide[..], &["-pix_fmt", "yuv420p"]].concat(),
+    );
     let picture = dir.join("small.png");
     let small = ["-f", "lavfi", "-i", "testsrc=s=100x76", "-frames:v", "1"];
     generate(&tools, &picture, &small);
@@ -49,7 +53,11 @@ fn a_frame_past_the_end_is_refused_rather_than_written_empty() {
     let dir = fixture_dir("thumbnail-past-end");
     let video = dir.join("short.mp4");
     let red = ["-f", "lavfi", "-i", "color=c=red:s=32x32:d=1:r=30"];
-    generate(&tools, &video, &[&red[..], &["-pix_fmt", "yuv420p"]].concat());
+    generate(
+        &tools,
+        &video,
+        &[&red[..], &["-pix_fmt", "yuv420p"]].concat(),
+    );
     let out = dir.join("thumb.jpg");
     let refused = thumbnail(&tools, &video, Thumbnail::Frame { at_seconds: 9.0 }, &out);
     assert!(refused.is_err(), "{refused:?}");

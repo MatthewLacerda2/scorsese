@@ -140,6 +140,7 @@ provider keys use, and is documented in `.env.example`:
 |---|---|
 | `DATABASE_URL` | The Postgres to connect to. Required; the server will not start without reaching it, and it is never printed. |
 | `SCORSESE_STORAGE` | The absolute directory users' files are kept under. Required. |
+| `SCORSESE_CACHE` | The absolute directory what can be rebuilt is kept under — thumbnails, uploads still arriving. Required, and refused inside `SCORSESE_STORAGE`, which is backed up. |
 | `SCORSESE_BIND` | Where to listen. Defaults to `127.0.0.1:8080`, this machine only. |
 
 **Schema migrations** are embedded in the binary and run at startup, before the
@@ -200,9 +201,11 @@ container down. There is no GPU passthrough — nothing needs it until NVENC
 
 **What `SCORSESE_DATA` holds.** `library/` is users' files (the server's
 `SCORSESE_STORAGE`) and is backed up. `backups/` holds the newest few database
-dumps and the time of the last good backup. Anything rebuildable a later issue
-adds — render cache, scratch — belongs beside them, never inside `library/`,
-so it is not shipped off the machine every night.
+dumps and the time of the last good backup. `cache/` (`SCORSESE_CACHE`, made by
+the server on start) holds what can be rebuilt — thumbnails, uploads still
+arriving — and anything rebuildable a later issue adds (render cache, scratch)
+belongs beside them too, never inside `library/`, so it is not shipped off the
+machine every night.
 
 ### First-time setup
 
@@ -399,8 +402,9 @@ injection defence. It also means **the login role must be a superuser or hold
 `CREATEROLE`**, because migration `0001` creates those two roles — the compose
 file's `POSTGRES_USER` is a superuser, so nothing needs configuring.
 
-**A user's files live under `$SCORSESE_STORAGE/users/<user id>/`** and
-nowhere else, so deleting an account is one directory. Named by id, never
+**A user's files live under `$SCORSESE_STORAGE/users/<user id>/`**, and
+what can be rebuilt from them under `$SCORSESE_CACHE/users/<user id>/`, and
+nowhere else, so deleting an account is two directories. Named by id, never
 email: an email is personal data with no business in a path or a backup
 listing. Deletion removes the rows first, then the directory; if the files
 cannot all be removed, the command names the directory for the operator to
@@ -436,10 +440,12 @@ does not hold everybody else up.
 | `veo_shot` | 4 | minutes of waiting on Google, almost no machine |
 | `spoken_line` | 4 | seconds, mostly network |
 
-**No kind has a handler yet.** Rendering a stored project needs #534; a paid
-generation needs credits, which #537 provides (*Credits*, below: a failed one
-is free), and the library (#535) to put its result in. Each registers its handler in `jobs::kinds::registry()`; until then a
-job of that kind waits rather than failing. The worker, the claim, recovery and
+**`thumbnail` is the one kind with a handler** (#535, *Library* below).
+Rendering a stored project lands with the render cache (#541); a paid
+generation pays through credits (*Credits*, below: a failed one is free) and
+keeps what it made in the library. Each registers its handler in
+`jobs::kinds::registry()`; until then a job of that kind waits rather than
+failing. The worker, the claim, recovery and
 the event stream are exercised end to end by test handlers, one of which stands
 in for Veo.
 
@@ -510,9 +516,10 @@ its `generated/…` path.
 **`project_assets` is derived, never edited**: one row per distinct `sha256` in
 the document, rewritten in the same transaction as every write. It answers
 "which projects use this file?" for the library (#535). It names a file by
-**(user, sha256)** — the library's own identity for a file — and has no foreign
-key to the library yet: that table does not exist, and adding the key is #535's
-job, with the table. A composite key to `projects (id, user_id)` stops a row
+**(user, sha256)** — the library's own identity for a file — and carries a
+foreign key to `library_items (user_id, sha256)` (#535): a document naming a
+file its owner does not have is refused with the assets named, and a file a
+project uses cannot be deleted. A composite key to `projects (id, user_id)` stops a row
 pointing at another user's project.
 
 **Rendering a stored project** lays it out as a temporary `.scor` folder
@@ -590,8 +597,9 @@ is positive before starting and the call may dip a little below zero.
 prompt, brief hash, operation ticket, state, estimated cost, error) and
 `speech_generations` (model, voice, text, characters, settings, estimated cost,
 error) hold one row per paid generation, bound to the ledger entries that paid
-for it. Each carries a nullable `tool_call_id` and `library_item_id`, whose
-foreign keys land with the tables they point at (#540, #535), and a
+for it. Each carries a nullable `tool_call_id`, whose foreign key lands with the
+table it points at (#540), a nullable `library_item_id` keyed to the item it
+made by (item, owner) — kept, set null, when the item is deleted (#535) — and a
 `project_id` that deliberately has none: a project can be deleted, and the
 record of what it cost cannot.
 
@@ -638,8 +646,84 @@ A top-up records the reais received and the rate they were converted at, and
 credits the dollars **rounded down** — the one place that direction is right.
 
 Not here yet: the Veo and ElevenLabs job handlers that call `start` and
-`finish` (they need the library, #535, and land with the issue that enqueues
-generations, #539/#540); Pix (#548); the refund policy's text (#547).
+`finish` (they land with the issue that enqueues generations, #539/#540, and
+keep their output with the library's `keep_generated`); Pix (#548); the refund
+policy's text (#547).
+
+## Library
+
+A user's files, reusable in any of their projects (#535). The code is
+`crates/server/src/library/`, and its module docs carry each argument; this is
+the whole of it in one place.
+
+**Stored once per (user, SHA-256).** A file sits at
+`$SCORSESE_STORAGE/users/<id>/library/<sha256>.<ext>` and appears in a stored
+project at `assets/<sha256>.<ext>` — the hash and the extension are the whole
+of where it is. A byte-identical second upload is refused (`409`) with "you
+already have this as *X*" and the item's id, whatever its name. The browser
+hashes a file first and asks `GET /api/library?sha256=`, so a duplicate never
+crosses the network; the refusal at upload is the backstop.
+
+**Exactly the kinds `scorsese import` takes** — video, image, audio, by the same
+extension list (`scorsese_core::pool::infer_kind`), refused at announcement
+(`415`) before a byte is sent. On arrival the server **hashes the bytes itself**
+and refuses (`422`) a file whose hash is not the one announced, then probes it
+and holds it to its kind with `pool::measure`, exactly as import does — a
+`.mp4` with no picture is refused, and the prober's words (which name server
+paths) go to the log, not the user.
+
+**Uploads are tus 1.0.0**, the subset Uppy speaks: creation (`POST`),
+`HEAD`, `PATCH`, termination (`DELETE`). Written in `http/uploads.rs` rather
+than taken from a crate: the Rust tus servers are applications, not libraries a
+router mounts, and the subset is a page. `Upload-Metadata` carries `filename`
+and `sha256`. Chunks stay under Cloudflare's 100 MB request cap (the client's
+`chunkSize`); how far an upload got is the length of its file in the cache, so
+a dropped chunk resumes from whatever reached the disk. One writer per upload
+(`423` to a second); an upload untouched for a day is swept by the user's next
+announcement. The last `PATCH` names the new item in `Scorsese-Library-Item`.
+A tus client retries `409` by default — right for a misplaced chunk, wrong for
+"you already have this", whose body carries `item`; the web app's
+`onShouldRetry` stops on it.
+
+**Thumbnails are a job** — the first handler the queue runs — drawn by
+`scorsese-render` (`frames::thumbnail`: a video's frame one second in, a
+picture scaled down, a sound's waveform; at most 320 px a side) into
+`$SCORSESE_CACHE/users/<id>/thumbnails/`. Queued with the item, in the same
+transaction; queued again when one is asked for and missing, so clearing the
+cache costs nothing but time. A list carries each item's thumbnail URL, which
+answers `404 {"pending": true}` until it is drawn.
+
+**Opening a file streams it in ranges**: `Range: bytes=…` gets `206`, so a
+video plays and seeks without being fetched whole. A file never changes under
+its id, so it is sent `private, immutable`, tagged by its hash.
+
+**A file a project uses cannot be deleted**: `409` naming the projects, and the
+foreign key from `project_assets` holds it if two requests race. Nothing
+removes a file from a *local* project (#396); this does not decide that.
+
+**Generated output is an item too**, carrying the hash of its brief.
+`Library::find_generated` finds it again for the **same user** — scoped, so
+never across users — and `Library::keep_generated` keeps what a generation
+made. Its details carry the generation record (#537): the brief, model,
+settings, when, and what it cost — `estimated_cost_micros` by scorsese's own
+table, `charged_micros` from the ledger. The generation jobs that call these
+are not written yet (#539/#540).
+
+| route | who | what |
+| --- | --- | --- |
+| `GET /api/library` | a member | their files, newest first: `id`, `name`, `kind`, `size_bytes`, `thumbnail`; `?kind=`, `?search=`, `?sha256=` narrow it |
+| `GET /api/library/{id}` | a member | everything known, `used_by` (projects), `generation` (or `null`) |
+| `PATCH /api/library/{id}` | a member | `{name?, description?}`; an empty description removes it |
+| `DELETE /api/library/{id}` | a member | `204`; `409` with `projects` when one uses it |
+| `GET /api/library/{id}/file` | a member | the file, whole or in the range asked for |
+| `GET /api/library/{id}/thumbnail` | a member | the picture, or `404` while it is drawn |
+| `OPTIONS /api/uploads` | anyone | what tus this server speaks |
+| `POST /api/uploads` | a member | announce: `Upload-Length`, `Upload-Metadata` → `201`, `Location` |
+| `HEAD /api/uploads/{id}` | a member | `Upload-Offset`, `Upload-Length` |
+| `PATCH /api/uploads/{id}` | a member | the next chunk at `Upload-Offset`; the last admits the file |
+| `DELETE /api/uploads/{id}` | a member | abandon it |
+
+Not in v1: folders (#527), sharing across users, a quota per user.
 
 ## Out of scope for now
 

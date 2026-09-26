@@ -64,5 +64,8 @@ pub const PROVIDER_PATIENCE: Duration = Duration::from_secs(15 * 60);
 /// `.register(RENDER, …)` — and the worker starts claiming it. A kind nothing
 /// registers is never claimed, so a job of that kind waits rather than failing.
 pub fn registry(storage: &Storage, tools: &Tools) -> Registry {
-    Registry::new().register(THUMBNAIL, thumbnail::handler(storage.clone(), tools.clone()))
+    Registry::new().register(
+        THUMBNAIL,
+        thumbnail::handler(storage.clone(), tools.clone()),
+    )
 }

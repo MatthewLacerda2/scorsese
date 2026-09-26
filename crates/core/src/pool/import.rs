@@ -58,7 +58,7 @@ pub(super) fn already_in_pool(project: &Project, sha256: &str) -> Option<AssetId
 
 /// Reads the file and checks it really is what it is being imported as.
 ///
-/// Separate from [`place`] so a caller bringing in a whole directory can find
+/// Separate from `place` so a caller bringing in a whole directory can find
 /// out that one file in it is unreadable while nothing has been copied yet —
 /// and public so a caller keeping media somewhere other than a project
 /// (the web app's library) checks and records a file exactly as import does.
