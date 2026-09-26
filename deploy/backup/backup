@@ -1,0 +1,48 @@
+#!/bin/sh
+# One backup: dump the database, then copy the dump and the library off the
+# machine. docs/web.md, "Backups", has what lands where and how to restore it.
+#
+# Two things are backed up and nothing else:
+# - the database, as a pg_dump custom-format file (restored with pg_restore);
+# - /data/library, users' files, which the database only points at.
+# /data's other contents are rebuildable (caches) or are these backups.
+#
+# The remote side keeps what the local side lets go of: dumps for
+# SCORSESE_BACKUP_KEEP_DAYS, and every library file a sync would have deleted
+# or overwritten, under library-replaced/<when>, for as long. So a bug that
+# deletes users' files is not faithfully mirrored into the backup that night.
+set -eu
+
+remote=${SCORSESE_BACKUP_REMOTE%/}
+keep_days=$SCORSESE_BACKUP_KEEP_DAYS
+when=$(date -u +%Y%m%dT%H%M%SZ)
+dumps=/data/backups/db
+# The newest dumps stay on this machine too: restoring from one is minutes,
+# not a download. Off-machine is the point; this is only the fast path.
+keep_local=3
+
+mkdir -p "$dumps"
+pg_dump --format custom --file "$dumps/scorsese-$when.dump.partial"
+# Renamed only once complete, so a dump cut short by a power cut never looks
+# like one to restore from.
+mv "$dumps/scorsese-$when.dump.partial" "$dumps/scorsese-$when.dump"
+rm -f "$dumps"/*.partial
+ls -1t "$dumps"/*.dump | tail -n "+$((keep_local + 1))" | xargs -r rm -f --
+echo "backup: database dumped to $dumps/scorsese-$when.dump"
+
+rclone copy "$dumps" "$remote/db" --include "*.dump"
+rclone delete "$remote/db" --min-age "${keep_days}d"
+echo "backup: dumps copied to $remote/db"
+
+mkdir -p /data/library
+rclone sync /data/library "$remote/library" --backup-dir "$remote/library-replaced/$when"
+# Made first: on the first nights nothing has been replaced yet, and deleting
+# from a folder that does not exist is an error that would end the backup here.
+rclone mkdir "$remote/library-replaced"
+rclone delete "$remote/library-replaced" --min-age "${keep_days}d" --rmdirs
+echo "backup: library synced to $remote/library"
+
+# Written last, so it only ever records a backup that got all the way off the
+# machine. backup-fresh reads its age.
+date -u > /data/backups/last-success
+echo "backup: done ($when)"

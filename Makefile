@@ -54,7 +54,7 @@ LINT := --manifest-path tools/lint/Cargo.toml
 # conditional ones come last, because they are the ones that may decide not to
 # run at all; `app` after `web` because it is the one that can build a graphics
 # dependency tree.
-GATES := format size scripts clippy docs test deny web app
+GATES := format size scripts clippy docs test deny deploy web app
 
 # Whether this branch touches the desktop app, and so whether its gates are on
 # the path of this change. The question is asked in two places — the `app` gate
@@ -365,6 +365,39 @@ deny: ## [gate] Supply chain, both workspaces: advisories, bans, sources, licens
 	cargo deny --all-features check advisories bans sources licenses
 	cargo deny --all-features --manifest-path app/Cargo.toml --config deny.toml \
 		check advisories bans sources licenses
+
+# The deploy (#532) is YAML and Dockerfiles that nothing else here reads, so
+# without this a typo in deploy/compose.yaml is found by the maintainer at
+# `docker compose up`, on the machine customers are served from. Two checks,
+# both about correctness and both under a second, which is why this is a gate
+# and runs on every branch rather than only on ones touching deploy/:
+#
+# - Every variable compose.yaml reads is documented in deploy/.env.example.
+#   The example is the only list of what `.env` must hold, and a variable
+#   added to one and not the other is a deploy that refuses to start with a
+#   message the runbook never mentioned.
+# - Compose parses the file, with the example's blanks filled by placeholders:
+#   the file is valid, and every variable it requires is one the example has.
+#
+# It does not build the images. That is a Rust release build and a Bun build
+# inside Docker, minutes and gigabytes, to re-prove what `test` and `web`
+# already prove; the runbook's update step is where an image build happens.
+DEPLOY_VARS = grep -o '[$$]{[A-Z_][A-Z0-9_]*' deploy/compose.yaml | cut -c3- | sort -u
+
+deploy: ## [gate] deploy/compose.yaml parses, and .env.example documents what it reads
+	@command -v docker >/dev/null 2>&1 || { \
+		echo "deploy: docker is not installed -- the check is 'docker compose config'." >&2; \
+		exit 1; }
+	@missing=; for var in $$($(DEPLOY_VARS)); do \
+		grep -q "^$$var=" deploy/.env.example || missing="$$missing $$var"; \
+	done; \
+	[ -z "$$missing" ] || { \
+		echo "deploy: compose.yaml reads variables deploy/.env.example does not document:$$missing" >&2; \
+		exit 1; }
+	@env=$$(mktemp) && trap 'rm -f "$$env"' EXIT && \
+		sed 's/=$$/=placeholder/' deploy/.env.example > "$$env" && \
+		docker compose --file deploy/compose.yaml --env-file "$$env" config --quiet
+	@echo "deploy: compose.yaml is valid, and every variable it reads is documented"
 
 # The one gate that decides whether to run, and the condition is the point.
 # `app/` is its own cargo workspace precisely so a headless change never pays

@@ -6,7 +6,7 @@
 // In development the page and the API are two processes on two ports, and the
 // browser would treat them as two origins. Proxying `/api` through this server
 // keeps them one origin, which is the shape production has too — there the
-// split between `/api` and everything else happens in front of nginx. So a
+// deploy's nginx makes the same split (deploy/nginx.conf). So a
 // fetch written as `fetch("/api/...")` works unchanged in both.
 
 import { fileURLToPath } from "node:url";

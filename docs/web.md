@@ -32,7 +32,8 @@ TypeScript. It is its own project the way `app/` is its own cargo workspace,
 and it has its own conditional gate. It talks to the server over HTTP and to
 nothing else.
 
-**It runs on the maintainer's machine in Docker Compose**, four containers:
+**It runs on the maintainer's machine in Docker Compose**, four service
+containers and one that keeps them safe:
 
 | container | role |
 | --- | --- |
@@ -40,6 +41,7 @@ nothing else.
 | `scorsese-server` | the Rust server, with ffmpeg inside; library files, render cache and scratch mounted from host disk |
 | `web` | nginx serving the built React files |
 | `cloudflared` | a **Cloudflare Tunnel** — how the site reaches the internet without a static IP; it also terminates HTTPS, so there is no reverse proxy of our own |
+| `backup` | scheduled `pg_dump` plus a sync of the library **off the machine** (#532). Not part of serving a request — the fifth container exists because a home machine has no redundancy, and a backup that depends on someone remembering is not one |
 
 **No message broker.** Long work — renders, Veo shots, ElevenLabs lines,
 thumbnails, proxies — is a row in a Postgres `jobs` table, claimed by workers
@@ -153,6 +155,166 @@ the run ends. So **Docker is needed for `make gates`**, unless
 databases on. An ambient `DATABASE_URL` is deliberately ignored, so a test run
 never touches the development database. CI's `check` and `coverage` jobs run a
 Postgres service container instead.
+
+## Running the service
+
+The deploy (#532) is `deploy/`: one Compose file, the images it builds, and
+`deploy/.env.example`, which documents every setting. `make deploy` is a gate
+that holds the two together — the Compose file parses, and every variable it
+reads is in the example.
+
+| file | what it is |
+| --- | --- |
+| `compose.yaml` | the containers, their health checks and restart policies |
+| `server.Dockerfile` | `scorsese-server`, release build, with ffmpeg on `PATH` |
+| `web.Dockerfile` | `web/`'s Vite build, served by nginx |
+| `nginx.conf` | the `/api` split, the SPA fallback, upload and streaming settings |
+| `backup/` | the backup image and its three scripts |
+
+**The traffic path.** Cloudflare's edge terminates HTTPS and sends the request
+down the tunnel `cloudflared` holds open from this machine. `cloudflared` sends
+everything to `web`; nginx serves the React build and passes `/api/` to
+`server`, unchanged. Nothing is published to the network: `web` also answers on
+`127.0.0.1:$SCORSESE_WEB_PORT`, for checking the site from this machine.
+
+**The `/api` split lives in nginx, not in the tunnel's ingress rules.** A tunnel
+run by token keeps its rules in Cloudflare's dashboard, where no pull request
+shows them and no local run exercises them; in `nginx.conf` they are versioned,
+reviewed and identical on loopback and on the public hostname. nginx is needed
+for the SPA fallback anyway, so the tunnel is a single rule that never changes.
+The MCP endpoint (#539) is expected under `/api` like everything else; if it
+lands elsewhere it is one more `location` block there.
+
+**A fifth container, `backup`**, beside the four in *The shape*. It runs on the
+database's own image, so `pg_dump` is always the server's version, and it
+starts and stops with the rest — a host cron job would be one more thing set up
+by hand on the machine and forgotten on the next one.
+
+**After a power cut** the Docker daemon starts at boot and brings back every
+container, which all carry `restart: unless-stopped`. The server waits for a
+healthy database, runs any migrations, and answers `GET /api/health`; the job
+queue (#536) resumes interrupted work. Only `docker compose stop` keeps a
+container down. There is no GPU passthrough — nothing needs it until NVENC
+(#311).
+
+**What `SCORSESE_DATA` holds.** `library/` is users' files (the server's
+`SCORSESE_STORAGE`) and is backed up. `backups/` holds the newest few database
+dumps and the time of the last good backup. Anything rebuildable a later issue
+adds — render cache, scratch — belongs beside them, never inside `library/`,
+so it is not shipped off the machine every night.
+
+### First-time setup
+
+Steps 3 and 4 need the maintainer's own accounts; nothing in the repo can do
+them. The rest is commands, from the checkout on the machine that serves.
+
+1. **Docker starts at boot**: `sudo systemctl enable --now docker`. Without
+   it, a power cut is an outage until someone logs in.
+2. **The data directory**, owned by the user the containers run as — Compose
+   refuses to create it, so a typo or an unmounted disk fails loudly:
+
+       mkdir -p /path/to/scorsese-data/library /path/to/scorsese-data/backups
+
+3. **The Cloudflare Tunnel.** The domain must be on Cloudflare (its
+   nameservers pointed there). In the dashboard: *Zero Trust → Networks →
+   Tunnels → Create a tunnel → Cloudflared*, name it, and copy the token from
+   the install command shown (the string after `--token`); skip installing
+   the connector, the `cloudflared` container is the connector. Then add **one
+   public hostname** — the site's domain, service type `HTTP`, URL `web:80` —
+   and no other rules. The token goes in `CLOUDFLARE_TUNNEL_TOKEN`.
+4. **The backup destination.** Somewhere off this machine the maintainer
+   chooses — an object store (Backblaze B2, S3, R2), a cloud drive, another
+   machine over SFTP. `rclone config` creates a remote for it; then
+   `SCORSESE_BACKUP_REMOTE` is `<remote>:<folder>` and `SCORSESE_RCLONE_CONFIG`
+   the directory holding that `rclone.conf`. **Keep that remote's credentials
+   somewhere other than this machine too** (a password manager): the day this
+   machine is lost is the day they are needed, and a copy that lived only here
+   went with it.
+5. **The settings**: `cp deploy/.env.example deploy/.env` and fill in every
+   line; the example says what each is and how to generate the password.
+6. **Up**, from `deploy/`:
+
+       CARGO_BUILD_JOBS=4 docker compose up --detach --build
+
+   The first build compiles the server in release mode, several minutes; later
+   builds reuse BuildKit's cache and recompile only what changed.
+   `CARGO_BUILD_JOBS` leaves room for whatever else the machine is doing.
+7. **Check**: `docker compose ps` shows every container healthy (`backup`
+   after its first run, which starts immediately), `curl
+   http://127.0.0.1:8088/api/health` answers `ok`, and so does the public
+   hostname. `docker compose logs backup` shows the first backup reaching the
+   remote.
+8. **Restore once, on purpose** (below), into this fresh install. A backup
+   that has never been restored is a hope.
+
+### Updating
+
+From the checkout, on `main`:
+
+    git pull
+    cd deploy
+    docker compose exec backup backup          # a dump from just before
+    CARGO_BUILD_JOBS=4 docker compose up --detach --build
+
+Compose recreates only the containers whose image or settings changed. The new
+server runs its migrations before serving, and they only go forward, so **the
+way back from a bad update is the dump taken first**: check out the previous
+commit, rebuild, and restore that dump. BuildKit's cache for the Rust build
+grows over time; `docker buildx du` shows it.
+
+### Backups
+
+`backup` runs one when the last good one is more than
+`SCORSESE_BACKUP_EVERY_HOURS` old, checking hourly — so a machine that was off
+at the usual time catches up within an hour of coming back, and a failure is
+retried an hour later. Each run:
+
+- dumps the database with `pg_dump --format custom` into `backups/db/`
+  (keeping the newest three there, for a fast restore), and copies the dumps to
+  `<remote>/db`, where they are kept `SCORSESE_BACKUP_KEEP_DAYS`;
+- syncs `library/` to `<remote>/library`, and moves every remote file the sync
+  would delete or overwrite into `<remote>/library-replaced/<when>` for the same
+  number of days — so a bug that deletes users' files is not faithfully
+  mirrored into the backup that night.
+
+The container's health is the backups': **unhealthy** once the last good one is
+older than two intervals. `docker compose ps` is where to look, and
+`docker compose logs backup` says why. `docker compose exec backup backup` runs
+one now.
+
+### Restoring
+
+From `deploy/`, with the stack up. Everything runs inside the backup image, so
+the host needs no Postgres or rclone tools. Stop what writes first:
+
+    docker compose stop server backup
+
+**The database**, from a local dump (`ls "$SCORSESE_DATA"/backups/db`) or one
+fetched from the remote first:
+
+    docker compose run --rm backup sh -c \
+      'rclone copy "$SCORSESE_BACKUP_REMOTE/db/scorsese-<when>.dump" /data/backups/db'
+    docker compose run --rm backup pg_restore --clean --if-exists \
+      --single-transaction --dbname scorsese /data/backups/db/scorsese-<when>.dump
+
+`--clean` drops what is there before recreating it, so this works on top of a
+running install as well as on a fresh one. `--single-transaction` means a
+failed restore leaves the database as it was.
+
+**The library**, to put back what is missing (`sync` instead of `copy` would
+also delete what the backup does not have):
+
+    docker compose run --rm backup sh -c \
+      'rclone copy "$SCORSESE_BACKUP_REMOTE/library" /data/library'
+
+A file deleted or overwritten since is under `library-replaced/<when>/` on the
+remote, by the same path. Then:
+
+    docker compose start server backup
+
+**On a new machine** after losing this one: first-time setup steps 1–6 with the
+same remote and credentials (the tunnel's token is in the dashboard still),
+then the restore above.
 
 ## Out of scope for now
 

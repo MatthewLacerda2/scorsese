@@ -1,0 +1,168 @@
+# The hosted web app, on the maintainer's machine (#532).
+#
+#   cd deploy && docker compose up --detach --build
+#
+# docs/web.md, "Running the service", is the runbook: first-time setup, updating
+# and restoring. Everything this file needs from outside is in `.env` beside it,
+# and `.env.example` documents every variable; `make deploy` refuses a variable
+# used here that the example does not describe.
+#
+# The traffic path, outside in: Cloudflare's edge terminates HTTPS and hands the
+# request down the tunnel `cloudflared` holds open; `cloudflared` sends all of
+# it to `web`; `web` (nginx) serves the React build and passes `/api` to
+# `server`. The split lives in nginx.conf rather than in the tunnel's ingress
+# rules because a token-run tunnel keeps its rules in Cloudflare's dashboard,
+# out of version control and out of reach of a local test — see nginx.conf.
+#
+# Nothing is published to the network. `web` alone is reachable from this
+# machine, on loopback, so the site can be checked without the tunnel.
+#
+# `restart: unless-stopped` everywhere: after a power cut the Docker daemon
+# starts at boot and brings back every container that was running, and a
+# container that crashes is restarted. `docker compose stop` is the one thing
+# that keeps one down. The job queue is what resumes interrupted work; this
+# only brings the processes back.
+
+name: scorsese
+
+services:
+  postgres:
+    # The same image the tests and CI run (tools/with-postgres,
+    # .github/workflows/ci.yml): change all three together. The backup image
+    # builds on it too, so pg_dump always matches the server it dumps.
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: scorsese
+      POSTGRES_DB: scorsese
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      # Over TCP: the image's first boot runs a socket-only server while it
+      # initialises, which a socket probe would call ready (tools/with-postgres).
+      test: ["CMD", "pg_isready", "--host", "127.0.0.1", "--username", "scorsese", "--dbname", "scorsese"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  server:
+    build:
+      context: ..
+      dockerfile: deploy/server.Dockerfile
+      args:
+        # Unset means cargo's default (every core). The machine this runs on
+        # also runs `make gates`; set it in the shell to leave room.
+        - CARGO_BUILD_JOBS
+    image: scorsese-server
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # The host user, so files it writes under SCORSESE_DATA are the
+    # maintainer's to read, back up and restore, not root's.
+    user: "${SCORSESE_UID:?set SCORSESE_UID in deploy/.env}:${SCORSESE_GID:?set SCORSESE_GID in deploy/.env}"
+    environment:
+      DATABASE_URL: postgres://scorsese:${POSTGRES_PASSWORD}@postgres:5432/scorsese
+      SCORSESE_STORAGE: /data/library
+      # Every interface of the container, which is only the compose network:
+      # no port is published, so nothing outside reaches this but nginx.
+      SCORSESE_BIND: 0.0.0.0:8080
+    volumes:
+      - &data
+        type: bind
+        source: ${SCORSESE_DATA:?set SCORSESE_DATA in deploy/.env}
+        target: /data
+        # A missing directory is a typo or an unmounted disk. Docker would
+        # create it, root-owned and empty, and the service would start on it.
+        bind:
+          create_host_path: false
+    healthcheck:
+      # 503 while the database does not answer, so this is the whole service.
+      test: ["CMD", "curl", "--fail", "--silent", "--output", "/dev/null", "http://127.0.0.1:8080/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      # Migrations run before the first request; a long one must not read as
+      # a dead server and get restarted halfway through.
+      start_period: 120s
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/web.Dockerfile
+    image: scorsese-web
+    restart: unless-stopped
+    # Ordering only. nginx re-resolves `server` as it goes (nginx.conf), so the
+    # static site comes up and stays up while the server restarts; `/api`
+    # answers 502 in between, which is the truth.
+    depends_on:
+      - server
+    ports:
+      - "127.0.0.1:${SCORSESE_WEB_PORT:?set SCORSESE_WEB_PORT in deploy/.env}:80"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  cloudflared:
+    # Pinned: this is the one container that talks to the internet, and an
+    # update to it is a deliberate change like any other.
+    image: cloudflare/cloudflared:2026.9.3
+    restart: unless-stopped
+    depends_on:
+      web:
+        condition: service_healthy
+    # A remotely-managed tunnel: the token carries the tunnel's identity and
+    # Cloudflare's dashboard carries its one public hostname, pointed at
+    # http://web:80. No certificate or config file lives on this machine.
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?set CLOUDFLARE_TUNNEL_TOKEN in deploy/.env}
+    # No healthcheck: the image has no shell or HTTP client to run one with,
+    # and a tunnel that loses its connection retries by itself.
+
+  backup:
+    build:
+      context: backup
+    image: scorsese-backup
+    restart: unless-stopped
+    # PID 1 that forwards SIGTERM, so `docker compose stop` does not wait out
+    # the backup loop's sleep.
+    init: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    user: "${SCORSESE_UID}:${SCORSESE_GID}"
+    environment:
+      PGHOST: postgres
+      PGUSER: scorsese
+      PGDATABASE: scorsese
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      SCORSESE_BACKUP_REMOTE: ${SCORSESE_BACKUP_REMOTE:?set SCORSESE_BACKUP_REMOTE in deploy/.env}
+      SCORSESE_BACKUP_EVERY_HOURS: ${SCORSESE_BACKUP_EVERY_HOURS:?set SCORSESE_BACKUP_EVERY_HOURS in deploy/.env}
+      SCORSESE_BACKUP_KEEP_DAYS: ${SCORSESE_BACKUP_KEEP_DAYS:?set SCORSESE_BACKUP_KEEP_DAYS in deploy/.env}
+      RCLONE_CONFIG: /config/rclone/rclone.conf
+      # rclone writes a cache and, for OAuth remotes, refreshed tokens; the
+      # host user has no home directory inside this image.
+      HOME: /tmp
+    volumes:
+      - *data
+      - type: bind
+        source: ${SCORSESE_RCLONE_CONFIG:?set SCORSESE_RCLONE_CONFIG in deploy/.env}
+        target: /config/rclone
+        bind:
+          create_host_path: false
+    healthcheck:
+      # Healthy while the last good backup is younger than two intervals, so
+      # a backup that has quietly stopped working shows in `docker compose ps`.
+      test: ["CMD", "backup-fresh"]
+      interval: 5m
+      timeout: 10s
+      retries: 1
+      start_period: 1h
+
+volumes:
+  postgres-data:
