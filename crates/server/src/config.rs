@@ -1,6 +1,6 @@
 //! What the server is told by the environment it is started in.
 //!
-//! Three things, and only one of them is a secret. The database URL carries a
+//! Four things, and only one of them is a secret. The database URL carries a
 //! password, so it is held as a [`Secret`] — printing a [`Config`] prints
 //! nothing of it, and no error below ever repeats its value.
 //!
@@ -21,11 +21,19 @@ use std::path::PathBuf;
 
 use scorsese_providers::credentials::{Environment, Secret};
 
+use crate::storage::Storage;
+
 /// Where the server's Postgres is, including its password.
 pub const DATABASE_URL: &str = "DATABASE_URL";
 
 /// The directory the server keeps users' files under. Must be absolute.
 pub const STORAGE: &str = "SCORSESE_STORAGE";
+
+/// The directory the server keeps what it can rebuild under — thumbnails,
+/// uploads still arriving. Must be absolute, and outside [`STORAGE`]: the
+/// library is backed up off the machine every night, and nothing here is
+/// worth the bandwidth (`docs/web.md`, *Running the service*).
+pub const CACHE: &str = "SCORSESE_CACHE";
 
 /// The address the HTTP server listens on, e.g. `0.0.0.0:8080` in a container.
 pub const BIND: &str = "SCORSESE_BIND";
@@ -44,6 +52,8 @@ pub struct Config {
     pub database_url: Secret,
     /// The absolute directory users' files live under.
     pub storage: PathBuf,
+    /// The absolute directory what can be rebuilt lives under.
+    pub cache: PathBuf,
     /// The address to listen on.
     pub bind: SocketAddr,
 }
@@ -63,15 +73,25 @@ pub enum ConfigError {
         purpose: &'static str,
     },
 
-    /// The storage root is a relative path.
+    /// A directory is a relative path.
     ///
     /// Refused rather than resolved against the working directory: a server's
     /// working directory is whatever its supervisor chose, and files landing
     /// somewhere that changes with how the process was launched is the
     /// relative-path bug #518 already paid for once.
-    #[error("{STORAGE} must be an absolute path, and {value:?} is not")]
-    RelativeStorage {
-        /// What the variable held.
+    #[error("{variable} must be an absolute path, and {value:?} is not")]
+    Relative {
+        /// The variable's name.
+        variable: &'static str,
+        /// What it held.
+        value: String,
+    },
+
+    /// The cache is the storage root or inside it, where the nightly backup
+    /// would carry it off the machine.
+    #[error("{CACHE} must be outside {STORAGE}, which is backed up; {value:?} is not")]
+    CacheInStorage {
+        /// What the cache variable held.
         value: String,
     },
 
@@ -97,14 +117,19 @@ impl Config {
                 purpose: "the Postgres connection string, e.g. postgres://user:password@host/scorsese",
             })?;
 
-        let storage = environment.get(STORAGE).ok_or(ConfigError::Missing {
-            variable: STORAGE,
-            purpose: "the absolute directory users' files are kept under",
-        })?;
-        let storage = PathBuf::from(storage);
-        if !storage.is_absolute() {
-            return Err(ConfigError::RelativeStorage {
-                value: storage.display().to_string(),
+        let storage = directory(
+            environment,
+            STORAGE,
+            "the absolute directory users' files are kept under",
+        )?;
+        let cache = directory(
+            environment,
+            CACHE,
+            "the absolute directory thumbnails and unfinished uploads are kept under",
+        )?;
+        if cache.starts_with(&storage) {
+            return Err(ConfigError::CacheInStorage {
+                value: cache.display().to_string(),
             });
         }
 
@@ -116,7 +141,35 @@ impl Config {
         Ok(Self {
             database_url,
             storage,
+            cache,
             bind,
         })
     }
+}
+
+impl Config {
+    /// Where users' files go, kept and cached, as these settings say.
+    pub fn files(&self) -> Storage {
+        Storage::new(&self.storage, &self.cache)
+    }
+}
+
+/// The absolute directory `variable` names.
+fn directory(
+    environment: &Environment,
+    variable: &'static str,
+    purpose: &'static str,
+) -> Result<PathBuf, ConfigError> {
+    let path = PathBuf::from(
+        environment
+            .get(variable)
+            .ok_or(ConfigError::Missing { variable, purpose })?,
+    );
+    if !path.is_absolute() {
+        return Err(ConfigError::Relative {
+            variable,
+            value: path.display().to_string(),
+        });
+    }
+    Ok(path)
 }

@@ -21,6 +21,14 @@
 //! | `DELETE /api/projects/{id}` | a member | deletes one |
 //! | `GET /api/credits` | a member | their balance, in dollars and ≈ reais |
 //! | `GET /api/credits/history` | a member | what moved it, filterable, with a total |
+//! | `GET /api/library` | a member | their files: `?kind=&search=&sha256=` |
+//! | `GET /api/library/{id}` | a member | one file's details, and the projects using it |
+//! | `PATCH /api/library/{id}` | a member | `{name?, description?}` |
+//! | `DELETE /api/library/{id}` | a member | `409` naming the projects that use it |
+//! | `GET /api/library/{id}/file` | a member | the file; video and audio in ranges |
+//! | `GET /api/library/{id}/thumbnail` | a member | its thumbnail, or `404` while it is drawn |
+//! | `OPTIONS`, `POST /api/uploads` | a member | tus: what is supported; announce an upload |
+//! | `HEAD`, `PATCH`, `DELETE /api/uploads/{id}` | a member | tus: how far; the next chunk; abandon |
 //!
 //! "A member" is a request carrying a session cookie or an API token — see
 //! [`auth`].
@@ -31,20 +39,25 @@ pub mod credits;
 pub mod error;
 pub mod events;
 pub mod jobs;
+pub mod library;
 pub mod projects;
+mod ranges;
 pub mod tokens;
+pub mod uploads;
 
 use std::future::Future;
 
 use axum::Router;
 use axum::extract::State;
 use axum::http::StatusCode;
-use axum::routing::{delete, get, post};
+use axum::routing::{delete, get, head, post};
 use sqlx::postgres::PgPool;
 use tokio::net::TcpListener;
 
+use crate::Files;
 use crate::events::Events;
 use crate::jobs::Queue;
+use crate::library::Library;
 
 /// What every handler can reach.
 ///
@@ -59,16 +72,20 @@ pub struct AppState {
     pub events: Events,
     /// The job queue, for announcing a job once it is enqueued.
     pub jobs: Queue,
+    /// Every user's files.
+    pub library: Library,
 }
 
 impl AppState {
-    /// State answering from `pool`, with a new event bus and a queue telling
-    /// it.
-    pub fn new(pool: PgPool) -> Self {
+    /// State answering from `pool` with users' files in `files`, with a new
+    /// event bus and a queue telling it.
+    pub fn new(pool: PgPool, files: Files) -> Self {
         let events = Events::new();
+        let jobs = Queue::new(events.clone());
         Self {
+            library: Library::new(pool.clone(), files.storage, files.tools, jobs.clone()),
             pool,
-            jobs: Queue::new(events.clone()),
+            jobs,
             events,
         }
     }
@@ -100,12 +117,34 @@ pub fn router(state: AppState) -> Router {
                 .patch(projects::rename)
                 .delete(projects::delete),
         )
-        .merge(credit_routes());
+        .merge(credit_routes())
+        .merge(library_routes());
     Router::new().nest("/api", api).with_state(state)
 }
 
 /// The credit routes (#537), kept apart so that the routes each feature adds
 /// sit in a block of their own rather than one long chain every branch edits.
+/// The library's routes (#535): its files, and the tus uploads that fill it.
+fn library_routes() -> Router<AppState> {
+    Router::new()
+        .route("/library", get(library::list))
+        .route(
+            "/library/{id}",
+            get(library::details)
+                .patch(library::update)
+                .delete(library::delete),
+        )
+        .route("/library/{id}/file", get(library::file))
+        .route("/library/{id}/thumbnail", get(library::thumbnail))
+        .route("/uploads", post(uploads::announce).options(uploads::options))
+        .route(
+            "/uploads/{id}",
+            head(uploads::progress)
+                .patch(uploads::append)
+                .delete(uploads::cancel),
+        )
+}
+
 fn credit_routes() -> Router<AppState> {
     Router::new()
         .route("/credits", get(credits::balance))

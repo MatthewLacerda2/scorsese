@@ -94,29 +94,32 @@ async fn deleting_an_account_removes_its_rows_and_its_files(pool: PgPool) {
     let token = tokens::issue(&pool, ana, "laptop").await.unwrap();
 
     let root = std::env::temp_dir().join(format!("scorsese-533-delete-{}", std::process::id()));
+    let files = storage::Storage::new(root.join("kept"), root.join("cache"));
     for user in [ana, bia] {
-        let directory = storage::user_directory(&root, user);
-        std::fs::create_dir_all(directory.join("library")).unwrap();
-        std::fs::write(directory.join("library/clip.mp4"), b"not really").unwrap();
+        for file in [
+            files.library_file(user, "a", "mp4"),
+            files.thumbnail(user, "a", "jpg"),
+        ] {
+            std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+            std::fs::write(file, b"not really").unwrap();
+        }
     }
 
     assert_eq!(
-        users::delete(&pool, &root, "ana@example.com")
+        users::delete(&pool, &files, "ana@example.com")
             .await
             .unwrap(),
         ana
     );
     assert_eq!(sessions::find(&pool, &cookie).await.unwrap(), None);
     assert_eq!(tokens::find(&pool, &token.token).await.unwrap(), None);
-    assert!(!storage::user_directory(&root, ana).exists());
-    assert!(
-        storage::user_directory(&root, bia)
-            .join("library/clip.mp4")
-            .exists()
-    );
+    assert!(!files.library_file(ana, "a", "mp4").exists());
+    assert!(!files.thumbnail(ana, "a", "jpg").exists());
+    assert!(files.library_file(bia, "a", "mp4").exists());
+    assert!(files.thumbnail(bia, "a", "jpg").exists());
     assert_eq!(users::list(&pool).await.unwrap().len(), 1);
 
-    let again = users::delete(&pool, &root, "ana@example.com")
+    let again = users::delete(&pool, &files, "ana@example.com")
         .await
         .unwrap_err();
     assert!(matches!(again, AccountError::NoSuchAccount(_)), "{again}");

@@ -64,7 +64,7 @@ pub enum AccountError {
     /// hand: the account no longer exists to delete again.
     #[error("the account is deleted, but its files at {} could not be removed: {source}", path.display())]
     Files {
-        /// The user's directory under the storage root.
+        /// The user's directory under the storage or the cache root.
         path: PathBuf,
         /// What the filesystem said.
         #[source]

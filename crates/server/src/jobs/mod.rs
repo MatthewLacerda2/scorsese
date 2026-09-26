@@ -73,10 +73,11 @@
 //!
 //! The Veo and ElevenLabs handlers pay through
 //! [`credits::generations`](crate::credits::generations) (#537: reserve
-//! before submitting, settle on the answer, a failure free) and land with the
-//! issue that enqueues generations, once the library (#535) can hold what
-//! they make; renders land with projects (#534). **No kind has a handler
-//! yet** — see [`kinds::registry`].
+//! before submitting, settle on the answer, a failure free), keep what they
+//! make in the library ([`Library::keep_generated`](crate::library::Library::keep_generated),
+//! #535), and land with the issue that enqueues generations; renders land with
+//! the render cache (#541). **A library item's thumbnail is the first kind
+//! with a handler** (#535) — see [`kinds::registry`].
 //!
 //! ## Live state
 //!

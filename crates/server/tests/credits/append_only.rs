@@ -59,7 +59,7 @@ async fn deleting_an_account_takes_its_ledger_with_it(pool: PgPool) {
         .await
         .unwrap();
 
-    let storage = std::env::temp_dir().join(format!("scorsese-537-{}", ana.get()));
+    let storage = crate::common::files("537-delete").storage;
     users::delete(&pool, &storage, "ana@example.com")
         .await
         .unwrap();

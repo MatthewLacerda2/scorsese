@@ -25,6 +25,7 @@ async fn it_migrates_serves_and_stops_cleanly(pool: PgPool) {
     let server = tokio::spawn(scorsese_server::start(
         pool.clone(),
         listener,
+        common::files("serve"),
         Registry::new(),
         async {
             stopped.await.ok();
@@ -55,6 +56,7 @@ async fn a_database_it_cannot_reach_is_a_startup_error() {
     let config = Config {
         database_url: Secret::new(NOWHERE),
         storage: std::env::temp_dir().join("scorsese-server-never-created"),
+        cache: std::env::temp_dir().join("scorsese-server-cache-never-created"),
         bind: "127.0.0.1:0".parse().unwrap(),
     };
     let outcome = timeout(STOP, scorsese_server::run(config, std::future::pending()))
@@ -73,7 +75,7 @@ async fn health_says_unavailable_when_the_database_is_unreachable() {
         .connect_lazy(NOWHERE)
         .unwrap();
     let (listener, address) = common::listener().await;
-    let router = http::router(http::AppState::new(pool));
+    let router = http::router(http::AppState::new(pool, common::files("health")));
     let server = tokio::spawn(http::serve(listener, router, std::future::pending()));
 
     let (status, body) = common::get(address, "/api/health").await;
@@ -88,6 +90,7 @@ async fn an_open_event_stream_does_not_hold_the_server_up(pool: PgPool) {
     let server = tokio::spawn(scorsese_server::start(
         pool.clone(),
         listener,
+        common::files("serve"),
         Registry::new(),
         async {
             stopped.await.ok();

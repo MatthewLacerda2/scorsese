@@ -13,6 +13,7 @@ mod common;
 
 mod boundaries;
 mod cues;
+mod thumbnails;
 
 use std::path::{Path, PathBuf};
 

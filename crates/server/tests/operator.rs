@@ -3,7 +3,14 @@
 use scorsese_server::accounts::{password, tokens, users};
 use scorsese_server::operator::{self, TokenCommand, UserCommand};
 use scorsese_server::{AccountError, ServerError};
+use scorsese_server::storage::Storage;
 use sqlx::postgres::PgPool;
+
+/// Where an account's files would be, if these tests gave it any.
+fn files() -> Storage {
+    let temp = std::env::temp_dir();
+    Storage::new(temp.join("scorsese-operator-kept"), temp.join("scorsese-operator-cache"))
+}
 
 /// The line after `label` in a command's output.
 fn after<'a>(output: &'a str, label: &str) -> &'a str {
@@ -16,7 +23,7 @@ fn after<'a>(output: &'a str, label: &str) -> &'a str {
 
 #[sqlx::test]
 async fn a_created_account_logs_in_with_the_printed_password(pool: PgPool) {
-    let root = std::env::temp_dir();
+    let root = files();
     let email = "ana@example.com".to_owned();
     let output = operator::user(
         &pool,
@@ -61,7 +68,7 @@ async fn a_created_account_logs_in_with_the_printed_password(pool: PgPool) {
 
 #[sqlx::test]
 async fn deleting_needs_yes(pool: PgPool) {
-    let root = std::env::temp_dir();
+    let root = files();
     users::create(&pool, "ana@example.com", "password one")
         .await
         .unwrap();

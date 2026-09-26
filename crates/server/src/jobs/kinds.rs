@@ -8,7 +8,11 @@
 
 use std::time::Duration;
 
+use scorsese_render::Tools;
+
 use super::{Kind, Registry};
+use crate::library::thumbnail;
+use crate::storage::Storage;
 
 /// A render of a stored project (#534, #541). The compositor and the encoder
 /// each use several cores, so two at once is the machine.
@@ -50,14 +54,15 @@ pub const PROXY: Kind = Kind {
 /// shot. Stuck is not lost — the ticket stays in the row.
 pub const PROVIDER_PATIENCE: Duration = Duration::from_secs(15 * 60);
 
-/// Every kind the server runs, each with its handler.
+/// Every kind the server runs, each with its handler, drawing on the files in
+/// `storage` with `tools`.
 ///
-/// **Empty until the issues that give a kind something to do**: rendering
-/// needs projects stored in Postgres (#534), and a Veo shot or a spoken line
-/// pays through `credits::generations` (#537) and needs the library (#535)
-/// to put what it made. Each registers its kind here — `.register(RENDER, …)` — and the
-/// worker starts claiming it. A kind nothing registers is never claimed, so a
-/// job of that kind waits rather than failing.
-pub fn registry() -> Registry {
-    Registry::new()
+/// [`THUMBNAIL`] is the first (#535). The rest land with the issues that give
+/// them something to do: a render (#541), and a Veo shot or a spoken line,
+/// which pays through `credits::generations` (#537) and keeps what it made in
+/// the library (`Library::keep_generated`). Each registers its kind here —
+/// `.register(RENDER, …)` — and the worker starts claiming it. A kind nothing
+/// registers is never claimed, so a job of that kind waits rather than failing.
+pub fn registry(storage: &Storage, tools: &Tools) -> Registry {
+    Registry::new().register(THUMBNAIL, thumbnail::handler(storage.clone(), tools.clone()))
 }

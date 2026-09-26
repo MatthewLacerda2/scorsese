@@ -88,8 +88,8 @@
 //! assembled from — [`Config`], [`db`], [`http`] and [`start`] — published
 //! because the tests drive each one from outside the crate. [`accounts`] is
 //! who may use the server, [`operator`] the commands that manage them,
-//! [`projects`] their edits stored as `project.json` documents, and
-//! [`storage`] where each user's files live. [`jobs`] is the queue long work
+//! [`projects`] their edits stored as `project.json` documents, [`library`]
+//! the files those use, and [`storage`] where each user's files live. [`jobs`] is the queue long work
 //! waits in and the worker that runs it; [`events`] the live stream a user's
 //! browser hears it on. [`credits`] is what each user has paid and spent, and
 //! the record of every paid generation.
@@ -101,6 +101,7 @@ pub mod db;
 pub mod events;
 pub mod http;
 pub mod jobs;
+pub mod library;
 pub mod operator;
 pub mod projects;
 pub mod storage;
@@ -108,6 +109,7 @@ pub mod storage;
 use std::future::Future;
 use std::path::PathBuf;
 
+use scorsese_render::{Tools, ToolsError};
 use sqlx::postgres::PgPool;
 use tokio::net::TcpListener;
 use tokio::sync::watch;
@@ -136,8 +138,8 @@ pub enum ServerError {
     #[error("could not migrate the database: {0}")]
     Migrate(#[from] sqlx::migrate::MigrateError),
 
-    /// The storage root could not be created.
-    #[error("could not create the storage directory {}: {source}", path.display())]
+    /// The storage or cache root could not be created.
+    #[error("could not create the directory {}: {source}", path.display())]
     Storage {
         /// The directory that could not be created.
         path: PathBuf,
@@ -145,6 +147,10 @@ pub enum ServerError {
         #[source]
         source: std::io::Error,
     },
+
+    /// ffmpeg or ffprobe is not there to probe uploads and draw thumbnails.
+    #[error(transparent)]
+    Tools(#[from] ToolsError),
 
     /// An account command could not be carried out.
     #[error(transparent)]
@@ -169,23 +175,36 @@ pub enum ServerError {
 
 /// Start the server this configuration describes and run it until `shutdown`.
 ///
-/// Connect, create the storage root, bind, then [`start`]. Every step that
-/// can fail does so before the first request is accepted.
+/// Connect, create the storage and cache roots, find ffmpeg, bind, then
+/// [`start`]. Every step that can fail does so before the first request is
+/// accepted.
 pub async fn run(
     config: Config,
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> Result<(), ServerError> {
     let pool = db::connect(&config).await.map_err(ServerError::Connect)?;
-    std::fs::create_dir_all(&config.storage).map_err(|source| ServerError::Storage {
-        path: config.storage.clone(),
-        source,
-    })?;
+    let storage = config.files();
+    storage
+        .create()
+        .map_err(|(path, source)| ServerError::Storage { path, source })?;
+    let tools = Tools::discover()?;
     let listener = TcpListener::bind(config.bind).await?;
-    start(pool, listener, jobs::kinds::registry(), shutdown).await
+    let registry = jobs::kinds::registry(&storage, &tools);
+    let files = Files { storage, tools };
+    start(pool, listener, files, registry, shutdown).await
 }
 
-/// Migrate, then serve on `listener` and run `registry`'s jobs until
-/// `shutdown`.
+/// Where users' files are kept, and the tools that read them.
+#[derive(Debug, Clone)]
+pub struct Files {
+    /// The storage and cache roots.
+    pub storage: storage::Storage,
+    /// ffmpeg and ffprobe.
+    pub tools: Tools,
+}
+
+/// Migrate, then serve on `listener` with users' files in `files`, and run
+/// `registry`'s jobs until `shutdown`.
 ///
 /// The half of [`run`] that is handed its resources rather than making them,
 /// so a test can give it a database of its own, a port the OS picked and
@@ -205,6 +224,7 @@ pub async fn run(
 pub async fn start(
     pool: PgPool,
     listener: TcpListener,
+    files: Files,
     registry: jobs::Registry,
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> Result<(), ServerError> {
@@ -214,7 +234,7 @@ pub async fn start(
         eprintln!("scorsese-server: migrated {migrated} stored projects to this build's format");
     }
     let pool = db::member_pool(&pool).await.map_err(ServerError::Connect)?;
-    let state = AppState::new(pool.clone());
+    let state = AppState::new(pool.clone(), files);
     let (stop, stopping) = watch::channel(false);
     let fees = tokio::spawn(credits::fees::run(pool.clone(), stopping.clone()));
     let worker = tokio::spawn(jobs::work(pool, registry, state.jobs.clone(), stopping));

@@ -19,8 +19,6 @@
 //! Each command's output is what [`user`] and [`token`] return, printed to
 //! stdout by the binary — so a test reads exactly what the operator would.
 
-use std::path::Path;
-
 use clap::Subcommand;
 use sqlx::postgres::PgPool;
 
@@ -28,6 +26,7 @@ use crate::ServerError;
 use crate::accounts::{password, tokens, users};
 pub use crate::credits::command::CreditCommand;
 use crate::jobs::store;
+use crate::storage::Storage;
 
 /// What the binary can be asked to do.
 #[derive(Debug, Subcommand)]
@@ -98,7 +97,7 @@ pub enum TokenCommand {
 /// Carry out a `user` command. Returns what to print.
 pub async fn user(
     pool: &PgPool,
-    storage: &Path,
+    storage: &Storage,
     command: UserCommand,
 ) -> Result<String, ServerError> {
     Ok(match command {
