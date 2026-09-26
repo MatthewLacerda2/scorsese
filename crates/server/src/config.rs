@@ -1,6 +1,6 @@
 //! What the server is told by the environment it is started in.
 //!
-//! Four things, and only one of them is a secret. The database URL carries a
+//! Five things, and only one of them is a secret. The database URL carries a
 //! password, so it is held as a [`Secret`] — printing a [`Config`] prints
 //! nothing of it, and no error below ever repeats its value.
 //!
@@ -21,6 +21,7 @@ use std::path::PathBuf;
 
 use scorsese_providers::credentials::{Environment, Secret};
 
+use crate::renders::Quota;
 use crate::storage::Storage;
 
 /// Where the server's Postgres is, including its password.
@@ -34,6 +35,13 @@ pub const STORAGE: &str = "SCORSESE_STORAGE";
 /// library is backed up off the machine every night, and nothing here is
 /// worth the bandwidth (`docs/web.md`, *Running the service*).
 pub const CACHE: &str = "SCORSESE_CACHE";
+
+/// How much disk the finished-render cache aims to stay under, e.g. `20GB`.
+/// A target rather than a wall — see [`crate::renders`].
+pub const RENDER_QUOTA: &str = "SCORSESE_RENDER_QUOTA";
+
+/// The render cache's quota when [`RENDER_QUOTA`] is not set.
+pub const DEFAULT_RENDER_QUOTA: &str = "20GB";
 
 /// The address the HTTP server listens on, e.g. `0.0.0.0:8080` in a container.
 pub const BIND: &str = "SCORSESE_BIND";
@@ -54,6 +62,8 @@ pub struct Config {
     pub storage: PathBuf,
     /// The absolute directory what can be rebuilt lives under.
     pub cache: PathBuf,
+    /// How much disk finished renders aim to stay under.
+    pub render_quota: Quota,
     /// The address to listen on.
     pub bind: SocketAddr,
 }
@@ -95,6 +105,15 @@ pub enum ConfigError {
         value: String,
     },
 
+    /// The render quota is not a size.
+    #[error(
+        "{RENDER_QUOTA} must be a size like {DEFAULT_RENDER_QUOTA} or 500MB, and {value:?} is not"
+    )]
+    Quota {
+        /// What the variable held.
+        value: String,
+    },
+
     /// The listen address does not parse as `host:port`.
     #[error("{BIND} must be an address like {DEFAULT_BIND}, and {value:?} is not")]
     Bind {
@@ -133,6 +152,13 @@ impl Config {
             });
         }
 
+        let quota = environment
+            .get(RENDER_QUOTA)
+            .unwrap_or(DEFAULT_RENDER_QUOTA);
+        let render_quota = quota.parse().map_err(|()| ConfigError::Quota {
+            value: quota.to_owned(),
+        })?;
+
         let bind = environment.get(BIND).unwrap_or(DEFAULT_BIND);
         let bind = bind.parse().map_err(|_| ConfigError::Bind {
             value: bind.to_owned(),
@@ -142,6 +168,7 @@ impl Config {
             database_url,
             storage,
             cache,
+            render_quota,
             bind,
         })
     }

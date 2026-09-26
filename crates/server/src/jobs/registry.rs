@@ -87,6 +87,14 @@ impl Context {
         db::scoped(&self.pool, self.user).await
     }
 
+    /// The pool itself, for the one handler step that is cross-user by
+    /// nature: the render cache's quota, which is the whole machine's
+    /// (`renders::evict`, on `db::scope`'s privileged list). Crate-only, so
+    /// no handler outside it reaches past [`Context::scoped`].
+    pub(crate) fn pool(&self) -> &PgPool {
+        &self.pool
+    }
+
     /// Commit a provider's ticket to the job's row, **now** — call it the
     /// moment the provider accepts, before anything else can go wrong. After a
     /// crash the job comes back with it in [`Job::ticket`], and polls.

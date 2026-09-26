@@ -140,7 +140,8 @@ provider keys use, and is documented in `.env.example`:
 |---|---|
 | `DATABASE_URL` | The Postgres to connect to. Required; the server will not start without reaching it, and it is never printed. |
 | `SCORSESE_STORAGE` | The absolute directory users' files are kept under. Required. |
-| `SCORSESE_CACHE` | The absolute directory what can be rebuilt is kept under — thumbnails, uploads still arriving. Required, and refused inside `SCORSESE_STORAGE`, which is backed up. |
+| `SCORSESE_CACHE` | The absolute directory what can be rebuilt is kept under — thumbnails, uploads still arriving, finished renders. Required, and refused inside `SCORSESE_STORAGE`, which is backed up. |
+| `SCORSESE_RENDER_QUOTA` | How much disk finished renders aim to stay under: `500MB`, `20GB`, `1TB`. Defaults to `20GB`. See *Renders*. |
 | `SCORSESE_BIND` | Where to listen. Defaults to `127.0.0.1:8080`, this machine only. |
 
 **Schema migrations** are embedded in the binary and run at startup, before the
@@ -203,9 +204,9 @@ container down. There is no GPU passthrough — nothing needs it until NVENC
 `SCORSESE_STORAGE`) and is backed up. `backups/` holds the newest few database
 dumps and the time of the last good backup. `cache/` (`SCORSESE_CACHE`, made by
 the server on start) holds what can be rebuilt — thumbnails, uploads still
-arriving — and anything rebuildable a later issue adds (render cache, scratch)
-belongs beside them too, never inside `library/`, so it is not shipped off the
-machine every night.
+arriving, finished renders (*Renders*) and the scratch they are made in — and
+anything rebuildable a later issue adds belongs beside them too, never inside
+`library/`, so it is not shipped off the machine every night.
 
 ### First-time setup
 
@@ -440,10 +441,9 @@ does not hold everybody else up.
 | `veo_shot` | 4 | minutes of waiting on Google, almost no machine |
 | `spoken_line` | 4 | seconds, mostly network |
 
-**`thumbnail` is the one kind with a handler** (#535, *Library* below).
-Rendering a stored project lands with the render cache (#541); a paid
-generation pays through credits (*Credits*, below: a failed one is free) and
-keeps what it made in the library. Each registers its handler in
+**`thumbnail` and `render` have handlers** (#535, *Library*; #541, *Renders*,
+below). A paid generation pays through credits (*Credits*, below: a failed one
+is free) and keeps what it made in the library. Each registers its handler in
 `jobs::kinds::registry()`; until then a job of that kind waits rather than
 failing. The worker, the claim, recovery and
 the event stream are exercised end to end by test handlers, one of which stands
@@ -527,8 +527,8 @@ pointing at another user's project.
 from where the user's storage keeps it, looked up **by hash** in that user's
 storage and never by the document's path — so a document cannot point the server
 at another user's file or at the host's. `render` and `compositor` run on it
-unchanged; the folder is removed when dropped. Where it goes and what starts the
-render are the job queue's (#536, #541).
+unchanged; the folder is removed when dropped. The render job (*Renders*) is
+what builds one.
 
 **A schema bump migrates every stored document on start** — the rule in
 `CLAUDE.md`. After the SQL migrations and before listening, the server finds
@@ -724,6 +724,68 @@ are not written yet (#539/#540).
 | `DELETE /api/uploads/{id}` | a member | abandon it |
 
 Not in v1: folders (#527), sharing across users, a quota per user.
+
+## Renders
+
+A user's finished video, made from a stored project by the job queue and kept
+for download (#541). The code is `crates/server/src/renders/`, and its module
+docs carry each argument; this is the whole of it in one place.
+
+**One render per (document, settings).** A render is keyed by a SHA-256 of the
+project's document and the render settings, so asking again for an unchanged
+project in the same shape answers with the file already made, at once. The
+settings are exactly what `docs/output-formats.md` allows — a container, its
+codecs and, for a picture, a resolution — built by the constructor the CLI and
+MCP use, so every refusal reads the same. The frame rate is the project's own
+and the whole timeline is rendered. The job carries the document as it was when
+the render was asked for, so an edit made while it waits is not rendered under
+the old key.
+
+**The job** lays the project out as a `.scor` folder (*Projects*, the
+materialiser), each file linked by hash from the owner's library, renders it
+with `scorsese-render` exactly as `scorsese render` renders a folder, and moves
+the finished file into the cache only when it is complete. A render is not a
+paid provider call: it costs no credits. **What cannot render yet:** stored
+projects have no `recipes/` (#560), so a `synth_audio` clip renders only when
+its bake is already in the library; otherwise the job fails naming the asset
+and its recipe, rather than delivering a video that silently lost its music.
+
+**Where they live:** `$SCORSESE_CACHE/users/<user>/renders/<project>/<key>.<ext>`
+— the cache, never the library, because a render can always be made again.
+The `renders` table (owner, project, key, settings, path relative to the cache,
+size, created, **last used**) is per-user like every other.
+
+**Eviction is the maintainer's rule, deliberately simple.** The operator sets
+`SCORSESE_RENDER_QUOTA`. When a new render would take the cache past it,
+**every render not used in the last 48 hours is deleted** — anyone's, which
+makes it one of the few privileged steps. A download counts as use, and so does
+asking for a render that is already there. If nothing is that old, the new
+render is kept anyway and a warning is logged: **the quota is a target, not a
+wall.** A **weekly sweep** applies the same rule whatever the pressure, and
+removes files no row names any more (a deleted project's or account's); its
+clock is a file's age in the cache, so restarts do not reset it. Deleting a
+render is always safe — it is rebuilt from the stored project on the next ask —
+which is why the rule can be this simple, and why clearing `cache/` by hand is
+safe too: a row whose file is gone is forgotten and the render made again.
+
+**Never deleted mid-download**, by two things that hold because there is one
+server process: a download stamps the row as used, committed, *before* it opens
+the file, and eviction's `DELETE` re-checks the 48 hours against that stamp; and
+every open file is **pinned** — an in-process count per path, released when the
+response body is dropped — which eviction and the sweep skip. The pin covers
+what the stamp cannot: a download still going 48 hours on, or a project deleted
+while its render streams.
+
+| route | who | what |
+| --- | --- | --- |
+| `POST /api/projects/{id}/renders` | a member | `{container?, video_codec?, audio_codec?, resolution?}` → `200 {render}` when kept, `202 {job}` when queued or already on its way; `400` for a shape `docs/output-formats.md` does not allow |
+| `GET /api/projects/{id}/renders` | a member | the project's kept renders, most recently used first |
+| `GET /api/renders/{id}/file` | a member | the file as an attachment, in HTTP ranges; counts as use |
+
+The job's progress arrives on `GET /api/events` like any job's; its result
+names the render and where to download it.
+
+Not here: preview renders (#542).
 
 ## Out of scope for now
 

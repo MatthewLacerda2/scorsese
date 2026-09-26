@@ -69,6 +69,7 @@ async fn a_query_outside_a_scope_is_refused_even_on_an_empty_table(pool: PgPool)
         "SELECT count(*) FROM credit_entries",
         "SELECT count(*) FROM veo_generations",
         "SELECT count(*) FROM speech_generations",
+        "SELECT count(*) FROM renders",
         "SELECT count(*) FROM display_rates",
         "SELECT count(*) FROM library_items",
         "SELECT count(*) FROM uploads",

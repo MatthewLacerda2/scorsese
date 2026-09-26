@@ -57,6 +57,7 @@ async fn a_database_it_cannot_reach_is_a_startup_error() {
         database_url: Secret::new(NOWHERE),
         storage: std::env::temp_dir().join("scorsese-server-never-created"),
         cache: std::env::temp_dir().join("scorsese-server-cache-never-created"),
+        render_quota: scorsese_server::renders::Quota::bytes(1),
         bind: "127.0.0.1:0".parse().unwrap(),
     };
     let outcome = timeout(STOP, scorsese_server::run(config, std::future::pending()))

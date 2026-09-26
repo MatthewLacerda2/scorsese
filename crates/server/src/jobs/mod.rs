@@ -75,9 +75,9 @@
 //! [`credits::generations`](crate::credits::generations) (#537: reserve
 //! before submitting, settle on the answer, a failure free), keep what they
 //! make in the library ([`Library::keep_generated`](crate::library::Library::keep_generated),
-//! #535), and land with the issue that enqueues generations; renders land with
-//! the render cache (#541). **A library item's thumbnail is the first kind
-//! with a handler** (#535) — see [`kinds::registry`].
+//! #535), and land with the issue that enqueues generations. A library item's
+//! thumbnail (#535) and a render ([`crate::renders::job`], #541) have theirs
+//! — see [`kinds::registry`].
 //!
 //! ## Live state
 //!

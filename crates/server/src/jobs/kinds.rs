@@ -8,11 +8,10 @@
 
 use std::time::Duration;
 
-use scorsese_render::Tools;
-
 use super::{Kind, Registry};
+use crate::Files;
 use crate::library::thumbnail;
-use crate::storage::Storage;
+use crate::renders::job as render;
 
 /// A render of a stored project (#534, #541). The compositor and the encoder
 /// each use several cores, so two at once is the machine.
@@ -54,18 +53,27 @@ pub const PROXY: Kind = Kind {
 /// shot. Stuck is not lost — the ticket stays in the row.
 pub const PROVIDER_PATIENCE: Duration = Duration::from_secs(15 * 60);
 
-/// Every kind the server runs, each with its handler, drawing on the files in
-/// `storage` with `tools`.
+/// Every kind the server runs, each with its handler, drawing on `files`.
 ///
-/// [`THUMBNAIL`] is the first (#535). The rest land with the issues that give
-/// them something to do: a render (#541), and a Veo shot or a spoken line,
+/// [`THUMBNAIL`] (#535) and [`RENDER`] (#541) have theirs. The rest land with
+/// the issues that give them something to do: a Veo shot or a spoken line,
 /// which pays through `credits::generations` (#537) and keeps what it made in
 /// the library (`Library::keep_generated`). Each registers its kind here —
-/// `.register(RENDER, …)` — and the worker starts claiming it. A kind nothing
-/// registers is never claimed, so a job of that kind waits rather than failing.
-pub fn registry(storage: &Storage, tools: &Tools) -> Registry {
-    Registry::new().register(
-        THUMBNAIL,
-        thumbnail::handler(storage.clone(), tools.clone()),
-    )
+/// `.register(VEO_SHOT, …)` — and the worker starts claiming it. A kind
+/// nothing registers is never claimed, so a job of that kind waits rather than
+/// failing.
+pub fn registry(files: &Files) -> Registry {
+    Registry::new()
+        .register(
+            THUMBNAIL,
+            thumbnail::handler(files.storage.clone(), files.tools.clone()),
+        )
+        .register(
+            RENDER,
+            render::handler(
+                files.renders.clone(),
+                files.tools.clone(),
+                files.storage.clone(),
+            ),
+        )
 }

@@ -2,7 +2,7 @@
 //! database password never comes back out of it.
 
 use scorsese_providers::credentials::Environment;
-use scorsese_server::config::{BIND, CACHE, DATABASE_URL, DEFAULT_BIND, STORAGE};
+use scorsese_server::config::{BIND, CACHE, DATABASE_URL, DEFAULT_BIND, RENDER_QUOTA, STORAGE};
 use scorsese_server::{Config, ConfigError};
 
 const URL: &str = "postgres://scorsese:hunter2@db/scorsese";
@@ -86,4 +86,24 @@ fn the_database_password_is_never_printed() {
     let printed = format!("{config:?}");
     assert!(!printed.contains("hunter2"), "{printed}");
     assert!(printed.contains("/srv/scorsese"), "{printed}");
+}
+
+#[test]
+fn the_render_quota_reads_decimal_units_and_has_a_default() {
+    assert_eq!(with(&[]).unwrap().render_quota.get(), 20_000_000_000);
+    for (text, bytes) in [
+        ("500MB", 500_000_000),
+        ("2 TB", 2_000_000_000_000),
+        ("1024", 1024),
+    ] {
+        let config = with(&[(RENDER_QUOTA, text)]).unwrap();
+        assert_eq!(config.render_quota.get(), bytes, "{text}");
+    }
+    for text in ["lots", "20 GiB", "-5GB", "GB"] {
+        let error = with(&[(RENDER_QUOTA, text)]).unwrap_err();
+        assert!(
+            matches!(error, ConfigError::Quota { .. }),
+            "{text}: {error:?}"
+        );
+    }
 }

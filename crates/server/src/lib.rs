@@ -92,7 +92,8 @@
 //! the files those use, and [`storage`] where each user's files live. [`jobs`] is the queue long work
 //! waits in and the worker that runs it; [`events`] the live stream a user's
 //! browser hears it on. [`credits`] is what each user has paid and spent, and
-//! the record of every paid generation.
+//! the record of every paid generation. [`renders`] is the finished videos the
+//! queue makes from stored projects, kept for download under a quota.
 
 pub mod accounts;
 pub mod config;
@@ -104,6 +105,7 @@ pub mod jobs;
 pub mod library;
 pub mod operator;
 pub mod projects;
+pub mod renders;
 pub mod storage;
 
 use std::future::Future;
@@ -189,8 +191,13 @@ pub async fn run(
         .map_err(|(path, source)| ServerError::Storage { path, source })?;
     let tools = Tools::discover()?;
     let listener = TcpListener::bind(config.bind).await?;
-    let registry = jobs::kinds::registry(&storage, &tools);
-    let files = Files { storage, tools };
+    let renders = renders::RenderCache::new(&config.cache, config.render_quota);
+    let files = Files {
+        storage,
+        tools,
+        renders,
+    };
+    let registry = jobs::kinds::registry(&files);
     start(pool, listener, files, registry, shutdown).await
 }
 
@@ -201,6 +208,9 @@ pub struct Files {
     pub storage: storage::Storage,
     /// ffmpeg and ffprobe.
     pub tools: Tools,
+    /// Finished renders, under the cache root, and which are being
+    /// downloaded.
+    pub renders: renders::RenderCache,
 }
 
 /// Migrate, then serve on `listener` with users' files in `files`, and run
@@ -215,8 +225,10 @@ pub struct Files {
 /// the code answering it either. Requests are then answered from
 /// [`db::member_pool`], whose connections can read nothing outside a scoped
 /// transaction — per-user isolation, `db::scope`. The job worker
-/// ([`jobs::work`]) and the monthly-fee sweep ([`credits::fees::run`]) run
-/// beside them on the same pool.
+/// ([`jobs::work`]), the monthly-fee sweep ([`credits::fees::run`]) and the
+/// render cache's weekly sweep ([`renders::evict::run`]) run beside them on
+/// the same pool. The render cache's scratch folder is emptied first, while
+/// no render can be running.
 ///
 /// On `shutdown` every live stream ends, so the graceful stop is not held
 /// open by them; requests in flight finish; then the worker stops, leaving
@@ -233,10 +245,15 @@ pub async fn start(
     if migrated > 0 {
         eprintln!("scorsese-server: migrated {migrated} stored projects to this build's format");
     }
+    let cache = files.renders.clone();
+    cache
+        .prepare()
+        .map_err(|(path, source)| ServerError::Storage { path, source })?;
     let pool = db::member_pool(&pool).await.map_err(ServerError::Connect)?;
     let state = AppState::new(pool.clone(), files);
     let (stop, stopping) = watch::channel(false);
     let fees = tokio::spawn(credits::fees::run(pool.clone(), stopping.clone()));
+    let sweep = tokio::spawn(renders::evict::run(pool.clone(), cache, stopping.clone()));
     let worker = tokio::spawn(jobs::work(pool, registry, state.jobs.clone(), stopping));
     let events = state.events.clone();
     let served = http::serve(listener, http::router(state), async move {
@@ -250,6 +267,9 @@ pub async fn start(
     }
     if let Err(error) = fees.await {
         eprintln!("scorsese-server: the monthly-fee sweep failed: {error}");
+    }
+    if let Err(error) = sweep.await {
+        eprintln!("scorsese-server: the render sweep failed: {error}");
     }
     Ok(served?)
 }

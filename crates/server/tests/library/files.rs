@@ -60,7 +60,7 @@ async fn a_file_is_served_whole_or_in_the_range_asked_for(pool: PgPool) {
 #[sqlx::test]
 async fn the_worker_draws_each_files_thumbnail(pool: PgPool) {
     let files = common::files("files-thumbnail");
-    let registry = kinds::registry(&files.storage, &files.tools);
+    let registry = kinds::registry(&files);
     let bytes = video(&common::scratch("files-thumbnail-media"));
     let (address, state) = common::serve_with(pool.clone(), files).await;
     let (_stop, stopping) = watch::channel(false);
