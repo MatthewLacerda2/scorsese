@@ -6,10 +6,12 @@
 //! at a time; what waits on a provider's servers barely uses the machine and
 //! is limited only so one person's batch cannot flood a vendor.
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use super::{Kind, Registry};
 use crate::Files;
+use crate::generations::{self, Keys, Timing, Vendors};
 use crate::library::thumbnail;
 use crate::renders::job as render;
 
@@ -53,16 +55,21 @@ pub const PROXY: Kind = Kind {
 /// shot. Stuck is not lost — the ticket stays in the row.
 pub const PROVIDER_PATIENCE: Duration = Duration::from_secs(15 * 60);
 
-/// Every kind the server runs, each with its handler, drawing on `files`.
+/// Every kind the server runs, each with its handler, drawing on `files` —
+/// and, for the paid generations, on the real vendors, with their keys from
+/// the server's environment ([`Keys`]).
 ///
-/// [`THUMBNAIL`] (#535) and [`RENDER`] (#541) have theirs. The rest land with
-/// the issues that give them something to do: a Veo shot or a spoken line,
-/// which pays through `credits::generations` (#537) and keeps what it made in
-/// the library (`Library::keep_generated`). Each registers its kind here —
-/// `.register(VEO_SHOT, …)` — and the worker starts claiming it. A kind
-/// nothing registers is never claimed, so a job of that kind waits rather than
-/// failing.
+/// [`THUMBNAIL`] (#535), [`RENDER`] (#541), [`VEO_SHOT`] and [`SPOKEN_LINE`]
+/// (#539, `crate::generations`) have theirs; [`PROXY`] lands with #542. A kind
+/// nothing registers is never claimed, so a job of that kind waits rather
+/// than failing.
 pub fn registry(files: &Files) -> Registry {
+    with_vendors(files, Arc::new(Keys), Timing::default())
+}
+
+/// [`registry`], with the paid generations reaching `vendors` and waiting as
+/// `timing` says — for a test, whose vendors never spend a cent.
+pub fn with_vendors(files: &Files, vendors: Arc<dyn Vendors>, timing: Timing) -> Registry {
     Registry::new()
         .register(
             THUMBNAIL,
@@ -75,5 +82,18 @@ pub fn registry(files: &Files) -> Registry {
                 files.tools.clone(),
                 files.storage.clone(),
             ),
+        )
+        .register(
+            VEO_SHOT,
+            generations::shot_handler(
+                files.storage.clone(),
+                files.tools.clone(),
+                Arc::clone(&vendors),
+                timing,
+            ),
+        )
+        .register(
+            SPOKEN_LINE,
+            generations::line_handler(files.storage.clone(), files.tools.clone(), vendors),
         )
 }

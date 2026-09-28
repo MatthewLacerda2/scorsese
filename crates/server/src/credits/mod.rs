@@ -62,7 +62,7 @@
 //! one row per thing that moved their balance, the balance after each, in
 //! ≈ reais at the operator's dated [`rates`] with dollars beside. It is served
 //! at `GET /api/credits/history` and described as a read-only tool
-//! ([`tool`]) for web MCP (#539) to register.
+//! ([`tool`]), which web MCP (#539, `crate::tools`) serves.
 
 pub mod command;
 pub mod fees;

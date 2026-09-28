@@ -57,6 +57,32 @@ pub fn generate(
     Ok(done)
 }
 
+/// Points every line whose current brief's output is already on disk at that
+/// file — the cache half of a run, with no provider, no key and nothing spent.
+/// Which lines it found.
+///
+/// The sibling of [`video::adopt`](crate::video::adopt), for the same caller:
+/// one that keeps generated media outside the project and lays it out where
+/// each brief would land before asking.
+pub fn adopt(project: &mut Project, root: &Path) -> Vec<AssetId> {
+    let mut adopted = Vec::new();
+    for id in narration_ids(project) {
+        let Some(brief) = project
+            .asset(&id)
+            .and_then(|asset| Brief::of(asset).ok())
+            .filter(|brief| brief.realized(root))
+        else {
+            continue;
+        };
+        let output = brief.output();
+        let bytes = std::fs::read(output.resolve(root)).unwrap_or_default();
+        if record(project, &id, &output, &bytes, &brief).is_ok() {
+            adopted.push(id);
+        }
+    }
+    adopted
+}
+
 /// What a run would do with one line, read without doing it.
 ///
 /// The sibling of [`video::Plan`](crate::video::Plan), minus the in-flight

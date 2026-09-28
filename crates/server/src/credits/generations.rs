@@ -5,10 +5,10 @@
 //! can read every charge of theirs in the history. A generation's life is
 //! [`start`] (priced, reserved, recorded, or refused with nothing written),
 //! then for a shot [`keep_ticket`] the moment Google accepts, then [`finish`]
-//! with what the provider said. The job handlers that call these land with
-//! the issue that enqueues generations (#539, #540): a handler needs a
-//! project (#534) to read the brief from and a library (#535) to put the
-//! result in, and neither is on `main` yet.
+//! with what the provider said. The job handlers that call these are
+//! `crate::generations` (#539); web `generate` starts one in the transaction
+//! that enqueues its job, and the job finds what pays for it with
+//! [`for_job`].
 
 use serde_json::Value;
 
@@ -186,6 +186,39 @@ pub async fn keep_ticket(tx: &mut Tx, shot: i64, ticket: &str) -> Result<(), sql
         .execute(&mut **tx)
         .await
         .map(drop)
+}
+
+/// The generation job `job` pays for, while its reservation is still open —
+/// `None` once it has been settled, or for a job nothing paid for.
+///
+/// What a generation job reads when it starts: the job is enqueued in the
+/// transaction that reserves for it, so the audit row names the job, and a
+/// job run again after a crash that had already settled finds nothing to
+/// settle twice.
+pub async fn for_job(tx: &mut Tx, job: i64) -> Result<Option<Paid>, sqlx::Error> {
+    let row: Option<(Option<i64>, Option<i64>, i64, i64)> = sqlx::query_as(
+        "SELECT e.veo_generation_id, e.speech_generation_id, e.id, -e.amount_micros
+         FROM credit_entries e
+         LEFT JOIN veo_generations v ON v.id = e.veo_generation_id
+         LEFT JOIN speech_generations s ON s.id = e.speech_generation_id
+         WHERE e.kind = 'reservation' AND (v.job_id = $1 OR s.job_id = $1)
+           AND NOT EXISTS (SELECT 1 FROM credit_entries r
+                           WHERE r.settles = e.id AND r.kind = 'release')",
+    )
+    .bind(job)
+    .fetch_optional(&mut **tx)
+    .await?;
+    Ok(row.and_then(|(shot, line, entry, micros)| {
+        let generation = match (shot, line) {
+            (Some(id), _) => Generation::Shot(id),
+            (None, Some(id)) => Generation::Line(id),
+            (None, None) => return None,
+        };
+        Some(Paid {
+            generation,
+            reservation: Reservation { entry, micros },
+        })
+    }))
 }
 
 /// How the provider answered.

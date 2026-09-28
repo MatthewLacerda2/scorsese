@@ -6,7 +6,7 @@ use std::sync::Arc;
 use futures_util::future::BoxFuture;
 use sqlx::postgres::PgPool;
 
-use super::{Job, Kind, Outcome, store};
+use super::{Job, Kind, Outcome, Queue, store};
 use crate::db::{self, Tx, UserId};
 
 /// The work one kind of job does.
@@ -64,21 +64,30 @@ impl Registry {
     }
 }
 
-/// What a running handler may reach: the database, as the job's owner.
+/// What a running handler may reach: the database, as the job's owner, and
+/// the queue — for a handler whose work leaves more work behind it, like a
+/// generated file that needs a thumbnail.
 #[derive(Clone)]
 pub struct Context {
     pool: PgPool,
+    queue: Queue,
     job: i64,
     user: UserId,
 }
 
 impl Context {
-    pub(super) fn new(pool: PgPool, job: &Job) -> Self {
+    pub(super) fn new(pool: PgPool, queue: Queue, job: &Job) -> Self {
         Self {
             pool,
+            queue,
             job: job.id,
             user: job.user,
         }
+    }
+
+    /// The queue this job came from, to announce a job this one enqueued.
+    pub fn queue(&self) -> &Queue {
+        &self.queue
     }
 
     /// A transaction scoped to the job's owner: their rows and nobody else's,

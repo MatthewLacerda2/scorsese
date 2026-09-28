@@ -64,6 +64,7 @@
 
 pub mod evict;
 pub mod job;
+pub mod request;
 pub mod settings;
 pub mod store;
 

@@ -172,7 +172,7 @@ async fn claim_what_fits(
 
 /// Run one job to its end and record how it ended.
 async fn run(pool: PgPool, handler: Arc<dyn super::Handler>, job: Job, queue: Queue) {
-    let context = Context::new(pool.clone(), &job);
+    let context = Context::new(pool.clone(), queue.clone(), &job);
     let running = {
         let job = job.clone();
         async move { handler.run(job, context).await }

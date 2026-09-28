@@ -35,6 +35,13 @@ by `.env.example` beside it, and it stops existing the moment somebody installs
 a build. The settings file is what a shipped program has, which is why the
 window writes there and why the resolver reads both.
 
+**The hosted server** (`docs/web.md`) resolves its keys the same way, and in
+practice from the first place only: its container is told `GEMINI_API_KEY` and
+`ELEVENLABS_API_KEY` by `deploy/.env`, through `compose.yaml`, and has no
+settings file. Those keys are the operator's, spent on users' behalf and paid
+back from their credits — so `budget_cents` below is not what holds a web user
+back; their balance is.
+
 **A key never goes near `project.json`.** A project directory is promised to
 survive `scp -r` to another machine, and a credential inside one would travel
 with it.

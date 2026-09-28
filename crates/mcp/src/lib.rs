@@ -26,9 +26,19 @@
 //! exactly the right shape, and every dependency here is one `cargo deny` has
 //! to keep clearing.
 //!
-//! That is a judgement, not a principle. If the protocol grows a transport
-//! this cannot honestly serve, taking the SDK is the right answer, and this
-//! paragraph is the note explaining why it was not taken sooner.
+//! That is a judgement, not a principle, and it was tested when the protocol
+//! grew the transport the hosted server needs (#539): **Streamable HTTP**, a
+//! client `POST`ing each message to one URL. The SDK was weighed again then and
+//! still not taken. What the server has to serve is a `POST` answered with
+//! JSON — no server-initiated stream, no session — on an HTTP stack
+//! (`scorsese-server`'s axum) that already exists; what it has to *share* with
+//! this binary is what a message means, which is [`protocol`], written so that
+//! neither transport owns it. Taking the SDK would have meant its tool macros
+//! and its registry shape beside this one, and an async runtime in a binary
+//! whose protocol is still one stream read in order. The day a client needs
+//! something this cannot honestly serve — server-to-client requests,
+//! resumable streams, OAuth discovery — the SDK is the answer again, and this
+//! paragraph is the note to revise.
 //!
 //! ## Every tool is described, and that is a gate
 //!
@@ -71,13 +81,16 @@
 //! `serve`, which is what the binary runs, and `registry` with the `Tool` it
 //! yields, the `Costs` that tool declares and the `Reply` it answers with —
 //! published because the gates above are integration tests and walk the
-//! registry from outside the crate. `tool_table`, `regenerated` and the two
+//! registry from outside the crate, and because the hosted server serves the
+//! same tools (#539). [`protocol`] is what a message means apart from how it
+//! arrived, published for that second transport. `tool_table`, `regenerated` and the two
 //! markers they write between are published for that reason and no other.
 //!
-//! Everything else is protocol plumbing: the modules are private, so `rpc`,
-//! `session` and the tools themselves are reachable only from in here.
+//! Everything else is plumbing: the modules are private, so `rpc`, `session`
+//! and the tools themselves are reachable only from in here.
 
 mod base64;
+pub mod protocol;
 mod rpc;
 mod session;
 mod table;

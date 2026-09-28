@@ -9,12 +9,14 @@
 //!
 //! Scoped like everything else here, so the lookup **cannot** find another
 //! user's output: a brief two people happen to share is paid for by each
-//! (#527). The jobs that generate are not written yet: one pays through
-//! `credits::generations` (#537), asks `find_generated` before `start`, keeps
-//! its output with `keep_generated`, and settles with
+//! (#527). The jobs that generate are `crate::generations` (#539): each pays
+//! through `credits::generations` (#537), asks `find_generated` before it
+//! sends anything, keeps its output with `keep_generated`, and settles with
 //! `Answer::Worked(Some(item.id))` — which is what links the audit row to the
-//! item ([`Library::generation`] reads it back). This is the library's side of
-//! that contract, and nothing calls it yet.
+//! item ([`Library::generation`] reads it back). Laying a project out for a
+//! tool (`tools::lay_out`) asks the same question by brief, through
+//! `library::locate`, so a brief already made is free in any of the user's
+//! projects.
 
 use serde_json::Value;
 

@@ -48,6 +48,7 @@
 mod admit;
 mod generated;
 mod kind;
+pub mod locate;
 mod store;
 pub mod thumbnail;
 pub mod upload;

@@ -1533,6 +1533,7 @@ dependencies = [
  "futures-util",
  "getrandom 0.4.3",
  "scorsese-core",
+ "scorsese-mcp",
  "scorsese-providers",
  "scorsese-render",
  "serde",
