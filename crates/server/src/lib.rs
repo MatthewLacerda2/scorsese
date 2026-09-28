@@ -41,9 +41,9 @@
 //!
 //! Decided here because every later issue inherits it (#530). The built-in
 //! assistant (#540) and web MCP (#539) both need the tools `scorsese-mcp`
-//! defines, and they will reach them by **depending on `scorsese-mcp`** — not
-//! by moving the registry into a new crate beneath both. The dependency is
-//! added by the first issue that calls a tool, not before.
+//! defines, and they reach them by **depending on `scorsese-mcp`** — not by
+//! moving the registry into a new crate beneath both. Web MCP added the
+//! dependency.
 //!
 //! - The registry is not the whole of what is shared. Web MCP is the same
 //!   JSON-RPC over a different transport, so it wants `scorsese-mcp`'s
@@ -67,9 +67,15 @@
 //! The constraint every later issue inherits: **`scorsese-mcp` never learns
 //! about users or Postgres.** It stays stateless and database-free, and
 //! whatever turns a user's project id into something a tool can act on lives
-//! here and is handed to the tool. The day that cannot hold — a tool that
-//! needs the database to do its job — is the day to move the registry down a
-//! layer after all, and this paragraph is where to say so.
+//! here and is handed to the tool ([`tools`]: the project laid out as a folder
+//! for the length of a call). This paragraph used to say that a tool needing
+//! the database would be the day to move the registry down a layer. Web MCP
+//! met such tools — `spending_history`, `project_list`, a `generate` paid from
+//! credits — and **did not move it**: they have no meaning for a `.scor`
+//! folder, so they are this crate's own tools, listed beside the registry's
+//! under the same rules, and the stdio binary never links code it could not
+//! call. [`tools`]' module doc has the whole argument. What would reopen it is
+//! a tool that means the same thing in both places *and* needs the database.
 //!
 //! ## Database tests run, or they fail — they never skip
 //!
@@ -94,6 +100,9 @@
 //! browser hears it on. [`credits`] is what each user has paid and spent, and
 //! the record of every paid generation. [`renders`] is the finished videos the
 //! queue makes from stored projects, kept for download under a quota.
+//! [`tools`] is scorsese's tool surface for one user — what web MCP serves and
+//! the built-in assistant calls — and [`generations`] the paid jobs its
+//! `generate` queues.
 
 pub mod accounts;
 pub mod config;

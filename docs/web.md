@@ -143,6 +143,7 @@ provider keys use, and is documented in `.env.example`:
 | `SCORSESE_CACHE` | The absolute directory what can be rebuilt is kept under — thumbnails, uploads still arriving, finished renders. Required, and refused inside `SCORSESE_STORAGE`, which is backed up. |
 | `SCORSESE_RENDER_QUOTA` | How much disk finished renders aim to stay under: `500MB`, `20GB`, `1TB`. Defaults to `20GB`. See *Renders*. |
 | `SCORSESE_BIND` | Where to listen. Defaults to `127.0.0.1:8080`, this machine only. |
+| `GEMINI_API_KEY`, `ELEVENLABS_API_KEY` | The provider keys paid generations are made with (*Web MCP*), read by the one resolver `docs/credentials.md` describes. Optional: without one, a generation needing it fails, free. |
 
 **Schema migrations** are embedded in the binary and run at startup, before the
 first request. Files in `crates/server/migrations/` are numbered
@@ -193,8 +194,8 @@ run by token keeps its rules in Cloudflare's dashboard, where no pull request
 shows them and no local run exercises them; in `nginx.conf` they are versioned,
 reviewed and identical on loopback and on the public hostname. nginx is needed
 for the SPA fallback anyway, so the tunnel is a single rule that never changes.
-The MCP endpoint (#539) is expected under `/api` like everything else; if it
-lands elsewhere it is one more `location` block there.
+The MCP endpoint (#539) is `/api/mcp`, under `/api` like everything else, so it
+needs nothing of its own there.
 
 **A fifth container, `backup`**, beside the four in *The shape*. It runs on the
 database's own image, so `pg_dump` is always the server's version, and it
@@ -530,11 +531,11 @@ does not hold everybody else up.
 | `veo_shot` | 4 | minutes of waiting on Google, almost no machine |
 | `spoken_line` | 4 | seconds, mostly network |
 
-**`thumbnail` and `render` have handlers** (#535, *Library*; #541, *Renders*,
-below). A paid generation pays through credits (*Credits*, below: a failed one
-is free) and keeps what it made in the library. Each registers its handler in
-`jobs::kinds::registry()`; until then a job of that kind waits rather than
-failing. The worker, the claim, recovery and
+**`thumbnail`, `render`, `veo_shot` and `spoken_line` have handlers** (#535,
+*Library*; #541, *Renders*; #539, *Web MCP*, below). A paid generation pays
+through credits (*Credits*, below: a failed one is free) and keeps what it made
+in the library. Each registers its handler in `jobs::kinds::registry()`; a kind
+nothing registers (`proxy`, until #542) waits rather than failing. The worker, the claim, recovery and
 the event stream are exercised end to end by test handlers, one of which stands
 in for Veo.
 
@@ -638,7 +639,7 @@ updating. Local folders go through the same steps with `scorsese migrate`.
 | `DELETE /api/projects/{id}` | a member | `204`; `404` for an id that is not theirs |
 
 Deliberately storage verbs only: what a project *says* is changed by `core`'s
-editing functions, through the tools (#539, #540) and the editor (#545).
+editing functions, through the tools (*Web MCP*, #540) and the editor (#545).
 Recipes and a project's `script` are documents rather than media, and have
 nowhere to live in the server yet; the materialiser does not lay them out.
 
@@ -734,10 +735,9 @@ scorsese-server credit balance ana@example.com
 A top-up records the reais received and the rate they were converted at, and
 credits the dollars **rounded down** — the one place that direction is right.
 
-Not here yet: the Veo and ElevenLabs job handlers that call `start` and
-`finish` (they land with the issue that enqueues generations, #539/#540, and
-keep their output with the library's `keep_generated`); Pix (#548); the refund
-policy's text (#547).
+The Veo and ElevenLabs job handlers that call `start` and `finish` are web
+MCP's (*Web MCP*, below), which also registers `spending_history`. Not here
+yet: Pix (#548); the refund policy's text (#547).
 
 ## Library
 
@@ -795,8 +795,8 @@ removes a file from a *local* project (#396); this does not decide that.
 never across users — and `Library::keep_generated` keeps what a generation
 made. Its details carry the generation record (#537): the brief, model,
 settings, when, and what it cost — `estimated_cost_micros` by scorsese's own
-table, `charged_micros` from the ledger. The generation jobs that call these
-are not written yet (#539/#540).
+table, `charged_micros` from the ledger. The generation jobs that call these are web
+MCP's (*Web MCP*).
 
 | route | who | what |
 | --- | --- | --- |
@@ -876,6 +876,103 @@ names the render and where to download it.
 
 Not here: preview renders (#542).
 
+## Web MCP
+
+scorsese's tools served over HTTP (#539), so a user can point their own Claude,
+Gemini CLI or any MCP client at the web app and edit their projects. The code
+is `crates/server/src/tools/` (the tool surface, per user) and
+`crates/server/src/http/mcp.rs` (the transport); their module docs carry each
+argument. The built-in assistant (#540) calls the same surface in-process —
+`Toolbox::call`, with `Client::Assistant` — so there is one tool set and two
+ways in.
+
+**The endpoint is `POST /api/mcp`**, MCP's Streamable HTTP transport:
+JSON-RPC in, `application/json` out, a batch answered with a batch, a body of
+notifications with `202`. No server-initiated stream and no sessions — `GET`
+and `DELETE` are `405` — because no tool reports progress mid-call (long work
+is a job) and every call names its project, exactly as over stdio. What a
+message *means* is `scorsese_mcp::protocol`, the code the stdio server answers
+with, so the handshake and every refusal read the same either way.
+
+**Who: an API token, only.** `Authorization: Bearer scor_…` (*Accounts*); a
+browser session is `403` here, which is also what keeps a web page from
+borrowing somebody's login to reach it. Every call acts on the token's user
+alone — their projects, their library, their credits, their jobs.
+
+Pointing Claude Code at it:
+
+    claude mcp add --transport http scorsese https://<the site>/api/mcp \
+      --header "Authorization: Bearer scor_…"
+
+Other clients take the same URL and header. Locally, with the stack up, the
+URL is `http://127.0.0.1:8088/api/mcp`.
+
+**One registry, a project id instead of a path.** A stored project is laid
+out as a `.scor` folder for the length of one call — the document, every file
+linked by hash from the user's own library, every generation of its current
+briefs linked where the brief lands — the registry's tool runs on it
+unchanged, and the document is saved back with its revision check (retried on
+a conflict, since a tool is a function of the document). The folder's path
+never reaches the client. Each registry tool keeps the registry's own
+description, word for word; only `project` changes, to **the id** of one of the
+caller's projects. Every tool and argument is described, held by
+`tests/mcp/described.rs` as `docs/mcp.md` holds the registry, and every
+registry tool is decided about in `tools/surface.rs`, so a new one cannot reach
+the web — or be left off it — without a reason written down.
+
+| served | how |
+| --- | --- |
+| `project_read`, `project_describe`, `project_check`, `project_assets`, `project_probe`, `project_write`, `track_new`, `text_new`, `color_new`, `shape_new`, `icon_new`, `asset_set`, `place_clip`, `trim_clip`, `dissolve`, `duck_music`, `set_volume`, `scale_pacing`, `rebrief`, `icons`, `voices` | as they are, on the stored project |
+| `look`, `hear`, `audio_level` | their file arguments must be paths inside the project (`assets/…`, `generated/…`) — locally they may name anything on the machine, and here the machine is everybody's |
+| `still` | without `out`: nothing is kept on the server's disk; the picture is in the reply |
+| `project_list`, `project_new` | the server's own: a project is a row, named by an id the client asks for |
+| `library`, `import` | the server's own: files come from the user's library by id (`core`'s `reference_asset`, the document half of an import), never from a path on the server |
+| `render`, `jobs` | the server's own: a render is a job (*Renders*), downloaded from `/api/renders/{id}/file` with the same token; `jobs` says where any job is |
+| `generate` | the server's own: paid from credits, made by the queue — below |
+| `spending_history` | the ledger, read for the caller (*Credits*) |
+
+**Not served yet:** `script_read`, `script_write` and the `synth_*` tools — a
+stored project has no script and no `recipes/` (#560); `voice_design` — its
+samples and designed-voice record are files beside `project.json`, and credits
+have no row for a design (#572).
+
+**Why the registry did not move.** The tools that need the database —
+`spending_history`, `project_list`, a `generate` that pays through credits —
+have no meaning for a `.scor` folder at all, so moving the registry beneath both
+crates would put Postgres-shaped tools in a crate the stdio binary links and
+could never call. The web surface is the registry's tools plus the server's own,
+under one set of rules, and `scorsese-mcp` still never learns about users
+(`crates/server/src/tools/mod.rs` has the argument).
+
+**Paying: quote, credits, a job, the library.** `generate` quotes with
+`scorsese_providers::quote::generation` over the laid-out project — so a brief
+the user already generated, in this project or another of theirs, is priced at
+nothing, and so is one whose job is still on its way. A call without `confirm`
+answers with the quote, what it takes from the balance (cost + 10%) and a
+token, kept in the `quotes` table under the providers' rules (#538: bound to
+what was quoted, once, fifteen minutes). A call with the token reserves every
+charged brief and queues it as a `veo_shot` or `spoken_line` job in one
+transaction — all, or none when the balance cannot cover the lot — and answers
+at once with the job ids. Each job (`crate::generations`) sends the brief
+exactly as quoted, keeps a shot's ticket before anything else, keeps what came
+back with `Library::keep_generated`, charges it — or releases it, free, when the
+provider refused — and brings it into the project as it is by then, measured.
+The provider keys are the server's: `GEMINI_API_KEY` and `ELEVENLABS_API_KEY`,
+through the one credentials resolver; a missing key fails the job, free.
+
+**Every call is recorded** in `tool_calls` — tool, arguments, project, how it
+ended and its words (not its pictures), with `client` `external` for web MCP
+and `assistant` for #540. A paid generation's audit row names the call that
+asked for it.
+
+**Rate limit:** 120 tool calls a minute per user, the rest `429` with
+`Retry-After`. Spending already needs a quote and a yes; this keeps one
+runaway loop from filling the queue on a shared machine.
+
+**The web editor (#545) should call the same path**: a thin JSON route over
+`Toolbox::call` for a browser session, so no edit is written twice — once in
+Rust and again in TypeScript.
+
 ## The pages
 
 What a user sees before the editor (#544); `web/README.md` has how the code is
@@ -905,8 +1002,8 @@ own rounding.
 **Adding a library file to a project is not a button here.** The server keeps
 no per-edit endpoints (`http/projects.rs`): what a project says changes through
 `core`'s editing functions, reached by the tools and the editor. Bringing a
-library file into a project is the editor's (#545, its assets panel) and the
-tools' (#539) to do, on whichever path they settle for edits.
+library file into a project is web MCP's `import` (*Web MCP*), and the editor's
+(#545) by the same path.
 
 ## Out of scope for now
 

@@ -96,6 +96,10 @@ services:
       # Every interface of the container, which is only the compose network:
       # no port is published, so nothing outside reaches this but nginx.
       SCORSESE_BIND: 0.0.0.0:8080
+      # The operator's provider keys, for users' paid generations. Blank means
+      # a generation needing one fails, free.
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
     volumes:
       - &data
         type: bind

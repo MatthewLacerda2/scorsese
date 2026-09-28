@@ -38,6 +38,11 @@ pull` is picked up on the next client start, with nothing to remember.
 reverses there: a shipped binary should not need a toolchain, a source tree or
 a compile to start.
 
+**On the hosted web app** the same tools are served over HTTP at `/api/mcp`,
+for the user an API token names, with a project named by its id instead of a
+path: [`web.md`](web.md), *Web MCP*, has the URL, the header and which tools
+are served there.
+
 ### Why the default is the crate and not the artifact
 
 A client pointed at a built binary keeps launching whatever was last compiled,

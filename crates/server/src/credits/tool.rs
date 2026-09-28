@@ -1,17 +1,15 @@
 //! `spending_history`: the history as a read-only tool, so a user on web MCP
 //! (#539) can ask their own assistant "what did I spend this week?".
 //!
-//! **Described here, registered by #539.** Every other tool lives in
-//! `scorsese-mcp`'s registry, whose `Tool` trait is synchronous, takes only
+//! **Described here, served by web MCP** (`crate::tools`, #539). The registry
+//! tools live in `scorsese-mcp`, whose `Tool` trait is synchronous, takes only
 //! its arguments, and — by the rule in this crate's own `lib.rs` — never learns
 //! about users or Postgres. This tool is nothing *but* a user's rows in
 //! Postgres, and has no local equivalent: a `.scor` folder has no ledger. So it
-//! cannot be one of that registry's tools as they stand, and the plumbing that
-//! serves registry tools and server-side tools side by side, with the caller's
-//! user attached, is exactly what web MCP builds. Until then this module is the
-//! whole of the tool except the wire: its name, its self-description (every
-//! argument described, `docs/mcp.md`'s rule, held by a test), how arguments
-//! become a [`Filter`], and the text it answers with.
+//! is one of the server's own tools, listed beside the registry's under the
+//! same rules. This module is the whole of it except the wire: its name, its
+//! self-description (every argument described, `docs/mcp.md`'s rule, held by a
+//! test), how arguments become a [`Filter`], and the text it answers with.
 
 use serde_json::{Value, json};
 
