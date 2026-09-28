@@ -28,6 +28,7 @@ async fn it_migrates_serves_and_stops_cleanly(pool: PgPool) {
         common::files("serve"),
         Registry::new(),
         scorsese_server::assistant::Assistant::default().unconfigured(),
+        scorsese_server::http::client::Clients::Peer,
         async {
             stopped.await.ok();
         },
@@ -62,6 +63,7 @@ async fn a_database_it_cannot_reach_is_a_startup_error() {
         bind: "127.0.0.1:0".parse().unwrap(),
         assistant_model: "claude-opus-5-5".into(),
         assistant_turn_cap: 1,
+        clients: scorsese_server::http::client::Clients::Peer,
     };
     let outcome = timeout(STOP, scorsese_server::run(config, std::future::pending()))
         .await
@@ -97,6 +99,7 @@ async fn an_open_event_stream_does_not_hold_the_server_up(pool: PgPool) {
         common::files("serve"),
         Registry::new(),
         scorsese_server::assistant::Assistant::default().unconfigured(),
+        scorsese_server::http::client::Clients::Peer,
         async {
             stopped.await.ok();
         },

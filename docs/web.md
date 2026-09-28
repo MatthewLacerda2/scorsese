@@ -181,10 +181,12 @@ reads is in the example.
 
 **The traffic path.** Cloudflare's edge terminates HTTPS and sends the request
 down the tunnel `cloudflared` holds open from this machine. `cloudflared` sends
-everything to `web`; nginx serves the React build and passes `/api/` to
-`server`, unchanged. Nothing is published to the network: `web` also answers on
-`$SCORSESE_WEB_BIND:$SCORSESE_WEB_PORT`, loopback unless `.env` says otherwise,
-for checking the site from this machine and for `tailscale serve`.
+everything to `web` on its port 80; nginx serves the React build and passes
+`/api/` to `server`, unchanged but for naming the client's address
+(*Accounts*, *The login's brake*). Nothing is published to the network: `web`
+also answers on `$SCORSESE_WEB_BIND:$SCORSESE_WEB_PORT` — its port 8080 inside,
+a second door so it can tell the two apart — loopback unless `.env` says
+otherwise, for checking the site from this machine and for `tailscale serve`.
 
 **Which tunnel is a setting, not an edit.** `COMPOSE_PROFILES` in `deploy/.env`
 names one: `named-tunnel` (production — a domain and a token), `quick-tunnel` (a
@@ -239,7 +241,8 @@ them. The rest is commands, from the checkout on the machine that serves.
    Tunnels → Create a tunnel → Cloudflared*, name it, and copy the token from
    the install command shown (the string after `--token`); skip installing
    the connector, the `cloudflared` container is the connector. Then add **one
-   public hostname** — the site's domain, service type `HTTP`, URL `web:80` —
+   public hostname** — the site's domain, service type `HTTP`, URL `web:80`
+   (nginx's tunnel-only door, never 8080 — *The login's brake* says why) —
    and no other rules. The token goes in `CLOUDFLARE_TUNNEL_TOKEN`, and
    `COMPOSE_PROFILES=named-tunnel` turns it on.
 4. **The backup destination.** Somewhere off this machine the maintainer
@@ -427,6 +430,8 @@ docker compose exec server scorsese-server user create ana@example.com
 scorsese-server user reset-password ana@example.com   # also logs out every browser
 scorsese-server user delete ana@example.com --yes     # rows and files, for good
 scorsese-server user list
+scorsese-server user locks                            # who the login is braking
+scorsese-server user unlock ana@example.com           # or an address, as `locks` prints it
 scorsese-server token create ana@example.com "ana's laptop"
 ```
 
@@ -459,7 +464,7 @@ token cannot mint its own replacement.
 
 | route | who | what |
 | --- | --- | --- |
-| `POST /api/login` | anyone | `{email, password}` → the account, and the cookie |
+| `POST /api/login` | anyone | `{email, password}` → the account, and the cookie; `429` when braked |
 | `POST /api/logout` | a member | ends the session |
 | `GET /api/me` | a member | the account |
 | `POST /api/me/password` | a member | `{current, new}`, at least 8 characters |
@@ -468,6 +473,85 @@ token cannot mint its own replacement.
 | `DELETE /api/tokens/{id}` | a member | `404` for an id that is not theirs |
 
 An unknown email and a wrong password get the same answer in the same time.
+
+### The login's brake
+
+The login is public the moment a tunnel is up, and accounts hold paid credits
+and people's files, so guessing is braked (#557). The code is
+`crates/server/src/accounts/throttle/`; this is the whole of it.
+
+**Every attempt is counted twice — against the email it names and against the
+address it came from — and either can refuse it.** The email's counter stops a
+patient attacker spread over many addresses; the address's stops one source
+spraying guesses across many emails, which counting per email never sees. The
+rules are the same for both:
+
+- **Ten attempts in fifteen minutes**, then `429` with `Retry-After` and
+  `{"error": "too many login attempts; try again in 15 minutes"}` — which the
+  login page shows as it stands, like any refusal. Ten is room for a typo, the
+  old password and the one before it, and for a household behind one address.
+- **The lock-out is fifteen minutes and doubles each time it recurs** — thirty,
+  an hour, two… up to a day. A fixed lock-out only sets a rate, and ten guesses
+  every fifteen minutes is still nearly a thousand a day; doubling holds a
+  patient attacker to about seventy over the first day and a half and ten a day
+  after that — far inside NIST SP 800-63B's hundred. **A quiet day** after the
+  last lock-out ends forgives it, and the counter is forgotten.
+- **Counted before the password is checked**, so a burst of simultaneous
+  guesses is counted as it arrives; a success gives its attempt back. A
+  success **clears the email's counter** — its owner has just proved who they
+  are — but only gives the address its one attempt back, so logging in to an
+  account of one's own between guesses at others' buys nothing.
+- **All or nothing**: an attempt one counter refuses is not counted by the
+  other, so a locked address cannot run up a stranger's email.
+- **It says nothing about who has an account.** A counter is kept for whatever
+  was typed, real account or not, and nothing in the brake looks at `users`;
+  the refusal is word for word the same, and comes before argon2 for every
+  email alike, so the timing rule above holds on both sides of it.
+
+The cost, stated: somebody who knows your email can keep your account locked
+by guessing at it. At friends-and-family scale that is a conversation with the
+operator, who lifts it with `user unlock`; and **`user reset-password` lifts
+the lock on that email itself**, since whoever gets a new password is about to
+type it.
+
+**The counters live in Postgres** (`login_throttle`), not in the server's
+memory as web MCP's per-minute limit does. One process on one machine could
+keep a map — but the operator's `user locks` and `user unlock` run as a second
+process that could neither see nor clear it; every restart, which a crash or a
+deploy is, would forgive every lock-out; and the price is two indexed rows per
+attempt. The table is not per user — an attempt is nobody's until it succeeds —
+so it joins `tests/isolation.rs`'s exemptions, argued there,
+and members may not read it at all.
+
+**Which address.** The server's peer is always nginx, so it cannot use the
+connection's address, and `CF-Connecting-IP` is a header anybody can type. The
+answer is that **nginx has two doors** (`deploy/nginx.conf`):
+
+| door | who comes in by it | the address used |
+| --- | --- | --- |
+| `web:80` | only the tunnel: published to nothing, it is what both `cloudflared`s point at | `CF-Connecting-IP`, which Cloudflare writes itself |
+| `web:8080` | loopback, `tailscale serve`, the LAN: what compose publishes as `$SCORSESE_WEB_PORT` | the connection's own; `CF-Connecting-IP` is ignored |
+
+nginx sends its answer as `X-Scorsese-Client`, overwriting anything a client
+sent by that name, and the server believes that header only because the
+compose file sets **`SCORSESE_TRUST_PROXY=true`** — safe there because the
+server's port is published to nothing. Anywhere else the setting stays unset
+and the server counts the connection's own address. So a friend on the tailnet
+who sends `CF-Connecting-IP: 203.0.113.9` is counted as themselves: they can
+neither dodge their own limit nor aim it at somebody else. The door is a port
+rather than an address range because container addresses are Docker's to
+hand out, and a rule written against them would break silently, in the
+direction of believing a header it should not.
+
+What that means on each path: behind **Cloudflare**, every visitor is their
+own address (an IPv6 one by its `/64`, which is what one subscriber is
+handed). On the **tailnet and loopback**, every request reaches nginx through
+Docker's port forwarding from the same bridge address, so all of them share
+**one** address counter — invitation-only people, and the email counters still
+hold each account. On the **LAN**, each device is its own address.
+
+Not in the brake: CAPTCHAs, alerts by email, and limits on API or MCP calls
+(web MCP has its own, per user).
 
 ### Per-user isolation: how a new table follows it
 
@@ -505,9 +589,7 @@ listing. Deletion removes the rows first, then the directory; if the files
 cannot all be removed, the command names the directory for the operator to
 finish by hand.
 
-Not in v1: a login rate limit (Cloudflare's rules sit in front, and argon2
-makes each guess cost tens of milliseconds), password-reset email, OAuth,
-public sign-up.
+Not in v1: password-reset email, OAuth, public sign-up.
 
 ## Jobs
 

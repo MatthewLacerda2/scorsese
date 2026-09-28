@@ -10,6 +10,8 @@
 //! - **Anything that is not a browser** — an MCP client, a script — sends a
 //!   per-user bearer token ([`tokens`]), issued by the user and revocable one
 //!   at a time.
+//! - **The login is braked** ([`throttle`]): too many attempts for one email
+//!   or from one address, and the next are refused for a while.
 //!
 //! Sessions and tokens are both 32 random bytes of which only a SHA-256 is
 //! stored ([`secret`]). Neither is signed, so the server holds **no signing
@@ -20,6 +22,7 @@
 pub mod password;
 pub mod secret;
 pub mod sessions;
+pub mod throttle;
 pub mod tokens;
 pub mod users;
 

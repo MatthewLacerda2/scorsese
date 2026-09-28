@@ -212,7 +212,11 @@ pub async fn run(
     };
     let registry = jobs::kinds::registry(&files);
     let assistant = assistant::Assistant::new(&config.assistant_model, config.assistant_turn_cap);
-    start(pool, listener, files, registry, assistant, shutdown).await
+    let clients = config.clients;
+    start(
+        pool, listener, files, registry, assistant, clients, shutdown,
+    )
+    .await
 }
 
 /// Where users' files are kept, and the tools that read them.
@@ -227,8 +231,9 @@ pub struct Files {
     pub renders: renders::RenderCache,
 }
 
-/// Migrate, then serve on `listener` with users' files in `files` and the
-/// built-in `assistant`, and run `registry`'s jobs until `shutdown`.
+/// Migrate, then serve on `listener` with users' files in `files`, the
+/// built-in `assistant` and `clients` naming where a request came from, and
+/// run `registry`'s jobs until `shutdown`.
 ///
 /// The half of [`run`] that is handed its resources rather than making them,
 /// so a test can give it a database of its own, a port the OS picked and
@@ -253,6 +258,7 @@ pub async fn start(
     files: Files,
     registry: jobs::Registry,
     assistant: assistant::Assistant,
+    clients: http::client::Clients,
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> Result<(), ServerError> {
     db::migrate(&pool).await?;
@@ -272,7 +278,9 @@ pub async fn start(
         .map_err(|(path, source)| ServerError::Storage { path, source })?;
     files.storage.clear_scratch();
     let pool = db::member_pool(&pool).await.map_err(ServerError::Connect)?;
-    let state = AppState::new(pool.clone(), files).with_assistant(assistant);
+    let state = AppState::new(pool.clone(), files)
+        .with_assistant(assistant)
+        .with_clients(clients);
     let (stop, stopping) = watch::channel(false);
     let fees = tokio::spawn(credits::fees::run(pool.clone(), stopping.clone()));
     let sweep = tokio::spawn(renders::evict::run(pool.clone(), cache, stopping.clone()));

@@ -1,6 +1,6 @@
 //! What the server is told by the environment it is started in.
 //!
-//! Seven things, and only one of them is a secret. The database URL carries a
+//! Eight things, and only one of them is a secret. The database URL carries a
 //! password, so it is held as a [`Secret`] — printing a [`Config`] prints
 //! nothing of it, and no error below ever repeats its value.
 //!
@@ -21,6 +21,7 @@ use std::path::PathBuf;
 
 use scorsese_providers::credentials::{Environment, Secret};
 
+use crate::http::client::Clients;
 use crate::renders::Quota;
 use crate::storage::Storage;
 
@@ -58,6 +59,17 @@ pub const ASSISTANT_TURN_CAP: &str = "SCORSESE_ASSISTANT_TURN_CAP";
 /// The per-turn cap when [`ASSISTANT_TURN_CAP`] is not set.
 pub const DEFAULT_TURN_CAP: &str = "2.00";
 
+/// Whether the server sits behind the deploy's nginx, and so believes the
+/// client address it names in
+/// [`CLIENT_HEADER`](crate::http::client::CLIENT_HEADER) — `true` or `false`, and
+/// `false` when unset.
+///
+/// Only for a server whose port nothing but that nginx can reach, which is
+/// what `deploy/compose.yaml` sets it for. Anywhere else a client could name
+/// any address it liked, and dodge the login's brake or aim it at somebody
+/// else ([`crate::http::client`]).
+pub const TRUST_PROXY: &str = "SCORSESE_TRUST_PROXY";
+
 /// Where the server listens when [`BIND`] is not set: this machine only.
 ///
 /// Loopback by default because the safe mistake is a server nobody can reach,
@@ -82,6 +94,8 @@ pub struct Config {
     pub assistant_model: String,
     /// The most one assistant turn may cost, in micro-dollars.
     pub assistant_turn_cap: i64,
+    /// Which address a request is counted as coming from.
+    pub clients: Clients,
 }
 
 /// Why the environment does not describe a server that can start.
@@ -140,6 +154,13 @@ pub enum ConfigError {
     /// The assistant's model has no published rate, so it cannot be charged.
     #[error("{ASSISTANT_MODEL} names {value:?}, which has no rate in prices::claude")]
     Model {
+        /// What the variable held.
+        value: String,
+    },
+
+    /// [`TRUST_PROXY`] is neither `true` nor `false`.
+    #[error("{TRUST_PROXY} must be true or false, and {value:?} is neither")]
+    TrustProxy {
         /// What the variable held.
         value: String,
     },
@@ -212,6 +233,16 @@ impl Config {
             value: cap.to_owned(),
         })?;
 
+        let clients = match environment.get(TRUST_PROXY) {
+            None | Some("false") => Clients::Peer,
+            Some("true") => Clients::Proxy,
+            Some(other) => {
+                return Err(ConfigError::TrustProxy {
+                    value: other.to_owned(),
+                });
+            }
+        };
+
         Ok(Self {
             database_url,
             storage,
@@ -220,6 +251,7 @@ impl Config {
             bind,
             assistant_model,
             assistant_turn_cap,
+            clients,
         })
     }
 }
