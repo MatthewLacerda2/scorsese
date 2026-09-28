@@ -147,25 +147,55 @@ impl Toolbox {
         name: &str,
         arguments: &Value,
     ) -> (Option<i64>, Result<Reply, String>) {
+        let (id, outcome) = self.run(user, client, name, arguments, None).await;
+        (id, outcome.map_err(|refusal| refusal.to_string()))
+    }
+
+    /// A call from the web editor (#545), recorded as [`Client::Editor`], made
+    /// against revision `at` of the project when it names one: then it is
+    /// refused as [`Refusal::Moved`] — not run again — if the project is at any
+    /// other revision when the tool reads it or saves, because the edit was
+    /// worked out on what the user saw.
+    pub async fn edit(
+        &self,
+        user: UserId,
+        name: &str,
+        arguments: &Value,
+        at: Option<i64>,
+    ) -> Result<Reply, Refusal> {
+        self.run(user, Client::Editor, name, arguments, at).await.1
+    }
+
+    /// Run a call and record it — `None` for a tool that does not exist.
+    async fn run(
+        &self,
+        user: UserId,
+        client: Client,
+        name: &str,
+        arguments: &Value,
+        at: Option<i64>,
+    ) -> (Option<i64>, Result<Reply, Refusal>) {
         let Some(entry) = surface::find(name) else {
-            return (None, Err(format!("there is no tool `{name}`")));
+            return (None, Err(format!("there is no tool `{name}`").into()));
         };
         let id = match log::begin(&self.pool, user, client, name, arguments).await {
             Ok(id) => id,
-            Err(error) => return (None, Err(database(error))),
+            Err(error) => return (None, Err(database(error).into())),
         };
         let caller = Caller {
             toolbox: self,
             user,
             call: id,
+            at,
         };
         let outcome = match entry {
             surface::Entry::Shared(tool, serve) => {
                 stored::run(&caller, tool.as_ref(), serve, arguments).await
             }
-            surface::Entry::Own(own) => own.call(&caller, arguments).await,
+            surface::Entry::Own(own) => own.call(&caller, arguments).await.map_err(Refusal::Said),
         };
-        log::end(&self.pool, user, id, &outcome).await;
+        let said = outcome.as_ref().map_err(ToString::to_string);
+        log::end(&self.pool, user, id, said).await;
         (Some(id), outcome)
     }
 
@@ -182,7 +212,7 @@ impl Toolbox {
     ) -> Result<Reply, String> {
         let refused = Err(why);
         match log::begin(&self.pool, user, client, name, arguments).await {
-            Ok(id) => log::end(&self.pool, user, id, &refused).await,
+            Ok(id) => log::end(&self.pool, user, id, refused.as_ref().map_err(Clone::clone)).await,
             Err(error) => eprintln!("scorsese-server: could not record a refused call: {error}"),
         }
         refused
@@ -214,6 +244,30 @@ pub(crate) struct Caller<'a> {
     user: UserId,
     /// This call's row in `tool_calls`, which a paid generation names.
     call: i64,
+    /// The revision the call was worked out against, when it names one
+    /// ([`Toolbox::edit`]).
+    at: Option<i64>,
+}
+
+/// Why a call did not do what was asked.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum Refusal {
+    /// Refused, in words for whoever asked — MCP's `isError`.
+    #[error("{0}")]
+    Said(String),
+    /// The project is no longer at the revision the call named, so nothing
+    /// was written.
+    #[error(
+        "the project changed since this edit was worked out, so nothing was written — \
+         redo it on what is there now"
+    )]
+    Moved,
+}
+
+impl From<String> for Refusal {
+    fn from(said: String) -> Self {
+        Self::Said(said)
+    }
 }
 
 /// The project id an argument object names.

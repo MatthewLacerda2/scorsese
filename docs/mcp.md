@@ -94,6 +94,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `asset_set` | Change a field on an asset that carries its content in the document — a text, color, shape or icon asset: its wording, its size, its colour. | nothing |
 | `place_clip` | Put a clip on a track: which asset, which track, when it starts and how long it runs — all in seconds, rounded onto the project's frame grid for you. | nothing |
 | `trim_clip` | Move a clip already on the timeline, or change how long it runs or where in its source it opens — in seconds, rounded onto the project's frame grid. | nothing |
+| `clip_set` | Change a placed clip's plain values: its speed, its fit, and its position, rotation and scale as single values held for the whole clip. | nothing |
 | `dissolve` | Dissolve one shot into the next, by writing ordinary opacity keyframes on both clips — the same ones you would place by hand, and they stay editable afterwards. | nothing |
 | `duck_music` | Lower a music track while narration plays over it, by writing ordinary volume keyframes on its clips. | nothing |
 | `set_volume` | Set how loud one clip plays — a level, a mute, or a fade between two points — by writing the ordinary volume keyframes you would place by hand, which stay editable afterwards. | nothing |

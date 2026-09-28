@@ -27,6 +27,9 @@ pub enum Client {
         /// The turn whose quote it confirms.
         turn: i64,
     },
+    /// The user's own hands in the web editor (#545): a clip dragged, trimmed
+    /// or set in the inspector, a file dropped onto a track, a frame looked at.
+    Editor,
 }
 
 impl Client {
@@ -36,13 +39,14 @@ impl Client {
             Self::External => "external",
             Self::Assistant { .. } => "assistant",
             Self::User { .. } => "user",
+            Self::Editor => "editor",
         }
     }
 
     /// The chat turn the call belongs to, if any.
     fn turn(self) -> Option<i64> {
         match self {
-            Self::External => None,
+            Self::External | Self::Editor => None,
             Self::Assistant { turn } | Self::User { turn } => Some(turn),
         }
     }
@@ -80,7 +84,7 @@ pub(super) async fn begin(
 
 /// Record how call `id` ended. A failure to record is logged and swallowed:
 /// the call has already happened, and its answer is still owed.
-pub(super) async fn end(pool: &PgPool, user: UserId, id: i64, outcome: &Result<Reply, String>) {
+pub(super) async fn end(pool: &PgPool, user: UserId, id: i64, outcome: Result<&Reply, String>) {
     let (said, reply) = match outcome {
         Ok(reply) => (
             "answered",
@@ -91,7 +95,7 @@ pub(super) async fn end(pool: &PgPool, user: UserId, id: i64, outcome: &Result<R
                 .collect::<Vec<_>>()
                 .join("\n"),
         ),
-        Err(refusal) => ("refused", refusal.clone()),
+        Err(refusal) => ("refused", refusal),
     };
     let written = async {
         let mut tx = db::scoped(pool, user).await?;
