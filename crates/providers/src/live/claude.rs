@@ -189,7 +189,7 @@ pub fn tool_turn_step(
         return (Step::new(call, Verdict::ShapeChanged { field }), None);
     }
     let step = Step::new(call, Verdict::Ok).noting(format!(
-        "{} thinking block(s), {progress} progress piece(s) streamed — none is allowed at low effort",
+        "{} thinking block(s), {progress} progress piece(s) streamed — zero of either is fine at low effort",
         thinking.len()
     ));
     (step, Some((response.content, called.id)))
