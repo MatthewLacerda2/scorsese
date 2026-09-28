@@ -25,10 +25,18 @@ export * from "./types";
 
 /**
  * The tools the editor calls — the server's allowlist (`http::editor`): the
- * hand-edits (a lane, a placement, a trim, a value), bringing a library file
- * in, and looking at a frame.
+ * hand-edits (a lane, a placement, a trim, a value, a move to another lane, a
+ * delete), bringing a library file in, and looking at a frame.
  */
-export type EditorTool = "track_new" | "place_clip" | "trim_clip" | "clip_set" | "import" | "still";
+export type EditorTool =
+  | "track_new"
+  | "place_clip"
+  | "trim_clip"
+  | "clip_set"
+  | "clip_move"
+  | "clip_remove"
+  | "import"
+  | "still";
 
 /** What `GET /api/library` narrows by; every field optional. */
 export interface LibraryFilter {

@@ -3,16 +3,17 @@
 // assets panel. The desktop app's `app/src/timeline/`, in the browser.
 //
 // A drag is drawn where the pointer proposes, snapped (drag.ts), and becomes
-// one `trim_clip` when the pointer lets go — never before, since every edit is
-// a round trip to the server's tools. A refused one springs back: the page
-// only ever draws the document the server holds.
+// one `trim_clip` — or one `clip_move`, let go over another lane — when the
+// pointer lets go; never before, since every edit is a round trip to the
+// server's tools. A refused one springs back: the page only ever draws the
+// document the server holds.
 
 import { MinusIcon, PlusIcon } from "lucide-react";
 import { type DragEvent, type PointerEvent, useState } from "react";
 import type { Fps, ProjectDocument, Track } from "@/api";
 import { Button } from "@/components/ui/button";
 import { type Dragged, dropped, isOurs } from "../assets/dragged";
-import { SNAP_PX } from "./drag";
+import { type Release, SNAP_PX } from "./drag";
 import { Lane } from "./Lane";
 import { Ruler } from "./Ruler";
 import { framesToPx, pxSpan, pxToFrames, toFrames, ZOOMS, type Zoom } from "./time";
@@ -26,8 +27,8 @@ export interface TimelineProps {
   onSeek: (frame: number) => void;
   selected: string | null;
   onSelect: (clip: string | null) => void;
-  /** A drag let go: `trim_clip`'s arguments. */
-  onTrim: (args: Record<string, unknown>) => Promise<unknown>;
+  /** A drag let go: `trim_clip` along a lane, `clip_move` onto another. */
+  onRelease: (call: Release) => Promise<unknown>;
   /** Something dropped on `track` at frame `pointed`, before snapping. */
   onDrop: (dragged: Dragged, track: Track, pointed: number, reach: number) => void;
   onAddTrack: (kind: "video" | "audio") => void;
@@ -113,7 +114,7 @@ export function Timeline(props: TimelineProps) {
                 playhead={playhead}
                 selected={props.selected}
                 onSelect={props.onSelect}
-                onTrim={props.onTrim}
+                onRelease={props.onRelease}
                 onEmptyClick={(event, lane) => {
                   props.onSelect(null);
                   onSeek(frameAt(event, lane));

@@ -143,6 +143,32 @@ export function trimArguments(clip: Clip, shape: Shape, fps: Fps): Record<string
   return Object.keys(args).length > 1 ? args : null;
 }
 
+/** A drag let go, as the one tool call it becomes. */
+export interface Release {
+  tool: "trim_clip" | "clip_move";
+  args: Record<string, unknown>;
+}
+
+/** What a drag of `clip` from lane `from`, let go over lane `onto` in `shape`,
+ * asks the server for. On another lane it is one `clip_move` carrying the new
+ * start — never a move and then a trim, which would pass through a document
+ * nobody asked for; on its own lane it is `trim_clip` with what changed.
+ * `null` when the drag ended where it began. */
+export function toolCall(
+  clip: Clip,
+  from: string,
+  onto: string,
+  shape: Shape,
+  fps: Fps,
+): Release | null {
+  if (onto !== from) {
+    const args = { clip: clip.id, track: onto, start_seconds: toSeconds(shape.start, fps) };
+    return { tool: "clip_move", args };
+  }
+  const args = trimArguments(clip, shape, fps);
+  return args && { tool: "trim_clip", args };
+}
+
 /** How long a dropped asset runs: its own measured length, or five seconds. */
 export function dropLength(asset: DocumentAsset | undefined, fps: Fps): number {
   return lengthOf(asset, fps) ?? toFrames(UNMEASURED_SECONDS, fps);
