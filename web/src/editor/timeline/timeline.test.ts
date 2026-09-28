@@ -10,6 +10,7 @@ import {
   propose,
   snapped,
   targets,
+  toolCall,
   trimArguments,
 } from "./drag";
 import { framesToPx, pxToFrames, timecode, toFrames, toSeconds } from "./time";
@@ -112,6 +113,22 @@ describe("the tool call", () => {
       source_in_seconds: 70 / 30,
     });
     expect(trimArguments(clip(), { start: 200, duration: 100, sourceIn: 50 }, THIRTY)).toBeNull();
+  });
+
+  test("let go on another lane, a drag is one move carrying its new start", () => {
+    const moved = { start: 230, duration: 100, sourceIn: 50 };
+    expect(toolCall(clip(), "v1", "v2", moved, THIRTY)).toEqual({
+      tool: "clip_move",
+      args: { clip: "c", track: "v2", start_seconds: 230 / 30 },
+    });
+    expect(toolCall(clip(), "v1", "v1", moved, THIRTY)).toEqual({
+      tool: "trim_clip",
+      args: { clip: "c", start_seconds: 230 / 30 },
+    });
+    // Straight down a lane, not along it: still a move.
+    const still = { start: 200, duration: 100, sourceIn: 50 };
+    expect(toolCall(clip(), "v1", "v2", still, THIRTY)?.tool).toBe("clip_move");
+    expect(toolCall(clip(), "v1", "v1", still, THIRTY)).toBeNull();
   });
 
   test("a drop runs a measured asset to its end, and gives anything else five seconds", () => {

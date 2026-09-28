@@ -5,12 +5,16 @@
 //! landing on a music track — and the document is the only model, so there is
 //! nowhere for a bad state to hide until someone notices.
 //!
-//! The check is `scorsese-core`'s own [`Project::validate`], not a
-//! reimplementation of it here. A second opinion about what is legal is a
-//! second opinion that will drift, and the window would start allowing edits
-//! the CLI refuses to load.
+//! The edit is `scorsese-core`'s own — [`placing::trim`] along a lane,
+//! [`placing::relocate`] onto another — the calls `trim_clip` and `clip_move`
+//! make for an assistant and the web editor, and each checks the result with
+//! [`Project::validate`]. Not a reimplementation here: a second opinion about
+//! what is legal is a second opinion that will drift, and the window would
+//! start allowing edits the CLI refuses to load.
 
-use scorsese_core::{ClipId, Project, TrackId, ValidationErrors};
+use scorsese_core::{
+    ClipId, Project, RelocateError, Relocation, TrackId, Trim, TrimError, ValidationErrors, placing,
+};
 
 use super::shape::Shape;
 
@@ -34,59 +38,41 @@ pub(in crate::timeline) fn place(
     onto: &TrackId,
     shape: Shape,
 ) -> Result<(), String> {
-    let mut proposed = project.clone();
-    relocate(&mut proposed, clip, onto, shape)?;
-    proposed.validate().map_err(first_problem)?;
-    *project = proposed;
-    Ok(())
-}
-
-/// Lifts the clip off whatever track it is on, reshapes it, and sets it down
-/// on `onto`. Both lookups happen before anything moves, so a failure here has
-/// changed nothing even on the copy.
-fn relocate(
-    project: &mut Project,
-    clip: &ClipId,
-    onto: &TrackId,
-    shape: Shape,
-) -> Result<(), String> {
-    let from = project
-        .tracks
-        .iter()
-        .position(|track| track.clips.iter().any(|held| &held.id == clip))
+    let on = project
+        .clips()
+        .find(|(_, held)| &held.id == clip)
+        .map(|(track, _)| track.id.clone())
         .ok_or_else(|| format!("no clip `{clip}` in this project"))?;
-    let to = project
-        .tracks
-        .iter()
-        .position(|track| &track.id == onto)
-        .ok_or_else(|| format!("no track `{onto}` in this project"))?;
-
-    let at = project.tracks[from]
-        .clips
-        .iter()
-        .position(|held| &held.id == clip)
-        .expect("the track was chosen because it holds this clip");
-    let mut moved = project.tracks[from].clips.remove(at);
-    moved.start = shape.start;
-    moved.duration = shape.duration;
-    moved.source_in = shape.source_in;
-
-    let clips = &mut project.tracks[to].clips;
-    clips.push(moved);
-    // Kept in time order. Nothing reads it — clips on a track cannot overlap,
-    // so their order in the array means nothing — but `project.json` is a
-    // document people and agents read, and a track whose clips are listed out
-    // of order is one nobody can follow. Sorted stays sorted, so this settles
-    // once and then costs nothing.
-    clips.sort_by_key(|clip| clip.start);
-    Ok(())
+    if &on != onto {
+        // Only a clip's body changes lane, and a body drag keeps the clip's
+        // length and source window — so the start is all that travels with it.
+        let to = Relocation {
+            track: onto.clone(),
+            start: Some(shape.start),
+        };
+        return match placing::relocate(project, clip, &to) {
+            Ok(_) => Ok(()),
+            Err(RelocateError::Refused(errors)) => Err(first_problem(errors)),
+            Err(other) => Err(other.to_string()),
+        };
+    }
+    let bounds = Trim {
+        start: Some(shape.start),
+        duration: Some(shape.duration),
+        source_in: Some(shape.source_in),
+    };
+    match placing::trim(project, clip, &bounds) {
+        Ok(_) => Ok(()),
+        Err(TrimError::Refused(errors)) => Err(first_problem(errors)),
+        Err(other) => Err(other.to_string()),
+    }
 }
 
 /// The first thing validation objected to, in its own words.
 ///
 /// One line rather than the whole report: this is shown while a drag is in
 /// flight, and a drag has one thing wrong with it at a time.
-fn first_problem(errors: ValidationErrors) -> String {
+pub(in crate::timeline) fn first_problem(errors: ValidationErrors) -> String {
     errors
         .into_vec()
         .into_iter()
@@ -230,7 +216,7 @@ mod tests {
             shape(0, 0, 0),
         )
         .expect_err("a clip covering no frame renders nothing");
-        assert!(refusal.contains("zero duration"), "{refusal}");
+        assert!(refusal.contains("at least one frame"), "{refusal}");
     }
 
     #[test]

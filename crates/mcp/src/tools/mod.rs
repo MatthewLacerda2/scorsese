@@ -250,6 +250,8 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(edit::PlaceClip),
         Box::new(edit::TrimClip),
         Box::new(edit::ClipSet),
+        Box::new(edit::ClipMove),
+        Box::new(edit::ClipRemove),
         Box::new(edit::Dissolve),
         Box::new(edit::Duck),
         Box::new(edit::SetVolume),

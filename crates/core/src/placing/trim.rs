@@ -49,8 +49,9 @@ pub enum TrimError {
 ///
 /// The clip stays on the track it is on. Which track a clip sits on decides
 /// what is drawn over what, so moving one between tracks is a different edit
-/// with a different consequence, and folding it in here would make a tool about
-/// *time* quietly able to reorder the picture.
+/// with a different consequence — [`relocate`](super::relocate) — and folding
+/// it in here would make a tool about *time* quietly able to reorder the
+/// picture.
 pub fn trim(project: &mut Project, id: &ClipId, bounds: &Trim) -> Result<Clip, TrimError> {
     if bounds == &Trim::default() {
         return Err(TrimError::Nothing);

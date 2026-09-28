@@ -1,4 +1,5 @@
-//! Putting a clip on a track, and moving or trimming one already there.
+//! Putting a clip on a track, and moving, trimming or removing one already
+//! there.
 //!
 //! The commonest edit there is, and the one whose arithmetic is easiest to get
 //! quietly wrong. A shot is described in seconds — *two seconds in, run it to
@@ -7,14 +8,19 @@
 //! An off-by-half-a-second window and an off-by-one-frame J-cut both validate
 //! perfectly and are only ever caught by watching the render.
 //!
-//! So the conversion happens once, above this line, and the two operations here
+//! So the conversion happens once, above this line, and the operations here
 //! are the only way a caller has to reach the document:
 //!
 //! - [`place`] writes a new clip onto an existing track.
 //! - [`trim`] changes where a placed clip starts, how long it runs, or where in
 //!   its source it opens.
+//! - [`relocate`] moves a placed clip onto another track — the one move
+//!   [`trim`] refuses to make, because which track a picture sits on decides
+//!   what is drawn over what.
+//! - [`remove`] takes placed clips off the timeline, and leaves their assets
+//!   and the gap they leave where they are.
 //!
-//! **Both are all-or-nothing.** The change is worked out on a copy and only a
+//! **All four are all-or-nothing.** The change is worked out on a copy and only a
 //! copy [`Project::validate`](crate::Project::validate) accepts becomes the
 //! document, exactly as [`crate::pacing`] does it. A clip that would overlap its
 //! neighbour, or reach past the end of the media it shows, leaves the project
@@ -27,9 +33,13 @@
 //! it.
 
 mod place;
+mod relocate;
+mod remove;
 mod trim;
 
 pub use place::{PlaceError, Placement, place};
+pub use relocate::{RelocateError, Relocation, relocate};
+pub use remove::{RemoveError, Removed, remove};
 pub use trim::{Trim, TrimError, trim};
 
 /// The document both halves are tested against, so a placement and a trim are

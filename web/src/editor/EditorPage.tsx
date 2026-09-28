@@ -3,14 +3,14 @@
 // on the right the selected clip's inspector over the assistant's chat.
 //
 // The page is thin on purpose (CLAUDE.md, *The GUI is thin*): the hand-edits
-// are place, move, trim and a plain value, each one a call to the server's
-// tools; anything with structure to it is a sentence to the assistant. What
+// are place, move (along a lane or onto another), trim, delete and a plain
+// value, each one a call to the server's tools; anything with structure to it is a sentence to the assistant. What
 // the page draws is always the server's document — after an edit from its
 // answer, after the assistant's from the `project` event.
 
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeftIcon, FilmIcon, XIcon } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Link, useParams } from "react-router";
 import type { EditorProject } from "@/api";
 import { useServerEvents } from "@/app/events";
@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { AssetsPanel } from "./assets/AssetsPanel";
 import { ChatPanel } from "./chat/ChatPanel";
+import { useDeleteKey } from "./deleting";
 import { useDrop } from "./drop";
 import { Inspector } from "./inspector/Inspector";
 import { Preview } from "./preview/Preview";
@@ -49,6 +50,8 @@ function Editor({ project }: { project: EditorProject }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [shape, setShape] = useState<Shape>(() => savedShape(id));
   const drop = useDrop(id, edit, playhead, setSelected);
+  const deselect = useCallback(() => setSelected(null), []);
+  useDeleteKey(selected, edit.run, deselect);
 
   // The assistant, another tab or a finished generation changed the project:
   // draw what is there now, and the preview follows its revision.
@@ -152,7 +155,7 @@ function Editor({ project }: { project: EditorProject }) {
             onSeek={setPlayhead}
             selected={selected}
             onSelect={setSelected}
-            onTrim={(args) => edit.run({ tool: "trim_clip", args, edit: true })}
+            onRelease={({ tool, args }) => edit.run({ tool, args, edit: true })}
             onDrop={(dragged, track, pointed, reach) => void drop(dragged, track, pointed, reach)}
             onAddTrack={(kind) => void edit.run({ tool: "track_new", args: { kind }, edit: true })}
           />

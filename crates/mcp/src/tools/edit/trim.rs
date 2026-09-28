@@ -40,9 +40,9 @@ impl Tool for TrimClip {
                 "clip": {
                     "type": "string",
                     "description": "Id of the clip to change. It stays on the track it \
-                                    is on — moving a clip between tracks is a \
-                                    project_write, because which track a clip sits on \
-                                    is what decides what is drawn over what."
+                                    is on — moving a clip between tracks is clip_move, \
+                                    because which track a clip sits on is what decides \
+                                    what is drawn over what."
                 },
                 "start_seconds": {
                     "type": "number",

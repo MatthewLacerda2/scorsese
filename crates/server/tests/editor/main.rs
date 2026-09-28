@@ -2,7 +2,10 @@
 //! tools, run for the browser's own user, against the revision it was worked
 //! out on, and recorded as the editor's.
 
+#[path = "../common/mod.rs"]
 mod common;
+
+mod clips;
 
 use std::net::SocketAddr;
 
@@ -14,7 +17,7 @@ use serde_json::{Value, json};
 use sqlx::postgres::PgPool;
 
 /// A new account, and a logged-in browser's `Cookie:` line for it.
-async fn member(pool: &PgPool, email: &str) -> (UserId, String) {
+pub(crate) async fn member(pool: &PgPool, email: &str) -> (UserId, String) {
     let user = users::create(pool, email, "password one")
         .await
         .expect("an account");
@@ -23,7 +26,7 @@ async fn member(pool: &PgPool, email: &str) -> (UserId, String) {
 }
 
 /// A title on `v1` for two seconds: a project with nothing on disk.
-async fn titled(pool: &PgPool, user: UserId) -> (i64, i64) {
+pub(crate) async fn titled(pool: &PgPool, user: UserId) -> (i64, i64) {
     let mut document = serde_json::to_value(Project::new("film", Default::default()))
         .expect("a new project serialises");
     document["assets"] = json!([{ "id": "title", "kind": "text", "text": "HELLO" }]);
@@ -36,7 +39,7 @@ async fn titled(pool: &PgPool, user: UserId) -> (i64, i64) {
     (made.id, made.revision)
 }
 
-async fn tool(
+pub(crate) async fn tool(
     address: SocketAddr,
     who: &str,
     id: i64,

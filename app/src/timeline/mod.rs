@@ -11,6 +11,7 @@ mod drop;
 mod gesture;
 mod lanes;
 mod pacing;
+mod remove;
 mod ruler;
 mod view;
 

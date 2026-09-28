@@ -1,8 +1,10 @@
 // One track's lane and the clips on it, and the drag that moves or trims one.
 //
-// A clip moves along its own lane only: which track a clip sits on decides
-// what is drawn over what, so moving it to another is a sentence to the
-// assistant (`trim_clip` keeps a clip on its track, as its description says).
+// A clip's body may be dragged onto another lane as well as along its own —
+// the desktop app's drag does the same — and letting go there is one
+// `clip_move` with the new start. An edge never changes lane: the edge being
+// pulled belongs to the clip where it is. Whether the lane will take the clip
+// (picture onto a sound track, a clip already there) is the server's answer.
 
 import { type DragEvent, type PointerEvent, useState } from "react";
 import type { Clip, ProjectDocument, Track } from "@/api";
@@ -11,12 +13,13 @@ import {
   type Handle,
   type Limits,
   limitsOf,
+  type Release,
   type Shape,
   SNAP_PX,
   shapeOf,
   snapped,
   targets,
-  trimArguments,
+  toolCall,
 } from "./drag";
 import { framesToPx, pxSpan, type Zoom } from "./time";
 
@@ -31,7 +34,8 @@ interface Props {
   playhead: number;
   selected: string | null;
   onSelect: (clip: string) => void;
-  onTrim: (args: Record<string, unknown>) => Promise<unknown>;
+  /** A drag let go: the one tool call it becomes. */
+  onRelease: (call: Release) => Promise<unknown>;
   onEmptyClick: (event: PointerEvent, lane: Element) => void;
   onDragOver: (event: DragEvent) => void;
   onDrop: (event: DragEvent, lane: Element) => void;
@@ -45,13 +49,27 @@ interface Held {
   limits: Limits;
   at: number[];
   shape: Shape;
+  /** Where the pointer went down, vertically, and how far it has gone since —
+   * a body drag follows it off the lane. */
+  y: number;
+  dy: number;
+}
+
+/** The lane under a point: its track id, from the `data-track` it carries.
+ * Every element there rather than the topmost, since the clip being dragged is
+ * itself under the pointer. */
+function laneAt(x: number, y: number): string | null {
+  for (const found of window.document.elementsFromPoint(x, y)) {
+    if (found instanceof HTMLElement && found.dataset.track) return found.dataset.track;
+  }
+  return null;
 }
 
 export function Lane(props: Props) {
   const { track, document, zoom } = props;
   const fps = document.timeline_fps;
   const [held, setHeld] = useState<Held | null>(null);
-  const [landing, setLanding] = useState<{ clip: string; shape: Shape } | null>(null);
+  const [landing, setLanding] = useState<{ clip: string; shape: Shape; dy: number } | null>(null);
   const assets = document.assets ?? [];
 
   const grab = (event: PointerEvent<HTMLElement>, clip: Clip) => {
@@ -69,6 +87,8 @@ export function Lane(props: Props) {
       limits: limitsOf(clip, asset, fps),
       at: targets(document, props.playhead, clip.id),
       shape: shapeOf(clip),
+      y: event.clientY,
+      dy: 0,
     });
   };
   // Where the pointer is now proposes the shape — worked out from the event
@@ -79,24 +99,29 @@ export function Lane(props: Props) {
     return snapped(from.clip, from.handle, delta, from.limits, from.at, reach);
   };
   const follow = (event: PointerEvent) => {
-    if (held) setHeld({ ...held, shape: proposal(event, held) });
+    if (!held) return;
+    const dy = held.handle === "body" ? event.clientY - held.y : 0;
+    setHeld({ ...held, shape: proposal(event, held), dy });
   };
   const release = (event: PointerEvent) => {
     if (!held) return;
     const shape = proposal(event, held);
-    const args = trimArguments(held.clip, shape, fps);
+    const onto =
+      held.handle === "body" ? (laneAt(event.clientX, event.clientY) ?? track.id) : track.id;
+    const call = toolCall(held.clip, track.id, onto, shape, fps);
     setHeld(null);
-    if (!args) return;
+    if (!call) return;
     // Drawn where it was let go until the server answers: moved there, or
     // refused and springing back.
-    setLanding({ clip: held.clip.id, shape });
-    void props.onTrim(args).finally(() => setLanding(null));
+    setLanding({ clip: held.clip.id, shape, dy: held.dy });
+    void props.onRelease(call).finally(() => setLanding(null));
   };
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: a lane is a pointer surface — seeking and dropping — whose keyboard equivalents are the transport and the inspector
     <div
       className="relative h-12 shrink-0"
+      data-track={track.id}
       style={{ width: props.width }}
       onPointerDown={(event) => props.onEmptyClick(event, event.currentTarget)}
       onDragOver={props.onDragOver}
@@ -109,17 +134,19 @@ export function Lane(props: Props) {
             : landing?.clip === clip.id
               ? landing.shape
               : shapeOf(clip);
+        const dy = held?.clip.id === clip.id ? held.dy : landing?.clip === clip.id ? landing.dy : 0;
         const asset = assets.find((found) => found.id === clip.asset);
         const chosen = props.selected === clip.id;
         return (
           <button
             type="button"
             key={clip.id}
-            title={`${clip.id} — drag to move, drag an edge to trim`}
-            className={`absolute top-1 bottom-1 cursor-grab touch-none overflow-hidden rounded-sm px-1.5 text-[11px] text-white select-none ${kindColor(asset?.kind)} ${chosen ? "ring-2 ring-foreground" : "opacity-90"} ${held?.clip.id === clip.id ? "cursor-grabbing shadow-lg" : ""}`}
+            title={`${clip.id} — drag to move (onto another lane too), drag an edge to trim, Delete to remove`}
+            className={`absolute top-1 bottom-1 cursor-grab touch-none overflow-hidden rounded-sm px-1.5 text-[11px] text-white select-none ${kindColor(asset?.kind)} ${chosen ? "ring-2 ring-foreground" : "opacity-90"} ${held?.clip.id === clip.id ? "z-10 cursor-grabbing shadow-lg" : ""}`}
             style={{
               left: framesToPx(shape.start, zoom, fps),
               width: Math.max(3, framesToPx(shape.duration, zoom, fps)),
+              transform: dy ? `translateY(${dy}px)` : undefined,
             }}
             onPointerDown={(event) => grab(event, clip)}
             onPointerMove={follow}
