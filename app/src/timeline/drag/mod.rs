@@ -11,7 +11,7 @@
 //! answer, so a step the document refused costs the drag nothing and letting
 //! go in the same place you started leaves the project untouched.
 
-mod commit;
+pub(super) mod commit;
 mod shape;
 pub(super) mod snap;
 

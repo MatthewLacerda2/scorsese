@@ -1,9 +1,10 @@
 //! The keyboard: navigating the film without aiming at anything.
 //!
 //! None of these is invented. Space plays, the arrows step a frame, `Home` and
-//! `End` are the ends of the edit, `F` fits the timeline to it — that is the
-//! keyboard of every editor anybody has used, and a preview is not the place to
-//! be interesting.
+//! `End` are the ends of the edit, `F` fits the timeline to it, `Delete` takes
+//! the selected clips off it — that is the keyboard of every editor anybody has
+//! used, and a preview is not the place to be interesting. `Backspace` deletes
+//! too, because it is the key a Mac keyboard labels *delete*.
 //!
 //! It is here rather than in the panels because a key is not a fact about a
 //! panel. The playhead belongs to [`Editing`](crate::editing::Editing), above
@@ -104,6 +105,11 @@ impl Scorsese {
                 // a platform reports is not something to make a person find out.
                 Key::Plus | Key::Equals => self.timeline.ask(Look::In),
                 Key::Minus => self.timeline.ask(Look::Out),
+                Key::Delete | Key::Backspace => {
+                    if let Some(open) = self.opened.as_mut() {
+                        self.timeline.remove_selected(open, &mut self.editing);
+                    }
+                }
                 _ => {}
             }
         }

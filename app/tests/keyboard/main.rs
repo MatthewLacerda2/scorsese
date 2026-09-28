@@ -1,4 +1,4 @@
-//! The navigation keyboard, driven through real key events.
+//! The keyboard, driven through real key events: navigation, and `Delete`.
 //!
 //! Through the real `draw` rather than by calling the handler, because the half
 //! of this that can be wrong is not the arithmetic. Which keys the window
@@ -117,4 +117,36 @@ fn the_view_keys_leave_the_playhead_where_it_is() {
     for key in [Key::Plus, Key::Equals, Key::Minus, Key::F] {
         assert_eq!(press(&mut harness, key), 200, "{key:?} moved the playhead");
     }
+}
+
+/// Delete takes the selection off the timeline and saves: the clips are gone,
+/// their assets stay, and nothing else moved to close the gap.
+#[test]
+fn delete_removes_the_selected_clips_and_nothing_else() {
+    let project = fixture::project("keys-delete");
+    let mut harness = window(project.path());
+    harness.state_mut().select("c-shot");
+    harness.state_mut().also_select("c-vo");
+    harness.key_press(Key::Delete);
+    harness.run();
+
+    let showing = harness.state().showing().expect("a project is open");
+    let left: Vec<&str> = showing.clips().map(|(_, clip)| clip.id.as_str()).collect();
+    assert_eq!(left, ["c-title", "c-bed"]);
+    let title = showing
+        .clips()
+        .find(|(_, clip)| clip.id.as_str() == "c-title");
+    assert_eq!(title.map(|(_, clip)| clip.start.get()), Some(300));
+    assert!(
+        showing
+            .asset(&scorsese_core::AssetId::new("shot-city"))
+            .is_some()
+    );
+    assert!(
+        harness.state().selected().is_empty(),
+        "nothing is left selected"
+    );
+
+    let saved = std::fs::read_to_string(project.path().join("project.json")).expect("saved");
+    assert!(!saved.contains("c-shot"), "the removal is on disk");
 }
