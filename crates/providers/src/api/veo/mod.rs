@@ -43,6 +43,9 @@ pub enum Model {
 }
 
 impl Model {
+    /// Every tier scorsese offers.
+    pub const ALL: [Self; 2] = [Self::Fast, Self::Lite];
+
     /// The id this tier is called in a URL.
     pub const fn id(self) -> &'static str {
         match self {
@@ -64,6 +67,24 @@ impl Veo {
         Self {
             caller: Caller::new(KEY_HEADER, key),
         }
+    }
+
+    /// The same client, copying every reply into `tap` — for the live
+    /// provider check ([`crate::live`]); see [`crate::api::tap`].
+    pub fn tapped(mut self, tap: &crate::api::tap::Tap) -> Self {
+        self.caller = self.caller.tapped(tap);
+        self
+    }
+
+    /// What the API says about a model: its full name, and the methods it
+    /// can be called with. Free — nothing is generated.
+    ///
+    /// Not used to generate anything. It is how the live provider check
+    /// ([`crate::live`]) confirms, without paying for a shot, that the key is
+    /// accepted and that the `-preview` id is still served with
+    /// `predictLongRunning` — the two things most likely to change under us.
+    pub fn model(&self, model: Model) -> Result<response::ModelInfo, HttpError> {
+        self.caller.get(&format!("{BASE}/models/{}", model.id()))
     }
 
     /// Hands a generation to the model and returns its ticket.

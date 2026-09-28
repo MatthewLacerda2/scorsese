@@ -70,8 +70,9 @@ impl VideoProvider for VeoProvider {
     }
 }
 
-/// Which model id a brief's tier is.
-fn model_of(brief: &Brief) -> Model {
+/// Which model id a brief's tier is. The live check ([`crate::live`]) submits
+/// through this too, so it tests the product's translation, not its own.
+pub(crate) fn model_of(brief: &Brief) -> Model {
     match brief.request.model {
         scorsese_core::VideoModel::Fast => Model::Fast,
         scorsese_core::VideoModel::Lite => Model::Lite,
@@ -79,7 +80,7 @@ fn model_of(brief: &Brief) -> Model {
 }
 
 /// The brief as the vendor's request body.
-fn generate(brief: &Brief) -> Generate {
+pub(crate) fn generate(brief: &Brief) -> Generate {
     Generate {
         instances: [Instance {
             prompt: brief.prompt.clone(),

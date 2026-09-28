@@ -107,6 +107,10 @@ token back spends — on exactly what was quoted, once, within fifteen minutes.
 There is no `--yes` there and no one-step path; see *Paid tools quote first* in
 [mcp.md](mcp.md).
 
+`scorsese check-providers` — the live check of every provider client
+([live-check.md](live-check.md)) — asks the same way, with the same `--yes`,
+and is held to the same ceiling.
+
 The question sits **above** the ceiling below, and the two are not alternatives:
 one is permission from whoever is there, the other is a number that holds when
 nobody is.

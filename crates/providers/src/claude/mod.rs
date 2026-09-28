@@ -283,6 +283,13 @@ impl Anthropic {
             messages: Messages::new(key),
         }
     }
+
+    /// The same client, copying every reply into `tap` — for the live
+    /// provider check ([`crate::live`]); see [`crate::api::tap`].
+    pub fn tapped(mut self, tap: &crate::api::tap::Tap) -> Self {
+        self.messages = self.messages.tapped(tap);
+        self
+    }
 }
 
 impl Claude for Anthropic {

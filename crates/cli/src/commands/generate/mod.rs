@@ -15,10 +15,9 @@
 //! decides — from the current brief, never the asset's recorded state.
 //!
 //! **Spending is opt-in.** Nothing is submitted until the quote has been shown
-//! and somebody has said go ahead — see [`confirm`]. The ceiling is checked
+//! and somebody has said go ahead — see [`confirm`](super::confirm). The ceiling is checked
 //! further down still, inside the pass, where no flag reaches it.
 
-mod confirm;
 mod lines;
 mod shots;
 
@@ -32,6 +31,8 @@ use scorsese_providers::prices::dollars;
 use scorsese_providers::video::{Outcome, Run};
 use scorsese_providers::{speech, spending, video};
 use scorsese_render::Ffprobe;
+
+use super::confirm;
 
 /// Realises every sketched brief, waiting up to `patience` for the shots.
 pub(crate) fn run(project_dir: &Path, patience: Duration, dry_run: bool, yes: bool) -> Result<()> {
@@ -127,10 +128,10 @@ fn passes(project: &mut Project, project_dir: &Path, budget: Budget, patience: D
 fn permitted(project: &Project, root: &Path, yes: bool) -> Result<bool> {
     match confirm::verdict(yes, confirm::interactive()) {
         confirm::Verdict::Ahead => Ok(true),
-        confirm::Verdict::NobodyThere => Err(anyhow::anyhow!(confirm::NOBODY_THERE)),
+        confirm::Verdict::NobodyThere => Err(anyhow::anyhow!(confirm::nobody_there("generate"))),
         confirm::Verdict::Ask => {
             quote(project, root)?;
-            confirm::asked()
+            confirm::asked("Generate this?")
         }
     }
 }

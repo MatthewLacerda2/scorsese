@@ -1,4 +1,9 @@
-//! The question asked before anything is submitted.
+//! The question asked before anything is spent.
+//!
+//! Shared by the two verbs that spend: `scorsese generate`, and `scorsese
+//! check-providers`, which makes real calls on purpose. One set of rules for
+//! both — a check that asked differently from a generation would be a second
+//! answer to *may this spend?*
 //!
 //! `--dry-run` made seeing a price **opt-in**: a run that spent money was the
 //! one you got by typing nothing extra. This turns that round — the quote is
@@ -19,7 +24,7 @@ use anyhow::Result;
 
 /// What the flag and the terminal together say about asking.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum Verdict {
+pub(crate) enum Verdict {
     /// Go ahead without asking: somebody already said yes.
     Ahead,
     /// Somebody is there — show them the quote and ask.
@@ -28,19 +33,23 @@ pub(super) enum Verdict {
     NobodyThere,
 }
 
-/// What a run with nobody at the other end is refused with.
+/// What a run of `command` with nobody at the other end is refused with.
 ///
 /// It names the flag, because the caller reading this is a script or an agent
 /// and the next thing it needs is the one word that makes the run work.
-pub(super) const NOBODY_THERE: &str = "nothing is there to answer: stdin is not a terminal, and \
-     `scorsese generate` asks before it spends. Pass --yes to run unattended, \
-     or --dry-run to see what it would cost and send nothing.";
+pub(crate) fn nobody_there(command: &str) -> String {
+    format!(
+        "nothing is there to answer: stdin is not a terminal, and `scorsese {command}` asks \
+         before it spends. Pass --yes to run unattended, or --dry-run to see what it would \
+         cost and send nothing."
+    )
+}
 
 /// Whether to ask, go ahead, or refuse.
 ///
 /// Pure on purpose: the terminal is read once, by [`interactive`], and every
 /// combination that decides money is testable without one.
-pub(super) fn verdict(yes: bool, interactive: bool) -> Verdict {
+pub(crate) fn verdict(yes: bool, interactive: bool) -> Verdict {
     match (yes, interactive) {
         (true, _) => Verdict::Ahead,
         (false, true) => Verdict::Ask,
@@ -52,14 +61,14 @@ pub(super) fn verdict(yes: bool, interactive: bool) -> Verdict {
 ///
 /// **stdin and not stdout**, because stdin is what an answer would arrive on.
 /// A run whose output is piped to a file still has somebody typing at it.
-pub(super) fn interactive() -> bool {
+pub(crate) fn interactive() -> bool {
     std::io::stdin().is_terminal()
 }
 
-/// Asks, and waits for the answer.
-pub(super) fn asked() -> Result<bool> {
+/// Asks `question`, and waits for the answer.
+pub(crate) fn asked(question: &str) -> Result<bool> {
     let stdin = std::io::stdin();
-    answered(&mut stdin.lock(), &mut std::io::stdout())
+    answered(question, &mut stdin.lock(), &mut std::io::stdout())
 }
 
 /// The question, and what counts as a yes.
@@ -67,8 +76,8 @@ pub(super) fn asked() -> Result<bool> {
 /// Anything that is not a plain yes is a no, and end-of-input is a no: the
 /// default has to be the answer that spends nothing, because it is the one an
 /// unsure person gets by pressing return.
-fn answered(input: &mut impl BufRead, output: &mut impl Write) -> Result<bool> {
-    write!(output, "\nGenerate this? Nothing has been sent yet. [y/N] ")?;
+fn answered(question: &str, input: &mut impl BufRead, output: &mut impl Write) -> Result<bool> {
+    write!(output, "\n{question} Nothing has been sent yet. [y/N] ")?;
     output.flush()?;
 
     let mut answer = String::new();
@@ -97,13 +106,14 @@ mod tests {
 
     #[test]
     fn the_refusal_names_the_flag_that_makes_the_run_work() {
-        assert!(super::NOBODY_THERE.contains("--yes"));
+        assert!(super::nobody_there("generate").contains("--yes"));
+        assert!(super::nobody_there("check-providers").contains("scorsese check-providers"));
     }
 
     /// What the answer is read as, with the question's own output thrown away.
     fn given(answer: &str) -> bool {
         let mut said = Vec::new();
-        answered(&mut answer.as_bytes(), &mut said).expect("read the answer")
+        answered("Go?", &mut answer.as_bytes(), &mut said).expect("read the answer")
     }
 
     #[test]
@@ -127,8 +137,9 @@ mod tests {
     #[test]
     fn the_question_is_printed_before_the_answer_is_read() {
         let mut said = Vec::new();
-        answered(&mut "n\n".as_bytes(), &mut said).expect("read the answer");
+        answered("Generate this?", &mut "n\n".as_bytes(), &mut said).expect("read the answer");
         let question = String::from_utf8(said).expect("the question is text");
+        assert!(question.contains("Generate this?"), "asked: {question}");
         assert!(question.contains("[y/N]"), "asked: {question}");
     }
 }

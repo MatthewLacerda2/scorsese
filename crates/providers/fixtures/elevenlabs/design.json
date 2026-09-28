@@ -1,0 +1,23 @@
+{
+  "_provenance": "HAND-WRITTEN from the vendor's reference, not captured from a live call. Replace it with the body `scorsese check-providers --record <dir>` writes, and drop this field - see docs/live-check.md.",
+  "previews": [
+    {
+      "generated_voice_id": "h4ndwr1tt3n1",
+      "audio_base_64": "SUQzBAAAAAAAAA==",
+      "media_type": "audio/mpeg",
+      "duration_secs": 5.0
+    },
+    {
+      "generated_voice_id": "h4ndwr1tt3n2",
+      "audio_base_64": "SUQzBAAAAAAAAA==",
+      "media_type": "audio/mpeg",
+      "duration_secs": 5.0
+    },
+    {
+      "generated_voice_id": "h4ndwr1tt3n3",
+      "audio_base_64": "SUQzBAAAAAAAAA==",
+      "media_type": "audio/mpeg",
+      "duration_secs": 5.0
+    }
+  ]
+}

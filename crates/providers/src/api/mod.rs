@@ -35,4 +35,5 @@ pub mod anthropic;
 pub(crate) mod base64;
 pub mod elevenlabs;
 pub mod http;
+pub mod tap;
 pub mod veo;

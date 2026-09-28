@@ -190,6 +190,12 @@ person who already paid.
 Wherever a total is printed, it says the same thing. The estimate is right when
 the table is right, and the table is a page somebody copied.
 
+## Checking the clients, not the prices
+
+This page keeps the *rates* honest. Whether the vendors still answer in the
+shape our clients read is a different question, asked by a person with real
+calls that cost a few cents — [live-check.md](live-check.md).
+
 ## In cents, all the way through
 
 Whole US cents everywhere on a local project — the rate tables,

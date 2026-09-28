@@ -1,3 +1,6 @@
+: HAND-WRITTEN from Anthropic's API reference, not captured from a live call.
+: Replace it with the stream `scorsese check-providers --record <dir>` writes - see docs/live-check.md.
+
 event: message_start
 data: {"type":"message_start","message":{"id":"msg_01XFDUDYJgAACzvnptvVoYEL","type":"message","role":"assistant","model":"claude-opus-5-5","content":[],"stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":412,"cache_creation_input_tokens":18230,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":18230},"output_tokens":3,"service_tier":"standard"}}}
 

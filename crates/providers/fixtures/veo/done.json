@@ -1,0 +1,16 @@
+{
+  "_provenance": "HAND-WRITTEN from the vendor's reference, not captured from a live call. Replace it with the body `scorsese check-providers --record <dir>` writes, and drop this field - see docs/live-check.md.",
+  "name": "models/veo-3.1-lite-generate-preview/operations/h4ndwr1tt3n0",
+  "done": true,
+  "response": {
+    "generateVideoResponse": {
+      "generatedSamples": [
+        {
+          "video": {
+            "uri": "https://generativelanguage.googleapis.com/v1beta/files/h4ndwr1tt3n0:download?alt=media"
+          }
+        }
+      ]
+    }
+  }
+}

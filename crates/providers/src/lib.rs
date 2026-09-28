@@ -100,6 +100,13 @@
 //! turns — one streamed call in, one reply out, behind a trait so no test
 //! makes the call. What a turn is, and who pays for it, is the server's.
 //!
+//! [`live`], the one place that makes a real call **on purpose** (#567): the
+//! smallest request to each vendor that exercises the path we depend on, run
+//! by a person through `scorsese check-providers`, quoted first and held to
+//! the ceiling. Never by a test, never by CI — it is how our hand-written
+//! clients get checked against the vendors, and how a hand-written fixture
+//! gets replaced by a body a vendor actually sent.
+//!
 //! [`spending`], the one answer to *what has this project cost so far*. A
 //! ceiling asks it to decide whether the next call may go ahead and a person
 //! asks it to decide whether they want to; two answers to that would first be
@@ -108,6 +115,7 @@
 pub mod api;
 pub mod claude;
 pub mod credentials;
+pub mod live;
 pub mod prices;
 pub mod quote;
 pub mod speech;

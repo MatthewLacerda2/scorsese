@@ -110,6 +110,13 @@ impl Voices {
         }
     }
 
+    /// The same client, copying every reply into `tap` — for the live
+    /// provider check ([`crate::live`]); see [`crate::api::tap`].
+    pub fn tapped(mut self, tap: &crate::api::tap::Tap) -> Self {
+        self.caller = self.caller.tapped(tap);
+        self
+    }
+
     /// The built-in voices an account already has.
     ///
     /// `category=premade` on purpose: without it the reply also carries voices

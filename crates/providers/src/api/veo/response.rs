@@ -20,6 +20,18 @@ pub struct Submitted {
     pub name: String,
 }
 
+/// What `GET models/{id}` answers with — the part of it the live check reads.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelInfo {
+    /// `models/` and the id, e.g. `models/veo-3.1-fast-generate-preview`.
+    pub name: String,
+    /// How it may be called. A video model lists `predictLongRunning`, which
+    /// is the one method scorsese submits with.
+    #[serde(default)]
+    pub supported_generation_methods: Vec<String>,
+}
+
 /// What polling an operation answers with.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Operation {

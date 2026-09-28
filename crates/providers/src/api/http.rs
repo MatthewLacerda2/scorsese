@@ -17,6 +17,8 @@ use std::time::Duration;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
+use super::tap::{Tap, Tee};
+
 /// How long to wait on a single request before giving up on it.
 ///
 /// Generous, because the slow part of generating a video is not this: a submit
@@ -35,6 +37,13 @@ const STREAM_WHOLE: Duration = Duration::from_secs(30 * 60);
 
 /// How long a streamed reply may take to start: its headers.
 const STREAM_FIRST_BYTE: Duration = Duration::from_secs(120);
+
+/// The most a JSON reply is read to when a [`Tap`] wants its bytes.
+///
+/// Only a tapped caller reads a JSON reply to bytes before parsing it; the
+/// largest scorsese asks for is a voice design, three MP3 samples base64 in the
+/// JSON, and this is orders above that.
+const JSON_LIMIT: u64 = 64 * 1024 * 1024;
 
 /// Why a call did not produce an answer.
 #[derive(Debug, thiserror::Error)]
@@ -88,6 +97,9 @@ pub struct Caller {
     /// Headers every request carries besides the key — a vendor's API
     /// version, a feature it gates behind a header.
     extra: Vec<(&'static str, String)>,
+    /// Where to copy every reply, for the live provider check. `None` in the
+    /// product.
+    tap: Option<Tap>,
 }
 
 impl Caller {
@@ -97,7 +109,16 @@ impl Caller {
             header,
             key: key.expose().to_owned(),
             extra: Vec::new(),
+            tap: None,
         }
+    }
+
+    /// The same caller, copying every reply it reads into `tap` — see
+    /// [`super::tap`]. What it sends, and what it makes of a reply, are
+    /// unchanged.
+    pub fn tapped(mut self, tap: &Tap) -> Self {
+        self.tap = Some(tap.clone());
+        self
     }
 
     /// The same caller, also sending `value` in `header` on every request.
@@ -131,8 +152,16 @@ impl Caller {
             .signed(agent.post(url))
             .header("Content-Type", "application/json")
             .send_json(body);
-        let response = refused(url, sent)?;
-        let body: Box<dyn Read + Send> = Box::new(response.into_body().into_reader());
+        let response = self.answered(url, sent)?;
+        let status = response.status().as_u16();
+        let reader = response.into_body().into_reader();
+        let body: Box<dyn Read + Send> = match &self.tap {
+            Some(tap) => {
+                let index = tap.record(url, status, Vec::new());
+                Box::new(Tee::new(reader, tap.clone(), index))
+            }
+            None => Box::new(reader),
+        };
         Ok(BufReader::new(body))
     }
 
@@ -154,7 +183,7 @@ impl Caller {
             .signed(self.agent().post(url))
             .header("Content-Type", "application/json")
             .send_json(body);
-        read_json(url, sent)
+        self.json(url, sent)
     }
 
     /// POSTs `body` as JSON and reads the reply as bytes — for a vendor that
@@ -176,13 +205,13 @@ impl Caller {
             .signed(self.agent().post(url))
             .header("Content-Type", "application/json")
             .send_json(body);
-        read_bytes(url, refused(url, sent)?, limit)
+        self.bytes(url, sent, limit)
     }
 
     /// GETs `url` and reads the reply as JSON.
     pub fn get<R: DeserializeOwned>(&self, url: &str) -> Result<R, HttpError> {
         let sent = self.signed(self.agent().get(url)).call();
-        read_json(url, sent)
+        self.json(url, sent)
     }
 
     /// GETs `url` and reads the reply as bytes — for the media itself.
@@ -192,7 +221,44 @@ impl Caller {
     /// or a server having a bad day, and neither is worth filling memory over.
     pub fn download(&self, url: &str, limit: u64) -> Result<Vec<u8>, HttpError> {
         let sent = self.signed(self.agent().get(url)).call();
-        read_bytes(url, refused(url, sent)?, limit)
+        self.bytes(url, sent, limit)
+    }
+
+    /// The response, unless it never arrived or was a refusal — which a tap
+    /// records before it is returned.
+    fn answered(&self, url: &str, sent: Sent) -> Result<Response, HttpError> {
+        let answer = refused(url, sent);
+        if let (Some(tap), Err(HttpError::Refused { status, body, .. })) = (&self.tap, &answer) {
+            tap.record(url, *status, body.clone().into_bytes());
+        }
+        answer
+    }
+
+    /// The reply as `R`. A tapped caller reads it to bytes first and records
+    /// them; the parse is the same serde type either way.
+    fn json<R: DeserializeOwned>(&self, url: &str, sent: Sent) -> Result<R, HttpError> {
+        let Some(tap) = &self.tap else {
+            return read_json(url, sent);
+        };
+        let response = self.answered(url, sent)?;
+        let status = response.status().as_u16();
+        let bytes = read_bytes(url, response, JSON_LIMIT)?;
+        tap.record(url, status, bytes.clone());
+        serde_json::from_slice(&bytes).map_err(|error| HttpError::Unreadable {
+            url: url.to_owned(),
+            message: error.to_string(),
+        })
+    }
+
+    /// The reply's bytes, up to `limit`, recorded when tapped.
+    fn bytes(&self, url: &str, sent: Sent, limit: u64) -> Result<Vec<u8>, HttpError> {
+        let response = self.answered(url, sent)?;
+        let status = response.status().as_u16();
+        let bytes = read_bytes(url, response, limit)?;
+        if let Some(tap) = &self.tap {
+            tap.record(url, status, bytes.clone());
+        }
+        Ok(bytes)
     }
 
     /// The transport, configured to hand back a refusal rather than throw it
@@ -210,6 +276,12 @@ impl Caller {
             .into()
     }
 }
+
+/// What the transport hands back for a request.
+type Response = ureq::http::Response<ureq::Body>;
+
+/// A request as sent: a response, or why there is none.
+type Sent = Result<Response, ureq::Error>;
 
 /// A reply's body, up to `limit` bytes.
 ///
