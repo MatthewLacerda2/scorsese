@@ -100,6 +100,7 @@ pub mod config;
 pub mod credits;
 pub mod db;
 pub mod events;
+pub mod generations;
 pub mod http;
 pub mod jobs;
 pub mod library;
@@ -107,6 +108,7 @@ pub mod operator;
 pub mod projects;
 pub mod renders;
 pub mod storage;
+pub mod tools;
 
 use std::future::Future;
 use std::path::PathBuf;
@@ -249,6 +251,7 @@ pub async fn start(
     cache
         .prepare()
         .map_err(|(path, source)| ServerError::Storage { path, source })?;
+    files.storage.clear_scratch();
     let pool = db::member_pool(&pool).await.map_err(ServerError::Connect)?;
     let state = AppState::new(pool.clone(), files);
     let (stop, stopping) = watch::channel(false);

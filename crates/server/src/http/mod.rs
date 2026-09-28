@@ -32,6 +32,7 @@
 //! | `POST /api/projects/{id}/renders` | a member | `{container?, video_codec?, audio_codec?, resolution?}` → the kept render (`200`) or its job (`202`) |
 //! | `GET /api/projects/{id}/renders` | a member | the project's kept renders |
 //! | `GET /api/renders/{id}/file` | a member | the file, in ranges; counts as use |
+//! | `POST /api/mcp` | a member, by token | web MCP: JSON-RPC in, JSON-RPC out |
 //!
 //! "A member" is a request carrying a session cookie or an API token — see
 //! [`auth`].
@@ -43,6 +44,7 @@ pub mod error;
 pub mod events;
 pub mod jobs;
 pub mod library;
+pub mod mcp;
 pub mod projects;
 mod ranges;
 pub mod renders;
@@ -63,6 +65,7 @@ use crate::events::Events;
 use crate::jobs::Queue;
 use crate::library::Library;
 use crate::renders::RenderCache;
+use crate::tools::Toolbox;
 
 /// What every handler can reach.
 ///
@@ -81,6 +84,11 @@ pub struct AppState {
     pub library: Library,
     /// Finished renders, and which of them are being downloaded.
     pub renders: RenderCache,
+    /// scorsese's tools, for any user: what web MCP serves and the
+    /// built-in assistant (#540) calls in-process.
+    pub tools: Toolbox,
+    /// How many tool calls each user has made lately, over web MCP.
+    pub limits: mcp::Limits,
 }
 
 impl AppState {
@@ -89,9 +97,24 @@ impl AppState {
     pub fn new(pool: PgPool, files: Files) -> Self {
         let events = Events::new();
         let jobs = Queue::new(events.clone());
+        let library = Library::new(
+            pool.clone(),
+            files.storage,
+            files.tools.clone(),
+            jobs.clone(),
+        );
+        let tools = Toolbox::new(
+            pool.clone(),
+            library.clone(),
+            files.tools,
+            jobs.clone(),
+            files.renders.clone(),
+        );
         Self {
-            library: Library::new(pool.clone(), files.storage, files.tools, jobs.clone()),
+            library,
             renders: files.renders,
+            tools,
+            limits: mcp::Limits::default(),
             pool,
             jobs,
             events,
@@ -125,6 +148,7 @@ pub fn router(state: AppState) -> Router {
                 .patch(projects::rename)
                 .delete(projects::delete),
         )
+        .route("/mcp", post(mcp::post).get(mcp::refuse).delete(mcp::refuse))
         .merge(credit_routes())
         .merge(library_routes())
         .merge(render_routes());

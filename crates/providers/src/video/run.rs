@@ -79,6 +79,34 @@ pub fn collect(
     Ok(done)
 }
 
+/// Points every shot whose current brief's output is already on disk at that
+/// file — the cache half of a run, with no provider, no key and nothing spent.
+/// Which shots it found.
+///
+/// For a caller that keeps generated media somewhere other than the project's
+/// own `generated/` — the hosted server keeps it in each user's library, found
+/// by brief hash (#539) — and lays it out where each brief would land before
+/// asking. What it finds is recorded exactly as a run records a cache hit,
+/// ticket cleared included, so the document cannot say two different things
+/// depending on which of the two noticed the file.
+pub fn adopt(project: &mut Project, root: &Path) -> Vec<AssetId> {
+    let mut adopted = Vec::new();
+    for id in generated_video_ids(project) {
+        let Some(brief) = project
+            .asset(&id)
+            .and_then(|asset| Brief::of(project, root, asset).ok())
+            .filter(|brief| brief.realized(root))
+        else {
+            continue;
+        };
+        let output = brief.output();
+        let bytes = std::fs::read(output.resolve(root)).unwrap_or_default();
+        record(project, &id, &output, &bytes, &brief);
+        adopted.push(id);
+    }
+    adopted
+}
+
 /// What a run would do with one asset, read without doing it.
 ///
 /// The pass's own decision order — the cache first, then the ticket, then a

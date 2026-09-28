@@ -99,7 +99,7 @@ pub(super) fn unique_asset_id(project: &Project, file_name: &str) -> AssetId {
 /// Keeps names portable: lowercase, and anything that is not alphanumeric,
 /// `-`, `_`, or `.` becomes a hyphen. Paths inside a project must not depend
 /// on a filesystem's tolerance for spaces or colons.
-fn sanitise(name: &str) -> String {
+pub(super) fn sanitise(name: &str) -> String {
     let cleaned: String = name
         .to_ascii_lowercase()
         .chars()

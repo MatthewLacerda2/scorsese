@@ -18,8 +18,12 @@
 
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::db::UserId;
+
+/// Each user's scratch folders, under their cache directory.
+const SCRATCH: &str = "scratch";
 
 /// The directory everything `user` owns under `root` lives in.
 pub fn user_directory(root: &Path, user: UserId) -> PathBuf {
@@ -71,6 +75,33 @@ impl Storage {
         user_directory(&self.cache, user)
             .join("thumbnails")
             .join(format!("{sha256}.{extension}"))
+    }
+
+    /// A folder nothing is at yet, for laying one of `user`'s projects out
+    /// while a tool runs on it (#539). Under the cache, because it is gone
+    /// the moment the tool answers; [`Storage::clear_scratch`] takes whatever
+    /// a stopped server left.
+    pub fn scratch(&self, user: UserId) -> PathBuf {
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |since| since.as_nanos());
+        let unique = COUNTER.fetch_add(1, Ordering::Relaxed);
+        user_directory(&self.cache, user)
+            .join(SCRATCH)
+            .join(format!("{nanos}-{unique}.scor"))
+    }
+
+    /// Remove every user's scratch folders. Only while nothing runs on them
+    /// — the server calls it before it serves. Best-effort: a folder that
+    /// will not go is only disk, and the next start tries again.
+    pub fn clear_scratch(&self) {
+        let Ok(users) = std::fs::read_dir(self.cache.join("users")) else {
+            return;
+        };
+        for user in users.flatten() {
+            let _ = std::fs::remove_dir_all(user.path().join(SCRATCH));
+        }
     }
 
     /// Remove everything `user` has on disk, kept and cached.

@@ -25,6 +25,7 @@ use serde_json::{Value, json};
 use super::{RenderCache, RenderView, Settings, evict, store};
 use crate::db::UserId;
 use crate::jobs::{Context, Handler, Job, Outcome};
+use crate::library::locate;
 use crate::projects::media::{Materialised, hashes, materialise};
 use crate::storage::Storage;
 
@@ -211,20 +212,11 @@ async fn library(
 ) -> Result<HashMap<String, PathBuf>, String> {
     let hashes: Vec<String> = hashes(project).into_iter().map(str::to_owned).collect();
     let mut tx = context.scoped().await.map_err(database)?;
-    let files: Vec<(String, String)> =
-        sqlx::query_as("SELECT sha256, extension FROM library_items WHERE sha256 = ANY($1)")
-            .bind(&hashes)
-            .fetch_all(&mut *tx)
-            .await
-            .map_err(database)?;
+    let files = locate::by_hash(&mut tx, storage, user, &hashes)
+        .await
+        .map_err(database)?;
     tx.commit().await.map_err(database)?;
-    Ok(files
-        .into_iter()
-        .map(|(hash, extension)| {
-            let path = storage.library_file(user, &hash, &extension);
-            (hash, path)
-        })
-        .collect())
+    Ok(files)
 }
 
 /// What a finished render job says: which render, and where to fetch it.
