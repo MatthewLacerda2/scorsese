@@ -14,8 +14,17 @@
 # rules because a token-run tunnel keeps its rules in Cloudflare's dashboard,
 # out of version control and out of reach of a local test — see nginx.conf.
 #
-# Nothing is published to the network. `web` alone is reachable from this
-# machine, on loopback, so the site can be checked without the tunnel.
+# The tunnel is chosen in `.env`, by COMPOSE_PROFILES, without editing this
+# file: `named-tunnel` (production: a domain and a token), `quick-tunnel` (a
+# random *.trycloudflare.com address, for testing before there is a domain), or
+# neither (no tunnel at all — loopback and a tailnet only). A profile, because
+# a service outside the active ones is not started, and the choice is written
+# down in the one file that already holds every other setting.
+#
+# Nothing is published to the network by default. `web` answers on
+# SCORSESE_WEB_BIND, which is loopback unless `.env` says otherwise, so the site
+# can be checked without a tunnel and `tailscale serve` can put it on a tailnet
+# over HTTPS (docs/web.md, "Testing before there is a domain").
 #
 # `restart: unless-stopped` everywhere: after a power cut the Docker daemon
 # starts at boot and brings back every container that was running, and a
@@ -24,6 +33,19 @@
 # only brings the processes back.
 
 name: scorsese
+
+# What both tunnels share. They differ only in how cloudflared is told which
+# tunnel it is.
+x-cloudflared: &cloudflared
+  # Pinned: this is the one container that talks to the internet, and an
+  # update to it is a deliberate change like any other.
+  image: cloudflare/cloudflared:2026.9.3
+  restart: unless-stopped
+  depends_on:
+    web:
+      condition: service_healthy
+  # No healthcheck: the image has no shell or HTTP client to run one with,
+  # and a tunnel that loses its connection retries by itself.
 
 services:
   postgres:
@@ -105,29 +127,37 @@ services:
     depends_on:
       - server
     ports:
-      - "127.0.0.1:${SCORSESE_WEB_PORT:?set SCORSESE_WEB_PORT in deploy/.env}:80"
+      - "${SCORSESE_WEB_BIND:?set SCORSESE_WEB_BIND in deploy/.env}:${SCORSESE_WEB_PORT:?set SCORSESE_WEB_PORT in deploy/.env}:80"
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1/"]
       interval: 30s
       timeout: 5s
       retries: 3
 
-  cloudflared:
-    # Pinned: this is the one container that talks to the internet, and an
-    # update to it is a deliberate change like any other.
-    image: cloudflare/cloudflared:2026.9.3
-    restart: unless-stopped
-    depends_on:
-      web:
-        condition: service_healthy
+  named-tunnel:
+    <<: *cloudflared
+    profiles: [named-tunnel]
     # A remotely-managed tunnel: the token carries the tunnel's identity and
     # Cloudflare's dashboard carries its one public hostname, pointed at
     # http://web:80. No certificate or config file lives on this machine.
     command: ["tunnel", "--no-autoupdate", "run"]
     environment:
-      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?set CLOUDFLARE_TUNNEL_TOKEN in deploy/.env}
-    # No healthcheck: the image has no shell or HTTP client to run one with,
-    # and a tunnel that loses its connection retries by itself.
+      # Not `:?` like the rest: Compose interpolates the whole file before it
+      # looks at profiles, so a required token would be required by the quick
+      # tunnel and by no tunnel too. A blank one in this mode is cloudflared
+      # refusing to start, in `docker compose logs named-tunnel`.
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+
+  quick-tunnel:
+    <<: *cloudflared
+    profiles: [quick-tunnel]
+    # No account, no token, no domain: Cloudflare hands out a random
+    # https://<words>.trycloudflare.com and forgets it when this stops, so a
+    # restart is a new address. It is printed in the log:
+    #   docker compose logs quick-tunnel | grep -o 'https://[-a-z0-9]*\.trycloudflare\.com'
+    # Cloudflare's own limits: 200 requests in flight, and no server-sent
+    # events, so live progress (/api/events) does not stream through it.
+    command: ["tunnel", "--no-autoupdate", "--url", "http://web:80"]
 
   backup:
     build:
