@@ -25,8 +25,11 @@ export interface TimelineProps {
   document: ProjectDocument;
   playhead: number;
   onSeek: (frame: number) => void;
-  selected: string | null;
-  onSelect: (clip: string | null) => void;
+  selected: string[];
+  /** A clip clicked, `adding` it to the selection when a modifier was held. */
+  onSelect: (clip: string, adding: boolean) => void;
+  /** An empty stretch of a lane clicked: nothing is selected. */
+  onDeselect: () => void;
   /** A drag let go: `trim_clip` along a lane, `clip_move` onto another. */
   onRelease: (call: Release) => Promise<unknown>;
   /** Something dropped on `track` at frame `pointed`, before snapping. */
@@ -116,7 +119,7 @@ export function Timeline(props: TimelineProps) {
                 onSelect={props.onSelect}
                 onRelease={props.onRelease}
                 onEmptyClick={(event, lane) => {
-                  props.onSelect(null);
+                  props.onDeselect();
                   onSeek(frameAt(event, lane));
                 }}
                 onDragOver={(event) => {

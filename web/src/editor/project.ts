@@ -58,8 +58,9 @@ export function useEdit(id: number): EditOutcome {
     onSuccess: (answer, { tool }) => {
       setRefused(null);
       if (answer.project) queryClient.setQueryData(editorKey(id), answer.project);
-      // An import changes which files this project uses.
-      if (tool === "import") queryClient.invalidateQueries({ queryKey: ["library"] });
+      // An import or a template changes which files this project uses.
+      if (tool === "import" || tool === "template_insert")
+        queryClient.invalidateQueries({ queryKey: ["library"] });
     },
     onError: (error) => {
       setRefused(refusal(error));

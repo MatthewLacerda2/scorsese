@@ -1,17 +1,27 @@
-// The assets panel: the project's own assets, and the user's library beneath
-// them. Either is dragged onto a lane to place it (the desktop app's pool,
-// #543); a library file is brought into the project on the way (`import`).
-// New files arrive through the library page's uploads, which stay on screen.
+// The assets panel: the project's own assets, the user's templates, and the
+// user's library beneath them. An asset or a library file is dragged onto a
+// lane to place it (the desktop app's pool, #543); a library file is brought
+// into the project on the way (`import`), and a template goes in at the
+// playhead (#546). New files arrive through the library page's uploads, which
+// stay on screen.
 
 import { LibraryIcon } from "lucide-react";
 import { Link } from "react-router";
 import type { DocumentAsset, ProjectDocument } from "@/api";
 import { useLibrary } from "@/app/queries";
 import { Thumbnail } from "@/files/FileTile";
+import type { EditOutcome } from "../project";
+import { TemplatesSection } from "../templates/TemplatesSection";
 import { carry } from "./dragged";
 import { kindColor, kindName } from "./kinds";
 
-export function AssetsPanel({ document }: { document: ProjectDocument }) {
+interface Props {
+  document: ProjectDocument;
+  edit: EditOutcome;
+  playhead: number;
+}
+
+export function AssetsPanel({ document, edit, playhead }: Props) {
   const library = useLibrary({});
   const assets = document.assets ?? [];
   return (
@@ -29,6 +39,7 @@ export function AssetsPanel({ document }: { document: ProjectDocument }) {
           <ProjectAsset key={asset.id} asset={asset} uses={uses(document, asset.id)} />
         ))}
       </section>
+      <TemplatesSection edit={edit} playhead={playhead} fps={document.timeline_fps} />
       <section className="flex flex-col gap-2">
         <h2 className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Your library

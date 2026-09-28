@@ -1,4 +1,4 @@
-// The Delete key: the selected clip comes off the timeline (`clip_remove`).
+// The Delete key: the selected clips come off the timeline (`clip_remove`).
 //
 // Its asset stays in the project and nothing closes up behind it — the tool's
 // own rules (docs/mcp.md). Backspace does the same, since a Mac keyboard's
@@ -27,18 +27,18 @@ export function deletes(key: string): boolean {
 }
 
 /** Removes `selected` when Delete or Backspace is pressed outside a text field,
- * and lets go of it once the server has. */
+ * and lets go of them once the server has. */
 export function useDeleteKey(
-  selected: string | null,
+  selected: string[],
   run: (edit: Edit) => Promise<unknown>,
   deselect: () => void,
 ) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (!selected || !deletes(event.key)) return;
+      if (selected.length === 0 || !deletes(event.key)) return;
       if (isTyping(event.target as Focused | null)) return;
       event.preventDefault();
-      const edit: Edit = { tool: "clip_remove", args: { clips: [selected] }, edit: true };
+      const edit: Edit = { tool: "clip_remove", args: { clips: selected }, edit: true };
       void run(edit).then((answer) => {
         if (answer) deselect();
       });
