@@ -40,7 +40,7 @@ containers and one that keeps them safe:
 | `postgres` | the database, on a persistent volume |
 | `scorsese-server` | the Rust server, with ffmpeg inside; library files, render cache and scratch mounted from host disk |
 | `web` | nginx serving the built React files |
-| `cloudflared` | a **Cloudflare Tunnel** — how the site reaches the internet without a static IP; it also terminates HTTPS, so there is no reverse proxy of our own |
+| `named-tunnel` | `cloudflared` holding a **Cloudflare Tunnel** — how the site reaches the internet without a static IP; it also terminates HTTPS, so there is no reverse proxy of our own. Before there is a domain, `quick-tunnel` instead, or no tunnel (#568, *Testing before there is a domain*) |
 | `backup` | scheduled `pg_dump` plus a sync of the library **off the machine** (#532). Not part of serving a request — the fifth container exists because a home machine has no redundancy, and a backup that depends on someone remembering is not one |
 
 **No message broker.** Long work — renders, Veo shots, ElevenLabs lines,
@@ -178,7 +178,15 @@ reads is in the example.
 down the tunnel `cloudflared` holds open from this machine. `cloudflared` sends
 everything to `web`; nginx serves the React build and passes `/api/` to
 `server`, unchanged. Nothing is published to the network: `web` also answers on
-`127.0.0.1:$SCORSESE_WEB_PORT`, for checking the site from this machine.
+`$SCORSESE_WEB_BIND:$SCORSESE_WEB_PORT`, loopback unless `.env` says otherwise,
+for checking the site from this machine and for `tailscale serve`.
+
+**Which tunnel is a setting, not an edit.** `COMPOSE_PROFILES` in `deploy/.env`
+names one: `named-tunnel` (production — a domain and a token), `quick-tunnel` (a
+throwaway `*.trycloudflare.com` address, for testing), or blank for none. Both
+are the same `cloudflared` image told two different things, and Compose starts
+only the one named. `make deploy` checks the file in all three modes, and that
+each starts its own tunnel and no other.
 
 **The `/api` split lives in nginx, not in the tunnel's ingress rules.** A tunnel
 run by token keeps its rules in Cloudflare's dashboard, where no pull request
@@ -220,13 +228,15 @@ them. The rest is commands, from the checkout on the machine that serves.
 
        mkdir -p /path/to/scorsese-data/library /path/to/scorsese-data/backups
 
-3. **The Cloudflare Tunnel.** The domain must be on Cloudflare (its
-   nameservers pointed there). In the dashboard: *Zero Trust → Networks →
+3. **The Cloudflare Tunnel** — production, once there is a domain; before
+   that, skip this step and see *Testing before there is a domain* below.
+   The domain must be on Cloudflare (its nameservers pointed there). In the dashboard: *Zero Trust → Networks →
    Tunnels → Create a tunnel → Cloudflared*, name it, and copy the token from
    the install command shown (the string after `--token`); skip installing
    the connector, the `cloudflared` container is the connector. Then add **one
    public hostname** — the site's domain, service type `HTTP`, URL `web:80` —
-   and no other rules. The token goes in `CLOUDFLARE_TUNNEL_TOKEN`.
+   and no other rules. The token goes in `CLOUDFLARE_TUNNEL_TOKEN`, and
+   `COMPOSE_PROFILES=named-tunnel` turns it on.
 4. **The backup destination.** Somewhere off this machine the maintainer
    chooses — an object store (Backblaze B2, S3, R2), a cloud drive, another
    machine over SFTP. `rclone config` creates a remote for it; then
@@ -246,11 +256,88 @@ them. The rest is commands, from the checkout on the machine that serves.
    `CARGO_BUILD_JOBS` leaves room for whatever else the machine is doing.
 7. **Check**: `docker compose ps` shows every container healthy (`backup`
    after its first run, which starts immediately), `curl
-   http://127.0.0.1:8088/api/health` answers `ok`, and so does the public
-   hostname. `docker compose logs backup` shows the first backup reaching the
+   http://127.0.0.1:8088/api/health` answers `ok`, and so does the tunnel's
+   address, if there is one. `docker compose logs backup` shows the first backup reaching the
    remote.
 8. **Restore once, on purpose** (below), into this fresh install. A backup
    that has never been restored is a hope.
+
+### Testing before there is a domain
+
+Production is the named tunnel of step 3. Before there is a domain there are
+three ways in, and they combine — a quick tunnel and a tailnet can run at the
+same time:
+
+| path | who reaches it | address | in `deploy/.env` | besides |
+| --- | --- | --- | --- | --- |
+| quick tunnel | anyone with the link | `https://<words>.trycloudflare.com`, new on every restart | `COMPOSE_PROFILES=quick-tunnel` | nothing |
+| tailnet | the maintainer's devices, and friends invited to the tailnet | `https://<machine>.<tailnet>.ts.net` | nothing — the loopback default | Tailscale on this machine and theirs; `tailscale serve` once |
+| home network, plain HTTP | devices on the LAN | `http://192.168.x.x:8088` | `SCORSESE_WEB_BIND=0.0.0.0` | **a browser cannot stay logged in** — below |
+
+**Quick tunnel.** Set `COMPOSE_PROFILES=quick-tunnel`, `docker compose up
+--detach` from `deploy/`, and read the address out of the log:
+
+    docker compose logs quick-tunnel | grep -o 'https://[-a-z0-9]*\.trycloudflare\.com'
+
+It is HTTPS, so logging in works as in production. What to know about it:
+
+- **The address changes every time the container starts** — after a power cut,
+  after an `up` that recreates it. Read the log again and send the new link.
+- **It is public.** Anyone with the link reaches the login page, and the
+  accounts are the only gate — there is no sign-up, so that is the operator
+  creating an account per person (*Accounts*).
+- **Cloudflare's limits for it**: 200 requests in flight, no uptime guarantee,
+  and **no server-sent events**, so `GET /api/events` (live job progress) does
+  not stream through it. Uploads are unaffected: they are chunked under the
+  100 MB a Cloudflare request may carry, whichever tunnel it is.
+
+**Tailnet**, which is also the answer for the maintainer's own devices at home.
+`web` stays on loopback; on this machine, once:
+
+1. Tailscale installed and logged in: `sudo systemctl enable --now tailscaled`,
+   `sudo tailscale up`.
+2. In the Tailscale admin console, *DNS*: **MagicDNS** on and **HTTPS
+   Certificates** enabled.
+3. `sudo tailscale serve --bg 8088` — the tailnet address, over HTTPS with a
+   real certificate, proxied to `http://127.0.0.1:8088`, and remembered across
+   reboots. `tailscale serve status` shows it, `sudo tailscale serve reset`
+   removes it.
+
+Friends install Tailscale and either join the tailnet by invitation or accept
+a share of this one machine (admin console, *Machines → Share*); both open the
+same `https://` address, and the tailnet's access rules decide who gets there.
+The port is never opened to the LAN for any of this.
+
+**Home network, and why plain HTTP from another device cannot log in.** The
+session cookie is `Secure` (*Accounts*), and a browser keeps a `Secure` cookie
+only from `https://` or `localhost`. From `http://192.168.x.x:8088` the login
+answers `200`, the browser drops the cookie, and the next request is logged
+out. The same goes for `http://100.x.y.z:8088` on the tailnet, encrypted
+underneath or not — the browser sees plain HTTP, which is what `tailscale
+serve` is for. So a device at home logs in through the tailnet or the quick
+tunnel.
+
+A setting that drops `Secure` for a "trusted network" was weighed and **not
+built** (#568):
+
+- Every path planned before a domain already has HTTPS for nothing — the quick
+  tunnel and `tailscale serve` — and a phone joins a tailnet in about the time
+  it takes to find the machine's LAN address.
+- Over plain HTTP the password and the session cross the network in the clear.
+  A home Wi-Fi with guests and appliances on it is not a trusted network, and a
+  flag named for one gets left on.
+- The server that reads the flag is the one behind the tunnel. Left on in
+  production, a browser would send the session over `http://` to the public
+  hostname — exactly what `Secure` exists to prevent.
+- Browsers gate more than cookies on HTTPS (the clipboard, Web Crypto, service
+  workers). Plain HTTP would be a place the web app keeps breaking in new ways
+  as it grows, not a place it works minus one thing.
+
+`SCORSESE_WEB_BIND` beyond loopback is therefore for what is not a browser
+session: a client with an API token (web MCP, `curl`) or a health check from
+another machine. Prefer `0.0.0.0` to one interface's address: an address that
+is not up yet when Docker starts the container at boot — a tailnet address, a
+DHCP lease — is a `web` container that does not start.
 
 ### Updating
 
@@ -331,7 +418,7 @@ is the whole of it in one place.
 deletes accounts from the server's own binary, run where the server runs:
 
 ```text
-docker compose exec scorsese-server scorsese-server user create ana@example.com
+docker compose exec server scorsese-server user create ana@example.com
 scorsese-server user reset-password ana@example.com   # also logs out every browser
 scorsese-server user delete ana@example.com --yes     # rows and files, for good
 scorsese-server user list
@@ -348,7 +435,9 @@ breaks nobody.
 keeps only the SHA-256, valid 30 days from login and not extended by use.
 `HttpOnly; Secure; SameSite=Strict; Path=/api` — the web app and the API share
 one origin, so Strict costs nothing, and with every write taking a JSON body
-it is the CSRF defence. Server-side rather than signed, so logout, a reset and
+it is the CSRF defence. `Secure` means a browser logs in only over `https://`
+or on `localhost`; *Testing before there is a domain* has the HTTPS paths
+there are before a domain, and why plain HTTP is not one of them. Server-side rather than signed, so logout, a reset and
 a deletion end sessions *now* — and so **there is no signing key**: the server
 has no secret of its own for `docs/credentials.md`'s resolver to find.
 

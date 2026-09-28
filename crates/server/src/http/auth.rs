@@ -23,6 +23,13 @@
 //! nothing and means no other site can make a browser send it — which, with
 //! every write taking a JSON body a plain form cannot produce, is the CSRF
 //! defence.
+//!
+//! `Secure` is unconditional, and that is a decision (#568): a browser on
+//! `http://` from another device cannot stay logged in, and there is
+//! deliberately no setting that drops the attribute for a "trusted network".
+//! Every way in before there is a domain — a quick tunnel, `tailscale serve` —
+//! is HTTPS already; `docs/web.md`, *Testing before there is a domain*, has
+//! them and the argument.
 
 use axum::extract::FromRequestParts;
 use axum::http::HeaderMap;
