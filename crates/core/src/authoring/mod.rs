@@ -34,6 +34,7 @@ mod track;
 
 pub use edit::{Edit, set_asset};
 pub use inline::{Inline, add_asset};
+pub(crate) use track::numbered;
 pub use track::{Lane, add_track};
 
 use crate::asset::{AssetId, AssetKind};
