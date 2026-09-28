@@ -16,8 +16,17 @@ use crate::db::{self, UserId};
 pub enum Client {
     /// The user's own client, over web MCP.
     External,
-    /// The built-in assistant (#540).
-    Assistant,
+    /// The built-in assistant (#540), in the chat turn `turn`.
+    Assistant {
+        /// The turn's row in `chat_turns`.
+        turn: i64,
+    },
+    /// The user themselves, from the web app: their yes to a quote the
+    /// assistant showed them in turn `turn` — a call the model cannot make.
+    User {
+        /// The turn whose quote it confirms.
+        turn: i64,
+    },
 }
 
 impl Client {
@@ -25,7 +34,16 @@ impl Client {
     fn as_str(self) -> &'static str {
         match self {
             Self::External => "external",
-            Self::Assistant => "assistant",
+            Self::Assistant { .. } => "assistant",
+            Self::User { .. } => "user",
+        }
+    }
+
+    /// The chat turn the call belongs to, if any.
+    fn turn(self) -> Option<i64> {
+        match self {
+            Self::External => None,
+            Self::Assistant { turn } | Self::User { turn } => Some(turn),
         }
     }
 }
@@ -40,14 +58,20 @@ pub(super) async fn begin(
 ) -> Result<i64, sqlx::Error> {
     let project = arguments.get("project").and_then(Value::as_i64);
     let mut tx = db::scoped(pool, user).await?;
+    // A turn's calls are made one after another, so counting them is their
+    // order.
     let id = sqlx::query_scalar(
-        "INSERT INTO tool_calls (user_id, client, tool, project_id, arguments)
-         VALUES (member_id(), $1, $2, $3, $4) RETURNING id",
+        "INSERT INTO tool_calls (user_id, client, tool, project_id, arguments, turn_id, position)
+         VALUES (member_id(), $1, $2, $3, $4, $5,
+                 CASE WHEN $5::bigint IS NULL THEN NULL
+                      ELSE (SELECT count(*) + 1 FROM tool_calls WHERE turn_id = $5)::int END)
+         RETURNING id",
     )
     .bind(client.as_str())
     .bind(tool)
     .bind(project)
     .bind(arguments)
+    .bind(client.turn())
     .fetch_one(&mut *tx)
     .await?;
     tx.commit().await?;

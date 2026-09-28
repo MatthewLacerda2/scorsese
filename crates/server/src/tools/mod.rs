@@ -64,6 +64,7 @@ mod surface;
 
 pub use folder::{Folder, lay_out};
 pub use log::Client;
+pub use quotes::Pending;
 
 use scorsese_mcp::{Reply, Tool};
 use scorsese_render::Tools;
@@ -134,12 +135,25 @@ impl Toolbox {
         name: &str,
         arguments: &Value,
     ) -> Result<Reply, String> {
+        self.recorded(user, client, name, arguments).await.1
+    }
+
+    /// [`Toolbox::call`], and the call's row in `tool_calls` — `None` for a
+    /// tool that does not exist, which is refused before anything is written.
+    pub async fn recorded(
+        &self,
+        user: UserId,
+        client: Client,
+        name: &str,
+        arguments: &Value,
+    ) -> (Option<i64>, Result<Reply, String>) {
         let Some(entry) = surface::find(name) else {
-            return Err(format!("there is no tool `{name}`"));
+            return (None, Err(format!("there is no tool `{name}`")));
         };
-        let id = log::begin(&self.pool, user, client, name, arguments)
-            .await
-            .map_err(database)?;
+        let id = match log::begin(&self.pool, user, client, name, arguments).await {
+            Ok(id) => id,
+            Err(error) => return (None, Err(database(error))),
+        };
         let caller = Caller {
             toolbox: self,
             user,
@@ -152,7 +166,26 @@ impl Toolbox {
             surface::Entry::Own(own) => own.call(&caller, arguments).await,
         };
         log::end(&self.pool, user, id, &outcome).await;
-        outcome
+        (Some(id), outcome)
+    }
+
+    /// The quote tool call `call` of `user`'s issued, if it is still unspent.
+    pub async fn pending_quote(
+        &self,
+        user: UserId,
+        call: i64,
+    ) -> Result<Option<Pending>, sqlx::Error> {
+        let mut tx = crate::db::scoped(&self.pool, user).await?;
+        let pending = quotes::issued_by(&mut tx, call).await?;
+        tx.commit().await?;
+        Ok(pending)
+    }
+
+    /// Forget `user`'s quote `token` unspent.
+    pub async fn withdraw_quote(&self, user: UserId, token: &str) -> Result<(), sqlx::Error> {
+        let mut tx = crate::db::scoped(&self.pool, user).await?;
+        quotes::withdraw(&mut tx, token).await?;
+        tx.commit().await
     }
 }
 

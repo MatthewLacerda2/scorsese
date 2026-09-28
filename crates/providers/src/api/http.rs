@@ -11,7 +11,7 @@
 //! is polled *seconds* apart, not milliseconds. An async runtime would be a
 //! larger change to this codebase than the feature that asked for it.
 
-use std::io::Read;
+use std::io::{BufReader, Read};
 use std::time::Duration;
 
 use serde::Serialize;
@@ -24,6 +24,17 @@ use serde::de::DeserializeOwned;
 /// bounds is a request that has genuinely hung, and the caller retries or
 /// resumes rather than dying.
 const TIMEOUT: Duration = Duration::from_secs(60);
+
+/// How long a streamed reply may take to arrive whole.
+///
+/// A stream is the answer to a reply that takes minutes — a model thinking
+/// and writing tens of thousands of tokens — so the one-minute bound above
+/// would cut every long one off. What bounds a stream instead is this, and
+/// [`STREAM_FIRST_BYTE`] for a server that never starts answering.
+const STREAM_WHOLE: Duration = Duration::from_secs(30 * 60);
+
+/// How long a streamed reply may take to start: its headers.
+const STREAM_FIRST_BYTE: Duration = Duration::from_secs(120);
 
 /// Why a call did not produce an answer.
 #[derive(Debug, thiserror::Error)]
@@ -74,6 +85,9 @@ pub enum HttpError {
 pub struct Caller {
     header: &'static str,
     key: String,
+    /// Headers every request carries besides the key — a vendor's API
+    /// version, a feature it gates behind a header.
+    extra: Vec<(&'static str, String)>,
 }
 
 impl Caller {
@@ -82,7 +96,52 @@ impl Caller {
         Self {
             header,
             key: key.expose().to_owned(),
+            extra: Vec::new(),
         }
+    }
+
+    /// The same caller, also sending `value` in `header` on every request.
+    pub fn with(mut self, header: &'static str, value: impl Into<String>) -> Self {
+        self.extra.push((header, value.into()));
+        self
+    }
+
+    /// POSTs `body` as JSON and hands back the reply as it arrives — for a
+    /// vendor that streams its answer (server-sent events) rather than
+    /// sending it whole.
+    ///
+    /// A refusal is read whole and returned as one, exactly as [`post`]
+    /// returns it: a vendor that refuses does not stream the refusal.
+    ///
+    /// [`post`]: Caller::post
+    pub fn post_stream<B: Serialize>(
+        &self,
+        url: &str,
+        body: &B,
+    ) -> Result<BufReader<Box<dyn Read + Send>>, HttpError> {
+        let agent: ureq::Agent = ureq::Agent::config_builder()
+            .timeout_connect(Some(TIMEOUT))
+            .timeout_send_body(Some(TIMEOUT))
+            .timeout_recv_response(Some(STREAM_FIRST_BYTE))
+            .timeout_recv_body(Some(STREAM_WHOLE))
+            .http_status_as_error(false)
+            .build()
+            .into();
+        let sent = self
+            .signed(agent.post(url))
+            .header("Content-Type", "application/json")
+            .send_json(body);
+        let response = refused(url, sent)?;
+        let body: Box<dyn Read + Send> = Box::new(response.into_body().into_reader());
+        Ok(BufReader::new(body))
+    }
+
+    /// `request`, carrying the key and every extra header.
+    fn signed<B>(&self, request: ureq::RequestBuilder<B>) -> ureq::RequestBuilder<B> {
+        self.extra.iter().fold(
+            request.header(self.header, &self.key),
+            |request, (header, value)| request.header(*header, value),
+        )
     }
 
     /// POSTs `body` as JSON and reads the reply as JSON.
@@ -92,9 +151,7 @@ impl Caller {
         body: &B,
     ) -> Result<R, HttpError> {
         let sent = self
-            .agent()
-            .post(url)
-            .header(self.header, &self.key)
+            .signed(self.agent().post(url))
             .header("Content-Type", "application/json")
             .send_json(body);
         read_json(url, sent)
@@ -116,9 +173,7 @@ impl Caller {
         limit: u64,
     ) -> Result<Vec<u8>, HttpError> {
         let sent = self
-            .agent()
-            .post(url)
-            .header(self.header, &self.key)
+            .signed(self.agent().post(url))
             .header("Content-Type", "application/json")
             .send_json(body);
         read_bytes(url, refused(url, sent)?, limit)
@@ -126,7 +181,7 @@ impl Caller {
 
     /// GETs `url` and reads the reply as JSON.
     pub fn get<R: DeserializeOwned>(&self, url: &str) -> Result<R, HttpError> {
-        let sent = self.agent().get(url).header(self.header, &self.key).call();
+        let sent = self.signed(self.agent().get(url)).call();
         read_json(url, sent)
     }
 
@@ -136,7 +191,7 @@ impl Caller {
     /// larger than any video we asked for is a redirect to somewhere unexpected
     /// or a server having a bad day, and neither is worth filling memory over.
     pub fn download(&self, url: &str, limit: u64) -> Result<Vec<u8>, HttpError> {
-        let sent = self.agent().get(url).header(self.header, &self.key).call();
+        let sent = self.signed(self.agent().get(url)).call();
         read_bytes(url, refused(url, sent)?, limit)
     }
 

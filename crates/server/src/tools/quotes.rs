@@ -21,8 +21,14 @@ use scorsese_providers::quote::{self, Issued, Quote, Quotes, Refused, Spend};
 
 use crate::db::Tx;
 
-/// Issue a token for `quote` at `now`, kept in `tx`'s user's table.
-pub(super) async fn issue(tx: &mut Tx, quote: &Quote, now: i64) -> Result<Issued, sqlx::Error> {
+/// Issue a token for `quote` at `now`, kept in `tx`'s user's table and
+/// naming the tool call `call` that asked for it.
+pub(super) async fn issue(
+    tx: &mut Tx,
+    quote: &Quote,
+    now: i64,
+    call: i64,
+) -> Result<Issued, sqlx::Error> {
     let held = Held::default();
     let Ok(issued) = quote::issue(&held, quote, now);
     sqlx::query("DELETE FROM quotes WHERE expires_at < $1")
@@ -30,8 +36,9 @@ pub(super) async fn issue(tx: &mut Tx, quote: &Quote, now: i64) -> Result<Issued
         .execute(&mut **tx)
         .await?;
     sqlx::query(
-        "INSERT INTO quotes (token, user_id, spend, digest, cents, issued_at, expires_at)
-         VALUES ($1, member_id(), $2, $3, $4, $5, $6)",
+        "INSERT INTO quotes (token, user_id, spend, digest, cents, issued_at, expires_at,
+                             tool_call_id)
+         VALUES ($1, member_id(), $2, $3, $4, $5, $6, $7)",
     )
     .bind(&issued.token)
     .bind(issued.spend.as_str())
@@ -39,9 +46,39 @@ pub(super) async fn issue(tx: &mut Tx, quote: &Quote, now: i64) -> Result<Issued
     .bind(i64::try_from(issued.cents).unwrap_or(i64::MAX))
     .bind(issued.issued_at)
     .bind(issued.expires_at)
+    .bind(call)
     .execute(&mut **tx)
     .await?;
     Ok(issued)
+}
+
+/// A quote a tool call issued and nobody has spent: its token, and when it
+/// stops being good (seconds since the epoch).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Pending {
+    /// The token a confirming call hands back.
+    pub token: String,
+    /// When it expires.
+    pub expires_at: i64,
+}
+
+/// The quote tool call `call` issued, if it issued one still unspent.
+pub(super) async fn issued_by(tx: &mut Tx, call: i64) -> Result<Option<Pending>, sqlx::Error> {
+    let row: Option<(String, i64)> =
+        sqlx::query_as("SELECT token, expires_at FROM quotes WHERE tool_call_id = $1")
+            .bind(call)
+            .fetch_optional(&mut **tx)
+            .await?;
+    Ok(row.map(|(token, expires_at)| Pending { token, expires_at }))
+}
+
+/// Forget `token` unspent: a quote the user said no to.
+pub(super) async fn withdraw(tx: &mut Tx, token: &str) -> Result<(), sqlx::Error> {
+    sqlx::query("DELETE FROM quotes WHERE token = $1")
+        .bind(token)
+        .execute(&mut **tx)
+        .await?;
+    Ok(())
 }
 
 /// Spend `token` against `current`, the quote as it stands now — or say why

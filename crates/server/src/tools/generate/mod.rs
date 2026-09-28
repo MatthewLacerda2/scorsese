@@ -127,7 +127,7 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
     let pool = &toolbox.pool;
     let mut tx = db::scoped(pool, caller.user).await.map_err(database)?;
     let Some(token) = arguments.get("confirm").and_then(Value::as_str) else {
-        let issued = quotes::issue(&mut tx, &quote, now)
+        let issued = quotes::issue(&mut tx, &quote, now, caller.call)
             .await
             .map_err(database)?;
         let balance = ledger::balance(&mut tx).await.map_err(database)?;

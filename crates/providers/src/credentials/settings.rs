@@ -27,6 +27,11 @@ pub struct Settings {
     /// The ElevenLabs key, for narration.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub elevenlabs_api_key: Option<String>,
+    /// The Anthropic key, for the hosted server's assistant. Read here only
+    /// because every key is read the same way; a server is configured by its
+    /// environment in practice (`docs/credentials.md`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub anthropic_api_key: Option<String>,
     /// The most one run may spend, in US cents.
     ///
     /// Absent means no ceiling, which is the state a fresh install is in — a
