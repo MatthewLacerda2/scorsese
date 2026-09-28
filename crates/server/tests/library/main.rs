@@ -11,6 +11,7 @@ mod common;
 mod files;
 mod generated;
 mod manage;
+mod proxies;
 mod upload;
 
 use std::net::SocketAddr;

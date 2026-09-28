@@ -222,13 +222,15 @@ fn credit_routes() -> Router<AppState> {
         .route("/credits/history", get(credits::history))
 }
 
-/// The render routes (#541): ask for a render, list a project's, download one.
+/// The render routes (#541): ask for a render, list a project's, download one
+/// — and ask for a preview (#542), which is a render at a preview quality.
 fn render_routes() -> Router<AppState> {
     Router::new()
         .route(
             "/projects/{id}/renders",
             get(renders::list).post(renders::request),
         )
+        .route("/projects/{id}/previews", post(renders::preview))
         .route("/renders/{id}/file", get(renders::file))
 }
 

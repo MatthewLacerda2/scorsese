@@ -37,18 +37,20 @@
 //! lookup runs scoped, so it cannot find another user's. Two different briefs
 //! that happen to produce the same bytes are one item under the first brief.
 //!
-//! ## Uploads, thumbnails
+//! ## Uploads, thumbnails, proxies
 //!
 //! [`upload`] is the tus protocol's storage half: chunked and resumable,
 //! because the Cloudflare tunnel refuses a request body over 100 MB.
 //! [`thumbnail`] is the job that draws each item's picture — the first handler
 //! the job queue runs — into the cache, since a thumbnail can always be drawn
-//! again.
+//! again. [`proxy`] is the job that makes a heavy video's preview proxy, into
+//! the cache for the same reason (#542).
 
 mod admit;
 mod generated;
 mod kind;
 pub mod locate;
+pub mod proxy;
 mod store;
 pub mod thumbnail;
 pub mod upload;

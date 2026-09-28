@@ -18,11 +18,11 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use scorsese_core::{GenerationState, Project};
-use scorsese_render::{FrameRange, RenderSettings, Renderer, Tools};
+use scorsese_render::{FrameRange, Preview, RenderSettings, Renderer, Tools};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-use super::{RenderCache, RenderView, Settings, evict, store};
+use super::{RenderCache, RenderView, Settings, evict, preview, store};
 use crate::db::UserId;
 use crate::jobs::{Context, Handler, Job, Outcome};
 use crate::library::locate;
@@ -70,6 +70,10 @@ async fn render(
     let project = Project::from_json(&payload.document.to_string())
         .map_err(|error| format!("the project does not load: {error}"))?;
     let settings = payload.settings.render(&project)?;
+    let quality = payload.settings.quality()?;
+    if quality.is_some() && preview::superseded(context, job.user, &payload).await {
+        return Ok(json!({ "superseded": true }));
+    }
 
     // Two requests can race past the pending-job check; the second finds the
     // first's file here and renders nothing.
@@ -87,8 +91,20 @@ async fn render(
         .0
         .join(format!("render.{}", payload.settings.extension()));
     let media = library(context, storage, job.user, &project).await?;
+    let previewing = match quality {
+        Some(quality) => Some(
+            preview::preview(context, storage, job.user, &project, quality)
+                .await
+                .map_err(database)?,
+        ),
+        None => None,
+    };
     let (tools, at, written) = (tools.clone(), work.0.join("project.scor"), out.clone());
-    tokio::task::spawn_blocking(move || produce(&tools, &project, &at, &media, settings, &written))
+    let drawn = Drawn {
+        settings,
+        preview: previewing,
+    };
+    tokio::task::spawn_blocking(move || produce(&tools, &project, &at, &media, drawn, &written))
         .await
         .map_err(|_| "the render crashed on the server; that is a bug".to_owned())??;
 
@@ -122,7 +138,23 @@ async fn render(
         .await
         {
             Ok(view) => {
+                let replaced = if quality.is_some() {
+                    preview::replaced(
+                        &mut tx,
+                        cache,
+                        payload.project,
+                        &payload.settings,
+                        &payload.key,
+                    )
+                    .await
+                    .map_err(database)?
+                } else {
+                    Vec::new()
+                };
                 tx.commit().await.map_err(database)?;
+                for file in replaced {
+                    let _ = std::fs::remove_file(file);
+                }
                 Ok(view)
             }
             Err(error) => {
@@ -137,6 +169,14 @@ async fn render(
     Ok(done(&view))
 }
 
+/// What the file is drawn as: the settings, and — for a preview only — the
+/// quality and proxies. A finished render's `preview` is `None`, so it is
+/// rendered with no [`Preview`] and reads every original.
+struct Drawn {
+    settings: RenderSettings,
+    preview: Option<Preview>,
+}
+
 /// Lay the project out at `at` and render it to `out`. Blocking: a render is
 /// minutes of CPU, so it runs off the server's async threads.
 fn produce(
@@ -144,13 +184,18 @@ fn produce(
     project: &Project,
     at: &Path,
     media: &HashMap<String, PathBuf>,
-    settings: RenderSettings,
+    drawn: Drawn,
     out: &Path,
 ) -> Result<(), String> {
     let laid = materialise(project, at, &|hash: &str| media.get(hash).cloned())
         .map_err(|error| format!("laying the project out: {error}"))?;
     unrenderable(project, &laid)?;
-    Renderer::new(tools, settings)
+    let renderer = Renderer::new(tools, drawn.settings);
+    let renderer = match drawn.preview {
+        Some(preview) => renderer.with_preview(preview),
+        None => renderer,
+    };
+    renderer
         .render(project, laid.root(), FrameRange::ALL, out)
         .map_err(|error| format!("rendering: {error}"))?;
     Ok(())

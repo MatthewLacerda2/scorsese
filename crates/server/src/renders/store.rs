@@ -6,7 +6,7 @@ use sqlx::postgres::PgPool;
 
 use super::{RenderView, Settings};
 use crate::db::{self, Tx, UserId};
-use crate::jobs::JobView;
+use crate::jobs::{JobView, Kind};
 
 /// The columns a [`RenderView`] is read from. A macro so each query built
 /// from it is still one literal, which is what sqlx accepts.
@@ -54,21 +54,28 @@ pub async fn forget(tx: &mut Tx, id: i64) -> Result<(), sqlx::Error> {
         .map(drop)
 }
 
-/// The render job already waiting or running for `project` under `key`, so a
-/// second request joins it instead of queueing the same work twice.
-pub async fn pending(tx: &mut Tx, project: i64, key: &str) -> Result<Option<JobView>, sqlx::Error> {
+/// The job of `kind` — a render or a preview — already waiting or running for
+/// `project` under `key`, so a second request joins it instead of queueing the
+/// same work twice.
+pub async fn pending(
+    tx: &mut Tx,
+    kind: Kind,
+    project: i64,
+    key: &str,
+) -> Result<Option<JobView>, sqlx::Error> {
     sqlx::query_as(
         "SELECT id, kind, state, attempts, result, error,
                 extract(epoch FROM created_at)::bigint AS created_at,
                 extract(epoch FROM started_at)::bigint AS started_at,
                 extract(epoch FROM finished_at)::bigint AS finished_at,
                 extract(epoch FROM interrupted_at)::bigint AS interrupted_at
-         FROM jobs WHERE kind = 'render' AND state IN ('waiting', 'running')
+         FROM jobs WHERE kind = $3 AND state IN ('waiting', 'running')
            AND payload ->> 'project' = $1::text AND payload ->> 'key' = $2
          ORDER BY id LIMIT 1",
     )
     .bind(project)
     .bind(key)
+    .bind(kind.name)
     .fetch_optional(&mut **tx)
     .await
 }
@@ -101,7 +108,8 @@ pub async fn insert(
     .await
 }
 
-/// `user`'s renders of `project`, most recently used first.
+/// `user`'s finished renders of `project`, most recently used first —
+/// previews left out, since nobody downloads one.
 pub async fn list(
     pool: &PgPool,
     user: UserId,
@@ -111,7 +119,8 @@ pub async fn list(
     let renders = sqlx::query_as(concat!(
         "SELECT ",
         view!(),
-        " FROM renders WHERE project_id = $1 ORDER BY last_used_at DESC, id DESC"
+        " FROM renders WHERE project_id = $1 AND NOT settings ? 'preview'
+         ORDER BY last_used_at DESC, id DESC"
     ))
     .bind(project)
     .fetch_all(&mut *tx)

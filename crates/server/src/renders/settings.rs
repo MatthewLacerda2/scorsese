@@ -6,7 +6,7 @@
 
 use scorsese_core::{Project, hash_bytes};
 use scorsese_render::{
-    AudioCodec, Container, OutputFormat, RenderSettings, Resolution, VideoCodec,
+    AudioCodec, Container, OutputFormat, Quality, RenderSettings, Resolution, VideoCodec,
 };
 use serde::{Deserialize, Serialize};
 
@@ -41,6 +41,26 @@ pub struct Settings {
     pub audio_codec: String,
     /// The picture's size, or `None` for sound only.
     pub resolution: Option<String>,
+    /// The preview quality this was drawn at, when it is a **preview** (#542)
+    /// rather than a finished render — `None` for every render a person
+    /// downloads. Left out of the stored form when absent, so a finished
+    /// render's key is what it was before previews existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preview: Option<String>,
+}
+
+/// A request for a preview of the cut (#542): the delivery size it previews,
+/// and the quality to draw it at.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PreviewAsk {
+    /// The size the film would be delivered at, `WIDTHxHEIGHT`: the shape,
+    /// and what the quality is a fraction of. Defaults to 1920x1080.
+    #[serde(default)]
+    pub resolution: Option<String>,
+    /// `full`, `half` or `quarter`; defaults to half.
+    #[serde(default)]
+    pub quality: Option<String>,
 }
 
 impl Settings {
@@ -53,7 +73,39 @@ impl Settings {
             video_codec: format.video().map(|codec| codec.name().to_owned()),
             audio_codec: format.audio().name().to_owned(),
             resolution: resolution.map(|resolution| resolution.to_string()),
+            preview: None,
         })
+    }
+
+    /// What a preview request means: an mp4 at the quality's fraction of the
+    /// delivery size, marked as a preview so it is keyed, queued and listed
+    /// apart from finished renders.
+    pub fn from_preview(ask: &PreviewAsk) -> Result<Self, String> {
+        let quality = match &ask.quality {
+            Some(name) => name.parse::<Quality>().map_err(|e| e.to_string())?,
+            None => Quality::default(),
+        };
+        let full = match &ask.resolution {
+            Some(text) => text
+                .parse::<Resolution>()
+                .map_err(|e| format!("resolution: {e}"))?,
+            None => Resolution::HD,
+        };
+        Ok(Self {
+            preview: Some(quality.name().to_owned()),
+            ..Self::from_ask(&Ask {
+                resolution: Some(quality.raster(full).to_string()),
+                ..Ask::default()
+            })?
+        })
+    }
+
+    /// The quality this preview is drawn at, or `None` for a finished render.
+    pub fn quality(&self) -> Result<Option<Quality>, String> {
+        self.preview
+            .as_deref()
+            .map(|name| name.parse::<Quality>().map_err(|e| e.to_string()))
+            .transpose()
     }
 
     /// The render settings these describe, at `project`'s own frame rate.

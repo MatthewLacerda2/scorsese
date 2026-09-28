@@ -10,8 +10,10 @@ mod common;
 
 mod evict;
 mod job;
+mod previews;
 mod request;
 mod settings;
+mod superseded;
 
 use std::net::SocketAddr;
 use std::path::Path;

@@ -109,12 +109,22 @@ impl Library {
         })?;
         let item = store::item(row)?;
         let job = jobs::enqueue(&mut tx, kinds::THUMBNAIL, &json!({ "item": item.id })).await?;
+        // A heavy video gets its preview proxy now, in the background, so the
+        // first preview it is in is already a fast one (`super::proxy`).
+        let proxy = if super::proxy::worth_one(&item) {
+            Some(jobs::enqueue(&mut tx, kinds::PROXY, &json!({ "item": item.id })).await?)
+        } else {
+            None
+        };
         let home = self
             .storage
             .library_file(user, &measured.sha256, &arrival.extension);
         move_file(&arrival.file, &home)?;
         tx.commit().await?;
         self.queue.announce(user, &job);
+        if let Some(proxy) = proxy {
+            self.queue.announce(user, &proxy);
+        }
         Ok(item)
     }
 }

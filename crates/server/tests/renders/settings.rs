@@ -61,3 +61,38 @@ fn settings_read_back_from_a_row_are_checked_again() {
     forged.video_codec = Some("wmv2".to_owned());
     assert!(forged.render(&project).unwrap_err().contains("wmv2"));
 }
+
+#[test]
+fn a_preview_is_its_quality_of_the_delivery_size_and_a_render_is_unmarked() {
+    use scorsese_server::renders::PreviewAsk;
+    let preview = |resolution: Option<&str>, quality: Option<&str>| {
+        Settings::from_preview(&PreviewAsk {
+            resolution: resolution.map(str::to_owned),
+            quality: quality.map(str::to_owned),
+        })
+    };
+    let half = preview(None, None).unwrap();
+    assert_eq!(half.resolution.as_deref(), Some("960x540"));
+    assert_eq!(
+        (half.container.as_str(), half.preview.as_deref()),
+        ("mp4", Some("half"))
+    );
+    let quarter = preview(Some("1080x1920"), Some("quarter")).unwrap();
+    assert_eq!(quarter.resolution.as_deref(), Some("270x480"));
+    assert!(
+        preview(None, Some("low"))
+            .unwrap_err()
+            .contains("full, half or quarter")
+    );
+
+    // A finished render's stored form has no `preview` at all, so its key is
+    // the one it had before previews existed.
+    let render = serde_json::to_value(Settings::from_ask(&Ask::default()).unwrap()).unwrap();
+    assert!(render.get("preview").is_none(), "{render}");
+    let project = card(|_| {});
+    let same_size = Settings::from_ask(&ask(None, Some("960x540"))).unwrap();
+    assert_ne!(
+        key(&project, &half).unwrap(),
+        key(&project, &same_size).unwrap()
+    );
+}
