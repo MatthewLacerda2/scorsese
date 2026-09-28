@@ -378,6 +378,10 @@ deny: ## [gate] Supply chain, both workspaces: advisories, bans, sources, licens
 #   message the runbook never mentioned.
 # - Compose parses the file, with the example's blanks filled by placeholders:
 #   the file is valid, and every variable it requires is one the example has.
+#   Once per tunnel mode (#568) — none, quick, named — with the two settings
+#   whose blank means something left blank outside the mode that reads them,
+#   and each mode must start its own tunnel and no other: a misspelt profile
+#   is otherwise a tunnel that silently never starts.
 #
 # It does not build the images. That is a Rust release build and a Bun build
 # inside Docker, minutes and gigabytes, to re-prove what `test` and `web`
@@ -395,9 +399,21 @@ deploy: ## [gate] deploy/compose.yaml parses, and .env.example documents what it
 		echo "deploy: compose.yaml reads variables deploy/.env.example does not document:$$missing" >&2; \
 		exit 1; }
 	@env=$$(mktemp) && trap 'rm -f "$$env"' EXIT && \
-		sed 's/=$$/=placeholder/' deploy/.env.example > "$$env" && \
-		docker compose --file deploy/compose.yaml --env-file "$$env" config --quiet
-	@echo "deploy: compose.yaml is valid, and every variable it reads is documented"
+		sed -E '/^(COMPOSE_PROFILES|CLOUDFLARE_TUNNEL_TOKEN)=/!s/=$$/=placeholder/' \
+			deploy/.env.example > "$$env" && \
+		for mode in none quick-tunnel named-tunnel; do \
+			profile=$$mode; token=; \
+			[ $$mode = none ] && profile=; \
+			[ $$mode = named-tunnel ] && token=placeholder; \
+			services=$$(COMPOSE_PROFILES=$$profile CLOUDFLARE_TUNNEL_TOKEN=$$token \
+				docker compose --file deploy/compose.yaml --env-file "$$env" \
+				config --services) || exit 1; \
+			tunnels=$$(echo "$$services" | grep -- '-tunnel$$' | paste -sd ' '); \
+			[ "$$tunnels" = "$$profile" ] || { \
+				echo "deploy: tunnel mode '$$mode' starts [$$tunnels], not just its own" >&2; \
+				exit 1; }; \
+		done
+	@echo "deploy: compose.yaml is valid in every tunnel mode, and every variable it reads is documented"
 
 # The one gate that decides whether to run, and the condition is the point.
 # `app/` is its own cargo workspace precisely so a headless change never pays
