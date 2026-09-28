@@ -6,7 +6,7 @@
 //! tool surface — the same [`Toolbox`](crate::tools::Toolbox) web MCP serves,
 //! called in-process as [`Client::Assistant`](crate::tools::Client) — runs
 //! every tool Claude asks for against that user's project and library, sends
-//! the results back, and loops until Claude answers ([`turn`]). Everything it
+//! the results back, and loops until Claude answers (`turn`). Everything it
 //! does is on the user's event stream as it happens (`crate::events`): its
 //! words, its short progress notes, each tool call and how it answered, a
 //! project's new revision, what the turn has cost and the balance left.
@@ -22,7 +22,7 @@
 //!
 //! ## The conversation is append-only, and stored as the text that was sent
 //!
-//! A project has conversations ([`store`]: `chat_sessions`), each a run of
+//! A project has conversations (`store`: `chat_sessions`), each a run of
 //! turns; a turn's messages are kept as the exact JSON text first sent, and
 //! the next turn's history is every earlier turn's messages, concatenated.
 //! Nothing is ever edited or re-serialised: on this model a thinking block is
@@ -37,11 +37,11 @@
 //!
 //! `generate` quotes before it spends and spends only when called again with
 //! the quote's token (#538). Handed to a model, that token would let it
-//! confirm its own quote. So the model **never sees one** ([`calls`]): when a
+//! confirm its own quote. So the model **never sees one** (`calls`): when a
 //! call issues a quote, the token is cut out of the reply the model reads, the
 //! quote is held on the turn and shown to the user as a confirmation box
 //! (`chat_quote`), and a call that names `confirm` is refused outright. The
-//! user's yes (`POST /api/chat/turns/{id}/quote`, [`quote`]) is what spends —
+//! user's yes (`POST /api/chat/turns/{id}/quote`, `quote`) is what spends —
 //! the server makes that call itself, recorded as the user's — and a new turn
 //! then tells the model, as a system message, what the spend did. A no, or
 //! a new message instead of an answer, withdraws the token.
