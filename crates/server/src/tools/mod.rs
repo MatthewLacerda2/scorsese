@@ -7,16 +7,16 @@
 //! `scorsese-mcp`'s tools take a **project directory**. A web user's projects
 //! are **rows** — a `project.json` document in Postgres, its files in their
 //! library. The two meet by laying the row out as a directory for the length
-//! of one call ([`folder`]): the document written, every file it names linked
+//! of one call (`folder`): the document written, every file it names linked
 //! by hash from the user's own library, the registry's tool run on it
 //! unchanged, and the document read back and saved through
 //! [`projects::save`](crate::projects::save) with its revision check
-//! ([`stored`]). So every edit the web makes is the edit the CLI and the stdio
+//! (`stored`). So every edit the web makes is the edit the CLI and the stdio
 //! server make, by the same code, and nothing here knows what a clip is.
 //!
 //! What changes is the argument: on the web `project` is **the id** of one of
 //! the caller's projects, and the schema a client is shown says so. Every
-//! tool's own description is the registry's, word for word; [`surface`]
+//! tool's own description is the registry's, word for word; `surface`
 //! decides, tool by tool, whether a registry tool is served as it is, served
 //! with its file arguments held inside the project, replaced by a web tool of
 //! the same name, or not served yet — and a test holds every registry tool to
@@ -34,7 +34,7 @@
 //! no ledger, no project list, no queue. Moving the registry beneath both
 //! crates would put Postgres-shaped tools in a crate the stdio server links,
 //! for a binary that could never call them. So the web surface is the
-//! registry's tools **plus** the server's own ([`own`], [`generate`]), listed
+//! registry's tools **plus** the server's own (`own`, `generate`), listed
 //! together under one set of rules — every tool and argument described, held
 //! by a test as `docs/mcp.md` holds the registry — and `scorsese-mcp` still
 //! never learns about users.
@@ -50,7 +50,7 @@
 //!
 //! ## Every call is recorded
 //!
-//! In `tool_calls` ([`log`]), with who made it: the user's own client over web
+//! In `tool_calls` (`log`), with who made it: the user's own client over web
 //! MCP, or the built-in assistant. The same table, so "what did anything do to
 //! my project?" has one answer.
 
