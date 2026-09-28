@@ -38,6 +38,7 @@
 //! | `GET /api/chat/turns/{id}` | a member | one turn, and the log of every tool call it made |
 //! | `POST /api/chat/turns/{id}/stop` | a member | stop a running turn before its next step |
 //! | `POST /api/chat/turns/{id}/quote` | a member | `{confirm: true\|false}`: the user's answer to a paid tool's quote |
+//! | `POST /api/projects/{id}/tools/{name}` | a member, by session | `{arguments, revision?}`: one of the web editor's tools — [`editor`] |
 //!
 //! "A member" is a request carrying a session cookie or an API token — see
 //! [`auth`].
@@ -46,6 +47,7 @@ pub mod account;
 pub mod auth;
 pub mod chat;
 pub mod credits;
+pub mod editor;
 pub mod error;
 pub mod events;
 pub mod jobs;
@@ -171,7 +173,8 @@ pub fn router(state: AppState) -> Router {
         .merge(credit_routes())
         .merge(library_routes())
         .merge(render_routes())
-        .merge(chat_routes());
+        .merge(chat_routes())
+        .route("/projects/{id}/tools/{name}", post(editor::call));
     Router::new().nest("/api", api).with_state(state)
 }
 

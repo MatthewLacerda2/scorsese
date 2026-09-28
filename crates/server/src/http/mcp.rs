@@ -184,7 +184,7 @@ impl Limits {
     }
 
     /// Count `calls` more for `user`, or say how long until they may.
-    fn take(&self, user: UserId, calls: usize) -> Result<(), Duration> {
+    pub(crate) fn take(&self, user: UserId, calls: usize) -> Result<(), Duration> {
         if calls == 0 {
             return Ok(());
         }

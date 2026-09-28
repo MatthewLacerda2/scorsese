@@ -3,7 +3,7 @@
 // the user browses so an upload is never lost to a click.
 
 import { CircleUserIcon } from "lucide-react";
-import { Link, NavLink, Outlet, useNavigate } from "react-router";
+import { Link, NavLink, Outlet, useMatch, useNavigate } from "react-router";
 import { useBalance } from "@/app/queries";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,9 +25,13 @@ const NAV = [
 ];
 
 export function Shell() {
+  // The editor takes the whole window under the header, its panels scrolling
+  // on their own; every other page is a padded page that scrolls. One shell
+  // either way, so the upload tray and its uploads survive moving between them.
+  const editing = useMatch("/projects/:id/edit") !== null;
   return (
     <UploadsProvider>
-      <div className="flex min-h-svh flex-col">
+      <div className={editing ? "flex h-svh flex-col" : "flex min-h-svh flex-col"}>
         <header className="flex items-center gap-2 border-b px-4 py-2">
           <Link to="/projects" className="mr-4 font-heading text-lg font-semibold">
             scorsese
@@ -50,7 +54,7 @@ export function Shell() {
             <AccountMenu />
           </div>
         </header>
-        <main className="flex-1 p-4 md:p-6">
+        <main className={editing ? "min-h-0 flex-1" : "flex-1 p-4 md:p-6"}>
           <Outlet />
         </main>
         <UploadTray />

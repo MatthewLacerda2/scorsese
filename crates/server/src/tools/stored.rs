@@ -8,6 +8,14 @@
 //! of the document, so it is run again on what is there now, a few times,
 //! before the caller is told the project would not hold still.
 //!
+//! **Except for an edit made against a revision** — the web editor's
+//! ([`Toolbox::edit`](super::Toolbox::edit)). A drag is worked out on the
+//! timeline the user was looking at; if the project has moved since, running
+//! it again on what is there now would land an edit nobody saw the result of.
+//! So that call runs once, and a project at any other revision — when it is
+//! opened or when it is saved — is [`Refusal::Moved`], the conflict rule the
+//! projects API keeps (#534).
+//!
 //! The folder's own path never reaches the caller. It is where this machine
 //! happened to put a copy for a moment — meaningless to a client, and a
 //! detail of the server nobody outside it needs.
@@ -17,7 +25,7 @@ use scorsese_mcp::{Part, Reply, Tool};
 use serde_json::Value;
 
 use super::surface::Serve;
-use super::{Caller, database, lay_out, project_id};
+use super::{Caller, Refusal, database, lay_out, project_id};
 use crate::projects::{self, ProjectError};
 
 /// How many times a call is run again on a project that moved under it.
@@ -29,14 +37,18 @@ pub(super) async fn run(
     tool: &dyn Tool,
     serve: Serve,
     arguments: &Value,
-) -> Result<Reply, String> {
+) -> Result<Reply, Refusal> {
     let id = project_id(arguments)?;
     held(serve, arguments)?;
     let toolbox = caller.toolbox;
-    for _ in 0..ATTEMPTS {
+    let attempts = if caller.at.is_some() { 1 } else { ATTEMPTS };
+    for _ in 0..attempts {
         let stored = projects::open(&toolbox.pool, caller.user, id)
             .await
             .map_err(opened)?;
+        if caller.at.is_some_and(|at| at != stored.summary.revision) {
+            return Err(Refusal::Moved);
+        }
         let folder = lay_out(
             &toolbox.pool,
             &toolbox.storage,
@@ -63,7 +75,7 @@ pub(super) async fn run(
         .await
         .map_err(|_| "the tool crashed on the server; that is a bug".to_owned())??;
 
-        let outcome = hide(outcome, folder.root());
+        let outcome = hide(outcome, folder.root()).map_err(Refusal::Said);
         let Some(after) = after.filter(|after| *after != before) else {
             return outcome;
         };
@@ -80,12 +92,21 @@ pub(super) async fn run(
         .await
         {
             Ok(_) => return outcome,
+            Err(ProjectError::Conflict { .. }) if caller.at.is_some() => {
+                return Err(Refusal::Moved);
+            }
             Err(ProjectError::Conflict { .. }) => {}
-            Err(refused @ ProjectError::UnknownFiles { .. }) => return Err(refused.to_string()),
-            Err(error) => return Err(database(error)),
+            Err(refused @ ProjectError::UnknownFiles { .. }) => {
+                return Err(refused.to_string().into());
+            }
+            Err(error) => return Err(database(error).into()),
         }
     }
-    Err("the project kept changing while this ran, so nothing was saved; call again".into())
+    Err(
+        "the project kept changing while this ran, so nothing was saved; call again"
+            .to_owned()
+            .into(),
+    )
 }
 
 /// Refuse the arguments the web holds back: a file argument that is not a

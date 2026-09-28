@@ -926,7 +926,7 @@ the web — or be left off it — without a reason written down.
 
 | served | how |
 | --- | --- |
-| `project_read`, `project_describe`, `project_check`, `project_assets`, `project_probe`, `project_write`, `track_new`, `text_new`, `color_new`, `shape_new`, `icon_new`, `asset_set`, `place_clip`, `trim_clip`, `dissolve`, `duck_music`, `set_volume`, `scale_pacing`, `rebrief`, `icons`, `voices` | as they are, on the stored project |
+| `project_read`, `project_describe`, `project_check`, `project_assets`, `project_probe`, `project_write`, `track_new`, `text_new`, `color_new`, `shape_new`, `icon_new`, `asset_set`, `place_clip`, `trim_clip`, `clip_set`, `dissolve`, `duck_music`, `set_volume`, `scale_pacing`, `rebrief`, `icons`, `voices` | as they are, on the stored project |
 | `look`, `hear`, `audio_level` | their file arguments must be paths inside the project (`assets/…`, `generated/…`) — locally they may name anything on the machine, and here the machine is everybody's |
 | `still` | without `out`: nothing is kept on the server's disk; the picture is in the reply |
 | `project_list`, `project_new` | the server's own: a project is a row, named by an id the client asks for |
@@ -966,8 +966,9 @@ through the one credentials resolver; a missing key fails the job, free.
 
 **Every call is recorded** in `tool_calls` — tool, arguments, project, how it
 ended and its words (not its pictures), with `client` `external` for web MCP,
-`assistant` for the built-in assistant and `user` for the user's own yes to a
-quote the assistant showed them; the last two name their chat turn and their
+`assistant` for the built-in assistant, `user` for the user's own yes to a
+quote the assistant showed them, and `editor` for an edit made by hand in the
+web editor (*The editor*); `assistant` and `user` name their chat turn and their
 place in it. A paid generation's audit row names the call that asked for it,
 so *prompt → turn → tool call → generation → credits* reads back whole.
 
@@ -975,9 +976,9 @@ so *prompt → turn → tool call → generation → credits* reads back whole.
 `Retry-After`. Spending already needs a quote and a yes; this keeps one
 runaway loop from filling the queue on a shared machine.
 
-**The web editor (#545) should call the same path**: a thin JSON route over
-`Toolbox::call` for a browser session, so no edit is written twice — once in
-Rust and again in TypeScript.
+**The web editor (#545) calls the same path**: a thin JSON route over the
+toolbox for a browser session (*The editor*), so no edit is written twice —
+once in Rust and again in TypeScript.
 
 ## Assistant turns
 
@@ -1089,6 +1090,7 @@ laid out.
 | `/library` | every file: filter by kind, search by name, sort; upload by button or by dropping files |
 | `/library?item={id}` | the same, with that file's details open — what "you already have this" and the spending history link to |
 | `/spending` | the history, filterable, with the filter's total; the balance in the header opens it |
+| `/projects/{id}/edit` | the editor — *The editor*, below |
 
 **Flat and Drive-like, as #527 settled.** A tile is thumbnail, name, kind and
 size; a click opens the details (dimensions, duration, the projects using it,
@@ -1107,6 +1109,87 @@ no per-edit endpoints (`http/projects.rs`): what a project says changes through
 `core`'s editing functions, reached by the tools and the editor. Bringing a
 library file into a project is web MCP's `import` (*Web MCP*), and the editor's
 (#545) by the same path.
+
+## The editor
+
+`/projects/{id}/edit` (#545), laid out as the desktop app is: the project's
+assets and the user's library on the left, the preview in the middle, the
+timeline under both, and on the right the selected clip's inspector over the
+assistant's chat panel. The code is `web/src/editor/`, the route
+`crates/server/src/http/editor.rs`; their module docs carry each argument. It
+is a first version by the rule in `CLAUDE.md` — *the user can start editing
+with it* — and is meant to be tuned from use.
+
+**The hand-edits are few, and each is a tool call.** Add a track, drop a file
+on it, drag a clip along it, drag an edge to trim, and type a plain value into
+the inspector — `track_new`, `import` then `place_clip`, `trim_clip`,
+`clip_set` — through `POST /api/projects/{id}/tools/{name}`, which runs the
+toolbox web MCP and the assistant run, recorded as client `editor`. The browser
+reads `project.json` to draw the timeline and never writes it. Anything with
+structure to it — a clip onto another track, a title, a dissolve, a ramp — is a
+sentence to the assistant, not a menu (`CLAUDE.md`, *The GUI is thin*).
+
+| route | who | what |
+| --- | --- | --- |
+| `POST /api/projects/{id}/tools/{name}` | a member, **by session** | `{arguments, revision?}` → `{said, project}`: the tool's words and pictures, and the project as it is now (`null` after a `still`) |
+
+- **An allowlist**, not the whole surface: `track_new`, `place_clip`,
+  `trim_clip`, `clip_set` (the edits) and `import`, `still`. Anything else is
+  `404` — a page has no business writing a whole document or spending money.
+  An API token is `403`; a program uses web MCP.
+- **An edit names the revision it was worked out on**, and a project at any
+  other revision — when the tool opens it or when it saves — is `409` with
+  nothing written: the conflict rule of *Projects*. Web MCP and the assistant
+  re-run a call on a project that moved, since a tool is a function of the
+  document; a drag is not, because it was computed on the timeline the user
+  saw. The page reads the project again and says so. `import` and `still` take
+  no revision: neither changes what a drag is computed on.
+- A refused edit is `422` with the tool's own reason, shown above the timeline;
+  the clip springs back, since the page only draws what the server holds.
+- It shares web MCP's 120 calls a minute. An edit that lands sends `project`
+  on `GET /api/events`, so another tab redraws too.
+
+**The inspector** shows start, duration, speed, fit, and position, rotation and
+scale by the desktop inspector's rule: a property with no keyframes, or one held
+point, is a value and gets a field; a ramp shows as *animated* and offers none,
+so typing never flattens somebody's animation. A value is sent when the field
+is left, not per keystroke.
+
+**`clip_set`** is the registry tool this added: speed (retimed, as a 2× button
+means), fit, and position, rotation and scale as single held values —
+`docs/mcp.md` has it. The assistant and web MCP get it too.
+
+**The preview: the server draws every picture.** Real-time compositing in the
+browser is not attempted.
+
+- **While editing**, the frame under the playhead is the `still` tool's —
+  the render's own compositor, asked for once the playhead rests for a fifth of
+  a second, cached per (revision, frame), and kept on screen while the next
+  arrives.
+- **Play** asks for a small render of this revision (`POST
+  /api/projects/{id}/renders` at a preview raster, 640×360 for 16:9) and plays
+  it in a `<video>`, where scrubbing is seeking. Renders are keyed by document
+  and settings (*Renders*), so pressing Play on an unchanged cut is instant and
+  after an edit queues one; the moment the revision moves, the video is dropped
+  and the preview is stills again until Play is pressed. The page follows the
+  job on the event stream and asks again every few seconds too, because the
+  quick tunnel carries no events.
+- This is the simplest thing that lets someone see their edit. #542 records the
+  preview doctrine properly — a quality setting, proxies, re-rendering after
+  edits without a press — and will replace the second half.
+
+The frame's **shape** (16:9, 9:16, 1:1) is chosen in the header and remembered
+per project in the browser: a project has no aspect of its own, a render's
+resolution is its aspect. It sets the preview raster and the sizes the **Render**
+dialog offers; that dialog asks for a finished render, follows it through the
+queue and lists the project's kept renders to download.
+
+**The chat panel** is *Assistant turns* on screen: each turn's prompt, its
+progress lines and tool calls as they stream, its answer, what it cost and the
+balance after it, the quote confirmation box, Stop while it runs, and the
+generation jobs it queued (queued → generating → ready). Without an Anthropic
+key the server's `503` "not configured" is shown as a note, and nothing else
+changes.
 
 ## Out of scope for now
 

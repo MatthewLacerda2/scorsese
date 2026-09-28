@@ -31,12 +31,14 @@ It expects the server on `http://localhost:8080`; point it elsewhere with
 | `src/api/` | **the only code that knows a URL**: `request` (JSON in and out, `ApiError` with the server's `{"error"}` and the fields beside it), the route functions (`api.library.list(…)`) and the response types, named after the Rust types they mirror | every server call — add a route here, never a `fetch` in a page |
 | `src/app/queryClient.ts` | the TanStack Query cache; keys start with their area (`["library", …]`), and any `401` logs the page out | invalidating an area after a change |
 | `src/app/queries.ts` | queries more than one page reads: projects, balance, library, one file | the editor's assets panel and header |
-| `src/app/routes.tsx` | every page by URL, behind `RequireSession` and inside `Shell` | adding a page (the editor goes at `/projects/:id/edit`) |
+| `src/app/routes.tsx` | every page by URL, behind `RequireSession` and inside `Shell` (which gives the editor the whole window) | adding a page |
+| `src/app/events.ts` | `useServerEvents`: the one `EventSource` on `/api/events` a page holds, shared by every listener, with a `resync` after a reconnect | anything live — jobs, the assistant, a project another tab changed |
 | `src/session/` | `useAccount`, `useLogin`, `useLogout`, the `RequireSession` guard and the `?next=` rule | anything that needs to know who is logged in |
 | `src/files/` | the Drive-like browser (grid, details panel, viewer), and uploads: an `UploadsProvider` around the signed-in app, so an upload survives navigation | showing or picking library files anywhere |
 | `src/lib/upload/` | the browser-side hash, the Uppy + tus uploader, and the duplicate rule (a `409` with `item` is never retried) | — |
 | `src/lib/money.ts` | micro-dollars and centavos as text, by integer arithmetic | every figure of money on a page |
 | `src/pages/` | login, projects, the two file views, the spending history | — |
+| `src/editor/` | the editor (`/projects/:id/edit`): `timeline/` (the time↔pixel maths, drag, snap and the tool call a drag becomes, all plain functions), `preview/`, `inspector/`, `assets/`, `chat/` (the assistant's panel, its transcript a pure reducer over the event stream); every edit goes through `project.ts`'s `useEdit`, a tool call — docs/web.md, *The editor* | — |
 
 **Uploads** hash a file in the browser first (streamed, so a large file is
 not read into memory) and ask `GET /api/library?sha256=`; a duplicate never

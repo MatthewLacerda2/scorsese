@@ -94,6 +94,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `asset_set` | Change a field on an asset that carries its content in the document — a text, color, shape or icon asset: its wording, its size, its colour. | nothing |
 | `place_clip` | Put a clip on a track: which asset, which track, when it starts and how long it runs — all in seconds, rounded onto the project's frame grid for you. | nothing |
 | `trim_clip` | Move a clip already on the timeline, or change how long it runs or where in its source it opens — in seconds, rounded onto the project's frame grid. | nothing |
+| `clip_set` | Change a placed clip's plain values: its speed, its fit, and its position, rotation and scale as single values held for the whole clip. | nothing |
 | `dissolve` | Dissolve one shot into the next, by writing ordinary opacity keyframes on both clips — the same ones you would place by hand, and they stay editable afterwards. | nothing |
 | `duck_music` | Lower a music track while narration plays over it, by writing ordinary volume keyframes on its clips. | nothing |
 | `set_volume` | Set how loud one clip plays — a level, a mute, or a fade between two points — by writing the ordinary volume keyframes you would place by hand, which stay editable afterwards. | nothing |
@@ -485,6 +486,26 @@ The clip's id is optional. Without one it comes from the asset's, suffixed until
 it is free — `rooftop`, then `rooftop-2` — exactly as an imported asset gets its
 own, and the reply names what it wrote. **Take the id from the reply**, the same
 rule `import` asks for.
+
+**`clip_set` is the rest of an inspector**: a placed clip's `speed`, `fit`, and
+its `position_x`, `position_y`, `rotation` and `scale` as single values. Like
+`asset_set`, every argument left out is left alone. A speed **retimes** — the
+clip keeps the footage it shows and its length changes to fit, which is what a
+2× button means; writing the rate alone, keeping the slot, is a `project_write`.
+Position, rotation and scale are one ordinary keyframe held from the clip's
+first frame — the same thing `set_volume` writes for a level — so a property
+that was animated is flattened, and the reply says which animation it replaced.
+Scale is both axes at once, because that is the scale a person means. Every
+picture value is refused on a clip on an audio track, rather than written where
+nothing would read it. It is the edit the desktop app's inspector and the web
+editor make (#543, #545), so a window and an assistant write the same document
+for the same request.
+
+```
+clip_set  { "project": "teaser.scor", "clip": "logo", "scale": 0.25,
+            "position_x": 0.35, "position_y": -0.35 }
+          → "`logo`: position x 0.35; position y -0.35; scale 0.25. Nothing else changed."
+```
 
 ## The three operations that write keyframes for you
 

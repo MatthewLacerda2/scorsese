@@ -3,6 +3,8 @@
 // when the operator has set a display rate, integer centavos (`*_centavos`).
 // docs/web.md has each route; the Rust type each mirrors is named beside it.
 
+import type { ProjectDocument } from "./document";
+
 /** `accounts::Account` — who is logged in. */
 export interface Account {
   id: number;
@@ -151,4 +153,42 @@ export interface History {
   total_micros: number;
   total_centavos: number | null;
   rows: HistoryRow[];
+}
+
+/** `projects::Stored` with its document typed as the editor reads it. */
+export interface EditorProject extends ProjectSummary {
+  document: ProjectDocument;
+}
+
+/** One part of a tool's answer: its words, and a PNG in base64 when it drew one. */
+export interface ToolPart {
+  text: string;
+  image: string | null;
+}
+
+/** `POST /api/projects/{id}/tools/{name}` — `http::editor::call`. */
+export interface ToolAnswer {
+  said: ToolPart[];
+  /** The project as it is after the edit; `null` after a `still`. */
+  project: EditorProject | null;
+}
+
+/** `renders::Settings` — the shape of a render, as docs/output-formats.md allows. */
+export interface RenderSettings {
+  container: string;
+  video_codec: string | null;
+  audio_codec: string;
+  resolution: string | null;
+}
+
+/** `renders::RenderView`, with `file`: where to download it. */
+export interface RenderView {
+  id: number;
+  project: number;
+  key: string;
+  settings: RenderSettings;
+  size: number;
+  created_at: number;
+  last_used_at: number;
+  file: string;
 }

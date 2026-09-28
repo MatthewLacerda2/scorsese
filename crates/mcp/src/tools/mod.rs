@@ -249,6 +249,7 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         // can dissolve it or scale it.
         Box::new(edit::PlaceClip),
         Box::new(edit::TrimClip),
+        Box::new(edit::ClipSet),
         Box::new(edit::Dissolve),
         Box::new(edit::Duck),
         Box::new(edit::SetVolume),

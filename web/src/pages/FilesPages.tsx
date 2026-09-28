@@ -43,6 +43,9 @@ export function ProjectFilesPage() {
           <ArrowLeftIcon className="size-4" /> Projects
         </Link>
         <h1 className="font-heading text-2xl font-semibold">{project.data?.name ?? "…"}</h1>
+        <Link to={`/projects/${id}/edit`} className="text-sm underline">
+          Open it in the editor
+        </Link>
         <p className="text-sm text-muted-foreground">
           The files from your library this project uses. Upload new ones in the{" "}
           <Link to="/library" className="underline">

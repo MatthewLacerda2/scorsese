@@ -6,7 +6,7 @@ import { expect, test } from "bun:test";
 import { renderToString } from "react-dom/server";
 import { MemoryRouter } from "react-router";
 import { App } from "@/App";
-import type { Account, Balance } from "@/api";
+import type { Account, Balance, EditorProject } from "@/api";
 import { createQueryClient, ME } from "@/app/queryClient";
 
 function render(url: string, seed: (client: ReturnType<typeof createQueryClient>) => void) {
@@ -55,5 +55,36 @@ test("the projects page lists what the user has", () => {
     );
   });
   expect(html).toContain("teaser");
-  expect(html).toContain('href="/projects/4"');
+  expect(html).toContain('href="/projects/4/edit"');
+});
+
+test("the editor draws the stored document: its tracks, clips and assets", () => {
+  const project: EditorProject = {
+    id: 4,
+    name: "teaser",
+    revision: 9,
+    created_at: 0,
+    updated_at: 0,
+    document: {
+      schema_version: 33,
+      name: "teaser",
+      timeline_fps: { num: 30, den: 1 },
+      assets: [{ id: "title", kind: "text", text: "HELLO" }],
+      tracks: [
+        {
+          id: "v1",
+          kind: "video",
+          clips: [{ id: "c1", asset: "title", start: 30, duration: 60 }],
+        },
+      ],
+    },
+  };
+  const html = render("/projects/4/edit", (client) => {
+    client.setQueryData(ME, ana);
+    client.setQueryData(["projects", "editor", 4], project);
+  });
+  expect(html).toContain("revision 9");
+  expect(html).toContain("HELLO");
+  expect(html).toContain("Video track");
+  expect(html).toContain("Ask the assistant");
 });

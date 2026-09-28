@@ -3,20 +3,32 @@
 // when a route changes there is one file to change with it.
 
 import { query, request } from "./client";
+import type { JobView } from "./events";
 import type {
   Account,
   Balance,
+  EditorProject,
   FileKind,
   History,
   HistoryKind,
   LibraryItem,
   LibraryTile,
   ProjectSummary,
+  RenderView,
   StoredProject,
+  ToolAnswer,
 } from "./types";
 
 export { ApiError } from "./client";
+export * from "./document";
 export * from "./types";
+
+/**
+ * The tools the editor calls — the server's allowlist (`http::editor`): the
+ * hand-edits (a lane, a placement, a trim, a value), bringing a library file
+ * in, and looking at a frame.
+ */
+export type EditorTool = "track_new" | "place_clip" | "trim_clip" | "clip_set" | "import" | "still";
 
 /** What `GET /api/library` narrows by; every field optional. */
 export interface LibraryFilter {
@@ -64,6 +76,30 @@ export const api = {
     remove: (id: number) => request<void>("DELETE", `/library/${id}`),
     /** Where the file itself streams from — for `<img>`, `<video>`, `<audio>`. */
     fileUrl: (id: number) => `/api/library/${id}/file`,
+  },
+  editor: {
+    /** The project with its document typed for drawing the timeline. */
+    open: (id: number) => request<EditorProject>("GET", `/projects/${id}`),
+    /**
+     * One of the editor's tools on project `id` — every hand-edit is one, so
+     * the edit is `core`'s. An edit names the `revision` it was worked out on;
+     * a `409` means the project moved on and nothing was written.
+     */
+    tool: (id: number, name: EditorTool, args: Record<string, unknown>, revision?: number) =>
+      request<ToolAnswer>("POST", `/projects/${id}/tools/${name}`, {
+        arguments: args,
+        revision,
+      }),
+  },
+  renders: {
+    /** `200 {render}` when it is already made, `202 {job}` while it is on its way. */
+    request: (id: number, settings: { resolution?: string } = {}) =>
+      request<{ render: RenderView | null; job: JobView | null }>(
+        "POST",
+        `/projects/${id}/renders`,
+        settings,
+      ),
+    list: (id: number) => request<RenderView[]>("GET", `/projects/${id}/renders`),
   },
   credits: {
     balance: () => request<Balance>("GET", "/credits"),
