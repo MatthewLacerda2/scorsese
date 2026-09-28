@@ -155,6 +155,42 @@ pub(crate) enum Command {
         #[arg(long, conflicts_with_all = ["prompt", "keep"])]
         list: bool,
     },
+    /// Check every hand-written provider client against the real API: the
+    /// smallest real call to Veo, ElevenLabs and Claude that exercises what
+    /// scorsese depends on, and whether each reply is still the shape it reads.
+    ///
+    /// Spends real money — a few cents, and twenty more with --include-veo —
+    /// so no test and no CI job ever runs it: it is for a person, before a
+    /// deploy or after a vendor moves a model. It prints what it will call and
+    /// what that costs, asks, and is held to the budget ceiling like any other
+    /// spend. A provider with no key is skipped, not failed. Reports each
+    /// provider as OK, shape changed (naming the field), refused, auth failed
+    /// or skipped, and exits non-zero when any is broken. See
+    /// docs/live-check.md.
+    CheckProviders {
+        /// Also pay for one real Veo shot — four seconds of Lite at 720p,
+        /// $0.20 — the only way to check a finished operation's shape and the
+        /// download behind it. Without it, Veo gets free model lookups only.
+        #[arg(long)]
+        include_veo: bool,
+        /// How many seconds to watch that shot before giving up. It is paid
+        /// for either way; this only bounds the wait.
+        #[arg(long, default_value_t = 600, requires = "include_veo")]
+        veo_wait: u64,
+        /// Say what would be called and what it would cost, and send nothing.
+        /// Needs no key.
+        #[arg(long)]
+        dry_run: bool,
+        /// Go ahead without asking — what stdin being a pipe requires. It does
+        /// not lift the spending ceiling.
+        #[arg(long, conflicts_with = "dry_run")]
+        yes: bool,
+        /// Save every reply received into this directory, scrubbed of keys,
+        /// account ids and signed URLs: the bodies that replace a hand-written
+        /// fixture. Media is not written. Read them before committing any.
+        #[arg(long, value_name = "DIR", conflicts_with = "dry_run")]
+        record: Option<PathBuf>,
+    },
     /// Print what a generated shot costs, per tier and per size, with the day
     /// each figure was last read off the vendor's page.
     ///

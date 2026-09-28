@@ -4,6 +4,7 @@
 
 pub(crate) mod assets;
 pub(crate) mod check;
+pub(crate) mod confirm;
 pub(crate) mod describe;
 pub(crate) mod design;
 pub(crate) mod dissolve;
@@ -13,6 +14,7 @@ pub(crate) mod hear;
 pub(crate) mod icons;
 pub(crate) mod import;
 pub(crate) mod level;
+pub(crate) mod live;
 pub(crate) mod look;
 pub(crate) mod migrate;
 pub(crate) mod new;

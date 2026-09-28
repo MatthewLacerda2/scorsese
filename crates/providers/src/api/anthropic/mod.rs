@@ -13,8 +13,10 @@
 //! reference as the `claude-api` skill carried it on 2026-09-28 — the raw-HTTP
 //! request and streaming examples, the prompt-caching and tool-use pages, and
 //! the Claude Opus 5.5 migration notes — and the replies it parses are pinned
-//! by recorded fixtures under `fixtures/anthropic/`, which #567's live check
-//! verifies against a real call.
+//! by fixtures under `fixtures/anthropic/`. Those were **written from the
+//! reference, not captured**, and each says so in its first lines; the live
+//! check ([`crate::live`], `scorsese check-providers --record`) is what
+//! replays a real turn and leaves the bodies that replace them.
 //!
 //! **Always streamed.** A turn of Claude Opus 5.5 thinks, writes and calls
 //! tools for minutes; an unstreamed request that long meets every timeout
@@ -59,6 +61,13 @@ impl Messages {
                 .with("anthropic-version", VERSION)
                 .with("anthropic-beta", BETAS),
         }
+    }
+
+    /// The same client, copying every reply into `tap` — for the live
+    /// provider check ([`crate::live`]); see [`crate::api::tap`].
+    pub fn tapped(mut self, tap: &crate::api::tap::Tap) -> Self {
+        self.caller = self.caller.tapped(tap);
+        self
     }
 
     /// Send `request` and hand back its reply as it streams: the events, in

@@ -77,6 +77,13 @@ impl Speech {
         }
     }
 
+    /// The same client, copying every reply into `tap` — for the live
+    /// provider check ([`crate::live`]); see [`crate::api::tap`].
+    pub fn tapped(mut self, tap: &crate::api::tap::Tap) -> Self {
+        self.caller = self.caller.tapped(tap);
+        self
+    }
+
     /// Speaks a line, and hands back the MP3.
     ///
     /// The voice is a path segment rather than a field, which is the vendor's

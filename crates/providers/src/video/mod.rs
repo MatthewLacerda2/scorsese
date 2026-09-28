@@ -40,7 +40,7 @@ mod error;
 mod patience;
 mod provider;
 mod run;
-mod veo;
+pub(crate) mod veo;
 
 use scorsese_core::{ProjectPath, Timestamp};
 

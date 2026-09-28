@@ -210,7 +210,7 @@ NEXTEST_CHECK = command -v cargo-nextest >/dev/null 2>&1 || { \
 # directories called `app/` and `web/`, so without it make sees the target as
 # already built and `make app` prints "up to date" without running a thing. A
 # check that silently does nothing is worse than no check.
-.PHONY: help setup gates pre-commit target-dir inventory $(GATES) app-gates web-gates release format-fix mcp-table coverage mutants mutants-status mergeable queue
+.PHONY: help setup gates pre-commit target-dir inventory $(GATES) app-gates web-gates release format-fix mcp-table coverage mutants mutants-status mergeable queue live-check
 
 ##@ Everyday
 
@@ -646,6 +646,17 @@ mutants-status:
 		exit 0; \
 	done; \
 	echo "gates: mutation signal -- $$(tail -n 1 $(MUTANTS_STAMP))."
+
+##@ Spending — real calls to the vendors, run by a person, never by CI
+
+# The live provider check (#567, docs/live-check.md): the smallest real call to
+# each vendor, through the product's own clients, reporting whether each reply
+# is still the shape scorsese reads. It spends money — a few cents, $0.20 more
+# with --include-veo — so it is neither a gate nor a signal CI runs: it quotes,
+# asks, and is held to budget_cents like any spend. Keys resolve the one way
+# they always do (docs/credentials.md); a vendor with no key is skipped.
+live-check: ## Real calls to every provider, quoted first. ARGS="--include-veo --record DIR --yes"
+	cargo run --locked --quiet -p scorsese-cli --bin scorsese -- check-providers $(ARGS)
 
 ##@ Fixing
 

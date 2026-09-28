@@ -165,6 +165,13 @@ impl Design {
         }
     }
 
+    /// The same client, copying every reply into `tap` — for the live
+    /// provider check ([`crate::live`]); see [`crate::api::tap`].
+    pub fn tapped(mut self, tap: &crate::api::tap::Tap) -> Self {
+        self.caller = self.caller.tapped(tap);
+        self
+    }
+
     /// Designs three candidates. **This is the call that is billed.**
     pub fn preview(&self, request: &DesignRequest) -> Result<DesignReply, HttpError> {
         self.caller

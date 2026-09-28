@@ -2,7 +2,8 @@
 //!
 //! Responsibility: the `scorsese` command-line surface — `new`, `import`,
 //! `check`, `migrate`, `render`, `still`, `synth`, `duck`, `voices`, `generate`,
-//! `assets`, `diff`.
+//! `assets`, `diff`, and `check-providers` — the one verb that calls every
+//! vendor on purpose.
 //! This is how an agent (or a CI
 //! job) assembles and renders a video with no human and no screen: every
 //! editing capability the GUI will ever have must be reachable from here
@@ -122,6 +123,19 @@ fn dispatch(cli: Cli) -> Result<()> {
                 list,
             },
         ),
+        Command::CheckProviders {
+            include_veo,
+            veo_wait,
+            dry_run,
+            yes,
+            record,
+        } => commands::live::run(&commands::live::Options {
+            include_veo,
+            veo_wait,
+            dry_run,
+            yes,
+            record,
+        }),
         Command::Prices => commands::prices::run(),
         Command::Icons { query } => commands::icons::run(&query),
         Command::Probe { all } => commands::probe::run(&directory, all),
