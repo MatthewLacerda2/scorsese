@@ -77,7 +77,7 @@
 //! `project_check` returns — one assembly, so the two can never come to
 //! different conclusions about the same project.
 //!
-//! **Six modules keep their path.** Three of them publish *verbs*, which need
+//! **Seven modules keep their path.** Three of them publish *verbs*, which need
 //! their noun in front of them to read: [`mod@audio`] mixes
 //! ([`audio::mixdown`]), measures ([`audio::measure`]) and owns the one
 //! property name a volume keyframe spells ([`audio::path::VOLUME`]);
@@ -98,7 +98,13 @@
 //! because [`Segment`](plan::Segment) and
 //! [`Shot`](plan::Shot) are what walking a plan means naming — its [`Plan`]
 //! and [`FrameRange`] are reachable both ways, which is one path more than
-//! anything needs and the next thing to tidy here.
+//! anything needs and the next thing to tidy here. [`mod@preview`] keeps its
+//! path for the verb reason: [`preview::make`] makes a proxy, and
+//! [`preview::worth_making`], [`preview::folder`] and [`preview::file_name`]
+//! say which sources get one and where it goes, while the three things a caller
+//! holds — [`Preview`], [`Quality`] and [`Proxies`] — are at the root. A
+//! [`Renderer`] reads a proxy only when handed a [`Preview`], which nothing
+//! delivering a file ever does.
 //!
 //! **Everything else is `pub(crate)`.** The ffmpeg processes themselves, the
 //! rasters a fit is worked out on, the slug-card furniture, the font cache and
@@ -117,6 +123,7 @@ pub mod frames;
 pub mod layout;
 pub(crate) mod pipe;
 pub mod plan;
+pub mod preview;
 pub(crate) mod probe;
 pub(crate) mod properties;
 pub(crate) mod raster;
@@ -185,6 +192,7 @@ pub use error::{RenderError, Stage};
 pub use format::{AudioCodec, Container, FormatError, OutputFormat, VideoCodec};
 pub use layout::{Absence, Layout, Placement, Region, Unplaced};
 pub use plan::{FrameRange, FrameRangeError, Plan, PlanError, Showing};
+pub use preview::{Preview, Proxies, Quality};
 pub use probe::{Ffprobe, fill_media};
 pub use properties::{ANIMATABLE, Unknown, unknown_in};
 pub use report::{Note, RenderReport, StandIn};

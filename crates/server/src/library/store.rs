@@ -198,6 +198,7 @@ impl Library {
         for file in [
             self.storage.library_file(user, &sha256, &extension),
             thumbnail,
+            self.storage.proxy(user, &sha256),
         ] {
             match std::fs::remove_file(&file) {
                 Err(error) if error.kind() != std::io::ErrorKind::NotFound => {

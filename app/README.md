@@ -125,6 +125,18 @@ lands a frame early is what a step button is for. Playback drops frames rather
 than slowing down, so what it shows about pacing is true even when compositing
 cannot keep up.
 
+**Preview quality trades pixels for speed** (#542). Under the transport:
+Full, 1/2 or 1/4 of the 1920×1080 delivery, the same three steps the web
+editor offers. Full is the render's own picture, from the original files. The
+reduced ones draw the same frame smaller — a `native` layer shrinks with them,
+so the layout is the delivery's — and decode **proxies** of heavy videos: a
+540-line copy of each, made in the background the first time a project is shown
+at a reduced quality, into the project's rebuildable `cache/proxies/`, one at a
+time. Until one is made the original is read. The line beside the control
+always says which mode the picture is in, and how far the proxies have got.
+The setting lasts the session; it is not part of the edit, so it is never
+written to `project.json`, and a render never reads a proxy.
+
 **It plays the sound too, and the sound is the clock.** A dropped video frame
 is invisible; a dropped sample is a click and a stretched one is a pitch
 change, so audio cannot be made to follow anything — the mix's position *is*

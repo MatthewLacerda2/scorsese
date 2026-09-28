@@ -21,6 +21,7 @@ use scorsese_core::{Frames, Project};
 
 use crate::error::RenderError;
 use crate::plan::{FrameRange, Plan};
+use crate::preview::Preview;
 use crate::raster::Sizes;
 use crate::settings::RenderSettings;
 use crate::tools::Tools;
@@ -36,6 +37,7 @@ use super::segment::{Pass, Stage};
 pub(super) fn compose(
     tools: &Tools,
     settings: RenderSettings,
+    preview: Option<&Preview>,
     project: &Project,
     project_root: &Path,
     at: Frames,
@@ -53,6 +55,7 @@ pub(super) fn compose(
         // pool would be capped to this anyway; saying it here means a scrub
         // never asks the machine how many threads it has.
         workers: Workers::new(1),
+        preview,
     };
 
     // A one-frame range has one segment by construction: the cuts a plan splits

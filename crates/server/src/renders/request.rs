@@ -1,7 +1,8 @@
 //! Asking for a render: the one decision, shared by the route and the tool.
 //!
 //! `POST /api/projects/{id}/renders` and web MCP's `render` (#539) ask the
-//! same question — *the project as it is now, in this shape: is it kept, on
+//! same question — and so does `POST /api/projects/{id}/previews` (#542), with
+//! settings marked as a preview — *the project as it is now, in this shape: is it kept, on
 //! its way, or to be made?* — and must answer it the same way, so it is
 //! answered here once and each of them only says the answer in its own words.
 
@@ -59,7 +60,14 @@ pub async fn ask(
         // nothing, and the render is made again.
         store::forget(&mut tx, view.id).await?;
     }
-    if let Some(job) = store::pending(&mut tx, id, &key).await? {
+    // A preview queues as its own kind, so previews never hold a slot a
+    // finished render is waiting for (`jobs::kinds::PREVIEW`).
+    let kind = if settings.preview.is_some() {
+        kinds::PREVIEW
+    } else {
+        kinds::RENDER
+    };
+    if let Some(job) = store::pending(&mut tx, kind, id, &key).await? {
         tx.commit().await?;
         return Ok(Asked::Queued(job));
     }
@@ -71,7 +79,7 @@ pub async fn ask(
             .map_err(|e| AskError::Invalid(e.to_string()))?,
     };
     let payload = serde_json::to_value(&payload).map_err(|e| AskError::Invalid(e.to_string()))?;
-    let job = jobs::enqueue(&mut tx, kinds::RENDER, &payload).await?;
+    let job = jobs::enqueue(&mut tx, kind, &payload).await?;
     tx.commit().await?;
     queue.announce(user, &job);
     Ok(Asked::Queued(job))

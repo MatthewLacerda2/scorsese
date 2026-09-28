@@ -20,7 +20,7 @@ use super::auth::Member;
 use super::error::ApiError;
 use super::ranges;
 use crate::renders::request::{self, AskError, Asked};
-use crate::renders::{Ask, RenderView, Settings, store};
+use crate::renders::{Ask, PreviewAsk, RenderView, Settings, store};
 
 /// `POST /api/projects/{id}/renders`: the render of the project as it is now,
 /// in the shape asked for — kept (`200`) or on its way (`202`).
@@ -33,6 +33,29 @@ pub async fn request(
     // First, before the project is read: a shape we do not write is the
     // cheapest thing to refuse, as it is for `scorsese render`.
     let settings = Settings::from_ask(&ask).map_err(ApiError::BadRequest)?;
+    answer(&state, &member, id, settings).await
+}
+
+/// `POST /api/projects/{id}/previews`: the editor's preview video of the
+/// project as it is now (#542) — a render at a preview quality, answered in
+/// the same shape as a render.
+pub async fn preview(
+    State(state): State<AppState>,
+    member: Member,
+    Path(id): Path<i64>,
+    Json(ask): Json<PreviewAsk>,
+) -> Result<(StatusCode, Json<Value>), ApiError> {
+    let settings = Settings::from_preview(&ask).map_err(ApiError::BadRequest)?;
+    answer(&state, &member, id, settings).await
+}
+
+/// Kept (`200`) or on its way (`202`): one answer for both routes.
+async fn answer(
+    state: &AppState,
+    member: &Member,
+    id: i64,
+    settings: Settings,
+) -> Result<(StatusCode, Json<Value>), ApiError> {
     let asked = request::ask(
         &state.pool,
         &state.jobs,

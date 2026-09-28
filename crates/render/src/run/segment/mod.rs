@@ -21,6 +21,7 @@ use scorsese_compositor::{CpuCompositor, Frame};
 
 use crate::error::RenderError;
 use crate::plan::{Plan, Segment};
+use crate::preview::Preview;
 use crate::raster::Sizes;
 use crate::report::Note;
 use crate::settings::RenderSettings;
@@ -55,6 +56,8 @@ pub(super) struct Pass<'a> {
     pub(super) project_root: &'a Path,
     /// How many frames may be composited at once.
     pub(super) workers: Workers,
+    /// What makes this a preview rather than a delivery, when it is one.
+    pub(super) preview: Option<&'a Preview>,
 }
 
 impl Pass<'_> {

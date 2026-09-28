@@ -233,15 +233,10 @@ impl Pass<'_> {
             }
         };
 
+        let (file, fitting) = self.previewed(shot, file);
         let decoder = Decoder::start(
             self.tools,
-            &source_for(
-                shot,
-                file,
-                self.plan.timeline_fps(),
-                frames,
-                self.sizes.fitting(shot, self.settings.resolution),
-            ),
+            &source_for(shot, file, self.plan.timeline_fps(), frames, fitting),
             &self.settings,
         )?;
         // A decoded picture fills the buffer it is read into, so its rectangle
@@ -263,6 +258,36 @@ impl Pass<'_> {
             },
             Some(decoder),
         ))
+    }
+}
+
+impl Pass<'_> {
+    /// Which file a shot is decoded from and how it meets the raster, once a
+    /// preview has had its say ([`crate::preview`]).
+    ///
+    /// A delivery is untouched: its own file, its own fitting. A preview at a
+    /// reduced quality reads the shot's proxy when there is one, and brings a
+    /// `native` source down with the raster — asked for as an exact size,
+    /// which is what [`Fitting::Fit`] already is, so the decoder scales a
+    /// smaller proxy or a full-size original to the same rectangle.
+    fn previewed(
+        &self,
+        shot: &Shot<'_>,
+        file: std::path::PathBuf,
+    ) -> (std::path::PathBuf, Fitting) {
+        let fitting = self.sizes.fitting(shot, self.settings.resolution);
+        let Some(preview) = self.preview else {
+            return (file, fitting);
+        };
+        let quality = preview.quality();
+        let fitting = match fitting {
+            Fitting::Native(size) if quality.divisor() > 1 => Fitting::Fit(quality.shrink(size)),
+            other => other,
+        };
+        let file = preview
+            .proxy_for(shot.asset)
+            .map_or(file, std::path::Path::to_path_buf);
+        (file, fitting)
     }
 }
 

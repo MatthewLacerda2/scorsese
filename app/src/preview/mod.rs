@@ -7,6 +7,14 @@
 //! with the encoder taken out, so there is no second way to draw the film and
 //! nothing here can disagree with what ships.
 //!
+//! **At full quality, pixel for pixel.** Playing a cut in real time is how
+//! pacing is judged, and a 1080p frame decoded from a 4K screen recording is
+//! slow to get, so [`quality`] trades pixels for speed (#542): half or a
+//! quarter of the delivery raster, reading [`proxies`] of heavy videos where
+//! they are made. That is still the render's frame — the same compositor, the
+//! same layout — only smaller, and the line under the transport always says
+//! which mode the picture is in.
+//!
 //! The playhead is **not** this module's. It lives in [`Editing`], above every
 //! panel, because the scrubber under the preview and the line down the timeline
 //! are one position with two views — two copies would disagree the first moment
@@ -22,6 +30,8 @@
 //! it is made and, more importantly, for which of the two is the clock — the
 //! answer is not the one this module started with.
 
+mod proxies;
+mod quality;
 mod save;
 mod sound;
 mod still;
@@ -29,6 +39,7 @@ mod transport;
 
 use egui::{Panel, Ui};
 use scorsese_core::{Fps, Frames, Project};
+use scorsese_render::Quality;
 
 use crate::editing::{Editing, length};
 use crate::project::Open;
@@ -57,6 +68,12 @@ pub(crate) struct Preview {
     /// said under the transport — a save that reported nothing would be
     /// indistinguishable from a button that does nothing.
     saved: Option<Saved>,
+    /// How much of the delivery raster the picture draws. For the session:
+    /// it outlives opening another project, and is never written to one.
+    quality: Quality,
+    /// The open project's proxies, made in the background at a quality that
+    /// reads them.
+    proxies: proxies::Maker,
 }
 
 /// A run of the transport: where the playhead was when play was pressed, when
@@ -89,7 +106,10 @@ impl Preview {
     /// Forgets the frame on screen and stops the transport, for when a
     /// different project is opened.
     pub(crate) fn reset(&mut self) {
-        *self = Self::default();
+        *self = Self {
+            quality: self.quality,
+            ..Self::default()
+        };
     }
 
     /// Forgets the composited frame, for when the document it was drawn from
@@ -100,6 +120,7 @@ impl Preview {
     /// is now a picture of a document that no longer exists.
     pub(crate) fn document_changed(&mut self) {
         self.picture.forget();
+        self.proxies.document_changed();
     }
 
     /// Draws the preview: the transport along the bottom, the picture above it.
@@ -111,6 +132,7 @@ impl Preview {
         let fps = open.project.timeline_fps;
         let last = transport::last_frame(length(&open.project));
         self.advance(ui, fps, last, editing);
+        self.follow_proxies(ui, open);
 
         let silent = self
             .playing
@@ -138,13 +160,36 @@ impl Preview {
                 None => {}
             }
             save::note(ui, self.saved.as_ref());
+            let making = self.proxies.status();
+            if let Some(chosen) = quality::show(ui, self.quality, making.as_deref()) {
+                self.quality = chosen;
+            }
         });
 
         // Clamped rather than refused: the timeline lets the playhead rest one
         // past the last frame — that is where the edit *ends* — and there is no
         // picture of an instant the film does not contain. Showing the last
         // frame is what a person means by parking at the end.
-        self.picture.show(ui, open, editing.playhead.min(last));
+        self.picture
+            .show(ui, open, editing.playhead.min(last), self.quality);
+    }
+
+    /// Makes the proxies a reduced quality reads, and draws the picture again
+    /// from each one as it lands.
+    fn follow_proxies(&mut self, ui: &Ui, open: &Open) {
+        if !self.quality.uses_proxies() {
+            return;
+        }
+        self.proxies.ensure(open);
+        if self.proxies.landed() {
+            self.picture.forget();
+        }
+        // Nothing else repaints while a transcode runs in another thread, and
+        // the line saying how far it got should move.
+        if self.proxies.running() {
+            ui.ctx()
+                .request_repaint_after(std::time::Duration::from_millis(500));
+        }
     }
 
     /// Starts or stops the transport, for the key that does what the button

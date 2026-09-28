@@ -12,7 +12,7 @@ use std::time::Duration;
 use super::{Kind, Registry};
 use crate::Files;
 use crate::generations::{self, Keys, Timing, Vendors};
-use crate::library::thumbnail;
+use crate::library::{proxy, thumbnail};
 use crate::renders::job as render;
 
 /// A render of a stored project (#534, #541). The compositor and the encoder
@@ -33,6 +33,15 @@ pub const VEO_SHOT: Kind = Kind {
 pub const SPOKEN_LINE: Kind = Kind {
     name: "spoken_line",
     limit: 4,
+};
+
+/// A **preview** render (#542): the cut, small, for the editor to play. Its
+/// own kind so previews queue behind each other and never take a slot a
+/// finished render is waiting for — one at a time, because a preview is
+/// superseded by the next edit anyway (`renders::job`).
+pub const PREVIEW: Kind = Kind {
+    name: "preview",
+    limit: 1,
 };
 
 /// A library item's thumbnail (#535): one decoded frame, quick.
@@ -60,9 +69,9 @@ pub const PROVIDER_PATIENCE: Duration = Duration::from_secs(15 * 60);
 /// the server's environment ([`Keys`]).
 ///
 /// [`THUMBNAIL`] (#535), [`RENDER`] (#541), [`VEO_SHOT`] and [`SPOKEN_LINE`]
-/// (#539, `crate::generations`) have theirs; [`PROXY`] lands with #542. A kind
-/// nothing registers is never claimed, so a job of that kind waits rather
-/// than failing.
+/// (#539, `crate::generations`), [`PREVIEW`] and [`PROXY`] (#542) have theirs.
+/// A kind nothing registers is never claimed, so a job of that kind waits
+/// rather than failing.
 pub fn registry(files: &Files) -> Registry {
     with_vendors(files, Arc::new(Keys), Timing::default())
 }
@@ -82,6 +91,18 @@ pub fn with_vendors(files: &Files, vendors: Arc<dyn Vendors>, timing: Timing) ->
                 files.tools.clone(),
                 files.storage.clone(),
             ),
+        )
+        .register(
+            PREVIEW,
+            render::handler(
+                files.renders.clone(),
+                files.tools.clone(),
+                files.storage.clone(),
+            ),
+        )
+        .register(
+            PROXY,
+            proxy::handler(files.storage.clone(), files.tools.clone()),
         )
         .register(
             VEO_SHOT,

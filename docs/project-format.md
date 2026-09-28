@@ -1172,7 +1172,11 @@ picture with fewer pixels in it. A `native` layer is the exception, because the
 same count of pixels in a smaller frame is a bigger layer: a badge 240 pixels
 across is 240 pixels across in either, which is 18.8% of the width of a
 1280×720 preview and 12.5% of a 1920×1080 delivery. Still it at the raster the
-render will use, or judge everything about it except its size.
+render will use, or judge everything about it except its size. The editors'
+own previews — the desktop app's picture and the web editor's preview video —
+are not caught by this: a preview *quality* (#542) is a fraction of a
+1080p-class delivery, and it shrinks a `native` layer by the same fraction, so
+every quality shows that delivery's layout with fewer pixels.
 
 **A layer whose size is a proportion of the picture belongs on `fit`.** A
 corner logo, a badge, a watermark — anything whose real specification is "about

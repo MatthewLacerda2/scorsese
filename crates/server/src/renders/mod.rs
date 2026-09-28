@@ -18,6 +18,14 @@
 //! is the project's own, as `scorsese render` defaults to, and the whole
 //! timeline is rendered.
 //!
+//! ## Previews
+//!
+//! The editor's moving picture (#542) is a render too: the cut at a preview
+//! quality, settings marked as one ([`Settings::from_preview`]), queued as the
+//! `preview` kind so it never holds a finished render's slot, left out of the
+//! project's list of downloads, and superseded by the next edit. `preview` has
+//! what it does differently, and it is the only render that reads proxies.
+//!
 //! ## Where they live
 //!
 //! **`<SCORSESE_CACHE>/users/<user>/renders/<project>/<key>.<ext>`**: under the
@@ -64,6 +72,7 @@
 
 pub mod evict;
 pub mod job;
+mod preview;
 pub mod request;
 pub mod settings;
 pub mod store;
@@ -77,7 +86,7 @@ use std::time::Duration;
 
 use serde::Serialize;
 
-pub use settings::{Ask, Settings, key};
+pub use settings::{Ask, PreviewAsk, Settings, key};
 
 use crate::db::UserId;
 

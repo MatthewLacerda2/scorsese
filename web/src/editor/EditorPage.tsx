@@ -129,7 +129,7 @@ function Editor({ project }: { project: EditorProject }) {
             document={document}
             playhead={playhead}
             onSeek={setPlayhead}
-            raster={SHAPES[shape].preview}
+            deliver={SHAPES[shape].deliver[0]}
           />
         </section>
         <aside className="row-span-2 flex min-h-0 flex-col border-l">

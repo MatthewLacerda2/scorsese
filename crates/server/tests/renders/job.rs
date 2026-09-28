@@ -32,7 +32,7 @@ async fn worker(pool: &PgPool, files: &Files) -> watch::Sender<bool> {
 }
 
 /// Job `id` once it has finished, however it finished.
-async fn finished(pool: &PgPool, user: UserId, id: i64) -> JobView {
+pub(super) async fn finished(pool: &PgPool, user: UserId, id: i64) -> JobView {
     let members = scorsese_server::db::member_pool(pool)
         .await
         .expect("the member pool connects");

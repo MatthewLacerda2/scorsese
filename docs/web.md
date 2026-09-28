@@ -612,16 +612,18 @@ does not hold everybody else up.
 | kind | at once | why |
 | --- | --- | --- |
 | `render` | 2 | compositor and encoder each take several of the four cores |
+| `preview` | 1 | a render too, but small, and superseded by the next edit — its own kind so a preview never holds a slot a finished render is waiting for |
 | `proxy` | 1 | a whole transcode, as heavy as a render |
 | `thumbnail` | 2 | one decoded frame |
 | `veo_shot` | 4 | minutes of waiting on Google, almost no machine |
 | `spoken_line` | 4 | seconds, mostly network |
 
-**`thumbnail`, `render`, `veo_shot` and `spoken_line` have handlers** (#535,
-*Library*; #541, *Renders*; #539, *Web MCP*, below). A paid generation pays
-through credits (*Credits*, below: a failed one is free) and keeps what it made
-in the library. Each registers its handler in `jobs::kinds::registry()`; a kind
-nothing registers (`proxy`, until #542) waits rather than failing. The worker, the claim, recovery and
+**Every kind has a handler** — `thumbnail` and `proxy` (#535, #542, *Library*),
+`render` and `preview` (#541, #542, *Renders*), `veo_shot` and `spoken_line`
+(#539, *Web MCP*, below). A paid generation pays through credits (*Credits*,
+below: a failed one is free) and keeps what it made in the library. Each
+registers its handler in `jobs::kinds::registry()`; a kind nothing registers
+waits rather than failing. The worker, the claim, recovery and
 the event stream are exercised end to end by test handlers, one of which stands
 in for Veo.
 
@@ -868,6 +870,21 @@ transaction; queued again when one is asked for and missing, so clearing the
 cache costs nothing but time. A list carries each item's thumbnail URL, which
 answers `404 {"pending": true}` until it is drawn.
 
+**Proxies are a job too** (#542): a small copy of a heavy video — its short
+side brought down to 540 px, the same frames at the same times, H.264 with a
+keyframe every fifteen — which a **preview** decodes instead of the original
+(*Renders*, *The editor*). Made by `scorsese-render` (`preview::make`) into
+`$SCORSESE_CACHE/users/<id>/proxies/`. Only a video worth one gets one: larger
+than a proxy, and known to be opaque (H.264 has no alpha, and a preview that
+lost an overlay's transparency would lie about more than resolution). Queued
+**on arrival**, with the thumbnail, so the first preview a file appears in is
+already a fast one; queued again by a preview that finds one missing, so
+clearing the cache costs only time. Removed with the item, and otherwise kept:
+they are a small fraction of the library they stand in for, and the render
+quota is about renders. **A finished render never reads one** — nothing but a
+preview is handed proxies at all, and a test holds it with a proxy of another
+colour sitting in the cache.
+
 **Opening a file streams it in ranges**: `Range: bytes=…` gets `206`, so a
 video plays and seeks without being fetched whole. A file never changes under
 its id, so it is sent `private, immutable`, tagged by its hash.
@@ -960,7 +977,35 @@ while its render streams.
 The job's progress arrives on `GET /api/events` like any job's; its result
 names the render and where to download it.
 
-Not here: preview renders (#542).
+**Previews are renders, marked** (#542). `POST /api/projects/{id}/previews`
+`{resolution?, quality?}` asks for the cut at a **preview quality** — `full`,
+`half` (the default) or `quarter` of the delivery size named, 1920x1080 unless
+said — as an mp4, answered exactly as a render is (`200 {render}` / `202
+{job}`). The settings carry the quality (`preview`), so a preview is keyed
+apart from a finished render of the same size; a finished render's settings
+have no such field, so its key is what it was before previews existed. Four
+things differ, all in `renders::preview`:
+
+- **Its own kind**, `preview`, one at a time, so previews never hold a slot a
+  finished render is waiting for.
+- **Proxies**: at half or a quarter, each heavy video's proxy is decoded where
+  one is made (*Library*), and any that are missing are queued. Full reads
+  originals, as a finished render always does.
+- **Superseded, not cancelled.** When a preview's turn comes it checks the
+  project still hashes to its key; if the project has moved on it finishes at
+  once, `{"superseded": true}`, having rendered nothing. So edits faster than
+  renders cost one render at most — a waiting job retires itself, with no
+  cancel state and no race with the claim — and the editor asks again for the
+  revision it is on.
+- **One kept per shape.** A finished preview replaces the project's earlier
+  previews at the same settings, which are of documents it has moved past —
+  except a file somebody has open. They are left out of the project's list of
+  renders, since nobody downloads one, and otherwise live by the render cache's
+  quota and 48-hour rule like any render.
+
+| route | who | what |
+| --- | --- | --- |
+| `POST /api/projects/{id}/previews` | a member | `{resolution?, quality?}` → as `POST …/renders`; `400` for a quality or size that is not one |
 
 ## Web MCP
 
@@ -1248,24 +1293,39 @@ lane is one `clip_move` with the new start, never a move then a trim; Delete or
 Backspace removes the selected clip — its asset stays, and nothing closes up
 behind it. Neither fires while a text field has the keyboard.
 
-**The preview: the server draws every picture.** Real-time compositing in the
-browser is not attempted.
+**The preview doctrine** (#542, recorded at the maintainer's asking). **The
+server draws every picture; the browser plays a video.** Real-time compositing
+in the browser is not attempted.
 
-- **While editing**, the frame under the playhead is the `still` tool's —
-  the render's own compositor, asked for once the playhead rests for a fifth of
-  a second, cached per (revision, frame), and kept on screen while the next
-  arrives.
-- **Play** asks for a small render of this revision (`POST
-  /api/projects/{id}/renders` at a preview raster, 640×360 for 16:9) and plays
-  it in a `<video>`, where scrubbing is seeking. Renders are keyed by document
-  and settings (*Renders*), so pressing Play on an unchanged cut is instant and
-  after an edit queues one; the moment the revision moves, the video is dropped
-  and the preview is stills again until Play is pressed. The page follows the
-  job on the event stream and asks again every few seconds too, because the
-  quick tunnel carries no events.
-- This is the simplest thing that lets someone see their edit. #542 records the
-  preview doctrine properly — a quality setting, proxies, re-rendering after
-  edits without a press — and will replace the second half.
+- **The server renders a low-resolution preview video of the cut** at the
+  chosen quality (*Renders*, previews), from proxies of heavy videos, and the
+  browser plays it in an ordinary `<video>`. **Scrubbing is seeking** in that
+  video.
+- **After an edit, the preview is re-rendered** — by itself, once the revision
+  has rested for a second, with no press. Sketch and stale generated assets
+  render as slug cards, which is free and keeps it fast. An unchanged cut
+  answers at once from the cache; a preview of a revision the project has
+  already moved past retires when its turn comes (*Renders*), so a burst of
+  edits costs one render, not one per edit. The moment the revision moves the
+  old video is dropped, and until the new one is ready the frame under the
+  playhead is the `still` tool's — the render's own compositor, asked for once
+  the playhead rests for a fifth of a second, at the same raster, cached per
+  (revision, frame). The page follows the job on the event stream and asks
+  again every few seconds too, because the quick tunnel carries no events.
+- **Preview quality** — Full, 1/2, 1/4 — is a fraction of the delivery size of
+  the chosen shape (1920x1080 for 16:9), chosen beside the transport and said
+  under it, and it means the same as the desktop app's control: one
+  `scorsese_render::Quality`, one arithmetic. Full is the render's own picture
+  from the originals; the reduced ones draw fewer pixels and read proxies, and a
+  `native` layer shrinks with them so the layout is the delivery's. It is kept
+  **per browser**, not per project and not in `project.json`: it is about the
+  device and the person's patience, not about the edit. Half is the default.
+- **This is the v1 default, chosen to be simple**, and it will be tuned from how
+  real users behave: how often they edit between looks, how long a preview
+  takes on the shared machine, whether a quarter is ever chosen. The settle
+  time, the default quality and the rule that re-renders without a press are
+  the three knobs, and none of them is a decision worth defending against
+  evidence.
 
 The frame's **shape** (16:9, 9:16, 1:1) is chosen in the header and remembered
 per project in the browser: a project has no aspect of its own, a render's

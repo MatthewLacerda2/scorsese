@@ -77,6 +77,15 @@ impl Storage {
             .join(format!("{sha256}.{extension}"))
     }
 
+    /// Where the preview proxy of the file with this hash is kept (#542).
+    /// Under the cache, beside the thumbnails, for their reason: it is made
+    /// again from the file whenever it is missing.
+    pub fn proxy(&self, user: UserId, sha256: &str) -> PathBuf {
+        user_directory(&self.cache, user)
+            .join("proxies")
+            .join(scorsese_render::preview::file_name(sha256))
+    }
+
     /// A folder nothing is at yet, for laying one of `user`'s projects out
     /// while a tool runs on it (#539). Under the cache, because it is gone
     /// the moment the tool answers; [`Storage::clear_scratch`] takes whatever
