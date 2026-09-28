@@ -1,12 +1,14 @@
 # Keys, and the ceiling on what they may spend
 
-Two providers cost money — Gemini (for Veo video) and ElevenLabs (for
-narration) — and both need a key. This page is where a key comes from, in one
+Two providers cost money on every surface — Gemini (for Veo video) and
+ElevenLabs (for narration) — and both need a key. A third, Anthropic, is spent
+only by the hosted server's assistant (`ANTHROPIC_API_KEY`, `docs/web.md`). This page is where a key comes from, in one
 order, for every way scorsese is run.
 
 ## The order
 
-1. **The environment.** `GEMINI_API_KEY` and `ELEVENLABS_API_KEY`, exported in
+1. **The environment.** `GEMINI_API_KEY`, `ELEVENLABS_API_KEY` and
+   `ANTHROPIC_API_KEY`, exported in
    the shell or written in a `.env` at the root of a checkout. A variable that
    is set wins; a `.env` fills gaps and never overrides one.
 2. **The settings file**, per machine, at the platform's config location:
@@ -36,9 +38,10 @@ a build. The settings file is what a shipped program has, which is why the
 window writes there and why the resolver reads both.
 
 **The hosted server** (`docs/web.md`) resolves its keys the same way, and in
-practice from the first place only: its container is told `GEMINI_API_KEY` and
-`ELEVENLABS_API_KEY` by `deploy/.env`, through `compose.yaml`, and has no
-settings file. Those keys are the operator's, spent on users' behalf and paid
+practice from the first place only: its container is told `GEMINI_API_KEY`,
+`ELEVENLABS_API_KEY` and `ANTHROPIC_API_KEY` by `deploy/.env`, through
+`compose.yaml`, and has no settings file. Each is optional there: a missing
+one refuses only what needs it. Those keys are the operator's, spent on users' behalf and paid
 back from their credits — so `budget_cents` below is not what holds a web user
 back; their balance is.
 
@@ -71,6 +74,7 @@ Gemini has no equivalent — a Gemini key either works or it does not.
 {
   "gemini_api_key": "…",
   "elevenlabs_api_key": "…",
+  "anthropic_api_key": "…",
   "budget_cents": 5000
 }
 ```

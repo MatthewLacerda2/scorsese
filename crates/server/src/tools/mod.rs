@@ -169,6 +169,25 @@ impl Toolbox {
         (Some(id), outcome)
     }
 
+    /// Record a call of `name` that is refused before it runs, for `why` —
+    /// what the assistant does with a call it will not make on the model's
+    /// word (`crate::assistant`). The refusal, as [`Toolbox::call`] words one.
+    pub async fn refuse(
+        &self,
+        user: UserId,
+        client: Client,
+        name: &str,
+        arguments: &Value,
+        why: String,
+    ) -> Result<Reply, String> {
+        let refused = Err(why);
+        match log::begin(&self.pool, user, client, name, arguments).await {
+            Ok(id) => log::end(&self.pool, user, id, &refused).await,
+            Err(error) => eprintln!("scorsese-server: could not record a refused call: {error}"),
+        }
+        refused
+    }
+
     /// The quote tool call `call` of `user`'s issued, if it is still unspent.
     pub async fn pending_quote(
         &self,

@@ -153,6 +153,7 @@ async fn an_assistant_call_is_charged_from_its_token_counts(pool: PgPool) {
         usage,
         project: Some(3),
         prompt: "cut the intro",
+        turn: None,
     };
     let mut tx = db::scoped(&pool, ana).await.unwrap();
     let charged = ledger::charge_assistant(&mut tx, &call).await.unwrap();

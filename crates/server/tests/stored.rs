@@ -137,6 +137,7 @@ async fn a_document_this_build_cannot_carry_forward_stops_the_start(pool: PgPool
         listener,
         common::files("stored"),
         scorsese_server::jobs::Registry::new(),
+        scorsese_server::assistant::Assistant::default().unconfigured(),
         std::future::pending(),
     )
     .await;

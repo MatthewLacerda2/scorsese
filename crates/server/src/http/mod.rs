@@ -33,12 +33,18 @@
 //! | `GET /api/projects/{id}/renders` | a member | the project's kept renders |
 //! | `GET /api/renders/{id}/file` | a member | the file, in ranges; counts as use |
 //! | `POST /api/mcp` | a member, by token | web MCP: JSON-RPC in, JSON-RPC out |
+//! | `GET /api/projects/{id}/chat` | a member | the project's current conversation with the assistant |
+//! | `POST /api/projects/{id}/chat` | a member | `{prompt, fresh?}` → a turn starts (`202`); it streams on `/api/events` |
+//! | `GET /api/chat/turns/{id}` | a member | one turn, and the log of every tool call it made |
+//! | `POST /api/chat/turns/{id}/stop` | a member | stop a running turn before its next step |
+//! | `POST /api/chat/turns/{id}/quote` | a member | `{confirm: true\|false}`: the user's answer to a paid tool's quote |
 //!
 //! "A member" is a request carrying a session cookie or an API token — see
 //! [`auth`].
 
 pub mod account;
 pub mod auth;
+pub mod chat;
 pub mod credits;
 pub mod error;
 pub mod events;
@@ -61,6 +67,7 @@ use sqlx::postgres::PgPool;
 use tokio::net::TcpListener;
 
 use crate::Files;
+use crate::assistant::Assistant;
 use crate::events::Events;
 use crate::jobs::Queue;
 use crate::library::Library;
@@ -89,6 +96,9 @@ pub struct AppState {
     pub tools: Toolbox,
     /// How many tool calls each user has made lately, over web MCP.
     pub limits: mcp::Limits,
+    /// The built-in assistant (#540): how it reaches Claude, and what a turn
+    /// may cost.
+    pub assistant: Assistant,
 }
 
 impl AppState {
@@ -115,10 +125,19 @@ impl AppState {
             renders: files.renders,
             tools,
             limits: mcp::Limits::default(),
+            assistant: Assistant::default(),
             pool,
             jobs,
             events,
         }
+    }
+}
+
+impl AppState {
+    /// The same state with `assistant` as its assistant.
+    pub fn with_assistant(mut self, assistant: Assistant) -> Self {
+        self.assistant = assistant;
+        self
     }
 }
 
@@ -151,7 +170,8 @@ pub fn router(state: AppState) -> Router {
         .route("/mcp", post(mcp::post).get(mcp::refuse).delete(mcp::refuse))
         .merge(credit_routes())
         .merge(library_routes())
-        .merge(render_routes());
+        .merge(render_routes())
+        .merge(chat_routes());
     Router::new().nest("/api", api).with_state(state)
 }
 
@@ -195,6 +215,19 @@ fn render_routes() -> Router<AppState> {
             get(renders::list).post(renders::request),
         )
         .route("/renders/{id}/file", get(renders::file))
+}
+
+/// The assistant's routes (#540): a project's conversation, a turn's log,
+/// stopping one, and answering its quote.
+fn chat_routes() -> Router<AppState> {
+    Router::new()
+        .route(
+            "/projects/{id}/chat",
+            get(chat::conversation).post(chat::send),
+        )
+        .route("/chat/turns/{id}", get(chat::turn))
+        .route("/chat/turns/{id}/stop", post(chat::stop))
+        .route("/chat/turns/{id}/quote", post(chat::quote))
 }
 
 /// Whether this server can do its job right now: `200 ok` or `503`.

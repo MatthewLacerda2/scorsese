@@ -58,18 +58,24 @@ pub(super) async fn issue(
 pub struct Pending {
     /// The token a confirming call hands back.
     pub token: String,
+    /// The providers' price it was quoted at, in US cents, before the markup.
+    pub cents: u64,
     /// When it expires.
     pub expires_at: i64,
 }
 
 /// The quote tool call `call` issued, if it issued one still unspent.
 pub(super) async fn issued_by(tx: &mut Tx, call: i64) -> Result<Option<Pending>, sqlx::Error> {
-    let row: Option<(String, i64)> =
-        sqlx::query_as("SELECT token, expires_at FROM quotes WHERE tool_call_id = $1")
+    let row: Option<(String, i64, i64)> =
+        sqlx::query_as("SELECT token, cents, expires_at FROM quotes WHERE tool_call_id = $1")
             .bind(call)
             .fetch_optional(&mut **tx)
             .await?;
-    Ok(row.map(|(token, expires_at)| Pending { token, expires_at }))
+    Ok(row.map(|(token, cents, expires_at)| Pending {
+        token,
+        cents: u64::try_from(cents).unwrap_or_default(),
+        expires_at,
+    }))
 }
 
 /// Forget `token` unspent: a quote the user said no to.

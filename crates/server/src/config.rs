@@ -1,6 +1,6 @@
 //! What the server is told by the environment it is started in.
 //!
-//! Five things, and only one of them is a secret. The database URL carries a
+//! Seven things, and only one of them is a secret. The database URL carries a
 //! password, so it is held as a [`Secret`] — printing a [`Config`] prints
 //! nothing of it, and no error below ever repeats its value.
 //!
@@ -46,6 +46,18 @@ pub const DEFAULT_RENDER_QUOTA: &str = "20GB";
 /// The address the HTTP server listens on, e.g. `0.0.0.0:8080` in a container.
 pub const BIND: &str = "SCORSESE_BIND";
 
+/// The model the assistant (#540) runs on. Defaults to Claude Opus 5.5, and
+/// must be a model `scorsese_providers::prices::claude` has a rate for — a
+/// call nobody can price is a call nobody can charge for.
+pub const ASSISTANT_MODEL: &str = "SCORSESE_ASSISTANT_MODEL";
+
+/// The most one assistant turn may cost a user, in dollars, e.g. `2.50`.
+/// Defaults to [`DEFAULT_TURN_CAP`].
+pub const ASSISTANT_TURN_CAP: &str = "SCORSESE_ASSISTANT_TURN_CAP";
+
+/// The per-turn cap when [`ASSISTANT_TURN_CAP`] is not set.
+pub const DEFAULT_TURN_CAP: &str = "2.00";
+
 /// Where the server listens when [`BIND`] is not set: this machine only.
 ///
 /// Loopback by default because the safe mistake is a server nobody can reach,
@@ -66,6 +78,10 @@ pub struct Config {
     pub render_quota: Quota,
     /// The address to listen on.
     pub bind: SocketAddr,
+    /// The model the assistant runs on.
+    pub assistant_model: String,
+    /// The most one assistant turn may cost, in micro-dollars.
+    pub assistant_turn_cap: i64,
 }
 
 /// Why the environment does not describe a server that can start.
@@ -120,6 +136,22 @@ pub enum ConfigError {
         /// What the variable held.
         value: String,
     },
+
+    /// The assistant's model has no published rate, so it cannot be charged.
+    #[error("{ASSISTANT_MODEL} names {value:?}, which has no rate in prices::claude")]
+    Model {
+        /// What the variable held.
+        value: String,
+    },
+
+    /// The per-turn cap is not an amount of dollars above zero.
+    #[error(
+        "{ASSISTANT_TURN_CAP} must be dollars above zero like {DEFAULT_TURN_CAP}, and {value:?} is not"
+    )]
+    TurnCap {
+        /// What the variable held.
+        value: String,
+    },
 }
 
 impl Config {
@@ -164,12 +196,30 @@ impl Config {
             value: bind.to_owned(),
         })?;
 
+        let assistant_model = environment
+            .get(ASSISTANT_MODEL)
+            .unwrap_or(scorsese_providers::claude::MODEL)
+            .to_owned();
+        if scorsese_providers::prices::claude::rate(&assistant_model).is_none() {
+            return Err(ConfigError::Model {
+                value: assistant_model,
+            });
+        }
+        let cap = environment
+            .get(ASSISTANT_TURN_CAP)
+            .unwrap_or(DEFAULT_TURN_CAP);
+        let assistant_turn_cap = micro_dollars(cap).ok_or_else(|| ConfigError::TurnCap {
+            value: cap.to_owned(),
+        })?;
+
         Ok(Self {
             database_url,
             storage,
             cache,
             render_quota,
             bind,
+            assistant_model,
+            assistant_turn_cap,
         })
     }
 }
@@ -179,6 +229,21 @@ impl Config {
     pub fn files(&self) -> Storage {
         Storage::new(&self.storage, &self.cache)
     }
+}
+
+/// Dollars written `2`, `2.5`, `$2.50` — at most six places, as micro-dollars
+/// — when above zero.
+fn micro_dollars(text: &str) -> Option<i64> {
+    let text = text.trim().trim_start_matches('$');
+    let (whole, fraction) = text.split_once('.').unwrap_or((text, ""));
+    let digits = |part: &str| part.bytes().all(|b| b.is_ascii_digit());
+    if whole.is_empty() || !digits(whole) || !digits(fraction) || fraction.len() > 6 {
+        return None;
+    }
+    let whole: i64 = whole.parse().ok()?;
+    let fraction: i64 = format!("{fraction:0<6}").parse().ok()?;
+    let micros = whole.checked_mul(1_000_000)?.checked_add(fraction)?;
+    (micros > 0).then_some(micros)
 }
 
 /// The absolute directory `variable` names.
