@@ -21,6 +21,7 @@ use crate::audio;
 use crate::error::RenderError;
 use crate::pipe::{Encoder, encode_mix};
 use crate::plan::{FrameRange, Plan};
+use crate::preview::Preview;
 use crate::raster::Sizes;
 use crate::report::{Note, RenderReport};
 use crate::settings::RenderSettings;
@@ -34,6 +35,7 @@ pub struct Renderer<'a> {
     tools: &'a Tools,
     settings: RenderSettings,
     workers: Workers,
+    preview: Option<Preview>,
 }
 
 impl<'a> Renderer<'a> {
@@ -47,6 +49,7 @@ impl<'a> Renderer<'a> {
             tools,
             settings,
             workers: Workers::default(),
+            preview: None,
         }
     }
 
@@ -59,6 +62,20 @@ impl<'a> Renderer<'a> {
     /// the same frames — that is the property the golden renders hold this to.
     pub fn with_workers(self, workers: Workers) -> Self {
         Self { workers, ..self }
+    }
+
+    /// Draws a **preview** rather than a delivery: `native` clips scaled with
+    /// the raster the quality chose, and the preview's proxies decoded in place
+    /// of their originals when the quality reads them ([`crate::preview`]).
+    ///
+    /// The one door a proxy comes in by. Nothing that delivers a file — `scorsese
+    /// render`, the MCP `render` tool, the web app's finished renders — calls
+    /// it, so a delivered file always reads originals.
+    pub fn with_preview(self, preview: Preview) -> Self {
+        Self {
+            preview: Some(preview),
+            ..self
+        }
     }
 
     /// Renders `range` of `project` to `out`.
@@ -205,6 +222,7 @@ impl<'a> Renderer<'a> {
             sizes,
             project_root,
             workers: self.workers,
+            preview: self.preview.as_ref(),
         };
         let mut written = 0;
         let mut notes = Vec::new();
@@ -238,6 +256,13 @@ impl<'a> Renderer<'a> {
         project_root: &Path,
         at: Frames,
     ) -> Result<Frame, RenderError> {
-        still::compose(self.tools, self.settings, project, project_root, at)
+        still::compose(
+            self.tools,
+            self.settings,
+            self.preview.as_ref(),
+            project,
+            project_root,
+            at,
+        )
     }
 }
