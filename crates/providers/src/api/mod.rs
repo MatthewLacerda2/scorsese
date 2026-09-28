@@ -1,6 +1,6 @@
 //! Hand-written stand-ins for the SDKs that do not exist.
 //!
-//! Neither Google nor ElevenLabs ships a Rust client, so every call scorsese
+//! Neither Google, ElevenLabs nor Anthropic ships a Rust client, so every call scorsese
 //! makes is a JSON body over HTTPS that somebody here wrote out by hand. This
 //! directory is where that work lives, and it is kept apart from the rest of
 //! the crate on purpose: what a vendor's wire format *is* changes for reasons
@@ -31,6 +31,7 @@
 //! — *what does this vendor's API look like* — and a reader who wants that
 //! answer should not have to read past anything else to get it.
 
+pub mod anthropic;
 pub(crate) mod base64;
 pub mod elevenlabs;
 pub mod http;

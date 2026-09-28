@@ -1,9 +1,10 @@
 //! What the server tells a user's browser as it happens: one stream per
 //! user, `GET /api/events` (#536).
 //!
-//! **One stream for everything live.** Job state is the first thing on it;
-//! the assistant (#540) adds its progress and tool calls as more [`Event`]
-//! variants rather than opening a second connection. A browser holds one
+//! **One stream for everything live.** Job state was the first thing on it;
+//! the assistant (#540) added its turns, words, progress notes, tool calls and
+//! quotes — and a project's new revision — as more [`Event`] variants rather
+//! than opening a second connection. A browser holds one
 //! `EventSource` and switches on each message's `type`.
 //!
 //! **Server-sent events, not a WebSocket.** Everything here flows one way —
@@ -14,8 +15,8 @@
 //! **In memory, and allowed to drop.** A broadcast channel inside this one
 //! process; nothing is stored. A browser that falls too far behind, or
 //! reconnects, gets [`Event::Resync`] or nothing at all, and the answer is the
-//! same either way: fetch the current state (`GET /api/jobs`) and carry on
-//! from the stream. The database is the record; this is only the nudge.
+//! same either way: fetch the current state (`GET /api/jobs`, and for a chat
+//! `GET /api/projects/{id}/chat`) and carry on from the stream. The database is the record; this is only the nudge.
 
 use std::sync::Arc;
 
@@ -23,6 +24,7 @@ use futures_util::Stream;
 use serde::Serialize;
 use tokio::sync::{broadcast, watch};
 
+use crate::assistant::{QuoteView, TurnView};
 use crate::db::UserId;
 use crate::jobs::JobView;
 
@@ -39,6 +41,57 @@ const BACKLOG: usize = 256;
 pub enum Event {
     /// A job of theirs changed state.
     Job(JobView),
+    /// One of their projects was changed — by the assistant, so far: re-read
+    /// it, and the preview refreshes as the edits land.
+    Project {
+        /// The project.
+        id: i64,
+        /// Its revision now.
+        revision: i64,
+    },
+    /// An assistant turn started, was charged for a call, or ended — with
+    /// the balance left after it.
+    ChatTurn {
+        /// The turn as it stands.
+        turn: TurnView,
+        /// Their balance, in micro-dollars.
+        balance_micros: i64,
+    },
+    /// More of the words the assistant is writing in `turn`, in order: append
+    /// them to what it said last.
+    ChatText {
+        /// The turn.
+        turn: i64,
+        /// The words.
+        text: String,
+    },
+    /// A short progress note — what the assistant just found or will do
+    /// next — written between tool calls. One line, whole.
+    ChatProgress {
+        /// The turn.
+        turn: i64,
+        /// The note.
+        text: String,
+    },
+    /// A tool the assistant is calling, and then how it answered.
+    ChatTool {
+        /// The turn.
+        turn: i64,
+        /// The tool.
+        tool: String,
+        /// `running`, then `answered` or `refused`.
+        state: &'static str,
+        /// What it said, shortened, once it has answered.
+        said: Option<String>,
+    },
+    /// A paid tool's quote, waiting for the user's yes or no
+    /// (`POST /api/chat/turns/{turn}/quote`). The model cannot answer it.
+    ChatQuote {
+        /// The turn it was quoted in.
+        turn: i64,
+        /// What it would cost, in words and figures.
+        quote: QuoteView,
+    },
     /// Events were dropped before this reader saw them: re-read what is shown.
     Resync,
 }

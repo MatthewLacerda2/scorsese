@@ -39,6 +39,7 @@ pub(crate) async fn a_month_of_work(pool: &PgPool, user: UserId) {
         },
         project: Some(1),
         prompt: "trim the ending",
+        turn: None,
     };
     ledger::charge_assistant(&mut tx, &call)
         .await

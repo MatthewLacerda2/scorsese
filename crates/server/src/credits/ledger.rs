@@ -139,6 +139,9 @@ pub struct AssistantCall<'a> {
     pub project: Option<i64>,
     /// What the user asked, in their words — what the history shows.
     pub prompt: &'a str,
+    /// The chat turn the call was made in (#540), which folds a turn's calls
+    /// into one row of the history.
+    pub turn: Option<i64>,
 }
 
 /// Charge one assistant call: its exact cost plus the markup. Not reserved
@@ -155,13 +158,15 @@ pub async fn charge_assistant(tx: &mut Tx, call: &AssistantCall<'_>) -> Result<i
         "prompt": call.prompt,
     });
     sqlx::query(
-        "INSERT INTO credit_entries (user_id, kind, amount_micros, project_id, memo, detail)
-         VALUES (member_id(), 'charge', $1, $2, $3, $4)",
+        "INSERT INTO credit_entries (user_id, kind, amount_micros, project_id, memo, detail,
+                                     chat_turn_id)
+         VALUES (member_id(), 'charge', $1, $2, $3, $4, $5)",
     )
     .bind(-charged)
     .bind(call.project)
     .bind(format!("Assistant: {}", call.model))
     .bind(detail)
+    .bind(call.turn)
     .execute(&mut **tx)
     .await?;
     Ok(charged)

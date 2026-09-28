@@ -139,6 +139,14 @@ input, output, both kinds of cache write, cache reads — so the cost of a call 
 the vendor's own count times this table. The rate is still a page somebody
 copied, which is why the date is here; the count is not an estimate.
 
+**What a turn costs is mostly how much it re-reads.** Every call of an
+assistant turn resends the whole conversation, so the server caches it
+(`docs/web.md`, *Assistant turns*): the tools and system prompt for an hour,
+shared by every user, the conversation's tail for five minutes. A cache read
+is a twentieth of input, which is why a long turn is cheap per call and why
+anything that edits earlier messages would be expensive. The operator's
+per-turn cap bounds the rest.
+
 **In micro-dollars, rounded up once per call.** A cache-read token is a fifth of
 a micro-dollar, so a call is summed in cent-tokens and divided once, upwards —
 `prices::claude::Usage::micros`. The hosted server's ledger is in micro-dollars

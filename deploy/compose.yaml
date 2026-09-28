@@ -100,6 +100,11 @@ services:
       # a generation needing one fails, free.
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      # The assistant's key and limits. A blank key means the assistant
+      # answers "not configured"; blank limits are the server's defaults.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      SCORSESE_ASSISTANT_TURN_CAP: ${SCORSESE_ASSISTANT_TURN_CAP:-}
+      SCORSESE_ASSISTANT_MODEL: ${SCORSESE_ASSISTANT_MODEL:-}
     volumes:
       - &data
         type: bind

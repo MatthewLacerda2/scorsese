@@ -1,7 +1,9 @@
 //! # scorsese-providers — turning briefs into media
 //!
 //! Responsibility: realising the generated asset kinds. Clients for the
-//! generative providers (Veo for video, ElevenLabs for TTS audio), local
+//! generative providers (Veo for video, ElevenLabs for TTS audio) — and for
+//! the one paid vendor that makes no media, Claude, which the web app's
+//! assistant thinks with ([`claude`]) — local
 //! [`synth`]esis from a recipe, the content-addressed cache under
 //! `generated/` — an unchanged brief is never realised twice — and the
 //! generation state machine: `sketch → queued → generated → stale`.
@@ -90,12 +92,21 @@
 //! is a trait, because a project directory and a server's tables are two
 //! stores with one set of rules.
 //!
+//! [`claude`], the hosted web app's assistant model (#540) — Claude Opus 5.5,
+//! reached like the other vendors, by plain HTTP through [`api`], with its
+//! key from the same resolver. It generates no media and has no brief: it is
+//! here because it is a paid provider, and this crate is the one that holds an
+//! HTTP client and spends with a vendor's key. It knows nothing of users or
+//! turns — one streamed call in, one reply out, behind a trait so no test
+//! makes the call. What a turn is, and who pays for it, is the server's.
+//!
 //! [`spending`], the one answer to *what has this project cost so far*. A
 //! ceiling asks it to decide whether the next call may go ahead and a person
 //! asks it to decide whether they want to; two answers to that would first be
 //! noticed by somebody who had already paid.
 
 pub mod api;
+pub mod claude;
 pub mod credentials;
 pub mod prices;
 pub mod quote;

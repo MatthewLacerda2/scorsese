@@ -41,6 +41,10 @@ pub enum Provider {
     Gemini,
     /// ElevenLabs, for narration.
     ElevenLabs,
+    /// Anthropic, for the hosted web app's assistant (#540) — Claude, which
+    /// reads the project and calls scorsese's tools for a web user. Only the
+    /// server spends with this key; nothing local asks for it.
+    Anthropic,
 }
 
 impl Provider {
@@ -49,6 +53,7 @@ impl Provider {
         match self {
             Self::Gemini => "GEMINI_API_KEY",
             Self::ElevenLabs => "ELEVENLABS_API_KEY",
+            Self::Anthropic => "ANTHROPIC_API_KEY",
         }
     }
 
@@ -57,6 +62,7 @@ impl Provider {
         match self {
             Self::Gemini => "Gemini (Veo video)",
             Self::ElevenLabs => "ElevenLabs (narration)",
+            Self::Anthropic => "Anthropic (the web assistant)",
         }
     }
 
@@ -65,6 +71,7 @@ impl Provider {
         match self {
             Self::Gemini => settings.gemini_api_key.as_ref(),
             Self::ElevenLabs => settings.elevenlabs_api_key.as_ref(),
+            Self::Anthropic => settings.anthropic_api_key.as_ref(),
         }
     }
 }

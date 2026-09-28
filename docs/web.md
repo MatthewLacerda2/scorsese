@@ -120,7 +120,8 @@ Claude Opus 5.5, running server-side with scorsese's tool registry (#540). The
 same tools are served over web MCP (#539), so a user can connect their own
 client instead. One tool set, two ways in — and nothing in the tool surface may
 assume the caller is Claude (`CLAUDE.md`, *MCP is a protocol, not a Claude
-feature*).
+feature*). How a turn runs, what it costs and the API the web editor calls
+are *Assistant turns*, below.
 
 ## `crates/server`
 
@@ -144,6 +145,9 @@ provider keys use, and is documented in `.env.example`:
 | `SCORSESE_RENDER_QUOTA` | How much disk finished renders aim to stay under: `500MB`, `20GB`, `1TB`. Defaults to `20GB`. See *Renders*. |
 | `SCORSESE_BIND` | Where to listen. Defaults to `127.0.0.1:8080`, this machine only. |
 | `GEMINI_API_KEY`, `ELEVENLABS_API_KEY` | The provider keys paid generations are made with (*Web MCP*), read by the one resolver `docs/credentials.md` describes. Optional: without one, a generation needing it fails, free. |
+| `ANTHROPIC_API_KEY` | The key the assistant calls Claude with (*Assistant turns*), by the same resolver. Optional: without it the assistant answers "not configured" and nothing else changes. |
+| `SCORSESE_ASSISTANT_TURN_CAP` | The most one assistant turn may cost a user, in dollars: `2.50`. Defaults to `2.00`. |
+| `SCORSESE_ASSISTANT_MODEL` | The model the assistant runs on. Defaults to `claude-opus-5-5`; one with no rate in `prices::claude` stops the server from starting. |
 
 **Schema migrations** are embedded in the binary and run at startup, before the
 first request. Files in `crates/server/migrations/` are numbered
@@ -561,7 +565,7 @@ local project, kept here:
 
 **Live state** reaches the browser over **`GET /api/events`**, server-sent
 events, one stream per user carrying everything live: each message is a JSON
-object with a `type` — `job` today, the assistant's (#540) as it adds them.
+object with a `type` — `job`, and the assistant's (*Assistant turns*).
 In memory and allowed to drop: a reader that falls behind gets `resync`, and
 the answer to that, or to reconnecting, is to re-read `GET /api/jobs`. The
 stream ends when the server stops, and `EventSource` reconnects by itself.
@@ -961,9 +965,11 @@ The provider keys are the server's: `GEMINI_API_KEY` and `ELEVENLABS_API_KEY`,
 through the one credentials resolver; a missing key fails the job, free.
 
 **Every call is recorded** in `tool_calls` — tool, arguments, project, how it
-ended and its words (not its pictures), with `client` `external` for web MCP
-and `assistant` for #540. A paid generation's audit row names the call that
-asked for it.
+ended and its words (not its pictures), with `client` `external` for web MCP,
+`assistant` for the built-in assistant and `user` for the user's own yes to a
+quote the assistant showed them; the last two name their chat turn and their
+place in it. A paid generation's audit row names the call that asked for it,
+so *prompt → turn → tool call → generation → credits* reads back whole.
 
 **Rate limit:** 120 tool calls a minute per user, the rest `429` with
 `Retry-After`. Spending already needs a quote and a yes; this keeps one
@@ -972,6 +978,103 @@ runaway loop from filling the queue on a shared machine.
 **The web editor (#545) should call the same path**: a thin JSON route over
 `Toolbox::call` for a browser session, so no edit is written twice — once in
 Rust and again in TypeScript.
+
+## Assistant turns
+
+The built-in assistant (#540): Claude Opus 5.5 editing a user's project with
+the tools web MCP serves, while their browser watches. The code is
+`crates/server/src/assistant/` (the turn, the conversation, the quote box),
+`crates/server/src/http/chat.rs` (the routes) and, for the model itself,
+`crates/providers/src/claude/` over the wire in `api/anthropic/`; their
+module docs carry each argument. **The chat panel is #545's**; this section is
+the API it calls.
+
+**A turn** is one message from the user and everything the assistant does
+with it: call Claude with the conversation and every tool `Toolbox::listing`
+serves, run the tools it asks for — in-process, as `Client::Assistant`, in
+order — send their results back, and loop until it answers. Each project has
+conversations (`chat_sessions`); a turn joins the newest unless it asks for a
+fresh one, and one turn runs at a time per conversation. The system prompt asks
+for a short progress line before each step and one full summary at the end,
+and to lay a cut out as free sketches before spending on generation.
+
+**The conversation is append-only, stored as the text that was sent.** A
+turn's Messages API messages are kept in `chat_turns.messages` as the exact
+JSON text first sent — `TEXT`, not `JSONB`, which would reorder keys — and the
+next turn resends every earlier turn's messages unchanged. On this model a
+thinking block is valid only while everything before it is byte-for-byte what
+it was, and an unchanged prefix is also what the prompt cache reads. What the
+server vouches for — which project this is, that the user confirmed a quote —
+is a mid-conversation `system` message, which no user text or tool output can
+forge. A turn cut off before the model replied (a refusal, a stop, a restart)
+is closed by a one-line reply at the start of the next, and a tool call it
+never ran is answered there as not run.
+
+**Paid tools: the user's yes, never the model's.** `generate` quotes first
+and spends only when called again with the quote's token (*Web MCP*). The
+model never sees a token: when a call issues a quote, the token's line is cut
+from what the model reads, the quote is held on the turn and sent to the
+browser as `chat_quote`, and any call naming `confirm` is refused without
+running. The user's answer is `POST /api/chat/turns/{id}/quote`: yes makes the
+paid call itself — recorded in `tool_calls` as client `user` — and starts a
+turn that tells the model, as a `system` message, what it spent; no withdraws
+the token and the next turn is told. Writing a new message instead withdraws
+it too. A quote is answered once.
+
+**Money.** Every call to Claude is charged from its reply's `usage` — input,
+output, five-minute and one-hour cache writes, cache reads, each at its own
+rate in `prices::claude` — plus 10%, as one `charge` entry naming the turn
+(`credit_entries.chat_turn_id`); the spending history folds a turn's calls into
+one row. Not reserved for, since the cost exists only once counted: a turn is
+**refused up front (`402`) at a balance of zero or less**, and stops between
+calls once the balance runs out or the turn reaches the operator's cap
+(`SCORSESE_ASSISTANT_TURN_CAP`, default $2.00). The call that crosses either
+line was already made and is charged; one call is bounded by `max_tokens`.
+
+**Caching** is where the money is, since every call resends the conversation:
+one breakpoint on the system prompt caches the tools and the prompt together
+for an hour — identical for every user, so one write serves the whole server —
+and the API's automatic breakpoint caches the conversation's tail for five
+minutes. Nothing about a user or the time goes in the prefix.
+
+**Effort is `high`** and the model is not downgraded (`CLAUDE.md`). The model
+id is `SCORSESE_ASSISTANT_MODEL`, refused at startup unless the price table
+has a rate for it. A refusal by Anthropic's safety classifiers ends the turn as
+`refused`, charged for what the call used; it is not retried on another model,
+because the price table has one row and the maintainer chose the model.
+
+**Without `ANTHROPIC_API_KEY`** every turn is refused with `503` and "not
+configured", and the rest of the server runs as it did.
+
+| route | who | what |
+| --- | --- | --- |
+| `GET /api/projects/{id}/chat` | a member | `{project, session, turns}`: the newest conversation's turns, oldest first |
+| `POST /api/projects/{id}/chat` | a member | `{prompt, fresh?}` → `202` with the turn; `402` no credit, `409` a turn is running, `503` not configured |
+| `GET /api/chat/turns/{id}` | a member | `{turn, tools}`: the turn and the log of every tool call it made, in order |
+| `POST /api/chat/turns/{id}/stop` | a member | `202`; the turn stops before its next step. `409` if it is not running |
+| `POST /api/chat/turns/{id}/quote` | a member | `{confirm: true\|false}` → `{spent, refused, turn, note}`; `turn` is the one carrying on after a yes |
+
+A turn (`TurnView`) carries its state — `running`, then `answered`, `refused`,
+`capped`, `stopped`, `failed` or `interrupted` (the server stopped under it) —
+its `answer`, the model, token totals, `charged_micros`, and `quote`
+(`{tool, lines, micros, expires_at}`) with `quote_answer` (`null` while the box
+should show, then `confirmed`, `declined` or `withdrawn`).
+
+**On `GET /api/events`**, beside `job`:
+
+| `type` | fields | what the panel does with it |
+| --- | --- | --- |
+| `chat_turn` | `turn`, `balance_micros` | a turn started, was charged for a call, or ended: replace it, show what it cost and the balance |
+| `chat_text` | `turn`, `text` | more of the words the assistant is writing: append |
+| `chat_progress` | `turn`, `text` | a whole progress note between tool calls: one status line |
+| `chat_tool` | `turn`, `tool`, `state`, `said` | a tool `running`, then `answered` or `refused`, with the start of its answer |
+| `chat_quote` | `turn`, `quote` | show the confirmation box |
+| `project` | `id`, `revision` | the assistant changed the project: re-read it, and the preview refreshes |
+
+After `resync`, or on reconnecting, re-read `GET /api/projects/{id}/chat`.
+
+Not here yet: compacting a conversation that outgrows the context window (a
+fresh conversation is the answer for now), and a per-user daily limit.
 
 ## The pages
 

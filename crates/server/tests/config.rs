@@ -107,3 +107,28 @@ fn the_render_quota_reads_decimal_units_and_has_a_default() {
         );
     }
 }
+
+#[test]
+fn the_assistant_runs_on_opus_capped_at_two_dollars_unless_told_otherwise() {
+    use scorsese_server::config::{ASSISTANT_MODEL, ASSISTANT_TURN_CAP};
+    let config = with(&[]).unwrap();
+    assert_eq!(config.assistant_model, "claude-opus-5-5");
+    assert_eq!(config.assistant_turn_cap, 2_000_000);
+    for (written, micros) in [
+        ("5", 5_000_000),
+        ("$0.25", 250_000),
+        ("1.000001", 1_000_001),
+    ] {
+        let config = with(&[(ASSISTANT_TURN_CAP, written)]).unwrap();
+        assert_eq!(config.assistant_turn_cap, micros, "{written}");
+    }
+    for nonsense in ["0", "-1", "two", "1.0000001", ".5", "1e3"] {
+        let error = with(&[(ASSISTANT_TURN_CAP, nonsense)]).unwrap_err();
+        assert!(
+            matches!(error, ConfigError::TurnCap { .. }),
+            "{nonsense}: {error}"
+        );
+    }
+    let error = with(&[(ASSISTANT_MODEL, "claude-haiku-4-5")]).unwrap_err();
+    assert!(error.to_string().contains("no rate"), "{error}");
+}

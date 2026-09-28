@@ -102,9 +102,11 @@
 //! queue makes from stored projects, kept for download under a quota.
 //! [`tools`] is scorsese's tool surface for one user — what web MCP serves and
 //! the built-in assistant calls — and [`generations`] the paid jobs its
-//! `generate` queues.
+//! `generate` queues. [`assistant`] is that built-in assistant: Claude, run
+//! turn by turn against a user's project, charged per call.
 
 pub mod accounts;
+pub mod assistant;
 pub mod config;
 pub mod credits;
 pub mod db;
@@ -209,7 +211,8 @@ pub async fn run(
         renders,
     };
     let registry = jobs::kinds::registry(&files);
-    start(pool, listener, files, registry, shutdown).await
+    let assistant = assistant::Assistant::new(&config.assistant_model, config.assistant_turn_cap);
+    start(pool, listener, files, registry, assistant, shutdown).await
 }
 
 /// Where users' files are kept, and the tools that read them.
@@ -224,8 +227,8 @@ pub struct Files {
     pub renders: renders::RenderCache,
 }
 
-/// Migrate, then serve on `listener` with users' files in `files`, and run
-/// `registry`'s jobs until `shutdown`.
+/// Migrate, then serve on `listener` with users' files in `files` and the
+/// built-in `assistant`, and run `registry`'s jobs until `shutdown`.
 ///
 /// The half of [`run`] that is handed its resources rather than making them,
 /// so a test can give it a database of its own, a port the OS picked and
@@ -249,6 +252,7 @@ pub async fn start(
     listener: TcpListener,
     files: Files,
     registry: jobs::Registry,
+    assistant: assistant::Assistant,
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> Result<(), ServerError> {
     db::migrate(&pool).await?;
@@ -256,13 +260,19 @@ pub async fn start(
     if migrated > 0 {
         eprintln!("scorsese-server: migrated {migrated} stored projects to this build's format");
     }
+    let interrupted = assistant::recover(&pool)
+        .await
+        .map_err(ServerError::Database)?;
+    if interrupted > 0 {
+        eprintln!("scorsese-server: {interrupted} assistant turns were cut off by the last stop");
+    }
     let cache = files.renders.clone();
     cache
         .prepare()
         .map_err(|(path, source)| ServerError::Storage { path, source })?;
     files.storage.clear_scratch();
     let pool = db::member_pool(&pool).await.map_err(ServerError::Connect)?;
-    let state = AppState::new(pool.clone(), files);
+    let state = AppState::new(pool.clone(), files).with_assistant(assistant);
     let (stop, stopping) = watch::channel(false);
     let fees = tokio::spawn(credits::fees::run(pool.clone(), stopping.clone()));
     let sweep = tokio::spawn(renders::evict::run(pool.clone(), cache, stopping.clone()));

@@ -7,7 +7,7 @@ use scorsese_providers::credentials::{
 
 /// Every provider, so the report is the same length whatever is configured —
 /// a key that is missing has to appear in order to be seen to be missing.
-const PROVIDERS: [Provider; 2] = [Provider::Gemini, Provider::ElevenLabs];
+const PROVIDERS: [Provider; 3] = [Provider::Gemini, Provider::ElevenLabs, Provider::Anthropic];
 
 /// Prints where the settings file is, what resolved, and from where.
 ///
