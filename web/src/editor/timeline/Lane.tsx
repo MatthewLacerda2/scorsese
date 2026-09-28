@@ -31,7 +31,7 @@ interface Props {
   playhead: number;
   selected: string | null;
   onSelect: (clip: string) => void;
-  onTrim: (args: Record<string, unknown>) => void;
+  onTrim: (args: Record<string, unknown>) => Promise<unknown>;
   onEmptyClick: (event: PointerEvent, lane: Element) => void;
   onDragOver: (event: DragEvent) => void;
   onDrop: (event: DragEvent, lane: Element) => void;
@@ -51,6 +51,7 @@ export function Lane(props: Props) {
   const { track, document, zoom } = props;
   const fps = document.timeline_fps;
   const [held, setHeld] = useState<Held | null>(null);
+  const [landing, setLanding] = useState<{ clip: string; shape: Shape } | null>(null);
   const assets = document.assets ?? [];
 
   const grab = (event: PointerEvent<HTMLElement>, clip: Clip) => {
@@ -70,18 +71,26 @@ export function Lane(props: Props) {
       shape: shapeOf(clip),
     });
   };
-  const follow = (event: PointerEvent) => {
-    if (!held) return;
-    const delta = pxSpan(event.clientX - held.from, zoom, fps);
+  // Where the pointer is now proposes the shape — worked out from the event
+  // itself on release too, since the last move may not have been drawn yet.
+  const proposal = (event: PointerEvent, from: Held) => {
+    const delta = pxSpan(event.clientX - from.from, zoom, fps);
     const reach = pxSpan(SNAP_PX, zoom, fps);
-    const shape = snapped(held.clip, held.handle, delta, held.limits, held.at, reach);
-    setHeld({ ...held, shape });
+    return snapped(from.clip, from.handle, delta, from.limits, from.at, reach);
   };
-  const release = () => {
+  const follow = (event: PointerEvent) => {
+    if (held) setHeld({ ...held, shape: proposal(event, held) });
+  };
+  const release = (event: PointerEvent) => {
     if (!held) return;
-    const args = trimArguments(held.clip, held.shape, fps);
+    const shape = proposal(event, held);
+    const args = trimArguments(held.clip, shape, fps);
     setHeld(null);
-    if (args) props.onTrim(args);
+    if (!args) return;
+    // Drawn where it was let go until the server answers: moved there, or
+    // refused and springing back.
+    setLanding({ clip: held.clip.id, shape });
+    void props.onTrim(args).finally(() => setLanding(null));
   };
 
   return (
@@ -94,7 +103,12 @@ export function Lane(props: Props) {
       onDrop={(event) => props.onDrop(event, event.currentTarget)}
     >
       {track.clips.map((clip) => {
-        const shape = held?.clip.id === clip.id ? held.shape : shapeOf(clip);
+        const shape =
+          held?.clip.id === clip.id
+            ? held.shape
+            : landing?.clip === clip.id
+              ? landing.shape
+              : shapeOf(clip);
         const asset = assets.find((found) => found.id === clip.asset);
         const chosen = props.selected === clip.id;
         return (

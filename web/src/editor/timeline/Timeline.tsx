@@ -27,7 +27,7 @@ export interface TimelineProps {
   selected: string | null;
   onSelect: (clip: string | null) => void;
   /** A drag let go: `trim_clip`'s arguments. */
-  onTrim: (args: Record<string, unknown>) => void;
+  onTrim: (args: Record<string, unknown>) => Promise<unknown>;
   /** Something dropped on `track` at frame `pointed`, before snapping. */
   onDrop: (dragged: Dragged, track: Track, pointed: number, reach: number) => void;
   onAddTrack: (kind: "video" | "audio") => void;

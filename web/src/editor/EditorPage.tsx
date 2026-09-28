@@ -16,10 +16,13 @@ import type { EditorProject } from "@/api";
 import { useServerEvents } from "@/app/events";
 import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { AssetsPanel } from "./assets/AssetsPanel";
 import { ChatPanel } from "./chat/ChatPanel";
 import { useDrop } from "./drop";
@@ -68,7 +71,7 @@ function Editor({ project }: { project: EditorProject }) {
           </Link>
         </Button>
         <h1 className="truncate font-heading font-semibold">{document.name}</h1>
-        <span className="text-xs text-muted-foreground">revision {revision}</span>
+        <span className="text-xs text-muted-foreground">{`revision ${revision}`}</span>
         <div className="ml-auto flex items-center gap-2">
           <select
             aria-label="Frame shape"
@@ -86,16 +89,22 @@ function Editor({ project }: { project: EditorProject }) {
               </option>
             ))}
           </select>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          <Dialog>
+            <DialogTrigger asChild>
               <Button size="sm" variant="outline">
                 <FilmIcon /> Render
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-sm">
+              <DialogHeader>
+                <DialogTitle>Render the video</DialogTitle>
+                <DialogDescription>
+                  The whole cut as it is now, as an MP4 to download.
+                </DialogDescription>
+              </DialogHeader>
               <RenderPanel projectId={id} shape={shape} />
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
       {edit.refused && (
@@ -143,7 +152,7 @@ function Editor({ project }: { project: EditorProject }) {
             onSeek={setPlayhead}
             selected={selected}
             onSelect={setSelected}
-            onTrim={(args) => void edit.run({ tool: "trim_clip", args, edit: true })}
+            onTrim={(args) => edit.run({ tool: "trim_clip", args, edit: true })}
             onDrop={(dragged, track, pointed, reach) => void drop(dragged, track, pointed, reach)}
             onAddTrack={(kind) => void edit.run({ tool: "track_new", args: { kind }, edit: true })}
           />

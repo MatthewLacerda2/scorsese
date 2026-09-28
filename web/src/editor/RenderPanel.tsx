@@ -48,7 +48,7 @@ export function RenderPanel({ projectId, shape }: { projectId: number; shape: Sh
   };
 
   return (
-    <div className="flex w-80 flex-col gap-3 p-3 text-sm">
+    <div className="flex flex-col gap-3 text-sm">
       <div className="flex gap-2">
         <select
           aria-label="Resolution"
