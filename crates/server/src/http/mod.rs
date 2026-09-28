@@ -21,7 +21,7 @@
 //! | `DELETE /api/projects/{id}` | a member | deletes one |
 //! | `GET /api/credits` | a member | their balance, in dollars and ≈ reais |
 //! | `GET /api/credits/history` | a member | what moved it, filterable, with a total |
-//! | `GET /api/library` | a member | their files: `?kind=&search=&sha256=` |
+//! | `GET /api/library` | a member | their files: `?kind=&search=&sha256=&project=` |
 //! | `GET /api/library/{id}` | a member | one file's details, and the projects using it |
 //! | `PATCH /api/library/{id}` | a member | `{name?, description?}` |
 //! | `DELETE /api/library/{id}` | a member | `409` naming the projects that use it |

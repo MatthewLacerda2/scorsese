@@ -74,6 +74,10 @@ pub struct Filter {
     /// Only the item with these bytes — what the browser asks before
     /// uploading, so a duplicate never crosses the network.
     pub sha256: Option<String>,
+    /// Only the files this project uses — its row in `project_assets`, which
+    /// is derived from the document on every save. A project that is not the
+    /// caller's matches nothing, like one that does not exist.
+    pub project: Option<i64>,
 }
 
 /// What `PATCH /api/library/{id}` may change. Absent fields stay as they are.
@@ -100,11 +104,14 @@ impl Library {
              WHERE ($1::text IS NULL OR kind = $1)
                AND ($2::text IS NULL OR name ILIKE $2)
                AND ($3::text IS NULL OR sha256 = $3)
+               AND ($4::bigint IS NULL OR sha256 IN
+                    (SELECT sha256 FROM project_assets WHERE project_id = $4))
              ORDER BY id DESC",
         )
         .bind(filter.kind.map(Kind::as_str))
         .bind(search)
         .bind(filter.sha256.as_deref())
+        .bind(filter.project)
         .fetch_all(&mut *tx)
         .await?;
         tx.commit().await?;
