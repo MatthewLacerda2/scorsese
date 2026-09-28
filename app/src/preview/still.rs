@@ -6,7 +6,8 @@
 //! moving, a window resizing, a tooltip fading. Recompositing on every repaint
 //! would make the whole window as slow as a decode. So the frame is kept, and
 //! it is redrawn only when the instant asked for or the raster it was drawn at
-//! changes.
+//! changes — the raster being the preview quality's ([`super::quality`]), and
+//! the frame drawn at a reduced one reading proxies where they are made.
 //!
 //! It is deliberately *one* frame and not a ring of them. Reading ahead so that
 //! playback is smooth is a real piece of work with a real design behind it —
@@ -17,7 +18,8 @@ use egui::{
     Align2, Color32, FontId, Image, Rect, Sense, Stroke, TextureHandle, TextureOptions, Ui,
 };
 use scorsese_core::Frames;
-use scorsese_render::{RenderSettings, Renderer, Resolution, Tools};
+use scorsese_render::preview::{self, Proxies};
+use scorsese_render::{Quality, RenderSettings, Renderer, Tools};
 
 use crate::project::Open;
 use crate::theme::{marks, palette};
@@ -30,15 +32,6 @@ use crate::theme::{marks, palette};
 const ARM: f32 = 18.0;
 /// How far off the picture the marks stand, where there is room for them to.
 const GAP: f32 = 5.0;
-
-/// The raster the preview composites at.
-///
-/// Reduced on purpose: a preview is for judging pacing and framing, not for
-/// pixel-peeping, and the cost of a frame is roughly its area. 16:9 because the
-/// document does not record an aspect — a render's raster is chosen per render
-/// and never stored — so what the window can honestly show is the shape the
-/// default delivery has.
-const RASTER: (u32, u32) = (640, 360);
 
 /// The frame on screen, and what stopped there being one.
 #[derive(Default)]
@@ -62,10 +55,10 @@ pub(super) struct Still {
 }
 
 impl Still {
-    /// Draws the picture at `at`, compositing it first if it is not the one
-    /// already held.
-    pub(super) fn show(&mut self, ui: &mut Ui, open: &Open, at: Frames) {
-        let raster = raster();
+    /// Draws the picture at `at` and `quality`, compositing it first if it is
+    /// not the one already held.
+    pub(super) fn show(&mut self, ui: &mut Ui, open: &Open, at: Frames, quality: Quality) {
+        let raster = super::quality::raster(quality);
         let wanted = [raster.width() as usize, raster.height() as usize];
         let stale = self.asked != Some(at)
             || self
@@ -73,13 +66,14 @@ impl Still {
                 .as_ref()
                 .is_some_and(|texture| texture.size() != wanted);
         if stale {
-            self.recompose(ui, open, at, raster);
+            self.recompose(ui, open, at, quality);
         }
         self.paint(ui);
     }
 
     /// Asks the renderer for one frame and hands it to the GPU.
-    fn recompose(&mut self, ui: &Ui, open: &Open, at: Frames, raster: Resolution) {
+    fn recompose(&mut self, ui: &Ui, open: &Open, at: Frames, quality: Quality) {
+        let raster = super::quality::raster(quality);
         self.asked = Some(at);
         // Cloned out of `self` before anything else is touched: the discovery
         // borrows the whole struct, and the failure has to be written back into
@@ -99,7 +93,12 @@ impl Still {
         // The project's own grid, so no conform happens and the frame shown is
         // the frame asked for rather than the nearest one at some other rate.
         let settings = RenderSettings::new(raster, open.project.timeline_fps);
-        let frame = match Renderer::new(&tools, settings).still(&open.project, &open.root, at) {
+        // Whichever proxies are made by now: one still being made is simply
+        // not read yet, and the original stands in for it.
+        let proxies = Proxies::made_in(&preview::folder(&open.root), &open.project);
+        let renderer = Renderer::new(&tools, settings)
+            .with_preview(preview::Preview::new(quality).with_proxies(proxies));
+        let frame = match renderer.still(&open.project, &open.root, at) {
             Ok(frame) => frame,
             Err(problem) => {
                 self.failed(problem.to_string());
@@ -184,11 +183,6 @@ impl Still {
     }
 }
 
-/// The raster every preview frame is composited at.
-fn raster() -> Resolution {
-    Resolution::new(RASTER.0, RASTER.1).expect("the preview raster is a legal one")
-}
-
 /// The largest rectangle of `aspect` that fits inside `area`, centred on it —
 /// which is what "show the picture without distorting it" means.
 fn fitted(area: Rect, aspect: f32) -> Rect {
@@ -218,12 +212,5 @@ mod tests {
             assert!(fit.width() <= area.width() + 1e-3 && fit.height() <= area.height() + 1e-3);
             assert!((fit.center() - area.center()).length() < 1e-3, "off centre");
         }
-    }
-
-    /// The raster is a constant, and a constant the encoder would refuse is a
-    /// panic on the first frame anyone previews.
-    #[test]
-    fn the_preview_raster_is_one_a_render_would_accept() {
-        assert_eq!(raster().to_string(), "640x360");
     }
 }
