@@ -213,38 +213,49 @@ pub enum LibraryError {
     Database(#[from] sqlx::Error),
 }
 
-/// Why a file stays: the projects that use it, then the templates.
+/// Why a file stays: the projects that use it, then the templates, and what
+/// letting it go takes — taking it out of a project, deleting a template.
 fn in_use(projects: &[UsedBy], templates: &[UsedBy]) -> String {
+    let those = |n: usize, one: &str, many: &str| {
+        if n == 1 {
+            format!("that {one}")
+        } else {
+            format!("those {many}")
+        }
+    };
     let mut users = Vec::new();
+    let mut fixes = Vec::new();
     if !projects.is_empty() {
-        let those = if projects.len() == 1 {
+        let kind = if projects.len() == 1 {
             "project"
         } else {
             "projects"
         };
-        users.push(format!("the {those} {}", names(projects)));
+        users.push(format!("the {kind} {}", names(projects)));
+        let which = those(projects.len(), "project", "projects");
+        fixes.push(format!("take it out of {which}"));
     }
     if !templates.is_empty() {
-        let those = if templates.len() == 1 {
+        let kind = if templates.len() == 1 {
             "template"
         } else {
             "templates"
         };
-        users.push(format!("the {those} {}", names(templates)));
+        users.push(format!("the {kind} {}", names(templates)));
+        fixes.push(format!(
+            "delete {}",
+            those(templates.len(), "template", "templates")
+        ));
     }
+    let verb = if projects.len() + templates.len() == 1 {
+        "uses"
+    } else {
+        "use"
+    };
     format!(
-        "{} {} this file; take it out of {} first",
+        "{} {verb} this file; {} first",
         users.join(" and "),
-        if projects.len() + templates.len() == 1 {
-            "uses"
-        } else {
-            "use"
-        },
-        if projects.len() + templates.len() == 1 {
-            "it"
-        } else {
-            "them"
-        }
+        fixes.join(" and ")
     )
 }
 
