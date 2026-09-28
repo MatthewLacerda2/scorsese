@@ -16,6 +16,10 @@
 //! anybody on the machine; one the operator invents is weaker than twenty
 //! random characters.
 //!
+//! The login's brake is the operator's too: `user locks` lists who it is
+//! holding back and `user unlock` lets one of them through, and a password
+//! reset lifts the lock on that email ([`throttle`]).
+//!
 //! Each command's output is what [`user`] and [`token`] return, printed to
 //! stdout by the binary — so a test reads exactly what the operator would.
 
@@ -23,6 +27,7 @@ use clap::Subcommand;
 use sqlx::postgres::PgPool;
 
 use crate::ServerError;
+use crate::accounts::throttle::{self, Key};
 use crate::accounts::{password, tokens, users};
 pub use crate::credits::command::CreditCommand;
 use crate::jobs::store;
@@ -79,6 +84,15 @@ pub enum UserCommand {
     },
     /// List every account.
     List,
+    /// List the emails and addresses the login is braking: locked out now, or
+    /// counting failed attempts.
+    Locks,
+    /// Lift the login's lock-out on an email or a client address, and forget
+    /// its failed attempts — for somebody locked out who should not wait.
+    Unlock {
+        /// The email, or the address as `user locks` prints it.
+        who: String,
+    },
 }
 
 /// `scorsese-server token …`
@@ -112,6 +126,10 @@ pub async fn user(
         UserCommand::ResetPassword { email } => {
             let password = password::generate()?;
             users::set_password(pool, &email, &password).await?;
+            // Somebody handed a new password is about to type it.
+            throttle::clear(pool, &Key::email(&email))
+                .await
+                .map_err(ServerError::Database)?;
             format!(
                 "new password for {email}: {password}\nevery browser session it had is logged out"
             )
@@ -138,7 +156,45 @@ pub async fn user(
                     .join("\n")
             }
         }
+        UserCommand::Locks => locks(pool).await?,
+        UserCommand::Unlock { who } => {
+            let key = Key::parse(&who);
+            if throttle::clear(pool, &key)
+                .await
+                .map_err(ServerError::Database)?
+            {
+                format!("{key} may log in again")
+            } else {
+                format!("{key} was not being braked")
+            }
+        }
     })
+}
+
+/// `user locks`: one line per counter, locked ones saying for how long.
+async fn locks(pool: &PgPool) -> Result<String, ServerError> {
+    let locks = throttle::locks(pool).await.map_err(ServerError::Database)?;
+    if locks.is_empty() {
+        return Ok("nothing is locked out".to_owned());
+    }
+    Ok(locks
+        .iter()
+        .map(|lock| {
+            let state = if lock.locked_for > 0 {
+                let minutes = (lock.locked_for + 59) / 60;
+                format!("locked for {minutes} more min (lock-out {})", lock.strikes)
+            } else {
+                format!(
+                    "{} of {} attempts used in the last {} min",
+                    lock.attempts,
+                    throttle::counter::LIMIT,
+                    throttle::counter::WINDOW / 60
+                )
+            };
+            format!("{}\t{}\t{state}", lock.key.kind(), lock.key.text())
+        })
+        .collect::<Vec<_>>()
+        .join("\n"))
 }
 
 /// Carry out a `token` command. Returns what to print.

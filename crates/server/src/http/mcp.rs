@@ -48,7 +48,7 @@ use std::time::{Duration, Instant};
 use axum::Json;
 use axum::body::Bytes;
 use axum::extract::State;
-use axum::http::header::{ALLOW, RETRY_AFTER};
+use axum::http::header::ALLOW;
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use scorsese_mcp::protocol::{self, Handled, PROTOCOLS};
@@ -104,18 +104,11 @@ pub async fn post(
         .filter(|message| message.get("method") == Some(&json!("tools/call")))
         .count();
     if let Err(wait) = state.limits.take(member.user, calls) {
-        let mut refused = (
-            StatusCode::TOO_MANY_REQUESTS,
-            Json(json!({ "error": format!(
-                "too many tool calls this minute; try again in {} seconds",
-                wait.as_secs().max(1)
-            ) })),
-        )
-            .into_response();
-        if let Ok(value) = HeaderValue::from_str(&wait.as_secs().max(1).to_string()) {
-            refused.headers_mut().insert(RETRY_AFTER, value);
-        }
-        return Ok(refused);
+        let retry_after = wait.as_secs().max(1);
+        return Err(ApiError::TooMany {
+            message: format!("too many tool calls this minute; try again in {retry_after} seconds"),
+            retry_after,
+        });
     }
 
     let mut replies = Vec::new();

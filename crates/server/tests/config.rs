@@ -2,7 +2,9 @@
 //! database password never comes back out of it.
 
 use scorsese_providers::credentials::Environment;
+use scorsese_server::config::TRUST_PROXY;
 use scorsese_server::config::{BIND, CACHE, DATABASE_URL, DEFAULT_BIND, RENDER_QUOTA, STORAGE};
+use scorsese_server::http::client::Clients;
 use scorsese_server::{Config, ConfigError};
 
 const URL: &str = "postgres://scorsese:hunter2@db/scorsese";
@@ -131,4 +133,24 @@ fn the_assistant_runs_on_opus_capped_at_two_dollars_unless_told_otherwise() {
     }
     let error = with(&[(ASSISTANT_MODEL, "claude-haiku-4-5")]).unwrap_err();
     assert!(error.to_string().contains("no rate"), "{error}");
+}
+
+#[test]
+fn the_proxy_is_believed_only_when_the_compose_file_says_so() {
+    assert_eq!(with(&[]).unwrap().clients, Clients::Peer);
+    assert_eq!(
+        with(&[(TRUST_PROXY, "false")]).unwrap().clients,
+        Clients::Peer
+    );
+    assert_eq!(
+        with(&[(TRUST_PROXY, "true")]).unwrap().clients,
+        Clients::Proxy
+    );
+    for nonsense in ["yes", "1", "TRUE"] {
+        let error = with(&[(TRUST_PROXY, nonsense)]).unwrap_err();
+        assert!(
+            matches!(error, ConfigError::TrustProxy { .. }),
+            "{nonsense}"
+        );
+    }
 }

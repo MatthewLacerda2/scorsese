@@ -3,7 +3,7 @@
 //! | route | who | what |
 //! | --- | --- | --- |
 //! | `GET /api/health` | anyone | `200` when the database answers |
-//! | `POST /api/login` | anyone | `{email, password}` → the account, and a session cookie |
+//! | `POST /api/login` | anyone | `{email, password}` → the account, and a session cookie; `429` after too many tries |
 //! | `POST /api/logout` | a member | ends the session |
 //! | `GET /api/me` | a member | the account the request is logged in as |
 //! | `POST /api/me/password` | a member | `{current, new}` |
@@ -46,6 +46,7 @@
 pub mod account;
 pub mod auth;
 pub mod chat;
+pub mod client;
 pub mod credits;
 pub mod editor;
 pub mod error;
@@ -60,6 +61,7 @@ pub mod tokens;
 pub mod uploads;
 
 use std::future::Future;
+use std::net::SocketAddr;
 
 use axum::Router;
 use axum::extract::State;
@@ -101,6 +103,9 @@ pub struct AppState {
     /// The built-in assistant (#540): how it reaches Claude, and what a turn
     /// may cost.
     pub assistant: Assistant,
+    /// Which address a request is counted as coming from, for the login's
+    /// brake: the peer, or the header the deploy's nginx writes.
+    pub clients: client::Clients,
 }
 
 impl AppState {
@@ -128,6 +133,7 @@ impl AppState {
             tools,
             limits: mcp::Limits::default(),
             assistant: Assistant::default(),
+            clients: client::Clients::default(),
             pool,
             jobs,
             events,
@@ -139,6 +145,12 @@ impl AppState {
     /// The same state with `assistant` as its assistant.
     pub fn with_assistant(mut self, assistant: Assistant) -> Self {
         self.assistant = assistant;
+        self
+    }
+
+    /// The same state, believing `clients` for where a request came from.
+    pub fn with_clients(mut self, clients: client::Clients) -> Self {
+        self.clients = clients;
         self
     }
 }
@@ -252,12 +264,16 @@ async fn health(State(state): State<AppState>) -> (StatusCode, &'static str) {
 /// requests already in flight finish before this returns. `docker stop` sends
 /// SIGTERM and waits before killing, and this is what makes that wait mean a
 /// request is never cut off half-answered.
+///
+/// Each request carries the address it was connected from, which is what
+/// [`client::ClientAddress`] reads when nothing stands in front of the server.
 pub async fn serve(
     listener: TcpListener,
     router: Router,
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> std::io::Result<()> {
-    axum::serve(listener, router)
+    let service = router.into_make_service_with_connect_info::<SocketAddr>();
+    axum::serve(listener, service)
         .with_graceful_shutdown(shutdown)
         .await
 }

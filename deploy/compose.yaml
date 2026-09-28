@@ -35,7 +35,10 @@
 name: scorsese
 
 # What both tunnels share. They differ only in how cloudflared is told which
-# tunnel it is.
+# tunnel it is. Both send everything to http://web:80, nginx's tunnel-only
+# door, where CF-Connecting-IP is believed as the visitor's address
+# (nginx.conf, #557) — never to 8080, where it would count every visitor on the
+# internet as one.
 x-cloudflared: &cloudflared
   # Pinned: this is the one container that talks to the internet, and an
   # update to it is a deliberate change like any other.
@@ -96,6 +99,11 @@ services:
       # Every interface of the container, which is only the compose network:
       # no port is published, so nothing outside reaches this but nginx.
       SCORSESE_BIND: 0.0.0.0:8080
+      # Believe the client address nginx names in X-Scorsese-Client, for the
+      # login's brake (#557). True here and nowhere else: it is safe exactly
+      # because of the line above — no port published, nginx the only thing
+      # that reaches this — and nginx.conf has which address it names.
+      SCORSESE_TRUST_PROXY: "true"
       # The operator's provider keys, for users' paid generations. Blank means
       # a generation needing one fails, free.
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
@@ -135,8 +143,13 @@ services:
     # answers 502 in between, which is the truth.
     depends_on:
       - server
+    # nginx's second door, 8080, is the one published: loopback, `tailscale
+    # serve` and the LAN come in there. Its port 80 is the tunnel's alone and
+    # published to nothing, because a request on it is believed about where
+    # it came from (nginx.conf, #557). Publish 80 and anyone who can reach
+    # the port can say they are anybody.
     ports:
-      - "${SCORSESE_WEB_BIND:?set SCORSESE_WEB_BIND in deploy/.env}:${SCORSESE_WEB_PORT:?set SCORSESE_WEB_PORT in deploy/.env}:80"
+      - "${SCORSESE_WEB_BIND:?set SCORSESE_WEB_BIND in deploy/.env}:${SCORSESE_WEB_PORT:?set SCORSESE_WEB_PORT in deploy/.env}:8080"
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1/"]
       interval: 30s

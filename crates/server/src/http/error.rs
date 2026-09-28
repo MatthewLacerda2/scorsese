@@ -7,6 +7,7 @@
 
 use axum::Json;
 use axum::http::StatusCode;
+use axum::http::header::RETRY_AFTER;
 use axum::response::{IntoResponse, Response};
 use serde_json::{Value, json};
 
@@ -39,6 +40,14 @@ pub enum ApiError {
         message: String,
         /// An object whose fields join `error` in the body.
         detail: Value,
+    },
+    /// Too many requests: try again once `retry_after` seconds have passed,
+    /// which is also sent as `Retry-After`.
+    TooMany {
+        /// What was refused and why, in words.
+        message: String,
+        /// Seconds until trying again can succeed, at least one.
+        retry_after: u64,
     },
     /// Something on our side failed; the detail went to the log.
     Internal,
@@ -147,6 +156,18 @@ impl IntoResponse for ApiError {
                     fields.insert("error".to_owned(), Value::String(message));
                 }
                 return (status, Json(detail)).into_response();
+            }
+            Self::TooMany {
+                message,
+                retry_after,
+            } => {
+                let retry_after = retry_after.max(1).to_string();
+                return (
+                    StatusCode::TOO_MANY_REQUESTS,
+                    [(RETRY_AFTER, retry_after)],
+                    Json(json!({ "error": message })),
+                )
+                    .into_response();
             }
             Self::Internal => (
                 StatusCode::INTERNAL_SERVER_ERROR,
