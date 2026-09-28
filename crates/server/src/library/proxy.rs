@@ -11,7 +11,7 @@
 //! transaction as its thumbnail — upload is the moment the file is new and
 //! nobody is waiting on the machine for it yet, so the first preview it
 //! appears in is already fast. And queued again by a preview render that finds
-//! one missing ([`for_preview`]) — a cache cleared by hand, or a job that
+//! one missing (`for_preview`) — a cache cleared by hand, or a job that
 //! failed — so the cache is rebuildable in fact and not just in name. That
 //! preview reads the original meanwhile: correct, only slower.
 //!
