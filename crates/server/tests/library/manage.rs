@@ -58,6 +58,13 @@ async fn a_file_a_project_uses_cannot_be_deleted_and_says_which(pool: PgPool) {
     let named = json!({ "name": "teaser" });
     let made = request(address, "POST", "/api/projects", &[&ana], Some(&named)).await;
     let project = format!("/api/projects/{}", made.json()["id"]);
+    let its_files = format!("/api/library?project={}", made.json()["id"]);
+    let listed = || async {
+        request(address, "GET", &its_files, &[&ana], None)
+            .await
+            .json()
+    };
+    assert_eq!(listed().await, json!([]), "a new project uses nothing");
     let mut document = request(address, "GET", &project, &[&ana], None)
         .await
         .json()["document"]
@@ -76,6 +83,7 @@ async fn a_file_a_project_uses_cannot_be_deleted_and_says_which(pool: PgPool) {
     assert_eq!(saved.status, 200, "{}", saved.body);
     let details = request(address, "GET", &item, &[&ana], None).await.json();
     assert_eq!(details["used_by"][0]["name"], "teaser");
+    assert_eq!(listed().await[0]["id"], id, "the project's view lists it");
     assert!(details["last_used_at"].is_number(), "{details}");
 
     let kept = request(address, "DELETE", &item, &[&ana], None).await;
@@ -91,6 +99,7 @@ async fn a_file_a_project_uses_cannot_be_deleted_and_says_which(pool: PgPool) {
     document["assets"] = json!([]);
     let emptied = request(address, "PUT", &project, &[&ana], Some(&save(2, &document))).await;
     assert_eq!(emptied.status, 200, "{}", emptied.body);
+    assert_eq!(listed().await, json!([]));
     assert_eq!(
         request(address, "DELETE", &item, &[&ana], None)
             .await

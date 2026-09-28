@@ -28,7 +28,8 @@ pub struct Tile {
 /// `GET /api/library`: the caller's files, newest first — thumbnail, name,
 /// kind and size only (#527). `?kind=` narrows to one kind, `?search=` to
 /// names containing it, `?sha256=` to the file with those bytes: what the
-/// browser asks before uploading one.
+/// browser asks before uploading one. `?project=` narrows to the files that
+/// project uses: the web app's view of one project's assets (#544).
 pub async fn list(
     State(state): State<AppState>,
     member: Member,

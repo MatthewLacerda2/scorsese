@@ -800,7 +800,7 @@ are not written yet (#539/#540).
 
 | route | who | what |
 | --- | --- | --- |
-| `GET /api/library` | a member | their files, newest first: `id`, `name`, `kind`, `size_bytes`, `thumbnail`; `?kind=`, `?search=`, `?sha256=` narrow it |
+| `GET /api/library` | a member | their files, newest first: `id`, `name`, `kind`, `size_bytes`, `thumbnail`; `?kind=`, `?search=`, `?sha256=` and `?project=` (the files that project uses) narrow it |
 | `GET /api/library/{id}` | a member | everything known, `used_by` (projects), `generation` (or `null`) |
 | `PATCH /api/library/{id}` | a member | `{name?, description?}`; an empty description removes it |
 | `DELETE /api/library/{id}` | a member | `204`; `409` with `projects` when one uses it |
@@ -875,6 +875,38 @@ The job's progress arrives on `GET /api/events` like any job's; its result
 names the render and where to download it.
 
 Not here: preview renders (#542).
+
+## The pages
+
+What a user sees before the editor (#544); `web/README.md` has how the code is
+laid out.
+
+| URL | what |
+| --- | --- |
+| `/login` | email and password; there is no sign-up, so the page says accounts are by invitation |
+| `/projects` | create, open, rename, delete |
+| `/projects/{id}` | the library files that project uses (`GET /api/library?project=`) |
+| `/library` | every file: filter by kind, search by name, sort; upload by button or by dropping files |
+| `/library?item={id}` | the same, with that file's details open — what "you already have this" and the spending history link to |
+| `/spending` | the history, filterable, with the filter's total; the balance in the header opens it |
+
+**Flat and Drive-like, as #527 settled.** A tile is thumbnail, name, kind and
+size; a click opens the details (dimensions, duration, the projects using it,
+the description the assistant reads, and for a generated file how it was made
+and what it cost); a double click views or plays it, streamed in ranges.
+
+**Money on a page** is always the server's integers. A balance and a history
+row arrive in micro-dollars and, once the operator has set a rate, in centavos;
+the page shows "≈ R$" with dollars beside and never converts a balance itself.
+The one conversion it does — a generation record's cost, which the server
+sends in dollars only — uses the rate from `GET /api/credits` and the server's
+own rounding.
+
+**Adding a library file to a project is not a button here.** The server keeps
+no per-edit endpoints (`http/projects.rs`): what a project says changes through
+`core`'s editing functions, reached by the tools and the editor. Bringing a
+library file into a project is the editor's (#545, its assets panel) and the
+tools' (#539) to do, on whichever path they settle for edits.
 
 ## Out of scope for now
 
