@@ -2,10 +2,11 @@
 //!
 //! **An edit by hand is a tool call.** A clip dragged along its track is
 //! `trim_clip`, a file dropped onto a lane is `import` and then `place_clip`, a
-//! value typed into the inspector is `clip_set`, and the preview's frame is
-//! `still` — run by [`Toolbox::edit`](crate::tools::Toolbox::edit), on the
-//! same code the assistant and web MCP reach, and recorded in `tool_calls` as
-//! client `editor`. So no edit is written twice, once in Rust and again in
+//! value typed into the inspector is `clip_set`, a new lane is `track_new`, and
+//! the preview's frame is `still` — run by
+//! [`Toolbox::edit`](crate::tools::Toolbox::edit), on the same code the
+//! assistant and web MCP reach, and recorded in `tool_calls` as client
+//! `editor`. So no edit is written twice, once in Rust and again in
 //! TypeScript, and a refusal reads the same whoever made the edit.
 //!
 //! **Only what the editor needs.** The browser's hand-edits are few on
@@ -42,7 +43,7 @@ use crate::projects;
 use crate::tools::Refusal;
 
 /// The tools that change what a drag is computed on, so each names a revision.
-pub const EDITS: [&str; 3] = ["place_clip", "trim_clip", "clip_set"];
+pub const EDITS: [&str; 4] = ["track_new", "place_clip", "trim_clip", "clip_set"];
 
 /// The tools that do not: bringing a library file into the assets table, and
 /// looking at a frame.

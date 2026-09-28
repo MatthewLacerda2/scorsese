@@ -1,8 +1,8 @@
 // The user's projects: make one, open one, rename or delete one. Opening a
-// project shows the files it uses; the editor itself is #545's.
+// project opens the editor (#545); its files are a click away.
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { FolderOpenIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { FolderOpenIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { api, type ProjectSummary } from "@/api";
@@ -41,7 +41,7 @@ function NewProject() {
     mutationFn: api.projects.create,
     onSuccess: (project) => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
-      navigate(`/projects/${project.id}`);
+      navigate(`/projects/${project.id}/edit`);
     },
   });
   const submit = (event: FormEvent) => {
@@ -96,9 +96,14 @@ function ProjectRow({ project }: { project: ProjectSummary }) {
         </span>
         {rename.isError && <span className="text-xs text-destructive">{rename.error.message}</span>}
       </div>
-      <Button asChild variant="outline" size="sm">
+      <Button asChild variant="ghost" size="sm">
         <Link to={`/projects/${project.id}`}>
-          <FolderOpenIcon /> Open
+          <FolderOpenIcon /> Files
+        </Link>
+      </Button>
+      <Button asChild variant="outline" size="sm">
+        <Link to={`/projects/${project.id}/edit`}>
+          <PencilIcon /> Edit
         </Link>
       </Button>
       <Button

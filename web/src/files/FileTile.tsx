@@ -40,7 +40,7 @@ export function FileTile({ tile, selected, onSelect, onOpen }: Props) {
   );
 }
 
-function Thumbnail({ src, kind }: { src: string; kind: FileKind }) {
+export function Thumbnail({ src, kind }: { src: string; kind: FileKind }) {
   const [attempt, setAttempt] = useState(0);
   const [missing, setMissing] = useState(false);
   useEffect(() => {

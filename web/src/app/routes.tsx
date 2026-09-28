@@ -1,10 +1,12 @@
 // Every page, by URL. Everything but the login sits behind the session guard
 // and inside the shell (header, balance, upload tray).
 //
-// The editor (#545) belongs at `/projects/:id/edit`, beside `/projects/:id`:
-// inside `RequireSession` always, inside `Shell` only if it wants the header.
+// The editor (#545) is at `/projects/:id/edit`, inside the shell like the
+// rest — the header's balance is what an assistant turn spends — which gives
+// it the whole height under the header rather than a padded page.
 
 import { Navigate, Route, Routes } from "react-router";
+import { EditorPage } from "@/editor/EditorPage";
 import { LibraryPage, ProjectFilesPage } from "@/pages/FilesPages";
 import { LoginPage } from "@/pages/LoginPage";
 import { NotFound } from "@/pages/NotFound";
@@ -22,6 +24,7 @@ export function AppRoutes() {
           <Route index element={<Navigate to="/projects" replace />} />
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:id" element={<ProjectFilesPage />} />
+          <Route path="/projects/:id/edit" element={<EditorPage />} />
           <Route path="/library" element={<LibraryPage />} />
           <Route path="/spending" element={<SpendingPage />} />
           <Route path="*" element={<NotFound />} />
