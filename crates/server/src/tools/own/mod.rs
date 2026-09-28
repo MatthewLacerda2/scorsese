@@ -9,6 +9,7 @@
 mod catalogue;
 mod projects;
 mod queue;
+mod templates;
 
 use scorsese_mcp::Reply;
 use serde_json::{Value, json};
@@ -35,11 +36,17 @@ pub(crate) enum Own {
     Generate,
     /// What the caller has spent.
     Spending,
+    /// The caller's templates.
+    TemplateList,
+    /// Clips of a project, saved as a template.
+    TemplateSave,
+    /// A template, copied into a project.
+    TemplateInsert,
 }
 
 impl Own {
     /// Every one of them.
-    pub(crate) const ALL: [Self; 8] = [
+    pub(crate) const ALL: [Self; 11] = [
         Self::ProjectList,
         Self::ProjectNew,
         Self::Library,
@@ -48,10 +55,18 @@ impl Own {
         Self::Jobs,
         Self::Generate,
         Self::Spending,
+        Self::TemplateList,
+        Self::TemplateSave,
+        Self::TemplateInsert,
     ];
 
     /// The ones listed after the registry's tools, standing in for none.
-    pub(crate) const LAST: [Self; 1] = [Self::Spending];
+    pub(crate) const LAST: [Self; 4] = [
+        Self::TemplateList,
+        Self::TemplateSave,
+        Self::TemplateInsert,
+        Self::Spending,
+    ];
 
     /// The tool called `name`.
     pub(crate) fn named(name: &str) -> Option<Self> {
@@ -80,6 +95,9 @@ impl Own {
             Self::Jobs => queue::JOBS,
             Self::Generate => super::generate::NAME,
             Self::Spending => spending::NAME,
+            Self::TemplateList => templates::LIST,
+            Self::TemplateSave => templates::SAVE,
+            Self::TemplateInsert => templates::INSERT,
         }
     }
 
@@ -94,6 +112,9 @@ impl Own {
             Self::Jobs => queue::JOBS_SAYS,
             Self::Generate => super::generate::DESCRIPTION,
             Self::Spending => spending::DESCRIPTION,
+            Self::TemplateList => templates::LIST_SAYS,
+            Self::TemplateSave => templates::SAVE_SAYS,
+            Self::TemplateInsert => templates::INSERT_SAYS,
         }
     }
 
@@ -108,6 +129,9 @@ impl Own {
             Self::Jobs => queue::jobs_schema(),
             Self::Generate => super::generate::schema(),
             Self::Spending => spending::schema(),
+            Self::TemplateList => json!({ "type": "object", "properties": {} }),
+            Self::TemplateSave => templates::save_schema(),
+            Self::TemplateInsert => templates::insert_schema(),
         }
     }
 
@@ -135,6 +159,9 @@ impl Own {
             Self::Jobs => queue::jobs(caller, arguments).await,
             Self::Generate => super::generate::call(caller, arguments).await,
             Self::Spending => spending_history(caller, arguments).await,
+            Self::TemplateList => templates::list(caller).await,
+            Self::TemplateSave => templates::save(caller, arguments).await,
+            Self::TemplateInsert => templates::insert(caller, arguments).await,
         }
     }
 }

@@ -57,6 +57,8 @@ pub struct Details {
     pub generated: bool,
     /// The projects that use it — and so keep it from being deleted.
     pub used_by: Vec<UsedBy>,
+    /// The templates that use it, which keep it too (#546).
+    pub templates: Vec<UsedBy>,
     /// For a generated file, the record of what made it and what it cost
     /// ([`Library::generation`](crate::library::Library::generation)).
     pub generation: Option<Value>,
@@ -69,12 +71,13 @@ pub async fn details(
     Path(id): Path<i64>,
 ) -> Result<Json<Details>, ApiError> {
     let item = state.library.get(member.user, id).await?;
-    let used_by = state.library.used_by(member.user, id).await?;
+    let (used_by, templates) = state.library.used_by(member.user, id).await?;
     let generation = state.library.generation(member.user, id).await?;
     Ok(Json(Details {
         generated: item.brief_hash.is_some(),
         item,
         used_by,
+        templates,
         generation,
     }))
 }
@@ -90,8 +93,8 @@ pub async fn update(
     Ok(Json(state.library.update(member.user, id, &change).await?))
 }
 
-/// `DELETE /api/library/{id}`: `204`, or `409` naming the projects that use
-/// the file.
+/// `DELETE /api/library/{id}`: `204`, or `409` naming the projects and the
+/// templates that use the file.
 pub async fn delete(
     State(state): State<AppState>,
     member: Member,

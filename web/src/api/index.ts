@@ -16,6 +16,7 @@ import type {
   ProjectSummary,
   RenderView,
   StoredProject,
+  TemplateSummary,
   ToolAnswer,
 } from "./types";
 
@@ -26,7 +27,8 @@ export * from "./types";
 /**
  * The tools the editor calls — the server's allowlist (`http::editor`): the
  * hand-edits (a lane, a placement, a trim, a value, a move to another lane, a
- * delete), bringing a library file in, and looking at a frame.
+ * delete), bringing a library file in, looking at a frame, and saving the
+ * selection as a template or putting one in (#546).
  */
 export type EditorTool =
   | "track_new"
@@ -36,7 +38,9 @@ export type EditorTool =
   | "clip_move"
   | "clip_remove"
   | "import"
-  | "still";
+  | "still"
+  | "template_save"
+  | "template_insert";
 
 /** What `GET /api/library` narrows by; every field optional. */
 export interface LibraryFilter {
@@ -118,6 +122,12 @@ export const api = {
         `/projects/${id}/previews`,
         ask,
       ),
+  },
+  templates: {
+    /** The user's templates, by name — saved and inserted through the tools. */
+    list: () => request<TemplateSummary[]>("GET", "/templates"),
+    /** The videos it went into keep their copies. */
+    remove: (id: number) => request<void>("DELETE", `/templates/${id}`),
   },
   credits: {
     balance: () => request<Balance>("GET", "/credits"),

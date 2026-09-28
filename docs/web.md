@@ -889,8 +889,9 @@ colour sitting in the cache.
 video plays and seeks without being fetched whole. A file never changes under
 its id, so it is sent `private, immutable`, tagged by its hash.
 
-**A file a project uses cannot be deleted**: `409` naming the projects, and the
-foreign key from `project_assets` holds it if two requests race. Nothing
+**A file a project or a template uses cannot be deleted**: `409` naming the
+projects and the templates (*Templates*), and the foreign keys from
+`project_assets` and `template_assets` hold it if two requests race. Nothing
 removes a file from a *local* project (#396); this does not decide that.
 
 **Generated output is an item too**, carrying the hash of its brief.
@@ -904,9 +905,9 @@ MCP's (*Web MCP*).
 | route | who | what |
 | --- | --- | --- |
 | `GET /api/library` | a member | their files, newest first: `id`, `name`, `kind`, `size_bytes`, `thumbnail`; `?kind=`, `?search=`, `?sha256=` and `?project=` (the files that project uses) narrow it |
-| `GET /api/library/{id}` | a member | everything known, `used_by` (projects), `generation` (or `null`) |
+| `GET /api/library/{id}` | a member | everything known, `used_by` (projects), `templates`, `generation` (or `null`) |
 | `PATCH /api/library/{id}` | a member | `{name?, description?}`; an empty description removes it |
-| `DELETE /api/library/{id}` | a member | `204`; `409` with `projects` when one uses it |
+| `DELETE /api/library/{id}` | a member | `204`; `409` with `projects` and `templates` when one uses it |
 | `GET /api/library/{id}/file` | a member | the file, whole or in the range asked for |
 | `GET /api/library/{id}/thumbnail` | a member | the picture, or `404` while it is drawn |
 | `OPTIONS /api/uploads` | anyone | what tus this server speaks |
@@ -1061,6 +1062,7 @@ the web — or be left off it — without a reason written down.
 | `render`, `jobs` | the server's own: a render is a job (*Renders*), downloaded from `/api/renders/{id}/file` with the same token; `jobs` says where any job is |
 | `generate` | the server's own: paid from credits, made by the queue — below |
 | `spending_history` | the ledger, read for the caller (*Credits*) |
+| `template_list`, `template_save`, `template_insert` | the server's own: a user's templates are rows (*Templates*) |
 
 **Not served yet:** `script_read`, `script_write` and the `synth_*` tools — a
 stored project has no script and no `recipes/` (#560); `voice_design` — its
@@ -1263,7 +1265,7 @@ to the assistant, not a menu (`CLAUDE.md`, *The GUI is thin*).
 
 - **An allowlist**, not the whole surface: `track_new`, `place_clip`,
   `trim_clip`, `clip_set`, `clip_move`, `clip_remove` (the edits) and `import`,
-  `still`. Anything else is
+  `still`, `template_save`, `template_insert`. Anything else is
   `404` — a page has no business writing a whole document or spending money.
   An API token is `403`; a program uses web MCP.
 - **An edit names the revision it was worked out on**, and a project at any
@@ -1271,8 +1273,10 @@ to the assistant, not a menu (`CLAUDE.md`, *The GUI is thin*).
   nothing written: the conflict rule of *Projects*. Web MCP and the assistant
   re-run a call on a project that moved, since a tool is a function of the
   document; a drag is not, because it was computed on the timeline the user
-  saw. The page reads the project again and says so. `import` and `still` take
-  no revision: neither changes what a drag is computed on.
+  saw. The page reads the project again and says so. `import`, `still` and the
+  two template tools take no revision: none changes what a drag is computed
+  on, and where an inserted template lands is `core`'s rule applied to the
+  project as the server finds it, not something the user drew.
 - A refused edit is `422` with the tool's own reason, shown above the timeline;
   the clip springs back, since the page only draws what the server holds.
 - It shares web MCP's 120 calls a minute. An edit that lands sends `project`
@@ -1339,6 +1343,68 @@ balance after it, the quote confirmation box, Stop while it runs, and the
 generation jobs it queued (queued → generating → ready). Without an Anthropic
 key the server's `503` "not configured" is shown as a note, and nothing else
 changes.
+
+## Templates
+
+A piece of an edit saved to be copied into any of the same user's projects —
+an intro, an outro, a running gag, the whole shape of a daily video (#546). The
+code is `scorsese_core::template` (what a template is, and where one lands),
+`crates/server/src/templates/` (the rows) and the three tools in
+`crates/server/src/tools/own/templates.rs`; their module docs carry each
+argument.
+
+**A template is a `project.json` document**: `core`'s `extract` keeps the
+chosen clips, the tracks they are on and the assets they show, moved so the
+earliest clip starts at zero, under the template's name and the source's frame
+rate. Not a new format — so `Project::validate` says whether one is coherent,
+and **a schema bump migrates stored templates on start** with the same
+`scorsese_core::migrate` steps as projects, in the same all-or-nothing way. An
+arrow is saved with the clip it follows or not at all; a brief in flight is
+kept as a sketch.
+
+**Inserting copies; it never links** (#527). `core`'s `insert` writes the clips
+into the project at the time asked for, so changing or deleting a template
+never changes a video it went into. The files are not copied: a template names
+library files by hash exactly as a project does, and a file the project
+already has is shared, so a Veo intro is paid for once. Ids are kept where free
+and suffixed (`-2`) where not.
+
+**Where its tracks land** — decided in `core`, and the one rule to know: by
+position among tracks of the same kind, from the bottom. The template's first
+video track goes on the project's first video track, its second on the second,
+audio alike, and a project with no tracks takes the template's own. Where
+something is already in the way, that track **and every one above it** of that
+kind go onto new tracks on top, in the template's order — sending only the
+blocked one up would draw the template's background over its own title.
+Nothing already in the project moves; an insert that pushes the rest of the
+cut later is a different edit, not built.
+
+**The rows.** `templates` (owner, the document, a `name` generated from it and
+unique per user whatever its case) and `template_assets`, derived from the
+document on every save exactly as `project_assets` is, with the same key to
+`library_items` — which is what makes the library refuse to delete a file a
+template uses, naming the template. Both follow *Per-user isolation*. Saving
+under a taken name is refused unless the caller says `replace`; replacing is
+how a template is updated.
+
+| tool | what |
+| --- | --- |
+| `template_list` | the caller's templates: id, name, length, clips, tracks, the assets shown |
+| `template_save` | `{project, clips, name, replace?}` — those clips of that project, as a template |
+| `template_insert` | `{project, template, at_seconds}` — a copy of it, its first clip at that time; the reply names every clip and the track it went on |
+
+All three are served to web MCP and the assistant, and the editor reaches the
+last two through its tool route (*The editor*): **Save as template** on the
+selected clips (shift-click adds to a selection), and a **Templates** list in
+the assets panel whose entries go in at the playhead.
+
+| route | who | what |
+| --- | --- | --- |
+| `GET /api/templates` | a member | their templates, by name |
+| `DELETE /api/templates/{id}` | a member | `204`; the videos it went into keep their copies |
+
+Not in v1: sharing templates across users, and templates for local `.scor`
+folders — which `core`'s two functions already serve when the CLI wants them.
 
 ## Out of scope for now
 

@@ -69,7 +69,7 @@ pub fn add_track(project: &mut Project, lane: &Lane) -> Result<TrackId, AuthorEr
 /// the same id and would also be a naming rule that *can* spin — the mutation
 /// signal hangs on it rather than failing, which is what a real spin would do
 /// to a test run.
-fn numbered(project: &Project, kind: TrackKind) -> TrackId {
+pub(crate) fn numbered(project: &Project, kind: TrackKind) -> TrackId {
     let letter = match kind {
         TrackKind::Video => 'v',
         TrackKind::Audio => 'a',

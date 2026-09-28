@@ -103,7 +103,8 @@
 //! [`tools`] is scorsese's tool surface for one user — what web MCP serves and
 //! the built-in assistant calls — and [`generations`] the paid jobs its
 //! `generate` queues. [`assistant`] is that built-in assistant: Claude, run
-//! turn by turn against a user's project, charged per call.
+//! turn by turn against a user's project, charged per call. [`templates`] is
+//! the pieces of an edit a user saved to copy into their other projects.
 
 pub mod accounts;
 pub mod assistant;
@@ -119,6 +120,7 @@ pub mod operator;
 pub mod projects;
 pub mod renders;
 pub mod storage;
+pub mod templates;
 pub mod tools;
 
 use std::future::Future;
@@ -174,6 +176,11 @@ pub enum ServerError {
     /// The stored projects could not be brought up to this build's format.
     #[error("could not migrate the stored projects: {0}")]
     Projects(#[from] projects::ProjectError),
+
+    /// A stored template could not be carried forward to this build — the
+    /// same stop as a project's, for the same reason.
+    #[error("could not migrate the stored templates: {0}")]
+    Templates(#[from] templates::TemplateError),
 
     /// Recording or spending credits did not happen.
     #[error(transparent)]
@@ -240,7 +247,8 @@ pub struct Files {
 /// handlers of its own. Migrations run before the first connection is
 /// accepted, so no request ever meets a schema older than the code answering
 /// it — and so do the stored projects' own migrations
-/// ([`projects::migrate_stored`]), so no request reads a document older than
+/// ([`projects::migrate_stored`], [`templates::migrate_stored`]), so no
+/// request reads a document older than
 /// the code answering it either. Requests are then answered from
 /// [`db::member_pool`], whose connections can read nothing outside a scoped
 /// transaction — per-user isolation, `db::scope`. The job worker
@@ -265,6 +273,10 @@ pub async fn start(
     let migrated = projects::migrate_stored(&pool).await?;
     if migrated > 0 {
         eprintln!("scorsese-server: migrated {migrated} stored projects to this build's format");
+    }
+    let migrated = templates::migrate_stored(&pool).await?;
+    if migrated > 0 {
+        eprintln!("scorsese-server: migrated {migrated} stored templates to this build's format");
     }
     let interrupted = assistant::recover(&pool)
         .await

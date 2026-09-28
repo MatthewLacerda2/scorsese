@@ -9,6 +9,7 @@
 import { type DragEvent, type PointerEvent, useState } from "react";
 import type { Clip, ProjectDocument, Track } from "@/api";
 import { kindColor } from "../assets/kinds";
+import { adds } from "../selection";
 import {
   type Handle,
   type Limits,
@@ -32,8 +33,9 @@ interface Props {
   width: number;
   zoom: Zoom;
   playhead: number;
-  selected: string | null;
-  onSelect: (clip: string) => void;
+  selected: string[];
+  /** A clip clicked: `adding` when a modifier asks to add it to the selection. */
+  onSelect: (clip: string, adding: boolean) => void;
   /** A drag let go: the one tool call it becomes. */
   onRelease: (call: Release) => Promise<unknown>;
   onEmptyClick: (event: PointerEvent, lane: Element) => void;
@@ -74,7 +76,7 @@ export function Lane(props: Props) {
 
   const grab = (event: PointerEvent<HTMLElement>, clip: Clip) => {
     event.stopPropagation();
-    props.onSelect(clip.id);
+    props.onSelect(clip.id, adds(event));
     const box = event.currentTarget.getBoundingClientRect();
     const x = event.clientX - box.left;
     const handle: Handle = x < EDGE_PX ? "left" : x > box.width - EDGE_PX ? "right" : "body";
@@ -136,12 +138,12 @@ export function Lane(props: Props) {
               : shapeOf(clip);
         const dy = held?.clip.id === clip.id ? held.dy : landing?.clip === clip.id ? landing.dy : 0;
         const asset = assets.find((found) => found.id === clip.asset);
-        const chosen = props.selected === clip.id;
+        const chosen = props.selected.includes(clip.id);
         return (
           <button
             type="button"
             key={clip.id}
-            title={`${clip.id} — drag to move (onto another lane too), drag an edge to trim, Delete to remove`}
+            title={`${clip.id} — drag to move (onto another lane too), drag an edge to trim, Shift-click to select several, Delete to remove`}
             className={`absolute top-1 bottom-1 cursor-grab touch-none overflow-hidden rounded-sm px-1.5 text-[11px] text-white select-none ${kindColor(asset?.kind)} ${chosen ? "ring-2 ring-foreground" : "opacity-90"} ${held?.clip.id === clip.id ? "z-10 cursor-grabbing shadow-lg" : ""}`}
             style={{
               left: framesToPx(shape.start, zoom, fps),
@@ -153,7 +155,7 @@ export function Lane(props: Props) {
             onPointerUp={release}
             onPointerCancel={() => setHeld(null)}
             onKeyDown={(event) => {
-              if (event.key === "Enter") props.onSelect(clip.id);
+              if (event.key === "Enter") props.onSelect(clip.id, adds(event));
             }}
           >
             <span className="pointer-events-none block truncate leading-10">

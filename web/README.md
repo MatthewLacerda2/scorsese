@@ -38,7 +38,7 @@ It expects the server on `http://localhost:8080`; point it elsewhere with
 | `src/lib/upload/` | the browser-side hash, the Uppy + tus uploader, and the duplicate rule (a `409` with `item` is never retried) | — |
 | `src/lib/money.ts` | micro-dollars and centavos as text, by integer arithmetic | every figure of money on a page |
 | `src/pages/` | login, projects, the two file views, the spending history | — |
-| `src/editor/` | the editor (`/projects/:id/edit`): `timeline/` (the time↔pixel maths, drag, snap and the tool call a drag becomes, all plain functions), `preview/`, `inspector/`, `assets/`, `chat/` (the assistant's panel, its transcript a pure reducer over the event stream); every edit goes through `project.ts`'s `useEdit`, a tool call — docs/web.md, *The editor* | — |
+| `src/editor/` | the editor (`/projects/:id/edit`): `timeline/` (the time↔pixel maths, drag, snap and the tool call a drag becomes, all plain functions), `preview/`, `inspector/`, `assets/`, `templates/` (save the selection, insert at the playhead — #546), `selection.ts` (one clip, or several with Shift), `chat/` (the assistant's panel, its transcript a pure reducer over the event stream); every edit goes through `project.ts`'s `useEdit`, a tool call — docs/web.md, *The editor* | — |
 
 **Uploads** hash a file in the browser first (streamed, so a large file is
 not read into memory) and ask `GET /api/library?sha256=`; a duplicate never

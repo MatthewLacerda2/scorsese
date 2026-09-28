@@ -100,6 +100,8 @@ export interface LibraryItem {
   last_used_at: number | null;
   generated: boolean;
   used_by: ProjectRef[];
+  /** The templates that use it (#546), which keep it from being deleted too. */
+  templates: ProjectRef[];
   generation: GenerationRecord | null;
 }
 
@@ -167,6 +169,18 @@ export interface ToolPart {
 }
 
 /** `POST /api/projects/{id}/tools/{name}` — `http::editor::call`. */
+/** `templates::Summary` — a saved piece of an edit (#546), as a list shows it. */
+export interface TemplateSummary {
+  id: number;
+  name: string;
+  seconds: number;
+  clips: number;
+  tracks: number;
+  /** The assets its clips show, by id. */
+  assets: string[];
+  updated_at: number;
+}
+
 export interface ToolAnswer {
   said: ToolPart[];
   /** The project as it is after the edit; `null` after a `still`. */

@@ -24,7 +24,7 @@
 //! | `GET /api/library` | a member | their files: `?kind=&search=&sha256=&project=` |
 //! | `GET /api/library/{id}` | a member | one file's details, and the projects using it |
 //! | `PATCH /api/library/{id}` | a member | `{name?, description?}` |
-//! | `DELETE /api/library/{id}` | a member | `409` naming the projects that use it |
+//! | `DELETE /api/library/{id}` | a member | `409` naming the projects and templates that use it |
 //! | `GET /api/library/{id}/file` | a member | the file; video and audio in ranges |
 //! | `GET /api/library/{id}/thumbnail` | a member | its thumbnail, or `404` while it is drawn |
 //! | `OPTIONS`, `POST /api/uploads` | a member | tus: what is supported; announce an upload |
@@ -39,6 +39,8 @@
 //! | `POST /api/chat/turns/{id}/stop` | a member | stop a running turn before its next step |
 //! | `POST /api/chat/turns/{id}/quote` | a member | `{confirm: true\|false}`: the user's answer to a paid tool's quote |
 //! | `POST /api/projects/{id}/tools/{name}` | a member, by session | `{arguments, revision?}`: one of the web editor's tools — [`editor`] |
+//! | `GET /api/templates` | a member | their templates, by name |
+//! | `DELETE /api/templates/{id}` | a member | deletes one; the videos it went into keep their copies |
 //!
 //! "A member" is a request carrying a session cookie or an API token — see
 //! [`auth`].
@@ -57,6 +59,7 @@ pub mod mcp;
 pub mod projects;
 mod ranges;
 pub mod renders;
+pub mod templates;
 pub mod tokens;
 pub mod uploads;
 
@@ -186,7 +189,9 @@ pub fn router(state: AppState) -> Router {
         .merge(library_routes())
         .merge(render_routes())
         .merge(chat_routes())
-        .route("/projects/{id}/tools/{name}", post(editor::call));
+        .route("/projects/{id}/tools/{name}", post(editor::call))
+        .route("/templates", get(templates::list))
+        .route("/templates/{id}", delete(templates::delete));
     Router::new().nest("/api", api).with_state(state)
 }
 

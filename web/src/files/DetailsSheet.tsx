@@ -128,6 +128,11 @@ function Details({
       <section className="flex flex-col gap-1">
         <h3 className="text-sm font-medium">Used in</h3>
         <ProjectLinks projects={item.used_by} empty="No project uses it yet." />
+        {item.templates.length > 0 && (
+          <p className="text-sm text-muted-foreground">
+            {`Templates: ${item.templates.map((template) => template.name).join(", ")}`}
+          </p>
+        )}
       </section>
 
       {item.generation && <GenerationRecord record={item.generation} />}
@@ -149,14 +154,8 @@ function Details({
         busy={remove.isPending}
         onConfirm={() => remove.mutate()}
       >
-        {blockedBy ? (
-          <div className="text-sm">
-            <p className="text-destructive">It cannot be deleted while these projects use it:</p>
-            <ProjectLinks projects={blockedBy} empty="" />
-          </div>
-        ) : (
-          remove.isError && <p className="text-sm text-destructive">{remove.error.message}</p>
-        )}
+        {remove.isError && <p className="text-sm text-destructive">{remove.error.message}</p>}
+        {blockedBy && blockedBy.length > 0 && <ProjectLinks projects={blockedBy} empty="" />}
       </ConfirmDialog>
     </div>
   );

@@ -46,7 +46,7 @@
 //! [`Project`] remembers about the file it was read from, so that saving it
 //! cannot quietly land on somebody else's edit.
 //!
-//! **Nine modules keep their path**, because what they publish is an
+//! **Ten modules keep their path**, because what they publish is an
 //! *operation* on a project rather than a part of one, and the verb needs the
 //! noun in front of it: [`mod@pool`] brings media in, hashes it, probes it and
 //! collects what nothing references; [`mod@authoring`] writes down the assets
@@ -56,7 +56,8 @@
 //! [`mod@dip`] is auto-ducking; [`mod@level`] holds one clip's property at a
 //! value; [`mod@probe`] is the seam an ffprobe lives behind, so this crate can
 //! reason about media without spawning anything; [`mod@migrate`] brings a
-//! document written by an older build forward to this one; and [`mod@write`]
+//! document written by an older build forward to this one; [`mod@template`]
+//! lifts clips out of one edit and copies them into another; and [`mod@write`]
 //! is the one way a file leaves here. [`note`] keeps its own as well — the paragraph
 //! above sends the reader to it.
 //!
@@ -86,6 +87,7 @@ pub mod probe;
 pub(crate) mod project;
 pub(crate) mod shape;
 pub(crate) mod stamp;
+pub mod template;
 pub(crate) mod text;
 pub(crate) mod time;
 pub(crate) mod timeline;
