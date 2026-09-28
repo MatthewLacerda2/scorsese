@@ -2,11 +2,12 @@
 // playing when asked to — with the transport under it (start, a frame back,
 // play/pause, a frame forward, end, and a scrub bar).
 //
-// **Two pictures, one rule: the server draws both.** Scrubbing shows stills
-// from the `still` tool; Play asks for a small render of this revision (#541's
-// cache, so an unchanged cut is instant) and plays it in a video element,
-// where scrubbing is seeking. Real-time compositing in the browser is not
-// attempted, and preview quality and proxies are #542's.
+// **Two pictures, one rule: the server draws both.** Until the preview video
+// of this revision is ready, the frame under the playhead is a still from the
+// `still` tool; then it is the video (`playable.ts`, #542's doctrine), where
+// scrubbing is seeking. Both are drawn at the chosen preview quality
+// (`quality.ts`), which the row under the picture offers and says.
+// Real-time compositing in the browser is not attempted.
 
 import {
   PauseIcon,
@@ -21,6 +22,7 @@ import type { ProjectDocument } from "@/api";
 import { Button } from "@/components/ui/button";
 import { timecode, toFrames, toSeconds } from "../timeline/time";
 import { usePlayable, waiting } from "./playable";
+import { previewRaster, QUALITIES, type Quality, savedQuality, saveQuality } from "./quality";
 import { useStill } from "./still";
 
 interface Props {
@@ -29,8 +31,8 @@ interface Props {
   document: ProjectDocument;
   playhead: number;
   onSeek: (frame: number) => void;
-  /** The raster previews are drawn at, `WIDTHxHEIGHT`. */
-  raster: string;
+  /** The size the film is delivered at, `WIDTHxHEIGHT`: what the preview is a fraction of. */
+  deliver: string;
 }
 
 /** Where the cut ends: the last picture, since picture decides a render's length. */
@@ -43,10 +45,12 @@ export function cutLength(document: ProjectDocument): number {
   return Math.max(0, ...(ends("video").length ? ends("video") : ends()));
 }
 
-export function Preview({ projectId, revision, document, playhead, onSeek, raster }: Props) {
+export function Preview({ projectId, revision, document, playhead, onSeek, deliver }: Props) {
   const fps = document.timeline_fps;
   const total = cutLength(document);
-  const { playable, ask } = usePlayable(projectId, revision, raster);
+  const [quality, setQuality] = useState<Quality>(savedQuality);
+  const raster = previewRaster(deliver, quality);
+  const { playable, ask } = usePlayable(projectId, revision, deliver, quality, total > 0);
   const ready = playable.state === "ready";
   const still = useStill(projectId, revision, playhead, raster, !ready && total > 0);
   const video = useRef<HTMLVideoElement>(null);
@@ -165,7 +169,27 @@ export function Preview({ projectId, revision, document, playhead, onSeek, raste
         <span className="w-28 text-right font-mono text-xs tabular-nums">
           {timecode(playhead, fps)} / {timecode(total, fps)}
         </span>
+        <select
+          aria-label="Preview quality"
+          title={QUALITIES[quality].says}
+          className="h-8 rounded-md border bg-transparent px-1 text-xs"
+          value={quality}
+          onChange={(event) => {
+            const next = event.target.value as Quality;
+            setQuality(next);
+            saveQuality(next);
+          }}
+        >
+          {(Object.keys(QUALITIES) as Quality[]).map((choice) => (
+            <option key={choice} value={choice}>
+              {QUALITIES[choice].label}
+            </option>
+          ))}
+        </select>
       </div>
+      <p className="text-center text-[11px] text-muted-foreground">
+        {`Preview at ${QUALITIES[quality].says} (${raster})`}
+      </p>
     </div>
   );
 }

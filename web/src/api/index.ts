@@ -108,6 +108,16 @@ export const api = {
         settings,
       ),
     list: (id: number) => request<RenderView[]>("GET", `/projects/${id}/renders`),
+    /**
+     * The editor's preview video (#542): the cut at a preview quality of the
+     * delivery size, answered as a render is — made, or on its way.
+     */
+    preview: (id: number, ask: { resolution: string; quality: string }) =>
+      request<{ render: RenderView | null; job: JobView | null }>(
+        "POST",
+        `/projects/${id}/previews`,
+        ask,
+      ),
   },
   credits: {
     balance: () => request<Balance>("GET", "/credits"),
