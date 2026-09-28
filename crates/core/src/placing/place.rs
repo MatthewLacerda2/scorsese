@@ -182,7 +182,7 @@ fn clip_id(project: &Project, placement: &Placement) -> Result<ClipId, PlaceErro
 }
 
 /// The tracks a project has, for a refusal that has to name them.
-fn track_ids(project: &Project) -> String {
+pub(super) fn track_ids(project: &Project) -> String {
     if project.tracks.is_empty() {
         return "none — this project has no tracks yet".to_owned();
     }

@@ -95,6 +95,8 @@ the tools relate to each other, which is knowledge no single tool has.
 | `place_clip` | Put a clip on a track: which asset, which track, when it starts and how long it runs — all in seconds, rounded onto the project's frame grid for you. | nothing |
 | `trim_clip` | Move a clip already on the timeline, or change how long it runs or where in its source it opens — in seconds, rounded onto the project's frame grid. | nothing |
 | `clip_set` | Change a placed clip's plain values: its speed, its fit, and its position, rotation and scale as single values held for the whole clip. | nothing |
+| `clip_move` | Move a clip already on the timeline onto another track — optionally to a new start there in the same edit, the way dragging it down a lane and along it is one gesture. | nothing |
+| `clip_remove` | Take clips off the timeline by id, leaving the assets they showed and every other clip exactly where they are. | nothing |
 | `dissolve` | Dissolve one shot into the next, by writing ordinary opacity keyframes on both clips — the same ones you would place by hand, and they stay editable afterwards. | nothing |
 | `duck_music` | Lower a music track while narration plays over it, by writing ordinary volume keyframes on its clips. | nothing |
 | `set_volume` | Set how loud one clip plays — a level, a mute, or a fade between two points — by writing the ordinary volume keyframes you would place by hand, which stay editable afterwards. | nothing |
@@ -477,10 +479,9 @@ it asks for something possible.
 Two things they deliberately do not do. **A track is never created**: a track
 invented from a mistyped id would take the clip with it, and a clip on a track
 nobody meant to have is invisible in every way except the render — so a missing
-track is refused, and the refusal names the tracks there are. **A clip never
+track is refused, and the refusal names the tracks there are. **A trim never
 changes track**: which track a clip sits on decides what is drawn over what,
-which is a different edit with a different consequence, and it stays a
-`project_write`.
+which is a different edit with a different consequence — `clip_move`, below.
 
 The clip's id is optional. Without one it comes from the asset's, suffixed until
 it is free — `rooftop`, then `rooftop-2` — exactly as an imported asset gets its
@@ -505,6 +506,35 @@ for the same request.
 clip_set  { "project": "teaser.scor", "clip": "logo", "scale": 0.25,
             "position_x": 0.35, "position_y": -0.35 }
           → "`logo`: position x 0.35; position y -0.35; scale 0.25. Nothing else changed."
+```
+
+**`clip_move` changes a clip's track, and `clip_remove` takes clips off the
+timeline** — the two hand-edits anyone reaches for first with a mouse, and
+otherwise a `project_write` of the whole document for the smallest change there
+is (#576). `clip_move` takes the clip, the track, and optionally a
+`start_seconds` on it: a clip dragged down a lane and along it is one gesture,
+and doing it as a move and then a trim would pass through a document nobody
+asked for — the clip at its old start on the new lane — which can be refused
+for an overlap the finished edit does not have. Everything but the start goes
+with the clip, its **id** included, so an arrow attached to it still follows
+it. It keeps `place_clip`'s rules: the track must exist, picture goes on a
+video track and sound on an audio one, and it may not land on a clip already
+there.
+
+`clip_remove` takes `clips`, a list, removed together or not at all — one id
+that names nothing refuses the lot, since a list with a typo in it is one the
+caller has not read back. **It removes placements, never assets**: the asset
+stays in the table and its file on disk (removing an asset is #396's
+question). **There is no ripple**: nothing after a removed clip closes up
+behind it, because that would move clips nobody named. A clip an arrow is
+attached to is refused rather than left with the arrow pointing at nothing.
+
+```
+clip_move    { "project": "teaser.scor", "clip": "logo", "track": "v2" }
+             → "`logo` moved from `v1` to `v2`: starts at 0.00s (frame 0), …"
+clip_remove  { "project": "teaser.scor", "clips": ["alt-take"] }
+             → "Removed `alt-take` from `v1` (12.00s–16.00s, showing `rooftop`).
+                The assets are still in the project, and nothing else moved."
 ```
 
 ## The three operations that write keyframes for you

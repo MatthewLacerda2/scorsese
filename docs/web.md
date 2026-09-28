@@ -1008,7 +1008,7 @@ the web — or be left off it — without a reason written down.
 
 | served | how |
 | --- | --- |
-| `project_read`, `project_describe`, `project_check`, `project_assets`, `project_probe`, `project_write`, `track_new`, `text_new`, `color_new`, `shape_new`, `icon_new`, `asset_set`, `place_clip`, `trim_clip`, `clip_set`, `dissolve`, `duck_music`, `set_volume`, `scale_pacing`, `rebrief`, `icons`, `voices` | as they are, on the stored project |
+| `project_read`, `project_describe`, `project_check`, `project_assets`, `project_probe`, `project_write`, `track_new`, `text_new`, `color_new`, `shape_new`, `icon_new`, `asset_set`, `place_clip`, `trim_clip`, `clip_set`, `clip_move`, `clip_remove`, `dissolve`, `duck_music`, `set_volume`, `scale_pacing`, `rebrief`, `icons`, `voices` | as they are, on the stored project |
 | `look`, `hear`, `audio_level` | their file arguments must be paths inside the project (`assets/…`, `generated/…`) — locally they may name anything on the machine, and here the machine is everybody's |
 | `still` | without `out`: nothing is kept on the server's disk; the picture is in the reply |
 | `project_list`, `project_new` | the server's own: a project is a row, named by an id the client asks for |
@@ -1203,20 +1203,22 @@ is a first version by the rule in `CLAUDE.md` — *the user can start editing
 with it* — and is meant to be tuned from use.
 
 **The hand-edits are few, and each is a tool call.** Add a track, drop a file
-on it, drag a clip along it, drag an edge to trim, and type a plain value into
-the inspector — `track_new`, `import` then `place_clip`, `trim_clip`,
-`clip_set` — through `POST /api/projects/{id}/tools/{name}`, which runs the
-toolbox web MCP and the assistant run, recorded as client `editor`. The browser
-reads `project.json` to draw the timeline and never writes it. Anything with
-structure to it — a clip onto another track, a title, a dissolve, a ramp — is a
-sentence to the assistant, not a menu (`CLAUDE.md`, *The GUI is thin*).
+on it, drag a clip along it or onto another lane, drag an edge to trim, press
+Delete on the selected clip, and type a plain value into the inspector —
+`track_new`, `import` then `place_clip`, `trim_clip`, `clip_move`,
+`clip_remove`, `clip_set` — through `POST /api/projects/{id}/tools/{name}`,
+which runs the toolbox web MCP and the assistant run, recorded as client
+`editor`. The browser reads `project.json` to draw the timeline and never writes
+it. Anything with structure to it — a title, a dissolve, a ramp — is a sentence
+to the assistant, not a menu (`CLAUDE.md`, *The GUI is thin*).
 
 | route | who | what |
 | --- | --- | --- |
 | `POST /api/projects/{id}/tools/{name}` | a member, **by session** | `{arguments, revision?}` → `{said, project}`: the tool's words and pictures, and the project as it is now (`null` after a `still`) |
 
 - **An allowlist**, not the whole surface: `track_new`, `place_clip`,
-  `trim_clip`, `clip_set` (the edits) and `import`, `still`. Anything else is
+  `trim_clip`, `clip_set`, `clip_move`, `clip_remove` (the edits) and `import`,
+  `still`. Anything else is
   `404` — a page has no business writing a whole document or spending money.
   An API token is `403`; a program uses web MCP.
 - **An edit names the revision it was worked out on**, and a project at any
@@ -1239,7 +1241,12 @@ is left, not per keystroke.
 
 **`clip_set`** is the registry tool this added: speed (retimed, as a 2× button
 means), fit, and position, rotation and scale as single held values —
-`docs/mcp.md` has it. The assistant and web MCP get it too.
+`docs/mcp.md` has it. The assistant and web MCP get it too. **`clip_move`** and
+**`clip_remove`** came after (#576), for the same reason: a clip dropped on the
+wrong lane had nowhere to go but the assistant. A drag that ends on another
+lane is one `clip_move` with the new start, never a move then a trim; Delete or
+Backspace removes the selected clip — its asset stays, and nothing closes up
+behind it. Neither fires while a text field has the keyboard.
 
 **The preview: the server draws every picture.** Real-time compositing in the
 browser is not attempted.

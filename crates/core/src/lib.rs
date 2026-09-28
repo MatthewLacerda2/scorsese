@@ -52,7 +52,7 @@
 //! collects what nothing references; [`mod@authoring`] writes down the assets
 //! nothing brings in — a caption, a colour, a shape, a symbol — and adds the
 //! lanes they sit on; [`mod@placing`] puts a clip on a track and
-//! moves or trims one already there; [`mod@pacing`] retimes a cut;
+//! moves, trims or removes one already there; [`mod@pacing`] retimes a cut;
 //! [`mod@dip`] is auto-ducking; [`mod@level`] holds one clip's property at a
 //! value; [`mod@probe`] is the seam an ffprobe lives behind, so this crate can
 //! reason about media without spawning anything; [`mod@migrate`] brings a
@@ -117,10 +117,12 @@ pub use note::{Annotated, Noted};
 // [`pacing`] for why `scorsese_core::scale` would be the wrong name.
 pub use pacing::{PaceError, Paced};
 pub use path::{PathProblem, ProjectPath};
-// The two functions stay behind the module, for [`pacing`]'s reason: a bare
-// `scorsese_core::trim` says nothing about what it trims, and `place` reads as
-// spatial.
-pub use placing::{PlaceError, Placement, Trim, TrimError};
+// The functions stay behind the module, for [`pacing`]'s reason: a bare
+// `scorsese_core::trim` says nothing about what it trims, `place` reads as
+// spatial, and `remove` could be removing anything.
+pub use placing::{
+    PlaceError, Placement, RelocateError, Relocation, RemoveError, Removed, Trim, TrimError,
+};
 pub use pool::{
     AssetHealth, AssetStatus, HashCheck, Import, ImportError, Imported, ProbeOutcome, Probed,
     Reprobe, SkipReason, Skipped, asset_id_for, asset_status, hash_bytes, import_asset,
