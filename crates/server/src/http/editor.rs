@@ -4,7 +4,9 @@
 //! `trim_clip` and onto another lane `clip_move`, the Delete key is
 //! `clip_remove`, a file dropped onto a lane is `import` and then `place_clip`,
 //! a value typed into the inspector is `clip_set`, a new lane is `track_new`,
-//! and the preview's frame is `still` — run by
+//! the preview's frame is `still`, and a selection saved as a template or a
+//! template put in at the playhead is `template_save` or `template_insert`
+//! (#546) — run by
 //! [`Toolbox::edit`](crate::tools::Toolbox::edit), on the same code the
 //! assistant and web MCP reach, and recorded in `tool_calls` as client
 //! `editor`. So no edit is written twice, once in Rust and again in
@@ -13,7 +15,7 @@
 //! **Only what the editor needs.** The browser's hand-edits are few on
 //! purpose (`CLAUDE.md`: the GUI is thin; anything with structure to it is a
 //! sentence to the assistant), so this serves an allowlist, [`EDITS`] and
-//! [`READS`], rather than every tool: a page has no business writing a whole
+//! [`UNPINNED`], rather than every tool: a page has no business writing a whole
 //! document (`project_write`) or spending money (`generate`), and a smaller
 //! surface is a smaller thing to hold to per-user rules.
 //!
@@ -22,8 +24,10 @@
 //! project that has moved on since — the assistant was working, another tab
 //! saved — is `409`: nothing is written, the page reads the project again and
 //! the user sees what is there now. The same rule the projects API keeps
-//! (#534). Adding a library file and looking at a frame change nothing a drag
-//! was computed on, so they take no revision.
+//! (#534). Adding a library file, looking at a frame and saving a template
+//! change nothing a drag was computed on, and inserting one is worked out on
+//! the project as the server finds it — where each track lands is `core`'s
+//! rule, not something the user drew — so those take no revision.
 //!
 //! **A browser session only.** A program holding a token has web MCP, the whole
 //! surface; this route is the page's, which is what makes `editor` in the log
@@ -53,9 +57,9 @@ pub const EDITS: [&str; 6] = [
     "clip_remove",
 ];
 
-/// The tools that do not: bringing a library file into the assets table, and
-/// looking at a frame.
-pub const READS: [&str; 2] = ["import", "still"];
+/// The tools that do not: bringing a library file into the assets table,
+/// looking at a frame, saving clips as a template and inserting one.
+pub const UNPINNED: [&str; 4] = ["import", "still", "template_save", "template_insert"];
 
 /// `POST /api/projects/{id}/tools/{name}`'s body.
 #[derive(Debug, Deserialize)]
@@ -88,7 +92,7 @@ pub async fn call(
         ));
     }
     let edit = EDITS.contains(&name.as_str());
-    if !edit && !READS.contains(&name.as_str()) {
+    if !edit && !UNPINNED.contains(&name.as_str()) {
         return Err(ApiError::Refused {
             status: StatusCode::NOT_FOUND,
             message: format!("the editor does not call `{name}` — ask the assistant instead"),

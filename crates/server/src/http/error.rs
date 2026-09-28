@@ -71,10 +71,13 @@ impl From<LibraryError> for ApiError {
             LibraryError::Duplicate { id, .. } => {
                 Self::refused(StatusCode::CONFLICT, &error, json!({ "item": id }))
             }
-            LibraryError::InUse { projects } => Self::refused(
+            LibraryError::InUse {
+                projects,
+                templates,
+            } => Self::refused(
                 StatusCode::CONFLICT,
                 &error,
-                json!({ "projects": projects }),
+                json!({ "projects": projects, "templates": templates }),
             ),
             // tus answers a chunk that starts in the wrong place with 409, and
             // a client re-asks where it got to.

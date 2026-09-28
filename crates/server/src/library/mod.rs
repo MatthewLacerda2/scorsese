@@ -141,10 +141,10 @@ pub struct Summary {
     pub size_bytes: i64,
 }
 
-/// A project, as the reason an item cannot be deleted.
+/// A project or a template, as the reason an item cannot be deleted.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, sqlx::FromRow)]
 pub struct UsedBy {
-    /// The project's id.
+    /// The project's or the template's id.
     pub id: i64,
     /// Its name.
     pub name: String,
@@ -166,11 +166,14 @@ pub enum LibraryError {
         name: String,
     },
 
-    /// Projects use the item, so it stays.
-    #[error("{} uses this file; take it out of {} first", names(.projects), if .projects.len() == 1 { "that project" } else { "those projects" })]
+    /// Projects or templates use the item, so it stays (#546: a template
+    /// inserted later would name a file that is gone).
+    #[error("{}", in_use(.projects, .templates))]
     InUse {
-        /// Which.
+        /// The projects that use it.
         projects: Vec<UsedBy>,
+        /// The templates that use it.
+        templates: Vec<UsedBy>,
     },
 
     /// Not a kind of file scorsese edits, by its name.
@@ -208,6 +211,41 @@ pub enum LibraryError {
     /// The database refused or could not be reached.
     #[error("database: {0}")]
     Database(#[from] sqlx::Error),
+}
+
+/// Why a file stays: the projects that use it, then the templates.
+fn in_use(projects: &[UsedBy], templates: &[UsedBy]) -> String {
+    let mut users = Vec::new();
+    if !projects.is_empty() {
+        let those = if projects.len() == 1 {
+            "project"
+        } else {
+            "projects"
+        };
+        users.push(format!("the {those} {}", names(projects)));
+    }
+    if !templates.is_empty() {
+        let those = if templates.len() == 1 {
+            "template"
+        } else {
+            "templates"
+        };
+        users.push(format!("the {those} {}", names(templates)));
+    }
+    format!(
+        "{} {} this file; take it out of {} first",
+        users.join(" and "),
+        if projects.len() + templates.len() == 1 {
+            "uses"
+        } else {
+            "use"
+        },
+        if projects.len() + templates.len() == 1 {
+            "it"
+        } else {
+            "them"
+        }
+    )
 }
 
 /// `“a”, “b” and “c”`.

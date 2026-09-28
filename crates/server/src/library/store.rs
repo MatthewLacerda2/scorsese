@@ -126,12 +126,18 @@ impl Library {
         Ok(item)
     }
 
-    /// The projects of `user`'s that use item `id`, by name.
-    pub async fn used_by(&self, user: UserId, id: i64) -> Result<Vec<UsedBy>, LibraryError> {
+    /// The projects and the templates of `user`'s that use item `id`, by
+    /// name.
+    pub async fn used_by(
+        &self,
+        user: UserId,
+        id: i64,
+    ) -> Result<(Vec<UsedBy>, Vec<UsedBy>), LibraryError> {
         let mut tx = db::scoped(&self.pool, user).await?;
         let projects = projects_using(&mut tx, id).await?;
+        let templates = templates_using(&mut tx, id).await?;
         tx.commit().await?;
-        Ok(projects)
+        Ok((projects, templates))
     }
 
     /// Rename or describe item `id`.
@@ -183,8 +189,12 @@ impl Library {
         .await?
         .ok_or(LibraryError::NotFound)?;
         let projects = projects_using(&mut tx, id).await?;
-        if !projects.is_empty() {
-            return Err(LibraryError::InUse { projects });
+        let templates = templates_using(&mut tx, id).await?;
+        if !projects.is_empty() || !templates.is_empty() {
+            return Err(LibraryError::InUse {
+                projects,
+                templates,
+            });
         }
         sqlx::query("DELETE FROM library_items WHERE id = $1")
             .bind(id)
@@ -245,6 +255,19 @@ async fn projects_using(tx: &mut Tx, id: i64) -> Result<Vec<UsedBy>, sqlx::Error
          JOIN projects p ON p.id = pa.project_id
          JOIN library_items l ON l.user_id = pa.user_id AND l.sha256 = pa.sha256
          WHERE l.id = $1 ORDER BY p.name, p.id",
+    )
+    .bind(id)
+    .fetch_all(&mut **tx)
+    .await
+}
+
+/// The templates in `tx`'s scope that use item `id`.
+async fn templates_using(tx: &mut Tx, id: i64) -> Result<Vec<UsedBy>, sqlx::Error> {
+    sqlx::query_as(
+        "SELECT t.id, t.name FROM template_assets ta
+         JOIN templates t ON t.id = ta.template_id
+         JOIN library_items l ON l.user_id = ta.user_id AND l.sha256 = ta.sha256
+         WHERE l.id = $1 ORDER BY t.name, t.id",
     )
     .bind(id)
     .fetch_all(&mut **tx)

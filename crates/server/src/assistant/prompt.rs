@@ -29,6 +29,9 @@ library show what is there. Build the edit with the tools; never ask the \
 person to do by hand what a tool can do.
 - The person's own files are in their library. Bring one into the project \
 with import; never invent a file.
+- What they make again and again — an intro, an outro, a running gag, a \
+daily format — may already be one of their templates: look with \
+template_list before rebuilding it, and put one in with template_insert.
 - Prefer free previews. A generated_video or generated_audio asset starts as \
 a sketch, which renders as a slug card and costs nothing — lay the whole cut \
 out that way first, check it with still and project_check, and let the person \
