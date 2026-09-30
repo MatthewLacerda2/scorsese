@@ -20,7 +20,7 @@
 //! [`Project::load`] still refuse any version that is not this build's: a
 //! document meets this module once, is rewritten at the current version, and
 //! is read by the strict path from then on. That keeps "this build understands
-//! v34" a statement about one version rather than about a range.
+//! v35" a statement about one version rather than about a range.
 
 use std::path::{Path, PathBuf};
 
@@ -55,10 +55,16 @@ pub(crate) struct Step {
 ///
 /// The test beside this module fails the day [`SCHEMA_VERSION`] moves without
 /// a step being added here.
-pub(crate) const STEPS: &[Step] = &[Step {
-    from: 33,
-    apply: groups_arrive,
-}];
+pub(crate) const STEPS: &[Step] = &[
+    Step {
+        from: 33,
+        apply: groups_arrive,
+    },
+    Step {
+        from: 34,
+        apply: easings_arrive,
+    },
+];
 
 /// v33 → v34: the `group` asset kind (#586).
 ///
@@ -74,6 +80,16 @@ pub(crate) const STEPS: &[Step] = &[Step {
 /// reports, and a v33 project in somebody's account is exactly the document
 /// this rule exists to carry forward.
 fn groups_arrive(_: &mut Value) -> Result<(), String> {
+    Ok(())
+}
+
+/// v34 → v35: the overshooting easings and `cubic_bezier` (#587).
+///
+/// Nothing to rewrite, for [`groups_arrive`]'s reason: the version added
+/// values an `easing` may take — `back_in`, `back_out`, `back_in_out`,
+/// `spring` and `{ "cubic_bezier": [..] }` — and every easing a v34 document
+/// can hold still names the same curve with the same arithmetic.
+fn easings_arrive(_: &mut Value) -> Result<(), String> {
     Ok(())
 }
 
@@ -322,6 +338,45 @@ mod tests {
             .validate()
             .expect("and what comes out is a valid document");
         assert_eq!(project.tracks.len(), 2, "nothing was dropped on the way");
+    }
+
+    /// v34 → v35 held to the same rule, over the part of a document the
+    /// version touched: every easing a v34 keyframe could name still names the
+    /// same curve after the walk.
+    #[test]
+    fn a_v34_documents_easings_read_the_same_at_this_version() {
+        use crate::Easing;
+        let words = ["linear", "ease_in", "ease_out", "ease_in_out", "hold"];
+        let keyframes: Vec<Value> = (0u64..)
+            .zip(words)
+            .map(|(t, easing)| json!({ "t": t * 10, "value": 0.5, "easing": easing }))
+            .collect();
+        let document = json!({
+            "schema_version": 34,
+            "name": "Before overshoot",
+            "timeline_fps": { "num": 30, "den": 1 },
+            "assets": [{ "id": "title", "kind": "text", "text": "Hello" }],
+            "tracks": [{ "id": "v1", "kind": "video", "clips": [
+                { "id": "c-title", "asset": "title", "start": 0, "duration": 60,
+                  "keyframes": [{ "property": "opacity", "keyframes": keyframes }] }
+            ]}]
+        });
+        let (project, from) = parse(&document.to_string()).expect("a v34 document migrates");
+        assert_eq!(from, Some(34));
+        project.validate().expect("and it validates");
+        let read: Vec<Easing> = project.tracks[0].clips[0].keyframes[0]
+            .keyframes
+            .iter()
+            .map(|keyframe| keyframe.easing)
+            .collect();
+        let expected = [
+            Easing::Linear,
+            Easing::EaseIn,
+            Easing::EaseOut,
+            Easing::EaseInOut,
+            Easing::Hold,
+        ];
+        assert_eq!(read, expected);
     }
 
     #[test]

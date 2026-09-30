@@ -6,7 +6,10 @@
 
 use scorsese_core::{Easing, Frames, Keyframe, KeyframeTrack, PropertyPath};
 
-fn track(points: &[(u64, f64, Easing)]) -> KeyframeTrack {
+mod bezier;
+mod overshoot;
+
+pub(crate) fn track(points: &[(u64, f64, Easing)]) -> KeyframeTrack {
     KeyframeTrack::new(
         PropertyPath::new("some.numeric.property"),
         points
@@ -20,7 +23,7 @@ fn track(points: &[(u64, f64, Easing)]) -> KeyframeTrack {
     )
 }
 
-fn at(track: &KeyframeTrack, t: u64) -> f64 {
+pub(crate) fn at(track: &KeyframeTrack, t: u64) -> f64 {
     track.value_at(Frames(t)).expect("a value")
 }
 

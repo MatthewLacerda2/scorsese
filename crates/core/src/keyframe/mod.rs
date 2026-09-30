@@ -15,6 +15,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::time::Frames;
 
+mod bezier;
+mod easing;
+
+pub use easing::Easing;
+
 /// Names the property a keyframe track animates, e.g. `opacity`,
 /// `transform.position.x`, `volume`. Dotted segments, no empty segment.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
@@ -50,47 +55,6 @@ impl std::fmt::Display for PropertyPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // `pad` rather than `write_str`, so `{:<20}` in a table actually aligns.
         f.pad(&self.0)
-    }
-}
-
-/// How a value approaches the next keyframe.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Easing {
-    /// Constant rate throughout, and what a keyframe that says nothing means.
-    #[default]
-    Linear,
-    /// Starts slow and accelerates into the next keyframe.
-    EaseIn,
-    /// Starts at full rate and settles as it arrives.
-    EaseOut,
-    /// Slow at both ends, quickest in the middle — the one that reads as
-    /// deliberate rather than mechanical.
-    EaseInOut,
-    /// Holds this value until the next keyframe, then jumps.
-    Hold,
-}
-
-impl Easing {
-    /// Reshapes linear progress through a segment, `0.0..=1.0`, into eased
-    /// progress.
-    ///
-    /// The classic quadratic family, which is what "ease in" means to anyone
-    /// who has used an editor. Nothing here is tuneable yet on purpose: a
-    /// custom bezier is a property of a keyframe someone can ask for, and
-    /// inventing the knob before the need is how a format grows fields nobody
-    /// sets.
-    pub fn apply(self, progress: f64) -> f64 {
-        let p = progress.clamp(0.0, 1.0);
-        match self {
-            Self::Linear => p,
-            Self::EaseIn => p * p,
-            Self::EaseOut => 1.0 - (1.0 - p) * (1.0 - p),
-            // Smoothstep: symmetric, and flat at both ends.
-            Self::EaseInOut => p * p * (3.0 - 2.0 * p),
-            // The value does not travel at all; it jumps at the next keyframe.
-            Self::Hold => 0.0,
-        }
     }
 }
 

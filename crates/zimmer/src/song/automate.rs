@@ -12,9 +12,12 @@
 //!
 //! `scorsese-core` animates a clip with `(property, [(t, value, easing)])`,
 //! and this is that shape one crate over: a list of points, a value between
-//! them, and the same five easing curves under the same five names. The two
-//! cannot share code — this crate has never heard of `core` — but they must
-//! not disagree about what `ease_in_out` means, so they do not.
+//! them, and core's five plain easing curves under the same five names. The
+//! two cannot share code — this crate has never heard of `core` — but they
+//! must not disagree about what `ease_in_out` means, so they do not. Core's
+//! overshooting curves (`back_*`, `spring`, `cubic_bezier`) are not here: they
+//! exist to make motion land, and a gain or a cutoff that went past its mark
+//! and settled back would be a pump, not a build.
 //!
 //! **Time is beats**, like everything else in a song, so changing the tempo of
 //! a piece with a build in it is still one number.
@@ -138,11 +141,11 @@ impl Param {
 
 /// How a value approaches the next point.
 ///
-/// The same five, under the same names and with the same arithmetic, as
-/// `scorsese_core::keyframe::Easing`. Written out again rather than shared,
-/// because this crate does not depend on that one — but *chosen* rather than
-/// invented, so an agent that has written a clip's keyframes already knows
-/// these.
+/// Core's five plain curves, under the same names and with the same
+/// arithmetic, as `scorsese_core::keyframe::Easing`. Written out again rather
+/// than shared, because this crate does not depend on that one — but *chosen*
+/// rather than invented, so an agent that has written a clip's keyframes
+/// already knows these.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Easing {

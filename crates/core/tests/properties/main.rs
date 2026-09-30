@@ -1,7 +1,7 @@
 //! What the framerate and keyframe arithmetic does, over the whole of its
 //! input range rather than at the values someone thought of.
 //!
-//! These sit **alongside** `grid/fps.rs` and `animation.rs`, which stay. An
+//! These sit **alongside** `grid/fps.rs` and `animation/`, which stay. An
 //! example is the readable statement of what a rule *is* — a decimal
 //! framerate is refused, a hold jumps on arrival — and one case states it.
 //! Arithmetic is the other kind of thing: it fails at the values nobody
