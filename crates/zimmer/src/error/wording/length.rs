@@ -5,9 +5,10 @@
 //! seam that group already had — the fields [`crate::song`] validates
 //! together, because each is a property of the whole piece rather than of a
 //! note in it. The parent's match hands every one of these variants here by
-//! name, so a variant can only reach the arm below that panics if it was
-//! added to that list and not to this match — which the first test to print
-//! it finds.
+//! name, so a variant can only reach the catch-all arm below if it was added
+//! to that list and not to this match — and then it prints its `Debug` form
+//! rather than panicking inside a `Display`, which the first test to print it
+//! finds.
 
 use std::fmt;
 
@@ -41,7 +42,11 @@ impl SynthError {
                 f,
                 "song: `tail: wrap` would fold {overhang:.2} s of ring-out onto a {length:.2} s loop, and it would still be ringing the next time round — shorten the release or the effect tail, or lengthen the arrangement"
             ),
-            other => unreachable!("`say` hands `say_length` only length refusals, not {other:?}"),
+            // `say` hands over only the five above, and a new variant cannot
+            // reach here without being added to its list first. Should one
+            // ever arrive regardless, it is still an error being described:
+            // say what it is plainly rather than panic inside a `Display`.
+            other => write!(f, "{other:?}"),
         }
     }
 }
