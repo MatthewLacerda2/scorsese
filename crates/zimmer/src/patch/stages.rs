@@ -87,6 +87,7 @@ pub enum NoiseColor {
 /// weight in the mix, a whole-octave transpose, and how many detuned copies of
 /// itself it sounds at once.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Osc {
     /// Which waveform this oscillator produces.
     pub wave: Wave,
@@ -143,6 +144,7 @@ pub struct Osc {
 /// carve it down; a table of these *states* the spectrum, so the timbre is the
 /// numbers rather than what a filter shape happened to arrive at.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Partial {
     /// Frequency as a multiple of the played pitch: `1` is the fundamental,
     /// `2` the octave above it, `3` the twelfth above that.
@@ -215,7 +217,7 @@ pub struct Partial {
 ///   table of partials, each placed, weighted and faded on its own. What the
 ///   patch says *is* the answer, with nothing left for a filter to arrive at.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Source {
     /// Subtractive stack: up to [`MAX_OSCS`] oscillators summed, the classic
     /// analog-synth head.
@@ -345,6 +347,7 @@ impl Source {
 
 /// An ADSR envelope: three timed segments and a level held between them.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Adsr {
     /// Attack: seconds from silence to full level.
     pub a: f32,
@@ -426,6 +429,7 @@ impl Default for Adsr {
 /// [`Filter::env_octaves`] and [`Filter::vel_octaves`] do: a patch may sweep
 /// down onto its note and then wobble around it.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PitchEnv {
     /// How many semitones the envelope adds at full level.
     ///
@@ -644,6 +648,7 @@ pub enum LfoTarget {
 /// One is enough for vibrato, wobble or tremolo. A modulation matrix would be
 /// a free graph, which is exactly the shape a patch deliberately is not.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Lfo {
     /// Rate in Hz, typically 0.1–10.
     pub rate: f32,

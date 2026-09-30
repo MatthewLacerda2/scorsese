@@ -54,6 +54,7 @@ pub(crate) mod chord;
 pub(crate) mod clock;
 pub(crate) mod excerpt;
 pub(crate) mod feel;
+mod forms;
 pub(crate) mod glide;
 pub(crate) mod key;
 mod mix;
@@ -110,6 +111,7 @@ fn centred(pan: &f32) -> bool {
 
 /// A complete piece of music, renderable to one stereo buffer.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Song {
     /// Tempo in beats per minute — the whole piece's, or where it starts if
     /// [`tempo`](Self::tempo) moves it.
@@ -192,6 +194,7 @@ pub struct Song {
 
 /// One instrument in the mix: a patch, and how loud it sits.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Track {
     /// How notes refer to this track.
     pub name: String,
@@ -243,7 +246,11 @@ pub struct Track {
 /// a [`PatchResolver`] the caller supplies. In scorsese that is a path under
 /// the project root, checked by the same rules every other path obeys; nothing
 /// here opens a file.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+///
+/// A string is a name and an object is a patch. Written untagged, but read by
+/// hand so a misspelled key in an inline patch is refused by name — the
+/// `song::forms` module has why.
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(untagged)]
 pub enum PatchRef {
     /// A name for the caller's resolver to turn into a patch.
@@ -257,6 +264,7 @@ pub enum PatchRef {
 /// Patterns are just N beats — no time signature, because nothing in the
 /// renderer needs bars.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Pattern {
     /// How long this block occupies in the arrangement, in beats. Notes may
     /// ring out past it — the next pattern starts on time regardless — so this
@@ -315,14 +323,16 @@ pub(crate) struct Context<'a> {
 /// a sample is produced, so this enum is about how a part is *written*, and
 /// nothing past that expansion knows which form the page used.
 ///
-/// Untagged, told apart by **which field is present** — `note`, `degree`,
-/// `chord` or `steps` — the way [`Pitch`] tells a name from a MIDI number.
-/// Every variant [denies unknown fields](https://serde.rs/container-attrs.html),
-/// which is what keeps that discrimination honest as the list grows: an entry
-/// carrying two of the four is refused by all four rather than resolved by
-/// declaration order, and so is one with a misspelled field. Guessing between
-/// them is the one outcome worse than any of them.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+/// Written untagged, and told apart by **which field is present** — `steps`,
+/// `chord`, `degree` or `note`, looked for in that order. Every variant
+/// [denies unknown fields](https://serde.rs/container-attrs.html), which is
+/// what keeps that discrimination honest as the list grows: an entry carrying
+/// two of the four is refused by the first rather than resolved, and so is one
+/// with a misspelled field — each refusal naming the key. Guessing between
+/// them is the one outcome worse than any of them. It is read by hand rather
+/// than by serde's untagged reader so that the key survives into the error;
+/// the `song::forms` module has why and how.
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(untagged)]
 pub enum PatternEntry {
     /// One note, exactly as patterns have always been written.

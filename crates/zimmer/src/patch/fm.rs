@@ -64,6 +64,7 @@ pub const FM_OPERATORS: usize = 4;
 /// aggressive. No operator is ever both under any row of the table, so the
 /// number is never ambiguous — [`Algorithm::is_carrier`] says which it is.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Operator {
     /// Frequency as a multiple of the played pitch. Whole numbers stay
     /// harmonic; fractional ones (`1.41`, `3.5`) go inharmonic, which is where

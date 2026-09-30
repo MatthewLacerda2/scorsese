@@ -9,6 +9,9 @@ last clause is doing is [below](#the-synthesiser-is-the-other-half-of-a-bake).
 Two shapes, told apart by the `recipe` field: **`patch`** is one instrument
 playing one note (an effect), **`song`** is a piece of music.
 
+**A key the format does not know is refused, by name**, at every level of
+either shape: a misspelled `"gian"` is an error, never a default played silently.
+
 **Both are sound nobody speaks.** Recipes make effects and score — a gunshot, a
 footstep, a UI blip, the music under all of them — and there is no voice in
 them. That is a boundary rather than a gap: nothing in a patch or a song has

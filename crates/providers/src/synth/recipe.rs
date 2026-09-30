@@ -143,4 +143,28 @@ mod tests {
         assert_eq!(opts.velocity, default_velocity());
         assert_eq!(opts.seed, 0);
     }
+
+    /// `recipe` is this enum's tag, consumed here before `zimmer` sees the
+    /// document — so the strict document types underneath never report it as
+    /// a stray key, while a key that *is* stray is still refused by name, from
+    /// either shape (#592).
+    #[test]
+    fn the_tag_is_not_a_stray_key_and_a_misspelling_under_it_is_named() {
+        let song = |extra: &str| {
+            format!(
+                r#"{{ "recipe": "song", "bpm": 120, "tracks": [], "patterns": {{}},
+                     "arrangement": [] {extra} }}"#
+            )
+        };
+        let parsed = Recipe::from_json(&song("")).expect("a song recipe parses");
+        assert_eq!(parsed.kind(), "song");
+        let refusal = Recipe::from_json(&song(r#", "bmp": 90"#)).expect_err("`bmp` is a typo");
+        assert!(refusal.to_string().contains("`bmp`"), "{refusal}");
+
+        let patch = r#"{ "recipe": "patch", "note": "C4",
+            "patch": { "source": { "kind": "noise", "colour": "pink" },
+                       "amp": { "a": 0.0, "d": 0.1, "s": 0.0, "r": 0.0 } } }"#;
+        let refusal = Recipe::from_json(patch).expect_err("`colour` is not a field");
+        assert!(refusal.to_string().contains("`colour`"), "{refusal}");
+    }
 }

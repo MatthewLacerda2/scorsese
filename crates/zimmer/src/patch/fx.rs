@@ -81,6 +81,7 @@ impl EqKind {
 
 /// One band of an [`Fx::Eq`].
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct EqBand {
     /// What this band does to the spectrum.
     pub kind: EqKind,
@@ -125,7 +126,7 @@ impl EqBand {
 /// A limiter is *always* applied at bake and is deliberately not listed here —
 /// it is not a choice the recipe gets to make.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "fx", rename_all = "snake_case")]
+#[serde(tag = "fx", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Fx {
     /// Feedback echo.
     Delay {
