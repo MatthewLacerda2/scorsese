@@ -100,8 +100,9 @@ MatthewLacerda2/rusty#547; the rules carried over, the numbers did not):
   worktree's `target/` 8–14 GB, most of it `debug/incremental`), a
   git-excluded `.cargo/config.toml` in each worktree with `debug =
   "line-tables-only"` for the dev and test profiles and `[build] incremental =
-  false` brought a full build to ~4.6 GB. No test outcome changes; the warm incremental rebuild is the
-  price, so it is for a machine short of disk, never the default.
+  false` brought a full build to ~4.6 GB. No test outcome changes; the warm
+  incremental rebuild is the price, so it is for a machine short of disk, never
+  the default.
 
 **Remove a worktree the moment its branch merges.** Each carries a full
 `target/` — 8–17 GB apiece. Disposal is what keeps disk from becoming the
@@ -125,10 +126,10 @@ never when the queue is.
   cloud session); anything whose proof needs a real display, a real GPU or real
   speakers; anything macOS-specific.
 - **Cloud:** a branch whose proof is `make gates` **and** that edits no types or
-  files another in-flight branch edits. The collision list above still decides that;
-  cloud removes the build-slot limit, not the rebase cost. A cloud container is
-  Linux, so it also runs the pixel gate that `make gates` skips on macOS — with
-  whatever ffmpeg the container installs, so CI stays the authority
+  files another in-flight branch edits. The collision list above still decides
+  that; cloud removes the build-slot limit, not the rebase cost. A cloud
+  container is Linux, so it also runs the pixel gate that `make gates` skips on
+  macOS — with whatever ffmpeg the container installs, so CI stays the authority
   (`docs/golden-renders.md`). That makes it the natural home for a branch that
   **adds a golden fixture**, provided the container is x86_64: a reference is
   only trustworthy blessed on CI's platform, **x86_64 Linux**. Linux alone is

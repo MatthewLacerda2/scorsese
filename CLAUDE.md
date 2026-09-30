@@ -313,9 +313,9 @@ machine you are on — cores, free memory, free disk — before a heavy build.
   runs through the normal flow (an issue, or an issue-less PR where that is
   allowed; a branch; a PR; the gates). An issue the stage-label rule below says
   must carry `planning` or `human` is not a clear win by definition, and a
-  `planning` issue is still never started. Nor is anything that spends the
-  user's money — a provider generation, `make live-check` — which is asked
-  first, every time.
+  `planning` issue is still never started. And nothing that spends the user's
+  money — a provider generation, `make live-check` — is done on initiative: it
+  is asked first, every time.
 - **Flow:** idea → issue → branch → PR → CI green → merge. New work starts as
   an issue, not a surprise diff, and the PR references the issue it closes.
   **Issue-less PRs are allowed only** for documentation updates or bug fixes.
