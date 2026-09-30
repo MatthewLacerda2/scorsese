@@ -32,6 +32,38 @@ pub struct Layer<'a> {
     /// says how a transform is to be *read*, and animating it would move a
     /// layer by changing what its numbers mean.
     pub origin: Origin,
+    /// The layer this one is shown through, if any — see [`Matte`].
+    ///
+    /// Boxed because a matte is a layer too, and a layer cannot hold itself
+    /// by value. A matte's own `matte` is ignored: a chain of them is refused
+    /// long before anything is drawn, and drawing one would be a compositing
+    /// graph this crate does not have.
+    pub matte: Option<Box<Matte<'a>>>,
+}
+
+/// A layer drawn only where another layer's picture is — a track matte.
+///
+/// **The matte is drawn, not read.** Its layer goes through every stage any
+/// layer does — its own transform, blur, opacity, even its light — onto a
+/// transparent raster the size of the canvas, and the **alpha** of that
+/// picture is the mask. So a matte moves, scales, softens and fades the way
+/// its clip does, and a wipe is nothing more than a rectangle whose scale is
+/// keyframed.
+///
+/// **It is the last thing that happens to the masked layer**, applied as the
+/// layer lands on the canvas: after its shadow and glow, and after its
+/// transform. That order is forced rather than chosen — the two layers have
+/// transforms of their own and only meet on the canvas — and it is also the
+/// one that reads right: a matte reveals the layer *with* its light, where
+/// cutting the layer before its shadow was grown would leave the shadow of
+/// the whole layer hanging outside the reveal.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Matte<'a> {
+    /// What the mask is drawn from.
+    pub layer: Layer<'a>,
+    /// Show the masked layer where the matte is **not**, rather than where it
+    /// is.
+    pub invert: bool,
 }
 
 impl<'a> Layer<'a> {
@@ -42,6 +74,7 @@ impl<'a> Layer<'a> {
             properties: Properties::default(),
             anchor: Anchor::default(),
             origin: Origin::default(),
+            matte: None,
         }
     }
 }

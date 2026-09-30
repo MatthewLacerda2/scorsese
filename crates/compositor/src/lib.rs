@@ -168,6 +168,7 @@ mod grain;
 pub mod grid;
 pub mod icon;
 mod light;
+mod matte;
 mod paint;
 mod properties;
 mod registry;
@@ -178,7 +179,7 @@ mod vhs;
 pub mod waveform;
 
 pub use area::{Area, on_canvas};
-pub use compose::{CompositeError, Compositor, Layer};
+pub use compose::{CompositeError, Compositor, Layer, Matte};
 pub use cpu::CpuCompositor;
 pub use dissolve::{DissolveError, Placed, dissolve};
 pub use frame::{BYTES_PER_PIXEL, Frame, PIXEL_FORMAT, Resolution, ResolutionError};

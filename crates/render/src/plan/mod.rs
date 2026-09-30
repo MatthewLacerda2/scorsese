@@ -6,6 +6,7 @@
 //! what lets the sequencing be tested exhaustively without encoding anything.
 
 mod error;
+mod mattes;
 mod nested;
 mod range;
 mod segments;
@@ -78,6 +79,20 @@ pub struct Shot<'a> {
     /// where the group's zero falls on the timeline, which can be before the
     /// timeline's own — hence signed. See [`Shot::local`].
     pub shift: i64,
+    /// The clip this shot is shown through at this instant, when it has a
+    /// matte and that clip is on screen — see [`Matted`]. A matte clip is
+    /// never a layer of its own, so it is only ever found here.
+    pub matte: Option<Matted<'a>>,
+}
+
+/// A shot's track matte, resolved: the clip whose picture is its mask.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Matted<'a> {
+    /// The matte clip, as a shot of its own — a group's members opened
+    /// beneath it like any other, since a group is as good a mask as a shape.
+    pub shot: Box<Shot<'a>>,
+    /// Shown where the matte is not, rather than where it is.
+    pub invert: bool,
 }
 
 impl Shot<'_> {
@@ -93,11 +108,15 @@ impl Shot<'_> {
     }
 
     /// This shot and every shot nested inside it, parents before their
-    /// members — the order a renderer gets them ready in.
+    /// members, and its matte after them — the order a renderer gets them
+    /// ready in, since a matte is decoded and drawn like any other shot.
     pub fn and_members(&self) -> Vec<&Self> {
         let mut all = vec![self];
         for member in &self.members {
             all.extend(member.and_members());
+        }
+        if let Some(matte) = &self.matte {
+            all.extend(matte.shot.and_members());
         }
         all
     }
@@ -255,7 +274,15 @@ impl<'a> Plan<'a> {
             end,
             timeline_fps: project.timeline_fps,
             out_fps,
-            segments: segments::build(project, &picture_tracks, start, end, visible)?,
+            segments: segments::build(project, &picture_tracks, start, end, visible)?
+                .into_iter()
+                // Picture only: a matte decides what is seen, and a matte clip
+                // or a masked one with sound on it is heard exactly as before.
+                .map(|segment| Segment {
+                    layers: mattes::attach(picture_tracks.iter().copied(), segment.layers),
+                    ..segment
+                })
+                .collect(),
             audio: segments::build(project, &audio_tracks, start, end, audible)?,
             notes,
         })

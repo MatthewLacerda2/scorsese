@@ -29,6 +29,18 @@ pub enum ExtractError {
         /// The clip it follows.
         follows: ClipId,
     },
+    /// A chosen clip is masked by one that was not chosen, so the template
+    /// would hold a matte naming nothing.
+    #[error(
+        "clip `{clip}` is masked by clip `{matte}`, which is not among the clips chosen — \
+         choose it too, or leave the masked clip out"
+    )]
+    MatteUnchosen {
+        /// The masked clip.
+        clip: ClipId,
+        /// Its matte.
+        matte: ClipId,
+    },
     /// A chosen clip shows a group. A template does not carry one yet (#598): the
     /// group's members would need their assets, ids and frame rate carried
     /// through [`crate::template::insert`] too, and a half-carried group is a
@@ -77,6 +89,15 @@ pub fn extract(
         return Err(ExtractError::NoSuchClips(missing));
     }
     let chosen = || project.clips().filter(|(_, clip)| clips.contains(&clip.id));
+    let unchosen_matte = chosen().find_map(|(_, clip)| {
+        clip.matte
+            .as_ref()
+            .filter(|matte| !clips.contains(&matte.clip))
+            .map(|matte| (clip.id.clone(), matte.clip.clone()))
+    });
+    if let Some((clip, matte)) = unchosen_matte {
+        return Err(ExtractError::MatteUnchosen { clip, matte });
+    }
     let opens = chosen()
         .map(|(_, clip)| clip.start)
         .min()

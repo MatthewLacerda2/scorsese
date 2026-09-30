@@ -11,7 +11,9 @@
 use std::sync::Mutex;
 use std::sync::mpsc::{Receiver, Sender};
 
-use scorsese_compositor::{CompositeError, Compositor, CpuCompositor, Frame, Layer, Properties};
+use scorsese_compositor::{
+    CompositeError, Compositor, CpuCompositor, Frame, Layer, Matte, Properties,
+};
 
 use crate::error::RenderError;
 
@@ -115,7 +117,8 @@ struct Sources<'b> {
 
 impl<'b> Sources<'b> {
     /// The layers drawn into `within` — a group, or the frame itself — in
-    /// drawing order.
+    /// drawing order, each carrying its matte. A matte is not among them on
+    /// its own account: it is drawn only as the mask of the layer it serves.
     fn layers(
         &self,
         slots: &'b [Slot],
@@ -124,21 +127,36 @@ impl<'b> Sources<'b> {
     ) -> Vec<Layer<'b>> {
         slots
             .iter()
-            .zip(properties)
-            .filter(|(slot, _)| slot.within == within)
-            .map(|(slot, properties)| Layer {
-                source: match &slot.pixels {
-                    Pixels::Held(pixels) => pixels,
-                    Pixels::Live(at) => &self.buffers[*at],
-                    Pixels::Drawn { at, .. } | Pixels::Typed { at, .. } => {
-                        &self.buffers[self.live + *at]
-                    }
-                    Pixels::Composed { at } => &self.groups[*at - self.first_group],
-                },
-                properties: *properties,
-                anchor: slot.anchor,
-                origin: slot.origin,
+            .enumerate()
+            .filter(|(_, slot)| slot.within == within && !slot.is_matte)
+            .map(|(at, slot)| Layer {
+                matte: slot.matte.map(|(matte, invert)| {
+                    Box::new(Matte {
+                        layer: self.layer(slots, properties, matte),
+                        invert,
+                    })
+                }),
+                ..self.layer(slots, properties, at)
             })
             .collect()
+    }
+
+    /// The layer in slot `at`, as it is drawn for itself — with no matte.
+    fn layer(&self, slots: &'b [Slot], properties: &[Properties], at: usize) -> Layer<'b> {
+        let slot = &slots[at];
+        Layer {
+            source: match &slot.pixels {
+                Pixels::Held(pixels) => pixels,
+                Pixels::Live(at) => &self.buffers[*at],
+                Pixels::Drawn { at, .. } | Pixels::Typed { at, .. } => {
+                    &self.buffers[self.live + *at]
+                }
+                Pixels::Composed { at } => &self.groups[*at - self.first_group],
+            },
+            properties: properties[at],
+            anchor: slot.anchor,
+            origin: slot.origin,
+            matte: None,
+        }
     }
 }

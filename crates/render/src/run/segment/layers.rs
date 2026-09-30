@@ -46,6 +46,12 @@ pub(super) struct Slot {
     /// The group this layer is drawn into, by its index among the segment's
     /// slots — `None` for a layer drawn straight onto the frame.
     pub(super) within: Option<usize>,
+    /// The slot this layer is shown through, and whether inverted — set once
+    /// every slot exists, since a matte's slot comes after the one it masks.
+    pub(super) matte: Option<(usize, bool)>,
+    /// Whether this layer *is* a matte: drawn only as another layer's mask,
+    /// never onto a canvas of its own accord.
+    pub(super) is_matte: bool,
 }
 
 /// One shot as a segment draws it: the groups opened, and each shot knowing
@@ -63,15 +69,33 @@ pub(super) struct Entry<'s, 'a> {
     pub(super) shot: &'s Shot<'a>,
     /// The group it is drawn into, by index in the same list.
     pub(super) within: Option<usize>,
+    /// The shot this one is the matte of, by index in the same list — `None`
+    /// for every shot that is drawn for itself.
+    pub(super) serves: Option<usize>,
 }
 
-/// A segment's layers with every group opened, in drawing order.
+/// A segment's layers with every group opened, in drawing order — and each
+/// matte straight after the shot it masks and that shot's members, in the
+/// same group, so a matte that is itself a group has its members after it too.
 pub(super) fn open<'s, 'a>(layers: &'s [Shot<'a>]) -> Vec<Entry<'s, 'a>> {
     fn walk<'s, 'a>(shots: &'s [Shot<'a>], within: Option<usize>, out: &mut Vec<Entry<'s, 'a>>) {
         for shot in shots {
             let at = out.len();
-            out.push(Entry { shot, within });
+            out.push(Entry {
+                shot,
+                within,
+                serves: None,
+            });
             walk(&shot.members, Some(at), out);
+            if let Some(matte) = &shot.matte {
+                let matte_at = out.len();
+                out.push(Entry {
+                    shot: &matte.shot,
+                    within,
+                    serves: Some(at),
+                });
+                walk(&matte.shot.members, Some(matte_at), out);
+            }
         }
     }
     let mut out = Vec::new();
@@ -196,6 +220,8 @@ impl Pass<'_> {
                 origin: shot.clip.origin,
             },
             within,
+            matte: None,
+            is_matte: false,
         };
         let held = |pixels: Frame| Ok((at_raster(Pixels::Held(pixels)), None));
         let blank = || Frame::black(raster);
@@ -302,6 +328,8 @@ impl Pass<'_> {
                             origin: shot.clip.origin,
                         },
                         within,
+                        matte: None,
+                        is_matte: false,
                     },
                     None,
                 ));
@@ -363,6 +391,8 @@ impl Pass<'_> {
                     origin: shot.clip.origin,
                 },
                 within,
+                matte: None,
+                is_matte: false,
             },
             Some(decoder),
         ))

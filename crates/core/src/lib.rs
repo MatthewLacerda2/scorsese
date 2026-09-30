@@ -82,6 +82,7 @@ pub(crate) mod icon;
 pub(crate) mod keyframe;
 pub mod level;
 pub(crate) mod light;
+pub(crate) mod matte;
 pub mod migrate;
 pub mod note;
 pub mod pacing;
@@ -122,6 +123,7 @@ pub use keyframe::{Between, Easing, Keyframe, KeyframeTrack, PropertyPath};
 // `scorsese_core::set` names nothing at all.
 pub use level::{Level, LevelError, Levelled};
 pub use light::{Blend, Glow, Shadow};
+pub use matte::Matte;
 pub use note::{Annotated, Noted};
 // The function itself is deliberately left behind the module — see
 // [`pacing`] for why `scorsese_core::scale` would be the wrong name.
@@ -157,7 +159,8 @@ pub use timeline::{
     TrackId, TrackKind,
 };
 pub use validate::{
-    AssetField, AssetProblem, FillProblem, FollowProblem, GroupProblem, IconProblem, ShapeProblem,
-    SpeechProblem, TextProblem, TimelineProblem, ValidationError, ValidationErrors, VideoProblem,
+    AssetField, AssetProblem, FillProblem, FollowProblem, GroupProblem, IconProblem, MatteProblem,
+    ShapeProblem, SpeechProblem, TextProblem, TimelineProblem, ValidationError, ValidationErrors,
+    VideoProblem,
 };
 pub use vhs::Vhs;

@@ -16,6 +16,7 @@ mod fill;
 mod follow;
 mod group;
 mod icon;
+mod matte;
 mod shape;
 mod speech;
 mod text;
@@ -27,6 +28,7 @@ pub use fill::FillProblem;
 pub use follow::FollowProblem;
 pub use group::GroupProblem;
 pub use icon::IconProblem;
+pub use matte::MatteProblem;
 pub use shape::ShapeProblem;
 pub use speech::SpeechProblem;
 pub use text::TextProblem;
@@ -81,6 +83,10 @@ pub enum ValidationError {
     /// that is not an arrow, or one across a group's edge.
     #[error(transparent)]
     Follow(#[from] FollowProblem),
+
+    /// A clip's `matte` naming something that cannot mask it.
+    #[error(transparent)]
+    Matte(#[from] MatteProblem),
 }
 
 /// A video problem is an asset problem, so it reaches the collected list the

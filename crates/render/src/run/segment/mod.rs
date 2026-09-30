@@ -136,6 +136,21 @@ impl Pass<'_> {
             decoders.extend(decoder);
         }
 
+        // Mattes last, when every slot exists: a matte's slot comes after
+        // the one it masks, so the link can only be made looking back.
+        for (at, entry) in entries.iter().enumerate() {
+            let Some(masked) = entry.serves else {
+                continue;
+            };
+            let invert = entries[masked]
+                .shot
+                .matte
+                .as_ref()
+                .is_some_and(|matte| matte.invert);
+            slots[masked].matte = Some((at, invert));
+            slots[at].is_matte = true;
+        }
+
         // Once every layer is ready, since a follower's arrow may come after
         // it in drawing order.
         // Each layer as [`follow`] sees it: the same resolution `describe --at`

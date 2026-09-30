@@ -6,6 +6,7 @@ use super::ids::free;
 use super::retime::retime;
 use crate::asset::AssetId;
 use crate::authoring::numbered;
+use crate::matte::Matte;
 use crate::project::Project;
 use crate::time::Frames;
 use crate::timeline::{Clip, ClipId, Track, TrackId, TrackKind};
@@ -102,6 +103,12 @@ pub fn insert(
                             follow.clip = now.clone();
                         }
                         follow
+                    }),
+                    // A matte names a clip of the template by id, so it
+                    // follows that clip to whatever id it was given.
+                    matte: clip.matte.as_ref().map(|matte| Matte {
+                        clip: clip_ids.get(&matte.clip).unwrap_or(&matte.clip).clone(),
+                        invert: matte.invert,
                     }),
                     ..clip.clone()
                 })

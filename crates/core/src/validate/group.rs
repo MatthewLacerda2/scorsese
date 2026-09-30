@@ -48,8 +48,8 @@ pub(super) fn check(project: &Project) -> Vec<GroupProblem> {
 
 /// Every timeline in the document: the project's own, then each group's.
 ///
-/// A **scope** is what an arrow may reach: the clips on the same tracks as
-/// itself. Everything else is across an edge.
+/// A **scope** is what an arrow or a matte may reach: the clips on the same
+/// tracks as itself. Everything else is across an edge.
 pub(super) fn scopes(project: &Project) -> impl Iterator<Item = &[Track]> {
     let groups = project
         .assets
