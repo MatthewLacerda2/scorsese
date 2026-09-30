@@ -2,9 +2,9 @@
 // have to spend, who you are) and the upload tray, which stays on screen while
 // the user browses so an upload is never lost to a click.
 
-import { CircleUserIcon } from "lucide-react";
 import { Link, NavLink, Outlet, useMatch, useNavigate } from "react-router";
 import { useBalance } from "@/app/queries";
+import { ThemeMenuItem } from "@/app/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -89,8 +89,8 @@ function AccountMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Your account">
-          <CircleUserIcon />
+        <Button variant="ghost" size="icon" className="rounded-full" aria-label="Your account">
+          <img src="/icon.png" alt="" className="size-7 rounded-full" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
@@ -99,6 +99,8 @@ function AccountMenu() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => navigate("/spending")}>Spending history</DropdownMenuItem>
+        <ThemeMenuItem />
+        <DropdownMenuSeparator />
         <DropdownMenuItem
           onSelect={() => logout.mutate(undefined, { onSettled: () => navigate("/login") })}
         >

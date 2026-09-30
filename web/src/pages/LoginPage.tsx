@@ -4,6 +4,7 @@
 
 import { type FormEvent, useState } from "react";
 import { Navigate, useSearchParams } from "react-router";
+import { ThemeToggle } from "@/app/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -26,9 +27,17 @@ export function LoginPage() {
   };
 
   return (
-    <main className="flex min-h-svh items-center justify-center p-6">
+    <main className="relative flex min-h-svh items-center justify-center p-6">
+      <ThemeToggle className="absolute top-4 right-4" />
       <Card className="w-full max-w-sm">
-        <CardHeader>
+        <CardHeader className="justify-items-center text-center">
+          <img
+            src="/logo.png"
+            alt=""
+            width={210}
+            height={256}
+            className="mx-auto mb-2 h-32 w-auto rounded-xl"
+          />
           <CardTitle className="font-heading text-2xl">scorsese</CardTitle>
           <CardDescription>Log in to your projects and files.</CardDescription>
         </CardHeader>
