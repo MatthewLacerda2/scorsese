@@ -28,6 +28,7 @@ mod outlines;
 mod overshoot;
 mod painting;
 mod placing;
+mod redrawing;
 mod trims;
 
 use scorsese_compositor::shape::{Boxed, Figure, Outline};
