@@ -37,6 +37,8 @@ It expects the server on `http://localhost:8080`; point it elsewhere with
 | `src/files/` | the Drive-like browser (grid, details panel, viewer), and uploads: an `UploadsProvider` around the signed-in app, so an upload survives navigation | showing or picking library files anywhere |
 | `src/lib/upload/` | the browser-side hash, the Uppy + tus uploader, and the duplicate rule (a `409` with `item` is never retried) | — |
 | `src/lib/money.ts` | micro-dollars and centavos as text, by integer arithmetic | every figure of money on a page |
+| `src/lib/theme.ts` | light or dark: the stored choice, else the system's; `index.html`'s inline script applies the same rule before the bundle loads, so a dark page never flashes white, and `theme.test.ts` runs that script to keep the two agreeing | the toggle (`src/app/ThemeToggle.tsx`); colours come from index.css's tokens, never a fixed `bg-white` |
+| `public/` | the logo (login page) and the square icon (favicon, account button), resized from `app/assets/` | — |
 | `src/pages/` | login, projects, the two file views, the spending history | — |
 | `src/editor/` | the editor (`/projects/:id/edit`): `timeline/` (the time↔pixel maths, drag, snap and the tool call a drag becomes, all plain functions), `preview/`, `inspector/`, `assets/`, `templates/` (save the selection, insert at the playhead — #546), `selection.ts` (one clip, or several with Shift), `chat/` (the assistant's panel, its transcript a pure reducer over the event stream); every edit goes through `project.ts`'s `useEdit`, a tool call — docs/web.md, *The editor* | — |
 
