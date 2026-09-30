@@ -65,8 +65,8 @@ pub(super) fn holds(character: char) -> bool {
 /// text rather than the figure alone: a run is shaped with one set of features,
 /// and a caption whose other digits changed style beside the counter would look
 /// like a font change. A face with no `tnum` feature ignores the request and
-/// keeps its own figures, which is what [`FIGURE_SPACE`] is then measured
-/// against.
+/// keeps its own figures, and the figure space [`super::padded`] pads with is
+/// then measured against those.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Figures {
     /// Whatever the face sets by default — proportional in most text faces.
