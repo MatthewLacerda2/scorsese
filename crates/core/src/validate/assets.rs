@@ -215,6 +215,7 @@ fn check_style(asset: &Asset, errors: &mut Vec<AssetProblem>) {
     }
     check_weight(asset, style, errors);
     check_stroke(asset, style, errors);
+    super::text::check(asset, style, errors);
 }
 
 /// What can be said about a rim without a raster: that a colour was given and

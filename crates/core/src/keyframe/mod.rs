@@ -15,9 +15,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::time::Frames;
 
+mod between;
 mod bezier;
 mod easing;
 
+pub use between::Between;
 pub use easing::Easing;
 
 /// Names the property a keyframe track animates, e.g. `opacity`,
@@ -155,24 +157,8 @@ impl KeyframeTrack {
     /// it is animating. That is the generality rule holding: the same function
     /// evaluates an opacity ramp, a position move, and an audio fade.
     pub fn value_at(&self, t: Frames) -> Option<f64> {
-        let first = self.keyframes.first()?;
-        let last = self.keyframes.last()?;
-        if t <= first.t {
-            return Some(first.value);
-        }
-        if t >= last.t {
-            return Some(last.value);
-        }
-        let pair = self
-            .keyframes
-            .windows(2)
-            .find(|pair| pair[0].t <= t && t < pair[1].t)?;
-        let (from, to) = (&pair[0], &pair[1]);
-        let span = to.t.get().saturating_sub(from.t.get());
-        if span == 0 {
-            return Some(from.value);
-        }
-        let progress = (t.get() - from.t.get()) as f64 / span as f64;
-        Some(from.value + (to.value - from.value) * from.easing.apply(progress))
+        // Outside the span the stretch is held, `from == to`, so the easing
+        // multiplies zero and the answer is the held value exactly.
+        self.between(t).map(|between| between.eased())
     }
 }

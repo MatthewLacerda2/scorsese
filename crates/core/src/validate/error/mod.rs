@@ -16,6 +16,7 @@ mod group;
 mod icon;
 mod shape;
 mod speech;
+mod text;
 mod timeline;
 mod video;
 
@@ -24,6 +25,7 @@ pub use group::GroupProblem;
 pub use icon::IconProblem;
 pub use shape::ShapeProblem;
 pub use speech::SpeechProblem;
+pub use text::TextProblem;
 pub use timeline::TimelineProblem;
 pub use video::VideoProblem;
 
@@ -99,6 +101,13 @@ impl From<ShapeProblem> for ValidationError {
 /// And an icon problem.
 impl From<IconProblem> for ValidationError {
     fn from(problem: IconProblem) -> Self {
+        Self::Asset(problem.into())
+    }
+}
+
+/// And a text asset's reveal or counter problem.
+impl From<TextProblem> for ValidationError {
+    fn from(problem: TextProblem) -> Self {
         Self::Asset(problem.into())
     }
 }

@@ -24,12 +24,13 @@ mod icon;
 mod report;
 mod shape;
 mod speech;
+mod text;
 mod timeline;
 mod video;
 
 pub use error::{
-    AssetProblem, GroupProblem, IconProblem, ShapeProblem, SpeechProblem, TimelineProblem,
-    ValidationError, VideoProblem,
+    AssetProblem, GroupProblem, IconProblem, ShapeProblem, SpeechProblem, TextProblem,
+    TimelineProblem, ValidationError, VideoProblem,
 };
 pub use field::AssetField;
 pub use report::ValidationErrors;

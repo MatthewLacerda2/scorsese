@@ -114,7 +114,7 @@ pub use dip::{Dip, Ducked, Under, duck_track};
 pub use grade::Grade;
 pub use group::Group;
 pub use icon::{DEFAULT_ICON_STROKE_WIDTH, Icon};
-pub use keyframe::{Easing, Keyframe, KeyframeTrack, PropertyPath};
+pub use keyframe::{Between, Easing, Keyframe, KeyframeTrack, PropertyPath};
 // As with `pacing::scale`, the function stays behind its module: a bare
 // `scorsese_core::set` names nothing at all.
 pub use level::{Level, LevelError, Levelled};
@@ -143,14 +143,17 @@ pub use shape::{
     Attach, Curve, DEFAULT_STROKE_WIDTH, Endpoint, Geometry, Heads, MAX_RADIUS, Point, Shape, Side,
 };
 pub use stamp::{Timestamp, TimestampError};
-pub use text::{DEFAULT_FONT, FontChoice, MAX_WEIGHT, MIN_WEIGHT, TextAlign, TextStyle};
+pub use text::{
+    Counter, DEFAULT_FONT, FontChoice, Locale, MAX_DECIMALS, MAX_WEIGHT, MIN_WEIGHT, PLACEHOLDER,
+    Reveal, RevealUnit, TextAlign, TextStyle,
+};
 pub use time::{Fps, FpsError, FpsParseError, Frames, Speed};
 pub use timeline::{
     Anchor, AnchorX, AnchorY, Clip, ClipId, Crop, Fit, Origin, OriginX, OriginY, Track, TrackId,
     TrackKind,
 };
 pub use validate::{
-    AssetField, AssetProblem, GroupProblem, IconProblem, ShapeProblem, SpeechProblem,
+    AssetField, AssetProblem, GroupProblem, IconProblem, ShapeProblem, SpeechProblem, TextProblem,
     TimelineProblem, ValidationError, ValidationErrors, VideoProblem,
 };
 pub use vhs::Vhs;

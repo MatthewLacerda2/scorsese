@@ -14,6 +14,7 @@ mod group;
 mod icon;
 mod keyframes;
 mod keying;
+mod motion;
 mod paths;
 mod references;
 mod shape;
