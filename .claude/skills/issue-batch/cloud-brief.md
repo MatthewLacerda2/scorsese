@@ -81,7 +81,10 @@ session: the first coder to hit a difference corrects this list in its PR.)*
   `web/` and `app/`, so their gates run: install what they need.
 - `docs/project-format.md` is parsed by tests: an edit to it is a code change.
 - `missing_docs` is a gate: every new `pub` item gets a doc comment.
-- Don't run `make mutants`; CI runs the mutation signal on the pull request.
+- `make mutants` before readying is worth it when the branch adds mechanism.
+  Nothing else compiles in this container, and it is the last point a survivor
+  can be fixed in this PR: CI's report arrives with the run the queue merges
+  on. It is a signal — never a reason to stay draft.
 - Rebase onto the latest `origin/main`, then `make gates` (foreground), before
   readying.
 
