@@ -861,7 +861,8 @@ would otherwise mean generating a PNG of identical pixels and importing a
 megabyte of them to say one thing.
 
 The `color` field is required and takes the same notation a text `style` does:
-`#rrggbb`, or `#rrggbbaa` for one you can see through. There is no default. A
+`#rrggbb`, or `#rrggbbaa` for one you can see through — or a gradient, below.
+There is no default. A
 background is the largest thing on screen, and one that came out white because
 nobody chose would be a shot rendered wrong that no error ever mentioned.
 
@@ -875,8 +876,64 @@ It composites like any other layer. `opacity` and the transforms already apply,
 so a colour that fades up is keyframes and nothing new — and a half-opacity
 black over a shot is how you dim one.
 
-Gradients are not here. A gradient has a direction, stops and an interpolation
-between them, and that is a different feature wearing this one's clothes.
+#### Gradients
+
+```json asset
+{ "id": "backdrop", "kind": "color",
+  "color": { "radial": { "center": { "x": 0.5, "y": 0.45 }, "radius": 0.8,
+                         "stops": [["#1b2440", 0.0], ["#0b1020", 1.0]] } } }
+```
+
+A colour asset's `color` and a shape's `fill` take either the colour string
+above or a **gradient object**: `linear` or `radial`, one key naming which. A
+flat full-frame colour is what makes an explainer look like a slide deck; a
+radial gradient lighter behind the subject is the ordinary motion-graphics
+backdrop, and a gradient panel is the ordinary caption plate. The string form
+is unchanged — every document that wrote a colour still means that colour.
+
+```json asset
+{ "id": "plate", "kind": "shape",
+  "shape": {
+    "geometry": { "rectangle": { "width": 0.6, "height": 0.2, "radius": 0.5 } },
+    "fill": { "linear": { "angle": 90,
+                          "stops": [["#e8590c", 0.0], ["#7048e8", 1.0]] } }
+  } }
+```
+
+| Form | Fields | What it is |
+| --- | --- | --- |
+| `linear` | `stops`, optional `angle` (default `180`) | colours along a straight line across the box |
+| `radial` | `stops`, `radius`, optional `center` (default the middle) | colours in circles out from a point |
+
+- **Every coordinate is a fraction of the painted box**: the shape's own box
+  for a shape, the whole raster for a colour asset. A gradient pill looks the
+  same wherever it is placed and at every resolution.
+- **`angle`** is in degrees, the CSS way: the direction the colours *travel*,
+  clockwise from upwards — `0` bottom to top, `90` left to right, `180` top to
+  bottom. The line runs through the box's centre and is just long enough that
+  the first stop lands on one corner and the last on the opposite one.
+- **`center`** is `{ "x", "y" }` across and down the box from its top-left.
+  **`radius`** is a fraction of the box's **shorter side** — the unit a
+  rectangle's corner `radius` uses, so circles stay circles on any box: `0.5`
+  from the middle touches the nearer pair of edges, and on a 16:9 frame about
+  `1.02` reaches the corners. Past the radius the last stop's colour carries on.
+- **`stops`** is a list of `[colour, offset]` pairs, offsets from `0` to `1`.
+  At least two, rising or level — two at one offset are a hard edge, as in
+  CSS. Colours may carry alpha; they are blended premultiplied, so a stop
+  fading to transparent does not drag a grey fringe through the middle.
+
+**Gradients are dithered**, because an 8-bit ramp across a large dark area
+bands, and H.264 at a low bitrate keeps the bands. The compositor adds noise
+two levels either side before rounding — well under what an eye resolves —
+which is what survives an encoder: a patterned (ordered) dither does not.
+Nothing to set. On the one frame x264 opens a very starved encode with, a dark
+gradient can still band; a higher bitrate is the fix, and `grade.grain` on top
+adds little the dither has not already done.
+
+Only the inside of a shape takes a gradient. A border (`stroke`), a caption's
+colour and an icon's colour stay one colour each, and the gradient itself is
+not animatable — a gradient that fades or slides does it through `opacity` and
+`transform.*`, like any other layer. Conic and mesh gradients are not here.
 
 ### Shape assets
 
@@ -925,7 +982,8 @@ be caught once a render had turned both into pixels. Above `0.5` is refused.
 
 **`fill` and `stroke` are separate, and each is optional.** Both take the same
 notation a text `style` does: `#rrggbb`, or `#rrggbbaa` for one you can see
-through. A border over an absent fill is a callout that does not hide the shot
+through — and `fill` may instead be a gradient across the shape's own box (see
+*Gradients* above). A border over an absent fill is a callout that does not hide the shot
 inside it; a fill with no border is a plain block; a green border round a blue
 interior is a legend key. What is refused is *neither* — a shape that would
 draw nothing renders exactly like a shape that failed to render, and a diagram
@@ -2718,7 +2776,9 @@ carries `group`, that an icon has
 a size and a thickness to draw with, that a shape has area, a corner it has room to round,
 something to draw with and a `dash` of at least one length, each above zero —
 and that an arrow has two ends in different
-places and no `fill`, since a line has no inside — that a `style`'s
+places and no `fill`, since a line has no inside — that a gradient `fill` or
+`color` has at least two stops rising from `0` to `1`, a finite angle, and a
+centre and a radius above zero — that a `style`'s
 font path, a `synth_audio`'s `recipe` and the document's `script`
 obey the project-path rules, and that each generated kind carries exactly the
 brief it takes: a `prompt` or a `recipe`, never both and never the other's —

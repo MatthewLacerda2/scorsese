@@ -30,6 +30,8 @@ impl Tool for ShapeNew {
          frame, so the arrow moves when the box it points at does. A shape with \
          neither a fill nor a border draws nothing and is refused, because a \
          layer that renders nothing looks exactly like one that failed to. \
+         The fill can be a gradient laid across the shape's own box — a \
+         gradient pill is the standard caption plate. \
          The border can be dashed (`dash`); its dashes made to flow by \
          keyframing `shape.dash_offset` on the clip, and the line made to draw \
          itself on by keyframing `shape.trim_end` from 0 to 1 — an arrow's \
