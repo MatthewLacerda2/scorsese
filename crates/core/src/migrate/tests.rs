@@ -193,6 +193,27 @@ fn a_v36_caption_reads_the_same_at_this_version() {
     assert_eq!(title.text_style().reveal, None);
 }
 
+/// v37 → v38: a v37 clip — which cannot say `shadow`, `glow` or `blend` —
+/// comes out with none of the three, the source-over, unlit layer it always was.
+#[test]
+fn a_v37_clip_arrives_unlit_and_normal() {
+    let document = json!({
+        "schema_version": 37,
+        "name": "Before light",
+        "timeline_fps": { "num": 30, "den": 1 },
+        "assets": [{ "id": "title", "kind": "text", "text": "Hello" }],
+        "tracks": [{ "id": "v1", "kind": "video", "clips": [
+            { "id": "c-title", "asset": "title", "start": 0, "duration": 60, "blur": 0.01 }
+        ]}]
+    });
+    let (project, from) = parse(&document.to_string()).expect("a v37 document migrates");
+    assert_eq!(from, Some(37));
+    project.validate().expect("and it validates");
+    let clip = &project.tracks[0].clips[0];
+    assert_eq!((clip.shadow, clip.glow), (None, None));
+    assert_eq!(clip.blend, crate::Blend::Normal);
+}
+
 #[test]
 fn a_refusing_step_names_itself() {
     const REFUSES: &[Step] = &[Step {
