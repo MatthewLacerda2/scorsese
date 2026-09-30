@@ -140,7 +140,7 @@ fn onto(frame: &mut Frame, color: Rgba, draw: impl FnOnce(&mut Pixmap, &Paint)) 
     paint.anti_alias = true;
     draw(&mut pixmap, &paint);
 
-    blend_pixmap(frame, &pixmap);
+    blend_pixmap(frame, &pixmap, 1.0);
 }
 
 /// Blends a finished pixmap onto the frame, source-over.
@@ -151,7 +151,12 @@ fn onto(frame: &mut Frame, color: Rgba, draw: impl FnOnce(&mut Pixmap, &Paint)) 
 /// through here is what keeps it the same premultiplied-to-straight conversion
 /// and the same blend every other drawing gets — the point the module doc
 /// makes about a second answer to a soft edge.
-pub(crate) fn blend_pixmap(frame: &mut Frame, pixmap: &Pixmap) {
+///
+/// `opacity` scales the whole pixmap's alpha on the way, which is how a colour
+/// glyph fades with the word it is part of while a text reveals. `1.0` leaves
+/// every pixel exactly as drawn.
+pub(crate) fn blend_pixmap(frame: &mut Frame, pixmap: &Pixmap, opacity: f32) {
+    let opacity = opacity.clamp(0.0, 1.0);
     for (pixel, drawn) in frame
         .bytes_mut()
         .chunks_exact_mut(BYTES_PER_PIXEL)
@@ -167,9 +172,29 @@ pub(crate) fn blend_pixmap(frame: &mut Frame, pixmap: &Pixmap) {
                 straight.red(),
                 straight.green(),
                 straight.blue(),
-                straight.alpha(),
+                (f32::from(straight.alpha()) * opacity).round() as u8,
             ],
         );
+    }
+}
+
+/// Blends one straight-alpha frame onto another at `opacity`, source-over.
+///
+/// For a picture that has to fade as a whole rather than as its parts — two
+/// fills that overlap, each faded, show the lower one through the upper; the
+/// same two drawn solid and faded together do not.
+pub(crate) fn blend_frame(frame: &mut Frame, layer: &Frame, opacity: f32) {
+    let opacity = opacity.clamp(0.0, 1.0);
+    for (pixel, drawn) in frame
+        .bytes_mut()
+        .chunks_exact_mut(BYTES_PER_PIXEL)
+        .zip(layer.bytes().chunks_exact(BYTES_PER_PIXEL))
+    {
+        if drawn[3] == 0 {
+            continue;
+        }
+        let alpha = (f32::from(drawn[3]) * opacity).round() as u8;
+        blend(pixel, [drawn[0], drawn[1], drawn[2], alpha]);
     }
 }
 

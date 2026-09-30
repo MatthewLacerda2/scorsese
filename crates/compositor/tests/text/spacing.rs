@@ -16,6 +16,7 @@ use crate::ink::{self, canvas, style};
 /// rather than as a centred block moving half as far.
 fn flush_left() -> Style {
     Style {
+        figures: Default::default(),
         align: scorsese_core::TextAlign::Left,
         ..style(20.0, Rgba::WHITE)
     }
@@ -68,6 +69,7 @@ fn ordinary_spaces_still_collapse() {
 /// The width of the whole set block, in a box too narrow for both words.
 fn packed_width(text: &str) -> u32 {
     let narrow = Style {
+        figures: Default::default(),
         max_width: 60.0,
         ..flush_left()
     };

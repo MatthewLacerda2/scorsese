@@ -9,7 +9,7 @@
 
 use super::font::Faces;
 use super::runs;
-use super::shape::{NBSP, Shaped};
+use super::shape::{Shaped, holds};
 
 /// One line, laid out and shaped.
 pub(super) struct Line {
@@ -101,9 +101,13 @@ fn wrap_paragraph(paragraph: &str, faces: &Faces<'_>, max_width: f32, lines: &mu
 /// Ordinary runs still collapse, because the words are rejoined with a single
 /// space above. That is the right behaviour for wrapped prose and it is not
 /// what this changes.
+///
+/// The figure and punctuation spaces a counting number is padded with are held
+/// the same way, for the same reason: they are the room a figure keeps, and a
+/// counter whose padding collapsed would slide the line as it counted.
 fn words(paragraph: &str) -> impl Iterator<Item = &str> {
     paragraph
-        .split(|character: char| character.is_whitespace() && character != NBSP)
+        .split(|character: char| character.is_whitespace() && !holds(character))
         .filter(|word| !word.is_empty())
 }
 
@@ -143,7 +147,7 @@ fn ellipsise(last: Line, faces: &Faces<'_>, max_width: f32) -> Line {
         // `split_whitespace` used to.
         let candidate = format!(
             "{}…",
-            text.trim_end_matches(|character: char| character.is_whitespace() && character != NBSP)
+            text.trim_end_matches(|character: char| character.is_whitespace() && !holds(character))
         );
         let shaped = faces.shape(&candidate);
         if shaped.width <= max_width || text.is_empty() {

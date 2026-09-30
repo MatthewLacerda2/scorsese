@@ -25,6 +25,7 @@ const THICK: f32 = 6.0;
 fn drawn(edge: Option<Edge>) -> Frame {
     let mut frame = canvas();
     let style = Style {
+        figures: Default::default(),
         edge,
         ..style(SIZE, Rgba::WHITE)
     };
@@ -150,6 +151,7 @@ fn a_colour_glyph_is_drawn_as_itself_rather_than_rimmed() {
     let set = |content: &str, edge| {
         let mut frame = canvas();
         let style = Style {
+            figures: Default::default(),
             edge,
             ..style(SIZE, Rgba::WHITE)
         };

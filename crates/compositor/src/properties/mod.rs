@@ -23,8 +23,10 @@ use scorsese_core::{ChromaKey, Clip, Frames, Grade, KeyframeTrack, Vhs};
 
 use crate::registry::Property;
 use crate::shape::Trace;
+use crate::text::Sweep;
 
 mod fades;
+mod text;
 
 pub use fades::{fade_in, fade_out};
 
@@ -146,6 +148,15 @@ pub mod path {
     /// end, as a fraction of the raster's **height**. Increasing it makes the
     /// dashes flow — "marching ants".
     pub const DASH_OFFSET: &str = "shape.dash_offset";
+    /// How much of a text layer has arrived, `0.0` none and `1.0` all, piece
+    /// by piece as its `reveal` block cuts it. Its keyframe easing shapes each
+    /// piece's entrance rather than the sweep across them. Nothing on a layer
+    /// that is not text.
+    pub const REVEAL: &str = "reveal";
+    /// The figure a text layer writes where its text says `{n}`, never
+    /// travelling past the keyframes either side of it. Nothing on a text with
+    /// no `number` block, or on a layer that is not text.
+    pub const NUMBER: &str = "number";
 }
 
 /// What this compositor animates, and what animating it does.
@@ -266,6 +277,14 @@ pub const ANIMATED: &[Property] = &[
         describes: "how far a dashed shape's pattern has moved along its line, as a fraction \
                     of the raster's height",
     },
+    Property {
+        path: path::REVEAL,
+        describes: "how much of a text layer has arrived, piece by piece: 0 none, 1 all",
+    },
+    Property {
+        path: path::NUMBER,
+        describes: "the figure a text layer writes where its text says {n}",
+    },
 ];
 
 /// What a layer looks like at one instant.
@@ -373,6 +392,14 @@ pub struct Properties {
     /// How much of a shape's line is drawn, and where its dashes are. Read
     /// only by a shape layer; the whole line on anything else.
     pub trace: Trace,
+    /// Where a text layer's reveal is at this instant — [`Sweep::DONE`], all of
+    /// it shown, unless a `reveal` track says otherwise. Read by whoever draws
+    /// the layer's glyphs, and by nothing that composites it.
+    pub sweep: Sweep,
+    /// The figure a text layer's counter shows at this instant, or `None` for
+    /// the value its own `number` block states. Read where the glyphs are
+    /// drawn, like [`Properties::sweep`].
+    pub number: Option<f64>,
 }
 
 impl Default for Properties {
@@ -393,6 +420,8 @@ impl Default for Properties {
             vhs_seed: 0,
             grain_seed: 0,
             trace: Trace::WHOLE,
+            sweep: Sweep::DONE,
+            number: None,
         }
     }
 }
@@ -445,10 +474,13 @@ impl Properties {
     fn resolve(clip: &str, baseline: Self, tracks: &[KeyframeTrack], t: Frames) -> Self {
         let mut properties = baseline;
         for track in tracks {
-            let Some(value) = track.value_at(t) else {
+            let Some(between) = track.between(t) else {
                 continue;
             };
+            let value = between.eased();
             match track.property.as_str() {
+                path::REVEAL => properties.sweep = text::sweep(between),
+                path::NUMBER => properties.number = Some(text::count(between)),
                 path::OPACITY => properties.opacity = value,
                 // Only when there is a key: a tolerance without a screen colour
                 // is a number about nothing, and inventing a colour to hang it

@@ -26,7 +26,7 @@ use std::sync::OnceLock;
 
 use super::{Face, Font};
 use crate::text::runs;
-use crate::text::shape::Shaped;
+use crate::text::shape::{Figures, Shaped};
 
 /// The faces to try, in order, after the one a document named.
 ///
@@ -61,6 +61,11 @@ pub(super) fn covers(character: char) -> bool {
 pub(in crate::text) struct Faces<'a> {
     /// Index `0` is the named face. Never empty.
     faces: Vec<Face<'a>>,
+    /// Which figures every run is shaped with. Held here rather than passed to
+    /// each call, because measuring and drawing must ask for the same ones —
+    /// a line wrapped in tabular widths and drawn in proportional ones would
+    /// end somewhere its wrapping never measured.
+    figures: Figures,
 }
 
 impl<'a> Faces<'a> {
@@ -73,7 +78,15 @@ impl<'a> Faces<'a> {
         let mut faces = Vec::with_capacity(1 + fallbacks.len());
         faces.push(named.at(size));
         faces.extend(fallbacks.iter().map(|font| font.at(size)));
-        Self { faces }
+        Self {
+            faces,
+            figures: Figures::default(),
+        }
+    }
+
+    /// The same chain, setting its figures as `figures` says.
+    pub(in crate::text) fn with(self, figures: Figures) -> Self {
+        Self { figures, ..self }
     }
 
     /// Which glyphs set `text` and where each one goes, kerning applied — split
@@ -88,7 +101,8 @@ impl<'a> Faces<'a> {
             self.faces[face].draws(character)
         }) {
             let face = &self.faces[run.face];
-            whole.append(face.shape(&text[run.range], run.face));
+            let from = run.range.start;
+            whole.append(face.shape(&text[run.range], run.face, self.figures), from);
         }
         whole
     }

@@ -26,7 +26,7 @@ use crate::paint;
 use super::Edge;
 use super::colr::{self, Unpaintable};
 use super::font::{Faces, Font};
-use super::shape::Shaped;
+use super::shape::{Placed, Shaped};
 
 /// Draws one line of `text` into `frame`, in `color`, at `size` pixels per em.
 ///
@@ -107,17 +107,32 @@ pub(super) struct Ink {
     /// its own high-contrast shape and a rim round it would read as a sticker
     /// border rather than as legibility.
     edge: Option<Edge>,
+    /// How solid everything this ink holds is drawn, `1.0` for a block drawn
+    /// whole. Below it for a piece of a revealing block partway in — the
+    /// letters, their rim and any colour glyph among them fade together.
+    opacity: f32,
     said: Vec<Unpaintable>,
 }
 
 impl Ink {
     pub(super) fn new(resolution: Resolution, colour: Rgba, edge: Option<Edge>) -> Self {
+        Self::faded(resolution, colour, edge, 1.0)
+    }
+
+    /// An ink whose whole contents are drawn at `opacity`.
+    pub(super) fn faded(
+        resolution: Resolution,
+        colour: Rgba,
+        edge: Option<Edge>,
+        opacity: f32,
+    ) -> Self {
         Self {
             outlines: Outlines::default(),
             resolution,
             colours: None,
             colour,
             edge,
+            opacity,
             said: Vec::new(),
         }
     }
@@ -129,27 +144,32 @@ impl Ink {
     /// measured to fit a line has to be drawn as the same run it was measured
     /// as. Which face each glyph came from was decided there too.
     pub(super) fn line(&mut self, faces: &Faces<'_>, shaped: &Shaped, origin: (f32, f32)) {
-        let (left, baseline) = origin;
         for glyph in &shaped.glyphs {
-            // The run's offsets are font-space — y upwards — and a baseline is
-            // a row of the raster, so a glyph lifted off the baseline moves up
-            // the frame, which is towards zero.
-            let at = (left + glyph.at.0, baseline - glyph.at.1);
-            let face = faces.face(glyph.face);
-            match face.colour(glyph.id) {
-                Some(drawing) => {
-                    if self.colours.is_none() {
-                        self.colours =
-                            Pixmap::new(self.resolution.width(), self.resolution.height());
-                    }
-                    if let Some(pixmap) = self.colours.as_mut() {
-                        colr::paint(pixmap, face, &drawing, at, self.colour, &mut self.said);
-                    }
+            self.glyph(faces, glyph, origin);
+        }
+    }
+
+    /// Traces one glyph of a run that starts at `origin` — what a revealing
+    /// block does a piece at a time, each piece into the ink of its opacity.
+    pub(super) fn glyph(&mut self, faces: &Faces<'_>, glyph: &Placed, origin: (f32, f32)) {
+        let (left, baseline) = origin;
+        // The run's offsets are font-space — y upwards — and a baseline is a
+        // row of the raster, so a glyph lifted off the baseline moves up the
+        // frame, which is towards zero.
+        let at = (left + glyph.at.0, baseline - glyph.at.1);
+        let face = faces.face(glyph.face);
+        match face.colour(glyph.id) {
+            Some(drawing) => {
+                if self.colours.is_none() {
+                    self.colours = Pixmap::new(self.resolution.width(), self.resolution.height());
                 }
-                None => {
-                    self.outlines.place(at.0, at.1);
-                    face.outline(glyph.id, &mut self.outlines);
+                if let Some(pixmap) = self.colours.as_mut() {
+                    colr::paint(pixmap, face, &drawing, at, self.colour, &mut self.said);
                 }
+            }
+            None => {
+                self.outlines.place(at.0, at.1);
+                face.outline(glyph.id, &mut self.outlines);
             }
         }
     }
@@ -162,9 +182,25 @@ impl Ink {
     /// decision, and it is the one that puts an emoji in front of a letter it
     /// was placed on top of instead of behind it.
     pub(super) fn stamp(self, frame: &mut Frame) -> Vec<Unpaintable> {
-        stamp(frame, self.outlines, self.colour, self.edge);
+        let opacity = self.opacity.clamp(0.0, 1.0);
+        if self.edge.is_some() && opacity < 1.0 {
+            // A rim and a fill both faded would let the rim show through the
+            // half of it the fill covers — a dark ring inside every letter for
+            // as long as the piece is arriving. So a faded piece with a rim is
+            // drawn solid on a scratch raster and faded as one picture.
+            let mut scratch = Frame::black(frame.resolution());
+            scratch.fill_transparent();
+            stamp(&mut scratch, self.outlines, self.colour, self.edge);
+            paint::blend_frame(frame, &scratch, opacity);
+        } else {
+            let colour = Rgba {
+                a: (f32::from(self.colour.a) * opacity).round() as u8,
+                ..self.colour
+            };
+            stamp(frame, self.outlines, colour, self.edge);
+        }
         if let Some(pixmap) = &self.colours {
-            paint::blend_pixmap(frame, pixmap);
+            paint::blend_pixmap(frame, pixmap, opacity);
         }
         self.said
     }

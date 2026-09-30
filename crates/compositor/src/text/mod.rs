@@ -36,15 +36,20 @@
 
 mod colr;
 mod draw;
+mod figure;
 mod font;
 mod layout;
+mod reveal;
 mod runs;
 mod shape;
 
 pub use colr::Unpaintable;
 pub use draw::draw_line;
 pub(crate) use draw::draw_runs;
+pub use figure::padded;
 pub use font::{Cut, Family, Font, FontError, SHIPPED, SHIPPED_WEIGHT, Slant, family, names};
+pub use reveal::{Reveal, Sweep};
+pub use shape::Figures;
 
 use std::ops::Range;
 
@@ -112,6 +117,9 @@ pub struct Style {
     /// left-anchored text could plausibly mean either, and only the first keeps
     /// a column's left edge still when the wording changes.
     pub anchor: Anchor,
+    /// Whether digits are set from the face's tabular forms. What a counting
+    /// number asks for, so its line does not shuffle sideways as it counts.
+    pub figures: Figures,
 }
 
 /// A rim round the outside of a letterform, in pixels.
@@ -219,7 +227,7 @@ impl<'a> Laid<'a> {
         };
         let rows = (height / line_height).floor().max(1.0) as usize;
 
-        let faces = font.faces(size);
+        let faces = font.faces(size).with(style.figures);
         let lines = layout::wrap(text, &faces, max_width, rows);
         // The named face's, always: an emoji in a caption must not make the
         // caption taller than the same caption without it.
@@ -264,6 +272,36 @@ pub fn draw_in(
     style: &Style,
     band: Band,
 ) -> Vec<Unpaintable> {
+    set(frame, text, font, style, band, None)
+}
+
+/// [`draw`], with the block partway through arriving a piece at a time.
+///
+/// **Laid out exactly as [`draw`] lays it out**, and only then cut into
+/// pieces: each piece is drawn where the whole block puts it, at the opacity
+/// and the drop the reveal gives it at this instant. So nothing reflows as the
+/// rest arrives, and a finished reveal is the same pixels as the block drawn
+/// whole.
+pub fn draw_revealing(
+    frame: &mut Frame,
+    text: &str,
+    font: &Font,
+    style: &Style,
+    reveal: &Reveal,
+) -> Vec<Unpaintable> {
+    let band = Band::whole(frame.resolution());
+    set(frame, text, font, style, band, Some(reveal))
+}
+
+/// The one drawing both of the above are.
+fn set(
+    frame: &mut Frame,
+    text: &str,
+    font: &Font,
+    style: &Style,
+    band: Band,
+    reveal: Option<&Reveal>,
+) -> Vec<Unpaintable> {
     let resolution = frame.resolution();
     let laid = Laid::out(text, font, style, band, resolution);
     let Laid {
@@ -276,11 +314,14 @@ pub fn draw_in(
         block,
     } = laid;
     let (box_left, top) = (block.left, block.top);
+    let pieces = reveal.map(|reveal| reveal::Pieces::of(&lines, reveal.unit));
 
     // One path for the whole block, filled once: the rasteriser is entered a
     // single time however many lines there are, and letters that overlap are
-    // one shape rather than two blended over each other at the seam.
+    // one shape rather than two blended over each other at the seam. A piece
+    // partway in is the exception, and goes into an ink of its own opacity.
     let mut ink = draw::Ink::new(resolution, style.color, style.edge);
+    let mut fading: Vec<(f32, draw::Ink)> = Vec::new();
     for (row, line) in lines.iter().enumerate() {
         // `align` places a line inside the block; the anchor placed the block
         // inside the frame. Centring a line has to be centring it in the
@@ -296,7 +337,35 @@ pub fn draw_in(
         // means putting that midpoint, not the baseline, on the row's centre.
         // Baselines alone would hang every block a little low.
         let baseline = top + line_height * (row as f32 + 0.5) + (ascent + descent) / 2.0;
-        ink.line(&faces, &line.shaped, (left, baseline));
+        let (Some(reveal), Some(pieces)) = (reveal, pieces.as_ref()) else {
+            ink.line(&faces, &line.shaped, (left, baseline));
+            continue;
+        };
+        for glyph in &line.shaped.glyphs {
+            let Some(index) = pieces.index(row, glyph.cluster) else {
+                continue;
+            };
+            let shown = reveal.shown(index, pieces.count());
+            let origin = (left, baseline + shown.drop);
+            if shown.opacity >= 1.0 {
+                ink.glyph(&faces, glyph, origin);
+            } else if shown.opacity > 0.0 {
+                let at = match fading.iter().position(|(o, _)| *o == shown.opacity) {
+                    Some(at) => at,
+                    None => {
+                        let faded =
+                            draw::Ink::faded(resolution, style.color, style.edge, shown.opacity);
+                        fading.push((shown.opacity, faded));
+                        fading.len() - 1
+                    }
+                };
+                fading[at].1.glyph(&faces, glyph, origin);
+            }
+        }
     }
-    ink.stamp(frame)
+    let mut said = ink.stamp(frame);
+    for (_, faded) in fading {
+        said.extend(faded.stamp(frame));
+    }
+    said
 }

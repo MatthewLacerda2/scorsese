@@ -185,6 +185,7 @@ fn stamp(at: f64) -> String {
 fn label(frame: &mut Frame, words: &str, font: &Font, top: f32, align: TextAlign) {
     const MARGIN: f32 = 10.0;
     let style = Style {
+        figures: Default::default(),
         size: LABEL_SIZE,
         color: INK,
         align,
