@@ -601,6 +601,40 @@ exclude_re = [
     # the crowded-document test included.
     'wrap\.rs:184:35: replace \+ with - in name_lanes',
     'wrap\.rs:184:35: replace \+ with \* in name_lanes',
+
+    # `keyframe::bezier`'s solver, three tolerance comparisons and one tie
+    # (#609). Each was applied and core's whole suite passed with it — which
+    # now includes Newton and bisection tested apart, the slope held to a
+    # numeric derivative, and a flat stretch handed over to bisection:
+    #
+    # - `error.abs() < EPSILON` (Newton's landing, line 95) and
+    #   `slope.abs() < EPSILON` (its hand-over, line 99) as `<=`: they differ
+    #   only when the value is exactly `EPSILON`, and a landing there is off by
+    #   the solver's stated precision whichever way it goes.
+    # - The hand-over as `==`: a slope below `EPSILON` but not zero is then
+    #   divided by, and the step flings `s` thousands of units off the curve —
+    #   for `(1, 0)`'s flat middle, 5e-6 past it, `s` lands near -16 000 — and
+    #   the seven steps left cannot bring it back. Newton still answers `None`
+    #   and bisection still answers, so the test of that case passes either way.
+    # - Bisection's `at < x` as `<=` (line 119): only an exact tie differs, and
+    #   then `s` is the root and becomes whichever end it is assigned to; the
+    #   interval closes on it from that side instead.
+    #
+    # Line-qualified, because every other mutation on those lines is killed:
+    # `<` to `>` at either Newton comparison, and every operator in bisection's
+    # step, give wrong answers or no Newton at all.
+    'bezier\.rs:95:28: replace < with <= in Cubic::newton',
+    'bezier\.rs:99:28: replace < with <= in Cubic::newton',
+    'bezier\.rs:99:28: replace < with == in Cubic::newton',
+    'bezier\.rs:119:27: replace < with <= in Cubic::bisect',
+
+    # `Easing::apply`'s `BackInOut if p < 0.5` as `<=` (#609). The two halves
+    # meet at `p = 0.5`, and both give exactly `0.5` there: `back(1, pull)` is
+    # `1 * 1 * (pull * 0 + 1)`, and halving and subtracting from one are exact.
+    # `back_in_out_does_both_and_is_symmetric` asserts that midpoint with
+    # `assert_eq!` and passes with the mutation applied, so the only input that
+    # can tell the two guards apart reads the same from both.
+    'easing\.rs:92:34: replace < with <= in Easing::apply',
 ]
 
 # ---------------------------------------------------------------------------
