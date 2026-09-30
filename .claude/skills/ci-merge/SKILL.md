@@ -88,6 +88,11 @@ Re-run it with the same list: a PR it already merged is skipped as merged, and
 a head it already pushed is not pushed again. It died three times this way on
 2026-09-30.
 
+**A Markdown-only pull request gets no run**, so `make queue` hands it back as
+absent and `make mergeable` cannot say yes. It is the one merge done by hand:
+check `gh pr diff N --name-only` is all `.md` and not `docs/project-format.md`,
+that GitHub reports it mergeable, then `gh pr merge N --squash`.
+
 **Because it builds nothing, a clean rebase can still push a broken head.** A
 merge ahead that changed a signature this branch calls, or pushed one of its
 files past the size cap, rebases without a conflict and fails CI ten minutes
