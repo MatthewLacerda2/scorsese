@@ -150,12 +150,19 @@ bottleneck and more coders only lengthen it.
 worktree (seen on rusty, MatthewLacerda2/rusty#504). What works is a **one-off
 cloud routine** — the `RemoteTrigger` tool (the `schedule` skill has the body
 shape) with `run_once_at` a minute or two out, this repository as its source,
-and the brief below as its prompt. Two traps decide whether it is really remote:
+and the brief below as its prompt. Set its **model** on purpose: the `schedule`
+skill's example body defaults to a Sonnet, and writing a feature branch is
+judgement work (CLAUDE.md, *Which model does what*). Its example
+`allowed_tools` lists only shell and file tools, so check it leaves room for
+what the brief uses (ToolSearch, the GitHub MCP tools, `send_later`). Two traps
+decide whether it is really remote:
 
 - **Pick the `anthropic_cloud` environment, never a `bridge` one.** The
-  environment list includes a *bridge* to the operator's own machine; a routine
-  on it runs **on that machine**, building on its cores and disk. This is the
-  likely cause of past "cloud" sessions that ran locally.
+  environment list can include a *bridge* to the operator's own machine; a
+  routine on it runs **on that machine**, building on its cores and disk. This
+  is the likely cause of rusty's "cloud" sessions that ran locally. (Scorsese's
+  account listed only `Default`, `anthropic_cloud`, on 2026-09-30 — re-read
+  the list rather than trust that.)
 - The brief's **first instruction** (step 0 below) prints `$CLAUDE_CODE_REMOTE`,
   which Claude Code sets to `true` in a cloud session. If it is not `true`, or
   the path is under the operator's home, the session **stops before touching
