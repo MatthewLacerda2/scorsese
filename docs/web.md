@@ -1054,7 +1054,7 @@ the web — or be left off it — without a reason written down.
 
 | served | how |
 | --- | --- |
-| `project_read`, `project_describe`, `project_check`, `project_assets`, `project_probe`, `project_write`, `track_new`, `text_new`, `color_new`, `shape_new`, `icon_new`, `asset_set`, `place_clip`, `trim_clip`, `clip_set`, `clip_move`, `clip_remove`, `clip_group`, `clip_ungroup`, `dissolve`, `duck_music`, `set_volume`, `scale_pacing`, `rebrief`, `icons`, `voices` | as they are, on the stored project |
+| `project_read`, `project_describe`, `project_check`, `project_assets`, `project_probe`, `project_write`, `track_new`, `text_new`, `color_new`, `shape_new`, `icon_new`, `asset_set`, `place_clip`, `trim_clip`, `clip_set`, `clip_follow`, `clip_move`, `clip_remove`, `clip_group`, `clip_ungroup`, `dissolve`, `duck_music`, `set_volume`, `scale_pacing`, `rebrief`, `icons`, `voices` | as they are, on the stored project |
 | `look`, `hear`, `audio_level` | their file arguments must be paths inside the project (`assets/…`, `generated/…`) — locally they may name anything on the machine, and here the machine is everybody's |
 | `still` | without `out`: nothing is kept on the server's disk; the picture is in the reply |
 | `project_list`, `project_new` | the server's own: a project is a row, named by an id the client asks for |
