@@ -95,6 +95,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `place_clip` | Put a clip on a track: which asset, which track, when it starts and how long it runs — all in seconds, rounded onto the project's frame grid for you. | nothing |
 | `trim_clip` | Move a clip already on the timeline, or change how long it runs or where in its source it opens — in seconds, rounded onto the project's frame grid. | nothing |
 | `clip_set` | Change a placed clip's plain values: its speed, fit, position, rotation, scale, shadow, glow and blend. | nothing |
+| `clip_follow` | Send a placed clip along an arrow: it travels the arrow clip's line from tail to head — curves included — instead of in a straight line between keyframed positions. | nothing |
 | `clip_move` | Move a clip already on the timeline onto another track — optionally to a new start there in the same edit, the way dragging it down a lane and along it is one gesture. | nothing |
 | `clip_remove` | Take clips off the timeline by id, leaving the assets they showed and every other clip exactly where they are. | nothing |
 | `clip_group` | Group clips already on the timeline so they render as one layer — what Filmora calls a compound clip. | nothing |
@@ -522,6 +523,25 @@ words. `docs/project-format.md` has what each number means.
 ```
 clip_set  { "project": "teaser.scor", "clip": "link", "glow": { "radius": 0.04,
             "intensity": 3 }, "blend": "add" }
+```
+
+**`clip_follow` sends a clip along an arrow** (#584): a packet down a bowed
+connector, a boat along a route — motion that `transform.position` keyframes can
+only ever draw as straight segments. It writes the clip's `follow` (the arrow's
+**clip**, and whether to `orient` along it) and one ordinary `follow.progress`
+ramp from `0`, the tail, to `1`, the head: from `start_seconds` into the clip,
+over `travel_seconds` (the rest of the clip by default), with an optional
+`easing`. Both halves in one call, because a follow with no ramp sits at the
+tail forever. The ramp stays an ordinary keyframe track, so a pause half way is
+more keyframes on it through `project_write`; `stop` removes the follow and its
+ramp. `docs/project-format.md` (*Travelling along an arrow*) has what the path
+does to the clip's position and rotation.
+
+```
+clip_follow { "project": "pipeline.scor", "clip": "c-packet", "arrow": "c-arrow-kafka",
+              "travel_seconds": 1.5, "easing": "ease_in_out" }
+            → "`c-packet`: follows arrow `c-arrow-kafka`, leaving its tail 0.00s into the
+               clip and reaching its head 1.50s later."
 ```
 
 **`clip_move` changes a clip's track, and `clip_remove` takes clips off the
