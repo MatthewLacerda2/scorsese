@@ -1,0 +1,6 @@
+{
+  "description": "Dashed lines whose dashes move, over a colour bed with nothing on disk. Left: a blue-filled box with a white border dashed [0.08, 0.08] — dashes and gaps each about nine pixels — whose `shape.dash_offset` runs 0 → 0.08 over frames 0–10, one dash length, so on frame 10 every dash sits where a gap was on frame 0. The pattern starts at the box's top-left corner and runs clockwise, so frame 0 has a dash beginning exactly at that corner. Right: an S-curved arrow dashed [0.08] (an odd pattern, read as [0.08, 0.08]) with the same offset, its head solid at the end whatever the dashes do. What a wrong render looks like: frames 0 and 10 identical means the offset is not animated or the shape was drawn once for the segment; the fill broken up or missing along the gaps means the dash reached the fill; a solid yellow arrow means the odd pattern was refused rather than doubled; a dashed or missing head means the head went through the dash.",
+  "media": {},
+  "render": { "resolution": "192x108", "fps": "30" },
+  "frames": [0, 10]
+}

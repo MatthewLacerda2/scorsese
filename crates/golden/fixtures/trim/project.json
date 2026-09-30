@@ -1,0 +1,97 @@
+{
+  "schema_version": 34,
+  "name": "trim",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    { "id": "bed", "kind": "color", "color": "#101820" },
+    {
+      "id": "straight",
+      "kind": "shape",
+      "shape": {
+        "geometry": {
+          "arrow": {
+            "from": { "x": 0.08, "y": 0.2 },
+            "to": { "x": 0.6, "y": 0.2 }
+          }
+        },
+        "stroke": "#ffcc00ff",
+        "stroke_width": 0.02
+      }
+    },
+    {
+      "id": "bowed",
+      "kind": "shape",
+      "shape": {
+        "geometry": {
+          "arrow": {
+            "from": { "x": 0.08, "y": 0.42 },
+            "to": { "x": 0.6, "y": 0.86 },
+            "curve": "s"
+          }
+        },
+        "stroke": "#66ddffff",
+        "stroke_width": 0.02
+      }
+    },
+    {
+      "id": "ring",
+      "kind": "shape",
+      "shape": {
+        "geometry": { "ellipse": { "width": 0.25, "height": 0.44 } },
+        "stroke": "#ff6688ff",
+        "stroke_width": 0.03
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "name": "bed",
+      "clips": [{ "id": "c-bed", "asset": "bed", "start": 0, "duration": 21 }]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "name": "straight",
+      "clips": [
+        {
+          "id": "c-straight", "asset": "straight", "start": 0, "duration": 21,
+          "keyframes": [
+            { "property": "shape.trim_end", "keyframes": [
+              { "t": 0, "value": 0.0 }, { "t": 20, "value": 1.0 } ] }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "v3",
+      "kind": "video",
+      "name": "bowed",
+      "clips": [
+        {
+          "id": "c-bowed", "asset": "bowed", "start": 0, "duration": 21,
+          "keyframes": [
+            { "property": "shape.trim_end", "keyframes": [
+              { "t": 0, "value": 0.0 }, { "t": 20, "value": 1.0 } ] }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "v4",
+      "kind": "video",
+      "name": "ring",
+      "clips": [
+        {
+          "id": "c-ring", "asset": "ring", "start": 0, "duration": 21,
+          "anchor": { "x": "right", "y": "center" },
+          "keyframes": [
+            { "property": "shape.trim_start", "keyframes": [
+              { "t": 0, "value": 0.0 }, { "t": 20, "value": 0.5 } ] }
+          ]
+        }
+      ]
+    }
+  ]
+}

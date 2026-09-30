@@ -1,0 +1,73 @@
+{
+  "schema_version": 34,
+  "name": "dashes",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    { "id": "bed", "kind": "color", "color": "#101820" },
+    {
+      "id": "panel",
+      "kind": "shape",
+      "shape": {
+        "geometry": { "rectangle": { "width": 0.4, "height": 0.6 } },
+        "fill": "#1e3a8aff",
+        "stroke": "#ffffffff",
+        "stroke_width": 0.03,
+        "dash": [0.08, 0.08]
+      }
+    },
+    {
+      "id": "flow",
+      "kind": "shape",
+      "shape": {
+        "geometry": {
+          "arrow": {
+            "from": { "x": 0.5, "y": 0.2 },
+            "to": { "x": 0.94, "y": 0.8 },
+            "curve": "s"
+          }
+        },
+        "stroke": "#ffcc00ff",
+        "stroke_width": 0.03,
+        "dash": [0.08]
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "name": "bed",
+      "clips": [{ "id": "c-bed", "asset": "bed", "start": 0, "duration": 11 }]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "name": "panel",
+      "clips": [
+        {
+          "id": "c-panel", "asset": "panel", "start": 0, "duration": 11,
+          "anchor": { "x": "left", "y": "center" },
+          "keyframes": [
+            { "property": "transform.position.x", "keyframes": [ { "t": 0, "value": 0.06 } ] },
+            { "property": "shape.dash_offset", "keyframes": [
+              { "t": 0, "value": 0.0 }, { "t": 10, "value": 0.08 } ] }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "v3",
+      "kind": "video",
+      "name": "flow",
+      "clips": [
+        {
+          "id": "c-flow", "asset": "flow", "start": 0, "duration": 11,
+          "keyframes": [
+            { "property": "shape.dash_offset", "keyframes": [
+              { "t": 0, "value": 0.0 }, { "t": 10, "value": 0.08 } ] }
+          ]
+        }
+      ]
+    }
+  ]
+}
