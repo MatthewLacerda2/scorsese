@@ -3,7 +3,26 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/icon.png" />
     <title>scorsese</title>
+    <!--
+      Light or dark before anything paints, so a dark page never flashes white:
+      the stored choice, else the system's. It repeats src/lib/theme.ts's
+      resolveTheme (this runs before the bundle loads); theme.test.ts runs it.
+    -->
+    <script id="theme">
+      (() => {
+        var stored = null;
+        try {
+          stored = localStorage.getItem("scorsese-theme");
+        } catch {}
+        var dark =
+          stored === "dark" ||
+          (stored !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.classList.toggle("dark", dark);
+        document.documentElement.style.colorScheme = dark ? "dark" : "light";
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
