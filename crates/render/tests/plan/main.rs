@@ -11,6 +11,7 @@ mod audio;
 mod embedded;
 mod grouping;
 mod layering;
+mod matting;
 mod range;
 mod refusals;
 mod resuming;

@@ -7,13 +7,14 @@
 //! hand. A caller here decides how to print the answer and what to do about
 //! it; it never decides what the answer is.
 //!
-//! Seven sources meet, and no other command can see all seven at once — the pool's
+//! Eight sources meet, and no other command can see all eight at once — the pool's
 //! health ([`scorsese_core::asset_status`]), the fonts a text asset names
 //! ([`crate::unknown_fonts`], [`crate::uncovered_glyphs`]), the symbols an icon
 //! asset names ([`crate::unknown_icons`]), the properties a keyframe track
 //! animates ([`crate::unknown_in`]), what the picture draws on top of what
 //! ([`crate::Layout`], filtered down to the stacks nobody meant), which clips
-//! blend with nothing beneath them, and the document's own validation. That is why the assembly sits in this crate rather
+//! blend with nothing beneath them, which are masked by a matte they never
+//! meet, and the document's own validation. That is why the assembly sits in this crate rather
 //! than in `core`: a face is a file this crate opens, a symbol is a catalogue it
 //! re-exports, and where a title lands is this crate's own matrix.
 //!
@@ -27,6 +28,7 @@
 mod beneath;
 mod media;
 mod overlap;
+mod unmet;
 
 use std::fmt;
 use std::path::Path;
@@ -170,6 +172,9 @@ impl Checkup {
                 .into_iter()
                 .map(Line::warning),
         );
+        // A matte that never meets its clip: a clip that never appears, or an
+        // inverted matte that cuts nothing — correct, and not what was meant.
+        lines.extend(unmet::never_met(project).into_iter().map(Line::warning));
 
         Self {
             summary: format!(

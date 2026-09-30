@@ -3,6 +3,7 @@
 
 mod extract;
 mod insert;
+mod mattes;
 
 use std::collections::BTreeSet;
 
