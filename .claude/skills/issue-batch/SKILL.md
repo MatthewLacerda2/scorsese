@@ -206,9 +206,10 @@ one day, MatthewLacerda2/rusty#567). Each role does what only it can do.
 picks work, briefs cloud coders, reviews and merges. Its loop per ready pull
 request:
 
-1. Read the description. Check the decisions against the issue, and note any
-   human-only checks (a window, speakers, taste) as a checklist; don't hold for
-   them.
+1. Read the description, **and the diff** — a green gate does not read code (on
+   2026-09-30 an agent's `unreachable!` inside a `Display` impl was caught here,
+   not by CI). Check the decisions against the issue, and note any human-only
+   checks (a window, speakers, taste) as a checklist; don't hold for them.
 2. **Use `make queue PRS="N"`** for rebase → push → wait → merge; don't
    hand-roll that loop. It merges only on `make mergeable`'s verdict. It does
    **not** compile the rebased tree before pushing, and a clean textual rebase
@@ -223,7 +224,10 @@ request:
 3. A hand-back is the queue's whole report: fix a conflict or a red run on the
    branch (or brief its coder to), then queue it again.
 4. After merging: remove the worktree and its `target/`, re-read the board, and
-   start the next piece of work.
+   start the next piece of work. Then read the merged PR's mutation comment:
+   the queue merges without reading it, so survivors in code the branch wrote
+   become one follow-up issue now (`ci-merge` has the triage) — the code is no
+   longer in hand, and nobody else will look.
 
 **Cloud coders write the branches.** Pick an issue for the cloud when its proof
 is `make gates` and **no in-flight branch works in the same module**. Run one
