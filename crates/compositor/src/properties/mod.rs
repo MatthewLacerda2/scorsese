@@ -19,7 +19,7 @@
 //! of known properties, adding one becomes a core change and the generality
 //! rule is gone.
 
-use scorsese_core::{ChromaKey, Clip, Frames, Grade, KeyframeTrack, Vhs};
+use scorsese_core::{Blend, ChromaKey, Clip, Frames, Glow, Grade, KeyframeTrack, Shadow, Vhs};
 
 use crate::registry::Property;
 use crate::shape::Trace;
@@ -157,6 +157,25 @@ pub mod path {
     /// travelling past the keyframes either side of it. Nothing on a text with
     /// no `number` block, or on a layer that is not text.
     pub const NUMBER: &str = "number";
+    /// How dark the clip's drop shadow is: `0.0` none, `1.0` the full colour
+    /// wherever the layer is solid. **Clamped to that range where it is
+    /// drawn**, so an overshooting easing darkens to full and no further.
+    ///
+    /// Does nothing on a clip with no `shadow`, for [`KEY_TOLERANCE`]'s
+    /// reason: a shadow needs a colour and an offset, and neither is a number
+    /// a track can carry.
+    pub const SHADOW_OPACITY: &str = "shadow.opacity";
+    /// How far the clip's glow reaches, as a fraction of the layer's own
+    /// **height** — measured exactly as [`BLUR`] is. Below zero is no reach at
+    /// all, and it never reaches further than the layer is tall. Does nothing
+    /// on a clip with no `glow`.
+    pub const GLOW_RADIUS: &str = "glow.radius";
+    /// How bright the clip's glow is: `0.0` none, `1.0` the layer's own light
+    /// spread out, more is more. **Clamped to `0.0` –
+    /// [`crate::MAX_GLOW_INTENSITY`] where it is drawn**, so a spring easing
+    /// on a pulse overshoots into a brighter flash rather than a negative one.
+    /// Does nothing on a clip with no `glow`.
+    pub const GLOW_INTENSITY: &str = "glow.intensity";
 }
 
 /// What this compositor animates, and what animating it does.
@@ -285,6 +304,19 @@ pub const ANIMATED: &[Property] = &[
         path: path::NUMBER,
         describes: "the figure a text layer writes where its text says {n}",
     },
+    Property {
+        path: path::SHADOW_OPACITY,
+        describes: "how dark the layer's drop shadow is, clamped to 0-1; nothing without a shadow",
+    },
+    Property {
+        path: path::GLOW_RADIUS,
+        describes: "how far the layer's glow reaches, as a fraction of its own height; nothing \
+                    without a glow",
+    },
+    Property {
+        path: path::GLOW_INTENSITY,
+        describes: "how bright the layer's glow is, clamped to 0-4; nothing without a glow",
+    },
 ];
 
 /// What a layer looks like at one instant.
@@ -400,6 +432,14 @@ pub struct Properties {
     /// the value its own `number` block states. Read where the glyphs are
     /// drawn, like [`Properties::sweep`].
     pub number: Option<f64>,
+    /// The drop shadow the layer casts, or `None`. Drawn from the layer's
+    /// finished picture — after every stage above — and under it.
+    pub shadow: Option<Shadow>,
+    /// The halo of light the layer gives off, or `None`. Drawn from the same
+    /// finished picture, between the shadow and the layer.
+    pub glow: Option<Glow>,
+    /// How the layer — its shadow and glow with it — lands on the canvas.
+    pub blend: Blend,
 }
 
 impl Default for Properties {
@@ -422,6 +462,9 @@ impl Default for Properties {
             trace: Trace::WHOLE,
             sweep: Sweep::DONE,
             number: None,
+            shadow: None,
+            glow: None,
+            blend: Blend::Normal,
         }
     }
 }
@@ -448,6 +491,9 @@ impl Properties {
                 aberration: clip.aberration,
                 chroma_key: clip.chroma_key,
                 vhs: clip.vhs,
+                shadow: clip.shadow,
+                glow: clip.glow,
+                blend: clip.blend,
                 ..Self::default()
             },
             &clip.keyframes,
@@ -518,6 +564,24 @@ impl Properties {
                 path::TRIM_START => properties.trace.trim_start = value,
                 path::TRIM_END => properties.trace.trim_end = value,
                 path::DASH_OFFSET => properties.trace.dash_offset = value,
+                // Only when there is one, for the key's reason above: a shadow
+                // or a glow invented to hang a number on would be a colour and
+                // an offset nobody chose.
+                path::SHADOW_OPACITY => {
+                    if let Some(shadow) = properties.shadow.as_mut() {
+                        shadow.opacity = value;
+                    }
+                }
+                path::GLOW_RADIUS => {
+                    if let Some(glow) = properties.glow.as_mut() {
+                        glow.radius = value;
+                    }
+                }
+                path::GLOW_INTENSITY => {
+                    if let Some(glow) = properties.glow.as_mut() {
+                        glow.intensity = value;
+                    }
+                }
                 _ => {}
             }
         }
@@ -606,6 +670,14 @@ impl Properties {
             // source straight to the canvas and the grade would silently do
             // nothing on exactly the clips it costs least to apply to.
             && self.grade.is_neutral()
+            // And a layer with light of its own is not its own pixels: a
+            // shadow or a glow reaches past them, and any blend but `normal`
+            // reads what is already on the canvas — an opaque full-frame plate
+            // set to `add` copied through would replace what it was meant to
+            // brighten.
+            && self.shadow.is_none()
+            && self.glow.is_none()
+            && self.blend == Blend::Normal
     }
 
     /// True when the layer would contribute nothing, so it can be skipped

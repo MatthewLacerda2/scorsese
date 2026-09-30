@@ -75,6 +75,7 @@ macro_rules! goldens {
 
 goldens!(
     aberration,
+    add_blend,
     alpha,
     alpha_scaled,
     anchored,
@@ -97,6 +98,8 @@ goldens!(
     fill,
     flip,
     gap_above,
+    glow,
+    glow_group,
     grade_brightness,
     grade_contrast,
     grade_ramp,
@@ -118,6 +121,7 @@ goldens!(
     reveal_emoji,
     reveal_words,
     serif,
+    shadow,
     slice,
     slide,
     shapes,

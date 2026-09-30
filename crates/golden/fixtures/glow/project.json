@@ -1,0 +1,64 @@
+{
+  "schema_version": 35,
+  "name": "glow",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    { "id": "night", "kind": "color", "color": "#0b1020" },
+    {
+      "id": "link",
+      "kind": "shape",
+      "shape": {
+        "geometry": {
+          "arrow": {
+            "from": { "x": 0.08, "y": 0.3 },
+            "to": { "x": 0.56, "y": 0.3 }
+          }
+        },
+        "stroke": "#22d3eeff",
+        "stroke_width": 0.02
+      }
+    },
+    {
+      "id": "spark",
+      "kind": "icon",
+      "icon": { "name": "database", "size": 0.5, "color": "#fde68aff" }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "name": "a dark bed",
+      "clips": [{ "id": "c-night", "asset": "night", "start": 0, "duration": 10 }]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "name": "an arrow glowing in its own colour",
+      "clips": [
+        {
+          "id": "c-link",
+          "asset": "link",
+          "start": 0,
+          "duration": 10,
+          "glow": { "radius": 0.04, "intensity": 3.0 }
+        }
+      ]
+    },
+    {
+      "id": "v3",
+      "kind": "video",
+      "name": "an icon glowing in a colour of its own",
+      "clips": [
+        {
+          "id": "c-spark",
+          "asset": "spark",
+          "start": 0,
+          "duration": 10,
+          "anchor": { "x": "right", "y": "bottom" },
+          "glow": { "color": "#f97316ff", "radius": 0.05, "intensity": 2.0 }
+        }
+      ]
+    }
+  ]
+}

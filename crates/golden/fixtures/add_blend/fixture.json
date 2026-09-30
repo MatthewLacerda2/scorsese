@@ -1,0 +1,6 @@
+{
+  "description": "Two ellipses on a near-black bed, a red one left of centre and a green one right of it, both with `blend: add`, overlapping in the middle. Expect the red lit a touch brighter than its own #c02020 by the bed beneath it, the green likewise, and the lens where they overlap a strong yellow (#d0d010 or so): each ellipse's light added to the other's. What a wrong render looks like: the overlap plain green means the upper ellipse was drawn source-over and hid the red, which is what `add` exists to prevent; a dark or muddy overlap means `multiply` or a wrong mode; the outside of the ellipses brighter than the bed means the transparent surround was added as if it were light.",
+  "media": {},
+  "render": { "resolution": "128x96", "fps": "30" },
+  "frames": [0]
+}

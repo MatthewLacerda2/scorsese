@@ -1,0 +1,32 @@
+{
+  "schema_version": 35,
+  "name": "shadow",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    { "id": "bed", "kind": "video", "path": "assets/bed.mp4" },
+    { "id": "badge", "kind": "image", "path": "assets/badge.png" }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "name": "a light bed",
+      "clips": [{ "id": "c-bed", "asset": "bed", "start": 0, "duration": 10 }]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "name": "a cut-out picture, at its own size, casting a shadow",
+      "clips": [
+        {
+          "id": "c-badge",
+          "asset": "badge",
+          "start": 0,
+          "duration": 10,
+          "fit": "native",
+          "shadow": { "offset_x": 0.25, "offset_y": 0.25, "softness": 0.08, "opacity": 0.8 }
+        }
+      ]
+    }
+  ]
+}
