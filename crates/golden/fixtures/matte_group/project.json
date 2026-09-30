@@ -1,0 +1,147 @@
+{
+  "schema_version": 38,
+  "name": "matte_group",
+  "timeline_fps": {
+    "num": 30,
+    "den": 1
+  },
+  "assets": [
+    {
+      "id": "night",
+      "kind": "color",
+      "color": "#0b1020"
+    },
+    {
+      "id": "dot",
+      "kind": "shape",
+      "shape": {
+        "geometry": {
+          "ellipse": {
+            "width": 0.3,
+            "height": 0.4
+          }
+        },
+        "fill": "#e01b24ff"
+      }
+    },
+    {
+      "id": "pair",
+      "kind": "group",
+      "group": {
+        "tracks": [
+          {
+            "id": "pair-left",
+            "kind": "video",
+            "clips": [
+              {
+                "id": "c-left",
+                "asset": "dot",
+                "start": 0,
+                "duration": 10,
+                "keyframes": [
+                  {
+                    "property": "transform.position.x",
+                    "keyframes": [
+                      {
+                        "t": 0,
+                        "value": -0.22
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "pair-right",
+            "kind": "video",
+            "clips": [
+              {
+                "id": "c-right",
+                "asset": "dot",
+                "start": 0,
+                "duration": 10,
+                "keyframes": [
+                  {
+                    "property": "transform.position.x",
+                    "keyframes": [
+                      {
+                        "t": 0,
+                        "value": 0.22
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "half",
+      "kind": "shape",
+      "shape": {
+        "geometry": {
+          "rectangle": {
+            "width": 0.6,
+            "height": 1.0
+          }
+        },
+        "fill": "#ffffffff"
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-night",
+          "asset": "night",
+          "start": 0,
+          "duration": 10
+        }
+      ]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-pair",
+          "asset": "pair",
+          "start": 0,
+          "duration": 10,
+          "matte": {
+            "clip": "c-half"
+          }
+        }
+      ]
+    },
+    {
+      "id": "v3",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-half",
+          "asset": "half",
+          "start": 0,
+          "duration": 10,
+          "keyframes": [
+            {
+              "property": "transform.position.x",
+              "keyframes": [
+                {
+                  "t": 0,
+                  "value": -0.2
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
