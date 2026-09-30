@@ -16,13 +16,21 @@
 //! turning one into the other is `scorsese-render`'s job, where the raster is
 //! known.
 //!
-//! Nothing here animates. A title that grows or fades does it through the
-//! properties every layer already has — `transform.scale.*` and `opacity` —
-//! rather than through a second, text-shaped way of saying the same thing.
+//! A title that grows or fades does it through the properties every layer
+//! already has — `transform.scale.*` and `opacity` — rather than through a
+//! second, text-shaped way of saying the same thing. **Two things only text
+//! can do** have blocks of their own here, because no whole-layer property can
+//! say them: arriving a piece at a time ([`Reveal`], animated by `reveal`),
+//! and a figure that counts ([`Counter`], animated by `number`). The blocks say
+//! *how*; the keyframe tracks, on the clip like every other, say *when*.
 
+mod counter;
 mod font;
+mod reveal;
 
+pub use counter::{Counter, Locale, MAX_DECIMALS, PLACEHOLDER};
 pub use font::{DEFAULT_FONT, FontChoice, MAX_WEIGHT, MIN_WEIGHT};
+pub use reveal::{Reveal, RevealUnit};
 
 use serde::{Deserialize, Serialize};
 
@@ -139,6 +147,24 @@ pub struct TextStyle {
     /// document and shows up only as mush on a finished video. So `text` and
     /// `shape` share the field names and the unit, and nothing else.
     pub stroke_width: f64,
+    /// How the text arrives a piece at a time when the clip animates its
+    /// `reveal` property. Absent means every default — word by word — so the
+    /// block is only written to change how, never to switch it on: without a
+    /// `reveal` track the whole text simply shows.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reveal: Option<Reveal>,
+    /// The figure written where the text says [`PLACEHOLDER`], and how it is
+    /// written. Absent means the text has no figure in it, and a `{n}` in it is
+    /// three ordinary characters.
+    ///
+    /// **Set in tabular figures.** A counting number whose digits changed width
+    /// as they changed value would shuffle the whole line sideways every
+    /// frame, so the block's figures are drawn from the face's `tnum` feature
+    /// where it has one, and room is kept for the widest figure the count
+    /// reaches — see `docs/project-format.md` for what a face without `tnum`
+    /// does.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub number: Option<Counter>,
 }
 
 impl TextStyle {
@@ -172,6 +198,8 @@ impl Default for TextStyle {
             max_width: Self::DEFAULT_MAX_WIDTH,
             stroke: None,
             stroke_width: Self::DEFAULT_STROKE_WIDTH,
+            reveal: None,
+            number: None,
         }
     }
 }

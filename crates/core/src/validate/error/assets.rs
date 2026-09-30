@@ -3,7 +3,7 @@
 
 use crate::asset::{AssetId, AssetKind};
 use crate::path::{PathProblem, ProjectPath};
-use crate::validate::error::{IconProblem, ShapeProblem, SpeechProblem, VideoProblem};
+use crate::validate::error::{IconProblem, ShapeProblem, SpeechProblem, TextProblem, VideoProblem};
 use crate::validate::field::AssetField;
 
 /// One thing wrong with a row of the assets table.
@@ -157,6 +157,11 @@ pub enum AssetProblem {
     /// See [`SpeechProblem`].
     #[error(transparent)]
     Speech(#[from] SpeechProblem),
+
+    /// Something wrong with how a text asset reveals itself or writes its
+    /// figure. Split for [`ShapeProblem`]'s reason; see [`TextProblem`].
+    #[error(transparent)]
+    Text(#[from] TextProblem),
 
     /// Not the shape a SHA-256 comes in, so it can never match a real file —
     /// truncated, uppercase, or an algorithm that is not SHA-256.

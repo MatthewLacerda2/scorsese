@@ -17,6 +17,7 @@ fn one_line_frame() -> Frame {
 
 fn narrow() -> Style {
     Style {
+        figures: Default::default(),
         anchor: scorsese_core::Anchor::default(),
         size: 20.0,
         color: Rgba::WHITE,

@@ -8,18 +8,28 @@
 //! at 4K, and the raster it is a fraction *of* is a render setting, known here.
 //!
 //! The drawing itself is entirely the compositor's, and what comes out is an
-//! ordinary layer. There is no text path through the renderer beyond this file:
-//! a title is composited, transformed and faded by exactly the code a video
-//! clip goes through.
+//! ordinary layer. There is no text path through the renderer beyond this
+//! module: a title is composited, transformed and faded by exactly the code a
+//! video clip goes through. What [`typing`] adds is the one way a text layer
+//! differs — a reveal or a count makes its pixels change from frame to frame,
+//! so it is drawn again for each one rather than once for the clip.
+
+mod check;
+mod typing;
 
 use std::collections::HashMap;
+use std::ops::Deref;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
-use scorsese_compositor::text::{self, Edge, Font, Slant, Style, Unpaintable};
-use scorsese_compositor::{Area, Frame, Resolution};
-use scorsese_core::{Anchor, Asset, AssetKind, FontChoice, Project, TextStyle};
+use scorsese_compositor::text::{self, Edge, Figures, Font, Slant, Style};
+use scorsese_compositor::{Area, Resolution};
+use scorsese_core::{Anchor, Asset, Clip, FontChoice, TextStyle};
 
 use crate::error::RenderError;
+
+pub use check::{UncoveredGlyphs, UnknownFont, uncovered_glyphs, unknown_fonts};
+pub(crate) use typing::Typing;
 
 /// Parses one face, saying which asset asked for it when it will not parse.
 ///
@@ -61,7 +71,32 @@ fn open(key: &Face, asset: &Asset) -> Result<Font, RenderError> {
 /// what every project written before `weight` existed asks for.
 #[derive(Debug, Default)]
 pub(crate) struct Painter {
-    fonts: HashMap<Face, Font>,
+    /// Shared rather than owned, because a text layer that reveals or counts
+    /// takes its face with it into the workers that draw its frames.
+    fonts: HashMap<Face, Arc<Font>>,
+}
+
+/// A face ready to draw with, cheap to hand to whoever draws next.
+///
+/// The two defaults are process-wide statics and everything else was opened
+/// for this render; a caller wants neither distinction, only a font.
+#[derive(Debug, Clone)]
+pub(crate) enum Typeface {
+    /// `sans` or `serif` at the weight every older document meant.
+    Shipped(&'static Font),
+    /// Anything else, opened once and shared.
+    Opened(Arc<Font>),
+}
+
+impl Deref for Typeface {
+    type Target = Font;
+
+    fn deref(&self) -> &Font {
+        match self {
+            Self::Shipped(font) => font,
+            Self::Opened(font) => font,
+        }
+    }
 }
 
 /// Which face, at which weight — everything that decides whether two text
@@ -75,36 +110,26 @@ enum Face {
 }
 
 impl Painter {
-    /// Draws `asset`'s text across the whole of `frame`.
+    /// Everything needed to set `asset` as `clip` shows it, at any instant.
     ///
-    /// The frame is cleared to transparent first: a text layer is glyphs and
-    /// nothing else, so everywhere the letters are not, the tracks underneath
-    /// show through. Where the block sits is what `anchor` says — the frame's
-    /// centre unless the clip asked otherwise — and moving it from there is
-    /// `transform.position.*` like any other layer.
-    ///
-    /// What comes back is whatever a colour glyph in the content asked for and
-    /// could not be given — empty for text made of letters, which is nearly all
-    /// of it. The caller turns each into a note, because a glyph drawn short
-    /// with nothing saying so is the failure this whole path exists to end.
-    pub(crate) fn paint(
+    /// What a text layer keeps for the whole segment: drawn once and held when
+    /// nothing about it changes, and drawn from again on every frame when it
+    /// reveals or counts. Where the block sits is what the clip's anchor says,
+    /// and moving it from there is `transform.position.*` like any other layer.
+    pub(crate) fn typing(
         &mut self,
-        frame: &mut Frame,
         asset: &Asset,
-        anchor: Anchor,
+        clip: &Clip,
         project_root: &Path,
-    ) -> Result<Vec<Unpaintable>, RenderError> {
+        resolution: Resolution,
+    ) -> Result<Typing, RenderError> {
         let style = asset.text_style();
-        let content = asset.text.clone().unwrap_or_default();
-        let resolution = frame.resolution();
         let font = self.font(&style, asset, project_root)?;
-
-        frame.fill_transparent();
-        Ok(text::draw(
-            frame,
-            &content,
+        Ok(Typing::new(
+            asset,
+            clip,
             font,
-            &resolve(&style, anchor, resolution),
+            resolve(&style, clip.anchor, resolution),
         ))
     }
 
@@ -112,25 +137,17 @@ impl Painter {
     ///
     /// The **wrapped block**, which is the rectangle the anchor already reasons
     /// about — so an arrow attached to a title meets the words rather than the
-    /// frame. Same style, same font, same layout as [`Painter::paint`]; the two
+    /// frame. Same style, same font, same layout as [`Typing::draw`]; the two
     /// cannot disagree because they share the step that decides it.
     pub(crate) fn block(
         &mut self,
         asset: &Asset,
-        anchor: Anchor,
+        clip: &Clip,
         project_root: &Path,
         resolution: Resolution,
     ) -> Result<Area, RenderError> {
-        let style = asset.text_style();
-        let content = asset.text.clone().unwrap_or_default();
-        let font = self.font(&style, asset, project_root)?;
-        Ok(text::block_in(
-            &content,
-            font,
-            &resolve(&style, anchor, resolution),
-            text::Band::whole(resolution),
-            resolution,
-        ))
+        let typing = self.typing(asset, clip, project_root, resolution)?;
+        Ok(typing.block(resolution))
     }
 
     /// The face a style names, at the weight it names, opening and keeping a
@@ -147,16 +164,16 @@ impl Painter {
         style: &TextStyle,
         asset: &Asset,
         project_root: &Path,
-    ) -> Result<&Font, RenderError> {
+    ) -> Result<Typeface, RenderError> {
         let key = match (&style.font, style.weight) {
             // The two names every project written before this one uses, at the
             // weight they have always meant. Answered from the compositor's own
             // statics, so the common case allocates nothing.
             (FontChoice::Named(name), None) if name == "sans" && !style.italic => {
-                return Ok(Font::sans());
+                return Ok(Typeface::Shipped(Font::sans()));
             }
             (FontChoice::Named(name), None) if name == "serif" && !style.italic => {
-                return Ok(Font::serif());
+                return Ok(Typeface::Shipped(Font::serif()));
             }
             (FontChoice::Named(name), weight) => Face::Shipped(
                 name.clone(),
@@ -180,9 +197,9 @@ impl Painter {
         };
         if !self.fonts.contains_key(&key) {
             let font = open(&key, asset)?;
-            self.fonts.insert(key.clone(), font);
+            self.fonts.insert(key.clone(), Arc::new(font));
         }
-        Ok(&self.fonts[&key])
+        Ok(Typeface::Opened(Arc::clone(&self.fonts[&key])))
     }
 }
 
@@ -219,139 +236,13 @@ fn resolve(
         // placement of the text sits, and the same text asset used twice may
         // legitimately sit in two different corners.
         anchor,
-    }
-}
-
-/// A text asset naming a font this build does not ship.
-///
-/// A **problem** rather than a warning, unlike an unknown keyframe property:
-/// a track nothing animates leaves a render that is merely missing a fade,
-/// where a face nothing can find leaves no render at all. So it is worth
-/// finding before an encode starts rather than partway through one, which is
-/// the whole reason `scorsese check` exists.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct UnknownFont {
-    /// The text asset naming it.
-    pub asset: String,
-    /// The name as authored, quoted back so it can be searched for.
-    pub named: String,
-    /// Every name this build does answer to — the question being asked at the
-    /// moment somebody reads this.
-    pub available: String,
-}
-
-impl std::fmt::Display for UnknownFont {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "there is no font called `{}`. The ones scorsese ships are: {}",
-            self.named, self.available
-        )
-    }
-}
-
-/// Every text asset in the project naming a shipped face that does not exist.
-///
-/// Only names: a `font` that is a **path** is a file on disk, and whether it is
-/// there is `check`'s media pass to answer, alongside every other missing file.
-pub fn unknown_fonts(project: &Project) -> Vec<UnknownFont> {
-    project
-        .assets
-        .iter()
-        .filter(|asset| asset.kind == AssetKind::Text)
-        .filter_map(|asset| {
-            let named = asset.text_style().font.name()?.to_owned();
-            text::family(&named).is_none().then(|| UnknownFont {
-                asset: asset.id.to_string(),
-                named,
-                available: text::names().collect::<Vec<_>>().join(", "),
-            })
-        })
-        .collect()
-}
-
-/// A text asset saying something **no face scorsese has** can draw.
-///
-/// A warning and never a problem: the render succeeds, the frames are fine
-/// everywhere else, and swapping the face or the character is the author's
-/// call rather than this command's. What makes it worth saying at all is that
-/// the alternative to saying it is finding out by eye — an unmapped character
-/// is dropped **with its advance**, so the line closes up and looks like text
-/// nobody wrote rather than text that failed.
-///
-/// The named face is not the whole question, since font fallback arrived: a
-/// character it lacks and the emoji face draws reaches the frame, and objecting
-/// to it would be a warning about something correct. What is left here is what
-/// still vanishes.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct UncoveredGlyphs {
-    /// The text asset whose content it is.
-    pub asset: String,
-    /// The face as authored — a shipped name or a path — so the answer is
-    /// "swap this" rather than "swap something".
-    pub face: String,
-    /// The characters it cannot draw, each named once, in the order they
-    /// first appear.
-    pub characters: Vec<char>,
-}
-
-impl std::fmt::Display for UncoveredGlyphs {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // The code point beside the character, because half of these are
-        // invisible in a terminal and `U+2713` is the searchable half.
-        let listed = self
-            .characters
-            .iter()
-            .map(|character| format!("`{character}` (U+{:04X})", *character as u32))
-            .collect::<Vec<_>>()
-            .join(", ");
-        write!(
-            f,
-            "`{}` has no glyph for {listed}, and nor does any face scorsese \
-             falls back to — they are dropped, not drawn",
-            self.face
-        )
-    }
-}
-
-/// Every text asset saying something no face in its chain can draw.
-///
-/// Resolves each asset's face exactly as a render would, through the same
-/// painter, so this can never disagree with what the frames do. A face that
-/// will not open at all is not reported here — that is `unknown_fonts` above,
-/// or the media pass, and reporting it twice would be two findings for one
-/// fault.
-pub fn uncovered_glyphs(project: &Project, project_root: &Path) -> Vec<UncoveredGlyphs> {
-    let mut painter = Painter::default();
-    let mut found = Vec::new();
-    for asset in project.assets.iter().filter(|a| a.kind == AssetKind::Text) {
-        let Some(content) = asset.text.as_ref() else {
-            continue;
-        };
-        let style = asset.text_style();
-        let Ok(font) = painter.font(&style, asset, project_root) else {
-            continue;
-        };
-        let characters = font.uncovered(content);
-        if characters.is_empty() {
-            continue;
-        }
-        found.push(UncoveredGlyphs {
-            asset: asset.id.to_string(),
-            face: face_named(&style.font),
-            characters,
-        });
-    }
-    found
-}
-
-/// The face as the document wrote it — a shipped name, or the path the
-/// project carries. `FontChoice` is serialised as a plain string either way,
-/// which is the same string an author would search for.
-fn face_named(choice: &FontChoice) -> String {
-    match choice {
-        FontChoice::Named(name) => name.clone(),
-        FontChoice::File(path) => path.to_string(),
+        // A counting figure is set tabular so its line holds still; a text
+        // without one keeps the face's own figures, as it always has.
+        figures: if style.number.is_some() {
+            Figures::Tabular
+        } else {
+            Figures::Proportional
+        },
     }
 }
 

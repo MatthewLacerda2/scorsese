@@ -1,5 +1,5 @@
 {
-  "schema_version": 36,
+  "schema_version": 37,
   "name": "slide",
   "timeline_fps": {
     "num": 30,

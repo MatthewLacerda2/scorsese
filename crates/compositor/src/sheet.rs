@@ -208,6 +208,7 @@ fn stamp(cell: &mut Cell, font: &Font) {
             background: LABEL_PANEL,
             text: &cell.label,
             style: Style {
+                figures: Default::default(),
                 size: (height * LABEL_SIZE) as f32,
                 color: Rgba::WHITE,
                 align: TextAlign::Center,

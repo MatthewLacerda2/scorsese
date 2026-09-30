@@ -55,7 +55,7 @@ use scorsese_core::Rgba;
 
 use super::colr;
 use super::runs::Drawn;
-use super::shape::{self, Shaped};
+use super::shape::{self, Figures, Shaped};
 
 mod fallback;
 mod shipped;
@@ -339,8 +339,8 @@ impl<'a> Face<'a> {
     /// The only way to a width in this module: measuring a string any other
     /// way would answer with the spacing the face did *not* ask for, and
     /// wrapping would then break lines in places the drawn text does not.
-    pub(super) fn shape(&self, text: &str, index: usize) -> Shaped {
-        shape::shape(&self.shaper, text, self.scale, index)
+    pub(super) fn shape(&self, text: &str, index: usize, figures: Figures) -> Shaped {
+        shape::shape(&self.shaper, text, self.scale, index, figures)
     }
 
     /// How this face draws `character`, if it can at all.

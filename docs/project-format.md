@@ -1,4 +1,4 @@
-# `project.json` — schema v36
+# `project.json` — schema v37
 
 The contract between the CLI, the MCP server and the GUI — the contract *now*,
 not across time. It is meant to be hand-written: an agent should be able to
@@ -21,6 +21,7 @@ carries forward) up to this one.
 | v33 → v34 | the `group` asset kind (#586) | nothing: a kind was added and nothing a v33 document says changed meaning, so it passes through and only its version moves |
 | v34 → v35 | the overshooting easings and `cubic_bezier` (#587) | nothing: values an `easing` may take were added, and every easing a v34 document names is the same curve, so it passes through and only its version moves |
 | v35 → v36 | a shape's optional `dash` (#583) | nothing: a field was added whose absence is the solid line every v35 shape already draws, so it passes through and only its version moves |
+| v36 → v37 | a text style's `reveal` and `number` blocks (#590) | nothing: two optional blocks were added, absent in every v36 document, and a `{n}` in a v36 text stays three ordinary characters without a `number` block — it passes through and only its version moves |
 
 A complete worked example lives in
 `crates/core/tests/fixtures/narrated_teaser.json`.
@@ -29,7 +30,7 @@ A complete worked example lives in
 
 ```json project
 {
-  "schema_version": 36,
+  "schema_version": 37,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -447,6 +448,8 @@ which is the title most people meant.
 | `max_width` | `0.9` | Where lines wrap, as a fraction of the frame's **width** |
 | `stroke` | *none* | `#rrggbb` or `#rrggbbaa` — a rim round the letters; absent means no edge |
 | `stroke_width` | `0.002` | How far that rim reaches outward, as a fraction of the frame's **height** |
+| `reveal` | *word by word* | How the text arrives piece by piece when the clip animates `reveal` — see below |
+| `number` | *none* | The figure written where the text says `{n}`, and how — see below |
 
 **A newline in `text` is honoured and ordinary whitespace is not.** An author
 who broke a title in two meant it, so `\n` starts a new line; runs of spaces
@@ -716,12 +719,129 @@ The text is laid out centred on the frame, wrapped to `max_width`, and
 truncated with an ellipsis if it is taller than the picture. **Moving it is
 `transform.position.x` and `transform.position.y`**, and fading it is
 `opacity` — the same properties that move and fade a video clip, keyframes and
-all. Text has no animatable properties of its own, which is why a title that
-slides and fades needs nothing here. `fit` is meaningless on a text clip:
-there is no source raster to reconcile, since the text is drawn at whatever
-size the render is.
+all, which is why a title that slides and fades needs nothing here. `fit` is
+meaningless on a text clip: there is no source raster to reconcile, since the
+text is drawn at whatever size the render is.
 
-Per-character animation and shadows are not here yet. Bold is
+#### Revealing by character, word or line: `reveal`
+
+```json asset
+{ "id": "caption", "kind": "text", "text": "Three brokers, 144 partitions",
+  "style": { "size": 0.06, "reveal": { "unit": "word", "rise": 0.2, "stagger": 0.5 } } }
+```
+
+```json clip
+{ "id": "c-caption", "asset": "caption", "start": 0, "duration": 90,
+  "keyframes": [
+    { "property": "reveal", "keyframes": [
+        { "t": 0, "value": 0.0, "easing": "back_out" },
+        { "t": 30, "value": 1.0 }
+    ]}
+  ] }
+```
+
+The two things a whole layer cannot do are the two text has properties of its
+own for. The first is arriving a piece at a time — the word-by-word caption, the
+typewriter, the list that builds line by line. **The `reveal` property says
+when**: `0` shows nothing, `1` shows all of it, animated on the clip with
+keyframes like any other. **The `reveal` block says how**, and every field of it
+has a default — so a `reveal` track on a text with no block at all reveals word
+by word, and the block is only written to change that.
+
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `unit` | `word` | `char`, `word` or `line` — what the text is cut into |
+| `rise` | `0.2` | How far below its place a piece starts, as a fraction of the text's **size**; `0` fades in place, negative drops in from above |
+| `stagger` | `0.5` | How far one piece gets through its entrance before the next starts: `1` is strictly one after another, `0` is every piece at once |
+
+**The pieces are counted in reading order**, line by line, and `reveal` sweeps
+them evenly — at `0.5`, the first half have arrived or are arriving. Whitespace
+is never a piece. **A character is what the eye reads as one**: an emoji with a
+skin tone, a flag, a letter with its accent, and a glyph drawn by the fallback
+emoji face each arrive whole, never in halves.
+
+**Nothing reflows.** The text is laid out exactly as it would be drawn whole and
+only then cut up, so every word of a half-revealed caption is already where it
+will finish, and a finished reveal is the same pixels as the text with no
+`reveal` track at all.
+
+**The keyframe's easing belongs to each piece, not to the sweep.** The sweep
+across the pieces is always even; the easing shapes every piece's own
+entrance. So `back_out` makes each word overshoot its line and settle — the pop
+of a title preset — and `ease_out` has each one decelerate into place. A
+piece's opacity never goes past solid or below nothing, however the curve
+overshoots; its rise overshoots freely, which is the point. `hold` is the
+exception: it holds the sweep where it was until the next keyframe, as it holds
+any other property. A `reveal` going *down* is an exit, and the easing then runs
+in that direction of time — a `back_in` exit winds up before it leaves.
+
+A typewriter is `"unit": "char", "rise": 0, "stagger": 1`.
+
+#### A number that counts: `number`
+
+```json asset
+{ "id": "partitions", "kind": "text", "text": "{n} partitions",
+  "style": { "number": { "value": 144, "locale": "pt-BR" } } }
+```
+
+```json clip
+{ "id": "c-partitions", "asset": "partitions", "start": 0, "duration": 60,
+  "keyframes": [
+    { "property": "number", "keyframes": [
+        { "t": 0, "value": 0.0, "easing": "ease_out" },
+        { "t": 24, "value": 144.0 }
+    ]}
+  ] }
+```
+
+The second is a figure that counts. The text carries `{n}` where the figure
+goes; the `number` block says how it is written; and the `number` property —
+animated on the clip, like `reveal` — says what it is at each instant. With no
+`number` track the figure is the block's own `value`. Everything around the
+placeholder is ordinary text, so a prefix and a suffix are just words:
+`R$ {n} mi`, `{n}%`, `{n} partitions`. Every `{n}` gets the same figure.
+
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `value` | `0` | The figure when no `number` track animates it — usually the one the count ends on |
+| `decimals` | `0` | Digits after the decimal mark, `0` to `6`; the figure is rounded to them, half away from zero |
+| `locale` | `en` | `en` writes `1,234.5`; `pt-BR` writes `1.234,5` |
+| `grouping` | `true` | Whether thousands are grouped; off is what a year wants |
+
+**The locale is the document's, never the machine's**, because a render has to
+look the same on every computer. A minus is written only when something other
+than zero survives the rounding, so a count through zero never shows `-0`.
+
+**A counter never shows a figure past the keyframes it is between.** Scale and
+position overshoot freely; a figure that overshoots is a number nobody wrote —
+`151 partitions` on its way to 144 — so an overshooting easing still shapes
+*when* the count arrives (early, and then it holds) and never *what* it says.
+
+**The line does not move while it counts.** A figure growing from `0` to
+`1,234` gains characters, and a centred line would slide sideways each time it
+gained one. So the figures are set in the face's **tabular** forms — every digit
+the same width, the font's `tnum` feature — and the figure is padded on the left
+to the widest one the count will show (its `value` and its track's keyframes,
+which is everything it can reach), with a figure space where that one has a
+digit and a punctuation space where it has a separator. The digits finish in the
+columns they started in, the way an odometer's do. The padding is room, not a
+place to wrap: it is never broken at or collapsed.
+
+**Which faces have tabular figures.** `inter` (`sans`), `source-serif`
+(`serif`), `montserrat` and `lora` have `tnum`; `liberation-sans`,
+`liberation-serif` and `jetbrains-mono` draw every digit the same width
+already. `playfair-display` has neither: its digits keep their own widths, so
+the padding still holds the line to the right number of columns but a `1` is
+narrower than an `8`, and the line can drift by a fraction of a digit as it
+counts. A font file the project carries is whatever it is — if it has no
+`tnum`, the same. A face with no figure space of its own is given one by the
+shaper, as wide as its `0`.
+
+A `number` block on a text with no `{n}` in it is refused: a counter showing
+nothing looks exactly like a broken one. A `{n}` on a text with no `number` block
+is three ordinary characters.
+
+Shadows are not here yet. Bold is
 `weight` on a variable font, and nothing more than that: there is no `bold`
 flag, because a flag would be a second, coarser way to say a number that
 already exists.
@@ -2272,6 +2392,8 @@ attention than the ducking was avoiding.
 | `shape.trim_start` | where a shape's drawn line starts, as a fraction of its outline's **length** | `0.0` its start; clamped to `0`–`1` |
 | `shape.trim_end` | where a shape's drawn line ends, as a fraction of its outline's **length** | `1.0` all of it, `0.0` none; clamped to `0`–`1` |
 | `shape.dash_offset` | how far a dashed shape's pattern has moved along its line toward the end, as a fraction of the raster's **height** | `0.0` unmoved; nothing without a `dash` |
+| `reveal` | how much of a text layer has arrived, piece by piece — [see above](#revealing-by-character-word-or-line-reveal) | `1.0` all of it, `0.0` none |
+| `number` | the figure a text layer writes where its text says `{n}` — [see above](#a-number-that-counts-number) | its `number` block's `value` |
 | `volume` | how loud a clip plays, on either kind of track | `1.0` as recorded, `0.0` silent |
 
 Scale, rotation and flip all pivot on the clip's `origin`, which is the layer's

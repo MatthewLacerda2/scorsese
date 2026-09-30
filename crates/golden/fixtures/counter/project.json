@@ -1,0 +1,75 @@
+{
+  "schema_version": 37,
+  "name": "counter",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    {
+      "id": "en",
+      "kind": "text",
+      "text": "{n} GB",
+      "style": {
+        "font": "sans",
+        "size": 0.2,
+        "color": "#ffffff",
+        "number": { "value": 12345.6, "decimals": 1, "locale": "en" }
+      }
+    },
+    {
+      "id": "pt",
+      "kind": "text",
+      "text": "{n} GB",
+      "style": {
+        "font": "sans",
+        "size": 0.2,
+        "color": "#ffcc00",
+        "number": { "value": 12345.6, "decimals": 1, "locale": "pt-BR" }
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-en",
+          "asset": "en",
+          "start": 0,
+          "duration": 30,
+          "keyframes": [
+            { "property": "transform.position.y", "keyframes": [{ "t": 0, "value": -0.2 }] },
+            {
+              "property": "number",
+              "keyframes": [
+                { "t": 0, "value": 0.0, "easing": "back_out" },
+                { "t": 20, "value": 12345.6 }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-pt",
+          "asset": "pt",
+          "start": 0,
+          "duration": 30,
+          "keyframes": [
+            { "property": "transform.position.y", "keyframes": [{ "t": 0, "value": 0.2 }] },
+            {
+              "property": "number",
+              "keyframes": [
+                { "t": 0, "value": 0.0, "easing": "back_out" },
+                { "t": 20, "value": 12345.6 }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

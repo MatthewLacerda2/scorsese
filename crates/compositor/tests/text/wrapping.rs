@@ -32,6 +32,7 @@ fn a_line_too_long_for_the_box_wraps_instead_of_running_off() {
 fn a_narrower_box_takes_more_lines() {
     let wide = style(20.0, Rgba::WHITE);
     let narrow = Style {
+        figures: Default::default(),
         max_width: wide.max_width / 2.0,
         ..wide
     };
@@ -103,6 +104,7 @@ fn the_three_alignments_put_a_short_line_in_three_places() {
             "hi",
             Font::sans(),
             &Style {
+                figures: Default::default(),
                 align,
                 ..style(24.0, Rgba::WHITE)
             },
@@ -133,6 +135,7 @@ fn the_three_alignments_put_a_short_line_in_three_places() {
 #[test]
 fn a_line_of_emoji_is_wrapped_to_the_width_it_is_drawn_at() {
     let boxed = Style {
+        figures: Default::default(),
         max_width: 100.0,
         line_height: 40.0,
         ..style(24.0, Rgba::WHITE)

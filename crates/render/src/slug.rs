@@ -112,6 +112,7 @@ impl Look {
     fn style(self, resolution: Resolution) -> Style {
         let size = self.size * f64::from(resolution.height());
         Style {
+            figures: Default::default(),
             // A card is a stand-in drawn across the raster, not a title someone
             // laid out: it is centred whatever the clip's anchor says, because
             // the anchor is about where the *shot* sits and this is not the

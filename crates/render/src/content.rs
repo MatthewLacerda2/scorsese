@@ -166,7 +166,7 @@ pub(crate) fn within(
         // The wrapped block, not the raster it is set on: the words are what a
         // reader sees and what an arrow has to meet, and the layer's own edges
         // are the frame's.
-        let block = painter.block(shot.asset, shot.clip.anchor, project_root, raster)?;
+        let block = painter.block(shot.asset, shot.clip, project_root, raster)?;
         return Ok(Content::Drawn(block));
     }
     if matches!(shot.asset.kind, AssetKind::Color | AssetKind::Group) {

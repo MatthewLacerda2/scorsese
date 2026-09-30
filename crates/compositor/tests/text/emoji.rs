@@ -148,6 +148,7 @@ fn a_keycap_takes_the_face_that_has_the_enclosing_mark() {
 #[test]
 fn a_line_never_breaks_between_a_hand_and_its_skin_tone() {
     let boxed = Style {
+        figures: Default::default(),
         max_width: SIZE * 0.5,
         line_height: 40.0,
         ..style(SIZE, Rgba::WHITE)

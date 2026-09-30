@@ -1,0 +1,36 @@
+{
+  "schema_version": 37,
+  "name": "reveal_words",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    {
+      "id": "caption",
+      "kind": "text",
+      "text": "Three brokers, live",
+      "style": { "font": "sans", "size": 0.16, "color": "#ffffff", "reveal": { "unit": "word" } }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-caption",
+          "asset": "caption",
+          "start": 0,
+          "duration": 30,
+          "keyframes": [
+            {
+              "property": "reveal",
+              "keyframes": [
+                { "t": 0, "value": 0.0 },
+                { "t": 20, "value": 1.0 }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

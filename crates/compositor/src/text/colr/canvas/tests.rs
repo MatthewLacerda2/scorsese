@@ -36,7 +36,7 @@ fn walked(steps: impl FnOnce(&mut Canvas<'_, '_>, GlyphId)) -> Pixmap {
     let font = Font::sans();
     let face = font.at(SIZE);
     let id = face
-        .shape("H", 0)
+        .shape("H", 0, crate::text::Figures::default())
         .glyphs
         .first()
         .expect("the shipped sans face has an H")

@@ -30,7 +30,7 @@
 //! face on its own — so a glyph carries the face it came from, and the shaped
 //! runs are laid end to end by [`Shaped::append`].
 
-use harfrust::{ShapeOptions, Shaper, UnicodeBuffer};
+use harfrust::{Feature, ShapeOptions, Shaper, Tag, UnicodeBuffer};
 use skrifa::GlyphId;
 
 /// The non-breaking space.
@@ -40,6 +40,56 @@ use skrifa::GlyphId;
 /// drop one for want of a glyph. A face that has no `U+00A0` of its own still
 /// has a space, and that is the width the author asked for.
 pub(super) const NBSP: char = '\u{a0}';
+
+/// The space as wide as a figure, and the one as wide as a full stop.
+///
+/// What a counting number is padded with so that the line keeps the width of
+/// the widest figure it will reach: a figure space stands where a digit will
+/// be, a punctuation space where a separator will. Unicode calls both
+/// whitespace, and like [`NBSP`] neither may be broken at or collapsed — they
+/// are the room a figure keeps, not a gap between words.
+pub(super) const FIGURE_SPACE: char = '\u{2007}';
+/// See [`FIGURE_SPACE`].
+pub(super) const PUNCTUATION_SPACE: char = '\u{2008}';
+
+/// Whether `character` is a space that holds its width rather than being a
+/// place to break: [`NBSP`] and the two a counter pads with.
+pub(super) fn holds(character: char) -> bool {
+    matches!(character, NBSP | FIGURE_SPACE | PUNCTUATION_SPACE)
+}
+
+/// Whether figures are set from the face's tabular forms — every digit the
+/// same width — rather than its proportional ones.
+///
+/// On for a text with a counting number in it, and for the **whole** of that
+/// text rather than the figure alone: a run is shaped with one set of features,
+/// and a caption whose other digits changed style beside the counter would look
+/// like a font change. A face with no `tnum` feature ignores the request and
+/// keeps its own figures, and the figure space [`super::padded`] pads with is
+/// then measured against those.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Figures {
+    /// Whatever the face sets by default — proportional in most text faces.
+    #[default]
+    Proportional,
+    /// The face's `tnum` forms, where it has them.
+    Tabular,
+}
+
+impl Figures {
+    fn features(self) -> &'static [Feature] {
+        static TABULAR: [Feature; 1] = [Feature {
+            tag: Tag::new(b"tnum"),
+            value: 1,
+            start: 0,
+            end: u32::MAX,
+        }];
+        match self {
+            Self::Proportional => &[],
+            Self::Tabular => &TABULAR,
+        }
+    }
+}
 
 /// A run of text, shaped: which glyphs, and where each one goes.
 #[derive(Default)]
@@ -66,6 +116,10 @@ pub(super) struct Placed {
     /// Which face in the chain drew it — a glyph id means nothing without the
     /// face it indexes into, and a line may be set from more than one.
     pub face: usize,
+    /// Where in the shaped string the characters it sets begin, as a byte
+    /// offset — which is how a reveal finds the word a glyph belongs to. A
+    /// ligature carries the offset of its first character.
+    pub cluster: usize,
 }
 
 impl Shaped {
@@ -74,12 +128,14 @@ impl Shaped {
     ///
     /// Positions rather than a second pen: the runs of one line are one line,
     /// and something asking how wide the whole of it sets must not have to walk
-    /// a list of pieces to find out.
-    pub(super) fn append(&mut self, other: Self) {
+    /// a list of pieces to find out. `from` is where `other`'s text starts in
+    /// the line, so its clusters are counted from the line's start too.
+    pub(super) fn append(&mut self, other: Self, from: usize) {
         let offset = self.width;
         self.glyphs
             .extend(other.glyphs.into_iter().map(|glyph| Placed {
                 at: (glyph.at.0 + offset, glyph.at.1),
+                cluster: glyph.cluster + from,
                 ..glyph
             }));
         self.width += other.width;
@@ -100,7 +156,13 @@ impl Shaped {
 /// this face lacks was handed to a face that has it before anything got here,
 /// and reaches this line only when nothing in the chain covers it — which is
 /// exactly the case `check` reports and the frame drops.
-pub(super) fn shape(shaper: &Shaper<'_>, text: &str, scale: f32, face: usize) -> Shaped {
+pub(super) fn shape(
+    shaper: &Shaper<'_>,
+    text: &str,
+    scale: f32,
+    face: usize,
+    figures: Figures,
+) -> Shaped {
     let mut buffer = UnicodeBuffer::new();
     buffer.push_str(text);
     // Direction, script and language read off the characters themselves. A
@@ -108,7 +170,7 @@ pub(super) fn shape(shaper: &Shaper<'_>, text: &str, scale: f32, face: usize) ->
     // Cyrillic or Greek run get its own script's features rather than Latin's.
     buffer.guess_segment_properties();
 
-    let shaped = shaper.shape(buffer, ShapeOptions::default());
+    let shaped = shaper.shape(buffer, ShapeOptions::new().features(figures.features()));
     let mut glyphs = Vec::with_capacity(shaped.len());
     let mut pen = 0.0;
     for (glyph, position) in shaped.glyph_infos().iter().zip(shaped.glyph_positions()) {
@@ -122,6 +184,7 @@ pub(super) fn shape(shaper: &Shaper<'_>, text: &str, scale: f32, face: usize) ->
                 position.y_offset as f32 * scale,
             ),
             face,
+            cluster: glyph.cluster as usize,
         });
         pen += position.x_advance as f32 * scale;
     }

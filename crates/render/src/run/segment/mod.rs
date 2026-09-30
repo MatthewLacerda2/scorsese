@@ -128,7 +128,7 @@ impl Pass<'_> {
                 &mut notes,
             )?;
             match slot.pixels {
-                Pixels::Drawn { .. } => drawn += 1,
+                Pixels::Drawn { .. } | Pixels::Typed { .. } => drawn += 1,
                 Pixels::Composed { .. } => composed += 1,
                 Pixels::Held(_) | Pixels::Live(_) => {}
             }
@@ -164,7 +164,10 @@ impl Pass<'_> {
                     // source, so there is nothing to read and nothing to report
                     // short. A group is drawn too; a member of it that runs short is
                     // reported as itself.
-                    Pixels::Held(_) | Pixels::Drawn { .. } | Pixels::Composed { .. } => None,
+                    Pixels::Held(_)
+                    | Pixels::Drawn { .. }
+                    | Pixels::Typed { .. }
+                    | Pixels::Composed { .. } => None,
                     Pixels::Live(at) => (missing[at] > 0).then(|| Note::ClipRanShort {
                         clip: entry.shot.clip.id.to_string(),
                         missing: missing[at],

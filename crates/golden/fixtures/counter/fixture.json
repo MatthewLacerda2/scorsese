@@ -1,0 +1,14 @@
+{
+  "description": "Two counters counting the same figure, `{n} GB` from 0 to 12345.6 with one decimal on a `back_out` easing: white above in `en`, yellow below in `pt-BR`, in the shipped sans face on black. Frame 0 reads `0.0` and `0,0`, frame 2 `5,047.2` and `5.047,2`, and frame 20 `12,345.6` and `12.345,6`. The separators are the point of the pair: a build that ignored `locale` draws the two lines alike, and one that swapped the table draws them the wrong way round. The figure is right-aligned in room kept for the widest one and set in Inter's tabular figures, so ` GB` is in the same place in every frame on both lines — a build that stopped padding or stopped asking for `tnum` slides the suffix sideways as the figure grows. `back_out` overshoots, and already has at frame 10, where the curve is about 9% past the end: a counter never shows a figure past its keyframes, so frame 10 must read exactly `12,345.6` and `12.345,6`, not 13 thousand-odd. Nothing here has a file.",
+  "media": {},
+  "render": {
+    "resolution": "192x108",
+    "fps": "30"
+  },
+  "frames": [
+    0,
+    2,
+    10,
+    20
+  ]
+}

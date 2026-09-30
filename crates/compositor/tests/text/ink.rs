@@ -24,6 +24,7 @@ pub(crate) fn canvas() -> Frame {
 /// A style with everything but the parts a test is about held still.
 pub(crate) fn style(size: f32, color: Rgba) -> Style {
     Style {
+        figures: Default::default(),
         anchor: scorsese_core::Anchor::default(),
         size,
         color,

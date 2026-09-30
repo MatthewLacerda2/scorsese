@@ -9,6 +9,7 @@
 //! set the producer reads in lockstep, one frame from each per output frame.
 
 use scorsese_compositor::shape::Trace;
+use scorsese_compositor::text::Sweep;
 use scorsese_compositor::{Area, Frame};
 use scorsese_core::{Anchor, AssetKind, Fps, Origin};
 
@@ -20,7 +21,7 @@ use crate::report::{Note, StandIn};
 use crate::shape;
 use crate::slug::{self, Standing};
 use crate::symbol;
-use crate::text::Painter;
+use crate::text::{Painter, Typing};
 
 use super::Pass;
 use super::attach::{self, Rect};
@@ -97,13 +98,28 @@ pub(super) enum Pixels {
     /// Only those. Everything else that is drawn — a title, a colour, a box,
     /// an arrow between two fixed points, a dashed border standing still — is
     /// the same pixels for the whole segment and is [`Pixels::Held`], which is
-    /// what keeps the common case free of per-frame work.
+    /// what keeps the common case free of per-frame work. Text that reveals or
+    /// counts is [`Pixels::Typed`].
     Drawn {
         /// Which of the job's buffers it is drawn into, counted after the
         /// decoded ones.
         at: usize,
         /// What it is drawn from, every frame.
         redraw: Box<Redraw>,
+    },
+    /// Text set afresh for every frame, because it is revealing or counting —
+    /// which glyphs there are, and where, is what changes.
+    ///
+    /// Set by the worker compositing the frame rather than by the producer the
+    /// way an arrow is: it depends on nothing but this layer's own properties,
+    /// and setting type is the most expensive drawing there is, so it goes
+    /// where the parallelism is.
+    Typed {
+        /// Which of the job's buffers it is drawn into, counted with
+        /// [`Pixels::Drawn`]'s after the decoded ones.
+        at: usize,
+        /// The face, the style and the content, kept for the segment.
+        typing: Box<Typing>,
     },
     /// A group: its members composited, every frame, into a transparent
     /// raster of the job's own, which is then this layer's picture.
@@ -190,15 +206,28 @@ impl Pass<'_> {
         }
 
         if shot.asset.kind == AssetKind::Text {
+            let typing = painter.typing(shot.asset, shot.clip, self.project_root, raster)?;
+            // Drawn once as it stands whatever happens next: that is the
+            // picture a still clip holds, and it is where a colour glyph drawn
+            // short is noticed — once for the clip, not once for every frame
+            // of a reveal.
             let mut pixels = blank();
-            let unpaintable =
-                painter.paint(&mut pixels, shot.asset, shot.clip.anchor, self.project_root)?;
+            let unpaintable = typing.draw(&mut pixels, Sweep::DONE, None);
             notes.extend(unpaintable.into_iter().map(|glyph| Note::UnpaintableGlyph {
                 clip: shot.clip.id.to_string(),
                 asset: shot.asset.id.to_string(),
                 wanted: glyph.wanted,
             }));
-            return held(pixels);
+            if !typing.animates() {
+                return held(pixels);
+            }
+            return Ok((
+                at_raster(Pixels::Typed {
+                    at: drawn,
+                    typing: Box::new(typing),
+                }),
+                None,
+            ));
         }
 
         if shot.asset.kind == AssetKind::Color {
