@@ -10,12 +10,26 @@
 //! only a few dozen levels to spend over a thousand pixels, so it comes out as
 //! visible stripes — and H.264 makes them worse, because a flat band is exactly
 //! what an encoder is best at keeping flat. tiny-skia's own gradient shaders do
-//! not dither, which is why this evaluates the gradient itself: in floating
-//! point, then rounded against an 8×8 ordered (Bayer) threshold. Every 8×8
-//! block then averages to the true gradient value, so what an encoder keeps —
-//! each block's mean — follows the smooth ramp instead of stepping in bands.
-//! Ordered rather than random, because it is integer arithmetic with no seed:
-//! the same picture on every machine, which is what the golden gate compares.
+//! not dither, which is why this evaluates the gradient itself, in floating
+//! point, and adds noise before rounding: triangular, two levels either side
+//! (σ ≈ 0.8 of a level, below what an eye resolves), the same value on all
+//! three colour channels.
+//!
+//! **Noise, not an ordered pattern — measured, not assumed.** An 8×8 Bayer
+//! matrix is the textbook dither and it does not survive an encoder: on a
+//! vertical ramp every block along a row is identical, so x264 rounds them all
+//! at the same row and the band edge comes back a straight line. Through a
+//! 300 kbit/s encode of a 640×360 ramp eight levels deep, the worst jump
+//! between neighbouring rows' mean luma was **2.0 levels undithered, 2.0 with
+//! Bayer, 0.78 with noise one level either side and 0.37 with this** (frame 15
+//! of 30); film grain on top (`grade.grain` 0.1) moved it only to 0.31, so the
+//! dither is what does the work. `crates/render/tests/pipeline/banding.rs`
+//! holds the steady state as a gate: 2.00 undithered, 0.28 dithered.
+//!
+//! **A hash, never a generator** — [`crate::grain`]'s, reused so the crate has
+//! one answer to what a deterministic random number is. The noise is a pure
+//! function of the pixel, so a gradient is the same picture on every render and
+//! every machine, and a still layer's noise does not crawl from frame to frame.
 //!
 //! Colours are interpolated **premultiplied**, as CSS does, so a stop fading to
 //! transparent does not drag a grey fringe through the middle of the ramp.
@@ -23,6 +37,16 @@
 use scorsese_core::{Fill, Rgba, Stop};
 
 use crate::frame::{BYTES_PER_PIXEL, Frame};
+use crate::grain;
+
+/// How far the dither may move a channel either side, in levels: the peak of
+/// the triangular noise, which is two uniform values of this crate's hash
+/// summed. Measured against one level either side in the module doc.
+const DITHER: f64 = 2.0;
+
+/// The seeds of the two noise fields the dither sums. Any two distinct
+/// constants do; these spell what they are for.
+const FIELDS: [u64; 2] = [0x6772_6164_6965_6e74, 0x6469_7468_6572_6564];
 
 /// A rectangle of the raster, in pixels: left, top, width, height.
 pub(crate) type Bounds = (f32, f32, f32, f32);
@@ -100,7 +124,7 @@ impl Gradient {
                 (point.0 - center.0).hypot(point.1 - center.1) / radius
             }
         };
-        dithered(straight(self.sample(t)), threshold(x, y))
+        dithered(straight(self.sample(t)), noise(x, y))
     }
 
     /// The premultiplied colour `t` of the way along, clamped to the ends.
@@ -158,55 +182,51 @@ fn straight([r, g, b, a]: [f64; 4]) -> [f64; 4] {
     [r / opacity, g / opacity, b / opacity, a]
 }
 
-/// Each channel to a byte, rounded up or down against `threshold` rather than
-/// always to the nearest. A value exactly on a level stays on it, since the
-/// threshold is below one, so a flat stretch of gradient comes out flat.
-fn dithered(color: [f64; 4], threshold: f64) -> [u8; 4] {
-    color.map(|channel| (channel + threshold).floor().clamp(0.0, 255.0) as u8)
+/// Each channel to a byte, with `noise` added before rounding to the nearest
+/// level.
+///
+/// **A channel at either end of its range is left there.** Noise could only
+/// push it one way — clamping takes the other half away — so dithering it
+/// would be a bias rather than a dither; and a fill's opaque alpha must stay
+/// opaque, or a solid gradient panel would come out faintly see-through.
+fn dithered(color: [f64; 4], noise: f64) -> [u8; 4] {
+    color.map(|channel| {
+        if channel <= 0.0 || channel >= 255.0 {
+            return channel.clamp(0.0, 255.0) as u8;
+        }
+        (channel + noise).round().clamp(0.0, 255.0) as u8
+    })
 }
 
-/// The 8×8 Bayer matrix's entry for this pixel, as a threshold in `(0, 1)`.
-///
-/// Built from the bits of `x ^ y` and `y`, interleaved and reversed — the
-/// standard construction, which needs no table and is the same integers on
-/// every target.
-fn threshold(x: u32, y: u32) -> f64 {
-    let (x, y) = (x & 7, y & 7);
-    let xy = x ^ y;
-    let index = ((xy & 1) << 5)
-        | ((y & 1) << 4)
-        | ((xy & 2) << 2)
-        | ((y & 2) << 1)
-        | ((xy & 4) >> 1)
-        | ((y & 4) >> 2);
-    (f64::from(index) + 0.5) / 64.0
+/// The dither at pixel `(x, y)`: triangular, in `-DITHER..DITHER` levels.
+fn noise(x: u32, y: u32) -> f64 {
+    let at = (u64::from(y) << 32) | u64::from(x);
+    let [first, second] = FIELDS.map(|field| grain::value(field, at));
+    (first + second) * DITHER / 2.0
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// Every entry once: that is what makes each 8×8 block average to the
-    /// value underneath, which is the whole claim the module makes.
+    /// Centred and bounded: a dither that leaned one way would shift the whole
+    /// gradient's brightness, and one past its bound would be grain.
     #[test]
-    fn the_threshold_matrix_is_a_permutation() {
-        let mut seen = [false; 64];
-        for y in 0..8 {
-            for x in 0..8 {
-                let index = (threshold(x, y) * 64.0 - 0.5) as usize;
-                assert!(!seen[index], "{index} twice");
-                seen[index] = true;
-            }
-        }
-        let mean: f64 = (0..64).map(|i| threshold(i % 8, i / 8)).sum::<f64>() / 64.0;
-        assert!((mean - 0.5).abs() < 1e-12);
+    fn the_noise_is_centred_and_bounded() {
+        let samples: Vec<f64> = (0..256)
+            .flat_map(|y| (0..256).map(move |x| noise(x, y)))
+            .collect();
+        let mean = samples.iter().sum::<f64>() / samples.len() as f64;
+        assert!(mean.abs() < 0.02, "mean {mean}");
+        assert!(samples.iter().all(|n| n.abs() <= DITHER));
+        let spread = samples.iter().map(|n| n * n).sum::<f64>() / samples.len() as f64;
+        assert!((spread.sqrt() - 0.816).abs() < 0.02, "σ {}", spread.sqrt());
     }
 
     #[test]
-    fn a_value_on_a_level_is_never_dithered_off_it() {
-        for i in 0..64 {
-            let color = dithered([51.0, 0.0, 255.0, 255.0], threshold(i % 8, i / 8));
-            assert_eq!(color, [51, 0, 255, 255]);
+    fn a_channel_at_either_end_is_never_dithered_off_it() {
+        for n in [-2.0, -0.6, 0.6, 2.0] {
+            assert_eq!(dithered([0.0, 255.0, 0.0, 255.0], n), [0, 255, 0, 255]);
         }
     }
 }

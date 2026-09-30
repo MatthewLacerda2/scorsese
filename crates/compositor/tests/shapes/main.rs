@@ -22,6 +22,7 @@ mod arrows;
 mod bows;
 mod corners;
 mod dashes;
+mod gradients;
 mod heads;
 mod kept;
 mod measuring;

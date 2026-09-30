@@ -92,3 +92,53 @@ fn an_icon_changes_symbol_and_colour_and_says_both() {
         ]
     );
 }
+
+/// A colour card is the backdrop a gradient is for, and the reply says it in
+/// the same words a description of the shot would.
+#[test]
+fn a_colour_card_takes_a_gradient() {
+    let mut project = project();
+    let gradient: crate::fill::Fill = serde_json::from_value(serde_json::json!({
+        "radial": { "radius": 0.8, "stops": [["#1b2440", 0], ["#0b1020", 1]] }
+    }))
+    .expect("a gradient");
+    let said = set_asset(
+        &mut project,
+        &AssetId::new("card"),
+        &Edit {
+            color: Some(gradient),
+            ..Edit::default()
+        },
+    )
+    .expect("a gradient card");
+    assert_eq!(
+        said,
+        vec!["color: #101820 → radial gradient #1b2440 → #0b1020"]
+    );
+}
+
+/// A symbol is one colour. A gradient given to it is refused by name rather
+/// than flattened to whichever stop came first.
+#[test]
+fn an_icon_refuses_a_gradient_and_writes_nothing() {
+    let mut project = project();
+    let before = project.clone();
+    let gradient = crate::fill::Fill::Linear(crate::fill::Linear {
+        angle: 90.0,
+        stops: vec![
+            crate::fill::Stop::new(Rgba::BLACK, 0.0),
+            crate::fill::Stop::new(Rgba::WHITE, 1.0),
+        ],
+    });
+    let refused = set_asset(
+        &mut project,
+        &AssetId::new("mark"),
+        &Edit {
+            color: Some(gradient),
+            ..Edit::default()
+        },
+    );
+    let said = refused.expect_err("one colour").to_string();
+    assert!(said.contains("one colour, not a gradient"), "{said}");
+    assert_eq!(project, before);
+}

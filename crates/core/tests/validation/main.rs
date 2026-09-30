@@ -11,6 +11,7 @@ mod dash;
 mod fields;
 mod follow;
 mod generated;
+mod gradient;
 mod group;
 mod icon;
 mod keyframes;
