@@ -60,16 +60,18 @@ session: the first coder to hit a difference corrects this list in its PR.)*
   on `aarch64` rather than CI's `x86_64`, `grade_*` and `vhs` fail regardless.
   A golden-render mismatch is investigated, never re-blessed to go green
   (`docs/golden-renders.md`).
-- **A new fixture is blessed here**, and only it — if `uname -m` says
-  `x86_64`, CI's architecture. On `aarch64`, don't bless: arm64 float paths
-  drift from x86_64 on new code even where every existing fixture passes. Say
-  so in the PR and leave the fixture unblessed for the orchestrator.
-  `UPDATE_GOLDENS=1` on the whole suite rewrites every fixture's references, so:
-  run the existing fixtures first and bless nothing if any fails; bless the new
-  one by name (`UPDATE_GOLDENS=1 cargo test -p scorsese-golden --test goldens
-  -- --exact <name>`); make sure no other `expected/` changed; then **look at**
-  the new frames (Read the PNGs) before committing. CI gates under Ubuntu
-  24.04's ffmpeg `6.1.1`; if `decoder.txt` names another, say so in the PR.
+- **A fixture the branch adds or deliberately changes is blessed here**, and
+  nothing else — if `uname -m` says `x86_64`, CI's architecture. On `aarch64`,
+  don't bless: arm64 float paths drift from x86_64 on new code even where every
+  existing fixture passes. Say so in the PR and leave the fixture unblessed for
+  the orchestrator. `UPDATE_GOLDENS=1` on the whole suite rewrites every
+  fixture's references, so: run the others first and bless nothing if any
+  fails; bless each by name (`UPDATE_GOLDENS=1 cargo test -p scorsese-golden
+  --test goldens -- --exact <name>`); make sure no other `expected/` changed;
+  then **look at** the frames (Read the PNGs) before committing. A changed
+  reference is explained in the PR (`docs/golden-renders.md`, *Re-blessing*).
+  CI gates under Ubuntu 24.04's ffmpeg `6.1.1`; if `decoder.txt` names another,
+  say so in the PR.
 
 ## The repo's rules that trip cloud coders
 
