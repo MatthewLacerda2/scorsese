@@ -637,6 +637,28 @@ pub enum SynthError {
         limit: f32,
     },
 
+    /// `tail: wrap` alongside a field that would put a seam back into the
+    /// loop it makes: a `fade`, which dips the level every time round, or a
+    /// `fit` that cuts mid-pass or pads with silence.
+    WrapWith {
+        /// The field that cannot join it, as the document writes it.
+        field: &'static str,
+        /// What it would do to the loop, and what to write instead.
+        why: &'static str,
+    },
+
+    /// `tail: wrap` on a song that rings out for longer than one pass lasts:
+    /// the tail would still be sounding when it came round again, and folding
+    /// only part of it back would cut the rest off — the seam the mode exists
+    /// to remove. Known only once the song is rendered, because how long an
+    /// instrument rings is a fact about its resolved patch.
+    WrapOverhang {
+        /// How long the song rings past its last beat, in seconds.
+        overhang: f32,
+        /// How long one pass of the loop is, in seconds.
+        length: f32,
+    },
+
     // ────────────────────────────────────────────────────────────────────
     // The caller's resolver — the one refusal this crate does not make itself.
     // ────────────────────────────────────────────────────────────────────

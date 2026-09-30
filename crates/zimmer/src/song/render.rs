@@ -84,11 +84,10 @@ use super::excerpt::{Excerpt, Scope};
 use super::feel::swung;
 use super::glide::{Slides, Trail};
 use super::mix::Mix;
-use super::shape::{plan, shape};
+use super::shape::{limit, plan, shape};
 use super::{Articulation, Note, PatchRef, Song, sections};
 use crate::core::{self, RATE};
 use crate::error::SynthError;
-use crate::fx::limiter;
 use crate::hash::hash3;
 use crate::level::{Cut, Layer};
 use crate::note::{Glide, NoteOpts};
@@ -397,7 +396,9 @@ pub(crate) fn mix_song(
     let (mut master, tracks) = mix.finish(&sections);
     // The master limiter, always — mixing by addition is exactly the operation
     // that overshoots full scale, so the sum is never handed out unlimited.
-    limiter::apply(&mut master, RATE);
+    // A `wrap` tail folds the ring-out onto the start first, because that
+    // fold is one more addition.
+    limit(song, &mut master, arrangement_end)?;
     // Then length and level, in that order, on the limited signal.
     shape(song, &mut master, arrangement_end);
     // And only now is the window taken, which is what makes it exactly the

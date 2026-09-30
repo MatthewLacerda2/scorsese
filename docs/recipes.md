@@ -1790,10 +1790,34 @@ the *music* — a piece that ends by resolving and receding stays that way when
 it is moved elsewhere in the timeline or reused in another project. Ducking
 *this* use of it under *this* voice-over is a keyframe on the clip instead.
 
-**`tail`** is `ring` (the default: the file grows to hold the last note's
-release and any fx tail) or `exact` (the file ends on the arrangement's final
-beat, with the tail faded into it). Use `exact` when the music has to butt
-against something.
+**`tail`** is what happens after the last beat:
+
+| tail | The file | Use it for |
+| --- | --- | --- |
+| `ring` *(default)* | grows to hold the last note's release and any fx tail | music that plays once and ends |
+| `exact` | ends on the arrangement's final beat, with the tail faded into it | music that has to butt against something |
+| `wrap` | ends on the final beat, with the tail **summed back onto the start** | a loop — a game's music, a bed that repeats |
+
+**A file that will be looped wants `wrap`.** A player loops by jumping back to
+the first sample when the file ends. Under `ring` that jump cuts the ring-out
+dead under the next downbeat, and under `exact` the ring-out was faded away;
+either way there is a seam. `wrap` is what a band playing the piece round and
+round would sound like — the reverb of the last bar rings over the first — so
+the loop point has no seam to hear. It is still exactly the arrangement long:
+64 beats at 96 bpm is 1,764,000 samples, tail included.
+
+`wrap` **refuses** three things, all for putting a seam back into the loop:
+
+- a tail longer than one pass — it would still be ringing the next time
+  round. The refusal gives both lengths; shorten the release or the effect,
+  or lengthen the arrangement. This one is only known once the song is
+  rendered, so `synth check` passes it and the bake says so.
+- any `fade` — on a loop it is a dip every time round. Fade the music where it
+  is played instead.
+- a `fit` other than `stretch`. `loop` cuts mid-pass, so there is no single
+  point where the music comes back round; `once` pads with silence, which the
+  loop would play every time. `stretch` lands a whole number of passes on the
+  target, and the file wraps there.
 
 `seed` re-rolls every stochastic source in the piece at once. A pattern played
 twice does not repeat its noise — a repeated snare is not a photocopy — while

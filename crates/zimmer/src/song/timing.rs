@@ -1,14 +1,19 @@
 //! Making a song the length the picture needs.
 //!
 //! A song's natural length is whatever its notes add up to, plus however long
-//! the last one takes to stop ringing. That is the right answer for a game,
-//! where a loop is a loop and nothing is waiting on it. It is the wrong answer
-//! for video, where the music has a hole to fill: forty-three seconds between
-//! two cuts.
+//! the last one takes to stop ringing. That is the wrong answer for video,
+//! where the music has a hole to fill: forty-three seconds between two cuts.
+//! And it is the wrong answer for a game too, which is easy to miss: a game
+//! jumps back to the first sample the moment the file ends, so the ring-out
+//! sits at the end of every pass and stops dead under the next downbeat. A
+//! loop that is seamless has to carry its own tail round to the start —
+//! [`Tail::Wrap`].
 //!
 //! Everything here is optional, and absent means the song is as long as it is.
 
 use serde::{Deserialize, Serialize};
+
+use crate::error::SynthError;
 
 /// How far a tempo may be moved to make a song fit, as a fraction either way.
 ///
@@ -90,4 +95,61 @@ pub enum Tail {
     /// End exactly on the arrangement's last beat, with the tail faded into
     /// it. What a caller wants when the music has to butt against something.
     Exact,
+    /// End exactly on the arrangement's last beat, with everything that rings
+    /// past it **summed back onto the start** — what a game's music wants,
+    /// because the file is going to be played round and round.
+    ///
+    /// It is what a band playing the piece in a circle would sound like: the
+    /// reverb of the last bar rings over the first. So the loop point is
+    /// seamless by construction rather than merely quiet, which neither other
+    /// tail can say — `ring` leaves the tail at the end of the file, where it
+    /// is cut dead when playback jumps back, and `exact` fades it away.
+    ///
+    /// Summed rather than crossfaded, because a crossfade turns the start of
+    /// every pass down, a level change nobody asked for. The fold happens
+    /// before the master limiter, which is what keeps the sum from clipping,
+    /// and that limiter reads the file as the circle it is, so nothing it does
+    /// puts a seam back where the fold took one away.
+    ///
+    /// Refused, when rendered, if the tail is longer than the loop: it would
+    /// still be ringing the next time round, and cutting it short would be the
+    /// fault it exists to fix. Refused alongside a `fade` (a fade on a loop is
+    /// a dip every pass) and a `fit` other than `stretch`, which is the one
+    /// mode that lands on a whole number of passes and so has a loop point.
+    Wrap,
+}
+
+/// Refuses what cannot join `tail: wrap`, because it would put a seam back
+/// into the loop the tail makes.
+///
+/// - **Any `fade`.** A fade-out on a loop is a dip at every pass. A fade-in is
+///   the same dip on the other side of the seam, and worse: it would turn down
+///   the very tail the wrap just carried round. A player that wants the music
+///   to come in gently fades the *voice* it plays the loop on, once.
+/// - **`fit` in `loop` or `once`.** A loop fit cuts mid-pass, so the file has
+///   no one point where the music comes back round; a once fit pads with
+///   silence, which the loop would then play every time. `stretch` lands on
+///   a whole number of passes, so it has a loop point, and it is allowed.
+pub(crate) fn check_wrap(fit: Option<Fit>, fade: Option<Fade>) -> Result<(), SynthError> {
+    if fade.is_some_and(|fade| !fade.is_silent_about_everything()) {
+        return Err(SynthError::WrapWith {
+            field: "`fade`",
+            why: "on a loop it is a dip in the level every time round — fade the music in \
+                  or out where it is played instead",
+        });
+    }
+    let (field, why) = match fit.map(|fit| fit.mode) {
+        Some(FitMode::Loop) => (
+            "`fit` in mode `loop` (the default)",
+            "it cuts mid-pass, so the file has no single point where the music comes back \
+             round — use mode `stretch`",
+        ),
+        Some(FitMode::Once) => (
+            "`fit` in mode `once`",
+            "it pads with silence, which the loop would play every time round — use mode \
+             `stretch`",
+        ),
+        Some(FitMode::Stretch) | None => return Ok(()),
+    };
+    Err(SynthError::WrapWith { field, why })
 }

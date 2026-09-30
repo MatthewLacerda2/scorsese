@@ -37,6 +37,11 @@
 //! A window at the very end of a piece saves nothing, and that is honest
 //! rather than a gap: you cannot know what the last bar sounds like without
 //! playing up to it.
+//!
+//! **A song with a `wrap` tail saves nothing either**, wherever the window
+//! is: its first bars carry the ring-out of its last, so the last notes reach
+//! everything. The window still comes back exact, because it is still the
+//! whole render cut down; it just costs what the whole render costs.
 
 mod scope;
 mod span;

@@ -32,7 +32,7 @@
 //! costs a `max`; not linking costs the stereo image, and a peak on one side
 //! genuinely *is* a moment when the mix is too loud.
 
-use crate::level::intersample::Channel;
+use crate::level::intersample::{Channel, TAPS};
 use crate::stereo::Stereo;
 
 /// The true peak the output is held under: **−1.0 dBTP**.
@@ -73,6 +73,46 @@ pub(crate) fn apply(buf: &mut Stereo, rate: f32) {
             *s = (*s * g).clamp(-1.0, 1.0);
         }
     });
+}
+
+/// [`apply`], to a buffer that is going to be played **round and round** — a
+/// loop whose last sample is followed by its first.
+///
+/// [`apply`] reads a buffer as a line with silence off both ends, and that is
+/// exactly wrong at a loop point: a loud first bar would be reconstructed as
+/// an edge rising out of nothing (a false overshoot, so a false duck), and a
+/// peak in the first bar would not pull the gain down in the last one, which
+/// is where its lookahead has to start. Either puts a step in the gain on the
+/// seam — the one place a looping file promises has none.
+///
+/// So the buffer is limited with enough of its own other end wrapped on to
+/// each side for every stage to see what it would see mid-loop, and only the
+/// middle is kept. How much is enough is how far any one frame's gain can
+/// reach: the release ramp forwards, the lookahead ramp backwards, and the
+/// reconstruction's taps under both. That is **exactly** the result of
+/// limiting the loop played three times and keeping the middle pass, which
+/// is what the test below holds it to — and it costs a few thousand frames
+/// rather than two whole passes.
+pub(crate) fn apply_looped(buf: &mut Stereo, rate: f32) {
+    let frames = buf.frames();
+    if frames == 0 {
+        return;
+    }
+    let reach = ((RELEASE + LOOKAHEAD) * rate).ceil() as usize + 2 * TAPS + 2;
+    // Index `reach` of the circle is frame 0 of the loop; `frames * reach`
+    // is a multiple of `frames` at least `reach` long, so nothing underflows.
+    let circle = |channel: &[f32]| -> Vec<f32> {
+        (0..frames + 2 * reach)
+            .map(|index| channel[(index + frames * reach - reach) % frames])
+            .collect()
+    };
+    let mut around = Stereo {
+        l: circle(&buf.l),
+        r: circle(&buf.r),
+    };
+    apply(&mut around, rate);
+    around.cut(reach, reach + frames);
+    *buf = around;
 }
 
 /// The instantaneous gain each sample-frame needs to sit under the ceiling —
@@ -206,6 +246,28 @@ mod tests {
         assert!(peak(&buf.l) <= CEILING + 1e-6, "peaked at {}", peak(&buf.l));
         assert!(peak(&buf.l) > 0.5, "but it is still a loud signal");
         assert_eq!(buf.l, buf.r, "and both sides took the same treatment");
+    }
+
+    /// A loop's seam is limited as if it were the middle of the music: what
+    /// comes back is the middle pass of the loop limited three times over,
+    /// sample for sample. Hot enough to be limited throughout, and a tone
+    /// that does not fit the buffer a whole number of times, so the seam is a
+    /// real edge that a line-reading limiter would treat differently.
+    #[test]
+    fn a_loop_is_limited_as_the_circle_it_is() {
+        let tone = sine(22_050, 237.0, 2.5);
+        let mut looped = Stereo::centred(tone.clone());
+        apply_looped(&mut looped, 44_100.0);
+        let thrice = limited(Stereo::centred(tone.repeat(3)));
+        assert_eq!(looped.l[..], thrice.l[22_050..44_100]);
+        assert_eq!(looped.r[..], thrice.r[22_050..44_100]);
+        let line = limited(Stereo::centred(tone));
+        assert_ne!(looped.l, line.l, "the seam is limited differently");
+        assert_eq!(
+            looped.l[5_000..17_000],
+            line.l[5_000..17_000],
+            "and only the seam: away from it the loop is any other music"
+        );
     }
 
     /// The linking has to survive the change: an overshoot that exists only

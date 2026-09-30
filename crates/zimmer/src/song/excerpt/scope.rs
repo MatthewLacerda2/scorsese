@@ -12,6 +12,7 @@ use crate::error::SynthError;
 use crate::fx;
 use crate::song::clock::Clock;
 use crate::song::shape::SEAM;
+use crate::song::timing::Tail;
 
 /// The extra rendering a window does past its own end so that the stages
 /// which look ahead see what they would have seen, expressed in samples.
@@ -53,10 +54,14 @@ impl Scope {
         let (from, to) = excerpt
             .window
             .map_or((0, None), |window| window.frames(clock));
+        // A wrapped song's start is summed from its end, so under `wrap` there
+        // is no note late enough to leave out of any window — see the module
+        // doc on what a window saves.
+        let wraps = song.tail() == Tail::Wrap;
         Ok(Self {
             from,
             to,
-            until: to.map(|to| to + guard(song)),
+            until: to.filter(|_| !wraps).map(|to| to + guard(song)),
             heard,
         })
     }
