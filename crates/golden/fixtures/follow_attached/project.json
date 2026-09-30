@@ -1,5 +1,5 @@
 {
-  "schema_version": 39,
+  "schema_version": 40,
   "name": "follow_attached",
   "timeline_fps": {
     "num": 30,

@@ -244,6 +244,40 @@ fn a_v38_document_with_an_arrow_walks_to_this_version_and_validates() {
     assert_eq!(followers.count(), 0, "and nothing follows anything");
 }
 
+/// v39 → v40 over the two fields the version widened: a colour string on
+/// a shape's `fill` and on a colour asset still reads as that one colour.
+#[test]
+fn a_v39_documents_colours_read_the_same_at_this_version() {
+    use crate::{Fill, Rgba};
+    let document = json!({
+        "schema_version": 39,
+        "name": "Before gradients",
+        "timeline_fps": { "num": 30, "den": 1 },
+        "assets": [
+            { "id": "bed", "kind": "color", "color": "#101820" },
+            { "id": "box", "kind": "shape", "shape": {
+                "geometry": { "ellipse": { "width": 0.3, "height": 0.2 } },
+                "fill": "#1e3a8aff" } }
+        ],
+        "tracks": [{ "id": "v1", "kind": "video", "clips": [
+            { "id": "c-bed", "asset": "bed", "start": 0, "duration": 30 }
+        ]}]
+    });
+    let (project, from) = parse(&document.to_string()).expect("a v39 document migrates");
+    assert_eq!(from, Some(39));
+    project.validate().expect("and it is valid");
+    let solid = |fill: Option<&Fill>| fill.and_then(Fill::solid);
+    assert_eq!(
+        solid(project.assets[0].color.as_ref()),
+        Some(Rgba::opaque(0x10, 0x18, 0x20))
+    );
+    let shape = project.assets[1].shape.as_ref().expect("still a shape");
+    assert_eq!(
+        solid(shape.fill.as_ref()),
+        Some(Rgba::opaque(0x1e, 0x3a, 0x8a))
+    );
+}
+
 #[test]
 fn a_refusing_step_names_itself() {
     const REFUSES: &[Step] = &[Step {

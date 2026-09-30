@@ -27,7 +27,7 @@
 //! holds the steady state as a gate — 2.00 undithered, 0.28 dithered — and
 //! the `gradients` golden, rendered at 60k, fails without it.
 //!
-//! **A hash, never a generator** — [`crate::grain`]'s, reused so the crate has
+//! **A hash, never a generator** — the `grain` module's, reused so the crate has
 //! one answer to what a deterministic random number is. The noise is a pure
 //! function of the pixel, so a gradient is the same picture on every render and
 //! every machine, and a still layer's noise does not crawl from frame to frame.

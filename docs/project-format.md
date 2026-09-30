@@ -1,4 +1,4 @@
-# `project.json` — schema v39
+# `project.json` — schema v40
 
 The contract between the CLI, the MCP server and the GUI — the contract *now*,
 not across time. It is meant to be hand-written: an agent should be able to
@@ -24,6 +24,7 @@ carries forward) up to this one.
 | v36 → v37 | a text style's `reveal` and `number` blocks (#590) | nothing: two optional blocks were added, absent in every v36 document, and a `{n}` in a v36 text stays three ordinary characters without a `number` block — it passes through and only its version moves |
 | v37 → v38 | a clip's `shadow`, `glow` and `blend` (#585) | nothing: three optional clip fields were added, each absent meaning what every v37 clip already drew — no shadow, no glow, `normal` — so it passes through and only its version moves |
 | v38 → v39 | a clip's optional `follow` (#584) | nothing: a field was added whose absence is a clip placed by its transform alone, which every v38 clip is, so it passes through and only its version moves |
+| v39 → v40 | gradient fills (#588) | nothing: a shape's `fill` and a colour asset's `color` gained a gradient object beside the colour string, which still means the colour it did, so it passes through and only its version moves |
 
 A complete worked example lives in
 `crates/core/tests/fixtures/narrated_teaser.json`.
@@ -32,7 +33,7 @@ A complete worked example lives in
 
 ```json project
 {
-  "schema_version": 39,
+  "schema_version": 40,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
