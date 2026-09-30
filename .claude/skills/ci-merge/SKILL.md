@@ -81,12 +81,18 @@ cleanup stays yours, and the summary lists what to clean.
 Doing it by hand is still fine for a single branch. The script's own docstring
 has the reasoning, including why it does not try to *skip* CI runs instead.
 
-**A queue that dies on the network handed nothing back.** Only the merge call
-survives a transport failure; any other `gh` call that times out (a TLS
-handshake, a 5xx) ends the run on a `mergeable: gh …` line, with no summary.
-Re-run it with the same list: a PR it already merged is skipped as merged, and
-a head it already pushed is not pushed again. It died three times this way on
-2026-09-30.
+**A queue that loses the network says so, and says it is not a hand-back.**
+Every question the queue asks GitHub retries a failure in transit — a TLS
+handshake or other timeout, a reset connection, a DNS failure, a 5xx, a 429 —
+for about three minutes before giving up. A 404 or 422 is an answer and is not
+asked twice, and the merge call is never retried (a retried merge that already
+happened is a second one). When the retries run out the queue stops, still
+prints its summary with that pull request as **unreachable** and the rest as
+**not reached**, and exits with status **3** rather than 1; `make mergeable`
+does the same, and an unreachable GitHub is never a yes. Status 3 means run the
+same list again — a PR it already merged is skipped as merged, and a head it
+already pushed is not pushed again. Status 1 is a real hand-back: read why
+(#615; before it, one TLS timeout killed the queue three times on 2026-09-30).
 
 **A Markdown-only pull request gets no run**, so `make queue` hands it back as
 absent and `make mergeable` cannot say yes. It is the one merge done by hand:

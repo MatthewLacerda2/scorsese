@@ -65,8 +65,10 @@ of it is tested without a network.
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
+import time
 
 # The workflow that gates a merge. A run of anything else — a scheduled job, a
 # future workflow — is not the one being asked about, and counting it would be
@@ -86,14 +88,100 @@ CONFLICTED = ("CONFLICTING", "DIRTY")
 UNKNOWN = "UNKNOWN"
 
 
-def gh(*args: str) -> object:
-    """`gh` with `--json`-shaped output, parsed. Fatal if `gh` itself fails."""
-    done = subprocess.run(
-        ["gh", *args], capture_output=True, text=True, check=False
+# What a failure *in transit* looks like in `gh`'s stderr, as opposed to an
+# answer. `gh` reports a REST status as "non-200 OK status code: 502 …" and a
+# GraphQL one as "HTTP 502"; the rest are Go's network errors, verbatim, and
+# `gh`'s own "error connecting to" when it never reached GitHub at all. A 429
+# is GitHub asking to be asked later, which is transit and not a verdict.
+TRANSPORT_STATUS = re.compile(r"(status code:|HTTP)\s*(5\d\d|429)\b", re.IGNORECASE)
+TRANSPORT_WORDS = (
+    "timeout",
+    "timed out",
+    "deadline exceeded",
+    "connection reset",
+    "connection refused",
+    "broken pipe",
+    "unexpected eof",
+    "no such host",
+    "name resolution",
+    "network is unreachable",
+    "error connecting to",
+)
+
+# How long [`gh`] waits before each retry of a failure in transit, in seconds.
+# About three minutes in all: long enough to outlast the dropped-handshake
+# stretches that killed the queue three times on 2026-09-30 (#615), short
+# beside the ten minutes a CI run costs, and bounded, because an outage that
+# outlasts it is an answer of its own — *unreachable* — and is said as one.
+RETRY_DELAYS = (5, 10, 20, 40, 60, 60)
+
+# The exit status for "GitHub could not be reached", distinct from 1 (a
+# refusal) so that a caller — `make`, a wrapper, an agent reading `$?` — can
+# tell a network outage from a verdict without parsing the log (#615).
+UNREACHABLE_STATUS = 3
+
+
+class Unreachable(Exception):
+    """GitHub did not answer, retries and all. Never a yes, never a no.
+
+    Raised rather than exited so that `merge-queue.py` can still print its
+    summary: a queue that dies mid-wait without one reads exactly like a
+    hand-back, and that confusion is #615.
+    """
+
+
+def transport(stderr: str) -> bool:
+    """Whether a failed `gh` call failed *in transit* rather than being answered.
+
+    A 5xx, a 429, a timeout, a dropped connection or a failed DNS lookup is the
+    network failing to deliver an answer; asking again may get one. Anything
+    else — a 404 for a pull request that does not exist, a 422, a 409 — is
+    GitHub having answered, and asking again would only be told the same.
+
+    Errs towards *answered*: an unrecognised message is not retried. For
+    [`gh`] that means failing as it always did; for the queue's merge call
+    (#495) it means reporting a merge as refused rather than as done.
+    """
+    lowered = stderr.lower()
+    return bool(TRANSPORT_STATUS.search(stderr)) or any(
+        word in lowered for word in TRANSPORT_WORDS
     )
-    if done.returncode != 0:
-        sys.exit(f"mergeable: gh {' '.join(args)}: {done.stderr.strip()}")
-    return json.loads(done.stdout)
+
+
+def gh(*args: str) -> object:
+    """`gh` with `--json`-shaped output, parsed.
+
+    A failure in transit (see [`transport`]) is retried after each of
+    [`RETRY_DELAYS`], then raised as [`Unreachable`]. Any other failure is an
+    answer, and is fatal at once, as it always was.
+
+    Only ever used for questions. The queue's merge call does not come through
+    here: retrying a merge that may already have happened is how one gets
+    made twice, so that call is sorted by [`transport`] and then *asked
+    about*, never repeated.
+    """
+    command = f"gh {' '.join(args)}"
+    for attempt, delay in enumerate((*RETRY_DELAYS, None), start=1):
+        done = subprocess.run(
+            ["gh", *args], capture_output=True, text=True, check=False
+        )
+        if done.returncode == 0:
+            return json.loads(done.stdout)
+        failure = done.stderr.strip()
+        if not transport(failure):
+            sys.exit(f"mergeable: {command}: {failure}")
+        if delay is None:
+            raise Unreachable(
+                f"network: GitHub unreachable after {attempt} tries of"
+                f" {command}: {failure}"
+            )
+        print(
+            f"mergeable: {command} failed in transit ({failure});"
+            f" retry {attempt} of {len(RETRY_DELAYS)} in {delay}s.",
+            file=sys.stderr,
+            flush=True,
+        )
+        time.sleep(delay)
 
 
 def runs_for(runs: list[dict], sha: str) -> list[dict]:
@@ -290,8 +378,18 @@ def judge(
 def main() -> int:
     if len(sys.argv) != 2:
         sys.exit("usage: mergeable.py PULL_REQUEST_NUMBER")
-    number = sys.argv[1]
+    try:
+        return answer(sys.argv[1])
+    except Unreachable as outage:
+        # Its own status and its own word, and never 0: a question GitHub did
+        # not answer has not been answered yes (#615).
+        print(f"mergeable: #{sys.argv[1]}: {outage}", file=sys.stderr)
+        print("  Nothing was decided. Ask again once GitHub answers.", file=sys.stderr)
+        return UNREACHABLE_STATUS
 
+
+def answer(number: str) -> int:
+    """Ask GitHub about pull request `number`, print the verdict, return 0 or 1."""
     repo = gh("repo", "view", "--json", "nameWithOwner")["nameWithOwner"]
     pull = gh(
         "pr",

@@ -258,7 +258,7 @@ class Merging(unittest.TestCase):
     )
 
     def test_a_502_is_transport_and_not_a_refusal(self):
-        self.assertTrue(queue.transport(self.BAD_GATEWAY))
+        self.assertTrue(queue.mergeable.transport(self.BAD_GATEWAY))
         for failure in (
             "HTTP 503: Service Unavailable",
             "Post https://api.github.com/graphql: net/http: TLS handshake timeout",
@@ -266,7 +266,7 @@ class Merging(unittest.TestCase):
             "context deadline exceeded",
         ):
             with self.subTest(failure=failure):
-                self.assertTrue(queue.transport(failure))
+                self.assertTrue(queue.mergeable.transport(failure))
 
     def test_a_reasoned_no_is_a_refusal_and_gets_no_second_call(self):
         for failure in (
@@ -277,11 +277,11 @@ class Merging(unittest.TestCase):
             "HTTP 405: Required status check is expected.",
         ):
             with self.subTest(failure=failure):
-                self.assertFalse(queue.transport(failure))
+                self.assertFalse(queue.mergeable.transport(failure))
 
     def test_a_status_number_elsewhere_in_the_message_is_not_a_5xx(self):
         # A PR or run number that happens to start with 5 is not a status.
-        self.assertFalse(queue.transport("Pull request #502 is not mergeable"))
+        self.assertFalse(queue.mergeable.transport("Pull request #502 is not mergeable"))
 
     def test_the_record_saying_merged_is_a_merge(self):
         for pull in ({"state": "MERGED"}, {"state": "OPEN", "mergedAt": "2026-08-29T01:00:00Z"}):
