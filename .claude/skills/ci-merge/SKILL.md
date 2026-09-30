@@ -81,6 +81,13 @@ cleanup stays yours, and the summary lists what to clean.
 Doing it by hand is still fine for a single branch. The script's own docstring
 has the reasoning, including why it does not try to *skip* CI runs instead.
 
+**A queue that dies on the network handed nothing back.** Only the merge call
+survives a transport failure; any other `gh` call that times out (a TLS
+handshake, a 5xx) ends the run on a `mergeable: gh …` line, with no summary.
+Re-run it with the same list: a PR it already merged is skipped as merged, and
+a head it already pushed is not pushed again. It died three times this way on
+2026-09-30.
+
 **Because it builds nothing, a clean rebase can still push a broken head.** A
 merge ahead that changed a signature this branch calls, or pushed one of its
 files past the size cap, rebases without a conflict and fails CI ten minutes
