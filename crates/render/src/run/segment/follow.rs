@@ -50,8 +50,9 @@ enum Path {
     /// its line is read off the document: its clip, for the transform it would
     /// have at this instant, and its shape, for the line itself.
     Absent {
-        /// The arrow's clip.
-        clip: Clip,
+        /// The arrow's clip, boxed because a clip is large and this variant
+        /// is the rare one.
+        clip: Box<Clip>,
         /// The arrow's shape.
         shape: Shape,
     },
@@ -130,7 +131,7 @@ fn absent_path(project: &scorsese_core::Project, id: &scorsese_core::ClipId) -> 
         Path::Lost
     } else {
         Path::Absent {
-            clip: clip.clone(),
+            clip: Box::new(clip.clone()),
             shape: shape.clone(),
         }
     })
