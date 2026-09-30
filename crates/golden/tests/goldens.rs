@@ -108,6 +108,7 @@ goldens!(
     grade_saturation,
     grade_temperature,
     grade_vignette,
+    gradients,
     group_attached,
     group_faded,
     group_scaled,

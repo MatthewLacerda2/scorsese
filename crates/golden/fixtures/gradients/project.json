@@ -1,0 +1,79 @@
+{
+  "schema_version": 36,
+  "name": "gradients",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    {
+      "id": "backdrop",
+      "kind": "color",
+      "color": {
+        "radial": {
+          "center": { "x": 0.5, "y": 0.45 },
+          "radius": 0.9,
+          "stops": [["#2a3a6a", 0.0], ["#0b1020", 1.0]]
+        }
+      }
+    },
+    {
+      "id": "plate",
+      "kind": "shape",
+      "shape": {
+        "geometry": { "rectangle": { "width": 0.6, "height": 0.2, "radius": 0.5 } },
+        "fill": {
+          "linear": {
+            "angle": 90,
+            "stops": [["#e8590c", 0.0], ["#e8590c", 0.2], ["#7048e8", 1.0]]
+          }
+        },
+        "stroke": "#ffffff",
+        "stroke_width": 0.012
+      }
+    },
+    {
+      "id": "glow",
+      "kind": "shape",
+      "shape": {
+        "geometry": { "ellipse": { "width": 0.3, "height": 0.5 } },
+        "fill": {
+          "radial": {
+            "radius": 0.5,
+            "stops": [["#ffe066ff", 0.0], ["#ffe06600", 1.0]]
+          }
+        }
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "name": "backdrop",
+      "clips": [{ "id": "c-backdrop", "asset": "backdrop", "start": 0, "duration": 30 }]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "name": "glow",
+      "clips": [
+        {
+          "id": "c-glow", "asset": "glow", "start": 0, "duration": 30,
+          "anchor": { "x": "right", "y": "top" }
+        }
+      ]
+    },
+    {
+      "id": "v3",
+      "kind": "video",
+      "name": "plate",
+      "clips": [
+        {
+          "id": "c-plate", "asset": "plate", "start": 0, "duration": 30,
+          "anchor": { "x": "center", "y": "bottom" },
+          "keyframes": [
+            { "property": "transform.position.y", "keyframes": [ { "t": 0, "value": 0.1 } ] }
+          ]
+        }
+      ]
+    }
+  ]
+}
