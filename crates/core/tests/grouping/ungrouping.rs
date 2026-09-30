@@ -85,3 +85,43 @@ fn a_trimmed_group_clip_or_a_second_placement_is_refused() {
         "got {error}"
     );
 }
+
+/// Neither a note on the group clip nor a window opening part way into the
+/// group is something the group clip did *to* the group: a note describes, and
+/// where the window opens is only where the members land. Ungrouping loses
+/// neither, so neither is reported as dropped.
+#[test]
+fn a_note_or_a_later_opening_is_not_a_look_of_its_own() {
+    let mut project = diagram();
+    let grouped = grouping::group(&mut project, &choose(&["b1", "b2", "arrow"])).unwrap();
+    let mut noted = project.clone();
+    let clip = noted.tracks[1]
+        .clips
+        .iter_mut()
+        .find(|c| c.id == grouped.clip);
+    clip.expect("the group clip").note = Some("the whole diagram".into());
+    let back = grouping::ungroup(&mut noted, &grouped.clip).unwrap();
+    assert!(!back.dropped_its_own_look, "a note is not a look");
+
+    // Every member five frames later inside the group, and the group clip
+    // opening five frames in: the same picture at the same time.
+    let asset = project.assets.iter_mut().find(|a| a.id == grouped.asset);
+    let group = asset.and_then(|a| a.group.as_mut()).expect("the group");
+    for track in &mut group.tracks {
+        for member in &mut track.clips {
+            member.start = Frames(member.start.get() + 5);
+        }
+    }
+    let clip = project.tracks[1]
+        .clips
+        .iter_mut()
+        .find(|c| c.id == grouped.clip);
+    clip.expect("the group clip").source_in = Frames(5);
+    let back = grouping::ungroup(&mut project, &grouped.clip).unwrap();
+    assert!(!back.dropped_its_own_look, "an opening is not a look");
+    let (_, b1) = project
+        .clips()
+        .find(|(_, c)| c.id.as_str() == "b1")
+        .unwrap();
+    assert_eq!(b1.start, Frames(30), "back where it was");
+}
