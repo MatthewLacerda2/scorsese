@@ -62,3 +62,25 @@ fn the_upper_of_two_layers_covers_the_lower() {
         .expect("composites");
     assert_eq!(first_pixel(&canvas), [0, 0, 255, 255]);
 }
+
+/// The conversion back to straight alpha, pinned to the level. A quarter-opaque
+/// `(100, 50, 200)` is drawn premultiplied as `(25, 13, 50)` at alpha 64, and
+/// dividing that back out rounds to the nearest level: `25 × 255 / 64` is
+/// 99.6, so 100 and not the 99 truncating gives. Green comes back as 52, not
+/// 50 — 13 of 64 is as fine as a quarter-opaque pixel can say it.
+///
+/// Exact values because nothing else can see the rounding: in a group of opaque
+/// members only the anti-aliased edges are translucent, and truncating instead
+/// of rounding changes no pixel of the `group_faded` fixture at all. This is
+/// the seam glow, shadow and mattes composite through, so it is pinned here,
+/// next to the code, rather than left to a golden the mutation run never
+/// reaches.
+#[test]
+fn straight_alpha_is_recovered_to_the_nearest_level() {
+    let quarter = filled(Rgba::new(100, 50, 200, 64));
+    let mut canvas = Frame::black(raster());
+    CpuCompositor::new()
+        .offscreen(&mut canvas, &[Layer::plain(&quarter)])
+        .expect("composites");
+    assert_eq!(first_pixel(&canvas), [100, 52, 199, 64]);
+}

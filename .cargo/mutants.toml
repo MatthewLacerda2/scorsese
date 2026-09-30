@@ -544,6 +544,63 @@ exclude_re = [
     # all four.
     'tracks\.rs:82:53: replace > with >= in pitch_track',
     'tracks\.rs:98:25: replace > with >= in pitch_track',
+
+    # `nested::boundaries` adds a group's member cuts to the list only where
+    # they fall strictly inside the group clip's own stretch: `from < cut &&
+    # cut < to`. Widening either end to `<=` admits exactly one more value per
+    # end — a member cut equal to `from` or to `to` — and the function has
+    # already pushed that very `from` and `to` two lines earlier, for the group
+    # clip's own edges. So the mutant appends a second copy of a frame already
+    # in the list, and the list's one consumer, `segments::cuts`, sorts and
+    # dedups it away: the same reason `cuts`' own two widenings are above.
+    #
+    # Measured, not argued: `a_member_edge_on_the_windows_edge_is_the_group_
+    # clips_own_cut` (tests/plan/grouping/edges.rs) puts one member's start
+    # exactly on the window's opening and another's end exactly on its close.
+    # With both applied, the list goes from `[0, 30, 10, 30, 20]` to `[0, 30,
+    # 10, 30, 10, 20, 20, 30]` and render's whole suite still passes, because
+    # every extra entry is a duplicate. The other mutations of the line — `<`
+    # to `>` or `==` at either end, `&&` to `||` — admit member cuts from
+    # outside the stretch and are caught by the grouping plan tests.
+    'nested\.rs:115:56: replace < with <= in boundaries',
+    'nested\.rs:115:71: replace < with <= in boundaries',
+
+    # `grouping::id_limit` is the bound handed to `template::ids::free`: the
+    # count of every clip, asset and track in the document. It only has to be
+    # at least as large as the number of ids that could crowd one wanted name,
+    # minus one — and a name is crowded only by ids of its own kind, so assets
+    # alone, clips alone, or tracks alone (plus the lanes already named, which
+    # `name_lanes` adds itself). The sum is a deliberately loose proof bound.
+    #
+    # Turning either `+` into `*` gives `clips × assets + tracks` or `(clips +
+    # assets) × tracks`, and a grouping always has at least one clip, which
+    # sits on a track and — in any document that loads — names an asset that
+    # is in the table, so each factor is at least one and
+    # the product is never below the larger of its two sides. The bound grows
+    # or stays; it never drops under what any search can need, and a larger
+    # bound finds the same first free suffix. Measured: with each applied,
+    # core's whole suite passes, including `ids_already_taken_anywhere_in_the_
+    # document_are_suffixed_past`, which crowds every name the grouping picks.
+    # The mutations that *shrink* the bound — `0`, `1`, and either `+` to `-`,
+    # which underflows once assets outnumber clips or tracks outnumber both —
+    # are caught by that same test.
+    'grouping/mod\.rs:51:34: replace \+ with \* in id_limit',
+    'grouping/mod\.rs:51:57: replace \+ with \* in id_limit',
+
+    # `name_lanes` widens that bound by the number of lanes it is naming,
+    # because the names it has already given crowd the ones still to come.
+    # Neither mutation can make a search fail. `*` multiplies by at least one —
+    # a lane exists only for a track that had a clip moved off it. `-` takes
+    # the lanes back off, and what is left is still enough: a wanted name is
+    # crowded by at most every other track in the document plus the names
+    # given before it, and each source track can crowd it in only one of those
+    # two ways (by its own name, or by the name given for it), so the crowd is
+    # at most the track count less one — while `clips + assets + tracks -
+    # lanes` is at least the track count plus one, since every lane moved at
+    # least one clip. Measured: core's whole suite passes with each applied,
+    # the crowded-document test included.
+    'wrap\.rs:184:35: replace \+ with - in name_lanes',
+    'wrap\.rs:184:35: replace \+ with \* in name_lanes',
 ]
 
 # ---------------------------------------------------------------------------

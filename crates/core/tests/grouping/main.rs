@@ -1,5 +1,6 @@
 //! Wrapping clips on the timeline into a group, and back.
 
+mod naming;
 mod ungrouping;
 
 use std::collections::BTreeSet;

@@ -1,6 +1,8 @@
 //! A group clip in the plan: one layer, with the group's members beneath it,
 //! cut wherever a member enters or leaves — on the group's own clock.
 
+mod edges;
+
 use scorsese_core::{Asset, AssetId, Fps, Frames, Group};
 use scorsese_render::{FrameRange, Plan, PlanError};
 
