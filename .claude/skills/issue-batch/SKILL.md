@@ -96,6 +96,12 @@ MatthewLacerda2/rusty#547; the rules carried over, the numbers did not):
   not as "no disk" — the machine's fault, not the branch's (`ci-merge`).
 - **On the machine that hosts the service**, a heavy build also competes with
   users' renders (CLAUDE.md); leave it headroom.
+- **When disk is what binds** (a laptop: 26 GB free on 2026-09-30, and a
+  worktree's `target/` 8–14 GB, most of it `debug/incremental`), a
+  git-excluded `.cargo/config.toml` in each worktree with `debug =
+  "line-tables-only"` for the dev and test profiles and `[build] incremental =
+  false` brought a full build to ~4.6 GB. No test outcome changes; the warm incremental rebuild is the
+  price, so it is for a machine short of disk, never the default.
 
 **Remove a worktree the moment its branch merges.** Each carries a full
 `target/` — 8–17 GB apiece. Disposal is what keeps disk from becoming the
@@ -233,7 +239,10 @@ request:
    --all-targets --locked` (plus `--manifest-path app/Cargo.toml` when the
    branch touches `app/`) and `make size`, and push: the queue then finds
    nothing to rebase and only waits and merges. The check is a heavy build on
-   a cold target, so it takes a build slot like any other.
+   a cold target, so it takes a build slot like any other. A **cloud-written**
+   branch has no local worktree, and a cold one here spends the disk the cloud
+   was meant to save: check it locally only when a merge ahead changed a
+   signature it calls, and otherwise let CI answer.
 3. A hand-back is the queue's whole report: fix a conflict or a red run on the
    branch (or brief its coder to), then queue it again.
 4. After merging: remove the worktree and its `target/`, re-read the board, and
