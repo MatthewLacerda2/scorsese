@@ -125,6 +125,11 @@ never when the queue is.
   **adds a golden fixture**: blessing is Linux-only, and off Linux it costs a
   container detour (on 2026-09-30, an arm64 `ubuntu:24.04` on the Mac, which
   disagrees with CI on the `grade_*` and `vhs` fixtures).
+- **Either, if it has docker:** a branch in `crates/server` or `deploy/` is
+  proven against a real Postgres and `docker compose`. A machine that must not
+  run them (the operator said so of the Mac on 2026-09-30) is the wrong place
+  for it; the cloud may be too, until `cloud-brief.md`'s container list is
+  confirmed.
 
 **How many:** two in flight stays the default shape; with cloud coders writing,
 the ceiling is **four branches in flight in total**, local and cloud together,

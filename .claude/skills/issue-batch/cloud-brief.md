@@ -46,8 +46,10 @@ session: the first coder to hit a difference corrects this list in its PR.)*
 - A Postgres for the server's tests: `tools/with-postgres` starts one in docker.
   Without docker, install Postgres and point `SCORSESE_TEST_DATABASE_URL` at it
   (the script's header has why an ambient `DATABASE_URL` is ignored).
-- `make deploy` needs docker too. If the container has none, say so in the PR
-  rather than skipping silently; CI's `deploy` job still answers.
+- `make deploy` needs docker too. A gate you cannot run here is named in the
+  PR with the CI job that answers for it, never claimed green (`ci-merge`,
+  *Before marking a pull request ready* — including when that keeps it a
+  draft).
 - A branch touching `app/`: the libraries CI's `app` job installs
   (`.github/workflows/ci.yml`, the *Install the graphics, windowing and sound
   libraries* step). A branch touching `web/`: `bun`, the version pinned in

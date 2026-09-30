@@ -17,6 +17,15 @@ The web and app gates are the only conditional ones, and each reports
 **skipped** when the branch touches nothing under `web/` or `app/`. Skipped is
 the honest answer; never read it as green.
 
+**A gate this machine cannot run is named, not claimed.** `test` needs docker
+(or `SCORSESE_TEST_DATABASE_URL`) for the server's Postgres, `deploy` needs
+docker, `app` needs the ALSA headers — and some machines may not run a service
+at all. Run the rest, and say in the pull request which gate did not run here
+and which CI job answers for it (`fmt + clippy + test`, `deploy config`, `desktop
+app`). That does not keep it a draft — unless the branch changes what that
+gate checks (`crates/server`, `deploy/`, `app/`): then it is proven on a
+machine that can run it, not left to CI.
+
 Deliberately **not** before every push. Checkpoint commits stay cheap — the
 pre-commit hook is formatting and the size gate only, well under a second.
 
