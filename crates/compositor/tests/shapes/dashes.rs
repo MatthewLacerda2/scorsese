@@ -59,6 +59,11 @@ fn an_offset_moves_the_dashes_toward_the_end() {
     let moved = dashed(&[10.0, 10.0], 10.0, 0.0);
     assert!(clear(&moved, 45, 100), "the first dash has moved on");
     assert!(!clear(&moved, 55, 100), "into what was a gap");
+    // Half a period, so the direction shows: ten either way looks the same on
+    // a pattern twenty long, and five backward would ink 42 and clear 52.
+    let nudged = dashed(&[10.0, 10.0], 5.0, 0.0);
+    assert!(clear(&nudged, 42, 100), "the line opens on a gap's end");
+    assert!(!clear(&nudged, 52, 100), "and the first dash runs 45 to 55");
     // A whole pattern along is where it started.
     assert_eq!(
         inked(&dashed(&[10.0, 10.0], 20.0, 0.0)),

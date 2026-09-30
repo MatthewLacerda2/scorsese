@@ -635,6 +635,33 @@ exclude_re = [
     # `assert_eq!` and passes with the mutation applied, so the only input that
     # can tell the two guards apart reads the same from both.
     'easing\.rs:92:34: replace < with <= in Easing::apply',
+
+    # Three in `shape::measure` (#620), each applied and run, not reasoned.
+    #
+    # - `Measured::at`'s `.min(last)`, with `last` as `len + 2` (line 157). The
+    #   piece index is how many corners lie *strictly* before `distance`, less
+    #   one, and `distance` is a fraction clamped to `0..=1` times the length —
+    #   never past the last corner, which *is* the length. So the index is at
+    #   most `len - 2` before the cap sees it, and the cap only ever mattered to
+    #   the `<` → `<=` mutation beside it, which the corner-heading test kills.
+    #   Kept as the statement of what indexes `points[piece + 1]`.
+    # - `Measured::between` keeping a corner at exactly `from` (`>` → `>=`) or
+    #   exactly `to` (`<` → `<=`, line 187). Either adds a second copy of a point
+    #   the path already starts or ends on — a piece of no length, which the
+    #   stroker draws as nothing. Measured: 96 trimmed frames (a square, a
+    #   rounded box, an ellipse and an S arrow; six spans, including ends landing
+    #   exactly on a corner; solid and dashed) hash identically with each
+    #   mutation applied. The other two operators there, `==`, drop every corner
+    #   in between and are killed by `a_trim_across_a_corner_goes_round_it`.
+    # - `flatten`'s `reach / STEP` as `reach * STEP` (line 220): sixteen times
+    #   the pieces, capped at `MAX_PIECES`. A finer polyline is only a more
+    #   exact one, so every assertion about lengths, positions and headings
+    #   passes either way; what `STEP` buys is the table's size, which is cost,
+    #   and a test pinning an outline's imprecision would be asserting a bug.
+    'measure\.rs:157:38: replace - with \+ in Measured::at',
+    'measure\.rs:187:23: replace > with >= in Measured::between',
+    'measure\.rs:187:40: replace < with <= in Measured::between',
+    'measure\.rs:220:17: replace / with \* in flatten',
 ]
 
 # ---------------------------------------------------------------------------
