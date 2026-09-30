@@ -79,3 +79,38 @@ fn what_cannot_apply_is_refused_and_nothing_is_written() {
     assert_eq!(after, before);
     std::fs::remove_dir_all(dir).ok();
 }
+
+/// Shadow and glow merge into what the clip has, `false` takes one away, and
+/// a blend is one of four words.
+#[test]
+fn light_merges_and_false_removes_it() {
+    let dir = project("clip-set-light");
+    let (text, failed) = said(&call(
+        "clip_set",
+        json!({ "project": dir, "clip": "c1", "glow": { "color": "#22d3ee" },
+                "shadow": {}, "blend": "add" }),
+    ));
+    assert!(!failed, "{text}");
+    let (text, failed) = said(&call(
+        "clip_set",
+        json!({ "project": dir, "clip": "c1", "glow": { "intensity": 2.5 }, "shadow": false }),
+    ));
+    assert!(!failed && text.contains("no shadow"), "{text}");
+    let c1 = clip(&dir, 0);
+    assert_eq!(c1["glow"]["color"], "#22d3ee", "the colour was kept");
+    assert_eq!(c1["glow"]["intensity"], 2.5);
+    assert_eq!(c1["blend"], "add");
+    assert!(c1.get("shadow").is_none(), "{c1}");
+    for (arguments, expected) in [
+        (json!({ "blend": "overlay" }), "`blend` is"),
+        (json!({ "glow": { "spread": 1 } }), "`glow.spread`"),
+        (json!({ "shadow": true }), "or `false`"),
+    ] {
+        let mut arguments = arguments;
+        arguments["project"] = json!(dir);
+        arguments["clip"] = json!("c1");
+        let (text, failed) = said(&call("clip_set", arguments));
+        assert!(failed && text.contains(expected), "{expected:?} in {text}");
+    }
+    std::fs::remove_dir_all(dir).ok();
+}

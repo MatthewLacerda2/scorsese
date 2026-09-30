@@ -7,7 +7,10 @@
 //! document for the same request. Speed is [`Clip::retime`], the reading an
 //! editor's 2× button means; position, rotation and scale are
 //! [`level::set`] with a [`Level::Flat`], the call `set_volume` makes for a
-//! level — one ordinary keyframe held from the clip's first frame.
+//! level — one ordinary keyframe held from the clip's first frame. Shadow,
+//! glow and blend are [`light`]'s, since each is a small object of its own.
+
+mod light;
 
 use scorsese_core::level::{self, Level};
 use scorsese_core::{Clip, ClipId, Fit, KeyframeTrack, Project, PropertyPath, Speed, TrackKind};
@@ -18,7 +21,7 @@ use super::named;
 use crate::tools::inspect::load;
 use crate::tools::{Costs, Reply, Tool, project_dir, project_property};
 
-/// Set a clip's speed, fit, position, rotation or scale.
+/// Set a clip's speed, fit, position, rotation, scale, shadow, glow or blend.
 pub(crate) struct ClipSet;
 
 /// Each value argument, the property paths it holds, and what it is called in
@@ -37,9 +40,11 @@ impl Tool for ClipSet {
     }
 
     fn description(&self) -> &'static str {
-        "Change a placed clip's plain values: its speed, its fit, and its \
-         position, rotation and scale as single values held for the whole clip. \
-         These are the fields an inspector shows. **Every argument you \
+        "Change a placed clip's plain values: its speed, fit, position, \
+         rotation, scale, shadow, glow and blend. Position, rotation and scale \
+         are single values held for the whole clip; shadow, glow and blend are \
+         its light — a drop shadow, a halo, and how it lands on what is beneath \
+         it. These are the fields an inspector shows. **Every argument you \
          leave out is left exactly as it is.** A speed retimes the clip the way \
          an editor's 2× button does: the same footage in less time, so its length \
          changes with it. Position, rotation and scale are written as one \
@@ -55,7 +60,7 @@ impl Tool for ClipSet {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
+        let mut schema = serde_json::json!({
             "type": "object",
             "properties": {
                 "project": project_property(),
@@ -104,7 +109,11 @@ impl Tool for ClipSet {
                 }
             },
             "required": ["project", "clip"]
-        })
+        });
+        for (key, property) in light::schema() {
+            schema["properties"][key] = property;
+        }
+        schema
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
@@ -182,10 +191,15 @@ fn set(project: &mut Project, id: &ClipId, arguments: &Value) -> Result<Vec<Stri
             flattened(&replaced)
         ));
     }
+    let lit = light::apply(find(&mut proposed, id)?.1, arguments)?;
+    if !lit.is_empty() {
+        only_picture(picture, "shadow, glow or blend")?;
+    }
+    said.extend(lit);
     if said.is_empty() {
         return Err(
             "nothing to set: name at least one of speed, fit, position_x, position_y, \
-                    rotation or scale"
+                    rotation, scale, shadow, glow or blend"
                 .to_owned(),
         );
     }

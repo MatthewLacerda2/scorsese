@@ -94,7 +94,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `asset_set` | Change a field on an asset that carries its content in the document — a text, color, shape or icon asset: its wording, its size, its colour. | nothing |
 | `place_clip` | Put a clip on a track: which asset, which track, when it starts and how long it runs — all in seconds, rounded onto the project's frame grid for you. | nothing |
 | `trim_clip` | Move a clip already on the timeline, or change how long it runs or where in its source it opens — in seconds, rounded onto the project's frame grid. | nothing |
-| `clip_set` | Change a placed clip's plain values: its speed, its fit, and its position, rotation and scale as single values held for the whole clip. | nothing |
+| `clip_set` | Change a placed clip's plain values: its speed, fit, position, rotation, scale, shadow, glow and blend. | nothing |
 | `clip_move` | Move a clip already on the timeline onto another track — optionally to a new start there in the same edit, the way dragging it down a lane and along it is one gesture. | nothing |
 | `clip_remove` | Take clips off the timeline by id, leaving the assets they showed and every other clip exactly where they are. | nothing |
 | `clip_group` | Group clips already on the timeline so they render as one layer — what Filmora calls a compound clip. | nothing |
