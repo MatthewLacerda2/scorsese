@@ -38,14 +38,27 @@ name more.
 ## Getting `make gates` to run in a container
 
 `make gates` checks for what it needs and says how to install it; these are the
-ones a fresh Linux container lacks. *(Not yet confirmed in a scorsese cloud
-session: the first coder to hit a difference corrects this list in its PR.)*
+ones a fresh Linux container lacks. *(Confirmed by scorsese's first cloud coder,
+#619, on 2026-09-30: x86_64 Ubuntu 24.04, 4 cores, 15 GB, ~30 GB of disk. A
+coder who finds a difference corrects this list in its PR.)*
 
+- **Every foreground call is capped at ten minutes**, and a call cut off at the
+  cap dies with no output. A cold first `make test` (a Postgres pull plus the
+  whole suite) hit it. Split cold work — `cargo nextest run --workspace
+  --no-run`, then the run — and send long output to a file. Warm, the whole
+  `make gates` fits in one call (about four minutes).
 - `make setup` once — the commit hook, and a check for `cargo-nextest`.
-- `ffmpeg` and `cargo-nextest` for `make test`; `cargo-deny` for `make deny`.
+- `ffmpeg` is absent: `apt-get install ffmpeg` gives `6.1.1-3ubuntu5`, CI's own.
+  `cargo-nextest`, `cargo-deny` and `cargo-mutants` (27.1.0, the version CI
+  pins) are absent too: `cargo install --locked` all three, about six minutes.
 - A Postgres for the server's tests: `tools/with-postgres` starts one in docker.
-  Without docker, install Postgres and point `SCORSESE_TEST_DATABASE_URL` at it
-  (the script's header has why an ambient `DATABASE_URL` is ignored).
+  The docker CLI and compose plugin are installed but **the daemon is not
+  running** — start it yourself (`dockerd > /tmp/dockerd.log 2>&1 &`, as root)
+  before `make test` or `make deploy`. Docker Hub rate-limits the container's
+  address (a second pull minutes after the first got `429`), so pull
+  `postgres:17-alpine` once and rely on the cache. Without docker, install
+  Postgres and point `SCORSESE_TEST_DATABASE_URL` at it (the script's header has
+  why an ambient `DATABASE_URL` is ignored).
 - `make deploy` needs docker too. A gate you cannot run here is named in the
   PR with the CI job that answers for it, never claimed green (`ci-merge`,
   *Before marking a pull request ready* — including when that keeps it a
@@ -89,7 +102,9 @@ session: the first coder to hit a difference corrects this list in its PR.)*
 - `make mutants` before readying is worth it when the branch adds mechanism.
   Nothing else compiles in this container, and it is the last point a survivor
   can be fixed in this PR: CI's report arrives with the run the queue merges
-  on. It is a signal — never a reason to stay draft.
+  on. It is a signal — never a reason to stay draft. To scope a run to a file,
+  use `--re 'path/to/file\.rs'`: `-f` does not narrow it here, because the
+  config's `examine_globs` wins.
 - Rebase onto the latest `origin/main`, then `make gates` (foreground), before
   readying.
 
