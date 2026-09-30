@@ -56,17 +56,20 @@ session: the first coder to hit a difference corrects this list in its PR.)*
   `web/package.json`.
 - If `cargo deny` cannot fetch the advisory database through the container's
   proxy, run it with `CARGO_NET_GIT_FETCH_WITH_CLI=true`.
-- The container is Linux, so the pixel gate runs here (it is skipped on macOS).
+- The container is Linux, so the pixel gate runs here (it is skipped on macOS);
+  on `aarch64` rather than CI's `x86_64`, `grade_*` and `vhs` fail regardless.
   A golden-render mismatch is investigated, never re-blessed to go green
   (`docs/golden-renders.md`).
-- **A new fixture is blessed here**, and only it. `UPDATE_GOLDENS=1` on the
-  whole suite rewrites every fixture's references under this container's
-  ffmpeg, so: run the existing fixtures first and bless nothing if any fails;
-  bless the new one by name (`UPDATE_GOLDENS=1 cargo test -p scorsese-golden
-  --test goldens -- --exact <name>`); make sure no other `expected/` changed;
-  then **look at** the new frames (Read the PNGs) before committing. CI gates
-  under Ubuntu 24.04's ffmpeg `6.1.1`; if `decoder.txt` names another, say so
-  in the PR.
+- **A new fixture is blessed here**, and only it — if `uname -m` says
+  `x86_64`, CI's architecture. On `aarch64`, don't bless: arm64 float paths
+  drift from x86_64 on new code even where every existing fixture passes. Say
+  so in the PR and leave the fixture unblessed for the orchestrator.
+  `UPDATE_GOLDENS=1` on the whole suite rewrites every fixture's references, so:
+  run the existing fixtures first and bless nothing if any fails; bless the new
+  one by name (`UPDATE_GOLDENS=1 cargo test -p scorsese-golden --test goldens
+  -- --exact <name>`); make sure no other `expected/` changed; then **look at**
+  the new frames (Read the PNGs) before committing. CI gates under Ubuntu
+  24.04's ffmpeg `6.1.1`; if `decoder.txt` names another, say so in the PR.
 
 ## The repo's rules that trip cloud coders
 

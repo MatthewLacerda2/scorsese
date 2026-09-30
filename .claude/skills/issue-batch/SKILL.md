@@ -122,9 +122,13 @@ never when the queue is.
   Linux, so it also runs the pixel gate that `make gates` skips on macOS — with
   whatever ffmpeg the container installs, so CI stays the authority
   (`docs/golden-renders.md`). That makes it the natural home for a branch that
-  **adds a golden fixture**: blessing is Linux-only, and off Linux it costs a
-  container detour (on 2026-09-30, an arm64 `ubuntu:24.04` on the Mac, which
-  disagrees with CI on the `grade_*` and `vhs` fixtures).
+  **adds a golden fixture**, provided the container is x86_64: a reference is
+  only trustworthy blessed on CI's platform, **x86_64 Linux**. Linux alone is
+  not enough. On 2026-09-30 an arm64 `ubuntu:24.04` on the Mac reproduced every
+  existing fixture but `grade_*` and `vhs`, and still blessed #583's new
+  `dashes` fixture wrong (CI: ssim 0.9419, needs ≥ 0.95) — thin anti-aliased
+  strokes take different float paths. Off an x86_64 Linux machine, bless in an
+  `--platform linux/amd64` container, never a native arm64 one.
 - **Either, if it has docker:** a branch in `crates/server` or `deploy/` is
   proven against a real Postgres and `docker compose`. A machine that must not
   run them (the operator said so of the Mac on 2026-09-30) is the wrong place
