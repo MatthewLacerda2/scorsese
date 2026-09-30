@@ -8,6 +8,7 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
+mod follow;
 pub(crate) mod placement;
 
 use crate::asset::AssetId;
@@ -18,6 +19,7 @@ use crate::light::{Blend, Glow, Shadow};
 use crate::time::{Frames, Speed};
 use crate::vhs::Vhs;
 
+pub use follow::Follow;
 pub use placement::{Anchor, AnchorX, AnchorY, Crop, Fit, Origin, OriginX, OriginY};
 
 /// Identifies a track within one project.
@@ -339,6 +341,17 @@ pub struct Clip {
     /// with it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
+    /// The arrow this clip travels along, when it travels along one. Absent —
+    /// and it is absent on almost every clip — is a clip placed by its
+    /// transform alone.
+    ///
+    /// How far along is the `follow.progress` keyframe track, not a number
+    /// here; see [`Follow`] for what the path does to `transform.position` and
+    /// `transform.rotation`.
+    ///
+    /// Picture only. An audio clip has no place on the frame to move.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub follow: Option<Follow>,
     /// Properties animated over this clip.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub keyframes: Vec<KeyframeTrack>,
@@ -385,6 +398,7 @@ impl Clip {
             blend: Blend::Normal,
             keyframes: Vec::new(),
             note: None,
+            follow: None,
         }
     }
 

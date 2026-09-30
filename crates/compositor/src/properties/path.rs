@@ -142,3 +142,10 @@ pub const GLOW_RADIUS: &str = "glow.radius";
 /// on a pulse overshoots into a brighter flash rather than a negative one.
 /// Does nothing on a clip with no `glow`.
 pub const GLOW_INTENSITY: &str = "glow.intensity";
+/// How far along the arrow it follows a clip is, as a fraction of the
+/// arrow's **length**: `0.0` its tail, `1.0` its head. Clamped to
+/// `0.0..=1.0` when placed, so an overshooting easing rests at an end.
+///
+/// Under `follow.` because it belongs to the clip's `follow` block: on a
+/// clip without one nothing reads it.
+pub const FOLLOW_PROGRESS: &str = "follow.progress";

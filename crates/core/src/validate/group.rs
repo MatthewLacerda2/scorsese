@@ -50,7 +50,7 @@ pub(super) fn check(project: &Project) -> Vec<GroupProblem> {
 ///
 /// A **scope** is what an arrow may reach: the clips on the same tracks as
 /// itself. Everything else is across an edge.
-fn scopes(project: &Project) -> impl Iterator<Item = &[Track]> {
+pub(super) fn scopes(project: &Project) -> impl Iterator<Item = &[Track]> {
     let groups = project
         .assets
         .iter()

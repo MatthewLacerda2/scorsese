@@ -29,6 +29,19 @@ pub enum Note {
         clip: String,
     },
 
+    /// A clip following an arrow whose line could not be worked out in this
+    /// stretch, so the clip was left out.
+    ///
+    /// Only an arrow with an attached end has this problem: where it runs is
+    /// known only while it and what it points at are on screen. An arrow
+    /// between two fixed places is followed whether it is showing or not.
+    FollowLost {
+        /// The follower.
+        clip: String,
+        /// The arrow clip it follows.
+        arrow: String,
+    },
+
     /// Audio carries on past the last picture, and was cut off there.
     AudioTrimmed {
         /// Where the soundtrack would have run to.
@@ -189,6 +202,11 @@ impl fmt::Display for Note {
                 f,
                 "arrow `{clip}` is attached to a clip that is not on screen while it is, \
                  so it was left out"
+            ),
+            Self::FollowLost { clip, arrow } => write!(
+                f,
+                "clip `{clip}` follows arrow `{arrow}`, whose attached line is not on screen \
+                 while it is, so it was left out"
             ),
             Self::ClipRanShort { clip, missing } => write!(
                 f,

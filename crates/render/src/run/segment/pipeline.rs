@@ -36,6 +36,7 @@ use crate::error::RenderError;
 use crate::pipe::Decoder;
 use crate::plan::Segment;
 
+use super::follow::{self, Rider};
 use super::layers::{Entry, Pixels, Slot};
 use super::{Pass, Write};
 
@@ -182,6 +183,8 @@ pub(super) struct Parts<'a> {
     /// The shot behind each slot, groups opened — what a layer's properties
     /// are resolved from, at the time on its own track.
     pub(super) entries: &'a [Entry<'a, 'a>],
+    /// The layers that travel along an arrow, placed on it every frame.
+    pub(super) riders: &'a [Rider],
     /// How many of those are redrawn every frame, which is how many raster-sized
     /// buffers a job needs beyond the decoded ones.
     pub(super) drawn: usize,
@@ -212,6 +215,7 @@ pub(super) fn drive(
     let Parts {
         slots,
         entries,
+        riders,
         drawn,
         composed,
         decoders,
@@ -231,6 +235,7 @@ pub(super) fn drive(
     let mut feed = Feed {
         slots,
         entries,
+        riders,
         extra: (drawn, composed),
         decoders,
         missing: &mut missing,
@@ -301,6 +306,7 @@ fn produce(
     let Feed {
         slots,
         entries,
+        riders,
         extra,
         decoders,
         missing,
@@ -327,6 +333,17 @@ fn produce(
         let clip = entry.shot.clip;
         Properties::at(clip, elapsed(entry.shot.local(at), clip))
     }));
+    // Followers next, because where each one is depends on its arrow's layer
+    // having resolved — and before the redraw, so an arrow attached to a
+    // follower meets it where it has got to.
+    follow::place(
+        riders,
+        slots,
+        entries,
+        &mut job.properties,
+        |layer| entries[layer].shot.local(at),
+        pass.settings.resolution,
+    );
     // Per-frame layers last, because they read the properties every layer just
     // resolved — an attached arrow those of the clips it follows, a keyframed
     // line its own. This is the whole of the ordering either costs: one pass
@@ -346,6 +363,8 @@ struct Feed<'a> {
     slots: &'a [Slot],
     /// The shot behind each of them.
     entries: &'a [Entry<'a, 'a>],
+    /// The layers that travel along an arrow.
+    riders: &'a [Rider],
     /// How many of them are redrawn every frame, and how many are groups.
     extra: (usize, usize),
     /// One per layer read from a source.

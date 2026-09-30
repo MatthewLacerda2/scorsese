@@ -11,7 +11,7 @@
 use scorsese_compositor::{Frame, Properties, Resolution};
 use scorsese_core::Shape;
 
-use super::attach::{End, Following};
+use super::attach::Following;
 use super::layers::Slot;
 
 /// What a per-frame layer is redrawn from.
@@ -42,17 +42,7 @@ impl Redraw {
         let trace = properties[own].trace;
         match self {
             Self::Following(following) => {
-                let ends = [&following.from, &following.to].map(|end| match end {
-                    End::Fixed(x, y) => (
-                        (x * f64::from(canvas.width())) as f32,
-                        (y * f64::from(canvas.height())) as f32,
-                    ),
-                    End::Follows { layer, side } => {
-                        slots[*layer]
-                            .rect
-                            .point_at(*side, &properties[*layer], canvas)
-                    }
-                });
+                let ends = following.ends(slots, properties, canvas);
                 crate::shape::paint_arrow(frame, &following.shape, ends, trace);
             }
             Self::Traced(shape) => crate::shape::paint(frame, shape, slots[own].anchor, trace),
