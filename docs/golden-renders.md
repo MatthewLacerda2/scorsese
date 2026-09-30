@@ -481,6 +481,24 @@ records that machine's ffmpeg in `decoder.txt`, and the next thing to compare it
 against is CI. A set of references nobody has checked on the platform that gates
 is a whole fixture set going red for a reason no diff explains.
 
+**And on x86_64 Linux, CI's architecture — Linux alone is not enough.** On
+2026-09-30 a native arm64 `ubuntu:24.04` container, with CI's exact ffmpeg,
+reproduced every existing fixture except the four `grade_*` and `vhs`, and still
+blessed #583's new `dashes` fixture wrong: CI scored its frame 10 at ssim 0.9419
+against the 0.95 it needs. Thin anti-aliased strokes, like grade's transcendental
+functions, take different float paths on the two architectures, and "the
+existing fixtures pass here" says nothing about code they do not exercise. The
+same fixtures blessed in a `linux/amd64` container (Rosetta, on Apple silicon)
+passed, and that container reproduced every existing fixture, `grade_*` and
+`vhs` included. So off an x86_64 Linux machine, bless in an x86_64 container, or
+in a cloud session (x86_64 Ubuntu, with CI's apt ffmpeg once installed).
+
+**Bless by name, never the whole suite.** The command above rewrites every
+fixture, so with a new fixture in hand run the existing ones first and bless
+nothing if any fails, then bless only the new one
+(`UPDATE_GOLDENS=1 cargo test -p scorsese-golden --test goldens -- --exact <name>`),
+and check that no other `expected/` changed before committing.
+
 **Re-blessing is legitimate when** the render changed on purpose and the new
 frames are what was intended: a compositor capability that alters output by
 design, a fixture deliberately re-aimed at something else, an intentional change
@@ -518,7 +536,7 @@ those frames are uploaded as the `golden-failures` artifact.
    you forget, `every_fixture_is_covered` fails — an untested fixture sitting in
    the repository looking like coverage is exactly the failure mode this whole
    file exists to prevent.
-3. Create the references with `UPDATE_GOLDENS=1`, on Linux — see *Re-blessing*
+3. Create the references with `UPDATE_GOLDENS=1`, on x86_64 Linux — see *Re-blessing*
    for why the platform is part of the instruction. Then **look at them** before
    committing. A blessed reference is an assertion about what is correct; if you
    did not check it, you have asserted that whatever the code did was right.
