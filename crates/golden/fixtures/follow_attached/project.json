@@ -1,0 +1,200 @@
+{
+  "schema_version": 37,
+  "name": "follow_attached",
+  "timeline_fps": {
+    "num": 30,
+    "den": 1
+  },
+  "assets": [
+    {
+      "id": "bed",
+      "kind": "color",
+      "color": "#101820"
+    },
+    {
+      "id": "plate",
+      "kind": "shape",
+      "shape": {
+        "geometry": {
+          "rectangle": {
+            "width": 0.2,
+            "height": 0.3,
+            "radius": 0.1
+          }
+        },
+        "fill": "#1e3a8aff",
+        "stroke": "#ffffffff",
+        "stroke_width": 0.012
+      }
+    },
+    {
+      "id": "link",
+      "kind": "shape",
+      "shape": {
+        "geometry": {
+          "arrow": {
+            "from": {
+              "x": 0.1,
+              "y": 0.5
+            },
+            "to": {
+              "attach": {
+                "clip": "c-plate",
+                "side": "left"
+              }
+            },
+            "curve": "s"
+          }
+        },
+        "stroke": "#5a6878ff",
+        "stroke_width": 0.012
+      }
+    },
+    {
+      "id": "dot",
+      "kind": "shape",
+      "shape": {
+        "geometry": {
+          "ellipse": {
+            "width": 0.05,
+            "height": 0.089
+          }
+        },
+        "fill": "#ffcc00ff"
+      }
+    },
+    {
+      "id": "bar",
+      "kind": "shape",
+      "shape": {
+        "geometry": {
+          "rectangle": {
+            "width": 0.1,
+            "height": 0.035
+          }
+        },
+        "fill": "#ff5577ff"
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "name": "bed",
+      "clips": [
+        {
+          "id": "c-bed",
+          "asset": "bed",
+          "start": 0,
+          "duration": 21
+        }
+      ]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "name": "plate",
+      "clips": [
+        {
+          "id": "c-plate",
+          "asset": "plate",
+          "start": 0,
+          "duration": 21,
+          "keyframes": [
+            {
+              "property": "transform.position.x",
+              "keyframes": [
+                {
+                  "t": 0,
+                  "value": 0.25
+                }
+              ]
+            },
+            {
+              "property": "transform.position.y",
+              "keyframes": [
+                {
+                  "t": 0,
+                  "value": -0.25
+                },
+                {
+                  "t": 20,
+                  "value": 0.25
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "v3",
+      "kind": "video",
+      "name": "link",
+      "clips": [
+        {
+          "id": "c-link",
+          "asset": "link",
+          "start": 0,
+          "duration": 21
+        }
+      ]
+    },
+    {
+      "id": "v4",
+      "kind": "video",
+      "name": "dot",
+      "clips": [
+        {
+          "id": "c-dot",
+          "asset": "dot",
+          "start": 0,
+          "duration": 21,
+          "follow": {
+            "clip": "c-link"
+          },
+          "keyframes": [
+            {
+              "property": "follow.progress",
+              "keyframes": [
+                {
+                  "t": 0,
+                  "value": 0.5
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "v5",
+      "kind": "video",
+      "name": "bar",
+      "clips": [
+        {
+          "id": "c-bar",
+          "asset": "bar",
+          "start": 0,
+          "duration": 21,
+          "follow": {
+            "clip": "c-link",
+            "orient": true
+          },
+          "keyframes": [
+            {
+              "property": "follow.progress",
+              "keyframes": [
+                {
+                  "t": 0,
+                  "value": 0.85
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

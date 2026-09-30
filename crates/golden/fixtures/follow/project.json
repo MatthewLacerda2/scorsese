@@ -1,0 +1,267 @@
+{
+  "schema_version": 37,
+  "name": "follow",
+  "timeline_fps": {
+    "num": 30,
+    "den": 1
+  },
+  "assets": [
+    {
+      "id": "bed",
+      "kind": "color",
+      "color": "#101820"
+    },
+    {
+      "id": "straight",
+      "kind": "shape",
+      "shape": {
+        "geometry": {
+          "arrow": {
+            "from": {
+              "x": 0.08,
+              "y": 0.24
+            },
+            "to": {
+              "x": 0.92,
+              "y": 0.24
+            }
+          }
+        },
+        "stroke": "#5a6878ff",
+        "stroke_width": 0.012
+      }
+    },
+    {
+      "id": "bowed",
+      "kind": "shape",
+      "shape": {
+        "geometry": {
+          "arrow": {
+            "from": {
+              "x": 0.08,
+              "y": 0.5
+            },
+            "to": {
+              "x": 0.92,
+              "y": 0.78
+            },
+            "curve": "s"
+          }
+        },
+        "stroke": "#5a6878ff",
+        "stroke_width": 0.012
+      }
+    },
+    {
+      "id": "dot",
+      "kind": "shape",
+      "shape": {
+        "geometry": {
+          "ellipse": {
+            "width": 0.05,
+            "height": 0.089
+          }
+        },
+        "fill": "#ffcc00ff"
+      }
+    },
+    {
+      "id": "bar",
+      "kind": "shape",
+      "shape": {
+        "geometry": {
+          "rectangle": {
+            "width": 0.1,
+            "height": 0.035
+          }
+        },
+        "fill": "#ff5577ff"
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "name": "bed",
+      "clips": [
+        {
+          "id": "c-bed",
+          "asset": "bed",
+          "start": 0,
+          "duration": 21
+        }
+      ]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "name": "straight",
+      "clips": [
+        {
+          "id": "c-straight",
+          "asset": "straight",
+          "start": 0,
+          "duration": 21
+        }
+      ]
+    },
+    {
+      "id": "v3",
+      "kind": "video",
+      "name": "bowed",
+      "clips": [
+        {
+          "id": "c-bowed",
+          "asset": "bowed",
+          "start": 0,
+          "duration": 21
+        }
+      ]
+    },
+    {
+      "id": "v4",
+      "kind": "video",
+      "name": "straight dot",
+      "clips": [
+        {
+          "id": "c-dot-straight",
+          "asset": "dot",
+          "start": 0,
+          "duration": 21,
+          "follow": {
+            "clip": "c-straight"
+          },
+          "keyframes": [
+            {
+              "property": "follow.progress",
+              "keyframes": [
+                {
+                  "t": 0,
+                  "value": 0.0
+                },
+                {
+                  "t": 20,
+                  "value": 1.0
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "v5",
+      "kind": "video",
+      "name": "straight bar",
+      "clips": [
+        {
+          "id": "c-bar-straight",
+          "asset": "bar",
+          "start": 0,
+          "duration": 21,
+          "follow": {
+            "clip": "c-straight",
+            "orient": true
+          },
+          "keyframes": [
+            {
+              "property": "follow.progress",
+              "keyframes": [
+                {
+                  "t": 0,
+                  "value": 0.0
+                },
+                {
+                  "t": 20,
+                  "value": 1.0
+                }
+              ]
+            },
+            {
+              "property": "transform.position.y",
+              "keyframes": [
+                {
+                  "t": 0,
+                  "value": -0.1
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "v6",
+      "kind": "video",
+      "name": "bowed bar",
+      "clips": [
+        {
+          "id": "c-bar-bowed",
+          "asset": "bar",
+          "start": 0,
+          "duration": 21,
+          "follow": {
+            "clip": "c-bowed",
+            "orient": true
+          },
+          "keyframes": [
+            {
+              "property": "follow.progress",
+              "keyframes": [
+                {
+                  "t": 0,
+                  "value": 0.0
+                },
+                {
+                  "t": 20,
+                  "value": 1.0
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "v7",
+      "kind": "video",
+      "name": "bowed dot",
+      "clips": [
+        {
+          "id": "c-dot-bowed",
+          "asset": "dot",
+          "start": 0,
+          "duration": 21,
+          "follow": {
+            "clip": "c-bowed"
+          },
+          "keyframes": [
+            {
+              "property": "follow.progress",
+              "keyframes": [
+                {
+                  "t": 0,
+                  "value": 0.0
+                },
+                {
+                  "t": 20,
+                  "value": 1.0
+                }
+              ]
+            },
+            {
+              "property": "transform.position.y",
+              "keyframes": [
+                {
+                  "t": 0,
+                  "value": 0.12
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
