@@ -29,7 +29,7 @@ pub enum ExtractError {
         /// The clip it follows.
         follows: ClipId,
     },
-    /// A chosen clip shows a group. A template does not carry one yet: the
+    /// A chosen clip shows a group. A template does not carry one yet (#598): the
     /// group's members would need their assets, ids and frame rate carried
     /// through [`crate::template::insert`] too, and a half-carried group is a
     /// template that refuses to insert.

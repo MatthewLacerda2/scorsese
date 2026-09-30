@@ -1158,7 +1158,7 @@ composite a frame on top of what its members cost anyway.
 Not here: groups with their own frame rate or raster, and editing inside a
 group with the place, trim and move tools — those reach the project's own
 tracks. A member is edited by ungrouping, editing and grouping again, or in the
-document itself. A template cannot carry a group yet either.
+document itself. A template cannot carry a group yet either (#598).
 
 `media.duration_seconds` is wall-clock, and `media.frame_rate` is a rational
 in the same shape as `timeline_fps` — a source's own grid, which is not
