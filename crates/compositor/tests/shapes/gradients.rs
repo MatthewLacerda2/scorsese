@@ -122,3 +122,25 @@ fn a_shallow_ramp_is_dithered_into_noise_that_follows_it() {
         );
     }
 }
+
+/// The edge is still tiny-skia's: a box whose side falls half way across a
+/// pixel leaves that pixel half covered, and a gradient fill honours it.
+#[test]
+fn a_gradient_fill_keeps_the_soft_edge() {
+    let mut frame = frame();
+    let figure = Figure {
+        outline: Outline::Rectangle {
+            bounds: bounds((101.0, 40.0), centred()),
+            radius: 0.0,
+        },
+        fill: Some(Fill::Linear(Linear {
+            angle: 90.0,
+            stops: stops(RED, RED),
+        })),
+        border: None,
+    };
+    shape::draw(&mut frame, &figure);
+    let edge = at(&frame, 49, 100);
+    assert!((100..=156).contains(&edge.3), "half covered: {edge:?}");
+    assert_eq!(at(&frame, 50, 100).3, 0xff, "and solid inside");
+}

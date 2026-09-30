@@ -207,27 +207,4 @@ fn noise(x: u32, y: u32) -> f64 {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// Centred and bounded: a dither that leaned one way would shift the whole
-    /// gradient's brightness, and one past its bound would be grain.
-    #[test]
-    fn the_noise_is_centred_and_bounded() {
-        let samples: Vec<f64> = (0..256)
-            .flat_map(|y| (0..256).map(move |x| noise(x, y)))
-            .collect();
-        let mean = samples.iter().sum::<f64>() / samples.len() as f64;
-        assert!(mean.abs() < 0.02, "mean {mean}");
-        assert!(samples.iter().all(|n| n.abs() <= DITHER));
-        let spread = samples.iter().map(|n| n * n).sum::<f64>() / samples.len() as f64;
-        assert!((spread.sqrt() - 0.816).abs() < 0.02, "σ {}", spread.sqrt());
-    }
-
-    #[test]
-    fn a_channel_at_either_end_is_never_dithered_off_it() {
-        for n in [-2.0, -0.6, 0.6, 2.0] {
-            assert_eq!(dithered([0.0, 255.0, 0.0, 255.0], n), [0, 255, 0, 255]);
-        }
-    }
-}
+mod tests;

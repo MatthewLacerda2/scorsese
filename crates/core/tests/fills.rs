@@ -84,7 +84,11 @@ fn an_unknown_gradient_or_field_is_refused_by_name() {
     assert!(conic.contains("conic"), "{conic}");
     let stray = read(json!({ "linear": { "angel": 90, "stops": [] } })).expect_err("typo");
     assert!(stray.contains("angel"), "{stray}");
-    assert!(read(json!(12)).is_err(), "a number is neither form");
+    let number = read(json!(12)).expect_err("a number is neither form");
+    assert!(
+        number.contains("a colour like"),
+        "says what it wanted: {number}"
+    );
 }
 
 #[test]
