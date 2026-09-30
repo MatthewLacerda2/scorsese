@@ -1,4 +1,4 @@
-# `project.json` — schema v33
+# `project.json` — schema v34
 
 The contract between the CLI, the MCP server and the GUI — the contract *now*,
 not across time. It is meant to be hand-written: an agent should be able to
@@ -23,7 +23,7 @@ A complete worked example lives in
 
 ```json project
 {
-  "schema_version": 33,
+  "schema_version": 34,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],

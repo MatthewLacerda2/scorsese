@@ -13,6 +13,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::color::Rgba;
+use crate::group::Group;
 use crate::icon::Icon;
 use crate::path::ProjectPath;
 use crate::shape::Shape;
@@ -127,6 +128,14 @@ pub struct Asset {
     /// would look exactly like having drawn it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub icon: Option<Icon>,
+    /// The tracks a `group` asset holds — the clips that render as its one
+    /// layer.
+    ///
+    /// The fifth inline kind's whole content, held to the same rule as the
+    /// other four: required on `group` and refused everywhere else. Tracks on a
+    /// video asset would be composited by nothing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<Group>,
     /// Why this asset is what it is. Never rendered — see
     /// [`crate::Track::note`], which states the invariant in full.
     ///
@@ -253,6 +262,7 @@ impl Asset {
             color: None,
             shape: None,
             icon: None,
+            group: None,
             note: None,
             video: None,
             speech: None,
@@ -312,6 +322,19 @@ impl Asset {
         }
     }
 
+    /// Several clips as one layer: a nested composition, placed by a clip of it
+    /// like any other picture.
+    ///
+    /// The fifth inline kind. It holds placements of other assets rather than
+    /// content of its own, and how long it is follows from them — see
+    /// [`Group::length`].
+    pub fn group(id: AssetId, group: Group) -> Self {
+        Self {
+            group: Some(group),
+            ..Self::bare(id, AssetKind::Group)
+        }
+    }
+
     /// The style this asset's text is drawn in, defaults included. Not the
     /// stored field: an absent style is every default, not an absence, so a
     /// caller never has to decide what a missing font means.
@@ -355,7 +378,14 @@ impl Asset {
     /// against, because that is the currency `source_in` and `duration` are
     /// already in: a source shot at another rate is conformed, so a one-second
     /// 24fps source is thirty frames of a 30fps timeline.
+    ///
+    /// A **group** is the one kind whose length is not measured but derived:
+    /// it is where its last member ends, on the same grid, so it bounds a clip
+    /// of it exactly as footage does — and needs no probe to know it.
     pub fn length(&self, fps: Fps) -> Option<Frames> {
+        if self.kind == AssetKind::Group {
+            return self.group.as_ref().map(Group::length);
+        }
         Some(fps.frames(self.media?.duration_seconds?))
     }
 
@@ -381,6 +411,10 @@ impl Asset {
     /// A generated asset is judged by whether it exists yet. A sketch is a
     /// brief and no file, so there is nothing to trim and nothing to speed up;
     /// once realised it is media like any other.
+    ///
+    /// A **group** has one too, derived from its members rather than measured:
+    /// shortening a clip of it shows less of the group, exactly as it would a
+    /// shot.
     pub fn has_intrinsic_duration(&self) -> bool {
         match self.kind {
             AssetKind::Image

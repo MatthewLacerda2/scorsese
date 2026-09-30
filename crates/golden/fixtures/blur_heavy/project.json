@@ -1,5 +1,5 @@
 {
-  "schema_version": 33,
+  "schema_version": 34,
   "name": "blur_heavy",
   "timeline_fps": {
     "num": 30,

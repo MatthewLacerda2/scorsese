@@ -1,9 +1,9 @@
 //! `scorsese migrate` — carrying a folder forward, and refusing what it cannot.
 //!
-//! There is no step yet (v33 is the oldest this build migrates from), so what
-//! can be asserted today is the edges: a current folder is not touched, and a
-//! document outside the range is refused and left exactly as it was. The chain
-//! itself is tested in `scorsese_core::migrate`, over a chain that has steps.
+//! The edges, and one real walk: a current folder is not touched, a document
+//! outside the range is refused and left exactly as it was, and a v33 folder —
+//! the oldest this build carries — is rewritten at this build's version. The
+//! chain itself is tested in `scorsese_core::migrate`.
 
 use scorsese_core::{PROJECT_FILE_NAME, SCHEMA_VERSION};
 
@@ -18,6 +18,26 @@ fn a_current_project_is_left_byte_for_byte_alone() {
     run_in(&dir, &["migrate"]).ok().says("nothing to do");
 
     assert_eq!(std::fs::read(&file).unwrap(), before);
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn a_v33_folder_is_rewritten_at_this_version() {
+    let dir = new_project("migrate-v33");
+    let file = dir.join(PROJECT_FILE_NAME);
+    let current = std::fs::read_to_string(&file).unwrap();
+    let old = current.replacen(
+        &format!("\"schema_version\": {SCHEMA_VERSION}"),
+        "\"schema_version\": 33",
+        1,
+    );
+    assert_ne!(old, current, "the version was rewritten");
+    std::fs::write(&file, &old).unwrap();
+
+    run_in(&dir, &["migrate"]).ok();
+
+    let migrated = scorsese_core::Project::load(&dir).expect("the folder loads at this version");
+    assert_eq!(migrated.schema_version, SCHEMA_VERSION);
     std::fs::remove_dir_all(&dir).ok();
 }
 

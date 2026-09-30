@@ -14,7 +14,7 @@ pub fn unused_assets(project: &Project) -> Vec<AssetId> {
     project
         .assets
         .iter()
-        .filter(|asset| !project.clips().any(|(_, clip)| clip.asset == asset.id))
+        .filter(|asset| !project.every_clip().any(|(_, clip)| clip.asset == asset.id))
         .map(|asset| asset.id.clone())
         .collect()
 }
@@ -32,7 +32,7 @@ pub fn remove_assets(
     let mut report = GcReport::default();
 
     for id in ids {
-        if project.clips().any(|(_, clip)| &clip.asset == id) {
+        if project.every_clip().any(|(_, clip)| &clip.asset == id) {
             return Err(GcError::StillReferenced { id: id.clone() });
         }
         let Some(index) = project.assets.iter().position(|asset| &asset.id == id) else {

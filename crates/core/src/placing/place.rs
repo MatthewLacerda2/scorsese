@@ -162,7 +162,7 @@ fn remaining(asset: &Asset, fps: Fps, source_in: Frames) -> Result<Frames, Place
 fn clip_id(project: &Project, placement: &Placement) -> Result<ClipId, PlaceError> {
     let taken = |candidate: &str| {
         project
-            .clips()
+            .every_clip()
             .any(|(_, clip)| clip.id.as_str() == candidate)
     };
     if let Some(id) = &placement.id {

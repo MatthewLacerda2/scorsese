@@ -5,40 +5,65 @@ use std::collections::HashSet;
 use crate::asset::Asset;
 use crate::project::Project;
 use crate::time::{Fps, Frames};
-use crate::timeline::{Clip, Track, TrackKind};
+use crate::timeline::{Clip, ClipId, Track, TrackId, TrackKind};
 
 use super::error::TimelineProblem;
 
+/// Every timeline in the document: the project's own, then each group's.
+///
+/// **One pass over all of them, with one set of ids**, because a group's
+/// members are clips like any other and an id names one thing in the whole
+/// document: arrows find clips by id, and a render report names them.
 pub(super) fn check(project: &Project) -> Vec<TimelineProblem> {
+    let groups = project
+        .assets
+        .iter()
+        .filter_map(|asset| asset.group.as_ref())
+        .flat_map(|group| &group.tracks);
+    let mut ids = Ids::default();
     let mut errors = Vec::new();
-    let mut track_ids = HashSet::new();
-    let mut clip_ids = HashSet::new();
-    let (mut tracks_reported, mut clips_reported) = (HashSet::new(), HashSet::new());
-
-    for track in &project.tracks {
-        if !track_ids.insert(&track.id) && tracks_reported.insert(&track.id) {
-            errors.push(TimelineProblem::DuplicateTrackId {
-                id: track.id.clone(),
-            });
-        }
-        for clip in &track.clips {
-            if !clip_ids.insert(&clip.id) && clips_reported.insert(&clip.id) {
-                errors.push(TimelineProblem::DuplicateClipId {
-                    id: clip.id.clone(),
-                });
-            }
-            if let Some(asset) = check_reference(project, track, clip, &mut errors) {
-                check_source_range(project.timeline_fps, asset, clip, &mut errors);
-                check_chroma_key(asset, clip, &mut errors);
-            }
-            check_duration(clip, &mut errors);
-            check_speed(clip, &mut errors);
-            check_crop(clip, &mut errors);
-            check_keyframes(clip, &mut errors);
-        }
-        check_overlaps(track, &mut errors);
+    for track in project.tracks.iter().chain(groups) {
+        check_track(project, track, &mut ids, &mut errors);
     }
     errors
+}
+
+/// The ids seen so far, and which repeats have already been reported.
+#[derive(Default)]
+struct Ids<'a> {
+    tracks: HashSet<&'a TrackId>,
+    clips: HashSet<&'a ClipId>,
+    tracks_reported: HashSet<&'a TrackId>,
+    clips_reported: HashSet<&'a ClipId>,
+}
+
+fn check_track<'a>(
+    project: &Project,
+    track: &'a Track,
+    ids: &mut Ids<'a>,
+    errors: &mut Vec<TimelineProblem>,
+) {
+    if !ids.tracks.insert(&track.id) && ids.tracks_reported.insert(&track.id) {
+        errors.push(TimelineProblem::DuplicateTrackId {
+            id: track.id.clone(),
+        });
+    }
+    for clip in &track.clips {
+        if !ids.clips.insert(&clip.id) && ids.clips_reported.insert(&clip.id) {
+            errors.push(TimelineProblem::DuplicateClipId {
+                id: clip.id.clone(),
+            });
+        }
+        if let Some(asset) = check_reference(project, track, clip, errors) {
+            check_source_range(project.timeline_fps, asset, clip, errors);
+            check_chroma_key(asset, clip, errors);
+        }
+        check_duration(clip, errors);
+        check_speed(clip, errors);
+        check_crop(clip, errors);
+        check_keyframes(clip, errors);
+    }
+    check_overlaps(track, errors);
 }
 
 /// A clip names an asset by id; the id has to exist, and the asset it names

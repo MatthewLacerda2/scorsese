@@ -72,7 +72,7 @@
 //! local folder decides that.
 
 mod extract;
-mod ids;
+pub(crate) mod ids;
 mod insert;
 mod retime;
 

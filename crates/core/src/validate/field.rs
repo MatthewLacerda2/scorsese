@@ -77,6 +77,12 @@ pub enum AssetField {
     /// *not* cover is whether the name is a symbol at all: the catalogue is a
     /// set of property values, so that answer lives where the drawing does.
     Icon,
+    /// The tracks a `group` asset holds.
+    ///
+    /// The fifth inline kind's whole content, required by it and refused
+    /// everywhere else for the reason [`AssetField::Shape`] is: tracks on a
+    /// video asset would be composited by nothing.
+    Group,
     /// The rest of a generated video's brief: tier, raster, length, aspect and
     /// the stills it is built from.
     ///
@@ -121,6 +127,7 @@ impl AssetField {
             Self::Color => "color",
             Self::Shape => "shape",
             Self::Icon => "icon",
+            Self::Group => "group",
             Self::Video => "video",
             Self::Speech => "speech",
             Self::Operation => "operation",

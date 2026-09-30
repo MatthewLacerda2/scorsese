@@ -71,7 +71,8 @@ pub struct AssetStatus {
     /// What was found on disk — see [`AssetHealth::needs_attention`] for
     /// which of these are faults rather than facts.
     pub health: AssetHealth,
-    /// How many clips reference this asset. Zero means `gc` would collect it.
+    /// How many clips reference this asset, members of a group included. Zero
+    /// means `gc` would collect it.
     pub clip_count: usize,
 }
 
@@ -85,7 +86,7 @@ pub fn asset_status(project: &Project, project_root: &Path, check: HashCheck) ->
             kind: asset.kind,
             health: health_of(asset, project_root, check),
             clip_count: project
-                .clips()
+                .every_clip()
                 .filter(|(_, clip)| clip.asset == asset.id)
                 .count(),
         })

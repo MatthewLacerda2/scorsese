@@ -19,7 +19,7 @@ use crate::validate::ValidationErrors;
 /// previous version (`CLAUDE.md`, *A schema bump ships with a migration*):
 /// this format is the contract between the CLI, the MCP server, the GUI, the
 /// web app, and every project already stored — on a disk or in its database.
-pub const SCHEMA_VERSION: u32 = 33;
+pub const SCHEMA_VERSION: u32 = 34;
 
 /// The document's file name inside a `*.scor/` project directory.
 pub const PROJECT_FILE_NAME: &str = "project.json";
@@ -151,11 +151,31 @@ impl Project {
         self.assets.iter().find(|asset| &asset.id == id)
     }
 
-    /// Every clip in the project, paired with the track holding it.
+    /// Every clip on the project's own timeline, paired with the track holding
+    /// it — **not** the members of a group, which sit on the group's tracks
+    /// inside its asset. See [`Project::every_clip`] for those too.
     pub fn clips(&self) -> impl Iterator<Item = (&Track, &Clip)> {
         self.tracks
             .iter()
             .flat_map(|track| track.clips.iter().map(move |clip| (track, clip)))
+    }
+
+    /// Every clip in the **document**: the timeline's, then the members of
+    /// every group in the assets table.
+    ///
+    /// The question to ask whenever an id or a reference is at stake. Clip ids
+    /// are unique across the whole document, groups included — arrows name
+    /// clips by id — so a new id has to be free here and not only on the
+    /// timeline; and an asset a group's member shows is in use, however
+    /// deeply it is nested, because nesting is by reference: every group sits
+    /// in the one assets table, so walking each once reaches every member.
+    pub fn every_clip(&self) -> impl Iterator<Item = (&Track, &Clip)> {
+        let members = self
+            .assets
+            .iter()
+            .filter_map(|asset| asset.group.as_ref())
+            .flat_map(crate::Group::clips);
+        self.clips().chain(members)
     }
 
     /// Every note in the document, in reading order: the assets table first,

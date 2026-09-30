@@ -153,7 +153,7 @@ fn check_arrow(
 fn check_attach(project: &Project, asset: &Asset, attach: &Attach, errors: &mut Vec<AssetProblem>) {
     let id = || asset.id.clone();
     let found = project
-        .clips()
+        .every_clip()
         .find(|(_, clip)| clip.id == attach.clip)
         .map(|(track, clip)| (track.kind, clip));
     let Some((kind, clip)) = found else {

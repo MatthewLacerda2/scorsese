@@ -19,6 +19,7 @@
 mod assets;
 mod error;
 mod field;
+mod group;
 mod icon;
 mod report;
 mod shape;
@@ -27,8 +28,8 @@ mod timeline;
 mod video;
 
 pub use error::{
-    AssetProblem, IconProblem, ShapeProblem, SpeechProblem, TimelineProblem, ValidationError,
-    VideoProblem,
+    AssetProblem, GroupProblem, IconProblem, ShapeProblem, SpeechProblem, TimelineProblem,
+    ValidationError, VideoProblem,
 };
 pub use field::AssetField;
 pub use report::ValidationErrors;
@@ -59,6 +60,7 @@ impl Project {
         }
         errors.extend(assets::check(self).into_iter().map(Into::into));
         errors.extend(timeline::check(self).into_iter().map(Into::into));
+        errors.extend(group::check(self).into_iter().map(Into::into));
 
         if errors.is_empty() {
             Ok(())
