@@ -133,15 +133,27 @@ def unasserted(tally: dict[str, dict[str, int]]) -> set[str]:
     }
 
 
+def instant(stamp: str) -> datetime:
+    """A cargo-mutants timestamp, read by any Python this repo meets.
+
+    cargo-mutants writes nanoseconds (`20:08:09.91684074Z`), and
+    `datetime.fromisoformat` accepts a `Z`, or a fraction that is not exactly
+    three or six digits, only from Python 3.11 on. CI has a newer Python;
+    macOS ships 3.9, where `make scripts` failed on the first real timestamp a
+    fixture carried. So the fraction is padded or cut to six digits — a
+    datetime holds microseconds anyway.
+    """
+    stamp = stamp.replace("Z", "+00:00")
+    stamp = re.sub(r"\.(\d+)", lambda m: "." + m.group(1).ljust(6, "0")[:6], stamp)
+    return datetime.fromisoformat(stamp)
+
+
 def elapsed(data: dict) -> str:
     """Wall-clock time of the run, or the empty string if it did not finish."""
     start, end = data.get("start_time"), data.get("end_time")
     if not (start and end):
         return ""
-    seconds = (
-        datetime.fromisoformat(end.replace("Z", "+00:00"))
-        - datetime.fromisoformat(start.replace("Z", "+00:00"))
-    ).total_seconds()
+    seconds = (instant(end) - instant(start)).total_seconds()
     return f"{seconds / 60:.0f}m {seconds % 60:.0f}s" if seconds >= 60 else f"{seconds:.0f}s"
 
 
