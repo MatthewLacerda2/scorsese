@@ -37,6 +37,11 @@ that was never wrong. On rusty a cold build filled a tmpfs scratchpad and three
 healthy branches were reported broken (MatthewLacerda2/rusty#580). So builds and
 gates run from a worktree, **never from the scratchpad**, which may be a tmpfs.
 
+Nor is a failure `main` has too, on this platform. Before fixing a red gate the
+branch did not touch, run it on `main`; if it fails there, it is a bug to cite
+or file, not the branch's (on 2026-09-30 every agent on the Mac re-argued five
+app panel snapshots that fail on macOS regardless — #597).
+
 ## The merge, one branch at a time
 
 1. `git fetch origin && git rebase origin/main` in the branch's worktree.
