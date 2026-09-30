@@ -10,6 +10,7 @@ const NAMES: Record<string, string> = {
   color: "colour",
   shape: "shape",
   icon: "icon",
+  group: "group",
   generated_video: "generated video",
   generated_audio: "generated speech",
   synth_audio: "synthesised audio",
@@ -26,6 +27,7 @@ const COLORS: Record<string, string> = {
   color: "bg-fuchsia-500",
   shape: "bg-violet-500",
   icon: "bg-indigo-500",
+  group: "bg-purple-500",
 };
 
 export function kindName(kind: string): string {

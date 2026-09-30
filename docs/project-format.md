@@ -16,6 +16,10 @@ migrate` runs the same steps over a local `.scor` folder. The steps live in
 `scorsese_core::migrate`, one per version from v33 (the oldest this build
 carries forward) up to this one.
 
+| step | what changed | what the step does |
+| --- | --- | --- |
+| v33 → v34 | the `group` asset kind (#586) | nothing: a kind was added and nothing a v33 document says changed meaning, so it passes through and only its version moves |
+
 A complete worked example lives in
 `crates/core/tests/fixtures/narrated_teaser.json`.
 
@@ -134,7 +138,7 @@ re-importing or regenerating a file is one edit in one place.
 | Field | Required for | Meaning |
 | --- | --- | --- |
 | `id` | all | Unique within the project |
-| `kind` | all | `video`, `image`, `audio`, `text`, `color`, `shape`, `icon`, `generated_video`, `generated_audio`, `synth_audio` |
+| `kind` | all | `video`, `image`, `audio`, `text`, `color`, `shape`, `icon`, `group`, `generated_video`, `generated_audio`, `synth_audio` |
 | `path` | file-backed kinds | Relative to the project root |
 | `sha256` | optional | 64 lowercase hex chars, of the file at `path` |
 | `media` | optional | What ffprobe found: `duration_seconds`, `width`, `height`, `frame_rate` (a rational), `has_alpha`, `audio_channels`, `sample_rate` — see below |
@@ -146,6 +150,7 @@ re-importing or regenerating a file is one edit in one place.
 | `color` | `color` | The colour to fill with, as `#rrggbb` or `#rrggbbaa`; colour assets have no `path` |
 | `shape` | `shape` | The outline to draw and how it is coloured — see below |
 | `icon` | `icon` | Which symbol to draw, how big and in what colour — see below |
+| `group` | `group` | The tracks it holds, which render as one layer — see below |
 | `note` | optional | Why this asset is what it is. Never rendered — see above |
 | `video` | optional, `generated_video` only | The rest of the brief: `model`, `resolution`, `seconds`, `aspect`, `first_image`, `last_image`, `reference_images` — see below |
 | `speech` | optional, `generated_audio` only | The rest of the brief: `model`, `voice_id`, `language`, `seed` — see below |
@@ -927,6 +932,19 @@ cycle check, and it is what makes resolving endpoints per frame safe: an arrow
 following an arrow following the first has no answer, and a line has no side
 worth meeting anyway.
 
+**An arrow follows only clips on its own timeline.** Inside a
+[group](#group-assets) an arrow may follow a member of the same group, and it
+resolves in the group's own space — so when the group moves, the arrow moves
+with the boxes, drawn into the one layer. An arrow on the timeline following a
+member *inside* a group, or a member following a clip outside, is refused: the
+two sides are drawn in different spaces, one before the group's transform and
+one after, and the same group can be on screen twice at once, so "that member"
+would not even name one place. To point at a whole diagram, attach to the
+**group clip**, whose rectangle is the raster the group is drawn on, moved by
+the group clip's transform; to point at a box inside it, put the arrow in the
+group beside the box. This is a *for now*: a later version may resolve through
+the group's transform, and nothing about refusing it today stands in the way.
+
 **An arrow whose clip is not on screen while the arrow is** is left out of those
 frames, and the render says so in a note. Holding the endpoint where the box
 would have been draws a line into empty space pointing at nothing, which is a
@@ -1027,6 +1045,120 @@ anyway draws an empty layer and says so in its report rather than stopping.
 Not here: user-supplied SVG, multi-colour icons, any set beyond the one that
 ships, and gradients — the last for the reason the `color` section already
 gives.
+
+### Group assets
+
+```json asset
+{ "id": "pipeline", "kind": "group",
+  "group": { "tracks": [
+    { "id": "pipeline-boxes", "kind": "video", "clips": [
+      { "id": "c-ingest", "asset": "box-a", "start": 0, "duration": 180,
+        "keyframes": [{ "property": "transform.position.x", "keyframes": [
+          { "t": 0, "value": -0.25 } ] }] },
+      { "id": "c-store", "asset": "box-b", "start": 30, "duration": 150,
+        "keyframes": [{ "property": "transform.position.x", "keyframes": [
+          { "t": 0, "value": 0.25 } ] }] } ] },
+    { "id": "pipeline-links", "kind": "video", "clips": [
+      { "id": "c-link", "asset": "a-to-b", "start": 30, "duration": 150 } ] }
+  ] } }
+```
+
+Several clips that render as **one layer**, so the layer can be moved, scaled,
+faded or blurred as a unit — Filmora's *compound clip*. A diagram of thirty
+boxes, arrows and captions that pulls back as a whole would otherwise be thirty
+clips each carrying the same scale and position keyframes, worked out by hand
+to stay in formation and rewritten, every one, the first time the move changes.
+Grouped, it is one clip with two keyframes:
+
+```json clip
+{ "id": "c-pipeline", "asset": "pipeline", "start": 240, "duration": 180,
+  "keyframes": [
+    { "property": "transform.scale.x", "keyframes": [
+        { "t": 0, "value": 1.0, "easing": "ease_in_out" }, { "t": 90, "value": 0.6 } ] },
+    { "property": "transform.scale.y", "keyframes": [
+        { "t": 0, "value": 1.0, "easing": "ease_in_out" }, { "t": 90, "value": 0.6 } ] }
+  ] }
+```
+
+The fifth kind with no file behind it. `group` is required on this kind and
+refused on every other, and it holds `tracks` — the same shape as the
+document's own, **first at the bottom**, and all of them `video`. Their clips
+name assets in the project's one assets table, by id, like any other clip; a
+group carries placements, never media. A member may be a clip of another group,
+which is how groups nest. Nobody has to write one by hand: `clip_group` over MCP
+wraps clips already on the timeline into a new group and puts one clip of it
+where they were, and `clip_ungroup` is the inverse — see
+[`mcp.md`](mcp.md).
+
+**Why an asset kind, and not a `parent` on clips.** A parent pointer gives a
+transform that children inherit, and nothing else: every child is still its own
+layer, so a group at half opacity would show its overlapping members through
+each other, and there would be no single picture for a blur — or a glow, or a
+mask — to act on. A group asset is a nested composition that renders **once per
+frame, to one layer**, and a clip of it then composites like any other: its
+`opacity`, transforms, `grade`, `blur` and the rest apply to the finished group.
+It also has a clock of its own, which a pointer does not, so a group can be
+trimmed and reused like a shot.
+
+**Time.** The group's tracks run from the group's own zero, and a clip of it is
+a window onto them exactly as a clip of footage is: `source_in` is the group
+frame it opens on, and `duration` how much of the group it shows. So every
+member's `start` — and, since keyframes count from a clip's start, every
+member's animation — is in **group** time, and plays at the same moment of the
+group wherever the group clip is placed or trimmed. A group clip plays at one
+group frame per timeline frame: a `speed` on one is refused, because at any
+other rate a group frame, and every member's keyframes with it, would fall
+between two timeline frames. Retime the members instead.
+
+**A group's length is derived, never declared**: it is where its last member
+ends. A declared length would be one more number to disagree with what it
+describes, and neither disagreement reads well — shorter hides members nobody
+deleted, longer is empty picture nobody drew. So a group bounds a clip of it the
+way footage does, and a clip may not play past the group's end.
+
+**Space.** Members are laid out on the **project's raster** — the frame the
+render is — so a fraction means the same inside a group and outside it, and a
+box copied into a group sits where it sat. The group clip's transform then
+applies to the rendered layer as a whole: its `origin` is the centre of the
+frame unless the clip names another point, so a group scaled down shrinks
+toward the middle of the picture, and one scaled from `{ "x": "left" }` shrinks
+toward the left edge. `anchor`, `fit` and `crop` are not read on a group clip,
+for the reason they are not read on a colour: the layer *is* the raster, so
+there is nothing to fit and no edge to rest. The rectangle an arrow attached to
+the group clip meets is that raster too, moved by the group clip's transform —
+members move about inside it, so no smaller rectangle holds for the whole of
+the group.
+
+**Picture only.** A group's tracks are video tracks. Sound has no layer to be
+part of, and mixing members' audio through a group's clock is a feature of its
+own rather than something to half-do here. A member whose file has sound on it
+is drawn and not heard, and the render says so in a note; put the same file on
+an audio track beside the group clip to hear it.
+
+**Ids are one namespace for the whole document.** A member's clip id may not
+also name a clip on the timeline or in another group, and a group's track ids
+are unique the same way — arrows name clips by id, and a render report names
+them, so an id has to name one thing.
+
+What validation refuses about groups, all from the document alone: a `group`
+block missing from a group or present on anything else; a group with **no clip**
+in it (a layer that can never show anything looks exactly like a render that
+failed); an **audio track** in one; a group that **contains itself**, directly
+or through another group; a clip of a group at a `speed`; and an **arrow
+attached across a group's edge**. What it checks about the members is what it
+checks about any clip — their assets resolve, their kind suits a video track,
+they do not overlap on their track, their keyframes are well formed.
+
+**How it renders.** Once per frame the members are composited, bottom track
+first, into a transparent raster the size of the frame; that raster is then the
+group clip's picture, and is composited with the group clip's own properties
+like any other layer. Nothing is cached yet: a group costs one extra offscreen
+composite a frame on top of what its members cost anyway.
+
+Not here: groups with their own frame rate or raster, and editing inside a
+group with the place, trim and move tools — those reach the project's own
+tracks. A member is edited by ungrouping, editing and grouping again, or in the
+document itself. A template cannot carry a group yet either.
 
 `media.duration_seconds` is wall-clock, and `media.frame_rate` is a rational
 in the same shape as `timeline_fps` — a source's own grid, which is not
@@ -2142,7 +2274,8 @@ a project unattended sees the whole list at once.
 What it checks: schema version, duplicate ids, path rules, hash shape, the
 fields each asset kind requires — including that only a `text` asset carries
 `text` or `style`, only a `color` asset carries `color`, only a `shape`
-asset carries `shape` and only an `icon` asset carries `icon`, that an icon has
+asset carries `shape`, only an `icon` asset carries `icon` and only a `group`
+carries `group`, that an icon has
 a size and a thickness to draw with, that a shape has area, a corner it has room to round,
 and something to draw with — and that an arrow has two ends in different
 places and no `fill`, since a line has no inside — that a `style`'s
@@ -2151,7 +2284,8 @@ obey the project-path rules, and that each generated kind carries exactly the
 brief it takes: a `prompt` or a `recipe`, never both and never the other's —
 clip references resolving, asset kind against track kind, non-zero durations,
 clip overlap, no clip reaching past the end of the source it was measured to
-have, and keyframe shape.
+have — or the group it shows — and keyframe shape, on the timeline and inside
+every group alike; and what only a group raises (see *Group assets*).
 
 Note what is *not* on that list. A time that is negative, fractional, or
 infinite cannot be represented as a frame count, so it fails the parse with

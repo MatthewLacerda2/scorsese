@@ -47,6 +47,7 @@ export type AssetKind =
   | "color"
   | "shape"
   | "icon"
+  | "group"
   | "generated_video"
   | "generated_audio"
   | "synth_audio";

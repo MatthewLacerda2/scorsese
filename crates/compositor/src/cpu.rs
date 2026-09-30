@@ -101,6 +101,30 @@ impl Compositor for CpuCompositor {
         layers: &[Layer<'_>],
     ) -> Result<(), CompositeError> {
         canvas.fill_black();
+        self.draw_all(canvas, layers)
+    }
+
+    fn offscreen(
+        &mut self,
+        canvas: &mut Frame,
+        layers: &[Layer<'_>],
+    ) -> Result<(), CompositeError> {
+        // Transparent is the premultiplied zero, so the canvas starts as a
+        // valid premultiplied raster and every blend below keeps it one. Only
+        // the finished canvas is turned back into straight alpha, once — the
+        // form every `Layer` source is read in.
+        canvas.fill_transparent();
+        self.draw_all(canvas, layers)?;
+        demultiply(canvas);
+        Ok(())
+    }
+}
+
+impl CpuCompositor {
+    /// Every visible layer onto `canvas`, first at the bottom — what both
+    /// [`Compositor`] methods do once they have decided what the canvas
+    /// starts as.
+    fn draw_all(&mut self, canvas: &mut Frame, layers: &[Layer<'_>]) -> Result<(), CompositeError> {
         for layer in layers {
             if layer.properties.is_invisible() {
                 continue;
@@ -111,6 +135,22 @@ impl Compositor for CpuCompositor {
             draw(&mut self.scratch, canvas, layer)?;
         }
         Ok(())
+    }
+}
+
+/// Turns a premultiplied canvas back into straight alpha, in place.
+///
+/// Rounded to the nearest level, and a fully transparent pixel is left as the
+/// zero it already is — there is no colour to recover under no coverage.
+fn demultiply(canvas: &mut Frame) {
+    for pixel in canvas.bytes_mut().chunks_exact_mut(BYTES_PER_PIXEL) {
+        let alpha = u32::from(pixel[3]);
+        if alpha == 0 || alpha == 255 {
+            continue;
+        }
+        for channel in &mut pixel[..3] {
+            *channel = ((u32::from(*channel) * 255 + alpha / 2) / alpha).min(255) as u8;
+        }
     }
 }
 
@@ -255,7 +295,10 @@ fn draw(
     })?;
     // The canvas began opaque and every blend here is source-over onto it, so
     // it stays opaque — which is why it needs no premultiplication in either
-    // direction. Break that invariant and the colours come out wrong.
+    // direction. Break that invariant and the colours come out wrong. The one
+    // canvas that starts transparent is an offscreen one, and it is read as
+    // premultiplied throughout and turned back into straight alpha only once
+    // every layer is on it — see `Compositor::offscreen`.
     destination.draw_pixmap(0, 0, source, &paint, transform, None);
     Ok(())
 }

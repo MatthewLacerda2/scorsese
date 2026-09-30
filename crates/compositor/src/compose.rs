@@ -61,6 +61,27 @@ pub trait Compositor {
     /// transparent, and not whatever the previous frame left behind.
     fn composite(&mut self, canvas: &mut Frame, layers: &[Layer<'_>])
     -> Result<(), CompositeError>;
+
+    /// Draws `layers` onto `canvas` exactly as [`Compositor::composite`]
+    /// does, **except that the canvas starts transparent rather than black**,
+    /// and what is left on it is straight RGBA — so the result can be the
+    /// `source` of another [`Layer`].
+    ///
+    /// **This is the seam for anything that has to treat several layers, or
+    /// one layer on its own, as a single picture before it meets the frame.**
+    /// A group is the first: its members are drawn here, and the result is
+    /// composited once with the group clip's own transform and opacity — which
+    /// is why a group at half opacity does not show its overlapping members
+    /// through each other, the tell-tale that it is one layer. An effect that
+    /// needs a layer's own pixels in isolation — a glow grown off its alpha, a
+    /// matte cut from another layer — renders that layer here first, for the
+    /// same reason: so it acts on the finished picture of the thing and never
+    /// on the frame beneath it.
+    ///
+    /// Where nothing covers the canvas it stays fully transparent, and the
+    /// tracks below the layer made from it show through.
+    fn offscreen(&mut self, canvas: &mut Frame, layers: &[Layer<'_>])
+    -> Result<(), CompositeError>;
 }
 
 /// Why a frame could not be composited.

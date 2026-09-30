@@ -1,0 +1,6 @@
+{
+  "description": "A group scaled about its centre: a blue box and an amber ellipse, a quarter of the frame either side of the middle, grouped, and the group clip scaled from 1.0 at frame 0 to 0.5 at frame 9. Frame 0 is the diagram as laid out; frame 9 is the whole diagram at half size, shrunk toward the middle of the frame — each shape half as wide and half as tall, and each half as far from the centre as it was (an eighth of the frame, not a quarter). What a wrong render looks like: shapes that shrink where they stand, keeping their distance from the centre, mean the scale was applied to each member about its own centre instead of to the group as one layer; a diagram that shrinks toward a corner means the group layer's pivot is not the centre of the raster; shapes that do not shrink at all mean the group clip's keyframes never reached the layer its members were drawn into.",
+  "media": {},
+  "render": { "resolution": "192x108", "fps": "30" },
+  "frames": [0, 9]
+}

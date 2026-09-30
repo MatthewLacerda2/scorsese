@@ -12,6 +12,7 @@
 //! are worked out against, and the buffers they are worked out in.
 
 mod attach;
+mod draw;
 mod layers;
 mod pipeline;
 
@@ -100,27 +101,35 @@ impl Pass<'_> {
         }
 
         let mut notes = Vec::new();
-        let mut slots = Vec::with_capacity(segment.layers.len());
+        // Groups opened: a group clip's members are layers like any other,
+        // drawn into the group's canvas rather than onto the frame.
+        let entries = layers::open(&segment.layers);
+        let mut slots = Vec::with_capacity(entries.len());
         let mut decoders = Vec::new();
         // Counted separately from the decoders: a drawn layer's buffer is the
         // size of the raster and is filled by drawing rather than reading, so
         // the two sets of buffers are allocated on different grounds even
-        // though a job holds them in one list.
-        let mut drawn = 0;
-        for shot in &segment.layers {
+        // though a job holds them in one list. A group's canvas is a third
+        // count, kept in a list of its own — see [`pipeline`] for why.
+        let (mut drawn, mut composed) = (0, 0);
+        for entry in &entries {
             let (slot, decoder) = self.begin(
-                shot,
+                entry.shot,
                 painter,
                 frames,
                 Among {
                     live: decoders.len(),
                     drawn,
-                    layers: &segment.layers,
+                    composed,
+                    within: entry.within,
+                    layers: &entries,
                 },
                 &mut notes,
             )?;
-            if matches!(slot.pixels, Pixels::Drawn { .. }) {
-                drawn += 1;
+            match slot.pixels {
+                Pixels::Drawn { .. } => drawn += 1,
+                Pixels::Composed { .. } => composed += 1,
+                Pixels::Held(_) | Pixels::Live(_) => {}
             }
             slots.push(slot);
             decoders.extend(decoder);
@@ -132,7 +141,9 @@ impl Pass<'_> {
             frames,
             Parts {
                 slots: &slots,
+                entries: &entries,
                 drawn,
+                composed,
                 decoders: &mut decoders,
                 compositors: &mut compositors[..workers],
                 pools,
@@ -143,18 +154,22 @@ impl Pass<'_> {
         for decoder in decoders {
             decoder.finish()?;
         }
-        notes.extend(segment.layers.iter().zip(&slots).filter_map(
-            |(shot, slot)| match slot.pixels {
-                // A layer drawn — once, or afresh every frame — never runs out of
-                // source, so there is nothing to read and nothing to report
-                // short.
-                Pixels::Held(_) | Pixels::Drawn { .. } => None,
-                Pixels::Live(at) => (missing[at] > 0).then(|| Note::ClipRanShort {
-                    clip: shot.clip.id.to_string(),
-                    missing: missing[at],
+        notes.extend(
+            entries
+                .iter()
+                .zip(&slots)
+                .filter_map(|(entry, slot)| match slot.pixels {
+                    // A layer drawn — once, or afresh every frame — never runs out of
+                    // source, so there is nothing to read and nothing to report
+                    // short. A group is drawn too; a member of it that runs short is
+                    // reported as itself.
+                    Pixels::Held(_) | Pixels::Drawn { .. } | Pixels::Composed { .. } => None,
+                    Pixels::Live(at) => (missing[at] > 0).then(|| Note::ClipRanShort {
+                        clip: entry.shot.clip.id.to_string(),
+                        missing: missing[at],
+                    }),
                 }),
-            },
-        ));
+        );
         Ok(notes)
     }
 }

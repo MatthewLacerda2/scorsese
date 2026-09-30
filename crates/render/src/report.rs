@@ -72,6 +72,19 @@ pub enum Note {
         /// Why the probe could not answer.
         reason: String,
     },
+    /// A clip inside a group shows a file with sound on it, and that sound is
+    /// not in the mix: a group is one picture, and this build does not mix its
+    /// members' audio.
+    ///
+    /// Said rather than done quietly, for [`Note::ClipAudioSkipped`]'s reason:
+    /// a render never decides on silence without mentioning it. The fix is
+    /// ordinary — the same file on an audio track, beside the group clip.
+    GroupedSoundLeftOut {
+        /// The member whose sound is not heard.
+        clip: String,
+        /// The group it is in.
+        group: String,
+    },
     /// An asset the project believes was generated has no file on disk, so
     /// something stood in for it and the render carried on.
     ///
@@ -189,6 +202,11 @@ impl fmt::Display for Note {
                 f,
                 "clip `{clip}` was mixed without its own sound, because its media \
                  could not be probed for one: {reason}"
+            ),
+            Self::GroupedSoundLeftOut { clip, group } => write!(
+                f,
+                "clip `{clip}` in group `{group}` has sound of its own, which is not mixed — \
+                 a group is picture only; put the same file on an audio track to hear it"
             ),
             Self::GeneratedMissing {
                 clip,

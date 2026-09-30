@@ -1,0 +1,114 @@
+{
+  "schema_version": 34,
+  "name": "group_attached",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    { "id": "bed", "kind": "color", "color": "#101820" },
+    {
+      "id": "anchor-box",
+      "kind": "shape",
+      "shape": {
+        "geometry": { "rectangle": { "width": 0.14, "height": 0.24 } },
+        "fill": "#059669ff"
+      }
+    },
+    {
+      "id": "plate",
+      "kind": "shape",
+      "shape": {
+        "geometry": { "rectangle": { "width": 0.14, "height": 0.24, "radius": 0.1 } },
+        "fill": "#1e3a8aff",
+        "stroke": "#ffffffff",
+        "stroke_width": 0.012
+      }
+    },
+    {
+      "id": "link",
+      "kind": "shape",
+      "shape": {
+        "geometry": {
+          "arrow": {
+            "from": { "attach": { "clip": "c-anchor", "side": "right" } },
+            "to": { "attach": { "clip": "c-plate", "side": "left" } }
+          }
+        },
+        "stroke": "#ffcc00ff",
+        "stroke_width": 0.016
+      }
+    },
+    {
+      "id": "diagram",
+      "kind": "group",
+      "group": {
+        "tracks": [
+          {
+            "id": "diagram-anchor",
+            "kind": "video",
+            "clips": [
+              {
+                "id": "c-anchor",
+                "asset": "anchor-box",
+                "start": 0,
+                "duration": 12,
+                "keyframes": [
+                  { "property": "transform.position.x", "keyframes": [{ "t": 0, "value": -0.3 }] }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "diagram-plate",
+            "kind": "video",
+            "clips": [
+              {
+                "id": "c-plate",
+                "asset": "plate",
+                "start": 0,
+                "duration": 12,
+                "keyframes": [
+                  {
+                    "property": "transform.position.x",
+                    "keyframes": [
+                      { "t": 0, "value": -0.05 },
+                      { "t": 12, "value": 0.35 }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "diagram-links",
+            "kind": "video",
+            "clips": [{ "id": "c-link", "asset": "link", "start": 0, "duration": 12 }]
+          }
+        ]
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [{ "id": "c-bed", "asset": "bed", "start": 0, "duration": 7 }]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-diagram",
+          "asset": "diagram",
+          "start": 0,
+          "duration": 7,
+          "source_in": 3,
+          "keyframes": [
+            { "property": "transform.scale.x", "keyframes": [{ "t": 0, "value": 0.8 }] },
+            { "property": "transform.scale.y", "keyframes": [{ "t": 0, "value": 0.8 }] },
+            { "property": "transform.position.y", "keyframes": [{ "t": 0, "value": 0.2 }] }
+          ]
+        }
+      ]
+    }
+  ]
+}

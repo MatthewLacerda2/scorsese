@@ -1,5 +1,5 @@
 //! Tools that change something: bring media in, write the document, place,
-//! trim, move and remove clips, set a clip's plain values, edit a brief, dissolve a cut, duck
+//! trim, move, remove, group and ungroup clips, set a clip's plain values, edit a brief, dissolve a cut, duck
 //! the music, set a clip's volume, scale a run of clips, render.
 //!
 //! One file per tool. They were one file until the dissolve arrived and put
@@ -10,6 +10,7 @@ mod brief;
 mod clip;
 mod dissolve;
 mod duck;
+mod group;
 mod import;
 mod pace;
 mod place;
@@ -25,6 +26,7 @@ pub(crate) use brief::Rebrief;
 pub(crate) use clip::ClipSet;
 pub(crate) use dissolve::Dissolve;
 pub(crate) use duck::Duck;
+pub(crate) use group::{ClipGroup, ClipUngroup};
 pub(crate) use import::Import;
 pub(crate) use pace::ScalePacing;
 pub(crate) use place::PlaceClip;

@@ -40,6 +40,14 @@ pub enum PlanError {
         asset: String,
     },
 
+    /// A group containing itself: validation refuses it, and a render of an
+    /// unvalidated document stops here rather than drawing forever.
+    #[error("group `{asset}` contains itself, so it can never finish being drawn")]
+    GroupContainsItself {
+        /// A group on the cycle.
+        asset: String,
+    },
+
     /// An imported asset with no path — a project edited by hand, or a
     /// migration that lost one. A *prompt* with no file is not this: it has a
     /// slug card to show instead, which is the whole of the sketch lifecycle.

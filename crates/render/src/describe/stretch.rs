@@ -177,6 +177,15 @@ pub enum Shown {
     /// icon that can be wrong without anything else about the clip looking odd,
     /// so a description that hid it behind "media" would hide the mistake too.
     Icon(Icon),
+    /// A group: several clips drawn as one layer. Named rather than counted as
+    /// media, with how many of its members are on screen through the stretch —
+    /// a group whose members have all ended is a layer showing nothing, and
+    /// the number is where a reader sees it.
+    Group {
+        /// How many of the group's own clips are on screen here, not counting
+        /// what nested groups hold.
+        members: usize,
+    },
     /// A slug card, because there is nothing generated to show. What makes a
     /// full preview cut of prompt clips cost nothing — and the case a
     /// description most has to name, since a cut made entirely of cards looks
@@ -218,6 +227,9 @@ impl Shown {
             (AssetKind::Icon, _) => match &shot.asset.icon {
                 Some(icon) => Self::Icon(icon.clone()),
                 None => Self::Media,
+            },
+            (AssetKind::Group, _) => Self::Group {
+                members: shot.members.len(),
             },
             _ => Self::Media,
         }

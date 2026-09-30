@@ -44,6 +44,15 @@
 //! rather than a PNG with alpha that goes soft the moment that resolution
 //! changes, and one more layer once it is drawn.
 //!
+//! **Layers can be drawn into a layer.** [`Compositor::offscreen`] composites
+//! onto a transparent canvas and hands back straight alpha, so what comes out
+//! is itself a [`Layer`]'s source. It is the one seam for everything that has
+//! to act on a finished picture of several layers — or of one layer on its own
+//! — before that picture meets the frame: a group (#586) is the first, and a
+//! glow or a matte is the same shape. Whoever calls it decides what is drawn
+//! into what; this crate only promises that the canvas is transparent where
+//! nothing covered it and straight where something did.
+//!
 //! All of them, and the ruler, reach the raster through `paint`, which is the
 //! crate's **one** rasteriser and one blend. Two would be two answers to what a
 //! soft edge looks like, and pixels are what the golden gate compares.

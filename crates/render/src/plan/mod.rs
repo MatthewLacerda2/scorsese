@@ -6,6 +6,7 @@
 //! what lets the sequencing be tested exhaustively without encoding anything.
 
 mod error;
+mod nested;
 mod range;
 mod segments;
 
@@ -62,6 +63,44 @@ pub struct Shot<'a> {
     /// frame from where the one before it stopped — a jump in the picture and a
     /// click in the mix, at every cut on another track.
     pub source_in: f64,
+    /// What a clip of a **group** shows through this stretch: the group's own
+    /// shots, bottom track first, each carrying its members in turn if it is a
+    /// group too. Empty for every other kind.
+    ///
+    /// A tree rather than more entries in [`Segment::layers`], because a group
+    /// is one layer: everything that reasons about the frame — a description,
+    /// a layout, the overlap check — sees the group clip as the one thing it
+    /// is, and only the renderer, which has to draw the inside, looks in.
+    pub members: Vec<Shot<'a>>,
+    /// How far this shot's own track runs behind the render's timeline, in
+    /// frames: timeline frame `at` is frame `at - shift` of the track the clip
+    /// sits on. Zero on the project's own tracks; for a group's member it is
+    /// where the group's zero falls on the timeline, which can be before the
+    /// timeline's own — hence signed. See [`Shot::local`].
+    pub shift: i64,
+}
+
+impl Shot<'_> {
+    /// Which frame of this shot's own track timeline frame `at` is — the frame
+    /// its `start` and its keyframes are counted on.
+    ///
+    /// The identity on the project's own tracks. Inside a group it is group
+    /// time, which is what makes a member's fade or move play at the same
+    /// moment of the group wherever the group is placed or trimmed.
+    pub fn local(&self, at: Frames) -> Frames {
+        let local = i128::from(at.get()) - i128::from(self.shift);
+        Frames(u64::try_from(local).unwrap_or(0))
+    }
+
+    /// This shot and every shot nested inside it, parents before their
+    /// members — the order a renderer gets them ready in.
+    pub fn and_members(&self) -> Vec<&Self> {
+        let mut all = vec![self];
+        for member in &self.members {
+            all.extend(member.and_members());
+        }
+        all
+    }
 }
 
 /// One stretch of the timeline over which the visible set does not change.
@@ -88,6 +127,12 @@ impl Segment<'_> {
     /// True when nothing at all is on screen here.
     pub fn is_gap(&self) -> bool {
         self.layers.is_empty()
+    }
+
+    /// Every shot drawn here, the members of groups included, each group
+    /// before its members — [`Segment::layers`] with the groups opened.
+    pub fn shots(&self) -> Vec<&Shot<'_>> {
+        self.layers.iter().flat_map(Shot::and_members).collect()
     }
 }
 
@@ -172,7 +217,7 @@ impl<'a> Plan<'a> {
         // what a shot is composited *onto*.
         picture_tracks.extend(segments::taking_part(project, &[TrackKind::Audio], visible));
 
-        let mut notes = Vec::new();
+        let mut notes = nested::silenced(project);
         // Only the audio *tracks* can outlast the picture: sound that came off
         // a video clip ends when that clip's picture does, by construction.
         let audio_end = segments::timeline_end(&segments::tracks_of(project, TrackKind::Audio));
@@ -271,11 +316,11 @@ impl<'a> Plan<'a> {
     }
 
     /// The most layers any one stretch stacks, which is how many frame buffers
-    /// a render needs.
+    /// a render needs — a group's members included, since each is drawn.
     pub fn widest_stack(&self) -> usize {
         self.segments
             .iter()
-            .map(|segment| segment.layers.len())
+            .map(|segment| segment.shots().len())
             .max()
             .unwrap_or(0)
     }

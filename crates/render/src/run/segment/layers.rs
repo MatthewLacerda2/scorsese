@@ -39,6 +39,40 @@ pub(super) struct Slot {
     /// arrow attaches *to*. Worked out once: animation moves the layer, never
     /// the rectangle inside it.
     pub(super) rect: Rect,
+    /// The group this layer is drawn into, by its index among the segment's
+    /// slots — `None` for a layer drawn straight onto the frame.
+    pub(super) within: Option<usize>,
+}
+
+/// One shot as a segment draws it: the groups opened, and each shot knowing
+/// which group it is drawn into.
+///
+/// The plan hands over a tree — a group clip with its members beneath it — and
+/// a renderer wants a list, since a frame's buffers, decoders and properties
+/// are all lists. So the tree is walked once per segment, **each group before
+/// its members**, and the nesting survives as an index. That order is what the
+/// drawing relies on: a group's members, and its nested groups, always come
+/// after it, so drawing the groups from the last to the first finishes every
+/// inner one before the one it is part of.
+pub(super) struct Entry<'s, 'a> {
+    /// The shot.
+    pub(super) shot: &'s Shot<'a>,
+    /// The group it is drawn into, by index in the same list.
+    pub(super) within: Option<usize>,
+}
+
+/// A segment's layers with every group opened, in drawing order.
+pub(super) fn open<'s, 'a>(layers: &'s [Shot<'a>]) -> Vec<Entry<'s, 'a>> {
+    fn walk<'s, 'a>(shots: &'s [Shot<'a>], within: Option<usize>, out: &mut Vec<Entry<'s, 'a>>) {
+        for shot in shots {
+            let at = out.len();
+            out.push(Entry { shot, within });
+            walk(&shot.members, Some(at), out);
+        }
+    }
+    let mut out = Vec::new();
+    walk(layers, None, &mut out);
+    out
 }
 
 /// The three ways a layer has pixels, and the difference is what a worker is
@@ -67,6 +101,16 @@ pub(super) enum Pixels {
         /// The arrow, and where each of its ends comes from.
         following: Box<Following>,
     },
+    /// A group: its members composited, every frame, into a transparent
+    /// raster of the job's own, which is then this layer's picture.
+    ///
+    /// Per frame and never held, because a member may be footage or may move,
+    /// and nothing is cached yet: a group costs one offscreen composite per
+    /// frame, on top of what its members cost anyway.
+    Composed {
+        /// Which of the job's group canvases it is drawn into.
+        at: usize,
+    },
 }
 
 /// Where a layer sits among the ones being got ready, and what else is on
@@ -83,9 +127,14 @@ pub(super) struct Among<'a> {
     /// How many before it are redrawn every frame, which is the buffer index it
     /// takes if it is one of those.
     pub(super) drawn: usize,
-    /// Everything on screen in this stretch — what an attachment is resolved
-    /// against.
-    pub(super) layers: &'a [Shot<'a>],
+    /// How many before it are groups, which is the canvas index it takes if
+    /// it is one.
+    pub(super) composed: usize,
+    /// The group it is drawn into, if any.
+    pub(super) within: Option<usize>,
+    /// Everything on screen in this stretch, groups opened — what an
+    /// attachment is resolved against.
+    pub(super) layers: &'a [Entry<'a, 'a>],
 }
 
 impl Pass<'_> {
@@ -103,6 +152,8 @@ impl Pass<'_> {
         let Among {
             live,
             drawn,
+            composed,
+            within,
             layers: segment,
         } = among;
         let raster = self.settings.resolution;
@@ -111,23 +162,28 @@ impl Pass<'_> {
         // [`crate::content`]. Every drawn kind is the size of the raster: a
         // title is set at whatever the render is, and a card is a panel of it.
         let area = content::within(shot, painter, raster, self.project_root)?.or_whole(raster);
-        let held = |pixels: Frame| {
-            Ok((
-                Slot {
-                    pixels: Pixels::Held(pixels),
-                    anchor: shot.clip.anchor,
-                    origin: shot.clip.origin,
-                    rect: Rect {
-                        source: raster,
-                        area,
-                        anchor: shot.clip.anchor,
-                        origin: shot.clip.origin,
-                    },
-                },
-                None,
-            ))
+        // Every layer drawn at the raster's own size rests on it the same way;
+        // only where its pixels come from differs.
+        let at_raster = |pixels: Pixels| Slot {
+            pixels,
+            anchor: shot.clip.anchor,
+            origin: shot.clip.origin,
+            rect: Rect {
+                source: raster,
+                area,
+                anchor: shot.clip.anchor,
+                origin: shot.clip.origin,
+            },
+            within,
         };
+        let held = |pixels: Frame| Ok((at_raster(Pixels::Held(pixels)), None));
         let blank = || Frame::black(raster);
+
+        if shot.asset.kind == AssetKind::Group {
+            // Nothing to draw once: the members are drawn into it every frame,
+            // from their own slots, by the worker compositing the frame.
+            return Ok((at_raster(Pixels::Composed { at: composed }), None));
+        }
 
         if shot.asset.kind == AssetKind::Text {
             let mut pixels = blank();
@@ -178,7 +234,7 @@ impl Pass<'_> {
             // the segment: where it runs depends on where that clip is at each
             // instant. Everything else here is the same pixels throughout.
             if attach::is_attached(shape) {
-                let following = attach::following(shape, segment);
+                let following = attach::following(shape, segment, within);
                 if following.is_none() {
                     notes.push(Note::ArrowUnattached {
                         clip: shot.clip.id.to_string(),
@@ -203,6 +259,7 @@ impl Pass<'_> {
                             anchor: shot.clip.anchor,
                             origin: shot.clip.origin,
                         },
+                        within,
                     },
                     None,
                 ));
@@ -255,6 +312,7 @@ impl Pass<'_> {
                     anchor: shot.clip.anchor,
                     origin: shot.clip.origin,
                 },
+                within,
             },
             Some(decoder),
         ))

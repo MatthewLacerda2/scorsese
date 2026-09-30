@@ -24,7 +24,7 @@
 
 use scorsese_core::{Asset, Clip, Frames, Project, Track, TrackKind};
 
-use super::{PlanError, Segment, Shot, Showing};
+use super::{PlanError, Segment, Showing};
 
 /// True when this clip puts something on screen.
 ///
@@ -132,28 +132,23 @@ pub(super) fn build<'a>(
         return Ok(Vec::new());
     }
     let mut segments = Vec::new();
-    for pair in cuts(tracks, start, end, &keep).windows(2) {
+    for pair in cuts(project, tracks, start, end, &keep).windows(2) {
         let (from, to) = (pair[0], pair[1]);
         let mut layers = Vec::new();
         for track in tracks {
             // A track's clips never overlap — validation guarantees it — so at
             // most one is visible here. A track with a hole contributes **no
             // layer**, rather than a black one that would paint over the tracks
-            // below it.
-            if let Some(clip) = track
-                .clips
-                .iter()
-                .find(|clip| covers(clip, from) && keep(track, clip))
-            {
-                let asset = renderable_asset(project, clip)?;
-                layers.push(Shot {
-                    track: &track.id,
-                    clip,
-                    asset,
-                    showing: showing(asset),
-                    source_in: source_in_at(clip, from),
-                });
-            }
+            // below it. A group clip arrives with its members opened beneath it
+            // ([`super::nested`]).
+            layers.extend(super::nested::shot_at(
+                project,
+                track,
+                from,
+                0,
+                &keep,
+                &mut Vec::new(),
+            )?);
         }
         segments.push(Segment {
             start: from,
@@ -176,37 +171,34 @@ pub(super) fn build<'a>(
 /// refuses it — and an in-memory one built by hand produces a position a
 /// decoder will simply seek to, which is no worse than any other nonsense
 /// number in a document nobody validated.
-fn source_in_at(clip: &Clip, at: Frames) -> f64 {
+pub(super) fn source_in_at(clip: &Clip, at: Frames) -> f64 {
     let elapsed = Frames(at.get().saturating_sub(clip.start.get()));
     clip.source_in.get() as f64 + clip.speed.source_frames(elapsed)
 }
 
 /// The frames at which the visible set can change, in order, `start` and `end`
-/// included.
+/// included — where a group's members enter and leave, too.
 fn cuts(
+    project: &Project,
     tracks: &[&Track],
     start: Frames,
     end: Frames,
     keep: &impl Fn(&Track, &Clip) -> bool,
 ) -> Vec<Frames> {
-    let mut cuts = vec![start, end];
-    let inside = |at: Frames| at > start && at < end;
+    let mut boundaries = Vec::new();
     for track in tracks {
-        for clip in track.clips.iter().filter(|clip| keep(track, clip)) {
-            for boundary in [clip.start, clip.end()] {
-                if inside(boundary) {
-                    cuts.push(boundary);
-                }
-            }
-        }
+        super::nested::boundaries(project, track, 0, keep, &mut Vec::new(), &mut boundaries);
     }
+    let mut cuts = vec![start, end];
+    cuts.extend(
+        boundaries
+            .into_iter()
+            .filter_map(|at| u64::try_from(at).ok().map(Frames))
+            .filter(|at| *at > start && *at < end),
+    );
     cuts.sort_unstable();
     cuts.dedup();
     cuts
-}
-
-fn covers(clip: &Clip, at: Frames) -> bool {
-    clip.start <= at && at < clip.end()
 }
 
 /// Media, or the card that stands in for it.
@@ -226,7 +218,10 @@ pub(super) fn showing(asset: &Asset) -> Showing {
 }
 
 /// The asset a clip shows, if there is anything to put on screen for it.
-fn renderable_asset<'a>(project: &'a Project, clip: &Clip) -> Result<&'a Asset, PlanError> {
+pub(super) fn renderable_asset<'a>(
+    project: &'a Project,
+    clip: &Clip,
+) -> Result<&'a Asset, PlanError> {
     let asset = project
         .asset(&clip.asset)
         .ok_or_else(|| PlanError::UnknownAsset {

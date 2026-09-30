@@ -51,8 +51,10 @@ pub(super) fn serve(name: &str) -> Option<Serve> {
         "project_read" | "project_describe" | "project_check" | "project_assets"
         | "project_probe" | "project_write" | "track_new" | "text_new" | "color_new"
         | "shape_new" | "icon_new" | "asset_set" | "place_clip" | "trim_clip" | "clip_set"
-        | "clip_move" | "clip_remove" | "dissolve" | "duck_music" | "set_volume"
-        | "scale_pacing" | "rebrief" | "icons" | "voices" => Serve::Stored,
+        | "clip_move" | "clip_remove" | "clip_group" | "clip_ungroup" | "dissolve"
+        | "duck_music" | "set_volume" | "scale_pacing" | "rebrief" | "icons" | "voices" => {
+            Serve::Stored
+        }
         "look" | "hear" => Serve::Confined(&["file"]),
         "audio_level" => Serve::Confined(&["file", "against"]),
         "still" => Serve::Without(&["out"]),

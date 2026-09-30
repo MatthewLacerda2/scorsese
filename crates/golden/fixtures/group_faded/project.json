@@ -1,0 +1,120 @@
+{
+  "schema_version": 34,
+  "name": "group_faded",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    { "id": "bed", "kind": "color", "color": "#e5e7ebff" },
+    {
+      "id": "red",
+      "kind": "shape",
+      "shape": {
+        "geometry": { "rectangle": { "width": 0.3, "height": 0.3 } },
+        "fill": "#dc2626ff"
+      }
+    },
+    {
+      "id": "blue",
+      "kind": "shape",
+      "shape": {
+        "geometry": { "rectangle": { "width": 0.3, "height": 0.3 } },
+        "fill": "#2563ebff"
+      }
+    },
+    {
+      "id": "pair",
+      "kind": "group",
+      "group": {
+        "tracks": [
+          {
+            "id": "pair-red",
+            "kind": "video",
+            "clips": [
+              {
+                "id": "c-red-in",
+                "asset": "red",
+                "start": 0,
+                "duration": 10,
+                "keyframes": [
+                  { "property": "transform.position.x", "keyframes": [{ "t": 0, "value": -0.3 }] },
+                  { "property": "transform.position.y", "keyframes": [{ "t": 0, "value": -0.22 }] }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "pair-blue",
+            "kind": "video",
+            "clips": [
+              {
+                "id": "c-blue-in",
+                "asset": "blue",
+                "start": 0,
+                "duration": 10,
+                "keyframes": [
+                  { "property": "transform.position.x", "keyframes": [{ "t": 0, "value": -0.15 }] },
+                  { "property": "transform.position.y", "keyframes": [{ "t": 0, "value": -0.1 }] }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [{ "id": "c-bed", "asset": "bed", "start": 0, "duration": 10 }]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "note": "The grouped pair, on the left: faded as one layer.",
+      "clips": [
+        {
+          "id": "c-pair",
+          "asset": "pair",
+          "start": 0,
+          "duration": 10,
+          "keyframes": [{ "property": "opacity", "keyframes": [{ "t": 0, "value": 0.5 }] }]
+        }
+      ]
+    },
+    {
+      "id": "v3",
+      "kind": "video",
+      "note": "The same pair ungrouped, on the right, each faded on its own — the control.",
+      "clips": [
+        {
+          "id": "c-red-out",
+          "asset": "red",
+          "start": 0,
+          "duration": 10,
+          "keyframes": [
+            { "property": "opacity", "keyframes": [{ "t": 0, "value": 0.5 }] },
+            { "property": "transform.position.x", "keyframes": [{ "t": 0, "value": 0.15 }] },
+            { "property": "transform.position.y", "keyframes": [{ "t": 0, "value": 0.1 }] }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "v4",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-blue-out",
+          "asset": "blue",
+          "start": 0,
+          "duration": 10,
+          "keyframes": [
+            { "property": "opacity", "keyframes": [{ "t": 0, "value": 0.5 }] },
+            { "property": "transform.position.x", "keyframes": [{ "t": 0, "value": 0.3 }] },
+            { "property": "transform.position.y", "keyframes": [{ "t": 0, "value": 0.22 }] }
+          ]
+        }
+      ]
+    }
+  ]
+}

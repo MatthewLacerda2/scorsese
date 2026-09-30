@@ -11,6 +11,7 @@ mod cards;
 mod cues;
 mod cuts;
 mod fades;
+mod groups;
 mod retiming;
 mod sound;
 
