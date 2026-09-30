@@ -101,9 +101,15 @@ the merge call can answer **502 Bad Gateway having already merged** (#495,
 merging #490). So a failed merge is sorted by what failed. A **transport**
 failure — a 5xx, a timeout, a reset connection — says nothing about the merge,
 and the pull request is asked whether it merged before anything is concluded
-([`transport`], [`landed`]). A **refusal** GitHub reasoned about — a 409, "not
-mergeable", a protected branch — is a real no, and is handed back with no
-second call.
+([`mergeable.transport`], [`landed`]). A **refusal** GitHub reasoned about — a
+409, "not mergeable", a protected branch — is a real no, and is handed back with
+no second call.
+
+Every *question* the queue asks goes through `mergeable.gh`, which retries a
+failure in transit for a few minutes before calling GitHub unreachable. An
+unreachable GitHub stops the queue with its own status and its own line in the
+summary, never as a hand-back: nothing was decided, and the answer is to run
+the same queue again (#615).
 
 Run it:
 
@@ -124,7 +130,6 @@ import argparse
 import importlib.util
 import json
 import os
-import re
 import subprocess
 import sys
 import tempfile
@@ -162,26 +167,16 @@ DEADLINE_MINUTES = 40
 # is *unknown*, which is handed back as unknown rather than as a refusal.
 MERGE_SETTLES_SECONDS = 60
 
-# What a failure *in transit* looks like in `gh`'s stderr, as opposed to a
-# refusal. `gh` reports a REST 5xx as "non-200 OK status code: 502 …" and a
-# GraphQL one as "HTTP 502"; the rest are Go's network errors, verbatim.
-TRANSPORT_STATUS = re.compile(r"(status code:|HTTP)\s*5\d\d\b", re.IGNORECASE)
-TRANSPORT_WORDS = (
-    "timeout",
-    "timed out",
-    "deadline exceeded",
-    "connection reset",
-    "connection refused",
-    "broken pipe",
-    "unexpected eof",
-)
-
 WAIT, GO, STOP = "wait", "go", "stop"
 
 # What the summary calls each branch's ending. Merged and green are separate
 # because `--no-merge` exists, and a queue that reported them the same would be
-# claiming a merge it did not make.
+# claiming a merge it did not make. Unreachable is separate from handed back
+# because it is not a verdict: GitHub stopped answering, nothing was decided,
+# and the right response is to run the same queue again rather than to go and
+# fix the branch (#615).
 MERGED, GREEN, HANDED_BACK = "merged", "green", "handed back"
+UNREACHABLE, NOT_REACHED = "unreachable", "not reached"
 
 
 def git(*args: str, cwd: str | None = None) -> subprocess.CompletedProcess:
@@ -318,25 +313,6 @@ def progress(
     return (GO if ok else STOP), lines
 
 
-def transport(stderr: str) -> bool:
-    """Whether a failed merge call failed *in transit* rather than being refused.
-
-    The distinction #495 is about. A 5xx, a timeout or a dropped connection is
-    the network failing to deliver an answer, and a merge may sit behind it
-    already done — so the pull request gets asked. Anything else is GitHub
-    having reasoned about this merge and said no (a 409, "not mergeable", a
-    branch rule), and asking again would only be told the same no.
-
-    Errs towards *refusal*: an unrecognised message is handed back without a
-    second look, which at worst reports a merge as failed — the state this
-    script already had — and never reports one as done that was not.
-    """
-    lowered = stderr.lower()
-    return bool(TRANSPORT_STATUS.search(stderr)) or any(
-        word in lowered for word in TRANSPORT_WORDS
-    )
-
-
 def landed(pull: dict) -> bool:
     """Whether GitHub's pull-request record says it merged.
 
@@ -390,7 +366,38 @@ def summary(results: list[tuple[int, str, str]]) -> list[str]:
             + ". Their worktrees and branches are still here — remove the"
             " worktrees and delete the branches when nobody is standing in one."
         )
+    if any(state == UNREACHABLE for _, state, _ in results):
+        lines.append(
+            "GitHub stopped answering, so the queue stopped: nothing past that"
+            " point was decided. Run it again with the same list — a pull"
+            " request already merged is skipped as merged, and a head already"
+            " pushed is not pushed again."
+        )
     return lines
+
+
+def run_queue(repo: str, opts: argparse.Namespace) -> list[tuple[int, str, str]]:
+    """Every pull request in turn, stopping at the first GitHub cannot answer.
+
+    Stopping rather than skipping ahead, because the order was given on
+    purpose and an outage long enough to exhaust `mergeable.gh`'s retries is
+    not going to spare the next branch. What was not reached is said so, one
+    line each, rather than left out of a summary that reads as the whole run.
+    """
+    results = []
+    numbers = ordered(opts.prs)
+    for at, number in enumerate(numbers):
+        try:
+            results.append(take(repo, number, opts))
+        except mergeable.Unreachable as outage:
+            say(f"#{number}: {outage}")
+            results.append((number, UNREACHABLE, str(outage)))
+            results.extend(
+                (later, NOT_REACHED, "the queue stopped before it.")
+                for later in numbers[at + 1 :]
+            )
+            break
+    return results
 
 
 def say(line: str, *rest: str) -> None:
@@ -432,8 +439,10 @@ def evidence(repo: str, sha: str) -> tuple[list[dict], dict[int, list[dict]]]:
 def merge_record(number: int) -> dict | None:
     """The pull request's merge fields, or `None` if GitHub did not answer.
 
-    Not [`look`]: that goes through `mergeable.gh`, which exits on failure, and
-    this is asked during the very outage that made it necessary.
+    Not [`look`]: that goes through `mergeable.gh`, which spends minutes
+    retrying and then raises, and this is asked during the very outage that
+    made it necessary — [`confirm`] is already the retry loop, with its own
+    window.
     """
     done = subprocess.run(
         ["gh", "pr", "view", str(number), "--json", "state,mergedAt"],
@@ -600,7 +609,7 @@ def take(repo: str, number: int, opts: argparse.Namespace) -> tuple[int, str, st
     )
     if done.returncode != 0:
         failure = done.stderr.strip()
-        if not transport(failure):
+        if not mergeable.transport(failure):
             blocked = f"CI passed but the merge was refused: {failure}"
             say(f"#{number}: {blocked}")
             return number, HANDED_BACK, blocked
@@ -658,15 +667,18 @@ def parse(argv: list[str]) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     opts = parse(sys.argv[1:] if argv is None else argv)
-    repo = mergeable.gh("repo", "view", "--json", "nameWithOwner")["nameWithOwner"]
-
-    results = []
-    for number in ordered(opts.prs):
-        results.append(take(repo, number, opts))
+    try:
+        repo = mergeable.gh("repo", "view", "--json", "nameWithOwner")
+    except mergeable.Unreachable as outage:
+        say(str(outage), "Nothing was attempted. Run it again once GitHub answers.")
+        return mergeable.UNREACHABLE_STATUS
+    results = run_queue(repo["nameWithOwner"], opts)
 
     print()
     for line in summary(results):
         say(line)
+    if any(state == UNREACHABLE for _, state, _ in results):
+        return mergeable.UNREACHABLE_STATUS
     return 0 if all(state != HANDED_BACK for _, state, _ in results) else 1
 
 
