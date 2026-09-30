@@ -23,6 +23,7 @@ mod bows;
 mod corners;
 mod dashes;
 mod heads;
+mod kept;
 mod measuring;
 mod outlines;
 mod overshoot;
