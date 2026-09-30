@@ -104,7 +104,10 @@ coder who finds a difference corrects this list in its PR.)*
   can be fixed in this PR: CI's report arrives with the run the queue merges
   on. It is a signal — never a reason to stay draft. To scope a run to a file,
   use `--re 'path/to/file\.rs'`: `-f` does not narrow it here, because the
-  config's `examine_globs` wins.
+  config's `examine_globs` wins. `--re` does not narrow *delete field*
+  mutants either (cargo-mutants 27.1.0 lets every one in the surface through —
+  63 of 375 on #620's four files), so `--list` first, budget for them, and
+  read survivors outside your files as not yours.
 - Rebase onto the latest `origin/main`, then `make gates` (foreground), before
   readying.
 
