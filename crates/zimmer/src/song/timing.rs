@@ -1,10 +1,13 @@
 //! Making a song the length the picture needs.
 //!
 //! A song's natural length is whatever its notes add up to, plus however long
-//! the last one takes to stop ringing. That is the right answer for a game,
-//! where a loop is a loop and nothing is waiting on it. It is the wrong answer
-//! for video, where the music has a hole to fill: forty-three seconds between
-//! two cuts.
+//! the last one takes to stop ringing. That is the wrong answer for video,
+//! where the music has a hole to fill: forty-three seconds between two cuts.
+//! And it is the wrong answer for a game too, which is easy to miss: a game
+//! jumps back to the first sample the moment the file ends, so the ring-out
+//! sits at the end of every pass and stops dead under the next downbeat. A
+//! loop that is seamless has to carry its own tail round to the start —
+//! [`Tail::Wrap`].
 //!
 //! Everything here is optional, and absent means the song is as long as it is.
 
@@ -90,4 +93,26 @@ pub enum Tail {
     /// End exactly on the arrangement's last beat, with the tail faded into
     /// it. What a caller wants when the music has to butt against something.
     Exact,
+    /// End exactly on the arrangement's last beat, with everything that rings
+    /// past it **summed back onto the start** — what a game's music wants,
+    /// because the file is going to be played round and round.
+    ///
+    /// It is what a band playing the piece in a circle would sound like: the
+    /// reverb of the last bar rings over the first. So the loop point is
+    /// seamless by construction rather than merely quiet, which neither other
+    /// tail can say — `ring` leaves the tail at the end of the file, where it
+    /// is cut dead when playback jumps back, and `exact` fades it away.
+    ///
+    /// Summed rather than crossfaded, because a crossfade turns the start of
+    /// every pass down, a level change nobody asked for. The fold happens
+    /// before the master limiter, which is what keeps the sum from clipping,
+    /// and that limiter reads the file as the circle it is, so nothing it does
+    /// puts a seam back where the fold took one away.
+    ///
+    /// Refused, when rendered, if the tail is longer than the loop: it would
+    /// still be ringing the next time round, and cutting it short would be the
+    /// fault it exists to fix. Refused alongside a `fade` (a fade on a loop is
+    /// a dip every pass) and a `fit` other than `stretch`, which is the one
+    /// mode that lands on a whole number of passes and so has a loop point.
+    Wrap,
 }
