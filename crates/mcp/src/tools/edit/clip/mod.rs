@@ -192,8 +192,11 @@ fn set(project: &mut Project, id: &ClipId, arguments: &Value) -> Result<Vec<Stri
         ));
     }
     let lit = light::apply(find(&mut proposed, id)?.1, arguments)?;
-    if !lit.is_empty() {
-        only_picture(picture, "shadow, glow or blend")?;
+    if let Some(key) = ["shadow", "glow", "blend"]
+        .into_iter()
+        .find(|key| arguments.get(*key).is_some_and(|value| !value.is_null()))
+    {
+        only_picture(picture, key)?;
     }
     said.extend(lit);
     if said.is_empty() {
