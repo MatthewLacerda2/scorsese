@@ -65,7 +65,10 @@ session: the first coder to hit a difference corrects this list in its PR.)*
 - No real provider call in any test, ever. Never run `make live-check` — it
   spends money, and a cloud session has no keys.
 - A change to what a recipe renders to bumps `SYNTH_VERSION` in the same commit;
-  a `schema_version` bump ships with its migration (CLAUDE.md has both).
+  a `schema_version` bump ships with its migration (CLAUDE.md has both). Bump
+  **last**, to `origin/main`'s version + 1, and renumber if a sibling's bump
+  lands first (`ci-merge`, *Rebasing*). The bump edits test fixtures under
+  `web/` and `app/`, so their gates run: install what they need.
 - `docs/project-format.md` is parsed by tests: an edit to it is a code change.
 - `missing_docs` is a gate: every new `pub` item gets a doc comment.
 - Don't run `make mutants`; CI runs the mutation signal on the pull request.

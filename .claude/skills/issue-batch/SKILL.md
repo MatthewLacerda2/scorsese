@@ -43,6 +43,14 @@ The files where everything collides are the ones every feature appends to — an
 error list, a source enum, a pattern-entry type, a running record in a doc
 comment. Two branches landing there at once is the case to avoid.
 
+**A format change collides across modules.** Every branch that changes
+`project.json` bumps `schema_version`, and that literal sits in some sixty
+files — fixtures, goldens, and tests under `web/` and `app/`. Two such branches
+can still run together if each bumps **last**, to `main`'s version + 1, and the
+second to land renumbers (`ci-merge`, *Rebasing*). The bump also turns on the
+conditional `web` and `app` gates, so a branch with no UI in it still needs Bun
+and the app's libraries to prove itself.
+
 ## Group the work before splitting it
 
 **Split by responsibility, not by parallelism.** If a parent's sub-issues all

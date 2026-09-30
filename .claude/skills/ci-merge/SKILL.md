@@ -133,6 +133,14 @@ rebase back to the branch's author when resolving it needs to know *why* the cod
 is shaped as it is — a new variant that should join a documented grouping, two
 prose paragraphs that need ordering, a signature that has grown a parameter.
 
+**Two `schema_version` bumps are one number too few.** Two branches that both
+bumped 35 → 36 rebase the constant and every fixture's literal *cleanly* — the
+same edit on both sides — and conflict only in `migrate.rs`'s `STEPS` and the
+step table in `docs/project-format.md`. Keeping both there is wrong: the branch
+landing second renumbers its step, its constant and its literals to the next
+version (`every_version_since_the_oldest_has_exactly_one_step` fails if it
+does not). It is `SYNTH_VERSION`'s rule again — the answer is neither side.
+
 After a rebase, re-check any claim the branch made **about the base it measured
 against**. A byte-identity proof taken against an older `main` is stale, and
 citing it is worse than not having run it.
