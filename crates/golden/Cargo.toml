@@ -3,6 +3,7 @@ name = "scorsese-golden"
 version.workspace = true
 edition.workspace = true
 repository.workspace = true
+license.workspace = true
 # Test infrastructure. Nothing ships it and nothing depends on it.
 publish = false
 

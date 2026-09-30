@@ -199,6 +199,17 @@ missing. **The rename stops at the crate boundary**: `scorsese synth`, the
 agent-facing surface has to describe itself and the asset kind is the format
 contract.
 
+**`zimmer` has a second consumer: [rusty](https://github.com/MatthewLacerda2/rusty)**,
+the owner's game engine, which depends on it as a git dependency pinned to a
+commit (rusty#413) instead of keeping its own copy. Three things follow. Its
+**public API is rusty's contract** — renaming, removing or narrowing anything
+`pub` still lands, but breaks rusty the next time it moves its pin, so the pull
+request that does it says so. **`SYNTH_VERSION` governs rusty's bakes too** —
+the same rule, one more reader. And **game-facing needs are in scope** for
+`zimmer`, inside its no-I/O boundary: a game loops music forever where a video
+never does, and the north star's "must add to this vision" does not exclude
+them. None of this makes it a vendor here; everything above still holds.
+
 ## How we work
 
 **Where this is developed.** One machine, one person: a Ryzen 5 3400G — 4

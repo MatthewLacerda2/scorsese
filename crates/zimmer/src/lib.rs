@@ -33,6 +33,15 @@
 //! That boundary is what makes the determinism claim checkable: every output
 //! is a pure function of the documents handed in.
 //!
+//! **Two consumers, not one.** Besides scorsese's own `providers`, the game
+//! engine [rusty](https://github.com/MatthewLacerda2/rusty) depends on this
+//! crate by git, pinned to a commit (rusty#413). So everything public here is
+//! rusty's contract as well — a rename or a removal breaks it the next time it
+//! moves its pin, and the change that does it says so — and [`SYNTH_VERSION`]
+//! addresses rusty's bakes too. A need that comes from a game, such as a song
+//! that loops without a seam, is in scope, as long as it keeps the boundary
+//! above.
+//!
 //! ## What this publishes
 //!
 //! **The crate root is the way in.** [`bake_note`], [`bake_named_note`] and

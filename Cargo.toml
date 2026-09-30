@@ -22,6 +22,11 @@ members = [
 version = "0.1.0"
 edition = "2024"
 repository = "https://github.com/MatthewLacerda2/scorsese"
+# The Rust ecosystem's standard dual licence, by the owner's decision (#591).
+# It is what lets another project depend on a crate here — rusty depends on
+# `zimmer` by git — since that project's own `cargo deny` fails on an
+# unlicensed crate. Licensing is not publishing: `publish` below still says no.
+license = "MIT OR Apache-2.0"
 # scorsese ships as an application, not as crates: nothing here goes to a
 # registry. Saying so keeps `cargo publish` from ever firing by accident, and
 # lets the license gate in `deny.toml` skip our own crates while still holding
