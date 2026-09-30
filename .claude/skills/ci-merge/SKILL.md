@@ -20,6 +20,14 @@ the honest answer; never read it as green.
 Deliberately **not** before every push. Checkpoint commits stay cheap — the
 pre-commit hook is formatting and the size gate only, well under a second.
 
+**A failure the machine caused is not the branch's.** `No space left on device`,
+`Disk quota exceeded`, `Cannot allocate memory`, or rustc or the linker killed
+(`signal: 9`) say nothing about the code: free disk or memory (a merged
+worktree's `target/`, a sibling's build) and run it again — never "fix" code
+that was never wrong. On rusty a cold build filled a tmpfs scratchpad and three
+healthy branches were reported broken (MatthewLacerda2/rusty#580). So builds and
+gates run from a worktree, **never from the scratchpad**, which may be a tmpfs.
+
 ## The merge, one branch at a time
 
 1. `git fetch origin && git rebase origin/main` in the branch's worktree.
@@ -59,6 +67,17 @@ cleanup stays yours, and the summary lists what to clean.
 Doing it by hand is still fine for a single branch. The script's own docstring
 has the reasoning, including why it does not try to *skip* CI runs instead.
 
+**Because it builds nothing, a clean rebase can still push a broken head.** A
+merge ahead that changed a signature this branch calls, or pushed one of its
+files past the size cap, rebases without a conflict and fails CI ten minutes
+later. When the merges ahead touched the same crates, rebase and `cargo check`
+the branch yourself first (`issue-batch` has the loop); the queue then finds
+nothing to rebase, pushes nothing, and only waits and merges.
+
+**Once a pull request is in the queue, nobody pushes to it** except to fix its
+own red run: the queue refuses to merge a head it did not watch, so a late push
+is a hand-back and a full CI round.
+
 ## `make mergeable` is the gate, and its answer is final
 
 It asks GitHub whether a run genuinely happened on the head commit. `gh pr checks`
@@ -87,6 +106,15 @@ itself, so read its output before doing anything else:
 **Never hand-roll a "wait for CI" loop that treats zero checks as success.**
 Absent and passing are different states; a loop counting non-completed checks
 finds zero of each. Require checks to **exist** before calling a run settled.
+
+**Known gap: today a signal does hold a merge.** `make mergeable` waits until
+every `CI` run on the head has completed, and the coverage and mutation jobs
+live in that same run — so a pull request whose gating jobs are all green still
+waits until the mutation jobs finish. That contradicts
+*a signal never holds a merge*; rusty fixed the same shape by settling on the
+gating jobs and ignoring still-running signal jobs
+(MatthewLacerda2/rusty#555). Until that lands here, the wait is expected — not a
+hand-back to act on.
 
 ## A red ready pull request stays ready
 
