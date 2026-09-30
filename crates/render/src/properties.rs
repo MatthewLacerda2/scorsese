@@ -54,10 +54,11 @@ impl From<Unknown> for Note {
 ///
 /// The whole project, not the range being rendered: a typo in a clip outside
 /// today's `--range` is the same mistake, and only mentioning it when that clip
-/// happens to be on screen would make the warning a matter of luck.
+/// happens to be on screen would make the warning a matter of luck. The members
+/// of every group included, for the same reason.
 pub fn unknown_in(project: &Project) -> Vec<Unknown> {
     project
-        .clips()
+        .every_clip()
         .flat_map(|(_, clip)| {
             clip.keyframes
                 .iter()

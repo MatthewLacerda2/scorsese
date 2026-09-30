@@ -202,11 +202,12 @@ fn produce(
 }
 
 /// Refuse, by name, every clip's asset the server cannot supply: a file the
-/// library does not hold, or a synthesised sound whose bake it does not.
+/// library does not hold, or a synthesised sound whose bake it does not. A
+/// group's members included — they are drawn, so their files are needed too.
 fn unrenderable(project: &Project, laid: &Materialised) -> Result<(), String> {
     let mut problems = Vec::new();
     let mut seen = HashSet::new();
-    for (_, clip) in project.clips() {
+    for (_, clip) in project.every_clip() {
         let Some(asset) = project
             .asset(&clip.asset)
             .filter(|_| seen.insert(&clip.asset))
