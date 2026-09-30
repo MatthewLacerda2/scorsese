@@ -1,5 +1,5 @@
 {
-  "schema_version": 36,
+  "schema_version": 37,
   "name": "blur_alpha",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [
