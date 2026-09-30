@@ -3,6 +3,7 @@
 use scorsese_core::{Curve, Geometry, Heads, Inline, Shape, authoring};
 use serde_json::Value;
 
+use super::fill::fill;
 use super::{color, id_property, maybe, number, properties, refused, required_number, save};
 use crate::tools::inspect::load;
 use crate::tools::{Costs, Reply, Tool, project_dir};
@@ -94,7 +95,7 @@ impl Tool for ShapeNew {
         let outline = say(&geometry);
         let shape = Shape {
             geometry,
-            fill: color(arguments, "fill")?,
+            fill: fill(arguments, "fill")?,
             stroke: color(arguments, "stroke")?,
             stroke_width: number(arguments, "stroke_width")?
                 .unwrap_or(scorsese_core::DEFAULT_STROKE_WIDTH),

@@ -41,20 +41,22 @@ mod trace;
 pub use measure::{Measured, Station};
 pub use trace::{Dash, Stroking, Trace};
 
-use scorsese_core::{Anchor, Curve, Heads, Rgba};
+use scorsese_core::{Anchor, Curve, Fill, Heads, Rgba};
 
 use crate::area::Area;
 use crate::frame::{Frame, Resolution};
 
 /// One shape to draw, in pixels of the raster it goes on.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Figure {
     /// Which outline, and — depending on the outline — how big or where.
     pub outline: Outline,
-    /// What the inside is painted, if anything. **Read only for a closed
-    /// shape**: a line has no inside, and a project that gave one a fill is
-    /// refused before it reaches here.
-    pub fill: Option<Rgba>,
+    /// What the inside is painted, if anything — one colour, or a gradient
+    /// whose fractions are of this figure's own box, resolved here where the
+    /// box is known in pixels. **Read only for a closed shape**: a line has no
+    /// inside, and a project that gave one a fill is refused before it
+    /// reaches here.
+    pub fill: Option<Fill>,
     /// What the line is drawn in and how thick, if there is one. For an arrow
     /// this is the whole of it — no border, no arrow.
     pub border: Option<Border>,

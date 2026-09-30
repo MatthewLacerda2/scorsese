@@ -1,7 +1,7 @@
 //! One stretch of timeline, and what is on it.
 
 use scorsese_compositor::ANIMATED as DRAWN;
-use scorsese_core::{AssetKind, Crop, Fit, Fps, Icon, Rgba, Shape, Speed};
+use scorsese_core::{AssetKind, Crop, Fill, Fit, Fps, Icon, Rgba, Shape, Speed};
 
 use crate::audio::gain::ANIMATED as MIXED;
 use crate::audio::path::VOLUME;
@@ -163,10 +163,10 @@ pub enum Shown {
     Media,
     /// Content carried inline in the document and drawn by the compositor.
     Text(String),
-    /// A solid colour filling the raster. The other inline kind, and the one
-    /// a description has to name rather than call "media": a reader counting
-    /// layers should be able to tell a background from a shot.
-    Color(Rgba),
+    /// A colour or a gradient filling the raster. The other inline kind, and
+    /// the one a description has to name rather than call "media": a reader
+    /// counting layers should be able to tell a background from a shot.
+    Color(Fill),
     /// A drawn box or ellipse. Named for [`Shown::Color`]'s reason and one of
     /// its own: a diagram is a dozen small layers, and a reader working out
     /// which of them came out wrong needs each described as the shape it is
@@ -213,7 +213,12 @@ impl Shown {
         }
         match (shot.asset.kind, shot.asset.text.as_ref()) {
             (AssetKind::Text, Some(text)) => Self::Text(text.clone()),
-            (AssetKind::Color, _) => Self::Color(shot.asset.color.unwrap_or_default()),
+            (AssetKind::Color, _) => Self::Color(
+                shot.asset
+                    .color
+                    .clone()
+                    .unwrap_or_else(|| Rgba::default().into()),
+            ),
             (AssetKind::Shape, _) => match &shot.asset.shape {
                 Some(shape) => Self::Shape(shape.clone()),
                 // Validation requires it, so this is only reachable through an

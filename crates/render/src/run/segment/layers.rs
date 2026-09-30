@@ -11,7 +11,7 @@
 use scorsese_compositor::shape::Trace;
 use scorsese_compositor::text::Sweep;
 use scorsese_compositor::{Area, Frame};
-use scorsese_core::{Anchor, AssetKind, Fps, Origin};
+use scorsese_core::{Anchor, AssetKind, Fps, Origin, Rgba};
 
 use crate::content;
 use crate::error::RenderError;
@@ -236,8 +236,12 @@ impl Pass<'_> {
             // through a loaded project. White rather than transparent if a
             // caller ever builds one in memory: a layer that silently vanished
             // would be harder to notice than one that is plainly the wrong
-            // colour.
-            pixels.fill(shot.asset.color.unwrap_or_default());
+            // colour. A gradient is resolved against the whole raster, once
+            // per segment like a flat colour — it does not move.
+            match &shot.asset.color {
+                Some(fill) => scorsese_compositor::gradient::paint(&mut pixels, fill),
+                None => pixels.fill(Rgba::default()),
+            }
             return held(pixels);
         }
 

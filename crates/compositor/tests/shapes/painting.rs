@@ -59,7 +59,7 @@ fn a_bordered_shape_with_no_fill_is_hollow() {
 fn a_border_over_a_translucent_fill_keeps_its_own_colour() {
     let mut frame = frame();
     let mut figure = boxed((100.0, 100.0), centred());
-    figure.fill = Some(scorsese_core::Rgba::new(0xff, 0x00, 0x00, 0x40));
+    figure.fill = Some(scorsese_core::Rgba::new(0xff, 0x00, 0x00, 0x40).into());
     figure.border = Some(Border {
         color: BLUE,
         width: 10.0,

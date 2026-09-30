@@ -105,6 +105,16 @@ pub enum AuthorError {
         /// Why that outline has no such field.
         because: &'static str,
     },
+    /// A gradient given to a field that is one colour: a caption's or an
+    /// icon's. Refused rather than flattened to one of its stops, which would
+    /// be a colour nobody chose.
+    #[error("`{field}` on a {kind:?} asset is one colour, not a gradient")]
+    NotOneColour {
+        /// The field that was asked for.
+        field: &'static str,
+        /// The kind of the asset it was asked of.
+        kind: AssetKind,
+    },
     /// An edit that names no field at all. Not an empty success: a caller that
     /// meant to change something and spelled the argument wrong would
     /// otherwise be told the write went fine.

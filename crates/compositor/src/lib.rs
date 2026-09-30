@@ -163,6 +163,7 @@ pub mod dissolve;
 mod distance;
 mod frame;
 mod grade;
+pub mod gradient;
 mod grain;
 pub mod grid;
 pub mod icon;

@@ -105,7 +105,7 @@ fn plate(fill: Rgba) -> Figure {
             },
             radius: 0.0,
         },
-        fill: Some(fill),
+        fill: Some(fill.into()),
         border: None,
     }
 }

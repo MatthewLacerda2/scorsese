@@ -3,7 +3,8 @@
 use scorsese_core::{Inline, authoring};
 use serde_json::Value;
 
-use super::{id_property, maybe, properties, refused, required_color, save};
+use super::fill::{self, required_fill};
+use super::{id_property, maybe, properties, refused, save};
 use crate::tools::inspect::load;
 use crate::tools::{Costs, Reply, Tool, project_dir};
 
@@ -16,8 +17,9 @@ impl Tool for ColorNew {
     }
 
     fn description(&self) -> &'static str {
-        "Add a colour asset: a solid fill for a background, a colour card, or a \
-         wash under a title. It fills whatever raster the render is, so there is \
+        "Add a colour asset: a solid fill or a gradient for a background, a colour \
+         card, or a wash under a title — a radial gradient lighter behind the subject \
+         is the usual motion-graphics backdrop. It fills whatever raster the render is, so there is \
          no size to choose and nothing that ties it to a resolution — and with \
          an alpha it is a scrim that the shot underneath shows through. The \
          colour is required and has no default on purpose: a card nobody chose \
@@ -31,7 +33,14 @@ impl Tool for ColorNew {
     }
 
     fn schema(&self) -> Value {
-        let mut properties = properties(&["color"]);
+        let mut properties = properties(&[]);
+        properties.insert(
+            "color".to_owned(),
+            fill::property(
+                "The colour, as `#rrggbb` — or `#rrggbbaa` for a scrim the shot underneath \
+                 shows through.",
+            ),
+        );
         properties.insert("asset".to_owned(), id_property("the kind"));
         serde_json::json!({
             "type": "object",
@@ -43,7 +52,8 @@ impl Tool for ColorNew {
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let dir = project_dir(arguments)?;
         let mut project = load(&dir)?;
-        let color = required_color(arguments, "color", "the colour the card is")?;
+        let color = required_fill(arguments, "color", "the colour the card is")?;
+        let said = color.to_string();
         let id = authoring::add_asset(
             &mut project,
             maybe(arguments, "asset").as_deref(),
@@ -52,7 +62,7 @@ impl Tool for ColorNew {
         .map_err(refused)?;
         save(&project, &dir)?;
         Ok(format!(
-            "`{id}` — a color asset, {color}. It fills the frame; place_clip puts \
+            "`{id}` — a color asset, {said}. It fills the frame; place_clip puts \
              it on a video track, with a duration."
         )
         .into())

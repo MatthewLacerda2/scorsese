@@ -24,6 +24,7 @@ pub(super) fn check(project: &Project) -> Vec<AssetProblem> {
         check_sha256(asset, &mut errors);
         check_kind_fields(asset, &mut errors);
         super::shape::check(project, asset, &mut errors);
+        super::fill::check(asset, &mut errors);
         super::icon::check(asset, &mut errors);
         super::video::check(project, asset, &mut errors);
         super::speech::check(asset, &mut errors);
@@ -139,7 +140,7 @@ fn check_inline(asset: &Asset, errors: &mut Vec<AssetProblem>) {
         (_, Some(_)) => errors.push(stray(asset, AssetField::Text)),
         (_, None) => {}
     }
-    match (kind, asset.color) {
+    match (kind, &asset.color) {
         (AssetKind::Color, None) => errors.push(missing(asset, AssetField::Color)),
         (AssetKind::Color, Some(_)) => {}
         (_, Some(_)) => errors.push(stray(asset, AssetField::Color)),

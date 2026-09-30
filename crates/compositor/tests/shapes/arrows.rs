@@ -158,7 +158,7 @@ fn an_arrow_whose_border_has_no_width_draws_nothing() {
 fn an_arrow_without_a_border_draws_nothing() {
     let mut figure = arrow(FROM, TO, Curve::Straight, Heads::End);
     figure.border = None;
-    figure.fill = Some(BLUE);
+    figure.fill = Some(BLUE.into());
     let frame = drawn(&figure);
 
     assert!(clear(&frame, 100, 100), "nothing along the run");

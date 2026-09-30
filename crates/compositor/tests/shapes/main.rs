@@ -78,7 +78,7 @@ pub(crate) fn boxed(size: (f32, f32), anchor: Anchor) -> Figure {
             bounds: bounds(size, anchor),
             radius: 0.0,
         },
-        fill: Some(RED),
+        fill: Some(RED.into()),
         border: None,
     }
 }

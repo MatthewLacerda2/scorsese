@@ -2,7 +2,7 @@
 
 use super::AuthorError;
 use crate::asset::{Asset, AssetId};
-use crate::color::Rgba;
+use crate::fill::Fill;
 use crate::icon::Icon;
 use crate::pool::asset_id_for;
 use crate::project::Project;
@@ -26,10 +26,10 @@ pub enum Inline {
         /// caption nobody has styled yet.
         style: Option<TextStyle>,
     },
-    /// A solid colour filling whatever raster the render is.
+    /// A colour, or a gradient, filling whatever raster the render is.
     Color(
         /// The colour it is.
-        Rgba,
+        Fill,
     ),
     /// An outline the render draws.
     Shape(
@@ -125,6 +125,7 @@ pub fn add_asset(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::color::Rgba;
     use crate::time::Fps;
 
     fn project() -> Project {
@@ -166,8 +167,17 @@ mod tests {
     #[test]
     fn a_named_id_that_is_taken_is_refused_and_writes_nothing() {
         let mut project = project();
-        add_asset(&mut project, Some("card"), Inline::Color(Rgba::BLACK)).expect("first");
-        let again = add_asset(&mut project, Some("card"), Inline::Color(Rgba::WHITE));
+        add_asset(
+            &mut project,
+            Some("card"),
+            Inline::Color(Rgba::BLACK.into()),
+        )
+        .expect("first");
+        let again = add_asset(
+            &mut project,
+            Some("card"),
+            Inline::Color(Rgba::WHITE.into()),
+        );
         assert!(matches!(again, Err(AuthorError::TakenAssetId { .. })));
         assert_eq!(project.assets.len(), 1);
     }

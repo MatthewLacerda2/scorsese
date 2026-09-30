@@ -48,7 +48,7 @@ fn an_arrow_with_a_stroke_is_valid_on_its_own() {
 #[test]
 fn an_arrow_may_not_be_filled() {
     let shape = Shape {
-        fill: Some(Rgba::WHITE),
+        fill: Some(Rgba::WHITE.into()),
         ..plain()
     };
     assert_only_problem(

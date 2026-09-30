@@ -38,7 +38,7 @@ fn figure(shape: &Shape, resolution: Resolution, anchor: Anchor) -> Figure {
     let height = f64::from(resolution.height());
     Figure {
         outline: outline(&shape.geometry, resolution, anchor),
-        fill: shape.fill,
+        fill: shape.fill.clone(),
         border: shape.stroke.map(|color| Border {
             color,
             // A thickness has no axis, so it takes the one a text `size`

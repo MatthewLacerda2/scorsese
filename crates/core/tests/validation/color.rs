@@ -47,7 +47,7 @@ fn a_colour_asset_needs_a_colour() {
 #[test]
 fn nothing_but_a_colour_asset_may_carry_a_colour() {
     let mut p = project();
-    asset_mut(&mut p, "logo").color = Some(Rgba::WHITE);
+    asset_mut(&mut p, "logo").color = Some(Rgba::WHITE.into());
     assert_only_problem(
         &p,
         E::StrayField {

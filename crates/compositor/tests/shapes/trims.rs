@@ -101,7 +101,7 @@ fn a_trim_leaves_the_fill_whole_and_cuts_the_border_clockwise_from_the_top_left(
             bounds: bounds((100.0, 100.0), centred()),
             radius: 0.0,
         },
-        fill: Some(RED),
+        fill: Some(RED.into()),
         border: Some(Border {
             color: BLUE,
             width: WIDTH,
