@@ -15,7 +15,7 @@
 
 use scorsese_core::{Attach, Endpoint, Geometry, Shape, Side};
 
-use crate::plan::Shot;
+use super::layers::Entry;
 
 /// Where a layer sits within its own raster, and how to ask where that lands
 /// on the canvas. Shared with the query that reports the same rectangle
@@ -52,30 +52,46 @@ pub(super) enum End {
 /// `None` when an end names a clip that is not on screen here — the whole arrow
 /// is dropped rather than half of it drawn, since half an arrow is a line
 /// pointing away from nothing.
-pub(super) fn following(shape: &Shape, layers: &[Shot<'_>]) -> Option<Following> {
+///
+/// `within` is the group the arrow is drawn into, and an end is looked for
+/// **only among the layers drawn into the same one**. Validation refuses an
+/// arrow following a clip across a group's edge, so this is not a filter that
+/// changes an answer — it is what keeps the answer right when one group is on
+/// screen twice at once, and its members' ids with it: each copy of the arrow
+/// follows the box in its own copy of the group.
+pub(super) fn following(
+    shape: &Shape,
+    layers: &[Entry<'_, '_>],
+    within: Option<usize>,
+) -> Option<Following> {
     let Geometry::Arrow { from, to, .. } = &shape.geometry else {
         return None;
     };
     Some(Following {
         shape: shape.clone(),
-        from: end(from, layers)?,
-        to: end(to, layers)?,
+        from: end(from, layers, within)?,
+        to: end(to, layers, within)?,
     })
 }
 
-fn end(endpoint: &Endpoint, layers: &[Shot<'_>]) -> Option<End> {
+fn end(endpoint: &Endpoint, layers: &[Entry<'_, '_>], within: Option<usize>) -> Option<End> {
     match endpoint {
         Endpoint::At(point) => Some(End::Fixed(point.x, point.y)),
-        Endpoint::Attached { attach } => layer_of(attach, layers).map(|layer| End::Follows {
-            layer,
-            side: attach.side,
-        }),
+        Endpoint::Attached { attach } => {
+            layer_of(attach, layers, within).map(|layer| End::Follows {
+                layer,
+                side: attach.side,
+            })
+        }
     }
 }
 
-/// Which layer of this segment a clip id names, if it is on screen at all.
-fn layer_of(attach: &Attach, layers: &[Shot<'_>]) -> Option<usize> {
-    layers.iter().position(|shot| shot.clip.id == attach.clip)
+/// Which layer of this segment a clip id names, among those drawn into the
+/// same group, if it is on screen at all.
+fn layer_of(attach: &Attach, layers: &[Entry<'_, '_>], within: Option<usize>) -> Option<usize> {
+    layers
+        .iter()
+        .position(|entry| entry.within == within && entry.shot.clip.id == attach.clip)
 }
 
 /// True when any end of this arrow follows a clip rather than naming a place.

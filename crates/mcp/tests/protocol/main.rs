@@ -12,6 +12,7 @@ mod changing;
 mod composing;
 mod delivering;
 mod fixture;
+mod grouping;
 mod guarding;
 mod handshake;
 mod importing;

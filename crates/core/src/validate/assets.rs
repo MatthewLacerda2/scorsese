@@ -145,6 +145,12 @@ fn check_inline(asset: &Asset, errors: &mut Vec<AssetProblem>) {
         (_, Some(_)) => errors.push(stray(asset, AssetField::Color)),
         (_, None) => {}
     }
+    match (kind, &asset.group) {
+        (AssetKind::Group, None) => errors.push(missing(asset, AssetField::Group)),
+        (AssetKind::Group, Some(_)) => {}
+        (_, Some(_)) => errors.push(stray(asset, AssetField::Group)),
+        (_, None) => {}
+    }
 }
 
 /// A field this asset's kind requires and does not have.

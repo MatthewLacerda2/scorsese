@@ -47,6 +47,12 @@ pub enum AssetKind {
     /// rather than asked for in words. Free, offline, and the same bytes every
     /// time — see [`AssetKind::is_synthesized`].
     SynthAudio,
+    /// Several clips that render as **one layer**: tracks of its own, placed on
+    /// the timeline by a clip like any other picture — see [`crate::Group`].
+    ///
+    /// The fifth kind with no file behind it. What it carries is placements of
+    /// other assets, never media, so there is nothing to import, hash or probe.
+    Group,
 }
 
 impl AssetKind {
@@ -90,6 +96,7 @@ impl AssetKind {
                 | Self::Shape
                 | Self::Icon
                 | Self::GeneratedVideo
+                | Self::Group
         )
     }
 
@@ -108,9 +115,14 @@ impl AssetKind {
     ///
     /// An `icon` belongs with them even though something is read to draw it:
     /// what it names is compiled into the binary, so there is no path in the
-    /// project and nothing that could be missing after a copy.
+    /// project and nothing that could be missing after a copy. So does a
+    /// `group`: it holds placements of other assets, and whatever files those
+    /// need are theirs.
     pub fn is_file_backed(self) -> bool {
-        !matches!(self, Self::Text | Self::Color | Self::Shape | Self::Icon)
+        !matches!(
+            self,
+            Self::Text | Self::Color | Self::Shape | Self::Icon | Self::Group
+        )
     }
 }
 

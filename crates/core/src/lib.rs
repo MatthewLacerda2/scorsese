@@ -37,7 +37,7 @@
 //!
 //! **The document, at the crate root.** Every type a `project.json` is made of
 //! — [`Project`], [`Asset`] and [`AssetKind`], [`Track`], [`Clip`] and their
-//! ids, [`KeyframeTrack`] and [`Easing`], [`Fps`], [`Frames`] and [`Speed`],
+//! ids, [`Group`], [`KeyframeTrack`] and [`Easing`], [`Fps`], [`Frames`] and [`Speed`],
 //! [`TextStyle`], [`Rgba`], [`ProjectPath`] — is `scorsese_core::Thing` and
 //! nothing longer. Six crates and the desktop app all read and write the same
 //! document, and a model type with two import paths is a model type that gets
@@ -46,13 +46,14 @@
 //! [`Project`] remembers about the file it was read from, so that saving it
 //! cannot quietly land on somebody else's edit.
 //!
-//! **Ten modules keep their path**, because what they publish is an
+//! **Eleven modules keep their path**, because what they publish is an
 //! *operation* on a project rather than a part of one, and the verb needs the
 //! noun in front of it: [`mod@pool`] brings media in, hashes it, probes it and
 //! collects what nothing references; [`mod@authoring`] writes down the assets
 //! nothing brings in — a caption, a colour, a shape, a symbol — and adds the
 //! lanes they sit on; [`mod@placing`] puts a clip on a track and
-//! moves, trims or removes one already there; [`mod@pacing`] retimes a cut;
+//! moves, trims or removes one already there; [`mod@grouping`] wraps clips
+//! already there into a group that renders as one layer, and back; [`mod@pacing`] retimes a cut;
 //! [`mod@dip`] is auto-ducking; [`mod@level`] holds one clip's property at a
 //! value; [`mod@probe`] is the seam an ffprobe lives behind, so this crate can
 //! reason about media without spawning anything; [`mod@migrate`] brings a
@@ -74,6 +75,8 @@ pub(crate) mod chroma;
 pub(crate) mod color;
 pub mod dip;
 pub(crate) mod grade;
+pub(crate) mod group;
+pub mod grouping;
 pub(crate) mod icon;
 pub(crate) mod keyframe;
 pub mod level;
@@ -109,6 +112,7 @@ pub use chroma::{ChromaKey, MIN_KEY_SPREAD};
 pub use color::{ColorError, Rgba};
 pub use dip::{Dip, Ducked, Under, duck_track};
 pub use grade::Grade;
+pub use group::Group;
 pub use icon::{DEFAULT_ICON_STROKE_WIDTH, Icon};
 pub use keyframe::{Easing, Keyframe, KeyframeTrack, PropertyPath};
 // As with `pacing::scale`, the function stays behind its module: a bare
@@ -146,7 +150,7 @@ pub use timeline::{
     TrackKind,
 };
 pub use validate::{
-    AssetField, AssetProblem, IconProblem, ShapeProblem, SpeechProblem, TimelineProblem,
-    ValidationError, ValidationErrors, VideoProblem,
+    AssetField, AssetProblem, GroupProblem, IconProblem, ShapeProblem, SpeechProblem,
+    TimelineProblem, ValidationError, ValidationErrors, VideoProblem,
 };
 pub use vhs::Vhs;

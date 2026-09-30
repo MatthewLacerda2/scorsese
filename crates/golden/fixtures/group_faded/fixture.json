@@ -1,0 +1,6 @@
+{
+  "description": "The tell-tale that a group is one layer. On a light bed, the same overlapping pair twice — a red square under a blue one — each at half opacity. Top left, the pair is a group and the group clip is faded to 0.5; bottom right, the same two squares are ordinary clips, each faded to 0.5 on its own, as the control. In the group, where the squares overlap the blue is on top and the red does not show through it at all: the overlap is exactly the colour of the blue square's other half, a pale blue. In the control, the overlap is visibly darker and purple, because the red shows through the translucent blue. What a wrong render looks like: a purple overlap in the top-left pair means the group's opacity was applied to each member instead of to the finished group; a group drawn at full strength means the group clip's opacity never reached the composited layer; a dark fringe round the grouped squares means the group's offscreen raster was blended without converting it back to straight alpha.",
+  "media": {},
+  "render": { "resolution": "192x108", "fps": "30" },
+  "frames": [0]
+}

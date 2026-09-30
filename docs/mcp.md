@@ -97,6 +97,8 @@ the tools relate to each other, which is knowledge no single tool has.
 | `clip_set` | Change a placed clip's plain values: its speed, its fit, and its position, rotation and scale as single values held for the whole clip. | nothing |
 | `clip_move` | Move a clip already on the timeline onto another track — optionally to a new start there in the same edit, the way dragging it down a lane and along it is one gesture. | nothing |
 | `clip_remove` | Take clips off the timeline by id, leaving the assets they showed and every other clip exactly where they are. | nothing |
+| `clip_group` | Group clips already on the timeline so they render as one layer — what Filmora calls a compound clip. | nothing |
+| `clip_ungroup` | Undo clip_group: replace a clip of a group with the group's own clips, at exactly the times and places the group was showing them, and remove the group asset. | nothing |
 | `dissolve` | Dissolve one shot into the next, by writing ordinary opacity keyframes on both clips — the same ones you would place by hand, and they stay editable afterwards. | nothing |
 | `duck_music` | Lower a music track while narration plays over it, by writing ordinary volume keyframes on its clips. | nothing |
 | `set_volume` | Set how loud one clip plays — a level, a mute, or a fade between two points — by writing the ordinary volume keyframes you would place by hand, which stay editable afterwards. | nothing |
@@ -536,6 +538,48 @@ clip_remove  { "project": "teaser.scor", "clips": ["alt-take"] }
              → "Removed `alt-take` from `v1` (12.00s–16.00s, showing `rooftop`).
                 The assets are still in the project, and nothing else moved."
 ```
+
+**`clip_group` wraps clips into one layer, and `clip_ungroup` undoes it**
+(#586). A group is the `group` asset kind — tracks of its own that render as a
+single layer — and grouping is the operation an agent actually wants: build the
+diagram clip by clip on the timeline, where every box can be placed and looked
+at, then wrap the lot so it moves as one. The clips move into a new group asset
+and are replaced by **one clip of it at the same place and time**, so the
+picture does not change; each track they came from becomes one of the group's
+own, in the same order, and every clip keeps its id and its keyframes. The group
+clip goes on the **lowest** of those tracks unless `track` names another, so
+nothing that was under the diagram ends up over it. From then on the group clip
+is a clip like any other — `clip_set`, `trim_clip`, keyframes — and a fade on it
+fades one picture, so overlapping members do not show through each other.
+
+It is all or nothing, with `place_clip`'s kind of refusals: every clip must be
+on one of the project's own **video** tracks (a group is picture only), and an
+**arrow may not cross a group's edge** — one outside following a grouped clip,
+or one inside following a clip left out, refuses the request and names the
+arrow. Group the arrow with what it follows, or attach it to the group clip
+instead.
+
+`clip_ungroup` takes the group's clip and puts its members back exactly where
+it was showing them, on the group's own tracks, now directly above the group
+clip's lane; the group asset goes. **What the group clip did to the whole** — a
+move, a fade, a blur — applied to one layer and is not carried onto the
+members, and the reply says when there was something to lose. It refuses a
+group placed more than once (ungrouping one copy would have to duplicate it)
+and a group clip trimmed to show part of its group (trim it back first, so no
+member comes out cut).
+
+```
+clip_group    { "project": "explainer.scor", "clips": ["box-a", "box-b", "a-to-b"],
+                "asset": "pipeline" }
+              → "Grouped 3 clip(s) into `pipeline`, shown by clip `c-pipeline` on track
+                 `v2` from 4.00s for 6.00s. …"
+clip_ungroup  { "project": "explainer.scor", "clip": "c-pipeline" }
+              → "Ungrouped `c-pipeline`: 3 clip(s) are back on the timeline, …"
+```
+
+The other place/move/trim tools reach the project's **own** tracks only; a
+member inside a group is edited by ungrouping, editing and grouping again, or
+with `project_write`.
 
 ## The three operations that write keyframes for you
 

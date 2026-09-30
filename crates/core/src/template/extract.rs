@@ -29,6 +29,18 @@ pub enum ExtractError {
         /// The clip it follows.
         follows: ClipId,
     },
+    /// A chosen clip shows a group. A template does not carry one yet (#598): the
+    /// group's members would need their assets, ids and frame rate carried
+    /// through [`crate::template::insert`] too, and a half-carried group is a
+    /// template that refuses to insert.
+    #[error(
+        "`{asset}` is a group, and a template cannot carry a group yet — ungroup it first \
+         (clip_ungroup), or leave its clip out"
+    )]
+    CarriesGroup {
+        /// The group asset.
+        asset: AssetId,
+    },
     /// What was lifted out is not a document that loads — which a valid
     /// project cannot produce, and an invalid one can.
     #[error(transparent)]
@@ -96,6 +108,11 @@ pub fn extract(
 
     let needed = needed(project, chosen().map(|(_, clip)| clip.asset.clone()));
     for asset in project.assets.iter().filter(|a| needed.contains(&a.id)) {
+        if asset.group.is_some() {
+            return Err(ExtractError::CarriesGroup {
+                asset: asset.id.clone(),
+            });
+        }
         for attach in super::follows(asset) {
             if !clips.contains(&attach.clip) {
                 return Err(ExtractError::FollowsUnchosen {

@@ -20,7 +20,7 @@
 //! [`Project::load`] still refuse any version that is not this build's: a
 //! document meets this module once, is rewritten at the current version, and
 //! is read by the strict path from then on. That keeps "this build understands
-//! v33" a statement about one version rather than about a range.
+//! v34" a statement about one version rather than about a range.
 
 use std::path::{Path, PathBuf};
 
@@ -53,9 +53,29 @@ pub(crate) struct Step {
 /// Every step this build knows, oldest first — one for each version from
 /// [`OLDEST_MIGRATABLE`] up to the one before [`SCHEMA_VERSION`].
 ///
-/// Empty while those two are equal. The test beside this module fails the
-/// day [`SCHEMA_VERSION`] moves without a step being added here.
-pub(crate) const STEPS: &[Step] = &[];
+/// The test beside this module fails the day [`SCHEMA_VERSION`] moves without
+/// a step being added here.
+pub(crate) const STEPS: &[Step] = &[Step {
+    from: 33,
+    apply: groups_arrive,
+}];
+
+/// v33 → v34: the `group` asset kind (#586).
+///
+/// **Nothing to rewrite, and that is the whole of the step.** The version
+/// added a kind — an asset holding tracks of its own — and a `group` block
+/// only that kind may carry, and it changed the meaning of nothing a v33
+/// document can say: every v33 asset, clip and field reads the same at v34. So
+/// the document passes through untouched and only its `schema_version` moves,
+/// which [`walk`] does after every step.
+///
+/// It is still a step rather than an absence, because the chain has to be
+/// able to walk *from* 33: a missing step is what [`MigrateError::TooOld`]
+/// reports, and a v33 project in somebody's account is exactly the document
+/// this rule exists to carry forward.
+fn groups_arrive(_: &mut Value) -> Result<(), String> {
+    Ok(())
+}
 
 /// Why a document could not be brought forward.
 #[derive(Debug, thiserror::Error)]
@@ -271,6 +291,37 @@ mod tests {
             walk(&mut unversioned, CHAIN, 3),
             Err(MigrateError::Unversioned)
         ));
+    }
+
+    /// The real step, held to the rule every step is held to: a document at
+    /// the old version, migrated, loads and validates at this one. A v33
+    /// document with something of every common shape in it — an imported
+    /// shot, a title, a colour, keyframes — is the realistic case.
+    #[test]
+    fn a_v33_document_walks_to_this_version_and_validates() {
+        let document = json!({
+            "schema_version": 33,
+            "name": "Before groups",
+            "timeline_fps": { "num": 30, "den": 1 },
+            "assets": [
+                { "id": "bed", "kind": "color", "color": "#101820" },
+                { "id": "title", "kind": "text", "text": "Hello" }
+            ],
+            "tracks": [{ "id": "v1", "kind": "video", "clips": [
+                { "id": "c-bed", "asset": "bed", "start": 0, "duration": 30 }
+            ]}, { "id": "v2", "kind": "video", "clips": [
+                { "id": "c-title", "asset": "title", "start": 0, "duration": 30,
+                  "keyframes": [{ "property": "opacity", "keyframes": [
+                      { "t": 0, "value": 0.0 }, { "t": 10, "value": 1.0 }] }] }
+            ]}]
+        });
+        let (project, from) = parse(&document.to_string()).expect("a v33 document migrates");
+        assert_eq!(from, Some(33));
+        assert_eq!(project.schema_version, SCHEMA_VERSION);
+        project
+            .validate()
+            .expect("and what comes out is a valid document");
+        assert_eq!(project.tracks.len(), 2, "nothing was dropped on the way");
     }
 
     #[test]

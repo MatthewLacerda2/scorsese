@@ -7,7 +7,7 @@
 /// Counted to a bound, as a track's number is: `taken` can only hold so many
 /// ids, so one of the first `limit + 1` suffixes is free and the search is a
 /// proof rather than a loop that could spin.
-pub(super) fn free(wanted: &str, limit: usize, taken: impl Fn(&str) -> bool) -> String {
+pub(crate) fn free(wanted: &str, limit: usize, taken: impl Fn(&str) -> bool) -> String {
     if !taken(wanted) {
         return wanted.to_owned();
     }

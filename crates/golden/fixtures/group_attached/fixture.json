@@ -1,0 +1,6 @@
+{
+  "description": "An arrow attached inside a group, and the group's own clock. The group holds a green box, a blue plate sliding right under a `transform.position.x` keyframe that runs from group frame 0 to 12, and a yellow arrow from the box's right side to the plate's left side. The group clip opens three frames into the group (`source_in` 3), and is scaled to 0.8 and moved down a fifth of the frame as one layer. Timeline frames 0 and 6 are group frames 3 and 9, so the plate is a quarter and three quarters of the way along its slide: further right in frame 6 than frame 0, and the arrow's head touches its left edge in both, at two different places. Everything sits below the middle of the frame, at eight tenths of its laid-out size, with the arrow scaled and moved with the boxes. What a wrong render looks like: an arrow whose head misses the plate, or meets it only in one frame, means the attachment was resolved on the frame rather than in the group's own space; a plate at the start of its slide in frame 0 means the member's keyframes were read in timeline time rather than group time, ignoring `source_in`; boxes and arrow at full size or centred vertically mean the group clip's transform never reached the layer they were drawn into.",
+  "media": {},
+  "render": { "resolution": "192x108", "fps": "30" },
+  "frames": [0, 6]
+}

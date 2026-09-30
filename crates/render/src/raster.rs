@@ -80,7 +80,7 @@ impl Sizes {
     ) -> Result<Self, RenderError> {
         let mut measured: HashMap<AssetId, Resolution> = HashMap::new();
 
-        for shot in plan.segments().iter().flat_map(|segment| &segment.layers) {
+        for shot in plan.segments().iter().flat_map(|segment| segment.shots()) {
             // A drawn asset has no size of its own to measure: text and slug
             // cards are rasterised at whatever the render's raster is, so `fit`
             // says nothing about them and there is no file to ask.

@@ -83,8 +83,9 @@ pub(crate) const fn of_kind(kind: AssetKind) -> Color32 {
         AssetKind::Image => Color32::from_rgb(0x25, 0x9E, 0x8C),
         // Words on screen.
         AssetKind::Text => Color32::from_rgb(0xC9, 0x9B, 0x33),
-        // Drawn rather than shot: a colour card, a shape, an icon.
-        AssetKind::Color | AssetKind::Shape | AssetKind::Icon => {
+        // Drawn rather than shot: a colour card, a shape, an icon — and a
+        // group, which is a drawing made of them.
+        AssetKind::Color | AssetKind::Shape | AssetKind::Icon | AssetKind::Group => {
             Color32::from_rgb(0x7E, 0x5C, 0xC4)
         }
         // Sound somebody brought or synthesised.
@@ -156,6 +157,7 @@ mod tests {
             AssetKind::Color,
             AssetKind::Shape,
             AssetKind::Icon,
+            AssetKind::Group,
             AssetKind::GeneratedVideo,
             AssetKind::GeneratedAudio,
             AssetKind::SynthAudio,

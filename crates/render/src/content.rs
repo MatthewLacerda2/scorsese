@@ -169,8 +169,12 @@ pub(crate) fn within(
         let block = painter.block(shot.asset, shot.clip.anchor, project_root, raster)?;
         return Ok(Content::Drawn(block));
     }
-    if shot.asset.kind == AssetKind::Color {
-        // A colour *is* the whole raster, so its rectangle is too.
+    if matches!(shot.asset.kind, AssetKind::Color | AssetKind::Group) {
+        // A colour *is* the whole raster, so its rectangle is too. So is a
+        // group's: its members are laid out on the project's raster and move
+        // about it, so the only rectangle that holds for the whole group is the
+        // raster it is drawn on — which is what an arrow following the group
+        // clip meets, moved by the group clip's own transform.
         return Ok(Content::Drawn(Area::whole(raster)));
     }
     if let Some(icon) = &shot.asset.icon {

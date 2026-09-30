@@ -6,7 +6,8 @@
 //! from each layer that has a source — in lockstep, so every pipe drains evenly
 //! and none of them blocks waiting for us — and emits a [`Job`].
 //!
-//! **The workers composite, concurrently.** Compositing a frame depends on
+//! **The workers composite, concurrently** — what one of them does with a
+//! frame is [`super::draw`]. Compositing a frame depends on
 //! nothing but that frame's own inputs, so this is the stage that parallelises,
 //! and it is the stage that was starved: ffmpeg already spreads decode and
 //! encode across cores, while every transform, blend, grade and glyph in a
@@ -24,10 +25,10 @@
 
 use std::collections::BTreeMap;
 use std::sync::Mutex;
-use std::sync::mpsc::{Receiver, Sender, channel};
+use std::sync::mpsc::channel;
 
 use scorsese_compositor::{
-    BYTES_PER_PIXEL, Compositor, CpuCompositor, Frame, Layer, Properties, Resolution,
+    BYTES_PER_PIXEL, Compositor, CpuCompositor, Frame, Properties, Resolution,
 };
 
 use crate::content::elapsed;
@@ -36,7 +37,7 @@ use crate::pipe::Decoder;
 use crate::plan::Segment;
 
 use super::attach::End;
-use super::layers::{Pixels, Slot};
+use super::layers::{Entry, Pixels, Slot};
 use super::{Pass, Write};
 
 /// The most frame buffers this stage may be holding at once, in bytes.
@@ -58,12 +59,21 @@ pub(super) struct Job {
     /// sorts on.
     index: u64,
     /// One instant of each layer, in the order they are drawn.
-    properties: Vec<Properties>,
+    pub(super) properties: Vec<Properties>,
     /// One decoded frame per layer that has a source, in [`Pixels::Live`]
     /// order.
-    buffers: Vec<Frame>,
+    pub(super) buffers: Vec<Frame>,
+    /// One transparent raster per group, in [`Pixels::Composed`] order, that
+    /// its members are composited into.
+    ///
+    /// A list of its own rather than more of `buffers`, because a group canvas
+    /// is *written* while other buffers are read — its members' pixels, and an
+    /// inner group's canvas — and keeping the canvases apart, in an order where
+    /// every inner group comes after its outer one, is what lets that be a
+    /// plain split borrow.
+    pub(super) groups: Vec<Frame>,
     /// What the layers are composited onto, and what the encoder is given.
-    canvas: Frame,
+    pub(super) canvas: Frame,
 }
 
 /// The buffers a render passes between its stages instead of allocating.
@@ -84,11 +94,17 @@ impl Pools {
     /// they are the ones the next wide segment would otherwise have to
     /// allocate, and a two-layer stretch between two four-layer ones is the
     /// ordinary shape of a cut.
-    fn take(&mut self, decoders: &[Decoder], drawn: usize, resolution: Resolution) -> Job {
+    fn take(
+        &mut self,
+        decoders: &[Decoder],
+        (drawn, composed): (usize, usize),
+        resolution: Resolution,
+    ) -> Job {
         let mut job = self.free.pop().unwrap_or_else(|| Job {
             index: 0,
             properties: Vec::new(),
             buffers: Vec::new(),
+            groups: Vec::new(),
             canvas: Frame::black(resolution),
         });
         if job.canvas.resolution() != resolution {
@@ -119,6 +135,16 @@ impl Pools {
         while job.buffers.len() < wanted {
             job.buffers.push(Frame::black(resolution));
         }
+        // And one canvas per group, the size of the raster its members are
+        // laid out on.
+        for canvas in &mut job.groups {
+            if canvas.resolution() != resolution {
+                *canvas = Frame::black(resolution);
+            }
+        }
+        while job.groups.len() < composed {
+            job.groups.push(Frame::black(resolution));
+        }
         job
     }
 
@@ -141,7 +167,7 @@ pub(super) fn gap(
     pools: &mut Pools,
     write: Write<'_>,
 ) -> Result<(), RenderError> {
-    let mut job = pools.take(&[], 0, resolution);
+    let mut job = pools.take(&[], (0, 0), resolution);
     compositor.composite(&mut job.canvas, &[])?;
     for _ in 0..frames {
         write(&job.canvas)?;
@@ -154,9 +180,14 @@ pub(super) fn gap(
 pub(super) struct Parts<'a> {
     /// What each layer contributes, in the order they are drawn.
     pub(super) slots: &'a [Slot],
+    /// The shot behind each slot, groups opened — what a layer's properties
+    /// are resolved from, at the time on its own track.
+    pub(super) entries: &'a [Entry<'a, 'a>],
     /// How many of those are redrawn every frame, which is how many raster-sized
     /// buffers a job needs beyond the decoded ones.
     pub(super) drawn: usize,
+    /// How many are groups, which is how many canvases a job needs.
+    pub(super) composed: usize,
     /// One decoder per layer that has a source, in [`Pixels::Live`] order.
     pub(super) decoders: &'a mut [Decoder],
     /// One compositor per worker. They carry scratch buffers, which is why
@@ -181,14 +212,16 @@ pub(super) fn drive(
 ) -> Result<Vec<u64>, RenderError> {
     let Parts {
         slots,
+        entries,
         drawn,
+        composed,
         decoders,
         compositors,
         pools,
     } = parts;
     let capacity = capacity(
         compositors.len(),
-        decoders.len() + drawn,
+        decoders.len() + drawn + composed,
         pass.settings.resolution,
     );
     // How many of a job's buffers are decoded, which is where the drawn ones
@@ -198,7 +231,8 @@ pub(super) fn drive(
 
     let mut feed = Feed {
         slots,
-        drawn,
+        entries,
+        extra: (drawn, composed),
         decoders,
         missing: &mut missing,
     };
@@ -214,7 +248,7 @@ pub(super) fn drive(
         for compositor in compositors.iter_mut() {
             let take_job = &take_job;
             let send_done = send_done.clone();
-            scope.spawn(move || work(compositor, slots, live, take_job, &send_done));
+            scope.spawn(move || super::draw::work(compositor, slots, live, take_job, &send_done));
         }
         // The only remaining sender is the workers': dropping this one is what
         // makes the results channel close when they are all done.
@@ -267,11 +301,12 @@ fn produce(
 ) -> Result<Job, RenderError> {
     let Feed {
         slots,
-        drawn,
+        entries,
+        extra,
         decoders,
         missing,
     } = feed;
-    let mut job = pools.take(decoders, *drawn, pass.settings.resolution);
+    let mut job = pools.take(decoders, *extra, pass.settings.resolution);
     job.index = index;
     for (at, decoder) in decoders.iter_mut().enumerate() {
         if !decoder.read_into(&mut job.buffers[at])? {
@@ -285,15 +320,14 @@ fn produce(
     }
     // Keyframes are timed from each clip's own start, so that moving a clip
     // along the timeline never rewrites them. Which instant of the timeline
-    // this output frame shows is the plan's to say.
+    // this output frame shows is the plan's to say — and which instant of its
+    // own track, for a member of a group, is the shot's.
     let at = pass.plan.timeline_frame_of(segment, index);
     job.properties.clear();
-    job.properties.extend(
-        segment
-            .layers
-            .iter()
-            .map(|shot| Properties::at(shot.clip, elapsed(at, shot.clip))),
-    );
+    job.properties.extend(entries.iter().map(|entry| {
+        let clip = entry.shot.clip;
+        Properties::at(clip, elapsed(entry.shot.local(at), clip))
+    }));
     // Attached arrows last, because they read the properties every other layer
     // just resolved. This is the whole of the ordering the feature costs: one
     // pass over the layers, then the arrows that depend on them.
@@ -310,8 +344,10 @@ fn produce(
 struct Feed<'a> {
     /// What each layer contributes.
     slots: &'a [Slot],
-    /// How many of them are redrawn every frame.
-    drawn: usize,
+    /// The shot behind each of them.
+    entries: &'a [Entry<'a, 'a>],
+    /// How many of them are redrawn every frame, and how many are groups.
+    extra: (usize, usize),
     /// One per layer read from a source.
     decoders: &'a mut [Decoder],
     /// How many frames each source has come up short by so far.
@@ -342,51 +378,6 @@ fn draw_attached(slots: &[Slot], live: usize, job: &mut Job, canvas: Resolution)
             ends[0],
             ends[1],
         );
-    }
-}
-
-/// One worker: take a job, draw it, hand it back, until there are none left.
-fn work(
-    compositor: &mut CpuCompositor,
-    slots: &[Slot],
-    live: usize,
-    jobs: &Mutex<Receiver<Job>>,
-    done: &Sender<Result<Job, RenderError>>,
-) {
-    loop {
-        let taken = {
-            let jobs = jobs
-                .lock()
-                .expect("the job queue is only ever locked to take from");
-            jobs.recv()
-        };
-        let Ok(mut job) = taken else {
-            // The producer is finished, or has given up. Either way there is
-            // nothing else coming.
-            return;
-        };
-        let layers: Vec<Layer<'_>> = slots
-            .iter()
-            .zip(&job.properties)
-            .map(|(slot, properties)| Layer {
-                source: match &slot.pixels {
-                    Pixels::Held(pixels) => pixels,
-                    Pixels::Live(at) => &job.buffers[*at],
-                    Pixels::Drawn { at, .. } => &job.buffers[live + *at],
-                },
-                properties: *properties,
-                anchor: slot.anchor,
-                origin: slot.origin,
-            })
-            .collect();
-        let outcome = compositor.composite(&mut job.canvas, &layers);
-        let sent = match outcome {
-            Ok(()) => done.send(Ok(job)),
-            Err(error) => done.send(Err(error.into())),
-        };
-        if sent.is_err() {
-            return;
-        }
     }
 }
 

@@ -12,6 +12,7 @@
 //! checks are: by what has to be looked at to find it.
 
 mod assets;
+mod group;
 mod icon;
 mod shape;
 mod speech;
@@ -19,6 +20,7 @@ mod timeline;
 mod video;
 
 pub use assets::AssetProblem;
+pub use group::GroupProblem;
 pub use icon::IconProblem;
 pub use shape::ShapeProblem;
 pub use speech::SpeechProblem;
@@ -63,6 +65,11 @@ pub enum ValidationError {
     /// asset it shows.
     #[error(transparent)]
     Timeline(#[from] TimelineProblem),
+
+    /// Something wrong with a group, a clip of one, or a reference across a
+    /// group's edge.
+    #[error(transparent)]
+    Group(#[from] GroupProblem),
 }
 
 /// A video problem is an asset problem, so it reaches the collected list the

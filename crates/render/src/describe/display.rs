@@ -120,6 +120,15 @@ fn onscreen(playing: &Playing) -> String {
             "{} (icon `{}` {}, {})",
             playing.asset, icon.name, icon.size, icon.color
         ),
+        // A group is drawn at the raster's own size, like a shape, so there
+        // is no `fit` either; how many of its clips are showing is what says
+        // whether the layer has anything in it.
+        Shown::Group { members } => {
+            format!(
+                "{} (group, {members} of its clips on screen)",
+                playing.asset
+            )
+        }
         Shown::Media => format!(
             "{} ({}, {}{}{})",
             playing.asset,
@@ -311,6 +320,7 @@ pub(crate) const fn kind(kind: AssetKind) -> &'static str {
         AssetKind::GeneratedVideo => "generated_video",
         AssetKind::GeneratedAudio => "generated_audio",
         AssetKind::SynthAudio => "synth_audio",
+        AssetKind::Group => "group",
     }
 }
 

@@ -135,7 +135,9 @@ fn clip_ids(project: &Project, template: &Project) -> BTreeMap<ClipId, ClipId> {
     let limit = project.clips().count() + template.clips().count();
     for (_, clip) in template.clips() {
         let id = free(clip.id.as_str(), limit, |candidate| {
-            project.clips().any(|(_, c)| c.id.as_str() == candidate)
+            project
+                .every_clip()
+                .any(|(_, c)| c.id.as_str() == candidate)
                 || given.values().any(|c| c.as_str() == candidate)
         });
         given.insert(clip.id.clone(), ClipId::new(id));

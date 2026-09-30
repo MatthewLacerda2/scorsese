@@ -1,0 +1,99 @@
+{
+  "schema_version": 34,
+  "name": "group_scaled",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    { "id": "bed", "kind": "color", "color": "#101820" },
+    {
+      "id": "box",
+      "kind": "shape",
+      "shape": {
+        "geometry": { "rectangle": { "width": 0.2, "height": 0.3 } },
+        "fill": "#1e3a8aff",
+        "stroke": "#ffffffff",
+        "stroke_width": 0.012
+      }
+    },
+    {
+      "id": "dot",
+      "kind": "shape",
+      "shape": {
+        "geometry": { "ellipse": { "width": 0.16, "height": 0.28 } },
+        "fill": "#f59e0bff"
+      }
+    },
+    {
+      "id": "diagram",
+      "kind": "group",
+      "group": {
+        "tracks": [
+          {
+            "id": "diagram-boxes",
+            "kind": "video",
+            "clips": [
+              {
+                "id": "c-box",
+                "asset": "box",
+                "start": 0,
+                "duration": 10,
+                "keyframes": [
+                  { "property": "transform.position.x", "keyframes": [{ "t": 0, "value": -0.25 }] }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "diagram-dots",
+            "kind": "video",
+            "clips": [
+              {
+                "id": "c-dot",
+                "asset": "dot",
+                "start": 0,
+                "duration": 10,
+                "keyframes": [
+                  { "property": "transform.position.x", "keyframes": [{ "t": 0, "value": 0.25 }] }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [{ "id": "c-bed", "asset": "bed", "start": 0, "duration": 10 }]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-diagram",
+          "asset": "diagram",
+          "start": 0,
+          "duration": 10,
+          "keyframes": [
+            {
+              "property": "transform.scale.x",
+              "keyframes": [
+                { "t": 0, "value": 1.0 },
+                { "t": 9, "value": 0.5 }
+              ]
+            },
+            {
+              "property": "transform.scale.y",
+              "keyframes": [
+                { "t": 0, "value": 1.0 },
+                { "t": 9, "value": 0.5 }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
