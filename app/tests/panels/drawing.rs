@@ -3,12 +3,14 @@
 //!
 //! Apart from the tests themselves because it is machinery rather than a claim
 //! about the window: a reader wanting to know what is asserted should meet the
-//! four snapshots, not the reason wgpu needs a mutex.
+//! four snapshots, not the reason wgpu needs a mutex. The tolerance every
+//! snapshot is compared with lives here too, for the same reason — the
+//! *decision* behind its numbers is in `main.rs`'s module doc.
 
 use std::ops::{Deref, DerefMut};
 use std::sync::{Mutex, MutexGuard};
 
-use egui_kittest::Harness;
+use egui_kittest::{Harness, OsThreshold, SnapshotOptions};
 use scorsese_app::Scorsese;
 
 use crate::fixture;
@@ -19,6 +21,52 @@ use crate::watchdog;
 /// The same as the real window opens at, so what a reference shows is what a
 /// person sees rather than a squeezed approximation of it.
 const WINDOW: [f32; 2] = [1280.0, 800.0];
+
+/// How far one pixel may drift from its reference before it counts as
+/// different, on Linux — where the references are blessed and where a merge is
+/// gated — and on any platform not named below.
+///
+/// The unit is dify's own, **not** a fraction: `0.5053·ΔY² + 0.299·ΔI² +
+/// 0.1957·ΔQ²`, in YIQ over 0–255 channels. So `0.6` lets a pixel through that
+/// is off by at most one level in every channel (worst `0.542`), and stops a
+/// two-level shift in grey (`2.02`). It is `egui_kittest`'s own default, and it
+/// is what has gated every merge so far — [`tolerance`] says why that needs
+/// saying.
+const LINUX: f32 = 0.6;
+
+/// The same line on macOS: a pixel may disagree by up to **two levels in each
+/// channel**, and no more.
+///
+/// `2.2` is the worst that model can score (`2.166`, rounded up), and the model
+/// is measured rather than assumed. A Mac (Apple silicon, Metal) drawing all
+/// twelve panels differs from the Linux references on 2,742 to 30,963 pixels a
+/// panel, never by more than two levels in any channel, worst score `1.348`.
+/// Three levels in grey scores `4.5`; anything a panel is actually about — a
+/// label, a clip, a line moved, a colour changed on purpose — scores in the
+/// thousands. The two generate-dialog references, a cent of narration apart,
+/// put 2,602 pixels over this line, the worst at `28464`. `main.rs`'s module doc has the argument for this over skipping.
+const MACOS: f32 = 2.2;
+
+/// Every snapshot's tolerance, stated in code rather than in a `kittest.toml`.
+///
+/// There *was* a `kittest.toml`, in `tests/`, saying `threshold = 0.8` and
+/// `failed_pixel_count_threshold = 400`. `egui_kittest` looks for that file
+/// from the test's working directory **upwards** — which is `app/`, never
+/// `app/tests/` — so it was never read, on any machine, and the gate in force
+/// was the crate's default the whole time: `0.6`, and not one pixel allowed
+/// over it. The file described a tolerance nobody had. Here nothing has to be
+/// found for it to apply, and [`LINUX`] is the number that was really gating,
+/// so writing it down changes nothing on CI.
+///
+/// **No pixel over the line, on either platform.** A count of pixels allowed to
+/// be wrong would have to be large enough to absorb a rasteriser's text edges
+/// and small enough to catch a changed digit, and no number is both; the
+/// per-pixel line is where two rasterisers and a real change actually part.
+fn tolerance() -> SnapshotOptions {
+    SnapshotOptions::new()
+        .threshold(OsThreshold::new(LINUX).macos(MACOS))
+        .failed_pixel_count_threshold(0)
+}
 
 /// Held for the length of a snapshot, so only one is ever being drawn.
 ///
@@ -88,6 +136,7 @@ pub(crate) fn window(project: Option<std::path::PathBuf>) -> Drawing {
     Drawing {
         harness: Harness::builder()
             .with_size(egui::vec2(WINDOW[0], WINDOW[1]))
+            .with_options(tolerance())
             .build_ui_state(
                 |ui, window: &mut Scorsese| window.draw(ui),
                 Scorsese::opening_with(project, fixture::machine()),

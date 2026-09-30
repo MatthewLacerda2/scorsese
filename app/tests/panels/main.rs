@@ -17,6 +17,34 @@
 //! interface was meant to change, and the new picture is looked at before it is
 //! committed.
 //!
+//! **The line is drawn per platform, and macOS's is wider** (#597). The
+//! references are blessed on Linux and CI compares them there, and a Mac draws
+//! every panel a little differently. Measured on Apple silicon through Metal,
+//! each of the twelve differs from its reference on 2,742 to 30,963 pixels,
+//! never by more than two levels in any channel. Under the Linux line that left
+//! about a hundred pixels a panel over it, and whether a panel *failed* came
+//! down to whether dify's anti-aliasing heuristic happened to excuse every one
+//! of them: five were left with 1 to 4 pixels over, seven with none. The seven
+//! were exactly as close to failing as the five. [`drawing`] has the numbers.
+//!
+//! `docs/golden-renders.md` settled the same question for renders by skipping
+//! off Linux, and its reason does not carry over. It refused a wider tolerance
+//! because that harness has **one** tolerance for every platform: widening it
+//! for macOS widened it on Linux too, and a gate that forgives three levels
+//! cannot catch a three-level grade bug. `egui_kittest` takes its line per
+//! operating system, so macOS's is wider and Linux's is exactly the number that
+//! gated before — the Linux gate gives up nothing. What macOS gives up is a
+//! shift of two levels or less, which no picture here is about: these assert
+//! what is on screen and where, and every such change scores in the thousands.
+//! Skipping would have bought the same green by checking nothing, and a Mac
+//! that drew a panel wrong would have found out on CI instead.
+//!
+//! What would reopen it is a Mac drifting past two levels. Measure it as this
+//! was measured — every panel at zero tolerance, per-pixel scores — rather than
+//! nudging the number; if the drift is no longer a rounding difference, skip
+//! off Linux the way `crates/golden` does. Windows keeps the Linux line, since
+//! nobody runs these there.
+//!
 //! Drawing through a GPU also means these can fail by never finishing, which
 //! no other test here can do. [`watchdog`] is why they no longer do, and
 //! [`drawing`] is the harness they all start from.

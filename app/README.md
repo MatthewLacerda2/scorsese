@@ -88,6 +88,10 @@ UPDATE_SNAPSHOTS=1 cargo test --manifest-path app/Cargo.toml --test panels
 Comparison is **with tolerance**, never byte-for-byte: a GPU rasterising text
 is no more deterministic across drivers than an encoder is across versions,
 which is the same reason `docs/golden-renders.md` gives for renders.
+The tolerance is per platform — Linux, where the references are blessed and a
+merge is gated, holds the tighter line, and macOS a measured one that forgives
+a rasteriser's rounding and nothing else. `tests/panels/main.rs` has why that
+beat skipping them off Linux, the way the render goldens are.
 
 **The rule that matters carries over unchanged: re-blessing a reference to make
 a test pass is never legitimate.** A snapshot changes when the interface was
