@@ -605,6 +605,8 @@ jobs:
   # is that nothing reaches it any more: the budget is enforced *inside* the
   # step with `timeout`, so a shard that runs out of time ends by uploading
   # what it measured instead of by being killed with the report unwritten.
+  # That holds only if the budget is measured from the job's start rather than
+  # the step's (#601): a shard whose setup was slow gets less, not overtime.
   mutants-plan:
     name: "mutants: plan (signal)"
     runs-on: ubuntu-24.04
@@ -797,11 +799,26 @@ jobs:
     permissions:
       contents: read
     env:
-      # The budget the step ends on, inside the 30-minute job timeout. The gap
-      # between the two is deliberate: it is the room for checkout, ffmpeg,
-      # cargo-mutants, and the upload that makes a stopped shard still count.
-      BUDGET: 20m
+      # The most the mutation step may take, inside the 30-minute job timeout.
+      # It is a ceiling and not a promise, and #601 is why. The gap between the
+      # two was meant to be the room for checkout, ffmpeg, cargo-mutants and the
+      # upload, but a slow apt mirror once took 12½ minutes over ffmpeg alone
+      # on this job. A fixed 20 minutes starting after that ran past the job
+      # limit, and the shard was killed with its report unwritten. So the step
+      # takes this or whatever the job has left, whichever is less.
+      BUDGET_SECONDS: 1200
+      # Must equal `timeout-minutes` above, in seconds. Nothing can read that
+      # key from a step, so it is stated twice, side by side.
+      JOB_LIMIT_SECONDS: 1800
+      # Held back from the job limit for what has to happen after the budget:
+      # `timeout`'s 60-second kill grace, the upload, and the job's teardown.
+      RESERVE_SECONDS: 180
     steps:
+      # The clock the budget is measured against. First, so it starts as near
+      # the job's own start as a step can.
+      - name: Start the clock
+        run: echo "JOB_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+
       # Shallow, and that is now safe: the diff arrives as an artifact rather
       # than being recomputed from history, so nothing here needs the base
       # commit. `--in-diff` reads the file and the working tree.
@@ -875,8 +892,15 @@ jobs:
           SHARD: ${{ matrix.shard }}
           SHARDS: ${{ needs.mutants-plan.outputs.shards }}
         run: |
+          left=$(( JOB_LIMIT_SECONDS - ($(date +%s) - JOB_STARTED) - RESERVE_SECONDS ))
+          budget=$(( left < BUDGET_SECONDS ? left : BUDGET_SECONDS ))
+          if [ "$budget" -lt 60 ]; then
+            echo "::notice::shard $SHARD: setup left ${left}s of the job;" \
+                 "not mutating, and the report will name what this shard did not cover"
+            exit 0
+          fi
           set +e
-          timeout --kill-after=60s "$BUDGET" \
+          timeout --kill-after=60s "${budget}s" \
             cargo mutants --in-diff pr.diff --shard "$SHARD/$SHARDS" \
               --jobs 2 --colors never
           status=$?
@@ -885,7 +909,7 @@ jobs:
             0|2|3)
               echo "cargo-mutants ran (exit $status)" ;;
             124|137)
-              echo "::notice::shard $SHARD stopped at its $BUDGET budget;" \
+              echo "::notice::shard $SHARD stopped at its ${budget}s budget;" \
                    "the report will name what it did not cover" ;;
             *)
               echo "::error::cargo-mutants exited $status"
