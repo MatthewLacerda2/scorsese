@@ -212,26 +212,32 @@ them. None of this makes it a vendor here; everything above still holds.
 
 ## How we work
 
-**Where this is developed.** One machine, one person: a Ryzen 5 3400G — 4
-cores, 8 threads — with 16 GB of RAM and an RTX 2060, on Arch Linux. That is
-a current fact and not a decided invariant; the day there are other
-contributors it is up for review. Until then it is the premise several rules
-below are shaped by, and it is written down so nobody re-derives the industry
-default of many contributors on many cold machines and proposes the tooling
-that goes with it.
+**Where this is developed.** One person, on the operator's own machine or in a
+cloud session. That is a current fact and not a decided invariant; the day
+there are other contributors it is up for review. Until then it is the premise
+several rules below are shaped by, and it is written down so nobody re-derives
+the industry default of many contributors on many cold machines and proposes
+the tooling that goes with it. **The machine's specs are deliberately not
+written here**: the operator works on more than one, and a core count or a
+free-space figure in a doc goes stale while still reading as fact. Check the
+machine you are on — cores, free memory, free disk — before a heavy build.
 
-- **The same machine now also hosts the service** (#527, #532): the web app
-  runs on it in Docker Compose and reaches the internet through a Cloudflare
-  Tunnel. So its cores are shared with other people — **their renders and
-  generations queue on it**, behind a concurrency limit per kind of job, and a
-  heavy local build competes with a paying user's render. A power cut is an
-  outage for them too, which is why the job queue recovers on restart and
-  backups leave the machine.
-- 8 threads and 16 GB are what "as many as the machine can actually carry"
-  means below: **worktrees are cheap, simultaneous builds are not.** Several
-  branches checked out costs disk; several concurrent `make gates` runs costs
-  more memory than there is, and rustc's linking is where it runs out.
-  Parallelise the work, stagger the compiles.
+- **One of the operator's machines also hosts the service** (#527, #532): the
+  web app runs on it in Docker Compose and reaches the internet through a
+  Cloudflare Tunnel. So on that machine the cores are shared with other people
+  — **their renders and generations queue on it**, behind a concurrency limit
+  per kind of job, and a heavy local build competes with a paying user's
+  render. A power cut is an outage for them too, which is why the job queue
+  recovers on restart and backups leave the machine.
+- **Worktrees are cheap, simultaneous builds are not.** Several branches
+  checked out costs disk; several concurrent `make gates` runs can cost more
+  memory than the machine has, and rustc's linking is where it runs out.
+  Parallelise the work, stagger the compiles, and size the parallelism from the
+  machine you are on, measured, never from a figure written down somewhere —
+  `issue-batch` has the method. A batch may also hand branches to **cloud
+  sessions** as extra coders: that lifts the local build limit, never the
+  one-at-a-time merge. `issue-batch` says when, and how to prove a session
+  really is remote.
 - **One worktree, one `target/`. Never a shared `CARGO_TARGET_DIR`.** Cargo
   keys build artifacts by package, version, features and profile — never by
   source path — so worktrees pointed at one target directory overwrite each
@@ -294,6 +300,22 @@ that goes with it.
   3. **Craft.** It follows Rust good practices and the gold standards of
      video-editor architecture (the decided architecture above included). If
      it doesn't, say so and propose the right shape.
+- **Take the initiative.** Claude can always take the initiative of adding or
+  changing things so long as they make scorsese and the videos made with it
+  better, or make the development of scorsese itself better — Claude does not
+  wait to be told to improve the codebase. The user follows Claude's
+  recommendations, and implementing then validating later beats waiting: a
+  clear win without a downside is **implemented**, not proposed. The one
+  exception is a change to **scorsese's design itself** — the decided
+  architecture above, the `project.json` format, the shape of the tool surface,
+  the conventions in this file — where Claude proposes and the user decides,
+  unless one option is a plain win-win, which Claude takes. Initiative still
+  runs through the normal flow (an issue, or an issue-less PR where that is
+  allowed; a branch; a PR; the gates). An issue the stage-label rule below says
+  must carry `planning` or `human` is not a clear win by definition, and a
+  `planning` issue is still never started. And nothing that spends the user's
+  money — a provider generation, `make live-check` — is done on initiative: it
+  is asked first, every time.
 - **Flow:** idea → issue → branch → PR → CI green → merge. New work starts as
   an issue, not a surprise diff, and the PR references the issue it closes.
   **Issue-less PRs are allowed only** for documentation updates or bug fixes.
@@ -324,12 +346,15 @@ that goes with it.
 - **One worktree per branch**, off the latest `main`, removed the moment it
   merges. The isolation is what makes a branch's gates mean anything, and each
   worktree carries a full `target/` measured in gigabytes.
-- **Architecture- then infrastructure-first (NOT "make it up as we go").**
+- **Infrastructure- then architecture-first (NOT "make it up as we go").**
   When we find a problem — something that bites or will bite more than once, a
   pattern worth adopting, or a gold-standard practice we should have had — we
-  document it and fix it **before** continuing. Architecture and
-  infrastructure problems **halt feature work**. Each such fix gets its own
-  issue when it carries its own responsibility.
+  document it and fix it **before** continuing. Infrastructure and
+  architecture problems **halt feature work**. Infrastructure (the tools we
+  build with) leads because it makes every later branch cheaper: a faster or
+  safer build, test or merge loop pays off on all the work queued behind it,
+  architecture included. Each such fix gets its own issue when it carries its
+  own responsibility.
 - **The dependency graph is the plan.** Record how issues relate with GitHub's
   **Blocked by / Blocks** and **sub-issues**; there are no rigid batches. Split
   by responsibility, never by parallelism — sub-issues that all touch the same
@@ -391,7 +416,12 @@ that goes with it.
 - When working through issues unattended: if in doubt on an issue,
   leave a comment on the issue and continue if possible, rather than stalling
   the night on a chat question. Questions during *planning* conversations are
-  asked right away.
+  asked right away. **Decisions are written down, never waited on**: a
+  judgement call the issue left open takes the default the issue, this file or
+  Filmora 9 (for taste) points to, and the choice and its reason go on the
+  issue or PR. A check only a human can do (a real window, real speakers,
+  taste) is **never a merge hold** — the checklist goes on the PR for the user
+  to run later, and a failure found then is a bug. `issue-batch` has the rest.
 
 ## Repo-specific conventions
 
@@ -506,10 +536,14 @@ that goes with it.
   *building*, and never about whether a defect is worth *recording*. If the bug
   questions a decision or surfaces a foundational problem, tell the user, because
   that is a judgement call. Otherwise keep the description brief and carry on.
-- **Priority by label:** **architecture → infrastructure → bug → foundation →
-  feature.** If the way we build isn't solid — a structural shape or convention
-  missing (**architecture**), a tool or guardrail missing (**infrastructure**), or
-  something broken (**bug**) — we halt and fix that first. Then **foundation**
+- **Priority by label:** **infrastructure → architecture → bug → foundation →
+  feature.** If the way we build isn't solid — a tool or guardrail missing
+  (**infrastructure**), a structural shape or convention missing
+  (**architecture**), or something broken (**bug**) — we halt and fix that
+  first. Infrastructure leads because every branch after it runs on the faster,
+  safer loop. A bug in the **development tooling itself** — CI, the gates, the
+  hooks, `make queue` / `make mergeable` — ranks as **infrastructure**, whatever
+  its label: while it stands, every branch pays for it. Then **foundation**
   work makes the editor itself more complete. Then **feature** work serves Claude,
   the user or the video being made with it. **documentation** can be done at any
   time and never waits its turn. Priority orders what gets **merged**, never what

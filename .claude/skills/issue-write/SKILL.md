@@ -24,6 +24,14 @@ report, a real file on disk or a line of the codebase is one nobody has to
 re-derive. "The bake report prints `low 61%` and the only lever is a fader" is
 worth more than "we should have an EQ".
 
+**Point with symbols and paths, not line numbers.** `AssetKind::is_prompted`
+or `merge-queue.py`'s `push_needed` survive the edits that land before the issue
+is picked up; a bare `crates/core/src/project.rs:210` does not. On rusty, on
+2026-09-30, a batch merged ~50 pull requests in a day, a central file was split
+into a module in the middle of it, and nearly every brief had to warn its coder
+that the issue's line references were stale (MatthewLacerda2/rusty#586). A line
+number is fine as a hint *beside* a symbol, never on its own.
+
 **Cite what it relates to.** Sibling issues, the pull request that exposed it, the
 rule in `CLAUDE.md` it turns on. A future reader arrives with no memory of today.
 
@@ -79,8 +87,10 @@ crate boundaries) · `infrastructure` (CI, harnesses, gates) · `bug` ·
 
 ## Priority
 
-**architecture → infrastructure → bug → foundation → feature.** `documentation`
-never waits its turn.
+**infrastructure → architecture → bug → foundation → feature.** `documentation`
+never waits its turn. A bug in the development tooling itself — CI, the gates,
+the hooks, `make queue` / `make mergeable` — ranks as `infrastructure`, whatever
+its label.
 
 Priority orders what gets **merged**, not what gets **worked**.
 

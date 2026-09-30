@@ -17,8 +17,30 @@ The web and app gates are the only conditional ones, and each reports
 **skipped** when the branch touches nothing under `web/` or `app/`. Skipped is
 the honest answer; never read it as green.
 
+**A gate this machine cannot run is named, not claimed.** `test` needs docker
+(or `SCORSESE_TEST_DATABASE_URL`) for the server's Postgres, `deploy` needs
+docker, `app` needs the ALSA headers — and some machines may not run a service
+at all. Run the rest, and say in the pull request which gate did not run here
+and which CI job answers for it (`fmt + clippy + test`, `deploy config`, `desktop
+app`). That does not keep it a draft — unless the branch changes what that
+gate checks (`crates/server`, `deploy/`, `app/`): then it is proven on a
+machine that can run it, not left to CI.
+
 Deliberately **not** before every push. Checkpoint commits stay cheap — the
 pre-commit hook is formatting and the size gate only, well under a second.
+
+**A failure the machine caused is not the branch's.** `No space left on device`,
+`Disk quota exceeded`, `Cannot allocate memory`, or rustc or the linker killed
+(`signal: 9`) say nothing about the code: free disk or memory (a merged
+worktree's `target/`, a sibling's build) and run it again — never "fix" code
+that was never wrong. On rusty a cold build filled a tmpfs scratchpad and three
+healthy branches were reported broken (MatthewLacerda2/rusty#580). So builds and
+gates run from a worktree, **never from the scratchpad**, which may be a tmpfs.
+
+Nor is a failure `main` has too, on this platform. Before fixing a red gate the
+branch did not touch, run it on `main`; if it fails there, it is a bug to cite
+or file, not the branch's (on 2026-09-30 every agent on the Mac re-argued five
+app panel snapshots that fail on macOS regardless — #597).
 
 ## The merge, one branch at a time
 
@@ -59,6 +81,29 @@ cleanup stays yours, and the summary lists what to clean.
 Doing it by hand is still fine for a single branch. The script's own docstring
 has the reasoning, including why it does not try to *skip* CI runs instead.
 
+**A queue that dies on the network handed nothing back.** Only the merge call
+survives a transport failure; any other `gh` call that times out (a TLS
+handshake, a 5xx) ends the run on a `mergeable: gh …` line, with no summary.
+Re-run it with the same list: a PR it already merged is skipped as merged, and
+a head it already pushed is not pushed again. It died three times this way on
+2026-09-30.
+
+**A Markdown-only pull request gets no run**, so `make queue` hands it back as
+absent and `make mergeable` cannot say yes. It is the one merge done by hand:
+check `gh pr diff N --name-only` is all `.md` and not `docs/project-format.md`,
+that GitHub reports it mergeable, then `gh pr merge N --squash`.
+
+**Because it builds nothing, a clean rebase can still push a broken head.** A
+merge ahead that changed a signature this branch calls, or pushed one of its
+files past the size cap, rebases without a conflict and fails CI ten minutes
+later. When the merges ahead touched the same crates, rebase and `cargo check`
+the branch yourself first (`issue-batch` has the loop); the queue then finds
+nothing to rebase, pushes nothing, and only waits and merges.
+
+**Once a pull request is in the queue, nobody pushes to it** except to fix its
+own red run: the queue refuses to merge a head it did not watch, so a late push
+is a hand-back and a full CI round.
+
 ## `make mergeable` is the gate, and its answer is final
 
 It asks GitHub whether a run genuinely happened on the head commit. `gh pr checks`
@@ -88,6 +133,15 @@ itself, so read its output before doing anything else:
 Absent and passing are different states; a loop counting non-completed checks
 finds zero of each. Require checks to **exist** before calling a run settled.
 
+**Known gap: today a signal does hold a merge.** `make mergeable` waits until
+every `CI` run on the head has completed, and the coverage and mutation jobs
+live in that same run — so a pull request whose gating jobs are all green still
+waits until the mutation jobs finish. That contradicts
+*a signal never holds a merge*; rusty fixed the same shape by settling on the
+gating jobs and ignoring still-running signal jobs
+(MatthewLacerda2/rusty#555). Until that lands here, the wait is expected — not a
+hand-back to act on.
+
 ## A red ready pull request stays ready
 
 Fixed in the next commit; it does not go back to draft. Draft is for work that is
@@ -104,6 +158,14 @@ Mechanical resolutions (a `mod` list, an import) are fine to do directly. Hand a
 rebase back to the branch's author when resolving it needs to know *why* the code
 is shaped as it is — a new variant that should join a documented grouping, two
 prose paragraphs that need ordering, a signature that has grown a parameter.
+
+**Two `schema_version` bumps are one number too few.** Two branches that both
+bumped 35 → 36 rebase the constant and every fixture's literal *cleanly* — the
+same edit on both sides — and conflict only in `migrate.rs`'s `STEPS` and the
+step table in `docs/project-format.md`. Keeping both there is wrong: the branch
+landing second renumbers its step, its constant and its literals to the next
+version (`every_version_since_the_oldest_has_exactly_one_step` fails if it
+does not). It is `SYNTH_VERSION`'s rule again — the answer is neither side.
 
 After a rebase, re-check any claim the branch made **about the base it measured
 against**. A byte-identity proof taken against an older `main` is stale, and
