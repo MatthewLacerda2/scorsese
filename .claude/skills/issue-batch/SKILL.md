@@ -124,8 +124,8 @@ never when the queue is.
   media, provider keys — `make live-check` spends money and never runs in a
   cloud session); anything whose proof needs a real display, a real GPU or real
   speakers; anything macOS-specific.
-- **Cloud:** a branch whose proof is `make gates` **and** that sits in modules no
-  other in-flight branch touches. The collision list above still decides that;
+- **Cloud:** a branch whose proof is `make gates` **and** that edits no types or
+  files another in-flight branch edits. The collision list above still decides that;
   cloud removes the build-slot limit, not the rebase cost. A cloud container is
   Linux, so it also runs the pixel gate that `make gates` skips on macOS — with
   whatever ffmpeg the container installs, so CI stays the authority
@@ -252,11 +252,13 @@ request:
    longer in hand, and nobody else will look.
 
 **Cloud coders write the branches.** Pick an issue for the cloud when its proof
-is `make gates` and **no in-flight branch works in the same module**. Run one
-branch per module at a time, each started when the previous one merged:
-parallelism comes from spreading across modules (`core`, `compositor`,
-`render`, `zimmer`, `providers`, `mcp`, `server`, `web/`, `app/`, CI) at once,
-not from stacking work in one.
+is `make gates` and **no in-flight branch edits the same types or files**.
+Parallelism comes from spreading across areas (`zimmer`, `providers`, `mcp`,
+`server`, `web/`, `app/`, CI) at once, not from stacking work in one. A crate
+is too coarse a unit here: nearly every editing feature touches both `core`
+and `compositor`, so sort those by the collision rule above — the shared
+appends (validation errors, the per-layer compositing path, the format doc,
+the schema bump) — rather than by crate, or the batch runs one at a time.
 
 **The local slot takes what only the operator's machine can do:** measurements
 that decide something (a before/after table in the pull request), fixes that
