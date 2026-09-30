@@ -7,13 +7,13 @@
 //! hand. A caller here decides how to print the answer and what to do about
 //! it; it never decides what the answer is.
 //!
-//! Six sources meet, and no other command can see all six at once — the pool's
+//! Seven sources meet, and no other command can see all seven at once — the pool's
 //! health ([`scorsese_core::asset_status`]), the fonts a text asset names
 //! ([`crate::unknown_fonts`], [`crate::uncovered_glyphs`]), the symbols an icon
 //! asset names ([`crate::unknown_icons`]), the properties a keyframe track
 //! animates ([`crate::unknown_in`]), what the picture draws on top of what
-//! ([`crate::Layout`], filtered down to the stacks nobody meant) and the
-//! document's own validation. That is why the assembly sits in this crate rather
+//! ([`crate::Layout`], filtered down to the stacks nobody meant), which clips
+//! blend with nothing beneath them, and the document's own validation. That is why the assembly sits in this crate rather
 //! than in `core`: a face is a file this crate opens, a symbol is a catalogue it
 //! re-exports, and where a title lands is this crate's own matrix.
 //!
@@ -24,6 +24,7 @@
 //! plan, and a clip whose source size nobody recorded is one it stays quiet
 //! about rather than spawning a probe for.
 
+mod beneath;
 mod media;
 mod overlap;
 
@@ -103,7 +104,8 @@ impl Verdict {
 ///   what anyone meant: a keyframe track naming a property nobody animates, a
 ///   file whose content changed since it was imported, a script the document
 ///   names and the disk does not have, two layers of comparable size drawn
-///   across each other for long enough that it was probably not a transition.
+///   across each other for long enough that it was probably not a transition,
+///   an `add` blend on the lowest layer where there is nothing to add to.
 ///
 /// Both are collected even when there are problems: an agent repairing a
 /// project unattended should see the whole list, not discover it one
@@ -156,6 +158,13 @@ impl Checkup {
         // have been meant, in the report the author is already reading.
         lines.extend(
             overlap::collisions(project, project_dir)
+                .into_iter()
+                .map(Line::warning),
+        );
+        // A blend with only the empty canvas beneath it: correct pixels, and
+        // almost certainly not the pixels anybody meant.
+        lines.extend(
+            beneath::over_nothing(project)
                 .into_iter()
                 .map(Line::warning),
         );

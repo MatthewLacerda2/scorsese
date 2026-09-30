@@ -80,6 +80,7 @@ pub mod grouping;
 pub(crate) mod icon;
 pub(crate) mod keyframe;
 pub mod level;
+pub(crate) mod light;
 pub mod migrate;
 pub mod note;
 pub mod pacing;
@@ -118,6 +119,7 @@ pub use keyframe::{Between, Easing, Keyframe, KeyframeTrack, PropertyPath};
 // As with `pacing::scale`, the function stays behind its module: a bare
 // `scorsese_core::set` names nothing at all.
 pub use level::{Level, LevelError, Levelled};
+pub use light::{Blend, Glow, Shadow};
 pub use note::{Annotated, Noted};
 // The function itself is deliberately left behind the module — see
 // [`pacing`] for why `scorsese_core::scale` would be the wrong name.

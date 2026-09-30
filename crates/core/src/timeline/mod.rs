@@ -14,6 +14,7 @@ use crate::asset::AssetId;
 use crate::chroma::ChromaKey;
 use crate::grade::Grade;
 use crate::keyframe::KeyframeTrack;
+use crate::light::{Blend, Glow, Shadow};
 use crate::time::{Frames, Speed};
 use crate::vhs::Vhs;
 
@@ -291,6 +292,43 @@ pub struct Clip {
     /// one.
     #[serde(default, skip_serializing_if = "Vhs::is_none")]
     pub vhs: Vhs,
+    /// The drop shadow this clip casts, or `None` — which is almost every
+    /// clip. See [`Shadow`] for the four numbers and the unit they share.
+    ///
+    /// **Computed from the finished picture of the layer**: after the key, the
+    /// grade, the blur, the aberration and the tape, so a blurred layer casts a
+    /// blurred shadow and a keyed one casts the shadow of what the key left.
+    /// On a group clip it is the whole group's shadow, one silhouette, because
+    /// the group is one picture by then.
+    ///
+    /// A field **and** one animatable property, `shadow.opacity`, which does
+    /// nothing on a clip with no shadow — the same bargain
+    /// [`Clip::chroma_key`]'s tolerance makes.
+    ///
+    /// Picture only. An audio clip has no pixels to cast one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shadow: Option<Shadow>,
+    /// The halo of light this clip gives off, or `None`. See [`Glow`].
+    ///
+    /// Computed from the same finished picture [`Clip::shadow`] is, and drawn
+    /// between the shadow and the layer. On a group clip it lights the whole
+    /// group, which is how thirty boxes and arrows glow as one diagram.
+    ///
+    /// A field **and** two animatable properties, `glow.radius` and
+    /// `glow.intensity`, which do nothing on a clip with no glow.
+    ///
+    /// Picture only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub glow: Option<Glow>,
+    /// How this clip lands on what is beneath it — shadow and glow included,
+    /// since they are part of the layer's picture. Absent is
+    /// [`Blend::Normal`], what every clip did before the field existed.
+    ///
+    /// A field only: a mode is not a number a track could carry.
+    ///
+    /// Picture only.
+    #[serde(default, skip_serializing_if = "Blend::is_normal")]
+    pub blend: Blend,
     /// Why this clip is the way it is. Never rendered — see [`super::Track::note`].
     ///
     /// The commonest place a note belongs, because most decisions are decisions
@@ -342,6 +380,9 @@ impl Clip {
             aberration: 0.0,
             chroma_key: None,
             vhs: Vhs::NONE,
+            shadow: None,
+            glow: None,
+            blend: Blend::Normal,
             keyframes: Vec::new(),
             note: None,
         }

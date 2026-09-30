@@ -3,7 +3,7 @@
 mod common;
 
 use scorsese_compositor::{ANIMATED, Properties, Registry, path};
-use scorsese_core::{ChromaKey, Frames, PropertyPath, Rgba};
+use scorsese_core::{ChromaKey, Frames, Glow, PropertyPath, Rgba, Shadow};
 
 use common::constant;
 
@@ -25,10 +25,13 @@ fn every_published_property_is_one_the_compositor_actually_resolves() {
     // The baseline carries a key, because two of these paths are settings *of*
     // one: a `chroma_key.tolerance` track on a clip with no screen colour has
     // no key to be a tolerance of, and resolves to nothing for a reason that is
-    // about the document rather than about the compositor. Every other property
-    // is at its default here exactly as before.
+    // about the document rather than about the compositor. A shadow and a glow
+    // are there for the same reason, for `shadow.opacity` and `glow.*`. Every
+    // other property is at its default here exactly as before.
     let baseline = Properties {
         chroma_key: Some(ChromaKey::new(Rgba::opaque(0, 177, 64))),
+        shadow: Some(Shadow::default()),
+        glow: Some(Glow::default()),
         ..Properties::default()
     };
     for property in ANIMATED {

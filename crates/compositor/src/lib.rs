@@ -103,6 +103,17 @@
 //! overlay footage and no noise plate, only arithmetic over the layer's own
 //! pixels.
 //!
+//! `light` is the last of a layer's own stages and the first that is about
+//! the frame rather than the layer: a shadow and a glow grown from the
+//! finished picture with `blur`'s kernel and stacked under it, and the blend
+//! the result lands with. It is the one stage that makes a picture *bigger* —
+//! padded out to the halo's reach, so a layer smaller than the canvas is not
+//! cut off square at its old box — and it is written so that another
+//! per-layer stage acting on the finished picture (a matte, #589) slots in
+//! beside it rather than inside it: it takes premultiplied bytes and a
+//! resolution, hands back the same plus a padding, and knows nothing about
+//! transforms or the canvas.
+//!
 //! [`mod@grid`] is the one thing here that is part of no picture: a ruler drawn
 //! *over* a finished frame, in the fractions `crop` and `transform.position`
 //! are written in, so a coordinate can be read off a still instead of guessed
@@ -122,8 +133,9 @@
 //! the [`CpuCompositor`] behind it, the [`Layer`] they take and the [`Frame`],
 //! [`Resolution`] and [`PIXEL_FORMAT`] a picture is carried in, the
 //! [`Properties`] one instant of a clip resolves to, the [`ANIMATED`] list with
-//! the [`Registry`] that searches it, and the two fades ([`fade_in`],
-//! [`fade_out`]).
+//! the [`Registry`] that searches it, the two fades ([`fade_in`],
+//! [`fade_out`]), and [`MAX_GLOW_INTENSITY`], the one clamp a caller may want
+//! to quote.
 //!
 //! [`text`], [`card`], [`mod@shape`], [`mod@icon`], [`mod@grid`] and
 //! [`mod@dissolve`] keep
@@ -154,6 +166,7 @@ mod grade;
 mod grain;
 pub mod grid;
 pub mod icon;
+mod light;
 mod paint;
 mod properties;
 mod registry;
@@ -168,5 +181,6 @@ pub use compose::{CompositeError, Compositor, Layer};
 pub use cpu::CpuCompositor;
 pub use dissolve::{DissolveError, Placed, dissolve};
 pub use frame::{BYTES_PER_PIXEL, Frame, PIXEL_FORMAT, Resolution, ResolutionError};
+pub use light::MAX_GLOW_INTENSITY;
 pub use properties::{ANIMATED, Properties, fade_in, fade_out, path};
 pub use registry::{Property, Registry};

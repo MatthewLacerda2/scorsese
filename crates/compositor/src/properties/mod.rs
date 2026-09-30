@@ -19,145 +19,20 @@
 //! of known properties, adding one becomes a core change and the generality
 //! rule is gone.
 
-use scorsese_core::{ChromaKey, Clip, Frames, Grade, KeyframeTrack, Vhs};
+use scorsese_core::{Blend, ChromaKey, Clip, Frames, Glow, Grade, KeyframeTrack, Shadow, Vhs};
 
 use crate::registry::Property;
 use crate::shape::Trace;
 use crate::text::Sweep;
 
 mod fades;
+mod reading;
 mod text;
 
 pub use fades::{fade_in, fade_out};
 
 /// The property paths this compositor resolves.
-pub mod path {
-    /// How solid the layer is: `0.0` invisible, `1.0` opaque.
-    pub const OPACITY: &str = "opacity";
-    /// How far the layer's own pixels are softened, as a fraction of the
-    /// layer's own **height**. `0.0` untouched, higher is blurrier.
-    ///
-    /// Animated as `blur` and not `grade.blur`: a grade is the closed set of
-    /// colour properties, each of which reads one pixel and writes one, and
-    /// this one reads a neighbourhood.
-    pub const BLUR: &str = "blur";
-    /// How far the layer's colour channels are pulled apart by the lens, as a
-    /// fraction of the layer's own **height** at its top and bottom edges.
-    /// `0.0` is glass nobody ever looked through; higher fringes harder.
-    ///
-    /// Animated as `aberration` and not `grade.aberration`, for [`BLUR`]'s
-    /// reason and more plainly than blur has it: this reads *three* source
-    /// pixels to write one, where every field of a grade reads the one it is
-    /// writing.
-    pub const ABERRATION: &str = "aberration";
-    /// How far a pixel's colour may sit from the keyed screen colour and still
-    /// be screen. `0.0` keys only an exact match; higher takes more with it.
-    ///
-    /// **Does nothing on a clip with no `chroma_key`**, and that is not the
-    /// ignore-an-unknown-property rule: the path is known and resolved, there
-    /// is simply no key for it to be a tolerance *of*. A key needs a colour,
-    /// and a colour is not a number a track can carry.
-    pub const KEY_TOLERANCE: &str = "chroma_key.tolerance";
-    /// How wide the ramp from screen to subject is, measured outward from
-    /// [`KEY_TOLERANCE`]. `0.0` is a hard cutout. Does nothing without a key,
-    /// for the reason above.
-    pub const KEY_SOFTNESS: &str = "chroma_key.softness";
-    /// Horizontal offset from where the layer naturally sits, as a fraction of
-    /// the canvas **width**: `0.25` is a quarter of the way across it.
-    pub const POSITION_X: &str = "transform.position.x";
-    /// Vertical offset, as a fraction of the canvas **height**. Positive is
-    /// down, as on the raster.
-    pub const POSITION_Y: &str = "transform.position.y";
-    /// Horizontal size multiplier about the layer's `origin`, which is its
-    /// own centre unless the clip named another point.
-    pub const SCALE_X: &str = "transform.scale.x";
-    /// Vertical size multiplier about the layer's `origin`, which is its own
-    /// centre unless the clip named another point.
-    pub const SCALE_Y: &str = "transform.scale.y";
-    /// Turn about the layer's `origin`, in degrees. **Positive is
-    /// clockwise** — nobody should have to render a frame to find that out.
-    pub const ROTATION: &str = "transform.rotation";
-    /// Turn about the layer's own **horizontal** axis, in degrees: the top edge
-    /// swinging toward you. `0` is face on, `90` edge on and so invisible,
-    /// `180` face on again and mirrored top to bottom.
-    ///
-    /// The name is the axis turned **about**, not the direction the picture
-    /// appears to move — the same convention [`ROTATION`] uses, and said
-    /// outright here because nobody should have to render a frame to find out
-    /// which way a flip goes.
-    pub const FLIP_X: &str = "transform.flip.x";
-    /// Turn about the layer's own **vertical** axis, in degrees: the page-turn,
-    /// one side edge swinging toward you. `0` is face on, `90` edge on and so
-    /// invisible, `180` face on again and mirrored left to right.
-    ///
-    /// Named for the axis turned **about**, so this is the one some people
-    /// would call "flipping horizontally" — see [`FLIP_X`] for why the
-    /// convention is worth stating rather than guessing at.
-    pub const FLIP_Y: &str = "transform.flip.y";
-    /// How much colour, about each pixel's own grey. `1.0` untouched, `0.0`
-    /// fully grey, above `1.0` oversaturated.
-    pub const SATURATION: &str = "grade.saturation";
-    /// Which way the whites lean. `0.0` untouched, negative cooler, positive
-    /// warmer.
-    pub const TEMPERATURE: &str = "grade.temperature";
-    /// Light added, as an offset. `0.0` untouched, negative darker, positive
-    /// lighter.
-    pub const BRIGHTNESS: &str = "grade.brightness";
-    /// How steep the range is about mid-grey. `1.0` untouched, below flattens,
-    /// above steepens.
-    pub const CONTRAST: &str = "grade.contrast";
-    /// How much the layer's own corners are darkened. `0.0` none, `1.0` takes
-    /// them to black.
-    pub const VIGNETTE: &str = "grade.vignette";
-    /// How much grain is laid over the layer. `0.0` none, `1.0` heaviest.
-    ///
-    /// Animated as `grade.grain` and not as a property of its own, unlike
-    /// [`BLUR`]: grain reads one pixel and writes one pixel, which is the test
-    /// for being part of a grade. That it also consults the frame is what makes
-    /// it move, not what makes it something else.
-    pub const GRAIN: &str = "grade.grain";
-    /// How far the tape smeared colour sideways, as a fraction of the layer's
-    /// own **width**. `0.0` none, `1.0` heaviest. Nothing at all in `mono`,
-    /// where there is no chroma path to smear.
-    pub const CHROMA_BLEED: &str = "vhs.chroma_bleed";
-    /// How much snow the tape laid over the layer. `0.0` none, `1.0` heaviest.
-    ///
-    /// The tape's noise rather than the emulsion's, and a clip may carry both:
-    /// this one speckles the colour differences as well as the luma, which is
-    /// what makes tape noise coloured where [`GRAIN`] is not.
-    pub const TAPE_NOISE: &str = "vhs.noise";
-    /// How dark the tape's alternate lines are. `0.0` none, `1.0` darkest.
-    pub const SCANLINES: &str = "vhs.scanlines";
-    /// How far the tracking wobbles, as a fraction of the layer's own
-    /// **width** — the one measurement here that is, because a row is
-    /// displaced along itself. `0.0` holds still.
-    pub const JITTER: &str = "vhs.jitter";
-    /// How torn the band at the bottom of the picture is, where the tape's
-    /// heads hand over. `0.0` leaves the bottom of frame alone.
-    pub const HEAD_SWITCH: &str = "vhs.head_switch";
-    /// Where a shape's drawn line starts, as a fraction of the outline's
-    /// length. `0.0` its start. Clamped to `0.0..=1.0` when drawn.
-    ///
-    /// Under `shape.` because it belongs to what a shape asset draws rather
-    /// than to the layer: on anything else nothing reads it.
-    pub const TRIM_START: &str = "shape.trim_start";
-    /// Where a shape's drawn line ends, as a fraction of the outline's length.
-    /// `1.0` all the way; `0.0 → 1.0` is a line drawing itself on.
-    pub const TRIM_END: &str = "shape.trim_end";
-    /// How far a dashed shape's pattern has moved along its line, toward the
-    /// end, as a fraction of the raster's **height**. Increasing it makes the
-    /// dashes flow — "marching ants".
-    pub const DASH_OFFSET: &str = "shape.dash_offset";
-    /// How much of a text layer has arrived, `0.0` none and `1.0` all, piece
-    /// by piece as its `reveal` block cuts it. Its keyframe easing shapes each
-    /// piece's entrance rather than the sweep across them. Nothing on a layer
-    /// that is not text.
-    pub const REVEAL: &str = "reveal";
-    /// The figure a text layer writes where its text says `{n}`, never
-    /// travelling past the keyframes either side of it. Nothing on a text with
-    /// no `number` block, or on a layer that is not text.
-    pub const NUMBER: &str = "number";
-}
+pub mod path;
 
 /// What this compositor animates, and what animating it does.
 ///
@@ -285,6 +160,19 @@ pub const ANIMATED: &[Property] = &[
         path: path::NUMBER,
         describes: "the figure a text layer writes where its text says {n}",
     },
+    Property {
+        path: path::SHADOW_OPACITY,
+        describes: "how dark the layer's drop shadow is, clamped to 0-1; nothing without a shadow",
+    },
+    Property {
+        path: path::GLOW_RADIUS,
+        describes: "how far the layer's glow reaches, as a fraction of its own height; nothing \
+                    without a glow",
+    },
+    Property {
+        path: path::GLOW_INTENSITY,
+        describes: "how bright the layer's glow is, clamped to 0-4; nothing without a glow",
+    },
 ];
 
 /// What a layer looks like at one instant.
@@ -400,6 +288,14 @@ pub struct Properties {
     /// the value its own `number` block states. Read where the glyphs are
     /// drawn, like [`Properties::sweep`].
     pub number: Option<f64>,
+    /// The drop shadow the layer casts, or `None`. Drawn from the layer's
+    /// finished picture — after every stage above — and under it.
+    pub shadow: Option<Shadow>,
+    /// The halo of light the layer gives off, or `None`. Drawn from the same
+    /// finished picture, between the shadow and the layer.
+    pub glow: Option<Glow>,
+    /// How the layer — its shadow and glow with it — lands on the canvas.
+    pub blend: Blend,
 }
 
 impl Default for Properties {
@@ -422,6 +318,9 @@ impl Default for Properties {
             trace: Trace::WHOLE,
             sweep: Sweep::DONE,
             number: None,
+            shadow: None,
+            glow: None,
+            blend: Blend::Normal,
         }
     }
 }
@@ -448,6 +347,9 @@ impl Properties {
                 aberration: clip.aberration,
                 chroma_key: clip.chroma_key,
                 vhs: clip.vhs,
+                shadow: clip.shadow,
+                glow: clip.glow,
+                blend: clip.blend,
                 ..Self::default()
             },
             &clip.keyframes,
@@ -518,6 +420,24 @@ impl Properties {
                 path::TRIM_START => properties.trace.trim_start = value,
                 path::TRIM_END => properties.trace.trim_end = value,
                 path::DASH_OFFSET => properties.trace.dash_offset = value,
+                // Only when there is one, for the key's reason above: a shadow
+                // or a glow invented to hang a number on would be a colour and
+                // an offset nobody chose.
+                path::SHADOW_OPACITY => {
+                    if let Some(shadow) = properties.shadow.as_mut() {
+                        shadow.opacity = value;
+                    }
+                }
+                path::GLOW_RADIUS => {
+                    if let Some(glow) = properties.glow.as_mut() {
+                        glow.radius = value;
+                    }
+                }
+                path::GLOW_INTENSITY => {
+                    if let Some(glow) = properties.glow.as_mut() {
+                        glow.intensity = value;
+                    }
+                }
                 _ => {}
             }
         }
@@ -537,87 +457,5 @@ impl Properties {
             properties.vhs_seed = crate::grain::seed(clip, t);
         }
         properties
-    }
-
-    /// The multiplier each axis is actually drawn at, with the flips folded in.
-    ///
-    /// A flip is not a transform of its own. Turning a card about one of its
-    /// own axes narrows what you see of it by `cos θ` along the *other* one and
-    /// does nothing else — so the whole feature is a factor on the scale that
-    /// was already being applied about the layer's own centre. That is also why
-    /// there is no separate backface case anywhere: `cos 180°` is `−1`, a
-    /// negative scale is a mirror, and a mirror is what the back of a card
-    /// looks like.
-    ///
-    /// **The axes cross over, and they cross over here, once.** A turn about
-    /// the vertical axis is what changes the horizontal extent. Getting that
-    /// backwards is the obvious bug in this feature, and it is far cheaper to
-    /// check in one function than at every place a scale is read.
-    pub fn effective_scale(&self) -> (f64, f64) {
-        (
-            self.scale.0 * self.flip.1.to_radians().cos(),
-            self.scale.1 * self.flip.0.to_radians().cos(),
-        )
-    }
-
-    /// True when this layer would draw exactly its own pixels, unmoved and
-    /// unblended — which lets a compositor copy rather than rasterise.
-    pub fn is_identity(&self) -> bool {
-        const EPSILON: f64 = 1e-9;
-        // The effective scale rather than the authored one, so a layer flipped
-        // to its back — scale `−1`, a mirror — is never mistaken for a copy,
-        // while one turned the whole way round to `360°` correctly is one.
-        let (scale_x, scale_y) = self.effective_scale();
-        self.position.0.abs() < EPSILON
-            && self.position.1.abs() < EPSILON
-            && (scale_x - 1.0).abs() < EPSILON
-            && (scale_y - 1.0).abs() < EPSILON
-            // A turned layer is never a plain copy, however slight the turn.
-            && self.rotation.abs() < EPSILON
-            && (self.opacity - 1.0).abs() < EPSILON
-            // A softened layer is not its own pixels either, and this is the
-            // easiest of these to forget: a blurred clip that is otherwise
-            // untouched satisfies every other line here, so leaving it out
-            // would send exactly the commonest blur — one on a full-frame plate
-            // with no transform on it — down the copy path and render it sharp.
-            // A negative number is not a blur and softens nothing, so it copies
-            // like zero does.
-            && self.blur <= EPSILON
-            // And a layer whose channels have been pulled apart is not its own
-            // pixels either, for exactly the reason above: a plate with nothing
-            // on it but an aberration satisfies every other line here, so
-            // leaving it out would copy the source through and render the one
-            // case this costs least to apply to with no fringing at all.
-            && self.aberration <= EPSILON
-            // And a keyed layer is not its own pixels in the one way none of
-            // the lines above would catch: the key writes *alpha*, so a layer
-            // carrying nothing but a key satisfies every other condition here
-            // and the copy path would hand the screen straight through, fully
-            // opaque, with the key silently doing nothing at all.
-            && self.chroma_key.is_none()
-            // And a taped layer is not its own pixels, for the same reason
-            // again: a plate carrying nothing but a `vhs` satisfies every other
-            // line here, so leaving it out would copy the source through and
-            // render the whole look away on exactly the clips it costs least to
-            // apply to.
-            && self.vhs.is_none()
-            // A graded layer is not its own pixels, which is the whole point of
-            // grading it. Left out, the copy path below would hand the ungraded
-            // source straight to the canvas and the grade would silently do
-            // nothing on exactly the clips it costs least to apply to.
-            && self.grade.is_neutral()
-    }
-
-    /// True when the layer would contribute nothing, so it can be skipped
-    /// rather than rasterised into oblivion.
-    ///
-    /// This is what makes an edge-on layer *genuinely absent*. At exactly `90°`
-    /// the effective scale is `cos 90°`, which is zero to within a rounding
-    /// error, and a rasteriser handed that would smear a line of colour down
-    /// the middle of the frame instead of drawing nothing at all.
-    pub fn is_invisible(&self) -> bool {
-        const EPSILON: f64 = 1e-9;
-        let (scale_x, scale_y) = self.effective_scale();
-        self.opacity <= EPSILON || scale_x.abs() <= EPSILON || scale_y.abs() <= EPSILON
     }
 }

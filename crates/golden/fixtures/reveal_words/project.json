@@ -1,5 +1,5 @@
 {
-  "schema_version": 37,
+  "schema_version": 38,
   "name": "reveal_words",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [

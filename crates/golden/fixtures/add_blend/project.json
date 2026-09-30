@@ -1,0 +1,63 @@
+{
+  "schema_version": 38,
+  "name": "add_blend",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    { "id": "night", "kind": "color", "color": "#101010" },
+    {
+      "id": "red",
+      "kind": "shape",
+      "shape": {
+        "geometry": { "ellipse": { "width": 0.4, "height": 0.6 } },
+        "fill": "#c02020ff"
+      }
+    },
+    {
+      "id": "green",
+      "kind": "shape",
+      "shape": {
+        "geometry": { "ellipse": { "width": 0.4, "height": 0.6 } },
+        "fill": "#20c020ff"
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [{ "id": "c-night", "asset": "night", "start": 0, "duration": 10 }]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-red",
+          "asset": "red",
+          "start": 0,
+          "duration": 10,
+          "blend": "add",
+          "keyframes": [
+            { "property": "transform.position.x", "keyframes": [{ "t": 0, "value": -0.1 }] }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "v3",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-green",
+          "asset": "green",
+          "start": 0,
+          "duration": 10,
+          "blend": "add",
+          "keyframes": [
+            { "property": "transform.position.x", "keyframes": [{ "t": 0, "value": 0.1 }] }
+          ]
+        }
+      ]
+    }
+  ]
+}

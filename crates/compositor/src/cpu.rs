@@ -5,7 +5,7 @@
 //! can later be held to.
 
 use scorsese_core::{Anchor, AnchorX, AnchorY, Origin};
-use tiny_skia::{BlendMode, FilterQuality, PixmapMut, PixmapPaint, PixmapRef, Transform};
+use tiny_skia::{FilterQuality, PixmapMut, PixmapPaint, PixmapRef, Transform};
 
 use crate::aberration;
 use crate::blur;
@@ -13,6 +13,7 @@ use crate::chroma;
 use crate::compose::{CompositeError, Compositor, Layer};
 use crate::frame::{BYTES_PER_PIXEL, Frame};
 use crate::grade;
+use crate::light;
 use crate::properties::Properties;
 use crate::vhs::{self, Tape};
 
@@ -58,6 +59,12 @@ pub struct CpuCompositor {
 /// only stage that moves whole rows sideways, so running anything after it
 /// would be filtering across a tear the filter knows nothing about.
 ///
+/// Shadow and glow come after all four, and that one is not a tie either:
+/// they are the layer's light meeting the world, grown from its finished
+/// picture, so a blurred layer casts a blurred shadow and a taped one a taped
+/// shadow. They are also the only stage that makes the picture *bigger* — see
+/// [`light`] — which is one more reason to run nothing after them.
+///
 /// So the middle two are ordered on what is easiest to reason about instead. Everything
 /// above this line answers *what colour is this pixel* — the grade from the
 /// pixel itself, the blur from its neighbourhood, both writing where they read.
@@ -83,6 +90,9 @@ struct Scratch {
     /// The layer as a tape held it, and the row buffers that took it there —
     /// see [`vhs`].
     taped: vhs::Buffers,
+    /// The layer with its shadow and glow drawn under it, padded out to their
+    /// reach — see [`light`].
+    lit: light::Buffers,
 }
 
 impl CpuCompositor {
@@ -184,6 +194,7 @@ fn draw(
         blurred,
         aberrated,
         taped,
+        lit,
     } = scratch;
     // First, and on the colours the decoder produced: everything below this
     // line changes what colour a pixel is, and the screen the key is aimed at
@@ -257,30 +268,44 @@ fn draw(
             source_resolution,
         ),
     );
-    let source = PixmapRef::from_bytes(
+    // Last of the layer's own stages, on its finished picture: the shadow and
+    // the glow are grown from what every stage above left, and drawn under it.
+    // The result is padded out to their reach, which the transform below
+    // takes back off so the layer itself lands exactly where it would unlit.
+    let height = source_resolution.height();
+    let lit = light::into(
+        lit,
         source_bytes,
-        source_resolution.width(),
-        source_resolution.height(),
-    )
-    .ok_or(CompositeError::BadLayer {
-        resolution: source_resolution,
-        bytes: source_bytes.len(),
-    })?;
+        source_resolution,
+        light::cast(layer.properties.shadow, height),
+        light::halo(layer.properties.glow, height),
+    );
+    let source = PixmapRef::from_bytes(lit.bytes, lit.resolution.width(), lit.resolution.height())
+        .ok_or(CompositeError::BadLayer {
+            resolution: source_resolution,
+            bytes: source_bytes.len(),
+        })?;
 
     let paint = PixmapPaint {
         opacity: layer.properties.opacity.clamp(0.0, 1.0) as f32,
         // Bilinear: a scaled layer should not look like a mosaic, and anything
         // heavier buys nothing at the sizes a preview or a render works at.
         quality: FilterQuality::Bilinear,
-        blend_mode: BlendMode::SourceOver,
+        // The layer's own blend, and it carries its shadow and glow with it:
+        // they are one picture by now.
+        blend_mode: light::blend_mode(layer.properties.blend),
     };
+    // Worked out on the layer's own raster, so the padding changes nothing
+    // about where it rests or what it turns about; the padding is then taken
+    // off in the layer's own pixels, before the scale and the turn.
     let transform = transform_of(
         &layer.properties,
         layer.anchor,
         layer.origin,
         source_resolution,
         canvas.resolution(),
-    );
+    )
+    .pre_translate(-(lit.pad.0 as f32), -(lit.pad.1 as f32));
 
     let canvas_resolution = canvas.resolution();
     let bytes = canvas.byte_count();
@@ -293,8 +318,8 @@ fn draw(
         resolution: canvas_resolution,
         bytes,
     })?;
-    // The canvas began opaque and every blend here is source-over onto it, so
-    // it stays opaque — which is why it needs no premultiplication in either
+    // The canvas began opaque and every blend here leaves an opaque pixel
+    // opaque — source-over, and the three a `blend` adds — so it stays opaque — which is why it needs no premultiplication in either
     // direction. Break that invariant and the colours come out wrong. The one
     // canvas that starts transparent is an offscreen one, and it is read as
     // premultiplied throughout and turned back into straight alpha only once

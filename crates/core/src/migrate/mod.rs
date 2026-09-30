@@ -20,7 +20,7 @@
 //! [`Project::load`] still refuse any version that is not this build's: a
 //! document meets this module once, is rewritten at the current version, and
 //! is read by the strict path from then on. That keeps "this build understands
-//! v37" a statement about one version rather than about a range.
+//! v38" a statement about one version rather than about a range.
 
 use std::path::{Path, PathBuf};
 
@@ -72,6 +72,10 @@ pub(crate) const STEPS: &[Step] = &[
         from: 36,
         apply: text_motion_arrives,
     },
+    Step {
+        from: 37,
+        apply: light_arrives,
+    },
 ];
 
 /// v33 → v34: the `group` asset kind (#586).
@@ -120,6 +124,16 @@ fn dashes_arrive(_: &mut Value) -> Result<(), String> {
 /// ordinary characters, because it is the `number` block and not the braces
 /// that makes a figure.
 fn text_motion_arrives(_: &mut Value) -> Result<(), String> {
+    Ok(())
+}
+
+/// v37 → v38: a clip's `shadow`, `glow` and `blend` (#585).
+///
+/// Nothing to rewrite, for [`groups_arrive`]'s reason: the version added three
+/// optional fields to a clip, each absent meaning exactly what every v37 clip
+/// already drew — no shadow, no glow, source-over — so a v37 document renders
+/// the same pixels at v38.
+fn light_arrives(_: &mut Value) -> Result<(), String> {
     Ok(())
 }
 
