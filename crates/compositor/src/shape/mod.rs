@@ -19,11 +19,27 @@
 //! draws a line between two points that already say where they are, so no
 //! anchor reaches it at all.
 //!
+//! **A line can be part drawn and broken into dashes.** [`Stroking`] says how
+//! much of the outline is stroked and in what pattern, and [`Trace`] is the
+//! animated half of it as one instant of a clip resolves it. Both are about the
+//! line alone — a fill is always whole.
+//!
+//! **An outline can be walked by distance.** [`measure`] turns any outline into
+//! a [`Measured`] one, which answers where the point a fraction of the way
+//! along it is and which way it heads there. A trim is cut with it, and motion
+//! along a path is the other thing it is for.
+//!
 //! Not to be confused with `text::shape`, which is a verb: turning characters
 //! into positioned glyphs. Nothing in this module has anything to do with it.
 
 pub(crate) mod arrow;
 pub(crate) mod closed;
+mod measure;
+mod stroke;
+mod trace;
+
+pub use measure::{Measured, Station};
+pub use trace::{Dash, Stroking, Trace};
 
 use scorsese_core::{Anchor, Curve, Heads, Rgba};
 
@@ -113,7 +129,16 @@ pub fn area_of(outline: &Outline, resolution: Resolution) -> Option<Area> {
     })
 }
 
-/// Draws `figure` onto `frame`.
+/// Draws `figure` onto `frame`, its line whole and solid.
+///
+/// The same as [`draw_stroked`] with [`Stroking::WHOLE`], which is what every
+/// shape looks like unless its line is trimmed or dashed.
+pub fn draw(frame: &mut Frame, figure: &Figure) {
+    draw_stroked(frame, figure, &Stroking::WHOLE);
+}
+
+/// Draws `figure` onto `frame`, with as much of its line as `stroking` keeps
+/// and in its pattern.
 ///
 /// **Fill first, then border**, so a translucent interior does not wash over
 /// the line that bounds it — a border is the sharper edge of the two and the
@@ -122,14 +147,34 @@ pub fn area_of(outline: &Outline, resolution: Resolution) -> Option<Area> {
 /// The frame is drawn onto as it arrives, cleared or not. A shape layer starts
 /// transparent, so the tracks underneath show through everywhere the shape is
 /// not — and through the middle of it too, when there is no fill.
-pub fn draw(frame: &mut Frame, figure: &Figure) {
+pub fn draw_stroked(frame: &mut Frame, figure: &Figure, stroking: &Stroking) {
     if let Outline::Arrow(arrow) = figure.outline {
         // No border, no arrow. A line is its stroke and nothing else, so there
         // is no second way for one to reach the frame.
         if let Some(border) = figure.border {
-            arrow::draw(frame, arrow, border);
+            arrow::draw(frame, arrow, border, stroking);
         }
         return;
     }
-    closed::draw(frame, figure);
+    closed::draw(frame, figure, stroking);
+}
+
+/// `outline` measured along its length, as it would be drawn on a raster of
+/// `resolution` — the line an arrow runs along, or the border round a box.
+///
+/// `None` for an outline with no length: an arrow whose ends coincide, or a
+/// box with no size. Where the measuring starts is where the drawing does — an
+/// arrow at `from`; a rectangle at its top-left corner and an ellipse at its
+/// rightmost point, both running clockwise.
+///
+/// **How motion along a path uses it:** measure the arrow's outline for the
+/// frame (an attached arrow's ends are per frame, so so is this), then
+/// [`Measured::at`] with the progress gives the point to put the clip on and,
+/// through [`Station::heading`], the angle to turn it to face along the line.
+pub fn measure(outline: &Outline, resolution: Resolution) -> Option<Measured> {
+    let path = match *outline {
+        Outline::Arrow(arrow) => arrow::line(arrow, &arrow::Run::of(arrow)?)?,
+        closed => closed::path(closed, resolution)?,
+    };
+    Measured::of_path(&path)
 }

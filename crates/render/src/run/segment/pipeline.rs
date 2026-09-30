@@ -36,7 +36,6 @@ use crate::error::RenderError;
 use crate::pipe::Decoder;
 use crate::plan::Segment;
 
-use super::attach::End;
 use super::layers::{Entry, Pixels, Slot};
 use super::{Pass, Write};
 
@@ -328,10 +327,11 @@ fn produce(
         let clip = entry.shot.clip;
         Properties::at(clip, elapsed(entry.shot.local(at), clip))
     }));
-    // Attached arrows last, because they read the properties every other layer
-    // just resolved. This is the whole of the ordering the feature costs: one
-    // pass over the layers, then the arrows that depend on them.
-    draw_attached(slots, decoders.len(), &mut job, pass.settings.resolution);
+    // Per-frame layers last, because they read the properties every layer just
+    // resolved — an attached arrow those of the clips it follows, a keyframed
+    // line its own. This is the whole of the ordering either costs: one pass
+    // over the layers, then the ones that depend on them.
+    redraw(slots, decoders.len(), &mut job, pass.settings.resolution);
     Ok(job)
 }
 
@@ -354,29 +354,20 @@ struct Feed<'a> {
     missing: &'a mut [u64],
 }
 
-/// Redraws every attached arrow for this frame, from wherever the clips they
-/// follow have got to.
-fn draw_attached(slots: &[Slot], live: usize, job: &mut Job, canvas: Resolution) {
-    for slot in slots {
-        let Pixels::Drawn { at, following } = &slot.pixels else {
+/// Redraws every per-frame layer for this frame: attached arrows from
+/// wherever the clips they follow have got to, and keyframed lines at however
+/// much of them is drawn by now.
+fn redraw(slots: &[Slot], live: usize, job: &mut Job, canvas: Resolution) {
+    for (own, slot) in slots.iter().enumerate() {
+        let Pixels::Drawn { at, redraw } = &slot.pixels else {
             continue;
         };
-        let ends = [&following.from, &following.to].map(|end| match end {
-            End::Fixed(x, y) => (
-                (x * f64::from(canvas.width())) as f32,
-                (y * f64::from(canvas.height())) as f32,
-            ),
-            End::Follows { layer, side } => {
-                slots[*layer]
-                    .rect
-                    .point_at(*side, &job.properties[*layer], canvas)
-            }
-        });
-        crate::shape::paint_arrow(
+        redraw.draw(
             &mut job.buffers[live + at],
-            &following.shape,
-            ends[0],
-            ends[1],
+            slots,
+            &job.properties,
+            own,
+            canvas,
         );
     }
 }

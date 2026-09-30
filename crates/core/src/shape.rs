@@ -12,9 +12,13 @@
 //! shape *has* an outline, an interior colour and a border colour; it never
 //! says which. There is no "callout box" and no "make it red".
 //!
-//! Nothing here animates. A shape that fades or slides does it through the
-//! properties every layer already has — `opacity` and `transform.*` — rather
-//! than through a second, shape-shaped way of saying the same thing.
+//! Almost nothing here animates. A shape that fades or slides does it through
+//! the properties every layer already has — `opacity` and `transform.*` —
+//! rather than through a second, shape-shaped way of saying the same thing.
+//! The exception is its line, which no layer property can reach: how much of
+//! it is drawn and where its dashes sit are keyframed on the clip, under
+//! `shape.*`, and resolved by the compositor like any other property. The
+//! static half of that — the dash pattern — is [`Shape::dash`].
 
 use serde::{Deserialize, Serialize};
 
@@ -64,6 +68,15 @@ pub struct Shape {
     /// size of the shape rather than of its ink.
     #[serde(default = "default_stroke_width")]
     pub stroke_width: f64,
+    /// The border broken into dashes: lengths along the line, on, off, on,
+    /// off…, each a fraction of the raster's **height** like `stroke_width`.
+    /// An odd count is read twice over, so `[0.02]` is dashes and gaps of one
+    /// length. Absent is a solid line.
+    ///
+    /// The pattern is static; where it sits along the line is the animatable
+    /// `shape.dash_offset`, which is how a connector's dashes are made to flow.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dash: Option<Vec<f64>>,
 }
 
 fn default_stroke_width() -> f64 {
@@ -78,6 +91,7 @@ impl Shape {
             fill: Some(fill),
             stroke: None,
             stroke_width: DEFAULT_STROKE_WIDTH,
+            dash: None,
         }
     }
 
@@ -88,6 +102,7 @@ impl Shape {
             fill: None,
             stroke: Some(stroke),
             stroke_width: DEFAULT_STROKE_WIDTH,
+            dash: None,
         }
     }
 

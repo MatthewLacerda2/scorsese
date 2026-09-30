@@ -64,6 +64,10 @@ pub(crate) const STEPS: &[Step] = &[
         from: 34,
         apply: easings_arrive,
     },
+    Step {
+        from: 35,
+        apply: dashes_arrive,
+    },
 ];
 
 /// v33 → v34: the `group` asset kind (#586).
@@ -90,6 +94,17 @@ fn groups_arrive(_: &mut Value) -> Result<(), String> {
 /// `spring` and `{ "cubic_bezier": [..] }` — and every easing a v34 document
 /// can hold still names the same curve with the same arithmetic.
 fn easings_arrive(_: &mut Value) -> Result<(), String> {
+    Ok(())
+}
+
+/// v35 → v36: a shape's optional `dash` pattern (#583).
+///
+/// **Nothing to rewrite.** The version added one optional field to a shape,
+/// and its absence is the solid line every v35 shape already draws; the trim
+/// and dash offset that came with it are keyframed property paths, which were
+/// never part of the format's shape at all. So every v35 document means the
+/// same thing at v36, and only its version moves.
+fn dashes_arrive(_: &mut Value) -> Result<(), String> {
     Ok(())
 }
 
@@ -377,6 +392,29 @@ mod tests {
             Easing::Hold,
         ];
         assert_eq!(read, expected);
+    }
+
+    /// v35 → v36 over a document with a shape in it — the kind the version
+    /// touched — keyframed on a path the new build now animates.
+    #[test]
+    fn a_v35_document_with_a_shape_walks_to_this_version_and_validates() {
+        let document = json!({
+            "schema_version": 35,
+            "name": "Before dashes",
+            "timeline_fps": { "num": 30, "den": 1 },
+            "assets": [{ "id": "box", "kind": "shape", "shape": {
+                "geometry": { "rectangle": { "width": 0.3, "height": 0.2 } },
+                "stroke": "#ffffffff" } }],
+            "tracks": [{ "id": "v1", "kind": "video", "clips": [
+                { "id": "c-box", "asset": "box", "start": 0, "duration": 30 }
+            ]}]
+        });
+        let (project, from) = parse(&document.to_string()).expect("a v35 document migrates");
+        assert_eq!(from, Some(35));
+        assert_eq!(project.schema_version, SCHEMA_VERSION);
+        project.validate().expect("and it is valid");
+        let shape = project.assets[0].shape.as_ref().expect("still a shape");
+        assert_eq!(shape.dash, None, "and still solid");
     }
 
     #[test]

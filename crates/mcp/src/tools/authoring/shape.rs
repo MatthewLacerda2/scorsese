@@ -28,7 +28,11 @@ impl Tool for ShapeNew {
          the frame or a clip to follow — an attached end is resolved on every \
          frame, so the arrow moves when the box it points at does. A shape with \
          neither a fill nor a border draws nothing and is refused, because a \
-         layer that renders nothing looks exactly like one that failed to."
+         layer that renders nothing looks exactly like one that failed to. \
+         The border can be dashed (`dash`); its dashes made to flow by \
+         keyframing `shape.dash_offset` on the clip, and the line made to draw \
+         itself on by keyframing `shape.trim_end` from 0 to 1 — an arrow's \
+         head rides the drawn end."
     }
 
     fn costs(&self) -> Costs {
@@ -59,6 +63,20 @@ impl Tool for ShapeNew {
             "to".to_owned(),
             arrow::endpoint_property("ends, head first"),
         );
+        properties.insert(
+            "dash".to_owned(),
+            serde_json::json!({
+                "type": "array",
+                "items": { "type": "number", "exclusiveMinimum": 0 },
+                "minItems": 1,
+                "description": "Break the border into dashes: lengths along the line, \
+                                on, off, on, off…, each a fraction of the frame's height \
+                                like `stroke_width` — `[0.02, 0.012]` is a dash twice as \
+                                long as the line is thick at the default width, then a \
+                                gap. An odd count is read twice over, so `[0.02]` is \
+                                dashes and gaps of one length. Absent is a solid line."
+            }),
+        );
         properties.insert("curve".to_owned(), arrow::curve_property());
         properties.insert("heads".to_owned(), arrow::heads_property());
         properties.insert("asset".to_owned(), id_property("the outline"));
@@ -80,6 +98,7 @@ impl Tool for ShapeNew {
             stroke: color(arguments, "stroke")?,
             stroke_width: number(arguments, "stroke_width")?
                 .unwrap_or(scorsese_core::DEFAULT_STROKE_WIDTH),
+            dash: dash(arguments)?,
         };
         let id = authoring::add_asset(
             &mut project,
@@ -128,6 +147,29 @@ fn geometry(arguments: &Value) -> Result<Geometry, String> {
         )),
         None => Err("`geometry` is required: rectangle, ellipse or arrow".to_owned()),
     }
+}
+
+/// The dash pattern, if one was given: a list of numbers, each a length.
+///
+/// Whether they are lengths a line can be broken into is validation's to say,
+/// so an empty list or a zero is passed through and refused there, in the same
+/// words a hand-written document gets.
+fn dash(arguments: &Value) -> Result<Option<Vec<f64>>, String> {
+    let Some(value) = arguments.get("dash").filter(|value| !value.is_null()) else {
+        return Ok(None);
+    };
+    let lengths = value
+        .as_array()
+        .ok_or("`dash` is a list of lengths, like [0.02, 0.012]")?;
+    lengths
+        .iter()
+        .map(|length| {
+            length
+                .as_f64()
+                .ok_or_else(|| format!("`dash` holds lengths, and {length} is not a number"))
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .map(Some)
 }
 
 /// How the outline reads back, so a caller can see what it wrote.

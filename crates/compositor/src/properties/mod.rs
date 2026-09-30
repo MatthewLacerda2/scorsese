@@ -22,6 +22,7 @@
 use scorsese_core::{ChromaKey, Clip, Frames, Grade, KeyframeTrack, Vhs};
 
 use crate::registry::Property;
+use crate::shape::Trace;
 
 mod fades;
 
@@ -132,6 +133,19 @@ pub mod path {
     /// How torn the band at the bottom of the picture is, where the tape's
     /// heads hand over. `0.0` leaves the bottom of frame alone.
     pub const HEAD_SWITCH: &str = "vhs.head_switch";
+    /// Where a shape's drawn line starts, as a fraction of the outline's
+    /// length. `0.0` its start. Clamped to `0.0..=1.0` when drawn.
+    ///
+    /// Under `shape.` because it belongs to what a shape asset draws rather
+    /// than to the layer: on anything else nothing reads it.
+    pub const TRIM_START: &str = "shape.trim_start";
+    /// Where a shape's drawn line ends, as a fraction of the outline's length.
+    /// `1.0` all the way; `0.0 → 1.0` is a line drawing itself on.
+    pub const TRIM_END: &str = "shape.trim_end";
+    /// How far a dashed shape's pattern has moved along its line, toward the
+    /// end, as a fraction of the raster's **height**. Increasing it makes the
+    /// dashes flow — "marching ants".
+    pub const DASH_OFFSET: &str = "shape.dash_offset";
 }
 
 /// What this compositor animates, and what animating it does.
@@ -239,6 +253,19 @@ pub const ANIMATED: &[Property] = &[
         describes: "how torn the band at the bottom of the layer is, where the tape's heads \
                     hand over",
     },
+    Property {
+        path: path::TRIM_START,
+        describes: "where a shape's drawn line starts, as a fraction of its outline's length",
+    },
+    Property {
+        path: path::TRIM_END,
+        describes: "where a shape's drawn line ends, as a fraction of its outline's length",
+    },
+    Property {
+        path: path::DASH_OFFSET,
+        describes: "how far a dashed shape's pattern has moved along its line, as a fraction \
+                    of the raster's height",
+    },
 ];
 
 /// What a layer looks like at one instant.
@@ -343,6 +370,9 @@ pub struct Properties {
     /// two instants of an ungrained clip compare unequal over a number neither
     /// of them uses.
     pub grain_seed: u64,
+    /// How much of a shape's line is drawn, and where its dashes are. Read
+    /// only by a shape layer; the whole line on anything else.
+    pub trace: Trace,
 }
 
 impl Default for Properties {
@@ -362,6 +392,7 @@ impl Default for Properties {
             vhs: Vhs::NONE,
             vhs_seed: 0,
             grain_seed: 0,
+            trace: Trace::WHOLE,
         }
     }
 }
@@ -452,6 +483,9 @@ impl Properties {
                 path::SCANLINES => properties.vhs.scanlines = value,
                 path::JITTER => properties.vhs.jitter = value,
                 path::HEAD_SWITCH => properties.vhs.head_switch = value,
+                path::TRIM_START => properties.trace.trim_start = value,
+                path::TRIM_END => properties.trace.trim_end = value,
+                path::DASH_OFFSET => properties.trace.dash_offset = value,
                 _ => {}
             }
         }
