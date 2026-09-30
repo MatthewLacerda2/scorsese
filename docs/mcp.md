@@ -510,6 +510,20 @@ clip_set  { "project": "teaser.scor", "clip": "logo", "scale": 0.25,
           → "`logo`: position x 0.35; position y -0.35; scale 0.25. Nothing else changed."
 ```
 
+Its `shadow`, `glow` and `blend` are a clip's light of its own. `shadow` and
+`glow` are small objects, and they keep the leave-it-alone rule one level
+down: an object **merges** into what the clip already has — `"glow": {
+"intensity": 2 }` brightens a glow and keeps its colour and reach, and on a clip
+with none starts from the defaults a document's `"glow": {}` would — and
+`false` takes one away, since `null` already means "not given". A glow's
+`"color": "own"` goes back to the clip's own colours. `blend` is one of four
+words. `docs/project-format.md` has what each number means.
+
+```
+clip_set  { "project": "teaser.scor", "clip": "link", "glow": { "radius": 0.04,
+            "intensity": 3 }, "blend": "add" }
+```
+
 **`clip_move` changes a clip's track, and `clip_remove` takes clips off the
 timeline** — the two hand-edits anyone reaches for first with a mouse, and
 otherwise a `project_write` of the whole document for the smallest change there

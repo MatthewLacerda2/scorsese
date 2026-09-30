@@ -2133,15 +2133,143 @@ an edge, which is a second filter for a halo most people would read as "somebody
 sharpened this". Five knobs that each name an artefact anybody can point at is
 worth more than six where the sixth needs explaining.
 
-**It runs last of everything applied to the layer** — after the key, the grade,
-the blur and the aberration, and before the transform places it. Those are what a
-camera did, or what was taken out of what it saw; a tape is what held the result. It also applies to every layer kind,
+**It runs last of everything applied to the layer's own pixels** — after the
+key, the grade, the blur and the aberration, and before the transform places it.
+Those are what a camera did, or what was taken out of what it saw; a tape is what
+held the result. Only a `shadow` and a `glow` come after it, because they are
+grown from the finished picture rather than applied to it. It also applies to every layer kind,
 for the reason a grade does: the compositor is handed a rectangle of pixels and
 does not know whether a decoder, a title or a shape produced them.
 
 **What is deliberately out of scope**: emulating a named tape format to spec,
 dropout compensation, timebase-corrector modelling, and any imported overlay of
 noise or tracking damage. The whole point is that this is computed.
+
+### Light of its own: `shadow`, `glow` and `blend`
+
+```json clip
+{ "id": "c-link", "asset": "arrow", "start": 0, "duration": 120,
+  "glow": { "radius": 0.04, "intensity": 3.0 }, "blend": "add" }
+```
+
+```json clip
+{ "id": "c-vessel", "asset": "vessel-cutout", "start": 0, "duration": 120, "fit": "native",
+  "shadow": { "color": "#000000", "offset_x": 0.02, "offset_y": 0.03, "softness": 0.04,
+              "opacity": 0.6 } }
+```
+
+Three looks computed from the layer's own alpha. On a dark background a line, an
+icon or a caption with no light of its own reads as flat vector art; the same
+element glowing reads as a lit display. A cut-out picture with no shadow looks
+pasted onto the frame; a soft contact shadow seats it. And overlapping glowing
+dots should brighten each other rather than hide each other, which is what
+`add` and `screen` are.
+
+**`shadow`** is the layer's silhouette — its alpha, not its colours, so a red
+ball and a blue one cast the same shadow — softened, tinted, offset, and drawn
+**under** the layer. Every field is optional, and `"shadow": {}` is a shadow at
+the defaults:
+
+| field | what it is | default |
+| --- | --- | --- |
+| `color` | the shadow's colour; its alpha multiplies `opacity` | `#000000`, black |
+| `offset_x` | how far right it falls, as a fraction of the layer's own **height**; negative is left | `0.01` |
+| `offset_y` | how far down it falls, as a fraction of the layer's own **height**; negative is up | `0.01` |
+| `softness` | how soft its edge is, measured exactly as `blur` is | `0.02` |
+| `opacity` | how dark it is, `0.0` none to `1.0` the full colour | `0.5` |
+
+**Both offsets are measured against the height**, like `softness` and `blur`,
+so equal `x` and `y` fall at exactly 45° whatever the aspect of the layer — and
+the same numbers are the same shadow at 1080p and at 4K. The offset is in the
+layer's own pixels, so a layer that turns takes its shadow round with it and a
+layer scaled up casts a longer one, the way CSS's `drop-shadow` behaves. An
+offset past a whole height either way is held at one.
+
+**`glow`** is a soft halo round whatever the layer draws: its alpha — and, by
+default, its colours — blurred and drawn **under** it, centred. `"glow": {}` is
+a glow at the defaults:
+
+| field | what it is | default |
+| --- | --- | --- |
+| `color` | the light's colour; its alpha multiplies the halo | absent: **the layer's own colours** |
+| `radius` | how far the halo reaches, measured exactly as `blur` is | `0.02` |
+| `intensity` | how bright it is: `0.0` none, `1.0` the layer's own light spread out | `1.0` |
+
+Absent `color` means the layer's own, so a cyan line glows cyan and a two-colour
+icon glows in both — what "make it glow" means before anybody has an opinion
+about colour. **An intensity above `1.0` is more light than the layer has**, and
+a thin line needs it: spreading a line two pixels wide over forty leaves very
+little of it anywhere, so `2.0`–`4.0` is where a glowing stroke lives. The halo
+reaches three radii past the layer's edge, because that is how far three passes
+of `blur`'s kernel reach.
+
+**`blend`** is how the layer lands on what is beneath it, and the list is four
+words and closed:
+
+| `blend` | what it does | over black |
+| --- | --- | --- |
+| `normal` | covers what is beneath, in proportion to the layer's alpha — what every clip has always done | itself |
+| `add` | adds the layer's light to what is beneath, clipping at white | itself |
+| `screen` | brightens what is beneath without ever passing white — a gentler `add` | itself |
+| `multiply` | darkens what is beneath by the layer's colour: white changes nothing, black makes black | black |
+
+An absent `blend` is `normal`. A transparent pixel blends to nothing in every
+mode, so a shape's empty surround set to `add` does not light the frame. **`add`
+or `screen` over nothing is exactly `normal`**, and `multiply` over nothing is
+black — the layer disappears — so `scorsese check` warns about a blended clip
+that is the lowest thing on screen for its whole length. Inside a group the
+canvas beneath the lowest member is transparent rather than black, and there
+every mode over nothing draws exactly as `normal`.
+
+**Shadow, then glow, then the layer, as one picture — then the blend.** The
+three are stacked source-over into a single picture of the layer, and only that
+picture meets the frame, once, with the clip's `opacity` and its `blend`. So a
+layer fading out takes its shadow with it without the shadow showing through the
+layer, and an `add` layer adds its glow as light too. That is also why a shadow
+on an `add` or `screen` layer is invisible over black, and should be: dark light
+is no light.
+
+**The order of operations**, which is the whole of what happens to a layer's
+pixels before its transform places it:
+
+1. `chroma_key` — before anything touches a colour, or the key misses the screen.
+2. `grade` — the colours, on the layer's own pixels.
+3. `blur` — its focus.
+4. `aberration` — its glass.
+5. `vhs` — the tape that held the result.
+6. `shadow` and `glow` — **grown from the finished picture**, so a blurred layer
+   casts a blurred shadow, a keyed one casts the shadow of what the key left, and
+   a taped one a taped shadow.
+
+Then the transform places the whole of it, and the `blend` lands it.
+
+**The picture grows to hold its light.** A halo reaches past the layer's own
+edges, so the lit picture is padded out to that reach on every side before it is
+placed — a cut-out picture at its `native` size casts its shadow onto the frame
+beyond its own rectangle rather than having it cut off square at the old edge.
+Where a layer *is* — what an arrow attaches to, where a layout says it landed
+— is still the layer's own rectangle and never its halo: a shadow is not part of
+the box an arrow should meet.
+
+**On a group clip, it is the whole group's light.** A group is one picture by
+the time it meets its shadow and glow, so one `glow` on the group clip lights
+every member — thirty boxes and arrows glowing as one diagram — and one `shadow`
+is the silhouette of the whole arrangement.
+
+**Animatable: `shadow.opacity`, `glow.radius` and `glow.intensity`**, with the
+field-plus-track bargain `chroma_key` makes: each does nothing on a clip with no
+`shadow` or `glow` to take the number over, since a shadow needs a colour and an
+offset and neither is a number a track can carry. Colours, offsets, `softness`
+and `blend` are fields only. **Each is clamped where it is drawn**, which matters
+now that an easing can overshoot: `shadow.opacity` to `0.0`–`1.0`, `glow.intensity`
+to `0.0`–`4.0`, and `glow.radius` to nothing below zero and never wider than the
+layer is tall — so a `spring` on a pulse flashes brighter and settles, rather
+than going negative.
+
+**What is deliberately absent**: inner glow, bevel and emboss, strokes as an
+effect, "layer styles" as a family, the other dozen blend modes, and anything
+reading what is *behind* a layer beyond the blend itself. That is the
+compositing-suite line.
 
 ### Playing faster or slower: `speed`
 
@@ -2394,6 +2522,9 @@ attention than the ducking was avoiding.
 | `shape.dash_offset` | how far a dashed shape's pattern has moved along its line toward the end, as a fraction of the raster's **height** | `0.0` unmoved; nothing without a `dash` |
 | `reveal` | how much of a text layer has arrived, piece by piece — [see above](#revealing-by-character-word-or-line-reveal) | `1.0` all of it, `0.0` none |
 | `number` | the figure a text layer writes where its text says `{n}` — [see above](#a-number-that-counts-number) | its `number` block's `value` |
+| `shadow.opacity` | how dark the layer's drop shadow is, clamped to `0.0`–`1.0` | `0.5` by default; nothing without a `shadow` |
+| `glow.radius` | how far the layer's glow reaches, as a fraction of its own **height** | `0.02` by default; nothing without a `glow` |
+| `glow.intensity` | how bright the layer's glow is, clamped to `0.0`–`4.0` | `1.0` by default; nothing without a `glow` |
 | `volume` | how loud a clip plays, on either kind of track | `1.0` as recorded, `0.0` silent |
 
 Scale, rotation and flip all pivot on the clip's `origin`, which is the layer's
