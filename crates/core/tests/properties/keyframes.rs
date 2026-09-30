@@ -7,7 +7,7 @@
 use proptest::prelude::*;
 use scorsese_core::{Easing, Frames, Keyframe, KeyframeTrack, PropertyPath};
 
-use crate::easing::any_easing;
+use crate::easing::{any_easing, tame_easing};
 use crate::runner::check;
 
 /// This file, so a failure is written down beside it. See `runner`.
@@ -26,7 +26,12 @@ fn value() -> impl Strategy<Value = f64> {
 /// A well-formed track: times ascending, none repeated, which is what
 /// validation guarantees and what the evaluator is entitled to assume.
 fn track() -> impl Strategy<Value = KeyframeTrack> {
-    prop::collection::btree_map(0u64..=100_000u64, (value(), any_easing()), 1..8).prop_map(points)
+    track_of(any_easing())
+}
+
+/// The same, with every point's easing drawn from `easing`.
+fn track_of(easing: impl Strategy<Value = Easing>) -> impl Strategy<Value = KeyframeTrack> {
+    prop::collection::btree_map(0u64..=100_000u64, (value(), easing), 1..8).prop_map(points)
 }
 
 /// A frame to ask about: inside the keyframed span, or a long way outside it.
@@ -50,12 +55,13 @@ fn points(map: std::collections::BTreeMap<u64, (f64, Easing)>) -> KeyframeTrack 
 }
 
 #[test]
-fn a_value_never_leaves_the_range_of_its_own_keyframes() {
-    // Interpolation must not invent a value nobody wrote. This is the
-    // property that catches an easing overshooting before it reaches a pixel,
-    // and it is the reason the easing curves are held to their endpoints one
-    // file over.
-    check(SOURCE, (track(), frame()), |(track, t)| {
+fn a_tame_value_never_leaves_the_range_of_its_own_keyframes() {
+    // Interpolation must not invent a value nobody wrote — unless a curve
+    // that overshoots was asked for, which is inventing one on purpose. So
+    // this is over the tame curves, and it is the reason those are held to
+    // their endpoints one file over; the overshooting ones are held there to
+    // how far they may go instead.
+    check(SOURCE, (track_of(tame_easing()), frame()), |(track, t)| {
         let values = track.keyframes.iter().map(|k| k.value);
         let low = values.clone().fold(f64::INFINITY, f64::min);
         let high = values.fold(f64::NEG_INFINITY, f64::max);

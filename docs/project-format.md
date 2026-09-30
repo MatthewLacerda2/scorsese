@@ -2067,8 +2067,7 @@ clip never rewrites its keyframes. Times must ascend strictly.
 Frames are enough resolution even for audio. Keyframes are *control points*
 and the value travels continuously between them, so putting the points on the
 frame grid does not make a ramp steppy — it only quantises where the ramp's
-corners sit, to 1/30s, which is well below audible for a fade. `easing` is
-`linear` (default), `ease_in`, `ease_out`, `ease_in_out`, or `hold`, and it
+corners sit, to 1/30s, which is well below audible for a fade. `easing`
 belongs to the keyframe the value travels **from** — so one written on the last
 keyframe of a track does nothing at all, and the ramp into it is the straight
 line it would have been anyway.
@@ -2078,6 +2077,51 @@ line it would have been anyway.
 the generality rule: core defines property types, never property values. The
 compositor resolves paths; adding a new animatable property costs nothing
 here.
+
+### Easing
+
+| `easing` | the value… |
+| --- | --- |
+| `linear` (default) | travels at one rate throughout |
+| `ease_in` | starts slow and accelerates into the next keyframe |
+| `ease_out` | starts at full rate and settles as it arrives |
+| `ease_in_out` | is slow at both ends and quickest in the middle |
+| `hold` | stays put, then jumps on the next keyframe |
+| `back_in` | pulls back the other way by about a tenth of the move, then accelerates in — a wind-up |
+| `back_out` | arrives fast, **overshoots** by about a tenth of the move and settles back — the pop of a title landing |
+| `back_in_out` | winds up, crosses quickly, **overshoots** and settles back |
+| `spring` | **overshoots** by about a sixth, swings slightly back under, and comes to rest on the keyframe |
+| `{ "cubic_bezier": [x1, y1, x2, y2] }` | follows the CSS `cubic-bezier()` curve with those handles |
+
+Every preset is a bare word. A cubic bezier carries its four numbers, exactly
+as CSS writes them — `[0.25, 0.1, 0.25, 1]` is CSS's `ease` and
+`[0.34, 1.56, 0.64, 1]` a gentle back-out — so a curve copied from a stylesheet
+or an easing site moves the same here:
+
+```json clip
+{
+  "id": "c-card", "asset": "title", "start": 0, "duration": 90,
+  "keyframes": [
+    { "property": "transform.scale.x", "keyframes": [
+        { "t": 0, "value": 0.6, "easing": { "cubic_bezier": [0.34, 1.56, 0.64, 1] } },
+        { "t": 12, "value": 1.0 }
+    ]}
+  ]
+}
+```
+
+`x1` and `x2` must lie in `0..=1` — outside it the curve runs time backwards
+and validation refuses it. `y1` and `y2` may be anything, and outside `0..=1`
+is how a bezier overshoots.
+
+**An overshoot goes past the keyframe's value, and nothing clamps it on the
+way.** A scale eased `0.6 → 1.0` on `back_out` reaches about `1.04` before it
+settles; that value was never written, and it is the point. Scale, position,
+rotation and flip overshoot freely. A property that cannot go past its ends
+clamps **at the property**, not the curve: `opacity` never shows above `1.0` or
+below `0.0`, and `volume` never goes below silence (above `1.0` it is gain, so
+an overshooting volume ramp is briefly louder). Every curve still starts and
+arrives exactly on its keyframes.
 
 ### Tracks a tool wrote
 

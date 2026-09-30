@@ -10,12 +10,29 @@ export interface Fps {
   den: number;
 }
 
+/**
+ * How a value travels to the next keyframe: a bare word for a preset, or CSS's
+ * four `cubic-bezier()` numbers. The back curves, `spring` and a bezier with a
+ * `y` outside 0..1 overshoot — the value goes past the keyframe on the way.
+ */
+export type Easing =
+  | "linear"
+  | "ease_in"
+  | "ease_out"
+  | "ease_in_out"
+  | "hold"
+  | "back_in"
+  | "back_out"
+  | "back_in_out"
+  | "spring"
+  | { cubic_bezier: [number, number, number, number] };
+
 /** A property path and the points that animate it, times relative to the clip. */
 export interface KeyframeTrack {
   property: string;
   /** The tool that wrote it, when one did; absent means by hand. */
   by?: string;
-  keyframes: { t: number; value: number; easing?: string }[];
+  keyframes: { t: number; value: number; easing?: Easing }[];
 }
 
 export type FitMode = "fit" | "fill" | "native";

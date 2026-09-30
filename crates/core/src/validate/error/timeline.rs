@@ -199,6 +199,23 @@ pub enum TimelineProblem {
         property: PropertyPath,
     },
 
+    /// A `cubic_bezier` easing that is not a curve over time: `x1` or `x2`
+    /// outside `0..=1` makes time run backwards somewhere along it, and a `y`
+    /// that is not finite makes it no curve at all. `y` outside `0..=1` is
+    /// fine — that is an overshoot, and asking for one is the point.
+    #[error(
+        "clip `{clip}`: the cubic_bezier easing on `{property}` at {t} needs x1 and x2 \
+         between 0 and 1, and finite numbers throughout"
+    )]
+    BadCubicBezier {
+        /// The clip holding the track.
+        clip: ClipId,
+        /// The property being animated.
+        property: PropertyPath,
+        /// Which keyframe carries it, in frames from the clip's start.
+        t: Frames,
+    },
+
     /// A NaN or infinity. There is no value between it and its neighbour, so
     /// the ramp through it has no meaning.
     #[error("clip `{clip}`: keyframe value for `{property}` is not a finite number")]

@@ -143,3 +143,19 @@ fn a_property_nothing_animates_is_left_out() {
 
     assert!(description.stretches[0].picture[0].animated.is_empty());
 }
+
+/// A curve an author typed four numbers for reads back as those four numbers:
+/// "cubic_bezier" alone would not tell a reader whether it overshoots.
+#[test]
+fn a_cubic_bezier_reads_with_its_numbers() {
+    let pop = Easing::CubicBezier([0.34, 1.56, 0.64, 1.0]);
+    let description = described(&shot(vec![ramp(
+        "transform.scale.x",
+        [(0, 0.5), (15, 1.0)],
+        pop,
+    )]));
+    assert!(
+        format!("{description}").contains("(f0–15, cubic_bezier [0.34, 1.56, 0.64, 1])"),
+        "{description}"
+    );
+}

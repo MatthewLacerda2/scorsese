@@ -273,6 +273,13 @@ fn check_keyframes(clip: &Clip, errors: &mut Vec<TimelineProblem>) {
                     property: property(),
                 });
             }
+            if !keyframe.easing.is_well_formed() {
+                errors.push(TimelineProblem::BadCubicBezier {
+                    clip: clip_id(),
+                    property: property(),
+                    t: keyframe.t,
+                });
+            }
         }
     }
 }

@@ -183,7 +183,7 @@ impl fmt::Display for Travel {
             self.to.seconds,
             self.from.frame.get(),
             self.to.frame.get(),
-            self.easing.map_or("mixed", easing)
+            self.easing.map_or_else(|| "mixed".to_owned(), easing)
         )
     }
 }
@@ -324,13 +324,22 @@ pub(crate) const fn kind(kind: AssetKind) -> &'static str {
     }
 }
 
-/// What a document's `easing` value is called, in the words the format uses.
-const fn easing(easing: Easing) -> &'static str {
-    match easing {
+/// What a document's `easing` value is called, in the words the format uses —
+/// and for a cubic bezier its four numbers, since those are the curve.
+fn easing(easing: Easing) -> String {
+    let word = match easing {
         Easing::Linear => "linear",
         Easing::EaseIn => "ease_in",
         Easing::EaseOut => "ease_out",
         Easing::EaseInOut => "ease_in_out",
         Easing::Hold => "hold",
-    }
+        Easing::BackIn => "back_in",
+        Easing::BackOut => "back_out",
+        Easing::BackInOut => "back_in_out",
+        Easing::Spring => "spring",
+        Easing::CubicBezier([x1, y1, x2, y2]) => {
+            return format!("cubic_bezier [{x1}, {y1}, {x2}, {y2}]");
+        }
+    };
+    word.to_owned()
 }

@@ -66,6 +66,43 @@ fn a_keyframe_value_must_be_a_number() {
 }
 
 #[test]
+fn a_cubic_bezier_must_be_a_curve_over_time() {
+    // x outside 0..=1 runs time backwards; y outside it is an overshoot, and
+    // allowed — refusing it would refuse the reason the curve exists.
+    let eased = |easing| Keyframe {
+        easing,
+        ..at(10, 0.0)
+    };
+    let mut p = project();
+    set_opacity(
+        &mut p,
+        vec![
+            eased(Easing::CubicBezier([0.3, -0.5, 0.7, 1.6])),
+            at(30, 1.0),
+        ],
+    );
+    assert_eq!(p.validate(), Ok(()), "a y past either end is an overshoot");
+    for points in [
+        [1.2, 0.0, 0.5, 1.0],
+        [0.2, 0.0, -0.1, 1.0],
+        [0.2, f64::INFINITY, 0.5, 1.0],
+    ] {
+        set_opacity(
+            &mut p,
+            vec![eased(Easing::CubicBezier(points)), at(30, 1.0)],
+        );
+        assert_only_problem(
+            &p,
+            E::BadCubicBezier {
+                clip: clip_id("c-logo"),
+                property: PropertyPath::new("opacity"),
+                t: Frames(10),
+            },
+        );
+    }
+}
+
+#[test]
 fn a_malformed_property_path_is_refused() {
     let mut p = project();
     p.tracks[1].clips[0].keyframes[0].property = PropertyPath::new("transform..x");
