@@ -49,7 +49,9 @@ files — fixtures, goldens, and tests under `web/` and `app/`. Two such branche
 can still run together if each bumps **last**, to `main`'s version + 1, and the
 second to land renumbers (`ci-merge`, *Rebasing*). The bump also turns on the
 conditional `web` and `app` gates, so a branch with no UI in it still needs Bun
-and the app's libraries to prove itself.
+and the app's libraries to prove itself. The server's SQL migrations number the
+same way: two branches adding `0012_` rebase without a conflict and fail
+`crates/server/tests/migrations.rs` — the second renumbers.
 
 ## Group the work before splitting it
 
