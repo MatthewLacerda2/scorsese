@@ -139,12 +139,11 @@ impl Gradient {
         }
         for pair in self.stops.windows(2) {
             let ((from, low), (to, high)) = (pair[0], pair[1]);
+            // Reaching a pair means `t` is at or past `from` — the guard above,
+            // or the pair before not having claimed it — so `t < to` makes
+            // `to - from` positive: a hard edge is never divided by.
             if t < to {
-                let along = if to > from {
-                    (t - from) / (to - from)
-                } else {
-                    1.0
-                };
+                let along = (t - from) / (to - from);
                 return std::array::from_fn(|c| low[c] + (high[c] - low[c]) * along);
             }
         }

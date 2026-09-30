@@ -65,6 +65,12 @@ fn a_stop_fading_to_transparent_keeps_the_colour_it_fades() {
     assert_eq!(back, [40.0, 80.0, 120.0, 128.0]);
 }
 
+/// Red, blue and alpha of one pixel of a 64-wide frame.
+fn at(frame: &Frame, x: usize, y: usize) -> [u8; 3] {
+    let i = (y * 64 + x) * BYTES_PER_PIXEL;
+    [frame.bytes()[i], frame.bytes()[i + 2], frame.bytes()[i + 3]]
+}
+
 /// A colour asset's layer: the whole raster, left to right.
 #[test]
 fn a_whole_frame_is_painted_edge_to_edge() {
@@ -74,24 +80,33 @@ fn a_whole_frame_is_painted_edge_to_edge() {
         stops: vec![Stop::new(RED, 0.0), Stop::new(BLUE, 1.0)],
     });
     paint(&mut frame, &fill);
-    let at = |x: usize, y: usize| {
-        let i = (y * 64 + x) * BYTES_PER_PIXEL;
-        [frame.bytes()[i], frame.bytes()[i + 2], frame.bytes()[i + 3]]
-    };
     for y in [0, 7] {
         assert!(
-            at(0, y)[0] >= 250 && at(0, y)[1] <= 5,
+            at(&frame, 0, y)[0] >= 250 && at(&frame, 0, y)[1] <= 5,
             "left {:?}",
-            at(0, y)
+            at(&frame, 0, y)
         );
         assert!(
-            at(63, y)[1] >= 250 && at(63, y)[0] <= 5,
+            at(&frame, 63, y)[1] >= 250 && at(&frame, 63, y)[0] <= 5,
             "right {:?}",
-            at(63, y)
+            at(&frame, 63, y)
         );
-        assert!(at(32, y)[0].abs_diff(127) <= 4, "middle {:?}", at(32, y));
-        assert_eq!(at(32, y)[2], 255, "opaque");
+        assert!(
+            at(&frame, 32, y)[0].abs_diff(127) <= 4,
+            "middle {:?}",
+            at(&frame, 32, y)
+        );
+        assert_eq!(at(&frame, 32, y)[2], 255, "opaque");
     }
+    let downwards = Fill::Linear(Linear {
+        angle: 180.0,
+        stops: vec![Stop::new(RED, 0.0), Stop::new(BLUE, 1.0)],
+    });
+    paint(&mut frame, &downwards);
+    assert!(
+        at(&frame, 40, 0)[0] >= 220 && at(&frame, 40, 7)[1] >= 220,
+        "top red, bottom blue"
+    );
     paint(&mut frame, &Fill::Solid(BLUE));
     assert!(frame.bytes().chunks(4).all(|p| p == [0, 0, 255, 255]));
 }
