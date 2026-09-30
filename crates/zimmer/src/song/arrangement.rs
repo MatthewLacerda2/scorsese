@@ -31,8 +31,10 @@ use crate::note::MIDI_RANGE;
 /// name and a JSON object can only be the long form, so the two never race —
 /// the trick [`Pitch`](super::Pitch) and [`PatchRef`](super::PatchRef) already
 /// use here. Every song written before this existed parses unchanged and
-/// re-serialises unchanged, short form still short.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+/// re-serialises unchanged, short form still short. It is read by hand rather
+/// than by serde's untagged reader, so a misspelled key in a [`Play`] is
+/// refused by name — the `song::forms` module has why.
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(untagged)]
 pub enum ArrangementEntry {
     /// Play the pattern as written.

@@ -83,6 +83,7 @@ pub(crate) fn check_no_sidechain(chain: &[Fx], place: &'static str) -> Result<()
 /// `source` and `amp` are mandatory — a sound needs a tone and a shape.
 /// `filter`, `lfo` and `fx` are optional stages.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Patch {
     /// What makes the raw tone.
     pub source: Source,
