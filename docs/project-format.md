@@ -1,4 +1,4 @@
-# `project.json` — schema v38
+# `project.json` — schema v39
 
 The contract between the CLI, the MCP server and the GUI — the contract *now*,
 not across time. It is meant to be hand-written: an agent should be able to
@@ -23,6 +23,7 @@ carries forward) up to this one.
 | v35 → v36 | a shape's optional `dash` (#583) | nothing: a field was added whose absence is the solid line every v35 shape already draws, so it passes through and only its version moves |
 | v36 → v37 | a text style's `reveal` and `number` blocks (#590) | nothing: two optional blocks were added, absent in every v36 document, and a `{n}` in a v36 text stays three ordinary characters without a `number` block — it passes through and only its version moves |
 | v37 → v38 | a clip's `shadow`, `glow` and `blend` (#585) | nothing: three optional clip fields were added, each absent meaning what every v37 clip already drew — no shadow, no glow, `normal` — so it passes through and only its version moves |
+| v38 → v39 | a clip's optional `follow` (#584) | nothing: a field was added whose absence is a clip placed by its transform alone, which every v38 clip is, so it passes through and only its version moves |
 
 A complete worked example lives in
 `crates/core/tests/fixtures/narrated_teaser.json`.
@@ -31,7 +32,7 @@ A complete worked example lives in
 
 ```json project
 {
-  "schema_version": 38,
+  "schema_version": 39,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -2355,6 +2356,66 @@ track, **silence**. Leaving a hole is a way of saying "two seconds of nothing
 here", not a way of shortening the timeline. A timeline ends where its last
 clip ends.
 
+### Travelling along an arrow: `follow`
+
+Between two keyframes `transform.position.x` and `.y` interpolate on their own,
+so a clip moved by position alone always travels in a **straight line**. To send
+one along a curve — a packet down a bowed connector, a boat along a route — the
+clip names an **arrow clip** as its path, and the `follow.progress` keyframe
+track says how far along it is:
+
+```json clip
+{ "id": "c-packet", "asset": "dot", "start": 30, "duration": 60,
+  "follow": { "clip": "c-arrow-broker-kafka", "orient": true },
+  "keyframes": [ { "property": "follow.progress",
+                   "keyframes": [ { "t": 0, "value": 0.0, "easing": "ease_in_out" },
+                                  { "t": 45, "value": 1.0 } ] } ] }
+```
+
+- **`clip`** names the arrow's **clip**, never its asset. An attached arrow is
+  only resolved per frame and per clip, and one asset can be on screen twice, so
+  a clip is the one thing that names a single line on the frame. It must show an
+  arrow shape, sit on the same timeline as the follower — both inside one group,
+  or both outside every group — and not be the follower itself.
+- **`follow.progress`** is a fraction of the arrow's **length**, measured along
+  the line and not along the curve's own parameter: `0` is its tail (`from`),
+  `1` its head (`to`), and `0.5` is half the distance whatever the bow — so an
+  S-shaped connector is travelled at an even pace. It is **clamped to `0`–`1`**:
+  an overshooting easing (`back_out`, `spring`) rests at the end rather than
+  running off it, as a trim does. Nothing about it is stored in `follow`; like
+  `shape.trim_end`, a held value is one keyframe.
+- **`orient`** (default `false`) turns the clip to face the way the line runs at
+  its place on it — draw the clip pointing right, and it points along the arrow.
+
+**What the path does to the transform.** The path places the point of the
+clip's *content* that its `origin` names — the dot's middle, by default — and
+then the clip's own transform carries on as before:
+
+- `transform.position` is an **offset** from the point on the line, so a small
+  bob keyframed on top rides along with the path;
+- with `orient`, the line's heading is **added** to `transform.rotation`;
+- scale, opacity, blur and the rest are untouched.
+
+**The path is the arrow as drawn**, including the arrow clip's own transform: an
+arrow that is moved, turned or mirrored is followed where it lands. It is the
+whole line whatever its `shape.trim_*` — a connector drawing itself on does not
+drag its follower with it; key both tracks together for that.
+
+**The arrow need not be on screen.** Its line is geometry, so a dot may set off
+along a connector before the connector appears, or after it has gone. The one
+exception is an arrow with an **attached** end: where it runs is known only
+while it and the clips it points at are drawn, so while it is not, its follower
+is left out and the render says so — the rule an attached arrow with nothing to
+point at already follows.
+
+**One level deep.** The arrow a clip follows may not be attached to a clip that
+itself follows a path: a path moving because another path moved is a chain, and
+a dot following the arrow attached to that same dot is a loop. Validation
+refuses it; attach the arrow to something placed by its own transform instead.
+
+`scorsese check` warns about a clip with a `follow` and no `follow.progress`
+track — it renders, and sits at the arrow's tail the whole time.
+
 ### How long a render is
 
 **Picture decides.** A render's length is where the last video clip ends;
@@ -2526,6 +2587,7 @@ attention than the ducking was avoiding.
 | `shadow.opacity` | how dark the layer's drop shadow is, clamped to `0.0`–`1.0` | `0.5` by default; nothing without a `shadow` |
 | `glow.radius` | how far the layer's glow reaches, as a fraction of its own **height** | `0.02` by default; nothing without a `glow` |
 | `glow.intensity` | how bright the layer's glow is, clamped to `0.0`–`4.0` | `1.0` by default; nothing without a `glow` |
+| `follow.progress` | how far along the arrow in its `follow` a clip is, as a fraction of the arrow's **length** | `0.0` its tail, `1.0` its head; clamped to `0`–`1`; nothing without a `follow` |
 | `volume` | how loud a clip plays, on either kind of track | `1.0` as recorded, `0.0` silent |
 
 Scale, rotation and flip all pivot on the clip's `origin`, which is the layer's
@@ -2663,7 +2725,9 @@ brief it takes: a `prompt` or a `recipe`, never both and never the other's —
 clip references resolving, asset kind against track kind, non-zero durations,
 clip overlap, no clip reaching past the end of the source it was measured to
 have — or the group it shows — and keyframe shape, on the timeline and inside
-every group alike; and what only a group raises (see *Group assets*).
+every group alike; what only a group raises (see *Group assets*); and that a
+`follow` names an arrow clip on the follower's own timeline, not itself, and not
+one attached to another follower (see *Travelling along an arrow*).
 
 Note what is *not* on that list. A time that is negative, fractional, or
 infinite cannot be represented as a frame count, so it fails the parse with

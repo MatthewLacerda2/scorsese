@@ -76,6 +76,10 @@ pub(crate) const STEPS: &[Step] = &[
         from: 37,
         apply: light_arrives,
     },
+    Step {
+        from: 38,
+        apply: follows_arrive,
+    },
 ];
 
 /// v33 → v34: the `group` asset kind (#586).
@@ -134,6 +138,17 @@ fn text_motion_arrives(_: &mut Value) -> Result<(), String> {
 /// already drew — no shadow, no glow, source-over — so a v37 document renders
 /// the same pixels at v38.
 fn light_arrives(_: &mut Value) -> Result<(), String> {
+    Ok(())
+}
+
+/// v38 → v39: a clip's optional `follow` (#584).
+///
+/// **Nothing to rewrite.** The version added one optional field to a clip, and
+/// its absence is a clip placed by its transform alone — what every v38 clip
+/// is. How far along its arrow a follower is travels on a keyframed property
+/// path, `follow.progress`, which was never part of the format's shape. So
+/// every v38 document means the same thing at v39, and only its version moves.
+fn follows_arrive(_: &mut Value) -> Result<(), String> {
     Ok(())
 }
 

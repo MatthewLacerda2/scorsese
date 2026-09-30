@@ -31,6 +31,7 @@ mod overlap;
 use std::fmt;
 use std::path::Path;
 
+use scorsese_compositor::path::FOLLOW_PROGRESS;
 use scorsese_core::{AssetId, HashCheck, Project, ProjectPath, ValidationErrors, asset_status};
 
 use crate::properties::unknown_in;
@@ -134,6 +135,7 @@ impl Checkup {
             .into_iter()
             .map(|unknown| Line::warning(Note::from(unknown).to_string()))
             .collect();
+        lines.extend(still_followers(project).map(Line::warning));
         // A warning and never a problem, for the same reason a missing
         // generated file is one: a project that has lost its script still
         // renders, and the frames it produces are not one pixel different for
@@ -239,6 +241,29 @@ impl Checkup {
         }
         Verdict::Problems(report)
     }
+}
+
+/// Every clip that follows an arrow without ever keyframing how far along it
+/// is — which renders, and sits at the arrow's tail the whole time.
+///
+/// A warning for the reason an unknown property is one: the render succeeds and
+/// the motion simply never happens, which an agent working unattended has no
+/// other way to find out.
+fn still_followers(project: &Project) -> impl Iterator<Item = String> {
+    project.every_clip().filter_map(|(_, clip)| {
+        let follow = clip.follow.as_ref()?;
+        let moves = clip
+            .keyframes
+            .iter()
+            .any(|track| track.property.as_str() == FOLLOW_PROGRESS);
+        (!moves).then(|| {
+            format!(
+                "clip `{}` follows arrow `{}` but never keyframes `{FOLLOW_PROGRESS}`, so it \
+                 sits at the arrow's tail",
+                clip.id, follow.clip
+            )
+        })
+    })
 }
 
 /// Everything the media has to say: the pool's health, the faces the document

@@ -86,3 +86,18 @@ fn an_arrow_outside_may_follow_the_group_clip() {
             { "id": "c-link", "asset": "link", "start": 0, "duration": 30 } ] }));
     assert_eq!(load(&document).validate(), Ok(()));
 }
+
+/// A clip following an arrow is refused across the edge for the same reason an
+/// arrow following a clip is: the two are drawn in different spaces.
+#[test]
+fn a_clip_outside_may_not_follow_a_member_arrow() {
+    let mut document = base();
+    document["tracks"][0]["clips"][0]["follow"] = json!({ "clip": "c-link" });
+    assert_only_problem(
+        &load(&document),
+        scorsese_core::FollowProblem::Across {
+            clip: ClipId::new("c-bed"),
+            target: ClipId::new("c-link"),
+        },
+    );
+}
