@@ -341,6 +341,13 @@ so the user does not have to be there. (On rusty, holding three PRs for a smoke
 test and an ear check stalled the queue for hours, and every one was fine —
 MatthewLacerda2/rusty#566.)
 
+**Merging is not shipping.** Paying users see a change only when the operator
+runs the deploy's update step (`docs/web.md`, *Updating*), and what that step
+does to their data only goes forward: the server's SQL migrations, and a
+`schema_version` bump rewriting every stored project. So the report lists,
+before anything else, every unrun human check and every such migration in what
+merged — that list is what the operator reads before updating the service.
+
 ## Learn from the batch: every lesson ends as a change
 
 A batch is trial by fire: it finds the traps, gaps and bugs in the tooling and
