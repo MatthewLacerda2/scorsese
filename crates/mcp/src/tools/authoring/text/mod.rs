@@ -1,5 +1,7 @@
 //! A caption, a title, a lower third: the one asset an agent writes most.
 
+mod motion;
+
 use scorsese_core::{Inline, authoring};
 use serde_json::Value;
 
@@ -24,7 +26,10 @@ impl Tool for TextNew {
          fractions of the frame rather than pixels, so one number reads the same \
          at every render resolution. Say nothing about the look and it is a \
          white, centred, sans title; a `stroke` adds a rim outside the \
-         letterforms, which is what keeps words legible over footage. \
+         letterforms, which is what keeps words legible over footage. A \
+         `reveal` block and a `reveal` keyframe track make it arrive word by word \
+         (or by character, or line); a `number` block writes a figure at `{n}` \
+         that counts with a `number` track. \
          Validated before it is written — a document \
          that would not load is refused with the reason and the project is left \
          exactly as it was. Then place_clip puts it on a video track, and it has \
@@ -58,6 +63,8 @@ impl Tool for TextNew {
                                 selects it and nothing has to."
             }),
         );
+        properties.insert("reveal".to_owned(), motion::reveal_property());
+        properties.insert("number".to_owned(), motion::number_property());
         properties.insert("asset".to_owned(), id_property("its opening words"));
         serde_json::json!({
             "type": "object",
@@ -71,7 +78,7 @@ impl Tool for TextNew {
         let mut project = load(&dir)?;
         let content = Inline::Text {
             text: words(arguments, "text", "what the caption says")?,
-            style: style(arguments)?,
+            style: motion::apply(arguments, style(arguments)?)?,
         };
         let id = authoring::add_asset(&mut project, maybe(arguments, "asset").as_deref(), content)
             .map_err(refused)?;

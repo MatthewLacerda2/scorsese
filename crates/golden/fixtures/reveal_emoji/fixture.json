@@ -1,0 +1,12 @@
+{
+  "description": "A mixed-face line revealing one character at a time: `Ship 🔥👍🏽 it` — letters from the shipped sans, a fire and a skin-toned thumb from Noto Color Emoji, the fallback face — with `unit: char`, no rise and a stagger of 1, so the eight visible characters arrive strictly one after another as `reveal` goes linearly from 0 at frame 0 to 1 at frame 24: three frames each, the fire over frames 12–15 and the thumb over 15–18. At frame 16 `Ship` and the fire are in and the thumb is a third of the way in — the whole thumb, hand and skin tone together, faint; a build that split the cluster would show a yellow hand and a bare brown swatch arriving separately, and one that skipped the fallback's glyphs would leave a gap. At frame 18 the thumb has landed and `it` has not begun. Every character is where it sits in the finished line throughout. Nothing here has a file.",
+  "media": {},
+  "render": {
+    "resolution": "192x108",
+    "fps": "30"
+  },
+  "frames": [
+    16,
+    18
+  ]
+}

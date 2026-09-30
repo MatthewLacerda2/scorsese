@@ -25,6 +25,7 @@ mod still;
 mod text;
 mod threads;
 mod tracing;
+mod typing;
 mod warnings;
 
 use std::path::{Path, PathBuf};

@@ -31,7 +31,11 @@
 //! pipeline, and **the two font files this build ships**, since a system-font
 //! lookup would render differently on every platform and the golden gate is
 //! pixels. What it produces is an ordinary layer, so a title fades and moves
-//! through the properties above rather than through anything of its own.
+//! through the properties above rather than through anything of its own. The
+//! two exceptions are the two things a whole layer cannot do — arriving a piece
+//! at a time (`reveal`) and a figure that counts (`number`) — and even those
+//! are resolved here and *drawn* by whoever sets the glyphs, before the layer
+//! is composited like any other.
 //!
 //! [`mod@shape`] is the third: the boxes and ellipses a diagram is drawn from,
 //! and the same bargain text makes — what comes out is an ordinary layer, so a

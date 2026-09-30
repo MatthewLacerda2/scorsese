@@ -25,8 +25,13 @@
 //! path as a decoded video frame, with the same `opacity`, `transform.position.*`
 //! and `transform.scale.*` resolved from the same keyframe tracks. A title that
 //! fades and slides costs nothing here — it is the existing properties acting
-//! on a layer that happens to have letters in it, which is why text needs no
-//! animatable properties of its own.
+//! on a layer that happens to have letters in it.
+//!
+//! **Two properties are text's own**, because they change which glyphs there
+//! are rather than what happens to the finished layer: `reveal` cuts a laid-out
+//! block into pieces ([`draw_revealing`]), and `number` changes the figure in
+//! it — set in tabular [`Figures`] and [`padded`] to the widest it reaches, so
+//! the line holds still while it counts.
 //!
 //! **Everything is in pixels of the raster.** A [`Style`] here says 48 pixels,
 //! not "a tenth of the frame": a raster is the only place a pixel means

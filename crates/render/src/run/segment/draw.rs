@@ -69,6 +69,13 @@ fn draw_frame(
         canvas,
         ..
     } = job;
+    // Type first: a revealing or counting title is set for this instant before
+    // anything reads it, whether a group or the frame.
+    for (slot, properties) in slots.iter().zip(properties.iter()) {
+        if let Pixels::Typed { at, typing } = &slot.pixels {
+            typing.draw(&mut buffers[live + at], properties.sweep, properties.number);
+        }
+    }
     for (index, slot) in slots.iter().enumerate().rev() {
         let Pixels::Composed { at } = slot.pixels else {
             continue;
@@ -123,7 +130,9 @@ impl<'b> Sources<'b> {
                 source: match &slot.pixels {
                     Pixels::Held(pixels) => pixels,
                     Pixels::Live(at) => &self.buffers[*at],
-                    Pixels::Drawn { at, .. } => &self.buffers[self.live + *at],
+                    Pixels::Drawn { at, .. } | Pixels::Typed { at, .. } => {
+                        &self.buffers[self.live + *at]
+                    }
                     Pixels::Composed { at } => &self.groups[*at - self.first_group],
                 },
                 properties: *properties,

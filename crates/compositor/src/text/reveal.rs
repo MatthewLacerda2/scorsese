@@ -150,7 +150,7 @@ fn cut(text: &str, unit: RevealUnit) -> Vec<Range<usize>> {
     let ranges = match unit {
         RevealUnit::Char => runs::clusters(text),
         RevealUnit::Word => words(text),
-        RevealUnit::Line => vec![0..text.len()],
+        RevealUnit::Line => std::iter::once(0..text.len()).collect(),
     };
     ranges.into_iter().filter(|range| !blank(range)).collect()
 }

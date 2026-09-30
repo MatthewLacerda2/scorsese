@@ -1,0 +1,41 @@
+{
+  "schema_version": 35,
+  "name": "reveal_emoji",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    {
+      "id": "caption",
+      "kind": "text",
+      "text": "Ship 🔥👍🏽 it",
+      "style": {
+        "font": "sans",
+        "size": 0.2,
+        "color": "#ffffff",
+        "reveal": { "unit": "char", "rise": 0.0, "stagger": 1.0 }
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-caption",
+          "asset": "caption",
+          "start": 0,
+          "duration": 30,
+          "keyframes": [
+            {
+              "property": "reveal",
+              "keyframes": [
+                { "t": 0, "value": 0.0 },
+                { "t": 24, "value": 1.0 }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

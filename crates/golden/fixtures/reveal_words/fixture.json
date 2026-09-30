@@ -1,0 +1,13 @@
+{
+  "description": "A caption revealing word by word: `Three brokers, live` in the shipped sans face on black, with a `reveal` track going linearly from 0 at frame 0 to 1 at frame 20 and the `reveal` block's defaults — a rise of a fifth of the text's size and a stagger of a half. Frame 0 is reveal 0 and must be entirely black: a build that drew any ink there ignored the track. Frame 10 is reveal 0.5: the first word is in and at rest, the second is partway in — fainter and a little below its line — and the last has not begun, while every word that shows sits exactly where it sits in the finished caption (a build that laid out only the revealed words would centre them, moving the first word right). Frame 20 is reveal 1 and must be the caption drawn whole, identical to a plain text clip — a reveal that finishes a pixel low or a shade faint fails here. Nothing here has a file.",
+  "media": {},
+  "render": {
+    "resolution": "192x108",
+    "fps": "30"
+  },
+  "frames": [
+    0,
+    10,
+    20
+  ]
+}
