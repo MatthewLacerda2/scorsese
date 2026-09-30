@@ -31,6 +31,7 @@ mod painting;
 mod placing;
 mod redrawing;
 mod trims;
+mod turning;
 
 use scorsese_compositor::shape::{Boxed, Figure, Outline};
 use scorsese_compositor::{Frame, Resolution};
