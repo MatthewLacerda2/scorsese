@@ -121,7 +121,10 @@ never when the queue is.
   cloud removes the build-slot limit, not the rebase cost. A cloud container is
   Linux, so it also runs the pixel gate that `make gates` skips on macOS — with
   whatever ffmpeg the container installs, so CI stays the authority
-  (`docs/golden-renders.md`).
+  (`docs/golden-renders.md`). That makes it the natural home for a branch that
+  **adds a golden fixture**: blessing is Linux-only, and off Linux it costs a
+  container detour (on 2026-09-30, an arm64 `ubuntu:24.04` on the Mac, which
+  disagrees with CI on the `grade_*` and `vhs` fixtures).
 
 **How many:** two in flight stays the default shape; with cloud coders writing,
 the ceiling is **four branches in flight in total**, local and cloud together,
