@@ -5,7 +5,7 @@
 //! even notice. So every name is resolved and every number is checked up front.
 
 use super::automate::{Automation, Param};
-use super::timing::MAX_STRETCH;
+use super::timing::{MAX_STRETCH, Tail};
 use super::{ArrangementEntry, Context, Key, Pattern, PatternEntry, Song, Track};
 use crate::error::SynthError;
 use crate::patch::Patch;
@@ -214,6 +214,9 @@ impl Song {
             return Err(SynthError::BadFade {
                 seconds: fade.in_seconds.max(fade.out_seconds),
             });
+        }
+        if self.tail() == Tail::Wrap {
+            super::timing::check_wrap(self.fit, self.fade)?;
         }
         let Some(fit) = self.fit else {
             return Ok(());

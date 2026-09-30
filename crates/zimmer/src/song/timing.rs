@@ -13,6 +13,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::error::SynthError;
+
 /// How far a tempo may be moved to make a song fit, as a fraction either way.
 ///
 /// A bed at 40% speed is not a bed, it is a mistake — so `stretch` refuses
@@ -115,4 +117,39 @@ pub enum Tail {
     /// a dip every pass) and a `fit` other than `stretch`, which is the one
     /// mode that lands on a whole number of passes and so has a loop point.
     Wrap,
+}
+
+/// Refuses what cannot join `tail: wrap`, because it would put a seam back
+/// into the loop the tail makes.
+///
+/// - **Any `fade`.** A fade-out on a loop is a dip at every pass. A fade-in is
+///   the same dip on the other side of the seam, and worse: it would turn down
+///   the very tail the wrap just carried round. A player that wants the music
+///   to come in gently fades the *voice* it plays the loop on, once.
+/// - **`fit` in `loop` or `once`.** A loop fit cuts mid-pass, so the file has
+///   no one point where the music comes back round; a once fit pads with
+///   silence, which the loop would then play every time. `stretch` lands on
+///   a whole number of passes, so it has a loop point, and it is allowed.
+pub(crate) fn check_wrap(fit: Option<Fit>, fade: Option<Fade>) -> Result<(), SynthError> {
+    if fade.is_some_and(|fade| !fade.is_silent_about_everything()) {
+        return Err(SynthError::WrapWith {
+            field: "`fade`",
+            why: "on a loop it is a dip in the level every time round — fade the music in \
+                  or out where it is played instead",
+        });
+    }
+    let (field, why) = match fit.map(|fit| fit.mode) {
+        Some(FitMode::Loop) => (
+            "`fit` in mode `loop` (the default)",
+            "it cuts mid-pass, so the file has no single point where the music comes back \
+             round — use mode `stretch`",
+        ),
+        Some(FitMode::Once) => (
+            "`fit` in mode `once`",
+            "it pads with silence, which the loop would play every time round — use mode \
+             `stretch`",
+        ),
+        Some(FitMode::Stretch) | None => return Ok(()),
+    };
+    Err(SynthError::WrapWith { field, why })
 }

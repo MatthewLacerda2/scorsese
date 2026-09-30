@@ -11,11 +11,19 @@
 //! Fades come after limiting rather than before because a fade is a decision
 //! about the level of the whole piece: limiting afterwards would drag the tail
 //! back up and undo it.
+//!
+//! **One length step comes before the limiter instead**, and [`limit`] is
+//! where it happens: a `wrap` tail sums the ring-out back onto the start, and
+//! a sum can overshoot where neither of its halves did. Limiting first and
+//! folding afterwards would hand out a buffer that clips — the one promise the
+//! limiter exists to keep.
 
 use super::Song;
 use super::clock::Clock;
 use super::timing::{Fade, Fit, FitMode, Tail};
 use crate::core::RATE;
+use crate::error::SynthError;
+use crate::fx::limiter;
 use crate::stereo::Stereo;
 
 /// How long a cut is faded over so it does not click, in seconds.
@@ -23,6 +31,55 @@ use crate::stereo::Stereo;
 /// Short enough to be inaudible as a fade, long enough to be inaudible as an
 /// edge — about a wavelength at the bottom of hearing.
 pub(super) const SEAM: f32 = 0.02;
+
+/// The master limiter, after the one step of `tail` that has to come before
+/// it — see the module doc.
+///
+/// Under `wrap` the song is folded at its loop point and then limited as the
+/// loop it now is, so neither step leaves a seam; every other song is limited
+/// as it stands, exactly as it always was.
+pub(crate) fn limit(
+    song: &Song,
+    buf: &mut Stereo,
+    arrangement_end: usize,
+) -> Result<(), SynthError> {
+    if song.tail() != Tail::Wrap {
+        limiter::apply(buf, RATE);
+        return Ok(());
+    }
+    // Under a `stretch` fit the loop point is the target itself: the tempo
+    // was moved so the passes land there, and rounding the two separately can
+    // leave them a sample apart — which would have `shape` cut, and fade, the
+    // very end of a file that was meant to come round without a seam.
+    let at = song.fit.map_or(arrangement_end, |fit| samples(fit.seconds));
+    wrap(buf, at)?;
+    limiter::apply_looped(buf, RATE);
+    Ok(())
+}
+
+/// Cuts `buf` at `at` and sums everything past the cut back onto the start,
+/// so the file is exactly `at` long and plays round without a seam.
+///
+/// Refuses a tail longer than the loop rather than folding it twice: a tail
+/// still ringing the second time round is a recipe that does not loop, and
+/// saying so is the useful answer.
+fn wrap(buf: &mut Stereo, at: usize) -> Result<(), SynthError> {
+    let overhang = buf.frames().saturating_sub(at);
+    if overhang > at {
+        return Err(SynthError::WrapOverhang {
+            overhang: overhang as f32 / RATE,
+            length: at as f32 / RATE,
+        });
+    }
+    buf.each(|channel| {
+        let (head, past) = channel.split_at_mut(at.min(channel.len()));
+        for (sample, tail) in head.iter_mut().zip(past.iter()) {
+            *sample += tail;
+        }
+    });
+    buf.resize(at);
+    Ok(())
+}
 
 /// Applies `tail`, `fit` and `fade` to a rendered buffer, in that order.
 ///
@@ -161,6 +218,37 @@ mod tests {
     /// The seam, in samples — long enough that a cut has room to fade.
     fn seam() -> usize {
         samples(SEAM)
+    }
+
+    /// The fold is a sum and nothing else: the start is the start plus what
+    /// rang past the cut, the rest is untouched, and nothing is faded — a
+    /// wrapped file is not cut, so it has no edge to soften.
+    #[test]
+    fn a_wrap_sums_the_tail_onto_the_start() {
+        let mut buf = Stereo {
+            l: vec![1.0, 2.0, 3.0, 4.0, 10.0, 20.0],
+            r: vec![-1.0, -2.0, -3.0, -4.0, 0.5, 0.25],
+        };
+        wrap(&mut buf, 4).expect("two frames of tail fold onto four");
+        assert_eq!(buf.l, [11.0, 22.0, 3.0, 4.0]);
+        assert_eq!(buf.r, [-0.5, -1.75, -3.0, -4.0]);
+    }
+
+    /// A tail exactly one loop long still folds; one frame longer is refused,
+    /// with both lengths.
+    #[test]
+    fn a_tail_longer_than_the_loop_is_refused() {
+        let mut fits = flat(8);
+        assert!(wrap(&mut fits, 4).is_ok());
+        assert_eq!(fits, Stereo::centred(vec![2.0; 4]));
+        let mut rings_on = flat(9);
+        assert_eq!(
+            wrap(&mut rings_on, 4),
+            Err(SynthError::WrapOverhang {
+                overhang: 5.0 / RATE,
+                length: 4.0 / RATE,
+            })
+        );
     }
 
     #[test]

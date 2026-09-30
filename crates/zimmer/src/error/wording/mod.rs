@@ -8,6 +8,16 @@
 //! **The match is exhaustive**, which is what makes keeping the two apart
 //! safe: a variant added next door and left without words here does not
 //! compile, and the error names it.
+//!
+//! **One small group is worded in [`length`]**: the refusals of `fit`,
+//! `fade` and `tail`, split off when this file reached the size gate. The
+//! match here still names each of them, in the one arm that hands them over,
+//! so a new variant still does not compile until it has a home. What the
+//! compiler cannot check is that `length`'s match has an arm for every name
+//! in that list — which is why the list is five names long and the words sit
+//! right beside it, rather than a whole group of thirty being moved.
+
+mod length;
 
 use std::fmt;
 
@@ -300,20 +310,13 @@ impl SynthError {
                 f,
                 "song: automation of `cutoff` on track `{track}`, whose patch has no filter"
             ),
-            Self::BadFitSeconds { seconds, .. } => {
-                write!(f, "song: `fit.seconds` must be positive, got {seconds}")
-            }
-            Self::BadFade { seconds, .. } => write!(
-                f,
-                "song: a fade must be zero or more seconds, got {seconds}"
-            ),
-            Self::StretchTooFar {
-                bpm, needed, limit, ..
-            } => write!(
-                f,
-                "song: fitting this at `stretch` needs {needed:.1} bpm against {bpm:.1} written, further than the {}% a piece survives — use `loop`, or change the arrangement",
-                (limit * 100.0).round()
-            ),
+            // The length and level fields — `fit`, `fade` and `tail` — have
+            // their words in `length`, the one group spelled out of this match.
+            Self::BadFitSeconds { .. }
+            | Self::BadFade { .. }
+            | Self::StretchTooFar { .. }
+            | Self::WrapWith { .. }
+            | Self::WrapOverhang { .. } => self.say_length(f),
 
             // ────────────────────────────────────────────────────────────────────
             // The caller's resolver — the one refusal this crate does not make itself.
