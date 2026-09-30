@@ -18,7 +18,8 @@
 //! soft. Writing through would leave every anti-aliased boundary subtly dark.
 
 use tiny_skia::{
-    FillRule, LineCap, LineJoin, Paint, Path, PathBuilder, Pixmap, Rect, Stroke, Transform,
+    FillRule, LineCap, LineJoin, Paint, Path, PathBuilder, Pixmap, Rect, Stroke, StrokeDash,
+    Transform,
 };
 
 use scorsese_core::Rgba;
@@ -40,8 +41,19 @@ pub(crate) fn fill(frame: &mut Frame, path: &Path, color: Rgba) {
 ///
 /// Square ends and mitred corners, which is what a box, an ellipse and an
 /// arrow are drawn with. [`stroke_round`] is the other one.
-pub(crate) fn stroke(frame: &mut Frame, path: &Path, color: Rgba, width: f32) {
-    lined(frame, path, color, width, LineCap::Butt, LineJoin::Miter);
+///
+/// Broken into dashes when `dash` says so. Each dash is a line of its own with
+/// square ends, which is what makes a dashed border read as dashes rather than
+/// as a row of lozenges.
+pub(crate) fn stroke(
+    frame: &mut Frame,
+    path: &Path,
+    color: Rgba,
+    width: f32,
+    dash: Option<StrokeDash>,
+) {
+    let shape = (LineCap::Butt, LineJoin::Miter);
+    lined(frame, path, color, width, shape, dash);
 }
 
 /// The same, with the line's ends and corners rounded off.
@@ -55,15 +67,29 @@ pub(crate) fn stroke(frame: &mut Frame, path: &Path, color: Rgba, width: f32) {
 /// the apex of an `A` and the vertices of a `W`, and a mitred join there grows
 /// horns off the letter instead of following it.
 pub(crate) fn stroke_round(frame: &mut Frame, path: &Path, color: Rgba, width: f32) {
-    lined(frame, path, color, width, LineCap::Round, LineJoin::Round);
+    lined(
+        frame,
+        path,
+        color,
+        width,
+        (LineCap::Round, LineJoin::Round),
+        None,
+    );
 }
 
-/// Strokes with the ends and corners the caller asks for.
+/// Strokes with the ends and corners the caller asks for, dashed or solid.
 ///
 /// A width that is zero, negative or not a number draws nothing. There is no
 /// sensible line to invent for any of them, and a default would be a border
 /// nobody asked for on a shape that said it had none.
-fn lined(frame: &mut Frame, path: &Path, color: Rgba, width: f32, cap: LineCap, join: LineJoin) {
+fn lined(
+    frame: &mut Frame,
+    path: &Path,
+    color: Rgba,
+    width: f32,
+    (cap, join): (LineCap, LineJoin),
+    dash: Option<StrokeDash>,
+) {
     if !width.is_finite() || width <= 0.0 {
         return;
     }
@@ -71,6 +97,7 @@ fn lined(frame: &mut Frame, path: &Path, color: Rgba, width: f32, cap: LineCap, 
         width,
         line_cap: cap,
         line_join: join,
+        dash,
         ..Stroke::default()
     };
     onto(frame, color, |pixmap, paint| {

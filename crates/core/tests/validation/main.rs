@@ -7,6 +7,7 @@ mod arrow;
 mod assets;
 mod attach;
 mod color;
+mod dash;
 mod fields;
 mod generated;
 mod group;

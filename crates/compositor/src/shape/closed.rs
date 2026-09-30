@@ -12,6 +12,8 @@ use scorsese_core::{AnchorX, AnchorY};
 use crate::frame::{Frame, Resolution};
 use crate::paint;
 
+use super::stroke;
+use super::trace::Stroking;
 use super::{Boxed, Figure, Outline};
 
 /// The circle-to-cubic constant: how far along each tangent a Bézier control
@@ -22,7 +24,10 @@ const KAPPA: f32 = 0.552_284_8;
 
 /// Draws a closed figure — anything but an arrow, which has no area and goes
 /// through the `arrow` module instead.
-pub(super) fn draw(frame: &mut Frame, figure: &Figure) {
+///
+/// `stroking` reaches the border and only the border: a trimmed box keeps its
+/// whole fill, because a trim says how much of the line has been drawn.
+pub(super) fn draw(frame: &mut Frame, figure: &Figure, stroking: &Stroking) {
     let Some(path) = path(figure.outline, frame.resolution()) else {
         return;
     };
@@ -30,12 +35,17 @@ pub(super) fn draw(frame: &mut Frame, figure: &Figure) {
         paint::fill(frame, &path, fill);
     }
     if let Some(border) = figure.border {
-        paint::stroke(frame, &path, border.color, border.width);
+        stroke::lay(frame, &path, border, stroking);
     }
 }
 
 /// The outline as one closed tiny-skia path, placed on the raster.
-fn path(outline: Outline, resolution: Resolution) -> Option<Path> {
+///
+/// **Where it starts and which way it runs is what a trim measures from**, so
+/// it is written down: a rectangle starts at its top-left corner — a rounded
+/// one where the top edge leaves that corner's curve — and an ellipse at its
+/// rightmost point, and both run **clockwise** on screen.
+pub(super) fn path(outline: Outline, resolution: Resolution) -> Option<Path> {
     let mut builder = PathBuilder::new();
     match outline {
         Outline::Ellipse(boxed) => builder.push_oval(bounds(boxed, resolution)?),

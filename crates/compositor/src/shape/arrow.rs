@@ -10,13 +10,15 @@
 //! like a mistake in the diagram rather than in the renderer, and no test that
 //! is not a picture will object to it.
 
-use tiny_skia::PathBuilder;
+use tiny_skia::{Path, PathBuilder};
 
 use scorsese_core::Curve;
 
 use crate::frame::Frame;
 use crate::paint;
 
+use super::stroke::{self, Laid};
+use super::trace::Stroking;
 use super::{Arrow, Border};
 
 /// How far the bow of an S reaches along the run, as a fraction of it.
@@ -35,20 +37,67 @@ const HEAD_LENGTH: f32 = 4.0;
 /// than as a wedge.
 const HEAD_SPREAD: f32 = 1.6;
 
-/// Draws `arrow` onto `frame` in `border`'s colour and thickness.
+/// Draws `arrow` onto `frame` in `border`'s colour and thickness, as much of
+/// it as `stroking` keeps.
 ///
 /// The line first, then the heads over it. They are the same colour, so the
 /// order is invisible in the result and is chosen for a different reason: the
 /// head is the part that must land exactly on the endpoint, and drawing it last
 /// means nothing can be laid over its tip.
-pub(super) fn draw(frame: &mut Frame, arrow: Arrow, border: Border) {
+///
+/// **A head rides the trimmed end.** While the line is part drawn, the head at
+/// `to` sits on the end of what has been drawn, aimed along the curve there, so
+/// an arrow drawing itself on is led by its head — and a head never waits at
+/// `to` for a line that has not reached it. The head at `from` does the same at
+/// the trimmed start. Trimmed to nothing, there is no line and no head.
+pub(super) fn draw(frame: &mut Frame, arrow: Arrow, border: Border, stroking: &Stroking) {
     if !border.width.is_finite() || border.width <= 0.0 {
         return;
     }
     let Some(run) = Run::of(arrow) else {
         return;
     };
+    let Some(line) = line(arrow, &run) else {
+        return;
+    };
+    let (start, end) = match stroke::lay(frame, &line, border, stroking) {
+        Laid::Nothing => return,
+        Laid::Whole => ((arrow.from, run.at_start), (arrow.to, run.at_end)),
+        Laid::Part(measured) => {
+            let (from, to) = stroking.span().unwrap_or((0.0, 1.0));
+            let station = |fraction: f32, whole: ((f32, f32), (f32, f32))| {
+                // An end the trim did not move keeps the head it always had,
+                // aimed down the curve's own tangent rather than a flattened
+                // piece of it.
+                if fraction <= 0.0 || fraction >= 1.0 {
+                    return whole;
+                }
+                let station = measured.at(fraction);
+                (station.position, station.tangent)
+            };
+            (
+                station(from, (arrow.from, run.at_start)),
+                station(to, (arrow.to, run.at_end)),
+            )
+        }
+    };
 
+    if arrow.heads.at_end() {
+        head(frame, end.0, end.1, border);
+    }
+    // The head at the start points back the way the line came, so its direction
+    // is the leaving tangent reversed.
+    if arrow.heads.at_start() {
+        head(frame, start.0, (-start.1.0, -start.1.1), border);
+    }
+}
+
+/// The arrow's line as one path, from `from` to `to` — straight, or bowed
+/// through the control points `run` worked out.
+///
+/// This is the path that is drawn and the path that is measured, so a trim
+/// and a whole line can never disagree about where the arrow runs.
+pub(super) fn line(arrow: Arrow, run: &Run) -> Option<Path> {
     let mut line = PathBuilder::new();
     line.move_to(arrow.from.0, arrow.from.1);
     match run.control {
@@ -57,28 +106,12 @@ pub(super) fn draw(frame: &mut Frame, arrow: Arrow, border: Border) {
         }
         None => line.line_to(arrow.to.0, arrow.to.1),
     }
-    if let Some(path) = line.finish() {
-        paint::stroke(frame, &path, border.color, border.width);
-    }
-
-    if arrow.heads.at_end() {
-        head(frame, arrow.to, run.at_end, border);
-    }
-    // The head at the start points back the way the line came, so its direction
-    // is the arriving tangent reversed.
-    if arrow.heads.at_start() {
-        head(
-            frame,
-            arrow.from,
-            (-run.at_start.0, -run.at_start.1),
-            border,
-        );
-    }
+    line.finish()
 }
 
 /// An arrow's shape once its geometry has been worked out: the control points
 /// if it is bowed, and the unit tangent at each end.
-struct Run {
+pub(super) struct Run {
     /// The two Bézier control points, or `None` for a straight line.
     control: Option<((f32, f32), (f32, f32))>,
     /// Which way the line is travelling as it *arrives* at `to` — the
@@ -93,7 +126,7 @@ impl Run {
     /// `None` when the two ends are in the same place: there is no direction to
     /// draw along and none to aim a head down. Validation refuses that in a
     /// loaded project, so this covers a figure built in memory.
-    fn of(arrow: Arrow) -> Option<Self> {
+    pub(super) fn of(arrow: Arrow) -> Option<Self> {
         let (dx, dy) = (arrow.to.0 - arrow.from.0, arrow.to.1 - arrow.from.1);
         if !dx.is_finite() || !dy.is_finite() {
             return None;

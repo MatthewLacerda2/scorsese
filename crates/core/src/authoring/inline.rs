@@ -185,6 +185,7 @@ mod tests {
             fill: None,
             stroke: None,
             stroke_width: 0.004,
+            dash: None,
         };
         let refused = add_asset(&mut project, None, Inline::Shape(blank));
         assert!(matches!(refused, Err(AuthorError::Refused(_))));

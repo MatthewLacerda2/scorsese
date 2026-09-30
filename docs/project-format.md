@@ -953,9 +953,83 @@ worse answer than an absent arrow and a sentence explaining it. Usually it means
 the arrow's clip outlasts the box's, or starts before it.
 
 Elbow and orthogonal routing, obstacle avoidance, editable control points,
-labels riding along the line, dashes and multi-segment paths are not here.
-Polygons, stars, dashed borders, shadows and gradients are not planned at all:
-each is a drawing program growing inside a video editor.
+labels riding along the line and multi-segment paths are not here. Polygons,
+stars, shadows and gradients are not planned at all: each is a drawing program
+growing inside a video editor.
+
+#### A line that draws itself on, and dashes that move
+
+```json asset
+{ "id": "broker-to-kafka", "kind": "shape",
+  "shape": {
+    "geometry": { "arrow": { "from": { "x": 0.30, "y": 0.40 },
+                             "to":   { "x": 0.62, "y": 0.62 }, "curve": "s" } },
+    "stroke": "#ffffffff",
+    "stroke_width": 0.004,
+    "dash": [0.02, 0.012]
+  } }
+```
+
+```json clip
+{ "id": "c-broker-to-kafka", "asset": "broker-to-kafka", "start": 30, "duration": 90,
+  "keyframes": [
+    { "property": "shape.trim_end", "keyframes": [
+        { "t": 0, "value": 0.0, "easing": "ease_out" },
+        { "t": 20, "value": 1.0 } ] },
+    { "property": "shape.dash_offset", "keyframes": [
+        { "t": 0, "value": 0.0 },
+        { "t": 90, "value": 0.3 } ] }
+  ] }
+```
+
+A diagram whose connectors are on screen whole or not at all reads as a slide.
+Two things a line can do make it read as motion instead, and both work on
+**every shape's line** — an arrow, a box's border, an ellipse's.
+
+**A trim draws part of the line.** `shape.trim_start` and `shape.trim_end` are
+keyframed on the clip, each a fraction of the way along the outline **by
+distance**: `trim_end` going `0 → 1` is the line drawing itself on from its
+start, and `trim_start` going `0 → 1` afterwards erases it forward, which is the
+other half of the classic draw-on. By distance, not by how the curve happens to
+be built — half way along an S is half its length, so a line draws on at the
+speed its keyframes say. With neither keyframed the whole line is drawn.
+
+A trim outside `0`–`1` is **clamped, not refused**: an easing that overshoots
+is an ordinary animation and must not fail a render. `trim_end` at or before
+`trim_start` draws no line at all.
+
+Where the distance is measured from is where the outline starts: an arrow at
+`from`, running to `to`; a rectangle at its **top-left corner** (a rounded one
+where its top edge leaves that corner's curve); an ellipse at its **rightmost
+point**. Both closed outlines run **clockwise**.
+
+**An arrow's head rides the trimmed end.** While the line is part drawn, the
+head sits on the end of what has been drawn, aimed along the line there, so an
+arrow drawing itself on is led by its head — and a head is never waiting at
+`to` for a line that has not reached it. A head at `from` does the same at the
+trimmed start. Trimmed to nothing, there is no line and no head. The head is
+full size from the first frame it appears.
+
+**A dash breaks the line into pieces.** `dash` is a pattern on the shape —
+lengths along the line, on, off, on, off…, each a fraction of the frame's
+**height** like `stroke_width`. An odd count is read twice over, so `[0.02]` is
+dashes and gaps of one length. It has to hold at least one length and each has
+to be above zero. It is not animated; **where it sits is**: `shape.dash_offset`,
+in the same unit, is how far the pattern has moved along the line **toward its
+end**. Keyframing it upward is "marching ants" — a connector whose dashes flow
+from its tail to its head, the standard way of saying *data moves along here*.
+A pattern moved by its own length looks exactly as it started.
+
+The two combine. A dashed line drawing itself on lays each dash down where it
+will stay rather than sliding the pattern along as it grows.
+
+**Both act on the line only.** A filled box whose border is trimmed or dashed
+keeps its whole fill — a trim says how much of the *line* has been drawn, and a
+fill has no line to be part way along.
+
+A shape with its line keyframed is drawn again on every frame, where any other
+shape is drawn once for as long as nothing about it changes. That costs one
+shape's worth of drawing per frame, which is nothing next to decoding a video.
 
 ### Icon assets
 
@@ -2194,6 +2268,9 @@ attention than the ducking was avoiding.
 | `vhs.scanlines` | how dark the tape's alternate lines are | `0.0` none, `1.0` darkest |
 | `vhs.jitter` | how far the tape's tracking wobbles the layer sideways, as a fraction of its own **width** | `0.0` holds still |
 | `vhs.head_switch` | how torn the band at the bottom of the layer is, where the tape's heads hand over | `0.0` none, `1.0` worst |
+| `shape.trim_start` | where a shape's drawn line starts, as a fraction of its outline's **length** | `0.0` its start; clamped to `0`–`1` |
+| `shape.trim_end` | where a shape's drawn line ends, as a fraction of its outline's **length** | `1.0` all of it, `0.0` none; clamped to `0`–`1` |
+| `shape.dash_offset` | how far a dashed shape's pattern has moved along its line toward the end, as a fraction of the raster's **height** | `0.0` unmoved; nothing without a `dash` |
 | `volume` | how loud a clip plays, on either kind of track | `1.0` as recorded, `0.0` silent |
 
 Scale, rotation and flip all pivot on the clip's `origin`, which is the layer's
@@ -2322,7 +2399,8 @@ fields each asset kind requires — including that only a `text` asset carries
 asset carries `shape`, only an `icon` asset carries `icon` and only a `group`
 carries `group`, that an icon has
 a size and a thickness to draw with, that a shape has area, a corner it has room to round,
-and something to draw with — and that an arrow has two ends in different
+something to draw with and a `dash` of at least one length, each above zero —
+and that an arrow has two ends in different
 places and no `fill`, since a line has no inside — that a `style`'s
 font path, a `synth_audio`'s `recipe` and the document's `script`
 obey the project-path rules, and that each generated kind carries exactly the

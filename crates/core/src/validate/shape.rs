@@ -52,6 +52,17 @@ pub(super) fn check(project: &Project, asset: &Asset, errors: &mut Vec<AssetProb
             .into(),
         );
     }
+    if let Some(dash) = &shape.dash
+        && (dash.is_empty() || !dash.iter().copied().all(positive))
+    {
+        errors.push(
+            ShapeProblem::BadDash {
+                asset: id(),
+                dash: dash.clone(),
+            }
+            .into(),
+        );
+    }
     if shape.fill.is_some() && !shape.geometry.is_closed() {
         errors.push(ShapeProblem::FilledLine { asset: id() }.into());
     }

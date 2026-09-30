@@ -17,14 +17,17 @@
 #[path = "../common/extent.rs"]
 mod extent;
 
+mod along;
 mod arrows;
 mod bows;
 mod corners;
+mod dashes;
 mod heads;
 mod measuring;
 mod outlines;
 mod painting;
 mod placing;
+mod trims;
 
 use scorsese_compositor::shape::{Boxed, Figure, Outline};
 use scorsese_compositor::{Frame, Resolution};

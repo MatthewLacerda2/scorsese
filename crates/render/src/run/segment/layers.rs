@@ -8,6 +8,7 @@
 //! be waste. What is left — the layers that do have a source — is exactly the
 //! set the producer reads in lockstep, one frame from each per output frame.
 
+use scorsese_compositor::shape::Trace;
 use scorsese_compositor::{Area, Frame};
 use scorsese_core::{Anchor, AssetKind, Fps, Origin};
 
@@ -22,7 +23,8 @@ use crate::symbol;
 use crate::text::Painter;
 
 use super::Pass;
-use super::attach::{self, Following, Rect};
+use super::attach::{self, Rect};
+use super::redraw::Redraw;
 
 /// What one layer contributes to every frame of a segment.
 pub(super) struct Slot {
@@ -88,18 +90,20 @@ pub(super) enum Pixels {
     /// is not.
     Live(usize),
     /// Drawn afresh into the job's own buffer for every frame, because what it
-    /// looks like depends on where *another* layer is at that instant.
+    /// looks like changes from one instant to the next: an attached arrow,
+    /// which depends on where *another* layer is, and a shape whose line is
+    /// keyframed — see [`Redraw`].
     ///
-    /// Only an attached arrow is ever this. Everything else that is drawn — a
-    /// title, a colour, a box, an arrow between two fixed points — is the same
-    /// pixels for the whole segment and is [`Pixels::Held`], which is what
-    /// keeps the common case free of per-frame work.
+    /// Only those. Everything else that is drawn — a title, a colour, a box,
+    /// an arrow between two fixed points, a dashed border standing still — is
+    /// the same pixels for the whole segment and is [`Pixels::Held`], which is
+    /// what keeps the common case free of per-frame work.
     Drawn {
         /// Which of the job's buffers it is drawn into, counted after the
         /// decoded ones.
         at: usize,
-        /// The arrow, and where each of its ends comes from.
-        following: Box<Following>,
+        /// What it is drawn from, every frame.
+        redraw: Box<Redraw>,
     },
     /// A group: its members composited, every frame, into a transparent
     /// raster of the job's own, which is then this layer's picture.
@@ -245,7 +249,7 @@ impl Pass<'_> {
                         pixels: match following {
                             Some(following) => Pixels::Drawn {
                                 at: drawn,
-                                following: Box::new(following),
+                                redraw: Box::new(Redraw::Following(following)),
                             },
                             // Its target is not on screen here, so there is
                             // nothing to point at and nothing to draw.
@@ -264,13 +268,21 @@ impl Pass<'_> {
                     None,
                 ));
             }
+            // A line whose trim or dash offset is keyframed is a different
+            // picture at every instant, so it is drawn with the frame rather
+            // than once for the segment. Its box is still its box: an arrow
+            // attached to a border drawing itself on meets the whole box.
+            if Trace::is_animated_by(&shot.clip.keyframes) {
+                let redraw = Box::new(Redraw::Traced(shape.clone()));
+                return Ok((at_raster(Pixels::Drawn { at: drawn, redraw }), None));
+            }
             // The anchor reaches the drawing rather than the compositing. A
             // shape layer is the size of the raster, and a raster-sized layer
             // rests at the origin whatever its anchor — so where the box sits
             // *inside* it has to be decided while it is drawn, exactly as a
             // block of text's is.
             let mut pixels = blank();
-            shape::paint(&mut pixels, shape, shot.clip.anchor);
+            shape::paint(&mut pixels, shape, shot.clip.anchor, Trace::WHOLE);
             return held(pixels);
         }
 

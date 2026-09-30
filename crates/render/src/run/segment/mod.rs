@@ -15,6 +15,7 @@ mod attach;
 mod draw;
 mod layers;
 mod pipeline;
+mod redraw;
 
 use std::path::Path;
 

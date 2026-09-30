@@ -65,6 +65,19 @@ pub enum ShapeProblem {
         width: f64,
     },
 
+    /// A dash pattern that could not break a line: empty, or with a length
+    /// that is zero, negative or not a number.
+    ///
+    /// Refused rather than drawn solid, because a solid line is what the
+    /// document did *not* ask for, and the two look nothing alike.
+    #[error("asset `{asset}`: dash {dash:?} has to be at least one length, each above zero")]
+    BadDash {
+        /// The shape asset.
+        asset: AssetId,
+        /// The pattern as written.
+        dash: Vec<f64>,
+    },
+
     /// An arrow endpoint that is not a pair of numbers — a coordinate no frame
     /// could be measured against at any resolution.
     ///

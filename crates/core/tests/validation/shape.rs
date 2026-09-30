@@ -145,6 +145,7 @@ fn a_shape_with_neither_fill_nor_border_is_refused() {
         fill: None,
         stroke: None,
         stroke_width: 0.004,
+        dash: None,
     };
     let invisible = S::Invisible {
         asset: asset_id("box"),

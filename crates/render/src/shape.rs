@@ -12,7 +12,7 @@
 //! file: a box is composited, transformed and faded by exactly the code a video
 //! clip goes through.
 
-use scorsese_compositor::shape::{Arrow, Border, Boxed, Figure, Outline};
+use scorsese_compositor::shape::{Arrow, Border, Boxed, Dash, Figure, Outline, Stroking, Trace};
 use scorsese_compositor::{Area, Frame, Resolution};
 use scorsese_core::{Anchor, Geometry, Point, Shape};
 
@@ -23,10 +23,14 @@ use scorsese_core::{Anchor, Geometry, Point, Shape};
 /// the middle of a hollow one — the tracks below it have to show through. A
 /// layer left opaque black would paint over them, and over a black canvas that
 /// mistake is invisible until there is something underneath.
-pub(crate) fn paint(frame: &mut Frame, shape: &Shape, anchor: Anchor) {
+///
+/// `trace` is how much of its line is drawn at this instant and where its
+/// dashes sit — [`Trace::WHOLE`] for a shape with none of that keyframed.
+pub(crate) fn paint(frame: &mut Frame, shape: &Shape, anchor: Anchor, trace: Trace) {
     let figure = figure(shape, frame.resolution(), anchor);
+    let stroking = stroking(shape, trace, frame.resolution());
     frame.fill_transparent();
-    scorsese_compositor::shape::draw(frame, &figure);
+    scorsese_compositor::shape::draw_stroked(frame, &figure, &stroking);
 }
 
 /// The shape as the compositor takes it: the same outline, in pixels.
@@ -50,7 +54,12 @@ fn figure(shape: &Shape, resolution: Resolution, anchor: Anchor) -> Figure {
 /// follow, so where they are is a fact about one instant rather than about the
 /// document. Everything else about the arrow — its colours, its bow, its heads
 /// — is the same for the whole segment and comes off the shape unchanged.
-pub(crate) fn paint_arrow(frame: &mut Frame, shape: &Shape, from: (f32, f32), to: (f32, f32)) {
+pub(crate) fn paint_arrow(
+    frame: &mut Frame,
+    shape: &Shape,
+    [from, to]: [(f32, f32); 2],
+    trace: Trace,
+) {
     let Geometry::Arrow { curve, heads, .. } = shape.geometry else {
         return;
     };
@@ -68,8 +77,27 @@ pub(crate) fn paint_arrow(frame: &mut Frame, shape: &Shape, from: (f32, f32), to
             width: (shape.stroke_width * height) as f32,
         }),
     };
+    let stroking = stroking(shape, trace, frame.resolution());
     frame.fill_transparent();
-    scorsese_compositor::shape::draw(frame, &figure);
+    scorsese_compositor::shape::draw_stroked(frame, &figure, &stroking);
+}
+
+/// The shape's line at one instant, in pixels: the trim as it is, and the
+/// document's dash pattern with the offset it has moved by.
+///
+/// Both lengths take the raster's **height**, the unit `stroke_width` takes,
+/// so a dash keeps its proportion to the line it breaks at every resolution.
+fn stroking(shape: &Shape, trace: Trace, resolution: Resolution) -> Stroking {
+    let height = f64::from(resolution.height());
+    let pixels = |fraction: f64| (fraction * height) as f32;
+    Stroking {
+        trim_start: trace.trim_start as f32,
+        trim_end: trace.trim_end as f32,
+        dash: shape.dash.as_ref().map(|pattern| Dash {
+            pattern: pattern.iter().copied().map(pixels).collect(),
+            offset: pixels(trace.dash_offset),
+        }),
+    }
 }
 
 /// Where this shape's own box lands on the raster, in pixels.
