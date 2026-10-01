@@ -149,8 +149,9 @@ fn a_group_is_conformed_with_its_clip() {
     assert_eq!((clip.start, clip.duration), (Frames(26), Frames(75)));
 }
 
-/// A new lane for the template is never given an id a group's lane already
-/// has: track ids are one namespace for the whole document.
+/// A new lane for the template keeps its id where it is free, and is never
+/// given one a group's lane already has: track ids are one namespace for the
+/// whole document.
 #[test]
 fn a_new_lane_does_not_take_a_groups_lane_id() {
     let source = explainer();
@@ -161,7 +162,9 @@ fn a_new_lane_does_not_take_a_groups_lane_id() {
             .push(source.asset(&AssetId::new(id)).unwrap().clone());
     }
     project.assets[1].group.as_mut().unwrap().tracks[0].id = TrackId::new("v1");
-    let done = insert(&mut project, &saved(), Frames(0)).expect("it lands");
+    let mut template = saved();
+    template.tracks[1].id = TrackId::new("titles");
+    let done = insert(&mut project, &template, Frames(0)).expect("it lands");
     let lanes: Vec<&str> = done.new_tracks.iter().map(|t| t.as_str()).collect();
-    assert_eq!(lanes, ["v2", "v3"], "v1 is the group's");
+    assert_eq!(lanes, ["v2", "titles"], "v1 is the group's, titles is free");
 }
