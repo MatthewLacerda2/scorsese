@@ -17,7 +17,7 @@ use super::ids;
 /// v1  [bg ..................................... 150]
 /// v2      33 [c-diagram: diagram .......... 127]
 /// ```
-fn explainer() -> Project {
+pub(super) fn explainer() -> Project {
     let document = format!(
         r##"{{ "schema_version": {SCHEMA_VERSION}, "name": "Explainer",
         "timeline_fps": {{ "num": 30, "den": 1 }},
