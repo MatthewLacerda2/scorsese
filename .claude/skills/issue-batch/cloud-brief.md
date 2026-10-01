@@ -14,6 +14,16 @@ MCP tools (`issue_read`, `create_pull_request`, `update_pull_request`,
 `CLAUDE.md`, your issue(s), and `.claude/skills/ci-merge/SKILL.md`. The prompt may
 name more.
 
+## Push after every step: you share the account's usage limit
+
+You run on the operator's account, so when it reaches its usage limit you stop
+mid-turn, at the same moment as the orchestrator and every other coder, and
+your container's unpushed work goes with you. On 2026-09-30 four coders stopped
+together; one had just re-blessed nine golden references and lost them all.
+Commit and push after each step that produced something: a passing test, a
+re-bless, a rewritten description. A fresh session can finish a pushed branch;
+it cannot recover an unpushed one.
+
 ## Never wait on background work without a wake-up
 
 - Run builds, tests and `make gates` in the **foreground**, with long timeouts,
