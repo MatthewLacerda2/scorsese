@@ -13,7 +13,7 @@ use crate::frame::{Frame, Resolution};
 use crate::gradient::Gradient;
 use crate::paint;
 
-use super::stroke;
+use super::stroke::{self, Pullback};
 use super::trace::Stroking;
 use super::{Boxed, Figure, Outline};
 
@@ -36,7 +36,7 @@ pub(super) fn draw(frame: &mut Frame, figure: &Figure, stroking: &Stroking) {
         painted(frame, &path, fill, figure.outline);
     }
     if let Some(border) = figure.border {
-        stroke::lay(frame, &path, border, stroking);
+        stroke::lay(frame, &path, border, stroking, Pullback::default());
     }
 }
 

@@ -13,7 +13,7 @@ use scorsese_compositor::Frame;
 use scorsese_compositor::shape::{Arrow, Border, Figure, Outline, draw};
 use scorsese_core::{Curve, Heads};
 
-use crate::extent::{assert_coverage, assert_extent, coverage};
+use crate::extent::{assert_coverage, assert_extent, coverage, row};
 use crate::{BLUE, frame};
 
 /// Thick enough that a head is many pixels wider than the line it caps, so a
@@ -25,16 +25,12 @@ const WIDTH: f32 = 8.0;
 const LENGTH: f64 = 4.0 * WIDTH as f64;
 const SPREAD: f64 = 1.6 * WIDTH as f64;
 
-/// How fast a head widens as it goes back from its tip, and how far back it takes
-/// to reach the half-thickness of the line underneath it.
-const TAPER: f64 = SPREAD / LENGTH;
-const REACH: f64 = (WIDTH as f64 / 2.0) / TAPER;
-
-/// The ink a head adds over the line it caps: its own triangle, less the part
-/// the stroke had already covered. That overlap is a tapering wedge for the
-/// first `REACH` pixels back from the tip and the stroke's full width for the
-/// rest — 216 of the head's 409.6 at this thickness, so a head adds 193.6.
-const HEAD: f64 = SPREAD * LENGTH - (TAPER * REACH * REACH + WIDTH as f64 * (LENGTH - REACH));
+/// The ink a head adds over a plain line: its own triangle, less the stretch of
+/// line it stands in for. The line stops inside the head (#608), so the whole
+/// triangle is ink and the head's full length of line is not — 409.6 less 256 at
+/// this thickness, so a head adds 153.6. A line still stroked to the tip would
+/// add 193.6 instead, and fail this by far more than the slack.
+const HEAD: f64 = SPREAD * LENGTH - WIDTH as f64 * LENGTH;
 
 /// A hundred and twenty pixels of straight line, eight thick.
 const LINE: f64 = 120.0 * WIDTH as f64;
@@ -74,19 +70,34 @@ fn the_head_at_the_start_is_the_one_at_the_end_reversed() {
     let one = coverage(&across(Heads::End)) - bare;
     let two = coverage(&pointed) - bare;
 
+    // A pixel more slack than down the frame: on the diagonal the head's base
+    // and the line's square end inside it are anti-aliased edges too, and they
+    // round to 156.7 against 153.6. The line stroked to the tip would be 40 out.
     assert!(
-        (one - HEAD).abs() <= SLACK,
+        (one - HEAD).abs() <= SLACK + 1.0,
         "one head adds {HEAD} pixels' worth of ink, found {one}"
     );
     assert!(
         (two - 2.0 * one).abs() <= SLACK,
-        "two heads are twice one: {two} against {one}"
+        "two heads are twice one: {two} against {one} ({HEAD} each)"
     );
     assert_extent(
         &pointed,
-        (47, 47, 152, 152),
-        "and both lie along the run rather than out to the side of it",
+        (50, 50, 149, 149),
+        "and both end on their tips, along the run rather than out to its side",
     );
+}
+
+/// The tip is a point. Two pixels back from it a head is a pixel and a half
+/// across, so the column there holds a sliver of ink, not the line's full eight
+/// — which is what it held while the line's square end ran under the tip and
+/// stood clear of both sloping sides (#608).
+#[test]
+fn the_line_stops_inside_the_head_so_the_tip_is_a_point() {
+    let headed = down(Heads::End);
+    let (tip, line) = (row(&headed, 158), row(&headed, 100));
+    assert!(tip <= 2.0, "two back from the tip it is {tip} wide");
+    assert!((line - f64::from(WIDTH)).abs() <= 0.5, "the line is {line}");
 }
 
 /// Down the middle of the frame, so the direction is `(0, 1)` and every `y` in
