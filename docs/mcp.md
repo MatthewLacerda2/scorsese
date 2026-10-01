@@ -298,6 +298,23 @@ the font back to the default and say nothing about it. The reply names what
 each field **was** as well as what it is now, because the caller cannot see the
 document and *was* is what proves the change landed where it was aimed.
 
+**A caption's `reveal` and `number` blocks merge one level down.** An object
+sets the fields it names and keeps the rest, so *letter by letter instead of by
+word* and *count to 144, not 140* are one field each; on a caption without the
+block it starts from the defaults a document's `{}` would. `false` takes the
+block away — `null` already means "not given" here, which is the convention
+`clip_set`'s `shadow` and `glow` set. The text is checked exactly as
+`text_new`'s is: a `number` on text with no `{n}` is refused, so reword and
+count in the same call.
+
+```
+asset_set  { "project": "teaser.scor", "asset": "partitions",
+             "reveal": { "unit": "char" }, "number": { "value": 144 } }
+           → "`partitions`: reveal: by word, rise 0, stagger 0.5 → by char, rise 0,
+              stagger 0.5, number: 140, 0 decimals, en, grouped → 144, 0 decimals,
+              en, grouped. Nothing else changed."
+```
+
 One verb here rather than four, for the mirror image of the reason above:
 `asset_set` requires nothing but the asset, so every field on it is optional by
 construction and each one still describes itself and says which kinds it

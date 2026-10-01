@@ -37,7 +37,7 @@ fn block<T: DeserializeOwned>(arguments: &Value, key: &str) -> Result<Option<T>,
 }
 
 /// The schema of the `reveal` block.
-pub(super) fn reveal_property() -> Value {
+pub(in crate::tools::authoring) fn reveal_property() -> Value {
     serde_json::json!({
         "type": "object",
         "description": "How the text arrives a piece at a time — the word-by-word caption, \
@@ -63,7 +63,7 @@ pub(super) fn reveal_property() -> Value {
 }
 
 /// The schema of the `number` block.
-pub(super) fn number_property() -> Value {
+pub(in crate::tools::authoring) fn number_property() -> Value {
     serde_json::json!({
         "type": "object",
         "description": "A figure written where the text says `{n}` — `{n} partitions`, \
