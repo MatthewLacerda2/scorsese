@@ -94,7 +94,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `asset_set` | Change a field on an asset that carries its content in the document — a text, color, shape or icon asset: its wording, its size, its colour. | nothing |
 | `place_clip` | Put a clip on a track: which asset, which track, when it starts and how long it runs — all in seconds, rounded onto the project's frame grid for you. | nothing |
 | `trim_clip` | Move a clip already on the timeline, or change how long it runs or where in its source it opens — in seconds, rounded onto the project's frame grid. | nothing |
-| `clip_set` | Change a placed clip's plain values: its speed, fit, position, rotation, scale, shadow, glow and blend. | nothing |
+| `clip_set` | Change a placed clip's plain values: its speed, fit, position, rotation, scale, shadow, glow, blend and matte. | nothing |
 | `clip_follow` | Send a placed clip along an arrow: it travels the arrow clip's line from tail to head — curves included — instead of in a straight line between keyframed positions. | nothing |
 | `clip_move` | Move a clip already on the timeline onto another track — optionally to a new start there in the same edit, the way dragging it down a lane and along it is one gesture. | nothing |
 | `clip_remove` | Take clips off the timeline by id, leaving the assets they showed and every other clip exactly where they are. | nothing |
@@ -523,6 +523,20 @@ words. `docs/project-format.md` has what each number means.
 ```
 clip_set  { "project": "teaser.scor", "clip": "link", "glow": { "radius": 0.04,
             "intensity": 3 }, "blend": "add" }
+```
+
+Its `matte` shows the clip only through another clip's picture — a wipe, an
+iris, footage through the letters of a title (#589). It follows the same rule:
+`{ "clip": "c-wipe" }` sets the matte, `{ "invert": true }` on a clip that has
+one turns it inside out and keeps the clip it names, and `false` removes it. The
+matte clip stops being drawn on its own the moment it is named, and is drawn
+again once nothing names it. A matte on the other side of a group's edge, on an
+audio track, the clip itself, or one with a matte of its own is refused with the
+reason, and nothing is written.
+
+```
+clip_set  { "project": "teaser.scor", "clip": "c-map", "matte": { "clip": "c-wipe" } }
+          → "`c-map`: shown through clip `c-wipe`. Nothing else changed."
 ```
 
 **`clip_follow` sends a clip along an arrow** (#584): a packet down a bowed

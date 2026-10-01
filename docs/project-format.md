@@ -1,4 +1,4 @@
-# `project.json` — schema v40
+# `project.json` — schema v41
 
 The contract between the CLI, the MCP server and the GUI — the contract *now*,
 not across time. It is meant to be hand-written: an agent should be able to
@@ -25,6 +25,7 @@ carries forward) up to this one.
 | v37 → v38 | a clip's `shadow`, `glow` and `blend` (#585) | nothing: three optional clip fields were added, each absent meaning what every v37 clip already drew — no shadow, no glow, `normal` — so it passes through and only its version moves |
 | v38 → v39 | a clip's optional `follow` (#584) | nothing: a field was added whose absence is a clip placed by its transform alone, which every v38 clip is, so it passes through and only its version moves |
 | v39 → v40 | gradient fills (#588) | nothing: a shape's `fill` and a colour asset's `color` gained a gradient object beside the colour string, which still means the colour it did, so it passes through and only its version moves |
+| v40 → v41 | a clip's `matte` (#589) | nothing: one optional clip field was added, absent meaning what every v40 clip already drew — the clip shown whole — and no v40 clip names another as its matte, so it passes through and only its version moves |
 
 A complete worked example lives in
 `crates/core/tests/fixtures/narrated_teaser.json`.
@@ -33,7 +34,7 @@ A complete worked example lives in
 
 ```json project
 {
-  "schema_version": 40,
+  "schema_version": 41,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -2302,7 +2303,8 @@ pixels before its transform places it:
    casts a blurred shadow, a keyed one casts the shadow of what the key left, and
    a taped one a taped shadow.
 
-Then the transform places the whole of it, and the `blend` lands it.
+Then the transform places the whole of it, a `matte` — when the clip has one —
+decides where it shows, and the `blend` lands it.
 
 **The picture grows to hold its light.** A halo reaches past the layer's own
 edges, so the lit picture is padded out to that reach on every side before it is
@@ -2331,6 +2333,89 @@ than going negative.
 effect, "layer styles" as a family, the other dozen blend modes, and anything
 reading what is *behind* a layer beyond the blend itself. That is the
 compositing-suite line.
+
+### Revealed through another clip: `matte`
+
+```json project
+{
+  "schema_version": 41,
+  "name": "wipe",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    { "id": "map", "kind": "color", "color": "#1a5fb4" },
+    { "id": "wipe", "kind": "shape",
+      "shape": { "geometry": { "rectangle": { "width": 1.0, "height": 1.0 } },
+                 "fill": "#ffffffff" } }
+  ],
+  "tracks": [
+    { "id": "v1", "kind": "video", "clips": [
+      { "id": "c-map", "asset": "map", "start": 0, "duration": 90,
+        "matte": { "clip": "c-wipe" } } ] },
+    { "id": "v2", "kind": "video", "clips": [
+      { "id": "c-wipe", "asset": "wipe", "start": 0, "duration": 90,
+        "origin": { "x": "left", "y": "center" },
+        "keyframes": [ { "property": "transform.scale.x", "keyframes": [
+          { "t": 0, "value": 0.0, "easing": "ease_in_out" }, { "t": 30, "value": 1.0 } ] } ] } ] }
+  ]
+}
+```
+
+A **track matte**: the clip is shown only where another clip's picture is —
+`c-map` above is revealed left to right as the `c-wipe` rectangle grows from its
+left edge. Until a clip has one, anything can only *arrive* (fade, slide,
+scale); a matte is how a picture is **revealed**: wiped in from an edge, opened
+out of a circle, seen through the letters of a title.
+
+| field | what it is | default |
+| --- | --- | --- |
+| `clip` | the id of the clip whose picture is the mask | required |
+| `invert` | `true` shows the clip where the matte is **not** — a hole the matte's shape | `false` |
+
+**The matte is another clip, not a shape of its own**, so everything a clip can
+do, the mask does: a wipe is a rectangle whose `transform.scale.x` runs `0 → 1`
+with an `origin` on one edge, an iris is an ellipse whose scale grows, footage
+through a title is a `text` clip as the matte, a matte clip's own `blur` is a
+feathered edge, its `opacity` fades the reveal, and a `group` clip is as good a
+matte as a single shape. Keyframes, easings and groups all apply without a
+property of their own.
+
+**Alpha only.** Where the matte's picture is opaque the clip shows fully, where
+it is transparent not at all, and a half-transparent edge is a half-revealed
+edge. Its colours are never read — a white rectangle and a red one are the same
+matte.
+
+**Naming a clip as a matte is what makes it one: it is never drawn itself.**
+Whether or not the clip it masks is on screen at that instant, a clip any clip
+names in its `matte` is used only as a mask. There is no flag on the matte clip
+saying so — a flag would be one more thing to disagree with the reference.
+Remove the `matte` and the clip is drawn again.
+
+**When the two meet.** The matte is drawn with its own transform, where it lands
+on the frame, and the masked clip is drawn through it as the very last step —
+after its own transform, and after its `shadow` and `glow`, so a matte reveals a
+layer *with* its light. On a `group` clip it reveals the whole group. The full
+order is key → grade → blur → aberration → tape → shadow & glow → transform →
+**matte** → blend. Where the matte clip is not on screen, nothing shows the
+masked clip — it is not drawn at all — and, inverted, nothing cuts anything out
+of it. `scorsese check` warns about a clip whose matte is **never** on screen at
+the same time as it, since that clip never appears.
+
+**What validation refuses**, each with the reason:
+
+- a matte naming a clip that is nowhere in the document, or the clip itself;
+- a matte on the other side of a group's edge from the clip it masks — the two
+  must be on the same timeline, both on the project's own tracks or both inside
+  one group, for the reason an arrow across the edge is refused;
+- either of the two on an audio track — a matte is picture;
+- a matte that has a `matte` of its own. A chain of mattes is a compositing
+  graph; draw the masks as one group and use the group clip instead.
+
+A matte clip's sound, if it has any, is heard exactly as before: a matte decides
+what is seen, and nothing about what is heard.
+
+**What is deliberately absent**: luminance mattes, bezier and freehand masks,
+masks animated vertex by vertex, and anything tracked. That is the rotoscoping
+line.
 
 ### Playing faster or slower: `speed`
 
