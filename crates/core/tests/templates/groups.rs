@@ -2,7 +2,7 @@
 //! the groups nested in it come along, and land under ids free in the project.
 
 use scorsese_core::template::{extract, insert};
-use scorsese_core::{AssetId, Clip, Fps, Frames, Group, Project, SCHEMA_VERSION};
+use scorsese_core::{AssetId, Clip, Fps, Frames, Group, Project, SCHEMA_VERSION, TrackId};
 
 use super::ids;
 
@@ -147,4 +147,21 @@ fn a_group_is_conformed_with_its_clip() {
         .find(|c| c.id.as_str() == "c-diagram");
     let clip = clip.expect("the group clip");
     assert_eq!((clip.start, clip.duration), (Frames(26), Frames(75)));
+}
+
+/// A new lane for the template is never given an id a group's lane already
+/// has: track ids are one namespace for the whole document.
+#[test]
+fn a_new_lane_does_not_take_a_groups_lane_id() {
+    let source = explainer();
+    let mut project = Project::new("Episode 2", Fps::THIRTY);
+    for id in ["box", "inner"] {
+        project
+            .assets
+            .push(source.asset(&AssetId::new(id)).unwrap().clone());
+    }
+    project.assets[1].group.as_mut().unwrap().tracks[0].id = TrackId::new("v1");
+    let done = insert(&mut project, &saved(), Frames(0)).expect("it lands");
+    let lanes: Vec<&str> = done.new_tracks.iter().map(|t| t.as_str()).collect();
+    assert_eq!(lanes, ["v2", "v3"], "v1 is the group's");
 }
