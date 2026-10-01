@@ -116,3 +116,18 @@ fn a_follow_round_trips_and_leaves_its_default_out() {
     assert!(!json.contains("orient"), "{json}");
     assert_eq!(Project::from_json(&json).expect("parses"), project);
 }
+
+/// A follow that turns with the line keeps turning after a reload: `orient`
+/// is written out the moment it is on.
+#[test]
+fn an_oriented_follow_keeps_its_orient_through_a_save() {
+    let mut project = following("c-line");
+    dot(&mut project)
+        .follow
+        .as_mut()
+        .expect("it follows")
+        .orient = true;
+    let json = project.to_json().expect("serialises");
+    assert!(json.contains(r#""orient": true"#), "{json}");
+    assert_eq!(Project::from_json(&json).expect("parses"), project);
+}

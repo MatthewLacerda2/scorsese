@@ -1,7 +1,7 @@
 //! Where a template lands, and what it is called once it is there.
 
 use scorsese_core::template::{InsertError, extract, insert};
-use scorsese_core::{Fps, Frames, Project};
+use scorsese_core::{ClipId, Follow, Fps, Frames, Project};
 
 use super::{episode, ids, intro, placed};
 
@@ -86,6 +86,25 @@ fn a_copied_arrow_follows_the_copied_box() {
         .unwrap();
     let json = serde_json::to_string(arrow).unwrap();
     assert!(json.contains("\"c-box-2\""), "{json}");
+}
+
+/// A clip travelling along an arrow travels along the copy of that arrow —
+/// the template's id would name a clip this project may not have, or worse,
+/// the original.
+#[test]
+fn a_copied_follower_travels_along_the_copied_arrow() {
+    let mut source = episode();
+    source.tracks[1].clips[0].follow = Some(Follow::new(ClipId::new("c-arrow")));
+    let picked = ids(&["c-title", "c-box", "c-arrow"]);
+    let diagram = extract(&source, &picked, "Diagram").unwrap();
+    insert(&mut source, &diagram, Frames(900)).expect("it lands");
+    let follower = source
+        .clips()
+        .find(|(_, c)| c.id.as_str() == "c-title-2")
+        .unwrap()
+        .1;
+    let follow = follower.follow.as_ref().expect("it still follows");
+    assert_eq!(follow.clip.as_str(), "c-arrow-2");
 }
 
 /// Saved at 30 fps, a second is still a second at 24.
