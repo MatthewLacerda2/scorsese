@@ -2,6 +2,8 @@
 
 mod motion;
 
+pub(super) use motion::{number_property, reveal_property};
+
 use scorsese_core::{Inline, authoring};
 use serde_json::Value;
 

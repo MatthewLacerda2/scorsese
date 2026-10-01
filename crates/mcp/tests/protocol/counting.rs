@@ -54,3 +54,60 @@ fn a_counter_without_a_placeholder_and_an_unknown_unit_are_refused() {
     );
     std::fs::remove_dir_all(dir).ok();
 }
+
+fn style_of(dir: &std::path::Path, id: &str) -> serde_json::Value {
+    document(dir)["assets"]
+        .as_array()
+        .and_then(|assets| assets.iter().find(|asset| asset["id"] == id))
+        .map(|asset| asset["style"].clone())
+        .expect("the asset is in the document")
+}
+
+/// `asset_set` changes one field of a block and keeps the rest, and `false`
+/// takes a block away — "letter by letter, and count to 144" is one call.
+#[test]
+fn asset_set_merges_into_a_block_and_false_removes_it() {
+    let dir = project("text-counter-set");
+    let (text, failed) = said(&call(
+        "text_new",
+        json!({ "project": dir, "text": "{n} partitions", "asset": "partitions",
+                "reveal": { "rise": 0 }, "number": { "value": 140, "locale": "pt-BR" } }),
+    ));
+    assert!(!failed, "{text}");
+    let (text, failed) = said(&call(
+        "asset_set",
+        json!({ "project": dir, "asset": "partitions",
+                "reveal": { "unit": "char" }, "number": { "value": 144 } }),
+    ));
+    assert!(!failed, "{text}");
+    assert!(
+        text.contains("by word, rise 0, stagger 0.5 → by char"),
+        "{text}"
+    );
+    let style = style_of(&dir, "partitions");
+    assert_eq!(style["reveal"]["unit"], "char");
+    assert_eq!(style["reveal"]["rise"], 0.0, "the rise chosen stays");
+    assert_eq!(style["number"]["value"], 144.0);
+    assert_eq!(
+        style["number"]["locale"], "pt-BR",
+        "the locale chosen stays"
+    );
+
+    let (text, failed) = said(&call(
+        "asset_set",
+        json!({ "project": dir, "asset": "partitions", "reveal": false }),
+    ));
+    assert!(!failed, "{text}");
+    assert!(style_of(&dir, "partitions").get("reveal").is_none());
+
+    let (text, failed) = said(&call(
+        "asset_set",
+        json!({ "project": dir, "asset": "partitions", "number": true }),
+    ));
+    assert!(failed, "`true` is neither fields nor a removal");
+    assert!(
+        text.contains("`number`"),
+        "the reason names the block: {text}"
+    );
+    std::fs::remove_dir_all(dir).ok();
+}

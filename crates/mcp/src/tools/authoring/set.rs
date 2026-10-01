@@ -1,9 +1,11 @@
 //! Changing one field of an asset that carries its content in the document.
 
-use scorsese_core::{AssetId, Edit, authoring};
+use scorsese_core::{AssetId, BlockChange, Edit, authoring};
+use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 use super::fill::{self, fill};
+use super::text::{number_property, reveal_property};
 use super::{align, color, maybe, number, properties, refused, save, weight, words};
 use crate::tools::inspect::load;
 use crate::tools::{Costs, Reply, Tool, project_dir};
@@ -27,8 +29,9 @@ impl Tool for AssetSet {
          certain kinds and a field the asset's kind has no use for is refused by \
          name rather than quietly ignored. The reply says what each field was as \
          well as what it is now. Nothing is written unless the whole document \
-         still loads. What a generated asset is made from is rebrief, and what a \
-         file-backed one is lives in the file."
+         still loads. A text's `reveal` and `number` blocks merge the same way one \
+         level down, and `false` takes either away. What a generated asset is made \
+         from is rebrief, and what a file-backed one is lives in the file."
     }
 
     fn costs(&self) -> Costs {
@@ -84,6 +87,31 @@ impl Tool for AssetSet {
                                 not the asset's id. `icons` finds one from a word."
             }),
         );
+        properties.insert(
+            "reveal".to_owned(),
+            mergeable(
+                reveal_property(),
+                "A text asset's reveal — how it arrives a piece at a time when a `reveal` \
+                 keyframe track on its clip goes 0 to 1: by `char` (the typewriter), \
+                 `word` or `line`. An object sets the fields it names and keeps the \
+                 rest (on a caption without one: by word, rise 0.2, stagger 0.5), so \
+                 `{\"unit\": \"char\"}` alone turns word by word into letter by letter; \
+                 `false` removes it, and the text simply shows.",
+            ),
+        );
+        properties.insert(
+            "number".to_owned(),
+            mergeable(
+                number_property(),
+                "The figure a text asset writes where it says `{n}`, and counts with a \
+                 `number` keyframe track. An object sets the fields it names and keeps \
+                 the rest (on a caption without one: value 0, no decimals, `en`, \
+                 grouped), so `{\"value\": 144}` alone changes what it counts to; \
+                 `false` removes it, after which a `{n}` left in the text is just \
+                 those three characters. The text must contain `{n}` — reword it in \
+                 the same call if it does not.",
+            ),
+        );
         serde_json::json!({
             "type": "object",
             "properties": properties,
@@ -112,9 +140,38 @@ impl Tool for AssetSet {
             width: number(arguments, "width")?,
             height: number(arguments, "height")?,
             radius: number(arguments, "radius")?,
+            reveal: block(arguments, "reveal")?,
+            number: block(arguments, "number")?,
         };
         let changed = authoring::set_asset(&mut project, &id, &edit).map_err(refused)?;
         save(&project, &dir)?;
         Ok(format!("`{id}`: {}. Nothing else changed.", changed.join(", ")).into())
+    }
+}
+
+/// A block's schema as `asset_set` takes it: an object that merges, or `false`.
+fn mergeable(mut schema: Value, description: &str) -> Value {
+    schema["type"] = serde_json::json!(["object", "boolean"]);
+    schema["description"] = Value::from(description);
+    schema["additionalProperties"] = Value::Bool(false);
+    schema
+}
+
+/// `false` for none; an object for the fields to change, read into the
+/// document's own types so a word that is not a unit is refused as a
+/// hand-written document's would be. `null` counts as not given.
+fn block<T: DeserializeOwned>(
+    arguments: &Value,
+    key: &str,
+) -> Result<Option<BlockChange<T>>, String> {
+    match arguments.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Bool(false)) => Ok(Some(BlockChange::Remove)),
+        Some(fields @ Value::Object(_)) => serde_json::from_value(fields.clone())
+            .map(|fields| Some(BlockChange::Merge(fields)))
+            .map_err(|error| format!("`{key}`: {error}")),
+        Some(other) => Err(format!(
+            "`{key}` is an object of fields, or `false` to remove it, not {other}"
+        )),
     }
 }
