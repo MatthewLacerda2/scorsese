@@ -72,10 +72,9 @@ pub(super) fn lay(
     let from = measured.distance(start) + pullback.start.max(0.0);
     let to = measured.distance(end) - pullback.end.max(0.0);
     // Pulled back past one another, the kept stretch is all head and no line:
-    // nothing to stroke, but the trim still kept something to put heads on.
-    if to > from
-        && let Some(part) = measured.between(from / length, to / length)
-    {
+    // `between` has nothing to give, but the trim still kept something to put
+    // heads on.
+    if let Some(part) = measured.between(from / length, to / length) {
         stroke(frame, &part, border, stroking.dash.as_ref(), from);
     }
     Laid::Part(measured)

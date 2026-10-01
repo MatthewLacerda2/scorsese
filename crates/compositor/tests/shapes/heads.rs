@@ -11,7 +11,7 @@
 
 use scorsese_compositor::Frame;
 use scorsese_compositor::shape::{Arrow, Border, Figure, Outline, draw};
-use scorsese_core::{Curve, Heads};
+use scorsese_core::{Curve, Heads, Rgba};
 
 use crate::extent::{assert_coverage, assert_extent, coverage, row};
 use crate::{BLUE, frame};
@@ -100,6 +100,27 @@ fn the_line_stops_inside_the_head_so_the_tip_is_a_point() {
     assert!((line - f64::from(WIDTH)).abs() <= 0.5, "the line is {line}");
 }
 
+/// The line runs one width into the head and stops: far enough that the two
+/// overlap rather than meeting edge to edge, which would leave an anti-aliased
+/// seam across the line, and no further. Half see-through, the overlap is where
+/// the ink lands twice — so down the middle it is a band exactly one width long,
+/// just inside the head's base, and nowhere else.
+#[test]
+fn the_line_overlaps_the_head_by_one_width() {
+    let glass = drawn_in(
+        (100.0, 40.0),
+        (100.0, 160.0),
+        Heads::End,
+        Rgba::new(0x00, 0x00, 0xff, 0x80),
+    );
+    let twice: Vec<u32> = (0..crate::SIDE)
+        .filter(|&y| crate::at(&glass, 100, y).3 > 0xa0)
+        .collect();
+    let base = 160 - LENGTH as u32;
+    let band: Vec<u32> = (base..base + WIDTH as u32).collect();
+    assert_eq!(twice, band, "inked twice: the width behind the head's base");
+}
+
 /// Down the middle of the frame, so the direction is `(0, 1)` and every `y` in
 /// the head's arithmetic is load-bearing.
 fn down(heads: Heads) -> Frame {
@@ -113,6 +134,10 @@ fn across(heads: Heads) -> Frame {
 }
 
 fn drawn(from: (f32, f32), to: (f32, f32), heads: Heads) -> Frame {
+    drawn_in(from, to, heads, BLUE)
+}
+
+fn drawn_in(from: (f32, f32), to: (f32, f32), heads: Heads, color: Rgba) -> Frame {
     let mut frame = frame();
     draw(
         &mut frame,
@@ -125,7 +150,7 @@ fn drawn(from: (f32, f32), to: (f32, f32), heads: Heads) -> Frame {
             }),
             fill: None,
             border: Some(Border {
-                color: BLUE,
+                color,
                 width: WIDTH,
             }),
         },
