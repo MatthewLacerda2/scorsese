@@ -178,6 +178,19 @@ impl Project {
         self.clips().chain(members)
     }
 
+    /// Every track in the **document**: the timeline's, then each group's.
+    ///
+    /// Track ids are one namespace for the whole document, as clip ids are, so
+    /// this is the list a new track's id has to be free in.
+    pub fn every_track(&self) -> impl Iterator<Item = &Track> {
+        let lanes = self
+            .assets
+            .iter()
+            .filter_map(|asset| asset.group.as_ref())
+            .flat_map(|group| &group.tracks);
+        self.tracks.iter().chain(lanes)
+    }
+
     /// Every note in the document, in reading order: the assets table first,
     /// then each track followed by the clips on it.
     ///

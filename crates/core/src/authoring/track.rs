@@ -42,7 +42,7 @@ impl Lane {
 pub fn add_track(project: &mut Project, lane: &Lane) -> Result<TrackId, AuthorError> {
     let id = match &lane.id {
         Some(asked) => {
-            if project.tracks.iter().any(|track| &track.id == asked) {
+            if project.every_track().any(|track| &track.id == asked) {
                 return Err(AuthorError::TakenTrackId { id: asked.clone() });
             }
             asked.clone()
@@ -74,9 +74,10 @@ pub(crate) fn numbered(project: &Project, kind: TrackKind) -> TrackId {
         TrackKind::Video => 'v',
         TrackKind::Audio => 'a',
     };
-    (1..=project.tracks.len() + 1)
+    // A group's lanes share the namespace, so they count towards the bound too.
+    (1..=project.every_track().count() + 1)
         .map(|number| TrackId::new(format!("{letter}{number}")))
-        .find(|candidate| !project.tracks.iter().any(|track| &track.id == candidate))
+        .find(|candidate| !project.every_track().any(|track| &track.id == candidate))
         .expect("n tracks cannot take every one of n + 1 numbers")
 }
 
@@ -131,6 +132,27 @@ mod tests {
         }
         let next = add_track(&mut project, &Lane::of(TrackKind::Video)).expect("the next one");
         assert_eq!(next.as_str(), "v4");
+    }
+
+    /// Track ids are one namespace for the whole document, so a group's lane
+    /// called `v1` takes that number as surely as a timeline lane would.
+    #[test]
+    fn a_groups_lane_is_counted_among_the_numbers_taken() {
+        use crate::asset::{Asset, AssetId};
+        use crate::group::Group;
+        use crate::timeline::Track;
+
+        let mut project = project();
+        let lane = Track::new(TrackId::new("v1"), TrackKind::Video);
+        let group = Asset::group(AssetId::new("g"), Group::new(vec![lane]));
+        project.assets.push(group);
+        assert_eq!(numbered(&project, TrackKind::Video).as_str(), "v2");
+        let asked = Lane {
+            id: Some(TrackId::new("v1")),
+            ..Lane::of(TrackKind::Video)
+        };
+        let error = add_track(&mut project, &asked).expect_err("v1 is the group's");
+        assert!(matches!(error, AuthorError::TakenTrackId { .. }), "{error}");
     }
 
     #[test]

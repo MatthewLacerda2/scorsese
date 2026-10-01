@@ -3,10 +3,10 @@
 use std::collections::BTreeMap;
 
 use super::ids::free;
+use super::rename::Renames;
 use super::retime::retime;
 use crate::asset::AssetId;
 use crate::authoring::numbered;
-use crate::matte::Matte;
 use crate::project::Project;
 use crate::time::Frames;
 use crate::timeline::{Clip, ClipId, Track, TrackId, TrackKind};
@@ -73,8 +73,12 @@ pub fn insert(
         start: at,
         end: at,
     };
-    let clip_ids = clip_ids(project, &template);
-    let asset_ids = copy_assets(&mut proposed, &template, &clip_ids, &mut done);
+    let renames = copy_assets(
+        &mut proposed,
+        &template,
+        clip_ids(project, &template),
+        &mut done,
+    );
 
     for kind in [TrackKind::Video, TrackKind::Audio] {
         let lanes: Vec<usize> = lanes_of(&proposed, kind);
@@ -92,32 +96,15 @@ pub fn insert(
                 .clips
                 .iter()
                 .map(|clip| Clip {
-                    id: clip_ids[&clip.id].clone(),
-                    asset: asset_ids[&clip.asset].clone(),
                     start: Frames(at.get() + clip.start.get() - opens.get()),
-                    // The arrow a clip travels along is renamed with the rest,
-                    // as an arrow's attached ends are: both name a clip of the
-                    // template, which is now called something else here.
-                    follow: clip.follow.clone().map(|mut follow| {
-                        if let Some(now) = clip_ids.get(&follow.clip) {
-                            follow.clip = now.clone();
-                        }
-                        follow
-                    }),
-                    // A matte names a clip of the template by id, so it
-                    // follows that clip to whatever id it was given.
-                    matte: clip.matte.as_ref().map(|matte| Matte {
-                        clip: clip_ids.get(&matte.clip).unwrap_or(&matte.clip).clone(),
-                        invert: matte.invert,
-                    }),
-                    ..clip.clone()
+                    ..renames.clip(clip)
                 })
                 .collect();
             let lane = match lanes.get(nth) {
                 Some(&lane) if !spilled && fits(&proposed.tracks[lane], &clips) => lane,
                 _ => {
                     spilled = true;
-                    let taken = |id: &str| proposed.tracks.iter().any(|t| t.id.as_str() == id);
+                    let taken = |id: &str| proposed.every_track().any(|t| t.id.as_str() == id);
                     let id = if taken(track.id.as_str()) {
                         numbered(&proposed, kind)
                     } else {
@@ -145,11 +132,12 @@ pub fn insert(
     Ok(done)
 }
 
-/// The id each of the template's clips gets: its own where free.
+/// The id each of the template's clips gets, its groups' members included:
+/// its own where free in the whole document.
 fn clip_ids(project: &Project, template: &Project) -> BTreeMap<ClipId, ClipId> {
     let mut given: BTreeMap<ClipId, ClipId> = BTreeMap::new();
-    let limit = project.clips().count() + template.clips().count();
-    for (_, clip) in template.clips() {
+    let limit = project.every_clip().count() + template.every_clip().count();
+    for (_, clip) in template.every_clip() {
         let id = free(clip.id.as_str(), limit, |candidate| {
             project
                 .every_clip()
@@ -161,17 +149,19 @@ fn clip_ids(project: &Project, template: &Project) -> BTreeMap<ClipId, ClipId> {
     given
 }
 
-/// Add the template's assets to `proposed`, and answer the id each has there.
+/// Add the template's assets to `proposed`, and answer what each clip and
+/// asset is called there.
 ///
 /// A file the project already has — the same `sha256` — is the project's own
 /// asset; everything else is copied under its own id where free, with the
-/// stills its brief names and the clips its arrow follows renamed to match.
+/// stills its brief names, the clips its arrow follows and a group's members
+/// and lanes renamed to match.
 fn copy_assets(
     proposed: &mut Project,
     template: &Project,
-    clip_ids: &BTreeMap<ClipId, ClipId>,
+    clips: BTreeMap<ClipId, ClipId>,
     done: &mut Inserted,
-) -> BTreeMap<AssetId, AssetId> {
+) -> Renames {
     let mut given: BTreeMap<AssetId, AssetId> = BTreeMap::new();
     let limit = proposed.assets.len() + template.assets.len();
     let mut copies = Vec::new();
@@ -197,10 +187,14 @@ fn copy_assets(
         copies.push(copy);
         done.added.push(id);
     }
+    let renames = Renames {
+        clips,
+        assets: given,
+    };
     for mut copy in copies {
         if let Some(brief) = copy.video.as_mut() {
             let rename = |id: &mut AssetId| {
-                if let Some(now) = given.get(id) {
+                if let Some(now) = renames.assets.get(id) {
                     *id = now.clone();
                 }
             };
@@ -209,13 +203,16 @@ fn copy_assets(
             brief.reference_images.iter_mut().for_each(rename);
         }
         for attach in super::follows_mut(&mut copy) {
-            if let Some(now) = clip_ids.get(&attach.clip) {
+            if let Some(now) = renames.clips.get(&attach.clip) {
                 attach.clip = now.clone();
             }
         }
+        if let Some(group) = copy.group.as_mut() {
+            renames.group(group, proposed);
+        }
         proposed.assets.push(copy);
     }
-    given
+    renames
 }
 
 /// The positions of `kind`'s tracks, bottom first.

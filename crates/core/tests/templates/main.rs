@@ -2,6 +2,7 @@
 //! another, asserted on the documents that come out.
 
 mod extract;
+mod groups;
 mod insert;
 mod mattes;
 
