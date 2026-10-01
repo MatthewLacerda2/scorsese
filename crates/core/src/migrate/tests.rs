@@ -278,6 +278,25 @@ fn a_v39_documents_colours_read_the_same_at_this_version() {
     );
 }
 
+/// v40 → v41: a v40 clip — which cannot say `matte` — is shown whole, and
+/// every clip it had is still drawn.
+#[test]
+fn a_v40_clip_arrives_unmatted() {
+    let document = json!({
+        "schema_version": 40,
+        "name": "Before mattes",
+        "timeline_fps": { "num": 30, "den": 1 },
+        "assets": [{ "id": "title", "kind": "text", "text": "Hello" }],
+        "tracks": [{ "id": "v1", "kind": "video", "clips": [
+            { "id": "c-title", "asset": "title", "start": 0, "duration": 60, "blend": "add" }
+        ]}]
+    });
+    let (project, from) = parse(&document.to_string()).expect("a v40 document migrates");
+    assert_eq!(from, Some(40));
+    project.validate().expect("and it validates");
+    assert_eq!(project.tracks[0].clips[0].matte, None);
+}
+
 #[test]
 fn a_refusing_step_names_itself() {
     const REFUSES: &[Step] = &[Step {

@@ -5,7 +5,7 @@
 //! can later be held to.
 
 use scorsese_core::{Anchor, AnchorX, AnchorY, Origin};
-use tiny_skia::{FilterQuality, PixmapMut, PixmapPaint, PixmapRef, Transform};
+use tiny_skia::{FilterQuality, Mask, PixmapMut, PixmapPaint, PixmapRef, Transform};
 
 use crate::aberration;
 use crate::blur;
@@ -14,6 +14,7 @@ use crate::compose::{CompositeError, Compositor, Layer};
 use crate::frame::{BYTES_PER_PIXEL, Frame};
 use crate::grade;
 use crate::light;
+use crate::matte;
 use crate::properties::Properties;
 use crate::vhs::{self, Tape};
 
@@ -21,6 +22,11 @@ use crate::vhs::{self, Tape};
 #[derive(Debug, Default)]
 pub struct CpuCompositor {
     scratch: Scratch,
+    /// Where a matte is drawn and turned into a mask. Apart from [`Scratch`]
+    /// because the matte layer is drawn *through* the scratch buffers, and the
+    /// mask it leaves has to outlive that drawing while the masked layer is
+    /// drawn through them again.
+    mattes: matte::Buffers,
 }
 
 /// The copies of a layer this compositor may have to make, kept between frames
@@ -64,6 +70,12 @@ pub struct CpuCompositor {
 /// picture, so a blurred layer casts a blurred shadow and a taped one a taped
 /// shadow. They are also the only stage that makes the picture *bigger* — see
 /// [`light`] — which is one more reason to run nothing after them.
+///
+/// A matte comes after everything, the transform included, and is not a stage
+/// of this list at all: the masked layer and its matte each have a transform,
+/// so the only place they meet is the canvas, and the mask is applied as the
+/// layer lands there — see [`matte`]. The full order is key → grade → blur →
+/// aberration → tape → shadow & glow → transform → **matte** → blend.
 ///
 /// So the middle two are ordered on what is easiest to reason about instead. Everything
 /// above this line answers *what colour is this pixel* — the grade from the
@@ -135,14 +147,24 @@ impl CpuCompositor {
     /// [`Compositor`] methods do once they have decided what the canvas
     /// starts as.
     fn draw_all(&mut self, canvas: &mut Frame, layers: &[Layer<'_>]) -> Result<(), CompositeError> {
+        let resolution = canvas.resolution();
         for layer in layers {
             if layer.properties.is_invisible() {
                 continue;
             }
-            if copied(canvas, layer) {
+            let Some(matte) = &layer.matte else {
+                if !copied(canvas, layer) {
+                    draw(&mut self.scratch, canvas, layer, None)?;
+                }
                 continue;
-            }
-            draw(&mut self.scratch, canvas, layer)?;
+            };
+            // The matte is drawn first, through the same scratch the masked
+            // layer is about to use — which is why the mask lives apart.
+            let scratch = &mut self.scratch;
+            let mask = self.mattes.cut(matte, resolution, |drawn, layer| {
+                draw(scratch, drawn, layer, None)
+            })?;
+            draw(scratch, canvas, layer, Some(mask))?;
         }
         Ok(())
     }
@@ -183,6 +205,7 @@ fn draw(
     scratch: &mut Scratch,
     canvas: &mut Frame,
     layer: &Layer<'_>,
+    mask: Option<&Mask>,
 ) -> Result<(), CompositeError> {
     let source_resolution = layer.source.resolution();
     // Destructured so the two buffers can be borrowed at once: the graded copy
@@ -324,7 +347,9 @@ fn draw(
     // canvas that starts transparent is an offscreen one, and it is read as
     // premultiplied throughout and turned back into straight alpha only once
     // every layer is on it — see `Compositor::offscreen`.
-    destination.draw_pixmap(0, 0, source, &paint, transform, None);
+    // The mask, when there is one, is in the canvas's own pixels — a matte
+    // is drawn where it lands, not where this layer's raster is.
+    destination.draw_pixmap(0, 0, source, &paint, transform, mask);
     Ok(())
 }
 

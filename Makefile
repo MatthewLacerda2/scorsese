@@ -363,8 +363,8 @@ deny: ## [gate] Supply chain, both workspaces: advisories, bans, sources, licens
 		echo "      Install it with: cargo install --locked cargo-deny" >&2; \
 		exit 1; }
 	cargo deny --all-features check advisories bans sources licenses
-	cargo deny --all-features --manifest-path app/Cargo.toml --config deny.toml \
-		check advisories bans sources licenses
+	cargo deny --all-features --manifest-path app/Cargo.toml \
+		check --config deny.toml advisories bans sources licenses
 
 # The deploy (#532) is YAML and Dockerfiles that nothing else here reads, so
 # without this a typo in deploy/compose.yaml is found by the maintainer at

@@ -84,6 +84,10 @@ pub(crate) const STEPS: &[Step] = &[
         from: 39,
         apply: gradients_arrive,
     },
+    Step {
+        from: 40,
+        apply: mattes_arrive,
+    },
 ];
 
 /// v33 → v34: the `group` asset kind (#586).
@@ -163,6 +167,16 @@ fn follows_arrive(_: &mut Value) -> Result<(), String> {
 /// string form parses to exactly the colour it did — so every v39 document
 /// means the same thing at v40, and only its version moves.
 fn gradients_arrive(_: &mut Value) -> Result<(), String> {
+    Ok(())
+}
+
+/// v40 → v41: a clip's `matte` (#589).
+///
+/// Nothing to rewrite, for [`groups_arrive`]'s reason: one optional field
+/// arrived on a clip, absent in every v40 document, and absent means what v40
+/// drew — the clip shown whole. No v40 clip names another as its matte, so no
+/// clip that was drawn stops being drawn.
+fn mattes_arrive(_: &mut Value) -> Result<(), String> {
     Ok(())
 }
 

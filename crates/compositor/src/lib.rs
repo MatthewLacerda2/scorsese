@@ -114,6 +114,14 @@
 //! resolution, hands back the same plus a padding, and knows nothing about
 //! transforms or the canvas.
 //!
+//! `matte` is that other stage, and it sits after `light` rather than inside
+//! it because it needs the one thing `light` never sees: the canvas. A masked
+//! layer and its [`Matte`] each have a transform, so the matte layer is drawn
+//! on its own onto a transparent raster the size of the canvas and the alpha it
+//! leaves there is the mask the masked layer lands through — after its light
+//! and its transform, so a reveal reveals the layer's shadow and glow with it.
+//! It reads alpha and nothing else, and nothing in it knows what the matte is.
+//!
 //! [`mod@grid`] is the one thing here that is part of no picture: a ruler drawn
 //! *over* a finished frame, in the fractions `crop` and `transform.position`
 //! are written in, so a coordinate can be read off a still instead of guessed
@@ -130,7 +138,8 @@
 //! ## What this publishes
 //!
 //! At the crate root, the compositing vocabulary: the [`Compositor`] trait and
-//! the [`CpuCompositor`] behind it, the [`Layer`] they take and the [`Frame`],
+//! the [`CpuCompositor`] behind it, the [`Layer`] they take (and the [`Matte`]
+//! one may be drawn through) and the [`Frame`],
 //! [`Resolution`] and [`PIXEL_FORMAT`] a picture is carried in, the
 //! [`Properties`] one instant of a clip resolves to, the [`ANIMATED`] list with
 //! the [`Registry`] that searches it, the two fades ([`fade_in`],
@@ -168,6 +177,7 @@ mod grain;
 pub mod grid;
 pub mod icon;
 mod light;
+mod matte;
 mod paint;
 mod properties;
 mod registry;
@@ -178,7 +188,7 @@ mod vhs;
 pub mod waveform;
 
 pub use area::{Area, on_canvas};
-pub use compose::{CompositeError, Compositor, Layer};
+pub use compose::{CompositeError, Compositor, Layer, Matte};
 pub use cpu::CpuCompositor;
 pub use dissolve::{DissolveError, Placed, dissolve};
 pub use frame::{BYTES_PER_PIXEL, Frame, PIXEL_FORMAT, Resolution, ResolutionError};

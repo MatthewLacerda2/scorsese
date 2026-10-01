@@ -23,6 +23,7 @@ mod importing;
 mod inspecting;
 mod landing;
 mod looking;
+mod matting;
 mod moving;
 mod pacing;
 mod paying;

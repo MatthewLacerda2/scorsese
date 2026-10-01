@@ -64,6 +64,7 @@ pub(super) fn shot_at<'a>(
         for lane in &group.tracks {
             members.extend(shot_at(project, lane, at, inner, keep, open)?);
         }
+        members = super::mattes::attach(&group.tracks, members);
         open.pop();
     }
     Ok(Some(Shot {
@@ -74,6 +75,7 @@ pub(super) fn shot_at<'a>(
         source_in: source_in_at(clip, local),
         members,
         shift,
+        matte: None,
     }))
 }
 

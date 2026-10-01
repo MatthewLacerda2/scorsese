@@ -1,0 +1,72 @@
+{
+  "schema_version": 41,
+  "name": "matte_text",
+  "timeline_fps": {
+    "num": 30,
+    "den": 1
+  },
+  "assets": [
+    {
+      "id": "bed",
+      "kind": "color",
+      "color": "#101010"
+    },
+    {
+      "id": "bars",
+      "kind": "video",
+      "path": "assets/bars.mp4"
+    },
+    {
+      "id": "word",
+      "kind": "text",
+      "text": "SCOR",
+      "style": {
+        "font": "sans",
+        "weight": 800,
+        "size": 0.5,
+        "color": "#ffffff"
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-bed",
+          "asset": "bed",
+          "start": 0,
+          "duration": 10
+        }
+      ]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-bars",
+          "asset": "bars",
+          "start": 0,
+          "duration": 10,
+          "matte": {
+            "clip": "c-word"
+          }
+        }
+      ]
+    },
+    {
+      "id": "v3",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-word",
+          "asset": "word",
+          "start": 0,
+          "duration": 10
+        }
+      ]
+    }
+  ]
+}

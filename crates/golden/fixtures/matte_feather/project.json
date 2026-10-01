@@ -1,0 +1,75 @@
+{
+  "schema_version": 41,
+  "name": "matte_feather",
+  "timeline_fps": {
+    "num": 30,
+    "den": 1
+  },
+  "assets": [
+    {
+      "id": "night",
+      "kind": "color",
+      "color": "#000000"
+    },
+    {
+      "id": "panel",
+      "kind": "color",
+      "color": "#f08020"
+    },
+    {
+      "id": "box",
+      "kind": "shape",
+      "shape": {
+        "geometry": {
+          "rectangle": {
+            "width": 0.5,
+            "height": 0.5
+          }
+        },
+        "fill": "#ffffffff"
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-night",
+          "asset": "night",
+          "start": 0,
+          "duration": 10
+        }
+      ]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-panel",
+          "asset": "panel",
+          "start": 0,
+          "duration": 10,
+          "matte": {
+            "clip": "c-box"
+          }
+        }
+      ]
+    },
+    {
+      "id": "v3",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-box",
+          "asset": "box",
+          "start": 0,
+          "duration": 10,
+          "blur": 0.05
+        }
+      ]
+    }
+  ]
+}

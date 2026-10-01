@@ -1,0 +1,75 @@
+{
+  "schema_version": 41,
+  "name": "matte_iris_inverted",
+  "timeline_fps": {
+    "num": 30,
+    "den": 1
+  },
+  "assets": [
+    {
+      "id": "bed",
+      "kind": "color",
+      "color": "#e0e0e0"
+    },
+    {
+      "id": "panel",
+      "kind": "color",
+      "color": "#1a5fb4"
+    },
+    {
+      "id": "iris",
+      "kind": "shape",
+      "shape": {
+        "geometry": {
+          "ellipse": {
+            "width": 0.5,
+            "height": 0.5
+          }
+        },
+        "fill": "#ffffffff"
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-bed",
+          "asset": "bed",
+          "start": 0,
+          "duration": 10
+        }
+      ]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-panel",
+          "asset": "panel",
+          "start": 0,
+          "duration": 10,
+          "matte": {
+            "clip": "c-iris",
+            "invert": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "v3",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-iris",
+          "asset": "iris",
+          "start": 0,
+          "duration": 10
+        }
+      ]
+    }
+  ]
+}

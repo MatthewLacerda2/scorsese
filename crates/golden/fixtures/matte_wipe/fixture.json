@@ -1,0 +1,15 @@
+{
+  "description": "SMPTE bars revealed left to right over a dark-grey bed by a track matte: a full-frame white rectangle with `origin` on its left edge whose `transform.scale.x` runs 0 to 1 over the first 30 frames, linearly. Frame 7 shows the bars' leftmost ~23% (about 30 of 128 columns) and the grey bed to the right of a sharp vertical edge; frame 15 the left half; frame 22 about 73%. The matte rectangle itself is never visible \u2014 no white anywhere. What a wrong render looks like: white where the bars should be means the matte clip was drawn on its own track as well as used as a mask; bars across the whole frame means the matte was ignored; the reveal growing from the centre means the matte's origin was lost; the bars' colours shifted or darkened inside the reveal means the mask scaled colour instead of coverage.",
+  "media": {
+    "bars": "smptebars=s=128x72:d=2:r=30"
+  },
+  "render": {
+    "resolution": "128x72",
+    "fps": "30"
+  },
+  "frames": [
+    7,
+    15,
+    22
+  ]
+}

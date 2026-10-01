@@ -23,6 +23,7 @@ mod fill;
 mod follow;
 mod group;
 mod icon;
+mod matte;
 mod report;
 mod shape;
 mod speech;
@@ -31,8 +32,8 @@ mod timeline;
 mod video;
 
 pub use error::{
-    AssetProblem, FillProblem, FollowProblem, GroupProblem, IconProblem, ShapeProblem,
-    SpeechProblem, TextProblem, TimelineProblem, ValidationError, VideoProblem,
+    AssetProblem, FillProblem, FollowProblem, GroupProblem, IconProblem, MatteProblem,
+    ShapeProblem, SpeechProblem, TextProblem, TimelineProblem, ValidationError, VideoProblem,
 };
 pub use field::AssetField;
 pub use report::ValidationErrors;
@@ -65,6 +66,7 @@ impl Project {
         errors.extend(timeline::check(self).into_iter().map(Into::into));
         errors.extend(group::check(self).into_iter().map(Into::into));
         errors.extend(follow::check(self).into_iter().map(Into::into));
+        errors.extend(matte::check(self).into_iter().map(Into::into));
 
         if errors.is_empty() {
             Ok(())

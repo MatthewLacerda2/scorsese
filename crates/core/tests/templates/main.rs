@@ -3,6 +3,7 @@
 
 mod extract;
 mod insert;
+mod mattes;
 
 use std::collections::BTreeSet;
 
@@ -18,7 +19,7 @@ use scorsese_core::{ClipId, Project, template};
 ///             90   120   180   210     300  330
 /// ```
 pub(crate) const EPISODE: &str = r##"{
-  "schema_version": 40, "name": "Episode 1", "timeline_fps": { "num": 30, "den": 1 },
+  "schema_version": 41, "name": "Episode 1", "timeline_fps": { "num": 30, "den": 1 },
   "assets": [
     { "id": "intro", "kind": "video", "path": "assets/intro.mp4",
       "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",

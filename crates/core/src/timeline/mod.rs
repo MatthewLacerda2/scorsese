@@ -16,6 +16,7 @@ use crate::chroma::ChromaKey;
 use crate::grade::Grade;
 use crate::keyframe::KeyframeTrack;
 use crate::light::{Blend, Glow, Shadow};
+use crate::matte::Matte;
 use crate::time::{Frames, Speed};
 use crate::vhs::Vhs;
 
@@ -331,6 +332,18 @@ pub struct Clip {
     /// Picture only.
     #[serde(default, skip_serializing_if = "Blend::is_normal")]
     pub blend: Blend,
+    /// The clip this one is shown through, or `None` — which is almost every
+    /// clip. See [`Matte`].
+    ///
+    /// **The last thing that happens to the layer before it lands**: after
+    /// its shadow and glow, and after its transform, because the matte clip
+    /// has a transform of its own and the two meet on the frame. So a matte
+    /// reveals the layer's light with it, and on a group clip it reveals the
+    /// whole group.
+    ///
+    /// Picture only, and only on a video track.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub matte: Option<Matte>,
     /// Why this clip is the way it is. Never rendered — see [`super::Track::note`].
     ///
     /// The commonest place a note belongs, because most decisions are decisions
@@ -396,6 +409,7 @@ impl Clip {
             shadow: None,
             glow: None,
             blend: Blend::Normal,
+            matte: None,
             keyframes: Vec::new(),
             note: None,
             follow: None,
