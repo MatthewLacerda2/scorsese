@@ -24,8 +24,9 @@ use crate::symbol;
 use crate::text::{Painter, Typing};
 
 use super::Pass;
-use super::attach::{self, Rect};
 use super::redraw::Redraw;
+use crate::attach;
+use crate::content::Rect;
 
 /// What one layer contributes to every frame of a segment.
 pub(super) struct Slot {
@@ -271,7 +272,11 @@ impl Pass<'_> {
             // the segment: where it runs depends on where that clip is at each
             // instant. Everything else here is the same pixels throughout.
             if attach::is_attached(shape) {
-                let following = attach::following(shape, segment, within);
+                let following = attach::following(shape, |id| {
+                    segment
+                        .iter()
+                        .position(|entry| entry.within == within && &entry.shot.clip.id == id)
+                });
                 if following.is_none() {
                     notes.push(Note::ArrowUnattached {
                         clip: shot.clip.id.to_string(),
