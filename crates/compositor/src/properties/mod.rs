@@ -173,6 +173,11 @@ pub const ANIMATED: &[Property] = &[
         path: path::GLOW_INTENSITY,
         describes: "how bright the layer's glow is, clamped to 0-4; nothing without a glow",
     },
+    Property {
+        path: path::FOLLOW_PROGRESS,
+        describes: "how far along the arrow it follows a clip is, as a fraction of the arrow's \
+                    length from its tail",
+    },
 ];
 
 /// What a layer looks like at one instant.
@@ -296,6 +301,11 @@ pub struct Properties {
     pub glow: Option<Glow>,
     /// How the layer — its shadow and glow with it — lands on the canvas.
     pub blend: Blend,
+    /// How far along the arrow it follows the layer is — `follow.progress`, a
+    /// fraction of the arrow's length. Read only for a clip with a `follow`;
+    /// the renderer turns it into a place on the frame, since only it knows
+    /// where the arrow runs.
+    pub progress: f64,
 }
 
 impl Default for Properties {
@@ -321,6 +331,7 @@ impl Default for Properties {
             shadow: None,
             glow: None,
             blend: Blend::Normal,
+            progress: 0.0,
         }
     }
 }
@@ -438,6 +449,7 @@ impl Properties {
                         glow.intensity = value;
                     }
                 }
+                path::FOLLOW_PROGRESS => properties.progress = value,
                 _ => {}
             }
         }

@@ -97,6 +97,8 @@ goldens!(
     fade,
     fill,
     flip,
+    follow,
+    follow_attached,
     gap_above,
     glow,
     glow_group,

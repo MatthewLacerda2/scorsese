@@ -13,6 +13,7 @@
 
 mod attach;
 mod draw;
+mod follow;
 mod layers;
 mod pipeline;
 mod redraw;
@@ -136,6 +137,14 @@ impl Pass<'_> {
             decoders.extend(decoder);
         }
 
+        // Once every layer is ready, since a follower's arrow may come after
+        // it in drawing order.
+        let (riders, lost) = follow::riders(&entries, &slots, self.plan.project());
+        notes.extend(
+            lost.into_iter()
+                .map(|(clip, arrow)| Note::FollowLost { clip, arrow }),
+        );
+
         let missing = pipeline::drive(
             self,
             segment,
@@ -143,6 +152,7 @@ impl Pass<'_> {
             Parts {
                 slots: &slots,
                 entries: &entries,
+                riders: &riders,
                 drawn,
                 composed,
                 decoders: &mut decoders,

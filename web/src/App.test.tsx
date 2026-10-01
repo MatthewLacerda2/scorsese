@@ -66,7 +66,7 @@ test("the editor draws the stored document: its tracks, clips and assets", () =>
     created_at: 0,
     updated_at: 0,
     document: {
-      schema_version: 38,
+      schema_version: 39,
       name: "teaser",
       timeline_fps: { num: 30, den: 1 },
       assets: [{ id: "title", kind: "text", text: "HELLO" }],

@@ -13,6 +13,7 @@
 mod common;
 
 mod fitting;
+mod following;
 mod grain;
 mod grouping;
 mod icons;

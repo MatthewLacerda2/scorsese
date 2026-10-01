@@ -12,6 +12,7 @@
 //! checks are: by what has to be looked at to find it.
 
 mod assets;
+mod follow;
 mod group;
 mod icon;
 mod shape;
@@ -21,6 +22,7 @@ mod timeline;
 mod video;
 
 pub use assets::AssetProblem;
+pub use follow::FollowProblem;
 pub use group::GroupProblem;
 pub use icon::IconProblem;
 pub use shape::ShapeProblem;
@@ -72,6 +74,11 @@ pub enum ValidationError {
     /// group's edge.
     #[error(transparent)]
     Group(#[from] GroupProblem),
+
+    /// A clip told to travel along something it cannot: a missing clip, one
+    /// that is not an arrow, or one across a group's edge.
+    #[error(transparent)]
+    Follow(#[from] FollowProblem),
 }
 
 /// A video problem is an asset problem, so it reaches the collected list the

@@ -139,6 +139,9 @@ impl Segment<'_> {
 /// The whole render, sequenced but not yet started.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Plan<'a> {
+    /// The document this was sequenced from, for the one question a layer
+    /// asks about a clip that is not on screen: where an arrow it follows runs.
+    project: &'a Project,
     start: Frames,
     end: Frames,
     timeline_fps: Fps,
@@ -247,6 +250,7 @@ impl<'a> Plan<'a> {
         }
 
         Ok(Self {
+            project,
             start,
             end,
             timeline_fps: project.timeline_fps,
@@ -255,6 +259,11 @@ impl<'a> Plan<'a> {
             audio: segments::build(project, &audio_tracks, start, end, audible)?,
             notes,
         })
+    }
+
+    /// The document this plan sequences.
+    pub(crate) fn project(&self) -> &'a Project {
+        self.project
     }
 
     /// The visible stretches, in order and covering the render's range with no

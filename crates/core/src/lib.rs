@@ -151,11 +151,11 @@ pub use text::{
 };
 pub use time::{Fps, FpsError, FpsParseError, Frames, Speed};
 pub use timeline::{
-    Anchor, AnchorX, AnchorY, Clip, ClipId, Crop, Fit, Origin, OriginX, OriginY, Track, TrackId,
-    TrackKind,
+    Anchor, AnchorX, AnchorY, Clip, ClipId, Crop, Fit, Follow, Origin, OriginX, OriginY, Track,
+    TrackId, TrackKind,
 };
 pub use validate::{
-    AssetField, AssetProblem, GroupProblem, IconProblem, ShapeProblem, SpeechProblem, TextProblem,
-    TimelineProblem, ValidationError, ValidationErrors, VideoProblem,
+    AssetField, AssetProblem, FollowProblem, GroupProblem, IconProblem, ShapeProblem,
+    SpeechProblem, TextProblem, TimelineProblem, ValidationError, ValidationErrors, VideoProblem,
 };
 pub use vhs::Vhs;

@@ -94,6 +94,15 @@ pub fn insert(
                     id: clip_ids[&clip.id].clone(),
                     asset: asset_ids[&clip.asset].clone(),
                     start: Frames(at.get() + clip.start.get() - opens.get()),
+                    // The arrow a clip travels along is renamed with the rest,
+                    // as an arrow's attached ends are: both name a clip of the
+                    // template, which is now called something else here.
+                    follow: clip.follow.clone().map(|mut follow| {
+                        if let Some(now) = clip_ids.get(&follow.clip) {
+                            follow.clip = now.clone();
+                        }
+                        follow
+                    }),
                     ..clip.clone()
                 })
                 .collect();

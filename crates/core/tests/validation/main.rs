@@ -9,6 +9,7 @@ mod attach;
 mod color;
 mod dash;
 mod fields;
+mod follow;
 mod generated;
 mod group;
 mod icon;

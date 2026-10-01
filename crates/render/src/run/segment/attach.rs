@@ -13,9 +13,10 @@
 //! would have been — draws a line into empty space, pointing at nothing, which
 //! is a worse answer than an absent arrow and a note explaining it.
 
+use scorsese_compositor::{Properties, Resolution};
 use scorsese_core::{Attach, Endpoint, Geometry, Shape, Side};
 
-use super::layers::Entry;
+use super::layers::{Entry, Slot};
 
 /// Where a layer sits within its own raster, and how to ask where that lands
 /// on the canvas. Shared with the query that reports the same rectangle
@@ -31,6 +32,32 @@ pub(super) struct Following {
     pub(super) from: End,
     /// Where it ends.
     pub(super) to: End,
+}
+
+impl Following {
+    /// Where both ends are at the instant `properties` were resolved for, in
+    /// the canvas's pixels.
+    ///
+    /// `properties` is the whole segment's, in the same order as `slots`: an
+    /// attached end reads where the layer it follows has got to.
+    pub(super) fn ends(
+        &self,
+        slots: &[Slot],
+        properties: &[Properties],
+        canvas: Resolution,
+    ) -> [(f32, f32); 2] {
+        [&self.from, &self.to].map(|end| match end {
+            End::Fixed(x, y) => (
+                (x * f64::from(canvas.width())) as f32,
+                (y * f64::from(canvas.height())) as f32,
+            ),
+            End::Follows { layer, side } => {
+                slots[*layer]
+                    .rect
+                    .point_at(*side, &properties[*layer], canvas)
+            }
+        })
+    }
 }
 
 /// One end of an attached arrow, once the segment is known.

@@ -1,0 +1,6 @@
+{
+  "description": "Clips travelling along arrows, over a colour bed with nothing on disk. Top: a straight grey arrow across the frame, carrying a yellow dot (no orient) on the line and a pink bar (orient) riding a fixed offset above it. Bottom: an S-curved grey arrow carrying a pink bar (orient) on the line and a yellow dot (no orient) riding a fixed offset below it. Every follower's `follow.progress` runs 0 → 1 over frames 0–20. Frame 0: all four at their arrows' tails on the left, the bars lying flat. Frame 10: each half way along its arrow by distance — top pair at mid-frame, the S's pair at the middle of the S — and the S's bar tilted to run along the curve there (diagonal, down to the right), the S's dot still round and upright. Frame 20: all four at the heads on the right, bars flat again. What a wrong render looks like: the S's pair off the curve at frame 10 means progress is not measured by distance or the tangent is wrong; the S's bar flat at frame 10 means orient is ignored; the offset pair sitting on the lines means position is not an offset from the path; nothing moving between frames means follow.progress is not read per frame.",
+  "media": {},
+  "render": { "resolution": "256x144", "fps": "30" },
+  "frames": [0, 10, 20]
+}

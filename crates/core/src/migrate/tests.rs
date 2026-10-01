@@ -214,6 +214,36 @@ fn a_v37_clip_arrives_unlit_and_normal() {
     assert_eq!(clip.blend, crate::Blend::Normal);
 }
 
+/// v38 → v39: a v38 document with an arrow and a clip beside it — the pair
+/// the version lets one follow the other — comes out with nothing following.
+#[test]
+fn a_v38_document_with_an_arrow_walks_to_this_version_and_validates() {
+    let document = json!({
+        "schema_version": 38,
+        "name": "Before following",
+        "timeline_fps": { "num": 30, "den": 1 },
+        "assets": [
+            { "id": "line", "kind": "shape", "shape": {
+                "geometry": { "arrow": { "from": { "x": 0.1, "y": 0.5 },
+                                         "to": { "x": 0.9, "y": 0.5 } } },
+                "stroke": "#ffffffff" } },
+            { "id": "dot", "kind": "shape", "shape": {
+                "geometry": { "ellipse": { "width": 0.05, "height": 0.09 } },
+                "fill": "#ffcc00ff" } }
+        ],
+        "tracks": [{ "id": "v1", "kind": "video", "clips": [
+            { "id": "c-line", "asset": "line", "start": 0, "duration": 30 }
+        ]}, { "id": "v2", "kind": "video", "clips": [
+            { "id": "c-dot", "asset": "dot", "start": 0, "duration": 30 }
+        ]}]
+    });
+    let (project, from) = parse(&document.to_string()).expect("a v38 document migrates");
+    assert_eq!(from, Some(38));
+    project.validate().expect("and it is valid");
+    let followers = project.every_clip().filter(|(_, c)| c.follow.is_some());
+    assert_eq!(followers.count(), 0, "and nothing follows anything");
+}
+
 #[test]
 fn a_refusing_step_names_itself() {
     const REFUSES: &[Step] = &[Step {
