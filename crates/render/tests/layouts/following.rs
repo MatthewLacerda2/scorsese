@@ -6,12 +6,12 @@
 //! ask the same question the pipeline's `following` tests answer in pixels.
 
 use scorsese_core::{
-    Asset, AssetId, Attach, ClipId, Endpoint, Follow, Geometry, Heads, Point, Project, Rgba, Shape,
-    Side,
+    Asset, AssetId, AssetKind, Attach, ClipId, Endpoint, Follow, Geometry, Heads, Point, Project,
+    Rgba, Shape, Side,
 };
 use scorsese_render::Absence;
 
-use super::common::{clip, held, project, shape_asset, video_track};
+use super::common::{clip, file_asset, held, project, shape_asset, video_track};
 use super::{layout, region, rounded};
 
 /// An arrow from `from` to `to`.
@@ -23,6 +23,16 @@ fn line(from: Endpoint, to: Endpoint) -> Asset {
         heads: Heads::None,
     };
     Asset::shape(AssetId::new("line"), Shape::outlined(geometry, Rgba::WHITE))
+}
+
+/// The left side of `clip`, as an arrow's attached end.
+fn left_of(clip: &str) -> Endpoint {
+    Endpoint::Attached {
+        attach: Attach {
+            clip: ClipId::new(clip),
+            side: Side::Left,
+        },
+    }
 }
 
 /// Straight across the middle, from a tenth of the way in to nine tenths.
@@ -55,6 +65,17 @@ fn middle(project: &Project, clip: &str) -> (f64, f64) {
     (round(left + width / 2.0), round(top + height / 2.0))
 }
 
+/// Why the dot has no rectangle at frame 0 — and that it has none.
+fn why_the_dot_is_unplaced(project: &Project) -> Option<Absence> {
+    let layout = layout(project, 0);
+    assert_eq!(layout.of("c-dot"), None);
+    let unplaced = layout
+        .unplaced
+        .iter()
+        .find(|unplaced| unplaced.clip == "c-dot");
+    unplaced.map(|unplaced| unplaced.why.clone())
+}
+
 /// The issue's own case: a quarter of the way from 0.1 to 0.9 is 0.3.
 #[test]
 fn a_dot_a_quarter_along_a_straight_arrow_is_reported_a_quarter_along() {
@@ -79,12 +100,7 @@ fn an_arrow_off_screen_between_fixed_places_is_still_followed() {
 /// at its far end meets the box's left side.
 #[test]
 fn an_arrow_attached_to_a_box_is_followed_to_the_box() {
-    let tied = Endpoint::Attached {
-        attach: Attach {
-            clip: ClipId::new("c-box"),
-            side: Side::Left,
-        },
-    };
+    let tied = left_of("c-box");
     let mut project = scene(line(Point::new(0.1, 0.5).into(), tied), (0, 30), 1.0);
     project
         .tracks
@@ -96,25 +112,34 @@ fn an_arrow_attached_to_a_box_is_followed_to_the_box() {
 /// leaves the dot out — and the layout says so rather than placing it.
 #[test]
 fn a_follower_whose_attached_arrow_has_nothing_to_point_at_is_not_placed() {
-    let tied = Endpoint::Attached {
-        attach: Attach {
-            clip: ClipId::new("c-box"),
-            side: Side::Left,
-        },
-    };
+    let tied = left_of("c-box");
     let mut project = scene(line(Point::new(0.1, 0.5).into(), tied), (0, 30), 0.5);
     project
         .tracks
         .push(video_track("v3", vec![clip("c-box", "box", 60, 30)]));
-    let layout = layout(&project, 0);
-    assert_eq!(layout.of("c-dot"), None);
-    let why = layout
-        .unplaced
-        .iter()
-        .find(|unplaced| unplaced.clip == "c-dot")
-        .map(|unplaced| unplaced.why.clone());
+    let why = why_the_dot_is_unplaced(&project);
     assert!(
         matches!(&why, Some(Absence::Unknown(said)) if said.contains("`c-line`")),
+        "{why:?}"
+    );
+}
+
+/// Attached to a picture whose file is missing, the arrow's end is somewhere
+/// nobody can say — so is the dot's place, and it is not guessed at.
+#[test]
+fn a_follower_whose_arrow_meets_an_unmeasurable_clip_is_not_placed() {
+    let mut project = scene(
+        line(Point::new(0.1, 0.5).into(), left_of("c-shot")),
+        (0, 30),
+        1.0,
+    );
+    project.assets.push(file_asset("gone", AssetKind::Video));
+    project
+        .tracks
+        .push(video_track("v3", vec![clip("c-shot", "gone", 0, 30)]));
+    let why = why_the_dot_is_unplaced(&project);
+    assert!(
+        matches!(&why, Some(Absence::Unknown(said)) if said.contains("cannot place")),
         "{why:?}"
     );
 }
