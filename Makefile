@@ -353,6 +353,15 @@ scripts: ## [gate] The signal renderers under .github/scripts
 # policy rather than letting it look for an `app/deny.toml`, which must never
 # exist: one policy, checked twice.
 #
+# **Where `--config` goes depends on the cargo-deny**, so the line asks it.
+# 0.19 takes it only after `check`; 0.20 takes it only before. Each refuses the
+# other's spelling outright, and both have been on a machine running this gate:
+# #630 moved it after `check` for a cloud container's 0.19, which broke the Mac's
+# 0.20 (#635). Leaving the flag out is no answer either: 0.20 then looks for an
+# `app/deny.toml`, finds none, and passes on cargo-deny's permissive defaults —
+# measured, with a policy that refuses MIT going green — which is the false
+# green this gate exists to refuse. `check --help` naming the flag is the test.
+#
 # `--all-features` on both, because CI's action passes it by default and this
 # file promises to run the command CI runs. Without it a feature-gated
 # dependency is in the graph there and not here, and `make deny` would go green
@@ -363,8 +372,13 @@ deny: ## [gate] Supply chain, both workspaces: advisories, bans, sources, licens
 		echo "      Install it with: cargo install --locked cargo-deny" >&2; \
 		exit 1; }
 	cargo deny --all-features check advisories bans sources licenses
-	cargo deny --all-features --manifest-path app/Cargo.toml \
-		check --config deny.toml advisories bans sources licenses
+	@if cargo deny check --help 2>/dev/null | grep -q -- '--config <'; then \
+		set -x; cargo deny --all-features --manifest-path app/Cargo.toml \
+			check --config deny.toml advisories bans sources licenses; \
+	else \
+		set -x; cargo deny --all-features --manifest-path app/Cargo.toml \
+			--config deny.toml check advisories bans sources licenses; \
+	fi
 
 # The deploy (#532) is YAML and Dockerfiles that nothing else here reads, so
 # without this a typo in deploy/compose.yaml is found by the maintainer at
