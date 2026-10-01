@@ -203,6 +203,15 @@ again, except to fix its own red CI. A late push costs a full CI round, because
 afterwards (a mutation survivor, a missing test) goes in an issue comment, for a
 follow-up PR off `main` (MatthewLacerda2/rusty#583).
 
+**Cloud coders share the account's usage limit.** When it runs out, every
+cloud session stops at the same moment as the orchestrator, and its container's
+unpushed work is lost (2026-09-30: four at once, `rate_limit: rejected
+(five_hour)` in each `get_run_log`). After the reset, run `list_runs` on every
+routine still in flight: `worker_status: idle` with a draft PR is the
+signature. A stopped session cannot be messaged from here, so launch a fresh
+routine per branch, briefed to **finish the pushed branch**: what it has, what
+was lost, and what main has done since, since a rebase is usually owed by then.
+
 **A cloud session is never woken by its own background work.** A routine session
 that starts a build in the background and ends its turn to wait sits idle
 forever — on rusty one did exactly that for an hour, gates half-run, PR still a
