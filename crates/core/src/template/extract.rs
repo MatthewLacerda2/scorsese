@@ -5,7 +5,7 @@ use std::collections::BTreeSet;
 use crate::asset::{AssetId, GenerationState};
 use crate::project::Project;
 use crate::time::Frames;
-use crate::timeline::{ClipId, Track};
+use crate::timeline::{Clip, ClipId, Track};
 use crate::validate::ValidationErrors;
 
 /// Why no template was made. Nothing is ever half made.
@@ -41,18 +41,6 @@ pub enum ExtractError {
         /// Its matte.
         matte: ClipId,
     },
-    /// A chosen clip shows a group. A template does not carry one yet (#598): the
-    /// group's members would need their assets, ids and frame rate carried
-    /// through [`crate::template::insert`] too, and a half-carried group is a
-    /// template that refuses to insert.
-    #[error(
-        "`{asset}` is a group, and a template cannot carry a group yet — ungroup it first \
-         (clip_ungroup), or leave its clip out"
-    )]
-    CarriesGroup {
-        /// The group asset.
-        asset: AssetId,
-    },
     /// What was lifted out is not a document that loads — which a valid
     /// project cannot produce, and an invalid one can.
     #[error(transparent)]
@@ -69,7 +57,8 @@ fn quoted(clips: &[ClipId]) -> String {
 /// Each track holding a chosen clip comes along — its id, kind, name and note —
 /// carrying only the chosen clips, moved so the earliest starts at frame zero.
 /// Each asset a chosen clip shows comes along, and so does each still a
-/// generated video's brief names, so the template stands alone. A brief that
+/// generated video's brief names, and a group with every asset its members
+/// show, nested groups included — so the template stands alone. A brief that
 /// was queued is kept as a sketch: a template records what to generate, not
 /// work somebody else's project has in flight.
 pub fn extract(
@@ -89,12 +78,30 @@ pub fn extract(
         return Err(ExtractError::NoSuchClips(missing));
     }
     let chosen = || project.clips().filter(|(_, clip)| clips.contains(&clip.id));
-    let unchosen_matte = chosen().find_map(|(_, clip)| {
-        clip.matte
-            .as_ref()
-            .filter(|matte| !clips.contains(&matte.clip))
-            .map(|matte| (clip.id.clone(), matte.clip.clone()))
-    });
+    let needed = needed(project, chosen().map(|(_, clip)| clip.asset.clone()));
+    // A group's members come along inside it, so an arrow or a matte may name
+    // them too — and a member's own matte must be carried as well.
+    let members: Vec<&Clip> = project
+        .assets
+        .iter()
+        .filter(|asset| needed.contains(&asset.id))
+        .filter_map(|asset| asset.group.as_ref())
+        .flat_map(|group| group.clips().map(|(_, clip)| clip))
+        .collect();
+    let carried: BTreeSet<ClipId> = clips
+        .iter()
+        .cloned()
+        .chain(members.iter().map(|clip| clip.id.clone()))
+        .collect();
+    let unchosen_matte = chosen()
+        .map(|(_, clip)| clip)
+        .chain(members.iter().copied())
+        .find_map(|clip| {
+            clip.matte
+                .as_ref()
+                .filter(|matte| !carried.contains(&matte.clip))
+                .map(|matte| (clip.id.clone(), matte.clip.clone()))
+        });
     if let Some((clip, matte)) = unchosen_matte {
         return Err(ExtractError::MatteUnchosen { clip, matte });
     }
@@ -127,15 +134,9 @@ pub fn extract(
         lane.note.clone_from(&track.note);
     }
 
-    let needed = needed(project, chosen().map(|(_, clip)| clip.asset.clone()));
     for asset in project.assets.iter().filter(|a| needed.contains(&a.id)) {
-        if asset.group.is_some() {
-            return Err(ExtractError::CarriesGroup {
-                asset: asset.id.clone(),
-            });
-        }
         for attach in super::follows(asset) {
-            if !clips.contains(&attach.clip) {
+            if !carried.contains(&attach.clip) {
                 return Err(ExtractError::FollowsUnchosen {
                     arrow: asset.id.clone(),
                     follows: attach.clip.clone(),
@@ -154,14 +155,25 @@ pub fn extract(
     Ok(template)
 }
 
-/// The assets `shown` names, and every still their briefs name in turn.
+/// The assets `shown` names, and everything those name in turn: the stills a
+/// brief names, and what a group's members show — through every group nested
+/// in it, since nesting is by reference to the one assets table.
 fn needed(project: &Project, shown: impl Iterator<Item = AssetId>) -> BTreeSet<AssetId> {
-    let mut needed: BTreeSet<AssetId> = shown.collect();
-    let stills: Vec<AssetId> = needed
-        .iter()
-        .filter_map(|id| project.asset(id)?.video.as_ref())
-        .flat_map(|brief| brief.images().cloned())
-        .collect();
-    needed.extend(stills);
+    let mut needed = BTreeSet::new();
+    let mut pending: Vec<AssetId> = shown.collect();
+    while let Some(id) = pending.pop() {
+        let Some(asset) = project.asset(&id) else {
+            continue;
+        };
+        if !needed.insert(id) {
+            continue;
+        }
+        if let Some(brief) = &asset.video {
+            pending.extend(brief.images().cloned());
+        }
+        if let Some(group) = &asset.group {
+            pending.extend(group.clips().map(|(_, clip)| clip.asset.clone()));
+        }
+    }
     needed
 }

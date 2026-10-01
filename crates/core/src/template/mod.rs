@@ -58,7 +58,10 @@
 //! An id is kept wherever it is free: a clip, an asset or a new track keeps
 //! the id it had in the template, suffixed (`-2`, `-3`) only when the project
 //! already uses it, and a new track takes the next `v`/`a` number instead —
-//! `v1` taken is a track called `v2`, not `v1-2`. What moved where is in
+//! `v1` taken is a track called `v2`, not `v1-2`. A **group** comes whole: its
+//! members' clip ids and its own lanes' ids are kept or suffixed by the same
+//! rule, against the whole document — ids are one namespace, groups included —
+//! and every reference inside it follows the rename. What moved where is in
 //! [`Inserted`], so a caller never has to guess what it just wrote.
 //!
 //! **All or nothing**, as everything in [`crate::placing`] is: worked out on a
@@ -74,6 +77,7 @@
 mod extract;
 pub(crate) mod ids;
 mod insert;
+mod rename;
 mod retime;
 
 pub use extract::{ExtractError, extract};
