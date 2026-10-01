@@ -5,10 +5,11 @@
 //! ([`super::measure`]) and handing the stroker only the stretch that is kept.
 //!
 //! **An untrimmed line is the path exactly as it always was.** Nothing is
-//! measured or rebuilt unless a trim asks for it, so a shape that never
-//! mentions one draws the same pixels it drew before trims existed — and a
-//! closed outline keeps the join where it meets itself, which a rebuilt open
-//! copy of it would not have.
+//! measured or rebuilt unless a trim asks for it — or an arrow's head needs the
+//! line stopped short of its tip (`Pullback`) — so a box that never mentions a
+//! trim draws the same pixels it drew before trims existed, and a closed
+//! outline keeps the join where it meets itself, which a rebuilt open copy of
+//! it would not have.
 
 use tiny_skia::{Path, StrokeDash};
 
@@ -25,32 +26,57 @@ pub(super) enum Laid {
     Nothing,
     /// The whole outline, exactly as its path runs.
     Whole,
-    /// Part of it, and the measured outline that part was cut from.
+    /// Part of it, and the measured outline that part was cut from. Also what
+    /// a line pulled back from its ends reports, even when the stretch between
+    /// the pulled-back ends was empty and nothing was stroked: the trim kept
+    /// something, so the heads on its ends are still drawn.
     Part(Measured),
 }
 
-/// Strokes the part of `path` that `stroking` keeps.
-pub(super) fn lay(frame: &mut Frame, path: &Path, border: Border, stroking: &Stroking) -> Laid {
+/// How far short of each end of the kept stretch the stroke stops, in pixels.
+///
+/// An arrow's head covers the last stretch of the line itself, so the line
+/// stops inside the head rather than under its tip (#608). Zero for anything
+/// without heads, which keeps the untrimmed fast path.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub(super) struct Pullback {
+    /// Back from the kept stretch's start, toward its end.
+    pub(super) start: f32,
+    /// Back from the kept stretch's end, toward its start.
+    pub(super) end: f32,
+}
+
+/// Strokes the part of `path` that `stroking` keeps, stopping `pullback`
+/// short of either end of it.
+///
+/// **Pulled back by distance along the outline**, not along a straight line, so
+/// a bowed arrow's line follows its own curve all the way into the head.
+pub(super) fn lay(
+    frame: &mut Frame,
+    path: &Path,
+    border: Border,
+    stroking: &Stroking,
+    pullback: Pullback,
+) -> Laid {
     let Some((start, end)) = stroking.span() else {
         return Laid::Nothing;
     };
-    if start <= 0.0 && end >= 1.0 {
+    if start <= 0.0 && end >= 1.0 && pullback == Pullback::default() {
         stroke(frame, path, border, stroking.dash.as_ref(), 0.0);
         return Laid::Whole;
     }
     let Some(measured) = Measured::of_path(path) else {
         return Laid::Nothing;
     };
-    let Some(part) = measured.between(start, end) else {
-        return Laid::Nothing;
-    };
-    stroke(
-        frame,
-        &part,
-        border,
-        stroking.dash.as_ref(),
-        measured.distance(start),
-    );
+    let length = measured.length();
+    let from = measured.distance(start) + pullback.start.max(0.0);
+    let to = measured.distance(end) - pullback.end.max(0.0);
+    // Pulled back past one another, the kept stretch is all head and no line:
+    // `between` has nothing to give, but the trim still kept something to put
+    // heads on.
+    if let Some(part) = measured.between(from / length, to / length) {
+        stroke(frame, &part, border, stroking.dash.as_ref(), from);
+    }
     Laid::Part(measured)
 }
 

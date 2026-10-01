@@ -122,3 +122,14 @@ fn a_trim_leaves_the_fill_whole_and_cuts_the_border_clockwise_from_the_top_left(
     );
     assert!(filled(&quarter, 149, 100), "the right edge is not yet");
 }
+
+/// Drawn on less far than the line stops short of its head, an arrow is a head
+/// and no line yet (#608). Six pixels in, at this thickness the line would stop
+/// twelve back from the tip — so nothing of it is stroked, and two pixels behind
+/// the tip the column is the head's sliver, not the line's four.
+#[test]
+fn drawn_on_less_than_a_head_it_is_a_head_and_no_line() {
+    let early = trimmed(&arrow(Heads::End), 0.0, 0.05);
+    assert!(!clear(&early, 40, 100), "the head is there");
+    assert!(column(&early, 44) <= 2, "{} high", column(&early, 44));
+}

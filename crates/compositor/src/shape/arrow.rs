@@ -17,7 +17,7 @@ use scorsese_core::Curve;
 use crate::frame::Frame;
 use crate::paint;
 
-use super::stroke::{self, Laid};
+use super::stroke::{self, Laid, Pullback};
 use super::trace::Stroking;
 use super::{Arrow, Border};
 
@@ -37,6 +37,22 @@ const HEAD_LENGTH: f32 = 4.0;
 /// than as a wedge.
 const HEAD_SPREAD: f32 = 1.6;
 
+/// How far back from a head's tip the line stops, as a multiple of its
+/// thickness (#608).
+///
+/// The line's ends are square, and near its tip a head is narrower than the
+/// line — so a line stroked all the way to the tip pokes its two corners out
+/// past the point, and every head reads as blunt. The corners are inside the
+/// head once it has widened to half the line's thickness, which is
+/// `0.5 × HEAD_LENGTH / HEAD_SPREAD` = 1.25 widths back.
+///
+/// It stops **one width short of the head's base** rather than exactly on it:
+/// a line ending on the base would put two anti-aliased edges on the same row
+/// of pixels, and they would leave a faint seam across the line. One width of
+/// overlap hides it and keeps a translucent arrow's doubled-up ink to a sliver
+/// inside the head.
+const SHAFT_STOP: f32 = HEAD_LENGTH - 1.0;
+
 /// Draws `arrow` onto `frame` in `border`'s colour and thickness, as much of
 /// it as `stroking` keeps.
 ///
@@ -50,6 +66,13 @@ const HEAD_SPREAD: f32 = 1.6;
 /// an arrow drawing itself on is led by its head — and a head never waits at
 /// `to` for a line that has not reached it. The head at `from` does the same at
 /// the trimmed start. Trimmed to nothing, there is no line and no head.
+///
+/// **The line stops inside each head** ([`SHAFT_STOP`]), measured back along
+/// the curve from wherever that head sits — so its square end never pokes past
+/// the point. While the drawn part is shorter than that, as an arrow drawing
+/// itself on is for its first frames, there is a head and no line yet.
+/// Only the stroke is shortened: [`line`], which is what `measure` walks and a
+/// follower travels, is still the whole arrow.
 pub(super) fn draw(frame: &mut Frame, arrow: Arrow, border: Border, stroking: &Stroking) {
     if !border.width.is_finite() || border.width <= 0.0 {
         return;
@@ -60,7 +83,12 @@ pub(super) fn draw(frame: &mut Frame, arrow: Arrow, border: Border, stroking: &S
     let Some(line) = line(arrow, &run) else {
         return;
     };
-    let (start, end) = match stroke::lay(frame, &line, border, stroking) {
+    let stop = border.width * SHAFT_STOP;
+    let pullback = Pullback {
+        start: if arrow.heads.at_start() { stop } else { 0.0 },
+        end: if arrow.heads.at_end() { stop } else { 0.0 },
+    };
+    let (start, end) = match stroke::lay(frame, &line, border, stroking, pullback) {
         Laid::Nothing => return,
         Laid::Whole => ((arrow.from, run.at_start), (arrow.to, run.at_end)),
         Laid::Part(measured) => {
@@ -96,7 +124,9 @@ pub(super) fn draw(frame: &mut Frame, arrow: Arrow, border: Border, stroking: &S
 /// through the control points `run` worked out.
 ///
 /// This is the path that is drawn and the path that is measured, so a trim
-/// and a whole line can never disagree about where the arrow runs.
+/// and a whole line can never disagree about where the arrow runs. A headed
+/// end's stroke stops short of it, but the path does not: the arrow runs all
+/// the way to its tip.
 pub(super) fn line(arrow: Arrow, run: &Run) -> Option<Path> {
     let mut line = PathBuilder::new();
     line.move_to(arrow.from.0, arrow.from.1);
