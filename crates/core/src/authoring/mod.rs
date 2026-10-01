@@ -28,10 +28,12 @@
 //! That question is its own issue rather than a flag on one of these.
 
 mod apply;
+mod block;
 mod edit;
 mod inline;
 mod track;
 
+pub use block::{BlockChange, CounterEdit, RevealEdit};
 pub use edit::{Edit, set_asset};
 pub use inline::{Inline, add_asset};
 pub(crate) use track::numbered;

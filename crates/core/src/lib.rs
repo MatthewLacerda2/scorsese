@@ -109,7 +109,7 @@ pub use asset::{
 // The three verbs stay behind the module for [`pacing`]'s reason: a bare
 // `scorsese_core::add_asset` reads as an import, and `set_asset` says nothing
 // about what it sets.
-pub use authoring::{AuthorError, Edit, Inline, Lane};
+pub use authoring::{AuthorError, BlockChange, CounterEdit, Edit, Inline, Lane, RevealEdit};
 pub use baseline::{Baseline, fingerprint_of};
 pub use chroma::{ChromaKey, MIN_KEY_SPREAD};
 pub use color::{ColorError, Rgba};

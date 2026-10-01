@@ -8,11 +8,12 @@
 use std::fmt;
 
 use super::AuthorError;
+use super::block::{CounterEdit, RevealEdit, changed};
 use super::edit::Edit;
 use crate::asset::{Asset, AssetKind};
 use crate::color::Rgba;
 use crate::shape::Geometry;
-use crate::text::{FontChoice, TextAlign};
+use crate::text::{Counter, FontChoice, Locale, Reveal, RevealUnit, TextAlign};
 
 /// Writes the edit onto the asset, collecting a line per field changed.
 pub(super) fn apply(asset: &mut Asset, edit: &Edit) -> Result<Vec<String>, AuthorError> {
@@ -100,6 +101,26 @@ fn text(asset: &mut Asset, edit: &Edit, said: &mut Vec<String>) -> Result<(), Au
     if let Some(width) = edit.stroke_width {
         said.push(became("stroke_width", style.stroke_width, width));
         style.stroke_width = width;
+        styled = true;
+    }
+    if let Some(change) = &edit.reveal {
+        let now = changed(style.reveal, change, RevealEdit::over);
+        said.push(became(
+            "reveal",
+            show_reveal(style.reveal),
+            show_reveal(now),
+        ));
+        style.reveal = now;
+        styled = true;
+    }
+    if let Some(change) = &edit.number {
+        let now = changed(style.number, change, CounterEdit::over);
+        said.push(became(
+            "number",
+            show_number(style.number),
+            show_number(now),
+        ));
+        style.number = now;
         styled = true;
     }
     if styled {
@@ -255,5 +276,48 @@ fn show_align(align: TextAlign) -> &'static str {
     }
 }
 
+/// A reveal block as one line: every field, so a merge shows what it kept.
+fn show_reveal(reveal: Option<Reveal>) -> String {
+    reveal.map_or_else(
+        || "none".to_owned(),
+        |reveal| {
+            let unit = match reveal.unit {
+                RevealUnit::Char => "char",
+                RevealUnit::Word => "word",
+                RevealUnit::Line => "line",
+            };
+            format!(
+                "by {unit}, rise {}, stagger {}",
+                reveal.rise, reveal.stagger
+            )
+        },
+    )
+}
+
+/// A number block as one line, the same way.
+fn show_number(counter: Option<Counter>) -> String {
+    counter.map_or_else(
+        || "none".to_owned(),
+        |counter| {
+            let locale = match counter.locale {
+                Locale::En => "en",
+                Locale::PtBr => "pt-BR",
+            };
+            let grouping = if counter.grouping {
+                "grouped"
+            } else {
+                "ungrouped"
+            };
+            format!(
+                "{}, {} decimals, {locale}, {grouping}",
+                counter.value, counter.decimals
+            )
+        },
+    )
+}
+
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod blocks;

@@ -11,6 +11,7 @@
 
 use super::AuthorError;
 use super::apply::apply;
+use super::block::{BlockChange, CounterEdit, RevealEdit};
 use crate::asset::{AssetId, AssetKind};
 use crate::color::Rgba;
 use crate::fill::Fill;
@@ -55,12 +56,18 @@ pub struct Edit {
     pub height: Option<f64>,
     /// How rounded a rectangle's corners are.
     pub radius: Option<f64>,
+    /// How a `text` asset arrives a piece at a time, or [`BlockChange::Remove`] to
+    /// have it simply show.
+    pub reveal: Option<BlockChange<RevealEdit>>,
+    /// How the figure at a `text` asset's `{n}` is written, or
+    /// [`BlockChange::Remove`] to stop it being one.
+    pub number: Option<BlockChange<CounterEdit>>,
 }
 
 impl Edit {
     /// The fields this edit names, in the order they are declared.
     fn named(&self) -> Vec<&'static str> {
-        let asked: [(&'static str, bool); 16] = [
+        let asked: [(&'static str, bool); 18] = [
             ("text", self.text.is_some()),
             ("font", self.font.is_some()),
             ("weight", self.weight.is_some()),
@@ -77,6 +84,8 @@ impl Edit {
             ("width", self.width.is_some()),
             ("height", self.height.is_some()),
             ("radius", self.radius.is_some()),
+            ("reveal", self.reveal.is_some()),
+            ("number", self.number.is_some()),
         ];
         asked
             .into_iter()
@@ -100,6 +109,8 @@ const TEXT: &[&str] = &[
     "max_width",
     "stroke",
     "stroke_width",
+    "reveal",
+    "number",
 ];
 
 /// What a `color` asset takes, which is the whole of what it is.
