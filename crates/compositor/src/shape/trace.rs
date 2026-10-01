@@ -134,3 +134,27 @@ impl Dash {
         Some(pattern)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Stroking;
+
+    fn span(trim_start: f32, trim_end: f32) -> Option<(f32, f32)> {
+        Stroking {
+            trim_start,
+            trim_end,
+            dash: None,
+        }
+        .span()
+    }
+
+    /// Both ends of the boundary: a trim whose ends meet keeps nothing, and
+    /// one a hair apart keeps that hair. Every caller also refuses an empty
+    /// stretch further down, so only here can the edge itself be seen.
+    #[test]
+    fn a_span_whose_ends_meet_is_empty() {
+        assert_eq!(span(0.5, 0.5), None);
+        assert_eq!(span(0.5, 0.25), None);
+        assert_eq!(span(0.25, 0.5), Some((0.25, 0.5)));
+    }
+}

@@ -23,12 +23,15 @@ mod bows;
 mod corners;
 mod dashes;
 mod heads;
+mod kept;
 mod measuring;
 mod outlines;
 mod overshoot;
 mod painting;
 mod placing;
+mod redrawing;
 mod trims;
+mod turning;
 
 use scorsese_compositor::shape::{Boxed, Figure, Outline};
 use scorsese_compositor::{Frame, Resolution};
