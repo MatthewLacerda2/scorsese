@@ -88,7 +88,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `project_write` | Replace a project's project.json with the document given. | nothing |
 | `track_new` | Add a track — a lane for clips, carrying either picture or sound. | nothing |
 | `text_new` | Add a text asset — a caption, a title, a lower third: what it says, and the look it is set in. | nothing |
-| `color_new` | Add a colour asset: a solid fill for a background, a colour card, or a wash under a title. | nothing |
+| `color_new` | Add a colour asset: a solid colour or a gradient for a background, a colour card, or a wash under a title. | nothing |
 | `shape_new` | Add a shape asset: a rectangle, an ellipse or an arrow, drawn by the render rather than imported as a picture of one. | nothing |
 | `icon_new` | Add an icon asset: one of the seventeen hundred symbols this build ships, named rather than imported. | nothing |
 | `asset_set` | Change a field on an asset that carries its content in the document — a text, color, shape or icon asset: its wording, its size, its colour. | nothing |

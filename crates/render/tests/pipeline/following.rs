@@ -31,7 +31,7 @@ fn line(from: Endpoint, to: Endpoint) -> Asset {
 /// A red rectangle `width` by `height`, in fractions of the raster.
 fn block(id: &str, width: f64, height: f64) -> Asset {
     let mut asset = shape_asset(id, width, height);
-    asset.shape.as_mut().expect("a shape").fill = Some(Rgba::opaque(255, 0, 0));
+    asset.shape.as_mut().expect("a shape").fill = Some(Rgba::opaque(255, 0, 0).into());
     asset
 }
 

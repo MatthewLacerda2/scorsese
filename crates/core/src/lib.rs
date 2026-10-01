@@ -74,6 +74,7 @@ pub(crate) mod baseline;
 pub(crate) mod chroma;
 pub(crate) mod color;
 pub mod dip;
+pub(crate) mod fill;
 pub(crate) mod grade;
 pub(crate) mod group;
 pub mod grouping;
@@ -112,6 +113,7 @@ pub use baseline::{Baseline, fingerprint_of};
 pub use chroma::{ChromaKey, MIN_KEY_SPREAD};
 pub use color::{ColorError, Rgba};
 pub use dip::{Dip, Ducked, Under, duck_track};
+pub use fill::{Fill, Linear, Radial, Stop};
 pub use grade::Grade;
 pub use group::Group;
 pub use icon::{DEFAULT_ICON_STROKE_WIDTH, Icon};
@@ -155,7 +157,7 @@ pub use timeline::{
     TrackId, TrackKind,
 };
 pub use validate::{
-    AssetField, AssetProblem, FollowProblem, GroupProblem, IconProblem, ShapeProblem,
+    AssetField, AssetProblem, FillProblem, FollowProblem, GroupProblem, IconProblem, ShapeProblem,
     SpeechProblem, TextProblem, TimelineProblem, ValidationError, ValidationErrors, VideoProblem,
 };
 pub use vhs::Vhs;

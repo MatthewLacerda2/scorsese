@@ -19,6 +19,7 @@
 mod assets;
 mod error;
 mod field;
+mod fill;
 mod follow;
 mod group;
 mod icon;
@@ -30,8 +31,8 @@ mod timeline;
 mod video;
 
 pub use error::{
-    AssetProblem, FollowProblem, GroupProblem, IconProblem, ShapeProblem, SpeechProblem,
-    TextProblem, TimelineProblem, ValidationError, VideoProblem,
+    AssetProblem, FillProblem, FollowProblem, GroupProblem, IconProblem, ShapeProblem,
+    SpeechProblem, TextProblem, TimelineProblem, ValidationError, VideoProblem,
 };
 pub use field::AssetField;
 pub use report::ValidationErrors;

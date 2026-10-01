@@ -80,6 +80,10 @@ pub(crate) const STEPS: &[Step] = &[
         from: 38,
         apply: follows_arrive,
     },
+    Step {
+        from: 39,
+        apply: gradients_arrive,
+    },
 ];
 
 /// v33 → v34: the `group` asset kind (#586).
@@ -149,6 +153,16 @@ fn light_arrives(_: &mut Value) -> Result<(), String> {
 /// path, `follow.progress`, which was never part of the format's shape. So
 /// every v38 document means the same thing at v39, and only its version moves.
 fn follows_arrive(_: &mut Value) -> Result<(), String> {
+    Ok(())
+}
+
+/// v39 → v40: gradient fills (#588).
+///
+/// **Nothing to rewrite.** A shape's `fill` and a colour asset's `color` now
+/// take a gradient object *beside* the colour string they always took, and the
+/// string form parses to exactly the colour it did — so every v39 document
+/// means the same thing at v40, and only its version moves.
+fn gradients_arrive(_: &mut Value) -> Result<(), String> {
     Ok(())
 }
 

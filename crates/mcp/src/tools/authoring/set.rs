@@ -3,6 +3,7 @@
 use scorsese_core::{AssetId, Edit, authoring};
 use serde_json::Value;
 
+use super::fill::{self, fill};
 use super::{align, color, maybe, number, properties, refused, save, weight, words};
 use crate::tools::inspect::load;
 use crate::tools::{Costs, Reply, Tool, project_dir};
@@ -52,6 +53,13 @@ impl Tool for AssetSet {
             "radius",
         ]);
         properties.insert(
+            "color".to_owned(),
+            fill::property(
+                "The colour, as `#rrggbb` (or `#rrggbbaa`). A text or icon asset is one \
+                 colour; only a color asset takes the gradient form.",
+            ),
+        );
+        properties.insert(
             "asset".to_owned(),
             serde_json::json!({
                 "type": "string",
@@ -93,12 +101,12 @@ impl Tool for AssetSet {
             weight: weight(arguments)?,
             italic: arguments.get("italic").and_then(Value::as_bool),
             size: number(arguments, "size")?,
-            color: color(arguments, "color")?,
+            color: fill(arguments, "color")?,
             align: align(arguments)?,
             line_height: number(arguments, "line_height")?,
             max_width: number(arguments, "max_width")?,
             icon: maybe(arguments, "icon"),
-            fill: color(arguments, "fill")?,
+            fill: fill(arguments, "fill")?,
             stroke: color(arguments, "stroke")?,
             stroke_width: number(arguments, "stroke_width")?,
             width: number(arguments, "width")?,

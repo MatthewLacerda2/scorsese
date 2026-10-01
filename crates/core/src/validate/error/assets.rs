@@ -3,7 +3,9 @@
 
 use crate::asset::{AssetId, AssetKind};
 use crate::path::{PathProblem, ProjectPath};
-use crate::validate::error::{IconProblem, ShapeProblem, SpeechProblem, TextProblem, VideoProblem};
+use crate::validate::error::{
+    FillProblem, IconProblem, ShapeProblem, SpeechProblem, TextProblem, VideoProblem,
+};
 use crate::validate::field::AssetField;
 
 /// One thing wrong with a row of the assets table.
@@ -139,6 +141,11 @@ pub enum AssetProblem {
     /// [`ShapeProblem`].
     #[error(transparent)]
     Shape(#[from] ShapeProblem),
+
+    /// Something wrong with a gradient — a shape's `fill` or a colour asset's
+    /// `color`. See [`FillProblem`].
+    #[error(transparent)]
+    Fill(#[from] FillProblem),
 
     /// Something wrong with the symbol an `icon` asset describes.
     ///

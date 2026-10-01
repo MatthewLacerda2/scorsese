@@ -12,6 +12,7 @@
 //! checks are: by what has to be looked at to find it.
 
 mod assets;
+mod fill;
 mod follow;
 mod group;
 mod icon;
@@ -22,6 +23,7 @@ mod timeline;
 mod video;
 
 pub use assets::AssetProblem;
+pub use fill::FillProblem;
 pub use follow::FollowProblem;
 pub use group::GroupProblem;
 pub use icon::IconProblem;
@@ -115,6 +117,13 @@ impl From<IconProblem> for ValidationError {
 /// And a text asset's reveal or counter problem.
 impl From<TextProblem> for ValidationError {
     fn from(problem: TextProblem) -> Self {
+        Self::Asset(problem.into())
+    }
+}
+
+/// And a gradient problem.
+impl From<FillProblem> for ValidationError {
+    fn from(problem: FillProblem) -> Self {
         Self::Asset(problem.into())
     }
 }

@@ -12,7 +12,7 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
-use crate::color::Rgba;
+use crate::fill::Fill;
 use crate::group::Group;
 use crate::icon::Icon;
 use crate::path::ProjectPath;
@@ -104,13 +104,14 @@ pub struct Asset {
     /// white, centred, sans — rather than nothing to draw.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<TextStyle>,
-    /// The colour a `color` asset is, and the whole of what it carries.
+    /// The colour a `color` asset is, and the whole of what it carries — one
+    /// colour, or a gradient across the whole raster (see [`Fill`]).
     ///
     /// Required on that kind and refused on every other. No default: a
     /// background nobody chose the colour of would render as *some* colour,
     /// and picking one silently is how a film opens on the wrong shade.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub color: Option<Rgba>,
+    pub color: Option<Fill>,
     /// The outline a `shape` asset draws, and how it is coloured.
     ///
     /// The third inline kind's whole content, held to the same rule as the
@@ -282,14 +283,15 @@ impl Asset {
         }
     }
 
-    /// A solid-colour asset: a background, a card, a wash under a title.
+    /// A colour asset: a background, a card, a wash under a title — one
+    /// colour, or a gradient.
     ///
     /// The sibling of [`Asset::text`] for the other inline kind. It fills
     /// whatever raster the render is, so there is no size to choose and
     /// nothing here that ties the document to a resolution.
-    pub fn color(id: AssetId, color: Rgba) -> Self {
+    pub fn color(id: AssetId, color: impl Into<Fill>) -> Self {
         Self {
-            color: Some(color),
+            color: Some(color.into()),
             ..Self::bare(id, AssetKind::Color)
         }
     }

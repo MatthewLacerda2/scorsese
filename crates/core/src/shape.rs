@@ -23,6 +23,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::color::Rgba;
+use crate::fill::Fill;
 use crate::timeline::ClipId;
 
 /// How thick a border is when the document gives it a colour and no width:
@@ -49,10 +50,14 @@ pub struct Shape {
     /// The outline itself — the only part a rectangle and an ellipse disagree
     /// about.
     pub geometry: Geometry,
-    /// What the inside is painted. Absent leaves it see-through, so whatever
-    /// the shape is drawn over shows through the middle of it.
+    /// What the inside is painted: one colour, or a gradient across the
+    /// shape's own box (see [`Fill`]). Absent leaves it see-through, so
+    /// whatever the shape is drawn over shows through the middle of it.
+    ///
+    /// Only the inside. The border stays one colour whatever this is — a
+    /// gradient stroke is a different ask, and `stroke` is its own field.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fill: Option<Rgba>,
+    pub fill: Option<Fill>,
     /// What the border is drawn in. Absent means no border at all, which is
     /// not the same as a border of width zero — the difference matters only in
     /// that one is said and the other is drawn.
@@ -85,10 +90,10 @@ fn default_stroke_width() -> f64 {
 
 impl Shape {
     /// A shape with an interior and no border.
-    pub fn filled(geometry: Geometry, fill: Rgba) -> Self {
+    pub fn filled(geometry: Geometry, fill: impl Into<Fill>) -> Self {
         Self {
             geometry,
-            fill: Some(fill),
+            fill: Some(fill.into()),
             stroke: None,
             stroke_width: DEFAULT_STROKE_WIDTH,
             dash: None,

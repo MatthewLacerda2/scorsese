@@ -282,7 +282,7 @@ fn drawn(shape: &Shape) -> String {
         }
         Geometry::Ellipse { width, height } => format!("ellipse {width}×{height}"),
     };
-    if let Some(fill) = shape.fill {
+    if let Some(fill) = &shape.fill {
         line.push_str(&format!(", fill {fill}"));
     }
     if let Some(stroke) = shape.stroke {

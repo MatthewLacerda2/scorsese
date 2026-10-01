@@ -301,6 +301,28 @@ failing the gate before the effect was applied. A flat bed with one shape on it
 scores 0.99 bare. **If a fixture is marginal, measure its plate before blaming
 its effect.**
 
+## A picture made of ramps: gradients at a starved bitrate
+
+A gradient fill (#588) is dithered with noise, and the section on grain above
+would suggest the gate cannot see it. **At a low bitrate it can**, and the
+reason is the one aberration taught: what matters is whether the effect's
+*absence* is structure. An undithered dark ramp through a starved encoder is a
+staircase of flat bands with straight edges between them, and a band edge is
+exactly the structure an encoder keeps and SSIM measures. So `gradients`
+renders at `"bitrate": "60k"` — the one fixture that sets it; absent, a render
+is at its constant-quality default — and with the dither switched off it fails
+at worst-block SSIM **0.81** on frame 0 and **0.88** on frame 29, against the
+0.95 bar.
+
+It is not measured under the two-preset perturbation the sections above use,
+because a bitrate target is not a `-crf` and the harness has no preset knob.
+Its key frame (frame 0) is the fragile one: x264 opens a starved encode at a
+coarse quantiser. CI decodes and encodes with the same `6.1.1-3ubuntu5` that
+blessed it. **If frame 0 alone starts failing after an ffmpeg change, measure
+before re-blessing** — and `crates/render/tests/pipeline/banding.rs`, which
+asserts the banding claim directly as row-to-row jumps in luma, is the check
+that says whether the dither itself broke.
+
 ## The decoder, which sits upstream of all of that
 
 "Frames are ours to assert on" is a claim about the **encoder** at the end of a

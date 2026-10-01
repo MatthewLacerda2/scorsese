@@ -10,6 +10,7 @@ use std::fmt;
 use super::AuthorError;
 use super::edit::Edit;
 use crate::asset::{Asset, AssetKind};
+use crate::color::Rgba;
 use crate::shape::Geometry;
 use crate::text::{FontChoice, TextAlign};
 
@@ -17,11 +18,11 @@ use crate::text::{FontChoice, TextAlign};
 pub(super) fn apply(asset: &mut Asset, edit: &Edit) -> Result<Vec<String>, AuthorError> {
     let mut said = Vec::new();
     match asset.kind {
-        AssetKind::Text => text(asset, edit, &mut said),
+        AssetKind::Text => text(asset, edit, &mut said)?,
         AssetKind::Color => {
-            if let Some(color) = edit.color {
-                said.push(became("color", show(asset.color), color));
-                asset.color = Some(color);
+            if let Some(color) = &edit.color {
+                said.push(became("color", show(asset.color.as_ref()), color));
+                asset.color = Some(color.clone());
             }
         }
         AssetKind::Shape => shape(asset, edit, &mut said)?,
@@ -37,7 +38,7 @@ pub(super) fn apply(asset: &mut Asset, edit: &Edit) -> Result<Vec<String>, Autho
 }
 
 /// The string, and the style it is set in.
-fn text(asset: &mut Asset, edit: &Edit, said: &mut Vec<String>) {
+fn text(asset: &mut Asset, edit: &Edit, said: &mut Vec<String>) -> Result<(), AuthorError> {
     if let Some(text) = &edit.text {
         said.push(became(
             "text",
@@ -71,7 +72,7 @@ fn text(asset: &mut Asset, edit: &Edit, said: &mut Vec<String>) {
         style.size = size;
         styled = true;
     }
-    if let Some(color) = edit.color {
+    if let Some(color) = one_colour(edit, AssetKind::Text)? {
         said.push(became("color", style.color, color));
         style.color = color;
         styled = true;
@@ -104,6 +105,7 @@ fn text(asset: &mut Asset, edit: &Edit, said: &mut Vec<String>) {
     if styled {
         asset.style = Some(style);
     }
+    Ok(())
 }
 
 /// The colours a shape is drawn in, and the numbers of its outline.
@@ -113,9 +115,9 @@ fn shape(asset: &mut Asset, edit: &Edit, said: &mut Vec<String>) -> Result<(), A
         asset: id,
         kind: AssetKind::Shape,
     })?;
-    if let Some(fill) = edit.fill {
-        said.push(became("fill", show(shape.fill), fill));
-        shape.fill = Some(fill);
+    if let Some(fill) = &edit.fill {
+        said.push(became("fill", show(shape.fill.as_ref()), fill));
+        shape.fill = Some(fill.clone());
     }
     if let Some(stroke) = edit.stroke {
         said.push(became("stroke", show(shape.stroke), stroke));
@@ -201,7 +203,7 @@ fn icon(asset: &mut Asset, edit: &Edit, said: &mut Vec<String>) -> Result<(), Au
         said.push(became("size", icon.size, size));
         icon.size = size;
     }
-    if let Some(color) = edit.color {
+    if let Some(color) = one_colour(edit, AssetKind::Icon)? {
         said.push(became("color", icon.color, color));
         icon.color = color;
     }
@@ -210,6 +212,20 @@ fn icon(asset: &mut Asset, edit: &Edit, said: &mut Vec<String>) -> Result<(), Au
         icon.stroke_width = width;
     }
     Ok(())
+}
+
+/// The edit's `color` as the single colour a caption or a symbol is drawn in,
+/// refusing a gradient rather than picking one of its stops.
+fn one_colour(edit: &Edit, kind: AssetKind) -> Result<Option<Rgba>, AuthorError> {
+    edit.color
+        .as_ref()
+        .map(|color| {
+            color.solid().ok_or(AuthorError::NotOneColour {
+                field: "color",
+                kind,
+            })
+        })
+        .transpose()
 }
 
 /// One line of the answer: which field, what it was, what it is now.
@@ -240,97 +256,4 @@ fn show_align(align: TextAlign) -> &'static str {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::super::fixture::project;
-    use super::super::{Edit, set_asset};
-    use crate::asset::AssetId;
-    use crate::color::Rgba;
-    use crate::shape::{Endpoint, Geometry, Point, Shape};
-
-    #[test]
-    fn a_colour_card_takes_its_one_field() {
-        let mut project = project();
-        let said = set_asset(
-            &mut project,
-            &AssetId::new("card"),
-            &Edit {
-                color: Some(Rgba::opaque(0xff, 0xcc, 0)),
-                ..Edit::default()
-            },
-        )
-        .expect("a repainted card");
-        assert_eq!(said, vec!["color: #101820 → #ffcc00"]);
-    }
-
-    #[test]
-    fn a_box_takes_a_border_and_a_new_width_in_one_call() {
-        let mut project = project();
-        let said = set_asset(
-            &mut project,
-            &AssetId::new("box"),
-            &Edit {
-                stroke: Some(Rgba::BLACK),
-                width: Some(0.5),
-                ..Edit::default()
-            },
-        )
-        .expect("a bordered box");
-        assert_eq!(said, vec!["stroke: none → #000000", "width: 0.4 → 0.5"]);
-    }
-
-    /// An arrow is two endpoints and has no size at all, so a width on one is
-    /// refused by name rather than written where nothing reads it back.
-    #[test]
-    fn an_arrow_has_no_width() {
-        let mut project = project();
-        let arrow = Shape::outlined(
-            Geometry::Arrow {
-                from: Endpoint::from(Point::new(0.1, 0.1)),
-                to: Endpoint::from(Point::new(0.9, 0.9)),
-                curve: crate::shape::Curve::Straight,
-                heads: crate::shape::Heads::End,
-            },
-            Rgba::WHITE,
-        );
-        super::super::add_asset(
-            &mut project,
-            Some("pointer"),
-            super::super::Inline::Shape(arrow),
-        )
-        .expect("an arrow is a valid asset");
-        let refused = set_asset(
-            &mut project,
-            &AssetId::new("pointer"),
-            &Edit {
-                width: Some(0.3),
-                ..Edit::default()
-            },
-        );
-        let problem = refused.expect_err("an arrow has no width");
-        let said = problem.to_string();
-        assert!(said.contains("`width` is not a field"), "{said}");
-        assert!(said.contains("an arrow"), "{said}");
-    }
-
-    #[test]
-    fn an_icon_changes_symbol_and_colour_and_says_both() {
-        let mut project = project();
-        let said = set_asset(
-            &mut project,
-            &AssetId::new("mark"),
-            &Edit {
-                icon: Some("circle-play".to_owned()),
-                color: Some(Rgba::BLACK),
-                ..Edit::default()
-            },
-        )
-        .expect("another symbol");
-        assert_eq!(
-            said,
-            vec![
-                "icon: clapperboard → circle-play",
-                "color: #ffffff → #000000"
-            ]
-        );
-    }
-}
+mod tests;

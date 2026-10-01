@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 use serde::Deserialize;
 
 use scorsese_core::{Asset, Fps, Project};
-use scorsese_render::{FrameRange, RenderSettings, Resolution};
+use scorsese_render::{Bitrate, FrameRange, RenderSettings, Resolution};
 
 use crate::compare::Tolerance;
 
@@ -81,6 +81,11 @@ pub struct RenderSpec {
     /// A partial render, when that is what the fixture is testing.
     #[serde(default)]
     pub range: Option<String>,
+    /// A target bitrate like `60k`, when the fixture is about what survives a
+    /// starved encoder. Absent is the render's own constant-quality default,
+    /// which is what every other fixture is compared at.
+    #[serde(default)]
+    pub bitrate: Option<String>,
 }
 
 /// A fixture, loaded and checked over.
@@ -145,6 +150,19 @@ impl Fixture {
                     detail: source.to_string(),
                 })?,
         );
+        let bitrate = manifest
+            .render
+            .bitrate
+            .as_deref()
+            .map(|text| {
+                text.parse::<Bitrate>()
+                    .map_err(|source| FixtureError::Setting {
+                        what: "bitrate",
+                        detail: source.to_string(),
+                    })
+            })
+            .transpose()?;
+        let settings = settings.with_bitrate(bitrate);
         let range = match &manifest.render.range {
             Some(text) => text
                 .parse::<FrameRange>()

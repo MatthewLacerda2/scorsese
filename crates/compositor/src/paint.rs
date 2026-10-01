@@ -18,19 +18,45 @@
 //! soft. Writing through would leave every anti-aliased boundary subtly dark.
 
 use tiny_skia::{
-    FillRule, LineCap, LineJoin, Paint, Path, PathBuilder, Pixmap, Rect, Stroke, StrokeDash,
+    FillRule, LineCap, LineJoin, Mask, Paint, Path, PathBuilder, Pixmap, Rect, Stroke, StrokeDash,
     Transform,
 };
 
 use scorsese_core::Rgba;
 
 use crate::frame::{BYTES_PER_PIXEL, Frame};
+use crate::gradient::Gradient;
 
 /// Fills one finished path onto the frame.
 pub(crate) fn fill(frame: &mut Frame, path: &Path, color: Rgba) {
     onto(frame, color, |pixmap, paint| {
         pixmap.fill_path(path, paint, FillRule::Winding, Transform::identity(), None);
     });
+}
+
+/// Fills one finished path onto the frame with a gradient.
+///
+/// tiny-skia still decides the edge — the path is rasterised to an
+/// anti-aliased coverage mask, the same rasteriser [`fill`] uses — and the
+/// colour under it comes from the gradient, pixel by pixel, already straight
+/// and dithered. So it skips the premultiplied scratch pixmap rather than
+/// round-tripping through it, and meets the frame through the same blend.
+pub(crate) fn fill_gradient(frame: &mut Frame, path: &Path, gradient: &Gradient) {
+    let resolution = frame.resolution();
+    let width = resolution.width();
+    let Some(mut mask) = Mask::new(width, resolution.height()) else {
+        return;
+    };
+    mask.fill_path(path, FillRule::Winding, true, Transform::identity());
+    let pixels = frame.bytes_mut().chunks_exact_mut(BYTES_PER_PIXEL);
+    for ((index, pixel), &coverage) in (0u32..).zip(pixels).zip(mask.data()) {
+        if coverage == 0 {
+            continue;
+        }
+        let [r, g, b, a] = gradient.at(index % width, index / width);
+        let alpha = round(f32::from(a) * f32::from(coverage) / 255.0);
+        blend(pixel, [r, g, b, alpha]);
+    }
 }
 
 /// Strokes one finished path onto the frame, `width` pixels thick.

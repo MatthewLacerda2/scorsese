@@ -12,6 +12,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod banding;
 mod fitting;
 mod following;
 mod grain;

@@ -19,6 +19,7 @@
 //! set-verbs would be four schemas restating the same eight adjectives.
 
 mod color;
+mod fill;
 mod icon;
 mod set;
 mod shape;
@@ -207,9 +208,11 @@ fn described(field: &str) -> Value {
         "max_width" => serde_json::json!({ "type": "number",
             "description": "How wide the text runs before it wraps, as a fraction of the \
                             frame's WIDTH. Default 0.9, a margin down each side." }),
-        "fill" => serde_json::json!({ "type": "string",
-            "description": "What the inside of the shape is painted, as `#rrggbb`. Leave \
-                            it out for a see-through middle — a callout over footage." }),
+        "fill" => fill::property(
+            "What the inside of the shape is painted, as `#rrggbb` (or `#rrggbbaa`). Leave \
+             it out for a see-through middle — a callout over footage. The border stays one \
+             colour.",
+        ),
         "stroke" => serde_json::json!({ "type": "string",
             "description": "The rim, as `#rrggbb`. On a shape it is the border; on a \
                             caption it is an outline added OUTSIDE the letterform, \

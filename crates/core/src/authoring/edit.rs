@@ -13,6 +13,7 @@ use super::AuthorError;
 use super::apply::apply;
 use crate::asset::{AssetId, AssetKind};
 use crate::color::Rgba;
+use crate::fill::Fill;
 use crate::project::Project;
 use crate::text::TextAlign;
 
@@ -30,8 +31,9 @@ pub struct Edit {
     pub italic: Option<bool>,
     /// How big, as a fraction of the frame's height — a `text` or an `icon`.
     pub size: Option<f64>,
-    /// The one colour a `text`, `color` or `icon` asset is drawn in.
-    pub color: Option<Rgba>,
+    /// The colour a `text`, `color` or `icon` asset is drawn in. Only a
+    /// `color` asset takes a gradient; text and icons are one colour.
+    pub color: Option<Fill>,
     /// Which edge the lines of a `text` asset line up against.
     pub align: Option<TextAlign>,
     /// Baseline to baseline, as a multiple of the size.
@@ -40,8 +42,8 @@ pub struct Edit {
     pub max_width: Option<f64>,
     /// Which symbol an `icon` asset draws — its `name` field.
     pub icon: Option<String>,
-    /// What a `shape`'s interior is painted.
-    pub fill: Option<Rgba>,
+    /// What a `shape`'s interior is painted: a colour or a gradient.
+    pub fill: Option<Fill>,
     /// The rim: a `shape`'s border, or the outline a `text` asset carries
     /// outside its letterforms.
     pub stroke: Option<Rgba>,
@@ -274,7 +276,7 @@ mod tests {
             &mut project,
             &AssetId::new("caption"),
             &Edit {
-                fill: Some(Rgba::BLACK),
+                fill: Some(Rgba::BLACK.into()),
                 ..edit()
             },
         );

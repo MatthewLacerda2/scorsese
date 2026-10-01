@@ -237,6 +237,12 @@ exclude_globs = [
 # cannot be excluded here at all — an entry for one is accepted and does
 # nothing, and the mutant is still reported.
 exclude_re = [
+    # `gradient::noise` keys its hash on `(y << 32) | x`, with `x` a `u32`: the
+    # two halves share no bit, so `|` and `^` build the same key for every pixel
+    # there is. Genuinely equivalent. The key's other half is load-bearing, and
+    # `the_noise_is_pinned` catches any mutation that moves a value.
+    'replace \| with \^ in noise',
+
     # `Properties::is_identity` compares five `f64` differences against a
     # tolerance: `(x - 1.0).abs() < 1e-9`. Widening `<` to `<=` changes the
     # answer only for a difference that is *exactly* 1e-9, and 1e-9 is not

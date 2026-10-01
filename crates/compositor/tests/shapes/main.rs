@@ -22,6 +22,7 @@ mod arrows;
 mod bows;
 mod corners;
 mod dashes;
+mod gradients;
 mod heads;
 mod kept;
 mod measuring;
@@ -78,7 +79,7 @@ pub(crate) fn boxed(size: (f32, f32), anchor: Anchor) -> Figure {
             bounds: bounds(size, anchor),
             radius: 0.0,
         },
-        fill: Some(RED),
+        fill: Some(RED.into()),
         border: None,
     }
 }

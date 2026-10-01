@@ -7,9 +7,10 @@
 
 use tiny_skia::{Path, PathBuilder, Rect};
 
-use scorsese_core::{AnchorX, AnchorY};
+use scorsese_core::{AnchorX, AnchorY, Fill};
 
 use crate::frame::{Frame, Resolution};
+use crate::gradient::Gradient;
 use crate::paint;
 
 use super::stroke;
@@ -31,11 +32,30 @@ pub(super) fn draw(frame: &mut Frame, figure: &Figure, stroking: &Stroking) {
     let Some(path) = path(figure.outline, frame.resolution()) else {
         return;
     };
-    if let Some(fill) = figure.fill {
-        paint::fill(frame, &path, fill);
+    if let Some(fill) = &figure.fill {
+        painted(frame, &path, fill, figure.outline);
     }
     if let Some(border) = figure.border {
         stroke::lay(frame, &path, border, stroking);
+    }
+}
+
+/// The interior, in one colour or across the shape's own box as a gradient.
+fn painted(frame: &mut Frame, path: &Path, fill: &Fill, outline: Outline) {
+    if let Some(color) = fill.solid() {
+        paint::fill(frame, path, color);
+        return;
+    }
+    let boxed = match outline {
+        Outline::Rectangle { bounds, .. } | Outline::Ellipse(bounds) => bounds,
+        Outline::Arrow(_) => return,
+    };
+    let Some(rect) = bounds(boxed, frame.resolution()) else {
+        return;
+    };
+    let area = (rect.left(), rect.top(), rect.width(), rect.height());
+    if let Some(gradient) = Gradient::new(fill, area) {
+        paint::fill_gradient(frame, path, &gradient);
     }
 }
 
