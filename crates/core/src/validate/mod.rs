@@ -32,8 +32,8 @@ mod timeline;
 mod video;
 
 pub use error::{
-    AssetProblem, FillProblem, FollowProblem, GroupProblem, IconProblem, MatteProblem, ShapeProblem,
-    SpeechProblem, TextProblem, TimelineProblem, ValidationError, VideoProblem,
+    AssetProblem, FillProblem, FollowProblem, GroupProblem, IconProblem, MatteProblem,
+    ShapeProblem, SpeechProblem, TextProblem, TimelineProblem, ValidationError, VideoProblem,
 };
 pub use field::AssetField;
 pub use report::ValidationErrors;

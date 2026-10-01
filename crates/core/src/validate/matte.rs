@@ -40,7 +40,7 @@ pub(super) fn check(project: &Project) -> Vec<MatteProblem> {
     }
     // A map's order is not the document's, and a report that shuffles between
     // two runs of the same file reads as two different answers.
-    errors.sort_by(|a, b| a.to_string().cmp(&b.to_string()));
+    errors.sort_by_cached_key(ToString::to_string);
     errors
 }
 
