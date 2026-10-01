@@ -112,12 +112,14 @@
 //! things to call: nothing above this crate composes them differently, and a
 //! second caller of any of them would be a second renderer.
 
+pub(crate) mod attach;
 pub mod audio;
 pub mod checkup;
 pub mod contact;
 pub(crate) mod content;
 pub(crate) mod describe;
 pub(crate) mod error;
+pub(crate) mod follow;
 pub(crate) mod format;
 pub mod frames;
 pub mod layout;

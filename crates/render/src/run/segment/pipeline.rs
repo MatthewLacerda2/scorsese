@@ -36,7 +36,8 @@ use crate::error::RenderError;
 use crate::pipe::Decoder;
 use crate::plan::Segment;
 
-use super::follow::{self, Rider};
+use crate::follow::{self, Layer, Rider};
+
 use super::layers::{Entry, Pixels, Slot};
 use super::{Pass, Write};
 
@@ -183,6 +184,8 @@ pub(super) struct Parts<'a> {
     /// The shot behind each slot, groups opened — what a layer's properties
     /// are resolved from, at the time on its own track.
     pub(super) entries: &'a [Entry<'a, 'a>],
+    /// Each layer as a follower's placement reads it, in the same order.
+    pub(super) placing: &'a [Layer<'a>],
     /// The layers that travel along an arrow, placed on it every frame.
     pub(super) riders: &'a [Rider],
     /// How many of those are redrawn every frame, which is how many raster-sized
@@ -215,6 +218,7 @@ pub(super) fn drive(
     let Parts {
         slots,
         entries,
+        placing,
         riders,
         drawn,
         composed,
@@ -235,6 +239,7 @@ pub(super) fn drive(
     let mut feed = Feed {
         slots,
         entries,
+        placing,
         riders,
         extra: (drawn, composed),
         decoders,
@@ -306,6 +311,7 @@ fn produce(
     let Feed {
         slots,
         entries,
+        placing,
         riders,
         extra,
         decoders,
@@ -338,8 +344,7 @@ fn produce(
     // follower meets it where it has got to.
     follow::place(
         riders,
-        slots,
-        entries,
+        placing,
         &mut job.properties,
         |layer| entries[layer].shot.local(at),
         pass.settings.resolution,
@@ -363,6 +368,8 @@ struct Feed<'a> {
     slots: &'a [Slot],
     /// The shot behind each of them.
     entries: &'a [Entry<'a, 'a>],
+    /// Each layer as a follower's placement reads it.
+    placing: &'a [Layer<'a>],
     /// The layers that travel along an arrow.
     riders: &'a [Rider],
     /// How many of them are redrawn every frame, and how many are groups.

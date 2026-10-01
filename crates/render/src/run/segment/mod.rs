@@ -11,9 +11,7 @@
 //! This module is what the two have in common: the settings and the plan they
 //! are worked out against, and the buffers they are worked out in.
 
-mod attach;
 mod draw;
-mod follow;
 mod layers;
 mod pipeline;
 mod redraw;
@@ -23,6 +21,7 @@ use std::path::Path;
 use scorsese_compositor::{CpuCompositor, Frame};
 
 use crate::error::RenderError;
+use crate::follow;
 use crate::plan::{Plan, Segment};
 use crate::preview::Preview;
 use crate::raster::Sizes;
@@ -139,7 +138,19 @@ impl Pass<'_> {
 
         // Once every layer is ready, since a follower's arrow may come after
         // it in drawing order.
-        let (riders, lost) = follow::riders(&entries, &slots, self.plan.project());
+        // Each layer as [`follow`] sees it: the same resolution `describe --at`
+        // places a follower by, so the two cannot disagree.
+        let placing: Vec<follow::Layer<'_>> = entries
+            .iter()
+            .zip(&slots)
+            .map(|(entry, slot)| follow::Layer {
+                clip: entry.shot.clip,
+                shape: entry.shot.asset.shape.as_ref(),
+                within: entry.within,
+                rect: slot.rect,
+            })
+            .collect();
+        let (riders, lost) = follow::riders(&placing, self.plan.project());
         notes.extend(
             lost.into_iter()
                 .map(|(clip, arrow)| Note::FollowLost { clip, arrow }),
@@ -152,6 +163,7 @@ impl Pass<'_> {
             Parts {
                 slots: &slots,
                 entries: &entries,
+                placing: &placing,
                 riders: &riders,
                 drawn,
                 composed,

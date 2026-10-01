@@ -35,6 +35,7 @@ use scorsese_core::{AssetKind, Clip, Frames, Project, TrackId};
 use crate::content::{self, Content, Rect};
 use crate::describe::Moment;
 use crate::error::RenderError;
+use crate::follow;
 use crate::plan::{FrameRange, Plan, Shot};
 use crate::raster::Sizes;
 use crate::text::Painter;
@@ -84,23 +85,73 @@ impl Layout {
         let sizes = Sizes::recorded(&plan, project_root);
         let mut painter = Painter::default();
 
+        let shots = &segment.layers;
+        let rects: Vec<Result<Rect, Absence>> = shots
+            .iter()
+            .map(|shot| rectangle(shot, &mut painter, raster, project_root, &sizes))
+            .collect();
+        // Each layer's own transform at this instant, resolved the way the
+        // renderer resolves it — and then every follower moved onto its arrow
+        // by the render's own placement, so a dot travelling along a line is
+        // reported where it is drawn rather than where its transform alone
+        // would put it.
+        let mut properties: Vec<Properties> = shots
+            .iter()
+            .map(|shot| Properties::at(shot.clip, content::elapsed(at, shot.clip)))
+            .collect();
+        let placing: Vec<follow::Layer<'_>> = shots
+            .iter()
+            .zip(&rects)
+            .map(|(shot, rect)| follow::Layer {
+                clip: shot.clip,
+                shape: shot.asset.shape.as_ref(),
+                within: None,
+                // An arrow has no box, and is drawn at the whole raster —
+                // which is the rectangle the render follows it through.
+                rect: rect.clone().unwrap_or(Rect {
+                    source: raster,
+                    area: Area::whole(raster),
+                    anchor: shot.clip.anchor,
+                    origin: shot.clip.origin,
+                }),
+            })
+            .collect();
+        let (riders, _) = follow::riders(&placing, project);
+        let stranded = follow::place(
+            &riders,
+            &placing,
+            &mut properties,
+            |layer| shots[layer].local(at),
+            raster,
+        );
+
         let mut placed = Vec::new();
         let mut unplaced = Vec::new();
-        for shot in &segment.layers {
-            match rectangle(shot, &mut painter, raster, project_root, &sizes) {
-                Ok(rect) => {
-                    // The layer's own transform at this instant, resolved the
-                    // way the renderer resolves it, then put through the
-                    // compositor's matrix rather than a copy of it.
-                    let properties = Properties::at(shot.clip, content::elapsed(at, shot.clip));
-                    placed.push(Placement {
-                        clip: shot.clip.id.to_string(),
-                        track: shot.track.to_string(),
-                        asset: shot.asset.id.to_string(),
-                        kind: shot.asset.kind,
-                        area: Region::of(rect.bounds_on(&properties, raster), raster),
-                    });
+        for (layer, shot) in shots.iter().enumerate() {
+            let rect = match riders.iter().find(|rider| rider.layer == layer) {
+                Some(_) if stranded.contains(&layer) => Err(adrift(
+                    shot.clip,
+                    "has no line here, so the render leaves the clip out",
+                )),
+                // Its place hangs on a clip whose own rectangle is unknown —
+                // an attached end meeting a picture of unrecorded size.
+                Some(rider) if rider.leans_on().iter().any(|&on| rects[on].is_err()) => {
+                    Err(adrift(
+                        shot.clip,
+                        "is attached to a clip this cannot place, so neither can it be placed",
+                    ))
                 }
+                _ => rects[layer].clone(),
+            };
+            match rect {
+                Ok(rect) => placed.push(Placement {
+                    clip: shot.clip.id.to_string(),
+                    track: shot.track.to_string(),
+                    asset: shot.asset.id.to_string(),
+                    kind: shot.asset.kind,
+                    // Put through the compositor's matrix rather than a copy.
+                    area: Region::of(rect.bounds_on(&properties[layer], raster), raster),
+                }),
                 Err(why) => unplaced.push(Unplaced::new(shot.track, shot.clip, why)),
             }
         }
@@ -246,6 +297,16 @@ impl Region {
             height: f64::from(area.height) / down,
         }
     }
+}
+
+/// Why a follower has no rectangle: what is wrong with the arrow it travels
+/// along, in the sentence `describe` prints.
+fn adrift(clip: &Clip, what: &str) -> Absence {
+    let arrow = clip
+        .follow
+        .as_ref()
+        .map_or("", |follow| follow.clip.as_str());
+    Absence::Unknown(format!("it travels along `{arrow}`, which {what}"))
 }
 
 /// Where one shot's content sits within its own layer raster, or the sentence
