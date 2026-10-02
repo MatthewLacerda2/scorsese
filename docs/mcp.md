@@ -1324,6 +1324,20 @@ It is there because checking one ten-second cue in a sixty-second cut should
 cost ten seconds of encoding rather than sixty. The parser is the CLI's own, so
 a range either client refuses is refused by both, with the same words.
 
+## Stopping a render
+
+A client stops a call it no longer wants with MCP's `notifications/cancelled`,
+naming the request's id — most clients send it when the person presses stop.
+`render` honours it within a frame: it stops compositing, closes ffmpeg (killing
+it if it will not go) and removes the file it had begun, because a truncated
+`.mp4` looks like a file and plays as nothing (#647). A cancelled request gets
+no reply, as the specification asks; how far it got — *cancelled after 412 of
+1890 frames* — goes to the server's stderr, which a client shows as its log.
+
+Every other tool on this server finishes in about the time it takes to notice
+the cancel, so it runs to the end and its answer is simply not sent. A long
+`synth_bake` is the exception still to close (#661).
+
 ## Choosing the file's format
 
 `render` delivers in whatever container `out`'s extension names — mp4, mkv, avi
