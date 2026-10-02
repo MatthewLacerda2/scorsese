@@ -14,6 +14,7 @@ mod mock;
 mod plans;
 mod pricing;
 mod refusals;
+mod says;
 
 use scorsese_core::{Asset, AssetId, AssetKind, Project, SpeechRequest};
 

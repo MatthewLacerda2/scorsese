@@ -96,4 +96,17 @@ impl Outcome {
             _ => 0,
         }
     }
+
+    /// The sentence this outcome reads as, after an asset's id — phrased here,
+    /// once, for every client that reports a run, so they cannot drift apart.
+    pub fn says(&self) -> String {
+        match self {
+            Self::Cached { path } => format!("already spoken — {path}"),
+            Self::Generated { path, bytes, .. } => format!("spoken — {path} ({bytes} bytes)"),
+            // Not a failure and not phrased as one: a line nobody has chosen a
+            // voice for yet is a cut being written, and the run carried on.
+            Self::Incomplete { why } => format!("not yet — {why}"),
+            Self::Failed { message } => format!("refused — {message}"),
+        }
+    }
 }

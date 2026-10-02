@@ -29,18 +29,6 @@ pub(super) fn pass(
 /// What the narration in a run reads as.
 pub(super) fn said(spoken: &Spoken, lines: &mut Vec<String>) {
     for (id, outcome) in spoken {
-        lines.push(format!("{id}: {}", one(outcome)));
-    }
-}
-
-/// What one line's outcome reads as.
-fn one(outcome: &Outcome) -> String {
-    match outcome {
-        Outcome::Cached { path } => format!("already spoken — {path}"),
-        Outcome::Generated { path, bytes, .. } => format!("spoken — {path} ({bytes} bytes)"),
-        // Not a failure and not phrased as one: a line nobody has chosen a
-        // voice for yet is a cut being written, and the run carried on.
-        Outcome::Incomplete { why } => format!("not yet — {why}"),
-        Outcome::Failed { message } => format!("refused — {message}"),
+        lines.push(format!("{id}: {}", outcome.says()));
     }
 }

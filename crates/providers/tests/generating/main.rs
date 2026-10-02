@@ -13,6 +13,7 @@ mod lifecycle;
 mod mock;
 mod plans;
 mod refusals;
+mod says;
 
 use scorsese_core::{Asset, AssetId, AssetKind, Project};
 

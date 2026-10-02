@@ -29,18 +29,6 @@ pub(super) fn pass(
 /// One line per line of narration.
 pub(super) fn report(outcomes: &[(AssetId, Outcome)]) {
     for (id, outcome) in outcomes {
-        println!("{id:<24} {}", says(outcome));
-    }
-}
-
-/// What one outcome reads as.
-fn says(outcome: &Outcome) -> String {
-    match outcome {
-        Outcome::Cached { path } => format!("already spoken — {path}"),
-        Outcome::Generated { path, bytes, .. } => format!("spoken — {path} ({bytes} bytes)"),
-        // Not a failure and not phrased as one: a line nobody has chosen a
-        // voice for yet is a cut being written, and the run carried on.
-        Outcome::Incomplete { why } => format!("not yet — {why}"),
-        Outcome::Failed { message } => format!("refused — {message}"),
+        println!("{id:<24} {}", outcome.says());
     }
 }

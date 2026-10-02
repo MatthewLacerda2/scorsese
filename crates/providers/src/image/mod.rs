@@ -86,4 +86,15 @@ impl Outcome {
             _ => 0,
         }
     }
+
+    /// The sentence this outcome reads as, after an asset's id — phrased here,
+    /// once, for every client that reports a run, so they cannot drift apart.
+    pub fn says(&self) -> String {
+        match self {
+            Self::Cached { path } => format!("already drawn — {path}"),
+            Self::Generated { path, bytes, .. } => format!("drawn — {path} ({bytes} bytes)"),
+            Self::Incomplete { why } => format!("not yet — {why}"),
+            Self::Failed { message } => format!("refused — {message}"),
+        }
+    }
 }

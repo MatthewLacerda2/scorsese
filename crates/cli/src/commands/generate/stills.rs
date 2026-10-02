@@ -25,16 +25,6 @@ pub(super) fn pass(
 /// One line per still.
 pub(super) fn report(outcomes: &[(AssetId, Outcome)]) {
     for (id, outcome) in outcomes {
-        println!("{id:<24} {}", says(outcome));
-    }
-}
-
-/// What one outcome reads as.
-fn says(outcome: &Outcome) -> String {
-    match outcome {
-        Outcome::Cached { path } => format!("already drawn — {path}"),
-        Outcome::Generated { path, bytes, .. } => format!("drawn — {path} ({bytes} bytes)"),
-        Outcome::Incomplete { why } => format!("not yet — {why}"),
-        Outcome::Failed { message } => format!("refused — {message}"),
+        println!("{id:<24} {}", outcome.says());
     }
 }
