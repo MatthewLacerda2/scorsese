@@ -130,6 +130,7 @@ impl Generating {
             ui.label("Every shot and every line in this project is already made.");
         }
         group(ui, "SHOTS", &quote.shots);
+        group(ui, "STILLS", &quote.stills);
         group(ui, "NARRATION", &quote.lines);
         if quote.in_flight > 0 {
             ui.label(

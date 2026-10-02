@@ -12,6 +12,7 @@ const NAMES: Record<string, string> = {
   icon: "icon",
   group: "group",
   generated_video: "generated video",
+  generated_image: "generated still",
   generated_audio: "generated speech",
   synth_audio: "synthesised audio",
 };
@@ -20,6 +21,7 @@ const COLORS: Record<string, string> = {
   video: "bg-sky-500",
   generated_video: "bg-sky-400",
   image: "bg-teal-500",
+  generated_image: "bg-teal-400",
   audio: "bg-emerald-500",
   generated_audio: "bg-lime-500",
   synth_audio: "bg-green-600",

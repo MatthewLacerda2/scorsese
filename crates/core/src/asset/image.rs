@@ -45,6 +45,9 @@ pub enum ImageModel {
 }
 
 impl ImageModel {
+    /// Every model, the default first.
+    pub const ALL: [Self; 2] = [Self::Flash, Self::Lite];
+
     /// The model's name as `project.json` spells it.
     pub const fn as_str(self) -> &'static str {
         match self {

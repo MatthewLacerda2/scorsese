@@ -23,7 +23,7 @@
 
 use scorsese_core::{AssetId, AssetKind, GenerationState, Project};
 use scorsese_providers::credentials::{Budget, Settings};
-use scorsese_providers::prices::{dollars, estimate};
+use scorsese_providers::prices::{self, dollars, estimate};
 use scorsese_providers::speech;
 
 /// One generation that would be paid for.
@@ -41,6 +41,8 @@ pub(crate) struct Quote {
     /// The shots that would be sent — sketches and stale briefs, never
     /// something already generated.
     pub(crate) shots: Vec<Priced>,
+    /// The stills that would be drawn, on the same terms.
+    pub(crate) stills: Vec<Priced>,
     /// The lines that would be spoken, on the same terms.
     pub(crate) lines: Vec<Priced>,
     /// What they add up to, in US cents.
@@ -65,14 +67,17 @@ impl Quote {
     /// machine they were written on.
     pub(crate) fn of(project: &Project, settings: &Settings) -> Self {
         let (shots, in_flight) = shots(project);
+        let stills = stills(project);
         let lines = lines(project);
         Self {
             total_cents: shots
                 .iter()
+                .chain(stills.iter())
                 .chain(lines.iter())
                 .map(|priced| priced.cents)
                 .sum(),
             shots,
+            stills,
             lines,
             spent_cents: spent(project),
             ceiling_cents: settings.budget_cents,
@@ -82,7 +87,7 @@ impl Quote {
 
     /// Whether there is anything at all to make.
     pub(crate) fn empty(&self) -> bool {
-        self.shots.is_empty() && self.lines.is_empty()
+        self.shots.is_empty() && self.stills.is_empty() && self.lines.is_empty()
     }
 
     /// The total, as a person reads money.
@@ -148,6 +153,54 @@ fn shots(project: &Project) -> (Vec<Priced>, usize) {
         });
     }
     (shots, in_flight)
+}
+
+/// The stills to be drawn.
+///
+/// Priced by the same function the run charges by, from the request and the
+/// prompt alone: what a reference *is* does not change the price, only how
+/// many there are. A still whose reference is a generated still nobody has
+/// generated yet is listed at nothing, because the run will skip it.
+fn stills(project: &Project) -> Vec<Priced> {
+    project
+        .assets
+        .iter()
+        .filter(|asset| asset.kind == AssetKind::GeneratedImage)
+        .filter(|asset| asset.state != Some(GenerationState::Generated))
+        .map(|asset| {
+            let request = asset.image_request();
+            let prompt = asset.prompt.as_deref().unwrap_or_default();
+            let waiting = request.reference_images.iter().find(|id| {
+                project.asset(id).is_some_and(|it| {
+                    it.kind.is_generated() && it.state != Some(GenerationState::Generated)
+                })
+            });
+            let priced = prices::image(
+                &request,
+                prompt.chars().count(),
+                request.reference_images.len(),
+            );
+            let (cents, shape) = match (prompt.trim().is_empty(), waiting, priced) {
+                (true, _, _) => (0, String::from("has no prompt yet")),
+                (false, Some(sheet), _) => (0, format!("waits for {sheet} to be generated first")),
+                (false, None, Err(why)) => (0, why.to_string()),
+                (false, None, Ok(priced)) => (
+                    priced.cents,
+                    format!(
+                        "{} {} in {}",
+                        request.size().as_str(),
+                        request.aspect.as_str(),
+                        request.model.as_str()
+                    ),
+                ),
+            };
+            Priced {
+                asset: asset.id.clone(),
+                cents,
+                shape,
+            }
+        })
+        .collect()
 }
 
 /// The lines to be spoken.

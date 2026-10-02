@@ -122,6 +122,7 @@ const GROUPS: &[(&str, &[AssetKind])] = &[
         "NOT MADE YET",
         &[
             AssetKind::GeneratedVideo,
+            AssetKind::GeneratedImage,
             AssetKind::GeneratedAudio,
             AssetKind::SynthAudio,
         ],

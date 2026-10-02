@@ -24,6 +24,13 @@ import {
   upsert,
 } from "./transcript";
 
+/** What each generation job is called in the panel. */
+const JOB_LABEL: Record<string, string> = {
+  veo_shot: "Video shot",
+  still_image: "Still",
+  spoken_line: "Spoken line",
+};
+
 export function ChatPanel({ projectId }: { projectId: number }) {
   const queryClient = useQueryClient();
   const conversation = useQuery({
@@ -78,7 +85,7 @@ export function ChatPanel({ projectId }: { projectId: number }) {
           <ul className="flex flex-col gap-0.5 border-t pt-2 text-xs text-muted-foreground">
             {transcript.jobs.map((job) => (
               <li key={job.id}>
-                {job.kind === "veo_shot" ? "Video shot" : "Spoken line"} #{job.id}: {jobState(job)}
+                {JOB_LABEL[job.kind] ?? job.kind} #{job.id}: {jobState(job)}
               </li>
             ))}
           </ul>

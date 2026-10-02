@@ -30,9 +30,9 @@ pub(in crate::inspector) struct Shot {
     pub(super) prompt: String,
     /// Model, resolution, length, aspect, and the stills.
     pub(super) request: VideoRequest,
-    /// Every `image` asset in the project, for the pickers. Ids, because that
-    /// is what a brief holds and what a document must survive being copied
-    /// with.
+    /// Every still in the project — imported or generated — for the pickers.
+    /// Ids, because that is what a brief holds and what a document must
+    /// survive being copied with.
     pub(super) images: Vec<AssetId>,
 }
 
@@ -50,7 +50,7 @@ impl Shot {
             images: project
                 .assets
                 .iter()
-                .filter(|asset| asset.kind == AssetKind::Image)
+                .filter(|asset| asset.kind.is_still())
                 .map(|asset| asset.id.clone())
                 .collect(),
         })

@@ -62,10 +62,11 @@ export interface ProjectRef {
 
 /**
  * The record of the paid generation that made a file (`library/generation.sql`):
- * a Veo shot or a spoken line, what it was asked, and what it cost.
+ * a Veo shot, a generated still or a spoken line, what it was asked, and what it
+ * cost.
  */
 export interface GenerationRecord {
-  kind: "veo_shot" | "spoken_line";
+  kind: "veo_shot" | "still_image" | "spoken_line";
   id: number;
   model: string;
   created_at: number;
@@ -74,11 +75,13 @@ export interface GenerationRecord {
   estimated_cost_micros: number;
   /** What the ledger charged: `0` when the provider failed, which is free. */
   charged_micros: number;
-  // A Veo shot's brief.
+  // A Veo shot's or a still's brief.
   prompt?: string;
   resolution?: string;
   seconds?: number;
   aspect?: string;
+  /** How many reference pictures a still was drawn from. */
+  references?: number;
   // A spoken line's brief.
   voice?: string;
   text?: string;
@@ -122,6 +125,7 @@ export interface Balance {
 export const HISTORY_KINDS = [
   "veo_shot",
   "spoken_line",
+  "still_image",
   "assistant",
   "top_up",
   "monthly_fee",

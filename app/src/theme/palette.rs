@@ -79,8 +79,8 @@ pub(crate) const fn of_kind(kind: AssetKind) -> Color32 {
     match kind {
         // Footage, made or not.
         AssetKind::Video | AssetKind::GeneratedVideo => Color32::from_rgb(0x3E, 0x7B, 0xC8),
-        // A still.
-        AssetKind::Image => Color32::from_rgb(0x25, 0x9E, 0x8C),
+        // A still, made or not.
+        AssetKind::Image | AssetKind::GeneratedImage => Color32::from_rgb(0x25, 0x9E, 0x8C),
         // Words on screen.
         AssetKind::Text => Color32::from_rgb(0xC9, 0x9B, 0x33),
         // Drawn rather than shot: a colour card, a shape, an icon — and a
@@ -159,6 +159,7 @@ mod tests {
             AssetKind::Icon,
             AssetKind::Group,
             AssetKind::GeneratedVideo,
+            AssetKind::GeneratedImage,
             AssetKind::GeneratedAudio,
             AssetKind::SynthAudio,
         ] {
