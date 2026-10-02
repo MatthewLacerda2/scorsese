@@ -134,3 +134,14 @@ fn a_refused_insertion_writes_nothing() {
     assert!(matches!(error, InsertError::Vanishes(_)), "got {error}");
     assert_eq!(project, before);
 }
+
+/// A template written by hand need not open at frame 0, as an extracted one
+/// does: the episode's first clip starts at 90, and that is where `at` puts it.
+#[test]
+fn a_template_that_opens_late_still_starts_at_the_frame_asked() {
+    let mut project = empty();
+    let done = insert(&mut project, &episode(), Frames(30)).expect("it lands");
+    assert_eq!(placed(&project, "c-intro"), ("v1".to_owned(), 30));
+    assert_eq!(placed(&project, "c-title"), ("v2".to_owned(), 60));
+    assert_eq!((done.start, done.end), (Frames(30), Frames(300)));
+}
