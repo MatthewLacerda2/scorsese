@@ -120,3 +120,27 @@ fn a_step_string_cannot_be_accented_and_mark_its_own_accents() {
     assert!(ok("x-xX", Some(Ghost)).is_ok(), "another mark entirely");
     assert!(ok("x-xX", None).is_ok(), "the string as it always was");
 }
+
+/// An `o` is the ghost mark on that one hit, not a level of its own: it plays
+/// exactly as the plain hit marked `ghost` does, and the entry's own mark does
+/// not reach it.
+#[test]
+fn a_ghost_step_is_the_plain_hit_played_as_a_ghost() {
+    let ghost = played(string("x---", Some(Ghost)).into());
+    assert_eq!(played(string("o---", None).into()), ghost);
+    assert_eq!(played(string("o---", Some(Staccato)).into()), ghost);
+    assert_eq!(played(string("o---", Some(Accent)).into()), ghost);
+}
+
+/// The same refusal as the accent's, for the other mark a string can spell.
+#[test]
+fn a_step_string_cannot_be_ghosted_and_mark_its_own_ghosts() {
+    let refusal = playing(vec![string("x-xo", Some(Ghost)).into()]).validate();
+    assert!(
+        matches!(&refusal, Err(SynthError::TwiceGhosted { track }) if track == TRACK),
+        "{refusal:?}"
+    );
+    let ok = |steps, mark| playing(vec![string(steps, mark).into()]).validate();
+    assert!(ok("x-x-", Some(Ghost)).is_ok(), "no `o` to argue with");
+    assert!(ok("X-xo", None).is_ok(), "all three hits in one bar");
+}

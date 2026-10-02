@@ -15,43 +15,48 @@
 //! own swing displacement and its own humanise nudge. A step string is a way of
 //! *writing* notes, not a second kind of thing for the renderer to know about.
 //!
-//! ## Three characters, and no fourth
+//! ## Four characters, and no fifth
 //!
-//! `x` is a hit, `X` is an accent, `-` is a rest. Anything else is refused,
-//! including the bar separators (`|`) and whitespace a tracker screen would
-//! have drawn for you: **every character in the string is one step**, the count
-//! is load-bearing (see the grid below), and a character that looked like a
-//! step but was not would break the one property that makes the notation worth
-//! having.
+//! `x` is a hit, `X` is an accent, `o` is a ghost, `-` is a rest. Anything
+//! else is refused, including the bar separators (`|`) and whitespace a
+//! tracker screen would have drawn for you: **every character in the string is
+//! one step**, the count is load-bearing (see the grid below), and a character
+//! that looked like a step but was not would break the one property that makes
+//! the notation worth having.
 //!
-//! ## Velocity is case, and the ratio is the writer's
+//! ## Two levels and a mark, told apart by shape
 //!
-//! Two levels, told apart by shift. Digits (`0`–`9`) and a parallel accent
-//! string are both more expressive and both cost the thing the string is for:
-//! `4-4-4-4-4-4-4-49` makes the eye compare digits to find the accent where
-//! `x-x-x-x-x-x-x-xX` shows it as a silhouette, and a second string underneath
-//! has to be counted against the first.
+//! Digits (`0`–`9`) and a parallel accent string are both more expressive and
+//! both cost the thing the string is for: `4-4-4-4-4-4-4-49` makes the eye
+//! compare digits to find the accent where `x-x-x-x-x-x-x-xX` shows it as a
+//! silhouette, and a second string underneath has to be counted against the
+//! first. That argument is against *magnitudes*, not against a third symbol:
+//! in `X-o-x-o-` the accents still stand up out of the line and the ghosts sit
+//! under it, so the bar is still read as a shape.
 //!
-//! What the two levels *mean* is not a number this module chose. An accent is
-//! the hardest an instrument is struck, and the format already has a name for
-//! that — velocity 1, where a note's `vel` tops out. So `X` is 1 and `x` is the
-//! entry's [`vel`](Steps::vel), which puts the **ratio between them in the
-//! document**, written with the one number the writer already knows: `vel: 0.4`
-//! is a quiet hat with a hard accent, `vel: 0.85` is a nearly even one.
+//! `x` and `X` are **levels**. An accent is the hardest an instrument is
+//! struck, and the format already has a name for that — velocity 1, where a
+//! note's `vel` tops out. So `X` is 1 and `x` is the entry's
+//! [`vel`](Steps::vel), which puts the **ratio between them in the document**,
+//! written with the one number the writer already knows: `vel: 0.4` is a quiet
+//! hat with a hard accent, `vel: 0.85` is a nearly even one.
 //!
-//! That leaves one degenerate reading, and it is [refused rather than
-//! played](SynthError::AccentWithoutHeadroom): a string carrying both cases
+//! `o` is not a third level: it is the [`ghost`](Articulation::Ghost) **mark**
+//! on that one hit — quiet, short, dull and a hair early, four things a hand
+//! does together. A level alone would be a quiet hit, which is exactly what a
+//! ghost is not, and it would need a velocity nobody could name. As a mark it
+//! derives from `vel` the way every mark derives from the velocity it is
+//! written at, so nothing new is written. The mark is the hit's own, so it
+//! stands in for the entry's [`articulation`](Steps::articulation) on that
+//! step: the nearer instruction wins, as a ghost inside a passage marked
+//! staccato is still played as a ghost.
+//!
+//! Two degenerate readings are [refused rather than
+//! played](SynthError::AccentWithoutHeadroom). A string carrying both cases
 //! while `vel` is 1 draws a distinction the entry gave it no room to make, and
-//! the audio would silently not have the accents the page shows.
-//!
-//! A third level — a ghost note under the plain hits — is deliberately not a
-//! fourth character. Ghosts are articulation rather than notation, and a
-//! character whose velocity nobody could name would put a value in this crate
-//! that belongs in the document. What the entry *can* say is how the whole run
-//! is played, in [`articulation`](Steps::articulation): a hat part played
-//! staccato, a snare run played as ghosts. A single ghost under otherwise plain
-//! hits is one hand-written [`Note`] beside the string, which is the other
-//! thing that field does not replace.
+//! the audio would silently not have the accents the page shows. And an entry
+//! marked with the word the string already spells — `accent` beside an `X`,
+//! `ghost` beside an `o` — says it twice in two vocabularies.
 //!
 //! ## No holds: `dur` is a field
 //!
@@ -116,6 +121,10 @@ const HIT: char = 'x';
 /// is the fixed end of the pair and the plain hit is the written one.
 const ACCENT: char = 'X';
 
+/// A step played as a [ghost](Articulation::Ghost) of a plain hit — see the
+/// module doc on why it is a mark and not a third level.
+const GHOST: char = 'o';
+
 /// A step that does not sound.
 const REST: char = '-';
 
@@ -158,8 +167,8 @@ fn at_the_top(start: &f32) -> bool {
 pub struct Steps {
     /// The [`Track::name`](super::Track::name) that plays it.
     pub track: String,
-    /// The pattern itself: `x` a hit, `X` an accent, `-` a rest, and nothing
-    /// else. One character is one step of [`div`](Self::div) beats.
+    /// The pattern itself: `x` a hit, `X` an accent, `o` a ghost, `-` a rest,
+    /// and nothing else. One character is one step of [`div`](Self::div) beats.
     pub steps: String,
     /// How long one step is, in beats: `0.5` is an eighth, `0.25` a sixteenth.
     ///
@@ -181,16 +190,19 @@ pub struct Steps {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<Pitch>,
     /// Velocity of a plain `x`, in `0..=1`. An `X` plays at 1 regardless, so
-    /// this is the *distance* between an ordinary hit and an accented one.
+    /// this is the *distance* between an ordinary hit and an accented one; an
+    /// `o` is this hit with the ghost mark on it.
     #[serde(default = "one")]
     pub vel: f32,
     /// How **every** hit is played — see [`Note::articulation`]. A run is one
     /// gesture repeated, so this says how the hand plays the whole of it: a
     /// staccato hat part, a ghosted snare run.
     ///
-    /// The one combination refused is
-    /// [`accent` beside an `X`](SynthError::TwiceAccented), because the string
-    /// already has a way to say that and the two cannot both be the accent.
+    /// An `o` step is the exception: it is played as a ghost whatever this
+    /// says. The two combinations refused are
+    /// [`accent` beside an `X`](SynthError::TwiceAccented) and
+    /// [`ghost` beside an `o`](SynthError::TwiceGhosted), because the string
+    /// already has a way to say each and the entry cannot say it again.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub articulation: Option<Articulation>,
 }
@@ -211,17 +223,21 @@ impl Steps {
         self.check_grid(beats, written)?;
         let pitch = self.note.clone().unwrap_or(Pitch::Midi(DEFAULT_PITCH));
         let mut hits = Vec::new();
-        let (mut plain, mut accented) = (false, false);
+        let (mut plain, mut accented, mut ghosted) = (false, false, false);
         for (step, character) in self.steps.chars().enumerate() {
-            let vel = match character {
+            let (vel, articulation) = match character {
                 REST => continue,
                 HIT => {
                     plain = true;
-                    self.vel
+                    (self.vel, self.articulation)
                 }
                 ACCENT => {
                     accented = true;
-                    ACCENT_VEL
+                    (ACCENT_VEL, self.articulation)
+                }
+                GHOST => {
+                    ghosted = true;
+                    (self.vel, Some(Articulation::Ghost))
                 }
                 _ => {
                     return Err(SynthError::BadStep {
@@ -237,7 +253,7 @@ impl Steps {
                 start: self.start + step as f32 * self.div,
                 dur: self.gate(),
                 vel,
-                articulation: self.articulation,
+                articulation,
             });
         }
         // Checked after the characters, so a string with both faults reports
@@ -250,6 +266,11 @@ impl Steps {
         }
         if accented && self.articulation == Some(Articulation::Accent) {
             return Err(SynthError::TwiceAccented {
+                track: self.track.clone(),
+            });
+        }
+        if ghosted && self.articulation == Some(Articulation::Ghost) {
+            return Err(SynthError::TwiceGhosted {
                 track: self.track.clone(),
             });
         }
@@ -370,7 +391,12 @@ mod tests {
     /// The whole reason the character set is closed.
     #[test]
     fn a_character_that_is_not_a_step_is_refused() {
-        for pattern in ["x-x-x-x-|x-x-x-x", "x.x-x-x-x-x-x-x-", "x x-x-x-x-x-x-x-"] {
+        for pattern in [
+            "x-x-x-x-|x-x-x-x",
+            "x.x-x-x-x-x-x-x-",
+            "x x-x-x-x-x-x-x-",
+            "x-o-x-O-x-o-x-o-",
+        ] {
             assert!(
                 matches!(hits(&steps(pattern), 8.0), Err(SynthError::BadStep { .. })),
                 "`{pattern}` should not have expanded"
@@ -436,6 +462,25 @@ mod tests {
             ..steps("X-X-X-X-X-X-X-X-")
         };
         assert!(hits(&all_accents, 8.0).is_ok());
+    }
+
+    /// An `o` is a plain hit's velocity with the ghost mark on it, and the mark
+    /// is the hit's own: the entry's articulation reaches the other hits only.
+    #[test]
+    fn a_ghost_step_is_a_plain_hit_marked_ghost() {
+        let mut out = Vec::new();
+        let marked = Steps {
+            articulation: Some(Articulation::Staccato),
+            ..steps("X-o-x-o-X-o-x-o-")
+        };
+        marked.voice_into(8.0, &mut out).expect("expands");
+        let ghost = Some(Articulation::Ghost);
+        let staccato = Some(Articulation::Staccato);
+        let played: Vec<_> = out.iter().map(|n| (n.vel, n.articulation)).collect();
+        assert_eq!(
+            played[..4],
+            [(1.0, staccato), (0.4, ghost), (0.4, staccato), (0.4, ghost)]
+        );
     }
 
     /// Nothing reaches the caller from an entry that is refused — a

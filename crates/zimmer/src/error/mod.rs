@@ -448,6 +448,16 @@ pub enum SynthError {
         track: String,
     },
 
+    /// A step string saying `ghost` twice, in two vocabularies — the same
+    /// fault as [`TwiceAccented`](Self::TwiceAccented), for the other mark the
+    /// string can spell. `o` marks which hits of a run are ghosts; an
+    /// `articulation` of `ghost` plays every hit of it as one, so together
+    /// they say the ghosts are also ghosted.
+    TwiceGhosted {
+        /// The track the step string is on.
+        track: String,
+    },
+
     /// A `key` the grammar does not read. Refused rather than ignored: a song
     /// that declares a key nobody can parse is one whose every degree would
     /// resolve somewhere else, and silently.
