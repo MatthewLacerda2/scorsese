@@ -9,6 +9,11 @@ cloud coders must work, change it **here**, once, not in the next prompt.
 MCP tools (`issue_read`, `create_pull_request`, `update_pull_request`,
 `add_issue_comment`); load them with ToolSearch. Don't assume `gh` is installed.
 
+**A bug you find is yours to deal with.** Fix it in this branch when it's in
+your way or small, or file an issue with the evidence (`issue-write`) and keep
+going. Either way it never goes unrecorded. The operator expects coders to file
+issues mid-batch.
+
 ## Read first
 
 `CLAUDE.md`, your issue(s), and `.claude/skills/ci-merge/SKILL.md`. The prompt may
