@@ -37,7 +37,8 @@ pub use settings::{Settings, SettingsError, path as settings_path};
 /// Somebody scorsese pays to generate something.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Provider {
-    /// Google's Gemini API, which is where Veo is reached.
+    /// Google's Gemini API, which is where Veo and the image models are
+    /// reached — one key for both.
     Gemini,
     /// ElevenLabs, for narration.
     ElevenLabs,
@@ -60,7 +61,7 @@ impl Provider {
     /// What this provider is called when a message has to name it.
     pub const fn label(self) -> &'static str {
         match self {
-            Self::Gemini => "Gemini (Veo video)",
+            Self::Gemini => "Gemini (Veo video, still images)",
             Self::ElevenLabs => "ElevenLabs (narration)",
             Self::Anthropic => "Anthropic (the web assistant)",
         }
