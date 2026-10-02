@@ -261,7 +261,7 @@ pub async fn keep_ticket(tx: &mut Tx, shot: i64, ticket: &str) -> Result<(), sql
 /// job run again after a crash that had already settled finds nothing to
 /// settle twice.
 pub async fn for_job(tx: &mut Tx, job: i64) -> Result<Option<Paid>, sqlx::Error> {
-    let row: Option<(Option<i64>, Option<i64>, Option<i64>, i64, i64)> = sqlx::query_as(
+    let row: Option<Reserved> = sqlx::query_as(
         "SELECT e.veo_generation_id, e.speech_generation_id, e.image_generation_id, e.id,
                 -e.amount_micros
          FROM credit_entries e
@@ -288,6 +288,10 @@ pub async fn for_job(tx: &mut Tx, job: i64) -> Result<Option<Paid>, sqlx::Error>
         })
     }))
 }
+
+/// An open reservation's row: the shot, line or still it pays for — one of
+/// the three — then its entry and what it holds.
+type Reserved = (Option<i64>, Option<i64>, Option<i64>, i64, i64);
 
 /// How the provider answered.
 #[derive(Debug, Clone, PartialEq, Eq)]
