@@ -1064,11 +1064,11 @@ where they sound, so a whole bar arrives at a glance and a revision is one
 character. A list of objects with float `start` values has to be counted, and
 most of the work on a piece of music is revision.
 
-**Three characters, and no fourth.** `x` is a hit, `X` is an accent, `-` is a
-rest, and anything else is refused — including the `|` bar lines and the spaces
-a tracker screen would have drawn for you. Every character is one step, the
-count is what proves the string covers its bar, and a character that looked
-like a step but was not would take that with it.
+**Four characters, and no fifth.** `x` is a hit, `X` is an accent, `o` is a
+ghost, `-` is a rest, and anything else is refused — including the `|` bar
+lines and the spaces a tracker screen would have drawn for you. Every character
+is one step, the count is what proves the string covers its bar, and a
+character that looked like a step but was not would take that with it.
 
 | field | means |
 | --- | --- |
@@ -1077,16 +1077,46 @@ like a step but was not would take that with it.
 | `start` | where the **first step** falls, in beats. Absent means 0 |
 | `dur` | gate length for every hit. Absent means one step |
 | `note` | what pitch every hit plays. Absent means middle C |
-| `vel` | velocity of a plain `x`. An `X` always plays at 1 |
+| `vel` | velocity of a plain `x`, and of the hit an `o` ghosts. An `X` always plays at 1 |
 
-**Velocity is the shift key.** Two levels is all the notation carries, because
-`4-4-4-4-4-4-4-49` makes you compare digits to find the accent where
-`x-x-x-x-x-x-x-xX` shows it as a silhouette. What the two levels *mean* is
-still yours: an accent is the hardest an instrument is struck, which is
-velocity 1, so `vel` is the plain hit and the distance between them is the one
-number you write. `vel` at 0.4 is a quiet hat with a hard accent; at 0.85 it is
-a nearly even one; at 1 the two cases are the same hit, and a string using both
-is **refused** rather than played flat.
+**The string is read as a shape, so its characters are shapes.** Digits would
+carry more — and `4-4-4-4-4-4-4-49` makes you compare magnitudes to find the
+accent, where `x-x-x-x-x-x-x-xX` shows it as a silhouette. That is the
+argument, and it is an argument against *numbers*, not against a third
+symbol: in `X-o-x-o-X-o-x-o-` the accents still stand up out of the line and
+the ghosts sit under it, and the bar is still taken in at a glance rather than
+counted.
+
+**`x` and `X` are levels.** An accent is the hardest an instrument is struck,
+which is velocity 1, so `vel` is the plain hit and the distance between them is
+the one number you write. `vel` at 0.4 is a quiet hat with a hard accent; at
+0.85 it is a nearly even one; at 1 the two cases are the same hit, and a string
+using both is **refused** rather than played flat.
+
+**`o` is a mark, not a level.** It is the [`ghost`](#saying-how-a-note-is-played)
+articulation on that one hit — quiet **and** short **and** dull **and** a hair
+early — exactly as if the hit had been written as a note marked `ghost` at the
+entry's `vel`. A third level would have been a quiet hit, which is the one
+thing a ghost is not, and it would have needed a number nobody could name. So
+nothing new is written: the ghost comes out of `vel` the way every mark comes
+out of the velocity it is played at, and a hat that breathes is one string:
+
+```json fields
+"tracks": [{ "name": "hat", "gain": 0.5, "patch": {
+  "source": { "kind": "noise" },
+  "amp": { "a": 0.001, "d": 0.04, "s": 0, "r": 0.03 },
+  "filter": { "kind": "highpass", "cutoff": 6000 } } }],
+"patterns": { "a": { "beats": 4, "notes": [
+  { "track": "hat", "steps": "XoxoXoxoXoxoXoxo", "div": 0.25, "vel": 0.6 }
+] } },
+"arrangement": ["a"]
+```
+
+Because the ghost is the hit's own mark, it is played as a ghost whatever the
+entry's `articulation` says: a run marked `staccato` is staccato on every `x`
+and `X`, and still ghosts its `o`s. The one thing refused is the entry saying
+the string's own word again — `"articulation": "ghost"` on a string that uses
+`o`, like `"accent"` on one that uses `X`.
 
 **The string covers its pattern exactly**, from `start` to the end of the slot,
 rests included — so a figure in the last bar is written with the rests in front
@@ -1423,7 +1453,9 @@ the level.
 **A mark belongs to whatever the entry is.** A `chord` plays every voice that
 way, a `steps` string plays every hit that way, a `degree` is one note like any
 other — a chord is one gesture of a hand, and a run is one gesture repeated. A
-voice or a hit played differently from the rest is a note written beside it.
+voice played differently from the rest is a note written beside it; a hit
+played as a ghost is an [`o` in the string](#writing-a-rhythm-as-a-rhythm),
+the one mark the notation spells per step.
 
 **The order it composes in**, since that is where the surprises would be:
 
@@ -2492,11 +2524,12 @@ exactly what nothing downstream can notice.
   allocation nobody meant — and either of those two fields written on a chord
   that carries no `arp` at all.
 - **[Step strings](#writing-a-rhythm-as-a-rhythm)** — a character that is not
-  `x`, `X` or `-`, a string whose length is not the length its grid needs, a
+  `x`, `X`, `o` or `-`, a string whose length is not the length its grid needs, a
   `div` no whole number of steps fits the slot with, both cases used beside
   a `vel` of 1, where the accents the page shows would not be in the audio, and
   an `"articulation": "accent"` on a string that already marks its accents with
-  `X` — which is the word said twice, in two vocabularies.
+  `X`, or `"ghost"` on one that marks its ghosts with `o` — which is the word
+  said twice, in two vocabularies.
   Each of those is a shorter or differently spaced bar, which is the failure
   nobody hears until much later.
 - **[Keys and degrees](#saying-what-key-it-is-in)** — a `key` that is not a
