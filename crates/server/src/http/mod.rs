@@ -104,6 +104,8 @@ pub struct AppState {
     pub tools: Toolbox,
     /// How many tool calls each user has made lately, over web MCP.
     pub limits: mcp::Limits,
+    /// The web MCP calls each user has running, for a cancel to find.
+    pub in_flight: mcp::InFlight,
     /// The built-in assistant (#540): how it reaches Claude, and what a turn
     /// may cost.
     pub assistant: Assistant,
@@ -136,6 +138,7 @@ impl AppState {
             renders: files.renders,
             tools,
             limits: mcp::Limits::default(),
+            in_flight: mcp::InFlight::default(),
             assistant: Assistant::default(),
             clients: client::Clients::default(),
             pool,

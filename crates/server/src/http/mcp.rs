@@ -23,6 +23,22 @@
 //! - **`MCP-Protocol-Version`**, when sent, must be a revision this server
 //!   speaks, or the request is `400`.
 //!
+//! ## Stopping a call: `notifications/cancelled`
+//!
+//! A client that no longer wants a call's answer says so in a notification
+//! naming the call's id — over this transport in a `POST` of its own, while
+//! the call's `POST` is still waiting. So the calls in flight are kept per
+//! signed-in user ([`InFlight`]), not per connection: a cancel trips the
+//! [`Cancel`] of that user's call with that id, and nobody else's. The tool is
+//! handed it as the stdio server hands it over (`Tool::call_cancellable`,
+//! #647), and a cancelled call is not answered, as the specification asks. A
+//! client that hangs up mid-call has stopped wanting it too, and its call is
+//! cancelled the same way.
+//!
+//! A `render` is not stopped this way here: its call answers the moment the
+//! job is queued, so there is no call left to cancel by the time anybody
+//! wants to. Stopping the render itself is `job_cancel` (#660).
+//!
 //! ## Who: an API token, and nothing else
 //!
 //! `Authorization: Bearer scor_…` (#533) — the token names the user, and
@@ -52,6 +68,7 @@ use axum::http::header::ALLOW;
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use scorsese_mcp::protocol::{self, Handled, PROTOCOLS};
+use scorsese_render::Cancel;
 use serde_json::{Value, json};
 
 use super::AppState;
@@ -138,19 +155,86 @@ pub async fn refuse() -> Response {
     response
 }
 
-/// One message's reply, or `None` for a notification.
+/// One message's reply, or `None` for a notification or a cancelled call.
 async fn answer(state: &AppState, user: UserId, message: Value) -> Option<Value> {
+    if message.get("method") == Some(&json!("notifications/cancelled"))
+        && let Some(id) = message.pointer("/params/requestId")
+    {
+        state.in_flight.cancel(user, id);
+    }
+    let id = message.get("id").cloned().unwrap_or(Value::Null);
     match protocol::handle(message, || state.tools.listing()) {
         Handled::Silent => None,
         Handled::Answered(reply) => Some(reply),
         Handled::Call(call) if !state.tools.serves(&call.name) => Some(call.unknown()),
         Handled::Call(call) => {
+            let flight = state.in_flight.begin(user, &id);
             let outcome = state
                 .tools
-                .call(user, Client::External, &call.name, &call.arguments)
+                .call_cancellable(
+                    user,
+                    Client::External,
+                    &call.name,
+                    &call.arguments,
+                    &flight.cancel,
+                )
                 .await;
+            if flight.cancel.is_cancelled() {
+                return None;
+            }
             Some(call.answer(outcome))
         }
+    }
+}
+
+/// The web MCP calls each user has running, by the id their client gave it —
+/// written as JSON, as the stdio server keys them, since `1` and `"1"` are
+/// different ids. Cheap to clone.
+#[derive(Debug, Clone, Default)]
+pub struct InFlight {
+    calls: Arc<Mutex<HashMap<(UserId, String), Cancel>>>,
+}
+
+impl InFlight {
+    /// Register `user`'s call `id`, until the returned guard is dropped.
+    fn begin(&self, user: UserId, id: &Value) -> Flight {
+        let key = (user, id.to_string());
+        let cancel = Cancel::new();
+        self.lock().insert(key.clone(), cancel.clone());
+        Flight {
+            calls: self.clone(),
+            key,
+            cancel,
+        }
+    }
+
+    /// Stop `user`'s call `id`, if it is running. Another user's call with
+    /// the same id is not theirs to stop, and is not found.
+    pub(crate) fn cancel(&self, user: UserId, id: &Value) {
+        if let Some(cancel) = self.lock().get(&(user, id.to_string())) {
+            cancel.cancel();
+        }
+    }
+
+    /// No code under the lock can panic, so a poisoned map is used as it is.
+    fn lock(&self) -> std::sync::MutexGuard<'_, HashMap<(UserId, String), Cancel>> {
+        self.calls.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+}
+
+/// One call in flight. Dropped when it is answered — or when the request is
+/// dropped because the client hung up, which trips its cancel: nobody is
+/// left to read the answer.
+struct Flight {
+    calls: InFlight,
+    key: (UserId, String),
+    cancel: Cancel,
+}
+
+impl Drop for Flight {
+    fn drop(&mut self) {
+        self.calls.lock().remove(&self.key);
+        self.cancel.cancel();
     }
 }
 
