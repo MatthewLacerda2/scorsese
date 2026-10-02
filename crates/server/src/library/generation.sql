@@ -34,6 +34,23 @@ SELECT record FROM (
                                     WHERE e.speech_generation_id = g.id AND e.kind = 'charge'), 0)
     )
     FROM speech_generations g WHERE g.library_item_id = $1
+    UNION ALL
+    SELECT g.id, g.created_at, jsonb_build_object(
+        'kind', 'still_image',
+        'id', g.id,
+        'model', g.model,
+        'prompt', g.prompt,
+        'resolution', g.resolution,
+        'aspect', g.aspect,
+        'references', g.references_sent,
+        'brief_hash', g.brief_hash,
+        'project_id', g.project_id,
+        'created_at', extract(epoch FROM g.created_at)::bigint,
+        'estimated_cost_micros', g.estimated_cost_micros,
+        'charged_micros', coalesce((SELECT -sum(e.amount_micros) FROM credit_entries e
+                                    WHERE e.image_generation_id = g.id AND e.kind = 'charge'), 0)
+    )
+    FROM image_generations g WHERE g.library_item_id = $1
 ) AS generations
 ORDER BY created_at DESC, id DESC
 LIMIT 1

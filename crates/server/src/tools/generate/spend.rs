@@ -3,12 +3,12 @@
 
 use scorsese_core::{AssetId, AssetKind, Project};
 use scorsese_providers::quote::Quote;
-use scorsese_providers::{speech, video};
+use scorsese_providers::{image, speech, video};
 use serde_json::Value;
 
 use super::super::{Caller, database};
 use crate::credits::CreditError;
-use crate::credits::generations::{Line, Request, Shot, start};
+use crate::credits::generations::{Line, Request, Shot, Still, start};
 use crate::db;
 use crate::generations::Payload;
 use crate::jobs::{JobView, kinds, store as jobs};
@@ -45,6 +45,13 @@ enum What {
         text: String,
         settings: Value,
     },
+    Still {
+        model: &'static str,
+        resolution: &'static str,
+        aspect: &'static str,
+        references: usize,
+        prompt: String,
+    },
 }
 
 /// Every charged item of `quote`, gathered from the project laid out at
@@ -63,6 +70,16 @@ pub(super) fn charged(quote: &Quote, project: &Project, root: &std::path::Path) 
                     resolution: brief.request.resolution.as_str(),
                     seconds: brief.request.seconds.get(),
                     aspect: brief.request.aspect.as_str(),
+                    prompt: brief.prompt,
+                },
+                Err(_) => continue,
+            },
+            AssetKind::GeneratedImage => match image::Brief::of(project, root, asset) {
+                Ok(brief) => What::Still {
+                    model: brief.request.model.as_str(),
+                    resolution: brief.request.size().as_str(),
+                    aspect: brief.request.aspect.as_str(),
+                    references: brief.reference_images.len(),
                     prompt: brief.prompt,
                 },
                 Err(_) => continue,
@@ -112,6 +129,7 @@ pub(super) async fn spend(
         let kind = match one.what {
             What::Shot { .. } => kinds::VEO_SHOT,
             What::Line { .. } => kinds::SPOKEN_LINE,
+            What::Still { .. } => kinds::STILL_IMAGE,
         };
         let job = jobs::enqueue(&mut tx, kind, &payload)
             .await
@@ -166,6 +184,24 @@ fn request(one: &Charged, project: i64, call: i64, job: i64) -> Request<'_> {
             voice,
             text,
             settings,
+            estimated_cents: one.cents,
+        }),
+        What::Still {
+            model,
+            resolution,
+            aspect,
+            references,
+            prompt,
+        } => Request::Still(Still {
+            project: Some(project),
+            tool_call: Some(call),
+            job: Some(job),
+            model,
+            resolution,
+            aspect,
+            references: *references,
+            prompt,
+            brief_hash: &one.brief,
             estimated_cents: one.cents,
         }),
     }

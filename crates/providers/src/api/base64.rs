@@ -9,8 +9,9 @@
 //! Written here rather than taken as a dependency, for the reason the MCP
 //! server gives for its own encoder: this is thirty lines against a fixed
 //! specification with published test vectors, and every dependency is one
-//! `cargo deny` has to keep clearing. Encoding is absent because nothing here
-//! encodes — this crate only ever *receives* bytes wrapped in text.
+//! `cargo deny` has to keep clearing. Google is the other direction: Veo and
+//! Gemini both take every picture a brief names inline in the request body,
+//! so [`encode`] is here beside the decoder rather than in either client.
 //!
 //! **Permissive about whitespace, strict about everything else.** A server is
 //! entitled to fold a long payload across lines, so newlines and spaces are
@@ -62,6 +63,26 @@ pub(crate) fn decode(text: &str) -> Option<Vec<u8>> {
     }
 }
 
+/// `bytes` as standard base64 with padding.
+pub(crate) fn encode(bytes: &[u8]) -> String {
+    let mut encoded = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for group in bytes.chunks(3) {
+        let bits = group.iter().enumerate().fold(0_u32, |bits, (index, byte)| {
+            bits | u32::from(*byte) << (16 - 8 * index)
+        });
+        for index in 0..4 {
+            if index <= group.len() {
+                encoded.push(char::from(
+                    ALPHABET[((bits >> (18 - 6 * index)) & 0b11_1111) as usize],
+                ));
+            } else {
+                encoded.push('=');
+            }
+        }
+    }
+    encoded
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -84,6 +105,7 @@ mod tests {
                 Some(plain.as_bytes()),
                 "decoding {encoded:?}"
             );
+            assert_eq!(encode(plain.as_bytes()), encoded, "encoding {plain:?}");
         }
     }
 
@@ -101,6 +123,7 @@ mod tests {
             "8PHy8/T19vf4+fr7/P3+/w=="
         );
         assert_eq!(decode(encoded).as_deref(), Some(all.as_slice()));
+        assert_eq!(encode(&all), encoded);
     }
 
     /// A vendor is entitled to fold a long payload; a vendor sending something

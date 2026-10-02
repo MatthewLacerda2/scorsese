@@ -41,6 +41,10 @@ pub enum AssetKind {
     Icon,
     /// A Veo prompt: video that does not exist until it is generated.
     GeneratedVideo,
+    /// A Gemini image prompt: a still that does not exist until it is
+    /// generated. Once it is, it is a picture like any imported one — no length
+    /// of its own, held for as long as its clip says.
+    GeneratedImage,
     /// An ElevenLabs TTS prompt: audio that does not exist until generated.
     GeneratedAudio,
     /// A synthesis recipe: audio computed from a document the project carries,
@@ -65,14 +69,17 @@ impl AssetKind {
     pub fn is_generated(self) -> bool {
         matches!(
             self,
-            Self::GeneratedVideo | Self::GeneratedAudio | Self::SynthAudio
+            Self::GeneratedVideo | Self::GeneratedImage | Self::GeneratedAudio | Self::SynthAudio
         )
     }
 
     /// True when the brief is a sentence of natural language, which is also
     /// what makes realising it cost money and need a network.
     pub fn is_prompted(self) -> bool {
-        matches!(self, Self::GeneratedVideo | Self::GeneratedAudio)
+        matches!(
+            self,
+            Self::GeneratedVideo | Self::GeneratedImage | Self::GeneratedAudio
+        )
     }
 
     /// True when the brief is a *document* the project carries — a recipe —
@@ -96,8 +103,20 @@ impl AssetKind {
                 | Self::Shape
                 | Self::Icon
                 | Self::GeneratedVideo
+                | Self::GeneratedImage
                 | Self::Group
         )
+    }
+
+    /// True when this kind is a single picture with no time in it — an
+    /// imported still, or a generated one.
+    ///
+    /// What a brief may name as a reference image, and what a render holds
+    /// for a clip's length rather than plays: both questions are about the
+    /// file being one frame, and a generated still is one frame exactly as an
+    /// imported photograph is.
+    pub fn is_still(self) -> bool {
+        matches!(self, Self::Image | Self::GeneratedImage)
     }
 
     /// True when this kind produces sound, and so belongs on an audio track.

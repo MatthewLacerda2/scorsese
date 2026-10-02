@@ -8,6 +8,7 @@
 //! # Two briefs, and the difference is load-bearing
 //!
 //! A `generated_video` asset carries a sentence for a video model; a
+//! `generated_image` one a sentence for an image model ([`picture`]); a
 //! `generated_audio` asset carries a line for a voice. `scorsese-core` keeps
 //! those apart on purpose — different fields, different rate table, different
 //! vendor — so this panel keeps them apart too, as [`shot`] and [`line`], and
@@ -40,6 +41,7 @@
 //! disagreeing would be somebody who had already paid for a generation.
 
 mod line;
+mod picture;
 mod shot;
 
 use egui::Ui;
@@ -60,6 +62,8 @@ pub(super) enum Brief {
     Shot(shot::Shot),
     /// A generated line: words, a voice, a model, and sometimes a language.
     Line(line::Line),
+    /// A generated still: a prompt, a model, a size, an aspect, references.
+    Picture(picture::Picture),
 }
 
 impl Brief {
@@ -68,6 +72,7 @@ impl Brief {
     pub(super) fn of(project: &Project, asset: &AssetId) -> Option<Self> {
         shot::Shot::of(project, asset)
             .map(Self::Shot)
+            .or_else(|| picture::Picture::of(project, asset).map(Self::Picture))
             .or_else(|| line::Line::of(project, asset).map(Self::Line))
     }
 }
@@ -86,6 +91,7 @@ impl Inspector {
         match brief {
             Brief::Shot(shot) => self.shot(ui, open, selected, shot),
             Brief::Line(line) => self.line(ui, open, selected, line),
+            Brief::Picture(picture) => self.picture(ui, open, selected, picture),
         }
     }
 

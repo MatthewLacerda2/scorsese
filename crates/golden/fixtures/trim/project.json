@@ -1,5 +1,5 @@
 {
-  "schema_version": 41,
+  "schema_version": 42,
   "name": "trim",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [

@@ -32,8 +32,8 @@ impl Tool for Rebrief {
          back to stale the moment its brief is edited — stale is what makes the \
          next generate redo it and what makes the cut show a slug card rather \
          than the previous take meanwhile, and doing it by hand is the half of \
-         the edit that gets forgotten. Pass `prompt` for a generated_video or \
-         generated_audio asset, whose brief is a sentence a provider is paid to \
+         the edit that gets forgotten. Pass `prompt` for a generated_video, \
+         generated_image or generated_audio asset, whose brief is a sentence a provider is paid to \
          read, or `recipe` for a synth_audio asset, whose brief is a document in \
          recipes/ — one of the two, never both, and never the one the asset's \
          kind does not take. To change what is *inside* a recipe use synth_write \
@@ -61,7 +61,7 @@ impl Tool for Rebrief {
                 },
                 "prompt": {
                     "type": "string",
-                    "description": "The new prompt, for a generated_video or \
+                    "description": "The new prompt, for a generated_video, generated_image or \
                                     generated_audio asset. Replaces the old sentence \
                                     whole; this is not a patch. Refused on a \
                                     synth_audio asset, which has no prompt."

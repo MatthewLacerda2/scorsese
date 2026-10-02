@@ -9,7 +9,11 @@ import { useBalance } from "@/app/queries";
 import { formatDate } from "@/lib/format";
 import { formatDollars, formatMoney, toCentavos } from "@/lib/money";
 
-const TITLE = { veo_shot: "Generated video", spoken_line: "Generated speech" };
+const TITLE = {
+  veo_shot: "Generated video",
+  still_image: "Generated still",
+  spoken_line: "Generated speech",
+};
 
 export function GenerationRecord({ record }: { record: Record }) {
   const rate = useBalance().data?.rate ?? null;
@@ -20,7 +24,7 @@ export function GenerationRecord({ record }: { record: Record }) {
     <section className="flex flex-col gap-2 rounded-lg border p-3">
       <h3 className="text-sm font-medium">{TITLE[record.kind]}</h3>
       <p className="text-sm whitespace-pre-wrap">
-        {record.kind === "veo_shot" ? record.prompt : record.text}
+        {record.kind === "spoken_line" ? record.text : record.prompt}
       </p>
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
         <dt className="text-muted-foreground">Model</dt>
@@ -63,11 +67,12 @@ function Row({ name, value }: { name: string; value: string }) {
 
 /** The settings a brief was made with, as label/value pairs. */
 function settings(record: Record): [string, string][] {
-  if (record.kind === "veo_shot") {
+  if (record.kind !== "spoken_line") {
     const pairs: [string, string | number | undefined][] = [
       ["Resolution", record.resolution],
       ["Length", record.seconds === undefined ? undefined : `${record.seconds} s`],
       ["Aspect", record.aspect],
+      ["References", record.references || undefined],
     ];
     return pairs.flatMap(([name, value]) => (value === undefined ? [] : [[name, String(value)]]));
   }

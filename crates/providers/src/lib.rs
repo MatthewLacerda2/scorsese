@@ -115,6 +115,7 @@
 pub mod api;
 pub mod claude;
 pub mod credentials;
+pub mod image;
 pub mod live;
 pub mod prices;
 pub mod quote;

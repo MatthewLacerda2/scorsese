@@ -16,6 +16,7 @@ mod fill;
 mod follow;
 mod group;
 mod icon;
+mod image;
 mod matte;
 mod shape;
 mod speech;
@@ -28,6 +29,7 @@ pub use fill::FillProblem;
 pub use follow::FollowProblem;
 pub use group::GroupProblem;
 pub use icon::IconProblem;
+pub use image::ImageProblem;
 pub use matte::MatteProblem;
 pub use shape::ShapeProblem;
 pub use speech::SpeechProblem;
@@ -95,6 +97,13 @@ pub enum ValidationError {
 /// sit between that and the list.
 impl From<VideoProblem> for ValidationError {
     fn from(problem: VideoProblem) -> Self {
+        Self::Asset(problem.into())
+    }
+}
+
+/// And a generated still's problem reaches it the same way.
+impl From<ImageProblem> for ValidationError {
+    fn from(problem: ImageProblem) -> Self {
         Self::Asset(problem.into())
     }
 }

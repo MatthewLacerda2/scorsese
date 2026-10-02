@@ -60,7 +60,8 @@ use scorsese_core::hash_bytes;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Spend {
-    /// Realising prompted assets: Veo shots and ElevenLabs lines.
+    /// Realising prompted assets: Veo shots, Gemini stills and ElevenLabs
+    /// lines.
     Generation,
     /// Designing a voice from a description.
     VoiceDesign,

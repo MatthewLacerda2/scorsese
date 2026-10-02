@@ -980,7 +980,7 @@ there is nothing stale about a brief nobody has realised. Both are states
 `generate` acts on, so nothing is lost by being accurate about which one it is.
 
 **Two kinds of brief, and the tool keeps them two.** `prompt` is for
-`generated_video` and `generated_audio` — a sentence a provider is paid to
+`generated_video`, `generated_image` and `generated_audio` — a sentence a provider is paid to
 read. `recipe` is for `synth_audio`, and it repoints the asset at a *different*
 recipe file; changing what is **inside** a recipe is `synth_write` or
 `synth_set`, and needs no `rebrief` at all, because a bake is named for the
@@ -1004,35 +1004,36 @@ preview until somebody regenerated it.
 
 **Generating is not triggered.** `rebrief` costs nothing and spends nothing;
 `generate` is still what realises the result, and its cost gate stays where it
-is. The rest of a brief — a shot's `video` block, a line's `speech` block — is
-still a `project_write`, and those fields are hashed into the brief too, so
+is. The rest of a brief — a shot's `video` block, a still's `image` block, a
+line's `speech` block — is still a `project_write`, and those fields are hashed into the brief too, so
 changing a voice deserves the same `"state": "stale"` by hand.
 
-## Generating the shots and lines that do not exist yet
+## Generating the shots, stills and lines that do not exist yet
 
 `generate` is **the one tool here that costs money**, and everything about its
-shape follows from that. It drives both providers: shots go to Veo, narration
-to ElevenLabs. Like every paid tool it **quotes first** — see
+shape follows from that. It drives every provider: shots go to Veo, stills to
+Gemini's image models, narration to ElevenLabs. Like every paid tool it **quotes first** — see
 [Paid tools quote first](#paid-tools-quote-first) below.
 
 ```
 generate  { "project": "teaser.scor" }
           → "hero: $0.96 — 8s of fast at 1080p
              wide: $0.20 — 4s of lite at 720p
+             backdrop: $0.11 — a 2K 16:9 still in flash
              vo-open: $0.01 — 58 characters in fast
-             About $1.17 in all — our arithmetic over published rates, never a
+             About $1.28 in all — our arithmetic over published rates, never a
              bill.
              Nothing has been sent. To spend this, call generate again with the
              same arguments and confirm: "quote-9c1e…" — once whoever is paying
-             has agreed to $1.17. …"
+             has agreed to $1.28. …"
 
 generate  { "project": "teaser.scor", "confirm": "quote-9c1e…" }
           → "hero: queued — models/veo-3.1-fast…/operations/…
              …
-             About $1.17 spent on this run — our calculation, never a bill."
+             About $1.28 spent on this run — our calculation, never a bill."
 ```
 
-**The two are quoted on separate lines and never averaged.** Eight seconds of
+**Each item is quoted on its own line and never averaged.** Eight seconds of
 video is ninety-six cents and a sentence of narration is one — sixty to a
 hundred times less. A per-item average across them would describe nothing that
 exists.
@@ -1044,24 +1045,31 @@ generation actually cost*, so these are calculations, not receipts. That is why
 the field on the asset is called `estimated_cost_cents`.
 
 **A brief already generated is never sent again.** A generation lands at
-`generated/<asset-id>-<hash of the brief>.mp4` — or `.mp3` for a line — and the
-hash covers every field of the request: for a shot, that includes *the bytes of
-every still it names*; for a line, the voice, the model, the language and the
+`generated/<asset-id>-<hash of the brief>.mp4` — `.png` for a still, `.mp3` for
+a line — and the hash covers every field of the request: for a shot or a still,
+that includes *the bytes of every picture it names*; for a line, the voice, the model, the language and the
 seed as well as the words. So calling this twice by mistake — or after a dropped
 connection, which is the likelier case — costs nothing the second time, swapping
 one `face.png` for a different picture of the same name *does* count as a new
 brief, and so does changing which voice reads a line.
 
-**A key is asked for only by the half that has work.** A project of nothing but
-narration never needs a Veo key, and one of nothing but shots never needs an
-ElevenLabs key.
+**A key is asked for only by the pass that has work.** A project of nothing but
+narration never needs a Gemini key, and one of nothing but shots or stills never
+needs an ElevenLabs key. Shots and stills share the one Gemini key.
 
 **It waits, then detaches — for video only.** A shot takes minutes. This waits
 five of them by default (`wait_seconds`) and then returns, which loses nothing:
 a submitted shot's ticket is written into `project.json` before anything else
-can go wrong. **Narration is never in flight**: a line comes back on the same
-call, so there is no ticket, nothing to poll, and nothing `collect` could pick
-up.
+can go wrong. **Stills and narration are never in flight**: a picture or a
+line comes back on the same call, so there is no ticket, nothing to poll, and
+nothing `collect` could pick up.
+
+**A still drawn from a still waits one call.** A `generated_image` may name
+another as a reference — one character sheet behind every picture of that
+character — but the sheet has to exist first. A still whose reference is still
+a sketch comes back *not yet* and is drawn by the next `generate`, once the
+sheet has been: drawing both in one call would spend on a brief the quote could
+not have priced, because its hash depends on a picture that did not exist yet.
 
 ```
 generate  { "project": "teaser.scor", "collect": true }

@@ -6,6 +6,7 @@
 mod common;
 
 mod described;
+mod drawing;
 mod editing;
 mod importing;
 mod paying;

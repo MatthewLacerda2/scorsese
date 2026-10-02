@@ -1,4 +1,4 @@
-# `project.json` — schema v41
+# `project.json` — schema v42
 
 The contract between the CLI, the MCP server and the GUI — the contract *now*,
 not across time. It is meant to be hand-written: an agent should be able to
@@ -26,6 +26,7 @@ carries forward) up to this one.
 | v38 → v39 | a clip's optional `follow` (#584) | nothing: a field was added whose absence is a clip placed by its transform alone, which every v38 clip is, so it passes through and only its version moves |
 | v39 → v40 | gradient fills (#588) | nothing: a shape's `fill` and a colour asset's `color` gained a gradient object beside the colour string, which still means the colour it did, so it passes through and only its version moves |
 | v40 → v41 | a clip's `matte` (#589) | nothing: one optional clip field was added, absent meaning what every v40 clip already drew — the clip shown whole — and no v40 clip names another as its matte, so it passes through and only its version moves |
+| v41 → v42 | the `generated_image` kind and its `image` block (#461) | nothing: a kind was added with a block only it carries, and a shot's stills may now name a generated still — which only admits documents v41 refused — so every v41 document passes through and only its version moves |
 
 A complete worked example lives in
 `crates/core/tests/fixtures/narrated_teaser.json`.
@@ -34,7 +35,7 @@ A complete worked example lives in
 
 ```json project
 {
-  "schema_version": 41,
+  "schema_version": 42,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -145,7 +146,7 @@ re-importing or regenerating a file is one edit in one place.
 | Field | Required for | Meaning |
 | --- | --- | --- |
 | `id` | all | Unique within the project |
-| `kind` | all | `video`, `image`, `audio`, `text`, `color`, `shape`, `icon`, `group`, `generated_video`, `generated_audio`, `synth_audio` |
+| `kind` | all | `video`, `image`, `audio`, `text`, `color`, `shape`, `icon`, `group`, `generated_video`, `generated_image`, `generated_audio`, `synth_audio` |
 | `path` | file-backed kinds | Relative to the project root |
 | `sha256` | optional | 64 lowercase hex chars, of the file at `path` |
 | `media` | optional | What ffprobe found: `duration_seconds`, `width`, `height`, `frame_rate` (a rational), `has_alpha`, `audio_channels`, `sample_rate` — see below |
@@ -160,6 +161,7 @@ re-importing or regenerating a file is one edit in one place.
 | `group` | `group` | The tracks it holds, which render as one layer — see below |
 | `note` | optional | Why this asset is what it is. Never rendered — see above |
 | `video` | optional, `generated_video` only | The rest of the brief: `model`, `resolution`, `seconds`, `aspect`, `first_image`, `last_image`, `reference_images` — see below |
+| `image` | optional, `generated_image` only | The rest of the brief: `model`, `resolution`, `aspect`, `reference_images` — see below |
 | `speech` | optional, `generated_audio` only | The rest of the brief: `model`, `voice_id`, `language`, `seed` — see below |
 | `created_at` | optional | When the asset joined the table, as UTC RFC 3339 (`2026-08-04T14:20:00Z`) |
 | `queued_at` | optional, generated kinds | When a provider took the request. Not the same fact as `created_at` |
@@ -210,11 +212,12 @@ it. That is what makes previewing a full cut cost nothing. `GO` generates
 exactly the sketch and stale assets; `generated` is a cache hit and is never
 redone.
 
-Three kinds are generated, and they differ in what the brief *is*:
+Four kinds are generated, and they differ in what the brief *is*:
 
 | Kind | Brief | Realised by | Costs |
 | --- | --- | --- | --- |
 | `generated_video` | `prompt` — a sentence | Veo, over the network | money |
+| `generated_image` | `prompt` — a sentence | Gemini's image models, over the network | money |
 | `generated_audio` | `prompt` — a sentence | ElevenLabs, over the network | money |
 | `synth_audio` | `recipe` — a document in the project | synthesis, locally | nothing |
 
@@ -270,9 +273,9 @@ asset `stale` exactly as rewording the prompt does.
 | `resolution` | `720p`, `1080p` | `1080p` |
 | `seconds` | `4`, `6`, `8` | `8` |
 | `aspect` | `16:9`, `9:16` | `16:9` |
-| `first_image` | an `image` asset id | — |
-| `last_image` | an `image` asset id | — |
-| `reference_images` | up to 3 `image` asset ids | — |
+| `first_image` | a still's asset id — an `image` or a generated one | — |
+| `last_image` | likewise | — |
+| `reference_images` | up to 3 stills' asset ids | — |
 
 Only `prompt` is required. Every field above has a default, so an absent
 `video` and an empty one mean the same thing: a request made of a sentence and
@@ -309,7 +312,7 @@ message, not a round trip:
 | `reference_images` on `lite` | that tier does not take them |
 | more than 3 `reference_images` | the provider accepts three |
 | `last_image` without `first_image` | there is no journey from nowhere |
-| a still that is not an `image` asset, or not in the table at all | every still handed over is a picture |
+| a still that is not an `image` or `generated_image` asset, or not in the table at all | every still handed over is a picture |
 
 The first three are one rule wearing three hats, and the message always names
 the *other* choice — the one that fixed the length — because that is the one
@@ -319,6 +322,65 @@ shot is built from.
 Switching a shot to `lite` to save money is the case to watch: it is the one
 change that can invalidate a brief rather than merely cheapen it, which is why
 it is refused rather than honoured with the images dropped.
+
+### What a generated still asks for
+
+A `generated_image` is a still that does not exist yet: a prompt, drawn by
+Gemini 3.1 Flash Image ("Nano Banana 2") or its Lite sibling. Once drawn it is
+a picture like any imported `image` — no length of its own, held for as long as
+its clip says, and moved by the same keyframes: a slow push in, a pan across a
+wide frame, a grade that turns afternoon into dusk. It is the cheapest picture
+scorsese can generate (about a tenth of a Veo shot, [`prices.md`](prices.md)),
+and unlike a shot it is reused: the same backdrop three scenes later.
+
+```json asset
+{ "id": "hero-running", "kind": "generated_image", "state": "sketch",
+  "note": "the chase opens on this; she must read as the same woman as the sheet",
+  "prompt": "the woman from the reference, mid-stride across a wet rooftop at dusk, wide",
+  "image": { "model": "flash", "resolution": "2K", "aspect": "16:9",
+             "reference_images": ["hero-sheet"] } }
+```
+
+| Field | Values | Default |
+| --- | --- | --- |
+| `model` | `flash`, `lite` | `flash` |
+| `resolution` | `0.5K`, `1K`, `2K`, `4K` | `2K` on `flash`, `1K` on `lite` |
+| `aspect` | `16:9`, `9:16`, `1:1`, `4:3`, `3:4`, `3:2`, `2:3`, `5:4`, `4:5`, `21:9` | `16:9` |
+| `reference_images` | up to 14 asset ids, each an `image` or a `generated_image` | — |
+
+Only `prompt` is required, and an absent `image` means every default. Every
+field — and the bytes of every reference — is hashed into the brief with the
+sentence, so editing any of them makes the asset `stale`. Writing the default
+size out explicitly is the same brief as leaving it out.
+
+**`resolution` is the money lever**: the picture is billed per image at a price
+fixed by its size, and `4K` is over three times `0.5K`. The default is `2K`
+because a 16:9 `2K` still is 2752×1536, which covers a 1080p frame with room to
+push into; a `1K` still is enlarged before it moves. `lite` costs half and draws
+`1K` only. `aspect` is its own field rather than a consequence of the size: the
+vendor draws every aspect at every size.
+
+**The `note` is what the still is for; the `prompt` is what is sent.** Write
+the note first — *the chase opens on this*, *must match the sheet* — and the
+prompt from it. The note is never sent to anybody and is not part of the brief,
+so rewording it re-bills nothing.
+
+**References keep a subject looking like itself.** Name pictures by asset id,
+as Veo's `reference_images` does. A reference may itself be a `generated_image`:
+generate one character sheet first, then name it in every still after it. It
+has to be generated before a still drawn from it can be — a `generate` call
+draws the sheet and reports the other as *not yet*, and the next call draws it.
+
+| Refused | Because |
+| --- | --- |
+| a `resolution` other than `1K` on `lite` | `lite` draws one size |
+| more than 14 `reference_images` | the provider accepts fourteen |
+| a reference that is not an `image` or `generated_image`, or not in the table | every reference handed over is a picture |
+| a still naming itself as a reference | it could never be drawn |
+
+A still has no ticket: it comes back on the call that asked for it, so a
+`generated_image` is never `queued` and never carries an `operation`. It lands
+at `generated/<id>-<hash of the brief>.png`.
 
 ### What a spoken line asks for
 
@@ -2341,7 +2403,7 @@ compositing-suite line.
 
 ```json project
 {
-  "schema_version": 41,
+  "schema_version": 42,
   "name": "wipe",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [

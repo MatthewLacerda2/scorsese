@@ -5,7 +5,7 @@
 //! question with two different answers — a played source seeks into its media,
 //! a held one into its own animation — and both are settled here.
 
-use scorsese_core::{AssetKind, Fps};
+use scorsese_core::Fps;
 
 use crate::held::Loops;
 use crate::pipe::{Fitting, Source};
@@ -23,7 +23,7 @@ pub(super) fn source_for(
     // A still has no timeline of its own: it is held for the clip's length
     // rather than played, so what it seeks into is its own animation, if it
     // has one — never the clip's place in the source.
-    let still = shot.asset.kind == AssetKind::Image;
+    let still = shot.asset.kind.is_still();
     Source {
         file,
         still,

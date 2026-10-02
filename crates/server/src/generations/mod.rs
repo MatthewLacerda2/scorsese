@@ -1,4 +1,5 @@
-//! The paid generation jobs (#539): a Veo shot and an ElevenLabs line, made by
+//! The paid generation jobs (#539): a Veo shot, a Gemini still (#461) and an
+//! ElevenLabs line, made by
 //! the job queue for one user, paid from their credits, kept in their library.
 //!
 //! A job is enqueued by web `generate` once the user has confirmed a quote,
@@ -35,10 +36,12 @@ mod adopt;
 mod land;
 mod line;
 mod shot;
+mod still;
 
 use std::time::Duration;
 
 use scorsese_providers::credentials::{Provider, resolve};
+use scorsese_providers::image::{GeminiProvider, ImageProvider};
 use scorsese_providers::speech::{ElevenLabsProvider, SpeechProvider};
 use scorsese_providers::video::{POLL_EVERY, VeoProvider, VideoProvider};
 use serde::{Deserialize, Serialize};
@@ -47,6 +50,7 @@ use serde_json::Value;
 pub use adopt::adopt;
 pub use line::handler as line_handler;
 pub use shot::handler as shot_handler;
+pub use still::handler as still_handler;
 
 use crate::jobs::kinds::PROVIDER_PATIENCE;
 
@@ -67,6 +71,9 @@ pub struct Payload {
 /// A video provider a job can own and move between threads.
 pub type Video = Box<dyn VideoProvider + Send + Sync>;
 
+/// An image provider a job can own and move between threads.
+pub type Image = Box<dyn ImageProvider + Send + Sync>;
+
 /// A speech provider a job can own and move between threads.
 pub type Speech = Box<dyn SpeechProvider + Send + Sync>;
 
@@ -76,6 +83,8 @@ pub trait Vendors: Send + Sync + 'static {
     fn video(&self) -> Result<Video, String>;
     /// ElevenLabs, or why it cannot be reached.
     fn speech(&self) -> Result<Speech, String>;
+    /// Gemini's image models, or why they cannot be reached.
+    fn image(&self) -> Result<Image, String>;
 }
 
 /// The real vendors, with keys from the one credentials resolver
@@ -93,6 +102,11 @@ impl Vendors for Keys {
     fn speech(&self) -> Result<Speech, String> {
         let key = resolve(Provider::ElevenLabs).map_err(|error| error.to_string())?;
         Ok(Box::new(ElevenLabsProvider::new(&key.secret)))
+    }
+
+    fn image(&self) -> Result<Image, String> {
+        let key = resolve(Provider::Gemini).map_err(|error| error.to_string())?;
+        Ok(Box::new(GeminiProvider::new(&key.secret)))
     }
 }
 

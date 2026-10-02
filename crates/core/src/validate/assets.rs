@@ -27,6 +27,7 @@ pub(super) fn check(project: &Project) -> Vec<AssetProblem> {
         super::fill::check(asset, &mut errors);
         super::icon::check(asset, &mut errors);
         super::video::check(project, asset, &mut errors);
+        super::image::check(project, asset, &mut errors);
         super::speech::check(asset, &mut errors);
     }
     errors

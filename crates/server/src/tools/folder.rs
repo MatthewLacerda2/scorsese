@@ -18,7 +18,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use scorsese_core::{AssetKind, Project, ProjectPath};
-use scorsese_providers::{speech, video};
+use scorsese_providers::{image, speech, video};
 use sqlx::postgres::PgPool;
 
 use crate::db::{self, UserId};
@@ -92,6 +92,11 @@ fn briefs(project: &Project, root: &Path) -> HashMap<String, ProjectPath> {
         match asset.kind {
             AssetKind::GeneratedVideo => {
                 if let Ok(brief) = video::Brief::of(project, root, asset) {
+                    briefs.insert(brief.digest(), brief.output());
+                }
+            }
+            AssetKind::GeneratedImage => {
+                if let Ok(brief) = image::Brief::of(project, root, asset) {
                     briefs.insert(brief.digest(), brief.output());
                 }
             }

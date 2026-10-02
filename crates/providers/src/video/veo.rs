@@ -103,7 +103,7 @@ pub(crate) fn generate(brief: &Brief) -> Generate {
 /// A still as the vendor carries one: base64 in the body, because Google has no
 /// way to reach a file on this machine.
 fn encoded(still: &Still) -> Image {
-    Image::encoded(&still.mime_type, base64(&still.bytes))
+    Image::encoded(&still.mime_type, crate::api::base64::encode(&still.bytes))
 }
 
 /// How the brief's aspect is spelled on the wire.
@@ -112,31 +112,4 @@ fn aspect_of(brief: &Brief) -> &'static str {
         scorsese_core::Aspect::Wide => "16:9",
         scorsese_core::Aspect::Tall => "9:16",
     }
-}
-
-/// The alphabet, in the order RFC 4648 §4 numbers it.
-const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-/// `bytes` as standard base64 with padding.
-///
-/// Written here rather than taken as a dependency, for the reason the MCP
-/// server gives for its own copy: thirty lines against a fixed specification,
-/// and every dependency is one `cargo deny` has to keep clearing.
-fn base64(bytes: &[u8]) -> String {
-    let mut encoded = String::with_capacity(bytes.len().div_ceil(3) * 4);
-    for group in bytes.chunks(3) {
-        let bits = group.iter().enumerate().fold(0_u32, |bits, (index, byte)| {
-            bits | u32::from(*byte) << (16 - 8 * index)
-        });
-        for index in 0..4 {
-            if index <= group.len() {
-                encoded.push(char::from(
-                    ALPHABET[((bits >> (18 - 6 * index)) & 0b11_1111) as usize],
-                ));
-            } else {
-                encoded.push('=');
-            }
-        }
-    }
-    encoded
 }

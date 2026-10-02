@@ -4,9 +4,9 @@
 //! Everything it prints is written on that assumption: what each brief did,
 //! what the run is estimated to have cost, and what is still in flight.
 //!
-//! **Two providers, one ceiling, one total.** Shots and narration are separate
-//! passes because they are separate vendors, but the budget is threaded from
-//! the first into the second and the totals are added — a ceiling that each
+//! **Three passes, one ceiling, one total.** Shots, stills and narration are
+//! separate passes because they are separate models and vendors, but the budget
+//! is threaded from each into the next and the totals are added — a ceiling that each
 //! pass checked independently would be a ceiling worth twice what somebody set.
 //!
 //! **A key is asked for only by a pass that has work.** Resolving both up front
@@ -20,6 +20,7 @@
 
 mod lines;
 mod shots;
+mod stills;
 
 use std::path::Path;
 use std::time::Duration;
@@ -29,7 +30,7 @@ use scorsese_core::{Project, Reprobe, probe_assets};
 use scorsese_providers::credentials::{Budget, Settings};
 use scorsese_providers::prices::dollars;
 use scorsese_providers::video::{Outcome, Run};
-use scorsese_providers::{speech, spending, video};
+use scorsese_providers::{image, speech, spending, video};
 use scorsese_render::Ffprobe;
 
 use super::confirm;
@@ -54,16 +55,16 @@ pub(crate) fn run(project_dir: &Path, patience: Duration, dry_run: bool, yes: bo
     // The document is saved whatever happens, and that is not tidiness: a
     // ticket written before a failure is the only record that money was spent,
     // and losing it means paying again for work already in flight.
-    let (shots, lines, outcome) = passes(&mut project, project_dir, budget, patience);
+    let (done, outcome) = passes(&mut project, project_dir, budget, patience);
     project
         .save(project_dir)
         .with_context(|| format!("saving {}", project_dir.display()))?;
     outcome?;
 
-    if landed(&shots.outcomes, &lines) {
+    if landed(&done.shots.outcomes, &done.lines) || done.drew() {
         measure(&mut project, project_dir)?;
     }
-    report(&shots, &lines);
+    report(&done);
     Ok(())
 }
 
@@ -86,38 +87,73 @@ fn landed(shots: &[(scorsese_core::AssetId, Outcome)], lines: &Spoken) -> bool {
         })
 }
 
-/// Both passes, each run only if it has something to do.
+/// What every pass did.
+struct Done {
+    /// The shots, and what they committed.
+    shots: Run,
+    /// The stills.
+    stills: Vec<(scorsese_core::AssetId, image::Outcome)>,
+    /// The narration.
+    lines: Vec<(scorsese_core::AssetId, speech::Outcome)>,
+}
+
+impl Done {
+    /// Whether a still landed on disk that nothing has measured yet.
+    fn drew(&self) -> bool {
+        self.stills
+            .iter()
+            .any(|(_, outcome)| matches!(outcome, image::Outcome::Generated { .. }))
+    }
+
+    /// What the stills spent.
+    fn stills_spent(&self) -> u64 {
+        self.stills.iter().map(|(_, o)| o.spent_cents()).sum()
+    }
+}
+
+/// Every pass, each run only if it has something to do.
 ///
 /// Returns what happened even when something failed, because the caller has to
 /// save the project either way — a shot queued before an error is a shot that
 /// has been paid for, and its ticket is the only record of it.
-type Passes = (
-    Run,
-    Vec<(scorsese_core::AssetId, scorsese_providers::speech::Outcome)>,
-    Result<()>,
-);
-fn passes(project: &mut Project, project_dir: &Path, budget: Budget, patience: Duration) -> Passes {
-    let mut shots = Run {
-        outcomes: Vec::new(),
-        spent_cents: 0,
+fn passes(
+    project: &mut Project,
+    project_dir: &Path,
+    budget: Budget,
+    patience: Duration,
+) -> (Done, Result<()>) {
+    let mut done = Done {
+        shots: Run {
+            outcomes: Vec::new(),
+            spent_cents: 0,
+        },
+        stills: Vec::new(),
+        lines: Vec::new(),
     };
-    let mut lines = Vec::new();
 
     if video::pending(project, project_dir) {
         match shots::pass(project, project_dir, budget, patience) {
-            Ok(run) => shots = run,
-            Err(error) => return (shots, lines, Err(error)),
+            Ok(run) => done.shots = run,
+            Err(error) => return (done, Err(error)),
+        }
+    }
+    // The ceiling carries across: what one pass committed is already spent as
+    // far as the next is concerned.
+    if image::pending(project, project_dir) {
+        let budget = budget.spend(done.shots.spent_cents);
+        match stills::pass(project, project_dir, budget) {
+            Ok(drawn) => done.stills = drawn,
+            Err(error) => return (done, Err(error)),
         }
     }
     if speech::pending(project, project_dir) {
-        // The ceiling carries across: what the shots committed is already spent
-        // as far as the narration is concerned.
-        match lines::pass(project, project_dir, budget.spend(shots.spent_cents)) {
-            Ok(spoken) => lines = spoken,
-            Err(error) => return (shots, lines, Err(error)),
+        let budget = budget.spend(done.shots.spent_cents + done.stills_spent());
+        match lines::pass(project, project_dir, budget) {
+            Ok(spoken) => done.lines = spoken,
+            Err(error) => return (done, Err(error)),
         }
     }
-    (shots, lines, Ok(()))
+    (done, Ok(()))
 }
 
 /// Whether this run may go ahead: the quote, and then the question.
@@ -149,7 +185,7 @@ fn permitted(project: &Project, root: &Path, yes: bool) -> Result<bool> {
 /// exists and still resolves, and consulting it is how a stale shot used to be
 /// skipped as *nothing to do*.
 fn pending(project: &Project, root: &Path) -> bool {
-    video::pending(project, root) || speech::pending(project, root)
+    video::pending(project, root) || image::pending(project, root) || speech::pending(project, root)
 }
 
 /// Picks up whatever finished while nobody was watching. Submits nothing.
@@ -235,16 +271,19 @@ fn spent_so_far(project: &Project, root: &Path) -> u64 {
     spending::so_far(project, root).total()
 }
 
-/// Every brief's line, then the one total that spans both providers.
-fn report(shots: &Run, lines: &[(scorsese_core::AssetId, scorsese_providers::speech::Outcome)]) {
-    if shots.outcomes.is_empty() && lines.is_empty() {
+/// Every brief's line, then the one total that spans every provider.
+fn report(done: &Done) {
+    if done.shots.outcomes.is_empty() && done.stills.is_empty() && done.lines.is_empty() {
         println!("No generated assets in this project.");
         return;
     }
-    shots::report(shots);
-    lines::report(lines);
+    shots::report(&done.shots);
+    stills::report(&done.stills);
+    lines::report(&done.lines);
 
-    let spent = shots.spent_cents + lines.iter().map(|(_, o)| o.spent_cents()).sum::<u64>();
+    let spent = done.shots.spent_cents
+        + done.stills_spent()
+        + done.lines.iter().map(|(_, o)| o.spent_cents()).sum::<u64>();
     println!();
     println!(
         "About {} spent on this run — our calculation, never a bill.",

@@ -119,7 +119,7 @@ mod tests {
     fn a_clip_an_arrow_is_attached_to_stays() {
         let mut project = Project::from_json(
             r##"{
-              "schema_version": 41, "name": "T", "timeline_fps": { "num": 30, "den": 1 },
+              "schema_version": 42, "name": "T", "timeline_fps": { "num": 30, "den": 1 },
               "assets": [
                 { "id": "box", "kind": "shape", "shape": {
                   "geometry": { "rectangle": { "width": 0.2, "height": 0.1 } },

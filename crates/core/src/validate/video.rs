@@ -64,7 +64,7 @@ fn check_stills(project: &Project, asset: &Asset, found: &mut Vec<VideoProblem>)
                 asset: asset.id.clone(),
                 referenced: referenced.clone(),
             }),
-            Some(still) if still.kind != AssetKind::Image => {
+            Some(still) if !still.kind.is_still() => {
                 found.push(VideoProblem::NotAnImage {
                     asset: asset.id.clone(),
                     referenced: referenced.clone(),

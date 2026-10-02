@@ -24,6 +24,7 @@
 
 mod lines;
 mod shots;
+mod stills;
 
 use std::path::Path;
 use std::sync::mpsc::{Receiver, TryRecvError, channel};
@@ -99,20 +100,26 @@ fn run(pass: Pass, mut project: Project, root: &Path) -> Report {
         Ok(made) => made,
         Err(said) => return stopped(&project, root, said),
     };
-    let spoken = match lines::pass(&mut project, root, pass, budget.spend(made.spent_cents)) {
+    let drawn = match stills::pass(&mut project, root, pass, budget.spend(made.spent_cents)) {
+        Ok(drawn) => drawn,
+        Err(said) => return stopped(&project, root, said),
+    };
+    let committed = made.spent_cents + stills::spent(&drawn);
+    let spoken = match lines::pass(&mut project, root, pass, budget.spend(committed)) {
         Ok(spoken) => spoken,
         Err(said) => return stopped(&project, root, said),
     };
 
     // Before the save, so what was measured is in the document the window
     // reloads rather than in a copy this thread is about to drop.
-    if shots::arrived(&made.outcomes) || lines::arrived(&spoken) {
+    if shots::arrived(&made.outcomes) || stills::arrived(&drawn) || lines::arrived(&spoken) {
         measure(&mut project, root);
     }
     if let Err(error) = project.save(root) {
         return failure(format!("saving the project: {error}"));
     }
     let mut parts = shots::said(&made.outcomes);
+    parts.extend(stills::said(&drawn));
     parts.extend(lines::said(&spoken));
     Report {
         in_flight: made
@@ -120,7 +127,7 @@ fn run(pass: Pass, mut project: Project, root: &Path) -> Report {
             .iter()
             .filter(|(_, outcome)| outcome.is_in_flight())
             .count(),
-        said: sentence(parts, made.spent_cents + lines::spent(&spoken), pass),
+        said: sentence(parts, committed + lines::spent(&spoken), pass),
         failed: false,
     }
 }

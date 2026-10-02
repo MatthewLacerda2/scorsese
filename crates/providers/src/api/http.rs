@@ -186,6 +186,39 @@ impl Caller {
         self.json(url, sent)
     }
 
+    /// POSTs `body` as JSON and reads a large reply as JSON, waiting up to
+    /// `wait` for it — for a vendor that does the work on the connection and
+    /// sends the media back inside the JSON.
+    ///
+    /// Its own call because both of [`post`]'s bounds are wrong for that reply:
+    /// a picture at 4K takes longer than a minute to draw, and arrives as tens
+    /// of megabytes of base64 — past what the transport reads into JSON by
+    /// default. So the bytes are read to `limit` and parsed here.
+    ///
+    /// [`post`]: Caller::post
+    pub fn post_large<B: Serialize, R: DeserializeOwned>(
+        &self,
+        url: &str,
+        body: &B,
+        wait: Duration,
+        limit: u64,
+    ) -> Result<R, HttpError> {
+        let agent: ureq::Agent = ureq::Agent::config_builder()
+            .timeout_global(Some(wait))
+            .http_status_as_error(false)
+            .build()
+            .into();
+        let sent = self
+            .signed(agent.post(url))
+            .header("Content-Type", "application/json")
+            .send_json(body);
+        let bytes = self.bytes(url, sent, limit)?;
+        serde_json::from_slice(&bytes).map_err(|error| HttpError::Unreadable {
+            url: url.to_owned(),
+            message: error.to_string(),
+        })
+    }
+
     /// POSTs `body` as JSON and reads the reply as bytes — for a vendor that
     /// answers with the media itself.
     ///

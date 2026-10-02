@@ -617,10 +617,11 @@ does not hold everybody else up.
 | `thumbnail` | 2 | one decoded frame |
 | `veo_shot` | 4 | minutes of waiting on Google, almost no machine |
 | `spoken_line` | 4 | seconds, mostly network |
+| `still_image` | 4 | a Gemini still (#461): seconds, mostly network |
 
 **Every kind has a handler** — `thumbnail` and `proxy` (#535, #542, *Library*),
-`render` and `preview` (#541, #542, *Renders*), `veo_shot` and `spoken_line`
-(#539, *Web MCP*, below). A paid generation pays through credits (*Credits*,
+`render` and `preview` (#541, #542, *Renders*), `veo_shot`, `still_image` and
+`spoken_line` (#539, #461, *Web MCP*, below). A paid generation pays through credits (*Credits*,
 below: a failed one is free) and keeps what it made in the library. Each
 registers its handler in `jobs::kinds::registry()`; a kind nothing registers
 waits rather than failing. The worker, the claim, recovery and
@@ -772,9 +773,11 @@ its cost exists only once the tokens are counted, so a turn checks the balance
 is positive before starting and the call may dip a little below zero.
 
 **Audit tables.** `veo_generations` (model, resolution, seconds, aspect,
-prompt, brief hash, operation ticket, state, estimated cost, error) and
-`speech_generations` (model, voice, text, characters, settings, estimated cost,
-error) hold one row per paid generation, bound to the ledger entries that paid
+prompt, brief hash, operation ticket, state, estimated cost, error),
+`image_generations` (model, resolution, aspect, how many references, prompt,
+brief hash, state, estimated cost, error — #461, no ticket: a still comes back
+on the call) and `speech_generations` (model, voice, text, characters,
+settings, estimated cost, error) hold one row per paid generation, bound to the ledger entries that paid
 for it. Each carries a nullable `tool_call_id`, whose foreign key lands with the
 table it points at (#540), a nullable `library_item_id` keyed to the item it
 made by (item, owner) — kept, set null, when the item is deleted (#535) — and a
@@ -1084,7 +1087,7 @@ nothing, and so is one whose job is still on its way. A call without `confirm`
 answers with the quote, what it takes from the balance (cost + 10%) and a
 token, kept in the `quotes` table under the providers' rules (#538: bound to
 what was quoted, once, fifteen minutes). A call with the token reserves every
-charged brief and queues it as a `veo_shot` or `spoken_line` job in one
+charged brief and queues it as a `veo_shot`, `still_image` or `spoken_line` job in one
 transaction — all, or none when the balance cannot cover the lot — and answers
 at once with the job ids. Each job (`crate::generations`) sends the brief
 exactly as quoted, keeps a shot's ticket before anything else, keeps what came

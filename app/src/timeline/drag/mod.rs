@@ -199,7 +199,7 @@ pub(super) fn cursor(hit: &lanes::Hit, at: Pos2) -> CursorIcon {
 /// and nothing else. Asked here rather than in `scorsese-core` because it is a
 /// question about dragging — the model already says what each kind is.
 fn has_source_timeline(kind: AssetKind) -> bool {
-    !matches!(kind, AssetKind::Image | AssetKind::Text | AssetKind::Color)
+    !kind.is_still() && !matches!(kind, AssetKind::Text | AssetKind::Color)
 }
 
 #[cfg(test)]

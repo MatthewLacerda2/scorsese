@@ -318,6 +318,7 @@ pub(crate) const fn kind(kind: AssetKind) -> &'static str {
         AssetKind::Shape => "shape",
         AssetKind::Icon => "icon",
         AssetKind::GeneratedVideo => "generated_video",
+        AssetKind::GeneratedImage => "generated_image",
         AssetKind::GeneratedAudio => "generated_audio",
         AssetKind::SynthAudio => "synth_audio",
         AssetKind::Group => "group",

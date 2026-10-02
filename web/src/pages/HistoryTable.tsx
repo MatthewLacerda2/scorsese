@@ -17,6 +17,7 @@ import { formatDollars, formatMovement } from "@/lib/money";
 export const KIND_LABEL: Record<HistoryKind, string> = {
   veo_shot: "Video generation",
   spoken_line: "Speech generation",
+  still_image: "Still generation",
   assistant: "Assistant",
   top_up: "Top-up",
   monthly_fee: "Monthly fee",

@@ -37,17 +37,19 @@ use crate::projects::{self, ProjectError};
 pub(crate) const NAME: &str = "generate";
 
 /// What it does.
-pub(crate) const DESCRIPTION: &str = "Realise the sketched briefs — Veo shots and ElevenLabs \
-lines — paid from your credits, and it quotes before it spends. Called without confirm it sends \
-nothing: it answers with what each generated_video and generated_audio brief would cost and \
+pub(crate) const DESCRIPTION: &str = "Realise the sketched briefs — Veo shots, Gemini stills \
+and ElevenLabs lines — paid from your credits, and it quotes before it spends. Called without \
+confirm it sends nothing: it answers with what each generated_video, generated_image and \
+generated_audio brief would cost and \
 what that takes from your credits, and a token. Show that quote to whoever is paying; only a \
 second call with confirm set to the token spends, and only on exactly the briefs quoted — edit \
 one in between and the call is refused and must be quoted again. Spending reserves the price \
 and queues each brief as a job; the call answers at once with the job ids, and `jobs` says \
 when each is done. A finished generation lands in your library and in the project on its own. \
 A brief the provider refuses costs nothing; one that works is charged whether or not it is \
-kept. A brief you already generated, in this project or another, is never paid for again, \
-and a line with no voice chosen yet is reported and skipped. Every price is our own \
+kept. A brief you already generated, in this project or another, is never paid for again; \
+a line with no voice chosen yet, or a still whose reference_images name a generated_image \
+not yet generated, is reported and skipped until a later call. Every price is our own \
 arithmetic over published rates.";
 
 /// Its arguments.
@@ -189,7 +191,7 @@ async fn on_its_way(caller: &Caller<'_>, quote: &mut Quote) -> Result<(), String
         .map_err(database)?;
     let running: Vec<(i64, String)> = sqlx::query_as(
         "SELECT id, payload->>'brief' FROM jobs
-         WHERE kind IN ('veo_shot', 'spoken_line') AND state IN ('waiting', 'running', 'stuck')
+         WHERE kind IN ('veo_shot', 'still_image', 'spoken_line') AND state IN ('waiting', 'running', 'stuck')
            AND payload->>'brief' = ANY($1)",
     )
     .bind(&briefs)

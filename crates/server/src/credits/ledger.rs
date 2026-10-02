@@ -29,6 +29,8 @@ pub struct Link {
     pub veo: Option<i64>,
     /// The spoken line it paid for.
     pub speech: Option<i64>,
+    /// The generated still it paid for.
+    pub image: Option<i64>,
 }
 
 /// The user's balance, in micro-dollars: the sum of their entries.
@@ -73,13 +75,15 @@ pub async fn reserve(
     cover(tx, micros).await?;
     let entry = sqlx::query_scalar(
         "INSERT INTO credit_entries
-             (user_id, kind, amount_micros, project_id, veo_generation_id, speech_generation_id, memo)
-         VALUES (member_id(), 'reservation', $1, $2, $3, $4, $5) RETURNING id",
+             (user_id, kind, amount_micros, project_id, veo_generation_id, speech_generation_id,
+              image_generation_id, memo)
+         VALUES (member_id(), 'reservation', $1, $2, $3, $4, $5, $6) RETURNING id",
     )
     .bind(-micros)
     .bind(link.project)
     .bind(link.veo)
     .bind(link.speech)
+    .bind(link.image)
     .bind(memo)
     .fetch_one(&mut **tx)
     .await?;
@@ -109,8 +113,10 @@ async fn settle(
 ) -> Result<(), CreditError> {
     let written = sqlx::query(
         "INSERT INTO credit_entries (user_id, kind, amount_micros, settles, project_id,
-                                     veo_generation_id, speech_generation_id, memo)
-         SELECT member_id(), $1, $2, id, project_id, veo_generation_id, speech_generation_id, memo
+                                     veo_generation_id, speech_generation_id,
+                                     image_generation_id, memo)
+         SELECT member_id(), $1, $2, id, project_id, veo_generation_id, speech_generation_id,
+                image_generation_id, memo
          FROM credit_entries WHERE id = $3 AND kind = 'reservation'",
     )
     .bind(kind)
