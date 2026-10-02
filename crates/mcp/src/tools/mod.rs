@@ -30,6 +30,7 @@ mod still;
 mod synth;
 mod voices;
 
+use scorsese_render::Cancel;
 use serde_json::Value;
 
 use crate::base64;
@@ -218,6 +219,17 @@ pub trait Tool: Send + Sync {
     /// A [`Reply`] is a `String` away — `Ok(text.into())` — so a tool with
     /// nothing to show says so in one word rather than in a struct literal.
     fn call(&self, arguments: &Value) -> Result<Reply, String>;
+
+    /// Runs it under `cancel`, which the client trips by cancelling the
+    /// request (`notifications/cancelled`).
+    ///
+    /// Only a tool that runs long enough to be worth stopping overrides this —
+    /// `render`, today (#647). Every other one finishes in the time it takes to
+    /// notice, so it runs to the end and its answer is simply not sent.
+    fn call_cancellable(&self, arguments: &Value, cancel: &Cancel) -> Result<Reply, String> {
+        let _ = cancel;
+        self.call(arguments)
+    }
 }
 
 /// Every tool this server exposes.

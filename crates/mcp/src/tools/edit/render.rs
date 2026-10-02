@@ -3,8 +3,8 @@
 use std::path::Path;
 
 use scorsese_render::{
-    AudioCodec, Container, FrameRange, OutputFormat, RenderSettings, Renderer, Resolution, Tools,
-    VideoCodec, say,
+    AudioCodec, Cancel, Container, FrameRange, OutputFormat, RenderSettings, Renderer, Resolution,
+    Tools, VideoCodec, say,
 };
 use serde_json::Value;
 
@@ -96,6 +96,14 @@ impl Tool for Render {
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
+        self.call_cancellable(arguments, &Cancel::new())
+    }
+
+    /// Stops between frames when the client cancels the request, and removes
+    /// the file it had begun. The words it would have answered with — how far
+    /// it got — are the server's to log, since a cancelled request is not
+    /// answered.
+    fn call_cancellable(&self, arguments: &Value, cancel: &Cancel) -> Result<Reply, String> {
         let dir = project_dir(arguments)?;
         // Against the project, not the server's working directory, which
         // belongs to whoever launched it (#518). The caller's own string is
@@ -145,6 +153,7 @@ impl Tool for Render {
         // was authored against is the one output rate needing no conform.
         let settings = RenderSettings::new(resolution, project.timeline_fps).with_format(format);
         let report = Renderer::new(&tools, settings)
+            .with_cancel(cancel.clone())
             .render(&project, &dir, range, &path)
             .map_err(|error| format!("rendering: {error}"))?;
         // Then what the CLI prints about sound, in its words: how loud the file

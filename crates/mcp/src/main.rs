@@ -12,5 +12,8 @@ fn main() -> std::io::Result<()> {
     // stray `println!` would be read as a malformed message and take the
     // session down. Anything this server has to say about itself goes to
     // stderr, which the client shows as logs.
-    scorsese_mcp::serve(BufReader::new(stdin().lock()), stdout().lock())
+    // `stdin()` rather than its lock: the requests are read on a thread of
+    // their own, so a cancel can arrive while a render runs, and a lock is
+    // not something a thread can be handed.
+    scorsese_mcp::serve(BufReader::new(stdin()), stdout().lock())
 }

@@ -1,8 +1,9 @@
 //! Putting raw frames into a file.
 
 use std::io::Write;
-use std::path::Path;
-use std::process::{Child, ChildStdin, Command, Stdio};
+use std::path::{Path, PathBuf};
+use std::process::{ChildStdin, Command, Stdio};
+use std::time::Duration;
 
 use super::audio::SAMPLE_FORMAT;
 use crate::audio::CHANNELS;
@@ -16,12 +17,18 @@ use scorsese_compositor::{Frame, PIXEL_FORMAT};
 /// else would carry it on [`crate::format::VideoCodec`] rather than here.
 const ENCODED_PIXELS: &str = "yuv420p";
 
+/// How long an abandoned encoder is given to exit on its own once its stdin
+/// is closed, before it is killed. Closing the pipe is ffmpeg's "that was the
+/// last frame", and flushing what it holds is well under a second; this is
+/// only the bound on one that has wedged.
+const GRACE: Duration = Duration::from_secs(5);
+
 /// An ffmpeg process taking raw frames on its stdin and writing an encoded
 /// file.
 pub(crate) struct Encoder {
-    child: Child,
+    child: super::Process,
     stdin: ChildStdin,
-    subject: String,
+    out: PathBuf,
 }
 
 impl Encoder {
@@ -96,9 +103,9 @@ impl Encoder {
             .take()
             .expect("stdin was piped when the process was spawned");
         Ok(Self {
-            child,
+            child: super::Process::new(child),
             stdin,
-            subject: out.display().to_string(),
+            out: out.to_owned(),
         })
     }
 
@@ -114,15 +121,25 @@ impl Encoder {
 
     /// Closes the pipe and waits for the file to be finalised.
     pub(crate) fn finish(self) -> Result<(), RenderError> {
-        let Self {
-            child,
-            stdin,
-            subject,
-        } = self;
+        let Self { child, stdin, out } = self;
         // Closing stdin is what tells ffmpeg the stream ended; without it,
         // waiting for the process would wait forever.
         drop(stdin);
-        super::finish(child, Stage::Encode, &subject)
+        child.finish(Stage::Encode, &out.display().to_string())
+    }
+
+    /// Gives up on the file: closes the pipe, waits for ffmpeg to go (killing
+    /// it if it will not), and removes whatever it had written.
+    ///
+    /// For a render that stopped — cancelled, or failed part way. What ffmpeg
+    /// leaves behind then is a file with an `.mp4` on the end that is not the
+    /// film: a few seconds of it, or no index at all and nothing playable.
+    /// Either is worse than no file, because it looks like one.
+    pub(crate) fn abandon(self) {
+        let Self { child, stdin, out } = self;
+        drop(stdin);
+        child.stop(GRACE);
+        let _ = std::fs::remove_file(out);
     }
 }
 
