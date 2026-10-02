@@ -1,5 +1,6 @@
-//! The audit of every paid generation: `veo_generations` and
-//! `speech_generations`, each row bound to the reservation that pays for it.
+//! The audit of every paid generation: `veo_generations`,
+//! `image_generations` and `speech_generations`, each row bound to the
+//! reservation that pays for it.
 //!
 //! For debugging, disputes and improving the platform — and for the user, who
 //! can read every charge of theirs in the history. A generation's life is
@@ -41,6 +42,31 @@ pub struct Shot<'a> {
     pub estimated_cents: u64,
 }
 
+/// A still about to be drawn (#461).
+#[derive(Debug, Clone)]
+pub struct Still<'a> {
+    /// The project it is for.
+    pub project: Option<i64>,
+    /// The assistant tool call that asked for it.
+    pub tool_call: Option<i64>,
+    /// The job that runs it.
+    pub job: Option<i64>,
+    /// `flash` or `lite`.
+    pub model: &'a str,
+    /// `0.5K`, `1K`, `2K` or `4K`.
+    pub resolution: &'a str,
+    /// `16:9`, `1:1`, ...
+    pub aspect: &'a str,
+    /// How many reference pictures go with the prompt.
+    pub references: usize,
+    /// The prompt handed to Google.
+    pub prompt: &'a str,
+    /// The brief's hash — the one its output is named after.
+    pub brief_hash: &'a str,
+    /// `scorsese_providers::prices::image`'s cents: the quoted figure.
+    pub estimated_cents: u64,
+}
+
 /// A line of narration about to be spoken.
 #[derive(Debug, Clone)]
 pub struct Line<'a> {
@@ -69,6 +95,8 @@ pub enum Generation {
     Shot(i64),
     /// A row of `speech_generations`.
     Line(i64),
+    /// A row of `image_generations`.
+    Still(i64),
 }
 
 /// A generation recorded and paid for, waiting on its provider.
@@ -87,6 +115,8 @@ pub enum Request<'a> {
     Shot(Shot<'a>),
     /// A spoken line.
     Line(Line<'a>),
+    /// A generated still.
+    Still(Still<'a>),
 }
 
 /// Price, reserve and record a generation — or refuse, writing nothing, when
@@ -95,6 +125,7 @@ pub async fn start(tx: &mut Tx, request: &Request<'_>) -> Result<Paid, CreditErr
     let (cents, project) = match request {
         Request::Shot(shot) => (shot.estimated_cents, shot.project),
         Request::Line(line) => (line.estimated_cents, line.project),
+        Request::Still(still) => (still.estimated_cents, still.project),
     };
     let cost = from_cents(cents);
     let charged = price(cost);
@@ -110,7 +141,7 @@ pub async fn start(tx: &mut Tx, request: &Request<'_>) -> Result<Paid, CreditErr
             let link = Link {
                 project,
                 veo: Some(id),
-                speech: None,
+                ..Link::default()
             };
             (Generation::Shot(id), memo, link)
         }
@@ -123,10 +154,23 @@ pub async fn start(tx: &mut Tx, request: &Request<'_>) -> Result<Paid, CreditErr
             );
             let link = Link {
                 project,
-                veo: None,
                 speech: Some(id),
+                ..Link::default()
             };
             (Generation::Line(id), memo, link)
+        }
+        Request::Still(still) => {
+            let id = insert_still(tx, still, cost).await?;
+            let memo = format!(
+                "Generated still: {} {} in {}",
+                still.resolution, still.aspect, still.model
+            );
+            let link = Link {
+                project,
+                image: Some(id),
+                ..Link::default()
+            };
+            (Generation::Still(id), memo, link)
         }
     };
     let reservation = ledger::reserve(tx, charged, &memo, link).await?;
@@ -152,6 +196,27 @@ async fn insert_shot(tx: &mut Tx, shot: &Shot<'_>, cost: i64) -> Result<i64, sql
     .bind(shot.aspect)
     .bind(shot.prompt)
     .bind(shot.brief_hash)
+    .bind(cost)
+    .fetch_one(&mut **tx)
+    .await
+}
+
+/// The audit row of a still.
+async fn insert_still(tx: &mut Tx, still: &Still<'_>, cost: i64) -> Result<i64, sqlx::Error> {
+    sqlx::query_scalar(
+        "INSERT INTO image_generations (user_id, project_id, tool_call_id, job_id, model,
+             resolution, aspect, references_sent, prompt, brief_hash, estimated_cost_micros)
+         VALUES (member_id(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id",
+    )
+    .bind(still.project)
+    .bind(still.tool_call)
+    .bind(still.job)
+    .bind(still.model)
+    .bind(still.resolution)
+    .bind(still.aspect)
+    .bind(i32::try_from(still.references).unwrap_or(i32::MAX))
+    .bind(still.prompt)
+    .bind(still.brief_hash)
     .bind(cost)
     .fetch_one(&mut **tx)
     .await
@@ -196,23 +261,26 @@ pub async fn keep_ticket(tx: &mut Tx, shot: i64, ticket: &str) -> Result<(), sql
 /// job run again after a crash that had already settled finds nothing to
 /// settle twice.
 pub async fn for_job(tx: &mut Tx, job: i64) -> Result<Option<Paid>, sqlx::Error> {
-    let row: Option<(Option<i64>, Option<i64>, i64, i64)> = sqlx::query_as(
-        "SELECT e.veo_generation_id, e.speech_generation_id, e.id, -e.amount_micros
+    let row: Option<(Option<i64>, Option<i64>, Option<i64>, i64, i64)> = sqlx::query_as(
+        "SELECT e.veo_generation_id, e.speech_generation_id, e.image_generation_id, e.id,
+                -e.amount_micros
          FROM credit_entries e
          LEFT JOIN veo_generations v ON v.id = e.veo_generation_id
          LEFT JOIN speech_generations s ON s.id = e.speech_generation_id
-         WHERE e.kind = 'reservation' AND (v.job_id = $1 OR s.job_id = $1)
+         LEFT JOIN image_generations i ON i.id = e.image_generation_id
+         WHERE e.kind = 'reservation' AND (v.job_id = $1 OR s.job_id = $1 OR i.job_id = $1)
            AND NOT EXISTS (SELECT 1 FROM credit_entries r
                            WHERE r.settles = e.id AND r.kind = 'release')",
     )
     .bind(job)
     .fetch_optional(&mut **tx)
     .await?;
-    Ok(row.and_then(|(shot, line, entry, micros)| {
-        let generation = match (shot, line) {
-            (Some(id), _) => Generation::Shot(id),
-            (None, Some(id)) => Generation::Line(id),
-            (None, None) => return None,
+    Ok(row.and_then(|(shot, line, still, entry, micros)| {
+        let generation = match (shot, line, still) {
+            (Some(id), _, _) => Generation::Shot(id),
+            (None, Some(id), _) => Generation::Line(id),
+            (None, None, Some(id)) => Generation::Still(id),
+            (None, None, None) => return None,
         };
         Some(Paid {
             generation,
@@ -250,6 +318,11 @@ pub async fn finish(tx: &mut Tx, paid: Paid, answer: &Answer) -> Result<(), Cred
         ),
         Generation::Line(id) => (
             "UPDATE speech_generations SET state = $2, library_item_id = $3, error = $4,
+                 finished_at = now() WHERE id = $1",
+            id,
+        ),
+        Generation::Still(id) => (
+            "UPDATE image_generations SET state = $2, library_item_id = $3, error = $4,
                  finished_at = now() WHERE id = $1",
             id,
         ),

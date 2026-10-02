@@ -35,6 +35,12 @@ pub const SPOKEN_LINE: Kind = Kind {
     limit: 4,
 };
 
+/// A Gemini still (#461). Seconds, mostly network, like a line.
+pub const STILL_IMAGE: Kind = Kind {
+    name: "still_image",
+    limit: 4,
+};
+
 /// A **preview** render (#542): the cut, small, for the editor to play. Its
 /// own kind so previews queue behind each other and never take a slot a
 /// finished render is waiting for — one at a time, because a preview is
@@ -69,7 +75,7 @@ pub const PROVIDER_PATIENCE: Duration = Duration::from_secs(15 * 60);
 /// the server's environment ([`Keys`]).
 ///
 /// [`THUMBNAIL`] (#535), [`RENDER`] (#541), [`VEO_SHOT`] and [`SPOKEN_LINE`]
-/// (#539, `crate::generations`), [`PREVIEW`] and [`PROXY`] (#542) have theirs.
+/// (#539, `crate::generations`), [`STILL_IMAGE`] (#461), [`PREVIEW`] and [`PROXY`] (#542) have theirs.
 /// A kind nothing registers is never claimed, so a job of that kind waits
 /// rather than failing.
 pub fn registry(files: &Files) -> Registry {
@@ -111,6 +117,14 @@ pub fn with_vendors(files: &Files, vendors: Arc<dyn Vendors>, timing: Timing) ->
                 files.tools.clone(),
                 Arc::clone(&vendors),
                 timing,
+            ),
+        )
+        .register(
+            STILL_IMAGE,
+            generations::still_handler(
+                files.storage.clone(),
+                files.tools.clone(),
+                Arc::clone(&vendors),
             ),
         )
         .register(

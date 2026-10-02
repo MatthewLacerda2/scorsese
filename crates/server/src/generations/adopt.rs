@@ -10,7 +10,7 @@
 //! measures what landed, and the document is saved with its revision check.
 
 use scorsese_core::{AssetId, Project, ProjectPath, Reprobe, probe_assets};
-use scorsese_providers::{speech, video};
+use scorsese_providers::{image, speech, video};
 use scorsese_render::{Ffprobe, Tools};
 use sqlx::postgres::PgPool;
 
@@ -67,6 +67,7 @@ fn pointed(document: &mut Project, root: &std::path::Path, tools: &Tools) -> Vec
         .map(|asset| (asset.id.clone(), asset.path.clone(), asset.sha256.clone()))
         .collect();
     let mut adopted = video::adopt(document, root);
+    adopted.extend(image::adopt(document, root));
     adopted.extend(speech::adopt(document, root));
     let mut moved = Vec::new();
     for asset in &mut document.assets {

@@ -28,6 +28,7 @@ WITH keyed AS (
                 ELSE e.memo END AS memo,
            CASE WHEN e.veo_generation_id IS NOT NULL THEN 'veo_shot'
                 WHEN e.speech_generation_id IS NOT NULL THEN 'spoken_line'
+                WHEN e.image_generation_id IS NOT NULL THEN 'still_image'
                 WHEN e.kind IN ('charge', 'reservation') THEN 'assistant'
                 ELSE e.kind END AS kind,
            CASE WHEN e.kind IN ('top_up', 'refund') THEN 'credited'
@@ -44,6 +45,10 @@ WITH keyed AS (
                     'model', p.model, 'voice', p.voice, 'text', p.text,
                     'characters', p.characters, 'settings', p.settings,
                     'library_item_id', p.library_item_id, 'error', p.error)
+                WHEN i.id IS NOT NULL THEN jsonb_build_object(
+                    'model', i.model, 'resolution', i.resolution, 'aspect', i.aspect,
+                    'references', i.references_sent, 'prompt', i.prompt,
+                    'library_item_id', i.library_item_id, 'error', i.error)
                 WHEN t.id IS NOT NULL THEN jsonb_build_object(
                     'turn', t.id, 'prompt', t.prompt, 'model', t.model, 'state', t.state,
                     'calls', t.calls, 'input_tokens', t.input_tokens,
@@ -55,6 +60,7 @@ WITH keyed AS (
     JOIN credit_entries e ON e.id = s.root
     LEFT JOIN veo_generations v ON v.id = e.veo_generation_id
     LEFT JOIN speech_generations p ON p.id = e.speech_generation_id
+    LEFT JOIN image_generations i ON i.id = e.image_generation_id
     LEFT JOIN chat_turns t ON t.id = e.chat_turn_id
     -- The project's name now; none once it is deleted, the id stays.
     LEFT JOIN projects pr ON pr.id = e.project_id

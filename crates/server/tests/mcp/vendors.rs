@@ -1,14 +1,15 @@
-//! Vendors that never spend a cent: a Veo and an ElevenLabs answering from
-//! files ffmpeg made, and counting how often they were asked.
+//! Vendors that never spend a cent: a Veo, a Gemini and an ElevenLabs
+//! answering from files ffmpeg made, and counting how often they were asked.
 
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
+use scorsese_providers::image::{self, ImageProvider};
 use scorsese_providers::speech::{self, SpeechProvider};
 use scorsese_providers::video::{self, Progress, ProviderError, Ready, Ticket, VideoProvider};
-use scorsese_server::generations::{Speech, Timing, Vendors, Video};
+use scorsese_server::generations::{Image, Speech, Timing, Vendors, Video};
 use scorsese_server::http::AppState;
 use scorsese_server::jobs::{self, kinds};
 use sqlx::postgres::PgPool;
@@ -23,6 +24,7 @@ pub(super) struct Mock {
     pub(super) refuse: Option<String>,
     pub(super) spoken: Arc<AtomicUsize>,
     pub(super) submitted: Arc<AtomicUsize>,
+    pub(super) drawn: Arc<AtomicUsize>,
 }
 
 impl Mock {
@@ -33,6 +35,10 @@ impl Mock {
     pub(super) fn submitted(&self) -> usize {
         self.submitted.load(Ordering::SeqCst)
     }
+
+    pub(super) fn drawn(&self) -> usize {
+        self.drawn.load(Ordering::SeqCst)
+    }
 }
 
 impl Vendors for Mock {
@@ -42,6 +48,24 @@ impl Vendors for Mock {
 
     fn speech(&self) -> Result<Speech, String> {
         Ok(Box::new(self.clone()))
+    }
+
+    fn image(&self) -> Result<Image, String> {
+        Ok(Box::new(self.clone()))
+    }
+}
+
+impl ImageProvider for Mock {
+    fn draw(&self, _: &image::Brief) -> Result<Vec<u8>, ProviderError> {
+        self.drawn.fetch_add(1, Ordering::SeqCst);
+        Ok(made(
+            "still.png",
+            &["-f", "lavfi", "-i", "testsrc=s=64x36", "-frames:v", "1"],
+        ))
+    }
+
+    fn name(&self) -> &'static str {
+        "mock image"
     }
 }
 
