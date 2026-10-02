@@ -14,6 +14,7 @@
 
 mod animated;
 mod blend;
+mod faint;
 mod glow;
 mod shadow;
 
