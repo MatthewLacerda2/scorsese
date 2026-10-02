@@ -11,13 +11,14 @@
 //! after a dropped connection, which is the likelier case — costs nothing the
 //! second time.
 //!
-//! **Two providers, one ceiling, one total.** Shots and narration are separate
-//! passes because they are separate vendors, but the budget is threaded from
-//! the first into the second and the totals are added — a ceiling each pass
+//! **Three passes, one ceiling, one total.** Shots, stills and narration are
+//! separate passes because they are separate models and vendors, but the budget
+//! is threaded from each into the next and the totals are added — a ceiling each pass
 //! checked on its own would be worth twice what somebody set.
 
 mod lines;
 mod shots;
+mod stills;
 
 use std::path::Path;
 use std::time::Duration;
@@ -27,14 +28,14 @@ use scorsese_providers::credentials::{Budget, Settings};
 use scorsese_providers::prices::dollars;
 use scorsese_providers::quote::generation;
 use scorsese_providers::video::{Run, WAIT_FOR};
-use scorsese_providers::{speech, spending, video};
+use scorsese_providers::{image, speech, spending, video};
 use scorsese_render::Ffprobe;
 use serde_json::Value;
 
 use crate::tools::inspect::load;
 use crate::tools::{Costs, Reply, Tool, confirm, project_dir, project_property};
 
-/// Realising generated video and narration.
+/// Realising generated video, stills and narration.
 pub(crate) struct Generate;
 
 impl Tool for Generate {
@@ -45,8 +46,8 @@ impl Tool for Generate {
     fn description(&self) -> &'static str {
         "Realise the sketched briefs — the one tool here that costs money, and it \
          quotes before it spends. Called without confirm it sends nothing and needs no \
-         key: it answers with what each generated_video (Veo) and generated_audio \
-         (ElevenLabs) brief would cost, and a token. Show that quote to whoever is \
+         key: it answers with what each generated_video (Veo), generated_image \
+         (Gemini) and generated_audio (ElevenLabs) brief would cost, and a token. Show that quote to whoever is \
          paying; only a second call with confirm set to the token spends, and only on \
          exactly the briefs quoted — edit one in between and the call is refused and \
          must be quoted again. A run with nothing to pay for (everything already \
@@ -54,8 +55,9 @@ impl Tool for Generate {
          already generated is never sent again. Video takes minutes, so a confirmed \
          run waits a while and then detaches: whatever is still going has its ticket \
          written into project.json, and calling with collect picks it up — collect \
-         never spends and never needs a token. Narration comes back on the same \
-         call. A line with no voice chosen yet is reported and skipped rather than \
+         never spends and never needs a token. Stills and narration come back on \
+         the same call; a still whose reference is a generated_image not yet \
+         generated is reported and drawn on the next call. A line with no voice chosen yet is reported and skipped rather than \
          failing the run. Every figure is our own arithmetic over published rates, \
          never a bill."
     }
@@ -110,6 +112,7 @@ impl Tool for Generate {
             outcomes: Vec::new(),
             spent_cents: 0,
         };
+        let mut drawn = stills::Drawn::new();
         let mut spoken = lines::Spoken::new();
         let outcome = run(
             &mut project,
@@ -120,6 +123,7 @@ impl Tool for Generate {
                 collecting,
             },
             &mut shots,
+            &mut drawn,
             &mut spoken,
         );
 
@@ -131,8 +135,9 @@ impl Tool for Generate {
             .map_err(|error| format!("saving the project: {error}"))?;
         outcome?;
 
-        measure(&mut project, &dir, &shots, &spoken)?;
-        Ok(said(&shots, &spoken).into())
+        let landed = landed(&shots, &spoken) || stills::landed(&drawn);
+        measure(&mut project, &dir, landed)?;
+        Ok(said(&shots, &drawn, &spoken).into())
     }
 }
 
@@ -149,6 +154,7 @@ fn run(
     dir: &std::path::Path,
     asked: Passes,
     shots: &mut Run,
+    drawn: &mut stills::Drawn,
     spoken: &mut lines::Spoken,
 ) -> Result<(), String> {
     // Whether a pass runs at all is each provider's `pending`, which consults
@@ -159,11 +165,15 @@ fn run(
     if video::pending(project, dir) {
         *shots = shots::pass(project, dir, asked.budget, asked.patience, asked.collecting)?;
     }
-    // Collecting submits nothing by definition, and narration is never in
-    // flight — so there is nothing for this pass to collect and asking for a
-    // key would be asking for one to do nothing with.
+    // Collecting submits nothing by definition, and stills and narration are
+    // never in flight — so there is nothing for these passes to collect and
+    // asking for a key would be asking for one to do nothing with.
+    if !asked.collecting && image::pending(project, dir) {
+        *drawn = stills::pass(project, dir, asked.budget.spend(shots.spent_cents))?;
+    }
     if !asked.collecting && speech::pending(project, dir) {
-        *spoken = lines::pass(project, dir, asked.budget.spend(shots.spent_cents))?;
+        let committed = shots.spent_cents + stills::spent(drawn);
+        *spoken = lines::pass(project, dir, asked.budget.spend(committed))?;
     }
     Ok(())
 }
@@ -181,13 +191,8 @@ fn run(
 /// A failure to measure is **not** a failure of the run: the media exists and
 /// has been paid for, and probing it again later is free. Saying so and
 /// carrying on beats reporting a spend as an error.
-fn measure(
-    project: &mut Project,
-    dir: &std::path::Path,
-    shots: &Run,
-    spoken: &lines::Spoken,
-) -> Result<(), String> {
-    if !landed(shots, spoken) {
+fn measure(project: &mut Project, dir: &std::path::Path, landed: bool) -> Result<(), String> {
+    if !landed {
         return Ok(());
     }
     let Ok(probe) = Ffprobe::discover() else {
@@ -247,15 +252,18 @@ fn spent_so_far(project: &Project, root: &Path) -> u64 {
 }
 
 /// What the run reads as.
-fn said(shots: &Run, spoken: &lines::Spoken) -> String {
-    if shots.outcomes.is_empty() && spoken.is_empty() {
+fn said(shots: &Run, drawn: &stills::Drawn, spoken: &lines::Spoken) -> String {
+    if shots.outcomes.is_empty() && drawn.is_empty() && spoken.is_empty() {
         return String::from("Nothing to generate: no prompted assets in this project.");
     }
     let mut lines = Vec::new();
     shots::said(shots, &mut lines);
+    stills::said(drawn, &mut lines);
     lines::said(spoken, &mut lines);
 
-    let spent = shots.spent_cents + spoken.iter().map(|(_, o)| o.spent_cents()).sum::<u64>();
+    let spent = shots.spent_cents
+        + stills::spent(drawn)
+        + spoken.iter().map(|(_, o)| o.spent_cents()).sum::<u64>();
     lines.push(format!(
         "About {} spent on this run — our calculation, never a bill.",
         dollars(spent)
