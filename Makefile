@@ -571,7 +571,7 @@ coverage: ## Which pub items no test reaches. A signal: no threshold, blocks not
 # it passes the check above, and then cargo-mutants finds nothing in the mutated
 # surface and writes no `outcomes.json`. The summary script answers that itself
 # — see `NOTHING_TO_RUN` there — so the report is rendered unconditionally
-# rather than guarded here, which is what keeps this and the CI job saying the
+# rather than guarded here, which is what keeps this and an on-request run saying the
 # same thing.
 #
 # Every path out of here writes $(MUTANTS_STAMP), including the two that run
