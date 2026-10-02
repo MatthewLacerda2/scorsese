@@ -9,6 +9,8 @@
 //! it. It shares `segment` rather than paralleling it, so a preview cannot draw
 //! the picture differently from the file.
 
+#[cfg(test)]
+mod cancelled;
 mod segment;
 mod still;
 
@@ -18,6 +20,7 @@ use scorsese_compositor::Frame;
 use scorsese_core::{Frames, Project};
 
 use crate::audio;
+use crate::cancel::Cancel;
 use crate::error::RenderError;
 use crate::held::Loops;
 use crate::pipe::{Encoder, encode_mix};
@@ -37,6 +40,7 @@ pub struct Renderer<'a> {
     settings: RenderSettings,
     workers: Workers,
     preview: Option<Preview>,
+    cancel: Cancel,
 }
 
 impl<'a> Renderer<'a> {
@@ -51,6 +55,7 @@ impl<'a> Renderer<'a> {
             settings,
             workers: Workers::default(),
             preview: None,
+            cancel: Cancel::new(),
         }
     }
 
@@ -77,6 +82,17 @@ impl<'a> Renderer<'a> {
             preview: Some(preview),
             ..self
         }
+    }
+
+    /// Stops when `cancel` is tripped, from whichever thread trips it.
+    ///
+    /// Looked at before each frame is encoded and between the stages before
+    /// that — the mix, the loudness rehearsal — so a stop lands within a frame
+    /// of being asked for once the picture is under way. What a stopped render
+    /// returns is [`RenderError::Cancelled`], saying how far it got, and it
+    /// leaves no file at `out`: a half-written one is removed (#647).
+    pub fn with_cancel(self, cancel: Cancel) -> Self {
+        Self { cancel, ..self }
     }
 
     /// Renders `range` of `project` to `out`.
@@ -116,6 +132,15 @@ impl<'a> Renderer<'a> {
         } else {
             Plan::build_sound(&project, self.settings.fps, range)?
         };
+        let of: u64 = plan
+            .segments()
+            .iter()
+            .map(|segment| plan.out_frames_of(segment))
+            .sum();
+        // Between stages too, not only between frames: on a long timeline the
+        // mix and its rehearsal are minutes of their own before a frame is
+        // drawn, and a stop asked for then should not wait them out.
+        let stopped = || Err(RenderError::Cancelled { written: 0, of });
         let mut notes = plan.notes().to_vec();
         notes.extend(probe_notes);
         // Said at the start, about the whole project rather than the range: a
@@ -141,6 +166,9 @@ impl<'a> Renderer<'a> {
             None
         };
 
+        if self.cancel.is_cancelled() {
+            return stopped();
+        }
         // Sound before picture, because the encoder needs the finished mix as
         // an input file. It is also the cheaper half: a mix that fails on a
         // missing music file should fail before we spend minutes encoding.
@@ -163,10 +191,13 @@ impl<'a> Renderer<'a> {
             None => None,
         };
 
+        if self.cancel.is_cancelled() {
+            return stopped();
+        }
         let written = match (&sizes, mix) {
             (Some((sizes, loops)), _) => {
                 let (written, picture_notes) =
-                    self.picture(&plan, (sizes, loops), project_root, mix, out)?;
+                    self.picture(&plan, (sizes, loops), project_root, mix, (out, of))?;
                 notes.extend(picture_notes);
                 written
             }
@@ -209,13 +240,17 @@ impl<'a> Renderer<'a> {
     /// Composites every frame of `plan` and encodes it to `out`, with the
     /// finished `mix` muxed in when there is one. Hands back how many frames
     /// were written and what drawing them noticed.
+    ///
+    /// `of` is how many frames that will be, said in a cancel. A render that
+    /// stops here for any reason — a cancel, a decoder that failed — takes the
+    /// encoder down with it and removes the file it had begun.
     fn picture(
         &self,
         plan: &Plan<'_>,
         (sizes, loops): (&Sizes, &Loops),
         project_root: &Path,
         mix: Option<&Path>,
-        out: &Path,
+        (out, of): (&Path, u64),
     ) -> Result<(u64, Vec<Note>), RenderError> {
         let mut encoder = Encoder::start(self.tools, &self.settings, mix, out)?;
         let mut stage = Stage::new();
@@ -231,12 +266,30 @@ impl<'a> Renderer<'a> {
         };
         let mut written = 0;
         let mut notes = Vec::new();
-        for segment in plan.segments() {
-            let frames = plan.out_frames_of(segment);
-            notes.extend(pass.render(segment, frames, &mut stage, &mut |frame| {
-                encoder.write(frame)
-            })?);
-            written += frames;
+        let mut drawn = || -> Result<(), RenderError> {
+            for segment in plan.segments() {
+                notes.extend(pass.render(
+                    segment,
+                    plan.out_frames_of(segment),
+                    &mut stage,
+                    &mut |frame| {
+                        // Before the frame rather than after: a cancel asked
+                        // for while it was being drawn should not cost the
+                        // encode of it too.
+                        if self.cancel.is_cancelled() {
+                            return Err(RenderError::Cancelled { written, of });
+                        }
+                        encoder.write(frame)?;
+                        written += 1;
+                        Ok(())
+                    },
+                )?);
+            }
+            Ok(())
+        };
+        if let Err(stopped) = drawn() {
+            encoder.abandon();
+            return Err(stopped);
         }
         encoder.finish()?;
         Ok((written, notes))

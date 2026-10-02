@@ -146,6 +146,23 @@ pub enum RenderError {
     #[error("compositing: {0}")]
     Composite(#[from] scorsese_compositor::CompositeError),
 
+    /// Whoever started the render asked it to stop, through a
+    /// [`crate::Cancel`], and it did. Nothing was delivered: any file the
+    /// encoder had begun was removed rather than left as a truncated one that
+    /// looks finished and plays as nothing. `written` and `of` are how far the
+    /// picture got — both zero for a render stopped before it drew a frame, or
+    /// one with no picture at all.
+    #[error(
+        "cancelled after {written} of {of} frames — nothing was delivered, and \
+         the unfinished file was removed"
+    )]
+    Cancelled {
+        /// Frames handed to the encoder before it stopped.
+        written: u64,
+        /// Frames the render would have written.
+        of: u64,
+    },
+
     /// ffmpeg ran, understood the request, and refused it — an unsupported
     /// codec, an unwritable output, a source it cannot open.
     #[error("ffmpeg failed while {stage} {subject}: {message}")]

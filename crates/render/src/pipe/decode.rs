@@ -2,7 +2,7 @@
 
 use std::io::{ErrorKind, Read};
 use std::path::{Path, PathBuf};
-use std::process::{Child, ChildStdout, Command, Stdio};
+use std::process::{ChildStdout, Command, Stdio};
 
 use crate::error::{RenderError, Stage};
 use crate::settings::RenderSettings;
@@ -112,7 +112,7 @@ pub(crate) struct Source {
 /// ffmpeg invocation would be handing our job — deciding what is on screen
 /// when — back to ffmpeg.
 pub(crate) struct Decoder {
-    child: Child,
+    child: super::Process,
     stdout: ChildStdout,
     subject: String,
     raster: Resolution,
@@ -165,7 +165,7 @@ impl Decoder {
             .take()
             .expect("stdout was piped when the process was spawned");
         Ok(Self {
-            child,
+            child: super::Process::new(child),
             stdout,
             subject: source.file.display().to_string(),
             raster: source.fitting.raster(settings),
@@ -205,7 +205,7 @@ impl Decoder {
                 source,
             }
         })?;
-        super::finish(self.child, Stage::Decode, &self.subject)
+        self.child.finish(Stage::Decode, &self.subject)
     }
 }
 

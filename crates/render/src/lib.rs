@@ -114,6 +114,7 @@
 
 pub(crate) mod attach;
 pub mod audio;
+pub(crate) mod cancel;
 pub mod checkup;
 pub mod contact;
 pub(crate) mod content;
@@ -186,6 +187,7 @@ pub mod picture {
     pub use scorsese_compositor::path;
 }
 
+pub use cancel::Cancel;
 pub use checkup::Checkup;
 pub use contact::{ContactError, Look, Sheet};
 pub use describe::{
