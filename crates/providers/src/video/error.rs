@@ -72,6 +72,14 @@ pub enum GenerationError {
         id: AssetId,
     },
 
+    /// A brief names a generated still that has not been generated — or was,
+    /// and has been edited since.
+    #[error("the image {id} has not been generated yet — generate it first")]
+    StillNotGenerated {
+        /// The generated still.
+        id: AssetId,
+    },
+
     /// A still would not read off disk.
     #[error("reading the image {id} at {}: {source}", path.display())]
     ReadStill {

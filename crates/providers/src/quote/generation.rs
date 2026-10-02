@@ -1,12 +1,12 @@
 //! What realising a project's prompted briefs would spend.
 //!
-//! One quote across both vendors, because one call realises both and one yes
-//! agrees to both. Each asset is priced by the same `plan` the run decides by,
+//! One quote across every vendor, because one call realises them all and one
+//! yes agrees to all of it. Each asset is priced by the same `plan` the run decides by,
 //! so only a brief that would actually be handed over is charged: one whose
 //! output already sits in `generated/`, or whose shot is in flight, costs this
 //! run nothing, however much it cost the run that paid for it.
 //!
-//! Shots first, then lines, each in document order — the order every surface
+//! Shots first, then stills, then lines, each in document order — the order every surface
 //! has always printed them in, and the order a person reads a cut in.
 
 use std::path::Path;
@@ -14,8 +14,8 @@ use std::path::Path;
 use scorsese_core::{Asset, AssetKind, Project};
 
 use super::{Charge, Item, Quote, Spend};
-use crate::prices::{self, Unpriced, UnpricedSpeech, dollars};
-use crate::{speech, video};
+use crate::prices::{self, Unpriced, UnpricedImage, UnpricedSpeech, dollars};
+use crate::{image, speech, video};
 
 /// A brief asks for something there is no price for, so nothing can be quoted.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
@@ -26,6 +26,9 @@ pub enum Unquotable {
     /// A line in a model with no published rate.
     #[error(transparent)]
     Speech(#[from] UnpricedSpeech),
+    /// A still at a size its model does not draw.
+    #[error(transparent)]
+    Image(#[from] UnpricedImage),
 }
 
 /// What a `generate` over this project would spend right now.
@@ -33,6 +36,9 @@ pub fn generation(project: &Project, root: &Path) -> Result<Quote, Unquotable> {
     let mut items = Vec::new();
     for asset in of_kind(project, AssetKind::GeneratedVideo) {
         items.push(shot(project, root, asset)?);
+    }
+    for asset in of_kind(project, AssetKind::GeneratedImage) {
+        items.push(still(project, root, asset)?);
     }
     for asset in of_kind(project, AssetKind::GeneratedAudio) {
         items.push(line(root, asset)?);
@@ -80,6 +86,51 @@ fn shot(project: &Project, root: &Path, asset: &Asset) -> Result<Item, Unquotabl
                     priced.seconds,
                     brief.request.model.as_str(),
                     brief.request.resolution.as_str()
+                ),
+                charge: Some(Charge {
+                    brief: brief.digest(),
+                    cents: priced.cents,
+                }),
+            }
+        }
+    })
+}
+
+/// One still, as the run would treat it. The price is the picture's, fixed by
+/// its size, plus the input it is sent with — see [`prices::image`] for what
+/// that counts and what it does not.
+fn still(project: &Project, root: &Path, asset: &Asset) -> Result<Item, Unquotable> {
+    let free = |says: String| Item {
+        subject: asset.id.to_string(),
+        says,
+        charge: None,
+    };
+    Ok(match image::plan(project, root, asset) {
+        image::Plan::Realized(path) => free(format!("already drawn — {path} — nothing to pay")),
+        image::Plan::Unready(why) => free(format!("not yet — {why}")),
+        image::Plan::Submit => {
+            let brief = match image::Brief::of(project, root, asset) {
+                Ok(brief) => brief,
+                Err(why) => return Ok(free(format!("not yet — {why}"))),
+            };
+            let priced = prices::image(
+                &brief.request,
+                brief.characters(),
+                brief.reference_images.len(),
+            )?;
+            let references = match brief.reference_images.len() {
+                0 => String::new(),
+                1 => String::from(", from 1 reference"),
+                n => format!(", from {n} references"),
+            };
+            Item {
+                subject: asset.id.to_string(),
+                says: format!(
+                    "{} — a {} {} still in {}{references}",
+                    dollars(priced.cents),
+                    brief.request.size().as_str(),
+                    brief.request.aspect.as_str(),
+                    brief.request.model.as_str()
                 ),
                 charge: Some(Charge {
                     brief: brief.digest(),

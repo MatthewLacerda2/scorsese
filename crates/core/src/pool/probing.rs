@@ -160,7 +160,7 @@ fn expects_a_file(asset: &Asset) -> bool {
 /// still recorded as four hundredths of a second long would be a still nobody
 /// could hold on screen.
 pub(super) fn as_recorded(kind: AssetKind, media: MediaMetadata) -> MediaMetadata {
-    if kind == AssetKind::Image {
+    if kind.is_still() {
         return MediaMetadata {
             frame_rate: None,
             duration_seconds: None,

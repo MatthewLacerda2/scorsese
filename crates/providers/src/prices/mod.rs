@@ -40,12 +40,13 @@
 pub mod checked;
 pub mod claude;
 pub mod elevenlabs;
+pub mod gemini;
 pub mod veo;
 
 pub use checked::{Checked, STALE_AFTER_DAYS};
 pub use veo::{Quality, Rate, Tier};
 
-use scorsese_core::{SpeechModel, VideoRequest};
+use scorsese_core::{ImageModel, ImageRequest, ImageResolution, SpeechModel, VideoRequest};
 
 /// What a generation is expected to cost, and what that was worked out from.
 ///
@@ -139,6 +140,67 @@ pub fn speech(model: SpeechModel, characters: usize) -> Result<SpeechEstimate, U
         cents: thousandths.div_ceil(1000),
         rate,
         characters,
+    })
+}
+
+/// What drawing a still is expected to cost, and what that was worked out from.
+///
+/// The third sibling. It carries what the input was counted as, because that
+/// is the half of the figure that is an approximation — the picture's price is
+/// fixed by its size, and the input's is tokens nobody counted exactly.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ImageEstimate {
+    /// The total, in US cents, rounded up. **Our calculation, never a billed
+    /// figure.**
+    pub cents: u64,
+    /// The rate it came from, date included.
+    pub rate: gemini::Rate,
+    /// How many input tokens were priced: the prompt, approximated, and every
+    /// reference picture.
+    pub input_tokens: u64,
+}
+
+/// A model asked for a size it does not draw, so there is no price.
+///
+/// Validation refuses the same combination first; this is the last check
+/// before money moves, for [`Unpriced`]'s reason.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[error("the {} image model does not draw {} — there is no price to quote", model.as_str(), resolution.as_str())]
+pub struct UnpricedImage {
+    /// The model asked for.
+    pub model: ImageModel,
+    /// The size asked for.
+    pub resolution: ImageResolution,
+}
+
+/// What drawing this still is expected to cost.
+///
+/// **What it counts:** the picture, at the published per-picture price for its
+/// size; every reference picture, at the 1,120 tokens Gemini 3 reads one as;
+/// and the prompt, at a token per four characters. **What it does not:** any
+/// thinking or text the model writes back ($3 a million on the full model) —
+/// at the default `minimal` thinking that is a fraction of a cent, and it is
+/// the one part no request can fix in advance. Rounded up to the cent, once,
+/// so the ceiling is never crossed a fraction at a time.
+pub fn image(
+    request: &ImageRequest,
+    prompt_characters: usize,
+    references: usize,
+) -> Result<ImageEstimate, UnpricedImage> {
+    let resolution = request.size();
+    let rate = gemini::rate(request.model, resolution).ok_or(UnpricedImage {
+        model: request.model,
+        resolution,
+    })?;
+    let input_tokens = (prompt_characters as u64).div_ceil(gemini::CHARACTERS_PER_TOKEN)
+        + (references as u64) * gemini::TOKENS_PER_REFERENCE;
+    // Cents per million tokens is a hundredth of a micro-dollar per token.
+    let input_microdollars = (input_tokens * rate.cents_per_million_input).div_ceil(100);
+    let microdollars = rate.microdollars_per_image + input_microdollars;
+    Ok(ImageEstimate {
+        cents: microdollars.div_ceil(10_000),
+        rate,
+        input_tokens,
     })
 }
 

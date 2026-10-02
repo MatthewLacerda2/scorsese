@@ -35,7 +35,7 @@
 //! nineteen generated and say which one was not, because the alternative is
 //! paying for nineteen again.
 
-mod brief;
+pub(crate) mod brief;
 mod error;
 mod patience;
 mod provider;

@@ -158,11 +158,24 @@ fn digest_of(still: Option<&Still>) -> &str {
     still.map_or("none", |still| still.digest.as_str())
 }
 
-/// Reads the image asset `id` names.
-fn read_still(project: &Project, root: &Path, id: &AssetId) -> Result<Still, GenerationError> {
+/// Reads the image asset `id` names — an imported still, or a generated one
+/// that has been generated.
+///
+/// Shared with [`crate::image`], whose references are read the same way.
+pub(crate) fn read_still(
+    project: &Project,
+    root: &Path,
+    id: &AssetId,
+) -> Result<Still, GenerationError> {
     let asset = project
         .asset(id)
         .ok_or_else(|| GenerationError::NoSuchStill { id: id.clone() })?;
+    // A generated still that is a sketch, or stale, is not the picture its
+    // brief describes yet — and a stale one still has the old file on disk,
+    // which is exactly the picture that must not be sent.
+    if asset.kind.is_generated() && (!asset.has_renderable_media() || asset.needs_generation()) {
+        return Err(GenerationError::StillNotGenerated { id: id.clone() });
+    }
     let path = asset
         .path
         .as_ref()
