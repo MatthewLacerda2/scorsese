@@ -78,4 +78,14 @@ mod tests {
         assert_eq!(leaving.at, 0.75);
         assert!(leaving.backwards);
     }
+
+    /// Two keyframes at the same place are a pause, not an exit: a reveal
+    /// stopped halfway keeps easing its pieces the way it arrived, or every
+    /// piece partway in would jump on the keyframe that starts the pause.
+    #[test]
+    fn a_reveal_paused_between_equal_keyframes_is_not_leaving() {
+        let paused = sweep(at(0.5, 0.5, 0.3, Easing::EaseIn));
+        assert_eq!(paused.at, 0.5);
+        assert!(!paused.backwards);
+    }
 }
