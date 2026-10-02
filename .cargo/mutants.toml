@@ -2,16 +2,18 @@
 #
 # Mutation testing answers the question coverage cannot: *if this line were
 # wrong, would anything notice?* A line can be executed by ten tests and
-# asserted on by none. Two things route the result: the `mutants` job in
-# `.github/workflows/ci.yml`, which scopes to a pull request's own diff, and
-# `.github/workflows/mutation-sweep.yml`, which sweeps one whole crate of the
-# surface below every week so that the code no recent diff touched is audited
-# too. `docs/mutation-testing.md` holds the policy this file implements —
+# asserted on by none. Two things route the result: requests —
+# `make mutants-remote` dispatching `.github/workflows/mutants-on-request.yml`,
+# or `make mutants` locally — scoped to the crate, files or diff an agent names,
+# and `.github/workflows/mutation-sweep.yml`, which sweeps one whole crate of the
+# surface below every week so that the code nobody asked about is audited too.
+# No pull request runs it (#651). `docs/mutation-testing.md` holds the policy this file implements —
 # including what to do with a survivor.
 #
 # Run it:
 #
-#     make mutants     # this branch's diff, exactly as the CI job scopes it
+#     make mutants-remote SCOPE=diff   # this branch's diff, on GitHub's runners
+#     make mutants     # the same diff, on this machine
 #     cargo mutants    # the whole surface below: 3875 mutants today, and
 #                      # `cargo mutants --list | wc -l` re-counts it for free —
 #                      # that builds nothing, so the number is exact and cheap
@@ -30,8 +32,8 @@
 # `.github/scripts/mutation-surface.py` reads the line — a comment and not a
 # config key, because cargo-mutants rejects an unknown field outright and
 # `surface_floor = 3000` here would break every run to guard against runs being
-# broken. `make mutants` checks it before it mutates anything and the `mutants`
-# CI job checks it first; neither is in `make gates`, because this proves the
+# broken. `make mutants` checks it before it mutates anything and an on-request
+# run's plan job checks it first; neither is in `make gates`, because this proves the
 # *instrument* works rather than that the code is right.
 #
 # Lower it only in the same commit that shrinks the surface on purpose, with
@@ -111,8 +113,11 @@
 #   to be corrected quietly.
 # - `tools/lint` — its own workspace, not reachable from this one at all.
 #
-# Adding a crate here is a deliberate change: it moves per-PR CI cost, so make
-# it in its own commit with the measured before-and-after.
+# Adding a crate here is a deliberate change: it moves what a request and the
+# sweep cost, so make it in its own commit with the measured before-and-after.
+# (The cost records below were written while a mutation job ran on every pull
+# request; they are kept as what was measured, not as what a pull request
+# pays now — since #651 it pays nothing.)
 #
 # What zimmer cost, measured for #289:
 #
@@ -681,7 +686,7 @@ exclude_re = [
 # `CARGO_MUTANTS_JOBS`, and from nowhere else — `cargo mutants --emit-schema
 # config` prints what a config file is allowed to hold and `jobs` is not on the
 # list. So all three callers pass the flag: the `mutants` target in `Makefile`,
-# the `mutants` job in `.github/workflows/ci.yml`, and the sweep in
+# the shards in `.github/workflows/mutants-on-request.yml`, and the sweep in
 # `.github/workflows/mutation-sweep.yml`. This is where the reason lives, once,
 # and each of them points here rather than restating it — three places holding
 # a bare number and no argument is how they came apart to begin with (#398).
@@ -763,8 +768,7 @@ minimum_test_timeout = 30.0
 #
 # What settles it is that the six are not lost by leaving this `false`. #323 wrote
 # unit tests that kill them for nothing — a shape's extent and the area it covers,
-# measured rather than sampled — and those run on every pull request in two
-# seconds. A mutant killed cheaply is worth strictly more than the same mutant
+# measured rather than sampled — and those run in two seconds. A mutant killed cheaply is worth strictly more than the same mutant
 # killed expensively, because only the cheap one is affordable per diff. So the
 # over-reporting above reads as an instruction rather than as a defect: it says
 # *put the assertion next to the code*, and doing that is both the cheaper answer

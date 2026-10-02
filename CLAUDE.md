@@ -390,9 +390,11 @@ machine you are on — cores, free memory, free disk — before a heavy build.
   that proves **correctness** — build, test, `clippy -D warnings`, the golden
   renders, the size gate — is a **hard gate**: green-to-merge, no exceptions.
   A check that *audits quality* (coverage, mutation testing, perf tracking) is
-  an **informational signal**: surfaced where the agent acts on it (job
-  summary or PR comment), never blocking a merge. Don't reach for a hard gate
-  where a signal does the job.
+  an **informational signal**: it runs on a schedule or when an agent asks for
+  it, **never in a pull request's CI run**, and never blocks a merge. The run is
+  what the merge queue waits on, so a signal inside it holds every merge for a
+  report that cannot change the outcome — coverage alone was three minutes a
+  merge (#651). Don't reach for a hard gate where a signal does the job.
 - **Run the gates before claiming the work is finished, not after CI says so.**
   In practice that is before marking a pull request **ready for review**, which is
   the moment CI is asked to check anything at all. `make gates` runs every gate CI
@@ -403,10 +405,15 @@ machine you are on — cores, free memory, free disk — before a heavy build.
   `make setup`, once per clone, points git at the committed hooks; from then on
   `make pre-commit` — formatting and the size gate, no build — runs before every
   commit, so an oversized file never reaches a branch. `git commit --no-verify` bypasses it for a deliberate work-in-progress.
-- **Signals stay opt-in and out of `make gates`:** `make coverage` and
-  `make mutants`. Running either is never part of passing, and **a signal never
-  holds a merge** — that is what makes it a signal. Read the mutation report when
-  it lists survivors in code **this branch wrote**; a report with nothing in it,
+- **Signals stay opt-in, off the pull request and out of `make gates`.**
+  Coverage runs weekly on `main`; mutation sweeps one crate a week and otherwise
+  runs **when asked**: `make mutants-remote SCOPE=…` on GitHub's runners, over
+  exactly a crate, path globs or the branch's diff, with the report printed in
+  the terminal — or `make mutants` on this machine. Running either is never part
+  of passing, and **a signal never holds a merge** — that is what makes it a
+  signal. Ask for a mutation run when a branch adds mechanism, before marking it
+  ready: nothing reports survivors afterwards, so that is the last point one is
+  cheap. Read the report when it lists survivors in code **this branch wrote**; a report with nothing in it,
   or whose survivors sit in untouched code, needs no reading at all. The exits are
   **fix it**, **exclude it with a written reason**, or **file it as its own
   issue** — there is no fourth, and none of them blocks the queue. The
