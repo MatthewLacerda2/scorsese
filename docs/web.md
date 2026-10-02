@@ -1,10 +1,10 @@
 # The web app
 
 Scorsese as a hosted service: a URL, a login, a library of a person's own
-files, and an assistant that edits for them. It is **the main product** — how
-everyone other than the maintainer uses scorsese (`CLAUDE.md`, *The web app is
-the main product*). The desktop app and the CLI stay, on local `.scor`
-folders.
+files, and an assistant that edits for them. It is a **convenience layer** over
+the open-source app, for people who would rather not set anything up, and it
+must be able to do everything the app does (`CLAUDE.md`, *The app is the
+product; the web app is a convenience layer*).
 
 This page is the doctrine for the web side: the decisions settled with the
 maintainer on 2026-09-24/25 in #527, written down so no sub-issue reopens them.

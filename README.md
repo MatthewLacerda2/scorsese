@@ -1,8 +1,11 @@
 # scorsese
 
-**A video editor you talk to.** You bring the idea and whatever footage you
-have; an AI assistant — Claude Code, Codex, anything that speaks MCP — does the
-editing: the cuts, the titles, the narration, the music, the pacing, the render.
+**A video editor you talk to.** Send it your files and prompt the video into
+existence.
+
+You bring the idea and whatever footage you have; an AI assistant — Claude
+Code, Codex, anything that speaks MCP — does the editing: the cuts, the titles,
+the narration, the music, the pacing, the render.
 Where the video needs a shot nobody filmed or a line nobody recorded, scorsese
 generates it, and tells you what that will cost before it spends a cent.
 

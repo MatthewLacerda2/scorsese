@@ -44,18 +44,40 @@ because a professional demanded it.
 This is a scope rule, so it cuts both ways. It is a reason to *refuse* an
 elaborate feature, and equally a reason to *build* an obvious one well.
 
-### The web app is the main product
+**The user never deals with implementation.** In the app or on the web, the
+whole interface is: *send me your files and prompt the video into existence.*
+Project JSON, recipes, HTML pages, codecs, font licences, which provider does
+what — those are how Claude does the work, never something the user is asked
+to understand or decide. When a feature would put a technical choice in front
+of the user, it ships with a default good enough that they never have to touch
+it, and Claude explains it only if asked. The one thing always put to the user
+is **money**: the quote-and-ask before a generation stays.
 
-Scorsese is also a hosted web app (#527), and **that is how everyone other than
-the maintainer uses it**: a URL, a login, a library of their own files and an
-assistant that edits for them. Nobody it is for will install a Rust toolchain.
-The desktop app and the CLI stay, and keep working on local `.scor` folders —
-they are how the maintainer works locally, and they are the proving ground for
-every editing operation the web app then serves. Neither is being retired.
+### The app is the product; the web app is a convenience layer
 
-The north star does not change, it widens: *the user* now includes people who
-are not the maintainer, and paying for it. **docs/web.md** has the web side's
-settled shape.
+Scorsese is open source. Anyone can clone it, build it, bring their own API
+keys and have all of it for free — the desktop app, the CLI and the MCP server
+on local `.scor` folders. **That is the product**, and nothing it can do is held
+back for the web.
+
+The hosted web app (#527) is a **convenience layer** over it, for people who
+would rather not install a Rust toolchain or learn what an API key is: a URL, a
+login, a library of their own files and an assistant that edits for them. They
+pay for not having to set anything up. It is a thin client of the same `core`,
+`render` and `providers`, and it **must be able to do everything the app does**
+— it follows the app, never leads it. An editing capability the app has and the
+web does not is a gap on the web side, to be filed and closed; an editing
+capability only the web has is a design error. (Accounts, credits and the
+library are web-only by nature — they are the convenience, not the editing.)
+
+Where the two differ it is because of **whose machine it is**. Locally the
+machine is the user's, and so are its risks and settings. The web app runs on
+the maintainer's machine for other people, so anything that executes a user's
+content there is isolated and offline, with no opt-out (#594).
+
+The north star does not change, it widens: *the user* includes people who are
+not the maintainer, on either side. **docs/web.md** has the web side's settled
+shape.
 
 ## Start here
 
