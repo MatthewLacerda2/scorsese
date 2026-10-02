@@ -28,17 +28,19 @@
 # does — see `PIXEL_GATE_RUNS` below.
 #
 # Gates block; signals inform (CLAUDE.md, "Gates vs. signals"). `make gates`
-# runs only gates. `make coverage` and `make mutants` are signals and are
-# opt-in precisely so a local run never trains anyone to treat one as the other.
+# runs only gates. `make coverage`, `make mutants` and `make mutants-remote` are
+# signals and are opt-in precisely so a local run never trains anyone to treat
+# one as the other. CI runs neither on a pull request (#651): coverage runs
+# weekly on `main`, mutation weekly by crate and otherwise only when asked.
 #
 # The last line `gates` prints is about one of those signals, and it is a
 # *report* rather than a run: whether `make mutants` has been run on this
 # branch, and what it found if it has. Running it from here would put minutes
 # on the target that gets run most, which is how a signal turns into something
-# people route around; saying nothing left the first sighting of it to a CI
-# comment written after the branch was declared finished, which is where a
-# report gets deleted unread (#340). So the line names the command, and never
-# claims a result it does not have — the app gate's rule, applied to a signal.
+# people route around; saying nothing would leave the branch with no sighting
+# of it at all, now that no pull-request run reports one (#340, #651). So the
+# line names the commands, and never claims a result it does not have — the
+# app gate's rule, applied to a signal.
 
 # Prerequisites run in order, and a gate that fails should be the last thing
 # printed rather than one of several racing to the terminal.
@@ -210,7 +212,7 @@ NEXTEST_CHECK = command -v cargo-nextest >/dev/null 2>&1 || { \
 # directories called `app/` and `web/`, so without it make sees the target as
 # already built and `make app` prints "up to date" without running a thing. A
 # check that silently does nothing is worse than no check.
-.PHONY: help setup gates pre-commit target-dir inventory $(GATES) app-gates web-gates release format-fix mcp-table coverage mutants mutants-status mergeable queue live-check
+.PHONY: help setup gates pre-commit target-dir inventory $(GATES) app-gates web-gates release format-fix mcp-table coverage mutants mutants-remote mutants-status mergeable queue live-check
 
 ##@ Everyday
 
@@ -522,7 +524,7 @@ mergeable: ## Did CI really run on this PR's head? make mergeable PR=171
 # given, and asks `mergeable` about every one of them before it does. What it
 # removes is an agent sitting through twenty cold CI runs holding worktrees
 # open; what it never does is resolve a conflict, build anything locally, or
-# look at the mutation signal. The script's docstring has the reasoning, the
+# look at a mutation report. The script's docstring has the reasoning, the
 # measurement behind it, and what it deliberately leaves for a human to clean
 # up afterwards.
 queue: ## Rebase, wait for CI and merge each in turn. make queue PRS="486 488"
@@ -544,7 +546,7 @@ coverage: ## Which pub items no test reaches. A signal: no threshold, blocks not
 		--json --output-path target/coverage.json
 	python3 .github/scripts/coverage-summary.py target/coverage.json
 
-# Diff-scoped, exactly as the `mutants` job runs it, because the useful question
+# Diff-scoped, as `make mutants-remote SCOPE=diff` runs it, because the useful question
 # before a push is "would anything notice if what I just wrote were wrong?" and
 # not "how is the whole codebase doing". `cargo mutants` on its own sweeps the
 # full scoped surface — 3875 mutants — and is there when that is what you want.
@@ -627,6 +629,28 @@ mutants: ## Which changes to the code no test would notice. A signal: blocks not
 	fi; \
 	printf '%s\n%s\n' "$$(git rev-parse --abbrev-ref HEAD)" "$$said" > $(MUTANTS_STAMP)
 
+# The same question as `mutants`, asked of GitHub's runners instead of this
+# machine (#651): mutation compiles every mutant from scratch for as long as
+# the scope takes, and here that competes with sibling worktrees and with the
+# web app's users. It dispatches `.github/workflows/mutants-on-request.yml` on
+# this branch — pushed, because the runner mutates what GitHub has — waits,
+# and prints the report and the survivors' diffs. SCOPE is `diff` (this branch
+# against origin/main), a crate (`scorsese-core`), or path globs
+# (`'crates/zimmer/src/song/**'`), and the run covers exactly that: the
+# workflow's header says why paths go through `--in-diff`, and the report says
+# if anything outside the scope came along anyway.
+#
+# Exit 0 is a report, survivors or not; 1 is no report — a red, cancelled or
+# missing run, said as such and never as zero survivors; 3 is GitHub
+# unreachable. It writes no $(MUTANTS_STAMP): that line is about this
+# checkout, and a remote run's answer is in the terminal and the artifact.
+mutants-remote: ## Mutation on GitHub's runners, scoped. SCOPE=diff | scorsese-core | 'path/glob/**'
+	@test -n "$(SCOPE)" || { \
+		echo "mutants-remote: what should be mutated? SCOPE=diff, a crate, or path globs" >&2; \
+		echo "                e.g. make mutants-remote SCOPE='crates/core/src/keyframe/**'" >&2; \
+		exit 1; }
+	@python3 .github/scripts/mutants-remote.py '$(SCOPE)'
+
 # The line `make gates` ends on, and the reason it is reached from the recipe
 # rather than sitting in $(GATES): it runs nothing, it can fail nothing, and a
 # signal that could redden the gate summary would have stopped being a signal.
@@ -651,7 +675,7 @@ mutants-status:
 	[ -n "$$changed" ] || exit 0; \
 	if [ ! -f $(MUTANTS_STAMP) ] || \
 	   [ "$$(head -n 1 $(MUTANTS_STAMP))" != "$$(git rev-parse --abbrev-ref HEAD)" ]; then \
-		echo "gates: mutation signal not run -- this branch changes Rust and 'make mutants' has not run on it; it blocks nothing, and it is cheapest to act on now. See docs/mutation-testing.md."; \
+		echo "gates: mutation signal not run -- this branch changes Rust and 'make mutants' has not run here; it blocks nothing, and 'make mutants-remote SCOPE=diff' asks GitHub's runners instead. See docs/mutation-testing.md."; \
 		exit 0; \
 	fi; \
 	for file in $$changed; do \

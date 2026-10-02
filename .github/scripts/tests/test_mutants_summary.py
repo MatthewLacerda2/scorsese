@@ -432,7 +432,7 @@ class WhatTheReportDoesNotCover(unittest.TestCase):
             args=("--in-scope", "233"),
         )
 
-        self.assertIn("137 of 233 mutations in this diff were not measured", out)
+        self.assertIn("137 of 233 mutations in scope were not measured", out)
         self.assertIn("describes 96", out)
 
     def test_a_report_that_covered_everything_says_nothing_about_a_gap(self) -> None:
@@ -456,7 +456,7 @@ class WhatTheReportDoesNotCover(unittest.TestCase):
             args=("--in-scope", "2"),
         )
 
-        self.assertIn("1 of 2 mutations in this diff were not measured", out)
+        self.assertIn("1 of 2 mutations in scope were not measured", out)
 
     def test_a_stopped_run_says_both_that_it_stopped_and_by_how_much(self) -> None:
         # Two different claims. One says the run did not get to the end; the
@@ -477,44 +477,6 @@ class WhatTheReportDoesNotCover(unittest.TestCase):
 
         self.assertNotIn("were not measured", out)
         self.assertIn("All 1 mutations were caught", out)
-
-
-class WhatEarnsAComment(unittest.TestCase):
-    """The marker the `mutants` job greps for, decided here rather than there.
-
-    It used to be a grep for a heading, which cannot see the one report this
-    change adds: a gap has no survivors and no timeouts, so the message #399
-    exists to deliver would never have reached the pull request.
-    """
-
-    MARKER = "<!-- mutation-signal:notable -->"
-
-    def test_a_survivor_earns_one(self) -> None:
-        self.assertIn(self.MARKER, report(survivor("a.rs", 1, "f", "()")))
-
-    def test_a_timeout_earns_one(self) -> None:
-        timed_out = mutant("Timeout", "crates/core/src/keyframe.rs", 61, "evaluate", "0.0")
-        self.assertIn(self.MARKER, report(timed_out, timeout=1))
-
-    def test_a_gap_earns_one_even_with_nothing_else_to_show(self) -> None:
-        out = report(caught("crates/core/src/keyframe.rs", 40), args=("--in-scope", "50"))
-
-        self.assertNotIn("### Survivors", out)
-        self.assertNotIn("### Timed out", out)
-        self.assertIn(self.MARKER, out)
-
-    def test_a_clean_complete_run_earns_nothing(self) -> None:
-        # Silence is the right output here, and it is what keeps the comment
-        # from being noise on every pull request that has nothing wrong.
-        out = report(caught("crates/core/src/keyframe.rs", 40), args=("--in-scope", "1"))
-
-        self.assertNotIn(self.MARKER, out)
-
-    def test_nothing_to_run_earns_nothing(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            result = run(Path(tmp) / "outcomes.json")
-
-        self.assertNotIn(self.MARKER, result.stdout)
 
 
 class TheArgvContract(unittest.TestCase):

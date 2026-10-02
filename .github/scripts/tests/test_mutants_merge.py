@@ -8,8 +8,8 @@ findings as three. So the assertions here are mostly about *absence* — that a
 missing shard, an unreadable one, and one killed by its budget each leave the
 merged run stamped as unfinished rather than looking smaller than it was.
 
-Exercised as a subprocess on its argv contract, the way the `mutants` job calls
-it and for the same reason `test_mutants_summary.py` gives.
+Exercised as a subprocess on its argv contract, the way `mutants-on-request.yml`
+calls it and for the same reason `test_mutants_summary.py` gives.
 """
 
 from __future__ import annotations

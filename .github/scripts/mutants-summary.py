@@ -15,8 +15,8 @@ as one sentence; the rows that remain are rows somebody can act on. *Why* the
 tests never reach it, this deliberately does not guess: see [`NOTHING_CAUGHT`]
 and #449 for what guessing cost.
 
-`make mutants` runs exactly what CI runs and then feeds the result through
-here. By hand, against a sweep of the whole scoped surface:
+`make mutants` runs the same diff-scoped question an on-request run's `diff`
+scope asks, and feeds the result through here. By hand, against a sweep of the whole scoped surface:
 
     cargo mutants
     python3 .github/scripts/mutants-summary.py mutants.out/outcomes.json
@@ -24,28 +24,27 @@ here. By hand, against a sweep of the whole scoped surface:
 Python and not jq for the reason coverage gives: python3 is the one of the two
 that is always already there.
 
-There are two callers and one renderer, which is the point. The `mutants` job
-in `.github/workflows/ci.yml` takes the report as it comes out above and posts
-it as a pull-request comment. `mutation-sweep.yml` asks for `--issue-body`
-instead: the same report, wrapped as the body of the sweep's tracking issue and
+There are several callers and one renderer, which is the point. `make mutants`
+and `mutants-on-request.yml` take the report as it comes out above — the
+latter as the artifact `make mutants-remote` prints. `mutation-sweep.yml` asks
+for `--issue-body` instead: the same report, wrapped as the body of the sweep's tracking issue and
 followed by a catch-rate history that carries over from the body it is handed.
 A second renderer for the same data is how the two would drift.
 
-The pull-request job shards a large diff across several runners, and this
+The on-request workflow shards a large scope across several runners, and this
 renderer is deliberately unaware of that: `mutants-merge.py` puts the shards
 back together first, and what arrives here is the run they add up to. What the
-job does hand over is `--in-scope`, the count `cargo mutants --list --in-diff`
-gave it before anything was built. That number is what makes an incomplete
+job does hand over is `--in-scope`, the count `cargo mutants --list` gave it before anything was built. That number is what makes an incomplete
 report say *how* incomplete: a run stopped by its time budget describes the
 mutants it reached, and the difference between the two counts is the gap it is
 silent about. Naming that gap is the whole of #399 — a cancelled job reads
 exactly like a broken one, and neither reads like the honest answer, which is
-*this diff was too large to measure in the time allowed*.
+*this scope was too large to measure in the time allowed*.
 
 This never exits non-zero over a surviving mutant. Mutation audits quality; it
 does not prove correctness, and some survivors are *equivalent mutants* that
 are correct to leave alone. See `.cargo/mutants.toml` for that policy and the
-`mutants` job in `.github/workflows/ci.yml` for how this gets routed.
+`docs/mutation-testing.md` for how a report gets read.
 """
 
 from __future__ import annotations
@@ -374,19 +373,6 @@ FOOTER = (
     " <code>.cargo/mutants.toml</code>.</sub>"
 )
 
-# Whether this report is worth putting in front of somebody, decided here
-# rather than by the workflow grepping for a heading it hopes is still spelled
-# the same way. The `mutants` job opens a pull-request comment only when this
-# line is present, so the rule about what deserves one lives beside the rule
-# about what gets written — survivors, timeouts, and a run that did not cover
-# what it was asked to.
-#
-# An HTML comment, so it is invisible wherever the Markdown is rendered: the
-# pull-request comment and the sweep's issue body both carry it and neither
-# shows it. It is deliberately *not* the marker the comment is keyed on —
-# `<!-- mutation-signal -->` still opens the body, and this one only ever
-# appears at the end.
-NOTABLE = "<!-- mutation-signal:notable -->"
 
 
 # ---------------------------------------------------------------------------
@@ -395,7 +381,7 @@ NOTABLE = "<!-- mutation-signal:notable -->"
 #
 # Both callers can hand over a run that did not cover its subject, and for the
 # same underlying reason: a clock ran out. The sweep meets it when a crate
-# outgrows the six-hour job limit; the pull-request job meets it when a diff is
+# outgrows the six-hour job limit; an on-request run meets it when a scope is
 # large enough that even sharded across several runners its mutants do not fit
 # in the time each shard is given (#399). One vocabulary for both, because a
 # reader of either has the same question — *what is this silent about?*
@@ -418,7 +404,7 @@ CUT_SHORT = (
 # known about these mutations is nothing at all, which is exactly why the number
 # has to be printed rather than left to be inferred from a job that vanished.
 GAP = (
-    "> **{missing} of {in_scope} mutations in this diff were not measured.**"
+    "> **{missing} of {in_scope} mutations in scope were not measured.**"
     " The report below describes {measured}. Nothing is known about the rest —"
     " they are neither caught nor survivors, and no absence of rows here says"
     " anything about them."
@@ -489,10 +475,10 @@ def read(path: Path) -> dict:
 # The sweep's issue body
 # ---------------------------------------------------------------------------
 #
-# `--in-diff` audits a line once, on the pull request that wrote it. The
+# A line is audited when somebody asks about it (#651). The
 # scheduled sweep audits the rest, one crate at a time, and reports into a
 # single issue it rewrites in place — a monthly pile of comments is a pile
-# nobody reads, which is the same argument the PR comment's marker makes.
+# nobody reads.
 #
 # What must *not* be rewritten in place is the number. One catch rate says
 # nothing; the question the sweep exists for is whether assertion health is
@@ -576,7 +562,7 @@ def sweep_body(report: str, rows: list[str]) -> str:
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
-    """The argv contract, which the PR comment and the sweep share."""
+    """The argv contract, which every caller shares."""
     parser = argparse.ArgumentParser(
         prog="mutants-summary.py",
         description="Render a cargo-mutants run as the Markdown an agent reads.",
@@ -593,7 +579,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         type=int,
         metavar="N",
         help="how many mutations the run was asked about, from"
-        " `cargo mutants --list --in-diff` — which builds nothing, so the"
+        " `cargo mutants --list` — which builds nothing, so the"
         " number is known before the run and survives the run being stopped."
         " A report that covers fewer than this says so, and by how many",
     )
@@ -630,8 +616,7 @@ def main() -> None:
     tally = census(outcomes)
 
     out = headline(data, scope)
-    unfinished = shortfall(data, args.in_scope)
-    out += unfinished
+    out += shortfall(data, args.in_scope)
     timeouts = mutant_rows(outcomes, "Timeout")
     survivors = mutant_rows(outcomes, "MissedMutant")
     out += section(
@@ -649,12 +634,7 @@ def main() -> None:
         " passing.",
         nothing_caught=True,
     )
-    # Three things earn a reader: work to do, and — the addition #399 asked for
-    # — a report that does not cover what it was asked about. The last one has
-    # no rows at all, which is precisely why it needs saying: silence is what
-    # the old cancelled job produced.
-    notable = [NOTABLE] if (timeouts or survivors or unfinished) else []
-    report = "\n".join(out + [FOOTER] + notable)
+    report = "\n".join(out + [FOOTER])
 
     if args.issue_body is None:
         print(report)
