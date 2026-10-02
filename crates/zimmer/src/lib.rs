@@ -545,8 +545,32 @@ pub fn bake_excerpt(
     // is taking up the room, which is the half a section row cannot answer.
     // Both come back from the render, because under an excerpt neither is
     // where the document alone would put it.
-    let mixed = song::render::mix_song(song, resolve, excerpt)?;
-    Ok(Bake::of(&mixed.master, mixed.sections, mixed.tracks))
+    bake_excerpt_unless(song, resolve, excerpt, &song::render::never)
+        .map(|bake| bake.expect("a bake nobody can stop runs to the end"))
+}
+
+/// [`bake_excerpt`] that gives up when asked: `stop` is asked between notes,
+/// and once it answers `true` the render is abandoned and `Ok(None)` comes
+/// back — no samples, no file, nothing half-made to be mistaken for a bake.
+///
+/// For a caller that renders long pieces on behalf of somebody who may change
+/// their mind: scorsese's `synth_bake` stops when its client cancels the
+/// request (#661). The hook is the cheapest question there is — a flag read,
+/// typically — and a `stop` that never says yes bakes exactly what
+/// [`bake_excerpt`] bakes, bit for bit, so it moves no sample and no
+/// [`SYNTH_VERSION`].
+///
+/// A closure rather than a flag type, because this crate shares no type with
+/// whoever is doing the asking and should not have to: an `AtomicBool`, a
+/// deadline or a channel are each one line of `|| …` away.
+pub fn bake_excerpt_unless(
+    song: &Song,
+    resolve: &dyn PatchResolver,
+    excerpt: &Excerpt,
+    stop: &dyn Fn() -> bool,
+) -> Result<Option<Bake>, SynthError> {
+    let mixed = song::render::mix_song(song, resolve, excerpt, stop)?;
+    Ok(mixed.map(|mixed| Bake::of(&mixed.master, mixed.sections, mixed.tracks)))
 }
 
 /// A finished bake: the file, and how it came out.

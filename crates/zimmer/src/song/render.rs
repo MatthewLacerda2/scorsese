@@ -178,16 +178,34 @@ pub fn render_excerpt(
     resolve: &dyn PatchResolver,
     excerpt: &Excerpt,
 ) -> Result<Vec<f32>, SynthError> {
-    Ok(mix_song(song, resolve, excerpt)?.master.interleaved())
+    let mixed = mix_song(song, resolve, excerpt, &never)?;
+    Ok(mixed
+        .expect("a render nobody can stop runs to the end")
+        .master
+        .interleaved())
+}
+
+/// The "should stop" of a render nobody can stop.
+pub(crate) fn never() -> bool {
+    false
 }
 
 /// [`render_song`], keeping what each track contributed on its way into the
 /// mix — see [`Mixdown::tracks`].
+///
+/// `stop` is asked before each note is synthesised and once more before the
+/// sums are folded down, and `Ok(None)` is what a render it stopped comes back
+/// with (#661). Before each note because a note is the unit of work here — the
+/// buffer each one renders is the cost, and everything between two of them is
+/// arithmetic — so a stop is honoured within one note's time. Asking it is the
+/// whole cost of the hook, and it changes no sample: a render that is never
+/// stopped is the render it always was.
 pub(crate) fn mix_song(
     song: &Song,
     resolve: &dyn PatchResolver,
     excerpt: &Excerpt,
-) -> Result<Mixdown, SynthError> {
+    stop: &dyn Fn() -> bool,
+) -> Result<Option<Mixdown>, SynthError> {
     song.validate()?;
     let patches = resolve_patches(song, resolve)?;
     // The one check that needs an instrument rather than a document: a cutoff
@@ -374,6 +392,9 @@ pub(crate) fn mix_song(
                 if !scope.reaches(at) {
                     continue;
                 }
+                if stop() {
+                    return Ok(None);
+                }
                 let instrument = tuned(&patches[track], riding[track].cutoff, beat_at);
                 let rendered = core::render_note(&instrument, pitch, &opts)?;
                 // Added to the track's own bus rather than straight to the master:
@@ -403,6 +424,9 @@ pub(crate) fn mix_song(
     // cut at them by the caller, and the two tables only line up if both are
     // cut at the same numbers.
     let sections = sections::of(song, scope.opens_at_seconds());
+    if stop() {
+        return Ok(None);
+    }
     let (mut master, tracks) = mix.finish(&sections);
     // The master limiter, always — mixing by addition is exactly the operation
     // that overshoots full scale, so the sum is never handed out unlimited.
@@ -416,11 +440,11 @@ pub(crate) fn mix_song(
     // the piece, not on the excerpt.
     let (from, to) = scope.keep(master.frames());
     master.cut(from, to);
-    Ok(Mixdown {
+    Ok(Some(Mixdown {
         master,
         tracks,
         sections,
-    })
+    }))
 }
 
 /// The instrument this note is played on, with a moving cutoff set to what it
