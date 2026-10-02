@@ -138,15 +138,22 @@ Requests have a consequence worth naming: a line is audited when somebody
 thinks to ask about it, and otherwise never. A module whose tests were later
 weakened, or whose assertions moved to another crate, has nothing looking at
 it. So `.github/workflows/mutation-sweep.yml` sweeps the rest — no `--in-diff`,
-the whole crate — every Monday, **one crate at a time, cycling**: `core`,
-`compositor`, `render`, `zimmer`, which covers those four every four weeks.
+the whole crate — every Monday, **one crate at a time, cycling**. The crates
+are not listed anywhere: `.github/scripts/mutants-rotation.py` reads them out
+of `examine_globs` in `.cargo/mutants.toml`, one week for each crate a glob
+points into, in the order the globs first name it — today `core`,
+`compositor`, `render`, `zimmer` and `providers`, every five weeks. It used to
+be a hand-written list, and when `providers`' `synth/` subtree joined the
+surface the list never heard of it (#431); a glob added now is a week added.
+The workflow's hand-pickable `workflow_dispatch` list is the one copy left,
+and the script tests hold it to the derived rotation.
 
-`providers`' `synth/` subtree is on the surface and **not** in that rotation,
-which the workflow picks from a list of crate names. So those mutants are
-audited only when somebody asks — the very thing
-the sweep exists to stop, in miniature. Whether that earns a fifth weekly slot
-is #431; until it does, the sweep can be pointed at `scorsese-providers` by
-hand from its `workflow_dispatch` input.
+Before it sweeps, the sweep checks the whole surface against the
+`surface-floor:` line, the same as every other run (#388). A collapsed week
+sweeps nothing: it writes one row into the history saying the surface had
+collapsed — the count and the floor, never a catch rate — and fails the job.
+A missing row would read like a sweep that never ran, and a percentage over
+six mutants would be a lie in a column read for its shape.
 
 Rotation and not one big monthly run, for a reason that was measured rather
 than assumed: the whole surface extrapolates to seven to ten hours on a

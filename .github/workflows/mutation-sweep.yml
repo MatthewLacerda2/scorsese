@@ -50,16 +50,17 @@
 #   scorsese-core 991 · scorsese-compositor 1305 · scorsese-render 156 ·
 #   scorsese-zimmer 1357 · scorsese-providers 66
 #
-# **The last of those is on the surface and not in the rotation below**, and
-# that is a gap rather than a saving: #428 put `crates/providers/src/synth/`
-# into `examine_globs`, and this workflow picks its crate from a hand-written
-# list that does not include `scorsese-providers`. So those 66 mutants are
-# audited only when somebody asks for them — the exact
-# thing the paragraph above says this workflow exists to prevent. A fifth slot
-# costs every other crate a week of re-audit cadence to buy a sweep that
-# finishes in minutes, which is a judgement about a report a person reads: #431
-# holds it. Until it is settled, the crate is in the `workflow_dispatch` list
-# below and can be swept by hand.
+# **The rotation is those crates, read from the surface rather than listed
+# beside it** (#431). It used to be a hand-written list of four names, and when
+# #428 put `crates/providers/src/synth/` into `examine_globs` the list never
+# heard of it — 66 mutants audited only when somebody asked, the exact thing
+# the paragraph above says this workflow exists to prevent.
+# `.github/scripts/mutants-rotation.py` now derives the slots from
+# `examine_globs`: each crate a glob points into is one week, in the order the
+# globs first name it. So `scorsese-providers` is a fifth week, short as it is
+# — the maintainer's call on 2026-10-02 was that every crate keeps its own
+# subject over stretching nobody's cadence — and the next crate added to the
+# surface is in the rotation the moment its glob lands.
 #
 # **Extrapolated, not measured:** 3875 × 3.6s ≈ 3h 52m on that machine. A
 # GitHub-hosted runner is cold and narrower — four cores on a public repo, two
@@ -69,13 +70,13 @@
 # room to spare.
 #
 # So: **rotation, not truncation.** One crate a week, cycling, which sweeps all
-# four of them every four weeks — #339's guess of monthly, delivered in pieces
+# of them every five weeks today — #339's guess of monthly, delivered in pieces
 # that fit. Three things make weekly-in-pieces better than monthly-in-one, and
 # only the first is about the six-hour limit:
 #
 # - A monthly run would never see a warm cache. GitHub evicts a cache after
 #   seven days without a read, so every monthly sweep would pay a cold build
-#   for four crates. A weekly one keeps the cache alive for the next.
+#   for every crate. A weekly one keeps the cache alive for the next.
 # - A trend needs a stable subject. `--shard 2/4` would divide the surface
 #   evenly, but shard membership moves whenever the source does, so last
 #   month's shard 2 and this month's are not the same code and their catch
@@ -84,6 +85,16 @@
 #   and merges its shards back into a single report, so nothing there is ever
 #   compared to a shard of a different week.)
 # - Four readings a month beats one, at the same total cost.
+#
+# Before any of that, the surface is checked against the floor in
+# `.cargo/mutants.toml` (#388), exactly as `make mutants` and
+# `mutants-on-request.yml` check it. A collapsed surface — #363 and #365, an
+# `exclude_re` entry that matched every mutant and left six — would otherwise
+# be swept, catch most of its handful and file a plausible catch rate into a
+# history column read for its shape. A collapsed week sweeps nothing, writes
+# one row saying the instrument was broken in place of a catch rate, and fails
+# the job. A missing row would look like a sweep that never ran; a row with a
+# number in it would be a lie.
 #
 # If a crate ever outgrows the limit anyway, the report says so rather than
 # rounding down: cargo-mutants stamps an end time on the way out, and the
@@ -117,9 +128,12 @@ on:
           - scorsese-compositor
           - scorsese-render
           - scorsese-zimmer
-          # On the surface, but not in the rotation above — see the header, and
-          # #431. Reachable only from here until that is settled.
           - scorsese-providers
+        # Static YAML, so this list is the one place the rotation is still
+        # written out. `test_mutants_rotation.py` holds it to exactly what
+        # `mutants-rotation.py list` derives, in the same order, so a glob
+        # added to `.cargo/mutants.toml` fails the script tests until the crate
+        # is added here too. A name not on the surface is refused at run time.
 
 permissions:
   contents: read
@@ -146,9 +160,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Which crate this week is on. Weeks since the epoch rather than an ISO
-      # week number, because `%V` has a 53rd week that would repeat or skip a
-      # crate once a year. The epoch was a Thursday, so the boundary is Thursday
+      # Which crate this week is on, from `mutants-rotation.py`, which reads
+      # the slots out of `examine_globs` (#431). Weeks since the epoch rather
+      # than an ISO week number, because `%V` has a 53rd week that would repeat
+      # or skip a crate once a year. The epoch was a Thursday, so the boundary is Thursday
       # 00:00 UTC and the Monday cron fires four days clear of it — no run can
       # land on the seam and pick the wrong side of it.
       - name: This week's crate
@@ -157,12 +172,7 @@ jobs:
           REQUESTED: ${{ inputs.crate }}
         run: |
           set -euo pipefail
-          crates=(scorsese-core scorsese-compositor scorsese-render scorsese-zimmer)
-          crate="${REQUESTED:-rotation}"
-          if [ "$crate" = rotation ]; then
-            week=$(( $(date -u +%s) / 604800 ))
-            crate="${crates[$(( week % ${#crates[@]} ))]}"
-          fi
+          crate=$(python3 .github/scripts/mutants-rotation.py pick "${REQUESTED:-rotation}")
           echo "crate=$crate" >> "$GITHUB_OUTPUT"
           echo "Sweeping $crate." >> "$GITHUB_STEP_SUMMARY"
 
@@ -187,12 +197,12 @@ jobs:
       # Mutants in `crates/render/src/plan/` and `src/audio/` run that crate's
       # tests, which decode real fixture media. Installed on every week's run
       # rather than the render week's, because a conditional apt-get is a
-      # branch that is wrong four times out of five and never exercised.
+      # branch that is wrong most weeks and never exercised.
       - name: Install ffmpeg
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
 
       # One cache for the rotation, not one per crate. A per-crate key would be
-      # read once every four weeks, and GitHub evicts a cache after seven days
+      # read once every five weeks, and GitHub evicts a cache after seven days
       # without a read — so each week would restore nothing and build cold. The
       # crates share most of their dependency tree anyway.
       - name: Rust cache
@@ -203,12 +213,33 @@ jobs:
       - name: Install cargo-mutants
         uses: taiki-e/install-action@cargo-mutants
 
+      # Is there a surface left to mutate at all? The whole surface and not
+      # this crate's share of it, because the floor in `.cargo/mutants.toml` is
+      # a floor under the whole — the same check `make mutants` and
+      # `mutants-on-request.yml` make, by the same script (#388). `--list`
+      # builds nothing, so it costs a second.
+      #
+      # It records rather than fails: a collapsed week still has a row to
+      # write (below), and the last step is what turns it red. A config with
+      # no `surface-floor:` line fails the script too, and counts as collapsed
+      # — a deleted tripwire is not a satisfied one.
+      - name: The surface is still there
+        id: surface
+        run: |
+          cargo mutants --list --colors never > mutants-list.txt
+          if python3 .github/scripts/mutation-surface.py mutants-list.txt; then
+            echo "collapsed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "collapsed=true" >> "$GITHUB_OUTPUT"
+          fi
+
       # `--list` builds nothing and runs nothing, so this is exact and costs a
       # second. It goes in the report as the number the reading should be read
       # against: a sweep that was cut short is obvious when the planned total
       # is stated next to it.
       - name: What is in scope
         id: scope
+        if: steps.surface.outputs.collapsed == 'false'
         env:
           CRATE: ${{ steps.pick.outputs.crate }}
         run: |
@@ -255,6 +286,7 @@ jobs:
       # that a judgement call rather than free.
       - name: Sweep
         id: sweep
+        if: steps.surface.outputs.collapsed == 'false'
         timeout-minutes: 300
         env:
           CRATE: ${{ steps.pick.outputs.crate }}
@@ -300,15 +332,46 @@ jobs:
           gh api -X PATCH "repos/$REPO/issues/$TRACKING_ISSUE" -F body=@body.md
           cat body.md >> "$GITHUB_STEP_SUMMARY"
 
+      # A collapsed week's one entry (#388): a row on top of the history that
+      # says the surface had collapsed — the count and the floor, no catch
+      # rate — with the report above the history marker left as it was.
+      # `mutants-collapsed.py` reads the floor through `mutation-surface.py`
+      # and keeps the history through `mutants-summary.py`, so the row is one
+      # the next healthy rewrite carries forward like any other.
+      - name: Record the collapse in the history
+        if: always() && steps.surface.outputs.collapsed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          CRATE: ${{ steps.pick.outputs.crate }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$REPO/issues/$TRACKING_ISSUE" --jq '.body // ""' > current.md
+          python3 .github/scripts/mutants-collapsed.py mutants-list.txt \
+            --issue-body current.md --subject "$CRATE" --run-url "$RUN_URL" \
+            > body.md
+          gh api -X PATCH "repos/$REPO/issues/$TRACKING_ISSUE" -F body=@body.md
+          cat body.md >> "$GITHUB_STEP_SUMMARY"
+
       # The only thing here that can go red, and it is reserved for the signal
-      # being broken rather than the code being unasserted. cargo-mutants
+      # being broken rather than the code being unasserted: a collapsed surface
+      # (the instrument reporting on almost nothing), or cargo-mutants itself
+      # falling over. cargo-mutants
       # distinguishes them: 2 is "found survivors" and 3 is "something timed
       # out", both ordinary results. An unset status is the sweep step hitting
       # its own timeout — not a broken tool either, and the report has already
       # said the run was cut short.
-      - name: Fail only if the tool itself broke
+      - name: Fail only if the instrument broke
         if: always()
+        env:
+          COLLAPSED: ${{ steps.surface.outputs.collapsed }}
         run: |
+          if [ "$COLLAPSED" = true ]; then
+            echo "::error::the mutation surface collapsed; nothing was swept." \
+                 "The surface step's output says why, and #$TRACKING_ISSUE has the row."
+            exit 1
+          fi
           case "${MUTANTS_STATUS:-cut-short}" in
             0|2|3) echo "cargo-mutants ran (exit $MUTANTS_STATUS)" ;;
             cut-short) echo "::warning::the sweep was stopped before it finished" ;;
