@@ -75,6 +75,11 @@ impl Loops {
     /// its own rate whatever the clip's speed says ("held is held", in the
     /// decoder's filter), so what has elapsed of the animation is what has
     /// elapsed of the timeline.
+    ///
+    /// Exact when the animation is a whole number of output frames long. When
+    /// it is not, the full render's frame grid drifts against the loop and the
+    /// modulo restarts it, so a mid-clip start can land one output frame from
+    /// where the whole render has it — a gap smaller than the gif's own frames.
     pub(crate) fn seconds_in(&self, shot: &Shot<'_>, timeline_fps: Fps) -> f64 {
         let elapsed = timeline_fps.seconds_at(elapsed_frames(shot));
         if elapsed <= 0.0 {
