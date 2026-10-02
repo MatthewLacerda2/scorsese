@@ -11,7 +11,10 @@ picture for a clip's length is an ffmpeg option, and the cheap way to say it —
 itself. So a format with frames of its own, a gif or an avif, is held by
 looping the container instead. That is the only place the decode side knows
 what a file is, and [project-format.md](project-format.md) says what it means
-for an animation.
+for an animation. A decode that starts part-way through such a clip — a
+preview, a partial render, a cut on another track — starts that far into the
+animation, modulo its length, which the render measures from the file because
+the assets table deliberately never records it.
 
 Encoding is the opposite: every file we write is a choice, and it used to be
 made by accident. The container came from whatever extension the output path

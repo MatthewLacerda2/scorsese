@@ -11,11 +11,11 @@
 use scorsese_compositor::shape::Trace;
 use scorsese_compositor::text::Sweep;
 use scorsese_compositor::{Area, Frame};
-use scorsese_core::{Anchor, AssetKind, Fps, Origin, Rgba};
+use scorsese_core::{Anchor, AssetKind, Origin, Rgba};
 
 use crate::content;
 use crate::error::RenderError;
-use crate::pipe::{Decoder, Fitting, Source};
+use crate::pipe::{Decoder, Fitting};
 use crate::plan::Shot;
 use crate::report::{Note, StandIn};
 use crate::shape;
@@ -25,6 +25,7 @@ use crate::text::{Painter, Typing};
 
 use super::Pass;
 use super::redraw::Redraw;
+use super::source::source_for;
 use crate::attach;
 use crate::content::Rect;
 
@@ -371,7 +372,14 @@ impl Pass<'_> {
         let (file, fitting) = self.previewed(shot, file);
         let decoder = Decoder::start(
             self.tools,
-            &source_for(shot, file, self.plan.timeline_fps(), frames, fitting),
+            &source_for(
+                shot,
+                file,
+                self.loops,
+                self.plan.timeline_fps(),
+                frames,
+                fitting,
+            ),
             &self.settings,
         )?;
         // A decoded picture fills the buffer it is read into, so its rectangle
@@ -435,33 +443,4 @@ fn transparent(resolution: scorsese_compositor::Resolution) -> Frame {
     let mut frame = Frame::black(resolution);
     frame.fill_transparent();
     frame
-}
-
-/// How to read a shot's media, given where it is.
-fn source_for(
-    shot: &Shot<'_>,
-    file: std::path::PathBuf,
-    timeline_fps: Fps,
-    frames: u64,
-    fitting: Fitting,
-) -> Source {
-    Source {
-        file,
-        // A still has no timeline of its own: it is held for the clip's
-        // length rather than played, so there is nothing to seek into.
-        still: shot.asset.kind == AssetKind::Image,
-        seek_seconds: timeline_fps.seconds_at(shot.source_in),
-        speed: shot.clip.speed,
-        frames,
-        fitting,
-        // Read off the document, which is where a probe writes it. An asset
-        // nobody probed reads as opaque — the same answer, and the same filter
-        // chain, as before there was a field to read.
-        has_alpha: shot
-            .asset
-            .media
-            .and_then(|media| media.has_alpha)
-            .unwrap_or(false),
-        crop: shot.clip.crop,
-    }
 }

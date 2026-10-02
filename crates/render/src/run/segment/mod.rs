@@ -15,6 +15,7 @@ mod draw;
 mod layers;
 mod pipeline;
 mod redraw;
+mod source;
 
 use std::path::Path;
 
@@ -22,6 +23,7 @@ use scorsese_compositor::{CpuCompositor, Frame};
 
 use crate::error::RenderError;
 use crate::follow;
+use crate::held::Loops;
 use crate::plan::{Plan, Segment};
 use crate::preview::Preview;
 use crate::raster::Sizes;
@@ -54,6 +56,8 @@ pub(super) struct Pass<'a> {
     pub(super) plan: &'a Plan<'a>,
     /// The measured size of every source wanted at its own size.
     pub(super) sizes: &'a Sizes,
+    /// The length of every held animation a stretch opens part-way through.
+    pub(super) loops: &'a Loops,
     /// What the document's relative paths are relative to.
     pub(super) project_root: &'a Path,
     /// How many frames may be composited at once.

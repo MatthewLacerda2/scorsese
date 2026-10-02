@@ -12,7 +12,10 @@
 //! fills in missing media metadata because a clip's sound decides whether it is
 //! mixed, and a still has no mix. The one measurement picture needs — how big a
 //! `native` source is — [`Sizes`] takes itself, from the assets table when it is
-//! there and ffprobe when it is not.
+//! there and ffprobe when it is not. The one measurement a held animation needs
+//! — how long it is, so a still two seconds into a gif shows where the gif is
+//! at two seconds — [`Loops`] takes from the file, because the assets table
+//! never records it.
 
 use std::path::Path;
 
@@ -20,6 +23,7 @@ use scorsese_compositor::Frame;
 use scorsese_core::{Frames, Project};
 
 use crate::error::RenderError;
+use crate::held::Loops;
 use crate::plan::{FrameRange, Plan};
 use crate::preview::Preview;
 use crate::raster::Sizes;
@@ -44,12 +48,17 @@ pub(super) fn compose(
 ) -> Result<Frame, RenderError> {
     let plan = Plan::build(project, settings.fps, FrameRange::just(at))?;
     let sizes = Sizes::measure(tools, &plan, project_root)?;
+    // A still is the case a held animation is most often opened part-way
+    // through: scrubbing two seconds into a gif must show where the gif is at
+    // two seconds, which the delivered file does.
+    let loops = Loops::measure(tools, &plan, project_root);
     let mut stage = Stage::new();
     let pass = Pass {
         tools,
         settings,
         plan: &plan,
         sizes: &sizes,
+        loops: &loops,
         project_root,
         // One frame has nothing to parallelise, and a still is one frame. The
         // pool would be capped to this anyway; saying it here means a scrub
