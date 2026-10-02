@@ -10,9 +10,10 @@
 //!   picture of a document that no longer exists. So when a preview's turn
 //!   comes, it first checks the project still hashes to its key, and if not it
 //!   finishes at once without rendering. Nothing cancels a waiting job; it
-//!   retires itself, which needs no new job state and no race with the claim.
-//!   One already running finishes — at a reduced quality from proxies, that is
-//!   seconds — and the editor asks again for the revision it is on.
+//!   retires itself, which needs no race with the claim. One already
+//!   *running* is stopped when the next preview is queued
+//!   ([`super::request::ask`], #660) — it is recorded `cancelled` — and the
+//!   editor asks again for the revision it is on.
 //! - **Proxies.** A reduced quality reads each heavy video's proxy where one is
 //!   made, and queues the making of any that are missing
 //!   ([`crate::library::proxy`]).

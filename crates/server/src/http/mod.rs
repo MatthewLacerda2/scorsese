@@ -12,6 +12,7 @@
 //! | `DELETE /api/tokens/{id}` | a member | revokes one |
 //! | `GET /api/jobs` | a member | their last hundred jobs, newest first |
 //! | `GET /api/jobs/{id}` | a member | one of their jobs |
+//! | `POST /api/jobs/{id}/cancel` | a member | stop one of their renders; `409` for a kind that cannot be stopped |
 //! | `GET /api/events` | a member | their live updates, as server-sent events |
 //! | `GET /api/projects` | a member | their projects, without documents |
 //! | `POST /api/projects` | a member | `{name, fps?}` → a new empty project |
@@ -175,6 +176,7 @@ pub fn router(state: AppState) -> Router {
         .route("/tokens/{id}", delete(tokens::revoke))
         .route("/jobs", get(jobs::list))
         .route("/jobs/{id}", get(jobs::get))
+        .route("/jobs/{id}/cancel", post(jobs::cancel))
         .route("/events", get(events::stream))
         .route("/projects", get(projects::list).post(projects::create))
         .route(

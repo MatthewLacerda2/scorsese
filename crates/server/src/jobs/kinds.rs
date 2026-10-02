@@ -62,6 +62,20 @@ pub const PROXY: Kind = Kind {
     limit: 1,
 };
 
+/// The kinds whose owner may stop them (#660): the two that take the
+/// machine's cores for as long as a project is long.
+///
+/// A paid generation is not here: the provider bills whether or not anybody
+/// still wants the shot, and the reservation must settle on its answer. A
+/// thumbnail or a proxy is the server's own housekeeping, quick or needed by
+/// the next preview, and nobody asked for it to stop.
+pub const STOPPABLE: [Kind; 2] = [RENDER, PREVIEW];
+
+/// Whether a job of the kind called `name` may be stopped by its owner.
+pub fn stoppable(name: &str) -> bool {
+    STOPPABLE.iter().any(|kind| kind.name == name)
+}
+
 /// How long a provider job polls before it is [`Stuck`](super::Outcome::Stuck).
 ///
 /// Fifteen minutes. `scorsese_providers::video::WAIT_FOR` is five, and that is

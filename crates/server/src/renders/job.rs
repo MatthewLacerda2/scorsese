@@ -13,12 +13,17 @@
 //! included** — a render that silently lost its music is worse than one that
 //! says why it did not happen. A file the library does not hold is refused
 //! the same way.
+//!
+//! **Stopping.** The job's [`Context::cancel`] goes to the renderer, so a
+//! cancel from its owner (#660) stops it within a frame, its ffmpeg children
+//! reaped and its unfinished file removed — `scorsese_render::Cancel`. What
+//! comes back is [`Outcome::Cancelled`], saying how far it got.
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use scorsese_core::{GenerationState, Project};
-use scorsese_render::{FrameRange, Preview, RenderSettings, Renderer, Tools};
+use scorsese_render::{Cancel, FrameRange, Preview, RenderError, RenderSettings, Renderer, Tools};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -52,6 +57,8 @@ pub fn handler(cache: RenderCache, tools: Tools, storage: Storage) -> impl Handl
         async move {
             match render(&cache, &tools, &storage, &job, &context).await {
                 Ok(done) => Outcome::Done(done),
+                // Whatever stopped it, its owner asked it to stop first.
+                Err(why) if context.cancel().is_cancelled() => Outcome::Cancelled(why),
                 Err(why) => Outcome::Failed(why),
             }
         }
@@ -103,6 +110,7 @@ async fn render(
     let drawn = Drawn {
         settings,
         preview: previewing,
+        cancel: context.cancel().clone(),
     };
     tokio::task::spawn_blocking(move || produce(&tools, &project, &at, &media, drawn, &written))
         .await
@@ -171,10 +179,11 @@ async fn render(
 
 /// What the file is drawn as: the settings, and — for a preview only — the
 /// quality and proxies. A finished render's `preview` is `None`, so it is
-/// rendered with no [`Preview`] and reads every original.
+/// rendered with no [`Preview`] and reads every original. `cancel` stops it.
 struct Drawn {
     settings: RenderSettings,
     preview: Option<Preview>,
+    cancel: Cancel,
 }
 
 /// Lay the project out at `at` and render it to `out`. Blocking: a render is
@@ -190,14 +199,18 @@ fn produce(
     let laid = materialise(project, at, &|hash: &str| media.get(hash).cloned())
         .map_err(|error| format!("laying the project out: {error}"))?;
     unrenderable(project, &laid)?;
-    let renderer = Renderer::new(tools, drawn.settings);
+    let renderer = Renderer::new(tools, drawn.settings).with_cancel(drawn.cancel);
     let renderer = match drawn.preview {
         Some(preview) => renderer.with_preview(preview),
         None => renderer,
     };
     renderer
         .render(project, laid.root(), FrameRange::ALL, out)
-        .map_err(|error| format!("rendering: {error}"))?;
+        .map_err(|error| match error {
+            // Already a whole sentence: how far it got, and that nothing was kept.
+            RenderError::Cancelled { .. } => error.to_string(),
+            other => format!("rendering: {other}"),
+        })?;
     Ok(())
 }
 

@@ -4,6 +4,7 @@ use std::future::Future;
 use std::sync::Arc;
 
 use futures_util::future::BoxFuture;
+use scorsese_render::Cancel;
 use sqlx::postgres::PgPool;
 
 use super::{Job, Kind, Outcome, Queue, store};
@@ -73,16 +74,26 @@ pub struct Context {
     queue: Queue,
     job: i64,
     user: UserId,
+    cancel: Cancel,
 }
 
 impl Context {
-    pub(super) fn new(pool: PgPool, queue: Queue, job: &Job) -> Self {
+    pub(super) fn new(pool: PgPool, queue: Queue, job: &Job, cancel: Cancel) -> Self {
         Self {
             pool,
             queue,
             job: job.id,
             user: job.user,
+            cancel,
         }
+    }
+
+    /// Tripped when the job's owner asks it to stop, or the worker is
+    /// stopping. A handler of a [`STOPPABLE`](super::kinds::STOPPABLE) kind
+    /// hands it to the work — `Renderer::with_cancel` — and returns
+    /// [`Outcome::Cancelled`] once it has stopped; any other may ignore it.
+    pub fn cancel(&self) -> &Cancel {
+        &self.cancel
     }
 
     /// The queue this job came from, to announce a job this one enqueued.

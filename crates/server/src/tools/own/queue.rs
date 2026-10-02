@@ -1,4 +1,5 @@
-//! `render` and `jobs`: work the queue does, asked for and asked after.
+//! `render`, `jobs` and `job_cancel`: work the queue does, asked for, asked
+//! after and stopped.
 //!
 //! Locally `render` writes a file wherever `out` says and returns when it is
 //! done. On the server a render is a job (#541) — the machine is shared, and
@@ -6,13 +7,19 @@
 //! for download. So `render` asks for one exactly as `POST
 //! /api/projects/{id}/renders` does ([`crate::renders::request`]), and `jobs`
 //! is how a client learns it finished, as it is for a generation.
+//!
+//! Locally a client stops a render by cancelling the `render` call itself
+//! (`notifications/cancelled`, #647). Here that call answered the moment the
+//! job was queued, so there is nothing left for the notification to stop, and
+//! `job_cancel` is the same "stop" said about the job (#660) —
+//! [`crate::jobs::cancel`], exactly as `POST /api/jobs/{id}/cancel` says it.
 
 use scorsese_mcp::Reply;
 use serde_json::{Value, json};
 
 use super::super::surface::project_property;
 use super::super::{Caller, database, project_id};
-use crate::jobs::{JobView, State, store as jobs};
+use crate::jobs::{CancelError, JobView, State, store as jobs};
 use crate::projects::ProjectError;
 use crate::renders::request::{AskError, Asked, ask};
 use crate::renders::{Ask, Settings};
@@ -83,6 +90,49 @@ pub(super) fn jobs_schema() -> Value {
             }
         }
     })
+}
+
+/// How a client names stopping a job.
+pub(super) const JOB_CANCEL: &str = "job_cancel";
+
+/// What stopping a job does.
+pub(super) const JOB_CANCEL_SAYS: &str = "Stop one of your renders: a waiting one never \
+starts, a running one stops within a frame and keeps no file. Give the job id render answered \
+with. Only renders can be stopped — a generation is billed whether or not anybody still wants \
+it. A job that already finished is left as it is. Free.";
+
+/// `job_cancel`'s arguments.
+pub(super) fn job_cancel_schema() -> Value {
+    json!({
+        "type": "object",
+        "properties": {
+            "job": {
+                "type": "integer",
+                "description": "The job to stop, by the id render answered with."
+            }
+        },
+        "required": ["job"]
+    })
+}
+
+/// Stop a job.
+pub(super) async fn job_cancel(caller: &Caller<'_>, arguments: &Value) -> Result<Reply, String> {
+    let id = arguments
+        .get("job")
+        .and_then(Value::as_i64)
+        .ok_or("`job` is required: the id render answered with")?;
+    let toolbox = caller.toolbox;
+    let job = crate::jobs::cancel(&toolbox.pool, &toolbox.queue, caller.user, id)
+        .await
+        .map_err(|error| match error {
+            CancelError::Database(error) => database(error),
+            refused => refused.to_string(),
+        })?;
+    Ok(match job.state {
+        State::Running => format!("Stopping job {id}; it will say cancelled in a moment."),
+        _ => line(&job),
+    }
+    .into())
 }
 
 /// Ask for a render.
@@ -174,5 +224,6 @@ fn state(job: &JobView) -> &'static str {
         State::Done => "done",
         State::Failed => "failed",
         State::Stuck => "stuck waiting on the provider; its ticket is kept",
+        State::Cancelled => "cancelled",
     }
 }

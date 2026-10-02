@@ -11,6 +11,7 @@ use sqlx::postgres::PgPool;
 use tokio::sync::{Notify, watch};
 use tokio::task::{Id, JoinSet};
 
+use super::stop::Running;
 use super::{Context, Job, JobView, Outcome, Registry, store};
 use crate::db::UserId;
 use crate::events::{Event, Events};
@@ -28,11 +29,13 @@ const LOOK_EVERY: Duration = Duration::from_secs(1);
 const WORKER_LOCK: i64 = 536;
 
 /// How the rest of the server reaches the worker: announce a job, and its
-/// owner hears about every change to it. Cheap to clone.
+/// owner hears about every change to it; stop one that is running. Cheap to
+/// clone.
 #[derive(Clone)]
 pub struct Queue {
     events: Events,
     wake: Arc<Notify>,
+    running: Running,
 }
 
 impl Queue {
@@ -41,6 +44,7 @@ impl Queue {
         Self {
             events,
             wake: Arc::new(Notify::new()),
+            running: Running::default(),
         }
     }
 
@@ -52,8 +56,13 @@ impl Queue {
     }
 
     /// Tell `user` that `job` changed.
-    fn tell(&self, user: UserId, job: JobView) {
+    pub(super) fn tell(&self, user: UserId, job: JobView) {
         self.events.send(user, Event::Job(job));
+    }
+
+    /// The flags of the jobs running now, by id.
+    pub(super) fn running(&self) -> &Running {
+        &self.running
     }
 }
 
@@ -61,9 +70,10 @@ impl Queue {
 ///
 /// Waits first for the worker lock, so two servers on one database never both
 /// work; then recovers whatever a dead process left running; then claims and
-/// runs, each kind up to its limit. On `stop`, it stops claiming and drops what
-/// it was running: those rows stay `running`, and the next start recovers
-/// them exactly as it would after a crash.
+/// runs, each kind up to its limit. On `stop`, it stops claiming, trips every
+/// running job's [`Cancel`](scorsese_render::Cancel) so no render outlives it,
+/// and drops what it was running: those rows stay `running`, and the next start
+/// recovers them exactly as it would after a crash.
 pub async fn work(pool: PgPool, registry: Registry, queue: Queue, stop: watch::Receiver<bool>) {
     let mut stop = stop;
     let started = tokio::select! {
@@ -102,6 +112,7 @@ pub async fn work(pool: PgPool, registry: Registry, queue: Queue, stop: watch::R
             () = tokio::time::sleep(LOOK_EVERY) => {}
         }
     }
+    queue.running.stop_all();
     tasks.abort_all();
 }
 
@@ -172,7 +183,8 @@ async fn claim_what_fits(
 
 /// Run one job to its end and record how it ended.
 async fn run(pool: PgPool, handler: Arc<dyn super::Handler>, job: Job, queue: Queue) {
-    let context = Context::new(pool.clone(), queue.clone(), &job);
+    let cancel = queue.running.flag(job.id);
+    let context = Context::new(pool.clone(), queue.clone(), &job, cancel);
     let running = {
         let job = job.clone();
         async move { handler.run(job, context).await }
@@ -189,4 +201,7 @@ async fn run(pool: PgPool, handler: Arc<dyn super::Handler>, job: Job, queue: Qu
         // job holding a ticket polls rather than paying twice.
         Err(error) => eprintln!("scorsese-server: could not record job {}: {error}", job.id),
     }
+    // After the record: a cancel that reads the job as still running and
+    // makes its flag again is forgotten by the next line or by its own.
+    queue.running.forget(job.id);
 }

@@ -1,6 +1,6 @@
 //! A user's jobs. Their changes arrive live on `GET /api/events`
 //! ([`super::events`]); these are what a page reads first, and again on a
-//! resync.
+//! resync — and the one thing a user does to a job: stop it.
 
 use axum::Json;
 use axum::extract::{Path, State};
@@ -8,7 +8,7 @@ use axum::extract::{Path, State};
 use super::AppState;
 use super::auth::Member;
 use super::error::ApiError;
-use crate::jobs::{JobView, store};
+use crate::jobs::{CancelError, JobView, store};
 
 /// `GET /api/jobs`: the caller's last hundred jobs, newest first.
 pub async fn list(
@@ -29,4 +29,22 @@ pub async fn get(
         .await?
         .map(Json)
         .ok_or(ApiError::NotFound)
+}
+
+/// `POST /api/jobs/{id}/cancel`: stop one of the caller's renders (#660). A
+/// waiting one comes back `cancelled`; a running one comes back `running` and
+/// turns `cancelled` on the event stream once it has stopped, within a frame;
+/// a finished one comes back as it is. `404` for one that is not theirs, `409`
+/// for a kind that is never stopped — a paid generation.
+pub async fn cancel(
+    State(state): State<AppState>,
+    member: Member,
+    Path(id): Path<i64>,
+) -> Result<Json<JobView>, ApiError> {
+    match crate::jobs::cancel(&state.pool, &state.jobs, member.user, id).await {
+        Ok(job) => Ok(Json(job)),
+        Err(CancelError::NotFound) => Err(ApiError::NotFound),
+        Err(refused @ CancelError::Unstoppable(_)) => Err(ApiError::Conflict(refused.to_string())),
+        Err(CancelError::Database(error)) => Err(error.into()),
+    }
 }
