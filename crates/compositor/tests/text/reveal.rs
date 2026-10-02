@@ -146,3 +146,26 @@ fn two_pieces_partway_in_each_keep_their_own_opacity() {
     );
     assert_eq!(solidest(split..right + 1), 64, "the second, one quarter");
 }
+
+/// A rising piece starts below its line and comes up to it: halfway in, a
+/// ten-pixel rise has it five pixels lower down the frame than at rest.
+#[test]
+fn a_rising_piece_comes_up_from_below() {
+    let top = |at| {
+        let mut frame = canvas();
+        let reveal = Reveal {
+            unit: RevealUnit::Line,
+            rise: 10.0,
+            stagger: 0.0,
+            sweep: Sweep {
+                at,
+                easing: Easing::Linear,
+                backwards: false,
+            },
+        };
+        let style = style(28.0, Rgba::WHITE);
+        text::draw_revealing(&mut frame, "Ship it", Font::sans(), &style, &reveal);
+        bounds(&frame).expect("ink").1
+    };
+    assert_eq!(top(0.5), top(1.0) + 5);
+}
