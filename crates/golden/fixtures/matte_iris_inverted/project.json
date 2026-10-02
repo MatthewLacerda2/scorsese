@@ -1,5 +1,5 @@
 {
-  "schema_version": 41,
+  "schema_version": 42,
   "name": "matte_iris_inverted",
   "timeline_fps": {
     "num": 30,

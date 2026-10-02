@@ -297,6 +297,32 @@ fn a_v40_clip_arrives_unmatted() {
     assert_eq!(project.tracks[0].clips[0].matte, None);
 }
 
+/// v41 → v42: a v41 shot built from an imported still keeps its still, and
+/// the still stays an `image`.
+#[test]
+fn a_v41_shot_and_its_still_read_the_same_at_this_version() {
+    let document = json!({
+        "schema_version": 41,
+        "name": "Before generated stills",
+        "timeline_fps": { "num": 30, "den": 1 },
+        "assets": [
+            { "id": "door", "kind": "image", "path": "assets/door.png" },
+            { "id": "shot", "kind": "generated_video", "state": "sketch",
+              "prompt": "the door opens", "video": { "first_image": "door" } }
+        ],
+        "tracks": []
+    });
+    let (project, from) = parse(&document.to_string()).expect("a v41 document migrates");
+    assert_eq!(from, Some(41));
+    project.validate().expect("and it validates");
+    assert_eq!(project.assets[0].kind, crate::AssetKind::Image);
+    let first = project.assets[1].video_request().first_image;
+    assert_eq!(
+        first.map(|id| id.as_str().to_owned()),
+        Some("door".to_owned())
+    );
+}
+
 #[test]
 fn a_refusing_step_names_itself() {
     const REFUSES: &[Step] = &[Step {

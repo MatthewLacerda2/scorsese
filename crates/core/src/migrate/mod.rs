@@ -88,6 +88,10 @@ pub(crate) const STEPS: &[Step] = &[
         from: 40,
         apply: mattes_arrive,
     },
+    Step {
+        from: 41,
+        apply: stills_arrive,
+    },
 ];
 
 /// v33 → v34: the `group` asset kind (#586).
@@ -177,6 +181,17 @@ fn gradients_arrive(_: &mut Value) -> Result<(), String> {
 /// drew — the clip shown whole. No v40 clip names another as its matte, so no
 /// clip that was drawn stops being drawn.
 fn mattes_arrive(_: &mut Value) -> Result<(), String> {
+    Ok(())
+}
+
+/// v41 → v42: the `generated_image` kind and its `image` block (#461).
+///
+/// Nothing to rewrite, for [`groups_arrive`]'s reason: a kind arrived, with a
+/// block only it may carry, and nothing a v41 document can say changes
+/// meaning. A v41 still is an `image` and stays one. The one widening — that
+/// a shot's stills may now name a `generated_image` — only admits documents
+/// v41 refused, so every v41 document reads the same at v42.
+fn stills_arrive(_: &mut Value) -> Result<(), String> {
     Ok(())
 }
 
