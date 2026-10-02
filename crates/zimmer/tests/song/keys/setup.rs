@@ -49,7 +49,7 @@ pub(crate) fn degree(written: Degree, oct: i32, start: f32) -> PatternEntry {
 
 /// The fixture's one pattern, played with the transposes given.
 pub(crate) fn lifted(song: &mut Song, transpose: Option<f32>, degrees: Option<i32>) {
-    song.arrangement = vec![ArrangementEntry::Transformed(Play {
+    song.arrangement = vec![ArrangementEntry::from(Play {
         pattern: "verse".to_owned(),
         transpose,
         transpose_degrees: degrees,

@@ -113,50 +113,55 @@ fn played(song: &Song) -> Played {
     // the way an unspellable chord does, and every absolute note is unaffected.
     let key = song.key().ok().flatten();
     for entry in &song.arrangement {
-        let Some(pattern) = song.patterns.get(entry.pattern()) else {
+        let Some(slot) = song.slot_beats(entry) else {
             continue;
         };
-        let around = Context {
-            beats: pattern.beats,
-            key: key.as_ref(),
-        };
-        let mut voiced = Vec::new();
-        for written in &pattern.notes {
-            // Entry by entry, so an entry this survey cannot expand — a chord
-            // off the table, a step string that does not fill its slot, a
-            // degree of a key the song does not declare — costs the survey that
-            // entry and not the pattern around it: a report reads documents the
-            // renderer would refuse, and reporting on the rest of one is more
-            // use than reporting on none of it.
-            //
-            // What comes out is ordinary notes whichever form wrote them, so
-            // every one of the four is measured the same way below. There is no
-            // fall-through here that would report a kind of entry as nothing.
-            let _ = written.voice_into(around, &mut voiced);
-        }
-        for note in &voiced {
-            if !entry.plays(&note.track) {
-                continue;
-            }
-            // Before the pitch is parsed: a note whose name does not parse is
-            // still a note this track holds the arrangement for, and the
-            // renderer is what refuses the document.
-            sounding
-                .entry(note.track.clone())
-                .or_default()
-                .add(at + note.start, note.dur);
-            let Ok(written) = note.note.to_midi() else {
+        for layer in entry.layers() {
+            let Some(pattern) = song.patterns.get(layer.pattern()) else {
                 continue;
             };
-            let midi = entry.played_pitch(written, key.as_ref());
-            register =
-                Some(register.map_or_else(|| Register::at(midi), |so_far| so_far.with(midi)));
-            pitches.add(midi);
-            by_track.entry(note.track.clone()).or_default().push(midi);
+            let around = Context {
+                beats: pattern.beats,
+                key: key.as_ref(),
+            };
+            let mut voiced = Vec::new();
+            for written in &pattern.notes {
+                // Entry by entry, so an entry this survey cannot expand — a chord
+                // off the table, a step string that does not fill its slot, a
+                // degree of a key the song does not declare — costs the survey that
+                // entry and not the pattern around it: a report reads documents the
+                // renderer would refuse, and reporting on the rest of one is more
+                // use than reporting on none of it.
+                //
+                // What comes out is ordinary notes whichever form wrote them, so
+                // every one of the four is measured the same way below. There is no
+                // fall-through here that would report a kind of entry as nothing.
+                let _ = written.voice_into(around, &mut voiced);
+            }
+            for note in &voiced {
+                if !layer.plays(&note.track) {
+                    continue;
+                }
+                // Before the pitch is parsed: a note whose name does not parse is
+                // still a note this track holds the arrangement for, and the
+                // renderer is what refuses the document.
+                sounding
+                    .entry(note.track.clone())
+                    .or_default()
+                    .add(at + note.start, note.dur);
+                let Ok(written) = note.note.to_midi() else {
+                    continue;
+                };
+                let midi = layer.played_pitch(written, key.as_ref());
+                register =
+                    Some(register.map_or_else(|| Register::at(midi), |so_far| so_far.with(midi)));
+                pitches.add(midi);
+                by_track.entry(note.track.clone()).or_default().push(midi);
+            }
         }
         // Where the *slot* ends, not where its sound does — the next pattern
         // starts on time however long the last note rings.
-        at += pattern.beats;
+        at += slot;
     }
     (register, pitches, by_track, sounding)
 }
@@ -250,6 +255,34 @@ mod tests {
         assert_eq!(pad.sustain, Some(0.8));
         assert_eq!(pad.notes, 1);
         assert_eq!(pad.density(survey.seconds), Some(0.2));
+    }
+
+    /// A layered entry's layers all start on its first beat, so the same
+    /// track in two of them overlaps rather than queues — and the next entry
+    /// waits for the longest layer. The pad sounds over beats 1–2.5 of the
+    /// layered slot (two notes, one stretch) and 5–6 of the groove after it.
+    #[test]
+    fn layers_share_their_slot_and_the_next_entry_waits_for_the_longest() {
+        let song = Song::from_json(
+            r#"{ "bpm": 120,
+              "tracks": [{ "name": "pad", "patch": {
+                  "source": { "kind": "noise" },
+                  "amp": { "a": 0.01, "d": 0.1, "s": 1, "r": 0.1 } } }],
+              "patterns": {
+                "groove": { "beats": 2, "notes": [
+                  { "track": "pad", "note": "C3", "start": 1, "dur": 1 }] },
+                "solo": { "beats": 4, "notes": [
+                  { "track": "pad", "note": "E3", "start": 1.5, "dur": 1 }] } },
+              "arrangement": [{ "layers": ["groove", "solo"] }, "groove"] }"#,
+        )
+        .expect("the fixture parses");
+        let survey = SongSurvey::of("layered", &song, &InlineOnly);
+        assert_eq!(survey.tracks[0].notes, 3);
+        assert!(
+            (survey.tracks[0].duty - 2.5 / 6.0).abs() < 1e-6,
+            "{}",
+            survey.tracks[0].duty
+        );
     }
 
     /// The median is a pitch that was actually played, never an average

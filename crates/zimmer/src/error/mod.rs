@@ -234,6 +234,11 @@ pub enum SynthError {
     /// An arrangement is the running order; an empty one renders nothing.
     EmptyArrangement,
 
+    /// A layered arrangement entry with nothing in its `layers` — a slot of
+    /// no length playing nothing, which is a typo rather than a rest: a rest
+    /// is a pattern with no notes and the `beats` it should last.
+    NoLayers,
+
     /// The arrangement names a pattern the song does not define — a typo that
     /// would otherwise be silence in the middle of a piece.
     UnknownPattern {

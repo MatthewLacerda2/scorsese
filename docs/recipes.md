@@ -811,14 +811,17 @@ beats.
   `pan` is where — see [Where a part sits](#where-a-part-sits).
 - **`patterns`** — named blocks. `beats` is the *slot* the block occupies; notes
   may ring out past it and the next pattern still starts on time.
-- **`arrangement`** — which patterns play, in order.
+- **`arrangement`** — which patterns play, in order: one at a time, or
+  [several at once](#playing-parts-together).
 - **`key`** — optional, `"D minor"`. Lets a note be written as a
   [scale degree](#saying-what-key-it-is-in) and lets a section lift within the
   key instead of out of it.
 
 Write repetition as repetition. A melody with any structure is a few short
 patterns and a list naming them; the same music as one flat note list is
-hundreds of lines, and every edit becomes a merge conflict with itself.
+hundreds of lines, and every edit becomes a merge conflict with itself. That
+goes across parts too: a groove that plays under a solo is written once and
+[layered](#playing-parts-together) under it, never copied into it.
 
 ### Writing a chord as a chord
 
@@ -1156,7 +1159,8 @@ Three things worth knowing before you write one:
 
 - **Transforms do not stack.** Every entry transforms the pattern *as written*,
   never what the entry before it produced, so the tenth repeat is not nine
-  octaves up.
+  octaves up. The same holds [inside a layered entry](#playing-parts-together):
+  each layer's transforms move that layer and nothing beside it.
 - **`tracks` is a filter, not a remap.** It says which of the song's tracks
   sound; it cannot move a note to a different instrument. If it could, a
   pattern would mean something different depending on where it was played, and
@@ -1168,6 +1172,63 @@ Three things worth knowing before you write one:
 Inversion, retrograde, augmentation and fragmentation are deliberately absent.
 They are real compositional operations and also the ones nobody reaches for by
 hand; if a real song wants one, that is a request with the song attached.
+
+### Playing parts together
+
+An entry can play **several patterns at once**: `{ "layers": [...] }`, each
+layer a pattern's name or the same long form an entry takes. This is how a solo
+goes over a groove — the groove is written once, the solo is written once, and
+the arrangement says where they meet:
+
+```json fields
+"tracks": [
+  { "name": "drums", "patch": "recipes/kit.json" },
+  { "name": "bass", "patch": "recipes/bass.json", "gain": 0.8 },
+  { "name": "lead", "patch": "recipes/guitar.json" }
+],
+"patterns": {
+  "groove": { "beats": 4, "notes": [
+    { "track": "drums", "steps": "X---x---X---x---", "div": 0.25, "note": "C1", "vel": 0.6 },
+    { "track": "bass", "note": "E2", "start": 0, "dur": 1.5 },
+    { "track": "bass", "note": "G2", "start": 2, "dur": 1.5 }
+  ] },
+  "solo": { "beats": 4, "notes": [
+    { "track": "lead", "note": "B4", "start": 0.5, "dur": 0.5 },
+    { "track": "lead", "note": "D5", "start": 1, "dur": 1 },
+    { "track": "lead", "note": "E5", "start": 2.5, "dur": 1.5 }
+  ] }
+},
+"arrangement": [
+  "groove",
+  { "layers": ["groove", "solo"] },
+  { "layers": ["groove", { "pattern": "solo", "transpose": 12, "vel_scale": 0.8 }] },
+  { "pattern": "groove", "tracks": ["drums"] }
+]
+```
+
+Four bars of groove, the solo over it, the solo again an octave up and a touch
+softer — **over the same groove, which did not move** — and the drums alone to
+finish. Before layers existed the two middle entries were two more patterns,
+each carrying its own full copy of the drum and bass parts, and a change to the
+groove had to be made three times.
+
+- **Every layer starts on the entry's first beat**, and **the entry is as long
+  as its longest layer**: the next entry waits until everything in this one has
+  had its say. A shorter layer **rests** for the remainder rather than
+  repeating — the same rule a pattern's own `beats` states. A four-beat groove
+  under an eight-beat solo is two entries, or a solo written as two four-beat
+  patterns.
+- **Each layer carries its own transforms, and only its own.** The solo above
+  went up an octave and the groove under it did not. The same pattern twice is
+  legal, so an octave double is one line:
+  `{ "layers": ["lead", { "pattern": "lead", "transpose": 12 }] }`.
+- **A layered entry is one section.** The [bake report](#how-a-bake-came-out)
+  prints one row for it, named after every layer — `groove + solo` — because it
+  is one stretch of the piece.
+- **One level only.** A layer cannot itself be layered, a `layers` object takes
+  no other key (a `pattern` or `vel_scale` beside it is refused by name — put
+  it on the layer it belongs to), and an empty `layers` is refused: a rest is a
+  pattern with no notes and the `beats` it should last.
 
 ### Saying what key it is in
 
@@ -1888,7 +1949,7 @@ has no patterns, chords or degrees, only notes in time:
 
 | In the recipe | In the file |
 | --- | --- |
-| the arrangement | played once, in order, with each entry's `transpose`, `transpose_degrees`, `vel_scale` and muted `tracks` applied |
+| the arrangement | played once, in order, with each entry's `transpose`, `transpose_degrees`, `vel_scale` and muted `tracks` applied, and every layer of a layered entry from that entry's first beat |
 | chords, step strings, degrees | the notes they expand to — the same expansion a bake uses |
 | `swing`, articulations | applied: a swung eighth is written late, an accent harder, staccato and ghost notes shorter |
 | each track | one MIDI track (format 1) named for it, on a channel of its own, with no program change |
@@ -2062,7 +2123,8 @@ trilha — baked, 3702 KB
 
 The rows with times on them are the **arrangement's own sections** when there
 is an arrangement, which is what lets a finding be "the second chorus is the
-quiet one" rather than "seconds 24 to 32 are quiet". A one-shot, an imported
+quiet one" rather than "seconds 24 to 32 are quiet". A layered entry is one
+section, named after all of its layers — `groove + solo`. A one-shot, an imported
 file and a rendered mixdown have no arrangement, so those are cut on a fixed
 interval instead. A piece with only one stretch gets no rows at all — one row
 under a one-line summary is the same sentence twice.
@@ -2409,7 +2471,8 @@ source's four operators. The last two name the entry they are complaining about
 — a partial by its index, an operator by its number.
 
 **Everywhere else**: a cutoff at or below 0 Hz, a negative LFO rate, a note of
-no length, an arrangement naming a pattern that does not exist, a note on a
+no length, an arrangement naming a pattern that does not exist (in a layer as
+anywhere else), a layered entry with no layers, a note on a
 track that does not exist, a `tracks` filter naming one that does not either, a
 `vel_scale` below zero, a `swing` outside `0..1` (at 1 the off-beat lands on
 the next beat, which reorders the music), and a negative `humanize` amount.

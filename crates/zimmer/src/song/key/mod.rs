@@ -201,7 +201,7 @@ impl Key {
     /// **A shift of no steps is exactly the identity**, for a pitch in the key
     /// and for one outside it alike — the decomposition and the recomposition
     /// are inverses. That is load-bearing rather than incidental:
-    /// [`played_pitch`](crate::song::ArrangementEntry::played_pitch) runs every note of a
+    /// [`played_pitch`](crate::song::Layer::played_pitch) runs every note of a
     /// keyed song through here rather than branching around an entry that
     /// lifts by nothing.
     pub fn shift(&self, midi: f32, steps: i32) -> f32 {
