@@ -609,6 +609,25 @@ exclude_re = [
     'wrap\.rs:184:35: replace \+ with - in name_lanes',
     'wrap\.rs:184:35: replace \+ with \* in name_lanes',
 
+    # Inserting a template (#642) hands `free` the same kind of bound three
+    # times: `clip_ids`' `project clips + template clips`, `copy_assets`'
+    # `project assets + template assets`, and `Renames::group`'s `document
+    # tracks + the group's lanes`. A wanted id is crowded only by the
+    # project's ids of its kind plus those already given, so by at most
+    # `p + t - 1` of them, and `free` tries `limit + 2` candidates. As `p × t`
+    # the bound only shrinks when a side is zero, and then nothing can crowd:
+    # with none of the project's, the only ids taken are the template's own,
+    # which a document that loads keeps distinct — and with none of the
+    # template's there is no search. Otherwise `p × t >= p + t - 1`, and a
+    # larger range finds the same first free suffix. Measured: core's whole
+    # suite passes with each applied, including the tests that insert a
+    # template twice and copy a group into a project that already has its
+    # lanes' ids. Their `+` to `-` mutants shrink the bound below the crowd
+    # and are caught.
+    'template/insert\.rs:139:46: replace \+ with \* in clip_ids',
+    'template/insert\.rs:166:39: replace \+ with \* in copy_assets',
+    'template/rename\.rs:55:52: replace \+ with \* in Renames::group',
+
     # `keyframe::bezier`'s solver, three tolerance comparisons and one tie
     # (#609). Each was applied and core's whole suite passed with it — which
     # now includes Newton and bisection tested apart, the slope held to a
