@@ -7,10 +7,16 @@
 //! did not animate, it failed the render outright, on a decoder option its
 //! demuxer does not accept.
 //!
+//! `seeking` is the other half: whatever instant a decode starts at — a
+//! preview of one frame, a partial render, a cut on another track — the
+//! animation is where the whole render has it at that instant.
+//!
 //! Needs ffmpeg on PATH, like everything else here that touches real media.
 
-#[path = "common/mod.rs"]
+#[path = "../common/mod.rs"]
 mod common;
+
+mod seeking;
 
 use std::path::Path;
 
@@ -20,11 +26,11 @@ use scorsese_render::{FrameRange, RenderSettings, Renderer, Resolution, Tools};
 use common::ffmpeg::{fixture_dir, generate, mean_rgb, tools};
 use common::{clip, project, video_track};
 
-const RED: (u8, u8, u8) = (255, 0, 0);
-const BLUE: (u8, u8, u8) = (0, 0, 255);
-const GREEN: (u8, u8, u8) = (0, 128, 0);
+pub(crate) const RED: (u8, u8, u8) = (255, 0, 0);
+pub(crate) const BLUE: (u8, u8, u8) = (0, 0, 255);
+pub(crate) const GREEN: (u8, u8, u8) = (0, 128, 0);
 
-fn settings() -> RenderSettings {
+pub(crate) fn settings() -> RenderSettings {
     RenderSettings::new(
         Resolution::new(32, 32).expect("32x32 is a resolution"),
         Fps::THIRTY,
@@ -32,7 +38,7 @@ fn settings() -> RenderSettings {
 }
 
 /// A gif of `seconds` seconds per colour, at 10fps, in the project's assets.
-fn gif(tools: &Tools, root: &Path, name: &str, colours: &[&str]) -> Asset {
+pub(crate) fn gif(tools: &Tools, root: &Path, name: &str, colours: &[&str]) -> Asset {
     let inputs: Vec<String> = colours
         .iter()
         .map(|colour| format!("color=c={colour}:s=32x32:d=0.5:r=10"))
@@ -59,7 +65,7 @@ fn gif(tools: &Tools, root: &Path, name: &str, colours: &[&str]) -> Asset {
 }
 
 #[track_caller]
-fn assert_colour(found: (u8, u8, u8), expected: (u8, u8, u8), what: &str) {
+pub(crate) fn assert_colour(found: (u8, u8, u8), expected: (u8, u8, u8), what: &str) {
     let close = |a: u8, b: u8| a.abs_diff(b) <= 24;
     assert!(
         close(found.0, expected.0) && close(found.1, expected.1) && close(found.2, expected.2),
@@ -68,10 +74,17 @@ fn assert_colour(found: (u8, u8, u8), expected: (u8, u8, u8), what: &str) {
 }
 
 /// Renders the project and reports the colour of one frame of the file it
-/// wrote. The delivered file is the only place the question can be settled: a
-/// preview composites the one frame it was asked for, and a held source starts
-/// at its beginning for every segment that decodes it.
-fn rendered_frame(project: &Project, root: &Path, tools: &Tools, at: u64) -> (u8, u8, u8) {
+/// wrote — once, and every later call reads the same file.
+///
+/// Asked of the delivered file because that is what plays the animation from
+/// the clip's start, with nothing to work out. A preview, or any decode that
+/// begins mid-clip, is held to agree with it in `seeking`.
+pub(crate) fn rendered_frame(
+    project: &Project,
+    root: &Path,
+    tools: &Tools,
+    at: u64,
+) -> (u8, u8, u8) {
     let out = root.join("out.mp4");
     if !out.exists() {
         Renderer::new(tools, settings())

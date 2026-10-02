@@ -10,7 +10,7 @@ mod decode;
 mod encode;
 
 pub(crate) use audio::{AudioDecoder, AudioSource, SAMPLE_FORMAT};
-pub(crate) use decode::{Decoder, Fitting, Source};
+pub(crate) use decode::{Decoder, Fitting, Source, reads_through_image2};
 pub(crate) use encode::{Encoder, encode_mix};
 
 use std::process::Child;

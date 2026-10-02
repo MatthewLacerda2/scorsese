@@ -79,6 +79,10 @@ pub(crate) struct Source {
     /// Where to start in the source, in wall-clock seconds. Seconds because
     /// that is the unit ffmpeg seeks in; the conversion from the timeline grid
     /// happened before we got here.
+    ///
+    /// For a [`Self::still`] it is how far into the picture's own animation to
+    /// start — [`crate::held::Loops`] has why that is a different number —
+    /// and it means nothing to a still with no animation to be part-way into.
     pub(crate) seek_seconds: f64,
     /// How fast to run the source against the output grid. [`Speed::NORMAL`]
     /// leaves the timing alone, and the filter that would express it is left
@@ -139,9 +143,11 @@ impl Decoder {
                 .arg("-ss")
                 .arg(format!("{:.6}", source.seek_seconds));
         }
+        command.arg("-i").arg(&source.file);
+        if source.still && source.seek_seconds > 0.0 && !reads_through_image2(&source.file) {
+            into_animation(&mut command, source.seek_seconds);
+        }
         command
-            .arg("-i")
-            .arg(&source.file)
             .args(["-frames:v", &source.frames.to_string()])
             .arg("-vf")
             .arg(video_filter(settings, source))
@@ -240,12 +246,27 @@ fn hold(command: &mut Command, file: &Path, rate: &str) {
     }
 }
 
+/// Starts a held animation `seconds` into itself.
+///
+/// An **output** seek, after `-i`, where a video's seek is an input one before
+/// it. An input seek drops every source frame that *begins* before the
+/// instant, so a gif frame already on screen at it is skipped and the picture
+/// jumps a frame ahead. An output seek decodes from the top and drops output
+/// frames instead — after the `fps` filter has laid them on the render's own
+/// grid — so the first frame kept is the one a decode from the clip's start
+/// would have produced there. Decoding from the top costs at most one loop of
+/// the animation, because the caller has already taken the instant modulo its
+/// length.
+fn into_animation(command: &mut Command, seconds: f64) {
+    command.arg("-ss").arg(format!("{seconds:.6}"));
+}
+
 /// Whether ffmpeg will open this file with the demuxer that takes `-loop`.
 ///
 /// Decided from the extension, which is the same evidence ffmpeg itself uses
 /// to pick a demuxer for these formats. Anything unrecognised takes the
 /// general path: being slower is recoverable, and refusing to decode is not.
-fn reads_through_image2(file: &Path) -> bool {
+pub(crate) fn reads_through_image2(file: &Path) -> bool {
     file.extension()
         .and_then(|extension| extension.to_str())
         .is_some_and(|extension| {

@@ -122,6 +122,7 @@ pub(crate) mod error;
 pub(crate) mod follow;
 pub(crate) mod format;
 pub mod frames;
+pub(crate) mod held;
 pub mod layout;
 pub(crate) mod pipe;
 pub mod plan;

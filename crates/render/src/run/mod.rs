@@ -19,6 +19,7 @@ use scorsese_core::{Frames, Project};
 
 use crate::audio;
 use crate::error::RenderError;
+use crate::held::Loops;
 use crate::pipe::{Encoder, encode_mix};
 use crate::plan::{FrameRange, Plan};
 use crate::preview::Preview;
@@ -132,7 +133,10 @@ impl<'a> Renderer<'a> {
         // most of them, so this rarely spawns anything of its own. A delivery
         // with no picture draws nothing, so it has no sizes to establish.
         let sizes = if picture {
-            Some(Sizes::measure(self.tools, &plan, project_root)?)
+            Some((
+                Sizes::measure(self.tools, &plan, project_root)?,
+                Loops::measure(self.tools, &plan, project_root),
+            ))
         } else {
             None
         };
@@ -160,9 +164,9 @@ impl<'a> Renderer<'a> {
         };
 
         let written = match (&sizes, mix) {
-            (Some(sizes), _) => {
+            (Some((sizes, loops)), _) => {
                 let (written, picture_notes) =
-                    self.picture(&plan, sizes, project_root, mix, out)?;
+                    self.picture(&plan, (sizes, loops), project_root, mix, out)?;
                 notes.extend(picture_notes);
                 written
             }
@@ -208,7 +212,7 @@ impl<'a> Renderer<'a> {
     fn picture(
         &self,
         plan: &Plan<'_>,
-        sizes: &Sizes,
+        (sizes, loops): (&Sizes, &Loops),
         project_root: &Path,
         mix: Option<&Path>,
         out: &Path,
@@ -220,6 +224,7 @@ impl<'a> Renderer<'a> {
             settings: self.settings,
             plan,
             sizes,
+            loops,
             project_root,
             workers: self.workers,
             preview: self.preview.as_ref(),
