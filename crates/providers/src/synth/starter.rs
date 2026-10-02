@@ -15,6 +15,7 @@ use scorsese_zimmer::Patch;
 use scorsese_zimmer::patch::{Adsr, Filter, FilterKind, Fx, Osc, Slope, Source, Wave};
 use scorsese_zimmer::song::{Note, PatchRef, Pattern, Pitch, Song, Track};
 
+use super::kit::Instrument;
 use super::recipe::{OneShot, Recipe};
 
 /// Which starter to write.
@@ -24,6 +25,9 @@ pub enum Starter {
     Patch,
     /// Four bars of that instrument: the shape a score takes.
     Song,
+    /// One note of a library instrument, copied in: one hit of the kick is
+    /// the most ordinary effect there is.
+    Kit(&'static Instrument),
 }
 
 impl Starter {
@@ -37,6 +41,16 @@ impl Starter {
                 patch: pluck(),
             }),
             Self::Song => Recipe::Song(four_bars()),
+            // A whole second, whatever the instrument: a drum is done long
+            // before it and a pad has only just arrived, and either way the
+            // first bake says what the instrument is.
+            Self::Kit(instrument) => Recipe::Patch(OneShot {
+                note: Pitch::Name(instrument.home.to_owned()),
+                duration: 1.0,
+                velocity: 1.0,
+                seed: 0,
+                patch: instrument.patch(),
+            }),
         }
     }
 }

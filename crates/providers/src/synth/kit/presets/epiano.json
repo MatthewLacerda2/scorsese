@@ -1,0 +1,16 @@
+{
+  "source": {
+    "kind": "fm2", "ratio": 1.0, "index": 1.2,
+    "vel_index": 4.0, "mod_decay": 0.35
+  },
+  "amp": { "a": 0.002, "d": 2.2, "s": 0.0, "r": 0.3, "curve": 3.5 },
+  "filter": {
+    "kind": "lowpass", "cutoff": 1800, "vel_octaves": 1.5,
+    "adsr": { "a": 0.001, "d": 0.6, "s": 0.4, "r": 0.2, "curve": 2.0 }
+  },
+  "lfo": { "rate": 4.5, "depth": 0.15, "target": "amp" },
+  "fx": [
+    { "fx": "chorus", "rate": 0.8, "depth": 0.3, "voices": 2, "mix": 0.3 },
+    { "fx": "reverb", "size": 0.4, "damp": 0.5, "mix": 0.12 }
+  ]
+}

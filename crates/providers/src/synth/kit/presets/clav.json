@@ -1,0 +1,13 @@
+{
+  "source": { "kind": "osc_stack", "oscs": [
+    { "wave": "square" },
+    { "wave": "saw", "octave": 1, "gain": 0.4 }
+  ] },
+  "amp": { "a": 0.001, "d": 0.35, "s": 0.25, "r": 0.04, "curve": 3.0 },
+  "filter": {
+    "kind": "bandpass", "cutoff": 900, "resonance": 0.35,
+    "env_octaves": 2.0, "vel_octaves": 1.0,
+    "adsr": { "a": 0.001, "d": 0.12, "s": 0.2, "r": 0.04, "curve": 3.0 }
+  },
+  "fx": [{ "fx": "eq", "bands": [{ "kind": "highpass", "freq": 120 }] }]
+}

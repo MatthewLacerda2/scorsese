@@ -1,0 +1,13 @@
+{
+  "source": { "kind": "osc_stack", "oscs": [
+    { "wave": "saw", "detune_cents": -4 },
+    { "wave": "square", "octave": -1, "gain": 0.6 }
+  ] },
+  "amp": { "a": 0.003, "d": 0.3, "s": 0.7, "r": 0.08, "curve": 2.0 },
+  "filter": {
+    "kind": "lowpass", "cutoff": 280, "slope": "24db", "resonance": 0.25,
+    "env_octaves": 2.2, "vel_octaves": 0.8,
+    "adsr": { "a": 0.001, "d": 0.22, "s": 0.15, "r": 0.08, "curve": 3.0 }
+  },
+  "fx": [{ "fx": "saturate", "drive": 1.5, "mix": 1.0 }]
+}
