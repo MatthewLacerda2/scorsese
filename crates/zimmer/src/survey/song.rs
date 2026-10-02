@@ -257,6 +257,34 @@ mod tests {
         assert_eq!(pad.density(survey.seconds), Some(0.2));
     }
 
+    /// A layered entry's layers all start on its first beat, so the same
+    /// track in two of them overlaps rather than queues — and the next entry
+    /// waits for the longest layer. The pad sounds over beats 1–2.5 of the
+    /// layered slot (two notes, one stretch) and 5–6 of the groove after it.
+    #[test]
+    fn layers_share_their_slot_and_the_next_entry_waits_for_the_longest() {
+        let song = Song::from_json(
+            r#"{ "bpm": 120,
+              "tracks": [{ "name": "pad", "patch": {
+                  "source": { "kind": "noise" },
+                  "amp": { "a": 0.01, "d": 0.1, "s": 1, "r": 0.1 } } }],
+              "patterns": {
+                "groove": { "beats": 2, "notes": [
+                  { "track": "pad", "note": "C3", "start": 1, "dur": 1 }] },
+                "solo": { "beats": 4, "notes": [
+                  { "track": "pad", "note": "E3", "start": 1.5, "dur": 1 }] } },
+              "arrangement": [{ "layers": ["groove", "solo"] }, "groove"] }"#,
+        )
+        .expect("the fixture parses");
+        let survey = SongSurvey::of("layered", &song, &InlineOnly);
+        assert_eq!(survey.tracks[0].notes, 3);
+        assert!(
+            (survey.tracks[0].duty - 2.5 / 6.0).abs() < 1e-6,
+            "{}",
+            survey.tracks[0].duty
+        );
+    }
+
     /// The median is a pitch that was actually played, never an average
     /// between two of them: the lead's four notes are C4, E4 and those two a
     /// fifth up, so the upper middle is G4 rather than something between.
