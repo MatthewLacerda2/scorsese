@@ -6,7 +6,9 @@ use std::cell::Cell;
 use std::path::Path;
 
 use crate::common::{project, synth_asset, write};
-use scorsese_providers::synth::{SynthesisError, bake_asset_unless, bake_pending_unless};
+use scorsese_providers::synth::{
+    SynthesisError, bake_asset_unless, bake_pending, bake_pending_unless,
+};
 
 /// Two notes on an inline pluck: enough for a stop to land between them.
 const TUNE: &str = r#"{
@@ -79,5 +81,19 @@ fn a_stop_already_asked_for_bakes_nothing() {
     let stopped = bake_pending_unless(&mut project, &dir, &|| true).expect_err("stopped");
     assert!(matches!(stopped, SynthesisError::Stopped), "{stopped:?}");
     assert_eq!(bakes(&dir), 0);
+    std::fs::remove_dir_all(dir).ok();
+}
+
+/// The plain bake is the same loop under a stop that never says yes.
+#[test]
+fn a_bake_nobody_can_stop_bakes_every_recipe() {
+    let (dir, mut project) = project("never-stopped");
+    write(&dir, "recipes/tune.json", TUNE);
+    synth_asset(&mut project, "tune", "recipes/tune.json");
+
+    let baked = bake_pending(&mut project, &dir).expect("bakes");
+    assert_eq!(baked.len(), 1);
+    assert!(baked[0].1.is_fresh());
+    assert_eq!(bakes(&dir), 1);
     std::fs::remove_dir_all(dir).ok();
 }
