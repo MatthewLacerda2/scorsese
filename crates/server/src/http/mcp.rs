@@ -282,3 +282,36 @@ impl Limits {
 
 /// The window a limit counts over.
 const MINUTE: Duration = Duration::from_secs(60);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_cancel_stops_only_its_own_users_call_with_that_exact_id() {
+        let (ana, bob) = (UserId::from_row(1), UserId::from_row(2));
+        let in_flight = InFlight::default();
+        let call = in_flight.begin(ana, &json!(1));
+
+        in_flight.cancel(bob, &json!(1));
+        in_flight.cancel(ana, &json!("1"));
+        assert!(
+            !call.cancel.is_cancelled(),
+            "bob's id, or a string id, is another call"
+        );
+        in_flight.cancel(ana, &json!(1));
+        assert!(call.cancel.is_cancelled());
+    }
+
+    #[test]
+    fn a_call_is_forgotten_once_answered_and_stopped_if_its_client_hung_up() {
+        let ana = UserId::from_row(1);
+        let in_flight = InFlight::default();
+        let cancel = in_flight.begin(ana, &json!(7)).cancel.clone();
+        assert!(
+            cancel.is_cancelled(),
+            "dropped mid-call: nobody reads the answer"
+        );
+        assert!(in_flight.lock().is_empty());
+    }
+}

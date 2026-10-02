@@ -597,8 +597,20 @@ Long work — a render, a Veo shot, a spoken line, a thumbnail, a proxy — is a
 row in the `jobs` table, run by a worker inside the server (#536). The code is
 `crates/server/src/jobs/`, and its module doc carries the argument.
 
-**States**: `waiting → running → done | failed | stuck`. `stuck` is a provider
-job that outlasted its patience; it is not lost (below).
+**States**: `waiting → running → done | failed | stuck | cancelled`. `stuck` is
+a provider job that outlasted its patience; it is not lost (below).
+`cancelled` is one its owner stopped (#660).
+
+**Stopping one.** Its owner may stop a `render` or a `preview` — nothing else
+(`jobs::kinds::STOPPABLE`): a paid generation is billed whether or not anybody
+still wants it, and a thumbnail or proxy is the server's own housekeeping. A
+waiting job is marked `cancelled` in the table and never claimed. A running one
+is stopped through the `scorsese_render::Cancel` the worker gives every job,
+held in the queue by job id: the render stops within a frame, reaps its ffmpeg
+children, removes its unfinished file, and the job ends `cancelled` — not
+`failed`, because nothing went wrong — with how far it got as its `error`. A
+graceful stop of the worker trips every flag too, so a render does not hold a
+core in a process that is shutting down; the job is recovered as before.
 
 **Claiming** is the one cross-user thing the worker does — *which job next*,
 whoever's it is — so it runs `db::privileged`, `FOR UPDATE SKIP LOCKED`, and
@@ -659,6 +671,7 @@ stream ends when the server stops, and `EventSource` reconnects by itself.
 | --- | --- | --- |
 | `GET /api/jobs` | a member | their last hundred jobs, newest first |
 | `GET /api/jobs/{id}` | a member | one; `404` for one that is not theirs |
+| `POST /api/jobs/{id}/cancel` | a member | stop one of their renders (above); `409` for a kind that is never stopped |
 | `GET /api/events` | a member | their live updates, as server-sent events |
 
 There is no route to enqueue a job directly: the feature that needs one (a
@@ -995,12 +1008,13 @@ things differ, all in `renders::preview`:
 - **Proxies**: at half or a quarter, each heavy video's proxy is decoded where
   one is made (*Library*), and any that are missing are queued. Full reads
   originals, as a finished render always does.
-- **Superseded, not cancelled.** When a preview's turn comes it checks the
+- **Superseded, then stopped.** When a preview's turn comes it checks the
   project still hashes to its key; if the project has moved on it finishes at
-  once, `{"superseded": true}`, having rendered nothing. So edits faster than
-  renders cost one render at most — a waiting job retires itself, with no
-  cancel state and no race with the claim — and the editor asks again for the
-  revision it is on.
+  once, `{"superseded": true}`, having rendered nothing — a waiting job retires
+  itself, with no race with the claim. One already *running* is stopped when
+  the next preview of the project is asked for (#660), and ends `cancelled`.
+  So edits faster than renders cost a frame of an old render at most, and the
+  editor asks again for the revision it is on.
 - **One kept per shape.** A finished preview replaces the project's earlier
   previews at the same settings, which are of documents it has moved past —
   except a file somebody has open. They are left out of the project's list of
@@ -1028,6 +1042,14 @@ and `DELETE` are `405` — because no tool reports progress mid-call (long work
 is a job) and every call names its project, exactly as over stdio. What a
 message *means* is `scorsese_mcp::protocol`, the code the stdio server answers
 with, so the handshake and every refusal read the same either way.
+
+**Stopping a call: `notifications/cancelled`.** Over this transport the
+cancel arrives in a `POST` of its own while the call's is still waiting, so
+the calls in flight are kept per signed-in user, not per connection: a cancel
+trips the `Cancel` of that user's call with that request id (`1` and `"1"`
+differ), and nobody else's. The tool gets it through `Tool::call_cancellable`,
+as over stdio (#647); a cancelled call is not answered, as the specification
+asks, and one whose client hung up mid-call is cancelled the same way.
 
 **Who: an API token, only.** `Authorization: Bearer scor_…` (*Accounts*); a
 browser session is `403` here, which is also what keeps a web page from
@@ -1062,7 +1084,7 @@ the web — or be left off it — without a reason written down.
 | `still` | without `out`: nothing is kept on the server's disk; the picture is in the reply |
 | `project_list`, `project_new` | the server's own: a project is a row, named by an id the client asks for |
 | `library`, `import` | the server's own: files come from the user's library by id (`core`'s `reference_asset`, the document half of an import), never from a path on the server |
-| `render`, `jobs` | the server's own: a render is a job (*Renders*), downloaded from `/api/renders/{id}/file` with the same token; `jobs` says where any job is |
+| `render`, `jobs`, `job_cancel` | the server's own: a render is a job (*Renders*), downloaded from `/api/renders/{id}/file` with the same token; `jobs` says where any job is, and `job_cancel` stops a render — locally a client stops one by cancelling the `render` call, which here has already answered |
 | `generate` | the server's own: paid from credits, made by the queue — below |
 | `spending_history` | the ledger, read for the caller (*Credits*) |
 | `template_list`, `template_save`, `template_insert` | the server's own: a user's templates are rows (*Templates*) |

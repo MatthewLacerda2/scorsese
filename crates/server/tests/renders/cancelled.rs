@@ -51,7 +51,10 @@ pub(super) async fn when(pool: &PgPool, user: UserId, id: i64, state: State) -> 
         .await
         .expect("the member pool connects");
     for _ in 0..600 {
-        let job = store::get(&members, user, id).await.unwrap().unwrap();
+        let job = store::get(&members, user, id)
+            .await
+            .expect("the job reads")
+            .expect("the job is theirs");
         if job.state == state {
             return job;
         }
