@@ -1,0 +1,6 @@
+{
+  "description": "A small pale dot -- 0.012 by 0.0213 of the frame, the size of a data packet or a spark -- glowing blue at `radius` 1 and `intensity` 4 on a dark bed, the case of #644. Expected: a soft blue halo round the dot, brightest against it and fading to the bed a few dot-widths out, round and centred. What a wrong render looks like: the dot alone on the flat bed, with not one tinted pixel round it, means the halo was spread across a radius of the frame's whole height -- what a drawn layer's raster is -- instead of being held to the size of what the layer draws, and the dot's light was diluted to nothing; a halo with a square cut-off means the picture was not padded out to the held radius's reach.",
+  "media": {},
+  "render": { "resolution": "640x360", "fps": "30" },
+  "frames": [0]
+}

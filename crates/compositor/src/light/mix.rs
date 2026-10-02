@@ -58,6 +58,16 @@ pub(super) fn shadow(lit: &mut [u8], softened: &[u8], resolution: Resolution, ca
     }
 }
 
+/// `source`, a level per byte, at the glow's sixteen-bit depth: each level
+/// times 257, so 255 lands on 65535 and the scale back is one divide.
+pub(super) fn deepen(fine: &mut Vec<u16>, source: &[u8]) {
+    fine.clear();
+    fine.extend(source.iter().map(|&level| u16::from(level) * DEEP));
+}
+
+/// What one level is at the glow's depth.
+const DEEP: u16 = 257;
+
 /// The glow, from `spread` — the layer blurred by the glow's radius — laid over
 /// whatever `lit` already holds.
 ///
@@ -68,20 +78,25 @@ pub(super) fn shadow(lit: &mut [u8], softened: &[u8], resolution: Resolution, ca
 /// reaches solid; past that the colour keeps brightening toward the layer's
 /// own, and never past it, since a premultiplied channel cannot exceed its
 /// alpha.
-pub(super) fn glow(lit: &mut [u8], spread: &[u8], halo: Halo) {
+///
+/// `spread` is at [`deepen`]'s depth, and nothing is rounded to a whole level
+/// until the gain has been applied: rounding first is what turned a thin
+/// line's faint halo into steps the gain then made four levels tall (#645).
+pub(super) fn glow(lit: &mut [u8], spread: &[u16], halo: Halo) {
     let gain = halo.gain;
     for (pixel, spread) in lit
         .chunks_exact_mut(BYTES_PER_PIXEL)
         .zip(spread.chunks_exact(BYTES_PER_PIXEL))
     {
-        let alpha = f32::from(spread[3]);
+        let level = |channel: u16| f32::from(channel) / f32::from(DEEP);
+        let alpha = level(spread[3]);
         if alpha == 0.0 {
             continue;
         }
         let lifted = (alpha * gain).min(255.0);
         let light: [u32; 4] = match halo.tint {
             None => {
-                let lift = |channel: u8| (f32::from(channel) * gain).min(lifted).round() as u32;
+                let lift = |channel: u16| (level(channel) * gain).min(lifted).round() as u32;
                 [
                     lift(spread[0]),
                     lift(spread[1]),

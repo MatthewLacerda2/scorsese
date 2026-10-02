@@ -36,6 +36,7 @@
 //! [`crate::CpuCompositor`]: the blur needs it, and a transparent pixel has to
 //! contribute nothing rather than whatever colour it was stored as.
 
+mod extent;
 mod mix;
 
 use scorsese_core::{Blend, Glow, Shadow};
@@ -83,6 +84,11 @@ pub(crate) struct Buffers {
     lit: Vec<u8>,
     /// The blur's own pair.
     blurred: blur::Buffers,
+    /// The padded layer at the glow's finer depth — see [`blur::Sample`] for
+    /// why a glow is blurred in sixteen bits and a shadow is not.
+    fine: Vec<u16>,
+    /// The blur's pair at that depth.
+    spread: blur::Buffers<u16>,
 }
 
 /// A layer's finished picture, and how much bigger than the layer it is.
@@ -119,7 +125,8 @@ pub(crate) struct Halo {
     pub(crate) tint: Option<[u8; 4]>,
     /// The clamped intensity.
     pub(crate) gain: f32,
-    /// How far it reaches, in the blur's pixels.
+    /// How far it reaches, in the blur's pixels — before [`into`] holds it to
+    /// the size of what the layer draws.
     pub(crate) radius: usize,
 }
 
@@ -204,6 +211,17 @@ pub(crate) fn into<'a>(
     if (cast.is_none() && halo.is_none()) || source.len() != resolution.pixels() * BYTES_PER_PIXEL {
         return untouched;
     }
+    // A halo wider than the thing giving it off is that thing's light spread
+    // over an area it cannot fill: a 23-pixel dot at a radius of a whole
+    // 1080-pixel frame comes out under a tenth of a level at the brightest a
+    // glow goes, exactly computed, and draws nothing (#644). So the radius is
+    // held to what the layer draws, the way the blur already holds itself to
+    // the layer's height — measured on the pixels, because a drawn layer is
+    // the size of the frame however small its shape is.
+    let halo = halo.map(|halo| Halo {
+        radius: halo.radius.min(extent::longest_side(source, resolution)),
+        ..halo
+    });
     let pad = reach(cast, halo);
     let Ok(padded_resolution) = Resolution::source(
         resolution.width() + 2 * pad.0,
@@ -215,6 +233,8 @@ pub(crate) fn into<'a>(
         padded,
         lit,
         blurred,
+        fine,
+        spread,
     } = buffers;
     mix::pad(padded, source, resolution, pad);
     lit.clear();
@@ -224,7 +244,8 @@ pub(crate) fn into<'a>(
         mix::shadow(lit, softened, padded_resolution, cast);
     }
     if let Some(halo) = halo {
-        let spread = blur::into(blurred, padded, padded_resolution, halo.radius);
+        mix::deepen(fine, padded);
+        let spread = blur::into(spread, fine, padded_resolution, halo.radius);
         mix::glow(lit, spread, halo);
     }
     mix::over(lit, padded);

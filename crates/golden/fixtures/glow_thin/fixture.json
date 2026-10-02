@@ -1,0 +1,6 @@
+{
+  "description": "A thin dashed S arrow between two dark boxes, glowing in its own blue at `radius` 0.05 and `intensity` 4 with `blend` `add`, the case of #645. Expected: a smooth blue halo along the whole arrow, spilling over the ends of both boxes, fading evenly in every direction with no edge anywhere in it. What a wrong render looks like: a halo made of flat axis-aligned rectangles a step brighter than each other, with hard horizontal and vertical edges inside the boxes and along the arrow, means the blur rounded its faint halo to whole levels between passes and the gain of four multiplied each one-level step into a visible one; no halo means the glow never reached the compositor.",
+  "media": {},
+  "render": { "resolution": "1280x720", "fps": "30" },
+  "frames": [0]
+}

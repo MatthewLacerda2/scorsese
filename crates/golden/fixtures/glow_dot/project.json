@@ -1,0 +1,38 @@
+{
+  "schema_version": 41,
+  "name": "glow_dot",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    { "id": "night", "kind": "color", "color": "#202b3c" },
+    {
+      "id": "dot",
+      "kind": "shape",
+      "shape": {
+        "geometry": { "ellipse": { "width": 0.012, "height": 0.0213 } },
+        "fill": "#e0f2feff"
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "name": "a dark bed",
+      "clips": [{ "id": "c-night", "asset": "night", "start": 0, "duration": 10 }]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "name": "a data-packet dot glowing at a radius of the whole frame's height",
+      "clips": [
+        {
+          "id": "c-dot",
+          "asset": "dot",
+          "start": 0,
+          "duration": 10,
+          "glow": { "color": "#60a5faff", "radius": 1.0, "intensity": 4.0 }
+        }
+      ]
+    }
+  ]
+}

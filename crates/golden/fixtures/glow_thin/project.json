@@ -1,0 +1,90 @@
+{
+  "schema_version": 41,
+  "name": "glow_thin",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    { "id": "night", "kind": "color", "color": "#0b1020" },
+    {
+      "id": "box",
+      "kind": "shape",
+      "shape": {
+        "geometry": { "rectangle": { "width": 0.22, "height": 0.2, "radius": 0.1 } },
+        "fill": "#1e293bff"
+      }
+    },
+    {
+      "id": "link",
+      "kind": "shape",
+      "shape": {
+        "geometry": {
+          "arrow": {
+            "from": { "attach": { "clip": "c-box-a", "side": "right" } },
+            "to": { "attach": { "clip": "c-box-b", "side": "left" } },
+            "curve": "s",
+            "heads": "end"
+          }
+        },
+        "stroke": "#60a5faff",
+        "stroke_width": 0.004,
+        "dash": [0.014, 0.01]
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "name": "a dark bed",
+      "clips": [{ "id": "c-night", "asset": "night", "start": 0, "duration": 10 }]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "name": "two boxes",
+      "clips": [
+        {
+          "id": "c-box-a",
+          "asset": "box",
+          "start": 0,
+          "duration": 10,
+          "keyframes": [
+            { "property": "transform.position.x", "keyframes": [{ "t": 0, "value": -0.25 }] },
+            { "property": "transform.position.y", "keyframes": [{ "t": 0, "value": -0.08 }] }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "v3",
+      "kind": "video",
+      "name": "the second box",
+      "clips": [
+        {
+          "id": "c-box-b",
+          "asset": "box",
+          "start": 0,
+          "duration": 10,
+          "keyframes": [
+            { "property": "transform.position.x", "keyframes": [{ "t": 0, "value": 0.25 }] },
+            { "property": "transform.position.y", "keyframes": [{ "t": 0, "value": 0.12 }] }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "v4",
+      "kind": "video",
+      "name": "a thin dashed S arrow glowing at the brightest a glow goes",
+      "clips": [
+        {
+          "id": "c-link",
+          "asset": "link",
+          "start": 0,
+          "duration": 10,
+          "glow": { "radius": 0.05, "intensity": 4.0 },
+          "blend": "add"
+        }
+      ]
+    }
+  ]
+}

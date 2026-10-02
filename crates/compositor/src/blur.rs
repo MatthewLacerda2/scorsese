@@ -36,19 +36,56 @@ use crate::frame::{BYTES_PER_PIXEL, Resolution};
 /// makes a box blur indistinguishable from a Gaussian.
 const PASSES: usize = 3;
 
+/// One channel of one pixel, as the blur stores it between passes.
+///
+/// **Two widths, because one of the blur's callers multiplies.** A layer's own
+/// `blur` lands as it comes out, so whole levels — `u8` — lose nothing anybody
+/// sees. A glow multiplies what comes out by up to
+/// [`crate::light::MAX_GLOW_INTENSITY`], and a thin line's halo lives in the
+/// bottom few levels: rounded to a whole level after each of six passes, it
+/// comes out as flat plateaus one level apart, the gain makes each step four,
+/// and because the passes are separable the plateaus are axis-aligned
+/// rectangles (#645). So that caller blurs in `u16` — a level times 257, which
+/// maps 255 to 65535 exactly — and rounds once, after the gain.
+pub(crate) trait Sample: Copy + Default {
+    /// The value, widened for the running sum.
+    fn widen(self) -> u32;
+    /// A value the running sum produced, which never exceeds the widest the
+    /// type holds because it is an average of values that did not.
+    fn narrow(value: u32) -> Self;
+}
+
+impl Sample for u8 {
+    fn widen(self) -> u32 {
+        u32::from(self)
+    }
+    fn narrow(value: u32) -> Self {
+        value as u8
+    }
+}
+
+impl Sample for u16 {
+    fn widen(self) -> u32 {
+        u32::from(self)
+    }
+    fn narrow(value: u32) -> Self {
+        value as u16
+    }
+}
+
 /// The two buffers a separable blur ping-pongs between.
 ///
 /// Kept by the compositor between frames for the same reason the grade's
 /// scratch is: at 1080p one of these is 8 MB, and allocating a pair of them
 /// thirty times a second is pure churn.
 #[derive(Debug, Default)]
-pub(crate) struct Buffers {
+pub(crate) struct Buffers<S = u8> {
     /// Where a horizontal pass writes, and what the vertical pass that follows
     /// it reads.
-    front: Vec<u8>,
+    front: Vec<S>,
     /// Where a vertical pass writes — and so, after the last of them, the
     /// blurred layer.
-    back: Vec<u8>,
+    back: Vec<S>,
 }
 
 /// The blur in pixels, from the fraction on the clip and the layer's height.
@@ -79,12 +116,12 @@ pub(crate) fn radius(blur: f64, height: u32) -> usize {
 /// disagrees with the resolution it claims — which is not this function's to
 /// report, and is refused a few lines later where every other malformed layer
 /// is.
-pub(crate) fn into<'a>(
-    buffers: &'a mut Buffers,
-    source: &'a [u8],
+pub(crate) fn into<'a, S: Sample>(
+    buffers: &'a mut Buffers<S>,
+    source: &'a [S],
     resolution: Resolution,
     radius: usize,
-) -> &'a [u8] {
+) -> &'a [S] {
     let (width, height) = (resolution.width() as usize, resolution.height() as usize);
     if radius == 0 || source.len() != width * height * BYTES_PER_PIXEL {
         return source;
@@ -92,13 +129,13 @@ pub(crate) fn into<'a>(
     {
         let Buffers { front, back } = &mut *buffers;
         front.clear();
-        front.resize(source.len(), 0);
+        front.resize(source.len(), S::default());
         back.clear();
-        back.resize(source.len(), 0);
+        back.resize(source.len(), S::default());
         for round in 0..PASSES {
             // Every round after the first reads what the last vertical pass
             // left behind, which is the whole of the ping-pong.
-            let input: &[u8] = if round == 0 { source } else { back };
+            let input: &[S] = if round == 0 { source } else { back };
             // A row is `width` pixels one after another; rows are `width`
             // pixels apart.
             pass(input, front, height, width, width, 1, radius);
@@ -117,9 +154,13 @@ pub(crate) fn into<'a>(
 /// when it is the width. One function means the horizontal and vertical halves
 /// cannot drift apart, and the vertical one is where an off-by-one would be
 /// hardest to see.
-fn pass(
-    source: &[u8],
-    out: &mut [u8],
+///
+/// The sum is a `u32` for either sample width: a window is at most twice the
+/// layer's height plus one, and `u16::MAX` times a window that wide fits for
+/// any layer under 32 000 pixels tall.
+fn pass<S: Sample>(
+    source: &[S],
+    out: &mut [S],
     lines: usize,
     length: usize,
     line_step: usize,
@@ -143,12 +184,12 @@ fn pass(
         // the `radius` real ones after it.
         let mut sum = [0_u32; BYTES_PER_PIXEL];
         for (channel, total) in sum.iter_mut().enumerate() {
-            *total = u32::from(source[at(0) + channel]) * (radius as u32 + 1);
+            *total = source[at(0) + channel].widen() * (radius as u32 + 1);
         }
         for j in 1..=radius {
             let entering = at(j);
             for (channel, total) in sum.iter_mut().enumerate() {
-                *total += u32::from(source[entering + channel]);
+                *total += source[entering + channel].widen();
             }
         }
 
@@ -159,9 +200,9 @@ fn pass(
             let entering = at(j + radius + 1);
             let leaving = at(j.saturating_sub(radius));
             for (channel, total) in sum.iter_mut().enumerate() {
-                out[write + channel] = ((*total + bias) / window) as u8;
-                *total += u32::from(source[entering + channel]);
-                *total -= u32::from(source[leaving + channel]);
+                out[write + channel] = S::narrow((*total + bias) / window);
+                *total += source[entering + channel].widen();
+                *total -= source[leaving + channel].widen();
             }
         }
     }
@@ -286,7 +327,7 @@ mod tests {
     #[test]
     fn nothing_to_do_is_no_work_at_all() {
         let resolution = Resolution::new(8, 2).expect("a legal raster");
-        let source = vec![7; 8 * 2 * BYTES_PER_PIXEL];
+        let source = vec![7_u8; 8 * 2 * BYTES_PER_PIXEL];
         let mut buffers = Buffers::default();
 
         assert_eq!(into(&mut buffers, &source, resolution, 0), &source[..]);
@@ -299,7 +340,7 @@ mod tests {
         // this function's to report — it is refused a few lines later, where
         // every other malformed layer is. So it comes back untouched rather than
         // being indexed off its end.
-        let short = vec![7; 8 * BYTES_PER_PIXEL];
+        let short = vec![7_u8; 8 * BYTES_PER_PIXEL];
         assert_eq!(into(&mut buffers, &short, resolution, 3), &short[..]);
         assert!(buffers.back.is_empty());
     }
