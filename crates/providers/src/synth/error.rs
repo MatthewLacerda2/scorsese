@@ -88,6 +88,14 @@ pub enum SynthesisError {
         source: SynthError,
     },
 
+    /// Whoever started the bake asked it to stop, and it did (#661).
+    ///
+    /// Not a fault in the recipe: nothing was refused, and nothing half-made
+    /// was left in `generated/` — a bake is named for its brief, so a partial
+    /// file at that address would be served as the finished one.
+    #[error("stopped before it finished, as asked")]
+    Stopped,
+
     /// A MIDI file to import could not be read off the disk.
     ///
     /// The cause is carried as `why` rather than as a `#[source]`, in this

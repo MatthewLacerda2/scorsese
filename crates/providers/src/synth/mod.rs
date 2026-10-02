@@ -39,7 +39,7 @@ use scorsese_core::{
     Asset, AssetId, GenerationState, MediaMetadata, Project, ProjectPath, hash_bytes,
 };
 use scorsese_zimmer::level::{Cut, Layer, Profile};
-use scorsese_zimmer::{Bake, Patch, SAMPLE_RATE, bake_note, bake_song, wav};
+use scorsese_zimmer::{Bake, Patch, SAMPLE_RATE, bake_excerpt_unless, bake_note, wav};
 
 /// The vocabulary of an excerpt, re-exported.
 ///
@@ -128,6 +128,20 @@ pub fn bake_pending(
     project: &mut Project,
     project_root: &Path,
 ) -> Result<Vec<(AssetId, Baked)>, SynthesisError> {
+    bake_pending_unless(project, project_root, &never)
+}
+
+/// [`bake_pending`] that gives up when `stop` says so — asked before each
+/// recipe, and between the notes of a song — with [`SynthesisError::Stopped`].
+///
+/// What was baked before the stop stays baked: each of those files is
+/// complete and named for its own brief, so the next bake finds it as a cache
+/// hit. The one being rendered when the stop came leaves nothing behind (#661).
+pub fn bake_pending_unless(
+    project: &mut Project,
+    project_root: &Path,
+    stop: &dyn Fn() -> bool,
+) -> Result<Vec<(AssetId, Baked)>, SynthesisError> {
     let ids: Vec<AssetId> = project
         .assets
         .iter()
@@ -136,7 +150,12 @@ pub fn bake_pending(
         .collect();
 
     ids.into_iter()
-        .map(|id| bake_asset(project, project_root, &id).map(|baked| (id, baked)))
+        .map(|id| {
+            if stop() {
+                return Err(SynthesisError::Stopped);
+            }
+            bake_asset_unless(project, project_root, &id, stop).map(|baked| (id, baked))
+        })
         .collect()
 }
 
@@ -145,6 +164,21 @@ pub fn bake_asset(
     project: &mut Project,
     project_root: &Path,
     id: &AssetId,
+) -> Result<Baked, SynthesisError> {
+    bake_asset_unless(project, project_root, id, &never)
+}
+
+/// [`bake_asset`] that gives up when `stop` says so, between the notes of a
+/// song, with [`SynthesisError::Stopped`] — and writes nothing, since the file
+/// is only ever written whole.
+///
+/// A one-shot is a single note and is not interrupted: it is over in the time
+/// it would take to notice.
+pub fn bake_asset_unless(
+    project: &mut Project,
+    project_root: &Path,
+    id: &AssetId,
+    stop: &dyn Fn() -> bool,
 ) -> Result<Baked, SynthesisError> {
     let asset = project
         .asset(id)
@@ -163,7 +197,7 @@ pub fn bake_asset(
             sections: sections(&recipe),
         }
     } else {
-        let bake = render(&recipe, &file, project_root)?;
+        let bake = render(&recipe, &file, project_root, stop)?;
         write(&on_disk, &bake.wav)?;
         Baked::Rendered {
             bytes: bake.wav.len(),
@@ -217,8 +251,13 @@ pub(super) fn read_recipe(
     Ok((recipe, file, digest))
 }
 
-/// Renders a recipe to a complete WAV.
-fn render(recipe: &Recipe, file: &Path, project_root: &Path) -> Result<Bake, SynthesisError> {
+/// Renders a recipe to a complete WAV, or to nothing if `stop` says so first.
+fn render(
+    recipe: &Recipe,
+    file: &Path,
+    project_root: &Path,
+    stop: &dyn Fn() -> bool,
+) -> Result<Bake, SynthesisError> {
     let unrenderable = |source| SynthesisError::Unrenderable {
         path: file.to_path_buf(),
         source,
@@ -228,8 +267,17 @@ fn render(recipe: &Recipe, file: &Path, project_root: &Path) -> Result<Bake, Syn
             let midi = one_shot.note.to_midi().map_err(unrenderable)?;
             bake_note(&one_shot.patch, midi, &one_shot.opts()).map_err(unrenderable)
         }
-        Recipe::Song(song) => bake_song(song, &instruments(project_root)).map_err(unrenderable),
+        Recipe::Song(song) => {
+            bake_excerpt_unless(song, &instruments(project_root), &Excerpt::default(), stop)
+                .map_err(unrenderable)?
+                .ok_or(SynthesisError::Stopped)
+        }
     }
+}
+
+/// The "should stop" of a bake nobody can stop.
+fn never() -> bool {
+    false
 }
 
 /// Where a recipe's sections fall, without rendering it: a song's
