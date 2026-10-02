@@ -23,6 +23,7 @@ mod fill;
 mod follow;
 mod group;
 mod icon;
+mod image;
 mod matte;
 mod report;
 mod shape;
@@ -32,8 +33,9 @@ mod timeline;
 mod video;
 
 pub use error::{
-    AssetProblem, FillProblem, FollowProblem, GroupProblem, IconProblem, MatteProblem,
-    ShapeProblem, SpeechProblem, TextProblem, TimelineProblem, ValidationError, VideoProblem,
+    AssetProblem, FillProblem, FollowProblem, GroupProblem, IconProblem, ImageProblem,
+    MatteProblem, ShapeProblem, SpeechProblem, TextProblem, TimelineProblem, ValidationError,
+    VideoProblem,
 };
 pub use field::AssetField;
 pub use report::ValidationErrors;

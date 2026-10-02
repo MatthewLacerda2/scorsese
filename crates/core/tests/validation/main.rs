@@ -14,6 +14,7 @@ mod generated;
 mod gradient;
 mod group;
 mod icon;
+mod image;
 mod keyframes;
 mod keying;
 mod matte;

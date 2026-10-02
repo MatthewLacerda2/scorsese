@@ -171,6 +171,9 @@ fn needed(project: &Project, shown: impl Iterator<Item = AssetId>) -> BTreeSet<A
         if let Some(brief) = &asset.video {
             pending.extend(brief.images().cloned());
         }
+        if let Some(brief) = &asset.image {
+            pending.extend(brief.reference_images.iter().cloned());
+        }
         if let Some(group) = &asset.group {
             pending.extend(group.clips().map(|(_, clip)| clip.asset.clone()));
         }

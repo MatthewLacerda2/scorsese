@@ -97,6 +97,13 @@ pub enum AssetField {
     /// `generated_audio`, on the same reasoning read the other way: a voice on
     /// a Veo shot would be handed to nobody, and nothing would say so.
     Speech,
+    /// The rest of a generated still's brief: model, size, aspect and the
+    /// pictures it is drawn from.
+    ///
+    /// The third of the request blocks, refused everywhere but
+    /// `generated_image` on their reasoning: an aspect ratio on a narration
+    /// would be honoured by nobody.
+    Image,
     /// The provider's name for work in flight.
     ///
     /// Only the kinds that queue with somebody else have one. A ticket on an
@@ -130,6 +137,7 @@ impl AssetField {
             Self::Group => "group",
             Self::Video => "video",
             Self::Speech => "speech",
+            Self::Image => "image",
             Self::Operation => "operation",
             Self::QueuedAt => "queued_at",
             Self::Cost => "estimated_cost_cents",

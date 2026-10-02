@@ -4,6 +4,7 @@
 //! [`AssetId`] and never by path, so moving or regenerating a file is one
 //! edit in one place.
 
+pub(crate) mod image;
 pub(crate) mod kind;
 pub(crate) mod speech;
 pub(crate) mod video;
@@ -21,6 +22,7 @@ use crate::stamp::Timestamp;
 use crate::text::TextStyle;
 use crate::time::{Fps, Frames};
 
+pub use image::{ImageAspect, ImageModel, ImageRequest, ImageResolution, MAX_IMAGE_REFERENCES};
 pub use kind::{AssetKind, GenerationState};
 pub use speech::{LanguageIgnored, MAX_CHARACTERS, SpeechModel, SpeechRequest};
 pub use video::{
@@ -172,6 +174,14 @@ pub struct Asset {
     /// `kind`, which is the thing `deny_unknown_fields` exists to stop.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub speech: Option<SpeechRequest>,
+    /// The rest of a generated still's brief: model, size, aspect and the
+    /// pictures it is drawn from.
+    ///
+    /// The third sibling of `video` and `speech`, held to their rules — hashed
+    /// with the prompt, refused on every other kind, absent meaning every
+    /// default. See [`Asset::image_request`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image: Option<ImageRequest>,
     /// When this asset joined the table.
     ///
     /// Bookkeeping, and only that: it is never hashed into a brief and never
@@ -267,6 +277,7 @@ impl Asset {
             note: None,
             video: None,
             speech: None,
+            image: None,
             created_at: None,
             queued_at: None,
             operation: None,
@@ -353,6 +364,12 @@ impl Asset {
         self.video.clone().unwrap_or_default()
     }
 
+    /// The rest of this asset's still brief, defaults included — the sibling
+    /// of [`Asset::video_request`], for the same reason.
+    pub fn image_request(&self) -> ImageRequest {
+        self.image.clone().unwrap_or_default()
+    }
+
     /// The rest of this asset's spoken brief, defaults included.
     ///
     /// The sibling of [`Asset::video_request`], and there for the same reason:
@@ -420,6 +437,7 @@ impl Asset {
     pub fn has_intrinsic_duration(&self) -> bool {
         match self.kind {
             AssetKind::Image
+            | AssetKind::GeneratedImage
             | AssetKind::Text
             | AssetKind::Color
             | AssetKind::Shape

@@ -4,7 +4,7 @@
 use crate::asset::{AssetId, AssetKind};
 use crate::path::{PathProblem, ProjectPath};
 use crate::validate::error::{
-    FillProblem, IconProblem, ShapeProblem, SpeechProblem, TextProblem, VideoProblem,
+    FillProblem, IconProblem, ImageProblem, ShapeProblem, SpeechProblem, TextProblem, VideoProblem,
 };
 use crate::validate::field::AssetField;
 
@@ -133,6 +133,11 @@ pub enum AssetProblem {
     /// — see [`VideoProblem`] for why that difference is worth a split.
     #[error(transparent)]
     Video(#[from] VideoProblem),
+
+    /// Something wrong with what a generated still is asking for. Split for
+    /// [`VideoProblem`]'s reason; see [`ImageProblem`].
+    #[error(transparent)]
+    Image(#[from] ImageProblem),
 
     /// Something wrong with the outline a `shape` asset describes.
     ///

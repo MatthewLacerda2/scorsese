@@ -192,14 +192,17 @@ fn copy_assets(
         assets: given,
     };
     for mut copy in copies {
+        let rename = |id: &mut AssetId| {
+            if let Some(now) = renames.assets.get(id) {
+                *id = now.clone();
+            }
+        };
         if let Some(brief) = copy.video.as_mut() {
-            let rename = |id: &mut AssetId| {
-                if let Some(now) = renames.assets.get(id) {
-                    *id = now.clone();
-                }
-            };
             brief.first_image.iter_mut().for_each(rename);
             brief.last_image.iter_mut().for_each(rename);
+            brief.reference_images.iter_mut().for_each(rename);
+        }
+        if let Some(brief) = copy.image.as_mut() {
             brief.reference_images.iter_mut().for_each(rename);
         }
         for attach in super::follows_mut(&mut copy) {
