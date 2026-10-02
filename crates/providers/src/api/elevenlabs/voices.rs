@@ -48,7 +48,10 @@ pub const DEFAULT_PAGE_SIZE: u32 = 30;
 pub struct Filters {
     /// An ISO 639-1 code: `pt`, `en`, `es`.
     pub language: Option<String>,
-    /// A finer regional code where the vendor has one: `pt-br`, `en-us`.
+    /// A finer regional code where the vendor has one: `pt-BR`, `en-US`.
+    ///
+    /// Any spelling is accepted — `pt-br`, `PT_br` — and sent in the one the
+    /// vendor takes.
     pub locale: Option<String>,
     /// `male`, `female`, `neutral`.
     pub gender: Option<String>,
@@ -76,7 +79,7 @@ impl Filters {
             }
         };
         text("language", &self.language);
-        text("locale", &self.locale);
+        text("locale", &self.locale.as_deref().map(canonical_locale));
         text("gender", &self.gender);
         text("age", &self.age);
         text("accent", &self.accent);
@@ -233,6 +236,35 @@ pub struct Voice {
     pub preview_url: Option<String>,
 }
 
+/// `tag` in BCP 47's conventional casing: `pt-br` → `pt-BR`.
+///
+/// BCP 47 tags are case-insensitive by definition, but ElevenLabs is not: it
+/// refuses `pt-br` with a 400 and names `pt-BR` as what it wanted (#648). That
+/// strictness is the vendor's quirk, so it is absorbed here, once, rather than
+/// taught to every caller. The conventions are RFC 5646's: the language subtag
+/// lower-case, a four-letter script title-case, a two-letter region upper-case,
+/// everything else lower-case. An underscore — `pt_BR`, how POSIX locales spell
+/// it — is read as the hyphen it stands for.
+fn canonical_locale(tag: &str) -> String {
+    tag.trim()
+        .split(['-', '_'])
+        .enumerate()
+        .map(|(index, subtag)| match (index, subtag.len()) {
+            (0, _) => subtag.to_ascii_lowercase(),
+            (_, 2) => subtag.to_ascii_uppercase(),
+            (_, 4) => {
+                let lower = subtag.to_ascii_lowercase();
+                let mut chars = lower.chars();
+                chars.next().map_or(String::new(), |first| {
+                    first.to_ascii_uppercase().to_string() + chars.as_str()
+                })
+            }
+            _ => subtag.to_ascii_lowercase(),
+        })
+        .collect::<Vec<_>>()
+        .join("-")
+}
+
 /// Everything RFC 3986 lets stand unescaped in a query value.
 const UNRESERVED: &[u8] = b"-._~";
 
@@ -284,6 +316,30 @@ mod tests {
             ..Filters::default()
         };
         assert_eq!(filters.query(), "");
+    }
+
+    /// #648: the vendor takes only `pt-BR`, and every spelling of it is the
+    /// same tag.
+    #[test]
+    fn every_spelling_of_a_locale_sends_the_one_the_vendor_takes() {
+        let query = |locale: &str| {
+            Filters {
+                locale: Some(String::from(locale)),
+                ..Filters::default()
+            }
+            .query()
+        };
+        for spelling in ["pt-br", "PT-br", "pt-BR", "pt_BR", " pt-br "] {
+            assert_eq!(query(spelling), "?locale=pt-BR", "{spelling}");
+        }
+    }
+
+    #[test]
+    fn a_locale_keeps_bcp_47_casing_past_the_region() {
+        assert_eq!(canonical_locale("EN-us"), "en-US");
+        assert_eq!(canonical_locale("zh-hant-tw"), "zh-Hant-TW");
+        assert_eq!(canonical_locale("es-419"), "es-419");
+        assert_eq!(canonical_locale("pt"), "pt");
     }
 
     #[test]
