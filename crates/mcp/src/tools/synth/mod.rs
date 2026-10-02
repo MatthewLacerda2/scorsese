@@ -15,6 +15,7 @@
 mod bake;
 mod export;
 mod import;
+mod kit;
 mod recipes;
 mod set;
 #[cfg(test)]
@@ -24,11 +25,12 @@ mod survey;
 pub(super) use bake::Bake;
 pub(super) use export::Export;
 pub(super) use import::Import;
+pub(super) use kit::Kit;
 pub(super) use set::Set;
 pub(super) use survey::Survey;
 
 use scorsese_core::ProjectPath;
-use scorsese_providers::synth::{self, Starter};
+use scorsese_providers::synth::{self, Starter, kit as library};
 use serde_json::Value;
 
 use super::inspect::load;
@@ -46,8 +48,10 @@ impl Tool for New {
     fn description(&self) -> &'static str {
         "Start a new sound: writes a starter recipe into recipes/ and adds the \
          synth_audio asset that points at it. The starter makes a sound as \
-         written, so bake it and listen before changing anything. Costs nothing \
-         — synthesis needs no key, no network and no money."
+         written, so bake it and listen before changing anything. Given an \
+         `instrument` from synth_kit, the recipe is one note of that instrument, \
+         copied in. Costs nothing — synthesis needs no key, no network and no \
+         money."
     }
 
     fn costs(&self) -> Costs {
@@ -70,6 +74,13 @@ impl Tool for New {
                     "description": "`patch` for one instrument playing one note — an \
                                     effect. `song` for an arrangement — a score. \
                                     Default `patch`."
+                },
+                "instrument": {
+                    "type": "string",
+                    "description": "Start from a library instrument instead — `kick`, \
+                                    `epiano`; synth_kit lists them. The recipe is one \
+                                    note of it, its patch copied in for you to edit. \
+                                    Takes the place of `kind`."
                 }
             },
             "required": ["project", "name"]
@@ -80,11 +91,20 @@ impl Tool for New {
         let dir = project_dir(arguments)?;
         let mut project = load(&dir)?;
         let name = text(arguments, "name")?;
-        let starter = match arguments.get("kind").and_then(Value::as_str) {
-            Some("song") => Starter::Song,
-            None | Some("patch") => Starter::Patch,
-            Some(other) => return Err(format!("`kind` is `patch` or `song`, not `{other}`")),
-        };
+        let starter =
+            match (
+                arguments.get("instrument").and_then(Value::as_str),
+                arguments.get("kind").and_then(Value::as_str),
+            ) {
+                (Some(name), _) => Starter::Kit(library::lookup(name).ok_or_else(|| {
+                    format!("there is no `{name}` in the kit — synth_kit lists it")
+                })?),
+                (None, Some("song")) => Starter::Song,
+                (None, None | Some("patch")) => Starter::Patch,
+                (None, Some(other)) => {
+                    return Err(format!("`kind` is `patch` or `song`, not `{other}`"));
+                }
+            };
 
         let id =
             synth::create(&mut project, &dir, name, starter).map_err(|error| format!("{error}"))?;
@@ -182,7 +202,9 @@ impl Tool for Write {
          arithmetic: the bake is named for the recipe's hash, so the next \
          synth_bake redoes it and nothing has to be marked. The synthesiser's \
          own version is in that name too, so a bake never outlives the code \
-         that made it."
+         that made it. A track whose patch is a library name — \"kit:kick\", \
+         see synth_kit — gets a copy of that instrument written in its place, \
+         so the recipe on disk carries the patch itself."
     }
 
     fn costs(&self) -> Costs {
@@ -211,19 +233,31 @@ impl Tool for Write {
         // Parsed before it is written, for the same reason `project_write`
         // validates: a recipe that is not a recipe makes every later bake fail
         // with a message about a file nobody remembers editing.
-        let parsed = synth::check(document).map_err(|problem| {
+        //
+        // A `kit:` name is copied in first, because the copy is what gets
+        // written: the document on disk never depends on the library.
+        let expanded = library::expand(document).map_err(|problem| {
             format!("refused, nothing written — {relative} would not parse: {problem}")
         })?;
         if let Some(parent) = file.parent() {
             std::fs::create_dir_all(parent)
                 .map_err(|error| format!("creating {}: {error}", parent.display()))?;
         }
-        scorsese_core::write::atomically(&file, document)
+        scorsese_core::write::atomically(&file, &expanded.json)
             .map_err(|error| format!("writing {relative}: {error}"))?;
+        let copied = if expanded.copied.is_empty() {
+            String::new()
+        } else {
+            format!(
+                " Copied in from the kit: {}. They are this recipe's own now; \
+                 synth_read shows them.",
+                expanded.copied.join(", ")
+            )
+        };
         Ok(format!(
             "{relative} written — a {} recipe. Its asset is stale now; \
-             synth_bake redoes it.",
-            parsed.kind()
+             synth_bake redoes it.{copied}",
+            expanded.recipe.kind()
         )
         .into())
     }
