@@ -207,7 +207,7 @@ impl SynthError {
                 ..
             } => write!(
                 f,
-                "song: track `{track}`: `{character}` at step {step} is not a step — use `x` (a hit), `X` (an accent) or `-` (a rest), and nothing else"
+                "song: track `{track}`: `{character}` at step {step} is not a step — use `x` (a hit), `X` (an accent), `o` (a ghost) or `-` (a rest), and nothing else"
             ),
             Self::StepsDoNotFit {
                 track,
@@ -238,6 +238,10 @@ impl SynthError {
             Self::TwiceAccented { track, .. } => write!(
                 f,
                 "song: track `{track}`: a step string cannot be played `accent` and also mark accents with `X` — accent the whole run, or mark the hits"
+            ),
+            Self::TwiceGhosted { track, .. } => write!(
+                f,
+                "song: track `{track}`: a step string cannot be played `ghost` and also mark ghosts with `o` — ghost the whole run, or mark the hits"
             ),
             Self::BadKey { key, .. } => write!(
                 f,
