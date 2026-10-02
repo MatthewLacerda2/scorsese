@@ -12,6 +12,7 @@ mod ink;
 mod kerning;
 mod presentation;
 mod reveal;
+mod sealed;
 mod shipped;
 mod spacing;
 mod stroke;
