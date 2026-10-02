@@ -255,3 +255,42 @@ pub(crate) fn into<'a>(
         pad,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use scorsese_core::{Glow, Rgba, Shadow};
+
+    use super::{cast, halo};
+
+    /// A shadow's strength is its opacity times its colour's own alpha, each a
+    /// fraction of one. Measured on the value rather than on a pixel: a
+    /// strength 65025 times too big passed every shadow test (#639), because
+    /// the pixel keeps only the low byte of an alpha that far out of range.
+    #[test]
+    fn a_shadows_strength_is_opacity_times_its_colours_alpha() {
+        let shadow = Shadow {
+            color: Rgba::new(0, 0, 0, 51),
+            offset_x: 0.0,
+            offset_y: 0.0,
+            softness: 0.0,
+            opacity: 0.5,
+        };
+        let strength = cast(Some(shadow), 16).expect("casts").strength;
+        assert!((strength - 0.1).abs() < 1e-6, "{strength}");
+    }
+
+    /// `None` is what keeps a layer whose glow draws nothing off the lit path
+    /// altogether — no padding, no blur — so either reason alone is enough.
+    #[test]
+    fn a_glow_that_draws_nothing_is_no_glow() {
+        let glow = |color, intensity| Glow {
+            color,
+            radius: 0.25,
+            intensity,
+        };
+        assert!(halo(Some(glow(None, 0.0)), 16).is_none(), "no intensity");
+        let clear = Some(Rgba::new(0, 255, 0, 0));
+        assert!(halo(Some(glow(clear, 1.0)), 16).is_none(), "a clear tint");
+        assert!(halo(Some(glow(None, 1.0)), 16).is_some(), "and a real one");
+    }
+}
