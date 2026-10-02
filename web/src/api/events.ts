@@ -6,7 +6,7 @@
 import type { QuoteView, TurnView } from "./chat";
 
 /** Where a job is in its life — `jobs::State`. */
-export type JobState = "waiting" | "running" | "done" | "failed" | "stuck";
+export type JobState = "waiting" | "running" | "done" | "failed" | "stuck" | "cancelled";
 
 /** `jobs::JobView` — a job as its owner sees it. Times are Unix seconds. */
 export interface JobView {
@@ -17,7 +17,7 @@ export interface JobView {
   attempts: number;
   /** What it produced, once done; a render's names its file. */
   result: Record<string, unknown> | null;
-  /** Why it failed or is stuck. */
+  /** Why it failed or is stuck, or how far it got before it was cancelled. */
   error: string | null;
   created_at: number;
   started_at: number | null;

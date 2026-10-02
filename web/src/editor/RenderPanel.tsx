@@ -4,7 +4,7 @@
 // answers at once with the file already made.
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { DownloadIcon, FilmIcon } from "lucide-react";
+import { DownloadIcon, FilmIcon, SquareIcon } from "lucide-react";
 import { useState } from "react";
 import { api, type RenderView } from "@/api";
 import type { JobView } from "@/api/events";
@@ -19,6 +19,7 @@ const JOB_WORDS: Record<string, string> = {
   done: "Ready — below.",
   failed: "The render failed",
   stuck: "The render is stuck",
+  cancelled: "Stopped — nothing was kept",
 };
 
 export function RenderPanel({ projectId, shape }: { projectId: number; shape: Shape }) {
@@ -47,6 +48,19 @@ export function RenderPanel({ projectId, shape }: { projectId: number; shape: Sh
     }
   };
 
+  // Stopping answers with the job as it is now; a running render then turns
+  // `cancelled` on the event stream within a frame.
+  const stop = async () => {
+    if (!job) return;
+    setError(null);
+    try {
+      setJob(await api.jobs.cancel(job.id));
+    } catch (failed) {
+      setError((failed as Error).message);
+    }
+  };
+  const working = job?.state === "waiting" || job?.state === "running";
+
   return (
     <div className="flex flex-col gap-3 text-sm">
       <div className="flex gap-2">
@@ -67,10 +81,17 @@ export function RenderPanel({ projectId, shape }: { projectId: number; shape: Sh
         </Button>
       </div>
       {job && (
-        <p className="text-xs">
-          {JOB_WORDS[job.state] ?? job.state}
-          {job.error ? `: ${job.error}` : ""}
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="flex-1 text-xs">
+            {JOB_WORDS[job.state] ?? job.state}
+            {job.error && job.state !== "cancelled" ? `: ${job.error}` : ""}
+          </p>
+          {working && (
+            <Button size="sm" variant="ghost" onClick={stop}>
+              <SquareIcon /> Stop
+            </Button>
+          )}
+        </div>
       )}
       {error && <p className="text-xs text-destructive">{error}</p>}
       <ul className="flex flex-col gap-1">

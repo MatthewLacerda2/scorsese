@@ -190,6 +190,8 @@ export function jobState(job: JobView): string {
       return `failed${job.error ? `: ${job.error}` : ""}`;
     case "stuck":
       return `stuck waiting on the provider${job.error ? `: ${job.error}` : ""}`;
+    case "cancelled":
+      return "cancelled";
   }
 }
 

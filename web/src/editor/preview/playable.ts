@@ -85,9 +85,9 @@ export function usePlayable(
   useServerEvents((event) => {
     if (event.type !== "job" || playable.state !== "preparing" || event.id !== playable.job.id)
       return;
-    // Done — or retired as superseded, which asking again for the revision on
-    // screen answers correctly either way.
-    if (event.state === "done") void ask();
+    // Done — or retired as superseded, or stopped by a newer preview: asking
+    // again for the revision on screen answers correctly in every case.
+    if (event.state === "done" || event.state === "cancelled") void ask();
     else if (event.state === "failed" || event.state === "stuck") {
       setHeld({ revision, playable: { state: "failed", why: event.error ?? "the render failed" } });
     } else
