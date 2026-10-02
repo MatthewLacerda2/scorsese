@@ -85,8 +85,9 @@
 //! nothing else: a paid generation is billed whether or not anybody still
 //! wants it, and a thumbnail or proxy is the server's own housekeeping. A
 //! waiting one is marked `cancelled` there and then and is never claimed. A
-//! running one is stopped through the [`Cancel`] the worker gives every job
-//! it runs ([`Context::cancel`]), held in the [`Queue`] by job id: the handler
+//! running one is stopped through the [`Cancel`](scorsese_render::Cancel) the
+//! worker gives every job it runs ([`Context::cancel`]), held in the
+//! [`Queue`] by job id: the handler
 //! sees it tripped, stops, and returns [`Outcome::Cancelled`] — recorded as
 //! `cancelled`, not `failed`, because nothing went wrong. [`cancel`] is the
 //! whole of it, for `POST /api/jobs/{id}/cancel` and web MCP's `job_cancel`
