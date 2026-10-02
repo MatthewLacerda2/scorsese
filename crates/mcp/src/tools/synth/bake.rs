@@ -13,7 +13,7 @@
 
 use scorsese_core::AssetId;
 use scorsese_providers::synth::{self, Baked, Excerpt, Partial, Span, Window};
-use scorsese_render::say;
+use scorsese_render::{Cancel, say};
 use serde_json::Value;
 
 use super::super::inspect::load;
@@ -121,6 +121,15 @@ impl Tool for Bake {
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
+        self.call_cancellable(arguments, &Cancel::new())
+    }
+
+    /// Stops between recipes and between the notes of a song when the client
+    /// cancels the request (#661), leaving nothing half-made in `generated/`.
+    /// What finished before the stop stays on disk as a cache hit, though the
+    /// project is not saved — the next bake finds those files and records them.
+    fn call_cancellable(&self, arguments: &Value, cancel: &Cancel) -> Result<Reply, String> {
+        let stop = || cancel.is_cancelled();
         let dir = project_dir(arguments)?;
         let mut project = load(&dir)?;
         let asset = arguments.get("asset").and_then(Value::as_str);
@@ -140,8 +149,9 @@ impl Tool for Bake {
             // path a client hands it — and the reply says it back in the
             // caller's own words, which now resolve from the project too.
             let out = under(&dir, arguments, "out")?;
-            let mut partial = synth::bake_partial(&project, &dir, &id, &excerpt, out.as_deref())
-                .map_err(|error| format!("{error}"))?;
+            let mut partial =
+                synth::bake_partial_unless(&project, &dir, &id, &excerpt, out.as_deref(), &stop)
+                    .map_err(|error| format!("{error}"))?;
             if let Some(given) = arguments.get("out").and_then(Value::as_str) {
                 given.clone_into(&mut partial.shown);
             }
@@ -151,11 +161,12 @@ impl Tool for Bake {
         let baked = match asset {
             Some(id) => {
                 let id = AssetId::new(id);
-                let one = synth::bake_asset(&mut project, &dir, &id)
+                let one = synth::bake_asset_unless(&mut project, &dir, &id, &stop)
                     .map_err(|error| format!("{error}"))?;
                 vec![(id, one)]
             }
-            None => synth::bake_pending(&mut project, &dir).map_err(|error| format!("{error}"))?,
+            None => synth::bake_pending_unless(&mut project, &dir, &stop)
+                .map_err(|error| format!("{error}"))?,
         };
         if baked.is_empty() {
             return Ok("no synth_audio assets — synth_new starts one".into());
