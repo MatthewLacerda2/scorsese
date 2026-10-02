@@ -1,4 +1,4 @@
-# The mutation sweep: everything the pull requests never looked at.
+# The mutation sweep: everything nobody asked about.
 #
 # Its own file, and that is the first decision rather than a filing preference.
 # `ci.yml`'s header states what CI is for in as many words — *CI speaks in two
@@ -7,14 +7,14 @@
 # are silent. A cron is a third situation. Putting this job in that file would
 # make the header false, so it lives here instead.
 #
-# What it is for. The `mutants` job in `ci.yml` runs `--in-diff`, which is the
-# right call per pull request: cost tracks the size of the change rather than
-# the size of the codebase. The consequence is that a line is audited once, on
-# the pull request that wrote it, and never again — a module whose tests were
-# later weakened, or whose assertions moved to another crate, has nothing
-# looking at it. This is what looks at it. (#339)
+# What it is for. Pull requests carry no mutation job (#651): an agent asks for
+# one over exactly the code it wrote, with `make mutants-remote` and
+# `mutants-on-request.yml`, or runs `make mutants` on its own machine. Either
+# way a line is audited when somebody thinks to ask, and a module whose tests
+# were later weakened, or whose assertions moved to another crate, has nothing
+# looking at it unless this does. This is what looks at it. (#339)
 #
-# It is a signal and never a gate, the same as the job it complements. It runs
+# It is a signal and never a gate, the same as the requests it complements. It runs
 # on a schedule, so it is not on any pull request's clock, and there is nothing
 # here that can block a merge. Do not name this in a branch-protection required
 # checks list — it never runs on a pull request, so the only thing that would
@@ -54,7 +54,7 @@
 # that is a gap rather than a saving: #428 put `crates/providers/src/synth/`
 # into `examine_globs`, and this workflow picks its crate from a hand-written
 # list that does not include `scorsese-providers`. So those 66 mutants are
-# audited by the pull request that writes them and never again — the exact
+# audited only when somebody asks for them — the exact
 # thing the paragraph above says this workflow exists to prevent. A fifth slot
 # costs every other crate a week of re-audit cadence to buy a sweep that
 # finishes in minutes, which is a judgement about a report a person reads: #431
@@ -79,10 +79,10 @@
 # - A trend needs a stable subject. `--shard 2/4` would divide the surface
 #   evenly, but shard membership moves whenever the source does, so last
 #   month's shard 2 and this month's are not the same code and their catch
-#   rates are not comparable. A crate is the same crate. (The `mutants` job in
-#   `ci.yml` does shard, and there is no contradiction: it reports on one diff
-#   once and merges its shards back into a single report, so nothing there is
-#   ever compared to a shard of a different week.)
+#   rates are not comparable. A crate is the same crate. (`mutants-on-request.yml`
+#   does shard, and there is no contradiction: it reports on one request once
+#   and merges its shards back into a single report, so nothing there is ever
+#   compared to a shard of a different week.)
 # - Four readings a month beats one, at the same total cost.
 #
 # If a crate ever outgrows the limit anyway, the report says so rather than
@@ -136,8 +136,7 @@ jobs:
   sweep:
     name: mutation sweep (signal)
     runs-on: ubuntu-24.04
-    # The same structural guarantee the per-pull-request `mutants` job relies
-    # on: whatever happens in here — survivors, a broken flag, cargo-mutants
+    # Whatever happens in here — survivors, a broken flag, cargo-mutants
     # falling over — the run stays green. Surviving mutants are a result, not a
     # failure, and this workflow has no claim to break.
     continue-on-error: true
@@ -222,14 +221,15 @@ jobs:
           cat scope.txt
 
       # No warm-up build, for the reason spelled out at the same place in
-      # `ci.yml`'s `mutants` job: the copy each mutant is built in has no
+      # `mutants-on-request.yml`: the copy each mutant is built in has no
       # `target/` in it, so a build here compiles into a directory the sweep
       # never reads. Only the crate downloads in `~/.cargo` reach a mutant
       # build, and the cache above carries those.
       #
       # This one ran `cargo build -p "$CRATE" --tests --locked`, and the answer
-      # is the same as the per-pull-request job's even though the workloads are
-      # not: what the step buys does not scale with the number of mutants, so
+      # was the same as the per-pull-request job's (since removed, #651) even
+      # though the workloads were not: what the step buys does not scale with
+      # the number of mutants, so
       # #394's measurement — the mutation step and cargo-mutants' own baseline
       # build unchanged, warmed or cold, while the step itself cost about three
       # minutes — settles both. It is a smaller share of a sweep that runs for
@@ -246,7 +246,7 @@ jobs:
       # and to mark the reading as partial. A job-level timeout would cancel
       # those steps too and the run would say nothing at all.
       #
-      # `--jobs 2` matches the per-pull-request job and `make mutants`, and
+      # `--jobs 2` matches `mutants-on-request.yml` and `make mutants`, and
       # `.cargo/mutants.toml` argues the number once, under "How wide a run
       # fans out" — memory rather than cores is what bounds it, and this runner
       # has about as much of that as the development machine. A public repo's
@@ -258,12 +258,18 @@ jobs:
         timeout-minutes: 300
         env:
           CRATE: ${{ steps.pick.outputs.crate }}
+        # `ulimit -v`: at most 6 GiB of address space per process, so a mutant
+        # that allocates without end aborts its own test binary — caught —
+        # instead of taking the runner down with the whole week's reading.
+        # `mutants-on-request.yml`'s *Mutate* step has the number's arithmetic
+        # and the measurement behind it, once (#651).
         run: |
+          ulimit -v 6291456
           cargo mutants -p "$CRATE" --jobs 2 --colors never && status=0 || status=$?
           echo "MUTANTS_STATUS=$status" >> "$GITHUB_ENV"
 
-      # One renderer, two callers: `.github/scripts/mutants-summary.py` is what
-      # the pull-request comment goes through, and `--issue-body` is the same
+      # One renderer, several callers: `.github/scripts/mutants-summary.py` is
+      # what `make mutants` and an on-request run print, and `--issue-body` is the same
       # report wrapped as this issue's body with the catch-rate history carried
       # over from the body it is replacing. A second renderer for the same data
       # is how the two would drift.

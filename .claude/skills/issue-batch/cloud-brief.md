@@ -134,15 +134,18 @@ coder who finds a difference corrects this list in its PR.)*
   `web/` and `app/`, so their gates run: install what they need.
 - `docs/project-format.md` is parsed by tests: an edit to it is a code change.
 - `missing_docs` is a gate: every new `pub` item gets a doc comment.
-- `make mutants` before readying is worth it when the branch adds mechanism.
-  Nothing else compiles in this container, and it is the last point a survivor
-  can be fixed in this PR: CI's report arrives with the run the queue merges
-  on. It is a signal — never a reason to stay draft. To scope a run to a file,
-  use `--re 'path/to/file\.rs'`: `-f` does not narrow it here, because the
-  config's `examine_globs` wins. `--re` does not narrow *delete field*
-  mutants either (cargo-mutants 27.1.0 lets every one in the surface through —
-  63 of 375 on #620's four files), so `--list` first, budget for them, and
-  read survivors outside your files as not yours.
+- **A mutation run before readying** is worth it when the branch adds
+  mechanism, and it is the last chance: pull-request CI runs no mutation and
+  nothing reports survivors after you (#651). It is a signal — never a reason
+  to stay draft. `make mutants-remote` needs an authenticated `gh`, which a
+  cloud container does not have, so run it here: nothing else compiles in this
+  container. Scope it to your files with a whole-file diff — `-f` widens the
+  run and `--re` lets every *delete field* mutant on the surface through
+  (`docs/mutation-testing.md`, *Running it*):
+  `python3 .github/scripts/mutants-scope.py resolve '<your globs>' --out
+  target/scope.json --diff target/scope.diff`, then `cargo mutants --in-diff
+  target/scope.diff --jobs 2`. `make mutants` does the same for the whole
+  branch diff.
 - Rebase onto the latest `origin/main`, then `make gates` (foreground), before
   readying.
 

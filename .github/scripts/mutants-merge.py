@@ -84,7 +84,7 @@ def merge(shards: list[dict | None], expected: int) -> dict:
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
-    """The argv contract the `mutants` job calls this on."""
+    """The argv contract `mutants-on-request.yml` calls this on."""
     parser = argparse.ArgumentParser(
         prog="mutants-merge.py",
         description="Combine sharded cargo-mutants runs into one outcomes document.",

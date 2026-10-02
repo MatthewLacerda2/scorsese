@@ -1,0 +1,139 @@
+# Coverage: which `pub` items no test reaches. A signal, never a gate.
+#
+# Weekly on `main`, and by hand from the Actions tab or `gh workflow run
+# coverage.yml --ref <branch>` — never on a pull request. It used to run on
+# every ready one, and it was the slowest job there: twelve minutes against the
+# real gate's nine, so every merge in the queue waited three minutes for a
+# report that, by CLAUDE.md's gates-vs-signals rule, could not change whether
+# it merged (#651). The question it answers is about the codebase rather than
+# about one change, so a weekly reading of `main` loses nothing a reader acts
+# on.
+#
+# Its own file and not a second job in `mutation-sweep.yml`, which #651 left
+# open. Three reasons, each small and all pointing the same way: the sweep
+# writes to its tracking issue and so holds `issues: write`, which this has no
+# use for; this needs the Postgres service the test suite does, which the sweep
+# does not; and each header can then say what its one workflow is for without
+# a paragraph about the other.
+#
+# What it exists to catch: nothing else tells you a `pub fn` has no test at
+# all. `clippy -D warnings` promotes rustc's `dead_code`, which catches private
+# rot, but `dead_code` never fires on `pub` items in a library crate — and
+# nearly everything in these crates is `pub`, because they exist to be called
+# by the CLI, the MCP server and the GUI. Break-testing #31 found two behaviours
+# with no coverage whatsoever and the suite stayed green.
+#
+# Why it never blocks: a check that proves correctness gates; a check that
+# audits quality informs. A percentage threshold would be actively harmful here
+# — it rewards tests that execute lines over tests that assert behaviour, which
+# is the opposite of what this repo's tests are for. The audio tests measure
+# loudness over a window and the golden tests compare pixels; neither moves a
+# coverage number much, and both are worth more than anything a threshold
+# would buy. If a number should ever gate something, that is a decision made
+# on purpose in its own PR.
+#
+# Where it reports: the run's summary page, and the same Markdown as the
+# `coverage-report` artifact. `make coverage` renders the identical report
+# locally, through the same script.
+#
+# What is excluded, and why:
+#
+# - `crates/golden` — test infrastructure; nothing ships it and nothing depends
+#   on it. Measuring how well the harness is tested measures the wrong thing,
+#   and it would flatter the average besides. `--exclude-from-report` and not
+#   `--exclude`: its tests still *run*, because rendering fixtures is a large
+#   part of what exercises `render` and `compositor`. The coverage it produces
+#   in other crates is exactly what we want counted.
+# - `tools/lint` — its own workspace, deliberately outside
+#   `cargo test --workspace` so the size gate is runnable without ffmpeg. It
+#   would need a second instrumented build and a merged profile, doubling this
+#   job for a four-file tool whose own tests already run as a hard gate in
+#   `ci.yml`'s `size`. Out, on cost.
+# - Integration tests themselves (`crates/*/tests/**`) — llvm-cov omits test
+#   targets from the report by default, which is right: a test file is 100%
+#   covered by definition and counting it would only dilute the number.
+#
+# `schedule:` fires only from the default branch, and GitHub disables it after
+# 60 days without repository activity — the same caveat `mutation-sweep.yml`
+# states, and checked the same way: on the Actions tab.
+name: Coverage
+
+on:
+  # Mondays, 05:23 UTC: off the hour, for the reason the sweep's cron gives,
+  # and an hour clear of the sweep so the two are not both cold-building on
+  # the account's runners while a Monday's first pull requests queue.
+  schedule:
+    - cron: "23 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  coverage:
+    name: coverage (signal)
+    # The image `ci.yml` pins, for the reason it gives: the tests decode
+    # through ffmpeg, and this is the build they are held to.
+    runs-on: ubuntu-24.04
+    # Nothing here can fail anything else, and nothing waits on it; a red run
+    # means the instrument broke — a flag, llvm-cov itself — and says so.
+    timeout-minutes: 60
+    # The same tests as `ci.yml`'s `check`, so the same database.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: scorsese
+          POSTGRES_PASSWORD: scorsese
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready --host 127.0.0.1 --username scorsese"
+          --health-interval 2s --health-timeout 5s --health-retries 30
+    env:
+      DATABASE_URL: postgres://scorsese:scorsese@localhost:5432/scorsese
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+
+      # Its own cache key: instrumented builds carry different RUSTFLAGS and
+      # would otherwise thrash the artifacts `check` depends on. Read weekly,
+      # which is inside GitHub's seven-day eviction, so it stays warm.
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: coverage
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      # `rust-toolchain.toml` pins rustfmt and clippy only. llvm-tools is asked
+      # for here rather than added there so the pin stays the set every job
+      # needs, and only this one pays to download it.
+      - name: Install llvm-tools
+        run: rustup component add llvm-tools-preview
+
+      - name: Measure
+        run: >
+          cargo llvm-cov --workspace --locked
+          --exclude-from-report scorsese-golden
+          --json --output-path coverage.json
+
+      # Read where it lands, not behind a click. llvm-cov's own report is a
+      # twelve-column table with a row per file; this is the same data ordered
+      # by what someone would act on.
+      - name: Render the report
+        run: |
+          python3 .github/scripts/coverage-summary.py coverage.json > coverage.md
+          cat coverage.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep the report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.md
+          retention-days: 30

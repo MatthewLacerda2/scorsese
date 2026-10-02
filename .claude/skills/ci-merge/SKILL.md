@@ -139,14 +139,12 @@ itself, so read its output before doing anything else:
 Absent and passing are different states; a loop counting non-completed checks
 finds zero of each. Require checks to **exist** before calling a run settled.
 
-**Known gap: today a signal does hold a merge.** `make mergeable` waits until
-every `CI` run on the head has completed, and the coverage and mutation jobs
-live in that same run — so a pull request whose gating jobs are all green still
-waits until the mutation jobs finish. That contradicts
-*a signal never holds a merge*; rusty fixed the same shape by settling on the
-gating jobs and ignoring still-running signal jobs
-(MatthewLacerda2/rusty#555). Until that lands here, the wait is expected — not a
-hand-back to act on.
+**The `CI` run holds gates only.** `make mergeable` waits until every `CI` run
+on the head has completed, and since #651 nothing in that run is a coverage or
+mutation job, so the wait is the gates' and nothing else's. A job added to
+`ci.yml` that audits quality rather than proving correctness would put a signal
+back on every merge's clock; it belongs in its own scheduled or dispatched
+workflow instead.
 
 ## A red ready pull request stays ready
 
@@ -180,7 +178,17 @@ citing it is worse than not having run it.
 ## The mutation signal
 
 It is a **signal, never a gate**. It cannot fail a build and **it does not hold a
-merge**.
+merge** — and no pull request runs it (#651). It runs when asked, so asking is
+part of finishing a branch that adds mechanism: before marking it ready,
+
+    make mutants-remote SCOPE='crates/<crate>/src/<the files you wrote>/**'
+
+or `SCOPE=diff` for everything the branch changed. It runs on GitHub's runners
+and prints the report and each survivor's diff in the terminal. An exit of 1 is
+**no report** — a red or cancelled run — and is never read as zero survivors;
+re-dispatch once, then say in the pull request that the signal was not read.
+Nothing reports survivors after the branch is readied, and the queue merges
+without looking, so this is the last point one is cheap.
 
 Read the report when it lists survivors in code **this branch wrote**. A report
 with nothing in it, or whose survivors sit in untouched code, needs no reading.
@@ -219,8 +227,9 @@ wrong every time it appeared. `cargo mutants --list` names the functions and
 builds nothing. The real causes have been ordinary: code with no test, and code
 with no *callers* (which deletion fixes, not a test).
 
-`make mutants` is opt-in and never part of passing. Do not run it while sibling
-agents are compiling — it fans out and the machine cannot carry it.
+`make mutants` is the same question asked of this machine: opt-in, never part of
+passing, and not to be run while sibling agents are compiling — it fans out and
+the machine cannot carry it. That is why `make mutants-remote` is the default.
 
 ## `SYNTH_VERSION`
 

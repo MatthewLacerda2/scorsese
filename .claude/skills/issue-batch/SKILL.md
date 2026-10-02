@@ -60,7 +60,7 @@ touch the same type, they are **one branch**, not one each.
 
 Splitting an issue so several agents can run at once optimises the half that was
 never scarce, and manufactures collisions: four sub-issues each adding a variant
-to one enum is four rebases, four CI cycles and four mutation reports for one
+to one enum is four rebases and four CI cycles for one
 coherent change.
 
 Sub-issues are for work that is genuinely separable *in the code* — not for work
@@ -258,10 +258,10 @@ request:
 3. A hand-back is the queue's whole report: fix a conflict or a red run on the
    branch (or brief its coder to), then queue it again.
 4. After merging: remove the worktree and its `target/`, re-read the board, and
-   start the next piece of work. Then read the merged PR's mutation comment:
-   the queue merges without reading it, so survivors in code the branch wrote
-   become one follow-up issue now (`ci-merge` has the triage) — the code is no
-   longer in hand, and nobody else will look.
+   start the next piece of work. There is no mutation report to read now: pull
+   requests carry none (#651), so a branch that wanted one asked for it with
+   `make mutants-remote` before it was readied, and its survivors were handled
+   then (`ci-merge` has the triage).
 
 **Cloud coders write the branches.** Pick an issue for the cloud when its proof
 is `make gates` and **no in-flight branch edits the same types or files**.

@@ -1,0 +1,326 @@
+# Mutation testing on request: exactly the code an agent names, on GitHub's
+# runners, with a report it can read without opening a log.
+#
+# Pull requests no longer carry a mutation job (#651). Mutation is a signal —
+# nothing it finds may block a merge — and the merge queue waits for the whole
+# CI run, so every merge was paying for a report that could not change whether
+# it merged, while the shards held runners sibling pull requests were queueing
+# for. What replaces it is not silence: an agent that has just written tricky
+# arithmetic asks for exactly that file to be mutated, and reads the answer.
+#
+# The way in is `make mutants-remote SCOPE=…`, which dispatches this workflow
+# on the current branch, waits for the run, downloads its report and prints it
+# (`.github/scripts/mutants-remote.py` has the waiting and its rules). By hand:
+#
+#   gh workflow run mutants-on-request.yml --ref <branch> -f scope='<scope>'
+#
+# The scope is one of three spellings, read by `.github/scripts/mutants-scope.py`
+# — `diff` (this branch against `origin/main`), a package name (`scorsese-core`),
+# or path globs (`crates/zimmer/src/song/**`). Its docstring says why paths go
+# through `--in-diff` rather than cargo-mutants' own `--file` and `--re`: neither
+# of those narrows for real, and a run asked about one file used to come back
+# describing twenty-odd others.
+#
+# Two things only a dispatch can know, and both are in the run's name: the
+# scope, and the request id `make mutants-remote` generates — which is how it
+# finds *its* run among others on the same branch, since a dispatch returns no
+# run id to the caller.
+#
+# It is a signal and never a gate, like the sweep: nothing here is a required
+# check, and it never runs on a pull request. Unlike the sweep it goes red when
+# it has no honest report to give — a scope that matched nothing on the
+# surface, a plan that did not deliver — because the caller is a command that
+# must tell "no survivors" from "no answer", and the run's conclusion is what it
+# reads. Survivors are a result, not a failure, and never turn it red.
+#
+# Like every `workflow_dispatch`, this can only be dispatched once the file is
+# on the default branch; `--ref` then picks the code it runs against.
+name: Mutants on request
+run-name: "mutants: ${{ inputs.scope }} [${{ inputs.request }}]"
+
+on:
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: "`diff`, a package (scorsese-core), or space-separated path globs"
+        required: true
+        type: string
+      request:
+        description: "An id for the caller to find this run by; any short string"
+        required: false
+        default: by-hand
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: never
+
+jobs:
+  # Decide first, then fan out — the shape `ci.yml`'s per-pull-request job had
+  # (#399), kept because the reason did not change: `cargo mutants --list`
+  # builds nothing and answers in about a second, so how big the request is,
+  # and what it covers, is known before anything compiles.
+  plan:
+    name: "mutants: plan"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      shards: ${{ steps.plan.outputs.shards }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+      in_scope: ${{ steps.plan.outputs.in_scope }}
+      args: ${{ steps.resolve.outputs.args }}
+    steps:
+      # Full history: a `diff` scope needs `origin/main` and the merge base.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: mutants
+          save-if: false
+
+      - name: Install cargo-mutants
+        uses: taiki-e/install-action@cargo-mutants
+
+      # Is there a surface left to mutate at all? #363 and #365 excluded it
+      # down to six mutants with nothing noticing; `mutation-surface.py` holds
+      # the count to the floor in `.cargo/mutants.toml`.
+      - name: The surface is still there
+        run: |
+          cargo mutants --list > mutants-list.txt
+          python3 .github/scripts/mutation-surface.py mutants-list.txt
+
+      - name: What was asked for
+        id: resolve
+        env:
+          SCOPE: ${{ inputs.scope }}
+        run: |
+          set -euo pipefail
+          args=$(python3 .github/scripts/mutants-scope.py resolve "$SCOPE" \
+            --out plan.json --diff scope.diff)
+          echo "args=$args" >> "$GITHUB_OUTPUT"
+
+      # The scope line names what was planned and anything planned from outside
+      # the scope, and refuses — red — a named crate or path with nothing on
+      # the mutated surface.
+      - name: How much of it is in the mutated surface
+        id: plan
+        env:
+          ARGS: ${{ steps.resolve.outputs.args }}
+          # The per-shard budget below, in mutants. #394 measured ~10.5s per
+          # mutant at `--jobs 2` on this runner; a 100-minute budget less a
+          # baseline build is ~560, and 400 keeps about a quarter in hand.
+          MUTANTS_PER_SHARD: 400
+          # Six runners at most. A request competes with every ready pull
+          # request's CI for the account's runners, and a file or a diff — the
+          # usual request — needs one. A whole crate can outgrow six; the report
+          # then names how many mutations it did not reach.
+          MUTANTS_MAX_SHARDS: 6
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC2086 # ARGS is a word list on purpose.
+          cargo mutants --list --json $ARGS > planned.json
+          python3 .github/scripts/mutants-scope.py check plan.json planned.json > scope.txt \
+            || { cat scope.txt; echo "::error::$(cat scope.txt)"; exit 1; }
+          cat scope.txt
+          in_scope=$(python3 -c 'import json,sys; t=open(sys.argv[1]).read().strip(); print(len(json.loads(t)) if t else 0)' planned.json)
+          shards=$(( (in_scope + MUTANTS_PER_SHARD - 1) / MUTANTS_PER_SHARD ))
+          if [ "$shards" -gt "$MUTANTS_MAX_SHARDS" ]; then
+            shards=$MUTANTS_MAX_SHARDS
+            echo "That is more than $shards shards cover in their budget, so each runs" \
+                 "what it can and the report says what it missed." >> scope.txt
+          fi
+          # `seq 0 -1` prints nothing: no mutants, `[]`, no shard runs at all.
+          # Shards are 0-based: cargo-mutants refuses `--shard 3/3`.
+          matrix="[$(seq 0 $((shards - 1)) | paste -sd, -)]"
+          {
+            echo "in_scope=$in_scope"
+            echo "shards=$shards"
+            echo "matrix=$matrix"
+          } >> "$GITHUB_OUTPUT"
+          { echo "## Mutation plan"; echo; sed 's/$/  /' scope.txt; } >> "$GITHUB_STEP_SUMMARY"
+
+      # Handed to the shards so every one mutates the same diff, and to the
+      # report for the survivors' diffs, which `--list --json` already carries.
+      - name: Hand the plan on
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutants-plan
+          path: |
+            scope.diff
+            scope.txt
+            planned.json
+          retention-days: 1
+
+  shard:
+    name: "mutants: shard ${{ matrix.shard }}"
+    needs: plan
+    # An empty string is what an output reads as when the plan never set it,
+    # and `fromJSON('')` is a workflow error rather than a skipped job.
+    if: needs.plan.outputs.shards != '' && needs.plan.outputs.shards != '0'
+    runs-on: ubuntu-24.04
+    # A shard that breaks takes its own slice with it and the rest still
+    # report; the merge counts the missing one and the report names the gap.
+    continue-on-error: true
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    env:
+      # The most the mutation step may take, measured from the job's start and
+      # not the step's (#601): a shard whose setup was slow gets less, not
+      # overtime, and ends by uploading what it measured.
+      BUDGET_SECONDS: 6000
+      # Must equal `timeout-minutes` above, in seconds.
+      JOB_LIMIT_SECONDS: 7200
+      # `timeout`'s kill grace, the upload, and the job's teardown.
+      RESERVE_SECONDS: 180
+    steps:
+      - name: Start the clock
+        run: echo "JOB_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@v4
+
+      # Mutants in `crates/render/src/plan/` and `src/audio/` run that crate's
+      # tests, which decode real fixture media.
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: mutants
+          save-if: ${{ matrix.shard == 0 }}
+
+      - name: Install cargo-mutants
+        uses: taiki-e/install-action@cargo-mutants
+
+      - name: The plan
+        uses: actions/download-artifact@v4
+        with:
+          name: mutants-plan
+
+      # No warm-up build: the copy each mutant is built in has no `target/`, so
+      # it would compile into a directory no mutant reads (#394 measured it).
+      #
+      # `ulimit -v`: every process here — cargo-mutants, rustc, the linker,
+      # each test binary — gets at most 6 GiB of address space. A mutant that
+      # turns a loop infinite *and* allocating fills RAM in seconds, long
+      # before the per-mutant timeout, and takes the runner down with it:
+      # "The runner has received a shutdown signal", and the shard's report is
+      # lost. rusty lost a sweep shard exactly that way (MatthewLacerda2/rusty
+      # #715). Capped, the test binary's allocation fails, it aborts, and
+      # cargo-mutants counts the mutant caught.
+      #
+      # The number is this runner's, not rusty's. A public repository's
+      # `ubuntu-24.04` runner has 16 GB, and `--jobs 2` (`.cargo/mutants.toml`,
+      # *How wide a run fans out*) means two mutants build and test at once:
+      # two runaways together stop at 12 GiB, leaving the runner agent and the
+      # OS about 4. Measured headroom (#651, on a 4-core, 15 GB container):
+      # every surface crate's tests pass under a 2 GiB cap and a rebuild of
+      # `scorsese-compositor`, the heaviest, links under 3 GiB — so 6 GiB is
+      # twice what a legitimate build needs and never the reason one fails.
+      #
+      # Exit codes: 0 clean, 2 survivors, 3 timeouts — all ordinary results;
+      # 124/137 is `timeout` ending the shard at its budget, which the report
+      # names; anything else is the tool broken, and turns this shard red.
+      - name: Mutate
+        env:
+          SHARD: ${{ matrix.shard }}
+          SHARDS: ${{ needs.plan.outputs.shards }}
+          ARGS: ${{ needs.plan.outputs.args }}
+        run: |
+          left=$(( JOB_LIMIT_SECONDS - ($(date +%s) - JOB_STARTED) - RESERVE_SECONDS ))
+          budget=$(( left < BUDGET_SECONDS ? left : BUDGET_SECONDS ))
+          if [ "$budget" -lt 60 ]; then
+            echo "::notice::shard $SHARD: setup left ${left}s of the job; not mutating"
+            exit 0
+          fi
+          ulimit -v 6291456
+          set +e
+          # shellcheck disable=SC2086 # ARGS is a word list on purpose.
+          timeout --kill-after=60s "${budget}s" \
+            cargo mutants $ARGS --shard "$SHARD/$SHARDS" --jobs 2 --colors never
+          status=$?
+          set -e
+          case "$status" in
+            0|2|3) echo "cargo-mutants ran (exit $status)" ;;
+            124|137) echo "::notice::shard $SHARD stopped at its ${budget}s budget" ;;
+            *) echo "::error::cargo-mutants exited $status"; exit 1 ;;
+          esac
+
+      - name: What this shard measured
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutants-shard-${{ matrix.shard }}
+          path: mutants.out/outcomes.json
+          if-no-files-found: ignore
+          retention-days: 1
+
+  # The report, as an artifact `make mutants-remote` downloads and as the run's
+  # summary page. Not `continue-on-error`: this job going red is how the
+  # caller learns there is no honest report, rather than an empty one.
+  report:
+    name: "mutants: report"
+    needs: [plan, shard]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: The plan
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: mutants-plan
+
+      - name: What the shards measured
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: mutants-shard-*
+          path: shards
+
+      # Refuses, red, when the plan left nothing behind: then the scope, the
+      # surface and the size of the job are unknown and every number below
+      # would be invented. `--expect` turns a shard that vanished into a
+      # sentence rather than a smaller-looking run, and `--in-scope` makes a
+      # run that did not reach everything say by how much.
+      - name: Render the report
+        env:
+          PLAN: ${{ needs.plan.result }}
+          SHARDS: ${{ needs.plan.outputs.shards }}
+          IN_SCOPE: ${{ needs.plan.outputs.in_scope }}
+        run: |
+          set -euo pipefail
+          if [ ! -f scope.txt ] || [ -z "$SHARDS" ] || [ -z "$IN_SCOPE" ]; then
+            echo "::error::the plan job (result: $PLAN) left no scope or counts" \
+                 "behind, so there is no honest report to write"
+            exit 1
+          fi
+          mkdir -p report
+          shopt -s nullglob
+          measured=(shards/*/outcomes.json)
+          python3 .github/scripts/mutants-merge.py --expect "$SHARDS" \
+            "${measured[@]}" > report/outcomes.json
+          scope=$(tr '\n' ' ' < scope.txt | sed 's/ *$//')
+          python3 .github/scripts/mutants-summary.py report/outcomes.json \
+            "$scope" --in-scope "$IN_SCOPE" > report/report.md
+          python3 .github/scripts/mutants-diffs.py report/outcomes.json planned.json \
+            > report/survivors.diff
+          cat report/report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep the report
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutants-report
+          path: report/
+          if-no-files-found: error
+          retention-days: 14

@@ -18,7 +18,7 @@ as on a runner, and python3 is the one of the two that is always already there.
 
 This never exits non-zero over a coverage number, and there is deliberately no
 threshold to compare against. Coverage audits quality; it does not prove
-correctness. See the `coverage` job in `.github/workflows/ci.yml`.
+correctness. See `.github/workflows/coverage.yml`, which runs it weekly.
 """
 
 from __future__ import annotations
@@ -147,8 +147,8 @@ FOOTER = (
     " repository's strongest tests (loudness over a window, pixels against a"
     " reference) barely move the number. Read it for the one thing it says"
     " reliably: code no test reaches at all. `crates/golden` and `tools/lint`"
-    " are excluded, with reasons, in the `coverage` job of"
-    " <code>.github/workflows/ci.yml</code>.</sub>"
+    " are excluded, with reasons, in"
+    " <code>.github/workflows/coverage.yml</code>.</sub>"
 )
 
 
