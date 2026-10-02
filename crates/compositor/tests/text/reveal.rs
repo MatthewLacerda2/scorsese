@@ -116,3 +116,33 @@ fn a_piece_halfway_in_is_the_piece_whole_at_half_alpha() {
         }
     }
 }
+
+/// Two words partway in at once, each at its own opacity: three quarters and
+/// one quarter, halfway through a half-staggered pair. Each word's most solid
+/// pixel says which opacity it was drawn at, so neither is drawn at the
+/// other's.
+#[test]
+fn two_pieces_partway_in_each_keep_their_own_opacity() {
+    let frame = revealed("Ship it", RevealUnit::Word, 0.5, 0.5);
+    let (left, _, right, _) = bounds(&frame).expect("ink");
+    // Where the first word ends: a full stagger at halfway has it in alone.
+    let split = bounds(&revealed("Ship it", RevealUnit::Word, 0.5, 1.0))
+        .expect("ink")
+        .2
+        + 1;
+    let solidest = |columns: std::ops::Range<u32>| {
+        let width = frame.resolution().width();
+        let pixels = frame.bytes().chunks_exact(4).enumerate();
+        pixels
+            .filter(|(at, _)| columns.contains(&(*at as u32 % width)))
+            .map(|(_, pixel)| pixel[3])
+            .max()
+            .expect("pixels")
+    };
+    assert_eq!(
+        solidest(left..split),
+        191,
+        "the first word, three quarters in"
+    );
+    assert_eq!(solidest(split..right + 1), 64, "the second, one quarter");
+}
