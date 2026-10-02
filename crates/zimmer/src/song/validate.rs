@@ -6,7 +6,7 @@
 
 use super::automate::{Automation, Param};
 use super::timing::{MAX_STRETCH, Tail};
-use super::{ArrangementEntry, Context, Key, Pattern, PatternEntry, Song, Track};
+use super::{ArrangementEntry, Context, Key, Layer, Pattern, PatternEntry, Song, Track};
 use crate::error::SynthError;
 use crate::patch::Patch;
 
@@ -31,12 +31,19 @@ impl Song {
         // not parse" before either is reported.
         let key = self.key()?;
         for entry in &self.arrangement {
-            if !self.patterns.contains_key(entry.pattern()) {
-                return Err(SynthError::UnknownPattern {
-                    pattern: entry.pattern().to_owned(),
-                });
+            if let ArrangementEntry::Layered(layered) = entry
+                && layered.layers.is_empty()
+            {
+                return Err(SynthError::NoLayers);
             }
-            self.check_entry(entry, key.as_ref())?;
+            for layer in entry.layers() {
+                if !self.patterns.contains_key(layer.pattern()) {
+                    return Err(SynthError::UnknownPattern {
+                        pattern: layer.pattern().to_owned(),
+                    });
+                }
+                self.check_layer(layer, key.as_ref())?;
+            }
         }
         for (name, pattern) in &self.patterns {
             pattern.validate(name, &self.tracks, key.as_ref())?;
@@ -147,7 +154,7 @@ impl Song {
         Ok(())
     }
 
-    /// One arrangement entry's transforms.
+    /// One layer's transforms — a whole entry's, unless it is layered.
     ///
     /// A `tracks` filter naming no real track is the same typo as an
     /// arrangement naming no real pattern, and has the same consequence — an
@@ -159,8 +166,8 @@ impl Song {
     /// The diatonic transpose is refused for two further reasons, both of them
     /// decisions rather than arithmetic — see
     /// [`transpose_degrees`](super::Play::transpose_degrees).
-    fn check_entry(&self, entry: &ArrangementEntry, key: Option<&Key>) -> Result<(), SynthError> {
-        let ArrangementEntry::Transformed(play) = entry else {
+    fn check_layer(&self, layer: &Layer, key: Option<&Key>) -> Result<(), SynthError> {
+        let Layer::Transformed(play) = layer else {
             return Ok(());
         };
         if let Some(transpose) = play.transpose

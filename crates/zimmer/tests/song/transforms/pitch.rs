@@ -23,7 +23,7 @@ fn a_bare_name_and_its_empty_long_form_are_the_same_document() {
 fn transposing_an_entry_equals_writing_the_notes_higher() {
     let mut transposed = song();
     transposed.arrangement = vec![
-        ArrangementEntry::Transformed(Play {
+        ArrangementEntry::from(Play {
             transpose: Some(7.0),
             ..play("verse")
         }),
@@ -49,7 +49,7 @@ fn transposing_works_on_a_midi_pitch_as_it_does_on_a_name() {
 
     let mut up = written.clone();
     up.arrangement = vec![
-        ArrangementEntry::Transformed(Play {
+        ArrangementEntry::from(Play {
             transpose: Some(2.0),
             ..play("verse")
         }),
@@ -78,7 +78,7 @@ fn transposing_works_on_a_midi_pitch_as_it_does_on_a_name() {
 fn a_transpose_past_the_top_of_the_range_is_clamped_rather_than_refused() {
     let mut high = song();
     voice(verse(&mut high), 0).note = Pitch::Name("G9".to_owned());
-    high.arrangement = vec![ArrangementEntry::Transformed(Play {
+    high.arrangement = vec![ArrangementEntry::from(Play {
         transpose: Some(24.0),
         ..play("verse")
     })];
@@ -90,7 +90,7 @@ fn a_transpose_past_the_top_of_the_range_is_clamped_rather_than_refused() {
 /// octaves up and the document no longer says what it does.
 #[test]
 fn transforms_do_not_accumulate_down_the_arrangement() {
-    let up_a_fifth = ArrangementEntry::Transformed(Play {
+    let up_a_fifth = ArrangementEntry::from(Play {
         transpose: Some(7.0),
         ..play("verse")
     });

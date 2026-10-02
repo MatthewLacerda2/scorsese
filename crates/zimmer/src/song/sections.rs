@@ -16,6 +16,9 @@ use crate::level::Cut;
 
 /// Every arrangement entry's end, in seconds of the rendered piece.
 ///
+/// One per entry, a layered one included: a row is a stretch of the piece, and
+/// a solo over a groove is one stretch, labelled with both.
+///
 /// Taken from the *planned* tempo and pass count rather than from the written
 /// ones, because `fit` can change both: a song stretched to land on a cut plays
 /// at a tempo the document never states, and one looped to fill a bed plays its
@@ -44,12 +47,12 @@ fn whole(song: &Song) -> Vec<Cut> {
         .cycle()
         .take(song.arrangement.len() * passes as usize)
     {
-        let Some(pattern) = song.patterns.get(entry.pattern()) else {
+        let Some(slot) = song.slot_beats(entry) else {
             continue;
         };
-        beats += pattern.beats;
+        beats += slot;
         cuts.push(Cut {
-            label: entry.pattern().to_owned(),
+            label: entry.label(),
             end_seconds: f64::from(clock.seconds(beats)),
         });
     }

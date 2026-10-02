@@ -10,7 +10,8 @@ use crate::file::{Track, smf};
 pub(crate) fn notes(song: &Song, track: &str) -> Vec<Note> {
     song.arrangement
         .iter()
-        .flat_map(|entry| &song.patterns[entry.pattern()].notes)
+        .flat_map(|entry| entry.layers())
+        .flat_map(|layer| &song.patterns[layer.pattern()].notes)
         .filter_map(|entry| match entry {
             PatternEntry::Note(note) if note.track == track => Some(note.clone()),
             _ => None,

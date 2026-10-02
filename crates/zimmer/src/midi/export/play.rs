@@ -103,11 +103,17 @@ pub(super) fn parts<'s>(song: &'s Song, voices: &[Voice]) -> Result<Played<'s>, 
 
     let mut cursor = 0.0_f64;
     for entry in &song.arrangement {
-        let Some(pattern) = song.patterns.get(entry.pattern()) else {
+        let Some(slot) = song.slot_beats(entry) else {
             continue;
         };
-        for note in voiced.get(entry.pattern()).into_iter().flatten() {
-            if !entry.plays(&note.track) {
+        for (layer, note) in entry.layers().iter().flat_map(|layer| {
+            voiced
+                .get(layer.pattern())
+                .into_iter()
+                .flatten()
+                .map(move |note| (layer, note))
+        }) {
+            if !layer.plays(&note.track) {
                 continue;
             }
             let track = index[note.track.as_str()];
@@ -115,11 +121,11 @@ pub(super) fn parts<'s>(song: &'s Song, voices: &[Voice]) -> Result<Played<'s>, 
             if note.articulation == Some(Articulation::Glide) {
                 unsaid.glides += 1;
             }
-            let pitch = entry.played_pitch(note.note.to_midi()?, key.as_ref());
+            let pitch = layer.played_pitch(note.note.to_midi()?, key.as_ref());
             let Some(key) = keyed(pitch, voices[track], &mut unsaid) else {
                 continue;
             };
-            let Some(vel) = velocity(note.vel * entry.vel_scale() * stroke.velocity, &mut unsaid)
+            let Some(vel) = velocity(note.vel * layer.vel_scale() * stroke.velocity, &mut unsaid)
             else {
                 continue;
             };
@@ -133,7 +139,7 @@ pub(super) fn parts<'s>(song: &'s Song, voices: &[Voice]) -> Result<Played<'s>, 
                 vel,
             });
         }
-        cursor += f64::from(pattern.beats);
+        cursor += f64::from(slot);
     }
     Ok(Played { parts, unsaid })
 }

@@ -1,4 +1,5 @@
-//! An entry in the running order: a pattern, and optionally how to play it.
+//! An entry in the running order: a pattern — or several at once — and
+//! optionally how to play each.
 //!
 //! A [`Song`](super::Song) has two ways to relate one section to another, and
 //! before this module there were only the bad ones: **play the identical
@@ -25,18 +26,65 @@ use serde::{Deserialize, Serialize};
 use super::Key;
 use crate::note::MIDI_RANGE;
 
-/// One entry in the running order.
+/// One entry in the running order: one slot of the piece, and what plays in
+/// it.
+///
+/// Most entries are one pattern, played as written or transformed — a
+/// [`Layer`]. An entry can also stack several, which is how a solo is written
+/// once and played over a groove that is also written once: before that form
+/// existed, every section that put a new part over the rhythm section had to
+/// carry a full copy of the rhythm section's notes (#506).
+///
+/// Untagged when written, so every song from before either form parses and
+/// re-serialises unchanged, short form still short. It is read by hand, by the
+/// one key that cannot be misspelled into the other form — `layers` — so a
+/// misspelled key in a [`Play`] or a [`Layers`] is refused by name; the
+/// `song::forms` module has why.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum ArrangementEntry {
+    /// One pattern, in a slot exactly as long as it is.
+    Single(Layer),
+    /// Several patterns at the same time.
+    Layered(Layers),
+}
+
+/// Several patterns sounding in one slot: `{ "layers": ["groove", "solo"] }`.
+///
+/// **The slot is as long as its longest layer**, so the next entry starts when
+/// everything in this one has had its say, and a shorter layer simply rests for
+/// the remainder — the same rule a pattern's own `beats` already states for a
+/// note that ends early.
+///
+/// **Each layer carries its own transforms, and only its own.** A solo pushed
+/// up an octave does not take the groove with it, and two layers of the same
+/// pattern — `"lead"` and the same lead a twelfth up — are an octave double
+/// written as one line. A layer cannot itself be layered: one level is what a
+/// lane in a DAW is, and a tree of them is a second arrangement inside the
+/// first with nothing to show for it.
+///
+/// The bake report still prints **one row per entry**, named after every
+/// pattern in it, because a row is a stretch of the piece and a layered entry
+/// is one stretch.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Layers {
+    /// What plays, all starting on the slot's first beat. In order, because
+    /// the order is part of the seed derivation, the way a song's track order
+    /// is: each note's noise is keyed by where it falls in the walk.
+    pub layers: Vec<Layer>,
+}
+
+/// One pattern, and optionally how to play it — a whole arrangement entry, or
+/// one of a [`Layers`] entry's layers.
 ///
 /// Untagged, with the bare string first: a JSON string can only be a pattern
 /// name and a JSON object can only be the long form, so the two never race —
 /// the trick [`Pitch`](super::Pitch) and [`PatchRef`](super::PatchRef) already
-/// use here. Every song written before this existed parses unchanged and
-/// re-serialises unchanged, short form still short. It is read by hand rather
-/// than by serde's untagged reader, so a misspelled key in a [`Play`] is
-/// refused by name — the `song::forms` module has why.
+/// use here.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(untagged)]
-pub enum ArrangementEntry {
+pub enum Layer {
     /// Play the pattern as written.
     Name(String),
     /// Play it differently.
@@ -99,7 +147,26 @@ pub struct Play {
 }
 
 impl ArrangementEntry {
-    /// The pattern this entry plays.
+    /// Everything that plays in this entry's slot, in walking order — one
+    /// layer for every entry but a layered one.
+    pub fn layers(&self) -> &[Layer] {
+        match self {
+            Self::Single(layer) => std::slice::from_ref(layer),
+            Self::Layered(layered) => &layered.layers,
+        }
+    }
+
+    /// What a report calls this entry: its pattern's name, or every layer's
+    /// joined with ` + ` — `groove + solo` is the section a reader is looking
+    /// for, where the first layer's name alone would say the solo is not there.
+    pub fn label(&self) -> String {
+        let names: Vec<&str> = self.layers().iter().map(Layer::pattern).collect();
+        names.join(" + ")
+    }
+}
+
+impl Layer {
+    /// The pattern this layer plays.
     pub fn pattern(&self) -> &str {
         match self {
             Self::Name(name) => name,
@@ -168,20 +235,50 @@ impl ArrangementEntry {
     }
 }
 
-impl From<&str> for ArrangementEntry {
+impl From<&str> for Layer {
     fn from(name: &str) -> Self {
         Self::Name(name.to_owned())
     }
 }
 
-impl From<String> for ArrangementEntry {
+impl From<String> for Layer {
     fn from(name: String) -> Self {
         Self::Name(name)
     }
 }
 
-impl From<Play> for ArrangementEntry {
+impl From<Play> for Layer {
     fn from(play: Play) -> Self {
         Self::Transformed(play)
+    }
+}
+
+impl From<&str> for ArrangementEntry {
+    fn from(name: &str) -> Self {
+        Self::Single(name.into())
+    }
+}
+
+impl From<String> for ArrangementEntry {
+    fn from(name: String) -> Self {
+        Self::Single(name.into())
+    }
+}
+
+impl From<Play> for ArrangementEntry {
+    fn from(play: Play) -> Self {
+        Self::Single(play.into())
+    }
+}
+
+impl From<Layer> for ArrangementEntry {
+    fn from(layer: Layer) -> Self {
+        Self::Single(layer)
+    }
+}
+
+impl From<Layers> for ArrangementEntry {
+    fn from(layered: Layers) -> Self {
+        Self::Layered(layered)
     }
 }

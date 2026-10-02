@@ -26,7 +26,7 @@
 
 use std::collections::HashMap;
 
-use super::{ArrangementEntry, Key, Note};
+use super::{Key, Layer, Note};
 use crate::error::SynthError;
 
 /// Which note each note of a pattern slides from, and where the pattern leaves
@@ -118,7 +118,7 @@ impl Trail {
         Self(vec![None; tracks])
     }
 
-    /// The pitch note `index` of `slides` slides from, as `entry` plays it:
+    /// The pitch note `index` of `slides` slides from, as `layer` plays it:
     /// the note before it in the pattern, or wherever the last entry left this
     /// `track`'s hand.
     pub(crate) fn from(
@@ -126,24 +126,24 @@ impl Trail {
         slides: &Slides,
         index: usize,
         track: usize,
-        entry: &ArrangementEntry,
+        layer: &Layer,
         key: Option<&Key>,
     ) -> Option<f32> {
         match slides.previous[index] {
-            Some(before) => Some(entry.played_pitch(slides.midi[before], key)),
+            Some(before) => Some(layer.played_pitch(slides.midi[before], key)),
             None => self.0[track],
         }
     }
 
-    /// Moves every hand this pattern touched to where `entry` left it.
+    /// Moves every hand this pattern touched to where `layer` left it.
     ///
     /// A track the pattern has no notes on is left where it was, so a bar of
     /// rest is not a hand lifted: the next note on that track still slides
     /// from the last one played on it.
-    pub(crate) fn advance(&mut self, slides: &Slides, entry: &ArrangementEntry, key: Option<&Key>) {
+    pub(crate) fn advance(&mut self, slides: &Slides, layer: &Layer, key: Option<&Key>) {
         for (track, last) in slides.last.iter().enumerate() {
             if let Some(index) = last {
-                self.0[track] = Some(entry.played_pitch(slides.midi[*index], key));
+                self.0[track] = Some(layer.played_pitch(slides.midi[*index], key));
             }
         }
     }
@@ -175,7 +175,7 @@ mod tests {
     /// The pitch each note slides from, played untransposed and in no key.
     fn from(notes: &[Note]) -> Vec<Option<f32>> {
         let slides = slides(notes);
-        let entry = ArrangementEntry::Name("a".to_owned());
+        let entry = Layer::Name("a".to_owned());
         let trail = Trail::new(2);
         (0..notes.len())
             .map(|index| {
@@ -231,13 +231,13 @@ mod tests {
     fn a_hand_stays_where_the_previous_entry_left_it() {
         let notes = [note("bass", "E2", 0.0), note("bass", "G2", 1.0)];
         let slides = slides(&notes);
-        let up = ArrangementEntry::Transformed(Play {
+        let up = Layer::Transformed(Play {
             transpose: Some(12.0),
             ..play()
         });
         let mut trail = Trail::new(2);
         trail.advance(&slides, &up, None);
-        let plain = ArrangementEntry::Name("a".to_owned());
+        let plain = Layer::Name("a".to_owned());
         assert_eq!(
             trail.from(&slides, 0, 0, &plain, None),
             Some(55.0),
@@ -249,7 +249,7 @@ mod tests {
     /// of rest is not a hand lifted off the instrument.
     #[test]
     fn a_pattern_that_is_silent_on_a_track_leaves_its_hand_alone() {
-        let entry = ArrangementEntry::Name("a".to_owned());
+        let entry = Layer::Name("a".to_owned());
         let mut trail = Trail::new(2);
         trail.advance(&slides(&[note("bass", "E2", 0.0)]), &entry, None);
         trail.advance(&slides(&[note("keys", "C5", 0.0)]), &entry, None);

@@ -37,11 +37,7 @@ fn patterns_are_eight_bars_of_the_files_own_meter() {
         .note(24 * 480 + 240, 480, 0, 62);
     let song = import(&smf(0, 480, &mut [part])).expect("imports").song;
 
-    let order: Vec<&str> = song
-        .arrangement
-        .iter()
-        .map(|entry| entry.pattern())
-        .collect();
+    let order: Vec<String> = song.arrangement.iter().map(|entry| entry.label()).collect();
     assert_eq!(order, ["bars-1-8", "bar-9"]);
     assert_eq!(song.patterns["bars-1-8"].beats, 24.0);
     assert_eq!(song.patterns["bar-9"].beats, 3.0);

@@ -128,7 +128,7 @@ fn a_glide_slides_from_a_note_that_never_sounded() {
 
 /// The `lead` pattern, played with every track silenced.
 fn silenced() -> ArrangementEntry {
-    ArrangementEntry::Transformed(Play {
+    ArrangementEntry::from(Play {
         pattern: "lead".to_owned(),
         transpose: None,
         transpose_degrees: None,

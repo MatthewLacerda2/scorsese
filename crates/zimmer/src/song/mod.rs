@@ -34,7 +34,9 @@
 //!
 //! An arrangement entry is a pattern's name, or that name with transforms: a
 //! repeat that can vary is the difference between music that develops and music
-//! that only repeats.
+//! that only repeats. An entry can also stack several patterns in one slot —
+//! `{ "layers": ["groove", "solo"] }` — so a part is written once and layered
+//! wherever it plays.
 //!
 //! An entry in a pattern is one note — written absolutely, or as a degree of
 //! the song's [`Key`] — or one [`Chord`], or one run of [`Steps`]. That is the
@@ -73,7 +75,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::SynthError;
 use crate::patch::{Fx, Patch};
 
-pub use arrangement::{ArrangementEntry, Play};
+pub use arrangement::{ArrangementEntry, Layer, Layers, Play};
 pub use articulation::Articulation;
 pub use automate::{Automation, Easing, Param, Point};
 pub use chord::{Arp, Chord, Voicing};
@@ -146,8 +148,8 @@ pub struct Song {
     /// same song are byte-identical.
     pub patterns: BTreeMap<String, Pattern>,
     /// Which patterns play, in order. An entry is a pattern's name, or that
-    /// name with [transforms](ArrangementEntry) — a repeat that varies rather
-    /// than photocopies.
+    /// name with [transforms](Play) — a repeat that varies rather than
+    /// photocopies — or several of those at once, [layered](Layers).
     pub arrangement: Vec<ArrangementEntry>,
     /// How far the off-beat eighths sit behind the grid: `0.0` is straight,
     /// `0.33` is roughly the triplet feel, `0.5` is dotted. A property of the
@@ -494,16 +496,31 @@ impl Song {
         serde_json::from_str(json)
     }
 
-    /// Total arrangement length in beats — the sum of its patterns' slots.
+    /// Total arrangement length in beats — the sum of its entries' slots.
     ///
     /// Notes are allowed to ring out past this: it is where the *last pattern*
     /// ends, not where the audio does.
     pub fn arrangement_beats(&self) -> f32 {
         self.arrangement
             .iter()
-            .filter_map(|entry| self.patterns.get(entry.pattern()))
-            .map(|pattern| pattern.beats)
+            .filter_map(|entry| self.slot_beats(entry))
             .sum()
+    }
+
+    /// How many beats `entry` occupies: its longest layer's pattern, so the
+    /// next entry starts when everything in this one has had its say.
+    ///
+    /// `None` when it names no pattern this song defines — validation refuses
+    /// that, and every walk that tolerates an unvalidated document skips it.
+    /// A layered entry naming one real pattern and one typo is the length of
+    /// the real one, for the same reason.
+    pub(crate) fn slot_beats(&self, entry: &ArrangementEntry) -> Option<f32> {
+        entry
+            .layers()
+            .iter()
+            .filter_map(|layer| self.patterns.get(layer.pattern()))
+            .map(|pattern| pattern.beats)
+            .reduce(f32::max)
     }
 
     /// Seconds per beat at `bpm` — the whole piece's, or its first beat's if

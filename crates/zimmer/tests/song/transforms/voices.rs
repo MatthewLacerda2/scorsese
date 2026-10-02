@@ -10,7 +10,7 @@ use super::setup::{play, render};
 #[test]
 fn scaling_velocity_equals_writing_the_notes_quieter() {
     let mut scaled = song();
-    scaled.arrangement = vec![ArrangementEntry::Transformed(Play {
+    scaled.arrangement = vec![ArrangementEntry::from(Play {
         vel_scale: Some(0.5),
         ..play("verse")
     })];
@@ -45,7 +45,7 @@ fn a_tracks_filter_silences_exactly_the_tracks_it_does_not_name() {
     let beat = (duet.beat_seconds() * SAMPLE_RATE as f32) as usize;
     for (only, sounds, silent) in [("bass", 0, beat), ("lead", beat, 0)] {
         let mut filtered = duet.clone();
-        filtered.arrangement = vec![ArrangementEntry::Transformed(Play {
+        filtered.arrangement = vec![ArrangementEntry::from(Play {
             tracks: Some(vec![only.to_owned()]),
             ..play("verse")
         })];
@@ -79,7 +79,7 @@ fn silencing_a_track_leaves_the_other_notes_bit_identical() {
 
     let mut filtered = duet.clone();
     filtered.arrangement = vec![
-        ArrangementEntry::Transformed(Play {
+        ArrangementEntry::from(Play {
             tracks: Some(vec!["bass".to_owned()]),
             ..play("verse")
         }),

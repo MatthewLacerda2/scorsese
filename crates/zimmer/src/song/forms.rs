@@ -3,8 +3,8 @@
 //!
 //! Three places in a song accept more than one shape: a track's
 //! [`PatchRef`] (a name, or the patch itself), an [`ArrangementEntry`] (a
-//! name, or a [`Play`]) and a [`PatternEntry`] (a note, a degree, a chord or a
-//! step string). They are still *written* untagged — the derive serialises
+//! name, a [`Play`] or a [`Layers`]) and a [`PatternEntry`] (a note, a
+//! degree, a chord or a step string). They are still *written* untagged — the derive serialises
 //! them, and the documents on disk do not change — but serde's untagged
 //! **reader** tries each variant in turn and, when none fits, reports only
 //! *"data did not match any variant"*. Every document type underneath denies
@@ -19,6 +19,10 @@
 //! - a name or a document is decided by the **JSON type** — a string is a
 //!   name, an object is the long form — which is the same rule the untagged
 //!   derive relied on, now stated rather than discovered;
+//! - an arrangement entry written as an object is decided by **whether it
+//!   carries `layers`**: with it, the whole object is a [`Layers`], so a
+//!   `pattern` beside it is refused by name rather than one of the two being
+//!   quietly dropped; without it, a [`Play`];
 //! - a pattern entry is decided by **which of its four keys is present**,
 //!   looked for in the order `steps`, `chord`, `degree`, `note`. `steps` comes
 //!   first because a [`Steps`] may also carry a `note`, and `note` last for
@@ -34,7 +38,9 @@ use serde::de::{Error, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use serde_json::Value;
 
-use super::{ArrangementEntry, Chord, DegreeNote, Note, PatchRef, PatternEntry, Play, Steps};
+use super::{
+    ArrangementEntry, Chord, DegreeNote, Layer, Layers, Note, PatchRef, PatternEntry, Play, Steps,
+};
 use crate::patch::Patch;
 
 /// A value written either as a bare name or as the document it names.
@@ -90,12 +96,71 @@ impl<'de> Deserialize<'de> for PatchRef {
     }
 }
 
-impl<'de> Deserialize<'de> for ArrangementEntry {
+impl<'de> Deserialize<'de> for Layer {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         Ok(
             match name_or::<D, Play>(deserializer, "a pattern's name, or a `play` object")? {
                 NameOr::Name(name) => Self::Name(name),
                 NameOr::Body(play) => Self::Transformed(play),
+            },
+        )
+    }
+}
+
+/// Reads an object's keys and values as written — every key, duplicates
+/// included — so a form chosen afterwards reads exactly what the page says.
+struct Fields;
+
+impl<'de> Visitor<'de> for Fields {
+    type Value = Vec<(String, Value)>;
+
+    fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str("an object")
+    }
+
+    fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+        let mut fields = Vec::new();
+        while let Some(field) = map.next_entry()? {
+            fields.push(field);
+        }
+        Ok(fields)
+    }
+}
+
+/// The long form of an [`ArrangementEntry`], before it is known which one.
+enum EntryBody {
+    /// It carried `layers`.
+    Layered(Layers),
+    /// It did not.
+    Played(Play),
+}
+
+impl<'de> Deserialize<'de> for EntryBody {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        // Buffered for the reason a pattern entry is: the form is decided by a
+        // key, and the form's own reader then sees exactly what was written.
+        let fields = deserializer.deserialize_map(Fields)?;
+        let layered = fields.iter().any(|(name, _)| name == "layers");
+        let body = MapDeserializer::<_, serde_json::Error>::new(fields.into_iter());
+        if layered {
+            Layers::deserialize(body).map(Self::Layered)
+        } else {
+            Play::deserialize(body).map(Self::Played)
+        }
+        .map_err(D::Error::custom)
+    }
+}
+
+impl<'de> Deserialize<'de> for ArrangementEntry {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Ok(
+            match name_or::<D, EntryBody>(
+                deserializer,
+                "a pattern's name, a `play` object, or a `layers` object",
+            )? {
+                NameOr::Name(name) => Self::Single(Layer::Name(name)),
+                NameOr::Body(EntryBody::Played(play)) => Self::Single(Layer::Transformed(play)),
+                NameOr::Body(EntryBody::Layered(layered)) => Self::Layered(layered),
             },
         )
     }
@@ -115,14 +180,10 @@ impl<'de> Visitor<'de> for EntryVisitor {
         f.write_str("a pattern entry: an object with `note`, `degree`, `chord` or `steps`")
     }
 
-    fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<PatternEntry, A::Error> {
-        // Buffered as written — every key, duplicates included — so the form
-        // chosen below reads exactly what the page says, and a key written
-        // twice is refused as a duplicate rather than quietly collapsed.
-        let mut fields: Vec<(String, Value)> = Vec::new();
-        while let Some(field) = map.next_entry()? {
-            fields.push(field);
-        }
+    fn visit_map<A: MapAccess<'de>>(self, map: A) -> Result<PatternEntry, A::Error> {
+        // Buffered as written, so a key written twice is refused as a
+        // duplicate rather than quietly collapsed.
+        let fields = Fields.visit_map(map)?;
         let Some(form) = ENTRY_KEYS
             .into_iter()
             .find(|key| fields.iter().any(|(name, _)| name == key))

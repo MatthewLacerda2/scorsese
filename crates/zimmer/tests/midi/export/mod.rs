@@ -2,6 +2,7 @@
 //! map, and an imported file making the trip back.
 
 mod bytes;
+mod layers;
 mod played;
 mod read;
 mod round_trip;

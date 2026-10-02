@@ -267,122 +267,132 @@ pub(crate) fn mix_song(
         .cycle()
         .take(song.arrangement.len() * passes as usize)
     {
-        let pattern =
-            song.patterns
-                .get(entry.pattern())
-                .ok_or_else(|| SynthError::UnknownPattern {
-                    pattern: entry.pattern().to_owned(),
-                })?;
-        let sliding = slides.get(entry.pattern());
-        for (index, note) in voiced
-            .get(entry.pattern())
-            .into_iter()
-            .flatten()
-            .enumerate()
-        {
-            // A silenced track still consumes its ordinal, so muting one for
-            // eight bars does not re-roll the noise of every note after it.
-            let track = track_index[note.track.as_str()];
-            let place = ordinal;
-            let seed = note_seed(song.seed, track, place);
-            ordinal += 1;
-            if !entry.plays(&note.track) {
-                continue;
+        // Every layer starts on the slot's first beat, in the order written — an
+        // entry that is not layered is one layer, walked exactly as it always
+        // was, which is what keeps every song from before layers byte-identical.
+        for layer in entry.layers() {
+            if !song.patterns.contains_key(layer.pattern()) {
+                return Err(SynthError::UnknownPattern {
+                    pattern: layer.pattern().to_owned(),
+                });
             }
-            // A track a solo left out, and that nothing is keyed from, is not
-            // rendered at all — which is where a solo's saving is. The ordinal
-            // above it has already been spent, so what is left of the mix
-            // sounds exactly as it does in the whole piece.
-            if !mix.needs(track) {
-                continue;
+            let sliding = slides.get(layer.pattern());
+            for (index, note) in voiced
+                .get(layer.pattern())
+                .into_iter()
+                .flatten()
+                .enumerate()
+            {
+                // A silenced track still consumes its ordinal, so muting one for
+                // eight bars does not re-roll the noise of every note after it.
+                let track = track_index[note.track.as_str()];
+                let place = ordinal;
+                let seed = note_seed(song.seed, track, place);
+                ordinal += 1;
+                if !layer.plays(&note.track) {
+                    continue;
+                }
+                // A track a solo left out, and that nothing is keyed from, is not
+                // rendered at all — which is where a solo's saving is. The ordinal
+                // above it has already been spent, so what is left of the mix
+                // sounds exactly as it does in the whole piece.
+                if !mix.needs(track) {
+                    continue;
+                }
+                // The layer's transforms, applied to the *written* pattern rather
+                // than to whatever the previous entry produced: they do not stack
+                // across entries, nor onto the layer sounding beside it, so the tenth repeat is not nine octaves up and
+                // the document still says what it does.
+                let stroke = Stroke::of(note.articulation);
+                // Velocity, in the order the three things that scale it were
+                // decided: what the page wrote, then what the section does to the
+                // whole pattern (`vel_scale`), then what the mark over this one
+                // note does (an accent, a ghost), and only then the player's own
+                // inaccuracy on top of all three. Humanise is last because it is
+                // the error term: it scatters a decision and never overrules one.
+                let written = note.vel * layer.vel_scale() * stroke.velocity;
+                let velocity = feel.velocity(written, track, place, song.seed);
+                // Where this note sits in the piece, in beats: the one coordinate
+                // an automation curve is read at, and the one its length is
+                // measured from once the tempo moves. Swung, because that is where
+                // the note is actually played — but neither marked nor humanised,
+                // since a curve read at a displaced onset would put a ghost's
+                // earliness and the player's jitter on the build as well as on the
+                // note.
+                let beat_at = cursor_beats + swung(note.start, song.swing);
+                // The gate, not the written `dur`: staccato and ghost shorten how
+                // long the note is held and leave the rhythm on the page exactly
+                // as it reads. Measured from where it is played, because a beat
+                // in a ritardando lasts longer than one before it.
+                let gate = clock.span(beat_at, note.dur * stroke.gate);
+                // Both transposes, applied in one place — and clamped rather than
+                // refused, since refusing would make a legal transpose depend on
+                // the register of a pattern written months ago.
+                let pitch = layer.played_pitch(note.note.to_midi()?, key.as_ref());
+                // Where the hand was. A mark that found nothing to slide from —
+                // the first note of a track — is played plain rather than
+                // refused: what a glide needs is another note, and the top of a
+                // piece has not got one yet.
+                let glide = match (stroke.slide_seconds(gate), sliding) {
+                    (Some(seconds), Some(slides)) => trail
+                        .from(slides, index, track, layer, key.as_ref())
+                        .map(|from| Glide {
+                            semitones: from - pitch,
+                            seconds,
+                        }),
+                    _ => None,
+                };
+                let opts = NoteOpts {
+                    duration: gate,
+                    velocity,
+                    // How far this strike's tone sits from its level — the mark's
+                    // own offset plus the player's. Both are fractions of the
+                    // velocity actually played, in the same units against the same
+                    // number, which is what lets them simply add: intent first,
+                    // then the error on it.
+                    timbre: stroke.timbre(velocity)
+                        + feel.timbre(velocity, track, place, song.seed),
+                    glide,
+                    seed,
+                };
+                // Swing first, then the mark, then humanise: swing is where the
+                // beat *is*, an articulation is where the player meant to put the
+                // note against it (a ghost sits a hair ahead), and humanise is how
+                // well he hit what he meant. The last two are seconds added to the
+                // same number, so the order is what they mean rather than what the
+                // arithmetic needs. Clamped at zero rather than wrapped — a note
+                // nudged early on the very first beat has nowhere to go, and a
+                // negative sample index is not a time.
+                let onset = clock.seconds(beat_at)
+                    + stroke.onset_seconds
+                    + feel.onset_seconds(track, place, song.seed);
+                let at = (onset * RATE).round().max(0.0) as usize;
+                // Worked out before the note is synthesised rather than after,
+                // because a note landing past what a window can hear is the one
+                // this loop wants to *not* pay for. Everything above it is
+                // arithmetic; `render_note` is the buffer.
+                if !scope.reaches(at) {
+                    continue;
+                }
+                let instrument = tuned(&patches[track], riding[track].cutoff, beat_at);
+                let rendered = core::render_note(&instrument, pitch, &opts)?;
+                // Added to the track's own bus rather than straight to the master:
+                // where a note lands is timing, which bus it lands on is routing,
+                // and the two answer to different fields.
+                mix.add(track, &rendered, at);
             }
-            // The entry's transforms, applied to the *written* pattern rather
-            // than to whatever the previous entry produced: they do not stack
-            // across entries, so the tenth repeat is not nine octaves up and
-            // the document still says what it does.
-            let stroke = Stroke::of(note.articulation);
-            // Velocity, in the order the three things that scale it were
-            // decided: what the page wrote, then what the section does to the
-            // whole pattern (`vel_scale`), then what the mark over this one
-            // note does (an accent, a ghost), and only then the player's own
-            // inaccuracy on top of all three. Humanise is last because it is
-            // the error term: it scatters a decision and never overrules one.
-            let written = note.vel * entry.vel_scale() * stroke.velocity;
-            let velocity = feel.velocity(written, track, place, song.seed);
-            // Where this note sits in the piece, in beats: the one coordinate
-            // an automation curve is read at, and the one its length is
-            // measured from once the tempo moves. Swung, because that is where
-            // the note is actually played — but neither marked nor humanised,
-            // since a curve read at a displaced onset would put a ghost's
-            // earliness and the player's jitter on the build as well as on the
-            // note.
-            let beat_at = cursor_beats + swung(note.start, song.swing);
-            // The gate, not the written `dur`: staccato and ghost shorten how
-            // long the note is held and leave the rhythm on the page exactly
-            // as it reads. Measured from where it is played, because a beat
-            // in a ritardando lasts longer than one before it.
-            let gate = clock.span(beat_at, note.dur * stroke.gate);
-            // Both transposes, applied in one place — and clamped rather than
-            // refused, since refusing would make a legal transpose depend on
-            // the register of a pattern written months ago.
-            let pitch = entry.played_pitch(note.note.to_midi()?, key.as_ref());
-            // Where the hand was. A mark that found nothing to slide from —
-            // the first note of a track — is played plain rather than
-            // refused: what a glide needs is another note, and the top of a
-            // piece has not got one yet.
-            let glide = match (stroke.slide_seconds(gate), sliding) {
-                (Some(seconds), Some(slides)) => trail
-                    .from(slides, index, track, entry, key.as_ref())
-                    .map(|from| Glide {
-                        semitones: from - pitch,
-                        seconds,
-                    }),
-                _ => None,
-            };
-            let opts = NoteOpts {
-                duration: gate,
-                velocity,
-                // How far this strike's tone sits from its level — the mark's
-                // own offset plus the player's. Both are fractions of the
-                // velocity actually played, in the same units against the same
-                // number, which is what lets them simply add: intent first,
-                // then the error on it.
-                timbre: stroke.timbre(velocity) + feel.timbre(velocity, track, place, song.seed),
-                glide,
-                seed,
-            };
-            // Swing first, then the mark, then humanise: swing is where the
-            // beat *is*, an articulation is where the player meant to put the
-            // note against it (a ghost sits a hair ahead), and humanise is how
-            // well he hit what he meant. The last two are seconds added to the
-            // same number, so the order is what they mean rather than what the
-            // arithmetic needs. Clamped at zero rather than wrapped — a note
-            // nudged early on the very first beat has nowhere to go, and a
-            // negative sample index is not a time.
-            let onset = clock.seconds(beat_at)
-                + stroke.onset_seconds
-                + feel.onset_seconds(track, place, song.seed);
-            let at = (onset * RATE).round().max(0.0) as usize;
-            // Worked out before the note is synthesised rather than after,
-            // because a note landing past what a window can hear is the one
-            // this loop wants to *not* pay for. Everything above it is
-            // arithmetic; `render_note` is the buffer.
-            if !scope.reaches(at) {
-                continue;
-            }
-            let instrument = tuned(&patches[track], riding[track].cutoff, beat_at);
-            let rendered = core::render_note(&instrument, pitch, &opts)?;
-            // Added to the track's own bus rather than straight to the master:
-            // where a note lands is timing, which bus it lands on is routing,
-            // and the two answer to different fields.
-            mix.add(track, &rendered, at);
         }
         // Every hand moves to where this playing left it, whether or not the
-        // notes that moved it were allowed to sound — see the module doc.
-        if let Some(slides) = sliding {
-            trail.advance(slides, entry, key.as_ref());
+        // notes that moved it were allowed to sound — see the module doc. Only
+        // once the whole slot is walked, so a layer slides from where the
+        // previous slot left a hand and never from a layer sounding beside it.
+        for layer in entry.layers() {
+            if let Some(slides) = slides.get(layer.pattern()) {
+                trail.advance(slides, layer, key.as_ref());
+            }
         }
-        cursor_beats += pattern.beats;
+        // Every layer's pattern was found above, so the slot is known.
+        cursor_beats += song.slot_beats(entry).unwrap_or_default();
     }
 
     // Track buses folded down and the song's own chain applied — everything

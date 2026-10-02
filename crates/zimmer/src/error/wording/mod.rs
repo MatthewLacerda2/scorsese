@@ -123,6 +123,10 @@ impl SynthError {
             Self::EmptyArrangement => {
                 write!(f, "song: arrangement is empty — nothing would be rendered")
             }
+            Self::NoLayers => write!(
+                f,
+                "song: arrangement entry has an empty `layers` — name at least one pattern, or write a rest as a pattern with no notes"
+            ),
             Self::UnknownPattern { pattern, .. } => write!(
                 f,
                 "song: arrangement names pattern `{pattern}`, which is not defined"

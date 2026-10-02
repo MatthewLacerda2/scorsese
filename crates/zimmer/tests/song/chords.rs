@@ -109,7 +109,7 @@ fn a_name_off_the_table_is_refused_rather_than_guessed() {
 fn an_arrangement_transposes_every_voice_of_a_chord_together() {
     let alone = |name: &str| playing(vec![chord(name, Some(3))]);
     let mut up = alone("Dm7");
-    up.arrangement = vec![ArrangementEntry::Transformed(Play {
+    up.arrangement = vec![ArrangementEntry::from(Play {
         pattern: "verse".to_owned(),
         transpose: Some(2.0),
         transpose_degrees: None,
