@@ -69,8 +69,8 @@ impl Tool for Voices {
                 "locale": {
                     "type": "string",
                     "description": "Only voices in this regional variant, where the vendor \
-                                    has one: pt-br, en-us. Finer than language, and not \
-                                    every voice carries it."
+                                    has one: pt-BR, en-US. Finer than language, and not \
+                                    every voice carries it. Any casing is accepted."
                 },
                 "gender": {
                     "type": "string",

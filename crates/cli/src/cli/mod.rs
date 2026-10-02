@@ -82,8 +82,8 @@ pub(crate) enum Command {
         #[arg(long, requires = "library")]
         language: Option<String>,
         /// Only voices in this regional variant, where the vendor has one:
-        /// `pt-br`, `en-us`. Finer than `--language`, and not every voice
-        /// carries it.
+        /// `pt-BR`, `en-US`. Finer than `--language`, and not every voice
+        /// carries it. Any casing is accepted.
         #[arg(long, requires = "library")]
         locale: Option<String>,
         /// Only voices of this gender: `male`, `female`, `neutral`.
