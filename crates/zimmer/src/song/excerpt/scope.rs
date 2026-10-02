@@ -133,6 +133,7 @@ mod tests {
             gain: 1.0,
             pan: 0.0,
             fx: Vec::new(),
+            send: 1.0,
         };
         Song {
             bpm: 120.0,

@@ -55,6 +55,7 @@ fn mixed() -> Song {
             mix: 1.0,
             sidechain: Some("bass".to_owned()),
         }],
+        send: 1.0,
     });
     verse(&mut song)
         .notes

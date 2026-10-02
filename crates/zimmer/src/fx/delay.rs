@@ -35,6 +35,27 @@ use crate::stereo::Stereo;
 /// `time` is the echo spacing in seconds, `feedback` how much of each echo feeds
 /// the next (clamped below 1 so the tail always dies), `mix` the wet/dry blend.
 pub(crate) fn apply(buf: &mut [f32], time: f32, feedback: f32, mix: f32, rate: f32) {
+    line(buf, None, time, feedback, mix, rate);
+}
+
+/// [`apply`], with the echoes fed from `sent` rather than from `buf`: the dry
+/// side is `buf`'s and the repeats are `sent`'s. Past the end of `sent` the
+/// line hears silence. What a song's per-track `send` needs; see
+/// [`crate::fx::reverb::apply_sent`].
+pub(crate) fn apply_sent(
+    buf: &mut [f32],
+    sent: &[f32],
+    time: f32,
+    feedback: f32,
+    mix: f32,
+    rate: f32,
+) {
+    line(buf, Some(sent), time, feedback, mix, rate);
+}
+
+/// The one feedback-delay loop, fed from `sent` when there is one and from
+/// `buf` otherwise, so the two are the same arithmetic.
+fn line(buf: &mut [f32], sent: Option<&[f32]>, time: f32, feedback: f32, mix: f32, rate: f32) {
     let Some(len) = line_length(time, buf.len(), rate) else {
         return;
     };
@@ -42,9 +63,10 @@ pub(crate) fn apply(buf: &mut [f32], time: f32, feedback: f32, mix: f32, rate: f
     let mix = mix.clamp(0.0, 1.0);
     let mut line = vec![0.0f32; len];
     let mut read = 0usize;
-    for s in buf.iter_mut() {
+    for (i, s) in buf.iter_mut().enumerate() {
+        let input = sent.map_or(*s, |sent| sent.get(i).copied().unwrap_or(0.0));
         let echo = line[read];
-        line[read] = *s + echo * feedback;
+        line[read] = input + echo * feedback;
         read = (read + 1) % len;
         *s = *s * (1.0 - mix) + echo * mix;
     }
@@ -60,6 +82,24 @@ pub(crate) fn apply(buf: &mut [f32], time: f32, feedback: f32, mix: f32, rate: f
 /// would have there. Which is why [`tail_seconds`] is the same arithmetic: a
 /// tail is the same length however the repeats are placed.
 pub(crate) fn ping_pong(buf: &mut Stereo, time: f32, feedback: f32, mix: f32, rate: f32) {
+    crossed(buf, None, time, feedback, mix, rate);
+}
+
+/// [`ping_pong`], with the repeats fed from `sent` rather than from `buf`, as
+/// [`apply_sent`] is to [`apply`].
+pub(crate) fn ping_pong_sent(
+    buf: &mut Stereo,
+    sent: &Stereo,
+    time: f32,
+    feedback: f32,
+    mix: f32,
+    rate: f32,
+) {
+    crossed(buf, Some(sent), time, feedback, mix, rate);
+}
+
+/// The one ping-pong loop, fed from `sent` when there is one.
+fn crossed(buf: &mut Stereo, sent: Option<&Stereo>, time: f32, feedback: f32, mix: f32, rate: f32) {
     let Some(len) = line_length(time, buf.frames(), rate) else {
         return;
     };
@@ -70,8 +110,9 @@ pub(crate) fn ping_pong(buf: &mut Stereo, time: f32, feedback: f32, mix: f32, ra
     let mut read = 0usize;
     for i in 0..buf.frames() {
         let (dry_l, dry_r) = (buf.l[i], buf.r[i]);
+        let (in_l, in_r) = sent.map_or((dry_l, dry_r), |sent| sent.frame(i));
         let (echo_l, echo_r) = (left[read], right[read]);
-        left[read] = (dry_l + dry_r) * 0.5 + echo_r * feedback;
+        left[read] = (in_l + in_r) * 0.5 + echo_r * feedback;
         right[read] = echo_l * feedback;
         read = (read + 1) % len;
         buf.l[i] = dry_l * (1.0 - mix) + echo_l * mix;

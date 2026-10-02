@@ -76,6 +76,7 @@ pub(crate) fn song() -> Song {
             gain: 0.8,
             pan: 0.0,
             fx: vec![],
+            send: 1.0,
         }],
         patterns,
         arrangement: vec!["verse".into(), "verse".into()],

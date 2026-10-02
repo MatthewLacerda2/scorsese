@@ -64,6 +64,16 @@ impl Stereo {
         self.l.len()
     }
 
+    /// The two samples at frame `i`, or silence past the end.
+    ///
+    /// For a stage that reads one signal while writing another of the same
+    /// length — a room fed from a send — where running out is not an error
+    /// but the end of what was sent.
+    pub(crate) fn frame(&self, i: usize) -> (f32, f32) {
+        let side = |channel: &[f32]| channel.get(i).copied().unwrap_or(0.0);
+        (side(&self.l), side(&self.r))
+    }
+
     /// True when there is nothing in it.
     pub(crate) fn is_empty(&self) -> bool {
         self.l.is_empty()

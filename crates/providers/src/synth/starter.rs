@@ -122,6 +122,7 @@ fn four_bars() -> Song {
             // read as a worked example of.
             pan: 0.0,
             fx: vec![],
+            send: 1.0,
         }],
         patterns,
         arrangement: vec!["a".into(), "b".into(), "a".into(), "b".into()],
