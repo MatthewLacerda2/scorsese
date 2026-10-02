@@ -33,8 +33,9 @@
 //! That boundary is what makes the determinism claim checkable: every output
 //! is a pure function of the documents handed in.
 //!
-//! **Two consumers, not one.** Besides scorsese's own `providers`, the game
-//! engine [rusty](https://github.com/MatthewLacerda2/rusty) depends on this
+//! **Two consumers, not one.** Besides scorsese itself — `providers`, which
+//! bakes recipes, and `render`, which only reads [`level`] and [`survey`] — the
+//! game engine [rusty](https://github.com/MatthewLacerda2/rusty) depends on this
 //! crate by git, pinned to a commit (rusty#413). So everything public here is
 //! rusty's contract as well — a rename or a removal breaks it the next time it
 //! moves its pin, and the change that does it says so — and [`SYNTH_VERSION`]

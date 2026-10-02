@@ -196,12 +196,14 @@ side effect of a feature PR.
 rendering, CPU tiny-skia first) ← `crates/render` (ffmpeg orchestration) ;
 `crates/zimmer` (synthesis: recipe documents → samples; **no I/O at all**,
 and no dependency on `core`) ← `crates/providers` (Veo + ElevenLabs +
-synthesis, brief-hash cache) ; `crates/cli` (the headless `scorsese` binary) ;
+synthesis, brief-hash cache) ; `crates/zimmer` ← `crates/render` too, for
+reading only — loudness and song surveys, never synthesising ; `crates/cli` (the headless `scorsese` binary) ;
 `crates/mcp` (MCP server, thin wrapper over the same logic) ; `crates/golden`
 (test infrastructure: the golden-render gate, which nothing ships and nothing
 depends on) ; `crates/server` (`scorsese-server`, the web API: HTTP, Postgres,
 the job queue — a thin client of `core` / `render` / `providers` exactly like
-`cli` and `mcp`, with **no editing logic of its own**; code an endpoint needs
+`cli` and `mcp`, and a dependent of `mcp` itself for its tool registry (#530),
+with **no editing logic of its own**; code an endpoint needs
 that the CLI does not share belongs a layer down) ; `web/` (the React
 front-end — its own Bun project with its own conditional gate, the way `app/`
 is its own workspace; it talks to the server over HTTP and to nothing else) ;
