@@ -1,6 +1,7 @@
 //! Text rendering, grouped by what is being asked of it.
 
 mod bands;
+mod block;
 mod cards;
 mod coverage;
 mod drawing;
