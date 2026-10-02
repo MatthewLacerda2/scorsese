@@ -26,11 +26,21 @@ asserts on. A mutation that **survives** is a change nobody objected to.
 ## It is a signal, never a gate
 
 Per CLAUDE.md's gates-vs-signals rule, this audits quality; it does not prove
-correctness. The `mutants` jobs in `.github/workflows/ci.yml` — the plan, the
-shards, and the report they merge into — are all `continue-on-error`, and
-nothing they find can fail a build or block a merge. What *can* turn one of
-their checks red is the instrument being broken: a collapsed surface, a base
-that cannot be resolved, or a report with no plan behind it to write from.
+correctness — so it is **not on any pull request** (#651). A merge waits for
+the whole CI run, and a mutation job in that run made every merge wait for a
+report that could not change whether it merged, while its shards held runners
+sibling pull requests were queueing for. It runs in three places instead, none
+of them on a merge's clock:
+
+- **On request, on GitHub's runners** — `make mutants-remote SCOPE=…`, over
+  exactly the crate, files or branch diff named. [Running it](#running-it).
+- **On this machine** — `make mutants`, the branch's diff.
+- **Weekly, a crate at a time** — [the scheduled sweep](#the-scheduled-sweep).
+
+Nothing any of them finds can fail a build or block a merge. What *can* turn an
+on-request run red is the absence of an honest answer: a collapsed surface, a
+scope with nothing on the surface, or a report with no plan behind it to write
+from — and `make mutants-remote` says so rather than printing zero survivors.
 
 That is a deliberate design decision and not a soft start. Mutation produces
 **equivalent mutants** — changes that alter the code without altering its
@@ -67,45 +77,65 @@ and so is the rest of `crates/providers`.
 every inclusion and exclusion. Read it there rather than trusting this
 paragraph — this one is a summary and the config is the thing that runs.
 
-Per pull request the run is narrowed again with `--in-diff`, so the cost tracks
-the size of the change rather than the size of the codebase.
+A request is narrowed again to what it names — a crate, files, or the
+branch's diff — so the cost tracks the question rather than the codebase.
 
-## Sharding, and the report a diff too large still gets
+## Sharding, and the report a large request still gets
 
-`--in-diff` makes the cost track the diff, and for a while that was the end of
-it: a large enough diff simply ran past the job's `timeout-minutes: 30` and was
-cancelled having said nothing at all. #383 is the case — 233 mutants, a whole
-COLRv1 painter, **no report**. The signal was least available exactly where it
+A run that outgrows its time limit used to be cancelled having said nothing at
+all. #383 is the case — 233 mutants, a whole COLRv1 painter, **no report**, back
+when this ran on pull requests. The signal was least available exactly where it
 was most useful, and a cancelled job looks identical to a broken one, which
-inverts what a red check here means.
+inverts what a red check means.
 
-So the job decides what it is about to do before it does any of it.
-`cargo mutants --list --in-diff` builds nothing and answers in well under a
-second, so the count of mutations in scope is free *up front*:
+So `mutants-on-request.yml` decides what it is about to do before it does any of
+it. `cargo mutants --list` builds nothing and answers in about a second, so the
+count of mutations in scope is free *up front*:
 
-- **Under the budget** — one runner, exactly as before. Most pull requests.
-- **Over it** — `cargo mutants --shard k/n` across up to four runners in
-  parallel, sized from the count. 80 mutations per shard, from #394's measured
-  ~10.5s per mutant on a runner against a 20-minute per-shard budget.
+- **Under the budget** — one runner. Most requests: a file or a diff.
+- **Over it** — `cargo mutants --shard k/n` across up to six runners in
+  parallel, sized from the count. 400 mutations per shard, from #394's measured
+  ~10.5s per mutant on a runner against a 100-minute per-shard budget, with a
+  quarter in hand. Six and not more because a request competes for the
+  account's runners with every ready pull request's CI.
 - **Over even that** — the shards run what they can and the report says what it
   did not reach. `.github/scripts/mutants-merge.py` puts the shards back
   together, and a shard that was stopped, or that never reported at all, leaves
-  the merged run stamped as unfinished.
+  the merged run stamped as unfinished. A whole large crate can land here
+  (`scorsese-zimmer` is past 3000 mutants); a narrower glob, or the weekly
+  sweep, is the answer to that.
 
-The 30 minutes was not raised, and raising it is not the fix: it is a judgement
-about what a per-pull-request signal may cost, and a run needing an hour has
-stopped being the thing the job is for. The budget is enforced *inside* the
-step instead, so a shard that runs out of time ends by uploading what it
-measured rather than by being killed with the report unwritten.
+The budget is enforced *inside* the step, measured from the job's start (#601),
+so a shard that runs out of time ends by uploading what it measured rather than
+by being killed with the report unwritten.
 
 Nor is there a deliberate *sample*. Sharding is what makes one unnecessary, and
 what is left when even sharding will not fit is not a designed subset — it is
 whatever the clock allowed, reported as that and counted.
 
+## The memory cap
+
+Every mutation process on a runner — cargo-mutants, rustc, the linker, each
+test binary — runs under `ulimit -v 6291456`: at most 6 GiB of address space.
+A mutant that turns a loop infinite *and* allocating fills RAM in seconds, long
+before the per-mutant timeout, and takes the runner down with it — *"The runner
+has received a shutdown signal"* — losing the shard's report. rusty lost a
+sweep shard that way (MatthewLacerda2/rusty#715). Capped, the test binary's
+allocation fails, it aborts, and cargo-mutants counts the mutant **caught**.
+
+The number is this runner's, not copied: a public repository's `ubuntu-24.04`
+runner has 16 GB, and `--jobs 2` means two mutants at once, so two runaways
+together stop at 12 GiB and leave the runner itself about 4. Measured when it
+was set (#651): every surface crate's tests pass under a 2 GiB cap, and
+rebuilding `scorsese-compositor`, the heaviest, links under 3 GiB — the cap is
+twice what a legitimate build needs. Both workflows that mutate carry it, each
+pointing at the *Mutate* step of `mutants-on-request.yml` for the arithmetic.
+`make mutants` does not: on your own machine the trade is yours.
+
 ## The scheduled sweep
 
-`--in-diff` has a consequence worth naming: a line is audited **once**, on the
-pull request that wrote it, and never again. A module whose tests were later
+Requests have a consequence worth naming: a line is audited when somebody
+thinks to ask about it, and otherwise never. A module whose tests were later
 weakened, or whose assertions moved to another crate, has nothing looking at
 it. So `.github/workflows/mutation-sweep.yml` sweeps the rest — no `--in-diff`,
 the whole crate — every Monday, **one crate at a time, cycling**: `core`,
@@ -113,7 +143,7 @@ the whole crate — every Monday, **one crate at a time, cycling**: `core`,
 
 `providers`' `synth/` subtree is on the surface and **not** in that rotation,
 which the workflow picks from a list of crate names. So those mutants are
-audited by the pull request that writes them and never again — the very thing
+audited only when somebody asks — the very thing
 the sweep exists to stop, in miniature. Whether that earns a fifth weekly slot
 is #431; until it does, the sweep can be pointed at `scorsese-providers` by
 hand from its `workflow_dispatch` input.
@@ -126,7 +156,7 @@ header carries the arithmetic and says plainly which half of it is a
 measurement.
 
 It reports into **one issue that rewrites itself** — [#341][sweep] — using the
-same renderer the pull-request comment goes through. The report at the top is
+same renderer every other mutation report goes through. The report at the top is
 replaced every run; the catch-rate table underneath only ever gains a row,
 because one catch rate is a number and the question is whether it is moving.
 
@@ -134,46 +164,77 @@ A sweep that is cut short says so, in the report and in its history row. A
 truncated sweep reporting as a complete one is the one outcome worse than no
 sweep at all.
 
-Same standing as the per-pull-request job: `continue-on-error`, nothing it
+Same standing as a request: a signal, nothing it
 finds blocks anything, and a survivor it turns up is triaged exactly as below.
 
 [sweep]: https://github.com/MatthewLacerda2/scorsese/issues/341
 
 ## Running it
 
+On GitHub's runners — the default, because nothing compiles here:
+
+```sh
+make mutants-remote SCOPE=diff                          # this branch against origin/main
+make mutants-remote SCOPE=scorsese-zimmer               # one crate, as the sweep runs it
+make mutants-remote SCOPE='crates/core/src/keyframe/**' # files, while writing them
+```
+
+It dispatches `.github/workflows/mutants-on-request.yml` on the current branch,
+waits for that run (found by a request id in its name — a dispatch returns no
+run id), downloads its `mutants-report` artifact and prints the report and the
+survivors' diffs. The branch must be pushed: the runner mutates what GitHub has,
+and a head that differs is refused before anything is dispatched. Exit 0 is a
+report, survivors or not; **1 is no report** — a red, cancelled or report-less
+run, said as such and never printed as zero survivors; 3 is GitHub unreachable.
+It needs an authenticated `gh`, and the workflow can be dispatched only once it
+is on `main`.
+
+On this machine:
+
 ```sh
 cargo install cargo-mutants --locked
 
-make mutants                                      # what CI runs: this branch's diff
-cargo mutants                                     # the whole scoped surface, 3875 mutants
-cargo mutants -p scorsese-zimmer                  # one crate, as the sweep runs it
-cargo mutants -F '^crates/core/src/keyframe\.rs'  # one file, while writing it
+make mutants                       # this branch's diff
+cargo mutants                      # the whole scoped surface
+cargo mutants -p scorsese-zimmer   # one crate
 ```
 
-That 3875 moves with the source and with the tool version, and
-`cargo mutants --list | wc -l` is how to re-read it: `--list` builds nothing
-and runs nothing, so the count costs a second and is exact.
+The whole surface was 3875 mutants at #289 and is past 7600 now; it moves with
+the source and with the tool version, and `cargo mutants --list | wc -l` is how
+to re-read it: `--list` builds nothing and runs nothing, so the count costs a
+second and is exact.
 
-`-F` and not `-f` for that last one, and the difference is a trap worth
-knowing: `--file` is *unioned* with the config's `examine_globs`, so
-`-f one/file.rs` widens the run to everything rather than narrowing it to one
-thing. `--re` filters the mutant names, which start with the path, so it does
-narrow — but not perfectly. As of **cargo-mutants 27.1.0**, struct-field
-deletions (`delete field … from struct …`) ignore the name filters entirely:
-they are neither selected by `--re` nor removable by `--exclude-re`.
-Twenty-seven of them live on the scoped surface, so every `-F` run carries all
-twenty-seven along from wherever they are, and the report describes files you
-did not name. Read past any `delete field` row from a file you did not ask
-about — or reach for
-`-p scorsese-core`, which narrows to a whole crate with none of that, because
-package and glob filters choose files before mutants exist. Nothing narrows to
-exactly one file.
+**Narrowing to files is the trap, and `--in-diff` is the way out of it.**
+`--file` is *unioned* with the config's `examine_globs`, so `-f one/file.rs`
+widens the run to everything rather than narrowing it to one thing. `--re`
+filters the mutant names, which start with the path, so it does narrow — but
+not perfectly. As of **cargo-mutants 27.1.0**, struct-field deletions (`delete
+field … from struct …`) ignore the name filters entirely: they are neither
+selected by `--re` nor removable by `--exclude-re`, so every `--re` run carries
+all of the surface's along from wherever they are — 26 of them, and not one
+from the file asked about, the first time a request was tried against a file
+that had moved. What does narrow exactly is **`--in-diff`**: it keeps the
+mutants whose span touches a changed line, and a diff that *adds* the named
+files whole touches every line of them and nothing else. That is what a path
+`SCOPE` becomes, and what to do locally too:
+
+```sh
+python3 .github/scripts/mutants-scope.py resolve 'crates/core/src/keyframe/**' \
+  --out target/scope.json --diff target/scope.diff
+cargo mutants --in-diff target/scope.diff --jobs 2
+```
+
+`-p scorsese-core` narrows exactly as well, to a whole crate, because package
+filters choose files before mutants exist. The on-request report still checks
+the plan against the scope and says how many planned mutations came from
+outside it, so a cargo-mutants that changes what `--in-diff` admits is noticed
+rather than trusted.
 
 Results land in `mutants.out/` (gitignored). `mutants.out/missed.txt` is the
 survivor list; `mutants.out/diff/` holds the actual edit that survived, which
 is usually the fastest way to see what a survivor means.
 
-`make mutants` finishes by rendering that as the Markdown CI posts — see
+`make mutants` finishes by rendering that as the Markdown report — see
 [Reading the report](#reading-the-report) for what it does and does not list.
 
 **Where it builds:** not here. cargo-mutants copies the worktree into a scratch
@@ -196,10 +257,10 @@ agent session twice in one day, and the kernel named the wrong thing when it
 did: Claude Code runs with `oom_score_adj: 200`, so it is reaped as the
 preferred victim while the compilers that ate the RAM carry on. The symptom is
 a dead terminal, three layers from the cause (#398). All three callers pass
-`--jobs 2` — `make mutants`, the CI job and the sweep — and the argument for
+`--jobs 2` — `make mutants`, the on-request workflow and the sweep — and the argument for
 the number is written once, in `.cargo/mutants.toml` under *How wide a run fans
 out*, because cargo-mutants has no config key to hold it. It is two *per
-shard*, and stays two when the CI job fans out across several: each shard is
+shard*, and stays two when a request fans out across several: each shard is
 its own runner, so four of them do not share the cores and the memory the
 number is sized against. A run that needs to
 be gentler still than that: `make mutants MUTANTS_JOBS=1`.
@@ -214,14 +275,15 @@ mutation step on the opposite assumption; #394 measured it on the runner —
 mutation step and cargo-mutants' own baseline build unchanged, warmed or cold,
 for about three minutes a run — and took it out.
 
-**When to run it:** once the implementation is written and its tests pass, which
-is where CLAUDE.md puts it. That is when a survivor is cheapest to answer — the
-code is still in hand and the missing assertion is a two-minute edit — and it is
-why the run is not left to CI, whose comment arrives on a pull request that has
-already been declared finished.
+**When to run it:** once the implementation is written and its tests pass, and
+before the pull request is marked ready, which is where CLAUDE.md puts it. That
+is when a survivor is cheapest to answer — the code is still in hand and the
+missing assertion is a two-minute edit — and it is the *only* time: no pull
+request run reports one afterwards, and the queue merges without looking.
 
 `make gates` ends with a line about it: whether `make mutants` has been run on
-this branch, and what it found if it has. It never runs it, because a signal
+this branch, and what it found if it has — naming `make mutants-remote` when it
+has not. It never runs it, because a signal
 inside the target that gets run most would stop being run at all — so the line
 is a report, and it says *not run* rather than going quiet over an answer it
 does not have. It knows because `make mutants` leaves `target/mutants-signal`
@@ -231,7 +293,7 @@ changed after that stamp makes the line read *stale* instead.
 ## Reading the report
 
 `python3 .github/scripts/mutants-summary.py mutants.out/outcomes.json` renders
-the run as the Markdown CI posts, and it is a **worklist**: rows are survivors
+the run as the Markdown every caller prints, and it is a **worklist**: rows are survivors
 somebody can act on one at a time.
 
 Two things never become rows, because they are one finding rather than many:
@@ -255,17 +317,18 @@ Two banners, and they are separate claims:
 
 - **"This run did not finish"** — cargo-mutants recorded a start and no end, so
   it was stopped rather than completed. For the sweep that is a crate outgrowing
-  the six-hour job limit; for a pull request it is a shard reaching its budget.
-- **"N of M mutations in this diff were not measured"** — how much of the diff
-  nobody looked at, in mutations. Only the pull-request job prints it, because
-  only it knows the number `--list --in-diff` gave before the run started.
+  the six-hour job limit; for a request it is a shard reaching its budget.
+- **"N of M mutations in scope were not measured"** — how much of the scope
+  nobody looked at, in mutations. Only an on-request run prints it, because
+  only it knows the number `--list` gave before the run started.
 
 A gap is **not** a survivor and it is not a catch. Nothing is known about those
 mutations, and the absence of rows for them says nothing at all — which is the
 point of printing the number rather than leaving it to be inferred. If the gap
-covers code this branch wrote and the answer matters, `make mutants` locally has
-no thirty-minute clock; the alternative is to say in the pull request which part
-went unmeasured, so the next reader is not left to guess.
+covers code this branch wrote and the answer matters, a narrower `SCOPE` fits
+the budget, or `make mutants` locally has no clock at all; the alternative is
+to say in the pull request which part went unmeasured, so the next reader is
+not left to guess.
 
 ## Triaging a file where nothing was caught
 
@@ -377,8 +440,8 @@ So, when writing an entry:
 That check is wired up rather than remembered: `.cargo/mutants.toml` records a
 `surface-floor:` line, and `.github/scripts/mutation-surface.py` compares the
 count against it — inside `make mutants` before it mutates anything, and as the
-first thing the `mutants: plan` CI job does, before it has decided anything
-about the diff at all. A **floor** and not the count itself, so writing
+first thing an on-request run's `mutants: plan` job does, before it has decided
+anything about the scope at all. A **floor** and not the count itself, so writing
 code never trips it and deleting the surface does. It is deliberately not part
 of `make gates`: it proves the instrument works, not that the code is right.
 
@@ -407,5 +470,5 @@ code. This is the same rule as re-blessing a golden reference to make CI green
 (see [golden-renders.md](golden-renders.md)) and it is broken the same way: by
 treating a red signal as the problem instead of what it points at.
 
-Fixing survivors is also not the job of the PR that surfaced them. A survivor
-in code the PR did not write belongs in its own issue.
+Fixing survivors is also not the job of the branch whose run surfaced them. A
+survivor in code the branch did not write belongs in its own issue.
