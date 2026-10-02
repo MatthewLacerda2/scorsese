@@ -144,13 +144,15 @@ never when the queue is.
   for it; the cloud may be too, until `cloud-brief.md`'s container list is
   confirmed.
 
-**How many:** two in flight stays the default shape; with cloud coders writing,
-the ceiling is **four branches in flight in total**, local and cloud together,
-with the local share set by the heavy-build slots above. Each one
-behind another still pays a rebase per merge ahead of it, and a full queue
-drains about one pull request per CI run: four finishing together leave the last
-waiting most of an hour with three rebases paid. Past four, the queue is the
-bottleneck and more coders only lengthen it.
+**How many:** with cloud coders writing, about **five branches in flight in
+total**, local and cloud together. Five is a suggestion, not a rule (the
+operator, 2026-10-02): what really binds is this machine's disk and RAM, so the
+orchestrator sizes the batch from the local and cloud sessions actually running
+and from the tech stack. Files that aren't compiled collide too: two branches in
+`web/`'s React components rebase against each other like any Rust enum. Every
+branch behind another still pays a rebase per merge ahead of it, and the queue
+drains about one pull request per CI run, so past the point where the queue is
+the bottleneck, more coders only lengthen it.
 
 **Launching one — and proving it is one.** Not with the `Agent` tool's
 `isolation: "remote"`: in a local session that silently falls back to a local
