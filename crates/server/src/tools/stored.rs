@@ -27,7 +27,7 @@ use scorsese_mcp::{Part, Reply, Tool};
 use serde_json::Value;
 
 use super::surface::Serve;
-use super::{Caller, Refusal, bakes, database, lay_out, project_id};
+use super::{Caller, Refusal, bakes, carried, database, lay_out, project_id};
 use crate::projects::{self, ProjectError, files};
 
 /// How many times a call is run again on a project that moved under it.
@@ -42,6 +42,7 @@ pub(super) async fn run(
 ) -> Result<Reply, Refusal> {
     let id = project_id(arguments)?;
     held(serve, arguments)?;
+    let item = carried::fetch(caller, serve, arguments).await?;
     let toolbox = caller.toolbox;
     let attempts = if caller.at.is_some() { 1 } else { ATTEMPTS };
     for _ in 0..attempts {
@@ -67,6 +68,7 @@ pub(super) async fn run(
         let root = folder.root().to_path_buf();
         let mut local = arguments.clone();
         local["project"] = Value::String(root.to_string_lossy().into_owned());
+        carried::bring(caller, serve, item.as_ref(), &mut local, &root)?;
         let before = stored.document.to_json().map_err(database)?;
 
         // The registry's tools are blocking — ffmpeg, the disk — so they run
@@ -88,7 +90,9 @@ pub(super) async fn run(
         .await
         .map_err(|_| "the tool crashed on the server; that is a bug".to_owned())??;
 
-        let outcome = hide(outcome, folder.root()).map_err(Refusal::Said);
+        let outcome = carried::keep(caller, serve, hide(outcome, folder.root()), folder.root())
+            .await
+            .map_err(Refusal::Said);
         let gathered = gathered.map_err(|why| format!("{why} — nothing was saved"))?;
         let document = after
             .filter(|(after, _)| *after != before)
@@ -157,6 +161,18 @@ fn held(serve: Serve, arguments: &Value) -> Result<(), String> {
                     "{field} is not taken on the hosted server: nothing is kept on its disk for \
                  you. What the tool found is in its reply; render is how a file is made to \
                  download."
+                )),
+                None => Ok(()),
+            }
+        }
+        Serve::IntoLibrary { without, .. } => {
+            match without
+                .iter()
+                .find(|field| arguments.get(**field).is_some())
+            {
+                Some(field) => Err(format!(
+                    "{field} is not taken on the hosted server: the file is kept in your \
+                     library, where you download it — leave {field} out"
                 )),
                 None => Ok(()),
             }

@@ -57,7 +57,7 @@ pub use scorsese_zimmer::midi::Drum;
 
 pub use create::{check, create};
 pub use error::SynthesisError;
-pub use midi::{FromMidi, ToMidi, export_midi, import_midi};
+pub use midi::{FromMidi, MIDI_EXPORT_DIR, ToMidi, check_midi, export_midi, import_midi};
 pub use partial::{Partial, bake_partial, bake_partial_unless};
 pub use recipe::{OneShot, Recipe};
 pub use starter::Starter;

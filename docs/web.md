@@ -88,7 +88,9 @@ new build, before it serves anything.
 
 ## Files
 
-- Exactly the file kinds scorsese supports today — no more, no fewer.
+- Exactly the file kinds scorsese supports today — no more, no fewer — and
+  MIDI, which is notes rather than media: no thumbnail, never placed on a
+  track, read into a song by `synth_import` (#678).
 - Stored **once per (user, SHA-256)**. A byte-identical re-upload is
   **refused** with "you already have this as *X*", whatever its name.
 - Lists carry thumbnail, name, kind and size only; the file is fetched when
@@ -877,8 +879,12 @@ hashes a file first and asks `GET /api/library?sha256=`, so a duplicate never
 crosses the network; the refusal at upload is the backstop.
 
 **Exactly the kinds `scorsese import` takes** — video, image, audio, by the same
-extension list (`scorsese_core::pool::infer_kind`), refused at announcement
-(`415`) before a byte is sent. On arrival the server **hashes the bytes itself**
+extension list (`scorsese_core::pool::infer_kind`) — **and MIDI** (`.mid`,
+`.midi`, #678), refused at announcement (`415`) before a byte is sent. A MIDI
+file is not media, so it is not probed: it is read by the same reader
+`synth_import` uses (`synth::check_midi`) and refused (`422`) in its words when
+it would not import as a song; it has no thumbnail, and `import` refuses it
+— it never becomes a project asset. On arrival the server **hashes the bytes itself**
 and refuses (`422`) a file whose hash is not the one announced, then probes it
 and holds it to its kind with `pool::measure`, exactly as import does — a
 `.mp4` with no picture is refused, and the prober's words (which name server
@@ -1106,6 +1112,8 @@ the web — or be left off it — without a reason written down.
 | `synth_bake` | without `out`; each new bake is **kept in the library** as a generation, its address (recipe and synthesiser) as its brief hash, before the document naming it is saved — so it renders, and is linked into every later layout by hash. A partial bake's file is gone with the folder; its report is in the reply |
 | `look`, `hear`, `audio_level` | their file arguments must be paths inside the project (`assets/…`, `generated/…`) — locally they may name anything on the machine, and here the machine is everybody's |
 | `still` | without `out`: nothing is kept on the server's disk; the picture is in the reply |
+| `synth_import` | with `item` — a MIDI file in the user's library, by the id `library` lists — in place of `path`; the file is linked into the folder for the call, and the asset is named after the item unless `name` says otherwise (`tools/carried.rs`, #678) |
+| `synth_export` | without `out`; the `.mid` it writes is **kept in the library** as a MIDI file named `<asset>.mid`, where the user downloads it — the same notes exported again are the item already there (#678) |
 | `project_list`, `project_new` | the server's own: a project is a row, named by an id the client asks for |
 | `library`, `import` | the server's own: files come from the user's library by id (`core`'s `reference_asset`, the document half of an import), never from a path on the server — so an image sequence's stills come in one library file each, and `sequence` makes them one |
 | `render`, `jobs`, `job_cancel` | the server's own: a render is a job (*Renders*), downloaded from `/api/renders/{id}/file` with the same token; `jobs` says where any job is, and `job_cancel` stops a render — locally a client stops one by cancelling the `render` call, which here has already answered |
@@ -1168,10 +1176,6 @@ recipes:
 - `synth_survey`
 
 <!-- END PROJECT_FILES -->
-
-**Not served yet:** `synth_import` and `synth_export` — a `.mid` is neither
-media the library holds nor text a project keeps, so there is nothing to import
-from or to hand an export back as (#678).
 
 **Why the registry did not move.** The tools that need the database —
 `spending_history`, `project_list`, a `generate` that pays through credits —

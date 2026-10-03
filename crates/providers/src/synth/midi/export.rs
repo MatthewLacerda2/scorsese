@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use scorsese_core::{AssetId, CACHE_DIR, Project, ProjectPath};
+use scorsese_core::{AssetId, Project, ProjectPath};
 use scorsese_zimmer::midi::{self, Drum};
 
 use super::super::error::SynthesisError;
@@ -11,8 +11,10 @@ use super::super::{read_recipe, write};
 
 /// Where an export lands when the caller does not say — under `cache/`,
 /// because the file is rebuildable from the recipe at any time, and a copy
-/// kept beside it would go stale the first time the recipe is edited.
-const EXPORT_DIR: &str = "midi";
+/// kept beside it would go stale the first time the recipe is edited. Public
+/// for a host that keeps what lands there somewhere else: the web app's
+/// library (#678).
+pub const MIDI_EXPORT_DIR: &str = "cache/midi";
 
 /// What an export wrote, and what it could not carry.
 #[derive(Debug, Clone, PartialEq)]
@@ -98,7 +100,7 @@ pub fn export_midi(
     let (destination, shown) = match out {
         Some(path) => (path.to_path_buf(), path.display().to_string()),
         None => {
-            let relative = ProjectPath::new(format!("{CACHE_DIR}/{EXPORT_DIR}/{id}.mid"));
+            let relative = ProjectPath::new(format!("{MIDI_EXPORT_DIR}/{id}.mid"));
             (relative.resolve(project_root), relative.to_string())
         }
     };

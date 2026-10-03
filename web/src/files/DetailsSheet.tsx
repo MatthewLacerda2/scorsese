@@ -19,6 +19,7 @@ import {
 import { formatBytes, formatDate, formatDuration } from "@/lib/format";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { EditableText } from "./EditableText";
+import { KIND_LABEL } from "./FileTile";
 import { GenerationRecord } from "./GenerationRecord";
 import type { Opened } from "./Viewer";
 
@@ -82,14 +83,14 @@ function Details({
           onSave={(name) => update.mutateAsync({ name })}
           className="text-lg font-semibold"
         />
-        <SheetDescription className="capitalize">
-          {item.kind}
+        <SheetDescription>
+          {KIND_LABEL[item.kind]}
           {item.generated ? " · generated" : ""}
         </SheetDescription>
       </SheetHeader>
 
       <Button variant="secondary" onClick={() => onOpen(item)}>
-        {item.kind === "image" ? "View" : "Play"}
+        {item.kind === "image" ? "View" : item.kind === "midi" ? "Open" : "Play"}
       </Button>
 
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">

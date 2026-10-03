@@ -11,6 +11,7 @@ mod common;
 mod files;
 mod generated;
 mod manage;
+mod midi;
 mod proxies;
 mod upload;
 

@@ -94,3 +94,14 @@ pub(crate) async fn hold(pool: &PgPool, user: scorsese_server::db::UserId, sha25
     .await
     .expect("the library row is written")
 }
+
+/// A MIDI file: format 0, 96 ticks a beat, C4 then E4 for a beat each —
+/// written byte by byte so the fixture cannot agree with the parser about a
+/// mistake.
+pub(crate) const TUNE: &[u8] = &[
+    b'M', b'T', b'h', b'd', 0, 0, 0, 6, 0, 0, 0, 1, 0, 96, //
+    b'M', b'T', b'r', b'k', 0, 0, 0, 20, //
+    0x00, 0x90, 60, 100, 0x60, 0x80, 60, 0, //
+    0x00, 0x90, 64, 100, 0x60, 0x80, 64, 0, //
+    0x00, 0xFF, 0x2F, 0x00,
+];

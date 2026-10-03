@@ -122,7 +122,7 @@ fn briefs(project: &Project, root: &Path) -> HashMap<String, ProjectPath> {
 
 /// Link `source` at `target`, unless something is there already — the
 /// asset's own recorded file, which is the same bytes.
-fn link(source: &Path, target: &Path) -> Result<(), String> {
+pub(super) fn link(source: &Path, target: &Path) -> Result<(), String> {
     if target.symlink_metadata().is_ok() {
         return Ok(());
     }

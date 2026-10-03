@@ -205,11 +205,12 @@ impl Library {
         let (sha256, extension, kind) = item;
         let kind = Kind::try_from(kind).map_err(LibraryError::Invalid)?;
         let thumbnail = super::thumbnail::path(&self.storage, user, &sha256, kind);
-        for file in [
-            self.storage.library_file(user, &sha256, &extension),
+        let files = [
+            Some(self.storage.library_file(user, &sha256, &extension)),
             thumbnail,
-            self.storage.proxy(user, &sha256),
-        ] {
+            Some(self.storage.proxy(user, &sha256)),
+        ];
+        for file in files.into_iter().flatten() {
             match std::fs::remove_file(&file) {
                 Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
                     eprintln!(

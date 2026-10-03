@@ -10,24 +10,25 @@
 //! reference_asset`, the document half of an import, with the same id rules
 //! and the same answer for a file the project already has.
 
+use scorsese_core::AssetKind;
 use scorsese_core::pool::{Reference, reference_asset};
 use scorsese_mcp::Reply;
 use serde_json::{Value, json};
 
 use super::super::surface::project_property;
 use super::super::{Caller, database, project_id};
-use crate::library::{Filter, Item, Kind, LibraryError};
+use crate::library::{Filter, Item, LibraryError};
 use crate::projects::{self, ProjectError, media::library_path};
 
 /// How a client names the listing.
 pub(super) const LIBRARY: &str = "library";
 
 /// What the listing does.
-pub(super) const LIBRARY_SAYS: &str = "List the files in your library — every video, picture \
-and sound you uploaded or generated — with the id import takes, newest first. Each line is the \
-id, the name, the kind, what probing found (length, size) and the description, when it has one: \
-read the descriptions to choose a file. Narrow it by kind, by a word in the name, or to the \
-files one project already uses. A generated file says so.";
+pub(super) const LIBRARY_SAYS: &str = "List the files in your library — every video, picture, \
+sound and MIDI file you uploaded or generated — with the id import and synth_import take, newest \
+first. Each line is the id, the name, the kind, what probing found (length, size) and the \
+description, when it has one: read the descriptions to choose a file. Narrow it by kind, by a \
+word in the name, or to the files one project already uses. A generated file says so.";
 
 /// `library`'s arguments.
 pub(super) fn library_schema() -> Value {
@@ -36,7 +37,7 @@ pub(super) fn library_schema() -> Value {
         "properties": {
             "kind": {
                 "type": "string",
-                "enum": ["video", "image", "audio"],
+                "enum": ["video", "image", "audio", "midi"],
                 "description": "Only files of this kind."
             },
             "search": {
@@ -60,7 +61,8 @@ table, ready for a clip to reference — the hosted server's import. Name them b
 `library` lists. Nothing is copied: the project refers to the library's file, so a file used \
 in ten projects is stored once. A file the project already has is not added twice; its \
 existing asset id is the answer. The reply names the asset id each file got, which is what \
-place_clip takes. New files reach the library by uploading them in the web app.";
+place_clip takes. A MIDI file is not imported: synth_import reads it into a song recipe. New \
+files reach the library by uploading them in the web app.";
 
 /// `import`'s arguments.
 pub(super) fn import_schema() -> Value {
@@ -144,18 +146,25 @@ pub(super) async fn import(caller: &Caller<'_>, arguments: &Value) -> Result<Rep
                     LibraryError::NotFound => format!("there is no file {id} in your library"),
                     other => said(other),
                 })?;
-        files.push(item);
+        let Some(kind) = item.kind.asset_kind() else {
+            return Err(format!(
+                "{id} “{}” is a MIDI file — notes, not media a clip can show. synth_import \
+                 reads it into a song recipe; nothing was imported",
+                item.name
+            ));
+        };
+        files.push((item, kind));
     }
     let pool = &caller.toolbox.pool;
     let (lines, _) = projects::edit(pool, caller.user, project, |document| {
         files
             .iter()
-            .map(|item| {
+            .map(|(item, kind)| {
                 let known = document
                     .assets
                     .iter()
                     .any(|asset| asset.sha256.as_deref() == Some(item.sha256.as_str()));
-                let asset = reference_asset(document, reference(item));
+                let asset = reference_asset(document, reference(item, *kind));
                 let how = if known {
                     "already in the project"
                 } else {
@@ -173,11 +182,11 @@ pub(super) async fn import(caller: &Caller<'_>, arguments: &Value) -> Result<Rep
     Ok(lines.join("\n").into())
 }
 
-/// A library item as the asset a project refers to it by.
-fn reference(item: &Item) -> Reference {
+/// A library item as the asset of `kind` a project refers to it by.
+fn reference(item: &Item, kind: AssetKind) -> Reference {
     Reference {
         name: item.name.clone(),
-        kind: Kind::asset_kind(item.kind),
+        kind,
         path: library_path(&item.sha256, Some(&item.extension)),
         sha256: item.sha256.clone(),
         media: item.media,

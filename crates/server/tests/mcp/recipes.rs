@@ -83,7 +83,7 @@ async fn a_script_is_kept_and_read_back_where_the_project_keeps_one(pool: PgPool
 }
 
 #[sqlx::test]
-async fn midi_in_and_out_is_not_offered(pool: PgPool) {
+async fn recipes_and_midi_are_offered(pool: PgPool) {
     let address = common::serve(pool.clone()).await;
     let (_, token) = member(&pool, "ana@example.com").await;
     let body = json!({ "jsonrpc": "2.0", "id": 1, "method": "tools/list" });
@@ -94,10 +94,14 @@ async fn midi_in_and_out_is_not_offered(pool: PgPool) {
         .iter()
         .filter_map(|tool| tool["name"].as_str())
         .collect();
-    for served in ["synth_new", "synth_bake", "script_read", "script_write"] {
+    for served in [
+        "synth_new",
+        "synth_bake",
+        "script_read",
+        "script_write",
+        "synth_import",
+        "synth_export",
+    ] {
         assert!(names.contains(&served), "{served}: {names:?}");
-    }
-    for withheld in ["synth_import", "synth_export"] {
-        assert!(!names.contains(&withheld), "{withheld}");
     }
 }
