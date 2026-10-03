@@ -130,6 +130,27 @@ pub(super) async fn keep_ticket(
     tx.commit().await
 }
 
+/// Cancel `user`'s job `id` if it is still waiting — never claimed, so
+/// nothing ran — and `None` if it is not: running, finished, or not theirs.
+pub(super) async fn cancel_waiting(
+    pool: &PgPool,
+    user: UserId,
+    id: i64,
+) -> Result<Option<JobView>, sqlx::Error> {
+    let mut tx = db::scoped(pool, user).await?;
+    let view = sqlx::query_as(concat!(
+        "UPDATE jobs SET state = 'cancelled', finished_at = now(),
+                error = 'cancelled before it started'
+         WHERE id = $1 AND state = 'waiting' RETURNING ",
+        view!()
+    ))
+    .bind(id)
+    .fetch_optional(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(view)
+}
+
 /// Record how `job`'s run ended, as its owner.
 pub(super) async fn finish(
     pool: &PgPool,
@@ -140,6 +161,7 @@ pub(super) async fn finish(
         Outcome::Done(result) => ("done", Some(result), None),
         Outcome::Failed(why) => ("failed", None, Some(why)),
         Outcome::Stuck(why) => ("stuck", None, Some(why)),
+        Outcome::Cancelled(why) => ("cancelled", None, Some(why)),
     };
     let mut tx = db::scoped(pool, job.user).await?;
     let view = sqlx::query_as(concat!(

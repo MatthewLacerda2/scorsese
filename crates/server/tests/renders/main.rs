@@ -8,6 +8,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod cancelled;
 mod evict;
 mod job;
 mod previews;

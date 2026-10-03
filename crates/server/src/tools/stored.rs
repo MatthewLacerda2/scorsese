@@ -43,6 +43,11 @@ pub(super) async fn run(
     let toolbox = caller.toolbox;
     let attempts = if caller.at.is_some() { 1 } else { ATTEMPTS };
     for _ in 0..attempts {
+        if caller.cancel.is_cancelled() {
+            return Err("cancelled before it ran, so nothing was changed"
+                .to_owned()
+                .into());
+        }
         let stored = projects::open(&toolbox.pool, caller.user, id)
             .await
             .map_err(opened)?;
@@ -65,10 +70,10 @@ pub(super) async fn run(
         // off the server's async threads. Every tool is `Send + Sync`, but a
         // `&dyn` cannot cross into the blocking pool; the registry hands out
         // a fresh one by name.
-        let name = tool.name();
+        let (name, cancel) = (tool.name(), caller.cancel.clone());
         let (outcome, after) = tokio::task::spawn_blocking(move || {
             let tool = super::registered(name).ok_or("the tool went missing")?;
-            let outcome = tool.call(&local);
+            let outcome = tool.call_cancellable(&local, &cancel);
             let after = std::fs::read_to_string(root.join(PROJECT_FILE_NAME)).ok();
             Ok::<_, String>((outcome, after))
         })

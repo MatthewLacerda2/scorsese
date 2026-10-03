@@ -103,6 +103,14 @@ export const api = {
         revision,
       }),
   },
+  jobs: {
+    /**
+     * Stop a render or a preview (#660): a waiting one comes back `cancelled`,
+     * a running one `running`, turning `cancelled` on the event stream once it
+     * has stopped. `409` for a kind that is never stopped.
+     */
+    cancel: (id: number) => request<JobView>("POST", `/jobs/${id}/cancel`),
+  },
   renders: {
     /** `200 {render}` when it is already made, `202 {job}` while it is on its way. */
     request: (id: number, settings: { resolution?: string } = {}) =>

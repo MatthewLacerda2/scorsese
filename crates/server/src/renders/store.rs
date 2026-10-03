@@ -6,7 +6,7 @@ use sqlx::postgres::PgPool;
 
 use super::{RenderView, Settings};
 use crate::db::{self, Tx, UserId};
-use crate::jobs::{JobView, Kind};
+use crate::jobs::{JobView, Kind, kinds};
 
 /// The columns a [`RenderView`] is read from. A macro so each query built
 /// from it is still one literal, which is what sqlx accepts.
@@ -77,6 +77,28 @@ pub async fn pending(
     .bind(key)
     .bind(kind.name)
     .fetch_optional(&mut **tx)
+    .await
+}
+
+/// The previews running for `project` at `settings` under any key but `key`:
+/// pictures of documents the project has moved past, which a new preview at
+/// `key` makes worthless (#660).
+pub async fn outrun(
+    tx: &mut Tx,
+    project: i64,
+    settings: &Settings,
+    key: &str,
+) -> Result<Vec<i64>, sqlx::Error> {
+    sqlx::query_scalar(
+        "SELECT id FROM jobs WHERE kind = $4 AND state = 'running'
+           AND payload ->> 'project' = $1::text AND payload ->> 'key' <> $2
+           AND payload -> 'settings' = $3",
+    )
+    .bind(project)
+    .bind(key)
+    .bind(sqlx::types::Json(settings))
+    .bind(kinds::PREVIEW.name)
+    .fetch_all(&mut **tx)
     .await
 }
 

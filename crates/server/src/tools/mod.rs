@@ -67,7 +67,7 @@ pub use log::Client;
 pub use quotes::Pending;
 
 use scorsese_mcp::{Reply, Tool};
-use scorsese_render::Tools;
+use scorsese_render::{Cancel, Tools};
 use serde_json::Value;
 use sqlx::postgres::PgPool;
 
@@ -138,6 +138,25 @@ impl Toolbox {
         self.recorded(user, client, name, arguments).await.1
     }
 
+    /// [`Toolbox::call`], stopped when `cancel` is tripped — web MCP's answer
+    /// to `notifications/cancelled` (#660). A registry tool is handed it
+    /// through `Tool::call_cancellable`, exactly as the stdio server hands it
+    /// over, and a call cancelled while it waits on a moving project is not
+    /// run again.
+    pub async fn call_cancellable(
+        &self,
+        user: UserId,
+        client: Client,
+        name: &str,
+        arguments: &Value,
+        cancel: &Cancel,
+    ) -> Result<Reply, String> {
+        let (_, outcome) = self
+            .run(user, client, name, arguments, None, cancel.clone())
+            .await;
+        outcome.map_err(|refusal| refusal.to_string())
+    }
+
     /// [`Toolbox::call`], and the call's row in `tool_calls` — `None` for a
     /// tool that does not exist, which is refused before anything is written.
     pub async fn recorded(
@@ -147,7 +166,9 @@ impl Toolbox {
         name: &str,
         arguments: &Value,
     ) -> (Option<i64>, Result<Reply, String>) {
-        let (id, outcome) = self.run(user, client, name, arguments, None).await;
+        let (id, outcome) = self
+            .run(user, client, name, arguments, None, Cancel::new())
+            .await;
         (id, outcome.map_err(|refusal| refusal.to_string()))
     }
 
@@ -163,7 +184,9 @@ impl Toolbox {
         arguments: &Value,
         at: Option<i64>,
     ) -> Result<Reply, Refusal> {
-        self.run(user, Client::Editor, name, arguments, at).await.1
+        self.run(user, Client::Editor, name, arguments, at, Cancel::new())
+            .await
+            .1
     }
 
     /// Run a call and record it — `None` for a tool that does not exist.
@@ -174,6 +197,7 @@ impl Toolbox {
         name: &str,
         arguments: &Value,
         at: Option<i64>,
+        cancel: Cancel,
     ) -> (Option<i64>, Result<Reply, Refusal>) {
         let Some(entry) = surface::find(name) else {
             return (None, Err(format!("there is no tool `{name}`").into()));
@@ -187,6 +211,7 @@ impl Toolbox {
             user,
             call: id,
             at,
+            cancel,
         };
         let outcome = match entry {
             surface::Entry::Shared(tool, serve) => {
@@ -247,6 +272,9 @@ pub(crate) struct Caller<'a> {
     /// The revision the call was worked out against, when it names one
     /// ([`Toolbox::edit`]).
     at: Option<i64>,
+    /// Tripped when whoever asked no longer wants the answer
+    /// ([`Toolbox::call_cancellable`]).
+    cancel: Cancel,
 }
 
 /// Why a call did not do what was asked.

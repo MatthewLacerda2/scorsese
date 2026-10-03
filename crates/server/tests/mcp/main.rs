@@ -12,6 +12,7 @@ mod importing;
 mod paying;
 mod settling;
 mod shooting;
+mod stopping;
 mod transport;
 mod vendors;
 

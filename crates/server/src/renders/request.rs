@@ -71,6 +71,11 @@ pub async fn ask(
         tx.commit().await?;
         return Ok(Asked::Queued(job));
     }
+    let outrun = if settings.preview.is_some() {
+        store::outrun(&mut tx, id, &settings, &key).await?
+    } else {
+        Vec::new()
+    };
     let payload = Payload {
         project: id,
         key,
@@ -82,5 +87,12 @@ pub async fn ask(
     let job = jobs::enqueue(&mut tx, kind, &payload).await?;
     tx.commit().await?;
     queue.announce(user, &job);
+    // A preview still drawing an earlier revision is stopped (#660): the
+    // editor is waiting for this one, and previews run one at a time.
+    for running in outrun {
+        if let Err(error) = crate::jobs::cancel(pool, queue, user, running).await {
+            eprintln!("scorsese-server: could not stop preview {running}: {error}");
+        }
+    }
     Ok(Asked::Queued(job))
 }

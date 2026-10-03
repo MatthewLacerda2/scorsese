@@ -32,6 +32,8 @@ pub(crate) enum Own {
     Render,
     /// Where the caller's jobs are.
     Jobs,
+    /// One of the caller's jobs, stopped.
+    JobCancel,
     /// Generations, paid from credits.
     Generate,
     /// What the caller has spent.
@@ -46,13 +48,14 @@ pub(crate) enum Own {
 
 impl Own {
     /// Every one of them.
-    pub(crate) const ALL: [Self; 11] = [
+    pub(crate) const ALL: [Self; 12] = [
         Self::ProjectList,
         Self::ProjectNew,
         Self::Library,
         Self::Import,
         Self::Render,
         Self::Jobs,
+        Self::JobCancel,
         Self::Generate,
         Self::Spending,
         Self::TemplateList,
@@ -79,7 +82,7 @@ impl Own {
             "project_new" => &[Self::ProjectList, Self::ProjectNew],
             "import" => &[Self::Library, Self::Import],
             "generate" => &[Self::Generate],
-            "render" => &[Self::Render, Self::Jobs],
+            "render" => &[Self::Render, Self::Jobs, Self::JobCancel],
             _ => &[],
         }
     }
@@ -93,6 +96,7 @@ impl Own {
             Self::Import => catalogue::IMPORT,
             Self::Render => queue::RENDER,
             Self::Jobs => queue::JOBS,
+            Self::JobCancel => queue::JOB_CANCEL,
             Self::Generate => super::generate::NAME,
             Self::Spending => spending::NAME,
             Self::TemplateList => templates::LIST,
@@ -110,6 +114,7 @@ impl Own {
             Self::Import => catalogue::IMPORT_SAYS,
             Self::Render => queue::RENDER_SAYS,
             Self::Jobs => queue::JOBS_SAYS,
+            Self::JobCancel => queue::JOB_CANCEL_SAYS,
             Self::Generate => super::generate::DESCRIPTION,
             Self::Spending => spending::DESCRIPTION,
             Self::TemplateList => templates::LIST_SAYS,
@@ -127,6 +132,7 @@ impl Own {
             Self::Import => catalogue::import_schema(),
             Self::Render => queue::render_schema(),
             Self::Jobs => queue::jobs_schema(),
+            Self::JobCancel => queue::job_cancel_schema(),
             Self::Generate => super::generate::schema(),
             Self::Spending => spending::schema(),
             Self::TemplateList => json!({ "type": "object", "properties": {} }),
@@ -157,6 +163,7 @@ impl Own {
             Self::Import => catalogue::import(caller, arguments).await,
             Self::Render => queue::render(caller, arguments).await,
             Self::Jobs => queue::jobs(caller, arguments).await,
+            Self::JobCancel => queue::job_cancel(caller, arguments).await,
             Self::Generate => super::generate::call(caller, arguments).await,
             Self::Spending => spending_history(caller, arguments).await,
             Self::TemplateList => templates::list(caller).await,

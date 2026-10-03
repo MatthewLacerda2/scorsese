@@ -9,7 +9,7 @@
 //!
 //! ## The life of a job
 //!
-//! `waiting → running → done | failed | stuck`. A feature enqueues one
+//! `waiting → running → done | failed | stuck | cancelled`. A feature enqueues one
 //! ([`store::enqueue`], inside the caller's own scoped transaction, so a job
 //! and whatever it belongs to are written together) and announces it
 //! ([`Queue::announce`]). The worker ([`work`]) claims it, hands it to the
@@ -79,6 +79,21 @@
 //! library item's thumbnail (#535) and a render ([`crate::renders::job`],
 //! #541) have theirs too — see [`kinds::registry`].
 //!
+//! ## Stopping one
+//!
+//! Its owner may stop a render or a preview ([`kinds::STOPPABLE`], #660) —
+//! nothing else: a paid generation is billed whether or not anybody still
+//! wants it, and a thumbnail or proxy is the server's own housekeeping. A
+//! waiting one is marked `cancelled` there and then and is never claimed. A
+//! running one is stopped through the [`Cancel`](scorsese_render::Cancel) the
+//! worker gives every job it runs ([`Context::cancel`]), held in the
+//! [`Queue`] by job id: the handler
+//! sees it tripped, stops, and returns [`Outcome::Cancelled`] — recorded as
+//! `cancelled`, not `failed`, because nothing went wrong. [`cancel`] is the
+//! whole of it, for `POST /api/jobs/{id}/cancel` and web MCP's `job_cancel`
+//! alike. A graceful stop of the worker trips every flag too, so a render
+//! does not keep a core busy for an hour in a process that is shutting down.
+//!
 //! ## Live state
 //!
 //! Every change of state is pushed to the owner over [`crate::events`], the
@@ -86,10 +101,12 @@
 
 pub mod kinds;
 mod registry;
+mod stop;
 pub mod store;
 mod worker;
 
 pub use registry::{Context, Handler, Registry};
+pub use stop::{CancelError, cancel};
 pub use worker::{Queue, work};
 
 use serde::Serialize;
@@ -127,6 +144,8 @@ pub enum State {
     Failed,
     /// Gave up waiting on a provider; the ticket is kept for a later collect.
     Stuck,
+    /// Stopped by its owner, before or while it ran.
+    Cancelled,
 }
 
 impl TryFrom<String> for State {
@@ -139,6 +158,7 @@ impl TryFrom<String> for State {
             "done" => Self::Done,
             "failed" => Self::Failed,
             "stuck" => Self::Stuck,
+            "cancelled" => Self::Cancelled,
             _ => return Err(format!("{state:?} is not a job state")),
         })
     }
@@ -171,6 +191,9 @@ pub enum Outcome {
     Failed(String),
     /// A provider outlasted [`kinds::PROVIDER_PATIENCE`]. The ticket stays.
     Stuck(String),
+    /// Its owner stopped it ([`Context::cancel`]); the message says how far
+    /// it got.
+    Cancelled(String),
 }
 
 /// A job as its owner sees it: in `GET /api/jobs` and on the event stream.
@@ -187,13 +210,13 @@ pub struct JobView {
     pub attempts: i32,
     /// What it produced, once done.
     pub result: Option<Value>,
-    /// Why it failed or is stuck.
+    /// Why it failed or is stuck, or how far it got before it was cancelled.
     pub error: Option<String>,
     /// When it was enqueued, in seconds since the Unix epoch.
     pub created_at: i64,
     /// When it was last claimed.
     pub started_at: Option<i64>,
-    /// When it last stopped running: done, failed or stuck.
+    /// When it last stopped running: done, failed, stuck or cancelled.
     pub finished_at: Option<i64>,
     /// When a crash or restart last cut it off.
     pub interrupted_at: Option<i64>,
