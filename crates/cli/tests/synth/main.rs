@@ -12,5 +12,6 @@ mod drumming;
 mod measuring;
 mod metadata;
 mod partial;
+mod patches;
 mod surveying;
 mod transcribing;
