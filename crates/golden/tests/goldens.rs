@@ -128,6 +128,7 @@ goldens!(
     paragraph,
     pivot,
     resume,
+    sequence,
     reveal_emoji,
     reveal_words,
     serif,

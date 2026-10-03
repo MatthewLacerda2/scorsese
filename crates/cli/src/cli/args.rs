@@ -14,6 +14,53 @@ use clap::{Subcommand, ValueEnum};
 use scorsese_core::AssetKind;
 use scorsese_providers::synth::{Drum, Span, Starter};
 
+/// The things `sequence` does: bring a folder of frames in as one, or make
+/// or change one from stills already in the pool.
+#[derive(Debug, Subcommand)]
+pub(crate) enum SequenceAction {
+    /// Import a folder of frames as one image sequence: each frame becomes an
+    /// image asset under `assets/<name>/`, and one `image_sequence` asset
+    /// plays them.
+    ///
+    /// Frames play in the order their numbers say — `frame_9` before
+    /// `frame_10` — and a gap in the numbering is reported, never refused.
+    /// Only png, jpeg, bmp, tiff and webp count as frames; anything else in
+    /// the folder is skipped and named. Frames of two formats or two sizes
+    /// refuse the whole folder with nothing copied. Does not recurse.
+    Import {
+        /// The folder of frames. Copied in, never referenced in place.
+        dir: PathBuf,
+        /// How many timeline frames each still is held. Defaults to 1: a
+        /// rendered frame directory or a timelapse, one photo a frame.
+        #[arg(long)]
+        hold: Option<u64>,
+        /// Start again from the first still when it runs out, instead of
+        /// holding the last one.
+        #[arg(long = "loop")]
+        looping: bool,
+    },
+    /// Make an image sequence from stills already in the pool, or change one:
+    /// its stills, its hold, whether it loops.
+    ///
+    /// An asset id nothing answers to is made, from `--stills`. One that is a
+    /// sequence is changed, and only in what is named. Nothing is written
+    /// unless the project still validates.
+    Set {
+        /// The sequence's asset id.
+        asset: String,
+        /// The image assets it plays, in order, comma-separated — replacing
+        /// the whole list. Required to make a new sequence.
+        #[arg(long, value_delimiter = ',')]
+        stills: Option<Vec<String>>,
+        /// How many timeline frames each still is held.
+        #[arg(long)]
+        hold: Option<u64>,
+        /// `true` to loop, `false` to hold the last still past the end.
+        #[arg(long = "loop")]
+        looping: Option<bool>,
+    },
+}
+
 /// The things `synth` does. Baking is the default, so the common case needs
 /// no verb at all.
 #[derive(Debug, Subcommand)]

@@ -1,0 +1,10 @@
+{
+  "description": "Two image sequences over the same three stills — red, green, blue, in that order. The first holds each still 2 frames and loops: frames 0-1 red, 2-3 green, 4-5 blue, 6-7 red again, 8-9 green. The second holds each 3 frames and does not loop, on a clip one frame longer than it: 10-12 red, 13-15 green, 16-18 blue, and 19 still blue, its last still held rather than a hole. The frames sampled are the edges of holds. Off by one on either side of a hold means the timing is ffmpeg's rather than ours; red at 6 failing means the loop does not wrap; anything but blue at 19 means a clip past a non-looping end shows something other than the last still.",
+  "media": {
+    "f1": "color=c=red:s=64x64:d=1:r=1",
+    "f2": "color=c=lime:s=64x64:d=1:r=1",
+    "f3": "color=c=blue:s=64x64:d=1:r=1"
+  },
+  "render": { "resolution": "64x64", "fps": "30" },
+  "frames": [1, 2, 5, 6, 9, 12, 13, 16, 19]
+}

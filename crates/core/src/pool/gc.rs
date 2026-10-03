@@ -10,13 +10,28 @@ use crate::project::Project;
 ///
 /// Listing is separate from removing on purpose: deleting media is not
 /// undoable, so the caller decides after seeing the list.
+///
+/// A still an image sequence plays is in use whether or not a clip shows the
+/// sequence: the sequence names it, and taking it away would leave the
+/// sequence naming nothing. So a sequence nobody places is collected first,
+/// and its stills by the collection after.
 pub fn unused_assets(project: &Project) -> Vec<AssetId> {
     project
         .assets
         .iter()
-        .filter(|asset| !project.every_clip().any(|(_, clip)| clip.asset == asset.id))
+        .filter(|asset| !in_use(project, &asset.id))
         .map(|asset| asset.id.clone())
         .collect()
+}
+
+/// Whether a clip shows this asset or a sequence plays it.
+fn in_use(project: &Project, id: &AssetId) -> bool {
+    project.every_clip().any(|(_, clip)| &clip.asset == id)
+        || project
+            .assets
+            .iter()
+            .filter_map(|asset| asset.sequence.as_ref())
+            .any(|sequence| sequence.stills.contains(id))
 }
 
 /// Drops these assets from the table and deletes the files they own.
@@ -32,7 +47,7 @@ pub fn remove_assets(
     let mut report = GcReport::default();
 
     for id in ids {
-        if project.every_clip().any(|(_, clip)| &clip.asset == id) {
+        if in_use(project, id) {
             return Err(GcError::StillReferenced { id: id.clone() });
         }
         let Some(index) = project.assets.iter().position(|asset| &asset.id == id) else {
@@ -78,9 +93,9 @@ pub struct GcReport {
 /// Why a collection stopped.
 #[derive(Debug, thiserror::Error)]
 pub enum GcError {
-    /// Collecting it would leave a clip pointing at nothing, which is exactly
-    /// what validation exists to prevent.
-    #[error("asset `{id}` is still used by a clip")]
+    /// Collecting it would leave a clip, or a sequence, pointing at nothing,
+    /// which is exactly what validation exists to prevent.
+    #[error("asset `{id}` is still used by a clip or an image sequence")]
     StillReferenced {
         /// The asset a clip still refers to.
         id: AssetId,

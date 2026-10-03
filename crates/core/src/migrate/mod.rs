@@ -92,6 +92,10 @@ pub(crate) const STEPS: &[Step] = &[
         from: 41,
         apply: stills_arrive,
     },
+    Step {
+        from: 42,
+        apply: sequences_arrive,
+    },
 ];
 
 /// v33 → v34: the `group` asset kind (#586).
@@ -192,6 +196,16 @@ fn mattes_arrive(_: &mut Value) -> Result<(), String> {
 /// a shot's stills may now name a `generated_image` — only admits documents
 /// v41 refused, so every v41 document reads the same at v42.
 fn stills_arrive(_: &mut Value) -> Result<(), String> {
+    Ok(())
+}
+
+/// v42 → v43: the `image_sequence` kind and its `sequence` block (#462).
+///
+/// Nothing to rewrite, for [`groups_arrive`]'s reason: a kind arrived with a
+/// block only it may carry, and nothing a v42 document can say changes
+/// meaning. Every v42 still is an `image` and stays one; a still a sequence
+/// plays is an ordinary `image` too, so none had to become anything else.
+fn sequences_arrive(_: &mut Value) -> Result<(), String> {
     Ok(())
 }
 
@@ -334,3 +348,5 @@ fn version_of(document: &Value) -> Result<u32, MigrateError> {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod versions;

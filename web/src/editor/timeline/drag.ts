@@ -28,8 +28,16 @@ export interface Limits {
   tail: number | null;
 }
 
-/** The kinds that play a stretch of source, so a trim can run out of it. */
-const TIMED = new Set(["video", "audio", "generated_video", "generated_audio", "synth_audio"]);
+/** The kinds that play a stretch of source, so a trim can run out of it. An
+ * image sequence's head can; its tail never runs out — it loops or holds. */
+const TIMED = new Set([
+  "video",
+  "audio",
+  "image_sequence",
+  "generated_video",
+  "generated_audio",
+  "synth_audio",
+]);
 
 /** A clip placed on nothing measured runs this long: a title, a still. */
 export const UNMEASURED_SECONDS = 5;

@@ -1,4 +1,4 @@
-# `project.json` — schema v42
+# `project.json` — schema v43
 
 The contract between the CLI, the MCP server and the GUI — the contract *now*,
 not across time. It is meant to be hand-written: an agent should be able to
@@ -27,6 +27,7 @@ carries forward) up to this one.
 | v39 → v40 | gradient fills (#588) | nothing: a shape's `fill` and a colour asset's `color` gained a gradient object beside the colour string, which still means the colour it did, so it passes through and only its version moves |
 | v40 → v41 | a clip's `matte` (#589) | nothing: one optional clip field was added, absent meaning what every v40 clip already drew — the clip shown whole — and no v40 clip names another as its matte, so it passes through and only its version moves |
 | v41 → v42 | the `generated_image` kind and its `image` block (#461) | nothing: a kind was added with a block only it carries, and a shot's stills may now name a generated still — which only admits documents v41 refused — so every v41 document passes through and only its version moves |
+| v42 → v43 | the `image_sequence` kind and its `sequence` block (#462) | nothing: a kind was added with a block only it carries, and the stills it plays are ordinary `image` assets, so every v42 document passes through and only its version moves |
 
 A complete worked example lives in
 `crates/core/tests/fixtures/narrated_teaser.json`.
@@ -35,7 +36,7 @@ A complete worked example lives in
 
 ```json project
 {
-  "schema_version": 42,
+  "schema_version": 43,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -146,7 +147,7 @@ re-importing or regenerating a file is one edit in one place.
 | Field | Required for | Meaning |
 | --- | --- | --- |
 | `id` | all | Unique within the project |
-| `kind` | all | `video`, `image`, `audio`, `text`, `color`, `shape`, `icon`, `group`, `generated_video`, `generated_image`, `generated_audio`, `synth_audio` |
+| `kind` | all | `video`, `image`, `audio`, `text`, `color`, `shape`, `icon`, `group`, `image_sequence`, `generated_video`, `generated_image`, `generated_audio`, `synth_audio` |
 | `path` | file-backed kinds | Relative to the project root |
 | `sha256` | optional | 64 lowercase hex chars, of the file at `path` |
 | `media` | optional | What ffprobe found: `duration_seconds`, `width`, `height`, `frame_rate` (a rational), `has_alpha`, `audio_channels`, `sample_rate` — see below |
@@ -159,6 +160,7 @@ re-importing or regenerating a file is one edit in one place.
 | `shape` | `shape` | The outline to draw and how it is coloured — see below |
 | `icon` | `icon` | Which symbol to draw, how big and in what colour — see below |
 | `group` | `group` | The tracks it holds, which render as one layer — see below |
+| `sequence` | `image_sequence` | The stills it plays in order, how many frames each is held, and whether it loops — see below |
 | `note` | optional | Why this asset is what it is. Never rendered — see above |
 | `video` | optional, `generated_video` only | The rest of the brief: `model`, `resolution`, `seconds`, `aspect`, `first_image`, `last_image`, `reference_images` — see below |
 | `image` | optional, `generated_image` only | The rest of the brief: `model`, `resolution`, `aspect`, `reference_images` — see below |
@@ -1483,6 +1485,59 @@ template brings the group and everything its members show, nested groups
 included, and inserting it renames the members' clip ids and the group's track
 ids wherever the project already uses them.
 
+### Image sequences
+
+```json asset
+{ "id": "spin", "kind": "image_sequence",
+  "sequence": { "stills": ["spin-0001", "spin-0002", "spin-0003"], "hold": 2, "loop": true } }
+```
+
+Stills played in order, each held for a number of frames, once or round and
+round: a directory of frames a renderer or an upscaler wrote, a timelapse of
+four hundred photographs, stop motion, a flickering sign, a few drawings
+cycling. A **picture that carries its own timeline** — the same idea as an
+animated gif under `image`, arriving from the other direction.
+
+| field | what it is | default |
+| --- | --- | --- |
+| `stills` | the `image` assets it plays, in order, **by id** — one may appear more than once | required, at least one |
+| `hold` | how many **timeline** frames each still stays on screen; one number for the whole sequence | `1` |
+| `loop` | start again from the first still when it runs out, instead of holding the last | `false` |
+
+**Its length is never written down.** It is the stills times the hold, and a
+duration stored beside them could only ever disagree — the same reason an
+animated gif's length is measured rather than recorded. A clip of a sequence is
+a window onto that timeline, like a clip of footage: `source_in` skips into it,
+a shorter clip shows less of it, and `speed` plays it faster. **Past its end** a
+looping sequence starts again, and one that does not **holds its last still**
+for as long as the clip lasts — never a hole in the middle of a timeline. So a
+sequence bounds no clip: there is nothing to trim past.
+
+**The stills are assets, named by id**, as a clip names its asset: each is an
+imported picture, hashed and probed like any other, so the missing-file check,
+relinking and a hosted library all look after them with nothing added. Every
+still is an `image` (not a sketch, not another sequence), all in **one format**
+— `png`, `jpg`, `bmp`, `tif` or `webp`, since a sequence is decoded as one
+stream and a gif or avif can carry an animation of its own — and, where they
+have been measured, all **one size**: a clip fits the sequence to the frame once,
+from its first still.
+
+`scorsese sequence import <folder>` — or `import` with `"sequence": true` over
+MCP — brings a folder of frames in as one: each frame an `image` asset under
+`assets/<sequence>/`, with the sequence's id as a prefix, played in the order
+their **numbers** say (`frame_9` before `frame_10`). A gap in the numbering is
+reported and never refused, because a frame missing from a numbered run is
+nearly always one somebody deleted on purpose. `scorsese sequence set` (and the
+`sequence` tool) makes a sequence from stills already in the pool or changes
+one's stills, `hold` or `loop`.
+
+**How it renders.** Which still each output frame shows is worked out before
+ffmpeg starts — the position in the sequence at that instant, through the
+clip's speed, on the timeline's grid — and ffmpeg is handed that list to decode,
+one file per frame, rather than being asked to time anything itself. Not here:
+a hold per still, tweening between stills, and anything that picks a still from
+a sound (lip sync) — that last one is character-animation software.
+
 `media.duration_seconds` is wall-clock, and `media.frame_rate` is a rational
 in the same shape as `timeline_fps` — a source's own grid, which is not
 necessarily the timeline's.
@@ -2319,7 +2374,7 @@ a glow at the defaults:
 | field | what it is | default |
 | --- | --- | --- |
 | `color` | the light's colour; its alpha multiplies the halo | absent: **the layer's own colours** |
-| `radius` | how far the halo reaches, measured exactly as `blur` is | `0.02` |
+| `radius` | how far the halo reaches, measured exactly as `blur` is — and never further than the longest side of what the layer actually draws, the box round its non-transparent pixels | `0.02` |
 | `intensity` | how bright it is: `0.0` none, `1.0` the layer's own light spread out | `1.0` |
 
 Absent `color` means the layer's own, so a cyan line glows cyan and a two-colour
@@ -2394,6 +2449,14 @@ to `0.0`–`4.0`, and `glow.radius` to nothing below zero and never wider than t
 layer is tall — so a `spring` on a pulse flashes brighter and settles, rather
 than going negative.
 
+**A glow's radius is also held to what the layer draws.** A shape, a title or
+an icon is drawn on a raster the size of the frame, so "a fraction of the
+layer's height" alone would let `radius: 1` on a 23-pixel dot spread its light
+over the whole frame — under a tenth of a level anywhere, which is no halo at
+all. So the radius never exceeds the **longest side of the box round the layer's
+non-transparent pixels**: a large radius on a small shape gives a halo about the
+shape's own size, and a long thin line can still glow along its whole length.
+
 **What is deliberately absent**: inner glow, bevel and emboss, strokes as an
 effect, "layer styles" as a family, the other dozen blend modes, and anything
 reading what is *behind* a layer beyond the blend itself. That is the
@@ -2403,7 +2466,7 @@ compositing-suite line.
 
 ```json project
 {
-  "schema_version": 42,
+  "schema_version": 43,
   "name": "wipe",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [
@@ -2794,7 +2857,7 @@ attention than the ducking was avoiding.
 | `reveal` | how much of a text layer has arrived, piece by piece — [see above](#revealing-by-character-word-or-line-reveal) | `1.0` all of it, `0.0` none |
 | `number` | the figure a text layer writes where its text says `{n}` — [see above](#a-number-that-counts-number) | its `number` block's `value` |
 | `shadow.opacity` | how dark the layer's drop shadow is, clamped to `0.0`–`1.0` | `0.5` by default; nothing without a `shadow` |
-| `glow.radius` | how far the layer's glow reaches, as a fraction of its own **height** | `0.02` by default; nothing without a `glow` |
+| `glow.radius` | how far the layer's glow reaches, as a fraction of its own **height**, held to the longest side of what it actually draws | `0.02` by default; nothing without a `glow` |
 | `glow.intensity` | how bright the layer's glow is, clamped to `0.0`–`4.0` | `1.0` by default; nothing without a `glow` |
 | `follow.progress` | how far along the arrow in its `follow` a clip is, as a fraction of the arrow's **length** | `0.0` its tail, `1.0` its head; clamped to `0`–`1`; nothing without a `follow` |
 | `volume` | how loud a clip plays, on either kind of track | `1.0` as recorded, `0.0` silent |
@@ -2923,7 +2986,7 @@ What it checks: schema version, duplicate ids, path rules, hash shape, the
 fields each asset kind requires — including that only a `text` asset carries
 `text` or `style`, only a `color` asset carries `color`, only a `shape`
 asset carries `shape`, only an `icon` asset carries `icon` and only a `group`
-carries `group`, that an icon has
+carries `group` and only an `image_sequence` carries `sequence`, that an icon has
 a size and a thickness to draw with, that a shape has area, a corner it has room to round,
 something to draw with and a `dash` of at least one length, each above zero —
 and that an arrow has two ends in different
@@ -2936,7 +2999,8 @@ brief it takes: a `prompt` or a `recipe`, never both and never the other's —
 clip references resolving, asset kind against track kind, non-zero durations,
 clip overlap, no clip reaching past the end of the source it was measured to
 have — or the group it shows — and keyframe shape, on the timeline and inside
-every group alike; what only a group raises (see *Group assets*); and that a
+every group alike; what only a group raises (see *Group assets*) and what only
+an image sequence raises (see *Image sequences*); and that a
 `follow` names an arrow clip on the follower's own timeline, not itself, and not
 one attached to another follower (see *Travelling along an arrow*).
 

@@ -21,6 +21,7 @@ pub(crate) mod new;
 pub(crate) mod prices;
 pub(crate) mod probe;
 pub(crate) mod render;
+pub(crate) mod sequence;
 pub(crate) mod settings;
 pub(crate) mod still;
 pub(crate) mod synth;

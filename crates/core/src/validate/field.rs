@@ -83,6 +83,12 @@ pub enum AssetField {
     /// everywhere else for the reason [`AssetField::Shape`] is: tracks on a
     /// video asset would be composited by nothing.
     Group,
+    /// The stills an `image_sequence` plays, their hold, and whether it loops.
+    ///
+    /// That kind's whole content, required by it and refused everywhere else
+    /// for the reason [`AssetField::Shape`] is: a run of stills on a video
+    /// asset would be played by nothing.
+    Sequence,
     /// The rest of a generated video's brief: tier, raster, length, aspect and
     /// the stills it is built from.
     ///
@@ -135,6 +141,7 @@ impl AssetField {
             Self::Shape => "shape",
             Self::Icon => "icon",
             Self::Group => "group",
+            Self::Sequence => "sequence",
             Self::Video => "video",
             Self::Speech => "speech",
             Self::Image => "image",

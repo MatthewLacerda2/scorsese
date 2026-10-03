@@ -5,7 +5,8 @@
 // field cannot hold a ramp and typing over it would flatten somebody's work.
 //
 // A value is sent when the field is left or Enter is pressed — each change is
-// a round trip to the server's tools (`trim_clip`, `clip_set`) — and a refused
+// a round trip to the server's tools (`trim_clip`, `clip_set`, and `sequence`
+// for an image sequence's hold and loop) — and a refused
 // one springs back to what the document still says.
 
 import type { Clip, DocumentAsset, FitMode, Fps, Track } from "@/api";
@@ -22,8 +23,8 @@ interface Props {
   track: Track;
   asset: DocumentAsset | undefined;
   fps: Fps;
-  /** Run `trim_clip` or `clip_set` on this clip with these arguments. */
-  onChange: (tool: "trim_clip" | "clip_set", args: Record<string, unknown>) => void;
+  /** Run `trim_clip` or `clip_set` on this clip, or `sequence` on its asset. */
+  onChange: (tool: "trim_clip" | "clip_set" | "sequence", args: Record<string, unknown>) => void;
 }
 
 export function Inspector({ clip, track, asset, fps, onChange }: Props) {
@@ -108,6 +109,12 @@ export function Inspector({ clip, track, asset, fps, onChange }: Props) {
           </>
         )}
       </div>
+      {asset?.kind === "image_sequence" && asset.sequence && (
+        <Sequence
+          sequence={asset.sequence}
+          onChange={(args) => onChange("sequence", { asset: asset.id, ...args })}
+        />
+      )}
       {ramps.length > 0 && (
         <div className="flex flex-col gap-1">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -127,6 +134,42 @@ export function Inspector({ clip, track, asset, fps, onChange }: Props) {
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+/** An image sequence's hold and loop — on the asset, so every clip of it changes. */
+function Sequence(props: {
+  sequence: NonNullable<DocumentAsset["sequence"]>;
+  onChange: (args: Record<string, unknown>) => void;
+}) {
+  const { sequence, onChange } = props;
+  const hold = sequence.hold ?? 1;
+  const looping = sequence.loop ?? false;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Sequence
+      </h3>
+      <p className="text-xs text-muted-foreground">
+        {sequence.stills.length} stills × {hold} frame(s) = {sequence.stills.length * hold} frames
+      </p>
+      <div className="grid grid-cols-[5.5rem_1fr] items-center gap-x-2 gap-y-1.5">
+        <span title="How many frames each still stays on screen">Hold</span>
+        <NumberField
+          value={hold}
+          suffix="f"
+          min={1}
+          onCommit={(value) => onChange({ hold: Math.round(value) })}
+        />
+        <span title="Start again from the first still, instead of holding the last">Loop</span>
+        <input
+          type="checkbox"
+          className="size-4 justify-self-start"
+          checked={looping}
+          onChange={(event) => onChange({ loop: event.target.checked })}
+        />
+      </div>
     </div>
   );
 }

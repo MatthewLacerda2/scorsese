@@ -121,6 +121,9 @@ pub enum SkipReason {
     /// No extension, or one nothing recognises. Guessing would import the file
     /// as the wrong kind and only surface at render time.
     UnknownKind,
+    /// Not a frame of an image sequence: anything but a picture in one of
+    /// [`crate::SEQUENCE_FORMATS`] — a gif among the frames, a sidecar file.
+    NotAFrame,
 }
 
 impl std::fmt::Display for SkipReason {
@@ -128,6 +131,7 @@ impl std::fmt::Display for SkipReason {
         f.write_str(match self {
             Self::NotAFile => "not a file — import does not recurse into directories",
             Self::UnknownKind => "not media, as far as its extension says",
+            Self::NotAFrame => "not a frame — a sequence's stills are png, jpeg, bmp, tiff or webp",
         })
     }
 }

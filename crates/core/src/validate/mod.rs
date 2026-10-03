@@ -26,6 +26,7 @@ mod icon;
 mod image;
 mod matte;
 mod report;
+mod sequence;
 mod shape;
 mod speech;
 mod text;
@@ -34,8 +35,8 @@ mod video;
 
 pub use error::{
     AssetProblem, FillProblem, FollowProblem, GroupProblem, IconProblem, ImageProblem,
-    MatteProblem, ShapeProblem, SpeechProblem, TextProblem, TimelineProblem, ValidationError,
-    VideoProblem,
+    MatteProblem, SequenceProblem, ShapeProblem, SpeechProblem, TextProblem, TimelineProblem,
+    ValidationError, VideoProblem,
 };
 pub use field::AssetField;
 pub use report::ValidationErrors;

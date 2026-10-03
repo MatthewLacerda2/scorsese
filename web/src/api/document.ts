@@ -65,6 +65,7 @@ export type AssetKind =
   | "shape"
   | "icon"
   | "group"
+  | "image_sequence"
   | "generated_video"
   | "generated_image"
   | "generated_audio"
@@ -79,6 +80,8 @@ export interface DocumentAsset {
   state?: string;
   text?: string;
   media?: { duration_seconds?: number; width?: number; height?: number };
+  /** An `image_sequence`'s stills, how many frames each is held, and whether it loops. */
+  sequence?: { stills: string[]; hold?: number; loop?: boolean };
 }
 
 /** `scorsese_core::Project`, as far as the editor reads it. */

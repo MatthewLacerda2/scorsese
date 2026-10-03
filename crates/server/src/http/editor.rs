@@ -48,13 +48,14 @@ use crate::projects;
 use crate::tools::Refusal;
 
 /// The tools that change what a drag is computed on, so each names a revision.
-pub const EDITS: [&str; 6] = [
+pub const EDITS: [&str; 7] = [
     "track_new",
     "place_clip",
     "trim_clip",
     "clip_set",
     "clip_move",
     "clip_remove",
+    "sequence",
 ];
 
 /// The tools that do not: bringing a library file into the assets table,

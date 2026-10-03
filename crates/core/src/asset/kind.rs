@@ -39,6 +39,16 @@ pub enum AssetKind {
     /// `style`'s `sans` does. Which names exist is not this crate's business —
     /// see [`crate::Icon`].
     Icon,
+    /// Stills played in order, each held for a number of frames, once or on a
+    /// loop — a directory of rendered frames, a timelapse, stop motion, a
+    /// flickering sign. See [`crate::ImageSequence`].
+    ///
+    /// The opposite of [`AssetKind::Image`] in the one way that matters: a
+    /// still has no time in it, and a sequence carries a timeline of its own,
+    /// so a clip of it is a window onto that timeline rather than a hold. Like
+    /// a `group` it has no file of its own — its stills are `image` assets,
+    /// named by id, and the files are theirs.
+    ImageSequence,
     /// A Veo prompt: video that does not exist until it is generated.
     GeneratedVideo,
     /// A Gemini image prompt: a still that does not exist until it is
@@ -102,6 +112,7 @@ impl AssetKind {
                 | Self::Color
                 | Self::Shape
                 | Self::Icon
+                | Self::ImageSequence
                 | Self::GeneratedVideo
                 | Self::GeneratedImage
                 | Self::Group
@@ -136,11 +147,12 @@ impl AssetKind {
     /// what it names is compiled into the binary, so there is no path in the
     /// project and nothing that could be missing after a copy. So does a
     /// `group`: it holds placements of other assets, and whatever files those
-    /// need are theirs.
+    /// need are theirs. And an `image_sequence`, for the same reason: it names
+    /// its stills, and the files are theirs.
     pub fn is_file_backed(self) -> bool {
         !matches!(
             self,
-            Self::Text | Self::Color | Self::Shape | Self::Icon | Self::Group
+            Self::Text | Self::Color | Self::Shape | Self::Icon | Self::Group | Self::ImageSequence
         )
     }
 }

@@ -37,6 +37,7 @@ export type EditorTool =
   | "clip_set"
   | "clip_move"
   | "clip_remove"
+  | "sequence"
   | "import"
   | "still"
   | "template_save"

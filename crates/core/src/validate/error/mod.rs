@@ -18,6 +18,7 @@ mod group;
 mod icon;
 mod image;
 mod matte;
+mod sequence;
 mod shape;
 mod speech;
 mod text;
@@ -31,6 +32,7 @@ pub use group::GroupProblem;
 pub use icon::IconProblem;
 pub use image::ImageProblem;
 pub use matte::MatteProblem;
+pub use sequence::SequenceProblem;
 pub use shape::ShapeProblem;
 pub use speech::SpeechProblem;
 pub use text::TextProblem;
@@ -104,6 +106,13 @@ impl From<VideoProblem> for ValidationError {
 /// And a generated still's problem reaches it the same way.
 impl From<ImageProblem> for ValidationError {
     fn from(problem: ImageProblem) -> Self {
+        Self::Asset(problem.into())
+    }
+}
+
+/// And an image sequence's problem reaches it the same way.
+impl From<SequenceProblem> for ValidationError {
+    fn from(problem: SequenceProblem) -> Self {
         Self::Asset(problem.into())
     }
 }

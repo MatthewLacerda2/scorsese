@@ -73,6 +73,13 @@ pub struct Shot<'a> {
     /// a layout, the overlap check — sees the group clip as the one thing it
     /// is, and only the renderer, which has to draw the inside, looks in.
     pub members: Vec<Shot<'a>>,
+    /// The stills a clip of an **image sequence** plays, in order, resolved
+    /// from the ids its asset names. Empty for every other kind.
+    ///
+    /// Resolved here for [`Shot::members`]' reason: the plan is where an id
+    /// meets the assets table, so nothing after it has to carry the table to
+    /// find out what a sequence's frames are.
+    pub stills: Vec<&'a Asset>,
     /// How far this shot's own track runs behind the render's timeline, in
     /// frames: timeline frame `at` is frame `at - shift` of the track the clip
     /// sits on. Zero on the project's own tracks; for a group's member it is
@@ -95,7 +102,14 @@ pub struct Matted<'a> {
     pub invert: bool,
 }
 
-impl Shot<'_> {
+impl<'a> Shot<'a> {
+    /// The asset whose picture this shot's size is read from: its own, or for
+    /// an image sequence its first still — every still is one size, which
+    /// validation holds them to.
+    pub fn picture(&self) -> &'a Asset {
+        self.stills.first().copied().unwrap_or(self.asset)
+    }
+
     /// Which frame of this shot's own track timeline frame `at` is — the frame
     /// its `start` and its keyframes are counted on.
     ///

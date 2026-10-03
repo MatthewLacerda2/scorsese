@@ -35,6 +35,7 @@ mod edit;
 mod fixture;
 mod one;
 mod selected;
+mod sequence;
 mod several;
 mod time;
 mod transform;

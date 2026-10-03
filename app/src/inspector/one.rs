@@ -27,6 +27,9 @@ impl Inspector {
         // and these are one question — where is this in the frame — asked in
         // two parts.
         self.transform(ui, open, selected);
+        // How a sequence plays is the asset's, like a brief, and sits where a
+        // brief does: after what this clip is, before what animates it.
+        self.sequence(ui, open, selected);
         // Under the clip's own fields, because it is about the *asset*: a
         // person reads what this clip is, then what the shot behind it asked
         // for. Absent for everything that is not a generated shot, which is
@@ -175,6 +178,7 @@ pub(super) fn kind_name(kind: AssetKind) -> &'static str {
         AssetKind::GeneratedAudio => "generated speech",
         AssetKind::SynthAudio => "synthesised audio",
         AssetKind::Group => "group",
+        AssetKind::ImageSequence => "image sequence",
     }
 }
 

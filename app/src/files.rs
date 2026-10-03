@@ -115,7 +115,10 @@ impl Files {
 /// By what a thing *is*, not by what state it is in: someone looking for the
 /// music knows it is sound, and does not know whether it has been generated.
 const GROUPS: &[(&str, &[AssetKind])] = &[
-    ("PICTURE", &[AssetKind::Video, AssetKind::Image]),
+    (
+        "PICTURE",
+        &[AssetKind::Video, AssetKind::Image, AssetKind::ImageSequence],
+    ),
     ("SOUND", &[AssetKind::Audio]),
     ("TITLES", &[AssetKind::Text, AssetKind::Color]),
     (

@@ -4,7 +4,8 @@ use crate::common::stub_probe::StubProbe;
 use crate::common::{new_project, source_file};
 use scorsese_core::pool::{GcError, remove_assets, unused_assets};
 use scorsese_core::{
-    AssetId, Clip, ClipId, Frames, Project, Track, TrackId, TrackKind, import_asset,
+    Asset, AssetId, Clip, ClipId, Frames, ImageSequence, Project, Track, TrackId, TrackKind,
+    import_asset,
 };
 use std::path::PathBuf;
 
@@ -105,4 +106,23 @@ fn the_project_still_validates_after_collecting() {
     let (dir, mut project, _used, spare) = project_with_one_used_asset("gc-valid");
     remove_assets(&mut project, &dir, &[spare]).expect("collect");
     assert_eq!(project.validate(), Ok(()));
+}
+
+#[test]
+fn a_still_a_sequence_plays_is_in_use_until_the_sequence_is_gone() {
+    let (dir, mut project, _used, spare) = project_with_one_used_asset("gc-sequence");
+    let sequence = ImageSequence::new(vec![spare.clone()]);
+    let spin = AssetId::new("spin");
+    project
+        .assets
+        .push(Asset::image_sequence(spin.clone(), sequence));
+    assert_eq!(unused_assets(&project), vec![spin.clone()]);
+    let error = remove_assets(&mut project, &dir, std::slice::from_ref(&spare)).expect_err("used");
+    assert!(
+        matches!(error, GcError::StillReferenced { .. }),
+        "{error:?}"
+    );
+
+    remove_assets(&mut project, &dir, &[spin]).expect("collect the sequence");
+    assert_eq!(unused_assets(&project), vec![spare], "then its stills");
 }

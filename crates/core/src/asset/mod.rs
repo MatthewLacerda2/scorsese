@@ -6,6 +6,7 @@
 
 pub(crate) mod image;
 pub(crate) mod kind;
+pub(crate) mod sequence;
 pub(crate) mod speech;
 pub(crate) mod video;
 
@@ -24,6 +25,7 @@ use crate::time::{Fps, Frames};
 
 pub use image::{ImageAspect, ImageModel, ImageRequest, ImageResolution, MAX_IMAGE_REFERENCES};
 pub use kind::{AssetKind, GenerationState};
+pub use sequence::{ImageSequence, SEQUENCE_FORMATS};
 pub use speech::{LanguageIgnored, MAX_CHARACTERS, SpeechModel, SpeechRequest};
 pub use video::{
     Aspect, ClipSeconds, LengthLock, MAX_REFERENCE_IMAGES, VideoModel, VideoRequest,
@@ -139,6 +141,14 @@ pub struct Asset {
     /// video asset would be composited by nothing.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub group: Option<Group>,
+    /// The stills an `image_sequence` plays, how long each is held, and
+    /// whether it loops.
+    ///
+    /// Required on that kind and refused on every other, for the reason every
+    /// kind's own block is: a run of stills on a video asset would be played by
+    /// nothing. See [`ImageSequence`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sequence: Option<ImageSequence>,
     /// Why this asset is what it is. Never rendered — see
     /// [`crate::Track::note`], which states the invariant in full.
     ///
@@ -274,6 +284,7 @@ impl Asset {
             shape: None,
             icon: None,
             group: None,
+            sequence: None,
             note: None,
             video: None,
             speech: None,
@@ -348,6 +359,19 @@ impl Asset {
         }
     }
 
+    /// Stills played in order: a rendered frame directory, a timelapse, a
+    /// loop of drawings.
+    ///
+    /// No file of its own — the stills are `image` assets already in the
+    /// table, named by id — and no length written down: how long it is follows
+    /// from the stills and the hold. See [`ImageSequence`].
+    pub fn image_sequence(id: AssetId, sequence: ImageSequence) -> Self {
+        Self {
+            sequence: Some(sequence),
+            ..Self::bare(id, AssetKind::ImageSequence)
+        }
+    }
+
     /// The style this asset's text is drawn in, defaults included. Not the
     /// stored field: an absent style is every default, not an absence, so a
     /// caller never has to decide what a missing font means.
@@ -401,9 +425,16 @@ impl Asset {
     /// A **group** is the one kind whose length is not measured but derived:
     /// it is where its last member ends, on the same grid, so it bounds a clip
     /// of it exactly as footage does — and needs no probe to know it.
+    ///
+    /// An **image sequence** has a length too ([`ImageSequence::length`]) and
+    /// is still unbounded here, on purpose: a looping one never runs out, and
+    /// one that does not loop holds its last still for as long as a clip
+    /// lasts. Neither leaves a clip anything it could trim past.
     pub fn length(&self, fps: Fps) -> Option<Frames> {
-        if self.kind == AssetKind::Group {
-            return self.group.as_ref().map(Group::length);
+        match self.kind {
+            AssetKind::Group => return self.group.as_ref().map(Group::length),
+            AssetKind::ImageSequence => return None,
+            _ => {}
         }
         Some(fps.frames(self.media?.duration_seconds?))
     }
@@ -433,7 +464,8 @@ impl Asset {
     ///
     /// A **group** has one too, derived from its members rather than measured:
     /// shortening a clip of it shows less of the group, exactly as it would a
-    /// shot.
+    /// shot. So does an **image sequence**: a shorter clip of a timelapse shows
+    /// less of the day, and a faster one shows all of it sooner.
     pub fn has_intrinsic_duration(&self) -> bool {
         match self.kind {
             AssetKind::Image

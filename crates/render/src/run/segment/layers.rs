@@ -15,7 +15,7 @@ use scorsese_core::{Anchor, AssetKind, Origin, Rgba};
 
 use crate::content;
 use crate::error::RenderError;
-use crate::pipe::{Decoder, Fitting};
+use crate::pipe::{Decoder, Fitting, listed_frames};
 use crate::plan::Shot;
 use crate::report::{Note, StandIn};
 use crate::shape;
@@ -370,18 +370,13 @@ impl Pass<'_> {
         };
 
         let (file, fitting) = self.previewed(shot, file);
-        let decoder = Decoder::start(
-            self.tools,
-            &source_for(
-                shot,
-                file,
-                self.loops,
-                self.plan.timeline_fps(),
-                frames,
-                fitting,
-            ),
-            &self.settings,
-        )?;
+        let timeline_fps = self.plan.timeline_fps();
+        let mut source = source_for(shot, file, self.loops, timeline_fps, frames, fitting);
+        if !shot.stills.is_empty() {
+            let files = slug::still_files(shot, self.project_root)?;
+            source.listed = listed_frames(shot, &files, timeline_fps, self.settings.fps, frames);
+        }
+        let decoder = Decoder::start(self.tools, &source, &self.settings)?;
         // A decoded picture fills the buffer it is read into, so its rectangle
         // is that buffer — which for a letterboxed `fit` is the picture and not
         // the raster, since the decode stage hands over the fitted rectangle

@@ -44,7 +44,11 @@ impl Tool for Import {
          the pool is not a collision — it comes back as the asset that already \
          holds those bytes. When several paths are named, one that fails does \
          not cost the others: everything that worked is saved and reported, \
-         and the failures are named at the end."
+         and the failures are named at the end. With `sequence: true` each path \
+         is a folder of numbered frames brought in as ONE image_sequence asset — \
+         a timelapse, stop motion, a rendered frame directory — whose stills play \
+         in number order (frame_9 before frame_10), one frame each and once; the \
+         sequence tool changes the hold and the loop."
     }
 
     fn costs(&self) -> Costs {
@@ -73,6 +77,17 @@ impl Tool for Import {
                                     its sound, say. For a directory it says what the \
                                     media in it is; which files count as media at \
                                     all is still the extension's answer."
+                },
+                "sequence": {
+                    "type": "boolean",
+                    "description": "Bring each path — a folder — in as one \
+                                    image_sequence: its png, jpeg, bmp, tiff or webp \
+                                    frames become image assets under \
+                                    assets/<folder name>/, played in the order their \
+                                    numbers say. A gap in the numbering is reported, \
+                                    never refused; frames of two formats or two sizes \
+                                    refuse the folder with nothing copied. `kind` does \
+                                    not apply."
                 }
             },
             "required": ["project", "path"]
@@ -89,6 +104,9 @@ impl Tool for Import {
         // does it: a server that found ffprobe at startup would keep insisting
         // it was there after someone uninstalled it.
         let probe = Ffprobe::discover().map_err(|error| format!("{error}"))?;
+        if arguments.get("sequence").and_then(Value::as_bool) == Some(true) {
+            return super::sequenced::import(&mut project, &dir, &paths, &probe);
+        }
         let mut reports = Vec::new();
         let mut failures = Vec::new();
         let mut copied = false;

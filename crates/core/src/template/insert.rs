@@ -154,8 +154,8 @@ fn clip_ids(project: &Project, template: &Project) -> BTreeMap<ClipId, ClipId> {
 ///
 /// A file the project already has — the same `sha256` — is the project's own
 /// asset; everything else is copied under its own id where free, with the
-/// stills its brief names, the clips its arrow follows and a group's members
-/// and lanes renamed to match.
+/// stills its brief names or its sequence plays, the clips its arrow follows
+/// and a group's members and lanes renamed to match.
 fn copy_assets(
     proposed: &mut Project,
     template: &Project,
@@ -204,6 +204,9 @@ fn copy_assets(
         }
         if let Some(brief) = copy.image.as_mut() {
             brief.reference_images.iter_mut().for_each(rename);
+        }
+        if let Some(sequence) = copy.sequence.as_mut() {
+            sequence.stills.iter_mut().for_each(rename);
         }
         for attach in super::follows_mut(&mut copy) {
             if let Some(now) = renames.clips.get(&attach.clip) {

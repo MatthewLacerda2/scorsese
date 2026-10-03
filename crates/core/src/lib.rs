@@ -103,9 +103,9 @@ pub mod write;
 
 pub use asset::{
     Aspect, Asset, AssetId, AssetKind, ClipSeconds, GenerationState, ImageAspect, ImageModel,
-    ImageRequest, ImageResolution, LanguageIgnored, LengthLock, MAX_CHARACTERS,
-    MAX_IMAGE_REFERENCES, MAX_REFERENCE_IMAGES, MediaMetadata, SpeechModel, SpeechRequest,
-    VideoModel, VideoRequest, VideoResolution,
+    ImageRequest, ImageResolution, ImageSequence, LanguageIgnored, LengthLock, MAX_CHARACTERS,
+    MAX_IMAGE_REFERENCES, MAX_REFERENCE_IMAGES, MediaMetadata, SEQUENCE_FORMATS, SpeechModel,
+    SpeechRequest, VideoModel, VideoRequest, VideoResolution,
 };
 // The three verbs stay behind the module for [`pacing`]'s reason: a bare
 // `scorsese_core::add_asset` reads as an import, and `set_asset` says nothing
@@ -137,9 +137,10 @@ pub use placing::{
     PlaceError, Placement, RelocateError, Relocation, RemoveError, Removed, Trim, TrimError,
 };
 pub use pool::{
-    AssetHealth, AssetStatus, HashCheck, Import, ImportError, Imported, ProbeOutcome, Probed,
-    Reprobe, SkipReason, Skipped, asset_id_for, asset_status, hash_bytes, import_asset,
-    import_path, probe_assets, unprobed_assets,
+    AssetHealth, AssetStatus, Gap, HashCheck, Import, ImportError, Imported, ProbeOutcome, Probed,
+    Reprobe, SequenceChange, SequenceChanged, SequenceError, SequenceImport, SkipReason, Skipped,
+    asset_id_for, asset_status, change_sequence, hash_bytes, import_asset, import_path,
+    import_sequence, probe_assets, unprobed_assets,
 };
 pub use probe::{ProbeError, ProbeMedia};
 pub use project::{
@@ -161,7 +162,7 @@ pub use timeline::{
 };
 pub use validate::{
     AssetField, AssetProblem, FillProblem, FollowProblem, GroupProblem, IconProblem, ImageProblem,
-    MatteProblem, ShapeProblem, SpeechProblem, TextProblem, TimelineProblem, ValidationError,
-    ValidationErrors, VideoProblem,
+    MatteProblem, SequenceProblem, ShapeProblem, SpeechProblem, TextProblem, TimelineProblem,
+    ValidationError, ValidationErrors, VideoProblem,
 };
 pub use vhs::Vhs;
