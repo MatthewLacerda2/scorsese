@@ -58,13 +58,14 @@ tests parse its examples.
 
 ### `make queue` does steps 1–5, so nobody sits through step 3
 
-    make queue PRS="486 488 489"
+    make queue WATCH=1            # a batch: whatever is cleared, as it is cleared
+    make queue PRS="486 488 489"  # a fixed list, in the order given
 
 Reach for it whenever more than one branch is finished at once — that is the
 case where step 3 costs ten minutes per branch and an agent holds a worktree
-open through every one of them. It merges one at a time, in the order given,
-re-fetching `main` between each; it asks `mergeable` about every branch before
-merging it; and it stops on anything it cannot do safely:
+open through every one of them. It merges one at a time, re-fetching `main`
+between each; it asks `mergeable` about every branch before merging it; and it
+stops on anything it cannot do safely:
 
 - **Any conflict at all** — the branch is handed back with the conflicting
   paths named, and the queue moves on. It never picks a side. `SYNTH_VERSION`
@@ -80,6 +81,40 @@ cleanup stays yours, and the summary lists what to clean.
 
 Doing it by hand is still fine for a single branch. The script's own docstring
 has the reasoning, including why it does not try to *skip* CI runs instead.
+
+### The watch: label a pull request `queue` and it merges
+
+`make queue WATCH=1` takes no list. Every poll it asks GitHub for the open,
+ready pull requests labelled **`queue`**, and takes the best one through the
+same five steps (#690):
+
+- **`queue` is the go-ahead, and readiness is not.** A cloud coder readies its
+  own pull request before anybody has read the diff, so *ready* only says the
+  coder thinks it is finished. Whoever reviews it — the orchestrator, after
+  reading the description and the diff — adds the label. An approving review
+  was the alternative and is not available: these pull requests are opened
+  under the owner's account, and GitHub refuses an author's own approval.
+  Removing the label pulls a branch back out before its turn.
+- **Order is `CLAUDE.md`'s label priority, then age** — infrastructure,
+  architecture, bug, foundation, feature, with documentation alongside the
+  first. The type label is read from the pull request and from the issues it
+  closes, since it is usually the issue that carries it.
+- **A hand-back stays out until its head changes.** The label stays on, and
+  the watch skips the branch while it sits on the head it was handed back on.
+  Pushing a fix (or a rebase) is the whole of re-queueing it.
+- **It is bounded to fit the harness's two-hour background cap**: it takes new
+  pull requests for `--for` minutes (default 70), the last one gets its own
+  `--deadline` (40), and the two together may not pass 115 — the script
+  refuses a pair that would. Run it in the background and re-arm it when it
+  exits; a fresh watch reads the same labels, so nothing is lost between two.
+- **Unfinished is not red.** A pull request still in line when the watch ends,
+  or whose run is still out at its deadline, is reported **unfinished** and the
+  exit status is **4**: run the queue again. 1 still means read a hand-back,
+  and 3 still means GitHub stopped answering. A list run reports a run still
+  out at its deadline the same way.
+
+The label lives in `.github/labels.json`; a new clone of the repository gets it
+from the *Sync labels* workflow (manual dispatch).
 
 **A queue that loses the network says so, and says it is not a hand-back.**
 Every question the queue asks GitHub retries a failure in transit — a TLS
@@ -97,7 +132,9 @@ already pushed is not pushed again. Status 1 is a real hand-back: read why
 **A Markdown-only pull request gets no run**, so `make queue` hands it back as
 absent and `make mergeable` cannot say yes. It is the one merge done by hand:
 check `gh pr diff N --name-only` is all `.md` and not `docs/project-format.md`,
-that GitHub reports it mergeable, then `gh pr merge N --squash`.
+that GitHub reports it mergeable, then `gh pr merge N --squash`. Don't label
+one `queue`: the watch would spend five minutes of everybody's turn learning
+there is no run, and hand it back.
 
 **Because it builds nothing, a clean rebase can still push a broken head.** A
 merge ahead that changed a signature this branch calls, or pushed one of its
@@ -108,7 +145,8 @@ nothing to rebase, pushes nothing, and only waits and merges.
 
 **Once a pull request is in the queue, nobody pushes to it** except to fix its
 own red run: the queue refuses to merge a head it did not watch, so a late push
-is a hand-back and a full CI round.
+is a hand-back and a full CI round. Under the watch, that fix is also what
+re-queues it — a new head is taken again on its own.
 
 ## `make mergeable` is the gate, and its answer is final
 

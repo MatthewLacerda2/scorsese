@@ -21,13 +21,17 @@ three, four cost six. A rebase buys no correctness.
 So: **one in the merge queue, one being written.** Nothing idles through a
 ten-minute CI run, and nothing rebases twice.
 
-**The merge queue is `make queue PRS="a b c"`** (`ci-merge` has the detail): it
+**The merge queue is `make queue WATCH=1`** (`ci-merge` has the detail): it
 rebases, pushes, waits for CI on the new head, asks `make mergeable` and merges,
-one at a time, in the order given — so the session running the batch is not the
-one sitting through each run. Hand it the ready pull requests in label-priority
-order; a hand-back (conflict, red, no run) skips that entry and the rest carry
-on, so read its summary rather than assuming the whole list landed. It never
-resolves a conflict: a hand-back naming paths goes back to the branch's author.
+one at a time — so the session running the batch is not the one sitting
+through each run. It takes every ready pull request labelled **`queue`**, in
+label-priority order, as it appears, so feeding it is one label per pull
+request once you have read it, and the batch's merge order lives on GitHub
+rather than in a list a crash can lose. A hand-back (conflict, red, no run)
+skips that branch until its head changes and the rest carry on, so read its
+summary rather than assuming everything landed. It never resolves a conflict:
+a hand-back naming paths goes back to the branch's author. `make queue PRS="a
+b c"` still takes a fixed list, for a one-off.
 
 ## The real limit is file collision, not count
 
@@ -189,8 +193,9 @@ to open a draft on its first commit, push often (a dead container takes its
 uncommitted work with it), write decisions and hand-backs into the description
 and an issue comment, and mark the PR ready when its gates are green. **Watch the
 PR, not the agent**: the orchestrator polls GitHub (`gh pr view N --json
-isDraft,state`, or `gh pr list --search "is:open -is:draft"`) on an interval and
-queues a PR the moment it turns ready.
+isDraft,state`, or `gh pr list --search "is:open -is:draft"`) on an interval,
+reads each PR the moment it turns ready, and labels it `queue`; the running
+watch takes it from there.
 
 **Ready means finished.** The batch merges a ready PR the moment its CI is green,
 so a PR is never readied just to make CI run. On rusty a cloud session readied
@@ -241,8 +246,10 @@ request:
    2026-09-30 an agent's `unreachable!` inside a `Display` impl was caught here,
    not by CI). Check the decisions against the issue, and note any human-only
    checks (a window, speakers, taste) as a checklist; don't hold for them.
-2. **Use `make queue PRS="N"`** for rebase → push → wait → merge; don't
-   hand-roll that loop. It merges only on `make mergeable`'s verdict. It does
+2. **Label it `queue`**, with `make queue WATCH=1` running in the background
+   (re-armed whenever it exits — it is bounded to the harness's two-hour cap,
+   and exit status 4 means something was still unfinished), for rebase → push
+   → wait → merge; don't hand-roll that loop. It merges only on `make mergeable`'s verdict. It does
    **not** compile the rebased tree before pushing, and a clean textual rebase
    still breaks when a merge ahead changed a signature this branch uses — on
    rusty a removed argument cost a ten-minute CI round to find, and a rebase
@@ -256,7 +263,8 @@ request:
    was meant to save: check it locally only when a merge ahead changed a
    signature it calls, and otherwise let CI answer.
 3. A hand-back is the queue's whole report: fix a conflict or a red run on the
-   branch (or brief its coder to), then queue it again.
+   branch (or brief its coder to). The push is the re-queue: the watch skips a
+   handed-back branch until its head changes, then takes it again on its own.
 4. After merging: remove the worktree and its `target/`, re-read the board, and
    start the next piece of work. There is no mutation report to read now: pull
    requests carry none (#651), so a branch that wanted one asked for it with
@@ -305,8 +313,8 @@ Decisions: <anything already settled, or "none">.
 ### What the orchestrator keeps, and where (2026-10-03)
 
 - **GitHub is the batch's state.** Open PRs, their draft/ready state and comments, plus `RemoteTrigger list` for the routines, are enough to resume a batch from nothing. The orchestrator's own notes (a queue list, a routine table) are conveniences. Never keep anything **only** in `/tmp`: the scratchpad lives there, and a reboot wipes it. On 2026-10-02 a machine crash mid-batch took the merge queue's list and the routine table with it, and the batch resumed from GitHub alone.
-- **Never wait on another process by `pgrep -f <text>`.** The waiting shell's own command line contains the text, so it waits on itself forever (about 25 minutes lost on 2026-10-02). Wait on a PID you hold, or pass everything to one `make queue` call. #690 replaces all of this with a queue that watches.
-- **Watch each PR's head commit, not only its draft/ready state.** A rebased PR stays *ready* the whole time, so a watcher keyed on state never sees the push. Wait for the coder's PR comment ("rebased, gates green") before queueing it again.
+- **Never wait on another process by `pgrep -f <text>`.** The waiting shell's own command line contains the text, so it waits on itself forever (about 25 minutes lost on 2026-10-02). Wait on a PID you hold. With `make queue WATCH=1` (#690) there is nothing to chain: one watch takes everything labelled `queue`, and the merge order is on GitHub, not in a list.
+- **Watch each PR's head commit, not only its draft/ready state.** A rebased PR stays *ready* the whole time, so a watcher keyed on state never sees the push. The queue's watch keys on the head for exactly this reason; your own reading of a re-pushed PR still waits for the coder's PR comment ("rebased, gates green"). If the push should *not* be retaken yet, take the `queue` label off first.
 - **Merge the broad PR last among those that share lists.** A PR that adds an asset kind or a tool touches every registry, so whichever lands first sends every sibling touching those lists back with a conflict. On 2026-10-03, #677 landing first handed back #676, #686 and #673, each rebased one after another (an hour apiece). Landing the small appenders first leaves one rebase, on the broad PR, instead of three. #691 removes most of these conflicts at the source.
 
 ## Starting

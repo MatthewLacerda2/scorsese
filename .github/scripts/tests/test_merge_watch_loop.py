@@ -105,6 +105,12 @@ class Watching(unittest.TestCase):
         self.assertIn((8, queue.UNFINISHED, "still in line when the watch ended."), results)
         self.assertEqual(queue.status(results), queue.UNFINISHED_STATUS)
 
+    def test_a_merge_the_listing_has_not_caught_up_with_is_not_taken_twice(self):
+        listings = [[pr(4)], [pr(4)], []]
+        results, taken = self.watch(listings, {4: (queue.MERGED, f"{4:040x}")})
+        self.assertEqual(taken, [4])
+        self.assertEqual(queue.status(results), 0)
+
     def test_an_idle_watch_ends_on_time_with_nothing_to_report(self):
         results, taken = self.watch([[]], {})
         self.assertEqual((results, taken), ([], []))
@@ -137,6 +143,19 @@ class Ending(unittest.TestCase):
             state, lines = queue.wait_for("o/r", 1, "s" * 40, "s" * 40, -1, 0)
         self.assertEqual(state, queue.LATE)
         self.assertIn("Nothing is red", " ".join(lines))
+
+    def test_take_reports_the_head_it_pushed_and_a_late_run_as_unfinished(self):
+        pull = {"state": "OPEN", "isDraft": False, "headRefName": "b", "headRefOid": "o" * 40}
+        late = (queue.LATE, ["still waiting on ppppppp after 40 minutes."])
+        heads = {}
+        with mock.patch.object(queue, "look", return_value=pull), \
+            mock.patch.object(queue, "git"), \
+            mock.patch.object(queue, "advance", return_value=("p" * 40, [])), \
+            mock.patch.object(queue, "wait_for", return_value=late), \
+            mock.patch("builtins.print"):
+            _, state, _ = queue.take("o/r", 1, queue.parse(["1"]), heads)
+        self.assertEqual(state, queue.UNFINISHED)
+        self.assertEqual(heads, {1: "p" * 40})
 
     def test_unfinished_has_its_own_status_below_a_hand_back(self):
         unfinished = [(1, queue.MERGED, ""), (2, queue.UNFINISHED, "")]

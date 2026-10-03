@@ -10,7 +10,8 @@ paid that loop twenty-three times by hand, and the agent that paid it was
 holding a worktree open the whole while.
 
 Invoked, never a service. It runs when somebody types `make queue`, on the
-pull requests they name, in the order they name them.
+pull requests they name, in the order they name them — or, with `--watch`, on
+the ones labelled for it, for a bounded time, and then it exits.
 
 ## Why it does not skip a run instead
 
@@ -455,7 +456,7 @@ def run_watch(repo: str, opts: argparse.Namespace) -> list[tuple[int, str, str]]
     One at a time, through the same [`take`] as a list — merging stays
     serialized and the watch only decides what comes next ([`watch.pick`]).
     A branch taken once is not taken again on the same head, whatever the
-    outcome: a hand-back waits for a push, a green under `--no-merge` has
+    outcome: a merge is done, a hand-back waits for a push, a green under `--no-merge` has
     nothing more to do, and an unfinished one belongs to the next watch.
 
     GitHub going quiet stops the watch exactly as it stops a list, with the
@@ -491,8 +492,9 @@ def run_watch(repo: str, opts: argparse.Namespace) -> list[tuple[int, str, str]]
                 results.append((number, UNREACHABLE, str(outage)))
                 return results
             results.append(outcome)
-            if outcome[1] != MERGED:
-                dropped[number] = heads.get(number, pull.get("headRefOid", ""))
+            # Merged too: the listing can still show a merged pull request for
+            # a poll or two, and taking it again would report it handed back.
+            dropped[number] = heads.get(number, pull.get("headRefOid", ""))
     except mergeable.Unreachable as outage:
         # Asking what is cleared, rather than working on one: no number to name.
         say(str(outage))
