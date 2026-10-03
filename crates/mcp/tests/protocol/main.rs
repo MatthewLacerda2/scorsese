@@ -29,6 +29,7 @@ mod moving;
 mod pacing;
 mod paying;
 mod placing;
+mod removing;
 mod rendering;
 mod searching;
 mod sectioning;

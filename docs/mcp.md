@@ -93,6 +93,8 @@ the tools relate to each other, which is knowledge no single tool has.
 | `icon_new` | Add an icon asset: one of the seventeen hundred symbols this build ships, named rather than imported. | nothing |
 | `asset_set` | Change a field on an asset that carries its content in the document — a text, color, shape or icon asset: its wording, its size, its colour. | nothing |
 | `sequence` | Make an image sequence from stills already in the pool, or change one: which stills it plays in what order, how many frames each is held, and whether it loops. | nothing |
+| `asset_remove` | Remove an asset from the project, and DESTROY every clip that shows it — on the timeline and inside groups. | nothing |
+| `track_remove` | Remove a track — a lane on the timeline or inside a group — and DESTROY every clip on it. | nothing |
 | `place_clip` | Put a clip on a track: which asset, which track, when it starts and how long it runs — all in seconds, rounded onto the project's frame grid for you. | nothing |
 | `trim_clip` | Move a clip already on the timeline, or change how long it runs or where in its source it opens — in seconds, rounded onto the project's frame grid. | nothing |
 | `clip_set` | Change a placed clip's plain values: its speed, fit, position, rotation, scale, shadow, glow, blend and matte. | nothing |
@@ -327,12 +329,41 @@ exactly like having applied it. What a *generated* asset is made from is
 [`rebrief`](#changing-a-brief-rebrief), and what a file-backed one is lives in
 the file.
 
-**There is no verb here that deletes an asset**, and that is a deliberate gap
-rather than an oversight: removing one has to answer what becomes of the clips
-that show it, and "refuse while it is used" and "take its clips with it" are
-both defensible and are not the same tool. That question is
-[#396](https://github.com/MatthewLacerda2/scorsese/issues/396), not a flag on
-one of these.
+### Taking one out again: `asset_remove` and `track_remove`
+
+Removing an asset has to answer what becomes of the clips that show it, and
+the answer ([#396](https://github.com/MatthewLacerda2/scorsese/issues/396)) is
+that **they go with it — but only once they are named.** `clips` must be
+exactly the ids of the clips showing the asset, on the timeline and inside
+groups, no more and no fewer. Any other list, an absent one included, is
+refused, and the refusal lists the clips that would go:
+
+```
+asset_remove  { "project": "teaser.scor", "asset": "the-vessel-arrives" }
+  → refused: `the-vessel-arrives` is shown by `c7`, `c12`; removing it removes
+    those clips too, so name exactly them in `clips` …
+asset_remove  { "project": "teaser.scor", "asset": "the-vessel-arrives",
+                "clips": ["c7", "c12"] }
+```
+
+The first call is the question and the second is the confirmation: an
+assistant reads the list back to the user and sends it only once they have
+agreed to lose those clips. Nothing destructive happens on one sentence. A
+list rather than a boolean, because confirming means naming what will be lost;
+a flag is how a caller comes to pick the destructive behaviour by not thinking
+about it. An asset nothing shows goes with an empty list.
+
+`track_remove` is the same question one level up: a lane goes with the clips on
+it, named exactly, and an empty lane with an empty list. The assets those clips
+showed stay in the table.
+
+Both are all-or-nothing. A removal that would leave something pointing at
+nothing — an arrow attached to a clip that would go, a generated shot whose
+first frame is the image being removed, a group left with no members — is
+refused and removes nothing. Gaps stay open, as `clip_remove` leaves them. Only
+the table entry goes: an imported file stays in `assets/` and a generated one
+in `generated/`, so putting a generated asset back with the same brief costs
+nothing.
 
 ## Finding the symbol you meant: `icons`
 
@@ -592,8 +623,8 @@ there.
 `clip_remove` takes `clips`, a list, removed together or not at all — one id
 that names nothing refuses the lot, since a list with a typo in it is one the
 caller has not read back. **It removes placements, never assets**: the asset
-stays in the table and its file on disk (removing an asset is #396's
-question). **There is no ripple**: nothing after a removed clip closes up
+stays in the table and its file on disk (removing an asset is
+`asset_remove`). **There is no ripple**: nothing after a removed clip closes up
 behind it, because that would move clips nobody named. A clip an arrow is
 attached to is refused rather than left with the arrow pointing at nothing.
 

@@ -21,6 +21,7 @@
 mod color;
 mod fill;
 mod icon;
+mod remove;
 mod set;
 mod shape;
 mod text;
@@ -28,6 +29,7 @@ mod track;
 
 pub(crate) use color::ColorNew;
 pub(crate) use icon::IconNew;
+pub(crate) use remove::{AssetRemove, TrackRemove};
 pub(crate) use set::AssetSet;
 pub(crate) use shape::ShapeNew;
 pub(crate) use text::TextNew;
