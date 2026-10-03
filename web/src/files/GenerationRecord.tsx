@@ -32,11 +32,7 @@ export function GenerationRecord({ record }: { record: Record }) {
         <dd>{formatDate(record.created_at)}</dd>
         <dt className="text-muted-foreground">Cost</dt>
         <dd>
-          {record.charged_micros > 0 ? (
-            formatDollars(record.charged_micros)
-          ) : (
-            "Nothing was charged"
-          )}
+          {record.charged_micros > 0 ? formatDollars(record.charged_micros) : "Nothing was charged"}
         </dd>
         <dt className="text-muted-foreground">Estimate</dt>
         <dd className="text-muted-foreground">
