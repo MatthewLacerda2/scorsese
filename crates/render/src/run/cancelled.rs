@@ -17,12 +17,12 @@ use crate::{Cancel, FrameRange, RenderError, RenderSettings, Renderer, Resolutio
 
 /// How long the timeline is, in frames: three seconds, so a cancel at frame
 /// ten is plainly part way through.
-const LENGTH: u64 = 90;
+pub(super) const LENGTH: u64 = 90;
 
 /// A project with something decoded and something drawn on it, so both kinds
 /// of layer are mid-stream when the cancel lands. Built in a fresh directory,
 /// which is handed back with it.
-fn fixture(tools: &Tools, label: &str) -> (Project, PathBuf) {
+pub(super) fn fixture(tools: &Tools, label: &str) -> (Project, PathBuf) {
     let root = std::env::temp_dir().join(format!("scorsese-cancel-{label}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(root.join("assets")).expect("create the fixture directory");
