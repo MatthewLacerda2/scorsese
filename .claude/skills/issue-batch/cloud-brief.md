@@ -148,6 +148,7 @@ coder who finds a difference corrects this list in its PR.)*
   branch diff.
 - Rebase onto the latest `origin/main`, then `make gates` (foreground), before
   readying.
+- **Rebasing a PR that is already ready: run the full `make gates` before you push.** A push to a ready PR is a CI run, and a red one is a broken claim. On 2026-10-03 #686's rebase pushed a hand-merged list that `cargo fmt --check` refused, and CI found it instead of the session. After resolving any conflict, run `cargo fmt --all`. Regenerate generated tables (`make mcp-table`) instead of hand-merging them.
 
 ## Protocol
 
