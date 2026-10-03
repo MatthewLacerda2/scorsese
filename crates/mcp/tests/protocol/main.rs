@@ -6,6 +6,7 @@
 //! is never flushed, or a notification that gets one, hangs a session just as
 //! surely as a wrong result.
 
+mod animating;
 mod authoring;
 mod briefing;
 mod cancelling;

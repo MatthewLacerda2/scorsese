@@ -98,6 +98,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `place_clip` | Put a clip on a track: which asset, which track, when it starts and how long it runs — all in seconds, rounded onto the project's frame grid for you. | nothing |
 | `trim_clip` | Move a clip already on the timeline, or change how long it runs or where in its source it opens — in seconds, rounded onto the project's frame grid. | nothing |
 | `clip_set` | Change a placed clip's plain values: its speed, fit, position, rotation, scale, shadow, glow, blend and matte. | nothing |
+| `clip_animate` | Animate one property of a placed clip by writing its keyframes, in seconds from the clip's start and with easing by name. | nothing |
 | `clip_follow` | Send a placed clip along an arrow: it travels the arrow clip's line from tail to head — curves included — instead of in a straight line between keyframed positions. | nothing |
 | `clip_move` | Move a clip already on the timeline onto another track — optionally to a new start there in the same edit, the way dragging it down a lane and along it is one gesture. | nothing |
 | `clip_remove` | Take clips off the timeline by id, leaving the assets they showed and every other clip exactly where they are. | nothing |
@@ -550,7 +551,8 @@ clip keeps the footage it shows and its length changes to fit, which is what a
 2× button means; writing the rate alone, keeping the slot, is a `project_write`.
 Position, rotation and scale are one ordinary keyframe held from the clip's
 first frame — the same thing `set_volume` writes for a level — so a property
-that was animated is flattened, and the reply says which animation it replaced.
+that was animated — by hand, or with `clip_animate` — is flattened, and the
+reply says which animation it replaced.
 Scale is both axes at once, because that is the scale a person means. Every
 picture value is refused on a clip on an audio track, rather than written where
 nothing would read it. It is the edit the desktop app's inspector and the web
@@ -608,6 +610,38 @@ clip_follow { "project": "pipeline.scor", "clip": "c-packet", "arrow": "c-arrow-
               "travel_seconds": 1.5, "easing": "ease_in_out" }
             → "`c-packet`: follows arrow `c-arrow-kafka`, leaving its tail 0.00s into the
                clip and reaching its head 1.50s later."
+```
+
+**`clip_animate` writes one property's keyframes** (#646): a box popping in, an
+arrow drawing itself on, a caption revealing, a figure counting, a glow pulsing —
+anything in the animatable table in `docs/project-format.md` (*What the
+compositor animates today*), which is the whole vocabulary it accepts. A path
+that table does not list is refused with the closest one it does. A **pair
+stem** — `transform.scale`, `transform.position`, `transform.flip` — writes the
+same keyframes on both its `.x` and `.y`, because a scale is what "make it pop"
+means nearly every time. Each keyframe is `at_seconds` from the clip's start
+(rounded onto the frame grid, and the reply says both units), a `value`, and an
+optional `easing`: every name the format has, or `{ "cubic_bezier": [...] }`.
+Points may come in any order; two that round onto one frame, or one past the
+clip's end, are refused.
+
+It **takes that property's lane over** and nothing else: whatever track animated
+the property before is replaced, whoever wrote it, and the reply names it;
+every other property's track is left exactly as it was. `"keyframes": []`
+removes the property's animation. What it writes is **unsigned** — a signature
+is how a generator such as `duck_music` finds its own work to redo, and points
+somebody chose are not a pattern to be recomputed. `clip_set`'s position,
+rotation and scale are one held keyframe on the same paths, so a `clip_set`
+afterwards flattens what this wrote, and this replaces what `clip_set` held.
+It reaches a clip **inside a group** by its id, too.
+
+```
+clip_animate { "project": "explainer.scor", "clip": "c-box-a", "property": "transform.scale",
+               "keyframes": [ { "at_seconds": 0, "value": 0.6, "easing": "back_out" },
+                              { "at_seconds": 0.45, "value": 1.0 } ] }
+             → "`c-box-a`: `transform.scale.x` and `transform.scale.y` are now animated
+                through 2 keyframe(s): 0.6 at 0.00s (frame 0) back_out, 1 at 0.47s
+                (frame 14) — …"
 ```
 
 **`clip_move` changes a clip's track, and `clip_remove` takes clips off the
@@ -679,7 +713,8 @@ clip_ungroup  { "project": "explainer.scor", "clip": "c-pipeline" }
 
 The other place/move/trim tools reach the project's **own** tracks only; a
 member inside a group is edited by ungrouping, editing and grouping again, or
-with `project_write`.
+with `project_write` — except its keyframes, which `clip_animate` writes in
+place.
 
 ## The three operations that write keyframes for you
 
