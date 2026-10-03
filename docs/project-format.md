@@ -1,4 +1,4 @@
-# `project.json` — schema v42
+# `project.json` — schema v43
 
 The contract between the CLI, the MCP server and the GUI — the contract *now*,
 not across time. It is meant to be hand-written: an agent should be able to
@@ -27,6 +27,7 @@ carries forward) up to this one.
 | v39 → v40 | gradient fills (#588) | nothing: a shape's `fill` and a colour asset's `color` gained a gradient object beside the colour string, which still means the colour it did, so it passes through and only its version moves |
 | v40 → v41 | a clip's `matte` (#589) | nothing: one optional clip field was added, absent meaning what every v40 clip already drew — the clip shown whole — and no v40 clip names another as its matte, so it passes through and only its version moves |
 | v41 → v42 | the `generated_image` kind and its `image` block (#461) | nothing: a kind was added with a block only it carries, and a shot's stills may now name a generated still — which only admits documents v41 refused — so every v41 document passes through and only its version moves |
+| v42 → v43 | the `image_sequence` kind and its `sequence` block (#462) | nothing: a kind was added with a block only it carries, and the stills it plays are ordinary `image` assets, so every v42 document passes through and only its version moves |
 
 A complete worked example lives in
 `crates/core/tests/fixtures/narrated_teaser.json`.
@@ -35,7 +36,7 @@ A complete worked example lives in
 
 ```json project
 {
-  "schema_version": 42,
+  "schema_version": 43,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -2465,7 +2466,7 @@ compositing-suite line.
 
 ```json project
 {
-  "schema_version": 42,
+  "schema_version": 43,
   "name": "wipe",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [

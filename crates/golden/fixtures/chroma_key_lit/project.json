@@ -1,5 +1,5 @@
 {
-  "schema_version": 42,
+  "schema_version": 43,
   "name": "chroma_key_lit",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [
