@@ -46,8 +46,13 @@
 //! the same answer.
 //!
 //! Boundary: no compositing logic (that is `scorsese-compositor`'s job — this
-//! crate never draws), no provider calls, no GUI. Depends on `scorsese-core`
-//! and `scorsese-compositor`.
+//! crate never draws), no provider calls, no GUI. Depends on `scorsese-core`,
+//! `scorsese-compositor` and `scorsese-zimmer`. The last is for *reading*
+//! audio only — [`zimmer::level`](scorsese_zimmer::level) measures loudness for
+//! the mix, the report and `say`, and [`zimmer::survey`](scorsese_zimmer::survey)
+//! counts what a project's recipes are made of — never for synthesising, which
+//! is `scorsese-providers`' job. A `zimmer` import that makes sound does not
+//! belong here.
 //!
 //! [`audio`] is the one thing here that processes rather than moves bytes, and
 //! it sits in this crate because there is no `scorsese-mixer` to put it in. Its
