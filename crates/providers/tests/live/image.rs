@@ -17,7 +17,7 @@ fn drawn(data: &str) -> Interaction {
     serde_json::from_value(serde_json::json!({"status": "completed", "steps": [
         {"type": "model_output", "content": [{"type": "image", "data": data}]}
     ]}))
-    .unwrap()
+    .expect("a model output with one picture parses")
 }
 
 /// What the shape-changed field says, or a panic naming the verdict.
