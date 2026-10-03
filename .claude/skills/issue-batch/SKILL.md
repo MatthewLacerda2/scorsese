@@ -302,6 +302,13 @@ Siblings in flight: <branch/issue → the files it edits; stay out of them>.
 Decisions: <anything already settled, or "none">.
 ```
 
+### What the orchestrator keeps, and where (2026-10-03)
+
+- **GitHub is the batch's state.** Open PRs, their draft/ready state and comments, plus `RemoteTrigger list` for the routines, are enough to resume a batch from nothing. The orchestrator's own notes (a queue list, a routine table) are conveniences. Never keep anything **only** in `/tmp`: the scratchpad lives there, and a reboot wipes it. On 2026-10-02 a machine crash mid-batch took the merge queue's list and the routine table with it, and the batch resumed from GitHub alone.
+- **Never wait on another process by `pgrep -f <text>`.** The waiting shell's own command line contains the text, so it waits on itself forever (about 25 minutes lost on 2026-10-02). Wait on a PID you hold, or pass everything to one `make queue` call. #690 replaces all of this with a queue that watches.
+- **Watch each PR's head commit, not only its draft/ready state.** A rebased PR stays *ready* the whole time, so a watcher keyed on state never sees the push. Wait for the coder's PR comment ("rebased, gates green") before queueing it again.
+- **Merge the broad PR last among those that share lists.** A PR that adds an asset kind or a tool touches every registry, so whichever lands first sends every sibling touching those lists back with a conflict. On 2026-10-03, #677 landing first handed back #676, #686 and #673, each rebased one after another (an hour apiece). Landing the small appenders first leaves one rebase, on the broad PR, instead of three. #691 removes most of these conflicts at the source.
+
 ## Starting
 
 - Assign the user the moment work begins — unassigned means fair game.
