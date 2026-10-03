@@ -55,10 +55,12 @@ use palette::Palette;
 /// `web/src/index.css` derives from it.
 const RADIUS: f32 = 10.0;
 
-/// `--radius-sm`, 0.6 of the base: a clip, a lane, a tag, a chip.
+/// `--radius-sm`, 0.6 of the base: a clip, a lane, a tag, a chip — and a
+/// control. The web rounds its 24px `xs` button at `--radius-md`, a third of
+/// its height; a control here is 20px (see [`spacing`]), and `sm` is the step
+/// that keeps that proportion.
 pub(crate) const ROUND_SM: CornerRadius = CornerRadius::same((RADIUS * 0.6) as u8);
-/// `--radius-md`, 0.8 of the base: a button, a field, a menu — what the web's
-/// compact buttons use.
+/// `--radius-md`, 0.8 of the base: a menu, and the picture's box.
 pub(crate) const ROUND_MD: CornerRadius = CornerRadius::same((RADIUS * 0.8) as u8);
 /// `--radius-lg`, the base itself: a dialog.
 pub(crate) const ROUND_LG: CornerRadius = CornerRadius::same(RADIUS as u8);
@@ -99,7 +101,7 @@ fn text(style: &mut egui::Style) {
         (TextStyle::Heading, FontId::new(16.0, Proportional)),
         (TextStyle::Body, FontId::new(13.0, Proportional)),
         (TextStyle::Button, FontId::new(13.0, Proportional)),
-        (TextStyle::Small, FontId::new(11.0, Proportional)),
+        (TextStyle::Small, FontId::new(10.5, Proportional)),
         (TextStyle::Monospace, FontId::new(12.0, Monospace)),
     ]
     .into();
@@ -108,18 +110,28 @@ fn text(style: &mut egui::Style) {
     style.drag_value_text_style = TextStyle::Monospace;
 }
 
-/// The gaps: the web's density, which is a little airier than this window
-/// was — controls 24px tall (the web's `xs` button, `h-6`), padded `px-2`.
+/// The gaps: the web's, as far as this window's density allows.
+///
+/// Its padding (`px-2`) and the air between rows, a little more than this
+/// window had. Not its 24px control height: the inspector does not scroll, and
+/// at 24px a generated shot's brief already ran its last fields under the
+/// timeline on an 800px window — so controls stay 20px, and a look that hid a
+/// field would be a capability lost to taste. For the same reason the vertical
+/// padding is two pixels, not three: Geist's line is taller than the face it
+/// replaced, and three made every row two pixels taller than it was.
 fn spacing(style: &mut egui::Style) {
     let spacing = &mut style.spacing;
-    spacing.item_spacing = egui::vec2(8.0, 6.0);
-    spacing.button_padding = egui::vec2(8.0, 3.0);
+    spacing.item_spacing = egui::vec2(8.0, 5.0);
+    spacing.button_padding = egui::vec2(8.0, 2.0);
     spacing.menu_margin = Margin::same(4);
     spacing.window_margin = Margin::same(16);
     spacing.indent = 14.0;
-    spacing.interact_size.y = 24.0;
+    spacing.interact_size.y = 20.0;
+    // Solid, not egui's floating default: that one draws its handle in the
+    // text colour, which in the light theme is a black bar down the panel.
+    // Solid takes the handle from the widget fill [`visuals`] sets.
+    spacing.scroll = egui::style::ScrollStyle::solid();
     spacing.scroll.bar_width = 7.0;
-    spacing.scroll.floating = false;
 }
 
 /// The colours, as the web draws a panel, a control and a selection.
@@ -159,9 +171,12 @@ fn visuals(palette: &Palette, theme: Theme) -> Visuals {
     widgets.hovered = widget(palette.hover, palette.input, palette.foreground);
     widgets.active = widget(palette.pressed, palette.ring, palette.foreground);
     widgets.open = widget(palette.hover, palette.input, palette.foreground);
-    // A checkbox's box and a slider's rail are `bg_fill`, not the button fill,
-    // and at rest they need to show against the panel.
-    widgets.inactive.bg_fill = palette.muted;
+    // A checkbox's box, a slider's rail and a scroll bar's handle are
+    // `bg_fill`, not the button fill: at rest they need to show against the
+    // panel, and the web draws a scroll bar's thumb in its border grey.
+    widgets.inactive.bg_fill = palette.border;
+    widgets.hovered.bg_fill = palette.ring;
+    widgets.active.bg_fill = palette.ring;
     visuals
 }
 
@@ -172,7 +187,7 @@ fn widget(fill: Color32, outline: Color32, text: Color32) -> egui::style::Widget
         weak_bg_fill: fill,
         bg_stroke: Stroke::new(1.0, outline),
         fg_stroke: Stroke::new(1.0, text),
-        corner_radius: ROUND_MD,
+        corner_radius: ROUND_SM,
         // A control that grows under the pointer nudges everything beside it.
         expansion: 0.0,
     }

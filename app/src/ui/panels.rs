@@ -20,7 +20,7 @@ const SIDE_WIDTH: f32 = 296.0;
 /// strongest text the window has, and nothing else.
 pub(super) fn menu(ui: &mut Ui, window: &mut Scorsese) {
     Panel::top("menu")
-        .frame(chrome(ui, Margin::symmetric(12, 6)))
+        .frame(chrome(ui, Margin::symmetric(12, 5)))
         .show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.label(RichText::new("scorsese").heading().strong());
