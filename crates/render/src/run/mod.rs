@@ -101,7 +101,8 @@ impl<'a> Renderer<'a> {
     }
 
     /// Publishes how far each render has got to `progress`, for whoever holds
-    /// a clone of it to read from another thread ([`crate::progress`]).
+    /// a clone of it to read from another thread ([`Progress`] has what the
+    /// percentage means).
     ///
     /// A render starts it over at [`Phase::Preparing`], counts frames into it
     /// as they are encoded, and leaves it at [`Phase::Done`] once the report is

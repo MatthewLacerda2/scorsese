@@ -12,23 +12,8 @@
 //! on the frame path, at the frame rate, when every surface only wants to look
 //! now and then.
 //!
-//! # What the percentage means
-//!
-//! Drawing the frames is nearly all of a video render's time, and it is the
-//! only stage whose length is known in advance — the mix, the loudness
-//! rehearsal and the encoder's flush depend on the material and the codec.
-//! Giving those stages fixed slices of the bar would be inventing numbers, so
-//! [`Reading::percent`] counts **frames only**, and the [`Phase`] is shown
-//! beside it for the stretches frames say nothing about:
-//!
-//! - before the first frame (preparing, mixing) it is `0`;
-//! - while drawing it is the share of frames encoded, held below `100`;
-//! - after the last frame (the encoder's flush, the final measure) it is `99`,
-//!   because the file is not there yet;
-//! - `100` only once the render has returned its report.
-//!
-//! A sound-only render draws no frames, so it goes from `0` straight to `99`
-//! when the mix is in hand and is being encoded.
+//! What the percentage means, and why it counts frames only, is on
+//! [`Reading::percent`].
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
@@ -78,8 +63,24 @@ pub struct Reading {
 }
 
 impl Reading {
-    /// How far along the render is, from `0` to `100`, counting frames only
-    /// (the module doc has why). `100` means the file is finished.
+    /// How far along the render is, from `0` to `100`. `100` means the file
+    /// is finished.
+    ///
+    /// Drawing the frames is nearly all of a video render's time, and it is the
+    /// only stage whose length is known in advance — the mix, the loudness
+    /// rehearsal and the encoder's flush depend on the material and the codec.
+    /// Giving those stages fixed slices of the bar would be inventing numbers, so
+    /// this counts **frames only**, and the [`Phase`] is shown
+    /// beside it for the stretches frames say nothing about:
+    ///
+    /// - before the first frame (preparing, mixing) it is `0`;
+    /// - while drawing it is the share of frames encoded, held below `100`;
+    /// - after the last frame (the encoder's flush, the final measure) it is `99`,
+    ///   because the file is not there yet;
+    /// - `100` only once the render has returned its report.
+    ///
+    /// A sound-only render draws no frames, so it goes from `0` straight to `99`
+    /// when the mix is in hand and is being encoded.
     pub fn percent(&self) -> u8 {
         match self.phase {
             Phase::Waiting | Phase::Preparing | Phase::Mixing => 0,
