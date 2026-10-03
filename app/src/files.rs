@@ -15,7 +15,7 @@ use scorsese_core::{AssetHealth, AssetKind, AssetStatus, HashCheck, Project, ass
 
 use crate::editing::Editing;
 use crate::project::Open;
-use crate::theme::{ROUND, marks, palette};
+use crate::theme::{ROUND_SM, marks, palette};
 
 /// How big the colour chip beside an asset's name is.
 ///
@@ -68,7 +68,7 @@ impl Files {
                 RichText::new("nothing imported yet")
                     .italics()
                     .small()
-                    .color(palette::FAINT),
+                    .color(palette::of(ui.ctx()).ring),
             );
             return;
         }
@@ -158,7 +158,8 @@ fn row(ui: &mut Ui, project: &Project, editing: &mut Editing, status: &AssetStat
         // to seeing the timeline plainly without hunting for a "none" control.
         editing.highlighted = (!picked).then(|| status.id.clone());
     }
-    ui.label(note(project, status));
+    let warning = palette::of(ui.ctx()).warning;
+    ui.label(note(project, status, warning));
     ui.end_row();
 }
 
@@ -168,11 +169,11 @@ fn row(ui: &mut Ui, project: &Project, editing: &mut Editing, status: &AssetStat
 fn chip(ui: &mut Ui, kind: AssetKind) {
     let (rect, _) = ui.allocate_exact_size(vec2(CHIP, CHIP), egui::Sense::hover());
     ui.painter()
-        .rect_filled(rect, ROUND, palette::of_kind(kind));
+        .rect_filled(rect, ROUND_SM, palette::of_kind(kind));
 }
 
 /// The short right-hand note: what is worth knowing at a glance.
-fn note(project: &Project, status: &AssetStatus) -> RichText {
+fn note(project: &Project, status: &AssetStatus, warning: egui::Color32) -> RichText {
     let text = match &status.health {
         AssetHealth::Awaiting(state) => format!("{state:?}").to_lowercase(),
         AssetHealth::Missing => "file missing".to_owned(),
@@ -186,9 +187,9 @@ fn note(project: &Project, status: &AssetStatus) -> RichText {
     };
     let text = RichText::new(text).small();
     if status.health.needs_attention() {
-        text.color(palette::WARM)
+        text.color(warning)
     } else {
-        text.color(palette::DIM)
+        text.weak()
     }
 }
 

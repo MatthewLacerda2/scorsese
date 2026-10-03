@@ -49,9 +49,7 @@ pub(super) fn show(ui: &mut Ui, window: &Scorsese) {
             let selected = window.selected().len();
             if selected > 0 {
                 separator(ui);
-                ui.label(
-                    marks::figure_dim(format!("{selected} selected")).color(palette::ACCENT_DIM),
-                );
+                ui.label(marks::figure(format!("{selected} selected")).small());
             }
         });
     });
@@ -62,7 +60,7 @@ pub(super) fn show(ui: &mut Ui, window: &Scorsese) {
 /// A character rather than [`Ui::separator`], which draws a full-height rule —
 /// four of those in a strip this thin reads as a table with no rows in it.
 fn separator(ui: &mut Ui) {
-    ui.label(marks::figure_dim("·").color(palette::FAINT));
+    ui.label(marks::figure_dim("·").color(palette::of(ui.ctx()).ring));
 }
 
 /// How much is in the edit: tracks, and the clips on them.

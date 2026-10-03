@@ -15,7 +15,12 @@ use crate::theme::palette;
 /// nothing in it. Dimmed, so it never reads as content.
 pub(super) fn placeholder(ui: &mut Ui, what: &str) {
     ui.add_space(4.0);
-    ui.label(RichText::new(what).italics().small().color(palette::FAINT));
+    ui.label(
+        RichText::new(what)
+            .italics()
+            .small()
+            .color(palette::of(ui.ctx()).ring),
+    );
 }
 
 /// The window with no project open — the first thing anyone sees.
@@ -31,21 +36,16 @@ pub(super) fn nothing_open<T>(ui: &mut Ui, open: impl FnOnce(&mut T), window: &m
         // An empty editor is the only screen with room for the program to say
         // its own name, and it is the screen a person is most likely to have
         // opened by accident.
-        ui.label(
-            RichText::new("SCORSESE")
-                .size(30.0)
-                .extra_letter_spacing(11.0)
-                .color(palette::ACCENT),
-        );
+        ui.label(RichText::new("scorsese").size(30.0).strong());
         ui.add_space(2.0);
         ui.label(
             RichText::new("NO PROJECT OPEN")
                 .small()
-                .extra_letter_spacing(3.0)
-                .color(palette::DIM),
+                .extra_letter_spacing(1.0)
+                .weak(),
         );
         ui.add_space(18.0);
-        ui.label(RichText::new("Open a *.scor directory to get started.").color(palette::DIM));
+        ui.label(RichText::new("Open a *.scor directory to get started.").weak());
         ui.add_space(14.0);
         clicked = ui.button("Open project…").clicked();
     });
@@ -79,7 +79,7 @@ pub(super) fn invalid(ui: &mut Ui, problems: &[String]) {
                 "The timeline, the pool and the inspector are here to read. \
                  Nothing in this window will change the file until these are fixed.",
             )
-            .color(palette::DIM),
+            .weak(),
         );
     });
 }
@@ -88,7 +88,7 @@ pub(super) fn invalid(ui: &mut Ui, problems: &[String]) {
 fn listing(ui: &mut Ui, heading: &str, problems: &[String]) {
     ui.add_space(24.0);
     ui.indent("problems", |ui| {
-        ui.heading(RichText::new(heading).color(palette::ALERT));
+        ui.heading(RichText::new(heading).color(palette::of(ui.ctx()).destructive));
         ui.add_space(6.0);
         egui::ScrollArea::vertical().show(ui, |ui| {
             for problem in problems {
@@ -97,7 +97,7 @@ fn listing(ui: &mut Ui, heading: &str, problems: &[String]) {
                     // text: a whole panel of red is a panel nobody reads to the
                     // end, and what is red should be the mark that counts them
                     // rather than the words that say what to do.
-                    ui.label(RichText::new("·").color(palette::ALERT).strong());
+                    ui.label(RichText::new("·").color(palette::of(ui.ctx()).destructive));
                     ui.label(problem);
                 });
             }

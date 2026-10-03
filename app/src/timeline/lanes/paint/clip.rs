@@ -4,27 +4,29 @@
 //! Three things are said about every clip, in the order somebody reads them:
 //!
 //! 1. **What kind of thing it is**, as a hue — the same hue the pool uses for
-//!    the same asset, so the two panels are telling one story. A strip along
-//!    the top carries it at full strength; the body is the same hue mixed most
-//!    of the way down into the lane, because a timeline of saturated blocks is
-//!    a timeline you cannot read text off.
+//!    the same asset, and the same the web editor's timeline uses, so the
+//!    panels and the two apps are telling one story. A clip that exists is a
+//!    solid block of it with white text, as the web draws one.
 //! 2. **Whether it exists**, as hatching. A clip whose asset is a brief nobody
 //!    has paid for renders as a slug card, and *which* those are is the
-//!    question asked before pressing the button that spends money.
+//!    question asked before pressing the button that spends money — so an
+//!    unmade clip is only tinted with its hue, and hatched. The web does not
+//!    draw this yet; it is the one thing here the web has no equivalent of.
 //! 3. **What animates it**, as a line drawn through it. A volume ramp is in the
 //!    document already and was drawn nowhere — so a duck written by `duck_music`
 //!    was invisible until somebody clicked the clip and read a row that said
 //!    `volume · 4 points`.
 
-use egui::{Align2, Color32, CornerRadius, Painter, Rect, Stroke, StrokeKind, pos2, vec2};
+use egui::{Align2, Color32, Painter, Rect, Stroke, StrokeKind, pos2, vec2};
 use scorsese_core::{Asset, Clip, Frames};
 
 use super::Paint;
-use crate::theme::{ROUND, marks, palette};
+use crate::theme::palette::{self, Palette};
+use crate::theme::{ROUND_SM, marks};
 use crate::timeline::view::View;
 
-/// How tall the colour strip along the top of a clip is.
-const STRIP: f32 = 3.0;
+/// How far a clip's text and its ramp stand in from the block's top edge.
+const INSET: f32 = 5.0;
 /// How far apart the hatching is on a clip nobody has made yet.
 ///
 /// Wide enough to read as a texture rather than as a fill, and pale enough that
@@ -54,16 +56,30 @@ pub(in crate::timeline::lanes) fn rect(lane: Rect, clip: &Clip, view: View) -> R
 /// ramp's whole shape into the sliver that happens to be on screen.
 pub(in crate::timeline::lanes) fn draw(paint: &Paint<'_>, rect: Rect, lane: Rect, clip: &Clip) {
     let painter = paint.painter.with_clip_rect(lane);
+    let colours = palette::of(painter.ctx());
     let asset = paint.project.asset(&clip.asset);
-    let hue = tint(paint, asset);
+    let hue = tint(paint, asset, colours);
     let made = asset.is_some_and(Asset::has_renderable_media);
+    let chosen = paint.selected.contains(&clip.id);
 
-    body(&painter, rect, hue, made);
-    ramp(&painter, rect, lane, clip, hue);
-    if paint.selected.contains(&clip.id) {
-        selected(&painter, rect);
+    body(&painter, rect, hue, made, chosen, colours);
+    // White on a solid block, as the web sets it; the theme's own text on a
+    // tinted one, which is nearly the lane.
+    let ink = if made {
+        Color32::WHITE
+    } else {
+        colours.foreground
+    };
+    ramp(&painter, rect, lane, clip, ink);
+    if chosen {
+        painter.rect_stroke(
+            rect,
+            ROUND_SM,
+            Stroke::new(2.0, colours.foreground),
+            StrokeKind::Inside,
+        );
     }
-    caption(&painter, rect, lane, clip, asset, made);
+    caption(&painter, (rect, lane), clip, asset, ink, colours);
 }
 
 /// The hue this clip is drawn in, dimmed when the pool is pointing at some
@@ -71,65 +87,37 @@ pub(in crate::timeline::lanes) fn draw(paint: &Paint<'_>, rect: Rect, lane: Rect
 ///
 /// Dimming everything else rather than outlining the few keeps the answer to
 /// "where is this used?" readable when an asset is used twenty times.
-fn tint(paint: &Paint<'_>, asset: Option<&Asset>) -> Color32 {
+fn tint(paint: &Paint<'_>, asset: Option<&Asset>, colours: &Palette) -> Color32 {
     let hue = asset.map_or(palette::UNKNOWN, |asset| palette::of_kind(asset.kind));
     match &paint.highlighted {
-        Some(picked) if Some(picked) != asset.map(|asset| &asset.id) => hue.gamma_multiply(0.32),
+        Some(picked) if Some(picked) != asset.map(|asset| &asset.id) => {
+            palette::over(hue, colours.muted, 0.32)
+        }
         _ => hue,
     }
 }
 
-/// The block itself: ground, strip, outline, and hatching when it is a brief.
-fn body(painter: &Painter, rect: Rect, hue: Color32, made: bool) {
-    let ground = palette::over(hue, palette::RAISED, if made { 0.26 } else { 0.10 });
-    painter.rect_filled(rect, ROUND, ground);
-    if !made {
-        marks::hatch(
-            painter,
-            rect,
-            palette::over(hue, palette::RAISED, 0.30),
-            HATCH,
-        );
-    }
-
-    // Square along the bottom: the strip is a lid on the block, and a lid with
-    // four round corners floats off the thing it is a lid on.
-    let strip = Rect::from_min_size(rect.min, vec2(rect.width(), STRIP.min(rect.height())));
-    painter.rect_filled(
-        strip,
-        CornerRadius {
-            nw: 2,
-            ne: 2,
-            sw: 0,
-            se: 0,
-        },
-        palette::over(hue, palette::RAISED, if made { 1.0 } else { 0.55 }),
-    );
-    painter.rect_stroke(
-        rect,
-        ROUND,
-        Stroke::new(1.0, palette::over(hue, palette::RAISED, 0.5)),
-        StrokeKind::Inside,
-    );
-}
-
-/// The accent around the clip a hand is on.
+/// The block itself: solid when it exists, tinted and hatched when it is a
+/// brief.
 ///
-/// Two outlines: one inside the block and one just outside it. The outer one is
-/// what makes a selected clip readable when its neighbour is the same colour and
-/// touching it, which is the ordinary case on a cut.
-fn selected(painter: &Painter, rect: Rect) {
+/// Solid at nine-tenths, and whole when selected, as the web draws a clip
+/// (`opacity-90`, and none on the chosen one) — together with the ring drawn
+/// over it, that is what picks a selected clip out from a neighbour of the
+/// same kind touching it, which is the ordinary case on a cut.
+fn body(painter: &Painter, rect: Rect, hue: Color32, made: bool, chosen: bool, colours: &Palette) {
+    let lane = colours.muted;
+    if made {
+        let strength = if chosen { 1.0 } else { 0.9 };
+        painter.rect_filled(rect, ROUND_SM, palette::over(hue, lane, strength));
+        return;
+    }
+    painter.rect_filled(rect, ROUND_SM, palette::over(hue, lane, 0.16));
+    marks::hatch(painter, rect, palette::over(hue, lane, 0.45), HATCH);
     painter.rect_stroke(
         rect,
-        ROUND,
-        Stroke::new(1.5, palette::ACCENT),
+        ROUND_SM,
+        Stroke::new(1.0, palette::over(hue, lane, 0.7)),
         StrokeKind::Inside,
-    );
-    painter.rect_stroke(
-        rect.expand(2.0),
-        CornerRadius::same(4),
-        Stroke::new(1.0, palette::ACCENT.gamma_multiply(0.45)),
-        StrokeKind::Outside,
     );
 }
 
@@ -144,7 +132,7 @@ fn selected(painter: &Painter, rect: Rect) {
 /// carry: an opacity ramp and a position ramp on one clip would be three lines
 /// crossing in thirty pixels. What animates a clip is the inspector's list; what
 /// a lane draws is the one property somebody balances by eye.
-fn ramp(painter: &Painter, rect: Rect, lane: Rect, clip: &Clip, hue: Color32) {
+fn ramp(painter: &Painter, rect: Rect, lane: Rect, clip: &Clip, ink: Color32) {
     let Some(track) = clip
         .keyframes
         .iter()
@@ -155,9 +143,9 @@ fn ramp(painter: &Painter, rect: Rect, lane: Rect, clip: &Clip, hue: Color32) {
     if rect.width() < READABLE {
         return;
     }
-    // The band the curve travels in: under the strip, and clear of the block's
-    // own bottom edge so a ramp at zero is still a line rather than the outline.
-    let top = rect.top() + STRIP + 3.0;
+    // The band the curve travels in: under the top edge, and clear of the
+    // bottom one so a ramp at zero is still a line rather than the outline.
+    let top = rect.top() + INSET;
     let floor = rect.bottom() - 3.0;
     if floor <= top {
         return;
@@ -181,7 +169,7 @@ fn ramp(painter: &Painter, rect: Rect, lane: Rect, clip: &Clip, hue: Color32) {
     // afford. The mapping still uses the block's whole rectangle, so what is
     // drawn is a window onto the same curve rather than a different one.
     let (from, to) = (rect.left().max(lane.left()), rect.right().min(lane.right()));
-    let line = palette::over(hue, palette::TEXT, 0.35);
+    let line = ink.gamma_multiply(0.7);
     let mut points = Vec::new();
     let mut x = from;
     while x < to {
@@ -196,17 +184,17 @@ fn ramp(painter: &Painter, rect: Rect, lane: Rect, clip: &Clip, hue: Color32) {
 /// how far along that brief is.
 fn caption(
     painter: &Painter,
-    rect: Rect,
-    lane: Rect,
+    (rect, lane): (Rect, Rect),
     clip: &Clip,
     asset: Option<&Asset>,
-    made: bool,
+    ink: Color32,
+    colours: &Palette,
 ) {
     let seen = rect.intersect(lane);
     if seen.width() < READABLE {
         return;
     }
-    let baseline = rect.top() + STRIP + 3.0;
+    let baseline = rect.top() + INSET;
     // Pinned to whichever edge is visible rather than to the block's own left,
     // so a long clip scrolled halfway off the side still says what it is —
     // which is exactly when you most want to know.
@@ -216,11 +204,11 @@ fn caption(
         Align2::LEFT_TOP,
         clip.asset.as_str(),
         11.0,
-        palette::TEXT,
+        ink,
     );
     // Only for something that does not exist yet. "generated" on a clip that
     // plays is a word taking up room to say that everything is normal.
-    if made {
+    if asset.is_some_and(Asset::has_renderable_media) {
         return;
     }
     let Some(state) = asset.and_then(|asset| asset.state) else {
@@ -232,6 +220,6 @@ fn caption(
         Align2::RIGHT_TOP,
         &format!("{state:?}").to_lowercase(),
         10.0,
-        palette::DIM,
+        colours.muted_foreground,
     );
 }

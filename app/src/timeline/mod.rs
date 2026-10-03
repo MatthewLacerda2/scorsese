@@ -163,8 +163,8 @@ impl Timeline {
 
         let whole = ui.painter_at(full);
         let fps = open.project.timeline_fps;
-        whole.rect_filled(full, 0.0, palette::INK);
-        whole.rect_filled(gutter, 0.0, palette::VOID);
+        let colours = palette::of(ui.ctx());
+        whole.rect_filled(full, 0.0, colours.background);
         heading(&whole, gutter, area);
 
         // Two painters, and the clip between them is what makes the gutter a
@@ -195,7 +195,7 @@ impl Timeline {
             &whole,
             gutter.right_top(),
             gutter.right_bottom(),
-            palette::EDGE,
+            colours.border,
         );
 
         if let Some(ghost) = &ghost {
@@ -252,7 +252,7 @@ impl Timeline {
             painter,
             egui::pos2(x, area.top() + ruler::HEIGHT),
             egui::pos2(x, area.bottom()),
-            palette::WARM,
+            palette::of(painter.ctx()).warning,
         );
     }
 
@@ -269,19 +269,19 @@ impl Timeline {
         // numbers is one nobody reads at all — least of all mid-gesture, which
         // is the only moment it is ever on screen.
         let mut at = egui::pos2(area.right() - 8.0, area.top() + ruler::HEIGHT + 6.0);
-        for (text, colour) in self.said() {
+        for (text, colour) in self.said(palette::of(painter.ctx())) {
             at.y += marks::plate(painter, at, &text, colour) + 5.0;
         }
     }
 
     /// What the panel has to say this frame, top line first.
-    fn said(&self) -> Vec<(String, egui::Color32)> {
+    fn said(&self, colours: &palette::Palette) -> Vec<(String, egui::Color32)> {
         let mut lines = Vec::new();
         if let Some(Gesture::Pace(pace)) = &self.gesture {
-            lines.push((pace.readout(), palette::ACCENT));
+            lines.push((pace.readout(), colours.foreground));
         }
         if let Some(text) = &self.trouble {
-            lines.push((text.clone(), palette::ALERT));
+            lines.push((text.clone(), colours.destructive));
         }
         lines
     }
@@ -336,7 +336,7 @@ fn divider(painter: &egui::Painter, area: Rect, project: &Project) {
         painter,
         egui::pos2(area.left(), y),
         egui::pos2(area.right(), y),
-        palette::EDGE,
+        palette::of(painter.ctx()).input,
     );
 }
 
@@ -363,17 +363,20 @@ fn beyond(painter: &egui::Painter, area: Rect, view: View, project: &Project) {
         return;
     }
     let from = end.max(area.left());
+    let colours = palette::of(painter.ctx());
+    // The panel's own ground laid back over the lanes: darker in the dark
+    // theme and paler in the light, so either way the strip recedes.
     painter.rect_filled(
         Rect::from_min_max(egui::pos2(from, area.top() + ruler::HEIGHT), area.max),
         0.0,
-        palette::VOID.gamma_multiply(0.55),
+        colours.background.gamma_multiply(0.55),
     );
     if end >= area.left() {
         marks::rule(
             painter,
             egui::pos2(end, area.top() + ruler::HEIGHT),
             egui::pos2(end, area.bottom()),
-            palette::EDGE,
+            colours.input,
         );
     }
 }
@@ -382,15 +385,15 @@ fn beyond(painter: &egui::Painter, area: Rect, view: View, project: &Project) {
 /// heads.
 ///
 /// There is nowhere else for it now that the timeline has no widget heading of
-/// its own, and the corner is otherwise the one piece of this window that is
-/// dark and says nothing at all.
+/// its own, and the corner is otherwise the one piece of this window that says
+/// nothing at all. Set as every other heading is ([`marks::heading`]).
 fn heading(painter: &egui::Painter, gutter: Rect, area: Rect) {
     painter.text(
         egui::pos2(gutter.left() + 10.0, area.top() + ruler::HEIGHT / 2.0),
         egui::Align2::LEFT_CENTER,
         "TIMELINE",
-        egui::FontId::proportional(9.5),
-        palette::ACCENT_DIM,
+        egui::FontId::proportional(10.0),
+        palette::of(painter.ctx()).muted_foreground,
     );
 }
 

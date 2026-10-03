@@ -16,20 +16,14 @@ const SIDE_WIDTH: f32 = 296.0;
 ///
 /// The name is on it because a window with no title bar of its own — which is
 /// what a maximised app on most desktops is — has nowhere else to say what
-/// program you are in. Set in the same letterspaced capitals as a section
-/// heading, because that is the one typographic idea this look has and using it
-/// for the application's own name is where it should start.
+/// program you are in. Set as the web's header sets it: the word, in the
+/// strongest text the window has, and nothing else.
 pub(super) fn menu(ui: &mut Ui, window: &mut Scorsese) {
     Panel::top("menu")
-        .frame(chrome(Margin::symmetric(10, 5)))
+        .frame(chrome(ui, Margin::symmetric(12, 6)))
         .show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.label(
-                    RichText::new("SCORSESE")
-                        .strong()
-                        .extra_letter_spacing(3.0)
-                        .color(palette::ACCENT),
-                );
+                ui.label(RichText::new("scorsese").heading().strong());
                 ui.add_space(4.0);
                 if ui.button("Open…").clicked() {
                     window.pick();
@@ -42,11 +36,14 @@ pub(super) fn menu(ui: &mut Ui, window: &mut Scorsese) {
                     ui.add_space(6.0);
                     let text = RichText::new(note.text).small();
                     ui.label(if note.trouble {
-                        text.color(palette::ALERT)
+                        text.color(palette::of(ui.ctx()).destructive)
                     } else {
-                        text.color(palette::DIM)
+                        text.weak()
                     });
                 }
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    appearance(ui, window);
+                });
             });
         });
 }
@@ -68,7 +65,7 @@ fn opened(ui: &mut Ui, window: &mut Scorsese) {
                 .small()
                 .strong()
                 .extra_letter_spacing(1.0)
-                .color(palette::WARM),
+                .color(palette::of(ui.ctx()).warning),
         )
         .on_hover_text(
             "This project does not validate, so the window will not change it. \
@@ -93,11 +90,7 @@ fn opened(ui: &mut Ui, window: &mut Scorsese) {
     }
     let generating = window.generating_count();
     if generating > 0 {
-        ui.label(
-            RichText::new(format!("{generating} generating"))
-                .small()
-                .color(palette::ACCENT),
-        );
+        ui.label(RichText::new(format!("{generating} generating")).small());
     }
 }
 
@@ -108,7 +101,7 @@ fn opened(ui: &mut Ui, window: &mut Scorsese) {
 /// down as the timeline was resized would be one nobody could find twice.
 pub(super) fn status(ui: &mut Ui, window: &Scorsese) {
     Panel::bottom("status")
-        .frame(chrome(Margin::symmetric(10, 3)))
+        .frame(chrome(ui, Margin::symmetric(10, 3)))
         .show(ui, |ui| status::show(ui, window));
 }
 
@@ -121,7 +114,7 @@ pub(super) fn timeline(ui: &mut Ui, window: &mut Scorsese) {
         .default_size(wanted)
         .min_size(100.0)
         .resizable(true)
-        .frame(Frame::NONE.fill(palette::INK))
+        .frame(Frame::NONE.fill(palette::of(ui.ctx()).background))
         .show(ui, |ui| {
             // Asked before the borrow below, which takes the window mutably.
             let read_only = window.read_only();
@@ -154,7 +147,7 @@ pub(super) fn side(ui: &mut Ui, window: &mut Scorsese) {
         // longest sentence, which on an empty inspector is narrow enough to
         // wrap *"select a clip to see what it is"* onto two lines.
         .min_size(SIDE_WIDTH)
-        .frame(chrome(Margin::symmetric(10, 6)))
+        .frame(chrome(ui, Margin::symmetric(10, 6)))
         .show(ui, |ui| {
             let read_only = window.read_only();
             // The inspector is the one panel that changes the document, so it
@@ -194,7 +187,7 @@ pub(super) fn side(ui: &mut Ui, window: &mut Scorsese) {
 /// has to be said instead.
 pub(super) fn centre(ui: &mut Ui, window: &mut Scorsese) {
     CentralPanel::default()
-        .frame(Frame::NONE.fill(palette::VOID))
+        .frame(Frame::NONE.fill(palette::of(ui.ctx()).background))
         .show(ui, |ui| {
             if let Some(refused) = window.problem() {
                 empty::refusal(ui, refused);
@@ -222,9 +215,34 @@ pub(super) fn centre(ui: &mut Ui, window: &mut Scorsese) {
 ///
 /// One function rather than four, so the bar at the top and the strip at the
 /// bottom cannot end up a pixel apart from each other by nobody deciding.
-fn chrome(margin: Margin) -> Frame {
+fn chrome(ui: &Ui, margin: Margin) -> Frame {
+    let colours = palette::of(ui.ctx());
     Frame::NONE
-        .fill(palette::INK)
-        .stroke(egui::Stroke::new(1.0, palette::RULE))
+        .fill(colours.background)
+        .stroke(egui::Stroke::new(1.0, colours.border))
         .inner_margin(margin)
+}
+
+/// The light/dark toggle, at the right-hand end of the bar.
+///
+/// The web keeps its toggle in the account menu; this window has no account
+/// and no menu, and the bar's far end is the nearest place it has — where a
+/// web page's header puts the same control. Labelled the way the web's is,
+/// with the theme it will switch *to*, and in words rather than a sun or a
+/// moon because a symbol Geist lacks is a box.
+fn appearance(ui: &mut Ui, window: &mut Scorsese) {
+    let showing = ui.ctx().theme();
+    let label = match showing {
+        egui::Theme::Dark => "Light mode",
+        egui::Theme::Light => "Dark mode",
+    };
+    if ui
+        .button(label)
+        .on_hover_text(
+            "Remembered on this machine. Until you choose, the window follows the system.",
+        )
+        .clicked()
+    {
+        window.toggle_theme(showing);
+    }
 }

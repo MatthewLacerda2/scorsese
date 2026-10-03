@@ -49,7 +49,7 @@ pub(in crate::timeline) fn draw(painter: &Painter, lane: Rect, track: &Track) {
             Align2::LEFT_CENTER,
             name,
             11.0,
-            palette::TEXT,
+            palette::of(painter.ctx()).foreground,
         );
     }
 }

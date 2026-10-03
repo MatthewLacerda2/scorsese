@@ -23,7 +23,7 @@ use super::drag::{SNAP, snap::Targets};
 use super::{Timeline, lanes, ruler};
 use crate::editing::Editing;
 use crate::project::Open;
-use crate::theme::{ROUND, palette};
+use crate::theme::{ROUND_SM, palette};
 
 /// How long a clip runs when its asset has no length to give it: a still, a
 /// title, a colour, a shot nobody has generated yet. Five seconds, which is
@@ -133,13 +133,13 @@ impl Timeline {
 pub(super) fn ghost(painter: &egui::Painter, ghost: &Ghost) {
     let colour = match (ghost.takes, ghost.kind) {
         (true, Some(kind)) => palette::of_kind(kind),
-        (true, None) => palette::ACCENT,
-        (false, _) => palette::ALERT,
+        (true, None) => palette::of(painter.ctx()).foreground,
+        (false, _) => palette::of(painter.ctx()).destructive,
     };
-    painter.rect_filled(ghost.rect, ROUND, colour.gamma_multiply(0.35));
+    painter.rect_filled(ghost.rect, ROUND_SM, colour.gamma_multiply(0.35));
     painter.rect_stroke(
         ghost.rect,
-        ROUND,
+        ROUND_SM,
         Stroke::new(1.0, colour),
         StrokeKind::Inside,
     );

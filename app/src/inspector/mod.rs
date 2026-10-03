@@ -50,10 +50,6 @@ use brief::{Brief, Voices};
 use edit::Refusal;
 use selected::Selected;
 
-/// The colour a refusal is said in — the same red as a project that will not
-/// open, because it is the same kind of news.
-const REFUSED: egui::Color32 = palette::ALERT;
-
 /// The panel's own state: the last thing it had to refuse, and the one list it
 /// cannot read out of the document.
 ///
@@ -126,15 +122,18 @@ impl Inspector {
         let Some(refused) = &self.refused else {
             return;
         };
+        // The same red as a project that will not open, because it is the same
+        // kind of news.
+        let colour = palette::of(ui.ctx()).destructive;
         ui.add_space(10.0);
         ui.label(
             RichText::new(format!("{} unchanged", refused.what))
-                .color(REFUSED)
+                .color(colour)
                 .strong()
                 .small(),
         );
         for problem in &refused.problems {
-            ui.label(RichText::new(format!("· {problem}")).color(REFUSED).small());
+            ui.label(RichText::new(format!("· {problem}")).color(colour).small());
         }
     }
 
@@ -167,6 +166,6 @@ fn nothing(ui: &mut Ui) {
         RichText::new("select a clip to see what it is")
             .italics()
             .small()
-            .color(palette::FAINT),
+            .color(palette::of(ui.ctx()).ring),
     );
 }
