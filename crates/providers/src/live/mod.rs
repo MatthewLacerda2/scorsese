@@ -23,6 +23,7 @@
 
 pub mod claude;
 pub mod elevenlabs;
+pub mod image;
 pub mod judge;
 pub mod record;
 pub mod veo;
@@ -203,7 +204,7 @@ pub fn plan(options: &Options, environment: &Environment, settings: &Settings) -
 /// The calls one vendor's part makes.
 fn calls(provider: Provider, options: &Options) -> Vec<String> {
     match provider {
-        Provider::Gemini => veo::calls(options),
+        Provider::Gemini => [veo::calls(options), image::calls()].concat(),
         Provider::ElevenLabs => elevenlabs::calls(),
         Provider::Anthropic => claude::calls(),
     }
@@ -212,7 +213,7 @@ fn calls(provider: Provider, options: &Options) -> Vec<String> {
 /// The most one vendor's part spends.
 fn cost(provider: Provider, options: &Options) -> u64 {
     match provider {
-        Provider::Gemini => veo::cost(options),
+        Provider::Gemini => veo::cost(options) + image::cost(),
         Provider::ElevenLabs => elevenlabs::cost(),
         Provider::Anthropic => claude::cost(),
     }
@@ -288,7 +289,12 @@ fn one(planned: &Planned, options: &Options, on: &mut dyn FnMut(&str)) -> Report
     on(&format!("Checking {}…", planned.provider.label()));
     let tap = Tap::new();
     let (steps, cents) = match planned.provider {
-        Provider::Gemini => veo::check(key, &tap, options, on),
+        Provider::Gemini => {
+            let (mut steps, cents) = veo::check(key, &tap, options, on);
+            let (still, spent) = image::check(key, &tap);
+            steps.extend(still);
+            (steps, cents + spent)
+        }
         Provider::ElevenLabs => elevenlabs::check(key, &tap),
         Provider::Anthropic => claude::check(key, &tap),
     };

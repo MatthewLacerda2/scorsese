@@ -13,6 +13,7 @@ mod common;
 
 mod claude;
 mod elevenlabs;
+mod image;
 mod planning;
 mod recording;
 mod veo;

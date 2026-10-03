@@ -45,6 +45,7 @@ make live-check ARGS="--include-veo --record /tmp/live"
 | --- | --- | --- |
 | Gemini (Veo) | `GET models/veo-3.1-fast-generate-preview` and `…-lite-…` | free |
 | | with `--include-veo`: one shot — 4 s, Lite, 720p — submitted, polled, downloaded | $0.20 |
+| Gemini (stills) | one 512x512 still — Flash Image, 0.5K, `1:1`, no references — through the product's own request | $0.05 |
 | ElevenLabs | `GET /v1/voices?category=premade` (also picks the voice to speak with) | free |
 | | text-to-speech of `Checking.` on the `fast` model | $0.01 |
 | | Voice Design from a 100-character passage — three candidates, **none kept** | $0.01 |
@@ -54,6 +55,14 @@ The ElevenLabs and Veo figures are the rate tables' own arithmetic
 (docs/prices.md). Claude's quote is a ceiling — each call's `max_tokens` plus a
 generous input, priced as the dearest input there is — and what the report says
 was spent afterwards comes from the vendor's own token counts.
+
+The still settles what #461's client took from Google's page without a
+reply to check it against: the `interactions` endpoint and body, where the
+picture sits in the reply, and the `0.5K` size's spelling on the wire (`"512"`
+— the page writes "512px (05.K)" and never gives the value). A misspelt size
+is either refused, which costs nothing, or ignored and drawn at the 1K default;
+the check reads the PNG's header, so a picture that is not 512x512 is reported
+as **shape changed** naming `image_size`.
 
 The Anthropic calls confirm the three things #540 could not: the stream's real
 events (every `fixtures/anthropic/*.sse` is hand-written), the
@@ -126,7 +135,8 @@ Every response shape scorsese parses, and where its test body came from.
 | Veo model lookup | `api::veo::response::ModelInfo` | `fixtures/veo/model.json` | hand-written |
 | Veo submit | `Submitted` | `fixtures/veo/submitted.json` | hand-written |
 | Veo operation: running, done, failed | `Operation` | `fixtures/veo/{running,done,failed}.json` | hand-written |
-| Gemini refusals | carried whole, never parsed | inline in `tests/live/veo.rs` | hand-written |
+| Gemini image interaction | `api::gemini::response::Interaction` | `fixtures/gemini/interaction.json` | hand-written |
+| Gemini refusals | carried whole, never parsed | inline in `tests/live/veo.rs`, `tests/live/image.rs` | hand-written |
 | Claude streams: tool use, answer, refusal, overload | `api::anthropic::stream` + `claude::Assembler` | `fixtures/anthropic/*.sse` | hand-written |
 | Anthropic refusals | carried whole, never parsed | inline in `tests/live/claude.rs` | hand-written |
 

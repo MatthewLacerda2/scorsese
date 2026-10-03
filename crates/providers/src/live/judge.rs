@@ -104,6 +104,25 @@ pub fn is_mp4(bytes: &[u8]) -> bool {
     bytes.get(4..8) == Some(b"ftyp".as_slice())
 }
 
+/// The PNG signature every PNG opens with.
+const PNG: &[u8] = b"\x89PNG\r\n\x1a\n";
+
+/// The width and height of a PNG, read off its header; `None` for anything
+/// that is not one.
+///
+/// The header is the first chunk by the format's own rule — `IHDR`, straight
+/// after the signature, width then height as big-endian `u32`s — so this is
+/// the whole of what telling a picture's size takes, and decoding the pixels
+/// would prove nothing the check needs.
+pub fn png_size(bytes: &[u8]) -> Option<(u32, u32)> {
+    let header = bytes.strip_prefix(PNG)?;
+    if header.get(4..8)? != b"IHDR" {
+        return None;
+    }
+    let number = |at: usize| Some(u32::from_be_bytes(header.get(at..at + 4)?.try_into().ok()?));
+    Some((number(8)?, number(12)?))
+}
+
 /// What a body that should have been media looks like instead, for a report.
 pub(super) fn looks_like(bytes: &[u8]) -> String {
     match bytes.first() {

@@ -73,6 +73,13 @@ impl Gemini {
         }
     }
 
+    /// The same client, copying every reply into `tap` — for the live
+    /// provider check ([`crate::live`]); see [`crate::api::tap`].
+    pub fn tapped(mut self, tap: &crate::api::tap::Tap) -> Self {
+        self.caller = self.caller.tapped(tap);
+        self
+    }
+
     /// Draws one picture. **This is the call that spends the money.**
     pub fn create(&self, body: &request::Create) -> Result<response::Interaction, HttpError> {
         self.caller
