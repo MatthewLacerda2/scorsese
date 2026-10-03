@@ -18,6 +18,7 @@ mod lengths;
 mod mixing;
 mod steps;
 mod stereo;
+mod stopping;
 mod strict;
 mod tempo;
 mod transforms;

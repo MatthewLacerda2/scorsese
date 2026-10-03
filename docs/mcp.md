@@ -1342,9 +1342,15 @@ it if it will not go) and removes the file it had begun, because a truncated
 no reply, as the specification asks; how far it got — *cancelled after 412 of
 1890 frames* — goes to the server's stderr, which a client shows as its log.
 
+`synth_bake` honours it too (#661): between recipes, and between the notes of
+a song, so a long score stops within one note. The recipe it was rendering
+leaves nothing in `generated/` — a bake is named for its brief, so a partial
+file there would be served as the finished one — while recipes it had already
+finished stay on disk, and the next bake finds them as cache hits. A partial
+bake (`beats`, `seconds`, `only`) stops the same way.
+
 Every other tool on this server finishes in about the time it takes to notice
-the cancel, so it runs to the end and its answer is simply not sent. A long
-`synth_bake` is the exception still to close (#661).
+the cancel, so it runs to the end and its answer is simply not sent.
 
 ## Choosing the file's format
 

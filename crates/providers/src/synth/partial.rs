@@ -20,7 +20,7 @@ use std::path::{Path, PathBuf};
 
 use scorsese_core::{AssetId, CACHE_DIR, Project, ProjectPath};
 use scorsese_zimmer::level::{Layer, Profile};
-use scorsese_zimmer::{Excerpt, bake_excerpt};
+use scorsese_zimmer::{Excerpt, bake_excerpt_unless};
 
 use super::error::SynthesisError;
 use super::recipe::Recipe;
@@ -74,6 +74,21 @@ pub fn bake_partial(
     excerpt: &Excerpt,
     out: Option<&Path>,
 ) -> Result<Partial, SynthesisError> {
+    bake_partial_unless(project, project_root, id, excerpt, out, &|| false)
+}
+
+/// [`bake_partial`] that gives up between notes when `stop` says so, with
+/// [`SynthesisError::Stopped`] and no file written (#661). A window still
+/// renders the piece from the top, so asking for the last bars of a long song
+/// costs what the whole song costs — which is worth being able to stop.
+pub fn bake_partial_unless(
+    project: &Project,
+    project_root: &Path,
+    id: &AssetId,
+    excerpt: &Excerpt,
+    out: Option<&Path>,
+    stop: &dyn Fn() -> bool,
+) -> Result<Partial, SynthesisError> {
     let asset = project
         .asset(id)
         .ok_or_else(|| SynthesisError::NoSuchAsset { id: id.clone() })?;
@@ -89,12 +104,12 @@ pub fn bake_partial(
     let Recipe::Song(song) = &recipe else {
         return Err(SynthesisError::NotASong { id: id.clone() });
     };
-    let bake = bake_excerpt(song, &instruments(project_root), excerpt).map_err(|source| {
-        SynthesisError::Unrenderable {
+    let bake = bake_excerpt_unless(song, &instruments(project_root), excerpt, stop)
+        .map_err(|source| SynthesisError::Unrenderable {
             path: file.clone(),
             source,
-        }
-    })?;
+        })?
+        .ok_or(SynthesisError::Stopped)?;
 
     let (destination, shown) = match out {
         Some(path) => (path.to_path_buf(), path.display().to_string()),

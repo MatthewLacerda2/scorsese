@@ -17,6 +17,8 @@ mod export;
 mod import;
 mod recipes;
 mod set;
+#[cfg(test)]
+mod stopping;
 mod survey;
 
 pub(super) use bake::Bake;
