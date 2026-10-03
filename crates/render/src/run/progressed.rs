@@ -5,10 +5,15 @@
 //! than by a thread sampling it, which would see whatever the machine happened
 //! to schedule.
 
-use scorsese_core::Fps;
+use scorsese_core::{
+    Asset, AssetId, AssetKind, Clip, ClipId, Fps, Frames, Project, ProjectPath, Track, TrackId,
+    TrackKind,
+};
 
 use crate::progress::{Phase, Progress, Reading};
-use crate::{Cancel, FrameRange, RenderSettings, Renderer, Resolution, Tools};
+use crate::{
+    Cancel, Container, FrameRange, OutputFormat, RenderSettings, Renderer, Resolution, Tools,
+};
 
 use super::cancelled::{LENGTH, fixture};
 
@@ -78,4 +83,67 @@ fn a_cancelled_render_stays_where_it_stopped() {
         }
     );
     assert_eq!(last.percent(), 11);
+}
+
+/// A second of tone on one audio track, in a fresh directory handed back with
+/// it: something a sound-only delivery has to mix.
+fn tone(tools: &Tools) -> (Project, std::path::PathBuf) {
+    let root = std::env::temp_dir().join(format!("scorsese-progress-tone-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(root.join("assets")).expect("create the fixture directory");
+    let made = tools
+        .ffmpeg()
+        .args(["-v", "error", "-y", "-f", "lavfi", "-i", "sine=d=1"])
+        .arg(root.join("assets/tone.wav"))
+        .output()
+        .expect("run ffmpeg");
+    assert!(made.status.success(), "the tone could not be generated");
+    let asset = Asset::imported(
+        AssetId::new("tone"),
+        AssetKind::Audio,
+        ProjectPath::new("assets/tone.wav"),
+    );
+    let clip = Clip::new(
+        ClipId::new("a1"),
+        AssetId::new("tone"),
+        Frames(0),
+        Frames(30),
+    );
+    let project = Project {
+        assets: vec![asset],
+        tracks: vec![Track {
+            clips: vec![clip],
+            ..Track::new(TrackId::new("music"), TrackKind::Audio)
+        }],
+        ..Project::new("tone", Fps::THIRTY)
+    };
+    (project, root)
+}
+
+#[test]
+fn a_sound_only_render_goes_from_the_mix_to_finishing_with_no_frames() {
+    let tools = Tools::discover().expect("ffmpeg and ffprobe must be on PATH");
+    let (project, root) = tone(&tools);
+    let progress = Progress::new();
+    let raster = Resolution::new(32, 32).expect("a legal raster");
+    let settings = RenderSettings::new(raster, Fps::THIRTY)
+        .with_format(OutputFormat::defaults_for(Container::Wav));
+    let report = Renderer::new(&tools, settings)
+        .with_progress(progress.clone())
+        .render(&project, &root, FrameRange::ALL, &root.join("out.wav"));
+    std::fs::remove_dir_all(&root).ok();
+    report.expect("a sound-only render of a tone succeeds");
+
+    let mut visited: Vec<Phase> = progress.seen().iter().map(|r| r.phase).collect();
+    visited.dedup();
+    assert_eq!(
+        visited,
+        [
+            Phase::Preparing,
+            Phase::Mixing,
+            Phase::Finishing,
+            Phase::Done
+        ]
+    );
+    assert_eq!(progress.read().percent(), 100);
 }
