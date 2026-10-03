@@ -3,7 +3,8 @@
 Two providers cost money on every surface — Gemini (for Veo video and still
 images, one key for both) and
 ElevenLabs (for narration) — and both need a key. A third, Anthropic, is spent
-only by the hosted server's assistant (`ANTHROPIC_API_KEY`, `docs/web.md`). This page is where a key comes from, in one
+only by the hosted server's assistant on its Claude models (`ANTHROPIC_API_KEY`,
+`docs/web.md`); its Gemini models spend the Gemini key. This page is where a key comes from, in one
 order, for every way scorsese is run.
 
 ## The order

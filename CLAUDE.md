@@ -199,14 +199,21 @@ side effect of a feature PR.
   speaks it get the same tools, the same way an HTTP API does not care whether
   a browser, a phone or curl is calling. Claude is who we develop and test
   against, not a dependency. Nothing in the server may assume otherwise.
-- **The web app's built-in assistant is Claude** (Claude Opus 5.5, #540,
-  decided 2026-09-25 after testing it against Gemini — the quality gap ruled
-  everything else out, and the model is not downgraded to save credits). This
-  does not contradict the rule above: choosing a model for **our own client**
-  is a product decision, while the **tool surface** it calls — the registry,
-  every description, web MCP — still assumes nothing about who is calling. A
-  user's own Gemini or GPT pointed at web MCP gets exactly what the built-in
-  assistant gets.
+- **The web app's built-in assistant runs on the model each project picks**
+  (#705, decided 2026-10-03): Gemini 3.8 Flash by default, Gemini 3.5 Flash
+  Lite, Claude Opus 5.5 or Claude Sonnet 5.5, from a dropdown in the chat
+  panel, changeable mid-conversation. This reverses #540's *Claude Opus 5.5,
+  never downgraded* (2026-09-25): choice lets a user trade quality for credits,
+  Gemini 3.8 Flash is the default on cost, and Gemini runs on the key Veo
+  already spends. Each turn is charged at its own model's rates; the
+  conversation is kept in a vendor-neutral record so it survives a switch
+  (`crates/providers/src/chat`). The local MCP server and the desktop app get
+  no picker: there, the user's own client *is* the model. None of this
+  contradicts the rule above: choosing models for **our own client** is a
+  product decision, while the **tool surface** it calls — the registry, every
+  description, web MCP — still assumes nothing about who is calling. A user's
+  own Gemini or GPT pointed at web MCP gets exactly what the built-in assistant
+  gets.
 
 ### Crate map
 

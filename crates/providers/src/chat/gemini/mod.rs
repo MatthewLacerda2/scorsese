@@ -1,10 +1,10 @@
 //! Gemini behind the seam: a neutral [`Request`] as a `generateContent`
-//! body, the stream folded into a [`Reply`] ([`assemble`]), and the neutral
+//! body, the stream folded into a [`Reply`] ([`Assembler`]), and the neutral
 //! record turned into Gemini's contents ([`freeze`]).
 //!
 //! # What a Gemini turn does instead of Claude's thinking and caching
 //!
-//! - **Thinking** is on at the turn's [`Effort`] as `thinkingLevel`, with
+//! - **Thinking** is on at the turn's [`Effort`](crate::chat::Effort) as `thinkingLevel`, with
 //!   `includeThoughts`, so the thought summaries arrive as progress notes the
 //!   way Claude's `updates` do. They are not sent back — Google keeps the
 //!   reasoning in **thought signatures**, which are, on the parts they came
