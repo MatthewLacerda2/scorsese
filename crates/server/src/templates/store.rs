@@ -2,6 +2,7 @@
 //! the row-level policy is the filter — except the startup migration, which is
 //! the operator's build acting on every account at once.
 
+use scorsese_core::template::Description;
 use scorsese_core::{Project, SCHEMA_VERSION, migrate};
 use sqlx::postgres::PgPool;
 
@@ -9,14 +10,17 @@ use super::{Stored, Summary, TemplateError};
 use crate::db::{self, Tx, UserId};
 use crate::projects::media::hashes;
 
-type Row = (i64, i64, String);
+type Row = (i64, i64, String, Option<String>);
 
 /// A row read back into a template.
-fn stored((id, updated_at, json): Row) -> Result<Stored, TemplateError> {
+fn stored((id, updated_at, json, description): Row) -> Result<Stored, TemplateError> {
     let document =
         Project::from_json(&json).map_err(|source| TemplateError::Unreadable { id, source })?;
+    // The column's own check holds it to the same rule, so a row that fails
+    // it was written by hand; it reads as saying nothing rather than failing.
+    let description = description.and_then(|text| Description::new(&text).ok().flatten());
     Ok(Stored {
-        summary: Summary::of(id, updated_at, &document),
+        summary: Summary::of(id, updated_at, &document, description),
         document,
     })
 }
@@ -25,7 +29,8 @@ fn stored((id, updated_at, json): Row) -> Result<Stored, TemplateError> {
 pub async fn list(pool: &PgPool, user: UserId) -> Result<Vec<Summary>, TemplateError> {
     let mut tx = db::scoped(pool, user).await?;
     let rows: Vec<Row> = sqlx::query_as(
-        "SELECT id, extract(epoch FROM updated_at)::bigint, document::text FROM templates
+        "SELECT id, extract(epoch FROM updated_at)::bigint, document::text, description
+         FROM templates
          ORDER BY lower(name), id",
     )
     .fetch_all(&mut *tx)
@@ -40,7 +45,8 @@ pub async fn list(pool: &PgPool, user: UserId) -> Result<Vec<Summary>, TemplateE
 pub async fn open(pool: &PgPool, user: UserId, id: i64) -> Result<Stored, TemplateError> {
     let mut tx = db::scoped(pool, user).await?;
     let row: Option<Row> = sqlx::query_as(
-        "SELECT id, extract(epoch FROM updated_at)::bigint, document::text FROM templates
+        "SELECT id, extract(epoch FROM updated_at)::bigint, document::text, description
+         FROM templates
          WHERE id = $1",
     )
     .bind(id)
@@ -50,13 +56,15 @@ pub async fn open(pool: &PgPool, user: UserId, id: i64) -> Result<Stored, Templa
     stored(row.ok_or(TemplateError::NotFound)?)
 }
 
-/// Keep `template` as one of `user`'s, under its own name — over the template
-/// already called that when `replace`, refused with
+/// Keep `template` as one of `user`'s, under its own name and saying
+/// `description` — over the template already called that when `replace`
+/// (keeping its description when this names none), refused with
 /// [`TemplateError::NameTaken`] otherwise.
 pub async fn save(
     pool: &PgPool,
     user: UserId,
     template: &Project,
+    description: Option<&Description>,
     replace: bool,
 ) -> Result<Summary, TemplateError> {
     if template.name.trim().is_empty() {
@@ -69,31 +77,38 @@ pub async fn save(
             .bind(&template.name)
             .fetch_optional(&mut *tx)
             .await?;
-    let (id, updated_at): (i64, i64) = match taken {
+    let said = description.map(Description::as_str);
+    let (id, updated_at, kept): (i64, i64, Option<String>) = match taken {
         Some((id, name)) if !replace => return Err(TemplateError::NameTaken { id, name }),
         Some((id, _)) => {
             sqlx::query_as(
-                "UPDATE templates SET document = $2::jsonb, updated_at = now() WHERE id = $1
-                 RETURNING id, extract(epoch FROM updated_at)::bigint",
+                "UPDATE templates SET document = $2::jsonb,
+                     description = coalesce($3, description), updated_at = now()
+                 WHERE id = $1
+                 RETURNING id, extract(epoch FROM updated_at)::bigint, description",
             )
             .bind(id)
             .bind(json)
+            .bind(said)
             .fetch_one(&mut *tx)
             .await?
         }
         None => {
             sqlx::query_as(
-                "INSERT INTO templates (user_id, document) VALUES (member_id(), $1::jsonb)
-                 RETURNING id, extract(epoch FROM updated_at)::bigint",
+                "INSERT INTO templates (user_id, document, description)
+                 VALUES (member_id(), $1::jsonb, $2)
+                 RETURNING id, extract(epoch FROM updated_at)::bigint, description",
             )
             .bind(json)
+            .bind(said)
             .fetch_one(&mut *tx)
             .await?
         }
     };
     record(&mut tx, id, template).await?;
     tx.commit().await?;
-    Ok(Summary::of(id, updated_at, template))
+    let kept = kept.and_then(|text| Description::new(&text).ok().flatten());
+    Ok(Summary::of(id, updated_at, template, kept))
 }
 
 /// Delete `user`'s template `id`. `false` when they have none by that id.

@@ -714,8 +714,21 @@ file its owner does not have is refused with the assets named, and a file a
 project uses cannot be deleted. A composite key to `projects (id, user_id)` stops a row
 pointing at another user's project.
 
+**Recipes and the script live in `project_files`** (#560): one row per file,
+keyed by (project, project-relative path), holding its text — every file under
+`recipes/`, plus the script and any recipe the document names elsewhere; never
+`project.json` or anything under `assets/`, `generated/` or `cache/`. These are
+the authored files a `.scor` folder keeps beside its document and cannot
+rebuild. A table keyed by path rather than library items (a recipe is text
+edited in place, not media addressed by content) or fields in the document (a
+format change, and a 30 KB script in the file an agent opens to learn the
+edit). They are **written with the document under its revision**
+(`projects::save_with_files`), so a recipe edit conflicts exactly as a timeline
+edit does; at most 1 MiB each and 500 to a project. Per-user like every table.
+
 **Rendering a stored project** lays it out as a temporary `.scor` folder
-(`projects::media::materialise`): the document written, each file **symlinked**
+(`projects::media::materialise`): the document written, its kept files written
+beside it, each media file **symlinked**
 from where the user's storage keeps it, looked up **by hash** in that user's
 storage and never by the document's path — so a document cannot point the server
 at another user's file or at the host's. `render` and `compositor` run on it
@@ -742,8 +755,9 @@ updating. Local folders go through the same steps with `scorsese migrate`.
 
 Deliberately storage verbs only: what a project *says* is changed by `core`'s
 editing functions, through the tools (*Web MCP*, #540) and the editor (#545).
-Recipes and a project's `script` are documents rather than media, and have
-nowhere to live in the server yet; the materialiser does not lay them out.
+Recipes and the script are read and written through the tools too
+(`synth_*`, `script_read`, `script_write`); there is no route for them and no
+recipe editor in the pages.
 
 ## Credits
 
@@ -954,10 +968,11 @@ the old key.
 materialiser), each file linked by hash from the owner's library, renders it
 with `scorsese-render` exactly as `scorsese render` renders a folder, and moves
 the finished file into the cache only when it is complete. A render is not a
-paid provider call: it costs no credits. **What cannot render yet:** stored
-projects have no `recipes/` (#560), so a `synth_audio` clip renders only when
-its bake is already in the library; otherwise the job fails naming the asset
-and its recipe, rather than delivering a video that silently lost its music.
+paid provider call: it costs no credits. **A render never bakes**, exactly as
+`scorsese render` does not: a `synth_audio` clip renders from its bake, which
+`synth_bake` keeps in the library (*Web MCP*). One whose bake is not there
+fails the job naming the asset and its recipe, rather than delivering a video
+that silently lost its music.
 
 **Where they live:** `$SCORSESE_CACHE/users/<user>/renders/<project>/<key>.<ext>`
 — the cache, never the library, because a render can always be made again.
@@ -1067,8 +1082,9 @@ URL is `http://127.0.0.1:8088/api/mcp`.
 **One registry, a project id instead of a path.** A stored project is laid
 out as a `.scor` folder for the length of one call — the document, every file
 linked by hash from the user's own library, every generation of its current
-briefs linked where the brief lands — the registry's tool runs on it
-unchanged, and the document is saved back with its revision check (retried on
+briefs linked where the brief lands, its recipes and script written in — the
+registry's tool runs on it unchanged, and the document and those files are
+saved back together with its revision check (retried on
 a conflict, since a tool is a function of the document). The folder's path
 never reaches the client. Each registry tool keeps the registry's own
 description, word for word; only `project` changes, to **the id** of one of the
@@ -1080,6 +1096,8 @@ the web — or be left off it — without a reason written down.
 | served | how |
 | --- | --- |
 | `project_read`, `project_describe`, `project_check`, `project_assets`, `project_probe`, `project_write`, `track_new`, `text_new`, `color_new`, `shape_new`, `icon_new`, `asset_set`, `place_clip`, `trim_clip`, `clip_set`, `clip_follow`, `clip_move`, `clip_remove`, `clip_group`, `clip_ungroup`, `dissolve`, `duck_music`, `set_volume`, `scale_pacing`, `rebrief`, `icons`, `voices` | as they are, on the stored project |
+| `script_read`, `script_write`, `synth_new`, `synth_read`, `synth_write`, `synth_set`, `synth_check`, `synth_survey` | as they are; the script and recipes they read and write are the project's `project_files` (*Projects*). A script or recipe written under `assets/`, `generated/` or `cache/` is refused whole, since nothing there is kept |
+| `synth_bake` | without `out`; each new bake is **kept in the library** as a generation, its address (recipe and synthesiser) as its brief hash, before the document naming it is saved — so it renders, and is linked into every later layout by hash. A partial bake's file is gone with the folder; its report is in the reply |
 | `look`, `hear`, `audio_level` | their file arguments must be paths inside the project (`assets/…`, `generated/…`) — locally they may name anything on the machine, and here the machine is everybody's |
 | `still` | without `out`: nothing is kept on the server's disk; the picture is in the reply |
 | `project_list`, `project_new` | the server's own: a project is a row, named by an id the client asks for |
@@ -1089,8 +1107,9 @@ the web — or be left off it — without a reason written down.
 | `spending_history` | the ledger, read for the caller (*Credits*) |
 | `template_list`, `template_save`, `template_insert` | the server's own: a user's templates are rows (*Templates*) |
 
-**Not served yet:** `script_read`, `script_write` and the `synth_*` tools — a
-stored project has no script and no `recipes/` (#560); `voice_design` — its
+**Not served yet:** `synth_import` and `synth_export` — a `.mid` is neither
+media the library holds nor text a project keeps, so there is nothing to import
+from or to hand an export back as (#678); `voice_design` — its
 samples and designed-voice record are files beside `project.json`, and credits
 have no row for a design (#572).
 
@@ -1412,10 +1431,19 @@ template uses, naming the template. Both follow *Per-user isolation*. Saving
 under a taken name is refused unless the caller says `replace`; replacing is
 how a template is updated.
 
+**What a template is for** (#560) is a `description` column beside the
+document — prose the assistant reads before inserting, at most 2000
+characters, held to `scorsese_core::template::Description`'s rule. Not a field
+in the document, because the document is a `project.json` document and a field
+there would be a format change (schema bump and migration) for something no
+project has; the local side, when it keeps templates, stores the same
+`Description` beside its document the same way. Replacing a template without
+a description keeps the old one.
+
 | tool | what |
 | --- | --- |
-| `template_list` | the caller's templates: id, name, length, clips, tracks, the assets shown |
-| `template_save` | `{project, clips, name, replace?}` — those clips of that project, as a template |
+| `template_list` | the caller's templates: id, name, length, clips, tracks, the assets shown, and what each is for |
+| `template_save` | `{project, clips, name, description?, replace?}` — those clips of that project, as a template |
 | `template_insert` | `{project, template, at_seconds}` — a copy of it, its first clip at that time; the reply names every clip and the track it went on |
 
 All three are served to web MCP and the assistant, and the editor reaches the

@@ -7,12 +7,14 @@
 //! library, the renderer run on it unchanged. Nothing here draws a frame or
 //! runs ffmpeg itself.
 //!
-//! **What cannot be rendered yet.** A stored project has no `recipes/` (#560),
-//! so a `synth_audio` asset renders only when its bake is already in the
-//! owner's library. One whose bake is not is refused **by name, recipe
-//! included** — a render that silently lost its music is worse than one that
-//! says why it did not happen. A file the library does not hold is refused
-//! the same way.
+//! **What a render does not do is bake.** A `synth_audio` asset renders from
+//! its bake, which `synth_bake` keeps in the owner's library (#560) — exactly
+//! as `scorsese render` renders a local folder's `generated/` and never bakes
+//! on its own. So the folder is laid out without the project's recipes and
+//! script: the renderer reads neither. An asset whose bake is not in the
+//! library is refused **by name, recipe included** — a render that silently
+//! lost its music is worse than one that says why it did not happen. A file
+//! the library does not hold is refused the same way.
 //!
 //! **Stopping.** The job's [`Context::cancel`] goes to the renderer, so a
 //! cancel from its owner (#660) stops it within a frame, its ffmpeg children
@@ -31,6 +33,7 @@ use super::{RenderCache, RenderView, Settings, evict, preview, store};
 use crate::db::UserId;
 use crate::jobs::{Context, Handler, Job, Outcome};
 use crate::library::locate;
+use crate::projects::ProjectFiles;
 use crate::projects::media::{Materialised, hashes, materialise};
 use crate::storage::Storage;
 
@@ -196,7 +199,8 @@ fn produce(
     drawn: Drawn,
     out: &Path,
 ) -> Result<(), String> {
-    let laid = materialise(project, at, &|hash: &str| media.get(hash).cloned())
+    let none = ProjectFiles::default();
+    let laid = materialise(project, &none, at, &|hash: &str| media.get(hash).cloned())
         .map_err(|error| format!("laying the project out: {error}"))?;
     unrenderable(project, &laid)?;
     let renderer = Renderer::new(tools, drawn.settings).with_cancel(drawn.cancel);
@@ -238,8 +242,8 @@ fn unrenderable(project: &Project, laid: &Materialised) -> Result<(), String> {
                     .as_ref()
                     .map_or("(none)".into(), ToString::to_string);
                 problems.push(format!(
-                    "`{}` is synthesised from the recipe {recipe}, which the server does not \
-                     store yet (#560), and its bake is not in your library",
+                    "`{}` is synthesised from the recipe {recipe}, and its bake is not in \
+                     your library — bake it first (synth_bake)",
                     asset.id
                 ));
             }

@@ -2,7 +2,8 @@
 //! runs on it.
 //!
 //! `projects::media::materialise` does the laying out — the document written,
-//! each file it names linked by hash from where the user's storage keeps it.
+//! the project's kept recipes and script written beside it, each file it
+//! names linked by hash from where the user's storage keeps it.
 //! This adds the two things only a caller acting for a user knows: **which
 //! files are theirs** (their own `library_items`, read scoped, so a document
 //! naming somebody else's hash finds nothing), and **which briefs they have
@@ -23,6 +24,7 @@ use sqlx::postgres::PgPool;
 
 use crate::db::{self, UserId};
 use crate::library::locate;
+use crate::projects::ProjectFiles;
 use crate::projects::media::{Materialised, hashes, materialise};
 use crate::storage::Storage;
 
@@ -39,26 +41,33 @@ impl Folder {
     }
 }
 
-/// Lay `user`'s `project` out in a scratch folder under `storage`, every file
-/// it names and every generation of its current briefs linked from their
-/// library.
+/// Lay `user`'s `project` out in a scratch folder under `storage`, with its
+/// kept `files` written in, every file it names and every generation of its
+/// current briefs linked from their library.
+///
+/// A paid brief — a shot, a still, a line — reads no recipe and no script, so
+/// the generation paths lay a project out with no files; a registry tool,
+/// which may read or write either, gets the project's own.
 pub async fn lay_out(
     pool: &PgPool,
     storage: &Storage,
     user: UserId,
     project: &Project,
+    files: &ProjectFiles,
 ) -> Result<Folder, String> {
     let named: Vec<String> = hashes(project).into_iter().map(str::to_owned).collect();
     let mut tx = db::scoped(pool, user).await.map_err(failed)?;
-    let files = locate::by_hash(&mut tx, storage, user, &named)
+    let media = locate::by_hash(&mut tx, storage, user, &named)
         .await
         .map_err(failed)?;
     tx.commit().await.map_err(failed)?;
 
-    let (at, document) = (storage.scratch(user), project.clone());
+    let (at, document, kept) = (storage.scratch(user), project.clone(), files.clone());
     let (laid, briefs) = tokio::task::spawn_blocking(move || {
-        let laid = materialise(&document, &at, &|hash: &str| files.get(hash).cloned())
-            .map_err(|error| format!("laying the project out: {error}"))?;
+        let laid = materialise(&document, &kept, &at, &|hash: &str| {
+            media.get(hash).cloned()
+        })
+        .map_err(|error| format!("laying the project out: {error}"))?;
         let briefs = briefs(&document, laid.root());
         Ok::<_, String>((laid, briefs))
     })

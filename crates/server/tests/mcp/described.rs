@@ -66,7 +66,7 @@ async fn the_registrys_tools_keep_the_registrys_words(pool: PgPool) {
     for web in ["project_list", "library", "jobs", "spending_history"] {
         assert!(named(web).is_some(), "{web} is served");
     }
-    for withheld in ["synth_new", "script_read", "voice_design"] {
+    for withheld in ["synth_import", "synth_export", "voice_design"] {
         assert!(named(withheld).is_none(), "{withheld} is not served yet");
     }
     let docs = include_str!("../../../../docs/web.md");

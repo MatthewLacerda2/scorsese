@@ -29,6 +29,10 @@
 //! template is "four seconds long", not "from 0:37 to 0:41 of some video";
 //! keyframes are clip-relative and need nothing.
 //!
+//! **What a template is for** is said by a [`Description`], kept beside the
+//! document rather than in it — a field in it would be a `project.json` format
+//! change for something no project has.
+//!
 //! ## Copy, never link
 //!
 //! Inserting copies the clips, so editing a template later never changes a
@@ -74,12 +78,14 @@
 //! template saved elsewhere cannot bring along; whoever stores templates for a
 //! local folder decides that.
 
+mod description;
 mod extract;
 pub(crate) mod ids;
 mod insert;
 mod rename;
 mod retime;
 
+pub use description::{Description, DescriptionTooLong, MAX_DESCRIPTION_CHARS};
 pub use extract::{ExtractError, extract};
 pub use insert::{InsertError, Inserted, insert};
 

@@ -125,7 +125,7 @@ async fn a_synthesised_sound_without_its_bake_is_refused_by_its_recipe(pool: PgP
 
     assert_eq!(job.state, State::Failed);
     let error = job.error.unwrap();
-    for says in ["`theme`", "recipes/theme.json", "#560"] {
+    for says in ["`theme`", "recipes/theme.json", "synth_bake"] {
         assert!(error.contains(says), "{says}: {error}");
     }
     assert_eq!(super::rows(&pool).await, 0);

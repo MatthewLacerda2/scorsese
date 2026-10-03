@@ -15,7 +15,7 @@ use scorsese_render::{Ffprobe, Tools};
 use sqlx::postgres::PgPool;
 
 use crate::db::UserId;
-use crate::projects::{self, ProjectError};
+use crate::projects::{self, ProjectError, ProjectFiles};
 use crate::storage::Storage;
 use crate::tools::lay_out;
 
@@ -34,7 +34,14 @@ pub async fn adopt(
             Err(ProjectError::NotFound) => return Ok(Vec::new()),
             Err(error) => return Err(error.to_string()),
         };
-        let folder = lay_out(pool, storage, user, &stored.document).await?;
+        let folder = lay_out(
+            pool,
+            storage,
+            user,
+            &stored.document,
+            &ProjectFiles::default(),
+        )
+        .await?;
         let (root, tools) = (folder.root().to_path_buf(), tools.clone());
         let mut document = stored.document.clone();
         let before = stored

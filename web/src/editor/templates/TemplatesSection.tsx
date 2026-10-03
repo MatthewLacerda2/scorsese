@@ -50,8 +50,14 @@ export function TemplatesSection({ edit, playhead, fps }: Props) {
       {remove.isError && <p className="text-xs text-destructive">{remove.error.message}</p>}
       {templates.data?.map((template) => (
         <div key={template.id} className="flex items-center gap-1 rounded-md border px-2 py-1">
-          <div className="min-w-0 flex-1" title={template.assets.join(", ")}>
+          <div
+            className="min-w-0 flex-1"
+            title={template.description ?? template.assets.join(", ")}
+          >
             <p className="truncate text-sm">{template.name}</p>
+            {template.description && (
+              <p className="truncate text-xs text-muted-foreground">{template.description}</p>
+            )}
             <p className="text-xs text-muted-foreground">
               {`${template.seconds.toFixed(1)}s · ${template.clips} clips`}
             </p>

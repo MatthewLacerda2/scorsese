@@ -47,6 +47,13 @@
 //! having to remember to keep it current. See [`media`] for the path a
 //! library file takes inside a stored document, and for rendering one.
 //!
+//! ## The files beside the document
+//!
+//! A stored project's recipes and script — the authored text a `.scor` folder
+//! keeps next to `project.json` — are rows of `project_files`, written with
+//! the document under its revision ([`save_with_files`]) and laid out with it.
+//! [`files`] has the argument and the rule for which files are kept.
+//!
 //! ## A schema bump migrates every stored document
 //!
 //! [`migrate_stored`] runs when the server starts, before it serves: every
@@ -55,12 +62,14 @@
 //! local folder — in one transaction, so either every project is readable by
 //! this build or the server does not start.
 
+pub mod files;
 pub mod media;
 mod startup;
 mod store;
 
+pub use files::ProjectFiles;
 pub use startup::migrate_stored;
-pub use store::{create, delete, edit, list, open, save};
+pub use store::{create, delete, edit, list, open, open_with_files, save, save_with_files};
 
 use scorsese_core::migrate::MigrateError;
 use scorsese_core::{LoadError, Project};

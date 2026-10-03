@@ -17,12 +17,20 @@
 //! filesystems, where scratch space and the library may well be on different
 //! disks; a hard link would not.
 //!
+//! **The authored files come too** (#560): the project's recipes and script,
+//! kept as text in `project_files` ([`crate::projects::files`]), are written
+//! into the folder as plain files — not linked: they are a few kilobytes, and
+//! a tool that edits one writes the folder's copy, which is read back and
+//! saved. Written after the document and before any link, so neither a link
+//! nor a kept file can land where another already is.
+//!
 //! What starts a render, and where the folder goes, is the job queue's
 //! (#536, #541). This only builds and removes the folder.
 
 use std::io;
 use std::path::{Path, PathBuf};
 
+use crate::projects::files::{self, ProjectFiles};
 use scorsese_core::{
     ASSETS_DIR, AssetId, CACHE_DIR, GENERATED_DIR, PROJECT_FILE_NAME, Project, ProjectPath,
     RECIPES_DIR,
@@ -93,6 +101,11 @@ pub enum MaterialiseError {
         path: ProjectPath,
     },
 
+    /// A kept file's path is not one a project keeps a file at. Refused
+    /// rather than written: it could land on the document or among media.
+    #[error("the project keeps a file at a path it cannot have: {0}")]
+    BadFile(String),
+
     /// The document could not be serialised.
     #[error("serialising the project: {0}")]
     Serialize(#[from] serde_json::Error),
@@ -108,10 +121,12 @@ pub enum MaterialiseError {
     },
 }
 
-/// Lay `project` out at `at`, a path nothing is at yet, linking every file it
-/// names by hash to where `media` says it is.
+/// Lay `project` out at `at`, a path nothing is at yet, with its kept `files`
+/// written in and every file it names linked by hash to where `media` says
+/// it is.
 pub fn materialise(
     project: &Project,
+    files: &ProjectFiles,
     at: &Path,
     media: &impl MediaSource,
 ) -> Result<Materialised, MaterialiseError> {
@@ -141,6 +156,7 @@ pub fn materialise(
     // put a link where it goes and have the write land through it.
     let document = at.join(PROJECT_FILE_NAME);
     std::fs::write(&document, project.to_json()?).map_err(io(&document))?;
+    files::lay(files, at)?;
 
     for asset in &project.assets {
         let (Some(path), Some(hash)) = (&asset.path, &asset.sha256) else {
