@@ -1,6 +1,6 @@
 //! Where each panel sits, and the two strips that bracket them.
 
-use egui::{CentralPanel, Frame, Margin, Panel, RichText, Ui};
+use egui::{CentralPanel, Frame, Margin, Panel, RichText, ScrollArea, Ui};
 
 use super::Scorsese;
 use super::{empty, status};
@@ -10,6 +10,15 @@ use crate::theme::{marks, palette};
 const EMPTY_TIMELINE_HEIGHT: f32 = 140.0;
 /// How wide the inspector and files column opens.
 const SIDE_WIDTH: f32 = 296.0;
+/// How much of the side column the files list keeps when the inspector is
+/// taller than the column: its heading and a few rows, enough to see what is in
+/// the pool and to scroll through the rest.
+///
+/// A floor for the list rather than a share for the inspector, because the
+/// inspector is the panel being worked in — it gets everything the list can
+/// spare, and a short window is what takes room from both. See [`side`] for why
+/// the column is two scroll areas and not one.
+const FILES_ROOM: f32 = 140.0;
 
 /// The bar along the top: the wordmark, what is open, and what may be done to
 /// it that is not an edit.
@@ -150,28 +159,48 @@ pub(super) fn side(ui: &mut Ui, window: &mut Scorsese) {
         .frame(chrome(ui, Margin::symmetric(10, 6)))
         .show(ui, |ui| {
             let read_only = window.read_only();
-            // The inspector is the one panel that changes the document, so it
-            // is the one that most needs to be legible and inert at once: a
-            // person repairing a project reads the offending clip's numbers
-            // here and edits them in a text editor.
-            match window.inspector() {
-                Some((inspector, open, editing)) => {
-                    // Scoped, so the files panel below stays live: listing the
-                    // pool and highlighting an asset are reads, and taking them
-                    // away would be protecting the document from being looked
-                    // at.
-                    ui.scope(|ui| {
-                        if read_only {
-                            ui.disable();
+            // Its own scroll, leaving the files their room (#681). Before, a
+            // generated shot's brief simply ran under the timeline, and its
+            // last fields could not be reached at all.
+            //
+            // Two scroll areas rather than the column as one, because the two
+            // halves are used at once: a person editing a brief and reaching
+            // for the asset it should start from wants both on screen, and one
+            // long scroll would carry the fields away to reach the list — and
+            // at the usual window size would put the list below the fold, where
+            // nobody knows it exists. Shrunk to its content, so a short
+            // inspector leaves the files the rest. Never less than half the
+            // column, so a window too short for both still favours the edit.
+            let column = ui.available_height();
+            let most = (column - FILES_ROOM).max(column / 2.0);
+            ScrollArea::vertical()
+                .id_salt("inspector")
+                .max_height(most)
+                .auto_shrink([false, true])
+                .show(ui, |ui| {
+                    // The inspector is the one panel that changes the document,
+                    // so it is the one that most needs to be legible and inert
+                    // at once: a person repairing a project reads the offending
+                    // clip's numbers here and edits them in a text editor.
+                    match window.inspector() {
+                        Some((inspector, open, editing)) => {
+                            // Scoped, so the files panel below stays live:
+                            // listing the pool and highlighting an asset are
+                            // reads, and taking them away would be protecting
+                            // the document from being looked at.
+                            ui.scope(|ui| {
+                                if read_only {
+                                    ui.disable();
+                                }
+                                inspector.show(ui, open, editing);
+                            });
                         }
-                        inspector.show(ui, open, editing);
-                    });
-                }
-                None => {
-                    marks::section(ui, "Inspector");
-                    empty::placeholder(ui, "select a clip to see what it is");
-                }
-            }
+                        None => {
+                            marks::section(ui, "Inspector");
+                            empty::placeholder(ui, "select a clip to see what it is");
+                        }
+                    }
+                });
             ui.add_space(10.0);
 
             let Some((files, open, editing)) = window.files() else {

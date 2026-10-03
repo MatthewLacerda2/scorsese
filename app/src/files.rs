@@ -75,11 +75,18 @@ impl Files {
             return;
         }
 
-        ScrollArea::vertical().show(ui, |ui| {
-            for (heading, kinds) in GROUPS {
-                self.group(ui, &open.project, editing, heading, kinds);
-            }
-        });
+        // No floor under its height. egui's default makes a scroll area at
+        // least 64 points tall whatever room is left, and in a short window
+        // that floor pushed the side column past the bottom of the window
+        // (#681): a list that shrinks to a sliver is still reachable by
+        // scrolling, and a column drawn off-screen is not.
+        ScrollArea::vertical()
+            .min_scrolled_height(0.0)
+            .show(ui, |ui| {
+                for (heading, kinds) in GROUPS {
+                    self.group(ui, &open.project, editing, heading, kinds);
+                }
+            });
     }
 
     /// One heading and the assets under it, or nothing when there are none.
