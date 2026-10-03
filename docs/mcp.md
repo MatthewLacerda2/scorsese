@@ -1483,6 +1483,13 @@ Nothing has to mark an asset stale. A bake is named for the hash of its recipe,
 so changing the recipe changes which file the asset wants, and the next
 `synth_bake` redoes it. Re-baking an unchanged recipe renders nothing.
 
+`synth_kit` is the shortcut past the first few turns of that loop: a library
+of ready-made instruments — drums, a bass, keys, brass, a pad — that a song
+names as `"patch": "kit:kick"`. `synth_write` copies each one into the recipe
+as it writes it, so the song owns its instruments from then on and an upgrade
+never changes how it sounds. `synth_new` with an `instrument` starts a one-shot
+of one.
+
 What to write in a recipe is [`recipes.md`](recipes.md).
 
 ### Starting from notes that already exist: `synth_import`

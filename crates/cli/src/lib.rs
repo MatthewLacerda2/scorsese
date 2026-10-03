@@ -218,9 +218,16 @@ fn dispatch(cli: Cli) -> Result<()> {
             resolution,
         } => commands::describe::run(&directory, fps, range, &at, resolution),
         Command::Synth { action } => match action {
-            Some(SynthAction::New { name, kind }) => {
-                commands::synth::new(&directory, &name, kind.into())
-            }
+            Some(SynthAction::New {
+                name,
+                kind,
+                instrument,
+            }) => commands::synth::starter(kind.into(), instrument.as_deref())
+                .and_then(|starter| commands::synth::new(&directory, &name, starter)),
+            Some(SynthAction::Kit {
+                instrument,
+                copy_into,
+            }) => commands::synth::kit(instrument.as_deref(), copy_into.as_deref()),
             Some(SynthAction::Import { file, name }) => {
                 commands::synth::import(&directory, &file, name.as_deref())
             }

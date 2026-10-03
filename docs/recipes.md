@@ -2059,6 +2059,81 @@ A file imported, exported and imported again comes back as the same song —
 notes, velocities, tempo map and key — which is the test that holds the two
 halves to each other.
 
+## Instruments to start from: `kit:`
+
+Most songs reach for the same handful of instruments, and every one of them is
+five to ten numbers that have to be right before it sounds like itself at all.
+So there is a library of them, and a track asks for one by name:
+
+```json recipe
+{
+  "recipe": "song",
+  "bpm": 110,
+  "tracks": [
+    { "name": "kick",  "patch": "kit:kick",  "gain": 0.9 },
+    { "name": "snare", "patch": "kit:snare", "gain": 0.7 },
+    { "name": "hat",   "patch": "kit:hat",   "gain": 0.4, "pan": 0.3 },
+    { "name": "bass",  "patch": "kit:bass",  "gain": 0.6 }
+  ],
+  "patterns": { "a": { "beats": 4, "notes": [
+    { "track": "kick",  "steps": "x---x---", "div": 0.5 },
+    { "track": "snare", "steps": "--x---x-", "div": 0.5 },
+    { "track": "hat",   "steps": "xxxxxxxx", "div": 0.5 },
+    { "track": "bass",  "note": "A1", "start": 0,   "dur": 0.5 },
+    { "track": "bass",  "note": "A1", "start": 1.5, "dur": 0.5 },
+    { "track": "bass",  "note": "G1", "start": 3,   "dur": 0.5 }
+  ] } },
+  "arrangement": ["a", "a"]
+}
+```
+
+| name | is | sits |
+| --- | --- | --- |
+| `kit:kick` | a drum machine's kick: a sine falling onto its pitch, with a little drive | almost all low |
+| `kit:snare` | a drum machine's snare: a crack of pink noise over a short body, in a small room | mostly mid |
+| `kit:hat` | a closed hi-hat: a short tick of bright noise | almost all high |
+| `kit:crash` | a crash cymbal: a long wash of bright noise that darkens as it fades | mostly high |
+| `kit:bass` | a synth bass: saw and square sub through a plucky lowpass, warm and round | mostly low |
+| `kit:clav` | a clavinet: bright, funky and percussive, and it barks when played hard | mid |
+| `kit:brass` | a brass section: the FM horns above, blooming into the note | mid |
+| `kit:pad` | a pad: a slow, wide, chorused saw bed that breathes | low-mid, under everything |
+| `kit:epiano` | an electric piano: an FM tine that rings and fades, bell-like when struck hard | low-mid |
+
+The "sits" column is what the [bake report](#how-a-bake-came-out) prints for
+each on its own, and it is checked: a kick that stopped being mostly low would
+fail a test before it reached this table.
+
+**The name is copied in, never kept.** `synth_write` — or, from the command
+line, `scorsese synth kit --copy-into recipes/<song>.json` — replaces each
+`kit:` name with the patch itself, and that is what lands on disk. From then on
+the instrument is the song's own: change its filter, lengthen its decay, and
+nothing else is affected. A bake refuses a `kit:` name that was never copied
+in, rather than reading it from the library, for the reason the copy exists:
+
+- **A song never changes sound because scorsese was upgraded.** When the kick
+  here gets better, the *next* song gets the better one; the song you already
+  have keeps the kick it was mixed around.
+- **The project still carries everything it needs.** A `.scor` folder copied
+  to another machine sounds the same there, whatever version reads it.
+
+Three things worth knowing:
+
+- **The drums are written for middle C**, the note a run of `steps` plays when
+  it names none, so a drum part never has to say a pitch. A `note` still moves
+  them: the kick played at `"note": "G4"` is a higher drum, which is most of
+  the way to a tom.
+- **Pitched instruments play the notes you write.** The bass is at home around
+  `E1`–`E2`, the pad and keys around octaves 3 and 4.
+- **A one-shot can start from one too.** `"patch": "kit:snare"` in a
+  `"recipe": "patch"` document is copied in the same way, and `synth_new` with
+  an `instrument` (`scorsese synth new <name> --instrument snare`) writes one —
+  one hit, to bake and use as an effect.
+
+`synth_kit` (or `scorsese synth kit`) lists the library, and given a name shows
+that instrument's patch before anything is copied anywhere. Every patch in it is
+an ordinary one, written in exactly the vocabulary this page documents, so
+reading one is also the quickest way to see what a working kick is made of.
+
 ## What a bake is, and when it happens
 
 `synth bake` renders every recipe whose output is not already on disk, and
