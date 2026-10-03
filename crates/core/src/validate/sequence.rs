@@ -3,6 +3,7 @@
 //! Whether the block is there at all is [`super::assets`]'s question, asked of
 //! every kind's own block in one place; this is what is inside it.
 
+use crate::asset::sequence::same_format;
 use crate::asset::{Asset, AssetKind, SEQUENCE_FORMATS};
 use crate::project::Project;
 
@@ -59,9 +60,7 @@ pub(super) fn check(project: &Project, asset: &Asset, errors: &mut Vec<AssetProb
         } else {
             match &format {
                 None => format = Some(this),
-                Some(expected)
-                    if same_decoder(expected) != same_decoder(&this) && !mixed_format =>
-                {
+                Some(expected) if !same_format(expected, &this) && !mixed_format => {
                     mixed_format = true;
                     found.push(SequenceProblem::MixedFormats {
                         asset: id(),
@@ -110,13 +109,4 @@ fn format_of(still: &Asset) -> String {
                 .map(str::to_ascii_lowercase)
         })
         .unwrap_or_default()
-}
-
-/// One decoder reads both spellings of these, so they are one format.
-fn same_decoder(format: &str) -> &str {
-    match format {
-        "jpeg" => "jpg",
-        "tiff" => "tif",
-        other => other,
-    }
 }

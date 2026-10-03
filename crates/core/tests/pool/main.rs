@@ -8,4 +8,5 @@ mod gc;
 mod import;
 mod probing;
 mod refusals;
+mod sequence;
 mod status;

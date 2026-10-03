@@ -233,6 +233,16 @@ pub enum ImportError {
         /// The id it would have taken.
         id: AssetId,
     },
+    /// A folder imported as an image sequence that cannot be one: no frames
+    /// in it, or frames of two formats or two sizes. Refused before anything
+    /// is copied.
+    #[error("{} cannot be imported as an image sequence: {why}", path.display())]
+    NotASequence {
+        /// The folder.
+        path: PathBuf,
+        /// What is wrong with it.
+        why: String,
+    },
     /// The prober could not read the file at all.
     #[error(transparent)]
     Probe(#[from] ProbeError),

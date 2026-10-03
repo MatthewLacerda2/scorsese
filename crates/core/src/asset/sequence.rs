@@ -60,6 +60,17 @@ pub struct ImageSequence {
 /// Every format a camera, a renderer or an upscaler writes frames in is here.
 pub const SEQUENCE_FORMATS: [&str; 7] = ["png", "jpg", "jpeg", "bmp", "tif", "tiff", "webp"];
 
+/// Whether two of [`SEQUENCE_FORMATS`] are one format: one decoder reads both
+/// spellings of a jpeg, and both of a tiff.
+pub(crate) fn same_format(a: &str, b: &str) -> bool {
+    let canonical = |format: &str| match format {
+        "jpeg" => "jpg".to_owned(),
+        "tiff" => "tif".to_owned(),
+        other => other.to_owned(),
+    };
+    canonical(a) == canonical(b)
+}
+
 fn one_frame() -> Frames {
     Frames(1)
 }

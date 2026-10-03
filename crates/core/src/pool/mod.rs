@@ -14,6 +14,7 @@ mod import;
 mod naming;
 mod probing;
 mod reference;
+mod sequence;
 mod status;
 
 pub use directory::{Import, Imported, SkipReason, Skipped, import_path};
@@ -23,4 +24,8 @@ pub use import::{ImportError, import_asset, measure};
 pub use naming::{asset_id_for, infer_kind};
 pub use probing::{ProbeOutcome, Probed, Reprobe, probe_assets, unprobed_assets};
 pub use reference::{Reference, reference_asset};
+pub use sequence::{
+    Gap, SequenceChange, SequenceChanged, SequenceError, SequenceImport, change_sequence,
+    import_sequence,
+};
 pub use status::{AssetHealth, AssetStatus, HashCheck, asset_status};
