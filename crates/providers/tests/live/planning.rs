@@ -42,7 +42,7 @@ fn only_the_vendors_with_keys_are_planned_and_priced() {
     assert_eq!(
         cents,
         [
-            (Provider::Gemini, 0, false),
+            (Provider::Gemini, 5, false),
             (Provider::ElevenLabs, 2, false),
             (Provider::Anthropic, 0, true),
         ]
@@ -57,7 +57,7 @@ fn the_shot_is_priced_into_the_plan_only_when_asked_for() {
         include_veo: true,
         ..Options::default()
     };
-    assert_eq!(total(&plan(&asked, &env, &Settings::default())), 20);
+    assert_eq!(total(&plan(&asked, &env, &Settings::default())), 25);
 }
 
 /// The ceiling refuses the whole plan before anything is sent, `--yes` or

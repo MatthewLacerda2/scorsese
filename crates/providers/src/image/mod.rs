@@ -29,7 +29,7 @@
 
 mod brief;
 mod error;
-mod gemini;
+pub(crate) mod gemini;
 mod provider;
 mod run;
 
