@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DetailsSheet } from "./DetailsSheet";
-import { FileTile } from "./FileTile";
+import { FileTile, KIND_LABEL } from "./FileTile";
 import { SORTS, type Sort, sortTiles } from "./sort";
 import { useUploads } from "./uploads";
 import { type Opened, Viewer } from "./Viewer";
@@ -89,8 +89,8 @@ export function FileBrowser({ project }: { project?: number }) {
           <SelectContent>
             <SelectItem value={ALL}>All kinds</SelectItem>
             {FILE_KINDS.map((k) => (
-              <SelectItem key={k} value={k} className="capitalize">
-                {k}
+              <SelectItem key={k} value={k}>
+                {KIND_LABEL[k]}
               </SelectItem>
             ))}
           </SelectContent>
@@ -117,7 +117,7 @@ export function FileBrowser({ project }: { project?: number }) {
           {filtered
             ? "No files match."
             : project === undefined
-              ? "Your library is empty. Upload videos, pictures and sounds — or drop them here — to use in any project."
+              ? "Your library is empty. Upload videos, pictures, sounds and MIDI files — or drop them here — to use in any project."
               : "This project uses no files from your library yet."}
         </p>
       )}
@@ -154,8 +154,9 @@ function UploadButton() {
         multiple
         hidden
         // A hint for the picker; the server holds files to exactly the
-        // extensions `scorsese import` takes, and says so when it refuses one.
-        accept="video/*,image/*,audio/*"
+        // extensions `scorsese import` takes, and MIDI, and says so when it
+        // refuses one.
+        accept="video/*,image/*,audio/*,.mid,.midi"
         onChange={(event) => {
           const picked = Array.from(event.target.files ?? []);
           event.target.value = "";

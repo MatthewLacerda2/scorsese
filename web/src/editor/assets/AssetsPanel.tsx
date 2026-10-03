@@ -4,11 +4,12 @@
 // into the project on the way (`import`), and a template goes in at the
 // playhead (#546). New files arrive through the library page's uploads, which
 // stay on screen. An asset's bin button removes it, after a confirm listing
-// the clips that go with it (#396).
+// the clips that go with it (#396). A MIDI file is not listed here: it is notes,
+// not media a track can hold, and the assistant reads it into a song (#678).
 
 import { LibraryIcon, Trash2Icon } from "lucide-react";
 import { Link } from "react-router";
-import type { DocumentAsset, ProjectDocument } from "@/api";
+import type { DocumentAsset, LibraryTile, ProjectDocument } from "@/api";
 import { useLibrary } from "@/app/queries";
 import { Button } from "@/components/ui/button";
 import { Thumbnail } from "@/files/FileTile";
@@ -17,6 +18,11 @@ import { assetRemoval, confirmThen, showing } from "../removing";
 import { TemplatesSection } from "../templates/TemplatesSection";
 import { carry } from "./dragged";
 import { kindColor, kindName } from "./kinds";
+
+/** Whether a library file can be dragged onto a track. */
+function placeable(tile: LibraryTile): boolean {
+  return tile.kind !== "midi";
+}
 
 interface Props {
   document: ProjectDocument;
@@ -63,7 +69,7 @@ export function AssetsPanel({ document, edit, playhead }: Props) {
           </p>
         )}
         <div className="grid grid-cols-2 gap-2">
-          {library.data?.map((tile) => (
+          {library.data?.filter(placeable).map((tile) => (
             <button
               type="button"
               key={tile.id}

@@ -1,14 +1,31 @@
 // One file in the grid: thumbnail, name, kind and size — nothing else, since
 // a list carries only those (#527). The thumbnail is drawn by a job after the
 // file arrives and answers 404 until then, so a missing one shows the kind's
-// icon and is asked for again a little later.
+// icon and is asked for again a little later. A MIDI file never has one — it
+// is notes, not a picture or a sound — so it shows a note icon from the start.
 
-import { FileAudioIcon, FileImageIcon, FileVideoIcon } from "lucide-react";
+import { FileAudioIcon, FileImageIcon, FileMusicIcon, FileVideoIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { FileKind, LibraryTile } from "@/api";
 import { formatBytes } from "@/lib/format";
 
-export const KIND_ICON = { video: FileVideoIcon, image: FileImageIcon, audio: FileAudioIcon };
+export const KIND_ICON = {
+  video: FileVideoIcon,
+  image: FileImageIcon,
+  audio: FileAudioIcon,
+  midi: FileMusicIcon,
+};
+
+/** Each kind as a person reads it. */
+export const KIND_LABEL: Record<FileKind, string> = {
+  video: "Video",
+  image: "Image",
+  audio: "Audio",
+  midi: "MIDI",
+};
+
+/** The kinds the server draws a thumbnail for; any other shows its icon. */
+const PICTURED: ReadonlySet<FileKind> = new Set(["video", "image", "audio"]);
 
 /** How often, and how many times, a thumbnail still being drawn is re-asked. */
 const RETRY_MS = 4000;
@@ -33,8 +50,8 @@ export function FileTile({ tile, selected, onSelect, onOpen }: Props) {
       <span className="truncate px-2 pt-2 text-sm font-medium" title={tile.name}>
         {tile.name}
       </span>
-      <span className="px-2 pb-2 text-xs text-muted-foreground capitalize">
-        {tile.kind} · {formatBytes(tile.size_bytes)}
+      <span className="px-2 pb-2 text-xs text-muted-foreground">
+        {KIND_LABEL[tile.kind]} · {formatBytes(tile.size_bytes)}
       </span>
     </button>
   );
@@ -54,7 +71,7 @@ export function Thumbnail({ src, kind }: { src: string; kind: FileKind }) {
   const Icon = KIND_ICON[kind];
   return (
     <div className="relative flex aspect-video items-center justify-center overflow-hidden bg-muted">
-      {missing ? (
+      {missing || !PICTURED.has(kind) ? (
         <Icon className="size-10 text-muted-foreground" aria-hidden />
       ) : (
         <img

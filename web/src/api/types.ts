@@ -30,8 +30,12 @@ export interface StoredProject extends ProjectSummary {
   document: Record<string, unknown>;
 }
 
-/** The kinds a library file can be — `library::Kind`. */
-export const FILE_KINDS = ["video", "image", "audio"] as const;
+/**
+ * The kinds a library file can be — `library::Kind`. A `midi` file is notes,
+ * not media: it has no thumbnail and is never placed on a track; the assistant
+ * reads it into a song (`synth_import`, #678).
+ */
+export const FILE_KINDS = ["video", "image", "audio", "midi"] as const;
 export type FileKind = (typeof FILE_KINDS)[number];
 
 /** `http::library::Tile` — a file in a list: enough to draw a tile. */
