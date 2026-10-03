@@ -84,4 +84,10 @@ test("the editor draws the stored document: its tracks, clips and assets", () =>
   expect(html).toContain("HELLO");
   expect(html).toContain("Video track");
   expect(html).toContain("Ask the assistant");
+  // The sidebar (#702): the project's assets, the templates, and a button to
+  // the library rather than the library itself.
+  expect(html).toContain("Assets");
+  expect(html).toContain("Templates");
+  expect(html).toContain("Library</button>");
+  expect(html).not.toContain("Your library");
 });

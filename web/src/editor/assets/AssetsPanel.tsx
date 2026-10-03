@@ -1,91 +1,58 @@
-// The assets panel: the project's own assets, the user's templates, and the
-// user's library beneath them. An asset or a library file is dragged onto a
-// lane to place it (the desktop app's pool, #543); a library file is brought
-// into the project on the way (`import`), and a template goes in at the
-// playhead (#546). New files arrive through the library page's uploads, which
-// stay on screen. An asset's bin button removes it, after a confirm listing
-// the clips that go with it (#396). A MIDI file is not listed here: it is notes,
-// not media a track can hold, and the assistant reads it into a song (#678).
+// The editor's left sidebar (#702): **Assets**, what this project holds —
+// each dragged onto a lane to place it (the desktop app's pool, #543), or
+// removed with its bin after a confirm listing the clips that go with it
+// (#396) — then **Templates**, inserted at the playhead (#546), and a
+// **Library** button whose modal brings a file the user owns into Assets.
+// The two lists are kept apart on purpose: what is *in* the project, and what
+// is merely *owned* and picked from, as every editor's media bin and import
+// dialog are.
 
-import { LibraryIcon, Trash2Icon } from "lucide-react";
-import { Link } from "react-router";
-import type { DocumentAsset, LibraryTile, ProjectDocument } from "@/api";
-import { useLibrary } from "@/app/queries";
+import { Trash2Icon } from "lucide-react";
+import type { DocumentAsset, ProjectDocument } from "@/api";
 import { Button } from "@/components/ui/button";
-import { Thumbnail } from "@/files/FileTile";
 import type { EditOutcome } from "../project";
 import { assetRemoval, confirmThen, showing } from "../removing";
 import { TemplatesSection } from "../templates/TemplatesSection";
 import { carry } from "./dragged";
 import { kindColor, kindName } from "./kinds";
-
-/** Whether a library file can be dragged onto a track. */
-function placeable(tile: LibraryTile): boolean {
-  return tile.kind !== "midi";
-}
+import { LibraryModal } from "./LibraryModal";
 
 interface Props {
+  projectId: number;
   document: ProjectDocument;
   edit: EditOutcome;
   playhead: number;
 }
 
-export function AssetsPanel({ document, edit, playhead }: Props) {
-  const library = useLibrary({});
+export function AssetsPanel({ projectId, document, edit, playhead }: Props) {
   const assets = document.assets ?? [];
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto p-3">
-      <section className="flex flex-col gap-1">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          In this project
-        </h2>
-        {assets.length === 0 && (
-          <p className="text-xs text-muted-foreground">
-            Nothing yet. Drag a file from your library below onto a track.
-          </p>
-        )}
-        {assets.map((asset) => (
-          <ProjectAsset
-            key={asset.id}
-            asset={asset}
-            uses={showing(document, asset.id).length}
-            pending={edit.pending}
-            onRemove={() => confirmThen(assetRemoval(document, asset.id), edit.run)}
-          />
-        ))}
-      </section>
-      <TemplatesSection edit={edit} playhead={playhead} fps={document.timeline_fps} />
-      <section className="flex flex-col gap-2">
-        <h2 className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Your library
-          <Link to="/library" className="flex items-center gap-1 normal-case hover:text-foreground">
-            <LibraryIcon className="size-3" /> Upload
-          </Link>
-        </h2>
-        {library.isError && <p className="text-xs text-destructive">{library.error.message}</p>}
-        {library.data?.length === 0 && (
-          <p className="text-xs text-muted-foreground">
-            Your library is empty — upload files there.
-          </p>
-        )}
-        <div className="grid grid-cols-2 gap-2">
-          {library.data?.filter(placeable).map((tile) => (
-            <button
-              type="button"
-              key={tile.id}
-              draggable
-              onDragStart={(event) =>
-                carry(event, { from: "library", item: tile.id, kind: tile.kind })
-              }
-              title={`${tile.name} — drag onto a track`}
-              className="cursor-grab overflow-hidden rounded-md border text-left text-xs active:cursor-grabbing"
-            >
-              <Thumbnail src={tile.thumbnail} kind={tile.kind} />
-              <p className="truncate px-1.5 py-1">{tile.name}</p>
-            </button>
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
+        <section className="flex flex-col gap-1">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Assets
+          </h2>
+          {assets.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              Nothing yet. Add files from your library, then drag them onto a track.
+            </p>
+          )}
+          {assets.map((asset) => (
+            <ProjectAsset
+              key={asset.id}
+              asset={asset}
+              uses={showing(document, asset.id).length}
+              pending={edit.pending}
+              onRemove={() => confirmThen(assetRemoval(document, asset.id), edit.run)}
+            />
           ))}
-        </div>
-      </section>
+        </section>
+        <TemplatesSection edit={edit} playhead={playhead} fps={document.timeline_fps} />
+      </div>
+      <div className="border-t p-3">
+        <LibraryModal projectId={projectId} edit={edit} />
+      </div>
     </div>
   );
 }
