@@ -719,6 +719,28 @@ exclude_re = [
     # adds no pixel. Measured: the same 32 reveals are byte-identical, and so
     # is the list of glyphs reported unpaintable. Cost, not behaviour.
     'text/mod\.rs:357:37: replace > with >= in set',
+
+    # `song::mix::sends` says whether a render builds a *sent* mix beside the
+    # master — the sum the song chain's reverb and delay hear when some track's
+    # `send` is under one (#509). It decides whether work is done, never what
+    # it produces, the same shape as `Mix::needs` and `render::glides` above:
+    # a sent mix built when nothing is held back is the master sample for
+    # sample, and `fx::apply_chain_sent` over two identical signals is
+    # `fx::apply_chain` exactly. That identity is asserted with `assert_eq!`,
+    # across every kind of stage, by
+    # `sending_everything_is_the_plain_chain_sample_for_sample` in
+    # `fx/send.rs`. So four mutations only build a buffer nobody needed:
+    # `true` for every song; `<` to `<=` (a send of exactly one builds it);
+    # and either `&&` to `||` — building it with no room in the chain, where
+    # the sent mix is carried and never read, or for a track the excerpt does
+    # not hear, which never adds into it.
+    #
+    # The direction that matters is caught: `false` never builds it, and
+    # `a_track_that_sends_nothing_leaves_no_tail` hears the room ring on a dry
+    # kick. So do `<` to `>` and `==`, for the same test.
+    'mix\.rs:\d+:\d+: replace sends -> bool with true',
+    'mix\.rs:\d+:\d+: replace < with <= in sends',
+    'mix\.rs:\d+:\d+: replace && with \|\| in sends',
 ]
 
 # ---------------------------------------------------------------------------
