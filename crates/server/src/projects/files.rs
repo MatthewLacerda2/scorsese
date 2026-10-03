@@ -42,8 +42,9 @@
 //! same revision check ([`crate::projects::save_with_files`]), so a recipe
 //! edit races like any other edit: the second writer is refused and runs again
 //! on what is there now. Text only — a recipe is JSON and a script is prose —
-//! and at most [`MAX_FILE_BYTES`] each and [`MAX_FILES`] to a project, so a
-//! project's files cannot grow without bound on a machine other people share.
+//! and at most [`MAX_FILE_BYTES`] each, [`MAX_FILES`] and [`MAX_TOTAL_BYTES`]
+//! to a project, so a project's files cannot grow without bound on a machine
+//! other people share.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -61,6 +62,9 @@ pub const MAX_FILE_BYTES: usize = 1 << 20;
 
 /// The most files one project may keep.
 pub const MAX_FILES: usize = 500;
+
+/// The most all of one project's kept files may hold together, in bytes.
+pub const MAX_TOTAL_BYTES: usize = 16 << 20;
 
 /// A project's kept files: project-relative path to text, in path order.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -188,10 +192,11 @@ pub fn gather(root: &Path, project: &Project, laid: &ProjectFiles) -> Result<Pro
         };
         files.insert(&key, text)?;
     }
-    if files.len() > MAX_FILES {
+    let total: usize = files.iter().map(|(_, text)| text.len()).sum();
+    if files.len() > MAX_FILES || total > MAX_TOTAL_BYTES {
         return Err(format!(
-            "the project would keep {} recipes and scripts; the server keeps at most \
-             {MAX_FILES} to a project",
+            "the project would keep {} recipes and scripts, {total} bytes in all; the server \
+             keeps at most {MAX_FILES} files and {MAX_TOTAL_BYTES} bytes to a project",
             files.len()
         ));
     }

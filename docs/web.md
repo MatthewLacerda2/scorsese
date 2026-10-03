@@ -724,7 +724,7 @@ edited in place, not media addressed by content) or fields in the document (a
 format change, and a 30 KB script in the file an agent opens to learn the
 edit). They are **written with the document under its revision**
 (`projects::save_with_files`), so a recipe edit conflicts exactly as a timeline
-edit does; at most 1 MiB each and 500 to a project. Per-user like every table.
+edit does; at most 1 MiB each, 500 files and 16 MiB to a project. Per-user like every table.
 
 **Rendering a stored project** lays it out as a temporary `.scor` folder
 (`projects::media::materialise`): the document written, its kept files written
