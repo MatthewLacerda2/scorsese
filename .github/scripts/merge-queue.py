@@ -10,7 +10,8 @@ paid that loop twenty-three times by hand, and the agent that paid it was
 holding a worktree open the whole while.
 
 Invoked, never a service. It runs when somebody types `make queue`, on the
-pull requests they name, in the order they name them.
+pull requests they name, in the order they name them — or, with `--watch`, on
+the ones labelled for it, for a bounded time, and then it exits.
 
 ## Why it does not skip a run instead
 
@@ -111,10 +112,25 @@ unreachable GitHub stops the queue with its own status and its own line in the
 summary, never as a hand-back: nothing was decided, and the answer is to run
 the same queue again (#615).
 
+## Or let it watch
+
+`--watch` drops the list: the queue asks GitHub every poll for the ready pull
+requests carrying the `queue` label, takes them in `CLAUDE.md`'s label
+priority and then by age, and stops taking new ones after `--for` minutes so
+it fits the harness's two-hour cap. Every guarantee above holds per pull
+request, because each one taken goes through the same [`take`]. Which one, why
+a label, and how a hand-back is kept from being retried every poll are
+`merge-watch.py`'s module doc (#690).
+
+A branch whose run is still out at its deadline, and a pull request still in
+line when a watch ends, are **unfinished** — neither red nor green, and not a
+hand-back: the answer is to run the queue again.
+
 Run it:
 
     python3 .github/scripts/merge-queue.py 486 488 489
     make queue PRS="486 488 489"
+    make queue WATCH=1
 
 Python, beside `mergeable.py`, for `mergeable.py`'s own reason: it is a few
 `gh` calls, a few `git` calls and a decision. It compiles nothing, reads no
@@ -142,6 +158,15 @@ _spec = importlib.util.spec_from_file_location(
 mergeable = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(mergeable)
 
+_spec = importlib.util.spec_from_file_location(
+    "merge_watch", Path(__file__).resolve().parent / "merge-watch.py"
+)
+watch = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(watch)
+# One `mergeable` between the two, so the `Unreachable` the watch's questions
+# raise is the class this script catches.
+watch.mergeable = mergeable
+
 # How often GitHub is asked again. A cold CI run is about ten minutes, so a
 # tighter poll buys nothing but API calls; a looser one adds its own interval
 # to every branch in the queue, and the queue is the thing being shortened.
@@ -157,7 +182,7 @@ RUN_APPEARS_SECONDS = 300
 # The ceiling on one branch, in minutes. Four times a cold run, because a
 # queued or re-run job can push a run well past its usual length and a queue
 # that gives up early hands back a branch that was about to go green. Reaching
-# it is never a merge — it is a hand-back saying the run is still out.
+# it is never a merge and never a verdict: the branch is *unfinished*.
 DEADLINE_MINUTES = 40
 
 # How long a merge call that failed in transit is given to show up as merged.
@@ -167,16 +192,23 @@ DEADLINE_MINUTES = 40
 # is *unknown*, which is handed back as unknown rather than as a refusal.
 MERGE_SETTLES_SECONDS = 60
 
-WAIT, GO, STOP = "wait", "go", "stop"
+WAIT, GO, STOP, LATE = "wait", "go", "stop", "late"
 
 # What the summary calls each branch's ending. Merged and green are separate
 # because `--no-merge` exists, and a queue that reported them the same would be
 # claiming a merge it did not make. Unreachable is separate from handed back
 # because it is not a verdict: GitHub stopped answering, nothing was decided,
 # and the right response is to run the same queue again rather than to go and
-# fix the branch (#615).
+# fix the branch (#615). Unfinished is separate from handed back for the same
+# reason: a run still out at the deadline, or a pull request still in line when
+# a watch ends, has had nothing decided about it (#690).
 MERGED, GREEN, HANDED_BACK = "merged", "green", "handed back"
-UNREACHABLE, NOT_REACHED = "unreachable", "not reached"
+UNREACHABLE, NOT_REACHED, UNFINISHED = "unreachable", "not reached", "unfinished"
+
+# The exit status when nothing was handed back and nothing was unreachable,
+# but something is unfinished: run the queue again. Not 1, which says read a
+# hand-back; not 3, which says GitHub stopped answering.
+UNFINISHED_STATUS = 4
 
 
 def git(*args: str, cwd: str | None = None) -> subprocess.CompletedProcess:
@@ -357,7 +389,10 @@ def summary(results: list[tuple[int, str, str]]) -> list[str]:
     The cleanup note is here rather than done, deliberately: see the module
     doc on what this script refuses to touch.
     """
-    lines = [f"#{number}: {state} — {why}" for number, state, why in results]
+    lines = [
+        f"{f'#{number}' if number else 'watch'}: {state} — {why}"
+        for number, state, why in results
+    ]
     merged = [n for n, state, _ in results if state == MERGED]
     if merged:
         lines.append(
@@ -373,7 +408,22 @@ def summary(results: list[tuple[int, str, str]]) -> list[str]:
             " request already merged is skipped as merged, and a head already"
             " pushed is not pushed again."
         )
+    if any(state == UNFINISHED for _, state, _ in results):
+        lines.append(
+            "Unfinished is not red: nothing was decided about those. Run the"
+            " queue again to take them."
+        )
     return lines
+
+
+def status(results: list[tuple[int, str, str]]) -> int:
+    """The exit status: the most urgent thing a reader has to do about the run."""
+    states = {state for _, state, _ in results}
+    if UNREACHABLE in states:
+        return mergeable.UNREACHABLE_STATUS
+    if HANDED_BACK in states:
+        return 1
+    return UNFINISHED_STATUS if UNFINISHED in states else 0
 
 
 def run_queue(repo: str, opts: argparse.Namespace) -> list[tuple[int, str, str]]:
@@ -398,6 +448,58 @@ def run_queue(repo: str, opts: argparse.Namespace) -> list[tuple[int, str, str]]
             )
             break
     return results
+
+
+def run_watch(repo: str, opts: argparse.Namespace) -> list[tuple[int, str, str]]:
+    """Take cleared pull requests as they appear, until `--for` runs out.
+
+    One at a time, through the same [`take`] as a list — merging stays
+    serialized and the watch only decides what comes next ([`watch.pick`]).
+    A branch taken once is not taken again on the same head, whatever the
+    outcome: a merge is done, a hand-back waits for a push, a green under `--no-merge` has
+    nothing more to do, and an unfinished one belongs to the next watch.
+
+    GitHub going quiet stops the watch exactly as it stops a list, with the
+    reason in the summary.
+    """
+    results: list[tuple[int, str, str]] = []
+    dropped: dict[int, str] = {}
+    issues: dict[int, list[str]] = {}
+    stop_taking = time.monotonic() + opts.watch_for * 60
+    say(
+        f"watching for ready pull requests labelled `{opts.label}`, for"
+        f" {opts.watch_for:g} minutes."
+    )
+    try:
+        while True:
+            pulls = watch.waiting(opts.label)
+            if time.monotonic() >= stop_taking:
+                results.extend(
+                    (number, UNFINISHED, "still in line when the watch ended.")
+                    for number in watch.in_line(pulls, dropped)
+                )
+                return results
+            pull = watch.pick(pulls, dropped, watch.issue_labels(pulls, issues))
+            if pull is None:
+                time.sleep(watch.IDLE_SECONDS)
+                continue
+            number = pull["number"]
+            heads: dict[int, str] = {}
+            try:
+                outcome = take(repo, number, opts, heads)
+            except mergeable.Unreachable as outage:
+                say(f"#{number}: {outage}")
+                results.append((number, UNREACHABLE, str(outage)))
+                return results
+            results.append(outcome)
+            # Merged too: the listing can still show a merged pull request for
+            # a poll or two, and taking it again would report it handed back.
+            dropped[number] = heads.get(number, pull.get("headRefOid", ""))
+    except mergeable.Unreachable as outage:
+        # Asking what is cleared, rather than working on one: no number to name.
+        say(str(outage))
+        results.append((0, UNREACHABLE, str(outage)))
+        return results
 
 
 def say(line: str, *rest: str) -> None:
@@ -557,19 +659,31 @@ def wait_for(
             if state != WAIT:
                 return state, lines
         if waited > deadline:
-            return STOP, [
+            return LATE, [
                 f"still waiting on {sha[:7]} after {deadline / 60:.0f} minutes.",
                 *lines,
-                "Handed back with the run still out. Nothing is red; nothing is"
-                " green either.",
+                "Unfinished, with the run still out. Nothing is red; nothing is"
+                " green either. Run the queue again to pick it back up.",
             ]
         say(f"#{number}: {lines[0]}")
         time.sleep(poll)
 
 
-def take(repo: str, number: int, opts: argparse.Namespace) -> tuple[int, str, str]:
-    """One pull request, from where it is to merged or handed back."""
+def take(
+    repo: str,
+    number: int,
+    opts: argparse.Namespace,
+    heads: dict[int, str] | None = None,
+) -> tuple[int, str, str]:
+    """One pull request, from where it is to merged or handed back.
+
+    `heads`, when given, is told the last head this call knew the pull request
+    by — the one it found, or the one it pushed. The watch keeps it so that a
+    branch handed back is not taken again until somebody pushes a new head.
+    """
     pull = look(number)
+    if heads is not None:
+        heads[number] = pull.get("headRefOid", "")
     if pull.get("state") != "OPEN":
         return number, HANDED_BACK, f"it is {str(pull.get('state')).lower()}."
     if pull.get("isDraft"):
@@ -586,6 +700,8 @@ def take(repo: str, number: int, opts: argparse.Namespace) -> tuple[int, str, st
         say(f"#{number}: {refused[0]}", *refused[1:])
         return number, HANDED_BACK, refused[0]
 
+    if heads is not None:
+        heads[number] = fresh
     if push_needed(head, fresh):
         say(f"#{number}: pushed {fresh[:7]}; waiting for CI.")
     else:
@@ -596,6 +712,8 @@ def take(repo: str, number: int, opts: argparse.Namespace) -> tuple[int, str, st
         repo, number, fresh, head, opts.deadline * 60, opts.poll
     )
     say(f"#{number}: {lines[0]}", *lines[1:])
+    if state == LATE:
+        return number, UNFINISHED, lines[0]
     if state != GO:
         return number, HANDED_BACK, lines[0]
     if opts.no_merge:
@@ -634,8 +752,34 @@ def parse(argv: list[str]) -> argparse.Namespace:
         "prs",
         metavar="PR",
         type=int,
-        nargs="+",
-        help="pull request numbers, merged in the order given",
+        nargs="*",
+        help="pull request numbers, merged in the order given (or use --watch)",
+    )
+    parser.add_argument(
+        "--watch",
+        action="store_true",
+        help=(
+            f"take ready pull requests labelled `{watch.QUEUE_LABEL}` as they"
+            " appear, in label priority then age, instead of a list"
+        ),
+    )
+    parser.add_argument(
+        "--for",
+        dest="watch_for",
+        type=float,
+        default=watch.FOR_MINUTES,
+        metavar="MINUTES",
+        help=(
+            f"with --watch: stop taking new pull requests after this long"
+            f" (default {watch.FOR_MINUTES}; with --deadline at most"
+            f" {watch.CAP_MINUTES})"
+        ),
+    )
+    parser.add_argument(
+        "--label",
+        default=watch.QUEUE_LABEL,
+        metavar="NAME",
+        help=f"with --watch: the go-ahead label to look for (default {watch.QUEUE_LABEL})",
     )
     parser.add_argument(
         "--no-merge",
@@ -662,7 +806,16 @@ def parse(argv: list[str]) -> argparse.Namespace:
         metavar="DIR",
         help="the git checkout to rebase in (default: the current directory)",
     )
-    return parser.parse_args(argv)
+    opts = parser.parse_args(argv)
+    if opts.watch and opts.prs:
+        parser.error("--watch takes no pull request numbers; it finds them.")
+    if not opts.watch and not opts.prs:
+        parser.error("which pull requests? Name them, or pass --watch.")
+    if opts.watch:
+        problem = watch.budget_error(opts.watch_for, opts.deadline)
+        if problem:
+            parser.error(problem)
+    return opts
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -672,14 +825,13 @@ def main(argv: list[str] | None = None) -> int:
     except mergeable.Unreachable as outage:
         say(str(outage), "Nothing was attempted. Run it again once GitHub answers.")
         return mergeable.UNREACHABLE_STATUS
-    results = run_queue(repo["nameWithOwner"], opts)
+    take_all = run_watch if opts.watch else run_queue
+    results = take_all(repo["nameWithOwner"], opts)
 
     print()
     for line in summary(results):
         say(line)
-    if any(state == UNREACHABLE for _, state, _ in results):
-        return mergeable.UNREACHABLE_STATUS
-    return 0 if all(state != HANDED_BACK for _, state, _ in results) else 1
+    return status(results)
 
 
 if __name__ == "__main__":

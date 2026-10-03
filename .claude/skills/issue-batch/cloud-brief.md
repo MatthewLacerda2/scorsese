@@ -40,7 +40,8 @@ it cannot recover an unpushed one.
 ## Ready means finished
 
 - Mark the PR ready **only when the branch is truly finished**: the orchestrator
-  merges a ready PR the moment its CI is green.
+  merges a ready PR the moment its CI is green, once it has read the diff
+  and labelled it `queue`.
 - CI runs only on ready pull requests, so your proof on a draft is `make gates`
   run here, in the foreground. Never ready a PR just to get a CI run.
 - **Once ready, the branch is the merge queue's.** Don't push to it again, and
