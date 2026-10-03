@@ -24,11 +24,12 @@ use serde_json::{Value, json};
 use crate::api::anthropic::content::{Block, ResultPart};
 use crate::api::anthropic::request::{Effort, Message, MessageContent, Role, Tool};
 use crate::api::tap::Tap;
+use crate::chat::Model;
 use crate::claude::{
     self, Anthropic, Claude, ClaudeError, MODEL, Response, Settings, Stop, Streamed,
 };
 use crate::credentials::Secret;
-use crate::prices::claude::{Usage, rate};
+use crate::prices::chat::{Usage, rate};
 use crate::prices::dollars;
 
 use super::{Step, Verdict, judge};
@@ -57,7 +58,7 @@ const NOTE: &str = "Reply with the word the tool returned and nothing else.";
 
 /// What the Claude part of the check costs at most, in cents.
 pub fn cost() -> u64 {
-    let rate = rate(MODEL).expect("the assistant's model has a published rate");
+    let rate = rate(Model::ClaudeOpus55).expect("the assistant's model has a published rate");
     let per_call = Usage {
         cache_write_1h: INPUT_BOUND,
         output: u64::from(MAX_TOKENS),
@@ -147,8 +148,9 @@ fn tool() -> Tool {
 /// What a reply cost, by the vendor's own token count; nothing if it failed.
 fn spent(answer: &Result<Response, ClaudeError>) -> u64 {
     let Ok(response) = answer else { return 0 };
-    rate(&response.model)
-        .or_else(|| rate(MODEL))
+    Model::from_id(&response.model)
+        .and_then(rate)
+        .or_else(|| rate(Model::ClaudeOpus55))
         .map_or(0, |rate| response.usage.micros(rate))
 }
 

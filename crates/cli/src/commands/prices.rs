@@ -9,7 +9,7 @@
 
 use anyhow::Result;
 use scorsese_providers::prices::{
-    Checked, STALE_AFTER_DAYS, claude, dollars, elevenlabs, gemini, veo,
+    Checked, STALE_AFTER_DAYS, chat, dollars, elevenlabs, gemini, veo,
 };
 
 /// Prints the rate table, as Markdown.
@@ -94,21 +94,22 @@ pub(crate) fn run() -> Result<()> {
     }
 
     println!();
-    println!("Claude, per million tokens: the hosted web app's assistant. Exact, not estimated —");
-    println!("a response counts the tokens it was billed for.");
+    println!("The web assistant's models, per million tokens. Exact, not estimated —");
+    println!("a reply counts the tokens it was billed for.");
     println!();
     println!("| model | input | output | cache write 5m | cache write 1h | cache read | checked |");
     println!("| --- | --- | --- | --- | --- | --- | --- |");
-    for row in claude::RATES {
+    for row in chat::RATES {
         let rate = row.rate;
+        let price = |micros: u64| format!("${}.{:06}", micros / 1_000_000, micros % 1_000_000);
         println!(
             "| `{}` | {} | {} | {} | {} | {} | {}{} |",
-            row.model,
-            dollars(rate.input),
-            dollars(rate.output),
-            dollars(rate.cache_write_5m),
-            dollars(rate.cache_write_1h),
-            dollars(rate.cache_read),
+            row.model.id(),
+            price(rate.input),
+            price(rate.output),
+            price(rate.cache_write_5m),
+            price(rate.cache_write_1h),
+            price(rate.cache_read),
             rate.checked,
             if rate.checked.is_stale_on(today) {
                 " ⚠️"
@@ -138,7 +139,7 @@ fn stale_note(today: Checked) {
         .map(|row| row.rate.checked)
         .chain(gemini::RATES.iter().map(|row| row.rate.checked))
         .chain(elevenlabs::RATES.iter().map(|row| row.rate.checked))
-        .chain(claude::RATES.iter().map(|row| row.rate.checked))
+        .chain(chat::RATES.iter().map(|row| row.rate.checked))
         .min();
     let Some(oldest) = oldest else {
         return;

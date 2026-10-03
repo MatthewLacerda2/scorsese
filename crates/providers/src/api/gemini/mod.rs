@@ -1,4 +1,5 @@
-//! Gemini's image models, as one call: a prompt and pictures in, a picture out.
+//! Gemini's image models, as one call: a prompt and pictures in, a picture out —
+//! and, in [`chat`], Gemini as the assistant's chat model (#705).
 //!
 //! The whole of scorsese's dealings with Google's image API, through the
 //! **Interactions** endpoint, which is the one Google's image-generation page
@@ -10,6 +11,7 @@
 //! minutes: the picture comes back on the connection that asked for it, inside
 //! the JSON, base64. There is no ticket to keep, so none is invented.
 
+pub mod chat;
 pub mod request;
 pub mod response;
 

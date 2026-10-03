@@ -1,0 +1,7 @@
+: HAND-WRITTEN from Google's generateContent reference, not captured from a live call.
+: Replace it with a stream a real call returns (#705 has why no key was used).
+
+data: {"candidates":[{"content":{"role":"model","parts":[{"text":"The project "}]}}],"modelVersion":"gemini-3.8-flash","responseId":"resp-Cd2"}
+
+data: {"candidates":[{"content":{"role":"model","parts":[{"text":"is empty.","thoughtSignature":"c2lnLXR3bw=="}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":800,"candidatesTokenCount":6},"modelVersion":"gemini-3.8-flash","responseId":"resp-Cd2"}
+

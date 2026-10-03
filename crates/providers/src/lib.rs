@@ -113,6 +113,7 @@
 //! noticed by somebody who had already paid.
 
 pub mod api;
+pub mod chat;
 pub mod claude;
 pub mod credentials;
 pub mod image;

@@ -1,0 +1,5 @@
+: HAND-WRITTEN from Google's generateContent reference, not captured from a live call.
+: Replace it with a stream a real call returns (#705 has why no key was used).
+
+data: {"promptFeedback":{"blockReason":"SAFETY"},"usageMetadata":{"promptTokenCount":50},"modelVersion":"gemini-3.8-flash","responseId":"resp-Ef3"}
+

@@ -10,7 +10,7 @@ use serde_json::value::RawValue;
 use super::{ClaudeError, Response, Stop, Streamed};
 use crate::api::anthropic::content::Block;
 use crate::api::anthropic::stream::{BlockStart, Delta, Ending, Event, UsageFields};
-use crate::prices::claude::Usage;
+use crate::prices::chat::Usage;
 
 /// A reply being put together.
 #[derive(Debug, Default)]

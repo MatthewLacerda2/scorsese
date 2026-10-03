@@ -1,0 +1,7 @@
+: HAND-WRITTEN from Google's generateContent reference, not captured from a live call.
+: Replace it with a stream a real call returns (#705 has why no key was used).
+
+data: {"candidates":[{"content":{"role":"model","parts":[{"text":"Start"}]}}],"responseId":"resp-Ij5"}
+
+data: {"error":{"code":503,"message":"The model is overloaded.","status":"UNAVAILABLE"}}
+

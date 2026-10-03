@@ -20,6 +20,8 @@ use std::io::BufRead;
 
 use serde::Deserialize;
 
+pub use crate::api::sse::StreamError;
+
 /// One event of a streamed reply.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -205,43 +207,7 @@ pub struct ApiError {
     pub message: String,
 }
 
-/// Why a stream could not be read.
-#[derive(Debug, thiserror::Error)]
-pub enum StreamError {
-    /// The connection failed partway.
-    #[error("the reply stopped arriving: {0}")]
-    Io(#[from] std::io::Error),
-    /// An event's data was not the JSON it should be.
-    #[error("the reply carried something unreadable ({error}): {data}")]
-    Unreadable {
-        /// What the parser said.
-        error: serde_json::Error,
-        /// The data line.
-        data: String,
-    },
-}
-
 /// The events `reader` carries, in order, until it ends.
 pub fn events<R: BufRead>(reader: R) -> impl Iterator<Item = Result<Event, StreamError>> {
-    let mut lines = reader.lines();
-    std::iter::from_fn(move || {
-        let mut data = String::new();
-        loop {
-            match lines.next() {
-                None if data.is_empty() => return None,
-                None => break,
-                Some(Err(error)) => return Some(Err(error.into())),
-                Some(Ok(line)) if line.is_empty() && !data.is_empty() => break,
-                Some(Ok(line)) => {
-                    if let Some(more) = line.strip_prefix("data:") {
-                        if !data.is_empty() {
-                            data.push('\n');
-                        }
-                        data.push_str(more.strip_prefix(' ').unwrap_or(more));
-                    }
-                }
-            }
-        }
-        Some(serde_json::from_str(&data).map_err(|error| StreamError::Unreadable { error, data }))
-    })
+    crate::api::sse::events(reader)
 }
