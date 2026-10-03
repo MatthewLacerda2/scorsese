@@ -10,5 +10,5 @@
 mod export;
 mod import;
 
-pub use export::{ToMidi, export_midi};
-pub use import::{FromMidi, import_midi};
+pub use export::{MIDI_EXPORT_DIR, ToMidi, export_midi};
+pub use import::{FromMidi, check_midi, import_midi};

@@ -79,9 +79,6 @@ async fn the_registrys_tools_keep_the_registrys_words(pool: PgPool) {
     ] {
         assert!(named(web).is_some(), "{web} is served");
     }
-    for withheld in ["synth_import", "synth_export"] {
-        assert!(named(withheld).is_none(), "{withheld} is not served yet");
-    }
     let docs = include_str!("../../../../docs/web.md");
     for tool in &listed {
         let name = tool["name"].as_str().expect("a name");

@@ -9,8 +9,9 @@
 use std::io;
 use std::path::{Path, PathBuf};
 
-use scorsese_core::ImportError;
 use scorsese_core::pool::{hash_file, measure};
+use scorsese_core::{AssetKind, ImportError, MediaMetadata};
+use scorsese_providers::synth::check_midi;
 use scorsese_render::{Ffprobe, Tools};
 use serde_json::json;
 
@@ -108,7 +109,11 @@ impl Library {
             _ => LibraryError::Database(error),
         })?;
         let item = store::item(row)?;
-        let job = jobs::enqueue(&mut tx, kinds::THUMBNAIL, &json!({ "item": item.id })).await?;
+        let job = if super::thumbnail::drawn(item.kind) {
+            Some(jobs::enqueue(&mut tx, kinds::THUMBNAIL, &json!({ "item": item.id })).await?)
+        } else {
+            None
+        };
         // A heavy video gets its preview proxy now, in the background, so the
         // first preview it is in is already a fast one (`super::proxy`).
         let proxy = if super::proxy::worth_one(&item) {
@@ -121,9 +126,8 @@ impl Library {
             .library_file(user, &measured.sha256, &arrival.extension);
         move_file(&arrival.file, &home)?;
         tx.commit().await?;
-        self.queue.announce(user, &job);
-        if let Some(proxy) = proxy {
-            self.queue.announce(user, &proxy);
+        for job in job.iter().chain(&proxy) {
+            self.queue.announce(user, job);
         }
         Ok(item)
     }
@@ -133,24 +137,10 @@ impl Library {
 fn read(tools: &Tools, file: &Path, kind: Kind) -> Result<Measured, LibraryError> {
     let sha256 = hash_file(file)?;
     let size = file.metadata()?.len();
-    let media = measure(file, kind.asset_kind(), &Ffprobe::new(tools.clone())).map_err(
-        |error| match error {
-            ImportError::KindMismatch { found, .. } => LibraryError::Rejected(format!(
-                "this was sent as {} but has {found}",
-                article(kind)
-            )),
-            other => {
-                // The prober's own words name the server's paths; they are
-                // for the log, not for the person uploading.
-                eprintln!("scorsese-server: refusing an upload: {other}");
-                LibraryError::Rejected(format!(
-                    "this could not be read as {}; is it damaged, or not really a {} file?",
-                    article(kind),
-                    kind.as_str()
-                ))
-            }
-        },
-    )?;
+    let media = match kind.asset_kind() {
+        Some(asset_kind) => probe(tools, file, kind, asset_kind)?,
+        None => notes(file)?,
+    };
     let media = serde_json::to_string(&media)
         .map_err(|error| LibraryError::Invalid(format!("the probed media: {error}")))?;
     Ok(Measured {
@@ -160,12 +150,47 @@ fn read(tools: &Tools, file: &Path, kind: Kind) -> Result<Measured, LibraryError
     })
 }
 
-/// "a video", "an image", "a sound".
+/// A MIDI file, held to what `synth_import` will read: nothing to probe — it
+/// is notes, not media — but a file that would be refused as a song is
+/// refused now, in the reader's words, rather than when somebody asks for it.
+fn notes(file: &Path) -> Result<MediaMetadata, LibraryError> {
+    check_midi(&std::fs::read(file)?)
+        .map_err(|why| LibraryError::Rejected(format!("this could not be read as MIDI: {why}")))?;
+    Ok(MediaMetadata::default())
+}
+
+/// What ffprobe finds in `file`, held to `kind` as `scorsese import` holds it.
+fn probe(
+    tools: &Tools,
+    file: &Path,
+    kind: Kind,
+    asset_kind: AssetKind,
+) -> Result<MediaMetadata, LibraryError> {
+    measure(file, asset_kind, &Ffprobe::new(tools.clone())).map_err(|error| match error {
+        ImportError::KindMismatch { found, .. } => LibraryError::Rejected(format!(
+            "this was sent as {} but has {found}",
+            article(kind)
+        )),
+        other => {
+            // The prober's own words name the server's paths; they are
+            // for the log, not for the person uploading.
+            eprintln!("scorsese-server: refusing an upload: {other}");
+            LibraryError::Rejected(format!(
+                "this could not be read as {}; is it damaged, or not really a {} file?",
+                article(kind),
+                kind.as_str()
+            ))
+        }
+    })
+}
+
+/// "a video", "an image", "a sound", "a MIDI file".
 fn article(kind: Kind) -> &'static str {
     match kind {
         Kind::Video => "a video",
         Kind::Image => "an image",
         Kind::Audio => "a sound",
+        Kind::Midi => "a MIDI file",
     }
 }
 

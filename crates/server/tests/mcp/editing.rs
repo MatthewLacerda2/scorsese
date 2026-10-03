@@ -85,12 +85,6 @@ async fn a_path_outside_the_project_is_refused(pool: PgPool) {
     let still = json!({ "project": id, "at": 0, "out": "/tmp/frame.png" });
     let (said, refused) = call(address, &token, "still", still).await;
     assert!(refused && said.contains("not taken"), "{said}");
-    let withheld = json!({
-        "jsonrpc": "2.0", "id": 1, "method": "tools/call",
-        "params": { "name": "synth_export", "arguments": { "project": id } }
-    });
-    let reply = super::post(address, &token, &withheld).await.json();
-    assert_eq!(reply["error"]["code"], json!(-32601), "{reply}");
 }
 
 #[sqlx::test]

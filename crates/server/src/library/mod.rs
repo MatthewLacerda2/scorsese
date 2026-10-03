@@ -177,7 +177,7 @@ pub enum LibraryError {
     },
 
     /// Not a kind of file scorsese edits, by its name.
-    #[error("scorsese cannot use {0:?}: it takes video, pictures and sound")]
+    #[error("scorsese cannot use {0:?}: it takes video, pictures, sound and MIDI")]
     Unsupported(String),
 
     /// The file is not what it said it was — a hash that differs from the one

@@ -1,4 +1,11 @@
-//! What a library file is: the three kinds a file can be imported as.
+//! What a library file is: the three kinds a file can be imported as, and
+//! MIDI.
+//!
+//! A `.mid` is a library file like any other (#678): uploaded the way a song
+//! is, listed and deleted the same way. What sets it apart is that it is not
+//! media — no clip can show it — so it has no asset kind and no thumbnail;
+//! `synth_import` reads one into a song recipe, and `synth_export` keeps the
+//! one it writes here.
 
 use std::path::Path;
 
@@ -18,13 +25,26 @@ pub enum Kind {
     Image,
     /// Sound alone.
     Audio,
+    /// A Standard MIDI File: notes, not sound. Read into a recipe by
+    /// `synth_import`, never placed as a clip.
+    Midi,
 }
+
+/// The extensions a MIDI file arrives with.
+const MIDI: &[&str] = &["mid", "midi"];
 
 impl Kind {
     /// What a file called `name` is, by the list `scorsese import` uses — so
-    /// the web app welcomes exactly the files the CLI does.
+    /// the web app welcomes exactly the media the CLI does — and a `.mid` or
+    /// `.midi`, which that list leaves out because it is not media; the CLI
+    /// takes one by path in `synth import`.
     pub fn of_file_name(name: &str) -> Option<Self> {
-        infer_kind(Path::new(name)).and_then(|kind| Self::try_from(kind).ok())
+        let path = Path::new(name);
+        let extension = path.extension()?.to_str()?.to_ascii_lowercase();
+        if MIDI.contains(&extension.as_str()) {
+            return Some(Self::Midi);
+        }
+        infer_kind(path).and_then(|kind| Self::try_from(kind).ok())
     }
 
     /// As the database and the API spell it.
@@ -33,15 +53,28 @@ impl Kind {
             Self::Video => "video",
             Self::Image => "image",
             Self::Audio => "audio",
+            Self::Midi => "midi",
         }
     }
 
-    /// The asset kind a file of this kind is imported as.
-    pub fn asset_kind(self) -> AssetKind {
+    /// What the kind is called in a sentence: "the MIDI file".
+    pub fn label(self) -> &'static str {
         match self {
-            Self::Video => AssetKind::Video,
-            Self::Image => AssetKind::Image,
-            Self::Audio => AssetKind::Audio,
+            Self::Video => "video",
+            Self::Image => "picture",
+            Self::Audio => "sound",
+            Self::Midi => "MIDI",
+        }
+    }
+
+    /// The asset kind a file of this kind is imported as — `None` for MIDI,
+    /// which a project takes in as a recipe (`synth_import`), not as a file.
+    pub fn asset_kind(self) -> Option<AssetKind> {
+        match self {
+            Self::Video => Some(AssetKind::Video),
+            Self::Image => Some(AssetKind::Image),
+            Self::Audio => Some(AssetKind::Audio),
+            Self::Midi => None,
         }
     }
 
@@ -75,6 +108,7 @@ impl Kind {
             (Self::Audio, "opus") => "audio/opus",
             (Self::Audio, "aiff") => "audio/aiff",
             (Self::Audio, "wma") => "audio/x-ms-wma",
+            (Self::Midi, "mid" | "midi") => "audio/midi",
             _ => "",
         };
         if known.is_empty() {
@@ -106,6 +140,7 @@ impl TryFrom<String> for Kind {
             "video" => Ok(Self::Video),
             "image" => Ok(Self::Image),
             "audio" => Ok(Self::Audio),
+            "midi" => Ok(Self::Midi),
             _ => Err(format!("{kind:?} is not a library kind")),
         }
     }

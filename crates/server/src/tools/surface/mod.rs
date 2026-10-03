@@ -6,10 +6,12 @@
 //! capability that quietly appears here or quietly never does.
 
 use scorsese_mcp::{Tool, protocol};
+use scorsese_providers::synth;
 use serde_json::{Value, json};
 
 use super::own::Own;
 use super::registered;
+use crate::library::Kind;
 
 #[cfg(test)]
 mod page;
@@ -29,15 +31,33 @@ pub(super) enum Serve {
     /// On the stored project, with these arguments refused: what they would
     /// write lands in a folder that is gone the moment the tool answers.
     Without(&'static [&'static str]),
+    /// On the stored project, with the file argument `field` given instead as
+    /// `item`, the id of one of the caller's library files of `kind`.
+    ///
+    /// For a file nothing in a project could hold: a `.mid` is not media and
+    /// not a kept recipe, so it lives in the library, and is linked into the
+    /// folder for the length of the call (`carried`).
+    FromLibrary {
+        /// The registry's argument the library file's path is handed in as.
+        field: &'static str,
+        /// What the item has to be.
+        kind: Kind,
+    },
+    /// On the stored project, with the arguments `without` refused, and every
+    /// file the tool writes under `dir` kept in the caller's library as `kind`
+    /// — where the folder that is gone the moment the tool answers would
+    /// otherwise have taken it (`carried`).
+    IntoLibrary {
+        /// The arguments refused: where to write, which the web decides.
+        without: &'static [&'static str],
+        /// The folder, inside the project, the tool writes to by default.
+        dir: &'static str,
+        /// What each file kept there is.
+        kind: Kind,
+    },
     /// By the server's own tool of the same name ([`Own`]).
     Replaced,
-    /// Not on the web yet, for this reason.
-    Withheld(&'static str),
 }
-
-/// Why MIDI in and out is not served.
-const MIDI: &str = "a .mid file is neither media the library holds nor text a project keeps, \
-                    so there is nothing to import from or to hand an export back as (#678)";
 
 /// The registry tools served on the stored project exactly as they are — the
 /// ones that read and write the document, and look things up for it.
@@ -120,7 +140,15 @@ pub(super) fn serve(name: &str) -> Option<Serve> {
         "look" | "hear" => Serve::Confined(&["file"]),
         "audio_level" => Serve::Confined(&["file", "against"]),
         "still" | "synth_bake" => Serve::Without(&["out"]),
-        "synth_import" | "synth_export" => Serve::Withheld(MIDI),
+        "synth_import" => Serve::FromLibrary {
+            field: "path",
+            kind: Kind::Midi,
+        },
+        "synth_export" => Serve::IntoLibrary {
+            without: &["out"],
+            dir: synth::MIDI_EXPORT_DIR,
+            kind: Kind::Midi,
+        },
         _ => return None,
     })
 }
@@ -140,7 +168,7 @@ pub(super) fn find(name: &str) -> Option<Entry> {
     }
     let tool = registered(name)?;
     match serve(name)? {
-        Serve::Replaced | Serve::Withheld(_) => None,
+        Serve::Replaced => None,
         serve => Some(Entry::Shared(tool, serve)),
     }
 }
@@ -154,7 +182,7 @@ pub(super) fn listing() -> Vec<Value> {
             Some(Serve::Replaced) => {
                 listed.extend(Own::replacing(tool.name()).iter().map(|own| own.listing()));
             }
-            Some(Serve::Withheld(_)) | None => {}
+            None => {}
             Some(serve) => listed.push(shown(tool.as_ref(), serve)),
         }
     }
@@ -168,6 +196,19 @@ pub(super) fn project_property() -> Value {
         "type": "integer",
         "description": "The id of the project to work on — one of yours, as project_list \
                         shows it."
+    })
+}
+
+/// The library file a [`Serve::FromLibrary`] argument becomes, described for
+/// the web.
+fn library_item(kind: Kind) -> Value {
+    json!({
+        "type": "integer",
+        "description": format!(
+            "The {} file to read, by the id `library` lists — one of the files in your \
+             library. A file reaches the library by uploading it in the web app.",
+            kind.label()
+        )
     })
 }
 
@@ -191,16 +232,34 @@ fn shown(tool: &dyn Tool, serve: Serve) -> Value {
                     }
                 }
             }
-            Serve::Without(fields) => {
+            Serve::Without(fields)
+            | Serve::IntoLibrary {
+                without: fields, ..
+            } => {
                 for field in fields {
                     properties.remove(*field);
                 }
             }
+            Serve::FromLibrary { field, kind } => {
+                properties.remove(field);
+                properties.insert("item".to_owned(), library_item(kind));
+            }
             _ => {}
         }
     }
-    if let (Serve::Without(fields), Some(required)) = (serve, schema["required"].as_array_mut()) {
-        required.retain(|name| !fields.iter().any(|field| name == field));
+    if let Some(required) = schema["required"].as_array_mut() {
+        match serve {
+            Serve::Without(fields)
+            | Serve::IntoLibrary {
+                without: fields, ..
+            } => required.retain(|name| !fields.iter().any(|field| name == field)),
+            Serve::FromLibrary { field, .. } => {
+                for name in required.iter_mut().filter(|name| *name == field) {
+                    *name = json!("item");
+                }
+            }
+            _ => {}
+        }
     }
     listed
 }
@@ -247,15 +306,24 @@ mod tests {
             .filter(|tool| {
                 matches!(
                     serve(tool.name()),
-                    Some(Serve::Stored | Serve::Confined(_) | Serve::Without(_))
+                    Some(
+                        Serve::Stored
+                            | Serve::Confined(_)
+                            | Serve::Without(_)
+                            | Serve::FromLibrary { .. }
+                            | Serve::IntoLibrary { .. }
+                    )
                 )
             })
             .count()
     }
 
     #[test]
-    fn a_withheld_or_replaced_tool_cannot_be_called_as_the_registry_has_it() {
-        assert!(find("synth_export").is_none());
+    fn a_replaced_tool_cannot_be_called_as_the_registry_has_it() {
+        assert!(matches!(
+            find("synth_export"),
+            Some(Entry::Shared(_, Serve::IntoLibrary { .. }))
+        ));
         assert!(matches!(
             find("synth_new"),
             Some(Entry::Shared(_, Serve::Stored))
@@ -274,5 +342,36 @@ mod tests {
             still["inputSchema"]["properties"]["project"]["type"],
             "integer"
         );
+    }
+
+    /// `synth_import` takes a library id where the registry takes a path, and
+    /// `synth_export` has nowhere to be told to write (#678).
+    #[test]
+    fn midi_is_read_from_the_library_and_written_back_to_it() {
+        let shown = |name: &str| {
+            listing()
+                .into_iter()
+                .find(|tool| tool["name"] == name)
+                .unwrap_or_else(|| panic!("{name} is served"))["inputSchema"]
+                .clone()
+        };
+        let import = shown("synth_import");
+        assert!(import["properties"].get("path").is_none());
+        assert_eq!(import["properties"]["item"]["type"], "integer");
+        assert!(
+            import["required"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("item"))
+        );
+        assert!(
+            !import["required"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("path"))
+        );
+        let export = shown("synth_export");
+        assert!(export["properties"].get("out").is_none());
+        assert!(export["properties"].get("asset").is_some());
     }
 }

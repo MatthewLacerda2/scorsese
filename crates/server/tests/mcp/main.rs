@@ -16,6 +16,7 @@ mod settling;
 mod shooting;
 mod stopping;
 mod studio;
+mod transcribing;
 mod transport;
 mod vendors;
 
