@@ -60,7 +60,7 @@ async fn member(pool: &PgPool, email: &str, dollars: i64) -> (UserId, String) {
         .expect("the test setup holds");
     if dollars > 0 {
         let mut tx = db::scoped(pool, user).await.expect("the test setup holds");
-        ledger::top_up(&mut tx, dollars * 500, 50_000)
+        ledger::top_up(&mut tx, dollars * 1_000_000)
             .await
             .expect("the test setup holds");
         tx.commit().await.expect("the test setup holds");

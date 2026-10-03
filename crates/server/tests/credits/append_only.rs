@@ -74,22 +74,3 @@ async fn deleting_an_account_takes_its_ledger_with_it(pool: PgPool) {
     .unwrap();
     assert_eq!(left, [bia.get()]);
 }
-
-#[sqlx::test]
-async fn members_read_the_display_rate_and_cannot_set_it(pool: PgPool) {
-    let ana = account(&pool, "ana@example.com").await;
-    let members = db::member_pool(&pool).await.unwrap();
-    let mut tx = db::scoped(&members, ana).await.unwrap();
-    let error = sqlx::query("INSERT INTO display_rates (brl_per_usd_e4) VALUES (1)")
-        .execute(&mut *tx)
-        .await
-        .unwrap_err();
-    assert!(error.to_string().contains("permission denied"), "{error}");
-
-    let mut tx = db::scoped(&members, ana).await.unwrap();
-    let rates: i64 = sqlx::query_scalar("SELECT count(*) FROM display_rates")
-        .fetch_one(&mut *tx)
-        .await
-        .unwrap();
-    assert_eq!(rates, 0);
-}

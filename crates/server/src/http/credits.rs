@@ -10,7 +10,6 @@ use super::AppState;
 use super::auth::Member;
 use super::error::ApiError;
 use crate::credits::history::{self, Filter, History};
-use crate::credits::rates::{self, DisplayRate};
 use crate::credits::{CreditError, ledger};
 use crate::db;
 
@@ -19,25 +18,18 @@ use crate::db;
 pub struct Balance {
     /// The balance, in micro-dollars.
     pub balance_micros: i64,
-    /// The balance in centavos at the display rate, when one is set.
-    pub balance_centavos: Option<i64>,
-    /// The rate, and when the operator set it.
-    pub rate: Option<DisplayRate>,
 }
 
-/// `GET /api/credits`: the caller's balance, in dollars and ≈ reais.
+/// `GET /api/credits`: the caller's balance, in dollars.
 pub async fn balance(
     State(state): State<AppState>,
     member: Member,
 ) -> Result<Json<Balance>, ApiError> {
     let mut tx = db::scoped(&state.pool, member.user).await?;
     let balance = ledger::balance(&mut tx).await?;
-    let rate = rates::current(&mut tx).await?;
     tx.commit().await?;
     Ok(Json(Balance {
         balance_micros: balance,
-        balance_centavos: rate.map(|rate| rate.centavos(balance)),
-        rate,
     }))
 }
 

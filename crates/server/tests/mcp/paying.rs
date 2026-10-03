@@ -20,7 +20,7 @@ pub(super) fn narrated() -> Value {
 /// `dollars` of credit for `user`.
 pub(super) async fn fund(pool: &PgPool, user: UserId, dollars: i64) {
     let mut tx = db::scoped(pool, user).await.expect("a scope opens");
-    ledger::top_up(&mut tx, dollars * 500, 50_000)
+    ledger::top_up(&mut tx, dollars * 1_000_000)
         .await
         .expect("a top-up is recorded");
     tx.commit().await.expect("the top-up commits");

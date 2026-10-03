@@ -9,17 +9,12 @@ use sqlx::postgres::PgPool;
 /// Tables that are not a user's data. Adding one here is a decision a
 /// reviewer should see argued in the same pull request.
 ///
-/// `display_rates` (#537): the reais-per-dollar rate balances are shown at is
-/// one fact about the world, the same for every user, set by the operator.
-/// Members may read it and write nothing — the migration revokes the rest,
-/// and `tests/credits/append_only.rs` holds that.
-///
 /// `login_throttle` (#557): the login's attempt counters, keyed by an email
 /// that may be nobody's account and by a client address, which is nobody's.
 /// An attempt belongs to no user until it succeeds. Members may not touch it
 /// at all — only the login and the operator do, privileged — and
 /// `tests/throttle/store.rs` holds that.
-const NOT_PER_USER: &[&str] = &["_sqlx_migrations", "display_rates", "login_throttle"];
+const NOT_PER_USER: &[&str] = &["_sqlx_migrations", "login_throttle"];
 
 #[sqlx::test]
 async fn every_table_is_owned_cascaded_and_policed(pool: PgPool) {
@@ -76,7 +71,6 @@ async fn a_query_outside_a_scope_is_refused_even_on_an_empty_table(pool: PgPool)
         "SELECT count(*) FROM veo_generations",
         "SELECT count(*) FROM speech_generations",
         "SELECT count(*) FROM renders",
-        "SELECT count(*) FROM display_rates",
         "SELECT count(*) FROM library_items",
         "SELECT count(*) FROM uploads",
         "SELECT count(*) FROM login_throttle",

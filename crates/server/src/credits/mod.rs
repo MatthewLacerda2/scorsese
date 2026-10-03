@@ -60,7 +60,8 @@
 //!
 //! [`history`] is the same ledger scoped to its owner and written for them:
 //! one row per thing that moved their balance, the balance after each, in
-//! ≈ reais at the operator's dated [`rates`] with dollars beside. It is served
+//! dollars — the currency the ledger is kept in, and the only one shown
+//! (#703): a converted figure is wrong the day after it is shown. It is served
 //! at `GET /api/credits/history` and described as a read-only tool
 //! ([`tool`]), which web MCP (#539, `crate::tools`) serves.
 
@@ -70,7 +71,6 @@ pub mod fees;
 pub mod generations;
 pub mod history;
 pub mod ledger;
-pub mod rates;
 pub mod tool;
 
 pub use ledger::Reservation;

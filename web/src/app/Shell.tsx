@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { UploadTray } from "@/files/UploadTray";
 import { UploadsProvider } from "@/files/uploads";
-import { formatDollars, formatMoney } from "@/lib/money";
+import { formatDollars } from "@/lib/money";
 import { useAccount, useLogout } from "@/session/session";
 
 const NAV = [
@@ -63,20 +63,17 @@ export function Shell() {
   );
 }
 
-/** The balance, ≈ reais with dollars beside; a click opens the history. */
+/** The balance, in dollars; a click opens the history. */
 function BalanceChip() {
   const balance = useBalance();
   if (!balance.data) return null;
-  const { balance_micros, balance_centavos } = balance.data;
+  const { balance_micros } = balance.data;
   return (
     <Button asChild variant="outline" size="sm" title="Your credits — see what you spent">
       <Link to="/spending">
         <span className={balance_micros < 0 ? "text-destructive" : undefined}>
-          {formatMoney(balance_micros, balance_centavos)}
+          {formatDollars(balance_micros)}
         </span>
-        {balance_centavos !== null && (
-          <span className="text-muted-foreground">{formatDollars(balance_micros)}</span>
-        )}
       </Link>
     </Button>
   );

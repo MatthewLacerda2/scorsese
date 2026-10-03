@@ -29,19 +29,16 @@ test("the login page asks for an email and a password", () => {
   expect(html).toContain("Log in");
 });
 
-test("signed in, the library sits in the shell with the balance in ≈ reais", () => {
-  const balance: Balance = {
-    balance_micros: 2_000_000,
-    balance_centavos: 1_086,
-    rate: { brl_per_usd_e4: 54_321, set_at: 0 },
-  };
+test("signed in, the library sits in the shell with the balance in dollars", () => {
+  const balance: Balance = { balance_micros: 2_000_000 };
   const html = render("/library", (client) => {
     client.setQueryData(ME, ana);
     client.setQueryData(["credits", "balance"], balance);
     client.setQueryData(["library", "list", {}], []);
   }).replaceAll(" ", " ");
   expect(html).toContain("Library");
-  expect(html).toContain("R$ 10,86");
+  expect(html).toContain("$2.00");
+  expect(html).not.toContain("R$");
   expect(html).toContain("Your library is empty");
   expect(html).toContain("Upload");
 });

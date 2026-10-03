@@ -181,27 +181,16 @@ pub async fn charge_assistant(tx: &mut Tx, call: &AssistantCall<'_>) -> Result<i
     Ok(charged)
 }
 
-/// Credit money the operator received: `reais_centavos` at `brl_per_usd_e4`
-/// reais per dollar (in ten-thousandths). Returns the micro-dollars credited —
-/// **rounded down**, the one place that direction is right: never credit a
-/// fraction of a micro-dollar nobody paid.
-pub async fn top_up(
-    tx: &mut Tx,
-    reais_centavos: i64,
-    brl_per_usd_e4: i64,
-) -> Result<i64, CreditError> {
-    if reais_centavos <= 0 || brl_per_usd_e4 <= 0 {
+/// Credit `micros` the operator received. A top-up records the dollars
+/// credited and nothing else (#703): whatever currency the money arrived in,
+/// the ledger is kept in dollars.
+pub async fn top_up(tx: &mut Tx, micros: i64) -> Result<(), CreditError> {
+    if micros <= 0 {
         return Err(CreditError::Invalid(
-            "a top-up needs a positive amount and a positive rate".into(),
+            "a top-up needs a positive amount".into(),
         ));
     }
-    // centavos / 100 reais ÷ (rate / 10⁴) dollars × 10⁶ micro-dollars.
-    let micros = i128::from(reais_centavos) * 100_000_000 / i128::from(brl_per_usd_e4);
-    let micros = i64::try_from(micros)
-        .map_err(|_| CreditError::Invalid("that top-up is too large".into()))?;
-    let detail = json!({ "reais_centavos": reais_centavos, "brl_per_usd_e4": brl_per_usd_e4 });
-    insert_credit(tx, "top_up", micros, "Top-up", detail).await?;
-    Ok(micros)
+    insert_credit(tx, "top_up", micros, "Top-up", json!({})).await
 }
 
 /// Give back `micros` with the reason in words — the refund entry kind the

@@ -29,13 +29,12 @@ async fn account(pool: &PgPool, email: &str) -> UserId {
         .expect("a fresh database takes a new account")
 }
 
-/// Credit `user` with `dollars`, as a top-up at five reais to the dollar.
+/// Credit `user` with `dollars`, as a top-up.
 async fn fund(pool: &PgPool, user: UserId, dollars: i64) {
     let mut tx = db::scoped(pool, user).await.expect("a scope opens");
-    let credited = ledger::top_up(&mut tx, dollars * 500, 50_000)
+    ledger::top_up(&mut tx, dollars * 1_000_000)
         .await
         .expect("a top-up is recorded");
-    assert_eq!(credited, dollars * 1_000_000);
     tx.commit().await.expect("the top-up commits");
 }
 

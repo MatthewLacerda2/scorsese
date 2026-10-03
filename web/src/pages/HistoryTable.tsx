@@ -53,12 +53,7 @@ export function HistoryTable({ rows }: { rows: HistoryRow[] }) {
               <What row={row} />
             </TableCell>
             <TableCell className="text-right align-top whitespace-nowrap">
-              <div>{formatMovement(row.amount_micros, row.amount_centavos)}</div>
-              {row.amount_centavos !== null && row.amount_micros !== 0 && (
-                <div className="text-xs text-muted-foreground">
-                  {formatDollars(row.amount_micros)}
-                </div>
-              )}
+              {formatMovement(row.amount_micros)}
             </TableCell>
             <TableCell className="text-right align-top whitespace-nowrap text-muted-foreground">
               {formatDollars(row.balance_after_micros)}
