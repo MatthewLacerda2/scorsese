@@ -10,6 +10,7 @@ mod common;
 mod audio;
 mod embedded;
 mod grouping;
+mod image_sequence;
 mod layering;
 mod matting;
 mod range;

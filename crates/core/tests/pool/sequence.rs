@@ -4,8 +4,8 @@
 use crate::common::stub_probe::StubProbe;
 use crate::common::{new_project, source_file};
 use scorsese_core::{
-    AssetId, AssetKind, Frames, ImportError, SequenceChange, SequenceError, SkipReason,
-    change_sequence, import_sequence,
+    AssetId, AssetKind, Frames, ImportError, MediaMetadata, ProbeError, ProbeMedia, SequenceChange,
+    SequenceError, SkipReason, change_sequence, import_sequence,
 };
 
 /// A folder named `spin` holding three frames, numbered so a plain sort of
@@ -41,6 +41,13 @@ fn a_folder_of_frames_becomes_one_sequence_in_number_order() {
     assert_eq!(report.gaps.len(), 1, "3 to 9 are missing");
     assert_eq!(report.gaps[0].missing, 7);
 
+    assert_eq!(report.reused, 0);
+    let first = project.asset(&report.stills[0]).expect("a still");
+    assert_eq!(
+        first.media.and_then(|m| m.width),
+        Some(64),
+        "each still is probed"
+    );
     let sequence = project.asset(&report.id).expect("added");
     assert_eq!(sequence.kind, AssetKind::ImageSequence);
     let played = &sequence.sequence.as_ref().expect("its block").stills;
@@ -57,6 +64,7 @@ fn importing_the_same_folder_again_adds_nothing() {
     let again = import_sequence(&mut project, &dir, &source, &StubProbe::image()).expect("two");
     assert!(again.existed);
     assert_eq!(again.id, first.id);
+    assert_eq!(again.reused, 3, "every still was already in the pool");
     assert_eq!(project.assets.len(), count);
 }
 
@@ -70,6 +78,37 @@ fn frames_of_two_formats_are_refused_with_nothing_copied() {
     assert!(matches!(error, ImportError::NotASequence { .. }), "{error}");
     assert!(!dir.join("assets/spin").exists());
     assert!(project.assets.is_empty());
+}
+
+#[test]
+fn frames_of_two_sizes_are_refused_with_nothing_copied() {
+    let (dir, mut project) = new_project("sequence-sizes");
+    source_file(&dir, "two/a_1.png", b"one");
+    source_file(&dir, "two/a_2.png", b"two");
+    let sizes = std::cell::Cell::new(0);
+    let probe = SizedByCall(&sizes);
+    let error = import_sequence(&mut project, &dir, &dir.join("sources/two"), &probe)
+        .expect_err("two sizes");
+    assert!(matches!(error, ImportError::NotASequence { .. }), "{error}");
+    assert!(project.assets.is_empty());
+}
+
+/// Answers 64x64 the first time and 32x32 after.
+struct SizedByCall<'a>(&'a std::cell::Cell<u32>);
+
+impl ProbeMedia for SizedByCall<'_> {
+    fn probe(&self, _: &std::path::Path) -> Result<MediaMetadata, ProbeError> {
+        let side = if self.0.replace(self.0.get() + 1) == 0 {
+            64
+        } else {
+            32
+        };
+        Ok(MediaMetadata {
+            width: Some(side),
+            height: Some(side),
+            ..MediaMetadata::default()
+        })
+    }
 }
 
 #[test]
