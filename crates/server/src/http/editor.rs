@@ -50,7 +50,7 @@ use crate::projects;
 use crate::tools::Refusal;
 
 /// The tools that change what a drag is computed on, so each names a revision.
-pub const EDITS: [&str; 9] = [
+pub const EDITS: &[&str] = &[
     "track_new",
     "track_remove",
     "asset_remove",
@@ -64,7 +64,7 @@ pub const EDITS: [&str; 9] = [
 
 /// The tools that do not: bringing a library file into the assets table,
 /// looking at a frame, saving clips as a template and inserting one.
-pub const UNPINNED: [&str; 4] = ["import", "still", "template_save", "template_insert"];
+pub const UNPINNED: &[&str] = &["import", "still", "template_save", "template_insert"];
 
 /// `POST /api/projects/{id}/tools/{name}`'s body.
 #[derive(Debug, Deserialize)]

@@ -1095,13 +1095,14 @@ never reaches the client. Each registry tool keeps the registry's own
 description, word for word; only `project` changes, to **the id** of one of the
 caller's projects. Every tool and argument is described, held by
 `tests/mcp/described.rs` as `docs/mcp.md` holds the registry, and every
-registry tool is decided about in `tools/surface.rs`, so a new one cannot reach
+registry tool is decided about in `tools/surface/` — one name a line, the
+lists below generated from it by `make mcp-table` — so a new one cannot reach
 the web — or be left off it — without a reason written down.
 
 | served | how |
 | --- | --- |
-| `project_read`, `project_describe`, `project_check`, `project_assets`, `project_probe`, `project_write`, `track_new`, `text_new`, `color_new`, `shape_new`, `icon_new`, `asset_set`, `sequence`, `asset_remove`, `track_remove`, `place_clip`, `trim_clip`, `clip_set`, `clip_animate`, `clip_follow`, `clip_move`, `clip_remove`, `clip_group`, `clip_ungroup`, `dissolve`, `duck_music`, `set_volume`, `scale_pacing`, `rebrief`, `icons`, `voices` | as they are, on the stored project |
-| `script_read`, `script_write`, `synth_new`, `synth_kit`, `synth_read`, `synth_write`, `synth_set`, `synth_check`, `synth_survey` | as they are; the script and recipes they read and write are the project's `project_files` (*Projects*). A script or recipe written under `assets/`, `generated/` or `cache/` is refused whole, since nothing there is kept |
+| the *document tools*, listed below | as they are, on the stored project |
+| the *project-file tools*, listed below | as they are; the script and recipes they read and write are the project's `project_files` (*Projects*). A script or recipe written under `assets/`, `generated/` or `cache/` is refused whole, since nothing there is kept |
 | `synth_bake` | without `out`; each new bake is **kept in the library** as a generation, its address (recipe and synthesiser) as its brief hash, before the document naming it is saved — so it renders, and is linked into every later layout by hash. A partial bake's file is gone with the folder; its report is in the reply |
 | `look`, `hear`, `audio_level` | their file arguments must be paths inside the project (`assets/…`, `generated/…`) — locally they may name anything on the machine, and here the machine is everybody's |
 | `still` | without `out`: nothing is kept on the server's disk; the picture is in the reply |
@@ -1112,6 +1113,61 @@ the web — or be left off it — without a reason written down.
 | `voice_design` | the server's own: paid from credits, made by the queue, the samples kept in the library and the voices in the user's own record — *Designing a voice*, below |
 | `spending_history` | the ledger, read for the caller (*Credits*) |
 | `template_list`, `template_save`, `template_insert` | the server's own: a user's templates are rows (*Templates*) |
+
+**The document tools**, served as they are on the stored project:
+
+<!-- BEGIN STORED. Generated from `tools/surface` by `make mcp-table`; edit the list there, not here. -->
+
+- `project_read`
+- `project_describe`
+- `project_check`
+- `project_assets`
+- `project_probe`
+- `project_write`
+- `track_new`
+- `text_new`
+- `color_new`
+- `shape_new`
+- `icon_new`
+- `asset_set`
+- `sequence`
+- `asset_remove`
+- `track_remove`
+- `place_clip`
+- `trim_clip`
+- `clip_set`
+- `clip_animate`
+- `clip_follow`
+- `clip_move`
+- `clip_remove`
+- `clip_group`
+- `clip_ungroup`
+- `dissolve`
+- `duck_music`
+- `set_volume`
+- `scale_pacing`
+- `rebrief`
+- `icons`
+- `voices`
+
+<!-- END STORED -->
+
+**The project-file tools**, served as they are on the project's script and
+recipes:
+
+<!-- BEGIN PROJECT_FILES. Generated from `tools/surface` by `make mcp-table`; edit the list there, not here. -->
+
+- `script_read`
+- `script_write`
+- `synth_new`
+- `synth_kit`
+- `synth_read`
+- `synth_write`
+- `synth_set`
+- `synth_check`
+- `synth_survey`
+
+<!-- END PROJECT_FILES -->
 
 **Not served yet:** `synth_import` and `synth_export` — a `.mid` is neither
 media the library holds nor text a project keeps, so there is nothing to import
