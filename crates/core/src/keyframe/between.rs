@@ -108,11 +108,13 @@ mod tests {
 
     #[test]
     fn mid_stretch_is_linear_progress_and_the_leaving_keyframe_s_easing() {
-        let track = track(&[(0, 0.0, Easing::BackOut), (10, 1.0, Easing::Linear)]);
+        // Starting off zero, so the distance travelled is `to - from` and not
+        // something that only agrees with it when `from` is nothing.
+        let track = track(&[(0, 0.5, Easing::BackOut), (10, 1.5, Easing::Linear)]);
         let between = track.between(Frames::from(5)).expect("keyframes");
         assert_eq!(between.progress, 0.5);
         assert_eq!(between.easing, Easing::BackOut);
-        assert_eq!(between.linear(), 0.5);
+        assert_eq!(between.linear(), 1.0);
         assert_eq!(Some(between.eased()), track.value_at(Frames::from(5)));
     }
 

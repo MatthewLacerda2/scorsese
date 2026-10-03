@@ -234,6 +234,31 @@ mod tests {
         assert_eq!(shown.opacity, 1.0);
     }
 
+    /// A sweep a hair past a piece's start — closer than rounding can tell
+    /// from it — has not begun it: nothing showing, the whole rise below.
+    #[test]
+    fn a_piece_a_rounding_error_in_has_not_begun() {
+        let shown = reveal(5e-10, 0.0).shown(0, 1);
+        assert_eq!((shown.opacity, shown.drop), (0.0, 10.0));
+    }
+
+    /// An exit runs the entrance in reverse: the piece leaving is where the
+    /// same easing would have brought it arriving from the other end — so an
+    /// ease-in exit halfway out still shows three quarters, not a quarter.
+    #[test]
+    fn a_backwards_sweep_is_the_entrance_reversed() {
+        let leaving = Reveal {
+            sweep: Sweep {
+                at: 0.5,
+                easing: Easing::EaseIn,
+                backwards: true,
+            },
+            ..reveal(0.0, 0.0)
+        };
+        let shown = leaving.shown(0, 1);
+        assert_eq!((shown.opacity, shown.drop), (0.75, 2.5));
+    }
+
     #[test]
     fn words_break_at_spaces_and_hold_across_a_held_one() {
         assert_eq!(words("144 partitions"), vec![0..3, 4..14]);

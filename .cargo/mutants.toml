@@ -688,6 +688,37 @@ exclude_re = [
     'measure\.rs:187:23: replace > with >= in Measured::between',
     'measure\.rs:187:40: replace < with <= in Measured::between',
     'measure\.rs:220:17: replace / with \* in flatten',
+
+    # `text::draw::Ink::stamp` draws a piece partway in one of two ways: a piece
+    # with a rim on a scratch raster, faded as one picture, and anything else
+    # straight onto the frame with its colour's alpha scaled. The two agree up
+    # to rounding wherever there is no rim — the scratch path exists only so a
+    # rim and a fill faded apart do not show the rim through the fill — so
+    # sending one more kind of piece down the scratch path changes no picture.
+    #
+    # - `&&` → `||` (186:32): a faded piece *without* a rim goes the scratch way
+    #   too. Measured over 32 reveals (with and without a rim, over transparent
+    #   and filled frames, by character and by word, with emoji): no alpha moves
+    #   by more than one level and no premultiplied channel by more than two —
+    #   the two paths' rounding, nothing else.
+    # - `<` → `<=` (186:43): the opacity is clamped to one, so this adds exactly
+    #   the solid rimmed ink. Faded "at one" over the transparent raster a text
+    #   layer starts as, it is the same drawing; over a filled card, measured the
+    #   same way, one level at most.
+    # A test telling either apart would be pinning tiny-skia's rounding. The
+    # rest of the condition is load-bearing: `==` and `>` there route a faded
+    # rimmed piece the wrong way and are killed by
+    # `a_piece_halfway_in_is_the_piece_whole_at_half_alpha`.
+    'text/draw\.rs:186:32: replace && with \|\| in Ink::stamp',
+    'text/draw\.rs:186:43: replace < with <= in Ink::stamp',
+
+    # `text::set` puts a piece partway in into an ink of its own opacity only
+    # when that opacity is above zero (`> 0.0`). As `>= 0.0` a piece that has
+    # not begun yet is traced into an ink of opacity zero, whose colour alpha
+    # rounds to nothing and whose rim and colour glyphs blend at nothing, so it
+    # adds no pixel. Measured: the same 32 reveals are byte-identical, and so
+    # is the list of glyphs reported unpaintable. Cost, not behaviour.
+    'text/mod\.rs:357:37: replace > with >= in set',
 ]
 
 # ---------------------------------------------------------------------------

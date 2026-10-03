@@ -374,3 +374,20 @@ fn set(
     }
     said
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{Band, Resolution};
+
+    /// A band in the middle of the frame covers its own rows and no more —
+    /// the edges rounded outwards, and the bottom found from its top.
+    #[test]
+    fn a_band_covers_the_rows_from_its_top_to_its_foot() {
+        let resolution = Resolution::new(64, 64).expect("a legal raster");
+        let band = Band {
+            top: 10.5,
+            height: 20.0,
+        };
+        assert_eq!(band.rows(resolution), 10..31);
+    }
+}

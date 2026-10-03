@@ -116,3 +116,26 @@ fn a_bigger_size_draws_bigger_text() {
         "tripling the size roughly triples the letters"
     );
 }
+
+/// A mark the font lifts off the baseline goes **up** the frame. Font space
+/// runs y upwards and a raster downwards, and the face only says which way
+/// once a mark is offset — an acute stacked on a diaeresis, which the serif
+/// places above the one already there.
+#[test]
+fn a_stacked_accent_sits_above_the_one_beneath_it() {
+    let top = |content: &str| {
+        let mut frame = canvas();
+        text::draw(
+            &mut frame,
+            content,
+            Font::serif(),
+            &style(60.0, Rgba::WHITE),
+        );
+        ink::bounds(&frame).expect("ink").1
+    };
+    let (one, two) = (top("A\u{308}"), top("A\u{308}\u{301}"));
+    assert!(
+        two < one,
+        "the acute is above the diaeresis: {two} vs {one}"
+    );
+}

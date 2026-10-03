@@ -1,6 +1,7 @@
 //! Text rendering, grouped by what is being asked of it.
 
 mod bands;
+mod block;
 mod cards;
 mod coverage;
 mod drawing;
@@ -11,6 +12,7 @@ mod ink;
 mod kerning;
 mod presentation;
 mod reveal;
+mod sealed;
 mod shipped;
 mod spacing;
 mod stroke;

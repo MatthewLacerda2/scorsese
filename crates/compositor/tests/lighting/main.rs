@@ -16,6 +16,7 @@ mod animated;
 mod blend;
 mod faint;
 mod glow;
+mod reach;
 mod shadow;
 
 use scorsese_compositor::{
