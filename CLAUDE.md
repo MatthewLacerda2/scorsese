@@ -75,6 +75,24 @@ machine is the user's, and so are its risks and settings. The web app runs on
 the maintainer's machine for other people, so anything that executes a user's
 content there is isolated and offline, with no opt-out (#594).
 
+**Who each surface is for** (the maintainer, 2026-10-03). This decides how much
+a surface explains and how much it does for its user:
+
+- **CLI and MCP: the technical user, and the main user of the product.** This is
+  someone who drives scorsese from their own agent (Claude Code, Codex,
+  Antigravity…) and is expected to manage on their own everything the web takes
+  care of: what an API key is and how to set one, which model their client runs,
+  what a cache miss costs. That's why the local MCP has no model picker and no
+  hand-holding warnings, and why its agent is their own rather than a built-in
+  chatbot.
+- **The desktop app: for previewing and the plainest operations.** It's a
+  timeline, cropping, move/rotate/scale, and scrubbing to see the result. Its
+  user is still the CLI/MCP user, watching what their agent built. It has no
+  built-in assistant, and gets none.
+- **The web app: convenience, as above.** No keys, no setup, a built-in
+  assistant and plain words. Whatever the CLI user is expected to know, the web
+  either handles for its user or explains in one line.
+
 The north star does not change, it widens: *the user* includes people who are
 not the maintainer, on either side. **docs/web.md** has the web side's settled
 shape.
