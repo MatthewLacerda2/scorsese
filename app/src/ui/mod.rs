@@ -334,6 +334,9 @@ impl Scorsese {
         // taking an edge from them.
         if let Some(open) = &mut self.opened {
             self.generating.show(ui.ctx(), open, &mut self.settings);
+            if crate::removing::show(ui.ctx(), open, &mut self.editing.asking) {
+                self.files.refresh(open);
+            }
         }
     }
 }

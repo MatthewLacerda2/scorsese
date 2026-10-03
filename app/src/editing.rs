@@ -35,6 +35,11 @@ pub(crate) struct Editing {
     /// out in turn. Answers "where does this actually get used?", which a list
     /// of assets cannot.
     pub(crate) highlighted: Option<AssetId>,
+    /// A removal waiting on its confirm, asked for by a right-click in the
+    /// project files or on a lane's head and answered by
+    /// [`crate::removing::show`]. Session state like the rest: a confirm left
+    /// up is not a fact about the edit, and opening another project drops it.
+    pub(crate) asking: Option<crate::removing::Asking>,
 }
 
 impl Editing {

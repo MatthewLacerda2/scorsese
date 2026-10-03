@@ -8,13 +8,15 @@
 //! footage, sound, titles, and the things that do not exist yet.
 //!
 //! It is also where a clip comes from: an asset's name dragged onto a lane of
-//! the timeline places a clip of it there.
+//! the timeline places a clip of it there. Right-clicked, it asks to remove the
+//! asset and the clips using it ([`crate::removing`]).
 
 use egui::{Grid, RichText, ScrollArea, Sense, Ui, vec2};
 use scorsese_core::{AssetHealth, AssetKind, AssetStatus, HashCheck, Project, asset_status};
 
 use crate::editing::Editing;
 use crate::project::Open;
+use crate::removing::{Asking, Removal};
 use crate::theme::{ROUND_SM, marks, palette};
 
 /// How big the colour chip beside an asset's name is.
@@ -146,7 +148,7 @@ fn row(ui: &mut Ui, project: &Project, editing: &mut Editing, status: &AssetStat
         // because that is the only thing a clip ever refers to an asset by.
         .interact(Sense::drag())
         .on_hover_text(format!(
-            "{} — drag onto a track to place it",
+            "{} — drag onto a track to place it, right-click to remove it",
             used_by(status)
         ));
     name.dnd_set_drag_payload(status.id.clone());
@@ -157,6 +159,9 @@ fn row(ui: &mut Ui, project: &Project, editing: &mut Editing, status: &AssetStat
         // Clicking the highlighted one again clears it, so there is a way back
         // to seeing the timeline plainly without hunting for a "none" control.
         editing.highlighted = (!picked).then(|| status.id.clone());
+    }
+    if name.secondary_clicked() {
+        editing.asking = Some(Asking::about(Removal::Asset(status.id.clone())));
     }
     let warning = palette::of(ui.ctx()).warning;
     ui.label(note(project, status, warning));
