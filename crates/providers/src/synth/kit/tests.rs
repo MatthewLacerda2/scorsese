@@ -122,3 +122,12 @@ fn an_unknown_name_is_refused_with_the_list() {
     assert!(problem.contains("kit:cowbell"), "{problem}");
     assert!(problem.contains("kick, snare"), "{problem}");
 }
+
+/// What `synth_kit` shows is what `kit:` copies in, not a description of it.
+#[test]
+fn the_json_shown_is_the_patch_copied() {
+    for instrument in KIT {
+        let shown = Patch::from_json(instrument.json()).expect("the shown JSON parses");
+        assert_eq!(shown, instrument.patch(), "{}", instrument.name);
+    }
+}
