@@ -1095,7 +1095,8 @@ never reaches the client. Each registry tool keeps the registry's own
 description, word for word; only `project` changes, to **the id** of one of the
 caller's projects. Every tool and argument is described, held by
 `tests/mcp/described.rs` as `docs/mcp.md` holds the registry, and every
-registry tool is decided about in `tools/surface/` (one name a line, and the lists below are generated from it by `make mcp-table`), so a new one cannot reach
+registry tool is decided about in `tools/surface/` — one name a line, the
+lists below generated from it by `make mcp-table` — so a new one cannot reach
 the web — or be left off it — without a reason written down.
 
 | served | how |
