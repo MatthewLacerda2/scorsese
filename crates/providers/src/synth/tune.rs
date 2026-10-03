@@ -8,7 +8,8 @@
 //!
 //! This is a **named operation**, not a patch language, and the narrowness is
 //! the point. What it can address is what the recipe *names*: the recipe's own
-//! top-level numbers, and where a track sits — its `gain` and its `pan`.
+//! top-level numbers, and where a track sits — its `gain`, its `pan` and its
+//! `send`.
 //! Tracks have names; notes and arrangement entries do not, and inventing an
 //! index for them is how a narrow tool becomes JSON Patch with worse
 //! ergonomics — addressing that means something different the moment a note is
@@ -26,17 +27,17 @@ use super::recipe::{OneShot, Recipe};
 /// Every field name [`set`] accepts, for a schema to publish and a client to
 /// choose from. Which of them applies depends on the recipe's shape, and a
 /// refusal says so.
-pub const FIELDS: [&str; 7] = [
-    "bpm", "seed", "swing", "gain", "pan", "duration", "velocity",
+pub const FIELDS: [&str; 8] = [
+    "bpm", "seed", "swing", "gain", "pan", "send", "duration", "velocity",
 ];
 
 /// The fields a **track** owns rather than the song: where that instrument
-/// sits, in level and in position. Both need a `track` and neither means
-/// anything without one.
-const TRACK_FIELDS: [&str; 2] = ["gain", "pan"];
+/// sits, in level, in position and in how much of it reaches the song's room.
+/// Each needs a `track` and none means anything without one.
+const TRACK_FIELDS: [&str; 3] = ["gain", "pan", "send"];
 
 /// What a song recipe offers, worded for a refusal.
-const IN_A_SONG: &str = "bpm, seed, swing, or a track's gain or pan";
+const IN_A_SONG: &str = "bpm, seed, swing, or a track's gain, pan or send";
 
 /// What a patch recipe offers, worded for a refusal.
 const IN_A_PATCH: &str = "duration, velocity, or seed";
@@ -146,9 +147,11 @@ fn on_track(song: &mut Song, setting: &Setting) -> Result<String, String> {
         .find(|track| track.name == name)
         .ok_or_else(|| format!("no track `{name}` in this song — it has: {known}"))?;
     // Out of range is not refused here, because it is not refused anywhere:
-    // the renderer clamps a pan to hard over, there being no position past it.
+    // the renderer clamps a pan to hard over, there being no position past it,
+    // and a send to all or none of the part.
     match field {
         "pan" => real(&mut track.pan, setting.value),
+        "send" => real(&mut track.send, setting.value),
         _ => real(&mut track.gain, setting.value),
     }
 }
@@ -281,7 +284,18 @@ mod tests {
         );
     }
 
-    /// Both track fields need a track, and say so rather than guessing one.
+    /// A send is set on the named track, and setting it back to everything
+    /// removes it, for the reason centre removes a pan.
+    #[test]
+    fn a_send_is_set_on_its_track_and_a_full_one_is_not_written() {
+        let dry = tune(SONG, "send", Some("bass"), 0.2).expect("a track's send is settable");
+        assert_eq!(dry.was, "1", "it sent everything");
+        assert_eq!(dry.document.matches("\"send\": 0.2").count(), 1);
+        let back = tune(&dry.document, "send", Some("bass"), 1.0).expect("settable");
+        assert!(!back.document.contains("\"send\""), "{}", back.document);
+    }
+
+    /// Every track field needs a track, and says so rather than guessing one.
     #[test]
     fn a_track_field_without_a_track_is_refused_by_name() {
         for field in TRACK_FIELDS {
@@ -291,10 +305,10 @@ mod tests {
         }
     }
 
-    /// A one-shot has no tracks, so it has neither field — and the refusal
+    /// A one-shot has no tracks, so it has none of their fields — and the refusal
     /// says what it does take, which is what saves a round trip.
     #[test]
-    fn a_patch_has_neither_of_the_track_fields() {
+    fn a_patch_has_none_of_the_track_fields() {
         for field in TRACK_FIELDS {
             let refusal = tune(PATCH, field, None, 0.5).expect_err("a patch has no tracks");
             assert!(refusal.contains(IN_A_PATCH), "got {refusal}");

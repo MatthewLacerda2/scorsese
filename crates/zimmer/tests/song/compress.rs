@@ -45,6 +45,7 @@ fn under_a_silent_kick(chain: Vec<Fx>) -> Song {
         gain: 0.8,
         pan: 0.0,
         fx: chain,
+        send: 1.0,
     });
     verse(&mut song)
         .notes

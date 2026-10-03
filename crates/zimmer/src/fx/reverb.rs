@@ -153,6 +153,30 @@ impl Bank {
 
 /// Apply Freeverb to `buf` in place.
 pub(crate) fn apply(buf: &mut Stereo, size: f32, damp: f32, mix: f32, rate: f32) {
+    room(buf, None, size, damp, mix, rate);
+}
+
+/// Apply Freeverb to `buf` in place, with the room hearing `sent` rather than
+/// `buf` itself: the dry side is `buf`'s and the tail is `sent`'s.
+///
+/// What a song's per-track `send` needs — the mix stays whole while each part
+/// reaches the room at its own amount. Past the end of `sent` the room hears
+/// silence.
+pub(crate) fn apply_sent(
+    buf: &mut Stereo,
+    sent: &Stereo,
+    size: f32,
+    damp: f32,
+    mix: f32,
+    rate: f32,
+) {
+    room(buf, Some(sent), size, damp, mix, rate);
+}
+
+/// The one Freeverb loop, fed from `sent` when there is one and from `buf`
+/// otherwise — so a reverb heard through a send is the same arithmetic as one
+/// that is not, and a send of everything is the same samples.
+fn room(buf: &mut Stereo, sent: Option<&Stereo>, size: f32, damp: f32, mix: f32, rate: f32) {
     let scale = if rate > 0.0 { rate / TUNED_RATE } else { 1.0 };
     let mut left = Bank::new(0, scale);
     let mut right = Bank::new(STEREO_SPREAD, scale);
@@ -160,10 +184,11 @@ pub(crate) fn apply(buf: &mut Stereo, size: f32, damp: f32, mix: f32, rate: f32)
     let feedback = size.clamp(0.0, 1.0) * ROOM_SCALE + ROOM_OFFSET;
     let damp = damp.clamp(0.0, 1.0) * DAMP_SCALE;
     let mix = mix.clamp(0.0, 1.0);
-    for (l, r) in buf.l.iter_mut().zip(buf.r.iter_mut()) {
+    for (i, (l, r)) in buf.l.iter_mut().zip(buf.r.iter_mut()).enumerate() {
+        let (in_l, in_r) = sent.map_or((*l, *r), |sent| sent.frame(i));
         // One send, taken before either side is overwritten — the room hears
         // the mix, not the half of it that happens to be on this channel.
-        let send = (*l + *r) * 0.5 * FIXED_GAIN;
+        let send = (in_l + in_r) * 0.5 * FIXED_GAIN;
         let wet_l = left.step(send, feedback, damp);
         let wet_r = right.step(send, feedback, damp);
         *l = *l * (1.0 - mix) + wet_l * mix;

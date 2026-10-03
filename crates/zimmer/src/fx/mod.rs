@@ -70,8 +70,10 @@ pub(crate) mod limiter;
 pub(crate) mod reach;
 pub(crate) mod reverb;
 pub(crate) mod saturate;
+mod send;
 
 pub(crate) use reach::{lookahead_seconds, tail_seconds};
+pub(crate) use send::apply_chain_sent;
 
 use crate::patch::Fx;
 #[cfg(test)]
@@ -115,50 +117,57 @@ pub(crate) fn apply_chain(buf: &mut Stereo, chain: &[Fx], rate: f32) {
 /// part it listens to — what a **track's** chain gets, and only a track's.
 pub(crate) fn apply_chain_keyed(buf: &mut Stereo, chain: &[Fx], rate: f32, keys: &dyn Keys) {
     for fx in chain {
-        match fx {
-            // Not through `each` when the repeats cross: one line's output is
-            // the other line's input, so the two sides are one delay rather
-            // than two of it — the same reason the reverb and the chorus are
-            // handed both channels at once.
-            Fx::Delay {
-                time,
-                feedback,
-                mix,
-                ping_pong: true,
-            } => delay::ping_pong(buf, *time, *feedback, *mix, rate),
-            Fx::Delay {
-                time,
-                feedback,
-                mix,
-                ping_pong: false,
-            } => buf.each(|channel| delay::apply(channel, *time, *feedback, *mix, rate)),
-            Fx::Reverb { size, damp, mix } => reverb::apply(buf, *size, *damp, *mix, rate),
-            Fx::Saturate { drive, mix } => {
-                buf.each(|channel| saturate::apply(channel, *drive, *mix));
-            }
-            Fx::Eq { bands } => buf.each(|channel| eq::apply(channel, bands, rate)),
-            Fx::Compress {
-                threshold,
-                ratio,
-                attack,
-                release,
-                makeup,
-                mix,
-                sidechain,
-            } => {
-                let key = sidechain.as_deref().and_then(|track| keys.part(track));
-                compress::Compressor::new(*threshold, *ratio, *attack, *release, *makeup, *mix)
-                    .apply(buf, key, rate);
-            }
-            // Not through `each`: an ensemble is made of copies placed
-            // *against* each other, so it needs both sides at once.
-            Fx::Chorus {
-                rate: sweep,
-                depth,
-                voices,
-                mix,
-            } => chorus::apply(buf, *sweep, *depth, *voices, *mix, rate),
+        apply_one(buf, fx, rate, keys);
+    }
+}
+
+/// Runs one stage of a chain on `buf` — the whole of what a chain is, one
+/// entry at a time, so a chain run beside a send ([`send`]) takes the same
+/// path for every stage that does not care about one.
+fn apply_one(buf: &mut Stereo, fx: &Fx, rate: f32, keys: &dyn Keys) {
+    match fx {
+        // Not through `each` when the repeats cross: one line's output is
+        // the other line's input, so the two sides are one delay rather
+        // than two of it — the same reason the reverb and the chorus are
+        // handed both channels at once.
+        Fx::Delay {
+            time,
+            feedback,
+            mix,
+            ping_pong: true,
+        } => delay::ping_pong(buf, *time, *feedback, *mix, rate),
+        Fx::Delay {
+            time,
+            feedback,
+            mix,
+            ping_pong: false,
+        } => buf.each(|channel| delay::apply(channel, *time, *feedback, *mix, rate)),
+        Fx::Reverb { size, damp, mix } => reverb::apply(buf, *size, *damp, *mix, rate),
+        Fx::Saturate { drive, mix } => {
+            buf.each(|channel| saturate::apply(channel, *drive, *mix));
         }
+        Fx::Eq { bands } => buf.each(|channel| eq::apply(channel, bands, rate)),
+        Fx::Compress {
+            threshold,
+            ratio,
+            attack,
+            release,
+            makeup,
+            mix,
+            sidechain,
+        } => {
+            let key = sidechain.as_deref().and_then(|track| keys.part(track));
+            compress::Compressor::new(*threshold, *ratio, *attack, *release, *makeup, *mix)
+                .apply(buf, key, rate);
+        }
+        // Not through `each`: an ensemble is made of copies placed
+        // *against* each other, so it needs both sides at once.
+        Fx::Chorus {
+            rate: sweep,
+            depth,
+            voices,
+            mix,
+        } => chorus::apply(buf, *sweep, *depth, *voices, *mix, rate),
     }
 }
 

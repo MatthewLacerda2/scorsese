@@ -45,6 +45,30 @@
 //!   that promise the same way: dead centre is a literal `1.0` per side rather
 //!   than the `0.99999994` the pan law computes there.
 //!
+//! ## How much of a part reaches the room
+//!
+//! A track's **`send`** says how much of it the song chain's `reverb` and
+//! `delay` hear: the kick and the bass dry, the pad and the lead wet, all in
+//! one room. #136 decided there would be no sends, because each effect's `mix`
+//! was already the wet/dry control — and on a *track's* chain it is. On the
+//! song's it is one number for the whole sum, and the two ways round it both
+//! fail: a reverb per track is a room per track, which is what putting the
+//! room on the song was for, and turning the song's reverb down takes the
+//! space from the parts that wanted it. So this is that decision reversed, for
+//! this one case and deliberately (#509), and no further: one send per track,
+//! into the one chain the song already has. No buses, no returns, no routing.
+//!
+//! The mixer builds a second sum beside the master — every heard track at its
+//! fader, its pan **and** its send — and [`fx::apply_chain_sent`] runs the
+//! song's chain over the two, the rooms reading their tail from the second.
+//! A send is applied where the fader is, after the track's own chain, for the
+//! reason `pan` is: the chain is the instrument and the send is where it sits.
+//!
+//! **The second sum is only built when it changes something**: a song whose
+//! tracks all send everything, or whose chain has no room in it, takes the
+//! plain path and renders the samples it always did — which is the promise
+//! that let the field arrive with no [`crate::SYNTH_VERSION`] bump.
+//!
 //! ## Where a part is put
 //!
 //! **`pan` is applied at the same moment `gain` is** — on the way into the
@@ -156,6 +180,10 @@ pub(super) struct Mix<'a> {
     /// The clock this render is actually running at. The only place a curve's
     /// beats become samples.
     clock: &'a Clock,
+    /// What the song chain's rooms hear: every heard track at its placement
+    /// times its send. `None` when that would be the master itself — see the
+    /// module doc.
+    sent: Option<Stereo>,
 }
 
 impl<'a> Mix<'a> {
@@ -178,6 +206,7 @@ impl<'a> Mix<'a> {
             measured: scope.heard_count() > 1,
             riding: automate::riding(song),
             clock,
+            sent: sends(song, scope).then(|| Stereo::silence(arrangement_end)),
             scope,
         }
     }
@@ -217,6 +246,9 @@ impl<'a> Mix<'a> {
         }
         let placed = placement(played.gain, played.pan);
         mix_into(&mut self.master, src, at, placed);
+        if let Some(sent) = self.sent.as_mut() {
+            mix_into(sent, src, at, sending(placed, played.send));
+        }
         if self.measured {
             // At gain and pan, like the master addition beside it and unlike a
             // bus: there is no chain here to see the part before the fader,
@@ -253,17 +285,29 @@ impl<'a> Mix<'a> {
                 // the chain is the instrument, and the fader is where it sits.
                 automate::ride(bus, track, self.riding[index], self.clock);
                 mix_into(&mut self.master, bus, 0, UNITY);
+                if let Some(sent) = self.sent.as_mut() {
+                    mix_into(sent, bus, 0, sending(UNITY, track.send));
+                }
                 continue;
             }
             let placed = placement(track.gain, track.pan);
             mix_into(&mut self.master, bus, 0, placed);
+            if let Some(sent) = self.sent.as_mut() {
+                mix_into(sent, bus, 0, sending(placed, track.send));
+            }
             // Scaled after the fold-down rather than before it, so the master
             // is summed from exactly the samples it always was and only the
             // copy being measured moves.
             scale(bus, placed);
         }
         ring_out(&mut self.master, &song.fx);
-        fx::apply_chain(&mut self.master, &song.fx, RATE);
+        match self.sent.as_mut() {
+            Some(sent) => {
+                sent.grow_to(self.master.frames());
+                fx::apply_chain_sent(&mut self.master, sent, &song.fx, RATE);
+            }
+            None => fx::apply_chain(&mut self.master, &song.fx, RATE),
+        }
         let layers = if self.measured {
             measure(song, parts, self.master.frames(), self.scope, cuts)
         } else {
@@ -271,6 +315,29 @@ impl<'a> Mix<'a> {
         };
         (self.master, layers)
     }
+}
+
+/// Whether this render needs a sent mix beside the master: the song's chain
+/// has a room in it, and some track that is heard sends less than all of
+/// itself into it. Anything else is the master, and is not worth a buffer.
+fn sends(song: &Song, scope: &Scope) -> bool {
+    let room = song
+        .fx
+        .iter()
+        .any(|fx| matches!(fx, Fx::Reverb { .. } | Fx::Delay { .. }));
+    let held_back = song
+        .tracks
+        .iter()
+        .enumerate()
+        .any(|(index, track)| scope.heard(index) && track.send < 1.0);
+    room && held_back
+}
+
+/// A placement scaled by how much of the part is sent, clamped to `0..=1` —
+/// there is no sending more than all of a part, nor less than none of it.
+fn sending((left, right): (f32, f32), send: f32) -> (f32, f32) {
+    let send = send.clamp(0.0, 1.0);
+    (left * send, right * send)
 }
 
 /// A slot per track, empty and ready to collect a part for the tracks some

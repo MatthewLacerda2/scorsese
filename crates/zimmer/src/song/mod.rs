@@ -111,6 +111,13 @@ fn centred(pan: &f32) -> bool {
     *pan == 0.0
 }
 
+/// Whether a track sends all of itself into the song's room — the test that
+/// keeps `"send": 1.0` out of every saved document, for the reason
+/// [`no_swing`] gives.
+fn fully_sent(send: &f32) -> bool {
+    *send == 1.0
+}
+
 /// A complete piece of music, renderable to one stereo buffer.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -235,6 +242,18 @@ pub struct Track {
     /// field existed.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub fx: Vec<Fx>,
+    /// How much of this part reaches the **room**: the `reverb` and `delay`
+    /// stages of the song's own [`Song::fx`] chain. `1.0` is all of it, which
+    /// is what every track did before the field existed; `0.0` keeps the part
+    /// dry in a mix whose other parts are wet. Clamped to `0.0..=1.0`, like
+    /// [`Track::pan`].
+    ///
+    /// One room, heard by each part at its own amount — a kick and a bass kept
+    /// dry under a pad and a lead that ring. Every other effect on the song's
+    /// chain still runs on the whole of every track; the `song::mix` module
+    /// has how, and why this is a send rather than a second room.
+    #[serde(default = "one", skip_serializing_if = "fully_sent")]
+    pub send: f32,
 }
 
 /// A track's instrument: the patch inline, or a reference for the caller to

@@ -110,6 +110,7 @@ fn the_report_s_own_rows_show_the_treated_track_moving_and_the_others_still() {
         gain: 0.8,
         pan: 0.0,
         fx: vec![],
+        send: 1.0,
     });
     // A plain note is one kind of pattern entry, and a chord is the other; the
     // fixture's own `played` says the same thing for a whole list.

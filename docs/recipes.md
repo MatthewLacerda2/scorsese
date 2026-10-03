@@ -808,7 +808,9 @@ beats.
   project-relative path to a bare patch file, so several songs can share one
   instrument. That path obeys the same rules every path in a project does: no
   absolute paths, no `..`, forward slashes. `gain` is how loud it sits and
-  `pan` is where — see [Where a part sits](#where-a-part-sits).
+  `pan` is where — see [Where a part sits](#where-a-part-sits) — and `send`
+  is how much of it reaches the song's room, in
+  [Where an effect goes](#where-an-effect-goes).
 - **`patterns`** — named blocks. `beats` is the *slot* the block occupies; notes
   may ring out past it and the next pattern still starts on time.
 - **`arrangement`** — which patterns play, in order: one at a time, or
@@ -1588,12 +1590,14 @@ between *some synth parts* and *a piece of music*, so it is worth a moment.
 | --- | --- | --- |
 | `patch.fx` | every note of that instrument, one at a time | part of the **sound** — the corridor a gunshot is fired in, a slapback that *is* the instrument |
 | a track's `fx` | that instrument's whole part, before its `gain` | part of the **performance** — a delay whose repeats answer the phrase rather than each note |
-| the song's `fx` | the sum of every track, before the limiter | the **room** — one space the whole piece is playing in |
+| the song's `fx` | the sum of every track, before the limiter — its `reverb` and `delay` hearing each track at its `send` | the **room** — one space the whole piece is playing in |
 
-**Reverb belongs on the song.** Put it on a patch and each instrument is in its
-own room, drifting apart the moment one of them is tuned; put it on the song and
-it is one setting, decaying once across everything and ringing past the last
-note as a single tail. It is also less work for the machine: one room, convolved
+**Reverb belongs on the song, and each track decides how far into it it
+goes.** Put it on a patch and each instrument is in its own room, drifting
+apart the moment one of them is tuned; put it on the song and it is one
+setting, decaying once across everything and ringing past the last note as a
+single tail — with each track's `send`, below, saying how much of that track
+the room hears. It is also less work for the machine: one room, convolved
 once, instead of the same room convolved for every note in the piece.
 
 It is also the piece's **width**. The reverb is stereo — its two sides are the
@@ -1602,6 +1606,47 @@ therefore the widest thing in the mix, arriving from around the parts rather
 than from where each one was panned. A dry mix of panned instruments is placed;
 a mix with one room over it is in a place. `mix` between `0.1` and `0.2` over
 the whole song is usually enough.
+
+**Each track says how much of itself goes into that room**, with a `send`
+from `0.0` to `1.0`. The song's `reverb` and `delay` hear every track at its
+send; every other effect on the song's chain still runs on all of every track.
+Absent is `1.0` — all of it, which is what every song did before the field
+existed, and renders the same samples.
+
+```json fields
+  "tracks": [
+    { "name": "kick", "gain": 0.9, "send": 0.0,
+      "patch": {
+        "source": { "kind": "noise" },
+        "amp": { "a": 0.001, "d": 0.05, "s": 0.0, "r": 0.02 }
+      } },
+    { "name": "pad", "gain": 0.5,
+      "patch": {
+        "source": { "kind": "noise" },
+        "amp": { "a": 0.2, "d": 0.2, "s": 0.6, "r": 0.5 }
+      } }
+  ],
+  "patterns": { "a": { "beats": 4, "notes": [
+    { "track": "kick", "steps": "x-x-x-x-", "div": 0.5, "note": "C2" },
+    { "track": "pad", "note": "C4", "start": 0, "dur": 4 }
+  ] } },
+  "fx": [{ "fx": "reverb", "size": 0.7, "damp": 0.4, "mix": 0.2 }]
+```
+
+That is **the kick and the bass dry, the pad and the lead wet, all in one
+room** — the most ordinary move in mixing, and the one thing the room could not
+do while it was a single number over the sum. Keep the bottom of the mix at
+`0.0`–`0.3`, because a reverb on a kick or a bass is mud before it is space;
+leave pads, leads and anything sustained at the default. A `mix` on the room
+still sets how wet the wettest part is, and a send only ever takes away from
+that.
+
+This is the one send there is, and it is a deliberate exception to the rule
+that each effect's `mix` is its only wet/dry control (#509 reversed #136 for
+this case and no other). There are no buses, no returns and no routing: one
+number per track, into the one chain the song already has. A `send` changes
+nothing on a song whose chain has no `reverb` or `delay`, and on a track's own
+chain there is nothing to send — its `mix` already belongs to that one part.
 
 **Drive belongs in all three, for three different reasons.** It is the one
 effect with a real use in each place, because it is not describing a space — it

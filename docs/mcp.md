@@ -109,7 +109,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `synth_export` | Write a song recipe out as a Standard MIDI File, to open in a DAW — synth_import the other way round. | nothing |
 | `synth_read` | Read a recipe file as it is on disk. | nothing |
 | `synth_write` | Replace a recipe file with the document given. | nothing |
-| `synth_set` | Change one number in a recipe and leave the rest of the document alone: a track's gain or pan, or the recipe's own bpm, seed, swing, duration or velocity. | nothing |
+| `synth_set` | Change one number in a recipe and leave the rest of the document alone: a track's gain, pan or send, or the recipe's own bpm, seed, swing, duration or velocity. | nothing |
 | `synth_check` | Parse a recipe and say what it is, without rendering it. | nothing |
 | `synth_bake` | Render every synth_audio recipe whose sound is not already on disk, into generated/. | nothing |
 | `synth_survey` | Say what every song recipe in the project is made of, and count the same facts across the whole set. | nothing |
@@ -1482,11 +1482,13 @@ synth_set  { "project": "trilhas.scor", "recipe": "recipes/05.json",
 
 It sets **one** number, named the way the recipe names it: a song's `bpm`,
 `seed` or `swing`, a patch's `duration`, `velocity` or `seed`, and a track's
-`gain` or `pan` — the track by **its name**, the one the song's notes already
-use. Those are the values re-tuned after listening, and none of them rewrites a
-note. `pan` is `-1.0` hard left to `1.0` hard right, and spreading a mix is
-exactly this kind of adjustment: bake, listen, nudge one instrument, bake
-again.
+`gain`, `pan` or `send` — the track by **its name**, the one the song's notes
+already use. Those are the values re-tuned after listening, and none of them
+rewrites a note. `pan` is `-1.0` hard left to `1.0` hard right, and spreading a
+mix is exactly this kind of adjustment: bake, listen, nudge one instrument, bake
+again. `send` is `0.0` to `1.0`, how much of the track the song's reverb and
+delay hear — the kick drier, the pad wetter, the same room
+([`recipes.md`](recipes.md#where-an-effect-goes)).
 Anything else, a note or an arrangement entry included, is a
 `synth_write`: notes and entries have no names, and addressing them by position
 would mean something different the moment one is inserted above them.
