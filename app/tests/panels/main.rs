@@ -216,19 +216,20 @@ fn a_generated_shot_selected() {
 /// window does (#681).
 ///
 /// At 800 points the brief only just fitted, which is why nobody saw that the
-/// inspector had no scroll at all; 560 is a laptop with a dock and a browser
-/// bar. Scrolled to the bottom, so the picture shows the last field reached
-/// rather than the first ones repeated.
+/// inspector had no scroll at all. 500 is short enough that the files list's
+/// room would be more than half the column, so this is also the picture of the
+/// inspector keeping its half. Scrolled to the bottom, so the picture shows the
+/// last field reached rather than the first ones repeated.
 #[test]
 fn a_generated_shot_selected_in_a_short_window() {
     let project = fixture::project("short");
     let mut harness = drawing::sized(
         Some(project.path().to_path_buf()),
-        egui::vec2(1280.0, 560.0),
+        egui::vec2(1280.0, 500.0),
     );
     harness.state_mut().select("c-shot");
     harness.run();
-    harness.hover_at(egui::pos2(1100.0, 200.0));
+    harness.hover_at(egui::pos2(1100.0, 120.0));
     harness.event(egui::Event::MouseWheel {
         unit: egui::MouseWheelUnit::Point,
         delta: egui::vec2(0.0, -2000.0),
