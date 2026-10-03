@@ -40,7 +40,7 @@ use clap::Parser;
 
 pub use cli::Cli;
 
-use cli::{AssetsAction, Command, SynthAction};
+use cli::{AssetsAction, Command, SequenceAction, SynthAction};
 use scorsese_providers::voices::Filters;
 use scorsese_render::contact::Look;
 
@@ -144,6 +144,17 @@ fn dispatch(cli: Cli) -> Result<()> {
         Command::Import { paths, kind } => {
             commands::import::run(&directory, &paths, kind.map(Into::into))
         }
+        Command::Sequence { action } => match action {
+            SequenceAction::Import { dir, hold, looping } => {
+                commands::sequence::import(&directory, &dir, hold, looping)
+            }
+            SequenceAction::Set {
+                asset,
+                stills,
+                hold,
+                looping,
+            } => commands::sequence::set(&directory, &asset, stills, hold, looping),
+        },
         Command::Render {
             out,
             resolution,

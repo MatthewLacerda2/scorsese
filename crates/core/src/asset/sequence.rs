@@ -122,6 +122,29 @@ impl ImageSequence {
     }
 }
 
+/// A sequence's timing in one phrase — how many stills, held how long, and
+/// what happens at the end.
+///
+/// On the type, for [`crate::MediaMetadata`]'s reason: the CLI, the MCP tools
+/// and the window all report it, and one fact worded three ways reads as three
+/// facts.
+impl std::fmt::Display for ImageSequence {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} stills × {} frame(s) = {} frames, {}",
+            self.stills.len(),
+            self.hold.get(),
+            self.length().get(),
+            if self.looping {
+                "looping"
+            } else {
+                "once, then holding its last still"
+            }
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -141,6 +164,10 @@ mod tests {
         let expected: Vec<_> = [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2].map(Some).into();
         assert_eq!(shown, expected);
         assert_eq!(three.length(), Frames(12));
+        assert_eq!(
+            three.to_string(),
+            "3 stills × 4 frame(s) = 12 frames, once, then holding its last still"
+        );
     }
 
     #[test]

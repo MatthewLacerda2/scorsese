@@ -10,7 +10,7 @@ use std::path::PathBuf;
 
 mod args;
 
-pub(crate) use args::{AssetsAction, KindArg, SynthAction};
+pub(crate) use args::{AssetsAction, KindArg, SequenceAction, SynthAction};
 
 use clap::{Parser, Subcommand};
 use scorsese_core::Fps;
@@ -291,6 +291,15 @@ pub(crate) enum Command {
         /// media at all is still the extension's answer.
         #[arg(long, value_enum)]
         kind: Option<KindArg>,
+    },
+    /// Stills played in order, each held for a number of frames, once or on a
+    /// loop: a rendered frame directory, a timelapse, stop motion, a looping
+    /// drawing. Import a folder of frames as one, or make or change one from
+    /// stills already in the pool.
+    Sequence {
+        /// What to do.
+        #[command(subcommand)]
+        action: SequenceAction,
     },
     /// Ask ffprobe about every asset that has a file and no recorded
     /// metadata, and write down what it says: how long the source is, how big
