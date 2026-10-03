@@ -48,6 +48,22 @@ pub enum PlanError {
         asset: String,
     },
 
+    /// An image sequence naming a still that is not an imported picture with
+    /// a file — a dangling id, another kind, or an image whose path went
+    /// missing from the table. Validation refuses all three.
+    #[error(
+        "clip `{clip}` shows image sequence `{asset}`, which plays `{still}`: \
+         that is not an imported picture in the assets table"
+    )]
+    UnplayableStill {
+        /// The clip showing the sequence.
+        clip: String,
+        /// The sequence.
+        asset: String,
+        /// The still it cannot play.
+        still: String,
+    },
+
     /// An imported asset with no path — a project edited by hand, or a
     /// migration that lost one. A *prompt* with no file is not this: it has a
     /// slug card to show instead, which is the whole of the sketch lifecycle.

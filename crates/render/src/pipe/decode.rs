@@ -102,6 +102,10 @@ pub(crate) struct Source {
     pub(crate) has_alpha: bool,
     /// Which rectangle of the source is shown. Absent means all of it.
     pub(crate) crop: Option<Crop>,
+    /// For an image sequence, the file each output frame shows, in order —
+    /// read instead of [`Self::file`], and already timed: see
+    /// [`super::listed`]. Empty for every other source.
+    pub(crate) listed: Vec<PathBuf>,
 }
 
 /// An ffmpeg process decoding one source into raw frames on its stdout.
@@ -136,14 +140,19 @@ impl Decoder {
         let rate = format!("{}/{}", settings.fps.num(), settings.fps.den());
         let mut command = tools.ffmpeg();
         command.args(["-nostdin", "-v", "error"]);
-        if source.still {
-            hold(&mut command, &source.file, &rate);
-        } else if source.seek_seconds > 0.0 {
-            command
-                .arg("-ss")
-                .arg(format!("{:.6}", source.seek_seconds));
+        let listed = !source.listed.is_empty();
+        if listed {
+            super::listed::input(&mut command);
+        } else {
+            if source.still {
+                hold(&mut command, &source.file, &rate);
+            } else if source.seek_seconds > 0.0 {
+                command
+                    .arg("-ss")
+                    .arg(format!("{:.6}", source.seek_seconds));
+            }
+            command.arg("-i").arg(&source.file);
         }
-        command.arg("-i").arg(&source.file);
         if source.still && source.seek_seconds > 0.0 && !reads_through_image2(&source.file) {
             into_animation(&mut command, source.seek_seconds);
         }
@@ -152,7 +161,11 @@ impl Decoder {
             .arg("-vf")
             .arg(video_filter(settings, source))
             .args(["-an", "-pix_fmt", PIXEL_FORMAT, "-f", "rawvideo", "-"])
-            .stdin(Stdio::null())
+            .stdin(if listed {
+                Stdio::piped()
+            } else {
+                Stdio::null()
+            })
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
 
@@ -164,6 +177,9 @@ impl Decoder {
             .stdout
             .take()
             .expect("stdout was piped when the process was spawned");
+        if let Some(stdin) = child.stdin.take() {
+            super::listed::feed(stdin, super::listed::script(&source.listed));
+        }
         Ok(Self {
             child: super::Process::new(child),
             stdout,
@@ -330,6 +346,14 @@ fn video_filter(settings: &RenderSettings, source: &Source) -> String {
     } else {
         format!("setpts=PTS/{},{rate}", source.speed.get())
     };
+    // A listed sequence arrives already timed, one decoded frame per output
+    // frame, so there is nothing to conform. `null` keeps the chain's shape:
+    // every arm below begins with whatever this is.
+    let rate = if source.listed.is_empty() {
+        rate
+    } else {
+        "null".to_owned()
+    };
     let rate = match crop {
         // In terms of the input's own dimensions, so the filter needs no
         // knowledge of how big the source is and stays right when the asset is
@@ -414,6 +438,7 @@ mod tests {
             fitting,
             has_alpha,
             crop: None,
+            listed: Vec::new(),
         }
     }
 

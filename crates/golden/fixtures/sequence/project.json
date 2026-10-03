@@ -1,0 +1,31 @@
+{
+  "schema_version": 42,
+  "name": "sequence",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    { "id": "f1", "kind": "image", "path": "assets/spin/0001.png" },
+    { "id": "f2", "kind": "image", "path": "assets/spin/0002.png" },
+    { "id": "f3", "kind": "image", "path": "assets/spin/0003.png" },
+    {
+      "id": "spin",
+      "kind": "image_sequence",
+      "sequence": { "stills": ["f1", "f2", "f3"], "hold": 2, "loop": true }
+    },
+    {
+      "id": "once",
+      "kind": "image_sequence",
+      "sequence": { "stills": ["f1", "f2", "f3"], "hold": 3 }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "name": "frames",
+      "clips": [
+        { "id": "c-spin", "asset": "spin", "start": 0, "duration": 10 },
+        { "id": "c-once", "asset": "once", "start": 10, "duration": 10 }
+      ]
+    }
+  ]
+}

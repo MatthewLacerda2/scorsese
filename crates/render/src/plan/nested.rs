@@ -19,7 +19,7 @@
 
 use std::collections::HashSet;
 
-use scorsese_core::{AssetId, AssetKind, Clip, Frames, Project, Track};
+use scorsese_core::{Asset, AssetId, AssetKind, Clip, Frames, Project, Track};
 
 use super::segments::{carries_sound, renderable_asset, showing, source_in_at};
 use super::{PlanError, Shot};
@@ -67,6 +67,7 @@ pub(super) fn shot_at<'a>(
         members = super::mattes::attach(&group.tracks, members);
         open.pop();
     }
+    let stills = stills_of(project, clip, asset)?;
     Ok(Some(Shot {
         track: &track.id,
         clip,
@@ -74,9 +75,43 @@ pub(super) fn shot_at<'a>(
         showing: showing(asset),
         source_in: source_in_at(clip, local),
         members,
+        stills,
         shift,
         matte: None,
     }))
+}
+
+/// The stills a clip of an image sequence plays, each one an imported picture
+/// with a file — refused otherwise, since validation refuses the same, and a
+/// sequence with a hole in it has no frame to show there.
+fn stills_of<'a>(
+    project: &'a Project,
+    clip: &Clip,
+    asset: &Asset,
+) -> Result<Vec<&'a Asset>, PlanError> {
+    let Some(sequence) = &asset.sequence else {
+        return Ok(Vec::new());
+    };
+    let refuse = |still: &AssetId| PlanError::UnplayableStill {
+        clip: clip.id.to_string(),
+        asset: asset.id.to_string(),
+        still: still.to_string(),
+    };
+    let stills = sequence
+        .stills
+        .iter()
+        .map(|id| match project.asset(id) {
+            Some(still) if still.kind == AssetKind::Image && still.path.is_some() => Ok(still),
+            _ => Err(refuse(id)),
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    if stills.is_empty() {
+        return Err(PlanError::NoMedia {
+            clip: clip.id.to_string(),
+            asset: asset.id.to_string(),
+        });
+    }
+    Ok(stills)
 }
 
 /// Every timeline frame at which what `track` shows can change, members of

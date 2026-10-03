@@ -221,6 +221,9 @@ pub(crate) fn standing(shot: &Shot<'_>, project_root: &Path) -> Result<Standing,
     if shot.showing == Showing::Card {
         return Ok(Standing::Card(Absent::of(shot.asset)));
     }
+    if !shot.stills.is_empty() {
+        return still_files(shot, project_root).map(|files| Standing::Media(files[0].clone()));
+    }
     let path = shot
         .asset
         .path
@@ -237,6 +240,37 @@ pub(crate) fn standing(shot: &Shot<'_>, project_root: &Path) -> Result<Standing,
         asset: shot.asset.id.to_string(),
         path: file,
     })
+}
+
+/// Every file an image sequence's shot plays, in order — one per still, and
+/// each one there.
+///
+/// A sequence **stands on its first still**: that is the file [`standing`]
+/// answers with, since it is the one a size is read from. But every still is
+/// asked about, because a timelapse missing its four-hundredth photograph is
+/// footage lost exactly as a missing video is, and refused for the same reason.
+pub(crate) fn still_files(
+    shot: &Shot<'_>,
+    project_root: &Path,
+) -> Result<Vec<PathBuf>, RenderError> {
+    shot.stills
+        .iter()
+        .map(|still| {
+            let path = still
+                .path
+                .as_ref()
+                .expect("the plan gives a sequence's stills a path");
+            let file = path.resolve(project_root);
+            if file.is_file() {
+                Ok(file)
+            } else {
+                Err(RenderError::MissingMedia {
+                    asset: still.id.to_string(),
+                    path: file,
+                })
+            }
+        })
+        .collect()
 }
 
 /// The part of a raster this asset's card actually covers.

@@ -104,8 +104,8 @@ pub mod write;
 pub use asset::{
     Aspect, Asset, AssetId, AssetKind, ClipSeconds, GenerationState, ImageAspect, ImageModel,
     ImageRequest, ImageResolution, ImageSequence, LanguageIgnored, LengthLock, MAX_CHARACTERS,
-    MAX_IMAGE_REFERENCES, MAX_REFERENCE_IMAGES, MediaMetadata, SpeechModel, SpeechRequest,
-    VideoModel, VideoRequest, VideoResolution,
+    MAX_IMAGE_REFERENCES, MAX_REFERENCE_IMAGES, MediaMetadata, SEQUENCE_FORMATS, SpeechModel,
+    SpeechRequest, VideoModel, VideoRequest, VideoResolution,
 };
 // The three verbs stay behind the module for [`pacing`]'s reason: a bare
 // `scorsese_core::add_asset` reads as an import, and `set_asset` says nothing

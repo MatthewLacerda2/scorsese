@@ -48,6 +48,26 @@ pub enum SequenceProblem {
         kind: AssetKind,
     },
 
+    /// A still in a format that can hold more than one picture — a gif, an
+    /// avif — or one nothing recognises.
+    ///
+    /// A sequence's frames are the stills themselves, one picture each; a
+    /// still with an animation inside it would put a timeline inside a
+    /// timeline. An animated picture is an `image` asset of its own, and loops
+    /// by itself.
+    #[error(
+        "asset `{asset}` plays `{still}`, and a .{format} file is not one of the formats a \
+         sequence's stills come in: {}", crate::asset::SEQUENCE_FORMATS.join(", ")
+    )]
+    NotOnePicture {
+        /// The sequence.
+        asset: AssetId,
+        /// The still.
+        still: AssetId,
+        /// Its extension, lowercased — empty when it has none.
+        format: String,
+    },
+
     /// Stills in more than one file format.
     ///
     /// A sequence is decoded as one stream, and one stream has one decoder: a

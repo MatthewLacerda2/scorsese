@@ -44,5 +44,6 @@ pub(super) fn source_for(
             .and_then(|media| media.has_alpha)
             .unwrap_or(false),
         crop: shot.clip.crop,
+        listed: Vec::new(),
     }
 }

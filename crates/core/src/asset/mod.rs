@@ -25,7 +25,7 @@ use crate::time::{Fps, Frames};
 
 pub use image::{ImageAspect, ImageModel, ImageRequest, ImageResolution, MAX_IMAGE_REFERENCES};
 pub use kind::{AssetKind, GenerationState};
-pub use sequence::ImageSequence;
+pub use sequence::{ImageSequence, SEQUENCE_FORMATS};
 pub use speech::{LanguageIgnored, MAX_CHARACTERS, SpeechModel, SpeechRequest};
 pub use video::{
     Aspect, ClipSeconds, LengthLock, MAX_REFERENCE_IMAGES, VideoModel, VideoRequest,

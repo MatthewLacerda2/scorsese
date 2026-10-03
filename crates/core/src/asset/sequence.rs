@@ -52,6 +52,14 @@ pub struct ImageSequence {
     pub looping: bool,
 }
 
+/// The file formats a sequence's stills may be, by extension, lowercased: the
+/// ones that hold exactly one picture.
+///
+/// A gif or an avif can carry an animation, and a still with a timeline in it
+/// inside a sequence with one of its own would be two clocks for one picture.
+/// Every format a camera, a renderer or an upscaler writes frames in is here.
+pub const SEQUENCE_FORMATS: [&str; 7] = ["png", "jpg", "jpeg", "bmp", "tif", "tiff", "webp"];
+
 fn one_frame() -> Frames {
     Frames(1)
 }

@@ -3,7 +3,7 @@
 //! Whether the block is there at all is [`super::assets`]'s question, asked of
 //! every kind's own block in one place; this is what is inside it.
 
-use crate::asset::{Asset, AssetKind};
+use crate::asset::{Asset, AssetKind, SEQUENCE_FORMATS};
 use crate::project::Project;
 
 use super::error::{AssetProblem, SequenceProblem};
@@ -49,10 +49,19 @@ pub(super) fn check(project: &Project, asset: &Asset, errors: &mut Vec<AssetProb
             }
             Some(still) => still,
         };
-        if let Some(this) = format_of(still) {
+        let this = format_of(still);
+        if !SEQUENCE_FORMATS.contains(&this.as_str()) {
+            found.push(SequenceProblem::NotOnePicture {
+                asset: id(),
+                still: still_id.clone(),
+                format: this,
+            });
+        } else {
             match &format {
                 None => format = Some(this),
-                Some(expected) if *expected != this && !mixed_format => {
+                Some(expected)
+                    if same_decoder(expected) != same_decoder(&this) && !mixed_format =>
+                {
                     mixed_format = true;
                     found.push(SequenceProblem::MixedFormats {
                         asset: id(),
@@ -88,16 +97,26 @@ pub(super) fn check(project: &Project, asset: &Asset, errors: &mut Vec<AssetProb
     errors.extend(found.into_iter().map(Into::into));
 }
 
-/// A still's file format, read off its extension and spelled one way: `.JPEG`
-/// and `.jpg` are one decoder, and so are `.tiff` and `.tif`.
-fn format_of(still: &Asset) -> Option<String> {
-    let extension = std::path::Path::new(still.path.as_ref()?.as_str())
-        .extension()?
-        .to_str()?
-        .to_ascii_lowercase();
-    Some(match extension.as_str() {
-        "jpeg" => "jpg".to_owned(),
-        "tiff" => "tif".to_owned(),
-        _ => extension,
-    })
+/// A still's file format, read off its extension, lowercased — empty when it
+/// has none.
+fn format_of(still: &Asset) -> String {
+    still
+        .path
+        .as_ref()
+        .and_then(|path| {
+            std::path::Path::new(path.as_str())
+                .extension()?
+                .to_str()
+                .map(str::to_ascii_lowercase)
+        })
+        .unwrap_or_default()
+}
+
+/// One decoder reads both spellings of these, so they are one format.
+fn same_decoder(format: &str) -> &str {
+    match format {
+        "jpeg" => "jpg",
+        "tiff" => "tif",
+        other => other,
+    }
 }

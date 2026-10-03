@@ -85,7 +85,7 @@ impl Sizes {
             // cards are rasterised at whatever the render's raster is, so `fit`
             // says nothing about them and there is no file to ask.
             if !matches!(shot.clip.fit, Fit::Native | Fit::Fit)
-                || !shot.asset.kind.is_file_backed()
+                || !shot.picture().kind.is_file_backed()
                 || shot.showing != Showing::Media
                 || measured.contains_key(&shot.asset.id)
             {
@@ -105,11 +105,14 @@ impl Sizes {
                 Err(error) => return Err(error),
             }
             let Some(probe) = probe else {
-                measured
-                    .extend(dimensions_of(shot.asset).map(|size| (shot.asset.id.clone(), size)));
+                measured.extend(
+                    dimensions_of(shot.picture()).map(|size| (shot.asset.id.clone(), size)),
+                );
                 continue;
             };
-            let size = measure_one(probe, shot.asset, project_root).map_err(|reason| {
+            // A sequence is measured by its first still, and keyed by its own
+            // id: every still is one size, and the clip shows the sequence.
+            let size = measure_one(probe, shot.picture(), project_root).map_err(|reason| {
                 RenderError::UnknownSourceSize {
                     clip: shot.clip.id.to_string(),
                     asset: shot.asset.id.to_string(),
