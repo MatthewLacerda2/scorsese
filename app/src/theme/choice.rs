@@ -23,7 +23,7 @@
 //! exactly as the web treats a `localStorage` that throws: the worst outcome is
 //! following the system, never a window that will not open.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use egui::Theme;
 
@@ -46,14 +46,28 @@ impl Choice {
 
     /// What this machine remembers.
     pub(crate) fn load() -> Self {
-        let read = path().and_then(|path| std::fs::read_to_string(path).ok());
-        Self(read.as_deref().and_then(parse))
+        path().map_or(Self::SYSTEM, |path| Self::read(&path))
     }
 
     /// Remembers this choice. A file that cannot be written means it lasts
     /// this session only, which is the web's answer to a private window too.
     pub(crate) fn save(self) {
-        if let (Some(path), Some(theme)) = (path(), self.0) {
+        if let Some(path) = path() {
+            self.write(&path);
+        }
+    }
+
+    /// What the file at `path` says. Apart from [`Choice::load`] so a test can
+    /// point it at a folder of its own rather than at the machine's.
+    fn read(path: &Path) -> Self {
+        let text = std::fs::read_to_string(path).ok();
+        Self(text.as_deref().and_then(parse))
+    }
+
+    /// Writes this choice to `path`, making its folder if need be. No choice
+    /// writes nothing: the file only ever holds something a person chose.
+    fn write(self, path: &Path) {
+        if let Some(theme) = self.0 {
             if let Some(folder) = path.parent() {
                 let _ = std::fs::create_dir_all(folder);
             }
@@ -119,6 +133,31 @@ mod tests {
     fn a_file_nobody_understands_is_no_choice() {
         for text in ["", "{", "{}", r#"{"theme":"sepia"}"#, r#"{"theme":1}"#] {
             assert_eq!(parse(text), None, "{text}");
+        }
+    }
+
+    /// A choice written is the choice read, through a folder that did not
+    /// exist yet; and a folder with no file in it is no choice.
+    #[test]
+    fn a_choice_survives_a_relaunch() {
+        let folder = std::env::temp_dir().join(format!("scorsese-choice-{}", std::process::id()));
+        let file = folder.join("nested").join(FILE);
+        assert_eq!(Choice::read(&file), Choice::SYSTEM);
+        Choice::of(Theme::Light).write(&file);
+        assert_eq!(Choice::read(&file), Choice::of(Theme::Light));
+        Choice::of(Theme::Dark).write(&file);
+        assert_eq!(Choice::read(&file), Choice::of(Theme::Dark));
+        let _ = std::fs::remove_dir_all(&folder);
+    }
+
+    /// The file sits beside `settings.json`, in whatever folder the one
+    /// resolver for it names on this machine.
+    #[test]
+    fn the_choice_is_kept_beside_the_settings() {
+        if let Ok(settings) = scorsese_providers::credentials::settings_path() {
+            let kept = path().expect("a settings folder means a place for this file");
+            assert_eq!(kept.parent(), settings.parent());
+            assert!(kept.ends_with(FILE));
         }
     }
 
