@@ -410,3 +410,35 @@ fn record(project: &mut Project, id: &AssetId, baked: &Baked, project_root: &Pat
         ..MediaMetadata::default()
     });
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// What keeps every existing address where it was: nothing named, no
+    /// line added.
+    #[test]
+    fn a_one_shot_or_an_inline_song_names_no_patch() {
+        let root = Path::new("/nowhere");
+        assert!(named_patches(&Starter::Patch.recipe(), root).is_empty());
+        assert!(named_patches(&Starter::Song.recipe(), root).is_empty());
+    }
+
+    /// A named patch is hashed from the file the resolver would read.
+    #[test]
+    fn a_named_patch_is_hashed_from_its_file() {
+        let root = std::env::temp_dir().join(format!("scorsese-named-{}", std::process::id()));
+        std::fs::create_dir_all(root.join("recipes")).expect("recipes/");
+        std::fs::write(root.join("recipes/bass.json"), b"{}").expect("the patch");
+
+        let Recipe::Song(mut song) = Starter::Song.recipe() else {
+            panic!("the song starter is a song");
+        };
+        song.tracks[0].patch = PatchRef::Named("recipes/bass.json".to_owned());
+        let named = named_patches(&Recipe::Song(song), &root);
+        std::fs::remove_dir_all(&root).ok();
+
+        let expected = ("recipes/bass.json".to_owned(), Some(hash_bytes(b"{}")));
+        assert_eq!(named, vec![expected]);
+    }
+}
