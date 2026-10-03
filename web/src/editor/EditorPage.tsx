@@ -32,6 +32,7 @@ import { Inspector } from "./inspector/Inspector";
 import { Preview } from "./preview/Preview";
 import { editorKey, useEdit, useEditorProject } from "./project";
 import { RenderPanel } from "./RenderPanel";
+import { confirmThen, trackRemoval } from "./removing";
 import { choose, kept } from "./selection";
 import { SHAPES, type Shape, savedShape, saveShape } from "./shape";
 import { SaveTemplate } from "./templates/SaveTemplate";
@@ -166,6 +167,7 @@ function Editor({ project }: { project: EditorProject }) {
             onRelease={({ tool, args }) => edit.run({ tool, args, edit: true })}
             onDrop={(dragged, track, pointed, reach) => void drop(dragged, track, pointed, reach)}
             onAddTrack={(kind) => void edit.run({ tool: "track_new", args: { kind }, edit: true })}
+            onRemoveTrack={(track) => confirmThen(trackRemoval(track), edit.run)}
           />
         </section>
       </div>

@@ -3,14 +3,17 @@
 // lane to place it (the desktop app's pool, #543); a library file is brought
 // into the project on the way (`import`), and a template goes in at the
 // playhead (#546). New files arrive through the library page's uploads, which
-// stay on screen.
+// stay on screen. An asset's bin button removes it, after a confirm listing
+// the clips that go with it (#396).
 
-import { LibraryIcon } from "lucide-react";
+import { LibraryIcon, Trash2Icon } from "lucide-react";
 import { Link } from "react-router";
 import type { DocumentAsset, ProjectDocument } from "@/api";
 import { useLibrary } from "@/app/queries";
+import { Button } from "@/components/ui/button";
 import { Thumbnail } from "@/files/FileTile";
 import type { EditOutcome } from "../project";
+import { assetRemoval, confirmThen, showing } from "../removing";
 import { TemplatesSection } from "../templates/TemplatesSection";
 import { carry } from "./dragged";
 import { kindColor, kindName } from "./kinds";
@@ -36,7 +39,13 @@ export function AssetsPanel({ document, edit, playhead }: Props) {
           </p>
         )}
         {assets.map((asset) => (
-          <ProjectAsset key={asset.id} asset={asset} uses={uses(document, asset.id)} />
+          <ProjectAsset
+            key={asset.id}
+            asset={asset}
+            uses={showing(document, asset.id).length}
+            pending={edit.pending}
+            onRemove={() => confirmThen(assetRemoval(document, asset.id), edit.run)}
+          />
         ))}
       </section>
       <TemplatesSection edit={edit} playhead={playhead} fps={document.timeline_fps} />
@@ -75,30 +84,43 @@ export function AssetsPanel({ document, edit, playhead }: Props) {
   );
 }
 
-function ProjectAsset({ asset, uses }: { asset: DocumentAsset; uses: number }) {
-  return (
-    <button
-      type="button"
-      draggable
-      onDragStart={(event) => carry(event, { from: "project", asset: asset.id, kind: asset.kind })}
-      title="Drag onto a track to place it"
-      className="flex cursor-grab items-center gap-2 rounded-md border px-2 py-1.5 text-left text-sm hover:bg-muted/50 active:cursor-grabbing"
-    >
-      <span className={`size-2.5 shrink-0 rounded-sm ${kindColor(asset.kind)}`} aria-hidden />
-      <span className="min-w-0 flex-1 truncate">{asset.text ?? asset.id}</span>
-      <span className="shrink-0 text-xs text-muted-foreground">
-        {kindName(asset.kind)}
-        {asset.state && asset.state !== "generated" ? ` · ${asset.state}` : ""}
-        {uses > 0 ? ` · ${uses}×` : ""}
-      </span>
-    </button>
-  );
+interface ProjectAssetProps {
+  asset: DocumentAsset;
+  uses: number;
+  pending: boolean;
+  onRemove: () => void;
 }
 
-/** How many clips show `asset`. */
-function uses(document: ProjectDocument, asset: string): number {
-  return (document.tracks ?? []).reduce(
-    (count, track) => count + track.clips.filter((clip) => clip.asset === asset).length,
-    0,
+function ProjectAsset({ asset, uses, pending, onRemove }: ProjectAssetProps) {
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        type="button"
+        draggable
+        onDragStart={(event) =>
+          carry(event, { from: "project", asset: asset.id, kind: asset.kind })
+        }
+        title="Drag onto a track to place it"
+        className="flex min-w-0 flex-1 cursor-grab items-center gap-2 rounded-md border px-2 py-1.5 text-left text-sm hover:bg-muted/50 active:cursor-grabbing"
+      >
+        <span className={`size-2.5 shrink-0 rounded-sm ${kindColor(asset.kind)}`} aria-hidden />
+        <span className="min-w-0 flex-1 truncate">{asset.text ?? asset.id}</span>
+        <span className="shrink-0 text-xs text-muted-foreground">
+          {kindName(asset.kind)}
+          {asset.state && asset.state !== "generated" ? ` · ${asset.state}` : ""}
+          {uses > 0 ? ` · ${uses}×` : ""}
+        </span>
+      </button>
+      <Button
+        size="icon"
+        variant="ghost"
+        aria-label={`Remove ${asset.id}`}
+        title="Remove from the project — the clips using it go too"
+        disabled={pending}
+        onClick={onRemove}
+      >
+        <Trash2Icon />
+      </Button>
+    </div>
   );
 }

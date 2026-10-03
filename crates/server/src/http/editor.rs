@@ -4,6 +4,8 @@
 //! `trim_clip` and onto another lane `clip_move`, the Delete key is
 //! `clip_remove`, a file dropped onto a lane is `import` and then `place_clip`,
 //! a value typed into the inspector is `clip_set`, a new lane is `track_new`,
+//! a lane or an asset deleted after its confirm is `track_remove` or
+//! `asset_remove` with the clips that go named (#396),
 //! the preview's frame is `still`, and a selection saved as a template or a
 //! template put in at the playhead is `template_save` or `template_insert`
 //! (#546) — run by
@@ -48,8 +50,10 @@ use crate::projects;
 use crate::tools::Refusal;
 
 /// The tools that change what a drag is computed on, so each names a revision.
-pub const EDITS: [&str; 7] = [
+pub const EDITS: [&str; 9] = [
     "track_new",
+    "track_remove",
+    "asset_remove",
     "place_clip",
     "trim_clip",
     "clip_set",

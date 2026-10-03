@@ -82,6 +82,8 @@ export interface DocumentAsset {
   media?: { duration_seconds?: number; width?: number; height?: number };
   /** An `image_sequence`'s stills, how many frames each is held, and whether it loops. */
   sequence?: { stills: string[]; hold?: number; loop?: boolean };
+  /** A group's own lanes: its members are clips too, and can show an asset. */
+  group?: { tracks: Track[] };
 }
 
 /** `scorsese_core::Project`, as far as the editor reads it. */

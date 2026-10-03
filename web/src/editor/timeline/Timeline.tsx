@@ -6,9 +6,10 @@
 // one `trim_clip` — or one `clip_move`, let go over another lane — when the
 // pointer lets go; never before, since every edit is a round trip to the
 // server's tools. A refused one springs back: the page only ever draws the
-// document the server holds.
+// document the server holds. A lane header's bin removes the lane, after a
+// confirm listing the clips on it (#396).
 
-import { MinusIcon, PlusIcon } from "lucide-react";
+import { MinusIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { type DragEvent, type PointerEvent, useState } from "react";
 import type { Fps, ProjectDocument, Track } from "@/api";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,8 @@ export interface TimelineProps {
   /** Something dropped on `track` at frame `pointed`, before snapping. */
   onDrop: (dragged: Dragged, track: Track, pointed: number, reach: number) => void;
   onAddTrack: (kind: "video" | "audio") => void;
+  /** A lane header's bin pressed: confirm, then remove `track` and its clips. */
+  onRemoveTrack: (track: Track) => void;
 }
 
 export function Timeline(props: TimelineProps) {
@@ -103,11 +106,22 @@ export function Timeline(props: TimelineProps) {
           {tracks.map((track) => (
             <div key={track.id} className="flex border-b">
               <div
-                className="sticky left-0 z-10 flex shrink-0 flex-col justify-center border-r bg-background px-2"
+                className="sticky left-0 z-10 flex shrink-0 items-center border-r bg-background pl-2"
                 style={{ width: HEADER }}
               >
-                <span className="truncate text-xs font-medium">{track.name ?? track.id}</span>
-                <span className="text-[10px] text-muted-foreground">{track.kind}</span>
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-xs font-medium">{track.name ?? track.id}</span>
+                  <span className="text-[10px] text-muted-foreground">{track.kind}</span>
+                </div>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  aria-label={`Remove the track ${track.name ?? track.id}`}
+                  title="Remove the track — the clips on it go too"
+                  onClick={() => props.onRemoveTrack(track)}
+                >
+                  <Trash2Icon />
+                </Button>
               </div>
               <Lane
                 track={track}
