@@ -114,7 +114,11 @@ pub(crate) fn show(ctx: &Context, open: &mut Open, asking: &mut Option<Asking>) 
                 ui.label(RichText::new(format!("  {clip}")).monospace());
             }
             if let Some(trouble) = &current.trouble {
-                ui.label(RichText::new(trouble).small().color(palette::of(ui.ctx()).warning));
+                ui.label(
+                    RichText::new(trouble)
+                        .small()
+                        .color(palette::of(ui.ctx()).warning),
+                );
             }
             ui.separator();
             ui.horizontal(|ui| {
