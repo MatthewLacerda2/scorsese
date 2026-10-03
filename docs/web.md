@@ -630,10 +630,13 @@ does not hold everybody else up.
 | `veo_shot` | 4 | minutes of waiting on Google, almost no machine |
 | `spoken_line` | 4 | seconds, mostly network |
 | `still_image` | 4 | a Gemini still (#461): seconds, mostly network |
+| `voice_design` | 4 | an ElevenLabs voice design (#572): seconds, mostly network |
+| `voice_keep` | 4 | a designed candidate kept as a voice (#572): one free call |
 
 **Every kind has a handler** — `thumbnail` and `proxy` (#535, #542, *Library*),
 `render` and `preview` (#541, #542, *Renders*), `veo_shot`, `still_image` and
-`spoken_line` (#539, #461, *Web MCP*, below). A paid generation pays through credits (*Credits*,
+`spoken_line` (#539, #461, *Web MCP*, below), `voice_design` and `voice_keep`
+(#572, *Designing a voice*, below). A paid generation pays through credits (*Credits*,
 below: a failed one is free) and keeps what it made in the library. Each
 registers its handler in `jobs::kinds::registry()`; a kind nothing registers
 waits rather than failing. The worker, the claim, recovery and
@@ -803,8 +806,10 @@ is positive before starting and the call may dip a little below zero.
 prompt, brief hash, operation ticket, state, estimated cost, error),
 `image_generations` (model, resolution, aspect, how many references, prompt,
 brief hash, state, estimated cost, error — #461, no ticket: a still comes back
-on the call) and `speech_generations` (model, voice, text, characters,
-settings, estimated cost, error) hold one row per paid generation, bound to the ledger entries that paid
+on the call), `speech_generations` (model, voice, text, characters,
+settings, estimated cost, error) and `voice_designs` (description, passage,
+characters, seed, guidance, brief hash, state, the three candidates once it
+worked, estimated cost, error — #572, *Web MCP*) hold one row per paid generation, bound to the ledger entries that paid
 for it. Each carries a nullable `tool_call_id`, whose foreign key lands with the
 table it points at (#540), a nullable `library_item_id` keyed to the item it
 made by (item, owner) — kept, set null, when the item is deleted (#535) — and a
@@ -1104,14 +1109,13 @@ the web — or be left off it — without a reason written down.
 | `library`, `import` | the server's own: files come from the user's library by id (`core`'s `reference_asset`, the document half of an import), never from a path on the server — so an image sequence's stills come in one library file each, and `sequence` makes them one |
 | `render`, `jobs`, `job_cancel` | the server's own: a render is a job (*Renders*), downloaded from `/api/renders/{id}/file` with the same token; `jobs` says where any job is, and `job_cancel` stops a render — locally a client stops one by cancelling the `render` call, which here has already answered |
 | `generate` | the server's own: paid from credits, made by the queue — below |
+| `voice_design` | the server's own: paid from credits, made by the queue, the samples kept in the library and the voices in the user's own record — *Designing a voice*, below |
 | `spending_history` | the ledger, read for the caller (*Credits*) |
 | `template_list`, `template_save`, `template_insert` | the server's own: a user's templates are rows (*Templates*) |
 
 **Not served yet:** `synth_import` and `synth_export` — a `.mid` is neither
 media the library holds nor text a project keeps, so there is nothing to import
-from or to hand an export back as (#678); `voice_design` — its
-samples and designed-voice record are files beside `project.json`, and credits
-have no row for a design (#572).
+from or to hand an export back as (#678).
 
 **Why the registry did not move.** The tools that need the database —
 `spending_history`, `project_list`, a `generate` that pays through credits —
@@ -1136,6 +1140,37 @@ back with `Library::keep_generated`, charges it — or releases it, free, when t
 provider refused — and brings it into the project as it is by then, measured.
 The provider keys are the server's: `GEMINI_API_KEY` and `ELEVENLABS_API_KEY`,
 through the one credentials resolver; a missing key fails the job, free.
+
+**Designing a voice (#572).** `voice_design` designs, keeps and lists as the
+stdio tool does, and pays like `generate`: a call without `confirm` answers with
+the estimate (`voices::design::estimate`, billed once for the passage, three
+candidates) plus 10% and a token; a call with the token reserves it and queues
+a `voice_design` job in one transaction. A confirming call need not repeat the
+brief — it is read from the call that issued the token, which is how the
+assistant's confirmation box, sending only the token, designs what was quoted.
+Locally a design writes its samples and a `design.json` into `generated/` and a
+kept voice into `designed-voices.json`, beside `project.json`; here those have
+homes that outlive a call (`crate::designs`):
+
+- **the samples are library items**, each kept under a hash of its own (the
+  design's brief hash and its place among the three, since a library holds one
+  item per brief hash) — playable in the library, importable into any project;
+- **the design is a row of `voice_designs`**: its audit row as a paid
+  generation, with `credit_entries.voice_design_id` linking the ledger to it,
+  and once it worked its three candidates. A design the user already has —
+  every sample still in their library — or one whose job is on its way is
+  answered for nothing, with no token; an unchanged brief is never paid twice
+  across the user's projects, and never shared between users;
+- **kept voices are rows of `designed_voices`**, per user. A voice lives in the
+  operator's ElevenLabs account and any project may name it, so it belongs to
+  the user, not a project; each row points at the design holding the
+  description and seed that made it.
+
+Both verbs are jobs. A design is paid, and a job interrupted after the
+reservation is run again and settles it, where a call cut off mid-way would
+leave the money held; keeping is free, but it reaches the same vendor, so the
+vendor stays behind one seam (`generations::Vendors::studio`) a test replaces.
+`keep` and `list` take no token. Voice cloning is not offered, as locally.
 
 **Every call is recorded** in `tool_calls` — tool, arguments, project, how it
 ended and its words (not its pictures), with `client` `external` for web MCP,

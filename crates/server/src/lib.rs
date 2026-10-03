@@ -102,7 +102,8 @@
 //! queue makes from stored projects, kept for download under a quota.
 //! [`tools`] is scorsese's tool surface for one user — what web MCP serves and
 //! the built-in assistant calls — and [`generations`] the paid jobs its
-//! `generate` queues. [`assistant`] is that built-in assistant: Claude, run
+//! `generate` queues; [`designs`] the voices its `voice_design` designs and
+//! keeps for a user. [`assistant`] is that built-in assistant: Claude, run
 //! turn by turn against a user's project, charged per call. [`templates`] is
 //! the pieces of an edit a user saved to copy into their other projects.
 
@@ -111,6 +112,7 @@ pub mod assistant;
 pub mod config;
 pub mod credits;
 pub mod db;
+pub mod designs;
 pub mod events;
 pub mod generations;
 pub mod http;

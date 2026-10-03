@@ -41,7 +41,7 @@ export interface Transcript {
 }
 
 /** The kinds of job that are the assistant's generations, shown in the panel. */
-const GENERATIONS = new Set(["veo_shot", "still_image", "spoken_line"]);
+const GENERATIONS = new Set(["veo_shot", "still_image", "spoken_line", "voice_design"]);
 
 export function empty(project: number): Transcript {
   return { project, session: null, entries: [], jobs: [] };

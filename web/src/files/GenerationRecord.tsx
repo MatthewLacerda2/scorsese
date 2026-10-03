@@ -13,6 +13,7 @@ const TITLE = {
   veo_shot: "Generated video",
   still_image: "Generated still",
   spoken_line: "Generated speech",
+  voice_design: "Voice design sample",
 };
 
 export function GenerationRecord({ record }: { record: Record }) {
@@ -73,6 +74,7 @@ function settings(record: Record): [string, string][] {
       ["Length", record.seconds === undefined ? undefined : `${record.seconds} s`],
       ["Aspect", record.aspect],
       ["References", record.references || undefined],
+      ["Seed", record.seed ?? undefined],
     ];
     return pairs.flatMap(([name, value]) => (value === undefined ? [] : [[name, String(value)]]));
   }

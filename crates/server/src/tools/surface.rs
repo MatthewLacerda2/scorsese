@@ -36,10 +36,6 @@ pub(super) enum Serve {
 const MIDI: &str = "a .mid file is neither media the library holds nor text a project keeps, \
                     so there is nothing to import from or to hand an export back as (#678)";
 
-/// Why designing a voice is not served.
-const DESIGN: &str = "its samples and its record of designed voices are files beside \
-                      project.json, and credits have no row for a design yet (#572)";
-
 /// How the registry tool called `name` is served, or `None` for one nobody
 /// has decided about — which the test below refuses.
 pub(super) fn serve(name: &str) -> Option<Serve> {
@@ -56,9 +52,8 @@ pub(super) fn serve(name: &str) -> Option<Serve> {
         "look" | "hear" => Serve::Confined(&["file"]),
         "audio_level" => Serve::Confined(&["file", "against"]),
         "still" | "synth_bake" => Serve::Without(&["out"]),
-        "project_new" | "import" | "render" | "generate" => Serve::Replaced,
+        "project_new" | "import" | "render" | "generate" | "voice_design" => Serve::Replaced,
         "synth_import" | "synth_export" => Serve::Withheld(MIDI),
-        "voice_design" => Serve::Withheld(DESIGN),
         _ => return None,
     })
 }

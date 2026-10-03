@@ -65,6 +65,7 @@
 //! ([`tool`]), which web MCP (#539, `crate::tools`) serves.
 
 pub mod command;
+pub mod designs;
 pub mod fees;
 pub mod generations;
 pub mod history;

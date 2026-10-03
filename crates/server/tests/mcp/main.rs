@@ -6,6 +6,7 @@
 mod common;
 
 mod described;
+mod designing;
 mod drawing;
 mod editing;
 mod importing;
@@ -14,6 +15,7 @@ mod recipes;
 mod settling;
 mod shooting;
 mod stopping;
+mod studio;
 mod transport;
 mod vendors;
 

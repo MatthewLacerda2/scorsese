@@ -29,6 +29,7 @@ const JOB_LABEL: Record<string, string> = {
   veo_shot: "Video shot",
   still_image: "Still",
   spoken_line: "Spoken line",
+  voice_design: "Voice design",
 };
 
 export function ChatPanel({ projectId }: { projectId: number }) {

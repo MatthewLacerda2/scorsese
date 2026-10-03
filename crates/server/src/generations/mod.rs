@@ -44,6 +44,7 @@ use scorsese_providers::credentials::{Provider, resolve};
 use scorsese_providers::image::{GeminiProvider, ImageProvider};
 use scorsese_providers::speech::{ElevenLabsProvider, SpeechProvider};
 use scorsese_providers::video::{POLL_EVERY, VeoProvider, VideoProvider};
+use scorsese_providers::voices::design::{ElevenLabsStudio, Studio as DesignStudio};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -77,6 +78,9 @@ pub type Image = Box<dyn ImageProvider + Send + Sync>;
 /// A speech provider a job can own and move between threads.
 pub type Speech = Box<dyn SpeechProvider + Send + Sync>;
 
+/// Where voices are designed (#572), owned and moved between threads.
+pub type Studio = Box<dyn DesignStudio + Send + Sync>;
+
 /// Where the jobs' providers come from.
 pub trait Vendors: Send + Sync + 'static {
     /// Veo, or why it cannot be reached — no key, most likely.
@@ -85,6 +89,9 @@ pub trait Vendors: Send + Sync + 'static {
     fn speech(&self) -> Result<Speech, String>;
     /// Gemini's image models, or why they cannot be reached.
     fn image(&self) -> Result<Image, String>;
+    /// ElevenLabs' voice design, or why it cannot be reached
+    /// ([`crate::designs`]).
+    fn studio(&self) -> Result<Studio, String>;
 }
 
 /// The real vendors, with keys from the one credentials resolver
@@ -107,6 +114,11 @@ impl Vendors for Keys {
     fn image(&self) -> Result<Image, String> {
         let key = resolve(Provider::Gemini).map_err(|error| error.to_string())?;
         Ok(Box::new(GeminiProvider::new(&key.secret)))
+    }
+
+    fn studio(&self) -> Result<Studio, String> {
+        let key = resolve(Provider::ElevenLabs).map_err(|error| error.to_string())?;
+        Ok(Box::new(ElevenLabsStudio::new(&key.secret)))
     }
 }
 

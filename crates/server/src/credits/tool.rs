@@ -43,8 +43,8 @@ pub fn schema() -> Value {
             "kind": {
                 "type": "string",
                 "enum": KINDS,
-                "description": "Only rows of this kind: a Veo shot, a spoken line, an assistant \
-    turn, a top-up, a monthly fee or a refund."
+                "description": "Only rows of this kind: a Veo shot, a still, a spoken line, a \
+    voice design, an assistant turn, a top-up, a monthly fee or a refund."
             },
             "since": {
                 "type": "string",

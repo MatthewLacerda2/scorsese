@@ -1,5 +1,6 @@
-//! Vendors that never spend a cent: a Veo, a Gemini and an ElevenLabs
-//! answering from files ffmpeg made, and counting how often they were asked.
+//! Vendors that never spend a cent: a Veo, a Gemini and an ElevenLabs —
+//! speech and voice design — answering from files ffmpeg made, and counting
+//! how often they were asked.
 
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -9,7 +10,7 @@ use std::time::Duration;
 use scorsese_providers::image::{self, ImageProvider};
 use scorsese_providers::speech::{self, SpeechProvider};
 use scorsese_providers::video::{self, Progress, ProviderError, Ready, Ticket, VideoProvider};
-use scorsese_server::generations::{Image, Speech, Timing, Vendors, Video};
+use scorsese_server::generations::{Image, Speech, Studio, Timing, Vendors, Video};
 use scorsese_server::http::AppState;
 use scorsese_server::jobs::{self, kinds};
 use sqlx::postgres::PgPool;
@@ -25,6 +26,8 @@ pub(super) struct Mock {
     pub(super) spoken: Arc<AtomicUsize>,
     pub(super) submitted: Arc<AtomicUsize>,
     pub(super) drawn: Arc<AtomicUsize>,
+    pub(super) designed: Arc<AtomicUsize>,
+    pub(super) kept: Arc<AtomicUsize>,
 }
 
 impl Mock {
@@ -51,6 +54,10 @@ impl Vendors for Mock {
     }
 
     fn image(&self) -> Result<Image, String> {
+        Ok(Box::new(self.clone()))
+    }
+
+    fn studio(&self) -> Result<Studio, String> {
         Ok(Box::new(self.clone()))
     }
 }
@@ -113,7 +120,7 @@ impl VideoProvider for Mock {
 }
 
 /// A file ffmpeg makes from `inputs`, as bytes.
-fn made(name: &str, inputs: &[&str]) -> Vec<u8> {
+pub(super) fn made(name: &str, inputs: &[&str]) -> Vec<u8> {
     let file = common::scratch("vendor").join(name);
     let output = common::tools()
         .ffmpeg()
