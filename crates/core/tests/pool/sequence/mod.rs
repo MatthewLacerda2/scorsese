@@ -1,16 +1,18 @@
 //! A folder of frames brought in as one image sequence, and sequences made
 //! and changed from stills already in the pool.
 
+mod change;
+
 use crate::common::stub_probe::StubProbe;
 use crate::common::{new_project, source_file};
 use scorsese_core::{
-    AssetId, AssetKind, Frames, ImportError, MediaMetadata, ProbeError, ProbeMedia, SequenceChange,
-    SequenceError, SkipReason, change_sequence, import_sequence,
+    AssetId, AssetKind, ImportError, MediaMetadata, ProbeError, ProbeMedia, SkipReason,
+    import_sequence,
 };
 
 /// A folder named `spin` holding three frames, numbered so a plain sort of
 /// names would play them wrong, and two files that are not frames.
-fn folder(dir: &std::path::Path) -> std::path::PathBuf {
+pub(crate) fn folder(dir: &std::path::Path) -> std::path::PathBuf {
     for (name, bytes) in [
         ("frame_10.png", "ten"),
         ("frame_2.png", "two"),
@@ -69,6 +71,22 @@ fn importing_the_same_folder_again_adds_nothing() {
 }
 
 #[test]
+fn a_frame_the_pool_already_holds_is_reused_and_counted() {
+    let (dir, mut project) = new_project("sequence-partly");
+    let source = folder(&dir);
+    let one = source_file(&dir, "loose/one.png", b"one");
+    scorsese_core::import_asset(&mut project, &dir, &one, None, &StubProbe::image())
+        .expect("one frame already in the pool");
+    let report = import_sequence(&mut project, &dir, &source, &StubProbe::image()).expect("import");
+    assert_eq!(report.reused, 1);
+    assert_eq!(
+        report.stills[0].as_str(),
+        "one",
+        "the asset that already held it"
+    );
+}
+
+#[test]
 fn frames_of_two_formats_are_refused_with_nothing_copied() {
     let (dir, mut project) = new_project("sequence-mixed");
     let source = folder(&dir);
@@ -109,55 +127,4 @@ impl ProbeMedia for SizedByCall<'_> {
             ..MediaMetadata::default()
         })
     }
-}
-
-#[test]
-fn a_sequence_is_retimed_and_made_from_stills_already_in_the_pool() {
-    let (dir, mut project) = new_project("sequence-change");
-    let report =
-        import_sequence(&mut project, &dir, &folder(&dir), &StubProbe::image()).expect("import");
-    let loop_at_four = SequenceChange {
-        hold: Some(Frames(4)),
-        looping: Some(true),
-        ..SequenceChange::default()
-    };
-    let changed = change_sequence(&mut project, &report.id, loop_at_four).expect("retime");
-    assert_eq!(changed.before.map(|s| s.hold), Some(Frames(1)));
-    assert!(changed.after.looping);
-
-    let blink = AssetId::new("blink");
-    let two = SequenceChange {
-        stills: Some(report.stills[..2].to_vec()),
-        ..SequenceChange::default()
-    };
-    let made = change_sequence(&mut project, &blink, two).expect("make");
-    assert!(made.before.is_none());
-    assert_eq!(made.after.length(), Frames(2));
-}
-
-#[test]
-fn a_change_that_does_not_validate_leaves_the_project_as_it_was() {
-    let (dir, mut project) = new_project("sequence-refused");
-    let report =
-        import_sequence(&mut project, &dir, &folder(&dir), &StubProbe::image()).expect("import");
-    let before = project.clone();
-    let nothing = SequenceChange {
-        hold: Some(Frames(0)),
-        ..SequenceChange::default()
-    };
-    let error = change_sequence(&mut project, &report.id, nothing).expect_err("hold of 0");
-    assert!(matches!(error, SequenceError::Invalid(_)), "{error}");
-    assert_eq!(project, before);
-
-    let still = report.stills[0].clone();
-    let error = change_sequence(&mut project, &still, SequenceChange::default())
-        .expect_err("not a sequence");
-    assert!(
-        matches!(error, SequenceError::NotASequence { .. }),
-        "{error}"
-    );
-    let ghost = AssetId::new("ghost");
-    let error = change_sequence(&mut project, &ghost, SequenceChange::default())
-        .expect_err("nothing to make it from");
-    assert!(matches!(error, SequenceError::NoStills { .. }), "{error}");
 }
