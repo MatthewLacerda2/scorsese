@@ -526,12 +526,14 @@ mergeable: ## Did CI really run on this PR's head? make mergeable PR=171
 # open; what it never does is resolve a conflict, build anything locally, or
 # look at a mutation report. The script's docstring has the reasoning, the
 # measurement behind it, and what it deliberately leaves for a human to clean
-# up afterwards.
-queue: ## Rebase, wait for CI and merge each in turn. make queue PRS="486 488"
-	@test -n "$(PRS)" || { \
-		echo "queue: which pull requests? e.g. make queue PRS=\"486 488\"" >&2; \
+# up afterwards. WATCH=1 drops the list and takes every ready pull request
+# labelled `queue` as it appears, for a bounded time (#690, `merge-watch.py`).
+queue: ## Rebase, wait for CI, merge each in turn. PRS="486 488", or WATCH=1 for `queue`-labelled PRs
+	@test -n "$(PRS)$(WATCH)" || { \
+		echo "queue: which pull requests? e.g. make queue PRS=\"486 488\"," >&2; \
+		echo "       or make queue WATCH=1 to take every ready PR labelled \`queue\`" >&2; \
 		exit 1; }
-	@python3 .github/scripts/merge-queue.py $(PRS)
+	@python3 .github/scripts/merge-queue.py $(if $(WATCH),--watch) $(PRS)
 
 ##@ Signals — informational, never a merge gate
 

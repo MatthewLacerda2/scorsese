@@ -40,6 +40,11 @@
     "description": "Groundworks that make the editor itself more complete."
   },
   {
+    "name": "queue",
+    "color": "c2e0c6",
+    "description": "Reviewed and cleared to merge: `make queue WATCH=1` takes it once it is ready."
+  },
+  {
     "name": "human",
     "color": "5319e7",
     "description": "AI can't do this end-to-end; needs a human in the loop."
