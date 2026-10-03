@@ -126,6 +126,12 @@ impl DerefMut for Drawing {
 /// added later cannot forget to do any of the three, and forgetting would
 /// restore exactly the failure modes they guard against.
 pub(crate) fn window(project: Option<std::path::PathBuf>) -> Drawing {
+    sized(project, egui::vec2(WINDOW[0], WINDOW[1]))
+}
+
+/// [`window`] at another size, for the pictures that are about what a smaller
+/// window does to the layout.
+pub(crate) fn sized(project: Option<std::path::PathBuf>, size: egui::Vec2) -> Drawing {
     watchdog::arm();
     // A poisoned lock is a snapshot that panicked while holding it — a failure
     // already being reported. Refusing to draw the rest because of it would
@@ -135,7 +141,7 @@ pub(crate) fn window(project: Option<std::path::PathBuf>) -> Drawing {
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     Drawing {
         harness: Harness::builder()
-            .with_size(egui::vec2(WINDOW[0], WINDOW[1]))
+            .with_size(size)
             .with_options(tolerance())
             .build_ui_state(
                 |ui, window: &mut Scorsese| window.draw(ui),

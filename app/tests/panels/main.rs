@@ -211,6 +211,35 @@ fn a_generated_shot_selected() {
     harness.snapshot("a_generated_shot_selected");
 }
 
+/// The same shot in a window too short for its brief: the inspector scrolls
+/// rather than running under the timeline, and the side column ends where the
+/// window does (#681).
+///
+/// At 800 points the brief only just fitted, which is why nobody saw that the
+/// inspector had no scroll at all; 560 is a laptop with a dock and a browser
+/// bar. Scrolled to the bottom, so the picture shows the last field reached
+/// rather than the first ones repeated.
+#[test]
+fn a_generated_shot_selected_in_a_short_window() {
+    let project = fixture::project("short");
+    let mut harness = drawing::sized(
+        Some(project.path().to_path_buf()),
+        egui::vec2(1280.0, 560.0),
+    );
+    harness.state_mut().select("c-shot");
+    harness.run();
+    harness.hover_at(egui::pos2(1100.0, 200.0));
+    harness.event(egui::Event::MouseWheel {
+        unit: egui::MouseWheelUnit::Point,
+        delta: egui::vec2(0.0, -2000.0),
+        modifiers: egui::Modifiers::NONE,
+        phase: egui::TouchPhase::Move,
+    });
+    // A wheel scroll is animated, so it takes frames rather than one run.
+    harness.run_steps(60);
+    harness.snapshot("a_generated_shot_selected_in_a_short_window");
+}
+
 /// A generated line selected: the words, what they will cost to speak, and the
 /// two states this panel exists to make readable.
 ///
