@@ -11,6 +11,9 @@ use serde_json::{Value, json};
 use super::own::Own;
 use super::registered;
 
+#[cfg(test)]
+mod page;
+
 /// How a registry tool is served on the web.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum Serve {
@@ -36,22 +39,87 @@ pub(super) enum Serve {
 const MIDI: &str = "a .mid file is neither media the library holds nor text a project keeps, \
                     so there is nothing to import from or to hand an export back as (#678)";
 
+/// The registry tools served on the stored project exactly as they are — the
+/// ones that read and write the document, and look things up for it.
+///
+/// One name a line, and a list rather than a `match` arm joined by `|`: rustfmt
+/// packs an arm several names to a line, so every new tool rewrapped the lines
+/// around it and any two pull requests adding one conflicted (#691). A long
+/// list with a trailing comma stays one element a line, so adding a tool is one
+/// added line. `docs/web.md` lists these by generation (`page` below).
+const STORED: &[&str] = &[
+    "project_read",
+    "project_describe",
+    "project_check",
+    "project_assets",
+    "project_probe",
+    "project_write",
+    "track_new",
+    "text_new",
+    "color_new",
+    "shape_new",
+    "icon_new",
+    "asset_set",
+    "sequence",
+    "asset_remove",
+    "track_remove",
+    "place_clip",
+    "trim_clip",
+    "clip_set",
+    "clip_animate",
+    "clip_follow",
+    "clip_move",
+    "clip_remove",
+    "clip_group",
+    "clip_ungroup",
+    "dissolve",
+    "duck_music",
+    "set_volume",
+    "scale_pacing",
+    "rebrief",
+    "icons",
+    "voices",
+];
+
+/// The registry tools served as they are whose files — the script and the
+/// recipes — are the project's own `project_files` rather than its document.
+/// Served exactly like [`STORED`]; listed apart because `docs/web.md` says
+/// where what they write is kept.
+const PROJECT_FILES: &[&str] = &[
+    "script_read",
+    "script_write",
+    "synth_new",
+    "synth_kit",
+    "synth_read",
+    "synth_write",
+    "synth_set",
+    "synth_check",
+    "synth_survey",
+];
+
+/// The registry tools the server serves its own tool of the same name in
+/// place of ([`Own`]), one a line for the reason [`STORED`] gives.
+const REPLACED: &[&str] = &[
+    "project_new",
+    "import",
+    "render",
+    "generate",
+    "voice_design",
+];
+
 /// How the registry tool called `name` is served, or `None` for one nobody
 /// has decided about — which the test below refuses.
 pub(super) fn serve(name: &str) -> Option<Serve> {
+    if STORED.contains(&name) || PROJECT_FILES.contains(&name) {
+        return Some(Serve::Stored);
+    }
+    if REPLACED.contains(&name) {
+        return Some(Serve::Replaced);
+    }
     Some(match name {
-        "project_read" | "project_describe" | "project_check" | "project_assets"
-        | "project_probe" | "project_write" | "track_new" | "text_new" | "color_new"
-        | "shape_new" | "icon_new" | "asset_set" | "sequence" | "asset_remove" | "track_remove"
-        | "place_clip" | "trim_clip" | "clip_set" | "clip_animate" | "clip_follow"
-        | "clip_move" | "clip_remove" | "clip_group" | "clip_ungroup" | "dissolve"
-        | "duck_music" | "set_volume" | "scale_pacing" | "rebrief" | "icons" | "voices"
-        | "script_read" | "script_write" | "synth_new" | "synth_kit" | "synth_read"
-        | "synth_write" | "synth_set" | "synth_check" | "synth_survey" => Serve::Stored,
         "look" | "hear" => Serve::Confined(&["file"]),
         "audio_level" => Serve::Confined(&["file", "against"]),
         "still" | "synth_bake" => Serve::Without(&["out"]),
-        "project_new" | "import" | "render" | "generate" | "voice_design" => Serve::Replaced,
         "synth_import" | "synth_export" => Serve::Withheld(MIDI),
         _ => return None,
     })

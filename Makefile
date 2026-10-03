@@ -712,9 +712,10 @@ format-fix: ## Rewrite files to satisfy the format gate
 # It runs the checking test with an environment variable set rather than being a
 # second implementation, so what rewrites the page and what holds the page to it
 # can never disagree about the answer.
-mcp-table: ## Rewrite docs/mcp.md's tool table from the MCP registry
+mcp-table: ## Rewrite docs/mcp.md's tool table and docs/web.md's served-tool lists from the code
 	UPDATE_MCP_TABLE=1 cargo test --locked -p scorsese-mcp --test table
-	@echo "mcp-table: docs/mcp.md now says what the registry says."
+	UPDATE_WEB_TOOLS=1 cargo test --locked -p scorsese-server --lib tools::surface::page
+	@echo "mcp-table: docs/mcp.md and docs/web.md now say what the code says."
 
 # Neither a gate nor a signal: it checks the room the gates are about to run
 # in, so it comes before them and is not one of them. `inventory` below is the
