@@ -125,4 +125,27 @@ impl Outcome {
             _ => 0,
         }
     }
+
+    /// The sentence this outcome reads as, after an asset's id.
+    ///
+    /// Phrased here, once, rather than in each client that reports a run — the
+    /// CLI, the MCP tool — so the two front doors cannot drift into telling
+    /// different stories about the same shot. Each keeps its own framing: the
+    /// id column, and the footer saying how to come back for what is in flight.
+    pub fn says(&self) -> String {
+        match self {
+            Self::Cached { path } => format!("already generated — {path}"),
+            Self::Queued { operation, .. } => format!("queued — {operation}"),
+            Self::Waiting { operation, .. } => format!("still generating — {operation}"),
+            Self::Expired { queued_at, .. } => format!(
+                "queued {} and past the {RETENTION_DAYS}-day window — the video is gone and \
+                 the shot has to be asked for again",
+                queued_at
+                    .as_ref()
+                    .map_or_else(|| String::from("at some point"), ToString::to_string)
+            ),
+            Self::Generated { path, bytes, .. } => format!("generated — {path} ({bytes} bytes)"),
+            Self::Failed { message } => format!("refused — {message}"),
+        }
+    }
 }

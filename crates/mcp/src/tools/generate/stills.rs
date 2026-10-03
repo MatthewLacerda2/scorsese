@@ -25,17 +25,7 @@ pub(super) fn pass(
 /// What the stills in a run read as.
 pub(super) fn said(drawn: &Drawn, lines: &mut Vec<String>) {
     for (id, outcome) in drawn {
-        lines.push(format!("{id}: {}", one(outcome)));
-    }
-}
-
-/// What one still's outcome reads as.
-fn one(outcome: &Outcome) -> String {
-    match outcome {
-        Outcome::Cached { path } => format!("already drawn — {path}"),
-        Outcome::Generated { path, bytes, .. } => format!("drawn — {path} ({bytes} bytes)"),
-        Outcome::Incomplete { why } => format!("not yet — {why}"),
-        Outcome::Failed { message } => format!("refused — {message}"),
+        lines.push(format!("{id}: {}", outcome.says()));
     }
 }
 
