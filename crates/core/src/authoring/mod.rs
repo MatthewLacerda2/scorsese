@@ -8,7 +8,7 @@
 //! somebody writing the whole document again, which for a captioned cut is
 //! tens of kilobytes per line of text.
 //!
-//! That is what these three operations are for:
+//! That is what these operations are for:
 //!
 //! - [`add_asset`] puts one inline asset in the table.
 //! - [`set_asset`] changes a field on one that is already there.
@@ -16,31 +16,35 @@
 //!   yet in the cut and "clips on one track may not overlap" makes a second
 //!   lane the answer far more often than a rearrangement does.
 //!
-//! **All three are all-or-nothing**, exactly as [`crate::placing`] is: the
+//! - [`remove_asset`] and [`remove_track`] take one out again, with the clips
+//!   that go with it — and only when the caller has named those clips.
+//!
+//! **All of them are all-or-nothing**, exactly as [`crate::placing`] is: the
 //! change is made on a copy, and only a copy [`crate::Project::validate`]
 //! accepts becomes the document. A style that names a font path nobody could
 //! resolve, or a shape that would draw nothing at all, leaves the project byte
 //! for byte as it was.
 //!
-//! **What is deliberately not here is deletion.** Removing an asset has to say
-//! what becomes of the clips that show it, and "refuse while it is used" and
-//! "take its clips with it" are both defensible and are not the same tool.
-//! That question is its own issue rather than a flag on one of these.
+//! **Deletion names what it destroys.** Removing an asset has to say what
+//! becomes of the clips that show it, and the answer (#396) is that they go
+//! with it only when the caller lists them exactly — see [`mod@remove`].
 
 mod apply;
 mod block;
 mod edit;
 mod inline;
+mod remove;
 mod track;
 
 pub use block::{BlockChange, CounterEdit, RevealEdit};
 pub use edit::{Edit, set_asset};
 pub use inline::{Inline, add_asset};
+pub use remove::{AssetRemoval, remove_asset, remove_track};
 pub(crate) use track::numbered;
 pub use track::{Lane, add_track};
 
 use crate::asset::{AssetId, AssetKind};
-use crate::timeline::TrackId;
+use crate::timeline::{ClipId, TrackId};
 use crate::validate::ValidationErrors;
 
 /// Why nothing was written. Every one of these leaves the project untouched.
@@ -69,6 +73,45 @@ pub enum AuthorError {
     NoSuchAsset {
         /// The id that was asked for.
         asset: AssetId,
+    },
+    /// No track of that id, on the timeline or in any group.
+    #[error("no track in this project is called `{track}`")]
+    NoSuchTrack {
+        /// The id that was asked for.
+        track: TrackId,
+    },
+    /// The clips named are not exactly the clips showing the asset. Removing
+    /// it takes every one of those with it, so the caller has to name them —
+    /// no more and no fewer — and this says which they are.
+    #[error(
+        "`{asset}` is shown by {}; removing it removes those clips too, so name exactly \
+         them in `clips` (this call named {}) — nothing was removed",
+        remove::listed(using),
+        remove::listed(named)
+    )]
+    AssetInUse {
+        /// The asset that was named.
+        asset: AssetId,
+        /// Every clip that shows it, in id order — what the next call names.
+        using: Vec<ClipId>,
+        /// What this call named instead.
+        named: Vec<ClipId>,
+    },
+    /// The clips named are not exactly the clips on the track, for
+    /// [`AuthorError::AssetInUse`]'s reason one level up.
+    #[error(
+        "track `{track}` holds {}; removing it removes those clips too, so name exactly \
+         them in `clips` (this call named {}) — nothing was removed",
+        remove::listed(holding),
+        remove::listed(named)
+    )]
+    TrackNotEmpty {
+        /// The track that was named.
+        track: TrackId,
+        /// Every clip on it, in id order — what the next call names.
+        holding: Vec<ClipId>,
+        /// What this call named instead.
+        named: Vec<ClipId>,
     },
     /// The asset exists and is not one of the four kinds whose content lives
     /// in the document. What a video or a brief *is* lives elsewhere — in a
