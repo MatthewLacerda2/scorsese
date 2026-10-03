@@ -18,6 +18,7 @@ export const KIND_LABEL: Record<HistoryKind, string> = {
   veo_shot: "Video generation",
   spoken_line: "Speech generation",
   still_image: "Still generation",
+  voice_design: "Voice design",
   assistant: "Assistant",
   top_up: "Top-up",
   monthly_fee: "Monthly fee",

@@ -52,7 +52,14 @@ async fn the_registrys_tools_keep_the_registrys_words(pool: PgPool) {
         let Some(served) = named(tool.name()) else {
             continue;
         };
-        if ["project_new", "import", "render", "generate"].contains(&tool.name()) {
+        let replaced = [
+            "project_new",
+            "import",
+            "render",
+            "generate",
+            "voice_design",
+        ];
+        if replaced.contains(&tool.name()) {
             assert_ne!(served["description"], json!(tool.description()));
             continue;
         }
@@ -63,10 +70,16 @@ async fn the_registrys_tools_keep_the_registrys_words(pool: PgPool) {
             tool.name()
         );
     }
-    for web in ["project_list", "library", "jobs", "spending_history"] {
+    for web in [
+        "project_list",
+        "library",
+        "jobs",
+        "spending_history",
+        "voice_design",
+    ] {
         assert!(named(web).is_some(), "{web} is served");
     }
-    for withheld in ["synth_import", "synth_export", "voice_design"] {
+    for withheld in ["synth_import", "synth_export"] {
         assert!(named(withheld).is_none(), "{withheld} is not served yet");
     }
     let docs = include_str!("../../../../docs/web.md");

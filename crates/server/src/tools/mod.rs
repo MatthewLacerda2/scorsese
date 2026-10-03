@@ -56,6 +56,7 @@
 //! my project?" has one answer.
 
 mod bakes;
+mod design;
 mod folder;
 mod generate;
 mod log;

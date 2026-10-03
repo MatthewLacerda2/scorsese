@@ -11,6 +11,7 @@ use std::time::Duration;
 
 use super::{Kind, Registry};
 use crate::Files;
+use crate::designs;
 use crate::generations::{self, Keys, Timing, Vendors};
 use crate::library::{proxy, thumbnail};
 use crate::renders::job as render;
@@ -38,6 +39,19 @@ pub const SPOKEN_LINE: Kind = Kind {
 /// A Gemini still (#461). Seconds, mostly network, like a line.
 pub const STILL_IMAGE: Kind = Kind {
     name: "still_image",
+    limit: 4,
+};
+
+/// A voice design (#572): one ElevenLabs call, three samples back. Seconds,
+/// mostly network.
+pub const VOICE_DESIGN: Kind = Kind {
+    name: "voice_design",
+    limit: 4,
+};
+
+/// A designed candidate kept as a voice (#572). Free, one call.
+pub const VOICE_KEEP: Kind = Kind {
+    name: "voice_keep",
     limit: 4,
 };
 
@@ -89,7 +103,8 @@ pub const PROVIDER_PATIENCE: Duration = Duration::from_secs(15 * 60);
 /// the server's environment ([`Keys`]).
 ///
 /// [`THUMBNAIL`] (#535), [`RENDER`] (#541), [`VEO_SHOT`] and [`SPOKEN_LINE`]
-/// (#539, `crate::generations`), [`STILL_IMAGE`] (#461), [`PREVIEW`] and [`PROXY`] (#542) have theirs.
+/// (#539, `crate::generations`), [`STILL_IMAGE`] (#461), [`PREVIEW`] and [`PROXY`] (#542),
+/// [`VOICE_DESIGN`] and [`VOICE_KEEP`] (#572, `crate::designs`) have theirs.
 /// A kind nothing registers is never claimed, so a job of that kind waits
 /// rather than failing.
 pub fn registry(files: &Files) -> Registry {
@@ -141,6 +156,15 @@ pub fn with_vendors(files: &Files, vendors: Arc<dyn Vendors>, timing: Timing) ->
                 Arc::clone(&vendors),
             ),
         )
+        .register(
+            VOICE_DESIGN,
+            designs::design_handler(
+                files.storage.clone(),
+                files.tools.clone(),
+                Arc::clone(&vendors),
+            ),
+        )
+        .register(VOICE_KEEP, designs::keep_handler(Arc::clone(&vendors)))
         .register(
             SPOKEN_LINE,
             generations::line_handler(files.storage.clone(), files.tools.clone(), vendors),

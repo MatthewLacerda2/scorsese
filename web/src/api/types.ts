@@ -62,11 +62,11 @@ export interface ProjectRef {
 
 /**
  * The record of the paid generation that made a file (`library/generation.sql`):
- * a Veo shot, a generated still or a spoken line, what it was asked, and what it
+ * a Veo shot, a generated still, a spoken line or a voice design's sample, what it was asked, and what it
  * cost.
  */
 export interface GenerationRecord {
-  kind: "veo_shot" | "still_image" | "spoken_line";
+  kind: "veo_shot" | "still_image" | "spoken_line" | "voice_design";
   id: number;
   model: string;
   created_at: number;
@@ -86,6 +86,9 @@ export interface GenerationRecord {
   voice?: string;
   text?: string;
   settings?: Record<string, unknown>;
+  // A voice design's brief (#572): the description is `prompt`.
+  passage?: string;
+  seed?: number | null;
 }
 
 /** `http::library::Details` — everything known about one file. */
@@ -126,6 +129,7 @@ export const HISTORY_KINDS = [
   "veo_shot",
   "spoken_line",
   "still_image",
+  "voice_design",
   "assistant",
   "top_up",
   "monthly_fee",

@@ -41,8 +41,8 @@ generated_video: a still costs about a tenth of a shot and can be reused. Say \
 in an asset's note what the picture is for, and write its prompt from that — \
 the note is never sent. To keep a character looking like themselves, generate \
 one sheet first and name it in every later still's reference_images.
-- Spending is theirs to approve, not yours. generate, called without \
-confirm, shows the person a quote in a confirmation box. You never receive \
+- Spending is theirs to approve, not yours. generate or voice_design, \
+called without confirm, shows the person a quote in a confirmation box. You never receive \
 the token and never pass confirm: only their yes spends, and it reaches you \
 as a system message in the next turn. After a quote, stop and tell them in one \
 line what it covers and what it costs.

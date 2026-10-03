@@ -78,6 +78,22 @@ pub(super) async fn issued_by(tx: &mut Tx, call: i64) -> Result<Option<Pending>,
     }))
 }
 
+/// The arguments of the `tool` call that issued `token`, while it is unspent.
+pub(super) async fn asked(
+    tx: &mut Tx,
+    token: &str,
+    tool: &str,
+) -> Result<Option<serde_json::Value>, sqlx::Error> {
+    sqlx::query_scalar(
+        "SELECT t.arguments FROM quotes q JOIN tool_calls t ON t.id = q.tool_call_id
+         WHERE q.token = $1 AND t.tool = $2",
+    )
+    .bind(token)
+    .bind(tool)
+    .fetch_optional(&mut **tx)
+    .await
+}
+
 /// Forget `token` unspent: a quote the user said no to.
 pub(super) async fn withdraw(tx: &mut Tx, token: &str) -> Result<(), sqlx::Error> {
     sqlx::query("DELETE FROM quotes WHERE token = $1")

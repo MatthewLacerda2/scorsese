@@ -51,6 +51,28 @@ SELECT record FROM (
                                     WHERE e.image_generation_id = g.id AND e.kind = 'charge'), 0)
     )
     FROM image_generations g WHERE g.library_item_id = $1
+    UNION ALL
+    -- A design's three samples are three items, each kept under its own
+    -- hash; the design names all three in its candidates.
+    SELECT g.id, g.created_at, jsonb_build_object(
+        'kind', 'voice_design',
+        'id', g.id,
+        'model', 'ElevenLabs voice design',
+        'prompt', g.prompt,
+        'passage', g.passage,
+        'seed', g.seed,
+        'guidance', g.guidance,
+        'candidates', g.candidates,
+        'brief_hash', g.brief_hash,
+        'project_id', g.project_id,
+        'created_at', extract(epoch FROM g.created_at)::bigint,
+        'estimated_cost_micros', g.estimated_cost_micros,
+        'charged_micros', coalesce((SELECT -sum(e.amount_micros) FROM credit_entries e
+                                    WHERE e.voice_design_id = g.id AND e.kind = 'charge'), 0)
+    )
+    FROM voice_designs g JOIN library_items li ON li.id = $1
+    WHERE g.state = 'generated'
+      AND g.candidates @> jsonb_build_array(jsonb_build_object('sample', li.brief_hash))
 ) AS generations
 ORDER BY created_at DESC, id DESC
 LIMIT 1
