@@ -142,6 +142,7 @@ impl Timeline {
             .interact_pointer_pos()
             .or_else(|| response.hover_pos());
         self.navigate(ui, area, pointer);
+        Self::ask_on_head(&response, pointer, gutter, open, editing);
 
         let top = area.top() + ruler::HEIGHT;
         let hit = pointer

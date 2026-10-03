@@ -1100,7 +1100,7 @@ the web — or be left off it — without a reason written down.
 
 | served | how |
 | --- | --- |
-| `project_read`, `project_describe`, `project_check`, `project_assets`, `project_probe`, `project_write`, `track_new`, `text_new`, `color_new`, `shape_new`, `icon_new`, `asset_set`, `sequence`, `place_clip`, `trim_clip`, `clip_set`, `clip_follow`, `clip_move`, `clip_remove`, `clip_group`, `clip_ungroup`, `dissolve`, `duck_music`, `set_volume`, `scale_pacing`, `rebrief`, `icons`, `voices` | as they are, on the stored project |
+| `project_read`, `project_describe`, `project_check`, `project_assets`, `project_probe`, `project_write`, `track_new`, `text_new`, `color_new`, `shape_new`, `icon_new`, `asset_set`, `sequence`, `asset_remove`, `track_remove`, `place_clip`, `trim_clip`, `clip_set`, `clip_follow`, `clip_move`, `clip_remove`, `clip_group`, `clip_ungroup`, `dissolve`, `duck_music`, `set_volume`, `scale_pacing`, `rebrief`, `icons`, `voices` | as they are, on the stored project |
 | `script_read`, `script_write`, `synth_new`, `synth_read`, `synth_write`, `synth_set`, `synth_check`, `synth_survey` | as they are; the script and recipes they read and write are the project's `project_files` (*Projects*). A script or recipe written under `assets/`, `generated/` or `cache/` is refused whole, since nothing there is kept |
 | `synth_bake` | without `out`; each new bake is **kept in the library** as a generation, its address (recipe and synthesiser) as its brief hash, before the document naming it is saved — so it renders, and is linked into every later layout by hash. A partial bake's file is gone with the folder; its report is in the reply |
 | `look`, `hear`, `audio_level` | their file arguments must be paths inside the project (`assets/…`, `generated/…`) — locally they may name anything on the machine, and here the machine is everybody's |
@@ -1342,8 +1342,9 @@ to the assistant, not a menu (`CLAUDE.md`, *The GUI is thin*).
 | --- | --- | --- |
 | `POST /api/projects/{id}/tools/{name}` | a member, **by session** | `{arguments, revision?}` → `{said, project}`: the tool's words and pictures, and the project as it is now (`null` after a `still`) |
 
-- **An allowlist**, not the whole surface: `track_new`, `place_clip`,
-  `trim_clip`, `clip_set`, `clip_move`, `clip_remove` (the edits) and `import`,
+- **An allowlist**, not the whole surface: `track_new`, `track_remove`,
+  `asset_remove`, `place_clip`, `trim_clip`, `clip_set`, `clip_move`,
+  `clip_remove` (the edits) and `import`,
   `still`, `template_save`, `template_insert`. Anything else is
   `404` — a page has no business writing a whole document or spending money.
   An API token is `403`; a program uses web MCP.
@@ -1375,6 +1376,12 @@ wrong lane had nowhere to go but the assistant. A drag that ends on another
 lane is one `clip_move` with the new start, never a move then a trim; Delete or
 Backspace removes the selected clip — its asset stays, and nothing closes up
 behind it. Neither fires while a text field has the keyboard.
+
+**`asset_remove`** and **`track_remove`** (#396) are the bin beside an asset in
+the assets panel and on a lane's header. Each is a plain confirm first, listing
+the clips that go with it — the timeline is already in the page — and *yes*
+sends exactly that list. The tools refuse any other list, so a timeline that
+moved on since the confirm was drawn is a refusal, never a guess.
 
 **The preview doctrine** (#542, recorded at the maintainer's asking). **The
 server draws every picture; the browser plays a video.** Real-time compositing

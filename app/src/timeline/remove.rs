@@ -4,13 +4,18 @@
 //! assistant and the web editor — every selected clip at once, validated whole,
 //! all or nothing. The assets stay in the project and nothing closes up behind
 //! what went: a ripple would move clips nobody selected.
+//!
+//! A lane's head right-clicked asks to remove the whole track instead, which is
+//! a confirm listing the clips on it ([`crate::removing`]) rather than a key.
 
+use egui::{Pos2, Rect, Response};
 use scorsese_core::{RemoveError, placing};
 
 use super::Timeline;
 use super::drag::commit::first_problem;
 use crate::editing::Editing;
 use crate::project::Open;
+use crate::removing::{Asking, Removal};
 
 impl Timeline {
     /// Takes every selected clip off the timeline and saves, or says why not.
@@ -35,5 +40,25 @@ impl Timeline {
             Err(RemoveError::Refused(errors)) => Some(first_problem(errors)),
             Err(other) => Some(other.to_string()),
         };
+    }
+
+    /// Asks to remove the track whose head was right-clicked, if one was.
+    pub(super) fn ask_on_head(
+        response: &Response,
+        pointer: Option<Pos2>,
+        gutter: Rect,
+        open: &Open,
+        editing: &mut Editing,
+    ) {
+        if !response.secondary_clicked() {
+            return;
+        }
+        let top = gutter.top() + super::ruler::HEIGHT;
+        let head = pointer
+            .filter(|at| gutter.contains(*at))
+            .and_then(|at| super::lanes::lane_at(&open.project, gutter, top, at.y));
+        if let Some((track, _)) = head {
+            editing.asking = Some(Asking::about(Removal::Track(track.id.clone())));
+        }
     }
 }
