@@ -10,8 +10,8 @@
 //! 2. **Whether it exists**, as hatching. A clip whose asset is a brief nobody
 //!    has paid for renders as a slug card, and *which* those are is the
 //!    question asked before pressing the button that spends money — so an
-//!    unmade clip is only tinted with its hue, and hatched. The web does not
-//!    draw this yet; it is the one thing here the web has no equivalent of.
+//!    unmade clip is only tinted with its hue, and hatched. The web hatches
+//!    the same clips, by the same rule (`web/src/editor/timeline/made.ts`).
 //! 3. **What animates it**, as a line drawn through it. A volume ramp is in the
 //!    document already and was drawn nowhere — so a duck written by `duck_music`
 //!    was invisible until somebody clicked the clip and read a row that said

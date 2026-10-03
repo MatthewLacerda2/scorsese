@@ -3,6 +3,8 @@
 // (`app/src/inspector/one.rs`, `transform.rs`). Nothing here edits a
 // keyframe: an animated property says so and offers no value, because one
 // field cannot hold a ramp and typing over it would flatten somebody's work.
+// A generated clip's brief is shown, never edited, for the same kind of
+// reason: changing it is the assistant's (`BriefPanel`).
 //
 // A value is sent when the field is left or Enter is pressed — each change is
 // a round trip to the server's tools (`trim_clip`, `clip_set`, and `sequence`
@@ -12,6 +14,8 @@
 import type { Clip, DocumentAsset, FitMode, Fps, Track } from "@/api";
 import { kindColor, kindName } from "../assets/kinds";
 import { toSeconds } from "../timeline/time";
+import { BriefPanel } from "./BriefPanel";
+import { briefOf } from "./brief";
 import { animated, type Held, shown, stored, transformOf, type Unit } from "./held";
 import { NumberField } from "./NumberField";
 
@@ -36,6 +40,7 @@ export function Inspector({ clip, track, asset, fps, onChange }: Props) {
     onChange("clip_set", { clip: clip.id, [field]: value });
   const speed = clip.speed ?? 1;
   const ramps = animated(clip);
+  const brief = briefOf(asset);
   return (
     <div className="flex flex-col gap-3 p-3 text-sm">
       <div>
@@ -109,6 +114,7 @@ export function Inspector({ clip, track, asset, fps, onChange }: Props) {
           </>
         )}
       </div>
+      {brief && <BriefPanel brief={brief} />}
       {asset?.kind === "image_sequence" && asset.sequence && (
         <Sequence
           sequence={asset.sequence}

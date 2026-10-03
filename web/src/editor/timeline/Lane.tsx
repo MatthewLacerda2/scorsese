@@ -22,7 +22,9 @@ import {
   targets,
   toolCall,
 } from "./drag";
+import { isMade } from "./made";
 import { framesToPx, pxSpan, type Zoom } from "./time";
+import { Unmade } from "./Unmade";
 
 /** How close to a clip's edge, in pixels, a press takes the edge rather than the clip. */
 const EDGE_PX = 6;
@@ -139,17 +141,22 @@ export function Lane(props: Props) {
         const dy = held?.clip.id === clip.id ? held.dy : landing?.clip === clip.id ? landing.dy : 0;
         const asset = assets.find((found) => found.id === clip.asset);
         const chosen = props.selected.includes(clip.id);
+        // A made clip is a solid block of its kind's hue; one nobody has made
+        // yet is tinted and hatched with it, as the desktop app draws it.
+        const made = isMade(asset);
+        const body = made ? `text-white ${kindColor(asset?.kind)}` : "bg-muted text-foreground";
         return (
           <button
             type="button"
             key={clip.id}
             title={`${clip.id} — drag to move (onto another lane too), drag an edge to trim, Shift-click to select several, Delete to remove`}
-            className={`absolute top-1 bottom-1 cursor-grab touch-none overflow-hidden rounded-sm px-1.5 text-[11px] text-white select-none ${kindColor(asset?.kind)} ${chosen ? "ring-2 ring-foreground" : "opacity-90"} ${held?.clip.id === clip.id ? "z-10 cursor-grabbing shadow-lg" : ""}`}
+            className={`absolute top-1 bottom-1 cursor-grab touch-none overflow-hidden rounded-sm px-1.5 text-[11px] select-none ${body} ${chosen ? "ring-2 ring-foreground" : "opacity-90"} ${held?.clip.id === clip.id ? "z-10 cursor-grabbing shadow-lg" : ""}`}
             style={{
               left: framesToPx(shape.start, zoom, fps),
               width: Math.max(3, framesToPx(shape.duration, zoom, fps)),
               transform: dy ? `translateY(${dy}px)` : undefined,
             }}
+            data-made={made}
             onPointerDown={(event) => grab(event, clip)}
             onPointerMove={follow}
             onPointerUp={release}
@@ -158,7 +165,10 @@ export function Lane(props: Props) {
               if (event.key === "Enter") props.onSelect(clip.id, adds(event));
             }}
           >
-            <span className="pointer-events-none block truncate leading-10">
+            {!made && <Unmade kind={asset?.kind} state={asset?.state} />}
+            <span
+              className={`pointer-events-none relative block truncate leading-10 ${!made && asset?.state ? "pr-10" : ""}`}
+            >
               {asset?.text ?? clip.asset}
             </span>
             <span
