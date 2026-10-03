@@ -5,7 +5,7 @@
 //! separate stills, sorted by name, and nothing more. Imported as a sequence it
 //! is the same stills — each an `image` asset, hashed and probed exactly as an
 //! ordinary import does it — plus the `image_sequence` asset that plays them,
-//! in the order their **numbers** say ([`order`]). The stills are copied into
+//! in the order their **numbers** say. The stills are copied into
 //! `assets/<sequence id>/` rather than loose into `assets/`, so a timelapse's
 //! four hundred photographs stay one folder on disk too, and their ids carry
 //! the sequence's as a prefix.
@@ -46,7 +46,8 @@ pub struct SequenceImport {
     /// True when the pool already held a sequence of exactly these stills and
     /// that is what came back: nothing at all was added.
     pub existed: bool,
-    /// Where the numbering skips. Reported, never refused — see [`order`].
+    /// Where the numbering skips. Reported, never refused: a frame missing from
+    /// a numbered run is nearly always one somebody deleted on purpose.
     pub gaps: Vec<Gap>,
     /// What was in the folder and is not a frame.
     pub skipped: Vec<Skipped>,
