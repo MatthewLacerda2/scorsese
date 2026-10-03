@@ -1095,13 +1095,13 @@ the web — or be left off it — without a reason written down.
 
 | served | how |
 | --- | --- |
-| `project_read`, `project_describe`, `project_check`, `project_assets`, `project_probe`, `project_write`, `track_new`, `text_new`, `color_new`, `shape_new`, `icon_new`, `asset_set`, `place_clip`, `trim_clip`, `clip_set`, `clip_follow`, `clip_move`, `clip_remove`, `clip_group`, `clip_ungroup`, `dissolve`, `duck_music`, `set_volume`, `scale_pacing`, `rebrief`, `icons`, `voices` | as they are, on the stored project |
+| `project_read`, `project_describe`, `project_check`, `project_assets`, `project_probe`, `project_write`, `track_new`, `text_new`, `color_new`, `shape_new`, `icon_new`, `asset_set`, `sequence`, `place_clip`, `trim_clip`, `clip_set`, `clip_follow`, `clip_move`, `clip_remove`, `clip_group`, `clip_ungroup`, `dissolve`, `duck_music`, `set_volume`, `scale_pacing`, `rebrief`, `icons`, `voices` | as they are, on the stored project |
 | `script_read`, `script_write`, `synth_new`, `synth_read`, `synth_write`, `synth_set`, `synth_check`, `synth_survey` | as they are; the script and recipes they read and write are the project's `project_files` (*Projects*). A script or recipe written under `assets/`, `generated/` or `cache/` is refused whole, since nothing there is kept |
 | `synth_bake` | without `out`; each new bake is **kept in the library** as a generation, its address (recipe and synthesiser) as its brief hash, before the document naming it is saved — so it renders, and is linked into every later layout by hash. A partial bake's file is gone with the folder; its report is in the reply |
 | `look`, `hear`, `audio_level` | their file arguments must be paths inside the project (`assets/…`, `generated/…`) — locally they may name anything on the machine, and here the machine is everybody's |
 | `still` | without `out`: nothing is kept on the server's disk; the picture is in the reply |
 | `project_list`, `project_new` | the server's own: a project is a row, named by an id the client asks for |
-| `library`, `import` | the server's own: files come from the user's library by id (`core`'s `reference_asset`, the document half of an import), never from a path on the server |
+| `library`, `import` | the server's own: files come from the user's library by id (`core`'s `reference_asset`, the document half of an import), never from a path on the server — so an image sequence's stills come in one library file each, and `sequence` makes them one |
 | `render`, `jobs`, `job_cancel` | the server's own: a render is a job (*Renders*), downloaded from `/api/renders/{id}/file` with the same token; `jobs` says where any job is, and `job_cancel` stops a render — locally a client stops one by cancelling the `render` call, which here has already answered |
 | `generate` | the server's own: paid from credits, made by the queue — below |
 | `spending_history` | the ledger, read for the caller (*Credits*) |

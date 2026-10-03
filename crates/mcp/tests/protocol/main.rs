@@ -33,6 +33,7 @@ mod rendering;
 mod searching;
 mod sectioning;
 mod seeing;
+mod sequencing;
 mod setting;
 mod sounding;
 mod starting;
