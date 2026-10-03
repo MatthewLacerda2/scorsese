@@ -1,0 +1,14 @@
+{
+  "source": { "kind": "osc_stack", "oscs": [
+    { "wave": "saw", "voices": 5, "spread": 18 },
+    { "wave": "triangle", "octave": -1, "gain": 0.2 }
+  ] },
+  "amp": { "a": 0.6, "d": 0.8, "s": 0.8, "r": 1.4, "curve": 2.0 },
+  "filter": { "kind": "lowpass", "cutoff": 1800, "resonance": 0.15 },
+  "lfo": { "rate": 0.3, "depth": 0.4, "target": "cutoff" },
+  "fx": [
+    { "fx": "eq", "bands": [{ "kind": "lowshelf", "freq": 200, "gain_db": -4 }] },
+    { "fx": "chorus", "rate": 0.5, "depth": 0.6, "voices": 3, "mix": 0.5 },
+    { "fx": "reverb", "size": 0.75, "damp": 0.5, "mix": 0.3 }
+  ]
+}

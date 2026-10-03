@@ -109,6 +109,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `set_volume` | Set how loud one clip plays — a level, a mute, or a fade between two points — by writing the ordinary volume keyframes you would place by hand, which stay editable afterwards. | nothing |
 | `scale_pacing` | Move some clips toward or away from one instant, all by the same factor — the operation for pacing. | nothing |
 | `synth_new` | Start a new sound: writes a starter recipe into recipes/ and adds the synth_audio asset that points at it. | nothing |
+| `synth_kit` | List the ready-made instruments a recipe can start from, or show one instrument's patch. | nothing |
 | `synth_import` | Read a Standard MIDI File into a song recipe in recipes/ and add the synth_audio asset that points at it, the way synth_new does. | nothing |
 | `synth_export` | Write a song recipe out as a Standard MIDI File, to open in a DAW — synth_import the other way round. | nothing |
 | `synth_read` | Read a recipe file as it is on disk. | nothing |
@@ -1481,6 +1482,13 @@ synth_bake   → hear it
 Nothing has to mark an asset stale. A bake is named for the hash of its recipe,
 so changing the recipe changes which file the asset wants, and the next
 `synth_bake` redoes it. Re-baking an unchanged recipe renders nothing.
+
+`synth_kit` is the shortcut past the first few turns of that loop: a library
+of ready-made instruments — drums, a bass, keys, brass, a pad — that a song
+names as `"patch": "kit:kick"`. `synth_write` copies each one into the recipe
+as it writes it, so the song owns its instruments from then on and an upgrade
+never changes how it sounds. `synth_new` with an `instrument` starts a one-shot
+of one.
 
 What to write in a recipe is [`recipes.md`](recipes.md).
 

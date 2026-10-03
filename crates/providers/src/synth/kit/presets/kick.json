@@ -1,0 +1,9 @@
+{
+  "source": { "kind": "osc_stack", "oscs": [{ "wave": "sine", "octave": -2 }] },
+  "amp": { "a": 0.001, "d": 0.38, "s": 0.0, "r": 0.04, "curve": 4.0 },
+  "pitch_env": {
+    "semitones": 20,
+    "adsr": { "a": 0.0, "d": 0.05, "s": 0.0, "r": 0.0, "curve": 5.0 }
+  },
+  "fx": [{ "fx": "saturate", "drive": 1.5, "mix": 1.0 }]
+}

@@ -26,6 +26,7 @@
 mod address;
 mod create;
 mod error;
+pub mod kit;
 mod midi;
 mod partial;
 mod recipe;
@@ -298,6 +299,16 @@ fn sections(recipe: &Recipe) -> Vec<Cut> {
 pub(super) fn instruments(project_root: &Path) -> impl Fn(&str) -> Result<Patch, String> {
     let root = project_root.to_path_buf();
     move |reference: &str| {
+        if let Some(name) = reference.strip_prefix(kit::PREFIX) {
+            return Err(format!(
+                "`{reference}` is a library instrument, and a song carries its own copy \
+                 rather than naming one — write the recipe through synth_write, or run \
+                 `scorsese synth kit --copy-into <recipe>`, and it is copied in{}",
+                kit::lookup(name)
+                    .map(|_| String::new())
+                    .unwrap_or_else(|| format!(" (the kit has {})", kit::names()))
+            ));
+        }
         let relative = ProjectPath::new(reference);
         relative
             .check()

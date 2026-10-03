@@ -62,7 +62,23 @@ pub(crate) fn examples() -> Vec<Example> {
 /// A `fields` block is spliced into the smallest song that could carry it, so
 /// documenting a field proves the field exists rather than proving the page
 /// compiles.
+///
+/// A `kit:` name is copied in the way `synth_write` copies it, so an example
+/// that starts from the library is checked as the recipe it becomes.
 pub(crate) fn document(example: &Example) -> String {
+    let written = written(example);
+    scorsese_providers::synth::kit::expand(&written)
+        .unwrap_or_else(|problem| {
+            panic!(
+                "`{}` example at line {}: {problem}",
+                example.marker, example.line
+            )
+        })
+        .json
+}
+
+/// The block as written, completed but with any `kit:` name still in it.
+fn written(example: &Example) -> String {
     let fragment: Value = match example.marker.as_str() {
         "fields" => serde_json::from_str(&format!("{{{}}}", example.body)),
         _ => serde_json::from_str(&example.body),

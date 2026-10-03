@@ -75,6 +75,20 @@ fn the_page_names_every_fm_algorithm() {
     }
 }
 
+/// The page's instrument table, held to the library the way the algorithm
+/// table is held to the routings: a name the page lists and the kit dropped is
+/// one an agent will write and have refused.
+#[test]
+fn the_page_names_every_kit_instrument() {
+    for instrument in scorsese_providers::synth::kit::KIT {
+        let row = format!("| `kit:{}` |", instrument.name);
+        assert!(
+            pages::DOC.contains(&row),
+            "docs/recipes.md has no instrument row starting `{row}`"
+        );
+    }
+}
+
 /// Something audible to stand in for a patch the page names but does not carry.
 fn stub() -> scorsese_zimmer::Patch {
     scorsese_zimmer::Patch {

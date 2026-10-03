@@ -76,6 +76,28 @@ pub(crate) enum SynthAction {
         /// `song` for an arrangement.
         #[arg(long, default_value = "patch")]
         kind: StarterArg,
+        /// Start from a library instrument instead — `kick`, `epiano`; `synth
+        /// kit` lists them. The recipe is one note of it, its patch copied in
+        /// for you to edit. Takes the place of `--kind`.
+        #[arg(long, value_name = "NAME")]
+        instrument: Option<String>,
+    },
+    /// List the library of ready-made instruments — a drum machine's kick,
+    /// snare, closed hat and crash, a synth bass, a clav, a brass section, a
+    /// pad and an electric piano — or print one's patch.
+    ///
+    /// A song track uses one as `"patch": "kit:kick"`, and `--copy-into`
+    /// replaces each such name in a recipe with the patch itself: the song
+    /// keeps its own copy, to edit freely, and never changes sound when
+    /// scorsese is upgraded. A bake refuses a name that was never copied in.
+    Kit {
+        /// One instrument to print, as `kick` or `kit:kick`. Without it, the
+        /// whole library is listed.
+        #[arg(conflicts_with = "copy_into")]
+        instrument: Option<String>,
+        /// A recipe file to copy every `kit:` name into, rewritten in place.
+        #[arg(long, value_name = "RECIPE")]
+        copy_into: Option<PathBuf>,
     },
     /// Read a Standard MIDI File into a song recipe in `recipes/`, and add
     /// the asset that points at it — the way `new` does, from a `.mid`

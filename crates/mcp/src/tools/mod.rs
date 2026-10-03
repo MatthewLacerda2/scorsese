@@ -277,6 +277,9 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(edit::SetVolume),
         Box::new(edit::ScalePacing),
         Box::new(synth::New),
+        // Beside the tool that starts a recipe from one: choosing an
+        // instrument and starting a sound are one thought.
+        Box::new(synth::Kit),
         Box::new(synth::Import),
         Box::new(synth::Export),
         Box::new(synth::Read),

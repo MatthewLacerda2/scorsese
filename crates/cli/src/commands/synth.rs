@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
 use scorsese_core::{AssetId, Project};
-use scorsese_providers::synth::{self, Baked, Drum, Excerpt, Partial, Span, Starter, Window};
+use scorsese_providers::synth::{self, Baked, Drum, Excerpt, Partial, Span, Starter, Window, kit};
 use scorsese_render::say;
 
 /// What `synth bake` was asked for beyond "everything that is not on disk".
@@ -53,6 +53,58 @@ pub(crate) fn new(project_dir: &Path, name: &str, starter: Starter) -> Result<()
     println!("{id} — synth_audio, sketch");
     println!("  {recipe}");
     println!("  edit it, then `scorsese synth bake` to hear it");
+    Ok(())
+}
+
+/// The starter `synth new` was asked for: `--instrument` when it is given,
+/// since it names something more particular than `--kind` does.
+pub(crate) fn starter(kind: Starter, instrument: Option<&str>) -> Result<Starter> {
+    let Some(name) = instrument else {
+        return Ok(kind);
+    };
+    kit::lookup(name)
+        .map(Starter::Kit)
+        .with_context(|| format!("there is no `{name}` in the kit — `scorsese synth kit` lists it"))
+}
+
+/// Lists the library, prints one instrument's patch, or copies every `kit:`
+/// name in a recipe into it.
+pub(crate) fn kit(instrument: Option<&str>, copy_into: Option<&Path>) -> Result<()> {
+    if let Some(recipe) = copy_into {
+        let json = std::fs::read_to_string(recipe)
+            .with_context(|| format!("reading {}", recipe.display()))?;
+        let expanded = kit::expand(&json).with_context(|| recipe.display().to_string())?;
+        if expanded.copied.is_empty() {
+            println!("{}: no `kit:` names — nothing to copy", recipe.display());
+            return Ok(());
+        }
+        scorsese_core::write::atomically(recipe, &expanded.json)
+            .with_context(|| format!("writing {}", recipe.display()))?;
+        println!(
+            "{}: copied in {} — the recipe's own now",
+            recipe.display(),
+            expanded.copied.join(", ")
+        );
+        return Ok(());
+    }
+    match instrument {
+        Some(name) => {
+            let found = kit::lookup(name).with_context(|| {
+                format!("there is no `{name}` in the kit — `scorsese synth kit` lists it")
+            })?;
+            print!("{}", found.json());
+        }
+        None => {
+            for instrument in kit::KIT {
+                println!(
+                    "{}{} — {}",
+                    kit::PREFIX,
+                    instrument.name,
+                    instrument.describes
+                );
+            }
+        }
+    }
     Ok(())
 }
 

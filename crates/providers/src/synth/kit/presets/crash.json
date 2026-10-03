@@ -1,0 +1,10 @@
+{
+  "source": { "kind": "noise" },
+  "amp": { "a": 0.001, "d": 1.8, "s": 0.0, "r": 0.9, "curve": 3.0 },
+  "filter": {
+    "kind": "highpass", "cutoff": 3500, "resonance": 0.1,
+    "env_octaves": -0.8,
+    "adsr": { "a": 0.0, "d": 1.2, "s": 0.0, "r": 0.5, "curve": 2.0 }
+  },
+  "fx": [{ "fx": "reverb", "size": 0.5, "damp": 0.4, "mix": 0.2 }]
+}

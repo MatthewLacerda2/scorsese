@@ -8,6 +8,7 @@ mod common;
 
 mod authoring;
 mod baking;
+mod drumming;
 mod measuring;
 mod metadata;
 mod partial;

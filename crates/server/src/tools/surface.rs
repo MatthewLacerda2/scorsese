@@ -46,8 +46,8 @@ pub(super) fn serve(name: &str) -> Option<Serve> {
         | "place_clip" | "trim_clip" | "clip_set" | "clip_animate" | "clip_follow"
         | "clip_move" | "clip_remove" | "clip_group" | "clip_ungroup" | "dissolve"
         | "duck_music" | "set_volume" | "scale_pacing" | "rebrief" | "icons" | "voices"
-        | "script_read" | "script_write" | "synth_new" | "synth_read" | "synth_write"
-        | "synth_set" | "synth_check" | "synth_survey" => Serve::Stored,
+        | "script_read" | "script_write" | "synth_new" | "synth_kit" | "synth_read"
+        | "synth_write" | "synth_set" | "synth_check" | "synth_survey" => Serve::Stored,
         "look" | "hear" => Serve::Confined(&["file"]),
         "audio_level" => Serve::Confined(&["file", "against"]),
         "still" | "synth_bake" => Serve::Without(&["out"]),
