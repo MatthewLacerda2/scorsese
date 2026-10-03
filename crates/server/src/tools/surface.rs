@@ -43,11 +43,11 @@ pub(super) fn serve(name: &str) -> Option<Serve> {
         "project_read" | "project_describe" | "project_check" | "project_assets"
         | "project_probe" | "project_write" | "track_new" | "text_new" | "color_new"
         | "shape_new" | "icon_new" | "asset_set" | "sequence" | "asset_remove" | "track_remove"
-        | "place_clip" | "trim_clip" | "clip_set" | "clip_follow" | "clip_move" | "clip_remove"
-        | "clip_group" | "clip_ungroup" | "dissolve" | "duck_music" | "set_volume"
-        | "scale_pacing" | "rebrief" | "icons" | "voices" | "script_read" | "script_write"
-        | "synth_new" | "synth_read" | "synth_write" | "synth_set" | "synth_check"
-        | "synth_survey" => Serve::Stored,
+        | "place_clip" | "trim_clip" | "clip_set" | "clip_animate" | "clip_follow"
+        | "clip_move" | "clip_remove" | "clip_group" | "clip_ungroup" | "dissolve"
+        | "duck_music" | "set_volume" | "scale_pacing" | "rebrief" | "icons" | "voices"
+        | "script_read" | "script_write" | "synth_new" | "synth_read" | "synth_write"
+        | "synth_set" | "synth_check" | "synth_survey" => Serve::Stored,
         "look" | "hear" => Serve::Confined(&["file"]),
         "audio_level" => Serve::Confined(&["file", "against"]),
         "still" | "synth_bake" => Serve::Without(&["out"]),
