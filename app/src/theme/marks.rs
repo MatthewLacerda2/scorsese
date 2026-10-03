@@ -8,40 +8,32 @@
 
 use egui::{Align2, Color32, FontId, Painter, Pos2, Rect, RichText, Stroke, Ui, pos2, vec2};
 
-use super::{ROUND, palette};
+use super::{ROUND_SM, palette};
 
-/// How far apart the letters of a heading are set.
-///
-/// The whole of what makes small capitals read as a *label over a region*
-/// rather than as a very short sentence. Two pixels at 10.5pt is about a fifth
-/// of an em, which is the classical figure for spacing capitals.
-const TRACKING: f32 = 2.0;
+/// How far apart the letters of a heading are set: the web's
+/// `tracking-wide`, 0.025em, which is a quarter of a pixel at this size —
+/// rounded up to one, because a quarter pixel on a desktop is nothing at all.
+const TRACKING: f32 = 1.0;
 
-/// A section heading: small capitals, letterspaced, in the cool accent.
+/// A section heading: small capitals, lightly tracked, in the secondary text
+/// colour — the web's `text-xs uppercase tracking-wide text-muted-foreground`.
 ///
-/// Capitals rather than sentence case because these name *regions* and not
-/// things — `INSPECTOR` is a label on a wall, `Inspector` is a word somebody
-/// wrote. Accent rather than white because a heading is the one text in a panel
-/// that nobody reads for its content: you find it, then look under it.
+/// Capitals because these name *regions* and not things — `INSPECTOR` is a
+/// label on a wall. Quiet because a heading is the one text in a panel nobody
+/// reads for its content: you find it, then look under it.
 pub(crate) fn heading(label: &str) -> RichText {
     RichText::new(label.to_uppercase())
         .small()
-        .strong()
+        .weak()
         .extra_letter_spacing(TRACKING)
-        .color(palette::ACCENT)
 }
 
 /// The same, for a heading *inside* a panel that already has one — a group of
-/// rows in the pool, the animated properties on a clip.
-///
-/// Dim rather than accent: two accents in one column is two things claiming to
-/// be the top of the hierarchy.
+/// rows in the pool, the animated properties on a clip. The web draws both
+/// levels alike, and so does this; the rule [`section`] runs out from a
+/// panel's own heading is what tells them apart.
 pub(crate) fn subheading(label: &str) -> RichText {
-    RichText::new(label.to_uppercase())
-        .small()
-        .strong()
-        .extra_letter_spacing(TRACKING)
-        .color(palette::DIM)
+    heading(label)
 }
 
 /// A heading with a hairline running out from it to the right edge.
@@ -58,8 +50,9 @@ pub(crate) fn section(ui: &mut Ui, label: &str) {
             pos2(ui.max_rect().right(), text.rect.center().y),
         );
         if line.width() > 0.0 {
+            let rule = palette::of(ui.ctx()).border;
             ui.painter()
-                .line_segment([line.min, line.max], Stroke::new(1.0, palette::RULE));
+                .line_segment([line.min, line.max], Stroke::new(1.0, rule));
         }
     });
     ui.add_space(1.0);
@@ -67,37 +60,12 @@ pub(crate) fn section(ui: &mut Ui, label: &str) {
 
 /// A number, a code, a timecode: anything read digit by digit.
 pub(crate) fn figure(text: impl Into<String>) -> RichText {
-    RichText::new(text).monospace().color(palette::TEXT)
+    RichText::new(text).monospace()
 }
 
 /// The same, for a figure that is context rather than content.
 pub(crate) fn figure_dim(text: impl Into<String>) -> RichText {
-    RichText::new(text).monospace().small().color(palette::DIM)
-}
-
-/// Corner marks around a rectangle: four right angles, no sides.
-///
-/// The single most borrowed thing in this whole look, and the reason it is
-/// worth borrowing is that it frames something **without enclosing it**. A box
-/// around a picture competes with the picture's own edge; four ticks at the
-/// corners say "this region" and then get out of the way. Used around the
-/// preview, and nowhere it would merely be decoration.
-pub(crate) fn corners(painter: &Painter, rect: Rect, arm: f32, stroke: Stroke) {
-    // A mark longer than the thing it marks is not a corner, it is a border
-    // drawn badly.
-    let arm = arm.min(rect.width() / 3.0).min(rect.height() / 3.0);
-    if arm <= 1.0 {
-        return;
-    }
-    for (corner, along, down) in [
-        (rect.left_top(), 1.0, 1.0),
-        (rect.right_top(), -1.0, 1.0),
-        (rect.left_bottom(), 1.0, -1.0),
-        (rect.right_bottom(), -1.0, -1.0),
-    ] {
-        painter.line_segment([corner, corner + vec2(arm * along, 0.0)], stroke);
-        painter.line_segment([corner, corner + vec2(0.0, arm * down)], stroke);
-    }
+    RichText::new(text).monospace().small().weak()
 }
 
 /// Diagonal hatching inside a rectangle: what *not made yet* looks like.
@@ -147,7 +115,8 @@ pub(crate) fn tag(painter: &Painter, at: Pos2, label: &str, colour: Color32) -> 
     let text = painter.layout_no_wrap(label.to_owned(), font, colour);
     let box_size = vec2(text.rect.width() + 8.0, text.rect.height() + 3.0);
     let rect = Rect::from_min_size(at, box_size);
-    painter.rect_filled(rect, ROUND, palette::over(colour, palette::INK, 0.18));
+    let ground = palette::of(painter.ctx()).background;
+    painter.rect_filled(rect, ROUND_SM, palette::over(colour, ground, 0.18));
     painter.galley(
         rect.center() - text.rect.size() / 2.0,
         text,
@@ -169,10 +138,10 @@ pub(crate) fn plate(painter: &Painter, right_top: Pos2, text: &str, colour: Colo
     let galley = painter.layout_no_wrap(text.to_owned(), FontId::proportional(11.0), colour);
     let size = galley.rect.size() + vec2(14.0, 5.0);
     let rect = Rect::from_min_size(pos2(right_top.x - size.x, right_top.y), size);
-    painter.rect_filled(rect, ROUND, palette::INK);
+    painter.rect_filled(rect, ROUND_SM, palette::of(painter.ctx()).card);
     painter.rect_stroke(
         rect,
-        ROUND,
+        ROUND_SM,
         Stroke::new(1.0, colour.gamma_multiply(0.45)),
         egui::StrokeKind::Inside,
     );
@@ -215,27 +184,6 @@ mod tests {
         assert_eq!(subheading("picture").text(), "PICTURE");
     }
 
-    /// Corner marks on something smaller than the marks would be a box. The
-    /// preview is letterboxed into whatever room is left, and a window dragged
-    /// narrow enough is a real state rather than a hypothetical one.
-    #[test]
-    fn corner_marks_never_grow_into_a_border() {
-        let ctx = egui::Context::default();
-        let painter = Painter::new(
-            ctx.clone(),
-            egui::LayerId::background(),
-            Rect::from_min_size(Pos2::ZERO, vec2(100.0, 100.0)),
-        );
-        // Nothing to assert but that it does not panic and does not draw: a
-        // rectangle three pixels wide has no room for a twelve-pixel arm.
-        corners(
-            &painter,
-            Rect::from_min_size(Pos2::ZERO, vec2(3.0, 3.0)),
-            12.0,
-            Stroke::new(1.0, palette::ACCENT),
-        );
-    }
-
     /// Hatching a rectangle with no area, one with a nonsense spacing, and one
     /// entirely outside what the painter may draw on. All three are reachable:
     /// a lane can be dragged to nothing, and a clip is drawn at its whole width
@@ -248,17 +196,17 @@ mod tests {
             egui::LayerId::background(),
             Rect::from_min_size(Pos2::ZERO, vec2(100.0, 100.0)),
         );
-        hatch(&painter, Rect::ZERO, palette::ACCENT, 5.0);
+        hatch(&painter, Rect::ZERO, palette::PLAYHEAD, 5.0);
         hatch(
             &painter,
             Rect::from_min_size(Pos2::ZERO, vec2(20.0, 20.0)),
-            palette::ACCENT,
+            palette::PLAYHEAD,
             0.0,
         );
         hatch(
             &painter,
             Rect::from_min_size(pos2(400.0, 0.0), vec2(50.0, 20.0)),
-            palette::ACCENT,
+            palette::PLAYHEAD,
             5.0,
         );
     }

@@ -70,11 +70,7 @@ pub(super) fn show(
     // still plays. But a preview that is silent for a reason should give the
     // reason, or the reason someone reaches for is "the sound is broken".
     if let Some(why) = silent {
-        ui.label(
-            RichText::new(format!("no sound — {why}"))
-                .small()
-                .color(palette::DIM),
-        );
+        ui.label(RichText::new(format!("no sound — {why}")).small().weak());
     }
     // The scrub bar wins a tie, because a drag is continuous and a click is
     // not: letting a button press during a drag jump the playhead elsewhere
@@ -100,11 +96,11 @@ fn scrubber(ui: &mut Ui, at: Frames, last: Frames) -> Option<Frames> {
     // looking at it.
     painter.line_segment(
         [pos2(track.left(), middle), pos2(track.right(), middle)],
-        Stroke::new(RAIL, palette::ACTIVE),
+        Stroke::new(RAIL, palette::of(ui.ctx()).muted),
     );
     painter.line_segment(
         [pos2(track.left(), middle), knob],
-        Stroke::new(RAIL, palette::ACCENT_DIM),
+        Stroke::new(RAIL, palette::of(ui.ctx()).ring),
     );
     // The knob in the playhead's own colour, because it *is* the playhead —
     // this bar and the line down the timeline are one position with two views,

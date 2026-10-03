@@ -34,6 +34,7 @@ use crate::preview::Preview;
 use crate::project::probing::{self, Probing};
 use crate::project::watch::Watch;
 use crate::project::{Open, Refused, open};
+use crate::theme::choice::Choice;
 use crate::timeline::Timeline;
 use disk::Disk;
 
@@ -72,13 +73,19 @@ pub struct Scorsese {
     /// sentence for every machine, and a reference image of it was a picture of
     /// whoever last ran the test — see [`Scorsese::opening_with`].
     settings: Settings,
+    /// Light or dark, if the person chose — see [`crate::theme::choice`].
+    /// Held for the reason `settings` is: read from this machine once, at
+    /// [`Scorsese::opening`], so a snapshot never draws the developer's own.
+    theme: Choice,
 }
 
 impl Scorsese {
     /// A window, optionally starting on a directory given on the command line,
     /// reading this machine's settings.
     pub fn opening(directory: Option<std::path::PathBuf>) -> Self {
-        Self::opening_with(directory, Settings::load().unwrap_or_default())
+        let mut window = Self::opening_with(directory, Settings::load().unwrap_or_default());
+        window.theme = Choice::load();
+        window
     }
 
     /// The same window, told what machine it is on instead of asking.
@@ -103,6 +110,7 @@ impl Scorsese {
             preview: Preview::default(),
             generating: Generating::default(),
             settings,
+            theme: Choice::SYSTEM,
         };
         if let Some(directory) = directory {
             window.open(&directory);
@@ -187,6 +195,20 @@ impl Scorsese {
             open.revalidate();
             self.files.refresh(open);
         }
+    }
+
+    /// Shows the window in `theme`, whatever the system says — for this
+    /// session only, so a test can draw the light window without writing to
+    /// the machine it runs on. The bar's toggle is the one that remembers.
+    pub fn show_in(&mut self, theme: egui::Theme) {
+        self.theme = Choice::of(theme);
+    }
+
+    /// The bar's toggle: the other theme from the one `showing`, chosen and
+    /// remembered on this machine.
+    pub(crate) fn toggle_theme(&mut self, showing: egui::Theme) {
+        self.theme = Choice::toggled(showing);
+        self.theme.save();
     }
 
     /// Opens the generate dialog.
@@ -286,7 +308,7 @@ impl Scorsese {
     pub fn draw(&mut self, ui: &mut Ui) {
         // Here and not in `main.rs`, so that the offscreen harness draws the
         // same window a person sees. See [`crate::theme`].
-        crate::theme::apply(ui.ctx());
+        crate::theme::apply(ui.ctx(), self.theme);
         self.follow_disk(ui.ctx());
         self.follow_probe();
         // Before the panels, so a key pressed this frame moves the playhead

@@ -13,7 +13,7 @@ use std::collections::BTreeSet;
 use egui::{Painter, Rect};
 use scorsese_core::{AssetId, ClipId, Project, Track};
 
-use crate::theme::{ROUND, marks, palette};
+use crate::theme::{ROUND_SM, marks, palette};
 use crate::timeline::view::View;
 
 pub(in crate::timeline::lanes) use clip::rect as clip_rect;
@@ -52,7 +52,8 @@ pub(in crate::timeline) struct Paint<'a> {
 /// somebody looking to see whether two cuts line up is looking. Drawn over the
 /// blocks it would be a stripe through every label on the timeline.
 pub(in crate::timeline) fn ground(painter: &Painter, lane: Rect) {
-    painter.rect_filled(lane, ROUND, palette::RAISED);
+    let colours = palette::of(painter.ctx());
+    painter.rect_filled(lane, ROUND_SM, colours.muted);
     // A hairline under each lane rather than a gap of a different colour: the
     // lanes are a stack of like things, and a rule is how a stack of like
     // things is divided without implying that any two of them are grouped.
@@ -60,7 +61,7 @@ pub(in crate::timeline) fn ground(painter: &Painter, lane: Rect) {
         painter,
         lane.left_bottom(),
         lane.right_bottom(),
-        palette::RULE,
+        colours.border,
     );
 }
 

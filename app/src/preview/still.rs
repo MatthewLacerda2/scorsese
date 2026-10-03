@@ -14,24 +14,13 @@
 //! decode threads, a buffer, a policy for throwing it away — and it should be
 //! built from a measurement of this, not instead of it.
 
-use egui::{
-    Align2, Color32, FontId, Image, Rect, Sense, Stroke, TextureHandle, TextureOptions, Ui,
-};
+use egui::{Align2, FontId, Image, Rect, Sense, Stroke, TextureHandle, TextureOptions, Ui};
 use scorsese_core::Frames;
 use scorsese_render::preview::{self, Proxies};
 use scorsese_render::{Quality, RenderSettings, Renderer, Tools};
 
 use crate::project::Open;
-use crate::theme::{marks, palette};
-
-/// How long the arm of a corner mark is.
-///
-/// Long enough to read as a right angle and short enough that four of them
-/// never join up into a box. See [`marks::corners`] for why a frame around a
-/// picture is four marks rather than a rectangle.
-const ARM: f32 = 18.0;
-/// How far off the picture the marks stand, where there is room for them to.
-const GAP: f32 = 5.0;
+use crate::theme::{ROUND_MD, palette};
 
 /// The frame on screen, and what stopped there being one.
 #[derive(Default)]
@@ -146,9 +135,7 @@ impl Still {
         let area = ui.available_rect_before_wrap();
         ui.allocate_rect(area, Sense::hover());
         let painter = ui.painter_at(area);
-        // Black behind it, always: the picture keeps its own shape rather than
-        // stretching to the panel, and what surrounds a picture is black.
-        painter.rect_filled(area, 0.0, Color32::BLACK);
+        let colours = palette::of(ui.ctx());
 
         let Some(texture) = &self.texture else {
             painter.text(
@@ -156,29 +143,26 @@ impl Still {
                 Align2::CENTER_CENTER,
                 self.problem.as_deref().unwrap_or("nothing to show here"),
                 FontId::proportional(13.0),
-                palette::FAINT,
+                colours.ring,
             );
             return;
         };
         let size = texture.size_vec2();
         let frame = fitted(area, size.x / size.y);
-        Image::new((texture.id(), size)).paint_at(ui, frame);
-        // Outside the picture where there is room and against its edge where
-        // there is not — which is nearly always, in one direction or the other,
-        // because a picture letterboxed into a panel touches two of its sides
-        // by definition. Clipped to the panel rather than allowed to run past
-        // it: a corner mark with one arm missing is worse than no mark, and a
-        // half-drawn one is exactly what an unclamped `expand` produces on the
-        // axis the picture is already filling.
-        //
-        // The marks are what makes the boundary between the picture and the
-        // matte visible when the frame itself is nearly black, which is most of
-        // the frames in most of the films anybody cuts.
-        marks::corners(
-            &painter,
-            frame.expand(GAP).intersect(area),
-            ARM,
-            Stroke::new(1.0, palette::ACCENT.gamma_multiply(0.55)),
+        // The web's preview: the picture in a rounded box on black, standing on
+        // the panel's own ground. Black in both themes, because what surrounds
+        // a picture is black — see `palette::MATTE`. The hairline is what shows
+        // where the picture ends when the frame itself is nearly black, which
+        // is most of the frames in most of the films anybody cuts.
+        painter.rect_filled(frame, ROUND_MD, palette::MATTE);
+        Image::new((texture.id(), size))
+            .corner_radius(ROUND_MD)
+            .paint_at(ui, frame);
+        painter.rect_stroke(
+            frame,
+            ROUND_MD,
+            Stroke::new(1.0, colours.border),
+            egui::StrokeKind::Outside,
         );
     }
 }

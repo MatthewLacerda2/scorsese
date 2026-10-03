@@ -72,6 +72,9 @@ scorsese-render = { path = "../crates/render" }
 # of the window being a client of the same library logic rather than a second
 # implementation of it.
 scorsese-providers = { path = "../crates/providers" }
+# The light/dark choice is a one-key JSON file beside settings.json
+# (src/theme/choice.rs); already in the tree through core and providers.
+serde_json = "1.0.151"
 
 [dev-dependencies]
 egui_kittest = { version = "0.35.0", features = ["wgpu", "snapshot"] }

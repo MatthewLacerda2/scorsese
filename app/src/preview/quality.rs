@@ -14,8 +14,6 @@
 use egui::{RichText, Ui};
 use scorsese_render::{Quality, Resolution};
 
-use crate::theme::palette;
-
 /// The raster a full-quality preview draws at, which the others are fractions
 /// of. The default delivery, because the document records no aspect — a
 /// render's raster is chosen per render and never stored — so the shape the
@@ -31,7 +29,7 @@ pub(super) fn raster(quality: Quality) -> Resolution {
 pub(super) fn show(ui: &mut Ui, quality: Quality, making: Option<&str>) -> Option<Quality> {
     let mut chosen = None;
     ui.horizontal(|ui| {
-        ui.label(RichText::new("Preview").small().color(palette::DIM));
+        ui.label(RichText::new("Preview").small().weak());
         for step in Quality::ALL {
             if ui
                 .selectable_label(step == quality, step.label())
@@ -42,11 +40,7 @@ pub(super) fn show(ui: &mut Ui, quality: Quality, making: Option<&str>) -> Optio
                 chosen = Some(step);
             }
         }
-        ui.label(
-            RichText::new(mode(quality, making))
-                .small()
-                .color(palette::DIM),
-        );
+        ui.label(RichText::new(mode(quality, making)).small().weak());
     });
     chosen
 }

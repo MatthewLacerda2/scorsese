@@ -53,21 +53,22 @@ fn step_seconds(view: View, fps: Fps) -> u64 {
 
 /// Draws the ruler into `rect`, which is the clip area's width.
 pub(super) fn draw(painter: &Painter, rect: Rect, view: View, fps: Fps) {
-    painter.rect_filled(rect, 0.0, palette::INK);
+    let colours = palette::of(painter.ctx());
+    painter.rect_filled(rect, 0.0, colours.background);
     marks::rule(
         painter,
         rect.left_bottom(),
         rect.right_bottom(),
-        palette::EDGE,
+        colours.border,
     );
 
     let step = step_seconds(view, fps);
     let font = FontId::monospace(9.5);
     for Tick { frame, x, labelled } in ticks(rect, view, fps, step, SUBDIVISIONS) {
         let (from, colour) = if labelled {
-            (9.0, palette::EDGE)
+            (9.0, colours.ring)
         } else {
-            (4.0, palette::FAINT)
+            (4.0, colours.input)
         };
         marks::rule(
             painter,
@@ -81,7 +82,7 @@ pub(super) fn draw(painter: &Painter, rect: Rect, view: View, fps: Fps) {
                 Align2::LEFT_TOP,
                 timecode(frame, fps),
                 font.clone(),
-                palette::DIM,
+                colours.muted_foreground,
             );
         }
     }
@@ -98,10 +99,11 @@ pub(super) fn grid(painter: &Painter, area: Rect, view: View, fps: Fps) {
     for Tick { frame, x, .. } in ticks(area, view, fps, step, 1) {
         // The start of the edit gets a brighter line: it is the one position on
         // this ruler that is not merely a time but an edge of the film.
+        let colours = palette::of(painter.ctx());
         let colour = if frame == Frames::ZERO {
-            palette::EDGE
+            colours.input
         } else {
-            palette::RULE
+            colours.border
         };
         marks::rule(
             painter,

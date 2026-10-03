@@ -47,3 +47,27 @@ Replace `logo.png`, re-run the command above with a crop matching the new
 artwork's bounding box, and check the result at small sizes before committing.
 There is no gate holding `icon.png` to `logo.png`: it is a derived *binary*, so
 nothing here can compare them, and this file is the record instead.
+
+# The window's typeface
+
+`fonts/` holds the two faces the window is set in (#643), compiled into the
+binary by `src/theme/fonts.rs`. **Geist** for everything proportional, because
+it is the web app's face (`@fontsource-variable/geist` in `web/package.json`),
+and **Geist Mono**, its sibling, for the timecodes and frame counts. Both are
+SIL Open Font License 1.1 — `Geist-OFL.txt` is the licence as Vercel ships it,
+and the OFL asks for nothing more than that it travel with the files.
+
+They come from Vercel's `geist` npm package, version 1.7.2, unmodified:
+
+| file | from | sha256 |
+| --- | --- | --- |
+| `Geist-Regular.ttf` | `dist/fonts/geist-sans/` | `5c8968eafb98a4c4f47033daf29e38e284a6f2a82eb017d171ab040fe7c4b615` |
+| `GeistMono-Regular.ttf` | `dist/fonts/geist-mono/` | `42d8ad2e610238e64e8abfcde3037c63f7850a73928742b7ab7229d897bcb155` |
+
+**Static Regular files, not the variable one the web loads**, because egui
+draws a font at its default instance and has no weight axis to set: a variable
+file would ship every weight to draw one. One weight is what egui can use —
+a heading here is set apart by capitals, tracking and colour, as the web's
+`text-xs uppercase tracking-wide` headings are, rather than by weight. egui's
+own fonts stay behind both as the fallback, for the transport's symbols and
+any glyph Geist does not have.

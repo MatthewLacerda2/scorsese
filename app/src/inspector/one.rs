@@ -15,7 +15,7 @@ use super::Inspector;
 use super::controls::{fit_row, frames_row, speed_row};
 use super::selected::Selected;
 use crate::project::Open;
-use crate::theme::{ROUND, marks, palette};
+use crate::theme::{ROUND_SM, marks, palette};
 
 impl Inspector {
     /// Draws the panel for one clip.
@@ -130,19 +130,15 @@ fn identity(ui: &mut Ui, selected: &Selected) {
         if let Some(kind) = selected.kind {
             let (rect, _) = ui.allocate_exact_size(egui::vec2(8.0, 8.0), egui::Sense::hover());
             ui.painter()
-                .rect_filled(rect, ROUND, palette::of_kind(kind));
+                .rect_filled(rect, ROUND_SM, palette::of_kind(kind));
         }
         ui.label(RichText::new(selected.asset.as_str()).strong());
     });
-    ui.label(
-        RichText::new(describe(selected))
-            .small()
-            .color(palette::DIM),
-    );
+    ui.label(RichText::new(describe(selected)).small().weak());
     ui.label(
         RichText::new(format!("on track {}", selected.track))
             .small()
-            .color(palette::FAINT),
+            .color(palette::of(ui.ctx()).ring),
     );
 }
 

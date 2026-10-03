@@ -3207,6 +3207,7 @@ dependencies = [
  "scorsese-core",
  "scorsese-providers",
  "scorsese-render",
+ "serde_json",
 ]
 
 [[package]]
