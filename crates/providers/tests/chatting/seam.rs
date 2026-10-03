@@ -38,7 +38,7 @@ fn on_claude() -> Kept {
     ];
     let native = record
         .iter()
-        .map(|message| freeze(Model::ClaudeOpus55, message).unwrap())
+        .map(|message| freeze(Model::ClaudeOpus55, message).expect("the test setup holds"))
         .collect();
     Kept {
         model: Model::ClaudeOpus55.id().into(),
@@ -49,7 +49,7 @@ fn on_claude() -> Kept {
 
 fn parsed(raw: &[Box<serde_json::value::RawValue>]) -> Vec<Value> {
     raw.iter()
-        .map(|message| serde_json::from_str(message.get()).unwrap())
+        .map(|message| serde_json::from_str(message.get()).expect("the test setup holds"))
         .collect()
 }
 
