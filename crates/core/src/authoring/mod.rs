@@ -27,7 +27,7 @@
 //!
 //! **Deletion names what it destroys.** Removing an asset has to say what
 //! becomes of the clips that show it, and the answer (#396) is that they go
-//! with it only when the caller lists them exactly — see [`mod@remove`].
+//! with it only when the caller lists them exactly — see [`remove_asset`].
 
 mod apply;
 mod block;
