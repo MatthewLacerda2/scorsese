@@ -50,12 +50,28 @@ export interface TurnView {
   finished_at: number | null;
 }
 
+/** `assistant::Choice` — one model the assistant can run on (#705). */
+export interface ModelChoice {
+  /** What the project stores, e.g. `gemini-3.8-flash`. */
+  id: string;
+  label: string;
+  vendor: "anthropic" | "google";
+  /** Why a turn on it would be refused right now, in the server's words; `null` when it can answer. */
+  unavailable: string | null;
+  /** How long after the last answer a switch away from it can still miss a warm cache. */
+  cache_seconds: number;
+}
+
 /** `assistant::Conversation` — the project's newest conversation, oldest turn first. */
 export interface Conversation {
   project: number;
   /** `null` before the first turn. */
   session: number | null;
   turns: TurnView[];
+  /** The id of the model the project's next turn runs on. */
+  model: string;
+  /** Every model the picker offers, in order. */
+  models: ModelChoice[];
 }
 
 /** `assistant::ToolCallView` — one tool call a turn made. */
@@ -92,6 +108,9 @@ export const chatApi = {
   /** `202` with the turn; `402` no credit, `409` one is running, `503` not configured. */
   send: (projectId: number, prompt: string, fresh = false) =>
     request<TurnView>("POST", `/projects/${projectId}/chat`, { prompt, fresh }),
+  /** The project's assistant runs on `model` from its next turn; `400` for one not offered. */
+  chooseModel: (projectId: number, model: string) =>
+    request<ModelChoice>("PUT", `/projects/${projectId}/chat/model`, { model }),
   turn: (turnId: number) => request<TurnDetail>("GET", `/chat/turns/${turnId}`),
   stop: (turnId: number) => request<{ stopping: number }>("POST", `/chat/turns/${turnId}/stop`),
   answerQuote: (turnId: number, confirm: boolean) =>

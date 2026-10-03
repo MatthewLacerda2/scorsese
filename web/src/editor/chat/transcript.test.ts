@@ -130,7 +130,13 @@ describe("conversations", () => {
   test("a re-read keeps what was seen live of each turn", () => {
     const live = apply(started, { type: "chat_progress", turn: 1, text: "note" });
     const reread = fromConversation(
-      { project: 7, session: 1, turns: [turn(1, { state: "answered" })] },
+      {
+        project: 7,
+        session: 1,
+        turns: [turn(1, { state: "answered" })],
+        model: "gemini-3.8-flash",
+        models: [],
+      },
       live,
     );
     expect(first(reread).lines).toHaveLength(1);

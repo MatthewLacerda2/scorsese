@@ -2,7 +2,8 @@
 // current conversation, live while a turn runs, and a box to write the next
 // message. The stored conversation is read once and on every `resync`; what a
 // running turn does in between arrives on the event stream and is folded in by
-// `transcript.ts`, which is where the logic lives and is tested.
+// `transcript.ts`, which is where the logic lives and is tested. Above it, the
+// model the project's assistant runs on (`ModelPicker.tsx`, #705).
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { SendIcon, SquareIcon } from "lucide-react";
@@ -12,6 +13,7 @@ import type { ServerEvent } from "@/api/events";
 import { useServerEvents } from "@/app/events";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { ModelPicker } from "./ModelPicker";
 import { Turn } from "./Turn";
 import {
   apply,
@@ -66,6 +68,16 @@ export function ChatPanel({ projectId }: { projectId: number }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      {conversation.data && (
+        <div className="border-b px-3 py-2">
+          <ModelPicker
+            projectId={projectId}
+            model={conversation.data.model}
+            models={conversation.data.models}
+            turns={transcript.entries.map((entry) => entry.turn)}
+          />
+        </div>
+      )}
       <div ref={scroller} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-3">
         {conversation.isPending && <p className="text-sm text-muted-foreground">Loading…</p>}
         {conversation.isError && (
