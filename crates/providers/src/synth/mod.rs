@@ -40,6 +40,7 @@ use scorsese_core::{
     Asset, AssetId, GenerationState, MediaMetadata, Project, ProjectPath, hash_bytes,
 };
 use scorsese_zimmer::level::{Cut, Layer, Profile};
+use scorsese_zimmer::song::PatchRef;
 use scorsese_zimmer::{Bake, Patch, SAMPLE_RATE, bake_excerpt_unless, bake_note, wav};
 
 /// The vocabulary of an excerpt, re-exported.
@@ -189,7 +190,7 @@ pub fn bake_asset_unless(
     }
 
     let (recipe, file, digest) = read_recipe(asset, project_root)?;
-    let output = address::output(&digest);
+    let output = address::output(&digest, &named_patches(&recipe, project_root));
     let on_disk = output.resolve(project_root);
 
     let baked = if on_disk.is_file() {
@@ -299,24 +300,56 @@ fn sections(recipe: &Recipe) -> Vec<Cut> {
 pub(super) fn instruments(project_root: &Path) -> impl Fn(&str) -> Result<Patch, String> {
     let root = project_root.to_path_buf();
     move |reference: &str| {
-        if let Some(name) = reference.strip_prefix(kit::PREFIX) {
-            return Err(format!(
-                "`{reference}` is a library instrument, and a song carries its own copy \
-                 rather than naming one — write the recipe through synth_write, or run \
-                 `scorsese synth kit --copy-into <recipe>`, and it is copied in{}",
-                kit::lookup(name)
-                    .map(|_| String::new())
-                    .unwrap_or_else(|| format!(" (the kit has {})", kit::names()))
-            ));
-        }
-        let relative = ProjectPath::new(reference);
-        relative
-            .check()
-            .map_err(|problem| format!("path {problem}"))?;
-        let json =
-            std::fs::read_to_string(relative.resolve(&root)).map_err(|error| error.to_string())?;
+        let json = read_patch(&root, reference)?;
         Patch::from_json(&json).map_err(|error| error.to_string())
     }
+}
+
+/// The text of the patch file `reference` names, by the resolver's own rules:
+/// a library instrument is refused, and a path is checked before it is opened.
+///
+/// Shared by [`instruments`] and [`named_patches`], so the file a song's
+/// address hashes is always the file its render reads.
+fn read_patch(root: &Path, reference: &str) -> Result<String, String> {
+    if let Some(name) = reference.strip_prefix(kit::PREFIX) {
+        return Err(format!(
+            "`{reference}` is a library instrument, and a song carries its own copy \
+             rather than naming one — write the recipe through synth_write, or run \
+             `scorsese synth kit --copy-into <recipe>`, and it is copied in{}",
+            kit::lookup(name)
+                .map(|_| String::new())
+                .unwrap_or_else(|| format!(" (the kit has {})", kit::names()))
+        ));
+    }
+    let relative = ProjectPath::new(reference);
+    relative
+        .check()
+        .map_err(|problem| format!("path {problem}"))?;
+    std::fs::read_to_string(relative.resolve(root)).map_err(|error| error.to_string())
+}
+
+/// Every patch a song names by reference, in track order, with the digest of
+/// the file behind it — the other half of a song's address (#672).
+///
+/// Empty for a one-shot and for a song whose patches are all inline, which is
+/// what keeps their addresses where they always were.
+fn named_patches(recipe: &Recipe, project_root: &Path) -> Vec<address::Named> {
+    let Recipe::Song(song) = recipe else {
+        return Vec::new();
+    };
+    song.tracks
+        .iter()
+        .filter_map(|track| match &track.patch {
+            PatchRef::Named(reference) => Some(reference),
+            PatchRef::Inline(_) => None,
+        })
+        .map(|reference| {
+            let digest = read_patch(project_root, reference)
+                .ok()
+                .map(|json| hash_bytes(json.as_bytes()));
+            (reference.clone(), digest)
+        })
+        .collect()
 }
 
 /// Writes the bake, creating `generated/` if this is the project's first one.
