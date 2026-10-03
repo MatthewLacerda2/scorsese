@@ -47,7 +47,9 @@ pub struct AssetRemoval {
 /// An asset no clip shows goes with an empty list. One that is shown goes only
 /// when `clips` is that set of ids, no more and no fewer; otherwise
 /// [`AuthorError::AssetInUse`] says which clips those are, so the next call can
-/// name them once somebody has agreed to lose them.
+/// name them once somebody has agreed to lose them. A still an image sequence
+/// plays is refused whatever is named ([`AuthorError::PlayedBySequence`]): the
+/// sequence is not a clip, and has to let go of it first.
 pub fn remove_asset(
     project: &mut Project,
     asset: &AssetId,
@@ -56,6 +58,23 @@ pub fn remove_asset(
     if !project.assets.iter().any(|entry| &entry.id == asset) {
         return Err(AuthorError::NoSuchAsset {
             asset: asset.clone(),
+        });
+    }
+    let sequences: Vec<AssetId> = project
+        .assets
+        .iter()
+        .filter(|entry| {
+            entry
+                .sequence
+                .as_ref()
+                .is_some_and(|sequence| sequence.stills.contains(asset))
+        })
+        .map(|entry| entry.id.clone())
+        .collect();
+    if !sequences.is_empty() {
+        return Err(AuthorError::PlayedBySequence {
+            asset: asset.clone(),
+            sequences,
         });
     }
     let using: BTreeSet<ClipId> = project

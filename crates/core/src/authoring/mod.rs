@@ -97,6 +97,20 @@ pub enum AuthorError {
         /// What this call named instead.
         named: Vec<ClipId>,
     },
+    /// The asset is a still an image sequence plays. Not a clip, so naming
+    /// clips cannot take it: the sequence has to stop playing it first (or go
+    /// itself), or it would name a still that is not there.
+    #[error(
+        "`{asset}` is a still played by the image sequence {}; change the sequence's \
+         stills, or remove the sequence, first — nothing was removed",
+        sequences.iter().map(|id| format!("`{id}`")).collect::<Vec<_>>().join(", ")
+    )]
+    PlayedBySequence {
+        /// The still that was named.
+        asset: AssetId,
+        /// Every sequence that plays it, in table order.
+        sequences: Vec<AssetId>,
+    },
     /// The clips named are not exactly the clips on the track, for
     /// [`AuthorError::AssetInUse`]'s reason one level up.
     #[error(

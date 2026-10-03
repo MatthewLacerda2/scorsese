@@ -37,7 +37,9 @@ impl Tool for AssetRemove {
          goes with an empty list. All or nothing: a removal that would leave \
          something pointing at nothing — an arrow attached to one of the clips, \
          a generated shot whose first frame is this image — is refused and \
-         removes nothing. The gaps the clips leave stay open. The asset's file \
+         removes nothing. A still an image sequence plays is refused whatever \
+         is named: change the sequence's stills with `sequence`, or remove the \
+         sequence, first. The gaps the clips leave stay open. The asset's file \
          stays on disk; only the table entry goes. To take clips off the \
          timeline and keep the asset, use clip_remove."
     }

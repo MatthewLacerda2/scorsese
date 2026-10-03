@@ -352,6 +352,9 @@ agreed to lose those clips. Nothing destructive happens on one sentence. A
 list rather than a boolean, because confirming means naming what will be lost;
 a flag is how a caller comes to pick the destructive behaviour by not thinking
 about it. An asset nothing shows goes with an empty list.
+A still an image sequence plays is refused whatever is named, because the
+sequence is not a clip: `sequence` takes it out of the stills, or the sequence
+is removed first, and then the still is an ordinary asset again.
 
 `track_remove` is the same question one level up: a lane goes with the clips on
 it, named exactly, and an empty lane with an empty list. The assets those clips
