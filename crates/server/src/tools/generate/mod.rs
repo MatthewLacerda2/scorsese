@@ -31,7 +31,7 @@ use super::{Caller, database, lay_out, project_id, quotes};
 use crate::credits::{dollars, from_cents, ledger, price};
 use crate::db;
 use crate::generations::adopt;
-use crate::projects::{self, ProjectError};
+use crate::projects::{self, ProjectError, ProjectFiles};
 
 /// How a client names it.
 pub(crate) const NAME: &str = "generate";
@@ -96,6 +96,7 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
         &toolbox.storage,
         caller.user,
         &stored.document,
+        &ProjectFiles::default(),
     )
     .await?;
     let (root, document) = (folder.root().to_path_buf(), stored.document.clone());

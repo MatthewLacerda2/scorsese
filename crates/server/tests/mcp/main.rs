@@ -10,6 +10,7 @@ mod drawing;
 mod editing;
 mod importing;
 mod paying;
+mod recipes;
 mod settling;
 mod shooting;
 mod stopping;

@@ -18,6 +18,7 @@ use super::land::{Work, document};
 use crate::credits::generations::Answer;
 use crate::jobs::{Context, Handler, Job, Outcome};
 use crate::library::Kind;
+use crate::projects::ProjectFiles;
 use crate::storage::Storage;
 use crate::tools::lay_out;
 
@@ -69,7 +70,14 @@ async fn still(work: &Work, vendors: &dyn Vendors) -> Outcome {
 /// with the user's files — and refused if it is not the one that was quoted.
 async fn gather(work: &Work) -> Result<Brief, String> {
     let project = document(&work.payload)?;
-    let folder = lay_out(work.context.pool(), &work.storage, work.job.user, &project).await?;
+    let folder = lay_out(
+        work.context.pool(),
+        &work.storage,
+        work.job.user,
+        &project,
+        &ProjectFiles::default(),
+    )
+    .await?;
     let (root, asset) = (
         folder.root().to_path_buf(),
         AssetId::new(work.payload.asset.clone()),

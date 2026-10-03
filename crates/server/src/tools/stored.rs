@@ -1,8 +1,10 @@
 //! Running one of the registry's tools on a stored project.
 //!
-//! Open the row, lay it out ([`lay_out`]), run the tool on the folder exactly
-//! as the stdio server would, read the document back, and — if the tool
-//! changed it — save it naming the revision it was opened at. A save refused
+//! Open the row and its kept files, lay it out ([`lay_out`]), run the tool on
+//! the folder exactly as the stdio server would, read the document and the
+//! kept files back (`projects::files::gather`), and — if the tool changed
+//! either — save both naming the revision it was opened at, after keeping any
+//! bake it made in the library (`bakes`). A save refused
 //! because somebody else wrote in between (the browser, the assistant, a
 //! second client) is not an error to hand back: the tool is a pure function
 //! of the document, so it is run again on what is there now, a few times,
@@ -25,8 +27,8 @@ use scorsese_mcp::{Part, Reply, Tool};
 use serde_json::Value;
 
 use super::surface::Serve;
-use super::{Caller, Refusal, database, lay_out, project_id};
-use crate::projects::{self, ProjectError};
+use super::{Caller, Refusal, bakes, database, lay_out, project_id};
+use crate::projects::{self, ProjectError, files};
 
 /// How many times a call is run again on a project that moved under it.
 const ATTEMPTS: usize = 3;
@@ -48,7 +50,7 @@ pub(super) async fn run(
                 .to_owned()
                 .into());
         }
-        let stored = projects::open(&toolbox.pool, caller.user, id)
+        let (stored, kept) = projects::open_with_files(&toolbox.pool, caller.user, id)
             .await
             .map_err(opened)?;
         if caller.at.is_some_and(|at| at != stored.summary.revision) {
@@ -59,6 +61,7 @@ pub(super) async fn run(
             &toolbox.storage,
             caller.user,
             &stored.document,
+            &kept,
         )
         .await?;
         let root = folder.root().to_path_buf();
@@ -71,28 +74,44 @@ pub(super) async fn run(
         // `&dyn` cannot cross into the blocking pool; the registry hands out
         // a fresh one by name.
         let (name, cancel) = (tool.name(), caller.cancel.clone());
-        let (outcome, after) = tokio::task::spawn_blocking(move || {
+        let (opened_with, laid) = (stored.document.clone(), kept.clone());
+        let (outcome, after, gathered) = tokio::task::spawn_blocking(move || {
             let tool = super::registered(name).ok_or("the tool went missing")?;
             let outcome = tool.call_cancellable(&local, &cancel);
-            let after = std::fs::read_to_string(root.join(PROJECT_FILE_NAME)).ok();
-            Ok::<_, String>((outcome, after))
+            let after = std::fs::read_to_string(root.join(PROJECT_FILE_NAME))
+                .ok()
+                .and_then(|after| Project::from_json(&after).ok().map(|read| (after, read)));
+            let reading = after.as_ref().map_or(&opened_with, |(_, read)| read);
+            let gathered = files::gather(&root, reading, &laid);
+            Ok::<_, String>((outcome, after, gathered))
         })
         .await
         .map_err(|_| "the tool crashed on the server; that is a bug".to_owned())??;
 
         let outcome = hide(outcome, folder.root()).map_err(Refusal::Said);
-        let Some(after) = after.filter(|after| *after != before) else {
+        let gathered = gathered.map_err(|why| format!("{why} — nothing was saved"))?;
+        let document = after
+            .filter(|(after, _)| *after != before)
+            .map(|(_, read)| read);
+        if document.is_none() && gathered == kept {
             return outcome;
-        };
-        let Ok(document) = Project::from_json(&after) else {
-            return outcome;
-        };
-        match projects::save(
+        }
+        let document = document.unwrap_or_else(|| stored.document.clone());
+        bakes::keep(
+            &toolbox.library,
+            caller.user,
+            &stored.document,
+            &document,
+            folder.root(),
+        )
+        .await?;
+        match projects::save_with_files(
             &toolbox.pool,
             caller.user,
             id,
             stored.summary.revision,
             &document,
+            &gathered,
         )
         .await
         {
@@ -136,7 +155,8 @@ fn held(serve: Serve, arguments: &Value) -> Result<(), String> {
             match fields.iter().find(|field| arguments.get(**field).is_some()) {
                 Some(field) => Err(format!(
                     "{field} is not taken on the hosted server: nothing is kept on its disk for \
-                 you. The picture is in the reply; render is how a file is made to download."
+                 you. What the tool found is in its reply; render is how a file is made to \
+                 download."
                 )),
                 None => Ok(()),
             }

@@ -9,9 +9,10 @@
 //! library. The two meet by laying the row out as a directory for the length
 //! of one call (`folder`): the document written, every file it names linked
 //! by hash from the user's own library, the registry's tool run on it
-//! unchanged, and the document read back and saved through
-//! [`projects::save`](crate::projects::save) with its revision check
-//! (`stored`). So every edit the web makes is the edit the CLI and the stdio
+//! unchanged, and the document — with the recipes and script it keeps beside
+//! it (#560) — read back and saved through
+//! [`projects::save_with_files`](crate::projects::save_with_files) with its
+//! revision check (`stored`). So every edit the web makes is the edit the CLI and the stdio
 //! server make, by the same code, and nothing here knows what a clip is.
 //!
 //! What changes is the argument: on the web `project` is **the id** of one of
@@ -54,6 +55,7 @@
 //! MCP, or the built-in assistant. The same table, so "what did anything do to
 //! my project?" has one answer.
 
+mod bakes;
 mod folder;
 mod generate;
 mod log;

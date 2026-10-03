@@ -4,6 +4,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod described;
 mod files;
 mod tools;
 

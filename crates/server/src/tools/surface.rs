@@ -32,13 +32,9 @@ pub(super) enum Serve {
     Withheld(&'static str),
 }
 
-/// Why the script tools are not served.
-const SCRIPTS: &str = "a stored project is only its document; its script has nowhere to live \
-                       on the server yet (#560)";
-
-/// Why the synthesis tools are not served.
-const RECIPES: &str = "a stored project has no recipes/ yet, so there is nothing to write a \
-                       recipe into or bake one from (#560)";
+/// Why MIDI in and out is not served.
+const MIDI: &str = "a .mid file is neither media the library holds nor text a project keeps, \
+                    so there is nothing to import from or to hand an export back as (#678)";
 
 /// Why designing a voice is not served.
 const DESIGN: &str = "its samples and its record of designed voices are files beside \
@@ -53,14 +49,13 @@ pub(super) fn serve(name: &str) -> Option<Serve> {
         | "shape_new" | "icon_new" | "asset_set" | "place_clip" | "trim_clip" | "clip_set"
         | "clip_follow" | "clip_move" | "clip_remove" | "clip_group" | "clip_ungroup"
         | "dissolve" | "duck_music" | "set_volume" | "scale_pacing" | "rebrief" | "icons"
-        | "voices" => Serve::Stored,
+        | "voices" | "script_read" | "script_write" | "synth_new" | "synth_read"
+        | "synth_write" | "synth_set" | "synth_check" | "synth_survey" => Serve::Stored,
         "look" | "hear" => Serve::Confined(&["file"]),
         "audio_level" => Serve::Confined(&["file", "against"]),
-        "still" => Serve::Without(&["out"]),
+        "still" | "synth_bake" => Serve::Without(&["out"]),
         "project_new" | "import" | "render" | "generate" => Serve::Replaced,
-        "script_read" | "script_write" => Serve::Withheld(SCRIPTS),
-        "synth_new" | "synth_import" | "synth_export" | "synth_read" | "synth_write"
-        | "synth_set" | "synth_check" | "synth_bake" | "synth_survey" => Serve::Withheld(RECIPES),
+        "synth_import" | "synth_export" => Serve::Withheld(MIDI),
         "voice_design" => Serve::Withheld(DESIGN),
         _ => return None,
     })
@@ -196,7 +191,11 @@ mod tests {
 
     #[test]
     fn a_withheld_or_replaced_tool_cannot_be_called_as_the_registry_has_it() {
-        assert!(find("synth_new").is_none());
+        assert!(find("synth_export").is_none());
+        assert!(matches!(
+            find("synth_new"),
+            Some(Entry::Shared(_, Serve::Stored))
+        ));
         assert!(matches!(find("import"), Some(Entry::Own(_))));
         assert!(matches!(
             find("still"),

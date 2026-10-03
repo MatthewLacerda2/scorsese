@@ -8,7 +8,7 @@
 
 use std::collections::BTreeSet;
 
-use scorsese_core::template::{self, Inserted};
+use scorsese_core::template::{self, Description, Inserted};
 use scorsese_core::{ClipId, Frames};
 use scorsese_mcp::Reply;
 use serde_json::{Value, json};
@@ -24,8 +24,8 @@ pub(super) const LIST: &str = "template_list";
 /// What the list does.
 pub(super) const LIST_SAYS: &str = "List your templates — pieces of an edit you saved to reuse: \
 an intro, an outro, a running gag, the shape of a video you make every day. Each line is the \
-id template_insert takes, the name, how long it runs, how many clips on how many tracks, and \
-the assets it shows. When the user asks for \"my usual intro\" or \"today's video from my \
+id template_insert takes, the name, how long it runs, how many clips on how many tracks, the \
+assets it shows, and — on the line after, when it was saved with one — what it is for. When the user asks for \"my usual intro\" or \"today's video from my \
 template\", this is where to find it.";
 
 /// How a client names the saver.
@@ -38,7 +38,8 @@ they are — keyframes, speed, fit, everything — with their tracks and the ass
 starts where its earliest clip starts. Files are not copied: the template names your library \
 files, so a generated intro is paid for once and reused for free. Inserting it later copies \
 the clips, so changing or replacing a template never changes a video it was already used in. \
-An arrow must be saved with the clip it follows.";
+An arrow must be saved with the clip it follows. Say what the template is for in \
+description, so it can be told from the others later.";
 
 /// How a client names the inserter.
 pub(super) const INSERT: &str = "template_insert";
@@ -69,6 +70,14 @@ pub(super) fn save_schema() -> Value {
                 "type": "string",
                 "description": "What to call the template — how you and the user will ask \
                                 for it. Unique among your templates, ignoring case."
+            },
+            "description": {
+                "type": "string",
+                "description": "What the template is for, in a sentence or two — \"the intro \
+                                every daily video opens with\". template_list shows it, so \
+                                you and the user can pick the right one later. At most \
+                                2000 characters. Optional; when replacing, leaving it out \
+                                keeps the old one."
             },
             "replace": {
                 "type": "boolean",
@@ -101,9 +110,9 @@ pub(super) fn insert_schema() -> Value {
     })
 }
 
-/// A template as a line.
+/// A template as a line, and what it is for on the next when it says.
 fn line(template: &Summary) -> String {
-    format!(
+    let mut line = format!(
         "{} — {} ({:.1}s, {} clips on {} tracks: {})",
         template.id,
         template.name,
@@ -111,7 +120,11 @@ fn line(template: &Summary) -> String {
         template.clips,
         template.tracks,
         template.assets.join(", ")
-    )
+    );
+    if let Some(description) = &template.description {
+        line.push_str(&format!("\n    for: {description}"));
+    }
+    line
 }
 
 /// The caller's templates.
@@ -152,6 +165,13 @@ pub(super) async fn save(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
         .map(str::trim)
         .filter(|name| !name.is_empty())
         .ok_or("`name` is required: what to call the template")?;
+    let description = arguments
+        .get("description")
+        .and_then(Value::as_str)
+        .map(Description::new)
+        .transpose()
+        .map_err(|error| format!("{error} — nothing was saved"))?
+        .flatten();
     let replace = arguments
         .get("replace")
         .and_then(Value::as_bool)
@@ -162,7 +182,7 @@ pub(super) async fn save(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
         .map_err(opened)?;
     let fragment = template::extract(&stored.document, &clips, name)
         .map_err(|error| format!("{error} — nothing was saved"))?;
-    let saved = templates::save(pool, caller.user, &fragment, replace)
+    let saved = templates::save(pool, caller.user, &fragment, description.as_ref(), replace)
         .await
         .map_err(said)?;
     Ok(format!(

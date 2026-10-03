@@ -12,6 +12,7 @@ use super::{Timing, Vendors};
 use crate::credits::generations::{self, Answer, Generation, Paid};
 use crate::jobs::{Context, Handler, Job, Outcome};
 use crate::library::Kind;
+use crate::projects::ProjectFiles;
 use crate::storage::Storage;
 use crate::tools::lay_out;
 
@@ -77,7 +78,14 @@ async fn shot(work: &Work, vendors: &dyn Vendors, timing: Timing) -> Outcome {
 async fn gather(work: &Work) -> Result<Brief, String> {
     let project = document(&work.payload)?;
     let context = &work.context;
-    let folder = lay_out(context.pool(), &work.storage, work.job.user, &project).await?;
+    let folder = lay_out(
+        context.pool(),
+        &work.storage,
+        work.job.user,
+        &project,
+        &ProjectFiles::default(),
+    )
+    .await?;
     let (root, asset) = (
         folder.root().to_path_buf(),
         AssetId::new(work.payload.asset.clone()),

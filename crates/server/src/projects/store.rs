@@ -4,7 +4,7 @@
 use scorsese_core::Project;
 use sqlx::postgres::PgPool;
 
-use super::{ProjectError, Stored, Summary, media};
+use super::{ProjectError, ProjectFiles, Stored, Summary, files, media};
 use crate::db::{self, Tx, UserId};
 
 /// The columns a [`Summary`] is read from, in its order. A macro so that the
@@ -70,6 +70,20 @@ pub async fn open(pool: &PgPool, user: UserId, id: i64) -> Result<Stored, Projec
     Ok(stored)
 }
 
+/// [`open`], and the project's kept files ([`files`]) — what laying it out as
+/// a folder for a tool needs.
+pub async fn open_with_files(
+    pool: &PgPool,
+    user: UserId,
+    id: i64,
+) -> Result<(Stored, ProjectFiles), ProjectError> {
+    let mut tx = db::scoped(pool, user).await?;
+    let stored = read(&mut tx, id, false).await?;
+    let kept = files::read(&mut tx, id).await?;
+    tx.commit().await?;
+    Ok((stored, kept))
+}
+
 /// Replace project `id`'s document with `project`, provided `revision` is
 /// still the current one. The new revision on success.
 ///
@@ -81,6 +95,31 @@ pub async fn save(
     id: i64,
     revision: i64,
     project: &Project,
+) -> Result<i64, ProjectError> {
+    commit(pool, user, id, revision, project, None).await
+}
+
+/// [`save`], and make the project's kept files exactly `kept` in the same
+/// transaction — one revision for both, so a recipe edit is refused on a
+/// project that moved exactly as a timeline edit is.
+pub async fn save_with_files(
+    pool: &PgPool,
+    user: UserId,
+    id: i64,
+    revision: i64,
+    project: &Project,
+    kept: &ProjectFiles,
+) -> Result<i64, ProjectError> {
+    commit(pool, user, id, revision, project, Some(kept)).await
+}
+
+async fn commit(
+    pool: &PgPool,
+    user: UserId,
+    id: i64,
+    revision: i64,
+    project: &Project,
+    kept: Option<&ProjectFiles>,
 ) -> Result<i64, ProjectError> {
     let mut tx = db::scoped(pool, user).await?;
     let Some(written) = write(&mut tx, id, revision, project).await? else {
@@ -95,6 +134,9 @@ pub async fn save(
             }),
         );
     };
+    if let Some(kept) = kept {
+        files::write(&mut tx, id, kept).await?;
+    }
     tx.commit().await?;
     Ok(written)
 }

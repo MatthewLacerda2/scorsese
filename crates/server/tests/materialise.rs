@@ -8,7 +8,14 @@ use scorsese_core::{
     Asset, AssetHealth, AssetId, AssetKind, Fps, HashCheck, Project, ProjectPath, asset_status,
     hash_bytes,
 };
+use scorsese_server::projects::ProjectFiles;
 use scorsese_server::projects::media::{self, MaterialiseError, materialise};
+
+/// No kept files: these tests are about media (`tests/project_files.rs` has
+/// the recipes and the script).
+fn none() -> ProjectFiles {
+    ProjectFiles::default()
+}
 
 /// A fresh directory for one test, standing in for a user's storage.
 fn scratch(label: &str) -> PathBuf {
@@ -60,7 +67,7 @@ fn every_file_is_linked_by_hash_and_the_folder_goes_when_dropped() {
     let locate = |hash: &str| Some(library.join(hash)).filter(|path| path.exists());
     let at = scratch("folder").join("render.scor");
 
-    let folder = materialise(&project, &at, &locate).unwrap();
+    let folder = materialise(&project, &none(), &at, &locate).unwrap();
     let laid_out = Project::load(folder.root()).expect("the folder is a project");
     assert_eq!(laid_out.assets, project.assets);
     let health: Vec<AssetHealth> = asset_status(&laid_out, folder.root(), HashCheck::Verify)
@@ -95,7 +102,7 @@ fn a_path_outside_the_project_is_refused_and_leaves_nothing() {
     for bad in ["../outside.mp4", "/etc/passwd", "assets/../../x"] {
         let mut project = Project::new("p", Fps::default());
         project.assets = vec![asset("bad", ProjectPath::new(bad), &hash)];
-        let outcome = materialise(&project, &at, &|_: &str| Some(library.join(&hash)));
+        let outcome = materialise(&project, &none(), &at, &|_: &str| Some(library.join(&hash)));
         assert!(
             matches!(outcome, Err(MaterialiseError::BadPath { .. })),
             "{bad}: {outcome:?}"
@@ -114,11 +121,11 @@ fn the_document_cannot_be_written_through_a_link() {
     project.assets = vec![asset("sly", ProjectPath::new("project.json"), &hash)];
     let at = scratch("clobber").join("render.scor");
 
-    let folder = materialise(&project, &at, &|_: &str| Some(library.join(&hash))).unwrap();
+    let folder = materialise(&project, &none(), &at, &|_: &str| Some(library.join(&hash))).unwrap();
     assert!(!folder.root().join("project.json").is_symlink());
     assert_eq!(std::fs::read(library.join(&hash)).unwrap(), b"precious");
 
-    let again = materialise(&project, &at, &|_: &str| None);
+    let again = materialise(&project, &none(), &at, &|_: &str| None);
     assert!(
         matches!(again, Err(MaterialiseError::Exists(_))),
         "{again:?}"

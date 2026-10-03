@@ -31,12 +31,23 @@
 //! person asks for one is by name — "use my intro". Saving under a name that is
 //! taken is refused unless the caller says to replace it; replacing is how a
 //! template is updated, and it cannot reach a video the old one went into.
+//!
+//! ## What a template is for
+//!
+//! A template carries a **description** (#560) — prose saying what it is for,
+//! so "my usual intro" can be told from the outro before anything is inserted.
+//! It is a column beside the document, not a field in it: the document is a
+//! `project.json` document, and `scorsese_core::template::Description` has why
+//! a field there would be a format change for something no project has.
+//! Replacing a template without saying a new one keeps the old description —
+//! an update to the clips is not a reason to forget what they are for.
 
 mod store;
 
 pub use store::{delete, list, migrate_stored, open, save};
 
 use scorsese_core::migrate::MigrateError;
+use scorsese_core::template::Description;
 use scorsese_core::{LoadError, Project};
 use serde::Serialize;
 
@@ -56,12 +67,15 @@ pub struct Summary {
     /// The assets its clips show, by id — what a person or an assistant reads
     /// to tell one template from another.
     pub assets: Vec<String>,
+    /// What it is for, in the words it was saved with — `None` when nobody
+    /// said. Kept beside the document, not in it (`template::Description`).
+    pub description: Option<Description>,
     /// When it was last saved, in seconds since the Unix epoch.
     pub updated_at: i64,
 }
 
 impl Summary {
-    fn of(id: i64, updated_at: i64, template: &Project) -> Self {
+    fn of(id: i64, updated_at: i64, template: &Project, description: Option<Description>) -> Self {
         let end = template
             .clips()
             .map(|(_, clip)| clip.end())
@@ -74,6 +88,7 @@ impl Summary {
             clips: template.clips().count(),
             tracks: template.tracks.len(),
             assets: template.assets.iter().map(|a| a.id.to_string()).collect(),
+            description,
             updated_at,
         }
     }

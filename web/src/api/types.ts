@@ -182,6 +182,8 @@ export interface TemplateSummary {
   tracks: number;
   /** The assets its clips show, by id. */
   assets: string[];
+  /** What it is for, as it was saved — `null` when nobody said (#560). */
+  description: string | null;
   updated_at: number;
 }
 
