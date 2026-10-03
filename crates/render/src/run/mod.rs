@@ -11,6 +11,8 @@
 
 #[cfg(test)]
 mod cancelled;
+#[cfg(test)]
+mod progressed;
 mod segment;
 mod still;
 
@@ -26,6 +28,7 @@ use crate::held::Loops;
 use crate::pipe::{Encoder, encode_mix};
 use crate::plan::{FrameRange, Plan};
 use crate::preview::Preview;
+use crate::progress::{Phase, Progress};
 use crate::raster::Sizes;
 use crate::report::{Note, RenderReport};
 use crate::settings::RenderSettings;
@@ -41,6 +44,7 @@ pub struct Renderer<'a> {
     workers: Workers,
     preview: Option<Preview>,
     cancel: Cancel,
+    progress: Progress,
 }
 
 impl<'a> Renderer<'a> {
@@ -56,6 +60,7 @@ impl<'a> Renderer<'a> {
             workers: Workers::default(),
             preview: None,
             cancel: Cancel::new(),
+            progress: Progress::new(),
         }
     }
 
@@ -95,6 +100,17 @@ impl<'a> Renderer<'a> {
         Self { cancel, ..self }
     }
 
+    /// Publishes how far each render has got to `progress`, for whoever holds
+    /// a clone of it to read from another thread ([`Progress`] has what the
+    /// percentage means).
+    ///
+    /// A render starts it over at [`Phase::Preparing`], counts frames into it
+    /// as they are encoded, and leaves it at [`Phase::Done`] once the report is
+    /// in hand. A render that fails or is cancelled leaves it where it stopped.
+    pub fn with_progress(self, progress: Progress) -> Self {
+        Self { progress, ..self }
+    }
+
     /// Renders `range` of `project` to `out`.
     ///
     /// Expects a project that already validated — [`Project::load`] does that,
@@ -110,6 +126,7 @@ impl<'a> Renderer<'a> {
         range: FrameRange,
         out: &Path,
     ) -> Result<RenderReport, RenderError> {
+        self.progress.start();
         let picture = self.settings.format.has_picture();
         // First, before anything is probed or mixed: an encoder this ffmpeg
         // was built without is a refusal that costs nothing now and an encode
@@ -137,6 +154,7 @@ impl<'a> Renderer<'a> {
             .iter()
             .map(|segment| plan.out_frames_of(segment))
             .sum();
+        self.progress.planned(of);
         // Between stages too, not only between frames: on a long timeline the
         // mix and its rehearsal are minutes of their own before a frame is
         // drawn, and a stop asked for then should not wait them out.
@@ -169,6 +187,7 @@ impl<'a> Renderer<'a> {
         if self.cancel.is_cancelled() {
             return stopped();
         }
+        self.progress.enter(Phase::Mixing);
         // Sound before picture, because the encoder needs the finished mix as
         // an input file. It is also the cheaper half: a mix that fails on a
         // missing music file should fail before we spend minutes encoding.
@@ -194,6 +213,11 @@ impl<'a> Renderer<'a> {
         if self.cancel.is_cancelled() {
             return stopped();
         }
+        self.progress.enter(if picture {
+            Phase::Drawing
+        } else {
+            Phase::Finishing
+        });
         let written = match (&sizes, mix) {
             (Some((sizes, loops)), _) => {
                 let (written, picture_notes) =
@@ -221,7 +245,7 @@ impl<'a> Renderer<'a> {
         } else {
             None
         };
-        Ok(RenderReport {
+        let report = RenderReport {
             frames: written,
             fps: self.settings.fps,
             resolution: picture.then_some(self.settings.resolution),
@@ -234,7 +258,9 @@ impl<'a> Renderer<'a> {
             trim,
             notes,
             description: crate::describe::Description::of(&plan),
-        })
+        };
+        self.progress.enter(Phase::Done);
+        Ok(report)
     }
 
     /// Composites every frame of `plan` and encodes it to `out`, with the
@@ -281,6 +307,7 @@ impl<'a> Renderer<'a> {
                         }
                         encoder.write(frame)?;
                         written += 1;
+                        self.progress.drew(written);
                         Ok(())
                     },
                 )?);
@@ -291,6 +318,7 @@ impl<'a> Renderer<'a> {
             encoder.abandon();
             return Err(stopped);
         }
+        self.progress.enter(Phase::Finishing);
         encoder.finish()?;
         Ok((written, notes))
     }
