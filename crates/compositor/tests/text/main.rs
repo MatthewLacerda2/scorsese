@@ -4,6 +4,7 @@ mod bands;
 mod block;
 mod cards;
 mod coverage;
+mod cubic;
 mod drawing;
 mod emoji;
 mod faces;
