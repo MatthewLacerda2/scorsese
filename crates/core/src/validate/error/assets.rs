@@ -4,7 +4,8 @@
 use crate::asset::{AssetId, AssetKind};
 use crate::path::{PathProblem, ProjectPath};
 use crate::validate::error::{
-    FillProblem, IconProblem, ImageProblem, ShapeProblem, SpeechProblem, TextProblem, VideoProblem,
+    FillProblem, IconProblem, ImageProblem, SequenceProblem, ShapeProblem, SpeechProblem,
+    TextProblem, VideoProblem,
 };
 use crate::validate::field::AssetField;
 
@@ -138,6 +139,11 @@ pub enum AssetProblem {
     /// [`VideoProblem`]'s reason; see [`ImageProblem`].
     #[error(transparent)]
     Image(#[from] ImageProblem),
+
+    /// Something wrong with the stills an image sequence plays. Split for
+    /// [`VideoProblem`]'s reason; see [`SequenceProblem`].
+    #[error(transparent)]
+    Sequence(#[from] SequenceProblem),
 
     /// Something wrong with the outline a `shape` asset describes.
     ///

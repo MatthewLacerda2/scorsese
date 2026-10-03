@@ -28,6 +28,7 @@ pub(super) fn check(project: &Project) -> Vec<AssetProblem> {
         super::icon::check(asset, &mut errors);
         super::video::check(project, asset, &mut errors);
         super::image::check(project, asset, &mut errors);
+        super::sequence::check(project, asset, &mut errors);
         super::speech::check(asset, &mut errors);
     }
     errors
@@ -151,6 +152,12 @@ fn check_inline(asset: &Asset, errors: &mut Vec<AssetProblem>) {
         (AssetKind::Group, None) => errors.push(missing(asset, AssetField::Group)),
         (AssetKind::Group, Some(_)) => {}
         (_, Some(_)) => errors.push(stray(asset, AssetField::Group)),
+        (_, None) => {}
+    }
+    match (kind, &asset.sequence) {
+        (AssetKind::ImageSequence, None) => errors.push(missing(asset, AssetField::Sequence)),
+        (AssetKind::ImageSequence, Some(_)) => {}
+        (_, Some(_)) => errors.push(stray(asset, AssetField::Sequence)),
         (_, None) => {}
     }
 }

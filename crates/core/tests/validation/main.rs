@@ -21,6 +21,7 @@ mod matte;
 mod motion;
 mod paths;
 mod references;
+mod sequence;
 mod shape;
 mod source;
 mod speech;

@@ -156,7 +156,7 @@ pub fn extract(
 }
 
 /// The assets `shown` names, and everything those name in turn: the stills a
-/// brief names, and what a group's members show — through every group nested
+/// brief names or a sequence plays, and what a group's members show — through every group nested
 /// in it, since nesting is by reference to the one assets table.
 fn needed(project: &Project, shown: impl Iterator<Item = AssetId>) -> BTreeSet<AssetId> {
     let mut needed = BTreeSet::new();
@@ -173,6 +173,9 @@ fn needed(project: &Project, shown: impl Iterator<Item = AssetId>) -> BTreeSet<A
         }
         if let Some(brief) = &asset.image {
             pending.extend(brief.reference_images.iter().cloned());
+        }
+        if let Some(sequence) = &asset.sequence {
+            pending.extend(sequence.stills.iter().cloned());
         }
         if let Some(group) = &asset.group {
             pending.extend(group.clips().map(|(_, clip)| clip.asset.clone()));

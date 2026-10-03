@@ -103,7 +103,7 @@ pub mod write;
 
 pub use asset::{
     Aspect, Asset, AssetId, AssetKind, ClipSeconds, GenerationState, ImageAspect, ImageModel,
-    ImageRequest, ImageResolution, LanguageIgnored, LengthLock, MAX_CHARACTERS,
+    ImageRequest, ImageResolution, ImageSequence, LanguageIgnored, LengthLock, MAX_CHARACTERS,
     MAX_IMAGE_REFERENCES, MAX_REFERENCE_IMAGES, MediaMetadata, SpeechModel, SpeechRequest,
     VideoModel, VideoRequest, VideoResolution,
 };
@@ -161,7 +161,7 @@ pub use timeline::{
 };
 pub use validate::{
     AssetField, AssetProblem, FillProblem, FollowProblem, GroupProblem, IconProblem, ImageProblem,
-    MatteProblem, ShapeProblem, SpeechProblem, TextProblem, TimelineProblem, ValidationError,
-    ValidationErrors, VideoProblem,
+    MatteProblem, SequenceProblem, ShapeProblem, SpeechProblem, TextProblem, TimelineProblem,
+    ValidationError, ValidationErrors, VideoProblem,
 };
 pub use vhs::Vhs;
