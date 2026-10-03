@@ -1,9 +1,11 @@
 //! Starting a turn: check it may run, write it down, and set it going.
 
+use scorsese_providers::chat::{self, Message};
+
 use super::store::TurnView;
-use super::store::turns::{self, Last};
+use super::store::turns::{self, Beginning, Last};
 use super::turn::{self, Running};
-use super::{AssistantError, prompt};
+use super::{AssistantError, EFFORT, model, prompt};
 use crate::credits::{dollars, ledger};
 use crate::db::{self, UserId};
 use crate::events::Event;
@@ -37,7 +39,6 @@ pub async fn start(
             "say what you would like done".into(),
         ));
     }
-    let claude = state.assistant.claude()?;
     let stored = projects::open(&state.pool, user, project)
         .await
         .map_err(|error| match error {
@@ -46,6 +47,8 @@ pub async fn start(
         })?;
 
     let mut tx = db::scoped(&state.pool, user).await?;
+    let model = model::of(&mut tx, project).await?;
+    let client = state.assistant.chat(model)?;
     let balance = ledger::balance(&mut tx).await?;
     if balance <= 0 {
         return Err(AssistantError::NoCredit(dollars(balance)));
@@ -62,11 +65,24 @@ pub async fn start(
         notes.extend(settle_quote(state, user, &mut tx, &last).await?);
     }
     notes.append(&mut opening.notes);
-    let history = turns::history(&mut tx, session).await?;
-    let first = prompt::opening(&history, &prompt, &notes)
-        .map_err(|error| AssistantError::Internal(error.to_string()))?;
-    let settings = &state.assistant.settings;
-    let view = turns::begin(&mut tx, session, &prompt, settings, &first).await?;
+    let kept = turns::history(&mut tx, session).await?;
+    let written = |error: serde_json::Error| AssistantError::Internal(error.to_string());
+    let history = chat::replay(model, &kept).map_err(written)?;
+    let said: Vec<Message> = kept.iter().flat_map(|turn| turn.record.clone()).collect();
+    let record = prompt::opening(&said, &prompt, &notes);
+    let first = record
+        .iter()
+        .map(|message| chat::freeze(model, message))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(written)?;
+    let beginning = Beginning {
+        prompt: &prompt,
+        model,
+        effort: EFFORT,
+        native: &first,
+        record: &record,
+    };
+    let view = turns::begin(&mut tx, session, &beginning).await?;
     tx.commit().await?;
 
     state.events.send(
@@ -81,9 +97,11 @@ pub async fn start(
         turn: view.id,
         project,
         prompt,
-        claude,
+        model,
+        chat: client,
         history,
         messages: first,
+        record,
         balance,
     };
     tokio::spawn(turn::run(state.clone(), running));

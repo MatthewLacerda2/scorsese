@@ -1,7 +1,9 @@
 //! Writing a turn: its conversation, its messages as they are added, what
 //! each call cost, a quote it holds, and how it ended.
 
-use scorsese_providers::claude::{Response, Settings};
+use std::collections::HashMap;
+
+use scorsese_providers::chat::{Effort, Kept, Message, Model, Reply, anthropic};
 use serde_json::value::RawValue;
 use sqlx::postgres::PgPool;
 
@@ -86,46 +88,77 @@ pub(in crate::assistant) async fn answer_quote(
     Ok(())
 }
 
-/// Every message `session`'s turns have added, in order: the conversation a
-/// new turn continues, exactly as it was sent.
+/// Every earlier turn of `session`, in order, as it was kept: the
+/// conversation a new turn continues.
+///
+/// A turn from before #705 has no record — its messages are Anthropic's
+/// alone — and is read back into one here; `names` carries each call's tool
+/// from one such turn to the next, since a result names only its call.
 pub(in crate::assistant) async fn history(
     tx: &mut Tx,
     session: i64,
-) -> Result<Vec<Box<RawValue>>, AssistantError> {
-    let turns: Vec<String> =
-        sqlx::query_scalar("SELECT messages FROM chat_turns WHERE session_id = $1 ORDER BY id")
-            .bind(session)
-            .fetch_all(&mut **tx)
-            .await?;
-    let mut messages = Vec::new();
-    for turn in turns {
-        let added: Vec<Box<RawValue>> = serde_json::from_str(&turn).map_err(|error| {
-            eprintln!("scorsese-server: a stored conversation is unreadable: {error}");
-            AssistantError::Invalid("this conversation's record is damaged; start a new one".into())
-        })?;
-        messages.extend(added);
+) -> Result<Vec<Kept>, AssistantError> {
+    let rows: Vec<(String, String, Option<String>)> = sqlx::query_as(
+        "SELECT model, messages, record FROM chat_turns WHERE session_id = $1 ORDER BY id",
+    )
+    .bind(session)
+    .fetch_all(&mut **tx)
+    .await?;
+    let mut names = HashMap::new();
+    let mut turns = Vec::new();
+    for (model, messages, record) in rows {
+        let native: Vec<Box<RawValue>> = serde_json::from_str(&messages).map_err(damaged)?;
+        let record = match record {
+            Some(record) => serde_json::from_str(&record).map_err(damaged)?,
+            None => anthropic::read(&native, &mut names),
+        };
+        turns.push(Kept {
+            model,
+            native,
+            record,
+        });
     }
-    Ok(messages)
+    Ok(turns)
 }
 
-/// Begin a turn in `session`, its first messages `opening`. Refused as busy
-/// while another turn of the session runs.
+/// A stored conversation that does not parse: logged, and the user told to
+/// start afresh rather than shown a parser's words.
+fn damaged(error: serde_json::Error) -> AssistantError {
+    eprintln!("scorsese-server: a stored conversation is unreadable: {error}");
+    AssistantError::Invalid("this conversation's record is damaged; start a new one".into())
+}
+
+/// How a turn begins: its model, and its first messages in both forms.
+pub(in crate::assistant) struct Beginning<'a> {
+    /// What the user wrote.
+    pub(in crate::assistant) prompt: &'a str,
+    /// The model it runs on.
+    pub(in crate::assistant) model: Model,
+    /// How hard it thinks.
+    pub(in crate::assistant) effort: Effort,
+    /// Its first messages, as the model is sent them.
+    pub(in crate::assistant) native: &'a [Box<RawValue>],
+    /// The same, neutral.
+    pub(in crate::assistant) record: &'a [Message],
+}
+
+/// Begin a turn in `session`. Refused as busy while another turn of the
+/// session runs.
 pub(in crate::assistant) async fn begin(
     tx: &mut Tx,
     session: i64,
-    prompt: &str,
-    settings: &Settings,
-    opening: &[Box<RawValue>],
+    turn: &Beginning<'_>,
 ) -> Result<TurnView, AssistantError> {
     let inserted = sqlx::query_scalar(
-        "INSERT INTO chat_turns (user_id, session_id, prompt, messages, model, effort)
-         VALUES (member_id(), $1, $2, $3, $4, $5) RETURNING id",
+        "INSERT INTO chat_turns (user_id, session_id, prompt, messages, record, model, effort)
+         VALUES (member_id(), $1, $2, $3, $4, $5, $6) RETURNING id",
     )
     .bind(session)
-    .bind(prompt)
-    .bind(frozen(opening))
-    .bind(&settings.model)
-    .bind(settings.effort.as_str())
+    .bind(turn.prompt)
+    .bind(frozen(turn.native))
+    .bind(recorded(turn.record))
+    .bind(turn.model.id())
+    .bind(turn.effort.as_str())
     .fetch_one(&mut **tx)
     .await;
     let id: i64 = match inserted {
@@ -138,17 +171,19 @@ pub(in crate::assistant) async fn begin(
     view(tx, id).await?.ok_or(AssistantError::NotFound)
 }
 
-/// Keep `messages` as turn `turn`'s messages so far.
+/// Keep `native` and `record` as turn `turn`'s messages so far.
 pub(in crate::assistant) async fn keep(
     pool: &PgPool,
     user: UserId,
     turn: i64,
-    messages: &[Box<RawValue>],
+    native: &[Box<RawValue>],
+    record: &[Message],
 ) -> Result<(), sqlx::Error> {
     let mut tx = db::scoped(pool, user).await?;
-    sqlx::query("UPDATE chat_turns SET messages = $2 WHERE id = $1")
+    sqlx::query("UPDATE chat_turns SET messages = $2, record = $3 WHERE id = $1")
         .bind(turn)
-        .bind(frozen(messages))
+        .bind(frozen(native))
+        .bind(recorded(record))
         .execute(&mut *tx)
         .await?;
     tx.commit().await
@@ -172,7 +207,7 @@ pub(in crate::assistant) async fn charge(
     pool: &PgPool,
     user: UserId,
     charge: &Charge<'_>,
-    reply: &Response,
+    reply: &Reply,
 ) -> Result<(i64, i64), AssistantError> {
     let mut tx = db::scoped(pool, user).await?;
     let call = AssistantCall {
@@ -252,6 +287,12 @@ pub(in crate::assistant) async fn finish(
     let balance = ledger::balance(&mut tx).await?;
     tx.commit().await?;
     Ok((view, balance))
+}
+
+/// The neutral record as the JSON array stored.
+fn recorded(record: &[Message]) -> String {
+    // Plain data with string keys; it cannot fail.
+    serde_json::to_string(record).unwrap_or_else(|_| "[]".to_owned())
 }
 
 /// Messages as the JSON array stored: each one's text, verbatim.

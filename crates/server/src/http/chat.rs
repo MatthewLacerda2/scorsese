@@ -13,7 +13,7 @@ use super::AppState;
 use super::auth::Member;
 use super::error::ApiError;
 use crate::assistant::{
-    self, Answered, AssistantError, Conversation, Opening, TurnDetail, TurnView,
+    self, Answered, AssistantError, Choice, Conversation, Opening, TurnDetail, TurnView,
 };
 
 /// `POST /api/projects/{id}/chat`'s body.
@@ -52,7 +52,28 @@ pub async fn conversation(
     Path(project): Path<i64>,
 ) -> Result<Json<Conversation>, ApiError> {
     Ok(Json(
-        assistant::conversation(&state.pool, member.user, project).await?,
+        assistant::conversation(&state, member.user, project).await?,
+    ))
+}
+
+/// `PUT /api/projects/{id}/chat/model`'s body.
+#[derive(Debug, Deserialize)]
+pub struct ModelChoice {
+    /// The id of the model the project's assistant runs on from now on.
+    pub model: String,
+}
+
+/// `PUT /api/projects/{id}/chat/model`: the project's assistant runs on
+/// another model from its next turn (#705). The model as the picker lists it;
+/// `400` for a model the assistant does not offer.
+pub async fn choose_model(
+    State(state): State<AppState>,
+    member: Member,
+    Path(project): Path<i64>,
+    Json(choice): Json<ModelChoice>,
+) -> Result<Json<Choice>, ApiError> {
+    Ok(Json(
+        assistant::choose(&state, member.user, project, &choice.model).await?,
     ))
 }
 

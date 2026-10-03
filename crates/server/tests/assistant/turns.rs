@@ -82,7 +82,7 @@ async fn the_next_turn_resends_the_conversation_byte_for_byte(pool: PgPool) {
     assert!(now[earlier.len()].contains("Here are the icons."));
     assert!(now[earlier.len() + 1].contains("thanks"));
     let requests = script.requests();
-    assert_eq!(requests[0].system[0].text, requests[2].system[0].text);
+    assert_eq!(requests[0].system, requests[2].system);
     assert_eq!(requests[0].tools.len(), requests[2].tools.len());
 }
 

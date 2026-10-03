@@ -1,12 +1,11 @@
 //! A turn cut off — by a restart, or by a refusal — leaves a conversation the
 //! next turn can still continue.
 
-use scorsese_providers::claude::{Response, Stop};
+use scorsese_providers::chat::{Message, Stop};
 use scorsese_server::assistant;
 use serde_json::json;
 use sqlx::postgres::PgPool;
 
-use super::script::USAGE;
 use super::{Script, answers, exchange, member, project, scripted};
 
 #[sqlx::test]
@@ -65,15 +64,11 @@ async fn a_turn_the_server_died_in_is_interrupted_and_its_calls_answered_next(po
 
 #[sqlx::test]
 async fn a_refused_turn_is_closed_before_the_next_one_speaks(pool: PgPool) {
-    let refusal = Response {
-        id: "msg_refused".into(),
-        model: "claude-opus-5-5".into(),
-        content: vec![],
-        stop: Stop::Refusal {
-            category: Some("cyber".into()),
-            explanation: Some("declined".into()),
-        },
-        usage: USAGE,
+    let mut refusal = super::script::answers("");
+    refusal.message = Message::Assistant { content: vec![] };
+    refusal.stop = Stop::Refusal {
+        category: Some("cyber".into()),
+        explanation: Some("declined".into()),
     };
     let script = Script::new(vec![refusal, answers("Happy to help with that.")]);
     let (address, _) = scripted(&pool, &script).await;

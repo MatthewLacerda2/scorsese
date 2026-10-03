@@ -47,10 +47,9 @@ pub const DEFAULT_RENDER_QUOTA: &str = "20GB";
 /// The address the HTTP server listens on, e.g. `0.0.0.0:8080` in a container.
 pub const BIND: &str = "SCORSESE_BIND";
 
-/// The model the assistant (#540) runs on. Defaults to Claude Opus 5.5, and
-/// must be a model `scorsese_providers::prices::claude` has a rate for — a
-/// call nobody can price is a call nobody can charge for.
-pub const ASSISTANT_MODEL: &str = "SCORSESE_ASSISTANT_MODEL";
+/// The variable that once chose the assistant's one model, refused since
+/// #705 made the model each project's choice ([`ConfigError::Model`]).
+pub const RETIRED_MODEL: &str = "SCORSESE_ASSISTANT_MODEL";
 
 /// The most one assistant turn may cost a user, in dollars, e.g. `2.50`.
 /// Defaults to [`DEFAULT_TURN_CAP`].
@@ -90,8 +89,6 @@ pub struct Config {
     pub render_quota: Quota,
     /// The address to listen on.
     pub bind: SocketAddr,
-    /// The model the assistant runs on.
-    pub assistant_model: String,
     /// The most one assistant turn may cost, in micro-dollars.
     pub assistant_turn_cap: i64,
     /// Which address a request is counted as coming from.
@@ -151,8 +148,14 @@ pub enum ConfigError {
         value: String,
     },
 
-    /// The assistant's model has no published rate, so it cannot be charged.
-    #[error("{ASSISTANT_MODEL} names {value:?}, which has no rate in prices::claude")]
+    /// `SCORSESE_ASSISTANT_MODEL` is set. It chose the one model every
+    /// assistant turn ran on; since #705 each project chooses its own, and a
+    /// setting that silently stopped meaning anything would leave an operator
+    /// believing it still did.
+    #[error(
+        "{RETIRED_MODEL} is set to {value:?}, but the assistant's model is now chosen per project \
+         in the chat panel (#705); remove the setting"
+    )]
     Model {
         /// What the variable held.
         value: String,
@@ -217,13 +220,9 @@ impl Config {
             value: bind.to_owned(),
         })?;
 
-        let assistant_model = environment
-            .get(ASSISTANT_MODEL)
-            .unwrap_or(scorsese_providers::claude::MODEL)
-            .to_owned();
-        if scorsese_providers::prices::claude::rate(&assistant_model).is_none() {
+        if let Some(value) = environment.get(RETIRED_MODEL).filter(|v| !v.is_empty()) {
             return Err(ConfigError::Model {
-                value: assistant_model,
+                value: value.to_owned(),
             });
         }
         let cap = environment
@@ -249,7 +248,6 @@ impl Config {
             cache,
             render_quota,
             bind,
-            assistant_model,
             assistant_turn_cap,
             clients,
         })

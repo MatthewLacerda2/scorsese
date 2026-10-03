@@ -1,10 +1,15 @@
 //! The assistant (`src/assistant`, `src/http/chat.rs`): turns driven the way
-//! the web app drives them — over HTTP — against a scripted Claude that
-//! records every request it is sent. No test reaches Anthropic.
+//! the web app drives them — over HTTP — against a scripted model that
+//! records every request it is sent. No test reaches Anthropic or Google.
+//!
+//! A project made here runs on Claude Opus 5.5 unless a test says otherwise,
+//! so the older tests read Anthropic's wire; `models` covers the default,
+//! Gemini, and changing model mid-conversation.
 
 #[path = "../common/mod.rs"]
 mod common;
 
+mod models;
 mod money;
 mod quotes;
 mod resume;
@@ -46,11 +51,7 @@ async fn serve(pool: &PgPool, assistant: Assistant) -> (SocketAddr, http::AppSta
 
 /// A server answered by `script`, capped at a dollar a turn.
 async fn scripted(pool: &PgPool, script: &Arc<Script>) -> (SocketAddr, http::AppState) {
-    serve(
-        pool,
-        Assistant::new("claude-opus-5-5", 1_000_000).answered_by(script.clone()),
-    )
-    .await
+    serve(pool, Assistant::new(1_000_000).answered_by(script.clone())).await
 }
 
 /// A new account with `dollars` of credit, and its `Authorization:` line.
@@ -72,8 +73,19 @@ async fn member(pool: &PgPool, email: &str, dollars: i64) -> (UserId, String) {
     (user, format!("Authorization: Bearer {token}"))
 }
 
-/// A project of `user`'s holding `assets`; its id.
+/// A project of `user`'s holding `assets`, on Claude Opus 5.5; its id.
 async fn project(pool: &PgPool, user: UserId, assets: Value) -> i64 {
+    let id = new_project(pool, user, assets).await;
+    sqlx::query("UPDATE projects SET assistant_model = 'claude-opus-5-5' WHERE id = $1")
+        .bind(id)
+        .execute(pool)
+        .await
+        .expect("the test setup holds");
+    id
+}
+
+/// A project of `user`'s holding `assets`, on the model a new one gets.
+async fn new_project(pool: &PgPool, user: UserId, assets: Value) -> i64 {
     let mut document = serde_json::to_value(Project::new("Intro", Default::default()))
         .expect("the test setup holds");
     document["assets"] = assets;

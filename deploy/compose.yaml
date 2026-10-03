@@ -112,7 +112,6 @@ services:
       # answers "not configured"; blank limits are the server's defaults.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       SCORSESE_ASSISTANT_TURN_CAP: ${SCORSESE_ASSISTANT_TURN_CAP:-}
-      SCORSESE_ASSISTANT_MODEL: ${SCORSESE_ASSISTANT_MODEL:-}
     volumes:
       - &data
         type: bind

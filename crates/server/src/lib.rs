@@ -220,7 +220,7 @@ pub async fn run(
         renders,
     };
     let registry = jobs::kinds::registry(&files);
-    let assistant = assistant::Assistant::new(&config.assistant_model, config.assistant_turn_cap);
+    let assistant = assistant::Assistant::new(config.assistant_turn_cap);
     let clients = config.clients;
     start(
         pool, listener, files, registry, assistant, clients, shutdown,

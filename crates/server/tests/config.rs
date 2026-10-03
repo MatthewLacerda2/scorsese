@@ -111,10 +111,9 @@ fn the_render_quota_reads_decimal_units_and_has_a_default() {
 }
 
 #[test]
-fn the_assistant_runs_on_opus_capped_at_two_dollars_unless_told_otherwise() {
-    use scorsese_server::config::{ASSISTANT_MODEL, ASSISTANT_TURN_CAP};
+fn an_assistant_turn_is_capped_at_two_dollars_unless_told_otherwise() {
+    use scorsese_server::config::{ASSISTANT_TURN_CAP, RETIRED_MODEL};
     let config = with(&[]).unwrap();
-    assert_eq!(config.assistant_model, "claude-opus-5-5");
     assert_eq!(config.assistant_turn_cap, 2_000_000);
     for (written, micros) in [
         ("5", 5_000_000),
@@ -131,8 +130,11 @@ fn the_assistant_runs_on_opus_capped_at_two_dollars_unless_told_otherwise() {
             "{nonsense}: {error}"
         );
     }
-    let error = with(&[(ASSISTANT_MODEL, "claude-haiku-4-5")]).unwrap_err();
-    assert!(error.to_string().contains("no rate"), "{error}");
+    // The model is each project's choice now (#705); the old setting is
+    // refused rather than quietly ignored, and an empty one is no setting.
+    let error = with(&[(RETIRED_MODEL, "claude-opus-5-5")]).unwrap_err();
+    assert!(error.to_string().contains("per project"), "{error}");
+    assert!(with(&[(RETIRED_MODEL, "")]).is_ok());
 }
 
 #[test]
