@@ -14,7 +14,7 @@
 //!   playable in the library and importable into any of their projects.
 //! - **The design is a row of `voice_designs`** — its audit row as a paid
 //!   generation (`credits::designs`), and once it worked the three candidates
-//!   with the vendor's `generated_voice_id` each ([`store`]). Found again by
+//!   with the vendor's `generated_voice_id` each ([`find`], [`offering`]). Found again by
 //!   the brief hash, so an unchanged design is never paid for twice, in any of
 //!   the user's projects; a design whose samples were deleted from the library
 //!   is not found, for the local reason — a hit is worth having only if the

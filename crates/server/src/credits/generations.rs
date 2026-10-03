@@ -1,6 +1,6 @@
 //! The audit of every paid generation: `veo_generations`,
 //! `image_generations`, `speech_generations` and `voice_designs` (#572,
-//! [`designs`](super::designs)), each row bound to the reservation that pays
+//! [`designs`]), each row bound to the reservation that pays
 //! for it.
 //!
 //! For debugging, disputes and improving the platform — and for the user, who
