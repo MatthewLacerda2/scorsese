@@ -46,11 +46,9 @@ struct Arguments {
     stroke: Option<String>,
     #[schemars(description = STROKE_WIDTH)]
     stroke_width: Option<f64>,
-    #[serde(default)]
-    #[schemars(with = "arrow::End", description = arrow::endpoint_described("starts"))]
+    #[schemars(description = arrow::endpoint_described("starts"))]
     from: Option<arrow::End>,
-    #[serde(default)]
-    #[schemars(with = "arrow::End", description = arrow::endpoint_described("ends, head first"))]
+    #[schemars(description = arrow::endpoint_described("ends, head first"))]
     to: Option<arrow::End>,
     // Described by its schema, which also bounds each length.
     #[serde(default)]
@@ -60,14 +58,10 @@ struct Arguments {
     /// `straight` is the default; `s` bows it so it leaves and arrives along
     /// the same axis, which is what a connector between two boxes side by side
     /// wants.
-    #[serde(default)]
-    #[schemars(with = "arrow::Line")]
     curve: Option<arrow::Line>,
     /// Which ends carry a head — an `arrow` only. `end` is the default and
     /// points at `to`; `none` is a plain connecting line; `both` says these two
     /// are connected, without a direction.
-    #[serde(default)]
-    #[schemars(with = "arrow::Tips")]
     heads: Option<arrow::Tips>,
     #[schemars(description = id_described("the outline"))]
     asset: Option<String>,

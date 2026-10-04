@@ -41,8 +41,7 @@ struct Arguments {
     size: Option<f64>,
     #[schemars(description = COLOR)]
     color: Option<String>,
-    #[serde(default)]
-    #[schemars(with = "Align", description = ALIGN)]
+    #[schemars(description = ALIGN)]
     align: Option<Align>,
     #[schemars(description = LINE_HEIGHT)]
     line_height: Option<f64>,

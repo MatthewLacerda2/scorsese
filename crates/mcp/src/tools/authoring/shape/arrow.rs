@@ -22,8 +22,6 @@ pub(super) struct End {
     clip: Option<String>,
     /// Which side of that clip to meet. Default `center`, which is right when
     /// the arrow points AT something rather than touching it.
-    #[serde(default)]
-    #[schemars(with = "Meets")]
     side: Option<Meets>,
 }
 

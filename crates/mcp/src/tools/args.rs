@@ -103,15 +103,38 @@ fn tidied(schema: &mut Value) {
     }
 }
 
-/// `"type": ["string", "null"]` back to `"type": "string"`: an argument left
+/// Every trace of `null` an `Option` leaves, taken back out: an argument left
 /// out is how a client says nothing, and none of these schemas ever asked it
 /// to send `null` instead.
+///
+/// Three shapes, one per kind of schema `schemars` wraps: `"type": ["string",
+/// "null"]` for a plain value, a `null` among an enum's values, and `anyOf`
+/// with a `{"type": "null"}` branch for an object or an array — that last one
+/// folded back into the one branch left, keeping the field's description.
 fn untyped_null(object: &mut Map<String, Value>) {
     if let Some(Value::Array(types)) = object.get_mut("type") {
         types.retain(|kind| kind != "null");
         if let [only] = types.as_slice() {
             let only = only.clone();
             object.insert("type".to_owned(), only);
+        }
+    }
+    if let Some(Value::Array(values)) = object.get_mut("enum") {
+        values.retain(|value| !value.is_null());
+    }
+    let null = serde_json::json!({ "type": "null" });
+    if let Some(Value::Array(branches)) = object.get("anyOf")
+        && let [kept] = branches
+            .iter()
+            .filter(|branch| **branch != null)
+            .collect::<Vec<_>>()
+            .as_slice()
+        && branches.len() == 2
+        && let Value::Object(kept) = (*kept).clone()
+    {
+        object.remove("anyOf");
+        for (key, value) in kept {
+            object.entry(key).or_insert(value);
         }
     }
 }

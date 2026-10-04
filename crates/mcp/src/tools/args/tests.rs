@@ -19,6 +19,25 @@ struct Sample {
     /// Whether to do it.
     #[serde(default)]
     loudly: bool,
+    /// Which way.
+    way: Option<Way>,
+    /// Where, if anywhere.
+    spot: Option<Spot>,
+}
+
+/// An enum argument, which `schemars` makes nullable when it is optional.
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+enum Way {
+    Up,
+    Down,
+}
+
+/// An object argument, which `schemars` wraps in `anyOf` when it is optional.
+#[derive(Debug, Deserialize, JsonSchema)]
+struct Spot {
+    /// Across.
+    x: f64,
 }
 
 impl Arguments for Sample {
@@ -39,7 +58,14 @@ fn the_schema_is_the_shape_the_hand_written_ones_had() {
                 "clip": { "type": "string", "description": "Which clip, as `project_read` names it." },
                 "count": { "type": "integer", "description": "How many, at most." },
                 "seconds": { "type": "number", "description": "How far, in seconds." },
-                "loudly": { "type": "boolean", "description": "Whether to do it." }
+                "loudly": { "type": "boolean", "description": "Whether to do it." },
+                "way": { "type": "string", "enum": ["up", "down"], "description": "Which way." },
+                "spot": {
+                    "type": "object",
+                    "description": "Where, if anywhere.",
+                    "properties": { "x": { "type": "number", "description": "Across." } },
+                    "required": ["x"]
+                }
             },
             "required": ["project", "clip"]
         })
@@ -91,6 +117,10 @@ fn a_wrong_kind_says_what_it_has_to_be_and_what_it_was() {
         "`loudly` has to be true or false, not \"yes\""
     );
     assert_eq!(base("clip", json!(7)), "`clip` has to be a string, not 7");
+    assert_eq!(
+        base("way", json!("left")),
+        "`way` has to be `up` or `down`, not \"left\""
+    );
 }
 
 #[test]
@@ -108,6 +138,20 @@ fn what_is_left_out_or_unknown_is_read_as_nothing() {
         ("c1", None, None)
     );
     assert!(!read.loudly);
+    assert!(read.way.is_none() && read.spot.is_none());
+}
+
+#[test]
+fn an_enum_and_an_object_are_read_as_their_types() {
+    let read = parse::<Sample>(&json!({
+        "project": "a.scor",
+        "clip": "c1",
+        "way": "down",
+        "spot": { "x": 0.25 }
+    }))
+    .unwrap();
+    assert!(matches!(read.way, Some(Way::Down)));
+    assert_eq!(read.spot.map(|spot| spot.x), Some(0.25));
 }
 
 #[test]

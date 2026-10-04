@@ -16,7 +16,7 @@ pub(in crate::tools) struct Kit;
 struct Arguments {
     // Taken and not used, as `icons` does: every tool names the project it
     // is called about, and the library is the same for all of them.
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "taken for the uniform surface, not read")]
     project: ProjectDir,
     /// One instrument's name, as `kick` or `kit:kick`: its patch comes back as
     /// JSON, to read before using it or to edit a copy of. Without it, the

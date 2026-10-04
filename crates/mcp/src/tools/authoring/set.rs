@@ -43,8 +43,7 @@ struct Arguments {
          only a color asset takes the gradient form."
     ))]
     color: Option<Paint>,
-    #[serde(default)]
-    #[schemars(with = "Align", description = ALIGN)]
+    #[schemars(description = ALIGN)]
     align: Option<Align>,
     #[schemars(description = LINE_HEIGHT)]
     line_height: Option<f64>,

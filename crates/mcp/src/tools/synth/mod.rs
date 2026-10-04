@@ -81,8 +81,6 @@ struct NewArguments {
     name: Name,
     /// `patch` for one instrument playing one note — an effect. `song` for an
     /// arrangement — a score. Default `patch`.
-    #[serde(default)]
-    #[schemars(with = "Kind")]
     kind: Option<Kind>,
     /// Start from a library instrument instead — `kick`, `epiano`; synth_kit
     /// lists them. The recipe is one note of it, its patch copied in for you to

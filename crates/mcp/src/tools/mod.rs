@@ -412,12 +412,3 @@ pub(crate) fn project_property() -> Value {
         "description": "Path to the *.scor project directory to work on."
     })
 }
-
-/// A schema whose only argument is the project directory.
-pub(crate) fn project_only_schema() -> Value {
-    serde_json::json!({
-        "type": "object",
-        "properties": { "project": project_property() },
-        "required": ["project"]
-    })
-}
