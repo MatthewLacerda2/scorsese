@@ -49,9 +49,17 @@ instead of complying**:
 
 ## Filing what you notice
 
-Claude may open an issue autonomously, and should, for anything that will recur
-or that a tool would solve more than once. Only when the benefit outweighs the
-cost of building it.
+Filing is a **duty**, not an option (CLAUDE.md, *File what you notice*, #757):
+
+- **A bug you spot** is fixed in the task at hand or filed — never dropped.
+- **A design gap or a missing feature** you find is filed, as is anything that
+  will recur or that a tool would solve more than once.
+- **No stage label when the fix is already decided** — when the design docs or
+  the product's settled design determine *how* to close it, the issue is
+  startable at once. When it needs a judgement call, it carries `planning` (or
+  `human`) as below.
+- **Label it `agent`** whenever you wrote it on your own initiative rather than
+  because a person asked for it.
 
 The strongest issues come from doing the work: a mutation survivor that turned
 out to be a real gap, a claim in a doc that quietly became false, a rule whose
@@ -84,6 +92,10 @@ Type labels, combinable with a stage label:
 crate boundaries) · `infrastructure` (CI, harnesses, gates) · `bug` ·
 `documentation` · `feature` (a capability serving the videos) · `foundation`
 (groundwork making the editor more complete) · `human`.
+
+`agent` marks an issue an agent wrote on its own initiative (#757). It combines
+with any type and stage label and is neither: it never stops work, it only tells
+the user who decided this was worth filing.
 
 ## Priority
 

@@ -586,15 +586,24 @@ machine you are on — cores, free memory, free disk — before a heavy build.
   intrinsics**. A future Claude reads it cold and says *"I understand the
   assignment, I know how to proceed."* That is what lets an issue run unattended,
   even overnight.
-- **File what you notice.** Claude may open an issue autonomously — for anything
-  that will recur, or when a tool would be useful more than once — provided the
-  benefit outweighs the cost of building it. The strongest issues come out of
-  doing the work.
-- **A bug is always filable.** Claude may open a `bug` issue autonomously the
-  moment it spots one — the test above is about whether something is worth
-  *building*, and never about whether a defect is worth *recording*. If the bug
-  questions a decision or surfaces a foundational problem, tell the user, because
-  that is a judgement call. Otherwise keep the description brief and carry on.
+- **File what you notice — it is a duty, not an option** (the user,
+  2026-10-04, #757). The strongest issues come out of doing the work, and a
+  finding left in a transcript is lost.
+  - **A bug Claude spots is fixed in the task at hand or filed** as an issue to
+    be worked later; never noticed and dropped. Whether something is worth
+    *building* is a question; whether a defect is worth *recording* never is.
+    If the bug questions a decision or surfaces a foundational problem, tell the
+    user too, because that is a judgement call.
+  - **A gap in the design or a missing feature Claude finds is filed** too, as
+    is anything that will recur or that a tool would solve more than once.
+  - **The stage label follows whether the fix is already decided.** When the
+    design docs or the product's settled design (this file, `docs/`, the
+    decided architecture, Filmora 9 for taste) already determine *how* to close
+    the gap, the issue carries no stage label and can be worked right away.
+    When closing it needs a judgement call, the stage-label rule below holds.
+  - **Every issue Claude writes on its own carries the `agent` label**, so the
+    user can tell it from one they asked for. It is not a stage label and never
+    stops work.
 - **Priority by label:** **infrastructure → architecture → bug → foundation →
   feature.** If the way we build isn't solid — a tool or guardrail missing
   (**infrastructure**), a structural shape or convention missing
