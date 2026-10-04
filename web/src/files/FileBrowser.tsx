@@ -5,11 +5,15 @@
 //
 // The selected file lives in the URL (`?item=12`), so a link from elsewhere —
 // the spending history, "you already have this" — opens it directly.
+//
+// With `picking` it is the editor's "add from your library" modal (#702):
+// the same grid, search and uploads, but a click picks the file instead of
+// opening its details, and the URL is left alone — it is the editor's.
 
 import { UploadIcon } from "lucide-react";
 import { type DragEvent, useDeferredValue, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
-import { FILE_KINDS, type FileKind } from "@/api";
+import { FILE_KINDS, type FileKind, type LibraryTile } from "@/api";
 import { useLibrary } from "@/app/queries";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,7 +32,22 @@ import { type Opened, Viewer } from "./Viewer";
 
 const ALL = "all";
 
-export function FileBrowser({ project }: { project?: number }) {
+/** The browser as a picker: what a click does, and which files it refuses. */
+export interface Picking {
+  pick: (tile: LibraryTile) => void;
+  /** Why a file cannot be picked, or `null` when it can. */
+  refuse: (tile: LibraryTile) => string | null;
+  /** The kinds the filter offers. */
+  kinds: readonly FileKind[];
+}
+
+interface Props {
+  /** Only the files this project uses. */
+  project?: number;
+  picking?: Picking;
+}
+
+export function FileBrowser({ project, picking }: Props) {
   const [kind, setKind] = useState<FileKind | typeof ALL>(ALL);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<Sort>("newest");
@@ -88,7 +107,7 @@ export function FileBrowser({ project }: { project?: number }) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>All kinds</SelectItem>
-            {FILE_KINDS.map((k) => (
+            {(picking?.kinds ?? FILE_KINDS).map((k) => (
               <SelectItem key={k} value={k}>
                 {KIND_LABEL[k]}
               </SelectItem>
@@ -122,20 +141,44 @@ export function FileBrowser({ project }: { project?: number }) {
         </p>
       )}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
-        {tiles.map((tile) => (
-          <FileTile
-            key={tile.id}
-            tile={tile}
-            selected={tile.id === selected}
-            onSelect={() => select(tile.id)}
-            onOpen={() => setOpened(tile)}
-          />
-        ))}
+        {tiles.map((tile) =>
+          picking ? (
+            <PickTile key={tile.id} tile={tile} picking={picking} />
+          ) : (
+            <FileTile
+              key={tile.id}
+              tile={tile}
+              selected={tile.id === selected}
+              onSelect={() => select(tile.id)}
+              onOpen={() => setOpened(tile)}
+            />
+          ),
+        )}
       </div>
 
-      <DetailsSheet id={selected} onClose={() => select(null)} onOpen={setOpened} />
-      <Viewer file={opened} onClose={() => setOpened(null)} />
+      {!picking && (
+        <>
+          <DetailsSheet id={selected} onClose={() => select(null)} onOpen={setOpened} />
+          <Viewer file={opened} onClose={() => setOpened(null)} />
+        </>
+      )}
     </section>
+  );
+}
+
+/** A tile in picking mode: a click picks it, unless the picker refuses it. */
+function PickTile({ tile, picking }: { tile: LibraryTile; picking: Picking }) {
+  const refused = picking.refuse(tile);
+  return (
+    <FileTile
+      tile={tile}
+      selected={false}
+      onSelect={() => picking.pick(tile)}
+      onOpen={() => {}}
+      disabled={refused !== null}
+      note={refused ?? undefined}
+      hint={refused === null ? `Add ${tile.name}` : undefined}
+    />
   );
 }
 

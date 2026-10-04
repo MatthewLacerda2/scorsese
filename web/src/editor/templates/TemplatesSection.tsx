@@ -1,4 +1,4 @@
-// The user's templates, in the assets panel (#546): each goes in at the
+// The user's templates, in the editor's sidebar (#546, #702): each goes in at the
 // playhead with one `template_insert` — where its tracks land is `core`'s rule
 // (docs/web.md, *Templates*), and the answer carries the project as it is now.
 // A template is let go of here too, which is also what frees a library file
@@ -39,7 +39,7 @@ export function TemplatesSection({ edit, playhead, fps }: Props) {
   return (
     <section className="flex flex-col gap-1">
       <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Your templates
+        Templates
       </h2>
       {templates.isError && <p className="text-xs text-destructive">{templates.error.message}</p>}
       {templates.data?.length === 0 && (

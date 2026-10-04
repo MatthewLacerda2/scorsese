@@ -128,7 +128,7 @@ function Editor({ project }: { project: EditorProject }) {
       )}
       <div className="grid min-h-0 flex-1 grid-cols-[15rem_minmax(0,1fr)_22rem] grid-rows-[minmax(0,1fr)_15rem]">
         <aside className="min-h-0 border-r">
-          <AssetsPanel document={document} edit={edit} playhead={playhead} />
+          <AssetsPanel projectId={id} document={document} edit={edit} playhead={playhead} />
         </aside>
         <section className="min-h-0">
           <Preview
