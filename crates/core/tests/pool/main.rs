@@ -6,6 +6,7 @@ mod common;
 mod directory;
 mod gc;
 mod import;
+mod listing;
 mod probing;
 mod refusals;
 mod sequence;

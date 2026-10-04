@@ -20,6 +20,7 @@ fn row(health: AssetHealth, clip_count: usize) -> AssetStatus {
         kind: AssetKind::Video,
         health,
         clip_count,
+        sequence: None,
     }
 }
 

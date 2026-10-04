@@ -4,7 +4,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 use scorsese_core::pool::{remove_assets, unused_assets};
-use scorsese_core::{AssetHealth, AssetStatus, HashCheck, Project, asset_status};
+use scorsese_core::{AssetHealth, AssetStatus, HashCheck, Listed, Project, asset_status, listing};
 
 /// Prints one line per asset: what it is, how many clips lean on it, and
 /// whether the file behind it is still there and still the one that was
@@ -25,15 +25,18 @@ pub(crate) fn list(project_dir: &Path, verify: bool) -> Result<()> {
         println!("No assets yet. `scorsese import <file>` adds one.");
         return Ok(());
     }
-    for row in &rows {
-        println!("{}", format_row(row));
+    for listed in listing(&project, &rows) {
+        print_listed(&listed);
     }
 
     let needing = rows
         .iter()
         .filter(|row| row.health.needs_attention())
         .count();
-    let unused = rows.iter().filter(|row| row.clip_count == 0).count();
+    let unused = rows
+        .iter()
+        .filter(|row| row.clip_count == 0 && row.sequence.is_none())
+        .count();
     println!(
         "\n{} assets, {unused} unused, {needing} needing attention",
         rows.len()
@@ -83,8 +86,38 @@ fn open(project_dir: &Path) -> Result<Project> {
         .with_context(|| format!("opening the project in {}", project_dir.display()))
 }
 
+/// A top-level asset, and for a sequence the count of its stills (#684).
+///
+/// Collapsed, as the panels show it: a 400-photo timelapse is one line, not
+/// 401. The stills that *are* named under it are the ones worth a look — one
+/// needing attention, or one a clip also shows on its own — so a missing
+/// photo still surfaces here, where a broken pool is looked for.
+fn print_listed(listed: &Listed<'_>) {
+    let mut line = format_row(listed.row);
+    if !listed.stills.is_empty() {
+        line.push_str(&format!(" — {}", stills(listed.stills.len())));
+    }
+    println!("{line}");
+    for still in &listed.stills {
+        if still.health.needs_attention() {
+            println!("  └ {}", format_row(still));
+        } else if still.clip_count > 0 {
+            println!("  └ {} (also used on its own)", format_row(still));
+        }
+    }
+}
+
+fn stills(count: usize) -> String {
+    match count {
+        1 => "1 still".to_owned(),
+        many => format!("{many} stills"),
+    }
+}
+
 fn format_row(row: &AssetStatus) -> String {
     let uses = match row.clip_count {
+        // A still a sequence plays is in use: `gc` would not collect it.
+        0 if row.sequence.is_some() => "in sequence".to_owned(),
         0 => "unused".to_owned(),
         1 => "1 clip".to_owned(),
         many => format!("{many} clips"),

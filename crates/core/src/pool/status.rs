@@ -1,5 +1,6 @@
 //! What state each asset is actually in.
 
+use std::collections::HashMap;
 use std::path::Path;
 
 use crate::asset::{Asset, AssetId, AssetKind, GenerationState};
@@ -72,12 +73,22 @@ pub struct AssetStatus {
     /// which of these are faults rather than facts.
     pub health: AssetHealth,
     /// How many clips reference this asset, members of a group included. Zero
-    /// means `gc` would collect it.
+    /// means `gc` would collect it — unless [`Self::sequence`] is set, because
+    /// a still a sequence plays is in use whether or not a clip shows it.
     pub clip_count: usize,
+    /// The image sequence this still is listed under, when one plays it.
+    ///
+    /// A listing shows a sequence's stills under the sequence rather than
+    /// beside it (#684): a 400-photo timelapse is one row, not 401. A still
+    /// several sequences play belongs to the first of them in table order, so
+    /// it is never listed twice; one a clip *also* uses directly stays there
+    /// too, and says so through a non-zero [`Self::clip_count`].
+    pub sequence: Option<AssetId>,
 }
 
 /// Reports every asset in the project, in table order.
 pub fn asset_status(project: &Project, project_root: &Path, check: HashCheck) -> Vec<AssetStatus> {
+    let owners = owners(project);
     project
         .assets
         .iter()
@@ -89,8 +100,28 @@ pub fn asset_status(project: &Project, project_root: &Path, check: HashCheck) ->
                 .every_clip()
                 .filter(|(_, clip)| clip.asset == asset.id)
                 .count(),
+            sequence: owners.get(&asset.id).map(|&owner| owner.clone()),
         })
         .collect()
+}
+
+/// Which sequence each still is listed under: the first, in table order, that
+/// plays it. Only an `image` is ever owned — validation already refuses a
+/// sequence naming anything else, and a listing should not hide a row because
+/// a broken document claimed it.
+fn owners(project: &Project) -> HashMap<&AssetId, &AssetId> {
+    let mut owners = HashMap::new();
+    for asset in &project.assets {
+        let Some(sequence) = &asset.sequence else {
+            continue;
+        };
+        for still in &sequence.stills {
+            if project.asset(still).map(|still| still.kind) == Some(AssetKind::Image) {
+                owners.entry(still).or_insert(&asset.id);
+            }
+        }
+    }
+    owners
 }
 
 fn health_of(asset: &Asset, project_root: &Path, check: HashCheck) -> AssetHealth {
