@@ -142,3 +142,21 @@ async fn an_empty_change_or_a_yes_with_one_answers_nothing(pool: PgPool) {
     script.replace(vec![answers("Understood.")]);
     assert_eq!(send(address, &who, id, "never mind").await.status, 202);
 }
+
+#[sqlx::test]
+async fn a_voice_designs_box_shows_the_voice_it_describes(pool: PgPool) {
+    let script = Script::new(vec![]);
+    let (address, _) = scripted(&pool, &script).await;
+    let (ana, who) = member(&pool, "ana@example.com", 10).await;
+    let id = project(&pool, ana, briefed()).await;
+    let voice = "A warm, unhurried radio voice in her fifties, for late-night stories.";
+    let text = "Every city has a night editor, and every night editor has a story about the \
+                one that got away. This is that story, told the way she tells it.";
+    let design = json!({ "project": id, "prompt": voice, "text": text, "seed": 7 });
+    script.replace(vec![calls("voice_design", design), answers("Quoted.")]);
+    let detail = exchange(address, &who, id, "design a narrator").await;
+    let item = &detail["turn"]["quote"]["items"][0];
+    assert_eq!(item["subject"], "design", "{detail}");
+    assert_eq!(item["brief"], "voice");
+    assert_eq!(item["description"], voice);
+}

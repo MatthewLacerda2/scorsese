@@ -72,11 +72,12 @@ async fn briefs(
                 .document
                 .assets
                 .into_iter()
+                // Only the prompted kinds carry a prompt: validation refuses
+                // one on every other.
                 .filter_map(|asset| {
                     let brief = match asset.kind {
                         AssetKind::GeneratedAudio => BriefKind::Line,
-                        kind if kind.is_prompted() => BriefKind::Prompt,
-                        _ => return None,
+                        _ => BriefKind::Prompt,
                     };
                     Some((asset.id.to_string(), brief, asset.prompt?))
                 })
