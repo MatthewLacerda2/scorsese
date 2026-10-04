@@ -10,9 +10,19 @@
 //! It is also where a clip comes from: an asset's name dragged onto a lane of
 //! the timeline places a clip of it there. Right-clicked, it asks to remove the
 //! asset and the clips using it ([`crate::removing`]).
+//!
+//! An image sequence is one row, its stills folded under it behind a
+//! disclosure arrow (#684): a 400-photo timelapse would otherwise be 401 rows,
+//! 400 of which nobody drags anywhere on their own. Unfolded, the stills are
+//! there to be *seen* — which file, whether it is healthy, whether a clip also
+//! shows it alone — and reordering them stays a sentence to the assistant.
+
+use std::collections::HashSet;
 
 use egui::{Grid, RichText, ScrollArea, Sense, Ui, vec2};
-use scorsese_core::{AssetHealth, AssetKind, AssetStatus, HashCheck, Project, asset_status};
+use scorsese_core::{
+    AssetHealth, AssetId, AssetKind, AssetStatus, HashCheck, Listed, Project, asset_status, listing,
+};
 
 use crate::editing::Editing;
 use crate::project::Open;
@@ -30,6 +40,9 @@ const CHIP: f32 = 8.0;
 #[derive(Debug, Default)]
 pub(crate) struct Files {
     status: Vec<AssetStatus>,
+    /// The sequences someone has unfolded. Folded is the default, so a
+    /// project opens with every sequence as one row.
+    unfolded: HashSet<AssetId>,
 }
 
 impl Files {
@@ -49,6 +62,7 @@ impl Files {
     /// Forgets everything, for when a different project is opened.
     pub(crate) fn reset(&mut self) {
         self.status.clear();
+        self.unfolded.clear();
     }
 
     /// Draws the panel.
@@ -91,29 +105,36 @@ impl Files {
 
     /// One heading and the assets under it, or nothing when there are none.
     fn group(
-        &self,
+        &mut self,
         ui: &mut Ui,
         project: &Project,
         editing: &mut Editing,
         heading: &str,
         kinds: &[AssetKind],
     ) {
-        let rows: Vec<&AssetStatus> = self
-            .status
-            .iter()
-            .filter(|status| kinds.contains(&status.kind))
+        // Recomputed each frame, which is a map over the pool and no file
+        // access: what `refresh` caches is the part that asks the disk.
+        let lines: Vec<Listed<'_>> = listing(project, &self.status)
+            .into_iter()
+            .filter(|line| kinds.contains(&line.row.kind))
             .collect();
-        if rows.is_empty() {
+        if lines.is_empty() {
             return;
         }
+        let unfolded = &mut self.unfolded;
         ui.add_space(6.0);
         ui.label(marks::subheading(heading));
         Grid::new(heading)
             .num_columns(3)
             .striped(true)
             .show(ui, |ui| {
-                for status in rows {
-                    row(ui, project, editing, status);
+                for line in lines {
+                    if line.stills.is_empty() {
+                        chip(ui, line.row.kind);
+                        row(ui, project, editing, line.row, line.row.id.as_str());
+                    } else {
+                        sequence(ui, project, editing, &line, unfolded);
+                    }
                 }
             });
     }
@@ -145,11 +166,10 @@ const GROUPS: &[(&str, &[AssetKind])] = &[
 ///
 /// Clicking highlights the asset's clips in the timeline — the answer to
 /// "where does this actually get used?", which the table alone cannot give.
-fn row(ui: &mut Ui, project: &Project, editing: &mut Editing, status: &AssetStatus) {
+fn row(ui: &mut Ui, project: &Project, editing: &mut Editing, status: &AssetStatus, label: &str) {
     let picked = editing.highlighted.as_ref() == Some(&status.id);
-    chip(ui, status.kind);
     let name = ui
-        .selectable_label(picked, status.id.as_str())
+        .selectable_label(picked, label)
         // Draggable as well as clickable: dragging a name onto a lane is how a
         // clip of it gets placed — see `timeline::drop`. The payload is the id,
         // because that is the only thing a clip ever refers to an asset by.
@@ -172,6 +192,106 @@ fn row(ui: &mut Ui, project: &Project, editing: &mut Editing, status: &AssetStat
     }
     let warning = palette::of(ui.ctx()).warning;
     ui.label(note(project, status, warning));
+    ui.end_row();
+}
+
+/// A sequence's own row — the arrow in the chip's column, its name saying how
+/// many photos it plays — and, unfolded, one compact row per still under it.
+///
+/// Folded, a still that needs attention would be invisible, so the sequence's
+/// row says how many do: a missing photo is found by unfolding, not by luck.
+fn sequence(
+    ui: &mut Ui,
+    project: &Project,
+    editing: &mut Editing,
+    line: &Listed<'_>,
+    unfolded: &mut HashSet<AssetId>,
+) {
+    let id = &line.row.id;
+    let open = unfolded.contains(id);
+    let arrow = ui
+        .add(
+            egui::Button::new(if open { "⏷" } else { "⏵" })
+                .small()
+                .frame(false),
+        )
+        .on_hover_text(if open {
+            "Fold the photos away"
+        } else {
+            "Show its photos"
+        });
+    if arrow.clicked() && !unfolded.remove(id) {
+        unfolded.insert(id.clone());
+    }
+    let count = line.stills.len();
+    let photos = if count == 1 { "photo" } else { "photos" };
+    let picked = editing.highlighted.as_ref() == Some(id);
+    let name = ui
+        .selectable_label(picked, format!("{id} — {count} {photos}"))
+        .interact(Sense::drag())
+        .on_hover_text(format!(
+            "{} — drag onto a track to place it, right-click to remove it",
+            used_by(line.row)
+        ));
+    name.dnd_set_drag_payload(id.clone());
+    if name.dragged() {
+        ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
+    }
+    if name.clicked() {
+        editing.highlighted = (!picked).then(|| id.clone());
+    }
+    if name.secondary_clicked() {
+        editing.asking = Some(Asking::about(Removal::Asset(id.clone())));
+    }
+    let warning = palette::of(ui.ctx()).warning;
+    let ailing = line
+        .stills
+        .iter()
+        .filter(|still| still.health.needs_attention())
+        .count();
+    if ailing > 0 && !line.row.health.needs_attention() {
+        let need = if ailing == 1 { "needs" } else { "need" };
+        ui.label(
+            RichText::new(format!("{ailing} {need} a look"))
+                .small()
+                .color(warning),
+        );
+    } else {
+        ui.label(note(project, line.row, warning));
+    }
+    ui.end_row();
+    if open {
+        for still in &line.stills {
+            stilled(ui, project, editing, still, warning);
+        }
+    }
+}
+
+/// One still under its unfolded sequence: for seeing, not for dragging.
+///
+/// Clicking it highlights the clips that show it on its own, the same answer
+/// any other row gives; it carries no drag and no removal, because a still is
+/// placed and reordered through its sequence.
+fn stilled(
+    ui: &mut Ui,
+    project: &Project,
+    editing: &mut Editing,
+    still: &AssetStatus,
+    warning: egui::Color32,
+) {
+    ui.label("");
+    let picked = editing.highlighted.as_ref() == Some(&still.id);
+    let name = ui
+        .selectable_label(picked, RichText::new(format!("  {}", still.id)).small())
+        .on_hover_text(used_by(still));
+    if name.clicked() {
+        editing.highlighted = (!picked).then(|| still.id.clone());
+    }
+    let mut text = note(project, still, warning);
+    if !still.health.needs_attention() && still.clip_count > 0 {
+        text = RichText::new("also used on its own").small().weak();
+    }
+    ui.label(text);
     ui.end_row();
 }
 

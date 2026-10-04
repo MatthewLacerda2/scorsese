@@ -6,14 +6,21 @@
 // The two lists are kept apart on purpose: what is *in* the project, and what
 // is merely *owned* and picked from, as every editor's media bin and import
 // dialog are.
+//
+// An image sequence is one row, its stills folded under it behind a
+// disclosure arrow (#684) — the desktop panel's grouping, from `grouping.ts`.
+// Unfolded, the stills are for seeing only: placing and reordering go through
+// the sequence, or a sentence to the assistant.
 
-import { Trash2Icon } from "lucide-react";
+import { ChevronDownIcon, ChevronRightIcon, Trash2Icon } from "lucide-react";
+import { useState } from "react";
 import type { DocumentAsset, ProjectDocument } from "@/api";
 import { Button } from "@/components/ui/button";
 import type { EditOutcome } from "../project";
 import { assetRemoval, confirmThen, showing } from "../removing";
 import { TemplatesSection } from "../templates/TemplatesSection";
 import { carry } from "./dragged";
+import { grouped } from "./grouping";
 import { kindColor, kindName } from "./kinds";
 import { LibraryModal } from "./LibraryModal";
 
@@ -26,6 +33,13 @@ interface Props {
 
 export function AssetsPanel({ projectId, document, edit, playhead }: Props) {
   const assets = document.assets ?? [];
+  const [unfolded, setUnfolded] = useState<ReadonlySet<string>>(new Set());
+  const fold = (id: string) =>
+    setUnfolded((was) => {
+      const now = new Set(was);
+      if (!now.delete(id)) now.add(id);
+      return now;
+    });
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
@@ -38,14 +52,30 @@ export function AssetsPanel({ projectId, document, edit, playhead }: Props) {
               Nothing yet. Add files from your library, then drag them onto a track.
             </p>
           )}
-          {assets.map((asset) => (
-            <ProjectAsset
-              key={asset.id}
-              asset={asset}
-              uses={showing(document, asset.id).length}
-              pending={edit.pending}
-              onRemove={() => confirmThen(assetRemoval(document, asset.id), edit.run)}
-            />
+          {grouped(assets).map(({ asset, stills }) => (
+            <div key={asset.id} className="flex flex-col gap-1">
+              <ProjectAsset
+                asset={asset}
+                stills={stills.length}
+                open={unfolded.has(asset.id)}
+                onFold={() => fold(asset.id)}
+                uses={showing(document, asset.id).length}
+                pending={edit.pending}
+                onRemove={() => confirmThen(assetRemoval(document, asset.id), edit.run)}
+              />
+              {unfolded.has(asset.id) && stills.length > 0 && (
+                <ul className="ml-6 flex flex-col text-xs text-muted-foreground">
+                  {stills.map((still) => (
+                    <li key={still.id} className="flex justify-between gap-2 truncate">
+                      <span className="truncate">{still.id}</span>
+                      {showing(document, still.id).length > 0 && (
+                        <span className="shrink-0">also used on its own</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           ))}
         </section>
         <TemplatesSection edit={edit} playhead={playhead} fps={document.timeline_fps} />
@@ -59,14 +89,30 @@ export function AssetsPanel({ projectId, document, edit, playhead }: Props) {
 
 interface ProjectAssetProps {
   asset: DocumentAsset;
+  /** How many stills are folded under this row; zero for all but a sequence. */
+  stills: number;
+  open: boolean;
+  onFold: () => void;
   uses: number;
   pending: boolean;
   onRemove: () => void;
 }
 
-function ProjectAsset({ asset, uses, pending, onRemove }: ProjectAssetProps) {
+function ProjectAsset({ asset, stills, open, onFold, uses, pending, onRemove }: ProjectAssetProps) {
+  const name = asset.text ?? asset.id;
   return (
     <div className="flex items-center gap-1">
+      {stills > 0 && (
+        <Button
+          size="icon"
+          variant="ghost"
+          aria-expanded={open}
+          aria-label={open ? `Fold ${asset.id}'s photos away` : `Show ${asset.id}'s photos`}
+          onClick={onFold}
+        >
+          {open ? <ChevronDownIcon /> : <ChevronRightIcon />}
+        </Button>
+      )}
       <button
         type="button"
         draggable
@@ -77,7 +123,9 @@ function ProjectAsset({ asset, uses, pending, onRemove }: ProjectAssetProps) {
         className="flex min-w-0 flex-1 cursor-grab items-center gap-2 rounded-md border px-2 py-1.5 text-left text-sm hover:bg-muted/50 active:cursor-grabbing"
       >
         <span className={`size-2.5 shrink-0 rounded-sm ${kindColor(asset.kind)}`} aria-hidden />
-        <span className="min-w-0 flex-1 truncate">{asset.text ?? asset.id}</span>
+        <span className="min-w-0 flex-1 truncate">
+          {stills > 0 ? `${name} — ${stills} ${stills === 1 ? "photo" : "photos"}` : name}
+        </span>
         <span className="shrink-0 text-xs text-muted-foreground">
           {kindName(asset.kind)}
           {asset.state && asset.state !== "generated" ? ` · ${asset.state}` : ""}

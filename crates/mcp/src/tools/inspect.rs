@@ -2,7 +2,9 @@
 //!
 //! None of these change anything, and none of them cost anything to run.
 
-use scorsese_core::{Frames, HashCheck, Project, asset_status, fingerprint_of};
+use scorsese_core::{
+    AssetStatus, Frames, HashCheck, Listed, Project, asset_status, fingerprint_of, listing,
+};
 use scorsese_render::{
     Checkup, Commentary, Description, FrameRange, Layout, Note, Plan, Resolution, unknown_in,
 };
@@ -276,7 +278,9 @@ impl Tool for Assets {
 
     fn description(&self) -> &'static str {
         "List the media pool: every asset, its kind, what state it is in, and \
-         how many clips use it. Says which generated assets are still sketches \
+         how many clips use it. An image sequence is one line with its count of \
+         stills; only a still needing attention or also used by a clip is named, \
+         indented under it. Says which generated assets are still sketches \
          nobody has realised, and which files the document points at and cannot \
          find."
     }
@@ -313,18 +317,43 @@ impl Tool for Assets {
         if rows.is_empty() {
             return Ok("the pool is empty".into());
         }
-        Ok(rows
+        Ok(listing(&project, &rows)
             .iter()
-            .map(|row| {
-                format!(
-                    "{}\t{:?}\t{:?}\t{} clip(s)",
-                    row.id, row.kind, row.health, row.clip_count
-                )
-            })
+            .flat_map(listed)
             .collect::<Vec<_>>()
             .join("\n")
             .into())
     }
+}
+
+/// One top-level asset, and for a sequence how many stills it plays (#684).
+///
+/// Collapsed the way the panels and `scorsese assets` show it: a 400-photo
+/// timelapse costs a caller one line, not 401. The stills still named under it
+/// are the ones worth acting on — one needing attention, or one a clip also
+/// shows on its own. Every still id is in `project_read`'s document.
+fn listed(listed: &Listed<'_>) -> Vec<String> {
+    let mut lines = vec![line(listed.row)];
+    if !listed.stills.is_empty() {
+        lines[0].push_str(&format!("\t{} still(s) under it", listed.stills.len()));
+    }
+    lines.extend(listed.stills.iter().filter_map(|still| {
+        if still.health.needs_attention() {
+            Some(format!("  {}", line(still)))
+        } else if still.clip_count > 0 {
+            Some(format!("  {}\talso used on its own", line(still)))
+        } else {
+            None
+        }
+    }));
+    lines
+}
+
+fn line(row: &AssetStatus) -> String {
+    format!(
+        "{}\t{:?}\t{:?}\t{} clip(s)",
+        row.id, row.kind, row.health, row.clip_count
+    )
 }
 
 /// Loads a project, with the failure worded for a client rather than a shell.

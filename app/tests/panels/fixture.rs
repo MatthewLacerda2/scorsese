@@ -188,7 +188,7 @@ pub(crate) fn unparseable(label: &str) -> Fixture {
 /// that changed between runs would change the picture between runs, and a
 /// snapshot that cannot reproduce itself is not a reference. Each test uses a
 /// different label, so nothing collides inside one run of this binary.
-fn write(label: &str, document: &str) -> Fixture {
+pub(crate) fn write(label: &str, document: &str) -> Fixture {
     let dir = std::env::temp_dir().join(format!("scorsese-panels-{label}.scor"));
     let _ = std::fs::remove_dir_all(&dir);
     for inside in ["assets", "generated", "recipes", "cache"] {
@@ -211,7 +211,7 @@ fn write(label: &str, document: &str) -> Fixture {
 /// what it brings in, so an asset without one is an asset the window's
 /// background probe would go and fill in, which is a second writer in the
 /// middle of a test about something else.
-const PIXEL: &[u8] = &[
+pub(crate) const PIXEL: &[u8] = &[
     0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
     0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4,
     0x89, 0x00, 0x00, 0x00, 0x0a, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x63, 0x00, 0x01, 0x00, 0x00,
@@ -227,7 +227,7 @@ const PIXEL: &[u8] = &[
 /// not a template with a hole in it.
 const LINE: &str = r#"{ "id": "vo", "kind": "generated_audio", "state": "sketch","#;
 
-const DOCUMENT: &str = r##"{
+pub(crate) const DOCUMENT: &str = r##"{
   "schema_version": 43,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
