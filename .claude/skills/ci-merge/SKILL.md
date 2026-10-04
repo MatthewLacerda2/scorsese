@@ -155,7 +155,7 @@ merge ahead that changed a signature this branch calls, or pushed one of its
 files past the size cap, rebases without a conflict and fails CI ten minutes
 later. When the merges ahead touched the same crates, rebase and `cargo check`
 the branch yourself first (`issue-batch` has the loop); the queue then finds
-nothing to rebase, pushes nothing, and only waits and merges.
+nothing to rebase, pushes nothing, and only waits and merges. Two numbering collisions it does catch before pushing (#729): a migration number `main` already holds, and a `SCHEMA_VERSION` bump `main` already made — handed back unpushed with the number to move to.
 
 **Once a pull request is in the queue, nobody pushes to it** except to fix its
 own red run: the queue refuses to merge a head it did not watch, so a late push
