@@ -55,8 +55,11 @@
 //! (`chat_quote`), and a call that names `confirm` is refused outright. The
 //! user's yes (`POST /api/chat/turns/{id}/quote`, `quote`) is what spends —
 //! the server makes that call itself, recorded as the user's — and a new turn
-//! then tells the model, as a system message, what the spend did. A no, or
-//! a new message instead of an answer, withdraws the token.
+//! then tells the model, as a system message, what the spend did. A no, a
+//! change the user asks for instead (#709: a turn begins with their words and
+//! a note that they are about the quoted items), or a new message instead of
+//! an answer, withdraws the token. The box shows each item's description
+//! beside its price (`described`), so a yes is never to money alone.
 //!
 //! ## Money
 //!
@@ -84,6 +87,7 @@
 
 mod calls;
 mod cost;
+mod described;
 mod model;
 mod prompt;
 mod quote;
@@ -99,9 +103,11 @@ use scorsese_providers::chat::{self, Chat, Effort, Model};
 use scorsese_providers::credentials::resolve;
 
 pub use model::{Choice, choose};
-pub use quote::{Answered, answer as answer_quote};
+pub use quote::{Answer, Answered, answer as answer_quote};
 pub use start::{Opening, start};
-pub use store::{Conversation, QuoteView, ToolCallView, TurnDetail, TurnView};
+pub use store::{
+    BriefKind, Conversation, QuoteItem, QuoteView, ToolCallView, TurnDetail, TurnView,
+};
 pub use store::{conversation, detail, recover};
 
 /// What a turn is not allowed to cost by default, in micro-dollars: $2.

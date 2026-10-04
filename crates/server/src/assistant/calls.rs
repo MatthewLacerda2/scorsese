@@ -10,6 +10,7 @@
 use scorsese_mcp::Reply;
 use scorsese_providers::chat::{Call, Part, ResultPart};
 
+use super::described;
 use super::store::QuoteView;
 use super::store::turns::hold_quote;
 use crate::credits::{from_cents, price};
@@ -54,7 +55,7 @@ pub(super) async fn run(state: &AppState, user: UserId, turn: i64, call: &Call) 
             .recorded(user, client, &call.name, &call.input)
             .await;
         match (id, outcome) {
-            (Some(id), Ok(reply)) => Ok(held(state, user, turn, (id, &call.name), reply).await),
+            (Some(id), Ok(reply)) => Ok(held(state, user, turn, (id, call), reply).await),
             (_, outcome) => outcome,
         }
     };
@@ -96,9 +97,15 @@ fn blocks(parts: Vec<scorsese_mcp::Part>) -> Vec<ResultPart> {
 /// `reply` as the model may read it: when the call issued a quote, the quote
 /// is held on the turn and shown to the user, and the line carrying its token
 /// is cut from the words.
-async fn held(state: &AppState, user: UserId, turn: i64, call: (i64, &str), reply: Reply) -> Reply {
-    let (call, tool) = call;
-    let pending = match state.tools.pending_quote(user, call).await {
+async fn held(
+    state: &AppState,
+    user: UserId,
+    turn: i64,
+    call: (i64, &Call),
+    reply: Reply,
+) -> Reply {
+    let (row, call) = call;
+    let pending = match state.tools.pending_quote(user, row).await {
         Ok(Some(pending)) => pending,
         Ok(None) => return reply,
         Err(error) => {
@@ -116,9 +123,11 @@ async fn held(state: &AppState, user: UserId, turn: i64, call: (i64, &str), repl
         .filter(|line| !line.contains(&pending.token))
         .map(str::to_owned)
         .collect();
+    let (items, rest) = described::describe(state, user, &call.name, &call.input, &lines).await;
     let quote = QuoteView {
-        tool: tool.to_owned(),
-        lines: lines.clone(),
+        tool: call.name.clone(),
+        items,
+        lines: rest,
         micros: price(from_cents(pending.cents)),
         expires_at: pending.expires_at,
     };
@@ -131,7 +140,8 @@ async fn held(state: &AppState, user: UserId, turn: i64, call: (i64, &str), repl
     words.push(
         "This quote is now in front of the person as a confirmation box; you do not have its \
          token and cannot confirm it. Nothing has been spent. End your turn now: say in one line \
-         what it covers and what it costs, and wait — their answer arrives as a system message."
+         what it covers and what it costs, and wait — their answer, a yes, a no or a change \
+         they want, arrives with a system message in the next turn."
             .to_owned(),
     );
     words.join("\n").into()

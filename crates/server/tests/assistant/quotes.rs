@@ -51,9 +51,9 @@ async fn the_quote_is_held_for_the_user_and_its_token_never_reaches_the_model(po
     assert_eq!(quote["tool"], "generate", "{detail}");
     assert!(quote["micros"].as_i64().unwrap() > 0, "{quote}");
     assert!(detail["turn"]["quote_answer"].is_null());
-    let lines = quote["lines"].to_string();
-    assert!(lines.contains("vo:"), "{lines}");
-    assert!(!lines.contains("quote-"), "the box needs no token: {lines}");
+    assert_eq!(quote["items"][0]["subject"], "vo", "{quote}");
+    let shown = quote.to_string();
+    assert!(!shown.contains("quote-"), "the box needs no token: {shown}");
     let result = script.messages(1).last().unwrap().clone();
     assert!(result.contains("confirmation box"), "{result}");
     assert!(
@@ -119,6 +119,10 @@ async fn a_yes_spends_as_the_user_and_the_model_is_told_by_the_server(pool: PgPo
             .unwrap()
             .contains("The person confirmed the quote")
     );
+    for n in 0..script.requests().len() {
+        let sent = script.messages(n).join("\n");
+        assert!(!sent.contains("quote-"), "a yes shows no token: {sent}");
+    }
     let again = answer(address, &who, &detail, true).await;
     assert_eq!(
         again.status, 400,

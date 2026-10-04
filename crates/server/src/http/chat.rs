@@ -13,7 +13,7 @@ use super::AppState;
 use super::auth::Member;
 use super::error::ApiError;
 use crate::assistant::{
-    self, Answered, AssistantError, Choice, Conversation, Opening, TurnDetail, TurnView,
+    self, Answer, Answered, AssistantError, Choice, Conversation, Opening, TurnDetail, TurnView,
 };
 
 /// `POST /api/projects/{id}/chat`'s body.
@@ -109,18 +109,33 @@ pub async fn stop(
 pub struct QuoteAnswer {
     /// `true` spends; `false` withdraws the quote.
     pub confirm: bool,
+    /// With `confirm: false`, the change the user wants to what was quoted
+    /// (#709): nothing is spent, and a turn starts with these words.
+    #[serde(default)]
+    pub change: Option<String>,
 }
 
 /// `POST /api/chat/turns/{id}/quote`: the user's answer to the quote held on
-/// a turn. A yes spends and starts a turn to carry on.
+/// a turn. A yes spends and starts a turn to carry on; a change starts one
+/// that rewrites the briefs and quotes again.
 pub async fn quote(
     State(state): State<AppState>,
     member: Member,
     Path(id): Path<i64>,
     Json(answer): Json<QuoteAnswer>,
 ) -> Result<Json<Answered>, ApiError> {
+    let answer = match (answer.confirm, answer.change) {
+        (true, Some(_)) => {
+            return Err(ApiError::BadRequest(
+                "a yes spends what was quoted; ask for a change with confirm: false".into(),
+            ));
+        }
+        (true, None) => Answer::Confirm,
+        (false, None) => Answer::Decline,
+        (false, Some(change)) => Answer::Change(change),
+    };
     Ok(Json(
-        assistant::answer_quote(&state, member.user, id, answer.confirm).await?,
+        assistant::answer_quote(&state, member.user, id, answer).await?,
     ))
 }
 
