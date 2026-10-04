@@ -6,6 +6,9 @@ use sqlx::postgres::PgPool;
 
 use super::{call, common, member, post};
 
+/// A `tool_calls` row's client, token, client name and client version.
+type Row = (String, Option<i64>, Option<String>, Option<String>);
+
 #[sqlx::test]
 async fn an_initializes_client_info_lands_on_that_tokens_tool_calls(pool: PgPool) {
     let address = common::serve(pool.clone()).await;
@@ -22,7 +25,7 @@ async fn an_initializes_client_info_lands_on_that_tokens_tool_calls(pool: PgPool
     call(address, &who, "icons", json!({})).await;
 
     let mut tx = scorsese_server::db::scoped(&pool, ana).await.unwrap();
-    let rows: Vec<(String, Option<i64>, Option<String>, Option<String>)> = sqlx::query_as(
+    let rows: Vec<Row> = sqlx::query_as(
         "SELECT client, api_token_id, client_name, client_version FROM tool_calls ORDER BY id",
     )
     .fetch_all(&mut *tx)
