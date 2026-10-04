@@ -104,6 +104,7 @@ async fn another_users_file_and_upload_are_not_there_for_them(pool: PgPool) {
     for (method, path, body) in [
         ("GET", format!("/api/library/{id}"), None),
         ("GET", format!("/api/library/{id}/file"), None),
+        ("GET", format!("/api/library/{id}/file?download=1"), None),
         ("GET", format!("/api/library/{id}/thumbnail"), None),
         ("PATCH", format!("/api/library/{id}"), Some(&rename)),
         ("DELETE", format!("/api/library/{id}"), None),

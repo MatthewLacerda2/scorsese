@@ -26,7 +26,7 @@
 //! | `GET /api/library/{id}` | a member | one file's details, and the projects using it |
 //! | `PATCH /api/library/{id}` | a member | `{name?, description?}` |
 //! | `DELETE /api/library/{id}` | a member | `409` naming the projects and templates that use it |
-//! | `GET /api/library/{id}/file` | a member | the file; video and audio in ranges |
+//! | `GET /api/library/{id}/file` | a member | the file; video and audio in ranges; `?download=1` to save it under its name |
 //! | `GET /api/library/{id}/thumbnail` | a member | its thumbnail, or `404` while it is drawn |
 //! | `OPTIONS`, `POST /api/uploads` | a member | tus: what is supported; announce an upload |
 //! | `HEAD`, `PATCH`, `DELETE /api/uploads/{id}` | a member | tus: how far; the next chunk; abandon |
@@ -51,6 +51,7 @@ pub mod auth;
 pub mod chat;
 pub mod client;
 pub mod credits;
+mod disposition;
 pub mod editor;
 pub mod error;
 pub mod events;

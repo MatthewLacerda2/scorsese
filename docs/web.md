@@ -952,7 +952,7 @@ MCP's (*Web MCP*).
 | `GET /api/library/{id}` | a member | everything known, `used_by` (projects), `templates`, `generation` (or `null`) |
 | `PATCH /api/library/{id}` | a member | `{name?, description?}`; an empty description removes it |
 | `DELETE /api/library/{id}` | a member | `204`; `409` with `projects` and `templates` when one uses it |
-| `GET /api/library/{id}/file` | a member | the file, whole or in the range asked for |
+| `GET /api/library/{id}/file` | a member | the file, whole or in the range asked for; `?download=1` adds `Content-Disposition: attachment` with its name and real extension (#711) |
 | `GET /api/library/{id}/thumbnail` | a member | the picture, or `404` while it is drawn |
 | `OPTIONS /api/uploads` | anyone | what tus this server speaks |
 | `POST /api/uploads` | a member | announce: `Upload-Length`, `Upload-Metadata` → `201`, `Location` |
