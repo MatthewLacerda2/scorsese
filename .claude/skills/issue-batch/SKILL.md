@@ -337,7 +337,8 @@ leader appears, it is the one started next.
 **Dependabot's pull requests are on the board too, and need nothing from you.**
 `.github/dependabot.yml` opens at most four a month (Actions, the root and
 `app/` Cargo workspaces, `web/`), grouped, semver-compatible, majors ignored.
-They have no issue of their own (#721 is the standing one that decided them),
+They have no issue of their own and need none (a pull request needs an issue
+only when its work needed planning; #721 decided these),
 and all but the Actions one label themselves `queue`: the watch takes them at the **lowest priority**, after
 every other pull request, and asks `@dependabot rebase` rather than ever
 force-pushing their branch (`ci-merge` has the detail). Read one only when the
