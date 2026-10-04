@@ -92,6 +92,8 @@ export const api = {
     remove: (id: number) => request<void>("DELETE", `/library/${id}`),
     /** Where the file itself streams from — for `<img>`, `<video>`, `<audio>`. */
     fileUrl: (id: number) => `/api/library/${id}/file`,
+    /** The same file sent to be saved under its own name and extension (#711). */
+    downloadUrl: (id: number) => `/api/library/${id}/file?download=1`,
   },
   editor: {
     /** The project with its document typed for drawing the timeline. */

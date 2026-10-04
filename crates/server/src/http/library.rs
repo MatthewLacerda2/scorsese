@@ -1,16 +1,18 @@
 //! A user's library over HTTP: list, details, rename and describe, delete,
-//! open, thumbnail. Each a call into [`crate::library`], which has the
+//! open or download, thumbnail. Each a call into [`crate::library`], which has the
 //! arguments; uploads are [`super::uploads`].
 
 use axum::Json;
 use axum::extract::{Path, Query, State};
+use axum::http::header::CONTENT_DISPOSITION;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Response;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use super::AppState;
 use super::auth::Member;
+use super::disposition;
 use super::error::ApiError;
 use super::ranges;
 use crate::library::{Change, Filter, Item, Kind, Summary, UsedBy};
@@ -104,12 +106,28 @@ pub async fn delete(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// How a file is asked for: to play, or to save.
+#[derive(Debug, Default, Deserialize)]
+pub struct Fetch {
+    /// Present (`?download=1`) to have the browser save the file under its
+    /// name rather than show it (#711).
+    pub download: Option<String>,
+}
+
 /// `GET /api/library/{id}/file`: the file itself, in the byte range asked for
 /// — so a video starts playing, and seeks, without being fetched whole.
+///
+/// `?download=1` sends the same bytes as an attachment named for the file,
+/// with its real extension, so the browser saves it (#711). A flag rather
+/// than a sibling route because it is the same file under the same rule —
+/// only one header differs — and so it cannot drift from the route that
+/// plays: whatever scopes one to its owner scopes the other. Its URL differs
+/// from the playing one, so a cached copy of one never answers for the other.
 pub async fn file(
     State(state): State<AppState>,
     member: Member,
     Path(id): Path<i64>,
+    Query(fetch): Query<Fetch>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     let item = state.library.get(member.user, id).await?;
@@ -122,7 +140,14 @@ pub async fn file(
         content_type: item.kind.content_type(&item.extension),
         etag: &item.sha256,
     };
-    ranges::serve(&served, &headers).await
+    let mut response = ranges::serve(&served, &headers).await?;
+    if fetch.download.is_some() {
+        response.headers_mut().insert(
+            CONTENT_DISPOSITION,
+            disposition::attachment(&item.name, &item.extension),
+        );
+    }
+    Ok(response)
 }
 
 /// `GET /api/library/{id}/thumbnail`: the picture, or `404` while it is being

@@ -8,6 +8,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod download;
 mod files;
 mod generated;
 mod manage;
