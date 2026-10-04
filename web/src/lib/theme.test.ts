@@ -4,7 +4,14 @@
 // that runs before the bundle — so they cannot drift apart.
 
 import { describe, expect, test } from "bun:test";
-import { resolveTheme, saveTheme, storedTheme, THEME_KEY, type Theme } from "@/lib/theme";
+import {
+  resolveTheme,
+  saveChoice,
+  storedChoice,
+  storedTheme,
+  THEME_KEY,
+  type Theme,
+} from "@/lib/theme";
 
 const storage = (value: string | null) => ({
   getItem: (key: string) => (key === THEME_KEY ? value : null),
@@ -16,7 +23,21 @@ const throwing = {
   setItem: () => {
     throw new Error("QuotaExceededError");
   },
+  removeItem: () => {
+    throw new Error("SecurityError");
+  },
 };
+
+/** A storage that keeps what it is given, as `localStorage` does. */
+function memory() {
+  const values = new Map<string, string>();
+  return {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => void values.set(key, value),
+    removeItem: (key: string) => void values.delete(key),
+    values,
+  };
+}
 
 describe("theme.ts", () => {
   test("a stored choice wins over the system", () => {
@@ -37,7 +58,26 @@ describe("theme.ts", () => {
     expect(storedTheme(throwing)).toBeNull();
     expect(storedTheme(undefined)).toBeNull();
     expect(resolveTheme(storedTheme(throwing), true)).toBe("dark");
-    expect(() => saveTheme(throwing, "dark")).not.toThrow();
+    expect(() => saveChoice(throwing, "dark")).not.toThrow();
+    expect(() => saveChoice(throwing, "system")).not.toThrow();
+  });
+
+  test("each of the three choices reads back as itself", () => {
+    const store = memory();
+    expect(storedChoice(store)).toBe("system");
+    for (const choice of ["light", "dark", "system"] as const) {
+      saveChoice(store, choice);
+      expect(storedChoice(store)).toBe(choice);
+    }
+  });
+
+  test("choosing System clears the stored choice, so the system decides again", () => {
+    const store = memory();
+    saveChoice(store, "light");
+    expect(store.values.get(THEME_KEY)).toBe("light");
+    saveChoice(store, "system");
+    expect(store.values.has(THEME_KEY)).toBe(false);
+    expect(resolveTheme(storedTheme(store), true)).toBe("dark");
   });
 });
 

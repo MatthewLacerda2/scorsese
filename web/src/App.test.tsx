@@ -29,6 +29,15 @@ test("the login page asks for an email and a password", () => {
   expect(html).toContain("Log in");
 });
 
+test("the theme control offers Light, Dark and System, and System is the default", () => {
+  const html = render("/login", (client) => client.setQueryData(ME, null));
+  // Each segment's pressed state, paired with its label (the text that ends the button).
+  const pressed = [...html.matchAll(/aria-pressed="(\w+)".*?(\w+)<\/button>/g)].map(
+    ([, on, label]) => `${label}:${on}`,
+  );
+  expect(pressed).toEqual(["Light:false", "Dark:false", "System:true"]);
+});
+
 test("signed in, the library sits in the shell with the balance in dollars", () => {
   const balance: Balance = { balance_micros: 2_000_000 };
   const html = render("/library", (client) => {
@@ -52,7 +61,11 @@ test("the projects page lists what the user has", () => {
     );
   });
   expect(html).toContain("teaser");
-  expect(html).toContain('href="/projects/4/edit"');
+  // Open, into the editor, comes before Files.
+  const open = html.indexOf('href="/projects/4/edit"');
+  expect(open).toBeGreaterThan(-1);
+  expect(html.slice(open, html.indexOf("</a>", open))).toContain("Open");
+  expect(open).toBeLessThan(html.indexOf('href="/projects/4"'));
 });
 
 test("the editor draws the stored document: its tracks, clips and assets", () => {

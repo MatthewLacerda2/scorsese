@@ -1,8 +1,9 @@
 // Light or dark, and which one the user chose.
 //
-// The choice is a `dark` class on `<html>` (shadcn's variant, index.css) and
-// is remembered in `localStorage`. Until the user has chosen, the page follows
-// the system's `prefers-color-scheme`. The class is first set by the inline
+// The theme is a `dark` class on `<html>` (shadcn's variant, index.css). The
+// user's choice is Light, Dark or System; Light and Dark are remembered in
+// `localStorage`, and System is the absence of a stored value — so choosing it
+// clears the key, and the page follows the system's `prefers-color-scheme`. The class is first set by the inline
 // script in `index.html`, before React loads, so a dark page never flashes
 // white; that script cannot import this module, so it repeats `resolveTheme`
 // in a few lines and `theme.test.ts` runs it to hold the two together.
@@ -13,6 +14,9 @@
 import { useCallback, useEffect, useState } from "react";
 
 export type Theme = "light" | "dark";
+
+/** What the user picks: a theme, or "follow the system" (the default). */
+export type ThemeChoice = Theme | "system";
 
 /** The `localStorage` key; `index.html`'s script reads the same one. */
 export const THEME_KEY = "scorsese-theme";
@@ -29,10 +33,22 @@ export function storedTheme(storage: Pick<Storage, "getItem"> | undefined): Them
   }
 }
 
-/** Remember a choice; a storage that refuses only means it is not remembered. */
-export function saveTheme(storage: Pick<Storage, "setItem"> | undefined, theme: Theme): void {
+/** The stored choice, read as one of the three the control shows. */
+export function storedChoice(storage: Pick<Storage, "getItem"> | undefined): ThemeChoice {
+  return storedTheme(storage) ?? "system";
+}
+
+/**
+ * Remember a choice: a theme is stored, System removes the stored one. A
+ * storage that refuses only means it is not remembered.
+ */
+export function saveChoice(
+  storage: Pick<Storage, "setItem" | "removeItem"> | undefined,
+  choice: ThemeChoice,
+): void {
   try {
-    storage?.setItem(THEME_KEY, theme);
+    if (choice === "system") storage?.removeItem(THEME_KEY);
+    else storage?.setItem(THEME_KEY, choice);
   } catch {
     // Private window or storage disabled: the choice lasts this page only.
   }
@@ -58,8 +74,12 @@ function browserStorage(): Storage | undefined {
   }
 }
 
-/** The theme the page shows, and a toggle that remembers the new one. */
-export function useTheme(): { theme: Theme; toggle: () => void } {
+/** The theme the page shows, the user's choice, and a way to change it. */
+export function useTheme(): {
+  theme: Theme;
+  choice: ThemeChoice;
+  choose: (choice: ThemeChoice) => void;
+} {
   // `index.html` has already put the class on; read it back rather than
   // resolving again. Without a document (a test's server render) it is light.
   const [theme, setTheme] = useState<Theme>(() =>
@@ -67,27 +87,30 @@ export function useTheme(): { theme: Theme; toggle: () => void } {
       ? "dark"
       : "light",
   );
+  const [choice, setChoice] = useState<ThemeChoice>(() => storedChoice(browserStorage()));
 
-  // Until the user chooses, follow the system as it changes too.
+  // While the choice is System, follow the system as it changes too.
   useEffect(() => {
-    if (storedTheme(browserStorage()) !== null) return;
+    if (choice !== "system") return;
     const query = window.matchMedia(SYSTEM_DARK);
     const follow = () => {
-      if (storedTheme(browserStorage()) !== null) return;
       const next = resolveTheme(null, query.matches);
       applyTheme(document.documentElement, next);
       setTheme(next);
     };
+    follow();
     query.addEventListener("change", follow);
     return () => query.removeEventListener("change", follow);
+  }, [choice]);
+
+  const choose = useCallback((next: ThemeChoice) => {
+    saveChoice(browserStorage(), next);
+    setChoice(next);
+    if (next !== "system") {
+      applyTheme(document.documentElement, next);
+      setTheme(next);
+    }
   }, []);
 
-  const toggle = useCallback(() => {
-    const next: Theme = theme === "dark" ? "light" : "dark";
-    saveTheme(browserStorage(), next);
-    applyTheme(document.documentElement, next);
-    setTheme(next);
-  }, [theme]);
-
-  return { theme, toggle };
+  return { theme, choice, choose };
 }

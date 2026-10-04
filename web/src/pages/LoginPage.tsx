@@ -4,7 +4,7 @@
 
 import { type FormEvent, useState } from "react";
 import { Navigate, useSearchParams } from "react-router";
-import { ThemeToggle } from "@/app/ThemeToggle";
+import { ThemeControl } from "@/app/ThemeControl";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -28,7 +28,7 @@ export function LoginPage() {
 
   return (
     <main className="relative flex min-h-svh items-center justify-center p-6">
-      <ThemeToggle className="absolute top-4 right-4" />
+      <ThemeControl className="absolute top-4 right-4" />
       <Card className="w-full max-w-sm">
         <CardHeader className="justify-items-center text-center">
           <img

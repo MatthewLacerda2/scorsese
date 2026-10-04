@@ -4,7 +4,7 @@
 
 import { Link, NavLink, Outlet, useMatch, useNavigate } from "react-router";
 import { useBalance } from "@/app/queries";
-import { ThemeMenuItem } from "@/app/ThemeToggle";
+import { ThemeMenuRow } from "@/app/ThemeControl";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -33,7 +33,10 @@ export function Shell() {
     <UploadsProvider>
       <div className={editing ? "flex h-svh flex-col" : "flex min-h-svh flex-col"}>
         <header className="flex items-center gap-2 border-b px-4 py-2">
-          <Link to="/projects" className="mr-4 font-heading text-lg font-semibold">
+          <Link
+            to="/projects"
+            className="mr-4 rounded-md border px-2.5 py-0.5 font-heading text-lg font-semibold hover:bg-muted"
+          >
             scorsese
           </Link>
           <nav className="flex gap-1">
@@ -96,7 +99,9 @@ function AccountMenu() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => navigate("/spending")}>Spending history</DropdownMenuItem>
-        <ThemeMenuItem />
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="font-normal text-muted-foreground">Theme</DropdownMenuLabel>
+        <ThemeMenuRow />
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onSelect={() => logout.mutate(undefined, { onSettled: () => navigate("/login") })}
