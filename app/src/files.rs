@@ -211,7 +211,7 @@ fn sequence(
     let open = unfolded.contains(id);
     let arrow = ui
         .add(
-            egui::Button::new(if open { "▾" } else { "▸" })
+            egui::Button::new(if open { "⏷" } else { "⏵" })
                 .small()
                 .frame(false),
         )
