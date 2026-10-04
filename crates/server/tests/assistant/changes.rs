@@ -55,11 +55,16 @@ async fn change_on(pool: &PgPool, model: Option<&str>) -> Vec<String> {
     assert!(
         items[0]["description"]
             .as_str()
-            .unwrap()
+            .expect("the exchange went as scripted")
             .contains("red cape")
     );
     assert_eq!(items[1]["brief"], "line", "{items}");
-    assert!(items[1]["says"].as_str().unwrap().contains("characters"));
+    assert!(
+        items[1]["says"]
+            .as_str()
+            .expect("the exchange went as scripted")
+            .contains("characters")
+    );
 
     script.replace(vec![answers("Yellow it is; here is the new quote.")]);
     let change = json!({ "confirm": false, "change": "make the cape yellow instead" });
@@ -67,10 +72,19 @@ async fn change_on(pool: &PgPool, model: Option<&str>) -> Vec<String> {
     assert_eq!(changed.status, 200, "{}", changed.body);
     let changed = changed.json();
     assert!(changed["spent"].is_null(), "{changed}");
-    let next = changed["turn"]["id"].as_i64().unwrap();
+    let next = changed["turn"]["id"]
+        .as_i64()
+        .expect("the exchange went as scripted");
     let next = finished(address, &who, next).await;
     assert_eq!(next["turn"]["prompt"], "make the cape yellow instead");
-    let first = finished(address, &who, detail["turn"]["id"].as_i64().unwrap()).await;
+    let first = finished(
+        address,
+        &who,
+        detail["turn"]["id"]
+            .as_i64()
+            .expect("the exchange went as scripted"),
+    )
+    .await;
     assert_eq!(first["turn"]["quote_answer"], "declined");
     assert_eq!(jobs(pool).await, 0, "a change spends nothing");
     let again = answer(address, &who, &detail, json!({ "confirm": true })).await;
@@ -83,7 +97,7 @@ async fn change_on(pool: &PgPool, model: Option<&str>) -> Vec<String> {
 /// What every model must be sent for a change: the user's words as theirs,
 /// the server's framing naming the items, and never a token.
 fn told_alike(sent: &[String]) {
-    let last = sent.last().unwrap();
+    let last = sent.last().expect("the exchange went as scripted");
     assert!(last.contains("make the cape yellow instead"), "{last}");
     assert!(last.contains("asks for a change"), "{last}");
     assert!(last.contains("(hero, vo)"), "{last}");
