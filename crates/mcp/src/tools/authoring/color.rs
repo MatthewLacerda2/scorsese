@@ -1,15 +1,38 @@
 //! A solid colour: a background, a card, a wash under a title.
 
+use schemars::JsonSchema;
 use scorsese_core::{Inline, authoring};
+use serde::Deserialize;
 use serde_json::Value;
 
-use super::fill::{self, required_fill};
-use super::{id_property, maybe, properties, refused, save};
+use super::fill::{self, Paint};
+use super::{id_described, maybe, refused, save};
+use crate::tools::args::{self, ProjectDir, Required};
 use crate::tools::inspect::load;
-use crate::tools::{Costs, Reply, Tool, project_dir};
+use crate::tools::{Costs, Reply, Tool};
 
 /// Add a `color` asset.
 pub(crate) struct ColorNew;
+
+/// What the colour is, when it is missing.
+const WHAT: &str = "the colour the card is";
+
+/// What `color_new` takes.
+#[derive(Deserialize, JsonSchema)]
+struct Arguments {
+    project: ProjectDir,
+    #[schemars(description = fill::described(
+        "The colour, as `#rrggbb` — or `#rrggbbaa` for a scrim the shot underneath shows \
+         through."
+    ))]
+    color: Paint,
+    #[schemars(description = id_described("the kind"))]
+    asset: Option<String>,
+}
+
+impl args::Arguments for Arguments {
+    const REQUIRED: Required = &[("color", WHAT)];
+}
 
 impl Tool for ColorNew {
     fn name(&self) -> &'static str {
@@ -34,34 +57,25 @@ impl Tool for ColorNew {
     }
 
     fn schema(&self) -> Value {
-        let mut properties = properties(&[]);
-        properties.insert(
-            "color".to_owned(),
-            fill::property(
-                "The colour, as `#rrggbb` — or `#rrggbbaa` for a scrim the shot underneath \
-                 shows through.",
-            ),
-        );
-        properties.insert("asset".to_owned(), id_property("the kind"));
-        serde_json::json!({
-            "type": "object",
-            "properties": properties,
-            "required": ["project", "color"]
-        })
+        args::schema::<Arguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let mut project = load(&dir)?;
-        let color = required_fill(arguments, "color", "the colour the card is")?;
+        let arguments: Arguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let mut project = load(dir)?;
+        // A blank or null colour is somebody not choosing one, which is the
+        // one thing this kind refuses — said the way a missing one is.
+        let color = fill::fill(Some(&arguments.color), "color")?
+            .ok_or_else(|| format!("`color` is required: {WHAT}"))?;
         let said = color.to_string();
         let id = authoring::add_asset(
             &mut project,
-            maybe(arguments, "asset").as_deref(),
+            maybe(arguments.asset.as_deref()).as_deref(),
             Inline::Color(color),
         )
         .map_err(refused)?;
-        save(&project, &dir)?;
+        save(&project, dir)?;
         Ok(format!(
             "`{id}` — a color asset, {said}. It fills the frame; place_clip puts \
              it on a video track, with a duration."

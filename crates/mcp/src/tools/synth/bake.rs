@@ -11,16 +11,93 @@
 //! The failure this guards against is not a wasted render; it is somebody
 //! reaching for a fragment as though it were the bake.
 
+use schemars::JsonSchema;
 use scorsese_core::AssetId;
 use scorsese_providers::synth::{self, Baked, Excerpt, Partial, Span, Window};
 use scorsese_render::{Cancel, say};
+use serde::Deserialize;
 use serde_json::Value;
 
-use super::super::inspect::load;
-use super::super::{Costs, Reply, Tool, project_dir, project_property, under};
+use super::strings;
+use crate::tools::args::{self, ProjectDir};
+use crate::tools::inspect::load;
+use crate::tools::{Costs, Reply, Tool};
 
 /// Render the recipes that are not already baked — or a stretch of one.
 pub(in crate::tools) struct Bake;
+
+/// What `synth_bake` takes.
+#[derive(Deserialize, JsonSchema)]
+struct Arguments {
+    project: ProjectDir,
+    /// Bake only this asset. Omit and every synth_audio asset is considered.
+    /// Required when asking for a window or a solo, which are questions about
+    /// one piece of music.
+    asset: Option<String>,
+    /// Render only these beats of the piece: `0:32`, `16:`, `:32` —
+    /// end-exclusive, and counted along what is rendered, so under a `loop` fit
+    /// they are not the written arrangement's beats. Beats and not bars: a song
+    /// has no time signature, so eight bars of four is `0:32`. NOT cached — the
+    /// result lands in cache/ and the asset keeps pointing at its own full
+    /// bake, because a fragment stored under the whole recipe's address would
+    /// leave the project holding audio its recipe does not describe.
+    beats: Option<String>,
+    /// The same window said in seconds of the rendered piece: `0:12`, `8:`,
+    /// `:12`. Give this or `beats`, never both. NOT cached, for the reason
+    /// `beats` gives.
+    seconds: Option<String>,
+    /// Render only these tracks, by the names the song's notes use. The song's
+    /// own fx and the master limiter still run, so this is the mix with fewer
+    /// parts in it rather than a bare instrument, and a track something is
+    /// sidechained from is still played so the duck is the one the mix has.
+    /// This is for a person to listen to — a report cannot tell you the pad is
+    /// warbling. NOT cached, for the reason `beats` gives.
+    #[serde(default, deserialize_with = "strings")]
+    #[schemars(with = "Vec<String>")]
+    only: Vec<String>,
+    /// Where to write a partial bake. A relative path is relative to the
+    /// project, like every other path here — cache/solo.wav lands in the
+    /// project's cache/ and is what to hand hear or audio_level next; an
+    /// absolute path is used as given. Omit and it lands in
+    /// cache/synth/<asset>.wav, which the next partial bake of the same recipe
+    /// overwrites.
+    out: Option<String>,
+}
+
+impl args::Arguments for Arguments {}
+
+impl Arguments {
+    /// What less of the recipe was asked for, or `None` for the ordinary bake.
+    ///
+    /// Both units at once is refused rather than one silently winning: a
+    /// window has one clock, and a client that gave two does not know which it
+    /// got.
+    fn excerpt(&self) -> Result<Option<Excerpt>, String> {
+        let span = |given: Option<&str>, name: &str| -> Result<Option<Span>, String> {
+            given
+                .map(|text| {
+                    text.parse::<Span>()
+                        .map_err(|problem| format!("`{name}`: {problem}"))
+                })
+                .transpose()
+        };
+        let beats = span(self.beats.as_deref(), "beats")?;
+        let seconds = span(self.seconds.as_deref(), "seconds")?;
+        if beats.is_some() && seconds.is_some() {
+            return Err("give `beats` or `seconds`, not both — a window has one clock".to_owned());
+        }
+        let window = beats
+            .map(Window::beats)
+            .or_else(|| seconds.map(Window::seconds));
+        if window.is_none() && self.only.is_empty() {
+            return Ok(None);
+        }
+        Ok(Some(Excerpt {
+            window,
+            only: self.only.clone(),
+        }))
+    }
+}
 
 impl Tool for Bake {
     fn name(&self) -> &'static str {
@@ -59,65 +136,7 @@ impl Tool for Bake {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "asset": {
-                    "type": "string",
-                    "description": "Bake only this asset. Omit and every synth_audio \
-                                    asset is considered. Required when asking for a \
-                                    window or a solo, which are questions about one \
-                                    piece of music."
-                },
-                "beats": {
-                    "type": "string",
-                    "description": "Render only these beats of the piece: `0:32`, \
-                                    `16:`, `:32` — end-exclusive, and counted along \
-                                    what is rendered, so under a `loop` fit they are \
-                                    not the written arrangement's beats. Beats and \
-                                    not bars: a song has no time signature, so eight \
-                                    bars of four is `0:32`. NOT cached — the result \
-                                    lands in cache/ and the asset keeps pointing at \
-                                    its own full bake, because a fragment stored \
-                                    under the whole recipe's address would leave the \
-                                    project holding audio its recipe does not \
-                                    describe."
-                },
-                "seconds": {
-                    "type": "string",
-                    "description": "The same window said in seconds of the rendered \
-                                    piece: `0:12`, `8:`, `:12`. Give this or \
-                                    `beats`, never both. NOT cached, for the reason \
-                                    `beats` gives."
-                },
-                "only": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "Render only these tracks, by the names the song's \
-                                    notes use. The song's own fx and the master \
-                                    limiter still run, so this is the mix with fewer \
-                                    parts in it rather than a bare instrument, and a \
-                                    track something is sidechained from is still \
-                                    played so the duck is the one the mix has. This \
-                                    is for a person to listen to — a report cannot \
-                                    tell you the pad is warbling. NOT cached, for \
-                                    the reason `beats` gives."
-                },
-                "out": {
-                    "type": "string",
-                    "description": "Where to write a partial bake. A relative path \
-                                    is relative to the project, like every other \
-                                    path here — cache/solo.wav lands in the \
-                                    project's cache/ and is what to hand hear or \
-                                    audio_level next; an absolute path is used as \
-                                    given. Omit and it lands in \
-                                    cache/synth/<asset>.wav, which the next \
-                                    partial bake of the same recipe overwrites."
-                }
-            },
-            "required": ["project"]
-        })
+        args::schema::<Arguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
@@ -130,11 +149,12 @@ impl Tool for Bake {
     /// project is not saved — the next bake finds those files and records them.
     fn call_cancellable(&self, arguments: &Value, cancel: &Cancel) -> Result<Reply, String> {
         let stop = || cancel.is_cancelled();
-        let dir = project_dir(arguments)?;
-        let mut project = load(&dir)?;
-        let asset = arguments.get("asset").and_then(Value::as_str);
+        let arguments: Arguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let mut project = load(dir)?;
+        let asset = arguments.asset.as_deref();
 
-        if let Some(excerpt) = excerpt(arguments)? {
+        if let Some(excerpt) = arguments.excerpt()? {
             let Some(id) = asset else {
                 return Err(
                     "a window or a solo is a question about one recipe — name the `asset`"
@@ -148,11 +168,11 @@ impl Tool for Bake {
             // the name, so a relative `out` is the project's, like every other
             // path a client hands it — and the reply says it back in the
             // caller's own words, which now resolve from the project too.
-            let out = under(&dir, arguments, "out")?;
+            let out = args::under(dir, arguments.out.as_deref(), "out")?;
             let mut partial =
-                synth::bake_partial_unless(&project, &dir, &id, &excerpt, out.as_deref(), &stop)
+                synth::bake_partial_unless(&project, dir, &id, &excerpt, out.as_deref(), &stop)
                     .map_err(|error| format!("{error}"))?;
-            if let Some(given) = arguments.get("out").and_then(Value::as_str) {
+            if let Some(given) = arguments.out.as_deref() {
                 given.clone_into(&mut partial.shown);
             }
             return Ok(said_partial(&id, &excerpt, &partial).into());
@@ -161,18 +181,18 @@ impl Tool for Bake {
         let baked = match asset {
             Some(id) => {
                 let id = AssetId::new(id);
-                let one = synth::bake_asset_unless(&mut project, &dir, &id, &stop)
+                let one = synth::bake_asset_unless(&mut project, dir, &id, &stop)
                     .map_err(|error| format!("{error}"))?;
                 vec![(id, one)]
             }
-            None => synth::bake_pending_unless(&mut project, &dir, &stop)
+            None => synth::bake_pending_unless(&mut project, dir, &stop)
                 .map_err(|error| format!("{error}"))?,
         };
         if baked.is_empty() {
             return Ok("no synth_audio assets — synth_new starts one".into());
         }
         project
-            .save(&dir)
+            .save(dir)
             .map_err(|error| format!("saving the project: {error}"))?;
 
         let fresh = baked.iter().filter(|(_, it)| it.is_fresh()).count();
@@ -184,44 +204,6 @@ impl Tool for Bake {
         )
         .into())
     }
-}
-
-/// What less of the recipe was asked for, or `None` for the ordinary bake.
-///
-/// Both units at once is refused rather than one silently winning: a window
-/// has one clock, and a client that gave two does not know which it got.
-fn excerpt(arguments: &Value) -> Result<Option<Excerpt>, String> {
-    let span = |name: &str| -> Result<Option<Span>, String> {
-        match arguments.get(name).and_then(Value::as_str) {
-            Some(text) => text
-                .parse::<Span>()
-                .map(Some)
-                .map_err(|problem| format!("`{name}`: {problem}")),
-            None => Ok(None),
-        }
-    };
-    let (beats, seconds) = (span("beats")?, span("seconds")?);
-    if beats.is_some() && seconds.is_some() {
-        return Err("give `beats` or `seconds`, not both — a window has one clock".to_owned());
-    }
-    let only: Vec<String> = arguments
-        .get("only")
-        .and_then(Value::as_array)
-        .map(|names| {
-            names
-                .iter()
-                .filter_map(Value::as_str)
-                .map(str::to_owned)
-                .collect()
-        })
-        .unwrap_or_default();
-    let window = beats
-        .map(Window::beats)
-        .or_else(|| seconds.map(Window::seconds));
-    if window.is_none() && only.is_empty() {
-        return Ok(None);
-    }
-    Ok(Some(Excerpt { window, only }))
 }
 
 /// One asset's line, and the tables under it.

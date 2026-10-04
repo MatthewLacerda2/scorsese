@@ -6,14 +6,25 @@
 //! of the loop — write, bake, listen, adjust — is one recipe at a time, and
 //! nothing in it can notice that six of them are the same.
 
+use schemars::JsonSchema;
 use scorsese_providers::synth;
+use serde::Deserialize;
 use serde_json::Value;
 
-use super::super::inspect::load;
-use super::super::{Costs, Reply, Tool, project_dir, project_only_schema};
+use crate::tools::args::{self, ProjectDir};
+use crate::tools::inspect::load;
+use crate::tools::{Costs, Reply, Tool};
 
 /// Count what every song recipe is made of.
 pub(in crate::tools) struct Survey;
+
+/// What `synth_survey` takes: the project, and nothing else.
+#[derive(Deserialize, JsonSchema)]
+struct Arguments {
+    project: ProjectDir,
+}
+
+impl args::Arguments for Arguments {}
 
 impl Tool for Survey {
     fn name(&self) -> &'static str {
@@ -50,13 +61,14 @@ impl Tool for Survey {
     }
 
     fn schema(&self) -> Value {
-        project_only_schema()
+        args::schema::<Arguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let project = load(&dir)?;
-        let surveyed = synth::survey(&project, &dir).map_err(|error| format!("{error}"))?;
+        let arguments: Arguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let project = load(dir)?;
+        let surveyed = synth::survey(&project, dir).map_err(|error| format!("{error}"))?;
         let lines = scorsese_render::say::survey(&surveyed);
         if lines.is_empty() {
             // The report itself says nothing below two songs, exactly as the

@@ -6,6 +6,7 @@
 //! `project.json` would get — there is one grammar for these, and it is the
 //! format's.
 
+use schemars::{Schema, SchemaGenerator};
 use scorsese_core::{Counter, Reveal, TextStyle};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
@@ -13,11 +14,12 @@ use serde_json::Value;
 /// Adds whichever of the two blocks the call carries to `style`, starting one
 /// from the defaults when nothing else about the look was said.
 pub(super) fn apply(
-    arguments: &Value,
+    reveal: Option<&Value>,
+    number: Option<&Value>,
     style: Option<TextStyle>,
 ) -> Result<Option<TextStyle>, String> {
-    let reveal: Option<Reveal> = block(arguments, "reveal")?;
-    let number: Option<Counter> = block(arguments, "number")?;
+    let reveal: Option<Reveal> = block(reveal, "reveal")?;
+    let number: Option<Counter> = block(number, "number")?;
     if reveal.is_none() && number.is_none() {
         return Ok(style);
     }
@@ -27,13 +29,24 @@ pub(super) fn apply(
     Ok(Some(style))
 }
 
-fn block<T: DeserializeOwned>(arguments: &Value, key: &str) -> Result<Option<T>, String> {
-    let Some(value) = arguments.get(key).filter(|value| !value.is_null()) else {
+/// One block, read into the document's own type; `null` is not given.
+fn block<T: DeserializeOwned>(given: Option<&Value>, key: &str) -> Result<Option<T>, String> {
+    let Some(value) = given.filter(|value| !value.is_null()) else {
         return Ok(None);
     };
     serde_json::from_value(value.clone())
         .map(Some)
         .map_err(|error| format!("`{key}`: {error}"))
+}
+
+/// The `reveal` argument's schema, as a field's `schema_with` takes it.
+pub(super) fn reveal_schema(_: &mut SchemaGenerator) -> Schema {
+    Schema::try_from(reveal_property()).expect("the reveal schema is an object")
+}
+
+/// The `number` argument's schema, as a field's `schema_with` takes it.
+pub(super) fn number_schema(_: &mut SchemaGenerator) -> Schema {
+    Schema::try_from(number_property()).expect("the number schema is an object")
 }
 
 /// The schema of the `reveal` block.
