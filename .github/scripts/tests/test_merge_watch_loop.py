@@ -36,7 +36,7 @@ def pr(number: int, *labels: str, head=None, closes=()):
 
 
 class Watching(unittest.TestCase):
-    def watch(self, listings, outcomes, issues=None, extra=(), cost=600):
+    def watch(self, listings, outcomes, issues=None, extra=(), cost=600, clashes=frozenset()):
         """Run a watch over `listings` (one per poll; the last repeats).
 
         `outcomes` maps a number to `(state, head_after)`. Returns the results
@@ -69,6 +69,7 @@ class Watching(unittest.TestCase):
         opts = queue.parse(["--watch", "--for", "60", *extra])
         with mock.patch.object(queue.mergeable, "gh", side_effect=gh), \
             mock.patch.object(queue, "take", side_effect=take), \
+            mock.patch.object(queue.watch, "clashing", side_effect=lambda *_: clashes), \
             mock.patch.object(queue.time, "monotonic", side_effect=lambda: clock[0]), \
             mock.patch.object(queue.time, "sleep", side_effect=sleep), \
             mock.patch("builtins.print"):

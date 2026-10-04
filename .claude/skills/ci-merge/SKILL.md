@@ -95,11 +95,20 @@ same five steps (#690):
   was the alternative and is not available: these pull requests are opened
   under the owner's account, and GitHub refuses an author's own approval.
   Removing the label pulls a branch back out before its turn.
-- **Order is `CLAUDE.md`'s label priority, then age** — infrastructure,
-  architecture, bug, foundation, feature, with documentation alongside the
-  first. The type label is read from the pull request and from the issues it
-  closes, since it is usually the issue that carries it. **Dependabot goes
-  after all of them**, whatever its labels say.
+- **Order is fewest conflicts first, then `CLAUDE.md`'s label priority, then
+  age** (#738). At each pick the watch counts how many of the others in line
+  each pull request textually conflicts with (`git merge-tree --write-tree` per
+  pair, no checkout) and takes the lowest: reordering cannot make a conflict go
+  away, but it decides how many hand-backs a set costs, so the broad pull
+  request lands last and takes the one rebase. A tie goes to the label —
+  infrastructure, architecture, bug, foundation, feature, with documentation
+  alongside the first, read from the pull request and from the issues it
+  closes, since it is usually the issue that carries it. When the count
+  overrides the label, the watch says so in one line (`#A goes before #B, …`).
+  A pair git cannot answer about counts as no conflict: the order is an
+  optimisation and never stops the queue. **Dependabot goes after all of
+  them**, whatever its labels or conflicts say. A list run keeps the order it
+  was given.
 - **Dependabot labels its own pull requests `queue`** (`.github/dependabot.yml`,
   #721). That is the decision: they are monthly, grouped, semver-compatible
   bumps (Cargo lockfile-only, majors ignored) with nothing in the diff to read

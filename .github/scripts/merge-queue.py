@@ -543,6 +543,7 @@ def run_watch(repo: str, opts: argparse.Namespace) -> list[tuple[int, str, str]]
     results: list[tuple[int, str, str]] = []
     dropped: dict[int, str] = {}
     issues: dict[int, list[str]] = {}
+    merges: dict[frozenset[str], bool] = {}
     stop_taking = time.monotonic() + opts.watch_for * 60
     say(
         f"watching for ready pull requests labelled `{opts.label}`, for"
@@ -557,10 +558,17 @@ def run_watch(repo: str, opts: argparse.Namespace) -> list[tuple[int, str, str]]
                     for number in watch.in_line(pulls, dropped)
                 )
                 return results
-            pull = watch.pick(pulls, dropped, watch.issue_labels(pulls, issues))
+            labels = watch.issue_labels(pulls, issues)
+            clashes = watch.clashing(
+                watch.contenders(pulls, dropped), opts.root, merges
+            )
+            pull = watch.pick(pulls, dropped, labels, clashes)
             if pull is None:
                 time.sleep(watch.IDLE_SECONDS)
                 continue
+            note = watch.reordered(pulls, dropped, labels, clashes)
+            if note:
+                say(note)
             number = pull["number"]
             heads: dict[int, str] = {}
             try:
@@ -911,7 +919,8 @@ def parse(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help=(
             f"take ready pull requests labelled `{watch.QUEUE_LABEL}` as they"
-            " appear, in label priority then age, instead of a list"
+            " appear, fewest conflicts first, then label priority, then age,"
+            " instead of a list"
         ),
     )
     parser.add_argument(
