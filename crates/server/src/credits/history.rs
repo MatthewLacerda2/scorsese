@@ -11,7 +11,7 @@
 //! make the number depend on the question.
 //!
 //! Filterable by project, kind and a date range (UTC days, inclusive), with a
-//! total over everything the filter matches — "this project has cost ≈ R$ …" —
+//! total over everything the filter matches — "this project has cost $…" —
 //! whatever page of it is being read.
 
 use serde::{Deserialize, Serialize};
@@ -20,7 +20,6 @@ use sqlx::postgres::PgPool;
 
 use super::CreditError;
 use super::ledger;
-use super::rates::{self, DisplayRate};
 use crate::db::{self, UserId};
 
 /// What a row is about, as a filter names it.
@@ -79,11 +78,8 @@ pub struct Row {
     /// The balance once it had.
     pub balance_after_micros: i64,
     /// What set its price: model, resolution and seconds; model, voice and
-    /// text; the assistant's token counts; a top-up's reais and rate.
+    /// text; the assistant's token counts.
     pub detail: Value,
-    /// The amount in centavos at the display rate, when there is one.
-    #[sqlx(skip)]
-    pub amount_centavos: Option<i64>,
 }
 
 /// A page of history, and what the filter adds up to.
@@ -91,16 +87,10 @@ pub struct Row {
 pub struct History {
     /// The balance now, in micro-dollars.
     pub balance_micros: i64,
-    /// The balance in centavos at the display rate, when there is one.
-    pub balance_centavos: Option<i64>,
-    /// The rate amounts are shown at, and when it was set.
-    pub rate: Option<DisplayRate>,
     /// How many rows the filter matches, across every page.
     pub matched: i64,
     /// What they add up to, in micro-dollars: negative is spent.
     pub total_micros: i64,
-    /// The total in centavos at the display rate.
-    pub total_centavos: Option<i64>,
     /// This page, newest first.
     pub rows: Vec<Row>,
 }
@@ -119,7 +109,6 @@ pub async fn read(pool: &PgPool, user: UserId, filter: &Filter) -> Result<Histor
     check(filter)?;
     let mut tx = db::scoped(pool, user).await?;
     let balance = ledger::balance(&mut tx).await?;
-    let rate = rates::current(&mut tx).await?;
     let counted: Vec<Counted> = sqlx::query_as(include_str!("history.sql"))
         .bind(filter.project)
         .bind(filter.kind.as_deref())
@@ -133,21 +122,11 @@ pub async fn read(pool: &PgPool, user: UserId, filter: &Filter) -> Result<Histor
     let (matched, total) = counted
         .first()
         .map_or((0, 0), |first| (first.matched, first.total_micros));
-    let in_reais = |micros: i64| rate.map(|rate| rate.centavos(micros));
     Ok(History {
         balance_micros: balance,
-        balance_centavos: in_reais(balance),
-        rate,
         matched,
         total_micros: total,
-        total_centavos: in_reais(total),
-        rows: counted
-            .into_iter()
-            .map(|counted| Row {
-                amount_centavos: in_reais(counted.row.amount_micros),
-                ..counted.row
-            })
-            .collect(),
+        rows: counted.into_iter().map(|counted| counted.row).collect(),
     })
 }
 

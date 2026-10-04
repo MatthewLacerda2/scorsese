@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatMoney } from "@/lib/money";
+import { formatDollars } from "@/lib/money";
 import { HistoryTable, KIND_LABEL } from "./HistoryTable";
 
 /** Rows fetched per page; "Show more" asks for the next. */
@@ -41,10 +41,7 @@ export function SpendingPage() {
         <h1 className="font-heading text-2xl font-semibold">Spending history</h1>
         {first && (
           <p className="text-sm">
-            Balance{" "}
-            <span className="font-medium">
-              {formatMoney(first.balance_micros, first.balance_centavos)}
-            </span>
+            Balance <span className="font-medium">{formatDollars(first.balance_micros)}</span>
           </p>
         )}
       </div>
@@ -52,10 +49,7 @@ export function SpendingPage() {
       {first && (
         <p className="text-sm text-muted-foreground">
           {first.matched} {first.matched === 1 ? "entry" : "entries"}, adding up to{" "}
-          <span className="font-medium text-foreground">
-            {formatMoney(first.total_micros, first.total_centavos)}
-          </span>
-          . Amounts in reais are approximate, at the current rate; the ledger is kept in dollars.
+          <span className="font-medium text-foreground">{formatDollars(first.total_micros)}</span>.
         </p>
       )}
       {history.isError && <p className="text-destructive">{history.error.message}</p>}

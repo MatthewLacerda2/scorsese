@@ -1,11 +1,10 @@
 //! The history a user reads: one row per thing, the balance after each, in
-//! reais once there is a rate, and only their own.
+//! dollars, and only their own.
 
 use scorsese_providers::prices::claude::{MODEL, Usage};
 use scorsese_server::credits::generations::Answer;
 use scorsese_server::credits::history::{self, Filter, History};
 use scorsese_server::credits::ledger::{self, AssistantCall};
-use scorsese_server::credits::rates;
 use scorsese_server::db::{self, UserId};
 use sqlx::postgres::PgPool;
 
@@ -90,27 +89,11 @@ async fn every_thing_is_one_row_with_the_balance_after_it(pool: PgPool) {
     assert_eq!(seen.rows[2].detail["prompt"], "a lighthouse at dusk");
     assert_eq!(seen.rows[2].detail["error"], "timeout");
     assert_eq!(seen.rows[0].detail["prompt"], "trim the ending");
-    assert_eq!(seen.rows[4].detail["brl_per_usd_e4"], 50_000);
-}
-
-#[sqlx::test]
-async fn amounts_are_shown_in_reais_once_a_rate_is_set(pool: PgPool) {
-    let ana = account(&pool, "ana@example.com").await;
-    fund(&pool, ana, 10).await;
     assert_eq!(
-        read(&pool, ana, Filter::default()).await.balance_centavos,
-        None
+        seen.rows[4].detail,
+        serde_json::json!({}),
+        "dollars only (#703)"
     );
-
-    rates::set(&pool, 54_321).await.unwrap();
-    let seen = read(&pool, ana, Filter::default()).await;
-    assert_eq!(
-        seen.balance_centavos,
-        Some(5_432),
-        "$10 at 5.4321 is R$ 54,32"
-    );
-    assert_eq!(seen.rows[0].amount_centavos, Some(5_432));
-    assert_eq!(seen.rate.map(|rate| rate.brl_per_usd_e4), Some(54_321));
 }
 
 #[sqlx::test]

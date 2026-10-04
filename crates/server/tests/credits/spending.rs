@@ -107,7 +107,7 @@ async fn two_spends_at_once_cannot_both_take_the_last_dollar(pool: PgPool) {
     let ana = account(&pool, "ana@example.com").await;
     fund(&pool, ana, 1).await;
     let mut top = db::scoped(&pool, ana).await.unwrap();
-    ledger::top_up(&mut top, 250, 50_000).await.unwrap(); // $0.50 more
+    ledger::top_up(&mut top, 500_000).await.unwrap(); // $0.50 more
     top.commit().await.unwrap();
 
     let request = shot(None);

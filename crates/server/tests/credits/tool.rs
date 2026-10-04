@@ -45,7 +45,7 @@ async fn the_answer_says_what_was_charged_and_what_was_free(pool: PgPool) {
         .unwrap();
     let text = answer(&seen);
     assert!(text.starts_with("Balance: $10.00.\n"), "{text}");
-    assert!(text.contains("dollars only"), "{text}");
+    assert!(!text.contains("R$"), "dollars only (#703): {text}");
     assert!(
         text.contains("project 9, since deleted: free: the provider failed"),
         "{text}"

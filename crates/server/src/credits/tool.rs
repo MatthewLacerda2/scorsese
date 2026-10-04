@@ -14,7 +14,6 @@
 use serde_json::{Value, json};
 
 use super::history::{Filter, History, KINDS};
-use super::rates::reais;
 use super::{CreditError, dollars};
 
 /// How a client names it.
@@ -25,8 +24,7 @@ pub const NAME: &str = "spending_history";
 pub const DESCRIPTION: &str = "List what the signed-in user has spent and paid in: every Veo shot, \
 spoken line, assistant turn, monthly fee, top-up and refund, newest first, each with the balance \
 after it. Read-only and free. A generation the provider failed shows as free; one that worked is \
-charged whether or not it was kept. Amounts are in dollars — what the ledger is kept in — with an \
-approximate figure in reais at the operator's dated display rate. Filter by project, kind or a \
+charged whether or not it was kept. Amounts are in US dollars, the currency the ledger is kept in. Filter by project, kind or a \
 range of days, and the answer includes what everything matched adds up to: ask with since and \
 until to answer \"what did I spend this week?\".";
 
@@ -72,18 +70,11 @@ pub fn filter(arguments: &Value) -> Result<Filter, CreditError> {
 
 /// The answer, as text an assistant can quote from.
 pub fn answer(history: &History) -> String {
-    let money = |micros: i64| match history.rate {
-        Some(rate) => format!("{} (≈ {})", dollars(micros), reais(rate.centavos(micros))),
-        None => dollars(micros),
-    };
-    let mut text = format!("Balance: {}.\n", money(history.balance_micros));
-    if history.rate.is_none() {
-        text.push_str("No display rate is set yet, so amounts are in dollars only.\n");
-    }
+    let mut text = format!("Balance: {}.\n", dollars(history.balance_micros));
     text.push_str(&format!(
         "{} matching rows, adding up to {}.\n",
         history.matched,
-        money(history.total_micros)
+        dollars(history.total_micros)
     ));
     for row in &history.rows {
         let project = match (&row.project_name, row.project_id) {
@@ -93,8 +84,8 @@ pub fn answer(history: &History) -> String {
         };
         let status = match row.status.as_str() {
             "free" => "free: the provider failed".to_owned(),
-            "pending" => format!("{} held while it runs", money(-row.amount_micros)),
-            _ => money(row.amount_micros),
+            "pending" => format!("{} held while it runs", dollars(-row.amount_micros)),
+            _ => dollars(row.amount_micros),
         };
         text.push_str(&format!(
             "\n#{} on {} — {}{project}: {status}; balance after {}",

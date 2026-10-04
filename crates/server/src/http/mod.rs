@@ -20,7 +20,7 @@
 //! | `PUT /api/projects/{id}` | a member | `{revision, document}`; `409` if it moved on |
 //! | `PATCH /api/projects/{id}` | a member | `{name}`: rename |
 //! | `DELETE /api/projects/{id}` | a member | deletes one |
-//! | `GET /api/credits` | a member | their balance, in dollars and ≈ reais |
+//! | `GET /api/credits` | a member | their balance, in dollars |
 //! | `GET /api/credits/history` | a member | what moved it, filterable, with a total |
 //! | `GET /api/library` | a member | their files: `?kind=&search=&sha256=&project=` |
 //! | `GET /api/library/{id}` | a member | one file's details, and the projects using it |

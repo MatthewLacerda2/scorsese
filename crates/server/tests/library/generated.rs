@@ -114,7 +114,7 @@ async fn a_generated_item_carries_the_record_of_what_it_cost(pool: PgPool) {
 /// A shot funded, reserved for and settled as having made `item`.
 async fn pay_for_a_shot(pool: &PgPool, user: UserId, item: Option<i64>) {
     let mut tx = db::scoped(pool, user).await.expect("a scope opens");
-    ledger::top_up(&mut tx, 5_000, 50_000)
+    ledger::top_up(&mut tx, 10_000_000)
         .await
         .expect("a top-up is recorded");
     let shot = Request::Shot(Shot {

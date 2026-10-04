@@ -5,9 +5,8 @@
 // what the ledger took, cost plus 10%.
 
 import type { GenerationRecord as Record } from "@/api";
-import { useBalance } from "@/app/queries";
 import { formatDate } from "@/lib/format";
-import { formatDollars, formatMoney, toCentavos } from "@/lib/money";
+import { formatDollars } from "@/lib/money";
 
 const TITLE = {
   veo_shot: "Generated video",
@@ -17,10 +16,6 @@ const TITLE = {
 };
 
 export function GenerationRecord({ record }: { record: Record }) {
-  const rate = useBalance().data?.rate ?? null;
-  const money = (micros: number) =>
-    formatMoney(micros, rate === null ? null : toCentavos(micros, rate.brl_per_usd_e4));
-
   return (
     <section className="flex flex-col gap-2 rounded-lg border p-3">
       <h3 className="text-sm font-medium">{TITLE[record.kind]}</h3>
@@ -37,16 +32,7 @@ export function GenerationRecord({ record }: { record: Record }) {
         <dd>{formatDate(record.created_at)}</dd>
         <dt className="text-muted-foreground">Cost</dt>
         <dd>
-          {record.charged_micros > 0 ? (
-            <>
-              {money(record.charged_micros)}{" "}
-              <span className="text-muted-foreground">
-                ({formatDollars(record.charged_micros)})
-              </span>
-            </>
-          ) : (
-            "Nothing was charged"
-          )}
+          {record.charged_micros > 0 ? formatDollars(record.charged_micros) : "Nothing was charged"}
         </dd>
         <dt className="text-muted-foreground">Estimate</dt>
         <dd className="text-muted-foreground">

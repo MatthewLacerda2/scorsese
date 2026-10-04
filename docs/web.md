@@ -100,9 +100,11 @@ new build, before it serves anything.
 ## Money
 
 - **Integer micro-dollars** (`BIGINT`), never floats — one assistant call can
-  cost a fraction of a cent. Shown to the user as **≈ reais** at an
-  operator-set, dated rate, because a balance in dollars drifts with the
-  exchange rate and the page must not imply otherwise.
+  cost a fraction of a cent. Shown to the user **in US dollars, and only
+  dollars** (#703): a converted figure is wrong the day after it is shown —
+  $5 spent today and $5 spent last month were different amounts of any other
+  currency — and asking users to pick a rate would put a technical choice in
+  front of them. Nothing about another currency is stored either.
 - Credits are paid up front and **never expire**. Veo, ElevenLabs and the
   assistant are passed through at **cost + 10%**, plus a **$10/month** flat
   fee. Top-ups are recorded by the operator until Pix exists (#548).
@@ -828,11 +830,6 @@ lends), retried by every sweep while its month lasts, and not charged after
 the month ends uncovered. Both are the conservative reading of what #527 left
 open, asked on #537.
 
-**The display rate** (`display_rates`) is reais per dollar, set by the operator,
-dated. Balances show as "≈ R$ …" at the newest one, with dollars beside,
-because the ledger is in dollars and the dollar moves. It is the one table that
-is nobody's in particular: members read it and write nothing.
-
 **The user's own history** is the same ledger, scoped and written for them: one
 row per thing that moved the balance — a reservation and what settled it fold
 into one row, *charged*, *free: the provider failed*, or *pending* — each with
@@ -845,20 +842,20 @@ is nothing but a user's rows in Postgres.
 
 | route | who | what |
 | --- | --- | --- |
-| `GET /api/credits` | a member | their balance, in micro-dollars and ≈ centavos, and the rate |
+| `GET /api/credits` | a member | their balance, in micro-dollars |
 | `GET /api/credits/history` | a member | `?project=&kind=&since=&until=&before=&limit=` |
 
 The operator's side, where the server runs:
 
 ```text
-scorsese-server credit top-up ana@example.com --reais 100 --rate 5.4321
+scorsese-server credit top-up ana@example.com --dollars 20
 scorsese-server credit refund ana@example.com --dollars 1.06 --reason "…"
-scorsese-server credit rate 5.43        # the display rate, as of now
 scorsese-server credit balance ana@example.com
 ```
 
-A top-up records the reais received and the rate they were converted at, and
-credits the dollars **rounded down** — the one place that direction is right.
+A top-up records the dollars credited and nothing else: whatever currency the
+money arrived in, the ledger tracks dollars (#703). Pix (#548), if it lands,
+records what it needs then.
 
 The Veo and ElevenLabs job handlers that call `start` and `finish` are web
 MCP's (*Web MCP*, below), which also registers `spending_history`. Not here
@@ -1365,12 +1362,8 @@ size; a click opens the details (dimensions, duration, the projects using it,
 the description the assistant reads, and for a generated file how it was made
 and what it cost); a double click views or plays it, streamed in ranges.
 
-**Money on a page** is always the server's integers. A balance and a history
-row arrive in micro-dollars and, once the operator has set a rate, in centavos;
-the page shows "≈ R$" with dollars beside and never converts a balance itself.
-The one conversion it does — a generation record's cost, which the server
-sends in dollars only — uses the rate from `GET /api/credits` and the server's
-own rounding.
+**Money on a page** is always the server's integers, in micro-dollars, shown
+as dollars and nothing else (*Money*, above) — the page converts nothing.
 
 **Adding a library file to a project is not a button here.** The server keeps
 no per-edit endpoints (`http/projects.rs`): what a project says changes through

@@ -1,6 +1,6 @@
 // What the server answers, spelled as `crates/server` serialises it. Times are
-// seconds since the Unix epoch; money is integer micro-dollars (`*_micros`) and,
-// when the operator has set a display rate, integer centavos (`*_centavos`).
+// seconds since the Unix epoch; money is integer micro-dollars (`*_micros`),
+// and only ever US dollars (#703).
 // docs/web.md has each route; the Rust type each mirrors is named beside it.
 
 import type { ProjectDocument } from "./document";
@@ -115,17 +115,9 @@ export interface LibraryItem {
   generation: GenerationRecord | null;
 }
 
-/** `credits::rates::DisplayRate` — reais per dollar, in ten-thousandths. */
-export interface DisplayRate {
-  brl_per_usd_e4: number;
-  set_at: number;
-}
-
 /** `http::credits::Balance` — `GET /api/credits`. */
 export interface Balance {
   balance_micros: number;
-  balance_centavos: number | null;
-  rate: DisplayRate | null;
 }
 
 /** What a history row is about — `credits::history::KINDS`. */
@@ -155,17 +147,13 @@ export interface HistoryRow {
   balance_after_micros: number;
   /** What set its price; a generation's carries `library_item_id` and `error`. */
   detail: Record<string, unknown>;
-  amount_centavos: number | null;
 }
 
 /** `credits::history::History` — a page of history and the filter's total. */
 export interface History {
   balance_micros: number;
-  balance_centavos: number | null;
-  rate: DisplayRate | null;
   matched: number;
   total_micros: number;
-  total_centavos: number | null;
   rows: HistoryRow[];
 }
 
