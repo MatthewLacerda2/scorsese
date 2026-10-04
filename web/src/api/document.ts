@@ -79,6 +79,16 @@ export interface DocumentAsset {
   /** What a generated asset is in its lifecycle: sketch, queued, generated, stale. */
   state?: string;
   text?: string;
+  /** A prompted asset's sentence: what a provider is asked for (the line, for speech). */
+  prompt?: string;
+  /** A `synth_audio` asset's recipe document, relative to the project root. */
+  recipe?: string;
+  /** The rest of a `generated_video` brief; absent means every default. */
+  video?: { model?: string; resolution?: string; seconds?: number; aspect?: string };
+  /** The rest of a `generated_image` brief; absent means every default. */
+  image?: { model?: string; resolution?: string; aspect?: string };
+  /** The rest of a `generated_audio` brief; absent means every default. */
+  speech?: { model?: string; voice_id?: string; language?: string; seed?: number };
   media?: { duration_seconds?: number; width?: number; height?: number };
   /** An `image_sequence`'s stills, how many frames each is held, and whether it loops. */
   sequence?: { stills: string[]; hold?: number; loop?: boolean };
