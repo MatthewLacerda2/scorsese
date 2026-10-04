@@ -160,3 +160,51 @@ fn a_blank_text_is_no_text() {
     assert_eq!(super::given(Some("   ")), None);
     assert_eq!(super::given(None), None);
 }
+
+/// Schemas nested inside a property, which get the same tidying.
+#[derive(Deserialize, JsonSchema)]
+struct Nested {
+    /// Counts, maybe.
+    counts: Option<Vec<u32>>,
+    /// Spots, each a count.
+    spots: Vec<Count>,
+    /// Text or a count.
+    either: Option<Either>,
+}
+
+/// An object inside a list.
+#[derive(Deserialize, JsonSchema)]
+struct Count {
+    /// How many.
+    n: u32,
+}
+
+/// An untagged choice, which `schemars` makes nullable with an `anyOf`.
+#[derive(Deserialize, JsonSchema)]
+#[serde(untagged)]
+enum Either {
+    Text(String),
+    Count(u32),
+}
+
+impl Arguments for Nested {}
+
+#[test]
+fn what_is_nested_is_tidied_too() {
+    let integer = json!({ "type": "integer" });
+    let schema = schema::<Nested>();
+    let properties = &schema["properties"];
+    assert_eq!(properties["counts"]["items"], integer);
+    assert_eq!(properties["counts"]["type"], "array");
+    assert_eq!(
+        properties["spots"]["items"]["properties"]["n"],
+        json!({ "type": "integer", "description": "How many." })
+    );
+    assert_eq!(
+        properties["either"],
+        json!({
+            "anyOf": [{ "type": "string" }, integer],
+            "description": "Text or a count."
+        })
+    );
+}
