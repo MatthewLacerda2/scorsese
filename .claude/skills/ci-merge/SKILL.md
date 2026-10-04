@@ -239,6 +239,16 @@ landing second renumbers its step, its constant and its literals to the next
 version (`every_version_since_the_oldest_has_exactly_one_step` fails if it
 does not). It is `SYNTH_VERSION`'s rule again — the answer is neither side.
 
+**A lockfile conflict is never hand-merged.** Two branches that each add a
+dependency, or a branch over a Dependabot bump, conflict in `Cargo.lock` (or
+`app/Cargo.lock`): take `main`'s side (`git checkout --ours` mid-rebase) and
+let cargo put this branch's edges back with `cargo metadata` (add
+`--manifest-path app/Cargo.toml` for the app), which only adds what the
+manifests ask for. Then `cargo check --all-targets --locked` for that
+workspace and `make deny` prove the result before the push. A
+`Cargo.toml` conflict between two added dependencies is the keep-both case.
+(2026-10-04: #747 over Dependabot's #737, #748 over #747.)
+
 After a rebase, re-check any claim the branch made **about the base it measured
 against**. A byte-identity proof taken against an older `main` is stale, and
 citing it is worse than not having run it.
