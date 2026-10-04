@@ -155,6 +155,26 @@ fn an_enum_and_an_object_are_read_as_their_types() {
 }
 
 #[test]
+fn a_path_is_the_projects_unless_it_is_absolute() {
+    use std::path::{Path, PathBuf};
+    let dir = Path::new("/films/a.scor");
+    let under = |given| super::under(dir, given, "out");
+    assert_eq!(under(None), Ok(None));
+    assert_eq!(
+        under(Some("x.png")),
+        Ok(Some(PathBuf::from("/films/a.scor/x.png")))
+    );
+    assert_eq!(
+        under(Some("/tmp/x.png")),
+        Ok(Some(PathBuf::from("/tmp/x.png")))
+    );
+    assert_eq!(
+        super::path(dir, " ", "file"),
+        Err("`file` is empty — give a path or leave it out".to_owned())
+    );
+}
+
+#[test]
 fn a_blank_text_is_no_text() {
     assert_eq!(super::given(Some("  pt ")), Some("pt"));
     assert_eq!(super::given(Some("   ")), None);
