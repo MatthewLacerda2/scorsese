@@ -30,7 +30,7 @@ pub struct Choice {
     /// still miss a warm cache: what the switch warning waits out.
     pub cache_seconds: u64,
     /// How dear it is beside the others, as a percentage of the dearest
-    /// (1–100): the length of the picker's bar ([`super::cost`]). `null` for
+    /// (1–100): the length of the picker's bar (`assistant::cost`). `null` for
     /// a model the rate table has no price for.
     pub cost: Option<u8>,
 }
