@@ -51,13 +51,15 @@ instead of complying**:
 
 Filing is a **duty**, not an option (CLAUDE.md, *File what you notice*, #757):
 
-- **A bug you spot** is fixed in the task at hand or filed — never dropped.
-- **A design gap or a missing feature** you find is filed, as is anything that
-  will recur or that a tool would solve more than once.
-- **No stage label when the fix is already decided** — when the design docs or
-  the product's settled design determine *how* to close it, the issue is
-  startable at once. When it needs a judgement call, it carries `planning` (or
-  `human`) as below.
+- **Nothing you find is dropped** — a bug, a missing feature, a design gap, a
+  quality-of-life improvement. Bugs are not a class apart: each is folded into
+  the task at hand or filed, and which is your call.
+- **A change that needs the user's approval is never folded in**: one that
+  changes how the user sees or understands their existing data or project,
+  changes stored data, or needs a migration is filed with `planning`.
+- **Anything else needs no stage label** and is startable at once — a clearer
+  control, a new read-only view, a fix that touches no stored data, a gap the
+  design docs already say how to close.
 - **Label it `agent`** whenever you wrote it on your own initiative rather than
   because a person asked for it.
 
@@ -80,11 +82,13 @@ A branch that grows to cover everything it noticed is a branch nobody can review
 
 **The judgement lives in the label**, so put it on honestly. Broad or vague is
 what `planning` is for. A Claude-written issue **must** carry one of the three if
-it is a breaking change, changes human-facing behaviour, needs a judgement call,
-or proposes a structural change.
+it is a breaking change, needs a judgement call, proposes a structural change, or
+meets the approval test above (changes how the user sees or understands their
+existing data or project, changes stored data, or needs a migration).
 
-A `bug` usually should **not** carry one — it is specific, the deciding already
-happened when the code broke, and nothing is gained by making it wait.
+A bug is held to that same test, not a looser one: most need no stage label,
+because the deciding happened when the code broke; a bug whose fix needs a
+migration or rewrites stored data still waits for the user.
 
 Type labels, combinable with a stage label:
 

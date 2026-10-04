@@ -589,18 +589,25 @@ machine you are on — cores, free memory, free disk — before a heavy build.
 - **File what you notice — it is a duty, not an option** (the user,
   2026-10-04, #757). The strongest issues come out of doing the work, and a
   finding left in a transcript is lost.
-  - **A bug Claude spots is fixed in the task at hand or filed** as an issue to
-    be worked later; never noticed and dropped. Whether something is worth
-    *building* is a question; whether a defect is worth *recording* never is.
-    If the bug questions a decision or surfaces a foundational problem, tell the
-    user too, because that is a judgement call.
-  - **A gap in the design or a missing feature Claude finds is filed** too, as
-    is anything that will recur or that a tool would solve more than once.
-  - **The stage label follows whether the fix is already decided.** When the
-    design docs or the product's settled design (this file, `docs/`, the
-    decided architecture, Filmora 9 for taste) already determine *how* to close
-    the gap, the issue carries no stage label and can be worked right away.
-    When closing it needs a judgement call, the stage-label rule below holds.
+  - **Whatever Claude finds is never dropped** — a bug, a missing feature, a
+    gap in the design, a quality-of-life improvement (a more telling colour on
+    a button; a page that plots history it already has). Bugs are not a class
+    apart: each is **folded into the task at hand or filed as an issue**, and
+    which of the two is Claude's call (keep the branch reviewable; *file rather
+    than fix* when it is outside the branch). A finding that questions a
+    decision or surfaces a foundational problem is also told to the user.
+  - **A change that needs the user's approval is never folded in, and is filed
+    with `planning`.** That is any change that **changes how the user sees or
+    understands their existing data or project** (what something means, how it
+    is shown to them), **changes stored data**, or **needs a migration** —
+    besides the changes to scorsese's design itself that *Take the initiative*
+    already reserves for the user. This is what keeps a breaking change from
+    being merged on an agent's say-so.
+  - **Anything else carries no stage label** and can be worked right away,
+    including a finding the design docs or the settled design (this file,
+    `docs/`, the decided architecture, Filmora 9 for taste) already say how to
+    close. A new read-only view of data, a clearer control, a fix that touches
+    no stored data are all this kind.
   - **Every issue Claude writes on its own carries the `agent` label**, so the
     user can tell it from one they asked for. It is not a stage label and never
     stops work.
@@ -619,10 +626,11 @@ machine you are on — cores, free memory, free disk — before a heavy build.
 - **Stage labels — at most one, and absence means ready.** `planning` (nobody
   has decided this is worth doing, or the approach is not settled), `human`
   (needs a human end-to-end). Both mean **do not start**. A Claude-written issue
-  must carry one if it is a breaking change,
-  changes human-facing behaviour, needs a judgement call, or proposes a structural
-  change. A `bug` usually should not — the deciding already happened when the code
-  broke.
+  must carry one if it is a breaking change, needs a judgement call, proposes a
+  structural change, or meets *File what you notice*'s approval test (changes how
+  the user sees or understands their existing data or project, changes stored
+  data, or needs a migration). A bug is held to the same test as any other
+  finding: most need no label, one that needs a migration does.
 - **The `issue-write` skill** has the rest: what each type label means, what a
   good issue body contains, how relationships are recorded, and the three gates in
   full.

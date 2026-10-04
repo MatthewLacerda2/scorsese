@@ -14,9 +14,11 @@ GitHub MCP tools (`issue_read`, `create_pull_request`, `update_pull_request`,
 
 **A bug you find is yours to deal with.** Fix it in this branch when it's in
 your way or small, or file an issue with the evidence (`issue-write`) and keep
-going. Either way it never goes unrecorded — and the same goes for a design gap
-or a missing feature you find (CLAUDE.md, *File what you notice*). Every issue
-you file carries the `agent` label. The operator expects coders to file issues
+going. Either way it never goes unrecorded, and the same goes for a missing
+feature, a design gap or a quality-of-life fix you find (CLAUDE.md, *File what
+you notice*). A change that alters how the user sees or understands their data
+or project, changes stored data or needs a migration is never folded into your
+branch: file it with `planning`. Every issue you file carries the `agent` label. The operator expects coders to file issues
 mid-batch.
 
 ## Check the issue's blockers yourself
