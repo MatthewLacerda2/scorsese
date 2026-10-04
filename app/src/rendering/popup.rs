@@ -22,7 +22,7 @@ const REDRAW: Duration = Duration::from_millis(100);
 /// answered and Close was pressed.
 pub(super) fn show(ctx: &Context, job: &mut Job) -> bool {
     let ended = job.ended().cloned();
-    if ended.is_none() {
+    if job.moving() {
         ctx.request_repaint_after(REDRAW);
     }
     let mut dismissed = false;

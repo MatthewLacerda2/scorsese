@@ -107,6 +107,12 @@ impl Job {
         self.ended.is_none()
     }
 
+    /// Whether the readout can still move, so the popup should keep redrawing:
+    /// a live render that has not answered. A held reading never moves.
+    pub(crate) fn moving(&self) -> bool {
+        matches!(self.gauge, Gauge::Live(_)) && self.ended.is_none()
+    }
+
     /// Asks the render to stop. It lands within a frame once drawing.
     pub(crate) fn stop(&self) {
         self.cancel.cancel();
