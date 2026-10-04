@@ -69,7 +69,8 @@ pub async fn ask(
     };
     if let Some(job) = store::pending(&mut tx, kind, id, &key).await? {
         tx.commit().await?;
-        return Ok(Asked::Queued(job));
+        // Asked again while it runs — the preview's poll: say how far it is.
+        return Ok(Asked::Queued(queue.progressed(job)));
     }
     let outrun = if settings.preview.is_some() {
         store::outrun(&mut tx, id, &settings, &key).await?

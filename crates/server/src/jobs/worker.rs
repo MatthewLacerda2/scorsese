@@ -12,7 +12,7 @@ use tokio::sync::{Notify, watch};
 use tokio::task::{Id, JoinSet};
 
 use super::stop::Running;
-use super::{Context, Job, JobView, Outcome, Registry, store};
+use super::{Context, Job, JobView, Outcome, ProgressView, Registry, progress, store};
 use crate::db::UserId;
 use crate::events::{Event, Events};
 
@@ -60,9 +60,24 @@ impl Queue {
         self.events.send(user, Event::Job(job));
     }
 
+    /// `job` with how far it has got folded in, if this process is running
+    /// it and its handler reports progress — a render or a preview (#698).
+    /// Anything else, and anything not running, comes back as it was.
+    pub fn progressed(&self, mut job: JobView) -> JobView {
+        if job.state == super::State::Running {
+            job.progress = self.running.reading(job.id).and_then(ProgressView::of);
+        }
+        job
+    }
+
     /// The flags of the jobs running now, by id.
     pub(super) fn running(&self) -> &Running {
         &self.running
+    }
+
+    /// The bus its changes are told on.
+    pub(super) fn events(&self) -> &Events {
+        &self.events
     }
 }
 
@@ -184,15 +199,16 @@ async fn claim_what_fits(
 /// Run one job to its end and record how it ended.
 async fn run(pool: PgPool, handler: Arc<dyn super::Handler>, job: Job, queue: Queue) {
     let cancel = queue.running.flag(job.id);
-    let context = Context::new(pool.clone(), queue.clone(), &job, cancel);
+    let readout = queue.running.progress(job.id);
+    let context = Context::new(pool.clone(), queue.clone(), &job, cancel, readout.clone());
     let running = {
         let job = job.clone();
         async move { handler.run(job, context).await }
     };
     // A panic is a bug in a handler, and it must not leave the row `running`
     // until the next restart, nor take the worker down with it.
-    let outcome = AssertUnwindSafe(running)
-        .catch_unwind()
+    let running = AssertUnwindSafe(running).catch_unwind();
+    let outcome = progress::watch(running, &queue, job.user, job.id, readout)
         .await
         .unwrap_or_else(|_| Outcome::Failed("the job crashed on the server; that is a bug".into()));
     match store::finish(&pool, &job, &outcome).await {

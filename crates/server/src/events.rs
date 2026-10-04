@@ -26,7 +26,7 @@ use tokio::sync::{broadcast, watch};
 
 use crate::assistant::{QuoteView, TurnView};
 use crate::db::UserId;
-use crate::jobs::JobView;
+use crate::jobs::{JobView, ProgressView};
 
 /// How many events may sit unread before a slow reader is told to resync.
 const BACKLOG: usize = 256;
@@ -41,6 +41,15 @@ const BACKLOG: usize = 256;
 pub enum Event {
     /// A job of theirs changed state.
     Job(JobView),
+    /// A running render or preview of theirs got further (#698): the same
+    /// shape as its [`JobView::progress`], at most twice a second and only
+    /// when the percentage or the phase moved. Its end is a [`Event::Job`].
+    JobProgress {
+        /// The job.
+        id: i64,
+        /// How far it has got.
+        progress: ProgressView,
+    },
     /// One of their projects was changed — by the assistant, so far: re-read
     /// it, and the preview refreshes as the edits land.
     Project {
