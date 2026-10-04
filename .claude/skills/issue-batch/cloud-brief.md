@@ -145,6 +145,11 @@ yourself: `CLAUDE_PROJECT_DIR=$PWD .claude/hooks/session-start.sh`, then the
   Filmora 9 (for taste) points to, and write it under *Decisions*. A check only a
   human can do goes in the description as a checklist; it never keeps the PR a
   draft.
+- The description has a **Gates** line: which gates ran green here, on which
+  head, and which did not run and why (`web`/`app` skipped, a gate this
+  container could not run and the CI job that answers for it). A ready pull
+  request claims it passes; this is where the claim is written down for the
+  reviewer (two of 2026-10-03's PRs left it out).
 - Green gates and a rebased branch → mark the PR **ready for review**.
 - **Do NOT merge.**
 - ≈3 attempts at the same failure, or a decision that is genuinely the user's:
