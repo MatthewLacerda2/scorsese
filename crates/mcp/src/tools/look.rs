@@ -15,15 +15,52 @@
 //! much and say less, because what tells you what a shot *does* is the change
 //! between frames, and a change is only visible when they are side by side.
 
+use schemars::JsonSchema;
 use scorsese_render::contact::{self, Look as Range, MAX_FRAMES, label};
 use scorsese_render::{Tools, frames};
+use serde::Deserialize;
 use serde_json::Value;
 
+use crate::tools::args::{self, ProjectDir, Required};
 use crate::tools::scratch::Scratch;
-use crate::tools::{Costs, Part, Reply, Tool, project_dir, project_property};
+use crate::tools::{Costs, Part, Reply, Tool};
 
 /// Frames of a file, tiled into one sheet.
 pub(crate) struct Look;
+
+/// What `look` takes.
+#[derive(Deserialize, JsonSchema)]
+struct Arguments {
+    project: ProjectDir,
+    /// The video to look at, as a path relative to the project — e.g.
+    /// assets/03-rooftop.mp4 — or an absolute path to footage that has not
+    /// been imported. Not an asset id: this reads a file, and the file need not
+    /// be in the assets table at all.
+    file: String,
+    /// Where to start, in seconds. Default 0. To walk a long file, pass the
+    /// `from` the previous reply named.
+    from: Option<f64>,
+    /// Where to stop, in seconds. Without it the frames are 5 seconds apart,
+    /// which is how a file gets covered; with it they spread evenly across the
+    /// span you named, which is how one stretch gets looked at closely.
+    to: Option<f64>,
+    /// How many frames to take. Default 5, which is also the most: more than
+    /// that in one sheet is unreadable at any size worth sending.
+    frames: Option<u64>,
+    /// Rule every frame of the sheet with coordinates: a line every 0.1,
+    /// heavier at 0.5, labelled along the top and left edges, origin at the
+    /// top-left corner. The fractions are the source's own — its whole width
+    /// and height, not the render raster and not the sheet — which is exactly
+    /// what a clip's crop is measured in, so the rectangle read off a frame is
+    /// the rectangle written into the document. Default false, because the
+    /// lines are drawn onto the picture itself.
+    #[serde(default)]
+    grid: bool,
+}
+
+impl args::Arguments for Arguments {
+    const REQUIRED: Required = &[("file", "the path of a video to look at")];
+}
 
 impl Tool for Look {
     fn name(&self) -> &'static str {
@@ -52,64 +89,16 @@ impl Tool for Look {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "file": {
-                    "type": "string",
-                    "description": "The video to look at, as a path relative to the \
-                                    project — e.g. assets/03-rooftop.mp4 — or an absolute \
-                                    path to footage that has not been imported. Not an \
-                                    asset id: this reads a file, and the file need not be \
-                                    in the assets table at all."
-                },
-                "from": {
-                    "type": "number",
-                    "description": "Where to start, in seconds. Default 0. To walk a long \
-                                    file, pass the `from` the previous reply named."
-                },
-                "to": {
-                    "type": "number",
-                    "description": "Where to stop, in seconds. Without it the frames are 5 \
-                                    seconds apart, which is how a file gets covered; with \
-                                    it they spread evenly across the span you named, which \
-                                    is how one stretch gets looked at closely."
-                },
-                "frames": {
-                    "type": "integer",
-                    "description": "How many frames to take. Default 5, which is also the \
-                                    most: more than that in one sheet is unreadable at any \
-                                    size worth sending."
-                },
-                "grid": {
-                    "type": "boolean",
-                    "description": "Rule every frame of the sheet with coordinates: a line \
-                                    every 0.1, heavier at 0.5, labelled along the top and \
-                                    left edges, origin at the top-left corner. The \
-                                    fractions are the source's own — its whole width and \
-                                    height, not the render raster and not the sheet — which \
-                                    is exactly what a clip's crop is measured in, so the \
-                                    rectangle read off a frame is the rectangle written \
-                                    into the document. Default false, because the lines are \
-                                    drawn onto the picture itself."
-                }
-            },
-            "required": ["project", "file"]
-        })
+        args::schema::<Arguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let named = arguments
-            .get("file")
-            .and_then(Value::as_str)
-            .ok_or("`file` is required: the path of a video to look at")?;
+        let arguments: Arguments = args::parse(arguments)?;
         // Relative to the project, like every other path in this system;
         // absolute when the footage is somewhere else entirely, which is the
         // case for material nobody has imported yet.
-        let file = dir.join(named);
-        let range = range(arguments)?;
+        let file = arguments.project.dir().join(&arguments.file);
+        let range = range(&arguments)?;
 
         // Discovered per call rather than held, as the other ffmpeg tools do: a
         // server that found ffmpeg at startup would keep insisting it was there
@@ -176,33 +165,19 @@ fn counted(frames: usize) -> String {
 /// CLI as well — but a caller who asks for fifty is told rather than silently
 /// given five. A limit that quietly rewrites the request teaches nobody
 /// anything.
-fn range(arguments: &Value) -> Result<Range, String> {
-    let number = |name: &str| -> Result<Option<f64>, String> {
-        match arguments.get(name) {
-            None | Some(Value::Null) => Ok(None),
-            Some(value) => value
-                .as_f64()
-                .map(Some)
-                .ok_or_else(|| format!("{name}: {value} is not a number of seconds")),
+fn range(arguments: &Arguments) -> Result<Range, String> {
+    let frames = match arguments.frames {
+        None => MAX_FRAMES,
+        Some(asked) if asked as usize > MAX_FRAMES => {
+            return Err(format!(
+                "frames: {asked} is more than the {MAX_FRAMES} one sheet holds. \
+                 Ask for {MAX_FRAMES}, then call again from where the reply says."
+            ));
         }
+        Some(asked) => asked as usize,
     };
-    let frames = match arguments.get("frames") {
-        None | Some(Value::Null) => MAX_FRAMES,
-        Some(value) => {
-            let asked = value
-                .as_u64()
-                .ok_or_else(|| format!("frames: {value} is not a count"))?;
-            if asked as usize > MAX_FRAMES {
-                return Err(format!(
-                    "frames: {asked} is more than the {MAX_FRAMES} one sheet holds. \
-                     Ask for {MAX_FRAMES}, then call again from where the reply says."
-                ));
-            }
-            asked as usize
-        }
-    };
-    let from = number("from")?.unwrap_or(0.0);
-    let to = number("to")?;
+    let from = arguments.from.unwrap_or(0.0);
+    let to = arguments.to;
     if to.is_some_and(|to| to < from) {
         return Err(format!("to: {to:?} is before from: {from}"));
     }
@@ -210,9 +185,6 @@ fn range(arguments: &Value) -> Result<Range, String> {
         from_seconds: from,
         to_seconds: to,
         count: frames,
-        grid: arguments
-            .get("grid")
-            .and_then(Value::as_bool)
-            .unwrap_or(false),
+        grid: arguments.grid,
     })
 }

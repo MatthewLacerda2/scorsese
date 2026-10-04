@@ -21,12 +21,35 @@
 //! catalogue, which is what keeps this and `scorsese icons` one answer instead
 //! of two.
 
+use schemars::JsonSchema;
+use serde::Deserialize;
 use serde_json::Value;
 
-use super::{Costs, Reply, Tool, project_dir, project_property};
+use super::args::{self, Name, ProjectDir, Required};
+use super::{Costs, Reply, Tool};
 
 /// Find an icon by a word.
 pub(crate) struct Icons;
+
+/// What `icons` takes.
+#[derive(Deserialize, JsonSchema)]
+struct Arguments {
+    // Required and not used, which is deliberate: every tool here names the
+    // project it is called about, and the icon set is the same for all of them.
+    // The description says so rather than leaving a client to wonder whether a
+    // project can carry symbols of its own.
+    #[expect(dead_code, reason = "taken for the uniform surface, not read")]
+    project: ProjectDir,
+    /// The word to look for — `camera`, `film`, `warning`, `arrow`. Matched
+    /// inside names, tags and retired names alike, so a fragment works (`clap`
+    /// finds the clapperboard) and so does the name an icon used to have
+    /// (`unlock` finds `lock-open`).
+    query: Name,
+}
+
+impl args::Arguments for Arguments {
+    const REQUIRED: Required = &[("query", "a word to look for, like `camera` or `film`")];
+}
 
 impl Tool for Icons {
     fn name(&self) -> &'static str {
@@ -60,38 +83,13 @@ impl Tool for Icons {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "query": {
-                    "type": "string",
-                    "description": "The word to look for — `camera`, `film`, \
-                                    `warning`, `arrow`. Matched inside names, \
-                                    tags and retired names alike, so a fragment \
-                                    works (`clap` finds the clapperboard) and so \
-                                    does the name an icon used to have (`unlock` \
-                                    finds `lock-open`)."
-                }
-            },
-            "required": ["project", "query"]
-        })
+        args::schema::<Arguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        // Taken and not used, which is deliberate: every tool here names the
-        // project it is called about, and the icon set is the same for all of
-        // them. The description says so rather than leaving a client to wonder
-        // whether a project can carry symbols of its own.
-        project_dir(arguments)?;
-        let query = arguments
-            .get("query")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|query| !query.is_empty())
-            .ok_or_else(|| {
-                "`query` is required: a word to look for, like `camera` or `film`".to_owned()
-            })?;
-        Ok(scorsese_render::icon::search(query).to_string().into())
+        let arguments: Arguments = args::parse(arguments)?;
+        Ok(scorsese_render::icon::search(arguments.query.as_str())
+            .to_string()
+            .into())
     }
 }

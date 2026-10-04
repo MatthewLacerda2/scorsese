@@ -269,6 +269,16 @@ impl JsonSchema for ProjectDir {
     }
 }
 
+/// The arguments of a tool that takes nothing but the project.
+#[derive(Deserialize, JsonSchema)]
+pub(crate) struct ProjectOnly {
+    // Undocumented on purpose: a doc comment here would replace the one
+    // `ProjectDir` gives every tool.
+    pub(crate) project: ProjectDir,
+}
+
+impl Arguments for ProjectOnly {}
+
 /// A required text argument that may not be blank: an id, a name, a query.
 ///
 /// Blank is refused as missing, with the tool's own word for what it is

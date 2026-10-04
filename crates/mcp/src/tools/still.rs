@@ -19,13 +19,16 @@
 //! A still drawn any other way could disagree with the file, and then looking
 //! at it would prove nothing.
 
+use schemars::{JsonSchema, Schema, SchemaGenerator};
 use scorsese_core::{Fps, Frames};
 use scorsese_render::{Cue, RenderSettings, Renderer, Resolution, Tools, frames, grid};
+use serde::Deserialize;
 use serde_json::Value;
 
+use crate::tools::args::{self, ProjectDir, Required};
 use crate::tools::inspect::load;
 use crate::tools::scratch::Scratch;
-use crate::tools::{Costs, Part, Reply, Tool, project_dir, project_property, under};
+use crate::tools::{Costs, Part, Reply, Tool};
 
 /// What the frame is composited at when nobody says.
 ///
@@ -42,6 +45,48 @@ const DEFAULT_RASTER: &str = "1280x720";
 
 /// Frames, composited and handed back as pictures.
 pub(crate) struct Still;
+
+/// What `still` takes.
+#[derive(Deserialize, JsonSchema)]
+struct Arguments {
+    project: ProjectDir,
+    /// Which instant to look at: a time like 9.1s, or a timeline frame number
+    /// like 285. A bare decimal is refused — say which unit you mean. Give a
+    /// list, e.g. ["0s", "9.1s", "400"], to look at several at once: one
+    /// sentence and one picture comes back per instant, in the order asked.
+    #[schemars(schema_with = "at_schema")]
+    at: Value,
+    /// The raster to composite at, e.g. 1920x1080. Layout is a fraction of the
+    /// frame, so a smaller one is the same picture and a smaller reply. The
+    /// exception is a clip with fit: native, which is a fixed count of pixels
+    /// and so looks bigger in a smaller frame than it will in the delivery —
+    /// ask for the delivery raster to judge the size of one. Default 1280x720.
+    resolution: Option<String>,
+    /// Rule the picture with coordinates: a line every 0.1 of the frame,
+    /// heavier at 0.5, labelled along the top and left edges, origin at the
+    /// top-left corner. Fractions of the raster, which is the unit
+    /// transform.position.x and transform.position.y are written in — so where
+    /// a layer sits is read off the picture instead of guessed at, rendered,
+    /// and guessed again. A position is an offset from where the layer already
+    /// rests, so what the ruler gives you is the distance to move it. Default
+    /// false, because the lines are drawn onto the frame itself — including a
+    /// PNG kept with `out` — so ask for them while measuring and leave them off
+    /// for a picture to keep.
+    #[serde(default)]
+    grid: bool,
+    /// Also keep the PNG at this path, e.g. review/title.png. One instant only
+    /// — a path names a file, and several frames do not fit in one, so asking
+    /// for a list and a path together is refused; `scorsese render --stills`
+    /// is how a set of PNGs gets written. Without it the picture is returned
+    /// and nothing is left on disk. A relative path is relative to the project
+    /// directory, never the server's working directory; an absolute one is
+    /// used as given.
+    out: Option<String>,
+}
+
+impl args::Arguments for Arguments {
+    const REQUIRED: Required = &[("at", WANTED)];
+}
 
 impl Tool for Still {
     fn name(&self) -> &'static str {
@@ -69,70 +114,18 @@ impl Tool for Still {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "at": {
-                    "type": ["string", "array"],
-                    "items": { "type": "string" },
-                    "description": "Which instant to look at: a time like 9.1s, or a \
-                                    timeline frame number like 285. A bare decimal is \
-                                    refused — say which unit you mean. Give a list, e.g. \
-                                    [\"0s\", \"9.1s\", \"400\"], to look at several at \
-                                    once: one sentence and one picture comes back per \
-                                    instant, in the order asked."
-                },
-                "resolution": {
-                    "type": "string",
-                    "description": "The raster to composite at, e.g. 1920x1080. Layout \
-                                    is a fraction of the frame, so a smaller one is the \
-                                    same picture and a smaller reply. The exception is a \
-                                    clip with fit: native, which is a fixed count of \
-                                    pixels and so looks bigger in a smaller frame than it \
-                                    will in the delivery — ask for the delivery raster to \
-                                    judge the size of one. Default 1280x720."
-                },
-                "grid": {
-                    "type": "boolean",
-                    "description": "Rule the picture with coordinates: a line every 0.1 of \
-                                    the frame, heavier at 0.5, labelled along the top and \
-                                    left edges, origin at the top-left corner. Fractions of \
-                                    the raster, which is the unit transform.position.x and \
-                                    transform.position.y are written in — so where a layer \
-                                    sits is read off the picture instead of guessed at, \
-                                    rendered, and guessed again. A position is an offset \
-                                    from where the layer already rests, so what the ruler \
-                                    gives you is the distance to move it. Default false, \
-                                    because the lines are drawn onto the frame itself — \
-                                    including a PNG kept with `out` — so ask for them while \
-                                    measuring and leave them off for a picture to keep."
-                },
-                "out": {
-                    "type": "string",
-                    "description": "Also keep the PNG at this path, e.g. review/title.png. \
-                                    One instant only — a path names a file, and several \
-                                    frames do not fit in one, so asking for a list and a \
-                                    path together is refused; `scorsese render --stills` \
-                                    is how a set of PNGs gets written. Without it the \
-                                    picture is returned and nothing is left on disk. \
-                                    A relative path is relative to the project \
-                                    directory, never the server's working directory; \
-                                    an absolute one is used as given."
-                }
-            },
-            "required": ["project", "at"]
-        })
+        args::schema::<Arguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let project = load(&dir)?;
-        let instants = instants(arguments, project.timeline_fps)?;
-        let kept = kept(&dir, arguments, instants.len())?;
+        let arguments: Arguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let project = load(dir)?;
+        let instants = instants(&arguments.at, project.timeline_fps)?;
+        let kept = kept(dir, arguments.out.as_deref(), instants.len())?;
         let resolution: Resolution = arguments
-            .get("resolution")
-            .and_then(Value::as_str)
+            .resolution
+            .as_deref()
             .unwrap_or(DEFAULT_RASTER)
             .parse()
             .map_err(|problem| format!("resolution: {problem}"))?;
@@ -146,15 +139,12 @@ impl Tool for Still {
         let settings = RenderSettings::new(resolution, project.timeline_fps);
         let renderer = Renderer::new(&tools, settings);
 
-        let ruled = arguments
-            .get("grid")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
+        let ruled = arguments.grid;
 
         let mut parts = Vec::with_capacity(instants.len());
         for at in instants {
             let mut frame = renderer
-                .still(&project, &dir, at)
+                .still(&project, dir, at)
                 .map_err(|error| format!("compositing frame {}: {error}", at.get()))?;
             // After compositing, over the finished frame: the ruler is
             // furniture for reading the picture, never a layer of the edit.
@@ -188,8 +178,20 @@ impl Tool for Still {
     }
 }
 
-/// What the `at` argument says when it says nothing usable.
-const WANTED: &str = "`at` is required: a time like 9.1s, a frame like 285, or a list of either";
+/// What the `at` argument is, for the refusal when it says nothing usable.
+const WANTED: &str = "a time like 9.1s, a frame like 285, or a list of either";
+
+/// The shape `at` takes on the wire: one instant as text, or a list of them.
+///
+/// Read as a bare JSON value and taken apart by [`instants`] rather than by
+/// serde, because the refusals it gives — which item in a list is not text,
+/// that a list is empty — say more than a type error could.
+pub(super) fn at_schema(_: &mut SchemaGenerator) -> Schema {
+    schemars::json_schema!({
+        "type": ["string", "array"],
+        "items": { "type": "string" }
+    })
+}
 
 /// Which timeline frames the `at` argument names, in the order it named them.
 ///
@@ -201,10 +203,10 @@ const WANTED: &str = "`at` is required: a time like 9.1s, a frame like 285, or a
 /// Shared with `project_describe`, which takes the same argument for the same
 /// reason: `at` has to mean one thing across the whole server, so a client
 /// that learned `["0s", "9.1s"]` here can write it there.
-pub(super) fn instants(arguments: &Value, fps: Fps) -> Result<Vec<Frames>, String> {
-    let asked = match arguments.get("at") {
-        Some(Value::String(one)) => vec![one.as_str()],
-        Some(Value::Array(many)) => many
+pub(super) fn instants(at: &Value, fps: Fps) -> Result<Vec<Frames>, String> {
+    let asked = match at {
+        Value::String(one) => vec![one.as_str()],
+        Value::Array(many) => many
             .iter()
             .map(|item| {
                 item.as_str().ok_or_else(|| {
@@ -214,7 +216,7 @@ pub(super) fn instants(arguments: &Value, fps: Fps) -> Result<Vec<Frames>, Strin
                 })
             })
             .collect::<Result<Vec<_>, _>>()?,
-        _ => return Err(WANTED.to_owned()),
+        _ => return Err(format!("`at` is required: {WANTED}")),
     };
     if asked.is_empty() {
         return Err("at: an empty list names no instant to look at".to_owned());
@@ -244,10 +246,10 @@ pub(super) fn instants(arguments: &Value, fps: Fps) -> Result<Vec<Frames>, Strin
 /// later call resolves the same way.
 fn kept<'a>(
     dir: &std::path::Path,
-    arguments: &'a Value,
+    out: Option<&'a str>,
     instants: usize,
 ) -> Result<Option<(&'a str, std::path::PathBuf)>, String> {
-    let Some(given) = arguments.get("out").and_then(Value::as_str) else {
+    let Some(given) = out else {
         return Ok(None);
     };
     if instants > 1 {
@@ -256,5 +258,5 @@ fn kept<'a>(
              instant to keep a file, or use `scorsese render --stills` for a set of PNGs."
         ));
     }
-    Ok(under(dir, arguments, "out")?.map(|path| (given, path)))
+    Ok(args::under(dir, out, "out")?.map(|path| (given, path)))
 }
