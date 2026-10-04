@@ -4,7 +4,7 @@
 
 import { Link, NavLink, Outlet, useMatch, useNavigate } from "react-router";
 import { useBalance } from "@/app/queries";
-import { ThemeMenuRow } from "@/app/ThemeControl";
+import { SettingsButton } from "@/app/Settings";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -16,19 +16,21 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { UploadTray } from "@/files/UploadTray";
 import { UploadsProvider } from "@/files/uploads";
+import { useT } from "@/i18n/I18nProvider";
 import { formatDollars } from "@/lib/money";
 import { useAccount, useLogout } from "@/session/session";
 
 const NAV = [
-  { to: "/projects", label: "Projects" },
-  { to: "/library", label: "Library" },
-];
+  { to: "/projects", key: "projects" },
+  { to: "/library", key: "library" },
+] as const;
 
 export function Shell() {
   // The editor takes the whole window under the header, its panels scrolling
   // on their own; every other page is a padded page that scrolls. One shell
   // either way, so the upload tray and its uploads survive moving between them.
   const editing = useMatch("/projects/:id/edit") !== null;
+  const t = useT();
   return (
     <UploadsProvider>
       <div className={editing ? "flex h-svh flex-col" : "flex min-h-svh flex-col"}>
@@ -40,7 +42,7 @@ export function Shell() {
             scorsese
           </Link>
           <nav className="flex gap-1">
-            {NAV.map(({ to, label }) => (
+            {NAV.map(({ to, key }) => (
               <NavLink
                 key={to}
                 to={to}
@@ -48,12 +50,13 @@ export function Shell() {
                   `rounded-md px-3 py-1.5 text-sm ${isActive ? "bg-muted font-medium" : "text-muted-foreground hover:text-foreground"}`
                 }
               >
-                {label}
+                {t.common.nav[key]}
               </NavLink>
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-2">
             <BalanceChip />
+            <SettingsButton />
             <AccountMenu />
           </div>
         </header>
@@ -69,10 +72,11 @@ export function Shell() {
 /** The balance, in dollars; a click opens the history. */
 function BalanceChip() {
   const balance = useBalance();
+  const t = useT();
   if (!balance.data) return null;
   const { balance_micros } = balance.data;
   return (
-    <Button asChild variant="outline" size="sm" title="Your credits — see what you spent">
+    <Button asChild variant="outline" size="sm" title={t.common.balanceTitle}>
       <Link to="/spending">
         <span className={balance_micros < 0 ? "text-destructive" : undefined}>
           {formatDollars(balance_micros)}
@@ -86,10 +90,11 @@ function AccountMenu() {
   const account = useAccount();
   const logout = useLogout();
   const navigate = useNavigate();
+  const t = useT();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="rounded-full" aria-label="Your account">
+        <Button variant="ghost" size="icon" className="rounded-full" aria-label={t.common.account}>
           <img src="/icon.png" alt="" className="size-7 rounded-full" />
         </Button>
       </DropdownMenuTrigger>
@@ -98,15 +103,14 @@ function AccountMenu() {
           {account.data?.email}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => navigate("/spending")}>Spending history</DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel className="font-normal text-muted-foreground">Theme</DropdownMenuLabel>
-        <ThemeMenuRow />
+        <DropdownMenuItem onSelect={() => navigate("/spending")}>
+          {t.common.spendingHistory}
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onSelect={() => logout.mutate(undefined, { onSettled: () => navigate("/login") })}
         >
-          Log out
+          {t.common.logOut}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

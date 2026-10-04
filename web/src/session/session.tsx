@@ -10,6 +10,7 @@ import { Navigate, Outlet, useLocation } from "react-router";
 import { type Account, ApiError, api } from "@/api";
 import { ME } from "@/app/queryClient";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/i18n/I18nProvider";
 
 async function currentAccount(): Promise<Account | null> {
   try {
@@ -62,16 +63,17 @@ export function safeNext(next: string | null): string {
 /** A route guard: renders the page when logged in, the login page when not. */
 export function RequireSession() {
   const account = useAccount();
+  const t = useT();
   const location = useLocation();
   if (account.isPending) {
-    return <p className="p-6 text-muted-foreground">Loading…</p>;
+    return <p className="p-6 text-muted-foreground">{t.common.loading}</p>;
   }
   if (account.isError) {
     return (
       <div className="flex flex-col items-start gap-3 p-6">
-        <p>Could not reach the server: {account.error.message}</p>
+        <p>{t.common.unreachable(account.error.message)}</p>
         <Button variant="outline" onClick={() => account.refetch()}>
-          Try again
+          {t.common.tryAgain}
         </Button>
       </div>
     );
