@@ -295,13 +295,13 @@ pub(in crate::assistant) async fn finish(
 }
 
 /// The neutral record as the JSON array stored.
-fn recorded(record: &[Message]) -> String {
+pub(super) fn recorded(record: &[Message]) -> String {
     // Plain data with string keys; it cannot fail.
     serde_json::to_string(record).unwrap_or_else(|_| "[]".to_owned())
 }
 
 /// Messages as the JSON array stored: each one's text, verbatim.
-fn frozen(messages: &[Box<RawValue>]) -> String {
+pub(super) fn frozen(messages: &[Box<RawValue>]) -> String {
     // A list of raw values serialises as their texts joined; it cannot fail.
     serde_json::to_string(messages).unwrap_or_else(|_| "[]".to_owned())
 }

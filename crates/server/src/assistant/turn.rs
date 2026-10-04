@@ -1,10 +1,11 @@
 //! One turn, run to its end: call the model, charge the call, run the tools
-//! it asks for, send their results back — until it answers, or something
-//! says stop.
+//! it asks for, send their results back — until it answers, asks the user a
+//! question ([`super::ask`]), or something says stop.
 //!
 //! Runs as a task of its own, started by [`super::start`] after the turn's
-//! row is committed; whoever asked has already been answered with the turn,
-//! and follows it on the event stream.
+//! row is committed — or by [`super::ask::answer`], resuming a turn that
+//! asked; whoever asked has already been answered with the turn, and follows
+//! it on the event stream.
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -13,8 +14,10 @@ use scorsese_providers::chat::{self, Chat, ChatError, Message, Model, Reply, Req
 use serde_json::value::RawValue;
 
 use super::relay::Relay;
+use super::store::asking;
 use super::store::turns::{self, Charge};
-use super::{EFFORT, calls, prompt};
+use super::store::{QuestionView, TurnView};
+use super::{EFFORT, ask, calls, prompt};
 use crate::credits::dollars;
 use crate::db::UserId;
 use crate::events::Event;
@@ -43,21 +46,30 @@ pub(super) struct Running {
     pub(super) messages: Vec<Box<RawValue>>,
     /// The same, neutral.
     pub(super) record: Vec<Message>,
-    /// Their balance when it started.
+    /// Their balance when it started, or resumed.
     pub(super) balance: i64,
+    /// What it had cost before then: nothing for a new turn, the calls made
+    /// before its question for a resumed one. The per-turn cap covers both.
+    pub(super) spent: i64,
 }
 
-/// How a turn ended: its state, and what to tell the user.
-struct End(&'static str, String);
+/// How a turn ended: its state, and what to tell the user — or that it is
+/// waiting on a question.
+enum End {
+    /// Over, in this state, with these words.
+    Over(&'static str, String),
+    /// Paused until the user answers.
+    Asking(QuestionView),
+}
 
 /// Run `turn` to its end, and record and announce how it ended.
 pub(super) async fn run(state: AppState, mut turn: Running) {
     let end = match drive(&state, &mut turn).await {
         Ok(end) => end,
-        Err(failure) => End("failed", failure),
+        Err(failure) => End::Over("failed", failure),
     };
     state.assistant.stop_requested(turn.turn);
-    match turns::finish(&state.pool, turn.user, turn.turn, end.0, &end.1).await {
+    match settle(&state, &turn, &end).await {
         Ok((view, balance)) => state.events.send(
             turn.user,
             Event::ChatTurn {
@@ -72,18 +84,33 @@ pub(super) async fn run(state: AppState, mut turn: Running) {
     }
 }
 
+/// Record how the turn ended, or that it now waits on a question.
+async fn settle(
+    state: &AppState,
+    turn: &Running,
+    end: &End,
+) -> Result<(TurnView, i64), super::AssistantError> {
+    match end {
+        End::Over(ended, words) => {
+            turns::finish(&state.pool, turn.user, turn.turn, ended, words).await
+        }
+        End::Asking(question) => asking::pause(&state.pool, turn.user, turn.turn, question).await,
+    }
+}
+
 /// The loop. `Err` is a failure, in words for the user.
 async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
     let assistant = &state.assistant;
-    let tools = prompt::tools(&state.tools);
-    let (mut spent, mut balance) = (0, turn.balance);
+    let mut tools = prompt::tools(&state.tools);
+    tools.push(ask::tool());
+    let (mut spent, mut balance) = (turn.spent, turn.balance);
     let mut revision = calls::revision(state, turn.user, turn.project).await;
     loop {
         if assistant.stop_requested(turn.turn) {
-            return Ok(End("stopped", "Stopped, as you asked.".into()));
+            return Ok(End::Over("stopped", "Stopped, as you asked.".into()));
         }
         if spent >= assistant.cap_micros() {
-            return Ok(End(
+            return Ok(End::Over(
                 "capped",
                 format!(
                     "Stopped: this message has cost {}, the most one message may. Send another to \
@@ -93,7 +120,7 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
             ));
         }
         if balance <= 0 {
-            return Ok(End(
+            return Ok(End::Over(
                 "capped",
                 format!(
                     "Stopped: your balance is {}. Add credit to carry on.",
@@ -129,13 +156,21 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
         match &reply.stop {
             Stop::EndTurn => {
                 keep(state, turn, reply.native.clone(), reply.message.clone()).await?;
-                return Ok(End("answered", reply.text()));
+                return Ok(End::Over("answered", reply.text()));
             }
             Stop::ToolUse => {
                 keep(state, turn, reply.native.clone(), reply.message.clone()).await?;
+                let asked = reply.calls();
+                if let Some(question) = ask::alone(&asked) {
+                    return Ok(End::Asking(question));
+                }
                 let mut results = Vec::new();
-                for call in reply.calls() {
-                    results.push(calls::run(state, turn.user, turn.turn, &call).await);
+                for call in asked {
+                    results.push(if call.name == ask::NAME {
+                        ask::refused(&call)
+                    } else {
+                        calls::run(state, turn.user, turn.turn, &call).await
+                    });
                 }
                 let now = calls::revision(state, turn.user, turn.project).await;
                 if let Some(now) = now.filter(|now| Some(*now) != revision) {
@@ -151,13 +186,13 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
             }
             Stop::Refusal { explanation, .. } => {
                 let why = explanation.as_deref().unwrap_or("no reason was given");
-                return Ok(End(
+                return Ok(End::Over(
                     "refused",
                     format!("{} declined this request: {why}", turn.model.label()),
                 ));
             }
             Stop::MaxTokens => {
-                return Ok(End(
+                return Ok(End::Over(
                     "failed",
                     "The reply ran past its length limit. Ask for \
                                          less at once, or send another message to carry on."
@@ -165,7 +200,7 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
                 ));
             }
             Stop::Other(reason) => {
-                return Ok(End(
+                return Ok(End::Over(
                     "failed",
                     format!("The reply stopped early ({reason})."),
                 ));

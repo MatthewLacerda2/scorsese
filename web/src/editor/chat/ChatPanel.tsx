@@ -14,9 +14,11 @@ import { useServerEvents } from "@/app/events";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ModelPicker } from "./ModelPicker";
+import { ANSWER_PLACEHOLDER } from "./question";
 import { Turn } from "./Turn";
 import {
   apply,
+  asking,
   empty,
   fromConversation,
   jobState,
@@ -60,6 +62,7 @@ export function ChatPanel({ projectId }: { projectId: number }) {
   });
 
   const current = running(transcript);
+  const paused = asking(transcript);
   const scroller = useRef<HTMLDivElement>(null);
   // biome-ignore lint/correctness/useExhaustiveDependencies: scroll whenever the transcript grows
   useEffect(() => {
@@ -101,20 +104,27 @@ export function ChatPanel({ projectId }: { projectId: number }) {
       <Composer
         projectId={projectId}
         runningTurn={current?.id ?? null}
+        askingTurn={paused?.id ?? null}
         onStarted={(turn) => setTranscript((previous) => upsert(previous, turn))}
       />
     </div>
   );
 }
 
-/** The box a message is written in, with Send, Stop and "new conversation". */
+/**
+ * The box a message is written in, with Send, Stop and "new conversation".
+ * While a turn waits on a question, a message sent here is its answer, and
+ * Stop sets the question aside.
+ */
 function Composer({
   projectId,
   runningTurn,
+  askingTurn,
   onStarted,
 }: {
   projectId: number;
   runningTurn: number | null;
+  askingTurn: number | null;
   onStarted: (turn: Awaited<ReturnType<typeof chatApi.send>>) => void;
 }) {
   const [prompt, setPrompt] = useState("");
@@ -135,6 +145,7 @@ function Composer({
     onError: (error) => setRefused(problem(error)),
   });
   const ready = prompt.trim() !== "" && runningTurn === null && !send.isPending;
+  const stoppable = runningTurn ?? askingTurn;
   const keyed = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
@@ -155,7 +166,11 @@ function Composer({
         value={prompt}
         onChange={(event) => setPrompt(event.target.value)}
         onKeyDown={keyed}
-        placeholder="Ask the assistant… (Enter sends, Shift+Enter for a new line)"
+        placeholder={
+          askingTurn !== null && !fresh
+            ? ANSWER_PLACEHOLDER
+            : "Ask the assistant… (Enter sends, Shift+Enter for a new line)"
+        }
         className="max-h-40 min-h-16 resize-none"
       />
       <div className="flex items-center gap-2">
@@ -168,12 +183,12 @@ function Composer({
           New conversation
         </label>
         <div className="ml-auto flex gap-2">
-          {runningTurn !== null && (
+          {stoppable !== null && (
             <Button
               size="sm"
               variant="outline"
               disabled={stop.isPending}
-              onClick={() => stop.mutate(runningTurn)}
+              onClick={() => stop.mutate(stoppable)}
             >
               <SquareIcon /> Stop
             </Button>

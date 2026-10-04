@@ -257,6 +257,7 @@ fn chat_routes() -> Router<AppState> {
         .route("/chat/turns/{id}", get(chat::turn))
         .route("/chat/turns/{id}/stop", post(chat::stop))
         .route("/chat/turns/{id}/quote", post(chat::quote))
+        .route("/chat/turns/{id}/answer", post(chat::answer))
 }
 
 /// Whether this server can do its job right now: `200 ok` or `503`.

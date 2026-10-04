@@ -9,7 +9,7 @@
 // notes and the tool lines exist only on the event stream. So a re-read after a
 // `resync` replaces every turn but keeps the live lines already seen for it.
 
-import type { Conversation, TurnState, TurnView } from "@/api/chat";
+import type { Conversation, QuestionView, TurnState, TurnView } from "@/api/chat";
 import { ApiError } from "@/api/client";
 import type { JobView, ServerEvent } from "@/api/events";
 
@@ -146,6 +146,21 @@ function change(transcript: Transcript, turn: number, edit: (entry: Entry) => En
 /** The turn still running, if one is: what Stop stops and what holds Send. */
 export function running(transcript: Transcript): TurnView | null {
   return transcript.entries.find((entry) => entry.turn.state === "running")?.turn ?? null;
+}
+
+/**
+ * The turn paused on a question, if one is (#710): Stop sets the question
+ * aside, and Send stays open, because a message written then is its answer.
+ */
+export function asking(transcript: Transcript): TurnView | null {
+  return transcript.entries.find((entry) => entry.turn.state === "asking")?.turn ?? null;
+}
+
+/** The question `turn` waits on, or `null`. */
+export function waitingQuestion(turn: TurnView): QuestionView | null {
+  if (turn.state !== "asking") return null;
+  const last = (turn.questions ?? []).at(-1);
+  return last && last.answer === null ? last : null;
 }
 
 /** True while a turn's quote waits for the user's yes or no. */
