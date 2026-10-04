@@ -38,7 +38,7 @@
 //! | `POST /api/projects/{id}/chat` | a member | `{prompt, fresh?}` → a turn starts (`202`); it streams on `/api/events` |
 //! | `GET /api/chat/turns/{id}` | a member | one turn, and the log of every tool call it made |
 //! | `POST /api/chat/turns/{id}/stop` | a member | stop a running turn before its next step |
-//! | `POST /api/chat/turns/{id}/quote` | a member | `{confirm: true\|false}`: the user's answer to a paid tool's quote |
+//! | `POST /api/chat/turns/{id}/quote` | a member | `{confirm: true\|false, change?}`: the user's answer to a paid tool's quote — yes, no, or a change to ask for |
 //! | `POST /api/projects/{id}/tools/{name}` | a member, by session | `{arguments, revision?}`: one of the web editor's tools — [`editor`] |
 //! | `GET /api/templates` | a member | their templates, by name |
 //! | `DELETE /api/templates/{id}` | a member | deletes one; the videos it went into keep their copies |

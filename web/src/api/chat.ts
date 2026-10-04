@@ -15,10 +15,23 @@ export type TurnState =
   | "failed"
   | "interrupted";
 
+/** `assistant::QuoteItem` — one thing a yes pays for, and what it would send. */
+export interface QuoteItem {
+  /** An asset id, or `design` for a voice design. */
+  subject: string;
+  /** The price, and how it got there. */
+  says: string;
+  /** What `description` is. */
+  brief: "prompt" | "line" | "voice";
+  description: string;
+}
+
 /** `assistant::QuoteView` — what a paid tool would cost, waiting for a yes. */
 export interface QuoteView {
   tool: string;
-  /** Each brief's cost and the total, in words. */
+  /** Each item with its description (#709); absent on a quote held before. */
+  items?: QuoteItem[];
+  /** The total, and any line no item claims, in words. */
   lines: string[];
   /** What it takes from the balance, in micro-dollars. */
   micros: number;
@@ -96,12 +109,15 @@ export interface TurnDetail {
   tools: ToolCallView[];
 }
 
+/** `http::chat::QuoteAnswer` — yes, no, or a change asked for (`confirm: false`). */
+export type QuoteAnswer = { confirm: true } | { confirm: false; change?: string };
+
 /** `assistant::Answered` — what answering a quote did. */
 export interface Answered {
   /** What the paid call said, after a yes. */
   spent: string | null;
   refused: boolean;
-  /** The turn carrying on after a yes. */
+  /** The turn carrying on after a yes or a change. */
   turn: TurnView | null;
   note: string | null;
 }
@@ -116,6 +132,7 @@ export const chatApi = {
     request<ModelChoice>("PUT", `/projects/${projectId}/chat/model`, { model }),
   turn: (turnId: number) => request<TurnDetail>("GET", `/chat/turns/${turnId}`),
   stop: (turnId: number) => request<{ stopping: number }>("POST", `/chat/turns/${turnId}/stop`),
-  answerQuote: (turnId: number, confirm: boolean) =>
-    request<Answered>("POST", `/chat/turns/${turnId}/quote`, { confirm }),
+  /** Spend it, withdraw it, or withdraw it asking for `change` — one call, nothing spent. */
+  answerQuote: (turnId: number, answer: QuoteAnswer) =>
+    request<Answered>("POST", `/chat/turns/${turnId}/quote`, answer),
 };

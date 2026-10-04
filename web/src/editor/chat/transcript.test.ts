@@ -88,6 +88,7 @@ describe("a running turn", () => {
   test("shows a quote's box until it is answered", () => {
     const quote = {
       tool: "generate",
+      items: [],
       lines: ["one shot: $1.20"],
       micros: 1_320_000,
       expires_at: 9,

@@ -66,12 +66,44 @@ pub struct TurnView {
 pub struct QuoteView {
     /// The paid tool that quoted it, and that a yes calls again.
     pub tool: String,
-    /// What each brief would cost, and the total, in words.
+    /// Each thing the yes would pay for, with what it describes (#709).
+    /// Empty on a quote held before there were items.
+    #[serde(default)]
+    pub items: Vec<QuoteItem>,
+    /// The rest of the quote in words: the total, and any line no item
+    /// claims. A quote held before #709 has every line here.
     pub lines: Vec<String>,
     /// What it takes from the balance, in micro-dollars.
     pub micros: i64,
     /// When it stops being good, in seconds since the Unix epoch.
     pub expires_at: i64,
+}
+
+/// One thing a quote would pay for, as the box shows it: the line the paid
+/// tool priced it with, and the description that would be sent.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct QuoteItem {
+    /// What it is — an asset id, or `design` for a voice design.
+    pub subject: String,
+    /// What the paid tool said about it: the price, and how it got there.
+    pub says: String,
+    /// What `description` is.
+    pub brief: BriefKind,
+    /// The words that would be sent: a prompt, a line to speak, a voice's
+    /// description.
+    pub description: String,
+}
+
+/// What a quoted item's description is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BriefKind {
+    /// A generated shot's or still's prompt.
+    Prompt,
+    /// A narration line, spoken as written.
+    Line,
+    /// A designed voice's description.
+    Voice,
 }
 
 /// A project's current conversation: its newest session's turns, oldest
