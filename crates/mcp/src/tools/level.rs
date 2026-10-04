@@ -12,15 +12,35 @@
 
 use std::path::Path;
 
+use schemars::JsonSchema;
 use scorsese_render::{Tools, audio::measure, say};
+use serde::Deserialize;
 use serde_json::Value;
 
 use crate::tools::Reply;
 
-use super::{Costs, Tool, project_dir, project_property, under};
+use super::args::{self, ProjectDir, Required};
+use super::{Costs, Tool};
 
 /// Measure a finished sound file, optionally against another.
 pub(crate) struct Level;
+
+/// What `level` takes.
+#[derive(Deserialize, JsonSchema)]
+struct Arguments {
+    project: ProjectDir,
+    /// The file to measure, relative to the project directory or absolute. A
+    /// bake under generated/, a rendered video, or any media with sound in it.
+    file: String,
+    /// Compare with this file, the same way. Usually the version the first one
+    /// was meant to replace — the previous bake, or the render that sounded
+    /// right.
+    against: Option<String>,
+}
+
+impl args::Arguments for Arguments {
+    const REQUIRED: Required = &[("file", "the sound file to measure")];
+}
 
 impl Tool for Level {
     fn name(&self) -> &'static str {
@@ -46,31 +66,13 @@ impl Tool for Level {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "file": {
-                    "type": "string",
-                    "description": "The file to measure, relative to the project \
-                                    directory or absolute. A bake under generated/, \
-                                    a rendered video, or any media with sound in it."
-                },
-                "against": {
-                    "type": "string",
-                    "description": "Compare with this file, the same way. Usually the \
-                                    version the first one was meant to replace — the \
-                                    previous bake, or the render that sounded right."
-                }
-            },
-            "required": ["project", "file"]
-        })
+        args::schema::<Arguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let file = under(&dir, arguments, "file")?
-            .ok_or_else(|| "`file` is required: the sound file to measure".to_owned())?;
+        let arguments: Arguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let file = args::path(dir, &arguments.file, "file")?;
         // Discovered per call rather than held, for the reason the render tool
         // gives: a server that found ffmpeg at startup would keep insisting it
         // was there after someone uninstalled it.
@@ -82,7 +84,7 @@ impl Tool for Level {
             said.push_str(&format!("\n  {row}"));
         }
 
-        let Some(other) = under(&dir, arguments, "against")? else {
+        let Some(other) = args::under(dir, arguments.against.as_deref(), "against")? else {
             return Ok(said.into());
         };
         let previous = measure(&tools, &other).map_err(|error| format!("{error}"))?;

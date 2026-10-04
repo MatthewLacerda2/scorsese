@@ -4,7 +4,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::json;
 
-use super::{Arguments, ProjectDir, parse, schema};
+use super::{Arguments, ProjectDir, Required, parse, schema};
 
 /// A tool's worth of arguments, of every kind the path has an answer for.
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -22,7 +22,7 @@ struct Sample {
 }
 
 impl Arguments for Sample {
-    const REQUIRED: &'static [(&'static str, &'static str)] = &[("clip", "a clip id")];
+    const REQUIRED: Required = &[("clip", "a clip id")];
 }
 
 #[test]

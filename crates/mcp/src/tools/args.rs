@@ -24,12 +24,16 @@ use serde::de::{DeserializeOwned, Error as _};
 use serde::{Deserialize, Deserializer};
 use serde_json::{Map, Value};
 
+/// Each required argument's name, and what it is — the end of the sentence
+/// *`` `name` is required: … ``*.
+pub(crate) type Required = &'static [(&'static str, &'static str)];
+
 /// A tool's arguments: what it takes, and how to say an argument is missing.
 pub(crate) trait Arguments: DeserializeOwned + JsonSchema {
     /// What each required argument is, finishing the sentence *`` `name` is
     /// required: … ``*. `project` needs no entry: every tool asks for it the
     /// same way, so it is said the same way ([`ProjectDir`]).
-    const REQUIRED: &'static [(&'static str, &'static str)] = &[];
+    const REQUIRED: Required = &[];
 }
 
 /// What a refusal of one argument says after its name.
@@ -67,7 +71,8 @@ pub(crate) fn schema<T: Arguments>() -> Value {
     schema
 }
 
-/// One property's schema with `schemars`' additions taken off.
+/// One property's schema with `schemars`' additions taken off, and the same
+/// for every schema nested in it — an array's items, an object's properties.
 fn tidied(schema: &mut Value) {
     let Some(object) = schema.as_object_mut() else {
         return;
@@ -86,11 +91,15 @@ fn tidied(schema: &mut Value) {
     if let Some(Value::String(description)) = object.get_mut("description") {
         *description = description.replace('\n', " ");
     }
-    if let Some(items) = object.get_mut("items") {
-        tidied(items);
-    }
-    if let Some(Value::Object(properties)) = object.get_mut("properties") {
-        properties.values_mut().for_each(tidied);
+    for (key, nested) in object.iter_mut() {
+        match (key.as_str(), nested) {
+            ("items" | "additionalProperties", nested) => tidied(nested),
+            ("properties", Value::Object(properties)) => properties.values_mut().for_each(tidied),
+            ("anyOf" | "oneOf" | "allOf" | "prefixItems", Value::Array(each)) => {
+                each.iter_mut().for_each(tidied);
+            }
+            _ => {}
+        }
     }
 }
 
@@ -153,6 +162,38 @@ fn refusal<T: Arguments>(arguments: &Value, field: &str, said: &str) -> String {
 /// it would narrow a search to nothing or look for an id nobody has.
 pub(crate) fn given(text: Option<&str>) -> Option<&str> {
     text.map(str::trim).filter(|text| !text.is_empty())
+}
+
+/// A path argument, resolved against the project directory unless it is
+/// already absolute; `None` when it was left out.
+///
+/// Relative-to-the-project is the rule every path in this surface obeys: the
+/// server's working directory belongs to whoever launched it, so a relative
+/// path resolved against it lands somewhere the caller did not name and cannot
+/// read back (#496). An absolute path is still honoured, because a measured
+/// render or a partial bake is as likely to sit outside the project as in it.
+/// Whether a *write* may leave the project is a separate question this does
+/// not answer.
+pub(crate) fn under(
+    dir: &Path,
+    given: Option<&str>,
+    field: &str,
+) -> Result<Option<PathBuf>, String> {
+    given.map(|given| path(dir, given, field)).transpose()
+}
+
+/// The same, for a path argument that was given: blank is refused rather than
+/// read as the project directory itself.
+pub(crate) fn path(dir: &Path, given: &str, field: &str) -> Result<PathBuf, String> {
+    if given.trim().is_empty() {
+        return Err(format!("`{field}` is empty — give a path or leave it out"));
+    }
+    let path = PathBuf::from(given);
+    Ok(if path.is_absolute() {
+        path
+    } else {
+        dir.join(path)
+    })
 }
 
 /// *`` `name` is required: … ``*, with the what when the tool says one.
@@ -225,6 +266,46 @@ impl JsonSchema for ProjectDir {
             "type": "string",
             "description": "Path to the *.scor project directory to work on."
         })
+    }
+}
+
+/// A required text argument that may not be blank: an id, a name, a query.
+///
+/// Blank is refused as missing, with the tool's own word for what it is
+/// ([`Arguments::REQUIRED`]), because an empty id is somebody not saying one.
+/// What is kept is trimmed. An *optional* text argument is an
+/// `Option<String>` read through [`given`] instead, where blank means absent.
+#[derive(Debug, Clone)]
+pub(crate) struct Name(String);
+
+impl Name {
+    /// The text, trimmed.
+    pub(crate) fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl<'de> Deserialize<'de> for Name {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let given = String::deserialize(deserializer)?;
+        match given.trim() {
+            "" => Err(D::Error::custom(MISSING)),
+            trimmed => Ok(Self(trimmed.to_owned())),
+        }
+    }
+}
+
+impl JsonSchema for Name {
+    fn inline_schema() -> bool {
+        true
+    }
+
+    fn schema_name() -> Cow<'static, str> {
+        "Name".into()
+    }
+
+    fn json_schema(generator: &mut SchemaGenerator) -> Schema {
+        String::json_schema(generator)
     }
 }
 
