@@ -4,6 +4,7 @@
 // bar's colour and the words a screen reader says in its place.
 
 import type { ModelChoice } from "@/api/chat";
+import type { Messages } from "@/i18n/catalogue";
 
 /** Where `cost` sits between the cheapest and dearest of `models`: 0 to 1. */
 export function position(cost: number, models: ModelChoice[]): number {
@@ -21,10 +22,10 @@ export function colour(at: number): string {
 }
 
 /** The bar in words, for a screen reader. */
-export function describe(at: number): string {
-  if (at <= 0) return "cheapest";
-  if (at >= 1) return "most expensive";
-  if (at < 1 / 3) return "inexpensive";
-  if (at < 2 / 3) return "moderately expensive";
-  return "expensive";
+export function describe(at: number, t: Messages["chat"]["cost"]): string {
+  if (at <= 0) return t.cheapest;
+  if (at >= 1) return t.dearest;
+  if (at < 1 / 3) return t.inexpensive;
+  if (at < 2 / 3) return t.moderate;
+  return t.expensive;
 }

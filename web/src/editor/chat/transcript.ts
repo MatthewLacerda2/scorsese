@@ -12,6 +12,7 @@
 import type { Conversation, QuestionView, TurnState, TurnView } from "@/api/chat";
 import { ApiError } from "@/api/client";
 import type { JobView, ServerEvent } from "@/api/events";
+import type { Messages } from "@/i18n/catalogue";
 
 /** Where a tool the assistant called is. */
 export type ToolState = "running" | "answered" | "refused";
@@ -175,38 +176,27 @@ export function words(entry: Entry): string {
 }
 
 /** A turn that ended without answering, said plainly; `null` for one that answered or runs. */
-export function ending(state: TurnState): string | null {
+export function ending(state: TurnState, t: Messages["chat"]): string | null {
   switch (state) {
     case "refused":
-      return "The assistant declined this one.";
     case "capped":
-      return "Stopped: this turn reached what one turn may spend, or your credit ran out.";
     case "stopped":
-      return "Stopped, as you asked.";
     case "failed":
-      return "This turn failed.";
     case "interrupted":
-      return "The server restarted while this turn ran.";
+      return t.ending[state];
     default:
       return null;
   }
 }
 
 /** A generation job's state, in the panel's words. */
-export function jobState(job: JobView): string {
+export function jobState(job: JobView, t: Messages["chat"]): string {
   switch (job.state) {
-    case "waiting":
-      return "queued";
-    case "running":
-      return "generating";
-    case "done":
-      return "ready";
     case "failed":
-      return `failed${job.error ? `: ${job.error}` : ""}`;
     case "stuck":
-      return `stuck waiting on the provider${job.error ? `: ${job.error}` : ""}`;
-    case "cancelled":
-      return "cancelled";
+      return t.jobState[job.state](job.error);
+    default:
+      return t.jobState[job.state];
   }
 }
 
@@ -218,16 +208,16 @@ export interface Problem {
   detail: string;
 }
 
-export function problem(error: unknown): Problem {
+export function problem(error: unknown, t: Messages["chat"]): Problem {
   const detail = error instanceof Error ? error.message : String(error);
   if (!(error instanceof ApiError)) return { tone: "error", lead: null, detail };
   switch (error.status) {
     case 503:
-      return { tone: "note", lead: "The assistant is not set up on this server yet.", detail };
+      return { tone: "note", lead: t.problem.unconfigured, detail };
     case 402:
-      return { tone: "error", lead: "You have no credit left for the assistant.", detail };
+      return { tone: "error", lead: t.problem.noCredit, detail };
     case 409:
-      return { tone: "error", lead: "The assistant is still working on the last message.", detail };
+      return { tone: "error", lead: t.problem.busy, detail };
     default:
       return { tone: "error", lead: null, detail };
   }

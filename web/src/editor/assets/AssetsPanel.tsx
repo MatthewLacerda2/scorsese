@@ -16,6 +16,7 @@ import { ChevronDownIcon, ChevronRightIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 import type { DocumentAsset, ProjectDocument } from "@/api";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/i18n/I18nProvider";
 import type { EditOutcome } from "../project";
 import { assetRemoval, confirmThen, showing } from "../removing";
 import { TemplatesSection } from "../templates/TemplatesSection";
@@ -32,6 +33,7 @@ interface Props {
 }
 
 export function AssetsPanel({ projectId, document, edit, playhead }: Props) {
+  const t = useT();
   const assets = document.assets ?? [];
   const [unfolded, setUnfolded] = useState<ReadonlySet<string>>(new Set());
   const fold = (id: string) =>
@@ -45,13 +47,9 @@ export function AssetsPanel({ projectId, document, edit, playhead }: Props) {
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
         <section className="flex flex-col gap-1">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Assets
+            {t.assets.heading}
           </h2>
-          {assets.length === 0 && (
-            <p className="text-xs text-muted-foreground">
-              Nothing yet. Add files from your library, then drag them onto a track.
-            </p>
-          )}
+          {assets.length === 0 && <p className="text-xs text-muted-foreground">{t.assets.empty}</p>}
           {grouped(assets).map(({ asset, stills }) => (
             <div key={asset.id} className="flex flex-col gap-1">
               <ProjectAsset
@@ -69,7 +67,7 @@ export function AssetsPanel({ projectId, document, edit, playhead }: Props) {
                     <li key={still.id} className="flex justify-between gap-2 truncate">
                       <span className="truncate">{still.id}</span>
                       {showing(document, still.id).length > 0 && (
-                        <span className="shrink-0">also used on its own</span>
+                        <span className="shrink-0">{t.assets.alsoAlone}</span>
                       )}
                     </li>
                   ))}
@@ -99,7 +97,9 @@ interface ProjectAssetProps {
 }
 
 function ProjectAsset({ asset, stills, open, onFold, uses, pending, onRemove }: ProjectAssetProps) {
+  const t = useT();
   const name = asset.text ?? asset.id;
+  const state = asset.state && (t.assets.state as Record<string, string>)[asset.state];
   return (
     <div className="flex items-center gap-1">
       {stills > 0 && (
@@ -107,7 +107,7 @@ function ProjectAsset({ asset, stills, open, onFold, uses, pending, onRemove }: 
           size="icon"
           variant="ghost"
           aria-expanded={open}
-          aria-label={open ? `Fold ${asset.id}'s photos away` : `Show ${asset.id}'s photos`}
+          aria-label={open ? t.assets.fold(asset.id) : t.assets.unfold(asset.id)}
           onClick={onFold}
         >
           {open ? <ChevronDownIcon /> : <ChevronRightIcon />}
@@ -119,24 +119,24 @@ function ProjectAsset({ asset, stills, open, onFold, uses, pending, onRemove }: 
         onDragStart={(event) =>
           carry(event, { from: "project", asset: asset.id, kind: asset.kind })
         }
-        title="Drag onto a track to place it"
+        title={t.assets.drag}
         className="flex min-w-0 flex-1 cursor-grab items-center gap-2 rounded-md border px-2 py-1.5 text-left text-sm hover:bg-muted/50 active:cursor-grabbing"
       >
         <span className={`size-2.5 shrink-0 rounded-sm ${kindColor(asset.kind)}`} aria-hidden />
         <span className="min-w-0 flex-1 truncate">
-          {stills > 0 ? `${name} — ${stills} ${stills === 1 ? "photo" : "photos"}` : name}
+          {stills > 0 ? t.assets.photos(name, stills) : name}
         </span>
         <span className="shrink-0 text-xs text-muted-foreground">
-          {kindName(asset.kind)}
-          {asset.state && asset.state !== "generated" ? ` · ${asset.state}` : ""}
+          {kindName(asset.kind, t.assets.kinds)}
+          {asset.state && asset.state !== "generated" ? ` · ${state ?? asset.state}` : ""}
           {uses > 0 ? ` · ${uses}×` : ""}
         </span>
       </button>
       <Button
         size="icon"
         variant="ghost"
-        aria-label={`Remove ${asset.id}`}
-        title="Remove from the project — the clips using it go too"
+        aria-label={t.assets.remove(asset.id)}
+        title={t.assets.removeTitle}
         disabled={pending}
         onClick={onRemove}
       >

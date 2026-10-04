@@ -6,7 +6,3 @@ export function typedAnswer(text: string): string | null {
   const answer = text.trim();
   return answer === "" ? null : answer;
 }
-
-/** What the composer says while a question waits: a message sent now answers it. */
-export const ANSWER_PLACEHOLDER =
-  "Answer the assistant's question — pick an option above, or write your own answer here";
