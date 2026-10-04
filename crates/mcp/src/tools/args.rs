@@ -276,10 +276,6 @@ impl<'de> Deserialize<'de> for ProjectDir {
 }
 
 impl JsonSchema for ProjectDir {
-    fn inline_schema() -> bool {
-        true
-    }
-
     fn schema_name() -> Cow<'static, str> {
         "ProjectDir".into()
     }
@@ -329,10 +325,6 @@ impl<'de> Deserialize<'de> for Name {
 }
 
 impl JsonSchema for Name {
-    fn inline_schema() -> bool {
-        true
-    }
-
     fn schema_name() -> Cow<'static, str> {
         "Name".into()
     }

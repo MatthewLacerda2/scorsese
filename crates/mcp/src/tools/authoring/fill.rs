@@ -34,10 +34,6 @@ const GRADIENT: &str = "Or a gradient, as an object — {\"linear\": {\"angle\":
 pub(super) struct Paint(Value);
 
 impl JsonSchema for Paint {
-    fn inline_schema() -> bool {
-        true
-    }
-
     fn schema_name() -> Cow<'static, str> {
         "Paint".into()
     }

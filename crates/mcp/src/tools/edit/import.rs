@@ -204,10 +204,6 @@ impl<'de> Deserialize<'de> for Paths {
 }
 
 impl JsonSchema for Paths {
-    fn inline_schema() -> bool {
-        true
-    }
-
     fn schema_name() -> Cow<'static, str> {
         "Paths".into()
     }

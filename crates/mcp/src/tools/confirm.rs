@@ -32,10 +32,6 @@ use super::Reply;
 pub(crate) struct Token(String);
 
 impl JsonSchema for Token {
-    fn inline_schema() -> bool {
-        true
-    }
-
     fn schema_name() -> Cow<'static, str> {
         "Token".into()
     }

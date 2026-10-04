@@ -4,14 +4,14 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::json;
 
-use super::{Arguments, ProjectDir, Required, parse, schema};
+use super::{Arguments, Name, ProjectDir, Required, parse, schema};
 
 /// A tool's worth of arguments, of every kind the path has an answer for.
 #[derive(Debug, Deserialize, JsonSchema)]
 struct Sample {
     project: ProjectDir,
     /// Which clip, as `project_read` names it.
-    clip: String,
+    clip: Name,
     /// How many, at most.
     count: Option<u32>,
     /// How far, in seconds.
@@ -86,6 +86,8 @@ fn a_missing_argument_says_what_it_is() {
         refused,
         "`project` is required: the path of the *.scor directory"
     );
+    let refused = parse::<Sample>(&json!({ "project": "a.scor", "clip": " " })).unwrap_err();
+    assert_eq!(refused, "`clip` is required: a clip id");
     let refused = parse::<Sample>(&json!(null)).unwrap_err();
     assert_eq!(
         refused,
@@ -127,7 +129,7 @@ fn a_wrong_kind_says_what_it_has_to_be_and_what_it_was() {
 fn what_is_left_out_or_unknown_is_read_as_nothing() {
     let read = parse::<Sample>(&json!({
         "project": "a.scor",
-        "clip": "c1",
+        "clip": " c1 ",
         "count": null,
         "something": "else"
     }))
@@ -182,6 +184,7 @@ fn a_blank_text_is_no_text() {
 }
 
 /// Schemas nested inside a property, which get the same tidying.
+#[expect(dead_code, reason = "only its schema is under test")]
 #[derive(Deserialize, JsonSchema)]
 struct Nested {
     /// Counts, maybe.
@@ -193,6 +196,7 @@ struct Nested {
 }
 
 /// An object inside a list.
+#[expect(dead_code, reason = "only its schema is under test")]
 #[derive(Deserialize, JsonSchema)]
 struct Count {
     /// How many.
@@ -200,6 +204,7 @@ struct Count {
 }
 
 /// An untagged choice, which `schemars` makes nullable with an `anyOf`.
+#[expect(dead_code, reason = "only its schema is under test")]
 #[derive(Deserialize, JsonSchema)]
 #[serde(untagged)]
 enum Either {
