@@ -24,7 +24,6 @@
 //! was nearly right.
 
 use super::catalogue;
-use crate::distance;
 
 /// How many names are worth putting in one line of a refusal.
 const MOST: usize = 6;
@@ -78,7 +77,7 @@ fn rank(name: &str, candidate: &'static str) -> Option<usize> {
     if words(candidate).any(|word| word == name) {
         return Some(1);
     }
-    let apart = distance::between(name, candidate);
+    let apart = strsim::levenshtein(name, candidate);
     // Short names are exempt from the second half: at four letters, two edits
     // is half the word, and everything would be a near match for everything.
     if apart <= NEAREST && apart * 2 < name.len() {

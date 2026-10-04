@@ -1472,6 +1472,7 @@ dependencies = [
  "harfrust",
  "scorsese-core",
  "skrifa",
+ "strsim",
  "thiserror",
  "tiny-skia",
 ]
@@ -1509,6 +1510,7 @@ dependencies = [
 name = "scorsese-mcp"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "scorsese-core",
  "scorsese-providers",
  "scorsese-render",
@@ -1520,6 +1522,7 @@ dependencies = [
 name = "scorsese-providers"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "scorsese-core",
  "scorsese-zimmer",
  "serde",

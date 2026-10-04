@@ -13,8 +13,6 @@
 
 use scorsese_core::PropertyPath;
 
-use crate::distance;
-
 /// One property something in this workspace can animate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Property {
@@ -66,7 +64,7 @@ impl Registry {
 
         let mut ranked: Vec<(usize, &'static Property)> = self
             .properties()
-            .map(|property| (distance::between(path.as_str(), property.path), property))
+            .map(|property| (strsim::levenshtein(path.as_str(), property.path), property))
             .collect();
         ranked.sort_by_key(|(distance, property)| (*distance, property.path));
         let (best, property) = *ranked.first()?;

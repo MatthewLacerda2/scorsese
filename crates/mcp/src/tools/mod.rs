@@ -31,10 +31,11 @@ mod still;
 mod synth;
 mod voices;
 
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD;
 use scorsese_render::Cancel;
 use serde_json::Value;
 
-use crate::base64;
 use crate::renders::{Renders, Report};
 
 /// The `mimeType` an image block carries. One kind, because there is one kind
@@ -77,7 +78,7 @@ impl Part {
     pub(crate) fn picture(text: String, png: &[u8]) -> Self {
         Self {
             text,
-            image: Some(base64::encode(png)),
+            image: Some(STANDARD.encode(png)),
         }
     }
 }

@@ -32,7 +32,6 @@
 //! answer should not have to read past anything else to get it.
 
 pub mod anthropic;
-pub(crate) mod base64;
 pub mod elevenlabs;
 pub mod gemini;
 pub mod http;

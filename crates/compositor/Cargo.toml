@@ -11,6 +11,7 @@ workspace = true
 
 [dependencies]
 scorsese-core = { version = "0.1.0", path = "../core" }
+strsim.workspace = true
 thiserror = "2.0.19"
 tiny-skia = "0.12.0"
 

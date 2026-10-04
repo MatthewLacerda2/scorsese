@@ -96,7 +96,6 @@
 //! Everything else is plumbing: the modules are private, so `rpc`, `session`
 //! and the tools themselves are reachable only from in here.
 
-mod base64;
 pub mod protocol;
 mod renders;
 mod rpc;

@@ -24,6 +24,7 @@
 //! recording keeps it whole: that body is what replaces
 //! `fixtures/gemini/interaction.json`.
 
+use base64::Engine;
 use scorsese_core::{AssetId, ImageAspect, ImageModel, ImageRequest, ImageResolution};
 
 use crate::api::gemini::Gemini;
@@ -110,7 +111,10 @@ pub fn picture_step(answer: Result<Interaction, HttpError>) -> Step {
             reply.status.as_deref().unwrap_or("absent")
         ));
     };
-    let Some(bytes) = crate::api::base64::decode(encoded) else {
+    let Some(bytes) = base64::engine::general_purpose::STANDARD
+        .decode(encoded)
+        .ok()
+    else {
         return shape(String::from("the picture's data: not base64"));
     };
     match judge::png_size(&bytes) {

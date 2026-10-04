@@ -92,3 +92,5 @@ scorsese-zimmer = { path = "crates/zimmer" }
 scorsese-compositor = { path = "crates/compositor" }
 scorsese-render = { path = "crates/render" }
 scorsese-providers = { path = "crates/providers" }
+base64 = "0.22.1"
+strsim = "0.11.1"

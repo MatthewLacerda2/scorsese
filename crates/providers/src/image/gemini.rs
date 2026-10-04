@@ -5,9 +5,10 @@
 //! through the code that makes the call is one nobody can check against the
 //! vendor's page.
 
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD;
 use scorsese_core::{ImageModel, ImageResolution};
 
-use crate::api::base64;
 use crate::api::gemini::request::{Create, Input, ResponseFormat};
 use crate::api::gemini::{Gemini, Model};
 use crate::credentials::Secret;
@@ -53,8 +54,9 @@ impl ImageProvider for GeminiProvider {
             };
             return Err(ProviderError::new("Gemini", message));
         };
-        base64::decode(encoded)
-            .ok_or_else(|| ProviderError::new("Gemini", "the picture was not valid base64"))
+        STANDARD
+            .decode(encoded)
+            .map_err(|_| ProviderError::new("Gemini", "the picture was not valid base64"))
     }
 }
 
@@ -84,7 +86,7 @@ pub(crate) fn create(brief: &Brief) -> Create {
     }];
     input.extend(brief.reference_images.iter().map(|still| Input::Image {
         mime_type: still.mime_type.clone(),
-        data: base64::encode(&still.bytes),
+        data: STANDARD.encode(&still.bytes),
     }));
     Create {
         model: model_of(brief.request.model).id(),

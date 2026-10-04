@@ -7,6 +7,8 @@
 //! spread through the code that makes the call is a translation nobody can
 //! check against the vendor's documentation.
 
+use base64::Engine;
+
 use crate::api::veo::request::{Generate, Image, Instance, Parameters};
 use crate::api::veo::{Model, Veo};
 use crate::credentials::Secret;
@@ -103,7 +105,10 @@ pub(crate) fn generate(brief: &Brief) -> Generate {
 /// A still as the vendor carries one: base64 in the body, because Google has no
 /// way to reach a file on this machine.
 fn encoded(still: &Still) -> Image {
-    Image::encoded(&still.mime_type, crate::api::base64::encode(&still.bytes))
+    Image::encoded(
+        &still.mime_type,
+        base64::engine::general_purpose::STANDARD.encode(&still.bytes),
+    )
 }
 
 /// How the brief's aspect is spelled on the wire.
