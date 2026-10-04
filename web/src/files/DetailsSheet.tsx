@@ -1,7 +1,7 @@
 // A file's details panel: what it is, where it is used, what the assistant
 // reads about it, and — for a generated file — how it was made and what it
-// cost. Rename, describe and delete happen here; a delete a project blocks is
-// refused by the server with the projects' names, and they are shown as links.
+// cost. Rename, describe, download and delete happen here; a delete a project
+// blocks is refused by the server with the projects' names, shown as links.
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/sheet";
 import { formatBytes, formatDate, formatDuration } from "@/lib/format";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { DownloadButton } from "./Download";
 import { EditableText } from "./EditableText";
 import { KIND_LABEL } from "./FileTile";
 import { GenerationRecord } from "./GenerationRecord";
@@ -89,9 +90,12 @@ function Details({
         </SheetDescription>
       </SheetHeader>
 
-      <Button variant="secondary" onClick={() => onOpen(item)}>
-        {item.kind === "image" ? "View" : item.kind === "midi" ? "Open" : "Play"}
-      </Button>
+      <div className="grid grid-cols-2 gap-2">
+        <Button variant="secondary" onClick={() => onOpen(item)}>
+          {item.kind === "image" ? "View" : item.kind === "midi" ? "Open" : "Play"}
+        </Button>
+        <DownloadButton file={item} />
+      </div>
 
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
         <dt className="text-muted-foreground">Size</dt>

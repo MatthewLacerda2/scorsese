@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DetailsSheet } from "./DetailsSheet";
+import { DownloadAction } from "./Download";
 import { FileTile, KIND_LABEL } from "./FileTile";
 import { SORTS, type Sort, sortTiles } from "./sort";
 import { useUploads } from "./uploads";
@@ -151,6 +152,7 @@ export function FileBrowser({ project, picking }: Props) {
               selected={tile.id === selected}
               onSelect={() => select(tile.id)}
               onOpen={() => setOpened(tile)}
+              actions={<DownloadAction file={tile} />}
             />
           ),
         )}
@@ -178,6 +180,9 @@ function PickTile({ tile, picking }: { tile: LibraryTile; picking: Picking }) {
       disabled={refused !== null}
       note={refused ?? undefined}
       hint={refused === null ? `Add ${tile.name}` : undefined}
+      // Saving a file is not picking it, and a file the picker refuses is
+      // still the user's to save.
+      actions={<DownloadAction file={tile} />}
     />
   );
 }

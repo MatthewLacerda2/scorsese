@@ -26,8 +26,19 @@ async fn a_file_downloads_under_its_name_for_its_owner_only(pool: PgPool) {
         "a name already ending in its extension keeps it, once"
     );
 
-    let played = request(address, "GET", &format!("/api/library/{id}/file"), &[&ana], None).await;
-    assert_eq!(played.header("content-disposition"), None, "playing is not saving");
+    let played = request(
+        address,
+        "GET",
+        &format!("/api/library/{id}/file"),
+        &[&ana],
+        None,
+    )
+    .await;
+    assert_eq!(
+        played.header("content-disposition"),
+        None,
+        "playing is not saving"
+    );
 
     let rename = serde_json::json!({ "name": "Café \"rag\"" });
     let path = format!("/api/library/{id}");

@@ -34,7 +34,13 @@ pub(super) fn saved_name(name: &str, extension: &str) -> String {
     // should, but the name is no worse without one.
     let base: String = name
         .chars()
-        .map(|c| if matches!(c, '/' | '\\') || c.is_control() { '_' } else { c })
+        .map(|c| {
+            if matches!(c, '/' | '\\') || c.is_control() {
+                '_'
+            } else {
+                c
+            }
+        })
         .collect();
     let base = base.trim();
     let base = if base.is_empty() { "file" } else { base };
