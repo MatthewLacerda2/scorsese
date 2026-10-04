@@ -61,6 +61,17 @@
 //! an answer, withdraws the token. The box shows each item's description
 //! beside its price (`described`), so a yes is never to money alone.
 //!
+//! ## A question mid-edit
+//!
+//! Beside the tools, the loop declares one function of its own to the model,
+//! `ask_user` (#710, `ask`): one short question with two to four options. It
+//! is **not a tool** — never in `crate::tools`, so web MCP never lists it —
+//! and calling it **pauses the turn** (`asking`) until the user answers,
+//! from the question's card or by simply writing their next message. The
+//! answer resumes the same turn as that call's result, so the model carries
+//! on with its plan intact. Nothing is charged while it waits, and the
+//! question does not expire; Stop or a new conversation sets it aside.
+//!
 //! ## Money
 //!
 //! Every call to the model is charged from the tokens its reply reports —
@@ -85,6 +96,7 @@
 //! has measured, which nobody has yet. Measure with real turns (#567) before
 //! moving it.
 
+mod ask;
 mod calls;
 mod cost;
 mod described;
@@ -102,11 +114,12 @@ use std::sync::{Arc, Mutex, PoisonError};
 use scorsese_providers::chat::{self, Chat, Effort, Model};
 use scorsese_providers::credentials::resolve;
 
+pub use ask::{answer as answer_question, set_aside};
 pub use model::{Choice, choose};
 pub use quote::{Answer, Answered, answer as answer_quote};
 pub use start::{Opening, start};
 pub use store::{
-    BriefKind, Conversation, QuoteItem, QuoteView, ToolCallView, TurnDetail, TurnView,
+    BriefKind, Conversation, QuestionView, QuoteItem, QuoteView, ToolCallView, TurnDetail, TurnView,
 };
 pub use store::{conversation, detail, recover};
 

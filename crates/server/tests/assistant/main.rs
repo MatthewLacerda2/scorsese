@@ -9,6 +9,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod asking;
 mod changes;
 mod models;
 mod money;

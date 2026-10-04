@@ -1334,6 +1334,27 @@ would send — the prompt, the line, the voice's description — read from the
 project's brief (or the call's `prompt`) when the quote is held
 (`assistant::described`).
 
+**A question mid-edit** (#710). Beside the registry's tools the loop declares
+one function of its own, `ask_user` — `{question, options}`, two to four
+options — for a choice only the person can make, halfway through a turn whose
+rest depends on it. It is **not a tool**: it lives in
+`crates/server/src/assistant/ask/`, never in `crate::tools`, so web MCP never
+lists it (a user's own client asks its user its own way). Called alone, it
+**pauses the turn** in state `asking`: the turn's `questions` gains the
+question, `chat_turn` carries it to the browser, which shows a card with the
+options and a free-text field. `POST /api/chat/turns/{id}/answer` — or simply
+the user's next chat message, which *is* the answer — resumes **the same
+turn**, the answer being that call's result, so the model carries on with its
+plan and its thinking intact and the history stays append-only. Called beside
+other tools, they run and `ask_user` is refused with a line saying to ask
+alone, so a pause never splits results that must be sent together. **Waiting
+costs nothing and never expires**: a paused turn holds no process, no money and
+no token, survives a restart as it was, and a late answer costs at most one
+uncached call. Stop, or a new conversation, sets the question aside (the turn
+ends `stopped`); a quote cannot be answered while a question waits. The system
+prompt says to ask sparingly — only when the answer changes what comes next
+and the request points to no default — and never about money.
+
 **Money.** Every call is charged from its reply's usage — input, output,
 Claude's five-minute and one-hour cache writes, cache reads (Gemini's
 `cachedContentTokenCount`), each at its own rate for the turn's model in
@@ -1387,18 +1408,21 @@ fixed until measured usage (#707) says otherwise.
 | `PUT /api/projects/{id}/chat/model` | a member | `{model}` → the model as listed; from the next turn the project runs on it. `400` for a model not offered |
 | `POST /api/projects/{id}/chat` | a member | `{prompt, fresh?}` → `202` with the turn; `402` no credit, `409` a turn is running, `503` not configured |
 | `GET /api/chat/turns/{id}` | a member | `{turn, tools}`: the turn and the log of every tool call it made, in order |
-| `POST /api/chat/turns/{id}/stop` | a member | `202`; the turn stops before its next step. `409` if it is not running |
-| `POST /api/chat/turns/{id}/quote` | a member | `{confirm: true\|false, change?}` → `{spent, refused, turn, note}`; `turn` is the one carrying on after a yes or a change; `change` with `confirm: true` is `400` |
+| `POST /api/chat/turns/{id}/stop` | a member | `202`; the turn stops before its next step — at once, its question set aside, when it is `asking`. `409` if it is neither |
+| `POST /api/chat/turns/{id}/quote` | a member | `{confirm: true\|false, change?}` → `{spent, refused, turn, note}`; `turn` is the one carrying on after a yes or a change; `change` with `confirm: true` is `400`, and so is any answer while a question waits |
+| `POST /api/chat/turns/{id}/answer` | a member | `{answer}` → `202` with the same turn, running again; `400` when no question waits on it; `402`/`503` as for a new message |
 
-A turn (`TurnView`) carries its state — `running`, then `answered`, `refused`,
-`capped`, `stopped`, `failed` or `interrupted` (the server stopped under it) —
+A turn (`TurnView`) carries its state — `running` (or `asking`, paused on a
+question), then `answered`, `refused`, `capped`, `stopped`, `failed` or
+`interrupted` (the server stopped under it) —
 its `answer`, the model, token totals, `charged_micros`, and `quote`
 (`{tool, items: [{subject, says, brief, description}], lines, micros,
 expires_at}` — `brief` is `prompt`, `line` or `voice`; `lines` is the total and
 any line no item claims; a quote held before #709 has no `items` and every
 line in `lines`) with `quote_answer` (`null` while the box
 should show, then `confirmed`, `declined` — a change asked for included — or
-`withdrawn`).
+`withdrawn`), and `questions`, every question it asked in order as
+`{question, options, answer}`, `answer` `null` while it waits.
 
 **On `GET /api/events`**, beside `job`:
 

@@ -90,3 +90,17 @@ async fn the_registrys_tools_keep_the_registrys_words(pool: PgPool) {
         );
     }
 }
+
+/// The web assistant's `ask_user` (#710) is its own, declared around the
+/// tools: web MCP — what a user's own client gets — never lists it.
+#[sqlx::test]
+async fn the_assistants_question_is_not_a_tool(pool: PgPool) {
+    let listed = listed(&pool).await;
+    assert!(!listed.is_empty());
+    assert!(listed.iter().all(|tool| tool["name"] != "ask_user"));
+    assert!(
+        scorsese_mcp::registry()
+            .iter()
+            .all(|tool| tool.name() != "ask_user")
+    );
+}

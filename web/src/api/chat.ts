@@ -1,13 +1,14 @@
 // The assistant's routes (docs/web.md, *Assistant turns*; `http/chat.rs`),
 // and the shapes they answer with, named after the Rust types they mirror in
 // `crates/server/src/assistant/`. A turn streams on `GET /api/events`; these
-// start one, read one back, stop one, and answer its quote.
+// start one, read one back, stop one, and answer its quote or its question.
 
 import { request } from "./client";
 
-/** How a turn ended, or `running` while it goes. */
+/** How a turn ended, `running` while it goes, or `asking` while it waits on a question. */
 export type TurnState =
   | "running"
+  | "asking"
   | "answered"
   | "refused"
   | "capped"
@@ -38,6 +39,15 @@ export interface QuoteView {
   expires_at: number;
 }
 
+/** `assistant::QuestionView` — a question the assistant asked mid-turn (#710). */
+export interface QuestionView {
+  question: string;
+  /** Two to four answers to pick from; the user may always write their own. */
+  options: string[];
+  /** What they answered, or `null` while it waits. */
+  answer: string | null;
+}
+
 /** `assistant::TurnView` — one prompt and what the assistant did with it. */
 export interface TurnView {
   id: number;
@@ -59,6 +69,8 @@ export interface TurnView {
   quote: QuoteView | null;
   /** `null` while the confirmation box should show. */
   quote_answer: "confirmed" | "declined" | "withdrawn" | null;
+  /** Every question it asked, in order; the last waits while the turn is `asking`. */
+  questions: QuestionView[];
   started_at: number;
   finished_at: number | null;
 }
@@ -135,4 +147,7 @@ export const chatApi = {
   /** Spend it, withdraw it, or withdraw it asking for `change` — one call, nothing spent. */
   answerQuote: (turnId: number, answer: QuoteAnswer) =>
     request<Answered>("POST", `/chat/turns/${turnId}/quote`, answer),
+  /** Answer the question the turn waits on: `202` with the same turn, running again. */
+  answerQuestion: (turnId: number, answer: string) =>
+    request<TurnView>("POST", `/chat/turns/${turnId}/answer`, { answer }),
 };

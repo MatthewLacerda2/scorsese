@@ -102,18 +102,25 @@ async fn claim(
     answer: &Answer,
 ) -> Result<(String, QuoteView, i64), AssistantError> {
     let mut tx = db::scoped(&state.pool, user).await?;
-    let busy: Option<bool> = sqlx::query_scalar(
-        "SELECT EXISTS (SELECT 1 FROM chat_turns r WHERE r.session_id = t.session_id
-                                                   AND r.state = 'running')
+    // The conversation's newest state other than an ended one: a running
+    // turn, or one paused on a question (#710), which is answered first.
+    let busy: Option<Option<String>> = sqlx::query_scalar(
+        "SELECT (SELECT max(r.state) FROM chat_turns r
+                 WHERE r.session_id = t.session_id AND r.state IN ('running', 'asking'))
          FROM chat_turns t WHERE t.id = $1",
     )
     .bind(id)
     .fetch_optional(&mut *tx)
     .await?;
-    match busy {
+    match busy.as_ref().map(Option::as_deref) {
         None => return Err(AssistantError::NotFound),
-        Some(true) => return Err(AssistantError::Busy),
-        Some(false) => {}
+        Some(Some("running")) => return Err(AssistantError::Busy),
+        Some(Some(_)) => {
+            return Err(AssistantError::Invalid(
+                "the assistant asked you a question; answer it first".into(),
+            ));
+        }
+        Some(None) => {}
     }
     // A change is recorded as a no: it spends nothing, and the turn it starts
     // carries the rest.

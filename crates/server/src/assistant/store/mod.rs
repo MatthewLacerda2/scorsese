@@ -5,6 +5,7 @@
 //! to the model as a typed `model_calls` row (#707) and is never read back. Every query runs scoped to the user it is
 //! for, so row-level security is the owner filter.
 
+pub(super) mod asking;
 mod calls;
 pub(super) mod turns;
 
@@ -28,8 +29,8 @@ pub struct TurnView {
     pub project: i64,
     /// What the user wrote.
     pub prompt: String,
-    /// `running`, `answered`, `refused`, `capped`, `stopped`, `failed` or
-    /// `interrupted`.
+    /// `running`, `asking` (paused on a question to the user, #710),
+    /// `answered`, `refused`, `capped`, `stopped`, `failed` or `interrupted`.
     pub state: String,
     /// The assistant's final answer, or why there is none.
     pub answer: Option<String>,
@@ -55,6 +56,9 @@ pub struct TurnView {
     /// How the user answered it: `confirmed`, `declined`, `withdrawn` (they
     /// wrote something else instead), or `null` while it waits.
     pub quote_answer: Option<String>,
+    /// Every question it asked the user, in order — each a [`QuestionView`];
+    /// the last one waits for its answer while the turn is `asking`.
+    pub questions: Value,
     /// When it started, in seconds since the Unix epoch.
     pub started_at: i64,
     /// When it ended.
@@ -77,6 +81,19 @@ pub struct QuoteView {
     pub micros: i64,
     /// When it stops being good, in seconds since the Unix epoch.
     pub expires_at: i64,
+}
+
+/// A question the assistant asked the user mid-turn (#710), as the chat
+/// panel's card shows it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct QuestionView {
+    /// The question, in one line.
+    pub question: String,
+    /// Two to four answers to pick from; a typed answer is always allowed too.
+    pub options: Vec<String>,
+    /// What the user answered — an option's words or their own — or `null`
+    /// while it waits.
+    pub answer: Option<String>,
 }
 
 /// One thing a quote would pay for, as the box shows it: the line the paid
@@ -163,7 +180,7 @@ macro_rules! turns_where {
             "SELECT t.id, t.session_id AS session, s.project_id AS project, t.prompt,
                     t.state, t.answer, t.stop_reason, t.model, t.calls, t.input_tokens,
                     t.output_tokens, t.cache_write_tokens, t.cache_read_tokens,
-                    t.charged_micros, t.quote, t.quote_answer,
+                    t.charged_micros, t.quote, t.quote_answer, t.questions,
                     extract(epoch FROM t.started_at)::bigint AS started_at,
                     extract(epoch FROM t.finished_at)::bigint AS finished_at
              FROM chat_turns t JOIN chat_sessions s ON s.id = t.session_id WHERE ",

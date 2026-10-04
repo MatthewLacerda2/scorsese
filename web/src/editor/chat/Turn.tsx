@@ -6,13 +6,15 @@
 
 import { CheckIcon, LoaderIcon, WrenchIcon, XIcon } from "lucide-react";
 import { formatDollars } from "@/lib/money";
+import { QuestionCard } from "./QuestionCard";
 import { QuoteBox } from "./QuoteBox";
-import { awaitingQuote, type Entry, ending, type Line, words } from "./transcript";
+import { awaitingQuote, type Entry, ending, type Line, waitingQuestion, words } from "./transcript";
 
 export function Turn({ entry }: { entry: Entry }) {
   const { turn } = entry;
   const said = words(entry);
   const ended = ending(turn.state);
+  const waiting = waitingQuestion(turn);
   return (
     <li className="flex flex-col gap-2">
       <p className="ml-6 self-end whitespace-pre-wrap rounded-lg bg-muted px-3 py-2 text-sm">
@@ -33,11 +35,23 @@ export function Turn({ entry }: { entry: Entry }) {
           <LoaderIcon className="size-3 animate-spin" /> Working…
         </p>
       )}
+      {(turn.questions ?? []).map((question, index) => (
+        <QuestionCard
+          // Questions only ever append, so a question's place is its identity.
+          // biome-ignore lint/suspicious/noArrayIndexKey: see above
+          key={index}
+          turn={turn.id}
+          question={question}
+          waiting={question === waiting}
+        />
+      ))}
       {ended && <p className="text-xs text-destructive">{ended}</p>}
       {awaitingQuote(turn) && turn.quote && <QuoteBox turn={turn.id} quote={turn.quote} />}
       {turn.state !== "running" && (
         <p className="text-xs text-muted-foreground">
-          This turn cost {formatDollars(turn.charged_micros)}
+          {turn.state === "asking"
+            ? `So far this turn has cost ${formatDollars(turn.charged_micros)}; nothing more while it waits`
+            : `This turn cost ${formatDollars(turn.charged_micros)}`}
           {entry.balanceAfter !== null && ` · ${formatDollars(entry.balanceAfter)} left`}
         </p>
       )}

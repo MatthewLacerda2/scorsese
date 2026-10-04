@@ -29,6 +29,7 @@ function turn(finished_at: number | null): TurnView {
     charged_micros: 0,
     quote: null,
     quote_answer: null,
+    questions: [],
     started_at: 0,
     finished_at,
   };

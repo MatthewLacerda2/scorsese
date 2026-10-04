@@ -3,9 +3,10 @@
 use scorsese_providers::chat::{self, Message};
 
 use super::store::TurnView;
+use super::store::asking;
 use super::store::turns::{self, Beginning, Last};
 use super::turn::{self, Running};
-use super::{AssistantError, EFFORT, model, prompt};
+use super::{AssistantError, EFFORT, ask, model, prompt};
 use crate::credits::{dollars, ledger};
 use crate::db::{self, UserId};
 use crate::events::Event;
@@ -27,6 +28,10 @@ pub struct Opening {
 /// Start a turn in `user`'s conversation about `project`: refused when the
 /// assistant is not configured, the balance is empty, or a turn is already
 /// running there. The turn as it began; the rest arrives on the event stream.
+///
+/// When the conversation's last turn is paused on a question (#710), the
+/// words are its answer instead, and that turn resumes ([`ask::answer`]); a
+/// new conversation sets the question aside.
 pub async fn start(
     state: &AppState,
     user: UserId,
@@ -53,6 +58,9 @@ pub async fn start(
     if balance <= 0 {
         return Err(AssistantError::NoCredit(dollars(balance)));
     }
+    if opening.fresh {
+        asking::set_aside_in(&mut tx, project).await?;
+    }
     let (session, new) = turns::session(&mut tx, project, opening.fresh).await?;
     let mut notes = Vec::new();
     if new {
@@ -61,6 +69,10 @@ pub async fn start(
     if let Some(last) = turns::last(&mut tx, session).await? {
         if last.state == "running" {
             return Err(AssistantError::Busy);
+        }
+        if last.state == "asking" {
+            drop(tx);
+            return ask::answer(state, user, last.id, &prompt).await;
         }
         notes.extend(settle_quote(state, user, &mut tx, &last).await?);
     }
@@ -103,6 +115,7 @@ pub async fn start(
         messages: first,
         record,
         balance,
+        spent: 0,
     };
     tokio::spawn(turn::run(state.clone(), running));
     Ok(view)

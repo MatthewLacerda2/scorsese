@@ -1,6 +1,6 @@
 //! The assistant's routes (#540): what the web editor's chat panel (#545)
 //! calls. The turn itself streams on `GET /api/events`; these start one, read
-//! one back, stop one, and answer a quote. [`crate::assistant`] has the
+//! one back, stop one, and answer a quote or a question. [`crate::assistant`] has the
 //! argument for each.
 
 use axum::Json;
@@ -87,13 +87,17 @@ pub async fn turn(
 }
 
 /// `POST /api/chat/turns/{id}/stop`: ask a running turn to stop before its
-/// next step. `202`; the turn's end arrives on the event stream.
+/// next step. `202`; the turn's end arrives on the event stream. A turn paused
+/// on a question stops at once, the question unanswered.
 pub async fn stop(
     State(state): State<AppState>,
     member: Member,
     Path(id): Path<i64>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), ApiError> {
     let turn = assistant::detail(&state.pool, member.user, id).await?.turn;
+    if turn.state == "asking" && assistant::set_aside(&state, member.user, id).await? {
+        return Ok((StatusCode::ACCEPTED, Json(json!({ "stopping": id }))));
+    }
     if turn.state != "running" {
         return Err(ApiError::Conflict(format!(
             "that turn is not running; it {}",
@@ -137,6 +141,27 @@ pub async fn quote(
     Ok(Json(
         assistant::answer_quote(&state, member.user, id, answer).await?,
     ))
+}
+
+/// `POST /api/chat/turns/{id}/answer`'s body.
+#[derive(Debug, Deserialize)]
+pub struct QuestionAnswer {
+    /// The answer: one of the options' words, or the user's own.
+    pub answer: String,
+}
+
+/// `POST /api/chat/turns/{id}/answer`: the user's answer to the question a
+/// turn is paused on (#710). The same turn resumes, `202` with it; `400`
+/// when no question waits there, and refused like a new message when the
+/// balance is empty or the model has no key.
+pub async fn answer(
+    State(state): State<AppState>,
+    member: Member,
+    Path(id): Path<i64>,
+    Json(answer): Json<QuestionAnswer>,
+) -> Result<(StatusCode, Json<TurnView>), ApiError> {
+    let turn = assistant::answer_question(&state, member.user, id, &answer.answer).await?;
+    Ok((StatusCode::ACCEPTED, Json(turn)))
 }
 
 impl From<AssistantError> for ApiError {
