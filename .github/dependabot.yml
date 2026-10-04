@@ -1,0 +1,87 @@
+# Dependency bots, kept rare on purpose (#721, after rusty#490): merging is
+# serialized, so every bot pull request costs a full CI slot in the queue.
+# Every ecosystem runs monthly and is grouped into one pull request per
+# directory, so a month brings four at most.
+#
+# Each one opens labelled `queue`, so `make queue WATCH=1` takes it without
+# anybody labelling it: a semver-compatible bump has nothing in its diff to
+# read beyond what CI checks. The watch takes a Dependabot pull request after
+# every other one, and never force-pushes its branch; it asks `@dependabot
+# rebase` instead (`merge-watch.py` and `merge-queue.py` have why). Dependabot
+# ignores a label the repository does not have, so both below live in
+# `.github/labels.json`, and the *Sync labels* workflow creates them.
+#
+# Left out on purpose: `deploy/`. Its two toolchain images move with a pin a
+# bot cannot see (`rust:` with `rust-toolchain.toml`, `oven/bun:` with
+# `web/package.json`'s `packageManager`), `postgres`, `nginx` and `debian`
+# already float on their tags, and `cloudflared` is pinned so that an update
+# to the one container facing the internet is a deliberate change.
+version: 2
+updates:
+  # Actions pinned at majors (checkout@v4, rust-cache@v2, …) with nobody
+  # watching them.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    labels: ["queue", "dependencies"]
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  # Semver-compatible updates only, the monthly equivalent of `cargo update`.
+  # `lockfile-only` never edits a Cargo.toml, so it can take only versions the
+  # existing requirements already allow. That is Cargo's rule, and it holds
+  # for 0.x crates too, where Dependabot's own semver labels would call
+  # 0.19 -> 0.20 a "minor". A major is a deliberate upgrade issue, never a bot
+  # pull request; the ignore says so a second time.
+  #
+  # Two entries, because the desktop app is its own workspace with its own
+  # lockfile. One entry with `directories:` would still open one pull request
+  # per directory, and keeping them apart keeps the app's gate off the root's.
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    versioning-strategy: "lockfile-only"
+    allow:
+      - dependency-type: "all"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    labels: ["queue", "dependencies"]
+    groups:
+      cargo-compatible:
+        patterns: ["*"]
+
+  - package-ecosystem: "cargo"
+    directory: "/app"
+    schedule:
+      interval: "monthly"
+    versioning-strategy: "lockfile-only"
+    allow:
+      - dependency-type: "all"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    labels: ["queue", "dependencies"]
+    groups:
+      app-cargo-compatible:
+        patterns: ["*"]
+
+  # The web front-end. Dependabot's `bun` ecosystem reads the text `bun.lock`
+  # (Bun 1.1.39 and later; `web/` pins 1.3.14). It does not take a
+  # `versioning-strategy`, so unlike Cargo it raises a `^` floor in
+  # `package.json` along with the lockfile, still inside the major. Majors are
+  # ignored here too.
+  - package-ecosystem: "bun"
+    directory: "/web"
+    schedule:
+      interval: "monthly"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    labels: ["queue", "dependencies"]
+    groups:
+      web-compatible:
+        patterns: ["*"]

@@ -51,6 +51,19 @@ the pull request's own plus those of the issues it closes. Within a rank, the
 oldest pull request first: it has waited longest and has paid the most
 rebases already.
 
+## Dependabot labels itself, and goes after everything else
+
+Dependabot's pull requests (`.github/dependabot.yml`, #721) carry the `queue`
+label from the moment they open: the config adds it. They are semver-compatible
+lockfile bumps with nothing in the diff for anyone to read, so the go-ahead is
+CI alone, and an orchestrator labelling each by hand would add a step and no
+judgement. What keeps that safe is the order: a bot pull request goes after
+every other one, labelled or not ([`ordered`]), so a dependency bump never
+takes a turn from the work of the batch. It is recognised by its author
+([`is_bot`]) rather than by a label, because a label is something anybody can
+add or remove. What the queue does differently once it has taken one — it
+never force-pushes Dependabot's branch — is `merge-queue.py`'s.
+
 ## A hand-back is remembered by head
 
 A pull request the queue handed back keeps its label, so the next poll would
@@ -97,6 +110,10 @@ PRIORITY = {
 }
 UNRANKED = len(set(PRIORITY.values()))
 
+# How `gh` names Dependabot as a pull request's author: `gh pr list/view --json
+# author` says `app/dependabot`; the REST API and the web say `dependabot[bot]`.
+BOTS = ("app/dependabot", "dependabot[bot]", "dependabot")
+
 # How long a watch takes new pull requests, in minutes, by default. With the
 # queue's per-branch deadline of 40 that is 110, inside the cap below.
 FOR_MINUTES = 70
@@ -114,6 +131,11 @@ IDLE_SECONDS = 60
 def rank(labels: list[str]) -> int:
     """The best priority among these labels, or [`UNRANKED`]."""
     return min((PRIORITY[name] for name in labels if name in PRIORITY), default=UNRANKED)
+
+
+def is_bot(pull: dict) -> bool:
+    """Whether Dependabot opened this pull request, and so owns its branch."""
+    return (pull.get("author") or {}).get("login") in BOTS
 
 
 def eligible(pull: dict, dropped: dict[int, str]) -> bool:
@@ -146,10 +168,18 @@ def labels_of(pull: dict, issues: dict[int, list[str]]) -> list[str]:
 
 
 def ordered(pulls: list[dict], issues: dict[int, list[str]]) -> list[dict]:
-    """Highest priority first, then oldest. `createdAt` is ISO 8601, so it sorts."""
+    """Dependabot last, then highest priority first, then oldest.
+
+    `createdAt` is ISO 8601, so it sorts.
+    """
     return sorted(
         pulls,
-        key=lambda pull: (rank(labels_of(pull, issues)), pull.get("createdAt", ""), pull.get("number", 0)),
+        key=lambda pull: (
+            is_bot(pull),
+            rank(labels_of(pull, issues)),
+            pull.get("createdAt", ""),
+            pull.get("number", 0),
+        ),
     )
 
 
@@ -192,7 +222,7 @@ def waiting(label: str = QUEUE_LABEL) -> list[dict]:
         "--limit",
         "100",
         "--json",
-        "number,isDraft,headRefOid,baseRefName,createdAt,labels,closingIssuesReferences",
+        "number,isDraft,headRefOid,baseRefName,createdAt,author,labels,closingIssuesReferences",
     )
 
 

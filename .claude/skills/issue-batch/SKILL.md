@@ -334,6 +334,16 @@ from memory. An issue filed mid-batch is startable at once unless it carries a
 stage label, and it can outrank the work in flight: when a new label-priority
 leader appears, it is the one started next.
 
+**Dependabot's pull requests are on the board too, and need nothing from you.**
+`.github/dependabot.yml` opens at most four a month (Actions, the root and
+`app/` Cargo workspaces, `web/`), grouped, semver-compatible, majors ignored.
+They have no issue of their own (#721 is the standing one that decided them),
+and they label themselves `queue`: the watch takes them at the **lowest priority**, after
+every other pull request, and asks `@dependabot rebase` rather than ever
+force-pushing their branch (`ci-merge` has the detail). Read one only when the
+queue hands it back. A major upgrade is never a bot pull request; it is an
+issue like any other.
+
 But re-reading is not a licence to start everything: **start the next one, and
 keep the second slot for whatever is furthest along.** Priority orders what gets
 merged. An unblocked issue left unstarted is not wasted capacity; it is a rebase
