@@ -97,6 +97,22 @@ fn opened(ui: &mut Ui, window: &mut Scorsese) {
     {
         window.start_generating();
     }
+    // Beside Generate, and disabled on a read-only project for the same
+    // reason: the renderer takes a document that validates, and a broken one
+    // would only fail after the save dialog had been answered.
+    let busy = window.rendering_busy();
+    if ui
+        .add_enabled(!read_only && !busy, egui::Button::new("Render…"))
+        .on_hover_text("Make a video file of the whole edit")
+        .on_disabled_hover_text(if busy {
+            "Already rendering"
+        } else {
+            "Not while this project does not validate"
+        })
+        .clicked()
+    {
+        window.start_rendering();
+    }
     let generating = window.generating_count();
     if generating > 0 {
         ui.label(RichText::new(format!("{generating} generating")).small());

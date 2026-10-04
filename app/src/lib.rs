@@ -42,6 +42,7 @@ mod inspector;
 mod preview;
 mod project;
 mod removing;
+mod rendering;
 mod theme;
 mod timeline;
 mod ui;

@@ -150,6 +150,15 @@ film with nothing audible in it, and for a machine with no sound card. Every
 sample comes from the renderer's own mixer, so what you hear is what a render
 delivers.
 
+**Render…, on the bar, makes the file** (#699). Three plain choices — the kind
+of file (mp4 by default, or any other on `docs/output-formats.md`'s list), the
+size (1080p by default) and the frame rate (the edit's own by default) — then a
+save dialog, then a popup with a bar, the percentage, what stage it is at and
+**Stop**, which deletes the unfinished file. The render runs on its own thread
+from a copy of the edit taken when it starts, so the window stays usable,
+editing included: a change made meanwhile is saved as usual and is simply not
+in this file.
+
 Scrubbing and stepping are silent on purpose. A frame step is a thirtieth of a
 second — a click, not a note — and scrubbing audio needs a scheme of its own
 rather than whatever fell out of playback.

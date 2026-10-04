@@ -34,6 +34,7 @@ use crate::preview::Preview;
 use crate::project::probing::{self, Probing};
 use crate::project::watch::Watch;
 use crate::project::{Open, Refused, open};
+use crate::rendering::Rendering;
 use crate::theme::choice::Choice;
 use crate::timeline::Timeline;
 use disk::Disk;
@@ -64,6 +65,9 @@ pub struct Scorsese {
     preview: Preview,
     /// The generate dialog, and whatever it has running.
     generating: Generating,
+    /// The render dialog, and the render it started — kept across opening
+    /// another project, since a render runs from its own copy of the last one.
+    rendering: Rendering,
     /// What this machine knows and no project does: the keys, and the ceiling
     /// on what one run may spend.
     ///
@@ -109,6 +113,7 @@ impl Scorsese {
             inspector: Inspector::default(),
             preview: Preview::default(),
             generating: Generating::default(),
+            rendering: Rendering::default(),
             settings,
             theme: Choice::SYSTEM,
         };
@@ -218,6 +223,26 @@ impl Scorsese {
     /// and a dialog nothing can open is a dialog nobody has looked at.
     pub fn start_generating(&mut self) {
         self.generating.open();
+    }
+
+    /// Opens the render dialog — the bar's Render button.
+    pub fn start_rendering(&mut self) {
+        self.rendering.ask();
+    }
+
+    /// Shows the render popup held at `reading`, as if a render to `out` had
+    /// got that far.
+    ///
+    /// `pub` for [`Scorsese::start_generating`]'s reason, and held rather than
+    /// run because a real render would be wherever the machine had got it by
+    /// the time the picture was taken.
+    pub fn show_rendering(&mut self, reading: scorsese_render::Reading, out: std::path::PathBuf) {
+        self.rendering.hold(reading, out);
+    }
+
+    /// Whether a render is under way, for the bar's button to wait for it.
+    pub(crate) fn rendering_busy(&self) -> bool {
+        self.rendering.busy()
     }
 
     /// How many shots are in flight, for the bar to say so.
@@ -338,6 +363,7 @@ impl Scorsese {
                 self.files.refresh(open);
             }
         }
+        self.rendering.show(ui.ctx(), self.opened.as_ref());
     }
 }
 
