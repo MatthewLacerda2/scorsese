@@ -49,7 +49,9 @@ export function Turn({ entry }: { entry: Entry }) {
       {awaitingQuote(turn) && turn.quote && <QuoteBox turn={turn.id} quote={turn.quote} />}
       {turn.state !== "running" && (
         <p className="text-xs text-muted-foreground">
-          This turn cost {formatDollars(turn.charged_micros)}
+          {turn.state === "asking"
+            ? `So far this turn has cost ${formatDollars(turn.charged_micros)}; nothing more while it waits`
+            : `This turn cost ${formatDollars(turn.charged_micros)}`}
           {entry.balanceAfter !== null && ` · ${formatDollars(entry.balanceAfter)} left`}
         </p>
       )}

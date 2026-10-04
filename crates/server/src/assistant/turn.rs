@@ -162,6 +162,10 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
                 keep(state, turn, reply.native.clone(), reply.message.clone()).await?;
                 let asked = reply.calls();
                 if let Some(question) = ask::alone(&asked) {
+                    // A Stop asked for during the call wins over pausing.
+                    if assistant.stop_requested(turn.turn) {
+                        return Ok(End::Over("stopped", "Stopped, as you asked.".into()));
+                    }
                     return Ok(End::Asking(question));
                 }
                 let mut results = Vec::new();
