@@ -5,8 +5,11 @@ only step 0 (which runs before this file is read), a pointer here, and what is
 specific to its issue (`issue-batch` has the template). When a lesson changes how
 cloud coders must work, change it **here**, once, not in the next prompt.
 
-**Nobody can talk to you; the pull request is your only report.** Use the GitHub
-MCP tools (`issue_read`, `create_pull_request`, `update_pull_request`,
+**Nobody can talk to you; the pull request is your only report.** Never send the
+operator a push notification: a hand-back or a decision goes in the PR
+description and an issue comment, where the orchestrator reads it and decides.
+The operator checks in from the terminal, and a phone alert is noise. Use the
+GitHub MCP tools (`issue_read`, `create_pull_request`, `update_pull_request`,
 `add_issue_comment`); load them with ToolSearch. Don't assume `gh` is installed.
 
 **A bug you find is yours to deal with.** Fix it in this branch when it's in
@@ -14,20 +17,18 @@ your way or small, or file an issue with the evidence (`issue-write`) and keep
 going. Either way it never goes unrecorded. The operator expects coders to file
 issues mid-batch.
 
+## Check the issue's blockers yourself
+
+Before writing code, read the issue body for "Blocked by" and check each
+blocker's state on GitHub. The orchestrator sees only GitHub's recorded
+relationships, and a blocker written only in prose slips past it (on rusty,
+MatthewLacerda2/rusty#399). If a blocker is still open, stand down: no branch,
+a comment on the issue saying which issue should go first, and stop.
+
 ## Read first
 
 `CLAUDE.md`, your issue(s), and `.claude/skills/ci-merge/SKILL.md`. The prompt may
 name more.
-
-## Push after every step: you share the account's usage limit
-
-You run on the operator's account, so when it reaches its usage limit you stop
-mid-turn, at the same moment as the orchestrator and every other coder, and
-your container's unpushed work goes with you. On 2026-09-30 four coders stopped
-together; one had just re-blessed nine golden references and lost them all.
-Commit and push after each step that produced something: a passing test, a
-re-bless, a rewritten description. A fresh session can finish a pushed branch;
-it cannot recover an unpushed one.
 
 ## Never wait on background work without a wake-up
 

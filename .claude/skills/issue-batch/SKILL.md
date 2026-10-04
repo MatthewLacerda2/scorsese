@@ -191,7 +191,8 @@ The cloud session has GitHub MCP tools (`create_pull_request`,
 orchestrator, and nothing notifies the orchestrator when it finishes. Brief it
 to open a draft on its first commit, push often (a dead container takes its
 uncommitted work with it), write decisions and hand-backs into the description
-and an issue comment, and mark the PR ready when its gates are green. **Watch the
+and an issue comment (never a push notification to the operator, who checks in
+from the terminal), and mark the PR ready when its gates are green. **Watch the
 PR, not the agent**: the orchestrator polls GitHub (`gh pr view N --json
 isDraft,state`, or `gh pr list --search "is:open -is:draft"`) on an interval,
 reads each PR the moment it turns ready, and labels it `queue`; the running
@@ -209,15 +210,6 @@ again, except to fix its own red CI. A late push costs a full CI round, because
 `make queue` rightly refuses to merge a head it did not watch; anything found
 afterwards (a mutation survivor, a missing test) goes in an issue comment, for a
 follow-up PR off `main` (MatthewLacerda2/rusty#583).
-
-**Cloud coders share the account's usage limit.** When it runs out, every
-cloud session stops at the same moment as the orchestrator, and its container's
-unpushed work is lost (2026-09-30: four at once, `rate_limit: rejected
-(five_hour)` in each `get_run_log`). After the reset, run `list_runs` on every
-routine still in flight: `worker_status: idle` with a draft PR is the
-signature. A stopped session cannot be messaged from here, so launch a fresh
-routine per branch, briefed to **finish the pushed branch**: what it has, what
-was lost, and what main has done since, since a rebase is usually owed by then.
 
 **A cloud session is never woken by its own background work.** A routine session
 that starts a build in the background and ends its turn to wait sits idle
@@ -288,8 +280,8 @@ compile while a local agent is timing builds; it skews the numbers.
 
 **Every cloud brief carries** step 0 inline, then a pointer to
 [`cloud-brief.md`](cloud-brief.md) — the standing rules (foreground builds,
-`send_later`, ready means finished, the repo's traps, the PR protocol, "do not
-merge") live there, versioned with this skill — and only what is specific to
+`send_later`, the blocker check, ready means finished, the repo's traps, the
+PR protocol, "do not merge") live there, versioned with this skill — and only what is specific to
 its issue. `RemoteTrigger` echoes a prompt back several times, so standing text
 copied into each one fills the orchestrator's context (on rusty it reached 85%
 after ~45 launches, MatthewLacerda2/rusty#579); a change to the rules goes in
@@ -332,6 +324,16 @@ Decisions: <anything already settled, or "none">.
 A merge changes the graph. Whatever the merged issue blocked is fair game the
 moment it lands — so the decision is one merge wide, not one batch wide.
 
+**Re-read the whole board, not your list of it.** Coders file what they find
+mid-batch, and the operator files from other machines. A batch that tracks only
+the issues it started stops early and misreports what is left: on 2026-10-03
+the operator filed #720, #721 and #722 at 23:51, mid-batch, and the
+orchestrator learned of them only when the operator asked. Rusty's batch made
+the same mistake on 2026-10-02. Count what is left from `gh issue list`, never
+from memory. An issue filed mid-batch is startable at once unless it carries a
+stage label, and it can outrank the work in flight: when a new label-priority
+leader appears, it is the one started next.
+
 But re-reading is not a licence to start everything: **start the next one, and
 keep the second slot for whatever is furthest along.** Priority orders what gets
 merged. An unblocked issue left unstarted is not wasted capacity; it is a rebase
@@ -349,6 +351,9 @@ read cold. Beyond that:
 - Name the **base commit** and what has landed recently that it must respect.
 - Name the **siblings** and which files they are touching.
 - Tell it to invoke the **`ci-merge` skill** rather than restating that protocol.
+- Tell it to **check the issue's blockers itself** before writing code: a
+  blocker written only in the issue's prose is invisible to the orchestrator,
+  which reads GitHub's recorded relationships (`cloud-brief.md` has the step).
 - For a **cloud** session: launched as a one-off routine on the
   `anthropic_cloud` environment, step 0's `CLAUDE_CODE_REMOTE` check comes
   first, and the pull request is its only way to report (see above).
@@ -372,7 +377,12 @@ sessions on a branch are the second kind. The line is not crisp, so err upwards.
 - ≈3 attempts at the same failure.
 - A decision that is genuinely theirs: a format change, a name people will type,
   anything a `planning` label would have carried.
-- Leave the pull request **draft**, say why in a comment, and stop. Do not thrash.
+- **Save, ask, move on.** Push what exists (a dead session takes uncommitted
+  work with it), mark the pull request **draft**, write what is needed and why
+  in the description and an issue comment, then **take the next startable
+  work**. The branch stops, never the batch (the operator on rusty, 2026-10-02:
+  "the work is saved but the progress doesn't stop"). Do not thrash on the
+  stopped branch.
 
 When working unattended, prefer leaving a comment on the issue and continuing
 over stalling the night on a question.
