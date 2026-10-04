@@ -20,6 +20,7 @@ import {
   useState,
 } from "react";
 import { api } from "@/api";
+import { useT } from "@/i18n/I18nProvider";
 import { alreadyHave, duplicateOf } from "@/lib/upload/duplicate";
 import { hashFile } from "@/lib/upload/hash";
 import {
@@ -72,6 +73,7 @@ export function UploadsProvider({ children }: { children: ReactNode }) {
 
 function useUploader(): Uploads {
   const queryClient = useQueryClient();
+  const t = useT();
   const [uploads, setUploads] = useState<Upload[]>([]);
   const uploader = useRef<Uploader | null>(null);
   // Uppy's file id → the row it is drawn as.
@@ -130,7 +132,7 @@ function useUploader(): Uploads {
           const sha256 = await hashFile(file, (progress) => update(key, { progress }));
           const [existing] = await api.library.list({ sha256 });
           if (existing) {
-            const duplicate = alreadyHave(existing);
+            const duplicate = alreadyHave(existing, t.files.uploads.alreadyHave);
             update(key, { phase: "duplicate", message: duplicate.message, item: duplicate.item });
             continue;
           }
@@ -147,7 +149,7 @@ function useUploader(): Uploads {
         }
       }
     },
-    [update],
+    [update, t],
   );
 
   const dismiss = useCallback(() => {

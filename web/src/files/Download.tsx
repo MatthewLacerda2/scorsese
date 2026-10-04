@@ -7,6 +7,7 @@
 import { DownloadIcon } from "lucide-react";
 import { api } from "@/api";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/i18n/I18nProvider";
 
 interface Props {
   file: { id: number; name: string };
@@ -14,6 +15,7 @@ interface Props {
 
 /** The small icon button over a tile's corner. */
 export function DownloadAction({ file }: Props) {
+  const t = useT();
   return (
     <Button
       asChild
@@ -24,8 +26,8 @@ export function DownloadAction({ file }: Props) {
       <a
         href={api.library.downloadUrl(file.id)}
         download
-        aria-label={`Download ${file.name}`}
-        title={`Download ${file.name}`}
+        aria-label={t.files.download.file(file.name)}
+        title={t.files.download.file(file.name)}
         // The tile's own button selects, opens or picks; saving is none of them.
         onClick={(event) => event.stopPropagation()}
         onDoubleClick={(event) => event.stopPropagation()}
@@ -38,10 +40,11 @@ export function DownloadAction({ file }: Props) {
 
 /** The labelled button in a file's details. */
 export function DownloadButton({ file }: Props) {
+  const t = useT();
   return (
     <Button asChild variant="secondary">
       <a href={api.library.downloadUrl(file.id)} download>
-        <DownloadIcon /> Download
+        <DownloadIcon /> {t.files.download.button}
       </a>
     </Button>
   );

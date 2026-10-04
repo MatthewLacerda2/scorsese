@@ -17,14 +17,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useLanguage, useT } from "@/i18n/I18nProvider";
 import { formatDollars } from "@/lib/money";
-import { HistoryTable, KIND_LABEL } from "./HistoryTable";
+import { HistoryTable } from "./HistoryTable";
 
 /** Rows fetched per page; "Show more" asks for the next. */
 const PAGE = 100;
 const ALL = "all";
 
 export function SpendingPage() {
+  const t = useT();
+  const words = t.pages.spending;
+  const { language } = useLanguage();
   const [filter, setFilter] = useState<Omit<HistoryFilter, "before" | "limit">>({});
   const history = useInfiniteQuery({
     queryKey: ["credits", "history", filter],
@@ -38,24 +42,25 @@ export function SpendingPage() {
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <h1 className="font-heading text-2xl font-semibold">Spending history</h1>
+        <h1 className="font-heading text-2xl font-semibold">{t.common.spendingHistory}</h1>
         {first && (
           <p className="text-sm">
-            Balance <span className="font-medium">{formatDollars(first.balance_micros)}</span>
+            {words.balance}{" "}
+            <span className="font-medium">{formatDollars(first.balance_micros)}</span>
           </p>
         )}
       </div>
       <Filters filter={filter} onChange={setFilter} />
       {first && (
         <p className="text-sm text-muted-foreground">
-          {first.matched} {first.matched === 1 ? "entry" : "entries"}, adding up to{" "}
+          {words.entries(new Intl.NumberFormat(language).format(first.matched), first.matched)}{" "}
           <span className="font-medium text-foreground">{formatDollars(first.total_micros)}</span>.
         </p>
       )}
       {history.isError && <p className="text-destructive">{history.error.message}</p>}
-      {history.isPending && <p className="text-muted-foreground">Loading…</p>}
+      {history.isPending && <p className="text-muted-foreground">{t.common.loading}</p>}
       {history.isSuccess && rows.length === 0 && (
-        <p className="text-muted-foreground">Nothing has moved your balance yet.</p>
+        <p className="text-muted-foreground">{words.empty}</p>
       )}
       {rows.length > 0 && <HistoryTable rows={rows} />}
       {history.hasNextPage && (
@@ -65,7 +70,7 @@ export function SpendingPage() {
           disabled={history.isFetchingNextPage}
           onClick={() => history.fetchNextPage()}
         >
-          Show more
+          {words.showMore}
         </Button>
       )}
     </div>
@@ -76,11 +81,13 @@ type Filter = Omit<HistoryFilter, "before" | "limit">;
 
 function Filters({ filter, onChange }: { filter: Filter; onChange: (next: Filter) => void }) {
   const projects = useProjects();
+  const t = useT();
+  const words = t.pages.spending;
   const set = (change: Filter) => onChange({ ...filter, ...change });
   return (
     <div className="flex flex-wrap items-end gap-3">
       <div className="flex flex-col gap-1">
-        <Label htmlFor="spending-project">Project</Label>
+        <Label htmlFor="spending-project">{words.project}</Label>
         <Select
           value={filter.project === undefined ? ALL : String(filter.project)}
           onValueChange={(value) => set({ project: value === ALL ? undefined : Number(value) })}
@@ -89,7 +96,7 @@ function Filters({ filter, onChange }: { filter: Filter; onChange: (next: Filter
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>All projects</SelectItem>
+            <SelectItem value={ALL}>{words.allProjects}</SelectItem>
             {projects.data?.map((project) => (
               <SelectItem key={project.id} value={String(project.id)}>
                 {project.name}
@@ -99,7 +106,7 @@ function Filters({ filter, onChange }: { filter: Filter; onChange: (next: Filter
         </Select>
       </div>
       <div className="flex flex-col gap-1">
-        <Label htmlFor="spending-kind">Kind</Label>
+        <Label htmlFor="spending-kind">{words.kind}</Label>
         <Select
           value={filter.kind ?? ALL}
           onValueChange={(value) =>
@@ -110,17 +117,17 @@ function Filters({ filter, onChange }: { filter: Filter; onChange: (next: Filter
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>Everything</SelectItem>
+            <SelectItem value={ALL}>{words.everything}</SelectItem>
             {HISTORY_KINDS.map((kind) => (
               <SelectItem key={kind} value={kind}>
-                {KIND_LABEL[kind]}
+                {t.pages.history.kinds[kind]}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
       <div className="flex flex-col gap-1">
-        <Label htmlFor="spending-since">From (UTC)</Label>
+        <Label htmlFor="spending-since">{words.from}</Label>
         <Input
           id="spending-since"
           type="date"
@@ -129,7 +136,7 @@ function Filters({ filter, onChange }: { filter: Filter; onChange: (next: Filter
         />
       </div>
       <div className="flex flex-col gap-1">
-        <Label htmlFor="spending-until">To (UTC)</Label>
+        <Label htmlFor="spending-until">{words.to}</Label>
         <Input
           id="spending-until"
           type="date"
@@ -139,7 +146,7 @@ function Filters({ filter, onChange }: { filter: Filter; onChange: (next: Filter
       </div>
       {Object.values(filter).some((value) => value !== undefined) && (
         <Button variant="ghost" onClick={() => onChange({})}>
-          Clear filters
+          {words.clear}
         </Button>
       )}
     </div>

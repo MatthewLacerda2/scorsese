@@ -5,38 +5,34 @@
 // what the ledger took, cost plus 10%.
 
 import type { GenerationRecord as Record } from "@/api";
+import type { Messages } from "@/i18n/catalogue";
+import { useLanguage, useT } from "@/i18n/I18nProvider";
 import { formatDate } from "@/lib/format";
 import { formatDollars } from "@/lib/money";
 
-const TITLE = {
-  veo_shot: "Generated video",
-  still_image: "Generated still",
-  spoken_line: "Generated speech",
-  voice_design: "Voice design sample",
-};
-
 export function GenerationRecord({ record }: { record: Record }) {
+  const t = useT();
+  const { language } = useLanguage();
+  const words = t.files.generation;
   return (
     <section className="flex flex-col gap-2 rounded-lg border p-3">
-      <h3 className="text-sm font-medium">{TITLE[record.kind]}</h3>
+      <h3 className="text-sm font-medium">{words.title[record.kind]}</h3>
       <p className="text-sm whitespace-pre-wrap">
         {record.kind === "spoken_line" ? record.text : record.prompt}
       </p>
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-        <dt className="text-muted-foreground">Model</dt>
+        <dt className="text-muted-foreground">{words.model}</dt>
         <dd>{record.model}</dd>
-        {settings(record).map(([name, value]) => (
+        {settings(record, words, language).map(([name, value]) => (
           <Row key={name} name={name} value={value} />
         ))}
-        <dt className="text-muted-foreground">Made</dt>
-        <dd>{formatDate(record.created_at)}</dd>
-        <dt className="text-muted-foreground">Cost</dt>
-        <dd>
-          {record.charged_micros > 0 ? formatDollars(record.charged_micros) : "Nothing was charged"}
-        </dd>
-        <dt className="text-muted-foreground">Estimate</dt>
+        <dt className="text-muted-foreground">{words.made}</dt>
+        <dd>{formatDate(record.created_at, language)}</dd>
+        <dt className="text-muted-foreground">{words.cost}</dt>
+        <dd>{record.charged_micros > 0 ? formatDollars(record.charged_micros) : words.free}</dd>
+        <dt className="text-muted-foreground">{words.estimate}</dt>
         <dd className="text-muted-foreground">
-          {formatDollars(record.estimated_cost_micros)} at the provider's listed price
+          {words.listedPrice(formatDollars(record.estimated_cost_micros))}
         </dd>
       </dl>
     </section>
@@ -52,19 +48,32 @@ function Row({ name, value }: { name: string; value: string }) {
   );
 }
 
-/** The settings a brief was made with, as label/value pairs. */
-function settings(record: Record): [string, string][] {
+/**
+ * The settings a brief was made with, as label/value pairs. A spoken line's
+ * own settings are named by the server (`stability`, `similarity boost`) and
+ * keep those names.
+ */
+function settings(
+  record: Record,
+  words: Messages["files"]["generation"],
+  language: string,
+): [string, string][] {
   if (record.kind !== "spoken_line") {
     const pairs: [string, string | number | undefined][] = [
-      ["Resolution", record.resolution],
-      ["Length", record.seconds === undefined ? undefined : `${record.seconds} s`],
-      ["Aspect", record.aspect],
-      ["References", record.references || undefined],
-      ["Seed", record.seed ?? undefined],
+      [words.resolution, record.resolution],
+      [
+        words.length,
+        record.seconds === undefined
+          ? undefined
+          : words.seconds(new Intl.NumberFormat(language).format(record.seconds)),
+      ],
+      [words.aspect, record.aspect],
+      [words.references, record.references || undefined],
+      [words.seed, record.seed ?? undefined],
     ];
     return pairs.flatMap(([name, value]) => (value === undefined ? [] : [[name, String(value)]]));
   }
-  const pairs: [string, string][] = record.voice ? [["Voice", record.voice]] : [];
+  const pairs: [string, string][] = record.voice ? [[words.voice, record.voice]] : [];
   for (const [name, value] of Object.entries(record.settings ?? {})) {
     pairs.push([name.replaceAll("_", " "), String(value)]);
   }

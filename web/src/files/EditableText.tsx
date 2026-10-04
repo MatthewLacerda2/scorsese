@@ -4,6 +4,7 @@
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useT } from "@/i18n/I18nProvider";
 
 interface Props {
   label: string;
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export function EditableText({ label, value, onSave, multiline, placeholder, className }: Props) {
+  const t = useT();
   const [draft, setDraft] = useState(value);
   const [editing, setEditing] = useState(false);
   // Set by Escape, so a blur that follows it does not save what was abandoned.
@@ -36,7 +38,7 @@ export function EditableText({ label, value, onSave, multiline, placeholder, cla
     return (
       <button
         type="button"
-        aria-label={`Edit ${label.toLowerCase()}`}
+        aria-label={t.files.edit(label)}
         onClick={() => {
           cancelled.current = false;
           setEditing(true);

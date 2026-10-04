@@ -24,9 +24,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useT } from "@/i18n/I18nProvider";
 import { DetailsSheet } from "./DetailsSheet";
 import { DownloadAction } from "./Download";
-import { FileTile, KIND_LABEL } from "./FileTile";
+import { FileTile } from "./FileTile";
 import { SORTS, type Sort, sortTiles } from "./sort";
 import { useUploads } from "./uploads";
 import { type Opened, Viewer } from "./Viewer";
@@ -49,6 +50,8 @@ interface Props {
 }
 
 export function FileBrowser({ project, picking }: Props) {
+  const t = useT();
+  const words = t.files.browser;
   const [kind, setKind] = useState<FileKind | typeof ALL>(ALL);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<Sort>("newest");
@@ -92,37 +95,37 @@ export function FileBrowser({ project, picking }: Props) {
       : {};
 
   return (
-    <section aria-label="Files" className="flex min-h-[50vh] flex-col gap-4" {...drop}>
+    <section aria-label={words.label} className="flex min-h-[50vh] flex-col gap-4" {...drop}>
       <div className="flex flex-wrap items-center gap-2">
         <Input
           type="search"
-          placeholder="Search by name"
-          aria-label="Search by name"
+          placeholder={words.search}
+          aria-label={words.search}
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           className="w-full sm:w-64"
         />
         <Select value={kind} onValueChange={(value) => setKind(value as FileKind | typeof ALL)}>
-          <SelectTrigger aria-label="Kind" className="w-32">
+          <SelectTrigger aria-label={words.kind} className="w-32">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>All kinds</SelectItem>
+            <SelectItem value={ALL}>{words.allKinds}</SelectItem>
             {(picking?.kinds ?? FILE_KINDS).map((k) => (
               <SelectItem key={k} value={k}>
-                {KIND_LABEL[k]}
+                {t.files.kinds[k]}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
         <Select value={sort} onValueChange={(value) => setSort(value as Sort)}>
-          <SelectTrigger aria-label="Sort" className="w-40">
+          <SelectTrigger aria-label={words.sort} className="w-40">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {Object.entries(SORTS).map(([value, label]) => (
+            {SORTS.map((value) => (
               <SelectItem key={value} value={value}>
-                {label}
+                {t.files.sorts[value]}
               </SelectItem>
             ))}
           </SelectContent>
@@ -131,14 +134,14 @@ export function FileBrowser({ project, picking }: Props) {
       </div>
 
       {files.isError && <p className="text-destructive">{files.error.message}</p>}
-      {files.isPending && <p className="text-muted-foreground">Loading…</p>}
+      {files.isPending && <p className="text-muted-foreground">{t.common.loading}</p>}
       {files.isSuccess && tiles.length === 0 && (
         <p className="text-muted-foreground">
           {filtered
-            ? "No files match."
+            ? words.noMatch
             : project === undefined
-              ? "Your library is empty. Upload videos, pictures, sounds and MIDI files — or drop them here — to use in any project."
-              : "This project uses no files from your library yet."}
+              ? words.emptyLibrary
+              : words.emptyProject}
         </p>
       )}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
@@ -170,6 +173,7 @@ export function FileBrowser({ project, picking }: Props) {
 
 /** A tile in picking mode: a click picks it, unless the picker refuses it. */
 function PickTile({ tile, picking }: { tile: LibraryTile; picking: Picking }) {
+  const t = useT();
   const refused = picking.refuse(tile);
   return (
     <FileTile
@@ -179,7 +183,7 @@ function PickTile({ tile, picking }: { tile: LibraryTile; picking: Picking }) {
       onOpen={() => {}}
       disabled={refused !== null}
       note={refused ?? undefined}
-      hint={refused === null ? `Add ${tile.name}` : undefined}
+      hint={refused === null ? t.files.browser.add(tile.name) : undefined}
       // Saving a file is not picking it, and a file the picker refuses is
       // still the user's to save.
       actions={<DownloadAction file={tile} />}
@@ -189,12 +193,13 @@ function PickTile({ tile, picking }: { tile: LibraryTile; picking: Picking }) {
 
 /** Pick files and send them to the uploader; the tray shows how they go. */
 function UploadButton() {
+  const t = useT();
   const { add } = useUploads();
   const input = useRef<HTMLInputElement>(null);
   return (
     <>
       <Button className="ml-auto" onClick={() => input.current?.click()}>
-        <UploadIcon /> Upload
+        <UploadIcon /> {t.files.browser.upload}
       </Button>
       <input
         ref={input}

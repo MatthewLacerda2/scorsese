@@ -11,8 +11,12 @@
 export interface Duplicate {
   /** The library item that has them. */
   item: number;
-  /** The server's sentence, naming the item. */
-  message: string;
+  /**
+   * The sentence naming the item: the server's own words, or ours in the
+   * page's language when caught by hash. Absent when the server gave none —
+   * the tray then says "already in your library" in the page's language.
+   */
+  message?: string;
 }
 
 /** The duplicate a response describes, or `null` when it is anything else. */
@@ -30,8 +34,7 @@ export function duplicateOf(
   if (typeof parsed !== "object" || parsed === null) return null;
   const { item, error } = parsed as { item?: unknown; error?: unknown };
   if (typeof item !== "number") return null;
-  const message = typeof error === "string" ? error : "you already have this file";
-  return { item, message };
+  return typeof error === "string" ? { item, message: error } : { item };
 }
 
 /** The part of a tus response `shouldRetry` reads. */
@@ -49,7 +52,13 @@ export function shouldRetry(response: TusResponse | null, fallback: () => boolea
   return fallback();
 }
 
-/** The sentence for a duplicate caught before uploading, by its hash. */
-export function alreadyHave(item: { id: number; name: string }): Duplicate {
-  return { item: item.id, message: `you already have this as “${item.name}”` };
+/**
+ * The duplicate caught before uploading, by its hash. `sentence` is
+ * `t.files.uploads.alreadyHave` — the server's refusal, in the page's language.
+ */
+export function alreadyHave(
+  item: { id: number; name: string },
+  sentence: (name: string) => string,
+): Duplicate {
+  return { item: item.id, message: sentence(item.name) };
 }

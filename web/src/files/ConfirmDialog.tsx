@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useT } from "@/i18n/I18nProvider";
 
 interface Props {
   open: boolean;
@@ -24,6 +25,7 @@ interface Props {
 }
 
 export function ConfirmDialog(props: Props) {
+  const t = useT();
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent>
@@ -34,7 +36,7 @@ export function ConfirmDialog(props: Props) {
         {props.children}
         <DialogFooter>
           <Button variant="outline" onClick={() => props.onOpenChange(false)}>
-            Cancel
+            {t.common.cancel}
           </Button>
           <Button variant="destructive" disabled={props.busy} onClick={props.onConfirm}>
             {props.confirm}
