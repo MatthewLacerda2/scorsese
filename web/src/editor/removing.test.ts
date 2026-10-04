@@ -2,6 +2,7 @@
 
 import { describe, expect, test } from "bun:test";
 import type { ProjectDocument } from "@/api";
+import { en } from "@/i18n/en";
 import type { Edit } from "./project";
 import { assetRemoval, confirmThen, showing, trackRemoval } from "./removing";
 
@@ -33,7 +34,7 @@ describe("removing an asset", () => {
   });
 
   test("asks with those clips named, and sends exactly them", () => {
-    const removal = assetRemoval(document, "caption");
+    const removal = assetRemoval(document, "caption", en.editor.removal);
     expect(removal.question).toContain("“first”, “nested”");
     expect(removal.edit).toEqual({
       tool: "asset_remove",
@@ -45,7 +46,7 @@ describe("removing an asset", () => {
 
 describe("removing a track", () => {
   test("an empty lane asks plainly and names no clips", () => {
-    const removal = trackRemoval({ id: "a1", kind: "audio", clips: [] });
+    const removal = trackRemoval({ id: "a1", kind: "audio", clips: [] }, en.editor.removal);
     expect(removal.question).toBe("Remove the track “a1”?");
     expect(removal.edit.args).toEqual({ track: "a1", clips: [] });
   });
@@ -55,7 +56,7 @@ describe("the confirm", () => {
   test("sends nothing on a no, and the edit on a yes", () => {
     const sent: Edit[] = [];
     const run = async (edit: Edit) => sent.push(edit);
-    const removal = assetRemoval(document, "card");
+    const removal = assetRemoval(document, "card", en.editor.removal);
     confirmThen(removal, run, () => false);
     expect(sent).toEqual([]);
     confirmThen(removal, run, () => true);

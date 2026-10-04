@@ -20,6 +20,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import type { ProjectDocument } from "@/api";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/i18n/I18nProvider";
 import { JobProgressBar } from "../JobProgressBar";
 import { timecode, toFrames, toSeconds } from "../timeline/time";
 import { usePlayable, waiting } from "./playable";
@@ -47,6 +48,7 @@ export function cutLength(document: ProjectDocument): number {
 }
 
 export function Preview({ projectId, revision, document, playhead, onSeek, deliver }: Props) {
+  const t = useT().editor.preview;
   const fps = document.timeline_fps;
   const total = cutLength(document);
   const [quality, setQuality] = useState<Quality>(savedQuality);
@@ -84,13 +86,15 @@ export function Preview({ projectId, revision, document, playhead, onSeek, deliv
   };
   const said =
     playable.state === "preparing"
-      ? waiting(playable.job)
+      ? waiting(playable.job, t)
       : playable.state === "failed"
-        ? `The preview could not be rendered: ${playable.why}`
+        ? playable.why
+          ? t.failedWhy(playable.why)
+          : t.failed
         : still.data && "none" in still.data
           ? still.data.none
           : total === 0
-            ? "Nothing on the timeline yet."
+            ? t.empty
             : null;
 
   return (
@@ -117,11 +121,7 @@ export function Preview({ projectId, revision, document, playhead, onSeek, deliv
           ) : (
             still.data &&
             "png" in still.data && (
-              <img
-                src={still.data.png}
-                alt="The frame under the playhead"
-                className="size-full object-contain"
-              />
+              <img src={still.data.png} alt={t.frame} className="size-full object-contain" />
             )
           )}
         </div>
@@ -133,20 +133,15 @@ export function Preview({ projectId, revision, document, playhead, onSeek, deliv
         </div>
       )}
       <div className="flex items-center gap-1">
-        <Button size="icon" variant="ghost" aria-label="To the start" onClick={() => seek(0)}>
+        <Button size="icon" variant="ghost" aria-label={t.start} onClick={() => seek(0)}>
           <SkipBackIcon />
         </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          aria-label="One frame back"
-          onClick={() => seek(playhead - 1)}
-        >
+        <Button size="icon" variant="ghost" aria-label={t.back} onClick={() => seek(playhead - 1)}>
           <StepBackIcon />
         </Button>
         <Button
           size="icon"
-          aria-label={playing ? "Pause" : "Play"}
+          aria-label={playing ? t.pause : t.play}
           onClick={toggle}
           disabled={total === 0}
         >
@@ -155,17 +150,17 @@ export function Preview({ projectId, revision, document, playhead, onSeek, deliv
         <Button
           size="icon"
           variant="ghost"
-          aria-label="One frame forward"
+          aria-label={t.forward}
           onClick={() => seek(playhead + 1)}
         >
           <StepForwardIcon />
         </Button>
-        <Button size="icon" variant="ghost" aria-label="To the end" onClick={() => seek(total)}>
+        <Button size="icon" variant="ghost" aria-label={t.end} onClick={() => seek(total)}>
           <SkipForwardIcon />
         </Button>
         <input
           type="range"
-          aria-label="Scrub"
+          aria-label={t.scrub}
           className="mx-2 flex-1"
           min={0}
           max={Math.max(1, total)}
@@ -176,8 +171,8 @@ export function Preview({ projectId, revision, document, playhead, onSeek, deliv
           {timecode(playhead, fps)} / {timecode(total, fps)}
         </span>
         <select
-          aria-label="Preview quality"
-          title={QUALITIES[quality].says}
+          aria-label={t.quality}
+          title={t.qualities[quality].says}
           className="h-8 rounded-md border bg-transparent px-1 text-xs"
           value={quality}
           onChange={(event) => {
@@ -188,13 +183,13 @@ export function Preview({ projectId, revision, document, playhead, onSeek, deliv
         >
           {(Object.keys(QUALITIES) as Quality[]).map((choice) => (
             <option key={choice} value={choice}>
-              {QUALITIES[choice].label}
+              {t.qualities[choice].label}
             </option>
           ))}
         </select>
       </div>
       <p className="text-center text-[11px] text-muted-foreground">
-        {`Preview at ${QUALITIES[quality].says} (${raster})`}
+        {t.at(t.qualities[quality].says, raster)}
       </p>
     </div>
   );

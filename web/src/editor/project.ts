@@ -14,6 +14,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 import { ApiError, api, type EditorProject, type EditorTool, type ToolAnswer } from "@/api";
+import type { Messages } from "@/i18n/catalogue";
+import { useT } from "@/i18n/I18nProvider";
 
 /** The cache key the editor's project lives under — in the projects area. */
 export const editorKey = (id: number) => ["projects", "editor", id] as const;
@@ -39,16 +41,15 @@ export interface EditOutcome {
 }
 
 /** The server's words for a failed edit, in the terms a user acts on. */
-export function refusal(error: unknown): string {
-  if (!(error instanceof ApiError)) return "the edit could not be made";
-  if (error.status === 409) {
-    return "The project changed while you were editing (the assistant, or another tab), so that edit was not made. Here is what is there now.";
-  }
+export function refusal(error: unknown, t: Messages["editor"]["refusal"]): string {
+  if (!(error instanceof ApiError)) return t.failed;
+  if (error.status === 409) return t.conflict;
   return error.message;
 }
 
 export function useEdit(id: number): EditOutcome {
   const queryClient = useQueryClient();
+  const t = useT();
   const [refused, setRefused] = useState<string | null>(null);
   const mutation = useMutation({
     mutationFn: ({ tool, args, edit }: Edit) => {
@@ -63,7 +64,7 @@ export function useEdit(id: number): EditOutcome {
         queryClient.invalidateQueries({ queryKey: ["library"] });
     },
     onError: (error) => {
-      setRefused(refusal(error));
+      setRefused(refusal(error, t.editor.refusal));
       if (error instanceof ApiError && error.status === 409) {
         queryClient.invalidateQueries({ queryKey: editorKey(id) });
       }

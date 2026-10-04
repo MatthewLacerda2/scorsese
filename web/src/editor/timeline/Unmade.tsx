@@ -3,6 +3,7 @@
 // desktop app's `paint/clip.rs`, in CSS. The hatching says *this is planned*;
 // pale enough that the clip's own name still reads on top of it.
 
+import { useT } from "@/i18n/I18nProvider";
 import { kindColor } from "../assets/kinds";
 
 /** Diagonal stripes, as a mask over the kind's colour: 2px of hue every 9px,
@@ -12,6 +13,7 @@ const HATCH = "repeating-linear-gradient(135deg, transparent 0 7px, black 7px 9p
 
 export function Unmade(props: { kind: string | undefined; state: string | undefined }) {
   const hue = kindColor(props.kind);
+  const states = useT().editor.states;
   return (
     <>
       <span className={`pointer-events-none absolute inset-0 opacity-15 ${hue}`} aria-hidden />
@@ -28,7 +30,7 @@ export function Unmade(props: { kind: string | undefined; state: string | undefi
           a word taking up room to say everything is normal. */}
       {props.state && (
         <span className="pointer-events-none absolute top-0 right-2 leading-10 text-[10px] text-muted-foreground">
-          {props.state}
+          {states[props.state] ?? props.state}
         </span>
       )}
     </>

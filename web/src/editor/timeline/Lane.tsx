@@ -8,6 +8,7 @@
 
 import { type DragEvent, type PointerEvent, useState } from "react";
 import type { Clip, ProjectDocument, Track } from "@/api";
+import { useT } from "@/i18n/I18nProvider";
 import { kindColor } from "../assets/kinds";
 import { adds } from "../selection";
 import {
@@ -71,6 +72,7 @@ function laneAt(x: number, y: number): string | null {
 
 export function Lane(props: Props) {
   const { track, document, zoom } = props;
+  const t = useT();
   const fps = document.timeline_fps;
   const [held, setHeld] = useState<Held | null>(null);
   const [landing, setLanding] = useState<{ clip: string; shape: Shape; dy: number } | null>(null);
@@ -149,7 +151,7 @@ export function Lane(props: Props) {
           <button
             type="button"
             key={clip.id}
-            title={`${clip.id} — drag to move (onto another lane too), drag an edge to trim, Shift-click to select several, Delete to remove`}
+            title={t.editor.timeline.clipTitle(clip.id)}
             className={`absolute top-1 bottom-1 cursor-grab touch-none overflow-hidden rounded-sm px-1.5 text-[11px] select-none ${body} ${chosen ? "ring-2 ring-foreground" : "opacity-90"} ${held?.clip.id === clip.id ? "z-10 cursor-grabbing shadow-lg" : ""}`}
             style={{
               left: framesToPx(shape.start, zoom, fps),

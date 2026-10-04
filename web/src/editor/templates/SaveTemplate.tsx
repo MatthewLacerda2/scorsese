@@ -17,14 +17,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { useT } from "@/i18n/I18nProvider";
 import type { EditOutcome } from "../project";
 
 export function SaveTemplate({ clips, edit }: { clips: string[]; edit: EditOutcome }) {
   const queryClient = useQueryClient();
+  const t = useT();
+  const words = t.editor.templates;
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [replace, setReplace] = useState(false);
-  const count = clips.length === 1 ? "1 clip" : `${clips.length} clips`;
 
   const save = async () => {
     const args = { clips, name: name.trim(), replace };
@@ -45,21 +47,14 @@ export function SaveTemplate({ clips, edit }: { clips: string[]; edit: EditOutco
       }}
     >
       <DialogTrigger asChild>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={clips.length === 0}
-          title="Select clips on the timeline (Shift-click for several), then save them to reuse"
-        >
-          <BookmarkPlusIcon /> Save as template
+        <Button size="sm" variant="outline" disabled={clips.length === 0} title={words.saveTitle}>
+          <BookmarkPlusIcon /> {words.save}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Save as template</DialogTitle>
-          <DialogDescription>
-            {`The ${count} selected, to put into any of your projects later. Changing the template never changes a video it was used in.`}
-          </DialogDescription>
+          <DialogTitle>{words.save}</DialogTitle>
+          <DialogDescription>{words.saveDescription(clips.length)}</DialogDescription>
         </DialogHeader>
         <form
           className="flex flex-col gap-3"
@@ -69,8 +64,8 @@ export function SaveTemplate({ clips, edit }: { clips: string[]; edit: EditOutco
           }}
         >
           <Input
-            aria-label="Template name"
-            placeholder="Intro, outro, lower third…"
+            aria-label={words.name}
+            placeholder={words.placeholder}
             value={name}
             onChange={(event) => setName(event.target.value)}
           />
@@ -80,12 +75,12 @@ export function SaveTemplate({ clips, edit }: { clips: string[]; edit: EditOutco
               checked={replace}
               onChange={(event) => setReplace(event.target.checked)}
             />
-            Replace the template that has this name
+            {words.replace}
           </label>
           {edit.refused && <p className="text-sm text-destructive">{edit.refused}</p>}
           <DialogFooter>
             <Button type="submit" disabled={!name.trim() || edit.pending}>
-              Save
+              {t.common.save}
             </Button>
           </DialogFooter>
         </form>

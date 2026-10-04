@@ -4,6 +4,7 @@
 // a timeline that moved on since it was drawn is refused, not guessed at.
 
 import type { ProjectDocument, Track } from "@/api";
+import type { Messages } from "@/i18n/catalogue";
 import type { Edit } from "./project";
 
 /** What to ask before a removal, and the edit a yes sends. */
@@ -25,31 +26,30 @@ export function showing(document: ProjectDocument, asset: string): string[] {
   );
 }
 
+/** The words a removal asks in. */
+type Words = Messages["editor"]["removal"];
+
 /** `"a", "b"` for a confirm, at most `shown` of them and a count of the rest. */
-function listed(ids: string[], shown = 8): string {
+function listed(ids: string[], t: Words, shown = 8): string {
   const named = ids.slice(0, shown).map((id) => `“${id}”`);
   const more = ids.length - named.length;
-  return more > 0 ? `${named.join(", ")} and ${more} more` : named.join(", ");
+  return more > 0 ? t.more(named.join(", "), more) : named.join(", ");
 }
 
-/** Removing `asset`, and every clip that shows it. */
-export function assetRemoval(document: ProjectDocument, asset: string): Removal {
+/** Removing `asset`, and every clip that shows it, worded in `t`. */
+export function assetRemoval(document: ProjectDocument, asset: string, t: Words): Removal {
   const clips = showing(document, asset);
   const question =
-    clips.length === 0
-      ? `Remove “${asset}” from the project?`
-      : `Remove “${asset}” from the project? ${clips.length === 1 ? "This clip uses it and will be deleted too" : `These ${clips.length} clips use it and will be deleted too`}: ${listed(clips)}.`;
+    clips.length === 0 ? t.asset(asset) : t.assetClips(asset, clips.length, listed(clips, t));
   return { question, edit: { tool: "asset_remove", args: { asset, clips }, edit: true } };
 }
 
 /** Removing `track`, and every clip on it. */
-export function trackRemoval(track: Track): Removal {
+export function trackRemoval(track: Track, t: Words): Removal {
   const clips = track.clips.map((clip) => clip.id);
   const name = track.name ?? track.id;
   const question =
-    clips.length === 0
-      ? `Remove the track “${name}”?`
-      : `Remove the track “${name}”? ${clips.length === 1 ? "The clip on it will be deleted too" : `The ${clips.length} clips on it will be deleted too`}: ${listed(clips)}.`;
+    clips.length === 0 ? t.track(name) : t.trackClips(name, clips.length, listed(clips, t));
   return {
     question,
     edit: { tool: "track_remove", args: { track: track.id, clips }, edit: true },

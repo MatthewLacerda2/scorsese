@@ -33,7 +33,8 @@ describe.each(LANGUAGES.map(({ language }) => language))("%s", (language) => {
     for (const [path, value] of messages) {
       const source = english.get(path);
       expect({ path, type: typeof value }).toEqual({ path, type: typeof source });
-      if (typeof value === "string") expect({ path, value: value.trim() }).not.toEqual({ path, value: "" });
+      if (typeof value === "string")
+        expect({ path, value: value.trim() }).not.toEqual({ path, value: "" });
       if (typeof value === "function" && typeof source === "function") {
         expect({ path, arity: value.length }).toEqual({ path, arity: source.length });
       }

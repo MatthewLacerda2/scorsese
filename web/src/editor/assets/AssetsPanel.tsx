@@ -59,7 +59,9 @@ export function AssetsPanel({ projectId, document, edit, playhead }: Props) {
                 onFold={() => fold(asset.id)}
                 uses={showing(document, asset.id).length}
                 pending={edit.pending}
-                onRemove={() => confirmThen(assetRemoval(document, asset.id), edit.run)}
+                onRemove={() =>
+                  confirmThen(assetRemoval(document, asset.id, t.editor.removal), edit.run)
+                }
               />
               {unfolded.has(asset.id) && stills.length > 0 && (
                 <ul className="ml-6 flex flex-col text-xs text-muted-foreground">

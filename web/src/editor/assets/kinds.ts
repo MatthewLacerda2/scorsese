@@ -3,7 +3,6 @@
 // desktop app does it. The names are the catalogue's (`assets.kinds`).
 
 import type { Messages } from "@/i18n/catalogue";
-import { en } from "@/i18n/en";
 
 const COLORS: Record<string, string> = {
   video: "bg-sky-500",
@@ -23,12 +22,9 @@ const COLORS: Record<string, string> = {
 
 /**
  * The kind's name in `names` (the page's `t.assets.kinds`); a kind this build
- * does not know reads as itself. English when no names are given.
+ * does not know reads as itself.
  */
-export function kindName(
-  kind: string,
-  names: Messages["assets"]["kinds"] = en.assets.kinds,
-): string {
+export function kindName(kind: string, names: Messages["assets"]["kinds"]): string {
   return (names as Record<string, string>)[kind] ?? kind;
 }
 

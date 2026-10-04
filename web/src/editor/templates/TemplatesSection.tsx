@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PlusIcon, Trash2Icon } from "lucide-react";
 import { api, type Fps, type TemplateSummary } from "@/api";
 import { Button } from "@/components/ui/button";
+import { useLanguage, useT } from "@/i18n/I18nProvider";
 import type { EditOutcome } from "../project";
 import { toSeconds } from "../timeline/time";
 
@@ -23,6 +24,13 @@ interface Props {
 
 export function TemplatesSection({ edit, playhead, fps }: Props) {
   const queryClient = useQueryClient();
+  const t = useT().editor.templates;
+  const { language } = useLanguage();
+  // Seconds to one decimal, in the reader's own way of writing a decimal.
+  const tenths = new Intl.NumberFormat(language, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
   const templates = useTemplates();
   const remove = useMutation({
     mutationFn: (id: number) => api.templates.remove(id),
@@ -39,14 +47,10 @@ export function TemplatesSection({ edit, playhead, fps }: Props) {
   return (
     <section className="flex flex-col gap-1">
       <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Templates
+        {t.title}
       </h2>
       {templates.isError && <p className="text-xs text-destructive">{templates.error.message}</p>}
-      {templates.data?.length === 0 && (
-        <p className="text-xs text-muted-foreground">
-          None yet. Select clips on the timeline and save them as a template.
-        </p>
-      )}
+      {templates.data?.length === 0 && <p className="text-xs text-muted-foreground">{t.none}</p>}
       {remove.isError && <p className="text-xs text-destructive">{remove.error.message}</p>}
       {templates.data?.map((template) => (
         <div key={template.id} className="flex items-center gap-1 rounded-md border px-2 py-1">
@@ -59,14 +63,14 @@ export function TemplatesSection({ edit, playhead, fps }: Props) {
               <p className="truncate text-xs text-muted-foreground">{template.description}</p>
             )}
             <p className="text-xs text-muted-foreground">
-              {`${template.seconds.toFixed(1)}s · ${template.clips} clips`}
+              {t.summary(tenths.format(template.seconds), template.clips)}
             </p>
           </div>
           <Button
             size="icon"
             variant="ghost"
-            aria-label={`Insert ${template.name} at the playhead`}
-            title={`Insert at the playhead (${at.toFixed(1)}s)`}
+            aria-label={t.insert(template.name)}
+            title={t.insertTitle(tenths.format(at))}
             disabled={edit.pending}
             onClick={() => insert(template)}
           >
@@ -75,11 +79,11 @@ export function TemplatesSection({ edit, playhead, fps }: Props) {
           <Button
             size="icon"
             variant="ghost"
-            aria-label={`Delete ${template.name}`}
-            title="Delete the template — videos it went into keep their copies"
+            aria-label={t.remove(template.name)}
+            title={t.removeTitle}
             disabled={remove.isPending}
             onClick={() => {
-              if (window.confirm(`Delete the template “${template.name}”?`)) {
+              if (window.confirm(t.confirmRemove(template.name))) {
                 remove.mutate(template.id);
               }
             }}
