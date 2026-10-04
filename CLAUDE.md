@@ -359,16 +359,19 @@ machine you are on — cores, free memory, free disk — before a heavy build.
   architecture above, the `project.json` format, the shape of the tool surface,
   the conventions in this file — where Claude proposes and the user decides,
   unless one option is a plain win-win, which Claude takes. Initiative still
-  runs through the normal flow (an issue, or an issue-less PR where that is
-  allowed; a branch; a PR; the gates). An issue the stage-label rule below says
+  runs through the normal flow (an issue where the work needs planning; a
+  branch; a PR; the gates). An issue the stage-label rule below says
   must carry `planning` or `human` is not a clear win by definition, and a
   `planning` issue is still never started. And nothing that spends the user's
   money — a provider generation, `make live-check` — is done on initiative: it
   is asked first, every time.
-- **Flow:** idea → issue → branch → PR → CI green → merge. New work starts as
-  an issue, not a surprise diff, and the PR references the issue it closes.
-  **Issue-less PRs are allowed only** for documentation updates or bug fixes.
-  Either way the PR description still has to clear the three gates.
+- **Flow:** idea → (issue) → branch → PR → CI green → merge. **Nothing is
+  committed to `main` directly**: every change, however small, arrives as a
+  pull request. An issue is how work is *planned*, not a toll on every change:
+  work that needs planning, a decision, or to wait (a stage label) is an issue
+  first; work that needs none of that can go straight to a branch and a pull
+  request (the user, 2026-10-04). A PR that has an issue references the one it
+  closes, and every PR's description clears the three gates.
   **The `issue-write` skill** has what an issue must contain and which label it
   carries; **`issue-batch`** has how a set of them is worked; **`ci-merge`** has
   how a branch gets from finished to merged. Invoke them rather than
@@ -578,7 +581,7 @@ machine you are on — cores, free memory, free disk — before a heavy build.
 
 ## Issues, labels & priority
 
-- **Issues come before PRs.** The unit of work is a well-specified issue: the
+- **Issues are how work is planned.** The unit of planned work is a well-specified issue: the
   **what**, **why it belongs**, and the **roadmap — not the implementation
   intrinsics**. A future Claude reads it cold and says *"I understand the
   assignment, I know how to proceed."* That is what lets an issue run unattended,
