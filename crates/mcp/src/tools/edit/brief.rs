@@ -12,14 +12,36 @@
 //! the document to, voiced here before the document is written rather than
 //! after.
 
+use schemars::JsonSchema;
 use scorsese_core::{Asset, AssetId, GenerationState, Project, ProjectPath};
+use serde::Deserialize;
 use serde_json::Value;
 
+use crate::tools::args::{self, Name, ProjectDir};
 use crate::tools::inspect::load;
-use crate::tools::{Costs, Reply, Tool, project_dir, project_property};
+use crate::tools::{Costs, Reply, Tool};
 
 /// Change a generated asset's brief, and its state with it.
 pub(crate) struct Rebrief;
+
+/// What `rebrief` takes.
+#[derive(Deserialize, JsonSchema)]
+struct Arguments {
+    project: ProjectDir,
+    /// Id of the generated asset whose brief to change — the id in the assets
+    /// table, never a path.
+    asset: Name,
+    /// The new prompt, for a generated_video, generated_image or
+    /// generated_audio asset. Replaces the old sentence whole; this is not a
+    /// patch. Refused on a synth_audio asset, which has no prompt.
+    prompt: Option<String>,
+    /// Project-relative path of the recipe a synth_audio asset is to be baked
+    /// from, by convention under recipes/. The file has to exist. Refused on a
+    /// prompted asset, which has no recipe.
+    recipe: Option<String>,
+}
+
+impl args::Arguments for Arguments {}
 
 impl Tool for Rebrief {
     fn name(&self) -> &'static str {
@@ -50,41 +72,17 @@ impl Tool for Rebrief {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "asset": {
-                    "type": "string",
-                    "description": "Id of the generated asset whose brief to change — \
-                                    the id in the assets table, never a path."
-                },
-                "prompt": {
-                    "type": "string",
-                    "description": "The new prompt, for a generated_video, generated_image or \
-                                    generated_audio asset. Replaces the old sentence \
-                                    whole; this is not a patch. Refused on a \
-                                    synth_audio asset, which has no prompt."
-                },
-                "recipe": {
-                    "type": "string",
-                    "description": "Project-relative path of the recipe a synth_audio \
-                                    asset is to be baked from, by convention under \
-                                    recipes/. The file has to exist. Refused on a \
-                                    prompted asset, which has no recipe."
-                }
-            },
-            "required": ["project", "asset"]
-        })
+        args::schema::<Arguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let mut project = load(&dir)?;
-        let id = AssetId::new(required(arguments, "asset")?);
-        let brief = Brief::asked(arguments)?;
+        let arguments: Arguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let mut project = load(dir)?;
+        let id = AssetId::new(arguments.asset.as_str());
+        let brief = Brief::asked(&arguments)?;
 
-        let Some(said) = edit(&mut project, &dir, &id, &brief)? else {
+        let Some(said) = edit(&mut project, dir, &id, &brief)? else {
             return Ok(unchanged(&brief, &id));
         };
         // Validated before the save and not after: the refusal has to arrive
@@ -94,7 +92,7 @@ impl Tool for Rebrief {
             .validate()
             .map_err(|problems| format!("refused, nothing written:\n{problems}"))?;
         project
-            .save(&dir)
+            .save(dir)
             .map_err(|error| format!("refused, nothing written: {error}"))?;
         Ok(said.into())
     }
@@ -115,15 +113,16 @@ impl Brief {
     /// exactly the brief its kind takes, so a call naming the other one has
     /// misunderstood the asset and guessing which half was meant would write
     /// the half nobody checked.
-    fn asked(arguments: &Value) -> Result<Self, String> {
-        let prompt = optional(arguments, "prompt");
-        let recipe = optional(arguments, "recipe");
-        match (prompt, recipe) {
+    fn asked(arguments: &Arguments) -> Result<Self, String> {
+        // A blank one counts as absent, and what is kept is kept as given —
+        // a prompt is the provider's sentence to the letter.
+        let given = |text: &Option<String>| text.clone().filter(|text| !text.trim().is_empty());
+        match (given(&arguments.prompt), given(&arguments.recipe)) {
             (Some(_), Some(_)) => Err("`prompt` and `recipe` are the two kinds of brief \
                                        and no asset takes both — pass the one this \
                                        asset's kind carries"
                 .to_owned()),
-            (Some(prompt), None) => Ok(Self::Prompt(prompt.to_owned())),
+            (Some(prompt), None) => Ok(Self::Prompt(prompt)),
             (None, Some(recipe)) => Ok(Self::Recipe(ProjectPath::new(recipe))),
             (None, None) => Err("nothing to change: pass `prompt` for a generated_video \
                                  or generated_audio asset, or `recipe` for a synth_audio \
@@ -278,17 +277,4 @@ fn unchanged(brief: &Brief, id: &AssetId) -> Reply {
         brief.field()
     )
     .into()
-}
-
-/// A required string argument, refused by name when it is missing or blank.
-fn required<'a>(arguments: &'a Value, key: &str) -> Result<&'a str, String> {
-    optional(arguments, key).ok_or_else(|| format!("`{key}` is required"))
-}
-
-/// A string argument that may be absent, with a blank one counting as absent.
-fn optional<'a>(arguments: &'a Value, key: &str) -> Option<&'a str> {
-    arguments
-        .get(key)
-        .and_then(Value::as_str)
-        .filter(|text| !text.trim().is_empty())
 }

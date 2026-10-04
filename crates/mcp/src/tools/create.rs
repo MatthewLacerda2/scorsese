@@ -9,12 +9,15 @@
 
 use std::path::Path;
 
+use schemars::{JsonSchema, Schema, SchemaGenerator};
 use scorsese_core::{
     ASSETS_DIR, CACHE_DIR, Fps, GENERATED_DIR, PROJECT_FILE_NAME, Project, RECIPES_DIR,
 };
+use serde::Deserialize;
 use serde_json::Value;
 
-use super::{Costs, Reply, Tool, project_dir};
+use super::args::{self, ProjectDir};
+use super::{Costs, Reply, Tool};
 
 /// The grid a project is authored on when nobody names one — the same default
 /// `scorsese new` carries, because two clients disagreeing about it would put
@@ -23,6 +26,33 @@ const DEFAULT_FPS: Fps = Fps::THIRTY;
 
 /// Lay out a new project directory.
 pub(crate) struct New;
+
+/// What `project_new` takes.
+#[derive(Deserialize, JsonSchema)]
+struct Arguments {
+    /// Path of the *.scor directory to create, e.g. teaser.scor. It is made if
+    /// it is not there, and must be empty if it is.
+    project: ProjectDir,
+    /// What a human calls this edit. Cosmetic, and independent of the
+    /// directory. Defaults to the directory's own name without its extension.
+    name: Option<String>,
+    /// The timeline framerate every clip and keyframe time is counted in: 30,
+    /// or a rational like 30000/1001 for 29.97. Chosen once, here — changing it
+    /// later is a real operation, not a field edit. A decimal is refused: 29.97
+    /// is not a framerate. Defaults to 30.
+    // Read as a bare value so [`fps`] can take either spelling; `default`
+    // because `schema_with` hides that it is optional.
+    #[serde(default)]
+    #[schemars(schema_with = "fps_schema")]
+    fps: Option<Value>,
+}
+
+impl args::Arguments for Arguments {}
+
+/// The two spellings `fps` takes on the wire.
+fn fps_schema(_: &mut SchemaGenerator) -> Schema {
+    schemars::json_schema!({ "type": ["string", "number"] })
+}
 
 impl Tool for New {
     fn name(&self) -> &'static str {
@@ -44,42 +74,16 @@ impl Tool for New {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": {
-                    "type": "string",
-                    "description": "Path of the *.scor directory to create, e.g. \
-                                    teaser.scor. It is made if it is not there, and \
-                                    must be empty if it is."
-                },
-                "name": {
-                    "type": "string",
-                    "description": "What a human calls this edit. Cosmetic, and \
-                                    independent of the directory. Defaults to the \
-                                    directory's own name without its extension."
-                },
-                "fps": {
-                    "type": ["string", "number"],
-                    "description": "The timeline framerate every clip and keyframe \
-                                    time is counted in: 30, or a rational like \
-                                    30000/1001 for 29.97. Chosen once, here — \
-                                    changing it later is a real operation, not a \
-                                    field edit. A decimal is refused: 29.97 is not a \
-                                    framerate. Defaults to 30."
-                }
-            },
-            "required": ["project"]
-        })
+        args::schema::<Arguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let name = arguments.get("name").and_then(Value::as_str);
-        let fps = fps(arguments)?;
+        let arguments: Arguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let fps = fps(arguments.fps.as_ref())?;
 
-        vacant(&dir)?;
-        let project = Project::create(&dir, name, fps)
+        vacant(dir)?;
+        let project = Project::create(dir, arguments.name.as_deref(), fps)
             .map_err(|error| format!("creating a project in {}: {error}", dir.display()))?;
 
         Ok(format!(
@@ -98,8 +102,8 @@ impl Tool for New {
 ///
 /// Both land in the same parser, so `30000/1001` and `29.97` mean here exactly
 /// what they mean on the command line — the second of them nothing, and loudly.
-fn fps(arguments: &Value) -> Result<Fps, String> {
-    let Some(asked) = arguments.get("fps") else {
+fn fps(asked: Option<&Value>) -> Result<Fps, String> {
+    let Some(asked) = asked else {
         return Ok(DEFAULT_FPS);
     };
     let text = match asked {

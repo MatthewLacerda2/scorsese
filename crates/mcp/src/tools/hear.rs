@@ -20,15 +20,33 @@
 //! end. The waveform needs nothing but ffmpeg and works everywhere. The other
 //! route is not rejected; it is a different issue.
 
+use schemars::JsonSchema;
 use scorsese_render::audio::{Waveform, waveform};
 use scorsese_render::{Tools, frames};
+use serde::Deserialize;
 use serde_json::Value;
 
+use crate::tools::args::{self, ProjectDir, Required};
 use crate::tools::scratch::Scratch;
-use crate::tools::{Costs, Part, Reply, Tool, project_dir, project_property};
+use crate::tools::{Costs, Part, Reply, Tool};
 
 /// A waveform of a sound file.
 pub(crate) struct Hear;
+
+/// What `hear` takes.
+#[derive(Deserialize, JsonSchema)]
+struct Arguments {
+    project: ProjectDir,
+    /// The sound to look at, as a path relative to the project — e.g.
+    /// generated/vo-01.mp3 — or an absolute path to a file outside it. Not an
+    /// asset id: this reads a file, and the file need not be in the assets
+    /// table. A rendered video works too; its sound is what is read.
+    file: String,
+}
+
+impl args::Arguments for Arguments {
+    const REQUIRED: Required = &[("file", "the path of a sound file to look at")];
+}
 
 impl Tool for Hear {
     fn name(&self) -> &'static str {
@@ -57,30 +75,12 @@ impl Tool for Hear {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "file": {
-                    "type": "string",
-                    "description": "The sound to look at, as a path relative to the \
-                                    project — e.g. generated/vo-01.mp3 — or an absolute \
-                                    path to a file outside it. Not an asset id: this reads \
-                                    a file, and the file need not be in the assets table. \
-                                    A rendered video works too; its sound is what is read."
-                }
-            },
-            "required": ["project", "file"]
-        })
+        args::schema::<Arguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let named = arguments
-            .get("file")
-            .and_then(Value::as_str)
-            .ok_or("`file` is required: the path of a sound file to look at")?;
-        let file = dir.join(named);
+        let arguments: Arguments = args::parse(arguments)?;
+        let file = arguments.project.dir().join(&arguments.file);
 
         // Discovered per call rather than held, as the other ffmpeg tools do: a
         // server that found ffmpeg at startup would keep insisting it was there

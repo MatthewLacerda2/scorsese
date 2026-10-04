@@ -5,15 +5,34 @@
 //! recipe, so everything after it is the usual loop: read it, change the
 //! sounds, bake.
 
+use schemars::JsonSchema;
 use scorsese_providers::synth;
+use serde::Deserialize;
 use serde_json::Value;
 
-use super::text;
+use crate::tools::args::{self, ProjectDir, Required};
 use crate::tools::inspect::load;
-use crate::tools::{Costs, Reply, Tool, project_dir, project_property, under};
+use crate::tools::{Costs, Reply, Tool};
 
 /// Read a `.mid` into a recipe.
 pub(crate) struct Import;
+
+/// What `synth_import` takes.
+#[derive(Deserialize, JsonSchema)]
+struct Arguments {
+    project: ProjectDir,
+    /// The .mid file to read — relative to the project directory, or
+    /// absolute. It is read, not copied: the recipe it becomes is what the
+    /// project keeps.
+    path: String,
+    /// What to call the asset and its recipe. Defaults to the file's name
+    /// without .mid, suffixed if that is taken.
+    name: Option<String>,
+}
+
+impl args::Arguments for Arguments {
+    const REQUIRED: Required = &[("path", "the .mid file")];
+}
 
 impl Tool for Import {
     fn name(&self) -> &'static str {
@@ -39,42 +58,24 @@ impl Tool for Import {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "path": {
-                    "type": "string",
-                    "description": "The .mid file to read — relative to the project \
-                                    directory, or absolute. It is read, not copied: \
-                                    the recipe it becomes is what the project keeps."
-                },
-                "name": {
-                    "type": "string",
-                    "description": "What to call the asset and its recipe. Defaults \
-                                    to the file's name without .mid, suffixed if \
-                                    that is taken."
-                }
-            },
-            "required": ["project", "path"]
-        })
+        args::schema::<Arguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let file = under(&dir, arguments, "path")?.ok_or("`path` is required: the .mid file")?;
-        let name = match arguments.get("name") {
-            Some(_) => Some(
-                text(arguments, "name")
-                    .map_err(|_| "`name`, when given, is a non-empty string".to_owned())?,
-            ),
-            None => None,
+        let arguments: Arguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let file = args::path(dir, &arguments.path, "path")?;
+        let name = match arguments.name.as_deref() {
+            Some(name) if name.trim().is_empty() => {
+                return Err("`name`, when given, is a non-empty string".to_owned());
+            }
+            name => name,
         };
-        let mut project = load(&dir)?;
-        let imported = synth::import_midi(&mut project, &dir, &file, name)
+        let mut project = load(dir)?;
+        let imported = synth::import_midi(&mut project, dir, &file, name)
             .map_err(|error| format!("{error}"))?;
         project
-            .save(&dir)
+            .save(dir)
             .map_err(|error| format!("saving the project: {error}"))?;
 
         let id = &imported.id;

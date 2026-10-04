@@ -6,7 +6,11 @@
 //! whether its stops make sense is validation's to say, before anything is
 //! written.
 
+use std::borrow::Cow;
+
+use schemars::{JsonSchema, Schema, SchemaGenerator};
 use scorsese_core::Fill;
+use serde::Deserialize;
 use serde_json::Value;
 
 /// How the object form reads, shared by every argument that takes one.
@@ -20,9 +24,28 @@ const GRADIENT: &str = "Or a gradient, as an object — {\"linear\": {\"angle\":
     is a fraction of that box's SHORTER side. Gradients are dithered so a dark one does not \
     band.";
 
+/// A fill argument as it arrived: a string or an object, read into a [`Fill`]
+/// by [`fill`] so that the refusal is the document's own words for it.
+///
+/// Its own type so that its schema says both forms; the description is the
+/// field's, since what the colour is *for* differs by argument
+/// ([`described`]).
+#[derive(Deserialize)]
+pub(super) struct Paint(Value);
+
+impl JsonSchema for Paint {
+    fn schema_name() -> Cow<'static, str> {
+        "Paint".into()
+    }
+
+    fn json_schema(_: &mut SchemaGenerator) -> Schema {
+        schemars::json_schema!({ "type": ["string", "object"] })
+    }
+}
+
 /// A fill argument, absent when it is missing, null or a blank string.
-pub(super) fn fill(arguments: &Value, key: &str) -> Result<Option<Fill>, String> {
-    let Some(value) = arguments.get(key).filter(|value| !value.is_null()) else {
+pub(super) fn fill(given: Option<&Paint>, key: &str) -> Result<Option<Fill>, String> {
+    let Some(Paint(value)) = given.filter(|Paint(value)| !value.is_null()) else {
         return Ok(None);
     };
     if value.as_str().is_some_and(|text| text.trim().is_empty()) {
@@ -33,19 +56,10 @@ pub(super) fn fill(arguments: &Value, key: &str) -> Result<Option<Fill>, String>
         .map_err(|problem| format!("`{key}`: {problem}"))
 }
 
-/// The same, required — for the colour asset, which has no colour it would be
-/// safe to invent.
-pub(super) fn required_fill(arguments: &Value, key: &str, what: &str) -> Result<Fill, String> {
-    fill(arguments, key)?.ok_or_else(|| format!("`{key}` is required: {what}"))
-}
-
-/// The schema of an argument that takes a colour or a gradient, `lead` being
-/// what the argument is for.
-pub(super) fn property(lead: &str) -> Value {
-    serde_json::json!({
-        "type": ["string", "object"],
-        "description": format!("{lead} {GRADIENT}")
-    })
+/// The description of an argument that takes a colour or a gradient, `lead`
+/// being what the argument is for.
+pub(super) fn described(lead: &str) -> String {
+    format!("{lead} {GRADIENT}")
 }
 
 #[cfg(test)]
@@ -53,23 +67,27 @@ mod tests {
     use super::*;
     use scorsese_core::Rgba;
 
+    fn paint(value: Value) -> Paint {
+        Paint(value)
+    }
+
     #[test]
     fn a_string_is_the_colour_it_always_was() {
-        let arguments = serde_json::json!({ "fill": "#ff0000" });
-        let read = fill(&arguments, "fill").expect("a colour");
+        let read = fill(Some(&paint(serde_json::json!("#ff0000"))), "fill").expect("a colour");
         assert_eq!(read, Some(Fill::Solid(Rgba::opaque(0xff, 0, 0))));
+        assert_eq!(fill(Some(&paint(serde_json::json!(" "))), "fill"), Ok(None));
     }
 
     #[test]
     fn an_object_is_a_gradient_and_a_misspelling_is_named() {
-        let arguments = serde_json::json!({ "fill": { "radial": {
-            "radius": 0.5, "stops": [["#000000", 0], ["#ffffff", 1]] } } });
+        let given = paint(serde_json::json!({ "radial": {
+            "radius": 0.5, "stops": [["#000000", 0], ["#ffffff", 1]] } }));
         assert!(matches!(
-            fill(&arguments, "fill"),
+            fill(Some(&given), "fill"),
             Ok(Some(Fill::Radial(_)))
         ));
-        let arguments = serde_json::json!({ "fill": { "conic": {} } });
-        let refused = fill(&arguments, "fill").expect_err("no conic gradients");
+        let given = paint(serde_json::json!({ "conic": {} }));
+        let refused = fill(Some(&given), "fill").expect_err("no conic gradients");
         assert!(refused.contains("conic"), "{refused}");
     }
 }

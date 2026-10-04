@@ -1,17 +1,44 @@
 //! Wrapping clips into a group, and a group back into clips.
 
-use std::collections::BTreeSet;
-
+use schemars::JsonSchema;
 use scorsese_core::grouping::{self, Grouping};
 use scorsese_core::{AssetId, ClipId, TrackId};
+use serde::Deserialize;
 use serde_json::Value;
 
-use super::named;
+use super::clip_set;
+use crate::tools::args::{self, Name, ProjectDir, Required};
 use crate::tools::inspect::load;
-use crate::tools::{Costs, Reply, Tool, project_dir, project_property};
+use crate::tools::{Costs, Reply, Tool};
 
 /// Wrap clips already on the timeline into a group that renders as one layer.
 pub(crate) struct ClipGroup;
+
+/// What `clip_group` takes.
+#[derive(Deserialize, JsonSchema)]
+struct GroupArguments {
+    project: ProjectDir,
+    /// Ids of the clips to group — every one on one of the project's own video
+    /// tracks. They may be on different tracks and at different times; the
+    /// group runs from the earliest start to the latest end. project_describe
+    /// and project_read name them.
+    clips: Vec<String>,
+    /// Id for the new group asset. Left out, it is `group`, or `group-2` and so
+    /// on if that is taken. Name it for what it is — `pipeline-diagram` — since
+    /// it is how the group is found again.
+    asset: Option<String>,
+    /// Id for the one clip that shows the group. Left out, it is `c-` followed
+    /// by the asset's id.
+    clip: Option<String>,
+    /// Id of the video track to put the group clip on. Left out, it is the
+    /// lowest track any of the grouped clips came from, so nothing that was
+    /// under them ends up over the group.
+    track: Option<String>,
+}
+
+impl args::Arguments for GroupArguments {
+    const REQUIRED: Required = &[("clips", "the ids of the clips to group")];
+}
 
 impl Tool for ClipGroup {
     fn name(&self) -> &'static str {
@@ -42,57 +69,24 @@ impl Tool for ClipGroup {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "clips": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "Ids of the clips to group — every one on one of \
-                                    the project's own video tracks. They may be on \
-                                    different tracks and at different times; the \
-                                    group runs from the earliest start to the latest \
-                                    end. project_describe and project_read name them."
-                },
-                "asset": {
-                    "type": "string",
-                    "description": "Id for the new group asset. Left out, it is \
-                                    `group`, or `group-2` and so on if that is taken. \
-                                    Name it for what it is — `pipeline-diagram` — \
-                                    since it is how the group is found again."
-                },
-                "clip": {
-                    "type": "string",
-                    "description": "Id for the one clip that shows the group. Left \
-                                    out, it is `c-` followed by the asset's id."
-                },
-                "track": {
-                    "type": "string",
-                    "description": "Id of the video track to put the group clip on. \
-                                    Left out, it is the lowest track any of the \
-                                    grouped clips came from, so nothing that was \
-                                    under them ends up over the group."
-                }
-            },
-            "required": ["project", "clips"]
-        })
+        args::schema::<GroupArguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let mut project = load(&dir)?;
+        let arguments: GroupArguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let mut project = load(dir)?;
         let fps = project.timeline_fps;
         let request = Grouping {
-            clips: clip_ids(arguments)?,
-            asset: optional(arguments, "asset").map(AssetId::new),
-            clip: optional(arguments, "clip").map(ClipId::new),
-            track: optional(arguments, "track").map(TrackId::new),
+            clips: clip_set(&arguments.clips)?,
+            asset: args::given(arguments.asset.as_deref()).map(AssetId::new),
+            clip: args::given(arguments.clip.as_deref()).map(ClipId::new),
+            track: args::given(arguments.track.as_deref()).map(TrackId::new),
         };
         let grouped = grouping::group(&mut project, &request)
             .map_err(|error| format!("{error} — nothing was written"))?;
         project
-            .save(&dir)
+            .save(dir)
             .map_err(|error| format!("saving the project: {error}"))?;
         let lanes: Vec<String> = grouped.tracks.iter().map(|t| format!("`{t}`")).collect();
         Ok(format!(
@@ -114,6 +108,19 @@ impl Tool for ClipGroup {
 
 /// Put a group's clips back on the timeline, where the group showed them.
 pub(crate) struct ClipUngroup;
+
+/// What `clip_ungroup` takes.
+#[derive(Deserialize, JsonSchema)]
+struct UngroupArguments {
+    project: ProjectDir,
+    /// Id of the clip showing the group — the one clip_group made, or any clip
+    /// of a group asset on the project's own tracks.
+    clip: Name,
+}
+
+impl args::Arguments for UngroupArguments {
+    const REQUIRED: Required = &[("clip", "the id of the group's clip")];
+}
 
 impl Tool for ClipUngroup {
     fn name(&self) -> &'static str {
@@ -139,29 +146,18 @@ impl Tool for ClipUngroup {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "clip": {
-                    "type": "string",
-                    "description": "Id of the clip showing the group — the one \
-                                    clip_group made, or any clip of a group asset on \
-                                    the project's own tracks."
-                }
-            },
-            "required": ["project", "clip"]
-        })
+        args::schema::<UngroupArguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let mut project = load(&dir)?;
-        let clip = ClipId::new(named(arguments, "clip", "the id of the group's clip")?);
+        let arguments: UngroupArguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let mut project = load(dir)?;
+        let clip = ClipId::new(arguments.clip.as_str());
         let back = grouping::ungroup(&mut project, &clip)
             .map_err(|error| format!("{error} — nothing was written"))?;
         project
-            .save(&dir)
+            .save(dir)
             .map_err(|error| format!("saving the project: {error}"))?;
         let lanes: Vec<String> = back.tracks.iter().map(|t| format!("`{t}`")).collect();
         let lost = if back.dropped_its_own_look {
@@ -182,30 +178,4 @@ impl Tool for ClipUngroup {
         )
         .into())
     }
-}
-
-/// The clips to group, as a set — a repeated id is one clip.
-fn clip_ids(arguments: &Value) -> Result<BTreeSet<ClipId>, String> {
-    let named = arguments
-        .get("clips")
-        .and_then(Value::as_array)
-        .ok_or_else(|| "`clips` is required: the ids of the clips to group".to_owned())?;
-    let ids: BTreeSet<ClipId> = named
-        .iter()
-        .filter_map(Value::as_str)
-        .map(ClipId::new)
-        .collect();
-    if ids.is_empty() {
-        return Err("`clips` must name at least one clip".to_owned());
-    }
-    Ok(ids)
-}
-
-/// An optional string argument, `None` when absent or blank.
-fn optional<'a>(arguments: &'a Value, key: &str) -> Option<&'a str> {
-    arguments
-        .get(key)
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
 }

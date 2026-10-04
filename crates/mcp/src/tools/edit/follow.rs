@@ -6,17 +6,54 @@
 //! sits at the arrow's tail forever, which is the mistake `project_check`
 //! otherwise has to warn about after the fact.
 
+use schemars::JsonSchema;
 use scorsese_core::{ClipId, TrackKind};
 use scorsese_core::{Easing, Follow, Frames, Keyframe, KeyframeTrack, Project, PropertyPath};
 use scorsese_render::picture::path::FOLLOW_PROGRESS;
+use serde::Deserialize;
 use serde_json::Value;
 
-use super::{named, seconds};
+use super::seconds;
+use crate::tools::args::{self, Name, ProjectDir, Required};
 use crate::tools::inspect::load;
-use crate::tools::{Costs, Reply, Tool, project_dir, project_property};
+use crate::tools::{Costs, Reply, Tool};
 
 /// Set or clear the arrow a clip travels along.
 pub(crate) struct ClipFollow;
+
+/// What `clip_follow` takes.
+#[derive(Deserialize, JsonSchema)]
+struct Arguments {
+    project: ProjectDir,
+    /// Id of the clip that travels. Picture only.
+    clip: Name,
+    /// Id of the arrow CLIP whose line it travels along — a clip showing an
+    /// arrow shape asset, not the asset itself. Required unless `stop` is true.
+    arrow: Option<String>,
+    /// Turn the clip to face along the line, as a car follows a road: its own
+    /// rotation is added on top. Draw the clip pointing right for this to read
+    /// naturally. Default false: it slides along facing however it was drawn.
+    #[serde(default)]
+    orient: bool,
+    /// When it sets off from the tail, in seconds from the start of the CLIP
+    /// (not the timeline). Default 0. Before this it waits at the tail.
+    start_seconds: Option<f64>,
+    /// How long it takes to reach the head, in seconds. Default: the rest of
+    /// the clip. After it arrives it waits at the head.
+    travel_seconds: Option<f64>,
+    /// How it gathers and loses speed on the way: `linear` (the default, an
+    /// even pace), `ease_in`, `ease_out`, `ease_in_out`, `back_out`, `spring` —
+    /// any keyframe easing name.
+    easing: Option<String>,
+    /// Remove the clip's follow and its follow.progress track, leaving it
+    /// placed by its transform alone.
+    #[serde(default)]
+    stop: bool,
+}
+
+impl args::Arguments for Arguments {
+    const REQUIRED: Required = &[("clip", "the id of the clip that travels")];
+}
 
 impl Tool for ClipFollow {
     fn name(&self) -> &'static str {
@@ -42,64 +79,17 @@ impl Tool for ClipFollow {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "clip": {
-                    "type": "string",
-                    "description": "Id of the clip that travels. Picture only."
-                },
-                "arrow": {
-                    "type": "string",
-                    "description": "Id of the arrow CLIP whose line it travels along — \
-                                    a clip showing an arrow shape asset, not the asset \
-                                    itself. Required unless `stop` is true."
-                },
-                "orient": {
-                    "type": "boolean",
-                    "description": "Turn the clip to face along the line, as a car \
-                                    follows a road: its own rotation is added on top. \
-                                    Draw the clip pointing right for this to read \
-                                    naturally. Default false: it slides along facing \
-                                    however it was drawn."
-                },
-                "start_seconds": {
-                    "type": "number",
-                    "description": "When it sets off from the tail, in seconds from \
-                                    the start of the CLIP (not the timeline). Default 0. \
-                                    Before this it waits at the tail."
-                },
-                "travel_seconds": {
-                    "type": "number",
-                    "description": "How long it takes to reach the head, in seconds. \
-                                    Default: the rest of the clip. After it arrives it \
-                                    waits at the head."
-                },
-                "easing": {
-                    "type": "string",
-                    "description": "How it gathers and loses speed on the way: \
-                                    `linear` (the default, an even pace), `ease_in`, \
-                                    `ease_out`, `ease_in_out`, `back_out`, `spring` — \
-                                    any keyframe easing name."
-                },
-                "stop": {
-                    "type": "boolean",
-                    "description": "Remove the clip's follow and its follow.progress \
-                                    track, leaving it placed by its transform alone."
-                }
-            },
-            "required": ["project", "clip"]
-        })
+        args::schema::<Arguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let mut project = load(&dir)?;
-        let id = ClipId::new(named(arguments, "clip", "the id of the clip that travels")?);
-        let said = follow(&mut project, &id, arguments)?;
+        let arguments: Arguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let mut project = load(dir)?;
+        let id = ClipId::new(arguments.clip.as_str());
+        let said = follow(&mut project, &id, &arguments)?;
         project
-            .save(&dir)
+            .save(dir)
             .map_err(|error| format!("saving the project: {error}"))?;
         Ok(format!("`{id}`: {said}.").into())
     }
@@ -107,7 +97,7 @@ impl Tool for ClipFollow {
 
 /// Apply the request to clip `id` on a copy that becomes `project` only if it
 /// validates; what was done, in words.
-fn follow(project: &mut Project, id: &ClipId, arguments: &Value) -> Result<String, String> {
+fn follow(project: &mut Project, id: &ClipId, arguments: &Arguments) -> Result<String, String> {
     let fps = project.timeline_fps;
     let mut proposed = project.clone();
     let clip = proposed
@@ -120,19 +110,25 @@ fn follow(project: &mut Project, id: &ClipId, arguments: &Value) -> Result<Strin
     let progress = PropertyPath::new(FOLLOW_PROGRESS);
     clip.keyframes.retain(|track| track.property != progress);
 
-    let said = if arguments.get("stop").and_then(Value::as_bool) == Some(true) {
+    let said = if arguments.stop {
         clip.follow = None;
         "no longer follows an arrow, and its follow.progress track is gone".to_owned()
     } else {
-        let arrow = ClipId::new(named(arguments, "arrow", "the id of the arrow clip")?);
-        let orient = arguments.get("orient").and_then(Value::as_bool) == Some(true);
-        let easing: Easing = match arguments.get("easing").filter(|e| !e.is_null()) {
+        let arrow = ClipId::new(
+            args::given(arguments.arrow.as_deref())
+                .ok_or("`arrow` is required: the id of the arrow clip")?,
+        );
+        let orient = arguments.orient;
+        let easing: Easing = match &arguments.easing {
             None => Easing::Linear,
-            Some(name) => serde_json::from_value(name.clone())
-                .map_err(|_| format!("`easing` {name} is not a keyframe easing name"))?,
+            Some(name) => {
+                let name = Value::String(name.clone());
+                serde_json::from_value(name.clone())
+                    .map_err(|_| format!("`easing` {name} is not a keyframe easing name"))?
+            }
         };
-        let at = fps.frames(seconds(arguments, "start_seconds")?.unwrap_or(0.0));
-        let over = match seconds(arguments, "travel_seconds")? {
+        let at = fps.frames(seconds(arguments.start_seconds, "start_seconds")?.unwrap_or(0.0));
+        let over = match seconds(arguments.travel_seconds, "travel_seconds")? {
             Some(travel) => fps.frames(travel),
             None => Frames(clip.duration.get().saturating_sub(at.get())),
         };

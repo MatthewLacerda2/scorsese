@@ -6,14 +6,42 @@
 //! from a hosted library — are turned into a sequence here, and every
 //! sequence is retimed here, whichever way it arrived.
 
+use schemars::JsonSchema;
 use scorsese_core::{AssetId, Frames, SequenceChange, change_sequence};
+use serde::Deserialize;
 use serde_json::Value;
 
+use crate::tools::args::{self, Name, ProjectDir, Required};
 use crate::tools::inspect::load;
-use crate::tools::{Costs, Reply, Tool, project_dir, project_property};
+use crate::tools::{Costs, Reply, Tool};
 
 /// Make or change an `image_sequence` asset.
 pub(crate) struct Sequence;
+
+/// What `sequence` takes.
+#[derive(Deserialize, JsonSchema)]
+struct Arguments {
+    project: ProjectDir,
+    /// Id of the image_sequence asset to change, or the id to make one under. A
+    /// clip shows it by this id.
+    asset: Name,
+    /// The image assets it plays, in order, by id — replacing the whole list.
+    /// An id may appear more than once. Every one must be an imported image,
+    /// all of one format and one size. Required to make a new sequence.
+    stills: Option<Vec<String>>,
+    /// How many timeline frames each still stays on screen. 1 for a timelapse
+    /// or a rendered frame directory; 2 to 4 for drawn animation.
+    #[schemars(range(min = 1))]
+    hold: Option<u64>,
+    /// true to start again from the first still when it runs out; false to
+    /// hold the last still instead.
+    #[serde(rename = "loop")]
+    looping: Option<bool>,
+}
+
+impl args::Arguments for Arguments {
+    const REQUIRED: Required = &[("asset", "the sequence's id")];
+}
 
 impl Tool for Sequence {
     fn name(&self) -> &'static str {
@@ -42,68 +70,25 @@ impl Tool for Sequence {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "asset": {
-                    "type": "string",
-                    "description": "Id of the image_sequence asset to change, or the id \
-                                    to make one under. A clip shows it by this id."
-                },
-                "stills": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "The image assets it plays, in order, by id — \
-                                    replacing the whole list. An id may appear more \
-                                    than once. Every one must be an imported image, \
-                                    all of one format and one size. Required to make \
-                                    a new sequence."
-                },
-                "hold": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "description": "How many timeline frames each still stays on \
-                                    screen. 1 for a timelapse or a rendered frame \
-                                    directory; 2 to 4 for drawn animation."
-                },
-                "loop": {
-                    "type": "boolean",
-                    "description": "true to start again from the first still when it \
-                                    runs out; false to hold the last still instead."
-                }
-            },
-            "required": ["project", "asset"]
-        })
+        args::schema::<Arguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let asset = arguments
-            .get("asset")
-            .and_then(Value::as_str)
-            .filter(|id| !id.trim().is_empty())
-            .ok_or("`asset` is required: the sequence's id")?;
+        let arguments: Arguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
         let change = SequenceChange {
-            stills: stills(arguments)?,
-            hold: match arguments.get("hold") {
-                None => None,
-                Some(hold) => Some(Frames(
-                    hold.as_u64()
-                        .ok_or("`hold` is a whole number of frames, at least 1")?,
-                )),
-            },
-            looping: match arguments.get("loop") {
-                None => None,
-                Some(looping) => Some(looping.as_bool().ok_or("`loop` is true or false")?),
-            },
+            stills: arguments
+                .stills
+                .map(|ids| ids.iter().map(|id| AssetId::new(id.as_str())).collect()),
+            hold: arguments.hold.map(Frames),
+            looping: arguments.looping,
         };
-        let mut project = load(&dir)?;
-        let id = AssetId::new(asset);
+        let mut project = load(dir)?;
+        let id = AssetId::new(arguments.asset.as_str());
         let changed =
             change_sequence(&mut project, &id, change).map_err(|error| error.to_string())?;
         project
-            .save(&dir)
+            .save(dir)
             .map_err(|error| format!("saving the project: {error}"))?;
         Ok(match changed.before {
             None => format!("{id} — made: {}", changed.after),
@@ -111,19 +96,4 @@ impl Tool for Sequence {
         }
         .into())
     }
-}
-
-/// The still ids, if a list was given.
-fn stills(arguments: &Value) -> Result<Option<Vec<AssetId>>, String> {
-    let Some(value) = arguments.get("stills") else {
-        return Ok(None);
-    };
-    let refused = || "`stills` is a list of image asset ids".to_owned();
-    value
-        .as_array()
-        .ok_or_else(refused)?
-        .iter()
-        .map(|id| id.as_str().map(AssetId::new).ok_or_else(refused))
-        .collect::<Result<Vec<_>, _>>()
-        .map(Some)
 }

@@ -12,16 +12,29 @@
 //! (`crate::renders`), so a restarted server has none, and a render still
 //! running when the client disconnects is stopped and its file removed.
 
-use serde_json::{Value, json};
+use schemars::JsonSchema;
+use serde::Deserialize;
+use serde_json::Value;
 
 use crate::renders::{State, line};
-use crate::tools::{Context, Costs, Reply, Tool, project_dir, project_property};
+use crate::tools::args::{self, ProjectDir, Required};
+use crate::tools::{Context, Costs, Reply, Tool};
 
 /// How many jobs a listing shows: the web's twenty.
 const LISTED: usize = 20;
 
 /// Where this session's renders are.
 pub(crate) struct Jobs;
+
+/// What `jobs` takes.
+#[derive(Deserialize, JsonSchema)]
+struct JobsArguments {
+    project: ProjectDir,
+    /// One job, by the id render answered with.
+    job: Option<u64>,
+}
+
+impl args::Arguments for JobsArguments {}
 
 impl Tool for Jobs {
     fn name(&self) -> &'static str {
@@ -46,20 +59,9 @@ impl Tool for Jobs {
     }
 
     fn schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "job": {
-                    "type": "integer",
-                    "description": "One job, by the id render answered with."
-                }
-            },
-            "required": ["project"]
-        })
+        args::schema::<JobsArguments>()
     }
 
-    /// Outside a session there are no renders to report.
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let renders = crate::renders::Renders::default();
         let cancel = scorsese_render::Cancel::new();
@@ -67,10 +69,11 @@ impl Tool for Jobs {
     }
 
     fn call_in(&self, arguments: &Value, context: &mut Context<'_>) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let listed = match job(arguments) {
-            Some(id) => vec![found(context, &dir, id)?],
-            None => context.renders.of(&dir).into_iter().take(LISTED).collect(),
+        let arguments: JobsArguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let listed = match arguments.job {
+            Some(id) => vec![found(context, dir, id)?],
+            None => context.renders.of(dir).into_iter().take(LISTED).collect(),
         };
         if listed.is_empty() {
             return Ok(
@@ -91,6 +94,18 @@ impl Tool for Jobs {
 /// Stopping a render.
 pub(crate) struct JobCancel;
 
+/// What `job_cancel` takes.
+#[derive(Deserialize, JsonSchema)]
+struct CancelArguments {
+    project: ProjectDir,
+    /// The job to stop, by the id render answered with.
+    job: u64,
+}
+
+impl args::Arguments for CancelArguments {
+    const REQUIRED: Required = &[("job", "the id render answered with")];
+}
+
 impl Tool for JobCancel {
     fn name(&self) -> &'static str {
         "job_cancel"
@@ -107,20 +122,9 @@ impl Tool for JobCancel {
     }
 
     fn schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "job": {
-                    "type": "integer",
-                    "description": "The job to stop, by the id render answered with."
-                }
-            },
-            "required": ["project", "job"]
-        })
+        args::schema::<CancelArguments>()
     }
 
-    /// Outside a session there are no renders to stop.
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let renders = crate::renders::Renders::default();
         let cancel = scorsese_render::Cancel::new();
@@ -128,9 +132,9 @@ impl Tool for JobCancel {
     }
 
     fn call_in(&self, arguments: &Value, context: &mut Context<'_>) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let id = job(arguments).ok_or("`job` is required: the id render answered with")?;
-        let job = found(context, &dir, id)?;
+        let arguments: CancelArguments = args::parse(arguments)?;
+        let id = arguments.job;
+        let job = found(context, arguments.project.dir(), id)?;
         Ok(match job.state() {
             State::Running(_) => {
                 job.cancel();
@@ -140,11 +144,6 @@ impl Tool for JobCancel {
         }
         .into())
     }
-}
-
-/// The `job` argument.
-fn job(arguments: &Value) -> Option<u64> {
-    arguments.get("job").and_then(Value::as_u64)
 }
 
 /// The job called `id`, when it is one of this session's renders of `dir`.

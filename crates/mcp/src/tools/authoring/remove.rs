@@ -8,18 +8,52 @@
 
 use std::collections::BTreeSet;
 
+use schemars::JsonSchema;
 use scorsese_core::{AssetId, ClipId, TrackId, authoring};
+use serde::{Deserialize, Deserializer};
 use serde_json::Value;
 
-use super::{refused, save, words};
+use super::{refused, save};
+use crate::tools::args::{self, Name, ProjectDir, Required};
 use crate::tools::inspect::load;
-use crate::tools::{Costs, Reply, Tool, project_dir, project_property};
+use crate::tools::{Costs, Reply, Tool};
 
 /// Remove an asset and the clips showing it.
 pub(crate) struct AssetRemove;
 
 /// Remove a track and the clips on it.
 pub(crate) struct TrackRemove;
+
+/// What `asset_remove` takes.
+#[derive(Deserialize, JsonSchema)]
+struct AssetArguments {
+    project: ProjectDir,
+    /// Id of the asset to remove, as project_assets and project_read show it.
+    asset: Name,
+    #[serde(default, deserialize_with = "clip_ids")]
+    #[schemars(with = "Vec<String>", description = clips_described("every clip that shows the asset"))]
+    clips: BTreeSet<ClipId>,
+}
+
+impl args::Arguments for AssetArguments {
+    const REQUIRED: Required = &[("asset", "the id of the asset to remove")];
+}
+
+/// What `track_remove` takes.
+#[derive(Deserialize, JsonSchema)]
+struct TrackArguments {
+    project: ProjectDir,
+    /// Id of the track to remove — `v2`, `a1` — as project_describe and
+    /// project_read show it.
+    track: Name,
+    #[serde(default, deserialize_with = "clip_ids")]
+    #[schemars(with = "Vec<String>", description = clips_described("every clip on the track"))]
+    clips: BTreeSet<ClipId>,
+}
+
+impl args::Arguments for TrackArguments {
+    const REQUIRED: Required = &[("track", "the id of the track to remove")];
+}
 
 impl Tool for AssetRemove {
     fn name(&self) -> &'static str {
@@ -49,28 +83,17 @@ impl Tool for AssetRemove {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "asset": {
-                    "type": "string",
-                    "description": "Id of the asset to remove, as project_assets and \
-                                    project_read show it."
-                },
-                "clips": clips_property("every clip that shows the asset")
-            },
-            "required": ["project", "asset"]
-        })
+        args::schema::<AssetArguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let mut project = load(&dir)?;
-        let asset = AssetId::new(words(arguments, "asset", "the id of the asset to remove")?);
-        let removal = authoring::remove_asset(&mut project, &asset, &clip_ids(arguments)?)
-            .map_err(refused)?;
-        save(&project, &dir)?;
+        let arguments: AssetArguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let mut project = load(dir)?;
+        let asset = AssetId::new(arguments.asset.as_str());
+        let removal =
+            authoring::remove_asset(&mut project, &asset, &arguments.clips).map_err(refused)?;
+        save(&project, dir)?;
         let went: Vec<String> = removal
             .clips
             .iter()
@@ -112,28 +135,17 @@ impl Tool for TrackRemove {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "track": {
-                    "type": "string",
-                    "description": "Id of the track to remove — `v2`, `a1` — as \
-                                    project_describe and project_read show it."
-                },
-                "clips": clips_property("every clip on the track")
-            },
-            "required": ["project", "track"]
-        })
+        args::schema::<TrackArguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let mut project = load(&dir)?;
-        let track = TrackId::new(words(arguments, "track", "the id of the track to remove")?);
-        let lane = authoring::remove_track(&mut project, &track, &clip_ids(arguments)?)
-            .map_err(refused)?;
-        save(&project, &dir)?;
+        let arguments: TrackArguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let mut project = load(dir)?;
+        let track = TrackId::new(arguments.track.as_str());
+        let lane =
+            authoring::remove_track(&mut project, &track, &arguments.clips).map_err(refused)?;
+        save(&project, dir)?;
         let went: Vec<String> = lane
             .clips
             .iter()
@@ -153,33 +165,29 @@ impl Tool for TrackRemove {
 }
 
 /// `clips`, described for what it confirms.
-fn clips_property(which: &str) -> Value {
-    serde_json::json!({
-        "type": "array",
-        "items": { "type": "string" },
-        "description": format!(
-            "The ids of {which} — exactly those, which are removed with it. This list \
-             is the confirmation: leave it out to be told which clips they are, and \
-             send it only once the user has agreed to lose them."
-        )
-    })
+fn clips_described(which: &str) -> String {
+    format!(
+        "The ids of {which} — exactly those, which are removed with it. This list \
+         is the confirmation: leave it out to be told which clips they are, and \
+         send it only once the user has agreed to lose them."
+    )
 }
 
-/// The clips named, as a set — a repeated id is one clip. Absent is empty:
-/// the question "what would go?" that the refusal answers.
-fn clip_ids(arguments: &Value) -> Result<BTreeSet<ClipId>, String> {
-    let Some(named) = arguments.get("clips").filter(|value| !value.is_null()) else {
-        return Ok(BTreeSet::new());
-    };
-    let named = named
-        .as_array()
-        .ok_or_else(|| "`clips` is a list of clip ids".to_owned())?;
-    named
-        .iter()
-        .map(|id| {
-            id.as_str()
-                .map(ClipId::new)
-                .ok_or_else(|| "`clips` is a list of clip ids, each a string".to_owned())
-        })
-        .collect()
+/// The clips named, as a set — a repeated id is one clip. Absent or `null` is
+/// empty: the question "what would go?" that the refusal answers.
+///
+/// Read as one value rather than entry by entry, so a list with a number in it
+/// is refused as `clips` — the argument the caller wrote — and not as its
+/// third entry.
+fn clip_ids<'de, D: Deserializer<'de>>(deserializer: D) -> Result<BTreeSet<ClipId>, D::Error> {
+    use serde::de::Error as _;
+    let wrong = || D::Error::custom("a list of clip ids, each a string");
+    match Value::deserialize(deserializer)? {
+        Value::Null => Ok(BTreeSet::new()),
+        Value::Array(named) => named
+            .iter()
+            .map(|id| id.as_str().map(ClipId::new).ok_or_else(wrong))
+            .collect(),
+        _ => Err(wrong()),
+    }
 }

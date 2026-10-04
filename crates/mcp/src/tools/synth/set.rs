@@ -1,13 +1,44 @@
 //! Changing one number in a recipe, rather than the whole document.
 
+use schemars::JsonSchema;
 use scorsese_providers::synth;
+use serde::Deserialize;
 use serde_json::Value;
 
-use super::recipes::{read, recipe_path, recipe_property, text};
-use crate::tools::{Costs, Reply, Tool, project_property};
+use super::recipes::{RECIPE, read, recipe_path};
+use crate::tools::args::{self, Name, ProjectDir, Required};
+use crate::tools::{Costs, Reply, Tool};
 
 /// Set one field of a recipe.
 pub(crate) struct Set;
+
+/// What `synth_set` takes.
+#[derive(Deserialize, JsonSchema)]
+struct Arguments {
+    project: ProjectDir,
+    #[schemars(description = RECIPE)]
+    recipe: Name,
+    /// Which number to change. On a song: `bpm`, `seed`, `swing`, `gain`,
+    /// `pan` or `send` — and the last three are a track's, so they need
+    /// `track`. `send` (0 to 1, default 1) is how much of the track the song's
+    /// reverb and delay hear. On a patch: `duration`, `velocity`, `seed`.
+    /// Anything else, including a note or an arrangement entry, is a
+    /// synth_write.
+    // A string checked by the synthesiser rather than an enum here, so that a
+    // field it does not know is refused in its words, with nothing written.
+    #[schemars(extend("enum" = synth::FIELDS))]
+    field: Name,
+    /// What the field becomes. `seed` is a whole number and not a negative
+    /// one; the rest are decimals.
+    value: f64,
+    /// The name of the track to change — the same name the song's notes use.
+    /// Only for `gain`, `pan` and `send`.
+    track: Option<String>,
+}
+
+impl args::Arguments for Arguments {
+    const REQUIRED: Required = &[("value", "the number to set")];
+}
 
 impl Tool for Set {
     fn name(&self) -> &'static str {
@@ -32,48 +63,19 @@ impl Tool for Set {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "recipe": recipe_property(),
-                "field": {
-                    "type": "string",
-                    "enum": synth::FIELDS,
-                    "description": "Which number to change. On a song: `bpm`, `seed`, \
-                                    `swing`, `gain`, `pan` or `send` — and the last \
-                                    three are a track's, so they need `track`. `send` \
-                                    (0 to 1, default 1) is how much of the track the \
-                                    song's reverb and delay hear. On a patch: \
-                                    `duration`, `velocity`, `seed`. Anything else, \
-                                    including a note or an arrangement entry, is a \
-                                    synth_write."
-                },
-                "track": {
-                    "type": "string",
-                    "description": "The name of the track to change — the same name the \
-                                    song's notes use. Only for `gain`, `pan` and `send`."
-                },
-                "value": {
-                    "type": "number",
-                    "description": "What the field becomes. `seed` is a whole number \
-                                    and not a negative one; the rest are decimals."
-                }
-            },
-            "required": ["project", "recipe", "field", "value"]
-        })
+        args::schema::<Arguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let (_, file, relative) = recipe_path(arguments)?;
-        let field = text(arguments, "field")?;
-        let value = arguments
-            .get("value")
-            .and_then(Value::as_f64)
-            .ok_or_else(|| "`value` is required: the number to set".to_owned())?;
+        let arguments: Arguments = args::parse(arguments)?;
+        let (file, relative) = recipe_path(arguments.project.dir(), &arguments.recipe)?;
+        let field = arguments.field.as_str();
+        let value = arguments.value;
+        // Blank is no track, as it always was; the name itself is passed as
+        // written, since it has to match the song's own.
         let track = arguments
-            .get("track")
-            .and_then(Value::as_str)
+            .track
+            .as_deref()
             .filter(|name| !name.trim().is_empty());
 
         let json = read(&file)?;

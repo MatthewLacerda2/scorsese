@@ -14,28 +14,118 @@
 mod light;
 mod matte;
 
+use schemars::JsonSchema;
 use scorsese_core::level::{self, Level};
 use scorsese_core::{Clip, ClipId, Fit, KeyframeTrack, Project, PropertyPath, Speed, TrackKind};
 use scorsese_render::picture::path::{POSITION_X, POSITION_Y, ROTATION, SCALE_X, SCALE_Y};
+use serde::Deserialize;
 use serde_json::Value;
 
-use super::named;
+use crate::tools::args::{self, Name, ProjectDir, Required};
 use crate::tools::inspect::load;
-use crate::tools::{Costs, Reply, Tool, project_dir, project_property};
+use crate::tools::{Costs, Reply, Tool};
 
 /// Set a clip's speed, fit, position, rotation, scale, shadow, glow, blend or
 /// matte.
 pub(crate) struct ClipSet;
 
-/// Each value argument, the property paths it holds, and what it is called in
-/// a reply. Scale is both axes: the one scale a person means is the picture
-/// bigger or smaller, in proportion.
-const HELD: [(&str, &[&str]); 4] = [
-    ("position_x", &[POSITION_X]),
-    ("position_y", &[POSITION_Y]),
-    ("rotation", &[ROTATION]),
-    ("scale", &[SCALE_X, SCALE_Y]),
-];
+/// What `clip_set` takes.
+///
+/// Shadow, glow and matte stay JSON here and are read by [`light`] and
+/// [`matte`]: an object merges into what the clip has and `false` removes it,
+/// and their refusals name the field inside the object that was wrong.
+#[derive(Deserialize, JsonSchema)]
+struct Arguments {
+    project: ProjectDir,
+    /// Id of the clip to change. project_describe and project_read name them.
+    clip: Name,
+    /// How fast the source plays: 2.0 is twice as fast, 0.5 half. The clip
+    /// keeps the footage it shows and its length on the timeline changes to fit
+    /// it, rounded to whole frames. Positive.
+    speed: Option<f64>,
+    /// How the picture meets the frame: `fit` inside it with the rest
+    /// transparent, `fill` covering it with the overflow cropped, `native` at
+    /// the source's own pixel size. Picture only.
+    #[schemars(extend("enum" = ["fit", "fill", "native"]))]
+    fit: Option<String>,
+    /// How far right of where it naturally sits, as a fraction of the frame's
+    /// width: 0.25 is a quarter of the way across, negative is left. Picture
+    /// only.
+    position_x: Option<f64>,
+    /// How far below where it naturally sits, as a fraction of the frame's
+    /// height: negative is up. Picture only.
+    position_y: Option<f64>,
+    /// Turn about its centre, in degrees. Positive is clockwise. Picture only.
+    rotation: Option<f64>,
+    /// Size as a multiplier of its natural size, the same both ways: 0.5 is
+    /// half, 2.0 double. Positive — a flip is its own property. Picture only.
+    scale: Option<f64>,
+    /// A drop shadow: the clip's own silhouette, softened, offset and drawn
+    /// under it. An object sets the fields it names and keeps the rest (the
+    /// defaults, on a clip without one: black, 0.01 down and right, softness
+    /// 0.02, opacity 0.5); `false` removes it. Lengths are fractions of the
+    /// clip's own height, as `blur` is. Picture only.
+    #[serde(default)]
+    #[schemars(schema_with = "light::shadow")]
+    shadow: Option<Value>,
+    /// A soft halo of light round whatever the clip draws, drawn under it. An
+    /// object sets the fields it names and keeps the rest (the defaults, on a
+    /// clip without one: the clip's own colours, radius 0.02, intensity 1);
+    /// `false` removes it. On a group clip it lights the whole group. Picture
+    /// only.
+    #[serde(default)]
+    #[schemars(schema_with = "light::glow")]
+    glow: Option<Value>,
+    /// How the clip lands on what is beneath it, shadow and glow included:
+    /// `normal` covers; `add` and `screen` add light, so overlapping glowing
+    /// things brighten; `multiply` darkens. Over nothing but the black frame,
+    /// `add` and `screen` look exactly like `normal`. Picture only.
+    #[schemars(extend("enum" = ["normal", "add", "screen", "multiply"]))]
+    blend: Option<String>,
+    /// Show this clip only through another clip's picture — a track matte, for
+    /// a wipe, an iris or footage through the letters of a title. The matte clip
+    /// is used only as a mask and is no longer drawn itself; whatever animates
+    /// it (a scale growing, a blur softening its edge) animates the reveal. It
+    /// must be on the same timeline (both inside one group, or both outside),
+    /// must not be this clip, and must not have a matte of its own. An object
+    /// sets the fields it names and keeps the rest; `false` removes the matte,
+    /// and the matte clip is drawn again. Picture only.
+    #[serde(default)]
+    #[schemars(schema_with = "matte::schema")]
+    matte: Option<Value>,
+}
+
+impl args::Arguments for Arguments {
+    const REQUIRED: Required = &[("clip", "the id of the clip to change")];
+}
+
+impl Arguments {
+    /// Each held value given, with its argument's name and the property paths
+    /// it holds. Scale is both axes: the one scale a person means is the
+    /// picture bigger or smaller, in proportion.
+    fn held(&self) -> impl Iterator<Item = (&'static str, f64, &'static [&'static str])> {
+        [
+            ("position_x", self.position_x, &[POSITION_X][..]),
+            ("position_y", self.position_y, &[POSITION_Y][..]),
+            ("rotation", self.rotation, &[ROTATION][..]),
+            ("scale", self.scale, &[SCALE_X, SCALE_Y][..]),
+        ]
+        .into_iter()
+        .filter_map(|(key, value, paths)| value.map(|value| (key, value, paths)))
+    }
+
+    /// The first of the light and matte arguments given, if any.
+    fn lit(&self) -> Option<&'static str> {
+        [
+            ("shadow", self.shadow.is_some()),
+            ("glow", self.glow.is_some()),
+            ("blend", self.blend.is_some()),
+            ("matte", self.matte.is_some()),
+        ]
+        .into_iter()
+        .find_map(|(key, given)| given.then_some(key))
+    }
+}
 
 impl Tool for ClipSet {
     fn name(&self) -> &'static str {
@@ -64,69 +154,17 @@ impl Tool for ClipSet {
     }
 
     fn schema(&self) -> Value {
-        let mut schema = serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "clip": {
-                    "type": "string",
-                    "description": "Id of the clip to change. project_describe and \
-                                    project_read name them."
-                },
-                "speed": {
-                    "type": "number",
-                    "description": "How fast the source plays: 2.0 is twice as fast, \
-                                    0.5 half. The clip keeps the footage it shows and \
-                                    its length on the timeline changes to fit it, \
-                                    rounded to whole frames. Positive."
-                },
-                "fit": {
-                    "type": "string",
-                    "enum": ["fit", "fill", "native"],
-                    "description": "How the picture meets the frame: `fit` inside it \
-                                    with the rest transparent, `fill` covering it with \
-                                    the overflow cropped, `native` at the source's own \
-                                    pixel size. Picture only."
-                },
-                "position_x": {
-                    "type": "number",
-                    "description": "How far right of where it naturally sits, as a \
-                                    fraction of the frame's width: 0.25 is a quarter \
-                                    of the way across, negative is left. Picture only."
-                },
-                "position_y": {
-                    "type": "number",
-                    "description": "How far below where it naturally sits, as a \
-                                    fraction of the frame's height: negative is up. \
-                                    Picture only."
-                },
-                "rotation": {
-                    "type": "number",
-                    "description": "Turn about its centre, in degrees. Positive is \
-                                    clockwise. Picture only."
-                },
-                "scale": {
-                    "type": "number",
-                    "description": "Size as a multiplier of its natural size, the same \
-                                    both ways: 0.5 is half, 2.0 double. Positive — a \
-                                    flip is its own property. Picture only."
-                }
-            },
-            "required": ["project", "clip"]
-        });
-        for (key, property) in light::schema().into_iter().chain([matte::schema()]) {
-            schema["properties"][key] = property;
-        }
-        schema
+        args::schema::<Arguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let mut project = load(&dir)?;
-        let id = ClipId::new(named(arguments, "clip", "the id of the clip to change")?);
-        let said = set(&mut project, &id, arguments)?;
+        let arguments: Arguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let mut project = load(dir)?;
+        let id = ClipId::new(arguments.clip.as_str());
+        let said = set(&mut project, &id, &arguments)?;
         project
-            .save(&dir)
+            .save(dir)
             .map_err(|error| format!("saving the project: {error}"))?;
         Ok(format!("`{id}`: {}. Nothing else changed.", said.join("; ")).into())
     }
@@ -134,13 +172,13 @@ impl Tool for ClipSet {
 
 /// Apply every value `arguments` names to clip `id`, on a copy that becomes
 /// `project` only if it validates; what was set, in words.
-fn set(project: &mut Project, id: &ClipId, arguments: &Value) -> Result<Vec<String>, String> {
+fn set(project: &mut Project, id: &ClipId, arguments: &Arguments) -> Result<Vec<String>, String> {
     let mut proposed = project.clone();
     let (kind, clip) = find(&mut proposed, id)?;
     let picture = kind == TrackKind::Video;
     let mut said = Vec::new();
 
-    if let Some(rate) = number(arguments, "speed")? {
+    if let Some(rate) = arguments.speed {
         let speed = Speed::new(rate);
         if !speed.is_usable() {
             return Err(format!(
@@ -155,17 +193,15 @@ fn set(project: &mut Project, id: &ClipId, arguments: &Value) -> Result<Vec<Stri
             fps.seconds(clip.duration)
         ));
     }
-    if let Some(fit) = arguments.get("fit").filter(|fit| !fit.is_null()) {
+    if let Some(fit) = &arguments.fit {
+        let fit = Value::String(fit.clone());
         let fit: Fit = serde_json::from_value(fit.clone())
             .map_err(|_| format!("`fit` is `fit`, `fill` or `native`, not {fit}"))?;
         only_picture(picture, "fit")?;
         find(&mut proposed, id)?.1.fit = fit;
         said.push(format!("fit {}", fit_name(fit)));
     }
-    for (key, paths) in HELD {
-        let Some(value) = number(arguments, key)? else {
-            continue;
-        };
+    for (key, value, paths) in arguments.held() {
         only_picture(picture, key)?;
         if key == "scale" && value <= 0.0 {
             return Err(format!(
@@ -196,11 +232,11 @@ fn set(project: &mut Project, id: &ClipId, arguments: &Value) -> Result<Vec<Stri
         ));
     }
     let mut lit = light::apply(find(&mut proposed, id)?.1, arguments)?;
-    lit.extend(matte::apply(find(&mut proposed, id)?.1, arguments)?);
-    if let Some(key) = ["shadow", "glow", "blend", "matte"]
-        .into_iter()
-        .find(|key| arguments.get(*key).is_some_and(|value| !value.is_null()))
-    {
+    lit.extend(matte::apply(
+        find(&mut proposed, id)?.1,
+        arguments.matte.as_ref(),
+    )?);
+    if let Some(key) = arguments.lit() {
         only_picture(picture, key)?;
     }
     said.extend(lit);
@@ -233,18 +269,6 @@ fn find<'a>(project: &'a mut Project, id: &ClipId) -> Result<(TrackKind, &'a mut
                 .map(|clip| (kind, clip))
         })
         .ok_or_else(|| format!("there is no clip `{id}` in this project"))
-}
-
-/// A number argument, when it is given; refused when it is not a finite one.
-fn number(arguments: &Value, key: &str) -> Result<Option<f64>, String> {
-    match arguments.get(key).filter(|value| !value.is_null()) {
-        None => Ok(None),
-        Some(value) => value
-            .as_f64()
-            .filter(|number| number.is_finite())
-            .map(Some)
-            .ok_or_else(|| format!("`{key}` has to be a number")),
-    }
 }
 
 /// Refuse a picture value on a sound: an audio clip has no raster, and a value

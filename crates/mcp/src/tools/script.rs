@@ -16,11 +16,14 @@
 
 use std::path::Path;
 
+use schemars::JsonSchema;
 use scorsese_core::{Project, ProjectPath};
+use serde::Deserialize;
 use serde_json::Value;
 
+use super::args::{self, ProjectDir, ProjectOnly, Required};
 use super::inspect::load;
-use super::{Costs, Reply, Tool, project_dir, project_only_schema, project_property};
+use super::{Costs, Reply, Tool};
 
 /// By convention, and only that: the tool never reads the extension.
 const DEFAULT_SCRIPT: &str = "script.md";
@@ -46,17 +49,18 @@ impl Tool for Read {
     }
 
     fn schema(&self) -> Value {
-        project_only_schema()
+        args::schema::<ProjectOnly>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let project = load(&dir)?;
+        let arguments: ProjectOnly = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let project = load(dir)?;
         let script = project
             .script
             .as_ref()
             .ok_or_else(|| "this project has no script; script_write starts one".to_owned())?;
-        let file = resolve(script, &dir)?;
+        let file = resolve(script, dir)?;
         // A script the document names and the disk does not have is worth
         // saying plainly rather than as a file-not-found: the project has lost
         // something that cannot be reconstructed by looking at the film.
@@ -68,6 +72,23 @@ impl Tool for Read {
 
 /// Replace the project's script.
 pub(super) struct Write;
+
+/// What `script_write` takes.
+#[derive(Deserialize, JsonSchema)]
+struct WriteArguments {
+    project: ProjectDir,
+    /// The complete script to write. Not a patch — whatever is here replaces
+    /// the file. Prose in any form; markdown by convention, and nothing parses
+    /// it.
+    text: String,
+    /// Where to keep it, relative to the project root. Only used when the
+    /// project has no script yet; defaults to script.md at the root.
+    path: Option<String>,
+}
+
+impl args::Arguments for WriteArguments {
+    const REQUIRED: Required = &[("text", "the script to write")];
+}
 
 impl Tool for Write {
     fn name(&self) -> &'static str {
@@ -88,37 +109,17 @@ impl Tool for Write {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "text": {
-                    "type": "string",
-                    "description": "The complete script to write. Not a patch — whatever \
-                                    is here replaces the file. Prose in any form; markdown \
-                                    by convention, and nothing parses it."
-                },
-                "path": {
-                    "type": "string",
-                    "description": "Where to keep it, relative to the project root. Only \
-                                    used when the project has no script yet; defaults to \
-                                    script.md at the root."
-                }
-            },
-            "required": ["project", "text"]
-        })
+        args::schema::<WriteArguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let mut project = load(&dir)?;
-        let text = arguments
-            .get("text")
-            .and_then(Value::as_str)
-            .ok_or_else(|| "`text` is required: the script to write".to_owned())?;
+        let arguments: WriteArguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let mut project = load(dir)?;
+        let text = &arguments.text;
 
-        let script = script_path(&project, arguments);
-        let file = resolve(&script, &dir)?;
+        let script = script_path(&project, arguments.path.as_deref());
+        let file = resolve(&script, dir)?;
         // A script may be kept anywhere inside the project, and refusing to
         // start one at `notes/brief.md` because `notes/` is not there yet would
         // be refusing over something the tool can simply do.
@@ -136,7 +137,7 @@ impl Tool for Write {
         if project.script.as_ref() != Some(&script) {
             project.script = Some(script.clone());
             project
-                .save(&dir)
+                .save(dir)
                 .map_err(|error| format!("the script was written, but: {error}"))?;
         }
         Ok(format!("written: {script} ({} bytes)", text.len()).into())
@@ -149,11 +150,9 @@ impl Tool for Write {
 /// An existing `script` wins over a `path` argument. Moving the script is a
 /// different operation from writing it, and doing it as a side effect of a
 /// write would leave the old file behind with nothing pointing at it.
-fn script_path(project: &Project, arguments: &Value) -> ProjectPath {
+fn script_path(project: &Project, path: Option<&str>) -> ProjectPath {
     project.script.clone().unwrap_or_else(|| {
-        let asked = arguments
-            .get("path")
-            .and_then(Value::as_str)
+        let asked = path
             .filter(|path| !path.trim().is_empty())
             .unwrap_or(DEFAULT_SCRIPT);
         ProjectPath::new(asked)

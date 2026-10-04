@@ -23,6 +23,7 @@ mod stills;
 use std::path::Path;
 use std::time::Duration;
 
+use schemars::JsonSchema;
 use scorsese_core::{Project, Reprobe, probe_assets};
 use scorsese_providers::credentials::{Budget, Settings};
 use scorsese_providers::prices::dollars;
@@ -30,13 +31,34 @@ use scorsese_providers::quote::generation;
 use scorsese_providers::video::{Run, WAIT_FOR};
 use scorsese_providers::{image, speech, spending, video};
 use scorsese_render::Ffprobe;
+use serde::Deserialize;
 use serde_json::Value;
 
+use crate::tools::args::{self, ProjectDir};
+use crate::tools::confirm::{self, Token};
 use crate::tools::inspect::load;
-use crate::tools::{Costs, Reply, Tool, confirm, project_dir, project_property};
+use crate::tools::{Costs, Reply, Tool};
 
 /// Realising generated video, stills and narration.
 pub(crate) struct Generate;
+
+/// What `generate` takes.
+#[derive(Deserialize, JsonSchema)]
+struct Arguments {
+    project: ProjectDir,
+    confirm: Option<Token>,
+    /// Collect whatever has finished and submit nothing at all. What to call on
+    /// returning to a project with shots in flight — it cannot spend anything.
+    /// Narration is never in flight, so this concerns video only.
+    #[serde(default)]
+    collect: bool,
+    /// How long to wait for video before detaching and leaving the rest to be
+    /// collected later. Default 300. Nothing is lost by detaching; the tickets
+    /// are in the document.
+    wait_seconds: Option<u64>,
+}
+
+impl args::Arguments for Arguments {}
 
 impl Tool for Generate {
     fn name(&self) -> &'static str {
@@ -67,46 +89,29 @@ impl Tool for Generate {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "confirm": confirm::property(),
-                "collect": {
-                    "type": "boolean",
-                    "description": "Collect whatever has finished and submit nothing at \
-                                    all. What to call on returning to a project with shots \
-                                    in flight — it cannot spend anything. Narration is \
-                                    never in flight, so this concerns video only."
-                },
-                "wait_seconds": {
-                    "type": "integer",
-                    "description": "How long to wait for video before detaching and leaving \
-                                    the rest to be collected later. Default 300. Nothing is \
-                                    lost by detaching; the tickets are in the document."
-                }
-            },
-            "required": ["project"]
-        })
+        args::schema::<Arguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let mut project = load(&dir)?;
-        let collecting = flag(arguments, "collect");
+        let arguments: Arguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let mut project = load(dir)?;
+        let collecting = arguments.collect;
         // Collecting submits nothing by construction, so there is nothing to
         // agree to. Everything else is quoted, and goes ahead only on a token
         // bound to that quote — or on a quote with nothing in it to pay for.
         if !collecting {
-            let quote = generation(&project, &dir).map_err(|error| format!("{error}"))?;
-            if let Some(quoted) = confirm::gate(&dir, arguments, &quote, self.name())? {
+            let quote = generation(&project, dir).map_err(|error| format!("{error}"))?;
+            if let Some(quoted) =
+                confirm::gate(dir, arguments.confirm.as_ref(), &quote, self.name())?
+            {
                 return Ok(quoted);
             }
         }
 
         let settings = Settings::load().unwrap_or_default();
-        let budget = Budget::from_settings(&settings, spent_so_far(&project, &dir));
-        let patience = patience(arguments)?;
+        let budget = Budget::from_settings(&settings, spent_so_far(&project, dir));
+        let patience = arguments.wait_seconds.map_or(WAIT_FOR, Duration::from_secs);
 
         let mut shots = Run {
             outcomes: Vec::new(),
@@ -116,7 +121,7 @@ impl Tool for Generate {
         let mut spoken = lines::Spoken::new();
         let outcome = run(
             &mut project,
-            &dir,
+            dir,
             Passes {
                 budget,
                 patience,
@@ -131,12 +136,12 @@ impl Tool for Generate {
         // written just before a failure is the only record that money was
         // spent, and dropping it means paying for that work twice.
         project
-            .save(&dir)
+            .save(dir)
             .map_err(|error| format!("saving the project: {error}"))?;
         outcome?;
 
         let landed = landed(&shots, &spoken) || stills::landed(&drawn);
-        measure(&mut project, &dir, landed)?;
+        measure(&mut project, dir, landed)?;
         Ok(said(&shots, &drawn, &spoken).into())
     }
 }
@@ -220,25 +225,6 @@ fn landed(shots: &Run, spoken: &lines::Spoken) -> bool {
             scorsese_providers::speech::Outcome::Generated { .. }
         )
     })
-}
-
-/// A boolean argument, absent meaning false.
-fn flag(arguments: &Value, name: &str) -> bool {
-    arguments
-        .get(name)
-        .and_then(Value::as_bool)
-        .unwrap_or(false)
-}
-
-/// How long to wait before detaching.
-fn patience(arguments: &Value) -> Result<Duration, String> {
-    match arguments.get("wait_seconds") {
-        None | Some(Value::Null) => Ok(WAIT_FOR),
-        Some(value) => value
-            .as_u64()
-            .map(Duration::from_secs)
-            .ok_or_else(|| format!("wait_seconds: {value} is not a number of seconds")),
-    }
 }
 
 /// What this project has already spent, against the ceiling.

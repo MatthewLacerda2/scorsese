@@ -1,14 +1,40 @@
 //! Moving a placed clip onto another track.
 
+use schemars::JsonSchema;
 use scorsese_core::{ClipId, Relocation, TrackId, placing};
+use serde::Deserialize;
 use serde_json::Value;
 
-use super::{bounds, named, seconds};
+use super::{bounds, seconds};
+use crate::tools::args::{self, Name, ProjectDir, Required};
 use crate::tools::inspect::load;
-use crate::tools::{Costs, Reply, Tool, project_dir, project_property};
+use crate::tools::{Costs, Reply, Tool};
 
 /// Move one clip to another track, and optionally to a new start on it.
 pub(crate) struct ClipMove;
+
+/// What `clip_move` takes.
+#[derive(Deserialize, JsonSchema)]
+struct Arguments {
+    project: ProjectDir,
+    /// Id of the clip to move. project_describe and project_read name them.
+    clip: Name,
+    /// Id of the track to move it onto. Must already exist and carry the clip's
+    /// kind — picture onto a video track, sound onto an audio one; a missing
+    /// track is refused, naming the tracks there are.
+    track: Name,
+    /// Where the clip begins on its new track, in seconds from the head of the
+    /// cut, rounded to the nearest frame. Left out, it keeps the start it has —
+    /// lifted straight up or down a lane.
+    start_seconds: Option<f64>,
+}
+
+impl args::Arguments for Arguments {
+    const REQUIRED: Required = &[
+        ("clip", "the id of the clip to move"),
+        ("track", "the id of the track to move it onto"),
+    ];
+}
 
 impl Tool for ClipMove {
     fn name(&self) -> &'static str {
@@ -34,46 +60,18 @@ impl Tool for ClipMove {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "clip": {
-                    "type": "string",
-                    "description": "Id of the clip to move. project_describe and \
-                                    project_read name them."
-                },
-                "track": {
-                    "type": "string",
-                    "description": "Id of the track to move it onto. Must already \
-                                    exist and carry the clip's kind — picture onto a \
-                                    video track, sound onto an audio one; a missing \
-                                    track is refused, naming the tracks there are."
-                },
-                "start_seconds": {
-                    "type": "number",
-                    "description": "Where the clip begins on its new track, in \
-                                    seconds from the head of the cut, rounded to the \
-                                    nearest frame. Left out, it keeps the start it \
-                                    has — lifted straight up or down a lane."
-                }
-            },
-            "required": ["project", "clip", "track"]
-        })
+        args::schema::<Arguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let mut project = load(&dir)?;
+        let arguments: Arguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let mut project = load(dir)?;
         let fps = project.timeline_fps;
-        let id = ClipId::new(named(arguments, "clip", "the id of the clip to move")?);
+        let id = ClipId::new(arguments.clip.as_str());
         let to = Relocation {
-            track: TrackId::new(named(
-                arguments,
-                "track",
-                "the id of the track to move it onto",
-            )?),
-            start: seconds(arguments, "start_seconds")?.map(|at| fps.frames(at)),
+            track: TrackId::new(arguments.track.as_str()),
+            start: seconds(arguments.start_seconds, "start_seconds")?.map(|at| fps.frames(at)),
         };
         let from = project
             .clips()
@@ -82,7 +80,7 @@ impl Tool for ClipMove {
         let clip = placing::relocate(&mut project, &id, &to)
             .map_err(|error| format!("{error} — nothing was written"))?;
         project
-            .save(&dir)
+            .save(dir)
             .map_err(|error| format!("saving the project: {error}"))?;
 
         let from = from.map_or_else(String::new, |track| format!(" from `{track}`"));

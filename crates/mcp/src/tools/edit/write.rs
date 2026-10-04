@@ -1,12 +1,37 @@
 //! Replacing the project document wholesale.
 
+use schemars::JsonSchema;
 use scorsese_core::{Baseline, Project};
+use serde::Deserialize;
 use serde_json::Value;
 
-use crate::tools::{Costs, Reply, Tool, project_dir, project_property};
+use crate::tools::args::{self, ProjectDir, Required};
+use crate::tools::{Costs, Reply, Tool};
 
 /// Replace the project document.
 pub(crate) struct Write;
+
+/// What `project_write` takes.
+#[derive(Deserialize, JsonSchema)]
+struct Arguments {
+    project: ProjectDir,
+    /// The complete project.json to write, as text. Not a patch — whatever is
+    /// here replaces the file.
+    document: String,
+    /// The fingerprint project_read reported for the document this edit was
+    /// made against. It is what proves the edit is a change to what is on disk
+    /// now rather than to a version something else has already replaced.
+    //
+    // Required in the schema and optional here: an absent one is refused by
+    // the save, in its own words, rather than by the argument path in others —
+    // one refusal worded in one place beats two that can drift.
+    #[schemars(required)]
+    fingerprint: Option<String>,
+}
+
+impl args::Arguments for Arguments {
+    const REQUIRED: Required = &[("document", "the project.json to write")];
+}
 
 impl Tool for Write {
     fn name(&self) -> &'static str {
@@ -30,40 +55,18 @@ impl Tool for Write {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "document": {
-                    "type": "string",
-                    "description": "The complete project.json to write, as text. \
-                                    Not a patch — whatever is here replaces the file."
-                },
-                "fingerprint": {
-                    "type": "string",
-                    "description": "The fingerprint project_read reported for the \
-                                    document this edit was made against. It is what \
-                                    proves the edit is a change to what is on disk now \
-                                    rather than to a version something else has already \
-                                    replaced."
-                }
-            },
-            "required": ["project", "document", "fingerprint"]
-        })
+        args::schema::<Arguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let document = arguments
-            .get("document")
-            .and_then(Value::as_str)
-            .ok_or_else(|| "`document` is required: the project.json to write".to_owned())?;
+        let arguments: Arguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
 
         // Parsed *and* validated before anything is written. An editor may save
         // work that is temporarily incoherent — a person with the file open —
         // but a tool writing a whole document has no such excuse, and a broken
         // project.json is the one thing that makes every other tool useless.
-        let mut project = Project::from_json(document)
+        let mut project = Project::from_json(&arguments.document)
             .map_err(|problem| format!("refused, nothing written: {problem}"))?;
         project
             .validate()
@@ -72,13 +75,12 @@ impl Tool for Write {
         // The caller's read, carried across the wire. A document that arrived
         // as a string was not read from disk by this process, so this is the
         // only thing that can say which version the edit is a change to. An
-        // absent one is deliberately not refused here: the save refuses it,
-        // and one refusal worded in one place beats two that can drift.
-        if let Some(fingerprint) = arguments.get("fingerprint").and_then(Value::as_str) {
+        // absent one is deliberately not refused here: the save refuses it.
+        if let Some(fingerprint) = &arguments.fingerprint {
             project.baseline = Baseline::claimed(fingerprint);
         }
         project
-            .save(&dir)
+            .save(dir)
             .map_err(|error| format!("refused, nothing written: {error}"))?;
         Ok(format!(
             "written: {} asset(s), {} track(s), {} clip(s)",

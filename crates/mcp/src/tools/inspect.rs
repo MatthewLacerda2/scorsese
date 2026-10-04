@@ -2,15 +2,18 @@
 //!
 //! None of these change anything, and none of them cost anything to run.
 
+use schemars::JsonSchema;
 use scorsese_core::{
-    AssetStatus, Frames, HashCheck, Listed, Project, asset_status, fingerprint_of, listing,
+    AssetStatus, HashCheck, Listed, Project, asset_status, fingerprint_of, listing,
 };
 use scorsese_render::{
     Checkup, Commentary, Description, FrameRange, Layout, Note, Plan, Resolution, unknown_in,
 };
+use serde::Deserialize;
 use serde_json::Value;
 
-use super::{Costs, Part, Reply, Tool, project_dir, project_only_schema};
+use super::args::{self, ProjectDir, ProjectOnly};
+use super::{Costs, Part, Reply, Tool};
 
 /// The frame a layout question is answered against when nobody names one.
 ///
@@ -42,11 +45,12 @@ impl Tool for Read {
     }
 
     fn schema(&self) -> Value {
-        project_only_schema()
+        args::schema::<ProjectOnly>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
+        let arguments: ProjectOnly = args::parse(arguments)?;
+        let dir = arguments.project.dir();
         // Read rather than load-and-serialise, so what comes back is the file
         // as written — including whatever a hand edit left in it. A document
         // that will not validate is exactly when reading it matters most.
@@ -97,45 +101,18 @@ impl Tool for Describe {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": super::project_property(),
-                "at": {
-                    "type": ["string", "array"],
-                    "items": { "type": "string" },
-                    "description": "Also say where every clip's content lands at this \
-                                    instant: a time like 9.1s, or a timeline frame number \
-                                    like 285. A bare decimal is refused — say which unit \
-                                    you mean. Give a list, e.g. [\"0s\", \"9.1s\", \"400\"], \
-                                    to ask about several: a block that fits at one instant \
-                                    may not at another, where a longer caption has taken \
-                                    its place. Every rectangle comes back in fractions of \
-                                    the frame — the unit transform.position, a text size \
-                                    and a shape's width are all written in — so a number \
-                                    read here can be written straight back into the \
-                                    document. Clips with no rectangle are named too, with \
-                                    the reason: not on screen at that instant, sound only, \
-                                    or on screen and immeasurable."
-                },
-                "resolution": {
-                    "type": "string",
-                    "description": "The frame `at` is measured against, e.g. 1920x1080, \
-                                    which is the default. The answer is in fractions, but \
-                                    the frame's shape still decides it: a `fit` picture \
-                                    letterboxes against this aspect and a title wraps \
-                                    against this width. Nothing is composited either way."
-                }
-            },
-            "required": ["project"]
-        })
+        args::schema::<DescribeArguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let project = load(&dir)?;
-        let instants = asked_about(arguments, project.timeline_fps)?;
-        let raster = raster(arguments)?;
+        let arguments: DescribeArguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let project = load(dir)?;
+        let instants = match &arguments.at {
+            None => Vec::new(),
+            Some(at) => super::still::instants(at, project.timeline_fps)?,
+        };
+        let raster = raster(arguments.resolution.as_deref())?;
         let plan = Plan::build(&project, project.timeline_fps, FrameRange::ALL)
             .map_err(|error| format!("sequencing the timeline: {error}"))?;
 
@@ -158,7 +135,7 @@ impl Tool for Describe {
         // of instants is a list of questions, and the answers have to line up
         // with them.
         for at in instants {
-            let layout = Layout::at(&project, &dir, raster, at)
+            let layout = Layout::at(&project, dir, raster, at)
                 .map_err(|error| format!("frame {}: {error}", at.get()))?;
             out.push_str(&format!("\n{layout}\n"));
         }
@@ -172,26 +149,57 @@ impl Tool for Describe {
 /// A default at all, rather than the project's own anything, because a project
 /// does not carry a raster: resolution is chosen per render, and a question
 /// about where a title sits has to be asked against *some* frame.
-fn raster(arguments: &Value) -> Result<Resolution, String> {
-    arguments
-        .get("resolution")
-        .and_then(Value::as_str)
+fn raster(resolution: Option<&str>) -> Result<Resolution, String> {
+    resolution
         .unwrap_or(DEFAULT_RASTER)
         .parse()
         .map_err(|problem| format!("resolution: {problem}"))
 }
 
-/// Which instants the caller wants a layout for, if any. No `at` is the
-/// question this tool always answered, and it stays a whole answer on its own.
-fn asked_about(arguments: &Value, fps: scorsese_core::Fps) -> Result<Vec<Frames>, String> {
-    match arguments.get("at") {
-        None | Some(Value::Null) => Ok(Vec::new()),
-        Some(_) => super::still::instants(arguments, fps),
-    }
+/// What `project_describe` takes.
+#[derive(Deserialize, JsonSchema)]
+struct DescribeArguments {
+    project: ProjectDir,
+    /// Also say where every clip's content lands at this instant: a time like
+    /// 9.1s, or a timeline frame number like 285. A bare decimal is refused —
+    /// say which unit you mean. Give a list, e.g. ["0s", "9.1s", "400"], to
+    /// ask about several: a block that fits at one instant may not at another,
+    /// where a longer caption has taken its place. Every rectangle comes back
+    /// in fractions of the frame — the unit transform.position, a text size
+    /// and a shape's width are all written in — so a number read here can be
+    /// written straight back into the document. Clips with no rectangle are
+    /// named too, with the reason: not on screen at that instant, sound only,
+    /// or on screen and immeasurable.
+    // `default` because `schema_with` hides that this is an `Option`, and
+    // without it the schema would call `at` required.
+    #[serde(default)]
+    #[schemars(schema_with = "super::still::at_schema")]
+    at: Option<Value>,
+    /// The frame `at` is measured against, e.g. 1920x1080, which is the
+    /// default. The answer is in fractions, but the frame's shape still decides
+    /// it: a `fit` picture letterboxes against this aspect and a title wraps
+    /// against this width. Nothing is composited either way.
+    resolution: Option<String>,
 }
+
+impl args::Arguments for DescribeArguments {}
 
 /// Everything wrong with the project.
 pub(super) struct Check;
+
+/// What `project_check` takes.
+#[derive(Deserialize, JsonSchema)]
+struct CheckArguments {
+    project: ProjectDir,
+    /// Re-hash every file to catch media edited behind the project's back since
+    /// it was imported. Off by default, because this is the tool to call after
+    /// every edit and re-reading a whole pool is slow: whether a file is
+    /// *there* is checked either way and costs nothing.
+    #[serde(default)]
+    verify: bool,
+}
+
+impl args::Arguments for CheckArguments {}
 
 impl Tool for Check {
     fn name(&self) -> &'static str {
@@ -211,26 +219,12 @@ impl Tool for Check {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": super::project_property(),
-                "verify": {
-                    "type": "boolean",
-                    "description": "Re-hash every file to catch media edited behind \
-                                    the project's back since it was imported. Off by \
-                                    default, because this is the tool to call after \
-                                    every edit and re-reading a whole pool is slow: \
-                                    whether a file is *there* is checked either way \
-                                    and costs nothing."
-                }
-            },
-            "required": ["project"]
-        })
+        args::schema::<CheckArguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
+        let arguments: CheckArguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
         let file = dir.join(scorsese_core::PROJECT_FILE_NAME);
         let json = std::fs::read_to_string(&file)
             .map_err(|error| format!("opening {}: {error}", file.display()))?;
@@ -245,7 +239,7 @@ impl Tool for Check {
             Err(problem) => return Ok(problem.to_string().into()),
         };
 
-        let verify = arguments.get("verify").and_then(Value::as_bool) == Some(true);
+        let verify = arguments.verify;
         let hashes = if verify {
             HashCheck::Verify
         } else {
@@ -253,7 +247,7 @@ impl Tool for Check {
         };
         // The same assembly `scorsese check` prints, so one project cannot get
         // two different answers depending on which surface asked.
-        let checkup = Checkup::of(&project, &dir, hashes);
+        let checkup = Checkup::of(&project, dir, hashes);
         let mut out = String::new();
         for line in checkup.lines() {
             out.push_str(&format!("{line}\n"));
@@ -270,6 +264,18 @@ impl Tool for Check {
 
 /// What is in the media pool.
 pub(super) struct Assets;
+
+/// What `project_assets` takes.
+#[derive(Deserialize, JsonSchema)]
+struct AssetsArguments {
+    project: ProjectDir,
+    /// Re-hash every file to catch media edited behind the project's back. Slow
+    /// on a large pool; the default only checks that files are present.
+    #[serde(default)]
+    verify: bool,
+}
+
+impl args::Arguments for AssetsArguments {}
 
 impl Tool for Assets {
     fn name(&self) -> &'static str {
@@ -290,30 +296,19 @@ impl Tool for Assets {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": super::project_property(),
-                "verify": {
-                    "type": "boolean",
-                    "description": "Re-hash every file to catch media edited behind \
-                                    the project's back. Slow on a large pool; the \
-                                    default only checks that files are present."
-                }
-            },
-            "required": ["project"]
-        })
+        args::schema::<AssetsArguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let project = load(&dir)?;
-        let check = if arguments.get("verify").and_then(Value::as_bool) == Some(true) {
+        let arguments: AssetsArguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let project = load(dir)?;
+        let check = if arguments.verify {
             HashCheck::Verify
         } else {
             HashCheck::Skip
         };
-        let rows = asset_status(&project, &dir, check);
+        let rows = asset_status(&project, dir, check);
         if rows.is_empty() {
             return Ok("the pool is empty".into());
         }

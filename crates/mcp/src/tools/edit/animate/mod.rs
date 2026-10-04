@@ -18,16 +18,51 @@
 
 mod points;
 
+use schemars::JsonSchema;
 use scorsese_core::{Clip, ClipId, KeyframeTrack, Project, PropertyPath};
+use serde::Deserialize;
 use serde_json::Value;
 
-use super::named;
+use crate::tools::args::{self, Name, ProjectDir, Required};
 use crate::tools::inspect::load;
-use crate::tools::{Costs, Reply, Tool, project_dir, project_property};
-use points::{Point, points, properties, spelled};
+use crate::tools::{Costs, Reply, Tool};
+use points::{Asked, Point, points, properties, spelled};
 
 /// Write, replace or remove one keyframe track on a clip.
 pub(crate) struct ClipAnimate;
+
+/// What `clip_animate` takes.
+#[derive(Deserialize, JsonSchema)]
+struct Arguments {
+    project: ProjectDir,
+    /// Id of the clip to animate — one on the timeline, or a member of a group.
+    /// project_describe and project_read name them.
+    clip: Name,
+    /// What to animate, as a property path: `opacity`, `transform.position.x`,
+    /// `transform.rotation`, `shape.trim_end`, `reveal`, `number`,
+    /// `glow.intensity`, `volume` … — the animatable table in
+    /// docs/project-format.md is the whole list, with what each number means.
+    /// `transform.scale`, `transform.position` and `transform.flip` write both
+    /// axes at once. An unknown path is refused with the closest one.
+    property: Name,
+    /// The points the property passes through, replacing any it had. Before the
+    /// first it holds the first value, after the last the last. Empty removes
+    /// the animation, so the clip goes back to its default.
+    keyframes: Vec<Asked>,
+}
+
+impl args::Arguments for Arguments {
+    const REQUIRED: Required = &[
+        ("clip", "the id of the clip to animate"),
+        ("property", "a property path, such as `opacity`"),
+        (
+            "keyframes",
+            "a list of { at_seconds, value, easing } — or [] to stop animating the property",
+        ),
+        ("at_seconds", "seconds from the clip's start"),
+        ("value", "what the property reads at that moment"),
+    ];
+}
 
 impl Tool for ClipAnimate {
     fn name(&self) -> &'static str {
@@ -54,79 +89,23 @@ impl Tool for ClipAnimate {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "clip": {
-                    "type": "string",
-                    "description": "Id of the clip to animate — one on the timeline, or \
-                                    a member of a group. project_describe and \
-                                    project_read name them."
-                },
-                "property": {
-                    "type": "string",
-                    "description": "What to animate, as a property path: `opacity`, \
-                                    `transform.position.x`, `transform.rotation`, \
-                                    `shape.trim_end`, `reveal`, `number`, \
-                                    `glow.intensity`, `volume` … — the animatable table \
-                                    in docs/project-format.md is the whole list, with what \
-                                    each number means. `transform.scale`, \
-                                    `transform.position` and `transform.flip` write both \
-                                    axes at once. An unknown path is refused with the \
-                                    closest one."
-                },
-                "keyframes": {
-                    "type": "array",
-                    "description": "The points the property passes through, replacing \
-                                    any it had. Before the first it holds the first value, \
-                                    after the last the last. Empty removes the animation, \
-                                    so the clip goes back to its default.",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "at_seconds": {
-                                "type": "number",
-                                "description": "When, in seconds from the start of the \
-                                                CLIP (not the timeline), rounded to the \
-                                                project's frame grid. At most the clip's \
-                                                length."
-                            },
-                            "value": {
-                                "type": "number",
-                                "description": "What the property reads at that moment."
-                            },
-                            "easing": {
-                                "description": "How it travels from here to the next \
-                                                point: `linear` (the default), `ease_in`, \
-                                                `ease_out`, `ease_in_out`, `hold`, \
-                                                `back_in`, `back_out` (a pop that passes \
-                                                its mark and settles), `back_in_out`, \
-                                                `spring`, or { \"cubic_bezier\": [x1, y1, \
-                                                x2, y2] } as in CSS."
-                            }
-                        },
-                        "required": ["at_seconds", "value"]
-                    }
-                }
-            },
-            "required": ["project", "clip", "property", "keyframes"]
-        })
+        args::schema::<Arguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let mut project = load(&dir)?;
-        let id = ClipId::new(named(arguments, "clip", "the id of the clip to animate")?);
-        let asked = named(arguments, "property", "a property path, such as `opacity`")?;
+        let arguments: Arguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let mut project = load(dir)?;
+        let id = ClipId::new(arguments.clip.as_str());
+        let asked = arguments.property.as_str();
         let paths = properties(asked)?;
-        let points = points(arguments, project.timeline_fps)?;
+        let points = points(&arguments.keyframes, project.timeline_fps)?;
         let replaced = animate(&mut project, &id, &paths, &points)?;
         if points.is_empty() && replaced.is_empty() {
             return Ok(format!("`{id}` was not animating `{asked}`; nothing changed.").into());
         }
         project
-            .save(&dir)
+            .save(dir)
             .map_err(|error| format!("saving the project: {error}"))?;
         let fps = project.timeline_fps;
         let wrote = if points.is_empty() {

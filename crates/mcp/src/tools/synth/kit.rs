@@ -1,12 +1,30 @@
 //! The instrument library, as a client sees it.
 
+use schemars::JsonSchema;
 use scorsese_providers::synth::kit::{self, KIT};
+use serde::Deserialize;
 use serde_json::Value;
 
-use super::super::{Costs, Reply, Tool, project_dir, project_property};
+use crate::tools::args::{self, ProjectDir};
+use crate::tools::{Costs, Reply, Tool};
 
 /// List the library, or show one instrument's patch.
 pub(in crate::tools) struct Kit;
+
+/// What `synth_kit` takes.
+#[derive(Deserialize, JsonSchema)]
+struct Arguments {
+    // Taken and not used, as `icons` does: every tool names the project it
+    // is called about, and the library is the same for all of them.
+    #[expect(dead_code, reason = "taken for the uniform surface, not read")]
+    project: ProjectDir,
+    /// One instrument's name, as `kick` or `kit:kick`: its patch comes back as
+    /// JSON, to read before using it or to edit a copy of. Without it, the
+    /// whole library is listed, one line each.
+    instrument: Option<String>,
+}
+
+impl args::Arguments for Arguments {}
 
 impl Tool for Kit {
     fn name(&self) -> &'static str {
@@ -29,27 +47,12 @@ impl Tool for Kit {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "instrument": {
-                    "type": "string",
-                    "description": "One instrument's name, as `kick` or `kit:kick`: \
-                                    its patch comes back as JSON, to read before \
-                                    using it or to edit a copy of. Without it, the \
-                                    whole library is listed, one line each."
-                }
-            },
-            "required": ["project"]
-        })
+        args::schema::<Arguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        // Taken and not used, as `icons` does: every tool names the project it
-        // is called about, and the library is the same for all of them.
-        project_dir(arguments)?;
-        let Some(name) = arguments.get("instrument").and_then(Value::as_str) else {
+        let arguments: Arguments = args::parse(arguments)?;
+        let Some(name) = arguments.instrument.as_deref() else {
             let lines: Vec<String> = KIT
                 .iter()
                 .map(|it| format!("{}{} — {}", kit::PREFIX, it.name, it.describes))

@@ -1,16 +1,43 @@
 //! Scaling where clips sit in time, about an instant that stays put.
 
-use std::collections::BTreeSet;
-
-use scorsese_core::{ClipId, Paced, pacing};
+use schemars::JsonSchema;
+use scorsese_core::{Paced, pacing};
+use serde::Deserialize;
 use serde_json::Value;
 
-use super::number;
+use super::clip_set;
+use crate::tools::args::{self, ProjectDir, Required};
 use crate::tools::inspect::load;
-use crate::tools::{Costs, Reply, Tool, project_dir, project_property};
+use crate::tools::{Costs, Reply, Tool};
 
 /// Spread a run of clips out, or close it up, about one instant.
 pub(crate) struct ScalePacing;
+
+/// What `scale_pacing` takes.
+#[derive(Deserialize, JsonSchema)]
+struct Arguments {
+    project: ProjectDir,
+    /// Ids of the clips to move. Everything else on the timeline stays exactly
+    /// where it is, which is what bounds how far this can go: a scaled clip may
+    /// not come to overlap one that was left alone.
+    clips: Vec<String>,
+    /// How much to stretch time by. Greater than 1 spreads the clips out — 1.2
+    /// makes the cut 20% slower — and less than 1 closes it up. Must be
+    /// positive.
+    factor: f64,
+    /// The instant the scale is pinned to: the one moment that does not move,
+    /// with everything before it drawing in and everything after it pushing
+    /// out. Default 0, which scales the whole cut from its beginning. Rounded to
+    /// a whole frame on the project's grid.
+    about_seconds: Option<f64>,
+}
+
+impl args::Arguments for Arguments {
+    const REQUIRED: Required = &[
+        ("clips", "the ids of the clips to move"),
+        ("factor", "how much to stretch time by"),
+    ];
+}
 
 impl Tool for ScalePacing {
     fn name(&self) -> &'static str {
@@ -37,50 +64,17 @@ impl Tool for ScalePacing {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "clips": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "Ids of the clips to move. Everything else on \
-                                    the timeline stays exactly where it is, which \
-                                    is what bounds how far this can go: a scaled \
-                                    clip may not come to overlap one that was left \
-                                    alone."
-                },
-                "factor": {
-                    "type": "number",
-                    "description": "How much to stretch time by. Greater than 1 \
-                                    spreads the clips out — 1.2 makes the cut 20% \
-                                    slower — and less than 1 closes it up. Must be \
-                                    positive."
-                },
-                "about_seconds": {
-                    "type": "number",
-                    "description": "The instant the scale is pinned to: the one \
-                                    moment that does not move, with everything \
-                                    before it drawing in and everything after it \
-                                    pushing out. Default 0, which scales the whole \
-                                    cut from its beginning. Rounded to a whole \
-                                    frame on the project's grid."
-                }
-            },
-            "required": ["project", "clips", "factor"]
-        })
+        args::schema::<Arguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let mut project = load(&dir)?;
-        let clips = clip_ids(arguments)?;
-        let factor = arguments
-            .get("factor")
-            .and_then(Value::as_f64)
-            .ok_or_else(|| "`factor` is required: how much to stretch time by".to_owned())?;
+        let arguments: Arguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let mut project = load(dir)?;
+        let clips = clip_set(&arguments.clips)?;
+        let factor = arguments.factor;
 
-        let seconds = number(arguments, "about_seconds", 0.0);
+        let seconds = arguments.about_seconds.unwrap_or(0.0);
         if seconds < 0.0 {
             return Err("`about_seconds` cannot be before the start of the timeline".to_owned());
         }
@@ -88,7 +82,7 @@ impl Tool for ScalePacing {
         let paced = pacing::scale(&mut project, &clips, about, factor)
             .map_err(|error| format!("{error} — nothing was changed"))?;
         project
-            .save(&dir)
+            .save(dir)
             .map_err(|error| format!("saving the project: {error}"))?;
 
         let clips = if paced.moved == 1 { "clip" } else { "clips" };
@@ -100,23 +94,6 @@ impl Tool for ScalePacing {
         )
         .into())
     }
-}
-
-/// The clips to move, as a set — a repeated id is one clip, not two moves.
-fn clip_ids(arguments: &Value) -> Result<BTreeSet<ClipId>, String> {
-    let named = arguments
-        .get("clips")
-        .and_then(Value::as_array)
-        .ok_or_else(|| "`clips` is required: the ids of the clips to move".to_owned())?;
-    let ids: BTreeSet<ClipId> = named
-        .iter()
-        .filter_map(Value::as_str)
-        .map(ClipId::new)
-        .collect();
-    if ids.is_empty() {
-        return Err("`clips` must name at least one clip".to_owned());
-    }
-    Ok(ids)
 }
 
 /// What the scale declined to stretch, and why.

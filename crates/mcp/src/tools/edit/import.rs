@@ -10,15 +10,65 @@
 //! landed at. That is the same bargain `scorsese import` has always kept, and
 //! it is what makes a project survive `scp -r`.
 
+use std::borrow::Cow;
+
+use schemars::{JsonSchema, Schema, SchemaGenerator};
 use scorsese_core::{AssetKind, Import as Report, Project, import_path};
 use scorsese_render::Ffprobe;
+use serde::de::Error as _;
+use serde::{Deserialize, Deserializer};
 use serde_json::Value;
 
+use crate::tools::args::{self, ProjectDir};
 use crate::tools::inspect::load;
-use crate::tools::{Costs, Reply, Tool, project_dir, project_property};
+use crate::tools::{Costs, Reply, Tool};
 
 /// Copy media into the pool.
 pub(crate) struct Import;
+
+/// What `import` takes.
+#[derive(Deserialize, JsonSchema)]
+struct Arguments {
+    project: ProjectDir,
+    /// The file or directory to import, anywhere on disk, or a list of them. A
+    /// directory brings in the media directly inside it and does not recurse.
+    /// These paths are used to find the media and are never written into the
+    /// project.
+    path: Paths,
+    /// What the media is, instead of inferring it from the extension — a .mp4
+    /// that is in the edit for its sound, say. For a directory it says what the
+    /// media in it is; which files count as media at all is still the
+    /// extension's answer.
+    //
+    // Text checked by [`kind`] rather than an enum, so that a kind that cannot
+    // be imported is refused in words that say why.
+    #[schemars(extend("enum" = ["video", "image", "audio"]))]
+    kind: Option<String>,
+    /// Bring each path — a folder — in as one image_sequence: its png, jpeg,
+    /// bmp, tiff or webp frames become image assets under assets/<folder
+    /// name>/, played in the order their numbers say. A gap in the numbering is
+    /// reported, never refused; frames of two formats or two sizes refuse the
+    /// folder with nothing copied. `kind` does not apply.
+    #[serde(default)]
+    sequence: bool,
+}
+
+impl args::Arguments for Arguments {}
+
+/// The kind override, if one was named.
+fn kind(given: Option<&str>) -> Result<Option<AssetKind>, String> {
+    match given {
+        None => Ok(None),
+        Some("video") => Ok(Some(AssetKind::Video)),
+        Some("image") => Ok(Some(AssetKind::Image)),
+        Some("audio") => Ok(Some(AssetKind::Audio)),
+        // The authored kinds are absent on purpose: a title and a prompt carry
+        // a string rather than a file, so there is nothing to copy in.
+        Some(other) => Err(format!(
+            "`{other}` is not a kind that can be imported: video, image or audio"
+        )),
+    }
+}
 
 impl Tool for Import {
     fn name(&self) -> &'static str {
@@ -56,62 +106,28 @@ impl Tool for Import {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "path": {
-                    "type": ["string", "array"],
-                    "items": { "type": "string" },
-                    "description": "The file or directory to import, anywhere on \
-                                    disk, or a list of them. A directory brings in \
-                                    the media directly inside it and does not \
-                                    recurse. These paths are used to find the media \
-                                    and are never written into the project."
-                },
-                "kind": {
-                    "type": "string",
-                    "enum": ["video", "image", "audio"],
-                    "description": "What the media is, instead of inferring it from \
-                                    the extension — a .mp4 that is in the edit for \
-                                    its sound, say. For a directory it says what the \
-                                    media in it is; which files count as media at \
-                                    all is still the extension's answer."
-                },
-                "sequence": {
-                    "type": "boolean",
-                    "description": "Bring each path — a folder — in as one \
-                                    image_sequence: its png, jpeg, bmp, tiff or webp \
-                                    frames become image assets under \
-                                    assets/<folder name>/, played in the order their \
-                                    numbers say. A gap in the numbering is reported, \
-                                    never refused; frames of two formats or two sizes \
-                                    refuse the folder with nothing copied. `kind` does \
-                                    not apply."
-                }
-            },
-            "required": ["project", "path"]
-        })
+        args::schema::<Arguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let paths = paths(arguments)?;
-        let kind = kind(arguments)?;
-        let mut project = load(&dir)?;
+        let arguments: Arguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let paths = arguments.path.checked()?;
+        let kind = kind(arguments.kind.as_deref())?;
+        let mut project = load(dir)?;
 
         // Discovered per call rather than held, for the same reason `render`
         // does it: a server that found ffprobe at startup would keep insisting
         // it was there after someone uninstalled it.
         let probe = Ffprobe::discover().map_err(|error| format!("{error}"))?;
-        if arguments.get("sequence").and_then(Value::as_bool) == Some(true) {
-            return super::sequenced::import(&mut project, &dir, &paths, &probe);
+        if arguments.sequence {
+            return super::sequenced::import(&mut project, dir, &paths, &probe);
         }
         let mut reports = Vec::new();
         let mut failures = Vec::new();
         let mut copied = false;
         for path in &paths {
-            match import_path(&mut project, &dir, std::path::Path::new(path), kind, &probe) {
+            match import_path(&mut project, dir, std::path::Path::new(path), kind, &probe) {
                 Ok(report) => {
                     copied |= report.imported.iter().any(|one| !one.reused);
                     reports.push(report);
@@ -124,7 +140,7 @@ impl Tool for Import {
         // before it.
         if copied {
             project
-                .save(&dir)
+                .save(dir)
                 .map_err(|error| format!("saving the project: {error}"))?;
         }
         // Everything failing is the single-path error this tool has always
@@ -144,39 +160,59 @@ impl Tool for Import {
 /// and `"path": "intro.mp4"` is what every caller wrote before the list
 /// existed — a schema that broke those would be a worse trade than accepting
 /// two shapes.
-fn paths(arguments: &Value) -> Result<Vec<String>, String> {
-    let named = |value: &Value| {
-        value
-            .as_str()
-            .filter(|text| !text.trim().is_empty())
-            .map(ToOwned::to_owned)
-    };
-    match arguments.get("path") {
-        Some(Value::Array(items)) if !items.is_empty() => items
-            .iter()
-            .map(|item| {
-                named(item).ok_or_else(|| "every `path` must be a non-empty string".to_owned())
-            })
-            .collect(),
-        Some(one) => named(one)
-            .map(|path| vec![path])
-            .ok_or_else(|| "`path` is required".to_owned()),
-        None => Err("`path` is required".to_owned()),
+enum Paths {
+    /// `"path": "intro.mp4"`.
+    One(String),
+    /// `"path": ["intro.mp4", "outro.mp4"]`.
+    Many(Vec<String>),
+}
+
+impl Paths {
+    /// The paths, with nothing in them refused: an empty list or a blank path
+    /// is somebody not naming one, and a blank among several is a list with a
+    /// hole in it.
+    fn checked(self) -> Result<Vec<String>, String> {
+        let blank = |path: &String| path.trim().is_empty();
+        match self {
+            Self::Many(paths) if paths.is_empty() => Err("`path` is required".to_owned()),
+            Self::Many(paths) if paths.iter().any(blank) => {
+                Err("every `path` must be a non-empty string".to_owned())
+            }
+            Self::One(path) if blank(&path) => Err("`path` is required".to_owned()),
+            Self::Many(paths) => Ok(paths),
+            Self::One(path) => Ok(vec![path]),
+        }
     }
 }
 
-/// The kind override, if one was named.
-fn kind(arguments: &Value) -> Result<Option<AssetKind>, String> {
-    match arguments.get("kind").and_then(Value::as_str) {
-        None => Ok(None),
-        Some("video") => Ok(Some(AssetKind::Video)),
-        Some("image") => Ok(Some(AssetKind::Image)),
-        Some("audio") => Ok(Some(AssetKind::Audio)),
-        // The authored kinds are absent on purpose: a title and a prompt carry
-        // a string rather than a file, so there is nothing to copy in.
-        Some(other) => Err(format!(
-            "`{other}` is not a kind that can be imported: video, image or audio"
-        )),
+impl<'de> Deserialize<'de> for Paths {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let shape = || D::Error::custom("a path or a list of paths");
+        match Value::deserialize(deserializer)? {
+            Value::String(path) => Ok(Self::One(path)),
+            Value::Array(items) => items
+                .into_iter()
+                .map(|item| match item {
+                    Value::String(path) => Ok(path),
+                    _ => Err(shape()),
+                })
+                .collect::<Result<_, _>>()
+                .map(Self::Many),
+            _ => Err(shape()),
+        }
+    }
+}
+
+impl JsonSchema for Paths {
+    fn schema_name() -> Cow<'static, str> {
+        "Paths".into()
+    }
+
+    fn json_schema(_: &mut SchemaGenerator) -> Schema {
+        schemars::json_schema!({
+            "type": ["string", "array"],
+            "items": { "type": "string" }
+        })
     }
 }
 

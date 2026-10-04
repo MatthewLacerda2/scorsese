@@ -29,16 +29,66 @@ pub(super) use kit::Kit;
 pub(super) use set::Set;
 pub(super) use survey::Survey;
 
+use schemars::JsonSchema;
 use scorsese_core::ProjectPath;
 use scorsese_providers::synth::{self, Starter, kit as library};
+use serde::{Deserialize, Deserializer};
 use serde_json::Value;
 
+use super::args::{self, Name, ProjectDir};
 use super::inspect::load;
-use super::{Costs, Reply, Tool, project_dir, project_property};
-use recipes::{read, recipe_path, recipe_property, recipe_schema, text};
+use super::{Costs, Reply, Tool};
+use recipes::{RECIPE, RecipeArguments, read, recipe_path};
+
+/// A list of strings, where `null` is the empty list.
+///
+/// Read as one value rather than entry by entry, so a list with a number in it
+/// is refused as the argument the caller wrote and not as its third entry —
+/// and a refusal says *a list of strings* rather than serde's *a sequence*.
+fn strings<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<String>, D::Error> {
+    use serde::de::Error as _;
+    let wrong = || D::Error::custom("a list of strings");
+    match Value::deserialize(deserializer)? {
+        Value::Null => Ok(Vec::new()),
+        Value::Array(entries) => entries
+            .into_iter()
+            .map(|entry| match entry {
+                Value::String(text) => Ok(text),
+                _ => Err(wrong()),
+            })
+            .collect(),
+        _ => Err(wrong()),
+    }
+}
 
 /// Start a recipe.
 pub(super) struct New;
+
+/// What a starter recipe is, when no instrument is named.
+#[derive(Clone, Copy, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+enum Kind {
+    Patch,
+    Song,
+}
+
+/// What `synth_new` takes.
+#[derive(Deserialize, JsonSchema)]
+struct NewArguments {
+    project: ProjectDir,
+    /// What to call it. Becomes the asset id and the recipe's file name,
+    /// suffixed if that is taken.
+    name: Name,
+    /// `patch` for one instrument playing one note — an effect. `song` for an
+    /// arrangement — a score. Default `patch`.
+    kind: Option<Kind>,
+    /// Start from a library instrument instead — `kick`, `epiano`; synth_kit
+    /// lists them. The recipe is one note of it, its patch copied in for you to
+    /// edit. Takes the place of `kind`.
+    instrument: Option<String>,
+}
+
+impl args::Arguments for NewArguments {}
 
 impl Tool for New {
     fn name(&self) -> &'static str {
@@ -59,57 +109,26 @@ impl Tool for New {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "name": {
-                    "type": "string",
-                    "description": "What to call it. Becomes the asset id and the \
-                                    recipe's file name, suffixed if that is taken."
-                },
-                "kind": {
-                    "type": "string",
-                    "enum": ["patch", "song"],
-                    "description": "`patch` for one instrument playing one note — an \
-                                    effect. `song` for an arrangement — a score. \
-                                    Default `patch`."
-                },
-                "instrument": {
-                    "type": "string",
-                    "description": "Start from a library instrument instead — `kick`, \
-                                    `epiano`; synth_kit lists them. The recipe is one \
-                                    note of it, its patch copied in for you to edit. \
-                                    Takes the place of `kind`."
-                }
-            },
-            "required": ["project", "name"]
-        })
+        args::schema::<NewArguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let mut project = load(&dir)?;
-        let name = text(arguments, "name")?;
+        let arguments: NewArguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let mut project = load(dir)?;
         let starter =
-            match (
-                arguments.get("instrument").and_then(Value::as_str),
-                arguments.get("kind").and_then(Value::as_str),
-            ) {
+            match (arguments.instrument.as_deref(), arguments.kind) {
                 (Some(name), _) => Starter::Kit(library::lookup(name).ok_or_else(|| {
                     format!("there is no `{name}` in the kit — synth_kit lists it")
                 })?),
-                (None, Some("song")) => Starter::Song,
-                (None, None | Some("patch")) => Starter::Patch,
-                (None, Some(other)) => {
-                    return Err(format!("`kind` is `patch` or `song`, not `{other}`"));
-                }
+                (None, Some(Kind::Song)) => Starter::Song,
+                (None, None | Some(Kind::Patch)) => Starter::Patch,
             };
 
-        let id =
-            synth::create(&mut project, &dir, name, starter).map_err(|error| format!("{error}"))?;
+        let id = synth::create(&mut project, dir, arguments.name.as_str(), starter)
+            .map_err(|error| format!("{error}"))?;
         project
-            .save(&dir)
+            .save(dir)
             .map_err(|error| format!("saving the project: {error}"))?;
         let recipe = project
             .asset(&id)
@@ -144,11 +163,12 @@ impl Tool for Check {
     }
 
     fn schema(&self) -> Value {
-        recipe_schema()
+        args::schema::<RecipeArguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let (_, file, relative) = recipe_path(arguments)?;
+        let arguments: RecipeArguments = args::parse(arguments)?;
+        let (file, relative) = recipe_path(arguments.project.dir(), &arguments.recipe)?;
         let json = read(&file)?;
         match synth::check(&json) {
             Ok(parsed) => {
@@ -178,17 +198,31 @@ impl Tool for Read {
     }
 
     fn schema(&self) -> Value {
-        recipe_schema()
+        args::schema::<RecipeArguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let (_, file, _) = recipe_path(arguments)?;
+        let arguments: RecipeArguments = args::parse(arguments)?;
+        let (file, _) = recipe_path(arguments.project.dir(), &arguments.recipe)?;
         read(&file).map(Into::into)
     }
 }
 
 /// Replace the recipe.
 pub(super) struct Write;
+
+/// What `synth_write` takes.
+#[derive(Deserialize, JsonSchema)]
+struct WriteArguments {
+    project: ProjectDir,
+    #[schemars(description = RECIPE)]
+    recipe: Name,
+    /// The complete recipe JSON to write. Not a patch — whatever is here
+    /// replaces the file.
+    document: String,
+}
+
+impl args::Arguments for WriteArguments {}
 
 impl Tool for Write {
     fn name(&self) -> &'static str {
@@ -212,24 +246,18 @@ impl Tool for Write {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "recipe": recipe_property(),
-                "document": {
-                    "type": "string",
-                    "description": "The complete recipe JSON to write. Not a patch — \
-                                    whatever is here replaces the file."
-                }
-            },
-            "required": ["project", "recipe", "document"]
-        })
+        args::schema::<WriteArguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let (_, file, relative) = recipe_path(arguments)?;
-        let document = text(arguments, "document")?;
+        let arguments: WriteArguments = args::parse(arguments)?;
+        let (file, relative) = recipe_path(arguments.project.dir(), &arguments.recipe)?;
+        // Written as given; only a document with nothing in it is refused, the
+        // way a missing one is.
+        let document = arguments.document.as_str();
+        if document.trim().is_empty() {
+            return Err("`document` is required".to_owned());
+        }
         // Parsed before it is written, for the same reason `project_write`
         // validates: a recipe that is not a recipe makes every later bake fail
         // with a message about a file nobody remembers editing.
