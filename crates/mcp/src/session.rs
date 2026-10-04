@@ -14,6 +14,12 @@
 //! trips the [`Cancel`] of the call it names, and everything else is queued
 //! for this thread in order.
 //!
+//! A `render` asked to `wait` is that case. One that is not answers at once and
+//! renders on its own thread, one of the session's renders: they are held
+//! here, beside the output, and stopped when the session ends (#700). And a
+//! call that carries a `progressToken` may write `notifications/progress` to
+//! the output before its reply, which is why a call is handed the output.
+//!
 //! A cancelled call gets **no reply**, as the specification asks of a receiver.
 //! What it would have said — a render's "cancelled after 412 of 1890 frames" —
 //! goes to stderr instead, which a client shows as the server's log.
@@ -27,7 +33,8 @@ use scorsese_render::Cancel;
 use serde_json::Value;
 
 use crate::protocol::{self, Handled};
-use crate::tools;
+use crate::renders::{Renders, Say};
+use crate::tools::{self, Context};
 
 /// The calls read but not yet answered, by the id the client gave them —
 /// written as JSON, since an id may be a number or a string and `1` and `"1"`
@@ -45,6 +52,9 @@ type Queued = std::io::Result<(String, Option<(String, Cancel)>)>;
 /// one line of nonsense has not ended the conversation, and a server that
 /// exits on it would take a whole session down over a typo.
 pub fn serve(input: impl BufRead + Send + 'static, mut output: impl Write) -> std::io::Result<()> {
+    // Declared first, so it is dropped last: whichever way this returns, the
+    // renders still running are stopped and their files removed (#700).
+    let renders = Renders::default();
     let in_flight = InFlight::default();
     let (send, queue) = channel();
     // Detached rather than scoped: should answering fail — the client gone —
@@ -55,7 +65,8 @@ pub fn serve(input: impl BufRead + Send + 'static, mut output: impl Write) -> st
 
     for queued in queue {
         let (line, call) = queued?;
-        let response = handle(&line, call.as_ref().map(|(_, cancel)| cancel));
+        let cancel = call.as_ref().map(|(_, cancel)| cancel);
+        let response = handle(&line, cancel, &renders, &mut output);
         if let Some((id, cancel)) = call {
             lock(&in_flight).remove(&id);
             if cancel.is_cancelled() {
@@ -141,7 +152,15 @@ fn said(reply: &Value) -> Option<String> {
 }
 
 /// One line's reply, or `None` when the line was a notification.
-fn handle(line: &str, cancel: Option<&Cancel>) -> Option<Value> {
+///
+/// `output` is for what a call says before its reply: the progress a client
+/// asked for with a `progressToken`, written as it happens.
+fn handle(
+    line: &str,
+    cancel: Option<&Cancel>,
+    renders: &Renders,
+    output: &mut impl Write,
+) -> Option<Value> {
     let message: Value = match serde_json::from_str(line) {
         Ok(message) => message,
         Err(problem) => return Some(protocol::unreadable(problem)),
@@ -151,10 +170,20 @@ fn handle(line: &str, cancel: Option<&Cancel>) -> Option<Value> {
         Handled::Answered(reply) => Some(reply),
         Handled::Call(call) => Some(match tools::find(&call.name) {
             Some(tool) => {
-                let outcome = match cancel {
-                    Some(cancel) => tool.call_cancellable(&call.arguments, cancel),
-                    None => tool.call(&call.arguments),
+                let unnamed = Cancel::new();
+                let cancel = cancel.unwrap_or(&unnamed);
+                let token = call.progress_token().cloned();
+                let mut notify = |progress: f64, message: &str| {
+                    if let Some(token) = &token {
+                        // Best effort: a pipe that will not take this will
+                        // not take the reply either, and that one is reported.
+                        let note = protocol::progress(token, progress, message);
+                        let _ = writeln!(output, "{note}").and_then(|()| output.flush());
+                    }
                 };
+                let report = token.is_some().then_some(&mut notify as &mut Say<'_>);
+                let outcome =
+                    tool.call_in(&call.arguments, &mut Context::new(cancel, renders, report));
                 call.answer(outcome)
             }
             None => call.unknown(),

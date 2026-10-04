@@ -68,6 +68,12 @@
 //! "open project" to go stale, so a client may crash, reconnect, or run two
 //! conversations against one project without anything getting out of step.
 //!
+//! The one thing a session does hold is its renders (#700). A render runs in
+//! the background so an assistant can ask how far it has got, and a running
+//! thread has to belong to something; it belongs to the `serve` that started
+//! it, and ends with it. Nothing about the project is held there — a render
+//! reads the project when it is asked for, as every other tool does.
+//!
 //! ## Paid tools quote first
 //!
 //! A tool that costs money answers its first call with a quote and a token,
@@ -79,7 +85,8 @@
 //! ## What this publishes
 //!
 //! `serve`, which is what the binary runs, and `registry` with the `Tool` it
-//! yields, the `Costs` that tool declares and the `Reply` it answers with —
+//! yields, the `Costs` that tool declares and the `Reply` it answers with (and
+//! the `Context` it may run in, named by `Tool::call_in` and made only here) —
 //! published because the gates above are integration tests and walk the
 //! registry from outside the crate, and because the hosted server serves the
 //! same tools (#539). [`protocol`] is what a message means apart from how it
@@ -91,6 +98,7 @@
 
 mod base64;
 pub mod protocol;
+mod renders;
 mod rpc;
 mod session;
 mod table;
@@ -98,4 +106,4 @@ mod tools;
 
 pub use session::serve;
 pub use table::{BEGIN, END, regenerated, tool_table};
-pub use tools::{Costs, Part, Reply, Tool, registry};
+pub use tools::{Context, Costs, Part, Reply, Tool, registry};
