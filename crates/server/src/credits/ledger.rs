@@ -6,6 +6,7 @@
 //! `member_id()`, never passed in.
 
 use scorsese_providers::chat::Model;
+use scorsese_providers::prices::Checked;
 use scorsese_providers::prices::chat::{self, Usage};
 use serde_json::json;
 
@@ -160,7 +161,7 @@ pub struct AssistantCall<'a> {
 /// of [`credits`](super)). Returns the micro-dollars charged.
 pub async fn charge_assistant(tx: &mut Tx, call: &AssistantCall<'_>) -> Result<i64, CreditError> {
     let rate = Model::from_id(call.model)
-        .and_then(chat::rate)
+        .and_then(|model| chat::rate(model, Checked::today()))
         .ok_or_else(|| CreditError::Unpriced(call.model.into()))?;
     let cost = call.usage.micros(rate);
     let charged = price(cost);

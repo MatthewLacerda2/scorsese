@@ -56,6 +56,10 @@ pub struct Rate {
 pub struct Row {
     /// The model the rate is for.
     pub model: Model,
+    /// The first day, in UTC, this rate applies; `None` for one that has
+    /// applied for as long as the table has known the model. A later `from`
+    /// for the same model ends this row the day before.
+    pub from: Option<Checked>,
     /// What it costs.
     pub rate: Rate,
 }
@@ -72,7 +76,9 @@ const fn usd(dollars: u64, millionths: u64) -> u64 {
 ///   usual 0.1× (checked 2026-10-03 against Anthropic's prompt-caching page).
 /// - **Claude Sonnet 5.5**: the usual multipliers — 1.25×, 2× and **0.1×**.
 /// - **Gemini 3.8 Flash**: an introductory price **that doubles on
-///   2027-01-01** (to $1.50 / $7.50 / $0.15); the row must be re-read then.
+///   2027-01-01** (to $1.50 / $7.50 / $0.15) — two rows, the second dated
+///   (#718). Google's page, verbatim: *"$0.75 through December 31, 2026.
+///   $1.50 starting January 1, 2027"*.
 ///   Implicit caching is automatic on this model, writes cost nothing, and
 ///   reads are 0.1× input. (Explicit caches, with their hourly storage fee,
 ///   are never created.)
@@ -82,6 +88,7 @@ const fn usd(dollars: u64, millionths: u64) -> u64 {
 pub const RATES: &[Row] = &[
     Row {
         model: Model::ClaudeOpus55,
+        from: None,
         rate: Rate {
             input: usd(4, 0),
             output: usd(20, 0),
@@ -93,6 +100,7 @@ pub const RATES: &[Row] = &[
     },
     Row {
         model: Model::ClaudeSonnet55,
+        from: None,
         rate: Rate {
             input: usd(2, 0),
             output: usd(10, 0),
@@ -104,6 +112,7 @@ pub const RATES: &[Row] = &[
     },
     Row {
         model: Model::GeminiFlash38,
+        from: None,
         rate: Rate {
             input: usd(0, 750_000),
             output: usd(3, 750_000),
@@ -114,7 +123,20 @@ pub const RATES: &[Row] = &[
         },
     },
     Row {
+        model: Model::GeminiFlash38,
+        from: Some(Checked::on(2027, 1, 1)),
+        rate: Rate {
+            input: usd(1, 500_000),
+            output: usd(7, 500_000),
+            cache_write_5m: 0,
+            cache_write_1h: 0,
+            cache_read: usd(0, 150_000),
+            checked: Checked::on(2026, 10, 3),
+        },
+    },
+    Row {
         model: Model::GeminiFlashLite35,
+        from: None,
         rate: Rate {
             input: usd(0, 300_000),
             output: usd(2, 500_000),
@@ -126,14 +148,17 @@ pub const RATES: &[Row] = &[
     },
 ];
 
-/// What `model` costs, if the table has it.
+/// What `model` costs on `day` (UTC), if the table has it.
 ///
-/// `None` for a model with no row, so a call nobody priced is a refusal to
-/// answer for rather than a call charged at zero.
-pub fn rate(model: Model) -> Option<Rate> {
+/// The model's row with the latest [`Row::from`] that is not after `day`, so
+/// the rows' order in [`RATES`] does not matter. `None` for a model with no
+/// row in effect, so a call nobody priced is a refusal to answer for rather
+/// than a call charged at zero.
+pub fn rate(model: Model, day: Checked) -> Option<Rate> {
     RATES
         .iter()
-        .find(|row| row.model == model)
+        .filter(|row| row.model == model && row.from.is_none_or(|from| from <= day))
+        .max_by_key(|row| row.from)
         .map(|row| row.rate)
 }
 

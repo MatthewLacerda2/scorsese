@@ -2,10 +2,14 @@
 //! micro-dollars.
 
 use scorsese_providers::chat::Model;
+use scorsese_providers::prices::Checked;
 use scorsese_providers::prices::chat::{self, Rate, Usage};
 
+/// The day the table was read, when every row but the dated one applies.
+const READ: Checked = Checked::on(2026, 10, 3);
+
 fn rate(model: Model) -> Rate {
-    chat::rate(model).expect("every model offered is priced")
+    chat::rate(model, READ).expect("every model offered is priced")
 }
 
 /// Every figure on the vendors' pages, written out rather than read from the
@@ -32,10 +36,30 @@ fn the_table_says_what_the_vendors_pages_say() {
     assert_eq!(figures(rate(Model::GeminiFlashLite35)), lite);
 }
 
+/// Gemini 3.8 Flash's introductory price holds through 2026-12-31 and doubles
+/// on 2027-01-01 (#718), to $1.50 / $7.50 / $0.15 cached — written out, not
+/// read from the table. Nothing else moves that day.
+#[test]
+fn gemini_flash_doubles_on_new_years_day_2027() {
+    let flash = |day| chat::rate(Model::GeminiFlash38, day).expect("priced");
+    let figures = |r: Rate| (r.input, r.output, r.cache_read);
+    let last_intro_day = flash(Checked::on(2026, 12, 31));
+    assert_eq!(figures(last_intro_day), (750_000, 3_750_000, 75_000));
+    let first_full_day = flash(Checked::on(2027, 1, 1));
+    assert_eq!(figures(first_full_day), (1_500_000, 7_500_000, 150_000));
+    assert_eq!(flash(Checked::on(2031, 6, 1)), first_full_day);
+    for model in Model::ALL {
+        let later = chat::rate(model, Checked::on(2027, 1, 1));
+        if model != Model::GeminiFlash38 {
+            assert_eq!(later, chat::rate(model, READ), "{model:?}");
+        }
+    }
+}
+
 #[test]
 fn every_model_offered_has_a_row_and_its_own_id() {
     for model in Model::ALL {
-        assert!(chat::rate(model).is_some(), "{model:?}");
+        assert!(chat::rate(model, READ).is_some(), "{model:?}");
         assert_eq!(Model::from_id(model.id()), Some(model));
     }
     assert_eq!(Model::from_id("claude-opus-5"), None);

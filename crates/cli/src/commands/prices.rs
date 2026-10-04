@@ -103,8 +103,10 @@ pub(crate) fn run() -> Result<()> {
         let rate = row.rate;
         let price = |micros: u64| format!("${}.{:06}", micros / 1_000_000, micros % 1_000_000);
         println!(
-            "| `{}` | {} | {} | {} | {} | {} | {}{} |",
+            "| `{}`{} | {} | {} | {} | {} | {} | {}{} |",
             row.model.id(),
+            row.from
+                .map_or_else(String::new, |from| format!(" from {from}")),
             price(rate.input),
             price(rate.output),
             price(rate.cache_write_5m),

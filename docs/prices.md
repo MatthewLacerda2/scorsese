@@ -175,6 +175,7 @@ The hosted web app's assistant (#540) runs on the model each project chooses
 | `claude-opus-5-5` | $4 | $20 | $5 | $8 | $0.20 | 2026-10-03 |
 | `claude-sonnet-5-5` | $2 | $10 | $2.50 | $4 | $0.20 | 2026-10-03 |
 | `gemini-3.8-flash` | $0.75 | $3.75 | — | — | $0.075 | 2026-10-03 |
+| `gemini-3.8-flash` from 2027-01-01 | $1.50 | $7.50 | — | — | $0.15 | 2026-10-03 |
 | `gemini-3.5-flash-lite` | $0.30 | $2.50 | — | — | (none sold) | 2026-10-03 |
 
 Read off [Anthropic's pricing page](https://platform.claude.com/docs/en/about-claude/pricing)
@@ -186,8 +187,11 @@ here. Things that look like typos and are not:
 - **Opus 5.5's cache reads are 0.05× input**; Sonnet 5.5's are the usual 0.1×,
   which happens to land on the same $0.20.
 - **Gemini 3.8 Flash's price is introductory and doubles on 2027-01-01**
-  ($1.50 / $7.50 / $0.15 cached). Re-read the row then; the table does not
-  know the date.
+  ($1.50 / $7.50 / $0.15 cached), so it has two rows. A row may carry the day
+  it takes effect, and `prices::chat::rate` is asked for a model *on a date* —
+  the latest row not after it (#718). The server passes today, in UTC; the
+  table itself never reads a clock. A vendor's announced change goes in as a
+  dated row the day it is announced, not as an edit somebody has to remember.
 - **Gemini writes no cache, so its write columns are empty.** 3.8 Flash caches
   implicitly and reads at a tenth of input; 3.5 Flash Lite has no caching sold
   and is not on Google's implicit-caching list, so its cached column is its

@@ -29,6 +29,7 @@ use crate::claude::{
     self, Anthropic, Claude, ClaudeError, MODEL, Response, Settings, Stop, Streamed,
 };
 use crate::credentials::Secret;
+use crate::prices::Checked;
 use crate::prices::chat::{Usage, rate};
 use crate::prices::dollars;
 
@@ -58,7 +59,8 @@ const NOTE: &str = "Reply with the word the tool returned and nothing else.";
 
 /// What the Claude part of the check costs at most, in cents.
 pub fn cost() -> u64 {
-    let rate = rate(Model::ClaudeOpus55).expect("the assistant's model has a published rate");
+    let rate = rate(Model::ClaudeOpus55, Checked::today())
+        .expect("the assistant's model has a published rate");
     let per_call = Usage {
         cache_write_1h: INPUT_BOUND,
         output: u64::from(MAX_TOKENS),
@@ -148,9 +150,10 @@ fn tool() -> Tool {
 /// What a reply cost, by the vendor's own token count; nothing if it failed.
 fn spent(answer: &Result<Response, ClaudeError>) -> u64 {
     let Ok(response) = answer else { return 0 };
+    let today = Checked::today();
     Model::from_id(&response.model)
-        .and_then(rate)
-        .or_else(|| rate(Model::ClaudeOpus55))
+        .and_then(|model| rate(model, today))
+        .or_else(|| rate(Model::ClaudeOpus55, today))
         .map_or(0, |rate| response.usage.micros(rate))
 }
 

@@ -2,15 +2,25 @@
 //! project, changeable at any time, each turn charged at its own model's
 //! rates — and a conversation that comes along across a change.
 
+use scorsese_providers::prices::Checked;
 use scorsese_server::assistant::Assistant;
 use serde_json::{Value, json};
 use sqlx::postgres::PgPool;
 
 use super::{Script, answers, calls, common, exchange, member, new_project, scripted, serve};
 
-/// What one scripted call costs on Gemini 3.8 Flash: 1 000 × $0.75/M +
-/// 500 × $3.75/M = 2 625 µ$, plus 10% and rounded up.
-const GEMINI_CHARGED: i64 = 2_888;
+/// What one scripted call costs on Gemini 3.8 Flash today: 1 000 × $0.75/M +
+/// 500 × $3.75/M = 2 625 µ$ at the introductory price, and from 2027-01-01,
+/// when it doubles (#718), 1 000 × $1.50/M + 500 × $7.50/M = 5 250 µ$ — plus
+/// 10% and rounded up. The ledger prices by the server's clock, so the test
+/// knows both sides rather than breaking on New Year's Day.
+fn gemini_charged() -> i64 {
+    if Checked::today() < Checked::on(2027, 1, 1) {
+        2_888
+    } else {
+        5_775
+    }
+}
 
 async fn choose(
     address: std::net::SocketAddr,
@@ -55,7 +65,11 @@ async fn a_new_project_runs_on_gemini_and_is_charged_at_its_rates(pool: PgPool) 
 
     let detail = exchange(address, &who, id, "what is in it?").await;
     assert_eq!(detail["turn"]["model"], "gemini-3.8-flash");
-    assert_eq!(detail["turn"]["charged_micros"], GEMINI_CHARGED, "{detail}");
+    assert_eq!(
+        detail["turn"]["charged_micros"],
+        gemini_charged(),
+        "{detail}"
+    );
     let first = script.parsed(0);
     assert_eq!(first[0]["role"], "user");
     assert_eq!(first[0]["parts"][0]["text"], "what is in it?");
