@@ -1,0 +1,9 @@
+: HAND-WRITTEN from Google's generateContent reference, not captured from a live call.
+: Replace it with a stream a real call returns (#705 has why no key was used).
+
+data: {"candidates":[{"content":{"role":"model","parts":[{"text":"Weighing it.","thought":true,"thoughtSignature":"dGhvdWdodA=="}]}}],"responseId":"resp-Kl6"}
+
+data: {"candidates":[{"content":{"role":"model","parts":[{"text":"One ","thoughtSignature":"b25l"}]}}],"responseId":"resp-Kl6"}
+
+data: {"candidates":[{"content":{"role":"model","parts":[{"text":"two."}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":2},"responseId":"resp-Kl6"}
+

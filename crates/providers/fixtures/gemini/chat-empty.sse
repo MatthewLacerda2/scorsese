@@ -1,0 +1,5 @@
+: HAND-WRITTEN from Google's generateContent reference, not captured from a live call.
+: Replace it with a stream a real call returns (#705 has why no key was used).
+
+data: {"candidates":[{"content":{"role":"model","parts":[{"text":""}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":10},"responseId":"resp-Mn7"}
+

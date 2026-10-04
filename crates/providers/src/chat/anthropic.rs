@@ -22,7 +22,7 @@ impl Chat for Anthropic {
             return Err(ChatError::Misrouted(request.model.label()));
         }
         let response = Claude::reply(self, &laid_out(request), on)?;
-        Ok(neutral(response)?)
+        Ok(reply_of(response)?)
     }
 }
 
@@ -51,7 +51,7 @@ pub fn laid_out(request: &Request) -> wire::Request {
 
 /// A whole Claude reply as the seam hands it on: thinking stays in the bytes
 /// and out of the neutral message.
-fn neutral(response: Response) -> Result<Reply, claude::ClaudeError> {
+pub fn reply_of(response: Response) -> Result<Reply, claude::ClaudeError> {
     let native = wire::Message {
         role: Role::Assistant,
         content: MessageContent::Blocks(response.content.clone()),

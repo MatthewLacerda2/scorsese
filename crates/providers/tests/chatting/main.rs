@@ -5,8 +5,11 @@
 //! The Gemini fixtures under `fixtures/gemini/chat-*.sse` were written from
 //! Google's `generateContent` reference (2026-10-03), not captured.
 
+mod anthropic;
+mod edges;
 mod gemini;
 mod seam;
+mod thoughts;
 
 use scorsese_providers::chat::gemini::{GeminiError, replay as fold};
 use scorsese_providers::chat::{Reply, Streamed};
