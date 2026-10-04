@@ -37,7 +37,9 @@ pub struct Choice {
 
 /// Every model offered, in the picker's order, as `assistant` can reach them.
 pub(super) fn choices(assistant: &Assistant) -> Vec<Choice> {
-    let costs = cost::relative(&Model::ALL, prices::chat::rate);
+    // Today's rates (#718): a dated row moves the bars the day it starts.
+    let today = prices::Checked::today();
+    let costs = cost::relative(&Model::ALL, |model| prices::chat::rate(model, today));
     Model::ALL
         .into_iter()
         .zip(costs)

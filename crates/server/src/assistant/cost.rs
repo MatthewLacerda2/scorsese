@@ -47,9 +47,16 @@ pub(super) fn relative(models: &[Model], rate: impl Fn(Model) -> Option<Rate>) -
 
 #[cfg(test)]
 mod tests {
-    use scorsese_providers::prices::chat::rate;
+    use scorsese_providers::prices::Checked;
+    use scorsese_providers::prices::chat::{self, Rate};
 
     use super::*;
+
+    /// The rates as read on 2026-10-03, pinned so a dated row (#718) cannot
+    /// move these figures under the tests.
+    fn rate(model: Model) -> Option<Rate> {
+        chat::rate(model, Checked::on(2026, 10, 3))
+    }
 
     #[test]
     fn the_table_orders_the_models_at_nine_in_one_out() {
