@@ -338,11 +338,15 @@ leader appears, it is the one started next.
 `.github/dependabot.yml` opens at most four a month (Actions, the root and
 `app/` Cargo workspaces, `web/`), grouped, semver-compatible, majors ignored.
 They have no issue of their own (#721 is the standing one that decided them),
-and they label themselves `queue`: the watch takes them at the **lowest priority**, after
+and all but the Actions one label themselves `queue`: the watch takes them at the **lowest priority**, after
 every other pull request, and asks `@dependabot rebase` rather than ever
 force-pushing their branch (`ci-merge` has the detail). Read one only when the
 queue hands it back. A major upgrade is never a bot pull request; it is an
-issue like any other.
+issue like any other. **The Actions one is the exception, and waits for a
+person**: Actions are pinned at majors, so every bump it proposes is a major,
+and the workflows it touches outside pull-request CI cannot be proven by its
+run (#734, the first, moved three actions 4 -> 7). Read it, and label it
+`queue` if it is fine.
 
 But re-reading is not a licence to start everything: **start the next one, and
 keep the second slot for whatever is furthest along.** Priority orders what gets
