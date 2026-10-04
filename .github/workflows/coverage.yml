@@ -95,7 +95,7 @@ jobs:
     env:
       DATABASE_URL: postgres://scorsese:scorsese@localhost:5432/scorsese
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install ffmpeg
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
@@ -132,7 +132,7 @@ jobs:
           cat coverage.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Keep the report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: coverage.md

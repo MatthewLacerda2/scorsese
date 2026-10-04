@@ -158,7 +158,7 @@ jobs:
     # still (below) so there is time left to report what it did manage.
     timeout-minutes: 330
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Which crate this week is on, from `mutants-rotation.py`, which reads
       # the slots out of `examine_globs` (#431). Weeks since the epoch rather
