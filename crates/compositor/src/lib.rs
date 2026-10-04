@@ -169,7 +169,6 @@ mod chroma;
 mod compose;
 mod cpu;
 pub mod dissolve;
-mod distance;
 mod frame;
 mod grade;
 pub mod gradient;

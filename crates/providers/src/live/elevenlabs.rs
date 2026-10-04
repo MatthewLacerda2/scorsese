@@ -14,6 +14,7 @@
 //!   that *keeps* a candidate is deliberately not made: it costs nothing but
 //!   leaves a voice in the account on every run.
 
+use base64::Engine;
 use scorsese_core::SpeechModel;
 
 use crate::api::elevenlabs::design::{
@@ -185,7 +186,9 @@ pub fn design_step(answer: Result<DesignReply, HttpError>) -> Step {
     {
         Some(String::from("previews[].generated_voice_id: missing"))
     } else if reply.previews.iter().any(|p| {
-        !crate::api::base64::decode(&p.audio_base_64).is_some_and(|audio| judge::is_mp3(&audio))
+        !base64::engine::general_purpose::STANDARD
+            .decode(&p.audio_base_64)
+            .is_ok_and(|audio| judge::is_mp3(&audio))
     }) {
         Some(String::from("previews[].audio_base_64: not a base64 MP3"))
     } else {

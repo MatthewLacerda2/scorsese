@@ -21,7 +21,9 @@
 //! Library's refusal, and it points somewhere different because the remedy is
 //! different: the built-in voices are still there.
 
-use crate::api::base64;
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD;
+
 use crate::api::elevenlabs::design::{CreateRequest, Design, PreviewSample};
 use crate::api::http::HttpError;
 use crate::credentials::Secret;
@@ -104,7 +106,7 @@ impl Studio for ElevenLabsStudio {
 
 /// One candidate, decoded.
 fn candidate(sample: &PreviewSample) -> Result<Candidate, DesignError> {
-    let bytes = base64::decode(&sample.audio_base_64).ok_or_else(|| {
+    let bytes = STANDARD.decode(&sample.audio_base_64).map_err(|_| {
         DesignError::Voice(VoiceError::Provider(ProviderError::new(
             NAME,
             "a preview sample was not readable audio",
