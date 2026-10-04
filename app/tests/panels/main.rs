@@ -51,6 +51,7 @@
 
 mod drawing;
 mod fixture;
+mod rendering;
 mod watchdog;
 
 use drawing::window;
