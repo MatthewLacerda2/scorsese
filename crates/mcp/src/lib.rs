@@ -18,27 +18,53 @@
 //!
 //! ## Hand-rolled, deliberately
 //!
-//! MCP over stdio is JSON-RPC 2.0, one message per line. That is a small
-//! enough surface — `initialize`, `tools/list`, `tools/call`, `ping` — that
-//! taking an SDK for it would cost more than it saved: at the time of writing
-//! the official Rust SDK is a beta, and it brings an async runtime to a
-//! protocol that is one stream read in order. A blocking read of a line is
-//! exactly the right shape, and every dependency here is one `cargo deny` has
-//! to keep clearing.
+//! MCP over stdio is JSON-RPC 2.0, one message per line, and the part of it a
+//! tools-only server answers — `initialize`, `tools/list`, `tools/call`,
+//! `ping`, and the cancel and progress notifications (#647, #700) — is small.
+//! [`protocol`] is what a message means, written so that neither transport
+//! owns it: this binary reads lines; `scorsese-server` answers Streamable
+//! HTTP `POST`s (#539) on the axum stack it already runs.
 //!
-//! That is a judgement, not a principle, and it was tested when the protocol
-//! grew the transport the hosted server needs (#539): **Streamable HTTP**, a
-//! client `POST`ing each message to one URL. The SDK was weighed again then and
-//! still not taken. What the server has to serve is a `POST` answered with
-//! JSON — no server-initiated stream, no session — on an HTTP stack
-//! (`scorsese-server`'s axum) that already exists; what it has to *share* with
-//! this binary is what a message means, which is [`protocol`], written so that
-//! neither transport owns it. Taking the SDK would have meant its tool macros
-//! and its registry shape beside this one, and an async runtime in a binary
-//! whose protocol is still one stream read in order. The day a client needs
-//! something this cannot honestly serve — server-to-client requests,
-//! resumable streams, OAuth discovery — the SDK is the answer again, and this
-//! paragraph is the note to revise.
+//! The official Rust SDK, `rmcp`, was weighed for this twice (#539) and then
+//! measured (#746), once the first reason recorded against it — "a beta" —
+//! had gone stale. It is still not taken, for reasons that do not go stale
+//! with a version number:
+//!
+//! - **It is async-only.** A protocol that is one stream read in order would
+//!   carry a tokio runtime, and the stdio binary its tree: a one-tool server
+//!   built both ways was 69 crates and 2.6 MB against 23 and 0.6 MB.
+//! - **It would replace the framing and nothing else.** The tools are a
+//!   registry of trait objects that run with a [`Context`] — a cancel, the
+//!   session's renders, a progress callback — so its tool macros do not fit,
+//!   and a hand-written handler would keep this crate's listing and parsing.
+//! - **What agents read would change unless fought.** Its schemas bring back
+//!   what `tools::args` strips (`$schema`, `format`, nullable optionals), and
+//!   its argument errors read `failed to deserialize parameters: invalid
+//!   type: string "soon", expected f64` where this server says `` `start` has
+//!   to be a number, not "soon" ``.
+//! - **It moves faster than the protocol.** Three major versions in 2026
+//!   (March, June, July) — each a migration on its schedule — in months
+//!   where the specification itself shipped one revision.
+//!
+//! `cargo deny` cleared it, so that is not a reason. The cost of keeping this
+//! is tracking the specification by hand: [`PROTOCOLS`](protocol::PROTOCOLS)
+//! stops at 2025-06-18, and a client asking for 2025-11-25 or 2026-07-28 is
+//! answered with that and decides whether it can hold it. Nothing in either
+//! is required of a tools-only server that negotiates down, and 2026-07-28's
+//! headline — no handshake, the protocol version and client named in each
+//! request's `_meta` — is the shape this server already has, since it holds
+//! no session and answers a call that never said `initialize`.
+//!
+//! **What reopens it**, and this paragraph is the note to revise:
+//!
+//! - a client this project cares about stops accepting every revision in
+//!   `PROTOCOLS` — then the choice is speaking the new one by hand (per-request
+//!   `_meta`, its HTTP headers: small) or taking the SDK, weighed again;
+//! - a tool needs the server to ask the client something — elicitation,
+//!   sampling, tasks — which is a request in the other direction and a
+//!   different shape of server;
+//! - web MCP needs resumable streams or OAuth discovery (#533's later
+//!   issue), which is the transport the SDK exists to get right.
 //!
 //! ## Every tool is described, and that is a gate
 //!
