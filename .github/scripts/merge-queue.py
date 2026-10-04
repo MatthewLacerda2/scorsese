@@ -75,6 +75,15 @@ branch must not find it rewritten underneath. The push is
 so a push from anywhere else in the meantime refuses rather than being
 overwritten.
 
+**Dependabot's branch is never pushed to.** Dependabot stops maintaining a
+branch somebody else has pushed to, so a force-push from here would orphan the
+very pull request being merged. Dependabot rebases its own branch instead (and
+cancels its own runs as it does): a bot pull request that is not on `main`'s
+tip is asked to, with a [`BOT_REBASE`] comment, and the queue waits for a head
+that is ([`bot_head`]), then judges that head like any other. Ported from
+rusty's queue, where it has merged Dependabot's pull requests since 2026-09-30
+(#721).
+
 A merged branch's local worktree is *not* removed and the branch is *not*
 deleted: that is gigabytes and a checkout somebody may still be standing in,
 and the summary names them instead. Removing a worktree out from under an agent
@@ -191,6 +200,9 @@ DEADLINE_MINUTES = 40
 # generous for that and short beside the ten a run costs; past it the outcome
 # is *unknown*, which is handed back as unknown rather than as a refusal.
 MERGE_SETTLES_SECONDS = 60
+
+# The command Dependabot obeys to rebase its own branch onto `main`.
+BOT_REBASE = "@dependabot rebase"
 
 WAIT, GO, STOP, LATE = "wait", "go", "stop", "late"
 
@@ -515,7 +527,7 @@ def look(number: int) -> dict:
         "view",
         str(number),
         "--json",
-        "isDraft,headRefOid,headRefName,number,state,mergeable,mergeStateStatus",
+        "isDraft,headRefOid,headRefName,number,state,mergeable,mergeStateStatus,author",
     )
 
 
@@ -634,6 +646,47 @@ def advance(branch: str, head: str, root: str) -> tuple[str | None, list[str]]:
             git("worktree", "remove", "--force", work, cwd=root)
 
 
+def on_tip(sha: str, root: str) -> bool:
+    """Whether `sha` already contains `origin/main`'s tip (fetched by the caller).
+
+    The sha is fetched by itself first: a head Dependabot has just pushed is not
+    on any ref this checkout has fetched yet.
+    """
+    git("fetch", "--quiet", "origin", sha, cwd=root)
+    return git("merge-base", "--is-ancestor", "origin/main", sha, cwd=root).returncode == 0
+
+
+def bot_head(
+    number: int, head: str, root: str, opts: argparse.Namespace
+) -> tuple[str | None, list[str]]:
+    """Dependabot's own rebase, waited for: a head on `main`'s tip, or why not.
+
+    Never force-pushed from here (see the module doc). Asked once with
+    [`BOT_REBASE`], then polled until a new head on `main`'s tip appears or
+    `--deadline` runs out — the second is a hand-back, remembered by head like
+    any other, so the watch does not ask again until Dependabot pushes.
+    """
+    if on_tip(head, root):
+        return head, []
+    # Not `mergeable.gh`: if the comment fails, the wait below still answers.
+    subprocess.run(
+        ["gh", "pr", "comment", str(number), "--body", BOT_REBASE],
+        capture_output=True,
+        check=False,
+    )
+    began = time.monotonic()
+    while time.monotonic() - began < opts.deadline * 60:
+        time.sleep(opts.poll)
+        seen = look(number).get("headRefOid", "")
+        if seen != head and on_tip(seen, root):
+            return seen, []
+        say(f"#{number}: waiting for Dependabot to rebase {head[:7]}.")
+    return None, [
+        f"Dependabot did not rebase {head[:7]} onto `main` within"
+        f" {opts.deadline:.0f} minutes."
+    ]
+
+
 def wait_for(
     repo: str, number: int, sha: str, before: str, deadline: float, poll: float
 ) -> tuple[str, list[str]]:
@@ -692,10 +745,16 @@ def take(
         return number, HANDED_BACK, "it is a draft; mark it ready first."
 
     branch, head = pull["headRefName"], pull["headRefOid"]
-    say(f"#{number} ({branch}): rebasing {head[:7]} onto origin/main.")
     git("fetch", "origin", cwd=opts.root)
-
-    fresh, refused = advance(branch, head, opts.root)
+    # One `--deadline` covers the whole turn, Dependabot's rebase included, so
+    # a bot pull request cannot take two and break the watch's budget.
+    began = time.monotonic()
+    if watch.is_bot(pull):
+        say(f"#{number} ({branch}): Dependabot's branch; it rebases itself.")
+        fresh, refused = bot_head(number, head, opts.root, opts)
+    else:
+        say(f"#{number} ({branch}): rebasing {head[:7]} onto origin/main.")
+        fresh, refused = advance(branch, head, opts.root)
     if fresh is None:
         say(f"#{number}: {refused[0]}", *refused[1:])
         return number, HANDED_BACK, refused[0]
@@ -703,14 +762,13 @@ def take(
     if heads is not None:
         heads[number] = fresh
     if push_needed(head, fresh):
-        say(f"#{number}: pushed {fresh[:7]}; waiting for CI.")
+        say(f"#{number}: now at {fresh[:7]}; waiting for CI.")
     else:
         # The one sound skip — see `push_needed`.
         say(f"#{number}: already on `main`; the run on record is a run on it.")
 
-    state, lines = wait_for(
-        repo, number, fresh, head, opts.deadline * 60, opts.poll
-    )
+    left = opts.deadline * 60 - (time.monotonic() - began)
+    state, lines = wait_for(repo, number, fresh, head, left, opts.poll)
     say(f"#{number}: {lines[0]}", *lines[1:])
     if state == LATE:
         return number, UNFINISHED, lines[0]

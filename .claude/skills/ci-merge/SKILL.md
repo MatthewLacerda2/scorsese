@@ -98,7 +98,19 @@ same five steps (#690):
 - **Order is `CLAUDE.md`'s label priority, then age** — infrastructure,
   architecture, bug, foundation, feature, with documentation alongside the
   first. The type label is read from the pull request and from the issues it
-  closes, since it is usually the issue that carries it.
+  closes, since it is usually the issue that carries it. **Dependabot goes
+  after all of them**, whatever its labels say.
+- **Dependabot labels its own pull requests `queue`** (`.github/dependabot.yml`,
+  #721). That is the decision: they are monthly, grouped, semver-compatible
+  bumps (Cargo lockfile-only, majors ignored) with nothing in the diff to read
+  beyond what CI checks, so nobody labels them by hand, and the order above
+  keeps them from taking a turn from the batch. A bot pull request that is red
+  is handed back like any other: read why, and fix it on `main` or close it.
+  **Its branch is never force-pushed** — Dependabot stops maintaining a branch
+  somebody else pushed to — so the queue comments `@dependabot rebase` when it
+  is behind and waits for Dependabot's new head, within the same `--deadline`.
+  Don't push to a Dependabot branch by hand either; a change it needs is a
+  pull request of its own off `main`, after which Dependabot rebases.
 - **A hand-back stays out until its head changes.** The label stays on, and
   the watch skips the branch while it sits on the head it was handed back on.
   Pushing a fix (or a rebase) is the whole of re-queueing it.
@@ -113,8 +125,10 @@ same five steps (#690):
   and 3 still means GitHub stopped answering. A list run reports a run still
   out at its deadline the same way.
 
-The label lives in `.github/labels.json`; a new clone of the repository gets it
-from the *Sync labels* workflow (manual dispatch).
+The label lives in `.github/labels.json`, with `dependencies` beside it for
+Dependabot; a new clone of the repository gets both from the *Sync labels*
+workflow (manual dispatch). Dependabot silently drops a label the repository
+does not have, so a bot pull request without `queue` means the sync never ran.
 
 **A queue that loses the network says so, and says it is not a hand-back.**
 Every question the queue asks GitHub retries a failure in transit — a TLS

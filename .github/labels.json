@@ -48,5 +48,10 @@
     "name": "human",
     "color": "5319e7",
     "description": "AI can't do this end-to-end; needs a human in the loop."
+  },
+  {
+    "name": "dependencies",
+    "color": "0366d6",
+    "description": "A Dependabot bump (.github/dependabot.yml): semver-compatible, merges through the queue, last."
   }
 ]
