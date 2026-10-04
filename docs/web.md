@@ -669,7 +669,12 @@ local project, kept here:
 
 **Live state** reaches the browser over **`GET /api/events`**, server-sent
 events, one stream per user carrying everything live: each message is a JSON
-object with a `type` — `job`, and the assistant's (*Assistant turns*).
+object with a `type` — `job`, `job_progress`, and the assistant's (*Assistant
+turns*). `job_progress` (`id`, `progress`) is how far a running render or
+preview has got (#698): `{percent, phase, done, of}`, sampled from the
+renderer in memory at most twice a second and sent only when the percentage
+or the phase moved — never a row written per frame. A job read while it runs
+carries the same object as `progress`; any other job has `null`.
 In memory and allowed to drop: a reader that falls behind gets `resync`, and
 the answer to that, or to reconnecting, is to re-read `GET /api/jobs`. The
 stream ends when the server stops, and `EventSource` reconnects by itself.
@@ -1014,8 +1019,11 @@ while its render streams.
 | `GET /api/projects/{id}/renders` | a member | the project's kept renders, most recently used first |
 | `GET /api/renders/{id}/file` | a member | the file as an attachment, in HTTP ranges; counts as use |
 
-The job's progress arrives on `GET /api/events` like any job's; its result
-names the render and where to download it.
+The job's state arrives on `GET /api/events` like any job's, and how far it
+has got as `job_progress` while it runs — shown as a bar with the phase beside
+it, since the percentage counts frames and stands at 0 while the sound is
+mixed and at 99 while the file is finished. Its result names the render and
+where to download it.
 
 **Previews are renders, marked** (#542). `POST /api/projects/{id}/previews`
 `{resolution?, quality?}` asks for the cut at a **preview quality** — `full`,

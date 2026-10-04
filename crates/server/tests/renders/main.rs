@@ -12,6 +12,7 @@ mod cancelled;
 mod evict;
 mod job;
 mod previews;
+mod progress;
 mod request;
 mod settings;
 mod superseded;

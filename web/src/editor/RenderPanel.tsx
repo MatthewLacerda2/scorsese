@@ -11,6 +11,7 @@ import type { JobView } from "@/api/events";
 import { useServerEvents } from "@/app/events";
 import { Button } from "@/components/ui/button";
 import { formatBytes, formatDate } from "@/lib/format";
+import { folded, JobProgressBar } from "./JobProgressBar";
 import { SHAPES, type Shape } from "./shape";
 
 const JOB_WORDS: Record<string, string> = {
@@ -32,9 +33,11 @@ export function RenderPanel({ projectId, shape }: { projectId: number; shape: Sh
   const [error, setError] = useState<string | null>(null);
 
   useServerEvents((event) => {
-    if (event.type !== "job" || event.id !== job?.id) return;
-    setJob({ ...job, ...event });
-    if (event.state === "done") queryClient.invalidateQueries({ queryKey: key });
+    if (!job || (event.type !== "job" && event.type !== "job_progress") || event.id !== job.id)
+      return;
+    setJob(folded(job, event));
+    if (event.type === "job" && event.state === "done")
+      queryClient.invalidateQueries({ queryKey: key });
   });
 
   const render = async () => {
@@ -82,10 +85,13 @@ export function RenderPanel({ projectId, shape }: { projectId: number; shape: Sh
       </div>
       {job && (
         <div className="flex items-center gap-2">
-          <p className="flex-1 text-xs">
-            {JOB_WORDS[job.state] ?? job.state}
-            {job.error && job.state !== "cancelled" ? `: ${job.error}` : ""}
-          </p>
+          <div className="flex flex-1 flex-col gap-1">
+            <p className="text-xs">
+              {JOB_WORDS[job.state] ?? job.state}
+              {job.error && job.state !== "cancelled" ? `: ${job.error}` : ""}
+            </p>
+            <JobProgressBar job={job} />
+          </div>
           {working && (
             <Button size="sm" variant="ghost" onClick={stop}>
               <SquareIcon /> Stop

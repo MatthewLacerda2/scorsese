@@ -20,6 +20,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import type { ProjectDocument } from "@/api";
 import { Button } from "@/components/ui/button";
+import { JobProgressBar } from "../JobProgressBar";
 import { timecode, toFrames, toSeconds } from "../timeline/time";
 import { usePlayable, waiting } from "./playable";
 import { previewRaster, QUALITIES, type Quality, savedQuality, saveQuality } from "./quality";
@@ -126,6 +127,11 @@ export function Preview({ projectId, revision, document, playhead, onSeek, deliv
         </div>
       </div>
       {said && <p className="text-center text-xs text-muted-foreground">{said}</p>}
+      {playable.state === "preparing" && (
+        <div className="mx-auto w-full max-w-xs">
+          <JobProgressBar job={playable.job} />
+        </div>
+      )}
       <div className="flex items-center gap-1">
         <Button size="icon" variant="ghost" aria-label="To the start" onClick={() => seek(0)}>
           <SkipBackIcon />

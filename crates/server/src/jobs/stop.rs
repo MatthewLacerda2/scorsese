@@ -4,26 +4,38 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
-use scorsese_render::Cancel;
+use scorsese_render::{Cancel, Progress, Reading};
 use sqlx::postgres::PgPool;
 
 use super::{JobView, Queue, State, kinds, store};
 use crate::db::UserId;
 
-/// The flag of every job this process is running, by job id.
+/// The flag and the progress readout of every job this process is running,
+/// by job id.
 ///
 /// In memory, because what it answers — *is anybody still waiting for this
-/// render?* — is about this process: after a restart the job is waiting again
-/// and a cancel finds it in the table, not here.
+/// render, and how far has it got?* — is about this process: after a restart
+/// the job is waiting again and a cancel finds it in the table, not here.
 #[derive(Clone, Default)]
-pub(super) struct Running(Arc<Mutex<HashMap<i64, Cancel>>>);
+pub(super) struct Running(Arc<Mutex<HashMap<i64, (Cancel, Progress)>>>);
 
 impl Running {
     /// The flag for job `id`, made if nobody has asked for it yet. The worker
     /// asks as it starts the job, and a cancel that lands between the claim
     /// and that finds the same flag, already tripped.
     pub(super) fn flag(&self, id: i64) -> Cancel {
-        self.lock().entry(id).or_default().clone()
+        self.lock().entry(id).or_default().0.clone()
+    }
+
+    /// The progress readout for job `id`, made beside its flag if need be.
+    pub(super) fn progress(&self, id: i64) -> Progress {
+        self.lock().entry(id).or_default().1.clone()
+    }
+
+    /// How far job `id` has got, if this process is running it — without
+    /// making anything for a job it is not.
+    pub(super) fn reading(&self, id: i64) -> Option<Reading> {
+        self.lock().get(&id).map(|(_, progress)| progress.read())
     }
 
     /// Forget job `id`'s flag: it is no longer running.
@@ -34,13 +46,13 @@ impl Running {
     /// Trip every flag and forget them all — the worker is stopping, and what
     /// it ran will be recovered and run again with a fresh one.
     pub(super) fn stop_all(&self) {
-        for (_, cancel) in self.lock().drain() {
+        for (_, (cancel, _)) in self.lock().drain() {
             cancel.cancel();
         }
     }
 
     /// No code under the lock can panic, so a poisoned map is used as it is.
-    fn lock(&self) -> MutexGuard<'_, HashMap<i64, Cancel>> {
+    fn lock(&self) -> MutexGuard<'_, HashMap<i64, (Cancel, Progress)>> {
         self.0.lock().unwrap_or_else(PoisonError::into_inner)
     }
 }
@@ -91,5 +103,5 @@ pub async fn cancel(
         // Finished before the flag was made: nobody will forget it but us.
         queue.running().forget(id);
     }
-    Ok(now)
+    Ok(queue.progressed(now))
 }

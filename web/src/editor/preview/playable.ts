@@ -18,6 +18,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, type RenderView } from "@/api";
 import type { JobView } from "@/api/events";
 import { useServerEvents } from "@/app/events";
+import { folded } from "../JobProgressBar";
 import type { Quality } from "./quality";
 
 /** Where the preview video is, for the revision on screen. */
@@ -83,15 +84,19 @@ export function usePlayable(
   }, [wanted, ask]);
 
   useServerEvents((event) => {
-    if (event.type !== "job" || playable.state !== "preparing" || event.id !== playable.job.id)
+    if (playable.state !== "preparing" || !("id" in event) || event.id !== playable.job.id) return;
+    if (event.type === "job_progress") {
+      setHeld({ revision, playable: { state: "preparing", job: folded(playable.job, event) } });
       return;
+    }
+    if (event.type !== "job") return;
     // Done — or retired as superseded, or stopped by a newer preview: asking
     // again for the revision on screen answers correctly in every case.
     if (event.state === "done" || event.state === "cancelled") void ask();
     else if (event.state === "failed" || event.state === "stuck") {
       setHeld({ revision, playable: { state: "failed", why: event.error ?? "the render failed" } });
     } else
-      setHeld({ revision, playable: { state: "preparing", job: { ...playable.job, ...event } } });
+      setHeld({ revision, playable: { state: "preparing", job: folded(playable.job, event) } });
   });
 
   // Asked again now and then as well: the event stream does not pass every

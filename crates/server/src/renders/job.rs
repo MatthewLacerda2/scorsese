@@ -20,12 +20,17 @@
 //! cancel from its owner (#660) stops it within a frame, its ffmpeg children
 //! reaped and its unfinished file removed — `scorsese_render::Cancel`. What
 //! comes back is [`Outcome::Cancelled`], saying how far it got.
+//!
+//! **Progress.** Its [`Context::progress`] goes to the renderer beside the
+//! cancel, and the worker tells the owner how far it has got (#698).
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use scorsese_core::{GenerationState, Project};
-use scorsese_render::{Cancel, FrameRange, Preview, RenderError, RenderSettings, Renderer, Tools};
+use scorsese_render::{
+    Cancel, FrameRange, Preview, Progress, RenderError, RenderSettings, Renderer, Tools,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -114,6 +119,7 @@ async fn render(
         settings,
         preview: previewing,
         cancel: context.cancel().clone(),
+        progress: context.progress().clone(),
     };
     tokio::task::spawn_blocking(move || produce(&tools, &project, &at, &media, drawn, &written))
         .await
@@ -182,11 +188,13 @@ async fn render(
 
 /// What the file is drawn as: the settings, and — for a preview only — the
 /// quality and proxies. A finished render's `preview` is `None`, so it is
-/// rendered with no [`Preview`] and reads every original. `cancel` stops it.
+/// rendered with no [`Preview`] and reads every original. `cancel` stops it,
+/// and `progress` says how far it has got.
 struct Drawn {
     settings: RenderSettings,
     preview: Option<Preview>,
     cancel: Cancel,
+    progress: Progress,
 }
 
 /// Lay the project out at `at` and render it to `out`. Blocking: a render is
@@ -203,7 +211,9 @@ fn produce(
     let laid = materialise(project, &none, at, &|hash: &str| media.get(hash).cloned())
         .map_err(|error| format!("laying the project out: {error}"))?;
     unrenderable(project, &laid)?;
-    let renderer = Renderer::new(tools, drawn.settings).with_cancel(drawn.cancel);
+    let renderer = Renderer::new(tools, drawn.settings)
+        .with_cancel(drawn.cancel)
+        .with_progress(drawn.progress);
     let renderer = match drawn.preview {
         Some(preview) => renderer.with_preview(preview),
         None => renderer,

@@ -10,12 +10,18 @@ use super::auth::Member;
 use super::error::ApiError;
 use crate::jobs::{CancelError, JobView, store};
 
-/// `GET /api/jobs`: the caller's last hundred jobs, newest first.
+/// `GET /api/jobs`: the caller's last hundred jobs, newest first, a running
+/// render's progress folded in.
 pub async fn list(
     State(state): State<AppState>,
     member: Member,
 ) -> Result<Json<Vec<JobView>>, ApiError> {
-    Ok(Json(store::list(&state.pool, member.user).await?))
+    let jobs = store::list(&state.pool, member.user).await?;
+    Ok(Json(
+        jobs.into_iter()
+            .map(|job| state.jobs.progressed(job))
+            .collect(),
+    ))
 }
 
 /// `GET /api/jobs/{id}`: one of the caller's jobs. `404` for one that is not
@@ -27,7 +33,7 @@ pub async fn get(
 ) -> Result<Json<JobView>, ApiError> {
     store::get(&state.pool, member.user, id)
         .await?
-        .map(Json)
+        .map(|job| Json(state.jobs.progressed(job)))
         .ok_or(ApiError::NotFound)
 }
 

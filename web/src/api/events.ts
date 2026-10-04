@@ -8,6 +8,16 @@ import type { QuoteView, TurnView } from "./chat";
 /** Where a job is in its life — `jobs::State`. */
 export type JobState = "waiting" | "running" | "done" | "failed" | "stuck" | "cancelled";
 
+/** `jobs::ProgressView` — how far a running render or preview has got (#698). */
+export interface JobProgress {
+  /** 0–100, frames only: 0 while preparing or mixing, 99 while finishing, 100 once the file is there. */
+  percent: number;
+  phase: "preparing" | "mixing" | "drawing" | "finishing" | "done";
+  /** Frames encoded so far, of `of`; `of` is 0 until planned and for a sound-only render. */
+  done: number;
+  of: number;
+}
+
 /** `jobs::JobView` — a job as its owner sees it. Times are Unix seconds. */
 export interface JobView {
   id: number;
@@ -23,11 +33,15 @@ export interface JobView {
   started_at: number | null;
   finished_at: number | null;
   interrupted_at: number | null;
+  /** How far it has got, while a render or preview runs; otherwise null (or absent). */
+  progress?: JobProgress | null;
 }
 
 /** Every message on the stream. */
 export type ServerEvent =
   | ({ type: "job" } & JobView)
+  /** A running job of theirs got further: at most twice a second. */
+  | { type: "job_progress"; id: number; progress: JobProgress }
   /** One of their projects changed: re-read it if it is on screen. */
   | { type: "project"; id: number; revision: number }
   /** A turn started, was charged for a call, or ended, and the balance after. */

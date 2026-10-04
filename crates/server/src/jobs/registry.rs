@@ -4,7 +4,7 @@ use std::future::Future;
 use std::sync::Arc;
 
 use futures_util::future::BoxFuture;
-use scorsese_render::Cancel;
+use scorsese_render::{Cancel, Progress};
 use sqlx::postgres::PgPool;
 
 use super::{Job, Kind, Outcome, Queue, store};
@@ -75,16 +75,24 @@ pub struct Context {
     job: i64,
     user: UserId,
     cancel: Cancel,
+    progress: Progress,
 }
 
 impl Context {
-    pub(super) fn new(pool: PgPool, queue: Queue, job: &Job, cancel: Cancel) -> Self {
+    pub(super) fn new(
+        pool: PgPool,
+        queue: Queue,
+        job: &Job,
+        cancel: Cancel,
+        progress: Progress,
+    ) -> Self {
         Self {
             pool,
             queue,
             job: job.id,
             user: job.user,
             cancel,
+            progress,
         }
     }
 
@@ -94,6 +102,14 @@ impl Context {
     /// [`Outcome::Cancelled`] once it has stopped; any other may ignore it.
     pub fn cancel(&self) -> &Cancel {
         &self.cancel
+    }
+
+    /// Where the job's owner reads how far it has got (#698). A handler whose
+    /// work reports progress hands it over — `Renderer::with_progress` — and
+    /// the worker tells the owner as it moves; any other may ignore it, and
+    /// its job simply shows none.
+    pub fn progress(&self) -> &Progress {
+        &self.progress
     }
 
     /// The queue this job came from, to announce a job this one enqueued.

@@ -19,7 +19,7 @@ use serde_json::{Value, json};
 
 use super::super::surface::project_property;
 use super::super::{Caller, database, project_id};
-use crate::jobs::{CancelError, JobView, State, store as jobs};
+use crate::jobs::{CancelError, JobView, ProgressView, State, store as jobs};
 use crate::projects::ProjectError;
 use crate::renders::request::{AskError, Asked, ask};
 use crate::renders::{Ask, Settings};
@@ -76,8 +76,11 @@ pub(super) const JOBS: &str = "jobs";
 /// What the job listing does.
 pub(super) const JOBS_SAYS: &str = "Say where your long-running work is: renders and \
 generations, waiting, running, done — with what each made — failed with why, or stuck \
-waiting on a provider. Give a job id, as render and generate answer with, for that one job; \
-leave it out for your latest twenty. Read-only and free: call it as often as it takes.";
+waiting on a provider. A running render says how far it has got, as a percentage of its \
+frames and what it is doing (preparing, mixing the sound, drawing frames, finishing the \
+file), so \"how far is my render?\" has a number. Give a job id, as render and generate \
+answer with, for that one job; leave it out for your latest twenty. Read-only and free: call \
+it as often as it takes.";
 
 /// `jobs`' arguments.
 pub(super) fn jobs_schema() -> Value {
@@ -180,7 +183,7 @@ pub(super) async fn render(caller: &Caller<'_>, arguments: &Value) -> Result<Rep
 /// Where the caller's jobs are.
 pub(super) async fn jobs(caller: &Caller<'_>, arguments: &Value) -> Result<Reply, String> {
     let pool = &caller.toolbox.pool;
-    let listed = match arguments.get("job").and_then(Value::as_i64) {
+    let listed: Vec<JobView> = match arguments.get("job").and_then(Value::as_i64) {
         Some(id) => vec![
             jobs::get(pool, caller.user, id)
                 .await
@@ -196,17 +199,25 @@ pub(super) async fn jobs(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
     if listed.is_empty() {
         return Ok("You have no jobs yet.".into());
     }
+    let queue = &caller.toolbox.queue;
     Ok(listed
-        .iter()
-        .map(line)
+        .into_iter()
+        .map(|job| line(&queue.progressed(job)))
         .collect::<Vec<_>>()
         .join("\n")
         .into())
 }
 
-/// One job as a line.
+/// One job as a line: `job 12 (render): running — 42% (760 of 1800 frames)`.
+///
+/// The shape is the answer's contract (#698): `job {id} ({kind}): {state}`,
+/// then ` — ` and how far it has got while it runs, then ` — ` and what it made
+/// or why it did not.
 fn line(job: &JobView) -> String {
     let mut said = format!("job {} ({}): {}", job.id, job.kind, state(job));
+    if let Some(progress) = &job.progress {
+        said.push_str(&format!(" — {}", progressed(progress)));
+    }
     if let Some(result) = &job.result {
         said.push_str(&format!(" — {result}"));
     }
@@ -214,6 +225,21 @@ fn line(job: &JobView) -> String {
         said.push_str(&format!(" — {error}"));
     }
     said
+}
+
+/// How far a running job has got, in words. The phase is said wherever the
+/// frames say nothing, so 0% while mixing does not read as stuck.
+fn progressed(progress: &ProgressView) -> String {
+    let percent = progress.percent;
+    match progress.phase {
+        "drawing" if progress.of > 0 => {
+            format!("{percent}% ({} of {} frames)", progress.done, progress.of)
+        }
+        "preparing" => format!("{percent}%, preparing"),
+        "mixing" => format!("{percent}%, mixing the sound"),
+        "finishing" => format!("{percent}%, finishing the file"),
+        _ => format!("{percent}%"),
+    }
 }
 
 /// A job's state in words.
@@ -225,5 +251,54 @@ fn state(job: &JobView) -> &'static str {
         State::Failed => "failed",
         State::Stuck => "stuck waiting on the provider; its ticket is kept",
         State::Cancelled => "cancelled",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn running(progress: Option<ProgressView>) -> JobView {
+        JobView {
+            id: 12,
+            kind: "render".into(),
+            state: State::Running,
+            attempts: 1,
+            result: None,
+            error: None,
+            created_at: 0,
+            started_at: Some(1),
+            finished_at: None,
+            interrupted_at: None,
+            progress,
+        }
+    }
+
+    fn at(percent: u8, phase: &'static str, done: u64, of: u64) -> Option<ProgressView> {
+        Some(ProgressView {
+            percent,
+            phase,
+            done,
+            of,
+        })
+    }
+
+    #[test]
+    fn a_running_render_says_its_percentage_and_frames() {
+        assert_eq!(
+            line(&running(at(42, "drawing", 760, 1800))),
+            "job 12 (render): running — 42% (760 of 1800 frames)"
+        );
+        assert_eq!(line(&running(None)), "job 12 (render): running");
+    }
+
+    #[test]
+    fn the_phase_is_said_where_the_frames_say_nothing() {
+        let said = |progress| line(&running(progress));
+        assert!(said(at(0, "preparing", 0, 0)).ends_with("— 0%, preparing"));
+        assert!(said(at(0, "mixing", 0, 90)).ends_with("— 0%, mixing the sound"));
+        assert!(said(at(99, "finishing", 90, 90)).ends_with("— 99%, finishing the file"));
+        assert!(said(at(0, "drawing", 0, 0)).ends_with("— 0%"));
+        assert!(said(at(100, "done", 90, 90)).ends_with("— 100%"));
     }
 }

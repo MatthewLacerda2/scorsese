@@ -97,14 +97,19 @@
 //! ## Live state
 //!
 //! Every change of state is pushed to the owner over [`crate::events`], the
-//! stream the assistant (#540) reuses for its own events.
+//! stream the assistant (#540) reuses for its own events. So is how far a
+//! running render has got ([`ProgressView`], #698) — sampled in memory and
+//! throttled, never a row written per frame — and a job read while it runs
+//! carries it too ([`Queue::progressed`]).
 
 pub mod kinds;
+mod progress;
 mod registry;
 mod stop;
 pub mod store;
 mod worker;
 
+pub use progress::ProgressView;
 pub use registry::{Context, Handler, Registry};
 pub use stop::{CancelError, cancel};
 pub use worker::{Queue, work};
@@ -220,4 +225,8 @@ pub struct JobView {
     pub finished_at: Option<i64>,
     /// When a crash or restart last cut it off.
     pub interrupted_at: Option<i64>,
+    /// How far it has got, while it runs and only if its work says — a
+    /// render or a preview. Never stored: [`Queue::progressed`] folds it in.
+    #[sqlx(skip)]
+    pub progress: Option<ProgressView>,
 }
