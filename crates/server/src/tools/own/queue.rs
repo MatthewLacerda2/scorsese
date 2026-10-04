@@ -253,3 +253,52 @@ fn state(job: &JobView) -> &'static str {
         State::Cancelled => "cancelled",
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn running(progress: Option<ProgressView>) -> JobView {
+        JobView {
+            id: 12,
+            kind: "render".into(),
+            state: State::Running,
+            attempts: 1,
+            result: None,
+            error: None,
+            created_at: 0,
+            started_at: Some(1),
+            finished_at: None,
+            interrupted_at: None,
+            progress,
+        }
+    }
+
+    fn at(percent: u8, phase: &'static str, done: u64, of: u64) -> Option<ProgressView> {
+        Some(ProgressView {
+            percent,
+            phase,
+            done,
+            of,
+        })
+    }
+
+    #[test]
+    fn a_running_render_says_its_percentage_and_frames() {
+        assert_eq!(
+            line(&running(at(42, "drawing", 760, 1800))),
+            "job 12 (render): running — 42% (760 of 1800 frames)"
+        );
+        assert_eq!(line(&running(None)), "job 12 (render): running");
+    }
+
+    #[test]
+    fn the_phase_is_said_where_the_frames_say_nothing() {
+        let said = |progress| line(&running(progress));
+        assert!(said(at(0, "preparing", 0, 0)).ends_with("— 0%, preparing"));
+        assert!(said(at(0, "mixing", 0, 90)).ends_with("— 0%, mixing the sound"));
+        assert!(said(at(99, "finishing", 90, 90)).ends_with("— 99%, finishing the file"));
+        assert!(said(at(0, "drawing", 0, 0)).ends_with("— 0%"));
+        assert!(said(at(100, "done", 90, 90)).ends_with("— 100%"));
+    }
+}
