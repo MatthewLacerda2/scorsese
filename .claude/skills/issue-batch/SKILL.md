@@ -280,8 +280,8 @@ compile while a local agent is timing builds; it skews the numbers.
 
 **Every cloud brief carries** step 0 inline, then a pointer to
 [`cloud-brief.md`](cloud-brief.md) — the standing rules (foreground builds,
-`send_later`, the blocker check, ready means finished, the repo's traps, the
-PR protocol, "do not merge") live there, versioned with this skill — and only what is specific to
+the blocker check, ready means finished, the container, blessing, the repo's
+traps, the mutation signal, the PR protocol, "do not merge") live there, versioned with this skill — and only what is specific to
 its issue. `RemoteTrigger` echoes a prompt back several times, so standing text
 copied into each one fills the orchestrator's context (on rusty it reached 85%
 after ~45 launches, MatthewLacerda2/rusty#579); a change to the rules goes in
