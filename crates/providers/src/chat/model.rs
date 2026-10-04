@@ -90,6 +90,14 @@ impl Model {
 }
 
 impl Vendor {
+    /// Its name, as a record of model use stores it: `anthropic` or `google`.
+    pub const fn id(self) -> &'static str {
+        match self {
+            Self::Anthropic => "anthropic",
+            Self::Google => "google",
+        }
+    }
+
     /// The key it is reached with, from the one credentials resolver. Google's
     /// is the key Veo and the image models already spend.
     pub const fn provider(self) -> Provider {

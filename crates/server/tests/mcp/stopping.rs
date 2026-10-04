@@ -41,7 +41,13 @@ async fn a_call_cancelled_before_it_runs_changes_nothing(pool: PgPool) {
     let new_track = json!({ "project": id, "kind": "video" });
     let refused = state
         .tools
-        .call_cancellable(ana, Client::External, "track_new", &new_track, &cancel)
+        .call_cancellable(
+            ana,
+            Client::External { token: None },
+            "track_new",
+            &new_track,
+            &cancel,
+        )
         .await;
     assert!(refused.is_err_and(|why| why.contains("cancelled")));
     assert_eq!(document(&pool, ana, id).await.summary.revision, 1);

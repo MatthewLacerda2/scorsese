@@ -78,6 +78,7 @@ pub fn reply_of(response: Response) -> Result<Reply, claude::ClaudeError> {
         native,
         stop: response.stop,
         usage: response.usage,
+        thinking: None,
     })
 }
 

@@ -7,7 +7,7 @@
 //! and follows it on the event stream.
 
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use scorsese_providers::chat::{self, Chat, ChatError, Message, Model, Reply, Request, Stop};
 use serde_json::value::RawValue;
@@ -110,7 +110,7 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
             tools: tools.clone(),
             messages,
         };
-        let reply = ask(state, turn, request).await.map_err(|error| {
+        let (reply, latency) = ask(state, turn, request).await.map_err(|error| {
             eprintln!("scorsese-server: assistant: turn {}: {error}", turn.turn);
             format!("The assistant could not be reached: {error}")
         })?;
@@ -118,7 +118,8 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
             turn: turn.turn,
             project: turn.project,
             prompt: &turn.prompt,
-            model: turn.model.id(),
+            model: turn.model,
+            latency,
         };
         let (charged, now) = turns::charge(&state.pool, turn.user, &charge, &reply)
             .await
@@ -174,13 +175,19 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
 }
 
 /// Send `request`, retrying a failure worth retrying while nothing of the
-/// reply has reached the browser yet.
-async fn ask(state: &AppState, turn: &Running, request: Request) -> Result<Reply, ChatError> {
+/// reply has reached the browser yet. The reply, and how long the attempt
+/// that answered took.
+async fn ask(
+    state: &AppState,
+    turn: &Running,
+    request: Request,
+) -> Result<(Reply, Duration), ChatError> {
     let request = Arc::new(request);
     let mut waits = RETRY_AFTER.iter();
     loop {
         let (chat, request_) = (turn.chat.clone(), request.clone());
         let mut relay = Relay::new(state.events.clone(), turn.user, turn.turn);
+        let sent = Instant::now();
         let (reply, heard) = tokio::task::spawn_blocking(move || {
             let reply = chat.reply(&request_, &mut |piece| relay.hear(piece));
             relay.flush();
@@ -196,7 +203,7 @@ async fn ask(state: &AppState, turn: &Running, request: Request) -> Result<Reply
                 );
                 tokio::time::sleep(*wait).await;
             }
-            (reply, _) => return reply,
+            (reply, _) => return reply.map(|reply| (reply, sent.elapsed())),
         }
     }
 }

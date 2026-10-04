@@ -103,7 +103,13 @@ async fn a_token_issued_by_the_operator_is_the_users(pool: PgPool) {
         .await
         .unwrap();
     let token = output.lines().last().unwrap();
-    assert_eq!(tokens::find(&pool, token).await.unwrap(), Some(ana));
+    assert_eq!(
+        tokens::find(&pool, token)
+            .await
+            .unwrap()
+            .map(|(user, _)| user),
+        Some(ana)
+    );
 
     let nobody = operator::token(&pool, create("bia@example.com"))
         .await

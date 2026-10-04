@@ -123,6 +123,10 @@ pub struct Reply {
     pub stop: Stop,
     /// The tokens it was billed for.
     pub usage: Usage,
+    /// How many of `usage.output` were thinking, when the vendor says so
+    /// apart: Gemini does (`thoughtsTokenCount`), Anthropic's `usage` does not
+    /// — its output count includes the thinking, undivided — so `None` there.
+    pub thinking: Option<u64>,
 }
 
 impl Reply {

@@ -63,6 +63,7 @@ mod generate;
 mod log;
 mod own;
 mod quotes;
+mod size;
 mod stored;
 mod surface;
 

@@ -162,5 +162,6 @@ pub(crate) fn reply(part: Part, stop: Stop) -> Reply {
         native: RawValue::from_string("null".into()).expect("the test setup holds"),
         stop,
         usage: USAGE,
+        thinking: None,
     }
 }

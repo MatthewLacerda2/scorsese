@@ -1243,7 +1243,8 @@ ended and its words (not its pictures), with `client` `external` for web MCP,
 `assistant` for the built-in assistant, `user` for the user's own yes to a
 quote the assistant showed them, and `editor` for an edit made by hand in the
 web editor (*The editor*); `assistant` and `user` name their chat turn and their
-place in it. A paid generation's audit row names the call that asked for it,
+place in it. Each reply's estimated size in tokens, and an external call's
+client, are kept too (*Assistant turns*, *What is recorded*). A paid generation's audit row names the call that asked for it,
 so *prompt → turn → tool call → generation → credits* reads back whole.
 
 **Rate limit:** 120 tool calls a minute per user, the rest `429` with
@@ -1402,6 +1403,64 @@ After `resync`, or on reconnecting, re-read `GET /api/projects/{id}/chat`.
 
 Not here yet: compacting a conversation that outgrows the context window (a
 fresh conversation is the answer for now), and a per-user daily limit.
+
+### What is recorded
+
+How each model performs and what it costs is queryable straight from Postgres
+(#707) — recording only: nothing here is shown to a user, and there is no page
+for it. Each figure is written as a side effect of work that already writes a
+row, in the same transaction.
+
+- **`model_calls`** — one typed row per call the assistant made to a model,
+  the same shape on every vendor (`providers::chat::Usage`): `model`, `vendor`
+  (`anthropic`, `google`), `input_tokens` (full price — the cached part is not
+  here), `output_tokens` (thinking included, as both bill it),
+  `thinking_tokens` (the part of output that was thinking — Gemini reports it
+  apart as `thoughtsTokenCount`; Anthropic's usage does not, so `NULL` on
+  Claude), `cache_write_5m_tokens`, `cache_write_1h_tokens`,
+  `cache_read_tokens`, `latency_ms` (the answering attempt, streaming
+  included), `stop_reason`, `cost_micros` (at the vendor's rates, before the
+  markup), the turn and its `position` in it, and `credit_entry_id` — the
+  charge it caused. A table of its own rather than columns on the ledger,
+  which holds every kind of entry and is about money.
+- **`tool_calls.reply_tokens_estimate`** — what a tool's reply weighs as input
+  to the model's next call, which is where a tool is paid for. An estimate,
+  and named one: text at four bytes a token, a picture at width × height / 750
+  (Anthropic's figure, read from the PNG header). A vendor's own count would be
+  a round trip per call, and an external client's tokenizer is unknown.
+- **`tool_calls.client_name`, `client_version`, `api_token_id`** — for an
+  `external` call, the `clientInfo` the token's last MCP `initialize` named
+  (kept on `api_tokens`; web MCP has no sessions, so the token is the
+  connection). An external client's model and tokens are on its side; this is
+  what tells its use apart.
+
+Run them as the server's own login role (`psql` on its `DATABASE_URL`), which
+the row-level security policies do not scope to one user (`db::scope`):
+
+```sql
+-- Average tokens and latency per call, by model, over the last week.
+SELECT model, count(*) AS calls,
+       avg(input_tokens + cache_read_tokens)::bigint AS avg_input,
+       avg(output_tokens)::bigint AS avg_output,
+       avg(thinking_tokens)::bigint AS avg_thinking,
+       avg(latency_ms)::bigint AS avg_ms,
+       sum(cost_micros) / 1e6 AS cost_dollars
+FROM model_calls WHERE created_at > now() - interval '7 days'
+GROUP BY model ORDER BY calls DESC;
+
+-- Which tools are expensive: reply size, by tool and by who called it.
+SELECT tool, client, count(*) AS calls,
+       avg(reply_tokens_estimate)::bigint AS avg_reply_tokens,
+       sum(reply_tokens_estimate) AS total_reply_tokens
+FROM tool_calls WHERE finished_at IS NOT NULL
+GROUP BY tool, client ORDER BY total_reply_tokens DESC NULLS LAST;
+
+-- External use, by client.
+SELECT coalesce(client_name, '(no initialize)') AS client, client_version,
+       count(*) AS calls, count(DISTINCT user_id) AS users
+FROM tool_calls WHERE client = 'external'
+GROUP BY 1, 2 ORDER BY calls DESC;
+```
 
 ## The pages
 

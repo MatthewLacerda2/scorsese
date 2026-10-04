@@ -134,6 +134,7 @@ impl Assembler {
             message,
             native,
             stop,
+            thinking: Some(self.usage.thoughts_token_count),
             usage: priced(self.usage),
         })
     }

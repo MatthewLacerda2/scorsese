@@ -49,6 +49,11 @@
 //! their login to reach it. The OAuth flow the specification describes for
 //! remote servers is #533's later issue, and ends by issuing these tokens.
 //!
+//! The token is also what stands for a connection: the `clientInfo` an
+//! `initialize` names is kept on it, and each of its tool calls is recorded
+//! with it (#707) — the client's model and tokens are on its side, so its
+//! name and version are what tells external use apart.
+//!
 //! ## How often: a limit per user
 //!
 //! [`Limits`]: at most so many tool calls a minute per user, the rest `429`
@@ -74,6 +79,7 @@ use serde_json::{Value, json};
 use super::AppState;
 use super::auth::{Member, Via};
 use super::error::ApiError;
+use crate::accounts::tokens;
 use crate::db::UserId;
 use crate::tools::Client;
 
@@ -90,11 +96,11 @@ pub async fn post(
     headers: HeaderMap,
     body: Bytes,
 ) -> Result<Response, ApiError> {
-    if !matches!(member.via, Via::Token) {
+    let Via::Token(token) = member.via else {
         return Err(ApiError::Forbidden(
             "web MCP takes an API token (Authorization: Bearer scor_…), not a browser session",
         ));
-    }
+    };
     if let Some(version) = headers.get(VERSION_HEADER) {
         let version = version.to_str().unwrap_or_default();
         if !PROTOCOLS.contains(&version) {
@@ -130,7 +136,7 @@ pub async fn post(
 
     let mut replies = Vec::new();
     for message in messages {
-        if let Some(reply) = answer(&state, member.user, message).await {
+        if let Some(reply) = answer(&state, member.user, token, message).await {
             replies.push(reply);
         }
     }
@@ -156,11 +162,15 @@ pub async fn refuse() -> Response {
 }
 
 /// One message's reply, or `None` for a notification or a cancelled call.
-async fn answer(state: &AppState, user: UserId, message: Value) -> Option<Value> {
+/// `token` is the API token it came in on.
+async fn answer(state: &AppState, user: UserId, token: i64, message: Value) -> Option<Value> {
     if message.get("method") == Some(&json!("notifications/cancelled"))
         && let Some(id) = message.pointer("/params/requestId")
     {
         state.in_flight.cancel(user, id);
+    }
+    if message.get("method") == Some(&json!("initialize")) {
+        introduce(state, user, token, &message).await;
     }
     let id = message.get("id").cloned().unwrap_or(Value::Null);
     match protocol::handle(message, || state.tools.listing()) {
@@ -173,7 +183,7 @@ async fn answer(state: &AppState, user: UserId, message: Value) -> Option<Value>
                 .tools
                 .call_cancellable(
                     user,
-                    Client::External,
+                    Client::External { token: Some(token) },
                     &call.name,
                     &call.arguments,
                     &flight.cancel,
@@ -184,6 +194,23 @@ async fn answer(state: &AppState, user: UserId, message: Value) -> Option<Value>
             }
             Some(call.answer(outcome))
         }
+    }
+}
+
+/// Remember the `clientInfo` an `initialize` names on the token it came in
+/// on, which its tool calls are then recorded with (#707). Web MCP keeps no
+/// sessions, so the token is the connection. A failure to record is logged:
+/// the handshake is owed its answer either way.
+async fn introduce(state: &AppState, user: UserId, token: i64, message: &Value) {
+    let info = |key: &str| {
+        message
+            .pointer(&format!("/params/clientInfo/{key}"))
+            .and_then(Value::as_str)
+    };
+    if let Err(error) =
+        tokens::introduce(&state.pool, user, token, info("name"), info("version")).await
+    {
+        eprintln!("scorsese-server: could not record token {token}'s MCP client: {error}");
     }
 }
 

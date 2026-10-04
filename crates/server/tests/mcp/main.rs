@@ -5,6 +5,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod clients;
 mod described;
 mod designing;
 mod drawing;

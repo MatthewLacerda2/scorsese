@@ -36,7 +36,7 @@ pub async fn issue(
     member: Member,
     Json(new): Json<NewToken>,
 ) -> Result<(StatusCode, Json<Issued>), ApiError> {
-    if matches!(member.via, Via::Token) {
+    if matches!(member.via, Via::Token(_)) {
         return Err(ApiError::Forbidden(
             "an API token cannot issue tokens; log in to the web app to make one",
         ));

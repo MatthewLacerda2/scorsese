@@ -1,9 +1,11 @@
 //! `chat_sessions`, `chat_turns`, and the turn-linked rows of `tool_calls`:
 //! what the assistant said and did, as its owner reads it back.
 //!
-//! Reads here, writes in [`turns`]. Every query runs scoped to the user it is
+//! Reads here, writes in [`turns`] — and in `calls`, which records each call
+//! to the model as a typed `model_calls` row (#707) and is never read back. Every query runs scoped to the user it is
 //! for, so row-level security is the owner filter.
 
+mod calls;
 pub(super) mod turns;
 
 use serde::{Deserialize, Serialize};
