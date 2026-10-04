@@ -130,3 +130,23 @@ fn ending_the_session_stops_every_render_and_waits_for_it() {
         "stopped, and over"
     );
 }
+
+#[test]
+fn each_phase_is_said_in_its_own_words() {
+    use scorsese_render::{Phase, Reading};
+    let at = |phase, done, of| super::doing(Reading { phase, done, of });
+    assert_eq!(at(Phase::Waiting, 0, 0), "starting");
+    assert!(at(Phase::Preparing, 0, 0).starts_with("preparing"));
+    assert_eq!(at(Phase::Mixing, 0, 90), "mixing the sound");
+    assert_eq!(at(Phase::Drawing, 12, 90), "drawing frame 12 of 90");
+    assert_eq!(
+        at(Phase::Finishing, 90, 90),
+        "finishing the file: every frame is in"
+    );
+    assert_eq!(
+        at(Phase::Finishing, 0, 0),
+        "encoding the sound",
+        "sound only"
+    );
+    assert_eq!(at(Phase::Done, 90, 90), "done");
+}
