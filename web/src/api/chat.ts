@@ -60,6 +60,9 @@ export interface ModelChoice {
   unavailable: string | null;
   /** How long after the last answer a switch away from it can still miss a warm cache. */
   cache_seconds: number;
+  /** How dear it is beside the others, as a percentage of the dearest (1–100): the
+   * picker's cost bar. `null` when the server has no price for it. */
+  cost: number | null;
 }
 
 /** `assistant::Conversation` — the project's newest conversation, oldest turn first. */

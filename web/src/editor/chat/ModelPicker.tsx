@@ -2,7 +2,8 @@
 // panel, written to the project on the server. A change while the
 // conversation's cache may still be warm asks first (`switching.ts`). A model
 // the server cannot reach is still listed, marked, with the server's own
-// reason under the picker when it is the one chosen — never hidden.
+// reason under the picker when it is the one chosen — never hidden. Each model
+// carries a green-to-red bar for how dear it is beside the others (#706).
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -23,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { colour, describe, position } from "./cost";
 import { SWITCH_WARNING, warnsBeforeSwitching } from "./switching";
 import { problem } from "./transcript";
 
@@ -61,6 +63,7 @@ export function ModelPicker({ projectId, model, models, turns }: Props) {
           {models.map((choice) => (
             <SelectItem key={choice.id} value={choice.id}>
               {choice.label}
+              {choice.cost !== null && <CostBar cost={choice.cost} models={models} />}
               {choice.unavailable !== null && (
                 <span className="text-muted-foreground"> · unavailable</span>
               )}
@@ -90,5 +93,23 @@ export function ModelPicker({ projectId, model, models, turns }: Props) {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/** How dear a model is beside the others: a bar, never a price. */
+function CostBar({ cost, models }: { cost: number; models: ModelChoice[] }) {
+  const at = position(cost, models);
+  return (
+    <span
+      role="img"
+      aria-label={`Cost: ${describe(at)}`}
+      title={describe(at)}
+      className="ml-auto h-1.5 w-12 shrink-0 overflow-hidden rounded-full bg-muted"
+    >
+      <span
+        className="block h-full rounded-full"
+        style={{ width: `${cost}%`, backgroundColor: colour(at) }}
+      />
+    </span>
   );
 }

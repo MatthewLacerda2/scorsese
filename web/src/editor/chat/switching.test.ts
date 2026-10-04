@@ -8,6 +8,7 @@ const flash: ModelChoice = {
   vendor: "google",
   unavailable: null,
   cache_seconds: 3600,
+  cost: 19,
 };
 
 function turn(finished_at: number | null): TurnView {
