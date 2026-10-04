@@ -83,6 +83,7 @@
 //! moving it.
 
 mod calls;
+mod cost;
 mod model;
 mod prompt;
 mod quote;

@@ -7,9 +7,10 @@
 //! (the module doc of [`super`]).
 
 use scorsese_providers::chat::{Model, Vendor};
+use scorsese_providers::prices;
 use serde::Serialize;
 
-use super::{Assistant, AssistantError};
+use super::{Assistant, AssistantError, cost};
 use crate::db::{self, Tx, UserId};
 use crate::http::AppState;
 
@@ -28,13 +29,21 @@ pub struct Choice {
     /// How long, in seconds after the last answer, a switch away from it can
     /// still miss a warm cache: what the switch warning waits out.
     pub cache_seconds: u64,
+    /// How dear it is beside the others, as a percentage of the dearest
+    /// (1–100): the length of the picker's bar (`assistant::cost`). `null` for
+    /// a model the rate table has no price for.
+    pub cost: Option<u8>,
 }
 
 /// Every model offered, in the picker's order, as `assistant` can reach them.
 pub(super) fn choices(assistant: &Assistant) -> Vec<Choice> {
+    // Today's rates (#718): a dated row moves the bars the day it starts.
+    let today = prices::Checked::today();
+    let costs = cost::relative(&Model::ALL, |model| prices::chat::rate(model, today));
     Model::ALL
         .into_iter()
-        .map(|model| Choice {
+        .zip(costs)
+        .map(|(model, cost)| Choice {
             id: model.id(),
             label: model.label(),
             vendor: match model.vendor() {
@@ -47,6 +56,7 @@ pub(super) fn choices(assistant: &Assistant) -> Vec<Choice> {
                 assistant.chat(model).err().map(|error| error.to_string())
             },
             cache_seconds: model.cache_lifetime().as_secs(),
+            cost,
         })
         .collect()
 }

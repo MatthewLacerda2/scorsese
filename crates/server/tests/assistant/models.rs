@@ -62,6 +62,14 @@ async fn a_new_project_runs_on_gemini_and_is_charged_at_its_rates(pool: PgPool) 
     );
     assert_eq!(before["models"][0]["cache_seconds"], 3_600);
     assert_eq!(before["models"][0]["unavailable"], Value::Null);
+    // The bar's length: Opus is the dearest, Flash about a fifth of it (#706).
+    let costs: Vec<&Value> = before["models"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|m| &m["cost"])
+        .collect();
+    assert_eq!(costs, [&json!(19), &json!(9), &json!(100), &json!(50)]);
 
     let detail = exchange(address, &who, id, "what is in it?").await;
     assert_eq!(detail["turn"]["model"], "gemini-3.8-flash");

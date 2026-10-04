@@ -1364,9 +1364,17 @@ models causes a cache miss on the next prompt*, Switch or Cancel. An empty
 conversation, or one whose last answer is older than that, switches at once.
 The age is the server's `finished_at`, so the check survives a reload.
 
+**Each model in the dropdown carries a cost bar** (#706), green at the cheapest
+to red at the dearest, never a price. Its length is the server's `cost`: the
+model's rates blended at nine input tokens to one output token (assistant turns
+are input-heavy — every tool reply goes back in as input), as a percentage of
+the dearest model's blend (`crates/server/src/assistant/cost.rs`). The server
+computes it so the rate table stays the one source of every number. The mix is
+fixed until measured usage (#707) says otherwise.
+
 | route | who | what |
 | --- | --- | --- |
-| `GET /api/projects/{id}/chat` | a member | `{project, session, turns, model, models}`: the newest conversation's turns, oldest first; the project's model; every model offered as `{id, label, vendor, unavailable, cache_seconds}` |
+| `GET /api/projects/{id}/chat` | a member | `{project, session, turns, model, models}`: the newest conversation's turns, oldest first; the project's model; every model offered as `{id, label, vendor, unavailable, cache_seconds, cost}` |
 | `PUT /api/projects/{id}/chat/model` | a member | `{model}` → the model as listed; from the next turn the project runs on it. `400` for a model not offered |
 | `POST /api/projects/{id}/chat` | a member | `{prompt, fresh?}` → `202` with the turn; `402` no credit, `409` a turn is running, `503` not configured |
 | `GET /api/chat/turns/{id}` | a member | `{turn, tools}`: the turn and the log of every tool call it made, in order |
