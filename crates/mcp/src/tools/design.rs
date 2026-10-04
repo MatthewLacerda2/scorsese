@@ -23,19 +23,65 @@
 //! The audition itself is not here. Three samples to play is a window's job;
 //! this answers with where they are, so anything that can play a file can.
 
+use schemars::JsonSchema;
 use scorsese_providers::credentials::{Budget, Provider, Settings, resolve};
 use scorsese_providers::spending;
 use scorsese_providers::voices::design::{
     Brief, DesignError, Designing, ElevenLabsStudio, Kept, LEDGER_FILE, PASSAGE, PROMPT, design,
     designed, keep, quote,
 };
+use serde::Deserialize;
 use serde_json::Value;
 
+use crate::tools::args::{self, ProjectDir};
+use crate::tools::confirm::{self, Token};
 use crate::tools::inspect::load;
-use crate::tools::{Costs, Reply, Tool, confirm, project_dir, project_property};
+use crate::tools::{Costs, Reply, Tool};
 
 /// Designing a voice from a description.
 pub(crate) struct VoiceDesign;
+
+/// What `voice_design` takes.
+#[derive(Deserialize, JsonSchema)]
+struct Arguments {
+    project: ProjectDir,
+    #[schemars(description = format!(
+        "What the voice should be like, in a sentence: age, accent, pace, warmth, what it \
+         sounds like it is for. Between {} and {} characters. Describe a kind of person, \
+         never a named one — this designs a voice, it does not imitate anybody.",
+        PROMPT.start(), PROMPT.end()
+    ))]
+    prompt: Option<String>,
+    #[schemars(description = format!(
+        "What the three candidates read aloud, between {} and {} characters. The only \
+         thing this call is billed for, so a longer passage is a better audition and a \
+         dearer one. Use a line the video would actually need — a voice judged on the \
+         wrong words is judged wrongly.",
+        PASSAGE.start(), PASSAGE.end()
+    ))]
+    text: Option<String>,
+    /// Ask for the same candidates again, as far as the vendor manages it —
+    /// best-effort, not a guarantee. Worth passing: it is recorded beside the
+    /// voice and is half of what makes a lost one worth attempting again.
+    seed: Option<u32>,
+    /// How literally the candidates follow the description. Higher is more
+    /// literal and less varied. Left out, the vendor chooses.
+    guidance: Option<f64>,
+    confirm: Option<Token>,
+    /// A candidate id from a design in this project. Turns it into a real voice
+    /// with a voice_id a narration can name. Costs nothing further. Requires
+    /// name.
+    keep: Option<String>,
+    /// What to call the kept voice. The only name it will be recognisable by in
+    /// the user's ElevenLabs account, so it should say what the voice is for.
+    name: Option<String>,
+    /// Read back every voice this project has designed, with the description
+    /// and seed that made each one. Touches no network and spends nothing.
+    #[serde(default)]
+    list: bool,
+}
+
+impl args::Arguments for Arguments {}
 
 impl Tool for VoiceDesign {
     fn name(&self) -> &'static str {
@@ -65,98 +111,41 @@ impl Tool for VoiceDesign {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "prompt": {
-                    "type": "string",
-                    "description": format!(
-                        "What the voice should be like, in a sentence: age, accent, pace, \
-                         warmth, what it sounds like it is for. Between {} and {} \
-                         characters. Describe a kind of person, never a named one — this \
-                         designs a voice, it does not imitate anybody.",
-                        PROMPT.start(), PROMPT.end()
-                    )
-                },
-                "text": {
-                    "type": "string",
-                    "description": format!(
-                        "What the three candidates read aloud, between {} and {} \
-                         characters. The only thing this call is billed for, so a longer \
-                         passage is a better audition and a dearer one. Use a line the \
-                         video would actually need — a voice judged on the wrong words is \
-                         judged wrongly.",
-                        PASSAGE.start(), PASSAGE.end()
-                    )
-                },
-                "seed": {
-                    "type": "integer",
-                    "description": "Ask for the same candidates again, as far as the vendor \
-                                    manages it — best-effort, not a guarantee. Worth passing: \
-                                    it is recorded beside the voice and is half of what makes \
-                                    a lost one worth attempting again."
-                },
-                "guidance": {
-                    "type": "number",
-                    "description": "How literally the candidates follow the description. \
-                                    Higher is more literal and less varied. Left out, the \
-                                    vendor chooses."
-                },
-                "confirm": confirm::property(),
-                "keep": {
-                    "type": "string",
-                    "description": "A candidate id from a design in this project. Turns it \
-                                    into a real voice with a voice_id a narration can name. \
-                                    Costs nothing further. Requires name."
-                },
-                "name": {
-                    "type": "string",
-                    "description": "What to call the kept voice. The only name it will be \
-                                    recognisable by in the user's ElevenLabs account, so it \
-                                    should say what the voice is for."
-                },
-                "list": {
-                    "type": "boolean",
-                    "description": "Read back every voice this project has designed, with the \
-                                    description and seed that made each one. Touches no \
-                                    network and spends nothing."
-                }
-            },
-            "required": ["project"]
-        })
+        args::schema::<Arguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
+        let arguments: Arguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
         // Loaded before anything else because everything this writes lands
         // inside the project, and writing into a directory that is not one
         // would scatter samples wherever the client happened to point.
-        let project = load(&dir)?;
+        let project = load(dir)?;
 
-        if flag(arguments, "list") {
-            return Ok(ledger(&dir).into());
+        if arguments.list {
+            return Ok(ledger(dir).into());
         }
-        if let Some(chosen) = text(arguments, "keep") {
-            let name = text(arguments, "name").ok_or_else(|| {
+        if let Some(chosen) = args::given(arguments.keep.as_deref()) {
+            let name = args::given(arguments.name.as_deref()).ok_or_else(|| {
                 String::from(
                     "keep needs a name: it is what the voice will be called in the user's \
                      ElevenLabs account, and the only thing it is recognisable by there.",
                 )
             })?;
-            return kept(&dir, &chosen, &name);
+            return kept(dir, chosen, name);
         }
 
         let brief = Brief::new(
-            &text(arguments, "prompt").unwrap_or_default(),
-            &text(arguments, "text").unwrap_or_default(),
-            number(arguments, "seed")?,
-            arguments.get("guidance").and_then(Value::as_f64),
+            args::given(arguments.prompt.as_deref()).unwrap_or_default(),
+            args::given(arguments.text.as_deref()).unwrap_or_default(),
+            arguments.seed,
+            arguments.guidance,
         )
         .map_err(say)?;
 
-        let quoted = quote(&dir, &brief).map_err(|error| format!("{error}"))?;
-        if let Some(asking) = confirm::gate(&dir, arguments, &quoted, self.name())? {
+        let quoted = quote(dir, &brief).map_err(|error| format!("{error}"))?;
+        if let Some(asking) = confirm::gate(dir, arguments.confirm.as_ref(), &quoted, self.name())?
+        {
             return Ok(asking);
         }
 
@@ -164,9 +153,9 @@ impl Tool for VoiceDesign {
         let studio = ElevenLabsStudio::new(&key.secret);
         let budget = Budget::from_settings(
             &Settings::load().unwrap_or_default(),
-            spending::so_far(&project, &dir).total(),
+            spending::so_far(&project, dir).total(),
         );
-        Ok(said(&design(&dir, &studio, &brief, budget).map_err(say)?).into())
+        Ok(said(&design(dir, &studio, &brief, budget).map_err(say)?).into())
     }
 }
 
@@ -259,34 +248,4 @@ fn ledger(dir: &std::path::Path) -> String {
 /// useful one.
 fn say(error: DesignError) -> String {
     format!("{error}")
-}
-
-/// A string argument, blank counting as absent.
-fn text(arguments: &Value, name: &str) -> Option<String> {
-    arguments
-        .get(name)
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned)
-}
-
-/// An integer argument, refused rather than rounded when it is not one.
-fn number(arguments: &Value, name: &str) -> Result<Option<u32>, String> {
-    match arguments.get(name) {
-        None | Some(Value::Null) => Ok(None),
-        Some(value) => value
-            .as_u64()
-            .and_then(|value| u32::try_from(value).ok())
-            .map(Some)
-            .ok_or_else(|| format!("{name}: {value} is not a whole number a seed can be")),
-    }
-}
-
-/// A boolean argument, absent meaning false.
-fn flag(arguments: &Value, name: &str) -> bool {
-    arguments
-        .get(name)
-        .and_then(Value::as_bool)
-        .unwrap_or(false)
 }

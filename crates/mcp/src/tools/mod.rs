@@ -13,6 +13,7 @@
 //! or run two conversations against one project without a server-side notion
 //! of "the open project" going stale behind its back.
 
+mod args;
 mod authoring;
 mod confirm;
 mod create;

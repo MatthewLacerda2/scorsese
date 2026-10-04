@@ -15,8 +15,10 @@ path = "src/main.rs"
 
 [dependencies]
 base64.workspace = true
+schemars = "1.2.2"
 scorsese-core = { version = "0.1.0", path = "../core" }
 scorsese-providers = { version = "0.1.0", path = "../providers" }
 scorsese-render = { version = "0.1.0", path = "../render" }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
+serde_path_to_error = "0.1.20"

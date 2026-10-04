@@ -13,28 +13,43 @@
 //! tool: a client that learned the one-step habit against this server would
 //! spend without asking the day it was pointed at the hosted one.
 
+use std::borrow::Cow;
 use std::path::Path;
 
+use schemars::{JsonSchema, Schema, SchemaGenerator};
 use scorsese_core::Timestamp;
 use scorsese_providers::prices::dollars;
 use scorsese_providers::quote::{LIFETIME_SECONDS, ProjectQuotes, Quote, issue, redeem};
-use serde_json::Value;
+use serde::Deserialize;
 
 use super::Reply;
 
-/// The name of the argument that carries a token back.
-pub(crate) const CONFIRM: &str = "confirm";
+/// The `confirm` argument: a token from this tool's own quote, handed back.
+///
+/// Its own type so that every paid tool describes it the same way — a field of
+/// this type carries no doc comment of its own.
+#[derive(Deserialize)]
+pub(crate) struct Token(String);
 
-/// The `confirm` property, described the same way on every paid tool.
-pub(crate) fn property() -> Value {
-    serde_json::json!({
-        "type": "string",
-        "description": "The token from this tool's own quote. Leave it out to be quoted — \
-                        nothing is sent and no key is needed. Pass it back, after whoever \
-                        is paying has agreed to the quoted price, to spend exactly what was \
-                        quoted. Good once, for fifteen minutes; if a brief changes in \
-                        between, the call is refused and a new quote is needed."
-    })
+impl JsonSchema for Token {
+    fn inline_schema() -> bool {
+        true
+    }
+
+    fn schema_name() -> Cow<'static, str> {
+        "Token".into()
+    }
+
+    fn json_schema(_: &mut SchemaGenerator) -> Schema {
+        schemars::json_schema!({
+            "type": "string",
+            "description": "The token from this tool's own quote. Leave it out to be quoted — \
+                            nothing is sent and no key is needed. Pass it back, after whoever \
+                            is paying has agreed to the quoted price, to spend exactly what was \
+                            quoted. Good once, for fifteen minutes; if a brief changes in \
+                            between, the call is refused and a new quote is needed."
+        })
+    }
 }
 
 /// Permission to spend, or the reply that asks for it.
@@ -45,7 +60,7 @@ pub(crate) fn property() -> Value {
 /// spent there either, and the sentence says what to do.
 pub(crate) fn gate(
     dir: &Path,
-    arguments: &Value,
+    confirm: Option<&Token>,
     quote: &Quote,
     tool: &str,
 ) -> Result<Option<Reply>, String> {
@@ -54,7 +69,7 @@ pub(crate) fn gate(
     }
     let store = ProjectQuotes::new(dir);
     let now = Timestamp::unix_now().ok_or("the system clock is before 1970")?;
-    if let Some(token) = arguments.get(CONFIRM).and_then(Value::as_str) {
+    if let Some(Token(token)) = confirm {
         redeem(&store, token.trim(), quote, now).map_err(|refused| format!("{refused}"))?;
         return Ok(None);
     }
