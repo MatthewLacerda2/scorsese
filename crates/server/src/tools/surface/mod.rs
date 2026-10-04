@@ -123,6 +123,8 @@ const REPLACED: &[&str] = &[
     "project_new",
     "import",
     "render",
+    "jobs",
+    "job_cancel",
     "generate",
     "voice_design",
 ];

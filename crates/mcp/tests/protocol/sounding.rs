@@ -71,7 +71,10 @@ fn streams(file: &Path) -> Vec<String> {
 fn a_soundtrack_is_delivered_alone_and_says_it_was_turned_down() {
     let dir = overshooting("sound-m4a");
     let out = dir.join("score.m4a");
-    let (text, failed) = said(&call("render", json!({ "project": dir, "out": out })));
+    let (text, failed) = said(&call(
+        "render",
+        json!({ "project": dir, "out": out, "wait": true }),
+    ));
     let found = streams(&out);
     std::fs::remove_dir_all(&dir).ok();
 

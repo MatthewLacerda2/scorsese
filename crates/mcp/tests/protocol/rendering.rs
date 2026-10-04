@@ -15,7 +15,7 @@ const SMALL: &str = "160x90";
 fn rendered(label: &str, range: Option<&str>) -> String {
     let dir = project(label);
     let mut arguments = json!({
-        "project": dir, "out": dir.join("cut.mp4"), "resolution": SMALL
+        "project": dir, "out": dir.join("cut.mp4"), "resolution": SMALL, "wait": true
     });
     if let Some(range) = range {
         arguments["range"] = json!(range);
@@ -59,7 +59,7 @@ fn without_a_range_the_whole_timeline_is_rendered() {
     std::fs::write(dir.join("project.json"), document).expect("write the shortened project");
     let (text, failed) = said(&call(
         "render",
-        json!({ "project": dir, "out": dir.join("cut.mp4"), "resolution": SMALL }),
+        json!({ "project": dir, "out": dir.join("cut.mp4"), "resolution": SMALL, "wait": true }),
     ));
     assert!(!failed, "render refused: {text}");
     assert!(text.contains("2 frames"), "got {text}");

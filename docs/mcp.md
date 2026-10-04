@@ -125,6 +125,8 @@ the tools relate to each other, which is knowledge no single tool has.
 | `rebrief` | Change what a generated asset is to be made from, and mark it stale in the same write. | nothing |
 | `generate` | Realise the sketched briefs — the one tool here that costs money, and it quotes before it spends. | money, at a provider |
 | `render` | Render the timeline to a video file, or to a sound file of its mix alone. | ffmpeg, and real time |
+| `jobs` | Say how far your renders of a project have got, and what each one made. | nothing |
+| `job_cancel` | Stop one of your renders: a running one stops within a frame and keeps no file — the partial one is removed. | nothing |
 | `still` | Look at the edit. | ffmpeg, and seconds |
 | `look` | Look at the footage itself, not the edit. | ffmpeg |
 | `hear` | See what a sound file looks like: its waveform, drawn as one picture, with the level and the length written on it. | ffmpeg |
@@ -1403,15 +1405,78 @@ It is there because checking one ten-second cue in a sixty-second cut should
 cost ten seconds of encoding rather than sixty. The parser is the CLI's own, so
 a range either client refuses is refused by both, with the same words.
 
+## Following a render
+
+`render` runs in the background (#700). It checks everything it can refuse —
+the file's shape, the range, the project, ffmpeg — and then answers at once
+with a job id, while the render carries on on a thread of its own:
+
+```
+render      { "project": "trilhas.scor", "out": "cut.mp4" }
+  → Rendering cut.mp4 as job 1, running. Call jobs with job: 1 to see how far it has got; …
+jobs        { "project": "trilhas.scor", "job": 1 }
+  → job 1 (render): running, 63% — drawing frame 1190 of 1890, writing cut.mp4
+jobs        { "project": "trilhas.scor", "job": 1 }
+  → job 1 (render): done — wrote cut.mp4 — 1890 frames …, as mp4 (h264 + aac)
+job_cancel  { "project": "trilhas.scor", "job": 1 }
+```
+
+So an assistant can tell the person waiting how far it has got, and keep
+editing while it runs. The names, the `job` argument and the line each job is
+described in are the hosted server's own `jobs` and `job_cancel`, so a habit
+learned on one surface works on the other; here both take `project`, as every
+tool on this server does, and answer about that project's renders. Leaving
+`job` out lists the latest twenty. A finished job's line carries what `render`
+used to answer with — the path written and how loud it came out — so nothing is
+lost by not waiting.
+
+**Read the words beside the number.** The percentage counts frames, the only
+stage whose length is known in advance: it sits at `0` while the media is
+probed and the sound mixed, and at `99` while the encoder finishes the file;
+`100` is only ever a finished file. The phase beside it — *preparing*, *mixing
+the sound*, *drawing frame 1190 of 1890*, *finishing the file* — is what says a
+render is not stuck.
+
+**`wait: true` answers only when the file is written**, the right call for a
+short render the next step needs (a three-frame check before `look`). A waited
+call that carries `_meta.progressToken` gets MCP `notifications/progress` while
+it runs — `progress` out of a `total` of `100`, with the phase as the
+`message` — so a client that draws progress natively shows a bar with no tool
+call at all. They are throttled to a new phase, or half a second, whichever
+comes first; the number carries the phase's place as a hundredth (`50.03`) so it
+rises through a phase change at the same percentage, as the specification asks.
+
+**Both ship, because they serve different callers.** The notifications need a
+client that shows them and an open call, and an assistant cannot read them: a
+model sees the answer, not the bar. The background job is what lets an
+assistant *say* how far it has got, and it is the web's shape. The
+notifications cost a few lines once a waited render is a job being watched,
+and they are the one way a person sees progress during a call they chose to
+wait on.
+
+**Renders belong to the session.** The server holds them in memory, so a
+restarted server has none, and the ids start again at `1`. When the client
+disconnects or the server exits, a render still running is stopped and its
+partial file removed, rather than finished for nobody: no conversation is left
+that could learn where it went, and a render that carried on would spend the
+person's machine on a file nothing knows exists. A render reads the project
+when it is asked for, so edits made while it runs are in the next one. Two
+renders may run at once — the machine is the person's own — but not two into
+the same file: the second is refused while the first is writing.
+
 ## Stopping a render
 
-A client stops a call it no longer wants with MCP's `notifications/cancelled`,
-naming the request's id — most clients send it when the person presses stop.
-`render` honours it within a frame: it stops compositing, closes ffmpeg (killing
-it if it will not go) and removes the file it had begun, because a truncated
-`.mp4` looks like a file and plays as nothing (#647). A cancelled request gets
-no reply, as the specification asks; how far it got — *cancelled after 412 of
-1890 frames* — goes to the server's stderr, which a client shows as its log.
+A background render stops with `job_cancel`: within a frame, and its partial
+file is removed, because a truncated `.mp4` looks like a file and plays as
+nothing.
+
+A waited one stops the way any call does. A client stops a call it no longer
+wants with MCP's `notifications/cancelled`, naming the request's id — most
+clients send it when the person presses stop. `render` honours it within a
+frame: it stops compositing, closes ffmpeg (killing it if it will not go) and
+removes the file it had begun (#647). A cancelled request gets no reply, as the
+specification asks; how far it got — *cancelled after 412 of 1890 frames* —
+goes to the server's stderr, which a client shows as its log.
 
 `synth_bake` honours it too (#661): between recipes, and between the notes of
 a song, so a long score stops within one note. The recipe it was rendering

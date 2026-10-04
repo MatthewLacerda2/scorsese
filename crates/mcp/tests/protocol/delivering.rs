@@ -16,7 +16,8 @@ use serde_json::{Value, json};
 /// Three frames at a postage stamp: what is asked is what kind of file came
 /// out, and every call here is a real encode.
 fn render(dir: &Path, extra: Value) -> (String, bool) {
-    let mut arguments = json!({ "project": dir, "resolution": "160x90", "range": "0:3" });
+    let mut arguments =
+        json!({ "project": dir, "resolution": "160x90", "range": "0:3", "wait": true });
     for (key, value) in extra.as_object().expect("extra arguments are an object") {
         arguments[key] = value.clone();
     }

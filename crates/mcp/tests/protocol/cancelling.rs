@@ -19,7 +19,7 @@ fn a_cancelled_render_is_not_answered_and_leaves_no_file() {
     let render = json!({
         "jsonrpc": "2.0", "id": 7, "method": "tools/call",
         "params": { "name": "render", "arguments": {
-            "project": dir, "out": out, "resolution": "160x90"
+            "project": dir, "out": out, "resolution": "160x90", "wait": true
         } }
     });
     let cancel = json!({

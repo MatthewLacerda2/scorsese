@@ -31,6 +31,8 @@ mod moving;
 mod pacing;
 mod paying;
 mod placing;
+mod progressing;
+mod queueing;
 mod removing;
 mod rendering;
 mod searching;

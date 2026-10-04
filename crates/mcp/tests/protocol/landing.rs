@@ -21,7 +21,7 @@ fn a_relative_render_out_lands_in_the_project() {
     let out = "land-render-518.wav";
     let (text, failed) = said(&call(
         "render",
-        json!({ "project": dir, "out": out, "range": "0:3" }),
+        json!({ "project": dir, "out": out, "range": "0:3", "wait": true }),
     ));
     assert!(!failed, "render refused: {text}");
     assert!(

@@ -22,6 +22,7 @@ mod generate;
 mod hear;
 mod icons;
 mod inspect;
+mod jobs;
 mod level;
 mod look;
 mod scratch;
@@ -34,6 +35,7 @@ use scorsese_render::Cancel;
 use serde_json::Value;
 
 use crate::base64;
+use crate::renders::{Renders, Report};
 
 /// The `mimeType` an image block carries. One kind, because there is one kind
 /// of picture this server produces — see [`scorsese_render::frames`] for why it
@@ -231,6 +233,45 @@ pub trait Tool: Send + Sync {
         let _ = cancel;
         self.call(arguments)
     }
+
+    /// Runs it inside a stdio session, which is how `serve` runs every call:
+    /// under the call's cancel, beside the session's renders, with somewhere
+    /// to report progress when the client asked for it.
+    ///
+    /// Only `render`, `jobs` and `job_cancel` (#700) override this — they are
+    /// the tools with something to say about work that outlives a call. Every
+    /// other one is [`Tool::call_cancellable`].
+    fn call_in(&self, arguments: &Value, context: &mut Context<'_>) -> Result<Reply, String> {
+        self.call_cancellable(arguments, context.cancel)
+    }
+}
+
+/// What a call runs with inside a stdio session, besides its arguments.
+///
+/// Published only because [`Tool::call_in`] names it; nothing outside this
+/// crate makes one. The hosted server runs tools through
+/// [`Tool::call_cancellable`] and has a job queue of its own.
+pub struct Context<'a> {
+    /// Tripped when the client cancels the call.
+    cancel: &'a Cancel,
+    /// The renders the session has started.
+    renders: &'a Renders,
+    /// Where `notifications/progress` go, when the call asked for them.
+    report: Option<Report<'a>>,
+}
+
+impl<'a> Context<'a> {
+    pub(crate) fn new(
+        cancel: &'a Cancel,
+        renders: &'a Renders,
+        report: Option<Report<'a>>,
+    ) -> Self {
+        Self {
+            cancel,
+            renders,
+            report,
+        }
+    }
 }
 
 /// Every tool this server exposes.
@@ -301,6 +342,10 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(edit::Rebrief),
         Box::new(generate::Generate),
         Box::new(edit::Render),
+        // Beside the tool that starts what they follow: a render runs in the
+        // background, and these are how anyone learns how it went.
+        Box::new(jobs::Jobs),
+        Box::new(jobs::JobCancel),
         Box::new(still::Still),
         Box::new(look::Look),
         Box::new(hear::Hear),

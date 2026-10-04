@@ -50,9 +50,18 @@ pub struct Call {
     pub name: String,
     /// Its arguments — an empty object when the client sent none.
     pub arguments: Value,
+    /// The `_meta.progressToken` it carried, if any: the client's ask to be
+    /// told how far the call has got.
+    progress: Option<Value>,
 }
 
 impl Call {
+    /// The token a `notifications/progress` about this call names, when the
+    /// client asked for them.
+    pub fn progress_token(&self) -> Option<&Value> {
+        self.progress.as_ref()
+    }
+
     /// The reply to send once the tool has run.
     ///
     /// A tool that refuses comes back as `isError` on a *successful* call
@@ -167,10 +176,27 @@ fn call(id: Value, params: Option<Value>) -> Result<Call, (Failure, String)> {
         .ok_or((Failure::BadParams, "`name` is required".to_owned()))?
         .to_owned();
     let arguments = params.get("arguments").cloned().unwrap_or(json!({}));
+    let progress = params.pointer("/_meta/progressToken").cloned();
     Ok(Call {
         id,
         name,
         arguments,
+        progress,
+    })
+}
+
+/// The `notifications/progress` saying a call named by `token` is `progress`
+/// of the way to 100, doing `message`.
+pub fn progress(token: &Value, progress: f64, message: &str) -> Value {
+    json!({
+        "jsonrpc": crate::rpc::VERSION,
+        "method": "notifications/progress",
+        "params": {
+            "progressToken": token,
+            "progress": progress,
+            "total": 100,
+            "message": message
+        }
     })
 }
 
@@ -206,9 +232,19 @@ mod tests {
         };
         assert_eq!(call.name, "project_read");
         assert_eq!(call.arguments, json!({}));
+        assert_eq!(call.progress_token(), None);
         let answered = call.answer(Err("no".into()));
         assert_eq!(answered["id"], json!(4));
         assert_eq!(answered["result"]["isError"], json!(true));
+
+        let watched = json!({
+            "jsonrpc": "2.0", "id": 6, "method": "tools/call",
+            "params": { "name": "render", "_meta": { "progressToken": "t" } }
+        });
+        let Handled::Call(watched) = handle(watched, Vec::new) else {
+            panic!("a tools/call is the transport's to run");
+        };
+        assert_eq!(watched.progress_token(), Some(&json!("t")));
 
         let ping = json!({ "jsonrpc": "2.0", "id": 5, "method": "ping" });
         assert!(matches!(handle(ping, Vec::new), Handled::Answered(_)));

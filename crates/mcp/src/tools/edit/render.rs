@@ -1,15 +1,16 @@
 //! Encoding the timeline to a file.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use scorsese_render::{
     AudioCodec, Cancel, Container, FrameRange, OutputFormat, RenderSettings, Renderer, Resolution,
     Tools, VideoCodec, say,
 };
-use serde_json::Value;
+use serde_json::{Value, json};
 
+use crate::renders::{Renders, Say, Work, watch};
 use crate::tools::inspect::load;
-use crate::tools::{Costs, Reply, Tool, project_dir, project_property, under};
+use crate::tools::{Context, Costs, Reply, Tool, project_dir, project_property, under};
 
 /// Encode the timeline to a file.
 pub(crate) struct Render;
@@ -27,7 +28,10 @@ impl Tool for Render {
          composites a frame. Sketch and stale generated assets render as slug \
          cards rather than failing, so a preview cut always produces something. \
          The reply says how loud the delivered file came out, and when the \
-         soundtrack had to be turned down to keep a lossy codec from clipping."
+         soundtrack had to be turned down to keep a lossy codec from clipping. \
+         It renders in the background: the answer is a job id at once, jobs \
+         says how far it has got and what it wrote, and job_cancel stops it. \
+         Pass wait: true to answer only when the file is written instead."
     }
 
     fn costs(&self) -> Costs {
@@ -83,6 +87,18 @@ impl Tool for Render {
                                     for a sound-only container, which has no \
                                     picture to size."
                 },
+                "wait": {
+                    "type": "boolean",
+                    "description": "true to answer only when the file is \
+                                    written, the way a short render you need \
+                                    before your next step is best asked for. \
+                                    Default false: the render runs in the \
+                                    background and the answer is its job id, \
+                                    so you can tell the person how far it has \
+                                    got with jobs while it runs. A waited call \
+                                    sends MCP progress notifications when it \
+                                    carries a progressToken."
+                },
                 "range": {
                     "type": "string",
                     "description": "Render only part of the timeline, in frames: \
@@ -95,76 +111,131 @@ impl Tool for Render {
         })
     }
 
+    /// Outside a session nobody could ask after a render later, so it waits.
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
         self.call_cancellable(arguments, &Cancel::new())
     }
 
-    /// Stops between frames when the client cancels the request, and removes
-    /// the file it had begun. The words it would have answered with — how far
-    /// it got — are the server's to log, since a cancelled request is not
-    /// answered.
+    /// Waits, for the reason [`Render::call`] does, and stops between frames
+    /// when `cancel` is tripped.
     fn call_cancellable(&self, arguments: &Value, cancel: &Cancel) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        // Against the project, not the server's working directory, which
-        // belongs to whoever launched it (#518). The caller's own string is
-        // what the reply says back, because that is the path the next call —
-        // `audio_level`, `hear` — resolves the same way.
-        let path = under(&dir, arguments, "out")?
-            .ok_or_else(|| "`out` is required: where to write the file".to_owned())?;
-        let out = arguments
-            .get("out")
-            .and_then(Value::as_str)
-            .unwrap_or_default();
-        // First, before the project is opened — the order `scorsese render`
-        // keeps, for its reason: the shape of the file is the cheapest thing
-        // to get wrong and the most expensive to find out late.
-        let format = format(arguments, &path)?;
-        let project = load(&dir)?;
-
-        // Refused for a format with no picture rather than ignored, in the
-        // words `scorsese render --resolution` is refused in.
-        let resolution = match arguments.get("resolution").and_then(Value::as_str) {
-            Some(text) => {
-                format
-                    .picture_setting("a resolution")
-                    .map_err(|problem| format!("{problem}"))?;
-                text.parse()
-                    .map_err(|problem| format!("resolution: {problem}"))?
-            }
-            None => Resolution::HD,
-        };
-
-        // The CLI's `--range`, parsed by the CLI's parser: `FrameRange`'s own
-        // `FromStr` is the one set of rules, so `30:`, `:120` and every refusal
-        // read the same from either client. Parsed before ffmpeg is looked for,
-        // because a range that is not one costs nothing to refuse.
-        let range = match arguments.get("range").and_then(Value::as_str) {
-            Some(text) => text
-                .parse()
-                .map_err(|problem| format!("range: {problem}"))?,
-            None => FrameRange::ALL,
-        };
-
-        // Discovered per call rather than held: a server that found ffmpeg at
-        // startup would keep insisting it was there after someone uninstalled
-        // it, and this is not a hot path.
-        let tools = Tools::discover().map_err(|error| format!("{error}"))?;
-        // The project's own grid by default: rendering at the rate the edit
-        // was authored against is the one output rate needing no conform.
-        let settings = RenderSettings::new(resolution, project.timeline_fps).with_format(format);
-        let report = Renderer::new(&tools, settings)
-            .with_cancel(cancel.clone())
-            .render(&project, &dir, range, &path)
-            .map_err(|error| format!("rendering: {error}"))?;
-        // Then what the CLI prints about sound, in its words: how loud the file
-        // came out, and whether it had to be turned down to get there. An agent
-        // is the caller least able to hear the result for itself.
-        let mut said = format!("wrote {out} — {}, as {format}", say::written(&report));
-        for line in say::delivery(&report) {
-            said.push_str(&format!("\n{line}"));
+        let renders = Renders::default();
+        let mut waited = arguments.clone();
+        if let Some(fields) = waited.as_object_mut() {
+            fields.insert("wait".to_owned(), json!(true));
         }
-        Ok(said.into())
+        self.call_in(&waited, &mut Context::new(cancel, &renders, None))
     }
+
+    /// Starts the render as one of the session's jobs and answers with its id
+    /// — or, with `wait`, answers when the file is written, reporting progress
+    /// on the way when the client asked for it.
+    ///
+    /// Everything that can be refused is refused here, before the job starts,
+    /// so a refusal is the call's answer rather than a job that failed at once.
+    /// A waited render stops when the client cancels the call (#647) and
+    /// removes the file it had begun; the words it would have answered with —
+    /// how far it got — are the server's to log, since a cancelled request is
+    /// not answered.
+    fn call_in(&self, arguments: &Value, context: &mut Context<'_>) -> Result<Reply, String> {
+        let dir = project_dir(arguments)?;
+        let wait = arguments
+            .get("wait")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let (out, path, work) = prepared(&dir, arguments)?;
+        if !wait {
+            let job = context
+                .renders
+                .start(&dir, (&out, path), Cancel::new(), work)?;
+            return Ok(format!(
+                "Rendering {out} as job {id}, running. Call jobs with job: {id} to see how \
+                 far it has got; when it is done, its line says what was written.",
+                id = job.id
+            )
+            .into());
+        }
+        let job = context
+            .renders
+            .start(&dir, (&out, path), context.cancel.clone(), work)?;
+        let report = context
+            .report
+            .as_mut()
+            .map(|report| &mut **report as &mut Say<'_>);
+        watch(&job, context.cancel, report).map(Reply::from)
+    }
+}
+
+/// The render `arguments` ask for, checked and ready to run: the words its
+/// answers use for `out`, the path it writes, and the work itself.
+fn prepared(dir: &Path, arguments: &Value) -> Result<(String, PathBuf, Work), String> {
+    // Against the project, not the server's working directory, which
+    // belongs to whoever launched it (#518). The caller's own string is
+    // what the reply says back, because that is the path the next call —
+    // `audio_level`, `hear` — resolves the same way.
+    let path = under(dir, arguments, "out")?
+        .ok_or_else(|| "`out` is required: where to write the file".to_owned())?;
+    let out = arguments
+        .get("out")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_owned();
+    // First, before the project is opened — the order `scorsese render`
+    // keeps, for its reason: the shape of the file is the cheapest thing
+    // to get wrong and the most expensive to find out late.
+    let format = format(arguments, &path)?;
+    // Read now, so the render is of the cut as it stood when it was asked
+    // for; an edit made while it runs is in the next one.
+    let project = load(dir)?;
+
+    // Refused for a format with no picture rather than ignored, in the
+    // words `scorsese render --resolution` is refused in.
+    let resolution = match arguments.get("resolution").and_then(Value::as_str) {
+        Some(text) => {
+            format
+                .picture_setting("a resolution")
+                .map_err(|problem| format!("{problem}"))?;
+            text.parse()
+                .map_err(|problem| format!("resolution: {problem}"))?
+        }
+        None => Resolution::HD,
+    };
+
+    // The CLI's `--range`, parsed by the CLI's parser: `FrameRange`'s own
+    // `FromStr` is the one set of rules, so `30:`, `:120` and every refusal
+    // read the same from either client. Parsed before ffmpeg is looked for,
+    // because a range that is not one costs nothing to refuse.
+    let range = match arguments.get("range").and_then(Value::as_str) {
+        Some(text) => text
+            .parse()
+            .map_err(|problem| format!("range: {problem}"))?,
+        None => FrameRange::ALL,
+    };
+
+    // Discovered per call rather than held: a server that found ffmpeg at
+    // startup would keep insisting it was there after someone uninstalled
+    // it, and this is not a hot path.
+    let tools = Tools::discover().map_err(|error| format!("{error}"))?;
+    // The project's own grid by default: rendering at the rate the edit
+    // was authored against is the one output rate needing no conform.
+    let settings = RenderSettings::new(resolution, project.timeline_fps).with_format(format);
+    let (dir, target, said) = (dir.to_owned(), path.clone(), out.clone());
+    let work: Work = Box::new(move |progress, cancel| {
+        let report = Renderer::new(&tools, settings)
+            .with_cancel(cancel)
+            .with_progress(progress)
+            .render(&project, &dir, range, &target)
+            .map_err(|error| format!("rendering: {error}"))?;
+        // Then what the CLI prints about sound, in its words: how loud the
+        // file came out, and whether it had to be turned down to get there.
+        // An agent is the caller least able to hear the result for itself.
+        let mut words = format!("wrote {said} — {}, as {format}", say::written(&report));
+        for line in say::delivery(&report) {
+            words.push_str(&format!("\n{line}"));
+        }
+        Ok(words)
+    });
+    Ok((out, path, work))
 }
 
 /// The shape of the file, built the way `scorsese render` builds it — by
