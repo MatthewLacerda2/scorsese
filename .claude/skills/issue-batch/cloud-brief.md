@@ -54,58 +54,38 @@ name more.
 
 ## Getting `make gates` to run in a container
 
-`make gates` checks for what it needs and says how to install it; these are the
-ones a fresh Linux container lacks. *(Confirmed by scorsese's first cloud coder,
-#619, on 2026-09-30: x86_64 Ubuntu 24.04, 4 cores, 15 GB, ~30 GB of disk. A
-coder who finds a difference corrects this list in its PR.)*
+**The `SessionStart` hook has already set the container up**
+(`.claude/hooks/session-start.sh`, #722): the toolchain, the commit hook,
+ffmpeg, the prebuilt `cargo-nextest`, `cargo-deny` and `cargo-mutants` at the
+versions CI pins, `bun`, the `app/` libraries, a native Postgres 16 with
+`SCORSESE_TEST_DATABASE_URL` pointing at it, and `CARGO_PROFILE_DEV_DEBUG=0
+CARGO_INCREMENTAL=0` exported (a debug build with debug info filled the ~30 GB
+disk allowance, #588 — don't override them). Its `session-start:` lines open the
+session; a `FAIL` line says what to install by hand. If they are missing, run it
+yourself: `CLAUDE_PROJECT_DIR=$PWD .claude/hooks/session-start.sh`, then the
+`export` lines it prints. What it leaves to you:
 
 - **Every foreground call is capped at ten minutes**, and a call cut off at the
-  cap dies with no output. A cold first `make test` (a Postgres pull plus the
-  whole suite) hit it. Split cold work — `cargo nextest run --workspace
-  --no-run`, then the run — and send long output to a file. Warm, the whole
-  `make gates` fits in one call (about four minutes).
-- **The disk allowance is about 30 GB and a debug build fills it.** With debug
-  info, the workspace's test build alone reached 29 GB and the linker died with
-  `No space left on device` / `Bus error` (#588's coder). Build with
-  `CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0` exported for every cargo
-  command, `make gates` included: the whole test build is then about 2 GB.
+  cap dies with no output. Cold, split the work and send output to a file:
+  `cargo nextest run --workspace --locked --no-run` (about 5½ minutes on 4
+  cores), `make clippy` (under a minute), then `make gates` (about 4 minutes).
 - **The app gate can be killed for memory** (exit 137, no output) when its
   clippy, build and tests link egui with every core. Run its steps with
   `CARGO_BUILD_JOBS=2` — `make help` and the `app-gates` target list them.
-- `make setup` once — the commit hook, and a check for `cargo-nextest`.
-- `ffmpeg` is absent: `apt-get install ffmpeg` gives `6.1.1-3ubuntu5`, CI's own.
-  `cargo-nextest`, `cargo-deny` and `cargo-mutants` (27.1.0, the version CI
-  pins) are absent too: `cargo install --locked` all three, about six minutes.
-  Faster for two of them, the release tarballs on GitHub download through the
-  proxy (`get.nexte.st` answers 403): nextest's
-  `cargo-nextest-<v>-x86_64-unknown-linux-gnu.tar.gz` and cargo-deny's
-  `cargo-deny-<v>-x86_64-unknown-linux-musl.tar.gz`. cargo-deny must be
-  **0.19 or newer** — 0.18 cannot parse the advisory database's CVSS 4.0
-  entries.
-- A Postgres for the server's tests: `tools/with-postgres` starts one in docker.
-  The docker CLI and compose plugin are installed but **the daemon is not
-  running** — start it yourself (`dockerd > /tmp/dockerd.log 2>&1 &`, as root)
-  before `make test` or `make deploy`. Docker Hub rate-limits the container's
-  address (a second pull minutes after the first got `429`), so pull
-  `postgres:17-alpine` once and rely on the cache. Without docker, install
-  Postgres and point `SCORSESE_TEST_DATABASE_URL` at it (the script's header has
-  why an ambient `DATABASE_URL` is ignored).
-- `make deploy` needs docker too. A gate you cannot run here is named in the
-  PR with the CI job that answers for it, never claimed green (`ci-merge`,
-  *Before marking a pull request ready* — including when that keeps it a
-  draft).
-- A branch touching `app/`: the libraries CI's `app` job installs
-  (`.github/workflows/ci.yml`, the *Install the graphics, windowing and sound
-  libraries* step). A branch touching `web/`: `bun`, the version pinned in
-  `web/package.json`.
-- If `cargo deny` cannot fetch the advisory database through the container's
-  proxy, run it with `CARGO_NET_GIT_FETCH_WITH_CLI=true`. When that fails too
-  (it did for #588), `git clone --depth 1` the database into
+- **No docker daemon is needed**: `make deploy` only parses the compose file,
+  and the tests use the native Postgres. Start `dockerd` (as root,
+  `dockerd > /tmp/dockerd.log 2>&1 &`) only for work that runs a container, and
+  expect Docker Hub to answer `429` on a second pull.
+- The prebuilt tools are `x86_64` only. On `aarch64` the hook reports them
+  failed: `cargo install --locked` them, about six minutes.
+- If `cargo deny` cannot fetch the advisory database through the proxy, run it
+  with `CARGO_NET_GIT_FETCH_WITH_CLI=true`. When that fails too (it did for
+  #588), `git clone --depth 1` the database into
   `~/.cargo/advisory-dbs/advisory-db-3157b0e258782691` and run the gate's
   command with `--disable-fetch`, in the root and in `app/`.
-- **When Docker Hub answers 429**, the image has a native fallback: Postgres 16
-  is installed. `pg_ctlcluster 16 main start`, set the `postgres` user's
-  password, and export `SCORSESE_TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres`.
+- A gate you cannot run here is named in the PR with the CI job that answers
+  for it, never claimed green (`ci-merge`, *Before marking a pull request
+  ready* — including when that keeps it a draft).
 - The container is Linux, so the pixel gate runs here (it is skipped on macOS);
   on `aarch64` rather than CI's `x86_64`, `grade_*` and `vhs` fail regardless.
   A golden-render mismatch is investigated, never re-blessed to go green
