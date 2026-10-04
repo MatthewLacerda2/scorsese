@@ -6,29 +6,28 @@ import { XIcon } from "lucide-react";
 import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { useT } from "@/i18n/I18nProvider";
 import { type Upload, useUploads } from "./uploads";
-
-const PHASE: Record<Upload["phase"], string> = {
-  hashing: "Checking…",
-  uploading: "Uploading…",
-  done: "Uploaded",
-  duplicate: "Already in your library",
-  failed: "Failed",
-};
 
 export function UploadTray() {
   const { uploads, dismiss } = useUploads();
+  const t = useT();
   if (uploads.length === 0) return null;
   const busy = uploads.some((row) => row.phase === "hashing" || row.phase === "uploading");
   return (
     <section
-      aria-label="Uploads"
+      aria-label={t.files.uploads.title}
       className="fixed right-4 bottom-4 z-40 w-80 rounded-xl border bg-popover p-3 shadow-lg"
     >
       <header className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-medium">Uploads</h2>
+        <h2 className="text-sm font-medium">{t.files.uploads.title}</h2>
         {!busy && (
-          <Button variant="ghost" size="icon-sm" aria-label="Clear finished" onClick={dismiss}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={t.files.uploads.clear}
+            onClick={dismiss}
+          >
             <XIcon />
           </Button>
         )}
@@ -43,7 +42,7 @@ export function UploadTray() {
               <div className="flex items-center gap-2">
                 <Progress value={Math.round(row.progress * 100)} className="flex-1" />
                 <span className="w-20 text-right text-xs text-muted-foreground">
-                  {PHASE[row.phase]}
+                  {t.files.uploads.phase[row.phase]}
                 </span>
               </div>
             ) : (
@@ -57,13 +56,14 @@ export function UploadTray() {
 }
 
 function Outcome({ row }: { row: Upload }) {
+  const phase = useT().files.uploads.phase;
   if (row.phase !== "failed" && row.item !== undefined) {
     return (
       <Link to={`/library?item=${row.item}`} className="text-xs text-muted-foreground underline">
-        {row.message ?? PHASE[row.phase]}
+        {row.message ?? phase[row.phase]}
       </Link>
     );
   }
   const tone = row.phase === "failed" ? "text-destructive" : "text-muted-foreground";
-  return <span className={`text-xs ${tone}`}>{row.message ?? PHASE[row.phase]}</span>;
+  return <span className={`text-xs ${tone}`}>{row.message ?? phase[row.phase]}</span>;
 }

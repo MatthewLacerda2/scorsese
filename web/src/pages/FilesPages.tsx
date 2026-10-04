@@ -6,17 +6,21 @@ import { ArrowLeftIcon } from "lucide-react";
 import { Link, useParams } from "react-router";
 import { api } from "@/api";
 import { FileBrowser } from "@/files/FileBrowser";
+import { useT } from "@/i18n/I18nProvider";
 
 export function LibraryPage() {
+  const t = useT();
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="font-heading text-2xl font-semibold">Library</h1>
+      <h1 className="font-heading text-2xl font-semibold">{t.common.nav.library}</h1>
       <FileBrowser />
     </div>
   );
 }
 
 export function ProjectFilesPage() {
+  const t = useT();
+  const words = t.pages.projectFiles;
   const id = Number(useParams().id);
   const project = useQuery({
     queryKey: ["projects", id],
@@ -26,9 +30,9 @@ export function ProjectFilesPage() {
   if (!Number.isInteger(id) || project.isError) {
     return (
       <p className="text-muted-foreground">
-        {project.error?.message ?? "There is no such project."}{" "}
+        {project.error?.message ?? words.noSuchProject}{" "}
         <Link to="/projects" className="underline">
-          Back to projects
+          {words.back}
         </Link>
       </p>
     );
@@ -40,18 +44,18 @@ export function ProjectFilesPage() {
           to="/projects"
           className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
-          <ArrowLeftIcon className="size-4" /> Projects
+          <ArrowLeftIcon className="size-4" /> {t.common.nav.projects}
         </Link>
         <h1 className="font-heading text-2xl font-semibold">{project.data?.name ?? "…"}</h1>
         <Link to={`/projects/${id}/edit`} className="text-sm underline">
-          Open it in the editor
+          {words.openEditor}
         </Link>
         <p className="text-sm text-muted-foreground">
-          The files from your library this project uses. Upload new ones in the{" "}
+          {words.intro}{" "}
           <Link to="/library" className="underline">
-            library
+            {words.libraryLink}
           </Link>
-          .
+          {words.introEnd}
         </p>
       </div>
       <FileBrowser project={id} />

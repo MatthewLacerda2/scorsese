@@ -9,6 +9,7 @@
 import { FileAudioIcon, FileImageIcon, FileMusicIcon, FileVideoIcon } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import type { FileKind, LibraryTile } from "@/api";
+import { useLanguage, useT } from "@/i18n/I18nProvider";
 import { formatBytes } from "@/lib/format";
 
 export const KIND_ICON = {
@@ -16,14 +17,6 @@ export const KIND_ICON = {
   image: FileImageIcon,
   audio: FileAudioIcon,
   midi: FileMusicIcon,
-};
-
-/** Each kind as a person reads it. */
-export const KIND_LABEL: Record<FileKind, string> = {
-  video: "Video",
-  image: "Image",
-  audio: "Audio",
-  midi: "MIDI",
 };
 
 /** The kinds the server draws a thumbnail for; any other shows its icon. */
@@ -58,6 +51,8 @@ export function FileTile({
   hint,
   actions,
 }: Props) {
+  const t = useT();
+  const { language } = useLanguage();
   return (
     <div
       className={`relative flex flex-col overflow-hidden rounded-lg border transition-colors ${disabled ? "opacity-50" : "hover:bg-muted/50"} ${selected ? "border-primary ring-2 ring-primary/30" : ""}`}
@@ -75,7 +70,7 @@ export function FileTile({
           {tile.name}
         </span>
         <span className="px-2 pb-2 text-xs text-muted-foreground">
-          {KIND_LABEL[tile.kind]} · {formatBytes(tile.size_bytes)}
+          {t.files.kinds[tile.kind]} · {formatBytes(tile.size_bytes, language)}
           {note ? ` · ${note}` : ""}
         </span>
       </button>

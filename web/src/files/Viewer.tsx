@@ -5,6 +5,7 @@
 
 import { api, type FileKind } from "@/api";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { useT } from "@/i18n/I18nProvider";
 import { KIND_ICON } from "./FileTile";
 
 export interface Opened {
@@ -29,6 +30,7 @@ export function Viewer({ file, onClose }: { file: Opened | null; onClose: () => 
 }
 
 function Media({ file }: { file: Opened }) {
+  const t = useT();
   const src = api.library.fileUrl(file.id);
   switch (file.kind) {
     case "image":
@@ -44,7 +46,7 @@ function Media({ file }: { file: Opened }) {
       return (
         <div className="flex flex-col items-center gap-3 py-8 text-center text-muted-foreground">
           <Icon className="size-12" aria-hidden />
-          <p>A MIDI file is notes, not sound. Ask the assistant to score your video with it.</p>
+          <p>{t.files.viewer.midi}</p>
         </div>
       );
     }

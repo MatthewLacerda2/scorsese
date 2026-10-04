@@ -3,6 +3,7 @@
 // a file twice) without placing it: the user drags it onto a lane from there.
 
 import { FILE_KINDS, type FileKind, type LibraryTile } from "@/api";
+import type { Messages } from "@/i18n/catalogue";
 import type { Edit } from "../project";
 
 /**
@@ -12,9 +13,13 @@ import type { Edit } from "../project";
 export const PICKABLE_KINDS: readonly FileKind[] = FILE_KINDS.filter((kind) => kind !== "midi");
 
 /** Why a library file cannot be picked into this project, or `null` when it can. */
-export function refusal(tile: LibraryTile, added: ReadonlySet<number>): string | null {
-  if (!PICKABLE_KINDS.includes(tile.kind)) return "can't go on a track";
-  if (added.has(tile.id)) return "in this project";
+export function refusal(
+  tile: LibraryTile,
+  added: ReadonlySet<number>,
+  t: Messages["assets"]["library"],
+): string | null {
+  if (!PICKABLE_KINDS.includes(tile.kind)) return t.notTrack;
+  if (added.has(tile.id)) return t.inProject;
   return null;
 }
 

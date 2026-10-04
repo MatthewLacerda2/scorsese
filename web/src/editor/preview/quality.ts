@@ -9,10 +9,12 @@
 
 export type Quality = "full" | "half" | "quarter";
 
-export const QUALITIES: Record<Quality, { label: string; divisor: number; says: string }> = {
-  full: { label: "Full", divisor: 1, says: "full quality: the render's own picture" },
-  half: { label: "1/2", divisor: 2, says: "half quality: fewer pixels, proxies where made" },
-  quarter: { label: "1/4", divisor: 4, says: "quarter quality: fastest, proxies where made" },
+/** Each quality's divisor. What each is called, and what it says it is, are
+ * in the catalogue (`editor.preview.qualities`). */
+export const QUALITIES: Record<Quality, { divisor: number }> = {
+  full: { divisor: 1 },
+  half: { divisor: 2 },
+  quarter: { divisor: 4 },
 };
 
 export const DEFAULT_QUALITY: Quality = "half";

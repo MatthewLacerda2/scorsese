@@ -37,7 +37,8 @@ It expects the server on `http://localhost:8080`; point it elsewhere with
 | `src/files/` | the Drive-like browser (grid, details panel, viewer), and uploads: an `UploadsProvider` around the signed-in app, so an upload survives navigation | showing or picking library files anywhere |
 | `src/lib/upload/` | the browser-side hash, the Uppy + tus uploader, and the duplicate rule (a `409` with `item` is never retried) | — |
 | `src/lib/money.ts` | micro-dollars as dollars, by integer arithmetic | every figure of money on a page |
-| `src/lib/theme.ts` | light or dark: the stored choice, else the system's; `index.html`'s inline script applies the same rule before the bundle loads, so a dark page never flashes white, and `theme.test.ts` runs that script to keep the two agreeing | the toggle (`src/app/ThemeToggle.tsx`); colours come from index.css's tokens, never a fixed `bg-white` |
+| `src/i18n/` | the web app's languages (#704): one catalogue per language (`en/`, `pt-BR/`, `es/`, a file per area), the stored choice (`language.ts`), and `useT()` / `useLanguage()` | every user-visible string — see *Strings and languages* below |
+| `src/lib/theme.ts` | light or dark: the stored choice, else the system's; `index.html`'s inline script applies the same rule before the bundle loads, so a dark page never flashes white, and `theme.test.ts` runs that script to keep the two agreeing | the control (`src/app/ThemeControl.tsx`, in Settings and on the login page); colours come from index.css's tokens, never a fixed `bg-white` |
 | `public/` | the logo (login page) and the square icon (favicon, account button), resized from `app/assets/` | — |
 | `src/pages/` | login, projects, the two file views, the spending history | — |
 | `src/editor/` | the editor (`/projects/:id/edit`): `timeline/` (the time↔pixel maths, drag, snap and the tool call a drag becomes, all plain functions), `preview/`, `inspector/`, `assets/`, `templates/` (save the selection, insert at the playhead — #546), `selection.ts` (one clip, or several with Shift), `chat/` (the assistant's panel, its transcript a pure reducer over the event stream); every edit goes through `project.ts`'s `useEdit`, a tool call — docs/web.md, *The editor* | — |
@@ -46,6 +47,41 @@ It expects the server on `http://localhost:8080`; point it elsewhere with
 not read into memory) and ask `GET /api/library?sha256=`; a duplicate never
 crosses the network. The rest goes over tus in 50 MB chunks, under
 Cloudflare's 100 MB request cap (docs/web.md, *Library*).
+
+## Strings and languages
+
+The web app speaks English, Brazilian Portuguese and Spanish (#704). The
+choice is the browser's, not the account's: Settings (the gear in the header,
+and a picker on the login page) stores it in `localStorage`, and until then
+`navigator.language` decides (`pt*` → pt-BR, `es*` → es, anything else
+English). Text the **server** writes — error sentences, job messages, tool
+replies — and anything the **assistant** writes stay as they arrive; the
+assistant already answers in the language the user writes in.
+
+**Adding a string.** Put it in the English catalogue for its area
+(`src/i18n/en/<area>.ts`), then in `pt-BR/` and `es/` — `tsc` refuses a
+catalogue that lacks a key English has, and `catalogue.test.ts` checks the same
+at run time. Read it with `const t = useT()` and `t.<area>.<key>`. A message
+that carries a value is a function (`deleted: (name: string) => …`), and a
+plural is a function of the count, so each language words it its own way. A
+plain function that returns words (a label, a warning) takes the messages as
+an argument; its tests pass `en`. Numbers and dates go through `Intl` in
+`useLanguage().language` (`lib/format.ts` takes it); **money stays dollars**,
+formatted by `lib/money.ts` whatever the language — only the words around it
+translate. Write the translation the way a native speaker would say it in an
+app, not word for word.
+
+**Adding a language.** Add it to `Language` and `LANGUAGES` in
+`src/i18n/language.ts` (named in itself), teach `browserLanguage` its tag, copy
+`src/i18n/en/` to a new folder typed as `Messages` (as `pt-BR/` is), translate,
+and list it in `CATALOGUES` (`src/i18n/catalogue.ts`).
+
+**Why not react-i18next.** A catalogue here is a typed TypeScript object, so a
+missing key, a misspelt one and a wrong argument are compile errors, `t.` is
+autocompleted, and there is no runtime dependency, loader or string-keyed
+lookup. i18next's draws — loading catalogues over the network, ICU message
+syntax, dozens of languages — are not needs at three bundled languages; if
+they become needs, the catalogues port across as they are.
 
 ## The gate
 

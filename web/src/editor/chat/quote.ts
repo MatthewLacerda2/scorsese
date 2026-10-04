@@ -20,6 +20,3 @@ export function changeAnswer(text: string): QuoteAnswer | null {
   const change = text.trim();
   return change ? { confirm: false, change } : null;
 }
-
-/** What each kind of description is called beside its item. */
-export const BRIEF_LABEL = { prompt: "Prompt", line: "Line", voice: "Voice" } as const;

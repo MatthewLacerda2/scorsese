@@ -4,6 +4,7 @@
 import { describe, expect, test } from "bun:test";
 import { renderToString } from "react-dom/server";
 import type { DocumentAsset, Track } from "@/api";
+import { en } from "@/i18n/en";
 import { briefOf } from "./brief";
 import { Inspector } from "./Inspector";
 
@@ -46,14 +47,23 @@ describe("the inspector", () => {
 
 describe("briefOf", () => {
   test("calls speech a line and synthesis by its recipe", () => {
-    const line = briefOf({ id: "n", kind: "generated_audio", prompt: "Hello.", state: "stale" });
+    const line = briefOf(
+      { id: "n", kind: "generated_audio", prompt: "Hello.", state: "stale" },
+      en.inspector.brief,
+    );
     expect(line).toMatchObject({ label: "Line", text: "Hello.", state: "stale" });
-    const score = briefOf({ id: "m", kind: "synth_audio", recipe: "recipes/rain.json" });
+    const score = briefOf(
+      { id: "m", kind: "synth_audio", recipe: "recipes/rain.json" },
+      en.inspector.brief,
+    );
     expect(score).toMatchObject({ label: "Recipe", text: "rain" });
   });
 
   test("states only the choices the document makes", () => {
-    const still = briefOf({ id: "i", kind: "generated_image", image: { aspect: "1:1" } });
+    const still = briefOf(
+      { id: "i", kind: "generated_image", image: { aspect: "1:1" } },
+      en.inspector.brief,
+    );
     expect(still?.choices).toEqual([["Aspect", "1:1"]]);
   });
 });

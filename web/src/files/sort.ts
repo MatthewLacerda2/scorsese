@@ -4,14 +4,10 @@
 
 import type { LibraryTile } from "@/api";
 
-export const SORTS = {
-  newest: "Newest first",
-  oldest: "Oldest first",
-  name: "Name",
-  largest: "Largest first",
-} as const;
+/** Every order, in the order the menu offers them; each one's label is `t.files.sorts`. */
+export const SORTS = ["newest", "oldest", "name", "largest"] as const;
 
-export type Sort = keyof typeof SORTS;
+export type Sort = (typeof SORTS)[number];
 
 const byName = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 

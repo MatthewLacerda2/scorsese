@@ -7,7 +7,7 @@
 // the model being left lasts (`cache_seconds`, an hour for every model today).
 // The time is the server's `finished_at`, compared with the browser's clock:
 // it survives a reload, and a few seconds of drift do not matter against an
-// hour.
+// hour. The warning's words are the catalogue's (`chat.model.switchWarning`).
 
 import type { ModelChoice, TurnView } from "@/api/chat";
 
@@ -24,8 +24,3 @@ export function warnsBeforeSwitching(
   const lifetime = leaving?.cache_seconds ?? 3600;
   return nowSeconds - last.finished_at <= lifetime;
 }
-
-/** The words of the warning. */
-export const SWITCH_WARNING =
-  "Switching models causes a cache miss on the next prompt. Caches store your conversation to " +
-  "make it cheaper. Are you sure you want to switch?";

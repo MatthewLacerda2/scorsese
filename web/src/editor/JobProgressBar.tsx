@@ -6,17 +6,19 @@
 
 import type { JobProgress, JobView, ServerEvent } from "@/api/events";
 import { Progress } from "@/components/ui/progress";
+import type { Messages } from "@/i18n/catalogue";
+import { useT } from "@/i18n/I18nProvider";
 
 /** What a running job is doing, in words: `42%`, `0% · mixing the sound…`. */
-export function progressWords(progress: JobProgress): string {
+export function progressWords(progress: JobProgress, t: Messages["editor"]["progress"]): string {
   const percent = `${progress.percent}%`;
   switch (progress.phase) {
     case "preparing":
-      return `${percent} · preparing…`;
+      return t.preparing(percent);
     case "mixing":
-      return `${percent} · mixing the sound…`;
+      return t.mixing(percent);
     case "finishing":
-      return `${percent} · finishing the file…`;
+      return t.finishing(percent);
     default:
       return percent;
   }
@@ -37,9 +39,10 @@ export function folded(job: JobView, event: ServerEvent): JobView {
 
 /** The bar for a running job that reports progress; nothing otherwise. */
 export function JobProgressBar({ job }: { job: JobView }) {
+  const t = useT();
   const progress = job.state === "running" ? job.progress : null;
   if (!progress) return null;
-  const words = progressWords(progress);
+  const words = progressWords(progress, t.editor.progress);
   return (
     <div className="flex w-full items-center gap-2">
       <Progress value={progress.percent} aria-label={words} className="flex-1" />

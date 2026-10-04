@@ -9,6 +9,7 @@ import { useState } from "react";
 import { chatApi, type QuestionView } from "@/api/chat";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useT } from "@/i18n/I18nProvider";
 import { typedAnswer } from "./question";
 
 export function QuestionCard({
@@ -21,11 +22,12 @@ export function QuestionCard({
   /** Whether this is the question the turn is paused on now. */
   waiting: boolean;
 }) {
+  const t = useT();
   if (!waiting) {
     return (
       <div className="flex flex-col gap-0.5 rounded-lg border px-3 py-2 text-xs">
         <p className="text-muted-foreground">{question.question}</p>
-        <p>{question.answer ?? "Not answered."}</p>
+        <p>{question.answer ?? t.chat.question.notAnswered}</p>
       </div>
     );
   }
@@ -34,6 +36,7 @@ export function QuestionCard({
 
 /** The card while it waits: the options as buttons, and a field. */
 function Open({ turn, question }: { turn: number; question: QuestionView }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const [own, setOwn] = useState("");
   const answer = useMutation({
@@ -69,12 +72,12 @@ function Open({ turn, question }: { turn: number; question: QuestionView }) {
         <Input
           value={own}
           onChange={(event) => setOwn(event.target.value)}
-          placeholder="Or answer in your own words"
+          placeholder={t.chat.question.ownPlaceholder}
           disabled={answer.isPending}
           className="h-8 text-xs"
         />
         <Button type="submit" size="sm" disabled={answer.isPending || !typed}>
-          Answer
+          {t.chat.question.answer}
         </Button>
       </form>
       {answer.isError && <p className="text-xs text-destructive">{answer.error.message}</p>}

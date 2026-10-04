@@ -10,21 +10,14 @@ import { api, type RenderView } from "@/api";
 import type { JobView } from "@/api/events";
 import { useServerEvents } from "@/app/events";
 import { Button } from "@/components/ui/button";
+import { useLanguage, useT } from "@/i18n/I18nProvider";
 import { formatBytes, formatDate } from "@/lib/format";
 import { folded, JobProgressBar } from "./JobProgressBar";
 import { SHAPES, type Shape } from "./shape";
 
-const JOB_WORDS: Record<string, string> = {
-  waiting: "Queued behind other renders…",
-  running: "Rendering…",
-  done: "Ready — below.",
-  failed: "The render failed",
-  stuck: "The render is stuck",
-  cancelled: "Stopped — nothing was kept",
-};
-
 export function RenderPanel({ projectId, shape }: { projectId: number; shape: Shape }) {
   const queryClient = useQueryClient();
+  const t = useT();
   const key = ["projects", "renders", projectId];
   const renders = useQuery({ queryKey: key, queryFn: () => api.renders.list(projectId) });
   const sizes = SHAPES[shape].deliver;
@@ -68,7 +61,7 @@ export function RenderPanel({ projectId, shape }: { projectId: number; shape: Sh
     <div className="flex flex-col gap-3 text-sm">
       <div className="flex gap-2">
         <select
-          aria-label="Resolution"
+          aria-label={t.editor.render.resolution}
           className="h-8 flex-1 rounded-md border bg-transparent px-2"
           value={sizes.includes(resolution) ? resolution : sizes[0]}
           onChange={(event) => setResolution(event.target.value)}
@@ -80,21 +73,21 @@ export function RenderPanel({ projectId, shape }: { projectId: number; shape: Sh
           ))}
         </select>
         <Button size="sm" onClick={render}>
-          <FilmIcon /> Render
+          <FilmIcon /> {t.editor.render.render}
         </Button>
       </div>
       {job && (
         <div className="flex items-center gap-2">
           <div className="flex flex-1 flex-col gap-1">
             <p className="text-xs">
-              {JOB_WORDS[job.state] ?? job.state}
+              {t.editor.render.jobs[job.state] ?? job.state}
               {job.error && job.state !== "cancelled" ? `: ${job.error}` : ""}
             </p>
             <JobProgressBar job={job} />
           </div>
           {working && (
             <Button size="sm" variant="ghost" onClick={stop}>
-              <SquareIcon /> Stop
+              <SquareIcon /> {t.editor.render.stop}
             </Button>
           )}
         </div>
@@ -105,24 +98,26 @@ export function RenderPanel({ projectId, shape }: { projectId: number; shape: Sh
           <Kept key={kept.id} render={kept} />
         ))}
         {renders.data?.length === 0 && (
-          <li className="text-xs text-muted-foreground">No renders kept for this project yet.</li>
+          <li className="text-xs text-muted-foreground">{t.editor.render.none}</li>
         )}
       </ul>
-      <p className="text-xs text-muted-foreground">
-        Renders are kept for a while and made again on request; they cost no credits.
-      </p>
+      <p className="text-xs text-muted-foreground">{t.editor.render.note}</p>
     </div>
   );
 }
 
 function Kept({ render }: { render: RenderView }) {
+  const t = useT();
+  const { language } = useLanguage();
   return (
     <li className="flex items-center gap-2 rounded-md border px-2 py-1.5">
       <span className="flex-1 text-xs">
-        {render.settings.resolution ?? "audio"} · {formatBytes(render.size)}
-        <span className="block text-muted-foreground">{formatDate(render.created_at)}</span>
+        {render.settings.resolution ?? t.editor.render.audio} · {formatBytes(render.size, language)}
+        <span className="block text-muted-foreground">
+          {formatDate(render.created_at, language)}
+        </span>
       </span>
-      <Button asChild size="icon" variant="ghost" aria-label="Download">
+      <Button asChild size="icon" variant="ghost" aria-label={t.editor.render.download}>
         <a href={render.file} download>
           <DownloadIcon />
         </a>

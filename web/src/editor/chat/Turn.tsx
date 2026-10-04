@@ -5,15 +5,17 @@
 // it happens (docs/web.md, *Money*).
 
 import { CheckIcon, LoaderIcon, WrenchIcon, XIcon } from "lucide-react";
+import { useT } from "@/i18n/I18nProvider";
 import { formatDollars } from "@/lib/money";
 import { QuestionCard } from "./QuestionCard";
 import { QuoteBox } from "./QuoteBox";
 import { awaitingQuote, type Entry, ending, type Line, waitingQuestion, words } from "./transcript";
 
 export function Turn({ entry }: { entry: Entry }) {
+  const t = useT();
   const { turn } = entry;
   const said = words(entry);
-  const ended = ending(turn.state);
+  const ended = ending(turn.state, t.chat);
   const waiting = waitingQuestion(turn);
   return (
     <li className="flex flex-col gap-2">
@@ -32,7 +34,7 @@ export function Turn({ entry }: { entry: Entry }) {
       {said && <p className="whitespace-pre-wrap text-sm">{said}</p>}
       {turn.state === "running" && !said && (
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <LoaderIcon className="size-3 animate-spin" /> Working…
+          <LoaderIcon className="size-3 animate-spin" /> {t.chat.turn.working}
         </p>
       )}
       {(turn.questions ?? []).map((question, index) => (
@@ -50,9 +52,9 @@ export function Turn({ entry }: { entry: Entry }) {
       {turn.state !== "running" && (
         <p className="text-xs text-muted-foreground">
           {turn.state === "asking"
-            ? `So far this turn has cost ${formatDollars(turn.charged_micros)}; nothing more while it waits`
-            : `This turn cost ${formatDollars(turn.charged_micros)}`}
-          {entry.balanceAfter !== null && ` · ${formatDollars(entry.balanceAfter)} left`}
+            ? t.chat.turn.costSoFar(formatDollars(turn.charged_micros))
+            : t.chat.turn.cost(formatDollars(turn.charged_micros))}
+          {entry.balanceAfter !== null && t.chat.turn.left(formatDollars(entry.balanceAfter))}
         </p>
       )}
     </li>

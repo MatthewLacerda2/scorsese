@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { TurnView } from "@/api/chat";
 import { ApiError } from "@/api/client";
 import type { JobView } from "@/api/events";
+import { en } from "@/i18n/en";
 import type { Entry, Transcript } from "./transcript";
 import {
   apply,
@@ -124,7 +125,9 @@ describe("what is not this panel's", () => {
     let shown = apply(started, { type: "job", ...job(5, "thumbnail", "done") });
     shown = apply(shown, { type: "job", ...job(6, "veo_shot", "waiting") });
     shown = apply(shown, { type: "job", ...job(6, "veo_shot", "running") });
-    expect(shown.jobs.map((seen) => [seen.id, jobState(seen)])).toEqual([[6, "generating"]]);
+    expect(shown.jobs.map((seen) => [seen.id, jobState(seen, en.chat)])).toEqual([
+      [6, "generating"],
+    ]);
   });
 });
 
@@ -153,7 +156,7 @@ describe("conversations", () => {
 });
 
 test("a server with no assistant key is a note, not an error", () => {
-  expect(problem(new ApiError(503, "the assistant is not configured")).tone).toBe("note");
-  expect(problem(new ApiError(402, "no credit")).lead).toContain("no credit");
-  expect(problem(new Error("offline")).detail).toBe("offline");
+  expect(problem(new ApiError(503, "the assistant is not configured"), en.chat).tone).toBe("note");
+  expect(problem(new ApiError(402, "no credit"), en.chat).lead).toContain("no credit");
+  expect(problem(new Error("offline"), en.chat).detail).toBe("offline");
 });

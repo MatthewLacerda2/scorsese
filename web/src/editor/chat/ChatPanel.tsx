@@ -13,8 +13,8 @@ import type { ServerEvent } from "@/api/events";
 import { useServerEvents } from "@/app/events";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { useT } from "@/i18n/I18nProvider";
 import { ModelPicker } from "./ModelPicker";
-import { ANSWER_PLACEHOLDER } from "./question";
 import { Turn } from "./Turn";
 import {
   apply,
@@ -28,15 +28,8 @@ import {
   upsert,
 } from "./transcript";
 
-/** What each generation job is called in the panel. */
-const JOB_LABEL: Record<string, string> = {
-  veo_shot: "Video shot",
-  still_image: "Still",
-  spoken_line: "Spoken line",
-  voice_design: "Voice design",
-};
-
 export function ChatPanel({ projectId }: { projectId: number }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const conversation = useQuery({
     queryKey: ["chat", projectId],
@@ -82,7 +75,9 @@ export function ChatPanel({ projectId }: { projectId: number }) {
         </div>
       )}
       <div ref={scroller} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-3">
-        {conversation.isPending && <p className="text-sm text-muted-foreground">Loading…</p>}
+        {conversation.isPending && (
+          <p className="text-sm text-muted-foreground">{t.chat.loading}</p>
+        )}
         {conversation.isError && (
           <p className="text-sm text-destructive">{conversation.error.message}</p>
         )}
@@ -95,7 +90,8 @@ export function ChatPanel({ projectId }: { projectId: number }) {
           <ul className="flex flex-col gap-0.5 border-t pt-2 text-xs text-muted-foreground">
             {transcript.jobs.map((job) => (
               <li key={job.id}>
-                {JOB_LABEL[job.kind] ?? job.kind} #{job.id}: {jobState(job)}
+                {(t.chat.jobs as Record<string, string>)[job.kind] ?? job.kind} #{job.id}:{" "}
+                {jobState(job, t.chat)}
               </li>
             ))}
           </ul>
@@ -127,6 +123,7 @@ function Composer({
   askingTurn: number | null;
   onStarted: (turn: Awaited<ReturnType<typeof chatApi.send>>) => void;
 }) {
+  const t = useT();
   const [prompt, setPrompt] = useState("");
   const [fresh, setFresh] = useState(false);
   const [refused, setRefused] = useState<Problem | null>(null);
@@ -138,11 +135,11 @@ function Composer({
       setFresh(false);
       onStarted(turn);
     },
-    onError: (error) => setRefused(problem(error)),
+    onError: (error) => setRefused(problem(error, t.chat)),
   });
   const stop = useMutation({
     mutationFn: (turn: number) => chatApi.stop(turn),
-    onError: (error) => setRefused(problem(error)),
+    onError: (error) => setRefused(problem(error, t.chat)),
   });
   const ready = prompt.trim() !== "" && runningTurn === null && !send.isPending;
   const stoppable = runningTurn ?? askingTurn;
@@ -168,8 +165,8 @@ function Composer({
         onKeyDown={keyed}
         placeholder={
           askingTurn !== null && !fresh
-            ? ANSWER_PLACEHOLDER
-            : "Ask the assistant… (Enter sends, Shift+Enter for a new line)"
+            ? t.chat.composer.answerPlaceholder
+            : t.chat.composer.placeholder
         }
         className="max-h-40 min-h-16 resize-none"
       />
@@ -180,7 +177,7 @@ function Composer({
             checked={fresh}
             onChange={(event) => setFresh(event.target.checked)}
           />
-          New conversation
+          {t.chat.composer.fresh}
         </label>
         <div className="ml-auto flex gap-2">
           {stoppable !== null && (
@@ -190,11 +187,11 @@ function Composer({
               disabled={stop.isPending}
               onClick={() => stop.mutate(stoppable)}
             >
-              <SquareIcon /> Stop
+              <SquareIcon /> {t.chat.composer.stop}
             </Button>
           )}
           <Button size="sm" disabled={!ready} onClick={() => send.mutate()}>
-            <SendIcon /> Send
+            <SendIcon /> {t.chat.composer.send}
           </Button>
         </div>
       </div>

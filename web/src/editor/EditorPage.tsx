@@ -24,6 +24,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { useT } from "@/i18n/I18nProvider";
 import { AssetsPanel } from "./assets/AssetsPanel";
 import { ChatPanel } from "./chat/ChatPanel";
 import { useDeleteKey } from "./deleting";
@@ -41,14 +42,16 @@ import { Timeline } from "./timeline/Timeline";
 export function EditorPage() {
   const id = Number(useParams().id);
   const project = useEditorProject(id);
+  const t = useT();
   if (project.isError) return <p className="p-6 text-destructive">{project.error.message}</p>;
-  if (!project.data) return <p className="p-6 text-muted-foreground">Opening the project…</p>;
+  if (!project.data) return <p className="p-6 text-muted-foreground">{t.editor.page.opening}</p>;
   return <Editor project={project.data} />;
 }
 
 function Editor({ project }: { project: EditorProject }) {
   const { id, revision, document } = project;
   const queryClient = useQueryClient();
+  const t = useT();
   const edit = useEdit(id);
   const [playhead, setPlayhead] = useState(0);
   const [picked, setPicked] = useState<string[]>([]);
@@ -75,17 +78,17 @@ function Editor({ project }: { project: EditorProject }) {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-2 border-b px-3 py-1.5">
-        <Button asChild size="icon" variant="ghost" aria-label="Back to projects">
+        <Button asChild size="icon" variant="ghost" aria-label={t.editor.page.back}>
           <Link to="/projects">
             <ArrowLeftIcon />
           </Link>
         </Button>
         <h1 className="truncate font-heading font-semibold">{document.name}</h1>
-        <span className="text-xs text-muted-foreground">{`revision ${revision}`}</span>
+        <span className="text-xs text-muted-foreground">{t.editor.page.revision(revision)}</span>
         <div className="ml-auto flex items-center gap-2">
           <SaveTemplate clips={selected} edit={edit} />
           <select
-            aria-label="Frame shape"
+            aria-label={t.editor.page.frameShape}
             className="h-8 rounded-md border bg-transparent px-2 text-sm"
             value={shape}
             onChange={(event) => {
@@ -103,15 +106,13 @@ function Editor({ project }: { project: EditorProject }) {
           <Dialog>
             <DialogTrigger asChild>
               <Button size="sm" variant="outline">
-                <FilmIcon /> Render
+                <FilmIcon /> {t.editor.page.render}
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-sm">
               <DialogHeader>
-                <DialogTitle>Render the video</DialogTitle>
-                <DialogDescription>
-                  The whole cut as it is now, as an MP4 to download.
-                </DialogDescription>
+                <DialogTitle>{t.editor.page.renderTitle}</DialogTitle>
+                <DialogDescription>{t.editor.page.renderDescription}</DialogDescription>
               </DialogHeader>
               <RenderPanel projectId={id} shape={shape} />
             </DialogContent>
@@ -121,7 +122,12 @@ function Editor({ project }: { project: EditorProject }) {
       {edit.refused && (
         <div className="flex items-start gap-2 border-b bg-destructive/10 px-3 py-1.5 text-sm text-destructive">
           <p className="flex-1">{edit.refused}</p>
-          <Button size="icon" variant="ghost" aria-label="Dismiss" onClick={edit.dismiss}>
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label={t.editor.page.dismiss}
+            onClick={edit.dismiss}
+          >
             <XIcon />
           </Button>
         </div>
@@ -167,7 +173,7 @@ function Editor({ project }: { project: EditorProject }) {
             onRelease={({ tool, args }) => edit.run({ tool, args, edit: true })}
             onDrop={(dragged, track, pointed, reach) => void drop(dragged, track, pointed, reach)}
             onAddTrack={(kind) => void edit.run({ tool: "track_new", args: { kind }, edit: true })}
-            onRemoveTrack={(track) => confirmThen(trackRemoval(track), edit.run)}
+            onRemoveTrack={(track) => confirmThen(trackRemoval(track, t.editor.removal), edit.run)}
           />
         </section>
       </div>

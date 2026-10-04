@@ -16,11 +16,11 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { useLanguage, useT } from "@/i18n/I18nProvider";
 import { formatBytes, formatDate, formatDuration } from "@/lib/format";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { DownloadButton } from "./Download";
 import { EditableText } from "./EditableText";
-import { KIND_LABEL } from "./FileTile";
 import { GenerationRecord } from "./GenerationRecord";
 import type { Opened } from "./Viewer";
 
@@ -32,12 +32,13 @@ interface Props {
 
 export function DetailsSheet({ id, onClose, onOpen }: Props) {
   const item = useLibraryItem(id);
+  const t = useT();
   return (
     <Sheet open={id !== null} onOpenChange={(open) => !open && onClose()}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-md">
         {item.isError && (
           <SheetHeader>
-            <SheetTitle>Not found</SheetTitle>
+            <SheetTitle>{t.files.details.notFound}</SheetTitle>
             <SheetDescription>{item.error.message}</SheetDescription>
           </SheetHeader>
         )}
@@ -56,6 +57,9 @@ function Details({
   onOpen: (file: Opened) => void;
   onDeleted: () => void;
 }) {
+  const t = useT();
+  const words = t.files.details;
+  const { language } = useLanguage();
   const queryClient = useQueryClient();
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["library"] });
   const update = useMutation({
@@ -79,30 +83,30 @@ function Details({
       <SheetHeader className="px-0">
         <SheetTitle className="sr-only">{item.name}</SheetTitle>
         <EditableText
-          label="Name"
+          label={words.name}
           value={item.name}
           onSave={(name) => update.mutateAsync({ name })}
           className="text-lg font-semibold"
         />
         <SheetDescription>
-          {KIND_LABEL[item.kind]}
-          {item.generated ? " · generated" : ""}
+          {t.files.kinds[item.kind]}
+          {item.generated ? ` · ${words.generated}` : ""}
         </SheetDescription>
       </SheetHeader>
 
       <div className="grid grid-cols-2 gap-2">
         <Button variant="secondary" onClick={() => onOpen(item)}>
-          {item.kind === "image" ? "View" : item.kind === "midi" ? "Open" : "Play"}
+          {item.kind === "image" ? words.view : item.kind === "midi" ? words.open : words.play}
         </Button>
         <DownloadButton file={item} />
       </div>
 
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-        <dt className="text-muted-foreground">Size</dt>
-        <dd>{formatBytes(item.size_bytes)}</dd>
+        <dt className="text-muted-foreground">{words.size}</dt>
+        <dd>{formatBytes(item.size_bytes, language)}</dd>
         {item.media.width !== undefined && item.media.height !== undefined && (
           <>
-            <dt className="text-muted-foreground">Dimensions</dt>
+            <dt className="text-muted-foreground">{words.dimensions}</dt>
             <dd>
               {item.media.width} × {item.media.height}
             </dd>
@@ -110,32 +114,32 @@ function Details({
         )}
         {item.media.duration_seconds !== undefined && (
           <>
-            <dt className="text-muted-foreground">Duration</dt>
+            <dt className="text-muted-foreground">{words.duration}</dt>
             <dd>{formatDuration(item.media.duration_seconds)}</dd>
           </>
         )}
-        <dt className="text-muted-foreground">Added</dt>
-        <dd>{formatDate(item.created_at)}</dd>
+        <dt className="text-muted-foreground">{words.added}</dt>
+        <dd>{formatDate(item.created_at, language)}</dd>
       </dl>
 
       <section className="flex flex-col gap-1">
-        <h3 className="text-sm font-medium">Description</h3>
+        <h3 className="text-sm font-medium">{words.description}</h3>
         <EditableText
-          label="Description"
+          label={words.description}
           multiline
           value={item.description ?? ""}
-          placeholder="Words the assistant reads when choosing a file"
+          placeholder={words.descriptionPlaceholder}
           onSave={(description) => update.mutateAsync({ description })}
         />
       </section>
       {update.isError && <p className="text-sm text-destructive">{update.error.message}</p>}
 
       <section className="flex flex-col gap-1">
-        <h3 className="text-sm font-medium">Used in</h3>
-        <ProjectLinks projects={item.used_by} empty="No project uses it yet." />
+        <h3 className="text-sm font-medium">{words.usedIn}</h3>
+        <ProjectLinks projects={item.used_by} empty={words.unused} />
         {item.templates.length > 0 && (
           <p className="text-sm text-muted-foreground">
-            {`Templates: ${item.templates.map((template) => template.name).join(", ")}`}
+            {words.templates(item.templates.map((template) => template.name).join(", "))}
           </p>
         )}
       </section>
@@ -144,7 +148,7 @@ function Details({
 
       <section className="flex flex-col gap-2">
         <Button variant="destructive" onClick={() => setConfirming(true)}>
-          Delete
+          {words.delete}
         </Button>
       </section>
       <ConfirmDialog
@@ -153,9 +157,9 @@ function Details({
           setConfirming(open);
           if (!open) remove.reset();
         }}
-        title={`Delete “${item.name}”?`}
-        description="The file is removed from your library for good."
-        confirm="Delete"
+        title={words.deleteTitle(item.name)}
+        description={words.deleteDescription}
+        confirm={words.delete}
         busy={remove.isPending}
         onConfirm={() => remove.mutate()}
       >

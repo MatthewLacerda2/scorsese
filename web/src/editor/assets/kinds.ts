@@ -1,22 +1,8 @@
 // An asset kind's name and colour, the same in the assets panel, on the
 // timeline's clips and in the inspector — three panels, one code, as the
-// desktop app does it.
+// desktop app does it. The names are the catalogue's (`assets.kinds`).
 
-const NAMES: Record<string, string> = {
-  video: "video",
-  image: "image",
-  audio: "audio",
-  text: "text",
-  color: "colour",
-  shape: "shape",
-  icon: "icon",
-  group: "group",
-  image_sequence: "image sequence",
-  generated_video: "generated video",
-  generated_image: "generated still",
-  generated_audio: "generated speech",
-  synth_audio: "synthesised audio",
-};
+import type { Messages } from "@/i18n/catalogue";
 
 const COLORS: Record<string, string> = {
   video: "bg-sky-500",
@@ -34,8 +20,12 @@ const COLORS: Record<string, string> = {
   group: "bg-purple-500",
 };
 
-export function kindName(kind: string): string {
-  return NAMES[kind] ?? kind;
+/**
+ * The kind's name in `names` (the page's `t.assets.kinds`); a kind this build
+ * does not know reads as itself.
+ */
+export function kindName(kind: string, names: Messages["assets"]["kinds"]): string {
+  return (names as Record<string, string>)[kind] ?? kind;
 }
 
 /** A Tailwind background class for the kind; grey for one this build does not know. */

@@ -4,6 +4,7 @@
 import { describe, expect, test } from "bun:test";
 import { renderToString } from "react-dom/server";
 import type { JobView } from "@/api/events";
+import { en } from "@/i18n/en";
 import { folded, JobProgressBar, progressWords } from "./JobProgressBar";
 
 const running: JobView = {
@@ -31,7 +32,7 @@ describe("a render's progress", () => {
   });
 
   test("says the phase where the percentage stands still", () => {
-    const at = (phase: JobView["progress"] & object) => progressWords(phase);
+    const at = (phase: JobView["progress"] & object) => progressWords(phase, en.editor.progress);
     expect(at({ ...drawing, percent: 0, phase: "mixing" })).toBe("0% · mixing the sound…");
     expect(at({ ...drawing, percent: 99, phase: "finishing" })).toBe("99% · finishing the file…");
     expect(at(drawing)).toBe("42%");

@@ -14,6 +14,7 @@ function render(url: string, seed: (client: ReturnType<typeof createQueryClient>
   seed(client);
   return renderToString(
     <App
+      language="en"
       queryClient={client}
       router={(routes) => <MemoryRouter initialEntries={[url]}>{routes}</MemoryRouter>}
     />,

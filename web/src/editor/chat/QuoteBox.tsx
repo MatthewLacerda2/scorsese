@@ -17,10 +17,12 @@ import { useState } from "react";
 import { chatApi, type QuoteAnswer, type QuoteItem, type QuoteView } from "@/api/chat";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { useT } from "@/i18n/I18nProvider";
 import { formatDollars } from "@/lib/money";
-import { BRIEF_LABEL, changeAnswer, preview } from "./quote";
+import { changeAnswer, preview } from "./quote";
 
 export function QuoteBox({ turn, quote }: { turn: number; quote: QuoteView }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const [change, setChange] = useState("");
   const answer = useMutation({
@@ -36,9 +38,7 @@ export function QuoteBox({ turn, quote }: { turn: number; quote: QuoteView }) {
   const asked = changeAnswer(change);
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-amber-500/50 bg-amber-500/5 p-3 text-sm">
-      <p className="font-medium">
-        This costs {formatDollars(quote.micros)} from your credits. Go ahead?
-      </p>
+      <p className="font-medium">{t.chat.quote.ask(formatDollars(quote.micros))}</p>
       {(quote.items ?? []).length > 0 && (
         <ul className="flex flex-col gap-2">
           {(quote.items ?? []).map((item) => (
@@ -51,7 +51,7 @@ export function QuoteBox({ turn, quote }: { turn: number; quote: QuoteView }) {
           <li key={line}>{line}</li>
         ))}
       </ul>
-      {expired && <p className="text-xs text-muted-foreground">This quote has expired.</p>}
+      {expired && <p className="text-xs text-muted-foreground">{t.chat.quote.expired}</p>}
       {answer.data?.note && <p className="text-xs text-muted-foreground">{answer.data.note}</p>}
       {answer.isError && <p className="text-xs text-destructive">{answer.error.message}</p>}
       <div className="flex gap-2">
@@ -60,7 +60,7 @@ export function QuoteBox({ turn, quote }: { turn: number; quote: QuoteView }) {
           disabled={answer.isPending || expired}
           onClick={() => answer.mutate({ confirm: true })}
         >
-          Confirm
+          {t.chat.quote.confirm}
         </Button>
         <Button
           size="sm"
@@ -68,7 +68,7 @@ export function QuoteBox({ turn, quote }: { turn: number; quote: QuoteView }) {
           disabled={answer.isPending}
           onClick={() => answer.mutate({ confirm: false })}
         >
-          Decline
+          {t.chat.quote.decline}
         </Button>
       </div>
       <form
@@ -81,7 +81,7 @@ export function QuoteBox({ turn, quote }: { turn: number; quote: QuoteView }) {
         <Textarea
           value={change}
           onChange={(event) => setChange(event.target.value)}
-          placeholder="Or say what to change — e.g. make the cape yellow instead of red"
+          placeholder={t.chat.quote.changePlaceholder}
           disabled={answer.isPending}
           className="min-h-10 text-xs"
         />
@@ -92,7 +92,7 @@ export function QuoteBox({ turn, quote }: { turn: number; quote: QuoteView }) {
           className="self-start"
           disabled={answer.isPending || !asked}
         >
-          Ask for a change
+          {t.chat.quote.change}
         </Button>
       </form>
     </div>
@@ -101,6 +101,7 @@ export function QuoteBox({ turn, quote }: { turn: number; quote: QuoteView }) {
 
 /** One quoted item: what it is, its price, and the words that would be sent. */
 function Item({ item }: { item: QuoteItem }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const { shown, clipped } = preview(item.description);
   return (
@@ -109,7 +110,7 @@ function Item({ item }: { item: QuoteItem }) {
         <span className="font-medium text-foreground">{item.subject}</span>: {item.says}
       </span>
       <span>
-        <span className="text-muted-foreground">{BRIEF_LABEL[item.brief]}: </span>
+        <span className="text-muted-foreground">{t.chat.quote.brief[item.brief]}: </span>
         {open ? item.description : shown}
         {clipped && (
           <button
@@ -117,7 +118,7 @@ function Item({ item }: { item: QuoteItem }) {
             className="ml-1 text-muted-foreground underline"
             onClick={() => setOpen(!open)}
           >
-            {open ? "less" : "more"}
+            {open ? t.chat.quote.less : t.chat.quote.more}
           </button>
         )}
       </span>

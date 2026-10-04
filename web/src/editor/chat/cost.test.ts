@@ -1,5 +1,6 @@
 import { expect, describe as group, test } from "bun:test";
 import type { ModelChoice } from "@/api/chat";
+import { en } from "@/i18n/en";
 import { colour, describe, position } from "./cost";
 
 function model(id: string, cost: number | null): ModelChoice {
@@ -27,13 +28,13 @@ group("the cost bar", () => {
   });
 
   test("says in words where each model sits", () => {
-    const said = models.map((choice) => describe(position(choice.cost ?? 0, models)));
+    const said = models.map((choice) => describe(position(choice.cost ?? 0, models), en.chat.cost));
     expect(said).toEqual(["inexpensive", "cheapest", "most expensive", "moderately expensive"]);
   });
 
   test("ignores an unpriced model and copes with a single priced one", () => {
     const one = [model("a", 40), model("b", null)];
     expect(position(40, one)).toBe(0);
-    expect(describe(position(40, one))).toBe("cheapest");
+    expect(describe(position(40, one), en.chat.cost)).toBe("cheapest");
   });
 });

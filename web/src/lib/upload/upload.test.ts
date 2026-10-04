@@ -1,6 +1,7 @@
 // Uploading: the hash the server is told, and the one 409 never retried.
 
 import { expect, test } from "bun:test";
+import { en } from "@/i18n/en";
 import { alreadyHave, duplicateOf, shouldRetry } from "./duplicate";
 import { hashFile } from "./hash";
 import { serverMessage } from "./uploader";
@@ -41,7 +42,7 @@ test("tus never retries a duplicate, and defers to its default otherwise", () =>
 });
 
 test("a duplicate found by hash reads like the server's refusal", () => {
-  expect(alreadyHave({ id: 5, name: "intro" })).toEqual({
+  expect(alreadyHave({ id: 5, name: "intro" }, en.files.uploads.alreadyHave)).toEqual({
     item: 5,
     message: "you already have this as “intro”",
   });

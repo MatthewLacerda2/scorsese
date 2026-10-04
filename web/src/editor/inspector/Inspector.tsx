@@ -12,6 +12,7 @@
 // one springs back to what the document still says.
 
 import type { Clip, DocumentAsset, FitMode, Fps, Track } from "@/api";
+import { useT } from "@/i18n/I18nProvider";
 import { kindColor, kindName } from "../assets/kinds";
 import { toSeconds } from "../timeline/time";
 import { BriefPanel } from "./BriefPanel";
@@ -32,6 +33,8 @@ interface Props {
 }
 
 export function Inspector({ clip, track, asset, fps, onChange }: Props) {
+  const t = useT();
+  const words = t.inspector;
   const picture = track.kind === "video";
   const transform = transformOf(clip);
   const trim = (field: string) => (value: number) =>
@@ -40,7 +43,7 @@ export function Inspector({ clip, track, asset, fps, onChange }: Props) {
     onChange("clip_set", { clip: clip.id, [field]: value });
   const speed = clip.speed ?? 1;
   const ramps = animated(clip);
-  const brief = briefOf(asset);
+  const brief = briefOf(asset, words.brief);
   return (
     <div className="flex flex-col gap-3 p-3 text-sm">
       <div>
@@ -49,27 +52,29 @@ export function Inspector({ clip, track, asset, fps, onChange }: Props) {
           <span className="truncate font-medium">{asset?.text ?? clip.asset}</span>
         </div>
         <p className="text-xs text-muted-foreground">
-          {asset ? kindName(asset.kind) : "not in the assets table"}
-          {asset?.state && asset.state !== "generated" ? ` · ${asset.state}` : ""} · on track{" "}
-          {track.name ?? track.id}
+          {asset ? kindName(asset.kind, t.assets.kinds) : words.notInAssets}
+          {asset?.state && asset.state !== "generated"
+            ? ` · ${t.editor.states[asset.state] ?? asset.state}`
+            : ""}
+          {` · ${words.onTrack(track.name ?? track.id)}`}
         </p>
       </div>
       <div className="grid grid-cols-[5.5rem_1fr] items-center gap-x-2 gap-y-1.5">
-        <span>Start</span>
+        <span>{words.start}</span>
         <NumberField
           value={toSeconds(clip.start, fps)}
           suffix="s"
           min={0}
           onCommit={trim("start_seconds")}
         />
-        <span>Duration</span>
+        <span>{words.duration}</span>
         <NumberField
           value={toSeconds(clip.duration, fps)}
           suffix="s"
           min={0.01}
           onCommit={trim("duration_seconds")}
         />
-        <span>Speed</span>
+        <span>{words.speed}</span>
         <select
           className="h-8 rounded-md border bg-transparent px-2"
           value={SPEEDS.includes(speed) ? String(speed) : "other"}
@@ -84,26 +89,24 @@ export function Inspector({ clip, track, asset, fps, onChange }: Props) {
         </select>
         {picture && (
           <>
-            <span>Fit</span>
+            <span>{words.fit}</span>
             <select
               className="h-8 rounded-md border bg-transparent px-2"
               value={clip.fit ?? "fit"}
               onChange={(event) => set("fit")(event.target.value as FitMode)}
             >
-              <option value="fit">Fit — whole picture</option>
-              <option value="fill">Fill — no bars</option>
-              <option value="native">Native — own pixel size</option>
+              <option value="fit">{words.fits.fit}</option>
+              <option value="fill">{words.fits.fill}</option>
+              <option value="native">{words.fits.native}</option>
             </select>
-            <span title="How far from where it naturally sits: right and down, in % of the frame">
-              Position
-            </span>
+            <span title={words.positionTitle}>{words.position}</span>
             <div className="flex gap-1">
               <Value held={transform.x} unit="percent" prefix="x" onCommit={set("position_x")} />
               <Value held={transform.y} unit="percent" prefix="y" onCommit={set("position_y")} />
             </div>
-            <span>Rotation</span>
+            <span>{words.rotation}</span>
             <Value held={transform.rotation} unit="degrees" suffix="°" onCommit={set("rotation")} />
-            <span>Scale</span>
+            <span>{words.scale}</span>
             <Value
               held={transform.scale}
               unit="percent"
@@ -124,20 +127,18 @@ export function Inspector({ clip, track, asset, fps, onChange }: Props) {
       {ramps.length > 0 && (
         <div className="flex flex-col gap-1">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Animated
+            {words.animated}
           </h3>
           {ramps.map((ramp) => (
             <p key={`${ramp.property}-${ramp.by}-${ramp.points}`} className="text-xs">
               {ramp.property}{" "}
               <span className="text-muted-foreground">
-                {ramp.points === 1 ? "1 point" : `${ramp.points} points`}
-                {ramp.by ? ` · ${ramp.by}` : " · by hand"}
+                {words.points(ramp.points)}
+                {` · ${ramp.by || words.byHand}`}
               </span>
             </p>
           ))}
-          <p className="text-xs text-muted-foreground">
-            Changing an animation is a sentence to the assistant.
-          </p>
+          <p className="text-xs text-muted-foreground">{words.animationNote}</p>
         </div>
       )}
     </div>
@@ -150,25 +151,26 @@ function Sequence(props: {
   onChange: (args: Record<string, unknown>) => void;
 }) {
   const { sequence, onChange } = props;
+  const t = useT().inspector.sequence;
   const hold = sequence.hold ?? 1;
   const looping = sequence.loop ?? false;
   return (
     <div className="flex flex-col gap-1.5">
       <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Sequence
+        {t.title}
       </h3>
       <p className="text-xs text-muted-foreground">
-        {sequence.stills.length} stills × {hold} frame(s) = {sequence.stills.length * hold} frames
+        {t.count(sequence.stills.length, hold, sequence.stills.length * hold)}
       </p>
       <div className="grid grid-cols-[5.5rem_1fr] items-center gap-x-2 gap-y-1.5">
-        <span title="How many frames each still stays on screen">Hold</span>
+        <span title={t.holdTitle}>{t.hold}</span>
         <NumberField
           value={hold}
           suffix="f"
           min={1}
           onCommit={(value) => onChange({ hold: Math.round(value) })}
         />
-        <span title="Start again from the first still, instead of holding the last">Loop</span>
+        <span title={t.loopTitle}>{t.loop}</span>
         <input
           type="checkbox"
           className="size-4 justify-self-start"
@@ -190,23 +192,18 @@ function Value(props: {
   onCommit: (value: number) => void;
 }) {
   const { held, unit } = props;
+  const t = useT().inspector;
   if (held.kind === "animated") {
     return (
-      <span
-        className="text-xs text-muted-foreground italic"
-        title="This changes over the clip — nothing here will flatten it"
-      >
-        animated
+      <span className="text-xs text-muted-foreground italic" title={t.animatedTitle}>
+        {t.animatedValue}
       </span>
     );
   }
   if (held.kind === "stretched") {
     return (
-      <span
-        className="text-xs text-muted-foreground"
-        title="Stretched on purpose — ask the assistant for a single value"
-      >
-        {Math.round(held.wide * 100)}% wide, {Math.round(held.tall * 100)}% tall
+      <span className="text-xs text-muted-foreground" title={t.stretchedTitle}>
+        {t.stretched(Math.round(held.wide * 100), Math.round(held.tall * 100))}
       </span>
     );
   }

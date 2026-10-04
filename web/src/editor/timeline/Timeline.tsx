@@ -13,6 +13,7 @@ import { MinusIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { type DragEvent, type PointerEvent, useState } from "react";
 import type { Fps, ProjectDocument, Track } from "@/api";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/i18n/I18nProvider";
 import { type Dragged, dropped, isOurs } from "../assets/dragged";
 import { type Release, SNAP_PX } from "./drag";
 import { Lane } from "./Lane";
@@ -42,6 +43,7 @@ export interface TimelineProps {
 
 export function Timeline(props: TimelineProps) {
   const { document, playhead, onSeek } = props;
+  const t = useT().editor;
   const fps: Fps = document.timeline_fps;
   const [zoomAt, setZoomAt] = useState(2);
   const zoom: Zoom = { pxPerSecond: ZOOMS[zoomAt] ?? 40 };
@@ -59,16 +61,16 @@ export function Timeline(props: TimelineProps) {
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-1 border-b px-2 py-1">
         <Button size="sm" variant="ghost" onClick={() => props.onAddTrack("video")}>
-          <PlusIcon /> Video track
+          <PlusIcon /> {t.timeline.videoTrack}
         </Button>
         <Button size="sm" variant="ghost" onClick={() => props.onAddTrack("audio")}>
-          <PlusIcon /> Audio track
+          <PlusIcon /> {t.timeline.audioTrack}
         </Button>
-        <span className="ml-auto text-xs text-muted-foreground">Zoom</span>
+        <span className="ml-auto text-xs text-muted-foreground">{t.timeline.zoom}</span>
         <Button
           size="icon"
           variant="ghost"
-          aria-label="Zoom out"
+          aria-label={t.timeline.zoomOut}
           disabled={zoomAt === 0}
           onClick={() => setZoomAt((at) => Math.max(0, at - 1))}
         >
@@ -77,7 +79,7 @@ export function Timeline(props: TimelineProps) {
         <Button
           size="icon"
           variant="ghost"
-          aria-label="Zoom in"
+          aria-label={t.timeline.zoomIn}
           disabled={zoomAt === ZOOMS.length - 1}
           onClick={() => setZoomAt((at) => Math.min(ZOOMS.length - 1, at + 1))}
         >
@@ -99,9 +101,7 @@ export function Timeline(props: TimelineProps) {
             />
           </div>
           {tracks.length === 0 && (
-            <p className="p-4 text-sm text-muted-foreground">
-              No tracks yet. Add a video track, then drag something onto it from the left.
-            </p>
+            <p className="p-4 text-sm text-muted-foreground">{t.timeline.empty}</p>
           )}
           {tracks.map((track) => (
             <div key={track.id} className="flex border-b">
@@ -111,13 +111,15 @@ export function Timeline(props: TimelineProps) {
               >
                 <div className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-xs font-medium">{track.name ?? track.id}</span>
-                  <span className="text-[10px] text-muted-foreground">{track.kind}</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {t.trackKinds[track.kind] ?? track.kind}
+                  </span>
                 </div>
                 <Button
                   size="icon"
                   variant="ghost"
-                  aria-label={`Remove the track ${track.name ?? track.id}`}
-                  title="Remove the track — the clips on it go too"
+                  aria-label={t.timeline.removeTrack(track.name ?? track.id)}
+                  title={t.timeline.removeTrackTitle}
                   onClick={() => props.onRemoveTrack(track)}
                 >
                   <Trash2Icon />

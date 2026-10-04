@@ -18,6 +18,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { FileBrowser, type Picking } from "@/files/FileBrowser";
+import { useT } from "@/i18n/I18nProvider";
 import type { EditOutcome } from "../project";
 import { importEdit, PICKABLE_KINDS, refusal } from "./picking";
 
@@ -27,12 +28,13 @@ interface Props {
 }
 
 export function LibraryModal({ projectId, edit }: Props) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="w-full">
-          <LibraryIcon /> Library
+          <LibraryIcon /> {t.assets.library.button}
         </Button>
       </DialogTrigger>
       <DialogContent
@@ -40,11 +42,8 @@ export function LibraryModal({ projectId, edit }: Props) {
         className="flex max-h-[85vh] flex-col overflow-y-auto sm:max-w-5xl"
       >
         <DialogHeader>
-          <DialogTitle>Add from your library</DialogTitle>
-          <DialogDescription>
-            Pick a file to add it to this project's assets, then drag it from there onto a track.
-            New files can be uploaded here, or dropped on this window.
-          </DialogDescription>
+          <DialogTitle>{t.assets.library.title}</DialogTitle>
+          <DialogDescription>{t.assets.library.description}</DialogDescription>
         </DialogHeader>
         {open && <Picker projectId={projectId} edit={edit} />}
       </DialogContent>
@@ -54,11 +53,12 @@ export function LibraryModal({ projectId, edit }: Props) {
 
 /** The browser itself — mounted only while the modal is open, so is its query. */
 export function Picker({ projectId, edit }: Props) {
+  const t = useT();
   const inProject = useLibrary({ project: projectId });
   const added = new Set((inProject.data ?? []).map((tile) => tile.id));
   const picking: Picking = {
     pick: (tile) => void edit.run(importEdit(tile.id)),
-    refuse: (tile) => refusal(tile, added),
+    refuse: (tile) => refusal(tile, added, t.assets.library),
     kinds: PICKABLE_KINDS,
   };
   return (

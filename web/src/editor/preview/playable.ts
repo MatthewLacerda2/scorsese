@@ -18,6 +18,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, type RenderView } from "@/api";
 import type { JobView } from "@/api/events";
 import { useServerEvents } from "@/app/events";
+import type { Messages } from "@/i18n/catalogue";
 import { folded } from "../JobProgressBar";
 import type { Quality } from "./quality";
 
@@ -26,7 +27,7 @@ export type Playable =
   | { state: "none" }
   | { state: "preparing"; job: JobView }
   | { state: "ready"; render: RenderView }
-  | { state: "failed"; why: string };
+  | { state: "failed"; why: string | null };
 
 /** How often a render on its way is asked about, in case no event arrives. */
 const POLL_MS = 4000;
@@ -40,10 +41,10 @@ interface Held {
 }
 
 /** Say what a job's state means to someone waiting for their preview. */
-export function waiting(job: JobView): string {
-  if (job.state === "waiting") return "Preview queued…";
-  if (job.state === "running") return "Rendering the preview…";
-  return "Preview ready";
+export function waiting(job: JobView, t: Messages["editor"]["preview"]): string {
+  if (job.state === "waiting") return t.queued;
+  if (job.state === "running") return t.rendering;
+  return t.ready;
 }
 
 /**
@@ -69,7 +70,8 @@ export function usePlayable(
         ? { state: "ready", render: asked.render }
         : asked.job
           ? { state: "preparing", job: asked.job }
-          : { state: "failed", why: "the server answered with neither a render nor a job" };
+          : // Neither a render nor a job: nothing more to say than that it failed.
+            { state: "failed", why: null };
       setHeld({ revision: at, playable: next });
     } catch (error) {
       setHeld({ revision: at, playable: { state: "failed", why: (error as Error).message } });
@@ -94,7 +96,7 @@ export function usePlayable(
     // again for the revision on screen answers correctly in every case.
     if (event.state === "done" || event.state === "cancelled") void ask();
     else if (event.state === "failed" || event.state === "stuck") {
-      setHeld({ revision, playable: { state: "failed", why: event.error ?? "the render failed" } });
+      setHeld({ revision, playable: { state: "failed", why: event.error ?? null } });
     } else
       setHeld({ revision, playable: { state: "preparing", job: folded(playable.job, event) } });
   });
