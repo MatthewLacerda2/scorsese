@@ -160,7 +160,8 @@ async fn an_assistant_call_is_charged_from_its_token_counts(pool: PgPool) {
     let mut tx = db::scoped(&pool, ana).await.unwrap();
     let charged = ledger::charge_assistant(&mut tx, &call).await.unwrap();
     tx.commit().await.unwrap();
-    assert_eq!(charged, price(30_000));
-    assert_eq!(charged, 33_000);
+    assert_eq!(charged.cost, 30_000);
+    assert_eq!(charged.micros, price(30_000));
+    assert_eq!(charged.micros, 33_000);
     assert_eq!(balance(&pool, ana).await, -33_000, "charged, not refused");
 }

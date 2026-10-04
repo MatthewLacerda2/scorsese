@@ -67,19 +67,40 @@ pub async fn issue(pool: &PgPool, user: UserId, name: &str) -> Result<Issued, Ac
     })
 }
 
-/// Whose token `bearer` is, if anybody's — and note that it was used.
+/// Whose token `bearer` is, if anybody's, and the token's id — and note that
+/// it was used.
 ///
 /// Privileged for the same reason as [`super::sessions::find`].
-pub async fn find(pool: &PgPool, bearer: &str) -> Result<Option<UserId>, AccountError> {
+pub async fn find(pool: &PgPool, bearer: &str) -> Result<Option<(UserId, i64)>, AccountError> {
     let mut tx = db::privileged(pool).await?;
-    let id: Option<i64> = sqlx::query_scalar(
-        "UPDATE api_tokens SET last_used_at = now() WHERE token_hash = $1 RETURNING user_id",
+    let row: Option<(i64, i64)> = sqlx::query_as(
+        "UPDATE api_tokens SET last_used_at = now() WHERE token_hash = $1 RETURNING user_id, id",
     )
     .bind(secret::digest(bearer))
     .fetch_optional(&mut *tx)
     .await?;
     tx.commit().await?;
-    Ok(id.map(UserId::from_row))
+    Ok(row.map(|(user, id)| (UserId::from_row(user), id)))
+}
+
+/// Remember which client `user`'s token `id` connects with: the `clientInfo`
+/// an MCP `initialize` named (#707). Its later tool calls are recorded with
+/// it; the next `initialize` replaces it.
+pub async fn introduce(
+    pool: &PgPool,
+    user: UserId,
+    id: i64,
+    name: Option<&str>,
+    version: Option<&str>,
+) -> Result<(), sqlx::Error> {
+    let mut tx = db::scoped(pool, user).await?;
+    sqlx::query("UPDATE api_tokens SET client_name = $2, client_version = $3 WHERE id = $1")
+        .bind(id)
+        .bind(name)
+        .bind(version)
+        .execute(&mut *tx)
+        .await?;
+    tx.commit().await
 }
 
 /// `user`'s tokens, newest first. No owner filter: the scope is the filter.

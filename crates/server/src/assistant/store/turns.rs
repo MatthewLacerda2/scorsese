@@ -2,11 +2,13 @@
 //! each call cost, a quote it holds, and how it ended.
 
 use std::collections::HashMap;
+use std::time::Duration;
 
 use scorsese_providers::chat::{Effort, Kept, Message, Model, Reply, anthropic};
 use serde_json::value::RawValue;
 use sqlx::postgres::PgPool;
 
+use super::calls::{self, count};
 use super::{QuoteView, TurnView, view};
 use crate::assistant::AssistantError;
 use crate::credits::ledger::{self, AssistantCall};
@@ -198,11 +200,14 @@ pub(in crate::assistant) struct Charge<'a> {
     /// Its prompt, which the history shows.
     pub(in crate::assistant) prompt: &'a str,
     /// The model the call was made on.
-    pub(in crate::assistant) model: &'a str,
+    pub(in crate::assistant) model: Model,
+    /// How long it took to answer.
+    pub(in crate::assistant) latency: Duration,
 }
 
-/// Charge one call's reply and add it to the turn's totals. What it charged,
-/// and the balance after.
+/// Charge one call's reply, record it in `model_calls` and add it to the
+/// turn's totals, all in one transaction. What it charged, and the balance
+/// after.
 pub(in crate::assistant) async fn charge(
     pool: &PgPool,
     user: UserId,
@@ -211,7 +216,7 @@ pub(in crate::assistant) async fn charge(
 ) -> Result<(i64, i64), AssistantError> {
     let mut tx = db::scoped(pool, user).await?;
     let call = AssistantCall {
-        model: charge.model,
+        model: charge.model.id(),
         usage: reply.usage,
         project: Some(charge.project),
         prompt: charge.prompt,
@@ -220,8 +225,8 @@ pub(in crate::assistant) async fn charge(
     let charged = ledger::charge_assistant(&mut tx, &call)
         .await
         .map_err(|error| AssistantError::Internal(error.to_string()))?;
+    calls::record(&mut tx, charge, reply, charged).await?;
     let usage = reply.usage;
-    let count = |tokens: u64| i64::try_from(tokens).unwrap_or(i64::MAX);
     sqlx::query(
         "UPDATE chat_turns SET calls = calls + 1, stop_reason = $2,
                 input_tokens = input_tokens + $3, output_tokens = output_tokens + $4,
@@ -238,12 +243,12 @@ pub(in crate::assistant) async fn charge(
         usage.cache_write_5m.saturating_add(usage.cache_write_1h),
     ))
     .bind(count(usage.cache_read))
-    .bind(charged)
+    .bind(charged.micros)
     .execute(&mut *tx)
     .await?;
     let balance = ledger::balance(&mut tx).await?;
     tx.commit().await?;
-    Ok((charged, balance))
+    Ok((charged.micros, balance))
 }
 
 /// Hold a quote on turn `turn` for the user to answer: its token, and what

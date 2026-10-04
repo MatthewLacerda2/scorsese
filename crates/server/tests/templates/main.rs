@@ -70,7 +70,7 @@ pub(crate) async fn call(
 ) -> Result<String, String> {
     state
         .tools
-        .call(user, Client::External, name, &arguments)
+        .call(user, Client::External { token: None }, name, &arguments)
         .await
         .map(|reply| reply.parts[0].text.clone())
 }

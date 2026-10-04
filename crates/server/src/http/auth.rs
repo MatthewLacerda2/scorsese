@@ -58,8 +58,8 @@ pub struct Member {
 pub enum Via {
     /// A browser session; the cookie's value, so logging out can end it.
     Session(String),
-    /// An API token.
-    Token,
+    /// An API token, by its id.
+    Token(i64),
 }
 
 const NOT_LOGGED_IN: &str = "not logged in";
@@ -77,12 +77,12 @@ impl FromRequestParts<AppState> for Member {
                 .ok_or(ApiError::Unauthorized(
                     "the Authorization header is not `Bearer <token>`",
                 ))?;
-            let user = tokens::find(&state.pool, bearer)
+            let (user, token) = tokens::find(&state.pool, bearer)
                 .await?
                 .ok_or(ApiError::Unauthorized("that API token is not valid"))?;
             return Ok(Self {
                 user,
-                via: Via::Token,
+                via: Via::Token(token),
             });
         }
         let cookie = session_cookie(&parts.headers).ok_or(ApiError::Unauthorized(NOT_LOGGED_IN))?;

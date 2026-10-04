@@ -53,7 +53,9 @@ fn a_reply_that_calls_tools_keeps_words_calls_and_signatures() {
 #[test]
 fn cached_input_is_a_cache_read_and_thinking_is_output() {
     let (reply, _) = replay("chat-tool-call.sse");
-    let usage = reply.unwrap().usage;
+    let reply = reply.unwrap();
+    assert_eq!(reply.thinking, Some(200), "thoughtsTokenCount, said apart");
+    let usage = reply.usage;
     assert_eq!(
         usage,
         Usage {

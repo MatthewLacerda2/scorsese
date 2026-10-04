@@ -155,11 +155,25 @@ pub struct AssistantCall<'a> {
     pub turn: Option<i64>,
 }
 
+/// What charging an assistant call wrote.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Charged {
+    /// The entry.
+    pub entry: i64,
+    /// What the call cost at its model's rates, in micro-dollars.
+    pub cost: i64,
+    /// What the user was charged for it: the cost and the markup.
+    pub micros: i64,
+}
+
 /// Charge one assistant call: its exact cost at its own model's rates
 /// (#705), plus the markup. Not reserved
 /// for, and not refused — the tokens are already spent (see the module doc
-/// of [`credits`](super)). Returns the micro-dollars charged.
-pub async fn charge_assistant(tx: &mut Tx, call: &AssistantCall<'_>) -> Result<i64, CreditError> {
+/// of [`credits`](super)).
+pub async fn charge_assistant(
+    tx: &mut Tx,
+    call: &AssistantCall<'_>,
+) -> Result<Charged, CreditError> {
     let rate = Model::from_id(call.model)
         .and_then(|model| chat::rate(model, Checked::today()))
         .ok_or_else(|| CreditError::Unpriced(call.model.into()))?;
@@ -171,19 +185,23 @@ pub async fn charge_assistant(tx: &mut Tx, call: &AssistantCall<'_>) -> Result<i
         "cost_micros": cost,
         "prompt": call.prompt,
     });
-    sqlx::query(
+    let entry = sqlx::query_scalar(
         "INSERT INTO credit_entries (user_id, kind, amount_micros, project_id, memo, detail,
                                      chat_turn_id)
-         VALUES (member_id(), 'charge', $1, $2, $3, $4, $5)",
+         VALUES (member_id(), 'charge', $1, $2, $3, $4, $5) RETURNING id",
     )
     .bind(-charged)
     .bind(call.project)
     .bind(format!("Assistant: {}", call.model))
     .bind(detail)
     .bind(call.turn)
-    .execute(&mut **tx)
+    .fetch_one(&mut **tx)
     .await?;
-    Ok(charged)
+    Ok(Charged {
+        entry,
+        cost: i64::try_from(cost).unwrap_or(i64::MAX),
+        micros: charged,
+    })
 }
 
 /// Credit `micros` the operator received. A top-up records the dollars

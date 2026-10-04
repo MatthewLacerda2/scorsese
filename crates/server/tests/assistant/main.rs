@@ -12,6 +12,7 @@ mod common;
 mod models;
 mod money;
 mod quotes;
+mod recorded;
 mod resume;
 mod script;
 mod turns;
