@@ -2,7 +2,7 @@
 // project opens the editor (#545); its files are a click away.
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { FolderOpenIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { ExternalLinkIcon, FolderOpenIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { api, type ProjectSummary } from "@/api";
@@ -96,14 +96,14 @@ function ProjectRow({ project }: { project: ProjectSummary }) {
         </span>
         {rename.isError && <span className="text-xs text-destructive">{rename.error.message}</span>}
       </div>
-      <Button asChild variant="ghost" size="sm">
-        <Link to={`/projects/${project.id}`}>
-          <FolderOpenIcon /> Files
+      <Button asChild variant="success" size="sm">
+        <Link to={`/projects/${project.id}/edit`}>
+          <ExternalLinkIcon /> Open
         </Link>
       </Button>
       <Button asChild variant="outline" size="sm">
-        <Link to={`/projects/${project.id}/edit`}>
-          <PencilIcon /> Edit
+        <Link to={`/projects/${project.id}`}>
+          <FolderOpenIcon /> Files
         </Link>
       </Button>
       <Button

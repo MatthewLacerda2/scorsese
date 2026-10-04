@@ -71,12 +71,6 @@ export function ChatPanel({ projectId }: { projectId: number }) {
         {conversation.isError && (
           <p className="text-sm text-destructive">{conversation.error.message}</p>
         )}
-        {conversation.isSuccess && transcript.entries.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            Tell the assistant what you want the video to be, or what to change. It edits this
-            project with you watching, and asks before spending money.
-          </p>
-        )}
         <ol className="flex flex-col gap-5">
           {transcript.entries.map((entry) => (
             <Turn key={entry.turn.id} entry={entry} />
