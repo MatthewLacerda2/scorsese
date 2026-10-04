@@ -5,7 +5,8 @@
 //! row, a job — are committed together or not at all. Owners are written as
 //! `member_id()`, never passed in.
 
-use scorsese_providers::prices::claude::{self, Usage};
+use scorsese_providers::chat::Model;
+use scorsese_providers::prices::chat::{self, Usage};
 use serde_json::json;
 
 use super::{CreditError, price};
@@ -153,11 +154,14 @@ pub struct AssistantCall<'a> {
     pub turn: Option<i64>,
 }
 
-/// Charge one assistant call: its exact cost plus the markup. Not reserved
+/// Charge one assistant call: its exact cost at its own model's rates
+/// (#705), plus the markup. Not reserved
 /// for, and not refused — the tokens are already spent (see the module doc
 /// of [`credits`](super)). Returns the micro-dollars charged.
 pub async fn charge_assistant(tx: &mut Tx, call: &AssistantCall<'_>) -> Result<i64, CreditError> {
-    let rate = claude::rate(call.model).ok_or_else(|| CreditError::Unpriced(call.model.into()))?;
+    let rate = Model::from_id(call.model)
+        .and_then(chat::rate)
+        .ok_or_else(|| CreditError::Unpriced(call.model.into()))?;
     let cost = call.usage.micros(rate);
     let charged = price(cost);
     let detail = json!({

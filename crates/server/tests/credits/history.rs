@@ -1,7 +1,9 @@
 //! The history a user reads: one row per thing, the balance after each, in
 //! dollars, and only their own.
 
-use scorsese_providers::prices::claude::{MODEL, Usage};
+use scorsese_providers::chat::{Model, Usage};
+
+const MODEL: &str = Model::ClaudeOpus55.id();
 use scorsese_server::credits::generations::Answer;
 use scorsese_server::credits::history::{self, Filter, History};
 use scorsese_server::credits::ledger::{self, AssistantCall};

@@ -1,7 +1,9 @@
 //! Reserve, then settle: a success is charged, a failure is free, and nothing
 //! is spent that the balance does not cover.
 
-use scorsese_providers::prices::claude::{MODEL, Usage};
+use scorsese_providers::chat::{Model, Usage};
+
+const MODEL: &str = Model::ClaudeOpus55.id();
 use scorsese_server::credits::generations::{Answer, Line, Request};
 use scorsese_server::credits::ledger::{self, AssistantCall};
 use scorsese_server::credits::{CreditError, price};

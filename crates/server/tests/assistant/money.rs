@@ -40,7 +40,7 @@ async fn without_a_key_the_assistant_says_so_and_nothing_else_breaks(pool: PgPoo
 #[sqlx::test]
 async fn the_per_turn_cap_ends_a_turn_between_calls(pool: PgPool) {
     let script = Script::new(vec![]);
-    let capped = Assistant::new("claude-opus-5-5", CHARGED).answered_by(script.clone());
+    let capped = Assistant::new(CHARGED).answered_by(script.clone());
     let (address, _) = serve(&pool, capped).await;
     let (ana, who) = member(&pool, "ana@example.com", 10).await;
     let id = project(&pool, ana, json!([])).await;

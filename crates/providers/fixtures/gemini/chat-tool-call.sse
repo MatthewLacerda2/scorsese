@@ -1,0 +1,11 @@
+: HAND-WRITTEN from Google's generateContent reference, not captured from a live call.
+: Replace it with a stream a real call returns (#705 has why no key was used).
+
+data: {"candidates":[{"content":{"role":"model","parts":[{"text":"Looking at what is in the project first.","thought":true}]}}],"modelVersion":"gemini-3.8-flash","responseId":"resp-Ab1"}
+
+data: {"candidates":[{"content":{"role":"model","parts":[{"text":"Let me "}]}}],"modelVersion":"gemini-3.8-flash","responseId":"resp-Ab1"}
+
+data: {"candidates":[{"content":{"role":"model","parts":[{"text":"look."}]}}],"modelVersion":"gemini-3.8-flash","responseId":"resp-Ab1"}
+
+data: {"candidates":[{"content":{"role":"model","parts":[{"functionCall":{"name":"project_read","args":{"project":7}},"thoughtSignature":"c2lnLW9uZQ=="},{"functionCall":{"name":"icons","args":{}}}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":12000,"cachedContentTokenCount":9000,"candidatesTokenCount":40,"thoughtsTokenCount":200,"totalTokenCount":12240},"modelVersion":"gemini-3.8-flash","responseId":"resp-Ab1"}
+

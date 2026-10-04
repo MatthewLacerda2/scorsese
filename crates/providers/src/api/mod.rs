@@ -36,5 +36,6 @@ pub(crate) mod base64;
 pub mod elevenlabs;
 pub mod gemini;
 pub mod http;
+pub mod sse;
 pub mod tap;
 pub mod veo;

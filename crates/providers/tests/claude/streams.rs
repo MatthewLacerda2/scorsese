@@ -2,7 +2,7 @@
 
 use scorsese_providers::api::anthropic::content::Block;
 use scorsese_providers::claude::{Stop, Streamed};
-use scorsese_providers::prices::claude::Usage;
+use scorsese_providers::prices::chat::Usage;
 use serde_json::json;
 
 use super::replay;

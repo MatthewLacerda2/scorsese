@@ -1,7 +1,9 @@
 //! Claude, as the hosted web app's assistant calls it (#540).
 //!
-//! The model is **Claude Opus 5.5** ([`MODEL`]), decided by the maintainer and
-//! not downgraded to save credits (`CLAUDE.md`). What this module owns is
+//! Claude Opus 5.5 and Sonnet 5.5 are two of the models a project's assistant
+//! can run on ([`crate::chat::Model`], #705); the assistant reaches them
+//! through the vendor-neutral seam in [`crate::chat`], whose Anthropic side
+//! ([`crate::chat::anthropic`]) is built on this. What this module owns is
 //! everything about *calling* it that is not the wire ([`crate::api::anthropic`])
 //! and not the conversation (the server's): one streamed call in, one
 //! [`Response`] out, with the text and progress notes handed to a callback as
@@ -58,9 +60,11 @@ use crate::api::anthropic::request::{
 use crate::api::anthropic::stream::{StreamError, events};
 use crate::api::http::HttpError;
 use crate::credentials::Secret;
-use crate::prices::claude::Usage;
+use crate::prices::chat::Usage;
 
-pub use crate::prices::claude::MODEL;
+/// The model the live provider check ([`crate::live`]) calls: the dearer of
+/// the two Claude models the assistant offers.
+pub const MODEL: &str = crate::chat::Model::ClaudeOpus55.id();
 
 /// The most one reply may be, thinking included. Streamed replies can be
 /// long; a bound sized for a reply without thinking cuts replies off, and

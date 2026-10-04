@@ -7,7 +7,7 @@
 
 use std::time::{Duration, Instant};
 
-use scorsese_providers::claude::Streamed;
+use scorsese_providers::chat::Streamed;
 
 use crate::db::UserId;
 use crate::events::{Event, Events};

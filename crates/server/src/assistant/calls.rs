@@ -7,9 +7,8 @@
 //! and a quote a call issues is taken out of what the model reads and held for
 //! the user instead.
 
-use scorsese_mcp::{Part, Reply};
-use scorsese_providers::api::anthropic::content::{Block, ResultPart};
-use scorsese_providers::claude::Call;
+use scorsese_mcp::Reply;
+use scorsese_providers::chat::{Call, Part, ResultPart};
 
 use super::store::QuoteView;
 use super::store::turns::hold_quote;
@@ -27,9 +26,9 @@ const SAID: usize = 300;
 const NOT_YOURS: &str = "Refused: `confirm` is the person's to give, never yours. Call the \
 tool without confirm; they are shown the quote and answer it themselves.";
 
-/// Run `call`, made in turn `turn`, for `user`: its result block, in the shape
-/// the model reads.
-pub(super) async fn run(state: &AppState, user: UserId, turn: i64, call: &Call) -> Block {
+/// Run `call`, made in turn `turn`, for `user`: its result, as the record
+/// keeps it.
+pub(super) async fn run(state: &AppState, user: UserId, turn: i64, call: &Call) -> Part {
     let tell = |state_: &'static str, said: Option<String>| {
         state.events.send(
             user,
@@ -66,23 +65,24 @@ pub(super) async fn run(state: &AppState, user: UserId, turn: i64, call: &Call) 
     let words: Vec<&str> = parts.iter().map(|part| part.text.as_str()).collect();
     let said: String = words.join("\n").chars().take(SAID).collect();
     tell(if is_error { "refused" } else { "answered" }, Some(said));
-    Block::ToolResult {
-        tool_use_id: call.id.clone(),
+    Part::Result {
+        call: call.id.clone(),
+        name: call.name.clone(),
         content: blocks(parts),
         is_error,
     }
 }
 
 /// A reply's parts as a tool result's: words, then the picture they are
-/// about. The API refuses an empty text block, so empty words are dropped.
-fn blocks(parts: Vec<Part>) -> Vec<ResultPart> {
+/// about. Claude refuses an empty text block, so empty words are dropped.
+fn blocks(parts: Vec<scorsese_mcp::Part>) -> Vec<ResultPart> {
     let mut blocks = Vec::new();
     for part in parts {
         if !part.text.trim().is_empty() {
             blocks.push(ResultPart::Text { text: part.text });
         }
         if let Some(png) = part.image {
-            blocks.push(ResultPart::png(png));
+            blocks.push(ResultPart::Png { data: png });
         }
     }
     if blocks.is_empty() {

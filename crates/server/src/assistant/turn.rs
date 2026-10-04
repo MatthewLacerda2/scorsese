@@ -9,13 +9,12 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use scorsese_providers::api::anthropic::request::{Message, MessageContent, Role};
-use scorsese_providers::claude::{self, Claude, ClaudeError, Response, Stop};
+use scorsese_providers::chat::{self, Chat, ChatError, Message, Model, Reply, Request, Stop};
 use serde_json::value::RawValue;
 
 use super::relay::Relay;
 use super::store::turns::{self, Charge};
-use super::{calls, prompt};
+use super::{EFFORT, calls, prompt};
 use crate::credits::dollars;
 use crate::db::UserId;
 use crate::events::Event;
@@ -34,12 +33,16 @@ pub(super) struct Running {
     pub(super) project: i64,
     /// What the user wrote.
     pub(super) prompt: String,
-    /// The client.
-    pub(super) claude: Arc<dyn Claude>,
-    /// Every earlier turn's messages.
+    /// The model it runs on, start to end.
+    pub(super) model: Model,
+    /// That model's client.
+    pub(super) chat: Arc<dyn Chat>,
+    /// Every earlier turn's messages, in this model's wire.
     pub(super) history: Vec<Box<RawValue>>,
-    /// This turn's, so far.
+    /// This turn's, so far, as the model is sent them.
     pub(super) messages: Vec<Box<RawValue>>,
+    /// The same, neutral.
+    pub(super) record: Vec<Message>,
     /// Their balance when it started.
     pub(super) balance: i64,
 }
@@ -100,7 +103,13 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
         }
         let mut messages = turn.history.clone();
         messages.extend(turn.messages.iter().cloned());
-        let request = claude::request(&assistant.settings, prompt::SYSTEM, tools.clone(), messages);
+        let request = Request {
+            model: turn.model,
+            effort: EFFORT,
+            system: prompt::SYSTEM.to_owned(),
+            tools: tools.clone(),
+            messages,
+        };
         let reply = ask(state, turn, request).await.map_err(|error| {
             eprintln!("scorsese-server: assistant: turn {}: {error}", turn.turn);
             format!("The assistant could not be reached: {error}")
@@ -109,7 +118,7 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
             turn: turn.turn,
             project: turn.project,
             prompt: &turn.prompt,
-            model: &assistant.settings.model,
+            model: turn.model.id(),
         };
         let (charged, now) = turns::charge(&state.pool, turn.user, &charge, &reply)
             .await
@@ -118,11 +127,11 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
         announce(state, turn, balance).await;
         match &reply.stop {
             Stop::EndTurn => {
-                keep(state, turn, assistant_message(&reply)?).await?;
+                keep(state, turn, reply.native.clone(), reply.message.clone()).await?;
                 return Ok(End("answered", reply.text()));
             }
             Stop::ToolUse => {
-                keep(state, turn, assistant_message(&reply)?).await?;
+                keep(state, turn, reply.native.clone(), reply.message.clone()).await?;
                 let mut results = Vec::new();
                 for call in reply.calls() {
                     results.push(calls::run(state, turn.user, turn.turn, &call).await);
@@ -135,17 +144,15 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
                         .send(turn.user, Event::Project { id, revision: now });
                 }
                 revision = now;
-                let results = Message {
-                    role: Role::User,
-                    content: MessageContent::Blocks(results),
-                };
-                keep(state, turn, results.raw().map_err(|e| e.to_string())?).await?;
+                let results = Message::User { content: results };
+                let native = chat::freeze(turn.model, &results).map_err(|e| e.to_string())?;
+                keep(state, turn, native, results).await?;
             }
             Stop::Refusal { explanation, .. } => {
                 let why = explanation.as_deref().unwrap_or("no reason was given");
                 return Ok(End(
                     "refused",
-                    format!("Claude declined this request: {why}"),
+                    format!("{} declined this request: {why}", turn.model.label()),
                 ));
             }
             Stop::MaxTokens => {
@@ -168,23 +175,19 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
 
 /// Send `request`, retrying a failure worth retrying while nothing of the
 /// reply has reached the browser yet.
-async fn ask(
-    state: &AppState,
-    turn: &Running,
-    request: scorsese_providers::api::anthropic::request::Request,
-) -> Result<Response, ClaudeError> {
+async fn ask(state: &AppState, turn: &Running, request: Request) -> Result<Reply, ChatError> {
     let request = Arc::new(request);
     let mut waits = RETRY_AFTER.iter();
     loop {
-        let (claude, request_) = (turn.claude.clone(), request.clone());
+        let (chat, request_) = (turn.chat.clone(), request.clone());
         let mut relay = Relay::new(state.events.clone(), turn.user, turn.turn);
         let (reply, heard) = tokio::task::spawn_blocking(move || {
-            let reply = claude.reply(&request_, &mut |piece| relay.hear(piece));
+            let reply = chat.reply(&request_, &mut |piece| relay.hear(piece));
             relay.flush();
             (reply, relay.heard)
         })
         .await
-        .map_err(|_| ClaudeError::Cut)?;
+        .map_err(|_| ChatError::Claude(chat::ClaudeError::Cut))?;
         match (reply, waits.next()) {
             (Err(error), Some(wait)) if error.retryable() && !heard => {
                 eprintln!(
@@ -198,28 +201,30 @@ async fn ask(
     }
 }
 
-/// The model's reply as the message sent back next call, unchanged.
-fn assistant_message(reply: &Response) -> Result<Box<RawValue>, String> {
-    Message {
-        role: Role::Assistant,
-        content: MessageContent::Blocks(reply.content.clone()),
-    }
-    .raw()
-    .map_err(|error| error.to_string())
-}
-
-/// Add `message` to the turn, and keep it.
-async fn keep(state: &AppState, turn: &mut Running, message: Box<RawValue>) -> Result<(), String> {
-    turn.messages.push(message);
-    turns::keep(&state.pool, turn.user, turn.turn, &turn.messages)
-        .await
-        .map_err(|error| {
-            eprintln!(
-                "scorsese-server: assistant: keeping turn {}: {error}",
-                turn.turn
-            );
-            "The conversation could not be saved.".to_owned()
-        })
+/// Add `message` to the turn — its bytes and its record — and keep it.
+async fn keep(
+    state: &AppState,
+    turn: &mut Running,
+    native: Box<RawValue>,
+    message: Message,
+) -> Result<(), String> {
+    turn.messages.push(native);
+    turn.record.push(message);
+    turns::keep(
+        &state.pool,
+        turn.user,
+        turn.turn,
+        &turn.messages,
+        &turn.record,
+    )
+    .await
+    .map_err(|error| {
+        eprintln!(
+            "scorsese-server: assistant: keeping turn {}: {error}",
+            turn.turn
+        );
+        "The conversation could not be saved.".to_owned()
+    })
 }
 
 /// Tell the browser what the turn has cost so far, and the balance.

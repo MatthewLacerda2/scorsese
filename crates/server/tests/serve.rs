@@ -61,7 +61,6 @@ async fn a_database_it_cannot_reach_is_a_startup_error() {
         cache: std::env::temp_dir().join("scorsese-server-cache-never-created"),
         render_quota: scorsese_server::renders::Quota::bytes(1),
         bind: "127.0.0.1:0".parse().unwrap(),
-        assistant_model: "claude-opus-5-5".into(),
         assistant_turn_cap: 1,
         clients: scorsese_server::http::client::Clients::Peer,
     };

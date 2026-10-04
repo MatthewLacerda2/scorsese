@@ -70,7 +70,7 @@ use std::net::SocketAddr;
 use axum::Router;
 use axum::extract::State;
 use axum::http::StatusCode;
-use axum::routing::{delete, get, head, post};
+use axum::routing::{delete, get, head, post, put};
 use sqlx::postgres::PgPool;
 use tokio::net::TcpListener;
 
@@ -244,14 +244,15 @@ fn render_routes() -> Router<AppState> {
         .route("/renders/{id}/file", get(renders::file))
 }
 
-/// The assistant's routes (#540): a project's conversation, a turn's log,
-/// stopping one, and answering its quote.
+/// The assistant's routes (#540): a project's conversation and the model it
+/// runs on (#705), a turn's log, stopping one, and answering its quote.
 fn chat_routes() -> Router<AppState> {
     Router::new()
         .route(
             "/projects/{id}/chat",
             get(chat::conversation).post(chat::send),
         )
+        .route("/projects/{id}/chat/model", put(chat::choose_model))
         .route("/chat/turns/{id}", get(chat::turn))
         .route("/chat/turns/{id}/stop", post(chat::stop))
         .route("/chat/turns/{id}/quote", post(chat::quote))

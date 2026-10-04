@@ -120,11 +120,12 @@ new build, before it serves anything.
 
 ## The assistant
 
-Claude Opus 5.5, running server-side with scorsese's tool registry (#540). The
-same tools are served over web MCP (#539), so a user can connect their own
-client instead. One tool set, two ways in — and nothing in the tool surface may
-assume the caller is Claude (`CLAUDE.md`, *MCP is a protocol, not a Claude
-feature*). How a turn runs, what it costs and the API the web editor calls
+A model of the project's choosing — Gemini 3.8 Flash by default, Gemini 3.5
+Flash Lite, Claude Opus 5.5 or Claude Sonnet 5.5 (#705) — running server-side
+with scorsese's tool registry (#540). The same tools are served over web MCP
+(#539), so a user can connect their own client instead. One tool set, two ways
+in — and nothing in the tool surface may assume who the caller is (`CLAUDE.md`,
+*MCP is a protocol, not a Claude feature*). How a turn runs, what it costs and the API the web editor calls
 are *Assistant turns*, below.
 
 ## `crates/server`
@@ -148,10 +149,10 @@ provider keys use, and is documented in `.env.example`:
 | `SCORSESE_CACHE` | The absolute directory what can be rebuilt is kept under — thumbnails, uploads still arriving, finished renders. Required, and refused inside `SCORSESE_STORAGE`, which is backed up. |
 | `SCORSESE_RENDER_QUOTA` | How much disk finished renders aim to stay under: `500MB`, `20GB`, `1TB`. Defaults to `20GB`. See *Renders*. |
 | `SCORSESE_BIND` | Where to listen. Defaults to `127.0.0.1:8080`, this machine only. |
-| `GEMINI_API_KEY`, `ELEVENLABS_API_KEY` | The provider keys paid generations are made with (*Web MCP*), read by the one resolver `docs/credentials.md` describes. Optional: without one, a generation needing it fails, free. |
-| `ANTHROPIC_API_KEY` | The key the assistant calls Claude with (*Assistant turns*), by the same resolver. Optional: without it the assistant answers "not configured" and nothing else changes. |
+| `GEMINI_API_KEY`, `ELEVENLABS_API_KEY` | The provider keys paid generations are made with (*Web MCP*), read by the one resolver `docs/credentials.md` describes; `GEMINI_API_KEY` is also what the assistant's Gemini models answer with (*Assistant turns*). Optional: without one, a generation needing it fails, free. |
+| `ANTHROPIC_API_KEY` | The key the assistant's Claude models answer with (*Assistant turns*), by the same resolver. Optional: without it a turn on a Claude model is refused with "`ANTHROPIC_API_KEY` is not set", and nothing else changes. |
 | `SCORSESE_ASSISTANT_TURN_CAP` | The most one assistant turn may cost a user, in dollars: `2.50`. Defaults to `2.00`. |
-| `SCORSESE_ASSISTANT_MODEL` | The model the assistant runs on. Defaults to `claude-opus-5-5`; one with no rate in `prices::claude` stops the server from starting. |
+| `SCORSESE_ASSISTANT_MODEL` | **Retired** (#705): the model is each project's choice now. Set to anything, it stops the server from starting, so a setting that no longer means anything cannot pass for one that does. |
 
 **Schema migrations** are embedded in the binary and run at startup, before the
 first request. Files in `crates/server/migrations/` are numbered
@@ -797,7 +798,7 @@ deleting the account, which is how a user's rows leave.
 **Pricing** is the provider's cost plus 10%, rounded up to the micro-dollar.
 Veo and ElevenLabs are priced by `scorsese_providers::prices` — the same cents
 the quote (#538) showed, converted at the server's boundary; the assistant by
-`prices::claude` from the token counts its response reports, which is exact.
+`prices::chat` from the token counts its response reports, which is exact.
 
 **Spending a generation is reserve, then settle.** `credits::generations::start`
 prices it, takes a lock on the user's own row (so two spends at once cannot
@@ -1255,32 +1256,61 @@ once in Rust and again in TypeScript.
 
 ## Assistant turns
 
-The built-in assistant (#540): Claude Opus 5.5 editing a user's project with
-the tools web MCP serves, while their browser watches. The code is
-`crates/server/src/assistant/` (the turn, the conversation, the quote box),
-`crates/server/src/http/chat.rs` (the routes) and, for the model itself,
-`crates/providers/src/claude/` over the wire in `api/anthropic/`; their
-module docs carry each argument. **The chat panel is #545's**; this section is
+The built-in assistant (#540): a model editing a user's project with the tools
+web MCP serves, while their browser watches. The code is
+`crates/server/src/assistant/` (the turn, the conversation, the quote box, the
+model a project runs on), `crates/server/src/http/chat.rs` (the routes) and,
+for the models themselves, the vendor-neutral seam in
+`crates/providers/src/chat/` over Claude (`claude/`, wire in `api/anthropic/`)
+and Gemini (wire in `api/gemini/chat/`); their module docs carry each
+argument. **The chat panel is #545's**; this section is
 the API it calls.
 
 **A turn** is one message from the user and everything the assistant does
-with it: call Claude with the conversation and every tool `Toolbox::listing`
-serves, run the tools it asks for — in-process, as `Client::Assistant`, in
+with it: call the project's model with the conversation and every tool
+`Toolbox::listing` serves, run the tools it asks for — in-process, as `Client::Assistant`, in
 order — send their results back, and loop until it answers. Each project has
 conversations (`chat_sessions`); a turn joins the newest unless it asks for a
 fresh one, and one turn runs at a time per conversation. The system prompt asks
 for a short progress line before each step and one full summary at the end,
 and to lay a cut out as free sketches before spending on generation.
 
-**The conversation is append-only, stored as the text that was sent.** A
-turn's Messages API messages are kept in `chat_turns.messages` as the exact
-JSON text first sent — `TEXT`, not `JSONB`, which would reorder keys — and the
-next turn resends every earlier turn's messages unchanged. On this model a
-thinking block is valid only while everything before it is byte-for-byte what
-it was, and an unchanged prefix is also what the prompt cache reads. What the
-server vouches for — which project this is, that the user confirmed a quote —
-is a mid-conversation `system` message, which no user text or tool output can
-forge. A turn cut off before the model replied (a refusal, a stop, a restart)
+**Which model** (#705). A project names one (`projects.assistant_model`):
+Gemini 3.8 Flash for every project until its owner picks another, in the chat
+panel's dropdown (`PUT /api/projects/{id}/chat/model`). It is a routing flag:
+every turn runs on the model its project names when the turn starts, is charged
+at that model's rates, and records the model it ran on. It can be changed at
+any time, mid-conversation included, and changing it rewrites nothing. A model
+whose key the server lacks is listed as unavailable with the reason in the
+server's own words, and a turn on it is refused with exactly those words.
+
+**The conversation is append-only, stored as the text that was sent — twice.**
+A turn's messages are kept in `chat_turns.messages` as the exact JSON its model
+was first sent, in that vendor's wire — `TEXT`, not `JSONB`, which would
+reorder keys — and in `chat_turns.record` as a vendor-neutral record (words,
+tool calls, tool results, server notes). The next turn's history is every
+earlier turn in order: **its own bytes when it ran on the same model**, its
+record written in the new model's wire otherwise. On Claude a thinking block is
+valid only while everything before it is byte-for-byte what it was, and an
+unchanged prefix is also what every prompt cache reads; the translation is
+deterministic, so after a switch the history is the same bytes from the second
+turn on. Turns from before #705 have no record and are read back from their
+Anthropic JSON when a later turn needs them.
+
+**A switch costs one uncached turn.** Thinking blocks (Claude) and thought
+signatures (Gemini) stay with the bytes of the model that wrote them, and the
+new model has never seen the conversation, so the first turn after a switch
+reads it all at the full input rate, and on Claude writes the cache afresh.
+That is accepted; the panel says so before switching (*The chat panel*
+below).
+
+What the server vouches for — which project this is, that the user confirmed a
+quote — is a server note: a mid-conversation `system` message on Claude, which
+no user text or tool output can forge, and on Gemini, which has no such role, a
+part of the person's turn marked `[scorsese server]`, with any words of the
+person's own that begin with the mark quoted so the mark stays the server's.
+Nothing that spends depends on a note: the quote token never enters the
+conversation at all. A turn cut off before the model replied (a refusal, a stop, a restart)
 is closed by a one-line reply at the start of the next, and a tool call it
 never ran is answered there as not run.
 
@@ -1295,9 +1325,10 @@ turn that tells the model, as a `system` message, what it spent; no withdraws
 the token and the next turn is told. Writing a new message instead withdraws
 it too. A quote is answered once.
 
-**Money.** Every call to Claude is charged from its reply's `usage` — input,
-output, five-minute and one-hour cache writes, cache reads, each at its own
-rate in `prices::claude` — plus 10%, as one `charge` entry naming the turn
+**Money.** Every call is charged from its reply's usage — input, output,
+Claude's five-minute and one-hour cache writes, cache reads (Gemini's
+`cachedContentTokenCount`), each at its own rate for the turn's model in
+`prices::chat`, so a cache hit is cheaper for the user too — plus 10%, as one `charge` entry naming the turn
 (`credit_entries.chat_turn_id`); the spending history folds a turn's calls into
 one row. Not reserved for, since the cost exists only once counted: a turn is
 **refused up front (`402`) at a balance of zero or less**, and stops between
@@ -1305,24 +1336,38 @@ calls once the balance runs out or the turn reaches the operator's cap
 (`SCORSESE_ASSISTANT_TURN_CAP`, default $2.00). The call that crosses either
 line was already made and is charged; one call is bounded by `max_tokens`.
 
-**Caching** is where the money is, since every call resends the conversation:
-one breakpoint on the system prompt caches the tools and the prompt together
-for an hour — identical for every user, so one write serves the whole server —
-and the API's automatic breakpoint caches the conversation's tail for five
-minutes. Nothing about a user or the time goes in the prefix.
+**Caching** is where the money is, since every call resends the conversation.
+On Claude, one breakpoint on the system prompt caches the tools and the prompt
+together for an hour — identical for every user, so one write serves the whole
+server — and the API's automatic breakpoint caches the conversation's tail for
+five minutes. Gemini 3.8 Flash caches implicitly: nothing is marked, and a
+prefix of at least 4,096 tokens it has seen recently is read at a tenth of the
+input rate. Gemini 3.5 Flash Lite has no caching at all. Nothing about a user
+or the time goes in the prefix, on any model.
 
-**Effort is `high`** and the model is not downgraded (`CLAUDE.md`). The model
-id is `SCORSESE_ASSISTANT_MODEL`, refused at startup unless the price table
-has a rate for it. A refusal by Anthropic's safety classifiers ends the turn as
-`refused`, charged for what the call used; it is not retried on another model,
-because the price table has one row and the maintainer chose the model.
+**Effort is `high`** on every model — Claude's `effort`, Gemini's
+`thinkingLevel` — since choosing the model is where the user trades quality for
+credits (`crates/server/src/assistant/mod.rs`, *Effort*). A refusal by a
+vendor's safety filters ends the turn as `refused`, charged for what the call
+used; it is not retried on another model, because the user chose the model.
 
-**Without `ANTHROPIC_API_KEY`** every turn is refused with `503` and "not
-configured", and the rest of the server runs as it did.
+**Without a model's key** (`ANTHROPIC_API_KEY` for Claude, `GEMINI_API_KEY`
+for Gemini) a turn on it is refused with `503` and the variable's name, and the
+rest of the server runs as it did.
+
+**The chat panel** has the model dropdown. Picking another model while the
+conversation's cache may still be warm — its last answer less than the cache
+lifetime of the model being left ago (`cache_seconds`, an hour on every model:
+Claude's longest entry, and for Gemini, whose implicit cache documents no
+lifetime, the cautious figure), or a turn still running — first asks: *switching
+models causes a cache miss on the next prompt*, Switch or Cancel. An empty
+conversation, or one whose last answer is older than that, switches at once.
+The age is the server's `finished_at`, so the check survives a reload.
 
 | route | who | what |
 | --- | --- | --- |
-| `GET /api/projects/{id}/chat` | a member | `{project, session, turns}`: the newest conversation's turns, oldest first |
+| `GET /api/projects/{id}/chat` | a member | `{project, session, turns, model, models}`: the newest conversation's turns, oldest first; the project's model; every model offered as `{id, label, vendor, unavailable, cache_seconds}` |
+| `PUT /api/projects/{id}/chat/model` | a member | `{model}` → the model as listed; from the next turn the project runs on it. `400` for a model not offered |
 | `POST /api/projects/{id}/chat` | a member | `{prompt, fresh?}` → `202` with the turn; `402` no credit, `409` a turn is running, `503` not configured |
 | `GET /api/chat/turns/{id}` | a member | `{turn, tools}`: the turn and the log of every tool call it made, in order |
 | `POST /api/chat/turns/{id}/stop` | a member | `202`; the turn stops before its next step. `409` if it is not running |

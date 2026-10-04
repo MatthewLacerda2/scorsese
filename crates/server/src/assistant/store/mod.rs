@@ -11,7 +11,9 @@ use serde_json::Value;
 use sqlx::postgres::PgPool;
 
 use super::AssistantError;
+use super::model::{self, Choice};
 use crate::db::{self, Tx, UserId};
+use crate::http::AppState;
 
 /// A turn as its owner sees it: in the conversation, and on the event stream.
 #[derive(Debug, Clone, PartialEq, Serialize, sqlx::FromRow)]
@@ -71,15 +73,20 @@ pub struct QuoteView {
 }
 
 /// A project's current conversation: its newest session's turns, oldest
-/// first.
+/// first, and the model the next one runs on.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Conversation {
     /// The project.
     pub project: i64,
     /// The session, or `null` before the first turn.
     pub session: Option<i64>,
-    /// Its turns.
+    /// Its turns. The last one's `finished_at` is what the switch warning
+    /// measures the cache's age from — the server's clock, not the browser's.
     pub turns: Vec<TurnView>,
+    /// The id of the model the project runs on.
+    pub model: String,
+    /// Every model the picker offers.
+    pub models: Vec<Choice>,
 }
 
 /// One tool call a turn made, as the log records it.
@@ -153,11 +160,12 @@ pub(super) async fn view_of(
 
 /// `user`'s current conversation about `project`.
 pub async fn conversation(
-    pool: &PgPool,
+    state: &AppState,
     user: UserId,
     project: i64,
 ) -> Result<Conversation, AssistantError> {
-    let mut tx = db::scoped(pool, user).await?;
+    let mut tx = db::scoped(&state.pool, user).await?;
+    let chosen = model::of(&mut tx, project).await?;
     let session = turns::newest_session(&mut tx, project).await?;
     let turns = match session {
         Some(session) => {
@@ -173,6 +181,8 @@ pub async fn conversation(
         project,
         session,
         turns,
+        model: chosen.id().to_owned(),
+        models: model::choices(&state.assistant),
     })
 }
 

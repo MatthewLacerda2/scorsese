@@ -2,8 +2,8 @@
 //!
 //! Responsibility: realising the generated asset kinds. Clients for the
 //! generative providers (Veo for video, ElevenLabs for TTS audio) — and for
-//! the one paid vendor that makes no media, Claude, which the web app's
-//! assistant thinks with ([`claude`]) — local
+//! the chat models the web app's assistant thinks with ([`chat`]: Claude and
+//! Gemini, which make no media) — local
 //! [`synth`]esis from a recipe, the content-addressed cache under
 //! `generated/` — an unchanged brief is never realised twice — and the
 //! generation state machine: `sketch → queued → generated → stale`.
@@ -92,13 +92,15 @@
 //! is a trait, because a project directory and a server's tables are two
 //! stores with one set of rules.
 //!
-//! [`claude`], the hosted web app's assistant model (#540) — Claude Opus 5.5,
-//! reached like the other vendors, by plain HTTP through [`api`], with its
-//! key from the same resolver. It generates no media and has no brief: it is
-//! here because it is a paid provider, and this crate is the one that holds an
-//! HTTP client and spends with a vendor's key. It knows nothing of users or
-//! turns — one streamed call in, one reply out, behind a trait so no test
-//! makes the call. What a turn is, and who pays for it, is the server's.
+//! [`chat`], the hosted web app's assistant models (#540, #705) — Claude Opus
+//! and Sonnet 5.5 ([`claude`]) and Gemini 3.8 Flash and 3.5 Flash Lite, behind
+//! one vendor-neutral seam, reached like the other vendors, by plain HTTP
+//! through [`api`], with their keys from the same resolver. They generate no
+//! media and have no brief: they are here because they are paid providers, and
+//! this crate is the one that holds an HTTP client and spends with a vendor's
+//! key. The seam knows nothing of users or turns — one streamed call in, one
+//! reply out, behind a trait so no test makes the call. What a turn is, and who
+//! pays for it, is the server's.
 //!
 //! [`live`], the one place that makes a real call **on purpose** (#567): the
 //! smallest request to each vendor that exercises the path we depend on, run
@@ -113,6 +115,7 @@
 //! noticed by somebody who had already paid.
 
 pub mod api;
+pub mod chat;
 pub mod claude;
 pub mod credentials;
 pub mod image;

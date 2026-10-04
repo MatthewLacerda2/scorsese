@@ -103,8 +103,8 @@
 //! [`tools`] is scorsese's tool surface for one user — what web MCP serves and
 //! the built-in assistant calls — and [`generations`] the paid jobs its
 //! `generate` queues; [`designs`] the voices its `voice_design` designs and
-//! keeps for a user. [`assistant`] is that built-in assistant: Claude, run
-//! turn by turn against a user's project, charged per call. [`templates`] is
+//! keeps for a user. [`assistant`] is that built-in assistant: the model a
+//! project picks (#705), run turn by turn against it, charged per call. [`templates`] is
 //! the pieces of an edit a user saved to copy into their other projects.
 
 pub mod accounts;
@@ -220,7 +220,7 @@ pub async fn run(
         renders,
     };
     let registry = jobs::kinds::registry(&files);
-    let assistant = assistant::Assistant::new(&config.assistant_model, config.assistant_turn_cap);
+    let assistant = assistant::Assistant::new(config.assistant_turn_cap);
     let clients = config.clients;
     start(
         pool, listener, files, registry, assistant, clients, shutdown,

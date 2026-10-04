@@ -2,16 +2,17 @@
 //! message.
 //!
 //! **The system prompt and the tool list are the cached prefix**, identical
-//! for every user and every turn — so nothing about a user, a project or the
-//! time goes in them. What is particular to a conversation (which project it
-//! is about) or to a moment (the user confirmed a quote) arrives as a
-//! mid-conversation `system` message after the history, which caches nothing
-//! away and which only the server can write.
+//! for every user, every turn and every model — so nothing about a user, a
+//! project or the time goes in them. What is particular to a conversation
+//! (which project it is about) or to a moment (the user confirmed a quote)
+//! arrives as a server note after the history, which caches nothing away and
+//! which only the server can write.
+//!
+//! What is built here is vendor-neutral ([`Message`]); the model a turn runs
+//! on writes it in its own wire (`scorsese_providers::chat::freeze`).
 
-use scorsese_providers::api::anthropic::content::{Block, ResultPart};
-use scorsese_providers::api::anthropic::request::{Message, MessageContent, Role, Tool};
+use scorsese_providers::chat::{Message, Part, ResultPart, Tool};
 use serde_json::Value;
-use serde_json::value::RawValue;
 
 use crate::tools::Toolbox;
 
@@ -59,8 +60,8 @@ That summary is the only long thing you write.
 - Answer in the language the person writes in. Say plainly when a tool \
 refuses something, and what you did instead.";
 
-/// Every tool the toolbox serves, as the Messages API takes it — the same
-/// names, descriptions and schemas web MCP lists, in the same order.
+/// Every tool the toolbox serves, as the seam takes it — the same names,
+/// descriptions and schemas web MCP lists, in the same order.
 pub(super) fn tools(toolbox: &Toolbox) -> Vec<Tool> {
     toolbox
         .listing()
@@ -68,7 +69,7 @@ pub(super) fn tools(toolbox: &Toolbox) -> Vec<Tool> {
         .map(|tool| Tool {
             name: text(&tool, "name"),
             description: text(&tool, "description"),
-            input_schema: tool.get("inputSchema").cloned().unwrap_or(Value::Null),
+            schema: tool.get("inputSchema").cloned().unwrap_or(Value::Null),
         })
         .collect()
 }
@@ -81,88 +82,46 @@ fn text(tool: &Value, field: &str) -> String {
         .to_owned()
 }
 
-/// A turn's first messages, frozen: the user's words — after a result for
-/// every tool call the conversation left unanswered — and, when there is
-/// anything the server has to say, one `system` message saying it.
+/// A turn's first messages: the user's words — after a result for every tool
+/// call the conversation left unanswered — and, when there is anything the
+/// server has to say, one note saying it.
 ///
 /// A conversation whose last turn ended before the model replied (refused,
-/// stopped, a failure, a restart) ends on the user's side; the API wants the
-/// roles to alternate and a `system` message to be followed by the model's,
-/// so such a turn is closed first by a one-line reply saying so. That line is
-/// part of this turn's messages from then on, like any other.
-pub(super) fn opening(
-    history: &[Box<RawValue>],
-    prompt: &str,
-    notes: &[String],
-) -> Result<Vec<Box<RawValue>>, serde_json::Error> {
-    let last = history
-        .last()
-        .and_then(|last| serde_json::from_str::<Value>(last.get()).ok());
+/// stopped, a failure, a restart) ends on the user's side; every vendor wants
+/// the sides to alternate, and Claude wants a `system` message followed by
+/// the model's, so such a turn is closed first by a one-line reply saying so.
+/// That line is part of this turn's messages from then on, like any other.
+pub(super) fn opening(history: &[Message], prompt: &str, notes: &[String]) -> Vec<Message> {
     let mut messages = Vec::new();
-    if last
-        .as_ref()
-        .is_some_and(|last| last.get("role").and_then(Value::as_str) != Some("assistant"))
-    {
-        messages.push(
-            Message {
-                role: Role::Assistant,
-                content: MessageContent::Blocks(vec![Block::Text {
-                    text: "(That turn ended before I could answer.)".into(),
-                }]),
-            }
-            .raw()?,
-        );
+    let last = history.last();
+    if last.is_some_and(|last| !matches!(last, Message::Assistant { .. })) {
+        messages.push(Message::assistant(
+            "(That turn ended before I could answer.)",
+        ));
     }
-    let mut content: Vec<Block> = last
-        .as_ref()
-        .map(unanswered)
+    let mut content: Vec<Part> = last
+        .map(Message::calls)
         .unwrap_or_default()
         .into_iter()
-        .map(|id| Block::ToolResult {
-            tool_use_id: id,
+        .map(|call| Part::Result {
+            call: call.id,
+            name: call.name,
             content: vec![ResultPart::Text {
                 text: "Not run: the turn ended before this call was made.".into(),
             }],
             is_error: true,
         })
         .collect();
-    content.push(Block::Text {
+    content.push(Part::Text {
         text: prompt.to_owned(),
     });
-    messages.push(
-        Message {
-            role: Role::User,
-            content: MessageContent::Blocks(content),
-        }
-        .raw()?,
-    );
+    messages.push(Message::User { content });
     if !notes.is_empty() {
-        messages.push(
-            Message {
-                role: Role::System,
-                content: MessageContent::Text(notes.join("\n\n")),
-            }
-            .raw()?,
-        );
+        messages.push(Message::System {
+            text: notes.join("\n\n"),
+        });
     }
-    Ok(messages)
-}
-
-/// The ids of the tool calls `last` makes, when it is the model's — a turn
-/// cut off between asking for tools and running them. The API refuses a
-/// conversation that leaves a call unanswered, so the next turn answers each
-/// one first.
-fn unanswered(last: &Value) -> Vec<String> {
-    if last.get("role").and_then(Value::as_str) != Some("assistant") {
-        return Vec::new();
-    }
-    last.get("content")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .filter(|block| block.get("type").and_then(Value::as_str) == Some("tool_use"))
-        .filter_map(|block| Some(block.get("id")?.as_str()?.to_owned()))
-        .collect()
+    messages
 }
 
 /// What a new conversation is told about its project.
