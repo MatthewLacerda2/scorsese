@@ -1,17 +1,30 @@
 // The confirmation box for a paid tool's quote (#538): the one thing the
-// assistant cannot answer for the user. The model never sees the quote's
-// token; a yes here is `POST /api/chat/turns/{id}/quote`, which spends and
-// starts the turn that carries on — so money moves only on this click.
+// assistant cannot answer for the user. It shows what each item would send
+// beside its price (#709), and takes one of three answers, all
+// `POST /api/chat/turns/{id}/quote`:
+//
+// - Confirm spends and starts the turn that carries on — money moves only on
+//   this click.
+// - Decline withdraws the quote.
+// - Ask for a change withdraws it too, spending nothing, and starts a turn with
+//   the words typed, which the assistant takes as a change to these items: it
+//   rewrites the briefs and quotes again, and that quote gets its own box.
+//
+// The model never sees the quote's token on any of the three.
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { chatApi, type QuoteView } from "@/api/chat";
+import { useState } from "react";
+import { chatApi, type QuoteAnswer, type QuoteItem, type QuoteView } from "@/api/chat";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { formatDollars } from "@/lib/money";
+import { BRIEF_LABEL, changeAnswer, preview } from "./quote";
 
 export function QuoteBox({ turn, quote }: { turn: number; quote: QuoteView }) {
   const queryClient = useQueryClient();
+  const [change, setChange] = useState("");
   const answer = useMutation({
-    mutationFn: (confirm: boolean) => chatApi.answerQuote(turn, confirm),
+    mutationFn: (answer: QuoteAnswer) => chatApi.answerQuote(turn, answer),
     // The turn that carries on arrives on the event stream too; re-reading the
     // conversation also closes this box, whose turn now has its answer.
     onSettled: () => {
@@ -20,11 +33,19 @@ export function QuoteBox({ turn, quote }: { turn: number; quote: QuoteView }) {
     },
   });
   const expired = quote.expires_at * 1000 < Date.now();
+  const asked = changeAnswer(change);
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-amber-500/50 bg-amber-500/5 p-3 text-sm">
       <p className="font-medium">
         This costs {formatDollars(quote.micros)} from your credits. Go ahead?
       </p>
+      {(quote.items ?? []).length > 0 && (
+        <ul className="flex flex-col gap-2">
+          {(quote.items ?? []).map((item) => (
+            <Item key={item.subject} item={item} />
+          ))}
+        </ul>
+      )}
       <ul className="flex flex-col gap-0.5 text-xs text-muted-foreground">
         {quote.lines.map((line) => (
           <li key={line}>{line}</li>
@@ -37,7 +58,7 @@ export function QuoteBox({ turn, quote }: { turn: number; quote: QuoteView }) {
         <Button
           size="sm"
           disabled={answer.isPending || expired}
-          onClick={() => answer.mutate(true)}
+          onClick={() => answer.mutate({ confirm: true })}
         >
           Confirm
         </Button>
@@ -45,11 +66,61 @@ export function QuoteBox({ turn, quote }: { turn: number; quote: QuoteView }) {
           size="sm"
           variant="outline"
           disabled={answer.isPending}
-          onClick={() => answer.mutate(false)}
+          onClick={() => answer.mutate({ confirm: false })}
         >
           Decline
         </Button>
       </div>
+      <form
+        className="flex flex-col gap-1.5"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (asked) answer.mutate(asked);
+        }}
+      >
+        <Textarea
+          value={change}
+          onChange={(event) => setChange(event.target.value)}
+          placeholder="Or say what to change — e.g. make the cape yellow instead of red"
+          disabled={answer.isPending}
+          className="min-h-10 text-xs"
+        />
+        <Button
+          type="submit"
+          size="sm"
+          variant="outline"
+          className="self-start"
+          disabled={answer.isPending || !asked}
+        >
+          Ask for a change
+        </Button>
+      </form>
     </div>
+  );
+}
+
+/** One quoted item: what it is, its price, and the words that would be sent. */
+function Item({ item }: { item: QuoteItem }) {
+  const [open, setOpen] = useState(false);
+  const { shown, clipped } = preview(item.description);
+  return (
+    <li className="flex flex-col gap-0.5 text-xs">
+      <span className="text-muted-foreground">
+        <span className="font-medium text-foreground">{item.subject}</span>: {item.says}
+      </span>
+      <span>
+        <span className="text-muted-foreground">{BRIEF_LABEL[item.brief]}: </span>
+        {open ? item.description : shown}
+        {clipped && (
+          <button
+            type="button"
+            className="ml-1 text-muted-foreground underline"
+            onClick={() => setOpen(!open)}
+          >
+            {open ? "less" : "more"}
+          </button>
+        )}
+      </span>
+    </li>
   );
 }

@@ -1323,8 +1323,16 @@ browser as `chat_quote`, and any call naming `confirm` is refused without
 running. The user's answer is `POST /api/chat/turns/{id}/quote`: yes makes the
 paid call itself — recorded in `tool_calls` as client `user` — and starts a
 turn that tells the model, as a `system` message, what it spent; no withdraws
-the token and the next turn is told. Writing a new message instead withdraws
-it too. A quote is answered once.
+the token and the next turn is told. **A change** (#709, `{confirm: false,
+change}`) is a no and a message in one call, so there is no half-state: the
+token is withdrawn, nothing is spent, and a turn starts with the user's words
+as their message and a server note saying they ask for a change to the quoted
+items — so the model rewrites those briefs (`rebrief`) and quotes again, and
+the new quote needs its own yes. Writing a new message instead withdraws it
+too. A quote is answered once. The box shows each quoted item with what it
+would send — the prompt, the line, the voice's description — read from the
+project's brief (or the call's `prompt`) when the quote is held
+(`assistant::described`).
 
 **Money.** Every call is charged from its reply's usage — input, output,
 Claude's five-minute and one-hour cache writes, cache reads (Gemini's
@@ -1380,13 +1388,17 @@ fixed until measured usage (#707) says otherwise.
 | `POST /api/projects/{id}/chat` | a member | `{prompt, fresh?}` → `202` with the turn; `402` no credit, `409` a turn is running, `503` not configured |
 | `GET /api/chat/turns/{id}` | a member | `{turn, tools}`: the turn and the log of every tool call it made, in order |
 | `POST /api/chat/turns/{id}/stop` | a member | `202`; the turn stops before its next step. `409` if it is not running |
-| `POST /api/chat/turns/{id}/quote` | a member | `{confirm: true\|false}` → `{spent, refused, turn, note}`; `turn` is the one carrying on after a yes |
+| `POST /api/chat/turns/{id}/quote` | a member | `{confirm: true\|false, change?}` → `{spent, refused, turn, note}`; `turn` is the one carrying on after a yes or a change; `change` with `confirm: true` is `400` |
 
 A turn (`TurnView`) carries its state — `running`, then `answered`, `refused`,
 `capped`, `stopped`, `failed` or `interrupted` (the server stopped under it) —
 its `answer`, the model, token totals, `charged_micros`, and `quote`
-(`{tool, lines, micros, expires_at}`) with `quote_answer` (`null` while the box
-should show, then `confirmed`, `declined` or `withdrawn`).
+(`{tool, items: [{subject, says, brief, description}], lines, micros,
+expires_at}` — `brief` is `prompt`, `line` or `voice`; `lines` is the total and
+any line no item claims; a quote held before #709 has no `items` and every
+line in `lines`) with `quote_answer` (`null` while the box
+should show, then `confirmed`, `declined` — a change asked for included — or
+`withdrawn`).
 
 **On `GET /api/events`**, beside `job`:
 
