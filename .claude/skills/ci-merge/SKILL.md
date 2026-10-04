@@ -110,7 +110,8 @@ same five steps (#690):
   them**, whatever its labels or conflicts say. A list run keeps the order it
   was given.
 - **Dependabot labels its own pull requests `queue`** (`.github/dependabot.yml`,
-  #721). That is the decision: they are monthly, grouped, semver-compatible
+  #721) — all but GitHub Actions', which only ever proposes majors and waits
+  for a person to read and label it. That is the decision: they are monthly, grouped, semver-compatible
   bumps (Cargo lockfile-only, majors ignored) with nothing in the diff to read
   beyond what CI checks, so nobody labels them by hand, and the order above
   keeps them from taking a turn from the batch. A bot pull request that is red
@@ -128,6 +129,12 @@ same five steps (#690):
   `--deadline` (40), and the two together may not pass 115 — the script
   refuses a pair that would. Run it in the background and re-arm it when it
   exits; a fresh watch reads the same labels, so nothing is lost between two.
+- **A watch runs the script it started with.** Merging a change to
+  `.github/scripts/merge-*.py` does not reach a watch already running: stop it
+  (it is safe to while it only waits on CI — the restart sees the head it
+  pushed and goes on waiting), pull `main`, and start it again. On 2026-10-04
+  a watch started before #731 would have force-pushed Dependabot's branches
+  had its bot pull requests not been unlabelled first.
 - **Unfinished is not red.** A pull request still in line when the watch ends,
   or whose run is still out at its deadline, is reported **unfinished** and the
   exit status is **4**: run the queue again. 1 still means read a hand-back,

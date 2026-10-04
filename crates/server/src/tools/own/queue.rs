@@ -1,17 +1,19 @@
 //! `render`, `jobs` and `job_cancel`: work the queue does, asked for, asked
 //! after and stopped.
 //!
-//! Locally `render` writes a file wherever `out` says and returns when it is
-//! done. On the server a render is a job (#541) — the machine is shared, and
+//! Locally `render` runs on its own thread in the session and answers at once
+//! with a job, which the local `jobs` and `job_cancel` follow (#700). On the
+//! server a render is a job too (#541) — the machine is shared, and
 //! two at once is what it carries — and its file is kept in the render cache
 //! for download. So `render` asks for one exactly as `POST
 //! /api/projects/{id}/renders` does ([`crate::renders::request`]), and `jobs`
 //! is how a client learns it finished, as it is for a generation.
 //!
-//! Locally a client stops a render by cancelling the `render` call itself
-//! (`notifications/cancelled`, #647). Here that call answered the moment the
-//! job was queued, so there is nothing left for the notification to stop, and
-//! `job_cancel` is the same "stop" said about the job (#660) —
+//! Locally a client can also wait on a render (`wait: true`) and stop it by
+//! cancelling that call (`notifications/cancelled`, #647). Here the call
+//! answers the moment the job is queued, so there is nothing left for the
+//! notification to stop, and `job_cancel` is the same "stop" said about the
+//! job (#660) —
 //! [`crate::jobs::cancel`], exactly as `POST /api/jobs/{id}/cancel` says it.
 
 use scorsese_mcp::Reply;
