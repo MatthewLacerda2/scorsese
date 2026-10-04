@@ -24,7 +24,7 @@ fn a_signed_thought_keeps_its_signature_and_a_signed_part_is_not_joined_onto() {
 }
 
 #[test]
-fn a_reply_with_no_words_is_sent_back_as_an_empty_part_and_says_nothing() {
+fn a_reply_with_no_parts_is_sent_back_as_an_empty_part_and_says_nothing() {
     let (reply, _) = replay("chat-empty.sse");
     let reply = reply.unwrap();
     assert_eq!(reply.stop, Stop::EndTurn);
