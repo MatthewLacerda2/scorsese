@@ -1,14 +1,43 @@
 //! Moving a placed clip, or changing what part of its source it shows.
 
+use schemars::JsonSchema;
 use scorsese_core::{ClipId, Trim, placing};
+use serde::Deserialize;
 use serde_json::Value;
 
-use super::{bounds, frames, named, seconds};
+use super::{bounds, frames, seconds};
+use crate::tools::args::{self, Name, ProjectDir, Required};
 use crate::tools::inspect::load;
-use crate::tools::{Costs, Reply, Tool, project_dir, project_property};
+use crate::tools::{Costs, Reply, Tool};
 
 /// Change where a placed clip starts, how long it runs, or where it opens.
 pub(crate) struct TrimClip;
+
+/// What `trim_clip` takes.
+#[derive(Deserialize, JsonSchema)]
+struct Arguments {
+    project: ProjectDir,
+    /// Id of the clip to change. It stays on the track it is on — moving a clip
+    /// between tracks is clip_move, because which track a clip sits on is what
+    /// decides what is drawn over what.
+    clip: Name,
+    /// Where the clip begins on the timeline, in seconds from the head of the
+    /// cut. On its own this moves the clip and leaves its length and its source
+    /// window alone. Left out, the clip stays where it is.
+    start_seconds: Option<f64>,
+    /// How long the clip runs on the timeline, in seconds. On its own this
+    /// holds the start and moves the end. Left out, the length is unchanged.
+    duration_seconds: Option<f64>,
+    /// How far into the source the clip opens, in seconds — a time in the
+    /// SOURCE, not on the timeline. On its own this shows a later part of the
+    /// media in the same slot, which is what dropping a slow first second of a
+    /// take means. Left out, the in-point is unchanged.
+    source_in_seconds: Option<f64>,
+}
+
+impl args::Arguments for Arguments {
+    const REQUIRED: Required = &[("clip", "the id of the clip to change")];
+}
 
 impl Tool for TrimClip {
     fn name(&self) -> &'static str {
@@ -33,60 +62,27 @@ impl Tool for TrimClip {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "clip": {
-                    "type": "string",
-                    "description": "Id of the clip to change. It stays on the track it \
-                                    is on — moving a clip between tracks is clip_move, \
-                                    because which track a clip sits on is what decides \
-                                    what is drawn over what."
-                },
-                "start_seconds": {
-                    "type": "number",
-                    "description": "Where the clip begins on the timeline, in seconds \
-                                    from the head of the cut. On its own this moves \
-                                    the clip and leaves its length and its source \
-                                    window alone. Left out, the clip stays where it is."
-                },
-                "duration_seconds": {
-                    "type": "number",
-                    "description": "How long the clip runs on the timeline, in \
-                                    seconds. On its own this holds the start and moves \
-                                    the end. Left out, the length is unchanged."
-                },
-                "source_in_seconds": {
-                    "type": "number",
-                    "description": "How far into the source the clip opens, in \
-                                    seconds — a time in the SOURCE, not on the \
-                                    timeline. On its own this shows a later part of \
-                                    the media in the same slot, which is what dropping \
-                                    a slow first second of a take means. Left out, the \
-                                    in-point is unchanged."
-                }
-            },
-            "required": ["project", "clip"]
-        })
+        args::schema::<Arguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let mut project = load(&dir)?;
+        let arguments: Arguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let mut project = load(dir)?;
         let fps = project.timeline_fps;
-        let id = ClipId::new(named(arguments, "clip", "the id of the clip to change")?);
+        let id = ClipId::new(arguments.clip.as_str());
 
         let bounds_asked = Trim {
-            start: seconds(arguments, "start_seconds")?.map(|at| fps.frames(at)),
-            duration: seconds(arguments, "duration_seconds")?
+            start: seconds(arguments.start_seconds, "start_seconds")?.map(|at| fps.frames(at)),
+            duration: seconds(arguments.duration_seconds, "duration_seconds")?
                 .map(|length| frames(length, fps.as_f64())),
-            source_in: seconds(arguments, "source_in_seconds")?.map(|at| fps.frames(at)),
+            source_in: seconds(arguments.source_in_seconds, "source_in_seconds")?
+                .map(|at| fps.frames(at)),
         };
         let clip = placing::trim(&mut project, &id, &bounds_asked)
             .map_err(|error| format!("{error} — nothing was written"))?;
         project
-            .save(&dir)
+            .save(dir)
             .map_err(|error| format!("saving the project: {error}"))?;
 
         Ok(format!("`{}` now {}.", clip.id, bounds(fps, &clip)).into())

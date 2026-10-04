@@ -5,45 +5,35 @@
 //! }` on a clip that already has a matte turns it inside out — and `false`
 //! removes it, because `null` already means "not given".
 
+use schemars::{Schema, SchemaGenerator, json_schema};
 use scorsese_core::{Clip, ClipId, Matte};
-use serde_json::{Value, json};
+use serde_json::Value;
 
-/// The argument's schema, for `clip_set`'s own.
-pub(super) fn schema() -> (&'static str, Value) {
-    (
-        "matte",
-        json!({
-            "description": "Show this clip only through another clip's picture — a track \
-                            matte, for a wipe, an iris or footage through the letters of a \
-                            title. The matte clip is used only as a mask and is no longer \
-                            drawn itself; whatever animates it (a scale growing, a blur \
-                            softening its edge) animates the reveal. It must be on the same \
-                            timeline (both inside one group, or both outside), must not be \
-                            this clip, and must not have a matte of its own. An object sets \
-                            the fields it names and keeps the rest; `false` removes the \
-                            matte, and the matte clip is drawn again. Picture only.",
-            "type": ["object", "boolean"],
-            "properties": {
-                "clip": {
-                    "type": "string",
-                    "description": "Id of the clip whose picture is the mask. Required \
-                                    when the clip has no matte yet."
-                },
-                "invert": {
-                    "type": "boolean",
-                    "description": "Show this clip where the matte is not, rather than where \
-                                    it is: a hole cut the matte's shape. Default false."
-                }
+/// The shape of `matte`, for `clip_set`'s schema; its description is the
+/// field's own.
+pub(super) fn schema(_: &mut SchemaGenerator) -> Schema {
+    json_schema!({
+        "type": ["object", "boolean"],
+        "properties": {
+            "clip": {
+                "type": "string",
+                "description": "Id of the clip whose picture is the mask. Required \
+                                when the clip has no matte yet."
             },
-            "additionalProperties": false
-        }),
-    )
+            "invert": {
+                "type": "boolean",
+                "description": "Show this clip where the matte is not, rather than where \
+                                it is: a hole cut the matte's shape. Default false."
+            }
+        },
+        "additionalProperties": false
+    })
 }
 
 /// Applies the `matte` argument to `clip`, if it was given; what it did, in
 /// words.
-pub(super) fn apply(clip: &mut Clip, arguments: &Value) -> Result<Option<String>, String> {
-    let Some(given) = arguments.get("matte").filter(|value| !value.is_null()) else {
+pub(super) fn apply(clip: &mut Clip, given: Option<&Value>) -> Result<Option<String>, String> {
+    let Some(given) = given else {
         return Ok(None);
     };
     if given == &Value::Bool(false) {

@@ -1,15 +1,42 @@
 //! Lowering the music while narration plays.
 
+use schemars::JsonSchema;
 use scorsese_core::{Dip, PropertyPath, TrackId, Under, duck_track};
 use scorsese_render::audio::path::VOLUME;
+use serde::Deserialize;
 use serde_json::Value;
 
-use super::{frames, number};
+use super::frames;
+use crate::tools::args::{self, Name, ProjectDir, Required};
 use crate::tools::inspect::load;
-use crate::tools::{Costs, Reply, Tool, project_dir, project_property};
+use crate::tools::{Costs, Reply, Tool};
 
 /// Lower the music under narration.
 pub(crate) struct Duck;
+
+/// What `duck_music` takes.
+#[derive(Deserialize, JsonSchema)]
+struct Arguments {
+    project: ProjectDir,
+    /// Id of the audio track to duck — the music.
+    music: Name,
+    /// How far down, as a multiplier on the clip's own level. 0.25 is a quarter
+    /// as loud. Default 0.25.
+    depth: Option<f64>,
+    /// Seconds to reach the ducked level. The dip is fully down by the moment
+    /// narration starts. Default 0.3.
+    attack_seconds: Option<f64>,
+    /// Seconds to come back up. Longer than the attack on purpose — returning
+    /// early lurches. Default 0.6.
+    release_seconds: Option<f64>,
+    /// Track ids that count as narration. Omit and every other audio track
+    /// does.
+    under: Option<Vec<String>>,
+}
+
+impl args::Arguments for Arguments {
+    const REQUIRED: Required = &[("music", "the track id to duck")];
+}
 
 impl Tool for Duck {
     fn name(&self) -> &'static str {
@@ -29,74 +56,36 @@ impl Tool for Duck {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "music": {
-                    "type": "string",
-                    "description": "Id of the audio track to duck — the music."
-                },
-                "depth": {
-                    "type": "number",
-                    "description": "How far down, as a multiplier on the clip's own \
-                                    level. 0.25 is a quarter as loud. Default 0.25."
-                },
-                "attack_seconds": {
-                    "type": "number",
-                    "description": "Seconds to reach the ducked level. The dip is \
-                                    fully down by the moment narration starts. \
-                                    Default 0.3."
-                },
-                "release_seconds": {
-                    "type": "number",
-                    "description": "Seconds to come back up. Longer than the attack \
-                                    on purpose — returning early lurches. Default 0.6."
-                },
-                "under": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "Track ids that count as narration. Omit and every \
-                                    other audio track does."
-                }
-            },
-            "required": ["project", "music"]
-        })
+        args::schema::<Arguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let mut project = load(&dir)?;
-        let music = arguments
-            .get("music")
-            .and_then(Value::as_str)
-            .ok_or_else(|| "`music` is required: the track id to duck".to_owned())?;
+        let arguments: Arguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let mut project = load(dir)?;
+        let music = arguments.music.as_str();
 
         let fps = project.timeline_fps.as_f64();
         let dip = Dip {
-            under: number(arguments, "depth", 0.25),
+            under: arguments.depth.unwrap_or(0.25),
             over: 1.0,
-            attack: frames(number(arguments, "attack_seconds", 0.3), fps),
-            release: frames(number(arguments, "release_seconds", 0.6), fps),
+            attack: frames(arguments.attack_seconds.unwrap_or(0.3), fps),
+            release: frames(arguments.release_seconds.unwrap_or(0.6), fps),
         };
         let under = Under {
             music: TrackId::new(music),
             narration: arguments
-                .get("under")
-                .and_then(Value::as_array)
-                .map(|ids| {
-                    ids.iter()
-                        .filter_map(Value::as_str)
-                        .map(TrackId::new)
-                        .collect()
-                })
-                .unwrap_or_default(),
+                .under
+                .iter()
+                .flatten()
+                .map(|id| TrackId::new(id.as_str()))
+                .collect(),
         };
 
         let report = duck_track(&mut project, &under, &PropertyPath::new(VOLUME), dip)
             .ok_or_else(|| format!("no track `{music}` in this project"))?;
         project
-            .save(&dir)
+            .save(dir)
             .map_err(|error| format!("saving the project: {error}"))?;
         Ok(format!(
             "{} clip(s) ducked, {} left alone — ordinary volume keyframes, \

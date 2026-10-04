@@ -47,25 +47,9 @@ pub(crate) use trim::TrimClip;
 pub(crate) use volume::SetVolume;
 pub(crate) use write::Write;
 
-use scorsese_core::{Clip, Fps, Frames};
-use serde_json::Value;
+use std::collections::BTreeSet;
 
-/// A required clip id argument, named so the refusal says which one was
-/// missing.
-fn clip_id<'a>(arguments: &'a Value, key: &str) -> Result<&'a str, String> {
-    arguments
-        .get(key)
-        .and_then(Value::as_str)
-        .ok_or_else(|| format!("`{key}` is required: a clip id"))
-}
-
-/// A number argument, or its default.
-fn number(arguments: &Value, key: &str, fallback: f64) -> f64 {
-    arguments
-        .get(key)
-        .and_then(Value::as_f64)
-        .unwrap_or(fallback)
-}
+use scorsese_core::{Clip, ClipId, Fps, Frames};
 
 /// Seconds on the project's grid, at least one frame when anything was asked
 /// for — a ramp rounded to no frames is a switch, not a ramp.
@@ -76,36 +60,31 @@ fn frames(seconds: f64, fps: f64) -> Frames {
     Frames(((seconds * fps).round() as u64).max(1))
 }
 
-/// A required id argument, and what it is an id of.
-fn named<'a>(arguments: &'a Value, key: &str, what: &str) -> Result<&'a str, String> {
-    arguments
-        .get(key)
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|id| !id.is_empty())
-        .ok_or_else(|| format!("`{key}` is required: {what}"))
+/// A time argument in seconds, refused when it is negative.
+///
+/// Refused rather than clamped to zero, for the reason the whole family of
+/// tools exists: the caller has said something that cannot be true, and
+/// silently editing it into something that can be is how a clip ends up
+/// somewhere nobody asked for. Whether it is a number at all is the shared
+/// argument path's to say; this is the check JSON's types cannot make.
+fn seconds(given: Option<f64>, key: &str) -> Result<Option<f64>, String> {
+    match given {
+        Some(seconds) if seconds < 0.0 => Err(format!(
+            "`{key}` cannot be negative — the timeline starts at 0s"
+        )),
+        given => Ok(given),
+    }
 }
 
-/// A time argument in seconds, or `None` where it was left out.
-///
-/// A negative time is refused rather than clamped to zero, for the reason the
-/// whole family of tools exists: the caller has said something that cannot be
-/// true, and silently editing it into something that can be is how a clip ends
-/// up somewhere nobody asked for.
-fn seconds(arguments: &Value, key: &str) -> Result<Option<f64>, String> {
-    let Some(value) = arguments.get(key).filter(|value| !value.is_null()) else {
-        return Ok(None);
-    };
-    let seconds = value
-        .as_f64()
-        .filter(|seconds| seconds.is_finite())
-        .ok_or_else(|| format!("`{key}` has to be a number of seconds"))?;
-    if seconds < 0.0 {
-        return Err(format!(
-            "`{key}` cannot be negative — the timeline starts at 0s"
-        ));
+/// The clips a call names, as a set — a repeated id is one clip, not two —
+/// refused when it names none, since an edit of no clips is a call that
+/// meant something else.
+fn clip_set(ids: &[String]) -> Result<BTreeSet<ClipId>, String> {
+    let ids: BTreeSet<ClipId> = ids.iter().map(|id| ClipId::new(id.as_str())).collect();
+    if ids.is_empty() {
+        return Err("`clips` must name at least one clip".to_owned());
     }
-    Ok(Some(seconds))
+    Ok(ids)
 }
 
 /// Where a clip sits, said in both units at once.

@@ -1,14 +1,58 @@
 //! Putting a clip on a track, spoken in seconds.
 
+use schemars::JsonSchema;
 use scorsese_core::{AssetId, ClipId, Fps, Frames, Placement, TrackId, placing};
+use serde::Deserialize;
 use serde_json::Value;
 
-use super::{bounds, frames, named, seconds};
+use super::{bounds, frames, seconds};
+use crate::tools::args::{self, Name, ProjectDir, Required};
 use crate::tools::inspect::load;
-use crate::tools::{Costs, Reply, Tool, project_dir, project_property};
+use crate::tools::{Costs, Reply, Tool};
 
 /// Write one clip onto a track.
 pub(crate) struct PlaceClip;
+
+/// What `place_clip` takes.
+#[derive(Deserialize, JsonSchema)]
+struct Arguments {
+    project: ProjectDir,
+    /// Id of the asset the clip shows — from the assets table, never a path.
+    /// `project_assets` lists them.
+    asset: Name,
+    /// Id of the track to put it on. Must already exist: a track invented from
+    /// a typo would take the clip with it, so this refuses and names the tracks
+    /// there are. A visual asset needs a video track and an audible one an
+    /// audio track.
+    track: Name,
+    /// When the clip begins on the timeline, in seconds from the head of the
+    /// cut. Rounded to the nearest whole frame on the project's grid.
+    start_seconds: f64,
+    /// How long the clip runs on the timeline, in seconds. Leave it out for the
+    /// rest of the source — everything from the in-point to the end of the
+    /// measured media — which is what `put this shot in` means. An asset with
+    /// no measured length (a title, a still, a colour, a brief nobody has
+    /// generated, or a file nobody has probed) has no rest to take, so there it
+    /// is required.
+    duration_seconds: Option<f64>,
+    /// How far into the source the clip opens, in seconds. Default 0, the head
+    /// of the media. This is a time in the SOURCE, not on the timeline, and it
+    /// means the same thing whatever framerate the source was shot at — the
+    /// conform to the project's grid is done here.
+    source_in_seconds: Option<f64>,
+    /// What to call the clip. Optional: without it the id comes from the
+    /// asset's, suffixed until it is free, and the reply says which one it
+    /// wrote. An id already in use is refused rather than reused.
+    clip: Option<String>,
+}
+
+impl args::Arguments for Arguments {
+    const REQUIRED: Required = &[
+        ("asset", "the id of the asset to show"),
+        ("track", "the id of the track to put it on"),
+        ("start_seconds", "when the clip begins on the timeline"),
+    ];
+}
 
 impl Tool for PlaceClip {
     fn name(&self) -> &'static str {
@@ -34,91 +78,31 @@ impl Tool for PlaceClip {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "asset": {
-                    "type": "string",
-                    "description": "Id of the asset the clip shows — from the assets \
-                                    table, never a path. `project_assets` lists them."
-                },
-                "track": {
-                    "type": "string",
-                    "description": "Id of the track to put it on. Must already exist: \
-                                    a track invented from a typo would take the clip \
-                                    with it, so this refuses and names the tracks \
-                                    there are. A visual asset needs a video track and \
-                                    an audible one an audio track."
-                },
-                "start_seconds": {
-                    "type": "number",
-                    "description": "When the clip begins on the timeline, in seconds \
-                                    from the head of the cut. Rounded to the nearest \
-                                    whole frame on the project's grid."
-                },
-                "duration_seconds": {
-                    "type": "number",
-                    "description": "How long the clip runs on the timeline, in \
-                                    seconds. Leave it out for the rest of the source \
-                                    — everything from the in-point to the end of the \
-                                    measured media — which is what `put this shot in` \
-                                    means. An asset with no measured length (a title, \
-                                    a still, a colour, a brief nobody has generated, \
-                                    or a file nobody has probed) has no rest to take, \
-                                    so there it is required."
-                },
-                "source_in_seconds": {
-                    "type": "number",
-                    "description": "How far into the source the clip opens, in \
-                                    seconds. Default 0, the head of the media. This is \
-                                    a time in the SOURCE, not on the timeline, and it \
-                                    means the same thing whatever framerate the source \
-                                    was shot at — the conform to the project's grid is \
-                                    done here."
-                },
-                "clip": {
-                    "type": "string",
-                    "description": "What to call the clip. Optional: without it the id \
-                                    comes from the asset's, suffixed until it is free, \
-                                    and the reply says which one it wrote. An id \
-                                    already in use is refused rather than reused."
-                }
-            },
-            "required": ["project", "asset", "track", "start_seconds"]
-        })
+        args::schema::<Arguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let mut project = load(&dir)?;
+        let arguments: Arguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let mut project = load(dir)?;
         let fps = project.timeline_fps;
 
-        let start = seconds(arguments, "start_seconds")?.ok_or_else(|| {
-            "`start_seconds` is required: when the clip begins on the timeline".to_owned()
-        })?;
-        let duration = seconds(arguments, "duration_seconds")?;
-        let source_in = seconds(arguments, "source_in_seconds")?.unwrap_or(0.0);
+        let start = seconds(Some(arguments.start_seconds), "start_seconds")?.unwrap_or_default();
+        let duration = seconds(arguments.duration_seconds, "duration_seconds")?;
+        let source_in = seconds(arguments.source_in_seconds, "source_in_seconds")?.unwrap_or(0.0);
 
         let placement = Placement {
-            asset: AssetId::new(named(arguments, "asset", "the id of the asset to show")?),
-            track: TrackId::new(named(
-                arguments,
-                "track",
-                "the id of the track to put it on",
-            )?),
+            asset: AssetId::new(arguments.asset.as_str()),
+            track: TrackId::new(arguments.track.as_str()),
             start: fps.frames(start),
             duration: duration.map(|seconds| reaching(fps, start, seconds)),
             source_in: fps.frames(source_in),
-            id: arguments
-                .get("clip")
-                .and_then(Value::as_str)
-                .map(ClipId::new),
+            id: arguments.clip.as_deref().map(ClipId::new),
         };
         let clip = placing::place(&mut project, &placement)
             .map_err(|error| format!("{error} — nothing was written"))?;
         project
-            .save(&dir)
+            .save(dir)
             .map_err(|error| format!("saving the project: {error}"))?;
 
         Ok(format!(

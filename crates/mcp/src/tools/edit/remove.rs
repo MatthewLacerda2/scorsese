@@ -1,15 +1,30 @@
 //! Taking placed clips off the timeline.
 
-use std::collections::BTreeSet;
-
-use scorsese_core::{ClipId, placing};
+use schemars::JsonSchema;
+use scorsese_core::placing;
+use serde::Deserialize;
 use serde_json::Value;
 
+use super::clip_set;
+use crate::tools::args::{self, ProjectDir, Required};
 use crate::tools::inspect::load;
-use crate::tools::{Costs, Reply, Tool, project_dir, project_property};
+use crate::tools::{Costs, Reply, Tool};
 
 /// Remove clips from their tracks, leaving their assets and the gap.
 pub(crate) struct ClipRemove;
+
+/// What `clip_remove` takes.
+#[derive(Deserialize, JsonSchema)]
+struct Arguments {
+    project: ProjectDir,
+    /// Ids of the clips to remove — one or several, removed together or not at
+    /// all. project_describe and project_read name them.
+    clips: Vec<String>,
+}
+
+impl args::Arguments for Arguments {
+    const REQUIRED: Required = &[("clips", "the ids of the clips to remove")];
+}
 
 impl Tool for ClipRemove {
     fn name(&self) -> &'static str {
@@ -32,30 +47,18 @@ impl Tool for ClipRemove {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "clips": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "Ids of the clips to remove — one or several, \
-                                    removed together or not at all. project_describe \
-                                    and project_read name them."
-                }
-            },
-            "required": ["project", "clips"]
-        })
+        args::schema::<Arguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let mut project = load(&dir)?;
+        let arguments: Arguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let mut project = load(dir)?;
         let fps = project.timeline_fps;
-        let removed = placing::remove(&mut project, &clip_ids(arguments)?)
+        let removed = placing::remove(&mut project, &clip_set(&arguments.clips)?)
             .map_err(|error| format!("{error} — nothing was written"))?;
         project
-            .save(&dir)
+            .save(dir)
             .map_err(|error| format!("saving the project: {error}"))?;
 
         let each: Vec<String> = removed
@@ -77,21 +80,4 @@ impl Tool for ClipRemove {
         )
         .into())
     }
-}
-
-/// The clips to remove, as a set — a repeated id is one clip, not two.
-fn clip_ids(arguments: &Value) -> Result<BTreeSet<ClipId>, String> {
-    let named = arguments
-        .get("clips")
-        .and_then(Value::as_array)
-        .ok_or_else(|| "`clips` is required: the ids of the clips to remove".to_owned())?;
-    let ids: BTreeSet<ClipId> = named
-        .iter()
-        .filter_map(Value::as_str)
-        .map(ClipId::new)
-        .collect();
-    if ids.is_empty() {
-        return Err("`clips` must name at least one clip".to_owned());
-    }
-    Ok(ids)
 }

@@ -6,15 +6,32 @@
 //! made — otherwise the answer to "why does this feature not work on my
 //! project?" is a command the client cannot run.
 
+use schemars::JsonSchema;
 use scorsese_core::{ProbeOutcome, Probed, Reprobe, probe_assets};
 use scorsese_render::Ffprobe;
+use serde::Deserialize;
 use serde_json::Value;
 
+use crate::tools::args::{self, ProjectDir};
 use crate::tools::inspect::load;
-use crate::tools::{Costs, Reply, Tool, project_dir, project_property};
+use crate::tools::{Costs, Reply, Tool};
 
 /// Read what the media pool is actually made of.
 pub(crate) struct Probe;
+
+/// What `project_probe` takes.
+#[derive(Deserialize, JsonSchema)]
+struct Arguments {
+    project: ProjectDir,
+    /// Read every file again, replacing metadata that is already recorded. For
+    /// when what is written down is wrong. The default probes only the assets
+    /// nobody has looked at, which is what makes this cheap to call after every
+    /// edit.
+    #[serde(default)]
+    all: bool,
+}
+
+impl args::Arguments for Arguments {}
 
 impl Tool for Probe {
     fn name(&self) -> &'static str {
@@ -39,27 +56,14 @@ impl Tool for Probe {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "all": {
-                    "type": "boolean",
-                    "description": "Read every file again, replacing metadata that is \
-                                    already recorded. For when what is written down is \
-                                    wrong. The default probes only the assets nobody \
-                                    has looked at, which is what makes this cheap to \
-                                    call after every edit."
-                }
-            },
-            "required": ["project"]
-        })
+        args::schema::<Arguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let mut project = load(&dir)?;
-        let reprobe = if arguments.get("all").and_then(Value::as_bool) == Some(true) {
+        let arguments: Arguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let mut project = load(dir)?;
+        let reprobe = if arguments.all {
             Reprobe::All
         } else {
             Reprobe::Skip
@@ -69,7 +73,7 @@ impl Tool for Probe {
         // does it: a server that found ffprobe at startup would keep insisting
         // it was there after someone uninstalled it.
         let probe = Ffprobe::discover().map_err(|error| format!("{error}"))?;
-        let report = probe_assets(&mut project, &dir, &probe, reprobe);
+        let report = probe_assets(&mut project, dir, &probe, reprobe);
         if report.is_empty() {
             return Ok("no assets with a file to probe".into());
         }
@@ -77,7 +81,7 @@ impl Tool for Probe {
         let recorded = count(&report, &ProbeOutcome::Recorded);
         if recorded > 0 {
             project
-                .save(&dir)
+                .save(dir)
                 .map_err(|error| format!("saving the project: {error}"))?;
         }
         Ok(said(&report, recorded).into())

@@ -2,18 +2,66 @@
 
 use std::path::{Path, PathBuf};
 
+use schemars::JsonSchema;
 use scorsese_render::{
     AudioCodec, Cancel, Container, FrameRange, OutputFormat, RenderSettings, Renderer, Resolution,
     Tools, VideoCodec, say,
 };
+use serde::Deserialize;
 use serde_json::{Value, json};
 
 use crate::renders::{Renders, Say, Work, watch};
+use crate::tools::args::{self, ProjectDir, Required};
 use crate::tools::inspect::load;
-use crate::tools::{Context, Costs, Reply, Tool, project_dir, project_property, under};
+use crate::tools::{Context, Costs, Reply, Tool};
 
 /// Encode the timeline to a file.
 pub(crate) struct Render;
+
+/// What `render` takes.
+#[derive(Deserialize, JsonSchema)]
+struct Arguments {
+    project: ProjectDir,
+    /// Where to write the file, e.g. teaser.mp4, or score.mp3 for the
+    /// soundtrack alone. The extension chooses the container unless `container`
+    /// names one: mp4, mkv, avi or wmv for video; mp3, wav or m4a for sound
+    /// only. Any other extension, or none, is refused. A relative path is
+    /// relative to the project directory, never the server's working directory;
+    /// an absolute one is used as given.
+    out: String,
+    /// Container to deliver in: mp4, mkv, avi or wmv for video; mp3, wav or m4a
+    /// for sound only. Defaults to what `out`'s extension asks for, so naming
+    /// the file is usually the whole decision.
+    container: Option<String>,
+    /// Picture codec: h264, mpeg4 or wmv2. Defaults to what the container is
+    /// written with — h264 for mp4 and mkv, mpeg4 for avi, wmv2 for wmv. A
+    /// pairing scorsese does not write is refused before anything is encoded,
+    /// and so is any video_codec for a sound-only container.
+    video_codec: Option<String>,
+    /// Sound codec: aac, pcm_s16le, wmav2 or mp3. Defaults, like video_codec, to
+    /// what the container is written with — aac for mp4, mkv and m4a, pcm_s16le
+    /// for avi and wav, wmav2 for wmv, mp3 for mp3.
+    audio_codec: Option<String>,
+    /// Output size, e.g. 1920x1080. Sources of another shape meet it the way
+    /// each clip's fit says, and are never stretched. Default 1920x1080.
+    /// Refused for a sound-only container, which has no picture to size.
+    resolution: Option<String>,
+    /// true to answer only when the file is written, the way a short render you
+    /// need before your next step is best asked for. Default false: the render
+    /// runs in the background and the answer is its job id, so you can tell the
+    /// person how far it has got with jobs while it runs. A waited call sends
+    /// MCP progress notifications when it carries a progressToken.
+    #[serde(default)]
+    wait: bool,
+    /// Render only part of the timeline, in frames: 30:120 covers frames 30 up
+    /// to 120, 30: runs to the end, :120 from the start. Without it the whole
+    /// timeline is rendered.
+    range: Option<String>,
+}
+
+impl args::Arguments for Arguments {
+    const REQUIRED: Required = &[("out", "where to write the file")];
+}
 
 impl Tool for Render {
     fn name(&self) -> &'static str {
@@ -39,76 +87,7 @@ impl Tool for Render {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "out": {
-                    "type": "string",
-                    "description": "Where to write the file, e.g. teaser.mp4, or \
-                                    score.mp3 for the soundtrack alone. The \
-                                    extension chooses the container unless \
-                                    `container` names one: mp4, mkv, avi or wmv \
-                                    for video; mp3, wav or m4a for sound only. \
-                                    Any other extension, or none, is refused. \
-                                    A relative path is relative to the project \
-                                    directory, never the server's working \
-                                    directory; an absolute one is used as given."
-                },
-                "container": {
-                    "type": "string",
-                    "description": "Container to deliver in: mp4, mkv, avi or wmv \
-                                    for video; mp3, wav or m4a for sound only. \
-                                    Defaults to what `out`'s extension asks for, so \
-                                    naming the file is usually the whole decision."
-                },
-                "video_codec": {
-                    "type": "string",
-                    "description": "Picture codec: h264, mpeg4 or wmv2. Defaults to \
-                                    what the container is written with — h264 for \
-                                    mp4 and mkv, mpeg4 for avi, wmv2 for wmv. A \
-                                    pairing scorsese does not write is refused \
-                                    before anything is encoded, and so is any \
-                                    video_codec for a sound-only container."
-                },
-                "audio_codec": {
-                    "type": "string",
-                    "description": "Sound codec: aac, pcm_s16le, wmav2 or mp3. \
-                                    Defaults, like video_codec, to what the \
-                                    container is written with — aac for mp4, mkv \
-                                    and m4a, pcm_s16le for avi and wav, wmav2 for \
-                                    wmv, mp3 for mp3."
-                },
-                "resolution": {
-                    "type": "string",
-                    "description": "Output size, e.g. 1920x1080. Sources of another \
-                                    shape meet it the way each clip's fit says, and \
-                                    are never stretched. Default 1920x1080. Refused \
-                                    for a sound-only container, which has no \
-                                    picture to size."
-                },
-                "wait": {
-                    "type": "boolean",
-                    "description": "true to answer only when the file is \
-                                    written, the way a short render you need \
-                                    before your next step is best asked for. \
-                                    Default false: the render runs in the \
-                                    background and the answer is its job id, \
-                                    so you can tell the person how far it has \
-                                    got with jobs while it runs. A waited call \
-                                    sends MCP progress notifications when it \
-                                    carries a progressToken."
-                },
-                "range": {
-                    "type": "string",
-                    "description": "Render only part of the timeline, in frames: \
-                                    30:120 covers frames 30 up to 120, 30: runs to \
-                                    the end, :120 from the start. Without it the \
-                                    whole timeline is rendered."
-                }
-            },
-            "required": ["project", "out"]
-        })
+        args::schema::<Arguments>()
     }
 
     /// Outside a session nobody could ask after a render later, so it waits.
@@ -138,16 +117,13 @@ impl Tool for Render {
     /// how far it got — are the server's to log, since a cancelled request is
     /// not answered.
     fn call_in(&self, arguments: &Value, context: &mut Context<'_>) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let wait = arguments
-            .get("wait")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-        let (out, path, work) = prepared(&dir, arguments)?;
-        if !wait {
+        let arguments: Arguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let (out, path, work) = prepared(dir, &arguments)?;
+        if !arguments.wait {
             let job = context
                 .renders
-                .start(&dir, (&out, path), Cancel::new(), work)?;
+                .start(dir, (&out, path), Cancel::new(), work)?;
             return Ok(format!(
                 "Rendering {out} as job {id}, running. Call jobs with job: {id} to see how \
                  far it has got; when it is done, its line says what was written.",
@@ -157,7 +133,7 @@ impl Tool for Render {
         }
         let job = context
             .renders
-            .start(&dir, (&out, path), context.cancel.clone(), work)?;
+            .start(dir, (&out, path), context.cancel.clone(), work)?;
         let report = context
             .report
             .as_mut()
@@ -168,18 +144,13 @@ impl Tool for Render {
 
 /// The render `arguments` ask for, checked and ready to run: the words its
 /// answers use for `out`, the path it writes, and the work itself.
-fn prepared(dir: &Path, arguments: &Value) -> Result<(String, PathBuf, Work), String> {
+fn prepared(dir: &Path, arguments: &Arguments) -> Result<(String, PathBuf, Work), String> {
     // Against the project, not the server's working directory, which
     // belongs to whoever launched it (#518). The caller's own string is
     // what the reply says back, because that is the path the next call —
     // `audio_level`, `hear` — resolves the same way.
-    let path = under(dir, arguments, "out")?
-        .ok_or_else(|| "`out` is required: where to write the file".to_owned())?;
-    let out = arguments
-        .get("out")
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_owned();
+    let path = args::path(dir, &arguments.out, "out")?;
+    let out = arguments.out.clone();
     // First, before the project is opened — the order `scorsese render`
     // keeps, for its reason: the shape of the file is the cheapest thing
     // to get wrong and the most expensive to find out late.
@@ -190,7 +161,7 @@ fn prepared(dir: &Path, arguments: &Value) -> Result<(String, PathBuf, Work), St
 
     // Refused for a format with no picture rather than ignored, in the
     // words `scorsese render --resolution` is refused in.
-    let resolution = match arguments.get("resolution").and_then(Value::as_str) {
+    let resolution = match &arguments.resolution {
         Some(text) => {
             format
                 .picture_setting("a resolution")
@@ -205,7 +176,7 @@ fn prepared(dir: &Path, arguments: &Value) -> Result<(String, PathBuf, Work), St
     // `FromStr` is the one set of rules, so `30:`, `:120` and every refusal
     // read the same from either client. Parsed before ffmpeg is looked for,
     // because a range that is not one costs nothing to refuse.
-    let range = match arguments.get("range").and_then(Value::as_str) {
+    let range = match &arguments.range {
         Some(text) => text
             .parse()
             .map_err(|problem| format!("range: {problem}"))?,
@@ -243,17 +214,22 @@ fn prepared(dir: &Path, arguments: &Value) -> Result<(String, PathBuf, Work), St
 /// read the same from either client. Checked before the project's media or
 /// ffmpeg are touched, because a combination we do not write costs nothing to
 /// refuse and a whole encode to discover.
-fn format(arguments: &Value, out: &Path) -> Result<OutputFormat, String> {
-    let named = |key: &str| arguments.get(key).and_then(Value::as_str);
-    let container = named("container")
+fn format(arguments: &Arguments, out: &Path) -> Result<OutputFormat, String> {
+    let container = arguments
+        .container
+        .as_deref()
         .map(str::parse::<Container>)
         .transpose()
         .map_err(|problem| format!("{problem}"))?;
-    let video = named("video_codec")
+    let video = arguments
+        .video_codec
+        .as_deref()
         .map(str::parse::<VideoCodec>)
         .transpose()
         .map_err(|problem| format!("{problem}"))?;
-    let audio = named("audio_codec")
+    let audio = arguments
+        .audio_codec
+        .as_deref()
         .map(str::parse::<AudioCodec>)
         .transpose()
         .map_err(|problem| format!("{problem}"))?;

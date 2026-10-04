@@ -1,8 +1,10 @@
 //! Reading a `clip_animate` request: which properties it names, and the
 //! keyframes it asks for, on the project's frame grid.
 
+use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema};
 use scorsese_core::{Easing, Fps, Frames, Keyframe, PropertyPath};
 use scorsese_render::ANIMATABLE;
+use serde::Deserialize;
 use serde_json::Value;
 
 use super::super::seconds;
@@ -62,21 +64,41 @@ impl Point {
     }
 }
 
+// One entry of `keyframes`, as a client sends it. Its doc is a plain comment
+// on purpose: a doc comment would become a description on the array's items,
+// which the schema has never carried.
+#[derive(Deserialize, JsonSchema)]
+pub(super) struct Asked {
+    /// When, in seconds from the start of the CLIP (not the timeline), rounded
+    /// to the project's frame grid. At most the clip's length.
+    at_seconds: f64,
+    /// What the property reads at that moment.
+    value: f64,
+    /// How it travels from here to the next point: `linear` (the default),
+    /// `ease_in`, `ease_out`, `ease_in_out`, `hold`, `back_in`, `back_out` (a
+    /// pop that passes its mark and settles), `back_in_out`, `spring`, or {
+    /// "cubic_bezier": [x1, y1, x2, y2] } as in CSS.
+    //
+    // JSON rather than a type: a name or an object, read by the format's own
+    // `Easing`, whose refusal names the shapes it takes.
+    #[serde(default)]
+    #[schemars(schema_with = "untyped")]
+    easing: Option<Value>,
+}
+
+/// A schema that says nothing about the type, for an argument of more than one
+/// shape whose description says which.
+fn untyped(_: &mut SchemaGenerator) -> Schema {
+    json_schema!({})
+}
+
 /// The `keyframes` argument, read, put in time order and placed on the grid.
 ///
 /// Sorted rather than refused when out of order, since each point's easing
 /// travels with it and the order of a list in a call carries no meaning of
 /// its own. Two points that land on one frame are refused: one of them would
 /// have to be dropped, and which is not this tool's to choose.
-pub(super) fn points(arguments: &Value, fps: Fps) -> Result<Vec<Point>, String> {
-    let listed = arguments
-        .get("keyframes")
-        .and_then(Value::as_array)
-        .ok_or_else(|| {
-            "`keyframes` is required: a list of { at_seconds, value, easing } — \
-             or [] to stop animating the property"
-                .to_owned()
-        })?;
+pub(super) fn points(listed: &[Asked], fps: Fps) -> Result<Vec<Point>, String> {
     let mut points = listed
         .iter()
         .enumerate()
@@ -99,17 +121,12 @@ pub(super) fn points(arguments: &Value, fps: Fps) -> Result<Vec<Point>, String> 
 }
 
 /// One entry of the list, refused by its position when it is not a keyframe.
-fn point(index: usize, entry: &Value, fps: Fps) -> Result<Point, String> {
+fn point(index: usize, entry: &Asked, fps: Fps) -> Result<Point, String> {
     let at = |problem: String| format!("keyframe {index}: {problem}");
-    let seconds = seconds(entry, "at_seconds")
+    let seconds = seconds(Some(entry.at_seconds), "at_seconds")
         .map_err(at)?
-        .ok_or_else(|| at("`at_seconds` is required: seconds from the clip's start".into()))?;
-    let value = entry
-        .get("value")
-        .and_then(Value::as_f64)
-        .filter(|value| value.is_finite())
-        .ok_or_else(|| at("`value` is required, and has to be a finite number".into()))?;
-    let easing = match entry.get("easing").filter(|easing| !easing.is_null()) {
+        .unwrap_or_default();
+    let easing = match &entry.easing {
         None => Easing::Linear,
         Some(name) => serde_json::from_value(name.clone()).map_err(|_| {
             at(format!(
@@ -121,11 +138,10 @@ fn point(index: usize, entry: &Value, fps: Fps) -> Result<Point, String> {
     Ok(Point {
         seconds,
         frame: fps.frames(seconds),
-        value,
+        value: entry.value,
         easing,
     })
 }
-
 /// An easing as the document spells it, for a reply: `back_out`, or the
 /// bezier's object.
 pub(super) fn spelled(easing: Easing) -> String {

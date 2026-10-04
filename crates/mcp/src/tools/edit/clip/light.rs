@@ -7,82 +7,66 @@
 //! from the defaults a document's `"glow": {}` would. `false` is the one way
 //! to take either away, because `null` already means "not given" here.
 
+use schemars::{Schema, SchemaGenerator, json_schema};
 use scorsese_core::{Blend, Clip, Glow, Rgba, Shadow};
 use serde_json::{Map, Value, json};
 
-/// The three arguments' schemas, for `clip_set`'s own.
-pub(super) fn schema() -> [(&'static str, Value); 3] {
-    let colour = |what: &str| {
-        json!({
-            "type": "string",
-            "description": format!("{what}, as `#rrggbb` or `#rrggbbaa`.")
-        })
-    };
-    let number = |description: &str| json!({ "type": "number", "description": description });
-    [
-        (
-            "shadow",
-            json!({
-                "description": "A drop shadow: the clip's own silhouette, softened, offset and \
-                                drawn under it. An object sets the fields it names and keeps \
-                                the rest (the defaults, on a clip without one: black, 0.01 \
-                                down and right, softness 0.02, opacity 0.5); `false` removes \
-                                it. Lengths are fractions of the clip's own height, as `blur` \
-                                is. Picture only.",
-                "type": ["object", "boolean"],
-                "properties": {
-                    "color": colour("The shadow's colour; its alpha scales the opacity"),
-                    "offset_x": number("How far right it falls, as a fraction of the \
-                                        clip's height; negative is left."),
-                    "offset_y": number("How far down it falls, as a fraction of the \
-                                        clip's height; negative is up."),
-                    "softness": number("How soft its edge is, measured as `blur` is. \
-                                        0 is hard."),
-                    "opacity": number("How dark it is, 0 to 1.")
-                },
-                "additionalProperties": false
-            }),
-        ),
-        (
-            "glow",
-            json!({
-                "description": "A soft halo of light round whatever the clip draws, drawn \
-                                under it. An object sets the fields it names and keeps the \
-                                rest (the defaults, on a clip without one: the clip's own \
-                                colours, radius 0.02, intensity 1); `false` removes it. On a \
-                                group clip it lights the whole group. Picture only.",
-                "type": ["object", "boolean"],
-                "properties": {
-                    "color": colour("A colour for the light, or `own` for the \
-                                     clip's own colours"),
-                    "radius": number("How far the halo reaches, as a fraction of the \
-                                      clip's height, measured as `blur` is."),
-                    "intensity": number("How bright: 0 none, 1 the clip's own light \
-                                         spread out, up to 4 for thin lines.")
-                },
-                "additionalProperties": false
-            }),
-        ),
-        (
-            "blend",
-            json!({
-                "type": "string",
-                "enum": ["normal", "add", "screen", "multiply"],
-                "description": "How the clip lands on what is beneath it, shadow and glow \
-                                included: `normal` covers; `add` and `screen` add light, so \
-                                overlapping glowing things brighten; `multiply` darkens. \
-                                Over nothing but the black frame, `add` and `screen` look \
-                                exactly like `normal`. Picture only."
-            }),
-        ),
-    ]
+use super::Arguments;
+
+/// A colour field's schema.
+fn colour_field(what: &str) -> Value {
+    json!({
+        "type": "string",
+        "description": format!("{what}, as `#rrggbb` or `#rrggbbaa`.")
+    })
+}
+
+/// A number field's schema.
+fn number_field(description: &str) -> Value {
+    json!({ "type": "number", "description": description })
+}
+
+/// The shape of `shadow`, for `clip_set`'s schema; its description is the
+/// field's own.
+pub(super) fn shadow(_: &mut SchemaGenerator) -> Schema {
+    json_schema!({
+        "type": ["object", "boolean"],
+        "properties": {
+            "color": colour_field("The shadow's colour; its alpha scales the opacity"),
+            "offset_x": number_field("How far right it falls, as a fraction of the \
+                                      clip's height; negative is left."),
+            "offset_y": number_field("How far down it falls, as a fraction of the \
+                                      clip's height; negative is up."),
+            "softness": number_field("How soft its edge is, measured as `blur` is. \
+                                      0 is hard."),
+            "opacity": number_field("How dark it is, 0 to 1.")
+        },
+        "additionalProperties": false
+    })
+}
+
+/// The shape of `glow`, for `clip_set`'s schema; its description is the
+/// field's own.
+pub(super) fn glow(_: &mut SchemaGenerator) -> Schema {
+    json_schema!({
+        "type": ["object", "boolean"],
+        "properties": {
+            "color": colour_field("A colour for the light, or `own` for the \
+                             clip's own colours"),
+            "radius": number_field("How far the halo reaches, as a fraction of the \
+                                    clip's height, measured as `blur` is."),
+            "intensity": number_field("How bright: 0 none, 1 the clip's own light \
+                                       spread out, up to 4 for thin lines.")
+        },
+        "additionalProperties": false
+    })
 }
 
 /// Applies whichever of the three `arguments` names to `clip`; what was set,
 /// in words, one entry per argument.
-pub(super) fn apply(clip: &mut Clip, arguments: &Value) -> Result<Vec<String>, String> {
+pub(super) fn apply(clip: &mut Clip, arguments: &Arguments) -> Result<Vec<String>, String> {
     let mut said = Vec::new();
-    if let Some(given) = given(arguments, "shadow") {
+    if let Some(given) = &arguments.shadow {
         clip.shadow = merged(given, "shadow", clip.shadow, shadow_field)?;
         said.push(match clip.shadow {
             Some(shadow) => format!(
@@ -92,7 +76,7 @@ pub(super) fn apply(clip: &mut Clip, arguments: &Value) -> Result<Vec<String>, S
             None => "no shadow".to_owned(),
         });
     }
-    if let Some(given) = given(arguments, "glow") {
+    if let Some(given) = &arguments.glow {
         clip.glow = merged(given, "glow", clip.glow, glow_field)?;
         said.push(match clip.glow {
             Some(glow) => format!(
@@ -105,18 +89,14 @@ pub(super) fn apply(clip: &mut Clip, arguments: &Value) -> Result<Vec<String>, S
             None => "no glow".to_owned(),
         });
     }
-    if let Some(given) = given(arguments, "blend") {
+    if let Some(given) = &arguments.blend {
+        let given = Value::String(given.clone());
         clip.blend = serde_json::from_value::<Blend>(given.clone()).map_err(|_| {
             format!("`blend` is `normal`, `add`, `screen` or `multiply`, not {given}")
         })?;
         said.push(format!("blend {}", clip.blend.as_str()));
     }
     Ok(said)
-}
-
-/// An argument that was given, `null` counting as not.
-fn given<'a>(arguments: &'a Value, key: &str) -> Option<&'a Value> {
-    arguments.get(key).filter(|value| !value.is_null())
 }
 
 /// `false` for none; an object's fields laid over what the clip had, or over

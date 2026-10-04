@@ -1,16 +1,53 @@
 //! Setting how loud one clip plays.
 
+use schemars::JsonSchema;
 use scorsese_core::level::{self, Level, Levelled};
 use scorsese_core::{ClipId, PropertyPath};
 use scorsese_render::audio::path::VOLUME;
+use serde::Deserialize;
 use serde_json::Value;
 
-use super::{clip_id, frames, number};
+use super::frames;
+use crate::tools::args::{self, Name, ProjectDir, Required};
 use crate::tools::inspect::load;
-use crate::tools::{Costs, Reply, Tool, project_dir, project_property};
+use crate::tools::{Costs, Reply, Tool};
 
 /// Set a clip's volume.
 pub(crate) struct SetVolume;
+
+/// What `set_volume` takes.
+#[derive(Deserialize, JsonSchema)]
+struct Arguments {
+    project: ProjectDir,
+    /// Id of the clip to set the volume of. Any clip that makes a sound, which
+    /// includes a clip on a video track whose file has audio on it.
+    clip: Name,
+    /// How loud the clip plays, as a multiplier on its own level: 1.0 is the
+    /// source as recorded, 0.5 is half, and above 1.0 is gain. Muting a clip is
+    /// a level of 0.0. With `from_level` this is where the fade arrives, and
+    /// what the clip plays at from there on.
+    level: f64,
+    /// Where the volume starts, when it is to arrive as a fade rather than
+    /// simply being held — `from_level` 0.0 with `level` 1.0 is a fade in, and
+    /// the other way round is a fade out. Needs `seconds`. Omit both for a flat
+    /// level over the whole clip.
+    from_level: Option<f64>,
+    /// How long the fade takes. Rounded to whole frames on the project's grid
+    /// and never to zero — a fade of no length is a flat level. Only meaningful
+    /// with `from_level`.
+    seconds: Option<f64>,
+    /// When the fade starts, in seconds from the start of the clip — not from
+    /// the start of the timeline. Default 0.0, the head of the clip. Before it
+    /// the clip plays at `from_level`. Only meaningful with `from_level`.
+    at_seconds: Option<f64>,
+}
+
+impl args::Arguments for Arguments {
+    const REQUIRED: Required = &[
+        ("clip", "a clip id"),
+        ("level", "1.0 as recorded, 0.0 silent"),
+    ];
+}
 
 impl Tool for SetVolume {
     fn name(&self) -> &'static str {
@@ -32,63 +69,20 @@ impl Tool for SetVolume {
     }
 
     fn schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "project": project_property(),
-                "clip": {
-                    "type": "string",
-                    "description": "Id of the clip to set the volume of. Any clip \
-                                    that makes a sound, which includes a clip on a \
-                                    video track whose file has audio on it."
-                },
-                "level": {
-                    "type": "number",
-                    "description": "How loud the clip plays, as a multiplier on its \
-                                    own level: 1.0 is the source as recorded, 0.5 is \
-                                    half, and above 1.0 is gain. Muting a clip is a \
-                                    level of 0.0. With `from_level` this is where the \
-                                    fade arrives, and what the clip plays at from \
-                                    there on."
-                },
-                "from_level": {
-                    "type": "number",
-                    "description": "Where the volume starts, when it is to arrive as a \
-                                    fade rather than simply being held — `from_level` \
-                                    0.0 with `level` 1.0 is a fade in, and the other \
-                                    way round is a fade out. Needs `seconds`. Omit \
-                                    both for a flat level over the whole clip."
-                },
-                "seconds": {
-                    "type": "number",
-                    "description": "How long the fade takes. Rounded to whole frames on \
-                                    the project's grid and never to zero — a fade of no \
-                                    length is a flat level. Only meaningful with \
-                                    `from_level`."
-                },
-                "at_seconds": {
-                    "type": "number",
-                    "description": "When the fade starts, in seconds from the start of \
-                                    the clip — not from the start of the timeline. \
-                                    Default 0.0, the head of the clip. Before it the \
-                                    clip plays at `from_level`. Only meaningful with \
-                                    `from_level`."
-                }
-            },
-            "required": ["project", "clip", "level"]
-        })
+        args::schema::<Arguments>()
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let dir = project_dir(arguments)?;
-        let mut project = load(&dir)?;
-        let clip = ClipId::new(clip_id(arguments, "clip")?);
+        let arguments: Arguments = args::parse(arguments)?;
+        let dir = arguments.project.dir();
+        let mut project = load(dir)?;
+        let clip = ClipId::new(arguments.clip.as_str());
 
-        let asked = asked_for(arguments, project.timeline_fps.as_f64())?;
+        let asked = asked_for(&arguments, project.timeline_fps.as_f64())?;
         let report = level::set(&mut project, &clip, &PropertyPath::new(VOLUME), asked)
             .map_err(|error| format!("{error} — nothing was changed"))?;
         project
-            .save(&dir)
+            .save(dir)
             .map_err(|error| format!("saving the project: {error}"))?;
 
         Ok(format!("{}{}", wrote(&clip, asked), replaced(&report)).into())
@@ -96,16 +90,14 @@ impl Tool for SetVolume {
 }
 
 /// The level the arguments describe, or why they describe none.
-fn asked_for(arguments: &Value, fps: f64) -> Result<Level, String> {
-    let to = audible(arguments, "level")?
-        .ok_or_else(|| "`level` is required: 1.0 as recorded, 0.0 silent".to_owned())?;
-    let from = audible(arguments, "from_level")?;
-    let seconds = arguments.get("seconds").and_then(Value::as_f64);
-    match (from, seconds) {
+fn asked_for(arguments: &Arguments, fps: f64) -> Result<Level, String> {
+    let to = audible(Some(arguments.level), "level")?.unwrap_or_default();
+    let from = audible(arguments.from_level, "from_level")?;
+    match (from, arguments.seconds) {
         (Some(from), Some(seconds)) => Ok(Level::Ramp {
             from,
             to,
-            at: frames(number(arguments, "at_seconds", 0.0), fps),
+            at: frames(arguments.at_seconds.unwrap_or(0.0), fps),
             over: frames(seconds, fps),
         }),
         (Some(_), None) => {
@@ -119,7 +111,7 @@ fn asked_for(arguments: &Value, fps: f64) -> Result<Level, String> {
         // Refused rather than ignored: an `at_seconds` on its own reads as
         // "change the volume at this moment", which is a fade missing its
         // other half, and doing nothing about it would look like it worked.
-        (None, None) if arguments.get("at_seconds").is_some() => Err(
+        (None, None) if arguments.at_seconds.is_some() => Err(
             "`at_seconds` says when a fade starts, so it needs `from_level` and `seconds` too"
                 .to_owned(),
         ),
@@ -133,8 +125,8 @@ fn asked_for(arguments: &Value, fps: f64) -> Result<Level, String> {
 /// which is never what dragging a volume line down means — the mixer clamps it
 /// away, and a tool that accepted one would be promising an edit that does not
 /// happen.
-fn audible(arguments: &Value, key: &str) -> Result<Option<f64>, String> {
-    match arguments.get(key).and_then(Value::as_f64) {
+fn audible(given: Option<f64>, key: &str) -> Result<Option<f64>, String> {
+    match given {
         Some(value) if value < 0.0 => Err(format!(
             "`{key}` of {value} is below silence — volume is a multiplier, so mute a clip with 0.0"
         )),
