@@ -113,3 +113,10 @@ that other one **blocked by** it.
 Reference the issue from the pull request that closes it — and **check the number**.
 A typo'd `Closes #N` closes the wrong issue or none, silently, and nothing
 verifies it. Work has sat "open" for days that way.
+
+The same failure from the other side: **GitHub's closing keywords match anywhere
+in a pull request's description**, inside backticks, inside quotes, and inside a
+sentence that says the opposite. A PR that must leave an issue open writes
+`refs #N` or `part of #N`, and never contains `closes`, `fixes` or `resolves`
+before that number in any form (rusty found this when a description explaining
+it did *not* close an issue closed it on merge, MatthewLacerda2/rusty#817).
