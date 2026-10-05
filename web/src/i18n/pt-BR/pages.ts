@@ -14,8 +14,9 @@ export const pages: Messages["pages"] = {
   },
   projects: {
     empty: "Nenhum projeto ainda. Dê um nome a um aí em cima para começar.",
-    newName: "Nome do novo projeto",
-    newPlaceholder: "Nome do novo projeto",
+    newName: "Nome do projeto",
+    newPlaceholder: "Nome do projeto",
+    nameMissing: "Escreva o nome do projeto",
     create: "Criar",
     name: "Nome do projeto",
     changed: (date: string) => `Alterado em ${date}`,
