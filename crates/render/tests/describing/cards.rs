@@ -152,6 +152,8 @@ fn a_page_is_a_card_naming_the_page() {
         AssetKind::Html,
         ProjectPath::new("pages/title.html"),
     );
+    let wording = scorsese_render::wording(&page, Absent::Uncaptured);
+    assert_eq!(wording, "PAGE · NOT CAPTURED\npages/title.html");
     let description = described(&one(page));
 
     assert_eq!(
