@@ -280,6 +280,11 @@ pub(crate) enum Command {
     /// intro.mp4 lands as intro-2 — and the report says which id it wanted;
     /// the same collision inside a directory refuses the batch with nothing
     /// copied at all.
+    ///
+    /// A web page (.html) is copied into pages/ rather than assets/, and is
+    /// neither probed nor hashed: it is a document the project plays as a
+    /// moving picture, not media. Pages come in one file at a time; a
+    /// directory passes them over.
     Import {
         /// The files or directories to import. What comes in is copied, never
         /// referenced in place. Media arrives in sets, so several may be named

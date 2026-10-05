@@ -146,8 +146,8 @@ pub use pool::{
 };
 pub use probe::{ProbeError, ProbeMedia};
 pub use project::{
-    ASSETS_DIR, CACHE_DIR, GENERATED_DIR, LoadError, PROJECT_FILE_NAME, Project, RECIPES_DIR,
-    SCHEMA_VERSION, SaveError,
+    ASSETS_DIR, CACHE_DIR, GENERATED_DIR, LoadError, PAGES_DIR, PROJECT_FILE_NAME, Project,
+    RECIPES_DIR, SCHEMA_VERSION, SaveError,
 };
 pub use shape::{
     Attach, Curve, DEFAULT_STROKE_WIDTH, Endpoint, Geometry, Heads, MAX_RADIUS, Point, Shape, Side,

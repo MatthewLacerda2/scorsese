@@ -140,3 +140,28 @@ fn a_synth_card_names_its_recipe_rather_than_a_prompt_it_never_had() {
     assert!(wording.contains("recipes/bed.json"), "got {wording}");
     assert!(!wording.contains("no prompt"), "got {wording}");
 }
+
+/// A page carries no brief, so its card names the page — and says it has not
+/// been captured, which in this build is every page (#775).
+#[test]
+fn a_page_is_a_card_naming_the_page() {
+    use scorsese_core::{Asset, AssetId, ProjectPath};
+
+    let page = Asset::imported(
+        AssetId::new("title"),
+        AssetKind::Html,
+        ProjectPath::new("pages/title.html"),
+    );
+    let wording = scorsese_render::wording(&page, Absent::Uncaptured);
+    assert_eq!(wording, "PAGE · NOT CAPTURED\npages/title.html");
+    let description = described(&one(page));
+
+    assert_eq!(
+        description.stretches[0].picture[0].shows,
+        Shown::Card {
+            absent: Absent::Uncaptured,
+            prompt: "pages/title.html".to_owned(),
+        }
+    );
+    assert!(format!("{description}").contains("title (card, not captured)"));
+}

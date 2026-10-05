@@ -28,6 +28,10 @@ pub fn import_asset(
     probe: &dyn ProbeMedia,
 ) -> Result<AssetId, ImportError> {
     let kind = resolve_kind(source, kind)?;
+    if !kind.is_media() {
+        // A page: copied into `pages/`, neither probed nor hashed.
+        return super::page::import_page(project, project_root, source);
+    }
     let sha256 = hash_of(source)?;
     if let Some(existing) = already_in_pool(project, &sha256) {
         return Ok(existing);

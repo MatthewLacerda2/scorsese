@@ -33,6 +33,7 @@ export const assets: Messages["assets"] = {
     icon: "ícone",
     group: "grupo",
     image_sequence: "sequência de imagens",
+    html: "página",
     generated_video: "vídeo gerado",
     generated_image: "imagem gerada",
     generated_audio: "fala gerada",

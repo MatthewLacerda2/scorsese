@@ -98,7 +98,10 @@ impl Tool for Import {
          is a folder of numbered frames brought in as ONE image_sequence asset — \
          a timelapse, stop motion, a rendered frame directory — whose stills play \
          in number order (frame_9 before frame_10), one frame each and once; the \
-         sequence tool changes the hold and the loop."
+         sequence tool changes the hold and the loop. A web page (.html) is \
+         copied into pages/ instead, as an html asset: a document played as a \
+         moving picture with alpha, neither probed nor hashed. Pages come in \
+         one file at a time — a directory passes them over."
     }
 
     fn costs(&self) -> Costs {

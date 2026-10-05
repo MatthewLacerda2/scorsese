@@ -275,3 +275,24 @@ fn a_v42_document_s_stills_read_the_same_at_this_version() {
             .all(|asset| asset.kind == crate::AssetKind::Image)
     );
 }
+
+/// v43 → v44: a v43 document's file-backed assets read the same, and none of
+/// them became a page.
+#[test]
+fn a_v43_document_s_assets_read_the_same_at_this_version() {
+    let document = json!({
+        "schema_version": 43,
+        "name": "Before pages",
+        "timeline_fps": { "num": 30, "den": 1 },
+        "assets": [
+            { "id": "logo", "kind": "image", "path": "assets/logo.png" },
+            { "id": "title", "kind": "text", "text": "Hello" }
+        ],
+        "tracks": []
+    });
+    let (project, from) = parse(&document.to_string()).expect("a v43 document migrates");
+    assert_eq!(from, Some(43));
+    project.validate().expect("and it validates");
+    assert_eq!(project.assets[0].kind, crate::AssetKind::Image);
+    assert_eq!(project.assets[1].kind, crate::AssetKind::Text);
+}

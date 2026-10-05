@@ -66,6 +66,7 @@ export type AssetKind =
   | "icon"
   | "group"
   | "image_sequence"
+  | "html"
   | "generated_video"
   | "generated_image"
   | "generated_audio"

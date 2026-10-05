@@ -31,6 +31,8 @@ pub fn infer_kind(path: &Path) -> Option<AssetKind> {
         Some(AssetKind::Image)
     } else if AUDIO.contains(&extension) {
         Some(AssetKind::Audio)
+    } else if extension == "html" {
+        Some(AssetKind::Html)
     } else {
         None
     }

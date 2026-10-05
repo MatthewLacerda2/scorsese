@@ -2,7 +2,7 @@
 
 use std::collections::HashSet;
 
-use crate::asset::{Asset, AssetKind};
+use crate::asset::{Asset, AssetKind, is_page_path};
 use crate::project::Project;
 use crate::text::{MAX_WEIGHT, MIN_WEIGHT, TextStyle};
 
@@ -34,6 +34,10 @@ pub(super) fn check(project: &Project) -> Vec<AssetProblem> {
     errors
 }
 
+/// A path stays relative and inside the project root — and a page's names an
+/// `.html` file. Whether the file is *there* is not asked: validation stops at
+/// the edge of the document, and `scorsese assets` reports a missing page the
+/// way it reports any missing file.
 fn check_path(asset: &Asset, errors: &mut Vec<AssetProblem>) {
     let Some(path) = &asset.path else {
         return;
@@ -43,6 +47,12 @@ fn check_path(asset: &Asset, errors: &mut Vec<AssetProblem>) {
             asset: asset.id.clone(),
             path: path.clone(),
             problem,
+        });
+    }
+    if asset.kind == AssetKind::Html && !is_page_path(path.as_str()) {
+        errors.push(AssetProblem::PageNotHtml {
+            asset: asset.id.clone(),
+            path: path.clone(),
         });
     }
 }

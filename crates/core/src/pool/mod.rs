@@ -13,6 +13,7 @@ mod hash;
 mod import;
 mod listing;
 mod naming;
+mod page;
 mod probing;
 mod reference;
 mod sequence;

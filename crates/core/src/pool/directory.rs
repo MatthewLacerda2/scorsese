@@ -176,6 +176,16 @@ fn import_directory(
             continue;
         };
         let kind = resolve_kind(&source, Some(kind.unwrap_or(inferred)))?;
+        if !kind.is_media() {
+            // `--kind html` over a folder: a page is never probed, so there is
+            // nothing a batch could measure it with — and one at a time is how
+            // pages come in. Passed over, as anything not media is.
+            report.skipped.push(Skipped {
+                source: name,
+                why: SkipReason::UnknownKind,
+            });
+            continue;
+        }
         let sha256 = hash_of(&source)?;
         // Content already in the pool is that same asset, not a collision: an
         // import loop re-run is the thing an agent does by accident.
@@ -239,8 +249,15 @@ impl Step {
 
 /// The kind a file directly inside the directory would come in as, or `None`
 /// when it is not media the project can use.
+///
+/// A page is not media, so a folder of footage with an `index.html` beside it
+/// passes the page over: a page is brought in one file at a time, on purpose.
 fn importable(source: &Path) -> Option<AssetKind> {
-    source.is_file().then(|| infer_kind(source)).flatten()
+    source
+        .is_file()
+        .then(|| infer_kind(source))
+        .flatten()
+        .filter(|kind| kind.is_media())
 }
 
 /// Everything directly inside the directory, sorted by file name — so the same

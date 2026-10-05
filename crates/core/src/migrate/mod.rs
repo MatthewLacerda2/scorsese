@@ -96,6 +96,10 @@ pub(crate) const STEPS: &[Step] = &[
         from: 42,
         apply: sequences_arrive,
     },
+    Step {
+        from: 43,
+        apply: pages_arrive,
+    },
 ];
 
 /// v33 → v34: the `group` asset kind (#586).
@@ -206,6 +210,16 @@ fn stills_arrive(_: &mut Value) -> Result<(), String> {
 /// meaning. Every v42 still is an `image` and stays one; a still a sequence
 /// plays is an ordinary `image` too, so none had to become anything else.
 fn sequences_arrive(_: &mut Value) -> Result<(), String> {
+    Ok(())
+}
+
+/// v43 → v44: the `html` kind and the `pages/` directory (#774).
+///
+/// Nothing to rewrite, for [`groups_arrive`]'s reason: a kind arrived, and no
+/// v43 document can contain it. It brought no block of its own — a page is a
+/// `path` like any file-backed asset's — and nothing a v43 document can say
+/// changes meaning, so every v43 document reads the same at v44.
+fn pages_arrive(_: &mut Value) -> Result<(), String> {
     Ok(())
 }
 

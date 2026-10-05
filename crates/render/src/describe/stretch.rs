@@ -194,7 +194,8 @@ pub enum Shown {
         /// Why there is no media: where the prompt sits in the lifecycle, or
         /// that its file has gone.
         absent: Absent,
-        /// The prompt written on the card.
+        /// What the card names under its label: the prompt, or for the kinds
+        /// with none, the recipe or the page.
         prompt: String,
     },
 }
@@ -204,11 +205,9 @@ impl Shown {
         if shot.showing == Showing::Card {
             return Self::Card {
                 absent: Absent::of(shot.asset),
-                prompt: shot
-                    .asset
-                    .prompt
-                    .clone()
-                    .unwrap_or_else(|| "(no prompt)".to_owned()),
+                // What the card itself says under its label — a prompt, a
+                // recipe or a page — so a description and a card agree.
+                prompt: crate::slug::brief(shot.asset).1.to_owned(),
             };
         }
         match (shot.asset.kind, shot.asset.text.as_ref()) {

@@ -1,4 +1,4 @@
-# `project.json` — schema v43
+# `project.json` — schema v44
 
 The contract between the CLI, the MCP server and the GUI — the contract *now*,
 not across time. It is meant to be hand-written: an agent should be able to
@@ -28,6 +28,7 @@ carries forward) up to this one.
 | v40 → v41 | a clip's `matte` (#589) | nothing: one optional clip field was added, absent meaning what every v40 clip already drew — the clip shown whole — and no v40 clip names another as its matte, so it passes through and only its version moves |
 | v41 → v42 | the `generated_image` kind and its `image` block (#461) | nothing: a kind was added with a block only it carries, and a shot's stills may now name a generated still — which only admits documents v41 refused — so every v41 document passes through and only its version moves |
 | v42 → v43 | the `image_sequence` kind and its `sequence` block (#462) | nothing: a kind was added with a block only it carries, and the stills it plays are ordinary `image` assets, so every v42 document passes through and only its version moves |
+| v43 → v44 | the `html` kind and the `pages/` directory (#774) | nothing: a kind was added that no v43 document can contain, with no block of its own — a page is a `path` like any file's — so every v43 document passes through and only its version moves |
 
 A complete worked example lives in
 `crates/core/tests/fixtures/narrated_teaser.json`.
@@ -36,7 +37,7 @@ A complete worked example lives in
 
 ```json project
 {
-  "schema_version": 43,
+  "schema_version": 44,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -147,8 +148,8 @@ re-importing or regenerating a file is one edit in one place.
 | Field | Required for | Meaning |
 | --- | --- | --- |
 | `id` | all | Unique within the project |
-| `kind` | all | `video`, `image`, `audio`, `text`, `color`, `shape`, `icon`, `group`, `image_sequence`, `generated_video`, `generated_image`, `generated_audio`, `synth_audio` |
-| `path` | file-backed kinds | Relative to the project root |
+| `kind` | all | `video`, `image`, `audio`, `text`, `color`, `shape`, `icon`, `group`, `image_sequence`, `html`, `generated_video`, `generated_image`, `generated_audio`, `synth_audio` |
+| `path` | file-backed kinds | Relative to the project root; an `html` asset's ends in `.html` |
 | `sha256` | optional | 64 lowercase hex chars, of the file at `path` |
 | `media` | optional | What ffprobe found: `duration_seconds`, `width`, `height`, `frame_rate` (a rational), `has_alpha`, `audio_channels`, `sample_rate` — see below |
 | `prompt` | `generated_*` | What to generate, in words |
@@ -1538,6 +1539,52 @@ one file per frame, rather than being asked to time anything itself. Not here:
 a hold per still, tweening between stills, and anything that picks a still from
 a sound (lip sync) — that last one is character-animation software.
 
+### Web pages
+
+```json asset
+{ "id": "title", "kind": "html", "path": "pages/title.html" }
+```
+
+A web page the project carries, played as a **moving picture with alpha**: a
+title, a lower third, an animated graphic built from HTML and CSS. Placed by a
+clip on a video track like any other picture, and everything a clip does —
+transform, opacity, blur, mattes, groups, keyframes — applies to it unchanged.
+Where the page draws nothing, the tracks below show through.
+
+**The page is a file under `pages/`**, the directory beside `recipes/`, and for
+the same reason: it is a document somebody wrote, so deleting one loses work.
+Its `path` is relative to the project root like every path and must end in
+`.html`. The page may load other files **inside the project** — a picture
+(`../assets/photo.png`), a font file the project carries — and never anything
+outside it, so a project with pages in it still survives `scp -r`.
+
+**Authored, not generated.** An `html` asset has no `prompt`, no `recipe`, no
+`state` and no sketch lifecycle: drawing a page costs nothing, so there is no
+money for a sketch to save. The frames drawn from it are rebuildable cache, not
+`generated/` output. Import records no `sha256` for it either — a page is meant
+to be edited, and a recorded hash would call every edit a changed file — and no
+`media`, since ffprobe has nothing to read off a document; it is never probed.
+Collecting unused assets drops a page's row and **leaves its file** in
+`pages/`, as a recipe is left in `recipes/`.
+
+**Its length is the clip's.** Like a still, a page has no duration of its own,
+so it bounds no clip and a shorter clip is a shorter page, never a faster one.
+The page has a clock of its own, and it runs like footage's: at the clip's first
+frame it reads `source_in` (in seconds), and it advances `speed` seconds per
+second. The page is told where the clip ends on that clock — `source_in` plus
+`duration` × `speed` — so an animation timed to end at the length it is told
+ends on the clip's last frame.
+
+`scorsese import page.html` (and the `import` tool) copies a page into `pages/`
+as an `html` asset. Pages come in one at a time: a directory import passes
+them over, because a page is a document rather than media.
+
+**How it renders, today: as a slug card.** Drawing a page into frames comes
+with a headless browser (#775); until then an `html` clip renders as a
+translucent band across the foot of the frame naming the page, so the shot
+below it stays visible — and that card stays the answer for a page that could
+not be drawn.
+
 `media.duration_seconds` is wall-clock, and `media.frame_rate` is a rational
 in the same shape as `timeline_fps` — a source's own grid, which is not
 necessarily the timeline's.
@@ -2466,7 +2513,7 @@ compositing-suite line.
 
 ```json project
 {
-  "schema_version": 43,
+  "schema_version": 44,
   "name": "wipe",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [
@@ -2957,13 +3004,14 @@ project survive `scp -r` between machines. The rule covers every path in the
 document, not just `path`: a `style`'s font, a `synth_audio`'s `recipe` and the
 document's own `script` obey it too.
 
-A project directory holds four of its own:
+A project directory holds five of its own:
 
 | Directory | What is in it | Survives a delete? |
 | --- | --- | --- |
 | `assets/` | imported media, copied in on import | no — the originals are elsewhere |
 | `generated/` | provider and synthesis output, named for the hash of its brief | yes — it can be made again |
 | `recipes/` | authored synthesis documents | **no** — deleting one loses work |
+| `pages/` | authored web pages, played by `html` assets | **no** — deleting one loses work |
 | `cache/` | rebuildable scratch, gitignored | yes |
 
 ## Validation
@@ -2986,7 +3034,8 @@ What it checks: schema version, duplicate ids, path rules, hash shape, the
 fields each asset kind requires — including that only a `text` asset carries
 `text` or `style`, only a `color` asset carries `color`, only a `shape`
 asset carries `shape`, only an `icon` asset carries `icon` and only a `group`
-carries `group` and only an `image_sequence` carries `sequence`, that an icon has
+carries `group` and only an `image_sequence` carries `sequence`, that an `html`
+asset's path ends in `.html`, that an icon has
 a size and a thickness to draw with, that a shape has area, a corner it has room to round,
 something to draw with and a `dash` of at least one length, each above zero —
 and that an arrow has two ends in different

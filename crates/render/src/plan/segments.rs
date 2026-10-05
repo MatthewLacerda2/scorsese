@@ -22,7 +22,7 @@
 //! a video track is audible when its own file has sound on it. So both passes
 //! take a predicate, and each one says no to something.
 
-use scorsese_core::{Asset, Clip, Frames, Project, Track, TrackKind};
+use scorsese_core::{Asset, AssetKind, Clip, Frames, Project, Track, TrackKind};
 
 use super::{PlanError, Segment, Showing};
 
@@ -209,8 +209,13 @@ fn cuts(
 /// beside it. All three are a card, and `generated` is the only state that is
 /// not. An asset with no lifecycle at all — an imported clip, a title — always
 /// shows itself.
+///
+/// A **page** is a card too: nothing in this build captures one yet (#775), and
+/// the card is also what a page that could not be captured shows once something
+/// does — a stand-in, never a failed render.
 pub(super) fn showing(asset: &Asset) -> Showing {
-    if asset.kind.is_generated() && !asset.has_renderable_media() {
+    if asset.kind == AssetKind::Html || (asset.kind.is_generated() && !asset.has_renderable_media())
+    {
         Showing::Card
     } else {
         Showing::Media

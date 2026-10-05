@@ -175,6 +175,7 @@ pub(super) fn kind_name(kind: AssetKind) -> &'static str {
         AssetKind::SynthAudio => "synthesised audio",
         AssetKind::Group => "group",
         AssetKind::ImageSequence => "image sequence",
+        AssetKind::Html => "page",
     }
 }
 

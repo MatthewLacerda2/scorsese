@@ -11,7 +11,7 @@ use std::path::Path;
 
 use schemars::{JsonSchema, Schema, SchemaGenerator};
 use scorsese_core::{
-    ASSETS_DIR, CACHE_DIR, Fps, GENERATED_DIR, PROJECT_FILE_NAME, Project, RECIPES_DIR,
+    ASSETS_DIR, CACHE_DIR, Fps, GENERATED_DIR, PAGES_DIR, PROJECT_FILE_NAME, Project, RECIPES_DIR,
 };
 use serde::Deserialize;
 use serde_json::Value;
@@ -88,7 +88,7 @@ impl Tool for New {
 
         Ok(format!(
             "Created project \"{}\" at {} fps in {}\n  {PROJECT_FILE_NAME}, \
-             {ASSETS_DIR}/, {GENERATED_DIR}/, {RECIPES_DIR}/, {CACHE_DIR}/",
+             {ASSETS_DIR}/, {GENERATED_DIR}/, {RECIPES_DIR}/, {PAGES_DIR}/, {CACHE_DIR}/",
             project.name,
             project.timeline_fps,
             dir.display()

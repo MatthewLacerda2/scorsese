@@ -12,7 +12,7 @@ use crate::timeline::{ClipId, TrackId};
 /// A caption shown twice on `v1` and once inside a group (beside a frame), a box an arrow is
 /// attached to on `v2`, a card nothing shows, and an empty `a1`.
 const DOCUMENT: &str = r##"{
-  "schema_version": 43, "name": "T", "timeline_fps": { "num": 30, "den": 1 },
+  "schema_version": 44, "name": "T", "timeline_fps": { "num": 30, "den": 1 },
   "assets": [
     { "id": "caption", "kind": "text", "text": "DAWN",
       "style": { "font": "serif", "size": 0.12 } },

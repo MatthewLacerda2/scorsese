@@ -32,6 +32,7 @@ export const assets = {
     icon: "icon",
     group: "group",
     image_sequence: "image sequence",
+    html: "page",
     generated_video: "generated video",
     generated_image: "generated still",
     generated_audio: "generated speech",

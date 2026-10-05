@@ -1,5 +1,5 @@
 {
-  "schema_version": 43,
+  "schema_version": 44,
   "name": "glow_group",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [
