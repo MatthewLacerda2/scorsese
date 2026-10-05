@@ -209,4 +209,38 @@ mod tests {
         );
         let _ = std::fs::remove_dir_all(&root);
     }
+
+    #[test]
+    fn the_browser_gets_every_shipped_face_and_a_fontconfig_naming_only_them() {
+        let root = std::env::temp_dir().join(format!("scorsese-fonts-{}", std::process::id()));
+        let conf = fonts(&root).unwrap();
+        let folder = conf.parent().unwrap().to_path_buf();
+        assert_eq!(folder, root.join("cache/pages/fonts"));
+        let text = std::fs::read_to_string(&conf).unwrap();
+        assert!(
+            text.contains(&format!("<dir>{}</dir>", folder.display())),
+            "{text}"
+        );
+        let inter = folder.join("inter.ttf");
+        assert_eq!(
+            std::fs::read(&inter).unwrap(),
+            super::super::fonts::bytes("inter.ttf").unwrap()
+        );
+        // A face cut short — an interrupted write — is written again.
+        std::fs::write(&inter, b"short").unwrap();
+        fonts(&root).unwrap();
+        assert_eq!(
+            std::fs::metadata(&inter).unwrap().len(),
+            super::super::fonts::bytes("inter.ttf").unwrap().len() as u64
+        );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn the_fonts_are_named_by_a_hash_of_their_bytes() {
+        let hash = fonts_hash();
+        assert_eq!(hash.len(), 64);
+        assert!(hash.bytes().all(|b| b.is_ascii_hexdigit()));
+        assert_ne!(hash, hash_bytes(b""));
+    }
 }

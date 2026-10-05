@@ -83,8 +83,9 @@ pub fn capture(
     let fonts = cache::fonts(project_root)?;
     let file = slot.join(cache::FRAMES);
     // Written beside and moved into place, so an interrupted capture never
-    // leaves frames that look finished.
-    let partial = slot.join("frames.partial.mkv");
+    // leaves frames that look finished — under a name of this process's own, so
+    // two renders of one project capturing the same page cannot interleave.
+    let partial = slot.join(format!("frames.{}.partial.mkv", std::process::id()));
     let heard = capture::run(chrome, tools, project_root, &fonts, request, &partial)?;
     std::fs::rename(&partial, &file)?;
     let record = cache::Record {
