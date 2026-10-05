@@ -85,11 +85,7 @@ fn check_reference<'a>(
         });
         return None;
     };
-    let fits = match track.kind {
-        TrackKind::Video => asset.kind.is_visual(),
-        TrackKind::Audio => asset.kind.is_audible(),
-    };
-    if !fits {
+    if TrackKind::taking(asset.kind) != Some(track.kind) {
         errors.push(TimelineProblem::TrackKindMismatch {
             track: track.id.clone(),
             track_kind: track.kind,

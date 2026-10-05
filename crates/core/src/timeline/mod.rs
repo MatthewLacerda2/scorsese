@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 mod follow;
 pub(crate) mod placement;
 
-use crate::asset::AssetId;
+use crate::asset::{AssetId, AssetKind};
 use crate::chroma::ChromaKey;
 use crate::grade::Grade;
 use crate::keyframe::KeyframeTrack;
@@ -71,6 +71,23 @@ pub enum TrackKind {
     /// Carries sound. Order means nothing here — everything playing at once
     /// is summed, and addition does not care what came first.
     Audio,
+}
+
+impl TrackKind {
+    /// The kind of track an asset of `kind` sits on: a visual asset on a video
+    /// track, an audible one on an audio track — the rule validation holds
+    /// every clip to, stated once so a drop that has to *make* a lane picks
+    /// the same one validation would accept. `None` for a kind that belongs on
+    /// neither; every kind today is exactly one of the two.
+    pub fn taking(kind: AssetKind) -> Option<Self> {
+        if kind.is_visual() {
+            Some(Self::Video)
+        } else if kind.is_audible() {
+            Some(Self::Audio)
+        } else {
+            None
+        }
+    }
 }
 
 /// A lane of clips. Video tracks composite in array order, first at the
