@@ -124,6 +124,15 @@ unreachable GitHub stops the queue with its own status and its own line in the
 summary, never as a hand-back: nothing was decided, and the answer is to run
 the same queue again (#615).
 
+A fourth, one level down: a run can conclude **failure with nothing judged**,
+when GitHub found no runner for some jobs in time and cancelled them before a
+single step ran (#792, run 37367713417 on #788). Its jobs that ran passed;
+"failure" there is about the runners, not the code. [`never_judged`] tells it
+apart from a real red — one job that genuinely failed, anywhere, keeps it red —
+and the queue re-runs the failed jobs **once** and waits on the new attempt. A
+second attempt that goes unjudged too ends the turn *unfinished*, like the
+deadline, never handed back as red.
+
 ## Or let it watch
 
 `--watch` drops the list: the queue asks GitHub every poll for the ready pull
@@ -209,6 +218,11 @@ MERGE_SETTLES_SECONDS = 60
 BOT_REBASE = "@dependabot rebase"
 
 WAIT, GO, STOP, LATE = "wait", "go", "stop", "late"
+
+# The two states a run nobody judged adds (#792). `RERUN` asks [`wait_for`] to
+# re-run its failed jobs; `UNJUDGED` is that having not helped, which ends the
+# turn *unfinished* exactly as the deadline does — nothing was decided.
+RERUN, UNJUDGED = "rerun", "unjudged"
 
 # What the summary calls each branch's ending. Merged and green are separate
 # because `--no-merge` exists, and a queue that reported them the same would be
@@ -358,8 +372,48 @@ def head_state(
     ]
 
 
+def unstarted(job: dict) -> bool:
+    """A job GitHub cancelled before a single one of its steps completed.
+
+    What a job looks like when no runner took it in time: `cancelled`, and
+    `steps` empty — every such job of run 37367713417 on #788 (#792). A step
+    that completed means a runner did start it, and a job cancelled after that
+    may have been cancelled *by* what it found — a timeout is a verdict too —
+    so it is not this, and stays red.
+    """
+    return job.get("conclusion") == "cancelled" and not any(
+        step.get("status") == "completed" for step in job.get("steps") or []
+    )
+
+
+def never_judged(runs: list[dict], jobs: dict[int, list[dict]]) -> list[dict]:
+    """The failed runs, if **every** one of them failed without judging anything.
+
+    A run is not judged when it has at least one job that did not pass and
+    every such job is [`unstarted`]: the jobs that ran passed, and the rest
+    never ran. One job that genuinely failed, in any failed run, empties the
+    answer, because a red verdict anywhere is still the answer for the commit
+    — the out-of-scope line of #792 is *red stays red*.
+    """
+    failed = mergeable.failed_runs(runs)
+
+    def unjudged(run: dict) -> bool:
+        bad = [
+            job
+            for job in jobs.get(run.get("id"), [])
+            if job.get("conclusion") not in ("success", "skipped")
+        ]
+        return bool(bad) and all(unstarted(job) for job in bad)
+
+    return failed if failed and all(unjudged(run) for run in failed) else []
+
+
 def progress(
-    pull: dict, runs: list[dict], jobs: dict[int, list[dict]], waited: float
+    pull: dict,
+    runs: list[dict],
+    jobs: dict[int, list[dict]],
+    waited: float,
+    rerun: frozenset[int] = frozenset(),
 ) -> tuple[str, list[str]]:
     """Whether to wait, merge, or hand this branch back — and why.
 
@@ -398,6 +452,10 @@ def progress(
             "CI does not run on drafts. Mark it ready before queueing it.",
         ]
 
+    unjudged = never_judged(runs, jobs)
+    if unjudged:
+        return not_judged(unjudged[0], jobs, rerun, short)
+
     if mergeable.failed_runs(runs):
         return STOP, mergeable.judge(pull, runs, jobs)[1]
 
@@ -421,6 +479,42 @@ def progress(
 
     ok, lines = mergeable.judge(pull, runs, jobs)
     return (GO if ok else STOP), lines
+
+
+def not_judged(
+    run: dict, jobs: dict[int, list[dict]], rerun: frozenset[int], short: str
+) -> tuple[str, list[str]]:
+    """What to do about a run [`never_judged`] found: re-run once, then stop.
+
+    Once is counted two ways, and both are needed. `rerun` is the ids this
+    turn already re-ran, so a poll that still shows the old attempt — GitHub's
+    run record lags a re-run like it lags a push — waits instead of asking
+    twice. `run_attempt` is GitHub's own count, so a watch restarted between
+    the two attempts does not re-run a second time: an attempt past the first
+    that was not judged either is handed on as unfinished, never as red.
+    """
+    names = ", ".join(
+        f"`{job.get('name')}`"
+        for job in jobs.get(run.get("id"), [])
+        if unstarted(job)
+    )
+    url = run.get("html_url", "the run")
+    if (run.get("run_attempt") or 1) > 1:
+        return UNJUDGED, [
+            f"a {mergeable.WORKFLOW} run for {short} went unjudged on attempt"
+            f" {run.get('run_attempt')} too: {names} cancelled before a step ran.",
+            f"See {url}.",
+            "Nothing is red; nothing is green either. Re-run its failed jobs"
+            " and queue it again.",
+        ]
+    if run.get("id") in rerun:
+        return WAIT, [f"waiting for the re-run of {url} to start."]
+    return RERUN, [
+        f"a {mergeable.WORKFLOW} run for {short} concluded"
+        f" {run.get('conclusion')} without judging it: {names} were cancelled"
+        " before a single step ran.",
+        f"No runner, not a verdict: re-running its failed jobs once ({url}).",
+    ]
 
 
 def landed(pull: dict) -> bool:
@@ -799,6 +893,7 @@ def wait_for(
     push lags the push.
     """
     began = time.monotonic()
+    rerun: set[int] = set()
     while True:
         pull = look(number)
         waited = time.monotonic() - began
@@ -809,8 +904,16 @@ def wait_for(
             return state, lines
         if state == GO:
             runs, jobs = evidence(repo, sha)
-            state, lines = progress(pull, runs, jobs, waited)
-            if state != WAIT:
+            state, lines = progress(pull, runs, jobs, waited, frozenset(rerun))
+            if state == RERUN:
+                run = never_judged(runs, jobs)[0]
+                state, lines = rerun_failed(
+                    run, [f"#{number}: {lines[0]}", *lines[1:]]
+                )
+                if state != WAIT:
+                    return state, lines
+                rerun.add(run["id"])
+            elif state != WAIT:
                 return state, lines
         if waited > deadline:
             return LATE, [
@@ -821,6 +924,29 @@ def wait_for(
             ]
         say(f"#{number}: {lines[0]}")
         time.sleep(poll)
+
+
+def rerun_failed(run: dict, lines: list[str]) -> tuple[str, list[str]]:
+    """Re-run `run`'s failed jobs, the one retry [`not_judged`] allows.
+
+    A refusal from GitHub is not a verdict on the code either, so it ends the
+    turn unfinished, with GitHub's reason, rather than red.
+    """
+    say(*lines)
+    done = subprocess.run(
+        ["gh", "run", "rerun", str(run["id"]), "--failed"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if done.returncode != 0:
+        return UNJUDGED, [
+            f"the re-run of {run.get('html_url', 'the run')} was refused:"
+            f" {done.stderr.strip()}",
+            "Nothing is red; nothing is green either. Re-run its failed jobs"
+            " and queue it again.",
+        ]
+    return WAIT, [f"re-ran the failed jobs of {run.get('html_url', 'the run')}."]
 
 
 def take(
@@ -871,7 +997,7 @@ def take(
     left = opts.deadline * 60 - (time.monotonic() - began)
     state, lines = wait_for(repo, number, fresh, head, left, opts.poll)
     say(f"#{number}: {lines[0]}", *lines[1:])
-    if state == LATE:
+    if state in (LATE, UNJUDGED):
         return number, UNFINISHED, lines[0]
     if state != GO:
         return number, HANDED_BACK, lines[0]
