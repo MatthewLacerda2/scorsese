@@ -124,7 +124,8 @@
 #   whole test suite for every mutant and has no per-package test filter, so
 #   a mutant in `tools/size.rs` pays the same database suite a mutant in the
 #   ledger does — measured at #760, 3m 01s under nextest (240 tests, each
-#   creating its own database), on top of the rebuild. The pure modules —
+#   creating its own database), on top of a rebuild that alone took 5-10
+#   minutes a mutant in a cloud container with incremental compilation off. The pure modules —
 #   `tools/size.rs`, `assistant/cost.rs`, `assistant/ask/mod.rs`,
 #   `assistant/prompt.rs`, `http/disposition.rs`, `credits/mod.rs` and
 #   `credits/tool.rs`, `accounts/secret.rs`, `accounts/throttle/{counter,

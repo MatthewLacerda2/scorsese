@@ -98,10 +98,12 @@ survivors after you (#651) — and never a reason to stay draft.
   --jobs 2` (`docs/mutation-testing.md`).
 - **Outside it** — `crates/server`, the pipe-holding rest of
   `crates/render/src/run`, `app/` (#760 has why) — that reports nothing. A
-  server module whose tests sit in its own file runs in minutes: `cargo mutants
-  --no-config -f <file> --test-package scorsese-server -- --lib`, one `-f` per
-  file. One tested from `crates/server/tests` pays the Postgres suite per mutant
-  (~3 min): skip it and name the tests that cover it. **Check the mutant count
+  server module whose tests sit in its own file needs no Postgres: `cargo
+  mutants --no-config -f <file> --test-package scorsese-server -- --lib`, one
+  `-f` per file — but each mutant rebuilds the server (5-10 min here, #760), so
+  count first and run only a short file. One tested from `crates/server/tests`
+  also pays the Postgres suite (~3 min) per mutant: skip it and name the tests
+  that cover it. **Check the mutant count
   first** — one container saw its scope ignored (#740).
 
 Survivors in code you wrote: fix, exclude with a reason, or file (`ci-merge`).

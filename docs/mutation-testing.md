@@ -110,8 +110,11 @@ cargo mutants --no-config -f crates/server/src/http/disposition.rs \
   --test-package scorsese-server --jobs 2 -- --lib
 ```
 
-A server module tested only from `crates/server/tests` pays the Postgres suite
-per mutant; skip it and name the tests that cover it.
+That needs no Postgres, but it is not quick: each mutant rebuilds the server,
+5-10 minutes apiece in a cloud container with incremental compilation off
+(#760; the tests themselves took a second). Count with `--list` first and keep
+it to a short file. A server module tested only from `crates/server/tests` also
+pays the Postgres suite per mutant; skip it and name the tests that cover it.
 
 ## Sharding, and the report a large request still gets
 
