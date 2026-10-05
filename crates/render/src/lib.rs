@@ -130,6 +130,7 @@ pub(crate) mod format;
 pub mod frames;
 pub(crate) mod held;
 pub mod layout;
+pub mod page;
 pub(crate) mod pipe;
 pub mod plan;
 pub mod preview;
