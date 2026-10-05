@@ -14,6 +14,7 @@ use egui_kittest::{Harness, OsThreshold, SnapshotOptions};
 use scorsese_app::Scorsese;
 
 use crate::fixture;
+use crate::framing::Part;
 use crate::watchdog;
 
 /// The window's size in these snapshots.
@@ -115,6 +116,22 @@ impl Deref for Drawing {
 impl DerefMut for Drawing {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.harness
+    }
+}
+
+impl Drawing {
+    /// Draws the last frame and holds `part` of it to the reference `name`.
+    ///
+    /// Named `snapshot` on purpose, to stand in front of the harness's own: a
+    /// method on `Drawing` is found before the one its [`Deref`] reaches, so
+    /// `harness.snapshot("name")` no longer compiles, and a picture added later
+    /// has to say what it is a picture of. Left to default, every one would be
+    /// the whole window again (#755).
+    #[track_caller]
+    pub(crate) fn snapshot(&mut self, part: Part, name: &str) {
+        let window = self.harness.render().expect("the window draws");
+        let picture = part.crop(&self.harness.ctx, &window);
+        egui_kittest::image_snapshot_options(&picture, name, self.harness.options());
     }
 }
 

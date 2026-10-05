@@ -3221,6 +3221,7 @@ dependencies = [
  "eframe",
  "egui",
  "egui_kittest",
+ "image",
  "rfd",
  "scorsese-core",
  "scorsese-providers",
