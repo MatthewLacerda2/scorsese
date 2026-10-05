@@ -1,0 +1,249 @@
+{
+  "run": {
+    "id": 37367713417,
+    "name": "CI",
+    "head_sha": "69efa9d292c38ccdef1cd962c953c799ad35e09f",
+    "status": "completed",
+    "conclusion": "failure",
+    "run_attempt": 1,
+    "html_url": "https://github.com/MatthewLacerda2/scorsese/actions/runs/37367713417"
+  },
+  "jobs": [
+    {
+      "name": "size gate",
+      "status": "completed",
+      "conclusion": "success",
+      "run_attempt": 1,
+      "started_at": "2026-10-05T20:08:09Z",
+      "completed_at": "2026-10-05T20:08:25Z",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Rust cache",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test the gate",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run the gate",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Format",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Clippy",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Rust cache",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "desktop app",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "run_attempt": 1,
+      "started_at": "2026-10-05T20:06:52Z",
+      "completed_at": "2026-10-05T20:25:37Z",
+      "steps": []
+    },
+    {
+      "name": "cargo-deny",
+      "status": "completed",
+      "conclusion": "success",
+      "run_attempt": 1,
+      "started_at": "2026-10-05T20:20:36Z",
+      "completed_at": "2026-10-05T20:21:44Z",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build EmbarkStudios/cargo-deny-action@v2",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "The workspace",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "The desktop app",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "web front-end",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "run_attempt": 1,
+      "started_at": "2026-10-05T20:06:52Z",
+      "completed_at": "2026-10-05T20:25:11Z",
+      "steps": []
+    },
+    {
+      "name": "deploy config",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "run_attempt": 1,
+      "started_at": "2026-10-05T20:06:52Z",
+      "completed_at": "2026-10-05T20:24:54Z",
+      "steps": []
+    },
+    {
+      "name": "fmt + clippy + test",
+      "status": "completed",
+      "conclusion": "success",
+      "run_attempt": 1,
+      "started_at": "2026-10-05T20:15:30Z",
+      "completed_at": "2026-10-05T20:28:29Z",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Initialize containers",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install ffmpeg",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Rust cache",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install cargo-nextest",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Format",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Clippy",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Docs",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Doctests",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Prices (signal)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload golden-render failures",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Post Rust cache",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop containers",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "signal renderers",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "run_attempt": 1,
+      "started_at": "2026-10-05T20:06:52Z",
+      "completed_at": "2026-10-05T20:25:45Z",
+      "steps": []
+    }
+  ]
+}
