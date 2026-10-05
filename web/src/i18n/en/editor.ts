@@ -8,8 +8,6 @@ const more = (named: string, rest: number) => `${named} and ${rest} more`;
 export const editor = {
   page: {
     opening: "Opening the project…",
-    back: "Back to projects",
-    revision: (n: number) => `revision ${n}`,
     frameShape: "Frame shape",
     render: "Render",
     renderTitle: "Render the video",
@@ -95,7 +93,6 @@ export const editor = {
       half: { label: "1/2", says: "half quality: fewer pixels, proxies where made" },
       quarter: { label: "1/4", says: "quarter quality: fastest, proxies where made" },
     },
-    at: (says: string, raster: string) => `Preview at ${says} (${raster})`,
   },
   templates: {
     title: "Templates",

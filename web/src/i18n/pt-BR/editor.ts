@@ -8,8 +8,6 @@ const more = (named: string, rest: number) => `${named} e mais ${rest}`;
 export const editor: Messages["editor"] = {
   page: {
     opening: "Abrindo o projeto…",
-    back: "Voltar para os projetos",
-    revision: (n: number) => `revisão ${n}`,
     frameShape: "Formato do quadro",
     render: "Renderizar",
     renderTitle: "Renderizar o vídeo",
@@ -95,7 +93,6 @@ export const editor: Messages["editor"] = {
         says: "um quarto da qualidade: a mais rápida, com proxies onde houver",
       },
     },
-    at: (says: string, raster: string) => `Prévia em ${says} (${raster})`,
   },
   templates: {
     title: "Modelos",

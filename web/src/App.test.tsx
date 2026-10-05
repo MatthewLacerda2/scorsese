@@ -94,7 +94,12 @@ test("the editor draws the stored document: its tracks, clips and assets", () =>
     client.setQueryData(ME, ana);
     client.setQueryData(["projects", "editor", 4], project);
   });
-  expect(html).toContain("revision 9");
+  // The revision guards saves (docs/web.md) but is never shown (#764), and
+  // neither is the preview's quality line; the editor's controls are portalled
+  // into the header, which a server render has no element for.
+  expect(html).not.toMatch(/revision/i);
+  expect(html).not.toContain("Preview at");
+  expect(html).not.toContain("Back to projects");
   expect(html).toContain("HELLO");
   expect(html).toContain("Video track");
   expect(html).toContain("Ask the assistant");
@@ -104,4 +109,13 @@ test("the editor draws the stored document: its tracks, clips and assets", () =>
   expect(html).toContain("Templates");
   expect(html).toContain("Library</button>");
   expect(html).not.toContain("Your library");
+});
+
+test("the header has room for a page's own controls, empty unless the page fills it", () => {
+  const html = render("/projects", (client) => {
+    client.setQueryData(ME, ana);
+  });
+  const header = html.slice(html.indexOf("<header"), html.indexOf("</header>"));
+  expect(header).toMatch(/<div data-header-slot=""[^>]*><\/div>/);
+  expect(header).not.toContain("Render");
 });

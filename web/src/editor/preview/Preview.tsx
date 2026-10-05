@@ -6,7 +6,8 @@
 // of this revision is ready, the frame under the playhead is a still from the
 // `still` tool; then it is the video (`playable.ts`, #542's doctrine), where
 // scrubbing is seeking. Both are drawn at the chosen preview quality
-// (`quality.ts`), which the row under the picture offers and says.
+// (`quality.ts`), which the row under the picture offers, its hover text
+// saying what each one means.
 // Real-time compositing in the browser is not attempted.
 
 import {
@@ -188,9 +189,6 @@ export function Preview({ projectId, revision, document, playhead, onSeek, deliv
           ))}
         </select>
       </div>
-      <p className="text-center text-[11px] text-muted-foreground">
-        {t.at(t.qualities[quality].says, raster)}
-      </p>
     </div>
   );
 }
