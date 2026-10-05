@@ -96,12 +96,13 @@ survivors after you (#651) — and never a reason to stay draft.
   .github/scripts/mutants-scope.py resolve '<your globs>' --out target/scope.json
   --diff target/scope.diff`, then `cargo mutants --in-diff target/scope.diff
   --jobs 2` (`docs/mutation-testing.md`).
-- **Outside it** (much of `crates/server`, `crates/mcp`, `crates/render/src/run`,
-  all of `app/`) that reports nothing: `cargo mutants --no-config -f <file>
-  --test-package <crate> -- --lib`, one `-f` per file.
-- **Server code needing Postgres per mutant** takes hours: skip it and name the
-  tests that cover it. **Check the mutant count first** — one container saw its
-  scope ignored (#740).
+- **Outside it** — `crates/server`, the pipe-holding rest of
+  `crates/render/src/run`, `app/` (#760 has why) — that reports nothing. A
+  server module whose tests sit in its own file runs in minutes: `cargo mutants
+  --no-config -f <file> --test-package scorsese-server -- --lib`, one `-f` per
+  file. One tested from `crates/server/tests` pays the Postgres suite per mutant
+  (~3 min): skip it and name the tests that cover it. **Check the mutant count
+  first** — one container saw its scope ignored (#740).
 
 Survivors in code you wrote: fix, exclude with a reason, or file (`ci-merge`).
 

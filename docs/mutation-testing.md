@@ -66,12 +66,30 @@ So the two are complements:
 
 ## What gets mutated
 
-The pure-logic surface only: `crates/core`, `crates/compositor`, `crates/zimmer`,
-the plan and audio arithmetic of `crates/render`, and `crates/providers`'
-`src/synth/` — the one subtree of that crate with no provider in it, which is
-where a recipe is parsed, tuned, and turned into the address its bake is cached
-under. The ffmpeg command builders and `crates/golden` are excluded on purpose,
-and so is the rest of `crates/providers`.
+The pure-logic surface only, which since #760 is most of the code being
+written:
+
+- **In:** `crates/core`, `crates/compositor`, `crates/zimmer`, `crates/mcp`
+  (the tool surface), the plan and audio arithmetic of `crates/render` with its
+  `progress.rs` and the parts of `src/run/` that never hold a pipe, and two
+  subtrees of `crates/providers` with no provider in them — `src/synth/`,
+  where a recipe is parsed, tuned and addressed, and `src/chat/`, the web
+  assistant's vendor-neutral seam.
+- **Out, on purpose:** the ffmpeg command builders and the rest of `src/run/`
+  (a mutated argument makes ffmpeg fail loudly, and each mutant costs a real
+  decode); `crates/golden` (test infrastructure); `crates/cli` and the rest of
+  `crates/providers` (wrappers over the logic above).
+- **`crates/server`: out, pure modules included.** The decision (#760) was to
+  take in the modules that need no Postgres per mutant — and with the tool as
+  it is, none qualifies. cargo-mutants runs the mutated package's *whole* test
+  suite for every mutant, so a mutant in a pure helper pays the database suite
+  like any other: about three minutes (240 tests, each with a database of its
+  own) plus the rebuild, which over the ~200 pure-module mutants is hours, for
+  a signal nobody waits on — and the sweep has no Postgres to run it against.
+  There is no separate sweep for the server either. The pure modules are listed
+  in `.cargo/mutants.toml`, with what would reopen this.
+- **`app/`: out, for now.** It is its own cargo workspace, which the config
+  cannot reach; it would need a config of its own.
 
 `.cargo/mutants.toml` is the authority on that list and gives the reason for
 every inclusion and exclusion. Read it there rather than trusting this
@@ -79,6 +97,21 @@ paragraph — this one is a summary and the config is the thing that runs.
 
 A request is narrowed again to what it names — a crate, files, or the
 branch's diff — so the cost tracks the question rather than the codebase.
+
+### Off the surface
+
+Code outside it reports nothing, however it is asked about. A branch that adds
+mechanism there runs it by hand, one `-f` per file, with `--no-config` so the
+globs above neither add to nor filter it:
+
+```sh
+# a server module whose tests live in its own file: lib tests only, no Postgres
+cargo mutants --no-config -f crates/server/src/http/disposition.rs \
+  --test-package scorsese-server --jobs 2 -- --lib
+```
+
+A server module tested only from `crates/server/tests` pays the Postgres suite
+per mutant; skip it and name the tests that cover it.
 
 ## Sharding, and the report a large request still gets
 
@@ -142,7 +175,7 @@ the whole crate — every Monday, **one crate at a time, cycling**. The crates
 are not listed anywhere: `.github/scripts/mutants-rotation.py` reads them out
 of `examine_globs` in `.cargo/mutants.toml`, one week for each crate a glob
 points into, in the order the globs first name it — today `core`,
-`compositor`, `render`, `zimmer` and `providers`, every five weeks. It used to
+`compositor`, `render`, `zimmer`, `providers` and `mcp`, every six weeks. It used to
 be a hand-written list, and when `providers`' `synth/` subtree joined the
 surface the list never heard of it (#431); a glob added now is a week added.
 The workflow's hand-pickable `workflow_dispatch` list is the one copy left,
@@ -160,7 +193,10 @@ than assumed: the whole surface extrapolates to seven to ten hours on a
 GitHub-hosted runner against a six-hour job limit, and a monthly cadence would
 also miss the seven-day cache eviction and build cold every time. The workflow's
 header carries the arithmetic and says plainly which half of it is a
-measurement.
+measurement. One week does not fit: `mcp`'s 1006 mutants extrapolate to about
+ten hours against the five-hour step (each mutant rebuilds a crate sitting on
+`render` and `providers`), so that week is cut short and reported as such —
+`.cargo/mutants.toml` has the measurement.
 
 It reports into **one issue that rewrites itself** — [#341][sweep] — using the
 same renderer every other mutation report goes through. The report at the top is
@@ -206,7 +242,7 @@ cargo mutants                      # the whole scoped surface
 cargo mutants -p scorsese-zimmer   # one crate
 ```
 
-The whole surface was 3875 mutants at #289 and is past 7600 now; it moves with
+The whole surface was 3875 mutants at #289 and 9048 at #760; it moves with
 the source and with the tool version, and `cargo mutants --list | wc -l` is how
 to re-read it: `--list` builds nothing and runs nothing, so the count costs a
 second and is exact.

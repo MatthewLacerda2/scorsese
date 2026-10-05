@@ -14,7 +14,7 @@
 #
 #     make mutants-remote SCOPE=diff   # this branch's diff, on GitHub's runners
 #     make mutants     # the same diff, on this machine
-#     cargo mutants    # the whole surface below: 3875 mutants today, and
+#     cargo mutants    # the whole surface below: 9048 mutants at #760, and
 #                      # `cargo mutants --list | wc -l` re-counts it for free —
 #                      # that builds nothing, so the number is exact and cheap
 #
@@ -40,7 +40,7 @@
 # the reason. Lowering it to make the check quiet is the same move as
 # re-blessing a golden reference to make CI green.
 #
-# surface-floor: 3000
+# surface-floor: 7000
 #
 # ---------------------------------------------------------------------------
 # The mutated surface
@@ -87,6 +87,23 @@
 #   one-file glob would fix that case and re-make the mistake one level down —
 #   the next pure module to land beside `address.rs` would be outside the
 #   surface again, unnoticed for the same reason as the first.
+# - `crates/providers/src/chat/` — the vendor-neutral seam the web assistant
+#   talks through (#705): the neutral request and reply, the conversation
+#   record each vendor's wire is frozen from, and the translation between
+#   them. Pure translation over in-memory documents, tested against recorded
+#   replies and never a network. #717's first hand-run over it found 34
+#   survivors, most of them real (#760).
+# - `crates/render/src/progress.rs`, and the parts of `src/run/` that never
+#   touch a pipe: `segment/draw.rs` (the compositing workers), `redraw.rs` and
+#   `source.rs` (where a decode is told to start). The rest of `run/` —
+#   `mod.rs`, `still.rs`, `segment/{mod,layers,pipeline}.rs` — holds a
+#   `Decoder` or an `Encoder`, so it stays out for the reason `pipe/` does.
+# - `crates/mcp` — the tool surface. A tool is a function over a project
+#   directory and its arguments, answered without a network, and every
+#   hand-run before #760 found real gaps in it (#724: 4 missed, #748: 20
+#   survivors). It is the slowest crate here per mutant — it sits on top of
+#   `render` and `providers`, so each mutant rebuilds more — which is the
+#   cost recorded below, accepted on purpose.
 #
 # Deliberately out of scope:
 #
@@ -98,9 +115,27 @@
 #   argument, plus every mutant costs a real decode.
 # - `crates/golden` — test infrastructure. Measuring whether the tests test the
 #   test harness measures the wrong thing.
-# - `crates/cli`, `crates/mcp`, and the **rest** of `crates/providers` — thin
-#   wrappers and trait definitions over the logic above; mutating an
-#   argument-parsing arm reports on `clap`, not on us.
+# - `crates/cli` and the **rest** of `crates/providers` — thin wrappers and
+#   trait definitions over the logic above; mutating an argument-parsing arm
+#   reports on `clap`, not on us.
+# - `crates/server`, all of it, **pure modules included** (#760). The
+#   maintainer's call was to take in the server modules that need no Postgres
+#   per mutant, and none does: cargo-mutants runs the mutated *package's*
+#   whole test suite for every mutant and has no per-package test filter, so
+#   a mutant in `tools/size.rs` pays the same database suite a mutant in the
+#   ledger does — measured at #760, 3m 01s under nextest (240 tests, each
+#   creating its own database), on top of the rebuild. The pure modules —
+#   `tools/size.rs`, `assistant/cost.rs`, `assistant/ask/mod.rs`,
+#   `assistant/prompt.rs`, `http/disposition.rs`, `credits/mod.rs` and
+#   `credits/tool.rs`, `accounts/secret.rs`, `accounts/throttle/{counter,
+#   key}.rs`, `library/kind.rs`, `renders/settings.rs` — come to about 200
+#   mutants, so a sweep of them is the hours the decision kept out, and the
+#   sweep has no Postgres to run them against anyway. What would reopen it is
+#   a way to give one package a narrower test command, or those modules
+#   moving a layer down where their tests need no database. Until then they
+#   are hand-run (`docs/mutation-testing.md`, *Off the surface*).
+# - `app/` — its own cargo workspace, which this file cannot reach; it would
+#   need a config of its own, and there is none yet (#760).
 #
 #   Left out with the reason written down rather than by not being thought of,
 #   because #428 is what the second one costs: `prices/`, `credentials/budget.rs`,
@@ -167,6 +202,27 @@
 #   so `scorsese-providers` is a slot of its own and every crate's re-audit is
 #   five weeks rather than four. It was briefly a gap instead: the rotation
 #   was a hand-written list that did not include it.
+#
+# What #760's widening cost, measured in a cloud container (4 cores, 15 GB,
+# `CARGO_INCREMENTAL=0`), cargo-mutants 27.1.0:
+#
+# - **The surface, exactly.** 7895 mutants before, 9048 after — 1153 of them,
+#   +15%: `crates/mcp` 1006, `providers/src/chat/` 112, and render's
+#   `progress.rs` 14, `run/segment/draw.rs` 19, `redraw.rs` 1, `source.rs` 1.
+#   By crate after: core 1626 · compositor 2690 · render 246 · zimmer 3263 ·
+#   providers 217 · mcp 1006. The floor moved from 3000 to 7000 with it: the
+#   old one sat under a count that had already more than doubled, so a
+#   collapse to half the surface would have passed it.
+# - **What the sweep pays: a sixth week, and the slowest one.** A sample of
+#   11 mutants in `crates/mcp/src/tools/confirm.rs` at `--jobs 2` took 9m 20s,
+#   baseline included: about 72s a mutant (35-190s to build, ~27s to test), so
+#   ~36s of wall clock each with two running. **Extrapolated, not measured:**
+#   1006 × 36s ≈ 10 hours, against the sweep's five-hour step. So the mcp week
+#   is cut short and says so (the sweep reports a truncated run as one), and
+#   cargo-mutants' shuffle means each truncated week audits a different
+#   half. #790 follows that up.
+# - **What a request pays: nothing until it touches these paths**, and then by
+#   the size of its own diff, as above.
 examine_globs = [
     "crates/core/src/**/*.rs",
     "crates/compositor/src/**/*.rs",
@@ -175,6 +231,12 @@ examine_globs = [
     "crates/render/src/audio/gain.rs",
     "crates/zimmer/src/**/*.rs",
     "crates/providers/src/synth/**/*.rs",
+    "crates/providers/src/chat/**/*.rs",
+    "crates/render/src/progress.rs",
+    "crates/render/src/run/segment/draw.rs",
+    "crates/render/src/run/segment/redraw.rs",
+    "crates/render/src/run/segment/source.rs",
+    "crates/mcp/src/**/*.rs",
 ]
 
 # `examine_globs` already decides this — these say it a second time because a

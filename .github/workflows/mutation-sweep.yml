@@ -129,6 +129,7 @@ on:
           - scorsese-render
           - scorsese-zimmer
           - scorsese-providers
+          - scorsese-mcp
         # Static YAML, so this list is the one place the rotation is still
         # written out. `test_mutants_rotation.py` holds it to exactly what
         # `mutants-rotation.py list` derives, in the same order, so a glob
