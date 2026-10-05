@@ -19,6 +19,7 @@ mod grain;
 mod grouping;
 mod icons;
 mod output;
+mod pages;
 mod partial;
 mod retiming;
 mod slugs;

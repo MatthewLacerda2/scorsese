@@ -88,8 +88,12 @@ pub fn fill_media<'a>(
 /// worse account of a missing file than the ones that come later: a refusal
 /// for imported media, a slug card and [`Note::GeneratedMissing`] for
 /// generated media.
+///
+/// And only media: a page is a file ffprobe has nothing to say about, so
+/// asking would be a process spent to leave a note about it.
 fn needs_probing(project: &Project, asset: &Asset, project_root: &Path) -> bool {
-    asset.media.is_none()
+    asset.kind.is_media()
+        && asset.media.is_none()
         && !asset.needs_generation()
         && asset
             .path
