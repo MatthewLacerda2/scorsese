@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use scorsese_core::{ASSETS_DIR, Asset, AssetKind, CACHE_DIR, GENERATED_DIR, Project};
+use scorsese_core::{ASSETS_DIR, Asset, AssetKind, CACHE_DIR, GENERATED_DIR, PAGES_DIR, Project};
 use scorsese_render::Tools;
 
 use crate::fixture::{Fixture, Recipe};
@@ -31,10 +31,9 @@ pub(super) fn materialise(
         source,
     })?;
 
-    carry(
-        &fixture.directory.join(ASSETS_DIR),
-        &directory.join(ASSETS_DIR),
-    )?;
+    for carried in [ASSETS_DIR, PAGES_DIR] {
+        carry(&fixture.directory.join(carried), &directory.join(carried))?;
+    }
 
     for (asset, recipe) in fixture.media() {
         generate(tools, asset, recipe, directory)?;
@@ -45,7 +44,8 @@ pub(super) fn materialise(
     })
 }
 
-/// Copies a fixture's own `assets/` into the scratch project, if it has one.
+/// Copies a fixture's own `assets/` or `pages/` into the scratch project, if it
+/// has one.
 ///
 /// **Media is still generated, not committed** — that rule is why the
 /// repository carries no sample footage and it has not moved. This is for the
@@ -53,7 +53,9 @@ pub(super) fn materialise(
 /// **font**. A face is not footage. It is a few glyph outlines, it is the same
 /// bytes on every machine, and no `lavfi` source will ever produce one — so a
 /// fixture that needs a project to bring its own font has no other way to say
-/// so. Most fixtures have no `assets/` at all and this does nothing for them.
+/// so. The other is a **web page** (`pages/`), which is a document somebody
+/// wrote rather than media anybody generates. Most fixtures have neither and
+/// this does nothing for them.
 ///
 /// Recursive, so a fixture may organise what it carries into subdirectories the
 /// same way a real project would.

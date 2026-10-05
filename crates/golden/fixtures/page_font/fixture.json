@@ -1,0 +1,6 @@
+{
+  "description": "Fonts on a page, which #606 found fall back without a trace when they go missing. The top line is Manrope at weight 800, from a file the project carries (assets/, its name percent-escaped in the url); the bottom line is Playfair Display italic, one of the faces scorsese ships, named by family. Static, so one frame. A top line in a thin sans means the project's font did not load; a bottom line in an upright serif or a sans means the browser did not get the shipped faces, or fell back to the host's.",
+  "media": { "bed": "color=c=0x302010:s=160x90:d=1:r=30" },
+  "render": { "resolution": "160x90", "fps": "30" },
+  "frames": [0]
+}

@@ -1,0 +1,6 @@
+{
+  "description": "anime.js, loaded from the address scorsese ships it at (https://lib.scorsese/anime.min.js), lifts three pink squares and turns them half over, each 200 ms after the one before. At frame 0 all three sit low; at frame 15 the first is nearly at the top, the second halfway and the third just under way; at frame 29 all three are up. Squares that never move mean the library did not load (it would also be a warning on the render) or never saw the clock start, which anime.js reads as a frame timestamp above zero.",
+  "media": { "bed": "color=c=0x103020:s=160x90:d=1:r=30" },
+  "render": { "resolution": "160x90", "fps": "30" },
+  "frames": [0, 15, 29]
+}

@@ -24,6 +24,7 @@ mod browser;
 mod cache;
 mod capture;
 mod cdp;
+mod fonts;
 mod origin;
 mod request;
 mod visitor;

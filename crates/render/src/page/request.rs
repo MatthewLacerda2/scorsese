@@ -76,7 +76,8 @@ impl Request {
         }
     }
 
-    /// The script run before the page's own: the contract, then the clock.
+    /// The script run before the page's own: the contract, the shipped fonts,
+    /// then the clock.
     pub(crate) fn preamble(&self) -> String {
         let viewport = self.viewport();
         let contract = json!({
@@ -86,7 +87,8 @@ impl Request {
             "duration": self.duration,
         });
         format!(
-            "Object.defineProperty(window, 'scorsese', {{ value: Object.freeze({contract}) }});\n{}",
+            "Object.defineProperty(window, 'scorsese', {{ value: Object.freeze({contract}) }});\n{}{}",
+            super::fonts::declarations(super::SHIPPED_ORIGIN),
             include_str!("clock.js")
         )
     }

@@ -15,7 +15,6 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
-use scorsese_compositor::text::{Cut, SHIPPED};
 use scorsese_core::pool::hash_file;
 use scorsese_core::{CACHE_DIR, hash_bytes};
 use serde::{Deserialize, Serialize};
@@ -78,7 +77,7 @@ pub(crate) fn keep(slot: &Path, record: &Record) -> std::io::Result<()> {
     std::fs::write(slot.join(RECORD), bytes)
 }
 
-/// The shipped faces written out where the browser can find them, with a
+/// The shipped faces ([`super::fonts`]) written out where the browser can find them, with a
 /// fontconfig file listing **only** them — so a page that names a font it was
 /// not given falls back to the same face on every machine, never to whatever
 /// the host has installed (#606). Returns that file. Written once per project;
@@ -86,11 +85,11 @@ pub(crate) fn keep(slot: &Path, record: &Record) -> std::io::Result<()> {
 pub(crate) fn fonts(project_root: &Path) -> std::io::Result<PathBuf> {
     let folder = project_root.join(CACHE_DIR).join(PAGES).join("fonts");
     std::fs::create_dir_all(&folder)?;
-    for (name, bytes) in faces() {
-        let file = folder.join(name);
+    for face in super::fonts::faces() {
+        let file = folder.join(&face.file);
         let current = std::fs::metadata(&file).map(|m| m.len()).ok();
-        if current != Some(bytes.len() as u64) {
-            std::fs::write(&file, bytes)?;
+        if current != Some(face.bytes.len() as u64) {
+            std::fs::write(&file, face.bytes)?;
         }
     }
     let conf = folder.join("fonts.conf");
@@ -103,33 +102,14 @@ pub(crate) fn fonts(project_root: &Path) -> std::io::Result<PathBuf> {
     Ok(conf)
 }
 
-/// Every shipped face file, named for its family, weight and slant.
-fn faces() -> Vec<(String, &'static [u8])> {
-    let mut faces = Vec::new();
-    for family in SHIPPED {
-        for (slant, cut) in [("", Some(family.cut)), ("-italic", family.italic)] {
-            match cut {
-                Some(Cut::Variable(bytes)) => {
-                    faces.push((format!("{}{slant}.ttf", family.name), bytes))
-                }
-                Some(Cut::Drawn(weights)) => faces.extend(weights.iter().map(|(weight, bytes)| {
-                    (format!("{}-{weight}{slant}.ttf", family.name), *bytes)
-                })),
-                None => {}
-            }
-        }
-    }
-    faces
-}
-
 /// One hash over every shipped face: a build that ships different fonts draws
 /// different pages.
 fn fonts_hash() -> &'static str {
     static HASH: OnceLock<String> = OnceLock::new();
     HASH.get_or_init(|| {
-        let digests: Vec<String> = faces()
+        let digests: Vec<String> = super::fonts::faces()
             .iter()
-            .map(|(name, bytes)| format!("{name}:{}", hash_bytes(bytes)))
+            .map(|face| format!("{}:{}", face.file, hash_bytes(face.bytes)))
             .collect();
         hash_bytes(digests.join("\n").as_bytes())
     })
@@ -228,16 +208,5 @@ mod tests {
             "an edited page is captured again"
         );
         let _ = std::fs::remove_dir_all(&root);
-    }
-
-    #[test]
-    fn every_shipped_face_is_written_under_a_name_of_its_own() {
-        let faces = faces();
-        let mut names: Vec<_> = faces.iter().map(|(name, _)| name.clone()).collect();
-        names.sort();
-        names.dedup();
-        assert_eq!(names.len(), faces.len());
-        assert!(names.contains(&"inter.ttf".to_owned()));
-        assert!(names.contains(&"liberation-sans-700-italic.ttf".to_owned()));
     }
 }

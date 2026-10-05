@@ -11,6 +11,7 @@
 
 #[cfg(test)]
 mod cancelled;
+mod pages;
 #[cfg(test)]
 mod progressed;
 mod segment;
@@ -25,6 +26,7 @@ use crate::audio;
 use crate::cancel::Cancel;
 use crate::error::RenderError;
 use crate::held::Loops;
+use crate::page::Chrome;
 use crate::pipe::{Encoder, encode_mix};
 use crate::plan::{FrameRange, Plan};
 use crate::preview::Preview;
@@ -35,6 +37,7 @@ use crate::settings::RenderSettings;
 use crate::tools::Tools;
 use crate::workers::Workers;
 
+use pages::Pages;
 use segment::{Pass, Stage};
 
 /// Renders projects with one set of settings.
@@ -45,6 +48,7 @@ pub struct Renderer<'a> {
     preview: Option<Preview>,
     cancel: Cancel,
     progress: Progress,
+    chrome: Option<Chrome>,
 }
 
 impl<'a> Renderer<'a> {
@@ -61,6 +65,7 @@ impl<'a> Renderer<'a> {
             preview: None,
             cancel: Cancel::new(),
             progress: Progress::new(),
+            chrome: None,
         }
     }
 
@@ -109,6 +114,17 @@ impl<'a> Renderer<'a> {
     /// in hand. A render that fails or is cancelled leaves it where it stopped.
     pub fn with_progress(self, progress: Progress) -> Self {
         Self { progress, ..self }
+    }
+
+    /// Captures `html` clips with this browser rather than whichever
+    /// [`Chrome::discover`] finds — for a caller that ships its own, or has
+    /// already checked one. Without it, the browser is looked for only when a
+    /// render has a page on screen.
+    pub fn with_chrome(self, chrome: Chrome) -> Self {
+        Self {
+            chrome: Some(chrome),
+            ..self
+        }
     }
 
     /// Renders `range` of `project` to `out`.
@@ -175,6 +191,23 @@ impl<'a> Renderer<'a> {
         // it cannot be. What the probe above filled in is answer enough for
         // most of them, so this rarely spawns anything of its own. A delivery
         // with no picture draws nothing, so it has no sizes to establish.
+        // Pages are captured before anything is mixed or drawn: a capture is
+        // the slowest thing a render can do, and its frames are what the
+        // drawing will decode. A page that cannot be captured is a card and a
+        // note, never a refusal.
+        let pages = if picture {
+            let (pages, page_notes) = Pages::capture(
+                self.tools,
+                self.chrome.as_ref(),
+                &self.settings,
+                &plan,
+                project_root,
+            );
+            notes.extend(page_notes);
+            pages
+        } else {
+            Pages::default()
+        };
         let sizes = if picture {
             Some((
                 Sizes::measure(self.tools, &plan, project_root)?,
@@ -221,7 +254,7 @@ impl<'a> Renderer<'a> {
         let written = match (&sizes, mix) {
             (Some((sizes, loops)), _) => {
                 let (written, picture_notes) =
-                    self.picture(&plan, (sizes, loops), project_root, mix, (out, of))?;
+                    self.picture(&plan, (sizes, loops, &pages), project_root, mix, (out, of))?;
                 notes.extend(picture_notes);
                 written
             }
@@ -273,7 +306,7 @@ impl<'a> Renderer<'a> {
     fn picture(
         &self,
         plan: &Plan<'_>,
-        (sizes, loops): (&Sizes, &Loops),
+        (sizes, loops, pages): (&Sizes, &Loops, &Pages),
         project_root: &Path,
         mix: Option<&Path>,
         (out, of): (&Path, u64),
@@ -286,6 +319,7 @@ impl<'a> Renderer<'a> {
             plan,
             sizes,
             loops,
+            pages,
             project_root,
             workers: self.workers,
             preview: self.preview.as_ref(),
@@ -344,6 +378,7 @@ impl<'a> Renderer<'a> {
     ) -> Result<Frame, RenderError> {
         still::compose(
             self.tools,
+            self.chrome.as_ref(),
             self.settings,
             self.preview.as_ref(),
             project,

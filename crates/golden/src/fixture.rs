@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
-use scorsese_core::{Asset, Fps, Project};
+use scorsese_core::{Asset, AssetKind, Fps, Project};
 use scorsese_render::{Bitrate, FrameRange, RenderSettings, Resolution};
 
 use crate::compare::Tolerance;
@@ -226,6 +226,19 @@ impl Fixture {
     /// something other than what it looks like it is testing.
     fn check_recipes(&self) -> Result<(), FixtureError> {
         for asset in &self.project.assets {
+            // A page is carried in the fixture's `pages/`, not generated.
+            if asset.kind == AssetKind::Html {
+                let carried = asset
+                    .path
+                    .as_ref()
+                    .is_some_and(|path| path.resolve(&self.directory).is_file());
+                if !carried {
+                    return Err(FixtureError::NoRecipe {
+                        asset: asset.id.to_string(),
+                    });
+                }
+                continue;
+            }
             let needs_file = asset.kind.is_file_backed() && !asset.kind.is_generated();
             if needs_file && !self.manifest.media.contains_key(asset.id.as_str()) {
                 return Err(FixtureError::NoRecipe {
@@ -290,7 +303,9 @@ pub enum FixtureError {
     FramesOutOfOrder,
     /// A file-backed asset with no recipe would render as a missing file, and
     /// the fixture would be testing that instead of what it claims to.
-    #[error("asset `{asset}` needs a media recipe in fixture.json")]
+    #[error(
+        "asset `{asset}` needs a media recipe in fixture.json, or for a page its file in the fixture"
+    )]
     NoRecipe {
         /// The asset id left without media.
         asset: String,

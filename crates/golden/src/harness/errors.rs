@@ -65,6 +65,17 @@ pub enum GoldenError {
         frames: u64,
     },
 
+    /// A page in the fixture rendered as its slug card because it could not be
+    /// captured — almost always no browser (`SCORSESE_CHROME`). Fails rather
+    /// than comparing, so a missing browser reads as itself and not as a page
+    /// whose pixels moved.
+    #[error("golden fixture `{fixture}`: a page could not be captured: {reason}")]
+    PageNotCaptured {
+        /// The fixture with the page.
+        fixture: String,
+        /// The render's own note.
+        reason: String,
+    },
     /// Blessing rewrote the references but could not record what decoded them,
     /// which would leave the two disagreeing. Fails rather than being skipped:
     /// a record that silently stops being written is worse than none, because

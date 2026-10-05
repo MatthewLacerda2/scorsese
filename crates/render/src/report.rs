@@ -156,6 +156,28 @@ pub enum Note {
         /// The nearest property that does exist, when there is one.
         did_you_mean: Option<&'static str>,
     },
+    /// A web page could not be drawn into frames, so its clip showed the page's
+    /// slug card and the render carried on — the card is the stand-in a page
+    /// has, for [`Note::GeneratedMissing`]'s reason. The usual cause is no
+    /// browser to capture with (`page::CHROME_ENV`).
+    PageNotCaptured {
+        /// The clip that showed its card.
+        clip: String,
+        /// The page asset.
+        asset: String,
+        /// Why, in the capture's own words.
+        reason: String,
+    },
+    /// Something a page did while it was captured that its author should hear
+    /// about: a request refused because pages render offline, a file it asked
+    /// for that is not in the project, a script that threw. The page was drawn
+    /// without whatever it was.
+    PageWarning {
+        /// The page asset.
+        asset: String,
+        /// What happened, in plain words.
+        warning: String,
+    },
 }
 
 /// What a render put where media should have been.
@@ -249,6 +271,15 @@ impl fmt::Display for Note {
                 "clip `{clip}` shows asset `{asset}`, whose text has a colour glyph \
                  asking for {wanted} — that part was not drawn as the font describes it"
             ),
+            Self::PageNotCaptured {
+                clip,
+                asset,
+                reason,
+            } => write!(
+                f,
+                "page `{asset}` could not be captured, so clip `{clip}` shows its slug card: {reason}"
+            ),
+            Self::PageWarning { asset, warning } => write!(f, "page `{asset}`: {warning}"),
             Self::UnknownProperty {
                 clip,
                 property,

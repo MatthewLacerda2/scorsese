@@ -1,0 +1,6 @@
+{
+  "description": "A web page of two CSS animations over a red bed. A translucent blue square slides right and turns a quarter (transform), and a yellow ring fades in (opacity). The page's clock is ours, so frame 0 has the square at the left and no ring, frame 15 has them halfway, and frame 29 almost at the end. Purple where the square crosses red is its 60% alpha surviving the capture and the decode. A full-frame white or black page means the transparent background was lost; a gray band naming the page means it was not captured at all.",
+  "media": { "bed": "color=c=red:s=160x90:d=1:r=30" },
+  "render": { "resolution": "160x90", "fps": "30" },
+  "frames": [0, 15, 29]
+}

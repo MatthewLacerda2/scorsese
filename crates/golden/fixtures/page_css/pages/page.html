@@ -1,0 +1,19 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; height: 100%; }
+  .box {
+    position: absolute; left: 240px; top: 340px; width: 400px; height: 400px;
+    border-radius: 48px; background: rgba(40, 120, 255, 0.6);
+    animation: travel 1s linear forwards;
+  }
+  .ring {
+    position: absolute; right: 240px; top: 340px; width: 400px; height: 400px;
+    border-radius: 50%; border: 40px solid #ffd166; box-sizing: border-box;
+    opacity: 0; animation: appear 1s ease-in forwards;
+  }
+  @keyframes travel { to { transform: translateX(600px) rotate(90deg); } }
+  @keyframes appear { to { opacity: 1; } }
+</style>
+<div class="box"></div>
+<div class="ring"></div>

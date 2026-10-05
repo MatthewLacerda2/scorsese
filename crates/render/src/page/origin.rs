@@ -24,6 +24,7 @@ pub(crate) const ORIGIN: &str = "https://page.scorsese";
 pub const SHIPPED_ORIGIN: &str = "https://lib.scorsese";
 
 /// The libraries every page may load, by the file name they are served at.
+/// The shipped fonts are served beside them, under `fonts/` ([`super::fonts`]).
 ///
 /// anime.js because #606 measured it under the clock: a library that drives
 /// itself from `requestAnimationFrame` is seekable by construction. MIT, and
@@ -89,6 +90,9 @@ pub(crate) fn answer(url: &str, project_root: &Path) -> Answer {
         .and_then(|rest| rest.strip_prefix('/'))
     {
         let name = name.split(['?', '#']).next().unwrap_or_default();
+        if let Some(body) = name.strip_prefix("fonts/").and_then(super::fonts::bytes) {
+            return Answer::Shipped { body };
+        }
         return SHIPPED
             .iter()
             .find(|(shipped, _)| *shipped == name)
@@ -236,6 +240,10 @@ mod tests {
             panic!("anime.js is shipped");
         };
         assert!(body.starts_with(b"/*\n * anime.js v3.2.2"));
+        assert!(matches!(
+            answer("https://lib.scorsese/fonts/inter.ttf", &dir.0),
+            Answer::Shipped { .. }
+        ));
     }
 
     #[test]

@@ -8,7 +8,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 
 use scorsese_render::frames;
-use scorsese_render::{Renderer, Tools};
+use scorsese_render::{Note, Renderer, Tools};
 
 use crate::compare::{self, Difference, Tolerance};
 use crate::fixture::Fixture;
@@ -128,6 +128,17 @@ pub fn run(fixture_dir: &Path, mode: Mode, workspace: &Path) -> Result<Outcome, 
     let output = work.join("out.mp4");
     let report =
         Renderer::new(&tools, fixture.settings).render(&project, &work, fixture.range, &output)?;
+
+    if let Some(note) = report
+        .notes
+        .iter()
+        .find(|note| matches!(note, Note::PageNotCaptured { .. }))
+    {
+        return Err(GoldenError::PageNotCaptured {
+            fixture: fixture.name.clone(),
+            reason: note.to_string(),
+        });
+    }
 
     let mut compared = Vec::new();
     let mut blessed = Vec::new();

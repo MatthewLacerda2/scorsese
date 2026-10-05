@@ -1,0 +1,6 @@
+{
+  "description": "A lower third over moving footage: a black band fading from 85% opaque at the left to nothing at the right, and a solid orange bar on it. The footage (testsrc2) must show everywhere above the band, through the band's right-hand end, and dimmed under its left. This is the one fixture where alpha is graded rather than all-or-nothing, so a page flattened onto black, or a straight alpha read as premultiplied, shows as a dark frame or a band too dark at its fade.",
+  "media": { "bed": "testsrc2=s=160x90:d=1:r=30" },
+  "render": { "resolution": "160x90", "fps": "30" },
+  "frames": [0, 20]
+}

@@ -58,6 +58,8 @@ pub(super) struct Pass<'a> {
     pub(super) sizes: &'a Sizes,
     /// The length of every held animation a stretch opens part-way through.
     pub(super) loops: &'a Loops,
+    /// The frames each page clip was captured into.
+    pub(super) pages: &'a super::pages::Pages,
     /// What the document's relative paths are relative to.
     pub(super) project_root: &'a Path,
     /// How many frames may be composited at once.
