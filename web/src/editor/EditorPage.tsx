@@ -132,7 +132,6 @@ function Editor({ project }: { project: EditorProject }) {
             onDeselect={deselect}
             onRelease={({ tool, args }) => edit.run({ tool, args, edit: true })}
             onDrop={(dragged, track, pointed, reach) => void drop(dragged, track, pointed, reach)}
-            onAddTrack={(kind) => void edit.run({ tool: "track_new", args: { kind }, edit: true })}
             onRemoveTrack={(track) => confirmThen(trackRemoval(track, t.editor.removal), edit.run)}
           />
         </section>

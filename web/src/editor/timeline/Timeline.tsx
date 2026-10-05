@@ -8,17 +8,23 @@
 // server's tools. A refused one springs back: the page only ever draws the
 // document the server holds. A lane header's bin removes the lane, after a
 // confirm listing the clips on it (#396).
+//
+// There are no buttons (#765): a pinch or Ctrl+wheel zooms around the pointer
+// (zoom.ts), and the space below the last lane is where a drop makes a new
+// one — as does a drop on a lane of the other kind (drop.ts).
 
-import { MinusIcon, PlusIcon, Trash2Icon } from "lucide-react";
-import { type DragEvent, type PointerEvent, useState } from "react";
+import { Trash2Icon } from "lucide-react";
+import { type DragEvent, type PointerEvent, useLayoutEffect, useRef, useState } from "react";
 import type { Fps, ProjectDocument, Track } from "@/api";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/i18n/I18nProvider";
 import { type Dragged, dropped, isOurs } from "../assets/dragged";
 import { type Release, SNAP_PX } from "./drag";
 import { Lane } from "./Lane";
+import { NewLane, useCarrying } from "./NewLane";
 import { Ruler } from "./Ruler";
-import { framesToPx, pxSpan, pxToFrames, toFrames, ZOOMS, type Zoom } from "./time";
+import { framesToPx, pxSpan, pxToFrames, toFrames, type Zoom } from "./time";
+import { keptUnder, START_ZOOM, zoomed } from "./zoom";
 
 /** How wide the lane headers are, in pixels. */
 const HEADER = 112;
@@ -34,9 +40,9 @@ export interface TimelineProps {
   onDeselect: () => void;
   /** A drag let go: `trim_clip` along a lane, `clip_move` onto another. */
   onRelease: (call: Release) => Promise<unknown>;
-  /** Something dropped on `track` at frame `pointed`, before snapping. */
-  onDrop: (dragged: Dragged, track: Track, pointed: number, reach: number) => void;
-  onAddTrack: (kind: "video" | "audio") => void;
+  /** Something dropped on `track` — or, `null`, below the last lane — at
+   * frame `pointed`, before snapping. */
+  onDrop: (dragged: Dragged, track: Track | null, pointed: number, reach: number) => void;
   /** A lane header's bin pressed: confirm, then remove `track` and its clips. */
   onRemoveTrack: (track: Track) => void;
 }
@@ -45,8 +51,35 @@ export function Timeline(props: TimelineProps) {
   const { document, playhead, onSeek } = props;
   const t = useT().editor;
   const fps: Fps = document.timeline_fps;
-  const [zoomAt, setZoomAt] = useState(2);
-  const zoom: Zoom = { pxPerSecond: ZOOMS[zoomAt] ?? 40 };
+  const [zoom, setZoom] = useState<Zoom>({ pxPerSecond: START_ZOOM });
+  const scroller = useRef<HTMLDivElement>(null);
+  const carrying = useCarrying();
+  // The scroll a zoom wants, applied once the timeline has been drawn at the
+  // new width — before then the browser would clamp it to the old one.
+  const pendingScroll = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    if (pendingScroll.current === null || !scroller.current) return;
+    scroller.current.scrollLeft = pendingScroll.current;
+    pendingScroll.current = null;
+  });
+  // A native listener, because React's wheel handler is passive and only an
+  // active one may stop the browser zooming the whole page instead.
+  useLayoutEffect(() => {
+    const element = scroller.current;
+    if (!element) return;
+    const wheel = (event: WheelEvent) => {
+      if (!event.ctrlKey) return;
+      event.preventDefault();
+      const pointer = event.clientX - element.getBoundingClientRect().left - HEADER;
+      setZoom((from) => {
+        const to = zoomed(from, event.deltaY, event.deltaMode);
+        pendingScroll.current = keptUnder(Math.max(0, pointer), element.scrollLeft, from, to);
+        return to;
+      });
+    };
+    element.addEventListener("wheel", wheel, { passive: false });
+    return () => element.removeEventListener("wheel", wheel);
+  }, []);
   const tracks = document.tracks ?? [];
   const end = Math.max(
     0,
@@ -59,35 +92,8 @@ export function Timeline(props: TimelineProps) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-1 border-b px-2 py-1">
-        <Button size="sm" variant="ghost" onClick={() => props.onAddTrack("video")}>
-          <PlusIcon /> {t.timeline.videoTrack}
-        </Button>
-        <Button size="sm" variant="ghost" onClick={() => props.onAddTrack("audio")}>
-          <PlusIcon /> {t.timeline.audioTrack}
-        </Button>
-        <span className="ml-auto text-xs text-muted-foreground">{t.timeline.zoom}</span>
-        <Button
-          size="icon"
-          variant="ghost"
-          aria-label={t.timeline.zoomOut}
-          disabled={zoomAt === 0}
-          onClick={() => setZoomAt((at) => Math.max(0, at - 1))}
-        >
-          <MinusIcon />
-        </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          aria-label={t.timeline.zoomIn}
-          disabled={zoomAt === ZOOMS.length - 1}
-          onClick={() => setZoomAt((at) => Math.min(ZOOMS.length - 1, at + 1))}
-        >
-          <PlusIcon />
-        </Button>
-      </div>
-      <div className="relative min-h-0 flex-1 overflow-auto">
-        <div className="relative" style={{ width: width + HEADER }}>
+      <div ref={scroller} className="relative min-h-0 flex-1 overflow-auto">
+        <div className="relative flex min-h-full flex-col" style={{ width: width + HEADER }}>
           <div className="sticky top-0 z-20 flex bg-background">
             <div
               className="sticky left-0 z-30 shrink-0 border-r bg-background"
@@ -100,9 +106,6 @@ export function Timeline(props: TimelineProps) {
               onScrub={(event, ruler) => onSeek(frameAt(event, ruler))}
             />
           </div>
-          {tracks.length === 0 && (
-            <p className="p-4 text-sm text-muted-foreground">{t.timeline.empty}</p>
-          )}
           {tracks.map((track) => (
             <div key={track.id} className="flex border-b">
               <div
@@ -150,6 +153,14 @@ export function Timeline(props: TimelineProps) {
               />
             </div>
           ))}
+          <NewLane
+            header={HEADER}
+            empty={tracks.length === 0}
+            carrying={carrying}
+            onDrop={(dragged, px) =>
+              props.onDrop(dragged, null, pxToFrames(px, zoom, fps), pxSpan(SNAP_PX, zoom, fps))
+            }
+          />
           <div
             className="pointer-events-none absolute top-0 bottom-0 z-20 w-px bg-red-500"
             style={{ left: HEADER + framesToPx(playhead, zoom, fps) }}

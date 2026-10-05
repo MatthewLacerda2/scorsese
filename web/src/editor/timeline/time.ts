@@ -53,6 +53,3 @@ export function pxToFrames(px: number, zoom: Zoom, fps: Fps): number {
 export function pxSpan(px: number, zoom: Zoom, fps: Fps): number {
   return Math.round((px / zoom.pxPerSecond) * rate(fps));
 }
-
-/** The zooms offered, from a whole minute on screen to single frames. */
-export const ZOOMS = [10, 20, 40, 80, 160, 320] as const;
