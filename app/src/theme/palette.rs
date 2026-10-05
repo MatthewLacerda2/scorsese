@@ -137,7 +137,8 @@ const fn grey(level: u8) -> Color32 {
 /// The web spells these as Tailwind classes; the values are Tailwind v4's
 /// (`tailwindcss` 4.3, the version `web/package.json` pins), converted from
 /// their `oklch` like the neutrals. Families follow the web: picture is sky,
-/// stills teal, sound green, words amber, drawings purple — and a generated
+/// stills teal, sound green, words amber (and a page, which is mostly words,
+/// its neighbour orange), drawings purple — and a generated
 /// asset is the lighter or neighbouring stop of its family, so an unmade shot
 /// still reads as a shot. The same in both themes, as on the web.
 pub(crate) const fn of_kind(kind: AssetKind) -> Color32 {
@@ -151,6 +152,7 @@ pub(crate) const fn of_kind(kind: AssetKind) -> Color32 {
         AssetKind::GeneratedAudio => Color32::from_rgb(0x7C, 0xCF, 0x00), // lime-500
         AssetKind::SynthAudio => Color32::from_rgb(0x00, 0xA6, 0x3E), // green-600
         AssetKind::Text => Color32::from_rgb(0xFE, 0x9A, 0x00),  // amber-500
+        AssetKind::Html => Color32::from_rgb(0xFF, 0x69, 0x00),  // orange-500
         AssetKind::Color => Color32::from_rgb(0xE1, 0x2A, 0xFB), // fuchsia-500
         AssetKind::Shape => Color32::from_rgb(0x8E, 0x51, 0xFF), // violet-500
         AssetKind::Icon => Color32::from_rgb(0x61, 0x5F, 0xFF),  // indigo-500
@@ -190,7 +192,7 @@ pub(crate) fn over(hue: Color32, ground: Color32, amount: f32) -> Color32 {
 mod tests {
     use super::*;
 
-    const KINDS: [AssetKind; 13] = [
+    const KINDS: [AssetKind; 14] = [
         AssetKind::Video,
         AssetKind::Image,
         AssetKind::Audio,
@@ -200,6 +202,7 @@ mod tests {
         AssetKind::Icon,
         AssetKind::Group,
         AssetKind::ImageSequence,
+        AssetKind::Html,
         AssetKind::GeneratedVideo,
         AssetKind::GeneratedImage,
         AssetKind::GeneratedAudio,

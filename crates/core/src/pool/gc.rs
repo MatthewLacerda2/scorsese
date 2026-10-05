@@ -34,7 +34,8 @@ fn in_use(project: &Project, id: &AssetId) -> bool {
             .any(|sequence| sequence.stills.contains(id))
 }
 
-/// Drops these assets from the table and deletes the files they own.
+/// Drops these assets from the table and deletes the media files they own —
+/// never a page, which is a document somebody wrote.
 ///
 /// An asset still referenced by a clip is refused rather than removed — that
 /// would leave a dangling reference, which is precisely what validation
@@ -55,7 +56,10 @@ pub fn remove_assets(
         };
         let asset = project.assets.remove(index);
 
-        if let Some(path) = &asset.path {
+        // A page is authored, not imported: dropping its row is collecting an
+        // asset, deleting its file would be losing work. It stays in `pages/`,
+        // the way a recipe stays in `recipes/`.
+        if let Some(path) = asset.path.as_ref().filter(|_| asset.kind.is_media()) {
             let file = path.resolve(project_root);
             match fs::metadata(&file) {
                 Ok(metadata) => {

@@ -49,6 +49,21 @@ pub enum AssetKind {
     /// a `group` it has no file of its own — its stills are `image` assets,
     /// named by id, and the files are theirs.
     ImageSequence,
+    /// A web page the project carries under `pages/`, played as a moving
+    /// picture with alpha — a title, a lower third, an animated graphic built
+    /// from HTML and CSS rather than from the compositor's own shapes.
+    ///
+    /// **Authored, not generated.** A page is a document somebody wrote, like
+    /// a recipe, so deleting one loses work; but it has no brief, no
+    /// [`GenerationState`] and nothing that costs money, so it is none of
+    /// [`AssetKind::is_generated`]'s kinds. The frames drawn from it are
+    /// rebuildable cache, never `generated/` output.
+    ///
+    /// Like [`AssetKind::Image`] it has no length of its own: the clip says how
+    /// long it is on screen, and the page is told that length when it is
+    /// drawn. It may reference other files inside the project — a picture, a
+    /// font — and never anything outside it, so it still survives `scp -r`.
+    Html,
     /// A Veo prompt: video that does not exist until it is generated.
     GeneratedVideo,
     /// A Gemini image prompt: a still that does not exist until it is
@@ -113,6 +128,7 @@ impl AssetKind {
                 | Self::Shape
                 | Self::Icon
                 | Self::ImageSequence
+                | Self::Html
                 | Self::GeneratedVideo
                 | Self::GeneratedImage
                 | Self::Group
@@ -155,6 +171,29 @@ impl AssetKind {
             Self::Text | Self::Color | Self::Shape | Self::Icon | Self::Group | Self::ImageSequence
         )
     }
+
+    /// True when the file behind this kind is *media* — something ffprobe
+    /// reads, and so something with a `media` block a probe fills in.
+    ///
+    /// Every file-backed kind but [`AssetKind::Html`]. A page is a document,
+    /// not a stream: there is no frame rate or duration to read off it, and
+    /// asking ffprobe would be a process spent to fail. So it is never probed,
+    /// never reported as unprobed, and imported without a probe.
+    pub fn is_media(self) -> bool {
+        self.is_file_backed() && self != Self::Html
+    }
+}
+
+/// True when `path` names a page: it ends in `.html`, in any case.
+///
+/// The extension is what tells a reader of the document — and the browser
+/// that draws it — that the file is HTML, so a page is held to it rather than
+/// sniffed. `.htm` is not admitted: one spelling is one thing to look for.
+pub(crate) fn is_page_path(path: &str) -> bool {
+    path.len() > ".html".len()
+        && path
+            .get(path.len() - ".html".len()..)
+            .is_some_and(|extension| extension.eq_ignore_ascii_case(".html"))
 }
 
 /// Where a generated asset sits in the sketch lifecycle.

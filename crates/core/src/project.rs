@@ -19,7 +19,7 @@ use crate::validate::ValidationErrors;
 /// previous version (`CLAUDE.md`, *A schema bump ships with a migration*):
 /// this format is the contract between the CLI, the MCP server, the GUI, the
 /// web app, and every project already stored — on a disk or in its database.
-pub const SCHEMA_VERSION: u32 = 43;
+pub const SCHEMA_VERSION: u32 = 44;
 
 /// The document's file name inside a `*.scor/` project directory.
 pub const PROJECT_FILE_NAME: &str = "project.json";
@@ -39,6 +39,14 @@ pub const GENERATED_DIR: &str = "generated";
 /// procedural texture recipe would have somewhere to go without another
 /// format change.
 pub const RECIPES_DIR: &str = "recipes";
+
+/// Authored web pages, which `html` assets play as moving pictures.
+///
+/// Beside [`RECIPES_DIR`] and for the same reason: a page is a document
+/// somebody wrote, not imported media and not output, and it is not
+/// rebuildable — deleting one loses work. A page may reference other files in
+/// the project (`../assets/photo.png`), never anything outside it.
+pub const PAGES_DIR: &str = "pages";
 
 /// Rebuildable scratch. Gitignored, and safe to delete at any time.
 pub const CACHE_DIR: &str = "cache";
@@ -137,7 +145,7 @@ impl Project {
                 path: project_dir.to_path_buf(),
             });
         }
-        for directory in [ASSETS_DIR, GENERATED_DIR, RECIPES_DIR, CACHE_DIR] {
+        for directory in [ASSETS_DIR, GENERATED_DIR, RECIPES_DIR, PAGES_DIR, CACHE_DIR] {
             let path = project_dir.join(directory);
             fs::create_dir_all(&path).map_err(|source| SaveError::Io { path, source })?;
         }

@@ -32,6 +32,6 @@ pub(crate) fn run(directory: &Path, name: Option<String>, fps: Fps) -> Result<()
         project.name,
         directory.display()
     );
-    println!("  project.json, assets/, generated/, recipes/, cache/");
+    println!("  project.json, assets/, generated/, recipes/, pages/, cache/");
     Ok(())
 }

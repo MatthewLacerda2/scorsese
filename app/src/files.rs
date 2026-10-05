@@ -150,7 +150,10 @@ const GROUPS: &[(&str, &[AssetKind])] = &[
         &[AssetKind::Video, AssetKind::Image, AssetKind::ImageSequence],
     ),
     ("SOUND", &[AssetKind::Audio]),
-    ("TITLES", &[AssetKind::Text, AssetKind::Color]),
+    (
+        "TITLES",
+        &[AssetKind::Text, AssetKind::Html, AssetKind::Color],
+    ),
     (
         "NOT MADE YET",
         &[

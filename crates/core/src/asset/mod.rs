@@ -24,6 +24,7 @@ use crate::text::TextStyle;
 use crate::time::{Fps, Frames};
 
 pub use image::{ImageAspect, ImageModel, ImageRequest, ImageResolution, MAX_IMAGE_REFERENCES};
+pub(crate) use kind::is_page_path;
 pub use kind::{AssetKind, GenerationState};
 pub use sequence::{ImageSequence, SEQUENCE_FORMATS};
 pub use speech::{LanguageIgnored, MAX_CHARACTERS, SpeechModel, SpeechRequest};
@@ -462,6 +463,11 @@ impl Asset {
     /// brief and no file, so there is nothing to trim and nothing to speed up;
     /// once realised it is media like any other.
     ///
+    /// A **page** has none either, though it moves: like a still, how long it
+    /// is on screen is the clip's to say, and the page is told that length
+    /// when it is drawn — so a shorter clip is a shorter page, never a faster
+    /// one.
+    ///
     /// A **group** has one too, derived from its members rather than measured:
     /// shortening a clip of it shows less of the group, exactly as it would a
     /// shot. So does an **image sequence**: a shorter clip of a timelapse shows
@@ -470,6 +476,7 @@ impl Asset {
         match self.kind {
             AssetKind::Image
             | AssetKind::GeneratedImage
+            | AssetKind::Html
             | AssetKind::Text
             | AssetKind::Color
             | AssetKind::Shape

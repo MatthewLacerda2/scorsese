@@ -14,6 +14,7 @@ const COLORS: Record<string, string> = {
   generated_audio: "bg-lime-500",
   synth_audio: "bg-green-600",
   text: "bg-amber-500",
+  html: "bg-orange-500",
   color: "bg-fuchsia-500",
   shape: "bg-violet-500",
   icon: "bg-indigo-500",

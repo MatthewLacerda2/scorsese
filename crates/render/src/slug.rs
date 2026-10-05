@@ -89,8 +89,12 @@ impl Look {
 
     /// Which of the two a kind gets: sound over the picture, picture instead
     /// of it.
+    ///
+    /// A page gets the band too. It is a layer drawn over the timeline, like a
+    /// title — a lower third, a caption with alpha around it — so a full-frame
+    /// panel would hide the very shot it was written to sit on.
     fn of(kind: AssetKind) -> Self {
-        if kind.is_audible() {
+        if kind.is_audible() || kind == AssetKind::Html {
             Self::NARRATION
         } else {
             Self::PICTURE
@@ -146,6 +150,10 @@ pub enum Absent {
     /// half-copied, or never carried along with the project. The one variant
     /// that is a problem rather than a stage.
     Gone,
+    /// A web page that has not been captured into frames. In this build that
+    /// is every page — capturing one is #775's — and afterwards it is a page the
+    /// browser could not draw. Not a stage of any lifecycle: a page has none.
+    Uncaptured,
 }
 
 impl Absent {
@@ -155,6 +163,9 @@ impl Absent {
     /// description say why a clip is a card without a render having happened.
     /// `standing` is the same question once the filesystem has had its say.
     pub fn of(asset: &Asset) -> Self {
+        if asset.kind == AssetKind::Html {
+            return Self::Uncaptured;
+        }
         match asset.state {
             Some(GenerationState::Sketch) => Self::Sketch,
             Some(GenerationState::Queued) => Self::Queued,
@@ -179,6 +190,7 @@ impl Absent {
             Self::Queued => "QUEUED",
             Self::Stale => "STALE",
             Self::Gone => "MEDIA MISSING",
+            Self::Uncaptured => "NOT CAPTURED",
         }
     }
 }
@@ -194,6 +206,7 @@ impl std::fmt::Display for Absent {
             Self::Queued => "queued",
             Self::Stale => "stale",
             Self::Gone => "media missing",
+            Self::Uncaptured => "not captured",
         })
     }
 }
@@ -328,12 +341,21 @@ pub fn wording(asset: &Asset, absent: Absent) -> String {
 
 /// What kind of brief this asset carries, and what that brief says.
 ///
+/// A page carries no brief at all, so its card names the page.
+///
 /// The three generated kinds do not all carry a prompt. A `synth_audio` asset
 /// is made from a **recipe** in the project, so asking it for a prompt and
 /// finding none used to put "(no prompt)" on the card — reporting a perfectly
 /// well-formed asset as broken, in the one place a person looks to find out
 /// what a shot is going to be. The card names what is actually there.
-fn brief(asset: &Asset) -> (&'static str, &str) {
+pub(crate) fn brief(asset: &Asset) -> (&'static str, &str) {
+    if asset.kind == AssetKind::Html {
+        let page = asset
+            .path
+            .as_ref()
+            .map_or("(no path)", |path| path.as_str());
+        return ("PAGE", page);
+    }
     if asset.kind.is_synthesized() {
         let recipe = asset
             .recipe

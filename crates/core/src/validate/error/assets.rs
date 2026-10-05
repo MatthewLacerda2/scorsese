@@ -119,6 +119,20 @@ pub enum AssetProblem {
         problem: PathProblem,
     },
 
+    /// An `html` asset whose `path` does not end in `.html`.
+    ///
+    /// The extension is how the document — and the browser that will draw the
+    /// page — knows the file is HTML, so a page named `title.txt` is a `kind`
+    /// or a `path` somebody got wrong, and it is said here rather than as a
+    /// page that draws as text.
+    #[error("asset `{asset}`: an html asset's path must end in `.html`, and `{path}` does not")]
+    PageNotHtml {
+        /// The page asset.
+        asset: AssetId,
+        /// The path as written.
+        path: ProjectPath,
+    },
+
     /// `generated` claims the media exists, so something has to say where.
     /// Usually a state edited by hand ahead of the generation.
     #[error("asset `{asset}` is in state `generated` but has no `path` to the generated file")]

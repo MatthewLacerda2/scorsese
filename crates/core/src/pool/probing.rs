@@ -143,9 +143,10 @@ fn probe_one(
 /// `Awaiting`: an inline kind has no file by construction, and a generated
 /// asset in any state before `generated` has none yet. Everything else is
 /// something a prober could be asked about — including one whose file has
-/// gone, which is reported rather than skipped.
+/// gone, which is reported rather than skipped. A page has a file and is not
+/// media, so it is never asked about: ffprobe reads no length off HTML.
 fn expects_a_file(asset: &Asset) -> bool {
-    asset.kind.is_file_backed() && asset.state.is_none_or(GenerationState::has_media)
+    asset.kind.is_media() && asset.state.is_none_or(GenerationState::has_media)
 }
 
 /// What gets *recorded* for a kind, which is not always what the prober said.

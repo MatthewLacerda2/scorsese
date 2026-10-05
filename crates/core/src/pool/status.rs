@@ -158,7 +158,9 @@ fn health_of(asset: &Asset, project_root: &Path, check: HashCheck) -> AssetHealt
         }
     }
 
-    if asset.media.is_none() {
+    // A page is never probed — there is no stream in it to measure — so the
+    // absence of a `media` block is what a healthy one looks like.
+    if asset.media.is_none() && asset.kind.is_media() {
         return AssetHealth::Unprobed;
     }
     AssetHealth::Ok
