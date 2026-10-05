@@ -26,6 +26,12 @@ app`). That does not keep it a draft — unless the branch changes what that
 gate checks (`crates/server`, `deploy/`, `app/`): then it is proven on a
 machine that can run it, not left to CI.
 
+**A change meant not to change behaviour is proven by comparison.** A refactor,
+a move, a dependency swap: capture the output first (a `tools/list`, a generated
+table, rendered frames), and show it identical after, or explain each difference
+in the pull request. #748 did this for every MCP tool, byte for byte. A green
+test suite says the tests still pass; only the comparison says nothing moved.
+
 Deliberately **not** before every push. Checkpoint commits stay cheap — the
 pre-commit hook is formatting and the size gate only, well under a second.
 

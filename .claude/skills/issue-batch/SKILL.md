@@ -47,6 +47,19 @@ The files where everything collides are the ones every feature appends to — an
 error list, a source enum, a pattern-entry type, a running record in a doc
 comment. Two branches landing there at once is the case to avoid.
 
+**Lockfiles have one owner per wave.** Everything that touches a dependency
+collides in `Cargo.toml`s and `Cargo.lock` (and `app/Cargo.lock`), and a lockfile
+conflict is never a seconds-long rebase: it is a regeneration, a locked check and
+`cargo deny` (`ci-merge`, *Rebasing*). So while a branch that changes
+dependencies broadly is in flight, it is the **only** branch in its wave that
+edits them; a sibling needing a new dependency waits for it to land, or takes
+its dependency through it. Dependabot's monthly lockfile pull requests are that
+broad branch while they are open. In the 2026-10-03/04 batch two were resolved
+by hand: #747 added `strsim` to `app/Cargo.lock` while Dependabot's #737
+rewrote it, and #748 added `schemars` to `crates/mcp`'s manifest and the lockfile
+while #747 added `base64` to the same two (rusty learned the same,
+MatthewLacerda2/rusty#812).
+
 **A format change collides across modules.** Every branch that changes
 `project.json` bumps `schema_version`, and that literal sits in some sixty
 files — fixtures, goldens, and tests under `web/` and `app/`. Two such branches
@@ -167,7 +180,7 @@ and the brief below as its prompt. Set its **model** on purpose: the `schedule`
 skill's example body defaults to a Sonnet, and writing a feature branch is
 judgement work (CLAUDE.md, *Which model does what*). Its example
 `allowed_tools` lists only shell and file tools, so check it leaves room for
-what the brief uses (ToolSearch, the GitHub MCP tools, `send_later`). Two traps
+what the brief uses (ToolSearch, the GitHub MCP tools). Two traps
 decide whether it is really remote:
 
 - **Pick the `anthropic_cloud` environment, never a `bridge` one.** The
@@ -215,11 +228,12 @@ follow-up PR off `main` (MatthewLacerda2/rusty#583).
 that starts a build in the background and ends its turn to wait sits idle
 forever — on rusty one did exactly that for an hour, gates half-run, PR still a
 draft (MatthewLacerda2/rusty#519). Brief every cloud session to run builds and
-gates in the **foreground** (long timeouts, split across calls), and to schedule
-its own check-in with `send_later` (the `Claude_Code_Remote` MCP tool) before
-ending a turn to wait on CI. From here, `worker_status: idle` on `list_runs` with
-a draft PR is the stall's signature; the fix is a fresh routine briefed to
-finish the pushed branch.
+gates in the **foreground** (long timeouts, split across calls). It never waits
+on CI: it marks its pull request ready and ends, and the merge queue waits for
+the run; a red run comes back to the orchestrator as a hand-back. Anything else
+it must wait for (a measurement workflow, say) is polled in the foreground too.
+From here, `worker_status: idle` on `list_runs` with a draft PR is the stall's
+signature; the fix is a fresh routine briefed to finish the pushed branch.
 
 **The container's disk is finite too**, and **what it costs** is a cold build of
 the whole dependency tree, with no local compile cache to help — so choose it on
@@ -371,12 +385,16 @@ read cold. Beyond that:
   which reads GitHub's recorded relationships (`cloud-brief.md` has the step).
 - For a **cloud** session: launched as a one-off routine on the
   `anthropic_cloud` environment, step 0's `CLAUDE_CODE_REMOTE` check comes
-  first, and the pull request is its only way to report (see above).
-- Tell it **not** to merge — merging is serialized and belongs to the session
-  running the batch.
-- Tell it not to start a heavy build while the machine's heavy-build slots are
-  taken, to give it half the cores (`CARGO_BUILD_JOBS`) while another may
-  overlap it, and not to run `make mutants` while siblings are compiling.
+  first, and the pull request is its only way to report (see above). Its
+  standing rules — foreground builds, the blocker check, never pushing a ready
+  branch, numbers taken last, the PR's *Gates* line, do not merge — are
+  [`cloud-brief.md`](cloud-brief.md)'s; point at it, never restate it.
+- For a **local** subagent, the same rules apply, from `ci-merge` and this
+  skill: tell it **not** to merge (merging is serialized and belongs to the
+  session running the batch), not to start a heavy build while the machine's
+  heavy-build slots are taken, to give it half the cores (`CARGO_BUILD_JOBS`)
+  while another may overlap it, and not to run `make mutants` while siblings
+  are compiling.
 - **Scratch filenames must carry the issue number.** The scratchpad is shared
   between sibling agents; a collision has already swapped one pull request's
   description for another's.

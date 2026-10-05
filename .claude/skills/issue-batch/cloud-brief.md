@@ -82,6 +82,9 @@ Only a reference **your branch adds or deliberately changes**, by name, and you
   identical after (#748, byte for byte).
 - Regenerate generated text (`make mcp-table`), never hand-merge it, and run
   `cargo fmt --all` after any conflict (#686).
+- **A new dependency is a collision.** If your issue needs one, say so in the PR
+  description, so the orchestrator can sequence it behind whichever branch owns
+  the lockfiles this wave (`issue-batch`, *Lockfiles have one owner per wave*).
 
 ## The mutation signal
 
@@ -105,8 +108,10 @@ Survivors in code you wrote: fix, exclude with a reason, or file (`ci-merge`).
 
 - Branch as the prompt names it, off the latest `origin/main`; open a **draft**
   PR on the first commit, `(#N)` in the title. Body: what changed / why / effect
-  / decisions, `Closes #N`, a **Gates** line (what ran green, on which head, what
-  did not and why), a checklist for anything only a human can check, ending with
+  / decisions, `Closes #N` (only if it does: GitHub matches the keyword
+  anywhere, even quoted or negated, so a PR leaving an issue open writes
+  `refs #N`), a **Gates** line (what ran green, on which head, what did not and
+  why), a checklist for anything only a human can check, ending with
   `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
 - Commits end with your session's `Co-Authored-By:` trailer. Push often: a dead
   container loses what is not pushed.
