@@ -150,9 +150,10 @@ pub enum Absent {
     /// half-copied, or never carried along with the project. The one variant
     /// that is a problem rather than a stage.
     Gone,
-    /// A web page that has not been captured into frames. In this build that
-    /// is every page — capturing one is #775's — and afterwards it is a page the
-    /// browser could not draw. Not a stage of any lifecycle: a page has none.
+    /// A web page that has not been captured into frames: as far as the
+    /// document can say, every page, and on a rendered frame a page the browser
+    /// could not draw (`crate::page`, #775). Not a stage of any lifecycle: a page
+    /// has none.
     Uncaptured,
 }
 

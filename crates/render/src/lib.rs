@@ -45,6 +45,14 @@
 //! second, and because the CLI, the MCP server and the golden harness all want
 //! the same answer.
 //!
+//! **A web page is the one source ffmpeg cannot read**, so it has a second
+//! external program: [`mod@page`] drives a pinned headless Chromium to capture a
+//! page's frames into a lossless video in `cache/`, which the decode step then
+//! reads like any other video with alpha. It is located the way ffmpeg is
+//! ([`page::Chrome`]) and its whole conversation with the browser lives in that
+//! folder; [`page::capture`] is a step of its own, so a caller can run it ahead
+//! of a render — the web app captures in a different container (#778).
+//!
 //! Boundary: no compositing logic (that is `scorsese-compositor`'s job — this
 //! crate never draws), no provider calls, no GUI. Depends on `scorsese-core`,
 //! `scorsese-compositor` and `scorsese-zimmer`. The last is for *reading*
@@ -110,6 +118,9 @@
 //! holds — [`Preview`], [`Quality`] and [`Proxies`] — are at the root. A
 //! [`Renderer`] reads a proxy only when handed a [`Preview`], which nothing
 //! delivering a file ever does.
+//!
+//! [`mod@page`] keeps its path for the same reason: [`page::capture`] and
+//! [`page::cached`] are verbs, and [`page::Request`] is what they are asked.
 //!
 //! **Everything else is `pub(crate)`.** The ffmpeg processes themselves, the
 //! rasters a fit is worked out on, the slug-card furniture, the font cache and

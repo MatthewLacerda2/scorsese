@@ -485,6 +485,32 @@ Such a re-blessing is legitimate only under the rules below: a deliberate visual
 change, said out loud in the PR description, arriving as image diffs a human can
 look at. It is never legitimate as a way to get a text fixture green again.
 
+## The browser, which draws the pages
+
+The `page_*` fixtures (`page_alpha`, `page_anime`, `page_css`, `page_font`,
+`page_raf`, `page_speed`) render `html` clips, so a third program sits upstream of
+their pixels: the pinned `chrome-headless-shell` (`tools/chromium/pin`) that
+captures each page (#775). It is held still the same way ffmpeg and the faces
+are. There is **one build**, named by version and checksum in the pin, fetched
+and verified by `tools/chromium/fetch`, and its version is part of every
+capture's cache key. It draws with **SwiftShader**, the same software GPU on
+every machine. Its fonts are **only the shipped ones**: declared to the page by
+name, and the only files its fallback can reach.
+
+**Blessing a page fixture needs that browser** (`SCORSESE_CHROME`, or
+`chrome-headless-shell` on `PATH`). Without it the fixture **fails** with the
+render's own reason. It never compares a slug card against a page, because a
+page that could not be captured is a card on the report and a failure here.
+
+What #772 measured, so nobody re-derives it: an x86_64 container (Intel, AVX-512)
+and CI's runner (AMD, AVX2) produce **byte-identical** frames from this build,
+with one exception. That exception is a rare SwiftShader race that moves six
+pixels by one level on some launches, on either machine. So page references are
+blessed on any x86_64 Linux and compared with the ordinary tolerance, which
+absorbs that race three orders of magnitude over. **Never tighten a page fixture
+to byte equality.** Moving the pin means re-measuring that and re-blessing every
+`page_*` fixture, in the same PR.
+
 ## Re-blessing
 
 ```sh
