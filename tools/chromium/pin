@@ -1,0 +1,24 @@
+# The one Chromium build scorsese renders `html` clips with (#594, #772).
+#
+# `chrome-headless-shell` from Chrome for Testing, at one version for every
+# platform and every way scorsese runs: CI's goldens (#775), the desktop and
+# CLI first-use download (#776) and the web image (#778) all read this file,
+# never a copy of it. A golden pins Chromium version + raster mode (#606), so
+# two version numbers in two places would be two sets of pixels.
+#
+# 154.0.8037.92 is the build #606 measured every determinism, memory and speed
+# figure on, and #772 measured CI against (its results comment). Moving it
+# means re-measuring that, and re-blessing every `html` golden.
+#
+# The format is the narrowest both readers share: `KEY=value` lines, no quotes,
+# no spaces, `#` comments. A shell sources it (`. tools/chromium/pin`); Rust
+# reads it with `include_str!` and splits each line on its first `=`. In the
+# URL, `{version}` and `{platform}` are placeholders for the reader to fill.
+# Each checksum is the sha256 of that platform's zip, exactly as downloaded.
+
+CHROME_VERSION=154.0.8037.92
+CHROME_URL=https://storage.googleapis.com/chrome-for-testing-public/{version}/{platform}/chrome-headless-shell-{platform}.zip
+CHROME_SHA256_LINUX64=636aa5c79f2693632e9921b8bbb050038ba11672e02346c06c20f991aed096f9
+CHROME_SHA256_MAC_ARM64=77da14e75d7f2568e6f7898d3df7cdc6faac74b15e903b2c9d486ebb6ca9b929
+CHROME_SHA256_MAC_X64=a54292aaacbb77f76f6ef47558e7c51ab884044e0adacca315567f83c060bcc4
+CHROME_SHA256_WIN64=3ac2561f02d9d87aadc0399d00b9002d718a4c365624fa67db9e7bfaf6b1a568

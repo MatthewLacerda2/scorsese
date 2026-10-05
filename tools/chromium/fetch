@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+# Download the pinned chrome-headless-shell, verify it, and print its path.
+#
+#   export SCORSESE_CHROME="$(tools/chromium/fetch)"
+#   tools/chromium/fetch ~/some/dir     # install under a directory of your own
+#
+# What is fetched is decided by tools/chromium/pin and nothing else: its
+# version, its URL pattern, and the sha256 this platform's zip must have. A zip
+# that does not match is deleted and the script fails, so a binary this prints
+# is always the pinned build -- which is what makes a golden rendered with it
+# mean anything (#772).
+#
+# The build lands in <dir>/<version>/chrome-headless-shell-<platform>/, where
+# <dir> is the argument or, without one, ${XDG_CACHE_HOME:-~/.cache}/scorsese/chromium.
+# A second run finds it there and downloads nothing, so CI caches <dir> keyed
+# on the pin file's hash and pays for the download only when the pin moves:
+#
+#   - uses: actions/cache@v4
+#     with: { path: ~/.cache/scorsese/chromium, key: chromium-${{ hashFiles('tools/chromium/pin') }} }
+#   - run: echo "SCORSESE_CHROME=$(tools/chromium/fetch)" >> "$GITHUB_ENV"
+#
+# Only the path goes to stdout; progress and errors go to stderr. Needs curl,
+# unzip, and sha256sum or shasum. Runs on Linux, macOS, and Windows under Git
+# Bash -- the four platforms the pin has a checksum for.
+
+set -euo pipefail
+
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=pin
+. "$here/pin"
+
+case "$(uname -s)/$(uname -m)" in
+    Linux/x86_64) platform=linux64 ;;
+    Darwin/arm64) platform=mac-arm64 ;;
+    Darwin/x86_64) platform=mac-x64 ;;
+    MINGW*/x86_64 | MSYS*/x86_64 | CYGWIN*/x86_64) platform=win64 ;;
+    *)
+        echo "fetch: Chrome for Testing has no chrome-headless-shell for $(uname -s)/$(uname -m)." >&2
+        exit 1
+        ;;
+esac
+checksum_key=CHROME_SHA256_$(echo "$platform" | tr 'a-z-' 'A-Z_')
+expected=${!checksum_key}
+binary=chrome-headless-shell
+[ "$platform" = win64 ] && binary=chrome-headless-shell.exe
+
+root=${1:-${XDG_CACHE_HOME:-$HOME/.cache}/scorsese/chromium}
+install=$root/$CHROME_VERSION
+target=$install/chrome-headless-shell-$platform
+# The stamp names the checksum the install was verified against, so a pin that
+# changes a checksum without changing the version still re-downloads.
+stamp=$target/.sha256
+
+if [ -x "$target/$binary" ] && [ "$(cat "$stamp" 2>/dev/null)" = "$expected" ]; then
+    echo "$target/$binary"
+    exit 0
+fi
+
+sha256() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$1" | cut -d' ' -f1
+    else
+        shasum -a 256 "$1" | cut -d' ' -f1
+    fi
+}
+
+mkdir -p "$install"
+work=$(mktemp -d "$install/.fetch.XXXXXX")
+trap 'rm -rf "$work"' EXIT
+
+url=${CHROME_URL//\{version\}/$CHROME_VERSION}
+url=${url//\{platform\}/$platform}
+echo "fetch: chrome-headless-shell $CHROME_VERSION ($platform)" >&2
+curl -fsSL --retry 3 -o "$work/chrome.zip" "$url"
+
+actual=$(sha256 "$work/chrome.zip")
+if [ "$actual" != "$expected" ]; then
+    echo "fetch: checksum mismatch for $url" >&2
+    echo "  expected $expected (tools/chromium/pin)" >&2
+    echo "  got      $actual" >&2
+    exit 1
+fi
+
+# Unpacked beside the target and moved into place in one step, so an
+# interrupted run never leaves a half-extracted build that looks installed.
+unzip -q "$work/chrome.zip" -d "$work/unpacked"
+echo "$expected" >"$work/unpacked/chrome-headless-shell-$platform/.sha256"
+rm -rf "$target"
+mv "$work/unpacked/chrome-headless-shell-$platform" "$target"
+echo "$target/$binary"
