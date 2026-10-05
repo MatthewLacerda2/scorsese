@@ -66,9 +66,10 @@ Only a reference **your branch adds or deliberately changes**, by name, and you
   `UPDATE_GOLDENS=1 cargo test -p scorsese-golden --test goldens -- --exact
   <name>`, never on the whole suite. An unintended mismatch is investigated,
   never re-blessed (`docs/golden-renders.md`).
-- **App panel snapshots** (`app/tests/panels`, #628): each is the whole window,
-  so a change to a shared strip like the top bar moves every one with a project
-  open (#726 re-blessed 12, #755). Check each diff stays inside your change.
+- **App panel snapshots** (`app/tests/panels`, #628): each is cropped to the
+  part it is named for (#755), except `a_whole_edit` and `a_whole_edit_in_light`,
+  which are whole on purpose — a change to the chrome moves those two and the
+  pictures of that part. Check each diff stays inside your change.
 
 ## Easy to miss
 

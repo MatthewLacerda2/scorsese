@@ -5,6 +5,7 @@ use egui_kittest::kittest::Queryable;
 
 use crate::drawing::window;
 use crate::fixture::{self, DOCUMENT, Fixture, PIXEL};
+use crate::framing::Part;
 
 /// The whole edit with a three-photo timelapse added, one of whose photos a
 /// clip also shows on its own, and one of which is missing from disk — so the
@@ -48,5 +49,5 @@ fn a_sequence_unfolded_in_the_files_panel() {
     // Off the panel, so the pointer does not sit over the arrow in the picture.
     harness.hover_at(egui::pos2(700.0, 780.0));
     harness.run();
-    harness.snapshot("a_sequence_unfolded_in_the_files_panel");
+    harness.snapshot(Part::Side, "a_sequence_unfolded_in_the_files_panel");
 }

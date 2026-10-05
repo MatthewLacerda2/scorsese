@@ -76,6 +76,14 @@ checked by looking at it.
 — no window, no display, no X server — and holds each panel to a reference
 image in `app/tests/snapshots/`.
 
+Each reference is **cropped to the part it is named for** — the bar, the side
+column, the timeline, the middle, or a dialog — so a change to the top bar
+re-blesses pictures of the bar and nothing else (#755). `a_whole_edit` and
+`a_whole_edit_in_light` stay whole on purpose: they are the layout check, the
+only pictures that would show one panel running under another, and the only
+ones a change to the window's chrome is expected to move.
+`tests/panels/framing.rs` has the parts.
+
 That exists because six panels were built before it did and **not one frame of
 any of them had ever been looked at.** Every other test here covers the logic
 *behind* the drawing, because the drawing was unreachable.

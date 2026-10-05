@@ -51,19 +51,23 @@
 
 mod drawing;
 mod fixture;
+mod framing;
+mod generating;
 mod rendering;
 mod sequence;
 mod watchdog;
 
 use drawing::window;
+use framing::Part;
 
 /// The window before anything is open — the first thing anyone sees, and the
-/// one state that has to invite rather than look broken.
+/// one state that has to invite rather than look broken. The invitation is the
+/// middle of the window, so that is the picture.
 #[test]
 fn nothing_open() {
     let mut harness = window(None);
     harness.run();
-    harness.snapshot("nothing_open");
+    harness.snapshot(Part::Centre, "nothing_open");
 }
 
 /// A whole edit: a title over a colour, music under narration, a duck already
@@ -73,7 +77,7 @@ fn a_whole_edit() {
     let project = fixture::project("whole");
     let mut harness = window(Some(project.path().to_path_buf()));
     harness.run();
-    harness.snapshot("a_whole_edit");
+    harness.snapshot(Part::Window, "a_whole_edit");
 }
 
 /// The same edit in the light theme, with a clip selected.
@@ -90,7 +94,7 @@ fn a_whole_edit_in_light() {
     harness.state_mut().show_in(egui::Theme::Light);
     harness.state_mut().select("c-title");
     harness.run();
-    harness.snapshot("a_whole_edit_in_light");
+    harness.snapshot(Part::Window, "a_whole_edit_in_light");
 }
 
 /// A clip selected: the inspector stops saying "select a clip" and starts
@@ -101,7 +105,7 @@ fn a_clip_selected() {
     let mut harness = window(Some(project.path().to_path_buf()));
     harness.state_mut().select("c-title");
     harness.run();
-    harness.snapshot("a_clip_selected");
+    harness.snapshot(Part::Side, "a_clip_selected");
 }
 
 /// Several clips selected, on two tracks: every one of them outlined in the
@@ -115,7 +119,10 @@ fn several_clips_selected() {
     harness.state_mut().also_select("c-title");
     harness.state_mut().also_select("c-vo");
     harness.run();
-    harness.snapshot("several_clips_selected");
+    // Two pictures, because the claim is about two panels: a crop around both
+    // would be the bounding box of an L, which is most of the window.
+    harness.snapshot(Part::Timeline, "several_clips_selected_in_the_timeline");
+    harness.snapshot(Part::Side, "several_clips_selected_in_the_inspector");
 }
 
 /// A scale in flight: the clips drawn where the pointer has put them, and the
@@ -138,7 +145,7 @@ fn a_scale_in_flight() {
     harness.run();
     harness.hover_at(egui::pos2(380.0, 700.0));
     harness.run();
-    harness.snapshot("a_scale_in_flight");
+    harness.snapshot(Part::Timeline, "a_scale_in_flight");
 }
 
 /// The timeline zoomed out past the end of the film.
@@ -163,7 +170,7 @@ fn the_timeline_zoomed_out_past_the_end() {
         harness.key_press(egui::Key::Minus);
         harness.run();
     }
-    harness.snapshot("the_timeline_zoomed_out_past_the_end");
+    harness.snapshot(Part::Timeline, "the_timeline_zoomed_out_past_the_end");
 }
 
 /// A project that does not validate, **open**: the timeline, the pool and the
@@ -183,7 +190,8 @@ fn a_project_that_does_not_validate() {
         harness.state().showing().is_some(),
         "it has to really be open, not drawn around"
     );
-    harness.snapshot("a_project_that_does_not_validate");
+    harness.snapshot(Part::Centre, "a_project_that_does_not_validate");
+    harness.snapshot(Part::Bar, "a_project_that_does_not_validate_in_the_bar");
 }
 
 /// A `project.json` that is not JSON. Nothing parsed, so there is no document
@@ -198,7 +206,7 @@ fn a_document_that_will_not_parse() {
         harness.state().showing().is_none(),
         "there is no document to show"
     );
-    harness.snapshot("a_document_that_will_not_parse");
+    harness.snapshot(Part::Centre, "a_document_that_will_not_parse");
 }
 
 /// A generated shot selected: the brief under the clip's own fields, every
@@ -210,7 +218,7 @@ fn a_generated_shot_selected() {
     let mut harness = window(Some(project.path().to_path_buf()));
     harness.state_mut().select("c-shot");
     harness.run();
-    harness.snapshot("a_generated_shot_selected");
+    harness.snapshot(Part::Side, "a_generated_shot_selected");
 }
 
 /// The same shot in a window too short for its brief: the inspector scrolls
@@ -240,7 +248,7 @@ fn a_generated_shot_selected_in_a_short_window() {
     });
     // A wheel scroll is animated, so it takes frames rather than one run.
     harness.run_steps(60);
-    harness.snapshot("a_generated_shot_selected_in_a_short_window");
+    harness.snapshot(Part::Side, "a_generated_shot_selected_in_a_short_window");
 }
 
 /// A generated line selected: the words, what they will cost to speak, and the
@@ -257,47 +265,5 @@ fn a_narration_line_selected() {
     let mut harness = window(Some(project.path().to_path_buf()));
     harness.state_mut().select("c-vo");
     harness.run();
-    harness.snapshot("a_narration_line_selected");
-}
-
-/// The generate dialog: what each unmade shot and each unspoken line would
-/// cost, the total, and the two sentences that keep the number honest — that it
-/// is our calculation, and what the ceiling is.
-///
-/// Shots and narration are counted and subtotalled **separately**, because
-/// their rates are two orders of magnitude apart: a 96¢ shot and a 2¢ line
-/// summed into one figure is a number nobody can act on.
-///
-/// **The one dialog in this window**, because it is the one moment that is not
-/// an editing operation: money leaves. A number on screen before a
-/// confirmation is the difference between a decision and a surprise.
-#[test]
-fn the_generate_dialog() {
-    let project = fixture::project("generate");
-    let mut harness = window(Some(project.path().to_path_buf()));
-    harness.run();
-    harness.state_mut().start_generating();
-    harness.run();
-    harness.snapshot("the_generate_dialog");
-}
-
-/// The same dialog with the narration actually priced.
-///
-/// Every other reference here shows narration at $0.00, because a line is
-/// priced only once it has a voice and no committed fixture may carry a voice
-/// id — [`fixture::voiced`] is how this one gets one without committing it. So
-/// until this image existed, the arithmetic that crosses two vendors a
-/// hundredfold apart had never been looked at: ninety-six cents of picture and
-/// one cent of speech, subtotalled apart and then added up.
-///
-/// `narration_is_not_quoted_as_a_video_shot` proves that cent is the right
-/// number. This is the only thing that says it is legible.
-#[test]
-fn the_generate_dialog_with_narration_priced() {
-    let project = fixture::voiced("priced");
-    let mut harness = window(Some(project.path().to_path_buf()));
-    harness.run();
-    harness.state_mut().start_generating();
-    harness.run();
-    harness.snapshot("the_generate_dialog_with_narration_priced");
+    harness.snapshot(Part::Side, "a_narration_line_selected");
 }
