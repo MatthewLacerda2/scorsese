@@ -1634,8 +1634,9 @@ What the page can count on:
 whose paths are the project's, so `../assets/photo.png` from `pages/` is the
 project's `assets/photo.png`. Any other request is refused, whether to another
 host or to a path outside the project. A refused request, a file the page asked
-for that is not there, or a script that threw becomes a **warning on the
-render**. The page is drawn without whatever it was.
+for that is not there, a script that threw, or text laid out off the frame,
+out of its box or over other text becomes a **warning on the render**. The page
+is drawn without whatever it was, or as it was laid out.
 
 **Not covered:** `<video>` and `<audio>` inside a page (they play on their own
 clock; a warning says so, so put footage and sound on the timeline), workers'

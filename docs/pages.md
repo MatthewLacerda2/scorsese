@@ -114,9 +114,10 @@ twice should not use it.
 These are observations about what reads well on a video, not rules the renderer
 holds. Every one is a choice the page makes.
 
-- **Keep inside the safe margins.** Nothing important within about 5% of the
-  frame's edge (96 px on a landscape page): players crop, and captions sit at
-  the bottom.
+- **Keep inside the safe margins.** Nothing important within 5% of the
+  frame's edge (96 px at the sides of a landscape page, 54 px at the top and
+  foot): players crop, and captions sit at the bottom. Text that does not is
+  a note (below).
 - **Type is bigger on video than on a web page.** A title is 100–160 px, body
   text no smaller than 36 px. Two families at most, usually one sans and one
   serif or display face.
@@ -144,6 +145,15 @@ Whatever a page does that its author should hear about comes back in words:
 - a file the page asked for that is not in the project,
 - a script that threw, with its message,
 - a `<video>` or `<audio>` element,
+- text laid out wrong and **held** there — running off the frame, inside the
+  safe margin, overflowing the box painted behind it (a card's background,
+  border or shadow), or overlapping other text. Each note quotes the text,
+  names the side and the amount in CSS pixels, and says from when on the
+  page's own clock. Only text is measured, by its lines rather than its
+  element, and only what stays put for a quarter of a second: an entrance
+  sliding in from off the frame, text that is hidden or faint, and anything
+  positioned out of its box on purpose say nothing. A box full of shapes is
+  not checked; look at it,
 - and a page that could not be captured at all. That clip shows the page's slug
   card (`PAGE · NOT CAPTURED`) instead, and the render still finishes. The usual
   cause is that there is no browser on the machine: `SCORSESE_CHROME`, then

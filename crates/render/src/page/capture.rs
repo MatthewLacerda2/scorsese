@@ -6,7 +6,8 @@
 //! page has loaded, laid out and its fonts are ready, and two priming frames
 //! have been drawn — for each frame: advance the clock, draw one frame with
 //! `HeadlessExperimental.beginFrame`, and take its screenshot in the same round
-//! trip. Each PNG is piped straight into an ffmpeg encoding a lossless,
+//! trip. Some of those frames are then measured for layout mistakes
+//! (`layout`'s). Each PNG is piped straight into an ffmpeg encoding a lossless,
 //! alpha-carrying file, so no frame is ever written to disk on its own.
 
 use std::io::Write;
@@ -21,6 +22,7 @@ use serde_json::{Value, json};
 use super::PageError;
 use super::browser::Chrome;
 use super::cdp::{Cdp, Command};
+use super::layout::{self, Layout};
 use super::origin::url_of;
 use super::request::Request;
 use super::visitor::Visitor;
@@ -143,6 +145,8 @@ fn drive(
     }
 
     let mut encoder = Encoder::start(tools, request, out)?;
+    let mut layout = Layout::default();
+    let measure = json!({ "expression": layout::expression(), "returnByValue": true });
     let mut last: Option<Vec<u8>> = None;
     for k in 0..request.frames() {
         let advance = format!("__scorsese.advanceTo({})", request.millis_at(k));
@@ -158,10 +162,18 @@ fn drive(
         }
         let png = last.as_ref().ok_or(PageError::NoPicture)?;
         encoder.write(png)?;
+        if layout::sampled(request, k) {
+            let answer = page("Runtime.evaluate", measure.clone())?;
+            // A page that broke the measuring (a replaced `Range`, say) only
+            // goes unmeasured; its own errors are the visitor's to report.
+            let findings = serde_json::from_value(answer["result"]["value"].clone());
+            layout.heard(request.millis_at(k) / 1000.0, findings.unwrap_or_default());
+        }
     }
     encoder.finish()?;
     let visitor = cdp.listener();
     warnings.splice(0..0, visitor.warnings.iter().cloned());
+    warnings.extend(layout.notes());
     Ok(Heard {
         loaded: visitor.loaded.clone(),
         warnings,

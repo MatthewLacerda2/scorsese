@@ -15,7 +15,8 @@
 //!
 //! What a page is told, and the clock it runs on, are [`Request`]'s and
 //! `clock.js`'s; how it is served and kept offline is `origin`'s; what it
-//! loaded and what went wrong is `visitor`'s; the cache is `cache`'s.
+//! loaded and what went wrong is `visitor`'s; what its layout gets wrong is
+//! `layout`'s; the cache is `cache`'s.
 //!
 //! Boundary: `scorsese-core` never learns a browser exists. Everything that
 //! knows one does is in this folder.
@@ -26,6 +27,7 @@ mod capture;
 mod cdp;
 mod find;
 mod fonts;
+mod layout;
 mod origin;
 mod request;
 mod supply;
@@ -46,9 +48,11 @@ use crate::tools::Tools;
 
 /// The version of the capture method itself — the clock shim, the page
 /// contract, the flags, the shipped libraries and the file the frames are kept
-/// in. Part of every capture's cache key, so **bump it** when any of those
-/// changes what a page's frames look like, and every capture is redone.
-pub const PAGE_VERSION: u32 = 1;
+/// in — and what a capture reports. Part of every capture's cache key, so
+/// **bump it** when any of those changes what a page's frames look like or
+/// what is said about them, and every capture is redone. 2: layout notes
+/// (#813), which a capture kept from before them would never say.
+pub const PAGE_VERSION: u32 = 2;
 
 /// A capture, ready to be decoded.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -57,7 +61,8 @@ pub struct Captured {
     pub file: PathBuf,
     /// What the page did that the author should hear about: a request refused
     /// because pages render offline, a file it asked for that is not in the
-    /// project, a script that threw. Said again on every reuse of the capture.
+    /// project, a script that threw, text laid out off the frame or over other
+    /// text. Said again on every reuse of the capture.
     pub warnings: Vec<String>,
 }
 
