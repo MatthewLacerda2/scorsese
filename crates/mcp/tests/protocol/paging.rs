@@ -94,6 +94,19 @@ fn a_still_and_a_render_of_a_page_carry_its_warnings() {
     );
     assert_eq!(text.matches("note:").count(), 1, "once a call: {text}");
 
+    // A sheet has no frame to put a note under, so the note names its instant
+    // — and is still said once (#814).
+    let (text, failed) = said(&call(
+        "still",
+        json!({ "project": dir, "at": ["0.2s", "0.5s"], "resolution": "160x90", "sheet": true }),
+    ));
+    assert!(!failed, "{text}");
+    assert!(
+        text.contains("note at frame") && text.contains("page `card`"),
+        "the sheet tells it, keyed by instant: {text}"
+    );
+    assert_eq!(text.matches("note at").count(), 1, "once a call: {text}");
+
     let (text, failed) = said(&call(
         "render",
         json!({ "project": dir, "out": "out.mp4", "resolution": "160x90", "wait": true }),

@@ -213,7 +213,17 @@ fn dispatch(cli: Cli) -> Result<()> {
             out,
             resolution,
             grid,
-        } => commands::still::run(&directory, &out, &at, resolution, grid),
+            sheet,
+        } => commands::still::run(
+            &directory,
+            &out,
+            &at,
+            commands::still::Options {
+                resolution,
+                grid,
+                sheet,
+            },
+        ),
         Command::Hear { file, out } => commands::hear::run(&file, out),
         Command::Look {
             file,

@@ -108,3 +108,13 @@ fn a_moment_reads_as_a_timecode() {
     assert_eq!(label(2.5), "0:02.5", "a tenth shows when there is one");
     assert_eq!(label(59.96), "1:00", "and rounds into the next second");
 }
+
+/// A cell of the edit reads like a cell of a file, with the timeline frame
+/// beside the time — the number an edit names the instant by (#814).
+#[test]
+fn a_timeline_cell_is_labelled_with_its_time_and_its_frame() {
+    use scorsese_core::Frames;
+    use scorsese_render::contact::cell_label;
+    assert_eq!(cell_label(9.1, Frames(273)), "0:09.1 · frame 273");
+    assert_eq!(cell_label(0.0, Frames::ZERO), "0:00 · frame 0");
+}

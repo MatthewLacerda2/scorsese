@@ -14,6 +14,7 @@ mod common;
 
 mod files;
 mod pixels;
+mod sheets;
 
 use std::path::{Path, PathBuf};
 
