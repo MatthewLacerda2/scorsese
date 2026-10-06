@@ -21,7 +21,11 @@ fn reading_a_project_gives_back_the_document() {
     let dir = project("read");
     let (text, failed) = said(&call("project_read", json!({ "project": dir })));
     assert!(!failed, "{text}");
-    assert!(text.contains("\"name\": \"Teaser\""), "got {text}");
+    assert!(text.contains("\"name\":\"Teaser\""), "got {text}");
+    assert!(
+        !text.contains('\n'),
+        "the document comes back compact: {text}"
+    );
     std::fs::remove_dir_all(dir).ok();
 }
 

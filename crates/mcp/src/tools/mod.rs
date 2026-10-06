@@ -15,6 +15,7 @@
 
 mod args;
 mod authoring;
+mod compact;
 mod confirm;
 mod create;
 mod design;
@@ -67,7 +68,7 @@ impl Part {
     /// Words, with nothing to show. What a reply of several parts is built
     /// from when none of them is a picture — a whole document and the note
     /// that goes with it, kept in separate blocks so the document arrives
-    /// exactly as it is on disk.
+    /// as a document and nothing else.
     pub(crate) fn words(text: impl Into<String>) -> Self {
         Self {
             text: text.into(),

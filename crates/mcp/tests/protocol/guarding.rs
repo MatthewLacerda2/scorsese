@@ -81,3 +81,23 @@ fn the_document_and_the_fingerprint_are_separate_blocks() {
     assert!(!fingerprint(&dir).is_empty());
     std::fs::remove_dir_all(dir).ok();
 }
+
+/// The read is compact and the file is not, so the fingerprint is of the file:
+/// what project_read hands over, written straight back with its fingerprint,
+/// is accepted — and the file keeps the layout `Project::save` gives it (#828).
+#[test]
+fn a_compact_read_written_back_is_accepted_and_saved_readable() {
+    let dir = project("guard-compact");
+    let reply = call("project_read", json!({ "project": dir }));
+    let (document, _) = said(&reply);
+    assert!(!document.contains('\n'), "read compact: {document}");
+
+    let (text, failed) = said(&call(
+        "project_write",
+        json!({ "project": dir, "document": document, "fingerprint": fingerprint(&dir) }),
+    ));
+    assert!(!failed, "{text}");
+    let saved = std::fs::read_to_string(dir.join("project.json")).expect("read");
+    assert!(saved.contains("\n  "), "saved indented: {saved}");
+    std::fs::remove_dir_all(dir).ok();
+}
