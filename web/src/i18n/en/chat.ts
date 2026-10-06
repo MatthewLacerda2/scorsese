@@ -40,10 +40,32 @@ export const chat = {
     send: "Send",
   },
   turn: {
-    working: "Working…",
+    busy: [
+      "Splicing…",
+      "Colour-grading…",
+      "Rummaging through the footage…",
+      "Lining up the cuts…",
+      "Rewinding the tape…",
+      "Syncing the sound…",
+      "Trimming a few frames…",
+      "Checking the take…",
+      "Pulling focus…",
+      "Setting up the shot…",
+      "Cueing the music…",
+      "Finding the right angle…",
+    ],
     costSoFar: (cost: string) => `So far this turn has cost ${cost}; nothing more while it waits`,
     cost: (cost: string) => `This turn cost ${cost}`,
     left: (balance: string) => ` · ${balance} left`,
+  },
+  effort: {
+    label: "How carefully the assistant works on this message",
+    name: { low: "Quick", medium: "Balanced", high: "Thorough" },
+    hint: {
+      low: "For small tweaks, like making the title bigger or moving the music. Cheapest.",
+      medium: "For ordinary requests.",
+      high: "For building or reworking an edit. Takes longest and costs the most.",
+    },
   },
   model: {
     label: "Model",

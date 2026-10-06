@@ -74,14 +74,6 @@ pub enum Event {
         /// The words.
         text: String,
     },
-    /// A short progress note — what the assistant just found or will do
-    /// next — written between tool calls. One line, whole.
-    ChatProgress {
-        /// The turn.
-        turn: i64,
-        /// The note.
-        text: String,
-    },
     /// A tool the assistant is calling, and then how it answered.
     ChatTool {
         /// The turn.

@@ -113,3 +113,25 @@ fn a_neutral_text_part_on_the_model_side_is_kept_and_an_empty_one_is_not() {
         serde_json::from_str(freeze(Model::GeminiFlash38, &message).unwrap().get()).unwrap();
     assert_eq!(frozen, json!({"role": "model", "parts": [{"text": "x"}]}));
 }
+
+#[test]
+fn an_effort_reaches_both_wires_as_the_name_it_reads_back_from() {
+    use scorsese_providers::chat::anthropic;
+    for effort in [Effort::Low, Effort::Medium, Effort::High] {
+        let name = effort.as_str();
+        assert_eq!(Effort::from_name(name), Some(effort));
+        let mut claude = request(Model::ClaudeOpus55, &[]);
+        claude.effort = effort;
+        let body = serde_json::to_value(anthropic::laid_out(&claude)).unwrap();
+        assert_eq!(body["output_config"]["effort"], name, "{body}");
+        let mut gemini = request(Model::GeminiFlash38, &[]);
+        gemini.effort = effort;
+        let body = serde_json::to_value(laid_out(&gemini).unwrap()).unwrap();
+        assert_eq!(
+            body["generationConfig"]["thinkingConfig"]["thinkingLevel"],
+            name
+        );
+    }
+    assert_eq!(Effort::from_name("xhigh"), None);
+    assert_eq!(Effort::from_name("High"), None);
+}

@@ -1,14 +1,16 @@
 // One turn in the chat panel: what the user asked, what the assistant did on
-// the way (progress notes and the tools it called), what it said, and what the
-// turn cost. The cost is on every turn, not in a settings page, because the
+// the way (the tools it called — never its thinking, #767), what it said
+// (Markdown, `Reply.tsx`), and what the turn cost. The cost is on every turn, not in a settings page, because the
 // assistant spends the user's credits and a person should see each figure as
 // it happens (docs/web.md, *Money*).
 
-import { CheckIcon, LoaderIcon, WrenchIcon, XIcon } from "lucide-react";
+import { CheckIcon, WrenchIcon, XIcon } from "lucide-react";
 import { useT } from "@/i18n/I18nProvider";
 import { formatDollars } from "@/lib/money";
+import { Busy } from "./Busy";
 import { QuestionCard } from "./QuestionCard";
 import { QuoteBox } from "./QuoteBox";
+import { Reply } from "./Reply";
 import { awaitingQuote, type Entry, ending, type Line, waitingQuestion, words } from "./transcript";
 
 export function Turn({ entry }: { entry: Entry }) {
@@ -31,12 +33,8 @@ export function Turn({ entry }: { entry: Entry }) {
           ))}
         </ul>
       )}
-      {said && <p className="whitespace-pre-wrap text-sm">{said}</p>}
-      {turn.state === "running" && !said && (
-        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <LoaderIcon className="size-3 animate-spin" /> {t.chat.turn.working}
-        </p>
-      )}
+      {said && <Reply text={said} />}
+      {turn.state === "running" && <Busy />}
       {(turn.questions ?? []).map((question, index) => (
         <QuestionCard
           // Questions only ever append, so a question's place is its identity.
@@ -62,7 +60,6 @@ export function Turn({ entry }: { entry: Entry }) {
 }
 
 function LineRow({ line }: { line: Line }) {
-  if (line.kind === "progress") return <li className="italic">{line.text}</li>;
   const Icon = { running: WrenchIcon, answered: CheckIcon, refused: XIcon }[line.state];
   return (
     <li className="flex items-start gap-1.5">

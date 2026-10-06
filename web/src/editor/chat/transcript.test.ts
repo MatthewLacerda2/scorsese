@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { TurnView } from "@/api/chat";
 import { ApiError } from "@/api/client";
-import type { JobView } from "@/api/events";
+import type { JobView, ServerEvent } from "@/api/events";
 import { en } from "@/i18n/en";
 import type { Entry, Transcript } from "./transcript";
 import {
@@ -51,10 +51,12 @@ function first(transcript: Transcript): Entry {
 }
 
 describe("a running turn", () => {
-  test("streams its words, notes and tools as they arrive", () => {
+  test("streams its words and tools as they arrive, and never a thinking note", () => {
     let shown = apply(started, { type: "chat_text", turn: 1, text: "Cutting " });
     shown = apply(shown, { type: "chat_text", turn: 1, text: "the intro." });
-    shown = apply(shown, { type: "chat_progress", turn: 1, text: "Reading the project" });
+    // What a server from before #767 still sends while a deploy rolls over.
+    const note = { type: "chat_progress", turn: 1, text: "Reading the project" };
+    shown = apply(shown, note as unknown as ServerEvent);
     shown = apply(shown, {
       type: "chat_tool",
       turn: 1,
@@ -72,7 +74,6 @@ describe("a running turn", () => {
     const entry = first(shown);
     expect(words(entry)).toBe("Cutting the intro.");
     expect(entry.lines).toEqual([
-      { kind: "progress", text: "Reading the project" },
       { kind: "tool", tool: "trim_clip", state: "answered", said: "c1 now…" },
     ]);
     expect(running(shown)?.id).toBe(1);
@@ -133,7 +134,7 @@ describe("what is not this panel's", () => {
 
 describe("conversations", () => {
   test("a re-read keeps what was seen live of each turn", () => {
-    const live = apply(started, { type: "chat_progress", turn: 1, text: "note" });
+    const live = apply(started, { type: "chat_text", turn: 1, text: "Cutting" });
     const reread = fromConversation(
       {
         project: 7,
@@ -144,7 +145,7 @@ describe("conversations", () => {
       },
       live,
     );
-    expect(first(reread).lines).toHaveLength(1);
+    expect(first(reread).streamed).toBe("Cutting");
     expect(first(reread).turn.state).toBe("answered");
   });
 

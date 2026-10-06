@@ -48,8 +48,6 @@ export type ServerEvent =
   | { type: "chat_turn"; turn: TurnView; balance_micros: number }
   /** More of the words the assistant is writing: append them. */
   | { type: "chat_text"; turn: number; text: string }
-  /** A whole progress note, written between tool calls. */
-  | { type: "chat_progress"; turn: number; text: string }
   /** A tool `running`, then `answered` or `refused`, with the start of its answer. */
   | {
       type: "chat_tool";

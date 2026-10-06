@@ -42,6 +42,8 @@ pub(in crate::assistant) struct Paused {
     pub(in crate::assistant) project: i64,
     /// The model it runs on, as stored.
     pub(in crate::assistant) model: String,
+    /// The effort it started at, as stored.
+    pub(in crate::assistant) effort: String,
     /// What the user first wrote.
     pub(in crate::assistant) prompt: String,
     /// What it has cost so far, in micro-dollars.
@@ -53,21 +55,24 @@ pub(in crate::assistant) async fn paused(
     tx: &mut Tx,
     turn: i64,
 ) -> Result<Option<Paused>, sqlx::Error> {
-    let row: Option<(i64, i64, String, String, i64)> = sqlx::query_as(
-        "SELECT t.session_id, s.project_id, t.model, t.prompt, t.charged_micros
+    let row: Option<(i64, i64, String, String, String, i64)> = sqlx::query_as(
+        "SELECT t.session_id, s.project_id, t.model, t.effort, t.prompt, t.charged_micros
          FROM chat_turns t JOIN chat_sessions s ON s.id = t.session_id
          WHERE t.id = $1 AND t.state = 'asking' FOR UPDATE OF t",
     )
     .bind(turn)
     .fetch_optional(&mut **tx)
     .await?;
-    Ok(row.map(|(session, project, model, prompt, spent)| Paused {
-        session,
-        project,
-        model,
-        prompt,
-        spent,
-    }))
+    Ok(
+        row.map(|(session, project, model, effort, prompt, spent)| Paused {
+            session,
+            project,
+            model,
+            effort,
+            prompt,
+            spent,
+        }),
+    )
 }
 
 /// Set turn `turn` running again, its messages now ending with the answer,

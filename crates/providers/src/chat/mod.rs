@@ -80,6 +80,14 @@ impl Effort {
             Self::High => "high",
         }
     }
+
+    /// The level `name` spells, as [`Self::as_str`] writes it; `None` for
+    /// anything else.
+    pub fn from_name(name: &str) -> Option<Self> {
+        [Self::Low, Self::Medium, Self::High]
+            .into_iter()
+            .find(|effort| effort.as_str() == name)
+    }
 }
 
 /// One tool the model may call: the registry's own entry.
