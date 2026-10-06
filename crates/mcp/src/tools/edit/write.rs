@@ -1,7 +1,7 @@
-//! Replacing the project document wholesale.
+//! Replacing the project document wholesale, and measuring what it adds.
 
 use schemars::JsonSchema;
-use scorsese_core::{Baseline, Project};
+use scorsese_core::{Baseline, Project, Reprobe};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -27,6 +27,11 @@ struct Arguments {
     // one refusal worded in one place beats two that can drift.
     #[schemars(required)]
     fingerprint: Option<String>,
+    /// Measure every file the document names again, replacing the metadata
+    /// already recorded, for when what is written down is wrong. Without it,
+    /// only the assets nobody has measured yet are probed.
+    #[serde(default)]
+    reprobe: bool,
 }
 
 impl args::Arguments for Arguments {
@@ -47,11 +52,20 @@ impl Tool for Write {
          reported for the document this edit was made against: if something else \
          has replaced that document since, the write is refused rather than \
          dropping the change, and the answer is to read the project again and \
-         redo the edit on what is there now."
+         redo the edit on what is there now. **An asset added with a file is \
+         measured as it is written**, the way import measures what it brings \
+         in: its length, size, frame rate, transparency and sound go into its \
+         `media`, and a clip longer than the source it turns out to be is \
+         refused like any other problem. A file that is not there, or that \
+         cannot be read, is reported and the rest is written. `reprobe` \
+         measures every file again, for when the recorded metadata is wrong."
     }
 
+    // A fact about the tool rather than about one call: most writes add no
+    // file and spawn nothing, but any write may, so it declares the most it
+    // can do — the way `import` does for a list that might be empty.
     fn costs(&self) -> Costs {
-        Costs::Nothing
+        Costs::Probe
     }
 
     fn schema(&self) -> Value {
@@ -68,6 +82,17 @@ impl Tool for Write {
         // project.json is the one thing that makes every other tool useless.
         let mut project = Project::from_json(&arguments.document)
             .map_err(|problem| format!("refused, nothing written: {problem}"))?;
+
+        // Measured before it is validated, because validation reads what the
+        // probe records: a clip is held to its source's length, and checking
+        // it against a length nobody has measured would write a document that
+        // the first probe afterwards makes unopenable.
+        let reprobe = if arguments.reprobe {
+            Reprobe::All
+        } else {
+            Reprobe::Skip
+        };
+        let measured = super::probe::measured(&mut project, dir, reprobe);
         project
             .validate()
             .map_err(|problems| format!("refused, nothing written:\n{problems}"))?;
@@ -82,12 +107,13 @@ impl Tool for Write {
         project
             .save(dir)
             .map_err(|error| format!("refused, nothing written: {error}"))?;
-        Ok(format!(
+        let mut lines = vec![format!(
             "written: {} asset(s), {} track(s), {} clip(s)",
             project.assets.len(),
             project.tracks.len(),
             project.clips().count()
-        )
-        .into())
+        )];
+        lines.extend(measured);
+        Ok(lines.join("\n").into())
     }
 }

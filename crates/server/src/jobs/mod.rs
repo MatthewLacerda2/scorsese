@@ -90,7 +90,7 @@
 //! [`Queue`] by job id: the handler
 //! sees it tripped, stops, and returns [`Outcome::Cancelled`] — recorded as
 //! `cancelled`, not `failed`, because nothing went wrong. [`cancel`] is the
-//! whole of it, for `POST /api/jobs/{id}/cancel` and web MCP's `job_cancel`
+//! whole of it, for `POST /api/jobs/{id}/cancel` and web MCP's `jobs` `cancel`
 //! alike. A graceful stop of the worker trips every flag too, so a render
 //! does not keep a core busy for an hour in a process that is shutting down.
 //!

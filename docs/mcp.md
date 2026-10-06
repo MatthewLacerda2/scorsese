@@ -82,10 +82,9 @@ the tools relate to each other, which is knowledge no single tool has.
 | `project_check` | Report everything wrong or questionable about a project — the document, the media it references, and the layers it draws over each other — without rendering. | nothing |
 | `project_assets` | List the media pool: every asset, its kind, what state it is in, and how many clips use it. | nothing |
 | `import` | Copy media into the project's assets/ and add it to the assets table, ready for a clip to reference. | ffprobe |
-| `project_probe` | Ask ffprobe about every asset that has a file and no recorded metadata, and write down what it says. | ffprobe |
 | `script_read` | Read the document this edit is being cut from — the brief, the outline, whatever the project's `script` field points at. | nothing |
 | `script_write` | Write the project's script — the document the edit is cut from. | nothing |
-| `project_write` | Replace a project's project.json with the document given. | nothing |
+| `project_write` | Replace a project's project.json with the document given. | ffprobe |
 | `track_new` | Add a track — a lane for clips, carrying either picture or sound. | nothing |
 | `text_new` | Add a text asset — a caption, a title, a lower third: what it says, and the look it is set in. | nothing |
 | `color_new` | Add a colour asset: a solid colour or a gradient for a background, a colour card, or a wash under a title. | nothing |
@@ -128,7 +127,6 @@ the tools relate to each other, which is knowledge no single tool has.
 | `generate` | Realise the sketched briefs — the one tool here that costs money, and it quotes before it spends. | money, at a provider |
 | `render` | Render the timeline to a video file, or to a sound file of its mix alone. | ffmpeg, and real time |
 | `jobs` | Say how far your renders of a project have got, and what each one made. | nothing |
-| `job_cancel` | Stop one of your renders: a running one stops within a frame and keeps no file — the partial one is removed. | nothing |
 | `still` | Look at the edit. | ffmpeg, and seconds |
 | `look` | Look at the footage itself, not the edit. | ffmpeg |
 | `hear` | See what a sound file looks like: its waveform, drawn as one picture, with the level and the length written on it. | ffmpeg |
@@ -192,15 +190,20 @@ absolute `start` frames, so genuinely independent work genuinely is
 independent. The fingerprint only makes it impossible to break that convention
 quietly.
 
-**Call `project_probe` after adding assets by writing the document.** Import
-measures what it brings in; an asset that arrived by being written into
-`project.json` carries a path and nothing recorded about the file behind it,
-and every feature that needs a measured fact about it — the source's own
-length, which is the ceiling on a right trim; whether its picture carries
-transparency, which is what keeps a scaled logo's edges from going dark — has
-no choice but to skip it. This asks ffprobe about each such asset and writes
-down what it says. Safe to call after every edit: one
-already probed is left alone unless `all` is set.
+**A write measures what it adds.** Import measures what it brings in, and
+`project_write` does the same for an asset that arrives by being written into
+`project.json` with a path and nothing recorded about the file behind it: it
+asks ffprobe about each such asset and writes down what it says — the source's
+own length, which is the ceiling on a right trim; whether its picture carries
+transparency, which is what keeps a scaled logo's edges from going dark. It
+does this *before* validating, so a clip longer than the source it turns out to
+be is refused like any other problem rather than written into a document the
+next probe would make unopenable. A file that is not there, or that ffprobe
+cannot read, is named in the reply and the rest is written. A write that adds
+no file — the usual one — spawns nothing. `reprobe: true` measures every file
+the document names again, for when what is recorded is wrong. This used to be
+a tool of its own, `project_probe`, that a client had to remember to call
+(#783).
 
 ## Getting media into the project
 
@@ -248,7 +251,7 @@ What a folder import does is fixed so that it can be relied on:
   as the asset that holds them, so an import loop stays safe to re-run.
 
 The reply names what came in, what each was measured to be, and what was
-passed over — so nothing needs a `project_probe` after it.
+passed over — so nothing needs measuring after it.
 
 ## The assets nothing brings in
 
@@ -850,7 +853,7 @@ different things to do about it:
 - *no rectangle for …* — it is on screen and could not be measured. An arrow (a
   line between two points has no box of its own), a media file that has gone
   missing, or a source whose pixel size the document never recorded, which
-  `project_probe` writes down.
+  `project_write` measures as it writes it.
 
 `resolution` sets the frame it is measured against, default `1920x1080`. The
 answer is in fractions either way, but the frame's *shape* still decides it: a
@@ -1446,14 +1449,14 @@ jobs        { "project": "trilhas.scor", "job": 1 }
   → job 1 (render): running, 63% — drawing frame 1190 of 1890, writing cut.mp4
 jobs        { "project": "trilhas.scor", "job": 1 }
   → job 1 (render): done — wrote cut.mp4 — 1890 frames …, as mp4 (h264 + aac)
-job_cancel  { "project": "trilhas.scor", "job": 1 }
+jobs        { "project": "trilhas.scor", "cancel": 1 }
 ```
 
 So an assistant can tell the person waiting how far it has got, and keep
 editing while it runs. The names, the `job` argument and the line each job is
-described in are the hosted server's own `jobs` and `job_cancel`, so a habit
-learned on one surface works on the other; here both take `project`, as every
-tool on this server does, and answer about that project's renders. Leaving
+described in are the hosted server's own `jobs`, so a habit learned on one
+surface works on the other; here it takes `project`, as every tool on this
+server does, and answers about that project's renders. Leaving
 `job` out lists the latest twenty. A finished job's line carries what `render`
 used to answer with — the path written and how loud it came out — so nothing is
 lost by not waiting.
@@ -1494,9 +1497,9 @@ the same file: the second is refused while the first is writing.
 
 ## Stopping a render
 
-A background render stops with `job_cancel`: within a frame, and its partial
-file is removed, because a truncated `.mp4` looks like a file and plays as
-nothing.
+A background render stops with `jobs`' `cancel` argument (a tool of its own,
+`job_cancel`, until #783): within a frame, and its partial file is removed,
+because a truncated `.mp4` looks like a file and plays as nothing.
 
 A waited one stops the way any call does. A client stops a call it no longer
 wants with MCP's `notifications/cancelled`, naming the request's id — most

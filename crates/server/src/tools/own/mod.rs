@@ -32,8 +32,6 @@ pub(crate) enum Own {
     Render,
     /// Where the caller's jobs are.
     Jobs,
-    /// One of the caller's jobs, stopped.
-    JobCancel,
     /// Generations, paid from credits.
     Generate,
     /// A voice designed, kept or listed (#572).
@@ -50,14 +48,13 @@ pub(crate) enum Own {
 
 impl Own {
     /// Every one of them.
-    pub(crate) const ALL: [Self; 13] = [
+    pub(crate) const ALL: [Self; 12] = [
         Self::ProjectList,
         Self::ProjectNew,
         Self::Library,
         Self::Import,
         Self::Render,
         Self::Jobs,
-        Self::JobCancel,
         Self::Generate,
         Self::VoiceDesign,
         Self::Spending,
@@ -86,7 +83,7 @@ impl Own {
             "import" => &[Self::Library, Self::Import],
             "generate" => &[Self::Generate],
             "voice_design" => &[Self::VoiceDesign],
-            "render" => &[Self::Render, Self::Jobs, Self::JobCancel],
+            "render" => &[Self::Render, Self::Jobs],
             _ => &[],
         }
     }
@@ -100,7 +97,6 @@ impl Own {
             Self::Import => catalogue::IMPORT,
             Self::Render => queue::RENDER,
             Self::Jobs => queue::JOBS,
-            Self::JobCancel => queue::JOB_CANCEL,
             Self::Generate => super::generate::NAME,
             Self::VoiceDesign => super::design::NAME,
             Self::Spending => spending::NAME,
@@ -119,7 +115,6 @@ impl Own {
             Self::Import => catalogue::IMPORT_SAYS,
             Self::Render => queue::RENDER_SAYS,
             Self::Jobs => queue::JOBS_SAYS,
-            Self::JobCancel => queue::JOB_CANCEL_SAYS,
             Self::Generate => super::generate::DESCRIPTION,
             Self::VoiceDesign => super::design::DESCRIPTION,
             Self::Spending => spending::DESCRIPTION,
@@ -138,7 +133,6 @@ impl Own {
             Self::Import => catalogue::import_schema(),
             Self::Render => queue::render_schema(),
             Self::Jobs => queue::jobs_schema(),
-            Self::JobCancel => queue::job_cancel_schema(),
             Self::Generate => super::generate::schema(),
             Self::VoiceDesign => super::design::schema(),
             Self::Spending => spending::schema(),
@@ -170,7 +164,6 @@ impl Own {
             Self::Import => catalogue::import(caller, arguments).await,
             Self::Render => queue::render(caller, arguments).await,
             Self::Jobs => queue::jobs(caller, arguments).await,
-            Self::JobCancel => queue::job_cancel(caller, arguments).await,
             Self::Generate => super::generate::call(caller, arguments).await,
             Self::VoiceDesign => super::design::call(caller, arguments).await,
             Self::Spending => spending_history(caller, arguments).await,

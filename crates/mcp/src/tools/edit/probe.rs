@@ -1,105 +1,59 @@
-//! Filling in the metadata nobody has read yet.
+//! Filling in the metadata nobody has read yet, as part of a write.
 //!
-//! This tool exists here, and not only on the command line, because an agent
-//! writing `project.json` directly is precisely the path that creates assets
-//! nothing has probed. The fix has to be reachable from where the problem is
-//! made — otherwise the answer to "why does this feature not work on my
-//! project?" is a command the client cannot run.
+//! This used to be a tool of its own, `project_probe`, whose description told a
+//! client to call it after adding assets by writing the document — because an
+//! agent writing `project.json` directly is precisely the path that creates
+//! assets nothing has probed. A tool whose whole job is "remember to call me
+//! after the other one" is a step the other one should take (#783), so
+//! `project_write` takes it: the way `import` probes what it brings in, a write
+//! probes what it adds.
 
-use schemars::JsonSchema;
-use scorsese_core::{ProbeOutcome, Probed, Reprobe, probe_assets};
+use std::path::Path;
+
+use scorsese_core::{ProbeOutcome, Probed, Project, Reprobe, probe_assets, unprobed_assets};
 use scorsese_render::Ffprobe;
-use serde::Deserialize;
-use serde_json::Value;
 
-use crate::tools::args::{self, ProjectDir};
-use crate::tools::inspect::load;
-use crate::tools::{Costs, Reply, Tool};
-
-/// Read what the media pool is actually made of.
-pub(crate) struct Probe;
-
-/// What `project_probe` takes.
-#[derive(Deserialize, JsonSchema)]
-struct Arguments {
-    project: ProjectDir,
-    /// Read every file again, replacing metadata that is already recorded. For
-    /// when what is written down is wrong. The default probes only the assets
-    /// nobody has looked at, which is what makes this cheap to call after every
-    /// edit.
-    #[serde(default)]
-    all: bool,
-}
-
-impl args::Arguments for Arguments {}
-
-impl Tool for Probe {
-    fn name(&self) -> &'static str {
-        "project_probe"
+/// Probe what `project` adds that nobody has measured — or, with
+/// [`Reprobe::All`], every file it names — and say what came of it, one line
+/// a thing worth saying. Nothing to say is no lines.
+///
+/// Never a refusal. A file that is not there, or that ffprobe cannot read, is
+/// reported and its asset left exactly as it was written; a machine with no
+/// ffprobe at all writes the document unmeasured and says so. What a probe
+/// *found* can still refuse the write — a clip longer than the source it was
+/// just measured to be — but that is validation's answer, given afterwards.
+pub(super) fn measured(project: &mut Project, dir: &Path, reprobe: Reprobe) -> Vec<String> {
+    // Asked without touching the disk, so a write that adds no footage — the
+    // usual one — spawns no process and never needs ffprobe to exist.
+    if reprobe == Reprobe::Skip && unprobed_assets(project).is_empty() {
+        return Vec::new();
     }
-
-    fn description(&self) -> &'static str {
-        "Ask ffprobe about every asset that has a file and no recorded \
-         metadata, and write down what it says. That is how long the source is, \
-         its width and height, its frame rate, whether its picture carries \
-         transparency, and whether it carries sound. Import does this \
-         for what it brings in, so this is for the assets that reached \
-         project.json another way — which is every asset you added by writing \
-         the document. Call it after adding assets by hand: features that need \
-         a source's own length, a clip's trim ceiling among them, cannot work \
-         on an asset nobody has looked at. Safe to re-run; an already-probed \
-         asset is left alone unless `all` says otherwise."
-    }
-
-    fn costs(&self) -> Costs {
-        Costs::Probe
-    }
-
-    fn schema(&self) -> Value {
-        args::schema::<Arguments>()
-    }
-
-    fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let arguments: Arguments = args::parse(arguments)?;
-        let dir = arguments.project.dir();
-        let mut project = load(dir)?;
-        let reprobe = if arguments.all {
-            Reprobe::All
-        } else {
-            Reprobe::Skip
-        };
-
-        // Discovered per call rather than held, for the same reason `render`
-        // does it: a server that found ffprobe at startup would keep insisting
-        // it was there after someone uninstalled it.
-        let probe = Ffprobe::discover().map_err(|error| format!("{error}"))?;
-        let report = probe_assets(&mut project, dir, &probe, reprobe);
-        if report.is_empty() {
-            return Ok("no assets with a file to probe".into());
-        }
-
-        let recorded = count(&report, &ProbeOutcome::Recorded);
-        if recorded > 0 {
-            project
-                .save(dir)
-                .map_err(|error| format!("saving the project: {error}"))?;
-        }
-        Ok(said(&report, recorded).into())
-    }
+    // Discovered per call rather than held, for the same reason `render`
+    // does it: a server that found ffprobe at startup would keep insisting
+    // it was there after someone uninstalled it.
+    let probe = match Ffprobe::discover() {
+        Ok(probe) => probe,
+        Err(error) => return vec![format!("not probed: {error}")],
+    };
+    let report = probe_assets(project, dir, &probe, reprobe);
+    said(&report)
 }
 
 /// What happened, asset by asset where it matters and as a tally where it does
 /// not.
 ///
-/// Assets that were already known are counted and not named: a client reading
-/// this wants the ones that changed and the ones in trouble, and a list of
+/// Assets that were already known are not mentioned: a client reading this
+/// wants the ones that changed and the ones in trouble, and a list of
 /// everything that was already fine buries both.
-fn said(report: &[Probed], recorded: usize) -> String {
-    let known = count(report, &ProbeOutcome::AlreadyKnown);
-    let mut lines = vec![format!(
-        "{recorded} probed, {known} already known, {} assets with a file",
-        report.len()
-    )];
+fn said(report: &[Probed]) -> Vec<String> {
+    let recorded = report
+        .iter()
+        .filter(|row| row.outcome == ProbeOutcome::Recorded)
+        .count();
+    let mut lines = Vec::new();
+    if recorded > 0 {
+        lines.push(format!("probed {recorded} asset(s)"));
+    }
     for row in report {
         match &row.outcome {
             ProbeOutcome::Missing => lines.push(format!("{}: its file is not there", row.id)),
@@ -107,9 +61,5 @@ fn said(report: &[Probed], recorded: usize) -> String {
             ProbeOutcome::Recorded | ProbeOutcome::AlreadyKnown => {}
         }
     }
-    lines.join("\n")
-}
-
-fn count(report: &[Probed], outcome: &ProbeOutcome) -> usize {
-    report.iter().filter(|row| &row.outcome == outcome).count()
+    lines
 }

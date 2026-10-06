@@ -57,7 +57,7 @@ pub(crate) enum State {
     Running(Reading),
     /// Finished; what it says about the file.
     Done(String),
-    /// Stopped by `job_cancel` or a cancelled call; how far it got.
+    /// Stopped by `jobs`' `cancel` or a cancelled call; how far it got.
     Cancelled(String),
     /// Refused or broke partway; why.
     Failed(String),
@@ -136,7 +136,7 @@ impl Renders {
         if let Some(busy) = jobs.iter().find(|job| job.path == path && job.running()) {
             return Err(format!(
                 "job {} is still writing {out} — wait for it with jobs, or stop it \
-                 with job_cancel, before rendering there again",
+                 with jobs' cancel, before rendering there again",
                 busy.id
             ));
         }

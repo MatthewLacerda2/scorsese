@@ -38,7 +38,6 @@ pub(crate) use group::{ClipGroup, ClipUngroup};
 pub(crate) use import::Import;
 pub(crate) use pace::ScalePacing;
 pub(crate) use place::PlaceClip;
-pub(crate) use probe::Probe;
 pub(crate) use relocate::ClipMove;
 pub(crate) use remove::ClipRemove;
 pub(crate) use render::Render;

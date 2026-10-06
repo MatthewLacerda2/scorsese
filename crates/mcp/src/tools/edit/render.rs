@@ -79,7 +79,7 @@ impl Tool for Render {
          soundtrack had to be turned down to keep a lossy codec from clipping, \
          and carries a note for each web page that could not be captured or \
          asked for something it was not given. It renders in the background: the answer is a job id at once, jobs \
-         says how far it has got and what it wrote, and job_cancel stops it. \
+         says how far it has got and what it wrote, and its cancel stops it. \
          Pass wait: true to answer only when the file is written instead."
     }
 
