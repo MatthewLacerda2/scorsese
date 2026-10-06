@@ -83,7 +83,6 @@ const STORED: &[&str] = &[
     "asset_remove",
     "track_remove",
     "place_clip",
-    "trim_clip",
     "clip_set",
     "clip_animate",
     "clip_follow",

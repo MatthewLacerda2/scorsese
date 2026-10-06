@@ -16,9 +16,9 @@
 //!   needs — what a drop does where no lane can take it.
 //! - [`trim`] changes where a placed clip starts, how long it runs, or where in
 //!   its source it opens.
-//! - [`relocate`] moves a placed clip onto another track — the one move
-//!   [`trim`] refuses to make, because which track a picture sits on decides
-//!   what is drawn over what.
+//! - [`relocate`] moves a placed clip onto another track, with any new bounds
+//!   in the same edit — the one move [`trim`] refuses to make, because which
+//!   track a picture sits on decides what is drawn over what.
 //! - [`remove`] takes placed clips off the timeline, and leaves their assets
 //!   and the gap they leave where they are.
 //!

@@ -95,11 +95,10 @@ the tools relate to each other, which is knowledge no single tool has.
 | `asset_remove` | Remove an asset from the project, and DESTROY every clip that shows it — on the timeline and inside groups. | nothing |
 | `track_remove` | Remove a track — a lane on the timeline or inside a group — and DESTROY every clip on it. | nothing |
 | `place_clip` | Put a clip on a track: which asset, which track, when it starts and how long it runs — all in seconds, rounded onto the project's frame grid for you. | nothing |
-| `trim_clip` | Move a clip already on the timeline, or change how long it runs or where in its source it opens — in seconds, rounded onto the project's frame grid. | nothing |
+| `clip_move` | Move a clip already on the timeline — along its track, onto another track, or to a new length or in-point in its source. | nothing |
 | `clip_set` | Change a placed clip's plain values: its speed, fit, position, rotation, scale, shadow, glow, blend and matte. | nothing |
 | `clip_animate` | Animate one property of a placed clip by writing its keyframes, in seconds from the clip's start and with easing by name. | nothing |
 | `clip_follow` | Send a placed clip along an arrow: it travels the arrow clip's line from tail to head — curves included — instead of in a straight line between keyframed positions. | nothing |
-| `clip_move` | Move a clip already on the timeline onto another track — optionally to a new start there in the same edit, the way dragging it down a lane and along it is one gesture. | nothing |
 | `clip_remove` | Take clips off the timeline by id, leaving the assets they showed and every other clip exactly where they are. | nothing |
 | `clip_group` | Group clips already on the timeline so they render as one layer — what Filmora calls a compound clip. | nothing |
 | `clip_ungroup` | Undo clip_group: replace a clip of a group with the group's own clips, at exactly the times and places the group was showing them, and remove the group asset. | nothing |
@@ -477,7 +476,7 @@ a `text` asset.
 
 ## Putting a clip on the timeline, and adjusting it afterwards
 
-`place_clip` and `trim_clip` are the pair that assembles a cut, and everything
+`place_clip` and `clip_move` are the pair that assembles a cut, and everything
 about them follows from one fact: **a clip is described in seconds and stored in
 frames.** "Two seconds into the take, run it to sixteen, start it at
 forty-eight" becomes `start: 1152, duration: 336, source_in: 48` on a 24fps
@@ -521,7 +520,7 @@ with no measured length has no rest to take: a title, a still, a colour, a brief
 nobody has generated, and a file nobody has probed. There the duration is
 required, and the refusal says so rather than guessing a length.
 
-**`trim_clip` sets fields, not edges.** Each argument changes the field of the
+**`clip_move` sets fields, not edges.** Each argument changes the field of the
 same name and nothing else, so a `start_seconds` on its own *moves* the clip, a
 `duration_seconds` on its own holds the start and moves the end, and a
 `source_in_seconds` on its own shows a later part of the media in the same slot.
@@ -529,7 +528,7 @@ An editor's drag handles would make one argument mean different things depending
 on which others came with it; this does not.
 
 ```
-trim_clip  { "project": "teaser.scor", "clip": "vo-open", "start_seconds": 37.7 }
+clip_move  { "project": "teaser.scor", "clip": "vo-open", "start_seconds": 37.7 }
            → "`vo-open` now starts at 37.70s (frame 1131), runs 11.90s (357
               frames) to 49.60s (frame 1488), from the head of `vo-open`."
 ```
@@ -543,9 +542,10 @@ it asks for something possible.
 Two things they deliberately do not do. **A track is never created**: a track
 invented from a mistyped id would take the clip with it, and a clip on a track
 nobody meant to have is invisible in every way except the render — so a missing
-track is refused, and the refusal names the tracks there are. **A trim never
-changes track**: which track a clip sits on decides what is drawn over what,
-which is a different edit with a different consequence — `clip_move`, below.
+track is refused, and the refusal names the tracks there are. **A clip changes
+track only when `track` is named**: which track a clip sits on decides what is
+drawn over what, so retiming a clip never reorders the picture by accident —
+the lane change, below.
 
 The clip's id is optional. Without one it comes from the asset's, suffixed until
 it is free — `rooftop`, then `rooftop-2` — exactly as an imported asset gets its
@@ -652,14 +652,16 @@ clip_animate { "project": "explainer.scor", "clip": "c-box-a", "property": "tran
                 (frame 14) — …"
 ```
 
-**`clip_move` changes a clip's track, and `clip_remove` takes clips off the
-timeline** — the two hand-edits anyone reaches for first with a mouse, and
-otherwise a `project_write` of the whole document for the smallest change there
-is (#576). `clip_move` takes the clip, the track, and optionally a
-`start_seconds` on it: a clip dragged down a lane and along it is one gesture,
-and doing it as a move and then a trim would pass through a document nobody
-asked for — the clip at its old start on the new lane — which can be refused
-for an overlap the finished edit does not have. Everything but the start goes
+**`clip_move` with a `track` changes a clip's lane, and `clip_remove` takes
+clips off the timeline** — the two hand-edits anyone reaches for first with a
+mouse, and otherwise a `project_write` of the whole document for the smallest
+change there is (#576). The track travels with any new start, duration or
+in-point in the same call: a clip dragged down a lane and along it is one
+gesture, and doing it as a move and then a trim would pass through a document
+nobody asked for — the clip at its old start on the new lane — which can be
+refused for an overlap the finished edit does not have. (Moving in time and
+moving between lanes were two tools, `trim_clip` and `clip_move`, until #781
+made them the one gesture they are.) Everything but the bounds asked for goes
 with the clip, its **id** included, so an arrow attached to it still follows
 it. It keeps `place_clip`'s rules: the track must exist, picture goes on a
 video track and sound on an audio one, and it may not land on a clip already
@@ -691,7 +693,7 @@ picture does not change; each track they came from becomes one of the group's
 own, in the same order, and every clip keeps its id and its keyframes. The group
 clip goes on the **lowest** of those tracks unless `track` names another, so
 nothing that was under the diagram ends up over it. From then on the group clip
-is a clip like any other — `clip_set`, `trim_clip`, keyframes — and a fade on it
+is a clip like any other — `clip_set`, `clip_move`, keyframes — and a fade on it
 fades one picture, so overlapping members do not show through each other.
 
 It is all or nothing, with `place_clip`'s kind of refusals: every clip must be

@@ -88,7 +88,7 @@ fn an_omitted_duration_on_an_unmeasured_asset_is_refused_by_name() {
 fn trimming_a_start_moves_the_clip_and_keeps_its_length() {
     let dir = project("trim");
     let (text, failed) = said(&call(
-        "trim_clip",
+        "clip_move",
         json!({ "project": dir, "clip": "v1c", "start_seconds": 3.0 }),
     ));
     assert!(!failed, "{text}");
@@ -102,7 +102,7 @@ fn trimming_a_start_moves_the_clip_and_keeps_its_length() {
 #[test]
 fn a_trim_that_asks_for_nothing_says_so() {
     let dir = project("trim-empty");
-    let (text, failed) = said(&call("trim_clip", json!({ "project": dir, "clip": "v1c" })));
+    let (text, failed) = said(&call("clip_move", json!({ "project": dir, "clip": "v1c" })));
     assert!(failed, "nothing was named");
     assert!(text.contains("nothing to change"), "got {text}");
     std::fs::remove_dir_all(dir).ok();
@@ -114,7 +114,7 @@ fn a_trim_that_asks_for_nothing_says_so() {
 fn a_negative_time_is_refused_rather_than_clamped() {
     let dir = project("trim-negative");
     let (text, failed) = said(&call(
-        "trim_clip",
+        "clip_move",
         json!({ "project": dir, "clip": "v1c", "start_seconds": -2.0 }),
     ));
     assert!(failed, "the timeline starts at 0s");

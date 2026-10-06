@@ -307,11 +307,10 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         // comes to be one: a clip has to be on the timeline before anything
         // can dissolve it or scale it.
         Box::new(edit::PlaceClip),
-        Box::new(edit::TrimClip),
+        Box::new(edit::ClipMove),
         Box::new(edit::ClipSet),
         Box::new(edit::ClipAnimate),
         Box::new(edit::ClipFollow),
-        Box::new(edit::ClipMove),
         Box::new(edit::ClipRemove),
         Box::new(edit::ClipGroup),
         Box::new(edit::ClipUngroup),

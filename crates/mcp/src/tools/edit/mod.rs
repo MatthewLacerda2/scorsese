@@ -1,8 +1,8 @@
 //! Tools that change something: bring media in, write the document, make or
-//! retime an image sequence, place, trim, move, remove, group and ungroup
-//! clips, set a clip's plain values, animate one of them, send one along an
-//! arrow, edit a brief, dissolve a cut, duck the music, set a clip's volume,
-//! scale a run of clips, render.
+//! retime an image sequence, place, move (in time or onto another track),
+//! remove, group and ungroup clips, set a clip's plain values, animate one of
+//! them, send one along an arrow, edit a brief, dissolve a cut, duck the
+//! music, set a clip's volume, scale a run of clips, render.
 //!
 //! One file per tool. They were one file until the dissolve arrived and put
 //! it over the size gate, which is the gate doing its job: tools that happen
@@ -24,7 +24,6 @@ mod remove;
 mod render;
 mod sequence;
 mod sequenced;
-mod trim;
 mod volume;
 mod write;
 
@@ -42,7 +41,6 @@ pub(crate) use relocate::ClipMove;
 pub(crate) use remove::ClipRemove;
 pub(crate) use render::Render;
 pub(crate) use sequence::Sequence;
-pub(crate) use trim::TrimClip;
 pub(crate) use volume::SetVolume;
 pub(crate) use write::Write;
 

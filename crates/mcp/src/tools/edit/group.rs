@@ -50,7 +50,7 @@ impl Tool for ClipGroup {
          Filmora calls a compound clip. The clips move into a new group asset and \
          are replaced by one clip of it at the same place and time, so the picture \
          does not change; from then on that one clip can be moved, scaled, faded or \
-         blurred as a unit, with clip_set, trim_clip, keyframes and every other \
+         blurred as a unit, with clip_set, clip_move, keyframes and every other \
          tool, the way one clip is. A diagram of thirty boxes and arrows that pulls \
          back as a whole is thirty clips grouped and two keyframes on the group, \
          rather than the same move written thirty times. Faded, a group fades as \

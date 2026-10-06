@@ -6,8 +6,8 @@
 //! nowhere for a bad state to hide until someone notices.
 //!
 //! The edit is `scorsese-core`'s own — [`placing::trim`] along a lane,
-//! [`placing::relocate`] onto another — the calls `trim_clip` and `clip_move`
-//! make for an assistant and the web editor, and each checks the result with
+//! [`placing::relocate`] onto another — the calls `clip_move` makes for an
+//! assistant and the web editor, and each checks the result with
 //! [`Project::validate`]. Not a reimplementation here: a second opinion about
 //! what is legal is a second opinion that will drift, and the window would
 //! start allowing edits the CLI refuses to load.
@@ -48,7 +48,10 @@ pub(in crate::timeline) fn place(
         // length and source window — so the start is all that travels with it.
         let to = Relocation {
             track: onto.clone(),
-            start: Some(shape.start),
+            bounds: Trim {
+                start: Some(shape.start),
+                ..Trim::default()
+            },
         };
         return match placing::relocate(project, clip, &to) {
             Ok(_) => Ok(()),

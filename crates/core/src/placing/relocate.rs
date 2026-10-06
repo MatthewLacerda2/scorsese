@@ -1,27 +1,30 @@
 //! Moving a placed clip onto another track.
 
 use crate::project::Project;
-use crate::time::Frames;
 use crate::timeline::{Clip, ClipId, TrackId};
 use crate::validate::ValidationErrors;
 
+use super::Trim;
 use super::place::track_ids;
 
-/// Where a clip is moved to: a track, and optionally a new start on it.
+/// Where a clip is moved to: a track, and optionally new bounds on it.
 ///
 /// **One edit, not two.** A clip dragged down a lane and along it in the same
 /// gesture lands at a new start on a new track, and doing that as a relocation
 /// followed by a trim would pass through a document nobody asked for — the clip
 /// at its old start on the new track — which can be refused for an overlap the
-/// finished edit does not have. So the start travels with the track.
+/// finished edit does not have. So the bounds travel with the track: a start,
+/// and for a caller that also shortens the clip to fit the gap it lands in, a
+/// duration and an in-point too.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Relocation {
     /// The track it goes onto. Must exist and carry the clip's kind: picture
     /// onto a video track, sound onto an audio one.
     pub track: TrackId,
-    /// Where it begins there, or `None` to keep the start it has — a clip
-    /// lifted straight up or down onto the lane above or below.
-    pub start: Option<Frames>,
+    /// The bounds it has there, each field set as [`trim`](super::trim) sets
+    /// it. All absent keeps the ones it has — a clip lifted straight up or down
+    /// onto the lane above or below.
+    pub bounds: Trim,
 }
 
 /// Why a clip was not moved. Nothing is ever partly written.
@@ -42,10 +45,12 @@ pub enum RelocateError {
         /// The tracks that do exist, so the next call can name one.
         available: String,
     },
-    /// The clip is on that track already and no new start was given, so
+    /// The clip is on that track already and no new bounds were given, so
     /// nothing would change. Reported rather than treated as a successful
     /// no-op, as [`TrimError::Nothing`](super::TrimError::Nothing) is.
-    #[error("`{clip}` is on `{track}` already — name another track, or give a start")]
+    #[error(
+        "`{clip}` is on `{track}` already — name another track, or give a start, duration or source in-point"
+    )]
     AlreadyThere {
         /// The clip asked about.
         clip: ClipId,
@@ -62,9 +67,9 @@ pub enum RelocateError {
 /// Lifts a placed clip off its track and sets it down on another, and hands
 /// back the clip as it now is.
 ///
-/// Everything about the clip but its start goes with it — its id, its source
-/// window, its keyframes, its speed — because what changes is *where* it is,
-/// not *what* it is. An arrow attached to it follows it by that id.
+/// Everything about the clip but the bounds asked for goes with it — its id,
+/// its keyframes, its speed — because what changes is *where* it is, not
+/// *what* it is. An arrow attached to it follows it by that id.
 ///
 /// This is the edit [`trim`](super::trim) refuses to be. Which track a picture
 /// sits on decides what is drawn over what, so moving one between tracks can
@@ -87,7 +92,7 @@ pub fn relocate(
             track: to.track.clone(),
             available: track_ids(project),
         })?;
-    if from == onto && to.start.is_none() {
+    if from == onto && to.bounds == Trim::default() {
         return Err(RelocateError::AlreadyThere {
             clip: id.clone(),
             track: to.track.clone(),
@@ -101,9 +106,7 @@ pub fn relocate(
         .position(|clip| &clip.id == id)
         .expect("the track was chosen because it holds this clip");
     let mut moved = clips.remove(at);
-    if let Some(start) = to.start {
-        moved.start = start;
-    }
+    to.bounds.apply(&mut moved);
     let landed = &mut proposed.tracks[onto].clips;
     landed.push(moved.clone());
     // Kept in time order for the reader, as `place` and `trim` keep it.
@@ -118,6 +121,7 @@ pub fn relocate(
 mod tests {
     use super::super::fixture::placed;
     use super::*;
+    use crate::time::Frames;
     use crate::timeline::{Track, TrackKind};
 
     fn shot() -> ClipId {
@@ -139,7 +143,10 @@ mod tests {
     fn onto(track: &str, start: Option<u64>) -> Relocation {
         Relocation {
             track: TrackId::new(track),
-            start: start.map(Frames),
+            bounds: Trim {
+                start: start.map(Frames),
+                ..Trim::default()
+            },
         }
     }
 
@@ -161,6 +168,41 @@ mod tests {
         let mut project = with_lanes();
         let clip = relocate(&mut project, &shot(), &onto("v2", Some(90))).expect("v2 is empty");
         assert_eq!(clip.start, Frames(90));
+    }
+
+    /// Landing in a gap shorter than the clip is one edit: shortened on the
+    /// way, it never passes through a document where it overlaps.
+    #[test]
+    fn a_clip_shortened_on_the_way_fits_a_gap_it_would_not_fit_whole() {
+        let mut project = with_lanes();
+        relocate(&mut project, &shot(), &onto("v2", Some(60))).expect("v2 is empty");
+        super::super::place(
+            &mut project,
+            &super::super::Placement {
+                asset: crate::asset::AssetId::new("shot"),
+                track: TrackId::new("v1"),
+                start: Frames::ZERO,
+                duration: Some(Frames(30)),
+                source_in: Frames::ZERO,
+                id: Some(ClipId::new("short")),
+            },
+        )
+        .expect("v1 is empty again");
+        let whole = relocate(&mut project, &shot(), &onto("v1", Some(10)));
+        assert!(whole.is_err(), "120 frames from 10 run into `short`");
+        let to = Relocation {
+            track: TrackId::new("v1"),
+            bounds: Trim {
+                start: Some(Frames(30)),
+                duration: Some(Frames(40)),
+                source_in: Some(Frames(15)),
+            },
+        };
+        let clip = relocate(&mut project, &shot(), &to).expect("30..70 is free");
+        assert_eq!(
+            (clip.start, clip.duration, clip.source_in),
+            (Frames(30), Frames(40), Frames(15))
+        );
     }
 
     /// The refusal `place` gives for the same mistake: picture has no business

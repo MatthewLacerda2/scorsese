@@ -58,7 +58,7 @@ async fn an_edit_lands_names_its_revision_and_is_on_record(pool: PgPool) {
 
     let moved =
         json!({ "revision": revision, "arguments": { "clip": "c1", "start_seconds": 1.0 } });
-    let answered = tool(address, &browser, id, "trim_clip", moved).await;
+    let answered = tool(address, &browser, id, "clip_move", moved).await;
     assert_eq!(answered.status, 200, "{}", answered.body);
     let body = answered.json();
     assert_eq!(body["project"]["revision"], revision + 1);
@@ -95,7 +95,7 @@ async fn an_edit_lands_names_its_revision_and_is_on_record(pool: PgPool) {
             .expect("the log reads");
     assert_eq!(
         clients,
-        [("editor".to_owned(), "trim_clip".to_owned())],
+        [("editor".to_owned(), "clip_move".to_owned())],
         "the stale edit was refused before it ran"
     );
 }

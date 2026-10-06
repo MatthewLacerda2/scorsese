@@ -145,7 +145,7 @@ impl Tool for ClipSet {
          ordinary keyframe held from the clip's first frame, exactly what \
          set_volume writes for a level — so a property that was animated is \
          flattened, and the reply names what it replaced. Where the clip starts \
-         and how long it runs are trim_clip's. Nothing is written unless the \
+         and how long it runs are clip_move's. Nothing is written unless the \
          whole document still loads."
     }
 

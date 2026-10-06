@@ -60,21 +60,21 @@ describe("a running turn", () => {
     shown = apply(shown, {
       type: "chat_tool",
       turn: 1,
-      tool: "trim_clip",
+      tool: "clip_move",
       state: "running",
       said: null,
     });
     shown = apply(shown, {
       type: "chat_tool",
       turn: 1,
-      tool: "trim_clip",
+      tool: "clip_move",
       state: "answered",
       said: "c1 now…",
     });
     const entry = first(shown);
     expect(words(entry)).toBe("Cutting the intro.");
     expect(entry.lines).toEqual([
-      { kind: "tool", tool: "trim_clip", state: "answered", said: "c1 now…" },
+      { kind: "tool", tool: "clip_move", state: "answered", said: "c1 now…" },
     ]);
     expect(running(shown)?.id).toBe(1);
   });
