@@ -46,6 +46,18 @@ pub struct Fetching {
     pub total: Option<u64>,
 }
 
+impl Fetching {
+    /// The one line every program says when the download starts — the CLI on
+    /// stderr, the MCP server in its log, the window under its preview.
+    pub fn starting(&self) -> String {
+        let size = self
+            .total
+            .map(|bytes| format!(" ({} MB)", bytes.div_ceil(1_000_000)))
+            .unwrap_or_default();
+        format!("fetching the page renderer, once{size} — it draws html clips")
+    }
+}
+
 /// Where a download's bytes come from: the network, or a test's file.
 pub trait Source {
     /// Writes the file at `url` into `to`, telling `progress` as it arrives.

@@ -24,7 +24,6 @@ use scorsese_core::{Frames, Project};
 
 use crate::error::RenderError;
 use crate::held::Loops;
-use crate::page::Chrome;
 use crate::plan::{FrameRange, Plan};
 use crate::preview::Preview;
 use crate::raster::Sizes;
@@ -33,7 +32,7 @@ use crate::settings::RenderSettings;
 use crate::tools::Tools;
 use crate::workers::Workers;
 
-use super::pages::Pages;
+use super::pages::{Browser, Pages};
 
 use super::segment::{Pass, Stage};
 
@@ -44,8 +43,7 @@ use super::segment::{Pass, Stage};
 /// picture would be inventing one.
 pub(super) fn compose(
     tools: &Tools,
-    chrome: Option<&Chrome>,
-    capturing: bool,
+    browser: Browser<'_>,
     settings: RenderSettings,
     preview: Option<&Preview>,
     project: &Project,
@@ -62,7 +60,7 @@ pub(super) fn compose(
     // has to run from zero to get here, and the capture is cached for every
     // scrub after this one. What it noticed goes back with the frame, for a
     // caller that has somebody to tell.
-    let (pages, notes) = Pages::capture(tools, chrome, capturing, &settings, &plan, project_root);
+    let (pages, notes) = Pages::capture(tools, browser, &settings, &plan, project_root);
     let mut stage = Stage::new();
     let pass = Pass {
         tools,

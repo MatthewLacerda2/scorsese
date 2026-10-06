@@ -229,3 +229,23 @@ fn a_download_that_fails_leaves_nothing_behind() {
         leftovers(&root, &build)
     );
 }
+
+#[test]
+fn the_start_is_said_in_one_line_with_its_size_when_known() {
+    let known = Fetching {
+        received: 0,
+        total: Some(99_221_129),
+    };
+    assert_eq!(
+        known.starting(),
+        "fetching the page renderer, once (100 MB) — it draws html clips"
+    );
+    let unknown = Fetching {
+        received: 0,
+        total: None,
+    };
+    assert_eq!(
+        unknown.starting(),
+        "fetching the page renderer, once — it draws html clips"
+    );
+}

@@ -46,7 +46,24 @@ use scorsese_render::contact::Look;
 
 /// Parses the command line and runs it.
 pub fn run() -> Result<()> {
+    supply_page_renderer();
     dispatch(Cli::parse())
+}
+
+/// Lets a render download the page renderer the first time an `html` clip
+/// needs drawing (#776), saying so in one line on stderr — so `stdout` stays
+/// what the command answers, and a person running it once sees why it paused.
+fn supply_page_renderer() {
+    use scorsese_providers::chromium;
+    use scorsese_render::page::{self, Supply};
+    page::supply(Supply::new(chromium::installed, || {
+        chromium::fetch(&mut |at| {
+            if at.received == 0 {
+                eprintln!("{}", at.starting());
+            }
+        })
+        .map_err(|error| error.to_string())
+    }));
 }
 
 fn dispatch(cli: Cli) -> Result<()> {

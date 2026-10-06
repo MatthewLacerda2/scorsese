@@ -37,7 +37,7 @@ use crate::settings::RenderSettings;
 use crate::tools::Tools;
 use crate::workers::Workers;
 
-use pages::Pages;
+use pages::{Browser, Pages};
 use segment::{Pass, Stage};
 
 /// Renders projects with one set of settings.
@@ -143,6 +143,13 @@ impl<'a> Renderer<'a> {
         }
     }
 
+    fn browser(&self) -> Browser<'_> {
+        Browser {
+            chrome: self.chrome.as_ref(),
+            capturing: self.capturing,
+        }
+    }
+
     /// Every page capture rendering `project` at these settings would need,
     /// once each — what to hand [`crate::page::capture`] ahead of time.
     pub fn page_requests(&self, project: &Project) -> Result<Vec<page::Request>, RenderError> {
@@ -221,8 +228,7 @@ impl<'a> Renderer<'a> {
         let pages = if picture {
             let (pages, page_notes) = Pages::capture(
                 self.tools,
-                self.chrome.as_ref(),
-                self.capturing,
+                self.browser(),
                 &self.settings,
                 &plan,
                 project_root,
@@ -418,8 +424,7 @@ impl<'a> Renderer<'a> {
     ) -> Result<(Frame, Vec<Note>), RenderError> {
         still::compose(
             self.tools,
-            self.chrome.as_ref(),
-            self.capturing,
+            self.browser(),
             self.settings,
             self.preview.as_ref(),
             project,

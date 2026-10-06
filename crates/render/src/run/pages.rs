@@ -27,6 +27,16 @@ use crate::report::Note;
 use crate::settings::RenderSettings;
 use crate::tools::Tools;
 
+/// Which browser a render's pages are captured with, and whether they are
+/// captured at all or only read from `cache/`.
+#[derive(Debug, Clone, Copy)]
+pub(super) struct Browser<'c> {
+    /// The one given, or `None` to find one.
+    pub(super) chrome: Option<&'c Chrome>,
+    /// False for a renderer that only reads captures already made.
+    pub(super) capturing: bool,
+}
+
 /// Each page clip's captured frames, by clip.
 #[derive(Debug, Default)]
 pub(super) struct Pages {
@@ -42,14 +52,13 @@ impl Pages {
         self.captured.get(&shot.clip.id).map(PathBuf::as_path)
     }
 
-    /// Captures every page `plan` shows, with `chrome` or — when none was
-    /// given — whichever browser [`Chrome::discover`] finds. Unless
-    /// `capturing` is false: then only what is already captured is used, and
-    /// no browser is looked for at all.
+    /// Captures every page `plan` shows, with the browser given or — when none
+    /// was — whichever one [`Chrome::discover`] finds. Unless the browser is
+    /// not `capturing`: then only what is already captured is used, and no
+    /// browser is looked for at all.
     pub(super) fn capture(
         tools: &Tools,
-        chrome: Option<&Chrome>,
-        capturing: bool,
+        Browser { chrome, capturing }: Browser<'_>,
         settings: &RenderSettings,
         plan: &Plan<'_>,
         project_root: &Path,

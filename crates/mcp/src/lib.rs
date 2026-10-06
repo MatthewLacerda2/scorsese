@@ -123,12 +123,14 @@
 //! and the tools themselves are reachable only from in here.
 
 pub mod protocol;
+mod renderer;
 mod renders;
 mod rpc;
 mod session;
 mod table;
 mod tools;
 
+pub use renderer::fetch_on_first_use;
 pub use session::serve;
 pub use table::{BEGIN, END, regenerated, tool_table};
 pub use tools::{Context, Costs, Part, Reply, Tool, registry};

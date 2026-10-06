@@ -34,7 +34,7 @@ use serde_json::Value;
 
 use crate::protocol::{self, Handled};
 use crate::renders::{Renders, Say};
-use crate::tools::{self, Context};
+use crate::tools::{self, Context, Part};
 
 /// The calls read but not yet answered, by the id the client gave them —
 /// written as JSON, since an id may be a number or a string and `1` and `"1"`
@@ -182,8 +182,13 @@ fn handle(
                     }
                 };
                 let report = token.is_some().then_some(&mut notify as &mut Say<'_>);
-                let outcome =
+                let mut outcome =
                     tool.call_in(&call.arguments, &mut Context::new(cancel, renders, report));
+                if let Ok(reply) = &mut outcome
+                    && let Some(said) = crate::renderer::unsaid()
+                {
+                    reply.parts.push(Part::words(said));
+                }
                 call.answer(outcome)
             }
             None => call.unknown(),
