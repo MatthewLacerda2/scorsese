@@ -1596,11 +1596,12 @@ lane is one `clip_move` with the new start, never a move then a trim; Delete or
 Backspace removes the selected clip — its asset stays, and nothing closes up
 behind it. Neither fires while a text field has the keyboard.
 
-**`asset_remove`** and **`track_remove`** (#396) are the bin beside an asset in
-the assets panel and on a lane's header. Each is a plain confirm first, listing
-the clips that go with it — the timeline is already in the page — and *yes*
-sends exactly that list. The tools refuse any other list, so a timeline that
-moved on since the confirm was drawn is a refusal, never a guess.
+**`asset_remove`** and **`track_remove`** (#396) are the bin on an asset's tile
+in the assets panel (shown on hover, #766) and on a lane's header. Each is a
+plain confirm first, listing the clips that go with it — the timeline is
+already in the page — and *yes* sends exactly that list. The tools refuse any
+other list, so a timeline that moved on since the confirm was drawn is a
+refusal, never a guess.
 
 **The preview doctrine** (#542, recorded at the maintainer's asking). **The
 server draws every picture; the browser plays a video.** Real-time compositing
