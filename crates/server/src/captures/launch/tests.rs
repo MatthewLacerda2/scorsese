@@ -155,11 +155,32 @@ fn a_link_out_of_the_library_or_round_about_refuses_the_job() {
 
 #[test]
 fn a_job_without_a_page_cache_of_its_own_is_refused() {
-    let laid = Laid::new("cacheless");
-    let cache = laid.job.join(PROJECT).join(CACHE_DIR);
-    std::fs::remove_file(&cache).unwrap();
-    symlink(laid.launch.library.join("users/7"), &cache).unwrap();
-    assert!(laid.arguments().unwrap_err().contains("page cache"));
+    for (name, to) in [
+        ("library", "LIBRARY/users/7"),
+        ("user", "SPOOL/pages/7"),
+        ("named", "SPOOL/pages/7/nine"),
+        ("file", "SPOOL/pages/7/8"),
+    ] {
+        let laid = Laid::new(name);
+        let spool = laid.launch.spool.to_str().unwrap();
+        std::fs::create_dir_all(Path::new(spool).join("pages/7/nine")).unwrap();
+        std::fs::write(Path::new(spool).join("pages/7/8"), "").unwrap();
+        let to = to
+            .replace("LIBRARY", laid.launch.library.to_str().unwrap())
+            .replace("SPOOL", spool);
+        let cache = laid.job.join(PROJECT).join(CACHE_DIR);
+        std::fs::remove_file(&cache).unwrap();
+        symlink(to, &cache).unwrap();
+        let why = laid.arguments().unwrap_err();
+        assert!(why.contains("page cache"), "{name}: {why}");
+    }
+}
+
+#[test]
+fn a_link_to_a_folder_of_the_owners_is_not_a_file_of_theirs() {
+    let laid = Laid::new("folder");
+    laid.link("assets/all", &laid.launch.library.join("users/7/library"));
+    assert!(laid.arguments().is_err());
 }
 
 #[test]
