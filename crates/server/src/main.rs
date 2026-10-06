@@ -29,6 +29,21 @@ struct Cli {
 #[tokio::main]
 async fn main() -> ExitCode {
     let command = Cli::parse().command.unwrap_or(Command::Serve);
+    // The capture container's commands read no environment and no database:
+    // it has neither a network nor the server's secrets.
+    match command {
+        Command::CaptureWorker(args) => return capture_worker(&args),
+        Command::CaptureOne(args) => {
+            return match scorsese_server::captures::one::run(&args) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(error) => {
+                    eprintln!("scorsese-server: {error}");
+                    ExitCode::FAILURE
+                }
+            };
+        }
+        _ => {}
+    }
     let here = std::env::current_dir().unwrap_or_else(|_| ".".into());
     let outcome = match Config::from_environment(&Environment::discover(&here)) {
         Ok(config) => perform(config, command).await,
@@ -68,9 +83,30 @@ async fn perform(config: Config, command: Command) -> Result<(), ServerError> {
             let pool = scorsese_server::open_database(&config).await?;
             scorsese_server::credits::command::run(&pool, command).await?
         }
+        Command::CaptureWorker(_) | Command::CaptureOne(_) => {
+            unreachable!("handled before the environment is read")
+        }
     };
     println!("{output}");
     Ok(())
+}
+
+/// Capture pages from the spool until stopped.
+fn capture_worker(args: &scorsese_server::captures::worker::Args) -> ExitCode {
+    match scorsese_server::captures::worker::Worker::from_args(args) {
+        Ok(worker) => {
+            eprintln!(
+                "scorsese-server: capturing pages from {}, sandbox {}",
+                args.spool.display(),
+                if worker.sandbox { "on" } else { "off" }
+            );
+            worker.run()
+        }
+        Err(error) => {
+            eprintln!("scorsese-server: {error}");
+            ExitCode::FAILURE
+        }
+    }
 }
 
 /// Resolves when the process is asked to stop: Ctrl-C at a terminal, or the

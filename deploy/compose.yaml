@@ -131,6 +131,63 @@ services:
       # a dead server and get restarted halfway through.
       start_period: 120s
 
+  # Users' web pages, drawn by a browser (#778). Somebody else's code on this
+  # machine, so: no network at all, no capability, a read-only root, a user
+  # that is not root, and Chromium's own sandbox on — which needs only the one
+  # seccomp rule in capture/seccomp.json (#773 has the measurement). The
+  # server hands it work through the spool under SCORSESE_CACHE
+  # (crates/server/src/captures has why a spool and not a `docker run`).
+  capture:
+    image: scorsese-server
+    # The server's build makes the image; this only runs it. Healthy, because
+    # the server makes the spool before it answers, and the spool is mounted.
+    depends_on:
+      server:
+        condition: service_healthy
+    restart: unless-stopped
+    command: ["scorsese-server", "capture-worker", "--spool", "/data/cache/captures"]
+    # A PID 1 that reaps: a capture stopped at its deadline is killed with its
+    # whole process group, and the browser's processes it leaves are reparented
+    # to PID 1. Without a reaper they pile up against pids_limit.
+    init: true
+    network_mode: none
+    user: "${SCORSESE_UID}:${SCORSESE_GID}"
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=./capture/seccomp.json
+    read_only: true
+    # Chromium's profile and HOME. Small, and memory, so nothing big lands here:
+    # the captures go to the spool, on disk (#773: frames on a tmpfs count
+    # against the memory cap and blow it).
+    tmpfs:
+      - /tmp:rw,size=64m
+    environment:
+      HOME: /tmp
+    # #773's caps. Two cores (~245 ms a 1080p frame, so a minute of page takes
+    # ~7.5 min) leaves the rest of the machine to renders. 768 MiB is the
+    # 1080p floor; 4K is unmeasured. The deadline per capture is the worker's
+    # own: 60 s plus a second a frame.
+    cpus: 2
+    mem_limit: 1g
+    memswap_limit: 1g
+    pids_limit: 256
+    volumes:
+      # The media a project's links point at, read-only, at the path the
+      # server laid the links out with.
+      - type: bind
+        source: ${SCORSESE_DATA}/library
+        target: /data/library
+        read_only: true
+        bind:
+          create_host_path: false
+      # The spool: each job's project, and each project's page cache.
+      - type: bind
+        source: ${SCORSESE_DATA}/cache/captures
+        target: /data/cache/captures
+        bind:
+          create_host_path: false
+
   web:
     build:
       context: ..

@@ -99,7 +99,8 @@
 //! waits in and the worker that runs it; [`events`] the live stream a user's
 //! browser hears it on. [`credits`] is what each user has paid and spent, and
 //! the record of every paid generation. [`renders`] is the finished videos the
-//! queue makes from stored projects, kept for download under a quota.
+//! queue makes from stored projects, kept for download under a quota, and
+//! [`captures`] how their web pages are drawn in a container of their own.
 //! [`tools`] is scorsese's tool surface for one user — what web MCP serves and
 //! the built-in assistant calls — and [`generations`] the paid jobs its
 //! `generate` queues; [`designs`] the voices its `voice_design` designs and
@@ -109,6 +110,7 @@
 
 pub mod accounts;
 pub mod assistant;
+pub mod captures;
 pub mod config;
 pub mod credits;
 pub mod db;

@@ -10,8 +10,8 @@
 //! **What a render does not do is bake.** A `synth_audio` asset renders from
 //! its bake, which `synth_bake` keeps in the owner's library (#560) — exactly
 //! as `scorsese render` renders a local folder's `generated/` and never bakes
-//! on its own. So the folder is laid out without the project's recipes and
-//! script: the renderer reads neither. An asset whose bake is not in the
+//! on its own. The folder carries the project's recipes and script all the
+//! same, with its pages, though the renderer reads only the pages. An asset whose bake is not in the
 //! library is refused **by name, recipe included** — a render that silently
 //! lost its music is worse than one that says why it did not happen. A file
 //! the library does not hold is refused the same way.
@@ -23,11 +23,20 @@
 //!
 //! **Progress.** Its [`Context::progress`] goes to the renderer beside the
 //! cancel, and the worker tells the owner how far it has got (#698).
+//!
+//! **Pages** (#778). The folder carries the project's kept files, pages among
+//! them. A project that shows a page is laid out in the capture spool instead
+//! of the scratch folder, its pages are captured by the `capture` container
+//! ([`crate::captures`]) and the render draws them from that cache, never
+//! starting a browser itself. A capture that fails is not a failed render — the
+//! clip shows its slug card — so what the render said comes back in the
+//! result's `notes`, the reason a page was not captured among them: the
+//! assistant reads those, since nothing else would tell it.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use scorsese_core::{GenerationState, Project};
+use scorsese_core::Project;
 use scorsese_render::{
     Cancel, FrameRange, Preview, Progress, RenderError, RenderSettings, Renderer, Tools,
 };
@@ -35,11 +44,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use super::{RenderCache, RenderView, Settings, evict, preview, store};
+use crate::captures::dispatch::{self, Pages};
 use crate::db::UserId;
 use crate::jobs::{Context, Handler, Job, Outcome};
 use crate::library::locate;
 use crate::projects::ProjectFiles;
-use crate::projects::media::{Materialised, hashes, materialise};
+use crate::projects::media::{hashes, materialise};
 use crate::storage::Storage;
 
 /// What a render job carries: which project, the document as it was when the
@@ -105,7 +115,15 @@ async fn render(
     let out = work
         .0
         .join(format!("render.{}", payload.settings.extension()));
+    let spool = cache.captures();
+    let pages = Pages {
+        cache: spool.pages(job.user, payload.project),
+        spool,
+        job: job.id,
+    };
+    let _spooled = Scratch::new(pages.job_folder());
     let media = library(context, storage, job.user, &project).await?;
+    let kept = kept_files(context, payload.project).await?;
     let previewing = match quality {
         Some(quality) => Some(
             preview::preview(context, storage, job.user, &project, quality)
@@ -114,16 +132,23 @@ async fn render(
         ),
         None => None,
     };
-    let (tools, at, written) = (tools.clone(), work.0.join("project.scor"), out.clone());
+    let (tools, written) = (tools.clone(), out.clone());
     let drawn = Drawn {
         settings,
         preview: previewing,
         cancel: context.cancel().clone(),
         progress: context.progress().clone(),
     };
-    tokio::task::spawn_blocking(move || produce(&tools, &project, &at, &media, drawn, &written))
-        .await
-        .map_err(|_| "the render crashed on the server; that is a bug".to_owned())??;
+    let places = Places {
+        work: work.0.join("project.scor"),
+        pages,
+        kept,
+    };
+    let notes = tokio::task::spawn_blocking(move || {
+        produce(&tools, &project, &places, &media, drawn, &written)
+    })
+    .await
+    .map_err(|_| "the render crashed on the server; that is a bug".to_owned())??;
 
     let size = std::fs::metadata(&out)
         .map_err(|error| error.to_string())?
@@ -183,7 +208,9 @@ async fn render(
     let view = evict::admit(context.pool(), cache, size, keep)
         .await
         .map_err(database)??;
-    Ok(done(&view))
+    let mut done = done(&view);
+    done["notes"] = json!(notes);
+    Ok(done)
 }
 
 /// What the file is drawn as: the settings, and — for a preview only — the
@@ -197,81 +224,64 @@ struct Drawn {
     progress: Progress,
 }
 
-/// Lay the project out at `at` and render it to `out`. Blocking: a render is
-/// minutes of CPU, so it runs off the server's async threads.
+/// Where a job lays its project out: the scratch folder, or — for a project
+/// showing a page — the spool, where the capture container can see it.
+struct Places {
+    work: PathBuf,
+    pages: Pages,
+    kept: ProjectFiles,
+}
+
+/// Lay the project out, have its pages captured, and render it to `out`;
+/// what the render said. Blocking: a render is minutes of CPU, and waiting
+/// on captures minutes more, so it runs off the server's async threads.
 fn produce(
     tools: &Tools,
     project: &Project,
-    at: &Path,
+    places: &Places,
     media: &HashMap<String, PathBuf>,
     drawn: Drawn,
     out: &Path,
-) -> Result<(), String> {
-    let none = ProjectFiles::default();
-    let laid = materialise(project, &none, at, &|hash: &str| media.get(hash).cloned())
-        .map_err(|error| format!("laying the project out: {error}"))?;
-    unrenderable(project, &laid)?;
+) -> Result<Vec<String>, String> {
+    let rendering = |error: RenderError| match error {
+        // Already a whole sentence: how far it got, and that nothing was kept.
+        RenderError::Cancelled { .. } => error.to_string(),
+        other => format!("rendering: {other}"),
+    };
+    // Never a browser in this container: pages come from the capture
+    // container's cache, or show their cards.
     let renderer = Renderer::new(tools, drawn.settings)
-        .with_cancel(drawn.cancel)
-        .with_progress(drawn.progress);
+        .with_cancel(drawn.cancel.clone())
+        .with_progress(drawn.progress)
+        .without_capturing();
     let renderer = match drawn.preview {
         Some(preview) => renderer.with_preview(preview),
         None => renderer,
     };
-    renderer
-        .render(project, laid.root(), FrameRange::ALL, out)
-        .map_err(|error| match error {
-            // Already a whole sentence: how far it got, and that nothing was kept.
-            RenderError::Cancelled { .. } => error.to_string(),
-            other => format!("rendering: {other}"),
-        })?;
-    Ok(())
-}
-
-/// Refuse, by name, every clip's asset the server cannot supply: a file the
-/// library does not hold, or a synthesised sound whose bake it does not. A
-/// group's members included — they are drawn, so their files are needed too.
-fn unrenderable(project: &Project, laid: &Materialised) -> Result<(), String> {
-    let mut problems = Vec::new();
-    let mut seen = HashSet::new();
-    for (_, clip) in project.every_clip() {
-        let Some(asset) = project
-            .asset(&clip.asset)
-            .filter(|_| seen.insert(&clip.asset))
-        else {
-            continue; // Unknown ids are the renderer's own check to report.
-        };
-        let absent = laid.missing().contains(&asset.id);
-        if asset.kind.is_synthesized() {
-            let baked = asset.state == Some(GenerationState::Generated)
-                && asset.path.is_some()
-                && asset.sha256.is_some();
-            if absent || !baked {
-                let recipe = asset
-                    .recipe
-                    .as_ref()
-                    .map_or("(none)".into(), ToString::to_string);
-                problems.push(format!(
-                    "`{}` is synthesised from the recipe {recipe}, and its bake is not in \
-                     your library — bake it first (synth_bake)",
-                    asset.id
-                ));
-            }
-        } else if absent {
-            problems.push(format!(
-                "`{}` names a file that is not in your library",
-                asset.id
-            ));
-        }
-    }
-    if problems.is_empty() {
-        Ok(())
+    let requests = renderer.page_requests(project).map_err(rendering)?;
+    let at = if requests.is_empty() {
+        places.work.clone()
     } else {
-        Err(format!(
-            "cannot render this project: {}",
-            problems.join("; ")
-        ))
-    }
+        places.pages.folder()
+    };
+    let laid = materialise(project, &places.kept, &at, &|hash: &str| {
+        media.get(hash).cloned()
+    })
+    .map_err(|error| format!("laying the project out: {error}"))?;
+    super::refused::unrenderable(project, &laid)?;
+    let (renderer, failed) = if requests.is_empty() {
+        (renderer, HashMap::new())
+    } else {
+        let captured = places.pages.capture(&requests, &drawn.cancel)?;
+        match captured.chrome {
+            Some(chrome) => (renderer.with_chrome(chrome), captured.failed),
+            None => (renderer, captured.failed),
+        }
+    };
+    let report = renderer
+        .render(project, laid.root(), FrameRange::ALL, out)
+        .map_err(rendering)?;
+    Ok(dispatch::said(&report.notes, project, &failed))
 }
 
 /// Where each of the owner's library files `project` names is, by hash —
@@ -288,6 +298,17 @@ async fn library(
     let files = locate::by_hash(&mut tx, storage, user, &hashes)
         .await
         .map_err(database)?;
+    tx.commit().await.map_err(database)?;
+    Ok(files)
+}
+
+/// The project's kept files — its pages, recipes and script — read in the
+/// job's own scope, so another user's project finds none.
+async fn kept_files(context: &Context, project: i64) -> Result<ProjectFiles, String> {
+    let mut tx = context.scoped().await.map_err(database)?;
+    let files = crate::projects::files::read(&mut tx, project)
+        .await
+        .map_err(|error| error.to_string())?;
     tx.commit().await.map_err(database)?;
     Ok(files)
 }

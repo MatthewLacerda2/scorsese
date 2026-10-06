@@ -73,6 +73,7 @@
 pub mod evict;
 pub mod job;
 mod preview;
+mod refused;
 pub mod request;
 pub mod settings;
 pub mod store;
@@ -167,16 +168,25 @@ impl RenderCache {
         self.quota
     }
 
-    /// Create the root, and empty the scratch folder a stopped server left.
+    /// Create the root, and empty the scratch folders a stopped server left.
     /// Only while no render runs — the server calls it before its worker.
     /// On failure, the directory with the error, so the caller can name it.
     pub fn prepare(&self) -> Result<(), (PathBuf, std::io::Error)> {
         std::fs::create_dir_all(&self.root).map_err(|error| (self.root.clone(), error))?;
-        let work = self.root.join(WORK);
-        match std::fs::remove_dir_all(&work) {
-            Err(error) if error.kind() != std::io::ErrorKind::NotFound => Err((work, error)),
-            _ => Ok(()),
+        // The spool's job folders too: a job recovered after a stop lays its
+        // project out again from nothing. Its page caches stay.
+        for work in [self.root.join(WORK), self.captures().jobs()] {
+            match std::fs::remove_dir_all(&work) {
+                Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
+                    return Err((work, error));
+                }
+                _ => {}
+            }
         }
+        // Made here, before the server answers, because the capture container
+        // mounts it and refuses to start without it (deploy/compose.yaml).
+        let jobs = self.captures().jobs();
+        std::fs::create_dir_all(&jobs).map_err(|error| (jobs, error))
     }
 
     /// Where `user`'s render of `project` with `key` is kept, relative to the
@@ -192,6 +202,12 @@ impl RenderCache {
     /// A path the row stores, on disk.
     pub fn absolute(&self, relative: &Path) -> PathBuf {
         self.root.join(relative)
+    }
+
+    /// The spool page captures go through ([`crate::captures`]), beside the
+    /// renders under the same root.
+    pub fn captures(&self) -> crate::captures::Spool {
+        crate::captures::Spool::new(self.root.join(crate::captures::SPOOL_DIR))
     }
 
     /// The scratch folder job `job` renders in.

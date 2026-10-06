@@ -8,4 +8,7 @@
 !rust-toolchain.toml
 !crates/
 !tools/icons/
+# The Chromium pin: `scorsese-providers` reads it at compile time, and the
+# image's `chromium` stage fetches the build it names (#778).
+!tools/chromium/
 **/target/

@@ -28,9 +28,8 @@ pub const CHROME_ENV: &str = "SCORSESE_CHROME";
 /// - `--use-angle=swiftshader --enable-unsafe-swiftshader`: the same software
 ///   GPU on every machine. #772 measured frames from it byte-identical across
 ///   two CPU vendors, bar one rare six-pixel race.
-/// - `--no-sandbox`: containers, CI and the web image run as root, where the
-///   sandbox refuses to start. The page it renders is the project's own, served
-///   offline ([`super::origin`]), so the sandbox has no network to keep it from.
+/// - Not here, but added at launch unless [`Chrome::sandboxed`] was asked for:
+///   `--no-sandbox` (see [`NO_SANDBOX`]).
 /// - `--hide-scrollbars`: a page taller than the frame must not grow a bar.
 /// - The last three keep the page offline where request interception cannot
 ///   see (#839). `Fetch` pauses every HTTP request, but a WebSocket and WebRTC
@@ -49,7 +48,6 @@ const FLAGS: &[&str] = &[
     "--deterministic-mode",
     "--use-angle=swiftshader",
     "--enable-unsafe-swiftshader",
-    "--no-sandbox",
     "--hide-scrollbars",
     "--no-first-run",
     "--mute-audio",
@@ -62,11 +60,25 @@ const FLAGS: &[&str] = &[
     "--no-proxy-server",
 ];
 
+/// Turns Chromium's own sandbox off — passed unless [`Chrome::sandboxed`] says
+/// otherwise.
+///
+/// Off is the desktop's and the CLI's default, unchanged since #775: CI and
+/// cloud containers run as root, where the sandbox refuses to start, and
+/// GitHub's ubuntu-24.04 restricts the user namespaces it needs. Whether the
+/// desktop turns it on too is the maintainer's call (#773 measured it costing
+/// nothing). The web app's capture container is the one place it is always
+/// on: a page there is somebody else's code on the maintainer's machine, and
+/// #773 found the least that lets it start — a non-root user and one seccomp
+/// rule, `deploy/capture/seccomp.json`.
+pub const NO_SANDBOX: &str = "--no-sandbox";
+
 /// The browser a page is captured with.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Chrome {
     binary: PathBuf,
     version: String,
+    sandbox: bool,
 }
 
 impl Chrome {
@@ -90,7 +102,29 @@ impl Chrome {
         Ok(Self {
             version: version_from(&String::from_utf8_lossy(&output.stdout)),
             binary,
+            sandbox: false,
         })
+    }
+
+    /// Runs every capture with Chromium's own sandbox on, which needs a
+    /// non-root user and a kernel that lets it make a user namespace. A browser
+    /// that cannot start it fails the capture; it never falls back to running
+    /// without one. The version, and so the cache key, is unchanged: the
+    /// sandbox decides what a page may reach, never what it draws (#773).
+    pub fn sandboxed(self) -> Self {
+        Self {
+            sandbox: true,
+            ..self
+        }
+    }
+
+    /// Every flag a launch passes, bar the scale and the first URL.
+    fn flags(&self) -> Vec<&'static str> {
+        let mut flags = FLAGS.to_vec();
+        if !self.sandbox {
+            flags.push(NO_SANDBOX);
+        }
+        flags
     }
 
     /// What the browser calls its version, e.g. `154.0.8037.92`. Part of every
@@ -113,7 +147,7 @@ impl Chrome {
             .arg("-c")
             .arg(r#"exec "$0" "$@" 3<&0 4>&1 </dev/null >/dev/null"#)
             .arg(&self.binary)
-            .args(FLAGS)
+            .args(self.flags())
             .arg(format!("--force-device-scale-factor={scale}"))
             .arg("about:blank")
             .env("FONTCONFIG_FILE", fonts)
@@ -196,7 +230,20 @@ pub enum ChromeError {
 
 #[cfg(test)]
 mod tests {
-    use super::version_from;
+    use super::{Chrome, NO_SANDBOX, version_from};
+
+    #[test]
+    fn the_sandbox_is_off_unless_asked_for_and_on_when_it_is() {
+        let chrome = Chrome {
+            binary: "chrome".into(),
+            version: "154".into(),
+            sandbox: false,
+        };
+        assert!(chrome.flags().contains(&NO_SANDBOX));
+        let sandboxed = chrome.clone().sandboxed();
+        assert!(!sandboxed.flags().contains(&NO_SANDBOX));
+        assert_eq!(sandboxed.version(), chrome.version());
+    }
 
     #[test]
     fn the_version_is_the_last_word_of_the_banner() {
