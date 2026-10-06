@@ -50,6 +50,12 @@ pub enum Command {
     /// Record top-ups and refunds, read a balance.
     #[command(subcommand)]
     Credit(CreditCommand),
+    /// Capture web pages for the server's renders: the `capture` container's
+    /// process (#778). Needs no database and no network.
+    CaptureWorker(crate::captures::worker::Args),
+    /// One capture, run by `capture-worker` for each page.
+    #[command(hide = true)]
+    CaptureOne(crate::captures::one::Args),
 }
 
 /// `scorsese-server job …`

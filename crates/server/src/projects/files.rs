@@ -248,7 +248,7 @@ pub(crate) fn lay(files: &ProjectFiles, root: &Path) -> Result<(), MaterialiseEr
 }
 
 /// Project `id`'s kept files.
-pub(super) async fn read(tx: &mut Tx, id: i64) -> Result<ProjectFiles, ProjectError> {
+pub(crate) async fn read(tx: &mut Tx, id: i64) -> Result<ProjectFiles, ProjectError> {
     let rows: Vec<(String, String)> =
         sqlx::query_as("SELECT path, content FROM project_files WHERE project_id = $1")
             .bind(id)
