@@ -104,6 +104,21 @@ const BRIEFEST: f64 = 1.0;
 /// the same size is not a label, it is a layer nobody can see.
 const TEXT_WINDOW: std::ops::Range<f64> = 0.5..0.85;
 
+/// Whether a layer's rectangle says nothing about what it hides.
+///
+/// A page is the one kind whose rectangle is a **canvas**, not a shape: it is
+/// drawn with alpha, and where it draws nothing the tracks below show through
+/// (docs/pages.md). The ordinary way to lay a close-up beside a standing
+/// diagram is two full-frame pages on two tracks, each drawing only its half —
+/// so a box the size of the frame is the normal case, and reading it as opaque
+/// claimed every such page covered all of the clip under it (#807). What it
+/// really covers is only knowable by capturing it, which this check never does.
+/// So it is left out, the way a clip [`Layout`] cannot place is: silence over a
+/// number that would be a guess.
+fn immeasurable(placement: &Placement) -> bool {
+    placement.kind == AssetKind::Html
+}
+
 /// The frame every rectangle here is worked out against.
 ///
 /// A project carries no resolution — that is chosen per render — so a question
@@ -157,6 +172,7 @@ pub(super) fn collisions(project: &Project, project_dir: &Path) -> Vec<String> {
             .placed
             .iter()
             .filter(|placement| picture.contains(placement.track.as_str()))
+            .filter(|placement| !immeasurable(placement))
             .collect();
         for (above, over) in layers.iter().enumerate() {
             // Bottom layer first, so everything before `above` is under it.

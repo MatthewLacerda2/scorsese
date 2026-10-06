@@ -10,6 +10,8 @@ use std::path::Path;
 use scorsese_core::{Asset, AssetId, Frames, HashCheck, Project, Rgba, TextStyle};
 use scorsese_render::Checkup;
 
+mod pages;
+
 use crate::common::{clip, held, project, shape_asset, text_asset, video_track};
 
 /// Only what this module is about, out of a whole checkup — so a fixture that
