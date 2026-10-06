@@ -1,8 +1,9 @@
 # syntax=docker/dockerfile:1
 #
 # scorsese-server with ffmpeg and the pinned Chromium beside it — one image
-# for the `server` and `capture` services. Built from the repo root by
-# compose.yaml; what the build may see is server.Dockerfile.dockerignore.
+# for the `server` and for every page capture the launcher starts — and, as the
+# `launcher` target, the capture launcher's own image. Built from the repo root
+# by compose.yaml; what the build may see is server.Dockerfile.dockerignore.
 
 # The base image's toolchain is a head start, not the authority:
 # rust-toolchain.toml is copied in, so if the two ever disagree rustup fetches
@@ -33,6 +34,21 @@ RUN apt-get update \
 COPY tools/chromium /src/tools/chromium
 RUN mv "$(dirname "$(/src/tools/chromium/fetch /tmp/chromium)")" /opt/chromium
 
+# The capture launcher (#852): the one container holding the Docker socket, so
+# it carries as little as it can — the Docker client, and the server's binary,
+# whose `capture-launcher` writes out the only `docker run` it ever makes. No
+# ffmpeg and no browser: the captures run in the image below, not in this one.
+FROM debian:trixie-slim AS launcher
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends docker-cli \
+    && rm -rf /var/lib/apt/lists/* \
+    && docker --version
+COPY --from=build /usr/local/bin/scorsese-server /usr/local/bin/scorsese-server
+USER nobody
+CMD ["scorsese-server", "capture-launcher", "--help"]
+
+# The server's image, and every capture's. Last, so it is what a build without
+# a target makes.
 FROM debian:trixie-slim
 # ffmpeg goes on PATH, which is where scorsese-render's command builder looks
 # for it. curl is the health check's client. The rest are the libraries
@@ -49,7 +65,7 @@ RUN apt-get update \
     && ffmpeg -version | head -n 1
 COPY --from=chromium /opt/chromium /opt/chromium
 # Where both the server (for the build's version, the captures' cache key) and
-# the capture worker (to run it) find the browser.
+# each capture (to run it) find the browser.
 ENV SCORSESE_CHROME=/opt/chromium/chrome-headless-shell
 RUN ! ldd "$SCORSESE_CHROME" | grep 'not found' \
     && "$SCORSESE_CHROME" --version

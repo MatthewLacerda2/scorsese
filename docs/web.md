@@ -33,7 +33,8 @@ and it has its own conditional gate. It talks to the server over HTTP and to
 nothing else.
 
 **It runs on the maintainer's machine in Docker Compose**, five service
-containers and one that keeps them safe:
+containers and one that keeps them safe, plus a short-lived container per
+page capture:
 
 | container | role |
 | --- | --- |
@@ -42,7 +43,7 @@ containers and one that keeps them safe:
 | `web` | nginx serving the built React files |
 | `named-tunnel` | `cloudflared` holding a **Cloudflare Tunnel** — how the site reaches the internet without a static IP; it also terminates HTTPS, so there is no reverse proxy of our own. Before there is a domain, `quick-tunnel` instead, or no tunnel (#568, *Testing before there is a domain*) |
 | `backup` | scheduled `pg_dump` plus a sync of the library **off the machine** (#532). Not part of serving a request — the fifth container exists because a home machine has no redundancy, and a backup that depends on someone remembering is not one |
-| `capture` | users' web pages (`html` clips) drawn by Chromium, **offline and sandboxed**: the server's own image running `scorsese-server capture-worker`, with no network at all (#778, *Page captures*) |
+| `capture-launcher` | starts each capture of a user's web page (`html` clips) in a container of its own, **offline and sandboxed, mounting only that job** (#778, #852, *Page captures*). The one container holding the Docker socket, so it holds nothing else: no network, no database, no secret |
 
 **No message broker.** Long work — renders, Veo shots, ElevenLabs lines,
 thumbnails, proxies — is a row in a Postgres `jobs` table, claimed by workers
@@ -1068,42 +1069,64 @@ that page is **somebody else's code on the maintainer's machine**, so it never
 runs where the server does (#594 decision 1, #778). The code is
 `crates/server/src/captures/`, whose module doc carries the argument.
 
-**The container.** `capture` in `deploy/compose.yaml` runs the server's image
-as `scorsese-server capture-worker`, with `network_mode: none`, `cap_drop:
-[ALL]`, `no-new-privileges`, a read-only root, a non-root user, and
-**Chromium's own sandbox on**. The sandbox needs exactly one grant, the seccomp
-rule in `deploy/capture/seccomp.json` (Docker's default profile plus
+**One container per capture** (#852). Each capture runs the server's image as
+`scorsese-server capture-one`, with no network at all, no capability,
+`no-new-privileges`, a read-only root, a non-root user, and **Chromium's own
+sandbox on**. The sandbox needs exactly one grant, the seccomp rule in
+`deploy/capture/seccomp.json` (Docker's default profile plus
 `clone`/`unshare`/`chroot`, so a renderer can get a user namespace of its own);
 #773 measured that and nothing more. There is no `--no-sandbox` and no switch
-for one: `capture-worker --no-sandbox` exists for CI and development machines
-that run as root, and compose never passes it. The caps are #773's: `cpus: 2`,
-1 GiB of memory with no swap, 256 processes. The image bakes the pinned
-`chrome-headless-shell` (`tools/chromium/pin`) and `SCORSESE_CHROME` names it;
-the server never downloads one.
+for one. The caps are #773's: 2 CPUs, 1 GiB of memory with no swap, 256
+processes. The image bakes the pinned `chrome-headless-shell`
+(`tools/chromium/pin`) and `SCORSESE_CHROME` names it; the server never
+downloads one.
+
+**What a capture can see** is its own job and nothing else: the job's folder,
+read-only; the media files its project links to, one by one, read-only; and its
+project's page cache, the one place it may write. Each is mounted at the path
+the server laid it out with, so the project's links resolve inside. Another
+user's library is not filtered out, it is simply not there. Every linked file
+must also be the job's owner's (`library/users/<owner>/`), so even a server bug
+cannot hand one user's file to another's page; a job that links to anything
+else is refused, and the render's notes say why.
+
+**Who starts them: `capture-launcher`.** Starting a container takes the Docker
+socket, which is root on the host, and the server is the one container the
+internet talks to. So the socket goes to a sidecar that holds nothing else: no
+network, no database, no secret, no capability, the server's binary and a
+Docker client (`deploy/server.Dockerfile`'s `launcher` target). The `docker
+run` it makes is written out in `crates/server/src/captures/launch`, flag for
+flag. **A job gives it nothing but its folder**: no image, no flag, no path it
+does not check. So a server that has been taken over can ask for captures, and
+still cannot start anything else. It joins the socket's group,
+`SCORSESE_DOCKER_GID` in `deploy/.env`. When it starts it removes any capture
+container a previous run left behind, and refuses to run without the image or
+the seccomp profile.
+
+`capture-worker` is the same loop without containers, each capture a child
+process: for a machine running the server without Docker, and for the tests.
+`--no-sandbox` exists there for CI and development machines that run as root;
+compose runs neither.
 
 **How a render reaches it: a spool.** A render job whose project shows a page
 lays the project out under `$SCORSESE_CACHE/captures/jobs/job-<id>/`, writes
-`ask.json`, and waits for `answer.json`. The worker takes one job at a time,
-which is the captures' concurrency limit: one capture keeps ~3.6 cores busy.
-The frames land in `captures/pages/<user>/<project>/`, the project's own page
-cache, so a second render of an unchanged page reuses them and one user's
+`ask.json`, and waits for `answer.json`. The launcher takes one capture at a
+time, which is the captures' concurrency limit: one capture keeps ~3.6 cores
+busy. The frames land in `captures/pages/<user>/<project>/`, the project's own
+page cache, so a second render of an unchanged page reuses them and one user's
 captures are never another's. The render then draws pages only from there and
-never starts a browser itself. Not a `docker run` per job: that needs the
-Docker socket, which is root on the host, in the one container the internet
-talks to. What that costs is that the worker sees the library read-only and
-the whole spool, not one project; Chromium's sandbox, and an origin that serves
-a page only its own project's files, are what keep a page inside it.
+never starts a browser itself.
 
 **The walls, and what a page that hits one gets.** A request to the internet,
 a path out of the project, a WebSocket or WebRTC connection: refused, and the
 render's notes say so. A page that stops answering is stopped by the capture's
 own patience (60 s per answer); one that keeps answering slowly is killed with
-its whole process group at **60 s plus a second a frame**. A page that eats
+its container at **60 s plus a second a frame**. A page that eats
 memory is killed at the cap. In every case the clip shows its slug card, and
 the job's result carries `notes`, the render's notes with the reason a page was
 not captured among them. A failed capture is never a failed render, so the
-notes are the only place it is said. If the worker is not running at all, the
-render waits 30 s for a sign of it and then draws the cards, saying so.
+notes are the only place it is said. If the launcher is not running at all,
+the render waits 30 s for a sign of it and then draws the cards, saying so.
 
 **Disk.** About 1.7 GB per minute of 1080p page clip. Page caches are not yet
 evicted with renders (#849): `captures/pages/` can be cleared by hand like the

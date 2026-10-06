@@ -45,8 +45,16 @@ pub const SECCOMP: &str = "/etc/scorsese/capture-seccomp.json";
 pub const LABEL: &str = "org.scorsese.capture";
 
 /// The walls and caps of every capture (#773, #778): offline, no capability,
-/// no new privilege, a read-only root, a reaper as PID 1, two cores, a GiB
-/// with no swap, 256 processes, and a small `/tmp` for the browser's profile.
+/// no new privilege, a read-only root and a user that is not root.
+///
+/// - A PID 1 that reaps: the browser's processes outlive their parents, and
+///   without a reaper they pile up against the process cap.
+/// - `/tmp` is the browser's profile and HOME: small, and memory, so nothing
+///   big lands there. The frames go to the page cache, on disk (#773: frames
+///   on a tmpfs count against the memory cap and blow it).
+/// - #773's caps. Two cores (~245 ms a 1080p frame, so a minute of page takes
+///   ~7.5 min) leave the rest of the machine to renders. 768 MiB is the 1080p
+///   floor; 4K is unmeasured.
 const WALLS: &[&str] = &[
     "--init",
     "--network=none",

@@ -26,7 +26,7 @@
 //!
 //! **Pages** (#778). The folder carries the project's kept files, pages among
 //! them. A project that shows a page is laid out in the capture spool instead
-//! of the scratch folder, its pages are captured by the `capture` container
+//! of the scratch folder, its pages are captured by the capture launcher
 //! ([`crate::captures`]) and the render draws them from that cache, never
 //! starting a browser itself. A capture that fails is not a failed render — the
 //! clip shows its slug card — so what the render said comes back in the
@@ -225,7 +225,7 @@ struct Drawn {
 }
 
 /// Where a job lays its project out: the scratch folder, or — for a project
-/// showing a page — the spool, where the capture container can see it.
+/// showing a page — the spool, where the capture launcher can see it.
 struct Places {
     work: PathBuf,
     pages: Pages,
