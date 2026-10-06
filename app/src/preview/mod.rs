@@ -128,6 +128,17 @@ impl Preview {
         self.pages.document_changed();
     }
 
+    /// Forgets the composited frame and looks for pages to capture again, for
+    /// when a page's file changed and the document did not (#808).
+    ///
+    /// Narrower than [`Preview::document_changed`]: no asset changed, so there
+    /// is no proxy to look for. The frame is forgotten because it may show the
+    /// page as it was, or its slug card where a capture of it now is not.
+    pub(crate) fn pages_changed(&mut self) {
+        self.picture.forget();
+        self.pages.document_changed();
+    }
+
     /// Draws the preview: the transport along the bottom, the picture above it.
     ///
     /// Declared in that order because that is what egui's layout wants — the
