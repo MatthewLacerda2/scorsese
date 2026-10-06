@@ -14,7 +14,7 @@ use scorsese_render::Cancel;
 use scorsese_render::Resolution;
 use scorsese_render::page::Request;
 use scorsese_server::captures::dispatch::Pages;
-use scorsese_server::captures::worker::Worker;
+use scorsese_server::captures::worker::{Isolation, Worker};
 use scorsese_server::captures::{PROJECT, Spool};
 
 /// A spool of its own, with job 1's project holding `pages/page.html`.
@@ -33,8 +33,10 @@ fn spool(name: &str, html: &str) -> (Spool, PathBuf) {
 fn worker(spool: &Spool, deadline: fn(u64) -> Duration) -> Worker {
     Worker {
         spool: spool.clone(),
-        program: PathBuf::from(env!("CARGO_BIN_EXE_scorsese-server")),
-        sandbox: false,
+        isolation: Isolation::Process {
+            program: PathBuf::from(env!("CARGO_BIN_EXE_scorsese-server")),
+            sandbox: false,
+        },
         deadline,
     }
 }

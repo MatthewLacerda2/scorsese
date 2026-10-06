@@ -11,6 +11,7 @@ use std::process::ExitCode;
 
 use clap::Parser;
 use scorsese_providers::credentials::Environment;
+use scorsese_server::captures::worker::{Isolation, Worker};
 use scorsese_server::operator::{self, Command};
 use scorsese_server::{Config, ServerError};
 
@@ -29,9 +30,10 @@ struct Cli {
 #[tokio::main]
 async fn main() -> ExitCode {
     let command = Cli::parse().command.unwrap_or(Command::Serve);
-    // The capture container's commands read no environment and no database:
-    // it has neither a network nor the server's secrets.
+    // The capture containers' commands read no environment and no database:
+    // they have neither a network nor the server's secrets.
     match command {
+        Command::CaptureLauncher(args) => return capture_launcher(&args),
         Command::CaptureWorker(args) => return capture_worker(&args),
         Command::CaptureOne(args) => {
             return match scorsese_server::captures::one::run(&args) {
@@ -83,7 +85,7 @@ async fn perform(config: Config, command: Command) -> Result<(), ServerError> {
             let pool = scorsese_server::open_database(&config).await?;
             scorsese_server::credits::command::run(&pool, command).await?
         }
-        Command::CaptureWorker(_) | Command::CaptureOne(_) => {
+        Command::CaptureLauncher(_) | Command::CaptureWorker(_) | Command::CaptureOne(_) => {
             unreachable!("handled before the environment is read")
         }
     };
@@ -93,12 +95,16 @@ async fn perform(config: Config, command: Command) -> Result<(), ServerError> {
 
 /// Capture pages from the spool until stopped.
 fn capture_worker(args: &scorsese_server::captures::worker::Args) -> ExitCode {
-    match scorsese_server::captures::worker::Worker::from_args(args) {
+    match Worker::from_args(args) {
         Ok(worker) => {
+            let sandbox = match worker.isolation {
+                Isolation::Process { sandbox, .. } => sandbox,
+                Isolation::Container(_) => true,
+            };
             eprintln!(
                 "scorsese-server: capturing pages from {}, sandbox {}",
                 args.spool.display(),
-                if worker.sandbox { "on" } else { "off" }
+                if sandbox { "on" } else { "off" }
             );
             worker.run()
         }
@@ -107,6 +113,20 @@ fn capture_worker(args: &scorsese_server::captures::worker::Args) -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+/// Capture pages from the spool until stopped, each in a container of its own.
+fn capture_launcher(args: &scorsese_server::captures::launch::Args) -> ExitCode {
+    let launch = scorsese_server::captures::launch::Launch::from_args(args);
+    if let Err(error) = scorsese_server::captures::launch::ready() {
+        eprintln!("scorsese-server: {error}");
+        return ExitCode::FAILURE;
+    }
+    eprintln!(
+        "scorsese-server: capturing pages from {}, a container each, sandbox on",
+        args.spool.display()
+    );
+    Worker::launching(launch).run()
 }
 
 /// Resolves when the process is asked to stop: Ctrl-C at a terminal, or the

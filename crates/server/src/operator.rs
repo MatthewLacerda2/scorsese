@@ -50,10 +50,14 @@ pub enum Command {
     /// Record top-ups and refunds, read a balance.
     #[command(subcommand)]
     Credit(CreditCommand),
-    /// Capture web pages for the server's renders: the `capture` container's
-    /// process (#778). Needs no database and no network.
+    /// Capture web pages for the server's renders, each capture a container
+    /// of its own: the `capture-launcher` container's process (#852). Needs
+    /// the Docker socket, and no database and no network.
+    CaptureLauncher(crate::captures::launch::Args),
+    /// Capture web pages for the server's renders without containers, each a
+    /// child process: for a machine without Docker (#778).
     CaptureWorker(crate::captures::worker::Args),
-    /// One capture, run by `capture-worker` for each page.
+    /// One capture, run by `capture-launcher` or `capture-worker` per page.
     #[command(hide = true)]
     CaptureOne(crate::captures::one::Args),
 }
