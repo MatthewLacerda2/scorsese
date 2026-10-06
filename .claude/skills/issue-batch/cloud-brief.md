@@ -1,8 +1,9 @@
 # Cloud brief: the standing rules
 
 Every cloud coder the batch launches reads this file. Its routine prompt carries
-only step 0 (which runs before this file is read), a pointer here, and what is
-specific to its issue (`issue-batch` has the template). When a lesson changes how
+only step 0 (which runs before this file is read), a pointer here, and the issue
+number; what is specific to the issue is a `Brief` comment on it (#820,
+`issue-batch` has the template). When a lesson changes how
 cloud coders must work, change it **here**, once, not in the next prompt.
 
 **Nobody can talk to you; the pull request is your only report.** Never send the
@@ -18,7 +19,11 @@ issues mid-batch.
 
 ## Before you start
 
-Read `CLAUDE.md`, your issue(s) and `.claude/skills/ci-merge/SKILL.md`. Check
+Read `CLAUDE.md`, your issue(s), your brief and
+`.claude/skills/ci-merge/SKILL.md`. **Your brief is the newest comment on your
+issue whose first line is `Brief`**: your branch name, what to build on, the
+siblings whose files to stay out of, and decisions already made. A later `Brief`
+supersedes an earlier one, and it may name more to read. Check
 each "Blocked by" in the issue body on GitHub yourself — a blocker written only
 in prose is invisible to the orchestrator (rusty#399). If one is open, stand
 down: no branch, a comment saying which should go first, and stop.
