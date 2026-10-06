@@ -1,4 +1,6 @@
-//! Contact sheets: several frames of a video file, tiled into one picture.
+//! Contact sheets: several frames of a video file, tiled into one picture —
+//! and, through [`timeline_sheet`], several instants of the edit, by the same
+//! tiling (#814).
 //!
 //! The tool for **looking at footage that has not been edited yet**. Everything
 //! else in this crate works on a project — a plan, a timeline, a render — and
@@ -22,6 +24,7 @@
 //! them and draws the timestamps, because compositing is ours.
 
 mod sample;
+mod timeline;
 
 use std::path::{Path, PathBuf};
 
@@ -35,6 +38,7 @@ use crate::tools::Tools;
 use scorsese_compositor::Frame;
 
 pub use sample::{CELL_LONGEST_SIDE, Look, MAX_FRAMES, STEP_SECONDS, label};
+pub use timeline::{TimelineSheet, TimelineSheetError, cell_label, timeline_sheet};
 
 /// A finished contact sheet, and what it is a sheet of.
 ///

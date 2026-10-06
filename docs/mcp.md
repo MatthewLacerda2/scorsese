@@ -915,6 +915,23 @@ this server sends, so what looking costs is what decides how often anything gets
 verified, and an assistant that checks one section of six and reports on all six
 is wrong without erroring.
 
+**`sheet: true` answers the list with one picture** — a contact sheet, the
+shape `look` gives a video file, by the same tiling:
+
+```
+still  { "project": "teaser.scor", "at": ["0s", "9.1s", "400"], "sheet": true }
+       → "contact sheet of Teaser at 640x360 cells, left to right then down:
+          frame 0 (0.00s), frame 273 (9.10s), frame 400 (13.33s)", and the sheet
+```
+
+At most five instants, in the order asked, each cell labelled with its time and
+timeline frame. `resolution` is then each **cell's** raster, default 640x360, so
+a sheet of five costs about what one full frame does — and the change between
+two instants is visible because they sit side by side. `grid: true` rules each
+cell on its own; `out` keeps the sheet as the one file it is, so a list and a
+path are accepted together here. Notes say which instant they were found at.
+`scorsese still --sheet` writes the same picture from the command line.
+
 **It is the frame a render would deliver**, because it is the render pipeline
 with the encoder taken out: the same plan, the same decoders, the same
 compositor. Nothing is encoded and no video file is produced, so it costs

@@ -431,11 +431,13 @@ pub(crate) enum Command {
     /// whole render to answer, this answers for one frame.
     Still {
         /// Which instant to compose, comma-separated: `9.1s` for a time, `285`
-        /// for a timeline frame. Several instants write several files.
+        /// for a timeline frame. Several instants write several files, or one
+        /// with `--sheet`.
         #[arg(long, value_delimiter = ',', required = true)]
         at: Vec<Cue>,
         /// Where to write the PNG, e.g. `frame.png`. With several instants the
-        /// frame number is added to the name: `frame-00285.png`.
+        /// frame number is added to the name: `frame-00285.png` — unless
+        /// `--sheet` is given, which writes exactly this one file.
         #[arg(long)]
         out: PathBuf,
         /// The raster to composite at, and so the size of the PNG. Almost
@@ -444,8 +446,10 @@ pub(crate) enum Command {
         /// make. A clip with `fit: native` is the exception — it is a fixed
         /// count of pixels, so it covers more of a small frame than of a
         /// large one, and its size has to be judged at the delivery raster.
-        #[arg(long, default_value = "1920x1080")]
-        resolution: Resolution,
+        /// Default 1920x1080; with `--sheet` it is each cell's raster, default
+        /// 640x360.
+        #[arg(long)]
+        resolution: Option<Resolution>,
         /// Rule the frame with coordinates: a line every 0.1 of the raster,
         /// heavier at 0.5, labelled along the top and left edges. Fractions of
         /// the frame, which is what `transform.position.*` is written in, so a
@@ -454,6 +458,12 @@ pub(crate) enum Command {
         /// keep.
         #[arg(long)]
         grid: bool,
+        /// Tile the instants into one contact sheet instead of one PNG each:
+        /// at most 5, each labelled with its time and timeline frame, the way
+        /// `look` tiles a video file. One picture to compare the frames in,
+        /// written to exactly `--out`. With `--grid`, each cell is ruled.
+        #[arg(long)]
+        sheet: bool,
     },
     /// Hear a sound file: its waveform, drawn as one PNG with the level and
     /// the length written on it.

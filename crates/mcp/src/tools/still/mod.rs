@@ -18,6 +18,13 @@
 //! code: [`Renderer::still`] is the render pipeline with the encoder taken out.
 //! A still drawn any other way could disagree with the file, and then looking
 //! at it would prove nothing.
+//!
+//! With `sheet: true` the instants come back as **one** picture instead, tiled
+//! and labelled the way `look` tiles a file ([`sheet`], #814): five small cells
+//! cost less than one full frame, and the change between them is visible
+//! because they sit side by side.
+
+mod sheet;
 
 use schemars::{JsonSchema, Schema, SchemaGenerator};
 use scorsese_core::{Fps, Frames};
@@ -43,6 +50,13 @@ use crate::tools::{Costs, Part, Reply, Tool};
 /// see a cut. A caller who wants the delivery raster asks for it.
 const DEFAULT_RASTER: &str = "1280x720";
 
+/// What each cell of a sheet is composited at when nobody says.
+///
+/// A quarter of [`DEFAULT_RASTER`]'s area, so five cells together cost about
+/// what one frame does — and still large enough that a title in one is read,
+/// not guessed at.
+const DEFAULT_CELL: &str = "640x360";
+
 /// Frames, composited and handed back as pictures.
 pub(crate) struct Still;
 
@@ -60,7 +74,8 @@ struct Arguments {
     /// frame, so a smaller one is the same picture and a smaller reply. The
     /// exception is a clip with fit: native, which is a fixed count of pixels
     /// and so looks bigger in a smaller frame than it will in the delivery —
-    /// ask for the delivery raster to judge the size of one. Default 1280x720.
+    /// ask for the delivery raster to judge the size of one. Default 1280x720;
+    /// with sheet: true it is each cell's raster instead, default 640x360.
     resolution: Option<String>,
     /// Rule the picture with coordinates: a line every 0.1 of the frame,
     /// heavier at 0.5, labelled along the top and left edges, origin at the
@@ -74,9 +89,19 @@ struct Arguments {
     /// for a picture to keep.
     #[serde(default)]
     grid: bool,
-    /// Also keep the PNG at this path, e.g. review/title.png. One instant only
-    /// — a path names a file, and several frames do not fit in one, so asking
-    /// for a list and a path together is refused; `scorsese render --stills`
+    /// Answer with one picture instead of one per instant: the frames tiled
+    /// into a contact sheet, at most 5, each labelled with its time and
+    /// timeline frame — the shape look gives a video file. Cheaper than
+    /// separate pictures and better for comparing them, since what changed
+    /// between two instants is only visible side by side. With grid: true each
+    /// cell is ruled on its own. With out, the sheet is the one file kept.
+    /// Default false.
+    #[serde(default)]
+    sheet: bool,
+    /// Also keep the PNG at this path, e.g. review/title.png. One instant only,
+    /// or sheet: true — a path names a file, and several separate frames do not
+    /// fit in one, so asking for a list and a path together without a sheet is
+    /// refused; `scorsese render --stills`
     /// is how a set of PNGs gets written. Without it the picture is returned
     /// and nothing is left on disk. A relative path is relative to the project
     /// directory, never the server's working directory; an absolute one is
@@ -108,7 +133,10 @@ impl Tool for Still {
          (once; later calls reuse it), and a note under the frame says what it \
          could not load or why it could not be captured. Pass grid: true to have the frame ruled in \
          the fractions the document itself takes, so a coordinate is read off \
-         the picture rather than converged on by guessing."
+         the picture rather than converged on by guessing. Pass sheet: true to \
+         get up to 5 instants back as one labelled contact sheet instead of \
+         one picture each — cheaper, and the frames can be compared side by \
+         side."
     }
 
     fn costs(&self) -> Costs {
@@ -124,11 +152,19 @@ impl Tool for Still {
         let dir = arguments.project.dir();
         let project = load(dir)?;
         let instants = instants(&arguments.at, project.timeline_fps)?;
-        let kept = kept(dir, arguments.out.as_deref(), instants.len())?;
+        // A sheet is one picture however many instants are in it, so it is one
+        // file as far as `out` is concerned.
+        let files = if arguments.sheet { 1 } else { instants.len() };
+        let kept = kept(dir, arguments.out.as_deref(), files)?;
+        let default = if arguments.sheet {
+            DEFAULT_CELL
+        } else {
+            DEFAULT_RASTER
+        };
         let resolution: Resolution = arguments
             .resolution
             .as_deref()
-            .unwrap_or(DEFAULT_RASTER)
+            .unwrap_or(default)
             .parse()
             .map_err(|problem| format!("resolution: {problem}"))?;
 
@@ -142,6 +178,18 @@ impl Tool for Still {
         let renderer = Renderer::new(&tools, settings);
 
         let ruled = arguments.grid;
+        if arguments.sheet {
+            return sheet::reply(sheet::Asked {
+                tools: &tools,
+                renderer: &renderer,
+                project: &project,
+                dir,
+                instants: &instants,
+                resolution,
+                ruled,
+                kept: kept.as_ref().map(|(given, path)| (*given, path.as_path())),
+            });
+        }
 
         let mut parts = Vec::with_capacity(instants.len());
         let mut told = Vec::new();
@@ -155,15 +203,11 @@ impl Tool for Still {
                 grid::draw(&mut frame);
             }
 
-            // Written to a file either way: PNG encoding is ffmpeg's, and
-            // ffmpeg writes files. Where it goes is the only difference — a
-            // path the caller named, kept, or a scratch file that is read back
-            // and removed.
-            let png = Scratch::at(kept.as_ref().map(|(_, path)| path.as_path()));
-            frames::write_png(&tools, &png.path, &frame)
-                .map_err(|error| format!("writing the frame: {error}"))?;
-            let bytes = std::fs::read(&png.path)
-                .map_err(|error| format!("reading {} back: {error}", png.path.display()))?;
+            let bytes = png(
+                &tools,
+                kept.as_ref().map(|(_, path)| path.as_path()),
+                &frame,
+            )?;
 
             let seconds = project.timeline_fps.seconds(at);
             let ruler = if ruled { ", ruled 0.0 to 1.0" } else { "" };
@@ -187,6 +231,23 @@ impl Tool for Still {
         }
         Ok(parts.into())
     }
+}
+
+/// Encodes `frame` as PNG bytes, kept at `path` if one was named.
+///
+/// Written to a file either way: PNG encoding is ffmpeg's, and ffmpeg writes
+/// files. Where it goes is the only difference — a path the caller named, kept,
+/// or a scratch file that is read back and removed.
+fn png(
+    tools: &Tools,
+    path: Option<&std::path::Path>,
+    frame: &scorsese_render::Frame,
+) -> Result<Vec<u8>, String> {
+    let png = Scratch::at(path);
+    frames::write_png(tools, &png.path, frame)
+        .map_err(|error| format!("writing the frame: {error}"))?;
+    std::fs::read(&png.path)
+        .map_err(|error| format!("reading {} back: {error}", png.path.display()))
 }
 
 /// What the `at` argument is, for the refusal when it says nothing usable.
@@ -266,7 +327,8 @@ fn kept<'a>(
     if instants > 1 {
         return Err(format!(
             "out: {given} is one path and {instants} instants were asked for. Ask for one \
-             instant to keep a file, or use `scorsese render --stills` for a set of PNGs."
+             instant to keep a file, pass sheet: true to keep them as one contact sheet, or \
+             use `scorsese render --stills` for a set of PNGs."
         ));
     }
     Ok(args::under(dir, out, "out")?.map(|path| (given, path)))
