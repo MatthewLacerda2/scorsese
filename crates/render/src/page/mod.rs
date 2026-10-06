@@ -24,9 +24,11 @@ mod browser;
 mod cache;
 mod capture;
 mod cdp;
+mod find;
 mod fonts;
 mod origin;
 mod request;
+mod supply;
 mod visitor;
 
 use std::path::{Path, PathBuf};
@@ -35,6 +37,9 @@ pub use browser::{CHROME_ENV, Chrome, ChromeError};
 pub use cdp::CdpError;
 pub use origin::SHIPPED_ORIGIN;
 pub use request::Request;
+pub use supply::{Supply, supply};
+
+pub(crate) use find::find;
 
 use crate::error::RenderError;
 use crate::tools::Tools;

@@ -26,7 +26,7 @@ use crate::audio;
 use crate::cancel::Cancel;
 use crate::error::RenderError;
 use crate::held::Loops;
-use crate::page::Chrome;
+use crate::page::{self, Chrome};
 use crate::pipe::{Encoder, encode_mix};
 use crate::plan::{FrameRange, Plan};
 use crate::preview::Preview;
@@ -37,7 +37,7 @@ use crate::settings::RenderSettings;
 use crate::tools::Tools;
 use crate::workers::Workers;
 
-use pages::Pages;
+use pages::{Browser, Pages};
 use segment::{Pass, Stage};
 
 /// Renders projects with one set of settings.
@@ -49,6 +49,7 @@ pub struct Renderer<'a> {
     cancel: Cancel,
     progress: Progress,
     chrome: Option<Chrome>,
+    capturing: bool,
 }
 
 impl<'a> Renderer<'a> {
@@ -66,6 +67,7 @@ impl<'a> Renderer<'a> {
             cancel: Cancel::new(),
             progress: Progress::new(),
             chrome: None,
+            capturing: true,
         }
     }
 
@@ -125,6 +127,34 @@ impl<'a> Renderer<'a> {
             chrome: Some(chrome),
             ..self
         }
+    }
+
+    /// Draws `html` clips only from captures already in `cache/`, and as their
+    /// slug cards otherwise — never starting a browser, and so never making the
+    /// caller wait while a page is captured. For a window, which captures in
+    /// the background ([`Renderer::page_requests`], then [`crate::page::capture`])
+    /// and draws again once a capture lands. Without a browser given
+    /// ([`Renderer::with_chrome`]) every page is a card, since which build would
+    /// capture it is part of where its capture is kept.
+    pub fn without_capturing(self) -> Self {
+        Self {
+            capturing: false,
+            ..self
+        }
+    }
+
+    fn browser(&self) -> Browser<'_> {
+        Browser {
+            chrome: self.chrome.as_ref(),
+            capturing: self.capturing,
+        }
+    }
+
+    /// Every page capture rendering `project` at these settings would need,
+    /// once each — what to hand [`crate::page::capture`] ahead of time.
+    pub fn page_requests(&self, project: &Project) -> Result<Vec<page::Request>, RenderError> {
+        let plan = Plan::build(project, self.settings.fps, FrameRange::ALL)?;
+        Ok(pages::requests(&self.settings, &plan))
     }
 
     /// Renders `range` of `project` to `out`.
@@ -198,7 +228,7 @@ impl<'a> Renderer<'a> {
         let pages = if picture {
             let (pages, page_notes) = Pages::capture(
                 self.tools,
-                self.chrome.as_ref(),
+                self.browser(),
                 &self.settings,
                 &plan,
                 project_root,
@@ -394,7 +424,7 @@ impl<'a> Renderer<'a> {
     ) -> Result<(Frame, Vec<Note>), RenderError> {
         still::compose(
             self.tools,
-            self.chrome.as_ref(),
+            self.browser(),
             self.settings,
             self.preview.as_ref(),
             project,

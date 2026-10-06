@@ -15,5 +15,9 @@ fn main() -> std::io::Result<()> {
     // `stdin()` rather than its lock: the requests are read on a thread of
     // their own, so a cancel can arrive while a render runs, and a lock is
     // not something a thread can be handed.
+    // A page on screen downloads the page renderer the first time (#776).
+    // Here, in the binary, and not in `serve`: the hosted server runs these
+    // same tools and must never download one.
+    scorsese_mcp::fetch_on_first_use();
     scorsese_mcp::serve(BufReader::new(stdin()), stdout().lock())
 }

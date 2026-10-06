@@ -25,6 +25,9 @@ fn main() -> eframe::Result {
     // dialog on every run. Not a documented flag: the shipped way in is the
     // dialog, and this is a convenience for whoever is building the thing.
     let opened = std::env::args().nth(1).map(std::path::PathBuf::from);
+    // An `html` clip downloads the page renderer the first time one is drawn
+    // (#776), with how far it got said under the preview.
+    scorsese_app::fetch_on_first_use();
 
     let mut viewport = egui::ViewportBuilder::default()
         .with_inner_size(WINDOW)

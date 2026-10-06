@@ -17,3 +17,8 @@ serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.151", features = ["raw_value"] }
 thiserror = "2.0.19"
 ureq = { version = "3.3.0", default-features = false, features = ["json", "rustls"] }
+# The page renderer arrives as a zip (`chromium`, #776). Deflate only, through
+# flate2 — named here only to choose its pure-Rust backend (miniz_oxide), which
+# zip leaves to its user and the lockfile already carries for `png`.
+flate2 = { version = "1.1.10", default-features = false, features = ["rust_backend"] }
+zip = { version = "8.6.0", default-features = false, features = ["deflate-flate2"] }

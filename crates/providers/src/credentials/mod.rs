@@ -32,6 +32,7 @@ use std::path::PathBuf;
 pub use budget::{Budget, OverBudget};
 pub use environment::Environment;
 pub use secret::Secret;
+pub(crate) use settings::folder as machine_folder;
 pub use settings::{Settings, SettingsError, path as settings_path};
 
 /// Somebody scorsese pays to generate something.

@@ -1586,9 +1586,24 @@ Before a render draws, each page clip is captured, or found already captured in
 `cache/pages/`. The pinned `chrome-headless-shell` draws the page frame by frame
 at the render's raster and frame rate, from clock 0 to the length the page is
 told, into a lossless video with alpha. From then on the clip decodes like any
-video with alpha, starting at `source_in` and running at `speed`. The browser is
-found the way ffmpeg is: `SCORSESE_CHROME`, then `chrome-headless-shell` on
-`PATH`. `tools/chromium/fetch` downloads the pinned build and prints the path.
+video with alpha, starting at `source_in` and running at `speed`.
+
+**The browser needs no setup** (#776). It is looked for in one order:
+`SCORSESE_CHROME`, then the pinned build this machine downloaded (beside the
+settings file, `docs/credentials.md`), then `chrome-headless-shell` on `PATH`.
+When none is there, the CLI, the MCP server and the desktop app **download the
+pinned build the first time a page needs drawing** — about 100–150 MB, once,
+verified against the pin's sha256 — and say so in one line: the CLI on stderr,
+the MCP server in the reply that follows, the window under its preview. A
+download that fails, offline say, leaves the clip as its slug card with the
+reason on the report, never a failed render. The hosted server never downloads
+one. `tools/chromium/fetch` downloads the same build for a developer and prints
+the path to put in `SCORSESE_CHROME`.
+
+The browser is headless: it never opens a window, and it runs only while a page
+is being captured. **The desktop app's preview never waits for one**: it shows a
+page's slug card until the page is captured in the background, at the preview's
+own raster, and then draws it from the capture.
 
 A capture is cached by everything that changes its pixels: the page and every
 file it loaded, the raster, the frame rate, the length, the browser's build and

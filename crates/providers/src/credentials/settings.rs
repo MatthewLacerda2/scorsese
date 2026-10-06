@@ -124,6 +124,13 @@ pub fn path() -> Result<PathBuf, SettingsError> {
         .join(FILE))
 }
 
+/// This machine's scorsese folder — the settings file's, and beside it
+/// anything else scorsese keeps per machine rather than per project (the
+/// page renderer, `chromium`). `None` where the platform names no place.
+pub(crate) fn folder() -> Option<PathBuf> {
+    config_root().map(|root| root.join(FOLDER))
+}
+
 /// The platform's directory for per-user configuration.
 fn config_root() -> Option<PathBuf> {
     let var = |name: &str| std::env::var_os(name).filter(|value| !value.is_empty());

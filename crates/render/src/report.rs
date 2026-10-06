@@ -178,6 +178,13 @@ pub enum Note {
         /// What happened, in plain words.
         warning: String,
     },
+    /// This render downloaded the page renderer, because a page was on screen
+    /// and no browser was on the machine. Said once, by the render that did
+    /// it; every later one finds it there (#776).
+    PageRendererFetched {
+        /// The browser version now installed.
+        version: String,
+    },
 }
 
 /// What a render put where media should have been.
@@ -280,6 +287,10 @@ impl fmt::Display for Note {
                 "page `{asset}` could not be captured, so clip `{clip}` shows its slug card: {reason}"
             ),
             Self::PageWarning { asset, warning } => write!(f, "page `{asset}`: {warning}"),
+            Self::PageRendererFetched { version } => write!(
+                f,
+                "fetched the page renderer (Chromium {version}), once — later renders reuse it"
+            ),
             Self::UnknownProperty {
                 clip,
                 property,
