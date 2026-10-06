@@ -23,7 +23,8 @@
 //! [`save`] is that same frame kept: the button under the picture writes the
 //! instant under the playhead out as a PNG, composited again at delivery
 //! resolution rather than lifted off the panel — a screengrab of a preview pane
-//! is not what the film looks like.
+//! is not what the film looks like. On a thread, so a page that has to be
+//! captured at that size first never freezes the window (#804).
 //!
 //! Sound plays with it, and the same rule holds: every sample comes from the
 //! renderer's own mixer, so what you hear is what ships. See [`sound`] for how
@@ -44,7 +45,6 @@ use scorsese_render::Quality;
 
 use crate::editing::{Editing, length};
 use crate::project::Open;
-use save::Saved;
 use still::Still;
 use transport::Command;
 
@@ -65,10 +65,10 @@ pub(crate) struct Preview {
     picture: Still,
     /// Set while the transport is running.
     playing: Option<Playing>,
-    /// What became of the last frame someone asked to keep. Held so it can be
-    /// said under the transport — a save that reported nothing would be
-    /// indistinguishable from a button that does nothing.
-    saved: Option<Saved>,
+    /// The frame being kept, if one is, and what became of the last. Held so
+    /// it can be said under the transport — a save that reported nothing would
+    /// be indistinguishable from a button that does nothing.
+    saved: save::Keeper,
     /// How much of the delivery raster the picture draws. For the session:
     /// it outlives opening another project, and is never written to one.
     quality: Quality,
@@ -139,6 +139,7 @@ impl Preview {
         self.advance(ui, fps, last, editing);
         self.follow_proxies(ui, open);
         self.follow_pages(ui, open);
+        self.follow_save(ui);
 
         let silent = self
             .playing
@@ -158,14 +159,10 @@ impl Preview {
                 // Composited again rather than taken off the panel above: the
                 // preview draws at a reduced raster, and a kept frame is the
                 // one a render would deliver.
-                Some(Command::Keep) => {
-                    if let Some(outcome) = save::frame(open, editing.playhead.min(last)) {
-                        self.saved = Some(outcome);
-                    }
-                }
+                Some(Command::Keep) => self.saved.keep(open, editing.playhead.min(last)),
                 None => {}
             }
-            save::note(ui, self.saved.as_ref());
+            self.saved.note(ui);
             let making = [self.proxies.status(), self.pages.status()]
                 .into_iter()
                 .flatten()
@@ -182,6 +179,16 @@ impl Preview {
         let at = editing.playhead.min(last);
         self.picture
             .show(ui, open, at, self.quality, self.pages.chrome());
+    }
+
+    /// Takes a kept frame's outcome when its thread has one — the window never
+    /// waits for a save (#804), so nothing else would notice it finishing.
+    fn follow_save(&mut self, ui: &Ui) {
+        self.saved.poll();
+        if self.saved.saving() {
+            ui.ctx()
+                .request_repaint_after(std::time::Duration::from_millis(250));
+        }
     }
 
     /// Captures the pages the picture shows, and draws it again as each lands
