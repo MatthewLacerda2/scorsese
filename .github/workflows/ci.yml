@@ -93,7 +93,7 @@ jobs:
     env:
       DATABASE_URL: postgres://scorsese:scorsese@localhost:5432/scorsese
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Printed, not only installed. A run that compares pixels should say in
       # its own log which decoder produced them, so a future disagreement can
@@ -112,7 +112,7 @@ jobs:
       # container-blessed frames, bar one rare six-pixel race the golden
       # tolerance absorbs.
       - name: Chromium cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/scorsese/chromium
           key: chromium-${{ hashFiles('tools/chromium/pin') }}
@@ -199,7 +199,7 @@ jobs:
       # the test afterwards cannot move it.
       - name: Upload golden-render failures
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: golden-failures
           path: target/tmp/golden-failures/
@@ -222,7 +222,7 @@ jobs:
     # this file; `ready_for_review` in `types:` is what makes it fire at all.
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # egui reaches a window through the platform's own graphics and windowing
       # libraries, which a bare runner does not have. Nothing here opens a
@@ -304,7 +304,7 @@ jobs:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # The version comes from `packageManager` in web/package.json, so a
       # bump there is a bump here and the two cannot disagree.
@@ -334,7 +334,7 @@ jobs:
     # this file; `ready_for_review` in `types:` is what makes it fire at all.
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
@@ -375,7 +375,7 @@ jobs:
     # this file; `ready_for_review` in `types:` is what makes it fire at all.
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Test
         run: python3 -m unittest discover --start-directory .github/scripts/tests --verbose
@@ -391,7 +391,7 @@ jobs:
     # this file; `ready_for_review` in `types:` is what makes it fire at all.
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Check
         run: make deploy
@@ -432,7 +432,7 @@ jobs:
     # this file; `ready_for_review` in `types:` is what makes it fire at all.
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: The workspace
         uses: EmbarkStudios/cargo-deny-action@v2
