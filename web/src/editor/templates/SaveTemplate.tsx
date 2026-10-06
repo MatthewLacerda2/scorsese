@@ -47,8 +47,15 @@ export function SaveTemplate({ clips, edit }: { clips: string[]; edit: EditOutco
       }}
     >
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline" disabled={clips.length === 0} title={words.saveTitle}>
-          <BookmarkPlusIcon /> {words.save}
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={clips.length === 0}
+          title={words.saveTitle}
+          aria-label={words.save}
+        >
+          {/* In the header (#764): on a narrow window the icon alone. */}
+          <BookmarkPlusIcon /> <span className="hidden lg:inline">{words.save}</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-sm">

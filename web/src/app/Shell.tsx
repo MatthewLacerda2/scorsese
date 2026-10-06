@@ -1,8 +1,11 @@
 // The frame around every signed-in page: the header (where you are, what you
 // have to spend, who you are) and the upload tray, which stays on screen while
-// the user browses so an upload is never lost to a click.
+// the user browses so an upload is never lost to a click. Between the nav and
+// the balance is room a page may fill with its own controls (`headerSlot.tsx`).
 
+import { useState } from "react";
 import { Link, NavLink, Outlet, useMatch, useNavigate } from "react-router";
+import { HeaderSlotProvider } from "@/app/headerSlot";
 import { useBalance } from "@/app/queries";
 import { SettingsButton } from "@/app/Settings";
 import { Button } from "@/components/ui/button";
@@ -31,17 +34,18 @@ export function Shell() {
   // either way, so the upload tray and its uploads survive moving between them.
   const editing = useMatch("/projects/:id/edit") !== null;
   const t = useT();
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
   return (
     <UploadsProvider>
       <div className={editing ? "flex h-svh flex-col" : "flex min-h-svh flex-col"}>
         <header className="flex items-center gap-2 border-b px-4 py-2">
           <Link
             to="/projects"
-            className="mr-4 rounded-md border px-2.5 py-0.5 font-heading text-lg font-semibold hover:bg-muted"
+            className="mr-4 shrink-0 rounded-md border px-2.5 py-0.5 font-heading text-lg font-semibold hover:bg-muted"
           >
             scorsese
           </Link>
-          <nav className="flex gap-1">
+          <nav className="flex shrink-0 gap-1">
             {NAV.map(({ to, key }) => (
               <NavLink
                 key={to}
@@ -54,14 +58,22 @@ export function Shell() {
               </NavLink>
             ))}
           </nav>
-          <div className="ml-auto flex items-center gap-2">
+          {/* A page's own controls; empty, it still pushes the account side right. */}
+          <div
+            ref={setSlot}
+            data-header-slot=""
+            className="flex min-w-0 flex-1 items-center gap-2"
+          />
+          <div className="flex shrink-0 items-center gap-2">
             <BalanceChip />
             <SettingsButton />
             <AccountMenu />
           </div>
         </header>
         <main className={editing ? "min-h-0 flex-1" : "flex-1 p-4 md:p-6"}>
-          <Outlet />
+          <HeaderSlotProvider value={slot}>
+            <Outlet />
+          </HeaderSlotProvider>
         </main>
         <UploadTray />
       </div>

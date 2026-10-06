@@ -10,33 +10,24 @@
 // answer, after the assistant's from the `project` event.
 
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeftIcon, FilmIcon, XIcon } from "lucide-react";
+import { XIcon } from "lucide-react";
 import { useCallback, useState } from "react";
-import { Link, useParams } from "react-router";
+import { useParams } from "react-router";
 import type { EditorProject } from "@/api";
 import { useServerEvents } from "@/app/events";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { useT } from "@/i18n/I18nProvider";
 import { AssetsPanel } from "./assets/AssetsPanel";
 import { ChatPanel } from "./chat/ChatPanel";
 import { useDeleteKey } from "./deleting";
 import { useDrop } from "./drop";
+import { EditorHeader } from "./EditorHeader";
 import { Inspector } from "./inspector/Inspector";
 import { Preview } from "./preview/Preview";
 import { editorKey, useEdit, useEditorProject } from "./project";
-import { RenderPanel } from "./RenderPanel";
 import { confirmThen, trackRemoval } from "./removing";
 import { choose, kept } from "./selection";
 import { SHAPES, type Shape, savedShape, saveShape } from "./shape";
-import { SaveTemplate } from "./templates/SaveTemplate";
 import { Timeline } from "./timeline/Timeline";
 
 export function EditorPage() {
@@ -77,48 +68,17 @@ function Editor({ project }: { project: EditorProject }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-2 border-b px-3 py-1.5">
-        <Button asChild size="icon" variant="ghost" aria-label={t.editor.page.back}>
-          <Link to="/projects">
-            <ArrowLeftIcon />
-          </Link>
-        </Button>
-        <h1 className="truncate font-heading font-semibold">{document.name}</h1>
-        <span className="text-xs text-muted-foreground">{t.editor.page.revision(revision)}</span>
-        <div className="ml-auto flex items-center gap-2">
-          <SaveTemplate clips={selected} edit={edit} />
-          <select
-            aria-label={t.editor.page.frameShape}
-            className="h-8 rounded-md border bg-transparent px-2 text-sm"
-            value={shape}
-            onChange={(event) => {
-              const next = event.target.value as Shape;
-              setShape(next);
-              saveShape(id, next);
-            }}
-          >
-            {(Object.keys(SHAPES) as Shape[]).map((choice) => (
-              <option key={choice} value={choice}>
-                {SHAPES[choice].label}
-              </option>
-            ))}
-          </select>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button size="sm" variant="outline">
-                <FilmIcon /> {t.editor.page.render}
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-sm">
-              <DialogHeader>
-                <DialogTitle>{t.editor.page.renderTitle}</DialogTitle>
-                <DialogDescription>{t.editor.page.renderDescription}</DialogDescription>
-              </DialogHeader>
-              <RenderPanel projectId={id} shape={shape} />
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
+      <EditorHeader
+        projectId={id}
+        name={document.name}
+        selected={selected}
+        edit={edit}
+        shape={shape}
+        onShape={(next) => {
+          setShape(next);
+          saveShape(id, next);
+        }}
+      />
       {edit.refused && (
         <div className="flex items-start gap-2 border-b bg-destructive/10 px-3 py-1.5 text-sm text-destructive">
           <p className="flex-1">{edit.refused}</p>
