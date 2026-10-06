@@ -183,7 +183,10 @@ impl RenderCache {
                 _ => {}
             }
         }
-        Ok(())
+        // Made here, before the server answers, because the capture container
+        // mounts it and refuses to start without it (deploy/compose.yaml).
+        let jobs = self.captures().jobs();
+        std::fs::create_dir_all(&jobs).map_err(|error| (jobs, error))
     }
 
     /// Where `user`'s render of `project` with `key` is kept, relative to the

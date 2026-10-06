@@ -189,7 +189,7 @@ fn failure(said: &str, status: ExitStatus) -> String {
 fn kill_group(group: u32) {
     let _ = Command::new("/bin/sh")
         .arg("-c")
-        .arg(r#"kill -KILL -- "-$0" 2>/dev/null"#)
+        .arg(r#"kill -KILL "-$0" 2>/dev/null"#)
         .arg(group.to_string())
         .status();
 }

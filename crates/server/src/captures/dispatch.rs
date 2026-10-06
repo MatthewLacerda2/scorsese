@@ -16,7 +16,6 @@ use scorsese_render::page::{CHROME_ENV, Chrome, Request};
 use scorsese_render::{Cancel, Note, RenderReport};
 
 use super::{ANSWER, ASK, Answer, Ask, Asked, PROJECT, Spool, now, publish, read};
-use crate::db::UserId;
 
 /// How stale the worker's last look may be before the server stops waiting
 /// for it: it looks at least every second, busy or not.
@@ -25,17 +24,16 @@ const SILENCE: Duration = Duration::from_secs(30);
 /// How often the server looks for the answer.
 const TICK: Duration = Duration::from_millis(250);
 
-/// One render job's pages: whose project, and which job's folder.
+/// One render job's pages: which job's folder, and where its project keeps
+/// its captures ([`Spool::pages`]).
 #[derive(Debug, Clone)]
 pub struct Pages {
     /// The spool.
     pub spool: Spool,
     /// The job asking.
     pub job: i64,
-    /// Whose project.
-    pub user: UserId,
-    /// Which project.
-    pub project: i64,
+    /// The project's page cache, which its laid-out `cache/` links to.
+    pub cache: PathBuf,
 }
 
 /// What came of asking: the browser the captures are kept under, and why each
@@ -98,13 +96,13 @@ impl Pages {
     /// Replaces the laid-out `cache/` with a link to the project's page cache,
     /// so captures outlive the job.
     fn share_cache(&self) -> std::io::Result<()> {
-        let kept = self.spool.pages(self.user, self.project);
-        std::fs::create_dir_all(&kept)?;
+        let kept = &self.cache;
+        std::fs::create_dir_all(kept)?;
         let cache = self.folder().join(CACHE_DIR);
         if cache.is_dir() && !cache.is_symlink() {
             std::fs::remove_dir(&cache)?;
         }
-        std::os::unix::fs::symlink(std::path::absolute(&kept)?, &cache)
+        std::os::unix::fs::symlink(std::path::absolute(kept)?, &cache)
     }
 
     /// The answer, `None` if the worker went quiet first, or `Err` once the

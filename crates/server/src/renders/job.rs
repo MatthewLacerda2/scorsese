@@ -115,11 +115,11 @@ async fn render(
     let out = work
         .0
         .join(format!("render.{}", payload.settings.extension()));
+    let spool = cache.captures();
     let pages = Pages {
-        spool: cache.captures(),
+        cache: spool.pages(job.user, payload.project),
+        spool,
         job: job.id,
-        user: job.user,
-        project: payload.project,
     };
     let _spooled = Scratch::new(pages.job_folder());
     let media = library(context, storage, job.user, &project).await?;
