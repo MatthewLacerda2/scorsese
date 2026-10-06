@@ -17,6 +17,7 @@ mod fitting;
 mod following;
 mod grain;
 mod grouping;
+mod guide;
 mod icons;
 mod output;
 mod pages;

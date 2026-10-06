@@ -25,6 +25,7 @@ pub use hash::{hash_bytes, hash_file};
 pub use import::{ImportError, import_asset, measure};
 pub use listing::{Listed, listing};
 pub use naming::{asset_id_for, infer_kind};
+pub use page::{PageError, PageWritten, write_page};
 pub use probing::{ProbeOutcome, Probed, Reprobe, probe_assets, unprobed_assets};
 pub use reference::{Reference, reference_asset};
 pub use sequence::{

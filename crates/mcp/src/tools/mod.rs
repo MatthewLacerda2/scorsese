@@ -26,6 +26,7 @@ mod inspect;
 mod jobs;
 mod level;
 mod look;
+mod page;
 mod scratch;
 mod script;
 mod still;
@@ -319,6 +320,10 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(edit::Duck),
         Box::new(edit::SetVolume),
         Box::new(edit::ScalePacing),
+        // Beside the other authored documents, and before the synth tools:
+        // a page is a picture, written whole and looked at with still.
+        Box::new(page::Write),
+        Box::new(page::Read),
         Box::new(synth::New),
         // Beside the tool that starts a recipe from one: choosing an
         // instrument and starting a sound are one thought.

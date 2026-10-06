@@ -129,6 +129,14 @@ fn onscreen(playing: &Playing) -> String {
                 playing.asset
             )
         }
+        // A page is captured at the raster's own size, so like a card it has
+        // no `fit` to print; its path is what says which page it is.
+        Shown::Page { path } => format!(
+            "{} (page {path}{}{})",
+            playing.asset,
+            cropped(playing.crop),
+            retimed(playing.speed)
+        ),
         Shown::Media => format!(
             "{} ({}, {}{}{})",
             playing.asset,

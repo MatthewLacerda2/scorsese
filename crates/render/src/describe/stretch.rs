@@ -186,6 +186,15 @@ pub enum Shown {
         /// what nested groups hold.
         members: usize,
     },
+    /// A web page, drawn by a headless browser. What was asked for — the
+    /// page's path — and never whether a capture of it exists: that is a fact
+    /// about disk, and a description is deliberately disk-free. A capture that
+    /// failed is the render's to report (`Note::PageNotCaptured`), at the
+    /// moment it failed (#799).
+    Page {
+        /// The page, relative to the project root.
+        path: String,
+    },
     /// A slug card, because there is nothing generated to show. What makes a
     /// full preview cut of prompt clips cost nothing — and the case a
     /// description most has to name, since a cut made entirely of cards looks
@@ -202,6 +211,18 @@ pub enum Shown {
 
 impl Shown {
     fn of(shot: &Shot<'_>) -> Self {
+        // Before the card: the plan shows a page as a card only until it is
+        // captured, which the plan cannot know and a render does (#799).
+        if shot.asset.kind == AssetKind::Html {
+            return Self::Page {
+                path: shot
+                    .asset
+                    .path
+                    .as_ref()
+                    .map(|path| path.as_str().to_owned())
+                    .unwrap_or_default(),
+            };
+        }
         if shot.showing == Showing::Card {
             return Self::Card {
                 absent: Absent::of(shot.asset),

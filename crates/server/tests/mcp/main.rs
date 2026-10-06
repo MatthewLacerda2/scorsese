@@ -11,6 +11,7 @@ mod designing;
 mod drawing;
 mod editing;
 mod importing;
+mod pages;
 mod paying;
 mod recipes;
 mod settling;

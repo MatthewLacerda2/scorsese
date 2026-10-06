@@ -104,7 +104,9 @@ impl Tool for Still {
          project_describe can only assert — that a title is readable, that a \
          layer is where it was meant to be, that a cut lands. Sketch and stale \
          generated assets appear as slug cards, so a frame of an unrealised \
-         shot still shows something. Pass grid: true to have the frame ruled in \
+         shot still shows something. A web page on screen is captured first \
+         (once; later calls reuse it), and a note under the frame says what it \
+         could not load or why it could not be captured. Pass grid: true to have the frame ruled in \
          the fractions the document itself takes, so a coordinate is read off \
          the picture rather than converged on by guessing."
     }
@@ -142,9 +144,10 @@ impl Tool for Still {
         let ruled = arguments.grid;
 
         let mut parts = Vec::with_capacity(instants.len());
+        let mut told = Vec::new();
         for at in instants {
-            let mut frame = renderer
-                .still(&project, dir, at)
+            let (mut frame, notes) = renderer
+                .still_noted(&project, dir, at)
                 .map_err(|error| format!("compositing frame {}: {error}", at.get()))?;
             // After compositing, over the finished frame: the ruler is
             // furniture for reading the picture, never a layer of the edit.
@@ -171,6 +174,14 @@ impl Tool for Still {
             );
             if let Some((given, _)) = &kept {
                 said.push_str(&format!(" — written to {given}"));
+            }
+            // Under the frame it was noticed drawing, and once a call: a page
+            // on screen at several instants is one page with one problem.
+            for note in notes {
+                if !told.contains(&note) {
+                    said.push_str(&format!("\nnote: {note}"));
+                    told.push(note);
+                }
             }
             parts.push(Part::picture(said, &bytes));
         }

@@ -52,9 +52,10 @@ pub(crate) fn run(
     let renderer = Renderer::new(&tools, RenderSettings::new(resolution, fps));
     let several = wanted.len() > 1;
 
+    let mut told = Vec::new();
     for frame in wanted {
-        let mut picture = renderer
-            .still(&project, project_dir, frame)
+        let (mut picture, notes) = renderer
+            .still_noted(&project, project_dir, frame)
             .with_context(|| format!("compositing timeline frame {}", frame.get()))?;
         // After compositing, over the finished frame — the ruler is furniture
         // for reading the picture, not a layer of it.
@@ -71,6 +72,14 @@ pub(crate) fn run(
             fps.seconds(frame),
             if grid { ", ruled in fractions" } else { "" }
         );
+        // As `render` prints them, and once: a page on screen at several
+        // instants is one page with one problem.
+        for note in notes {
+            if !told.contains(&note) {
+                println!("  note: {note}");
+                told.push(note);
+            }
+        }
     }
     Ok(())
 }

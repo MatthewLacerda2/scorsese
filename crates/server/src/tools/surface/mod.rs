@@ -101,13 +101,15 @@ const STORED: &[&str] = &[
     "voices",
 ];
 
-/// The registry tools served as they are whose files — the script and the
-/// recipes — are the project's own `project_files` rather than its document.
+/// The registry tools served as they are whose files — the script, the
+/// pages and the recipes — are the project's own `project_files` rather than its document.
 /// Served exactly like [`STORED`]; listed apart because `docs/web.md` says
 /// where what they write is kept.
 const PROJECT_FILES: &[&str] = &[
     "script_read",
     "script_write",
+    "page_write",
+    "page_read",
     "synth_new",
     "synth_kit",
     "synth_read",

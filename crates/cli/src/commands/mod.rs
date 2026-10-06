@@ -18,6 +18,7 @@ pub(crate) mod live;
 pub(crate) mod look;
 pub(crate) mod migrate;
 pub(crate) mod new;
+pub(crate) mod page;
 pub(crate) mod prices;
 pub(crate) mod probe;
 pub(crate) mod render;

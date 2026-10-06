@@ -1,4 +1,4 @@
-//! `new`, `import`, `probe`, `migrate` and `assets` — the commands that change what is on
+//! `new`, `import`, `probe`, `migrate`, `page` and `assets` — the commands that change what is on
 //! disk, driven end to end against real project directories.
 //!
 //! What each asserts is the effect: the directory that exists afterwards, the
@@ -14,4 +14,5 @@ mod assets;
 mod import;
 mod migrate;
 mod new;
+mod page;
 mod probe;

@@ -144,6 +144,10 @@ fn dispatch(cli: Cli) -> Result<()> {
         Command::Import { paths, kind } => {
             commands::import::run(&directory, &paths, kind.map(Into::into))
         }
+        Command::Page { id, file } => match file {
+            Some(file) => commands::page::write(&directory, &id, &file),
+            None => commands::page::read(&directory, &id),
+        },
         Command::Sequence { action } => match action {
             SequenceAction::Import { dir, hold, looping } => {
                 commands::sequence::import(&directory, &dir, hold, looping)

@@ -1,5 +1,5 @@
 //! The authored text a stored project keeps beside its document (#560): its
-//! synthesis recipes and its script.
+//! synthesis recipes, its script and its web pages.
 //!
 //! ## Why a table of files
 //!
@@ -25,7 +25,8 @@
 //! ## Which files are kept
 //!
 //! [`kept`]: every file under `recipes/` — recipes, and the instrument
-//! patches a song names by path — plus the file the document's `script`
+//! patches a song names by path — and under `pages/` — the pages `html`
+//! assets play, and anything beside them a page loads (#777) — plus the file the document's `script`
 //! names and every file an asset's `recipe` names wherever it lives. Never
 //! `project.json`, and nothing under `assets/`, `generated/` or `cache/`:
 //! those are the document, the library's and rebuildable, each kept
@@ -50,7 +51,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use scorsese_core::{
-    ASSETS_DIR, CACHE_DIR, GENERATED_DIR, PROJECT_FILE_NAME, Project, ProjectPath, RECIPES_DIR,
+    ASSETS_DIR, CACHE_DIR, GENERATED_DIR, PAGES_DIR, PROJECT_FILE_NAME, Project, ProjectPath,
+    RECIPES_DIR,
 };
 
 use super::ProjectError;
@@ -77,7 +79,7 @@ impl ProjectFiles {
         let path = normal(path).ok_or_else(|| format!("{path} is not a file a project keeps"))?;
         if text.len() > MAX_FILE_BYTES {
             return Err(format!(
-                "{path} is {} bytes; the server keeps a project's recipes and script up to \
+                "{path} is {} bytes; the server keeps a project's recipes, pages and script up to \
                  {MAX_FILE_BYTES} bytes each",
                 text.len()
             ));
@@ -123,13 +125,17 @@ fn normal(path: &str) -> Option<String> {
     (!elsewhere && !document).then(|| segments.join("/"))
 }
 
-/// Whether `project` keeps a file at `path`: under `recipes/`, or the script
-/// or a recipe the document names — and never the document or media.
+/// Whether `project` keeps a file at `path`: under `recipes/` or `pages/`, or
+/// the script or a recipe the document names — and never the document or
+/// media.
 pub fn kept(project: &Project, path: &str) -> bool {
     let Some(path) = normal(path) else {
         return false;
     };
-    path.starts_with(&format!("{RECIPES_DIR}/")) || named(project).contains(&path)
+    [RECIPES_DIR, PAGES_DIR]
+        .iter()
+        .any(|dir| path.starts_with(&format!("{dir}/")))
+        || named(project).contains(&path)
 }
 
 /// The files the document names: its script and its assets' recipes.
@@ -169,7 +175,7 @@ fn unkeepable(root: &Path, project: &Project) -> Result<(), String> {
 }
 
 /// Read back the kept files of the folder at `root`, after something ran on
-/// it: everything under `recipes/`, what `project` names, and every path in
+/// it: everything under `recipes/` and `pages/`, what `project` names, and every path in
 /// `laid` that is still there. Only regular files — a link is never followed
 /// — and only text; refused when a file or the count is over its cap, or
 /// when the document names a script or recipe it wrote where none is kept.
@@ -178,6 +184,7 @@ pub fn gather(root: &Path, project: &Project, laid: &ProjectFiles) -> Result<Pro
     let mut paths: BTreeSet<String> = named(project);
     paths.extend(laid.0.keys().cloned());
     walk(root, RECIPES_DIR, &mut paths);
+    walk(root, PAGES_DIR, &mut paths);
     let mut files = ProjectFiles::default();
     for path in paths {
         let Some(key) = normal(&path) else {
@@ -195,7 +202,7 @@ pub fn gather(root: &Path, project: &Project, laid: &ProjectFiles) -> Result<Pro
     let total: usize = files.iter().map(|(_, text)| text.len()).sum();
     if files.len() > MAX_FILES || total > MAX_TOTAL_BYTES {
         return Err(format!(
-            "the project would keep {} recipes and scripts, {total} bytes in all; the server \
+            "the project would keep {} recipes, pages and scripts, {total} bytes in all; the server \
              keeps at most {MAX_FILES} files and {MAX_TOTAL_BYTES} bytes to a project",
             files.len()
         ));
@@ -298,7 +305,13 @@ mod tests {
     #[test]
     fn recipes_and_what_the_document_names_are_kept_and_nothing_else() {
         let project = project();
-        for path in ["recipes/a.json", "recipes/kit/snare.json", "notes/brief.md"] {
+        for path in [
+            "recipes/a.json",
+            "recipes/kit/snare.json",
+            "notes/brief.md",
+            "pages/title.html",
+            "pages/fonts/face.woff2",
+        ] {
             assert!(kept(&project, path), "{path}");
         }
         assert!(kept(&project, "music/theme.json"));
@@ -312,6 +325,7 @@ mod tests {
             "../recipes/a.json",
             "/etc/passwd",
             "recipes",
+            "pages",
             "",
         ] {
             assert!(!kept(&project, path), "{path}");

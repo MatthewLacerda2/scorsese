@@ -1575,8 +1575,10 @@ second. The page is told where the clip ends on that clock — `source_in` plus
 `duration` × `speed` — so an animation timed to end at the length it is told
 ends on the clip's last frame.
 
-`scorsese import page.html` (and the `import` tool) copies a page into `pages/`
-as an `html` asset. Pages come in one at a time: a directory import passes
+`scorsese page <id> <file>` (and the `page_write` tool) writes one in place,
+making the asset when the id is new; **[`pages.md`](pages.md) is how to write
+one well**. `scorsese import page.html` (and the `import` tool) copies a page
+into `pages/` as an `html` asset. Pages come in one at a time: a directory import passes
 them over, because a page is a document rather than media.
 
 **How it renders: captured by a headless browser, then played like footage.**
