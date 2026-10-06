@@ -1515,6 +1515,84 @@ FROM tool_calls WHERE client = 'external'
 GROUP BY 1, 2 ORDER BY calls DESC;
 ```
 
+**Reviewing the tool surface** (#779). The queries that decided which tools to
+merge, kept so the same review can be run after a reshape and the two compared.
+Pass `PGOPTIONS='-c default_transaction_read_only=on'` to `psql` so a review can
+only read. The record holds other users' arguments and replies: what leaves the
+machine is counts, rates, sizes and tool names, never a value or a reply.
+
+```sql
+-- Use and refusals per tool, one column per client. `editor` is the web
+-- editor's own hands; `user` is a person's yes to a quote.
+SELECT tool,
+       count(*) FILTER (WHERE client = 'assistant') AS assistant,
+       count(*) FILTER (WHERE client = 'assistant' AND outcome = 'refused') AS refused,
+       count(*) FILTER (WHERE client = 'editor') AS editor,
+       count(*) FILTER (WHERE client = 'external') AS external
+FROM tool_calls GROUP BY tool ORDER BY assistant DESC, editor DESC;
+
+-- Refusal reasons, grouped: the reply of a refused call is its reason. Read
+-- here, summarised elsewhere by shape (it quotes the user's ids and fields).
+SELECT tool, left(reply, 120) AS reason, count(*)
+FROM tool_calls WHERE outcome = 'refused' AND client = 'assistant'
+GROUP BY 1, 2 ORDER BY 3 DESC;
+
+-- Back-to-back pairs within a turn: overlap, a retry loop, or a missing tool.
+SELECT a.tool AS first, b.tool AS then, count(*)
+FROM tool_calls a
+JOIN tool_calls b ON b.turn_id = a.turn_id AND b.position = a.position + 1
+WHERE a.client = 'assistant'
+GROUP BY 1, 2 ORDER BY 3 DESC;
+
+-- Listing cost: the first call of a conversation is the tool list, the system
+-- prompt and one message, nothing cached — so it measures the list.
+SELECT m.model, m.input_tokens + m.cache_read_tokens AS first_call_input
+FROM model_calls m JOIN chat_turns t ON t.id = m.turn_id
+WHERE m.position = 1
+  AND t.id = (SELECT min(id) FROM chat_turns WHERE session_id = t.session_id);
+
+-- How input grows: per turn, the input each call carries and the cached share.
+-- Divide the list's size by avg_input for the share of each call that is list.
+SELECT turn_id, count(*) AS calls,
+       avg(input_tokens + cache_read_tokens)::bigint AS avg_input,
+       round(sum(cache_read_tokens)::numeric
+             / nullif(sum(input_tokens + cache_read_tokens), 0), 3) AS cached_share,
+       sum(output_tokens) AS output, sum(cost_micros) / 1e6 AS cost_dollars
+FROM model_calls GROUP BY turn_id ORDER BY turn_id;
+
+-- What a reply really costs: every later model call in the conversation
+-- re-reads it, so weight each reply by the calls that came after it.
+SELECT t.tool, count(*) AS calls, sum(t.reply_tokens_estimate) AS reply_tokens,
+       sum(t.reply_tokens_estimate * (
+         SELECT count(*) FROM model_calls m JOIN chat_turns c ON c.id = m.turn_id
+         WHERE c.session_id = ct.session_id AND m.created_at > t.finished_at
+       )) AS reread_tokens
+FROM tool_calls t JOIN chat_turns ct ON ct.id = t.turn_id
+WHERE t.client = 'assistant'
+GROUP BY t.tool ORDER BY reread_tokens DESC NULLS LAST;
+```
+
+The baseline from the first review (one conversation, 2026-10-05, Gemini 3.8
+Flash): the web tool list was **≈27.4k tokens a model call** (a 28,565-token
+first call, less ~1.1k of system prompt and opening), which was 15% of all the
+input the conversation's 115 calls read and ~9% of its cost; `still` and
+`project_read` replies were ~96% of what later calls re-read from tool replies.
+
+**Local use is not in this database.** A Claude Code user's calls are in its
+transcripts under `~/.claude/projects/*/` as JSONL. Count `tool_use` blocks
+only — a bare `"name":"mcp__scorsese__…"` also matches the tool definitions
+Claude Code records when it loads a deferred tool, which overcounts every tool
+loaded at least once:
+
+```sh
+grep -rho '"type":"tool_use","id":"[^"]*","name":"mcp__scorsese__[a-z_]*"' \
+  ~/.claude/projects/ --include='*.jsonl' \
+  | sed 's/.*mcp__scorsese__//; s/"$//' | sort | uniq -c | sort -rn
+```
+
+Drop `-h` and `sort | uniq -c` for each transcript's calls in order, which is
+what a sequence question (a `synth_check` before each `synth_write`?) needs.
+
 ## The pages
 
 What a user sees before the editor (#544); `web/README.md` has how the code is
