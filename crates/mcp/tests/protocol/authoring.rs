@@ -97,6 +97,8 @@ fn an_argument_the_kind_does_not_take_is_refused_by_name() {
     ));
     assert!(failed, "a caption has no fill");
     assert!(text.contains("`fill`"), "got {text}");
+    // The note about a shape's outline is a shape's, and only a shape's.
+    assert!(!text.contains("once it is made"), "got {text}");
     std::fs::remove_dir_all(dir).ok();
 }
 

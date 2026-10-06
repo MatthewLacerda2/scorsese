@@ -6,7 +6,6 @@
 //! argument silently dropped is an edit somebody thinks they made.
 
 use scorsese_core::AssetKind;
-use serde_json::Value;
 
 use super::Arguments;
 
@@ -118,9 +117,9 @@ pub(super) fn check(kind: AssetKind, making: bool, arguments: &Arguments) -> Res
     ))
 }
 
-/// The arguments the call gave a value, in the order they are declared.
+/// The arguments the call gave a value, in the order they are declared. A
+/// JSON `null` reads as absent, block arguments included, so it names nothing.
 fn named(arguments: &Arguments) -> Vec<&'static str> {
-    let block = |value: &Option<Value>| value.as_ref().is_some_and(|value| !value.is_null());
     let asked: [(&'static str, bool); 29] = [
         ("text", arguments.text.is_some()),
         ("font", arguments.font.is_some()),
@@ -144,13 +143,13 @@ fn named(arguments: &Arguments) -> Vec<&'static str> {
         ("curve", arguments.curve.is_some()),
         ("heads", arguments.heads.is_some()),
         ("dash", arguments.dash.is_some()),
-        ("reveal", block(&arguments.reveal)),
-        ("number", block(&arguments.number)),
+        ("reveal", arguments.reveal.is_some()),
+        ("number", arguments.number.is_some()),
         ("prompt", arguments.prompt.is_some()),
         ("recipe", arguments.recipe.is_some()),
-        ("video", block(&arguments.video)),
-        ("image", block(&arguments.image)),
-        ("speech", block(&arguments.speech)),
+        ("video", arguments.video.is_some()),
+        ("image", arguments.image.is_some()),
+        ("speech", arguments.speech.is_some()),
     ];
     asked
         .into_iter()
