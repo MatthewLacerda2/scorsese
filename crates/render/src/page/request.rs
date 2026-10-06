@@ -87,9 +87,10 @@ impl Request {
             "duration": self.duration,
         });
         format!(
-            "Object.defineProperty(window, 'scorsese', {{ value: Object.freeze({contract}) }});\n{}{}",
+            "Object.defineProperty(window, 'scorsese', {{ value: Object.freeze({contract}) }});\n{}{}{}",
             super::fonts::declarations(super::SHIPPED_ORIGIN),
-            include_str!("clock.js")
+            include_str!("clock.js"),
+            include_str!("offline.js")
         )
     }
 }

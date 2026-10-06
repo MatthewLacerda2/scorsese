@@ -32,6 +32,18 @@ pub const CHROME_ENV: &str = "SCORSESE_CHROME";
 ///   sandbox refuses to start. The page it renders is the project's own, served
 ///   offline ([`super::origin`]), so the sandbox has no network to keep it from.
 /// - `--hide-scrollbars`: a page taller than the frame must not grow a bar.
+/// - The last three keep the page offline where request interception cannot
+///   see (#839). `Fetch` pauses every HTTP request, but a WebSocket and WebRTC
+///   never pass through it, and #773 measured both reaching a listener on the
+///   LAN. So the wall is the browser's own networking, not a list of APIs in
+///   the page: a third one nobody thought of hits it too.
+///   - `--host-resolver-rules=MAP * ~NOTFOUND`: every host, IP literals
+///     included, fails to resolve, so no TCP connection is made at all (a
+///     WebSocket, TURN over TCP). Requests we answer never reach it.
+///   - `--force-webrtc-ip-handling-policy=disable_non_proxied_udp`: WebRTC
+///     sends no UDP of its own, so STUN never leaves.
+///   - `--no-proxy-server`: the machine's proxy settings (`HTTPS_PROXY` and
+///     the like) are not read, so a connection cannot be handed to one.
 const FLAGS: &[&str] = &[
     "--remote-debugging-pipe",
     "--deterministic-mode",
@@ -45,6 +57,9 @@ const FLAGS: &[&str] = &[
     "--disable-component-update",
     "--disable-default-apps",
     "--disable-sync",
+    "--host-resolver-rules=MAP * ~NOTFOUND",
+    "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
+    "--no-proxy-server",
 ];
 
 /// The browser a page is captured with.

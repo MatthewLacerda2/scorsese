@@ -51,8 +51,10 @@ use crate::tools::Tools;
 /// in — and what a capture reports. Part of every capture's cache key, so
 /// **bump it** when any of those changes what a page's frames look like or
 /// what is said about them, and every capture is redone. 2: layout notes
-/// (#813), which a capture kept from before them would never say.
-pub const PAGE_VERSION: u32 = 2;
+/// (#813), which a capture kept from before them would never say. 3: no
+/// WebSocket or WebRTC traffic, and a note when a page tries (#839), so a
+/// page that drew what the network told it is drawn again without it.
+pub const PAGE_VERSION: u32 = 3;
 
 /// A capture, ready to be decoded.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -60,7 +62,8 @@ pub struct Captured {
     /// The lossless video with alpha holding the page's frames.
     pub file: PathBuf,
     /// What the page did that the author should hear about: a request refused
-    /// because pages render offline, a file it asked for that is not in the
+    /// because pages render offline, a WebSocket or WebRTC connection it opened
+    /// (which reached nothing), a file it asked for that is not in the
     /// project, a script that threw, text laid out off the frame or over other
     /// text. Said again on every reuse of the capture.
     pub warnings: Vec<String>,

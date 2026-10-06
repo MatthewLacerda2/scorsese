@@ -1634,7 +1634,8 @@ What the page can count on:
 **Pages render offline.** The page is served from `https://page.scorsese/`,
 whose paths are the project's, so `../assets/photo.png` from `pages/` is the
 project's `assets/photo.png`. Any other request is refused, whether to another
-host or to a path outside the project. A refused request, a file the page asked
+host or to a path outside the project, and a WebSocket or WebRTC connection
+reaches nothing. A refused request or connection, a file the page asked
 for that is not there, a script that threw, or text laid out off the frame,
 out of its box or over other text becomes a **warning on the render**. The page
 is drawn without whatever it was, or as it was laid out.

@@ -25,7 +25,7 @@ use super::cdp::{Cdp, Command};
 use super::layout::{self, Layout};
 use super::origin::url_of;
 use super::request::Request;
-use super::visitor::Visitor;
+use super::visitor::{OFFLINE_BINDING, Visitor};
 use crate::error::Stage;
 use crate::tools::Tools;
 
@@ -91,6 +91,11 @@ fn drive(
     };
     page("Page.enable", json!({}))?;
     page("Runtime.enable", json!({}))?;
+    // Not for requests, which `Fetch` has: for the WebSocket a page opens,
+    // which only the network domain reports, and the binding the preamble
+    // calls when it opens a WebRTC connection (#839).
+    page("Network.enable", json!({}))?;
+    page("Runtime.addBinding", json!({ "name": OFFLINE_BINDING }))?;
     page(
         "Fetch.enable",
         json!({ "patterns": [{ "urlPattern": "*" }] }),
