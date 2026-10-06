@@ -32,3 +32,18 @@ fn a_document_is_the_contours_in_lucides_vocabulary() {
          stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 12L19 12\"/></svg>\n"
     );
 }
+
+/// The few dots are a second path, filled rather than stroked, and an icon
+/// without any has no such path at all.
+#[test]
+fn only_an_icon_with_dots_carries_a_filled_path() {
+    let filled = "fill=\"currentColor\" stroke=\"none\"";
+    let palette = icon::find("palette")
+        .and_then(icon::Icon::svg)
+        .expect("palette");
+    assert!(palette.contains(filled), "{palette}");
+    let minus = icon::find("minus")
+        .and_then(icon::Icon::svg)
+        .expect("minus");
+    assert!(!minus.contains(filled));
+}
