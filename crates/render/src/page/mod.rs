@@ -27,6 +27,7 @@ mod capture;
 mod cdp;
 mod find;
 mod fonts;
+mod icons;
 mod layout;
 mod origin;
 mod request;

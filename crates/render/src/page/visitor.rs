@@ -74,7 +74,11 @@ impl<'a> Visitor<'a> {
                     .insert(path, Some(scorsese_core::hash_bytes(&body)));
                 ("Fetch.fulfillRequest", fulfil(200, &body))
             }
-            Answer::Shipped { body } => ("Fetch.fulfillRequest", fulfil(200, body)),
+            Answer::Shipped { body } => ("Fetch.fulfillRequest", fulfil(200, &body)),
+            Answer::UnknownIcon { name, nearest } => {
+                self.warn(super::icons::unknown(&name, &nearest));
+                ("Fetch.fulfillRequest", fulfil(404, b""))
+            }
             Answer::Missing { path } => {
                 self.warn(format!(
                     "the page asked for `{path}`, which is not in the project; it rendered without it"

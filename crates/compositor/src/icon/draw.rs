@@ -102,7 +102,7 @@ pub(super) fn origin(size: f32, symbol: &Symbol, resolution: Resolution) -> (f32
 }
 
 /// One step of a contour, in the 24-unit space.
-enum Step {
+pub(super) enum Step {
     Move((f32, f32)),
     Line((f32, f32)),
     Cubic((f32, f32), (f32, f32), (f32, f32)),
@@ -114,7 +114,7 @@ enum Step {
 ///
 /// All or nothing on purpose: a list decoded up to the byte that went wrong is
 /// an icon missing its last stroke, which looks like a drawing somebody meant.
-fn steps(commands: &[u8]) -> Option<Vec<Step>> {
+pub(super) fn steps(commands: &[u8]) -> Option<Vec<Step>> {
     let mut reader = Reader {
         bytes: commands,
         at: 0,

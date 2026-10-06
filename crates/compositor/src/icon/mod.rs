@@ -47,6 +47,7 @@ pub(crate) mod catalogue;
 mod draw;
 mod nearest;
 mod search;
+mod svg;
 
 pub use search::{Hit, Search};
 
@@ -112,6 +113,16 @@ impl Icon {
     /// refuses to write one of those.
     pub fn commands(&self) -> Option<usize> {
         Some(draw::count(self.stroked)? + draw::count(self.filled)?)
+    }
+
+    /// The icon as a standalone SVG document, in upstream's own vocabulary:
+    /// a 24-unit square stroked in `currentColor`. What a page is served at
+    /// `https://lib.scorsese/icons/<name>.svg`, written from the contours this
+    /// crate draws, so a page and an `icon` asset show the same symbol.
+    ///
+    /// `None` for contours that do not decode, as for [`Icon::commands`].
+    pub fn svg(&self) -> Option<String> {
+        svg::svg(self)
     }
 }
 
