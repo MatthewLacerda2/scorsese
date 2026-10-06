@@ -63,3 +63,23 @@ pub fn supply(supply: Supply) -> bool {
 pub(super) fn supplied() -> Option<&'static Supply> {
     SUPPLIED.get()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Told once per process, and the first telling stands. Nothing else in
+    /// this crate's unit tests looks for a browser, so setting it here moves
+    /// no other test.
+    #[test]
+    fn a_program_tells_it_once() {
+        let failing = || Supply::new(|| None, || Err("offline".to_owned()));
+        assert_eq!(format!("{:?}", failing()), "Supply");
+        let first = supply(failing());
+        assert!(first, "nothing else in these tests supplies one");
+        assert!(!supply(failing()), "a second telling changes nothing");
+        let told = supplied().expect("told");
+        assert_eq!(told.installed(), None);
+        assert_eq!(told.fetch(), Err("offline".to_owned()));
+    }
+}

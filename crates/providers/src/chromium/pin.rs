@@ -156,6 +156,7 @@ mod tests {
     fn the_platforms_chrome_for_testing_publishes_and_no_others() {
         assert_eq!(Platform::of("macos", "aarch64"), Some(Platform::MacArm64));
         assert_eq!(Platform::of("linux", "x86_64"), Some(Platform::Linux64));
+        assert_eq!(Platform::of("macos", "x86_64"), Some(Platform::MacX64));
         assert_eq!(Platform::of("windows", "x86_64"), Some(Platform::Win64));
         assert_eq!(Platform::of("linux", "aarch64"), None);
         assert_eq!(Platform::Win64.binary(), "chrome-headless-shell.exe");
@@ -163,5 +164,12 @@ mod tests {
             Platform::MacArm64.folder(),
             "chrome-headless-shell-mac-arm64"
         );
+    }
+
+    /// The machines CI and the cloud sessions run on have a build.
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+    #[test]
+    fn this_machine_is_linux64() {
+        assert_eq!(Platform::this(), Some(Platform::Linux64));
     }
 }
