@@ -1,7 +1,7 @@
 // A generated clip's brief in the inspector: read-only, because the web
-// editor's direct edits (`http::editor::EDITS`) do not include `rebrief` — a
-// changed brief is a sentence to the assistant, which also owns the quote
-// before anything is spent (#538).
+// editor's direct edits (`http::editor::EDITS`) do not include editing a
+// brief (`asset_set`'s `prompt`) — a changed brief is a sentence to the
+// assistant, which also owns the quote before anything is spent (#538).
 
 import { useT } from "@/i18n/I18nProvider";
 import type { Brief } from "./brief";

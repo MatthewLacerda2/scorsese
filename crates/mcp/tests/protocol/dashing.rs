@@ -20,8 +20,8 @@ fn shape_of(dir: &std::path::Path, id: &str) -> Value {
 fn a_dash_pattern_lands_on_the_shape_as_written() {
     let dir = project("shape-dash");
     let (text, failed) = said(&call(
-        "shape_new",
-        json!({ "project": dir, "geometry": "arrow", "stroke": "#ffffff",
+        "asset_set",
+        json!({ "project": dir, "kind": "shape", "geometry": "arrow", "stroke": "#ffffff",
                 "from": { "x": 0.1, "y": 0.5 }, "to": { "x": 0.9, "y": 0.5 },
                 "dash": [0.02, 0.012], "asset": "flow" }),
     ));
@@ -37,8 +37,8 @@ fn a_pattern_that_is_no_pattern_is_refused() {
     for (label, dash) in [("empty", json!([])), ("words", json!(["long", "short"]))] {
         let dir = project(&format!("shape-dash-{label}"));
         let (text, failed) = said(&call(
-            "shape_new",
-            json!({ "project": dir, "geometry": "ellipse", "width": 0.2, "height": 0.2,
+            "asset_set",
+            json!({ "project": dir, "kind": "shape", "geometry": "ellipse", "width": 0.2, "height": 0.2,
                     "stroke": "#ffffff", "dash": dash }),
         ));
         assert!(failed, "{label}: {text}");

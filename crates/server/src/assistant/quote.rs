@@ -7,7 +7,7 @@
 //! change** (#709) is a no that keeps talking: the token is withdrawn, and a
 //! turn starts at once with the user's words as their message and a server
 //! note saying they are about the quoted items — so the model rewrites those
-//! briefs (`rebrief`) and quotes again, and the new quote needs its own yes.
+//! briefs (`asset_set`) and quotes again, and the new quote needs its own yes.
 //! One call does both, so a failed second request can never leave a quote
 //! declined and the change unsaid.
 //!
@@ -248,7 +248,7 @@ fn change_note(quote: &QuoteView) -> String {
     };
     format!(
         "Their message is not a plain no: it asks for a change to {covered}. Make the change \
-         yourself by rewriting those briefs with rebrief — they say what they want, you write \
+         yourself by rewriting those briefs with asset_set — they say what they want, you write \
          the brief — then call {} again without confirm, so they are shown a new quote to \
          answer. Generate nothing and change nothing else meanwhile.",
         quote.tool

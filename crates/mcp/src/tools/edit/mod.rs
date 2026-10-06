@@ -1,15 +1,14 @@
 //! Tools that change something: bring media in, write the document, make or
 //! retime an image sequence, place, move (in time or onto another track),
 //! remove, group and ungroup clips, set a clip's plain values, animate one of
-//! them, send one along an arrow, edit a brief, dissolve a cut, duck the
-//! music, set a clip's volume, scale a run of clips, render.
+//! them, send one along an arrow, dissolve a cut, duck the music, set a clip's
+//! volume, scale a run of clips, render.
 //!
 //! One file per tool. They were one file until the dissolve arrived and put
 //! it over the size gate, which is the gate doing its job: tools that happen
 //! to all be verbs are that many concerns, not one.
 
 mod animate;
-mod brief;
 mod clip;
 mod dissolve;
 mod duck;
@@ -28,7 +27,6 @@ mod volume;
 mod write;
 
 pub(crate) use animate::ClipAnimate;
-pub(crate) use brief::Rebrief;
 pub(crate) use clip::ClipSet;
 pub(crate) use dissolve::Dissolve;
 pub(crate) use duck::Duck;

@@ -86,11 +86,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `script_write` | Write the project's script — the document the edit is cut from. | nothing |
 | `project_write` | Replace a project's project.json with the document given. | ffprobe |
 | `track_new` | Add a track — a lane for clips, carrying either picture or sound. | nothing |
-| `text_new` | Add a text asset — a caption, a title, a lower third: what it says, and the look it is set in. | nothing |
-| `color_new` | Add a colour asset: a solid colour or a gradient for a background, a colour card, or a wash under a title. | nothing |
-| `shape_new` | Add a shape asset: a rectangle, an ellipse or an arrow, drawn by the render rather than imported as a picture of one. | nothing |
-| `icon_new` | Add an icon asset: one of the seventeen hundred symbols this build ships, named rather than imported. | nothing |
-| `asset_set` | Change a field on an asset that carries its content in the document — a text, color, shape or icon asset: its wording, its size, its colour. | nothing |
+| `asset_set` | Make or change a caption, title, color card, shape or icon asset, or the free sketch and brief of a generated shot, still or spoken line. | nothing |
 | `sequence` | Make an image sequence from stills already in the pool, or change one: which stills it plays in what order, how many frames each is held, and whether it loops. | nothing |
 | `asset_remove` | Remove an asset from the project, and DESTROY every clip that shows it — on the timeline and inside groups. | nothing |
 | `track_remove` | Remove a track — a lane on the timeline or inside a group — and DESTROY every clip on it. | nothing |
@@ -121,7 +117,6 @@ the tools relate to each other, which is knowledge no single tool has.
 | `icons` | Find an icon by a word, and answer with names — each one a string to write as an `icon` asset's `name`. | nothing |
 | `voices` | List the ElevenLabs voices a narration can be read in, or check that one still exists. | a key and a network, but no money |
 | `voice_design` | Design a new ElevenLabs voice from a description, for when no voice in either list is the one the video needs. | money, at a provider |
-| `rebrief` | Change what a generated asset is to be made from, and mark it stale in the same write. | nothing |
 | `generate` | Realise the sketched briefs — the one tool here that costs money, and it quotes before it spends. | money, at a provider |
 | `render` | Render the timeline to a video file, or to a sound file of its mix alone. | ffmpeg, and real time |
 | `jobs` | Say how far your renders of a project have got, and what each one made. | nothing |
@@ -258,30 +253,46 @@ and that is deliberate: a caption, a colour card, a panel and a symbol are
 things a cut should not need to import a megabyte of, go soft at the next
 resolution, or leave the tool to change. The document *is* the asset.
 
-Each has its own verb, and there is one for a lane to put them on:
+One verb makes and changes all of them, `asset_set`, and there is one for a
+lane to put them on:
 
 ```
 track_new  { "project": "teaser.scor", "kind": "video" }
            → "`v2` — a video track, over every video track already there."
-text_new   { "project": "teaser.scor", "text": "THE VESSEL ARRIVES",
-             "size": 0.08, "color": "#ffcc00" }
-           → "`the-vessel-arrives` — a text asset."
+asset_set  { "project": "teaser.scor", "kind": "text",
+             "text": "THE VESSEL ARRIVES", "size": 0.08, "color": "#ffcc00" }
+           → "`the-vessel-arrives` — a text asset, new. place_clip puts it on a
+              video track, with a duration: a title has no length of its own."
 place_clip { "project": "teaser.scor", "asset": "the-vessel-arrives",
              "track": "v2", "start_seconds": 25, "duration_seconds": 2 }
 ```
 
-`color_new`, `shape_new` and `icon_new` are the same shape. All of them
-validate the whole document before writing, refuse an id already in use, and
-say which id they wrote — the contract `place_clip` has. Sizes are fractions of
-the frame rather than pixels, so one number reads the same at every render
-resolution.
+**`kind` is what makes one.** An `asset` id nothing answers to is made, of the
+`kind` given; left out, an id is derived from the content — a caption's opening
+words, a shape's outline, an icon's symbol — and suffixed until it is free, and
+the reply says which. An id that already exists is *changed* instead (below):
+a `kind` that matches it is accepted, so an agent re-sending a create does not
+fail the second time, and one that does not is refused, because the call has
+misunderstood which asset it is writing. Every write validates the whole
+document first. Sizes are fractions of the frame rather than pixels, so one
+number reads the same at every render resolution.
 
-**Why one verb per kind rather than one `asset_new` with a `kind`.** What a
-kind *requires* is different for each: a colour asset must carry a colour, a
-symbol must carry a name and a size, a shape must draw something. A single verb
-could only take those as one free-form block, and a block cannot describe its
-own fields — which is the rule the whole page ends on. `synth_new` is the same
-argument one kind further along.
+**What a kind requires, it requires on purpose** — a colour card must have a
+colour, an icon a name, a size and a colour, a shape something to draw — and
+since one schema serves every kind, those requirements live in each argument's
+description and in the refusal, which names the missing argument. Each argument
+says which kinds take it, and one the kind has no use for is refused by name.
+
+**Why one verb rather than one per kind** ([#780](https://github.com/MatthewLacerda2/scorsese/issues/780)).
+This page used to argue the opposite — a verb per kind, so each schema could
+mark its own required fields. The record read for
+[#779](https://github.com/MatthewLacerda2/scorsese/issues/779) settled it the
+other way: five schemas describing the same properties twice were a quarter of
+every `tools/list` a model call carries, and the models it recorded made their
+captions with whole-document `project_write`s rather than choose among them.
+`sequence` already worked this way. A shape's outline, an arrow's ends and its
+dashes are read only when it is made; afterwards they are a different shape
+rather than a nudge.
 
 **A new video track composites over the ones already there.** That is what
 makes `track_new` the answer to the commonest refusal in the tool: clips on one
@@ -313,9 +324,9 @@ sets the fields it names and keeps the rest, so *letter by letter instead of by
 word* and *count to 144, not 140* are one field each; on a caption without the
 block it starts from the defaults a document's `{}` would. `false` takes the
 block away — `null` already means "not given" here, which is the convention
-`clip_set`'s `shadow` and `glow` set. The text is checked exactly as
-`text_new`'s is: a `number` on text with no `{n}` is refused, so reword and
-count in the same call.
+`clip_set`'s `shadow` and `glow` set. The text is checked exactly as when it
+was made: a `number` on text with no `{n}` is refused, so reword and count in
+the same call.
 
 ```
 asset_set  { "project": "teaser.scor", "asset": "partitions",
@@ -325,16 +336,11 @@ asset_set  { "project": "teaser.scor", "asset": "partitions",
               en, grouped. Nothing else changed."
 ```
 
-One verb here rather than four, for the mirror image of the reason above:
-`asset_set` requires nothing but the asset, so every field on it is optional by
-construction and each one still describes itself and says which kinds it
-belongs to.
-
 A field the asset's kind has no use for is **refused by name** — a `fill` on a
 caption is not a caption with something extra, and ignoring it would look
-exactly like having applied it. What a *generated* asset is made from is
-[`rebrief`](#changing-a-brief-rebrief), and what a file-backed one is lives in
-the file.
+exactly like having applied it. What a *generated* asset is made from is the
+same verb's [brief half](#changing-a-brief-asset_set), and what a file-backed
+one is lives in the file.
 
 ### Taking one out again: `asset_remove` and `track_remove`
 
@@ -1059,7 +1065,7 @@ distance between them.
 measuring; leave it off for a picture you mean to keep, because there is no
 taking the lines off afterwards.
 
-## Changing a brief: `rebrief`
+## Changing a brief: `asset_set`
 
 A generated asset is a **brief** and a **state**, and the state is the half
 that gets forgotten. `sketch → queued → generated`, and back to `stale` the
@@ -1068,14 +1074,28 @@ prompt changed is a lie the rest of the system believes: the cut renders the
 previous take rather than a slug card, and nothing anywhere says the take is
 not what the project asks for.
 
-`rebrief` writes both in one call.
+`asset_set` writes both in one call — it was `rebrief` until
+[#780](https://github.com/MatthewLacerda2/scorsese/issues/780) folded it in.
 
 ```
-rebrief  { "project": "teaser.scor", "asset": "hero",
-           "prompt": "a lone figure on a wet platform, 35mm" }
-         → "`hero`: prompt changed, generated → **stale**. The file on disk is
-            the previous brief's, so the cut shows a slug card until the next
-            generate redoes it."
+asset_set  { "project": "teaser.scor", "asset": "hero",
+             "prompt": "a lone figure on a wet platform, 35mm" }
+           → "`hero`: prompt changed, generated → **stale**. The file on disk
+              is the previous brief's, so the cut shows a slug card until the
+              next generate redoes it."
+```
+
+**It makes the sketch, too** ([#826](https://github.com/MatthewLacerda2/scorsese/issues/826)).
+With a `kind` of `generated_video`, `generated_image` or `generated_audio`, an
+id nothing answers to is made in state `sketch` from a `prompt` and,
+optionally, the rest of its brief — which renders as a slug card, so a whole
+cut is laid out and previewed for nothing:
+
+```
+asset_set  { "project": "teaser.scor", "kind": "generated_audio",
+             "asset": "vo-open", "prompt": "In nineteen seventy-six…",
+             "speech": { "voice_id": "EXAMPLEvoiceID012345", "language": "en" } }
+           → "`vo-open` — a generated_audio asset, new. A sketch: …"
 ```
 
 **The reply states the resulting state, always** — that is the whole point of
@@ -1088,7 +1108,7 @@ there is nothing stale about a brief nobody has realised. Both are states
 `generated_video`, `generated_image` and `generated_audio` — a sentence a provider is paid to
 read. `recipe` is for `synth_audio`, and it repoints the asset at a *different*
 recipe file; changing what is **inside** a recipe is `synth_write` or
-`synth_set`, and needs no `rebrief` at all, because a bake is named for the
+`synth_set`, and needs no new brief at all, because a bake is named for the
 hash of its recipe. Passing the brief an asset's kind does not take is refused
 rather than resolved: the call has misunderstood the asset, and guessing which
 half was meant would write the half nobody checked.
@@ -1107,11 +1127,16 @@ for either way.
 asset stale for an edit that changed nothing would cost a slug card in every
 preview until somebody regenerated it.
 
-**Generating is not triggered.** `rebrief` costs nothing and spends nothing;
+**The rest of a brief merges like everything else here.** A shot's `video`
+block, a still's `image` block and a line's `speech` block are hashed into the
+brief with the sentence, so changing a voice is a new brief exactly as
+rewording is, and goes `stale` the same way. Name the fields to change and the
+rest stay; `null` returns one to its default. A block that ends up every
+default on an asset that had none is the same brief, and writes nothing.
+
+**Generating is not triggered.** `asset_set` costs nothing and spends nothing;
 `generate` is still what realises the result, and its cost gate stays where it
-is. The rest of a brief — a shot's `video` block, a still's `image` block, a
-line's `speech` block — is still a `project_write`, and those fields are hashed into the brief too, so
-changing a voice deserves the same `"state": "stale"` by hand.
+is.
 
 ## Generating the shots, stills and lines that do not exist yet
 

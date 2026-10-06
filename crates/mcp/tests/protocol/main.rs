@@ -44,6 +44,7 @@ mod seeing;
 mod sequencing;
 mod setting;
 mod sheeting;
+mod sketching;
 mod sounding;
 mod starting;
 mod surveying;

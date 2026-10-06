@@ -24,8 +24,8 @@ fn a_gradient_pill_and_a_gradient_backdrop_land_as_written() {
     let linear = json!({ "linear": { "angle": 90.0,
         "stops": [["#e8590c", 0.0], ["#7048e8", 1.0]] } });
     let (text, failed) = said(&call(
-        "shape_new",
-        json!({ "project": dir, "geometry": "rectangle", "width": 0.6, "height": 0.2,
+        "asset_set",
+        json!({ "project": dir, "kind": "shape", "geometry": "rectangle", "width": 0.6, "height": 0.2,
                 "radius": 0.5, "fill": linear, "asset": "plate" }),
     ));
     assert!(!failed, "{text}");
@@ -34,8 +34,8 @@ fn a_gradient_pill_and_a_gradient_backdrop_land_as_written() {
     let radial = json!({ "radial": { "center": { "x": 0.5, "y": 0.45 }, "radius": 0.8,
         "stops": [["#1b2440", 0.0], ["#0b1020", 1.0]] } });
     let (text, failed) = said(&call(
-        "color_new",
-        json!({ "project": dir, "color": radial, "asset": "backdrop" }),
+        "asset_set",
+        json!({ "project": dir, "kind": "color", "color": radial, "asset": "backdrop" }),
     ));
     assert!(!failed, "{text}");
     assert!(
@@ -52,8 +52,8 @@ fn a_gradient_pill_and_a_gradient_backdrop_land_as_written() {
 fn a_gradient_with_one_stop_is_refused() {
     let dir = project("gradient-one-stop");
     let (text, failed) = said(&call(
-        "color_new",
-        json!({ "project": dir, "asset": "backdrop",
+        "asset_set",
+        json!({ "project": dir, "kind": "color", "asset": "backdrop",
                 "color": { "linear": { "stops": [["#000000", 0.0]] } } }),
     ));
     assert!(failed, "{text}");
@@ -66,8 +66,8 @@ fn a_gradient_with_one_stop_is_refused() {
 fn a_caption_refuses_a_gradient_colour() {
     let dir = project("gradient-caption");
     let (text, failed) = said(&call(
-        "text_new",
-        json!({ "project": dir, "text": "Hello", "asset": "caption" }),
+        "asset_set",
+        json!({ "project": dir, "kind": "text", "text": "Hello", "asset": "caption" }),
     ));
     assert!(!failed, "{text}");
     let (text, failed) = said(&call(

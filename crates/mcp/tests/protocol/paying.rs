@@ -74,7 +74,7 @@ fn a_brief_edited_after_the_quote_is_refused() {
     let dir = voiced("pay-edited");
     let (quoted, _) = said(&call("generate", json!({ "project": dir })));
     let (text, failed) = said(&call(
-        "rebrief",
+        "asset_set",
         json!({ "project": dir, "asset": "vo", "prompt": "a much longer line than before" }),
     ));
     assert!(!failed, "{text}");
