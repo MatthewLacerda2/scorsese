@@ -150,11 +150,16 @@ class Watching(unittest.TestCase):
         said, clock = [], [0.0]
         opts = queue.parse(["--watch", "--for", "30"])
 
-        def take(repo, number, opts, heads=None):
+        def take(repo, number, opts, heads=None, tick=None):
             clock[0] += 120
             return number, queue.MERGED, "why"
 
-        with mock.patch.object(queue.mergeable, "gh", side_effect=lambda *a: next(listings, [])), \
+        def gh(*args):
+            # Only the `queue` listing walks the script; the board (#819) is empty.
+            return next(listings, []) if "--label" in args else []
+
+        with mock.patch.object(queue.mergeable, "gh", side_effect=gh), \
+            mock.patch("builtins.print"), \
             mock.patch.object(watch, "clashing", return_value={pair(1, 2), pair(1, 3)}), \
             mock.patch.object(queue, "take", side_effect=take) as took, \
             mock.patch.object(queue.time, "monotonic", side_effect=lambda: clock[0]), \

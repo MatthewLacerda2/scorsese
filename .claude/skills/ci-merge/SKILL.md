@@ -135,6 +135,13 @@ same five steps (#690):
   `--deadline` (40), and the two together may not pass 115 — the script
   refuses a pair that would. Run it in the background and re-arm it when it
   exits; a fresh watch reads the same labels, so nothing is lost between two.
+  Its last line, `watch: resume: <command>`, is the exact command to re-arm.
+- **It reports the board, one `watch: ` line per event** (#819): a pull request
+  opening, turning ready, going back to draft or closing — labelled or not,
+  narrowed to those opened since `SINCE=` — and each one it finished with.
+  Every other line is narration, so `| grep --line-buffered '^watch: '` under a
+  background `Monitor` is the whole of a batch's watching (`issue-batch`,
+  *Running a mixed batch*).
 - **A watch runs the script it started with.** Merging a change to
   `.github/scripts/merge-*.py` does not reach a watch already running: stop it
   (it is safe to while it only waits on CI — the restart sees the head it

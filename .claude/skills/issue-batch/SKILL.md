@@ -261,9 +261,19 @@ request:
    not by CI). Check the decisions against the issue, and note any human-only
    checks (a window, speakers, taste) as a checklist; don't hold for them.
 2. **Label it `queue`**, with `make queue WATCH=1` running in the background
-   (re-armed whenever it exits — it is bounded to the harness's two-hour cap,
-   and exit status 4 means something was still unfinished), for rebase → push
-   → wait → merge; don't hand-roll that loop. It merges only on `make mergeable`'s verdict. It does
+   for rebase → push → wait → merge; don't hand-roll that loop. **It is the
+   orchestrator's one background watch** (#819): run it under `Monitor` as
+   `make queue WATCH=1 SINCE=<the batch's start, ISO 8601> | grep
+   --line-buffered '^watch: '`, and every line that arrives is an event to act
+   on — a PR `opened as a draft`/`opened as ready`, `turned ready` (read it,
+   label it), `back to draft`, `closed, not merged by this watch`, and each one
+   the queue finished: `merged`, `handed back` (with the reason), `unfinished`,
+   `unreachable`. The first listing after a launch says nothing, and a listing
+   GitHub would not give is skipped rather than read as every PR changing. It
+   is bounded to the harness's two-hour cap; its **last line is `watch:
+   resume: <command>`** — re-arm the Monitor on exactly that command (behind
+   the same `grep`). Exit status 4 means something was still unfinished, 3
+   that GitHub stopped answering; the resume line is the answer to both. It merges only on `make mergeable`'s verdict. It does
    **not** compile the rebased tree before pushing, and a clean textual rebase
    still breaks when a merge ahead changed a signature this branch uses — on
    rusty a removed argument cost a ten-minute CI round to find, and a rebase
@@ -343,6 +353,7 @@ comment and a fresh routine**, never an edit to an old prompt.
 ### What the orchestrator keeps, and where (2026-10-03)
 
 - **GitHub is the batch's state.** Open PRs, their draft/ready state and comments, plus `RemoteTrigger list` for the routines, are enough to resume a batch from nothing. The orchestrator's own notes (a queue list, a routine table) are conveniences. Never keep anything **only** in `/tmp`: the scratchpad lives there, and a reboot wipes it. On 2026-10-02 a machine crash mid-batch took the merge queue's list and the routine table with it, and the batch resumed from GitHub alone.
+- **One background watch, not two.** The queue's watch reports the board as well as its merges (#819), so there is no separate `gh pr list` poller to keep alive. On 2026-10-05/06 that poller expired every thirty minutes, was re-armed about eight times, and once, after a network blip, announced every open PR as new; the queue's watch was restarted four more times beside it. The supervisor that would relaunch the watch on its own (MatthewLacerda2/rusty#908) is not here yet: re-arming is still the orchestrator's, once per resume line.
 - **Stop a watch by its PID, never `pkill -f merge-queue.py`.** Every repository the operator batches runs the same script name, and on 2026-10-05 a rusty session's `pkill -f "merge-queue.py --watch"` killed scorsese's watch mid-wait. Nothing was lost (it was only waiting on CI, and a re-run resumes), but the same pattern mid-push would have been a hand-back to untangle. Hold the PID of the watch you started (the harness's background task) and stop that.
 - **Never wait on another process by `pgrep -f <text>`.** The waiting shell's own command line contains the text, so it waits on itself forever (about 25 minutes lost on 2026-10-02). Wait on a PID you hold. With `make queue WATCH=1` (#690) there is nothing to chain: one watch takes everything labelled `queue`, and the merge order is on GitHub, not in a list.
 - **Watch each PR's head commit, not only its draft/ready state.** A rebased PR stays *ready* the whole time, so a watcher keyed on state never sees the push. The queue's watch keys on the head for exactly this reason; your own reading of a re-pushed PR still waits for the coder's PR comment ("rebased, gates green"). If the push should *not* be retaken yet, take the `queue` label off first.

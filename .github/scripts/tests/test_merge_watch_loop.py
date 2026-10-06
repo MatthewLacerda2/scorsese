@@ -48,6 +48,8 @@ class Watching(unittest.TestCase):
         taken = []
 
         def gh(*args):
+            if args[:2] == ("pr", "list") and "--label" not in args:
+                return []  # the board (#819): `test_merge_watch_board.py`'s
             if args[:2] == ("pr", "list"):
                 last[0] = next(polls, last[0])
                 return last[0]
@@ -55,7 +57,7 @@ class Watching(unittest.TestCase):
                 return {"labels": [{"name": n} for n in (issues or {}).get(int(args[2]), [])]}
             raise AssertionError(f"unexpected gh {args}")
 
-        def take(repo, number, opts, heads=None):
+        def take(repo, number, opts, heads=None, tick=None):
             taken.append(number)
             state, head = outcomes[number]
             if heads is not None:
