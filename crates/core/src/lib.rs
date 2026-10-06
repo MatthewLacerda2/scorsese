@@ -136,7 +136,8 @@ pub use path::{PathProblem, ProjectPath};
 // `scorsese_core::trim` says nothing about what it trims, `place` reads as
 // spatial, and `remove` could be removing anything.
 pub use placing::{
-    PlaceError, Placement, RelocateError, Relocation, RemoveError, Removed, Trim, TrimError,
+    PlaceError, Placement, RelocateError, Relocation, RemoveError, Removed, Shortened, Trim,
+    TrimError,
 };
 pub use pool::{
     AssetHealth, AssetStatus, Gap, HashCheck, Import, ImportError, Imported, Listed, PageError,

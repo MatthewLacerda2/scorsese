@@ -2,6 +2,7 @@
 //! them, keep what came back, settle, and bring it into the project.
 
 use scorsese_core::Project;
+use scorsese_core::placing::Shortened;
 use scorsese_render::Tools;
 use serde_json::json;
 
@@ -144,11 +145,12 @@ impl Work {
         )
         .await;
         match adopted {
-            Ok(moved) => Outcome::Done(json!({
+            Ok(adopted) => Outcome::Done(json!({
                 "item": item.id,
                 "asset": self.payload.asset,
                 "project": self.payload.project,
-                "adopted": moved.iter().any(|id| id.as_str() == self.payload.asset),
+                "adopted": adopted.moved.iter().any(|id| id.as_str() == self.payload.asset),
+                "shortened": adopted.shortened.iter().map(Shortened::says).collect::<Vec<_>>(),
             })),
             Err(error) => Outcome::Failed(format!(
                 "generated and kept in your library as item {}, but the project could not be \

@@ -16,6 +16,7 @@ mod paying;
 mod recipes;
 mod settling;
 mod shooting;
+mod shortening;
 mod stopping;
 mod studio;
 mod transcribing;
