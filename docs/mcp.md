@@ -925,8 +925,9 @@ cards, exactly as they would in a preview cut.
 calls and the render reuse the capture until the page or a file it loads
 changes. What drawing it noticed and the picture cannot show (a request refused
 because pages render offline, a file it asked for that is not in the project, a
-script that threw, or a page that could not be captured at all) comes back as a
-`note:` line under the frame it was found drawing, once per call. `render` puts
+script that threw, text held off the frame, inside the safe margin, out of its
+box or over other text, or a page that could not be captured at all) comes back
+as a `note:` line under the frame it was found drawing, once per call. `render` puts
 the same notes in its reply.
 
 The default raster is 1280x720 rather than a delivery size, because layout is a

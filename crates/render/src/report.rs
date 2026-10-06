@@ -170,8 +170,9 @@ pub enum Note {
     },
     /// Something a page did while it was captured that its author should hear
     /// about: a request refused because pages render offline, a file it asked
-    /// for that is not in the project, a script that threw. The page was drawn
-    /// without whatever it was.
+    /// for that is not in the project, a script that threw, text laid out off
+    /// the frame or over other text. The page was drawn without whatever it was,
+    /// or as it was laid out.
     PageWarning {
         /// The page asset.
         asset: String,
