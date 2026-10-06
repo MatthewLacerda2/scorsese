@@ -122,12 +122,13 @@ mod tests {
             page: "pages/a.html".into(),
             resolution: Resolution::new(64, 64).unwrap(),
             fps: Fps::THIRTY,
-            duration: 1.0,
+            // Not a whole quarter, so the last frame is measured for being last.
+            duration: 0.9,
         };
         let measured: Vec<u64> = (0..request.frames())
             .filter(|&k| sampled(&request, k))
             .collect();
-        assert_eq!(measured, [0, 8, 15, 23, 30]);
+        assert_eq!(measured, [0, 8, 15, 23, 27]);
     }
 
     #[test]
