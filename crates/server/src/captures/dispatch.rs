@@ -13,7 +13,7 @@ use std::time::{Duration, Instant};
 
 use scorsese_core::{CACHE_DIR, Project};
 use scorsese_render::page::{CHROME_ENV, Chrome, Request};
-use scorsese_render::{Cancel, Note, RenderReport};
+use scorsese_render::{Cancel, Note};
 
 use super::{ANSWER, ASK, Answer, Ask, Asked, PROJECT, Spool, now, publish, read};
 
@@ -157,13 +157,9 @@ fn none_captured(requests: &[Request], why: &str, chrome: Option<Chrome>) -> Cap
 /// What a render said, in the words its owner reads: every note, with a page
 /// that showed its card saying why the worker did not capture it rather than
 /// the renderer's "not captured yet".
-pub fn said(
-    report: &RenderReport,
-    project: &Project,
-    failed: &HashMap<String, String>,
-) -> Vec<String> {
+pub fn said(notes: &[Note], project: &Project, failed: &HashMap<String, String>) -> Vec<String> {
     let mut said: Vec<String> = Vec::new();
-    for note in &report.notes {
+    for note in notes {
         let note = match note {
             Note::PageNotCaptured { clip, asset, .. } => {
                 let page = project
@@ -188,4 +184,47 @@ pub fn said(
         }
     }
     said
+}
+
+#[cfg(test)]
+mod tests {
+    use scorsese_core::{Asset, AssetId, AssetKind, ProjectPath};
+
+    use super::*;
+
+    #[test]
+    fn a_page_left_as_its_card_says_why_the_worker_did_not_capture_it() {
+        let mut project = Project::new("p", scorsese_core::Fps::THIRTY);
+        project.assets.push(Asset::imported(
+            AssetId::new("title"),
+            AssetKind::Html,
+            ProjectPath::new("pages/title.html"),
+        ));
+        let card = |reason: &str| Note::PageNotCaptured {
+            clip: "c1".into(),
+            asset: "title".into(),
+            reason: reason.into(),
+        };
+        let warned = Note::PageWarning {
+            asset: "title".into(),
+            warning: "it asked for the internet".into(),
+        };
+        let failed = HashMap::from([("pages/title.html".to_owned(), "stopped".to_owned())]);
+        let notes = [card("not captured yet"), warned.clone(), warned.clone()];
+
+        let said = said(&notes, &project, &failed);
+
+        assert_eq!(said, [card("stopped").to_string(), warned.to_string()]);
+        let none = said_with_nothing_failed(&project);
+        assert!(none[0].ends_with("not captured yet"), "{none:?}");
+    }
+
+    fn said_with_nothing_failed(project: &Project) -> Vec<String> {
+        let card = Note::PageNotCaptured {
+            clip: "c1".into(),
+            asset: "title".into(),
+            reason: "not captured yet".into(),
+        };
+        said(&[card], project, &HashMap::new())
+    }
 }

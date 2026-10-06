@@ -281,7 +281,7 @@ fn produce(
     let report = renderer
         .render(project, laid.root(), FrameRange::ALL, out)
         .map_err(rendering)?;
-    Ok(dispatch::said(&report, project, &failed))
+    Ok(dispatch::said(&report.notes, project, &failed))
 }
 
 /// Where each of the owner's library files `project` names is, by hash —
