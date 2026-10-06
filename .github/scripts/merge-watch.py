@@ -103,13 +103,48 @@ minutes and then stops taking; the one in flight has its own `--deadline`;
 and the two together are held under [`CAP_MINUTES`], leaving minutes for the
 last rebase and merge. A watch that ends with pull requests still in line
 reports each as **unfinished** — not handed back, nothing is wrong with them —
-and the answer is to start the watch again.
+and the answer is to start the watch again. Its last line says exactly how:
+`watch: resume: <command>` ([`resume`]), the same arguments over again.
+
+## It says what changed on the board, one line each (#819)
+
+The orchestrator of a batch needs to hear of two things: a pull request turning
+ready (time to read it and label it `queue`), and what the queue did with one
+(merged, handed back, unfinished). On 2026-10-05/06 it learned the first from a
+second background poller of its own, which expired every thirty minutes and
+was re-armed about eight times, and once, after a network blip, announced every
+open pull request as new. So the watch reports both itself, and one `Monitor`
+on its output is the whole view.
+
+Every line meant to be acted on starts with [`EVENT`] — `watch: ` — and every
+other line (`queue: …` progress, `mergeable: …` retries) is narration, so
+`grep --line-buffered '^watch: '` leaves exactly the events:
+
+- the board ([`transitions`]): `opened as a draft`, `opened as ready`,
+  `turned ready`, `back to draft`, `closed, not merged by this watch`;
+- each pull request the queue finished with ([`outcome`]), with its state and
+  reason;
+- the `resume:` line above, last.
+
+The board is **every open pull request**, labelled or not — the point is to
+hear of one before it carries the label — optionally only those opened since
+`--since`, so a batch hears of its own. Two rules keep it honest, ported from
+MatthewLacerda2/rusty#909: the first listing after a launch says nothing, so a
+relaunch does not replay the board; and a listing that failed is not a listing
+([`Board.poll`]): it is skipped, and the next good one is compared with the last
+good one, never with nothing. A push alone is not a transition — the queue
+keys on heads for its own reasons, but nobody acts on a coder's push here.
+The board is asked between polls of a branch's CI as well as between picks, so a
+pull request turning ready while another waits forty minutes on its run is
+heard of within one poll, not at the end of the wait.
 """
 
 from __future__ import annotations
 
 import importlib.util
+import shlex
 import subprocess
+from datetime import datetime
 from itertools import combinations
 from pathlib import Path
 
@@ -150,6 +185,10 @@ CAP_MINUTES = 115
 # How often an idle watch asks GitHub again. Slower than a CI poll: nothing is
 # being waited on, and a pull request labelled a minute late costs a minute.
 IDLE_SECONDS = 60
+
+# What every line meant for the orchestrator starts with, and nothing else
+# does: the watch's output filtered on it is one event per line.
+EVENT = "watch:"
 
 
 def rank(labels: list[str]) -> int:
@@ -375,3 +414,110 @@ def issue_labels(pulls: list[dict], known: dict[int, list[str]]) -> dict[int, li
             found = mergeable.gh("issue", "view", str(number), "--json", "labels")
             known[number] = [label.get("name", "") for label in found.get("labels", [])]
     return known
+
+
+def opened_since(created: str, since: datetime | None) -> bool:
+    """Whether a pull request created at `created` (ISO 8601) is on the board."""
+    if since is None:
+        return True
+    try:
+        return datetime.fromisoformat(created) >= since
+    except ValueError:
+        return True  # an unreadable date is shown rather than hidden
+
+
+def heads(pulls: list[dict], since: datetime | None = None) -> dict[int, bool]:
+    """The board as [`transitions`] compares it: each number, and whether it is a draft."""
+    return {
+        pull["number"]: bool(pull.get("isDraft"))
+        for pull in pulls
+        if "number" in pull and opened_since(pull.get("createdAt", ""), since)
+    }
+
+
+def transitions(
+    before: dict[int, bool] | None, after: dict[int, bool], landed: set[int]
+) -> list[str]:
+    """One line per pull request that changed between two [`heads`] listings.
+
+    `before` is `None` on the first listing, which announces nothing; one in
+    `landed` (this watch merged it) is not reported closed. Each line has its
+    own words to grep: `opened`, `turned ready`, `back to draft`, `closed`.
+    """
+    if before is None:
+        return []
+    lines = []
+    for number in sorted(before.keys() | after.keys()):
+        if number not in before:
+            kind = "a draft" if after[number] else "ready"
+            lines.append(f"{EVENT} #{number} opened as {kind}.")
+        elif number not in after:
+            if number not in landed:
+                lines.append(f"{EVENT} #{number} closed, not merged by this watch.")
+        elif before[number] and not after[number]:
+            lines.append(f"{EVENT} #{number} turned ready.")
+        elif after[number] and not before[number]:
+            lines.append(f"{EVENT} #{number} back to draft.")
+    return lines
+
+
+def outcome(number: int, state: str, why: str) -> str:
+    """The one line the queue finishing with a pull request is worth."""
+    return f"{EVENT} {f'#{number} ' if number else ''}{state}: {why}"
+
+
+def resume(opts) -> str:
+    """The last line of a watch: the command that carries on where it stopped.
+
+    Every argument the watch was started with, so the next one watches the
+    same board under the same limits. A Monitor relaunched on it hears nothing
+    for the first listing, by [`transitions`]' rule, and then carries on.
+    """
+    args = ["--watch", "--for", f"{opts.watch_for:g}", "--deadline", f"{opts.deadline:g}"]
+    args += ["--poll", f"{opts.poll:g}", "--label", opts.label, "--root", opts.root]
+    if opts.since is not None:
+        args += ["--since", opts.since.isoformat()]
+    if opts.no_merge:
+        args.append("--no-merge")
+    command = shlex.join(["python3", ".github/scripts/merge-queue.py", *args])
+    return f"{EVENT} resume: {command}"
+
+
+def everything() -> list[dict]:
+    """Every open pull request, labelled or not, in the fields the board reads."""
+    return mergeable.gh(
+        "pr", "list", "--state", "open", "--limit", "200",
+        "--json", "number,isDraft,createdAt",
+    )
+
+
+class Board:
+    """The open pull requests as last seen, and the lines their changes are worth.
+
+    `landed` is told of every merge this watch makes, so that one is not
+    reported closed.
+    """
+
+    def __init__(self, since: datetime | None = None, lister=None) -> None:
+        self.since = since
+        self.seen: dict[int, bool] | None = None
+        self.landed: set[int] = set()
+        self.lister = lister or everything
+
+    def poll(self) -> list[str]:
+        """Ask GitHub once, and return what changed since the last good answer.
+
+        A listing GitHub would not give is skipped, never compared: a failed
+        `gh` call is not every pull request closing, and the one after it not
+        every pull request opening.
+        """
+        try:
+            pulls = self.lister()
+        except mergeable.Unreachable:
+            return []
+        if not isinstance(pulls, list):
+            return []
+        now = heads(pulls, self.since)
+        lines = transitions(self.seen, now, self.landed)
+        self.seen = now
+        return lines

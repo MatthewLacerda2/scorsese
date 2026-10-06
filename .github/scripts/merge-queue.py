@@ -145,7 +145,13 @@ a label, and how a hand-back is kept from being retried every poll are
 
 A branch whose run is still out at its deadline, and a pull request still in
 line when a watch ends, are **unfinished** — neither red nor green, and not a
-hand-back: the answer is to run the queue again.
+hand-back: the answer is to run the queue again — and a watch's last line,
+`watch: resume: …`, is that command, exactly.
+
+A watch also says what changed on the board — a pull request opening, turning
+ready, going back to draft or closing — and what it did with each one it took,
+one `watch: ` line per event, so a background `Monitor` on its output filtered
+to those lines is a batch's only watch (#819, `merge-watch.py`).
 
 Run it:
 
@@ -172,6 +178,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 _spec = importlib.util.spec_from_file_location(
@@ -633,24 +640,38 @@ def run_watch(repo: str, opts: argparse.Namespace) -> list[tuple[int, str, str]]
 
     GitHub going quiet stops the watch exactly as it stops a list, with the
     reason in the summary.
+
+    Every result is also said as it happens, as one [`watch.outcome`] line,
+    and the board's changes as [`watch.transitions`] lines between polls.
     """
     results: list[tuple[int, str, str]] = []
     dropped: dict[int, str] = {}
     issues: dict[int, list[str]] = {}
     merges: dict[frozenset[str], bool] = {}
+    board = watch.Board(opts.since)
     stop_taking = time.monotonic() + opts.watch_for * 60
+
+    def tick() -> None:
+        for line in board.poll():
+            tell(line)
+
+    def record(number: int, state: str, why: str) -> None:
+        results.append((number, state, why))
+        if state == MERGED:
+            board.landed.add(number)
+        tell(watch.outcome(number, state, why))
+
     say(
         f"watching for ready pull requests labelled `{opts.label}`, for"
         f" {opts.watch_for:g} minutes."
     )
     try:
         while True:
+            tick()
             pulls = watch.waiting(opts.label)
             if time.monotonic() >= stop_taking:
-                results.extend(
-                    (number, UNFINISHED, "still in line when the watch ended.")
-                    for number in watch.in_line(pulls, dropped)
-                )
+                for number in watch.in_line(pulls, dropped):
+                    record(number, UNFINISHED, "still in line when the watch ended.")
                 return results
             labels = watch.issue_labels(pulls, issues)
             clashes = watch.clashing(
@@ -666,19 +687,19 @@ def run_watch(repo: str, opts: argparse.Namespace) -> list[tuple[int, str, str]]
             number = pull["number"]
             heads: dict[int, str] = {}
             try:
-                outcome = take(repo, number, opts, heads)
+                outcome = take(repo, number, opts, heads, tick)
             except mergeable.Unreachable as outage:
                 say(f"#{number}: {outage}")
-                results.append((number, UNREACHABLE, str(outage)))
+                record(number, UNREACHABLE, str(outage))
                 return results
-            results.append(outcome)
+            record(*outcome)
             # Merged too: the listing can still show a merged pull request for
             # a poll or two, and taking it again would report it handed back.
             dropped[number] = heads.get(number, pull.get("headRefOid", ""))
     except mergeable.Unreachable as outage:
         # Asking what is cleared, rather than working on one: no number to name.
         say(str(outage))
-        results.append((0, UNREACHABLE, str(outage)))
+        record(0, UNREACHABLE, str(outage))
         return results
 
 
@@ -686,6 +707,22 @@ def say(line: str, *rest: str) -> None:
     print(f"queue: {line}", flush=True)
     for extra in rest:
         print(f"  {extra}", flush=True)
+
+
+def tell(line: str) -> None:
+    """An event line, already carrying [`watch.EVENT`]: printed as it is."""
+    print(line, flush=True)
+
+
+def since(text: str) -> datetime:
+    """`--since`'s value: an ISO 8601 time, read as UTC when it names no zone."""
+    try:
+        when = datetime.fromisoformat(text)
+    except ValueError as bad:
+        raise argparse.ArgumentTypeError(
+            f"{text!r} is not an ISO 8601 time, e.g. 2026-10-06T16:00:00Z"
+        ) from bad
+    return when if when.tzinfo else when.replace(tzinfo=timezone.utc)
 
 
 def look(number: int) -> dict:
@@ -883,9 +920,18 @@ def collisions(head: str, work: str) -> list[str]:
 
 
 def wait_for(
-    repo: str, number: int, sha: str, before: str, deadline: float, poll: float
+    repo: str,
+    number: int,
+    sha: str,
+    before: str,
+    deadline: float,
+    poll: float,
+    tick=None,
 ) -> tuple[str, list[str]]:
     """Poll until the run on `sha` settles, or the deadline says stop.
+
+    `tick`, when given, is called once a poll: the watch hears what changed on
+    the board while one branch waits (#819).
 
     Never treats an absent check as a settled one — that is the trap the
     `ci-merge` skill names, and [`progress`] is where the two are told apart.
@@ -923,6 +969,8 @@ def wait_for(
                 " green either. Run the queue again to pick it back up.",
             ]
         say(f"#{number}: {lines[0]}")
+        if tick is not None:
+            tick()
         time.sleep(poll)
 
 
@@ -954,8 +1002,11 @@ def take(
     number: int,
     opts: argparse.Namespace,
     heads: dict[int, str] | None = None,
+    tick=None,
 ) -> tuple[int, str, str]:
     """One pull request, from where it is to merged or handed back.
+
+    `tick` is [`wait_for`]'s, passed through.
 
     `heads`, when given, is told the last head this call knew the pull request
     by — the one it found, or the one it pushed. The watch keeps it so that a
@@ -995,7 +1046,7 @@ def take(
         say(f"#{number}: already on `main`; the run on record is a run on it.")
 
     left = opts.deadline * 60 - (time.monotonic() - began)
-    state, lines = wait_for(repo, number, fresh, head, left, opts.poll)
+    state, lines = wait_for(repo, number, fresh, head, left, opts.poll, tick)
     say(f"#{number}: {lines[0]}", *lines[1:])
     if state in (LATE, UNJUDGED):
         return number, UNFINISHED, lines[0]
@@ -1068,6 +1119,16 @@ def parse(argv: list[str]) -> argparse.Namespace:
         help=f"with --watch: the go-ahead label to look for (default {watch.QUEUE_LABEL})",
     )
     parser.add_argument(
+        "--since",
+        type=since,
+        default=None,
+        metavar="TIME",
+        help=(
+            "with --watch: report board changes only for pull requests opened"
+            " at or after this ISO 8601 time (default: every open one)"
+        ),
+    )
+    parser.add_argument(
         "--no-merge",
         action="store_true",
         help="stop at green and hand each branch back rather than merging it",
@@ -1117,6 +1178,8 @@ def main(argv: list[str] | None = None) -> int:
     print()
     for line in summary(results):
         say(line)
+    if opts.watch:
+        tell(watch.resume(opts))
     return status(results)
 
 
