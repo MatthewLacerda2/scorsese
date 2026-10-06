@@ -21,8 +21,8 @@ fn with_a_route(label: &str) -> std::path::PathBuf {
     let dir = project(label);
     for (tool, arguments) in [
         (
-            "shape_new",
-            json!({ "project": dir, "geometry": "arrow", "stroke": "#ffffff", "asset": "route",
+            "asset_set",
+            json!({ "project": dir, "kind": "shape", "geometry": "arrow", "stroke": "#ffffff", "asset": "route",
                     "from": { "x": 0.1, "y": 0.5 }, "to": { "x": 0.9, "y": 0.5 }, "curve": "s" }),
         ),
         (

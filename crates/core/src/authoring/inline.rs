@@ -1,7 +1,7 @@
 //! Adding an asset whose content is the document.
 
 use super::AuthorError;
-use crate::asset::{Asset, AssetId};
+use crate::asset::{Asset, AssetId, AssetKind, ImageRequest, SpeechRequest, VideoRequest};
 use crate::fill::Fill;
 use crate::icon::Icon;
 use crate::pool::asset_id_for;
@@ -41,6 +41,26 @@ pub enum Inline {
         /// Which symbol, how big, in what colour.
         Icon,
     ),
+    /// A brief nobody has paid for yet: one of the prompted kinds, written in
+    /// state `sketch`. It has no file until `generate` realises it, so until
+    /// then the document is the whole of it, exactly as for the four above —
+    /// and a cut laid out with sketches previews as slug cards for nothing.
+    ///
+    /// Which kind takes which block is the format's rule, not this type's:
+    /// validation refuses a `speech` on a shot or a prompt on a kind that is
+    /// not prompted, before anything is written.
+    Sketch {
+        /// `generated_video`, `generated_image` or `generated_audio`.
+        kind: AssetKind,
+        /// The sentence a provider will be paid to read.
+        prompt: String,
+        /// The rest of a shot's brief, or `None` for every default.
+        video: Option<VideoRequest>,
+        /// The rest of a still's brief, or `None` for every default.
+        image: Option<ImageRequest>,
+        /// The rest of a spoken line's brief, or `None` for every default.
+        speech: Option<SpeechRequest>,
+    },
 }
 
 impl Inline {
@@ -61,6 +81,7 @@ impl Inline {
             }
             .to_owned(),
             Self::Icon(icon) => icon.name.clone(),
+            Self::Sketch { prompt, .. } => opening_words(prompt),
         }
     }
 
@@ -74,6 +95,18 @@ impl Inline {
             Self::Color(color) => Asset::color(id, color),
             Self::Shape(shape) => Asset::shape(id, shape),
             Self::Icon(icon) => Asset::icon(id, icon),
+            Self::Sketch {
+                kind,
+                prompt,
+                video,
+                image,
+                speech,
+            } => Asset {
+                video,
+                image,
+                speech,
+                ..Asset::sketch(id, kind, prompt)
+            },
         }
     }
 }
@@ -223,6 +256,52 @@ mod tests {
         .expect("a styled caption");
         let asset = project.asset(&id).expect("it was written");
         assert_eq!(asset.style.as_ref().map(|style| style.size), Some(0.06));
+    }
+
+    /// A sketch is free to write and lands as one: named for its opening
+    /// words like a caption, in state `sketch`, with the block it was given.
+    #[test]
+    fn a_sketch_lands_in_state_sketch_with_its_brief() {
+        let mut project = project();
+        let speech = SpeechRequest {
+            voice_id: Some("EXAMPLEvoiceID012345".to_owned()),
+            ..SpeechRequest::default()
+        };
+        let id = add_asset(
+            &mut project,
+            None,
+            Inline::Sketch {
+                kind: AssetKind::GeneratedAudio,
+                prompt: "In nineteen seventy-six nobody had seen".to_owned(),
+                video: None,
+                image: None,
+                speech: Some(speech.clone()),
+            },
+        )
+        .expect("a narration sketch is a valid asset");
+        assert_eq!(id.as_str(), "in-nineteen-seventy-six-nobody");
+        let asset = project.asset(&id).expect("it was written");
+        assert_eq!(asset.state, Some(crate::GenerationState::Sketch));
+        assert_eq!(asset.speech, Some(speech));
+    }
+
+    /// The block a kind does not take is the format's to refuse, and it is.
+    #[test]
+    fn a_sketch_with_another_kinds_block_is_refused() {
+        let mut project = project();
+        let refused = add_asset(
+            &mut project,
+            None,
+            Inline::Sketch {
+                kind: AssetKind::GeneratedVideo,
+                prompt: "a city at dawn".to_owned(),
+                video: None,
+                image: None,
+                speech: Some(SpeechRequest::default()),
+            },
+        );
+        assert!(matches!(refused, Err(AuthorError::Refused(_))));
+        assert!(project.assets.is_empty());
     }
 
     #[test]

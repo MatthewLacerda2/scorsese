@@ -58,25 +58,25 @@ fn a_field_of_another_kind_is_refused_by_name() {
         json!({ "project": dir, "asset": "title", "fill": "#000000" }),
     ));
     assert!(failed, "a caption has no fill");
-    assert!(text.contains("`fill` is not a field"), "got {text}");
+    assert!(
+        text.contains("`fill` is not something a text asset takes"),
+        "got {text}"
+    );
     assert_eq!(document(&dir), before);
     std::fs::remove_dir_all(dir).ok();
 }
 
-/// What a generated asset is made from is `rebrief`'s, and this says so
-/// rather than editing a field nothing would read.
+/// A generated asset takes its brief here and nothing else, and a caption's
+/// field on one is refused by name rather than written where nothing reads it.
 #[test]
-fn a_generated_asset_is_not_this_verb() {
+fn a_generated_asset_takes_only_its_brief() {
     let dir = project("set-generated");
     let (text, failed) = said(&call(
         "asset_set",
         json!({ "project": dir, "asset": "vo", "text": "a different line" }),
     ));
-    assert!(failed, "a brief is rebrief's");
-    assert!(
-        text.contains("carry their content in the document"),
-        "got {text}"
-    );
+    assert!(failed, "a narration has no `text`");
+    assert!(text.contains("it takes prompt, speech"), "got {text}");
     std::fs::remove_dir_all(dir).ok();
 }
 
@@ -91,5 +91,51 @@ fn naming_no_field_is_refused() {
     ));
     assert!(failed, "nothing was asked for");
     assert!(text.contains("nothing to change"), "got {text}");
+    std::fs::remove_dir_all(dir).ok();
+}
+
+/// A made shape takes its paint and size afterwards; its outline, ends and
+/// dashes were chosen when it was made, and the refusal says so.
+#[test]
+fn a_shape_changes_its_paint_but_not_its_outline() {
+    let dir = project("set-shape");
+    let (text, failed) = said(&call(
+        "asset_set",
+        json!({ "project": dir, "kind": "shape", "asset": "box", "geometry": "rectangle",
+                "width": 0.4, "height": 0.2, "fill": "#101820" }),
+    ));
+    assert!(!failed, "{text}");
+    let (text, failed) = said(&call(
+        "asset_set",
+        json!({ "project": dir, "asset": "box", "fill": "#ffcc00" }),
+    ));
+    assert!(!failed, "a shape's fill is a nudge: {text}");
+    assert!(document(&dir).contains("#ffcc00"), "the fill landed");
+
+    let before = document(&dir);
+    let (text, failed) = said(&call(
+        "asset_set",
+        json!({ "project": dir, "kind": "shape", "asset": "box", "dash": [0.02] }),
+    ));
+    assert!(failed, "a made shape's dashes are not a nudge");
+    assert!(
+        text.contains("`dash`") && text.contains("once it is made"),
+        "got {text}"
+    );
+    assert_eq!(document(&dir), before);
+    std::fs::remove_dir_all(dir).ok();
+}
+
+/// A client that sends `null` for what it is not saying has said nothing — a
+/// `null` block is not a field the kind is asked to take.
+#[test]
+fn a_null_block_is_not_given() {
+    let dir = project("set-null");
+    let (text, failed) = said(&call(
+        "asset_set",
+        json!({ "project": dir, "kind": "color", "color": "#000000", "reveal": null,
+                "speech": null }),
+    ));
+    assert!(!failed, "{text}");
     std::fs::remove_dir_all(dir).ok();
 }

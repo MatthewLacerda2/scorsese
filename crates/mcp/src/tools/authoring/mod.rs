@@ -6,33 +6,21 @@
 //! per line of text, which is how a real session came to bypass the guarded
 //! path altogether and overwrite work `synth_bake` had just written.
 //!
-//! **One verb per kind, and that is the self-describing rule deciding it.**
-//! What a kind *requires* differs by kind: a colour asset must have a colour, a
-//! symbol must have a name and a size. A single `asset_new` taking a `kind` and
-//! a free-form block could not say any of that in its schema — the block would
-//! be one undescribed object, which is exactly the thing `tests/described.rs`
-//! exists to refuse. `synth_new` is the same shape one kind further along.
-//!
-//! **`asset_set` is one verb, for the mirror-image reason.** It requires
-//! nothing but the asset, so every field on it is optional by construction and
-//! each one still describes itself and says which kinds it belongs to. Four
-//! set-verbs would be four schemas restating the same eight adjectives.
+//! **One verb, `asset_set`, makes and changes all of them** (#780). It was a
+//! verb per kind to make one and a fifth to change it, on the argument that
+//! one schema could not say what each kind requires. It cannot, and the
+//! descriptions and refusals now say it instead — while five schemas restating
+//! the same adjectives cost a quarter of every tool listing, and the record
+//! (#779) showed models choosing a whole-document write over all of them.
+//! `set`'s module doc has the rest.
 
-mod color;
 mod fill;
-mod icon;
 mod remove;
 mod set;
-mod shape;
-mod text;
 mod track;
 
-pub(crate) use color::ColorNew;
-pub(crate) use icon::IconNew;
 pub(crate) use remove::{AssetRemove, TrackRemove};
 pub(crate) use set::AssetSet;
-pub(crate) use shape::ShapeNew;
-pub(crate) use text::TextNew;
 pub(crate) use track::TrackNew;
 
 use schemars::JsonSchema;
@@ -101,10 +89,9 @@ fn save(project: &Project, dir: &std::path::Path) -> Result<(), String> {
 
 // The appearance fields, described once wherever they appear.
 //
-// A `size` means the same thing on a caption and on a symbol, and a `color`
-// is written the same way on all four kinds — so two descriptions of either
-// would be two chances to drift. Each tool's arguments take the ones its kind
-// has, as `#[schemars(description = …)]`.
+// Kept apart from the one tool that uses them so its argument list stays a
+// list; each is taken as `#[schemars(description = …)]`, behind the kinds
+// that take it.
 
 /// `font`.
 const FONT: &str = "The face: a name this build ships — `sans`, `serif` — or a \
@@ -118,9 +105,6 @@ const ITALIC: &str = "Set it in the family's italic — a different drawing, not
 /// `size`.
 const SIZE: &str = "How big, as a fraction of the frame's HEIGHT: 0.1 is a tenth \
                     of the picture. Means the same at every render resolution.";
-/// `color`, where it is one colour.
-const COLOR: &str = "The colour, as `#rrggbb` — or `#rrggbbaa` for one you can see \
-                     through, which composites over whatever is under it.";
 /// `align`.
 const ALIGN: &str = "Which edge the lines line up against inside the wrapped \
                      block. Default `center`, which is what a title wants.";
@@ -130,8 +114,10 @@ const LINE_HEIGHT: &str = "Baseline to baseline, as a multiple of `size`. 1.0 se
 /// `max_width`.
 const MAX_WIDTH: &str = "How wide the text runs before it wraps, as a fraction of the \
                          frame's WIDTH. Default 0.9, a margin down each side.";
-/// What `fill` is for, ahead of how a gradient is written.
-const FILL: &str = "What the inside of the shape is painted, as `#rrggbb` (or `#rrggbbaa`). \
+/// What `fill` is for; how a gradient is written is `color`'s to say.
+const FILL: &str = "What the inside of the shape is painted, as `#rrggbb` (or `#rrggbbaa`), \
+                    or a gradient object written as `color` describes, laid across the \
+                    shape's own box — a gradient pill is the standard caption plate. \
                     Leave it out for a see-through middle — a callout over footage. The \
                     border stays one colour.";
 /// `stroke`.
@@ -153,16 +139,6 @@ const HEIGHT: &str = "Down, as a fraction of the frame's height. A closed shape 
 /// `radius`.
 const RADIUS: &str = "How rounded a rectangle's corners are, as a fraction of its \
                       own shorter side: 0 is square and 0.5 a pill.";
-
-/// The `id to call it` argument, worded once for the four kinds that share it.
-fn id_described(what: &str) -> String {
-    format!(
-        "What to call the new asset. Optional: without it an id is derived from {what} \
-         and suffixed until it is free, and the reply says which one it wrote. An id \
-         already in use is refused rather than quietly changed, because you are about \
-         to write it onto a clip."
-    )
-}
 
 #[cfg(test)]
 mod tests {

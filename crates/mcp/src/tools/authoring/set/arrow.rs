@@ -101,10 +101,22 @@ impl From<Tips> for Heads {
     }
 }
 
+/// The `to` argument's schema: an end like `from`, said once rather than
+/// twice — the two take the same four fields, and every model call pays for
+/// each word of a listing.
+pub(super) fn to_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    schemars::json_schema!({
+        "type": "object",
+        "description": "(shape: an arrow, when making it) Where the arrow ends, head \
+                        first — written exactly as `from` is: `x` and `y`, or a `clip` \
+                        and its `side`."
+    })
+}
+
 /// The description of one end, `what` being which end it is.
 pub(super) fn endpoint_described(what: &str) -> String {
     format!(
-        "Where the arrow {what} — an `arrow` only. Either a point on the frame \
+        "(shape: an arrow, when making it) Where the arrow {what}. Either a point on the frame \
          (`x` and `y`) or a clip to follow (`clip`, and which `side` of it). An \
          attached end is resolved on every frame, so the arrow moves when the clip \
          does; a point stays where it was put."

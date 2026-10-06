@@ -6,7 +6,6 @@
 //! `project.json` would get — there is one grammar for these, and it is the
 //! format's.
 
-use schemars::{Schema, SchemaGenerator};
 use scorsese_core::{Counter, Reveal, TextStyle};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
@@ -39,18 +38,8 @@ fn block<T: DeserializeOwned>(given: Option<&Value>, key: &str) -> Result<Option
         .map_err(|error| format!("`{key}`: {error}"))
 }
 
-/// The `reveal` argument's schema, as a field's `schema_with` takes it.
-pub(super) fn reveal_schema(_: &mut SchemaGenerator) -> Schema {
-    Schema::try_from(reveal_property()).expect("the reveal schema is an object")
-}
-
-/// The `number` argument's schema, as a field's `schema_with` takes it.
-pub(super) fn number_schema(_: &mut SchemaGenerator) -> Schema {
-    Schema::try_from(number_property()).expect("the number schema is an object")
-}
-
 /// The schema of the `reveal` block.
-pub(in crate::tools::authoring) fn reveal_property() -> Value {
+pub(super) fn reveal_property() -> Value {
     serde_json::json!({
         "type": "object",
         "description": "How the text arrives a piece at a time — the word-by-word caption, \
@@ -76,7 +65,7 @@ pub(in crate::tools::authoring) fn reveal_property() -> Value {
 }
 
 /// The schema of the `number` block.
-pub(in crate::tools::authoring) fn number_property() -> Value {
+pub(super) fn number_property() -> Value {
     serde_json::json!({
         "type": "object",
         "description": "A figure written where the text says `{n}` — `{n} partitions`, \

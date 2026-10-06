@@ -1140,10 +1140,6 @@ the web — or be left off it — without a reason written down.
 - `project_assets`
 - `project_write`
 - `track_new`
-- `text_new`
-- `color_new`
-- `shape_new`
-- `icon_new`
 - `asset_set`
 - `sequence`
 - `asset_remove`
@@ -1160,7 +1156,6 @@ the web — or be left off it — without a reason written down.
 - `duck_music`
 - `set_volume`
 - `scale_pacing`
-- `rebrief`
 - `icons`
 - `voices`
 
@@ -1341,7 +1336,7 @@ the token and the next turn is told. **A change** (#709, `{confirm: false,
 change}`) is a no and a message in one call, so there is no half-state: the
 token is withdrawn, nothing is spent, and a turn starts with the user's words
 as their message and a server note saying they ask for a change to the quoted
-items — so the model rewrites those briefs (`rebrief`) and quotes again, and
+items — so the model rewrites those briefs (`asset_set`) and quotes again, and
 the new quote needs its own yes. Writing a new message instead withdraws it
 too. A quote is answered once. The box shows each quoted item with what it
 would send — the prompt, the line, the voice's description — read from the

@@ -101,7 +101,7 @@ fn told_alike(sent: &[String]) {
     assert!(last.contains("make the cape yellow instead"), "{last}");
     assert!(last.contains("asks for a change"), "{last}");
     assert!(last.contains("(hero, vo)"), "{last}");
-    assert!(last.contains("rebrief"), "{last}");
+    assert!(last.contains("asset_set"), "{last}");
     for request in sent {
         assert!(!request.contains("quote-"), "no token, ever: {request}");
     }

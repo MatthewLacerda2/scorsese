@@ -14,8 +14,8 @@ fn document(dir: &std::path::Path) -> serde_json::Value {
 fn a_counter_and_a_reveal_are_written_as_their_blocks() {
     let dir = project("text-counter");
     let (text, failed) = said(&call(
-        "text_new",
-        json!({ "project": dir, "text": "{n} partitions", "asset": "partitions",
+        "asset_set",
+        json!({ "project": dir, "kind": "text", "text": "{n} partitions", "asset": "partitions",
                 "reveal": { "unit": "char", "stagger": 1.0 },
                 "number": { "value": 144, "locale": "pt-BR" } }),
     ));
@@ -38,14 +38,14 @@ fn a_counter_and_a_reveal_are_written_as_their_blocks() {
 fn a_counter_without_a_placeholder_and_an_unknown_unit_are_refused() {
     let dir = project("text-counter-refused");
     let (text, failed) = said(&call(
-        "text_new",
-        json!({ "project": dir, "text": "partitions", "number": { "value": 144 } }),
+        "asset_set",
+        json!({ "project": dir, "kind": "text", "text": "partitions", "number": { "value": 144 } }),
     ));
     assert!(failed, "no `{{n}}` to write the figure at");
     assert!(text.contains("{n}"), "the reason names it: {text}");
     let (text, failed) = said(&call(
-        "text_new",
-        json!({ "project": dir, "text": "Ship it", "reveal": { "unit": "sentence" } }),
+        "asset_set",
+        json!({ "project": dir, "kind": "text", "text": "Ship it", "reveal": { "unit": "sentence" } }),
     ));
     assert!(failed, "`sentence` is not a unit");
     assert!(
@@ -69,8 +69,8 @@ fn style_of(dir: &std::path::Path, id: &str) -> serde_json::Value {
 fn asset_set_merges_into_a_block_and_false_removes_it() {
     let dir = project("text-counter-set");
     let (text, failed) = said(&call(
-        "text_new",
-        json!({ "project": dir, "text": "{n} partitions", "asset": "partitions",
+        "asset_set",
+        json!({ "project": dir, "kind": "text", "text": "{n} partitions", "asset": "partitions",
                 "reveal": { "rise": 0 }, "number": { "value": 140, "locale": "pt-BR" } }),
     ));
     assert!(!failed, "{text}");

@@ -15,8 +15,8 @@ fn document(dir: &std::path::Path) -> String {
 fn a_caption_is_authored_and_then_placed() {
     let dir = project("text-new");
     let (text, failed) = said(&call(
-        "text_new",
-        json!({ "project": dir, "text": "THE VESSEL ARRIVES", "size": 0.08,
+        "asset_set",
+        json!({ "project": dir, "kind": "text", "text": "THE VESSEL ARRIVES", "size": 0.08,
                 "color": "#ffcc00", "stroke": "#101820", "stroke_width": 0.003 }),
     ));
     assert!(!failed, "{text}");
@@ -40,19 +40,65 @@ fn a_caption_is_authored_and_then_placed() {
     std::fs::remove_dir_all(dir).ok();
 }
 
-/// An id a caller chose is one it is about to write onto a clip, so a repeat
-/// is refused rather than suffixed behind its back.
+/// A `kind` that is not the asset's is a call that has misunderstood which
+/// asset it is writing, so it is refused rather than guessed at.
 #[test]
-fn an_id_already_in_use_is_refused_and_writes_nothing() {
+fn a_kind_that_is_not_the_assets_is_refused_and_writes_nothing() {
     let dir = project("text-taken");
     let before = document(&dir);
     let (text, failed) = said(&call(
-        "text_new",
-        json!({ "project": dir, "text": "AGAIN", "asset": "title" }),
+        "asset_set",
+        json!({ "project": dir, "kind": "color", "color": "#000000", "asset": "title" }),
     ));
-    assert!(failed, "`title` is the fixture's caption");
+    assert!(
+        failed,
+        "`title` is the fixture's caption, not a colour card"
+    );
     assert!(text.contains("nothing was written"), "got {text}");
     assert_eq!(document(&dir), before);
+    std::fs::remove_dir_all(dir).ok();
+}
+
+/// The same kind is accepted: an agent re-sending a create must not fail on
+/// the second try, and what it gets is the change it asked for.
+#[test]
+fn making_an_id_that_exists_as_that_kind_changes_it() {
+    let dir = project("text-again");
+    let (text, failed) = said(&call(
+        "asset_set",
+        json!({ "project": dir, "kind": "text", "text": "AGAIN", "asset": "title" }),
+    ));
+    assert!(!failed, "{text}");
+    assert!(document(&dir).contains("AGAIN"), "the caption was reworded");
+    std::fs::remove_dir_all(dir).ok();
+}
+
+/// An id nothing answers to, with no `kind`, cannot be made — and says how.
+#[test]
+fn an_unknown_id_without_a_kind_says_to_give_one() {
+    let dir = project("no-kind");
+    let (text, failed) = said(&call(
+        "asset_set",
+        json!({ "project": dir, "asset": "nobody", "text": "hi" }),
+    ));
+    assert!(failed, "nothing to change and nothing said to make");
+    assert!(text.contains("`kind`"), "got {text}");
+    std::fs::remove_dir_all(dir).ok();
+}
+
+/// An argument the kind has no use for is refused by name, made or changed —
+/// the `*_new` tools ignored one, which is an edit somebody thinks they made.
+#[test]
+fn an_argument_the_kind_does_not_take_is_refused_by_name() {
+    let dir = project("wrong-field");
+    let (text, failed) = said(&call(
+        "asset_set",
+        json!({ "project": dir, "kind": "text", "text": "HI", "fill": "#ff0000" }),
+    ));
+    assert!(failed, "a caption has no fill");
+    assert!(text.contains("`fill`"), "got {text}");
+    // The note about a shape's outline is a shape's, and only a shape's.
+    assert!(!text.contains("once it is made"), "got {text}");
     std::fs::remove_dir_all(dir).ok();
 }
 
@@ -85,13 +131,16 @@ fn a_new_lane_is_where_an_overlapping_clip_goes() {
 #[test]
 fn the_kinds_with_no_safe_default_say_so() {
     let dir = project("no-default");
-    let (text, failed) = said(&call("color_new", json!({ "project": dir })));
+    let (text, failed) = said(&call(
+        "asset_set",
+        json!({ "project": dir, "kind": "color" }),
+    ));
     assert!(failed, "a colour card with no colour");
     assert!(text.contains("`color` is required"), "got {text}");
 
     let (text, failed) = said(&call(
-        "icon_new",
-        json!({ "project": dir, "name": "clapperboard", "size": 0.2 }),
+        "asset_set",
+        json!({ "project": dir, "kind": "icon", "icon": "clapperboard", "size": 0.2 }),
     ));
     assert!(failed, "a symbol with no colour");
     assert!(text.contains("`color` is required"), "got {text}");
@@ -104,8 +153,8 @@ fn the_kinds_with_no_safe_default_say_so() {
 fn an_arrow_may_follow_a_clip() {
     let dir = project("shape-arrow");
     let (text, failed) = said(&call(
-        "shape_new",
-        json!({ "project": dir, "geometry": "arrow", "stroke": "#ffffff",
+        "asset_set",
+        json!({ "project": dir, "kind": "shape", "geometry": "arrow", "stroke": "#ffffff",
                 "from": { "x": 0.1, "y": 0.5 },
                 "to": { "clip": "c1", "side": "left" } }),
     ));
@@ -124,8 +173,8 @@ fn an_arrow_may_follow_a_clip() {
 fn a_shape_that_would_draw_nothing_is_refused() {
     let dir = project("shape-blank");
     let (text, failed) = said(&call(
-        "shape_new",
-        json!({ "project": dir, "geometry": "rectangle", "width": 0.4, "height": 0.2 }),
+        "asset_set",
+        json!({ "project": dir, "kind": "shape", "geometry": "rectangle", "width": 0.4, "height": 0.2 }),
     ));
     assert!(failed, "no fill and no stroke");
     assert!(text.contains("nothing was written"), "got {text}");

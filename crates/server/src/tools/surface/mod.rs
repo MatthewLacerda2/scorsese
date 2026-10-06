@@ -74,10 +74,6 @@ const STORED: &[&str] = &[
     "project_assets",
     "project_write",
     "track_new",
-    "text_new",
-    "color_new",
-    "shape_new",
-    "icon_new",
     "asset_set",
     "sequence",
     "asset_remove",
@@ -94,7 +90,6 @@ const STORED: &[&str] = &[
     "duck_music",
     "set_volume",
     "scale_pacing",
-    "rebrief",
     "icons",
     "voices",
 ];

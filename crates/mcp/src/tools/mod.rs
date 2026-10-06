@@ -291,13 +291,9 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(script::Write),
         Box::new(edit::Write),
         // Before place_clip, because they are how there comes to be anything
-        // to place and anywhere to put it: a lane, and the four kinds of asset
-        // that no import and no provider brings in.
+        // to place and anywhere to put it: a lane, and the assets no import
+        // brings in — the document-carried kinds, and generated sketches.
         Box::new(authoring::TrackNew),
-        Box::new(authoring::TextNew),
-        Box::new(authoring::ColorNew),
-        Box::new(authoring::ShapeNew),
-        Box::new(authoring::IconNew),
         Box::new(authoring::AssetSet),
         Box::new(edit::Sequence),
         Box::new(authoring::AssetRemove),
@@ -339,10 +335,6 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(icons::Icons),
         Box::new(voices::Voices),
         Box::new(design::VoiceDesign),
-        // Beside the tool it feeds rather than with the other document verbs:
-        // editing a brief and realising it are one thought, and a client
-        // reading this list in order should meet them together.
-        Box::new(edit::Rebrief),
         Box::new(generate::Generate),
         Box::new(edit::Render),
         // Beside the tool that starts what it follows: a render runs in the

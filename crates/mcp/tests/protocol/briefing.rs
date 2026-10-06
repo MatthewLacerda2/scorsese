@@ -39,7 +39,7 @@ fn asset(document: &Value, id: &str) -> Value {
 fn editing_a_generated_prompt_marks_it_stale_in_the_same_write() {
     let dir = generated("rebrief-stale");
     let (text, failed) = said(&call(
-        "rebrief",
+        "asset_set",
         json!({ "project": dir, "asset": "vo", "prompt": "a better line" }),
     ));
     assert!(!failed, "{text}");
@@ -63,7 +63,7 @@ fn the_brief_a_kind_does_not_take_is_refused_and_changes_nothing() {
     let before = std::fs::read_to_string(dir.join("project.json")).expect("read");
 
     let (text, failed) = said(&call(
-        "rebrief",
+        "asset_set",
         json!({ "project": dir, "asset": "vo", "recipe": "recipes/bed.json" }),
     ));
     assert!(
@@ -71,7 +71,7 @@ fn the_brief_a_kind_does_not_take_is_refused_and_changes_nothing() {
         "a recipe on a prompted asset must be refused: {text}"
     );
     let (also, refused) = said(&call(
-        "rebrief",
+        "asset_set",
         json!({ "project": dir, "asset": "bed", "prompt": "something jaunty" }),
     ));
     assert!(refused, "a prompt on a synth asset must be refused: {also}");
@@ -93,7 +93,7 @@ fn repointing_a_synth_asset_at_another_recipe_leaves_a_sketch_a_sketch() {
     std::fs::copy(dir.join("recipes/bed.json"), dir.join("recipes/other.json")).expect("copy");
 
     let (text, failed) = said(&call(
-        "rebrief",
+        "asset_set",
         json!({ "project": dir, "asset": "bed", "recipe": "recipes/other.json" }),
     ));
     assert!(!failed, "{text}");
@@ -111,7 +111,7 @@ fn repointing_a_synth_asset_at_another_recipe_leaves_a_sketch_a_sketch() {
 fn a_recipe_that_is_not_there_is_refused() {
     let dir = project("rebrief-missing");
     let (text, failed) = said(&call(
-        "rebrief",
+        "asset_set",
         json!({ "project": dir, "asset": "bed", "recipe": "recipes/ghost.json" }),
     ));
     assert!(failed && text.contains("ghost"), "got {text}");
@@ -130,7 +130,7 @@ fn a_brief_in_flight_is_refused_until_it_is_collected() {
     std::fs::write(dir.join("project.json"), document).expect("write");
 
     let (text, failed) = said(&call(
-        "rebrief",
+        "asset_set",
         json!({ "project": dir, "asset": "vo", "prompt": "a better line" }),
     ));
     assert!(failed && text.contains("collect"), "got {text}");
@@ -143,7 +143,7 @@ fn a_brief_in_flight_is_refused_until_it_is_collected() {
 fn a_brief_that_already_reads_that_way_is_left_generated() {
     let dir = generated("rebrief-same");
     let (text, failed) = said(&call(
-        "rebrief",
+        "asset_set",
         json!({ "project": dir, "asset": "vo", "prompt": "a line" }),
     ));
     assert!(!failed, "{text}");
@@ -156,7 +156,7 @@ fn a_brief_that_already_reads_that_way_is_left_generated() {
 fn an_asset_that_is_not_generated_has_no_brief() {
     let dir = project("rebrief-text");
     let (text, failed) = said(&call(
-        "rebrief",
+        "asset_set",
         json!({ "project": dir, "asset": "title", "prompt": "TRAILER" }),
     ));
     assert!(failed && text.contains("text"), "got {text}");
