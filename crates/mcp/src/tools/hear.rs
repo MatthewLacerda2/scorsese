@@ -19,10 +19,22 @@
 //! handling audio, and this server may not assume which client is on the other
 //! end. The waveform needs nothing but ffmpeg and works everywhere. The other
 //! route is not rejected; it is a different issue.
+//!
+//! **And the numbers with it** (#782). This used to stop at the picture and
+//! send the reader to a second tool, `audio_level`, for mean, peak, crest,
+//! spectral balance and stereo width. Both decoded the same file to answer the
+//! same question — *how did this sound file come out?* — and every client that
+//! was ever recorded picked this one and never the other (#779). So the numbers
+//! now ride in the text above the picture: one summary line by default, the
+//! per-section rows behind `sections`, and a field-by-field comparison behind
+//! `against`. The default stays lean because a reply is re-read on every model
+//! call after it, and the picture is already most of its weight.
+
+use std::path::Path;
 
 use schemars::JsonSchema;
-use scorsese_render::audio::{Waveform, waveform};
-use scorsese_render::{Tools, frames};
+use scorsese_render::audio::{Waveform, measure, waveform};
+use scorsese_render::{Tools, frames, say};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -30,7 +42,7 @@ use crate::tools::args::{self, ProjectDir, Required};
 use crate::tools::scratch::Scratch;
 use crate::tools::{Costs, Part, Reply, Tool};
 
-/// A waveform of a sound file.
+/// A waveform of a sound file, and its levels.
 pub(crate) struct Hear;
 
 /// What `hear` takes.
@@ -42,6 +54,16 @@ struct Arguments {
     /// asset id: this reads a file, and the file need not be in the assets
     /// table. A rendered video works too; its sound is what is read.
     file: String,
+    /// Compare with this file, field by field: mean, peak, crest, balance,
+    /// width and length, each with how far it moved. Usually the version the
+    /// first one was meant to replace — the previous bake, or the render that
+    /// sounded right. Relative to the project, or absolute.
+    against: Option<String>,
+    /// Add one row of levels per section of the file — the same columns as the
+    /// summary, for each stretch of it. Off by default: the summary line is
+    /// usually the answer, and the rows grow with the file's length.
+    #[serde(default)]
+    sections: bool,
 }
 
 impl args::Arguments for Arguments {
@@ -54,20 +76,23 @@ impl Tool for Hear {
     }
 
     fn description(&self) -> &'static str {
-        "See what a sound file looks like: its waveform, drawn as one picture, \
-         with the level and the length written on it. The audio counterpart of \
-         `look`. Use it on generated narration before trusting it, and after \
+        "See and measure a sound file: its waveform as one picture, and its \
+         levels in words. The levels are its length, mean and peak in dBFS, the \
+         share of its energy that is low, mid and high, and how much is common \
+         to both channels (`corr`: +1.00 is mono in a stereo container; \
+         negative means the sides cancel and the mix collapses in mono). The \
+         audio counterpart of `look`. Use it on generated narration before trusting it, and after \
          rewriting a score — a duration and a byte hash cannot tell 3.7 seconds \
          of speech from 3.7 seconds of silence, and this can. It answers: is it \
          silent, is it clipped, does it start late or end early, is it the \
-         length it should be, and where are the pauses. It does NOT answer \
-         whether the voice, the language or the pronunciation are right — those \
-         need hearing, and nothing here can tell you about them. Works on any \
-         audio the project can reach and on a rendered video too, since ffmpeg \
-         does the decoding. For numbers rather than a shape — mean, peak, crest, \
-         spectral balance, stereo width, section by section — use `audio_level` \
-         instead; the \
-         two answer different questions and neither replaces the other."
+         length it should be, where are the pauses, and how loud and how bright \
+         it is. Give `against` to compare two files field by field — the form \
+         that answers \"did my change land?\", since an absolute level is hard \
+         to judge and a difference is not — and `sections` for one row of \
+         levels per section. It does NOT answer whether the voice, the language \
+         or the pronunciation are right — those need hearing, and nothing here \
+         can tell you about them. Works on any audio the project can reach and \
+         on a rendered video too, since ffmpeg does the decoding."
     }
 
     fn costs(&self) -> Costs {
@@ -80,7 +105,9 @@ impl Tool for Hear {
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let arguments: Arguments = args::parse(arguments)?;
-        let file = arguments.project.dir().join(&arguments.file);
+        let dir = arguments.project.dir();
+        let file = args::path(dir, &arguments.file, "file")?;
+        let other = args::under(dir, arguments.against.as_deref(), "against")?;
 
         // Discovered per call rather than held, as the other ffmpeg tools do: a
         // server that found ffmpeg at startup would keep insisting it was there
@@ -97,8 +124,55 @@ impl Tool for Hear {
         let bytes = std::fs::read(&png.path)
             .map_err(|error| format!("reading {} back: {error}", png.path.display()))?;
 
-        Ok(vec![Part::picture(said(&wave), &bytes)].into())
+        let mut text = said(&wave);
+        text.push_str(&levels(
+            &tools,
+            &file,
+            other.as_deref(),
+            arguments.sections,
+        )?);
+        Ok(vec![Part::picture(text, &bytes)].into())
     }
+}
+
+/// The numbers under the sentence: a summary line, the section rows when they
+/// were asked for, and the comparison when there is something to compare with.
+///
+/// Measured on a second decode rather than folded into the waveform's, because
+/// the two are separate measurements in `render` with separate callers (the
+/// CLI's `level` and `hear` among them), and one more decode of a file the
+/// call has just read is cheap next to the picture it already pays for.
+fn levels(
+    tools: &Tools,
+    file: &Path,
+    other: Option<&Path>,
+    sections: bool,
+) -> Result<String, String> {
+    let profile = measure(tools, file).map_err(|error| format!("{error}"))?;
+    let mut text = format!("\nlevels  {}", say::summary(&profile));
+    if sections {
+        for row in say::sections(&profile) {
+            text.push_str(&format!("\n  {row}"));
+        }
+    }
+    if let Some(other) = other {
+        let previous = measure(tools, other).map_err(|error| format!("{error}"))?;
+        text.push_str(&format!("\n\n{}  vs  {}", name(file), name(other)));
+        for row in say::comparison(&profile, &previous) {
+            text.push_str(&format!("\n  {row}"));
+        }
+    }
+    Ok(text)
+}
+
+/// How a file is named in a comparison: its file name, not its whole path. Two
+/// files being compared usually differ in one word, and two long paths that
+/// agree for sixty characters bury it.
+fn name(file: &Path) -> String {
+    file.file_name().map_or_else(
+        || file.display().to_string(),
+        |name| name.to_string_lossy().into_owned(),
+    )
 }
 
 /// What the reply says in words.

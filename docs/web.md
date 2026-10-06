@@ -1118,7 +1118,7 @@ the web — or be left off it — without a reason written down.
 | the *document tools*, listed below | as they are, on the stored project |
 | the *project-file tools*, listed below | as they are; the script, pages and recipes they read and write are the project's `project_files` (*Projects*). A script or recipe written under `assets/`, `generated/` or `cache/` is refused whole, since nothing there is kept |
 | `synth_bake` | without `out`; each new bake is **kept in the library** as a generation, its address (recipe and synthesiser) as its brief hash, before the document naming it is saved — so it renders, and is linked into every later layout by hash. A partial bake's file is gone with the folder; its report is in the reply |
-| `look`, `hear`, `audio_level` | their file arguments must be paths inside the project (`assets/…`, `generated/…`) — locally they may name anything on the machine, and here the machine is everybody's |
+| `look`, `hear` | their file arguments must be paths inside the project (`assets/…`, `generated/…`) — locally they may name anything on the machine, and here the machine is everybody's |
 | `still` | without `out`: nothing is kept on the server's disk; the picture is in the reply |
 | `synth_import` | with `item` — a MIDI file in the user's library, by the id `library` lists — in place of `path`; the file is linked into the folder for the call, and the asset is named after the item unless `name` says otherwise (`tools/carried.rs`, #678) |
 | `synth_export` | without `out`; the `.mid` it writes is **kept in the library** as a MIDI file named `<asset>.mid`, where the user downloads it — the same notes exported again are the item already there (#678) |

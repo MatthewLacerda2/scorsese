@@ -24,7 +24,6 @@ mod hear;
 mod icons;
 mod inspect;
 mod jobs;
-mod level;
 mod look;
 mod page;
 mod scratch;
@@ -334,7 +333,6 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(synth::Check),
         Box::new(synth::Bake),
         Box::new(synth::Survey),
-        Box::new(level::Level),
         // Beside the tools that read rather than the ones that write: it
         // answers a question about this build, not about the project, and it is
         // what a client calls before writing an icon asset at all.

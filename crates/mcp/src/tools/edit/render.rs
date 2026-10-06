@@ -149,7 +149,7 @@ fn prepared(dir: &Path, arguments: &Arguments) -> Result<(String, PathBuf, Work)
     // Against the project, not the server's working directory, which
     // belongs to whoever launched it (#518). The caller's own string is
     // what the reply says back, because that is the path the next call —
-    // `audio_level`, `hear` — resolves the same way.
+    // `hear` — resolves the same way.
     let path = args::path(dir, &arguments.out, "out")?;
     let out = arguments.out.clone();
     // First, before the project is opened — the order `scorsese render`

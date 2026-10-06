@@ -129,7 +129,7 @@ fn setting_one_number_is_enough_to_make_the_next_bake_redo_it() {
 /// A partial bake is there to be read back, so the path it names must be one
 /// the next call can open. The server's working directory belongs to whoever
 /// launched it — here, the test binary's — so a relative `out` resolved
-/// against it would land outside the project and `audio_level` would not find
+/// against it would land outside the project and `hear` would not find
 /// it (#496).
 #[test]
 fn a_relative_out_lands_in_the_project_and_reads_back_from_it() {
@@ -150,7 +150,7 @@ fn a_relative_out_lands_in_the_project_and_reads_back_from_it() {
         "and nothing lands in the server's working directory"
     );
 
-    let level = ok("audio_level", json!({ "project": dir, "file": out }));
+    let level = ok("hear", json!({ "project": dir, "file": out }));
     assert!(level.contains("tune-out-lead.wav"), "read back: {level}");
     std::fs::remove_dir_all(dir).ok();
 }
