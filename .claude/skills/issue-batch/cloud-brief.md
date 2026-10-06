@@ -56,6 +56,10 @@ they are missing, run it yourself (`CLAUDE_PROJECT_DIR=$PWD
   then `make gates` (~4 min) — or its targets one per call (`make help`).
 - **The app gate can be killed for memory** (exit 137): `CARGO_BUILD_JOBS=2`.
 - **No docker daemon is needed**; start `dockerd` only to run a container.
+- **GitHub's GraphQL and search APIs answer 403 here** (2026-10-06, #821's
+  coder): `gh pr list`, `gh pr view --json` and `search/issues` fail, while
+  REST (`gh api repos/{owner}/{repo}/…`) and the GitHub MCP tools work. A
+  script meant to run here too uses REST.
 - **Every container so far has been `x86_64`.** If `uname -m` says otherwise,
   `cargo install --locked` the tools, expect `grade_*`/`vhs` to fail, and bless
   nothing.
@@ -116,10 +120,12 @@ Survivors in code you wrote: fix, exclude with a reason, or file (`ci-merge`).
 ## Protocol
 
 - Branch as the prompt names it, off the latest `origin/main`; open a **draft**
-  PR on the first commit, `(#N)` in the title. Body: what changed / why / effect
-  / decisions, `Closes #N` (only if it does: GitHub matches the keyword
-  anywhere, even quoted or negated, so a PR leaving an issue open writes
-  `refs #N`), a **Gates** line (what ran green, on which head, what did not and
+  PR on the first commit, `(#N)` in the title. **The body's first line is
+  `Closes #N`** for every issue it closes (two of the 2026-10-06 batch's nine
+  PRs left it out, and an issue its PR does not name stays open after the
+  merge). Only an issue it really closes: GitHub matches the keyword anywhere,
+  even quoted or negated, so a PR leaving an issue open writes `refs #N`. Then:
+  what changed / why / effect / decisions, a **Gates** line (what ran green, on which head, what did not and
   why), a checklist for anything only a human can check, ending with
   `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
 - **You cannot delete a branch** from the container (the proxy refuses it, through git and the API alike). A throwaway branch you pushed (a measurement, a probe) is named in the PR's human checklist for the orchestrator to delete (#772's `772-measure`).

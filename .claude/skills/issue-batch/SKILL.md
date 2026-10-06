@@ -262,17 +262,25 @@ request:
    checks (a window, speakers, taste) as a checklist; don't hold for them.
 2. **Label it `queue`**, with `make queue WATCH=1` running in the background
    for rebase → push → wait → merge; don't hand-roll that loop. **It is the
-   orchestrator's one background watch** (#819): run it under `Monitor` as
-   `make queue WATCH=1 SINCE=<the batch's start, ISO 8601> | grep
-   --line-buffered '^watch: '`, and every line that arrives is an event to act
+   orchestrator's one background watch** (#819): run `make queue WATCH=1
+   SINCE=<the batch's start, ISO 8601> > <scratch>/queue-watch.log 2>&1` as a
+   background command, and a `Monitor` on `tail -F <that log> | grep
+   --line-buffered '^watch: '`. **Never the watch itself under `Monitor`**: a
+   Monitor is killed at thirty minutes and kills its command with it, and the
+   watch runs seventy. **Never behind `| tail`** either: on 2026-10-06 a watch
+   started as `make queue WATCH=1 | tail -40` took nothing for 44 minutes while
+   a PR it should have merged waited, and nothing it printed could be read
+   until it was killed; restarted with its output in a file, it took the PR at
+   once. Every `watch:` line that arrives is an event to act
    on — a PR `opened as a draft`/`opened as ready`, `turned ready` (read it,
    label it), `back to draft`, `closed, not merged by this watch`, and each one
    the queue finished: `merged`, `handed back` (with the reason), `unfinished`,
    `unreachable`. The first listing after a launch says nothing, and a listing
    GitHub would not give is skipped rather than read as every PR changing. It
    is bounded to the harness's two-hour cap; its **last line is `watch:
-   resume: <command>`** — re-arm the Monitor on exactly that command (behind
-   the same `grep`). Exit status 4 means something was still unfinished, 3
+   resume: <command>`** — start exactly that command again the same way (a
+   background command into the log, the Monitor re-armed on it; the Monitor
+   also needs re-arming each time it expires). Exit status 4 means something was still unfinished, 3
    that GitHub stopped answering; the resume line is the answer to both. It merges only on `make mergeable`'s verdict. It does
    **not** compile the rebased tree before pushing, and a clean textual rebase
    still breaks when a merge ahead changed a signature this branch uses — on
