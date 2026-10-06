@@ -13,6 +13,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use super::args::{self, ProjectDir, ProjectOnly};
+use super::compact::compact;
 use super::{Costs, Part, Reply, Tool};
 
 /// The frame a layout question is answered against when nobody names one.
@@ -31,7 +32,8 @@ impl Tool for Read {
     }
 
     fn description(&self) -> &'static str {
-        "Read a project's project.json exactly as it is on disk. The whole edit \
+        "Read a project's project.json: the document on disk, every field in its \
+         order, as compact JSON with the indentation taken out. The whole edit \
          is in this document — assets, tracks, clips, keyframes — so this is the \
          starting point for any change. Pair with project_write to edit it, and \
          hand it the `fingerprint` this reports: it says which document the edit \
@@ -56,12 +58,14 @@ impl Tool for Read {
         // that will not validate is exactly when reading it matters most.
         let document = std::fs::read_to_string(dir.join(scorsese_core::PROJECT_FILE_NAME))
             .map_err(|error| format!("reading the project: {error}"))?;
+        // Of the bytes on disk, not of the reply: project_write compares it
+        // with the file as it is then, which the compacting never touches.
+        let fingerprint = fingerprint_of(document.as_bytes());
         // Its own part, after the document rather than woven into it: the
         // first block is the file and nothing else, so a client that parses
         // what it was handed still gets a project.
-        let fingerprint = fingerprint_of(document.as_bytes());
         Ok(vec![
-            Part::words(document),
+            Part::words(compact(&document)),
             Part::words(format!(
                 "fingerprint: {fingerprint}\nPass this to project_write with the edit. It \
                  says which document the edit was made against, and a write built on one \

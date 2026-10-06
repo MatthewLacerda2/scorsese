@@ -46,7 +46,8 @@ impl Tool for Write {
     fn description(&self) -> &'static str {
         "Replace a project's project.json with the document given. The whole \
          edit is this file, so this is how any change is made: read it, change \
-         it, write it back. **Validated before it is written** — a document \
+         it, write it back — compact, as project_read gives it, is fine; the \
+         file is saved in its own layout either way. **Validated before it is written** — a document \
          that would not load is refused with every problem listed, and the file \
          on disk is left exactly as it was. Takes the `fingerprint` project_read \
          reported for the document this edit was made against: if something else \

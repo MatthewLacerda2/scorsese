@@ -77,7 +77,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | Tool | What it does | Costs |
 | --- | --- | --- |
 | `project_new` | Create a *.scor project directory: project.json, and the assets/, generated/, recipes/ and cache/ folders beside it. | nothing |
-| `project_read` | Read a project's project.json exactly as it is on disk. | nothing |
+| `project_read` | Read a project's project.json: the document on disk, every field in its order, as compact JSON with the indentation taken out. | nothing |
 | `project_describe` | Say what the cut contains, shot by shot and sound by sound. | nothing |
 | `project_check` | Report everything wrong or questionable about a project — the document, the media it references, and the layers it draws over each other — without rendering. | nothing |
 | `project_assets` | List the media pool: every asset, its kind, what state it is in, and how many clips use it. | nothing |
@@ -150,8 +150,11 @@ refused with every problem listed and the file on disk is left exactly as it
 was — so a half-formed edit cannot destroy a working one.
 
 **The loop carries a fingerprint.** `project_read` answers in two blocks: the
-document, exactly as it is on disk, and then a line reporting a `fingerprint`
-for it. `project_write` takes that fingerprint alongside the document, and it
+document — every field, in the order it is on disk, as compact JSON with the
+indentation taken out — and then a line reporting a `fingerprint` for it. The
+fingerprint is of the file on disk, not of the reply, and a compact document
+is fine to write back: `project_write` parses what it is given and the file
+keeps the layout it is always saved in. `project_write` takes that fingerprint alongside the document, and it
 is not optional — it is what says *which* version of the file this edit is a
 change to.
 
