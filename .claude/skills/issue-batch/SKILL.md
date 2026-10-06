@@ -176,7 +176,10 @@ the bottleneck, more coders only lengthen it.
 worktree (seen on rusty, MatthewLacerda2/rusty#504). What works is a **one-off
 cloud routine** — the `RemoteTrigger` tool (the `schedule` skill has the body
 shape) with `run_once_at` a minute or two out, this repository as its source,
-and the brief below as its prompt. Set its **model** on purpose: the `schedule`
+and the short fixed prompt below (the brief itself is an issue comment, #820).
+Compute that time, never type it: `date -u -d '+2 min' +%Y-%m-%dT%H:%M:00Z` on
+Linux (`date -u -v+2M …` on macOS). On rusty a hand-typed time fired 45 minutes
+late, and the API refuses a time already past. Set its **model** on purpose: the `schedule`
 skill's example body defaults to a Sonnet, and writing a feature branch is
 judgement work (CLAUDE.md, *Which model does what*). Its example
 `allowed_tools` lists only shell and file tools, so check it leaves room for
@@ -297,14 +300,32 @@ need a real display, GPU or speakers, anything needing the operator's files or
 keys, and the orchestrator's own compile checks. Don't let the orchestrator
 compile while a local agent is timing builds; it skews the numbers.
 
-**Every cloud brief carries** step 0 inline, then a pointer to
-[`cloud-brief.md`](cloud-brief.md) — the standing rules (foreground builds,
-the blocker check, ready means finished, the container, blessing, the repo's
-traps, the mutation signal, the PR protocol, "do not merge") live there, versioned with this skill — and only what is specific to
-its issue. `RemoteTrigger` echoes a prompt back several times, so standing text
-copied into each one fills the orchestrator's context (on rusty it reached 85%
-after ~45 launches, MatthewLacerda2/rusty#579); a change to the rules goes in
-the file, once. The prompt:
+**The brief is a comment on the issue; the prompt only points at it** (#820,
+ported from MatthewLacerda2/rusty#910). `RemoteTrigger create` echoes a prompt
+back about four times (prompt, job config, session request, payload), so every
+line in it is paid for four times in the orchestrator's context: on 2026-10-05/06
+twelve launches with 1–3 KB briefs were a large share of it, and on rusty the
+same reached 85% after ~45 launches (MatthewLacerda2/rusty#579). A brief that
+lives only in a routine's prompt is also invisible to the next orchestrator, to
+the coder's reviewer and to anyone resuming after a crash. So the issue-specific
+part goes on the issue as a comment whose **first line is `Brief`**, where it is
+durable and sits beside the issue it qualifies. The standing rules (foreground
+builds, the blocker check, ready means finished, the container, blessing, the
+repo's traps, the mutation signal, the PR protocol, "do not merge") live in
+[`cloud-brief.md`](cloud-brief.md), versioned with this skill; a change to them
+goes in that file, once. The comment:
+
+```text
+Brief
+
+Branch: `N-short-slug`.
+Builds on: <what merged that it must build on; line numbers in issues go stale
+within hours>.
+Siblings in flight: <branch/issue → the files it edits; stay out of them>.
+Decisions: <anything already settled, or "none">.
+```
+
+The routine prompt is then the same few lines for every coder:
 
 ```text
 STEP 0 — before anything else, prove you are a cloud session. Run
@@ -313,13 +334,11 @@ exactly `true`, or the path is under the operator's home, STOP: touch nothing,
 end with "LOCAL — aborted" and that output.
 
 Then read `.claude/skills/issue-batch/cloud-brief.md` and follow it.
-
-Issue(s): #N — <one line>. Branch: `N-short-slug`.
-Builds on: <what merged that it must build on; line numbers in issues go stale
-within hours>.
-Siblings in flight: <branch/issue → the files it edits; stay out of them>.
-Decisions: <anything already settled, or "none">.
+Issue(s): #N. Your brief is the newest comment on it that starts with `Brief`.
 ```
+
+A re-brief (a rebase request, a new sibling to avoid) is a **new `Brief`
+comment and a fresh routine**, never an edit to an old prompt.
 
 ### What the orchestrator keeps, and where (2026-10-03)
 
