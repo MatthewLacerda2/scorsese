@@ -119,3 +119,41 @@ fn changing_a_block_field_marks_a_generated_line_stale() {
     assert_eq!(row["speech"]["language"], json!("en"), "the rest stayed");
     std::fs::remove_dir_all(dir).ok();
 }
+
+/// A shot's and a still's blocks merge on change the way a line's does.
+#[test]
+fn a_shot_and_a_still_change_one_field_of_their_brief() {
+    let dir = project("sketch-merge");
+    for (kind, block, made, changed) in [
+        (
+            "generated_video",
+            "video",
+            json!({ "aspect": "9:16" }),
+            json!({ "resolution": "720p" }),
+        ),
+        (
+            "generated_image",
+            "image",
+            json!({ "aspect": "1:1" }),
+            json!({ "resolution": "1K" }),
+        ),
+    ] {
+        let (text, failed) = said(&call(
+            "asset_set",
+            json!({ "project": dir, "kind": kind, "asset": block, "prompt": "a quay", block: made }),
+        ));
+        assert!(!failed, "{text}");
+        let (text, failed) = said(&call(
+            "asset_set",
+            json!({ "project": dir, "asset": block, block: changed }),
+        ));
+        assert!(!failed, "{text}");
+        let row = asset(&dir, block);
+        assert_eq!(row[block]["resolution"], changed["resolution"], "{kind}");
+        assert_eq!(
+            row[block]["aspect"], made["aspect"],
+            "{kind}: the rest stayed"
+        );
+    }
+    std::fs::remove_dir_all(dir).ok();
+}
