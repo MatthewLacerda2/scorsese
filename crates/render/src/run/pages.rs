@@ -8,7 +8,13 @@
 //! on the report: a stand-in, never a failed render (#774).
 //!
 //! The browser is looked for only when the plan has a page in it, so a project
-//! without one never asks whether a browser exists.
+//! without one never asks whether a browser exists — and a program allowed to
+//! download one ([`crate::page::supply`]) downloads it only then.
+//!
+//! A renderer told not to capture ([`crate::Renderer::without_capturing`]) draws
+//! a page only from a capture already in `cache/`, and its card otherwise: the
+//! window's preview, which captures in the background instead of making a
+//! scrub wait minutes for a page (#776).
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -37,20 +43,18 @@ impl Pages {
     }
 
     /// Captures every page `plan` shows, with `chrome` or — when none was
-    /// given — whichever browser [`Chrome::discover`] finds.
+    /// given — whichever browser [`Chrome::discover`] finds. Unless
+    /// `capturing` is false: then only what is already captured is used, and
+    /// no browser is looked for at all.
     pub(super) fn capture(
         tools: &Tools,
         chrome: Option<&Chrome>,
+        capturing: bool,
         settings: &RenderSettings,
         plan: &Plan<'_>,
         project_root: &Path,
     ) -> (Self, Vec<Note>) {
-        let mut wanted: Vec<&Shot<'_>> = Vec::new();
-        for segment in plan.segments() {
-            for shot in &segment.layers {
-                pages_in(shot, &mut wanted);
-            }
-        }
+        let wanted = shots(plan);
         let mut pages = Self::default();
         let mut notes = Vec::new();
         if wanted.is_empty() {
@@ -59,9 +63,20 @@ impl Pages {
         let found;
         let chrome = match chrome {
             Some(chrome) => Ok(chrome),
+            None if !capturing => Err("not captured yet".to_owned()),
             None => {
-                found = Chrome::discover();
-                found.as_ref().map_err(ToString::to_string)
+                found = page::find();
+                if let Ok(found) = &found
+                    && found.fetched
+                {
+                    notes.push(Note::PageRendererFetched {
+                        version: found.chrome.version().to_owned(),
+                    });
+                }
+                found
+                    .as_ref()
+                    .map(|found| &found.chrome)
+                    .map_err(ToString::to_string)
             }
         };
         for shot in wanted {
@@ -72,7 +87,12 @@ impl Pages {
                 continue;
             };
             let captured = chrome.clone().and_then(|chrome| {
-                page::capture(chrome, tools, project_root, &request).map_err(|e| e.to_string())
+                if capturing {
+                    return page::capture(chrome, tools, project_root, &request)
+                        .map_err(|e| e.to_string());
+                }
+                page::cached(project_root, &request, chrome.version())
+                    .ok_or_else(|| "not captured yet".to_owned())
             });
             match captured {
                 Ok(captured) => {
@@ -96,6 +116,30 @@ impl Pages {
         }
         (pages, notes)
     }
+}
+
+/// Every page shot `plan` shows, its groups' members and mattes included.
+fn shots<'p, 'a>(plan: &'p Plan<'a>) -> Vec<&'p Shot<'a>> {
+    let mut wanted = Vec::new();
+    for segment in plan.segments() {
+        for shot in &segment.layers {
+            pages_in(shot, &mut wanted);
+        }
+    }
+    wanted
+}
+
+/// What capturing every page `plan` shows would ask for, once each.
+pub(super) fn requests(settings: &RenderSettings, plan: &Plan<'_>) -> Vec<Request> {
+    let mut requests: Vec<Request> = Vec::new();
+    for shot in shots(plan) {
+        if let Some(request) = request_for(shot, settings, plan.timeline_fps())
+            && !requests.contains(&request)
+        {
+            requests.push(request);
+        }
+    }
+    requests
 }
 
 /// Every page among a shot, its group's members and its matte.

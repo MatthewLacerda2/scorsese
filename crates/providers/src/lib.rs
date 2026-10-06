@@ -116,6 +116,7 @@
 
 pub mod api;
 pub mod chat;
+pub mod chromium;
 pub mod claude;
 pub mod credentials;
 pub mod image;

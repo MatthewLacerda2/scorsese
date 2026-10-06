@@ -45,6 +45,7 @@ use super::segment::{Pass, Stage};
 pub(super) fn compose(
     tools: &Tools,
     chrome: Option<&Chrome>,
+    capturing: bool,
     settings: RenderSettings,
     preview: Option<&Preview>,
     project: &Project,
@@ -61,7 +62,7 @@ pub(super) fn compose(
     // has to run from zero to get here, and the capture is cached for every
     // scrub after this one. What it noticed goes back with the frame, for a
     // caller that has somebody to tell.
-    let (pages, notes) = Pages::capture(tools, chrome, &settings, &plan, project_root);
+    let (pages, notes) = Pages::capture(tools, chrome, capturing, &settings, &plan, project_root);
     let mut stage = Stage::new();
     let pass = Pass {
         tools,

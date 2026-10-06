@@ -22,6 +22,7 @@ mod icons;
 mod output;
 mod pages;
 mod partial;
+mod preview_pages;
 mod retiming;
 mod slugs;
 mod sources;

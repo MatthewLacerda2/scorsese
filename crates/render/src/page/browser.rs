@@ -1,10 +1,11 @@
 //! Locating `chrome-headless-shell` and starting it with a pipe to talk over.
 //!
-//! The browser is an external program found the way ffmpeg is ([`crate::Tools`]):
-//! an environment override first, then `PATH`, and checked up front so a
-//! missing one says what to install rather than failing inside a capture. Which
-//! build it should be is `tools/chromium/pin`'s to say; `tools/chromium/fetch`
-//! downloads that build and prints the path to put in [`CHROME_ENV`].
+//! The browser is an external program found much as ffmpeg is ([`crate::Tools`]),
+//! and checked up front so a missing one says what is wrong rather than failing
+//! inside a capture; the order it is looked for in is `find`'s. Which build it
+//! should be is `tools/chromium/pin`'s to say; `tools/chromium/fetch` downloads
+//! that build and prints the path to put in [`CHROME_ENV`], and a program that
+//! [`super::supply`]s one downloads it on first use.
 
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -18,9 +19,6 @@ use crate::pipe::Process;
 /// Overrides where the browser is found — the path `tools/chromium/fetch`
 /// prints, or wherever a shipped build keeps its own.
 pub const CHROME_ENV: &str = "SCORSESE_CHROME";
-
-/// The name looked for on `PATH` when [`CHROME_ENV`] is unset.
-const ON_PATH: &str = "chrome-headless-shell";
 
 /// The flags every capture runs with, and why each one is there.
 ///
@@ -57,12 +55,11 @@ pub struct Chrome {
 }
 
 impl Chrome {
-    /// Finds the browser — [`CHROME_ENV`] first, then `chrome-headless-shell`
-    /// on `PATH` — and checks it runs.
+    /// Finds the browser — [`CHROME_ENV`] first, then the build this program
+    /// downloaded ([`super::supply`]), then `chrome-headless-shell` on `PATH`,
+    /// and only then downloading that build — and checks it runs.
     pub fn discover() -> Result<Self, ChromeError> {
-        let binary =
-            std::env::var_os(CHROME_ENV).map_or_else(|| PathBuf::from(ON_PATH), PathBuf::from);
-        Self::at(binary)
+        super::find::find().map(|found| found.chrome)
     }
 
     /// Uses this binary, after asking it its version.
@@ -174,6 +171,9 @@ pub enum ChromeError {
         #[source]
         source: std::io::Error,
     },
+    /// Nothing was found, and downloading the pinned build failed.
+    #[error("the page renderer could not be downloaded: {0}")]
+    Fetch(String),
     /// This platform cannot run a capture yet.
     #[error("capturing web pages is not supported on this platform yet")]
     Unsupported,
