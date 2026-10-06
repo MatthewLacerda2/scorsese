@@ -141,7 +141,8 @@ Whatever a page does that its author should hear about comes back in words:
 `still` writes a `note:` under the frame, and `render` puts one in its reply
 (and the CLI prints one) for
 
-- a request refused because pages render offline,
+- a request refused because pages render offline, or a WebSocket or WebRTC
+  connection the page opened, which reaches nothing,
 - a file the page asked for that is not in the project,
 - a script that threw, with its message,
 - a `<video>` or `<audio>` element,

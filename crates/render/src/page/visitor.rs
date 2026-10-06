@@ -17,6 +17,10 @@ use serde_json::{Value, json};
 use super::cdp::{Command, Listener};
 use super::origin::{Answer, answer};
 
+/// The function the preamble calls, with the name of the API, when a page
+/// opens a connection the protocol never reports (`offline.js`).
+pub(crate) const OFFLINE_BINDING: &str = "__scorsese_offline";
+
 /// What a capture has heard from the page so far.
 pub(crate) struct Visitor<'a> {
     project_root: &'a Path,
@@ -102,6 +106,22 @@ impl Listener for Visitor<'_> {
         match method {
             "Fetch.requestPaused" => return Some(self.serve(params, session)),
             "Page.loadEventFired" => self.loaded_event = true,
+            // Refused by the browser's flags, not by us (`browser.rs`): this
+            // only says so, as a refused request is said.
+            "Network.webSocketCreated" => {
+                let url = params["url"].as_str().unwrap_or("a server");
+                self.warn(format!(
+                    "the page opened a WebSocket to {url}; pages render offline, \
+                     so it reached nothing"
+                ));
+            }
+            "Runtime.bindingCalled" if params["name"] == OFFLINE_BINDING => {
+                let what = params["payload"].as_str().unwrap_or("network");
+                self.warn(format!(
+                    "the page opened a {what} connection; pages render offline, \
+                     so it reached nothing"
+                ));
+            }
             "Runtime.exceptionThrown" => {
                 let details = &params["exceptionDetails"];
                 let what = details["exception"]["description"]
@@ -193,5 +213,30 @@ mod tests {
         );
         visitor.heard("Page.loadEventFired", &json!({}), None);
         assert!(visitor.loaded_event);
+    }
+
+    #[test]
+    fn a_websocket_and_a_peer_connection_are_said_once_each() {
+        let mut visitor = Visitor::new(Path::new("/"));
+        for _ in 0..2 {
+            let socket = json!({ "requestId": "w", "url": "wss://192.168.1.8:47773/" });
+            assert!(
+                visitor
+                    .heard("Network.webSocketCreated", &socket, None)
+                    .is_none()
+            );
+            let called = json!({ "name": OFFLINE_BINDING, "payload": "WebRTC" });
+            visitor.heard("Runtime.bindingCalled", &called, None);
+        }
+        let other = json!({ "name": "someone_else", "payload": "x" });
+        visitor.heard("Runtime.bindingCalled", &other, None);
+        assert_eq!(
+            visitor.warnings,
+            [
+                "the page opened a WebSocket to wss://192.168.1.8:47773/; pages render \
+                 offline, so it reached nothing",
+                "the page opened a WebRTC connection; pages render offline, so it reached nothing",
+            ]
+        );
     }
 }
