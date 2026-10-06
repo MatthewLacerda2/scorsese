@@ -12,6 +12,8 @@
 //! are the only way a caller has to reach the document:
 //!
 //! - [`place`] writes a new clip onto an existing track.
+//! - [`place_on_new_track`] writes one onto a new track of the kind its asset
+//!   needs — what a drop does where no lane can take it.
 //! - [`trim`] changes where a placed clip starts, how long it runs, or where in
 //!   its source it opens.
 //! - [`relocate`] moves a placed clip onto another track — the one move
@@ -20,7 +22,7 @@
 //! - [`remove`] takes placed clips off the timeline, and leaves their assets
 //!   and the gap they leave where they are.
 //!
-//! **All four are all-or-nothing.** The change is worked out on a copy and only a
+//! **All five are all-or-nothing.** The change is worked out on a copy and only a
 //! copy [`Project::validate`](crate::Project::validate) accepts becomes the
 //! document, exactly as [`crate::pacing`] does it. A clip that would overlap its
 //! neighbour, or reach past the end of the media it shows, leaves the project
@@ -32,11 +34,13 @@
 //! different question with a different set of fields, and nothing here touches
 //! it.
 
+mod new_track;
 mod place;
 mod relocate;
 mod remove;
 mod trim;
 
+pub use new_track::place_on_new_track;
 pub use place::{PlaceError, Placement, place};
 pub use relocate::{RelocateError, Relocation, relocate};
 pub use remove::{RemoveError, Removed, remove};

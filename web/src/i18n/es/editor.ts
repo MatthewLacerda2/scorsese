@@ -58,12 +58,8 @@ export const editor: Messages["editor"] = {
   },
   trackKinds: { video: "video", audio: "audio" },
   timeline: {
-    videoTrack: "Pista de video",
-    audioTrack: "Pista de audio",
-    zoom: "Zoom",
-    zoomOut: "Alejar",
-    zoomIn: "Acercar",
-    empty: "Todavía no hay pistas. Agrega una pista de video y arrastra algo desde la izquierda.",
+    empty: "Arrastra algo aquí desde la izquierda.",
+    newTrack: "Suelta aquí para una pista nueva",
     removeTrack: (track: string) => `Quitar la pista ${track}`,
     removeTrackTitle: "Quitar la pista — los clips que tiene se van con ella",
     clipTitle: (clip: string) =>

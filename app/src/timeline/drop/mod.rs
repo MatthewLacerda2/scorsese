@@ -9,14 +9,22 @@
 //! the lane under the pointer and the frame under it, pulled onto a nearby cut
 //! the way a dragged clip is — and *how long* when the asset cannot say.
 //!
+//! **A drop never needs a track made first** (#771). Where no lane there can
+//! take the asset — the timeline is empty, the pointer is below the last lane,
+//! or the lane under it carries the other kind — the drop is
+//! `placing::place_on_new_track` instead: a lane of the kind the asset needs,
+//! made with the clip on it, as one edit.
+//!
 //! The drop is tried on every frame it hovers, not only when it lands, so the
 //! ghost it draws is already the answer: the kind's colour where the clip would
-//! go, or the alert colour and the reason where the project would refuse it —
-//! a sound over a picture track, or a clip landing on one already there.
+//! go — on a new lane, drawn where that lane will be — or the alert colour and
+//! the reason where the project would refuse it, such as a clip landing on one
+//! already there.
 
 use egui::{Pos2, Rect, Response, Stroke, StrokeKind, Ui};
 use scorsese_core::{
-    AssetId, AssetKind, ClipId, Fps, Frames, PlaceError, Placement, Project, TrackId, placing,
+    AssetId, AssetKind, ClipId, Fps, Frames, PlaceError, Placement, Project, Track, TrackId,
+    TrackKind, placing,
 };
 
 use super::drag::{SNAP, snap::Targets};
@@ -30,10 +38,19 @@ use crate::theme::{ROUND_SM, palette};
 /// what an editor gives a still — long enough to read, short enough to trim.
 const UNMEASURED_SECONDS: f64 = 5.0;
 
+/// Which lane a drop goes on.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Onto {
+    /// The lane under the pointer, which takes the asset's kind.
+    Track(TrackId),
+    /// A new lane of the kind the asset needs.
+    NewTrack,
+}
+
 /// Where a drop would land.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Landing {
-    track: TrackId,
+    onto: Onto,
     start: Frames,
     duration: Frames,
 }
@@ -66,12 +83,13 @@ impl Timeline {
         }
         let asset = response.dnd_hover_payload::<AssetId>()?;
         let at = ui.input(|input| input.pointer.latest_pos())?;
-        let (landing, rect) = self.landing(&open.project, &asset, area, at, editing.playhead)?;
+        let landing = self.landing(&open.project, &asset, area, at, editing.playhead)?;
         let outcome = place(&open.project, &asset, &landing);
         self.trouble = outcome.as_ref().err().cloned();
+        let rect = self.ghost_rect(&open.project, &landing, outcome.as_ref().ok(), area);
 
         if response.dnd_release_payload::<AssetId>().is_some() {
-            if let Ok((placed, clip)) = outcome {
+            if let Ok((placed, clip, _)) = outcome {
                 // Saved before it is shown, as every other edit here is.
                 match placed.save(&open.root) {
                     Ok(()) => {
@@ -91,8 +109,8 @@ impl Timeline {
         })
     }
 
-    /// Where a drop at `at` would land, and the rectangle it would be drawn in
-    /// — or nothing when the pointer is not over a lane.
+    /// Where a drop at `at` would land — or nothing when the pointer is
+    /// neither over a lane nor below the last one.
     fn landing(
         &self,
         project: &Project,
@@ -100,12 +118,14 @@ impl Timeline {
         area: Rect,
         at: Pos2,
         playhead: Frames,
-    ) -> Option<(Landing, Rect)> {
+    ) -> Option<Landing> {
         if !area.contains(at) {
             return None;
         }
         let top = area.top() + ruler::HEIGHT;
-        let (track, lane) = lanes::lane_at(project, area, top, at.y)?;
+        let lane = lanes::lane_at(project, area, top, at.y).map(|(track, _)| track);
+        let below = at.y >= top + lanes::height(project);
+        let onto = onto(project, asset, lane, below)?;
         let duration = duration_of(project, asset);
         let pointed = self.view.frame_at(at.x - area.left());
         let start = snapped(
@@ -115,17 +135,54 @@ impl Timeline {
             duration,
             self.view.frames_in(SNAP),
         );
-        let left = area.left() + self.view.offset_of(start);
-        let rect = Rect::from_min_size(
-            egui::pos2(left, lane.top()),
-            egui::vec2(self.view.width_of(duration).max(2.0), lane.height()),
-        );
-        let landing = Landing {
-            track: track.id.clone(),
+        Some(Landing {
+            onto,
             start,
             duration,
+        })
+    }
+
+    /// The rectangle a drop is drawn in: on its lane, and for a new lane where
+    /// that lane will be once it is made — read from the placed project's own
+    /// layout, so the preview and the result cannot disagree. A new lane that
+    /// would be refused is drawn just below the last one.
+    fn ghost_rect(
+        &self,
+        project: &Project,
+        landing: &Landing,
+        placed: Option<&(Project, ClipId, TrackId)>,
+        area: Rect,
+    ) -> Rect {
+        let top = area.top() + ruler::HEIGHT;
+        let (laid, track) = match (placed, &landing.onto) {
+            (Some((after, _, track)), _) => (after, Some(track)),
+            (None, Onto::Track(track)) => (project, Some(track)),
+            (None, Onto::NewTrack) => (project, None),
         };
-        Some((landing, rect))
+        let offset = lanes::laid_out(laid)
+            .into_iter()
+            .find(|(lane, _)| Some(&lane.id) == track)
+            .map_or_else(|| lanes::height(project) + lanes::GAP, |(_, at)| at);
+        let lane = lanes::lane_rect(area, top, offset);
+        Rect::from_min_size(
+            egui::pos2(area.left() + self.view.offset_of(landing.start), lane.top()),
+            egui::vec2(self.view.width_of(landing.duration).max(2.0), lane.height()),
+        )
+    }
+}
+
+/// Which lane a drop goes on, given the lane under the pointer (if any) and
+/// whether the pointer is below the last one. A lane carrying the asset's kind
+/// takes it; one carrying the other kind, the space below the last lane and an
+/// empty timeline all make a new lane. In the gap between two lanes, nothing.
+fn onto(project: &Project, asset: &AssetId, lane: Option<&Track>, below: bool) -> Option<Onto> {
+    let wants = project
+        .asset(asset)
+        .and_then(|found| TrackKind::taking(found.kind));
+    match lane {
+        Some(track) if wants == Some(track.kind) => Some(Onto::Track(track.id.clone())),
+        Some(_) => Some(Onto::NewTrack),
+        None => below.then_some(Onto::NewTrack),
     }
 }
 
@@ -175,24 +232,32 @@ fn snapped(
         })
 }
 
-/// The project with a clip of `asset` placed at `landing`, and the new clip's
-/// id — or the first reason it cannot be, in one line for the timeline's note.
+/// The project with a clip of `asset` placed at `landing`, the new clip's id
+/// and the track it went on — or the first reason it cannot be, in one line
+/// for the timeline's note.
 fn place(
     project: &Project,
     asset: &AssetId,
     landing: &Landing,
-) -> Result<(Project, ClipId), String> {
+) -> Result<(Project, ClipId, TrackId), String> {
     let mut placed = project.clone();
-    let placement = Placement {
-        asset: asset.clone(),
-        track: landing.track.clone(),
-        start: landing.start,
-        duration: Some(landing.duration),
-        source_in: Frames::ZERO,
-        id: None,
+    let duration = Some(landing.duration);
+    let outcome = match &landing.onto {
+        Onto::Track(track) => {
+            let placement = Placement {
+                asset: asset.clone(),
+                track: track.clone(),
+                start: landing.start,
+                duration,
+                source_in: Frames::ZERO,
+                id: None,
+            };
+            placing::place(&mut placed, &placement).map(|clip| (track.clone(), clip))
+        }
+        Onto::NewTrack => placing::place_on_new_track(&mut placed, asset, landing.start, duration),
     };
-    match placing::place(&mut placed, &placement) {
-        Ok(clip) => Ok((placed, clip.id)),
+    match outcome {
+        Ok((track, clip)) => Ok((placed, clip.id, track)),
         Err(PlaceError::Refused(errors)) => Err(errors
             .into_vec()
             .into_iter()
@@ -203,102 +268,4 @@ fn place(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use scorsese_core::{Asset, AssetKind, Clip, ProjectPath, Track, TrackKind};
-
-    /// A 4-second shot already on `v1` at 0..120, a title with no length, a
-    /// sound, and an empty audio track.
-    fn project() -> Project {
-        let mut project = Project::new("t", Fps::THIRTY);
-        let mut shot = Asset::imported(
-            AssetId::new("shot"),
-            AssetKind::Video,
-            ProjectPath::new("assets/shot.mp4"),
-        );
-        shot.media = Some(scorsese_core::MediaMetadata {
-            duration_seconds: Some(4.0),
-            ..Default::default()
-        });
-        project.assets.push(shot);
-        project
-            .assets
-            .push(Asset::text(AssetId::new("title"), "hi"));
-        project.assets.push(Asset::imported(
-            AssetId::new("music"),
-            AssetKind::Audio,
-            ProjectPath::new("assets/m.wav"),
-        ));
-        let mut video = Track::new(TrackId::new("v1"), TrackKind::Video);
-        video.clips.push(Clip::new(
-            ClipId::new("head"),
-            AssetId::new("shot"),
-            Frames(0),
-            Frames(120),
-        ));
-        project.tracks.push(video);
-        project
-            .tracks
-            .push(Track::new(TrackId::new("a1"), TrackKind::Audio));
-        project
-    }
-
-    fn landing(track: &str, start: u64, duration: u64) -> Landing {
-        Landing {
-            track: TrackId::new(track),
-            start: Frames(start),
-            duration: Frames(duration),
-        }
-    }
-
-    /// A measured shot is placed whole; a title, which has no length of its
-    /// own, gets five seconds rather than a refusal.
-    #[test]
-    fn a_placed_clip_runs_the_whole_asset_or_five_seconds() {
-        let project = project();
-        assert_eq!(duration_of(&project, &AssetId::new("shot")), Frames(120));
-        assert_eq!(duration_of(&project, &AssetId::new("title")), Frames(150));
-    }
-
-    /// Dropped past the end of what is there, the clip lands, gets an id of
-    /// its own, and is the document's rather than a copy of it.
-    #[test]
-    fn a_drop_on_a_free_stretch_places_a_clip() {
-        let before = project();
-        let (after, clip) = place(&before, &AssetId::new("shot"), &landing("v1", 120, 120))
-            .expect("the stretch is free");
-        assert_eq!(clip, ClipId::new("shot"));
-        assert_eq!(after.tracks[0].clips.len(), 2);
-        assert_eq!(
-            before.tracks[0].clips.len(),
-            1,
-            "the window's document is untouched until saved"
-        );
-    }
-
-    /// The two refusals a hand will actually meet: landing on a clip already
-    /// there, and a sound dropped on a picture track.
-    #[test]
-    fn a_drop_the_project_would_not_survive_is_refused_with_a_reason() {
-        let project = project();
-        let overlap = place(&project, &AssetId::new("title"), &landing("v1", 60, 150));
-        assert!(overlap.is_err());
-        let wrong_lane = place(&project, &AssetId::new("music"), &landing("v1", 300, 30));
-        assert!(
-            wrong_lane
-                .expect_err("a sound has no place on a picture track")
-                .contains("music")
-        );
-    }
-
-    /// Dropped a few frames short of the last clip's end, a shot is pulled
-    /// onto it rather than leaving a gap that renders as a black flash.
-    #[test]
-    fn a_drop_near_a_cut_is_pulled_onto_it() {
-        let project = project();
-        let start = snapped(&project, Frames(900), Frames(124), Frames(120), Frames(8));
-        assert_eq!(start, Frames(120));
-        let far = snapped(&project, Frames(900), Frames(400), Frames(120), Frames(8));
-        assert_eq!(far, Frames(400));
-    }
-}
+mod tests;

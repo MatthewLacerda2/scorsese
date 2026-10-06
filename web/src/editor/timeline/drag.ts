@@ -206,7 +206,8 @@ export function placeArguments(
   return args;
 }
 
-/** Whether `kind` goes on a video track (picture) or an audio one (sound). */
+/** Whether `kind` goes on a video track (picture) or an audio one (sound) —
+ * `core`'s `TrackKind::taking`, which validation holds every clip to. */
 export function laneFor(kind: string): "video" | "audio" {
   return kind === "audio" || kind === "generated_audio" || kind === "synth_audio"
     ? "audio"

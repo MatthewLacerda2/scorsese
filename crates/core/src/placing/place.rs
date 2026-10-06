@@ -87,6 +87,14 @@ pub enum PlaceError {
         /// How much media there is.
         length: Frames,
     },
+    /// A new lane was asked for an asset no kind of track takes. Every kind
+    /// today goes on one of the two, so this is the answer for a kind added
+    /// later without saying where it sits.
+    #[error("no kind of track takes `{asset}`, so there is no lane to make for it")]
+    NoTrackKind {
+        /// The asset with nowhere to go.
+        asset: AssetId,
+    },
     /// A clip covering no frame renders nothing and is not a clip.
     #[error("a clip has to cover at least one frame")]
     Empty,
