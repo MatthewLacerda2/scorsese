@@ -26,6 +26,16 @@ fn a_sheet_writes_exactly_the_file_that_was_named() {
     std::fs::remove_dir_all(dir).ok();
 }
 
+/// Five — the cap — is a full sheet, three over two, rather than a refusal.
+#[test]
+fn a_sheet_of_five_instants_is_three_over_two() {
+    let dir = titled("still-sheet-five");
+    still(&dir, "sheet.png", &["--at", "0,1,2,3,4", "--sheet"]).ok();
+    let png = std::fs::read(dir.join("sheet.png")).expect("the sheet was written");
+    assert_eq!(png_size(&png), (3 * 64, 2 * 36));
+    std::fs::remove_dir_all(dir).ok();
+}
+
 /// More than a sheet holds is refused, saying the cap, and writes nothing.
 #[test]
 fn a_sheet_of_more_than_five_instants_is_refused() {
