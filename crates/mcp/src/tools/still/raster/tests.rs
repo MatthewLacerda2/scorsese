@@ -80,3 +80,22 @@ fn a_malformed_aspect_is_refused_saying_how_to_write_one() {
         assert!(problem.contains("like 9:16"), "{problem}");
     }
 }
+
+/// A probe that measured nothing is no shape, so the next clip decides — here
+/// a generated still, by the aspect it was asked for.
+#[test]
+fn an_empty_probe_is_passed_over_for_a_generated_stills_aspect() {
+    for (width, height) in [(0, 1080), (1080, 0)] {
+        let feed = edit(
+            &format!(
+                r#"{{ "id": "blank", "kind": "image", "path": "assets/b.png",
+                     "media": {{ "width": {width}, "height": {height} }} }},
+                   {{ "id": "card", "kind": "generated_image", "prompt": "a", "state": "sketch",
+                     "image": {{ "aspect": "4:5" }} }}"#
+            ),
+            r#"{ "id": "c", "asset": "blank", "start": 0, "duration": 30 },
+               { "id": "d", "asset": "card", "start": 30, "duration": 30 }"#,
+        );
+        assert_eq!(raster(None, &feed, FRAME), (858, 1074, Some("card".into())));
+    }
+}
