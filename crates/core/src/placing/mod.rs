@@ -21,8 +21,12 @@
 //!   track a picture sits on decides what is drawn over what.
 //! - [`remove`] takes placed clips off the timeline, and leaves their assets
 //!   and the gap they leave where they are.
+//! - [`fit_to_sources`] shortens the clips of a just-realised asset that now
+//!   outlast it — the one operation here that is a repair rather than an edit,
+//!   and so the one that does not validate: it runs on a document a fresh
+//!   measurement has just made invalid.
 //!
-//! **All five are all-or-nothing.** The change is worked out on a copy and only a
+//! **The first five are all-or-nothing.** The change is worked out on a copy and only a
 //! copy [`Project::validate`](crate::Project::validate) accepts becomes the
 //! document, exactly as [`crate::pacing`] does it. A clip that would overlap its
 //! neighbour, or reach past the end of the media it shows, leaves the project
@@ -34,12 +38,14 @@
 //! different question with a different set of fields, and nothing here touches
 //! it.
 
+mod fit;
 mod new_track;
 mod place;
 mod relocate;
 mod remove;
 mod trim;
 
+pub use fit::{Shortened, fit_to_sources};
 pub use new_track::place_on_new_track;
 pub use place::{PlaceError, Placement, place};
 pub use relocate::{RelocateError, Relocation, relocate};

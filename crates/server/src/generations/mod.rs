@@ -48,7 +48,7 @@ use scorsese_providers::voices::design::{ElevenLabsStudio, Studio as DesignStudi
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-pub use adopt::adopt;
+pub use adopt::{Adopted, adopt};
 pub use line::handler as line_handler;
 pub use shot::handler as shot_handler;
 pub use still::handler as still_handler;

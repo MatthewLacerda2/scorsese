@@ -20,6 +20,7 @@
 
 mod spend;
 
+use scorsese_core::placing::Shortened;
 use scorsese_core::{GenerationState, Timestamp};
 use scorsese_mcp::Reply;
 use scorsese_providers::prices::dollars as cents_as_dollars;
@@ -49,8 +50,10 @@ when each is done. A finished generation lands in your library and in the projec
 A brief the provider refuses costs nothing; one that works is charged whether or not it is \
 kept. A brief you already generated, in this project or another, is never paid for again; \
 a line with no voice chosen yet, or a still whose reference_images name a generated_image \
-not yet generated, is reported and skipped until a later call. Every price is our own \
-arithmetic over published rates.";
+not yet generated, is reported and skipped until a later call. A shot or line that comes \
+out shorter than a clip laid out over its sketch shortens that clip to it, and the finished \
+job (or this reply, for one brought in) names each one — the gap left after it is yours to \
+close. Every price is our own arithmetic over published rates.";
 
 /// Its arguments.
 pub(crate) fn schema() -> Value {
@@ -82,12 +85,14 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
         stored.document.assets.iter().any(|asset| {
             asset.kind.is_prompted() && asset.state != Some(GenerationState::Generated)
         });
+    // Bringing one in can shorten a clip that outlasts it (#825), which is
+    // said whatever else this call answers.
+    let mut shortened = Vec::new();
     if waiting {
         let (pool, storage, tools) = (&toolbox.pool, &toolbox.storage, &toolbox.tools);
-        if !adopt(pool, storage, tools, caller.user, id)
-            .await?
-            .is_empty()
-        {
+        let adopted = adopt(pool, storage, tools, caller.user, id).await?;
+        shortened = adopted.shortened.iter().map(Shortened::says).collect();
+        if !adopted.moved.is_empty() {
             stored = open(caller, id).await?;
         }
     }
@@ -122,6 +127,7 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
         .collect();
 
     let mut lines = said(&quote);
+    lines.extend(shortened.iter().cloned());
     if quote.is_free() {
         lines.push("Nothing to pay for, so nothing was sent.".to_owned());
         return Ok(lines.join("\n").into());
@@ -156,6 +162,7 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
     let mut lines: Vec<String> = queued
         .iter()
         .map(|(asset, job)| format!("{asset}: queued as job {}", job.id))
+        .chain(shortened)
         .collect();
     lines.push(format!(
         "{} reserved from your credits; a brief the provider refuses gives its share back. \

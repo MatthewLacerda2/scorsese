@@ -24,7 +24,8 @@ use std::path::Path;
 use std::time::Duration;
 
 use schemars::JsonSchema;
-use scorsese_core::{Project, Reprobe, probe_assets};
+use scorsese_core::placing::{self, Shortened};
+use scorsese_core::{AssetId, Project, Reprobe, probe_assets};
 use scorsese_providers::credentials::{Budget, Settings};
 use scorsese_providers::prices::dollars;
 use scorsese_providers::quote::generation;
@@ -80,8 +81,10 @@ impl Tool for Generate {
          never spends and never needs a token. Stills and narration come back on \
          the same call; a still whose reference is a generated_image not yet \
          generated is reported and drawn on the next call. A line with no voice chosen yet is reported and skipped rather than \
-         failing the run. Every figure is our own arithmetic over published rates, \
-         never a bill."
+         failing the run. A shot or line that comes out shorter than a clip laid out \
+         over its sketch shortens that clip to it, and the reply names each one — the \
+         gap left after it is yours to close. Every figure is our own arithmetic over \
+         published rates, never a bill."
     }
 
     fn costs(&self) -> Costs {
@@ -140,9 +143,14 @@ impl Tool for Generate {
             .map_err(|error| format!("saving the project: {error}"))?;
         outcome?;
 
-        let landed = landed(&shots, &spoken) || stills::landed(&drawn);
-        measure(&mut project, dir, landed)?;
-        Ok(said(&shots, &drawn, &spoken).into())
+        let landed = landed(&shots, &spoken);
+        let shortened = measure(&mut project, dir, &landed, stills::landed(&drawn))?;
+        let mut reply = said(&shots, &drawn, &spoken);
+        for one in &shortened {
+            reply.push('\n');
+            reply.push_str(&one.says());
+        }
+        Ok(reply.into())
     }
 }
 
@@ -196,35 +204,52 @@ fn run(
 /// A failure to measure is **not** a failure of the run: the media exists and
 /// has been paid for, and probing it again later is free. Saying so and
 /// carrying on beats reporting a spend as an error.
-fn measure(project: &mut Project, dir: &std::path::Path, landed: bool) -> Result<(), String> {
-    if !landed {
-        return Ok(());
+///
+/// **Measuring is what can make the document refuse to load**: a clip laid
+/// out over a sketch may outlast what came back, and the length just written
+/// is what says so. So the clips of what landed are shortened to it before the
+/// save ([`placing::fit_to_sources`], #825), and the ones that were are handed
+/// back for the reply.
+fn measure(
+    project: &mut Project,
+    dir: &std::path::Path,
+    landed: &[AssetId],
+    drawn: bool,
+) -> Result<Vec<Shortened>, String> {
+    if landed.is_empty() && !drawn {
+        return Ok(Vec::new());
     }
     let Ok(probe) = Ffprobe::discover() else {
-        return Ok(());
+        return Ok(Vec::new());
     };
     probe_assets(project, dir, &probe, Reprobe::Skip);
+    let shortened = placing::fit_to_sources(project, landed);
     project
         .save(dir)
-        .map_err(|error| format!("saving the project: {error}"))
+        .map_err(|error| format!("saving the project: {error}"))?;
+    Ok(shortened)
 }
 
-/// Whether anything arrived on disk that nothing has measured yet.
+/// What arrived on disk with a length nothing has measured yet.
 ///
 /// A cache hit is not one of them: its file was already there, and whatever ran
 /// when it first landed has had every chance to look at it.
-fn landed(shots: &Run, spoken: &lines::Spoken) -> bool {
-    shots.outcomes.iter().any(|(_, outcome)| {
+fn landed(shots: &Run, spoken: &lines::Spoken) -> Vec<AssetId> {
+    let shot = shots.outcomes.iter().filter(|(_, outcome)| {
         matches!(
             outcome,
             scorsese_providers::video::Outcome::Generated { .. }
         )
-    }) || spoken.iter().any(|(_, outcome)| {
+    });
+    let line = spoken.iter().filter(|(_, outcome)| {
         matches!(
             outcome,
             scorsese_providers::speech::Outcome::Generated { .. }
         )
-    })
+    });
+    shot.map(|(id, _)| id.clone())
+        .chain(line.map(|(id, _)| id.clone()))
+        .collect()
 }
 
 /// What this project has already spent, against the ceiling.
