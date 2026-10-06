@@ -1149,7 +1149,6 @@ the web — or be left off it — without a reason written down.
 - `asset_remove`
 - `track_remove`
 - `place_clip`
-- `trim_clip`
 - `clip_set`
 - `clip_animate`
 - `clip_follow`
@@ -1645,7 +1644,7 @@ Templates section already does.
 **The hand-edits are few, and each is a tool call.** Add a track, drop a file
 on it, drag a clip along it or onto another lane, drag an edge to trim, press
 Delete on the selected clip, and type a plain value into the inspector —
-`track_new`, `import` (from the Library modal) and `place_clip`, `trim_clip`, `clip_move`,
+`track_new`, `import` (from the Library modal) and `place_clip`, `clip_move`,
 `clip_remove`, `clip_set` — through `POST /api/projects/{id}/tools/{name}`,
 which runs the toolbox web MCP and the assistant run, recorded as client
 `editor`. The browser reads `project.json` to draw the timeline and never writes
@@ -1657,7 +1656,7 @@ to the assistant, not a menu (`CLAUDE.md`, *The GUI is thin*).
 | `POST /api/projects/{id}/tools/{name}` | a member, **by session** | `{arguments, revision?}` → `{said, project}`: the tool's words and pictures, and the project as it is now (`null` after a `still`) |
 
 - **An allowlist**, not the whole surface: `track_new`, `track_remove`,
-  `asset_remove`, `place_clip`, `trim_clip`, `clip_set`, `clip_move`,
+  `asset_remove`, `place_clip`, `clip_set`, `clip_move`,
   `clip_remove` (the edits) and `import`,
   `still`, `template_save`, `template_insert`. Anything else is
   `404` — a page has no business writing a whole document or spending money.
@@ -1687,7 +1686,8 @@ means), fit, and position, rotation and scale as single held values —
 `docs/mcp.md` has it. The assistant and web MCP get it too. **`clip_move`** and
 **`clip_remove`** came after (#576), for the same reason: a clip dropped on the
 wrong lane had nowhere to go but the assistant. A drag that ends on another
-lane is one `clip_move` with the new start, never a move then a trim; Delete or
+lane is one `clip_move` with the new start, never a move then a trim — and
+since #781 a drag along a lane is a `clip_move` too, the one tool for both; Delete or
 Backspace removes the selected clip — its asset stays, and nothing closes up
 behind it. Neither fires while a text field has the keyboard.
 

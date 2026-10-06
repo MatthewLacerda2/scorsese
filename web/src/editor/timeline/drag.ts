@@ -139,7 +139,7 @@ export function snapped(
   return shift === null ? free : propose(clip, handle, delta + shift, limits);
 }
 
-/** `trim_clip`'s arguments for moving `clip` to `shape`: only the fields that
+/** `clip_move`'s arguments for moving `clip` to `shape`: only the fields that
  * changed, in seconds — a start alone moves it and leaves the rest. `null`
  * when the drag ended where it began. */
 export function trimArguments(clip: Clip, shape: Shape, fps: Fps): Record<string, unknown> | null {
@@ -153,14 +153,14 @@ export function trimArguments(clip: Clip, shape: Shape, fps: Fps): Record<string
 
 /** A drag let go, as the one tool call it becomes. */
 export interface Release {
-  tool: "trim_clip" | "clip_move";
+  tool: "clip_move";
   args: Record<string, unknown>;
 }
 
 /** What a drag of `clip` from lane `from`, let go over lane `onto` in `shape`,
- * asks the server for. On another lane it is one `clip_move` carrying the new
- * start — never a move and then a trim, which would pass through a document
- * nobody asked for; on its own lane it is `trim_clip` with what changed.
+ * asks the server for: one `clip_move`. On another lane it carries the track
+ * and the new start — never a move and then a trim, which would pass through a
+ * document nobody asked for; on its own lane, what changed.
  * `null` when the drag ended where it began. */
 export function toolCall(
   clip: Clip,
@@ -174,7 +174,7 @@ export function toolCall(
     return { tool: "clip_move", args };
   }
   const args = trimArguments(clip, shape, fps);
-  return args && { tool: "trim_clip", args };
+  return args && { tool: "clip_move", args };
 }
 
 /** How long a dropped asset runs: its own measured length, or five seconds. */

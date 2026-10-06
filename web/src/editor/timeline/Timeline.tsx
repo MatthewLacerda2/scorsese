@@ -3,7 +3,7 @@
 // assets panel. The desktop app's `app/src/timeline/`, in the browser.
 //
 // A drag is drawn where the pointer proposes, snapped (drag.ts), and becomes
-// one `trim_clip` — or one `clip_move`, let go over another lane — when the
+// one `clip_move` — with the new lane, let go over another — when the
 // pointer lets go; never before, since every edit is a round trip to the
 // server's tools. A refused one springs back: the page only ever draws the
 // document the server holds. A lane header's bin removes the lane, after a
@@ -38,7 +38,7 @@ export interface TimelineProps {
   onSelect: (clip: string, adding: boolean) => void;
   /** An empty stretch of a lane clicked: nothing is selected. */
   onDeselect: () => void;
-  /** A drag let go: `trim_clip` along a lane, `clip_move` onto another. */
+  /** A drag let go: one `clip_move`, along a lane or onto another. */
   onRelease: (call: Release) => Promise<unknown>;
   /** Something dropped on `track` — or, `null`, below the last lane — at
    * frame `pointed`, before snapping. */

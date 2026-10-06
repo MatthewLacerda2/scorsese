@@ -1,7 +1,7 @@
 //! The web editor's edits (#545): `POST /api/projects/{id}/tools/{name}`.
 //!
-//! **An edit by hand is a tool call.** A clip dragged along its track is
-//! `trim_clip` and onto another lane `clip_move`, the Delete key is
+//! **An edit by hand is a tool call.** A clip dragged along its track or onto
+//! another lane is `clip_move`, the Delete key is
 //! `clip_remove`, a file dropped onto a lane is `import` and then `place_clip`,
 //! a value typed into the inspector is `clip_set`, a new lane is `track_new`,
 //! a lane or an asset deleted after its confirm is `track_remove` or
@@ -55,7 +55,6 @@ pub const EDITS: &[&str] = &[
     "track_remove",
     "asset_remove",
     "place_clip",
-    "trim_clip",
     "clip_set",
     "clip_move",
     "clip_remove",

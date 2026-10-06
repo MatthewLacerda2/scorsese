@@ -22,6 +22,21 @@ pub struct Trim {
     pub source_in: Option<Frames>,
 }
 
+impl Trim {
+    /// Sets each field named on `clip`, and leaves the rest as they are.
+    pub(super) fn apply(&self, clip: &mut Clip) {
+        if let Some(start) = self.start {
+            clip.start = start;
+        }
+        if let Some(duration) = self.duration {
+            clip.duration = duration;
+        }
+        if let Some(source_in) = self.source_in {
+            clip.source_in = source_in;
+        }
+    }
+}
+
 /// Why a clip was not trimmed. Nothing is ever partly written.
 #[derive(Debug, thiserror::Error)]
 pub enum TrimError {
@@ -65,15 +80,7 @@ pub fn trim(project: &mut Project, id: &ClipId, bounds: &Trim) -> Result<Clip, T
         let Some(clip) = track.clips.iter_mut().find(|clip| &clip.id == id) else {
             continue;
         };
-        if let Some(start) = bounds.start {
-            clip.start = start;
-        }
-        if let Some(duration) = bounds.duration {
-            clip.duration = duration;
-        }
-        if let Some(source_in) = bounds.source_in {
-            clip.source_in = source_in;
-        }
+        bounds.apply(clip);
         trimmed = Some(clip.clone());
         // Moving a clip can carry it past its neighbour, so the order a reader
         // depends on is restored — the same reason `place` sorts.

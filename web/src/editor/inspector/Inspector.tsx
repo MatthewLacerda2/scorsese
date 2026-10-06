@@ -7,7 +7,7 @@
 // reason: changing it is the assistant's (`BriefPanel`).
 //
 // A value is sent when the field is left or Enter is pressed — each change is
-// a round trip to the server's tools (`trim_clip`, `clip_set`, and `sequence`
+// a round trip to the server's tools (`clip_move`, `clip_set`, and `sequence`
 // for an image sequence's hold and loop) — and a refused
 // one springs back to what the document still says.
 
@@ -28,8 +28,8 @@ interface Props {
   track: Track;
   asset: DocumentAsset | undefined;
   fps: Fps;
-  /** Run `trim_clip` or `clip_set` on this clip, or `sequence` on its asset. */
-  onChange: (tool: "trim_clip" | "clip_set" | "sequence", args: Record<string, unknown>) => void;
+  /** Run `clip_move` or `clip_set` on this clip, or `sequence` on its asset. */
+  onChange: (tool: "clip_move" | "clip_set" | "sequence", args: Record<string, unknown>) => void;
 }
 
 export function Inspector({ clip, track, asset, fps, onChange }: Props) {
@@ -38,7 +38,7 @@ export function Inspector({ clip, track, asset, fps, onChange }: Props) {
   const picture = track.kind === "video";
   const transform = transformOf(clip);
   const trim = (field: string) => (value: number) =>
-    onChange("trim_clip", { clip: clip.id, [field]: value });
+    onChange("clip_move", { clip: clip.id, [field]: value });
   const set = (field: string) => (value: number | string) =>
     onChange("clip_set", { clip: clip.id, [field]: value });
   const speed = clip.speed ?? 1;

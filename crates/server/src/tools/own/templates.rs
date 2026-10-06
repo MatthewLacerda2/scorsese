@@ -52,7 +52,7 @@ on the second, audio alike — and where something is already in the way, that t
 one above it of that kind go onto new tracks on top, so the template's own layering is kept. \
 Nothing already in the project moves. Clip and asset ids are kept where free and suffixed \
 (-2) where not; files the project already has are shared, not added twice. The reply names \
-every clip placed and the track it went on, which is what trim_clip and clip_set take next.";
+every clip placed and the track it went on, which is what clip_move and clip_set take next.";
 
 /// `template_save`'s arguments.
 pub(super) fn save_schema() -> Value {

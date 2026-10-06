@@ -35,6 +35,31 @@ fn a_clip_moves_to_another_track_of_its_kind_and_the_reply_says_where() {
     std::fs::remove_dir_all(dir).ok();
 }
 
+/// A lane change and a new length in one call land together, the way a drag
+/// down a lane that also shortens the clip is one gesture.
+#[test]
+fn a_track_and_a_duration_are_one_edit() {
+    let dir = project("move-trim");
+    let (text, failed) = said(&call(
+        "clip_remove",
+        json!({ "project": dir, "clips": ["m1"] }),
+    ));
+    assert!(!failed, "{text}");
+    let (text, failed) = said(&call(
+        "clip_move",
+        json!({ "project": dir, "clip": "v1c", "track": "music", "duration_seconds": 1.0 }),
+    ));
+    assert!(!failed, "{text}");
+    assert!(text.contains("moved from `vo` to `music`"), "got {text}");
+    let document = read(&dir);
+    assert_eq!(clips(&document, "music"), ["v1c"]);
+    assert_eq!(
+        document["tracks"][music(&document)]["clips"][0]["duration"],
+        30
+    );
+    std::fs::remove_dir_all(dir).ok();
+}
+
 /// The refusal `place_clip` gives for the same mistake: sound has no place on
 /// a picture track.
 #[test]
@@ -100,6 +125,16 @@ fn document(dir: &std::path::Path) -> String {
 
 fn read(dir: &std::path::Path) -> Value {
     serde_json::from_str(&document(dir)).expect("the server writes JSON")
+}
+
+/// Where the `music` track sits in the document.
+fn music(project: &Value) -> usize {
+    project["tracks"]
+        .as_array()
+        .expect("tracks")
+        .iter()
+        .position(|held| held["id"] == "music")
+        .expect("the track is there")
 }
 
 /// The ids of the clips on one track, in order.

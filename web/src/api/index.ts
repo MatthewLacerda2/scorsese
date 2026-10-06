@@ -36,7 +36,6 @@ export type EditorTool =
   | "track_remove"
   | "asset_remove"
   | "place_clip"
-  | "trim_clip"
   | "clip_set"
   | "clip_move"
   | "clip_remove"

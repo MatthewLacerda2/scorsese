@@ -122,7 +122,7 @@ describe("the tool call", () => {
       args: { clip: "c", track: "v2", start_seconds: 230 / 30 },
     });
     expect(toolCall(clip(), "v1", "v1", moved, THIRTY)).toEqual({
-      tool: "trim_clip",
+      tool: "clip_move",
       args: { clip: "c", start_seconds: 230 / 30 },
     });
     // Straight down a lane, not along it: still a move.
