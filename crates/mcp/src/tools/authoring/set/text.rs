@@ -1,7 +1,7 @@
 //! Making a caption, a title, a lower third: the one asset an agent writes
 //! most.
 
-use scorsese_core::{Fill, Inline, TextStyle};
+use scorsese_core::{Inline, TextStyle};
 use serde_json::Value;
 
 use super::super::{color, maybe, weight};
@@ -81,13 +81,13 @@ fn style(arguments: &Arguments) -> Result<Option<TextStyle>, String> {
 /// The caption's colour: one colour, because letters are not painted with a
 /// gradient here, and a gradient asked for is refused rather than flattened.
 fn one_colour(arguments: &Arguments) -> Result<Option<scorsese_core::Rgba>, String> {
-    match fill(arguments.color.as_ref(), "color")? {
-        None => Ok(None),
-        Some(Fill::Solid(color)) => Ok(Some(color)),
-        Some(_) => Err(
-            "`color`: a text asset is one colour, as `#rrggbb` — only a \
-                        color asset takes a gradient"
-                .to_owned(),
-        ),
-    }
+    fill(arguments.color.as_ref(), "color")?
+        .map(|paint| {
+            paint.solid().ok_or_else(|| {
+                "`color`: a text asset is one colour, as `#rrggbb` — only a color asset \
+                 takes a gradient"
+                    .to_owned()
+            })
+        })
+        .transpose()
 }

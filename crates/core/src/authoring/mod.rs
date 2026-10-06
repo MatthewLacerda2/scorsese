@@ -10,7 +10,8 @@
 //!
 //! That is what these operations are for:
 //!
-//! - [`add_asset`] puts one inline asset in the table.
+//! - [`add_asset`] puts one inline asset in the table — or a generated
+//!   asset's free sketch, which is all document until `generate` realises it.
 //! - [`set_asset`] changes a field on one that is already there.
 //! - [`add_track`] adds a lane, because an asset with nowhere to sit is not
 //!   yet in the cut and "clips on one track may not overlap" makes a second
