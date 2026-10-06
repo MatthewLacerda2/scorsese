@@ -15,6 +15,7 @@
 //! clicks cannot answer one quote twice — and none of them shows the model the
 //! token: only a yes uses it, and the server makes that call itself.
 
+use scorsese_providers::chat::Effort;
 use serde::Serialize;
 use serde_json::json;
 
@@ -63,9 +64,17 @@ pub async fn answer(
             "say what you would like changed".into(),
         ));
     }
-    let (token, quote, project) = claim(state, user, id, &answer).await?;
+    let Claimed {
+        token,
+        quote,
+        project,
+        effort,
+    } = claim(state, user, id, &answer).await?;
     let change = match answer {
-        Answer::Confirm => return confirm(state, user, (id, project), &token, &quote).await,
+        Answer::Confirm => {
+            let turn = (id, project, effort);
+            return confirm(state, user, turn, &token, &quote).await;
+        }
         Answer::Decline => None,
         Answer::Change(text) => Some(text),
     };
@@ -82,6 +91,7 @@ pub async fn answer(
         prompt: text,
         fresh: false,
         notes: vec![change_note(&quote)],
+        effort: Some(effort),
     };
     let (turn, note) = started(start(state, user, project, opening).await);
     Ok(Answered {
@@ -100,7 +110,7 @@ async fn claim(
     user: UserId,
     id: i64,
     answer: &Answer,
-) -> Result<(String, QuoteView, i64), AssistantError> {
+) -> Result<Claimed, AssistantError> {
     let mut tx = db::scoped(&state.pool, user).await?;
     // The conversation's newest state other than an ended one: a running
     // turn, or one paused on a question (#710), which is answered first.
@@ -128,32 +138,51 @@ async fn claim(
         Answer::Confirm => "confirmed",
         Answer::Decline | Answer::Change(_) => "declined",
     };
-    let claimed: Option<(String, sqlx::types::Json<QuoteView>, i64)> = sqlx::query_as(
+    let claimed: Option<(String, sqlx::types::Json<QuoteView>, i64, String)> = sqlx::query_as(
         "WITH held AS (
              SELECT id, quote_token FROM chat_turns
              WHERE id = $1 AND quote_token IS NOT NULL FOR UPDATE)
          UPDATE chat_turns t SET quote_token = NULL, quote_answer = $2
          FROM held, chat_sessions s
          WHERE t.id = held.id AND s.id = t.session_id
-         RETURNING held.quote_token, t.quote, s.project_id",
+         RETURNING held.quote_token, t.quote, s.project_id, t.effort",
     )
     .bind(id)
     .bind(recorded)
     .fetch_optional(&mut *tx)
     .await?;
     tx.commit().await?;
-    let (token, quote, project) = claimed.ok_or_else(|| {
+    let (token, quote, project, effort) = claimed.ok_or_else(|| {
         AssistantError::Invalid("there is no quote waiting for an answer on that turn".into())
     })?;
-    Ok((token, quote.0, project))
+    let effort = Effort::from_name(&effort)
+        .ok_or_else(|| AssistantError::Internal(format!("unknown effort {effort}")))?;
+    Ok(Claimed {
+        token,
+        quote: quote.0,
+        project,
+        effort,
+    })
+}
+
+/// A quote taken from its turn to be answered.
+struct Claimed {
+    /// The token that spends it.
+    token: String,
+    /// The quote as the box showed it.
+    quote: QuoteView,
+    /// The project its conversation is about.
+    project: i64,
+    /// The effort its turn ran at, which the turn the answer starts keeps.
+    effort: Effort,
 }
 
 /// Spend `quote` with `token` as the user, on turn `id` of `project`, and
-/// start the turn that tells the model what the spend did.
+/// start the turn that tells the model what the spend did, at `effort`.
 async fn confirm(
     state: &AppState,
     user: UserId,
-    (id, project): (i64, i64),
+    (id, project, effort): (i64, i64, Effort),
     token: &str,
     quote: &QuoteView,
 ) -> Result<Answered, AssistantError> {
@@ -185,6 +214,7 @@ async fn confirm(
         prompt: "Yes, go ahead.".into(),
         fresh: false,
         notes: vec![note],
+        effort: Some(effort),
     };
     let (turn, note) = started(start(state, user, project, opening).await);
     Ok(Answered {

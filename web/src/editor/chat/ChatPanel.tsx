@@ -3,7 +3,8 @@
 // message. The stored conversation is read once and on every `resync`; what a
 // running turn does in between arrives on the event stream and is folded in by
 // `transcript.ts`, which is where the logic lives and is tested. Above it, the
-// model the project's assistant runs on (`ModelPicker.tsx`, #705).
+// model the project's assistant runs on (`ModelPicker.tsx`, #705); beside
+// Send, how hard it thinks on the next message (`EffortPicker.tsx`, #769).
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { SendIcon, SquareIcon } from "lucide-react";
@@ -14,6 +15,9 @@ import { useServerEvents } from "@/app/events";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useT } from "@/i18n/I18nProvider";
+import { browserStorage } from "@/i18n/language";
+import { EffortPicker } from "./EffortPicker";
+import { type Effort, saveEffort, storedEffort } from "./effort";
 import { ModelPicker } from "./ModelPicker";
 import { Turn } from "./Turn";
 import {
@@ -126,9 +130,14 @@ function Composer({
   const t = useT();
   const [prompt, setPrompt] = useState("");
   const [fresh, setFresh] = useState(false);
+  const [effort, setEffort] = useState(() => storedEffort(browserStorage(), projectId));
+  const choose = (level: Effort) => {
+    setEffort(level);
+    saveEffort(browserStorage(), projectId, level);
+  };
   const [refused, setRefused] = useState<Problem | null>(null);
   const send = useMutation({
-    mutationFn: () => chatApi.send(projectId, prompt.trim(), fresh),
+    mutationFn: () => chatApi.send(projectId, prompt.trim(), fresh, effort),
     onMutate: () => setRefused(null),
     onSuccess: (turn) => {
       setPrompt("");
@@ -180,6 +189,7 @@ function Composer({
           {t.chat.composer.fresh}
         </label>
         <div className="ml-auto flex gap-2">
+          <EffortPicker effort={effort} onChange={choose} />
           {stoppable !== null && (
             <Button
               size="sm"

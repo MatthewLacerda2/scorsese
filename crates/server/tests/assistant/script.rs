@@ -24,6 +24,9 @@ pub(crate) const USAGE: Usage = Usage {
     cache_read: 0,
 };
 
+/// What every scripted reply thinks, streamed as a progress note (#767).
+pub(crate) const THOUGHT: &str = "Weighing the cut privately.";
+
 /// What one scripted call is charged, in micro-dollars.
 pub(crate) const CHARGED: i64 = 15_400;
 
@@ -97,6 +100,9 @@ impl Chat for Script {
         let mut reply = reply.unwrap_or_else(|| answers("(the script ran out)"));
         reply.model = request.model.id().to_owned();
         reply.native = native(request, &reply.message);
+        // A real reply thinks first, and both vendors stream that as notes.
+        on(Streamed::Progress(THOUGHT));
+        on(Streamed::BlockEnd);
         on(Streamed::Text(&reply.text()));
         on(Streamed::BlockEnd);
         Ok(reply)

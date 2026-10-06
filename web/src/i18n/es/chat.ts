@@ -42,10 +42,32 @@ export const chat: Messages["chat"] = {
     send: "Enviar",
   },
   turn: {
-    working: "Trabajando…",
+    busy: [
+      "Empalmando…",
+      "Retocando el color…",
+      "Rebuscando en el metraje…",
+      "Alineando los cortes…",
+      "Rebobinando la cinta…",
+      "Sincronizando el sonido…",
+      "Recortando unos fotogramas…",
+      "Revisando la toma…",
+      "Ajustando el foco…",
+      "Preparando el plano…",
+      "Poniendo la música…",
+      "Buscando el mejor ángulo…",
+    ],
     costSoFar: (cost) => `Hasta ahora este turno ha costado ${cost}; nada más mientras espera`,
     cost: (cost) => `Este turno costó ${cost}`,
     left: (balance) => ` · quedan ${balance}`,
+  },
+  effort: {
+    label: "Con cuánto cuidado trabaja el asistente en este mensaje",
+    name: { low: "Rápido", medium: "Equilibrado", high: "A fondo" },
+    hint: {
+      low: "Para retoques pequeños, como agrandar el título o mover la música. Lo más barato.",
+      medium: "Para pedidos de todos los días.",
+      high: "Para montar o rehacer una edición. Tarda más y cuesta más.",
+    },
   },
   model: {
     label: "Modelo",

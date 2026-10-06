@@ -1274,7 +1274,19 @@ order — send their results back, and loop until it answers. Each project has
 conversations (`chat_sessions`); a turn joins the newest unless it asks for a
 fresh one, and one turn runs at a time per conversation. The system prompt asks
 for a short progress line before each step and one full summary at the end,
-and to lay a cut out as free sketches before spending on generation.
+and to lay a cut out as free sketches before spending on generation. Its words
+are shown as Markdown (#768) — rendered with raw HTML off and images shown as
+their alt text, since the text is the model's and untrusted — and the prompt
+says light Markdown is fine and tables and images are not.
+
+**The model's thinking is not shown** (#767). Both vendors still stream it as
+short notes, and the vendors are still asked for them — what a request asks for
+is part of the stored bytes and the cached prefix, and changing it buys nothing
+a user can see — but the server drops them before the event stream, so the
+browser never hears them. A working turn shows one playful status word instead,
+changing every few seconds, from a list in each language's catalogue. The
+thinking still happens and is still billed as output: hiding it saves the user
+reading, not credits.
 
 **Which model** (#705). A project names one (`projects.assistant_model`):
 Gemini 3.8 Flash for every project until its owner picks another, in the chat
@@ -1375,9 +1387,12 @@ prefix of at least 4,096 tokens it has seen recently is read at a tenth of the
 input rate. Gemini 3.5 Flash Lite has no caching at all. Nothing about a user
 or the time goes in the prefix, on any model.
 
-**Effort is `high`** on every model — Claude's `effort`, Gemini's
-`thinkingLevel` — since choosing the model is where the user trades quality for
-credits (`crates/server/src/assistant/mod.rs`, *Effort*). A refusal by a
+**Effort is the user's, per message** (#769) — Claude's `effort`, Gemini's
+`thinkingLevel` — chosen beside Send as **Quick** (`low`), **Balanced**
+(`medium`) or **Thorough** (`high`, the default), and remembered per project
+in the browser. A message without one is `high`; every turn records its
+effort, and one that resumes after a question or a quote's answer keeps the
+effort it began with (`crates/server/src/assistant/mod.rs`, *Effort*). A refusal by a
 vendor's safety filters ends the turn as `refused`, charged for what the call
 used; it is not retried on another model, because the user chose the model.
 
@@ -1406,7 +1421,7 @@ fixed until measured usage (#707) says otherwise.
 | --- | --- | --- |
 | `GET /api/projects/{id}/chat` | a member | `{project, session, turns, model, models}`: the newest conversation's turns, oldest first; the project's model; every model offered as `{id, label, vendor, unavailable, cache_seconds, cost}` |
 | `PUT /api/projects/{id}/chat/model` | a member | `{model}` → the model as listed; from the next turn the project runs on it. `400` for a model not offered |
-| `POST /api/projects/{id}/chat` | a member | `{prompt, fresh?}` → `202` with the turn; `402` no credit, `409` a turn is running, `503` not configured |
+| `POST /api/projects/{id}/chat` | a member | `{prompt, fresh?, effort?}` → `202` with the turn; `effort` is `low`, `medium` or `high` (absent: `high`), `400` for anything else; `402` no credit, `409` a turn is running, `503` not configured |
 | `GET /api/chat/turns/{id}` | a member | `{turn, tools}`: the turn and the log of every tool call it made, in order |
 | `POST /api/chat/turns/{id}/stop` | a member | `202`; the turn stops before its next step — at once, its question set aside, when it is `asking`. `409` if it is neither |
 | `POST /api/chat/turns/{id}/quote` | a member | `{confirm: true\|false, change?}` → `{spent, refused, turn, note}`; `turn` is the one carrying on after a yes or a change; `change` with `confirm: true` is `400`, and so is any answer while a question waits |
@@ -1430,7 +1445,6 @@ should show, then `confirmed`, `declined` — a change asked for included — or
 | --- | --- | --- |
 | `chat_turn` | `turn`, `balance_micros` | a turn started, was charged for a call, or ended: replace it, show what it cost and the balance |
 | `chat_text` | `turn`, `text` | more of the words the assistant is writing: append |
-| `chat_progress` | `turn`, `text` | a whole progress note between tool calls: one status line |
 | `chat_tool` | `turn`, `tool`, `state`, `said` | a tool `running`, then `answered` or `refused`, with the start of its answer |
 | `chat_quote` | `turn`, `quote` | show the confirmation box |
 | `project` | `id`, `revision` | the assistant changed the project: re-read it, and the preview refreshes |

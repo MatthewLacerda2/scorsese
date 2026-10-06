@@ -2,7 +2,7 @@
 //! answer the result of the call that asked. And Stop on a paused turn, which
 //! sets the question aside unanswered.
 
-use scorsese_providers::chat::{self, Message, Model};
+use scorsese_providers::chat::{self, Effort, Message, Model};
 
 use super::{NAME, answered};
 use crate::assistant::AssistantError;
@@ -41,6 +41,8 @@ pub async fn answer(
     };
     let model = Model::from_id(&paused.model)
         .ok_or_else(|| AssistantError::Internal(format!("unknown model {}", paused.model)))?;
+    let effort = Effort::from_name(&paused.effort)
+        .ok_or_else(|| AssistantError::Internal(format!("unknown effort {}", paused.effort)))?;
     let client = state.assistant.chat(model)?;
     let balance = ledger::balance(&mut tx).await?;
     if balance <= 0 {
@@ -81,6 +83,7 @@ pub async fn answer(
         project: paused.project,
         prompt: paused.prompt,
         model,
+        effort,
         chat: client,
         history,
         messages,

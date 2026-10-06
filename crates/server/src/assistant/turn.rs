@@ -10,14 +10,16 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use scorsese_providers::chat::{self, Chat, ChatError, Message, Model, Reply, Request, Stop};
+use scorsese_providers::chat::{
+    self, Chat, ChatError, Effort, Message, Model, Reply, Request, Stop,
+};
 use serde_json::value::RawValue;
 
 use super::relay::Relay;
 use super::store::asking;
 use super::store::turns::{self, Charge};
 use super::store::{QuestionView, TurnView};
-use super::{EFFORT, ask, calls, prompt};
+use super::{ask, calls, prompt};
 use crate::credits::dollars;
 use crate::db::UserId;
 use crate::events::Event;
@@ -38,6 +40,9 @@ pub(super) struct Running {
     pub(super) prompt: String,
     /// The model it runs on, start to end.
     pub(super) model: Model,
+    /// How hard it thinks, start to end — the effort it began with, after a
+    /// question too.
+    pub(super) effort: Effort,
     /// That model's client.
     pub(super) chat: Arc<dyn Chat>,
     /// Every earlier turn's messages, in this model's wire.
@@ -132,7 +137,7 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
         messages.extend(turn.messages.iter().cloned());
         let request = Request {
             model: turn.model,
-            effort: EFFORT,
+            effort: turn.effort,
             system: prompt::SYSTEM.to_owned(),
             tools: tools.clone(),
             messages,

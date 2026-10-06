@@ -5,8 +5,9 @@
 // arithmetic rather than by clicking.
 //
 // What is stored and what is live differ on purpose. The server keeps a turn's
-// prompt, final answer, state and cost; the words as they stream, the progress
-// notes and the tool lines exist only on the event stream. So a re-read after a
+// prompt, final answer, state and cost; the words as they stream and the tool
+// lines exist only on the event stream. The model's thinking is on neither
+// (#767): a working turn shows a status word instead (`status.ts`). So a re-read after a
 // `resync` replaces every turn but keeps the live lines already seen for it.
 
 import type { Conversation, QuestionView, TurnState, TurnView } from "@/api/chat";
@@ -17,10 +18,8 @@ import type { Messages } from "@/i18n/catalogue";
 /** Where a tool the assistant called is. */
 export type ToolState = "running" | "answered" | "refused";
 
-/** One line between a prompt and its answer. */
-export type Line =
-  | { kind: "progress"; text: string }
-  | { kind: "tool"; tool: string; state: ToolState; said: string | null };
+/** One line between a prompt and its answer: a tool the assistant called. */
+export type Line = { kind: "tool"; tool: string; state: ToolState; said: string | null };
 
 /** A turn as the panel shows it. */
 export interface Entry {
@@ -94,11 +93,6 @@ export function apply(transcript: Transcript, event: ServerEvent): Transcript {
       return change(transcript, event.turn, (entry) => ({
         ...entry,
         streamed: entry.streamed + event.text,
-      }));
-    case "chat_progress":
-      return change(transcript, event.turn, (entry) => ({
-        ...entry,
-        lines: [...entry.lines, { kind: "progress", text: event.text }],
       }));
     case "chat_tool":
       return change(transcript, event.turn, (entry) => ({

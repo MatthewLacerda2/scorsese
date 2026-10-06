@@ -1,12 +1,12 @@
 //! Starting a turn: check it may run, write it down, and set it going.
 
-use scorsese_providers::chat::{self, Message};
+use scorsese_providers::chat::{self, Effort, Message};
 
 use super::store::TurnView;
 use super::store::asking;
 use super::store::turns::{self, Beginning, Last};
 use super::turn::{self, Running};
-use super::{AssistantError, EFFORT, ask, model, prompt};
+use super::{AssistantError, DEFAULT_EFFORT, ask, model, prompt};
 use crate::credits::{dollars, ledger};
 use crate::db::{self, UserId};
 use crate::events::Event;
@@ -23,6 +23,8 @@ pub struct Opening {
     /// What the server has to tell the model besides — said as a `system`
     /// message, which only the server can write.
     pub notes: Vec<String>,
+    /// How hard the model thinks on it (#769); `None` is [`DEFAULT_EFFORT`].
+    pub effort: Option<Effort>,
 }
 
 /// Start a turn in `user`'s conversation about `project`: refused when the
@@ -39,6 +41,7 @@ pub async fn start(
     mut opening: Opening,
 ) -> Result<TurnView, AssistantError> {
     let prompt = opening.prompt.trim().to_owned();
+    let effort = opening.effort.unwrap_or(DEFAULT_EFFORT);
     if prompt.is_empty() {
         return Err(AssistantError::Invalid(
             "say what you would like done".into(),
@@ -90,7 +93,7 @@ pub async fn start(
     let beginning = Beginning {
         prompt: &prompt,
         model,
-        effort: EFFORT,
+        effort,
         native: &first,
         record: &record,
     };
@@ -110,6 +113,7 @@ pub async fn start(
         project,
         prompt,
         model,
+        effort,
         chat: client,
         history,
         messages: first,

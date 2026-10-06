@@ -2,8 +2,10 @@
 //!
 //! The model streams words a few characters at a time, and the event bus is
 //! one channel every user shares, with a bounded backlog (`crate::events`). So
-//! words are gathered and sent every [`EVERY`] or at the end of a block, and a
-//! progress note — a sentence or two — is sent whole, once written.
+//! words are gathered and sent every [`EVERY`] or at the end of a block.
+//!
+//! The model's thinking notes (`Streamed::Progress`) are dropped here: the
+//! browser never hears them (#767, `super`'s *Thinking is hidden*).
 
 use std::time::{Duration, Instant};
 
@@ -21,7 +23,6 @@ pub(super) struct Relay {
     user: UserId,
     turn: i64,
     text: String,
-    note: String,
     sent_at: Instant,
     /// Whether anything reached the browser — after which a failed call is
     /// not retried, since the browser would hear its words twice.
@@ -36,7 +37,6 @@ impl Relay {
             user,
             turn,
             text: String::new(),
-            note: String::new(),
             sent_at: Instant::now(),
             heard: false,
         }
@@ -51,7 +51,7 @@ impl Relay {
                     self.flush();
                 }
             }
-            Streamed::Progress(text) => self.note.push_str(text),
+            Streamed::Progress(_) => {}
             Streamed::BlockEnd => self.flush(),
         }
     }
@@ -63,13 +63,6 @@ impl Relay {
             self.send(Event::ChatText {
                 turn: self.turn,
                 text,
-            });
-        }
-        let note = std::mem::take(&mut self.note);
-        if !note.trim().is_empty() {
-            self.send(Event::ChatProgress {
-                turn: self.turn,
-                text: note.trim().to_owned(),
             });
         }
         self.sent_at = Instant::now();

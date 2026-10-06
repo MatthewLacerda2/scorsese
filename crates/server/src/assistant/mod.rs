@@ -9,7 +9,7 @@
 //! asks for against that user's project and library, sends the results back,
 //! and loops until it answers (`turn`). Everything it
 //! does is on the user's event stream as it happens (`crate::events`): its
-//! words, its short progress notes, each tool call and how it answered, a
+//! words, each tool call and how it answered, a
 //! project's new revision, what the turn has cost and the balance left.
 //!
 //! ## Which model
@@ -85,16 +85,33 @@
 //! that crosses either line has already been made and is charged; one call's
 //! cost is bounded by `max_tokens`.
 //!
-//! ## Effort: `high`
+//! ## Effort: the user's, per message, `high` unless they say
 //!
-//! Effort is the setting that trades a model's quality for credits within the
-//! model the user chose; choosing the model is where the user makes that trade,
-//! so the effort stays where the work wants it. Claude Opus 5.5's API default
-//! is `medium`, the cost-saving level; editing a video is long, many-step tool
-//! work, which is where Anthropic's guidance puts `high`, and `high` is also
-//! Gemini's deepest `thinkingLevel`. `xhigh` or `max` are for gains somebody
-//! has measured, which nobody has yet. Measure with real turns (#567) before
-//! moving it.
+//! Effort trades a model's quality for credits within the model the user
+//! chose. #717 fixed it at `high` on the grounds that the model is where that
+//! trade is made; but one project gets both "nudge the title" and "build the
+//! whole cut", and paying `high` for a nudge is wasted credit (#769). So each
+//! message carries its own (`Opening::effort`), which the web app offers in
+//! plain words — Quick, Balanced, Thorough — and never as "effort". Absent, it
+//! is [`DEFAULT_EFFORT`], `high`: editing a video is long, many-step tool work,
+//! which is where Anthropic's guidance puts it, and it is Gemini's deepest
+//! `thinkingLevel`. Every turn records its effort, and a turn that resumes —
+//! after a question (#710) or a quote's answer — keeps the one it started
+//! with. `xhigh` or `max` are for gains somebody has measured, which nobody has
+//! yet (#567).
+//!
+//! ## Thinking is hidden
+//!
+//! Both vendors stream a model's thinking as short notes (Claude's `updates`,
+//! Gemini's thought summaries); the provider seam still hands them over as
+//! `Streamed::Progress`, but the relay drops them and the browser never hears
+//! them (#767). Nobody read them, there were too many to read, and they put
+//! the model's working in front of a user who never deals with
+//! implementation. The thinking itself still happens and is still billed as
+//! output: hiding it saves reading, not credits. The vendors are still asked
+//! for the notes, because what they ask for is part of each turn's stored
+//! bytes and cached prefix (*The conversation is append-only* above), and
+//! changing that buys nothing a user can see.
 
 mod ask;
 mod calls;
@@ -126,8 +143,9 @@ pub use store::{conversation, detail, recover};
 /// What a turn is not allowed to cost by default, in micro-dollars: $2.
 pub const DEFAULT_TURN_CAP_MICROS: i64 = 2_000_000;
 
-/// The effort every call is made at; the module doc argues it.
-pub const EFFORT: Effort = Effort::High;
+/// The effort a message is answered at when it names none; the module doc
+/// argues it.
+pub const DEFAULT_EFFORT: Effort = Effort::High;
 
 /// The server's assistant: how it reaches each model, what a turn may cost,
 /// and which turns have been asked to stop. Cheap to clone.

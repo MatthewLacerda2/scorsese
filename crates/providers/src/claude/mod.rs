@@ -37,8 +37,9 @@
 //!
 //! Thinking is always on for this model; `effort` is the control, and the
 //! caller chooses it ([`Settings`]). `display` is `updates`, so the short notes
-//! the model writes between tool calls arrive as text — the progress lines the
-//! web app shows — while its reasoning stays hidden.
+//! the model writes between tool calls arrive as text ([`Streamed::Progress`])
+//! while its reasoning stays hidden. What a caller does with them is its own
+//! business: the web app's assistant drops them (#767).
 //!
 //! [`Message::raw`]: crate::api::anthropic::request::Message::raw
 
