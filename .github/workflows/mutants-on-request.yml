@@ -73,7 +73,7 @@ jobs:
       args: ${{ steps.resolve.outputs.args }}
     steps:
       # Full history: a `diff` scope needs `origin/main` and the merge base.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -147,7 +147,7 @@ jobs:
       # Handed to the shards so every one mutates the same diff, and to the
       # report for the survivors' diffs, which `--list --json` already carries.
       - name: Hand the plan on
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mutants-plan
           path: |
@@ -184,7 +184,7 @@ jobs:
       - name: Start the clock
         run: echo "JOB_STARTED=$(date +%s)" >> "$GITHUB_ENV"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Mutants in `crates/render/src/plan/` and `src/audio/` run that crate's
       # tests, which decode real fixture media.
@@ -201,7 +201,7 @@ jobs:
         uses: taiki-e/install-action@cargo-mutants
 
       - name: The plan
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: mutants-plan
 
@@ -256,7 +256,7 @@ jobs:
 
       - name: What this shard measured
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mutants-shard-${{ matrix.shard }}
           path: mutants.out/outcomes.json
@@ -273,17 +273,17 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: The plan
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: mutants-plan
 
       - name: What the shards measured
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: mutants-shard-*
           path: shards
@@ -318,7 +318,7 @@ jobs:
           cat report/report.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Keep the report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mutants-report
           path: report/
