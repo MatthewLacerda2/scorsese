@@ -20,8 +20,8 @@ use base64::engine::general_purpose::STANDARD;
 use serde_json::{Value, json};
 
 use super::PageError;
-use super::browser::Chrome;
-use super::cdp::{Cdp, Command};
+use super::browser::{Chrome, ChromeError};
+use super::cdp::{Cdp, CdpError, Command};
 use super::layout::{self, Layout};
 use super::origin::url_of;
 use super::request::Request;
@@ -56,12 +56,25 @@ pub(crate) fn run(
         Visitor::new(project_root),
         PATIENCE,
     );
-    let heard = drive(&mut cdp, tools, request, out);
+    let heard = started(&mut cdp, chrome).and_then(|()| drive(&mut cdp, tools, request, out));
     // Asked to close rather than killed, so its helpers go with it; the
     // process is reaped either way when `process` drops.
     let _ = cdp.browser("Browser.close", json!({}));
     process.stop(Duration::from_secs(5));
     heard
+}
+
+/// Asks the browser its version before anything else, so a browser that died
+/// on launch is told apart from one that died mid-capture: with the sandbox on,
+/// that is nearly always a sandbox that could not start, and the error says how
+/// to opt out ([`super::ChromeError::Sandbox`]) rather than only that the
+/// connection closed.
+fn started(cdp: &mut Cdp<ChildStdin, Visitor<'_>>, chrome: &Chrome) -> Result<(), PageError> {
+    match cdp.browser("Browser.getVersion", json!({})) {
+        Ok(_) => Ok(()),
+        Err(CdpError::Closed) if chrome.is_sandboxed() => Err(ChromeError::Sandbox.into()),
+        Err(error) => Err(error.into()),
+    }
 }
 
 fn drive(

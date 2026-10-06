@@ -28,8 +28,8 @@ pub const CHROME_ENV: &str = "SCORSESE_CHROME";
 /// - `--use-angle=swiftshader --enable-unsafe-swiftshader`: the same software
 ///   GPU on every machine. #772 measured frames from it byte-identical across
 ///   two CPU vendors, bar one rare six-pixel race.
-/// - Not here, but added at launch unless [`Chrome::sandboxed`] was asked for:
-///   `--no-sandbox` (see [`NO_SANDBOX`]).
+/// - Not here, but added at launch when the sandbox is off: `--no-sandbox`
+///   (see [`NO_SANDBOX`]).
 /// - `--hide-scrollbars`: a page taller than the frame must not grow a bar.
 /// - The last three keep the page offline where request interception cannot
 ///   see (#839). `Fetch` pauses every HTTP request, but a WebSocket and WebRTC
@@ -60,18 +60,27 @@ const FLAGS: &[&str] = &[
     "--no-proxy-server",
 ];
 
-/// Turns Chromium's own sandbox off — passed unless [`Chrome::sandboxed`] says
-/// otherwise.
+/// Turns Chromium's own sandbox off — passed only when it is off.
 ///
-/// Off is the desktop's and the CLI's default, unchanged since #775: CI and
-/// cloud containers run as root, where the sandbox refuses to start, and
-/// GitHub's ubuntu-24.04 restricts the user namespaces it needs. Whether the
-/// desktop turns it on too is the maintainer's call (#773 measured it costing
-/// nothing). The web app's capture container is the one place it is always
-/// on: a page there is somebody else's code on the maintainer's machine, and
-/// #773 found the least that lets it start — a non-root user and one seccomp
-/// rule, `deploy/capture/seccomp.json`.
+/// On is every capture's default since #853: a page is code, and locally it
+/// can come from anywhere — a template, a page somebody shared, an agent's
+/// mistake. #773 measured the sandbox costing nothing (129 vs 130 ms a frame,
+/// byte-identical frames). It is off only where [`NO_SANDBOX_ENV`] says so, or
+/// a caller asks with [`Chrome::unsandboxed`].
 pub const NO_SANDBOX: &str = "--no-sandbox";
+
+/// Set (to anything but empty) to capture without Chromium's sandbox — the one
+/// opt-out, for a machine that cannot start it: one running as root, where
+/// Chromium refuses the sandbox, or one whose kernel will not let it make a
+/// user namespace (GitHub's ubuntu-24.04 runners, under AppArmor). Never a
+/// default, and never a fallback: a sandbox that cannot start fails the
+/// capture with [`ChromeError::Sandbox`], which names this variable.
+pub const NO_SANDBOX_ENV: &str = "SCORSESE_CHROME_NO_SANDBOX";
+
+/// Whether [`NO_SANDBOX_ENV`] turns the sandbox off.
+fn sandbox_wanted(opt_out: Option<std::ffi::OsString>) -> bool {
+    opt_out.is_none_or(|value| value.is_empty())
+}
 
 /// The browser a page is captured with.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -102,20 +111,37 @@ impl Chrome {
         Ok(Self {
             version: version_from(&String::from_utf8_lossy(&output.stdout)),
             binary,
-            sandbox: false,
+            sandbox: sandbox_wanted(std::env::var_os(NO_SANDBOX_ENV)),
         })
     }
 
-    /// Runs every capture with Chromium's own sandbox on, which needs a
-    /// non-root user and a kernel that lets it make a user namespace. A browser
-    /// that cannot start it fails the capture; it never falls back to running
-    /// without one. The version, and so the cache key, is unchanged: the
-    /// sandbox decides what a page may reach, never what it draws (#773).
+    /// Runs every capture with Chromium's own sandbox on, whatever
+    /// [`NO_SANDBOX_ENV`] says — for the web app's capture container, where
+    /// there is no opt-out (#594). The sandbox needs a non-root user and a
+    /// kernel that lets it make a user namespace; a browser that cannot start
+    /// it fails the capture ([`ChromeError::Sandbox`]) and never falls back to
+    /// running without one. The version, and so the cache key, is unchanged:
+    /// the sandbox decides what a page may reach, never what it draws (#773).
     pub fn sandboxed(self) -> Self {
         Self {
             sandbox: true,
             ..self
         }
+    }
+
+    /// Runs every capture without the sandbox, whatever [`NO_SANDBOX_ENV`]
+    /// says — for a caller that has its own explicit opt-out
+    /// (`capture-worker --no-sandbox`).
+    pub fn unsandboxed(self) -> Self {
+        Self {
+            sandbox: false,
+            ..self
+        }
+    }
+
+    /// Whether captures run inside Chromium's sandbox.
+    pub fn is_sandboxed(&self) -> bool {
+        self.sandbox
     }
 
     /// Every flag a launch passes, bar the scale and the first URL.
@@ -223,6 +249,15 @@ pub enum ChromeError {
     /// Nothing was found, and downloading the pinned build failed.
     #[error("the page renderer could not be downloaded: {0}")]
     Fetch(String),
+    /// The browser died before answering anything with its sandbox on — on
+    /// Linux almost always because the sandbox could not start.
+    #[error(
+        "the page renderer stopped before it started, which usually means its sandbox could not \
+         start: it cannot run as root, and needs the kernel to allow unprivileged user \
+         namespaces. On a machine that cannot give it either, set {NO_SANDBOX_ENV}=1 to capture \
+         without it"
+    )]
+    Sandbox,
     /// This platform cannot run a capture yet.
     #[error("capturing web pages is not supported on this platform yet")]
     Unsupported,
@@ -230,19 +265,30 @@ pub enum ChromeError {
 
 #[cfg(test)]
 mod tests {
-    use super::{Chrome, NO_SANDBOX, version_from};
+    use super::{Chrome, NO_SANDBOX, sandbox_wanted, version_from};
 
     #[test]
-    fn the_sandbox_is_off_unless_asked_for_and_on_when_it_is() {
+    fn the_sandbox_is_on_unless_opted_out() {
+        assert!(sandbox_wanted(None));
+        assert!(sandbox_wanted(Some("".into())));
+        assert!(!sandbox_wanted(Some("1".into())));
+    }
+
+    #[test]
+    fn no_sandbox_is_passed_only_when_the_sandbox_is_off() {
         let chrome = Chrome {
             binary: "chrome".into(),
             version: "154".into(),
             sandbox: false,
         };
         assert!(chrome.flags().contains(&NO_SANDBOX));
+        assert!(!chrome.is_sandboxed());
         let sandboxed = chrome.clone().sandboxed();
         assert!(!sandboxed.flags().contains(&NO_SANDBOX));
+        assert!(sandboxed.is_sandboxed());
         assert_eq!(sandboxed.version(), chrome.version());
+        let unsandboxed = sandboxed.unsandboxed();
+        assert_eq!(unsandboxed, chrome);
     }
 
     #[test]
