@@ -85,6 +85,12 @@ request is a warning, and the page is drawn without what it asked for.
   it ships and in italic. A family the page names and was not given falls back
   to a shipped face, the same one everywhere.
 - **anime.js 3.2.2**, at `https://lib.scorsese/anime.min.js`.
+- **The icon set**, every [Lucide](https://lucide.dev) icon the `icon` asset
+  draws, at `https://lib.scorsese/icons/<name>.svg`. The `icons` tool finds a
+  name from a word (`film` → `clapperboard`, `film`, `video`…). Each is a
+  24-unit square stroked in `currentColor`, so the page decides colour and
+  size; see *Icons* in the worked pages for the two ways. A plain `<img>` of
+  one draws it black. A name the set lacks is a note naming the nearest ones.
 - **The project's own files, by relative path.** From `pages/`, the project's
   `assets/photo.png` is `../assets/photo.png`, and a font file the project
   carries loads with an ordinary `@font-face` rule. Nothing outside the project
@@ -344,6 +350,67 @@ draw lines of any length.
       <text x="1330" y="155">Launch</text>
     </g>
   </svg>
+</body>
+</html>
+```
+
+### Icons
+
+A row of three features, each with its icon. Two ways to colour a shipped icon,
+and this page uses both:
+
+- **As a mask**, for an icon that only needs a colour and a size: a box whose
+  `background` is the colour and whose `mask` is the icon. The box's width and
+  height are the icon's.
+- **Inlined**, for an icon whose strokes should move: `fetch` it and set it as
+  the element's `innerHTML`, and it takes `color` from the element like text
+  does. Its paths are then the page's, so `pathLength="1"` and the
+  `stroke-dashoffset` draw above work on them. Fetch it before starting the
+  animation, as below.
+
+```html page icons
+<!doctype html>
+<html>
+<head>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body { display: grid; place-content: center; background: #0f1b2d; color: #f4efe6; }
+  .row { display: flex; gap: 140px; }
+  .feature { text-align: center; animation: rise 700ms cubic-bezier(.2, .7, .2, 1) both; }
+  .feature p { margin: 28px 0 0; font: 600 44px Inter; }
+  .icon {
+    width: 180px; height: 180px; margin: 0 auto; background: #f2b134;
+    mask: var(--icon) center / contain no-repeat;
+  }
+  .drawn { width: 180px; height: 180px; margin: 0 auto; color: #7bdff2; }
+  .drawn svg { width: 100%; height: 100%; }
+  .drawn path { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 1.2s ease-in-out forwards; }
+  @keyframes rise { from { opacity: 0; transform: translateY(40px); } }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="feature">
+      <div class="icon" style="--icon: url(https://lib.scorsese/icons/clapperboard.svg)"></div>
+      <p>Shoot</p>
+    </div>
+    <div class="feature" style="animation-delay: .15s">
+      <div class="icon" style="--icon: url(https://lib.scorsese/icons/scissors.svg)"></div>
+      <p>Cut</p>
+    </div>
+    <div class="feature" style="animation-delay: .3s">
+      <div class="drawn" id="share"></div>
+      <p>Share</p>
+    </div>
+  </div>
+  <script>
+    fetch("https://lib.scorsese/icons/send.svg").then((r) => r.text()).then((svg) => {
+      const box = document.getElementById("share");
+      box.innerHTML = svg;
+      box.querySelectorAll("path").forEach((path) => path.setAttribute("pathLength", "1"));
+    });
+  </script>
 </body>
 </html>
 ```

@@ -58,7 +58,10 @@ impl Tool for Icons {
 
     fn description(&self) -> &'static str {
         "Find an icon by a word, and answer with names — each one a string to \
-         write as an `icon` asset's `name`. This build ships the whole Lucide \
+         give `asset_set` as `icon` (an icon asset's `name` in the document) \
+         or write into a page. A page loads any \
+         of them offline at `https://lib.scorsese/icons/<name>.svg`, stroked \
+         in `currentColor` (pages.md, *Icons*, has how to colour one). This build ships the whole Lucide \
          set, seventeen hundred symbols, which is far too many to list: a word \
          is how you reach it. `query` is matched as a plain substring, \
          case-insensitive and never fuzzy, first against every icon's name, \

@@ -21,6 +21,7 @@ mod drawing;
 mod measuring;
 mod nearest;
 mod search;
+mod svg;
 
 use scorsese_compositor::icon::{self, Symbol};
 use scorsese_compositor::{BYTES_PER_PIXEL, Frame, Resolution};

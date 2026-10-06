@@ -13,7 +13,10 @@
 //! any other host, a path that leaves the project — is refused, and the refusal
 //! becomes a warning on the render, never a silent miss.
 
+use std::borrow::Cow;
 use std::path::{Component, Path, PathBuf};
+
+use super::icons::{self, Served};
 
 /// The origin a page is served from. Not a real host: nothing resolves it, and
 /// no request to it ever leaves the process.
@@ -24,7 +27,8 @@ pub(crate) const ORIGIN: &str = "https://page.scorsese";
 pub const SHIPPED_ORIGIN: &str = "https://lib.scorsese";
 
 /// The libraries every page may load, by the file name they are served at.
-/// The shipped fonts are served beside them, under `fonts/` ([`super::fonts`]).
+/// The shipped fonts are served beside them, under `fonts/` ([`super::fonts`]),
+/// and the icon set under `icons/` ([`super::icons`]).
 ///
 /// anime.js because #606 measured it under the clock: a library that drives
 /// itself from `requestAnimationFrame` is seekable by construction. MIT, and
@@ -42,8 +46,14 @@ const SHIPPED: &[(&str, &[u8])] = &[
 pub(crate) enum Answer {
     /// A file of the project, by its path from the project root.
     File { path: String, body: Vec<u8> },
-    /// A library this build ships.
-    Shipped { body: &'static [u8] },
+    /// A library this build ships — a file compiled in, or an icon written
+    /// out on request.
+    Shipped { body: Cow<'static, [u8]> },
+    /// An icon the shipped set does not have, with the names it nearly was.
+    UnknownIcon {
+        name: String,
+        nearest: Vec<&'static str>,
+    },
     /// A path inside the project with no file at it.
     Missing { path: String },
     /// Anything outside the project — the internet, mostly.
@@ -91,12 +101,22 @@ pub(crate) fn answer(url: &str, project_root: &Path) -> Answer {
     {
         let name = name.split(['?', '#']).next().unwrap_or_default();
         if let Some(body) = name.strip_prefix("fonts/").and_then(super::fonts::bytes) {
-            return Answer::Shipped { body };
+            return Answer::Shipped { body: body.into() };
         }
-        return SHIPPED
-            .iter()
-            .find(|(shipped, _)| *shipped == name)
-            .map_or(Answer::Refused, |(_, body)| Answer::Shipped { body });
+        if let Some(file) = name.strip_prefix("icons/") {
+            return match icons::serve(file) {
+                Served::Svg(svg) => Answer::Shipped {
+                    body: svg.into_bytes().into(),
+                },
+                Served::Unknown { name, nearest } => Answer::UnknownIcon { name, nearest },
+            };
+        }
+        return SHIPPED.iter().find(|(shipped, _)| *shipped == name).map_or(
+            Answer::Refused,
+            |(_, body)| Answer::Shipped {
+                body: Cow::Borrowed(body),
+            },
+        );
     }
     let Some(path) = url
         .strip_prefix(ORIGIN)
@@ -253,6 +273,20 @@ mod tests {
         assert!(matches!(
             answer("https://lib.scorsese/fonts/inter.ttf", &dir.0),
             Answer::Shipped { .. }
+        ));
+        let Answer::Shipped { body } = answer("https://lib.scorsese/icons/film.svg?v=1", &dir.0)
+        else {
+            panic!("the icon set is shipped");
+        };
+        assert!(body.starts_with(b"<svg "));
+    }
+
+    #[test]
+    fn an_icon_the_set_lacks_is_named_not_refused() {
+        let dir = project();
+        assert!(matches!(
+            answer("https://lib.scorsese/icons/clapperbord.svg", &dir.0),
+            Answer::UnknownIcon { name, nearest } if name == "clapperbord" && nearest.first() == Some(&"clapperboard")
         ));
     }
 
