@@ -98,13 +98,17 @@ fn trimming_a_start_moves_the_clip_and_keeps_its_length() {
     std::fs::remove_dir_all(dir).ok();
 }
 
-/// A trim that names no field is a mistake, not a successful no-op.
+/// A move that names no field is a mistake, not a successful no-op.
 #[test]
-fn a_trim_that_asks_for_nothing_says_so() {
+fn a_move_that_asks_for_nothing_says_so() {
     let dir = project("trim-empty");
     let (text, failed) = said(&call("clip_move", json!({ "project": dir, "clip": "v1c" })));
     assert!(failed, "nothing was named");
     assert!(text.contains("nothing to change"), "got {text}");
+    assert!(
+        text.contains("track"),
+        "a track is one of the answers: {text}"
+    );
     std::fs::remove_dir_all(dir).ok();
 }
 
