@@ -212,6 +212,16 @@ mod tests {
     }
 
     #[test]
+    fn a_project_path_is_served_at_the_url_that_answers_with_it() {
+        let dir = project();
+        let url = url_of("pages/title.html");
+        assert_eq!(url, "https://page.scorsese/pages/title.html");
+        assert!(
+            matches!(answer(&url, &dir.0), Answer::File { path, .. } if path == "pages/title.html")
+        );
+    }
+
+    #[test]
     fn a_missing_file_is_missing_and_everything_outside_is_refused() {
         let dir = project();
         assert_eq!(
