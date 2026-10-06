@@ -472,7 +472,10 @@ runs the deploy's update step (`docs/web.md`, *Updating*), and what that step
 does to their data only goes forward: the server's SQL migrations, and a
 `schema_version` bump rewriting every stored project. So the report lists,
 before anything else, every unrun human check and every such migration in what
-merged — that list is what the operator reads before updating the service.
+merged — that list is what the operator reads before updating the service. The
+human checks come from `make checks SINCE=<when the batch started>` (#821),
+never gathered by hand: it reads every merged description's human-check section
+and leaves out what the user has already ticked.
 
 ## Learn from the batch: every lesson ends as a change
 
@@ -544,6 +547,9 @@ checkout runs what was merged. Last, once nothing is compiling:
 
 The user is not reading the transcript of a batch. They take long — often hours,
 usually overnight — and the transcript is, if anything, notes for Claude itself.
+
+**The unrun human checks open the report**, pasted from `make checks
+SINCE=…` (see *Merging is not shipping*).
 
 **When things go well, say what the result was.** When things did not go as one
 would expect, say what the surprise was. That does not necessarily mean things

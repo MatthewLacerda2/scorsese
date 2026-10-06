@@ -515,6 +515,17 @@ web-gates:
 
 ##@ Merging — asked of GitHub, not of the code
 
+# What merging left for a human: every unticked item under a human-check
+# heading in the pull requests merged since SINCE, as Markdown to paste into
+# a batch report. A human check is never a merge hold, so this is where they
+# come back together (#821, the script's docstring has the rest).
+.PHONY: checks
+checks: ## Unticked human checks in PRs merged since then. make checks SINCE=2026-10-05T18:00:00Z
+	@test -n "$(SINCE)" || { \
+		echo "checks: since when? e.g. make checks SINCE=2026-10-05T18:00:00Z (UTC)" >&2; \
+		exit 1; }
+	@python3 .github/scripts/human-checks.py --since "$(SINCE)"
+
 # Neither a gate nor a signal, because it is not about this code at all.
 # `make gates` answers "is this good?"; this answers "did anything check it?",
 # which is a question about GitHub and can only be asked once a pull request
