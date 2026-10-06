@@ -233,7 +233,12 @@ on CI: it marks its pull request ready and ends, and the merge queue waits for
 the run; a red run comes back to the orchestrator as a hand-back. Anything else
 it must wait for (a measurement workflow, say) is polled in the foreground too.
 From here, `worker_status: idle` on `list_runs` with a draft PR is the stall's
-signature; the fix is a fresh routine briefed to finish the pushed branch.
+signature, **but read the run's log before calling it one**: on 2026-10-05
+#775's coder sat `idle` between notifications from a background mutation sweep
+and its own Monitor, and each one woke it, so the background wait worked there.
+Idle with a background task still running, and the log's last turn saying what
+it waits for, is waiting; idle with nothing pending is the stall, and the fix
+is a fresh routine briefed to finish the pushed branch.
 
 **The container's disk is finite too**, and **what it costs** is a cold build of
 the whole dependency tree, with no local compile cache to help — so choose it on
@@ -319,6 +324,7 @@ Decisions: <anything already settled, or "none">.
 ### What the orchestrator keeps, and where (2026-10-03)
 
 - **GitHub is the batch's state.** Open PRs, their draft/ready state and comments, plus `RemoteTrigger list` for the routines, are enough to resume a batch from nothing. The orchestrator's own notes (a queue list, a routine table) are conveniences. Never keep anything **only** in `/tmp`: the scratchpad lives there, and a reboot wipes it. On 2026-10-02 a machine crash mid-batch took the merge queue's list and the routine table with it, and the batch resumed from GitHub alone.
+- **Stop a watch by its PID, never `pkill -f merge-queue.py`.** Every repository the operator batches runs the same script name, and on 2026-10-05 a rusty session's `pkill -f "merge-queue.py --watch"` killed scorsese's watch mid-wait. Nothing was lost (it was only waiting on CI, and a re-run resumes), but the same pattern mid-push would have been a hand-back to untangle. Hold the PID of the watch you started (the harness's background task) and stop that.
 - **Never wait on another process by `pgrep -f <text>`.** The waiting shell's own command line contains the text, so it waits on itself forever (about 25 minutes lost on 2026-10-02). Wait on a PID you hold. With `make queue WATCH=1` (#690) there is nothing to chain: one watch takes everything labelled `queue`, and the merge order is on GitHub, not in a list.
 - **Watch each PR's head commit, not only its draft/ready state.** A rebased PR stays *ready* the whole time, so a watcher keyed on state never sees the push. The queue's watch keys on the head for exactly this reason; your own reading of a re-pushed PR still waits for the coder's PR comment ("rebased, gates green"). If the push should *not* be retaken yet, take the `queue` label off first.
 - **The queue lands the broad PR last itself (#738).** A PR that adds an asset kind or a tool touches every registry, so whichever lands first sends every sibling touching those lists back with a conflict. On 2026-10-03, #677 landing first handed back #676, #686 and #673, each rebased one after another (an hour apiece). The watch now takes the PR that textually conflicts with the fewest others in line first, so the small appenders land and the broad PR takes the one hand-back. Nothing to remember; label all of them `queue` together and the order follows. #691 removes most of these conflicts at the source.

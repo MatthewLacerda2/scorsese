@@ -117,6 +117,7 @@ Survivors in code you wrote: fix, exclude with a reason, or file (`ci-merge`).
   `refs #N`), a **Gates** line (what ran green, on which head, what did not and
   why), a checklist for anything only a human can check, ending with
   `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
+- **You cannot delete a branch** from the container (the proxy refuses it, through git and the API alike). A throwaway branch you pushed (a measurement, a probe) is named in the PR's human checklist for the orchestrator to delete (#772's `772-measure`).
 - Commits end with your session's `Co-Authored-By:` trailer. Push often: a dead
   container loses what is not pushed.
 - A decision the issue left open takes the default it, CLAUDE.md or Filmora 9
