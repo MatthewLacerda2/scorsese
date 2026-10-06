@@ -20,6 +20,9 @@ pub(super) struct Asked<'a> {
     pub(super) instants: &'a [Frames],
     /// Each cell's raster.
     pub(super) resolution: Resolution,
+    /// Where the cells' shape came from, said after their raster — empty
+    /// unless the edit chose it.
+    pub(super) shaped: &'a str,
     pub(super) ruled: bool,
     /// The caller's `out`, as given and as resolved.
     pub(super) kept: Option<(&'a str, &'a Path)>,
@@ -54,9 +57,10 @@ pub(super) fn reply(asked: Asked<'_>) -> Result<Reply, String> {
         ""
     };
     let mut said = format!(
-        "contact sheet of {} at {} cells{ruler}, left to right then down: {}",
+        "contact sheet of {} at {} cells{}{ruler}, left to right then down: {}",
         asked.project.name,
         asked.resolution,
+        asked.shaped,
         cells.join(", ")
     );
     if let Some((given, _)) = asked.kept {

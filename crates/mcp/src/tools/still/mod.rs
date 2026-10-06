@@ -24,11 +24,12 @@
 //! cost less than one full frame, and the change between them is visible
 //! because they sit side by side.
 
+mod raster;
 mod sheet;
 
 use schemars::{JsonSchema, Schema, SchemaGenerator};
 use scorsese_core::{Fps, Frames};
-use scorsese_render::{Cue, RenderSettings, Renderer, Resolution, Tools, frames, grid};
+use scorsese_render::{Cue, RenderSettings, Renderer, Tools, frames, grid};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -36,26 +37,6 @@ use crate::tools::args::{self, ProjectDir, Required};
 use crate::tools::inspect::load;
 use crate::tools::scratch::Scratch;
 use crate::tools::{Costs, Part, Reply, Tool};
-
-/// What the frame is composited at when nobody says.
-///
-/// Smaller than a delivery raster on purpose, and it costs almost nothing in
-/// fidelity: everything a title or a layout is placed by is a fraction of the
-/// frame, so 1280x720 is the same picture as 1920x1080 with fewer pixels in it.
-/// The exception is a clip with `fit: native`, which is a fixed count of pixels
-/// rather than a fraction and so covers more of the smaller frame — a caller
-/// judging one of those has to ask for the raster the render will use. What it
-/// saves is the wire — an image block is base64 inside one JSON line, and a
-/// client asking for a frame while it works should not be sending megabytes to
-/// see a cut. A caller who wants the delivery raster asks for it.
-const DEFAULT_RASTER: &str = "1280x720";
-
-/// What each cell of a sheet is composited at when nobody says.
-///
-/// A quarter of [`DEFAULT_RASTER`]'s area, so five cells together cost about
-/// what one frame does — and still large enough that a title in one is read,
-/// not guessed at.
-const DEFAULT_CELL: &str = "640x360";
 
 /// Frames, composited and handed back as pictures.
 pub(crate) struct Still;
@@ -70,12 +51,19 @@ struct Arguments {
     /// sentence and one picture comes back per instant, in the order asked.
     #[schemars(schema_with = "at_schema")]
     at: Value,
-    /// The raster to composite at, e.g. 1920x1080. Layout is a fraction of the
-    /// frame, so a smaller one is the same picture and a smaller reply. The
-    /// exception is a clip with fit: native, which is a fixed count of pixels
-    /// and so looks bigger in a smaller frame than it will in the delivery —
-    /// ask for the delivery raster to judge the size of one. Default 1280x720;
-    /// with sheet: true it is each cell's raster instead, default 640x360.
+    /// The shape to look in, e.g. "9:16" for a vertical edit or "1:1" for a
+    /// square one: a preview of the default's pixels in that shape (720x1280
+    /// for 9:16). Or an exact raster, e.g. 1080x1920. Default: the default's
+    /// pixels in the shape of the edit's first sized picture (the first shot,
+    /// photo or generated clip on the lowest video track), 1280x720 when
+    /// nothing on it has a size — the reply names the clip it took the shape
+    /// from. Layout is a fraction of the frame, so a preview is the same
+    /// picture as the delivery and a smaller reply; there is no need to ask
+    /// for the delivery raster to see a layout. The exception is a clip with
+    /// fit: native, which is a fixed count of pixels and so looks bigger in a
+    /// smaller frame than it will in the delivery — ask for the delivery
+    /// raster to judge the size of one. With sheet: true it is each cell's
+    /// raster instead, a quarter of the pixels (640x360, 360x640 for 9:16).
     resolution: Option<String>,
     /// Rule the picture with coordinates: a line every 0.1 of the frame,
     /// heavier at 0.5, labelled along the top and left edges, origin at the
@@ -124,7 +112,11 @@ impl Tool for Still {
          pixels a render would deliver, since it is the render pipeline with \
          the encoder taken out. One sentence and one picture comes back per \
          instant, in the order asked, so checking every section of a cut is \
-         one call rather than one per section. Needs ffmpeg, but encodes \
+         one call rather than one per section. Pictures come back preview-sized \
+         in the shape of the edit's first sized clip; for a vertical edit whose \
+         timeline does not say so (titles, pages, landscape footage cropped \
+         upright) pass resolution: \"9:16\" — never the delivery size, which \
+         costs more and shows the same layout. Needs ffmpeg, but encodes \
          nothing: seconds, not a whole render. Use it to check what \
          project_describe can only assert — that a title is readable, that a \
          layer is where it was meant to be, that a cut lands. Sketch and stale \
@@ -156,17 +148,18 @@ impl Tool for Still {
         // file as far as `out` is concerned.
         let files = if arguments.sheet { 1 } else { instants.len() };
         let kept = kept(dir, arguments.out.as_deref(), files)?;
-        let default = if arguments.sheet {
-            DEFAULT_CELL
+        let budget = if arguments.sheet {
+            raster::CELL
         } else {
-            DEFAULT_RASTER
+            raster::FRAME
         };
-        let resolution: Resolution = arguments
-            .resolution
-            .as_deref()
-            .unwrap_or(default)
-            .parse()
-            .map_err(|problem| format!("resolution: {problem}"))?;
+        let (resolution, shaped_by) =
+            raster::choose(arguments.resolution.as_deref(), &project, budget)?;
+        // Said once, in the first sentence: a preview whose shape was guessed
+        // from a clip names it, so a wrong guess is one argument to correct.
+        let shaped = shaped_by
+            .map(|asset| format!(" (the shape of {asset}; pass resolution: \"9:16\" or another aspect for a different one)"))
+            .unwrap_or_default();
 
         // Discovered per call rather than held, as `render` does: a server that
         // found ffmpeg at startup would keep insisting it was there after
@@ -186,6 +179,7 @@ impl Tool for Still {
                 dir,
                 instants: &instants,
                 resolution,
+                shaped: &shaped,
                 ruled,
                 kept: kept.as_ref().map(|(given, path)| (*given, path.as_path())),
             });
@@ -193,7 +187,7 @@ impl Tool for Still {
 
         let mut parts = Vec::with_capacity(instants.len());
         let mut told = Vec::new();
-        for at in instants {
+        for (index, at) in instants.into_iter().enumerate() {
             let (mut frame, notes) = renderer
                 .still_noted(&project, dir, at)
                 .map_err(|error| format!("compositing frame {}: {error}", at.get()))?;
@@ -212,9 +206,10 @@ impl Tool for Still {
             let seconds = project.timeline_fps.seconds(at);
             let ruler = if ruled { ", ruled 0.0 to 1.0" } else { "" };
             let mut said = format!(
-                "frame {} ({seconds:.2}s) of {} at {resolution}{ruler}",
+                "frame {} ({seconds:.2}s) of {} at {resolution}{}{ruler}",
                 at.get(),
-                project.name
+                project.name,
+                if index == 0 { shaped.as_str() } else { "" },
             );
             if let Some((given, _)) = &kept {
                 said.push_str(&format!(" — written to {given}"));
