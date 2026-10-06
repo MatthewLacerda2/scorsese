@@ -960,9 +960,15 @@ box or over other text, or a page that could not be captured at all) comes back
 as a `note:` line under the frame it was found drawing, once per call. `render` puts
 the same notes in its reply.
 
-The default raster is 1280x720 rather than a delivery size, because layout is a
-fraction of the frame — the same picture with a fraction of the wire cost. Pass
-`resolution` for delivery size. **A clip with `fit: "native"` is the one
+The default is a preview, not a delivery size, because layout is a fraction of
+the frame — the same picture with a fraction of the wire cost. It is 1280x720's
+pixels in the shape of the edit's first sized picture (a probed shot or photo,
+or a generated clip's aspect, on the lowest video track): 1280x720 for a
+landscape edit, 720x1280 for a 9:16 one, 960x960 for a square one, and the
+reply names the clip the shape came from (#827). A project has no shape of its
+own, so where the timeline does not say — titles, pages, landscape footage
+cropped upright — pass an aspect: `"resolution": "9:16"` is that preview in that
+shape. Pass a raster such as `1080x1920` for delivery size. **A clip with `fit: "native"` is the one
 exception**: it is a fixed count of pixels rather than a fraction, so it covers
 more of a small frame than of a large one and looks bigger in the default raster
 than it will in the delivery. Ask for the delivery raster before judging the
