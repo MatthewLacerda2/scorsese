@@ -180,6 +180,20 @@ side effect of a feature PR.
   animates.
 - **Generality rule: core defines property types, never property values.** We
   make text color choosable; we never write "make text red".
+- **New motion graphics are pages; the native graphics are frozen** (the
+  maintainer, 2026-10-06). An html clip (#594, `docs/pages.md`) can do what
+  native shapes, icons and text animation do, and more. The 2026-10-06 video
+  was built from twelve pages and no native graphics, where the 2026-10-01 one
+  used 128 shapes. So **native `text` and `color` stay as the fast path**:
+  instant to preview, one tool call, working on every platform and on the web.
+  **`shape`, `icon`, arrows with `attach` / `follow`, text `reveal` / `number`
+  and gradients are frozen**: bugs are fixed, nothing is added. A new graphics
+  capability (a text shadow, a new gradient, a title preset) goes to pages and
+  their motion kit (#812), never to the native kinds. Nothing is removed yet:
+  pages cannot be captured on the web (#778) or on Windows (#797) and preview
+  slowly (#809), and removing a kind is a format change with a migration.
+  Revisit once those land and the tool-call record shows no new native shapes
+  being made.
 - **Audio is first-class.** Audio tracks with keyframable volume; auto-ducking
   of music under narration is a planned feature, not an afterthought.
 - **`core` and `cli` never touch a display.** No window, no GPU surface, no
