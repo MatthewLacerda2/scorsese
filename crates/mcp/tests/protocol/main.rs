@@ -29,6 +29,7 @@ mod looking;
 mod matting;
 mod moving;
 mod pacing;
+mod paging;
 mod paying;
 mod placing;
 mod progressing;

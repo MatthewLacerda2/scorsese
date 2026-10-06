@@ -76,8 +76,9 @@ impl Tool for Render {
          composites a frame. Sketch and stale generated assets render as slug \
          cards rather than failing, so a preview cut always produces something. \
          The reply says how loud the delivered file came out, and when the \
-         soundtrack had to be turned down to keep a lossy codec from clipping. \
-         It renders in the background: the answer is a job id at once, jobs \
+         soundtrack had to be turned down to keep a lossy codec from clipping, \
+         and carries a note for each web page that could not be captured or \
+         asked for something it was not given. It renders in the background: the answer is a job id at once, jobs \
          says how far it has got and what it wrote, and job_cancel stops it. \
          Pass wait: true to answer only when the file is written instead."
     }
@@ -203,6 +204,12 @@ fn prepared(dir: &Path, arguments: &Arguments) -> Result<(String, PathBuf, Work)
         let mut words = format!("wrote {said} — {}, as {format}", say::written(&report));
         for line in say::delivery(&report) {
             words.push_str(&format!("\n{line}"));
+        }
+        // What the CLI prints as `note:` lines, in the same words: a page
+        // that could not be captured, or one that asked for something it was
+        // not given (#777). An agent cannot fix what it is not told.
+        for note in &report.notes {
+            words.push_str(&format!("\nnote: {note}"));
         }
         Ok(words)
     });

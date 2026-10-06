@@ -104,6 +104,9 @@ shape.
 - **docs/recipes.md** — the synthesis recipe format: what to write in
   `recipes/*.json` to get an effect or a score out of `scorsese synth`. Free,
   offline, deterministic — read it before reaching for a sound file.
+- **docs/pages.md** — how to write a web page the timeline plays: the contract
+  it is drawn under, what is there offline, and worked pages. Read it before
+  writing one.
 - **docs/prompts.md** — the other brief: what a provider actually does with
   certain words, each entry learned by paying for a generation. Read it before
   writing a prompt, because being wrong about one is not free.

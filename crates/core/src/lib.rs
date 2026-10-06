@@ -139,10 +139,10 @@ pub use placing::{
     PlaceError, Placement, RelocateError, Relocation, RemoveError, Removed, Trim, TrimError,
 };
 pub use pool::{
-    AssetHealth, AssetStatus, Gap, HashCheck, Import, ImportError, Imported, Listed, ProbeOutcome,
-    Probed, Reprobe, SequenceChange, SequenceChanged, SequenceError, SequenceImport, SkipReason,
-    Skipped, asset_id_for, asset_status, change_sequence, hash_bytes, import_asset, import_path,
-    import_sequence, listing, probe_assets, unprobed_assets,
+    AssetHealth, AssetStatus, Gap, HashCheck, Import, ImportError, Imported, Listed, PageError,
+    PageWritten, ProbeOutcome, Probed, Reprobe, SequenceChange, SequenceChanged, SequenceError,
+    SequenceImport, SkipReason, Skipped, asset_id_for, asset_status, change_sequence, hash_bytes,
+    import_asset, import_path, import_sequence, listing, probe_assets, unprobed_assets, write_page,
 };
 pub use probe::{ProbeError, ProbeMedia};
 pub use project::{

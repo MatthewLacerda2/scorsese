@@ -297,6 +297,21 @@ pub(crate) enum Command {
         #[arg(long, value_enum)]
         kind: Option<KindArg>,
     },
+    /// Write a web page the timeline plays as a moving picture with alpha, or
+    /// print one.
+    ///
+    /// With a file, its HTML becomes the page called ID: an id nothing
+    /// answers to makes an html asset and its file under pages/, the id of a
+    /// page already there replaces that page's file whole. Without one, the
+    /// page is printed as it is on disk. docs/pages.md has the contract a page
+    /// is drawn under.
+    Page {
+        /// The page's asset id, e.g. lower-third.
+        id: String,
+        /// The HTML to write, or `-` for standard input. Without it, the page
+        /// is printed instead.
+        file: Option<PathBuf>,
+    },
     /// Stills played in order, each held for a number of frames, once or on a
     /// loop: a rendered frame directory, a timelapse, stop motion, a looping
     /// drawing. Import a folder of frames as one, or make or change one from

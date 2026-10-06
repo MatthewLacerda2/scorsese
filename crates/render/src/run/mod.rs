@@ -376,6 +376,22 @@ impl<'a> Renderer<'a> {
         project_root: &Path,
         at: Frames,
     ) -> Result<Frame, RenderError> {
+        self.still_noted(project, project_root, at)
+            .map(|(frame, _)| frame)
+    }
+
+    /// [`Renderer::still`], and what drawing it noticed that the picture
+    /// cannot say: a page that could not be captured, or one that asked for
+    /// something it was not given (#777). The notes a render's report would
+    /// carry for the pages on screen at `at`, for a caller that tells somebody
+    /// — an agent cannot fix a page it is not told about. A window redrawing
+    /// a scrub has nobody to tell, and calls [`Renderer::still`].
+    pub fn still_noted(
+        &self,
+        project: &Project,
+        project_root: &Path,
+        at: Frames,
+    ) -> Result<(Frame, Vec<Note>), RenderError> {
         still::compose(
             self.tools,
             self.chrome.as_ref(),

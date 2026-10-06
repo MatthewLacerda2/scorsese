@@ -28,6 +28,7 @@ use crate::page::Chrome;
 use crate::plan::{FrameRange, Plan};
 use crate::preview::Preview;
 use crate::raster::Sizes;
+use crate::report::Note;
 use crate::settings::RenderSettings;
 use crate::tools::Tools;
 use crate::workers::Workers;
@@ -49,7 +50,7 @@ pub(super) fn compose(
     project: &Project,
     project_root: &Path,
     at: Frames,
-) -> Result<Frame, RenderError> {
+) -> Result<(Frame, Vec<Note>), RenderError> {
     let plan = Plan::build(project, settings.fps, FrameRange::just(at))?;
     let sizes = Sizes::measure(tools, &plan, project_root)?;
     // A still is the case a held animation is most often opened part-way
@@ -58,8 +59,9 @@ pub(super) fn compose(
     let loops = Loops::measure(tools, &plan, project_root);
     // A page on screen is captured whole, not just this instant: its clock
     // has to run from zero to get here, and the capture is cached for every
-    // scrub after this one. What it noticed has nowhere to go from a still.
-    let (pages, _) = Pages::capture(tools, chrome, &settings, &plan, project_root);
+    // scrub after this one. What it noticed goes back with the frame, for a
+    // caller that has somebody to tell.
+    let (pages, notes) = Pages::capture(tools, chrome, &settings, &plan, project_root);
     let mut stage = Stage::new();
     let pass = Pass {
         tools,
@@ -92,5 +94,6 @@ pub(super) fn compose(
         still = Some(frame.clone());
         Ok(())
     })?;
-    Ok(still.expect("a pass over one frame composites exactly one frame"))
+    let still = still.expect("a pass over one frame composites exactly one frame");
+    Ok((still, notes))
 }

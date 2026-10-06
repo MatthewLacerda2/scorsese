@@ -1,6 +1,7 @@
 //! Bringing a page in: copied into `pages/`, neither probed nor hashed.
 
 mod kept;
+mod written;
 
 use crate::common::stub_probe::StubProbe;
 use crate::common::{new_project, source_file};

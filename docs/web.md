@@ -727,9 +727,9 @@ file its owner does not have is refused with the assets named, and a file a
 project uses cannot be deleted. A composite key to `projects (id, user_id)` stops a row
 pointing at another user's project.
 
-**Recipes and the script live in `project_files`** (#560): one row per file,
-keyed by (project, project-relative path), holding its text — every file under
-`recipes/`, plus the script and any recipe the document names elsewhere; never
+**Recipes, pages and the script live in `project_files`** (#560, #777): one
+row per file, keyed by (project, project-relative path), holding its text —
+every file under `recipes/` and `pages/`, plus the script and any recipe the document names elsewhere; never
 `project.json` or anything under `assets/`, `generated/` or `cache/`. These are
 the authored files a `.scor` folder keeps beside its document and cannot
 rebuild. A table keyed by path rather than library items (a recipe is text
@@ -768,9 +768,10 @@ updating. Local folders go through the same steps with `scorsese migrate`.
 
 Deliberately storage verbs only: what a project *says* is changed by `core`'s
 editing functions, through the tools (*Web MCP*, #540) and the editor (#545).
-Recipes and the script are read and written through the tools too
-(`synth_*`, `script_read`, `script_write`); there is no route for them and no
-recipe editor in the pages.
+Recipes, pages and the script are read and written through the tools too
+(`synth_*`, `page_read`, `page_write`, `script_read`, `script_write`); there is
+no route for them and no recipe or page editor in the front-end — the user never
+sees a page's HTML (#594).
 
 ## Credits
 
@@ -1114,7 +1115,7 @@ the web — or be left off it — without a reason written down.
 | served | how |
 | --- | --- |
 | the *document tools*, listed below | as they are, on the stored project |
-| the *project-file tools*, listed below | as they are; the script and recipes they read and write are the project's `project_files` (*Projects*). A script or recipe written under `assets/`, `generated/` or `cache/` is refused whole, since nothing there is kept |
+| the *project-file tools*, listed below | as they are; the script, pages and recipes they read and write are the project's `project_files` (*Projects*). A script or recipe written under `assets/`, `generated/` or `cache/` is refused whole, since nothing there is kept |
 | `synth_bake` | without `out`; each new bake is **kept in the library** as a generation, its address (recipe and synthesiser) as its brief hash, before the document naming it is saved — so it renders, and is linked into every later layout by hash. A partial bake's file is gone with the folder; its report is in the reply |
 | `look`, `hear`, `audio_level` | their file arguments must be paths inside the project (`assets/…`, `generated/…`) — locally they may name anything on the machine, and here the machine is everybody's |
 | `still` | without `out`: nothing is kept on the server's disk; the picture is in the reply |
@@ -1173,6 +1174,8 @@ recipes:
 
 - `script_read`
 - `script_write`
+- `page_write`
+- `page_read`
 - `synth_new`
 - `synth_kit`
 - `synth_read`

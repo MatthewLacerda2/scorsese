@@ -108,6 +108,8 @@ the tools relate to each other, which is knowledge no single tool has.
 | `duck_music` | Lower a music track while narration plays over it, by writing ordinary volume keyframes on its clips. | nothing |
 | `set_volume` | Set how loud one clip plays — a level, a mute, or a fade between two points — by writing the ordinary volume keyframes you would place by hand, which stay editable afterwards. | nothing |
 | `scale_pacing` | Move some clips toward or away from one instant, all by the same factor — the operation for pacing. | nothing |
+| `page_write` | Write a web page — a title card, a lower third, an animated chart — as an html asset the timeline plays like footage with alpha. | nothing |
+| `page_read` | Read a web page's HTML exactly as it is on disk. | nothing |
 | `synth_new` | Start a new sound: writes a starter recipe into recipes/ and adds the synth_audio asset that points at it. | nothing |
 | `synth_kit` | List the ready-made instruments a recipe can start from, or show one instrument's patch. | nothing |
 | `synth_import` | Read a Standard MIDI File into a song recipe in recipes/ and add the synth_audio asset that points at it, the way synth_new does. | nothing |
@@ -919,6 +921,14 @@ compositor. Nothing is encoded and no video file is produced, so it costs
 seconds rather than a render. Sketch and stale generated assets appear as slug
 cards, exactly as they would in a preview cut.
 
+**A web page on screen is captured first**, by a headless browser, once: later
+calls and the render reuse the capture until the page or a file it loads
+changes. What drawing it noticed and the picture cannot show (a request refused
+because pages render offline, a file it asked for that is not in the project, a
+script that threw, or a page that could not be captured at all) comes back as a
+`note:` line under the frame it was found drawing, once per call. `render` puts
+the same notes in its reply.
+
 The default raster is 1280x720 rather than a delivery size, because layout is a
 fraction of the frame — the same picture with a fraction of the wire cost. Pass
 `resolution` for delivery size. **A clip with `fit: "native"` is the one
@@ -1527,6 +1537,24 @@ override and every refusal mean the same thing from either one — and the
 refusal comes before the project is opened, never after an encode. The reply
 names the format it wrote, because until it did an `.avi` could come back as an
 mp4 under a lying extension and nothing said so.
+
+## Writing a page
+
+`page_write` and `page_read` are the pair for the third authored document, after
+the script and the recipes: a web page an `html` asset plays as a picture with
+alpha. There is no `page_new`: writing a name nothing answers to makes the page
+(its asset and `pages/<id>.html`), and writing it again replaces the file whole.
+The loop is the synthesiser's, with `still` for the ear:
+
+```
+page_write  → the whole document; a new name makes the page
+place_clip  → on a video track, like any picture
+still       → look, and read the notes under the frame
+page_read   → what it says now, before the next write
+```
+
+How to write one well — the contract a page is drawn under, what it can load
+offline, and four worked pages — is [`pages.md`](pages.md).
 
 ## Making sound
 

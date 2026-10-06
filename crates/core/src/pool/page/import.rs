@@ -20,12 +20,12 @@ use crate::asset::{Asset, AssetId, AssetKind, is_page_path};
 use crate::path::ProjectPath;
 use crate::project::{PAGES_DIR, Project};
 
-use super::import::ImportError;
-use super::naming::{unique_asset_id, unique_file_name};
+use super::super::import::ImportError;
+use super::super::naming::{unique_asset_id, unique_file_name};
 
 /// Copies a page into `pages/` and adds it to the assets table as an `html`
 /// asset. Returns the id to reference from a clip.
-pub(super) fn import_page(
+pub(in crate::pool) fn import_page(
     project: &mut Project,
     project_root: &Path,
     source: &Path,

@@ -141,10 +141,11 @@ fn a_synth_card_names_its_recipe_rather_than_a_prompt_it_never_had() {
     assert!(!wording.contains("no prompt"), "got {wording}");
 }
 
-/// A page carries no brief, so its card names the page — and says it has not
-/// been captured, which in this build is every page (#775).
+/// A page carries no brief, so its card names the page. The description,
+/// though, says what was asked — a page — and never whether a capture exists:
+/// that is a fact about disk, and a render reports a failed one (#799).
 #[test]
-fn a_page_is_a_card_naming_the_page() {
+fn a_page_is_described_as_its_page_not_as_its_card() {
     use scorsese_core::{Asset, AssetId, ProjectPath};
 
     let page = Asset::imported(
@@ -158,10 +159,11 @@ fn a_page_is_a_card_naming_the_page() {
 
     assert_eq!(
         description.stretches[0].picture[0].shows,
-        Shown::Card {
-            absent: Absent::Uncaptured,
-            prompt: "pages/title.html".to_owned(),
+        Shown::Page {
+            path: "pages/title.html".to_owned(),
         }
     );
-    assert!(format!("{description}").contains("title (card, not captured)"));
+    let said = format!("{description}");
+    assert!(said.contains("title (page pages/title.html)"), "{said}");
+    assert!(!said.contains("not captured"), "{said}");
 }
