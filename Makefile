@@ -328,10 +328,18 @@ docs: ## [gate] cargo doc with -D warnings: a broken intra-doc link is a failure
 # skipping, so `tools/with-postgres` supplies one — a throwaway container for
 # the length of the run, or SCORSESE_TEST_DATABASE_URL when set. Its header has
 # the reasoning; CI gets the same from a service container.
-test: ## [gate] The whole suite, golden renders and database included (needs ffmpeg, nextest, docker)
+#
+# The pinned chrome-headless-shell joins them for the same reason (#775): the
+# page goldens capture real pages and fail without it. `tools/chromium/fetch`
+# downloads and verifies the build `tools/chromium/pin` names.
+test: ## [gate] The whole suite, golden renders and database included (needs ffmpeg, Chromium, nextest, docker)
 	@command -v ffmpeg >/dev/null 2>&1 || { \
 		echo "test: ffmpeg is not on PATH -- the render and golden tests need it." >&2; \
 		echo "      Install it from your package manager, or point SCORSESE_FFMPEG at a binary." >&2; \
+		exit 1; }
+	@[ -x "$${SCORSESE_CHROME:-}" ] || command -v chrome-headless-shell >/dev/null 2>&1 || { \
+		echo "test: no chrome-headless-shell -- the page goldens capture with it." >&2; \
+		echo '      export SCORSESE_CHROME="$$(tools/chromium/fetch)"' >&2; \
 		exit 1; }
 	@$(NEXTEST_CHECK)
 	tools/with-postgres cargo nextest run --workspace --locked

@@ -3268,6 +3268,7 @@ dependencies = [
 name = "scorsese-render"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "scorsese-compositor",
  "scorsese-core",
  "scorsese-zimmer",

@@ -24,12 +24,15 @@ use scorsese_core::{Frames, Project};
 
 use crate::error::RenderError;
 use crate::held::Loops;
+use crate::page::Chrome;
 use crate::plan::{FrameRange, Plan};
 use crate::preview::Preview;
 use crate::raster::Sizes;
 use crate::settings::RenderSettings;
 use crate::tools::Tools;
 use crate::workers::Workers;
+
+use super::pages::Pages;
 
 use super::segment::{Pass, Stage};
 
@@ -40,6 +43,7 @@ use super::segment::{Pass, Stage};
 /// picture would be inventing one.
 pub(super) fn compose(
     tools: &Tools,
+    chrome: Option<&Chrome>,
     settings: RenderSettings,
     preview: Option<&Preview>,
     project: &Project,
@@ -52,6 +56,10 @@ pub(super) fn compose(
     // through: scrubbing two seconds into a gif must show where the gif is at
     // two seconds, which the delivered file does.
     let loops = Loops::measure(tools, &plan, project_root);
+    // A page on screen is captured whole, not just this instant: its clock
+    // has to run from zero to get here, and the capture is cached for every
+    // scrub after this one. What it noticed has nowhere to go from a still.
+    let (pages, _) = Pages::capture(tools, chrome, &settings, &plan, project_root);
     let mut stage = Stage::new();
     let pass = Pass {
         tools,
@@ -59,6 +67,7 @@ pub(super) fn compose(
         plan: &plan,
         sizes: &sizes,
         loops: &loops,
+        pages: &pages,
         project_root,
         // One frame has nothing to parallelise, and a still is one frame. The
         // pool would be capped to this anyway; saying it here means a scrub

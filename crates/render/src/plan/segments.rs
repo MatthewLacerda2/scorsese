@@ -210,9 +210,10 @@ fn cuts(
 /// not. An asset with no lifecycle at all — an imported clip, a title — always
 /// shows itself.
 ///
-/// A **page** is a card too: nothing in this build captures one yet (#775), and
-/// the card is also what a page that could not be captured shows once something
-/// does — a stand-in, never a failed render.
+/// A **page** is a card here too, because the document alone cannot say whether
+/// it has been captured: the render captures it before drawing (#775) and reads
+/// the capture in place of the card, and the card stays what a page that could
+/// not be captured shows — a stand-in, never a failed render.
 pub(super) fn showing(asset: &Asset) -> Showing {
     if asset.kind == AssetKind::Html || (asset.kind.is_generated() && !asset.has_renderable_media())
     {

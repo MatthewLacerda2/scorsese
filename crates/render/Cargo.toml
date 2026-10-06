@@ -19,4 +19,7 @@ scorsese-core = { version = "0.1.0", path = "../core" }
 scorsese-zimmer = { version = "0.1.0", path = "../zimmer" }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
+# A page's screenshots arrive as base64, and what it loads is answered in it
+# (`page`). Already the workspace's, for the MCP server and the providers.
+base64.workspace = true
 thiserror = "2.0.19"

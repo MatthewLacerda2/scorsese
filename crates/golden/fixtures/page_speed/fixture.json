@@ -1,0 +1,6 @@
+{
+  "description": "A page clip that starts half a second into the page's clock and plays it at double speed, which is footage's meaning for source_in and speed (#789). The white bar fills the width over 2 s of page time; the clip opens with the page at 0.5 s (a quarter full) and its 15 frames run the page to 1.5 s, so frame 0 is a quarter full, frame 7 just over half and frame 14 nearly three quarters. The red bar is as long as the page is told it lasts (scorsese.duration = 0.5 + 0.5 × 2 = 1.5 s, at 480 CSS px a second, so 720 of 1920 px). A white bar starting empty means source_in was ignored; one filling at half the rate means speed was.",
+  "media": { "bed": "color=c=0x204020:s=160x90:d=1:r=30" },
+  "render": { "resolution": "160x90", "fps": "30" },
+  "frames": [0, 7, 14]
+}

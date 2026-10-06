@@ -353,7 +353,12 @@ impl Pass<'_> {
             return held(pixels);
         }
 
-        let file = match slug::standing(shot, self.project_root)? {
+        let captured = self.pages.of(shot).map(std::path::Path::to_path_buf);
+        let standing = match captured {
+            Some(file) => Standing::Media(file),
+            None => slug::standing(shot, self.project_root)?,
+        };
+        let file = match standing {
             Standing::Media(file) => file,
             Standing::Card(absent) => {
                 if absent.is_a_problem() {
@@ -372,6 +377,13 @@ impl Pass<'_> {
         let (file, fitting) = self.previewed(shot, file);
         let timeline_fps = self.plan.timeline_fps();
         let mut source = source_for(shot, file, self.loops, timeline_fps, frames, fitting);
+        if shot.asset.kind == AssetKind::Html {
+            // A capture is always the raster's own size and always carries
+            // alpha: the page laid out to fill the frame, and where it drew
+            // nothing the tracks below show through.
+            source.has_alpha = true;
+            source.fitting = Fitting::Fill;
+        }
         if !shot.stills.is_empty() {
             let files = slug::still_files(shot, self.project_root)?;
             source.listed = listed_frames(shot, &files, timeline_fps, self.settings.fps, frames);

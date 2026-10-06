@@ -104,6 +104,22 @@ jobs:
           sudo apt-get install -y --no-install-recommends ffmpeg
           ffmpeg -version | head -1
 
+      # The pinned chrome-headless-shell, which `html` clips are captured with
+      # (#775) -- the page goldens and the render tests capture real pages, and
+      # fail rather than skip without it. `tools/chromium/pin` decides the build
+      # and its checksum, so the cache key is that file and a download is paid
+      # only when the pin moves. #772 measured this runner reproducing the
+      # container-blessed frames, bar one rare six-pixel race the golden
+      # tolerance absorbs.
+      - name: Chromium cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/scorsese/chromium
+          key: chromium-${{ hashFiles('tools/chromium/pin') }}
+
+      - name: Install Chromium
+        run: echo "SCORSESE_CHROME=$(tools/chromium/fetch)" >> "$GITHUB_ENV"
+
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
 

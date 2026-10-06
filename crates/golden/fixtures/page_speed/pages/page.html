@@ -1,0 +1,15 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; height: 100%; }
+  .bar { position: absolute; left: 0; top: 400px; height: 280px; width: 1920px; background: #fff;
+         transform-origin: left; transform: scaleX(0); animation: fill 2s linear forwards; }
+  @keyframes fill { to { transform: scaleX(1); } }
+</style>
+<div class="bar"></div>
+<script>
+  // The length the page is told: where its clock is at the clip's last frame.
+  const told = document.createElement("div");
+  told.style.cssText = `position:absolute;left:0;top:800px;height:120px;background:#f00;width:${scorsese.duration * 480}px`;
+  document.body.appendChild(told);
+</script>

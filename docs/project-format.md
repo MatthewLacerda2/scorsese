@@ -1579,11 +1579,56 @@ ends on the clip's last frame.
 as an `html` asset. Pages come in one at a time: a directory import passes
 them over, because a page is a document rather than media.
 
-**How it renders, today: as a slug card.** Drawing a page into frames comes
-with a headless browser (#775); until then an `html` clip renders as a
-translucent band across the foot of the frame naming the page, so the shot
-below it stays visible — and that card stays the answer for a page that could
-not be drawn.
+**How it renders: captured by a headless browser, then played like footage.**
+Before a render draws, each page clip is captured, or found already captured in
+`cache/pages/`. The pinned `chrome-headless-shell` draws the page frame by frame
+at the render's raster and frame rate, from clock 0 to the length the page is
+told, into a lossless video with alpha. From then on the clip decodes like any
+video with alpha, starting at `source_in` and running at `speed`. The browser is
+found the way ffmpeg is: `SCORSESE_CHROME`, then `chrome-headless-shell` on
+`PATH`. `tools/chromium/fetch` downloads the pinned build and prints the path.
+
+A capture is cached by everything that changes its pixels: the page and every
+file it loaded, the raster, the frame rate, the length, the browser's build and
+the capture method's own version. A page edited, or a picture it shows replaced,
+is captured again. Anything else is reused.
+
+What the page can count on:
+
+- **`window.scorsese`**, set before any of its scripts run: `width` and
+  `height` (its viewport in CSS pixels), `fps`, and `duration` (in seconds,
+  where its clock is at the clip's last frame).
+- **A viewport whose shorter side is 1080 CSS pixels**, whatever the raster.
+  A page written for 1920 × 1080 lays out the same in a small preview and a 4K
+  delivery, only softer or sharper.
+- **A clock that only moves when a frame is drawn.** `performance.now()`,
+  `Date`, `setTimeout`/`setInterval`, `requestAnimationFrame` and every CSS
+  animation, transition and Web Animation all follow the clip. Each frame is a
+  pure function of its time.
+- **A transparent background.** Where the page draws nothing, the tracks below
+  show through.
+- **The shipped faces, by name** (`font-family: Inter`, `"Playfair Display"`,
+  and the rest of the catalogue), plus any font file the project carries, loaded
+  with `@font-face`. A font it names and was not given falls back to a shipped
+  face, the same one on every machine.
+- **anime.js 3.2.2**, at `https://lib.scorsese/anime.min.js`.
+
+**Pages render offline.** The page is served from `https://page.scorsese/`,
+whose paths are the project's, so `../assets/photo.png` from `pages/` is the
+project's `assets/photo.png`. Any other request is refused, whether to another
+host or to a path outside the project. A refused request, a file the page asked
+for that is not there, or a script that threw becomes a **warning on the
+render**. The page is drawn without whatever it was.
+
+**Not covered:** `<video>` and `<audio>` inside a page (they play on their own
+clock; a warning says so, so put footage and sound on the timeline), workers'
+clocks, and `requestIdleCallback`.
+
+**A page that cannot be captured shows its slug card**, a translucent band
+across the foot of the frame naming the page, so the shot below stays visible.
+The reason goes on the report. That is a stand-in and never a failed render:
+the usual cause is no browser on the machine. Capturing on Windows is not
+supported yet (#797).
 
 `media.duration_seconds` is wall-clock, and `media.frame_rate` is a rational
 in the same shape as `timeline_fps` — a source's own grid, which is not

@@ -1,0 +1,14 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; height: 100%; }
+  .b { position: absolute; top: 700px; width: 220px; height: 220px; border-radius: 30px; background: #ef476f; }
+</style>
+<div class="b" style="left: 300px"></div>
+<div class="b" style="left: 850px"></div>
+<div class="b" style="left: 1400px"></div>
+<script src="https://lib.scorsese/anime.min.js"></script>
+<script>
+  anime({ targets: ".b", translateY: [0, -500], rotate: 180, delay: anime.stagger(200),
+          duration: 600, easing: "easeInOutQuad" });
+</script>

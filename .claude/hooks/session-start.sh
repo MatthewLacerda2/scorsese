@@ -145,6 +145,16 @@ bun_() {
     echo "bun $want"
 }
 
+chromium() {
+    # The pinned chrome-headless-shell, which `html` clips are captured with and
+    # their golden renders gate on (#775). The fetch script verifies it against
+    # tools/chromium/pin and downloads nothing on a second run.
+    local chrome
+    chrome=$(tools/chromium/fetch 2>&1 | tail -1)
+    [ -x "$chrome" ] || { echo "$chrome"; return 1; }
+    export_var SCORSESE_CHROME "$chrome"
+}
+
 step toolchain toolchain
 step hooks hooks
 step ffmpeg ffmpeg_
@@ -155,6 +165,7 @@ step postgres postgres
 step disk disk
 step bun bun_
 step app-libs app_libs
+step chromium chromium
 
 if [ -z "${CLAUDE_ENV_FILE:-}" ]; then
     echo "session-start: not run by Claude Code, so export these yourself:"

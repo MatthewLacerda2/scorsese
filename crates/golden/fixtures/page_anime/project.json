@@ -1,0 +1,21 @@
+{
+  "schema_version": 44,
+  "name": "page_anime",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    { "id": "bed", "kind": "video", "path": "assets/bed.mp4" },
+    { "id": "page", "kind": "html", "path": "pages/page.html" }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [{ "id": "c-bed", "asset": "bed", "start": 0, "duration": 30 }]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "clips": [{ "id": "c-page", "asset": "page", "start": 0, "duration": 30 }]
+    }
+  ]
+}
