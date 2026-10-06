@@ -247,6 +247,34 @@ mod tests {
     }
 
     #[test]
+    fn every_kind_of_file_a_page_loads_has_its_own_type() {
+        // Each one, because a stylesheet or a module script served as anything
+        // else is refused by the browser, and that refusal is silent.
+        for (file, mime) in [
+            ("a.html", "text/html; charset=utf-8"),
+            ("a.htm", "text/html; charset=utf-8"),
+            ("a.css", "text/css; charset=utf-8"),
+            ("a.js", "text/javascript; charset=utf-8"),
+            ("a.mjs", "text/javascript; charset=utf-8"),
+            ("a.json", "application/json"),
+            ("a.svg", "image/svg+xml"),
+            ("a.png", "image/png"),
+            ("a.jpg", "image/jpeg"),
+            ("a.jpeg", "image/jpeg"),
+            ("a.gif", "image/gif"),
+            ("a.webp", "image/webp"),
+            ("a.avif", "image/avif"),
+            ("a.woff", "font/woff"),
+            ("a.woff2", "font/woff2"),
+            ("a.ttf", "font/ttf"),
+            ("a.otf", "font/otf"),
+            ("a.txt", "text/plain; charset=utf-8"),
+        ] {
+            assert_eq!(Answer::mime(&format!("https://x/{file}")), mime, "{file}");
+        }
+    }
+
+    #[test]
     fn a_response_says_what_it_is_by_extension() {
         assert_eq!(
             Answer::mime("https://x/a.MJS?v=2"),
