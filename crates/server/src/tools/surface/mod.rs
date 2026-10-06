@@ -72,7 +72,6 @@ const STORED: &[&str] = &[
     "project_describe",
     "project_check",
     "project_assets",
-    "project_probe",
     "project_write",
     "track_new",
     "text_new",
@@ -126,7 +125,6 @@ const REPLACED: &[&str] = &[
     "import",
     "render",
     "jobs",
-    "job_cancel",
     "generate",
     "voice_design",
 ];

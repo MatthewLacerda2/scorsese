@@ -1,5 +1,5 @@
 //! Stopping work over web MCP (#660): a render is a job, so stopping it is
-//! `job_cancel`; a call still being served is stopped by
+//! `jobs` with `cancel`; a call still being served is stopped by
 //! `notifications/cancelled`, through the cancel the toolbox hands its tool.
 
 use scorsese_render::Cancel;
@@ -10,7 +10,7 @@ use sqlx::postgres::PgPool;
 use super::{call, common, document, member, post, stored};
 
 #[sqlx::test]
-async fn a_queued_render_is_stopped_by_job_cancel_and_only_by_its_owner(pool: PgPool) {
+async fn a_queued_render_is_stopped_through_jobs_and_only_by_its_owner(pool: PgPool) {
     let address = common::serve(pool.clone()).await;
     let (ana, token) = member(&pool, "ana@example.com").await;
     let (_, bob) = member(&pool, "bob@example.com").await;
@@ -23,9 +23,9 @@ async fn a_queued_render_is_stopped_by_job_cancel_and_only_by_its_owner(pool: Pg
         .and_then(|word| word.trim_end_matches(',').parse().ok())
         .unwrap_or_else(|| panic!("no job in {queued}"));
 
-    let (said, refused) = call(address, &bob, "job_cancel", json!({ "job": job })).await;
+    let (said, refused) = call(address, &bob, "jobs", json!({ "cancel": job })).await;
     assert!(refused && said.contains("no such job"), "{said}");
-    let (said, refused) = call(address, &token, "job_cancel", json!({ "job": job })).await;
+    let (said, refused) = call(address, &token, "jobs", json!({ "cancel": job })).await;
     assert!(!refused && said.contains("cancelled"), "{said}");
     let (said, _) = call(address, &token, "jobs", json!({ "job": job })).await;
     assert!(said.contains("cancelled before it started"), "{said}");

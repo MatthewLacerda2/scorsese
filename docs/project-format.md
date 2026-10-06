@@ -177,8 +177,9 @@ re-importing or regenerating a file is one edit in one place.
 ```
 
 `media` is what something measured, never what anyone chose — so an asset you
-write by hand leaves it out and has it filled in later. `scorsese probe` (and
-`project_probe` over MCP) reads every asset that has a file and no `media`;
+write by hand leaves it out and has it filled in later. `scorsese probe` reads
+every asset that has a file and no `media`, and `project_write` over MCP does
+it for every document it writes;
 import does the same for what it brings in, and the window does it in the
 background when it opens a project. Anything that needs a source's own length
 reads `duration_seconds`, so an asset nobody has probed is one those features

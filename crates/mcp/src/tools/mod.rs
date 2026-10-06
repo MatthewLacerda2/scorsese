@@ -241,7 +241,7 @@ pub trait Tool: Send + Sync {
     /// under the call's cancel, beside the session's renders, with somewhere
     /// to report progress when the client asked for it.
     ///
-    /// Only `render`, `jobs` and `job_cancel` (#700) override this — they are
+    /// Only `render` and `jobs` (#700) override this — they are
     /// the tools with something to say about work that outlives a call. Every
     /// other one is [`Tool::call_cancellable`].
     fn call_in(&self, arguments: &Value, context: &mut Context<'_>) -> Result<Reply, String> {
@@ -288,7 +288,6 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(inspect::Check),
         Box::new(inspect::Assets),
         Box::new(edit::Import),
-        Box::new(edit::Probe),
         Box::new(script::Read),
         Box::new(script::Write),
         Box::new(edit::Write),
@@ -349,10 +348,9 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(edit::Rebrief),
         Box::new(generate::Generate),
         Box::new(edit::Render),
-        // Beside the tool that starts what they follow: a render runs in the
-        // background, and these are how anyone learns how it went.
+        // Beside the tool that starts what it follows: a render runs in the
+        // background, and this is how anyone learns how it went.
         Box::new(jobs::Jobs),
-        Box::new(jobs::JobCancel),
         Box::new(still::Still),
         Box::new(look::Look),
         Box::new(hear::Hear),

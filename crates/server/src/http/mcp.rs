@@ -37,7 +37,7 @@
 //!
 //! A `render` is not stopped this way here: its call answers the moment the
 //! job is queued, so there is no call left to cancel by the time anybody
-//! wants to. Stopping the render itself is `job_cancel` (#660).
+//! wants to. Stopping the render itself is `jobs` with `cancel` (#660).
 //!
 //! ## Who: an API token, and nothing else
 //!

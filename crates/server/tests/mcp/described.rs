@@ -57,7 +57,6 @@ async fn the_registrys_tools_keep_the_registrys_words(pool: PgPool) {
             "import",
             "render",
             "jobs",
-            "job_cancel",
             "generate",
             "voice_design",
         ];

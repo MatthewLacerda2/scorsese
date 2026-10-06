@@ -1,8 +1,8 @@
-//! `render`, `jobs` and `job_cancel`: work the queue does, asked for, asked
-//! after and stopped.
+//! `render` and `jobs`: work the queue does, asked for, asked after and
+//! stopped.
 //!
 //! Locally `render` runs on its own thread in the session and answers at once
-//! with a job, which the local `jobs` and `job_cancel` follow (#700). On the
+//! with a job, which the local `jobs` follows and stops (#700). On the
 //! server a render is a job too (#541) — the machine is shared, and
 //! two at once is what it carries — and its file is kept in the render cache
 //! for download. So `render` asks for one exactly as `POST
@@ -12,8 +12,8 @@
 //! Locally a client can also wait on a render (`wait: true`) and stop it by
 //! cancelling that call (`notifications/cancelled`, #647). Here the call
 //! answers the moment the job is queued, so there is nothing left for the
-//! notification to stop, and `job_cancel` is the same "stop" said about the
-//! job (#660) —
+//! notification to stop, and `jobs`' `cancel` is the same "stop" said about
+//! the job (#660, a tool of its own until #783) —
 //! [`crate::jobs::cancel`], exactly as `POST /api/jobs/{id}/cancel` says it.
 
 use scorsese_mcp::Reply;
@@ -81,8 +81,11 @@ generations, waiting, running, done — with what each made — failed with why,
 waiting on a provider. A running render says how far it has got, as a percentage of its \
 frames and what it is doing (preparing, mixing the sound, drawing frames, finishing the \
 file), so \"how far is my render?\" has a number. Give a job id, as render and generate \
-answer with, for that one job; leave it out for your latest twenty. Read-only and free: call \
-it as often as it takes.";
+answer with, for that one job; leave it out for your latest twenty. Give `cancel` a job id to \
+stop that render instead: a waiting one never starts, a running one stops within a frame and \
+keeps no file. Only renders can be stopped — a generation is billed whether or not anybody \
+still wants it — and a job that already finished is left as it is. Free: call it as often as \
+it takes.";
 
 /// `jobs`' arguments.
 pub(super) fn jobs_schema() -> Value {
@@ -92,40 +95,18 @@ pub(super) fn jobs_schema() -> Value {
             "job": {
                 "type": "integer",
                 "description": "One job, by the id render or generate answered with."
+            },
+            "cancel": {
+                "type": "integer",
+                "description": "Stop this render, by the id render answered with. One that \
+                                already finished is left as it is and described instead."
             }
         }
     })
 }
 
-/// How a client names stopping a job.
-pub(super) const JOB_CANCEL: &str = "job_cancel";
-
-/// What stopping a job does.
-pub(super) const JOB_CANCEL_SAYS: &str = "Stop one of your renders: a waiting one never \
-starts, a running one stops within a frame and keeps no file. Give the job id render answered \
-with. Only renders can be stopped — a generation is billed whether or not anybody still wants \
-it. A job that already finished is left as it is. Free.";
-
-/// `job_cancel`'s arguments.
-pub(super) fn job_cancel_schema() -> Value {
-    json!({
-        "type": "object",
-        "properties": {
-            "job": {
-                "type": "integer",
-                "description": "The job to stop, by the id render answered with."
-            }
-        },
-        "required": ["job"]
-    })
-}
-
-/// Stop a job.
-pub(super) async fn job_cancel(caller: &Caller<'_>, arguments: &Value) -> Result<Reply, String> {
-    let id = arguments
-        .get("job")
-        .and_then(Value::as_i64)
-        .ok_or("`job` is required: the id render answered with")?;
+/// Stop the job called `id`.
+async fn cancel(caller: &Caller<'_>, id: i64) -> Result<Reply, String> {
     let toolbox = caller.toolbox;
     let job = crate::jobs::cancel(&toolbox.pool, &toolbox.queue, caller.user, id)
         .await
@@ -184,6 +165,12 @@ pub(super) async fn render(caller: &Caller<'_>, arguments: &Value) -> Result<Rep
 
 /// Where the caller's jobs are.
 pub(super) async fn jobs(caller: &Caller<'_>, arguments: &Value) -> Result<Reply, String> {
+    if let Some(cancelling) = arguments.get("cancel") {
+        let id = cancelling
+            .as_i64()
+            .ok_or("`cancel` is a job id: the number render answered with")?;
+        return cancel(caller, id).await;
+    }
     let pool = &caller.toolbox.pool;
     let listed: Vec<JobView> = match arguments.get("job").and_then(Value::as_i64) {
         Some(id) => vec![

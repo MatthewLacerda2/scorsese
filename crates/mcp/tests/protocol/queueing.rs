@@ -1,4 +1,4 @@
-//! `jobs` and `job_cancel`, asked across a live session (#700): the client
+//! `jobs`, following and stopping renders across a live session (#700): the client
 //! writes a line, reads the answer, and writes the next — over real pipes, so
 //! a background render runs on while the session waits between questions.
 
@@ -97,7 +97,7 @@ fn a_background_render_is_followed_to_the_file_it_wrote() {
     );
     assert!(dir.join("cut.mp4").is_file());
 
-    let (text, failed) = live.ask("job_cancel", json!({ "project": project, "job": 1 }));
+    let (text, failed) = live.ask("jobs", json!({ "project": project, "cancel": 1 }));
     assert!(
         !failed && text.contains("done — wrote cut.mp4"),
         "left as it is: {text}"
@@ -109,14 +109,14 @@ fn a_background_render_is_followed_to_the_file_it_wrote() {
 }
 
 #[test]
-fn job_cancel_stops_a_render_and_keeps_no_file() {
+fn cancelling_through_jobs_stops_a_render_and_keeps_no_file() {
     let dir = project("jobs-cancelled");
     let project = json!(dir);
     let mut live = Live::start();
     let arguments = json!({ "project": project, "out": "cut.mp4", "resolution": "160x90" });
     let (text, failed) = live.ask("render", arguments);
     assert!(!failed, "{text}");
-    let (text, failed) = live.ask("job_cancel", json!({ "project": project, "job": 1 }));
+    let (text, failed) = live.ask("jobs", json!({ "project": project, "cancel": 1 }));
     assert!(!failed && text.starts_with("Stopping job 1"), "{text}");
     let text = live.settled(&project, 1);
     assert!(text.starts_with("job 1 (render): cancelled — "), "{text}");
