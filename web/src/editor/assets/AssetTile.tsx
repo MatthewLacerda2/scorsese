@@ -64,6 +64,7 @@ export function TileView(props: ViewProps) {
   const { asset, stills, uses, words: t } = props;
   const name = asset.text ?? asset.id;
   const state = asset.state && (t.state as Record<string, string>)[asset.state];
+  const label = stills > 0 ? t.photos(name, stills) : name;
   return (
     <div
       className={`group relative rounded-lg p-0.5 ${kindColor(asset.kind)}`}
@@ -79,8 +80,8 @@ export function TileView(props: ViewProps) {
         className="flex w-full cursor-grab flex-col overflow-hidden rounded-md bg-background text-left active:cursor-grabbing"
       >
         <Picture shown={props.shown} src={props.src} state={asset.state} kind={asset.kind} />
-        <span className="w-full truncate px-1.5 pt-1 text-xs font-medium" title={name}>
-          {stills > 0 ? t.photos(name, stills) : name}
+        <span className="w-full truncate px-1.5 pt-1 text-xs font-medium" title={label}>
+          {label}
         </span>
         <span className="w-full truncate px-1.5 pb-1 text-[11px] text-muted-foreground">
           {kindName(asset.kind, t.kinds)}
@@ -88,30 +89,29 @@ export function TileView(props: ViewProps) {
           {uses > 0 ? ` · ${uses}×` : ""}
         </span>
       </button>
-      <div className="absolute top-1 right-1 flex gap-1">
-        {stills > 0 && (
-          <Button
-            size="icon-xs"
-            variant="secondary"
-            aria-expanded={props.open}
-            aria-label={props.open ? t.fold(asset.id) : t.unfold(asset.id)}
-            onClick={props.onFold}
-          >
-            {props.open ? <ChevronDownIcon /> : <ChevronRightIcon />}
-          </Button>
-        )}
+      {stills > 0 && (
         <Button
           size="icon-xs"
           variant="secondary"
-          aria-label={t.remove(asset.id)}
-          title={t.removeTitle}
-          disabled={props.pending}
-          onClick={props.onRemove}
-          className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+          aria-expanded={props.open}
+          aria-label={props.open ? t.fold(asset.id) : t.unfold(asset.id)}
+          onClick={props.onFold}
+          className="absolute top-1 left-1"
         >
-          <Trash2Icon />
+          {props.open ? <ChevronDownIcon /> : <ChevronRightIcon />}
         </Button>
-      </div>
+      )}
+      <Button
+        size="icon-xs"
+        variant="secondary"
+        aria-label={t.remove(asset.id)}
+        title={t.removeTitle}
+        disabled={props.pending}
+        onClick={props.onRemove}
+        className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+      >
+        <Trash2Icon />
+      </Button>
     </div>
   );
 }
