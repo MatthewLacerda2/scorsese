@@ -379,7 +379,8 @@ retried an hour later. Each run:
   `<remote>/db`, where they are kept `SCORSESE_BACKUP_KEEP_DAYS`;
 - syncs `library/` to `<remote>/library`, and moves every remote file the sync
   would delete or overwrite into `<remote>/library-replaced/<when>` for the same
-  number of days — so a bug that deletes users' files is not faithfully
+  number of days, counted from `<when>` (when it was replaced, not when it was
+  uploaded) — so a bug that deletes users' files is not faithfully
   mirrored into the backup that night.
 
 The container's health is the backups': **unhealthy** once the last good one is

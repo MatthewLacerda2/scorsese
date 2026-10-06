@@ -36,10 +36,31 @@ echo "backup: dumps copied to $remote/db"
 
 mkdir -p /data/library
 rclone sync /data/library "$remote/library" --backup-dir "$remote/library-replaced/$when"
-# Made first: on the first nights nothing has been replaced yet, and deleting
-# from a folder that does not exist is an error that would end the backup here.
+# Pruned by folder, and the folder's name is the age (#830). A file's own time
+# is when it was first uploaded, which a replacement keeps, so pruning by file
+# age dropped a 40-day-old file the night after it was replaced. And deleting
+# files then their emptied folders failed on any folder still holding a young
+# file, which ended every run from the first one with something to keep.
+# Made first: on the first nights nothing has been replaced yet, and listing a
+# folder that does not exist is an error that would end the backup here.
 rclone mkdir "$remote/library-replaced"
-rclone delete "$remote/library-replaced" --min-age "${keep_days}d" --rmdirs
+# Same shape as $when, so the two compare as plain numbers once the T and Z go.
+cutoff=$(date -u -d "@$(($(date -u +%s) - keep_days * 86400))" +%Y%m%dT%H%M%SZ)
+# Listed into a variable rather than piped into the loop: a failed listing in
+# a pipeline is swallowed, and under set -e this one must end the run.
+folders=$(rclone lsf --dirs-only "$remote/library-replaced")
+for folder in $folders; do
+	folder=${folder%/}
+	# Only a folder this script named is pruned; anything else is left alone.
+	case $folder in
+	[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]T[0-9][0-9][0-9][0-9][0-9][0-9]Z) ;;
+	*) continue ;;
+	esac
+	if [ "$(echo "$folder" | tr -d TZ)" -lt "$(echo "$cutoff" | tr -d TZ)" ]; then
+		rclone purge "$remote/library-replaced/$folder"
+		echo "backup: pruned library-replaced/$folder"
+	fi
+done
 echo "backup: library synced to $remote/library"
 
 # Written last, so it only ever records a backup that got all the way off the
