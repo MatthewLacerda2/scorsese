@@ -2,6 +2,7 @@
 // project opens the editor (#545); its files are a click away.
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { cn } from "cn";
 import { ExternalLinkIcon, FolderOpenIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router";
@@ -38,8 +39,8 @@ export function ProjectsPage() {
 function NewProject() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const t = useT();
   const [name, setName] = useState("");
+  const [missing, setMissing] = useState(false);
   const create = useMutation({
     mutationFn: api.projects.create,
     onSuccess: (project) => {
@@ -49,22 +50,87 @@ function NewProject() {
   });
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (name.trim()) create.mutate(name.trim());
+    if (create.isPending) return;
+    setMissing(attemptCreate(name, create.mutate));
   };
   return (
-    <form onSubmit={submit} className="flex flex-col gap-2">
+    <NewProjectForm
+      name={name}
+      missing={missing}
+      pending={create.isPending}
+      error={create.isError ? create.error.message : null}
+      onName={(next) => {
+        setName(next);
+        setMissing(false);
+      }}
+      onSubmit={submit}
+    />
+  );
+}
+
+/**
+ * Create a project under `name`, trimmed — or, when it is blank, create
+ * nothing and answer `true`: the name is missing, and the form says so.
+ */
+export function attemptCreate(name: string, create: (name: string) => void): boolean {
+  const trimmed = name.trim();
+  if (!trimmed) return true;
+  create(trimmed);
+  return false;
+}
+
+/**
+ * The name field and Create (#770). With no name, Create *looks* unavailable
+ * but stays clickable — a `disabled` button gets no clicks, so it could never
+ * say why it did nothing. It is truly disabled only while a create is in
+ * flight.
+ */
+export function NewProjectForm({
+  name,
+  missing,
+  pending,
+  error,
+  onName,
+  onSubmit,
+}: {
+  name: string;
+  missing: boolean;
+  pending: boolean;
+  error: string | null;
+  onName: (name: string) => void;
+  onSubmit: (event: FormEvent) => void;
+}) {
+  const words = useT().pages.projects;
+  const unnamed = !name.trim();
+  return (
+    <form onSubmit={onSubmit} className="flex flex-col gap-2">
       <div className="flex gap-2">
         <Input
-          aria-label={t.pages.projects.newName}
-          placeholder={t.pages.projects.newPlaceholder}
+          aria-label={words.newName}
+          placeholder={words.newPlaceholder}
           value={name}
-          onChange={(event) => setName(event.target.value)}
+          aria-invalid={missing || undefined}
+          aria-describedby={missing ? "new-project-missing" : undefined}
+          onChange={(event) => onName(event.target.value)}
         />
-        <Button type="submit" disabled={!name.trim() || create.isPending}>
-          <PlusIcon /> {t.pages.projects.create}
+        <Button
+          type="submit"
+          disabled={pending}
+          aria-disabled={unnamed || undefined}
+          className={cn(
+            unnamed &&
+              "bg-muted-foreground/30 font-normal text-foreground/60 hover:bg-muted-foreground/30",
+          )}
+        >
+          <PlusIcon /> {words.create}
         </Button>
       </div>
-      {create.isError && <p className="text-sm text-destructive">{create.error.message}</p>}
+      {missing && (
+        <p id="new-project-missing" className="text-sm text-destructive">
+          {words.nameMissing}
+        </p>
+      )}
+      {error && <p className="text-sm text-destructive">{error}</p>}
     </form>
   );
 }
