@@ -2403,7 +2403,7 @@ cell.
 
 There is nothing to switch on: the rows are always printed, in
 `scorsese synth bake` and over MCP in `synth_bake`. `scorsese level` and
-`audio_level` do not have them, and cannot — they measure a finished file,
+`hear` do not have them, and cannot — they measure a finished file,
 which has no tracks in it any more, and re-rendering the piece to find them
 would cost what measuring it while it was made costs nothing.
 
@@ -2421,7 +2421,7 @@ trilha.wav  vs  trilha.prev.wav
 
 That is the form with the most teeth. An absolute number is hard to judge — is
 −14 dBFS good? it depends entirely — and a difference is not. Over MCP the same
-two answers come back from `audio_level`.
+two answers come back from `hear`, given `against`.
 
 **All of it is a signal and none of it is a gate.** There is no correct
 loudness: a sting is meant to be hot, a bed under narration is meant to be far

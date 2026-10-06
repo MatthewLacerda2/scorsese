@@ -3,7 +3,7 @@
 //! The same shape as the bake report next door — a headline, rows indented
 //! beneath it, columns that line up so a reader can scan **down** one of them —
 //! because that is the form already familiar from `synth_bake` and
-//! `audio_level`, and a report that is read alongside those should not be read
+//! `hear`, and a report that is read alongside those should not be read
 //! differently.
 //!
 //! **It counts and stops.** Nothing here scores, grades, ranks or advises; see

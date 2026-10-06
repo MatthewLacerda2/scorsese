@@ -138,8 +138,8 @@ pub(super) fn serve(name: &str) -> Option<Serve> {
         return Some(Serve::Replaced);
     }
     Some(match name {
-        "look" | "hear" => Serve::Confined(&["file"]),
-        "audio_level" => Serve::Confined(&["file", "against"]),
+        "look" => Serve::Confined(&["file"]),
+        "hear" => Serve::Confined(&["file", "against"]),
         "still" | "synth_bake" => Serve::Without(&["out"]),
         "synth_import" => Serve::FromLibrary {
             field: "path",

@@ -38,7 +38,7 @@ fn a_relative_render_out_lands_in_the_project() {
         "and nothing lands in the server's working directory"
     );
 
-    let level = said(&call("audio_level", json!({ "project": dir, "file": out })));
+    let level = said(&call("hear", json!({ "project": dir, "file": out })));
     assert!(!level.1, "the path the reply named reads back: {}", level.0);
     std::fs::remove_dir_all(dir).ok();
 }

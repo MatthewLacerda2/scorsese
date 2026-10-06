@@ -57,10 +57,9 @@ struct Arguments {
     only: Vec<String>,
     /// Where to write a partial bake. A relative path is relative to the
     /// project, like every other path here — cache/solo.wav lands in the
-    /// project's cache/ and is what to hand hear or audio_level next; an
-    /// absolute path is used as given. Omit and it lands in
-    /// cache/synth/<asset>.wav, which the next partial bake of the same recipe
-    /// overwrites.
+    /// project's cache/ and is what to hand hear next; an absolute path is
+    /// used as given. Omit and it lands in cache/synth/<asset>.wav, which the
+    /// next partial bake of the same recipe overwrites.
     out: Option<String>,
 }
 

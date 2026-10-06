@@ -118,7 +118,6 @@ the tools relate to each other, which is knowledge no single tool has.
 | `synth_check` | Parse a recipe and say what it is, without rendering it. | nothing |
 | `synth_bake` | Render every synth_audio recipe whose sound is not already on disk, into generated/. | nothing |
 | `synth_survey` | Say what every song recipe in the project is made of, and count the same facts across the whole set. | nothing |
-| `audio_level` | Say how a finished sound file came out. | ffmpeg |
 | `icons` | Find an icon by a word, and answer with names — each one a string to write as an `icon` asset's `name`. | nothing |
 | `voices` | List the ElevenLabs voices a narration can be read in, or check that one still exists. | a key and a network, but no money |
 | `voice_design` | Design a new ElevenLabs voice from a description, for when no voice in either list is the one the video needs. | money, at a provider |
@@ -128,7 +127,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `jobs` | Say how far your renders of a project have got, and what each one made. | nothing |
 | `still` | Look at the edit. | ffmpeg, and seconds |
 | `look` | Look at the footage itself, not the edit. | ffmpeg |
-| `hear` | See what a sound file looks like: its waveform, drawn as one picture, with the level and the length written on it. | ffmpeg |
+| `hear` | See and measure a sound file: its waveform as one picture, and its levels in words. | ffmpeg |
 <!-- END TOOLS -->
 
 **A project is a directory, and `project_new` is what makes one.**
@@ -1545,13 +1544,13 @@ The reply ends with what `scorsese render` prints about sound, in the same
 words: the level the delivered file came out at, and — when a lossy codec
 would have carried the mix over full scale — how far the soundtrack was turned
 down to prevent it. An agent is the caller least able to hear the result, so
-it is told rather than left to ask `audio_level` a question it had no reason
+it is told rather than left to ask `hear` a question it had no reason
 to think of.
 
 **A relative `out` is relative to the project**, like every other path here —
 `cut.avi` above lands in `trilhas.scor/`, never in the server's working
 directory, which belongs to whoever launched it. The reply says back the path
-it was given, so that string is the one to hand `audio_level` or `hear` next.
+it was given, so that string is the one to hand `hear` next.
 An absolute `out` is used as given. `scorsese render` keeps the shell's meaning
 instead, because that one is typed at a prompt.
 
@@ -1658,7 +1657,7 @@ its own recipe does not describe.
 `out` puts it somewhere else, and a relative `out` is relative to the **project**,
 like every other path here — never to the server's working directory, which
 belongs to whoever launched it. So the path the reply prints is the path to hand
-`hear` or `audio_level` next. `scorsese synth bake --out` keeps the shell's
+`hear` next. `scorsese synth bake --out` keeps the shell's
 meaning instead, because that one is typed at a prompt.
 
 ### Tuning, which is not writing
@@ -1733,17 +1732,21 @@ at all. Carrying the audio itself back as an MCP audio block would answer them
 and is a separate question, because it depends on the client handling audio and
 this server may not assume which client is on the other end.
 
-`hear` and `audio_level` are not two ways to do one thing. A shape says *where*;
-a number says *how much*. "The pause after the second line is a beat too long"
-is only visible, and "the sub is 96% below 250 Hz" is only measurable.
+So the reply carries both, because neither alone is the answer. A shape says
+*where*; a number says *how much*. "The pause after the second line is a beat
+too long" is only visible, and "the sub is 96% below 250 Hz" is only
+measurable. The numbers used to be a second tool, `audio_level`, and every
+client ever recorded called `hear` and never it (#779, #782) — so they are
+now the text above the picture: one line of levels by default, a row per
+section with `sections`, and a comparison with `against`.
 
 ## Listening, for a client that cannot hear
 
-`synth_bake` reports how what it just made came out, and `audio_level` reports
-the same about any finished file — mean, peak and crest over the whole thing,
-the same again per section, the share of the energy that is low, mid and high,
-and how much of it is common to both channels. Give `audio_level` an `against` and the two files are compared field by
-field.
+`synth_bake` reports how what it just made came out, and `hear` reports the
+same about any finished file — mean and peak over the whole thing, the share of
+the energy that is low, mid and high, and how much of it is common to both
+channels; with `sections`, mean, peak and crest again per section. Give `hear`
+an `against` and the two files are compared field by field.
 
 **That is the loop closing.** For every other part of this project a client can
 check its own work; audio is the one place it currently terminates at a human.
@@ -1759,12 +1762,12 @@ number is hard to judge and a difference is not. Rewrite a score, re-bake,
 compare against the previous file, and the question "did the change land?" has
 an answer without anyone being asked to listen a second time.
 
-`synth_bake` adds one thing `audio_level` cannot: **a row per track of a song**,
+`synth_bake` adds one thing `hear` cannot: **a row per track of a song**,
 under the section rows, carrying the same figures post-gain. "The mix is muddy"
 is a diagnosis with no address when five instruments are playing; "the sub is
 96% below 250 Hz" is one fader. The rows are always in the reply — a report
 that has to be asked for is one an unattended client never sees — and only a
-song of more than one track has them. `audio_level` measures a finished file,
+song of more than one track has them. `hear` measures a finished file,
 which no longer has tracks in it, so it reports the sum alone. What the rows
 mean, in full, is in [`recipes.md`](recipes.md#which-layer-is-taking-up-the-room).
 Under them is a grid, one row per track and one column per section, with each
