@@ -7,15 +7,22 @@
 //! relaunched — which throws away the playhead, the selection, and whatever
 //! was being looked at, the exact context that makes a review worth anything.
 //!
-//! ## Two things are watched, for one reason
+//! ## Three things are watched, for one reason
 //!
-//! The document is one. The other is `cache/voices/`, which `scorsese voices`
+//! The document is one. The second is `cache/voices/`, which `scorsese voices`
 //! fills in from a terminal beside the window — and until it does, the voice
 //! picker has nothing to offer and says so. That empty list is the **first**
 //! state anybody meets, because scorsese ships no default voice on purpose, so
 //! the one moment a person most needs the window to look again is the moment
 //! they are least likely to know that they should ask it to. Same poll, same
 //! interval, one more `stat`.
+//!
+//! The third is `pages/` (#808). An agent iterates a page by rewriting its
+//! HTML — write, look, write again — and that touches the page's file and
+//! nothing in `project.json`, so watching the document alone left the preview
+//! showing `PAGE · NOT CAPTURED` for the page's new contents until the window
+//! was relaunched. That is the normal way a page is made, not an edge, so the
+//! files under `pages/` are stamped on the same poll: one more `stat` per file.
 //!
 //! **Polled, not watched.** Every platform has a native facility and one crate
 //! covers all three, but that crate is a dependency and a new licence on the
@@ -39,7 +46,7 @@
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
 
-use scorsese_core::PROJECT_FILE_NAME;
+use scorsese_core::{PAGES_DIR, PROJECT_FILE_NAME};
 use scorsese_providers::voices;
 
 /// How often the document is looked at. Fast enough that a person watching an
@@ -84,17 +91,20 @@ impl Tracked {
     }
 }
 
-/// Watches one project's `project.json`, and the voice listings cached beside
-/// it.
+/// Watches one project's `project.json`, the voice listings cached beside it,
+/// and its pages.
 pub(crate) struct Watch {
     /// The document.
     document: Tracked,
     /// The directory of cached voice listings, which something outside the
     /// window is what fills in.
     voices: Tracked,
+    /// The pages' folder, whose files an agent rewrites without touching the
+    /// document.
+    pages: Tracked,
     /// When they were last looked at, so that looking is rate-limited. One
-    /// clock for both: a look is a pair of `stat`s, and staggering them would
-    /// buy nothing and mean two intervals to reason about.
+    /// clock for all three: a look is a handful of `stat`s, and staggering them
+    /// would buy nothing and mean three intervals to reason about.
     looked: Instant,
 }
 
@@ -104,6 +114,7 @@ impl Watch {
         Self {
             document: Tracked::on(root.join(PROJECT_FILE_NAME)),
             voices: Tracked::on(voices::cache_dir(root)),
+            pages: Tracked::on(root.join(PAGES_DIR)),
             looked: Instant::now(),
         }
     }
@@ -132,7 +143,17 @@ impl Watch {
         std::mem::take(&mut self.voices.pending)
     }
 
-    /// Looks at both, at most once per [`POLL`].
+    /// Whether a file under `pages/` changed since this was last asked.
+    ///
+    /// Answered once and cleared, like the voice listings and for the same
+    /// reason: nothing anybody is holding is replaced. The document is the
+    /// same document; only what one of its pages captures to is different.
+    pub(crate) fn pages_changed(&mut self) -> bool {
+        self.look();
+        std::mem::take(&mut self.pages.pending)
+    }
+
+    /// Looks at all three, at most once per [`POLL`].
     ///
     /// Rate-limited rather than run on every repaint: egui repaints for
     /// reasons that have nothing to do with the filesystem — a pointer moving,
@@ -145,6 +166,7 @@ impl Watch {
         self.looked = Instant::now();
         self.document.look();
         self.voices.look();
+        self.pages.look();
     }
 }
 
@@ -169,7 +191,9 @@ fn stamp(path: &Path) -> Stamp {
 }
 
 /// A directory as one stamp: the newest modification time in it, and the total
-/// number of bytes it holds.
+/// number of bytes it holds — folders inside it included, because a page's
+/// stylesheet or script can sit in one and a capture is stale when either is
+/// rewritten.
 ///
 /// Entries are not listed, so a file renamed to another of exactly its size in
 /// the same second reads as unchanged. That is a directory the vendor's
@@ -181,9 +205,17 @@ fn inside(dir: &Path) -> (Option<SystemTime>, u64) {
     };
     let mut newest = None;
     let mut bytes = 0;
-    for data in entries.flatten().filter_map(|entry| entry.metadata().ok()) {
-        newest = newest.max(data.modified().ok());
-        bytes += data.len();
+    for entry in entries.flatten() {
+        let Ok(data) = entry.metadata() else {
+            continue;
+        };
+        let (modified, len) = if data.is_dir() {
+            inside(&entry.path())
+        } else {
+            (data.modified().ok(), data.len())
+        };
+        newest = newest.max(modified);
+        bytes += len;
     }
     (newest, bytes)
 }
@@ -329,5 +361,39 @@ mod tests {
 
         assert!(!watch.pending(), "the document did not change");
         assert!(watch.voices_changed());
+    }
+
+    /// A page written over, as `scorsese page <id> file.html` does: the
+    /// document is untouched, and the preview still has to capture it again.
+    #[test]
+    fn a_page_rewritten_is_noticed_and_is_not_a_change_to_the_document() {
+        let project = project("page-rewritten");
+        let pages = project.0.join(PAGES_DIR);
+        std::fs::create_dir_all(&pages).expect("create pages/");
+        std::fs::write(pages.join("title.html"), "<p>one</p>").expect("write a page");
+        let mut watch = Watch::on(&project.0);
+
+        std::fs::write(pages.join("title.html"), "<p>two, longer</p>").expect("rewrite it");
+        std::thread::sleep(POLL * 2);
+
+        assert!(watch.pages_changed(), "the page changed");
+        assert!(!watch.pages_changed(), "and is answered once");
+        assert!(!watch.pending(), "the document did not change");
+    }
+
+    /// A stylesheet a page loads can sit in a folder of its own, and the
+    /// capture is stale when it changes just as when the page does.
+    #[test]
+    fn a_file_in_a_folder_under_pages_is_noticed() {
+        let project = project("page-folder");
+        let styles = project.0.join(PAGES_DIR).join("styles");
+        std::fs::create_dir_all(&styles).expect("create pages/styles/");
+        std::fs::write(styles.join("a.css"), "p {}").expect("write a stylesheet");
+        let mut watch = Watch::on(&project.0);
+
+        std::fs::write(styles.join("a.css"), "p { color: red }").expect("rewrite it");
+        std::thread::sleep(POLL * 2);
+
+        assert!(watch.pages_changed());
     }
 }

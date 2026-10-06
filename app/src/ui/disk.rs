@@ -10,7 +10,8 @@
 //! listings cached under the project, which `scorsese voices` writes from a
 //! terminal. That one is not a [`Disk`] state and says nothing in the bar — the
 //! document did not change, so there is nothing to report — it only tells the
-//! inspector to read the list again.
+//! inspector to read the list again. A page rewritten under `pages/` is the
+//! same kind of news, and only tells the preview to capture again.
 
 use crate::project::watch;
 use crate::project::{Refused, open};
@@ -88,6 +89,12 @@ impl Scorsese {
         // has to offer.
         if watch.voices_changed() {
             self.inspector.forget_voices();
+        }
+        // Same standing as a listing: a page rewritten under `pages/` changes
+        // what its clip captures to, not the document, so a hand on a clip
+        // does not hold it back and the bar has nothing to say (#808).
+        if watch.pages_changed() {
+            self.preview.pages_changed();
         }
         if !watch.pending() {
             return;
