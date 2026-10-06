@@ -30,6 +30,7 @@
 //! it is made and, more importantly, for which of the two is the clock — the
 //! answer is not the one this module started with.
 
+pub(crate) mod pages;
 mod proxies;
 mod quality;
 mod save;
@@ -74,6 +75,9 @@ pub(crate) struct Preview {
     /// The open project's proxies, made in the background at a quality that
     /// reads them.
     proxies: proxies::Maker,
+    /// The open project's web pages, captured in the background at the
+    /// preview's raster (#776).
+    pages: pages::Capturer,
 }
 
 /// A run of the transport: where the playhead was when play was pressed, when
@@ -121,6 +125,7 @@ impl Preview {
     pub(crate) fn document_changed(&mut self) {
         self.picture.forget();
         self.proxies.document_changed();
+        self.pages.document_changed();
     }
 
     /// Draws the preview: the transport along the bottom, the picture above it.
@@ -133,6 +138,7 @@ impl Preview {
         let last = transport::last_frame(length(&open.project));
         self.advance(ui, fps, last, editing);
         self.follow_proxies(ui, open);
+        self.follow_pages(ui, open);
 
         let silent = self
             .playing
@@ -160,7 +166,10 @@ impl Preview {
                 None => {}
             }
             save::note(ui, self.saved.as_ref());
-            let making = self.proxies.status();
+            let making = [self.proxies.status(), self.pages.status()]
+                .into_iter()
+                .flatten()
+                .reduce(|one, other| format!("{one} · {other}"));
             if let Some(chosen) = quality::show(ui, self.quality, making.as_deref()) {
                 self.quality = chosen;
             }
@@ -170,8 +179,22 @@ impl Preview {
         // past the last frame — that is where the edit *ends* — and there is no
         // picture of an instant the film does not contain. Showing the last
         // frame is what a person means by parking at the end.
+        let at = editing.playhead.min(last);
         self.picture
-            .show(ui, open, editing.playhead.min(last), self.quality);
+            .show(ui, open, at, self.quality, self.pages.chrome());
+    }
+
+    /// Captures the pages the picture shows, and draws it again as each lands
+    /// — the picture itself never waits for a page (#776).
+    fn follow_pages(&mut self, ui: &Ui, open: &Open) {
+        self.pages.ensure(open, self.quality);
+        if self.pages.landed() {
+            self.picture.forget();
+        }
+        if self.pages.running() {
+            ui.ctx()
+                .request_repaint_after(std::time::Duration::from_millis(500));
+        }
     }
 
     /// Makes the proxies a reduced quality reads, and draws the picture again

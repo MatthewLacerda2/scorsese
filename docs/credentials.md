@@ -70,6 +70,18 @@ it is confidently specific, and it points the wrong way.
 
 Gemini has no equivalent — a Gemini key either works or it does not.
 
+## The page renderer, beside it
+
+The same folder keeps one more thing per machine rather than per project: the
+headless browser that draws `html` clips, downloaded the first time a page needs
+drawing (#776). It lands in `chromium/<version>/chrome-headless-shell-<platform>/`
+under the folder in the table above, with a `.sha256` stamp naming the checksum
+from `tools/chromium/pin` it was verified against — so a pin that moves fetches
+again, and one that does not never does. Deleting the folder costs only a
+download. On macOS the quarantine attribute is cleared from it after unpacking,
+so Gatekeeper never stops a helper nobody sees. `SCORSESE_CHROME`, when set, is
+used instead, as an exported variable is for a key.
+
 ## The settings file
 
 ```json

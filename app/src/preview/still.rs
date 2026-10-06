@@ -16,6 +16,7 @@
 
 use egui::{Align2, FontId, Image, Rect, Sense, Stroke, TextureHandle, TextureOptions, Ui};
 use scorsese_core::Frames;
+use scorsese_render::page::Chrome;
 use scorsese_render::preview::{self, Proxies};
 use scorsese_render::{Quality, RenderSettings, Renderer, Tools};
 
@@ -46,7 +47,14 @@ pub(super) struct Still {
 impl Still {
     /// Draws the picture at `at` and `quality`, compositing it first if it is
     /// not the one already held.
-    pub(super) fn show(&mut self, ui: &mut Ui, open: &Open, at: Frames, quality: Quality) {
+    pub(super) fn show(
+        &mut self,
+        ui: &mut Ui,
+        open: &Open,
+        at: Frames,
+        quality: Quality,
+        chrome: Option<&Chrome>,
+    ) {
         let raster = super::quality::raster(quality);
         let wanted = [raster.width() as usize, raster.height() as usize];
         let stale = self.asked != Some(at)
@@ -55,13 +63,20 @@ impl Still {
                 .as_ref()
                 .is_some_and(|texture| texture.size() != wanted);
         if stale {
-            self.recompose(ui, open, at, quality);
+            self.recompose(ui, open, at, quality, chrome);
         }
         self.paint(ui);
     }
 
     /// Asks the renderer for one frame and hands it to the GPU.
-    fn recompose(&mut self, ui: &Ui, open: &Open, at: Frames, quality: Quality) {
+    fn recompose(
+        &mut self,
+        ui: &Ui,
+        open: &Open,
+        at: Frames,
+        quality: Quality,
+        chrome: Option<&Chrome>,
+    ) {
         let raster = super::quality::raster(quality);
         self.asked = Some(at);
         // Cloned out of `self` before anything else is touched: the discovery
@@ -85,8 +100,15 @@ impl Still {
         // Whichever proxies are made by now: one still being made is simply
         // not read yet, and the original stands in for it.
         let proxies = Proxies::made_in(&preview::folder(&open.root), &open.project);
-        let renderer = Renderer::new(&tools, settings)
-            .with_preview(preview::Preview::new(quality).with_proxies(proxies));
+        // Pages only from captures already made, never waiting for one: they
+        // are captured in the background (`super::pages`), and a page not yet
+        // captured is its slug card until it lands.
+        let mut renderer = Renderer::new(&tools, settings)
+            .with_preview(preview::Preview::new(quality).with_proxies(proxies))
+            .without_capturing();
+        if let Some(chrome) = chrome {
+            renderer = renderer.with_chrome(chrome.clone());
+        }
         let frame = match renderer.still(&open.project, &open.root, at) {
             Ok(frame) => frame,
             Err(problem) => {

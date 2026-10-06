@@ -47,4 +47,5 @@ mod theme;
 mod timeline;
 mod ui;
 
+pub use preview::pages::fetch_on_first_use;
 pub use ui::Scorsese;
