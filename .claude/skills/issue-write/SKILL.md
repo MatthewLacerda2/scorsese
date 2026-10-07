@@ -1,6 +1,6 @@
 ---
 name: issue-write
-description: Write an issue for this repo — what it must contain, which labels it carries, and when Claude may file one unprompted. Use when filing an issue, splitting an idea into issues, or deciding whether something noticed mid-work deserves one.
+description: Write an issue for this repo — what it must contain, which labels it carries, and when Claude must file one unprompted. Use when filing an issue, splitting an idea into issues, or deciding whether something noticed mid-work is folded in or filed, and with which labels.
 ---
 
 # Writing an issue
@@ -49,9 +49,19 @@ instead of complying**:
 
 ## Filing what you notice
 
-Claude may open an issue autonomously, and should, for anything that will recur
-or that a tool would solve more than once. Only when the benefit outweighs the
-cost of building it.
+Filing is a **duty**, not an option (CLAUDE.md, *File what you notice*, #757):
+
+- **Nothing you find is dropped** — a bug, a missing feature, a design gap, a
+  quality-of-life improvement. Bugs are not a class apart: each is folded into
+  the task at hand or filed, and which is your call.
+- **A change that needs the user's approval is never folded in**: one that
+  changes how the user sees or understands their existing data or project,
+  changes stored data, or needs a migration is filed with `planning`.
+- **Anything else needs no stage label** and is startable at once — a clearer
+  control, a new read-only view, a fix that touches no stored data, a gap the
+  design docs already say how to close.
+- **Label it `agent`** whenever you wrote it on your own initiative rather than
+  because a person asked for it.
 
 The strongest issues come from doing the work: a mutation survivor that turned
 out to be a real gap, a claim in a doc that quietly became false, a rule whose
@@ -72,11 +82,13 @@ A branch that grows to cover everything it noticed is a branch nobody can review
 
 **The judgement lives in the label**, so put it on honestly. Broad or vague is
 what `planning` is for. A Claude-written issue **must** carry one of the three if
-it is a breaking change, changes human-facing behaviour, needs a judgement call,
-or proposes a structural change.
+it is a breaking change, needs a judgement call, proposes a structural change, or
+meets the approval test above (changes how the user sees or understands their
+existing data or project, changes stored data, or needs a migration).
 
-A `bug` usually should **not** carry one — it is specific, the deciding already
-happened when the code broke, and nothing is gained by making it wait.
+A bug is held to that same test, not a looser one: most need no stage label,
+because the deciding happened when the code broke; a bug whose fix needs a
+migration or rewrites stored data still waits for the user.
 
 Type labels, combinable with a stage label:
 
@@ -84,6 +96,10 @@ Type labels, combinable with a stage label:
 crate boundaries) · `infrastructure` (CI, harnesses, gates) · `bug` ·
 `documentation` · `feature` (a capability serving the videos) · `foundation`
 (groundwork making the editor more complete) · `human`.
+
+`agent` marks an issue an agent wrote on its own initiative (#757). It combines
+with any type and stage label and is neither: it never stops work, it only tells
+the user who decided this was worth filing.
 
 ## Priority
 
