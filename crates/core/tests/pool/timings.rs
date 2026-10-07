@@ -14,8 +14,8 @@ fn generated_line(
     timed: bool,
 ) -> ProjectPath {
     let audio = ProjectPath::new(format!("generated/{id}-abc.mp3"));
-    std::fs::create_dir_all(dir.join("generated")).unwrap();
-    std::fs::write(audio.resolve(dir), b"spoken audio").unwrap();
+    std::fs::create_dir_all(dir.join("generated")).expect("make generated/");
+    std::fs::write(audio.resolve(dir), b"spoken audio").expect("write the audio");
     if timed {
         let words = Words {
             words: vec![Word {
@@ -24,7 +24,8 @@ fn generated_line(
                 end: 0.5,
             }],
         };
-        std::fs::write(Words::beside(&audio).resolve(dir), words.to_json()).unwrap();
+        std::fs::write(Words::beside(&audio).resolve(dir), words.to_json())
+            .expect("write the timings");
     }
     let mut line = Asset::sketch(AssetId::new(id), AssetKind::GeneratedAudio, "a line");
     line.state = Some(GenerationState::Generated);
