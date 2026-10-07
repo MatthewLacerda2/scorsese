@@ -34,7 +34,7 @@ use crate::{BYTES_PER_PIXEL, Frame, Resolution};
 /// Built per decoder rather than per frame: every frame of a source is the
 /// same size, so the weights are too, and only the pixels change. It holds
 /// nothing a resample writes, so one is shared by every thread fitting that
-/// source's frames (#880), each through its own compositor's [`Scratch`] —
+/// source's frames (#880), each through its own compositor's scratch —
 /// see [`crate::CpuCompositor::resample`].
 #[derive(Debug, Clone)]
 pub struct Resample {
