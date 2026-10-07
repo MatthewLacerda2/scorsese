@@ -83,10 +83,31 @@ pub fn cached(project_root: &Path, request: &Request, chrome_version: &str) -> O
 
 /// The page's frames for `request`, from the cache when they are there and
 /// fresh, and captured with `chrome` when they are not.
+///
+/// The page is served its project's files and nothing else: a link inside the
+/// project that leads out of it is refused. [`capture_following`] is the same
+/// with somewhere such a link may lead.
 pub fn capture(
     chrome: &Chrome,
     tools: &Tools,
     project_root: &Path,
+    request: &Request,
+) -> Result<Captured, PageError> {
+    capture_following(chrome, tools, project_root, &[], request)
+}
+
+/// [`capture`], serving the page a file its project links to when the link
+/// really leads under one of the folders `follow` names.
+///
+/// For a caller that lays a project out with links to files kept elsewhere:
+/// the web app links each media file into the owner's library, and names that
+/// library here (#857). Where a link really leads is what is checked, so one
+/// from a named folder on to anywhere else is still refused.
+pub fn capture_following(
+    chrome: &Chrome,
+    tools: &Tools,
+    project_root: &Path,
+    follow: &[PathBuf],
     request: &Request,
 ) -> Result<Captured, PageError> {
     if let Some(captured) = cached(project_root, request, chrome.version()) {
@@ -100,7 +121,15 @@ pub fn capture(
     // leaves frames that look finished — under a name of this process's own, so
     // two renders of one project capturing the same page cannot interleave.
     let partial = slot.join(format!("frames.{}.partial.mkv", std::process::id()));
-    let heard = capture::run(chrome, tools, project_root, &fonts, request, &partial)?;
+    let heard = capture::run(
+        chrome,
+        tools,
+        project_root,
+        follow,
+        &fonts,
+        request,
+        &partial,
+    )?;
     std::fs::rename(&partial, &file)?;
     let record = cache::Record {
         loaded: heard.loaded,

@@ -35,6 +35,12 @@ pub struct Args {
     /// (#594).
     #[arg(long)]
     pub no_sandbox: bool,
+    /// The library the server links media into projects from, at the path the
+    /// server sees it, so a page may load its own project's media (#857):
+    /// each capture follows links into its owner's part of it and nowhere
+    /// else. Without it a page is served only files really in its project.
+    #[arg(long)]
+    pub library: Option<PathBuf>,
 }
 
 /// How often an idle worker looks for a job, and a busy one at its child.
@@ -50,6 +56,9 @@ pub enum Isolation {
         program: PathBuf,
         /// Whether the browser runs with its sandbox.
         sandbox: bool,
+        /// The library whose owner's part each capture may follow links into
+        /// ([`Args::library`]).
+        library: Option<PathBuf>,
     },
     /// A container of its own, mounting only its job ([`Launch`]).
     Container(Launch),
@@ -74,6 +83,7 @@ impl Worker {
             isolation: Isolation::Process {
                 program: std::env::current_exe()?,
                 sandbox: !args.no_sandbox,
+                library: args.library.clone(),
             },
             deadline: super::deadline,
         })
@@ -193,7 +203,11 @@ impl Worker {
     fn command(&self, job: &Path, index: usize) -> Result<Command, String> {
         match &self.isolation {
             Isolation::Container(launch) => launch.command(job, index),
-            Isolation::Process { program, sandbox } => {
+            Isolation::Process {
+                program,
+                sandbox,
+                library,
+            } => {
                 let mut command = Command::new(program);
                 command
                     .arg("capture-one")
@@ -205,6 +219,12 @@ impl Worker {
                     .arg(index.to_string());
                 if !sandbox {
                     command.arg("--no-sandbox");
+                }
+                let owner = launch::owner(self.spool.root(), &job.join(PROJECT));
+                if let (Some(library), Some(owner)) = (library, owner) {
+                    command
+                        .arg("--follow")
+                        .arg(launch::library_of(library, &owner));
                 }
                 Ok(command)
             }

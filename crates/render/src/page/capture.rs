@@ -11,7 +11,7 @@
 //! alpha-carrying file, so no frame is ever written to disk on its own.
 
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{ChildStdin, Stdio};
 use std::time::Duration;
 
@@ -44,6 +44,7 @@ pub(crate) fn run(
     chrome: &Chrome,
     tools: &Tools,
     project_root: &Path,
+    follow: &[PathBuf],
     fonts: &Path,
     request: &Request,
     out: &Path,
@@ -53,7 +54,7 @@ pub(crate) fn run(
     let mut cdp = Cdp::new(
         launched.to,
         launched.from,
-        Visitor::new(project_root),
+        Visitor::new(project_root, follow),
         PATIENCE,
     );
     let heard = started(&mut cdp, chrome).and_then(|()| drive(&mut cdp, tools, request, out));

@@ -1088,7 +1088,10 @@ the server laid it out with, so the project's links resolve inside. Another
 user's library is not filtered out, it is simply not there. Every linked file
 must also be the job's owner's (`library/users/<owner>/`), so even a server bug
 cannot hand one user's file to another's page; a job that links to anything
-else is refused, and the render's notes say why.
+else is refused, and the render's notes say why. The capture is told that
+folder too (`capture-one --follow`, #857): a page's request for its own
+`../assets/photo.png` follows the link there, while a link leading anywhere
+else (`/etc/passwd`, or on from the library) is refused as it is locally.
 
 **Who starts them: `capture-launcher`.** Starting a container takes the Docker
 socket, which is root on the host, and the server is the one container the
@@ -1105,7 +1108,8 @@ the seccomp profile.
 
 `capture-worker` is the same loop without containers, each capture a child
 process: for a machine running the server without Docker, and for the tests.
-`--no-sandbox` exists there for CI and development machines that run as root;
+Its `--library` names the library media is linked from, so pages can load
+their media there too. `--no-sandbox` exists there for CI and development machines that run as root;
 compose runs neither.
 
 **How a render reaches it: a spool.** A render job whose project shows a page

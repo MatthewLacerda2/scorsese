@@ -110,6 +110,7 @@ fn the_command_is_the_services_own_whatever_the_job() {
         .position(|argument| argument == IMAGE)
         .unwrap();
     let job = laid.job.display();
+    let theirs = laid.launch.library.join("users/7");
     assert_eq!(
         arguments[image + 1..],
         [
@@ -121,6 +122,10 @@ fn the_command_is_the_services_own_whatever_the_job() {
             format!("{job}/ask.json"),
             "--index".into(),
             "0".into(),
+            // The owner's library, and only theirs: where its media links
+            // lead (#857).
+            "--follow".into(),
+            theirs.display().to_string(),
         ]
     );
 }

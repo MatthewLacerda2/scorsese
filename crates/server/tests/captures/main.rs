@@ -6,6 +6,8 @@
 //! sandbox is off: tests run as root, where Chromium refuses one — the capture
 //! container is where it is on, and #778's PR has that run.
 
+mod media;
+
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -37,6 +39,7 @@ fn worker(spool: &Spool, deadline: fn(u64) -> Duration) -> Worker {
         isolation: Isolation::Process {
             program: PathBuf::from(env!("CARGO_BIN_EXE_scorsese-server")),
             sandbox: false,
+            library: None,
         },
         deadline,
     }

@@ -12,6 +12,13 @@
 //! libraries this build ships is answered from the binary; everything else —
 //! any other host, a path that leaves the project — is refused, and the refusal
 //! becomes a warning on the render, never a silent miss.
+//!
+//! **A link out of the project is outside it**, unless it lands under a folder
+//! the caller named ([`super::capture_following`]). Locally nobody names one,
+//! so a `.scor` folder's link to `/etc/passwd` is refused; the web app names
+//! the owner's library, because it lays every media file out as a link into
+//! it (#857) — and a link from there to `/etc/passwd` is refused all the same,
+//! since it is where a link really leads that is checked.
 
 use std::borrow::Cow;
 use std::path::{Component, Path, PathBuf};
@@ -93,8 +100,9 @@ pub(crate) fn url_of(path: &str) -> String {
     format!("{ORIGIN}/{path}")
 }
 
-/// Answers one request the page made.
-pub(crate) fn answer(url: &str, project_root: &Path) -> Answer {
+/// Answers one request the page made, from the project at `project_root`,
+/// following its links into the folders `follow` names and nowhere else.
+pub(crate) fn answer(url: &str, project_root: &Path, follow: &[PathBuf]) -> Answer {
     if let Some(name) = url
         .strip_prefix(SHIPPED_ORIGIN)
         .and_then(|rest| rest.strip_prefix('/'))
@@ -125,7 +133,7 @@ pub(crate) fn answer(url: &str, project_root: &Path) -> Answer {
     else {
         return Answer::Refused;
     };
-    let Some(file) = inside(project_root, &path) else {
+    let Some(file) = inside(project_root, follow, &path) else {
         return Answer::Refused;
     };
     match std::fs::read(&file) {
@@ -147,16 +155,20 @@ fn project_path(rest: &str) -> Option<String> {
     fine.then_some(decoded)
 }
 
-/// The file at `path` under the root, if it is really under it — a symbolic
-/// link inside the project pointing out of it is outside it.
-fn inside(project_root: &Path, path: &str) -> Option<PathBuf> {
+/// The file at `path` under the root, if it really is under it or under one of
+/// the folders `follow` names — a symbolic link inside the project pointing
+/// anywhere else is outside it.
+fn inside(project_root: &Path, follow: &[PathBuf], path: &str) -> Option<PathBuf> {
     let file = project_root.join(path);
     let Ok(real) = file.canonicalize() else {
         // Nothing there to follow; whether it is missing is the caller's call.
         return Some(file);
     };
-    let root = project_root.canonicalize().ok()?;
-    real.starts_with(&root).then_some(real)
+    std::iter::once(project_root)
+        .chain(follow.iter().map(PathBuf::as_path))
+        .filter_map(|root| root.canonicalize().ok())
+        .any(|root| real.starts_with(root))
+        .then_some(real)
 }
 
 /// `%20` and friends back to bytes. `None` for a malformed escape or a result
@@ -216,14 +228,18 @@ mod tests {
     fn a_project_file_is_served_by_its_path_from_the_root() {
         let dir = project();
         assert_eq!(
-            answer("https://page.scorsese/pages/title.html?x=1#top", &dir.0),
+            answer(
+                "https://page.scorsese/pages/title.html?x=1#top",
+                &dir.0,
+                &[]
+            ),
             Answer::File {
                 path: "pages/title.html".into(),
                 body: b"<p>hi</p>".to_vec()
             }
         );
         assert_eq!(
-            answer("https://page.scorsese/assets/a%20b.png", &dir.0),
+            answer("https://page.scorsese/assets/a%20b.png", &dir.0, &[]),
             Answer::File {
                 path: "assets/a b.png".into(),
                 body: vec![1, 2, 3]
@@ -237,7 +253,7 @@ mod tests {
         let url = url_of("pages/title.html");
         assert_eq!(url, "https://page.scorsese/pages/title.html");
         assert!(
-            matches!(answer(&url, &dir.0), Answer::File { path, .. } if path == "pages/title.html")
+            matches!(answer(&url, &dir.0, &[]), Answer::File { path, .. } if path == "pages/title.html")
         );
     }
 
@@ -245,7 +261,7 @@ mod tests {
     fn a_missing_file_is_missing_and_everything_outside_is_refused() {
         let dir = project();
         assert_eq!(
-            answer("https://page.scorsese/assets/gone.png", &dir.0),
+            answer("https://page.scorsese/assets/gone.png", &dir.0, &[]),
             Answer::Missing {
                 path: "assets/gone.png".into()
             }
@@ -259,22 +275,57 @@ mod tests {
             "https://page.scorsese/",
             "https://lib.scorsese/nothing.js",
         ] {
-            assert_eq!(answer(url, &dir.0), Answer::Refused, "{url}");
+            assert_eq!(answer(url, &dir.0, &[]), Answer::Refused, "{url}");
+        }
+    }
+
+    #[test]
+    fn a_link_out_of_the_project_is_refused_unless_it_lands_where_the_caller_said() {
+        use std::os::unix::fs::symlink;
+        let dir = project();
+        let library = tempfile_free::Dir::new("origin-library");
+        std::fs::create_dir_all(&library.0).unwrap();
+        std::fs::write(library.0.join("photo.png"), [4, 5]).unwrap();
+        symlink(library.0.join("photo.png"), dir.0.join("assets/photo.png")).unwrap();
+        symlink("/etc/passwd", dir.0.join("assets/passwd")).unwrap();
+        symlink("/etc/passwd", library.0.join("passwd")).unwrap();
+        symlink(library.0.join("passwd"), dir.0.join("assets/via.txt")).unwrap();
+        let photo = "https://page.scorsese/assets/photo.png";
+
+        // Locally nobody names a folder: a `.scor` folder's links lead nowhere.
+        assert_eq!(answer(photo, &dir.0, &[]), Answer::Refused);
+        let named = [library.0.clone()];
+        assert_eq!(
+            answer(photo, &dir.0, &named),
+            Answer::File {
+                path: "assets/photo.png".into(),
+                body: vec![4, 5]
+            }
+        );
+        // Where a link really leads is what is checked, through every hop.
+        for url in [
+            "https://page.scorsese/assets/passwd",
+            "https://page.scorsese/assets/via.txt",
+        ] {
+            assert_eq!(answer(url, &dir.0, &[]), Answer::Refused, "{url}");
+            assert_eq!(answer(url, &dir.0, &named), Answer::Refused, "{url}");
         }
     }
 
     #[test]
     fn the_shipped_libraries_come_from_their_own_origin() {
         let dir = project();
-        let Answer::Shipped { body } = answer("https://lib.scorsese/anime.min.js", &dir.0) else {
+        let Answer::Shipped { body } = answer("https://lib.scorsese/anime.min.js", &dir.0, &[])
+        else {
             panic!("anime.js is shipped");
         };
         assert!(body.starts_with(b"/*\n * anime.js v3.2.2"));
         assert!(matches!(
-            answer("https://lib.scorsese/fonts/inter.ttf", &dir.0),
+            answer("https://lib.scorsese/fonts/inter.ttf", &dir.0, &[]),
             Answer::Shipped { .. }
         ));
-        let Answer::Shipped { body } = answer("https://lib.scorsese/icons/film.svg?v=1", &dir.0)
+        let Answer::Shipped { body } =
+            answer("https://lib.scorsese/icons/film.svg?v=1", &dir.0, &[])
         else {
             panic!("the icon set is shipped");
         };
@@ -285,7 +336,7 @@ mod tests {
     fn an_icon_the_set_lacks_is_named_not_refused() {
         let dir = project();
         assert!(matches!(
-            answer("https://lib.scorsese/icons/clapperbord.svg", &dir.0),
+            answer("https://lib.scorsese/icons/clapperbord.svg", &dir.0, &[]),
             Answer::UnknownIcon { name, nearest } if name == "clapperbord" && nearest.first() == Some(&"clapperboard")
         ));
     }

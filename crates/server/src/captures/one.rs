@@ -2,7 +2,8 @@
 //!
 //! The worker ([`super::worker`]) runs this for each page, so that the
 //! deadline can kill the capture and the browser it started as one process
-//! group. It is [`scorsese_render::page::capture`] and nothing else: the frames
+//! group. It is [`scorsese_render::page::capture_following`] and nothing
+//! else, following the project's links into the owner's library: the frames
 //! land in the project's `cache/`, and what went wrong is its last line on
 //! stderr, which the worker hands back as the reason.
 
@@ -28,6 +29,11 @@ pub struct Args {
     /// Run the browser without its sandbox (`capture-worker --no-sandbox`).
     #[arg(long)]
     pub no_sandbox: bool,
+    /// A folder outside the project its links may lead into: the owner's
+    /// library, which the server links each media file from (#857). Any link
+    /// leading anywhere else is refused, as it is locally.
+    #[arg(long)]
+    pub follow: Vec<PathBuf>,
 }
 
 /// Captures the request `args` names into its project's cache.
@@ -45,7 +51,7 @@ pub fn run(args: &Args) -> Result<(), String> {
     } else {
         chrome.sandboxed()
     };
-    page::capture(&chrome, &tools, &args.project, &request)
+    page::capture_following(&chrome, &tools, &args.project, &args.follow, &request)
         .map(drop)
         .map_err(|error| error.to_string())
 }
