@@ -381,9 +381,9 @@ machine you are on — cores, free memory, free disk — before a heavy build.
   the conventions in this file — where Claude proposes and the user decides,
   unless one option is a plain win-win, which Claude takes. Initiative still
   runs through the normal flow (an issue where the work needs planning; a
-  branch; a PR; the gates). An issue the stage-label rule below says
-  must carry `planning` or `human` is not a clear win by definition, and a
-  `planning` issue is still never started. And nothing that spends the user's
+  branch; a PR; the gates). An issue that needs the user's approval is not a
+  clear win by definition: its decisions go to the user first (*Stage labels*
+  below), and a `planning` issue is still never started. And nothing that spends the user's
   money — a provider generation, `make live-check` — is done on initiative: it
   is asked first, every time.
 - **Flow:** idea → (issue) → branch → PR → CI green → merge. **Nothing is
@@ -617,13 +617,14 @@ machine you are on — cores, free memory, free disk — before a heavy build.
     which of the two is Claude's call (keep the branch reviewable; *file rather
     than fix* when it is outside the branch). A finding that questions a
     decision or surfaces a foundational problem is also told to the user.
-  - **A change that needs the user's approval is never folded in, and is filed
-    with `planning`.** That is any change that **changes how the user sees or
-    understands their existing data or project** (what something means, how it
-    is shown to them), **changes stored data**, or **needs a migration** —
-    besides the changes to scorsese's design itself that *Take the initiative*
-    already reserves for the user. This is what keeps a breaking change from
-    being merged on an agent's say-so.
+  - **A change that needs the user's approval is never folded in.** That is
+    any change that **changes how the user sees or understands their existing
+    data or project** (what something means, how it is shown to them),
+    **changes stored data**, or **needs a migration** — besides the changes to
+    scorsese's design itself that *Take the initiative* already reserves for
+    the user. Its decisions are put to the user and settled before it is filed
+    (*Stage labels* below). This is what keeps a breaking change from being
+    merged on an agent's say-so.
   - **Anything else carries no stage label** and can be worked right away,
     including a finding the design docs or the settled design (this file,
     `docs/`, the decided architecture, Filmora 9 for taste) already say how to
@@ -644,14 +645,26 @@ machine you are on — cores, free memory, free disk — before a heavy build.
   the user or the video being made with it. **documentation** can be done at any
   time and never waits its turn. Priority orders what gets **merged**, never what
   gets **worked**.
-- **Stage labels — at most one, and absence means ready.** `planning` (nobody
-  has decided this is worth doing, or the approach is not settled), `human`
-  (needs a human end-to-end). Both mean **do not start**. A Claude-written issue
-  must carry one if it is a breaking change, needs a judgement call, proposes a
-  structural change, or meets *File what you notice*'s approval test (changes how
-  the user sees or understands their existing data or project, changes stored
-  data, or needs a migration). A bug is held to the same test as any other
-  finding: most need no label, one that needs a migration does.
+- **Stage labels — at most one, and absence means ready.** `planning` (the
+  user has not finished understanding and agreeing on a design or
+  architecture), `human` (needs a human end-to-end). Both mean **do not
+  start**.
+- **Stage labels are the user's to ask for; Claude settles the design instead**
+  (the user, 2026-10-07). An issue that is a breaking change, needs a judgement
+  call, proposes a structural change, or meets *File what you notice*'s approval
+  test (changes how the user sees or understands their existing data or project,
+  changes stored data, or needs a migration) is **not** parked under a label.
+  Claude states the problems and the decisions they need, plainly and with a
+  recommendation for each, the user answers, and the answers go into the issue
+  as decided, so it is filed **startable**. `planning` or `human` goes on only
+  when the user asks for it, usually because they are out of time to agree on
+  the design now, and they say so out loud. **The one exception Claude applies
+  itself:** a finding made while working **unattended** (a batch, a cloud
+  session, overnight) that needs the user's approval is filed with `planning`,
+  because the user has not seen it, so it is literally not agreed yet. Its
+  open decisions are listed in the issue and raised with the user at the next
+  check-in, so the label comes off in one conversation. A bug is held to the
+  same test as any other finding: most need no decision at all.
 - **The `issue-write` skill** has the rest: what each type label means, what a
   good issue body contains, how relationships are recorded, and the three gates in
   full.

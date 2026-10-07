@@ -56,7 +56,9 @@ Filing is a **duty**, not an option (CLAUDE.md, *File what you notice*, #757):
   the task at hand or filed, and which is your call.
 - **A change that needs the user's approval is never folded in**: one that
   changes how the user sees or understands their existing data or project,
-  changes stored data, or needs a migration is filed with `planning`.
+  changes stored data, or needs a migration. Put its decisions to the user and
+  file it once they are settled (*Labels* below); found unattended, file it with
+  `planning`.
 - **Anything else needs no stage label** and is startable at once — a clearer
   control, a new read-only view, a fix that touches no stored data, a gap the
   design docs already say how to close.
@@ -74,21 +76,34 @@ A branch that grows to cover everything it noticed is a branch nobody can review
 
 **At most one stage label. Its absence means ready.**
 
-- `planning` — nobody has decided this is worth doing, or the approach is not
-  settled. **Never started.**
+- `planning` — the user has not finished understanding and agreeing on a
+  design or architecture. **Never started.**
 - `human` — needs a human in the loop end to end. **Treat as not-ready**: do not
   start it.
 - *(none)* — anyone can tell an agent "do issue N".
 
-**The judgement lives in the label**, so put it on honestly. Broad or vague is
-what `planning` is for. A Claude-written issue **must** carry one of the three if
-it is a breaking change, needs a judgement call, proposes a structural change, or
-meets the approval test above (changes how the user sees or understands their
-existing data or project, changes stored data, or needs a migration).
+**Stage labels are the user's to ask for** (CLAUDE.md, *Stage labels*,
+2026-10-07). An issue that is a breaking change, needs a judgement call,
+proposes a structural change, or meets the approval test above (changes how the
+user sees or understands their existing data or project, changes stored data, or
+needs a migration) is not parked under a label. Instead:
 
-A bug is held to that same test, not a looser one: most need no stage label,
+1. **State the problems and the decisions they need**, in plain words, each with
+   your recommendation and its reason. Ask them together, not one per turn.
+2. **Write the answers into the issue as decided**: what was chosen, by whom,
+   when, and why, so a coder reading it cold has nothing left to ask.
+3. **File it with no stage label.** It is startable at once.
+
+Put `planning` or `human` on only when the user asks for it (usually: they are
+out of time to agree on the design now). **The one exception you apply
+yourself:** a finding made while working unattended (a batch, a cloud session,
+overnight) that needs the user's approval is filed with `planning`, because
+nobody has agreed to it yet. List its open decisions in the issue, each with a
+recommendation, and raise them at the next check-in.
+
+A bug is held to that same test, not a looser one: most need no decision,
 because the deciding happened when the code broke; a bug whose fix needs a
-migration or rewrites stored data still waits for the user.
+migration or rewrites stored data still goes to the user first.
 
 Type labels, combinable with a stage label:
 
