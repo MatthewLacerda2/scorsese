@@ -120,6 +120,8 @@ pub(crate) struct Decoder {
     stdout: ChildStdout,
     subject: String,
     raster: Resolution,
+    /// The resample a source with alpha is fitted by, when it needs one.
+    resized: Option<super::resized::Resized>,
 }
 
 impl Decoder {
@@ -138,6 +140,7 @@ impl Decoder {
         settings: &RenderSettings,
     ) -> Result<Self, RenderError> {
         let rate = format!("{}/{}", settings.fps.num(), settings.fps.den());
+        let resized = super::resized::Resized::plan(tools, source, settings.resolution)?;
         let mut command = tools.ffmpeg();
         command.args(["-nostdin", "-v", "error"]);
         let listed = !source.listed.is_empty();
@@ -185,6 +188,7 @@ impl Decoder {
             stdout,
             subject: source.file.display().to_string(),
             raster: source.fitting.raster(settings),
+            resized,
         })
     }
 
@@ -200,8 +204,17 @@ impl Decoder {
     /// which is a fact about the media, not a failure: a clip longer than its
     /// source is a project mistake, and the caller reports it.
     pub(crate) fn read_into(&mut self, frame: &mut Frame) -> Result<bool, RenderError> {
-        match self.stdout.read_exact(frame.bytes_mut()) {
-            Ok(()) => Ok(true),
+        let into = match &mut self.resized {
+            Some(resized) => resized.decoded(),
+            None => &mut *frame,
+        };
+        match self.stdout.read_exact(into.bytes_mut()) {
+            Ok(()) => {
+                if let Some(resized) = &mut self.resized {
+                    resized.fit(frame);
+                }
+                Ok(true)
+            }
             Err(error) if error.kind() == ErrorKind::UnexpectedEof => Ok(false),
             Err(source) => Err(RenderError::Pipe {
                 stage: Stage::Decode,
@@ -364,9 +377,14 @@ fn video_filter(settings: &RenderSettings, source: &Source) -> String {
         ),
         None => rate,
     };
+    // A source with alpha arrives at its own size whatever its fitting, and
+    // is fitted by the compositor: see [`super::resized`].
+    if source.has_alpha {
+        return format!("{rate},format=rgba");
+    }
     let width = settings.resolution.width();
     let height = settings.resolution.height();
-    let scale = |arguments: &str| resample(arguments, source.has_alpha);
+    let scale = |arguments: &str| format!("scale={arguments}");
     match fitting {
         // Explicit numbers rather than `force_original_aspect_ratio=decrease`,
         // because the buffer reading this pipe is sized from the same
@@ -394,32 +412,6 @@ fn video_filter(settings: &RenderSettings, source: &Source) -> String {
         }
         // Nothing is resampled, so there is nothing alpha could be smeared by.
         Fitting::Native(_) => format!("{rate},format=rgba"),
-    }
-}
-
-/// One `scale`, with the premultiply a transparent source needs around it.
-///
-/// swscale resamples each channel on its own, in **straight** alpha, where the
-/// colour of a fully transparent pixel means nothing and is almost always
-/// black. Average an opaque white pixel with one of those and the alpha comes
-/// out right — half coverage — while the colour comes out grey, which on the
-/// edge of a logo is a dark rim all the way round. Premultiplying first makes
-/// the transparent pixel's colour weigh nothing, which is the whole of the fix.
-/// The compositor already does this for the same reason before it hands a layer
-/// to the rasteriser; this is the same care at the other end of the pipe.
-///
-/// **Only when the source really has alpha.** Wrapping an opaque source is not
-/// a no-op: `premultiply` accepts only alpha-capable pixel formats, so a
-/// `yuv420p` source gets a different conversion path into swscale and its
-/// pixels move by a level or two. They are small differences, inside every
-/// tolerance the golden gate uses — and they are differences to every frame of
-/// every opaque source in the project, bought for a source that has no alpha to
-/// protect.
-fn resample(arguments: &str, has_alpha: bool) -> String {
-    if has_alpha {
-        format!("premultiply=inplace=1,scale={arguments},unpremultiply=inplace=1")
-    } else {
-        format!("scale={arguments}")
     }
 }
 
@@ -476,20 +468,13 @@ mod tests {
         );
     }
 
+    /// ffmpeg resamples nothing with alpha: whatever the fitting, the frames
+    /// come out at the source's own size, and the compositor fits them.
     #[test]
-    fn a_source_with_alpha_is_premultiplied_around_every_scale() {
-        assert_eq!(
-            filter(fitted(), true),
-            "fps=30/1,premultiply=inplace=1,scale=64:32,unpremultiply=inplace=1,format=rgba"
-        );
-        assert!(filter(Fitting::FitPadded, true).contains(
-            "premultiply=inplace=1,scale=64:64:force_original_aspect_ratio=decrease,\
-             unpremultiply=inplace=1"
-        ));
-        assert!(filter(Fitting::Fill, true).contains(
-            "premultiply=inplace=1,scale=64:64:force_original_aspect_ratio=increase,\
-             unpremultiply=inplace=1"
-        ));
+    fn a_source_with_alpha_is_never_scaled_by_ffmpeg() {
+        for fitting in [fitted(), Fitting::FitPadded, Fitting::Fill] {
+            assert_eq!(filter(fitting, true), "fps=30/1,format=rgba");
+        }
     }
 
     fn holding(file: &str) -> Vec<String> {

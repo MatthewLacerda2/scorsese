@@ -168,7 +168,7 @@ impl Sizes {
 /// Both axes are kept at a pixel or more. A source so much wider than the
 /// raster that its height rounds to nothing is a picture nothing can be read
 /// into, and a one-pixel line is a better answer than a failed render.
-fn fitted_inside(source: Resolution, raster: Resolution) -> Resolution {
+pub(crate) fn fitted_inside(source: Resolution, raster: Resolution) -> Resolution {
     let scale = f64::from(raster.width()) / f64::from(source.width());
     let scale = scale.min(f64::from(raster.height()) / f64::from(source.height()));
     let width = (f64::from(source.width()) * scale).round() as u32;
@@ -187,7 +187,7 @@ fn fitted_inside(source: Resolution, raster: Resolution) -> Resolution {
 /// At least one pixel each way: a rectangle that rounds to nothing is a raster
 /// nothing can be read into, and validation has already established that the
 /// fractions themselves enclose some of the source.
-fn cropped(size: Resolution, crop: Option<scorsese_core::Crop>) -> Resolution {
+pub(crate) fn cropped(size: Resolution, crop: Option<scorsese_core::Crop>) -> Resolution {
     let Some(crop) = crop else {
         return size;
     };

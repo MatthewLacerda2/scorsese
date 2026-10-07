@@ -122,6 +122,12 @@
 //! and its transform, so a reveal reveals the layer's shadow and glow with it.
 //! It reads alpha and nothing else, and nothing in it knows what the matte is.
 //!
+//! [`Resample`] changes the size of a picture that carries alpha, and it is
+//! here rather than in an ffmpeg filter chain because that is where it used to
+//! be (#868): ffmpeg's `premultiply` rounding moved between majors and three
+//! page goldens moved with it. Premultiplied, like everything else this crate
+//! blends, and in arithmetic that gives the same bytes on every machine.
+//!
 //! [`mod@grid`] is the one thing here that is part of no picture: a ruler drawn
 //! *over* a finished frame, in the fractions `crop` and `transform.position`
 //! are written in, so a coordinate can be read off a still instead of guessed
@@ -144,7 +150,8 @@
 //! [`Properties`] one instant of a clip resolves to, the [`ANIMATED`] list with
 //! the [`Registry`] that searches it, the two fades ([`fade_in`],
 //! [`fade_out`]), and [`MAX_GLOW_INTENSITY`], the one clamp a caller may want
-//! to quote.
+//! to quote, and [`Resample`], which the decoder sizes a transparent source
+//! with.
 //!
 //! [`text`], [`card`], [`mod@shape`], [`mod@icon`], [`mod@grid`] and
 //! [`mod@dissolve`] keep
@@ -180,6 +187,7 @@ mod matte;
 mod paint;
 mod properties;
 mod registry;
+mod resample;
 pub mod shape;
 pub mod sheet;
 pub mod text;
@@ -194,3 +202,4 @@ pub use frame::{BYTES_PER_PIXEL, Frame, PIXEL_FORMAT, Resolution, ResolutionErro
 pub use light::MAX_GLOW_INTENSITY;
 pub use properties::{ANIMATED, Properties, fade_in, fade_out, path};
 pub use registry::{Property, Registry};
+pub use resample::Resample;
