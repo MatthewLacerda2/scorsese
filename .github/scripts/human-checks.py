@@ -16,8 +16,9 @@ unticked items, then a one-line total. Only two things are read:
 - **The human-check sections**, found by their heading at any level and in any
   case. [`HUMAN_HEADING`] holds the spellings merged pull requests actually use
   — *For a human*, *For a human to check (later)*, *Human check(s)*, *Human
-  checklist*, *Left for a human*, each sometimes with a parenthesis such as
-  "(not a merge hold)". A section runs to the next heading at its level or
+  checklist*, *Left for a human*, *For the maintainer*, each sometimes with a
+  parenthesis such as "(not a merge hold)". A section runs to the next heading
+  at its level or
   above. A checklist under any other heading is somebody else's (a test plan,
   a gate list) and is left out.
 - **Unticked items** (`- [ ]`) inside those. A ticked one is done. That is also
@@ -61,8 +62,16 @@ HEADING = re.compile(r"^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$")
 # The heading texts that open a human-check section. Matched at the start of
 # the text, case-insensitively, so "Human checklist (not a merge hold)" and
 # "For a human, later" are both in. Gathered from the merged pull requests up
-# to #818 (#821's pull request lists them); a new spelling goes here.
-HUMAN_HEADING = re.compile(r"^(for a human|left for a human|human check)", re.IGNORECASE)
+# to #818 (#821's pull request lists them); a new spelling goes here. *For the
+# maintainer* joined after the 2026-10-06 batch, whose first run of this missed
+# the three sections that held its deploy steps (#848, #856, #859).
+HUMAN_HEADING = re.compile(
+    r"^(for a human|left for a human|human check|for the maintainer)", re.IGNORECASE
+)
+
+# An item that says there is nothing to check is not a check. Coders write one
+# as a checkbox (#835, #860), and counted, it is a false entry in the list.
+NOTHING = re.compile(r"^nothing\b", re.IGNORECASE)
 
 # An unticked task-list item, and its text. A ticked `[x]` never matches.
 UNTICKED = re.compile(r"^(\s*)[-*+]\s+\[ \]\s+(.*\S)\s*$")
@@ -92,7 +101,9 @@ def human_checks(body: str | None) -> list[str]:
     def close() -> None:
         nonlocal current
         if current is not None:
-            items.append(" ".join(current[1]))
+            text = " ".join(current[1])
+            if not NOTHING.match(text):
+                items.append(text)
             current = None
 
     for line in (body or "").splitlines():
