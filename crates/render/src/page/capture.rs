@@ -33,6 +33,13 @@ use crate::tools::Tools;
 /// under a second; a page stuck in a loop never answers at all.
 const PATIENCE: Duration = Duration::from_secs(60);
 
+/// How many frames are drawn before the first that counts.
+const PRIMING: u32 = 2;
+
+/// How many times a frame that came back with no picture is drawn again before
+/// it is taken to have none.
+const REDRAWS: u32 = 3;
+
 /// What a finished capture heard on the way.
 pub(crate) struct Heard {
     pub(crate) loaded: std::collections::BTreeMap<String, Option<String>>,
@@ -158,27 +165,22 @@ fn drive(
                 .to_owned(),
         );
     }
-    // Early frames can come back with nothing drawn.
-    for _ in 0..2 {
-        page("HeadlessExperimental.beginFrame", json!({}))?;
+    // Early frames can come back with nothing drawn. The priming frames keep
+    // their pictures, so a first frame that does too still has one to reuse.
+    let mut last: Option<Vec<u8>> = None;
+    for _ in 0..PRIMING {
+        last = draw(&mut page)?.or(last);
     }
 
     let mut encoder = Encoder::start(tools, request, out)?;
     let mut layout = Layout::default();
     let measure = json!({ "expression": layout::expression(), "returnByValue": true });
-    let mut last: Option<Vec<u8>> = None;
     for k in 0..request.frames() {
         let advance = format!("__scorsese.advanceTo({})", request.millis_at(k));
         page("Runtime.evaluate", json!({ "expression": advance }))?;
-        let drawn = page(
-            "HeadlessExperimental.beginFrame",
-            json!({ "screenshot": { "format": "png", "optimizeForSpeed": true } }),
-        )?;
         // A frame with no damage has no screenshot: nothing moved, so the
         // picture is the one before it.
-        if let Some(data) = drawn["screenshotData"].as_str() {
-            last = Some(STANDARD.decode(data).map_err(|_| PageError::NoPicture)?);
-        }
+        last = draw(&mut page)?.or(last);
         let png = last.as_ref().ok_or(PageError::NoPicture)?;
         encoder.write(png)?;
         if layout::sampled(request, k) {
@@ -197,6 +199,39 @@ fn drive(
         loaded: visitor.loaded.clone(),
         warnings,
     })
+}
+
+/// Draws one frame and returns its picture, drawing it again at the same
+/// instant while it comes back with none.
+///
+/// Every frame this browser draws normally has damage — every frame of every
+/// page fixture did, the static ones too — so one without is nearly always a
+/// draw that missed its deadline under load (#851, two priming frames in 272 with
+/// a dozen captures at once), and its change lands on the next
+/// draw. Reusing the picture before it instead would show the page a frame
+/// late, or, on the first frame, show its state before the clock first moved.
+/// A frame still without one after [`REDRAWS`] really did not change.
+fn draw(
+    page: &mut impl FnMut(&'static str, Value) -> Result<Value, CdpError>,
+) -> Result<Option<Vec<u8>>, PageError> {
+    for _ in 0..=REDRAWS {
+        let drawn = page(
+            "HeadlessExperimental.beginFrame",
+            json!({ "screenshot": { "format": "png", "optimizeForSpeed": true } }),
+        )?;
+        if let Some(png) = picture(&drawn)? {
+            return Ok(Some(png));
+        }
+    }
+    Ok(None)
+}
+
+/// The PNG a `beginFrame` answer carries, if it drew anything.
+fn picture(drawn: &Value) -> Result<Option<Vec<u8>>, PageError> {
+    drawn["screenshotData"]
+        .as_str()
+        .map(|data| STANDARD.decode(data).map_err(|_| PageError::NoPicture))
+        .transpose()
 }
 
 /// The ffmpeg turning a stream of PNGs into one lossless file with alpha.
@@ -257,5 +292,64 @@ impl Encoder {
     fn finish(self) -> Result<(), PageError> {
         drop(self.stdin);
         Ok(self.child.finish(Stage::Encode, &self.subject)?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_frame_with_no_damage_has_no_picture() {
+        assert_eq!(picture(&json!({ "hasDamage": false })).unwrap(), None);
+    }
+
+    #[test]
+    fn a_drawn_frame_carries_its_png() {
+        let drawn = json!({ "hasDamage": true, "screenshotData": STANDARD.encode(b"png") });
+        assert_eq!(picture(&drawn).unwrap(), Some(b"png".to_vec()));
+    }
+
+    /// A browser answering each draw with the next of `answers`, then with
+    /// no picture for ever, and counting the draws.
+    fn browser(
+        answers: Vec<Value>,
+        draws: &mut u32,
+    ) -> impl FnMut(&'static str, Value) -> Result<Value, CdpError> + '_ {
+        let mut answers = answers.into_iter();
+        move |method, _| {
+            assert_eq!(method, "HeadlessExperimental.beginFrame");
+            *draws += 1;
+            Ok(answers
+                .next()
+                .unwrap_or_else(|| json!({ "hasDamage": false })))
+        }
+    }
+
+    #[test]
+    fn a_frame_that_missed_is_drawn_again_until_it_has_a_picture() {
+        let missed = json!({ "hasDamage": false });
+        let drawn = json!({ "hasDamage": true, "screenshotData": STANDARD.encode(b"png") });
+        let mut draws = 0;
+        let png = draw(&mut browser(
+            vec![missed.clone(), missed, drawn],
+            &mut draws,
+        ))
+        .unwrap();
+        assert_eq!(png, Some(b"png".to_vec()));
+        assert_eq!(draws, 3);
+    }
+
+    #[test]
+    fn a_frame_that_never_changes_is_given_up_on() {
+        let mut draws = 0;
+        assert_eq!(draw(&mut browser(vec![], &mut draws)).unwrap(), None);
+        assert_eq!(draws, REDRAWS + 1);
+    }
+
+    #[test]
+    fn a_picture_that_does_not_decode_is_none_at_all() {
+        let drawn = json!({ "screenshotData": "not base64!" });
+        assert!(matches!(picture(&drawn), Err(PageError::NoPicture)));
     }
 }
