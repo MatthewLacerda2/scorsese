@@ -12,3 +12,4 @@ mod probing;
 mod refusals;
 mod sequence;
 mod status;
+mod timings;
