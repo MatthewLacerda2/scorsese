@@ -76,7 +76,10 @@ fn the_word_being_said_is_named_and_an_untimed_line_says_so() {
         panic!("{:?}", at(1.75))
     };
     assert_eq!((word.name.as_str(), word.start), ("line", 1.5));
-    assert_eq!(at(1.25), [(ClipId::new("nar"), Saying::Between)]);
+    let between = [(ClipId::new("nar"), Saying::Between)];
+    assert_eq!(at(1.25), between);
+    assert_eq!(at(2.0), between, "a word is over at its end");
+    assert_eq!(at(2.5), between, "the line plays on after its last word");
     assert_eq!(at(0.5), [], "before the line plays");
     assert_eq!(at(3.0), [], "after it");
     std::fs::remove_dir_all(&dir).ok();

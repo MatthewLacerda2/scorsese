@@ -92,6 +92,30 @@ fn words_land_where_the_clip_plays_them() {
     assert!((placed[0].start - (10.0 + (0.499 - 0.5) / 2.0)).abs() < 1e-9);
     assert!((placed[1].end - (10.0 + (1.254 - 0.5) / 2.0)).abs() < 1e-9);
     assert_eq!(placed[1].text, "back.");
+    // How much of the line the clip reaches is its length times its speed:
+    // 0.1 s of timeline hears 0.5–0.7 s, and 0.3 s hears 0.5–1.1 s.
+    let mut reaching = |frames| {
+        clip.duration = Frames(frames);
+        probed().placed(&clip, fps).len()
+    };
+    assert_eq!((reaching(3), reaching(9)), (1, 2));
 }
 
 mod disk;
+
+#[test]
+fn a_word_ending_where_the_clip_opens_is_not_heard() {
+    let said = |text: &str, start: f64| Word {
+        text: text.into(),
+        start,
+        end: start + 0.5,
+    };
+    let words = Words {
+        words: vec![said("a", 0.0), said("b", 0.5), said("c", 1.0)],
+    };
+    let mut clip = Clip::new(ClipId::new("vo"), AssetId::new("vo"), Frames(0), Frames(15));
+    clip.source_in = Frames(15);
+    let placed = words.placed(&clip, Fps::THIRTY);
+    let names: Vec<_> = placed.iter().map(|p| p.name.as_str()).collect();
+    assert_eq!(names, ["b"]);
+}
