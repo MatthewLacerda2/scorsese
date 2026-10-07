@@ -415,7 +415,8 @@ impl<'a> Renderer<'a> {
     /// something it was not given (#777). The notes a render's report would
     /// carry for the pages on screen at `at`, for a caller that tells somebody
     /// — an agent cannot fix a page it is not told about. A window redrawing
-    /// a scrub has nobody to tell, and calls [`Renderer::still`].
+    /// a scrub has nobody to tell, and reads only whether a page was not
+    /// captured yet, to capture the one under its playhead first (#875).
     pub fn still_noted(
         &self,
         project: &Project,
