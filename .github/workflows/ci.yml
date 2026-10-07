@@ -117,8 +117,15 @@ jobs:
           path: ~/.cache/scorsese/chromium
           key: chromium-${{ hashFiles('tools/chromium/pin') }}
 
+      # Captures run inside Chromium's sandbox by default (#853), and this
+      # runner cannot start it: ubuntu-24.04's AppArmor restricts the
+      # unprivileged user namespaces it needs. So CI takes the one opt-out.
+      # #773 measured frames byte-identical with and without it, so the goldens
+      # this run compares are the ones a sandboxed capture draws.
       - name: Install Chromium
-        run: echo "SCORSESE_CHROME=$(tools/chromium/fetch)" >> "$GITHUB_ENV"
+        run: |
+          echo "SCORSESE_CHROME=$(tools/chromium/fetch)" >> "$GITHUB_ENV"
+          echo "SCORSESE_CHROME_NO_SANDBOX=1" >> "$GITHUB_ENV"
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v2

@@ -41,7 +41,7 @@ pub fn run(args: &Args) -> Result<(), String> {
     let tools = Tools::discover().map_err(|error| error.to_string())?;
     let chrome = Chrome::discover().map_err(|error| error.to_string())?;
     let chrome = if args.no_sandbox {
-        chrome
+        chrome.unsandboxed()
     } else {
         chrome.sandboxed()
     };

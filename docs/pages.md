@@ -96,6 +96,15 @@ request is a warning, and the page is drawn without what it asked for.
   carries loads with an ordinary `@font-face` rule. Nothing outside the project
   folder, so the project still survives being copied to another machine.
 
+**Inside Chromium's sandbox.** The browser that draws a page runs with its own
+sandbox on, everywhere, so a page from a template, a shared project or an
+agent's mistake cannot reach the machine's processes or files. It costs nothing
+measurable and draws the same pixels. A machine that cannot start it — one
+running as root, or a kernel that refuses unprivileged user namespaces, like
+GitHub's ubuntu-24.04 runners — gets a note naming the opt-out, and nothing is
+drawn without the sandbox until `SCORSESE_CHROME_NO_SANDBOX=1` is set. The web
+app's captures have no opt-out.
+
 **Not available:** `<video>` and `<audio>` inside a page (they run on their own
 clock, and a warning says so: put footage and sound on the timeline instead),
 workers' clocks, and `requestIdleCallback`.
@@ -164,7 +173,8 @@ Whatever a page does that its author should hear about comes back in words:
 - and a page that could not be captured at all. That clip shows the page's slug
   card (`PAGE · NOT CAPTURED`) instead, and the render still finishes. The usual
   cause is that there is no browser on the machine: `SCORSESE_CHROME`, then
-  `chrome-headless-shell` on `PATH`, are where one is looked for.
+  `chrome-headless-shell` on `PATH`, are where one is looked for. The next is
+  a sandbox the machine cannot start, and that note says so.
 
 A note is never an error, so read them. A page that threw on its first line
 draws as an empty frame.

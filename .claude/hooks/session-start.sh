@@ -152,6 +152,11 @@ chromium() {
     local chrome
     chrome=$(tools/chromium/fetch 2>&1 | tail -1)
     [ -x "$chrome" ] || { echo "$chrome"; return 1; }
+    # Captures run inside Chromium's sandbox (#853), which refuses to start as
+    # root — and a cloud container is root. The opt-out is the documented one.
+    if [ "$(id -u)" = 0 ]; then
+        export_var SCORSESE_CHROME_NO_SANDBOX 1 >/dev/null
+    fi
     export_var SCORSESE_CHROME "$chrome"
 }
 

@@ -36,7 +36,7 @@ mod visitor;
 
 use std::path::{Path, PathBuf};
 
-pub use browser::{CHROME_ENV, Chrome, ChromeError, NO_SANDBOX};
+pub use browser::{CHROME_ENV, Chrome, ChromeError, NO_SANDBOX, NO_SANDBOX_ENV};
 pub use cdp::CdpError;
 pub use origin::SHIPPED_ORIGIN;
 pub use request::Request;
