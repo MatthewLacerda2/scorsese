@@ -190,6 +190,14 @@ impl Preview {
         let at = editing.playhead.min(last);
         self.picture
             .show(ui, open, at, self.quality, self.pages.chrome());
+        // Not while playing: the playhead has moved on before a capture of
+        // this instant could land, and the whole page is on its way anyway.
+        if self.picture.uncaptured() && self.playing.is_none() {
+            self.pages.playhead(open, at, self.quality);
+            // Nothing else would look for it landing until the pointer moves.
+            ui.ctx()
+                .request_repaint_after(std::time::Duration::from_millis(500));
+        }
     }
 
     /// Takes a kept frame's outcome when its thread has one — the window never

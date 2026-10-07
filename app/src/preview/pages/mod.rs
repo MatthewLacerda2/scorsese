@@ -17,13 +17,22 @@
 //! at half). Quarter cost exactly what half did — Chromium does not scale a
 //! page below half — so it saves nothing more, but costs nothing either.
 //!
+//! **The playhead first** (#875). A whole page is drawn from its first frame,
+//! so a long one keeps the frame being looked at waiting minutes; [`glance`]
+//! captures just the instant under the playhead beside it, in seconds. The
+//! whole page is then drawn by as many browsers as the machine is worth
+//! ([`page::browsers`]): the machine is the user's own, and the window has the
+//! cores of it while they are looking at it.
+//!
 //! The first capture on a machine with no browser downloads one
 //! ([`fetch_on_first_use`]); the line under the preview says how far it got.
+
+mod glance;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
-use scorsese_core::{AssetKind, Project};
+use scorsese_core::{AssetKind, Frames, Project};
 use scorsese_providers::chromium::{self, Fetching};
 use scorsese_render::page::{self, Chrome, Supply};
 use scorsese_render::{Quality, RenderSettings, Renderer, Tools};
@@ -61,6 +70,8 @@ pub(super) struct Capturer {
     chrome: Option<Chrome>,
     /// How many captures the preview has already been told about.
     seen: usize,
+    /// The capture of the instant under the playhead, while one runs.
+    glance: glance::Glancer,
 }
 
 struct Job {
@@ -103,6 +114,13 @@ impl Capturer {
     /// The document changed: look through it again once nothing is running.
     pub(super) fn document_changed(&mut self) {
         self.looked = None;
+        self.glance.forget();
+    }
+
+    /// The picture at `at` shows a page with no capture of that instant:
+    /// capture it now, ahead of the whole page, unless it was just tried.
+    pub(super) fn playhead(&mut self, open: &Open, at: Frames, quality: Quality) {
+        self.glance.start(open, at, quality);
     }
 
     /// The browser to read captures with, once one has been found.
@@ -113,27 +131,34 @@ impl Capturer {
     /// Whether a capture landed, or the browser was found, since the last
     /// time this was asked — which is when the picture should be drawn again.
     pub(super) fn landed(&mut self) -> bool {
-        let Some(progress) = self.progress() else {
-            return false;
+        let glanced = self.glance.landed();
+        let (whole, made) = match self.progress() {
+            Some(progress) => (progress.chrome, progress.made),
+            None => (None, self.seen),
         };
-        let found = self.chrome.is_none() && progress.chrome.is_some();
+        // A capture at the playhead is news even when the browser is not: it
+        // is the frame being looked at.
+        let news = glanced.is_some() || made > self.seen;
+        self.seen = made;
+        let found = self.chrome.is_none() && (whole.is_some() || glanced.is_some());
         if found {
-            self.chrome = progress.chrome;
+            self.chrome = whole.or(glanced);
         }
-        let news = progress.made > self.seen;
-        self.seen = progress.made;
         found || news
     }
 
     /// Whether a thread is capturing right now.
     pub(super) fn running(&self) -> bool {
-        self.progress().is_some_and(|progress| !progress.finished)
+        self.glance.running() || self.progress().is_some_and(|progress| !progress.finished)
     }
 
     /// What to say about it under the preview, when there is anything.
     pub(super) fn status(&self) -> Option<String> {
         if let Some(at) = *fetching() {
             return Some(fetching_said(at));
+        }
+        if let Some(said) = self.glance.status() {
+            return Some(said);
         }
         let progress = self.progress()?;
         if let Some(failed) = progress.failed {
@@ -232,7 +257,8 @@ fn capture_all(
         if stop.load(Ordering::Relaxed) {
             break;
         }
-        match page::capture(&chrome, &tools, root, request) {
+        let whole = 0..request.frames();
+        match page::capture_frames(&chrome, &tools, root, &[], request, whole, page::browsers()) {
             Ok(_) => update(&mut |progress| progress.made += 1),
             Err(error) => {
                 let why = error.to_string();

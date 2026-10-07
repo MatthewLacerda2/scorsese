@@ -18,7 +18,7 @@ use egui::{Align2, FontId, Image, Rect, Sense, Stroke, TextureHandle, TextureOpt
 use scorsese_core::Frames;
 use scorsese_render::page::Chrome;
 use scorsese_render::preview::{self, Proxies};
-use scorsese_render::{Quality, RenderSettings, Renderer, Tools};
+use scorsese_render::{Note, Quality, RenderSettings, Renderer, Tools};
 
 use crate::project::Open;
 use crate::theme::{ROUND_MD, palette};
@@ -38,6 +38,9 @@ pub(super) struct Still {
     texture: Option<TextureHandle>,
     /// Why it did not, in the words to put where the picture would be.
     problem: Option<String>,
+    /// Whether the frame showed a page's card for want of a capture of this
+    /// instant — what has the page under the playhead captured first (#875).
+    uncaptured: bool,
     /// ffmpeg, looked for once and then remembered — failure included. A
     /// machine without ffmpeg does not grow one mid-session, and checking on
     /// every scrubbed frame would spawn two processes to learn that again.
@@ -109,8 +112,14 @@ impl Still {
         if let Some(chrome) = chrome {
             renderer = renderer.with_chrome(chrome.clone());
         }
-        let frame = match renderer.still(&open.project, &open.root, at) {
-            Ok(frame) => frame,
+        self.uncaptured = false;
+        let frame = match renderer.still_noted(&open.project, &open.root, at) {
+            Ok((frame, notes)) => {
+                self.uncaptured = notes
+                    .iter()
+                    .any(|note| matches!(note, Note::PageNotCaptured { .. }));
+                frame
+            }
             Err(problem) => {
                 self.failed(problem.to_string());
                 return;
@@ -135,6 +144,12 @@ impl Still {
                 ));
             }
         }
+    }
+
+    /// Whether the frame on screen shows a page as its card because the
+    /// instant has not been captured yet.
+    pub(super) fn uncaptured(&self) -> bool {
+        self.uncaptured
     }
 
     /// Forgets which instant the held frame answers, so the next repaint
