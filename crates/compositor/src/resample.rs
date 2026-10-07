@@ -45,8 +45,7 @@ pub struct Resample {
 }
 
 /// What a resample writes on the way, kept by whoever runs it so a render
-/// allocates it once per thread rather than once per frame. It grows to fit
-/// the largest resample it has been through; a smaller one uses the front.
+/// allocates it once per thread rather than once per frame.
 #[derive(Debug, Default)]
 pub(crate) struct Scratch {
     /// The source with its colour weighted by its alpha, one row at a time.
@@ -58,21 +57,19 @@ pub(crate) struct Scratch {
 }
 
 impl Scratch {
-    /// Sized for `resample`, keeping whatever is already allocated. Nothing
-    /// needs clearing: every value read is written first in the same pass.
+    /// Sized for `resample`. A `Vec` keeps its allocation when it shrinks,
+    /// so moving between resamples allocates only past the largest one yet.
+    /// Nothing needs clearing: every value read is written first in the same
+    /// pass.
     fn fit(&mut self, resample: &Resample) {
         let (source, window) = (resample.source, resample.window);
-        let grow = |buffer: &mut Vec<f32>, len: usize| {
-            if buffer.len() < len {
-                buffer.resize(len, 0.0);
-            }
-        };
-        grow(&mut self.row, source.width() as usize * BYTES_PER_PIXEL);
-        grow(
+        let size = |buffer: &mut Vec<f32>, len: usize| buffer.resize(len, 0.0);
+        size(&mut self.row, source.width() as usize * BYTES_PER_PIXEL);
+        size(
             &mut self.across,
             source.height() as usize * window.width() as usize * BYTES_PER_PIXEL,
         );
-        grow(&mut self.down, window.width() as usize * BYTES_PER_PIXEL);
+        size(&mut self.down, window.width() as usize * BYTES_PER_PIXEL);
     }
 }
 
@@ -124,7 +121,6 @@ impl Resample {
         scratch.fit(self);
         let Scratch { row, across, down } = scratch;
         let width = self.window.width() as usize * BYTES_PER_PIXEL;
-        let down = &mut down[..width];
         let stride = self.source.width() as usize * BYTES_PER_PIXEL;
         for (y, pixels) in from.bytes().chunks_exact(stride).enumerate() {
             if !self.rows.reads(y) {
