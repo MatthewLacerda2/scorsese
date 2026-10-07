@@ -129,6 +129,7 @@ impl Bench {
                 resolution: Resolution::new(64, 64).expect("a raster"),
                 fps: Fps::THIRTY,
                 duration: 9.0,
+                clips: Default::default(),
             },
         }
     }

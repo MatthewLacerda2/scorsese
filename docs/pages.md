@@ -38,6 +38,7 @@ that belongs to the clip. What it can count on:
   | `width`, `height` | the viewport, in CSS pixels |
   | `fps` | the frame rate it is drawn at |
   | `duration` | seconds, where its clock is at the clip's last frame |
+  | `clips` | where every clip beside it sits, by id: `{start, end}` in its own seconds |
 
 - **The shorter side of the viewport is 1080 CSS pixels**, at every raster. A
   landscape render is a 1920 × 1080 page, a vertical one 1080 × 1920, a square
@@ -72,6 +73,32 @@ last frame however long the clip is cut. One line hands it to CSS:
 and the exit is then `animation: leave 600ms var(--out) ease-in forwards`.
 `forwards` and not `both`: an exit that fills backwards would hold the page at
 its last keyframe from the first frame.
+
+### Time it to the edit with `scorsese.clips`
+
+A page that runs beside the edit — a diagram lit while the narration is on each
+part of it, a title landing on the music's downbeat — times itself to the clips,
+never to seconds copied from where they sit. `scorsese.clips` holds every clip
+on the timeline the page's clip sits on, by clip id, as `{start, end}` in
+**the page's own seconds**: the clock `duration` is on, already corrected for
+where the page's clip starts, its `source_in` and its `speed`. A clip before the
+page's starts at a negative time; one after it, past `duration`. The page's own
+clip is there too.
+
+```js
+const line = scorsese.clips["nar-9-scale"];   // {start: 81.0, end: 86.4}
+const drop = scorsese.clips["music"].start + 32.5;  // a beat inside the song
+```
+
+Move or re-record the narration and the page follows it with nothing edited:
+it is drawn again, because **what a page read of `clips` is part of its
+capture**. Only that: moving a clip the page never looked up draws nothing
+again. Looking up an id no clip has gives `undefined`, and a clip given that id
+later redraws the page too. Listing them all (`Object.keys`, `for … in`) makes
+every clip part of it, so look up the ids the page needs.
+
+A page inside a group is told the clips beside it in the group, on the group's
+clock: the same however often the group is placed.
 
 ## What is there offline
 
@@ -427,6 +454,49 @@ and this page uses both:
       box.innerHTML = svg;
       box.querySelectorAll("path").forEach((path) => path.setAttribute("pathLength", "1"));
     });
+  </script>
+</body>
+</html>
+```
+
+### In step with the narration
+
+A stack of three blocks, each lit for exactly as long as the narration line
+about it plays. Each block names its line's clip id in `data-clip`; the script
+turns that clip's `{start, end}` into an animation of that length starting at
+that time, which holds the lit look only while it runs. Nothing in the page is a
+number of seconds, so re-cutting the narration re-times the page on its own. A
+block whose id is not on the timeline stays dim.
+
+```html page in-step
+<!doctype html>
+<html>
+<head>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body { display: grid; place-content: center; background: #0f1b2d; }
+  .stack { display: flex; flex-direction: column; gap: 28px; width: 900px; }
+  .block {
+    padding: 34px 48px; border-radius: 18px; font: 600 52px Inter;
+    color: #f4efe6; background: rgba(255, 255, 255, .08); opacity: .4;
+  }
+  @keyframes lit {
+    from, to { opacity: 1; background: #f2b134; color: #14213d; }
+  }
+</style>
+</head>
+<body>
+  <div class="stack">
+    <div class="block" data-clip="vo-encoder">Encoder</div>
+    <div class="block" data-clip="vo-memory">Memory</div>
+    <div class="block" data-clip="vo-decoder">Decoder</div>
+  </div>
+  <script>
+    for (const block of document.querySelectorAll("[data-clip]")) {
+      const line = scorsese.clips[block.dataset.clip];
+      if (!line) continue;
+      block.style.animation = `lit ${line.end - line.start}s linear ${line.start}s`;
+    }
   </script>
 </body>
 </html>

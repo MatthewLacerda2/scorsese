@@ -41,6 +41,7 @@ use super::encoder::Encoder;
 use super::layout::{self, Layout};
 use super::origin::url_of;
 use super::request::Request;
+use super::told::{self, Read};
 use super::visitor::{OFFLINE_BINDING, Visitor};
 use crate::tools::Tools;
 
@@ -59,6 +60,8 @@ const REDRAWS: u32 = 3;
 pub(crate) struct Heard {
     pub(crate) loaded: std::collections::BTreeMap<String, Option<String>>,
     pub(crate) warnings: Vec<String>,
+    /// What the page read of `scorsese.clips` (`told`'s).
+    pub(crate) read: Read,
 }
 
 /// What a capture serves the page from: its project, the folders a link out
@@ -254,12 +257,24 @@ fn drive(
         }
     }
     encoder.finish()?;
+    // Asked once, after the last frame: by then the page has read everything
+    // it drew with. A page that broke the asking is taken to have read
+    // everything — the safe side, since it is captured again more often.
+    let asked = page(
+        "Runtime.evaluate",
+        json!({ "expression": told::ASK, "returnByValue": true }),
+    )?;
+    let read = serde_json::from_value(asked["result"]["value"].clone()).unwrap_or(Read {
+        names: Default::default(),
+        listed: true,
+    });
     let visitor = cdp.listener();
     warnings.splice(0..0, visitor.warnings.iter().cloned());
     warnings.extend(layout.notes());
     Ok(Heard {
         loaded: visitor.loaded.clone(),
         warnings,
+        read,
     })
 }
 

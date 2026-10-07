@@ -125,7 +125,9 @@ fn a_still_from_a_piece_of_the_page_is_the_still_from_the_whole() {
         .filter_map(Result::ok)
         .map(|entry| entry.path())
         .find(|path| !path.ends_with("fonts"))
-        .expect("a slot");
+        .expect("a slot")
+        // The page read no clip, so its captures sit on the one shelf (#810).
+        .join("told-none");
     let names = |slot: &std::path::Path| -> Vec<String> {
         let mut names: Vec<String> = std::fs::read_dir(slot)
             .expect("a slot")

@@ -124,6 +124,7 @@ mod tests {
             fps: Fps::THIRTY,
             // Not a whole quarter, so the last frame is measured for being last.
             duration: 0.9,
+            clips: Default::default(),
         };
         let measured: Vec<u64> = (0..request.frames())
             .filter(|&k| sampled(&request, k))

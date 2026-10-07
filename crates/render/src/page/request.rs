@@ -6,7 +6,9 @@
 //! - `width` and `height`: the viewport, in CSS pixels;
 //! - `fps`: how many frames a second are captured;
 //! - `duration`: in seconds, where the page's clock is at the clip's last frame
-//!   — `source_in` plus the clip's length times its speed (#789).
+//!   — `source_in` plus the clip's length times its speed (#789);
+//! - `clips`: where every clip beside it sits, by id, as `{start, end}` in
+//!   those same seconds (#810, `told`'s).
 //!
 //! **The shorter side of the viewport is always 1080 CSS pixels**, whatever the
 //! render's raster; the browser's device scale makes up the difference. So a
@@ -14,9 +16,13 @@
 //! and a 4K delivery, only sharper or softer — the way a title's size is a
 //! fraction of the frame rather than a count of pixels.
 
+use std::collections::BTreeMap;
+
 use scorsese_compositor::Resolution;
 use scorsese_core::Fps;
 use serde_json::json;
+
+use super::told::{self, Span};
 
 /// The shorter side of every page's viewport, in CSS pixels.
 pub(crate) const SHORT_SIDE: u32 = 1080;
@@ -32,6 +38,10 @@ pub struct Request {
     pub fps: Fps,
     /// How far the page's clock runs, in seconds, from zero.
     pub duration: f64,
+    /// Where each clip on the timeline beside the page's own sits, by id, in
+    /// seconds of the page's clock. Not part of where its capture is kept:
+    /// only the clips a page reads are, once it has read them (`told`'s).
+    pub clips: BTreeMap<String, Span>,
 }
 
 /// The viewport a page lays out in, and the scale that brings it to the raster.
@@ -96,8 +106,8 @@ impl Request {
         }
     }
 
-    /// The script run before the page's own: the contract, the shipped fonts,
-    /// then the clock.
+    /// The script run before the page's own: the contract and the clips, the
+    /// shipped fonts, then the clock.
     pub(crate) fn preamble(&self) -> String {
         let viewport = self.viewport();
         let contract = json!({
@@ -106,8 +116,10 @@ impl Request {
             "fps": self.fps.as_f64(),
             "duration": self.duration,
         });
+        let clips = json!(self.clips);
         format!(
-            "Object.defineProperty(window, 'scorsese', {{ value: Object.freeze({contract}) }});\n{}{}{}",
+            "{}({contract}, {clips});\n{}{}{}",
+            told::SCRIPT.trim_end(),
             super::fonts::declarations(super::SHIPPED_ORIGIN),
             include_str!("clock.js"),
             include_str!("offline.js")
@@ -129,6 +141,13 @@ mod tests {
             resolution: Resolution::new(width, height).unwrap(),
             fps: Fps::THIRTY,
             duration: 2.0,
+            clips: BTreeMap::from([(
+                "vo".to_owned(),
+                Span {
+                    start: -1.0,
+                    end: 0.5,
+                },
+            )]),
         }
     }
 
@@ -176,11 +195,15 @@ mod tests {
     #[test]
     fn the_page_is_told_its_viewport_rate_and_length_before_the_clock_starts() {
         let preamble = request(1280, 720).preamble();
-        let contract = preamble.lines().next().unwrap();
+        assert!(preamble.starts_with(told::SCRIPT.trim_end()));
+        let called = &preamble[told::SCRIPT.trim_end().len()..];
+        let contract = called.lines().next().unwrap();
         assert!(contract.contains(r#""width":1920"#), "{contract}");
         assert!(contract.contains(r#""height":1080"#), "{contract}");
         assert!(contract.contains(r#""fps":30.0"#), "{contract}");
         assert!(contract.contains(r#""duration":2.0"#), "{contract}");
+        assert!(contract.contains(r#"{"vo":{"#), "{contract}");
+        assert!(contract.contains(r#""start":-1.0"#), "{contract}");
         assert!(preamble.contains("__scorsese"));
     }
 

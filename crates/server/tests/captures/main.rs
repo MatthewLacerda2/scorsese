@@ -51,6 +51,7 @@ fn request(duration: f64) -> Request {
         resolution: Resolution::new(64, 36).expect("a raster"),
         fps: Fps::new(10, 1).expect("a rate"),
         duration,
+        clips: Default::default(),
     }
 }
 

@@ -22,7 +22,8 @@
 //! is skipped is drawing the ones nobody looks at.
 //!
 //! What a page is told, and the clock it runs on, are [`Request`]'s and
-//! `clock.js`'s; how it is served and kept offline is `origin`'s; what it
+//! `clock.js`'s; where the timeline's clips are, and which of them it read,
+//! `told`'s (#810); how it is served and kept offline is `origin`'s; what it
 //! loaded and what went wrong is `visitor`'s; what its layout gets wrong is
 //! `layout`'s; the cache is `cache`'s.
 //!
@@ -44,6 +45,7 @@ mod request;
 #[cfg(test)]
 mod same_frames;
 mod supply;
+mod told;
 mod visitor;
 
 use std::ops::Range;
@@ -54,6 +56,7 @@ pub use cdp::CdpError;
 pub use origin::SHIPPED_ORIGIN;
 pub use request::Request;
 pub use supply::{Supply, supply};
+pub use told::Span;
 
 pub(crate) use find::find;
 
@@ -67,8 +70,11 @@ use crate::tools::Tools;
 /// what is said about them, and every capture is redone. 2: layout notes
 /// (#813), which a capture kept from before them would never say. 3: no
 /// WebSocket or WebRTC traffic, and a note when a page tries (#839), so a
-/// page that drew what the network told it is drawn again without it.
-pub const PAGE_VERSION: u32 = 3;
+/// page that drew what the network told it is drawn again without it. 4:
+/// `scorsese.clips` (#810), so a page that read it before it was there, and
+/// drew its error, is drawn again with it; and a slot's captures now sit on
+/// shelves, which a capture kept from before them is not on.
+pub const PAGE_VERSION: u32 = 4;
 
 /// A capture, ready to be decoded.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -93,8 +99,8 @@ pub struct Captured {
 /// would capture it, since a capture by another build is another capture.
 pub fn cached(project_root: &Path, request: &Request, chrome_version: &str) -> Option<Captured> {
     let slot = cache::slot(project_root, request, chrome_version);
-    cache::fresh(&slot, project_root).map(|record| Captured {
-        file: slot.join(cache::FRAMES),
+    cache::fresh(&slot, project_root, request).map(|(file, record)| Captured {
+        file,
         first: 0,
         warnings: record.warnings,
     })
@@ -191,15 +197,16 @@ pub fn capture_frames(
     let slot = cache::slot(project_root, request, chrome.version());
     std::fs::create_dir_all(&slot)?;
     let fonts = cache::fonts(project_root)?;
-    let (file, record_file) = cache::files(&slot, &piece, request);
     // Written beside and moved into place, so an interrupted capture never
     // leaves frames that look finished — under a name of this process's own, so
     // two renders of one project capturing the same page cannot interleave.
-    let stem = file
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("frames");
-    let partial = slot.join(format!("{stem}.{}.partial.mkv", std::process::id()));
+    // Which shelf it goes on is known only once the page has said what it read.
+    let partial = slot.join(format!(
+        "part-{}-{}.{}.partial.mkv",
+        piece.start,
+        piece.end,
+        std::process::id()
+    ));
     let heard = pieces::capture_in(
         chrome,
         tools,
@@ -212,13 +219,19 @@ pub fn capture_frames(
         pieces::split(request, piece.clone(), browsers),
         &partial,
     )?;
+    let told = told::Told::of(request, &heard.read);
+    let shelf = cache::shelf(&slot, &told);
+    std::fs::create_dir_all(&shelf)?;
+    let (file, record_file) = cache::files(&shelf, &piece, request);
     std::fs::rename(&partial, &file)?;
     let record = cache::Record {
         loaded: heard.loaded,
         warnings: heard.warnings,
+        told,
     };
     cache::keep(&record_file, &record)?;
-    cache::prune(&slot, project_root, request, &piece);
+    cache::prune(&shelf, project_root, request, &piece);
+    cache::retire(&slot, &shelf);
     Ok(Captured {
         file,
         first: piece.start,

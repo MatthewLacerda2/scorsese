@@ -22,13 +22,13 @@
 //! window's preview, which captures in the background instead of making a
 //! scrub wait minutes for a page (#776).
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
-use scorsese_core::{AssetKind, ClipId, Fps};
+use scorsese_core::{AssetKind, Clip, ClipId, Fps, Frames, Project};
 
-use crate::page::{self, Chrome, Request};
+use crate::page::{self, Chrome, Request, Span};
 use crate::plan::{Plan, Shot};
 use crate::report::Note;
 use crate::settings::RenderSettings;
@@ -108,7 +108,7 @@ impl Pages {
             if pages.captured.contains_key(&shot.clip.id) {
                 continue;
             }
-            let Some(request) = request_for(shot, settings, plan.timeline_fps()) else {
+            let Some(request) = request_for(shot, settings, plan) else {
                 continue;
             };
             let frames = stretches.get(&shot.clip.id).cloned().unwrap_or(0..u64::MAX);
@@ -196,7 +196,7 @@ fn shots<'p, 'a>(plan: &'p Plan<'a>) -> Vec<&'p Shot<'a>> {
 pub(super) fn requests(settings: &RenderSettings, plan: &Plan<'_>) -> Vec<Request> {
     let mut requests: Vec<Request> = Vec::new();
     for shot in shots(plan) {
-        if let Some(request) = request_for(shot, settings, plan.timeline_fps())
+        if let Some(request) = request_for(shot, settings, plan)
             && !requests.contains(&request)
         {
             requests.push(request);
@@ -218,16 +218,18 @@ fn pages_in<'s, 'a>(shot: &'s Shot<'a>, into: &mut Vec<&'s Shot<'a>>) {
     }
 }
 
-/// What a page clip asks to be captured as: the render's raster and rate, and
-/// the page's clock run from zero to where it is at the clip's last frame —
-/// `source_in` plus the clip's length at its speed (#789). The capture is then
-/// played like footage, from `source_in`, at `speed`, by the ordinary decode.
+/// What a page clip asks to be captured as: the render's raster and rate, the
+/// page's clock run from zero to where it is at the clip's last frame —
+/// `source_in` plus the clip's length at its speed (#789) — and where the clips
+/// beside it sit on that clock ([`clips_beside`]). The capture is then played
+/// like footage, from `source_in`, at `speed`, by the ordinary decode.
 pub(super) fn request_for(
     shot: &Shot<'_>,
     settings: &RenderSettings,
-    timeline_fps: Fps,
+    plan: &Plan<'_>,
 ) -> Option<Request> {
     let clip = shot.clip;
+    let timeline_fps = plan.timeline_fps();
     let duration = timeline_fps.seconds(clip.source_in)
         + timeline_fps.seconds(clip.duration) * clip.speed.get();
     Some(Request {
@@ -235,5 +237,46 @@ pub(super) fn request_for(
         resolution: settings.resolution,
         fps: settings.fps,
         duration,
+        clips: clips_beside(shot, plan.project(), timeline_fps),
     })
+}
+
+/// Where every clip on the timeline a page clip sits on is, by id, in seconds
+/// of the page's own clock (#810): timeline time `t` is page time `source_in +
+/// (t − start) × speed`. The page clip itself is among them.
+///
+/// The timeline its clip sits on is the project's for a page on its tracks,
+/// and a group's own for one of its members — whose clock is the group's, the
+/// same wherever the group is placed, so a page in a group times itself to the
+/// clips beside it there and is captured once however often the group is used.
+fn clips_beside(shot: &Shot<'_>, project: &Project, fps: Fps) -> BTreeMap<String, Span> {
+    let page = shot.clip;
+    let on_timeline = project.tracks.iter().any(|track| &track.id == shot.track);
+    let beside: Vec<&Clip> = if on_timeline {
+        project.clips().map(|(_, clip)| clip).collect()
+    } else {
+        project
+            .assets
+            .iter()
+            .filter_map(|asset| asset.group.as_ref())
+            .find(|group| group.tracks.iter().any(|track| &track.id == shot.track))
+            .map(|group| group.clips().map(|(_, clip)| clip).collect())
+            .unwrap_or_default()
+    };
+    let opens = fps.seconds(page.source_in);
+    let speed = page.speed.get();
+    let at = |frame: Frames| {
+        let since = frame.get() as f64 - page.start.get() as f64;
+        opens + fps.seconds_at(since) * speed
+    };
+    beside
+        .into_iter()
+        .map(|clip| {
+            let span = Span {
+                start: at(clip.start),
+                end: at(clip.start + clip.duration),
+            };
+            (clip.id.to_string(), span)
+        })
+        .collect()
 }

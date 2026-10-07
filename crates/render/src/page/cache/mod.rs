@@ -18,6 +18,16 @@
 //! pieces that reach that far. The whole capture is still `frames.mkv`, which
 //! is all a caller that asks for the whole page ([`super::cached`]) ever reads.
 //! A piece is dropped once it goes stale or a newer capture holds all of it.
+//!
+//! **A slot has a shelf for each thing its page was told** (#810): the
+//! captures of a page that read where some clips are, told one set of places,
+//! sit in `told-<hash>/`, and one told another set in another. Which clips a
+//! page reads is only known once it has run, so the slot cannot be named by
+//! them; and the same page placed twice is told two sets of places in one
+//! render, so neither capture may replace the other. A page that read no clip
+//! has the one shelf, `told-none/`. Only the [`SHELVES`] written most recently
+//! are kept, so moving a clip a page reads, again and again, does not grow the
+//! cache by a capture each time.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -29,10 +39,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use super::request::Request;
+use super::told::Told;
 
 mod pieces;
 
-pub(crate) use pieces::{files, holding, prune};
+pub(crate) use pieces::{files, prune};
 
 /// The folder under `cache/` captures are kept in.
 const PAGES: &str = "pages";
@@ -40,15 +51,22 @@ const PAGES: &str = "pages";
 pub(crate) const FRAMES: &str = "frames.mkv";
 /// What the capture loaded and warned about, in a slot.
 pub(super) const RECORD: &str = "capture.json";
+/// How many shelves a slot keeps: a page placed this many times in one edit,
+/// each told different places, is the most that is never captured twice.
+const SHELVES: usize = 8;
 
 /// What a capture recorded about itself.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct Record {
     /// Every project file the page loaded, by path, with its hash — `None` for
     /// one it asked for and did not find.
     pub(crate) loaded: BTreeMap<String, Option<String>>,
     /// What the capture warned about, said again whenever it is reused.
     pub(crate) warnings: Vec<String>,
+    /// The places of the clips the page read, which have to be where they
+    /// are now too.
+    #[serde(default)]
+    pub(crate) told: Told,
 }
 
 /// The folder a request's capture is kept in.
@@ -67,15 +85,49 @@ pub(crate) fn slot(project_root: &Path, request: &Request, chrome_version: &str)
     project_root.join(CACHE_DIR).join(PAGES).join(&key[..32])
 }
 
-/// The record of a slot's capture, if it is there and still describes the
-/// project: every file loaded still hashes as it did, and every file missed is
-/// still missing.
-pub(crate) fn fresh(slot: &Path, project_root: &Path) -> Option<Record> {
-    read_fresh(&slot.join(FRAMES), &slot.join(RECORD), project_root)
+/// The shelf in `slot` for captures told `told`.
+pub(crate) fn shelf(slot: &Path, told: &Told) -> PathBuf {
+    slot.join(told.folder())
 }
 
-/// [`fresh`], for any capture's frames and record.
-pub(super) fn read_fresh(frames: &Path, record: &Path, project_root: &Path) -> Option<Record> {
+/// The whole page's capture for `request` on any of `slot`'s shelves, and its
+/// record, if it is there and still describes the project ([`read_fresh`]).
+pub(crate) fn fresh(
+    slot: &Path,
+    project_root: &Path,
+    request: &Request,
+) -> Option<(PathBuf, Record)> {
+    shelves(slot).into_iter().find_map(|shelf| {
+        let frames = shelf.join(FRAMES);
+        read_fresh(&frames, &shelf.join(RECORD), project_root, request)
+            .map(|record| (frames, record))
+    })
+}
+
+/// The capture on any of `slot`'s shelves that holds every frame `wanted`
+/// names and still describes the project: the whole page's when it is fresh,
+/// and otherwise the shortest fresh piece holding them. Returns its file, the
+/// page frame that file begins at, and its record.
+pub(crate) fn holding(
+    slot: &Path,
+    project_root: &Path,
+    request: &Request,
+    wanted: &std::ops::Range<u64>,
+) -> Option<(PathBuf, u64, Record)> {
+    shelves(slot)
+        .into_iter()
+        .find_map(|shelf| pieces::holding(&shelf, project_root, request, wanted))
+}
+
+/// A capture's record, if its frames are there and it still describes the
+/// project and `request`: every file loaded still hashes as it did, every file
+/// missed is still missing, and every clip the page read is where it was.
+pub(super) fn read_fresh(
+    frames: &Path,
+    record: &Path,
+    project_root: &Path,
+    request: &Request,
+) -> Option<Record> {
     if !frames.is_file() {
         return None;
     }
@@ -84,7 +136,39 @@ pub(super) fn read_fresh(frames: &Path, record: &Path, project_root: &Path) -> O
         let now = hash_file(&project_root.join(path)).ok();
         &now == hash
     });
-    unchanged.then_some(record)
+    (unchanged && record.told.holds_for(request)).then_some(record)
+}
+
+/// Drops every shelf of `slot` but the [`SHELVES`] written most recently,
+/// `kept` always among them.
+pub(crate) fn retire(slot: &Path, kept: &Path) {
+    let mut others: Vec<(std::time::SystemTime, PathBuf)> = shelves(slot)
+        .into_iter()
+        .filter(|shelf| shelf != kept)
+        .map(|shelf| {
+            let written = std::fs::metadata(&shelf).and_then(|m| m.modified());
+            (written.unwrap_or(std::time::UNIX_EPOCH), shelf)
+        })
+        .collect();
+    others.sort_by(|a, b| b.0.cmp(&a.0));
+    for (_, shelf) in others.into_iter().skip(SHELVES - 1) {
+        let _ = std::fs::remove_dir_all(shelf);
+    }
+}
+
+/// Every shelf in `slot`.
+fn shelves(slot: &Path) -> Vec<PathBuf> {
+    let Ok(read) = std::fs::read_dir(slot) else {
+        return Vec::new();
+    };
+    let mut shelves: Vec<PathBuf> = read
+        .flatten()
+        .filter(|entry| entry.file_name().to_string_lossy().starts_with("told-"))
+        .map(|entry| entry.path())
+        .filter(|path| path.is_dir())
+        .collect();
+    shelves.sort();
+    shelves
 }
 
 /// Writes a capture's record, which is what makes its frames usable: written
@@ -138,6 +222,7 @@ mod tests {
     use scorsese_core::Fps;
 
     use super::*;
+    use crate::page::told::{Read, Span};
 
     fn request() -> Request {
         Request {
@@ -145,6 +230,7 @@ mod tests {
             resolution: Resolution::new(64, 64).unwrap(),
             fps: Fps::THIRTY,
             duration: 1.0,
+            clips: BTreeMap::new(),
         }
     }
 
@@ -192,38 +278,80 @@ mod tests {
         for other in others {
             assert_ne!(other, base);
         }
+        let told = Request {
+            clips: BTreeMap::from([(
+                "vo".into(),
+                Span {
+                    start: 1.0,
+                    end: 2.0,
+                },
+            )]),
+            ..request()
+        };
+        assert_eq!(
+            slot(root, &told, "154"),
+            base,
+            "where clips are is the shelf's to say, once a page has read them"
+        );
     }
 
     #[test]
-    fn a_capture_is_fresh_only_while_what_it_loaded_is_unchanged() {
+    fn a_capture_is_fresh_only_while_what_it_loaded_and_read_is_unchanged() {
         let root = std::env::temp_dir().join(format!("scorsese-cache-{}", std::process::id()));
         let slot = root.join("slot");
-        std::fs::create_dir_all(&slot).unwrap();
+        let read = Read {
+            names: ["vo".into()].into(),
+            listed: false,
+        };
+        let at = |start: f64| Request {
+            clips: BTreeMap::from([("vo".into(), Span { start, end: 9.0 })]),
+            ..request()
+        };
+        let shelf = shelf(&slot, &Told::of(&at(1.0), &read));
+        std::fs::create_dir_all(&shelf).unwrap();
         std::fs::write(root.join("page.html"), "one").unwrap();
-        std::fs::write(slot.join(FRAMES), "frames").unwrap();
+        std::fs::write(shelf.join(FRAMES), "frames").unwrap();
         let record = Record {
             loaded: BTreeMap::from([
                 ("page.html".into(), Some(hash_bytes(b"one"))),
                 ("missing.png".into(), None),
             ]),
             warnings: vec!["said".into()],
+            told: Told::of(&at(1.0), &read),
         };
-        assert_eq!(fresh(&slot, &root), None, "no record, no capture");
-        keep(&slot.join(RECORD), &record).unwrap();
-        assert_eq!(fresh(&slot, &root), Some(record));
+        let fresh = |request: &Request| fresh(&slot, &root, request).map(|(_, record)| record);
+        assert_eq!(fresh(&at(1.0)), None, "no record, no capture");
+        keep(&shelf.join(RECORD), &record).unwrap();
+        assert_eq!(fresh(&at(1.0)), Some(record));
+        assert_eq!(fresh(&at(1.5)), None, "a clip it read has moved");
         std::fs::write(root.join("missing.png"), "now here").unwrap();
         assert_eq!(
-            fresh(&slot, &root),
+            fresh(&at(1.0)),
             None,
             "a file that appeared changes the page"
         );
         std::fs::remove_file(root.join("missing.png")).unwrap();
         std::fs::write(root.join("page.html"), "two").unwrap();
-        assert_eq!(
-            fresh(&slot, &root),
-            None,
-            "an edited page is captured again"
-        );
+        assert_eq!(fresh(&at(1.0)), None, "an edited page is captured again");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_slot_keeps_only_the_shelves_written_last() {
+        let root = std::env::temp_dir().join(format!("scorsese-shelves-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        for i in 0..SHELVES + 2 {
+            std::fs::create_dir_all(root.join(format!("told-{i:02}"))).unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        std::fs::create_dir_all(root.join("fonts")).unwrap();
+        let kept = root.join("told-00");
+        retire(&root, &kept);
+        let left = shelves(&root);
+        assert_eq!(left.len(), SHELVES);
+        assert!(left.contains(&kept), "the shelf just written stays");
+        assert!(!left.contains(&root.join("told-01")), "the oldest go");
+        assert!(root.join("fonts").is_dir(), "only shelves are retired");
         let _ = std::fs::remove_dir_all(&root);
     }
 

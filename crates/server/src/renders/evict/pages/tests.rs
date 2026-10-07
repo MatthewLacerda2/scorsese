@@ -105,7 +105,7 @@ fn a_folder_is_held_by_a_pin_or_a_jobs_link_and_otherwise_not() {
 }
 
 #[test]
-fn a_slot_of_pieces_ages_by_its_newest_and_goes_whole() {
+fn a_slot_of_pieces_ages_by_its_newest_on_any_shelf_and_goes_whole() {
     let cache = cache("pieces");
     let folder = cache.captures().root().join("pages/7/9");
     let aged = |slot: &str, file: &str, hours: u64| {
@@ -116,11 +116,11 @@ fn a_slot_of_pieces_ages_by_its_newest_and_goes_whole() {
         let file = std::fs::File::options().append(true).open(&path).unwrap();
         file.set_modified(at).unwrap();
     };
-    aged("old", "part-0-30.mkv", 49);
-    aged("old", "part-0-30.json", 49);
-    aged("used", "part-0-30.mkv", 49);
-    aged("used", "part-60-90.mkv", 1);
-    aged("used", "part-60-90.json", 1);
+    aged("old", "told-none/part-0-30.mkv", 49);
+    aged("old", "told-none/part-0-30.json", 49);
+    aged("used", "told-none/part-0-30.mkv", 49);
+    aged("used", "told-1a2b/part-60-90.mkv", 1);
+    aged("used", "told-1a2b/part-60-90.json", 1);
     aged("used", "part-90-120.7.partial.mkv", 0);
 
     let evicted = idle(&folder);
@@ -128,7 +128,7 @@ fn a_slot_of_pieces_ages_by_its_newest_and_goes_whole() {
     assert_eq!((evicted.captures, evicted.bytes), (1, 12));
     assert!(!folder.join("pages/old").exists());
     assert!(
-        folder.join("pages/used/part-0-30.mkv").is_file(),
+        folder.join("pages/used/told-none/part-0-30.mkv").is_file(),
         "whole or not at all"
     );
     assert!(!folder.join("pages/used/part-90-120.7.partial.mkv").exists());
