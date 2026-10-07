@@ -95,3 +95,79 @@ fn every_frame_is_resampled_from_its_own_pixels() {
     resample.apply(&badge(), &mut again);
     assert_eq!(first, again);
 }
+
+/// A field of one colour at partial coverage resamples to that colour at that
+/// coverage: weighting by alpha and dividing it back out must cancel, at any
+/// size and any alpha.
+#[test]
+fn a_translucent_field_keeps_its_colour_and_its_coverage() {
+    for alpha in [1, 64, 128, 200] {
+        let mut field = Frame::black(size(30, 30));
+        for pixel in field.bytes_mut().chunks_exact_mut(BYTES_PER_PIXEL) {
+            pixel.copy_from_slice(&[200, 100, 50, alpha]);
+        }
+        for scaled in [size(45, 45), size(11, 11)] {
+            let mut resample = Resample::new(size(30, 30), scaled, scaled, (0, 0));
+            let mut out = Frame::black(scaled);
+            resample.apply(&field, &mut out);
+            for pixel in pixels(&out) {
+                assert_eq!(pixel[3], alpha, "alpha {alpha} at {scaled}");
+                for (got, want) in pixel[..3].iter().zip([200_u8, 100, 50]) {
+                    assert!(
+                        got.abs_diff(want) <= 1,
+                        "alpha {alpha} at {scaled}: {pixel:?}"
+                    );
+                }
+            }
+        }
+    }
+}
+
+/// Catmull-Rom reproduces a straight line exactly, so a ramp doubled in size
+/// is the same ramp sampled twice as often — the property that tells this
+/// cubic from a blurrier or a ringing one. Twelve levels a pixel, so every
+/// sample doubling lands on lies on a whole level and must be met exactly.
+#[test]
+fn a_ramp_grows_into_the_same_ramp() {
+    let mut ramp = Frame::black(size(20, 1));
+    for (x, pixel) in ramp
+        .bytes_mut()
+        .chunks_exact_mut(BYTES_PER_PIXEL)
+        .enumerate()
+    {
+        let level = (x * 12) as u8;
+        pixel.copy_from_slice(&[level, level, level, u8::MAX]);
+    }
+    let mut resample = Resample::new(size(20, 1), size(40, 1), size(40, 1), (0, 0));
+    let mut out = Frame::black(size(40, 1));
+    resample.apply(&ramp, &mut out);
+    // Away from the ends, where the filter is cut short and renormalised.
+    for (x, pixel) in pixels(&out).enumerate().take(36).skip(4) {
+        let want = 6 * x - 3;
+        assert_eq!(usize::from(pixel[0]), want, "x {x}: {pixel:?}");
+    }
+}
+
+/// A hard edge stays hard: the cubic's negative outer lobes overshoot either
+/// side of a step, which is what keeps a page's text crisp when it shrinks
+/// rather than the grey smear an all-positive filter makes of it.
+#[test]
+fn a_hard_edge_overshoots_rather_than_smears() {
+    let mut step = Frame::black(size(24, 1));
+    for (x, pixel) in step
+        .bytes_mut()
+        .chunks_exact_mut(BYTES_PER_PIXEL)
+        .enumerate()
+    {
+        let level = if x < 12 { 50 } else { 200 };
+        pixel.copy_from_slice(&[level, level, level, u8::MAX]);
+    }
+    for scaled in [size(48, 1), size(10, 1)] {
+        let mut resample = Resample::new(size(24, 1), scaled, scaled, (0, 0));
+        let mut out = Frame::black(scaled);
+        resample.apply(&step, &mut out);
+        let levels: Vec<u8> = pixels(&out).map(|pixel| pixel[0]).collect();
+        let (low, high) = (levels.iter().min(), levels.iter().max());
+        assert!(low < Some(&50) && high > Some(&200), "{scaled}: {levels:?}");
+    }
+}

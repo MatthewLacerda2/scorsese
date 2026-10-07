@@ -301,6 +301,19 @@ exclude_globs = [
 # cannot be excluded here at all — an entry for one is accepted and does
 # nothing, and the mutant is still reported.
 exclude_re = [
+    # `resample`'s `Taps::reads` lets the horizontal pass skip source rows no
+    # output reads — the top and bottom a `fill` crops away. Answering `true`
+    # computes those rows anyway and nothing ever reads them, so the output is
+    # identical for every input: an optimisation, genuinely equivalent.
+    'replace Taps::reads -> bool with true',
+
+    # `catmull_rom` switches pieces at `x < 1.0` and `x < 2.0`, and the pieces
+    # meet at 0 at both — at exactly 1 and at exactly 2 the cubic is 0 either
+    # way, continuous by construction — so `<=` gives the same weight for
+    # every input, at either comparison. `==` is not equivalent and is caught
+    # by `a_ramp_grows_into_the_same_ramp`.
+    'replace < with <= in catmull_rom',
+
     # `gradient::noise` keys its hash on `(y << 32) | x`, with `x` a `u32`: the
     # two halves share no bit, so `|` and `^` build the same key for every pixel
     # there is. Genuinely equivalent. The key's other half is load-bearing, and
