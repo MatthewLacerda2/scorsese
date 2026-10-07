@@ -10,14 +10,17 @@
 //! no longer exists.
 //!
 //! - **Used** is the newest modification time of the slot's frames and
-//!   record. A capture sets it; a render that reuses one sets it again
-//!   ([`touch`]) — the server's job, since `scorsese-render` has no reason to
-//!   know anybody ages its cache.
+//!   record, or of any piece's (`part-<first>-<end>.mkv` and `.json`, a capture
+//!   of only some of the page's frames, #809), so a slot holding only pieces
+//!   ages by them and goes whole. A capture sets it; a render that reuses one
+//!   sets it again ([`touch`]) — the server's job, since `scorsese-render` has
+//!   no reason to know anybody ages its cache.
 //! - **Held** folders are never touched at all: one a job of this process has
 //!   pinned ([`super::hold`]), and one a job folder's `cache/` links to. While a
 //!   job holds a project no capture of it is idle, and none half-written.
-//! - **A leftover `frames.<pid>.partial.mkv`** in a folder nobody holds is a
-//!   capture killed at its deadline, and goes whatever its age.
+//! - **A leftover `<stem>.<pid>.partial.mkv`** (`frames.…` or a piece's
+//!   `part-….`) in a folder nobody holds is a capture killed at its deadline,
+//!   and goes whatever its age.
 //! - A project left with no slot loses its folder, shipped fonts and all; the
 //!   next capture writes them again.
 
@@ -37,10 +40,16 @@ const FONTS: &str = "fonts";
 /// A capture's frames and record, inside a slot.
 const FRAMES: &str = "frames.mkv";
 const RECORD: &str = "capture.json";
+/// A piece's frames and record start with this, inside a slot.
+const PART: &str = "part-";
 
 /// Mark every capture `requests` reuses as used now. `project_root` is the
 /// laid-out project whose `cache/` is the page cache. A file that cannot be
 /// stamped is said and left: at worst it is captured again.
+///
+/// Only a whole capture is stamped: the capture container takes every page
+/// whole (`capture_following`), so a slot here holds no piece for a render to
+/// read instead. One that somehow did would still age by its own write time.
 pub fn touch(project_root: &Path, requests: &[Request], chrome_version: &str) {
     for request in requests {
         let Some(captured) = cached(project_root, request, chrome_version) else {
@@ -152,21 +161,35 @@ pub(super) fn tidy(folder: &Path) {
     }
 }
 
-/// How long ago the slot's capture was last used: the newer of its frames and
-/// its record. `None` when it has neither — a capture that never finished.
+/// How long ago the slot's capture was last used: the newest of its frames,
+/// its record and its pieces'. `None` when it has none — a capture that never
+/// finished.
 fn last_used(slot: &Path) -> Option<Duration> {
-    [FRAMES, RECORD]
-        .iter()
-        .filter_map(|name| std::fs::metadata(slot.join(name)).ok()?.modified().ok())
+    entries(slot)
+        .into_iter()
+        .filter(|file| is_capture(file))
+        .filter_map(|file| std::fs::metadata(file).ok()?.modified().ok())
         .max()
         .map(|at| SystemTime::now().duration_since(at).unwrap_or_default())
 }
 
-/// `frames.<pid>.partial.mkv`, a capture cut short.
+/// The whole capture's frames or record, or a finished piece's.
+fn is_capture(file: &Path) -> bool {
+    file.file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| {
+            name == FRAMES || name == RECORD || (name.starts_with(PART) && !is_partial(file))
+        })
+}
+
+/// `<stem>.<pid>.partial.mkv`, a capture or a piece cut short.
 fn is_partial(file: &Path) -> bool {
     file.file_name()
         .and_then(|name| name.to_str())
-        .is_some_and(|name| name.starts_with("frames.") && name.ends_with(".partial.mkv"))
+        .is_some_and(|name| {
+            (name.starts_with("frames.") || name.starts_with(PART))
+                && name.ends_with(".partial.mkv")
+        })
 }
 
 /// Bytes under `path`, links not followed.

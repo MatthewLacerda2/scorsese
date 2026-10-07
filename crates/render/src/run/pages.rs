@@ -11,12 +11,19 @@
 //! without one never asks whether a browser exists — and a program allowed to
 //! download one ([`crate::page::supply`]) downloads it only then.
 //!
+//! **Only the frames a clip shows are captured** (#809): a still a handful
+//! around its instant, a render each clip's stretch from where it enters the
+//! page to where it leaves, with a frame or two to spare either side for the
+//! decoder's rounding. A clip inside a group or a matte asks for its whole
+//! page, since where it is in the page is the group's to decide.
+//!
 //! A renderer told not to capture ([`crate::Renderer::without_capturing`]) draws
 //! a page only from a capture already in `cache/`, and its card otherwise: the
 //! window's preview, which captures in the background instead of making a
 //! scrub wait minutes for a page (#776).
 
 use std::collections::HashMap;
+use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 use scorsese_core::{AssetKind, ClipId, Fps};
@@ -37,19 +44,27 @@ pub(super) struct Browser<'c> {
     pub(super) capturing: bool,
 }
 
+/// How many frames a clip's stretch of its page is widened by, either side:
+/// a decoder seeking to an instant reads the frame either side of it.
+const SPARE: u64 = 2;
+
 /// Each page clip's captured frames, by clip.
 #[derive(Debug, Default)]
 pub(super) struct Pages {
-    captured: HashMap<ClipId, PathBuf>,
+    captured: HashMap<ClipId, (PathBuf, f64)>,
 }
 
 impl Pages {
-    /// The frames captured for this clip, if it is a page that was captured.
-    pub(super) fn of(&self, shot: &Shot<'_>) -> Option<&Path> {
+    /// The file captured for this clip, if it is a page that was captured, and
+    /// how many seconds into the page that file begins — what a seek into it
+    /// takes off, since the file's own clock starts at zero.
+    pub(super) fn of(&self, shot: &Shot<'_>) -> Option<(&Path, f64)> {
         if shot.asset.kind != AssetKind::Html {
             return None;
         }
-        self.captured.get(&shot.clip.id).map(PathBuf::as_path)
+        self.captured
+            .get(&shot.clip.id)
+            .map(|(file, begins)| (file.as_path(), *begins))
     }
 
     /// Captures every page `plan` shows, with the browser given or — when none
@@ -88,6 +103,7 @@ impl Pages {
                     .map_err(ToString::to_string)
             }
         };
+        let stretches = stretches(plan, settings.fps);
         for shot in wanted {
             if pages.captured.contains_key(&shot.clip.id) {
                 continue;
@@ -95,12 +111,21 @@ impl Pages {
             let Some(request) = request_for(shot, settings, plan.timeline_fps()) else {
                 continue;
             };
+            let frames = stretches.get(&shot.clip.id).cloned().unwrap_or(0..u64::MAX);
             let captured = chrome.clone().and_then(|chrome| {
                 if capturing {
-                    return page::capture(chrome, tools, project_root, &request)
-                        .map_err(|e| e.to_string());
+                    return page::capture_frames(
+                        chrome,
+                        tools,
+                        project_root,
+                        &[],
+                        &request,
+                        frames,
+                        page::browsers(),
+                    )
+                    .map_err(|e| e.to_string());
                 }
-                page::cached(project_root, &request, chrome.version())
+                page::cached_frames(project_root, &request, chrome.version(), frames)
                     .ok_or_else(|| "not captured yet".to_owned())
             });
             match captured {
@@ -114,7 +139,10 @@ impl Pages {
                             notes.push(note);
                         }
                     }
-                    pages.captured.insert(shot.clip.id.clone(), captured.file);
+                    let begins = request.fps.seconds_at(captured.first as f64);
+                    pages
+                        .captured
+                        .insert(shot.clip.id.clone(), (captured.file, begins));
                 }
                 Err(reason) => notes.push(Note::PageNotCaptured {
                     clip: shot.clip.id.to_string(),
@@ -125,6 +153,32 @@ impl Pages {
         }
         (pages, notes)
     }
+}
+
+/// Which of its page's frames each page clip on the plan's own tracks shows, at
+/// `fps`, over every segment it is in — [`SPARE`] wider either side. A clip
+/// only inside a group or a matte has none, and is captured whole.
+fn stretches(plan: &Plan<'_>, fps: Fps) -> HashMap<ClipId, Range<u64>> {
+    let timeline = plan.timeline_fps();
+    let mut stretches: HashMap<ClipId, Range<u64>> = HashMap::new();
+    for segment in plan.segments() {
+        for shot in segment
+            .layers
+            .iter()
+            .filter(|s| s.asset.kind == AssetKind::Html)
+        {
+            let enters = timeline.seconds_at(shot.source_in);
+            let lasts = timeline.seconds_at(segment.duration.0 as f64) * shot.clip.speed.get();
+            let first = (enters * fps.as_f64()).floor() as u64;
+            let last = ((enters + lasts) * fps.as_f64()).ceil() as u64;
+            let shown = first.saturating_sub(SPARE)..last + SPARE;
+            stretches
+                .entry(shot.clip.id.clone())
+                .and_modify(|seen| *seen = seen.start.min(shown.start)..seen.end.max(shown.end))
+                .or_insert(shown);
+        }
+    }
+    stretches
 }
 
 /// Every page shot `plan` shows, its groups' members and mattes included.

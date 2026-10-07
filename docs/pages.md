@@ -117,12 +117,19 @@ a `requestAnimationFrame` callback that reads the timestamp it is handed and
 computes the frame from it.
 
 Avoid the loop that **accumulates**: `x += speed * dt` each frame, a particle
-system stepping its state, anything whose frame 90 is only reachable by drawing
-frames 0 to 89 first. It draws correctly, because the clock steps in order, but
-it is the shape that cannot be captured in pieces or scrubbed cheaply, and it
-is the one that goes wrong when a frame is dropped. If a page needs randomness,
-seed it: `Math.random` is the browser's, and a page that should look the same
-twice should not use it.
+system stepping its state, anything whose frame 90 is only reachable by running
+frames 0 to 89 first. It draws correctly — a still or a piece of a render that
+starts part-way still runs every frame before it, only without drawing them
+(#809) — but every one of those frames costs its script and its layout again on
+every look, and it is the shape that goes wrong when a frame is dropped. If a
+page needs randomness, seed it: `Math.random` is the browser's, and a page that
+should look the same twice should not use it.
+
+**Only the frames on screen are drawn.** A `still` 85 s into a 90 s page draws
+the few frames around that instant: the 2,550 before it are run, which is cheap
+for a page whose frame is a function of the time, and never drawn, which is
+nearly all a frame costs. A render draws each page clip's stretch from where it
+enters the page, a long one in pieces at once.
 
 ## What works
 

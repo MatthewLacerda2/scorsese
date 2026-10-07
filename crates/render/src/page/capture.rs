@@ -9,10 +9,25 @@
 //! trip. Some of those frames are then measured for layout mistakes
 //! (`layout`'s). Each PNG is piped straight into an ffmpeg encoding a lossless,
 //! alpha-carrying file, so no frame is ever written to disk on its own.
+//!
+//! **A capture may start part-way through the page** (#809). The frames before
+//! it are run but not drawn: each gets the advance it would have had, then a
+//! `beginFrame` with `noDisplayUpdates`, which runs the browser's own frame —
+//! style, layout, the events an animation sends when it ends — and skips the
+//! raster and the screenshot, nearly all of a frame's cost. So the page
+//! arrives at its first frame in the state it would have reached frame by
+//! frame: a page that adds `speed * dt` every frame, an animation a timer
+//! starts, one started from another's `animationend`. A jump of the clock
+//! would get all three wrong, silently; advancing without the browser's frame
+//! gets the last one wrong (`same_frames` holds both). What it cannot repeat is
+//! the compositor's history — which layers the frames before were drawn in —
+//! and that shows as anti-aliasing a pixel apart on a diagonal edge at most,
+//! inside the golden renders' tolerance and smaller than two captures from the
+//! first frame already differ by (#809's PR has the numbers).
 
-use std::io::Write;
+use std::ops::Range;
 use std::path::{Path, PathBuf};
-use std::process::{ChildStdin, Stdio};
+use std::process::ChildStdin;
 use std::time::Duration;
 
 use base64::Engine;
@@ -22,11 +37,11 @@ use serde_json::{Value, json};
 use super::PageError;
 use super::browser::{Chrome, ChromeError};
 use super::cdp::{Cdp, CdpError, Command};
+use super::encoder::Encoder;
 use super::layout::{self, Layout};
 use super::origin::url_of;
 use super::request::Request;
 use super::visitor::{OFFLINE_BINDING, Visitor};
-use crate::error::Stage;
 use crate::tools::Tools;
 
 /// How long any one answer may take. A frame at 4K under SwiftShader is well
@@ -46,16 +61,38 @@ pub(crate) struct Heard {
     pub(crate) warnings: Vec<String>,
 }
 
-/// Captures `request` into the file `out`, a lossless video with alpha.
+/// What a capture serves the page from: its project, the folders a link out
+/// of it may lead to (`super::capture_following`), and the shipped fonts'
+/// fontconfig file.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Served<'a> {
+    pub(crate) project_root: &'a Path,
+    pub(crate) follow: &'a [PathBuf],
+    pub(crate) fonts: &'a Path,
+}
+
+/// Captures `frames` of `request` into the file `out`, a lossless video with
+/// alpha whose first frame is the first of `frames`.
+///
+/// Its layout is measured from frame `measured` on — run or drawn — at the
+/// samples a capture from the first frame would take (`layout::sampled`), and
+/// at the last frame drawn too: a still's few frames would hold no mistake
+/// otherwise, since one is only said once two samples in a row agree on it.
+/// So the first piece of a capture measures from zero and a later one from its
+/// own first frame, and between them they say what one capture would have.
 pub(crate) fn run(
     chrome: &Chrome,
     tools: &Tools,
-    project_root: &Path,
-    follow: &[PathBuf],
-    fonts: &Path,
+    served: Served<'_>,
     request: &Request,
+    (frames, measured): (Range<u64>, u64),
     out: &Path,
 ) -> Result<Heard, PageError> {
+    let Served {
+        project_root,
+        follow,
+        fonts,
+    } = served;
     let launched = chrome.launch(fonts, request.viewport().scale)?;
     let process = launched.process;
     let mut cdp = Cdp::new(
@@ -64,7 +101,8 @@ pub(crate) fn run(
         Visitor::new(project_root, follow),
         PATIENCE,
     );
-    let heard = started(&mut cdp, chrome).and_then(|()| drive(&mut cdp, tools, request, out));
+    let heard = started(&mut cdp, chrome)
+        .and_then(|()| drive(&mut cdp, tools, request, (frames, measured), out));
     // Asked to close rather than killed, so its helpers go with it; the
     // process is reaped either way when `process` drops.
     let _ = cdp.browser("Browser.close", json!({}));
@@ -89,6 +127,7 @@ fn drive(
     cdp: &mut Cdp<ChildStdin, Visitor<'_>>,
     tools: &Tools,
     request: &Request,
+    (frames, measured): (Range<u64>, u64),
     out: &Path,
 ) -> Result<Heard, PageError> {
     let viewport = request.viewport();
@@ -172,10 +211,34 @@ fn drive(
         last = draw(&mut page)?.or(last);
     }
 
-    let mut encoder = Encoder::start(tools, request, out)?;
     let mut layout = Layout::default();
     let measure = json!({ "expression": layout::expression(), "returnByValue": true });
-    for k in 0..request.frames() {
+    let mut measured_at = |page: &mut dyn FnMut(&'static str, Value) -> Result<Value, CdpError>,
+                           k: u64|
+     -> Result<(), PageError> {
+        let answer = page("Runtime.evaluate", measure.clone())?;
+        // A page that broke the measuring (a replaced `Range`, say) only
+        // goes unmeasured; its own errors are the visitor's to report.
+        let findings = serde_json::from_value(answer["result"]["value"].clone());
+        layout.heard(request.millis_at(k) / 1000.0, findings.unwrap_or_default());
+        Ok(())
+    };
+    // Run, not drawn: see the module doc.
+    for k in 0..frames.start {
+        let advance = format!("__scorsese.advanceTo({})", request.millis_at(k));
+        page("Runtime.evaluate", json!({ "expression": advance }))?;
+        page(
+            "HeadlessExperimental.beginFrame",
+            json!({ "noDisplayUpdates": true }),
+        )?;
+        if k >= measured && layout::sampled(request, k) {
+            measured_at(&mut page, k)?;
+        }
+    }
+
+    let mut encoder = Encoder::start(tools, request, out)?;
+    let (first, end) = (frames.start, frames.end);
+    for k in frames {
         let advance = format!("__scorsese.advanceTo({})", request.millis_at(k));
         page("Runtime.evaluate", json!({ "expression": advance }))?;
         // A frame with no damage has no screenshot: nothing moved, so the
@@ -183,12 +246,11 @@ fn drive(
         last = draw(&mut page)?.or(last);
         let png = last.as_ref().ok_or(PageError::NoPicture)?;
         encoder.write(png)?;
-        if layout::sampled(request, k) {
-            let answer = page("Runtime.evaluate", measure.clone())?;
-            // A page that broke the measuring (a replaced `Range`, say) only
-            // goes unmeasured; its own errors are the visitor's to report.
-            let findings = serde_json::from_value(answer["result"]["value"].clone());
-            layout.heard(request.millis_at(k) / 1000.0, findings.unwrap_or_default());
+        // A piece measured only from its own first frame measures that one
+        // too, so a mistake already on screen is held from there.
+        let starts = k == first && k == measured;
+        if starts || k + 1 == end || layout::sampled(request, k) {
+            measured_at(&mut page, k)?;
         }
     }
     encoder.finish()?;
@@ -232,67 +294,6 @@ fn picture(drawn: &Value) -> Result<Option<Vec<u8>>, PageError> {
         .as_str()
         .map(|data| STANDARD.decode(data).map_err(|_| PageError::NoPicture))
         .transpose()
-}
-
-/// The ffmpeg turning a stream of PNGs into one lossless file with alpha.
-///
-/// FFV1 in Matroska, as `bgra`: lossless, carries alpha, and decoded by the
-/// same path as any other video with an alpha channel. #606's PNGs ran to
-/// ~1.5 MB a frame; this keeps the same pixels for a fraction of that.
-struct Encoder {
-    child: crate::pipe::Process,
-    stdin: ChildStdin,
-    subject: String,
-}
-
-impl Encoder {
-    fn start(tools: &Tools, request: &Request, out: &Path) -> Result<Self, PageError> {
-        let rate = format!("{}/{}", request.fps.num(), request.fps.den());
-        let mut child = tools
-            .ffmpeg()
-            .args([
-                "-nostdin",
-                "-v",
-                "error",
-                "-y",
-                "-f",
-                "image2pipe",
-                "-framerate",
-                &rate,
-            ])
-            .args([
-                "-c:v", "png", "-i", "-", "-c:v", "ffv1", "-pix_fmt", "bgra", "-f", "matroska",
-            ])
-            .arg(out)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|source| crate::RenderError::Spawn {
-                stage: Stage::Encode,
-                source,
-            })?;
-        let stdin = child.stdin.take().expect("stdin was piped");
-        Ok(Self {
-            child: crate::pipe::Process::new(child),
-            stdin,
-            subject: out.display().to_string(),
-        })
-    }
-
-    fn write(&mut self, png: &[u8]) -> Result<(), PageError> {
-        self.stdin.write_all(png).map_err(|source| {
-            PageError::Render(crate::RenderError::Pipe {
-                stage: Stage::Encode,
-                source,
-            })
-        })
-    }
-
-    fn finish(self) -> Result<(), PageError> {
-        drop(self.stdin);
-        Ok(self.child.finish(Stage::Encode, &self.subject)?)
-    }
 }
 
 #[cfg(test)]

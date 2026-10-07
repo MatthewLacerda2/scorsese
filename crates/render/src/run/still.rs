@@ -56,10 +56,10 @@ pub(super) fn compose(
     // through: scrubbing two seconds into a gif must show where the gif is at
     // two seconds, which the delivered file does.
     let loops = Loops::measure(tools, &plan, project_root);
-    // A page on screen is captured whole, not just this instant: its clock
-    // has to run from zero to get here, and the capture is cached for every
-    // scrub after this one. What it noticed goes back with the frame, for a
-    // caller that has somebody to tell.
+    // A page on screen is captured only around this instant (#809): its clock
+    // still runs from zero to get here, but only the frames by it are drawn,
+    // and kept for the next look at the same instant. What it noticed goes
+    // back with the frame, for a caller that has somebody to tell.
     let (pages, notes) = Pages::capture(tools, browser, &settings, &plan, project_root);
     let mut stage = Stage::new();
     let pass = Pass {

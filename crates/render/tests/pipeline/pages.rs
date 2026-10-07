@@ -7,7 +7,7 @@
 //! would be passing by doing nothing.
 
 use scorsese_core::{Asset, AssetId, AssetKind, Fps, Frames, Project, ProjectPath};
-use scorsese_render::page::Chrome;
+use scorsese_render::page::{self, Chrome};
 use scorsese_render::{Frame, FrameRange, Note, Renderer};
 
 use crate::common::ffmpeg::{fixture_dir, tools};
@@ -98,5 +98,58 @@ fn a_page_that_cannot_be_captured_is_a_band_and_a_note() {
     assert_colour(pixel(&still, 2, 2), RED, "above the band");
     let foot = pixel(&still, 2, still.resolution().height() - 2);
     assert!(foot.0 < 120, "the band darkens the foot: {foot:?}");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// A still draws its page from a piece around its instant (#809), and the piece
+/// shows exactly what the whole capture shows there — through the real decode,
+/// with the clip entering the page part-way in.
+#[test]
+fn a_still_from_a_piece_of_the_page_is_the_still_from_the_whole() {
+    let tools = tools();
+    let html = "<div style='position:absolute;inset:0;background:#00f;\
+                animation:grow 4s linear'></div>\
+                <style>@keyframes grow { from { right: 100% } to { right: 0 } }</style>";
+    let (dir, mut project) = over_red("page-piece", html);
+    let page = &mut project.tracks[1].clips[0];
+    page.source_in = Frames(30);
+    page.duration = Frames(90);
+    let chrome = Chrome::discover().expect("the pinned browser (SCORSESE_CHROME)");
+    let renderer = Renderer::new(&tools, settings(Fps::THIRTY)).with_chrome(chrome.clone());
+
+    let from_piece = renderer
+        .still(&project, &dir, Frames(70))
+        .expect("composes");
+    let slot = std::fs::read_dir(dir.join("cache/pages"))
+        .expect("captured")
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .find(|path| !path.ends_with("fonts"))
+        .expect("a slot");
+    let names = |slot: &std::path::Path| -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(slot)
+            .expect("a slot")
+            .filter_map(|e| e.ok()?.file_name().into_string().ok())
+            .collect();
+        names.sort();
+        names
+    };
+    assert_eq!(names(&slot), ["part-96-103.json", "part-96-103.mkv"]);
+
+    for request in renderer.page_requests(&project).expect("plans") {
+        page::capture(&chrome, &tools, &dir, &request).expect("captured whole");
+    }
+    assert_eq!(
+        names(&slot),
+        ["capture.json", "frames.mkv"],
+        "the piece goes once the whole holds it"
+    );
+    let from_whole = renderer
+        .still(&project, &dir, Frames(70))
+        .expect("composes");
+    assert_eq!(from_piece.bytes(), from_whole.bytes(), "the same picture");
+    let (left, right) = (pixel(&from_whole, 2, 32), pixel(&from_whole, 62, 32));
+    assert_colour(left, BLUE, "the page has grown past the left");
+    assert!(right.2 < 100, "and not yet to the right: {right:?}");
     std::fs::remove_dir_all(&dir).ok();
 }
