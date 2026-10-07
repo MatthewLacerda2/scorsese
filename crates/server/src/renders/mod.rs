@@ -51,6 +51,10 @@
 //! because it can be rebuilt from the stored project; that is why the rule can
 //! be this simple.
 //!
+//! **Page captures are held to the same rule and count against the same
+//! quota** (#849, [`evict::pages`]): a capture is as rebuildable as a render,
+//! and one quota for everything rebuildable is one number for the operator.
+//!
 //! ## Never deleted mid-download
 //!
 //! Two things, because there is one server process and so one place every

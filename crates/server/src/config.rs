@@ -37,7 +37,8 @@ pub const STORAGE: &str = "SCORSESE_STORAGE";
 /// worth the bandwidth (`docs/web.md`, *Running the service*).
 pub const CACHE: &str = "SCORSESE_CACHE";
 
-/// How much disk the finished-render cache aims to stay under, e.g. `20GB`.
+/// How much disk finished renders and page captures aim to stay under, e.g.
+/// `20GB`.
 /// A target rather than a wall — see [`crate::renders`].
 pub const RENDER_QUOTA: &str = "SCORSESE_RENDER_QUOTA";
 

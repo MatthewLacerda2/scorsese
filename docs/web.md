@@ -149,7 +149,7 @@ provider keys use, and is documented in `.env.example`:
 | `DATABASE_URL` | The Postgres to connect to. Required; the server will not start without reaching it, and it is never printed. |
 | `SCORSESE_STORAGE` | The absolute directory users' files are kept under. Required. |
 | `SCORSESE_CACHE` | The absolute directory what can be rebuilt is kept under — thumbnails, uploads still arriving, finished renders. Required, and refused inside `SCORSESE_STORAGE`, which is backed up. |
-| `SCORSESE_RENDER_QUOTA` | How much disk finished renders aim to stay under: `500MB`, `20GB`, `1TB`. Defaults to `20GB`. See *Renders*. |
+| `SCORSESE_RENDER_QUOTA` | How much disk finished renders and page captures aim to stay under: `500MB`, `20GB`, `1TB`. Defaults to `20GB`. See *Renders*. |
 | `SCORSESE_BIND` | Where to listen. Defaults to `127.0.0.1:8080`, this machine only. |
 | `GEMINI_API_KEY`, `ELEVENLABS_API_KEY` | The provider keys paid generations are made with (*Web MCP*), read by the one resolver `docs/credentials.md` describes; `GEMINI_API_KEY` is also what the assistant's Gemini models answer with (*Assistant turns*). Optional: without one, a generation needing it fails, free. |
 | `ANTHROPIC_API_KEY` | The key the assistant's Claude models answer with (*Assistant turns*), by the same resolver. Optional: without it a turn on a Claude model is refused with "`ANTHROPIC_API_KEY` is not set", and nothing else changes. |
@@ -1128,9 +1128,16 @@ not captured among them. A failed capture is never a failed render, so the
 notes are the only place it is said. If the launcher is not running at all,
 the render waits 30 s for a sign of it and then draws the cards, saying so.
 
-**Disk.** About 1.7 GB per minute of 1080p page clip. Page caches are not yet
-evicted with renders (#849): `captures/pages/` can be cleared by hand like the
-rest of `cache/`, and the next render captures again.
+**Disk.** About 1.7 GB per minute of 1080p page clip, so page captures live
+under the renders' rule (#849, `crates/server/src/renders/evict/pages.rs`):
+they **count against `SCORSESE_RENDER_QUOTA`** with the renders, one quota for
+everything rebuildable, and on pressure or the weekly sweep every capture **not
+used in 48 hours** goes. A capture is used when it is made and again whenever a
+render reuses it (the server stamps its frames). A project's folder is never
+touched while a render job holds it, and the sweep also removes the folder of a
+project or account that no longer exists, and any `frames.<pid>.partial.mkv`
+a capture killed at its deadline left. Clearing `captures/pages/` by hand is
+still safe: the next render captures again.
 
 ## Web MCP
 
