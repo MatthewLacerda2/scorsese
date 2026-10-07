@@ -150,7 +150,7 @@ pub(crate) fn retire(slot: &Path, kept: &Path) {
             (written.unwrap_or(std::time::UNIX_EPOCH), shelf)
         })
         .collect();
-    others.sort_by(|a, b| b.0.cmp(&a.0));
+    others.sort_by_key(|(written, _)| std::cmp::Reverse(*written));
     for (_, shelf) in others.into_iter().skip(SHELVES - 1) {
         let _ = std::fs::remove_dir_all(shelf);
     }

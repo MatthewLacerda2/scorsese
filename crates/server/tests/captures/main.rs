@@ -110,7 +110,8 @@ fn a_page_asked_for_by_the_server_is_captured_by_the_worker_into_the_projects_ca
     let frames = std::fs::read_dir(pages.cache.join("pages"))
         .expect("slots")
         .flatten()
-        .map(|slot| slot.path().join("frames.mkv"))
+        // A page that read no clip has the one shelf (#810).
+        .map(|slot| slot.path().join("told-none/frames.mkv"))
         .find(|frames| frames.is_file())
         .expect("the capture's frames");
     let long_ago = std::time::SystemTime::now() - Duration::from_secs(49 * 3600);
