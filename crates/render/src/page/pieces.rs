@@ -25,24 +25,11 @@ use crate::tools::Tools;
 const SHORTEST: f64 = 4.0;
 
 /// How many browsers draw one capture at once, at most. Each is a process tree
-/// of its own, a few hundred megabytes, and draws on more than one core.
+/// of its own, a few hundred megabytes.
 const MOST: usize = 4;
 
-/// Captures `frames` of `request` into `out`, in as many pieces at once as the
-/// stretch and the machine are worth.
-pub(crate) fn capture(
-    chrome: &Chrome,
-    tools: &Tools,
-    served: Served<'_>,
-    request: &Request,
-    frames: Range<u64>,
-    out: &Path,
-) -> Result<Heard, PageError> {
-    let pieces = split(request, frames, ways());
-    capture_in(chrome, tools, served, request, pieces, out)
-}
-
-/// [`capture`], cut into `pieces` already.
+/// Captures each of `pieces` of `request`, each by a browser of its own and all
+/// at once, into the one file `out`.
 pub(crate) fn capture_in(
     chrome: &Chrome,
     tools: &Tools,
@@ -53,7 +40,7 @@ pub(crate) fn capture_in(
 ) -> Result<Heard, PageError> {
     if let [only] = &pieces[..] {
         let only = only.clone();
-        return capture::run(chrome, tools, served, request, only, out);
+        return capture::run(chrome, tools, served, request, (only, 0), out);
     }
     let files: Vec<PathBuf> = (0..pieces.len())
         .map(|i| with_suffix(out, &format!("{i}.mkv")))
@@ -62,9 +49,15 @@ pub(crate) fn capture_in(
         let running: Vec<_> = pieces
             .iter()
             .zip(&files)
-            .map(|(piece, file)| {
+            .enumerate()
+            .map(|(i, (piece, file))| {
                 let piece = piece.clone();
-                scope.spawn(move || capture::run(chrome, tools, served, request, piece, file))
+                // The first piece measures its layout from zero, the rest only
+                // their own stretch: see `capture::run`.
+                let measured = if i == 0 { 0 } else { piece.start };
+                scope.spawn(move || {
+                    capture::run(chrome, tools, served, request, (piece, measured), file)
+                })
             })
             .collect();
         running
@@ -85,11 +78,14 @@ pub(crate) fn capture_in(
     joined
 }
 
-/// How many browsers the machine is worth: half its cores, since each draws on
-/// more than one, and never more than [`MOST`].
-fn ways() -> usize {
+/// How many browsers the machine is worth: one a core, never more than
+/// [`MOST`]. A capture comes before anything else in a render is drawn, so the
+/// cores are its own; and the count is the one a container was granted, not
+/// the host's. On four cores, a 90 s page at 640 × 360 rendered in 154 s from
+/// one browser, 126 s from two and 105 s from four (#809).
+pub(crate) fn ways() -> usize {
     let cores = std::thread::available_parallelism().map_or(1, usize::from);
-    (cores / 2).clamp(1, MOST)
+    cores.clamp(1, MOST)
 }
 
 /// `frames` cut into at most `ways` pieces of at least [`SHORTEST`], each but

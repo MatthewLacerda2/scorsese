@@ -148,7 +148,7 @@ impl Bench {
             &self.tools,
             self.served(),
             &self.request,
-            frames,
+            (frames, 0),
             &out,
         )
         .expect("captured");

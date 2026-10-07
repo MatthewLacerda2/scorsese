@@ -73,12 +73,19 @@ pub(crate) struct Served<'a> {
 
 /// Captures `frames` of `request` into the file `out`, a lossless video with
 /// alpha whose first frame is the first of `frames`.
+///
+/// Its layout is measured from frame `measured` on — run or drawn — at the
+/// samples a capture from the first frame would take (`layout::sampled`), and
+/// at the last frame drawn too: a still's few frames would hold no mistake
+/// otherwise, since one is only said once two samples in a row agree on it.
+/// So the first piece of a capture measures from zero and a later one from its
+/// own first frame, and between them they say what one capture would have.
 pub(crate) fn run(
     chrome: &Chrome,
     tools: &Tools,
     served: Served<'_>,
     request: &Request,
-    frames: Range<u64>,
+    (frames, measured): (Range<u64>, u64),
     out: &Path,
 ) -> Result<Heard, PageError> {
     let Served {
@@ -94,8 +101,8 @@ pub(crate) fn run(
         Visitor::new(project_root, follow),
         PATIENCE,
     );
-    let heard =
-        started(&mut cdp, chrome).and_then(|()| drive(&mut cdp, tools, request, frames, out));
+    let heard = started(&mut cdp, chrome)
+        .and_then(|()| drive(&mut cdp, tools, request, (frames, measured), out));
     // Asked to close rather than killed, so its helpers go with it; the
     // process is reaped either way when `process` drops.
     let _ = cdp.browser("Browser.close", json!({}));
@@ -120,7 +127,7 @@ fn drive(
     cdp: &mut Cdp<ChildStdin, Visitor<'_>>,
     tools: &Tools,
     request: &Request,
-    frames: Range<u64>,
+    (frames, measured): (Range<u64>, u64),
     out: &Path,
 ) -> Result<Heard, PageError> {
     let viewport = request.viewport();
@@ -204,6 +211,18 @@ fn drive(
         last = draw(&mut page)?.or(last);
     }
 
+    let mut layout = Layout::default();
+    let measure = json!({ "expression": layout::expression(), "returnByValue": true });
+    let mut measured_at = |page: &mut dyn FnMut(&'static str, Value) -> Result<Value, CdpError>,
+                           k: u64|
+     -> Result<(), PageError> {
+        let answer = page("Runtime.evaluate", measure.clone())?;
+        // A page that broke the measuring (a replaced `Range`, say) only
+        // goes unmeasured; its own errors are the visitor's to report.
+        let findings = serde_json::from_value(answer["result"]["value"].clone());
+        layout.heard(request.millis_at(k) / 1000.0, findings.unwrap_or_default());
+        Ok(())
+    };
     // Run, not drawn: see the module doc.
     for k in 0..frames.start {
         let advance = format!("__scorsese.advanceTo({})", request.millis_at(k));
@@ -212,12 +231,13 @@ fn drive(
             "HeadlessExperimental.beginFrame",
             json!({ "noDisplayUpdates": true }),
         )?;
+        if k >= measured && layout::sampled(request, k) {
+            measured_at(&mut page, k)?;
+        }
     }
 
     let mut encoder = Encoder::start(tools, request, out)?;
-    let mut layout = Layout::default();
-    let measure = json!({ "expression": layout::expression(), "returnByValue": true });
-    let first = frames.start;
+    let (first, end) = (frames.start, frames.end);
     for k in frames {
         let advance = format!("__scorsese.advanceTo({})", request.millis_at(k));
         page("Runtime.evaluate", json!({ "expression": advance }))?;
@@ -226,14 +246,11 @@ fn drive(
         last = draw(&mut page)?.or(last);
         let png = last.as_ref().ok_or(PageError::NoPicture)?;
         encoder.write(png)?;
-        // A piece's first frame too, so a mistake already on screen when
-        // it starts is held from there rather than from the next sample.
-        if k == first || layout::sampled(request, k) {
-            let answer = page("Runtime.evaluate", measure.clone())?;
-            // A page that broke the measuring (a replaced `Range`, say) only
-            // goes unmeasured; its own errors are the visitor's to report.
-            let findings = serde_json::from_value(answer["result"]["value"].clone());
-            layout.heard(request.millis_at(k) / 1000.0, findings.unwrap_or_default());
+        // A piece measured only from its own first frame measures that one
+        // too, so a mistake already on screen is held from there.
+        let starts = k == first && k == measured;
+        if starts || k + 1 == end || layout::sampled(request, k) {
+            measured_at(&mut page, k)?;
         }
     }
     encoder.finish()?;

@@ -145,6 +145,10 @@ pub fn capture(
 /// the web app links each media file into the owner's library, and names that
 /// library here (#857). Where a link really leads is what is checked, so one
 /// from a named folder on to anywhere else is still refused.
+///
+/// One browser, drawing from the first frame: the web app captures in a
+/// container sized for exactly one (#773). [`capture_frames`] is the same with
+/// a stretch and a number of browsers to choose.
 pub fn capture_following(
     chrome: &Chrome,
     tools: &Tools,
@@ -153,7 +157,13 @@ pub fn capture_following(
     request: &Request,
 ) -> Result<Captured, PageError> {
     let whole = 0..request.frames();
-    capture_frames(chrome, tools, project_root, follow, request, whole)
+    capture_frames(chrome, tools, project_root, follow, request, whole, 1)
+}
+
+/// How many browsers a capture on this machine is worth drawing with at once —
+/// what a caller with the machine to itself hands [`capture_frames`].
+pub fn browsers() -> usize {
+    pieces::ways()
 }
 
 /// [`capture_following`], for only `frames` of the page — the frames a still
@@ -161,7 +171,9 @@ pub fn capture_following(
 ///
 /// Reuses any fresh capture holding them all. Otherwise it captures from the
 /// first of them, back to a whole millisecond, to the last, and keeps that as a
-/// piece of the slot — or as the whole capture, when that is what was asked.
+/// piece of the slot — or as the whole capture, when that is what was asked. A
+/// long stretch is drawn by up to `browsers` at once, each its own process
+/// tree of a few hundred megabytes ([`browsers`] says what a machine is worth).
 pub fn capture_frames(
     chrome: &Chrome,
     tools: &Tools,
@@ -169,6 +181,7 @@ pub fn capture_frames(
     follow: &[PathBuf],
     request: &Request,
     frames: Range<u64>,
+    browsers: usize,
 ) -> Result<Captured, PageError> {
     let wanted = within(request, frames);
     if let Some(captured) = cached_frames(project_root, request, chrome.version(), wanted.clone()) {
@@ -187,7 +200,7 @@ pub fn capture_frames(
         .and_then(|s| s.to_str())
         .unwrap_or("frames");
     let partial = slot.join(format!("{stem}.{}.partial.mkv", std::process::id()));
-    let heard = pieces::capture(
+    let heard = pieces::capture_in(
         chrome,
         tools,
         capture::Served {
@@ -196,7 +209,7 @@ pub fn capture_frames(
             fonts: &fonts,
         },
         request,
-        piece.clone(),
+        pieces::split(request, piece.clone(), browsers),
         &partial,
     )?;
     std::fs::rename(&partial, &file)?;

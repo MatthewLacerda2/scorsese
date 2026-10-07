@@ -121,6 +121,7 @@ impl Pages {
                         &[],
                         &request,
                         frames,
+                        page::browsers(),
                     )
                     .map_err(|e| e.to_string());
                 }
