@@ -122,6 +122,7 @@ async fn render(
         job: job.id,
     };
     let _spooled = Scratch::new(pages.job_folder());
+    let _held = evict::hold(cache, job.user, payload.project).await;
     let media = library(context, storage, job.user, &project).await?;
     let kept = kept_files(context, payload.project).await?;
     let previewing = match quality {
@@ -274,7 +275,10 @@ fn produce(
     } else {
         let captured = places.pages.capture(&requests, &drawn.cancel)?;
         match captured.chrome {
-            Some(chrome) => (renderer.with_chrome(chrome), captured.failed),
+            Some(chrome) => {
+                evict::pages::touch(laid.root(), &requests, chrome.version());
+                (renderer.with_chrome(chrome), captured.failed)
+            }
             None => (renderer, captured.failed),
         }
     };

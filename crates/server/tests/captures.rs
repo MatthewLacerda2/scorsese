@@ -16,6 +16,7 @@ use scorsese_render::page::Request;
 use scorsese_server::captures::dispatch::Pages;
 use scorsese_server::captures::worker::{Isolation, Worker};
 use scorsese_server::captures::{PROJECT, Spool};
+use scorsese_server::renders::evict::pages::touch;
 
 /// A spool of its own, with job 1's project holding `pages/page.html`.
 fn spool(name: &str, html: &str) -> (Spool, PathBuf) {
@@ -98,6 +99,22 @@ fn a_page_asked_for_by_the_server_is_captured_by_the_worker_into_the_projects_ca
         pages.folder().join("cache").is_symlink(),
         "the job's cache/ is the project's"
     );
+
+    // A render reusing the capture marks it used, so eviction counts its age
+    // from then (#849).
+    let chrome = captured.chrome.expect("checked above");
+    let frames = std::fs::read_dir(pages.cache.join("pages"))
+        .expect("slots")
+        .flatten()
+        .map(|slot| slot.path().join("frames.mkv"))
+        .find(|frames| frames.is_file())
+        .expect("the capture's frames");
+    let long_ago = std::time::SystemTime::now() - Duration::from_secs(49 * 3600);
+    let file = std::fs::File::options().append(true).open(&frames);
+    file.expect("frames").set_modified(long_ago).expect("aged");
+    touch(&pages.folder(), &[request(0.5)], chrome.version());
+    let age = std::fs::metadata(&frames).and_then(|meta| meta.modified());
+    assert!(age.expect("a time") > long_ago + Duration::from_secs(3600));
     let _ = std::fs::remove_dir_all(root);
 }
 

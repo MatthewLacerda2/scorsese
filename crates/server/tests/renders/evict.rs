@@ -101,3 +101,64 @@ async fn the_sweep_takes_idle_renders_and_files_no_row_names(pool: PgPool) {
     assert_eq!(evict::sweep(&pool, &cache).await.unwrap().renders, 1);
     assert!(!on_disk(&cache, ana, &open_orphan));
 }
+
+/// A capture in `user`'s page cache for `project`, last used `hours` ago:
+/// 50 bytes of frames. The project's folder.
+fn captured(
+    cache: &RenderCache,
+    user: scorsese_server::db::UserId,
+    project: i64,
+    hours: u64,
+) -> std::path::PathBuf {
+    let folder = cache.captures().pages(user, project);
+    let slot = folder.join("pages/0123");
+    let setup = "the test setup works";
+    std::fs::create_dir_all(&slot).expect(setup);
+    std::fs::write(slot.join("frames.mkv"), [0; 50]).expect(setup);
+    let at = std::time::SystemTime::now() - std::time::Duration::from_secs(hours * 3600);
+    let frames = std::fs::File::options()
+        .append(true)
+        .open(slot.join("frames.mkv"));
+    frames.and_then(|file| file.set_modified(at)).expect(setup);
+    folder
+}
+
+#[sqlx::test]
+async fn page_captures_count_against_the_quota_and_go_when_idle(pool: PgPool) {
+    let cache = RenderCache::new(common::scratch("evict-pages"), Quota::bytes(100));
+    let (ana, _) = member(&pool, "ana@example.com").await;
+    let project = stored(&pool, ana, &card(|_| {})).await;
+    let other = stored(&pool, ana, &card(|_| {})).await;
+    let fresh = captured(&cache, ana, project, 1);
+    let idle = captured(&cache, ana, other, 49);
+    let render = kept(&pool, &cache, ana, project, &"1".repeat(64)).await;
+
+    // 50 + 50 bytes of captures and a render: over 100 only with the captures.
+    evict::admit(&pool, &cache, 1, async {}).await.unwrap();
+
+    assert!(!idle.exists(), "idle and over the quota");
+    assert!(fresh.join("pages/0123/frames.mkv").is_file());
+    assert!(on_disk(&cache, ana, &render), "used just now");
+}
+
+#[sqlx::test]
+async fn the_sweep_takes_a_deleted_projects_captures_unless_a_job_holds_them(pool: PgPool) {
+    let cache = RenderCache::new(common::scratch("evict-pages-sweep"), Quota::bytes(u64::MAX));
+    let (ana, _) = member(&pool, "ana@example.com").await;
+    let kept_project = stored(&pool, ana, &card(|_| {})).await;
+    let doomed = stored(&pool, ana, &card(|_| {})).await;
+    let alive = captured(&cache, ana, kept_project, 1);
+    let orphan = captured(&cache, ana, doomed, 1);
+    scorsese_server::projects::delete(&pool, ana, doomed)
+        .await
+        .unwrap();
+    let held = evict::hold(&cache, ana, doomed).await;
+
+    assert_eq!(evict::sweep(&pool, &cache).await.unwrap().captures, 0);
+    assert!(orphan.exists(), "a job holds it");
+    drop(held);
+    let swept = evict::sweep(&pool, &cache).await.unwrap();
+
+    assert_eq!((swept.captures, swept.bytes), (1, 50), "{swept:?}");
+    assert!(!orphan.exists() && alive.exists());
+}

@@ -4,6 +4,8 @@
 //! These are the render cache's privileged queries — cross-user by nature,
 //! since the quota is the whole machine's and the idle rule is everybody's.
 //! A user's own requests never reach them.
+//!
+//! Page captures are held to the same rule and the same quota ([`pages`]).
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -12,8 +14,10 @@ use std::time::{Duration, SystemTime};
 use sqlx::postgres::PgPool;
 use tokio::sync::watch;
 
-use super::{IDLE, RenderCache};
-use crate::db;
+use super::{IDLE, Pin, RenderCache};
+use crate::db::{self, UserId};
+
+pub mod pages;
 
 /// How often the sweep is due.
 pub const SWEEP_EVERY: Duration = Duration::from_secs(7 * 24 * 60 * 60);
@@ -30,15 +34,38 @@ const SWEPT: &str = "renders-swept";
 pub struct Evicted {
     /// Renders deleted, rows and files.
     pub renders: u64,
-    /// Bytes they held.
+    /// Page captures deleted, each a slot of frames.
+    pub captures: u64,
+    /// Bytes they all held.
     pub bytes: u64,
+}
+
+impl Evicted {
+    fn add(&mut self, other: Self) {
+        self.renders += other.renders;
+        self.captures += other.captures;
+        self.bytes += other.bytes;
+    }
+}
+
+/// Keep `user`'s page cache for `project` whole until the pin drops: a render
+/// job holds it from before its pages are captured until it is rendered.
+///
+/// Taken under the same lock eviction holds, so a pass either finished before
+/// the job began or sees the pin.
+pub async fn hold(cache: &RenderCache, user: UserId, project: i64) -> Pin {
+    let _admitting = cache.admitting.lock().await;
+    let folder = cache.captures().pages(user, project);
+    let relative = folder.strip_prefix(&cache.root).unwrap_or(&folder);
+    cache.pin(relative)
 }
 
 /// Make room for a new render of `size` bytes, if the quota asks for it, and
 /// run `admit` — which moves the file into place and writes its row — with
 /// nothing else counting or sweeping the cache meanwhile.
 ///
-/// Over the quota, every render idle longer than [`IDLE`] goes. Still over it
+/// The quota counts every render and every page capture. Over it, every
+/// render and every capture idle longer than [`IDLE`] goes. Still over it
 /// afterwards, the new render is admitted anyway and a warning is logged: the
 /// quota is a target, not a wall.
 pub async fn admit<T>(
@@ -48,16 +75,16 @@ pub async fn admit<T>(
     admit: impl Future<Output = T>,
 ) -> Result<T, sqlx::Error> {
     let _admitting = cache.admitting.lock().await;
-    let total = total(pool).await?;
+    let total = total(pool).await? + pages::total(cache);
     let quota = cache.quota().get();
     if total.saturating_add(size) > quota {
         let evicted = idle(pool, cache).await?;
         let after = total.saturating_sub(evicted.bytes).saturating_add(size);
         if after > quota {
             eprintln!(
-                "scorsese-server: warning: the render cache holds {after} bytes, over its \
-                 quota of {quota}, and nothing in it has been idle for {} hours; \
-                 keeping the new render anyway",
+                "scorsese-server: warning: the render cache holds {after} bytes with its \
+                 page captures, over its quota of {quota}, and nothing in it has been idle \
+                 for {} hours; keeping the new render anyway",
                 IDLE.as_secs() / 3600
             );
         }
@@ -65,14 +92,13 @@ pub async fn admit<T>(
     Ok(admit.await)
 }
 
-/// The weekly sweep: every idle render, and every file no row names any more
-/// — a deleted project's or account's.
+/// The weekly sweep: every idle render and capture, and every file no row
+/// names any more — a deleted project's or account's.
 pub async fn sweep(pool: &PgPool, cache: &RenderCache) -> Result<Evicted, sqlx::Error> {
     let _admitting = cache.admitting.lock().await;
     let mut evicted = idle(pool, cache).await?;
-    let orphans = orphans(pool, cache).await?;
-    evicted.renders += orphans.renders;
-    evicted.bytes += orphans.bytes;
+    evicted.add(orphans(pool, cache).await?);
+    evicted.add(orphaned_pages(pool, cache).await?);
     Ok(evicted)
 }
 
@@ -88,8 +114,9 @@ pub async fn run(pool: PgPool, cache: RenderCache, mut stop: watch::Receiver<boo
             match sweep(&pool, &cache).await {
                 Ok(evicted) => {
                     eprintln!(
-                        "scorsese-server: swept the render cache: {} renders, {} bytes",
-                        evicted.renders, evicted.bytes
+                        "scorsese-server: swept the render cache: {} renders, {} page \
+                         captures, {} bytes",
+                        evicted.renders, evicted.captures, evicted.bytes
                     );
                     if let Err(error) = std::fs::write(cache.root.join(SWEPT), b"") {
                         eprintln!("scorsese-server: could not mark the sweep: {error}");
@@ -125,7 +152,8 @@ async fn total(pool: &PgPool) -> Result<u64, sqlx::Error> {
     Ok(u64::try_from(total).unwrap_or(0))
 }
 
-/// Delete every render idle longer than [`IDLE`] that nobody has open.
+/// Delete every render and every page capture idle longer than [`IDLE`]
+/// that nobody has open.
 ///
 /// The idle test is in the `DELETE`, so a download that stamped its row
 /// after the pins were read is still spared: Postgres re-reads the row it
@@ -152,6 +180,33 @@ async fn idle(pool: &PgPool, cache: &RenderCache) -> Result<Evicted, sqlx::Error
         remove(&cache.absolute(Path::new(&path)));
         evicted.renders += 1;
         evicted.bytes += u64::try_from(size).unwrap_or(0);
+    }
+    let held = pages::held(cache);
+    for (_, _, folder) in pages::projects(cache) {
+        if !held.contains(&folder) {
+            evicted.add(pages::idle(&folder));
+            pages::tidy(&folder);
+        }
+    }
+    Ok(evicted)
+}
+
+/// Remove every page cache whose project or account no longer exists, and
+/// that no job holds.
+async fn orphaned_pages(pool: &PgPool, cache: &RenderCache) -> Result<Evicted, sqlx::Error> {
+    let mut tx = db::privileged(pool).await?;
+    let known: Vec<(i64, i64)> = sqlx::query_as("SELECT user_id, id FROM projects")
+        .fetch_all(&mut *tx)
+        .await?;
+    tx.commit().await?;
+    let known: HashSet<(i64, i64)> = known.into_iter().collect();
+    let held = pages::held(cache);
+    let mut evicted = Evicted::default();
+    for (user, project, folder) in pages::projects(cache) {
+        if !known.contains(&(user, project)) && !held.contains(&folder) {
+            evicted.add(pages::gone(&folder));
+            pages::tidy(&folder);
+        }
     }
     Ok(evicted)
 }
