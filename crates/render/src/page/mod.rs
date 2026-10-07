@@ -73,8 +73,10 @@ use crate::tools::Tools;
 /// page that drew what the network told it is drawn again without it. 4:
 /// `scorsese.clips` (#810), so a page that read it before it was there, and
 /// drew its error, is drawn again with it; and a slot's captures now sit on
-/// shelves, which a capture kept from before them is not on.
-pub const PAGE_VERSION: u32 = 4;
+/// shelves, which a capture kept from before them is not on. 5: tiles drawn
+/// on the CPU (`--disable-gpu-rasterization`, #874), which moves a page's
+/// pixels a little and makes an animated blur the same every capture.
+pub const PAGE_VERSION: u32 = 5;
 
 /// A capture, ready to be decoded.
 #[derive(Debug, Clone, PartialEq, Eq)]
