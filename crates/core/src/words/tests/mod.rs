@@ -93,3 +93,5 @@ fn words_land_where_the_clip_plays_them() {
     assert!((placed[1].end - (10.0 + (1.254 - 0.5) / 2.0)).abs() < 1e-9);
     assert_eq!(placed[1].text, "back.");
 }
+
+mod disk;
