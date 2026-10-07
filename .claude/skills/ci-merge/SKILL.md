@@ -182,7 +182,12 @@ there is no run, and hand it back.
 **Because it builds nothing, a clean rebase can still push a broken head.** A
 merge ahead that changed a signature this branch calls, or pushed one of its
 files past the size cap, rebases without a conflict and fails CI ten minutes
-later. When the merges ahead touched the same crates, rebase and `cargo check`
+later. A **new field on a struct that is built by literal** is the same trap: on
+2026-10-07 #882 added `words` to `page::Request`, and #885, behind it in line,
+had a test building a `Request` without it, clean to rebase and broken to
+compile. Reading the diff ahead for added `pub` fields, and grepping the branches
+behind for literals of that type, catches it before the queue does. When the
+merges ahead touched the same crates, rebase and `cargo check`
 the branch yourself first (`issue-batch` has the loop); the queue then finds
 nothing to rebase, pushes nothing, and only waits and merges. Two numbering collisions it does catch before pushing (#729): a migration number `main` already holds, and a `SCHEMA_VERSION` bump `main` already made — handed back unpushed with the number to move to.
 
