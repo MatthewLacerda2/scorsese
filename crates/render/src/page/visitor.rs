@@ -8,7 +8,7 @@
 //! falls back without a trace.
 
 use std::collections::BTreeMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
@@ -24,6 +24,8 @@ pub(crate) const OFFLINE_BINDING: &str = "__scorsese_offline";
 /// What a capture has heard from the page so far.
 pub(crate) struct Visitor<'a> {
     project_root: &'a Path,
+    /// The folders outside the project its links may lead into.
+    follow: &'a [PathBuf],
     /// Every project file the page asked for, by its path, with the hash of
     /// what it was served — or `None` for a file that was not there, so that
     /// adding it later makes the capture stale too.
@@ -36,9 +38,10 @@ pub(crate) struct Visitor<'a> {
 }
 
 impl<'a> Visitor<'a> {
-    pub(crate) const fn new(project_root: &'a Path) -> Self {
+    pub(crate) const fn new(project_root: &'a Path, follow: &'a [PathBuf]) -> Self {
         Self {
             project_root,
+            follow,
             loaded: BTreeMap::new(),
             warnings: Vec::new(),
             loaded_event: false,
@@ -68,7 +71,7 @@ impl<'a> Visitor<'a> {
                 "body": STANDARD.encode(body),
             })
         };
-        let (method, params) = match answer(url, self.project_root) {
+        let (method, params) = match answer(url, self.project_root, self.follow) {
             Answer::File { path, body } => {
                 self.loaded
                     .insert(path, Some(scorsese_core::hash_bytes(&body)));
@@ -154,7 +157,7 @@ mod tests {
         let root = std::env::temp_dir().join(format!("scorsese-visitor-{}", std::process::id()));
         std::fs::create_dir_all(root.join("pages")).unwrap();
         std::fs::write(root.join("pages/a.html"), "hello").unwrap();
-        let mut visitor = Visitor::new(&root);
+        let mut visitor = Visitor::new(&root, &[]);
         let reply = visitor
             .heard(
                 "Fetch.requestPaused",
@@ -186,7 +189,7 @@ mod tests {
 
     #[test]
     fn the_internet_is_refused_and_said_once() {
-        let mut visitor = Visitor::new(Path::new("/nonexistent"));
+        let mut visitor = Visitor::new(Path::new("/nonexistent"), &[]);
         for _ in 0..2 {
             let reply = visitor
                 .heard(
@@ -203,7 +206,7 @@ mod tests {
 
     #[test]
     fn a_script_error_and_the_load_event_are_heard() {
-        let mut visitor = Visitor::new(Path::new("/"));
+        let mut visitor = Visitor::new(Path::new("/"), &[]);
         let thrown = json!({ "exceptionDetails": { "text": "Uncaught",
             "exception": { "description": "ReferenceError: x is not defined\n    at page" } } });
         assert!(
@@ -221,7 +224,7 @@ mod tests {
 
     #[test]
     fn a_websocket_and_a_peer_connection_are_said_once_each() {
-        let mut visitor = Visitor::new(Path::new("/"));
+        let mut visitor = Visitor::new(Path::new("/"), &[]);
         for _ in 0..2 {
             let socket = json!({ "requestId": "w", "url": "wss://192.168.1.8:47773/" });
             assert!(

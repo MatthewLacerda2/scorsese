@@ -40,7 +40,9 @@
 //!
 //! **Two walls, not one.** Inside its container a page's renderer can open no
 //! file at all (Chromium's sandbox), and the capture's origin serves it only
-//! files under its project root (`scorsese_render::page`). A page that got past
+//! files under its project root, or under the owner's library where the
+//! project's media links lead (`--follow`, #857; `scorsese_render::page`). A
+//! page that got past
 //! both would still find nothing of anybody else's: no other project, no other
 //! user's library, no other job. #778 ran one long-lived worker instead, which
 //! saw every user's library and the whole spool; #852 is why it does not.

@@ -151,7 +151,7 @@ impl Launch {
     }
 
     fn arguments(&self, job: &Path, index: usize) -> Result<Vec<OsString>, String> {
-        let mut mounts = self.mounts(job)?;
+        let (mut mounts, owner) = self.mounts(job)?;
         mounts.insert(job.to_path_buf(), false);
         let (uid, gid) = self.user;
         let mut arguments: Vec<OsString> = vec![
@@ -178,17 +178,19 @@ impl Launch {
             ask.into_os_string(),
             "--index".into(),
             index.to_string().into(),
+            "--follow".into(),
+            library_of(&self.library, &owner).into_os_string(),
         ]);
         Ok(arguments)
     }
 
     /// What the job's project links to, each one checked: its page cache,
-    /// writable, and the media files, read-only — all of one user's.
-    fn mounts(&self, job: &Path) -> Result<Mounts, String> {
+    /// writable, and the media files, read-only — all of one user's, whom it
+    /// names.
+    fn mounts(&self, job: &Path) -> Result<(Mounts, String), String> {
         let project = job.join(PROJECT);
         let cache = project.join(CACHE_DIR);
-        let owner = self
-            .page_cache(&cache)
+        let owner = owner(&self.spool, &project)
             .ok_or("the job's project has no page cache of its own to capture into")?;
         let mut mounts = Mounts::from([(cache_target(&cache)?, true)]);
         let mut links = Vec::new();
@@ -202,28 +204,14 @@ impl Launch {
             })?;
             mounts.insert(file, false);
         }
-        Ok(mounts)
-    }
-
-    /// The user whose page cache `cache` links to, if it is a link to one:
-    /// exactly `<spool>/pages/<user>/<project>`, a folder.
-    fn page_cache(&self, cache: &Path) -> Option<String> {
-        let target = plain_link(cache)?;
-        let rest = target.strip_prefix(self.spool.join(PAGES)).ok()?;
-        let parts: Vec<&str> = rest
-            .iter()
-            .map(|part| part.to_str())
-            .collect::<Option<_>>()?;
-        let numbers = parts.len() == 2 && parts.iter().all(|part| is_number(part));
-        (numbers && target.is_dir()).then(|| parts[0].to_owned())
+        Ok((mounts, owner))
     }
 
     /// The library file `link` points at, if it is one of `owner`'s:
     /// `<library>/users/<owner>/…`, a file.
     fn media(&self, link: &Path, owner: &str) -> Option<PathBuf> {
         let target = plain_link(link)?;
-        let theirs = self.library.join("users").join(owner);
-        (target.starts_with(theirs) && target.is_file()).then_some(target)
+        (target.starts_with(library_of(&self.library, owner)) && target.is_file()).then_some(target)
     }
 
     /// `--mount`'s value for `path`, from the host's side.
@@ -241,6 +229,27 @@ impl Launch {
         let access = if writable { "" } else { ",readonly" };
         Ok(format!("type=bind,source={source},target={target}{access}"))
     }
+}
+
+/// The user whose page cache the project at `project` captures into, if its
+/// `cache/` is a link to one: exactly `<spool>/pages/<user>/<project>`, a
+/// folder. Whose job it is, then, and so whose files it may be shown.
+pub(super) fn owner(spool: &Path, project: &Path) -> Option<String> {
+    let target = plain_link(&project.join(CACHE_DIR))?;
+    let rest = target.strip_prefix(spool.join(PAGES)).ok()?;
+    let parts: Vec<&str> = rest
+        .iter()
+        .map(|part| part.to_str())
+        .collect::<Option<_>>()?;
+    let numbers = parts.len() == 2 && parts.iter().all(|part| is_number(part));
+    (numbers && target.is_dir()).then(|| parts[0].to_owned())
+}
+
+/// `owner`'s part of the library at `library`: the one folder outside its
+/// project a capture's links may lead into (#857), and every file it is
+/// mounted is under it.
+pub(super) fn library_of(library: &Path, owner: &str) -> PathBuf {
+    library.join("users").join(owner)
 }
 
 /// Where the page cache is mounted: at its link's target, so the link in the
