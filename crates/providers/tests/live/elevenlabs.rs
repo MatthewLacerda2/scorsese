@@ -2,7 +2,10 @@
 //! the live API really sent; the design reply is hand-written until a live
 //! run records one.
 
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD;
 use scorsese_providers::api::elevenlabs::design::{DesignReply, PASSAGE as PASSAGES, PROMPT};
+use scorsese_providers::api::elevenlabs::speech::Timed;
 use scorsese_providers::api::elevenlabs::voices::Listing;
 use scorsese_providers::live::Verdict;
 use scorsese_providers::live::elevenlabs::{
@@ -55,15 +58,35 @@ fn a_plan_that_does_not_cover_the_call_is_a_refusal_not_an_auth_failure() {
     assert!(matches!(&step.verdict, Verdict::Refused { said } if said.contains("library voices")));
 }
 
+/// A reply as the timestamps endpoint sends it: `audio` in base64, with
+/// one character timed.
+fn timed(audio: &[u8], timed: bool) -> Timed {
+    let alignment = r#","alignment":{"characters":["a"],
+        "character_start_times_seconds":[0.0],"character_end_times_seconds":[0.1]}"#;
+    let json = format!(
+        r#"{{"audio_base64":"{}"{}}}"#,
+        STANDARD.encode(audio),
+        if timed { alignment } else { "" }
+    );
+    serde_json::from_str(&json).unwrap()
+}
+
 #[test]
-fn speech_must_come_back_as_an_mp3() {
+fn speech_must_come_back_as_a_timed_mp3() {
     assert_eq!(
-        speech_step(Ok(b"ID3\x04rest".to_vec())).verdict,
+        speech_step(Ok(timed(b"ID3\x04rest", true))).verdict,
         Verdict::Ok
     );
-    assert_eq!(speech_step(Ok(vec![0xFF, 0xF3, 0x44])).verdict, Verdict::Ok);
-    let json = speech_step(Ok(br#"{"detail":"x"}"#.to_vec()));
+    assert_eq!(
+        speech_step(Ok(timed(&[0xFF, 0xF3, 0x44], true))).verdict,
+        Verdict::Ok
+    );
+    let json = speech_step(Ok(timed(br#"{"detail":"x"}"#, true)));
     assert!(matches!(&json.verdict, Verdict::ShapeChanged { field } if field.contains("JSON")));
+    let untimed = speech_step(Ok(timed(b"ID3\x04rest", false)));
+    assert!(
+        matches!(&untimed.verdict, Verdict::ShapeChanged { field } if field.contains("alignment"))
+    );
 }
 
 #[test]

@@ -199,6 +199,7 @@ mod tests {
             fps,
             duration: seconds,
             clips: BTreeMap::new(),
+            words: BTreeMap::new(),
         }
     }
 
@@ -241,6 +242,7 @@ mod tests {
             read: Read {
                 names: [path.to_owned()].into(),
                 listed: false,
+                ..Read::default()
             },
         };
         let heard = merge(vec![piece("a.png", "one"), piece("b.png", "two")]);

@@ -56,7 +56,9 @@ async fn line(work: &Work, vendors: &dyn Vendors) -> Outcome {
     };
     let spoken = tokio::task::spawn_blocking(move || provider.speak(&brief)).await;
     match spoken {
-        Ok(Ok(bytes)) => work.keep(paid, bytes, Kind::Audio).await,
+        // The audio only: the library keeps one file per item, so a line spoken
+        // here has no word timings yet (#811's web half is its own issue).
+        Ok(Ok(spoken)) => work.keep(paid, spoken.audio, Kind::Audio).await,
         Ok(Err(error)) => work.refused(paid, error.message).await,
         Err(_) => work.refused(paid, "speaking crashed".into()).await,
     }

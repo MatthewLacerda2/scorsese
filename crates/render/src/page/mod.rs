@@ -75,8 +75,9 @@ use crate::tools::Tools;
 /// drew its error, is drawn again with it; and a slot's captures now sit on
 /// shelves, which a capture kept from before them is not on. 5: tiles drawn
 /// on the CPU (`--disable-gpu-rasterization`, #874), which moves a page's
-/// pixels a little and makes an animated blur the same every capture.
-pub const PAGE_VERSION: u32 = 5;
+/// pixels a little and makes an animated blur the same every capture. 6:
+/// `scorsese.words` (#811), for the same reason `clips` was 4.
+pub const PAGE_VERSION: u32 = 6;
 
 /// A capture, ready to be decoded.
 #[derive(Debug, Clone, PartialEq, Eq)]

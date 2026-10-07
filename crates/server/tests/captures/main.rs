@@ -52,6 +52,7 @@ fn request(duration: f64) -> Request {
         fps: Fps::new(10, 1).expect("a rate"),
         duration,
         clips: Default::default(),
+        words: Default::default(),
     }
 }
 

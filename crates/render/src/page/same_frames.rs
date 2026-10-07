@@ -153,6 +153,7 @@ impl Bench {
                 fps: Fps::THIRTY,
                 duration,
                 clips: Default::default(),
+                words: Default::default(),
             },
         }
     }

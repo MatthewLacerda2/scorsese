@@ -37,14 +37,20 @@ pub struct Span {
     pub end: f64,
 }
 
-/// What a page asked `scorsese.clips` for, as the browser reports it after the
-/// capture's last frame.
+/// What a page asked `scorsese.clips` and `scorsese.words` for, as the browser
+/// reports it after the capture's last frame.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 pub(crate) struct Read {
-    /// Every name it looked up, whether or not a clip has it.
+    /// Every clip name it looked up, whether or not a clip has it.
     pub(crate) names: BTreeSet<String>,
     /// Whether it listed every clip.
     pub(crate) listed: bool,
+    /// Every word name it looked up (#811), whether or not a word has it.
+    #[serde(default)]
+    pub(crate) words: BTreeSet<String>,
+    /// Whether it listed every word.
+    #[serde(default)]
+    pub(crate) listed_words: bool,
 }
 
 impl Read {
@@ -52,11 +58,13 @@ impl Read {
     pub(crate) fn merge(&mut self, other: Self) {
         self.names.extend(other.names);
         self.listed |= other.listed;
+        self.words.extend(other.words);
+        self.listed_words |= other.listed_words;
     }
 }
 
-/// What a capture's frames depend on of the clips: the place it was told of
-/// each one it read.
+/// What a capture's frames depend on of the clips and words: the place it was
+/// told of each one it read.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub(crate) struct Told {
     /// Each name read, with the clip's place — `None` for a name no clip had,
@@ -65,25 +73,22 @@ pub(crate) struct Told {
     /// Whether the page listed the clips, which makes which clips there are
     /// part of what it drew.
     pub(crate) listed: bool,
+    /// The same of the words (#811): each word name read, with its place.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub(crate) words: BTreeMap<String, Option<Span>>,
+    /// Whether the page listed the words.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub(crate) listed_words: bool,
 }
 
 impl Told {
     /// What `request` told a page that read `read`.
     pub(crate) fn of(request: &Request, read: &Read) -> Self {
-        let listed = read.listed.then(|| request.clips.keys().cloned());
-        let names = read
-            .names
-            .iter()
-            .cloned()
-            .chain(listed.into_iter().flatten());
         Self {
-            clips: names
-                .map(|name| {
-                    let span = request.clips.get(&name).copied();
-                    (name, span)
-                })
-                .collect(),
+            clips: places(&request.clips, &read.names, read.listed),
             listed: read.listed,
+            words: places(&request.words, &read.words, read.listed_words),
+            listed_words: read.listed_words,
         }
     }
 
@@ -97,19 +102,11 @@ impl Told {
         let read = Read {
             names: self.clips.keys().cloned().collect(),
             listed: self.listed,
+            words: self.words.keys().cloned().collect(),
+            listed_words: self.listed_words,
         };
         let now = Self::of(request, &read);
-        let same = |a: &Option<Span>, b: &Option<Span>| match (a, b) {
-            (Some(a), Some(b)) => (a.start - b.start).abs() < SAME && (a.end - b.end).abs() < SAME,
-            (None, None) => true,
-            _ => false,
-        };
-        now.clips.len() == self.clips.len()
-            && now
-                .clips
-                .iter()
-                .zip(&self.clips)
-                .all(|((name, span), (was, then))| name == was && same(span, then))
+        alike(&now.clips, &self.clips) && alike(&now.words, &self.words)
     }
 
     /// A name for the folder its captures are kept in: the same for every
@@ -124,8 +121,38 @@ impl Told {
     }
 }
 
-/// The script that hands a page `contract` and `clips` as `window.scorsese`,
-/// and keeps what it reads of the clips for `__scorseseTold()` to say.
+/// Each of `named` and — when `listed` — every one of `spans`, with its span,
+/// or `None` for a name nothing has.
+fn places(
+    spans: &BTreeMap<String, Span>,
+    named: &BTreeSet<String>,
+    listed: bool,
+) -> BTreeMap<String, Option<Span>> {
+    let every = listed.then(|| spans.keys());
+    named
+        .iter()
+        .chain(every.into_iter().flatten())
+        .map(|name| (name.clone(), spans.get(name).copied()))
+        .collect()
+}
+
+/// Whether two sets of places name the same things at the same places.
+fn alike(now: &BTreeMap<String, Option<Span>>, then: &BTreeMap<String, Option<Span>>) -> bool {
+    let same = |a: &Option<Span>, b: &Option<Span>| match (a, b) {
+        (Some(a), Some(b)) => (a.start - b.start).abs() < SAME && (a.end - b.end).abs() < SAME,
+        (None, None) => true,
+        _ => false,
+    };
+    now.len() == then.len()
+        && now
+            .iter()
+            .zip(then)
+            .all(|((name, span), (was, before))| name == was && same(span, before))
+}
+
+/// The script that hands a page `contract`, `clips` and `words` as
+/// `window.scorsese`, and keeps what it reads of them for `__scorseseTold()`
+/// to say.
 pub(crate) const SCRIPT: &str = include_str!("told.js");
 
 /// The expression the capture asks the page, after its last frame, for what it
@@ -155,6 +182,7 @@ mod tests {
                     ((*id).to_owned(), span)
                 })
                 .collect(),
+            words: BTreeMap::new(),
         }
     }
 
@@ -162,7 +190,36 @@ mod tests {
         Read {
             names: names.iter().map(|n| (*n).to_owned()).collect(),
             listed,
+            ..Read::default()
         }
+    }
+
+    #[test]
+    fn a_capture_holds_while_the_words_it_read_stay_put() {
+        let at = |start: f64| Request {
+            words: BTreeMap::from([("vo/gradient".to_owned(), Span { start, end: 2.0 })]),
+            ..request(&[("vo", 1.0)])
+        };
+        let read = Read {
+            words: BTreeSet::from(["vo/gradient".to_owned()]),
+            ..Read::default()
+        };
+        let told = Told::of(&at(1.5), &read);
+        assert!(told.holds_for(&at(1.5)));
+        assert!(!told.holds_for(&at(1.75)), "the word moved");
+        assert!(
+            !told.holds_for(&request(&[("vo", 1.0)])),
+            "the line lost its timings"
+        );
+        let listed = Told::of(
+            &at(1.5),
+            &Read {
+                listed_words: true,
+                ..Read::default()
+            },
+        );
+        assert!(!listed.holds_for(&request(&[])));
+        assert_ne!(told.folder(), Told::of(&at(1.5), &Read::default()).folder());
     }
 
     #[test]

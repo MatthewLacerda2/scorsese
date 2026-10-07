@@ -38,7 +38,7 @@ use scorsese_core::ProjectPath;
 pub use brief::Brief;
 pub use elevenlabs::ElevenLabsProvider;
 pub use error::{Incomplete, SpeechError};
-pub use provider::{ProviderError, SpeechProvider};
+pub use provider::{ProviderError, SpeechProvider, Spoken};
 pub use run::{Plan, adopt, generate, pending, plan, quote};
 
 /// What happened to one line in a run.

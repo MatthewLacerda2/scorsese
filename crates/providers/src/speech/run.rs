@@ -26,10 +26,12 @@ use scorsese_core::{
     Asset, AssetId, AssetKind, GenerationState, Project, ProjectPath, SpeechModel, hash_bytes,
 };
 
+use scorsese_core::words::Words;
+
 use crate::credentials::Budget;
 use crate::prices;
 
-use super::{Brief, Outcome, SpeechError, SpeechProvider};
+use super::{Brief, Outcome, SpeechError, SpeechProvider, Spoken};
 
 /// Speaks every line that needs it, and reports what happened to each.
 ///
@@ -186,14 +188,23 @@ fn one(
     let estimate = prices::speech(brief.request.model, brief.characters())?;
     budget.spend(already).check(estimate.cents)?;
 
-    let bytes = match provider.speak(&brief) {
-        Ok(bytes) => bytes,
+    let Spoken {
+        audio: bytes,
+        words,
+    } = match provider.speak(&brief) {
+        Ok(spoken) => spoken,
         Err(error) => {
             return Ok(Outcome::Failed {
                 message: error.message,
             });
         }
     };
+    // The timings before the audio: the audio being there is what says the
+    // line is done, so once it is, whatever timings it came with are too.
+    if let Some(words) = words {
+        let beside = Words::beside(&output).resolve(root);
+        write(&beside, words.to_json().as_bytes())?;
+    }
     write(&output.resolve(root), &bytes)?;
     record(project, id, &output, &bytes, &brief)?;
     Ok(Outcome::Generated {

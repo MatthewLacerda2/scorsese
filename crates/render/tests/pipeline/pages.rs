@@ -138,7 +138,7 @@ fn a_still_from_a_piece_of_the_page_is_the_still_from_the_whole() {
     };
     assert_eq!(names(&slot), ["part-96-103.json", "part-96-103.mkv"]);
 
-    for request in renderer.page_requests(&project).expect("plans") {
+    for request in renderer.page_requests(&project, &dir).expect("plans") {
         page::capture(&chrome, &tools, &dir, &request).expect("captured whole");
     }
     assert_eq!(

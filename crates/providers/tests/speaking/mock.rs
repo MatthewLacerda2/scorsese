@@ -7,13 +7,16 @@
 
 use std::cell::RefCell;
 
-use scorsese_providers::speech::{Brief, ProviderError, SpeechProvider};
+use scorsese_core::words::Words;
+use scorsese_providers::speech::{Brief, ProviderError, SpeechProvider, Spoken};
 
 /// What the mock does when asked to speak.
 #[derive(Debug, Clone)]
 pub(crate) enum Answer {
-    /// Hands back these bytes.
+    /// Hands back these bytes, untimed.
     Speaks(Vec<u8>),
+    /// Hands back these bytes, and these word timings.
+    Timed(Vec<u8>, Words),
     /// Refuses, saying this.
     Refuses(String),
 }
@@ -48,7 +51,7 @@ impl Mock {
 }
 
 impl SpeechProvider for Mock {
-    fn speak(&self, brief: &Brief) -> Result<Vec<u8>, ProviderError> {
+    fn speak(&self, brief: &Brief) -> Result<Spoken, ProviderError> {
         self.spoken.borrow_mut().push(brief.text.clone());
         let mut answers = self.answers.borrow_mut();
         // The last answer repeats rather than running out, so a test that only
@@ -58,11 +61,13 @@ impl SpeechProvider for Mock {
         } else {
             answers.last().cloned()
         };
-        match answer {
-            Some(Answer::Speaks(bytes)) => Ok(bytes),
-            Some(Answer::Refuses(message)) => Err(ProviderError::new("mock", message)),
-            None => Ok(b"MP3".to_vec()),
-        }
+        let (audio, words) = match answer {
+            Some(Answer::Speaks(bytes)) => (bytes, None),
+            Some(Answer::Timed(bytes, words)) => (bytes, Some(words)),
+            Some(Answer::Refuses(message)) => return Err(ProviderError::new("mock", message)),
+            None => (b"MP3".to_vec(), None),
+        };
+        Ok(Spoken { audio, words })
     }
 
     fn name(&self) -> &'static str {

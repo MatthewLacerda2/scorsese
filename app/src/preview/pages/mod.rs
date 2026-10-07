@@ -240,7 +240,7 @@ fn capture_all(
         Ok(tools) => tools,
         Err(error) => return fail(error.to_string()),
     };
-    let requests = match Renderer::new(&tools, settings).page_requests(project) {
+    let requests = match Renderer::new(&tools, settings).page_requests(project, root) {
         Ok(requests) => requests,
         Err(error) => return fail(error.to_string()),
     };
