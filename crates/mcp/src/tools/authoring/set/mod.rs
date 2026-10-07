@@ -211,8 +211,9 @@ impl Tool for AssetSet {
     fn description(&self) -> &'static str {
         "Make or change a caption, title, color card, shape or icon asset, or the \
          free sketch and brief of a generated shot, still or spoken line. A text is a \
-         caption, a title or a lower third; a shape a rectangle, an ellipse or \
-         an arrow. **To make one, give its `kind`**; then place_clip puts it on \
+         caption or a plain title; a shape a rectangle, an ellipse or an arrow. \
+         For a title card, a lower third or a diagram of more than a couple of \
+         layers, write a page instead (page_write, docs/pages.md). **To make one, give its `kind`**; then place_clip puts it on \
          a track, with a duration. **To change one, name its \
          `asset`**: every argument you leave out stays exactly as it is, so \
          setting a size does not reset a font chosen two turns ago, and the \

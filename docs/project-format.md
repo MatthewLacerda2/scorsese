@@ -911,7 +911,9 @@ A `number` block on a text with no `{n}` in it is refused: a counter showing
 nothing looks exactly like a broken one. A `{n}` on a text with no `number` block
 is three ordinary characters.
 
-Shadows are not here yet. Bold is
+Shadows are not here, and native text gains no new styling: a look this
+section cannot describe is a page's to draw ([Web pages](#web-pages),
+`docs/pages.md`). Bold is
 `weight` on a variable font, and nothing more than that: there is no `bold`
 flag, because a flag would be a second, coarser way to say a number that
 already exists.
@@ -1001,7 +1003,8 @@ adds little the dither has not already done.
 Only the inside of a shape takes a gradient. A border (`stroke`), a caption's
 colour and an icon's colour stay one colour each, and the gradient itself is
 not animatable — a gradient that fades or slides does it through `opacity` and
-`transform.*`, like any other layer. Conic and mesh gradients are not here.
+`transform.*`, like any other layer. Conic and mesh gradients are not here, and
+none are coming: gradients are frozen, and a richer backdrop is a page.
 
 ### Shape assets
 
@@ -1192,8 +1195,8 @@ one after, and the same group can be on screen twice at once, so "that member"
 would not even name one place. To point at a whole diagram, attach to the
 **group clip**, whose rectangle is the raster the group is drawn on, moved by
 the group clip's transform; to point at a box inside it, put the arrow in the
-group beside the box. This is a *for now*: a later version may resolve through
-the group's transform, and nothing about refusing it today stands in the way.
+group beside the box. Arrows are frozen — bugs are fixed, nothing is added — so
+this stays; a diagram that needs more is a page.
 
 **An arrow whose clip is not on screen while the arrow is** is left out of those
 frames, and the render says so in a note. Holding the endpoint where the box
@@ -1202,9 +1205,10 @@ worse answer than an absent arrow and a sentence explaining it. Usually it means
 the arrow's clip outlasts the box's, or starts before it.
 
 Elbow and orthogonal routing, obstacle avoidance, editable control points,
-labels riding along the line and multi-segment paths are not here. Polygons,
-stars, shadows and gradients are not planned at all: each is a drawing program
-growing inside a video editor.
+labels riding along the line and multi-segment paths are not here, and shapes
+gain no new styling: they are frozen, and a graphic that needs more is a page
+([Web pages](#web-pages)). Polygons, stars and shadows are not
+planned at all: each is a drawing program growing inside a video editor.
 
 #### A line that draws itself on, and dashes that move
 

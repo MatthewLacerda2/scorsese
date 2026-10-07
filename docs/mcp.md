@@ -255,6 +255,9 @@ Four asset kinds have no file behind them â€” `text`, `color`, `shape`, `icon` â
 and that is deliberate: a caption, a colour card, a panel and a symbol are
 things a cut should not need to import a megabyte of, go soft at the next
 resolution, or leave the tool to change. The document *is* the asset.
+They are the fast path for a caption, a plain title or a colour card; for a
+title card, a lower third or a diagram of more than a couple of layers, write
+a page instead (`page_write`, [docs/pages.md](pages.md)).
 
 One verb makes and changes all of them, `asset_set`, and there is one for a
 lane to put them on:
