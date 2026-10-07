@@ -18,6 +18,14 @@
 //! [`SpeechProvider`]. And a brief that cannot be gathered does not stop the
 //! run — see [`Incomplete`].
 //!
+//! # Word timings
+//!
+//! A line comes back with when each of its words is said (#811), and they are
+//! kept beside the audio as `<the audio's name>.words.json` —
+//! [`scorsese_core::words`] has the file. Content-addressed with the audio, so
+//! a cache hit has whatever timings its generation came with, and a line spoken
+//! before they were kept has none: it is never spoken again to get them.
+//!
 //! # The one thing this cannot do
 //!
 //! It cannot say how long a line came out. A shot is exactly as long as its

@@ -15,8 +15,10 @@
 //!
 //! [`Words::placed`] carries the words onto the timeline through the clip that
 //! plays the line — its `start`, `source_in` and `speed` — and names each one
-//! the way a page addresses it ([`Words::names`]).
+//! the way a page addresses it ([`Words::names`]); [`saying`] says which word
+//! each narration is on at an instant.
 
+mod at;
 mod name;
 mod placed;
 
@@ -26,6 +28,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Asset, AssetKind, GenerationState, ProjectPath};
 
+pub use at::{Saying, saying};
 pub use placed::Placed;
 
 /// One word of a line, as written, and when it is said.
