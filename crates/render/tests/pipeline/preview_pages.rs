@@ -81,7 +81,7 @@ fn a_preview_shows_the_card_until_the_capture_lands_and_then_the_page() {
         "and nothing was captured for it"
     );
 
-    let requests = preview.page_requests(&project).expect("plans");
+    let requests = preview.page_requests(&project, &dir).expect("plans");
     assert_eq!(requests.len(), 2, "one clock, told from two places");
     for request in &requests {
         page::capture(&chrome, &tools, &dir, request).expect("captured");

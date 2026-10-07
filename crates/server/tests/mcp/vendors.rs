@@ -77,9 +77,9 @@ impl ImageProvider for Mock {
 }
 
 impl SpeechProvider for Mock {
-    fn speak(&self, _: &speech::Brief) -> Result<Vec<u8>, ProviderError> {
+    fn speak(&self, _: &speech::Brief) -> Result<speech::Spoken, ProviderError> {
         self.spoken.fetch_add(1, Ordering::SeqCst);
-        Ok(made("line.mp3", &["-f", "lavfi", "-i", "sine=duration=1"]))
+        Ok(made("line.mp3", &["-f", "lavfi", "-i", "sine=duration=1"]).into())
     }
 
     fn name(&self) -> &'static str {

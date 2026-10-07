@@ -231,6 +231,7 @@ mod tests {
             fps: Fps::THIRTY,
             duration: 1.0,
             clips: BTreeMap::new(),
+            words: BTreeMap::new(),
         }
     }
 
@@ -302,6 +303,7 @@ mod tests {
         let read = Read {
             names: ["vo".into()].into(),
             listed: false,
+            ..Read::default()
         };
         let at = |start: f64| Request {
             clips: BTreeMap::from([("vo".into(), Span { start, end: 9.0 })]),

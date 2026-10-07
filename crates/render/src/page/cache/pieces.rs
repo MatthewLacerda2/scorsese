@@ -127,6 +127,7 @@ mod tests {
             fps: Fps::THIRTY,
             duration: 1.0,
             clips: BTreeMap::new(),
+            words: BTreeMap::new(),
         }
     }
 

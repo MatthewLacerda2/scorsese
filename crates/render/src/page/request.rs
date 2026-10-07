@@ -8,7 +8,9 @@
 //! - `duration`: in seconds, where the page's clock is at the clip's last frame
 //!   — `source_in` plus the clip's length times its speed (#789);
 //! - `clips`: where every clip beside it sits, by id, as `{start, end}` in
-//!   those same seconds (#810, `told`'s).
+//!   those same seconds (#810, `told`'s);
+//! - `words`: when each word of a timed narration beside it is said, as
+//!   `{start, end}` in those seconds, named `<clip id>/<word>` (#811).
 //!
 //! **The shorter side of the viewport is always 1080 CSS pixels**, whatever the
 //! render's raster; the browser's device scale makes up the difference. So a
@@ -42,6 +44,10 @@ pub struct Request {
     /// seconds of the page's clock. Not part of where its capture is kept:
     /// only the clips a page reads are, once it has read them (`told`'s).
     pub clips: BTreeMap<String, Span>,
+    /// When each word of every timed narration beside the page is said, by
+    /// `<clip id>/<word>` ([`scorsese_core::words`] has how a word is named),
+    /// in the same seconds — kept, and read, exactly as `clips` are.
+    pub words: BTreeMap<String, Span>,
 }
 
 /// The viewport a page lays out in, and the scale that brings it to the raster.
@@ -117,8 +123,9 @@ impl Request {
             "duration": self.duration,
         });
         let clips = json!(self.clips);
+        let words = json!(self.words);
         format!(
-            "{}({contract}, {clips});\n{}{}{}",
+            "{}({contract}, {clips}, {words});\n{}{}{}",
             told::SCRIPT.trim_end(),
             super::fonts::declarations(super::SHIPPED_ORIGIN),
             include_str!("clock.js"),
@@ -148,6 +155,7 @@ mod tests {
                     end: 0.5,
                 },
             )]),
+            words: BTreeMap::new(),
         }
     }
 

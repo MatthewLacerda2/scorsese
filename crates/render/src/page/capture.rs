@@ -265,8 +265,9 @@ fn drive(
         json!({ "expression": told::ASK, "returnByValue": true }),
     )?;
     let read = serde_json::from_value(asked["result"]["value"].clone()).unwrap_or(Read {
-        names: Default::default(),
         listed: true,
+        listed_words: true,
+        ..Read::default()
     });
     let visitor = cdp.listener();
     warnings.splice(0..0, visitor.warnings.iter().cloned());

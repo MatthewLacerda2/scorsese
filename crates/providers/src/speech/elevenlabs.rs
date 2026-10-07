@@ -6,12 +6,14 @@
 //! [`super::run`], so what is left here is the translation between them and
 //! nothing else.
 
+use scorsese_core::words::Words;
+
 use crate::api::elevenlabs::refusal::Refusal;
-use crate::api::elevenlabs::speech::{Speak, Speech};
+use crate::api::elevenlabs::speech::{Speak, Speech, Timed};
 use crate::api::http::HttpError;
 use crate::credentials::Secret;
 
-use super::{Brief, ProviderError, SpeechProvider};
+use super::{Brief, ProviderError, SpeechProvider, Spoken};
 
 /// What this provider is called where a message names it.
 const NAME: &str = "ElevenLabs";
@@ -32,11 +34,13 @@ impl ElevenLabsProvider {
 }
 
 impl SpeechProvider for ElevenLabsProvider {
-    fn speak(&self, brief: &Brief) -> Result<Vec<u8>, ProviderError> {
+    fn speak(&self, brief: &Brief) -> Result<Spoken, ProviderError> {
         let body = body_of(brief);
-        self.api
+        let timed = self
+            .api
             .speak(&brief.voice_id, &body)
-            .map_err(|error| explain(&brief.voice_id, error))
+            .map_err(|error| explain(&brief.voice_id, error))?;
+        spoken(&timed)
     }
 
     fn name(&self) -> &'static str {
@@ -65,6 +69,21 @@ fn body_of(brief: &Brief) -> Speak {
             .filter(|_| request.model.takes_language()),
         seed: request.seed,
     }
+}
+
+/// The line out of the vendor's reply: the MP3 decoded, and the characters'
+/// timings folded into words. A reply whose timings do not add up still gives
+/// its audio, without them — the line was paid for either way.
+fn spoken(timed: &Timed) -> Result<Spoken, ProviderError> {
+    let audio = timed
+        .audio()
+        .ok_or_else(|| ProviderError::new(NAME, "the audio came back as something not base64"))?;
+    let words = timed
+        .alignment
+        .as_ref()
+        .and_then(|alignment| alignment.characters())
+        .map(Words::from_characters);
+    Ok(Spoken { audio, words })
 }
 
 /// A transport failure, turned into the most useful sentence available.

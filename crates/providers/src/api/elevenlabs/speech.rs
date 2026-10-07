@@ -6,12 +6,16 @@
 //! other — the only practical way to keep a hand-written client honest about
 //! somebody else's API.
 //!
-//! **A success has no JSON shape at all.** It is an MP3, and the failure is the
-//! JSON — the reverse of every other endpoint scorsese calls, which is why this
-//! goes through `post_bytes` and why the reply cannot be typed in advance. What
-//! is made of a refusal is [`refusal`](super::refusal)'s business.
+//! **The `with-timestamps` variant, always** (#811). The plain endpoint answers
+//! with an MP3; this one with JSON holding the same MP3 in base64 and, beside
+//! it, when each character is said — at the same price, verified on all three
+//! models on 2026-10-07. So every line scorsese pays for comes back with its
+//! word timings. A refusal is JSON either way, which is why this still goes
+//! through `post_bytes` and reads the body itself: what is made of a refusal is
+//! [`refusal`](super::refusal)'s business.
 
-use serde::Serialize;
+use base64::Engine;
+use serde::{Deserialize, Serialize};
 
 use super::{BASE, KEY_HEADER};
 use crate::api::http::{Caller, HttpError};
@@ -25,12 +29,12 @@ use crate::credentials::Secret;
 /// on somebody's plan is a tier-detection feature wearing a dropdown.
 const OUTPUT_FORMAT: &str = "mp3_44100_128";
 
-/// The most a spoken line is allowed to be, in bytes.
+/// The most a spoken line's reply is allowed to be, in bytes.
 ///
-/// Forty thousand characters at this bitrate is well under a hundred megabytes;
-/// this is orders above that, so it bounds a redirect somewhere unexpected
-/// rather than any real narration.
-const MAX_AUDIO_BYTES: u64 = 128 * 1024 * 1024;
+/// Forty thousand characters at this bitrate is well under a hundred megabytes
+/// of MP3, a third more as base64, plus the timings; this is above that, so it
+/// bounds a redirect somewhere unexpected rather than any real narration.
+const MAX_REPLY_BYTES: u64 = 256 * 1024 * 1024;
 
 /// The whole POST body of a text-to-speech request.
 ///
@@ -63,6 +67,60 @@ pub struct Speak {
     pub seed: Option<u32>,
 }
 
+/// What a spoken line comes back as: the audio, and when each character of it
+/// is said.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct Timed {
+    /// The MP3, base64.
+    pub audio_base64: String,
+    /// When each character of the text as sent is said. Optional because the
+    /// vendor documents it as such; a line without it is a line without word
+    /// timings, not a failure.
+    #[serde(default)]
+    pub alignment: Option<Alignment>,
+}
+
+/// When each character is said, as three lists of one length.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct Alignment {
+    /// The characters, one string each.
+    pub characters: Vec<String>,
+    /// When each begins, in seconds of the audio.
+    pub character_start_times_seconds: Vec<f64>,
+    /// When each ends.
+    pub character_end_times_seconds: Vec<f64>,
+}
+
+impl Timed {
+    /// The MP3, decoded — `None` if what arrived is not base64.
+    pub fn audio(&self) -> Option<Vec<u8>> {
+        base64::engine::general_purpose::STANDARD
+            .decode(&self.audio_base64)
+            .ok()
+    }
+}
+
+impl Alignment {
+    /// Each character with when it starts and ends — `None` if the three lists
+    /// disagree about how many characters there are.
+    pub fn characters(&self) -> Option<Vec<(char, f64, f64)>> {
+        let n = self.characters.len();
+        if self.character_start_times_seconds.len() != n
+            || self.character_end_times_seconds.len() != n
+        {
+            return None;
+        }
+        let timed = self
+            .characters
+            .iter()
+            .zip(&self.character_start_times_seconds)
+            .zip(&self.character_end_times_seconds)
+            .flat_map(|((text, start), end)| text.chars().map(move |c| (c, *start, *end)))
+            .collect();
+        Some(timed)
+    }
+}
+
 /// The text-to-speech endpoint, reachable.
 #[derive(Debug, Clone)]
 pub struct Speech {
@@ -84,14 +142,20 @@ impl Speech {
         self
     }
 
-    /// Speaks a line, and hands back the MP3.
+    /// Speaks a line, and hands back the MP3 with its timings.
     ///
     /// The voice is a path segment rather than a field, which is the vendor's
     /// shape and worth noticing for one reason: a voice that has been withdrawn
     /// answers `404` on the URL rather than a validation error about a field.
     /// See [`Refusal`](super::refusal::Refusal) for what is made of that.
-    pub fn speak(&self, voice_id: &str, body: &Speak) -> Result<Vec<u8>, HttpError> {
-        let url = format!("{BASE}/text-to-speech/{voice_id}?output_format={OUTPUT_FORMAT}");
-        self.caller.post_bytes(&url, body, MAX_AUDIO_BYTES)
+    pub fn speak(&self, voice_id: &str, body: &Speak) -> Result<Timed, HttpError> {
+        let url = format!(
+            "{BASE}/text-to-speech/{voice_id}/with-timestamps?output_format={OUTPUT_FORMAT}"
+        );
+        let bytes = self.caller.post_bytes(&url, body, MAX_REPLY_BYTES)?;
+        serde_json::from_slice(&bytes).map_err(|error| HttpError::Unreadable {
+            url,
+            message: error.to_string(),
+        })
     }
 }

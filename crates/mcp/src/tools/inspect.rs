@@ -2,9 +2,12 @@
 //!
 //! None of these change anything, and none of them cost anything to run.
 
+use std::path::Path;
+
 use schemars::JsonSchema;
+use scorsese_core::words::{self, Saying};
 use scorsese_core::{
-    AssetStatus, HashCheck, Listed, Project, asset_status, fingerprint_of, listing,
+    AssetStatus, Frames, HashCheck, Listed, Project, asset_status, fingerprint_of, listing,
 };
 use scorsese_render::{
     Checkup, Commentary, Description, FrameRange, Layout, Note, Plan, Resolution, unknown_in,
@@ -97,7 +100,9 @@ impl Tool for Describe {
          covers, in fractions of the frame. That is the number you would \
          otherwise guess at, render, look at and adjust — and it is the \
          compositor's own rather than a second calculation of it, so a panel \
-         sized from it fits the text it sits behind."
+         sized from it fits the text it sits behind. `at` also names the word \
+         each generated narration is saying then, and the name a page reads it \
+         by in scorsese.words — so sync can be checked without listening."
     }
 
     fn costs(&self) -> Costs {
@@ -142,9 +147,29 @@ impl Tool for Describe {
             let layout = Layout::at(&project, dir, raster, at)
                 .map_err(|error| format!("frame {}: {error}", at.get()))?;
             out.push_str(&format!("\n{layout}\n"));
+            out.push_str(&said(&project, dir, at));
         }
         Ok(out.into())
     }
+}
+
+/// Which word each generated narration playing at `at` is saying, one line a
+/// clip — nothing at all when no narration is playing.
+fn said(project: &Project, dir: &Path, at: Frames) -> String {
+    let seconds = project.timeline_fps.seconds(at);
+    words::saying(project, dir, seconds)
+        .into_iter()
+        .map(|(clip, saying)| match saying {
+            Saying::Word(word) => format!(
+                "  {clip} is saying {:?} — scorsese.words[\"{clip}/{}\"], {:.2}s to {:.2}s\n",
+                word.text, word.name, word.start, word.end
+            ),
+            Saying::Between => format!("  {clip} is between words\n"),
+            Saying::Untimed => format!(
+                "  {clip} has no word timings: not spoken yet, or spoken before they were kept\n"
+            ),
+        })
+        .collect()
 }
 
 /// The raster a layout question is measured against — the delivery size unless

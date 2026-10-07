@@ -6,8 +6,9 @@
 //!   scope, and the listing shape. It also supplies the voice for the next
 //!   call: an id written into this file would be an outage with a date on it,
 //!   since every default voice expires on 2026-12-31.
-//! - **text-to-speech of [`LINE`]** on the `fast` model — a cent, rounded up
-//!   from a fraction of one. The body is an MP3 or it is a failure.
+//! - **text-to-speech of [`LINE`]** on the `fast` model, with timestamps — a
+//!   cent, rounded up from a fraction of one. The body is a base64 MP3 with
+//!   each character's timing beside it, or it is a failure.
 //! - **Voice Design of [`PASSAGE`]** — a cent: the vendor's hundred-character
 //!   minimum, billed once for three candidates. Its reply has no captured
 //!   fixture, so this is the only thing that checks it. The follow-up call
@@ -20,7 +21,7 @@ use scorsese_core::SpeechModel;
 use crate::api::elevenlabs::design::{
     CANDIDATES, Design, DesignReply, DesignRequest, OUTPUT_FORMAT,
 };
-use crate::api::elevenlabs::speech::{Speak, Speech};
+use crate::api::elevenlabs::speech::{Speak, Speech, Timed};
 use crate::api::elevenlabs::voices::{Listing, Voices};
 use crate::api::http::HttpError;
 use crate::api::tap::Tap;
@@ -150,20 +151,31 @@ pub fn listing_step(answer: Result<Listing, HttpError>) -> (Step, Option<String>
     (step, Some(first.voice_id.clone()))
 }
 
-/// What the speech call gave back.
-pub fn speech_step(answer: Result<Vec<u8>, HttpError>) -> Step {
+/// What the speech call gave back: an MP3, and when each character is said.
+pub fn speech_step(answer: Result<Timed, HttpError>) -> Step {
     let call = "POST text-to-speech";
-    match answer {
-        Err(error) => Step::new(call, judge::elevenlabs(&error)),
-        Ok(bytes) if judge::is_mp3(&bytes) => {
-            Step::new(call, Verdict::Ok).noting(format!("{} bytes of MP3", bytes.len()))
+    let timed = match answer {
+        Err(error) => return Step::new(call, judge::elevenlabs(&error)),
+        Ok(timed) => timed,
+    };
+    let field = match timed.audio() {
+        None => Some(String::from("audio_base64: not base64")),
+        Some(bytes) if !judge::is_mp3(&bytes) => Some(format!(
+            "audio_base64: expected an MP3, got {}",
+            judge::looks_like(&bytes)
+        )),
+        Some(_) => match timed.alignment.as_ref().map(|a| a.characters()) {
+            None => Some(String::from("alignment: missing")),
+            Some(None) => Some(String::from("alignment: the three lists differ in length")),
+            Some(Some(_)) => None,
+        },
+    };
+    match field {
+        Some(field) => Step::new(call, Verdict::ShapeChanged { field }),
+        None => {
+            let bytes = timed.audio().map_or(0, |audio| audio.len());
+            Step::new(call, Verdict::Ok).noting(format!("{bytes} bytes of MP3, timed"))
         }
-        Ok(bytes) => Step::new(
-            call,
-            Verdict::ShapeChanged {
-                field: format!("body: expected an MP3, got {}", judge::looks_like(&bytes)),
-            },
-        ),
     }
 }
 

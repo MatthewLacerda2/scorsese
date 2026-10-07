@@ -150,6 +150,10 @@ pub struct Asked {
     /// asked before pages were told (#810), which told them none.
     #[serde(default)]
     pub clips: BTreeMap<String, Span>,
+    /// When the words of the timed narrations beside it are said (#811).
+    /// Absent from a job asked before pages were told them.
+    #[serde(default)]
+    pub words: BTreeMap<String, Span>,
 }
 
 impl From<&Request> for Asked {
@@ -161,6 +165,7 @@ impl From<&Request> for Asked {
             fps: request.fps,
             duration: request.duration,
             clips: request.clips.clone(),
+            words: request.words.clone(),
         }
     }
 }
@@ -175,6 +180,7 @@ impl Asked {
             fps: self.fps,
             duration: self.duration,
             clips: self.clips.clone(),
+            words: self.words.clone(),
         })
     }
 }
@@ -229,6 +235,13 @@ mod tests {
                 Span {
                     start: -0.5,
                     end: 1.25,
+                },
+            )]),
+            words: BTreeMap::from([(
+                "vo/gradient".to_owned(),
+                Span {
+                    start: 0.25,
+                    end: 0.5,
                 },
             )]),
         };

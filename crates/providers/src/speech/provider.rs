@@ -24,18 +24,39 @@
 //! The repo rule against real provider calls in tests is satisfied by
 //! construction rather than by anyone remembering.
 
+use scorsese_core::words::Words;
+
 use super::Brief;
 
 pub use crate::video::ProviderError;
 
+/// A line, spoken: the audio, and when each word of it is said if the provider
+/// said so (#811).
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Spoken {
+    /// The MP3.
+    pub audio: Vec<u8>,
+    /// The word timings, kept beside the audio — `None` for a provider or a
+    /// reply that had none, which leaves the line without them.
+    pub words: Option<Words>,
+}
+
+impl From<Vec<u8>> for Spoken {
+    /// Audio with no word timings: a provider that has none.
+    fn from(audio: Vec<u8>) -> Self {
+        Self { audio, words: None }
+    }
+}
+
 /// Somewhere a line can be turned into audio.
 pub trait SpeechProvider {
-    /// Speaks a line and hands back the audio.
+    /// Speaks a line and hands back the audio, with its word timings when the
+    /// provider gives them.
     ///
     /// **This is the call that spends the money**, and there is no other — no
-    /// ticket to collect against later, nothing to resume. The bytes are the
-    /// whole result.
-    fn speak(&self, brief: &Brief) -> Result<Vec<u8>, ProviderError>;
+    /// ticket to collect against later, nothing to resume. What it returns is
+    /// the whole result.
+    fn speak(&self, brief: &Brief) -> Result<Spoken, ProviderError>;
 
     /// What this provider is called, for a message somebody reads.
     fn name(&self) -> &'static str;

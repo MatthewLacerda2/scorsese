@@ -42,7 +42,7 @@ fn drew_something(frame: &Frame) -> bool {
 }
 
 #[test]
-fn the_guide_has_its_six_worked_pages() {
+fn the_guide_has_its_seven_worked_pages() {
     let names: Vec<String> = worked(&guide()).into_iter().map(|(name, _)| name).collect();
     assert_eq!(
         names,
@@ -52,7 +52,8 @@ fn the_guide_has_its_six_worked_pages() {
             "stat-counter",
             "flowchart",
             "icons",
-            "in-step"
+            "in-step",
+            "on-the-word"
         ],
         "the guide's worked pages, in order"
     );

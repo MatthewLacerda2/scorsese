@@ -259,7 +259,12 @@ fn produce(
         Some(preview) => renderer.with_preview(preview),
         None => renderer,
     };
-    let requests = renderer.page_requests(project).map_err(rendering)?;
+    // Asked before the project is laid out, of a folder with no word timings
+    // in it — as the laid-out one has none either: the library keeps a line's
+    // audio and not its timings yet (#811's web half).
+    let requests = renderer
+        .page_requests(project, &places.work)
+        .map_err(rendering)?;
     let at = if requests.is_empty() {
         places.work.clone()
     } else {

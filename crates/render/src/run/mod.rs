@@ -151,10 +151,16 @@ impl<'a> Renderer<'a> {
     }
 
     /// Every page capture rendering `project` at these settings would need,
-    /// once each — what to hand [`crate::page::capture`] ahead of time.
-    pub fn page_requests(&self, project: &Project) -> Result<Vec<page::Request>, RenderError> {
+    /// once each — what to hand [`crate::page::capture`] ahead of time. The
+    /// project's folder is where a narration's word timings are read from
+    /// (#811), so it has to be the one the render will be given.
+    pub fn page_requests(
+        &self,
+        project: &Project,
+        project_root: &Path,
+    ) -> Result<Vec<page::Request>, RenderError> {
         let plan = Plan::build(project, self.settings.fps, FrameRange::ALL)?;
-        Ok(pages::requests(&self.settings, &plan))
+        Ok(pages::requests(&self.settings, &plan, project_root))
     }
 
     /// Renders `range` of `project` to `out`.

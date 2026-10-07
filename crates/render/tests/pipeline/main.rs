@@ -34,6 +34,7 @@ mod told;
 mod tracing;
 mod typing;
 mod warnings;
+mod words;
 
 use std::path::{Path, PathBuf};
 
