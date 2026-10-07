@@ -79,6 +79,17 @@ class Sections(unittest.TestCase):
             ],
         )
 
+    def test_a_section_for_the_maintainer_is_read_and_nothing_is_not_a_check(self):
+        body = (
+            "## For the maintainer\n"
+            "- [ ] Set `SCORSESE_DOCKER_GID` in `deploy/.env`.\n"
+            "## Human checklist\n"
+            "- [ ] Nothing needs a human check.\n"
+        )
+        self.assertEqual(
+            checks.human_checks(body), ["Set `SCORSESE_DOCKER_GID` in `deploy/.env`."]
+        )
+
     def test_a_body_without_a_section_or_at_all_has_none(self):
         self.assertEqual(checks.human_checks("## Test plan\n- [ ] run it\n"), [])
         self.assertEqual(checks.human_checks(None), [])

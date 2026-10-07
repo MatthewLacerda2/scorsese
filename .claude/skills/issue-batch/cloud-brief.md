@@ -54,6 +54,20 @@ they are missing, run it yourself (`CLAUDE_PROJECT_DIR=$PWD
 - **A foreground call dies silently at ten minutes.** Cold, split it:
   `cargo nextest run --workspace --locked --no-run` (~5½ min), `make clippy`,
   then `make gates` (~4 min) — or its targets one per call (`make help`).
+  On 2026-10-06 that limit was the coders' single largest time sink: #781 lost
+  two ten-minute `make gates` calls to it before splitting them.
+- **Run each heavy gate once, into a log, and read the log.** `make test >
+  target/test.log 2>&1; echo exit=$?`, then `grep` it. Never run a gate again
+  only to see a summary you piped away: #851's coder re-ran `make test` for its
+  summary line and spent another ten minutes.
+- **Stop what your proof started before the gates.** #852's `make gates` died
+  with exit 137, and the session's worker restarted, while its proof's
+  `dockerd` and containers were still up. `docker rm -f` them and stop
+  `dockerd` first.
+- **`make deploy` can be refused by the session's permission check** as a
+  "production deploy" (#778's coder, 2026-10-06; #852's ran it fine). It only
+  validates `compose.yaml`. If it is refused, name it on the *Gates* line:
+  CI's `deploy config` job answers for it.
 - **The app gate can be killed for memory** (exit 137): `CARGO_BUILD_JOBS=2`.
 - **No docker daemon is needed**; start `dockerd` only to run a container.
 - **GitHub's GraphQL and search APIs answer 403 here** (2026-10-06, #821's
@@ -134,7 +148,16 @@ Survivors in code you wrote: fix, exclude with a reason, or file (`ci-merge`).
 - A decision the issue left open takes the default it, CLAUDE.md or Filmora 9
   points to, written under *Decisions*.
 - Rebase onto `origin/main`, run `make gates`, then mark it **ready**.
-  **Do NOT merge.**
+  **Do NOT merge.** `main` moves every fifteen minutes or so during a batch,
+  so rebase **once, last**, not after every merge you notice. If the merges you
+  rebased over touched none of your crates, `cargo check --workspace
+  --all-targets --locked`, `make size` and your own crates' tests are enough
+  after the rebase. The queue rebases again anyway, and CI checks that tree. On
+  2026-10-06 four coders re-ran the full gates after a rebase over unrelated
+  merges, about ten minutes each, and none of those runs found anything.
+- A human checklist with nothing in it is one sentence, not a checkbox:
+  `make checks` lists every unticked box (#835 and #860 wrote "- [ ] Nothing
+  needs a human").
 - ≈3 attempts at the same failure, or a decision that is genuinely the user's:
   leave it draft with the reason in the description and an issue comment, and
   stop.
