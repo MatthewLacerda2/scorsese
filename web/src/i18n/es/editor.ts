@@ -13,6 +13,9 @@ export const editor: Messages["editor"] = {
     renderTitle: "Renderizar el video",
     renderDescription: "El montaje completo tal como está ahora, en MP4 para descargar.",
     dismiss: "Descartar",
+    resizeAssets: "Cambiar el tamaño del panel de recursos",
+    resizeChat: "Cambiar el tamaño del panel del chat",
+    resizeTimeline: "Cambiar el tamaño de la línea de tiempo",
   },
   refusal: {
     failed: "no se pudo hacer la edición",

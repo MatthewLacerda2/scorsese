@@ -13,6 +13,9 @@ export const editor = {
     renderTitle: "Render the video",
     renderDescription: "The whole cut as it is now, as an MP4 to download.",
     dismiss: "Dismiss",
+    resizeAssets: "Resize the assets panel",
+    resizeChat: "Resize the chat panel",
+    resizeTimeline: "Resize the timeline",
   },
   /** An edit the server would not make. */
   refusal: {

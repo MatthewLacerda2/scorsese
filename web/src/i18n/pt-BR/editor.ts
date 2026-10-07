@@ -13,6 +13,9 @@ export const editor: Messages["editor"] = {
     renderTitle: "Renderizar o vídeo",
     renderDescription: "O corte inteiro, do jeito que está agora, em MP4 para baixar.",
     dismiss: "Dispensar",
+    resizeAssets: "Redimensionar o painel de recursos",
+    resizeChat: "Redimensionar o painel do chat",
+    resizeTimeline: "Redimensionar a linha do tempo",
   },
   refusal: {
     failed: "não deu para fazer a edição",
