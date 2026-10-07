@@ -9,6 +9,7 @@ mod audio;
 mod decode;
 mod encode;
 mod listed;
+mod resized;
 
 pub(crate) use audio::{AudioDecoder, AudioSource, SAMPLE_FORMAT};
 pub(crate) use decode::{Decoder, Fitting, Source, reads_through_image2};

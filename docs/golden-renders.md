@@ -328,8 +328,8 @@ that says whether the dither itself broke.
 "Frames are ours to assert on" is a claim about the **encoder** at the end of a
 render. ffmpeg is also the **decoder** at the start of one, and between the two
 it runs the **filters** the decode stage puts a source through: the `scale`
-that fits it to the raster and, for a source with alpha, the premultiply around
-that scale. Every pixel the compositor works on arrived through all of it, so a
+that fits an opaque source to the raster, and — until #868 moved it into the
+compositor — the premultiply around that scale for a source with alpha. Every pixel the compositor works on arrived through all of it, so a
 different ffmpeg is a difference the tolerances above never accounted for. They
 were sized for encoder noise and say so.
 
@@ -352,7 +352,7 @@ that is free to differ, which is the asymmetry this whole gate is built on.
 passes. Re-rendering them on that machine with each of ffmpeg's jobs sent to
 6.1.1 or to n9.0 in turn put the whole difference in one place: the decode
 stage's chain for a source with alpha, `premultiply → scale → unpremultiply`
-(`resample` in `crates/render/src/pipe/decode.rs`). With that one call on 6.1.1
+(then `resample` in `crates/render/src/pipe/decode.rs`). With that one call on 6.1.1
 and everything else on n9.0 — the capture's own encode, the final x264 encode,
 the extraction of the compared frames — all six page fixtures come out
 bit-identical to their references; with it on n9.0 and everything else on
@@ -387,11 +387,23 @@ source has alpha *and* is resampled: `page_font`, `page_raf`, `page_speed` and
 
 So the line falls in a different place from where this section first drew it.
 An opaque source, decoded and scaled, has no mechanism to differ between these
-ffmpegs, and has not. A source with alpha that is **resampled** rests on filter
-arithmetic ffmpeg is free to change between majors, and did. The fix is to stop
-resting it there — #868 carries the proposal — never to re-bless; until it
-lands, those three page fixtures fail on any machine with ffmpeg 8 or later,
-and this paragraph is the reason.
+ffmpegs, and has not. A source with alpha that is **resampled** rested on
+filter arithmetic ffmpeg is free to change between majors, and it did change.
+
+**So a source with alpha is no longer resampled by ffmpeg** (#868). The decode
+stage asks for nothing but `format=rgba` at the source's own (cropped) size,
+which both versions were measured to decode identically, and
+`scorsese_compositor::Resample` fits it: premultiplied, separable Catmull-Rom,
+in arithmetic that gives the same bytes on any machine
+(`crates/render/src/pipe/resized.rs` has the geometry). A source already the
+size its fitting asks for, such as a page captured at the raster's own size,
+is not resampled at all. The fixtures this moved were re-blessed once,
+deliberately, under CI's `6.1.1-3ubuntu5`: `alpha_scaled` and all six `page_*`.
+`page_alpha` also swapped its `testsrc2` background for `testsrc`, which has no
+noise square. Since every remaining ffmpeg call in those renders was measured
+identical between 6.1.1 and n9.0, they are expected to pass bit-identically on
+ffmpeg 8 and later too. That is an expectation until it is measured on such a
+machine; if it fails, this paragraph is wrong and is the first thing to correct.
 
 Two things follow from the gap, and neither is a check that can fail:
 
