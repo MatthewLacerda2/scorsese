@@ -326,26 +326,74 @@ that says whether the dither itself broke.
 ## The decoder, which sits upstream of all of that
 
 "Frames are ours to assert on" is a claim about the **encoder** at the end of a
-render. ffmpeg is also the **decoder** at the start of one: every pixel the
-compositor works on arrived through it, so a different ffmpeg is a difference
-the tolerances above never accounted for. They were sized for encoder noise and
-say so.
+render. ffmpeg is also the **decoder** at the start of one, and between the two
+it runs the **filters** the decode stage puts a source through: the `scale`
+that fits it to the raster and, for a source with alpha, the premultiply around
+that scale. Every pixel the compositor works on arrived through all of it, so a
+different ffmpeg is a difference the tolerances above never accounted for. They
+were sized for encoder noise and say so.
 
 CI and a development machine are not on the same one. CI runs Ubuntu 24.04's
-`6.1.1-3ubuntu5`; Arch currently ships `n8.1.2`. Two majors apart, comparing
-pixels.
+`6.1.1-3ubuntu5`; Arch shipped `n8.1.2` when this was first measured and ships
+`n9.0` now. Three majors apart, comparing pixels.
 
-**Measured, on the fixture set as it stands: they agree exactly.** Every
-compared frame of every fixture, decoded by 6.1.1 and by 8.1.2, comes out
-bit-identical — SSIM 1.0000 and mean error 0.000, not merely inside tolerance.
-That is not luck. H.264 specifies its inverse transform exactly, so conformant
-decoders are obliged to produce identical samples; it is *encoding* that is
-free to differ, which is the asymmetry this whole gate is built on. The
-synthetic flat-colour sources these fixtures use give swscale nothing to
-disagree about either.
+**The decoder itself agrees exactly.** Measured first between 6.1.1 and 8.1.2,
+on the fixture set as it stood before page clips existed: every compared frame
+bit-identical, SSIM 1.0000 and mean error 0.000, not merely inside tolerance.
+Measured again between 6.1.1 and n9.0 (#868), on renders of the three fixtures
+that fail there: the same file decoded by each gives identical frames — the
+H.264 decode, its conversion to RGBA, and the FFV1 decode of a page capture
+alike. That is not luck. H.264 specifies its inverse transform exactly, so
+conformant decoders are obliged to produce identical samples; it is *encoding*
+that is free to differ, which is the asymmetry this whole gate is built on.
 
-So this is a gap that has never bitten and, for the codecs in use, has no
-mechanism to. Two things follow from it, and neither is a check that can fail:
+**The filters are not obliged to agree, and on n9.0 they do not.** There,
+`page_alpha`, `page_css` and `page_anime` fail on an unmodified `main` that CI
+passes. Re-rendering them on that machine with each of ffmpeg's jobs sent to
+6.1.1 or to n9.0 in turn put the whole difference in one place: the decode
+stage's chain for a source with alpha, `premultiply → scale → unpremultiply`
+(`resample` in `crates/render/src/pipe/decode.rs`). With that one call on 6.1.1
+and everything else on n9.0 — the capture's own encode, the final x264 encode,
+the extraction of the compared frames — all six page fixtures come out
+bit-identical to their references; with it on n9.0 and everything else on
+6.1.1 they fail exactly as they do on n9.0 alone. Chromium is not involved: it
+is the same pinned build, and its captures were identical. Two things moved
+underneath that chain:
+
+- **FFmpeg 8.0 changed `premultiply`'s rounding**, for 8-bit, from
+  `(x·(a + ((a>>1)&1)) + 128) >> 8` to `(x·a + 128) >> 8`. At full alpha the
+  old form is exact and the new one takes a level off every value from 128 up
+  (200 becomes 199), so the round trip through `unpremultiply` is no longer
+  lossless for an opaque pixel.
+- **6.1.1's swscale rounds alpha** when it repacks `bgra` as planar `gbrap` —
+  the conversion lavfi inserts in front of `premultiply` on both versions — so
+  half the alpha values come out one high (128 becomes 129). n9.0's repacking
+  is exact.
+
+Over a 256 × 256 grid of every value against every alpha, the two `premultiply`
+calls disagree on 28,784 of the 65,536 cells, by one or two levels. That is far
+under any tolerance here, and it is not what fails. What fails is x264 handed
+input a level different: beside an edge, in a nearly flat block, it makes
+different decisions, and the worst 8×8 block's SSIM drops to 0.87–0.94 while
+the mean error stays between 0.44 and 1.00. `page_alpha`'s worst block is the
+noise square that `testsrc2` draws, which is grain's case from *What this gate
+cannot hold* above, arriving by another route.
+
+Everywhere else the two agree. Every frame the rest of the fixture set compares
+scores the same under 6.1.1 as under n9.0, except in the four fixtures whose
+source has alpha *and* is resampled: `page_font`, `page_raf`, `page_speed` and
+`alpha_scaled` move too, and stay inside tolerance, the closest being
+`page_raf`'s frame 29 at SSIM 0.9677.
+
+So the line falls in a different place from where this section first drew it.
+An opaque source, decoded and scaled, has no mechanism to differ between these
+ffmpegs, and has not. A source with alpha that is **resampled** rests on filter
+arithmetic ffmpeg is free to change between majors, and did. The fix is to stop
+resting it there — #868 carries the proposal — never to re-bless; until it
+lands, those three page fixtures fail on any machine with ffmpeg 8 or later,
+and this paragraph is the reason.
+
+Two things follow from the gap, and neither is a check that can fail:
 
 - **CI pins its runner image** to `ubuntu-24.04` rather than `ubuntu-latest`.
   A moving label would change the decoder under the pixel gate by a major
@@ -356,8 +404,8 @@ mechanism to. Two things follow from it, and neither is a check that can fail:
 - **Each fixture records a decoder** in `expected/decoder.txt`: an ffmpeg known
   to produce exactly those frames. Blessing rewrites it in the same act that
   rewrites the references, so it can never describe an older set of frames than
-  they are. The committed records name CI's `6.1.1-3ubuntu5`, from the
-  measurement above.
+  they are. Most committed records name CI's `6.1.1-3ubuntu5`; the rest name
+  the Arch or homebrew ffmpeg the fixture was blessed under.
 
 The record **never fails anything, and never warns on a passing run**. It
 speaks in one place: inside the report of a fixture whose frames already
@@ -379,8 +427,9 @@ reason, and it would bake one machine's decoder into the reference.
 
 ## The platform, which decides whether any of that runs
 
-The section above is about a decoder difference these tolerances survive.
-There is one they do not, and it is why this gate has a platform at all.
+The section above is about ffmpeg differences on Linux, where the gate runs
+whatever they are. There is one it does not run through, and it is why this
+gate has a platform at all.
 
 **The fixture tests run on Linux and are skipped everywhere else.** Not
 compiled out — `#[ignore]`d, so they still have to build, so
