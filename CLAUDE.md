@@ -104,6 +104,9 @@ shape.
 - **docs/recipes.md** — the synthesis recipe format: what to write in
   `recipes/*.json` to get an effect or a score out of `scorsese synth`. Free,
   offline, deterministic — read it before reaching for a sound file.
+- **docs/references.md** — what five real records measure, and which one to
+  hold a cue against: the floor a score must clear, never the definition of
+  success. Read it before writing a song recipe and again after its bake.
 - **docs/pages.md** — how to write a web page the timeline plays: the contract
   it is drawn under, what is there offline, and worked pages. Read it before
   writing one.
