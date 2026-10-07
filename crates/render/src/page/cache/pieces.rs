@@ -4,6 +4,9 @@
 //! frames `first..end` of the page and their own [`Record`]. The whole page is
 //! never a piece: asked for every frame, a capture is kept where [`super::cached`]
 //! reads it, `frames.mkv` beside `capture.json`.
+//!
+//! Everything here works in one of a slot's shelves (`super`'s): the `slot`
+//! each function takes is that shelf's folder.
 
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -31,13 +34,18 @@ pub(crate) fn files(slot: &Path, piece: &Range<u64>, request: &Request) -> (Path
 /// describes the project: the whole page's when it is fresh, and otherwise the
 /// shortest fresh piece holding them. Returns its file, the page frame that
 /// file begins at, and its record.
-pub(crate) fn holding(
+pub(super) fn holding(
     slot: &Path,
     project_root: &Path,
     request: &Request,
     wanted: &Range<u64>,
 ) -> Option<(PathBuf, u64, Record)> {
-    if let Some(record) = read_fresh(&slot.join(FRAMES), &slot.join(RECORD), project_root) {
+    if let Some(record) = read_fresh(
+        &slot.join(FRAMES),
+        &slot.join(RECORD),
+        project_root,
+        request,
+    ) {
         return Some((slot.join(FRAMES), 0, record));
     }
     let mut holders: Vec<Range<u64>> = pieces(slot)
@@ -49,7 +57,7 @@ pub(crate) fn holding(
     holders.sort_by_key(|piece| (piece.end - piece.start, piece.start));
     holders.into_iter().find_map(|piece| {
         let (file, record) = files(slot, &piece, request);
-        read_fresh(&file, &record, project_root).map(|record| (file, piece.start, record))
+        read_fresh(&file, &record, project_root, request).map(|record| (file, piece.start, record))
     })
 }
 
@@ -65,7 +73,7 @@ pub(crate) fn prune(slot: &Path, project_root: &Path, request: &Request, kept: &
         }
         let (file, record) = files(slot, &piece, request);
         let covered = whole || (kept.start <= piece.start && piece.end <= kept.end);
-        if covered || read_fresh(&file, &record, project_root).is_none() {
+        if covered || read_fresh(&file, &record, project_root, request).is_none() {
             // Record first: frames without one are never read, so a removal
             // cut short leaves nothing that looks usable.
             let _ = std::fs::remove_file(record);
@@ -109,6 +117,7 @@ mod tests {
 
     use super::super::keep;
     use super::*;
+    use crate::page::told::Told;
 
     /// A one-second page at 30 fps: 31 frames.
     fn request() -> Request {
@@ -117,6 +126,7 @@ mod tests {
             resolution: Resolution::new(64, 64).unwrap(),
             fps: Fps::THIRTY,
             duration: 1.0,
+            clips: BTreeMap::new(),
         }
     }
 
@@ -140,6 +150,7 @@ mod tests {
             &Record {
                 loaded,
                 warnings: vec![format!("{piece:?}")],
+                told: Told::default(),
             },
         )
         .unwrap();

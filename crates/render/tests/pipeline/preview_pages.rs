@@ -16,6 +16,23 @@ fn top_left(frame: &Frame) -> (u8, u8, u8) {
     (bytes[0], bytes[1], bytes[2])
 }
 
+/// How many whole captures are under `dir`.
+fn captures(dir: &std::path::Path) -> usize {
+    std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|entry| entry.path())
+        .map(|path| {
+            if path.is_dir() {
+                captures(&path)
+            } else {
+                usize::from(path.ends_with("frames.mkv"))
+            }
+        })
+        .sum()
+}
+
 #[test]
 fn a_preview_shows_the_card_until_the_capture_lands_and_then_the_page() {
     let tools = tools();
@@ -35,7 +52,8 @@ fn a_preview_shows_the_card_until_the_capture_lands_and_then_the_page() {
         vec![colour_asset(&tools, &dir, "red", "64x64", 1), page],
         vec![
             video_track("v1", vec![clip("c1", "red", 0, 20)]),
-            // The same page twice: one capture serves both.
+            // The same page twice: told the clips from two places, and one
+            // capture serves both, since it reads none of them.
             video_track(
                 "v2",
                 vec![clip("c2", "title", 0, 10), clip("c3", "title", 10, 10)],
@@ -64,10 +82,15 @@ fn a_preview_shows_the_card_until_the_capture_lands_and_then_the_page() {
     );
 
     let requests = preview.page_requests(&project).expect("plans");
-    assert_eq!(requests.len(), 1, "one page, one clock: {requests:?}");
+    assert_eq!(requests.len(), 2, "one clock, told from two places");
     for request in &requests {
         page::capture(&chrome, &tools, &dir, request).expect("captured");
     }
+    assert_eq!(
+        captures(&dir.join("cache/pages")),
+        1,
+        "one capture for both"
+    );
     let landed = preview.still(&project, &dir, Frames(5)).expect("composes");
     assert_colour(top_left(&landed), BLUE, "the capture, read from the cache");
     std::fs::remove_dir_all(&dir).ok();

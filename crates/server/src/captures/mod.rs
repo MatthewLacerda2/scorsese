@@ -60,12 +60,13 @@ pub mod launch;
 pub mod one;
 pub mod worker;
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use scorsese_core::Fps;
 use scorsese_render::Resolution;
-use scorsese_render::page::Request;
+use scorsese_render::page::{Request, Span};
 use serde::{Deserialize, Serialize};
 
 use crate::db::UserId;
@@ -145,6 +146,10 @@ pub struct Asked {
     pub fps: Fps,
     /// How far the page's clock runs, in seconds.
     pub duration: f64,
+    /// Where the clips beside the page sit, in its seconds. Absent from a job
+    /// asked before pages were told (#810), which told them none.
+    #[serde(default)]
+    pub clips: BTreeMap<String, Span>,
 }
 
 impl From<&Request> for Asked {
@@ -155,6 +160,7 @@ impl From<&Request> for Asked {
             height: request.resolution.height(),
             fps: request.fps,
             duration: request.duration,
+            clips: request.clips.clone(),
         }
     }
 }
@@ -168,6 +174,7 @@ impl Asked {
                 .map_err(|error| error.to_string())?,
             fps: self.fps,
             duration: self.duration,
+            clips: self.clips.clone(),
         })
     }
 }
@@ -217,6 +224,13 @@ mod tests {
             resolution: Resolution::new(1920, 1080).unwrap(),
             fps: Fps::PAL,
             duration: 2.5,
+            clips: BTreeMap::from([(
+                "vo".to_owned(),
+                Span {
+                    start: -0.5,
+                    end: 1.25,
+                },
+            )]),
         };
         let asked = Asked::from(&request);
         let back: Asked = serde_json::from_str(&serde_json::to_string(&asked).unwrap()).unwrap();

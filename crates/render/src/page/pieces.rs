@@ -17,6 +17,7 @@ use super::PageError;
 use super::browser::Chrome;
 use super::capture::{self, Heard, Served};
 use super::request::Request;
+use super::told::Read;
 use crate::error::Stage;
 use crate::tools::Tools;
 
@@ -155,19 +156,26 @@ fn join(
 }
 
 /// What every piece heard, as one capture would have said it: every file any
-/// of them loaded, and each warning once, in the order first heard.
+/// of them loaded, every clip any of them read, and each warning once, in the
+/// order first heard.
 fn merge(heard: Vec<Heard>) -> Heard {
     let mut loaded = BTreeMap::new();
     let mut warnings: Vec<String> = Vec::new();
+    let mut read = Read::default();
     for piece in heard {
         loaded.extend(piece.loaded);
+        read.merge(piece.read);
         for warning in piece.warnings {
             if !warnings.contains(&warning) {
                 warnings.push(warning);
             }
         }
     }
-    Heard { loaded, warnings }
+    Heard {
+        loaded,
+        warnings,
+        read,
+    }
 }
 
 /// `out` with `suffix` added to its name, beside it.
@@ -190,6 +198,7 @@ mod tests {
             resolution: Resolution::new(64, 64).unwrap(),
             fps,
             duration: seconds,
+            clips: BTreeMap::new(),
         }
     }
 
@@ -229,9 +238,14 @@ mod tests {
         let piece = |path: &str, warning: &str| Heard {
             loaded: BTreeMap::from([(path.to_owned(), None)]),
             warnings: vec![warning.to_owned(), "both".to_owned()],
+            read: Read {
+                names: [path.to_owned()].into(),
+                listed: false,
+            },
         };
         let heard = merge(vec![piece("a.png", "one"), piece("b.png", "two")]);
         assert_eq!(heard.loaded.len(), 2);
+        assert_eq!(heard.read.names.len(), 2);
         assert_eq!(heard.warnings, ["one", "both", "two"]);
     }
 }

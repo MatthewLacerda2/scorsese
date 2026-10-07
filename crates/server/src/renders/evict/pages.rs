@@ -3,14 +3,15 @@
 //! Each project's page cache is `captures/pages/<user>/<project>/`
 //! ([`crate::captures::Spool::pages`]), the `cache/` its jobs link to, and
 //! `scorsese_render::page` keeps a capture in it as a **slot**,
-//! `pages/<slot>/frames.mkv` beside `capture.json`. A capture is rebuildable
+//! `pages/<slot>/<shelf>/frames.mkv` beside `capture.json` — a shelf for each
+//! set of clip places the page read (`told-…`, #810). A capture is rebuildable
 //! exactly as a render is, so it is held to the same rule and counted against
 //! the same quota: on pressure and weekly, every slot not used in [`IDLE`]
 //! goes, and the sweep also removes the folder of a project or an account that
 //! no longer exists.
 //!
-//! - **Used** is the newest modification time of the slot's frames and
-//!   record, or of any piece's (`part-<first>-<end>.mkv` and `.json`, a capture
+//! - **Used** is the newest modification time of the frames and record on any
+//!   of the slot's shelves, or of any piece's (`part-<first>-<end>.mkv` and `.json`, a capture
 //!   of only some of the page's frames, #809), so a slot holding only pieces
 //!   ages by them and goes whole. A capture sets it; a render that reuses one
 //!   sets it again ([`touch`]) — the server's job, since `scorsese-render` has
@@ -161,12 +162,19 @@ pub(super) fn tidy(folder: &Path) {
     }
 }
 
-/// How long ago the slot's capture was last used: the newest of its frames,
-/// its record and its pieces'. `None` when it has none — a capture that never
-/// finished.
+/// How long ago the slot's capture was last used: the newest of the frames,
+/// records and pieces on its shelves. `None` when it has none — a capture that
+/// never finished.
 fn last_used(slot: &Path) -> Option<Duration> {
     entries(slot)
         .into_iter()
+        .flat_map(|entry| {
+            if entry.is_dir() {
+                entries(&entry)
+            } else {
+                vec![entry]
+            }
+        })
         .filter(|file| is_capture(file))
         .filter_map(|file| std::fs::metadata(file).ok()?.modified().ok())
         .max()

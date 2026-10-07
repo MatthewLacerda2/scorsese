@@ -59,7 +59,10 @@ impl Tool for Write {
          place_clip it on a video track and look at it with still, whose notes \
          say what the page could not load. The page is drawn offline by a \
          headless browser on a clock that only moves with the clip: \
-         window.scorsese gives its width, height, fps and duration; the shipped \
+         window.scorsese gives its width, height, fps and duration, and \
+         scorsese.clips[id] = {start, end} places every clip beside it in the \
+         page's own seconds, so time the page to the narration's clip id \
+         rather than copying seconds into it; the shipped \
          fonts are there by name and anime.js at \
          https://lib.scorsese/anime.min.js; where it draws nothing, the tracks \
          below show through. Read docs/pages.md before writing one."
