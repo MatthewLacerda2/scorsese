@@ -154,8 +154,9 @@ services:
         - CARGO_BUILD_JOBS
     image: scorsese-capture-launcher
     # Healthy, because the server makes the spool before it answers, and the
-    # spool is mounted; and the server's build makes the image every capture
-    # runs, which the launcher checks for when it starts.
+    # spool is mounted when this starts (`capture-spool` at the bottom); and
+    # the server's build makes the image every capture runs, which the
+    # launcher checks for when it starts.
     depends_on:
       server:
         condition: service_healthy
@@ -205,12 +206,13 @@ services:
         bind:
           create_host_path: false
       # The spool: each job's project, each project's page cache, and the
-      # answers.
-      - type: bind
-        source: ${SCORSESE_DATA}/cache/captures
+      # answers. A volume, not a bind like the two above — `capture-spool`
+      # below has why.
+      - type: volume
+        source: capture-spool
         target: /data/cache/captures
-        bind:
-          create_host_path: false
+        volume:
+          nocopy: true
 
   web:
     build:
@@ -303,3 +305,25 @@ services:
 
 volumes:
   postgres-data:
+
+  # The capture spool, $SCORSESE_DATA/cache/captures, bind-mounted into
+  # capture-launcher and nothing else. The server makes that folder when it
+  # starts, so on a host it has never run on the folder is not there yet — and
+  # Compose creates every container before it starts any. A bind is checked
+  # when its container is created, so the launcher's failed and took the
+  # update down with it (#861); a volume is mounted when its container starts,
+  # which `depends_on` puts after the server is healthy and the folder made.
+  # The folder stays the host user's: neither Docker nor Compose creates it
+  # (`create_host_path` would, as root, and the server could not write in it).
+  #
+  # The volume only names the folder, so `docker compose down --volumes`
+  # leaves what is in it alone. It remembers the path it was made with,
+  # though: after SCORSESE_DATA moves, `up` asks to recreate it, and the
+  # answer is yes — its warning that data will be lost is about volumes that
+  # hold their own, and this one holds none (docs/web.md, "Updating").
+  capture-spool:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${SCORSESE_DATA}/cache/captures

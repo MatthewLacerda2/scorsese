@@ -392,8 +392,8 @@ deny: ## [gate] Supply chain, both workspaces: advisories, bans, sources, licens
 
 # The deploy (#532) is YAML and Dockerfiles that nothing else here reads, so
 # without this a typo in deploy/compose.yaml is found by the maintainer at
-# `docker compose up`, on the machine customers are served from. Two checks,
-# both about correctness and both under a second, which is why this is a gate
+# `docker compose up`, on the machine customers are served from. Three checks,
+# all about correctness and all under a second, which is why this is a gate
 # and runs on every branch rather than only on ones touching deploy/:
 #
 # - Every variable compose.yaml reads is documented in deploy/.env.example.
@@ -406,11 +406,19 @@ deny: ## [gate] Supply chain, both workspaces: advisories, bans, sources, licens
 #   whose blank means something left blank outside the mode that reads them,
 #   and each mode must start its own tunnel and no other: a misspelt profile
 #   is otherwise a tunnel that silently never starts.
+# - Every folder under SCORSESE_DATA that compose.yaml bind-mounts is one the
+#   runbook's first-time setup makes (docs/web.md, its `mkdir -p` line). A
+#   bind's source must exist when Compose *creates* the container, before
+#   anything has started, so a folder the server makes is not there yet on a
+#   new host and the whole `up` fails partway (#861). Such a folder is mounted
+#   as a volume instead, which is resolved at start: `capture-spool`.
 #
 # It does not build the images. That is a Rust release build and a Bun build
 # inside Docker, minutes and gigabytes, to re-prove what `test` and `web`
 # already prove; the runbook's update step is where an image build happens.
 DEPLOY_VARS = grep -o '[$$]{[A-Z_][A-Z0-9_]*' deploy/compose.yaml | cut -c3- | sort -u
+DEPLOY_BINDS = grep -o 'source: [$$]{SCORSESE_DATA}/[^ ]*' deploy/compose.yaml | cut -d/ -f2- | sort -u
+DEPLOY_MADE = grep -o 'mkdir -p /path/to/scorsese-data/.*' docs/web.md | grep -o 'scorsese-data/[^ ]*' | cut -d/ -f2-
 
 deploy: ## [gate] deploy/compose.yaml parses, and .env.example documents what it reads
 	@command -v docker >/dev/null 2>&1 || { \
@@ -421,6 +429,13 @@ deploy: ## [gate] deploy/compose.yaml parses, and .env.example documents what it
 	done; \
 	[ -z "$$missing" ] || { \
 		echo "deploy: compose.yaml reads variables deploy/.env.example does not document:$$missing" >&2; \
+		exit 1; }
+	@made=$$($(DEPLOY_MADE)); missing=; for dir in $$($(DEPLOY_BINDS)); do \
+		echo "$$made" | grep -qx "$$dir" || missing="$$missing $$dir"; \
+	done; \
+	[ -z "$$missing" ] || { \
+		echo "deploy: compose.yaml binds folders under SCORSESE_DATA that docs/web.md's first-time setup does not make:$$missing" >&2; \
+		echo "deploy: a bind's source must exist before anything starts; mount a folder the server makes as a volume, like capture-spool (#861)" >&2; \
 		exit 1; }
 	@env=$$(mktemp) && trap 'rm -f "$$env"' EXIT && \
 		sed -E '/^(COMPOSE_PROFILES|CLOUDFLARE_TUNNEL_TOKEN)=/!s/=$$/=placeholder/' \
@@ -437,7 +452,7 @@ deploy: ## [gate] deploy/compose.yaml parses, and .env.example documents what it
 				echo "deploy: tunnel mode '$$mode' starts [$$tunnels], not just its own" >&2; \
 				exit 1; }; \
 		done
-	@echo "deploy: compose.yaml is valid in every tunnel mode, and every variable it reads is documented"
+	@echo "deploy: compose.yaml is valid in every tunnel mode, every variable it reads is documented, and every folder it binds is one the runbook makes"
 
 # The one gate that decides whether to run, and the condition is the point.
 # `app/` is its own cargo workspace precisely so a headless change never pays

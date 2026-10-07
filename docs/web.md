@@ -370,6 +370,13 @@ way back from a bad update is the dump taken first**: check out the previous
 commit, rebuild, and restore that dump. BuildKit's cache for the Rust build
 grows over time; `docker buildx du` shows it.
 
+**If `SCORSESE_DATA` has moved** since the last `up`, Compose asks whether to
+recreate the volume `capture-spool`, warning that data will be lost. Answer
+yes: that volume only points `capture-launcher` at `cache/captures`, and
+recreating it deletes nothing (`deploy/compose.yaml` has why the spool is a
+volume, #861). Answered no, or run without a terminal, it keeps the old path,
+and every page capture waits out its 30 s and draws a slug card.
+
 ### Backups
 
 `backup` runs one when the last good one is more than
