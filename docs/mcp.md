@@ -111,7 +111,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `synth_read` | Read a recipe file as it is on disk. | nothing |
 | `synth_write` | Replace a recipe file with the document given. | nothing |
 | `synth_set` | Change one number in a recipe and leave the rest of the document alone: a track's gain, pan or send, or the recipe's own bpm, seed, swing, duration or velocity. | nothing |
-| `synth_check` | Parse a recipe and say what it is, without rendering it. | nothing |
+| `synth_check` | Check a recipe file that was changed outside synth_write — edited with your own file tools, or copied in — and say what it is, without rendering it. | nothing |
 | `synth_bake` | Render every synth_audio recipe whose sound is not already on disk, into generated/. | nothing |
 | `synth_survey` | Say what every song recipe in the project is made of, and count the same facts across the whole set. | nothing |
 | `icons` | Find an icon by a word, and answer with names — each one a string to give `asset_set` as `icon` (an icon asset's `name` in the document) or write into a page. | nothing |

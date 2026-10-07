@@ -144,7 +144,12 @@ impl Tool for New {
     }
 }
 
-/// Parse a recipe without rendering it.
+/// Parse a recipe on disk without rendering it.
+///
+/// It reads the file, not a document, so it is not a dry run of `synth_write`
+/// — that one parses before it writes. It is for a recipe that reached disk
+/// some other way: a local client's own file tools, which over stdio are often
+/// how an agent edits one (#784 kept it for that).
 pub(super) struct Check;
 
 impl Tool for Check {
@@ -153,9 +158,11 @@ impl Tool for Check {
     }
 
     fn description(&self) -> &'static str {
-        "Parse a recipe and say what it is, without rendering it. Milliseconds \
-         rather than the seconds a bake takes, so this is the fast way to find \
-         out a document is malformed before spending a render on it."
+        "Check a recipe file that was changed outside synth_write — edited with \
+         your own file tools, or copied in — and say what it is, without \
+         rendering it. Not needed before synth_write or after synth_new or \
+         synth_set: those parse what they write and refuse what is not a \
+         recipe. Milliseconds rather than the seconds a bake takes."
     }
 
     fn costs(&self) -> Costs {
