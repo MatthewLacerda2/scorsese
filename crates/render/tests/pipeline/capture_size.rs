@@ -35,6 +35,7 @@ fn captured_at(chrome: &Chrome, raster: Resolution) -> (u64, u64) {
         fps: Fps::THIRTY,
         duration: 0.0,
         clips: BTreeMap::new(),
+        words: BTreeMap::new(),
     };
     let captured = page::capture(chrome, &tools, &dir, &request).expect("captured");
     let file = inspect(&tools, &captured.file);
