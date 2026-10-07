@@ -3,8 +3,9 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::asset::AssetId;
+use crate::asset::{Asset, AssetId, AssetKind};
 use crate::project::Project;
+use crate::words::Words;
 
 /// Assets that no clip references, in table order.
 ///
@@ -35,7 +36,8 @@ fn in_use(project: &Project, id: &AssetId) -> bool {
 }
 
 /// Drops these assets from the table and deletes the media files they own —
-/// never a page, which is a document somebody wrote.
+/// never a page, which is a document somebody wrote. A generated line's word
+/// timings, kept beside its audio, go with it.
 ///
 /// An asset still referenced by a clip is refused rather than removed — that
 /// would leave a dangling reference, which is precisely what validation
@@ -74,9 +76,31 @@ pub fn remove_assets(
                 Err(_) => report.files_missing += 1,
             }
         }
+        report.bytes_freed += remove_timings(&asset, project_root)?;
         report.removed.push(asset.id);
     }
     Ok(report)
+}
+
+/// Deletes a generated line's word timings, which live beside its audio and
+/// mean nothing once the line is gone, returning the bytes they held. A line
+/// generated without timings, or whose timings are already gone, frees none.
+fn remove_timings(asset: &Asset, project_root: &Path) -> Result<u64, GcError> {
+    let Some(audio) = asset.path.as_ref() else {
+        return Ok(0);
+    };
+    if asset.kind != AssetKind::GeneratedAudio {
+        return Ok(0);
+    }
+    let file = Words::beside(audio).resolve(project_root);
+    let Ok(metadata) = fs::metadata(&file) else {
+        return Ok(0);
+    };
+    fs::remove_file(&file).map_err(|source| GcError::Undeletable {
+        path: file.clone(),
+        source,
+    })?;
+    Ok(metadata.len())
 }
 
 /// What a collection actually did.
@@ -84,13 +108,14 @@ pub fn remove_assets(
 pub struct GcReport {
     /// The assets dropped from the table, in the order they were asked for.
     pub removed: Vec<AssetId>,
-    /// Files actually unlinked. Fewer than `removed` when some entries were
-    /// inline or already gone.
+    /// Media files actually unlinked. Fewer than `removed` when some entries
+    /// were inline or already gone. A generated line's word timings go with
+    /// its audio and are not counted apart from it.
     pub files_deleted: usize,
     /// Entries whose file was already absent.
     pub files_missing: usize,
-    /// How much disk the deleted files were holding — the number worth
-    /// showing a human deciding whether to collect.
+    /// How much disk the deleted files were holding, timings included — the
+    /// number worth showing a human deciding whether to collect.
     pub bytes_freed: u64,
 }
 
