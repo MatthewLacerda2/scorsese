@@ -12,10 +12,13 @@ description and an issue comment. Use the GitHub MCP tools (`issue_read`,
 `create_pull_request`, `update_pull_request`, `add_issue_comment`); load them
 with ToolSearch. Don't assume `gh` is installed.
 
-**A bug you find is yours to deal with.** Fix it in this branch when it's in
-your way or small, or file an issue with the evidence (`issue-write`) and keep
-going. Either way it never goes unrecorded. The operator expects coders to file
-issues mid-batch.
+**Nothing you find goes unrecorded** (CLAUDE.md, *File what you notice*). A
+bug, a missing feature, a design gap or a quality-of-life fix is folded into
+this branch when it's in your way or small, or filed as an issue with the
+evidence (`issue-write`) while you keep going. A change that alters how the user
+sees or understands their data or project, changes stored data or needs a
+migration is never folded in: file it with `planning`. Every issue you file
+carries the `agent` label. The operator expects coders to file issues mid-batch.
 
 ## Before you start
 
