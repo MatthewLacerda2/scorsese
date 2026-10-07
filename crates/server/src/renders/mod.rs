@@ -183,7 +183,7 @@ impl RenderCache {
                 _ => {}
             }
         }
-        // Made here, before the server answers, because the capture container
+        // Made here, before the server answers, because the capture launcher
         // mounts it and refuses to start without it (deploy/compose.yaml).
         let jobs = self.captures().jobs();
         std::fs::create_dir_all(&jobs).map_err(|error| (jobs, error))

@@ -131,57 +131,81 @@ services:
       # a dead server and get restarted halfway through.
       start_period: 120s
 
-  # Users' web pages, drawn by a browser (#778). Somebody else's code on this
-  # machine, so: no network at all, no capability, a read-only root, a user
-  # that is not root, and Chromium's own sandbox on — which needs only the one
-  # seccomp rule in capture/seccomp.json (#773 has the measurement). The
-  # server hands it work through the spool under SCORSESE_CACHE
-  # (crates/server/src/captures has why a spool and not a `docker run`).
-  capture:
-    image: scorsese-server
-    # The server's build makes the image; this only runs it. Healthy, because
-    # the server makes the spool before it answers, and the spool is mounted.
+  # Users' web pages, drawn by a browser (#778), each capture in a container
+  # of its own that mounts only its job (#852). Somebody else's code on this
+  # machine, so every capture has no network at all, no capability, a
+  # read-only root, a user that is not root, Chromium's own sandbox on — which
+  # needs only the one seccomp rule in capture/seccomp.json (#773 has the
+  # measurement) — and #773's caps. Those flags are not here: they are written
+  # in crates/server/src/captures/launch, the only `docker run` this service
+  # ever makes, so nothing a job says can change them.
+  #
+  # This container starts them. It holds the Docker socket, which is root on
+  # this machine, so it holds nothing else: no network, no database, no
+  # secret, no capability, and nothing to run but that one command. The server
+  # hands it work through the spool under SCORSESE_CACHE, and never touches
+  # the socket itself (crates/server/src/captures has why).
+  capture-launcher:
+    build:
+      context: ..
+      dockerfile: deploy/server.Dockerfile
+      target: launcher
+      args:
+        - CARGO_BUILD_JOBS
+    image: scorsese-capture-launcher
+    # Healthy, because the server makes the spool before it answers, and the
+    # spool is mounted; and the server's build makes the image every capture
+    # runs, which the launcher checks for when it starts.
     depends_on:
       server:
         condition: service_healthy
     restart: unless-stopped
-    command: ["scorsese-server", "capture-worker", "--spool", "/data/cache/captures"]
-    # A PID 1 that reaps: a capture stopped at its deadline is killed with its
-    # whole process group, and the browser's processes it leaves are reparented
-    # to PID 1. Without a reaper they pile up against pids_limit.
+    # Where things are is said here, by the operator, never by a job: the
+    # paths the server sees, the host's path for the same folder (a mount's
+    # source is the host's), and who the captures run as.
+    command:
+      - scorsese-server
+      - capture-launcher
+      - --spool=/data/cache/captures
+      - --library=/data/library
+      - --data=/data
+      - --host-data=${SCORSESE_DATA}
+      - --user=${SCORSESE_UID}:${SCORSESE_GID}
+    # A PID 1 that reaps the Docker clients a deadline kills.
     init: true
     network_mode: none
     user: "${SCORSESE_UID}:${SCORSESE_GID}"
+    # The socket's group, so the host user can reach it without being root.
+    group_add:
+      - "${SCORSESE_DOCKER_GID:?set SCORSESE_DOCKER_GID in deploy/.env}"
     cap_drop: [ALL]
     security_opt:
       - no-new-privileges:true
-      - seccomp=./capture/seccomp.json
     read_only: true
-    # Chromium's profile and HOME. Small, and memory, so nothing big lands here:
-    # the captures go to the spool, on disk (#773: frames on a tmpfs count
-    # against the memory cap and blow it).
+    # The Docker client's HOME.
     tmpfs:
-      - /tmp:rw,size=64m
+      - /tmp:rw,size=16m
     environment:
       HOME: /tmp
-    # #773's caps. Two cores (~245 ms a 1080p frame, so a minute of page takes
-    # ~7.5 min) leaves the rest of the machine to renders. 768 MiB is the
-    # 1080p floor; 4K is unmeasured. The deadline per capture is the worker's
-    # own: 60 s plus a second a frame.
-    cpus: 2
-    mem_limit: 1g
-    memswap_limit: 1g
-    pids_limit: 256
     volumes:
-      # The media a project's links point at, read-only, at the path the
-      # server laid the links out with.
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+      # Every capture's seccomp profile, which the client reads and sends.
+      - type: bind
+        source: ./capture/seccomp.json
+        target: /etc/scorsese/capture-seccomp.json
+        read_only: true
+      # The library, read-only, to check each file a job's project links to
+      # is its owner's before mounting that file and no other.
       - type: bind
         source: ${SCORSESE_DATA}/library
         target: /data/library
         read_only: true
         bind:
           create_host_path: false
-      # The spool: each job's project, and each project's page cache.
+      # The spool: each job's project, each project's page cache, and the
+      # answers.
       - type: bind
         source: ${SCORSESE_DATA}/cache/captures
         target: /data/cache/captures

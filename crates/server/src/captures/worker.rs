@@ -1,11 +1,17 @@
-//! `scorsese-server capture-worker`: the `capture` container's one process.
+//! The loop that answers the spool, and the `scorsese-server capture-worker`
+//! command that runs it without containers.
 //!
 //! It watches the spool ([`super`]) for a job whose `ask.json` is there and
 //! whose `answer.json` is not, oldest first, and captures each page it asks
-//! for — one at a time, each in a child process (`capture-one`) of its own
-//! process group, so that at the deadline the browser and everything it
-//! started are killed together. Then it answers, and looks again. It never
-//! touches a database or a network: it has neither.
+//! for — one at a time, each in a child process of its own process group, so
+//! that at the deadline it and everything it started are killed together.
+//! Then it answers, and looks again. It never touches a database or a network.
+//!
+//! **How each capture is walled in** is its [`Isolation`]. The hosted service
+//! runs the loop as `capture-launcher`, where each capture is a container of
+//! its own ([`super::launch`], #852). `capture-worker` runs each as a bare
+//! `capture-one` child of this binary: for a machine without Docker, and for
+//! the tests, where the walls are not what is being tested.
 
 use std::io::Read;
 use std::os::unix::process::CommandExt;
@@ -13,6 +19,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus, Stdio};
 use std::time::{Duration, Instant};
 
+use super::launch::{self, Launch};
 use super::{ANSWER, ASK, Answer, Ask, Asked, PROJECT, Spool, now, publish, read};
 
 /// `scorsese-server capture-worker`
@@ -23,8 +30,9 @@ pub struct Args {
     #[arg(long)]
     pub spool: PathBuf,
     /// Run the browser without its sandbox. For CI and development machines,
-    /// which run as root, where Chromium refuses one. The capture container
-    /// never passes it: there the sandbox is on, with no opt-out (#594).
+    /// which run as root, where Chromium refuses one. The launcher's
+    /// containers never pass it: there the sandbox is on, with no opt-out
+    /// (#594).
     #[arg(long)]
     pub no_sandbox: bool,
 }
@@ -32,15 +40,28 @@ pub struct Args {
 /// How often an idle worker looks for a job, and a busy one at its child.
 const TICK: Duration = Duration::from_millis(250);
 
+/// What each capture runs in.
+#[derive(Debug, Clone)]
+pub enum Isolation {
+    /// A `capture-one` child of `program`, with the browser's sandbox on or
+    /// off ([`Args::no_sandbox`]) and no other wall.
+    Process {
+        /// The binary to run `capture-one` with — this one, outside a test.
+        program: PathBuf,
+        /// Whether the browser runs with its sandbox.
+        sandbox: bool,
+    },
+    /// A container of its own, mounting only its job ([`Launch`]).
+    Container(Launch),
+}
+
 /// The worker: where it reads, what it runs, and how long a capture may take.
 #[derive(Debug, Clone)]
 pub struct Worker {
     /// The spool.
     pub spool: Spool,
-    /// The binary to run `capture-one` with — this one, outside a test.
-    pub program: PathBuf,
-    /// Whether the browser runs with its sandbox ([`Args::no_sandbox`]).
-    pub sandbox: bool,
+    /// What each capture runs in.
+    pub isolation: Isolation,
     /// How long a capture of so many frames may take ([`super::deadline`]).
     pub deadline: fn(u64) -> Duration,
 }
@@ -50,10 +71,21 @@ impl Worker {
     pub fn from_args(args: &Args) -> std::io::Result<Self> {
         Ok(Self {
             spool: Spool::new(&args.spool),
-            program: std::env::current_exe()?,
-            sandbox: !args.no_sandbox,
+            isolation: Isolation::Process {
+                program: std::env::current_exe()?,
+                sandbox: !args.no_sandbox,
+            },
             deadline: super::deadline,
         })
+    }
+
+    /// The launcher: each capture a container of its own.
+    pub fn launching(launch: Launch) -> Self {
+        Self {
+            spool: launch.spool(),
+            isolation: Isolation::Container(launch),
+            deadline: super::deadline,
+        }
     }
 
     /// Works until the process is stopped.
@@ -110,18 +142,7 @@ impl Worker {
     fn capture(&self, job: &Path, index: usize, asked: &Asked) -> Result<(), String> {
         let frames = asked.request()?.frames();
         let limit = (self.deadline)(frames);
-        let mut command = Command::new(&self.program);
-        command
-            .arg("capture-one")
-            .arg("--project")
-            .arg(job.join(PROJECT))
-            .arg("--ask")
-            .arg(job.join(ASK))
-            .arg("--index")
-            .arg(index.to_string());
-        if !self.sandbox {
-            command.arg("--no-sandbox");
-        }
+        let mut command = self.command(job, index)?;
         let mut child = command
             .process_group(0)
             .stdin(Stdio::null())
@@ -148,7 +169,11 @@ impl Worker {
             }
         };
         // Whatever the child left behind goes with it: a browser that outlived
-        // its capture is a browser still running somebody's page.
+        // its capture is a browser still running somebody's page. A
+        // container is not the client's child, so it is stopped by name.
+        if let Isolation::Container(_) = self.isolation {
+            launch::kill(&Launch::name(job, index));
+        }
         kill_group(group);
         let _ = child.wait();
         let said = said.join().unwrap_or_default();
@@ -161,6 +186,28 @@ impl Worker {
                  frame, runs past it",
                 limit.as_secs()
             )),
+        }
+    }
+
+    /// What runs capture `index` of the job at `job`.
+    fn command(&self, job: &Path, index: usize) -> Result<Command, String> {
+        match &self.isolation {
+            Isolation::Container(launch) => launch.command(job, index),
+            Isolation::Process { program, sandbox } => {
+                let mut command = Command::new(program);
+                command
+                    .arg("capture-one")
+                    .arg("--project")
+                    .arg(job.join(PROJECT))
+                    .arg("--ask")
+                    .arg(job.join(ASK))
+                    .arg("--index")
+                    .arg(index.to_string());
+                if !sandbox {
+                    command.arg("--no-sandbox");
+                }
+                Ok(command)
+            }
         }
     }
 

@@ -4,55 +4,57 @@
 //! On the web a page is **somebody else's code on the maintainer's machine**,
 //! and the machine serves other people. So the browser never runs in the
 //! server's container, which holds the database's password and reaches the
-//! internet. It runs in `capture` (`deploy/compose.yaml`): no network at all,
-//! no capability, a read-only root, Chromium's own sandbox on
+//! internet. Each capture runs in a container of its own (#852): no network at
+//! all, no capability, a read-only root, Chromium's own sandbox on
 //! ([`scorsese_render::page::Chrome::sandboxed`]) with the one seccomp rule
-//! #773 found it needs, and #773's caps on CPU, memory and processes.
+//! #773 found it needs, #773's caps on CPU, memory and processes — and
+//! **nothing mounted but its own job**: the project, read-only, the media
+//! files that project links to, read-only, and its page cache.
 //!
-//! ## How the server asks: a spool, not a `docker run`
+//! ## How the server asks: a spool, and a launcher holding the socket
 //!
-//! A per-job `docker run` would give each capture a container with exactly one
-//! project mounted, but something has to be able to start containers, and the
-//! only candidate is the server. The Docker socket is root on the host, so
-//! handing it to the one container the internet talks to trades a wall around
-//! users' pages for a hole in front of everything. So `capture` is a
-//! **long-lived worker reading a folder** both containers mount:
+//! Starting a container takes the Docker socket, which is root on the host.
+//! The server is the one container the internet talks to, so it never holds
+//! it. A small sidecar does, `capture-launcher` (`deploy/compose.yaml`): it
+//! has no network, no database and no secret, and the only container it can
+//! start is the one [`launch`] writes out, flag for flag. Between the two is a
+//! **folder both mount**:
 //!
 //! - `jobs/<job>/project.scor/`: the project, laid out by the render job
 //!   exactly as for a render ([`crate::projects::media::materialise`]), kept
 //!   pages included. Its `cache/` is a link to the project's page cache, so a
 //!   capture outlives the render that asked for it.
 //! - `jobs/<job>/ask.json`: what to capture ([`Ask`]), written last and moved
-//!   into place, so a job the worker can see is a whole one.
+//!   into place, so a job the launcher can see is a whole one.
 //! - `jobs/<job>/answer.json`: what happened to each capture ([`Answer`]),
-//!   written by the worker the same way.
+//!   written by the launcher the same way.
 //! - `pages/<user>/<project>/`: each project's page cache, the `cache/` its
 //!   captures land in. Per user and per project, so a user's captured frames
 //!   are never another's.
-//! - `worker.alive`: when the worker last looked, so a server whose worker is
-//!   not running says so rather than waiting forever.
+//! - `worker.alive`: when the launcher last looked, so a server whose launcher
+//!   is not running says so rather than waiting forever.
 //!
-//! The worker takes one job at a time (#773: one capture wants ~3.6 cores), and
+//! The launcher takes one capture at a time (#773: one wants ~3.6 cores), and
 //! that is the captures' per-kind limit: a render whose project has pages
 //! waits for it in its own slot, since it cannot be drawn without them.
 //!
-//! **What this costs against a per-job container**: the worker sees the
-//! library read-only (the project's media are links into it) and the spool,
-//! not one project. What keeps a page in its own project is Chromium's sandbox
-//! (its renderer can open no file at all) and the capture's origin, which
-//! serves the page only files under its project root
-//! (`scorsese_render::page`). The network wall is the same either way.
+//! **Two walls, not one.** Inside its container a page's renderer can open no
+//! file at all (Chromium's sandbox), and the capture's origin serves it only
+//! files under its project root (`scorsese_render::page`). A page that got past
+//! both would still find nothing of anybody else's: no other project, no other
+//! user's library, no other job. #778 ran one long-lived worker instead, which
+//! saw every user's library and the whole spool; #852 is why it does not.
 //!
-//! **The deadline is the worker's, from outside the browser**: each capture
-//! runs as a child process in a process group of its own, and the whole group
-//! is killed at 60 s plus a second a frame ([`deadline`], #773). The capture's
-//! own patience stops a page that never answers; this stops one that answers
-//! slowly forever.
+//! **The deadline is kept from outside the browser**: each capture is killed,
+//! container and all, at 60 s plus a second a frame ([`deadline`], #773). The
+//! capture's own patience stops a page that never answers; this stops one that
+//! answers slowly forever.
 //!
 //! Nothing here edits anything: the job lays the project out and renders it,
-//! and the worker calls [`scorsese_render::page::capture`] on what it is asked.
+//! and each capture calls [`scorsese_render::page::capture`] on what it is asked.
 
 pub mod dispatch;
+pub mod launch;
 pub mod one;
 pub mod worker;
 
