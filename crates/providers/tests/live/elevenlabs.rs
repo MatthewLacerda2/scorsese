@@ -68,7 +68,7 @@ fn timed(audio: &[u8], timed: bool) -> Timed {
         STANDARD.encode(audio),
         if timed { alignment } else { "" }
     );
-    serde_json::from_str(&json).unwrap()
+    serde_json::from_str(&json).expect("a timed reply")
 }
 
 #[test]
