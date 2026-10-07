@@ -1589,9 +1589,13 @@ them over, because a page is a document rather than media.
 **How it renders: captured by a headless browser, then played like footage.**
 Before a render draws, each page clip is captured, or found already captured in
 `cache/pages/`. The pinned `chrome-headless-shell` draws the page frame by frame
-at the render's raster and frame rate, from clock 0 to the length the page is
-told, into a lossless video with alpha. From then on the clip decodes like any
-video with alpha, starting at `source_in` and running at `speed`.
+at the render's raster and frame rate into a lossless video with alpha — only
+the frames the clip shows, from where it enters the page to the length the page
+is told: the frames before are run without being drawn, so the page arrives in
+the state it would have reached from clock 0, and a long stretch is drawn in
+pieces at once (#809). A `still` draws only the few frames around its instant.
+From then on the clip decodes like any video with alpha, starting at
+`source_in` and running at `speed`.
 
 **The browser needs no setup** (#776). It is looked for in one order:
 `SCORSESE_CHROME`, then the pinned build this machine downloaded (beside the

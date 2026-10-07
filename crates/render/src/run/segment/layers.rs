@@ -353,9 +353,13 @@ impl Pass<'_> {
             return held(pixels);
         }
 
-        let captured = self.pages.of(shot).map(std::path::Path::to_path_buf);
+        let captured = self
+            .pages
+            .of(shot)
+            .map(|(file, begins)| (file.to_path_buf(), begins));
+        let begins = captured.as_ref().map_or(0.0, |(_, begins)| *begins);
         let standing = match captured {
-            Some(file) => Standing::Media(file),
+            Some((file, _)) => Standing::Media(file),
             None => slug::standing(shot, self.project_root)?,
         };
         let file = match standing {
@@ -383,6 +387,9 @@ impl Pass<'_> {
             // nothing the tracks below show through.
             source.has_alpha = true;
             source.fitting = Fitting::Fill;
+            // A capture of only part of the page starts its own clock where
+            // that part does (#809).
+            source.seek_seconds -= begins;
         }
         if !shot.stills.is_empty() {
             let files = slug::still_files(shot, self.project_root)?;

@@ -13,6 +13,14 @@
 //! is still editing (#776). [`cached`] is the half that needs no browser —
 //! whether a capture is already there for a request.
 //!
+//! **Only the frames asked for are drawn** (#809). [`capture_frames`] captures a
+//! stretch of the page — the few frames around a still, a clip's stretch from
+//! its `source_in` — by running its clock ahead to the first of them without
+//! drawing (`capture`'s), and a long stretch in pieces at once (`pieces`'). A
+//! still 85 s into a 90 s page draws a handful of frames, not 2,550. The
+//! frames are the ones a capture from the first frame would have drawn; what
+//! is skipped is drawing the ones nobody looks at.
+//!
 //! What a page is told, and the clock it runs on, are [`Request`]'s and
 //! `clock.js`'s; how it is served and kept offline is `origin`'s; what it
 //! loaded and what went wrong is `visitor`'s; what its layout gets wrong is
@@ -25,15 +33,20 @@ mod browser;
 mod cache;
 mod capture;
 mod cdp;
+mod encoder;
 mod find;
 mod fonts;
 mod icons;
 mod layout;
 mod origin;
+mod pieces;
 mod request;
+#[cfg(test)]
+mod same_frames;
 mod supply;
 mod visitor;
 
+use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 pub use browser::{CHROME_ENV, Chrome, ChromeError, NO_SANDBOX, NO_SANDBOX_ENV};
@@ -62,6 +75,11 @@ pub const PAGE_VERSION: u32 = 3;
 pub struct Captured {
     /// The lossless video with alpha holding the page's frames.
     pub file: PathBuf,
+    /// Which of the page's frames is the file's first: zero for a capture of
+    /// the whole page, and where a piece begins otherwise ([`capture_frames`]).
+    /// Frame `k` of the page is frame `k - first` of the file, stamped as
+    /// though the file began at zero.
+    pub first: u64,
     /// What the page did that the author should hear about: a request refused
     /// because pages render offline, a WebSocket or WebRTC connection it opened
     /// (which reached nothing), a file it asked for that is not in the
@@ -77,8 +95,32 @@ pub fn cached(project_root: &Path, request: &Request, chrome_version: &str) -> O
     let slot = cache::slot(project_root, request, chrome_version);
     cache::fresh(&slot, project_root).map(|record| Captured {
         file: slot.join(cache::FRAMES),
+        first: 0,
         warnings: record.warnings,
     })
+}
+
+/// [`cached`], for a capture holding at least `frames` of the page: the whole
+/// page's, or a piece [`capture_frames`] made.
+pub fn cached_frames(
+    project_root: &Path,
+    request: &Request,
+    chrome_version: &str,
+    frames: Range<u64>,
+) -> Option<Captured> {
+    let slot = cache::slot(project_root, request, chrome_version);
+    let wanted = within(request, frames);
+    cache::holding(&slot, project_root, request, &wanted).map(|(file, first, record)| Captured {
+        file,
+        first,
+        warnings: record.warnings,
+    })
+}
+
+/// `frames`, inside the page's own.
+fn within(request: &Request, frames: Range<u64>) -> Range<u64> {
+    let end = frames.end.min(request.frames());
+    frames.start.min(end)..end
 }
 
 /// The page's frames for `request`, from the cache when they are there and
@@ -110,24 +152,51 @@ pub fn capture_following(
     follow: &[PathBuf],
     request: &Request,
 ) -> Result<Captured, PageError> {
-    if let Some(captured) = cached(project_root, request, chrome.version()) {
+    let whole = 0..request.frames();
+    capture_frames(chrome, tools, project_root, follow, request, whole)
+}
+
+/// [`capture_following`], for only `frames` of the page — the frames a still
+/// or a clip shows, rather than every one from the first.
+///
+/// Reuses any fresh capture holding them all. Otherwise it captures from the
+/// first of them, back to a whole millisecond, to the last, and keeps that as a
+/// piece of the slot — or as the whole capture, when that is what was asked.
+pub fn capture_frames(
+    chrome: &Chrome,
+    tools: &Tools,
+    project_root: &Path,
+    follow: &[PathBuf],
+    request: &Request,
+    frames: Range<u64>,
+) -> Result<Captured, PageError> {
+    let wanted = within(request, frames);
+    if let Some(captured) = cached_frames(project_root, request, chrome.version(), wanted.clone()) {
         return Ok(captured);
     }
+    let piece = request.piece_start(wanted.start)..wanted.end;
     let slot = cache::slot(project_root, request, chrome.version());
     std::fs::create_dir_all(&slot)?;
     let fonts = cache::fonts(project_root)?;
-    let file = slot.join(cache::FRAMES);
+    let (file, record_file) = cache::files(&slot, &piece, request);
     // Written beside and moved into place, so an interrupted capture never
     // leaves frames that look finished — under a name of this process's own, so
     // two renders of one project capturing the same page cannot interleave.
-    let partial = slot.join(format!("frames.{}.partial.mkv", std::process::id()));
-    let heard = capture::run(
+    let stem = file
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("frames");
+    let partial = slot.join(format!("{stem}.{}.partial.mkv", std::process::id()));
+    let heard = pieces::capture(
         chrome,
         tools,
-        project_root,
-        follow,
-        &fonts,
+        capture::Served {
+            project_root,
+            follow,
+            fonts: &fonts,
+        },
         request,
+        piece.clone(),
         &partial,
     )?;
     std::fs::rename(&partial, &file)?;
@@ -135,9 +204,11 @@ pub fn capture_following(
         loaded: heard.loaded,
         warnings: heard.warnings,
     };
-    cache::keep(&slot, &record)?;
+    cache::keep(&record_file, &record)?;
+    cache::prune(&slot, project_root, request, &piece);
     Ok(Captured {
         file,
+        first: piece.start,
         warnings: record.warnings,
     })
 }

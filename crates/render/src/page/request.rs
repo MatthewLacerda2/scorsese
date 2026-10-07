@@ -56,6 +56,26 @@ impl Request {
         self.fps.seconds_at(k as f64) * 1000.0
     }
 
+    /// The step every piece of a capture starts on: the fewest frames whose
+    /// time is a whole number of milliseconds.
+    ///
+    /// A capture's frames are kept in Matroska, whose timestamps are whole
+    /// milliseconds, so frame `k` is stamped `round(k / fps)` ms. A piece that
+    /// starts on a whole millisecond stamps every frame after it exactly as one
+    /// file from zero would — which is what lets pieces be joined, and one read
+    /// from the middle of the page, without moving a frame (#809). At 30000/1001
+    /// a piece starting on frame 61 instead of 60 joins a millisecond off.
+    pub(crate) fn step(&self) -> u64 {
+        let (num, den) = (u64::from(self.fps.num()), u64::from(self.fps.den()));
+        num / gcd(num, 1000 * den)
+    }
+
+    /// Where a piece holding frame `k` starts: `k`, back to the nearest
+    /// [`Request::step`].
+    pub(crate) fn piece_start(&self, k: u64) -> u64 {
+        k - k % self.step()
+    }
+
     pub(crate) fn viewport(&self) -> Viewport {
         let (width, height) = (self.resolution.width(), self.resolution.height());
         let short = width.min(height);
@@ -95,6 +115,10 @@ impl Request {
     }
 }
 
+fn gcd(a: u64, b: u64) -> u64 {
+    if b == 0 { a } else { gcd(b, a % b) }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -128,6 +152,25 @@ mod tests {
         };
         assert_eq!(short.frames(), 2);
         assert!((request(64, 64).millis_at(3) - 100.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_piece_starts_on_a_whole_millisecond() {
+        let at = |fps: Fps| Request {
+            fps,
+            ..request(64, 64)
+        };
+        assert_eq!(at(Fps::THIRTY).step(), 3);
+        assert_eq!(at(Fps::PAL).step(), 1);
+        assert_eq!(at(Fps::new(30000, 1001).unwrap()).step(), 30);
+        assert_eq!(at(Fps::new(24000, 1001).unwrap()).step(), 24);
+        assert_eq!(at(Fps::THIRTY).piece_start(61), 60);
+        assert_eq!(at(Fps::THIRTY).piece_start(2), 0);
+        for fps in [Fps::THIRTY, Fps::PAL, Fps::new(30000, 1001).unwrap()] {
+            let request = at(fps);
+            let ms = request.millis_at(request.step() * 7);
+            assert!((ms - ms.round()).abs() < 1e-6, "{fps:?}: {ms}");
+        }
     }
 
     #[test]

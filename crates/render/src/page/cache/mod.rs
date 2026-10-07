@@ -10,6 +10,14 @@
 //! page edited, or a picture it shows replaced, finds its slot holding a stale
 //! capture, which is captured again in place — so editing a page does not grow
 //! the cache by a capture per edit.
+//!
+//! **A slot also keeps pieces** (#809): a capture of only some of the page's
+//! frames — the few around a still, or a clip's stretch from its `source_in`
+//! on — as `part-<first>-<end>.mkv` beside `part-<first>-<end>.json`, each with
+//! its own record, since a page that loads a file late loads it only in the
+//! pieces that reach that far. The whole capture is still `frames.mkv`, which
+//! is all a caller that asks for the whole page ([`super::cached`]) ever reads.
+//! A piece is dropped once it goes stale or a newer capture holds all of it.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -22,12 +30,16 @@ use serde_json::json;
 
 use super::request::Request;
 
+mod pieces;
+
+pub(crate) use pieces::{files, holding, prune};
+
 /// The folder under `cache/` captures are kept in.
 const PAGES: &str = "pages";
 /// The captured frames, in a slot.
 pub(crate) const FRAMES: &str = "frames.mkv";
 /// What the capture loaded and warned about, in a slot.
-const RECORD: &str = "capture.json";
+pub(super) const RECORD: &str = "capture.json";
 
 /// What a capture recorded about itself.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -59,10 +71,15 @@ pub(crate) fn slot(project_root: &Path, request: &Request, chrome_version: &str)
 /// project: every file loaded still hashes as it did, and every file missed is
 /// still missing.
 pub(crate) fn fresh(slot: &Path, project_root: &Path) -> Option<Record> {
-    if !slot.join(FRAMES).is_file() {
+    read_fresh(&slot.join(FRAMES), &slot.join(RECORD), project_root)
+}
+
+/// [`fresh`], for any capture's frames and record.
+pub(super) fn read_fresh(frames: &Path, record: &Path, project_root: &Path) -> Option<Record> {
+    if !frames.is_file() {
         return None;
     }
-    let record: Record = serde_json::from_slice(&std::fs::read(slot.join(RECORD)).ok()?).ok()?;
+    let record: Record = serde_json::from_slice(&std::fs::read(record).ok()?).ok()?;
     let unchanged = record.loaded.iter().all(|(path, hash)| {
         let now = hash_file(&project_root.join(path)).ok();
         &now == hash
@@ -70,11 +87,11 @@ pub(crate) fn fresh(slot: &Path, project_root: &Path) -> Option<Record> {
     unchanged.then_some(record)
 }
 
-/// Writes a slot's record, which is what makes its frames usable: written
-/// last, so a capture cut short leaves a slot that is not [`fresh`].
-pub(crate) fn keep(slot: &Path, record: &Record) -> std::io::Result<()> {
+/// Writes a capture's record, which is what makes its frames usable: written
+/// last, so a capture cut short leaves one that is not [`fresh`].
+pub(crate) fn keep(file: &Path, record: &Record) -> std::io::Result<()> {
     let bytes = serde_json::to_vec_pretty(record).expect("a record always serialises");
-    std::fs::write(slot.join(RECORD), bytes)
+    std::fs::write(file, bytes)
 }
 
 /// The shipped faces ([`super::fonts`]) written out where the browser can find them, with a
@@ -192,7 +209,7 @@ mod tests {
             warnings: vec!["said".into()],
         };
         assert_eq!(fresh(&slot, &root), None, "no record, no capture");
-        keep(&slot, &record).unwrap();
+        keep(&slot.join(RECORD), &record).unwrap();
         assert_eq!(fresh(&slot, &root), Some(record));
         std::fs::write(root.join("missing.png"), "now here").unwrap();
         assert_eq!(
