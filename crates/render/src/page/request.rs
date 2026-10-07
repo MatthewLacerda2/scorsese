@@ -17,6 +17,19 @@
 //! page written for 1920 × 1080 lays out identically in a quarter-size preview
 //! and a 4K delivery, only sharper or softer — the way a title's size is a
 //! fraction of the frame rather than a count of pixels.
+//!
+//! **A capture is the raster's size only down to a 540 short side** (#881). The
+//! picture a frame comes back as is the window's size times the scale the
+//! browser was launched with (`--force-device-scale-factor`), and Chromium
+//! will not launch below a half: asked for less, it draws at a half. So a
+//! raster whose short side is under 540 is captured with a 540 short side —
+//! 960 × 540 for a 160 × 90 golden (36 times the pixels) and for a 480 × 270
+//! quarter-quality preview of a 1080p film (four times) — and the compositor
+//! resamples it down like any other source of the wrong size. Nothing else
+//! gets the picture smaller: the emulated device scale changes what the page
+//! sees as `devicePixelRatio` but not the picture's size, and neither does the
+//! emulation's own `scale`, both measured on Chromium 154. The floor is
+//! Chromium's, not ours; `tests/pipeline/capture_size.rs` holds it.
 
 use std::collections::BTreeMap;
 

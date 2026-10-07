@@ -382,9 +382,11 @@ impl Pass<'_> {
         let timeline_fps = self.plan.timeline_fps();
         let mut source = source_for(shot, file, self.loops, timeline_fps, frames, fitting);
         if shot.asset.kind == AssetKind::Html {
-            // A capture is always the raster's own size and always carries
-            // alpha: the page laid out to fill the frame, and where it drew
-            // nothing the tracks below show through.
+            // A capture fills the frame and always carries alpha: the page
+            // laid out to the raster's shape, and where it drew nothing the
+            // tracks below show through. It is the raster's own size only
+            // down to a 540 short side, below which Chromium draws no smaller
+            // (`page::request`'s doc, #881), so `Fill` also resamples it down.
             source.has_alpha = true;
             source.fitting = Fitting::Fill;
             // A capture of only part of the page starts its own clock where

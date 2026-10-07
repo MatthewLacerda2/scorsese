@@ -13,6 +13,7 @@
 mod common;
 
 mod banding;
+mod capture_size;
 mod fitting;
 mod following;
 mod grain;
