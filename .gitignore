@@ -25,8 +25,14 @@ __pycache__/
 web/node_modules/
 web/dist/
 
-# Rebuildable per-project cache inside *.scor/ project directories
+# Rebuildable per-project cache inside *.scor/ project directories, wherever a
+# project sits (a test's, a fixture's). Never a source folder of that name:
+# `cache/` alone also matched `crates/render/src/page/cache/`, so a new file
+# there was silently left out of a commit while the coder's own build, which
+# had it on disk, passed (PR #872).
 cache/
+!crates/**/src/**/cache/
+!app/src/**/cache/
 
 # RustRover
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
