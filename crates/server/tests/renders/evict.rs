@@ -112,13 +112,14 @@ fn captured(
 ) -> std::path::PathBuf {
     let folder = cache.captures().pages(user, project);
     let slot = folder.join("pages/0123");
-    std::fs::create_dir_all(&slot).unwrap();
-    std::fs::write(slot.join("frames.mkv"), [0; 50]).unwrap();
+    let setup = "the test setup works";
+    std::fs::create_dir_all(&slot).expect(setup);
+    std::fs::write(slot.join("frames.mkv"), [0; 50]).expect(setup);
     let at = std::time::SystemTime::now() - std::time::Duration::from_secs(hours * 3600);
     let frames = std::fs::File::options()
         .append(true)
         .open(slot.join("frames.mkv"));
-    frames.unwrap().set_modified(at).unwrap();
+    frames.and_then(|file| file.set_modified(at)).expect(setup);
     folder
 }
 
