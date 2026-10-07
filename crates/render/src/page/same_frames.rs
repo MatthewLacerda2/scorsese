@@ -1,6 +1,8 @@
 //! The proof #809 rests on: a capture run ahead to its first frame, and one
 //! made in pieces and joined, hold exactly the frames of one capture drawn
 //! from the first frame to the last — on a page written to tell them apart.
+//! And the premise under both: two captures of one page are the same frames,
+//! an animated blur's included (#874).
 //!
 //! Needs the pinned browser, as the page pipeline tests do.
 
@@ -60,6 +62,23 @@ const PAGE: &str = r##"<!doctype html>
   chain.addEventListener("animationend", () => chain.classList.add("next"));
 </script>"##;
 
+/// Twelve boxes, every other one glowing: a `box-shadow` blur whose radius
+/// changes every frame, which #874 found drawn differently from one capture
+/// to the next.
+const GLOW: &str = r##"<!doctype html>
+<style>
+  body { margin: 0; background: #123 }
+  .b { position: absolute; width: 120px; height: 80px; background: #3af; border-radius: 12px }
+  .b:nth-child(odd) { animation: glow 1.5s ease-in-out infinite alternate }
+  @keyframes glow { from { box-shadow: 0 0 0 #fff } to { box-shadow: 0 0 40px #ff8 } }
+</style>
+<div class="b" style="left: 30px; top: 30px"></div><div class="b" style="left: 180px; top: 30px"></div>
+<div class="b" style="left: 330px; top: 30px"></div><div class="b" style="left: 480px; top: 30px"></div>
+<div class="b" style="left: 30px; top: 140px"></div><div class="b" style="left: 180px; top: 140px"></div>
+<div class="b" style="left: 330px; top: 140px"></div><div class="b" style="left: 480px; top: 140px"></div>
+<div class="b" style="left: 30px; top: 250px"></div><div class="b" style="left: 180px; top: 250px"></div>
+<div class="b" style="left: 330px; top: 250px"></div><div class="b" style="left: 480px; top: 250px"></div>"##;
+
 /// One hash per frame of a capture's file, in order.
 fn hashes(tools: &Tools, file: &Path) -> Vec<String> {
     let out = tools
@@ -111,13 +130,17 @@ struct Bench {
 
 impl Bench {
     fn new(name: &str) -> Self {
+        Self::of(name, PAGE, Resolution::new(64, 64).expect("a raster"), 9.0)
+    }
+
+    fn of(name: &str, page: &str, resolution: Resolution, duration: f64) -> Self {
         // Relative, as a project named on the command line is: a join that
         // only works from an absolute path once passed here and failed there.
         // Under `target/`, which is ignored wherever it is.
         let root = PathBuf::from(format!("target/same-frames-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(root.join("pages")).expect("pages/");
-        std::fs::write(root.join("pages/proof.html"), PAGE).expect("the page");
+        std::fs::write(root.join("pages/proof.html"), page).expect("the page");
         let fonts = cache::fonts(&root).expect("fonts");
         Self {
             chrome: Chrome::discover().expect("the pinned browser (SCORSESE_CHROME)"),
@@ -126,9 +149,9 @@ impl Bench {
             fonts,
             request: Request {
                 page: "pages/proof.html".into(),
-                resolution: Resolution::new(64, 64).expect("a raster"),
+                resolution,
                 fps: Fps::THIRTY,
-                duration: 9.0,
+                duration,
                 clips: Default::default(),
             },
         }
@@ -189,5 +212,33 @@ fn a_capture_made_in_pieces_is_the_file_one_capture_makes() {
     .expect("captured in pieces");
     // Timestamps and all: a joined file stamps each frame where one capture does.
     same(&hashes(&bench.tools, &joined), &whole, "joined");
+    let _ = std::fs::remove_dir_all(&bench.root);
+}
+
+#[test]
+fn an_animated_blur_is_drawn_the_same_every_capture() {
+    let bench = Bench::of(
+        "glow",
+        GLOW,
+        Resolution::new(640, 360).expect("a raster"),
+        8.0,
+    );
+    let frames = 0..bench.request.frames();
+    // At once, as `page::browsers()` runs them: the race showed under load.
+    let captures: Vec<Vec<String>> = std::thread::scope(|scope| {
+        let running: Vec<_> = (0..4)
+            .map(|at| {
+                let (bench, frames) = (&bench, frames.clone());
+                scope.spawn(move || bench.sequential(frames, &format!("glow-{at}.mkv")))
+            })
+            .collect();
+        running
+            .into_iter()
+            .map(|capture| capture.join().expect("a capture"))
+            .collect()
+    });
+    for (at, capture) in captures.iter().enumerate().skip(1) {
+        same(capture, &captures[0], &format!("capture {at}"));
+    }
     let _ = std::fs::remove_dir_all(&bench.root);
 }

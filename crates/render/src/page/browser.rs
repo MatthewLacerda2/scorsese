@@ -28,6 +28,13 @@ pub const CHROME_ENV: &str = "SCORSESE_CHROME";
 /// - `--use-angle=swiftshader --enable-unsafe-swiftshader`: the same software
 ///   GPU on every machine. #772 measured frames from it byte-identical across
 ///   two CPU vendors, bar one rare six-pixel race.
+/// - `--disable-gpu-rasterization`: the page's tiles are drawn by Skia on the
+///   CPU and only composited on SwiftShader. Drawn on SwiftShader, a blur whose
+///   radius changes (an animated `box-shadow`) came out differently from one
+///   capture to the next: #874 measured 3–21 of 451 frames differing between
+///   two captures of the same page, and none with this flag, over four
+///   browsers at once. It is also the faster path: 55 against 60 ms a frame at
+///   640×360, 182 against 235 at 1080p.
 /// - Not here, but added at launch when the sandbox is off: `--no-sandbox`
 ///   (see [`NO_SANDBOX`]).
 /// - `--hide-scrollbars`: a page taller than the frame must not grow a bar.
@@ -48,6 +55,7 @@ const FLAGS: &[&str] = &[
     "--deterministic-mode",
     "--use-angle=swiftshader",
     "--enable-unsafe-swiftshader",
+    "--disable-gpu-rasterization",
     "--hide-scrollbars",
     "--no-first-run",
     "--mute-audio",
