@@ -150,8 +150,9 @@
 //! [`Properties`] one instant of a clip resolves to, the [`ANIMATED`] list with
 //! the [`Registry`] that searches it, the two fades ([`fade_in`],
 //! [`fade_out`]), and [`MAX_GLOW_INTENSITY`], the one clamp a caller may want
-//! to quote, and [`Resample`], which the decoder sizes a transparent source
-//! with.
+//! to quote, and [`Resample`], the weights a render's compositing threads
+//! size a transparent source with, each through its own
+//! [`CpuCompositor::resample`].
 //!
 //! [`text`], [`card`], [`mod@shape`], [`mod@icon`], [`mod@grid`] and
 //! [`mod@dissolve`] keep

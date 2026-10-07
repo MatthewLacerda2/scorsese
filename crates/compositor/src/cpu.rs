@@ -16,6 +16,7 @@ use crate::grade;
 use crate::light;
 use crate::matte;
 use crate::properties::Properties;
+use crate::resample::{self, Resample};
 use crate::vhs::{self, Tape};
 
 /// Composites on the CPU.
@@ -27,6 +28,9 @@ pub struct CpuCompositor {
     /// mask it leaves has to outlive that drawing while the masked layer is
     /// drawn through them again.
     mattes: matte::Buffers,
+    /// What fitting a transparent source to another size writes on the way —
+    /// see [`Self::resample`].
+    resampled: resample::Scratch,
 }
 
 /// The copies of a layer this compositor may have to make, kept between frames
@@ -113,6 +117,20 @@ impl CpuCompositor {
     /// worth keeping across a render rather than per frame.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Resamples `from`, straight alpha, into `into`, straight alpha, through
+    /// this compositor's own scratch — which is what lets the threads that
+    /// composite a render's frames each fit a source too (#880), sharing one
+    /// [`Resample`]'s weights.
+    ///
+    /// # Panics
+    ///
+    /// When either frame is not the size `resample` was built for: a mismatch
+    /// is a caller reading a pipe at the wrong stride, and carrying on would
+    /// slide every later frame.
+    pub fn resample(&mut self, resample: &Resample, from: &Frame, into: &mut Frame) {
+        resample.apply(from, into, &mut self.resampled);
     }
 }
 

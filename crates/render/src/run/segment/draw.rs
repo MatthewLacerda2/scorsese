@@ -8,22 +8,28 @@
 //! where each layer's pixels live for that frame is a small map of its own
 //! ([`Sources`]).
 
-use std::sync::Mutex;
 use std::sync::mpsc::{Receiver, Sender};
+use std::sync::{Arc, Mutex};
 
 use scorsese_compositor::{
     CompositeError, Compositor, CpuCompositor, Frame, Layer, Matte, Properties,
 };
 
 use crate::error::RenderError;
+use crate::pipe::Fitter;
 
 use super::layers::{Pixels, Slot};
 use super::pipeline::Job;
 
 /// One worker: take a job, draw it, hand it back, until there are none left.
+///
+/// A layer whose source has to be resized is fitted here first, from the frame
+/// the job carries at its own size, so that the resample — the most expensive
+/// thing done to a transparent source — runs on every worker at once rather
+/// than on the one thread that decodes (#880).
 pub(super) fn work(
     compositor: &mut CpuCompositor,
-    slots: &[Slot],
+    (slots, fitters): (&[Slot], &[Option<Arc<Fitter>>]),
     live: usize,
     jobs: &Mutex<Receiver<Job>>,
     done: &Sender<Result<Job, RenderError>>,
@@ -40,6 +46,11 @@ pub(super) fn work(
             // nothing else coming.
             return;
         };
+        for ((fitter, pending), buffer) in fitters.iter().zip(&job.pending).zip(&mut job.buffers) {
+            if let Some(fitter) = fitter {
+                fitter.fit(pending, buffer, compositor);
+            }
+        }
         let outcome = draw_frame(compositor, slots, live, &mut job);
         let sent = match outcome {
             Ok(()) => done.send(Ok(job)),

@@ -15,6 +15,7 @@ pub(crate) use audio::{AudioDecoder, AudioSource, SAMPLE_FORMAT};
 pub(crate) use decode::{Decoder, Fitting, Source, reads_through_image2};
 pub(crate) use encode::{Encoder, encode_mix};
 pub(crate) use listed::frames as listed_frames;
+pub(crate) use resized::{Fitter, Pending};
 
 use std::process::Child;
 use std::time::{Duration, Instant};

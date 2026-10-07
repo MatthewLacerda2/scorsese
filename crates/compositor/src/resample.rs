@@ -32,19 +32,48 @@ use crate::{BYTES_PER_PIXEL, Frame, Resolution};
 /// A resample from one size to another, with its weights worked out once.
 ///
 /// Built per decoder rather than per frame: every frame of a source is the
-/// same size, so the weights are too, and only the pixels change.
+/// same size, so the weights are too, and only the pixels change. It holds
+/// nothing a resample writes, so one is shared by every thread fitting that
+/// source's frames (#880), each through its own compositor's [`Scratch`] —
+/// see [`crate::CpuCompositor::resample`].
 #[derive(Debug, Clone)]
 pub struct Resample {
     source: Resolution,
     window: Resolution,
     columns: Taps,
     rows: Taps,
+}
+
+/// What a resample writes on the way, kept by whoever runs it so a render
+/// allocates it once per thread rather than once per frame. It grows to fit
+/// the largest resample it has been through; a smaller one uses the front.
+#[derive(Debug, Default)]
+pub(crate) struct Scratch {
     /// The source with its colour weighted by its alpha, one row at a time.
     row: Vec<f32>,
     /// The horizontal pass: every source row, at the window's width.
     across: Vec<f32>,
     /// The vertical pass, one output row at a time.
     down: Vec<f32>,
+}
+
+impl Scratch {
+    /// Sized for `resample`, keeping whatever is already allocated. Nothing
+    /// needs clearing: every value read is written first in the same pass.
+    fn fit(&mut self, resample: &Resample) {
+        let (source, window) = (resample.source, resample.window);
+        let grow = |buffer: &mut Vec<f32>, len: usize| {
+            if buffer.len() < len {
+                buffer.resize(len, 0.0);
+            }
+        };
+        grow(&mut self.row, source.width() as usize * BYTES_PER_PIXEL);
+        grow(
+            &mut self.across,
+            source.height() as usize * window.width() as usize * BYTES_PER_PIXEL,
+        );
+        grow(&mut self.down, window.width() as usize * BYTES_PER_PIXEL);
+    }
 }
 
 impl Resample {
@@ -65,9 +94,6 @@ impl Resample {
             window,
             columns,
             rows,
-            row: vec![0.0; source.width() as usize * BYTES_PER_PIXEL],
-            across: vec![0.0; source.height() as usize * window.width() as usize * BYTES_PER_PIXEL],
-            down: vec![0.0; window.width() as usize * BYTES_PER_PIXEL],
         }
     }
 
@@ -81,14 +107,10 @@ impl Resample {
         self.window
     }
 
-    /// Resamples `from`, straight alpha, into `into`, straight alpha.
-    ///
-    /// # Panics
-    ///
-    /// When either frame is not the size this resample was built for: a
-    /// mismatch is a caller reading a pipe at the wrong stride, and carrying
-    /// on would slide every later frame.
-    pub fn apply(&mut self, from: &Frame, into: &mut Frame) {
+    /// Resamples `from`, straight alpha, into `into`, straight alpha, writing
+    /// on the way only into `scratch`. Its panics are
+    /// [`crate::CpuCompositor::resample`]'s.
+    pub(crate) fn apply(&self, from: &Frame, into: &mut Frame, scratch: &mut Scratch) {
         assert_eq!(
             from.resolution(),
             self.source,
@@ -99,17 +121,20 @@ impl Resample {
             self.window,
             "resampled into the wrong size"
         );
+        scratch.fit(self);
+        let Scratch { row, across, down } = scratch;
         let width = self.window.width() as usize * BYTES_PER_PIXEL;
+        let down = &mut down[..width];
         let stride = self.source.width() as usize * BYTES_PER_PIXEL;
         for (y, pixels) in from.bytes().chunks_exact(stride).enumerate() {
             if !self.rows.reads(y) {
                 continue;
             }
-            premultiply(pixels, &mut self.row);
-            let out = &mut self.across[y * width..(y + 1) * width];
+            premultiply(pixels, row);
+            let out = &mut across[y * width..(y + 1) * width];
             for (x, sum) in out.chunks_exact_mut(BYTES_PER_PIXEL).enumerate() {
                 let (start, weights) = self.columns.of(x);
-                accumulate(sum, weights, &self.row[start * BYTES_PER_PIXEL..]);
+                accumulate(sum, weights, &row[start * BYTES_PER_PIXEL..]);
             }
         }
         // Row at a time rather than pixel at a time, so each tap is one
@@ -117,15 +142,14 @@ impl Resample {
         // order each output value adds its taps in is the same either way.
         for (y, out) in into.bytes_mut().chunks_exact_mut(width).enumerate() {
             let (start, weights) = self.rows.of(y);
-            self.down.fill(0.0);
+            down.fill(0.0);
             for (k, &weight) in weights.iter().enumerate() {
-                let row = &self.across[(start + k) * width..(start + k + 1) * width];
-                for (total, &value) in self.down.iter_mut().zip(row) {
+                let row = &across[(start + k) * width..(start + k + 1) * width];
+                for (total, &value) in down.iter_mut().zip(row) {
                     *total += weight * value;
                 }
             }
-            for (sum, pixel) in self
-                .down
+            for (sum, pixel) in down
                 .chunks_exact(BYTES_PER_PIXEL)
                 .zip(out.chunks_exact_mut(BYTES_PER_PIXEL))
             {

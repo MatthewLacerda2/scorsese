@@ -24,8 +24,8 @@
 //! the producer comes up for air.
 
 use std::collections::BTreeMap;
-use std::sync::Mutex;
 use std::sync::mpsc::channel;
+use std::sync::{Arc, Mutex};
 
 use scorsese_compositor::{
     BYTES_PER_PIXEL, Compositor, CpuCompositor, Frame, Properties, Resolution,
@@ -33,7 +33,7 @@ use scorsese_compositor::{
 
 use crate::content::elapsed;
 use crate::error::RenderError;
-use crate::pipe::Decoder;
+use crate::pipe::{Decoder, Fitter, Pending};
 use crate::plan::Segment;
 
 use crate::follow::{self, Layer, Rider};
@@ -64,6 +64,11 @@ pub(super) struct Job {
     /// One decoded frame per layer that has a source, in [`Pixels::Live`]
     /// order.
     pub(super) buffers: Vec<Frame>,
+    /// One per layer that has a source, in the same order: the frame as
+    /// decoded, when its source has to be resized before it is drawn. The
+    /// worker fits it into the layer's buffer — off the decoding thread,
+    /// which is the one stage that cannot be spread (#880).
+    pub(super) pending: Vec<Pending>,
     /// One transparent raster per group, in [`Pixels::Composed`] order, that
     /// its members are composited into.
     ///
@@ -105,6 +110,7 @@ impl Pools {
             index: 0,
             properties: Vec::new(),
             buffers: Vec::new(),
+            pending: Vec::new(),
             groups: Vec::new(),
             canvas: Frame::black(resolution),
         });
@@ -122,6 +128,11 @@ impl Pools {
         }
         while let Some(decoder) = decoders.get(job.buffers.len()) {
             job.buffers.push(Frame::black(decoder.raster()));
+        }
+        // The decoder sizes what it reads a resized frame into, so all a job
+        // needs is a place for one per decoder.
+        if job.pending.len() < decoders.len() {
+            job.pending.resize_with(decoders.len(), Pending::default);
         }
         // Then one raster-sized buffer per layer drawn afresh each frame. They
         // sit after the decoded ones in the same list, which is why a slot
@@ -226,10 +237,18 @@ pub(super) fn drive(
         compositors,
         pools,
     } = parts;
+    // A resized source's frame also rides along at its own size, which for a
+    // 4K still fitted to 1080p is four rasters' worth more per job.
+    let unfitted: usize = decoders
+        .iter()
+        .filter_map(Decoder::fitter)
+        .map(|fitter| fitter.decoded_bytes())
+        .sum();
     let capacity = capacity(
         compositors.len(),
         decoders.len() + drawn + composed,
         pass.settings.resolution,
+        unfitted,
     );
     // How many of a job's buffers are decoded, which is where the drawn ones
     // start.
@@ -246,6 +265,11 @@ pub(super) fn drive(
         missing: &mut missing,
     };
 
+    // Taken before the producer borrows the decoders for the whole scope: the
+    // workers fit with these while it reads.
+    let fitters: Vec<Option<Arc<Fitter>>> = feed.decoders.iter().map(Decoder::fitter).collect();
+    let fitters = &fitters;
+
     let (send_job, take_job) = channel::<Job>();
     // Locked around the receive rather than shared some cleverer way: a job is
     // a whole frame's compositing, so the hand-off is thousands of times
@@ -257,7 +281,9 @@ pub(super) fn drive(
         for compositor in compositors.iter_mut() {
             let take_job = &take_job;
             let send_done = send_done.clone();
-            scope.spawn(move || super::draw::work(compositor, slots, live, take_job, &send_done));
+            scope.spawn(move || {
+                super::draw::work(compositor, (slots, fitters), live, take_job, &send_done);
+            });
         }
         // The only remaining sender is the workers': dropping this one is what
         // makes the results channel close when they are all done.
@@ -320,7 +346,7 @@ fn produce(
     let mut job = pools.take(decoders, *extra, pass.settings.resolution);
     job.index = index;
     for (at, decoder) in decoders.iter_mut().enumerate() {
-        if !decoder.read_into(&mut job.buffers[at])? {
+        if !decoder.read_into(&mut job.buffers[at], &mut job.pending[at])? {
             // This layer's source ran out before its clip did. Blank rather
             // than black: an upper layer that went opaque black would paint
             // over the tracks below it, which is not what running out of
@@ -412,15 +438,19 @@ fn redraw(slots: &[Slot], live: usize, job: &mut Job, canvas: Resolution) {
 /// chosen up front rather than discovered by swapping. A job holds one decoded
 /// buffer per layer with a source plus the canvas it is drawn onto, so the
 /// stage can be sitting on `capacity × (layers + 1)` frames: 8.3 MB each at
-/// 1080p, 33.2 MB at 4K. Seven workers on a four-layer 4K render would be
+/// 1080p, 33.2 MB at 4K. A source a worker resizes adds its frame as decoded,
+/// at its own size (`unfitted`, in bytes per job). Seven workers on a four-layer 4K render would be
 /// 1.5 GB of frame buffers under [`BUDGET`]'s gigabyte, so the depth gives way
 /// and the pipeline runs shallower rather than the render going to swap.
 ///
 /// Two is the floor: one frame being composited while the next is decoded is
 /// the least that is still a pipeline.
-fn capacity(workers: usize, live: usize, resolution: Resolution) -> u64 {
+fn capacity(workers: usize, live: usize, resolution: Resolution, unfitted: usize) -> u64 {
     let frame = resolution.width() as usize * resolution.height() as usize * BYTES_PER_PIXEL;
-    let job = frame.saturating_mul(live + 1).max(1);
+    let job = frame
+        .saturating_mul(live + 1)
+        .saturating_add(unfitted)
+        .max(1);
     let wanted = (workers + 2).min(BUDGET / job).max(2);
     wanted as u64
 }

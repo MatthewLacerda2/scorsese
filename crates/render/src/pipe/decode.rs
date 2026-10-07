@@ -3,6 +3,9 @@
 use std::io::{ErrorKind, Read};
 use std::path::{Path, PathBuf};
 use std::process::{ChildStdout, Command, Stdio};
+use std::sync::Arc;
+
+use super::resized::{Fitter, Pending};
 
 use crate::error::{RenderError, Stage};
 use crate::settings::RenderSettings;
@@ -128,7 +131,9 @@ impl Decoder {
     /// Starts decoding. Frames arrive re-timed to the render's framerate and
     /// fitted the way the clip asked to be: fitting a source into the output
     /// raster is a decode concern, and doing it here means every frame reaching
-    /// our process is already the size the compositor will place.
+    /// our process is already the size the compositor will place — except a
+    /// source with alpha that needs resizing, which arrives at its own size
+    /// for a compositing worker to fit (see [`super::resized`]).
     ///
     /// Sources of a different shape are never stretched. `fit` letterboxes them
     /// — a vertical phone clip in a 16:9 render gets transparent at the sides —
@@ -200,26 +205,28 @@ impl Decoder {
         self.raster
     }
 
-    /// Reads the next frame into `frame`. `false` means the source ran out —
-    /// which is a fact about the media, not a failure: a clip longer than its
-    /// source is a project mistake, and the caller reports it.
-    pub(crate) fn read_into(&mut self, frame: &mut Frame) -> Result<bool, RenderError> {
-        let into = match &mut self.resized {
-            Some(resized) => resized.decoded(),
-            None => &mut *frame,
-        };
-        match self.stdout.read_exact(into.bytes_mut()) {
-            Ok(()) => {
-                if let Some(resized) = &mut self.resized {
-                    resized.fit(frame);
-                }
-                Ok(true)
+    /// What a worker fits this decoder's frames with, when they are not
+    /// already the size [`Self::raster`] says — see [`super::resized`].
+    pub(crate) fn fitter(&self) -> Option<Arc<Fitter>> {
+        self.resized.as_ref().map(super::resized::Resized::fitter)
+    }
+
+    /// Reads the next frame: into `frame` when it arrives at the size it is
+    /// shown, or into `pending` for a worker to fit into `frame` when it has
+    /// to be resized. `false` means the source ran out — which is a fact about
+    /// the media, not a failure: a clip longer than its source is a project
+    /// mistake, and the caller reports it.
+    pub(crate) fn read_into(
+        &mut self,
+        frame: &mut Frame,
+        pending: &mut Pending,
+    ) -> Result<bool, RenderError> {
+        match &mut self.resized {
+            Some(resized) => resized.read(&mut self.stdout, pending),
+            None => {
+                pending.clear();
+                read_frame(&mut self.stdout, frame)
             }
-            Err(error) if error.kind() == ErrorKind::UnexpectedEof => Ok(false),
-            Err(source) => Err(RenderError::Pipe {
-                stage: Stage::Decode,
-                source,
-            }),
         }
     }
 
@@ -235,6 +242,18 @@ impl Decoder {
             }
         })?;
         self.child.finish(Stage::Decode, &self.subject)
+    }
+}
+
+/// Fills `frame` from `pipe`, or says the pipe ran out first.
+pub(super) fn read_frame(pipe: &mut impl Read, frame: &mut Frame) -> Result<bool, RenderError> {
+    match pipe.read_exact(frame.bytes_mut()) {
+        Ok(()) => Ok(true),
+        Err(error) if error.kind() == ErrorKind::UnexpectedEof => Ok(false),
+        Err(source) => Err(RenderError::Pipe {
+            stage: Stage::Decode,
+            source,
+        }),
     }
 }
 
