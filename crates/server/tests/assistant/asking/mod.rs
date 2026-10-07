@@ -14,9 +14,7 @@ use serde_json::{Value, json};
 use sqlx::postgres::PgPool;
 
 use super::script::CHARGED;
-use super::{
-    Script, answers, calls, common, finished, member, new_project, project, scripted, send,
-};
+use super::{Script, answers, calls, common, finished, member, on_model, project, scripted, send};
 
 /// What the scripted model asks.
 fn question() -> Value {

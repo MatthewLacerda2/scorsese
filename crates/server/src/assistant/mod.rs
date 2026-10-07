@@ -15,8 +15,8 @@
 //! ## Which model
 //!
 //! A project names its model (`projects.assistant_model`): one of the four
-//! `scorsese_providers::chat::Model` offers — Gemini 3.8 Flash by default,
-//! Gemini 3.5 Flash Lite, Claude Opus 5.5 or Claude Sonnet 5.5 — and its
+//! `scorsese_providers::chat::Model` offers — Claude Sonnet 5.5 by default,
+//! Claude Opus 5.5, Gemini 3.8 Flash or Gemini 3.5 Flash Lite — and its
 //! owner changes it whenever they like, mid-conversation too (`model`). Every
 //! turn runs on the model its project names when it starts, and is charged at
 //! that model's rates. This module talks to `scorsese_providers::chat` and

@@ -1,4 +1,4 @@
-//! The model a project's assistant runs on (#705): Gemini 3.8 Flash for a new
+//! The model a project's assistant runs on (#705): Claude Sonnet 5.5 for a new
 //! project, changeable at any time, each turn charged at its own model's
 //! rates — and a conversation that comes along across a change.
 
@@ -34,7 +34,7 @@ async fn choose(
 }
 
 #[sqlx::test]
-async fn a_new_project_runs_on_gemini_and_is_charged_at_its_rates(pool: PgPool) {
+async fn a_new_project_starts_on_sonnet_and_gemini_charges_its_own_rates(pool: PgPool) {
     let script = Script::new(vec![answers("Nothing yet.")]);
     let (address, _) = scripted(&pool, &script).await;
     let (ana, who) = member(&pool, "ana@example.com", 10).await;
@@ -44,7 +44,7 @@ async fn a_new_project_runs_on_gemini_and_is_charged_at_its_rates(pool: PgPool) 
     let before = common::request(address, "GET", &chat, &[&who], None)
         .await
         .json();
-    assert_eq!(before["model"], "gemini-3.8-flash", "{before}");
+    assert_eq!(before["model"], "claude-sonnet-5-5", "{before}");
     let ids: Vec<&str> = before["models"]
         .as_array()
         .unwrap()
@@ -71,6 +71,8 @@ async fn a_new_project_runs_on_gemini_and_is_charged_at_its_rates(pool: PgPool) 
         .collect();
     assert_eq!(costs, [&json!(19), &json!(9), &json!(100), &json!(50)]);
 
+    let chose = choose(address, &who, id, "gemini-3.8-flash").await;
+    assert_eq!(chose.status, 200, "{}", chose.body);
     let detail = exchange(address, &who, id, "what is in it?").await;
     assert_eq!(detail["turn"]["model"], "gemini-3.8-flash");
     assert_eq!(
