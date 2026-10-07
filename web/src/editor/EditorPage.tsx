@@ -23,6 +23,8 @@ import { useDeleteKey } from "./deleting";
 import { useDrop } from "./drop";
 import { EditorHeader } from "./EditorHeader";
 import { Inspector } from "./inspector/Inspector";
+import { Handle } from "./panels/Handle";
+import { usePanels } from "./panels/usePanels";
 import { Preview } from "./preview/Preview";
 import { editorKey, useEdit, useEditorProject } from "./project";
 import { confirmThen, trackRemoval } from "./removing";
@@ -47,6 +49,7 @@ function Editor({ project }: { project: EditorProject }) {
   const [playhead, setPlayhead] = useState(0);
   const [picked, setPicked] = useState<string[]>([]);
   const [shape, setShape] = useState<Shape>(() => savedShape(id));
+  const panels = usePanels();
   const drop = useDrop(id, edit, playhead, (clip) => setPicked([clip]));
   const deselect = useCallback(() => setPicked([]), []);
 
@@ -92,11 +95,20 @@ function Editor({ project }: { project: EditorProject }) {
           </Button>
         </div>
       )}
-      <div className="grid min-h-0 flex-1 grid-cols-[15rem_minmax(0,1fr)_22rem] grid-rows-[minmax(0,1fr)_15rem]">
-        <aside className="min-h-0 border-r">
+      {/* Each panel's edge is a handle with a track of its own (#863). */}
+      <div ref={panels.grid} className="grid min-h-0 flex-1" style={panels.style}>
+        <aside className="col-start-1 row-start-1 min-h-0">
           <AssetsPanel projectId={id} document={document} edit={edit} playhead={playhead} />
         </aside>
-        <section className="min-h-0">
+        <Handle
+          grows="right"
+          size={panels.sizes.assets}
+          label={t.editor.page.resizeAssets}
+          className="col-start-2 row-start-1"
+          onSize={(size) => panels.resize("assets", size)}
+          onReset={() => panels.reset("assets")}
+        />
+        <section className="col-start-3 row-start-1 min-h-0">
           <Preview
             projectId={id}
             revision={revision}
@@ -106,7 +118,15 @@ function Editor({ project }: { project: EditorProject }) {
             deliver={SHAPES[shape].deliver[0]}
           />
         </section>
-        <aside className="row-span-2 flex min-h-0 flex-col border-l">
+        <Handle
+          grows="left"
+          size={panels.sizes.chat}
+          label={t.editor.page.resizeChat}
+          className="col-start-4 row-span-3 row-start-1"
+          onSize={(size) => panels.resize("chat", size)}
+          onReset={() => panels.reset("chat")}
+        />
+        <aside className="col-start-5 row-span-3 row-start-1 flex min-h-0 flex-col">
           {chosen && (
             <div className="max-h-[55%] shrink-0 overflow-y-auto border-b">
               <Inspector
@@ -122,7 +142,15 @@ function Editor({ project }: { project: EditorProject }) {
             <ChatPanel projectId={id} />
           </div>
         </aside>
-        <section className="col-span-2 min-h-0 border-t">
+        <Handle
+          grows="up"
+          size={panels.sizes.timeline}
+          label={t.editor.page.resizeTimeline}
+          className="col-span-3 col-start-1 row-start-2"
+          onSize={(size) => panels.resize("timeline", size)}
+          onReset={() => panels.reset("timeline")}
+        />
+        <section className="col-span-3 col-start-1 row-start-3 min-h-0">
           <Timeline
             document={document}
             playhead={playhead}
