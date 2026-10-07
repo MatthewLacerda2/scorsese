@@ -64,7 +64,7 @@ async fn on_gemini_a_typed_message_is_the_answer(pool: PgPool) {
     let script = Script::new(vec![calls("ask_user", question()), answers("Looped.")]);
     let (address, _) = scripted(&pool, &script).await;
     let (ana, who) = member(&pool, "ana@example.com", 10).await;
-    let id = new_project(&pool, ana, json!([])).await;
+    let id = on_model(&pool, ana, json!([]), "gemini-3.8-flash").await;
     let paused = asked(address, &who, id, "add the music").await;
     assert_eq!(paused["turn"]["model"], "gemini-3.8-flash");
     assert_eq!(paused["turn"]["state"], "asking", "{paused}");

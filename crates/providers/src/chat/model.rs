@@ -11,9 +11,10 @@ use crate::credentials::Provider;
 pub enum Model {
     /// Claude Opus 5.5 — the strongest, and the dearest.
     ClaudeOpus55,
-    /// Claude Sonnet 5.5.
+    /// Claude Sonnet 5.5 — the default (the maintainer, 2026-10-07: the
+    /// balance of quality and price).
     ClaudeSonnet55,
-    /// Gemini 3.8 Flash — the default (the maintainer, 2026-10-03, on cost).
+    /// Gemini 3.8 Flash.
     GeminiFlash38,
     /// Gemini 3.5 Flash Lite — the cheapest. There is no 3.8 Lite.
     GeminiFlashLite35,
@@ -38,7 +39,7 @@ impl Model {
     ];
 
     /// What a project runs on until its owner picks otherwise.
-    pub const DEFAULT: Self = Self::GeminiFlash38;
+    pub const DEFAULT: Self = Self::ClaudeSonnet55;
 
     /// The id the vendor's API answers to, and what the server stores.
     pub const fn id(self) -> &'static str {

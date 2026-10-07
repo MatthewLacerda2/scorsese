@@ -2,6 +2,7 @@
 //! owner filter — the row-level policy is the filter (`db::scope`).
 
 use scorsese_core::Project;
+use scorsese_providers::chat::Model;
 use sqlx::postgres::PgPool;
 
 use super::{ProjectError, ProjectFiles, Stored, Summary, files, media};
@@ -51,10 +52,12 @@ pub async fn create(
     let json = serde_json::to_string(project)?;
     let mut tx = db::scoped(pool, user).await?;
     let row: SummaryRow = sqlx::query_as(concat!(
-        "INSERT INTO projects (user_id, document) VALUES (member_id(), $1::jsonb) RETURNING ",
+        "INSERT INTO projects (user_id, document, assistant_model) \
+         VALUES (member_id(), $1::jsonb, $2) RETURNING ",
         summary_columns!()
     ))
     .bind(json)
+    .bind(Model::DEFAULT.id())
     .fetch_one(&mut *tx)
     .await?;
     media::record(&mut tx, row.0, project).await?;

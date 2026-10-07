@@ -7,7 +7,7 @@ use std::net::SocketAddr;
 use serde_json::{Value, json};
 use sqlx::postgres::PgPool;
 
-use super::{Script, answers, calls, common, exchange, finished, member, new_project, project};
+use super::{Script, answers, calls, common, exchange, finished, member, on_model, project};
 use super::{scripted, send};
 
 /// A shot and a line ready to send: a quote with a description for each.
@@ -34,16 +34,13 @@ async fn jobs(pool: &PgPool) -> i64 {
         .expect("the jobs can be counted")
 }
 
-/// A quote, then a change asked for, on a project on `model` — `None` for
-/// the default; every request the model was sent, as text.
-async fn change_on(pool: &PgPool, model: Option<&str>) -> Vec<String> {
+/// A quote, then a change asked for, on a project on `model`; every request
+/// the model was sent, as text.
+async fn change_on(pool: &PgPool, model: &str) -> Vec<String> {
     let script = Script::new(vec![]);
     let (address, _) = scripted(pool, &script).await;
     let (ana, who) = member(pool, "ana@example.com", 10).await;
-    let id = match model {
-        Some(_) => project(pool, ana, briefed()).await,
-        None => new_project(pool, ana, briefed()).await,
-    };
+    let id = on_model(pool, ana, briefed(), model).await;
     script.replace(vec![
         calls("generate", json!({ "project": id })),
         answers("The shot and the line cost about a dollar; answer in the box."),
@@ -109,7 +106,7 @@ fn told_alike(sent: &[String]) {
 
 #[sqlx::test]
 async fn a_change_on_claude_is_the_users_message_and_a_server_note(pool: PgPool) {
-    let sent = change_on(&pool, Some("claude-opus-5-5")).await;
+    let sent = change_on(&pool, "claude-opus-5-5").await;
     told_alike(&sent);
     let last = sent.last().unwrap();
     assert!(last.contains(r#""role":"system""#), "{last}");
@@ -117,7 +114,7 @@ async fn a_change_on_claude_is_the_users_message_and_a_server_note(pool: PgPool)
 
 #[sqlx::test]
 async fn a_change_on_gemini_is_the_users_message_and_a_server_note(pool: PgPool) {
-    let sent = change_on(&pool, None).await;
+    let sent = change_on(&pool, "gemini-3.8-flash").await;
     told_alike(&sent);
     assert!(sent.last().unwrap().contains("[scorsese server]"));
 }

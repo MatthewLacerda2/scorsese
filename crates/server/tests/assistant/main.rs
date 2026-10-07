@@ -79,9 +79,15 @@ async fn member(pool: &PgPool, email: &str, dollars: i64) -> (UserId, String) {
 
 /// A project of `user`'s holding `assets`, on Claude Opus 5.5; its id.
 async fn project(pool: &PgPool, user: UserId, assets: Value) -> i64 {
+    on_model(pool, user, assets, "claude-opus-5-5").await
+}
+
+/// A project of `user`'s holding `assets`, on `model`; its id.
+async fn on_model(pool: &PgPool, user: UserId, assets: Value, model: &str) -> i64 {
     let id = new_project(pool, user, assets).await;
-    sqlx::query("UPDATE projects SET assistant_model = 'claude-opus-5-5' WHERE id = $1")
+    sqlx::query("UPDATE projects SET assistant_model = $2 WHERE id = $1")
         .bind(id)
+        .bind(model)
         .execute(pool)
         .await
         .expect("the test setup holds");

@@ -122,8 +122,8 @@ new build, before it serves anything.
 
 ## The assistant
 
-A model of the project's choosing — Gemini 3.8 Flash by default, Gemini 3.5
-Flash Lite, Claude Opus 5.5 or Claude Sonnet 5.5 (#705) — running server-side
+A model of the project's choosing — Claude Sonnet 5.5 by default, Claude Opus
+5.5, Gemini 3.8 Flash or Gemini 3.5 Flash Lite (#705) — running server-side
 with scorsese's tool registry (#540). The same tools are served over web MCP
 (#539), so a user can connect their own client instead. One tool set, two ways
 in — and nothing in the tool surface may assume who the caller is (`CLAUDE.md`,
