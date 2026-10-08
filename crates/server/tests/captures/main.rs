@@ -7,6 +7,7 @@
 //! container is where it is on, and #778's PR has that run.
 
 mod media;
+mod stretch;
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -14,7 +15,7 @@ use std::time::Duration;
 use scorsese_core::Fps;
 use scorsese_render::Cancel;
 use scorsese_render::Resolution;
-use scorsese_render::page::Request;
+use scorsese_render::page::{Request, Wanted};
 use scorsese_server::captures::dispatch::Pages;
 use scorsese_server::captures::worker::{Isolation, Worker};
 use scorsese_server::captures::{PROJECT, Spool};
@@ -56,6 +57,13 @@ fn request(duration: f64) -> Request {
     }
 }
 
+/// All of [`request`]'s frames, from the first.
+fn whole(duration: f64) -> Wanted {
+    let request = request(duration);
+    let frames = 0..request.frames();
+    Wanted::new(request, frames)
+}
+
 fn frames_in(dir: &Path) -> usize {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return 0;
@@ -93,7 +101,7 @@ fn a_page_asked_for_by_the_server_is_captured_by_the_worker_into_the_projects_ca
     });
 
     let captured = pages
-        .capture(&[request(0.5)], &Cancel::new())
+        .capture(&[whole(0.5)], &Cancel::new())
         .expect("not cancelled");
     answering.join().expect("the worker answered");
 
@@ -118,7 +126,7 @@ fn a_page_asked_for_by_the_server_is_captured_by_the_worker_into_the_projects_ca
     let long_ago = std::time::SystemTime::now() - Duration::from_secs(49 * 3600);
     let file = std::fs::File::options().append(true).open(&frames);
     file.expect("frames").set_modified(long_ago).expect("aged");
-    touch(&pages.folder(), &[request(0.5)], chrome.version());
+    touch(&pages.folder(), &[whole(0.5)], chrome.version());
     let age = std::fs::metadata(&frames).and_then(|meta| meta.modified());
     assert!(age.expect("a time") > long_ago + Duration::from_secs(3600));
     let _ = std::fs::remove_dir_all(root);

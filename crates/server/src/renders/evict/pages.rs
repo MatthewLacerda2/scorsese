@@ -11,8 +11,9 @@
 //! no longer exists.
 //!
 //! - **Used** is the newest modification time of the frames and record on any
-//!   of the slot's shelves, or of any piece's (`part-<first>-<end>.mkv` and `.json`, a capture
-//!   of only some of the page's frames, #809), so a slot holding only pieces
+//!   of the slot's shelves, or of any piece's (`part-<first>-<end>.mkv` and
+//!   `.json`, a capture of only some of the page's frames, #809 — which is
+//!   what the capture container makes, #890), so a slot holding only pieces
 //!   ages by them and goes whole. A capture sets it; a render that reuses one
 //!   sets it again ([`touch`]) — the server's job, since `scorsese-render` has
 //!   no reason to know anybody ages its cache.
@@ -30,7 +31,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
 use scorsese_core::CACHE_DIR;
-use scorsese_render::page::{Request, cached};
+use scorsese_render::page::{Wanted, cached_frames};
 
 use super::{Evicted, IDLE, RenderCache};
 
@@ -44,16 +45,15 @@ const RECORD: &str = "capture.json";
 /// A piece's frames and record start with this, inside a slot.
 const PART: &str = "part-";
 
-/// Mark every capture `requests` reuses as used now. `project_root` is the
-/// laid-out project whose `cache/` is the page cache. A file that cannot be
-/// stamped is said and left: at worst it is captured again.
-///
-/// Only a whole capture is stamped: the capture container takes every page
-/// whole (`capture_following`), so a slot here holds no piece for a render to
-/// read instead. One that somehow did would still age by its own write time.
-pub fn touch(project_root: &Path, requests: &[Request], chrome_version: &str) {
-    for request in requests {
-        let Some(captured) = cached(project_root, request, chrome_version) else {
+/// Mark every capture `requests` reuses as used now: the whole page's or the
+/// piece holding the frames each asks for, whichever the render will read
+/// (`cached_frames`, #890). `project_root` is the laid-out project whose
+/// `cache/` is the page cache. A file that cannot be stamped is said and
+/// left: at worst it is captured again.
+pub fn touch(project_root: &Path, requests: &[Wanted], chrome_version: &str) {
+    for Wanted { request, frames } in requests {
+        let held = cached_frames(project_root, request, chrome_version, frames.clone());
+        let Some(captured) = held else {
             continue;
         };
         let stamped = std::fs::File::options()

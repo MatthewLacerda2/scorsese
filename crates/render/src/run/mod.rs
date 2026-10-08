@@ -163,6 +163,21 @@ impl<'a> Renderer<'a> {
         Ok(pages::requests(&self.settings, &plan, project_root))
     }
 
+    /// [`Renderer::page_requests`], with the stretch of each page a render
+    /// shows: what a caller capturing ahead of a render that does not capture
+    /// ([`Renderer::without_capturing`]) hands [`crate::page::capture_frames`],
+    /// so only the frames on screen are drawn (#809, #890). A clip's stretch is
+    /// the frames it shows over the whole timeline, a frame or two wider for
+    /// the decoder, whatever `range` the render is later given.
+    pub fn page_captures(
+        &self,
+        project: &Project,
+        project_root: &Path,
+    ) -> Result<Vec<page::Wanted>, RenderError> {
+        let plan = Plan::build(project, self.settings.fps, FrameRange::ALL)?;
+        Ok(pages::wanted(&self.settings, &plan, project_root))
+    }
+
     /// Renders `range` of `project` to `out`.
     ///
     /// Expects a project that already validated — [`Project::load`] does that,

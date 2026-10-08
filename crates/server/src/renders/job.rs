@@ -263,7 +263,7 @@ fn produce(
     // in it — as the laid-out one has none either: the library keeps a line's
     // audio and not its timings yet (#811's web half).
     let requests = renderer
-        .page_requests(project, &places.work)
+        .page_captures(project, &places.work)
         .map_err(rendering)?;
     let at = if requests.is_empty() {
         places.work.clone()

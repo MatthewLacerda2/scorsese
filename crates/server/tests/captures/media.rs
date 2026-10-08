@@ -9,7 +9,7 @@ use scorsese_render::Cancel;
 use scorsese_server::captures::dispatch::Pages;
 use scorsese_server::captures::worker::Isolation;
 
-use super::{request, spool, worker};
+use super::{spool, whole, worker};
 
 /// Every `capture.json` under `dir`, read as text.
 fn records_in(dir: &std::path::Path) -> String {
@@ -66,7 +66,7 @@ fn a_page_loads_its_owners_media_through_the_library_and_nobody_elses() {
     });
 
     let captured = pages
-        .capture(&[request(0.5)], &Cancel::new())
+        .capture(&[whole(0.5)], &Cancel::new())
         .expect("not cancelled");
     answering.join().expect("the worker answered");
 

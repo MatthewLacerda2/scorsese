@@ -12,7 +12,7 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use scorsese_core::{CACHE_DIR, Project};
-use scorsese_render::page::{CHROME_ENV, Chrome, Request};
+use scorsese_render::page::{CHROME_ENV, Chrome, Wanted};
 use scorsese_render::{Cancel, Note};
 
 use super::{ANSWER, ASK, Answer, Ask, Asked, PROJECT, Spool, now, publish, read};
@@ -58,9 +58,10 @@ impl Pages {
         self.job_folder().join(PROJECT)
     }
 
-    /// Captures `requests` for the project laid out at [`Pages::folder`], and
-    /// waits for them. `Err` only when `cancel` was tripped.
-    pub fn capture(&self, requests: &[Request], cancel: &Cancel) -> Result<Captured, String> {
+    /// Captures `requests` for the project laid out at [`Pages::folder`], only
+    /// the frames each asks for, and waits for them. `Err` only when `cancel`
+    /// was tripped.
+    pub fn capture(&self, requests: &[Wanted], cancel: &Cancel) -> Result<Captured, String> {
         let chrome = match browser() {
             Ok(chrome) => chrome,
             Err(why) => return Ok(none_captured(requests, &why, None)),
@@ -85,7 +86,7 @@ impl Pages {
         let failed = requests
             .iter()
             .zip(answer.failed)
-            .filter_map(|(request, why)| Some((request.page.clone(), why?)))
+            .filter_map(|(wanted, why)| Some((wanted.request.page.clone(), why?)))
             .collect();
         Ok(Captured {
             chrome: Some(chrome),
@@ -144,12 +145,12 @@ fn browser() -> Result<Chrome, String> {
     Chrome::at(named).map_err(|error| error.to_string())
 }
 
-fn none_captured(requests: &[Request], why: &str, chrome: Option<Chrome>) -> Captured {
+fn none_captured(requests: &[Wanted], why: &str, chrome: Option<Chrome>) -> Captured {
     Captured {
         chrome,
         failed: requests
             .iter()
-            .map(|request| (request.page.clone(), why.to_owned()))
+            .map(|wanted| (wanted.request.page.clone(), why.to_owned()))
             .collect(),
     }
 }
