@@ -4,7 +4,7 @@
 use scorsese_providers::api::lottiefiles::{Connection, Reply, Searched};
 use scorsese_providers::credentials::{Environment, Settings};
 use scorsese_providers::live::lottiefiles::search_step;
-use scorsese_providers::live::{Options, Vendor, Verdict, plan, total};
+use scorsese_providers::live::{Options, VENDORS, Vendor, Verdict, plan, total};
 
 use super::{parsed, refused};
 
@@ -96,4 +96,27 @@ fn the_keyless_vendor_is_free_and_off_unless_asked_for() {
     assert!(planned.calls[0].contains("free, no key"));
     assert_eq!(total(&[planned]), 0);
     assert!(lottie(&Options::default()).skipped.is_some());
+}
+
+/// A recording's files are named by slug, so two vendors sharing one would
+/// overwrite each other; a report names each by its label.
+#[test]
+fn every_vendor_has_its_own_file_name_and_label() {
+    let slugs: Vec<&str> = VENDORS.iter().map(|v| v.slug()).collect();
+    assert_eq!(
+        slugs,
+        [
+            "gemini",
+            "elevenlabs",
+            "anthropic",
+            "pixabay",
+            "lottiefiles"
+        ]
+    );
+    for vendor in VENDORS {
+        match vendor.provider() {
+            Some(provider) => assert_eq!(vendor.label(), provider.label()),
+            None => assert!(vendor.label().starts_with("LottieFiles"), "{vendor:?}"),
+        }
+    }
 }
