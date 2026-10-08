@@ -1,0 +1,5 @@
+# `bun test`'s settings: the DOM the interaction tests need (src/test/dom.ts),
+# and only `src/` searched — `tests/e2e/` is Playwright's, run by its own runner.
+[test]
+root = "./src"
+preload = ["./src/test/dom.ts"]

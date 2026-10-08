@@ -56,7 +56,7 @@ LINT := --manifest-path tools/lint/Cargo.toml
 # conditional ones come last, because they are the ones that may decide not to
 # run at all; `app` after `web` because it is the one that can build a graphics
 # dependency tree.
-GATES := format size scripts clippy docs test deny deploy web app
+GATES := format size scripts clippy docs test deny deploy web web-e2e app
 
 # Whether this branch touches the desktop app, and so whether its gates are on
 # the path of this change. The question is asked in two places — the `app` gate
@@ -86,6 +86,9 @@ TOUCHES = { \
 	|| [ -n "$$(git status --porcelain -- $(1))" ]; }
 TOUCHES_APP = $(call TOUCHES,app/ ':(exclude)*.md')
 TOUCHES_WEB = $(call TOUCHES,web/ ':(exclude)*.md')
+# The end-to-end flows drive the page against the real server, so a change to
+# either side is a change they answer for.
+TOUCHES_E2E = $(call TOUCHES,web/ crates/server/ ':(exclude)*.md')
 
 # Whether the golden fixtures are among the tests `test` just ran. They are
 # `#[ignore]`d on any target that is not Linux, because the references are
@@ -212,14 +215,14 @@ NEXTEST_CHECK = command -v cargo-nextest >/dev/null 2>&1 || { \
 # directories called `app/` and `web/`, so without it make sees the target as
 # already built and `make app` prints "up to date" without running a thing. A
 # check that silently does nothing is worse than no check.
-.PHONY: help setup gates pre-commit target-dir inventory $(GATES) app-gates web-gates release format-fix mcp-table coverage mutants mutants-remote mutants-status mergeable queue live-check
+.PHONY: help setup gates pre-commit target-dir inventory $(GATES) app-gates web-gates web-e2e-run release format-fix mcp-table coverage mutants mutants-remote mutants-status mergeable queue live-check
 
 ##@ Everyday
 
 help: ## Print this list
 	@awk 'BEGIN { FS = ":.*##" } \
 		/^##@/ { printf "\n%s\n", substr($$0, 5); next } \
-		/^[a-z][a-z-]*:.*##/ { printf "  \033[1m%-12s\033[0m %s\n", $$1, $$2 }' \
+		/^[a-z][a-z0-9-]*:.*##/ { printf "  \033[1m%-12s\033[0m %s\n", $$1, $$2 }' \
 		$(MAKEFILE_LIST)
 	@echo
 
@@ -249,12 +252,15 @@ pre-commit: format size ## The fast half: what the pre-commit hook runs
 # would be that failure mode arriving by a different door.
 gates: APP := scoped
 gates: WEB := scoped
+gates: E2E := scoped
 gates: target-dir inventory $(GATES) ## Everything CI blocks on. Run this before opening a PR
-	@ran="$(filter-out web app,$(GATES))"; \
+	@ran="$(filter-out web web-e2e app,$(GATES))"; \
 	if $(TOUCHES_WEB); then ran="$$ran web"; fi; \
+	if $(TOUCHES_E2E); then ran="$$ran web-e2e"; fi; \
 	if $(TOUCHES_APP); then ran="$$ran app"; fi; \
 	echo "gates: all green -- $$ran"
 	@$(TOUCHES_WEB) || echo "gates: web not run -- this branch changes nothing under web/."
+	@$(TOUCHES_E2E) || echo "gates: web-e2e not run -- this branch changes nothing under web/ or crates/server/."
 	@$(TOUCHES_APP) || echo "gates: app not run -- this branch changes nothing under app/."
 # `test` did run, and is on that list; part of what it covers did not. So this
 # narrows the claim rather than removing a gate from it — which is why it reads
@@ -528,6 +534,34 @@ web-gates:
 	cd web && bun run typecheck
 	cd web && bun test
 	cd web && bun run build
+
+# The end-to-end flows (#898): headless Chromium driving the built page against
+# the real `scorsese-server` and a Postgres (web/playwright.config.ts says what
+# each needs). Conditional like `web`, on `web/` or `crates/server/`, since a
+# flow breaks when either side changes; needs docker for the Postgres, as
+# `test` does, unless SCORSESE_TEST_DATABASE_URL names one.
+#
+# CI's `check` job runs the same thing after its tests, on the server binary
+# those tests already built, rather than a second cold Rust build.
+#
+# Playwright's own pinned Chromium, fetched once into its cache; E2E_CHROMIUM
+# names another and skips the fetch (a container that has one, an offline
+# machine).
+web-e2e: ## [gate] The web app's end-to-end flows, when the branch touches web/ or crates/server/
+	@if [ "$(E2E)" != "scoped" ] || $(TOUCHES_E2E); then \
+		$(MAKE) --no-print-directory web-e2e-run; \
+	else \
+		echo "web-e2e: this branch changes nothing under web/ or crates/server/ -- not run."; \
+	fi
+
+web-e2e-run:
+	@command -v bun >/dev/null 2>&1 || { \
+		echo "web-e2e: bun is not installed -- the web front-end builds with it." >&2; \
+		exit 1; }
+	cargo build --locked -p scorsese-server --bin scorsese-server
+	cd web && bun install --frozen-lockfile
+	@[ -n "$$E2E_CHROMIUM" ] || { cd web && bunx playwright install --only-shell chromium; }
+	tools/with-postgres sh -c 'cd web && SCORSESE_SERVER=../target/debug/scorsese-server bunx playwright test'
 
 ##@ Merging — asked of GitHub, not of the code
 
@@ -809,7 +843,7 @@ target-dir:
 # documented as one. Adding a gate means touching both, and forgetting either
 # fails here instead of silently narrowing what green means.
 inventory:
-	@documented=$$(awk -F: '/^[a-z][a-z-]*:.*## \[gate\]/ { print $$1 }' \
+	@documented=$$(awk -F: '/^[a-z][a-z0-9-]*:.*## \[gate\]/ { print $$1 }' \
 		$(MAKEFILE_LIST) | sort | tr '\n' ' '); \
 	declared=$$(printf '%s\n' $(GATES) | sort | tr '\n' ' '); \
 	if [ "$$documented" != "$$declared" ]; then \

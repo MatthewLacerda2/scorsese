@@ -129,7 +129,8 @@ shape.
   why the edit is a JSON document while everything around it is tables, and
   money as integer micro-dollars. Read it before touching the server or `web/`.
 - **web/README.md** — the React front-end: running it, its dev proxy to the
-  server, and its gate (`make web`).
+  server, its gates (`make web`, and `make web-e2e` for the end-to-end flows)
+  and which kind of test a new one is.
 - Crate boundaries live in each crate's `lib.rs` module doc — read them before
   adding a dependency between crates.
 
