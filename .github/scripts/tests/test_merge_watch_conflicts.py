@@ -96,8 +96,12 @@ class Saying(unittest.TestCase):
 
 
 def git(root, *args):
+    # No automatic maintenance: newer git (2.55 on CI's runner, #929) packs a
+    # fresh repo in a detached child after `commit`, which can still be
+    # writing into `.git` when the test's TemporaryDirectory is removed.
     return subprocess.run(
-        ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
+        ["git", "-c", "user.name=t", "-c", "user.email=t@t",
+         "-c", "gc.auto=0", "-c", "maintenance.auto=false", *args],
         cwd=root, check=True, capture_output=True, text=True,
     ).stdout.strip()
 
