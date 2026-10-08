@@ -144,7 +144,8 @@ impl Tool for VoiceDesign {
         .map_err(say)?;
 
         let quoted = quote(dir, &brief).map_err(|error| format!("{error}"))?;
-        if let Some(asking) = confirm::gate(dir, arguments.confirm.as_ref(), &quoted, self.name())?
+        if let Some(asking) =
+            confirm::gate(dir, arguments.confirm.as_ref(), &quoted, self.name(), &[])?
         {
             return Ok(asking);
         }

@@ -228,7 +228,7 @@ pub(crate) const PIXEL: &[u8] = &[
 const LINE: &str = r#"{ "id": "vo", "kind": "generated_audio", "state": "sketch","#;
 
 pub(crate) const DOCUMENT: &str = r##"{
-  "schema_version": 46,
+  "schema_version": 47,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [

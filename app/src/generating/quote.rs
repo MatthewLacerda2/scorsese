@@ -181,6 +181,11 @@ fn stills(project: &Project) -> Vec<Priced> {
                 request.references().count(),
             );
             let (cents, shape) = match (prompt.trim().is_empty(), waiting, priced) {
+                // Ordered in a half-price batch (#894): paid for, and the run
+                // collects it.
+                _ if asset.operation.is_some() => {
+                    (0, String::from("waits in its batch — already paid for"))
+                }
                 (true, _, _) => (0, String::from("has no prompt yet")),
                 (false, Some(sheet), _) => (0, format!("waits for {sheet} to be generated first")),
                 (false, None, Err(why)) => (0, why.to_string()),

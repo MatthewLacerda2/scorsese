@@ -54,11 +54,15 @@ impl JsonSchema for Token {
 /// token handed in was issued for exactly this. `Ok(Some(reply))` is the quote,
 /// with a fresh token, and nothing spent. `Err` is a token refused — nothing
 /// spent there either, and the sentence says what to do.
+///
+/// `notes` go between the quote and how to agree to it — what else the person
+/// should weigh before saying yes, such as a cheaper way to order the same.
 pub(crate) fn gate(
     dir: &Path,
     confirm: Option<&Token>,
     quote: &Quote,
     tool: &str,
+    notes: &[String],
 ) -> Result<Option<Reply>, String> {
     if quote.is_free() {
         return Ok(None);
@@ -72,6 +76,7 @@ pub(crate) fn gate(
     let issued =
         issue(&store, quote, now).map_err(|error| format!("keeping the quote: {error}"))?;
     let mut lines = said(quote);
+    lines.extend(notes.iter().cloned());
     lines.push(format!(
         "Nothing has been sent. To spend this, call {tool} again with the same arguments and \
          confirm: \"{}\" — once whoever is paying has agreed to {}. Good once, for {} \

@@ -50,6 +50,20 @@ fn a_ticket_on_an_imported_file_names_work_nobody_is_doing() {
 }
 
 #[test]
+fn a_ticket_on_a_line_names_work_nobody_is_doing() {
+    let mut p = project();
+    asset_mut(&mut p, "vo-open").operation = Some("batches/abc".to_owned());
+    assert_only_problem(
+        &p,
+        E::StrayField {
+            asset: asset_id("vo-open"),
+            field: F::Operation,
+            kind: AssetKind::GeneratedAudio,
+        },
+    );
+}
+
+#[test]
 fn every_conflict_in_one_request_is_reported_at_once() {
     let p = asking(|r| {
         r.model = VideoModel::Lite;

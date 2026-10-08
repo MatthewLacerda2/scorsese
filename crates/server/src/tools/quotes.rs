@@ -139,7 +139,7 @@ fn said(refused: &Refused<Infallible>) -> String {
 
 /// A kind of spending, by the name the table stores.
 fn spend_named(name: &str) -> Option<Spend> {
-    [Spend::Generation, Spend::VoiceDesign]
+    [Spend::Generation, Spend::VoiceDesign, Spend::Batch]
         .into_iter()
         .find(|spend| spend.as_str() == name)
 }

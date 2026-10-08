@@ -39,7 +39,7 @@ A complete worked example lives in
 
 ```json project
 {
-  "schema_version": 46,
+  "schema_version": 47,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -170,7 +170,7 @@ re-importing or regenerating a file is one edit in one place.
 | `speech` | optional, `generated_audio` only | The rest of the brief: `model`, `voice_id`, `language`, `seed` — see below |
 | `created_at` | optional | When the asset joined the table, as UTC RFC 3339 (`2026-08-04T14:20:00Z`) |
 | `queued_at` | optional, generated kinds | When a provider took the request. Not the same fact as `created_at` |
-| `operation` | optional, `generated_video` | The provider's name for work in flight, while `queued` |
+| `operation` | optional, `generated_video`, `generated_image` | The provider's name for work in flight, while `queued`: a shot's Veo operation, or the batch a still waits in |
 | `estimated_cost_cents` | optional, prompted kinds | What realising it was *calculated* to cost, in US cents — our arithmetic, never a bill. See [prices.md](prices.md) (`guide prices`) |
 
 ```json asset
@@ -415,10 +415,13 @@ sheet and reports the other as *not yet*, and the next call draws it.
 | a reference that is not an `image` or `generated_image`, or not in the table | every reference handed over is a picture |
 | a still naming itself as a reference | it could never be drawn |
 
-A still has no ticket: it comes back on the call that asked for it, so a
-`generated_image` is never `queued` and never carries an `operation`. It lands
-at `generated/<id>-<hash of the brief>.jpg`: Gemini's image endpoint
-draws JPEGs only.
+A still drawn now has no ticket: it comes back on the call that asked for it.
+One ordered in a **batch** — half price, ready within 24 hours (`generate`
+with `batch`, see [prices.md](prices.md)) — is `queued`, with the batch job's
+name as its `operation` and `queued_at` stamped, until a later `generate`
+collects it. Whether a still was batched is not part of its brief: the same
+brief draws the same kind of picture either way, and lands at the same
+`generated/<id>-<hash of the brief>.jpg`.
 
 ### What a spoken line asks for
 
@@ -2624,7 +2627,7 @@ compositing-suite line.
 
 ```json project
 {
-  "schema_version": 46,
+  "schema_version": 47,
   "name": "wipe",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [

@@ -189,6 +189,32 @@ pub fn image(
     prompt_characters: usize,
     references: usize,
 ) -> Result<ImageEstimate, UnpricedImage> {
+    image_at(request, prompt_characters, references, 100)
+}
+
+/// What drawing this still in a **batch** is expected to cost: [`image`]'s
+/// arithmetic at [`gemini::BATCH_PERCENT`] of the standard rate, rounded up
+/// once at the end, like it (#894).
+pub fn image_in_batch(
+    request: &ImageRequest,
+    prompt_characters: usize,
+    references: usize,
+) -> Result<ImageEstimate, UnpricedImage> {
+    image_at(
+        request,
+        prompt_characters,
+        references,
+        gemini::BATCH_PERCENT,
+    )
+}
+
+/// [`image`] at `percent` of the standard rate.
+fn image_at(
+    request: &ImageRequest,
+    prompt_characters: usize,
+    references: usize,
+    percent: u64,
+) -> Result<ImageEstimate, UnpricedImage> {
     let resolution = request.size();
     let rate = gemini::rate(request.model, resolution).ok_or(UnpricedImage {
         model: request.model,
@@ -200,7 +226,7 @@ pub fn image(
     let input_microdollars = (input_tokens * rate.cents_per_million_input).div_ceil(100);
     let microdollars = rate.microdollars_per_image + input_microdollars;
     Ok(ImageEstimate {
-        cents: microdollars.div_ceil(10_000),
+        cents: (microdollars * percent).div_ceil(1_000_000),
         rate,
         input_tokens,
     })

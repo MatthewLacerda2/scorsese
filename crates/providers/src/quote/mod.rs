@@ -47,7 +47,7 @@ mod generation;
 mod local;
 mod token;
 
-pub use generation::{Unquotable, generation};
+pub use generation::{OFFER_FROM_CENTS, Offer, Unquotable, batch, generation, offer};
 pub use local::{ProjectQuotes, QUOTES_DIR};
 pub use token::{Issued, LIFETIME_SECONDS, Quotes, Refused, issue, redeem};
 
@@ -65,6 +65,9 @@ pub enum Spend {
     Generation,
     /// Designing a voice from a description.
     VoiceDesign,
+    /// Ordering stills as a half-price batch (#894) — its own kind, so a
+    /// token agreed at one price and wait is never spent on the other.
+    Batch,
 }
 
 impl Spend {
@@ -73,6 +76,7 @@ impl Spend {
         match self {
             Self::Generation => "generation",
             Self::VoiceDesign => "voice_design",
+            Self::Batch => "batch_generation",
         }
     }
 }

@@ -24,6 +24,17 @@ fn a_sentence_alone_is_a_whole_request() {
     assert_eq!(problems(&drawing(|_| {})), vec![]);
 }
 
+/// A still ordered in a half-price batch waits `queued` with the batch's name
+/// as its ticket (#894), exactly as a shot waits on Veo's operation.
+#[test]
+fn a_still_waiting_in_a_batch_carries_its_ticket() {
+    let mut p = drawing(|_| {});
+    let still = p.assets.last_mut().expect("the still");
+    still.state = Some(scorsese_core::GenerationState::Queued);
+    still.operation = Some(String::from("batches/abc123"));
+    assert_eq!(problems(&p), vec![]);
+}
+
 #[test]
 fn the_cheaper_model_draws_one_size_and_says_so() {
     let p = drawing(|r| {

@@ -82,6 +82,15 @@ pub const RATES: &[Row] = &[
     row(ImageModel::Pro, ImageResolution::K4, 240_000, 200),
 ];
 
+/// What the **batch** tier costs, as a percentage of the standard row (#894).
+///
+/// Fifty: the page lists a batch column beside every standard one, picture and
+/// input alike, and every batch figure is exactly half its standard
+/// neighbour — so it is one number here rather than a second table that could
+/// drift from the first. Read on the day [`CHECKED`] names; the day a batch
+/// figure is not half its neighbour, this becomes a table.
+pub const BATCH_PERCENT: u64 = 50;
+
 /// What this model costs at this size, or `None` if the vendor does not sell it.
 pub fn rate(model: ImageModel, resolution: ImageResolution) -> Option<Rate> {
     RATES

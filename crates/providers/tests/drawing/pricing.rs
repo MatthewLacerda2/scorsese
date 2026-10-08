@@ -98,3 +98,16 @@ fn a_size_the_model_does_not_draw_has_no_price() {
     assert!(image(&at(ImageModel::Lite, ImageResolution::K4), 10, 0).is_err());
     assert!(image(&at(ImageModel::NanoBanana21, ImageResolution::K05), 10, 0).is_err());
 }
+
+/// The batch tier is half of every standard row, picture and input alike, and
+/// rounded up to the cent once, like the standard estimate (#894).
+#[test]
+fn a_batch_still_is_half_the_standard_price_rounded_up() {
+    assert_eq!(gemini::BATCH_PERCENT, 50);
+    let flash = at(ImageModel::Flash, ImageResolution::K1);
+    let now = image(&flash, 0, 0).expect("sold").cents;
+    let later = scorsese_providers::prices::image_in_batch(&flash, 0, 0)
+        .expect("sold")
+        .cents;
+    assert_eq!((now, later), (7, 4), "6.7¢ now and 3.35¢ in a batch");
+}

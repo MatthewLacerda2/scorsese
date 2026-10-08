@@ -110,6 +110,10 @@ pub(crate) const STEPS: &[Step] = &[
         from: 45,
         apply: stills::stills_parity_arrives,
     },
+    Step {
+        from: 46,
+        apply: batches_arrive,
+    },
 ];
 
 /// v33 → v34: the `group` asset kind (#586).
@@ -240,6 +244,17 @@ fn pages_arrive(_: &mut Value) -> Result<(), String> {
 /// tier and raster a v44 shot names is the same one at v45, at the same price,
 /// so every v44 document reads the same and only its version moves.
 fn veo_parity_arrives(_: &mut Value) -> Result<(), String> {
+    Ok(())
+}
+
+/// v46 → v47: a still may wait in a half-price batch (#894).
+///
+/// Nothing to rewrite, for [`groups_arrive`]'s reason: a `generated_image` may
+/// now be `queued` with its batch job's name as its `operation`, which no v46
+/// document could hold — v46 refused both on a still. Every v46 still is
+/// sketched, generated or stale and reads the same at v47, so only the version
+/// moves.
+fn batches_arrive(_: &mut Value) -> Result<(), String> {
     Ok(())
 }
 

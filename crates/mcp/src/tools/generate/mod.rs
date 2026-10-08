@@ -27,8 +27,9 @@ use schemars::JsonSchema;
 use scorsese_core::placing::{self, Shortened};
 use scorsese_core::{AssetId, Project, Reprobe, probe_assets};
 use scorsese_providers::credentials::{Budget, Settings};
+use scorsese_providers::image::Order;
 use scorsese_providers::prices::dollars;
-use scorsese_providers::quote::generation;
+use scorsese_providers::quote::{self, generation};
 use scorsese_providers::video::{Run, WAIT_FOR};
 use scorsese_providers::{image, speech, spending, video};
 use scorsese_render::Ffprobe;
@@ -49,10 +50,16 @@ struct Arguments {
     project: ProjectDir,
     confirm: Option<Token>,
     /// Collect whatever has finished and submit nothing at all. What to call on
-    /// returning to a project with shots in flight — it cannot spend anything.
-    /// Narration is never in flight, so this concerns video only.
+    /// returning to a project with shots in flight or stills waiting in a
+    /// batch — it cannot spend anything. Narration is never in flight.
     #[serde(default)]
     collect: bool,
+    /// Order the stills as a half-price batch, ready within 24 hours, instead
+    /// of drawing them now. Only when whoever is paying chose to wait: it
+    /// trades their time for half the price. Stills only — refused when a
+    /// shot or a line would be sent too. A later call collects them.
+    #[serde(default)]
+    batch: bool,
     /// How long to wait for video before detaching and leaving the rest to be
     /// collected later. Default 300. Nothing is lost by detaching; the tickets
     /// are in the document.
@@ -75,11 +82,15 @@ impl Tool for Generate {
          exactly the briefs quoted — edit one in between and the call is refused and \
          must be quoted again. A run with nothing to pay for (everything already \
          generated, or shots only waiting to be collected) needs no token. A brief \
-         already generated is never sent again. Video takes minutes, so a confirmed \
+         already generated is never sent again. When stills are worth a dollar or more \
+         the quote also prices them in a batch: half price, ready within 24 hours. Put \
+         that choice to whoever is paying and never pick the wait for them; if they \
+         take it, quote and confirm again with batch set — stills only, so shots and \
+         lines go in a call of their own. Video takes minutes, so a confirmed \
          run waits a while and then detaches: whatever is still going has its ticket \
          written into project.json, and calling with collect picks it up — collect \
-         never spends and never needs a token. Stills and narration come back on \
-         the same call; a still whose reference is a generated_image not yet \
+         never spends and never needs a token, and it picks up batched stills too. \
+         Stills drawn now and narration come back on the same call; a still whose reference is a generated_image not yet \
          generated is reported and drawn on the next call. A line with no voice chosen yet is reported and skipped rather than \
          failing the run. A shot or line that comes out shorter than a clip laid out \
          over its sketch shortens that clip to it, and the reply names each one — the \
@@ -100,13 +111,27 @@ impl Tool for Generate {
         let dir = arguments.project.dir();
         let mut project = load(dir)?;
         let collecting = arguments.collect;
+        let order = if arguments.batch {
+            Order::Batch
+        } else {
+            Order::Now
+        };
         // Collecting submits nothing by construction, so there is nothing to
         // agree to. Everything else is quoted, and goes ahead only on a token
         // bound to that quote — or on a quote with nothing in it to pay for.
         if !collecting {
-            let quote = generation(&project, dir).map_err(|error| format!("{error}"))?;
+            let quote = match order {
+                Order::Now => generation(&project, dir),
+                Order::Batch => quote::batch(&project, dir),
+            }
+            .map_err(|error| format!("{error}"))?;
+            let offer = match order {
+                Order::Now => quote::offer(&project, dir).map_err(|error| format!("{error}"))?,
+                Order::Batch => None,
+            };
+            let notes: Vec<String> = offer.iter().map(quote::Offer::says).collect();
             if let Some(quoted) =
-                confirm::gate(dir, arguments.confirm.as_ref(), &quote, self.name())?
+                confirm::gate(dir, arguments.confirm.as_ref(), &quote, self.name(), &notes)?
             {
                 return Ok(quoted);
             }
@@ -129,6 +154,7 @@ impl Tool for Generate {
                 budget,
                 patience,
                 collecting,
+                order,
             },
             &mut shots,
             &mut drawn,
@@ -159,6 +185,7 @@ struct Passes {
     budget: Budget,
     patience: Duration,
     collecting: bool,
+    order: Order,
 }
 
 /// Both passes, each run only if it has something to do.
@@ -175,16 +202,29 @@ fn run(
     // The recorded path is the previous generation's file: after an edit it
     // still exists and still resolves, and consulting it is how a stale shot
     // used to be skipped as *nothing to do*.
+    // A batch is stills alone: its quote was refused had anything else been
+    // waiting to be sent.
+    if asked.order == Order::Batch {
+        if image::pending(project, dir) {
+            *drawn = stills::order(project, dir, asked.budget)?;
+        }
+        return Ok(());
+    }
     if video::pending(project, dir) {
         *shots = shots::pass(project, dir, asked.budget, asked.patience, asked.collecting)?;
     }
-    // Collecting submits nothing by definition, and stills and narration are
-    // never in flight — so there is nothing for these passes to collect and
-    // asking for a key would be asking for one to do nothing with.
-    if !asked.collecting && image::pending(project, dir) {
+    // Collecting submits nothing by definition. Stills waiting in a batch are
+    // collected; narration is never in flight, so there is nothing for its
+    // pass to collect and asking for a key would be asking for one to do
+    // nothing with.
+    if asked.collecting {
+        *drawn = stills::sweep(project, dir)?;
+        return Ok(());
+    }
+    if image::pending(project, dir) {
         *drawn = stills::pass(project, dir, asked.budget.spend(shots.spent_cents))?;
     }
-    if !asked.collecting && speech::pending(project, dir) {
+    if speech::pending(project, dir) {
         let committed = shots.spent_cents + stills::spent(drawn);
         *spoken = lines::pass(project, dir, asked.budget.spend(committed))?;
     }

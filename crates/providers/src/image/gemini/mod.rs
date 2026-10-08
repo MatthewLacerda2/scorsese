@@ -5,6 +5,8 @@
 //! through the code that makes the call is one nobody can check against the
 //! vendor's page.
 
+mod batch;
+
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use scorsese_core::{ImageModel, ImageResolution};
@@ -13,7 +15,7 @@ use crate::api::gemini::request::{Create, GenerationConfig, Input, ResponseForma
 use crate::api::gemini::{Gemini, Model};
 use crate::credentials::Secret;
 
-use super::{Brief, ImageProvider, ProviderError};
+use super::{Batch, Brief, ImageProvider, ProviderError};
 
 /// Gemini's image models, as a provider.
 #[derive(Debug, Clone)]
@@ -57,6 +59,31 @@ impl ImageProvider for GeminiProvider {
         STANDARD
             .decode(encoded)
             .map_err(|_| ProviderError::new("Gemini", "the picture was not valid base64"))
+    }
+
+    fn order(&self, briefs: &[&Brief]) -> Result<String, ProviderError> {
+        let Some(first) = briefs.first() else {
+            return Err(ProviderError::new(
+                "Gemini",
+                "an empty batch orders nothing",
+            ));
+        };
+        let job = self
+            .gemini
+            .batch(model_of(first.request.model), &batch::create(briefs))
+            .map_err(|error| ProviderError::new("Gemini", error))?;
+        if job.name.is_empty() {
+            return Err(ProviderError::new("Gemini", "the batch came back unnamed"));
+        }
+        Ok(job.name)
+    }
+
+    fn ask(&self, operation: &str) -> Result<Batch, ProviderError> {
+        let job = self
+            .gemini
+            .batch_status(operation)
+            .map_err(|error| ProviderError::new("Gemini", error))?;
+        Ok(batch::read(&job))
     }
 }
 
