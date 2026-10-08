@@ -206,6 +206,16 @@ mod tests {
         assert!(3 * weight_of(&briefs[0]) > INLINE_LIMIT);
     }
 
+    /// Exactly at the limit still fits: the page's limit is inclusive, and
+    /// [`INLINE_LIMIT`] already keeps a megabyte back.
+    #[test]
+    fn a_job_exactly_at_the_limit_is_one_job() {
+        let halfway = brief("a", ImageModel::Flash, 7_470_615);
+        assert_eq!(2 * weight_of(&halfway), INLINE_LIMIT);
+        let briefs = [halfway.clone(), halfway];
+        assert_eq!(jobs(&briefs).len(), 1);
+    }
+
     #[test]
     fn one_brief_heavier_than_the_limit_is_still_its_own_job() {
         let briefs = [brief("a", ImageModel::Flash, 20 * 1024 * 1024)];
