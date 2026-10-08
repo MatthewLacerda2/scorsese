@@ -1,20 +1,19 @@
-//! A contact sheet's timestamps: that they arrived, and where.
+//! A contact sheet's timestamps: that they arrived, where, and what they leave
+//! alone.
 //!
 //! The sheet is the picture an assistant looks at footage through, and the
 //! moment written on each cell is the entire point of it — a grid of frames
-//! with no times on it says *there is footage* and nothing else. Nothing here
-//! asserted that the stamping happened at all, so the whole of it could be
-//! removed and the suite stayed green.
+//! with no times on it says *there is footage* and nothing else. Equally, a
+//! label drawn over the frame hides the band a sheet is most often taken to
+//! check — captions, lower thirds — which is what #919 was.
 //!
 //! Every cell is drawn white, so the two things a stamp puts down separate by
-//! brightness alone: the near-black panel darkens the strip it covers, and the
-//! words come back to white on top of it. Anything that is still white outside
-//! the strip is a cell nobody drew on, which is what makes "and not above it"
-//! measurable rather than assumed.
+//! brightness alone: the dark panel of the strip, and the words in white on top
+//! of it. Anything not white inside a cell's picture is a pixel the label took.
 //!
-//! The rows are the arithmetic rather than a measurement: `LABEL_HEIGHT` is
-//! `0.13` of the cell, so a 200-pixel cell gives a strip of exactly 26 and the
-//! panel runs from row 174 to the bottom edge.
+//! The rows are the arithmetic rather than a measurement: the strip is `0.13`
+//! of the cell's shorter side, so a 240x200 cell gets a strip of exactly 26
+//! rows, from row 200 to row 225, under a picture left whole.
 
 use scorsese_compositor::sheet::{self, Cell};
 use scorsese_compositor::text::Font;
@@ -25,16 +24,16 @@ use scorsese_core::Rgba;
 const WIDTH: u32 = 240;
 const HEIGHT: u32 = 200;
 
-/// The first row of the label strip: `200 - 200 * 0.13`.
-const STRIP_TOP: u32 = 174;
+/// The label strip's rows: `200 * 0.13`.
+const STRIP: u32 = 26;
 
-/// A pixel this bright is either an untouched cell or a word on the panel; the
-/// panel itself is black at `0xb4` over white, which lands near `0x4b`.
+/// A pixel this bright is either an untouched picture or a word on the panel;
+/// the panel itself is `0x1c`.
 const BRIGHT: u8 = 0xd0;
 
-/// One cell: a white picture, and the moment it came from.
-fn cell(label: &str) -> Cell {
-    let mut frame = Frame::black(Resolution::new(WIDTH, HEIGHT).expect("a legal raster"));
+/// One white picture of `width` by `height`, and the moment it came from.
+fn sized(width: u32, height: u32, label: &str) -> Cell {
+    let mut frame = Frame::black(Resolution::new(width, height).expect("a legal raster"));
     frame.fill(Rgba::WHITE);
     Cell {
         frame,
@@ -44,7 +43,10 @@ fn cell(label: &str) -> Cell {
 
 fn tiled(labels: &[&str]) -> Frame {
     sheet::tile(
-        labels.iter().copied().map(cell).collect(),
+        labels
+            .iter()
+            .map(|label| sized(WIDTH, HEIGHT, label))
+            .collect(),
         Font::sans(),
         false,
     )
@@ -58,66 +60,64 @@ fn brightness(frame: &Frame, x: u32, y: u32) -> u8 {
     frame.bytes()[(y as usize * width + x as usize) * BYTES_PER_PIXEL]
 }
 
-/// The columns of `column`'s cell, as `x` within it.
-fn across(column: u32) -> std::ops::Range<u32> {
-    (column * WIDTH)..((column + 1) * WIDTH)
-}
-
-/// The first and last row of `column`'s cell that the stamp touched at all —
-/// anything left of the white the cell was drawn as.
-fn touched(frame: &Frame, column: u32) -> Option<(u32, u32)> {
-    let drawn = |y| across(column).any(|x| brightness(frame, x, y) != u8::MAX);
-    let first = (0..HEIGHT).find(|&y| drawn(y))?;
-    Some((first, (0..HEIGHT).rfind(|&y| drawn(y))?))
-}
-
-/// How many pixels of the strip came back bright — the words — and where the
-/// middle of them sits, measured from the left edge of `column`'s cell.
-fn words(frame: &Frame, column: u32) -> (usize, f64) {
+/// How many pixels of a strip came back bright — the words — and where the
+/// middle of them sits, measured from the strip's left edge.
+fn words(frame: &Frame, left: u32, width: u32, rows: std::ops::Range<u32>) -> (usize, f64) {
     let mut count = 0;
     let mut sum = 0.0;
-    for y in STRIP_TOP..HEIGHT {
-        for x in across(column) {
+    for y in rows {
+        for x in left..left + width {
             if brightness(frame, x, y) > BRIGHT {
                 count += 1;
-                sum += f64::from(x - column * WIDTH);
+                sum += f64::from(x - left);
             }
         }
     }
     (count, sum / count.max(1) as f64)
 }
 
-/// The stamp reaches the strip and stops at the top of it, and the words it
-/// writes are centred across the cell.
+/// The label gets rows of its own under the picture: every pixel of the
+/// picture comes back as it went in, and the moment is written, centred, in
+/// the strip below it.
 #[test]
-fn a_cells_moment_is_written_in_the_strip_and_not_above_it() {
+fn a_cells_moment_is_written_under_its_picture_and_not_on_it() {
     let frame = tiled(&["0:00"]);
-
     assert_eq!(
-        touched(&frame, 0),
-        Some((STRIP_TOP, HEIGHT - 1)),
-        "the strip is drawn on from its top row to the bottom edge, and nothing above it is"
+        frame.resolution(),
+        Resolution::new(WIDTH, HEIGHT + STRIP).expect("a legal raster"),
+        "the sheet is the cell and its strip"
     );
-    let (count, middle) = words(&frame, 0);
+
+    let covered = (0..HEIGHT)
+        .flat_map(|y| (0..WIDTH).map(move |x| (x, y)))
+        .filter(|&(x, y)| brightness(&frame, x, y) != u8::MAX)
+        .count();
+    assert_eq!(covered, 0, "no pixel of the picture is under the label");
+
+    let (count, middle) = words(&frame, 0, WIDTH, HEIGHT..HEIGHT + STRIP);
     assert!(
         count > 20,
-        "the moment is written on the panel, found {count}"
+        "the moment is written in the strip, found {count}"
     );
     assert!(
         (middle - f64::from(WIDTH) / 2.0).abs() <= 2.0,
-        "a centred moment sits over the middle of its cell, found {middle}"
+        "a centred moment sits under the middle of its cell, found {middle}"
+    );
+    assert!(
+        brightness(&frame, 1, HEIGHT + 1) < BRIGHT,
+        "the strip is a dark panel, not more picture"
     );
 }
 
-/// Each cell is stamped with its own moment, in its own cell: two cells given
-/// different text carry different amounts of ink, each centred on the cell it
-/// belongs to. A sheet that stamped only its first cell, or wrote one moment
-/// across the whole picture, fails both halves.
+/// Each cell is stamped with its own moment, under its own cell: two cells
+/// given different text carry different amounts of ink, each centred on the
+/// cell it belongs to.
 #[test]
 fn two_cells_are_stamped_with_their_own_moments() {
     let frame = tiled(&["0:00", "0:00:00"]);
-    let (short, first) = words(&frame, 0);
-    let (long, second) = words(&frame, 1);
+    let rows = HEIGHT..HEIGHT + STRIP;
+    let (short, first) = words(&frame, 0, WIDTH, rows.clone());
+    let (long, second) = words(&frame, WIDTH, WIDTH, rows);
 
     assert!(
         short > 20 && long > short,
@@ -129,4 +129,51 @@ fn two_cells_are_stamped_with_their_own_moments() {
             "cell {cell}'s moment is centred on cell {cell}, found {middle}"
         );
     }
+}
+
+/// The issue's own case: a 2x2 of 1920x1080 cells shows every pixel of each
+/// frame, and the second row starts below the first row's label rather than
+/// on top of it.
+#[test]
+fn a_two_by_two_of_full_hd_frames_shows_every_pixel_of_each() {
+    let cells = (0..4).map(|n| sized(1920, 1080, &format!("0:0{n} · frame {n}")));
+    let frame = sheet::tile(cells.collect(), Font::sans(), false).expect("tiles");
+    let strip = frame.resolution().height() / 2 - 1080;
+    assert_eq!(frame.resolution().width(), 3840);
+    assert!(strip >= 100, "the label has room of its own, found {strip}");
+
+    for (left, top) in [(0, 0), (1920, 0), (0, 1080 + strip), (1920, 1080 + strip)] {
+        for (x, y) in [
+            (left, top),
+            (left + 1919, top + 1079),
+            (left + 960, top + 1079),
+        ] {
+            assert_eq!(brightness(&frame, x, y), u8::MAX, "({x}, {y}) is picture");
+        }
+    }
+}
+
+/// A tall, narrow cell gets a label that fits across it, however long — a
+/// picture's file name is longer than any timecode: two labels that differ only
+/// in their last character come out different, which a label cut short to fit
+/// (`0:00 · frame…`, #919) never does, and the ink keeps clear of both edges.
+#[test]
+fn a_vertical_cells_label_is_written_to_its_last_character() {
+    let (width, height) = (108, 192);
+    let strip = |label: &str| {
+        let frame =
+            sheet::tile(vec![sized(width, height, label)], Font::sans(), false).expect("tiles");
+        let rows = height..frame.resolution().height();
+        let inked: Vec<u32> = (0..width)
+            .filter(|&x| rows.clone().any(|y| brightness(&frame, x, y) > BRIGHT))
+            .collect();
+        (frame.bytes().to_vec(), inked[0], inked[inked.len() - 1])
+    };
+    let (png, first, last) = strip("2. the-pier-at-dusk-take-4.png");
+    let (jpg, ..) = strip("2. the-pier-at-dusk-take-4.jpg");
+    assert_ne!(png, jpg, "the end of the label is drawn");
+    assert!(
+        first >= 2 && last <= width - 3,
+        "the label is inside the cell with a margin, inked from {first} to {last}"
+    );
 }

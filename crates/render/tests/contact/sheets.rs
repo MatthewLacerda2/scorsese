@@ -9,7 +9,7 @@ use crate::common::ffmpeg::{fixture_dir, generate, tools};
 /// The colour at the middle of one cell of the grid, as `(r, g, b)`.
 ///
 /// Read from the cell's middle rather than anywhere near an edge, so the label
-/// strip along the bottom is nowhere near what is sampled.
+/// strip under it is nowhere near what is sampled.
 fn cell_colour(image: &Frame, column: u32, row: u32, columns: u32, rows: u32) -> (u8, u8, u8) {
     let cell_width = image.resolution().width() / columns;
     let cell_height = image.resolution().height() / rows;
@@ -101,7 +101,7 @@ fn five_frames_tile_three_across_and_two_down() {
 
     let resolution = sheet.image.resolution();
     assert_eq!(resolution.width(), 64 * 3, "three 64px cells across");
-    assert_eq!(resolution.height(), 32, "one row");
+    assert_eq!(resolution.height(), 32 + 4, "one row, label under");
     assert_eq!(
         sheet.next_from(),
         None,
@@ -176,6 +176,6 @@ fn a_vertical_source_keeps_its_shape() {
     let sheet = contact::sheet(&tools, &file, &Look::default()).expect("a sheet");
     let resolution = sheet.image.resolution();
     assert_eq!(sheet.at_seconds.len(), 1);
-    assert_eq!(resolution.height(), 480, "the longest side is the cap");
+    assert_eq!(resolution.height(), 480 + 34, "the cap, then the label");
     assert_eq!(resolution.width(), 270, "and 9:16 is kept");
 }

@@ -8,9 +8,16 @@
 //! readable: without it a sheet is five pictures in a row, and with it the
 //! reader knows the third one is nine seconds in.
 //!
+//! **The label has a strip of its own, under the frame (#919).** It used to be
+//! drawn over the bottom of each cell, which hid exactly the band a sheet is
+//! most often taken to check — captions, lower thirds, a call to action — and
+//! sent the reader back for a full still of every frame. Now every pixel of
+//! each frame is on the sheet, and the sheet is taller than its cells by one
+//! strip per row.
+//!
 //! Like [`card`], this is not a rendering path of its own. It
-//! stamps a label onto each cell with the same [`card::draw`] a slug card uses,
-//! then places the cells with the same [`Compositor`] a video frame goes
+//! writes a label under each cell with the same [`card::draw`] a slug card
+//! uses, then places the cells with the same [`Compositor`] a video frame goes
 //! through. What comes out is an ordinary [`Frame`].
 
 use scorsese_core::{Anchor, AnchorX, AnchorY, Rgba, TextAlign};
@@ -29,15 +36,23 @@ use crate::text::{Band, Font, Style};
 /// documentation is a limit somebody eventually passes six to.
 pub const MAX_CELLS: usize = 5;
 
-/// How tall a cell's label strip is, as a fraction of the cell.
+/// How tall a cell's label strip is, as a fraction of the cell's **shorter**
+/// side.
+///
+/// The shorter side, so a 9:16 cell gets the same strip a 16:9 one of the same
+/// pixels does rather than one sized off its height and set too wide for it.
 const LABEL_HEIGHT: f64 = 0.13;
 
-/// Em size of a label, as a fraction of the cell's height.
+/// Em size of a label, as a fraction of the cell's shorter side — at most;
+/// [`label_size`] sets it smaller when the longest label would not fit across.
 const LABEL_SIZE: f64 = 0.085;
 
-/// The strip behind a label: black, but not quite — the frame under it still
-/// reads through, which keeps a timestamp from hiding the bottom of a shot.
-const LABEL_PANEL: Rgba = Rgba::new(0x00, 0x00, 0x00, 0xb4);
+/// How much of a cell's width a label may take, leaving a margin either side.
+const LABEL_SPAN: f64 = 0.94;
+
+/// The strip a label is written on: a dark grey rather than black, so the
+/// bottom edge of a frame that ends in black is still visible against it.
+const LABEL_PANEL: Rgba = Rgba::new(0x1c, 0x1c, 0x1c, 0xff);
 
 /// One frame of a sheet, and what to write on it.
 #[derive(Debug, Clone, PartialEq)]
@@ -45,7 +60,8 @@ pub struct Cell {
     /// The picture. Every cell of a sheet must be the same size — they come
     /// from one file at one scale, so that costs the caller nothing.
     pub frame: Frame,
-    /// What moment it is, e.g. `0:10`. Drawn along the bottom of the cell.
+    /// What moment it is, e.g. `0:10`. Written in a strip under the cell,
+    /// never over it.
     pub label: String,
 }
 
@@ -89,7 +105,10 @@ pub enum SheetError {
     Composite(#[from] CompositeError),
 }
 
-/// Tiles `cells` into one picture, each labelled along its bottom edge.
+/// Tiles `cells` into one picture, each labelled in a strip under it.
+///
+/// Every cell keeps all of its pixels: the strip is added below the frame, so
+/// the sheet is `columns × width` across and `rows × (height + strip)` down.
 ///
 /// The arrangement is at most three across: a single row while that fits, two
 /// rows beyond it. Wider would make a sheet a letterbox strip whose cells are
@@ -100,9 +119,19 @@ pub enum SheetError {
 /// only place they can go: a cell is one whole source frame, so its fractions
 /// are the source's own — which is exactly what a `crop` is written in. Ruling
 /// the finished sheet would measure the tiling instead.
-pub fn tile(mut cells: Vec<Cell>, font: &Font, ruled: bool) -> Result<Frame, SheetError> {
-    let cell = layout_size(&cells)?;
+pub fn tile(cells: Vec<Cell>, font: &Font, ruled: bool) -> Result<Frame, SheetError> {
+    let picture = layout_size(&cells)?;
     let (columns, rows) = grid(cells.len());
+    let strip = strip_height(picture);
+    let size = label_size(&cells, picture, font);
+    let cell = Resolution::new(picture.width(), picture.height() + strip).map_err(|source| {
+        SheetError::Raster {
+            columns,
+            rows,
+            cell: picture,
+            source,
+        }
+    })?;
     let canvas_size =
         Resolution::new(columns * cell.width(), rows * cell.height()).map_err(|source| {
             SheetError::Raster {
@@ -113,22 +142,24 @@ pub fn tile(mut cells: Vec<Cell>, font: &Font, ruled: bool) -> Result<Frame, She
             }
         })?;
 
-    for one in &mut cells {
-        stamp(one, font);
-        // After the timestamp, not before: the strip that carries it is a
-        // panel of near-black, and a `1.0` drawn under it would be the one
-        // coordinate on the picture nobody could read.
-        if ruled {
-            crate::grid::draw(&mut one.frame);
-        }
-    }
+    let cells: Vec<Frame> = cells
+        .into_iter()
+        .map(|mut one| {
+            // Over the picture alone: its fractions are the source's, and the
+            // strip under it is no part of the frame they measure.
+            if ruled {
+                crate::grid::draw(&mut one.frame);
+            }
+            labelled(&one, cell, size, font)
+        })
+        .collect();
 
     let mut canvas = Frame::black(canvas_size);
     let layers: Vec<Layer<'_>> = cells
         .iter()
         .enumerate()
         .map(|(index, one)| Layer {
-            source: &one.frame,
+            source: one,
             properties: at(index, columns, cell, canvas_size),
             anchor: Anchor {
                 x: AnchorX::Left,
@@ -194,27 +225,60 @@ fn at(index: usize, columns: u32, cell: Resolution, canvas: Resolution) -> Prope
     }
 }
 
-/// Writes a cell's moment along its bottom edge.
-fn stamp(cell: &mut Cell, font: &Font) {
-    let resolution = cell.frame.resolution();
-    let height = f64::from(resolution.height());
-    let strip = height * LABEL_HEIGHT;
+/// How tall the label strip under a cell of `picture` is: even, so the
+/// sheet stays a raster the encoder takes, and never nothing.
+fn strip_height(picture: Resolution) -> u32 {
+    let shorter = f64::from(picture.width().min(picture.height()));
+    let strip = (shorter * LABEL_HEIGHT).round() as u32;
+    (strip.max(2) / 2) * 2
+}
+
+/// The em size every label of the sheet is set at.
+///
+/// One size for the sheet, so the cells read as a row of the same thing: the
+/// [`LABEL_SIZE`] share of the shorter side, made smaller only as far as the
+/// longest label needs to fit across a cell. A tall, narrow cell would
+/// otherwise cut `0:09.1 · frame 285` short — the frame number is the half a
+/// following call names the instant by.
+fn label_size(cells: &[Cell], picture: Resolution, font: &Font) -> f32 {
+    let preferred = (f64::from(picture.width().min(picture.height())) * LABEL_SIZE) as f32;
+    let span = (f64::from(picture.width()) * LABEL_SPAN) as f32;
+    let widest = cells
+        .iter()
+        .map(|one| crate::text::width(font, &one.label, preferred))
+        .fold(0.0_f32, f32::max);
+    if widest > span {
+        preferred * span / widest
+    } else {
+        preferred
+    }
+}
+
+/// `one`'s picture with its moment written in a strip under it, as a frame of
+/// `cell` — the picture's width, and its height plus the strip.
+fn labelled(one: &Cell, cell: Resolution, size: f32, font: &Font) -> Frame {
+    let mut framed = Frame::black(cell);
+    let picture = one.frame.bytes();
+    // Same width, so the picture's rows are the first rows of the cell.
+    framed.bytes_mut()[..picture.len()].copy_from_slice(picture);
+    let top = one.frame.resolution().height();
+    let strip = cell.height() - top;
     card::draw(
-        &mut cell.frame,
+        &mut framed,
         &Card {
             band: Band {
-                top: (height - strip) as f32,
+                top: top as f32,
                 height: strip as f32,
             },
             background: LABEL_PANEL,
-            text: &cell.label,
+            text: &one.label,
             style: Style {
                 figures: Default::default(),
-                size: (height * LABEL_SIZE) as f32,
+                size,
                 color: Rgba::WHITE,
                 align: TextAlign::Center,
                 line_height: strip as f32,
-                max_width: resolution.width() as f32,
+                max_width: cell.width() as f32,
                 // A contact-sheet label sits on its own panel of colour, so
                 // there is nothing behind it for a rim to rescue it from.
                 edge: None,
@@ -223,4 +287,5 @@ fn stamp(cell: &mut Cell, font: &Font) {
         },
         font,
     );
+    framed
 }

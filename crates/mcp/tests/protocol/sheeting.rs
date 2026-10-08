@@ -1,7 +1,9 @@
 //! `still` with `sheet: true`: several instants answered with one picture (#814).
 //!
 //! The wire again, as `seeing` asserts it, plus the one fact about the pixels
-//! that the wire carries: a sheet of three cells is three cells wide. Which
+//! that the wire carries: a sheet of three cells is three cells wide, and one
+//! label strip taller than a cell (#919) — 12 rows under a 160x90 cell, 0.13 of
+//! its shorter side rounded to even. Which
 //! frame lands in which cell is the tiling's own test, in the compositor.
 
 use super::fixture::project;
@@ -51,8 +53,8 @@ fn a_sheet_answers_several_instants_with_one_picture_in_the_order_asked() {
     );
     assert_eq!(
         png_size(&the_picture(&reply)),
-        (3 * 160, 90),
-        "three cells, one row"
+        (3 * 160, 90 + 12),
+        "three cells, one row, each whole above its label"
     );
     std::fs::remove_dir_all(dir).ok();
 }
@@ -72,7 +74,7 @@ fn a_sheet_with_a_path_writes_exactly_that_one_file() {
     assert!(!failed, "{text}");
     assert!(text.contains("written to review/sheet.png"), "{text}");
     let on_disk = std::fs::read(&kept).expect("the sheet was kept");
-    assert_eq!(png_size(&on_disk), (2 * 160, 90));
+    assert_eq!(png_size(&on_disk), (2 * 160, 90 + 12));
     let written: Vec<_> = std::fs::read_dir(kept.parent().expect("a parent"))
         .expect("review dir")
         .collect();
@@ -118,6 +120,7 @@ fn a_vertical_edit_is_previewed_upright_without_being_asked() {
     let (text, failed) = said(&reply);
     assert!(!failed, "{text}");
     assert!(text.contains("the shape of shot"), "{text}");
-    assert_eq!(png_size(&the_picture(&reply)), (360, 640));
+    // 46 rows of label: 0.13 of the 360-pixel side, rounded to even.
+    assert_eq!(png_size(&the_picture(&reply)), (360, 640 + 46));
     std::fs::remove_dir_all(dir).ok();
 }
