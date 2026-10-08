@@ -24,6 +24,9 @@ __pycache__/
 # committed; what it resolves to, and what `vite build` writes, are not.
 web/node_modules/
 web/dist/
+# What a Playwright run leaves: a failed flow's trace and screenshot (#898).
+web/test-results/
+web/playwright-report/
 
 # Rebuildable per-project cache inside *.scor/ project directories, wherever a
 # project sits (a test's, a fixture's). Never a source folder of that name:

@@ -172,6 +172,36 @@ jobs:
       - name: Test
         run: cargo nextest run --workspace --locked
 
+      # The web app's end-to-end flows (#898): headless Chromium driving the
+      # built page against the real server and this job's Postgres. Here rather
+      # than in a job of its own because the test step above has just built
+      # `scorsese-server` (cargo builds a package's binaries for its integration
+      # tests), and a separate job would pay a second cold Rust build for it.
+      # The browser is Playwright's headless shell, the smallest it ships.
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: web/package.json
+
+      - name: Web end-to-end
+        working-directory: web
+        env:
+          SCORSESE_SERVER: ${{ github.workspace }}/target/debug/scorsese-server
+        run: |
+          test -x "$SCORSESE_SERVER" || { echo "the test step built no $SCORSESE_SERVER"; exit 1; }
+          bun install --frozen-lockfile
+          bunx playwright install --with-deps --only-shell chromium
+          bunx playwright test
+
+      # A failed flow's trace (every step, request and DOM; `npx playwright
+      # show-trace` opens it) and its screenshot, to look at rather than guess.
+      - name: Upload end-to-end failures
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: web-e2e-failures
+          path: web/test-results/
+          if-no-files-found: ignore
+
       # Its own step because nextest cannot run doctests — an upstream
       # limitation, not a nextest decision. There are zero compiled doctests in
       # the tree today (every code fence is ```text or ```jsonc), so this costs

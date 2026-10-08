@@ -91,14 +91,52 @@ they become needs, the catalogues port across as they are.
 | --- | --- | --- |
 | install | `bun install --frozen-lockfile` | `bun.lock` matches `package.json` — the packages checked are the ones committed |
 | lint | `bun run lint` (`biome ci`) | lint rules **and** formatting; `bun run format` fixes what it can |
-| typecheck | `bun run typecheck` (`tsc --noEmit`) | TypeScript in strict mode |
-| test | `bun test` | every `*.test.ts(x)` |
+| typecheck | `bun run typecheck` (`tsc --noEmit`) | TypeScript in strict mode, the end-to-end flows included |
+| test | `bun test` | every `*.test.ts(x)` under `src/`, in a DOM (`src/test/dom.ts`) |
 | build | `bun run build` | the bundle the deploy ships actually builds |
 
-`make gates` runs it only when the branch touches `web/`, and prints that it
-did not run otherwise — the same rule as the `app` gate. The size gate
-(`make size`) holds `.ts`/`.tsx` to the same caps as Rust: 300 lines of code for
-source, 150 for a `*.test.ts(x)` file; `tools/lint/src/classify.rs` says why.
+`make web-e2e` runs the end-to-end flows (`tests/e2e/`), which CI runs at the
+end of its `fmt + clippy + test` job, on the server binary that job's tests
+already built:
+
+| step | command | what it checks |
+| --- | --- | --- |
+| server | `cargo build -p scorsese-server` | the binary the flows drive |
+| browser | `bunx playwright install --only-shell chromium` | Playwright's pinned headless Chromium, fetched once; skipped when `E2E_CHROMIUM` names one |
+| flows | `bunx playwright test`, through `tools/with-postgres` | log in, make a project, upload and place a file, resize a panel, ask the assistant — against the real server and a real Postgres |
+
+`playwright.config.ts` starts the server (away from any `.env`, so no provider
+key reaches it) and `vite preview` of the production build, and makes the run's
+account with `scorsese-server user create`, as the operator does. A failure
+keeps its trace and screenshot in `test-results/` — CI uploads them as
+`web-e2e-failures` — and `bunx playwright show-trace <trace.zip>` replays one
+step by step.
+
+`make gates` runs `web` only when the branch touches `web/`, and `web-e2e` when
+it touches `web/` or `crates/server/` — either side can break a flow — and
+prints which it did not run otherwise, the same rule as the `app` gate. The
+size gate (`make size`) holds `.ts`/`.tsx` to the same caps as Rust: 300 lines
+of code for source, 150 for a `*.test.ts(x)` file or anything under `tests/`;
+`tools/lint/src/classify.rs` says why.
+
+## Which test, where
+
+Three kinds, cheapest first; a new test goes in the first one that can see
+what it is about.
+
+- **A plain function** (`*.test.ts` beside it): the logic — sizes, snapping,
+  the tool call a drag becomes, money. Most tests are this, and anything a
+  component decides belongs in a function this can reach.
+- **A component under a pointer** (`*.test.tsx`, `@testing-library/react` and
+  `user-event`, in happy-dom): where a mouse or a key is the subject — a handle
+  dragged, a double-click, a clip let go as one `clip_move`. happy-dom lays
+  nothing out, so a test gives an element the box it needs
+  (`timeline/pointer.test.tsx`) rather than trusting zeros. A page rendered to
+  HTML through `react-dom/server` still does for what it shows.
+- **A flow** (`tests/e2e/*.spec.ts`, Playwright): a few things a person does
+  from end to end, where the page and the server must agree — not every
+  control. The assistant is faked in the browser with `page.route`; nothing
+  here may call a provider.
 
 ## Choices, and why
 
@@ -108,10 +146,14 @@ source, 150 for a `*.test.ts(x)` file; `tools/lint/src/classify.rs` says why.
   main draw for React (the hooks rules) is covered by Biome's recommended set.
 - **`bun test`, not Vitest.** Bun is already the runtime, and its runner reads
   the same `tsconfig.json` paths, so there is nothing to configure. Logic is
-  tested as plain functions (the API client against a fake `fetch`, money,
-  the duplicate rule), and pages render through `react-dom/server` with a
-  seeded query cache, so no DOM is needed yet; the first test that has to
-  click things adds one (happy-dom) then, not before.
+  tested as plain functions, and pages render through `react-dom/server` with
+  a seeded query cache. Since #898 it also has a DOM — happy-dom, preloaded by
+  `bunfig.toml` — for `@testing-library/react` and `user-event`, the standard
+  pair for a component that has to be clicked, typed into or dragged.
+- **Playwright for the flows, not Cypress.** Faster headless, several tabs in
+  one test, and a trace that is readable from a CI artifact. Chromium only,
+  through Playwright's own runner on Node (installed by Bun), against the real
+  server rather than a faked API, so the two disagreeing is caught.
 - **TanStack Query for server state, React Router for pages.** Every page is
   a view of rows the server owns, and the questions — cached, refetched on
   focus, invalidated after a change, a `401` anywhere meaning logged out — are
