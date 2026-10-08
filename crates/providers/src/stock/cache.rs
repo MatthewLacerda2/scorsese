@@ -62,7 +62,7 @@ pub(crate) fn read(cache: &Path, key: &str) -> Option<Page> {
     let now = Timestamp::unix_now()?;
     let text = std::fs::read_to_string(file(cache, key)).ok()?;
     let cached: Cached = serde_json::from_str(&text).ok()?;
-    cached.fresh(now).then(|| Page {
+    cached.fresh(now).then_some(Page {
         candidates: cached.candidates,
         total: cached.total,
     })

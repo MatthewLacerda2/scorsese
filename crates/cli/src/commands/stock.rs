@@ -128,7 +128,7 @@ fn searched(
     library: &PixabayLibrary,
     query: &Query,
     page: u32,
-    out: &PathBuf,
+    out: &Path,
 ) -> Result<()> {
     let found = stock::search(cache, library, query, page)?;
     for (index, one) in found.candidates.iter().enumerate() {
