@@ -12,8 +12,18 @@ use crate::tools::args::{self, ProjectDir, Required};
 use crate::tools::inspect::load;
 use crate::tools::{Costs, Reply, Tool};
 
-/// Importing from Pixabay, or a Lottie from LottieFiles.
-pub(crate) struct Import;
+/// Importing from Pixabay, or a Lottie from LottieFiles — or from the one
+/// library it was built around ([`super::stocked_from`]).
+#[derive(Default)]
+pub(crate) struct Import {
+    library: Option<super::Stock>,
+}
+
+impl From<Option<super::Stock>> for Import {
+    fn from(library: Option<super::Stock>) -> Self {
+        Self { library }
+    }
+}
 
 /// One id or several.
 #[derive(Deserialize)]
@@ -108,7 +118,7 @@ impl Tool for Import {
             None => Resolution::HD,
         };
         let mut project = load(dir)?;
-        let library = super::library(medium)?;
+        let library = super::library(self.library.as_ref(), medium)?;
         if medium == Medium::Lottie {
             return kept(&ids, &stock::keep(dir, &cache_dir(dir), &*library, &ids));
         }

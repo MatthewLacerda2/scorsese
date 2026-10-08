@@ -101,17 +101,12 @@ async fn fetch(
         state.events.send(user, event);
     };
     tell("running", None);
-    let outcome = match state.assistant.stock() {
-        Ok(library) => {
-            let client = Client::User { turn };
-            let frame = (frame.width(), frame.height());
-            let imported = state
-                .tools
-                .import_stock(user, client, project, choices, frame, library);
-            imported.await
-        }
-        Err(why) => Err(why),
-    };
+    let client = Client::User { turn };
+    let frame = (frame.width(), frame.height());
+    let outcome = state
+        .tools
+        .import_stock(user, client, project, choices, frame)
+        .await;
     let (ended, words) = match &outcome {
         Ok(lines) => ("answered", lines.clone()),
         Err(why) => ("refused", why.clone()),

@@ -14,8 +14,18 @@ use crate::tools::args::{self, ProjectDir};
 use crate::tools::scratch::Scratch;
 use crate::tools::{Costs, Part, Reply, Tool};
 
-/// Searching Pixabay, or LottieFiles for animations.
-pub(crate) struct Search;
+/// Searching Pixabay, or LottieFiles for animations — or the one library
+/// it was built around ([`super::stocked_from`]).
+#[derive(Default)]
+pub(crate) struct Search {
+    library: Option<super::Stock>,
+}
+
+impl From<Option<super::Stock>> for Search {
+    fn from(library: Option<super::Stock>) -> Self {
+        Self { library }
+    }
+}
 
 /// What `stock_search` takes.
 #[derive(Deserialize, JsonSchema)]
@@ -126,10 +136,11 @@ impl Tool for Search {
         let cache = cache_dir(arguments.project.dir());
         if let Some(id) = arguments.look {
             let medium = super::medium(arguments.kind.as_deref())?;
-            return looked(&cache, &*super::library(medium)?, medium, id);
+            let library = super::library(self.library.as_ref(), medium)?;
+            return looked(&cache, &*library, medium, id);
         }
         let query = arguments.query()?;
-        let library = super::library(query.medium)?;
+        let library = super::library(self.library.as_ref(), query.medium)?;
         let found = stock::search(&cache, &*library, &query, arguments.page.unwrap_or(1))
             .map_err(|error| format!("{error}"))?;
         let mut text = listed(&found, query.medium);

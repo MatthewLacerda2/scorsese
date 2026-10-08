@@ -133,4 +133,4 @@ mod tools;
 pub use renderer::fetch_on_first_use;
 pub use session::serve;
 pub use table::{BEGIN, END, regenerated, tool_table};
-pub use tools::{Context, Costs, Part, Reply, Tool, registry};
+pub use tools::{Context, Costs, Part, Reply, Stock, Tool, registry, stocked_from};

@@ -44,6 +44,16 @@ impl Fake {
             .expect("the test setup holds")
             .clone()
     }
+
+    /// The files downloaded to be imported, in order — every download but a
+    /// search's previews.
+    pub(crate) fn imported(&self) -> Vec<String> {
+        let downloaded = self.downloaded();
+        downloaded
+            .into_iter()
+            .filter(|url| !url.ends_with("_640.jpg"))
+            .collect()
+    }
 }
 
 /// Image `id`, as a search lists it.
