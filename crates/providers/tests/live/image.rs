@@ -1,8 +1,10 @@
 //! What Gemini's image answers mean, and what the still costs.
 
+use scorsese_providers::api::gemini::Model;
 use scorsese_providers::api::gemini::response::Interaction;
+use scorsese_providers::api::veo::response::ModelInfo;
 use scorsese_providers::live::Verdict;
-use scorsese_providers::live::image::{cost, picture_step};
+use scorsese_providers::live::image::{cost, model_step, picture_step};
 
 use super::{parsed, refused};
 
@@ -105,4 +107,39 @@ fn a_rejected_key_is_an_auth_failure_and_a_bad_request_a_refusal() {
 #[test]
 fn the_still_costs_five_cents() {
     assert_eq!(cost(), 5);
+}
+
+#[test]
+fn a_model_served_for_drawing_and_batches_is_ok() {
+    let step = model_step(Model::NanoBanana21, Ok(parsed("gemini/model.json")));
+    assert_eq!(step.verdict, Verdict::Ok, "{step:?}");
+    assert_eq!(step.call, "GET models/gemini-nano-banana-2.1");
+}
+
+/// A model that stops taking batches would fail every half-price still, so
+/// each method is required on its own.
+#[test]
+fn a_renamed_model_or_either_missing_method_is_a_shape_change_naming_it() {
+    let mut info: ModelInfo = parsed("gemini/model.json");
+    let renamed = model_step(Model::Pro, Ok(info.clone()));
+    assert!(
+        matches!(&renamed.verdict, Verdict::ShapeChanged { field } if field.starts_with("name"))
+    );
+
+    for kept in ["generateContent", "batchGenerateContent"] {
+        info.supported_generation_methods = vec![kept.to_owned()];
+        let step = model_step(Model::NanoBanana21, Ok(info.clone()));
+        assert!(
+            matches!(&step.verdict, Verdict::ShapeChanged { field }
+                if field.contains("has no") && !field.contains(&format!("no {kept}"))),
+            "{step:?}"
+        );
+    }
+}
+
+#[test]
+fn a_retired_model_is_a_refusal() {
+    let gone = r#"{"error":{"code":404,"message":"models/x is not found"}}"#;
+    let step = model_step(Model::Lite, Err(refused(404, gone)));
+    assert!(matches!(step.verdict, Verdict::Refused { .. }), "{step:?}");
 }

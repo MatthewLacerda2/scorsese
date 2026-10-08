@@ -1,4 +1,18 @@
-//! Gemini's image part of the live check: one still, the smallest Google sells.
+//! Gemini's image part of the live check: every model's id, free, then one
+//! still, the smallest Google sells.
+//!
+//! # The free part
+//!
+//! `GET models/{id}` for every [`ImageModel`] scorsese offers, as
+//! [`veo`](super::veo) does for its tiers (#948). It proves each id is still
+//! served, and with both methods the product calls: `generateContent`, the
+//! method a [batch](crate::api::gemini::batch) is made of, and
+//! `batchGenerateContent`, which creates one. A renamed or retired model is
+//! the change that fails every still on the web at once, and it costs nothing
+//! to catch — the default model's id once merged unconfirmed (#893). The list
+//! is [`ImageModel::ALL`], so a model added later is checked with no edit here.
+//!
+//! # The paid part
 //!
 //! The image client ([`crate::api::gemini`]) was written from Google's
 //! image-generation page and had never met the endpoint when it merged (#461).
@@ -27,13 +41,15 @@
 use base64::Engine;
 use scorsese_core::{AssetId, ImageAspect, ImageModel, ImageRequest, ImageResolution};
 
-use crate::api::gemini::Gemini;
 use crate::api::gemini::request::Create;
 use crate::api::gemini::response::Interaction;
+use crate::api::gemini::{Gemini, Model};
 use crate::api::http::HttpError;
 use crate::api::tap::Tap;
+use crate::api::veo::response::ModelInfo;
 use crate::credentials::Secret;
 use crate::image::Brief;
+use crate::image::gemini::model_of;
 use crate::prices::{self, dollars};
 
 use super::{Step, Verdict, judge};
@@ -41,6 +57,10 @@ use super::{Step, Verdict, judge};
 /// The sentence the still is drawn from: plain, and as unlikely to meet a
 /// content filter as [`veo::PROMPT`](super::veo::PROMPT).
 pub const PROMPT: &str = "A glass of water on a wooden table, in soft daylight.";
+
+/// The methods an image model must list: the one a batch's requests are in,
+/// and the one that creates the batch.
+const METHODS: [&str; 2] = ["generateContent", "batchGenerateContent"];
 
 /// The side of the square a 0.5K still is, by Google's table.
 pub const SIDE: u32 = 512;
@@ -65,10 +85,17 @@ pub fn cost() -> u64 {
 
 /// The calls, as a quote lists them.
 pub(super) fn calls() -> Vec<String> {
-    vec![format!(
-        "draw one {SIDE}x{SIDE} still (Flash Image, 0.5K, no references) — {}",
-        dollars(cost())
-    )]
+    let ids: Vec<String> = ImageModel::ALL
+        .iter()
+        .map(|m| format!("models/{}", model_of(*m).id()))
+        .collect();
+    vec![
+        format!("GET {} — free", ids.join(", ")),
+        format!(
+            "draw one {SIDE}x{SIDE} still (Flash Image, 0.5K, no references) — {}",
+            dollars(cost())
+        ),
+    ]
 }
 
 /// The body the check sends: the product's translation of the still's brief.
@@ -83,13 +110,25 @@ fn body() -> Create {
 
 /// Runs the image part; returns what it found and what it spent, in cents.
 pub(super) fn check(key: &Secret, tap: &Tap) -> (Vec<Step>, u64) {
-    let step = picture_step(Gemini::new(key).tapped(tap).create(&body()));
+    let gemini = Gemini::new(key).tapped(tap);
+    let mut steps: Vec<Step> = ImageModel::ALL
+        .iter()
+        .map(|model| model_step(model_of(*model), gemini.model(model_of(*model))))
+        .collect();
+    let step = picture_step(gemini.create(&body()));
     let spent = match step.verdict {
         // A shape change was billed before we failed to read it.
         Verdict::Ok | Verdict::ShapeChanged { .. } => cost(),
         _ => 0,
     };
-    (vec![step], spent)
+    steps.push(step);
+    (steps, spent)
+}
+
+/// What `GET models/{id}` said about one image model.
+pub fn model_step(model: Model, answer: Result<ModelInfo, HttpError>) -> Step {
+    let verdict = judge::model(model.id(), &METHODS, answer);
+    Step::new(format!("GET models/{}", model.id()), verdict)
 }
 
 /// What the drawing gave back: a JPEG, the size asked for.

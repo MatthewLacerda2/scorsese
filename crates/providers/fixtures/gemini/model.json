@@ -1,0 +1,10 @@
+{
+  "_provenance": "hand-written on 2026-10-08 in the shape of veo/model.json, which a live check captured; the id and both methods are what the orchestrator read off the real endpoint for PR #935. A live check's recording replaces it.",
+  "name": "models/gemini-nano-banana-2.1",
+  "displayName": "Nano Banana 2.1",
+  "supportedGenerationMethods": [
+    "generateContent",
+    "countTokens",
+    "batchGenerateContent"
+  ]
+}

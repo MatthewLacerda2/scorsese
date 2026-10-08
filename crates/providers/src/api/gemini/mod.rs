@@ -21,6 +21,7 @@ pub mod response;
 use std::time::Duration;
 
 use crate::api::http::{Caller, HttpError};
+use crate::api::veo::response::ModelInfo;
 use crate::credentials::Secret;
 
 /// The API's root, which every endpoint here hangs off.
@@ -92,6 +93,16 @@ impl Gemini {
     pub fn tapped(mut self, tap: &crate::api::tap::Tap) -> Self {
         self.caller = self.caller.tapped(tap);
         self
+    }
+
+    /// What the API says about a model: its full name, and the methods it
+    /// can be called with. Free — nothing is drawn.
+    ///
+    /// The same lookup as [`Veo::model`](crate::api::veo::Veo::model), and
+    /// for the same reader: the live provider check ([`crate::live`]), which
+    /// confirms without paying for a picture that each id is still served.
+    pub fn model(&self, model: Model) -> Result<ModelInfo, HttpError> {
+        self.caller.get(&format!("{BASE}/models/{}", model.id()))
     }
 
     /// Draws one picture. **This is the call that spends the money.**

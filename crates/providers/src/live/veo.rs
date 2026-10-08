@@ -176,29 +176,8 @@ fn wait(
 
 /// What `GET models/{id}` said about one tier.
 pub fn model_step(model: Model, answer: Result<ModelInfo, HttpError>) -> Step {
-    let call = format!("GET models/{}", model.id());
-    let expected = format!("models/{}", model.id());
-    let verdict = match answer {
-        Err(error) => judge::gemini(&error),
-        Ok(info) if info.name != expected => Verdict::ShapeChanged {
-            field: format!("name: expected {expected}, got {:?}", info.name),
-        },
-        Ok(info)
-            if !info
-                .supported_generation_methods
-                .iter()
-                .any(|m| m == METHOD) =>
-        {
-            Verdict::ShapeChanged {
-                field: format!(
-                    "supportedGenerationMethods has no {METHOD}: {:?}",
-                    info.supported_generation_methods
-                ),
-            }
-        }
-        Ok(_) => Verdict::Ok,
-    };
-    Step::new(call, verdict)
+    let verdict = judge::model(model.id(), &[METHOD], answer);
+    Step::new(format!("GET models/{}", model.id()), verdict)
 }
 
 /// What the submit said, and the ticket to poll if it gave one.

@@ -11,6 +11,7 @@
 use crate::api::anthropic::stream::StreamError;
 use crate::api::elevenlabs::refusal::Refusal;
 use crate::api::http::HttpError;
+use crate::api::veo::response::ModelInfo;
 use crate::claude::ClaudeError;
 
 use super::Verdict;
@@ -20,6 +21,31 @@ pub fn gemini(error: &HttpError) -> Verdict {
     sorted(error, |status, body| {
         matches!(status, 401 | 403) || body.contains("API_KEY_INVALID")
     })
+}
+
+/// What a free `GET models/{id}` said about `id`: served under that name,
+/// and callable with every one of `methods`.
+///
+/// Shared by Veo's tiers and the image models, so a retired or renamed id
+/// reads the same way whichever kind of model it was.
+pub fn model(id: &str, methods: &[&str], answer: Result<ModelInfo, HttpError>) -> Verdict {
+    let expected = format!("models/{id}");
+    let info = match answer {
+        Err(error) => return gemini(&error),
+        Ok(info) => info,
+    };
+    if info.name != expected {
+        return Verdict::ShapeChanged {
+            field: format!("name: expected {expected}, got {:?}", info.name),
+        };
+    }
+    let listed = &info.supported_generation_methods;
+    match methods.iter().find(|m| !listed.iter().any(|l| l == *m)) {
+        Some(missing) => Verdict::ShapeChanged {
+            field: format!("supportedGenerationMethods has no {missing}: {listed:?}"),
+        },
+        None => Verdict::Ok,
+    }
 }
 
 /// A failed Anthropic call.
