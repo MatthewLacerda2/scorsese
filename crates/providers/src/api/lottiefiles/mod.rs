@@ -239,6 +239,13 @@ impl LottieFiles {
         }
     }
 
+    /// The same client, copying every exchange into `tap` — how the live
+    /// check records what came back.
+    pub fn tapped(mut self, tap: &crate::api::tap::Tap) -> Self {
+        self.caller = self.caller.tapped(tap);
+        self
+    }
+
     /// The first `first` animations matching `words`, at most [`MAX_FIRST`].
     pub fn search(&self, words: &str, first: u32) -> Result<Connection, HttpError> {
         let request = Request {

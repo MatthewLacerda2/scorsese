@@ -37,6 +37,11 @@ make live-check ARGS="--include-veo --record /tmp/live"
 - **Keys resolve the one way they always do** — the environment or `.env`,
   then the settings file. A vendor with no key is reported **skipped**, never
   failed; today that is Anthropic, until a key exists.
+- **A vendor that needs no key is always called** — today that is
+  LottieFiles, whose public search answers anonymously. It is free, so it adds
+  nothing to the quote. (In the library, `live::Options::keyless` is what turns
+  it on; it is off by default so a run built from defaults, as a test's is, has
+  nothing it could reach.)
 - It exits non-zero when any vendor's verdict is a failure.
 
 ## What each vendor's check calls, and costs
@@ -51,6 +56,7 @@ make live-check ARGS="--include-veo --record /tmp/live"
 | | Voice Design from a 100-character passage — three candidates, **none kept** | $0.01 |
 | Anthropic | two streamed calls to `claude-opus-5-5` at `low` effort: ask for a tool call; then send the reply back unchanged, with the tool's result and a mid-conversation `system` message | at most $0.15 |
 | Pixabay | `GET /api/videos/?q=sunrise` — hits, each with a usable rendition | free |
+| LottieFiles | `searchPublicAnimations("rocket", first: 3)`, anonymously — each result with an id, a `jsonUrl` and an `imageUrl`; `metadata`'s width, height, frame rate and duration carried by at least one | free, no key |
 
 The ElevenLabs and Veo figures are the rate tables' own arithmetic
 (docs/prices.md). Claude's quote is a ceiling — each call's `max_tokens` plus a
@@ -92,7 +98,7 @@ Each vendor gets one verdict — its worst step — and each call a line:
 | OK | the reply was the shape our client reads |
 | shape changed | it was not; the line names the field (often in serde's own words) |
 | refused | the vendor said no for a reason other than the key — a plan, a filter, a malformed request |
-| auth failed | the vendor said no to the key. For ElevenLabs this includes a valid key missing a scope, and says so |
+| auth failed | the vendor said no to the key. For ElevenLabs this includes a valid key missing a scope, and says so. For LottieFiles, which has no key, it means anonymous access was withdrawn — a `401`/`403`, or a GraphQL error about authorisation answered as `200` — and the line names the fallback: a key from the maintainer's LottieFiles account (#903) |
 | unreachable | no answer arrived |
 | unfinished | the call worked but stopped short of what could be checked — a shot still generating, a model that answered instead of calling the tool. Not a failure |
 | skipped | not called: no key, or not asked for |
@@ -138,6 +144,7 @@ Every response shape scorsese parses, and where its test body came from.
 | Veo operation: running, done, failed | `Operation` | `fixtures/veo/{running,done,failed}.json` | hand-written |
 | Gemini image interaction | `api::gemini::response::Interaction` | `fixtures/gemini/interaction.json` | **captured** 2026-10-07 (signature and picture cut down) |
 | Gemini refusals | carried whole, never parsed | inline in `tests/live/veo.rs`, `tests/live/image.rs` | hand-written |
+| LottieFiles search | `api::lottiefiles::Searched` | `fixtures/lottiefiles/search.json` | **captured** 2026-10-08 (three results) |
 | Claude streams: tool use, answer, refusal, overload | `api::anthropic::stream` + `claude::Assembler` | `fixtures/anthropic/*.sse` | hand-written |
 | Anthropic refusals | carried whole, never parsed | inline in `tests/live/claude.rs` | hand-written |
 

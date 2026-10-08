@@ -11,7 +11,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
-use scorsese_providers::credentials::{Budget, Environment, Provider, Settings};
+use scorsese_providers::credentials::{Budget, Environment, Settings};
 use scorsese_providers::live::{self, Planned, Report, record};
 use scorsese_providers::prices::dollars;
 
@@ -39,6 +39,8 @@ pub(crate) fn run(options: &Options) -> Result<()> {
     let check = live::Options {
         include_veo: options.include_veo,
         veo_patience: Duration::from_secs(options.veo_wait),
+        // Free and keyless: always part of a person's run.
+        keyless: true,
     };
     let plan = live::plan(&check, &Environment::discover(&here), &settings);
     quote(&plan);
@@ -84,7 +86,7 @@ fn quote(plan: &[Planned]) {
     println!("The live provider check will call:");
     for planned in plan {
         println!();
-        println!("{}", planned.provider.label());
+        println!("{}", planned.vendor.label());
         if let Some(why) = &planned.skipped {
             println!("  skipped: {why}");
         }
@@ -103,7 +105,7 @@ fn quote(plan: &[Planned]) {
 fn reported(reports: &[Report]) {
     for report in reports {
         println!();
-        println!("{}: {}", report.provider.label(), report.verdict().word());
+        println!("{}: {}", report.vendor.label(), report.verdict().word());
         for step in &report.steps {
             let detail = step.verdict.detail();
             let dash = if detail.is_empty() { "" } else { " — " };
@@ -129,22 +131,11 @@ fn recorded(dir: &std::path::Path, reports: &[Report]) -> Result<()> {
         dir.display()
     );
     for report in reports {
-        let written = record::write(dir, slug(report.provider), &report.exchanges)
+        let written = record::write(dir, report.vendor.slug(), &report.exchanges)
             .with_context(|| format!("writing into {}", dir.display()))?;
         for line in written {
             println!("  {line}");
         }
     }
     Ok(())
-}
-
-/// A provider as a file name starts: `gemini`, `elevenlabs`, `anthropic`,
-/// `pixabay`.
-fn slug(provider: Provider) -> &'static str {
-    match provider {
-        Provider::Gemini => "gemini",
-        Provider::ElevenLabs => "elevenlabs",
-        Provider::Anthropic => "anthropic",
-        Provider::Pixabay => "pixabay",
-    }
 }
