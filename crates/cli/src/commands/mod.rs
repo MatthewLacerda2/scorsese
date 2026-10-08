@@ -10,6 +10,7 @@ pub(crate) mod design;
 pub(crate) mod dissolve;
 pub(crate) mod duck;
 pub(crate) mod generate;
+pub(crate) mod guide;
 pub(crate) mod hear;
 pub(crate) mod icons;
 pub(crate) mod import;

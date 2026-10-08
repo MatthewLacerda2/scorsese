@@ -1973,6 +1973,13 @@ never a path. `tests/described.rs` refuses a description or argument that
 mentions `docs/`, and follows every pointer, so one naming a guide or a
 section that is not there fails the build.
 
+**The command line reads the same pages.** `scorsese guide <name> [--section
+…]` prints exactly what the tool answers, through the same function in
+`scorsese-core` (#916), so an installed build's terminal user is not sent to a
+`docs/` they do not have either. The CLI's pointers name it —
+`` `scorsese guide prices` `` — and `crates/cli/tests/guiding.rs` holds them to
+that the way `described.rs` holds the tools.
+
 ## Every tool describes itself, and that is a gate
 
 A tool's description is the entire interface a client has to it. An undescribed

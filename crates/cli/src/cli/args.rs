@@ -297,7 +297,7 @@ pub(crate) enum StockAction {
     /// Free. The file is the smallest Pixabay has that fills the render size
     /// without being enlarged, or the largest there is. A Lottie is not an
     /// asset: an html page loads it with the shipped lottie-web
-    /// (docs/pages.md).
+    /// (`scorsese guide pages`).
     Import {
         /// The ids a search named. Several import at once; one that fails
         /// costs none of the others.

@@ -120,7 +120,8 @@ pub(crate) fn run() -> Result<()> {
     stale_note(today);
     println!();
     println!("Nobody bills these back. No provider reports what a generation cost, so every");
-    println!("figure scorsese records is its own arithmetic over this table — see docs/prices.md.");
+    println!("figure scorsese records is its own arithmetic over this table. More in");
+    println!("`scorsese guide prices`.");
     Ok(())
 }
 

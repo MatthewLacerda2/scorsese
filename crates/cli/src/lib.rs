@@ -154,6 +154,7 @@ fn dispatch(cli: Cli) -> Result<()> {
             record,
         }),
         Command::Prices => commands::prices::run(),
+        Command::Guide { name, section } => commands::guide::run(&name, section.as_deref()),
         Command::Icons { query } => commands::icons::run(&query),
         Command::Probe { all } => commands::probe::run(&directory, all),
         Command::Check { verify } => commands::check::run(&directory, verify),

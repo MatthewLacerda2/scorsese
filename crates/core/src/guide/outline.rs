@@ -21,26 +21,26 @@
 /// stays in the conversation, and the web assistant pays for it again on
 /// every later model call of the turn. Every section of either is under the
 /// limit once its subsections are listed rather than inlined.
-pub(super) const LIMIT: usize = 32 * 1024;
+pub(crate) const LIMIT: usize = 32 * 1024;
 
 /// One heading, and the stretch of the page it opens.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) struct Heading<'a> {
+pub(crate) struct Heading<'a> {
     /// 2 for `##`, 3 for `###`, and so on. The page's own `#` title is the
     /// guide itself, not a section of it.
-    pub(super) level: usize,
+    pub(crate) level: usize,
     /// The heading's words, as written.
-    pub(super) title: &'a str,
+    pub(crate) title: &'a str,
     /// Where its line starts.
-    pub(super) start: usize,
+    pub(crate) start: usize,
     /// Where its section ends: the next heading at its level or above, or the
     /// end of the page.
-    pub(super) end: usize,
+    pub(crate) end: usize,
 }
 
 /// Every heading below the title, in page order — skipping anything inside a
 /// fenced code block, where a `#` is a comment in an example, not a heading.
-pub(super) fn headings(text: &str) -> Vec<Heading<'_>> {
+pub(crate) fn headings(text: &str) -> Vec<Heading<'_>> {
     let mut found: Vec<Heading<'_>> = Vec::new();
     let mut fenced = false;
     let mut at = 0;
@@ -80,7 +80,7 @@ pub(super) fn headings(text: &str) -> Vec<Heading<'_>> {
 /// A size as an agent budgets it: tokens, roughly. Three and a third bytes a
 /// token is what the guides measured (#909); it is said as "about", because
 /// every model counts its own way.
-pub(super) fn about(bytes: usize) -> String {
+pub(crate) fn about(bytes: usize) -> String {
     let tokens = bytes * 10 / 33;
     if tokens < 1000 {
         format!("about {} tokens", ((tokens + 50) / 100).max(1) * 100)
@@ -94,7 +94,7 @@ pub(super) fn about(bytes: usize) -> String {
 ///
 /// `named` is what the part is called in the note under the map: the guide's
 /// name, or a section's heading.
-pub(super) fn part(
+pub(crate) fn part(
     text: &str,
     all: &[Heading<'_>],
     start: usize,
@@ -114,7 +114,7 @@ pub(super) fn part(
     let mut said = text[start..opening_end].trim_end().to_owned();
     said.push_str(&format!(
         "\n\n---\n{named} is {} — too long to hand back whole, so this is its opening \
-         and the headings inside it. Call guide again with one of them as `section`, \
+         and the headings inside it. Ask again with one of them as `section`, \
          by its words or its number:\n",
         about(whole.len())
     ));
@@ -152,7 +152,7 @@ fn plain(title: &str) -> String {
 
 /// The heading `asked` names: its number in a map, its words exactly, or the
 /// only heading whose words contain it. The refusal lists what there is.
-pub(super) fn find<'a, 'h>(all: &'h [Heading<'a>], asked: &str) -> Result<&'h Heading<'a>, String> {
+pub(crate) fn find<'a, 'h>(all: &'h [Heading<'a>], asked: &str) -> Result<&'h Heading<'a>, String> {
     if let Ok(number) = asked.trim().trim_end_matches('.').parse::<usize>() {
         return number
             .checked_sub(1)
