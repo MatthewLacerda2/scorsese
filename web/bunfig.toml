@@ -1,0 +1,3 @@
+# `bun test`'s one setting: the DOM interaction tests need (src/test/dom.ts).
+[test]
+preload = ["./src/test/dom.ts"]
