@@ -156,3 +156,60 @@ fn queue(project: &mut Project, id: &AssetId, operation: &str) {
         asset.state = Some(GenerationState::Queued);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use scorsese_core::{AssetId, ImageModel, ImageRequest};
+
+    use super::{Brief, INLINE_LIMIT, jobs, weight_of};
+    use crate::video::Still;
+
+    /// A brief on `model` carrying one reference of `bytes` bytes.
+    fn brief(id: &str, model: ImageModel, bytes: usize) -> Brief {
+        Brief {
+            id: AssetId::new(id),
+            prompt: String::from("a lighthouse"),
+            request: ImageRequest {
+                model,
+                ..ImageRequest::default()
+            },
+            reference_images: vec![Still {
+                id: AssetId::new("ref"),
+                mime_type: String::from("image/png"),
+                bytes: vec![0; bytes],
+                digest: String::new(),
+            }],
+        }
+    }
+
+    #[test]
+    fn a_brief_weighs_its_prompt_and_its_pictures_in_base64() {
+        let one = brief("a", ImageModel::Flash, 3_000);
+        assert_eq!(weight_of(&one), "a lighthouse".len() + 4_000 + 128 + 512);
+    }
+
+    #[test]
+    fn a_set_heavier_than_the_inline_limit_is_split_and_models_never_share() {
+        let six = 6 * 1024 * 1024;
+        let briefs = [
+            brief("a", ImageModel::Flash, six),
+            brief("b", ImageModel::Pro, 10),
+            brief("c", ImageModel::Flash, six),
+            brief("d", ImageModel::Flash, six),
+        ];
+        let ids: Vec<Vec<&str>> = jobs(&briefs)
+            .iter()
+            .map(|job| job.iter().map(|brief| brief.id.as_str()).collect())
+            .collect();
+        assert_eq!(ids, [vec!["a", "c"], vec!["d"], vec!["b"]]);
+        assert!(2 * weight_of(&briefs[0]) < INLINE_LIMIT);
+        assert!(3 * weight_of(&briefs[0]) > INLINE_LIMIT);
+    }
+
+    #[test]
+    fn one_brief_heavier_than_the_limit_is_still_its_own_job() {
+        let briefs = [brief("a", ImageModel::Flash, 20 * 1024 * 1024)];
+        assert_eq!(jobs(&briefs).len(), 1);
+        assert!(jobs(&[]).is_empty());
+    }
+}
