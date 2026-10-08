@@ -2,7 +2,9 @@
 // played with its sound off — on a click; one or more selected with their
 // check; "none of these"; and a field for the user's own words. Everything it
 // shows is the source's own preview and file, credited to it; nothing is
-// downloaded until the user has picked, and then only what they picked.
+// downloaded until the user has picked, and then only what they picked. A
+// Lottie animation (#908) is a picture that moves — its GIF, grid and enlarged
+// alike — with LottieFiles named on its tile, since the rest come from Pixabay.
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CheckIcon, ChevronLeftIcon } from "lucide-react";
@@ -19,7 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useT } from "@/i18n/I18nProvider";
-import { length, sourceName, toggle } from "./picker";
+import { length, nameOf, sourceName, toggle } from "./picker";
 
 export function PickerModal({
   turn,
@@ -137,6 +139,11 @@ function Tile({
           {long}
         </span>
       )}
+      {candidate.kind === "lottie" && (
+        <span className="absolute top-1 left-1 rounded bg-black/70 px-1 text-[10px] text-white">
+          {nameOf(candidate.source)}
+        </span>
+      )}
       <button
         type="button"
         onClick={onChoose}
@@ -150,7 +157,7 @@ function Tile({
   );
 }
 
-/** One candidate, large: a video plays muted, a picture shows whole. */
+/** One candidate, large: a video plays muted, a picture — or a Lottie's GIF — shows whole. */
 function Enlarged({
   candidate,
   selected,

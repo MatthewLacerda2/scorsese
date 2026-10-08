@@ -59,6 +59,7 @@ pub(crate) fn candidate(medium: Medium, id: u64, vertical: bool) -> Candidate {
         page_url: format!("https://pixabay.com/videos/id-{id}/"),
         preview_url: format!("https://cdn.example.invalid/{id}_tiny.jpg"),
         motion_url: None,
+        animated_url: None,
         ai_generated: false,
         renditions: vec![
             rendition("tiny", 640, 360),
@@ -83,6 +84,7 @@ fn animation(id: u64) -> Candidate {
         page_url: format!("https://lottiefiles.com/animations/wave-{id}"),
         preview_url: format!("https://cdn.example.invalid/{id}.png"),
         motion_url: Some(format!("https://cdn.example.invalid/{id}.mp4")),
+        animated_url: None,
         ai_generated: false,
         renditions: vec![Rendition {
             name: String::from("json"),

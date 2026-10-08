@@ -1471,9 +1471,15 @@ source's own previews, each enlarged or played (muted) on a click, one or more
 selected, or none, and a field for words. Nothing is downloaded to show them.
 The answer, `{picked: [keys], answer?}`, imports **only what was picked** —
 as the user's own `stock_import` call (`client = 'user'`, from
-`Assistant::stocked_from`'s library, Pixabay by default), into `assets/` like
-any import, admitted to the library before the document is saved — and then
-resumes the same turn with the new asset ids as the call's result. A typed
+`Toolbox::stocked_from`'s library, Pixabay and LottieFiles by default), into
+`assets/` like any import, admitted to the library before the document is
+saved — and then resumes the same turn with the new asset ids as the call's
+result. A Lottie (#908) is a candidate like any other, shown by its animated
+GIF with LottieFiles named on its tile, and candidates of different kinds share
+one picker; a pick of one runs the registry's `stock_import` itself, so its
+JSON is kept under `pages/` with the project's files — never an asset — and
+the call's result is that reply: the file a page loads and the page that plays
+it. A typed
 message instead is the answer, as for a question. The system prompt says to
 show one only when several results are equally good or the model is unsure
 between them; one clearly right is imported without asking.
@@ -1550,8 +1556,9 @@ should show, then `confirmed`, `declined` — a change asked for included — or
 `withdrawn`), and `questions`, every question it asked in order as
 `{question, options, answer}`, `answer` `null` while it waits. A picker's
 (#901) also carries `candidates` — each `{key, source, kind, id, preview_url,
-look_url, width, height, seconds, author, page_url, tags}`, `look_url` being
-what the enlarged view shows — and, once answered, `picked`, the keys chosen
+look_url, width, height, seconds, author, page_url, tags}`, `key` being
+`<source>-<kind>-<id>` (`pixabay-video-39009`, `lottiefiles-lottie-121035`)
+and `look_url` what the enlarged view shows — and, once answered, `picked`, the keys chosen
 in the order shown (absent when the answer was words alone); its `options`
 are empty.
 

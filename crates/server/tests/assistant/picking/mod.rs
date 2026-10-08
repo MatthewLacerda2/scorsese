@@ -2,7 +2,8 @@
 //! pauses without charging, and the pick — one or more (`picks`), none, or
 //! words (`words`) — resumes it, what was picked imported first; a picker
 //! naming results no search of the turn showed is refused and the turn goes
-//! on (`refusals`).
+//! on (`refusals`). A Lottie is a candidate too, and a pick of one lands
+//! under `pages/` (`lotties`).
 //!
 //! No test reaches Pixabay. The server's tools search and import from
 //! [`Fake`], handed to it as its one stock library (#906): the scripted model
@@ -13,6 +14,7 @@
 
 mod fake;
 mod imports;
+mod lotties;
 mod picks;
 mod refusals;
 mod words;

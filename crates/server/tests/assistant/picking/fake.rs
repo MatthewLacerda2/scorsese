@@ -8,8 +8,16 @@ use scorsese_providers::stock::{Candidate, Library, Medium, Page, Query, Renditi
 
 use super::common;
 
-/// Images 1 to 3, each a picture of a sunrise in a colour of its own; it
-/// remembers what it was asked to download.
+/// The Lottie every animation of the fake downloads as: the hand-made stand-in
+/// `scorsese-render`'s tests play.
+const WAVE: &str = include_str!("../../../../render/tests/fixtures/lottie/wave.json");
+
+/// The animations a search for a Lottie lists.
+pub(crate) const LOTTIES: [u64; 2] = [7, 8];
+
+/// Images 1 to 3, each a picture of a sunrise in a colour of its own, and
+/// [`LOTTIES`], each the same small animation; it remembers what it was
+/// asked to download.
 pub(crate) struct Fake {
     pngs: Vec<Vec<u8>>,
     downloaded: Mutex<Vec<String>>,
@@ -51,7 +59,7 @@ impl Fake {
         let downloaded = self.downloaded();
         downloaded
             .into_iter()
-            .filter(|url| !url.ends_with("_640.jpg"))
+            .filter(|url| !url.ends_with("_640.jpg") && !url.ends_with(".png.jpg"))
             .collect()
     }
 }
@@ -70,6 +78,7 @@ fn picture(id: u64) -> Candidate {
         page_url: format!("https://pixabay.com/photos/id-{id}/"),
         preview_url: format!("https://cdn.example.invalid/{id}_640.jpg"),
         motion_url: None,
+        animated_url: None,
         ai_generated: false,
         renditions: vec![Rendition {
             name: "large".into(),
@@ -81,28 +90,63 @@ fn picture(id: u64) -> Candidate {
     }
 }
 
+/// Animation `id`, as a search lists it.
+fn animation(id: u64) -> Candidate {
+    Candidate {
+        medium: Medium::Lottie,
+        id,
+        title: format!("Wave {id}"),
+        style: String::new(),
+        tags: vec!["wave".into()],
+        seconds: Some(2),
+        fps: Some(30),
+        author: "someone".into(),
+        page_url: format!("https://lottiefiles.com/free-animation/wave-{id}"),
+        preview_url: format!("https://cdn.example.invalid/{id}.png.jpg"),
+        motion_url: Some(format!("https://cdn.example.invalid/{id}.mp4")),
+        animated_url: Some(format!("https://cdn.example.invalid/{id}.gif")),
+        ai_generated: false,
+        renditions: vec![Rendition {
+            name: "json".into(),
+            url: format!("https://cdn.example.invalid/{id}.json"),
+            width: 64,
+            height: 64,
+            bytes: None,
+        }],
+    }
+}
+
 impl Library for Fake {
     fn name(&self) -> &'static str {
         "Fake"
     }
 
-    fn page(&self, _: &Query, _: u32) -> Result<Page, StockError> {
-        let candidates = (1..=3).map(picture).collect();
-        Ok(Page {
-            candidates,
-            total: 3,
-        })
+    fn page(&self, query: &Query, _: u32) -> Result<Page, StockError> {
+        let candidates: Vec<Candidate> = match query.medium {
+            Medium::Lottie => LOTTIES.into_iter().map(animation).collect(),
+            _ => (1..=3).map(picture).collect(),
+        };
+        let total = candidates.len() as u64;
+        Ok(Page { candidates, total })
     }
 
-    fn one(&self, _: Medium, id: u64) -> Result<Option<Candidate>, StockError> {
-        Ok((1..=3).contains(&id).then(|| picture(id)))
+    fn one(&self, medium: Medium, id: u64) -> Result<Option<Candidate>, StockError> {
+        Ok(match medium {
+            Medium::Lottie => LOTTIES.contains(&id).then(|| animation(id)),
+            _ => (1..=3).contains(&id).then(|| picture(id)),
+        })
     }
 
     fn download(&self, url: &str, _: u64, to: &mut dyn Write) -> Result<u64, StockError> {
         let mut downloaded = self.downloaded.lock().expect("the test setup holds");
         downloaded.push(url.to_owned());
+        if url.ends_with(".json") {
+            to.write_all(WAVE.as_bytes()).expect("the test setup holds");
+            return Ok(WAVE.len() as u64);
+        }
         let id = (1..=3).find(|id| url.contains(&format!("/{id}_")));
-        let png = &self.pngs[id.expect("one of the fake's") - 1];
+        // An animation's still is the first sunrise's.
+        let png = &self.pngs[id.unwrap_or(1) - 1];
         to.write_all(png).expect("the test setup holds");
         Ok(png.len() as u64)
     }

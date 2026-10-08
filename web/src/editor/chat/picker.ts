@@ -30,9 +30,16 @@ export function length(seconds: number | null): string | null {
   return `${minutes}:${String(Math.round(seconds % 60)).padStart(2, "0")}`;
 }
 
-/** The source as the picker credits it, which Pixabay asks of any displayed results. */
+/** Each source's own name, as it is credited. */
+const NAMES: Record<string, string> = { pixabay: "Pixabay", lottiefiles: "LottieFiles" };
+
+/** One source's name: `lottiefiles` is credited as LottieFiles. */
+export function nameOf(source: string): string {
+  return NAMES[source] ?? source;
+}
+
+/** The sources as the picker credits them, which Pixabay asks of any displayed results. */
 export function sourceName(candidates: CandidateView[]): string {
-  const names: Record<string, string> = { pixabay: "Pixabay" };
   const sources = [...new Set(candidates.map((one) => one.source))];
-  return sources.map((source) => names[source] ?? source).join(", ");
+  return sources.map(nameOf).join(", ");
 }

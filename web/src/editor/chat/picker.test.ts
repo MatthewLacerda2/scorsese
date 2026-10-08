@@ -69,5 +69,7 @@ describe("length and source", () => {
     expect(length(90)).toBe("1:30");
     expect(length(null)).toBeNull();
     expect(sourceName(offered)).toBe("Pixabay");
+    const lottie = { ...offered[0], source: "lottiefiles" } as CandidateView;
+    expect(sourceName([...offered, lottie])).toBe("Pixabay, LottieFiles");
   });
 });

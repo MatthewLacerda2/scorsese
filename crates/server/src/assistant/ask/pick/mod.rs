@@ -18,8 +18,15 @@
 //! it never saw — or a stale one — is refused, and the turn goes on.
 //!
 //! **Only what was picked is downloaded.** The picker shows each candidate
-//! from the source's own preview and file URLs, which Pixabay allows for
-//! showing search results; a project never stores a URL.
+//! from the source's own preview and file URLs, which Pixabay and
+//! LottieFiles allow for showing search results; a project never stores a
+//! URL.
+//!
+//! **A Lottie is a candidate like any other** (#908): offered from the same
+//! searches, shown by its animated GIF, and imported exactly as
+//! `stock_import` imports one — its JSON under `pages/`, never an asset —
+//! so what the model is told of it is the file a page loads and the page
+//! that plays it.
 //!
 //! **Not a tool**, for the reason `ask_user` is not one (the module doc of
 //! [`super`]): a user's own client over web MCP shows candidates its own way.
@@ -50,9 +57,11 @@ pub(in crate::assistant) fn tool() -> Tool {
             listed, as pictures they can enlarge and play, and let them pick one or more — or \
             none. Only when several are equally good or you are unsure between them, so the \
             choice is their taste; when one serves or one is clearly better, stock_import it \
-            yourself and say so. What they pick is imported for you, and its asset ids come back \
-            as this call's result: do not stock_import it again. Call it alone, with no other \
-            call in the same reply."
+            yourself and say so. What they pick is imported for you, exactly as stock_import \
+            would: footage and photos as assets whose ids come back as this call's result, a \
+            lottie as its file under pages/ with the page that plays it. Do not stock_import it \
+            again. Results of different kinds may be shown together. Call it alone, with no \
+            other call in the same reply."
             .to_owned(),
         schema: json!({
             "type": "object",
@@ -73,8 +82,8 @@ pub(in crate::assistant) fn tool() -> Tool {
                         "properties": {
                             "kind": {
                                 "type": "string",
-                                "enum": ["video", "image"],
-                                "description": "video or image, as the search was for."
+                                "enum": ["video", "image", "lottie"],
+                                "description": "video, image or lottie, as the search was for."
                             },
                             "id": {
                                 "type": "integer",
@@ -120,10 +129,12 @@ pub(in crate::assistant) fn read(input: &Value) -> Result<Asked, String> {
     let listed = input.get("candidates").and_then(Value::as_array);
     let mut candidates = Vec::new();
     for one in listed.into_iter().flatten() {
-        let medium = match one.get("kind").and_then(Value::as_str) {
-            Some("video") => Medium::Video,
-            Some("image") => Medium::Image,
-            _ => return Err("Not shown: each candidate's `kind` is video or image.".into()),
+        let Some(medium) = one
+            .get("kind")
+            .and_then(Value::as_str)
+            .and_then(Medium::named)
+        else {
+            return Err("Not shown: each candidate's `kind` is video, image or lottie.".into());
         };
         let id = one
             .get("id")
@@ -175,7 +186,20 @@ pub(in crate::assistant) fn refused(call: &Call, why: String) -> Part {
 /// The key a candidate is picked by: unique within a picker, and naming its
 /// source so another source's ids can never collide with it.
 pub(in crate::assistant) fn key(choice: Choice) -> String {
-    format!("pixabay-{}-{}", choice.medium.word(), choice.id)
+    format!(
+        "{}-{}-{}",
+        source(choice.medium),
+        choice.medium.word(),
+        choice.id
+    )
+}
+
+/// The library results of `medium` come from, as the picker credits it.
+pub(in crate::assistant) const fn source(medium: Medium) -> &'static str {
+    match medium {
+        Medium::Video | Medium::Image => "pixabay",
+        Medium::Lottie => "lottiefiles",
+    }
 }
 
 #[cfg(test)]
@@ -190,6 +214,9 @@ mod tests {
     fn two_to_eight_distinct_results_are_a_picker() {
         let read = asked(json!([{ "kind": "video", "id": 3 }, { "kind": "image", "id": 3 }]));
         let read = read.expect("a picker");
+        let lottie = asked(json!([{ "kind": "lottie", "id": 3 }, { "kind": "image", "id": 3 }]));
+        let lottie = lottie.expect("a picker of mixed kinds").candidates[0];
+        assert_eq!(key(lottie), "lottiefiles-lottie-3");
         assert_eq!(read.question, "Which sunrise?");
         assert_eq!(read.frame, Resolution::HD);
         let video = Choice {

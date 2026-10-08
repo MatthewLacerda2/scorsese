@@ -39,11 +39,7 @@ pub(in crate::assistant) fn chosen(
 
 /// The source's result a candidate is.
 fn choice(candidate: &CandidateView) -> Option<Choice> {
-    let medium = match candidate.kind.as_str() {
-        "video" => Medium::Video,
-        "image" => Medium::Image,
-        _ => return None,
-    };
+    let medium = Medium::named(&candidate.kind)?;
     let id = candidate.id.parse().ok()?;
     Some(Choice { medium, id })
 }

@@ -4,10 +4,10 @@
 use std::collections::HashSet;
 
 use scorsese_providers::chat::{Message, Part, ResultPart};
-use scorsese_providers::stock::{Candidate, Choice, find_cached, named_in};
+use scorsese_providers::stock::{Candidate, Choice, Medium, find_cached, named_in};
 use serde_json::Value;
 
-use super::{key, read};
+use super::{key, read, source};
 use crate::assistant::store::{CandidateView, QuestionView};
 use crate::db::UserId;
 use crate::http::AppState;
@@ -98,16 +98,26 @@ fn shown(record: &[Message]) -> HashSet<Choice> {
 /// `found` as the picker shows it.
 fn view(choice: Choice, found: &Candidate) -> CandidateView {
     let largest = found.largest();
+    // A Lottie is shown moving, by its GIF, in the grid and enlarged alike:
+    // its one rendition is JSON, which no browser draws as a picture.
+    let (preview_url, look_url) = match (choice.medium, &found.animated_url) {
+        (Medium::Lottie, Some(moving)) => (moving.clone(), moving.clone()),
+        (Medium::Lottie, None) => (found.preview_url.clone(), found.preview_url.clone()),
+        (Medium::Video | Medium::Image, _) => (
+            found.preview_url.clone(),
+            found
+                .renditions
+                .first()
+                .map_or_else(|| found.preview_url.clone(), |one| one.url.clone()),
+        ),
+    };
     CandidateView {
         key: key(choice),
-        source: "pixabay".to_owned(),
+        source: source(choice.medium).to_owned(),
         kind: choice.medium.word().to_owned(),
         id: choice.id.to_string(),
-        preview_url: found.preview_url.clone(),
-        look_url: found
-            .renditions
-            .first()
-            .map_or_else(|| found.preview_url.clone(), |one| one.url.clone()),
+        preview_url,
+        look_url,
         width: largest.map_or(0, |one| one.width),
         height: largest.map_or(0, |one| one.height),
         seconds: found.seconds,
@@ -119,8 +129,6 @@ fn view(choice: Choice, found: &Candidate) -> CandidateView {
 
 #[cfg(test)]
 mod tests {
-    use scorsese_providers::stock::Medium;
-
     use super::*;
 
     fn result(name: &str, text: &str, is_error: bool) -> Message {

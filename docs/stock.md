@@ -53,9 +53,10 @@ quotes.
 - **Only what is chosen is downloaded**, one at a time, and always copied into
   the project — nothing is hotlinked. On the web, when several results are
   equally good the assistant shows them to the user as pictures to pick from
-  (#901, `docs/web.md`); the picker displays Pixabay's own preview and file
-  links while they choose, names Pixabay as the source, and downloads only
-  what they pick.
+  (#901, `docs/web.md`); the picker displays the source's own preview and
+  file links while they choose — a Lottie by LottieFiles' animated GIF (#908)
+  — names Pixabay or LottieFiles as the source, and downloads only what they
+  pick.
 - **Results name their source.** Every reply that lists results says they come
   from Pixabay.
 

@@ -57,8 +57,9 @@ export interface QuestionView {
 
 /**
  * `assistant::CandidateView` — one result a picker offers (#901). `source` and
- * `kind` say what it is (`pixabay`, `video` or `image`); every URL is the
- * source's own, shown while the user chooses and never kept.
+ * `kind` say what it is (`pixabay` with `video` or `image`, `lottiefiles` with
+ * `lottie`, #908); every URL is the source's own, shown while the user chooses
+ * and never kept.
  */
 export interface CandidateView {
   /** What a pick names it by. */
@@ -66,9 +67,9 @@ export interface CandidateView {
   source: string;
   kind: string;
   id: string;
-  /** A still, for the grid. */
+  /** A still for the grid — a Lottie's animated GIF. */
   preview_url: string;
-  /** What the enlarged view shows: a video's smallest file (played muted), or a picture. */
+  /** What the enlarged view shows: a video's smallest file (played muted), or a picture — a Lottie's GIF. */
   look_url: string;
   width: number;
   height: number;
