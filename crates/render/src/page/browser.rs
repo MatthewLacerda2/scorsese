@@ -42,10 +42,12 @@ pub const CHROME_ENV: &str = "SCORSESE_CHROME";
 ///   it, so one moment of a looping glow was drawn one way in one cycle and
 ///   another way in the next, and which way varied from one capture to the
 ///   next. #912 measured 77 of 240 frames unlike the same moment a cycle
-///   earlier, and about one capture in eight parting from another for 50
-///   frames; with this flag every frame equals the one a cycle before it, and
-///   no capture parted in RUNS_TBD runs. So a frame is a function of its time
-///   alone, which the cache and a capture split into pieces both rest on.
+///   earlier, and four browsers at once parting for 50 frames in 4 of 30 runs
+///   (11 of 30 beside the other page tests); with this flag every frame
+///   equals the one a cycle before it, and none parted in 90 runs. So a
+///   frame is a function of its time alone, which the cache and a capture
+///   split into pieces both rest on. It cost nothing measurable: 21 ms a
+///   frame at 640×360 and 58 at 1080p, with it and without.
 /// - Not here, but added at launch when the sandbox is off: `--no-sandbox`
 ///   (see [`NO_SANDBOX`]).
 /// - `--hide-scrollbars`: a page taller than the frame must not grow a bar.
