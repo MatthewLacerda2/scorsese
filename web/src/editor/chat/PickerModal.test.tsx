@@ -60,7 +60,10 @@ function mount() {
 
 test("a Lottie's tile moves by its GIF and names LottieFiles", () => {
   mount();
-  const [lottie, image] = screen.getAllByRole("button", { name: t.enlarge });
+  const [lottie, image] = screen.getAllByRole("button", { name: t.enlarge }) as [
+    HTMLElement,
+    HTMLElement,
+  ];
   expect(within(lottie).getByRole("img").getAttribute("src")).toBe(wave.preview_url);
   expect(within(image).getByRole("img").getAttribute("src")).toBe(sunrise.preview_url);
   expect(screen.getAllByText("LottieFiles")).toHaveLength(1);
@@ -69,7 +72,8 @@ test("a Lottie's tile moves by its GIF and names LottieFiles", () => {
 
 test("enlarged, a Lottie is its GIF, not a video", async () => {
   mount();
-  await userEvent.click(screen.getAllByRole("button", { name: t.enlarge })[0]);
+  const [lottie] = screen.getAllByRole("button", { name: t.enlarge }) as [HTMLElement];
+  await userEvent.click(lottie);
   expect(document.querySelector("video")).toBeNull();
   const shown = screen.getByRole("img", { name: "wave" });
   expect(shown.getAttribute("src")).toBe(wave.look_url);
