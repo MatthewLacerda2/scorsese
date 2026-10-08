@@ -96,7 +96,10 @@ async fn a_batch_holding_its_ticket_is_never_given_up_on(pool: PgPool) {
     store::recover(&members).await.unwrap();
     let state = |id| {
         let members = members.clone();
-        async move { store::get(&members, ana, id).await.unwrap().unwrap() }
+        async move {
+            let job = store::get(&members, ana, id).await.expect("a read");
+            job.expect("the job")
+        }
     };
     let ordered = state(ordered.id).await;
     assert_eq!((ordered.state, ordered.error), (State::Waiting, None));

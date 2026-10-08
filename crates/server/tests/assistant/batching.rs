@@ -50,7 +50,7 @@ async fn tally(pool: &PgPool) -> (i64, i64, i64) {
         sqlx::query_scalar::<_, i64>(sql)
             .fetch_one(pool)
             .await
-            .unwrap()
+            .expect("the rows can be counted")
     };
     (
         count("SELECT count(*) FROM jobs WHERE kind = 'still_image'").await,

@@ -38,9 +38,9 @@ async fn batched(address: std::net::SocketAddr, who: &str, project: i64) -> (Str
 
 /// `user`'s balance, in micro-dollars.
 async fn balance(pool: &PgPool, user: UserId) -> i64 {
-    let mut tx = db::scoped(pool, user).await.unwrap();
-    let balance = ledger::balance(&mut tx).await.unwrap();
-    tx.commit().await.unwrap();
+    let mut tx = db::scoped(pool, user).await.expect("a scope opens");
+    let balance = ledger::balance(&mut tx).await.expect("a balance");
+    tx.commit().await.expect("the read commits");
     balance
 }
 

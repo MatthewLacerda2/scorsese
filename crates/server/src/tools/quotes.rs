@@ -64,7 +64,7 @@ pub struct Pending {
     pub expires_at: i64,
     /// What the half-price batch offered beside it costs, in US cents
     /// (#947) — `None` when the call offered none. Its token is
-    /// [`alternative`]'s to find, at the yes.
+    /// `Toolbox::batch_offer`'s to find, at the yes.
     pub batch_cents: Option<u64>,
 }
 

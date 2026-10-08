@@ -23,7 +23,7 @@ async fn held(pool: &PgPool) -> i64 {
     sqlx::query_scalar("SELECT count(*) FROM quotes")
         .fetch_one(pool)
         .await
-        .unwrap()
+        .expect("the quotes can be counted")
 }
 
 #[sqlx::test]
