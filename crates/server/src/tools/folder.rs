@@ -122,6 +122,17 @@ fn briefs(project: &Project, root: &Path) -> HashMap<String, ProjectPath> {
 
 /// Link `source` at `target`, unless something is there already — the
 /// asset's own recorded file, which is the same bytes.
+/// Point the folder at `root`'s stock cache at `user`'s own (#900), which
+/// outlives the folder.
+pub(super) fn keep_stock_cache(storage: &Storage, user: UserId, root: &Path) -> Result<(), String> {
+    let kept = storage.stock(user);
+    std::fs::create_dir_all(&kept).map_err(|error| {
+        eprintln!("scorsese-server: making the stock cache: {error}");
+        "laying the project out failed on the server".to_owned()
+    })?;
+    link(&kept, &scorsese_providers::stock::cache_dir(root))
+}
+
 pub(super) fn link(source: &Path, target: &Path) -> Result<(), String> {
     if target.symlink_metadata().is_ok() {
         return Ok(());

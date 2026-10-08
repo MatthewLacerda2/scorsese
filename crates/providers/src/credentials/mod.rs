@@ -35,7 +35,9 @@ pub use secret::Secret;
 pub(crate) use settings::folder as machine_folder;
 pub use settings::{Settings, SettingsError, path as settings_path};
 
-/// Somebody scorsese pays to generate something.
+/// Somebody scorsese calls with a key — to generate something, which is paid
+/// for, or to search a stock library ([`Pixabay`](Provider::Pixabay)), which
+/// is free.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Provider {
     /// Google's Gemini API, which is where Veo and the image models are
@@ -47,6 +49,9 @@ pub enum Provider {
     /// reads the project and calls scorsese's tools for a web user. Only the
     /// server spends with this key; nothing local asks for it.
     Anthropic,
+    /// Pixabay, for free stock footage and photos (#900). The one key here
+    /// that never spends anything: Pixabay's API has no paid tier.
+    Pixabay,
 }
 
 impl Provider {
@@ -56,6 +61,7 @@ impl Provider {
             Self::Gemini => "GEMINI_API_KEY",
             Self::ElevenLabs => "ELEVENLABS_API_KEY",
             Self::Anthropic => "ANTHROPIC_API_KEY",
+            Self::Pixabay => "PIXABAY_API_KEY",
         }
     }
 
@@ -65,6 +71,7 @@ impl Provider {
             Self::Gemini => "Gemini (Veo video, still images)",
             Self::ElevenLabs => "ElevenLabs (narration)",
             Self::Anthropic => "Anthropic (the web assistant)",
+            Self::Pixabay => "Pixabay (free stock footage and photos)",
         }
     }
 
@@ -74,6 +81,7 @@ impl Provider {
             Self::Gemini => settings.gemini_api_key.as_ref(),
             Self::ElevenLabs => settings.elevenlabs_api_key.as_ref(),
             Self::Anthropic => settings.anthropic_api_key.as_ref(),
+            Self::Pixabay => settings.pixabay_api_key.as_ref(),
         }
     }
 }

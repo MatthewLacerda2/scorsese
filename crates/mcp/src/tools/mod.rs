@@ -30,6 +30,7 @@ mod page;
 mod scratch;
 mod script;
 mod still;
+mod stock;
 mod synth;
 mod voices;
 
@@ -334,6 +335,10 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         // answers a question about this build, not about the project, and it is
         // what a client calls before writing an icon asset at all.
         Box::new(icons::Icons),
+        // Before generate, because it is free and generate is not: a generic
+        // shot is found here first, and a client reads this list in order.
+        Box::new(stock::Search),
+        Box::new(stock::Import),
         Box::new(voices::Voices),
         Box::new(design::VoiceDesign),
         Box::new(generate::Generate),

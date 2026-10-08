@@ -92,6 +92,8 @@ const STORED: &[&str] = &[
     "scale_pacing",
     "icons",
     "voices",
+    "stock_search",
+    "stock_import",
 ];
 
 /// The registry tools served as they are whose files — the script, the

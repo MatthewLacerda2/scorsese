@@ -108,6 +108,9 @@ services:
       # a generation needing one fails, free.
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      # Free stock footage and photos (#900). No paid tier, so nothing a user
+      # does with it is charged; blank means stock_search says it has no key.
+      PIXABAY_API_KEY: ${PIXABAY_API_KEY:-}
       # The assistant's key and limits. A blank key means the assistant
       # answers "not configured"; blank limits are the server's defaults.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}

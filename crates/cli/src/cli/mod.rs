@@ -10,7 +10,7 @@ use std::path::PathBuf;
 
 mod args;
 
-pub(crate) use args::{AssetsAction, KindArg, SequenceAction, SynthAction};
+pub(crate) use args::{AssetsAction, KindArg, SequenceAction, StockAction, SynthAction};
 
 use clap::{Parser, Subcommand};
 use scorsese_core::Fps;
@@ -540,6 +540,13 @@ pub(crate) enum Command {
         /// against this aspect and a title wraps against this width.
         #[arg(long, default_value = "1920x1080")]
         resolution: Resolution,
+    },
+    /// Find free stock footage and photos on Pixabay, and bring them in as
+    /// ordinary assets.
+    Stock {
+        /// Search, or import what a search found.
+        #[command(subcommand)]
+        action: StockAction,
     },
     /// Make sound from a recipe the project carries: an effect, or a score.
     /// No key, no network, no cost, and the same bytes every time this build

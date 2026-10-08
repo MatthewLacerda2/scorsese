@@ -109,6 +109,11 @@
 //! clients get checked against the vendors, and how a hand-written fixture
 //! gets replaced by a body a vendor actually sent.
 //!
+//! [`stock`], free stock footage and photos from Pixabay (#900): a search the
+//! agent looks at before choosing, cached 24 hours as Pixabay asks, and an
+//! import that is an ordinary `video` or `image` import. It spends nothing, so
+//! it has no quote and no ceiling — only a key from the same resolver.
+//!
 //! [`spending`], the one answer to *what has this project cost so far*. A
 //! ceiling asks it to decide whether the next call may go ahead and a person
 //! asks it to decide whether they want to; two answers to that would first be
@@ -125,6 +130,7 @@ pub mod prices;
 pub mod quote;
 pub mod speech;
 pub mod spending;
+pub mod stock;
 pub mod synth;
 pub mod video;
 pub mod voices;

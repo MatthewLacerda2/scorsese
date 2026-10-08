@@ -9,6 +9,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod pictures;
 mod sampling;
 mod sheets;
 

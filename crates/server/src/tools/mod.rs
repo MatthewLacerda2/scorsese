@@ -58,6 +58,7 @@
 mod bakes;
 mod carried;
 mod design;
+mod fetched;
 mod folder;
 mod generate;
 mod log;

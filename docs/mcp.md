@@ -115,6 +115,8 @@ the tools relate to each other, which is knowledge no single tool has.
 | `synth_bake` | Render every synth_audio recipe whose sound is not already on disk, into generated/. | nothing |
 | `synth_survey` | Say what every song recipe in the project is made of, and count the same facts across the whole set. | nothing |
 | `icons` | Find an icon by a word, and answer with names — each one a string to give `asset_set` as `icon` (an icon asset's `name` in the document) or write into a page. | nothing |
+| `stock_search` | Search Pixabay's free stock footage and photos, and see the candidates before choosing. | a key and a network, but no money |
+| `stock_import` | Bring stock footage or a photo that stock_search found into the project, by its id, as an ordinary video or image asset. | a key and a network, but no money |
 | `voices` | List the ElevenLabs voices a narration can be read in, or check that one still exists. | a key and a network, but no money |
 | `voice_design` | Design a new ElevenLabs voice from a description, for when no voice in either list is the one the video needs. | money, at a provider |
 | `generate` | Realise the sketched briefs — the one tool here that costs money, and it quotes before it spends. | money, at a provider |

@@ -138,11 +138,13 @@ fn recorded(dir: &std::path::Path, reports: &[Report]) -> Result<()> {
     Ok(())
 }
 
-/// A provider as a file name starts: `gemini`, `elevenlabs`, `anthropic`.
+/// A provider as a file name starts: `gemini`, `elevenlabs`, `anthropic`,
+/// `pixabay`.
 fn slug(provider: Provider) -> &'static str {
     match provider {
         Provider::Gemini => "gemini",
         Provider::ElevenLabs => "elevenlabs",
         Provider::Anthropic => "anthropic",
+        Provider::Pixabay => "pixabay",
     }
 }
