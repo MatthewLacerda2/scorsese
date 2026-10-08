@@ -128,22 +128,22 @@ pub struct CandidateView {
     /// What the user's pick names it by, unique within its picker:
     /// `pixabay-video-39009`.
     pub key: String,
-    /// Where it comes from: `pixabay`.
+    /// Where it comes from: `pixabay` or `lottiefiles`.
     pub source: String,
-    /// `video` or `image`.
+    /// `video`, `image` or `lottie`.
     pub kind: String,
     /// The source's id for it.
     pub id: String,
-    /// A still of it, for the grid.
+    /// A still of it for the grid — for a Lottie, its animated GIF.
     pub preview_url: String,
     /// What the enlarged view shows: a video's smallest file, played muted,
-    /// or a picture's smallest full rendition.
+    /// a picture's smallest full rendition, or a Lottie's animated GIF.
     pub look_url: String,
     /// The largest size there is, in pixels.
     pub width: u32,
     /// The largest size there is, in pixels.
     pub height: u32,
-    /// Seconds long, for footage.
+    /// Seconds long, for footage and animations.
     pub seconds: Option<u32>,
     /// Who published it.
     pub author: String,

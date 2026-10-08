@@ -59,7 +59,8 @@ imported. Never show a picker to confirm a clear choice, nor for every shot.
 - For a character, a mascot, an animated icon or an illustration in motion, \
 search stock_search with kind lottie before drawing or generating one: it is \
 free. stock_import puts it beside the pages, and its reply has the page that \
-plays it: write that page with page_write and place the page.
+plays it: write that page with page_write and place the page. Which mascot is \
+taste too: pick_stock shows lottie results exactly as it shows footage.
 - guide is free and holds the how-to: read guide pages before your first \
 page_write in a conversation, and guide prompts before writing a prompt. \
 When a tool's description names a guide, that is where to look.

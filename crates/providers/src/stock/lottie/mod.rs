@@ -146,6 +146,7 @@ fn candidate(animation: &Animation) -> Option<Candidate> {
         page_url: animation.url.clone().unwrap_or_default(),
         preview_url: animation.image_url.clone().unwrap_or_default(),
         motion_url: animation.video_url.clone().filter(|url| !url.is_empty()),
+        animated_url: animation.gif_url.clone().filter(|url| !url.is_empty()),
         ai_generated: false,
         renditions: vec![Rendition {
             name: String::from("json"),
@@ -184,6 +185,7 @@ mod tests {
         assert_eq!(kitty.author, "Kati");
         assert!(kitty.preview_url.ends_with(".png"));
         assert!(kitty.motion_url.as_deref().unwrap().ends_with(".mp4"));
+        assert!(kitty.animated_url.as_deref().unwrap().ends_with(".gif"));
         let json = kitty.largest().unwrap();
         assert_eq!((json.width, json.height), (1291, 1200));
         assert!(json.url.ends_with(".json"));

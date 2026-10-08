@@ -77,7 +77,8 @@
 //! more of when the choice is taste. What they pick is imported as their own
 //! call, from the toolbox's stock library (`crate::tools`, *Stock*) — the
 //! one the model's own `stock_search` and `stock_import` answer from — and the
-//! turn resumes with the new assets.
+//! turn resumes with the new assets, or for a Lottie (#908) the file under
+//! `pages/` and the page that plays it.
 //!
 //! ## Money
 //!

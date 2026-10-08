@@ -136,6 +136,11 @@ pub struct Candidate {
     /// that is not one of its renditions — a Lottie's MP4.
     #[serde(default)]
     pub motion_url: Option<String>,
+    /// A small looping picture of it moving, where the vendor has one — a
+    /// Lottie's GIF: what the web picker (#908) shows it by, since a still
+    /// says little about an animation.
+    #[serde(default)]
+    pub animated_url: Option<String>,
     /// Whether the vendor marks it as AI-generated.
     #[serde(default)]
     pub ai_generated: bool,
@@ -259,6 +264,7 @@ mod tests {
             page_url: String::new(),
             preview_url: String::new(),
             motion_url: None,
+            animated_url: None,
             ai_generated: false,
             renditions,
         }

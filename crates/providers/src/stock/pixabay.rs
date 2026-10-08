@@ -164,6 +164,7 @@ fn candidate(medium: Medium, common: &wire::Common) -> Candidate {
         page_url: common.page_url.clone(),
         preview_url: String::new(),
         motion_url: None,
+        animated_url: None,
         ai_generated: common.is_ai_generated,
         renditions: Vec::new(),
     }
