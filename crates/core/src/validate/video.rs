@@ -34,6 +34,13 @@ pub(super) fn check(project: &Project, asset: &Asset, errors: &mut Vec<AssetProb
     if !request.reference_images.is_empty() && !request.model.supports_reference_images() {
         found.push(VideoProblem::unsupported(&asset.id, request.model));
     }
+    if !request.model.supports(request.resolution) {
+        found.push(VideoProblem::unsold(
+            &asset.id,
+            request.model,
+            request.resolution,
+        ));
+    }
     if request.reference_images.len() > MAX_REFERENCE_IMAGES {
         found.push(VideoProblem::TooManyReferenceImages {
             asset: asset.id.clone(),

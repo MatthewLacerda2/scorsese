@@ -66,3 +66,19 @@ fn interpolating_between_two_stills_fixes_the_length_too() {
         },
     );
 }
+
+#[test]
+fn four_k_only_generates_at_eight_seconds_and_says_so_by_name() {
+    let p = asking(|r| {
+        r.resolution = VideoResolution::P4k;
+        r.seconds = ClipSeconds::Six;
+    });
+    assert_only_problem(
+        &p,
+        V::LengthLocked {
+            asset: asset_id("shot-city"),
+            asked: 6,
+            cause: "4k",
+        },
+    );
+}

@@ -19,9 +19,9 @@ use scorsese_providers::prices::{
 /// price list looks like this — so the alternative was a second rendering that
 /// could disagree with the first.
 ///
-/// It prints every published rate, including the tiers scorsese does not offer,
-/// with those marked. The table exists to be checked off against Google's page,
-/// and rows missing from it are rows nobody ticks.
+/// It prints every published rate — scorsese offers every one of them (#891).
+/// The table exists to be checked off against Google's page, and rows missing
+/// from it are rows nobody ticks.
 pub(crate) fn run() -> Result<()> {
     let today = Checked::today();
 
@@ -30,14 +30,9 @@ pub(crate) fn run() -> Result<()> {
     println!("| tier | size | per second | 8 seconds | checked |");
     println!("| --- | --- | --- | --- | --- |");
     for row in veo::RATES {
-        let offered = row.tier.is_offered() && row.quality.is_offered();
-        let label = if offered {
-            row.tier.label().to_owned()
-        } else {
-            format!("{} *(not offered)*", row.tier.label())
-        };
         println!(
-            "| {label} | {} | {} | {} | {}{} |",
+            "| {} | {} | {} | {} | {}{} |",
+            row.tier.label(),
             row.quality.label(),
             dollars(row.rate.cents_per_second),
             dollars(row.rate.cents_per_second * 8),

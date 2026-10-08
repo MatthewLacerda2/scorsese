@@ -63,32 +63,38 @@ fn length_multiplies_and_nothing_rounds() {
     assert_eq!(at(ClipSeconds::Eight), 80);
 }
 
-/// Every tier and size scorsese can actually ask for has a price. If this ever
-/// fails, an option was added to the editor that nothing can quote.
+/// Every tier and size scorsese can ask for has a price, and every row the
+/// table holds is one scorsese can ask for: the editor and Google's price list
+/// are the same list (#891). Lite at 4K is the one cell missing from both.
 #[test]
-fn every_shot_scorsese_can_ask_for_is_priced() {
-    for model in [VideoModel::Fast, VideoModel::Lite] {
-        for resolution in [VideoResolution::P720, VideoResolution::P1080] {
-            for seconds in ClipSeconds::ALL {
-                let request = asking(model, resolution, seconds);
-                assert!(
-                    estimate(&request).is_ok(),
-                    "{model:?} at {resolution:?} has no price"
-                );
-            }
+fn every_shot_scorsese_can_ask_for_is_priced_and_nothing_else_is() {
+    let mut asked = 0;
+    for model in VideoModel::ALL {
+        for resolution in VideoResolution::ALL {
+            let request = asking(model, resolution, ClipSeconds::Eight);
+            assert_eq!(
+                estimate(&request).is_ok(),
+                model.supports(resolution),
+                "{model:?} at {resolution:?}: priced exactly when it is sold"
+            );
+            asked += usize::from(model.supports(resolution));
         }
     }
+    assert_eq!(
+        asked,
+        veo::RATES.len(),
+        "a row nobody can ask for, or the reverse"
+    );
 }
 
-/// The tiers and sizes the table carries for auditing are the ones nobody can
-/// choose in the editor — so the table being longer than the editor is
-/// deliberate rather than drift.
 #[test]
-fn the_table_is_wider_than_what_is_offered() {
-    assert!(!Tier::Standard.is_offered());
-    assert!(Tier::Fast.is_offered() && Tier::Lite.is_offered());
-    assert!(!Quality::P4k.is_offered());
-    assert!(Quality::P720.is_offered() && Quality::P1080.is_offered());
+fn the_full_tier_at_4k_costs_four_dollars_eighty() {
+    let priced = asking(
+        VideoModel::Standard,
+        VideoResolution::P4k,
+        ClipSeconds::Eight,
+    );
+    assert_eq!(estimate(&priced).expect("sold").cents, 480);
 }
 
 #[test]

@@ -25,8 +25,8 @@ const KEY_HEADER: &str = "x-goog-api-key";
 
 /// The most a generated video is allowed to be, in bytes.
 ///
-/// Eight seconds of 1080p is a few megabytes; this is orders above that, so it
-/// bounds a redirect somewhere unexpected rather than any real video.
+/// Eight seconds of 4K is tens of megabytes; this is an order above that, so
+/// it bounds a redirect somewhere unexpected rather than any real video.
 const MAX_VIDEO_BYTES: u64 = 512 * 1024 * 1024;
 
 /// Which model a request is for.
@@ -36,19 +36,22 @@ const MAX_VIDEO_BYTES: u64 = 512 * 1024 * 1024;
 /// these are `-preview` names and they will change.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Model {
+    /// The full model.
+    Standard,
     /// The default tier.
     Fast,
-    /// Cheaper, and without reference images.
+    /// Cheaper, and without reference images or 4K.
     Lite,
 }
 
 impl Model {
-    /// Every tier scorsese offers.
-    pub const ALL: [Self; 2] = [Self::Fast, Self::Lite];
+    /// Every tier scorsese offers, which is every tier Google sells.
+    pub const ALL: [Self; 3] = [Self::Standard, Self::Fast, Self::Lite];
 
     /// The id this tier is called in a URL.
     pub const fn id(self) -> &'static str {
         match self {
+            Self::Standard => "veo-3.1-generate-preview",
             Self::Fast => "veo-3.1-fast-generate-preview",
             Self::Lite => "veo-3.1-lite-generate-preview",
         }

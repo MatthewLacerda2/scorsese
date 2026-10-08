@@ -43,12 +43,12 @@ pub(super) fn model_row(ui: &mut Ui, value: VideoModel) -> Option<VideoModel> {
     ComboBox::from_id_salt("brief-model")
         .selected_text(name(value))
         .show_ui(ui, |ui| {
-            for option in [VideoModel::Fast, VideoModel::Lite] {
+            for option in VideoModel::ALL {
                 ui.selectable_value(&mut chosen, option, name(option))
                     .on_hover_text(if option.supports_reference_images() {
                         "Takes reference images"
                     } else {
-                        "Cheaper, and takes no reference images"
+                        "Cheaper, and takes no reference images or 4k"
                     });
             }
         });
@@ -60,7 +60,7 @@ pub(super) fn model_row(ui: &mut Ui, value: VideoModel) -> Option<VideoModel> {
         RichText::new(if value.supports_reference_images() {
             OPTIONAL.to_owned()
         } else {
-            format!("{OPTIONAL} · no reference images")
+            format!("{OPTIONAL} · no reference images or 4k")
         })
         .weak()
         .small(),
@@ -69,14 +69,21 @@ pub(super) fn model_row(ui: &mut Ui, value: VideoModel) -> Option<VideoModel> {
     (chosen != value).then_some(chosen)
 }
 
-/// The raster.
-pub(super) fn resolution_row(ui: &mut Ui, value: VideoResolution) -> Option<VideoResolution> {
+/// The raster — only the ones `model` sells, so Lite never offers 4k.
+pub(super) fn resolution_row(
+    ui: &mut Ui,
+    model: VideoModel,
+    value: VideoResolution,
+) -> Option<VideoResolution> {
     ui.label("Resolution");
     let mut chosen = value;
     ComboBox::from_id_salt("brief-resolution")
         .selected_text(value.as_str())
         .show_ui(ui, |ui| {
-            for option in [VideoResolution::P720, VideoResolution::P1080] {
+            for option in VideoResolution::ALL
+                .into_iter()
+                .filter(|option| model.supports(*option))
+            {
                 ui.selectable_value(&mut chosen, option, option.as_str())
                     .on_hover_text(if option.locks_length() {
                         "Generated at eight seconds only"
@@ -145,6 +152,7 @@ pub(super) fn aspect_row(ui: &mut Ui, value: Aspect) -> Option<Aspect> {
 /// which is the cheapest possible reminder that the window has to name it too.
 fn name(model: VideoModel) -> &'static str {
     match model {
+        VideoModel::Standard => "Standard",
         VideoModel::Fast => "Fast",
         VideoModel::Lite => "Lite",
     }

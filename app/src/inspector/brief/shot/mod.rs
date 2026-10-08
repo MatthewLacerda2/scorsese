@@ -73,7 +73,9 @@ impl Inspector {
                     request_of(asset).model = model;
                 });
             }
-            if let Some(resolution) = fields::resolution_row(ui, brief.request.resolution) {
+            if let Some(resolution) =
+                fields::resolution_row(ui, brief.request.model, brief.request.resolution)
+            {
                 self.attempt_brief(
                     open,
                     selected,

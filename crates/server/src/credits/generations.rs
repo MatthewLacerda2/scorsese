@@ -28,9 +28,9 @@ pub struct Shot<'a> {
     pub tool_call: Option<i64>,
     /// The job that runs it.
     pub job: Option<i64>,
-    /// `fast` or `lite`.
+    /// `standard`, `fast` or `lite`.
     pub model: &'a str,
-    /// `720p` or `1080p`.
+    /// `720p`, `1080p` or `4k`.
     pub resolution: &'a str,
     /// Seconds of finished video.
     pub seconds: u32,

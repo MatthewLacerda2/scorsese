@@ -296,3 +296,24 @@ fn a_v43_document_s_assets_read_the_same_at_this_version() {
     assert_eq!(project.assets[0].kind, crate::AssetKind::Image);
     assert_eq!(project.assets[1].kind, crate::AssetKind::Text);
 }
+
+/// v44 → v45: a v44 document's shots keep their tier and raster.
+#[test]
+fn a_v44_document_s_shots_keep_their_tier_and_raster() {
+    let document = json!({
+        "schema_version": 44,
+        "name": "Before Standard and 4K",
+        "timeline_fps": { "num": 30, "den": 1 },
+        "assets": [
+            { "id": "shot", "kind": "generated_video", "state": "sketch", "prompt": "rain",
+              "video": { "model": "lite", "resolution": "720p", "seconds": 4 } }
+        ],
+        "tracks": []
+    });
+    let (project, from) = parse(&document.to_string()).expect("a v44 document migrates");
+    assert_eq!(from, Some(44));
+    project.validate().expect("and it validates");
+    let request = project.assets[0].video_request();
+    assert_eq!(request.model, crate::VideoModel::Lite);
+    assert_eq!(request.resolution, crate::VideoResolution::P720);
+}

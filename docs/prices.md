@@ -20,16 +20,28 @@ tier for video at all.
 
 Last checked against
 [Google's pricing page](https://ai.google.dev/gemini-api/docs/pricing) on
-**2026-08-04**.
+**2026-10-08** (the page itself says it was updated 2026-10-07).
 
-So the shots scorsese can actually ask for, at the three lengths Veo makes:
+**Every row is something scorsese offers.** Scorsese offers what Google sells,
+no more and no less (#891), so that page is the checklist: a row here that a
+shot's brief cannot ask for, or a choice in the brief with no row, is
+something that was not maintained. The one deliberate gap is video extension,
+which is a different kind of request rather than another row (the format
+reference's *What a generated video asks for* has why).
+
+So every shot scorsese can ask for, at the lengths Veo makes. 1080p and 4k are
+only generated at eight seconds:
 
 | | 4s | 6s | 8s |
 | --- | --- | --- | --- |
+| Standard, 720p | $1.60 | $2.40 | $3.20 |
+| Standard, 1080p | — | — | $3.20 |
+| Standard, 4k | — | — | $4.80 |
 | Fast, 720p | $0.40 | $0.60 | $0.80 |
-| Fast, 1080p | $0.48 | $0.72 | $0.96 |
+| Fast, 1080p | — | — | $0.96 |
+| Fast, 4k | — | — | $2.40 |
 | Lite, 720p | $0.20 | $0.30 | $0.40 |
-| Lite, 1080p | $0.32 | $0.48 | $0.64 |
+| Lite, 1080p | — | — | $0.64 |
 
 A twenty-shot cut at the default — Fast, 1080p, eight seconds — is about
 **$19**. Sketching that same cut costs nothing at all, because a sketch renders
@@ -53,9 +65,9 @@ answers `Unpriced` rather than a number. A grid would need something in that
 cell, and whatever went there would be a price for something that cannot be
 bought.
 
-Rows scorsese does not offer are in the table anyway — Standard, and 4k —
-marked as not offered. The artifact being audited is Google's price list, and a
-list missing rows is one nobody can tick through.
+The artifact being audited is Google's price list, and a list missing rows is
+one nobody can tick through — which is the other half of offering everything
+it sells: there is no row kept only for the audit, and none missing from it.
 
 ## Stills
 

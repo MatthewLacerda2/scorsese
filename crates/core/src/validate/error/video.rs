@@ -12,7 +12,7 @@
 //! reason to check it: a request rejected by the provider costs a round trip
 //! and, on a bad day, an argument about whether the money was spent.
 
-use crate::asset::{AssetId, AssetKind, ClipSeconds, LengthLock, VideoModel};
+use crate::asset::{AssetId, AssetKind, ClipSeconds, LengthLock, VideoModel, VideoResolution};
 
 /// One thing wrong with what a generated video is asking for.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
@@ -44,13 +44,32 @@ pub enum VideoProblem {
     /// cut with nothing having reported a problem.
     #[error(
         "asset `{asset}` names reference images, but the `{model}` tier does not take them — \
-         use `fast`, or drop the images"
+         use `fast` or `standard`, or drop the images"
     )]
     ReferenceImagesUnsupported {
         /// The asset naming them.
         asset: AssetId,
         /// The tier that cannot take them.
         model: &'static str,
+    },
+
+    /// A raster the tier does not sell — 4K on Lite.
+    ///
+    /// Refused rather than generated smaller, for the reason reference images
+    /// are: the cheaper tier was chosen to save money, and handing back a
+    /// smaller picture than was asked for is a change nobody would notice
+    /// until the cut was delivered.
+    #[error(
+        "asset `{asset}` asks for {resolution}, but the `{model}` tier does not generate it — \
+         use `fast` or `standard`, or a smaller resolution"
+    )]
+    ResolutionUnsupported {
+        /// The asset asking for it.
+        asset: AssetId,
+        /// The tier that does not sell it.
+        model: &'static str,
+        /// The raster as written.
+        resolution: &'static str,
     },
 
     /// More reference images than the provider accepts.
@@ -119,6 +138,15 @@ impl VideoProblem {
         Self::ReferenceImagesUnsupported {
             asset: asset.clone(),
             model: model.as_str(),
+        }
+    }
+
+    /// The refusal for a raster the tier does not sell.
+    pub(crate) fn unsold(asset: &AssetId, model: VideoModel, resolution: VideoResolution) -> Self {
+        Self::ResolutionUnsupported {
+            asset: asset.clone(),
+            model: model.as_str(),
+            resolution: resolution.as_str(),
         }
     }
 }

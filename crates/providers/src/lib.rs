@@ -15,6 +15,13 @@
 //! recipe yields the same bytes forever. Only the first kind needs
 //! credentials, and only the first kind needs mocking.
 //!
+//! **A provider offers what its vendor documents, all of it** (#891). Every
+//! option a vendor's API sells — a tier, a raster, a length — is an option a
+//! brief can ask for, and a deliberate omission is written down beside the
+//! type that would carry it, with its reason. That makes upkeep mechanical:
+//! the vendor's docs page is the checklist, and a difference from it is either
+//! a recorded decision or something that was not maintained.
+//!
 //! Credentials come from one resolver and one order — see [`credentials`]:
 //! the environment first (an exported variable, or the `.env` at the root of a
 //! checkout), then the settings file a shipped build keeps per machine. Real
