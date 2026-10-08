@@ -1,5 +1,5 @@
 {
-  "schema_version": 46,
+  "schema_version": 47,
   "name": "group_faded",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [

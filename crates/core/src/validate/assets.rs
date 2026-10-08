@@ -125,7 +125,10 @@ fn check_kind_fields(asset: &Asset, errors: &mut Vec<AssetProblem>) {
 /// question, even when nothing would have read it.
 fn check_bookkeeping(asset: &Asset, errors: &mut Vec<AssetProblem>) {
     let kind = asset.kind;
-    if asset.operation.is_some() && kind != AssetKind::GeneratedVideo {
+    // A shot's ticket is Veo's operation; a still's is the half-price batch it
+    // waits in (#894). A line is never in flight.
+    let ticketed = matches!(kind, AssetKind::GeneratedVideo | AssetKind::GeneratedImage);
+    if asset.operation.is_some() && !ticketed {
         errors.push(stray(asset, AssetField::Operation));
     }
     if asset.queued_at.is_some() && !kind.is_generated() {

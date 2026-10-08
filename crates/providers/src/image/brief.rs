@@ -109,7 +109,14 @@ impl Brief {
     /// asset and the fingerprint, for [`video`](crate::video::Brief::output)'s
     /// reason: two stills with the same prompt are two takes.
     pub fn output(&self) -> ProjectPath {
-        ProjectPath::new(format!("{GENERATED_DIR}/{}-{}.jpg", self.id, self.digest()))
+        ProjectPath::new(format!("{GENERATED_DIR}/{}.jpg", self.key()))
+    }
+
+    /// The name of [`Brief::output`]'s file without its directory or
+    /// extension — what a batch request is keyed by, so its answer finds the
+    /// file it belongs in.
+    pub fn key(&self) -> String {
+        format!("{}-{}", self.id, self.digest())
     }
 
     /// Whether a drawing of this brief is already on disk — the answer to *has

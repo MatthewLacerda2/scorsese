@@ -317,3 +317,26 @@ fn a_v44_document_s_shots_keep_their_tier_and_raster() {
     assert_eq!(request.model, crate::VideoModel::Lite);
     assert_eq!(request.resolution, crate::VideoResolution::P720);
 }
+
+/// v46 → v47: a v46 document's stills, sketched and generated, read the same.
+#[test]
+fn a_v46_document_s_stills_read_the_same_at_this_version() {
+    let document = json!({
+        "schema_version": 46,
+        "name": "Before batches",
+        "timeline_fps": { "num": 30, "den": 1 },
+        "assets": [
+            { "id": "poster", "kind": "generated_image", "state": "sketch", "prompt": "a poster",
+              "image": { "model": "pro", "resolution": "2K" } }
+        ],
+        "tracks": []
+    });
+    let (project, from) = parse(&document.to_string()).expect("a v46 document migrates");
+    assert_eq!(from, Some(46));
+    project.validate().expect("and it validates");
+    assert_eq!(project.assets[0].operation, None);
+    assert_eq!(
+        project.assets[0].image_request().model,
+        crate::ImageModel::Pro
+    );
+}

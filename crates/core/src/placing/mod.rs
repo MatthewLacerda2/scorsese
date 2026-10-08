@@ -63,7 +63,7 @@ mod fixture {
     use crate::timeline::TrackId;
 
     const DOCUMENT: &str = r#"{
-      "schema_version": 46,
+      "schema_version": 47,
       "name": "T",
       "timeline_fps": { "num": 30, "den": 1 },
       "assets": [

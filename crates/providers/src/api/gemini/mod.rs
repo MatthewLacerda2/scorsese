@@ -9,8 +9,11 @@
 //!
 //! One call where Veo has three, because the work is seconds rather than
 //! minutes: the picture comes back on the connection that asked for it, inside
-//! the JSON, base64. There is no ticket to keep, so none is invented.
+//! the JSON, base64. There is no ticket to keep, so none is invented — except
+//! for a still somebody chose to wait a day for at half price, which is a
+//! [`batch`] job with a name, polled like a shot.
 
+pub mod batch;
 pub mod chat;
 pub mod request;
 pub mod response;
@@ -19,6 +22,9 @@ use std::time::Duration;
 
 use crate::api::http::{Caller, HttpError};
 use crate::credentials::Secret;
+
+/// The API's root, which every endpoint here hangs off.
+const BASE: &str = "https://generativelanguage.googleapis.com/v1beta";
 
 /// The endpoint every interaction is created at.
 const INTERACTIONS: &str = "https://generativelanguage.googleapis.com/v1beta/interactions";

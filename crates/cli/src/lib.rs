@@ -79,6 +79,7 @@ fn dispatch(cli: Cli) -> Result<()> {
             dry_run,
             yes,
             collect,
+            batch,
             wait,
         } => {
             if collect {
@@ -86,9 +87,12 @@ fn dispatch(cli: Cli) -> Result<()> {
             } else {
                 commands::generate::run(
                     &directory,
-                    std::time::Duration::from_secs(wait),
-                    dry_run,
-                    yes,
+                    &commands::generate::Asked {
+                        patience: std::time::Duration::from_secs(wait),
+                        dry_run,
+                        yes,
+                        batch,
+                    },
                 )
             }
         }

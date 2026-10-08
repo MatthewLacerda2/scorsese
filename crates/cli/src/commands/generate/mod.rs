@@ -28,6 +28,7 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use scorsese_core::{Project, Reprobe, probe_assets};
 use scorsese_providers::credentials::{Budget, Settings};
+use scorsese_providers::image::Order;
 use scorsese_providers::prices::dollars;
 use scorsese_providers::video::{Outcome, Run};
 use scorsese_providers::{image, speech, spending, video};
@@ -35,16 +36,37 @@ use scorsese_render::Ffprobe;
 
 use super::confirm;
 
-/// Realises every sketched brief, waiting up to `patience` for the shots.
-pub(crate) fn run(project_dir: &Path, patience: Duration, dry_run: bool, yes: bool) -> Result<()> {
+/// What one `scorsese generate` was asked for, beyond the project.
+pub(crate) struct Asked {
+    /// How long to wait for the shots before detaching.
+    pub(crate) patience: Duration,
+    /// Quote and stop.
+    pub(crate) dry_run: bool,
+    /// Go ahead without asking.
+    pub(crate) yes: bool,
+    /// Order the stills as a half-price batch (#894) rather than now.
+    pub(crate) batch: bool,
+}
+
+impl Asked {
+    /// How the stills are ordered.
+    fn order(&self) -> Order {
+        if self.batch { Order::Batch } else { Order::Now }
+    }
+}
+
+/// Realises every sketched brief, waiting up to `patience` for the shots — or,
+/// asked for a batch, orders the stills and nothing else.
+pub(crate) fn run(project_dir: &Path, asked: &Asked) -> Result<()> {
     let mut project = Project::load(project_dir)
         .with_context(|| format!("opening the project in {}", project_dir.display()))?;
+    let order = asked.order();
 
-    if dry_run {
-        return quote(&project, project_dir);
+    if asked.dry_run {
+        return quote(&project, project_dir, order);
     }
 
-    if pending(&project, project_dir) && !permitted(&project, project_dir, yes)? {
+    if pending(&project, project_dir) && !permitted(&project, project_dir, asked.yes, order)? {
         println!("Nothing was sent.");
         return Ok(());
     }
@@ -55,7 +77,10 @@ pub(crate) fn run(project_dir: &Path, patience: Duration, dry_run: bool, yes: bo
     // The document is saved whatever happens, and that is not tidiness: a
     // ticket written before a failure is the only record that money was spent,
     // and losing it means paying again for work already in flight.
-    let (done, outcome) = passes(&mut project, project_dir, budget, patience);
+    let (done, outcome) = match order {
+        Order::Now => passes(&mut project, project_dir, budget, asked.patience),
+        Order::Batch => batched(&mut project, project_dir, budget),
+    };
     project
         .save(project_dir)
         .with_context(|| format!("saving {}", project_dir.display()))?;
@@ -100,9 +125,7 @@ struct Done {
 impl Done {
     /// Whether a still landed on disk that nothing has measured yet.
     fn drew(&self) -> bool {
-        self.stills
-            .iter()
-            .any(|(_, outcome)| matches!(outcome, image::Outcome::Generated { .. }))
+        self.stills.iter().any(|(_, outcome)| outcome.landed())
     }
 
     /// What the stills spent.
@@ -156,17 +179,42 @@ fn passes(
     (done, Ok(()))
 }
 
+/// The stills, ordered as a batch — the one pass a batch run makes. Its quote
+/// was refused had a shot or a line been waiting to be sent.
+fn batched(project: &mut Project, project_dir: &Path, budget: Budget) -> (Done, Result<()>) {
+    let mut done = Done {
+        shots: Run {
+            outcomes: Vec::new(),
+            spent_cents: 0,
+        },
+        stills: Vec::new(),
+        lines: Vec::new(),
+    };
+    if image::pending(project, project_dir) {
+        match stills::order(project, project_dir, budget) {
+            Ok(ordered) => done.stills = ordered,
+            Err(error) => return (done, Err(error)),
+        }
+    }
+    (done, Ok(()))
+}
+
 /// Whether this run may go ahead: the quote, and then the question.
 ///
 /// The quote is printed **only when somebody is going to be asked**, because it
 /// is there to be decided on. A run that already carries its answer prints what
 /// it did, not what it was about to do.
-fn permitted(project: &Project, root: &Path, yes: bool) -> Result<bool> {
+fn permitted(project: &Project, root: &Path, yes: bool, order: Order) -> Result<bool> {
+    // A batch with a shot or a line in it is refused before anything is
+    // asked, however the run was told to go ahead.
+    if order == Order::Batch {
+        scorsese_providers::quote::batch(project, root)?;
+    }
     match confirm::verdict(yes, confirm::interactive()) {
         confirm::Verdict::Ahead => Ok(true),
         confirm::Verdict::NobodyThere => Err(anyhow::anyhow!(confirm::nobody_there("generate"))),
         confirm::Verdict::Ask => {
-            quote(project, root)?;
+            quote(project, root, order)?;
             confirm::asked("Generate this?")
         }
     }
@@ -194,17 +242,23 @@ pub(crate) fn sweep(project_dir: &Path) -> Result<()> {
         .with_context(|| format!("opening the project in {}", project_dir.display()))?;
 
     let outcome = shots::sweep(&mut project, project_dir);
+    let drawn = match &outcome {
+        Ok(_) => stills::sweep(&mut project, project_dir),
+        Err(_) => Ok(Vec::new()),
+    };
     project
         .save(project_dir)
         .with_context(|| format!("saving {}", project_dir.display()))?;
     let collected = outcome?;
-    if collected.is_empty() {
+    let drawn = drawn?;
+    if collected.is_empty() && drawn.is_empty() {
         println!("Nothing is in flight.");
         return Ok(());
     }
     // A shot collected here is a shot nothing has looked at, exactly as if the
-    // run that submitted it had waited for it.
-    if landed(&collected, &[]) {
+    // run that submitted it had waited for it — and so is a still from its
+    // batch.
+    if landed(&collected, &[]) || drawn.iter().any(|(_, outcome)| outcome.landed()) {
         measure(&mut project, project_dir)?;
     }
     // A sweep spends nothing by construction, so its total is zero and saying
@@ -213,6 +267,7 @@ pub(crate) fn sweep(project_dir: &Path) -> Result<()> {
         outcomes: collected,
         spent_cents: 0,
     });
+    stills::report(&drawn);
     println!();
     println!(
         "About {} spent on this run — nothing, because a sweep only collects.",
@@ -247,8 +302,15 @@ fn measure(project: &mut Project, project_dir: &Path) -> Result<()> {
 /// arithmetic is [`scorsese_providers::quote::generation`]'s — the same quote
 /// the MCP tool binds its token to, so the terminal and a tool call cannot
 /// price one project differently.
-fn quote(project: &Project, root: &Path) -> Result<()> {
-    let quote = scorsese_providers::quote::generation(project, root)?;
+///
+/// A quote for now offers the batch beside it when its stills are worth it
+/// ([`quote::offer`](scorsese_providers::quote::offer)): the choice trades the
+/// person's time, so it is put in front of them rather than made.
+fn quote(project: &Project, root: &Path, order: Order) -> Result<()> {
+    let quote = match order {
+        Order::Now => scorsese_providers::quote::generation(project, root)?,
+        Order::Batch => scorsese_providers::quote::batch(project, root)?,
+    };
     for item in &quote.items {
         println!("{:<24} {}", item.subject, item.says);
     }
@@ -258,6 +320,15 @@ fn quote(project: &Project, root: &Path) -> Result<()> {
          See `scorsese guide prices`.",
         dollars(quote.cents())
     );
+    if order == Order::Now
+        && let Some(offer) = scorsese_providers::quote::offer(project, root)?
+    {
+        println!(
+            "Stills: {} now · {} with --batch, ready within 24 hours (half price).",
+            dollars(offer.now_cents),
+            dollars(offer.batch_cents)
+        );
+    }
     Ok(())
 }
 

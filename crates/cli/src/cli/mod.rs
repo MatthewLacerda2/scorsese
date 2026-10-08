@@ -259,6 +259,9 @@ pub(crate) enum Command {
     /// up. Narration comes back on the same call and is never in flight. A line
     /// with no voice chosen yet is reported and skipped, not failed.
     ///
+    /// Stills can instead be ordered in a batch with `--batch`: half price,
+    /// ready within 24 hours, picked up by a later run or `--collect`.
+    ///
     /// Nothing is submitted until you say so: the quote is printed and the run
     /// asks. Pass `--yes` to answer in advance, which an unattended run must —
     /// with stdin not a terminal and no `--yes`, this refuses rather than
@@ -275,9 +278,15 @@ pub(crate) enum Command {
         #[arg(long)]
         yes: bool,
         /// Collect what has finished and submit nothing at all. What to run
-        /// after coming back to a project with shots in flight.
+        /// after coming back to a project with shots in flight or stills
+        /// waiting in a batch.
         #[arg(long, conflicts_with = "dry_run")]
         collect: bool,
+        /// Order the stills as a half-price batch, ready within 24 hours,
+        /// instead of drawing them now. Stills only: refused when a shot or a
+        /// line would be sent too. A later run, or `--collect`, picks them up.
+        #[arg(long, conflicts_with = "collect")]
+        batch: bool,
         /// How many seconds to wait before detaching, leaving the rest to be
         /// collected later. Most shots finish inside the default.
         #[arg(long, default_value_t = 300)]

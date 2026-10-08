@@ -7,6 +7,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod batch;
 mod cache;
 mod lifecycle;
 mod mock;

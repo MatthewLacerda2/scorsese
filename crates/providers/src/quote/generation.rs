@@ -8,17 +8,29 @@
 //!
 //! Shots first, then stills, then lines, each in document order — the order every surface
 //! has always printed them in, and the order a person reads a cut in.
+//!
+//! **A batch is quoted on its own** ([`batch`], #894): stills only, at half
+//! the rate, under its own [`Spend`] so a token for one order is never spent
+//! on the other. A request to batch anything else is refused, naming it.
+//! [`offer`] is what the quote for *now* shows beside itself, so the person
+//! chooses with the saving in front of them.
 
 use std::path::Path;
 
 use scorsese_core::{Asset, AssetKind, Project};
 
 use super::{Charge, Item, Quote, Spend};
+use crate::image::Order;
 use crate::prices::{self, Unpriced, UnpricedImage, UnpricedSpeech, dollars};
 use crate::{image, speech, video};
 
+/// Below this many cents of stills drawn now, the quote does not offer a
+/// batch: the saving is under half a dollar, not worth a day's wait or the
+/// question (the maintainer's *about a dollar*, #894).
+pub const OFFER_FROM_CENTS: u64 = 100;
+
 /// A brief asks for something there is no price for, so nothing can be quoted.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum Unquotable {
     /// A shot at a tier and size nobody sells.
     #[error(transparent)]
@@ -29,6 +41,16 @@ pub enum Unquotable {
     /// A still at a size its model does not draw.
     #[error(transparent)]
     Image(#[from] UnpricedImage),
+    /// A batch asked for with a shot or a line in it that would be sent.
+    #[error(
+        "only stills can wait in a half-price batch, and {} would be sent too — generate \
+         without batch, or once only stills are left to draw",
+        .0.join(", ")
+    )]
+    Unbatchable(
+        /// The shots and lines, by id.
+        Vec<String>,
+    ),
 }
 
 /// What a `generate` over this project would spend right now.
@@ -38,7 +60,7 @@ pub fn generation(project: &Project, root: &Path) -> Result<Quote, Unquotable> {
         items.push(shot(project, root, asset)?);
     }
     for asset in of_kind(project, AssetKind::GeneratedImage) {
-        items.push(still(project, root, asset)?);
+        items.push(still(project, root, asset, Order::Now)?);
     }
     for asset in of_kind(project, AssetKind::GeneratedAudio) {
         items.push(line(root, asset)?);
@@ -47,6 +69,78 @@ pub fn generation(project: &Project, root: &Path) -> Result<Quote, Unquotable> {
         spend: Spend::Generation,
         items,
     })
+}
+
+/// What a `generate` ordering this project's stills as a half-price batch
+/// would spend — refused when a shot or a line would be sent with them.
+pub fn batch(project: &Project, root: &Path) -> Result<Quote, Unquotable> {
+    let now = generation(project, root)?;
+    let others: Vec<String> = now
+        .items
+        .iter()
+        .filter(|item| item.charge.is_some())
+        .filter(|item| {
+            project.assets.iter().any(|asset| {
+                asset.id.as_str() == item.subject && asset.kind != AssetKind::GeneratedImage
+            })
+        })
+        .map(|item| item.subject.clone())
+        .collect();
+    if !others.is_empty() {
+        return Err(Unquotable::Unbatchable(others));
+    }
+    let mut items = Vec::new();
+    for asset in of_kind(project, AssetKind::GeneratedImage) {
+        items.push(still(project, root, asset, Order::Batch)?);
+    }
+    Ok(Quote {
+        spend: Spend::Batch,
+        items,
+    })
+}
+
+/// The stills of a quote for now, priced both ways.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Offer {
+    /// What they cost drawn now, in US cents.
+    pub now_cents: u64,
+    /// What they cost in a batch, in US cents.
+    pub batch_cents: u64,
+}
+
+impl Offer {
+    /// The line a quote shows: both prices side by side, and that the choice
+    /// is the person's — it trades their time.
+    pub fn says(&self) -> String {
+        format!(
+            "Stills: {} now · {} in a batch, ready within 24 hours (half price). Ask whoever \
+             is paying which they'd rather — never choose the wait for them.",
+            dollars(self.now_cents),
+            dollars(self.batch_cents)
+        )
+    }
+}
+
+/// Whether to offer a batch beside this project's quote for now: when it has
+/// stills to draw worth at least [`OFFER_FROM_CENTS`]. A batch needs nothing
+/// else in the call, but the offer is made either way, since the stills can be
+/// ordered on their own.
+pub fn offer(project: &Project, root: &Path) -> Result<Option<Offer>, Unquotable> {
+    let mut now_cents = 0;
+    let mut batch_cents = 0;
+    for asset in of_kind(project, AssetKind::GeneratedImage) {
+        let charged = |order| -> Result<u64, Unquotable> {
+            Ok(still(project, root, asset, order)?
+                .charge
+                .map_or(0, |charge| charge.cents))
+        };
+        now_cents += charged(Order::Now)?;
+        batch_cents += charged(Order::Batch)?;
+    }
+    Ok((now_cents >= OFFER_FROM_CENTS).then_some(Offer {
+        now_cents,
+        batch_cents,
+    }))
 }
 
 /// Every asset of one kind, in document order.
@@ -98,8 +192,8 @@ fn shot(project: &Project, root: &Path, asset: &Asset) -> Result<Item, Unquotabl
 
 /// One still, as the run would treat it. The price is the picture's, fixed by
 /// its size, plus the input it is sent with — see [`prices::image`] for what
-/// that counts and what it does not.
-fn still(project: &Project, root: &Path, asset: &Asset) -> Result<Item, Unquotable> {
+/// that counts and what it does not — halved in a batch.
+fn still(project: &Project, root: &Path, asset: &Asset, order: Order) -> Result<Item, Unquotable> {
     let free = |says: String| Item {
         subject: asset.id.to_string(),
         says,
@@ -108,16 +202,27 @@ fn still(project: &Project, root: &Path, asset: &Asset) -> Result<Item, Unquotab
     Ok(match image::plan(project, root, asset) {
         image::Plan::Realized(path) => free(format!("already drawn — {path} — nothing to pay")),
         image::Plan::Unready(why) => free(format!("not yet — {why}")),
+        image::Plan::InFlight => free(String::from(
+            "waiting in its batch — already paid for, collected free",
+        )),
         image::Plan::Submit => {
             let brief = match image::Brief::of(project, root, asset) {
                 Ok(brief) => brief,
                 Err(why) => return Ok(free(format!("not yet — {why}"))),
             };
-            let priced = prices::image(
+            let price = match order {
+                Order::Now => prices::image,
+                Order::Batch => prices::image_in_batch,
+            };
+            let priced = price(
                 &brief.request,
                 brief.characters(),
                 brief.reference_images.len(),
             )?;
+            let when = match order {
+                Order::Now => "",
+                Order::Batch => ", in a batch — ready within 24 hours",
+            };
             let references = match brief.reference_images.len() {
                 0 => String::new(),
                 1 => String::from(", from 1 reference"),
@@ -126,7 +231,7 @@ fn still(project: &Project, root: &Path, asset: &Asset) -> Result<Item, Unquotab
             Item {
                 subject: asset.id.to_string(),
                 says: format!(
-                    "{} — a {} {} still in {}{references}",
+                    "{} — a {} {} still in {}{references}{when}",
                     dollars(priced.cents),
                     brief.request.size().as_str(),
                     brief.request.aspect.as_str(),

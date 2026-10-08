@@ -29,9 +29,7 @@ pub(super) fn pass(
 
 /// Whether a still arrived on disk on this pass, and so has something to measure.
 pub(super) fn arrived(drawn: &[(AssetId, Outcome)]) -> bool {
-    drawn
-        .iter()
-        .any(|(_, outcome)| matches!(outcome, Outcome::Generated { .. }))
+    drawn.iter().any(|(_, outcome)| outcome.landed())
 }
 
 /// What this pass is calculated to have spent, in US cents.
@@ -46,6 +44,14 @@ pub(super) fn said(drawn: &[(AssetId, Outcome)]) -> Vec<String> {
         counted(
             count(|outcome| matches!(outcome, Outcome::Generated { .. })),
             "drawn",
+        ),
+        counted(
+            count(|outcome| matches!(outcome, Outcome::Collected { .. })),
+            "collected from a batch",
+        ),
+        counted(
+            count(|outcome| matches!(outcome, Outcome::Waiting { .. })),
+            "still in a batch",
         ),
         counted(
             count(|outcome| matches!(outcome, Outcome::Incomplete { .. })),

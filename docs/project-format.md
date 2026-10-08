@@ -1,4 +1,4 @@
-# `project.json` — schema v46
+# `project.json` — schema v47
 
 The contract between the CLI, the MCP server and the GUI — the contract *now*,
 not across time. It is meant to be hand-written: an agent should be able to
@@ -31,6 +31,7 @@ carries forward) up to this one.
 | v43 → v44 | the `html` kind and the `pages/` directory (#774) | nothing: a kind was added that no v43 document can contain, with no block of its own — a page is a `path` like any file's — so every v43 document passes through and only its version moves |
 | v44 → v45 | a shot's `standard` tier and `4k` resolution (#891) | nothing: two values were added to fields that already existed, and every tier and raster a v44 shot names is the same one at the same price, so every v44 document passes through and only its version moves |
 | v45 → v46 | stills at parity with Google's image models (#893): `nano_banana_2.1` (the new default) and `pro`, the four long strips, `thinking`, and references split into `reference_images` (objects), `character_images` and `style_images` | two rewrites, so every still asks for what it did: a still that named no model is written out as `"model": "flash"`, the old default; and a `flash` still's references past the tenth move to `character_images`, the same pictures in the same order. Neither moves a brief's fingerprint, so nothing already drawn turns `stale` |
+| v46 → v47 | a still may wait in a half-price batch (#894): a `generated_image` may be `queued` with the batch job's name as its `operation` | nothing: v46 refused an `operation` on a still, so this only admits documents v46 refused — every v46 document passes through and only its version moves |
 
 A complete worked example lives in
 `crates/core/tests/fixtures/narrated_teaser.json`.
@@ -39,7 +40,7 @@ A complete worked example lives in
 
 ```json project
 {
-  "schema_version": 46,
+  "schema_version": 47,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -170,7 +171,7 @@ re-importing or regenerating a file is one edit in one place.
 | `speech` | optional, `generated_audio` only | The rest of the brief: `model`, `voice_id`, `language`, `seed` — see below |
 | `created_at` | optional | When the asset joined the table, as UTC RFC 3339 (`2026-08-04T14:20:00Z`) |
 | `queued_at` | optional, generated kinds | When a provider took the request. Not the same fact as `created_at` |
-| `operation` | optional, `generated_video` | The provider's name for work in flight, while `queued` |
+| `operation` | optional, `generated_video`, `generated_image` | The provider's name for work in flight, while `queued`: a shot's Veo operation, or the batch a still waits in |
 | `estimated_cost_cents` | optional, prompted kinds | What realising it was *calculated* to cost, in US cents — our arithmetic, never a bill. See [prices.md](prices.md) (`guide prices`) |
 
 ```json asset
@@ -415,10 +416,13 @@ sheet and reports the other as *not yet*, and the next call draws it.
 | a reference that is not an `image` or `generated_image`, or not in the table | every reference handed over is a picture |
 | a still naming itself as a reference | it could never be drawn |
 
-A still has no ticket: it comes back on the call that asked for it, so a
-`generated_image` is never `queued` and never carries an `operation`. It lands
-at `generated/<id>-<hash of the brief>.jpg`: Gemini's image endpoint
-draws JPEGs only.
+A still drawn now has no ticket: it comes back on the call that asked for it.
+One ordered in a **batch** — half price, ready within 24 hours (`generate`
+with `batch`; see [prices.md](prices.md), `guide prices`) — is `queued`, with
+the batch job's name as its `operation` and `queued_at` stamped, until a later
+`generate` collects it. Whether a still was batched is not part of its brief: the same
+brief draws the same kind of picture either way, and lands at the same
+`generated/<id>-<hash of the brief>.jpg`.
 
 ### What a spoken line asks for
 
@@ -2624,7 +2628,7 @@ compositing-suite line.
 
 ```json project
 {
-  "schema_version": 46,
+  "schema_version": 47,
   "name": "wipe",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [

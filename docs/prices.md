@@ -72,8 +72,8 @@ it sells: there is no row kept only for the audit, and none missing from it.
 ## Stills
 
 Google's four current image models, US dollars per **picture**, at the size it
-is drawn. Standard tier — none has a free tier, and scorsese does not use the
-half-price batch tier, which answers in hours (#894).
+is drawn. Standard tier — none has a free tier. The batch tier is half of every
+figure below; see *Stills in a batch*.
 
 | model | on the wire | 0.5K | 1K | 2K | 4K | input, per 1M tokens |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -87,6 +87,35 @@ Last checked against
 **2026-10-08**, read off the page's own HTML rather than through a summariser
 (#893 asked for that, because a summarised reading had 2.1 cheaper than the
 maintainer expected — the page confirms it is).
+
+### Stills in a batch
+
+Every still can instead be ordered through Google's
+[Batch API](https://ai.google.dev/gemini-api/docs/batch-mode) at **half the
+price**, answered **within 24 hours** (#894). Google's page lists a batch
+column beside each standard one, picture and input alike, and every batch
+figure is exactly half its neighbour — so the table is not copied twice:
+`prices::gemini::BATCH_PERCENT` is `50`, read on the same day as the rows, and
+`prices::image_in_batch` is the standard arithmetic at that share, rounded up
+to the cent once per still. The day a batch figure stops being half, that
+constant becomes a table.
+
+How to use it: **`generate` with `batch`** (MCP), or **`scorsese generate
+--batch`**. It quotes the stills at the batch rate under its own kind of
+spending, so a token agreed for *now* is never spent on a batch or the other
+way round. Each still goes `queued` with the batch job's name as its
+`operation`; the next `generate` (or `--collect`, which never spends) asks
+after the job and lands each picture where a still drawn now would have, at
+the same brief hash. Batch covers `generateContent` only, so **stills only**:
+a batch with a shot or a line to send is refused, naming them. A batch that
+fails or expires unfinished bills nothing and puts its stills back to sketches.
+
+**When it is offered.** The default stays *now*. A quote for now whose stills
+come to a dollar or more (`quote::OFFER_FROM_CENTS`) also prices them in a
+batch, side by side — *"Stills: $X now · $Y in a batch, ready within 24
+hours"* — and the tool's description tells an assistant to put that choice to
+whoever is paying, never to pick the wait for them. Under a dollar the saving
+is pennies, not worth a day or the question, so it is left out.
 
 The picture is priced like a shot: by a choice the request fixes — its model
 and size — not by anything the vendor decides after the fact. The page states
