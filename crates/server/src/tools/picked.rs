@@ -7,12 +7,14 @@
 //! tool runs, on the project laid out the way every tool call lays it out
 //! (`stored`), the files it brings down admitted to the library before the
 //! document naming them is saved (`fetched`). The library it downloads from is
-//! the caller's, which is how a test imports with no network.
+//! the toolbox's, the same one `stock_import` itself answers from — which is
+//! how a test imports with no network.
 
 use std::sync::Arc;
 
-use scorsese_mcp::Reply;
-use scorsese_providers::stock::{self, Choice, Fetched, Library, StockError, cache_dir};
+use scorsese_mcp::{Reply, Stock};
+use scorsese_providers::credentials::{Provider, resolve};
+use scorsese_providers::stock::{self, Choice, Fetched, PixabayLibrary, StockError, cache_dir};
 use scorsese_render::Ffprobe;
 use serde_json::json;
 
@@ -27,7 +29,7 @@ const ATTEMPTS: usize = 3;
 const TOOL: &str = "stock_import";
 
 impl Toolbox {
-    /// Import `choices` from `library` into `user`'s project `project`, each
+    /// Import `choices` into `user`'s project `project`, each
     /// as the smallest file that fills a `frame` of width×height, and record
     /// it as `client`'s `stock_import`. What came in and what did not, a line
     /// each, in the order asked — or why nothing did.
@@ -38,7 +40,6 @@ impl Toolbox {
         project: i64,
         choices: &[Choice],
         frame: (u32, u32),
-        library: Arc<dyn Library + Send + Sync>,
     ) -> Result<String, String> {
         let named: Vec<String> = choices.iter().map(|one| named(*one)).collect();
         let arguments = json!({
@@ -49,7 +50,10 @@ impl Toolbox {
         let id = log::begin(&self.pool, user, client, TOOL, &arguments)
             .await
             .map_err(database)?;
-        let outcome = self.imported(user, project, choices, frame, library).await;
+        let outcome = match self.footage() {
+            Ok(library) => self.imported(user, project, choices, frame, library).await,
+            Err(why) => Err(why),
+        };
         let reply = outcome.as_ref().map(|lines| Reply::from(lines.clone()));
         log::end(
             &self.pool,
@@ -68,7 +72,7 @@ impl Toolbox {
         project: i64,
         choices: &[Choice],
         frame: (u32, u32),
-        library: Arc<dyn Library + Send + Sync>,
+        library: Stock,
     ) -> Result<String, String> {
         for _ in 0..ATTEMPTS {
             let (stored, kept) = projects::open_with_files(&self.pool, user, project)
@@ -117,6 +121,28 @@ impl Toolbox {
             }
         }
         Err("the project kept changing while this ran, so nothing was imported".to_owned())
+    }
+}
+
+impl Toolbox {
+    /// The library a pick of footage or a photo is imported from: the
+    /// toolbox's own when it was given one, and otherwise Pixabay, keyed from
+    /// the one resolver. Why there is none, in words for the model, which
+    /// tells the person.
+    fn footage(&self) -> Result<Stock, String> {
+        if let Some(library) = &self.stock {
+            return Ok(library.clone());
+        }
+        match resolve(Provider::Pixabay) {
+            Ok(key) => Ok(Arc::new(PixabayLibrary::new(&key.secret))),
+            Err(error) => {
+                eprintln!("scorsese-server: stock import: {error}");
+                Err(format!(
+                    "{} is not set on this server, so stock media cannot be brought in",
+                    Provider::Pixabay.variable()
+                ))
+            }
+        }
     }
 }
 

@@ -35,6 +35,8 @@ mod stock;
 mod synth;
 mod voices;
 
+pub use stock::{Stock, stocked_from};
+
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use scorsese_render::Cancel;
@@ -341,8 +343,8 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(guide::Read),
         // Before generate, because it is free and generate is not: a generic
         // shot is found here first, and a client reads this list in order.
-        Box::new(stock::Search),
-        Box::new(stock::Import),
+        Box::new(stock::Search::default()),
+        Box::new(stock::Import::default()),
         Box::new(voices::Voices),
         Box::new(design::VoiceDesign),
         Box::new(generate::Generate),

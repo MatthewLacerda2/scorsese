@@ -49,6 +49,16 @@
 //! realises, `render` renders — so the rule that the server has no editing
 //! logic of its own holds for them too.
 //!
+//! ## Stock comes from the toolbox's library
+//!
+//! `stock_search` and `stock_import` are registry tools, served as they are,
+//! and a user's pick from the assistant's picker is imported by the server
+//! itself (`picked`). All three reach stock media through **one** handle,
+//! [`Toolbox::stocked_from`]'s library when one was given — a test's fake, so
+//! a scripted model can search and import with no key and no network (#906)
+//! — and otherwise the registry's own resolution: Pixabay keyed from the one
+//! resolver, LottieFiles for animations.
+//!
 //! ## Every call is recorded
 //!
 //! In `tool_calls` (`log`), with who made it: the user's own client over web
@@ -74,7 +84,7 @@ pub use folder::{Folder, lay_out};
 pub use log::Client;
 pub use quotes::Pending;
 
-use scorsese_mcp::{Reply, Tool};
+use scorsese_mcp::{Reply, Stock, Tool};
 use scorsese_render::{Cancel, Tools};
 use serde_json::Value;
 use sqlx::postgres::PgPool;
@@ -95,6 +105,9 @@ pub struct Toolbox {
     tools: Tools,
     queue: Queue,
     renders: RenderCache,
+    /// The one library every stock search and import answers from, when not
+    /// each medium's own — the module doc's *Stock*.
+    stock: Option<Stock>,
 }
 
 impl Toolbox {
@@ -115,7 +128,16 @@ impl Toolbox {
             tools,
             queue,
             renders,
+            stock: None,
         }
+    }
+
+    /// The same tools searching and importing stock media of every kind from
+    /// `library` instead of Pixabay and LottieFiles — a test's, which needs no
+    /// key and no network.
+    pub fn stocked_from(mut self, library: Stock) -> Self {
+        self.stock = Some(library);
+        self
     }
 
     /// Every tool a user is offered, as `tools/list` shows it — name,
@@ -327,9 +349,12 @@ fn database(error: impl std::fmt::Display) -> String {
     "the server's database failed; try again".to_owned()
 }
 
-/// The registry's tools, by name.
-fn registered(name: &str) -> Option<Box<dyn Tool>> {
-    scorsese_mcp::registry()
+/// The registry's tools, by name — the stock ones answering from `stock`
+/// when it is given.
+fn registered(name: &str, stock: Option<&Stock>) -> Option<Box<dyn Tool>> {
+    let stocked = stock.map(scorsese_mcp::stocked_from).unwrap_or_default();
+    stocked
         .into_iter()
+        .chain(scorsese_mcp::registry())
         .find(|tool| tool.name() == name)
 }

@@ -17,6 +17,14 @@
 //!
 //! The work is `scorsese_providers::stock`'s, and the sheet is
 //! `scorsese_render::contact`'s; this is the wiring and the words.
+//!
+//! **Where the library comes from is the caller's to say** (#906). The
+//! registry's pair resolves each medium's own — Pixabay keyed from the one
+//! resolver, LottieFiles unkeyed — which is right wherever the user's own
+//! environment is. [`stocked_from`] builds the same pair, same names and same
+//! words, answering from one library given instead: how the hosted server
+//! hands them a fake in its tests, with no key and no network. Nothing here
+//! learns who is calling.
 
 mod import;
 mod player;
@@ -25,12 +33,35 @@ mod search;
 pub(crate) use import::Import;
 pub(crate) use search::Search;
 
+use std::sync::Arc;
+
 use scorsese_providers::stock::{self, Library, Medium};
 
-/// The library `medium` is searched in: Pixabay, keyed from the one
-/// resolver, or LottieFiles, which needs no key.
-fn library(medium: Medium) -> Result<Box<dyn Library + Send + Sync>, String> {
-    stock::library(medium).map_err(|error| format!("{error}"))
+use super::Tool;
+
+/// A stock library the stock tools can be handed in place of each medium's
+/// own ([`stocked_from`]).
+pub type Stock = Arc<dyn Library + Send + Sync>;
+
+/// `stock_search` and `stock_import`, exactly as the registry has them, but
+/// searching and importing every kind from `library`.
+pub fn stocked_from(library: &Stock) -> Vec<Box<dyn Tool>> {
+    vec![
+        Box::new(Search::from(Some(library.clone()))),
+        Box::new(Import::from(Some(library.clone()))),
+    ]
+}
+
+/// The library `medium` is searched in: `given`, when the tools were built
+/// around one, and otherwise Pixabay, keyed from the one resolver, or
+/// LottieFiles, which needs no key.
+fn library(given: Option<&Stock>, medium: Medium) -> Result<Stock, String> {
+    match given {
+        Some(library) => Ok(library.clone()),
+        None => stock::library(medium)
+            .map(Arc::from)
+            .map_err(|error| format!("{error}")),
+    }
 }
 
 /// `video`, `image` or `lottie`, with `video` the default.

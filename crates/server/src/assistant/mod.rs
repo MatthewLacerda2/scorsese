@@ -75,8 +75,9 @@
 //! The same pause shows stock pictures instead of words (#901, `pick_stock`):
 //! a few results the turn's own searches found, for the user to pick one or
 //! more of when the choice is taste. What they pick is imported as their own
-//! call, from [`Assistant::stocked_from`]'s library — Pixabay, unless a test
-//! says otherwise — and the turn resumes with the new assets.
+//! call, from the toolbox's stock library (`crate::tools`, *Stock*) — the
+//! one the model's own `stock_search` and `stock_import` answer from — and the
+//! turn resumes with the new assets.
 //!
 //! ## Money
 //!
@@ -135,8 +136,7 @@ use std::collections::HashSet;
 use std::sync::{Arc, Mutex, PoisonError};
 
 use scorsese_providers::chat::{self, Chat, Effort, Model};
-use scorsese_providers::credentials::{Provider, resolve};
-use scorsese_providers::stock::{Library, PixabayLibrary};
+use scorsese_providers::credentials::resolve;
 
 pub use ask::{Answering, answer as answer_question, set_aside};
 pub use model::{Choice, choose};
@@ -162,11 +162,7 @@ pub struct Assistant {
     connect: Connect,
     cap_micros: i64,
     stopping: Arc<Mutex<HashSet<i64>>>,
-    stock: Option<Stock>,
 }
-
-/// A stock library a picker's pick is imported from (#901).
-pub type Stock = Arc<dyn Library + Send + Sync>;
 
 /// Where a model's client comes from.
 #[derive(Clone)]
@@ -220,33 +216,6 @@ impl Assistant {
             connect: Connect::Environment,
             cap_micros,
             stopping: Arc::default(),
-            stock: None,
-        }
-    }
-
-    /// The same assistant importing what a user picks from `library` instead
-    /// of Pixabay — a test's, which needs no network.
-    pub fn stocked_from(mut self, library: Stock) -> Self {
-        self.stock = Some(library);
-        self
-    }
-
-    /// The library a pick is imported from: Pixabay, keyed from the one
-    /// resolver, unless [`Assistant::stocked_from`] named another. Why there
-    /// is none, in words for the model, which tells the person.
-    fn stock(&self) -> Result<Stock, String> {
-        if let Some(library) = &self.stock {
-            return Ok(library.clone());
-        }
-        match resolve(Provider::Pixabay) {
-            Ok(key) => Ok(Arc::new(PixabayLibrary::new(&key.secret))),
-            Err(error) => {
-                eprintln!("scorsese-server: assistant: {error}");
-                Err(format!(
-                    "{} is not set on this server, so stock media cannot be brought in",
-                    Provider::Pixabay.variable()
-                ))
-            }
         }
     }
 

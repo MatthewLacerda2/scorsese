@@ -77,9 +77,10 @@ pub(super) async fn run(
         // `&dyn` cannot cross into the blocking pool; the registry hands out
         // a fresh one by name.
         let (name, cancel) = (tool.name(), caller.cancel.clone());
+        let stock = toolbox.stock.clone();
         let (opened_with, laid) = (stored.document.clone(), kept.clone());
         let (outcome, after, gathered) = tokio::task::spawn_blocking(move || {
-            let tool = super::registered(name).ok_or("the tool went missing")?;
+            let tool = super::registered(name, stock.as_ref()).ok_or("the tool went missing")?;
             let outcome = tool.call_cancellable(&local, &cancel);
             let after = std::fs::read_to_string(root.join(PROJECT_FILE_NAME))
                 .ok()

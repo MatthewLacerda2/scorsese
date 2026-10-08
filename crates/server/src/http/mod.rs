@@ -156,6 +156,13 @@ impl AppState {
         self
     }
 
+    /// The same state with its tools searching and importing stock media from
+    /// `library` alone — a test's, which needs no key and no network.
+    pub fn stocked_from(mut self, library: scorsese_mcp::Stock) -> Self {
+        self.tools = self.tools.stocked_from(library);
+        self
+    }
+
     /// The same state, believing `clients` for where a request came from.
     pub fn with_clients(mut self, clients: client::Clients) -> Self {
         self.clients = clients;

@@ -38,6 +38,15 @@ pub(crate) use script::{Script, answers, calls};
 
 /// A server whose assistant is `assistant`; its address and state.
 async fn serve(pool: &PgPool, assistant: Assistant) -> (SocketAddr, http::AppState) {
+    serving(pool, assistant, None).await
+}
+
+/// [`serve`], its stock tools answering from `stock` when it is given.
+async fn serving(
+    pool: &PgPool,
+    assistant: Assistant,
+    stock: Option<scorsese_mcp::Stock>,
+) -> (SocketAddr, http::AppState) {
     let (listener, address) = common::listener().await;
     scorsese_server::db::migrate(pool)
         .await
@@ -45,7 +54,11 @@ async fn serve(pool: &PgPool, assistant: Assistant) -> (SocketAddr, http::AppSta
     let members = scorsese_server::db::member_pool(pool)
         .await
         .expect("the test setup holds");
-    let state = http::AppState::new(members, common::files("assistant")).with_assistant(assistant);
+    let mut state =
+        http::AppState::new(members, common::files("assistant")).with_assistant(assistant);
+    if let Some(library) = stock {
+        state = state.stocked_from(library);
+    }
     tokio::spawn(http::serve(
         listener,
         http::router(state.clone()),
