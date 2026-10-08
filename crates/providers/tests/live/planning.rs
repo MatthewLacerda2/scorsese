@@ -53,6 +53,17 @@ fn only_the_vendors_with_keys_are_planned_and_priced() {
         ]
     );
     assert!(planned[0].calls.iter().any(|c| c.contains("free")));
+    for model in scorsese_providers::api::gemini::Model::ALL {
+        let id = format!("models/{}", model.id());
+        assert!(
+            planned[0]
+                .calls
+                .iter()
+                .any(|c| c.contains(&id) && c.contains("free")),
+            "{id} is not looked up for free: {:?}",
+            planned[0].calls
+        );
+    }
 }
 
 #[test]

@@ -21,13 +21,17 @@ pub struct Submitted {
 }
 
 /// What `GET models/{id}` answers with — the part of it the live check reads.
+///
+/// The endpoint is the whole Gemini API's, so the image models' lookup
+/// ([`Gemini::model`](crate::api::gemini::Gemini::model)) answers with it too.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelInfo {
     /// `models/` and the id, e.g. `models/veo-3.1-fast-generate-preview`.
     pub name: String,
     /// How it may be called. A video model lists `predictLongRunning`, which
-    /// is the one method scorsese submits with.
+    /// is the one method scorsese submits with; an image model lists
+    /// `generateContent` and `batchGenerateContent`.
     #[serde(default)]
     pub supported_generation_methods: Vec<String>,
 }

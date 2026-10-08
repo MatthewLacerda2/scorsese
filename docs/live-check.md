@@ -48,9 +48,10 @@ make live-check ARGS="--include-veo --record /tmp/live"
 
 | vendor | calls | costs |
 | --- | --- | --- |
-| Gemini (Veo) | `GET models/veo-3.1-fast-generate-preview` and `…-lite-…` | free |
+| Gemini (Veo) | `GET models/{id}` for each tier — `veo-3.1-generate-preview`, `…-fast-…` and `…-lite-…` — each listing `predictLongRunning` | free |
 | | with `--include-veo`: one shot — 4 s, Lite, 720p — submitted, polled, downloaded | $0.20 |
-| Gemini (stills) | one 512x512 still — Flash Image, 0.5K, `1:1`, no references — through the product's own request | $0.05 |
+| Gemini (stills) | `GET models/{id}` for every image model — `gemini-nano-banana-2.1`, `gemini-3.1-flash-image`, `gemini-3.1-flash-lite-image`, `gemini-3-pro-image` — each listing `generateContent` and `batchGenerateContent` | free |
+| | one 512x512 still — Flash Image, 0.5K, `1:1`, no references — through the product's own request | $0.05 |
 | ElevenLabs | `GET /v1/voices?category=premade` (also picks the voice to speak with) | free |
 | | text-to-speech of `Checking.` on the `fast` model, with its timestamps | $0.01 |
 | | Voice Design from a 100-character passage — three candidates, **none kept** | $0.01 |
