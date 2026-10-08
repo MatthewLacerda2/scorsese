@@ -1,4 +1,4 @@
-//! Generated stills: prompts in, PNGs in `generated/`, asset state updated.
+//! Generated stills: prompts in, JPEGs in `generated/`, asset state updated.
 //!
 //! The third prompted provider, and the cheapest picture scorsese can buy: a
 //! 2K still is about a tenth of eight seconds of Veo, and unlike a shot it is

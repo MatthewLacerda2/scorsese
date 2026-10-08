@@ -104,23 +104,30 @@ pub fn is_mp4(bytes: &[u8]) -> bool {
     bytes.get(4..8) == Some(b"ftyp".as_slice())
 }
 
-/// The PNG signature every PNG opens with.
-const PNG: &[u8] = b"\x89PNG\r\n\x1a\n";
-
-/// The width and height of a PNG, read off its header; `None` for anything
-/// that is not one.
+/// The width and height of a JPEG, read off its frame header; `None` for
+/// anything that is not one.
 ///
-/// The header is the first chunk by the format's own rule — `IHDR`, straight
-/// after the signature, width then height as big-endian `u32`s — so this is
-/// the whole of what telling a picture's size takes, and decoding the pixels
-/// would prove nothing the check needs.
-pub fn png_size(bytes: &[u8]) -> Option<(u32, u32)> {
-    let header = bytes.strip_prefix(PNG)?;
-    if header.get(4..8)? != b"IHDR" {
-        return None;
+/// A JPEG is a run of segments, each a `0xFF` marker byte and a big-endian
+/// length that counts itself. The size sits in the start-of-frame segment
+/// (`SOF0`–`SOF15`, less the three markers in that range that are not frames:
+/// `DHT`, `JPG` and `DAC`), height then width as `u16`s after one precision
+/// byte. So walking the segment headers is the whole of what telling a
+/// picture's size takes, and decoding the pixels would prove nothing the
+/// check needs.
+pub fn jpeg_size(bytes: &[u8]) -> Option<(u32, u32)> {
+    let mut rest = bytes.strip_prefix(&[0xFF, 0xD8])?;
+    loop {
+        let [0xFF, marker, high, low, ..] = *rest else {
+            return None;
+        };
+        let length = usize::from(u16::from_be_bytes([high, low]));
+        if (0xC0..=0xCF).contains(&marker) && !matches!(marker, 0xC4 | 0xC8 | 0xCC) {
+            let frame = rest.get(4..9)?;
+            let number = |at: usize| u32::from(u16::from_be_bytes([frame[at], frame[at + 1]]));
+            return Some((number(3), number(1)));
+        }
+        rest = rest.get(2 + length..)?;
     }
-    let number = |at: usize| Some(u32::from_be_bytes(header.get(at..at + 4)?.try_into().ok()?));
-    Some((number(8)?, number(12)?))
 }
 
 /// What a body that should have been media looks like instead, for a report.

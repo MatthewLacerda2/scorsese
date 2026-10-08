@@ -92,7 +92,7 @@ pub(super) fn check(key: &Secret, tap: &Tap) -> (Vec<Step>, u64) {
     (vec![step], spent)
 }
 
-/// What the drawing gave back: a PNG, the size asked for.
+/// What the drawing gave back: a JPEG, the size asked for.
 pub fn picture_step(answer: Result<Interaction, HttpError>) -> Step {
     let call = "POST interactions";
     let shape = |field: String| Step::new(call, Verdict::ShapeChanged { field });
@@ -117,16 +117,16 @@ pub fn picture_step(answer: Result<Interaction, HttpError>) -> Step {
     else {
         return shape(String::from("the picture's data: not base64"));
     };
-    match judge::png_size(&bytes) {
+    match judge::jpeg_size(&bytes) {
         None => shape(format!(
-            "the picture: expected a PNG, got {}",
+            "the picture: expected a JPEG, got {}",
             judge::looks_like(&bytes)
         )),
         Some((width, height)) if (width, height) != (SIDE, SIDE) => shape(format!(
             "response_format.image_size: asked for 0.5K ({SIDE}x{SIDE}), got {width}x{height} — the size's spelling was not taken"
         )),
         Some((width, height)) => Step::new(call, Verdict::Ok)
-            .noting(format!("{width}x{height} PNG, {} bytes", bytes.len())),
+            .noting(format!("{width}x{height} JPEG, {} bytes", bytes.len())),
     }
 }
 
@@ -145,7 +145,7 @@ mod tests {
                 "input": [{"type": "text", "text": super::PROMPT}],
                 "response_format": {
                     "type": "image",
-                    "mime_type": "image/png",
+                    "mime_type": "image/jpeg",
                     "aspect_ratio": "1:1",
                     "image_size": "512",
                 },

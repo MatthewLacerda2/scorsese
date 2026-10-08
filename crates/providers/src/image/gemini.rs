@@ -93,7 +93,7 @@ pub(crate) fn create(brief: &Brief) -> Create {
         input,
         response_format: ResponseFormat {
             kind: "image",
-            mime_type: "image/png",
+            mime_type: "image/jpeg",
             aspect_ratio: brief.request.aspect.as_str(),
             image_size: size_of(brief.request.size()),
         },

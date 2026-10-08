@@ -47,8 +47,9 @@ pub struct ResponseFormat {
     /// Always `image`.
     #[serde(rename = "type")]
     pub kind: &'static str,
-    /// Always `image/png`: lossless, so a still pushed into does not bring its
-    /// compression blocks with it.
+    /// Always `image/jpeg`, the only value the endpoint takes: a live check on
+    /// 2026-10-07 asking for `image/png` was refused with *"Supported values:
+    /// 'image/jpeg'"*, so every still is a JPEG, compression blocks and all.
     pub mime_type: &'static str,
     /// `16:9`, `1:1`, ...
     pub aspect_ratio: &'static str,
@@ -79,7 +80,7 @@ mod tests {
             ],
             response_format: ResponseFormat {
                 kind: "image",
-                mime_type: "image/png",
+                mime_type: "image/jpeg",
                 aspect_ratio: "16:9",
                 image_size: "2K",
             },
@@ -95,7 +96,7 @@ mod tests {
                 ],
                 "response_format": {
                     "type": "image",
-                    "mime_type": "image/png",
+                    "mime_type": "image/jpeg",
                     "aspect_ratio": "16:9",
                     "image_size": "2K",
                 },
