@@ -1,4 +1,4 @@
-//! What both generation jobs do around the provider: find what pays for
+//! What every generation job does around the provider: find what pays for
 //! them, keep what came back, settle, and bring it into the project.
 
 use scorsese_core::Project;
@@ -49,6 +49,27 @@ impl Work {
         })
     }
 
+    /// Commit a provider's `ticket` to the job's row and to `paid`'s audit
+    /// row — before anything else, since it is the only record that money
+    /// was spent. A failure to keep it is logged, and the job goes on
+    /// polling with the one it holds.
+    pub(super) async fn keep_ticket(&self, paid: Paid, ticket: &str) {
+        if let Err(error) = self.context.keep_ticket(ticket).await {
+            eprintln!(
+                "scorsese-server: job {}: keeping a ticket: {error}",
+                self.job.id
+            );
+        }
+        let kept = async {
+            let mut tx = self.context.scoped().await?;
+            generations::keep_ticket(&mut tx, paid.generation, ticket).await?;
+            tx.commit().await
+        };
+        if let Err(error) = kept.await {
+            eprintln!("{}", database(error));
+        }
+    }
+
     /// What pays for this job, or `None` once it has been settled.
     pub(super) async fn paid(&self) -> Result<Option<Paid>, String> {
         let mut tx = self.context.scoped().await.map_err(database)?;
@@ -87,7 +108,11 @@ impl Work {
     /// Keep `bytes` in the library under this brief, charge `paid`, and bring
     /// the file into the project.
     pub(super) async fn keep(&self, paid: Paid, bytes: Vec<u8>, kind: Kind) -> Outcome {
-        let extension = if kind == Kind::Audio { "mp3" } else { "mp4" };
+        let extension = match kind {
+            Kind::Audio => "mp3",
+            Kind::Image => "jpg",
+            _ => "mp4",
+        };
         let file = self
             .storage
             .scratch(self.job.user)

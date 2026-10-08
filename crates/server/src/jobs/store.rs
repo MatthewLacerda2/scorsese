@@ -9,7 +9,7 @@
 use serde_json::Value;
 use sqlx::postgres::PgPool;
 
-use super::{Job, JobView, Kind, MAX_ATTEMPTS, Outcome};
+use super::{Job, JobView, Kind, MAX_ATTEMPTS, Outcome, kinds};
 use crate::db::{self, Tx, UserId};
 
 /// The columns a [`JobView`] is read from. A macro rather than a constant so
@@ -180,23 +180,26 @@ pub(super) async fn finish(
 }
 
 /// Every job a dead process left running, put back in line — or given up on
-/// after [`MAX_ATTEMPTS`]. Each is stamped `interrupted_at`.
+/// after [`MAX_ATTEMPTS`], unless it is of a [`kinds::PATIENT`] kind and holds
+/// its ticket. Each is stamped `interrupted_at`.
 ///
 /// Only correct while no other worker is running, which the worker's advisory
 /// lock guarantees before it calls this.
 pub async fn recover(pool: &PgPool) -> Result<Vec<(UserId, JobView)>, sqlx::Error> {
+    let patient: Vec<&str> = kinds::PATIENT.iter().map(|kind| kind.name).collect();
     let mut tx = db::privileged(pool).await?;
     let rows: Vec<Recovered> = sqlx::query_as(concat!(
         "UPDATE jobs SET interrupted_at = now(),
-            state = CASE WHEN attempts < $1 THEN 'waiting'
+            state = CASE WHEN attempts < $1 OR (ticket IS NOT NULL AND kind = ANY($2)) THEN 'waiting'
                          WHEN ticket IS NOT NULL THEN 'stuck' ELSE 'failed' END,
-            error = CASE WHEN attempts < $1 THEN NULL
+            error = CASE WHEN attempts < $1 OR (ticket IS NOT NULL AND kind = ANY($2)) THEN NULL
                          ELSE 'interrupted ' || attempts || ' times, so not tried again' END,
-            finished_at = CASE WHEN attempts < $1 THEN NULL ELSE now() END
+            finished_at = CASE WHEN attempts < $1 OR (ticket IS NOT NULL AND kind = ANY($2)) THEN NULL ELSE now() END
          WHERE state = 'running' RETURNING user_id, ",
         view!()
     ))
     .bind(MAX_ATTEMPTS)
+    .bind(patient)
     .fetch_all(&mut *tx)
     .await?;
     tx.commit().await?;

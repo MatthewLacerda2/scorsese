@@ -1,13 +1,15 @@
-//! Vendors that never spend a cent: a Veo, a Gemini and an ElevenLabs —
+//! Vendors that never spend a cent: a Veo, a Gemini — drawing now or in a
+//! batch — and an ElevenLabs —
 //! speech and voice design — answering from files ffmpeg made, and counting
-//! how often they were asked.
+//! how often they were asked. The Gemini half is [`image`].
+
+mod image;
 
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
-use scorsese_providers::image::{self, ImageProvider};
 use scorsese_providers::speech::{self, SpeechProvider};
 use scorsese_providers::video::{self, Progress, ProviderError, Ready, Ticket, VideoProvider};
 use scorsese_server::generations::{Image, Speech, Studio, Timing, Vendors, Video};
@@ -23,6 +25,9 @@ use super::common;
 pub(super) struct Mock {
     /// A refusal to give when polled, instead of the video.
     pub(super) refuse: Option<String>,
+    /// Why a batch stops without drawing, instead of finishing.
+    pub(super) stop: Option<String>,
+    pub(super) ordered: Arc<AtomicUsize>,
     pub(super) spoken: Arc<AtomicUsize>,
     pub(super) submitted: Arc<AtomicUsize>,
     pub(super) drawn: Arc<AtomicUsize>,
@@ -42,6 +47,10 @@ impl Mock {
     pub(super) fn drawn(&self) -> usize {
         self.drawn.load(Ordering::SeqCst)
     }
+
+    pub(super) fn ordered(&self) -> usize {
+        self.ordered.load(Ordering::SeqCst)
+    }
 }
 
 impl Vendors for Mock {
@@ -59,20 +68,6 @@ impl Vendors for Mock {
 
     fn studio(&self) -> Result<Studio, String> {
         Ok(Box::new(self.clone()))
-    }
-}
-
-impl ImageProvider for Mock {
-    fn draw(&self, _: &image::Brief) -> Result<Vec<u8>, ProviderError> {
-        self.drawn.fetch_add(1, Ordering::SeqCst);
-        Ok(made(
-            "still.jpg",
-            &["-f", "lavfi", "-i", "testsrc=s=64x36", "-frames:v", "1"],
-        ))
-    }
-
-    fn name(&self) -> &'static str {
-        "mock image"
     }
 }
 
@@ -144,6 +139,8 @@ pub(super) async fn serve(
     let timing = Timing {
         poll_every: Duration::from_millis(20),
         patience: Duration::from_secs(20),
+        batch_every: Duration::from_millis(20),
+        batch_patience: Duration::from_secs(20),
     };
     let registry = kinds::with_vendors(&files, Arc::new(mock.clone()), timing);
     let (stop, stopping) = watch::channel(false);

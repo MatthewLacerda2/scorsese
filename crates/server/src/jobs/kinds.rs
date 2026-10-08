@@ -42,6 +42,16 @@ pub const STILL_IMAGE: Kind = Kind {
     limit: 4,
 };
 
+/// A Gemini still ordered in a half-price batch (#947): one call to order,
+/// then asking once a minute for up to a day. Almost nothing of the machine
+/// for all that time, so many at once — a slot held for a day must not make
+/// the next person's still wait a day to be ordered. Ordering is the only
+/// call that reaches the vendor in earnest, once per job.
+pub const BATCH_STILL: Kind = Kind {
+    name: "batch_still",
+    limit: 64,
+};
+
 /// A voice design (#572): one ElevenLabs call, three samples back. Seconds,
 /// mostly network.
 pub const VOICE_DESIGN: Kind = Kind {
@@ -98,12 +108,29 @@ pub fn stoppable(name: &str) -> bool {
 /// shot. Stuck is not lost — the ticket stays in the row.
 pub const PROVIDER_PATIENCE: Duration = Duration::from_secs(15 * 60);
 
+/// How long a batched still asks after its batch before it is
+/// [`Stuck`](super::Outcome::Stuck): two days and an hour.
+///
+/// Google answers *within 24 hours* and expires a batch it has not finished
+/// in 48 — and an expired batch answers as stopped, which settles the job
+/// free. So this is only the backstop for a batch that never answers at all;
+/// stuck here would hold a reservation for a still Google will never draw.
+pub const BATCH_PATIENCE: Duration = Duration::from_secs(49 * 60 * 60);
+
+/// The kinds whose job, once it holds a ticket, is put back in line after
+/// every restart however many there were (`store::recover`). A batch waits a
+/// day, across however many deploys that day has, and with its ticket it only
+/// asks — it cannot be what took the process down, which is what
+/// [`MAX_ATTEMPTS`](super::MAX_ATTEMPTS) guards against.
+pub const PATIENT: [Kind; 1] = [BATCH_STILL];
+
 /// Every kind the server runs, each with its handler, drawing on `files` —
 /// and, for the paid generations, on the real vendors, with their keys from
 /// the server's environment ([`Keys`]).
 ///
 /// [`THUMBNAIL`] (#535), [`RENDER`] (#541), [`VEO_SHOT`] and [`SPOKEN_LINE`]
-/// (#539, `crate::generations`), [`STILL_IMAGE`] (#461), [`PREVIEW`] and [`PROXY`] (#542),
+/// (#539, `crate::generations`), [`STILL_IMAGE`] (#461), [`BATCH_STILL`]
+/// (#947), [`PREVIEW`] and [`PROXY`] (#542),
 /// [`VOICE_DESIGN`] and [`VOICE_KEEP`] (#572, `crate::designs`) have theirs.
 /// A kind nothing registers is never claimed, so a job of that kind waits
 /// rather than failing.
@@ -154,6 +181,15 @@ pub fn with_vendors(files: &Files, vendors: Arc<dyn Vendors>, timing: Timing) ->
                 files.storage.clone(),
                 files.tools.clone(),
                 Arc::clone(&vendors),
+            ),
+        )
+        .register(
+            BATCH_STILL,
+            generations::batch_handler(
+                files.storage.clone(),
+                files.tools.clone(),
+                Arc::clone(&vendors),
+                timing,
             ),
         )
         .register(

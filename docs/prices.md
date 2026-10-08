@@ -100,8 +100,9 @@ figure is exactly half its neighbour — so the table is not copied twice:
 to the cent once per still. The day a batch figure stops being half, that
 constant becomes a table.
 
-How to use it: **`generate` with `batch`** (MCP), or **`scorsese generate
---batch`**. It quotes the stills at the batch rate under its own kind of
+How to use it: **`generate` with `batch`** (MCP, local or the web's), or
+**`scorsese generate --batch`** — and on the web, the assistant's confirmation
+box, which shows both prices as two yeses (#947, `docs/web.md`). It quotes the stills at the batch rate under its own kind of
 spending, so a token agreed for *now* is never spent on a batch or the other
 way round. Each still goes `queued` with the batch job's name as its
 `operation`; the next `generate` (or `--collect`, which never spends) asks

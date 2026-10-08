@@ -44,8 +44,12 @@ pub struct Answered {
 /// How the user answered a quote.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Answer {
-    /// Spend it.
-    Confirm,
+    /// Spend it — or, with `batch`, the half-price batch it offered beside
+    /// itself (#947).
+    Confirm {
+        /// Spend the offered batch instead of the quote.
+        batch: bool,
+    },
     /// Withdraw it; nothing more is said.
     Decline,
     /// Withdraw it, and ask the assistant for this change to what it covered.
@@ -71,9 +75,9 @@ pub async fn answer(
         effort,
     } = claim(state, user, id, &answer).await?;
     let change = match answer {
-        Answer::Confirm => {
+        Answer::Confirm { batch } => {
             let turn = (id, project, effort);
-            return confirm(state, user, turn, &token, &quote).await;
+            return confirm(state, user, turn, (&token, batch), &quote).await;
         }
         Answer::Decline => None,
         Answer::Change(text) => Some(text),
@@ -135,7 +139,7 @@ async fn claim(
     // A change is recorded as a no: it spends nothing, and the turn it starts
     // carries the rest.
     let recorded = match answer {
-        Answer::Confirm => "confirmed",
+        Answer::Confirm { .. } => "confirmed",
         Answer::Decline | Answer::Change(_) => "declined",
     };
     let claimed: Option<(String, sqlx::types::Json<QuoteView>, i64, String)> = sqlx::query_as(
@@ -177,21 +181,41 @@ struct Claimed {
     effort: Effort,
 }
 
-/// Spend `quote` with `token` as the user, on turn `id` of `project`, and
-/// start the turn that tells the model what the spend did, at `effort`.
+/// Spend `quote` with `token` as the user, on turn `id` of `project` — or,
+/// with `batch`, the half-price batch offered beside it — and start the turn
+/// that tells the model what the spend did, at `effort`. Whichever of the two
+/// was not picked is withdrawn after.
 async fn confirm(
     state: &AppState,
     user: UserId,
     (id, project, effort): (i64, i64, Effort),
-    token: &str,
+    (token, batch): (&str, bool),
     quote: &QuoteView,
 ) -> Result<Answered, AssistantError> {
-    let arguments = json!({ "project": project, "confirm": token });
+    let offer = state.tools.batch_offer(user, token).await?;
+    let (spent, other) = match (batch, offer) {
+        (false, offer) => (token.to_owned(), offer),
+        (true, Some(offer)) => (offer, Some(token.to_owned())),
+        (true, None) => {
+            state.tools.withdraw_quote(user, token).await?;
+            return Err(AssistantError::Invalid(
+                "that quote offered no batch, or the offer has lapsed; ask for a new quote".into(),
+            ));
+        }
+    };
+    let mut arguments = json!({ "project": project, "confirm": spent });
+    if batch || quote.batched {
+        arguments["batch"] = json!(true);
+    }
     let client = Client::User { turn: id };
     let outcome = state
         .tools
         .call(user, client, &quote.tool, &arguments)
         .await;
+    // The yes took its own token; the one not picked is forgotten.
+    if let Some(other) = other {
+        state.tools.withdraw_quote(user, &other).await?;
+    }
     let (said, refused) = match outcome {
         Ok(reply) => {
             let words: Vec<String> = reply.parts.into_iter().map(|part| part.text).collect();

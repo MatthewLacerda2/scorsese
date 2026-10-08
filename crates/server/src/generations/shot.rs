@@ -7,9 +7,9 @@ use scorsese_core::AssetId;
 use scorsese_providers::video::{Brief, Progress, Ticket, VideoProvider};
 use scorsese_render::Tools;
 
-use super::land::{Work, database, document};
+use super::land::{Work, document};
 use super::{Timing, Vendors};
-use crate::credits::generations::{self, Answer, Generation, Paid};
+use crate::credits::generations::{Answer, Paid};
 use crate::jobs::{Context, Handler, Job, Outcome};
 use crate::library::Kind;
 use crate::projects::ProjectFiles;
@@ -120,24 +120,8 @@ async fn submit(
         Err(_) => return Err(work.refused(paid, "submitting crashed".into()).await),
     };
     // Now, before anything else can go wrong: this ticket is the only record
-    // that money was spent. A failure to keep it is logged and the job goes
-    // on polling with the one it holds.
-    if let Err(error) = work.context.keep_ticket(&ticket.0).await {
-        eprintln!(
-            "scorsese-server: job {}: keeping a ticket: {error}",
-            work.job.id
-        );
-    }
-    if let Generation::Shot(id) = paid.generation {
-        let kept = async {
-            let mut tx = work.context.scoped().await?;
-            generations::keep_ticket(&mut tx, id, &ticket.0).await?;
-            tx.commit().await
-        };
-        if let Err(error) = kept.await {
-            eprintln!("{}", database(error));
-        }
-    }
+    // that money was spent.
+    work.keep_ticket(paid, &ticket.0).await;
     Ok(ticket)
 }
 

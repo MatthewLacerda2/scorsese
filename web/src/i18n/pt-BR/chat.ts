@@ -87,6 +87,10 @@ export const chat: Messages["chat"] = {
   },
   quote: {
     ask: (cost) => `Isso custa ${cost} dos seus créditos. Pode seguir?`,
+    choose: (now, batch) =>
+      `Agora: ${now} · em até 24 horas: ${batch}, metade do preço nas imagens. Qual prefere?`,
+    now: (cost) => `Agora — ${cost}`,
+    batch: (cost) => `Em até 24 horas — ${cost}`,
     expired: "Este orçamento expirou.",
     confirm: "Confirmar",
     decline: "Recusar",

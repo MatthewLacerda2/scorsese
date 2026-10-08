@@ -646,12 +646,13 @@ does not hold everybody else up.
 | `veo_shot` | 4 | minutes of waiting on Google, almost no machine |
 | `spoken_line` | 4 | seconds, mostly network |
 | `still_image` | 4 | a Gemini still (#461): seconds, mostly network |
+| `batch_still` | 64 | a Gemini still in a half-price batch (#947): one order, then asking once a minute for up to a day — many at once, so a slot held for a day never makes the next person's still wait a day to be ordered |
 | `voice_design` | 4 | an ElevenLabs voice design (#572): seconds, mostly network |
 | `voice_keep` | 4 | a designed candidate kept as a voice (#572): one free call |
 
 **Every kind has a handler** — `thumbnail` and `proxy` (#535, #542, *Library*),
-`render` and `preview` (#541, #542, *Renders*), `veo_shot`, `still_image` and
-`spoken_line` (#539, #461, *Web MCP*, below), `voice_design` and `voice_keep`
+`render` and `preview` (#541, #542, *Renders*), `veo_shot`, `still_image`,
+`batch_still` and `spoken_line` (#539, #461, #947, *Web MCP*, below), `voice_design` and `voice_keep`
 (#572, *Designing a voice*, below). A paid generation pays through credits (*Credits*,
 below: a failed one is free) and keeps what it made in the library. Each
 registers its handler in `jobs::kinds::registry()`; a kind nothing registers
@@ -662,7 +663,10 @@ in for Veo.
 **After a crash.** One worker per database, held by a Postgres advisory lock,
 so a job found `running` when the worker starts belongs to a dead process. It
 goes back to `waiting`, stamped `interrupted_at`; after three interruptions it
-is given up on — `failed`, or `stuck` if it holds a ticket. A graceful stop
+is given up on — `failed`, or `stuck` if it holds a ticket — except a
+`batch_still` holding its batch's name (`jobs::kinds::PATIENT`, #947), which
+goes back however often: it waits a day across that day's deploys, and with its
+ticket it only asks, so it cannot be what took the process down. A graceful stop
 (`docker compose stop`, a deploy) takes the same path, so the crash path runs
 on every deploy. Who a power cut affected:
 
@@ -678,6 +682,13 @@ local project, kept here:
   for two days.
 - A Veo job polls for up to **15 minutes** (`PROVIDER_PATIENCE`) — shots have
   taken ten — then marks the job `stuck`, ticket kept for a later collect.
+- **A batched still is the same** (#947): the batch job's name is its ticket,
+  kept on the job and the audit row the moment Google accepts, and a job that
+  comes back with one asks and never orders again. It asks once a minute
+  (`BATCH_EVERY`) for up to `BATCH_PATIENCE`, two days and an hour: Google
+  answers within 24 hours and expires an unfinished batch at 48, and an expired
+  batch answers as stopped, which settles it free — so `stuck` is only for a
+  batch that never answers at all.
 
 **Live state** reaches the browser over **`GET /api/events`**, server-sent
 events, one stream per user carrying everything live: each message is a JSON
@@ -818,17 +829,19 @@ both see the last dollar), and reserves — or refuses, writing nothing, when th
 balance cannot cover it. When the provider answers, `finish` releases the
 reservation and, if the generation **worked**, charges it — liked or not. A
 generation the provider **failed** nets to zero: free. A unique index allows
-one release per reservation, so nothing is settled twice. A Veo job that goes
-`stuck` settles nothing and its reservation stays held, since Google may still
-be billing. The assistant is charged after each call rather than reserved for:
+one release per reservation, so nothing is settled twice. A Veo or batch job that
+goes `stuck` settles nothing and its reservation stays held, since Google may
+still be billing. A batched still reserves its half price, charged when its
+picture lands and released when its batch stops without one. The assistant is charged after each call rather than reserved for:
 its cost exists only once the tokens are counted, so a turn checks the balance
 is positive before starting and the call may dip a little below zero.
 
 **Audit tables.** `veo_generations` (model, resolution, seconds, aspect,
 prompt, brief hash, operation ticket, state, estimated cost, error),
 `image_generations` (model, resolution, aspect, how many references, prompt,
-brief hash, state, estimated cost, error — #461, no ticket: a still comes back
-on the call), `speech_generations` (model, voice, text, characters,
+brief hash, state, estimated cost, error — #461; and since #947 `batch` and
+the batch job's name as `ticket`, which only a batched still has: one drawn now
+comes back on the call), `speech_generations` (model, voice, text, characters,
 settings, estimated cost, error) and `voice_designs` (description, passage,
 characters, seed, guidance, brief hash, state, the three candidates once it
 worked, estimated cost, error — #572, *Web MCP*) hold one row per paid generation, bound to the ledger entries that paid
@@ -1290,14 +1303,32 @@ nothing, and so is one whose job is still on its way. A call without `confirm`
 answers with the quote, what it takes from the balance (cost + 10%) and a
 token, kept in the `quotes` table under the providers' rules (#538: bound to
 what was quoted, once, fifteen minutes). A call with the token reserves every
-charged brief and queues it as a `veo_shot`, `still_image` or `spoken_line` job in one
-transaction — all, or none when the balance cannot cover the lot — and answers
+charged brief and queues it as a `veo_shot`, `still_image`, `batch_still` or
+`spoken_line` job in one transaction — all, or none when the balance cannot cover the lot — and answers
 at once with the job ids. Each job (`crate::generations`) sends the brief
 exactly as quoted, keeps a shot's ticket before anything else, keeps what came
 back with `Library::keep_generated`, charges it — or releases it, free, when the
 provider refused — and brings it into the project as it is by then, measured.
 The provider keys are the server's: `GEMINI_API_KEY` and `ELEVENLABS_API_KEY`,
 through the one credentials resolver; a missing key fails the job, free.
+
+**Stills in a half-price batch (#947).** The web does what the CLI and local
+MCP do (#894, `docs/prices.md`): `generate` with `batch` quotes the stills with
+`quote::batch` — stills only, refused naming any shot or line that would be
+sent too — under its own `Spend::Batch`, and the yes queues each still as a
+`batch_still` job, one still per batch (the payload is one brief; the half price
+is per request, so grouping can come later). **The offer is a second token.** A
+quote for now whose stills come to `quote::OFFER_FROM_CENTS` or more, with
+nothing but stills to pay for, also quotes them as a batch and issues that its
+own token under the same tool call; the reply says both prices in one line and
+names only the first token. The assistant's confirmation box shows both —
+*now: $X · within 24 hours: $Y* — as two yeses, neither the default; the yes
+picked spends its own token (`POST /api/chat/turns/{id}/quote` with `batch`),
+and the other is withdrawn. The model never holds either. A still a project
+brings in **already queued in a batch ordered elsewhere** — a local `.scor`
+folder's — cannot be collected here (the batch is that key's), so its quote
+line says so plainly; a batch this server orders is a job, never an
+`operation` in the document.
 
 **Designing a voice (#572).** `voice_design` designs, keeps and lists as the
 stdio tool does, and pays like `generate`: a call without `confirm` answers with

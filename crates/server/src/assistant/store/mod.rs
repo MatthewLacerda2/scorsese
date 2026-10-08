@@ -81,6 +81,15 @@ pub struct QuoteView {
     pub micros: i64,
     /// When it stops being good, in seconds since the Unix epoch.
     pub expires_at: i64,
+    /// Whether the call quoted its stills as a half-price batch (#947), so
+    /// the yes asks for one too.
+    #[serde(default)]
+    pub batched: bool,
+    /// What the half-price batch offered beside a quote for now would take
+    /// instead, in micro-dollars (#947): the box's second yes. `null` when
+    /// nothing was offered.
+    #[serde(default)]
+    pub batch_micros: Option<i64>,
 }
 
 /// A question the assistant asked the user mid-turn (#710), as the chat

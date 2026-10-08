@@ -5,12 +5,14 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod batching;
 mod clients;
 mod described;
 mod designing;
 mod drawing;
 mod editing;
 mod importing;
+mod offering;
 mod pages;
 mod paying;
 mod recipes;

@@ -4,7 +4,9 @@
 // `POST /api/chat/turns/{id}/quote`:
 //
 // - Confirm spends and starts the turn that carries on — money moves only on
-//   this click.
+//   this click. When stills are offered as a half-price batch beside the price
+//   for now (#947), there are two of these, side by side: now, or within 24
+//   hours at half. Neither is the default; the person picks.
 // - Decline withdraws the quote.
 // - Ask for a change withdraws it too, spending nothing, and starts a turn with
 //   the words typed, which the assistant takes as a change to these items: it
@@ -19,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useT } from "@/i18n/I18nProvider";
 import { formatDollars } from "@/lib/money";
-import { changeAnswer, preview } from "./quote";
+import { changeAnswer, offer, preview } from "./quote";
 
 export function QuoteBox({ turn, quote }: { turn: number; quote: QuoteView }) {
   const t = useT();
@@ -36,9 +38,14 @@ export function QuoteBox({ turn, quote }: { turn: number; quote: QuoteView }) {
   });
   const expired = quote.expires_at * 1000 < Date.now();
   const asked = changeAnswer(change);
+  const offered = offer(quote);
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-amber-500/50 bg-amber-500/5 p-3 text-sm">
-      <p className="font-medium">{t.chat.quote.ask(formatDollars(quote.micros))}</p>
+      <p className="font-medium">
+        {offered
+          ? t.chat.quote.choose(formatDollars(offered.now), formatDollars(offered.batch))
+          : t.chat.quote.ask(formatDollars(quote.micros))}
+      </p>
       {(quote.items ?? []).length > 0 && (
         <ul className="flex flex-col gap-2">
           {(quote.items ?? []).map((item) => (
@@ -60,8 +67,17 @@ export function QuoteBox({ turn, quote }: { turn: number; quote: QuoteView }) {
           disabled={answer.isPending || expired}
           onClick={() => answer.mutate({ confirm: true })}
         >
-          {t.chat.quote.confirm}
+          {offered ? t.chat.quote.now(formatDollars(offered.now)) : t.chat.quote.confirm}
         </Button>
+        {offered && (
+          <Button
+            size="sm"
+            disabled={answer.isPending || expired}
+            onClick={() => answer.mutate({ confirm: true, batch: true })}
+          >
+            {t.chat.quote.batch(formatDollars(offered.batch))}
+          </Button>
+        )}
         <Button
           size="sm"
           variant="outline"

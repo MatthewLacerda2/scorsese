@@ -68,7 +68,7 @@ async fn still(work: &Work, vendors: &dyn Vendors) -> Outcome {
 
 /// The still's brief, gathered from the document the job carries, laid out
 /// with the user's files — and refused if it is not the one that was quoted.
-async fn gather(work: &Work) -> Result<Brief, String> {
+pub(super) async fn gather(work: &Work) -> Result<Brief, String> {
     let project = document(&work.payload)?;
     let folder = lay_out(
         work.context.pool(),

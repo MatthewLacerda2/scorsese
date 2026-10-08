@@ -1,7 +1,7 @@
 //! After a crash: a job left running goes back in line, and the operator can
 //! see whose it was.
 
-use scorsese_server::jobs::{MAX_ATTEMPTS, State, store};
+use scorsese_server::jobs::{MAX_ATTEMPTS, State, kinds, store};
 use scorsese_server::operator::{self, JobCommand};
 use serde_json::json;
 use sqlx::postgres::PgPool;
@@ -71,6 +71,39 @@ async fn a_job_interrupted_too_often_is_given_up_on_but_a_ticket_is_kept(pool: P
         .await
         .unwrap();
     assert_eq!(ticket.as_deref(), Some("operations/abc"));
+}
+
+/// A batch waits a day, across that day's deploys (#947): holding its ticket,
+/// it goes back in line however often it was cut off — without one, it is
+/// given up on like any other.
+#[sqlx::test]
+async fn a_batch_holding_its_ticket_is_never_given_up_on(pool: PgPool) {
+    let ana = account(&pool, "ana@example.com").await;
+    let members = members(&pool).await;
+    let ordered = enqueue(&members, ana, kinds::BATCH_STILL, json!({})).await;
+    let unordered = enqueue(&members, ana, kinds::BATCH_STILL, json!({})).await;
+    sqlx::query(
+        "UPDATE jobs SET state = 'running', attempts = $1 + 5,
+                ticket = CASE WHEN id = $2 THEN 'batches/abc' END,
+                ticket_at = CASE WHEN id = $2 THEN now() END",
+    )
+    .bind(MAX_ATTEMPTS)
+    .bind(ordered.id)
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    store::recover(&members).await.unwrap();
+    let state = |id| {
+        let members = members.clone();
+        async move {
+            let job = store::get(&members, ana, id).await.expect("a read");
+            job.expect("the job")
+        }
+    };
+    let ordered = state(ordered.id).await;
+    assert_eq!((ordered.state, ordered.error), (State::Waiting, None));
+    assert_eq!(state(unordered.id).await.state, State::Failed);
 }
 
 #[sqlx::test]

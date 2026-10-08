@@ -1,5 +1,6 @@
-//! The paid generation jobs (#539): a Veo shot, a Gemini still (#461) and an
-//! ElevenLabs line, made by
+//! The paid generation jobs (#539): a Veo shot, a Gemini still (#461) — drawn
+//! now, or ordered in a half-price batch (#947) — and an ElevenLabs line, made
+//! by
 //! the job queue for one user, paid from their credits, kept in their library.
 //!
 //! A job is enqueued by web `generate` once the user has confirmed a quote,
@@ -13,14 +14,16 @@
 //! 2. **Sent.** The brief is gathered from the document as it was when the
 //!    quote was confirmed, laid out with the user's files, by the same
 //!    `scorsese_providers` gathering a local run uses — so what is sent is what
-//!    was quoted. A shot's ticket is committed to the job's row and the audit
-//!    row the moment Google accepts; a job that comes back from a crash with a
-//!    ticket **polls and never submits** (`jobs`, *Veo: never pay twice*).
+//!    was quoted. A shot's ticket — or a batched still's batch job name — is
+//!    committed to the job's row and the audit row the moment Google accepts;
+//!    a job that comes back from a crash with a ticket **polls and never
+//!    submits** (`jobs`, *Veo: never pay twice*).
 //! 3. **Settled.** A generation that worked is kept with
 //!    `Library::keep_generated` and charged; one the provider refused is free
 //!    ([`credits::generations::finish`](crate::credits::generations::finish)).
-//!    A shot that outlasts [`Timing::patience`] goes `stuck`, its reservation
-//!    held, since Google may still be billing.
+//!    A shot that outlasts [`Timing::patience`], or a batch
+//!    [`Timing::batch_patience`], goes `stuck`, its reservation held, since
+//!    Google may still be billing.
 //! 4. **Adopted.** The user's project is opened as it is *now*, laid out with
 //!    their generations, and `scorsese_providers`' own `adopt` points each
 //!    asset whose current brief has a file at it — then it is measured and
@@ -33,6 +36,7 @@
 //! one, and a missing key fails that job — free — rather than the server.
 
 mod adopt;
+mod batch;
 mod land;
 mod line;
 mod shot;
@@ -49,11 +53,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub use adopt::{Adopted, adopt};
+pub use batch::handler as batch_handler;
 pub use line::handler as line_handler;
 pub use shot::handler as shot_handler;
 pub use still::handler as still_handler;
 
-use crate::jobs::kinds::PROVIDER_PATIENCE;
+use crate::jobs::kinds::{BATCH_PATIENCE, PROVIDER_PATIENCE};
 
 /// What a generation job carries.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -122,21 +127,33 @@ impl Vendors for Keys {
     }
 }
 
-/// How a shot job waits.
+/// How a shot job, and a batched still's, waits.
 #[derive(Debug, Clone, Copy)]
 pub struct Timing {
-    /// Between polls.
+    /// Between a shot's polls.
     pub poll_every: Duration,
-    /// Before the job goes `stuck`.
+    /// Before a shot's job goes `stuck`.
     pub patience: Duration,
+    /// Between asking after a batch.
+    pub batch_every: Duration,
+    /// Before a batch's job goes `stuck`.
+    pub batch_patience: Duration,
 }
 
+/// Between asking after a batch: a minute. It answers within a day, so asking
+/// every ten seconds as a shot does would be thousands of calls to learn
+/// nothing.
+pub const BATCH_EVERY: Duration = Duration::from_secs(60);
+
 impl Default for Timing {
-    /// The providers' own poll interval, and the queue's patience.
+    /// The providers' own poll interval, and the queue's patience — a
+    /// minute and [`BATCH_PATIENCE`] for a batch.
     fn default() -> Self {
         Self {
             poll_every: POLL_EVERY,
             patience: PROVIDER_PATIENCE,
+            batch_every: BATCH_EVERY,
+            batch_patience: BATCH_PATIENCE,
         }
     }
 }
