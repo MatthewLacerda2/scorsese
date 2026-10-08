@@ -1,7 +1,8 @@
 //! A page's layout mistakes, heard as notes (#813): text off the frame, inside
 //! the safe margin, out of its box, or over other text — and nothing for an
 //! entrance passing through, or text nobody can see — including text a
-//! clipping box has hidden (#918).
+//! clipping box has hidden (#918) — but a line one cuts partway is a note
+//! (#927).
 //!
 //! These need the pinned browser, as `pages.rs` does.
 
@@ -34,10 +35,16 @@ const PAGE: &str = r##"<style>
 <div style="position:absolute;left:600px;top:360px;width:300px;height:50px;overflow:hidden">
   <p style="left:0;top:-60px">rotated out</p><p style="left:0;top:0">in view</p>
 </div>
-<!-- Half out of its mask: measured by the half in, which is clear of the edge. -->
+<!-- Half out of its mask: sliced, so a note naming the mask (#927), and
+     measured by the half in, which is clear of the frame's edge. -->
 <div style="position:absolute;left:800px;top:600px;width:150px;height:50px;overflow:hidden">
   <p style="left:0;top:0">cut by its mask</p>
 </div>
+<!-- Cut the same way, but on purpose: an ellipsis, and a box that scrolls. -->
+<div style="position:absolute;left:400px;top:960px;width:150px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">
+  an ellipsised line</div>
+<div style="position:absolute;left:600px;top:960px;width:150px;height:50px;overflow-x:auto;white-space:nowrap">
+  a scrolling line</div>
 <p style="left:300px;top:900px;opacity:0">invisible at -500</p>
 <p style="left:200px;top:800px;animation:in 1s linear both">sliding in</p>
 <svg width="1080" height="1080" style="position:absolute;inset:0">
@@ -79,6 +86,7 @@ fn held_layout_mistakes_are_notes_and_passing_motion_is_not() {
         r#""running off" runs off the right of the frame"#,
         r#""first" and "second" overlap"#,
         r#""svg label" runs off the right of the frame"#,
+        r#""cut by its mask" is cut off by <div> on the right by"#,
     ];
     for want in expected {
         assert!(
