@@ -55,6 +55,16 @@ that belongs to the clip. What it can count on:
 - **The clock starts at the clip's `source_in`, and runs at its `speed`.** A
   clip trimmed into a page starts the animation part-way, as trimming footage
   would. `duration` already accounts for both.
+- **The clock reads 100 ms at the page's time zero, not 0.** `performance.now()`,
+  `Date` and the `requestAnimationFrame` timestamp all start 0.1 s in, because
+  anime.js reads a timestamp of 0 as "not started yet" (#606). CSS animations,
+  transitions, Web Animations and anime.js are unaffected. A script that reads
+  the time itself must subtract it, or it runs **three frames early at 30 fps**,
+  and every exit timed back from `duration` ends before the cut (#917). Read the
+  page's seconds as `(performance.now() - start) / 1000`, where `start` is
+  `performance.now()` read when the script first runs, as *A Lottie animation*
+  below does. That is the page's time zero, and a trimmed clip still starts
+  part-way.
 - **A transparent background.** Where the page draws nothing, the tracks below
   it show through. A page that should cover the frame paints its own
   background, on `body`.
@@ -179,7 +189,8 @@ workers' clocks, and `requestIdleCallback`.
 Write the page so that **what is on screen is a function of the time**: a CSS
 `@keyframes` animation, a transition, a Web Animation, an anime.js timeline, or
 a `requestAnimationFrame` callback that reads the timestamp it is handed and
-computes the frame from it.
+computes the frame from it (less the page's time zero, which reads 100 ms: see
+*The contract*).
 
 Avoid the loop that **accumulates**: `x += speed * dt` each frame, a particle
 system stepping its state, anything whose frame 90 is only reachable by running
@@ -598,8 +609,9 @@ and the page is what goes on the timeline.
 The page loads the file, hands it to lottie-web with **`autoplay: false`**, and
 on every `requestAnimationFrame` turns the time it is handed into the
 animation's frame and draws exactly that one with `goToAndStop(frame, true)`.
-`performance.now()` when the script first runs is the page's time zero, so
-`(now - start) / 1000` is the page's seconds and any frame stands on its own. A
+`performance.now()` when the script first runs is the page's time zero (it
+reads 100 ms there, not 0: see *The contract*), so `(now - start) / 1000` is the
+page's seconds and any frame stands on its own. A
 fractional frame is drawn in between, so the animation is smooth at any render
 rate. `% anim.totalFrames` loops it; `Math.min(at, anim.totalFrames - 1)` plays
 it once and holds the last frame.
