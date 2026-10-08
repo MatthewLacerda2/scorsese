@@ -73,8 +73,9 @@ impl Tool for Read {
          before page_write. project-format: the project.json document, and the \
          table of what clip_animate can animate. recipes: synthesis recipes, \
          effects and songs. references: what real records measure, to hold a \
-         score against. prompts: what certain words make a provider do; read it \
-         before writing a prompt. prices: the providers' rates, and why a cost \
+         score against. prompts: what certain words make a provider do, and \
+         Google's and ElevenLabs' own prompting advice; read it before \
+         writing a prompt. prices: the providers' rates, and why a cost \
          is an estimate. stock: when free stock beats a generation. A short \
          guide comes back whole; a long one (recipes, project-format) comes \
          back as its opening and a numbered list of its sections, to call again \
