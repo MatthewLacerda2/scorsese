@@ -257,8 +257,11 @@ Whatever a page does that its author should hear about comes back in words:
   page's own clock. Only text is measured, by its lines rather than its
   element, and only what stays put for a quarter of a second: an entrance
   sliding in from off the frame, text that is hidden or faint, and anything
-  positioned out of its box on purpose say nothing. A box full of shapes is
-  not checked; look at it,
+  positioned out of its box on purpose say nothing. Text is measured as much
+  of it as shows: a word an `overflow: hidden` box or an `inset()` clip-path
+  has hidden (a line-mask reveal, a word rotator) says nothing, and one half
+  in is measured by its visible half. Masks and other clip shapes are not
+  read. A box full of shapes is not checked; look at it,
 - and a page that could not be captured at all. That clip shows the page's slug
   card (`PAGE · NOT CAPTURED`) instead, and the render still finishes. The usual
   cause is that there is no browser on the machine: `SCORSESE_CHROME`, then

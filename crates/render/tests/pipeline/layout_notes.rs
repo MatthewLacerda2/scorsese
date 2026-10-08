@@ -1,6 +1,7 @@
 //! A page's layout mistakes, heard as notes (#813): text off the frame, inside
 //! the safe margin, out of its box, or over other text — and nothing for an
-//! entrance passing through, or text nobody can see.
+//! entrance passing through, or text nobody can see — including text a
+//! clipping box has hidden (#918).
 //!
 //! These need the pinned browser, as `pages.rs` does.
 
@@ -23,9 +24,20 @@ const PAGE: &str = r##"<style>
 <div style="position:absolute;left:300px;top:200px;width:200px;height:60px;background:#345;display:flex;justify-content:center">
   <span style="white-space:nowrap">a caption far too long for its card</span>
 </div>
-<p style="left:20px;top:400px">hugging the edge</p>
+<!-- A static clipping box does not clip what is placed past it. -->
+<div style="overflow:hidden;height:0"><p style="left:20px;top:400px">hugging the edge</p></div>
 <p style="left:900px;top:500px">running off</p>
 <p style="left:300px;top:700px">first</p><p style="left:330px;top:705px">second</p>
+<p style="left:310px;top:710px;clip-path:inset(0 100% 0 0)">wiped away</p>
+<!-- A word rotator at rest: one word slid up out of its mask, over the line above. -->
+<p style="left:600px;top:290px">above the mask</p>
+<div style="position:absolute;left:600px;top:360px;width:300px;height:50px;overflow:hidden">
+  <p style="left:0;top:-60px">rotated out</p><p style="left:0;top:0">in view</p>
+</div>
+<!-- Half out of its mask: measured by the half in, which is clear of the edge. -->
+<div style="position:absolute;left:800px;top:600px;width:150px;height:50px;overflow:hidden">
+  <p style="left:0;top:0">cut by its mask</p>
+</div>
 <p style="left:300px;top:900px;opacity:0">invisible at -500</p>
 <p style="left:200px;top:800px;animation:in 1s linear both">sliding in</p>
 <svg width="1080" height="1080" style="position:absolute;inset:0">
