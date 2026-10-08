@@ -418,9 +418,9 @@ sheet and reports the other as *not yet*, and the next call draws it.
 
 A still drawn now has no ticket: it comes back on the call that asked for it.
 One ordered in a **batch** — half price, ready within 24 hours (`generate`
-with `batch`, see [prices.md](prices.md)) — is `queued`, with the batch job's
-name as its `operation` and `queued_at` stamped, until a later `generate`
-collects it. Whether a still was batched is not part of its brief: the same
+with `batch`; see [prices.md](prices.md), `guide prices`) — is `queued`, with
+the batch job's name as its `operation` and `queued_at` stamped, until a later
+`generate` collects it. Whether a still was batched is not part of its brief: the same
 brief draws the same kind of picture either way, and lands at the same
 `generated/<id>-<hash of the brief>.jpg`.
 
