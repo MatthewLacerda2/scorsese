@@ -22,6 +22,11 @@
 // checks, which say more about it. Masks (`mask-image`), SVG clip paths and
 // clip-path shapes other than `inset()` are not read: text under one is
 // measured whole.
+//
+// A line a clipping box cuts partway is sliced on screen, so it is a finding
+// too (#927), naming the box and the side. Not when the box draws an ellipsis
+// (the line's rects may report its unellipsised width) or scrolls on that axis
+// (it is meant to hold more than it shows).
 (margin) => {
   const W = innerWidth;
   const H = innerHeight;
@@ -110,33 +115,62 @@
   const transformed = (style) =>
     style.transform !== "none" || style.filter !== "none" || style.perspective !== "none";
   // Where the content of `el` can be seen: its own clip and its clipping
-  // ancestors'. An `overflow` clips only what it contains, so past a box placed
-  // absolutely the walk skips ancestors until its containing block (a fixed
-  // box's is a transformed ancestor, or the frame). `body` and the root are
-  // not read: their overflow is the frame's.
+  // ancestors', with the element each side's edge came from. An `overflow`
+  // clips only what it contains, so past a box placed absolutely the walk
+  // skips ancestors until its containing block (a fixed box's is a transformed
+  // ancestor, or the frame). `body` and the root are not read: their overflow
+  // is the frame's.
+  const SIDES = ["left", "right", "top", "bottom"];
+  const tighter = { left: (a, b) => a > b, right: (a, b) => a < b, top: (a, b) => a > b, bottom: (a, b) => a < b };
   const seen = new Map();
   const visibleArea = (el) => {
     if (seen.has(el)) return seen.get(el);
-    let area = EVERYWHERE;
+    const area = { ...EVERYWHERE };
+    const by = {};
     let escaped = null;
     for (let at = el; at && at !== document.body && at !== document.documentElement; at = at.parentElement) {
       const style = getComputedStyle(at);
       const holds = escaped === null || transformed(style) ||
         (escaped === "absolute" && style.position !== "static");
       if (holds) escaped = null;
-      area = meet(area, holds ? ownClip(at, style) : insetOf(at, style.clipPath, at.getBoundingClientRect()));
+      const clip = holds ? ownClip(at, style) : insetOf(at, style.clipPath, at.getBoundingClientRect());
+      for (const side of SIDES) {
+        if (tighter[side](clip[side], area[side])) [area[side], by[side]] = [clip[side], at];
+      }
       if (escaped === null && ["absolute", "fixed"].includes(style.position)) escaped = style.position;
     }
-    area = {
-      left: area.left <= SLACK ? -Infinity : area.left,
-      right: area.right >= W - SLACK ? Infinity : area.right,
-      top: area.top <= SLACK ? -Infinity : area.top,
-      bottom: area.bottom >= H - SLACK ? Infinity : area.bottom,
-    };
-    seen.set(el, area);
-    return area;
+    const atFrame = { left: area.left <= SLACK, right: area.right >= W - SLACK, top: area.top <= SLACK, bottom: area.bottom >= H - SLACK };
+    for (const side of SIDES) {
+      if (atFrame[side]) [area[side], by[side]] = [EVERYWHERE[side], undefined];
+    }
+    const found = { area, by };
+    seen.set(el, found);
+    return found;
   };
-  const visible = (lines, el) => lines.map((line) => meet(line, visibleArea(el)))
+  // Whether a cut by `box` on `side` is a mistake rather than how the box works.
+  const slices = (box, side) => {
+    const style = getComputedStyle(box);
+    const overflow = side === "left" || side === "right" ? style.overflowX : style.overflowY;
+    return style.textOverflow !== "ellipsis" && !["scroll", "auto"].includes(overflow);
+  };
+  // The deepest cut a clipping box makes into lines still partly in view, as
+  // `{ box, side, depth }`, or null.
+  const cutOf = (lines, el) => {
+    const { area, by } = visibleArea(el);
+    let deepest = null;
+    for (const line of lines) {
+      const shown = meet(line, area);
+      if (shown.right <= shown.left || shown.bottom <= shown.top) continue;
+      for (const side of SIDES) {
+        const depth = Math.abs(shown[side] - line[side]);
+        if (by[side] && depth > SLACK && (!deepest || depth > deepest.depth) && slices(by[side], side)) {
+          deepest = { box: by[side], side, depth };
+        }
+      }
+    }
+    return deepest;
+  };
+  const visible = (lines, el) => lines.map((line) => meet(line, visibleArea(el).area))
     .filter((r) => r.right > r.left && r.bottom > r.top);
 
   // Blocks of text: the text nodes under one box, together.
@@ -156,9 +190,11 @@
     if (!lines.length) continue;
     let block = parent;
     while (!isBox(block) && block.parentElement) block = block.parentElement;
-    const entry = blocks.get(block) || { text: "", lines: [], opacity: opacity(parent), svg: false };
+    const entry = blocks.get(block) || { text: "", lines: [], opacity: opacity(parent), svg: false, cut: null };
     entry.text += node.data;
     entry.lines.push(...lines);
+    const cut = cutOf(measured, parent);
+    if (cut && (!entry.cut || cut.depth > entry.cut.depth)) entry.cut = cut;
     entry.opacity = Math.max(entry.opacity, opacity(parent));
     blocks.set(block, entry);
   }
@@ -167,9 +203,11 @@
     const style = getComputedStyle(text);
     const box = text.getBoundingClientRect();
     if (!text.textContent.trim() || style.visibility !== "visible" || box.width <= 0 || box.height <= 0) continue;
-    const lines = visible([trimmed(box, parseFloat(style.fontSize))], text);
+    const measured = [trimmed(box, parseFloat(style.fontSize))];
+    const lines = visible(measured, text);
     if (!lines.length) continue;
-    blocks.set(text, { text: text.textContent, lines, opacity: opacity(text), svg: true });
+    const cut = cutOf(measured, text);
+    blocks.set(text, { text: text.textContent, lines, opacity: opacity(text), svg: true, cut });
   }
 
   const items = [];
@@ -200,6 +238,11 @@
           `${px(-off[side])} from the edge, where ${px(safe[side])} keeps it clear of a player's crop`;
         findings.push({ key: message, message });
       }
+    }
+    if (item.cut) {
+      const { box, side, depth } = item.cut;
+      const message = `the text ${item.name} is cut off by ${named(box)} on the ${edge[side]} by ${px(depth)}`;
+      findings.push({ key: message, message });
     }
     const card = item.svg ? null : cardOf(item.block);
     if (card) {

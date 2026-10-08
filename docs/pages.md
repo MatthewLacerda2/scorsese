@@ -260,7 +260,9 @@ Whatever a page does that its author should hear about comes back in words:
   positioned out of its box on purpose say nothing. Text is measured as much
   of it as shows: a word an `overflow: hidden` box or an `inset()` clip-path
   has hidden (a line-mask reveal, a word rotator) says nothing, and one half
-  in is measured by its visible half. Masks and other clip shapes are not
+  in is measured by its visible half — and is itself a note, naming the box
+  that slices it, unless that box draws an ellipsis or scrolls. Masks and
+  other clip shapes are not
   read. A box full of shapes is not checked; look at it,
 - and a page that could not be captured at all. That clip shows the page's slug
   card (`PAGE · NOT CAPTURED`) instead, and the render still finishes. The usual
