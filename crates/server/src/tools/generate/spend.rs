@@ -2,7 +2,7 @@
 //! credits and queued as a job, in one transaction — all of it, or none.
 
 use scorsese_core::{AssetId, AssetKind, Project};
-use scorsese_providers::quote::Quote;
+use scorsese_providers::quote::{Quote, Spend};
 use scorsese_providers::{image, speech, video};
 use serde_json::Value;
 
@@ -51,12 +51,16 @@ enum What {
         aspect: &'static str,
         references: usize,
         prompt: String,
+        /// Ordered in a half-price batch rather than drawn now (#947).
+        batch: bool,
     },
 }
 
 /// Every charged item of `quote`, gathered from the project laid out at
-/// `root` — the same gathering the quote itself priced.
+/// `root` — the same gathering the quote itself priced. A still is ordered in
+/// a batch when the quote was one ([`Spend::Batch`]).
 pub(super) fn charged(quote: &Quote, project: &Project, root: &std::path::Path) -> Vec<Charged> {
+    let batch = quote.spend == Spend::Batch;
     let mut charged = Vec::new();
     for item in &quote.items {
         let Some(charge) = &item.charge else { continue };
@@ -81,6 +85,7 @@ pub(super) fn charged(quote: &Quote, project: &Project, root: &std::path::Path) 
                     aspect: brief.request.aspect.as_str(),
                     references: brief.reference_images.len(),
                     prompt: brief.prompt,
+                    batch,
                 },
                 Err(_) => continue,
             },
@@ -129,7 +134,8 @@ pub(super) async fn spend(
         let kind = match one.what {
             What::Shot { .. } => kinds::VEO_SHOT,
             What::Line { .. } => kinds::SPOKEN_LINE,
-            What::Still { .. } => kinds::STILL_IMAGE,
+            What::Still { batch: false, .. } => kinds::STILL_IMAGE,
+            What::Still { batch: true, .. } => kinds::BATCH_STILL,
         };
         let job = jobs::enqueue(&mut tx, kind, &payload)
             .await
@@ -192,6 +198,7 @@ fn request(one: &Charged, project: i64, call: i64, job: i64) -> Request<'_> {
             aspect,
             references,
             prompt,
+            batch,
         } => Request::Still(Still {
             project: Some(project),
             tool_call: Some(call),
@@ -203,6 +210,7 @@ fn request(one: &Charged, project: i64, call: i64, job: i64) -> Request<'_> {
             prompt,
             brief_hash: &one.brief,
             estimated_cents: one.cents,
+            batch: *batch,
         }),
     }
 }

@@ -6,7 +6,8 @@
 //! For debugging, disputes and improving the platform — and for the user, who
 //! can read every charge of theirs in the history. A generation's life is
 //! [`start`] (priced, reserved, recorded, or refused with nothing written),
-//! then for a shot [`keep_ticket`] the moment Google accepts, then [`finish`]
+//! then for a shot or a batched still [`keep_ticket`] the moment Google
+//! accepts, then [`finish`]
 //! with what the provider said. The job handlers that call these are
 //! `crate::generations` (#539); web `generate` starts one in the transaction
 //! that enqueues its job, and the job finds what pays for it with
@@ -65,8 +66,11 @@ pub struct Still<'a> {
     pub prompt: &'a str,
     /// The brief's hash — the one its output is named after.
     pub brief_hash: &'a str,
-    /// `scorsese_providers::prices::image`'s cents: the quoted figure.
+    /// `scorsese_providers::prices::image`'s cents: the quoted figure — or
+    /// `image_in_batch`'s, half of it, when `batch` is set.
     pub estimated_cents: u64,
+    /// Ordered in a half-price batch (#947) rather than drawn now.
+    pub batch: bool,
 }
 
 /// A line of narration about to be spoken.
@@ -168,8 +172,9 @@ pub async fn start(tx: &mut Tx, request: &Request<'_>) -> Result<Paid, CreditErr
         }
         Request::Still(still) => {
             let id = insert_still(tx, still, cost).await?;
+            let order = if still.batch { ", in a batch" } else { "" };
             let memo = format!(
-                "Generated still: {} {} in {}",
+                "Generated still: {} {} in {}{order}",
                 still.resolution, still.aspect, still.model
             );
             let link = Link {
@@ -221,8 +226,9 @@ async fn insert_shot(tx: &mut Tx, shot: &Shot<'_>, cost: i64) -> Result<i64, sql
 async fn insert_still(tx: &mut Tx, still: &Still<'_>, cost: i64) -> Result<i64, sqlx::Error> {
     sqlx::query_scalar(
         "INSERT INTO image_generations (user_id, project_id, tool_call_id, job_id, model,
-             resolution, aspect, references_sent, prompt, brief_hash, estimated_cost_micros)
-         VALUES (member_id(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id",
+             resolution, aspect, references_sent, prompt, brief_hash, estimated_cost_micros,
+             batch)
+         VALUES (member_id(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id",
     )
     .bind(still.project)
     .bind(still.tool_call)
@@ -234,6 +240,7 @@ async fn insert_still(tx: &mut Tx, still: &Still<'_>, cost: i64) -> Result<i64, 
     .bind(still.prompt)
     .bind(still.brief_hash)
     .bind(cost)
+    .bind(still.batch)
     .fetch_one(&mut **tx)
     .await
 }
@@ -258,11 +265,22 @@ async fn insert_line(tx: &mut Tx, line: &Line<'_>, cost: i64) -> Result<i64, sql
     .await
 }
 
-/// Record Google's operation ticket on a shot's audit row. The job's own row
-/// keeps it too (`jobs::Context::keep_ticket`); this one outlives the job.
-pub async fn keep_ticket(tx: &mut Tx, shot: i64, ticket: &str) -> Result<(), sqlx::Error> {
-    sqlx::query("UPDATE veo_generations SET ticket = $2 WHERE id = $1")
-        .bind(shot)
+/// Record Google's ticket on a shot's or a batched still's audit row — its
+/// operation, or its batch job's name. The job's own row keeps it too
+/// (`jobs::Context::keep_ticket`); this one outlives the job. Nothing else
+/// has a ticket, so nothing is written for it.
+pub async fn keep_ticket(
+    tx: &mut Tx,
+    generation: Generation,
+    ticket: &str,
+) -> Result<(), sqlx::Error> {
+    let (query, id) = match generation {
+        Generation::Shot(id) => ("UPDATE veo_generations SET ticket = $2 WHERE id = $1", id),
+        Generation::Still(id) => ("UPDATE image_generations SET ticket = $2 WHERE id = $1", id),
+        Generation::Line(_) | Generation::Design(_) => return Ok(()),
+    };
+    sqlx::query(query)
+        .bind(id)
         .bind(ticket)
         .execute(&mut **tx)
         .await

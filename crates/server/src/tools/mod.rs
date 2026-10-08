@@ -285,7 +285,20 @@ impl Toolbox {
         Ok(pending)
     }
 
-    /// Forget `user`'s quote `token` unspent.
+    /// The token of the half-price batch offered beside `user`'s quote
+    /// `token` (#947), while it is unspent.
+    pub async fn batch_offer(
+        &self,
+        user: UserId,
+        token: &str,
+    ) -> Result<Option<String>, sqlx::Error> {
+        let mut tx = crate::db::scoped(&self.pool, user).await?;
+        let offer = quotes::alternative(&mut tx, token).await?;
+        tx.commit().await?;
+        Ok(offer)
+    }
+
+    /// Forget `user`'s quote `token` unspent, and any batch offered beside it.
     pub async fn withdraw_quote(&self, user: UserId, token: &str) -> Result<(), sqlx::Error> {
         let mut tx = crate::db::scoped(&self.pool, user).await?;
         quotes::withdraw(&mut tx, token).await?;

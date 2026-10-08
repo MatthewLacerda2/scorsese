@@ -62,20 +62,48 @@ pub struct Pending {
     pub cents: u64,
     /// When it expires.
     pub expires_at: i64,
+    /// What the half-price batch offered beside it costs, in US cents
+    /// (#947) — `None` when the call offered none. Its token is
+    /// [`alternative`]'s to find, at the yes.
+    pub batch_cents: Option<u64>,
 }
 
 /// The quote tool call `call` issued, if it issued one still unspent.
+///
+/// A call issues at most two: its quote, and a batch offered beside a quote
+/// for now ([`alternative`]). The offer is the one under `Spend::Batch` when
+/// the other is not; a call that quoted a batch itself issued only that.
 pub(super) async fn issued_by(tx: &mut Tx, call: i64) -> Result<Option<Pending>, sqlx::Error> {
-    let row: Option<(String, i64, i64)> =
-        sqlx::query_as("SELECT token, cents, expires_at FROM quotes WHERE tool_call_id = $1")
-            .bind(call)
-            .fetch_optional(&mut **tx)
-            .await?;
-    Ok(row.map(|(token, cents, expires_at)| Pending {
+    let rows: Vec<(String, String, i64, i64)> = sqlx::query_as(
+        "SELECT token, spend, cents, expires_at FROM quotes WHERE tool_call_id = $1
+         ORDER BY spend = $2, token",
+    )
+    .bind(call)
+    .bind(Spend::Batch.as_str())
+    .fetch_all(&mut **tx)
+    .await?;
+    let cents = |cents: i64| u64::try_from(cents).unwrap_or_default();
+    let mut rows = rows.into_iter();
+    Ok(rows.next().map(|(token, _, quoted, expires_at)| Pending {
         token,
-        cents: u64::try_from(cents).unwrap_or_default(),
+        cents: cents(quoted),
         expires_at,
+        batch_cents: rows.next().map(|(_, _, offered, _)| cents(offered)),
     }))
+}
+
+/// The half-price batch offered beside the quote `token` (#947): its token,
+/// while it is unspent.
+pub(super) async fn alternative(tx: &mut Tx, token: &str) -> Result<Option<String>, sqlx::Error> {
+    sqlx::query_scalar(
+        "SELECT offer.token FROM quotes offer
+         JOIN quotes quoted ON quoted.tool_call_id = offer.tool_call_id
+         WHERE quoted.token = $1 AND offer.token <> $1 AND offer.spend = $2",
+    )
+    .bind(token)
+    .bind(Spend::Batch.as_str())
+    .fetch_optional(&mut **tx)
+    .await
 }
 
 /// The arguments of the `tool` call that issued `token`, while it is unspent.
@@ -94,12 +122,16 @@ pub(super) async fn asked(
     .await
 }
 
-/// Forget `token` unspent: a quote the user said no to.
+/// Forget `token` unspent — a quote the user said no to — and the batch
+/// offered beside it, if any: a no is to both.
 pub(super) async fn withdraw(tx: &mut Tx, token: &str) -> Result<(), sqlx::Error> {
-    sqlx::query("DELETE FROM quotes WHERE token = $1")
-        .bind(token)
-        .execute(&mut **tx)
-        .await?;
+    sqlx::query(
+        "DELETE FROM quotes WHERE token = $1
+            OR tool_call_id = (SELECT tool_call_id FROM quotes WHERE token = $1)",
+    )
+    .bind(token)
+    .execute(&mut **tx)
+    .await?;
     Ok(())
 }
 

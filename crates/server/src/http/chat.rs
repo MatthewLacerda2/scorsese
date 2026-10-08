@@ -133,6 +133,10 @@ pub struct QuoteAnswer {
     /// (#709): nothing is spent, and a turn starts with these words.
     #[serde(default)]
     pub change: Option<String>,
+    /// With `confirm: true`, spend the half-price batch the quote offered
+    /// beside itself instead (#947).
+    #[serde(default)]
+    pub batch: bool,
 }
 
 /// `POST /api/chat/turns/{id}/quote`: the user's answer to the quote held on
@@ -144,15 +148,20 @@ pub async fn quote(
     Path(id): Path<i64>,
     Json(answer): Json<QuoteAnswer>,
 ) -> Result<Json<Answered>, ApiError> {
-    let answer = match (answer.confirm, answer.change) {
-        (true, Some(_)) => {
+    let answer = match (answer.confirm, answer.change, answer.batch) {
+        (true, Some(_), _) => {
             return Err(ApiError::BadRequest(
                 "a yes spends what was quoted; ask for a change with confirm: false".into(),
             ));
         }
-        (true, None) => Answer::Confirm,
-        (false, None) => Answer::Decline,
-        (false, Some(change)) => Answer::Change(change),
+        (false, _, true) => {
+            return Err(ApiError::BadRequest(
+                "batch picks which yes; a no has nothing to pick".into(),
+            ));
+        }
+        (true, None, batch) => Answer::Confirm { batch },
+        (false, None, _) => Answer::Decline,
+        (false, Some(change), _) => Answer::Change(change),
     };
     Ok(Json(
         assistant::answer_quote(&state, member.user, id, answer).await?,

@@ -17,14 +17,20 @@
 //! the jobs do the rest (`crate::generations`): the provider, the library, the
 //! charge or the release, and the project. So the call answers at once, with
 //! the jobs to ask `jobs` about.
+//!
+//! **Or half price, within a day** ([`offer`], #947): with `batch`, the
+//! stills are quoted and ordered as a batch, each its own job that waits for
+//! its answer; and a quote for now offers that batch beside itself when it is
+//! worth asking.
 
+mod offer;
 mod spend;
 
 use scorsese_core::placing::Shortened;
 use scorsese_core::{GenerationState, Timestamp};
 use scorsese_mcp::Reply;
 use scorsese_providers::prices::dollars as cents_as_dollars;
-use scorsese_providers::quote::{Item, Quote, generation};
+use scorsese_providers::quote::{self, Item, Quote, generation};
 use serde_json::{Value, json};
 
 use super::surface::project_property;
@@ -53,7 +59,7 @@ a line with no voice chosen yet, or a still whose reference_images name a genera
 not yet generated, is reported and skipped until a later call. A shot or line that comes \
 out shorter than a clip laid out over its sketch shortens that clip to it, and the finished \
 job (or this reply, for one brought in) names each one — the gap left after it is yours to \
-close. Every price is our own arithmetic over published rates.";
+close. Stills can instead be ordered in a batch at half price, ready within 24 hours: when they are worth a dollar or more and are all there is to pay for, the quote offers it beside the price for now. Put that choice to whoever is paying and never pick the wait for them; set batch only when they chose it. Each batched still lands on its own when its batch answers. Every price is our own arithmetic over published rates.";
 
 /// Its arguments.
 pub(crate) fn schema() -> Value {
@@ -61,6 +67,14 @@ pub(crate) fn schema() -> Value {
         "type": "object",
         "properties": {
             "project": project_property(),
+            "batch": {
+                "type": "boolean",
+                "description": "Order the stills as a half-price batch, ready within 24 \
+                                hours, instead of drawing them now. Only when whoever is \
+                                paying chose to wait. Stills only: refused while a shot or a \
+                                line would be sent too. Quote and confirm with the same \
+                                value."
+            },
             "confirm": {
                 "type": "string",
                 "description": "The token from this tool's own quote. Leave it out to be \
@@ -104,16 +118,31 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
         &ProjectFiles::default(),
     )
     .await?;
+    let batch = arguments.get("batch").and_then(Value::as_bool) == Some(true);
     let (root, document) = (folder.root().to_path_buf(), stored.document.clone());
-    let (mut quote, charged) = tokio::task::spawn_blocking(move || {
-        let quote = generation(&document, &root).map_err(|error| error.to_string())?;
+    let (mut quote, mut alternative, charged) = tokio::task::spawn_blocking(move || {
+        let quoted = if batch {
+            quote::batch(&document, &root)
+        } else {
+            generation(&document, &root)
+        };
+        let mut quote = quoted.map_err(|error| error.to_string())?;
+        offer::foreign(&document, &root, &mut quote);
+        // A quote for now that a batch could also take is quoted both ways.
+        let alternative = (!batch)
+            .then(|| quote::batch(&document, &root).ok())
+            .flatten();
         let charged = spend::charged(&quote, &document, &root);
-        Ok::<_, String>((quote, charged))
+        Ok::<_, String>((quote, alternative, charged))
     })
     .await
     .map_err(|_| "quoting crashed on the server; that is a bug".to_owned())??;
     drop(folder);
     on_its_way(caller, &mut quote).await?;
+    if let Some(alternative) = alternative.as_mut() {
+        on_its_way(caller, alternative).await?;
+    }
+    let offered = offer::offered(&quote, alternative, &stored.document);
     let still_charged = |brief: &str| {
         quote.items.iter().any(|item| {
             item.charge
@@ -127,6 +156,9 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
         .collect();
 
     let mut lines = said(&quote);
+    if let Some(offered) = &offered {
+        lines.push(offer::says(&quote, offered, &stored.document));
+    }
     lines.extend(shortened.iter().cloned());
     if quote.is_free() {
         lines.push("Nothing to pay for, so nothing was sent.".to_owned());
@@ -139,6 +171,14 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
         let issued = quotes::issue(&mut tx, &quote, now, caller.call)
             .await
             .map_err(database)?;
+        // The offer's own token, for the confirmation box to spend instead
+        // when the person picks the batch; it is not said, so a model never
+        // holds it.
+        if let Some(offered) = &offered {
+            quotes::issue(&mut tx, offered, now, caller.call)
+                .await
+                .map_err(database)?;
+        }
         let balance = ledger::balance(&mut tx).await.map_err(database)?;
         tx.commit().await.map_err(database)?;
         lines.push(format!(
@@ -164,10 +204,16 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
         .map(|(asset, job)| format!("{asset}: queued as job {}", job.id))
         .chain(shortened)
         .collect();
+    let wait = if batch {
+        " Each still was ordered in a half-price batch: it is ready within 24 hours, and a \
+         batch that stops without drawing it gives its share back too."
+    } else {
+        ""
+    };
     lines.push(format!(
         "{} reserved from your credits; a brief the provider refuses gives its share back. \
          Call jobs to see each one finish — each lands in your library and in the project \
-         on its own.",
+         on its own.{wait}",
         dollars(credits(quote.cents()))
     ));
     Ok(lines.join("\n").into())
@@ -199,7 +245,8 @@ async fn on_its_way(caller: &Caller<'_>, quote: &mut Quote) -> Result<(), String
         .map_err(database)?;
     let running: Vec<(i64, String)> = sqlx::query_as(
         "SELECT id, payload->>'brief' FROM jobs
-         WHERE kind IN ('veo_shot', 'still_image', 'spoken_line') AND state IN ('waiting', 'running', 'stuck')
+         WHERE kind IN ('veo_shot', 'still_image', 'batch_still', 'spoken_line')
+           AND state IN ('waiting', 'running', 'stuck')
            AND payload->>'brief' = ANY($1)",
     )
     .bind(&briefs)
@@ -247,6 +294,6 @@ fn said(quote: &Quote) -> Vec<String> {
 }
 
 /// What `cents` of provider cost takes from a balance, in micro-dollars.
-fn credits(cents: u64) -> i64 {
+pub(super) fn credits(cents: u64) -> i64 {
     price(from_cents(cents))
 }
