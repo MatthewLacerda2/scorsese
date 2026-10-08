@@ -99,7 +99,7 @@ pub fn footage(
 }
 
 /// One result to import.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Choice {
     /// Footage or a picture.
     pub medium: Medium,

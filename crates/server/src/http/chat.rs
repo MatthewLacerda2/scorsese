@@ -14,7 +14,8 @@ use super::AppState;
 use super::auth::Member;
 use super::error::ApiError;
 use crate::assistant::{
-    self, Answer, Answered, AssistantError, Choice, Conversation, Opening, TurnDetail, TurnView,
+    self, Answer, Answered, Answering, AssistantError, Choice, Conversation, Opening, TurnDetail,
+    TurnView,
 };
 
 /// `POST /api/projects/{id}/chat`'s body.
@@ -161,13 +162,21 @@ pub async fn quote(
 /// `POST /api/chat/turns/{id}/answer`'s body.
 #[derive(Debug, Deserialize)]
 pub struct QuestionAnswer {
-    /// The answer: one of the options' words, or the user's own.
+    /// The answer: one of the options' words, or the user's own. Beside a
+    /// pick, a note on it, and it may be left out.
+    #[serde(default)]
     pub answer: String,
+    /// On a picker (#901), the `key`s of the candidates picked — `[]` for
+    /// none of them. Left out, the words are the whole answer.
+    #[serde(default)]
+    pub picked: Option<Vec<String>>,
 }
 
 /// `POST /api/chat/turns/{id}/answer`: the user's answer to the question a
-/// turn is paused on (#710). The same turn resumes, `202` with it; `400`
-/// when no question waits there, and refused like a new message when the
+/// turn is paused on (#710), or their pick from its picker (#901). The same
+/// turn resumes, `202` with it — what was picked is imported before the
+/// model hears of it; `400` when no question waits there or the pick names a
+/// candidate it did not offer, and refused like a new message when the
 /// balance is empty or the model has no key.
 pub async fn answer(
     State(state): State<AppState>,
@@ -175,7 +184,11 @@ pub async fn answer(
     Path(id): Path<i64>,
     Json(answer): Json<QuestionAnswer>,
 ) -> Result<(StatusCode, Json<TurnView>), ApiError> {
-    let turn = assistant::answer_question(&state, member.user, id, &answer.answer).await?;
+    let answering = Answering {
+        words: answer.answer,
+        picked: answer.picked,
+    };
+    let turn = assistant::answer_question(&state, member.user, id, answering).await?;
     Ok((StatusCode::ACCEPTED, Json(turn)))
 }
 

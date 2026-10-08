@@ -50,7 +50,11 @@ quotes.
 - **100 requests a minute per key.** One request fetches fifty results, so a
   search is usually one request and paging through it none.
 - **Only what is chosen is downloaded**, one at a time, and always copied into
-  the project — nothing is hotlinked.
+  the project — nothing is hotlinked. On the web, when several results are
+  equally good the assistant shows them to the user as pictures to pick from
+  (#901, `docs/web.md`); the picker displays Pixabay's own preview and file
+  links while they choose, names Pixabay as the source, and downloads only
+  what they pick.
 - **Results name their source.** Every reply that lists results says they come
   from Pixabay.
 

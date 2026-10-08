@@ -84,16 +84,73 @@ pub struct QuoteView {
 }
 
 /// A question the assistant asked the user mid-turn (#710), as the chat
-/// panel's card shows it.
+/// panel's card shows it — or a picker (#901): the same question with
+/// pictures to pick from instead of words.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct QuestionView {
     /// The question, in one line.
     pub question: String,
     /// Two to four answers to pick from; a typed answer is always allowed too.
+    /// Empty on a picker, whose options are its `candidates`.
+    #[serde(default)]
     pub options: Vec<String>,
     /// What the user answered — an option's words or their own — or `null`
-    /// while it waits.
+    /// while it waits. On a picker, the words they wrote beside their pick,
+    /// or instead of one.
     pub answer: Option<String>,
+    /// A picker's candidates, in the order offered; absent on a question.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub candidates: Vec<CandidateView>,
+    /// The `key`s of the candidates the user picked — none at all is an
+    /// answer too — or absent while it waits and when they answered in words
+    /// only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub picked: Option<Vec<String>>,
+}
+
+impl QuestionView {
+    /// Whether this is a picker rather than a question in words.
+    pub fn is_picker(&self) -> bool {
+        !self.candidates.is_empty()
+    }
+}
+
+/// One candidate a picker offers (#901): what the modal shows of it and
+/// where it comes from.
+///
+/// Named by its `source` and its `kind` there, so a second source of media —
+/// LottieFiles' animations (#903) — is one more value of each, not another
+/// shape. Every URL is the source's own, for showing the candidate while the
+/// user chooses; nothing is downloaded until they have, and then only what
+/// they picked.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CandidateView {
+    /// What the user's pick names it by, unique within its picker:
+    /// `pixabay-video-39009`.
+    pub key: String,
+    /// Where it comes from: `pixabay`.
+    pub source: String,
+    /// `video` or `image`.
+    pub kind: String,
+    /// The source's id for it.
+    pub id: String,
+    /// A still of it, for the grid.
+    pub preview_url: String,
+    /// What the enlarged view shows: a video's smallest file, played muted,
+    /// or a picture's smallest full rendition.
+    pub look_url: String,
+    /// The largest size there is, in pixels.
+    pub width: u32,
+    /// The largest size there is, in pixels.
+    pub height: u32,
+    /// Seconds long, for footage.
+    pub seconds: Option<u32>,
+    /// Who published it.
+    pub author: String,
+    /// Its page at the source.
+    pub page_url: String,
+    /// The source's words for what is in it.
+    pub tags: Vec<String>,
 }
 
 /// One thing a quote would pay for, as the box shows it: the line the paid

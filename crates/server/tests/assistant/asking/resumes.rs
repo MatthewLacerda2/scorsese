@@ -20,7 +20,7 @@ async fn a_question_pauses_the_turn_free_and_the_answer_resumes_it(pool: PgPool)
         .iter()
         .map(|t| t.name.clone())
         .collect();
-    assert_eq!(tools.last().map(String::as_str), Some("ask_user"));
+    assert_eq!(tools[tools.len() - 2..], ["ask_user", "pick_stock"]);
 
     tokio::time::sleep(Duration::from_millis(100)).await;
     assert_eq!(script.requests().len(), 1, "nothing runs while it waits");

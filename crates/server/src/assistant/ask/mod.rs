@@ -29,16 +29,62 @@
 //! answer costs at most one uncached call, the same as any late reply, so
 //! there is nothing a deadline would protect. What ends a question unanswered
 //! is the user: Stop, or a new conversation.
+//!
+//! **Pictures too** (#901, `pick`): `pick_stock` is the same pause with stock
+//! results for options, picked in a modal instead of a card.
 
 mod answer;
+mod pick;
 
-pub use answer::answer;
 pub use answer::set_aside;
+pub use answer::{Answering, answer};
 
-use scorsese_providers::chat::{Call, Part, ResultPart, Tool};
+use scorsese_providers::chat::{Call, Message, Part, ResultPart, Tool};
 use serde_json::{Value, json};
 
 use super::store::QuestionView;
+use crate::db::UserId;
+use crate::http::AppState;
+
+/// What a reply's calls ask of the person.
+pub(super) enum Asked {
+    /// Nothing: its calls run.
+    Nothing,
+    /// The turn pauses on this.
+    Pause(QuestionView),
+    /// A picker alone in its reply that cannot be shown: this result instead,
+    /// and the turn goes on.
+    Refused(Part),
+}
+
+/// Every function the loop declares beside the registry's tools.
+pub(super) fn functions() -> [Tool; 2] {
+    [tool(), pick::tool()]
+}
+
+/// Whether `name` is one of [`functions`] — a call the loop answers itself.
+pub(super) fn is_ours(name: &str) -> bool {
+    name == NAME || name == pick::NAME
+}
+
+/// What `calls`, made in `user`'s turn whose messages so far are `record`,
+/// ask of the person: a well-formed question or picker alone pauses the turn.
+pub(super) async fn asked(
+    state: &AppState,
+    user: UserId,
+    record: &[Message],
+    calls: &[Call],
+) -> Asked {
+    match calls {
+        [call] if call.name == pick::NAME => {
+            match pick::offer(state, user, record, &call.input).await {
+                Ok(picker) => Asked::Pause(picker),
+                Err(why) => Asked::Refused(pick::refused(call, why)),
+            }
+        }
+        _ => alone(calls).map_or(Asked::Nothing, Asked::Pause),
+    }
+}
 
 /// What the model calls it by.
 pub(super) const NAME: &str = "ask_user";
@@ -48,7 +94,7 @@ const OPTIONS: std::ops::RangeInclusive<usize> = 2..=4;
 
 /// `ask_user` as the model is offered it. Constant, like the system prompt:
 /// it is part of the cached prefix.
-pub(super) fn tool() -> Tool {
+fn tool() -> Tool {
     Tool {
         name: NAME.to_owned(),
         description: "Ask the person one short question mid-edit and wait for the answer, \
@@ -80,16 +126,27 @@ pub(super) fn tool() -> Tool {
 }
 
 /// The question `calls` asks, when it is a well-formed `ask_user` alone.
-pub(super) fn alone(calls: &[Call]) -> Option<QuestionView> {
+fn alone(calls: &[Call]) -> Option<QuestionView> {
     match calls {
         [call] if call.name == NAME => question(&call.input).ok(),
         _ => None,
     }
 }
 
-/// The result an `ask_user` call gets when it cannot pause the turn: badly
-/// formed, or not alone in its reply.
+/// The result an `ask_user` or `pick_stock` call gets when it cannot pause
+/// the turn: badly formed, or not alone in its reply.
 pub(super) fn refused(call: &Call) -> Part {
+    if call.name == pick::NAME {
+        let why = match pick::read(&call.input) {
+            Err(why) => why,
+            Ok(_) => format!(
+                "Not shown: {} must be the only call in its reply. Your other calls ran; show \
+                 it again on its own if you still need to.",
+                pick::NAME
+            ),
+        };
+        return pick::refused(call, why);
+    }
     let why = match question(&call.input) {
         Err(why) => why,
         Ok(_) => "Not asked: ask_user must be the only call in its reply. Your other calls \
@@ -151,6 +208,8 @@ fn question(input: &Value) -> Result<QuestionView, String> {
         question: asked.to_owned(),
         options,
         answer: None,
+        candidates: Vec::new(),
+        picked: None,
     })
 }
 
@@ -173,6 +232,7 @@ mod tests {
         assert_eq!(question.question, "Loop or fade?");
         assert_eq!(question.options, ["loop", "fade"]);
         assert_eq!(question.answer, None);
+        assert!(!question.is_picker());
     }
 
     #[test]
