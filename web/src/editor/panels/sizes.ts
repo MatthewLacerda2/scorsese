@@ -1,5 +1,5 @@
-// How big the editor's three panels around the preview are (#863): the assets
-// on the left, the chat on the right, the timeline along the bottom. Each one
+// How big the editor's three panels around the preview are (#863): the chat
+// on the left, the assets on the right (#943), the timeline along the bottom. Each one
 // is dragged by its inner edge, and the preview takes up the difference.
 //
 // Sizes are in rem, because what a panel holds is text — asset names, the

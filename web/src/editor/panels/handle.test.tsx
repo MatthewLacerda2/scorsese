@@ -10,13 +10,20 @@ import { Handle } from "./Handle";
 import { DEFAULTS, LEAST, MOST, SIZES_KEY } from "./sizes";
 import { usePanels } from "./usePanels";
 
-/** The editor's grid in miniature: the assets panel's edge, and the timeline's. */
+/** The editor's grid in miniature: the chat's edge, the assets panel's, and the timeline's (#943). */
 function Panels() {
   const panels = usePanels();
   return (
     <div ref={panels.grid}>
       <Handle
         grows="right"
+        size={panels.sizes.chat}
+        label="chat"
+        onSize={(size) => panels.resize("chat", size)}
+        onReset={() => panels.reset("chat")}
+      />
+      <Handle
+        grows="left"
         size={panels.sizes.assets}
         label="assets"
         onSize={(size) => panels.resize("assets", size)}
@@ -45,10 +52,13 @@ function drag(label: string, dx: number, dy = 0) {
 }
 
 describe("a panel handle", () => {
-  test("dragged, resizes the panel by the distance, in rem", () => {
+  test("dragged toward the preview, resizes the panel by the distance, in rem", () => {
     render(<Panels />);
+    expect(size("chat")).toBe(DEFAULTS.chat);
+    drag("chat", 32);
+    expect(size("chat")).toBe(DEFAULTS.chat + 2);
     expect(size("assets")).toBe(DEFAULTS.assets);
-    drag("assets", 32);
+    drag("assets", -32);
     expect(size("assets")).toBe(DEFAULTS.assets + 2);
   });
 
@@ -60,15 +70,15 @@ describe("a panel handle", () => {
 
   test("dragged past either end, stops at the panel's least and most", () => {
     render(<Panels />);
-    drag("assets", 10_000);
-    expect(size("assets")).toBe(DEFAULTS.assets * MOST);
     drag("assets", -10_000);
+    expect(size("assets")).toBe(DEFAULTS.assets * MOST);
+    drag("assets", 10_000);
     expect(size("assets")).toBe(DEFAULTS.assets * LEAST);
   });
 
   test("double-clicked, goes back to its default", async () => {
     render(<Panels />);
-    drag("assets", -64);
+    drag("assets", 64);
     expect(size("assets")).toBe(DEFAULTS.assets - 4);
     await userEvent.dblClick(screen.getByRole("separator", { name: "assets" }));
     expect(size("assets")).toBe(DEFAULTS.assets);
@@ -78,8 +88,11 @@ describe("a panel handle", () => {
     const user = userEvent.setup();
     render(<Panels />);
     await user.tab();
-    expect(window.document.activeElement).toBe(screen.getByRole("separator", { name: "assets" }));
+    expect(window.document.activeElement).toBe(screen.getByRole("separator", { name: "chat" }));
     await user.keyboard("{ArrowRight}{ArrowRight}{ArrowLeft}");
+    expect(size("chat")).toBe(DEFAULTS.chat + 1);
+    await user.tab();
+    await user.keyboard("{ArrowLeft}{ArrowLeft}{ArrowRight}");
     expect(size("assets")).toBe(DEFAULTS.assets + 1);
     await user.tab();
     await user.keyboard("{ArrowUp}");
@@ -88,7 +101,7 @@ describe("a panel handle", () => {
 
   test("a size is kept in this browser and read back when the editor reopens", () => {
     const first = render(<Panels />);
-    drag("assets", 48);
+    drag("assets", -48);
     expect(JSON.parse(window.localStorage.getItem(SIZES_KEY) ?? "{}").assets).toBe(
       DEFAULTS.assets + 3,
     );

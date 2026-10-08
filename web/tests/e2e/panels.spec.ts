@@ -15,7 +15,8 @@ test("a resized panel keeps its size through a reload", async ({ page }) => {
   const y = box.y + box.height / 2;
   await page.mouse.move(x, y);
   await page.mouse.down();
-  await page.mouse.move(x + 48, y, { steps: 4 });
+  // The assets are on the right (#943): their edge grows dragged leftward.
+  await page.mouse.move(x - 48, y, { steps: 4 });
   await page.mouse.up();
   const after = Number(await handle.getAttribute("aria-valuenow"));
   expect(after).toBeCloseTo(before + 3, 0);
