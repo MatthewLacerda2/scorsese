@@ -24,6 +24,17 @@ report, a real file on disk or a line of the codebase is one nobody has to
 re-derive. "The bake report prints `low 61%` and the only lever is a fader" is
 worth more than "we should have an EQ".
 
+**A vendor's figures are copied from the page, never from a summary of it.**
+A limit, a price, a model id or a parameter an issue quotes is read off the
+vendor's own page (its raw HTML or its table), with the date, because a
+summariser (WebFetch's small model, a search answer) paraphrases tables and gets
+them wrong with confidence. #893's body said Nano Banana 2.1 takes "10 objects
+**or** 5 characters **or** 3 styles" and that Pro takes no character or style
+references. Google's table says 10 objects **and** 4 characters, and Pro takes
+6 + 5 + 3. The coder caught it only because they parsed the page themselves
+(PR #935). Where a free call can confirm a figure (`GET models/{id}` confirms an
+id and its methods), make it and cite it.
+
 **Point with symbols and paths, not line numbers.** `AssetKind::is_prompted`
 or `merge-queue.py`'s `push_needed` survive the edits that land before the issue
 is picked up; a bare `crates/core/src/project.rs:210` does not. On rusty, on
