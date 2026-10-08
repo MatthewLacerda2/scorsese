@@ -16,7 +16,7 @@ use serde::Deserialize;
 use std::collections::BTreeMap;
 
 use super::{BASE, KEY_HEADER};
-use crate::api::http::{Caller, HttpError};
+use crate::api::http::{Caller, HttpError, encoded};
 use crate::credentials::Secret;
 
 /// The most voices the vendor will put on one page of the Voice Library.
@@ -263,29 +263,6 @@ fn canonical_locale(tag: &str) -> String {
         })
         .collect::<Vec<_>>()
         .join("-")
-}
-
-/// Everything RFC 3986 lets stand unescaped in a query value.
-const UNRESERVED: &[u8] = b"-._~";
-
-/// `value`, safe to put in a URL.
-///
-/// Written here rather than taken as a dependency, for the reason the MCP
-/// server gives for its own base64: a dozen lines against a fixed
-/// specification, and every dependency is one `cargo deny` has to keep
-/// clearing. Deliberately strict — everything outside the unreserved set is
-/// escaped, including characters a query would tolerate, because being
-/// over-cautious in a URL costs nothing and being wrong costs a failed call.
-fn encoded(value: &str) -> String {
-    let mut out = String::with_capacity(value.len());
-    for byte in value.as_bytes() {
-        if byte.is_ascii_alphanumeric() || UNRESERVED.contains(byte) {
-            out.push(char::from(*byte));
-        } else {
-            out.push_str(&format!("%{byte:02X}"));
-        }
-    }
-    out
 }
 
 #[cfg(test)]

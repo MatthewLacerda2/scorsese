@@ -70,6 +70,13 @@ pub fn elevenlabs(error: &HttpError) -> Verdict {
     }
 }
 
+/// A failed Pixabay call: a bad key is a `400` whose sentence names the key.
+pub fn pixabay(error: &HttpError) -> Verdict {
+    sorted(error, |status, body| {
+        matches!(status, 401 | 403) || body.contains("API key")
+    })
+}
+
 /// The verdict for `error`, with `auth` deciding which refusals are about the
 /// key.
 ///

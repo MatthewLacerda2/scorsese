@@ -18,7 +18,7 @@ fn a_vendor_with_no_key_is_skipped_and_costs_nothing() {
         &Environment::default(),
         &Settings::default(),
     );
-    assert_eq!(planned.len(), 3);
+    assert_eq!(planned.len(), 4);
     for vendor in &planned {
         let why = vendor.skipped.as_deref().unwrap();
         assert!(why.starts_with("no key"), "{why}");
@@ -45,6 +45,7 @@ fn only_the_vendors_with_keys_are_planned_and_priced() {
             (Provider::Gemini, 5, false),
             (Provider::ElevenLabs, 2, false),
             (Provider::Anthropic, 0, true),
+            (Provider::Pixabay, 0, true),
         ]
     );
     assert!(planned[0].calls.iter().any(|c| c.contains("free")));
@@ -88,7 +89,7 @@ fn a_run_with_no_keys_reports_every_vendor_skipped() {
         &mut |_| {},
     )
     .unwrap();
-    assert_eq!(reports.len(), 3);
+    assert_eq!(reports.len(), 4);
     for report in &reports {
         assert!(
             matches!(report.verdict(), Verdict::Skipped { .. }),

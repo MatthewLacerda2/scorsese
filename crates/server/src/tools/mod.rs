@@ -58,6 +58,7 @@
 mod bakes;
 mod carried;
 mod design;
+mod fetched;
 mod folder;
 mod generate;
 mod log;
@@ -67,6 +68,7 @@ mod size;
 mod stored;
 mod surface;
 
+pub use fetched::keep as keep_fetched;
 pub use folder::{Folder, lay_out};
 pub use log::Client;
 pub use quotes::Pending;

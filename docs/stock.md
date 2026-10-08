@@ -1,0 +1,69 @@
+# Stock footage and photos — before a shot is generated
+
+A shot comes from one of three places: the user's own footage, a paid
+generation (`generate`, `docs/prompts.md`, `docs/prices.md`), or **free stock**
+from Pixabay (#900). This page is about the third, and about when it is the
+right call.
+
+## When stock, when a generation
+
+Reach for stock first when the shot is **generic**: a city at night, hands
+typing on a laptop, a sunrise, an office, coffee being poured, a cat asleep,
+a crowd, traffic, nature. A large share of the shots in a promotional, product
+or social video are this kind, and Pixabay covers them for **$0**. The
+cheapest Veo shot is $0.64 for 8 s (`docs/prices.md`); real users have found a
+few of those a video too expensive to repeat.
+
+Generate when the shot has to be **unique**: the user's product, a specific
+character or place, a camera move the story needs, anything no library could
+have. Stock is someone else's shot; it will never show the user's thing.
+
+Mixing is normal. A cut can be stock for its establishing and B-roll shots and
+generated only where it must be, often for the price of its narration.
+
+## How it works
+
+1. **`stock_search`** (`scorsese stock search`) — words, plus `kind`
+   (`video` or `image`), `orientation`, `style`, `min_seconds`, `page`. It
+   answers five results a page — id, length, largest size, tags, author and
+   Pixabay page — and **one contact sheet** of their previews, numbered in
+   order. **Look at the sheet**: tags alone pick the wrong shot. For a video,
+   `look: <id>` shows five frames across the whole shot before anything is
+   imported.
+2. **`stock_import`** (`scorsese stock import`) — one id or several, and the
+   render `resolution` (default 1920x1080). The smallest file that fills that
+   frame without being enlarged is downloaded, by its measured size — Pixabay's
+   rendition names do not say a size. It becomes an ordinary `video` or `image`
+   asset at `assets/pixabay-<id>.<ext>`, probed and hashed like any import: no
+   new asset kind and no format change, and where it came from is in its name.
+   From there it is footage like any other — trim, crop, speed, grade.
+
+Both are free and need only `PIXABAY_API_KEY` (`docs/credentials.md`); neither
+quotes.
+
+## What Pixabay asks, and what that does here
+
+- **Results are cached 24 hours**, in `cache/stock/` (rebuildable, never
+  carried with a project). A second search for the same words in that window
+  asks nothing of Pixabay, and an id a search returned is found again from the
+  cache. On the web the cache is the user's own and outlives the call.
+- **100 requests a minute per key.** One request fetches fifty results, so a
+  search is usually one request and paging through it none.
+- **Only what is chosen is downloaded**, one at a time, and always copied into
+  the project — nothing is hotlinked.
+- **Results name their source.** Every reply that lists results says they come
+  from Pixabay.
+
+## Limits worth knowing
+
+- **Photos top out at 1280 px wide** until the maintainer is granted Pixabay's
+  full API access — soft as a full 1080p frame, fine as an inset or behind
+  text. The import says when a file is smaller than the frame.
+- **Footage has no orientation filter at Pixabay**; scorsese filters by the
+  measured size, reading further pages until a page of results is full. A
+  horizontal shot can also be cropped for a vertical cut.
+- **No music or sound effects**: Pixabay's API does not offer them.
+- **The licence** (Pixabay Content License) allows commercial use and
+  modification with no attribution, but not reselling the media as-is.
+  Identifiable people, logos or brands in a commercial video may need their
+  consent, which is the user's responsibility.

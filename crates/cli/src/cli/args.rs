@@ -240,3 +240,65 @@ impl From<KindArg> for AssetKind {
         }
     }
 }
+
+/// The things `stock` does: find free stock media, then bring it in.
+#[derive(Debug, Subcommand)]
+pub(crate) enum StockAction {
+    /// Search Pixabay's free stock footage and photos, five results a page,
+    /// and write a contact sheet of their previews to look at before
+    /// choosing.
+    ///
+    /// Free — Pixabay's API has no paid tier — so for a generic shot (a city
+    /// at night, a sunrise, an office) it comes before `generate`. Results
+    /// are cached in the project for 24 hours, as Pixabay asks.
+    Search {
+        /// What to find, in plain words: `city at night`, `cat asleep`.
+        #[arg(required_unless_present = "look", num_args = 1..)]
+        words: Vec<String>,
+        /// Search photos and illustrations instead of footage.
+        #[arg(long)]
+        image: bool,
+        /// Only results this way round: `horizontal` or `vertical`. Footage is
+        /// filtered by its measured size, since Pixabay cannot filter it.
+        #[arg(long)]
+        orientation: Option<String>,
+        /// `film` or `animation` for footage; `photo`, `illustration` or
+        /// `vector` with `--image`.
+        #[arg(long)]
+        style: Option<String>,
+        /// Only footage at least this many seconds long.
+        #[arg(long)]
+        min_seconds: Option<u32>,
+        /// Which page of results, from 1.
+        #[arg(long, default_value = "1")]
+        page: u32,
+        /// Include results Pixabay does not mark as suitable for all ages.
+        #[arg(long)]
+        unsafe_results: bool,
+        /// Instead of searching, look through this video: five frames across
+        /// the whole shot, from its smallest file. Nothing is imported.
+        #[arg(long, value_name = "ID", conflicts_with = "image")]
+        look: Option<u64>,
+        /// Where to write the sheet. Default: `cache/stock/sheet.png` in the
+        /// project.
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
+    /// Download results a search found into `assets/`, as ordinary video or
+    /// image assets named `pixabay-<id>`.
+    ///
+    /// Free. The file is the smallest Pixabay has that fills the render size
+    /// without being enlarged, or the largest there is.
+    Import {
+        /// The ids a search named. Several import at once; one that fails
+        /// costs none of the others.
+        #[arg(required = true)]
+        ids: Vec<u64>,
+        /// The ids are photos, not footage.
+        #[arg(long)]
+        image: bool,
+        /// The size the video will be rendered at.
+        #[arg(long, default_value = "1920x1080")]
+        resolution: scorsese_render::Resolution,
+    },
+}

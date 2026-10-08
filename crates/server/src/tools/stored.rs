@@ -27,7 +27,7 @@ use scorsese_mcp::{Part, Reply, Tool};
 use serde_json::Value;
 
 use super::surface::Serve;
-use super::{Caller, Refusal, bakes, carried, database, lay_out, project_id};
+use super::{Caller, Refusal, bakes, carried, database, fetched, folder, lay_out, project_id};
 use crate::projects::{self, ProjectError, files};
 
 /// How many times a call is run again on a project that moved under it.
@@ -66,6 +66,7 @@ pub(super) async fn run(
         )
         .await?;
         let root = folder.root().to_path_buf();
+        folder::keep_stock_cache(&toolbox.storage, caller.user, &root)?;
         let mut local = arguments.clone();
         local["project"] = Value::String(root.to_string_lossy().into_owned());
         carried::bring(caller, serve, item.as_ref(), &mut local, &root)?;
@@ -102,6 +103,14 @@ pub(super) async fn run(
         }
         let document = document.unwrap_or_else(|| stored.document.clone());
         bakes::keep(
+            &toolbox.library,
+            caller.user,
+            &stored.document,
+            &document,
+            folder.root(),
+        )
+        .await?;
+        fetched::keep(
             &toolbox.library,
             caller.user,
             &stored.document,

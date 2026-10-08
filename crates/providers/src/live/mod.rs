@@ -25,6 +25,7 @@ pub mod claude;
 pub mod elevenlabs;
 pub mod image;
 pub mod judge;
+pub mod pixabay;
 pub mod record;
 pub mod veo;
 
@@ -36,7 +37,12 @@ use crate::credentials::{
 };
 
 /// Every vendor the check calls, in the order it calls them.
-pub const PROVIDERS: [Provider; 3] = [Provider::Gemini, Provider::ElevenLabs, Provider::Anthropic];
+pub const PROVIDERS: [Provider; 4] = [
+    Provider::Gemini,
+    Provider::ElevenLabs,
+    Provider::Anthropic,
+    Provider::Pixabay,
+];
 
 /// What a person chose about this run.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -207,6 +213,7 @@ fn calls(provider: Provider, options: &Options) -> Vec<String> {
         Provider::Gemini => [veo::calls(options), image::calls()].concat(),
         Provider::ElevenLabs => elevenlabs::calls(),
         Provider::Anthropic => claude::calls(),
+        Provider::Pixabay => pixabay::calls(),
     }
 }
 
@@ -216,6 +223,7 @@ fn cost(provider: Provider, options: &Options) -> u64 {
         Provider::Gemini => veo::cost(options) + image::cost(),
         Provider::ElevenLabs => elevenlabs::cost(),
         Provider::Anthropic => claude::cost(),
+        Provider::Pixabay => 0,
     }
 }
 
@@ -297,6 +305,7 @@ fn one(planned: &Planned, options: &Options, on: &mut dyn FnMut(&str)) -> Report
         }
         Provider::ElevenLabs => elevenlabs::check(key, &tap),
         Provider::Anthropic => claude::check(key, &tap),
+        Provider::Pixabay => pixabay::check(key, &tap),
     };
     let exchanges = tap
         .take()

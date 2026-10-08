@@ -115,6 +115,8 @@ the tools relate to each other, which is knowledge no single tool has.
 | `synth_bake` | Render every synth_audio recipe whose sound is not already on disk, into generated/. | nothing |
 | `synth_survey` | Say what every song recipe in the project is made of, and count the same facts across the whole set. | nothing |
 | `icons` | Find an icon by a word, and answer with names — each one a string to give `asset_set` as `icon` (an icon asset's `name` in the document) or write into a page. | nothing |
+| `stock_search` | Search Pixabay's free stock footage and photos, and see the candidates before choosing. | a key and a network, but no money |
+| `stock_import` | Bring stock footage or a photo that stock_search found into the project, by its id, as an ordinary video or image asset. | a key and a network, but no money |
 | `voices` | List the ElevenLabs voices a narration can be read in, or check that one still exists. | a key and a network, but no money |
 | `voice_design` | Design a new ElevenLabs voice from a description, for when no voice in either list is the one the video needs. | money, at a provider |
 | `generate` | Realise the sketched briefs — the one tool here that costs money, and it quotes before it spends. | money, at a provider |
@@ -386,6 +388,46 @@ refused and removes nothing. Gaps stay open, as `clip_remove` leaves them. Only
 the table entry goes: an imported file stays in `assets/` and a generated one
 in `generated/`, so putting a generated asset back with the same brief costs
 nothing.
+
+## Free stock footage and photos: `stock_search`, `stock_import`
+
+A generic shot — a city at night, a sunrise, an office, a cat asleep — does not
+need a generation. Pixabay's library has it for **$0**, under a licence that
+allows commercial use without attribution, so these two come before `generate`
+for any shot that does not have to be unique (`docs/stock.md` has when each is
+right).
+
+```
+stock_search  { "project": "teaser.scor", "query": "cat asleep", "orientation": "vertical" }
+       → "1. video 170617  19s  up to 2160x4096  (cat, piano, keys, …)
+             by … — https://pixabay.com/videos/id-170617/
+          …
+          5 results from Pixabay (page 1, 500 matching in all), read just now.
+          More on page 2."
+         + one contact sheet of the five previews, numbered 1 to 5
+stock_search  { "project": "teaser.scor", "look": 170617 }
+       → five frames across the whole shot, from its smallest file
+stock_import  { "project": "teaser.scor", "id": [170617, 213130], "resolution": "1080x1920" }
+       → "pixabay-170617 — video 170617 (small, 1080x2048), by … — …"
+```
+
+**Look before choosing.** The sheet is one image for five results, and tags
+alone import the wrong shot; `look` shows how a video moves before anything is
+downloaded in full.
+
+**An import is an ordinary import.** The file lands as
+`assets/pixabay-<id>.<ext>` and becomes a `video` or `image` asset like a file
+dropped in — probed, hashed, and the asset id `pixabay-<id>` unless the reply
+says it was renamed. Which file: the smallest Pixabay has that **fills the
+render size without being enlarged**, by measured width and height, never by
+Pixabay's rendition names; the largest there is when none does, and the reply
+says so. Several ids import in one call, and one that fails costs none of the
+others.
+
+**Free, but not offline.** Both need `PIXABAY_API_KEY` and a network; neither
+quotes. Results are cached in `cache/stock/` for 24 hours, as Pixabay asks, so
+paging and importing what a search found ask Pixabay nothing more. Photos are at
+most 1280 px wide until Pixabay grants full API access.
 
 ## Finding the symbol you meant: `icons`
 

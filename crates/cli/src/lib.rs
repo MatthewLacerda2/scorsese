@@ -1,7 +1,7 @@
 //! # scorsese-cli — the headless binary
 //!
 //! Responsibility: the `scorsese` command-line surface — `new`, `import`,
-//! `check`, `migrate`, `render`, `still`, `synth`, `duck`, `voices`, `generate`,
+//! `check`, `migrate`, `render`, `still`, `synth`, `duck`, `voices`, `stock`, `generate`,
 //! `assets`, `diff`, and `check-providers` — the one verb that calls every
 //! vendor on purpose.
 //! This is how an agent (or a CI
@@ -304,6 +304,7 @@ fn dispatch(cli: Cli) -> Result<()> {
                 under,
             },
         ),
+        Command::Stock { action } => commands::stock::run(&directory, action),
         Command::Level { file, against } => commands::level::run(&file, against.as_deref()),
         Command::Assets {
             action: None,

@@ -15,6 +15,10 @@ is making the video. What is here is narrower and duller: provider behaviour
 that cannot be guessed from the outside, each entry with the incident behind
 it.
 
+**Before a prompt is written at all**, ask whether the shot needs to be
+generated: a generic shot — a sunrise, a city at night, an office — is free
+from stock, and `docs/stock.md` says when that is the right call.
+
 Everything below is Veo, because that is what has been generated so far.
 ElevenLabs entries belong on this page too, when there are some.
 

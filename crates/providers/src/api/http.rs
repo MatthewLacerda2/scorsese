@@ -84,6 +84,15 @@ pub enum HttpError {
     },
 }
 
+/// Where a [`Caller`] puts its key.
+#[derive(Debug, Clone, Copy)]
+enum Sign {
+    /// In this header.
+    Header(&'static str),
+    /// As this query parameter.
+    Query(&'static str),
+}
+
 /// A caller that can reach a vendor's API.
 ///
 /// Carries the credential rather than taking it per call, so a key is put in
@@ -92,7 +101,9 @@ pub enum HttpError {
 /// header from here on.
 #[derive(Debug, Clone)]
 pub struct Caller {
-    header: &'static str,
+    /// Where the key travels: a header, or — for a vendor that takes it no
+    /// other way — a query parameter.
+    sign: Sign,
     key: String,
     /// Headers every request carries besides the key — a vendor's API
     /// version, a feature it gates behind a header.
@@ -106,10 +117,23 @@ impl Caller {
     /// A caller that sends `key` in `header` on every request.
     pub fn new(header: &'static str, key: &crate::credentials::Secret) -> Self {
         Self {
-            header,
+            sign: Sign::Header(header),
             key: key.expose().to_owned(),
             extra: Vec::new(),
             tap: None,
+        }
+    }
+
+    /// A caller that sends `key` as the query parameter `parameter` on every
+    /// request — Pixabay's way, which takes no header.
+    ///
+    /// The key is added to the request here and never to the `url` a caller
+    /// passes in, so every [`HttpError`] — which names that `url` — still
+    /// carries no key.
+    pub fn in_query(parameter: &'static str, key: &crate::credentials::Secret) -> Self {
+        Self {
+            sign: Sign::Query(parameter),
+            ..Self::new(parameter, key)
         }
     }
 
@@ -167,10 +191,13 @@ impl Caller {
 
     /// `request`, carrying the key and every extra header.
     fn signed<B>(&self, request: ureq::RequestBuilder<B>) -> ureq::RequestBuilder<B> {
-        self.extra.iter().fold(
-            request.header(self.header, &self.key),
-            |request, (header, value)| request.header(*header, value),
-        )
+        let request = match self.sign {
+            Sign::Header(header) => request.header(header, &self.key),
+            Sign::Query(parameter) => request.query(parameter, &self.key),
+        };
+        self.extra.iter().fold(request, |request, (header, value)| {
+            request.header(*header, value)
+        })
     }
 
     /// POSTs `body` as JSON and reads the reply as JSON.
@@ -426,4 +453,29 @@ fn refused(
         status,
         body,
     })
+}
+
+/// Everything RFC 3986 lets stand unescaped in a query value.
+const UNRESERVED: &[u8] = b"-._~";
+
+/// `value`, safe to put in a URL.
+///
+/// Here, beside the transport, because every vendor module builds a query
+/// string and none of them should own the escaping the others use. Written
+/// rather than taken as a dependency, for the reason the MCP
+/// server gives for its own base64: a dozen lines against a fixed
+/// specification, and every dependency is one `cargo deny` has to keep
+/// clearing. Deliberately strict — everything outside the unreserved set is
+/// escaped, including characters a query would tolerate, because being
+/// over-cautious in a URL costs nothing and being wrong costs a failed call.
+pub(crate) fn encoded(value: &str) -> String {
+    let mut out = String::with_capacity(value.len());
+    for byte in value.as_bytes() {
+        if byte.is_ascii_alphanumeric() || UNRESERVED.contains(byte) {
+            out.push(char::from(*byte));
+        } else {
+            out.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    out
 }
