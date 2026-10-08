@@ -27,7 +27,7 @@ async fn a_still_lands_in_the_library_and_the_project(pool: PgPool) {
 
     let (quote, _) = call(address, &who, "generate", json!({ "project": id })).await;
     assert!(
-        quote.contains("backdrop: $0.11 — a 2K 16:9 still in flash"),
+        quote.contains("backdrop: $0.06 — a 2K 16:9 still in nano_banana_2.1"),
         "{quote}"
     );
 
