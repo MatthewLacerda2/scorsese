@@ -15,7 +15,9 @@ pub struct Query {
     /// The words, as a person would type them into a stock site.
     pub words: String,
     /// `film` or `animation` for footage; `photo`, `illustration` or
-    /// `vector` for pictures. `None` means the first of each.
+    /// `vector` for pictures. `None` means `film` or `photo` — real footage
+    /// and real photographs, which is what a generic shot almost always is;
+    /// Pixabay's own default mixes in animation and clip art.
     pub style: Option<String>,
     /// Only results this way round. The vendor filters pictures itself and
     /// has no such filter for footage, so footage is filtered here, by its

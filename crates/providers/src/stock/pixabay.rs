@@ -72,7 +72,12 @@ impl Library for PixabayLibrary {
     fn page(&self, query: &Query, page: u32) -> Result<Page, StockError> {
         let search = Search {
             q: Some(query.words.chars().take(100).collect()),
-            kind: query.style.clone(),
+            kind: Some(query.style.clone().unwrap_or_else(|| {
+                String::from(match query.medium {
+                    Medium::Video => "film",
+                    Medium::Image => "photo",
+                })
+            })),
             orientation: query.orientation.map(|way| way.word().to_owned()),
             page: Some(page),
             per_page: Some(PAGE_SIZE),
