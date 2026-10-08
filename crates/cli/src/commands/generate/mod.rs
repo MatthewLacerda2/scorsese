@@ -255,7 +255,7 @@ fn quote(project: &Project, root: &Path) -> Result<()> {
     println!();
     println!(
         "About {} for the whole run — calculated from the published rates, never a bill. \
-         See docs/prices.md.",
+         See `scorsese guide prices`.",
         dollars(quote.cents())
     );
     Ok(())

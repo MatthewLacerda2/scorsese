@@ -9,68 +9,20 @@
 //! such file. So the pointer names this tool instead (`` `guide pages` ``),
 //! and the tool hands back the page.
 //!
-//! **Each guide is the file itself**, compiled in with `include_str!` — not a
-//! copy, not a summary — so what the tool says cannot drift from what the
-//! repository says, and every gate the file is held to (the format page's
-//! examples parsed as projects, its animatable-property table held to the
-//! code, the recipe examples held to the parser) holds what this serves.
-//!
-//! Only the pages written for whoever is *making a video* are here. The
-//! developer docs — the web app's internals, the golden-render rulebook,
-//! mutation testing — are about building scorsese, and an agent editing a film
-//! has no use for them.
-
-mod outline;
+//! The guides themselves, and how a long one is cut into sections, are
+//! `scorsese_core::guide`'s: `scorsese guide` in a terminal reads the same
+//! pages through the same function, so the two surfaces give the same answer.
 
 #[cfg(test)]
 mod tests;
 
 use schemars::JsonSchema;
+use scorsese_core::guide;
 use serde::{Deserialize, Deserializer};
 use serde_json::Value;
 
 use super::args::{self, Name, ProjectDir, Required};
 use super::{Costs, Reply, Tool};
-
-/// One guide: the name a call gives, and the page.
-struct Guide {
-    /// What `name` is set to, and what other tools write after `guide`.
-    name: &'static str,
-    /// The page, as the repository has it.
-    text: &'static str,
-}
-
-/// Every guide this build serves, in the order the description lists them.
-const GUIDES: &[Guide] = &[
-    Guide {
-        name: "pages",
-        text: include_str!("../../../../../docs/pages.md"),
-    },
-    Guide {
-        name: "project-format",
-        text: include_str!("../../../../../docs/project-format.md"),
-    },
-    Guide {
-        name: "recipes",
-        text: include_str!("../../../../../docs/recipes.md"),
-    },
-    Guide {
-        name: "references",
-        text: include_str!("../../../../../docs/references.md"),
-    },
-    Guide {
-        name: "prompts",
-        text: include_str!("../../../../../docs/prompts.md"),
-    },
-    Guide {
-        name: "prices",
-        text: include_str!("../../../../../docs/prices.md"),
-    },
-    Guide {
-        name: "stock",
-        text: include_str!("../../../../../docs/stock.md"),
-    },
-];
 
 /// Read one of the guides.
 pub(super) struct Read;
@@ -139,36 +91,6 @@ impl Tool for Read {
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let arguments: Arguments = args::parse(arguments)?;
-        read(arguments.name.as_str(), arguments.section.as_deref()).map(Reply::from)
+        guide::read(arguments.name.as_str(), arguments.section.as_deref()).map(Reply::from)
     }
-}
-
-/// The guide called `name`, or the part of it `section` names.
-fn read(name: &str, section: Option<&str>) -> Result<String, String> {
-    let guide = GUIDES
-        .iter()
-        .find(|guide| guide.name == name)
-        .ok_or_else(|| {
-            let names: Vec<&str> = GUIDES.iter().map(|guide| guide.name).collect();
-            format!("there is no guide `{name}`; there are {}", names.join(", "))
-        })?;
-    let text = guide.text;
-    let headings = outline::headings(text);
-    let Some(asked) = section else {
-        return Ok(outline::part(
-            text,
-            &headings,
-            0,
-            text.len(),
-            &format!("guide {name}"),
-        ));
-    };
-    let heading = outline::find(&headings, asked).map_err(|why| format!("guide {name}: {why}"))?;
-    Ok(outline::part(
-        text,
-        &headings,
-        heading.start,
-        heading.end,
-        &format!("\"{}\"", heading.title),
-    ))
 }

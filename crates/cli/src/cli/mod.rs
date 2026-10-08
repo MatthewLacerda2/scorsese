@@ -198,6 +198,31 @@ pub(crate) enum Command {
     /// provider reports what a generation actually cost. Prints as Markdown,
     /// because CI appends this to a job summary.
     Prices,
+    /// Print one of scorsese's guides: the how-to no help text has room for.
+    ///
+    /// Messages elsewhere point here as `scorsese guide <name>`. pages: writing
+    /// a web page the timeline plays — the contract it is drawn under, what
+    /// loads offline, worked pages. project-format: the project.json document,
+    /// and the table of what can be animated. recipes: synthesis recipes,
+    /// effects and songs. references: what real records measure, to hold a
+    /// score against. prompts: what certain words make a provider do; read it
+    /// before writing a prompt. prices: the providers' rates, and why a cost is
+    /// an estimate. stock: when free stock beats a generation.
+    ///
+    /// A short guide prints whole; a long one (recipes, project-format) prints
+    /// its opening and a numbered list of its sections, to ask for again with
+    /// `--section`. The answer is exactly what the MCP server's `guide` tool
+    /// gives. The guides are compiled into this binary: no project, no network
+    /// and no checkout of the repository is needed.
+    Guide {
+        /// Which guide: pages, project-format, recipes, references, prompts,
+        /// prices or stock.
+        name: String,
+        /// Only this section: its heading's words (or the only heading
+        /// containing them), or its number in the list a long guide prints.
+        #[arg(long)]
+        section: Option<String>,
+    },
     /// Find an icon by a word: what to write as an icon asset's `name`.
     ///
     /// The set is seventeen hundred symbols and nobody can read that list, so a
@@ -303,8 +328,8 @@ pub(crate) enum Command {
     /// With a file, its HTML becomes the page called ID: an id nothing
     /// answers to makes an html asset and its file under pages/, the id of a
     /// page already there replaces that page's file whole. Without one, the
-    /// page is printed as it is on disk. docs/pages.md has the contract a page
-    /// is drawn under.
+    /// page is printed as it is on disk. `scorsese guide pages` has the contract
+    /// a page is drawn under.
     Page {
         /// The page's asset id, e.g. lower-third.
         id: String,

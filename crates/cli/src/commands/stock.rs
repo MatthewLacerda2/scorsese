@@ -170,8 +170,8 @@ fn animations(dir: &Path, cache: &Path, ids: &[u64]) -> Result<()> {
         bail!("nothing was imported");
     }
     println!(
-        "Play it from an html page with lottie-web, driven from the page's clock: docs/pages.md, \
-         A Lottie animation. From LottieFiles. {}",
+        "Play it from an html page with lottie-web, driven from the page's clock: \
+         `scorsese guide pages --section lottie`. From LottieFiles. {}",
         licence(Medium::Lottie)
     );
     Ok(())
