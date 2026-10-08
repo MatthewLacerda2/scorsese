@@ -32,6 +32,8 @@ It expects the server on `http://localhost:8080`; point it elsewhere with
 | `src/app/queryClient.ts` | the TanStack Query cache; keys start with their area (`["library", …]`), and any `401` logs the page out | invalidating an area after a change |
 | `src/app/queries.ts` | queries more than one page reads: projects, balance, library, one file | the editor's assets panel and header |
 | `src/app/routes.tsx` | every page by URL, behind `RequireSession` and inside `Shell` (which gives the editor the whole window) | adding a page |
+| `src/app/pages.ts` | every page as a **lazy** import (#896), each its own chunk: a page is added here and named in `routes.tsx`, **never imported statically**, so the login page never downloads the editor. `preload()` fetches one ahead (the projects list fetches the editor when idle) | adding a page |
+| `src/build/budget.ts` | the entry chunk's budget, a Vite plugin: the build fails when what a first visit downloads outgrows it, and says why the number is what it is | — |
 | `src/app/events.ts` | `useServerEvents`: the one `EventSource` on `/api/events` a page holds, shared by every listener, with a `resync` after a reconnect | anything live — jobs, the assistant, a project another tab changed |
 | `src/session/` | `useAccount`, `useLogin`, `useLogout`, the `RequireSession` guard and the `?next=` rule | anything that needs to know who is logged in |
 | `src/files/` | the Drive-like browser (grid, details panel, viewer), and uploads: an `UploadsProvider` around the signed-in app, so an upload survives navigation | showing or picking library files anywhere |
@@ -93,7 +95,7 @@ they become needs, the catalogues port across as they are.
 | lint | `bun run lint` (`biome ci`) | lint rules **and** formatting; `bun run format` fixes what it can |
 | typecheck | `bun run typecheck` (`tsc --noEmit`) | TypeScript in strict mode, the end-to-end flows included |
 | test | `bun test` | every `*.test.ts(x)` under `src/`, in a DOM (`src/test/dom.ts`) |
-| build | `bun run build` | the bundle the deploy ships actually builds |
+| build | `bun run build` | the bundle the deploy ships actually builds, and its entry chunk is within budget (`src/build/budget.ts`) |
 
 `make web-e2e` runs the end-to-end flows (`tests/e2e/`), which CI runs at the
 end of its `fmt + clippy + test` job, on the server binary that job's tests
@@ -132,7 +134,7 @@ what it is about.
   dragged, a double-click, a clip let go as one `clip_move`. happy-dom lays
   nothing out, so a test gives an element the box it needs
   (`timeline/pointer.test.tsx`) rather than trusting zeros. A page rendered to
-  HTML through `react-dom/server` still does for what it shows.
+  HTML (`App.test.tsx`, `prerender`) still does for what it shows.
 - **A flow** (`tests/e2e/*.spec.ts`, Playwright): a few things a person does
   from end to end, where the page and the server must agree — not every
   control. The assistant is faked in the browser with `page.route`; nothing
@@ -146,8 +148,8 @@ what it is about.
   main draw for React (the hooks rules) is covered by Biome's recommended set.
 - **`bun test`, not Vitest.** Bun is already the runtime, and its runner reads
   the same `tsconfig.json` paths, so there is nothing to configure. Logic is
-  tested as plain functions, and pages render through `react-dom/server` with
-  a seeded query cache. Since #898 it also has a DOM — happy-dom, preloaded by
+  tested as plain functions, and pages render through `react-dom/static`'s
+  `prerender` (which waits for a lazy page's module) with a seeded query cache. Since #898 it also has a DOM — happy-dom, preloaded by
   `bunfig.toml` — for `@testing-library/react` and `user-event`, the standard
   pair for a component that has to be clicked, typed into or dragged.
 - **Playwright for the flows, not Cypress.** Faster headless, several tabs in

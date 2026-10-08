@@ -13,14 +13,18 @@ import { fileURLToPath } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import { entryBudget } from "./src/build/budget.ts";
 
+// `entryBudget` fails the build when what a first visit downloads outgrows its
+// budget; src/build/budget.ts has the number and why.
+//
 // Where the Rust server listens while developing. 8080 is the default the
 // server crate is expected to take; override it when running it elsewhere:
 // `SCORSESE_API=http://localhost:9000 bun run dev`.
 const api = process.env.SCORSESE_API ?? "http://localhost:8080";
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), entryBudget()],
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
