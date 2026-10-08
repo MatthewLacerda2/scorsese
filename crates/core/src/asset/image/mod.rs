@@ -71,6 +71,9 @@ pub enum ImageThinking {
 }
 
 impl ImageThinking {
+    /// Every level, least first.
+    pub const ALL: [Self; 3] = [Self::Minimal, Self::Medium, Self::High];
+
     /// How `project.json` and the vendor both spell it.
     pub const fn as_str(self) -> &'static str {
         match self {

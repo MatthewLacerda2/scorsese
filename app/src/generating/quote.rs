@@ -170,7 +170,7 @@ fn stills(project: &Project) -> Vec<Priced> {
         .map(|asset| {
             let request = asset.image_request();
             let prompt = asset.prompt.as_deref().unwrap_or_default();
-            let waiting = request.reference_images.iter().find(|id| {
+            let waiting = request.references().find(|id| {
                 project.asset(id).is_some_and(|it| {
                     it.kind.is_generated() && it.state != Some(GenerationState::Generated)
                 })
@@ -178,7 +178,7 @@ fn stills(project: &Project) -> Vec<Priced> {
             let priced = prices::image(
                 &request,
                 prompt.chars().count(),
-                request.reference_images.len(),
+                request.references().count(),
             );
             let (cents, shape) = match (prompt.trim().is_empty(), waiting, priced) {
                 (true, _, _) => (0, String::from("has no prompt yet")),

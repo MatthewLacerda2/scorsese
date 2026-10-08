@@ -2,7 +2,7 @@
 //!
 //! Laid out to be read beside <https://ai.google.dev/gemini-api/docs/pricing>
 //! and checked off row by row, the way [`veo`](super::veo) is. Paid tier only:
-//! neither image model has a free tier.
+//! no image model has a free tier.
 //!
 //! # Two units, because the vendor bills two things
 //!
@@ -18,7 +18,7 @@ use scorsese_core::{ImageModel, ImageResolution};
 use super::checked::Checked;
 
 /// The day every rate below was last read off the vendor's page.
-const CHECKED: Checked = Checked::on(2026, 10, 2);
+const CHECKED: Checked = Checked::on(2026, 10, 8);
 
 /// What one size from one model costs, and when somebody last confirmed it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -60,17 +60,26 @@ const fn row(
     }
 }
 
-/// Gemini 3.1 Flash Image and Flash Lite Image, standard (not batch) tier.
+/// Every image model scorsese offers, standard (not batch) tier.
 ///
-/// **Lite has one row**, because it draws at one size; absent means absent,
-/// and [`rate`] answers `None` for the rest. Lite's page figure is $0.0336 —
-/// "half" of Flash's $0.067, rounded the vendor's way.
+/// A model has a row for each size it draws; absent means absent, and [`rate`]
+/// answers `None` for the rest — so **Lite has one row** and only Flash has a
+/// 0.5K one. Nano Banana 2.1's output is $30 a million against Flash's $60,
+/// which is why it is cheaper per picture at every size it draws although its
+/// input costs three times as much ($1.50 a million against $0.50). Pro's page
+/// gives one price for 1K and 2K, so its two rows are the same figure.
 pub const RATES: &[Row] = &[
+    row(ImageModel::NanoBanana21, ImageResolution::K1, 33_600, 150),
+    row(ImageModel::NanoBanana21, ImageResolution::K2, 50_400, 150),
+    row(ImageModel::NanoBanana21, ImageResolution::K4, 113_000, 150),
     row(ImageModel::Flash, ImageResolution::K05, 45_000, 50),
     row(ImageModel::Flash, ImageResolution::K1, 67_000, 50),
     row(ImageModel::Flash, ImageResolution::K2, 101_000, 50),
     row(ImageModel::Flash, ImageResolution::K4, 151_000, 50),
     row(ImageModel::Lite, ImageResolution::K1, 33_600, 25),
+    row(ImageModel::Pro, ImageResolution::K1, 134_000, 200),
+    row(ImageModel::Pro, ImageResolution::K2, 134_000, 200),
+    row(ImageModel::Pro, ImageResolution::K4, 240_000, 200),
 ];
 
 /// What this model costs at this size, or `None` if the vendor does not sell it.
@@ -91,6 +100,6 @@ pub const TOKENS_PER_REFERENCE: u64 = 1_120;
 /// How many characters of prompt one input token is counted as.
 ///
 /// Four, the vendor's own rule of thumb for English. It is an approximation —
-/// the prompt is never tokenised here — and at $0.50 a million it moves an
-/// estimate by a hundredth of a cent at most.
+/// the prompt is never tokenised here — and even at Pro's $2 a million it moves
+/// an estimate by a few hundredths of a cent at most.
 pub const CHARACTERS_PER_TOKEN: u64 = 4;

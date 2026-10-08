@@ -10,7 +10,11 @@
 //! every reference**, and the file a drawing lands in is named for it — so an
 //! unchanged brief is never billed twice, and a reference regenerated under
 //! the same id is a new brief. The **size** goes in resolved, the model's
-//! default included, so writing the default out explicitly changes nothing.
+//! default included, so writing the default out explicitly changes nothing; a
+//! thinking level goes in only when it is not the model's default, for the same
+//! reason, and so a brief written before levels existed keeps its fingerprint.
+//! A reference's **kind** is not in it: the vendor is never told it, so moving
+//! a picture from objects to characters sends the same request.
 //! The asset's `note` is not in it: a note is handed to nobody.
 
 use std::path::Path;
@@ -30,9 +34,10 @@ pub struct Brief {
     pub id: AssetId,
     /// The sentence.
     pub prompt: String,
-    /// Model, size, aspect.
+    /// Model, size, aspect, thinking, and which reference is which kind.
     pub request: ImageRequest,
-    /// Pictures of a subject that should keep looking like itself.
+    /// Every reference picture, read off disk in the order they are sent:
+    /// objects, then characters, then styles.
     pub reference_images: Vec<Still>,
 }
 
@@ -55,8 +60,7 @@ impl Brief {
             })?;
         let request = asset.image_request();
         let reference_images = request
-            .reference_images
-            .iter()
+            .references()
             .map(|id| read_still(project, root, id))
             .collect::<Result<Vec<_>, _>>()
             .map_err(|error| Incomplete::Reference {
@@ -89,6 +93,11 @@ impl Brief {
         text.push_str(&format!("model:{}\n", self.request.model.as_str()));
         text.push_str(&format!("resolution:{}\n", self.request.size().as_str()));
         text.push_str(&format!("aspect:{}\n", self.request.aspect.as_str()));
+        if self.request.thinking() != self.request.model.default_thinking()
+            && let Some(level) = self.request.thinking()
+        {
+            text.push_str(&format!("thinking:{}\n", level.as_str()));
+        }
         text.push_str(&format!("prompt:{}\n", self.prompt));
         for reference in &self.reference_images {
             text.push_str(&format!("reference:{}\n", reference.digest));
