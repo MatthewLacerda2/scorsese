@@ -70,12 +70,16 @@ impl Library for PixabayLibrary {
     }
 
     fn page(&self, query: &Query, page: u32) -> Result<Page, StockError> {
+        if query.medium == Medium::Lottie {
+            // Pixabay has no animations of that kind; LottieFiles is asked.
+            return Ok(Page::default());
+        }
         let search = Search {
             q: Some(query.words.chars().take(100).collect()),
             kind: Some(query.style.clone().unwrap_or_else(|| {
                 String::from(match query.medium {
                     Medium::Video => "film",
-                    Medium::Image => "photo",
+                    Medium::Image | Medium::Lottie => "photo",
                 })
             })),
             orientation: query.orientation.map(|way| way.word().to_owned()),
@@ -85,7 +89,7 @@ impl Library for PixabayLibrary {
             ..Search::default()
         };
         match query.medium {
-            Medium::Video => self
+            Medium::Video | Medium::Lottie => self
                 .api
                 .videos(&search)
                 .map(|listing| paged(&listing, video))
@@ -106,6 +110,7 @@ impl Library for PixabayLibrary {
         let found = match medium {
             Medium::Video => self.api.videos(&search).map(|l| paged(&l, video)),
             Medium::Image => self.api.images(&search).map(|l| paged(&l, image)),
+            Medium::Lottie => return Ok(None),
         };
         match found {
             Ok(page) => Ok(page.candidates.into_iter().find(|one| one.id == id)),
@@ -150,12 +155,15 @@ fn candidate(medium: Medium, common: &wire::Common) -> Candidate {
     Candidate {
         medium,
         id: common.id,
+        title: String::new(),
         style: common.kind.clone(),
         tags: tags(&common.tags),
         seconds: None,
+        fps: None,
         author: common.user.clone(),
         page_url: common.page_url.clone(),
         preview_url: String::new(),
+        motion_url: None,
         ai_generated: common.is_ai_generated,
         renditions: Vec::new(),
     }

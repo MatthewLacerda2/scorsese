@@ -1,0 +1,81 @@
+{
+  "data": {
+    "searchPublicAnimations": {
+      "totalCount": 83127,
+      "edges": [
+        {
+          "node": {
+            "id": 1506606,
+            "name": "cat",
+            "description": "cat waves tail",
+            "jsonUrl": "https://assets-v2.lottiefiles.com/a/e87c06f3-4510-45e2-8444-464347a54fa9/5bq9cquupX.json",
+            "gifUrl": "https://assets-v2.lottiefiles.com/a/e87c06f3-4510-45e2-8444-464347a54fa9/9LGZ5ReMuJ.gif",
+            "imageUrl": "https://assets-v2.lottiefiles.com/a/e87c06f3-4510-45e2-8444-464347a54fa9/1ZQ8WftLe9.png",
+            "videoUrl": "https://assets-v2.lottiefiles.com/a/e87c06f3-4510-45e2-8444-464347a54fa9/yVHuFwPqKm.mp4",
+            "url": "https://lottiefiles.com/animations/cat-5bq9cquupX",
+            "lottieFileSize": 217991,
+            "createdBy": {
+              "username": "/m40w3cmb00burs0q",
+              "firstName": "Priyanka",
+              "lastName": "Bambharoliya Official"
+            },
+            "metadata": {
+              "width": 512,
+              "height": 512,
+              "frameRate": 30,
+              "duration": 2
+            }
+          }
+        },
+        {
+          "node": {
+            "id": 121035,
+            "name": "Waving kitty",
+            "description": "Just an iteration of an animation I found here.",
+            "jsonUrl": "https://assets-v2.lottiefiles.com/a/6287de88-1180-11ee-8bc8-2b080e2ae0da/9ZxG0YlCEn.json",
+            "gifUrl": "https://assets-v2.lottiefiles.com/a/6287de88-1180-11ee-8bc8-2b080e2ae0da/6QSpxFBMDG.gif",
+            "imageUrl": "https://assets-v2.lottiefiles.com/a/6287de88-1180-11ee-8bc8-2b080e2ae0da/vmZ8iL0k1O.png",
+            "videoUrl": "https://assets-v2.lottiefiles.com/a/6287de88-1180-11ee-8bc8-2b080e2ae0da/YLWuBEYSsm.mp4",
+            "url": "https://lottiefiles.com/animations/waving-kitty-cKjwAiaWqg",
+            "lottieFileSize": 120733,
+            "createdBy": {
+              "username": "/knns85xagl",
+              "firstName": "Kati",
+              "lastName": null
+            },
+            "metadata": {
+              "width": 1291,
+              "height": 1200,
+              "frameRate": 48,
+              "duration": 4
+            }
+          }
+        },
+        {
+          "node": {
+            "id": 47894,
+            "name": "Hello cat",
+            "description": "The cat waves its paw.",
+            "jsonUrl": "https://assets-v2.lottiefiles.com/a/fc8b264c-1168-11ee-9ec6-87f8b151e71b/O2rVbzc4dc.json",
+            "gifUrl": "https://assets-v2.lottiefiles.com/a/fc8b264c-1168-11ee-9ec6-87f8b151e71b/xkYmzmAOp8.gif",
+            "imageUrl": "https://assets-v2.lottiefiles.com/a/fc8b264c-1168-11ee-9ec6-87f8b151e71b/isquY9J0jR.png",
+            "videoUrl": "https://assets-v2.lottiefiles.com/a/fc8b264c-1168-11ee-9ec6-87f8b151e71b/rtzozSISPV.mp4",
+            "url": "https://lottiefiles.com/animations/hello-cat-CiORoOFwnl",
+            "lottieFileSize": 120731,
+            "createdBy": {
+              "username": "/mxezvpqcy1wnvdep",
+              "firstName": "Svetlana",
+              "lastName": null
+            },
+            "metadata": {
+              "width": 1291,
+              "height": 1200,
+              "frameRate": 48,
+              "duration": 4
+            }
+          }
+        }
+      ]
+    }
+  }
+}

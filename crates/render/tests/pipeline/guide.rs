@@ -6,6 +6,10 @@
 //! script that threw — and draw something. A page that broke would otherwise
 //! go on teaching every agent that reads the guide, with nothing to say so.
 //!
+//! A worked page that plays a Lottie loads `wave.json` beside it: the hand-made
+//! stand-in in `fixtures/lottie/` (see `lottie.rs`), written into every
+//! project, since a LottieFiles animation may not be redistributed on its own.
+//!
 //! These need the pinned browser, as `pages.rs` does.
 
 use scorsese_core::{Asset, AssetId, AssetKind, Fps, Frames, ProjectPath};
@@ -42,7 +46,7 @@ fn drew_something(frame: &Frame) -> bool {
 }
 
 #[test]
-fn the_guide_has_its_seven_worked_pages() {
+fn the_guide_has_its_eight_worked_pages() {
     let names: Vec<String> = worked(&guide()).into_iter().map(|(name, _)| name).collect();
     assert_eq!(
         names,
@@ -53,7 +57,8 @@ fn the_guide_has_its_seven_worked_pages() {
             "flowchart",
             "icons",
             "in-step",
-            "on-the-word"
+            "on-the-word",
+            "lottie"
         ],
         "the guide's worked pages, in order"
     );
@@ -69,6 +74,11 @@ fn every_worked_page_captures_without_a_warning_and_draws() {
         std::fs::create_dir_all(dir.join("pages")).expect("pages/");
         let path = format!("pages/{name}.html");
         std::fs::write(dir.join(&path), &html).expect("the page");
+        std::fs::write(
+            dir.join("pages/wave.json"),
+            include_str!("../fixtures/lottie/wave.json"),
+        )
+        .expect("the stand-in Lottie");
         let page = Asset::imported(
             AssetId::new(&name),
             AssetKind::Html,

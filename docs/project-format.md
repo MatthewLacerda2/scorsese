@@ -1638,7 +1638,9 @@ What the page can count on:
   and the rest of the catalogue), plus any font file the project carries, loaded
   with `@font-face`. A font it names and was not given falls back to a shipped
   face, the same one on every machine.
-- **anime.js 3.2.2**, at `https://lib.scorsese/anime.min.js`.
+- **anime.js 3.2.2**, at `https://lib.scorsese/anime.min.js`, and
+  **lottie-web 5.13.0**, at `https://lib.scorsese/lottie.min.js`, for a Lottie
+  file the page loads (`docs/pages.md`).
 
 **Pages render offline.** The page is served from `https://page.scorsese/`,
 whose paths are the project's, so `../assets/photo.png` from `pages/` is the

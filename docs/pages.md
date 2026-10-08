@@ -142,6 +142,10 @@ request is a warning, and the page is drawn without what it asked for.
   it ships and in italic. A family the page names and was not given falls back
   to a shipped face, the same one everywhere.
 - **anime.js 3.2.2**, at `https://lib.scorsese/anime.min.js`.
+- **lottie-web 5.13.0** (the full build: every renderer, and expressions), at
+  `https://lib.scorsese/lottie.min.js`, to play a Lottie animation
+  `stock_import` brought in. See *A Lottie animation* below for the one way
+  to drive it.
 - **The icon set**, every [Lucide](https://lucide.dev) icon the `icon` asset
   draws, at `https://lib.scorsese/icons/<name>.svg`. The `icons` tool finds a
   name from a word (`film` → `clapperboard`, `film`, `video`…). Each is a
@@ -152,6 +156,10 @@ request is a warning, and the page is drawn without what it asked for.
   `assets/photo.png` is `../assets/photo.png`, and a font file the project
   carries loads with an ordinary `@font-face` rule. Nothing outside the project
   folder, so the project still survives being copied to another machine.
+
+**A shipped file is part of the page's capture.** A page that loads anime.js,
+lottie-web or an icon is drawn again when a build ships a different one, and
+a page that does not load it is not.
 
 **Inside Chromium's sandbox.** The browser that draws a page runs with its own
 sandbox on, everywhere, so a page from a template, a shared project or an
@@ -181,6 +189,12 @@ starts part-way still runs every frame before it, only without drawing them
 every look, and it is the shape that goes wrong when a frame is dropped. If a
 page needs randomness, seed it: `Math.random` is the browser's, and a page that
 should look the same twice should not use it.
+
+**A library with its own playback is driven, never played.** lottie-web, like
+any player, would run its animation on its own loop; loaded with
+`autoplay: false`, it draws exactly the frame `goToAndStop` names, so the page
+names the frame for its time on every `requestAnimationFrame` (*A Lottie
+animation*, below).
 
 **Only the frames on screen are drawn.** A `still` 85 s into a 90 s page draws
 the few frames around that instant: the 2,550 before it are run, which is cheap
@@ -570,3 +584,79 @@ title never goes missing.
 </body>
 </html>
 ```
+
+### A Lottie animation
+
+A character, a mascot, an animated icon or illustration: a Lottie from
+LottieFiles is free, transparent and sharp at any size, and is usually the
+right call over drawing one in code or paying for a generation. Find one with
+`stock_search` (`kind: lottie`) and bring it in with `stock_import`, which
+writes its JSON **beside the pages**, as `pages/lottie-<id>.json`, and says the
+name to load. It is not an asset and is never placed by itself: a page plays it,
+and the page is what goes on the timeline.
+
+The page loads the file, hands it to lottie-web with **`autoplay: false`**, and
+on every `requestAnimationFrame` turns the time it is handed into the
+animation's frame and draws exactly that one with `goToAndStop(frame, true)`.
+`performance.now()` when the script first runs is the page's time zero, so
+`(now - start) / 1000` is the page's seconds and any frame stands on its own. A
+fractional frame is drawn in between, so the animation is smooth at any render
+rate. `% anim.totalFrames` loops it; `Math.min(at, anim.totalFrames - 1)` plays
+it once and holds the last frame.
+
+The file can be changed before it is played, since it is only JSON. This page
+swaps one of its colours for a brand colour: every flat fill or stroke within
+a whisker of `from` becomes `to`, as `[r, g, b]` from 0 to 1. Here the file is
+`wave.json`, a hand-made stand-in for the one `stock_import` writes; use the
+name the import gave.
+
+```html page lottie
+<!doctype html>
+<html>
+<head>
+<script src="https://lib.scorsese/lottie.min.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body { display: grid; place-content: center; }
+  #wave { width: 720px; height: 720px; }
+</style>
+</head>
+<body>
+  <div id="wave"></div>
+  <script>
+    const FILE = "wave.json";                  // the name stock_import gave
+    const start = performance.now();           // the page's time zero
+
+    function recolour(node, from, to) {
+      if (Array.isArray(node)) return node.forEach((one) => recolour(one, from, to));
+      if (!node || typeof node !== "object") return;
+      const fill = (node.ty === "fl" || node.ty === "st") && node.c && node.c.a === 0;
+      if (fill && from.every((v, i) => Math.abs(node.c.k[i] - v) < 0.02)) {
+        node.c.k = [...to, node.c.k[3] ?? 1];
+      }
+      Object.values(node).forEach((one) => recolour(one, from, to));
+    }
+
+    fetch(FILE).then((r) => r.json()).then((data) => {
+      recolour(data, [0.2, 0.5, 0.9], [0.95, 0.69, 0.2]);
+      const anim = lottie.loadAnimation({
+        container: document.getElementById("wave"),
+        renderer: "svg", loop: false, autoplay: false, animationData: data,
+      });
+      const draw = (now) => {
+        const at = (now - start) / 1000 * anim.frameRate;
+        anim.goToAndStop(at % anim.totalFrames, true);
+        requestAnimationFrame(draw);
+      };
+      requestAnimationFrame(draw);
+    });
+  </script>
+</body>
+</html>
+```
+
+Its size is the container's: lottie-web fits the animation inside the box,
+keeping its shape, so size and place the `div` as anything else on the page.
+`still` shows where a frame of it lands. A file over 1 MB cannot be kept by a
+project on the web, which keeps the files beside its pages up to that size;
+choose a lighter one there.

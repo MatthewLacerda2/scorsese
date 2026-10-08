@@ -15,7 +15,7 @@ use base64::engine::general_purpose::STANDARD;
 use serde_json::{Value, json};
 
 use super::cdp::{Command, Listener};
-use super::origin::{Answer, answer};
+use super::origin::{Answer, answer, record_key};
 
 /// The function the preamble calls, with the name of the API, when a page
 /// opens a connection the protocol never reports (`offline.js`).
@@ -28,7 +28,8 @@ pub(crate) struct Visitor<'a> {
     follow: &'a [PathBuf],
     /// Every project file the page asked for, by its path, with the hash of
     /// what it was served — or `None` for a file that was not there, so that
-    /// adding it later makes the capture stale too.
+    /// adding it later makes the capture stale too. Every shipped file it asked
+    /// for is here the same way, by its URL (`origin::record_key`).
     pub(crate) loaded: BTreeMap<String, Option<String>>,
     /// What went wrong that the author should hear about, in plain words, each
     /// once.
@@ -51,6 +52,14 @@ impl<'a> Visitor<'a> {
     pub(crate) fn warn(&mut self, warning: String) {
         if !self.warnings.contains(&warning) {
             self.warnings.push(warning);
+        }
+    }
+
+    /// Remembers a shipped file the page asked for and this build does not
+    /// serve, so a build that ships it draws the page again.
+    fn missed_shipped(&mut self, url: &str) {
+        if let Some(key) = record_key(url) {
+            self.loaded.insert(key, None);
         }
     }
 
@@ -77,8 +86,15 @@ impl<'a> Visitor<'a> {
                     .insert(path, Some(scorsese_core::hash_bytes(&body)));
                 ("Fetch.fulfillRequest", fulfil(200, &body))
             }
-            Answer::Shipped { body } => ("Fetch.fulfillRequest", fulfil(200, &body)),
+            Answer::Shipped { body } => {
+                if let Some(key) = record_key(url) {
+                    self.loaded
+                        .insert(key, Some(scorsese_core::hash_bytes(&body)));
+                }
+                ("Fetch.fulfillRequest", fulfil(200, &body))
+            }
             Answer::UnknownIcon { name, nearest } => {
+                self.missed_shipped(url);
                 self.warn(super::icons::unknown(&name, &nearest));
                 ("Fetch.fulfillRequest", fulfil(404, b""))
             }
@@ -90,6 +106,7 @@ impl<'a> Visitor<'a> {
                 ("Fetch.fulfillRequest", fulfil(404, b""))
             }
             Answer::Refused => {
+                self.missed_shipped(url);
                 self.warn(format!(
                     "the page asked for {url} from outside the project; pages render offline, \
                      so it rendered without it"
@@ -185,6 +202,28 @@ mod tests {
             "a miss is remembered too"
         );
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_shipped_file_is_remembered_by_its_url_and_one_not_shipped_as_missing() {
+        let mut visitor = Visitor::new(Path::new("/nonexistent"), &[]);
+        for url in [
+            "https://lib.scorsese/lottie.min.js?v=1",
+            "https://lib.scorsese/later.js",
+            "https://lib.scorsese/icons/clapperbord.svg",
+        ] {
+            visitor.heard("Fetch.requestPaused", &paused(url), None);
+        }
+        let lottie = &visitor.loaded["https://lib.scorsese/lottie.min.js"];
+        assert_eq!(
+            lottie.as_deref(),
+            Some(scorsese_core::hash_bytes(include_bytes!("shipped/lottie.min.js")).as_str())
+        );
+        assert_eq!(visitor.loaded["https://lib.scorsese/later.js"], None);
+        assert_eq!(
+            visitor.loaded["https://lib.scorsese/icons/clapperbord.svg"],
+            None
+        );
     }
 
     #[test]
