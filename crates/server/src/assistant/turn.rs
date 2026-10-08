@@ -15,11 +15,12 @@ use scorsese_providers::chat::{
 };
 use serde_json::value::RawValue;
 
+use super::ask::{self, Asked};
 use super::relay::Relay;
 use super::store::asking;
 use super::store::turns::{self, Charge};
 use super::store::{QuestionView, TurnView};
-use super::{ask, calls, prompt};
+use super::{calls, prompt};
 use crate::credits::dollars;
 use crate::db::UserId;
 use crate::events::Event;
@@ -56,6 +57,10 @@ pub(super) struct Running {
     /// What it had cost before then: nothing for a new turn, the calls made
     /// before its question for a resumed one. The per-turn cap covers both.
     pub(super) spent: i64,
+    /// What a resumed turn says first: the user's answer to its question
+    /// (#710), as the result of the call that asked. Kept as the turn's next
+    /// message before the model is called again.
+    pub(super) answer: Option<Message>,
 }
 
 /// How a turn ended: its state, and what to tell the user — or that it is
@@ -107,7 +112,11 @@ async fn settle(
 async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
     let assistant = &state.assistant;
     let mut tools = prompt::tools(&state.tools);
-    tools.push(ask::tool());
+    tools.extend(ask::functions());
+    if let Some(answer) = turn.answer.take() {
+        let native = chat::freeze(turn.model, &answer).map_err(|e| e.to_string())?;
+        keep(state, turn, native, answer).await?;
+    }
     let (mut spent, mut balance) = (turn.spent, turn.balance);
     let mut revision = calls::revision(state, turn.user, turn.project).await;
     loop {
@@ -166,21 +175,27 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
             Stop::ToolUse => {
                 keep(state, turn, reply.native.clone(), reply.message.clone()).await?;
                 let asked = reply.calls();
-                if let Some(question) = ask::alone(&asked) {
-                    // A Stop asked for during the call wins over pausing.
-                    if assistant.stop_requested(turn.turn) {
-                        return Ok(End::Over("stopped", "Stopped, as you asked.".into()));
+                let results = match ask::asked(state, turn.user, &turn.record, &asked).await {
+                    Asked::Pause(question) => {
+                        // A Stop asked for during the call wins over pausing.
+                        if assistant.stop_requested(turn.turn) {
+                            return Ok(End::Over("stopped", "Stopped, as you asked.".into()));
+                        }
+                        return Ok(End::Asking(question));
                     }
-                    return Ok(End::Asking(question));
-                }
-                let mut results = Vec::new();
-                for call in asked {
-                    results.push(if call.name == ask::NAME {
-                        ask::refused(&call)
-                    } else {
-                        calls::run(state, turn.user, turn.turn, &call).await
-                    });
-                }
+                    Asked::Refused(result) => vec![result],
+                    Asked::Nothing => {
+                        let mut results = Vec::new();
+                        for call in asked {
+                            results.push(if ask::is_ours(&call.name) {
+                                ask::refused(&call)
+                            } else {
+                                calls::run(state, turn.user, turn.turn, &call).await
+                            });
+                        }
+                        results
+                    }
+                };
                 let now = calls::revision(state, turn.user, turn.project).await;
                 if let Some(now) = now.filter(|now| Some(*now) != revision) {
                     let id = turn.project;

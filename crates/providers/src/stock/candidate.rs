@@ -2,6 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::fetch::Choice;
+
 /// Footage or a picture: what a search looks for and what an import becomes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -133,7 +135,7 @@ impl Candidate {
 
     /// The line a listing prints for this candidate.
     pub fn says(&self) -> String {
-        let mut line = format!("{} {}", self.medium.word(), self.id);
+        let mut line = self.named();
         if let Some(seconds) = self.seconds {
             line.push_str(&format!("  {seconds}s"));
         }
@@ -150,12 +152,50 @@ impl Candidate {
         line
     }
 
+    /// The candidate's words as `"video 39009"`: what [`Self::says`] begins
+    /// with, and what [`named_in`] reads back.
+    pub fn named(&self) -> String {
+        format!("{} {}", self.medium.word(), self.id)
+    }
+
     /// What a contact sheet writes under its preview: its number in the
     /// reply and its id, and nothing else — a vertical cell is narrow, and
     /// the rest is in the words beside the sheet.
     pub fn label(&self, index: usize) -> String {
         format!("{}. {}", index + 1, self.id)
     }
+}
+
+/// Every result `text` names the way [`Candidate::says`] does — a line that
+/// begins `video 39009` or `image 7`, after its number in a listing — in the
+/// order they appear, once each.
+///
+/// The inverse of a listing's words, so whoever reads a reply an agent was
+/// shown can tell which results it saw: the web picker (#901) holds the ids a
+/// model offers the user to the ones its own searches listed.
+pub fn named_in(text: &str) -> Vec<Choice> {
+    let mut named: Vec<Choice> = Vec::new();
+    for line in text.lines() {
+        let line = line.trim_start();
+        let line = match line.split_once(". ") {
+            Some((number, rest)) if number.bytes().all(|b| b.is_ascii_digit()) => rest,
+            _ => line,
+        };
+        let mut words = line.split_whitespace();
+        let medium = match words.next() {
+            Some("video") => Medium::Video,
+            Some("image") => Medium::Image,
+            _ => continue,
+        };
+        let Some(Ok(id)) = words.next().map(str::parse::<u64>) else {
+            continue;
+        };
+        let choice = Choice { medium, id };
+        if !named.contains(&choice) {
+            named.push(choice);
+        }
+    }
+    named
 }
 
 #[cfg(test)]
@@ -199,6 +239,33 @@ mod tests {
         assert_eq!(shot.rendition_for(1280, 720).unwrap().name, "small");
         // A vertical cut of horizontal footage fills its height from 4K.
         assert_eq!(shot.rendition_for(1080, 1920).unwrap().name, "large");
+    }
+
+    #[test]
+    fn a_listing_names_back_exactly_the_results_it_says() {
+        let mut photo = candidate(vec![rendition("webformat", 640, 427)]);
+        (photo.medium, photo.id, photo.seconds) = (Medium::Image, 7, None);
+        let shot = candidate(vec![rendition("tiny", 960, 540)]);
+        let listing = format!(
+            "1. {}\n   by someone — page\n2. {}\n   by someone — page\n\nvideo results \
+             1 to 2 of 2\nImport with stock_import (kind and id).\n{}",
+            shot.says(),
+            photo.says(),
+            shot.says()
+        );
+        let named = named_in(&listing);
+        let expected = [
+            Choice {
+                medium: Medium::Video,
+                id: 1,
+            },
+            Choice {
+                medium: Medium::Image,
+                id: 7,
+            },
+        ];
+        assert_eq!(named, expected);
+        assert!(named_in("videos are free\n12. video tape").is_empty());
     }
 
     #[test]

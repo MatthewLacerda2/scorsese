@@ -1,11 +1,9 @@
 //! A turn paused on a question to the user (#710): pausing it, finding it
 //! again, resuming it with the answer, and setting it aside unanswered.
 
-use scorsese_providers::chat::Message;
-use serde_json::value::RawValue;
 use sqlx::postgres::PgPool;
+use sqlx::types::Json;
 
-use super::turns::{frozen, recorded};
 use super::{QuestionView, TurnView, view};
 use crate::assistant::AssistantError;
 use crate::credits::ledger;
@@ -25,7 +23,7 @@ pub(in crate::assistant) async fn pause(
          WHERE id = $1",
     )
     .bind(turn)
-    .bind(sqlx::types::Json(question))
+    .bind(Json(question))
     .execute(&mut *tx)
     .await?;
     let view = view(&mut tx, turn).await?.ok_or(AssistantError::NotFound)?;
@@ -48,6 +46,8 @@ pub(in crate::assistant) struct Paused {
     pub(in crate::assistant) prompt: String,
     /// What it has cost so far, in micro-dollars.
     pub(in crate::assistant) spent: i64,
+    /// The question it waits on.
+    pub(in crate::assistant) question: QuestionView,
 }
 
 /// Turn `turn`, locked, if it is paused on a question.
@@ -55,45 +55,46 @@ pub(in crate::assistant) async fn paused(
     tx: &mut Tx,
     turn: i64,
 ) -> Result<Option<Paused>, sqlx::Error> {
-    let row: Option<(i64, i64, String, String, String, i64)> = sqlx::query_as(
-        "SELECT t.session_id, s.project_id, t.model, t.effort, t.prompt, t.charged_micros
+    type Row = (i64, i64, String, String, String, i64, Json<QuestionView>);
+    let row: Option<Row> = sqlx::query_as(
+        "SELECT t.session_id, s.project_id, t.model, t.effort, t.prompt, t.charged_micros,
+                t.questions -> (jsonb_array_length(t.questions) - 1)
          FROM chat_turns t JOIN chat_sessions s ON s.id = t.session_id
          WHERE t.id = $1 AND t.state = 'asking' FOR UPDATE OF t",
     )
     .bind(turn)
     .fetch_optional(&mut **tx)
     .await?;
-    Ok(
-        row.map(|(session, project, model, effort, prompt, spent)| Paused {
+    Ok(row.map(
+        |(session, project, model, effort, prompt, spent, question)| Paused {
             session,
             project,
             model,
             effort,
             prompt,
             spent,
-        }),
-    )
+            question: question.0,
+        },
+    ))
 }
 
-/// Set turn `turn` running again, its messages now ending with the answer,
-/// and record `answer` on its last question. Refused as busy if another turn
-/// of the conversation is running.
+/// Set turn `turn` running again, its last question now `answered` — the
+/// same question with the user's answer on it. The answer reaches the model
+/// as the turn's next message, which the running turn keeps. Refused as busy
+/// if another turn of the conversation is running.
 pub(in crate::assistant) async fn resumed(
     tx: &mut Tx,
     turn: i64,
-    (native, record): (&[Box<RawValue>], &[Message]),
-    answer: &str,
+    answered: &QuestionView,
 ) -> Result<TurnView, AssistantError> {
     let done = sqlx::query(
-        "UPDATE chat_turns SET state = 'running', messages = $2, record = $3,
+        "UPDATE chat_turns SET state = 'running',
                 questions = jsonb_set(questions,
-                    ARRAY[(jsonb_array_length(questions) - 1)::text, 'answer'], to_jsonb($4::text))
+                    ARRAY[(jsonb_array_length(questions) - 1)::text], $2)
          WHERE id = $1 AND state = 'asking'",
     )
     .bind(turn)
-    .bind(frozen(native))
-    .bind(recorded(record))
-    .bind(answer)
+    .bind(Json(answered))
     .execute(&mut **tx)
     .await;
     match done {

@@ -1458,6 +1458,25 @@ ends `stopped`); a quote cannot be answered while a question waits. The system
 prompt says to ask sparingly — only when the answer changes what comes next
 and the request points to no default — and never about money.
 
+**Pictures to pick from** (#901). The same pause with stock results for
+options: `pick_stock` — `{question, candidates: [{kind, id}], resolution?}`,
+two to eight — declared beside `ask_user` and, like it, never a tool. Every
+candidate must be one **this turn's** `stock_search` replies listed (read back
+from the turn's record) and still in the user's 24-hour stock cache, which is
+where what the browser shows of it comes from; a picker naming anything else is
+refused and the turn goes on. The turn's `questions` gains the question with
+its `candidates` filled, and the chat panel opens a modal: a grid of the
+source's own previews, each enlarged or played (muted) on a click, one or more
+selected, or none, and a field for words. Nothing is downloaded to show them.
+The answer, `{picked: [keys], answer?}`, imports **only what was picked** —
+as the user's own `stock_import` call (`client = 'user'`, from
+`Assistant::stocked_from`'s library, Pixabay by default), into `assets/` like
+any import, admitted to the library before the document is saved — and then
+resumes the same turn with the new asset ids as the call's result. A typed
+message instead is the answer, as for a question. The system prompt says to
+show one only when several results are equally good or the model is unsure
+between them; one clearly right is imported without asking.
+
 **Money.** Every call is charged from its reply's usage — input, output,
 Claude's five-minute and one-hour cache writes, cache reads (Gemini's
 `cachedContentTokenCount`), each at its own rate for the turn's model in
@@ -1516,7 +1535,7 @@ fixed until measured usage (#707) says otherwise.
 | `GET /api/chat/turns/{id}` | a member | `{turn, tools}`: the turn and the log of every tool call it made, in order |
 | `POST /api/chat/turns/{id}/stop` | a member | `202`; the turn stops before its next step — at once, its question set aside, when it is `asking`. `409` if it is neither |
 | `POST /api/chat/turns/{id}/quote` | a member | `{confirm: true\|false, change?}` → `{spent, refused, turn, note}`; `turn` is the one carrying on after a yes or a change; `change` with `confirm: true` is `400`, and so is any answer while a question waits |
-| `POST /api/chat/turns/{id}/answer` | a member | `{answer}` → `202` with the same turn, running again; `400` when no question waits on it; `402`/`503` as for a new message |
+| `POST /api/chat/turns/{id}/answer` | a member | `{answer}` — or, for a picker, `{picked: [key…], answer?}` (`[]` is none of them) — → `202` with the same turn, running again (what was picked is imported before the model hears of it); `400` when no question waits on it, when `picked` answers a question in words, or when it names a candidate the picker did not offer; `402`/`503` as for a new message |
 
 A turn (`TurnView`) carries its state — `running` (or `asking`, paused on a
 question), then `answered`, `refused`, `capped`, `stopped`, `failed` or
@@ -1528,7 +1547,12 @@ any line no item claims; a quote held before #709 has no `items` and every
 line in `lines`) with `quote_answer` (`null` while the box
 should show, then `confirmed`, `declined` — a change asked for included — or
 `withdrawn`), and `questions`, every question it asked in order as
-`{question, options, answer}`, `answer` `null` while it waits.
+`{question, options, answer}`, `answer` `null` while it waits. A picker's
+(#901) also carries `candidates` — each `{key, source, kind, id, preview_url,
+look_url, width, height, seconds, author, page_url, tags}`, `look_url` being
+what the enlarged view shows — and, once answered, `picked`, the keys chosen
+in the order shown (absent when the answer was words alone); its `options`
+are empty.
 
 **On `GET /api/events`**, beside `job`:
 

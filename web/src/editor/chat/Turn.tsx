@@ -8,6 +8,8 @@ import { CheckIcon, WrenchIcon, XIcon } from "lucide-react";
 import { useT } from "@/i18n/I18nProvider";
 import { formatDollars } from "@/lib/money";
 import { Busy } from "./Busy";
+import { PickerCard } from "./PickerCard";
+import { isPicker } from "./picker";
 import { QuestionCard } from "./QuestionCard";
 import { QuoteBox } from "./QuoteBox";
 import { Reply } from "./Reply";
@@ -35,16 +37,19 @@ export function Turn({ entry }: { entry: Entry }) {
       )}
       {said && <Reply text={said} />}
       {turn.state === "running" && <Busy />}
-      {(turn.questions ?? []).map((question, index) => (
-        <QuestionCard
-          // Questions only ever append, so a question's place is its identity.
-          // biome-ignore lint/suspicious/noArrayIndexKey: see above
-          key={index}
-          turn={turn.id}
-          question={question}
-          waiting={question === waiting}
-        />
-      ))}
+      {(turn.questions ?? []).map((question, index) => {
+        const Card = isPicker(question) ? PickerCard : QuestionCard;
+        return (
+          <Card
+            // Questions only ever append, so a question's place is its identity.
+            // biome-ignore lint/suspicious/noArrayIndexKey: see above
+            key={index}
+            turn={turn.id}
+            question={question}
+            waiting={question === waiting}
+          />
+        );
+      })}
       {ended && <p className="text-xs text-destructive">{ended}</p>}
       {awaitingQuote(turn) && turn.quote && <QuoteBox turn={turn.id} quote={turn.quote} />}
       {turn.state !== "running" && (

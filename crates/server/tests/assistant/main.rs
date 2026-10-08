@@ -14,6 +14,7 @@ mod changes;
 mod effort;
 mod models;
 mod money;
+mod picking;
 mod quotes;
 mod recorded;
 mod resume;

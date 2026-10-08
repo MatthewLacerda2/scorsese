@@ -30,7 +30,8 @@ pub enum Client {
         turn: i64,
     },
     /// The user themselves, from the web app: their yes to a quote the
-    /// assistant showed them in turn `turn` — a call the model cannot make.
+    /// assistant showed them in turn `turn`, or the stock they picked from
+    /// its picker (#901) — calls the model cannot make.
     User {
         /// The turn whose quote it confirms.
         turn: i64,

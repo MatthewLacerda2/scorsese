@@ -72,6 +72,12 @@
 //! on with its plan intact. Nothing is charged while it waits, and the
 //! question does not expire; Stop or a new conversation sets it aside.
 //!
+//! The same pause shows stock pictures instead of words (#901, `pick_stock`):
+//! a few results the turn's own searches found, for the user to pick one or
+//! more of when the choice is taste. What they pick is imported as their own
+//! call, from [`Assistant::stocked_from`]'s library — Pixabay, unless a test
+//! says otherwise — and the turn resumes with the new assets.
+//!
 //! ## Money
 //!
 //! Every call to the model is charged from the tokens its reply reports —
@@ -129,14 +135,16 @@ use std::collections::HashSet;
 use std::sync::{Arc, Mutex, PoisonError};
 
 use scorsese_providers::chat::{self, Chat, Effort, Model};
-use scorsese_providers::credentials::resolve;
+use scorsese_providers::credentials::{Provider, resolve};
+use scorsese_providers::stock::{Library, PixabayLibrary};
 
-pub use ask::{answer as answer_question, set_aside};
+pub use ask::{Answering, answer as answer_question, set_aside};
 pub use model::{Choice, choose};
 pub use quote::{Answer, Answered, answer as answer_quote};
 pub use start::{Opening, start};
 pub use store::{
-    BriefKind, Conversation, QuestionView, QuoteItem, QuoteView, ToolCallView, TurnDetail, TurnView,
+    BriefKind, CandidateView, Conversation, QuestionView, QuoteItem, QuoteView, ToolCallView,
+    TurnDetail, TurnView,
 };
 pub use store::{conversation, detail, recover};
 
@@ -154,7 +162,11 @@ pub struct Assistant {
     connect: Connect,
     cap_micros: i64,
     stopping: Arc<Mutex<HashSet<i64>>>,
+    stock: Option<Stock>,
 }
+
+/// A stock library a picker's pick is imported from (#901).
+pub type Stock = Arc<dyn Library + Send + Sync>;
 
 /// Where a model's client comes from.
 #[derive(Clone)]
@@ -208,6 +220,33 @@ impl Assistant {
             connect: Connect::Environment,
             cap_micros,
             stopping: Arc::default(),
+            stock: None,
+        }
+    }
+
+    /// The same assistant importing what a user picks from `library` instead
+    /// of Pixabay — a test's, which needs no network.
+    pub fn stocked_from(mut self, library: Stock) -> Self {
+        self.stock = Some(library);
+        self
+    }
+
+    /// The library a pick is imported from: Pixabay, keyed from the one
+    /// resolver, unless [`Assistant::stocked_from`] named another. Why there
+    /// is none, in words for the model, which tells the person.
+    fn stock(&self) -> Result<Stock, String> {
+        if let Some(library) = &self.stock {
+            return Ok(library.clone());
+        }
+        match resolve(Provider::Pixabay) {
+            Ok(key) => Ok(Arc::new(PixabayLibrary::new(&key.secret))),
+            Err(error) => {
+                eprintln!("scorsese-server: assistant: {error}");
+                Err(format!(
+                    "{} is not set on this server, so stock media cannot be brought in",
+                    Provider::Pixabay.variable()
+                ))
+            }
         }
     }
 

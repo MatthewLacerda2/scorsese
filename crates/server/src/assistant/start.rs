@@ -75,7 +75,7 @@ pub async fn start(
         }
         if last.state == "asking" {
             drop(tx);
-            return ask::answer(state, user, last.id, &prompt).await;
+            return ask::answer(state, user, last.id, ask::Answering::words(&prompt)).await;
         }
         notes.extend(settle_quote(state, user, &mut tx, &last).await?);
     }
@@ -120,6 +120,7 @@ pub async fn start(
         record,
         balance,
         spent: 0,
+        answer: None,
     };
     tokio::spawn(turn::run(state.clone(), running));
     Ok(view)

@@ -155,7 +155,7 @@ export function asking(transcript: Transcript): TurnView | null {
 export function waitingQuestion(turn: TurnView): QuestionView | null {
   if (turn.state !== "asking") return null;
   const last = (turn.questions ?? []).at(-1);
-  return last && last.answer === null ? last : null;
+  return last && last.answer === null && last.picked === undefined ? last : null;
 }
 
 /** True while a turn's quote waits for the user's yes or no. */

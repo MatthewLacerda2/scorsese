@@ -63,6 +63,7 @@ mod folder;
 mod generate;
 mod log;
 mod own;
+mod picked;
 mod quotes;
 mod size;
 mod stored;
