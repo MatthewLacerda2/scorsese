@@ -77,6 +77,29 @@ pub fn pixabay(error: &HttpError) -> Verdict {
     })
 }
 
+/// A failed LottieFiles call. There is no key to be wrong, so **auth failed**
+/// here means anonymous access was withdrawn: a `401`/`403`, or a GraphQL error
+/// answered as `200` that talks about authorisation. The verdict names the
+/// fallback #903 chose for that day, so the report says what to do.
+pub fn lottiefiles(error: &HttpError) -> Verdict {
+    let withdrawn = |status: u16, body: &str| {
+        let body = body.to_lowercase();
+        matches!(status, 401 | 403)
+            || ["unauthori", "unauthenticat", "not authori", "forbidden"]
+                .iter()
+                .any(|word| body.contains(word))
+    };
+    match sorted(error, withdrawn) {
+        Verdict::AuthFailed { said } => Verdict::AuthFailed {
+            said: format!(
+                "anonymous access withdrawn ({said}) — the fallback is a key from \
+                 the maintainer's LottieFiles account (#903)"
+            ),
+        },
+        other => other,
+    }
+}
+
 /// The verdict for `error`, with `auth` deciding which refusals are about the
 /// key.
 ///

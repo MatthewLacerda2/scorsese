@@ -5,7 +5,7 @@
 //! holding real keys.
 
 use scorsese_providers::credentials::{Budget, Environment, Provider, Settings};
-use scorsese_providers::live::{Options, Report, Step, Verdict, permit, plan, run, total};
+use scorsese_providers::live::{Options, Report, Step, Vendor, Verdict, permit, plan, run, total};
 
 fn keys(pairs: &[(&str, &str)]) -> Environment {
     Environment::of(pairs.iter().copied())
@@ -18,12 +18,15 @@ fn a_vendor_with_no_key_is_skipped_and_costs_nothing() {
         &Environment::default(),
         &Settings::default(),
     );
-    assert_eq!(planned.len(), 4);
+    assert_eq!(planned.len(), 5);
     for vendor in &planned {
         let why = vendor.skipped.as_deref().unwrap();
+        let Some(provider) = vendor.vendor.provider() else {
+            continue;
+        };
         assert!(why.starts_with("no key"), "{why}");
         assert!(
-            why.contains(vendor.provider.variable()),
+            why.contains(provider.variable()),
             "says where it looked: {why}"
         );
     }
@@ -35,17 +38,18 @@ fn a_vendor_with_no_key_is_skipped_and_costs_nothing() {
 fn only_the_vendors_with_keys_are_planned_and_priced() {
     let env = keys(&[("GEMINI_API_KEY", "g"), ("ELEVENLABS_API_KEY", "e")]);
     let planned = plan(&Options::default(), &env, &Settings::default());
-    let cents: Vec<(Provider, u64, bool)> = planned
+    let cents: Vec<(Vendor, u64, bool)> = planned
         .iter()
-        .map(|p| (p.provider, p.cents, p.skipped.is_some()))
+        .map(|p| (p.vendor, p.cents, p.skipped.is_some()))
         .collect();
     assert_eq!(
         cents,
         [
-            (Provider::Gemini, 5, false),
-            (Provider::ElevenLabs, 2, false),
-            (Provider::Anthropic, 0, true),
-            (Provider::Pixabay, 0, true),
+            (Vendor::Keyed(Provider::Gemini), 5, false),
+            (Vendor::Keyed(Provider::ElevenLabs), 2, false),
+            (Vendor::Keyed(Provider::Anthropic), 0, true),
+            (Vendor::Keyed(Provider::Pixabay), 0, true),
+            (Vendor::LottieFiles, 0, true),
         ]
     );
     assert!(planned[0].calls.iter().any(|c| c.contains("free")));
@@ -73,8 +77,9 @@ fn a_plan_over_the_ceiling_is_refused_whole() {
     assert!(permit(&planned, Budget::unlimited(0)).is_ok());
 }
 
-/// With no keys there is nothing to call, so this runs the real `run` with
-/// no network at all: every vendor reports skipped, nothing is spent.
+/// With no keys and the keyless vendors left out — the default — there is
+/// nothing to call, so this runs the real `run` with no network at all: every
+/// vendor reports skipped, nothing is spent.
 #[test]
 fn a_run_with_no_keys_reports_every_vendor_skipped() {
     let planned = plan(
@@ -89,7 +94,7 @@ fn a_run_with_no_keys_reports_every_vendor_skipped() {
         &mut |_| {},
     )
     .unwrap();
-    assert_eq!(reports.len(), 4);
+    assert_eq!(reports.len(), 5);
     for report in &reports {
         assert!(
             matches!(report.verdict(), Verdict::Skipped { .. }),
@@ -101,7 +106,7 @@ fn a_run_with_no_keys_reports_every_vendor_skipped() {
 
 fn report(verdicts: Vec<Verdict>) -> Report {
     Report {
-        provider: Provider::Gemini,
+        vendor: Vendor::Keyed(Provider::Gemini),
         steps: verdicts
             .into_iter()
             .map(|v| Step::new("a call", v))

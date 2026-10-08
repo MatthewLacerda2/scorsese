@@ -17,7 +17,8 @@
 //! how to run it and what each call costs.
 //!
 //! Keys come from the one resolver ([`crate::credentials`]); a vendor with no
-//! key is **skipped**, never failed. Every reply is copied through a
+//! key is **skipped**, never failed. A vendor that needs no key — LottieFiles
+//! — is planned the same way, as a [`Vendor`] of the other kind ([`vendor`]). Every reply is copied through a
 //! [`Tap`] and scrubbed of the key ([`record`]), so a run can leave behind the
 //! real bodies that replace a hand-written fixture.
 
@@ -25,9 +26,13 @@ pub mod claude;
 pub mod elevenlabs;
 pub mod image;
 pub mod judge;
+pub mod lottiefiles;
 pub mod pixabay;
 pub mod record;
+pub mod vendor;
 pub mod veo;
+
+pub use vendor::Vendor;
 
 use std::time::Duration;
 
@@ -37,11 +42,12 @@ use crate::credentials::{
 };
 
 /// Every vendor the check calls, in the order it calls them.
-pub const PROVIDERS: [Provider; 4] = [
-    Provider::Gemini,
-    Provider::ElevenLabs,
-    Provider::Anthropic,
-    Provider::Pixabay,
+pub const VENDORS: [Vendor; 5] = [
+    Vendor::Keyed(Provider::Gemini),
+    Vendor::Keyed(Provider::ElevenLabs),
+    Vendor::Keyed(Provider::Anthropic),
+    Vendor::Keyed(Provider::Pixabay),
+    Vendor::LottieFiles,
 ];
 
 /// What a person chose about this run.
@@ -51,6 +57,12 @@ pub struct Options {
     pub include_veo: bool,
     /// How long to wait for that shot before giving up on watching it.
     pub veo_patience: Duration,
+    /// Call the vendors that need no key (LottieFiles). Off by default, and
+    /// on in `scorsese check-providers`: a keyed vendor is kept from the
+    /// network by its missing key, so a run built from defaults with no keys
+    /// — a test's — sends nothing. A keyless one has no such guard, so it
+    /// gets this one, and the default is the side that cannot reach a vendor.
+    pub keyless: bool,
 }
 
 impl Default for Options {
@@ -58,6 +70,7 @@ impl Default for Options {
         Self {
             include_veo: false,
             veo_patience: Duration::from_secs(600),
+            keyless: false,
         }
     }
 }
@@ -170,7 +183,7 @@ impl Step {
 #[derive(Debug, Clone)]
 pub struct Planned {
     /// The vendor.
-    pub provider: Provider,
+    pub vendor: Vendor,
     /// Why it will not be called, when it will not.
     pub skipped: Option<String>,
     /// Each call, with what it costs.
@@ -183,47 +196,55 @@ pub struct Planned {
 /// What the check will do, vendor by vendor. Pure: the keys come out of the
 /// two values the one resolver reads, and nothing is called.
 pub fn plan(options: &Options, environment: &Environment, settings: &Settings) -> Vec<Planned> {
-    PROVIDERS
+    VENDORS
         .iter()
-        .map(
-            |&provider| match resolve_from(provider, environment, settings) {
-                Ok(found) => Planned {
-                    provider,
+        .map(|&vendor| {
+            let key = match vendor.provider() {
+                None if !options.keyless => Err(String::from("needs no key; not asked for")),
+                None => Ok(None),
+                // `Missing` already reads "no key for …: looked in …".
+                Some(provider) => resolve_from(provider, environment, settings)
+                    .map(|found| Some(found.secret))
+                    .map_err(|error| error.to_string()),
+            };
+            match key {
+                Ok(key) => Planned {
+                    vendor,
                     skipped: None,
-                    calls: calls(provider, options),
-                    cents: cost(provider, options),
-                    key: Some(found.secret),
+                    calls: calls(vendor, options),
+                    cents: cost(vendor, options),
+                    key,
                 },
-                Err(error) => Planned {
-                    provider,
-                    // `Missing` already reads "no key for …: looked in …".
-                    skipped: Some(error.to_string()),
+                Err(why) => Planned {
+                    vendor,
+                    skipped: Some(why),
                     calls: Vec::new(),
                     cents: 0,
                     key: None,
                 },
-            },
-        )
+            }
+        })
         .collect()
 }
 
 /// The calls one vendor's part makes.
-fn calls(provider: Provider, options: &Options) -> Vec<String> {
-    match provider {
-        Provider::Gemini => [veo::calls(options), image::calls()].concat(),
-        Provider::ElevenLabs => elevenlabs::calls(),
-        Provider::Anthropic => claude::calls(),
-        Provider::Pixabay => pixabay::calls(),
+fn calls(vendor: Vendor, options: &Options) -> Vec<String> {
+    match vendor {
+        Vendor::Keyed(Provider::Gemini) => [veo::calls(options), image::calls()].concat(),
+        Vendor::Keyed(Provider::ElevenLabs) => elevenlabs::calls(),
+        Vendor::Keyed(Provider::Anthropic) => claude::calls(),
+        Vendor::Keyed(Provider::Pixabay) => pixabay::calls(),
+        Vendor::LottieFiles => lottiefiles::calls(),
     }
 }
 
 /// The most one vendor's part spends.
-fn cost(provider: Provider, options: &Options) -> u64 {
-    match provider {
-        Provider::Gemini => veo::cost(options) + image::cost(),
-        Provider::ElevenLabs => elevenlabs::cost(),
-        Provider::Anthropic => claude::cost(),
-        Provider::Pixabay => 0,
+fn cost(vendor: Vendor, options: &Options) -> u64 {
+    match vendor {
+        Vendor::Keyed(Provider::Gemini) => veo::cost(options) + image::cost(),
+        Vendor::Keyed(Provider::ElevenLabs) => elevenlabs::cost(),
+        Vendor::Keyed(Provider::Anthropic) => claude::cost(),
+        Vendor::Keyed(Provider::Pixabay) | Vendor::LottieFiles => 0,
     }
 }
 
@@ -242,7 +263,7 @@ pub fn permit(plan: &[Planned], budget: Budget) -> Result<(), OverBudget> {
 #[derive(Debug, Clone)]
 pub struct Report {
     /// The vendor.
-    pub provider: Provider,
+    pub vendor: Vendor,
     /// Each call, in order.
     pub steps: Vec<Step>,
     /// What it is estimated to have spent, in US cents — Claude's from the
@@ -266,7 +287,7 @@ impl Report {
     }
 }
 
-/// Runs the plan: every vendor with a key, in order. `on` hears progress
+/// Runs the plan: every vendor not skipped, in order. `on` hears progress
 /// while a call takes a while.
 ///
 /// Refused whole, before anything is sent, if the plan would cross `budget`.
@@ -285,40 +306,61 @@ pub fn run(
 
 /// One vendor's part.
 fn one(planned: &Planned, options: &Options, on: &mut dyn FnMut(&str)) -> Report {
-    let (Some(key), None) = (&planned.key, &planned.skipped) else {
-        let why = planned.skipped.clone().unwrap_or_default();
-        return Report {
-            provider: planned.provider,
-            steps: vec![Step::new("every call", Verdict::Skipped { why })],
-            cents: 0,
-            exchanges: Vec::new(),
-        };
+    let skipped = |why: String| Report {
+        vendor: planned.vendor,
+        steps: vec![Step::new("every call", Verdict::Skipped { why })],
+        cents: 0,
+        exchanges: Vec::new(),
     };
-    on(&format!("Checking {}…", planned.provider.label()));
+    if let Some(why) = &planned.skipped {
+        return skipped(why.clone());
+    }
     let tap = Tap::new();
-    let (steps, cents) = match planned.provider {
-        Provider::Gemini => {
-            let (mut steps, cents) = veo::check(key, &tap, options, on);
-            let (still, spent) = image::check(key, &tap);
-            steps.extend(still);
-            (steps, cents + spent)
+    let (steps, cents) = match (planned.vendor, &planned.key) {
+        (Vendor::Keyed(_), None) => return skipped(String::from("no key")),
+        (Vendor::Keyed(provider), Some(key)) => {
+            on(&format!("Checking {}…", planned.vendor.label()));
+            keyed(provider, key, &tap, options, on)
         }
-        Provider::ElevenLabs => elevenlabs::check(key, &tap),
-        Provider::Anthropic => claude::check(key, &tap),
-        Provider::Pixabay => pixabay::check(key, &tap),
+        (Vendor::LottieFiles, _) => {
+            on(&format!("Checking {}…", planned.vendor.label()));
+            lottiefiles::check(&tap)
+        }
     };
+    let key = planned.key.as_ref().map_or("", Secret::expose);
     let exchanges = tap
         .take()
         .into_iter()
         .map(|exchange| Exchange {
-            body: record::scrub(&exchange.body, key.expose()),
+            body: record::scrub(&exchange.body, key),
             ..exchange
         })
         .collect();
     Report {
-        provider: planned.provider,
+        vendor: planned.vendor,
         steps,
         cents,
         exchanges,
+    }
+}
+
+/// A keyed vendor's part, with its key.
+fn keyed(
+    provider: Provider,
+    key: &Secret,
+    tap: &Tap,
+    options: &Options,
+    on: &mut dyn FnMut(&str),
+) -> (Vec<Step>, u64) {
+    match provider {
+        Provider::Gemini => {
+            let (mut steps, cents) = veo::check(key, tap, options, on);
+            let (still, spent) = image::check(key, tap);
+            steps.extend(still);
+            (steps, cents + spent)
+        }
+        Provider::ElevenLabs => elevenlabs::check(key, tap),
+        Provider::Anthropic => claude::check(key, tap),
+        Provider::Pixabay => pixabay::check(key, tap),
     }
 }

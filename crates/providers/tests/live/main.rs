@@ -14,6 +14,7 @@ mod common;
 mod claude;
 mod elevenlabs;
 mod image;
+mod lottiefiles;
 mod planning;
 mod recording;
 mod veo;
