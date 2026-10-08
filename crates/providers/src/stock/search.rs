@@ -73,7 +73,7 @@ impl Found {
 /// Vendor pages are read from the cache when it has them fresh and asked for
 /// when it does not, then filtered here — orientation and length for
 /// footage, which the vendor cannot filter — until the reply page is full or
-/// [`MOST_PAGES`] have been read. Expired files are pruned on the way.
+/// four vendor pages (200 results) have been read. Expired files are pruned on the way.
 pub fn search(
     cache: &Path,
     library: &dyn Library,
