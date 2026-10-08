@@ -559,8 +559,10 @@ every machine. Its fonts are **only the shipped ones**: declared to the page by
 name, and the only files its fallback can reach.
 
 **Blessing a page fixture needs that browser** (`SCORSESE_CHROME`, or
-`chrome-headless-shell` on `PATH`). Without it the fixture **fails** with the
-render's own reason. It never compares a slug card against a page, because a
+`chrome-headless-shell` on `PATH`). `make test` finds it without being told,
+through `tools/with-chrome` (#907); a bare `cargo test`, the blessing command
+below included, needs `export SCORSESE_CHROME="$(tools/chromium/fetch)"` first.
+Without it the fixture **fails** with the render's own reason. It never compares a slug card against a page, because a
 page that could not be captured is a card on the report and a failure here.
 
 What #772 measured, so nobody re-derives it: an x86_64 container (Intel, AVX-512)
