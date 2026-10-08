@@ -1,11 +1,11 @@
 // A file from upload to picture: into the library, into the project, onto the
 // timeline, and drawn by the server into the preview.
 
-import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
 import { newProject } from "./session";
 
-const STILL = join(import.meta.dirname, "still.png");
+const STILL = fileURLToPath(new URL("./still.png", import.meta.url));
 
 test("an uploaded file reaches the library, the assets, the timeline and the preview", async ({
   page,
