@@ -89,8 +89,12 @@ fn every_argument_of_every_tool_says_what_it_is() {
 
         for (argument, described) in properties {
             let description = described.get("description").and_then(Value::as_str);
+            // Over fifteen characters, the bar web MCP's own test holds every
+            // listed argument to (`crates/server/tests/mcp/described.rs`):
+            // a registry argument that cleared a lower bar here only failed
+            // there, in the one suite that needs a database (#909).
             assert!(
-                description.is_some_and(|text| text.len() >= 12),
+                description.is_some_and(|text| text.len() > 15),
                 "`{}`'s `{argument}` argument says nothing useful about itself",
                 tool.name()
             );

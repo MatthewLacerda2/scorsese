@@ -82,7 +82,7 @@ struct Arguments {
     // it is called about, and the guides are the same for all of them.
     #[expect(dead_code, reason = "taken for the uniform surface, not read")]
     project: ProjectDir,
-    /// Which guide.
+    /// Which guide to read; the tool's description says what each one holds.
     #[schemars(extend("enum" = ["pages", "project-format", "recipes", "references", "prompts", "prices", "stock"]))]
     name: Name,
     /// Only this section: its heading's words (or the only heading containing
