@@ -9,6 +9,7 @@
 mod common;
 
 mod download;
+mod fetched;
 mod files;
 mod generated;
 mod manage;

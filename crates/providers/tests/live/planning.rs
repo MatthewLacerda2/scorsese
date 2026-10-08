@@ -89,7 +89,7 @@ fn a_run_with_no_keys_reports_every_vendor_skipped() {
         &mut |_| {},
     )
     .unwrap();
-    assert_eq!(reports.len(), 3);
+    assert_eq!(reports.len(), 4);
     for report in &reports {
         assert!(
             matches!(report.verdict(), Verdict::Skipped { .. }),

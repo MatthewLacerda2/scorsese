@@ -50,6 +50,7 @@ make live-check ARGS="--include-veo --record /tmp/live"
 | | text-to-speech of `Checking.` on the `fast` model, with its timestamps | $0.01 |
 | | Voice Design from a 100-character passage — three candidates, **none kept** | $0.01 |
 | Anthropic | two streamed calls to `claude-opus-5-5` at `low` effort: ask for a tool call; then send the reply back unchanged, with the tool's result and a mid-conversation `system` message | at most $0.15 |
+| Pixabay | `GET /api/videos/?q=sunrise` — hits, each with a usable rendition | free |
 
 The ElevenLabs and Veo figures are the rate tables' own arithmetic
 (docs/prices.md). Claude's quote is a ceiling — each call's `max_tokens` plus a

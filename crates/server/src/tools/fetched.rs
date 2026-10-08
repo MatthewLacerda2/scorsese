@@ -22,7 +22,7 @@ use crate::projects::media::hashes;
 
 /// Admit to `user`'s library every media file in the folder at `root` that
 /// `after` names and `before` did not.
-pub(super) async fn keep(
+pub async fn keep(
     library: &Library,
     user: UserId,
     before: &Project,

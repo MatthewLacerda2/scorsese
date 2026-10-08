@@ -4,13 +4,17 @@ Two providers cost money on every surface — Gemini (for Veo video and still
 images, one key for both) and
 ElevenLabs (for narration) — and both need a key. A third, Anthropic, is spent
 only by the hosted server's assistant on its Claude models (`ANTHROPIC_API_KEY`,
-`docs/web.md`); its Gemini models spend the Gemini key. This page is where a key comes from, in one
+`docs/web.md`); its Gemini models spend the Gemini key. A fourth, **Pixabay**
+(`PIXABAY_API_KEY`), is the one key that never spends: it searches free stock
+footage and photos (`stock_search`, `stock_import`, `scorsese stock`, #900), and
+comes with a free Pixabay account — shown on <https://pixabay.com/api/docs/>
+while logged in. This page is where a key comes from, in one
 order, for every way scorsese is run.
 
 ## The order
 
-1. **The environment.** `GEMINI_API_KEY`, `ELEVENLABS_API_KEY` and
-   `ANTHROPIC_API_KEY`, exported in
+1. **The environment.** `GEMINI_API_KEY`, `ELEVENLABS_API_KEY`,
+   `ANTHROPIC_API_KEY` and `PIXABAY_API_KEY`, exported in
    the shell or written in a `.env` at the root of a checkout. A variable that
    is set wins; a `.env` fills gaps and never overrides one.
 2. **The settings file**, per machine, at the platform's config location:
@@ -41,7 +45,7 @@ window writes there and why the resolver reads both.
 
 **The hosted server** (`docs/web.md`) resolves its keys the same way, and in
 practice from the first place only: its container is told `GEMINI_API_KEY`,
-`ELEVENLABS_API_KEY` and `ANTHROPIC_API_KEY` by `deploy/.env`, through
+`ELEVENLABS_API_KEY`, `ANTHROPIC_API_KEY` and `PIXABAY_API_KEY` by `deploy/.env`, through
 `compose.yaml`, and has no settings file. Each is optional there: a missing
 one refuses only what needs it. Those keys are the operator's, spent on users' behalf and paid
 back from their credits — so `budget_cents` below is not what holds a web user
@@ -89,6 +93,7 @@ used instead, as an exported variable is for a key.
   "gemini_api_key": "…",
   "elevenlabs_api_key": "…",
   "anthropic_api_key": "…",
+  "pixabay_api_key": "…",
   "budget_cents": 5000
 }
 ```
