@@ -29,7 +29,7 @@ test("an uploaded file reaches the library, the assets, the timeline and the pre
   await expect(tile).toBeVisible();
 
   // Dragged onto the empty timeline, it is a clip on a new lane.
-  await tile.dragTo(page.getByText("Drag something here from the left."));
+  await tile.dragTo(page.getByText("Drag something here from the right."));
   const clip = page.getByRole("button", { name: /still/ }).and(page.locator("[data-made]"));
   await expect(clip).toBeVisible();
 

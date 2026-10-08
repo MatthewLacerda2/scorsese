@@ -1,6 +1,9 @@
-// The editor, `/projects/:id/edit` (#545), laid out as the desktop app is: the
-// assets on the left, the preview in the middle, the timeline under them, and
-// on the right the selected clip's inspector over the assistant's chat.
+// The editor, `/projects/:id/edit` (#545): on the left the selected clip's
+// inspector over the assistant's chat, the preview in the middle, the assets on
+// the right, and the timeline under the preview and the assets. That mirrors
+// the desktop app, whose assets sit on the left, on purpose (#943): on the web
+// the chat is how a video gets made, so it reads first, where chat-driven
+// builders put it; the desktop app has no assistant to put there.
 //
 // The page is thin on purpose (CLAUDE.md, *The GUI is thin*): the hand-edits
 // are place, move (along a lane or onto another), trim, delete, a plain value,
@@ -97,36 +100,7 @@ function Editor({ project }: { project: EditorProject }) {
       )}
       {/* Each panel's edge is a handle with a track of its own (#863). */}
       <div ref={panels.grid} className="grid min-h-0 flex-1" style={panels.style}>
-        <aside className="col-start-1 row-start-1 min-h-0">
-          <AssetsPanel projectId={id} document={document} edit={edit} playhead={playhead} />
-        </aside>
-        <Handle
-          grows="right"
-          size={panels.sizes.assets}
-          label={t.editor.page.resizeAssets}
-          className="col-start-2 row-start-1"
-          onSize={(size) => panels.resize("assets", size)}
-          onReset={() => panels.reset("assets")}
-        />
-        <section className="col-start-3 row-start-1 min-h-0">
-          <Preview
-            projectId={id}
-            revision={revision}
-            document={document}
-            playhead={playhead}
-            onSeek={setPlayhead}
-            deliver={SHAPES[shape].deliver[0]}
-          />
-        </section>
-        <Handle
-          grows="left"
-          size={panels.sizes.chat}
-          label={t.editor.page.resizeChat}
-          className="col-start-4 row-span-3 row-start-1"
-          onSize={(size) => panels.resize("chat", size)}
-          onReset={() => panels.reset("chat")}
-        />
-        <aside className="col-start-5 row-span-3 row-start-1 flex min-h-0 flex-col">
+        <aside className="col-start-1 row-span-3 row-start-1 flex min-h-0 flex-col">
           {chosen && (
             <div className="max-h-[55%] shrink-0 overflow-y-auto border-b">
               <Inspector
@@ -143,14 +117,43 @@ function Editor({ project }: { project: EditorProject }) {
           </div>
         </aside>
         <Handle
+          grows="right"
+          size={panels.sizes.chat}
+          label={t.editor.page.resizeChat}
+          className="col-start-2 row-span-3 row-start-1"
+          onSize={(size) => panels.resize("chat", size)}
+          onReset={() => panels.reset("chat")}
+        />
+        <section className="col-start-3 row-start-1 min-h-0">
+          <Preview
+            projectId={id}
+            revision={revision}
+            document={document}
+            playhead={playhead}
+            onSeek={setPlayhead}
+            deliver={SHAPES[shape].deliver[0]}
+          />
+        </section>
+        <Handle
+          grows="left"
+          size={panels.sizes.assets}
+          label={t.editor.page.resizeAssets}
+          className="col-start-4 row-start-1"
+          onSize={(size) => panels.resize("assets", size)}
+          onReset={() => panels.reset("assets")}
+        />
+        <aside className="col-start-5 row-start-1 min-h-0">
+          <AssetsPanel projectId={id} document={document} edit={edit} playhead={playhead} />
+        </aside>
+        <Handle
           grows="up"
           size={panels.sizes.timeline}
           label={t.editor.page.resizeTimeline}
-          className="col-span-3 col-start-1 row-start-2"
+          className="col-span-3 col-start-3 row-start-2"
           onSize={(size) => panels.resize("timeline", size)}
           onReset={() => panels.reset("timeline")}
         />
-        <section className="col-span-3 col-start-1 row-start-3 min-h-0">
+        <section className="col-span-3 col-start-3 row-start-3 min-h-0">
           <Timeline
             document={document}
             playhead={playhead}

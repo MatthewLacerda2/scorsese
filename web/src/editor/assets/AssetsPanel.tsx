@@ -1,4 +1,4 @@
-// The editor's left sidebar (#702): **Assets**, what this project holds, as a
+// The editor's right sidebar (#702, #943): **Assets**, what this project holds, as a
 // grid of tiles two across (#766, `AssetTile`) — each dragged onto a lane to
 // place it (the desktop app's pool, #543), or removed with the bin its tile
 // shows on hover, after a confirm listing the clips that go with it (#396) —

@@ -64,7 +64,7 @@ export const editor = {
   } as Record<string, string>,
   trackKinds: { video: "video", audio: "audio" } as Record<string, string>,
   timeline: {
-    empty: "Drag something here from the left.",
+    empty: "Drag something here from the right.",
     newTrack: "Drop here for a new track",
     removeTrack: (track: string) => `Remove the track ${track}`,
     removeTrackTitle: "Remove the track — the clips on it go too",

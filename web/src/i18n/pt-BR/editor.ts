@@ -61,7 +61,7 @@ export const editor: Messages["editor"] = {
   },
   trackKinds: { video: "vídeo", audio: "áudio" },
   timeline: {
-    empty: "Arraste algo da esquerda para cá.",
+    empty: "Arraste algo da direita para cá.",
     newTrack: "Solte aqui para uma nova faixa",
     removeTrack: (track: string) => `Remover a faixa ${track}`,
     removeTrackTitle: "Remover a faixa — os clipes que estão nela vão junto",

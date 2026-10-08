@@ -51,7 +51,7 @@ export function usePanels() {
   const sizes = fit(wanted, room);
   // The handles have tracks of their own, between the panels and over none.
   const style: CSSProperties = {
-    gridTemplateColumns: `${sizes.assets}rem ${HANDLE}rem minmax(0,1fr) ${HANDLE}rem ${sizes.chat}rem`,
+    gridTemplateColumns: `${sizes.chat}rem ${HANDLE}rem minmax(0,1fr) ${HANDLE}rem ${sizes.assets}rem`,
     gridTemplateRows: `minmax(0,1fr) ${HANDLE}rem ${sizes.timeline}rem`,
   };
   return {
