@@ -61,7 +61,7 @@ impl Tool for Icons {
          give `asset_set` as `icon` (an icon asset's `name` in the document) \
          or write into a page. A page loads any \
          of them offline at `https://lib.scorsese/icons/<name>.svg`, stroked \
-         in `currentColor` (pages.md, *Icons*, has how to colour one). This build ships the whole Lucide \
+         in `currentColor` (`guide pages`, section *Icons*, has how to colour one). This build ships the whole Lucide \
          set, seventeen hundred symbols, which is far too many to list: a word \
          is how you reach it. `query` is matched as a plain substring, \
          case-insensitive and never fuzzy, first against every icon's name, \

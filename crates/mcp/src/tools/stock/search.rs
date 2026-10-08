@@ -100,7 +100,7 @@ impl Tool for Search {
          search kind lottie: free, transparent, vector, and usually the right \
          call, since it cannot be drawn well in code. A Lottie is not footage: \
          stock_import writes it under pages/ and an html page plays it with \
-         the shipped lottie-web (docs/pages.md, A Lottie animation). Answers \
+         the shipped lottie-web (`guide pages`, section *A Lottie animation*). Answers \
          five results a page, each with its id, length, largest size, and \
          tags or title, and ONE contact sheet of their previews numbered in \
          order: look at it, because words alone pick the wrong one. For a \
@@ -173,8 +173,8 @@ fn listed(found: &Found, medium: Medium) -> String {
         lines.push(String::from(match medium {
             Medium::Lottie => {
                 "Import with stock_import (kind lottie and id): it lands under pages/ as \
-                 lottie-<id>.json, for an html page to play with lottie-web (docs/pages.md, \
-                 A Lottie animation). Look through one first with look: <id>."
+                 lottie-<id>.json, for an html page to play with lottie-web (`guide pages`, \
+                 section *A Lottie animation*). Look through one first with look: <id>."
             }
             Medium::Video | Medium::Image => {
                 "Import with stock_import (kind and id); look through a video first with \

@@ -1249,6 +1249,7 @@ the web — or be left off it — without a reason written down.
 - `set_volume`
 - `scale_pacing`
 - `icons`
+- `guide`
 - `voices`
 - `stock_search`
 - `stock_import`

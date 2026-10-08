@@ -35,7 +35,7 @@ pub(super) fn properties(asked: &str) -> Result<Vec<PropertyPath>, String> {
     );
     Err(format!(
         "nothing in this build animates `{asked}`{hint} The animatable properties are \
-         the table in docs/project-format.md (*What the compositor animates today*); \
+         the table in `guide project-format`, section *What the compositor animates today*; \
          nothing was written"
     ))
 }

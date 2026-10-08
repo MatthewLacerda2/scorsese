@@ -179,7 +179,7 @@ pub enum StockError {
     /// is imported for a page to play instead.
     #[error(
         "lottie {id} is an animation a page plays, not footage or a picture: import it as \
-         a lottie, and play it from a page (docs/pages.md)"
+         a lottie, and play it from a page (the pages guide: `guide pages`, or docs/pages.md)"
     )]
     NotMedia {
         /// The id.
