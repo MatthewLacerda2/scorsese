@@ -336,7 +336,7 @@ page is the checklist when it changes. Two differences are deliberate. Video
 extension — a longer shot grown from a generated one — is a different kind of
 request and is not modelled. And a first and last image fix the length at
 eight seconds although the page no longer says so: confirming otherwise costs
-a generation, so the refusal stays until one is paid for.
+a generation, so the refusal stays until one is paid for (#928).
 
 ### What a generated still asks for
 

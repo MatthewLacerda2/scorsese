@@ -27,7 +27,7 @@
 //! - **A first and last image fix the length at eight seconds** although the
 //!   page names only 1080p, 4K and reference images. The lock predates the
 //!   page being re-read, and lifting it can only be confirmed by paying for a
-//!   generation, so it stays until somebody does.
+//!   generation, so it stays until somebody does (#928).
 
 use serde::{Deserialize, Serialize};
 
