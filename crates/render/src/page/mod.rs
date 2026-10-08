@@ -140,6 +140,26 @@ fn within(request: &Request, frames: Range<u64>) -> Range<u64> {
     frames.start.min(end)..end
 }
 
+/// One capture a render needs: the page as [`Request`] asks for it, and the
+/// stretch of its frames a clip shows — what to hand [`capture_frames`] ahead
+/// of the render, so that [`cached_frames`] finds it when the render looks.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Wanted {
+    /// The page, its raster, rate and clock.
+    pub request: Request,
+    /// The frames shown, inside the page's own: all of them for a page whose
+    /// place is a group's or a matte's to decide.
+    pub frames: Range<u64>,
+}
+
+impl Wanted {
+    /// `frames` of `request`, cut to the page's own.
+    pub fn new(request: Request, frames: Range<u64>) -> Self {
+        let frames = within(&request, frames);
+        Self { request, frames }
+    }
+}
+
 /// The page's frames for `request`, from the cache when they are there and
 /// fresh, and captured with `chrome` when they are not.
 ///

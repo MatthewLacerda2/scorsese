@@ -150,7 +150,9 @@ impl Worker {
 
     /// One capture, in a child the deadline can kill; why it failed if it did.
     fn capture(&self, job: &Path, index: usize, asked: &Asked) -> Result<(), String> {
-        let frames = asked.request()?.frames();
+        // Every frame up to the last drawn, the ones run through without
+        // drawing included: running ahead is cheaper than drawing, never free.
+        let frames = asked.frames()?.end;
         let limit = (self.deadline)(frames);
         let mut command = self.command(job, index)?;
         let mut child = command

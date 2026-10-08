@@ -29,7 +29,7 @@ use std::path::{Path, PathBuf};
 use scorsese_core::words::Words;
 use scorsese_core::{AssetKind, Clip, ClipId, Fps, Project};
 
-use crate::page::{self, Chrome, Request, Span};
+use crate::page::{self, Chrome, Request, Span, Wanted};
 use crate::plan::{Plan, Shot};
 use crate::report::Note;
 use crate::settings::RenderSettings;
@@ -79,7 +79,7 @@ impl Pages {
         plan: &Plan<'_>,
         project_root: &Path,
     ) -> (Self, Vec<Note>) {
-        let wanted = shots(plan);
+        let wanted = asked(settings, plan, project_root);
         let mut pages = Self::default();
         let mut notes = Vec::new();
         if wanted.is_empty() {
@@ -104,15 +104,7 @@ impl Pages {
                     .map_err(ToString::to_string)
             }
         };
-        let stretches = stretches(plan, settings.fps);
-        for shot in wanted {
-            if pages.captured.contains_key(&shot.clip.id) {
-                continue;
-            }
-            let Some(request) = request_for(shot, settings, plan, project_root) else {
-                continue;
-            };
-            let frames = stretches.get(&shot.clip.id).cloned().unwrap_or(0..u64::MAX);
+        for (shot, Wanted { request, frames }) in wanted {
             let captured = chrome.clone().and_then(|chrome| {
                 if capturing {
                     return page::capture_frames(
@@ -188,6 +180,44 @@ fn shots<'p, 'a>(plan: &'p Plan<'a>) -> Vec<&'p Shot<'a>> {
     for segment in plan.segments() {
         for shot in &segment.layers {
             pages_in(shot, &mut wanted);
+        }
+    }
+    wanted
+}
+
+/// Each page clip `plan` shows, once, with what capturing it asks for: its
+/// request, and the stretch of the page it shows ([`stretches`]).
+fn asked<'p, 'a>(
+    settings: &RenderSettings,
+    plan: &'p Plan<'a>,
+    project_root: &Path,
+) -> Vec<(&'p Shot<'a>, Wanted)> {
+    let stretches = stretches(plan, settings.fps);
+    let mut asked: Vec<(&Shot<'_>, Wanted)> = Vec::new();
+    for shot in shots(plan) {
+        if asked.iter().any(|(seen, _)| seen.clip.id == shot.clip.id) {
+            continue;
+        }
+        let Some(request) = request_for(shot, settings, plan, project_root) else {
+            continue;
+        };
+        let frames = stretches.get(&shot.clip.id).cloned().unwrap_or(0..u64::MAX);
+        asked.push((shot, Wanted::new(request, frames)));
+    }
+    asked
+}
+
+/// What capturing only the frames `plan` shows would ask for, once each — the
+/// captures a render that does not capture itself reads ([`Pages::capture`]).
+pub(super) fn wanted(
+    settings: &RenderSettings,
+    plan: &Plan<'_>,
+    project_root: &Path,
+) -> Vec<Wanted> {
+    let mut wanted: Vec<Wanted> = Vec::new();
+    for (_, one) in asked(settings, plan, project_root) {
+        if !wanted.contains(&one) {
+            wanted.push(one);
         }
     }
     wanted

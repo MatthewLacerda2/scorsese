@@ -53,7 +53,8 @@
 //! answers slowly forever.
 //!
 //! Nothing here edits anything: the job lays the project out and renders it,
-//! and each capture calls [`scorsese_render::page::capture`] on what it is asked.
+//! and each capture calls [`scorsese_render::page::capture_frames`] on what it is asked:
+//! only the frames a render shows, in one browser (#890).
 
 pub mod dispatch;
 pub mod launch;
@@ -61,12 +62,13 @@ pub mod one;
 pub mod worker;
 
 use std::collections::BTreeMap;
+use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use scorsese_core::Fps;
 use scorsese_render::Resolution;
-use scorsese_render::page::{Request, Span};
+use scorsese_render::page::{Request, Span, Wanted};
 use serde::{Deserialize, Serialize};
 
 use crate::db::UserId;
@@ -154,10 +156,26 @@ pub struct Asked {
     /// Absent from a job asked before pages were told them.
     #[serde(default)]
     pub words: BTreeMap<String, Span>,
+    /// Which of the page's frames to draw (#890): the stretch its clip shows.
+    /// The ones before it are run through without being drawn. Absent from a
+    /// job asked before captures were cut to what is shown, which wanted the
+    /// whole page.
+    #[serde(default)]
+    pub frames: Option<Range<u64>>,
 }
 
-impl From<&Request> for Asked {
-    fn from(request: &Request) -> Self {
+impl From<&Wanted> for Asked {
+    fn from(Wanted { request, frames }: &Wanted) -> Self {
+        Self {
+            frames: Some(frames.clone()),
+            ..Self::whole(request)
+        }
+    }
+}
+
+impl Asked {
+    /// The whole of `request`'s page, from its first frame.
+    fn whole(request: &Request) -> Self {
         Self {
             page: request.page.clone(),
             width: request.resolution.width(),
@@ -166,11 +184,16 @@ impl From<&Request> for Asked {
             duration: request.duration,
             clips: request.clips.clone(),
             words: request.words.clone(),
+            frames: None,
         }
     }
-}
 
-impl Asked {
+    /// The frames to draw: those asked for, or the whole page's.
+    pub fn frames(&self) -> Result<Range<u64>, String> {
+        let whole = 0..self.request()?.frames();
+        Ok(self.frames.clone().unwrap_or(whole))
+    }
+
     /// The request again, or why it is not one.
     pub fn request(&self) -> Result<Request, String> {
         Ok(Request {
@@ -245,9 +268,20 @@ mod tests {
                 },
             )]),
         };
-        let asked = Asked::from(&request);
+        let asked = Asked::from(&Wanted::new(request.clone(), 40..45));
         let back: Asked = serde_json::from_str(&serde_json::to_string(&asked).unwrap()).unwrap();
         assert_eq!(back.request().unwrap(), request);
+        assert_eq!(back.frames(), Ok(40..45));
+    }
+
+    #[test]
+    fn a_job_asked_before_stretches_wants_the_whole_page() {
+        let asked: Asked = serde_json::from_value(serde_json::json!({
+            "page": "pages/title.html", "width": 64, "height": 36,
+            "fps": { "num": 10, "den": 1 }, "duration": 2.0
+        }))
+        .unwrap();
+        assert_eq!(asked.frames(), Ok(0..21));
     }
 
     #[test]

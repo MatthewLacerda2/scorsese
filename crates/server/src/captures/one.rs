@@ -2,10 +2,16 @@
 //!
 //! The worker ([`super::worker`]) runs this for each page, so that the
 //! deadline can kill the capture and the browser it started as one process
-//! group. It is [`scorsese_render::page::capture_following`] and nothing
-//! else, following the project's links into the owner's library: the frames
-//! land in the project's `cache/`, and what went wrong is its last line on
-//! stderr, which the worker hands back as the reason.
+//! group. It is [`scorsese_render::page::capture_frames`] and nothing else,
+//! following the project's links into the owner's library: the frames land in
+//! the project's `cache/`, and what went wrong is its last line on stderr,
+//! which the worker hands back as the reason.
+//!
+//! **Only the frames asked for are drawn** (#890), the stretch the render
+//! shows: the page's clock runs through the ones before it without drawing
+//! them, as it does locally (#809). **In one browser**, where locally a long
+//! stretch is drawn by up to four at once: the capture container is sized for
+//! one (#773), and running ahead, which needs no second, is most of the win.
 
 use std::path::PathBuf;
 
@@ -39,11 +45,11 @@ pub struct Args {
 /// Captures the request `args` names into its project's cache.
 pub fn run(args: &Args) -> Result<(), String> {
     let ask: Ask = read(&args.ask).ok_or("the job's ask.json could not be read")?;
-    let request = ask
+    let asked = ask
         .requests
         .get(args.index)
-        .ok_or("the job asks for no such capture")?
-        .request()?;
+        .ok_or("the job asks for no such capture")?;
+    let (request, frames) = (asked.request()?, asked.frames()?);
     let tools = Tools::discover().map_err(|error| error.to_string())?;
     let chrome = Chrome::discover().map_err(|error| error.to_string())?;
     let chrome = if args.no_sandbox {
@@ -51,7 +57,8 @@ pub fn run(args: &Args) -> Result<(), String> {
     } else {
         chrome.sandboxed()
     };
-    page::capture_following(&chrome, &tools, &args.project, &args.follow, &request)
+    let follow = &args.follow;
+    page::capture_frames(&chrome, &tools, &args.project, follow, &request, frames, 1)
         .map(drop)
         .map_err(|error| error.to_string())
 }

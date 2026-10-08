@@ -40,12 +40,6 @@ export function Shell() {
     <UploadsProvider>
       <div className={editing ? "flex h-svh flex-col" : "flex min-h-svh flex-col"}>
         <header className="flex items-center gap-2 border-b px-4 py-2">
-          <Link
-            to="/projects"
-            className="mr-4 shrink-0 rounded-md border px-2.5 py-0.5 font-heading text-lg font-semibold hover:bg-muted"
-          >
-            scorsese
-          </Link>
           <nav className="flex shrink-0 gap-1">
             {NAV.map(({ to, key }) => (
               <NavLink
