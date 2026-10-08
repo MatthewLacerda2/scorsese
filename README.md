@@ -150,7 +150,7 @@ for the mistake first.
   is drawn text, shapes and icons under a narration. It cost twenty-two cents.
 
 [docs/prompts.md](docs/prompts.md) is the running record of what the providers
-really do with certain words, and [docs/prices.md](docs/prices.md) has the
+really do with certain words, beside their own advice on prompting, and [docs/prices.md](docs/prices.md) has the
 rates.
 
 ## Running it
@@ -182,7 +182,7 @@ there. The same operations exist as a plain CLI — `scorsese --help`.
 | [docs/mcp.md](docs/mcp.md) | every tool the assistant gets, and what each one costs to call |
 | [docs/project-format.md](docs/project-format.md) | the `project.json` format — everything a project can say |
 | [docs/recipes.md](docs/recipes.md) | writing music and sound effects as recipes |
-| [docs/prompts.md](docs/prompts.md) | provider behaviour, learned by paying |
+| [docs/prompts.md](docs/prompts.md) | provider behaviour, learned by paying, and the vendors' prompting advice |
 | [docs/prices.md](docs/prices.md) | what generation costs, and why it is always an estimate |
 | [docs/output-formats.md](docs/output-formats.md) | the file formats a render delivers |
 | [docs/credentials.md](docs/credentials.md) | keys, and the ceiling on what they may spend |
