@@ -10,6 +10,12 @@
 //! client, `scorsese guide pages` in a terminal — and both hand back the page
 //! from here, so the two surfaces cannot answer differently.
 //!
+//! The guides follow the same rule among themselves (#936): one points at
+//! another as `` `guide <name>` ``, with `, section "<words>"` where a part is
+//! meant — the words a call and a command share, which a terminal reader runs
+//! as `scorsese guide <name>` — and keeps a Markdown link beside it only for
+//! someone reading the repository. The tests in `pointers` hold that.
+//!
 //! **Each guide is the file itself**, compiled in with `include_str!` — not a
 //! copy, not a summary — so what is served cannot drift from what the
 //! repository says, and every gate the file is held to (the format page's
@@ -27,6 +33,8 @@
 
 mod outline;
 
+#[cfg(test)]
+mod pointers;
 #[cfg(test)]
 mod tests;
 
