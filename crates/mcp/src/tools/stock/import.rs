@@ -79,7 +79,7 @@ impl Tool for Import {
          the frame. A lottie is NOT an asset and is never placed by itself: \
          its JSON is written to pages/lottie-<id>.json, and an html page \
          plays it with the shipped lottie-web, driven from the page's clock \
-         (docs/pages.md, A Lottie animation) — write that page with \
+         (`guide pages`, section *A Lottie animation*) — write that page with \
          page_write and place_clip the page. Pass a list of ids to bring \
          several in at once; one that fails costs none of the others."
     }

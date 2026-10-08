@@ -181,7 +181,7 @@ impl SynthError {
             ),
             Self::UnknownChord { chord, .. } => write!(
                 f,
-                "song: `{chord}` is not a chord name — see the table in docs/recipes.md, or write the pitches out as `[\"D3\", \"F3\", \"A3\"]`"
+                "song: `{chord}` is not a chord name — see the chord table in the recipes guide (`guide recipes`, or docs/recipes.md), or write the pitches out as `[\"D3\", \"F3\", \"A3\"]`"
             ),
             Self::ChordOutOfRange {
                 chord, oct, midi, ..

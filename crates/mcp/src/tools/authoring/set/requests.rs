@@ -100,7 +100,7 @@ fn block(description: &str, properties: Value) -> Schema {
         "description": format!(
             "{description} Every field has a default; on an existing asset the fields \
              named change, the rest stay, and `null` returns one to its default. \
-             docs/project-format.md has the combinations project_check refuses."
+             `guide project-format` has the combinations project_check refuses."
         ),
         "properties": properties,
         "additionalProperties": false

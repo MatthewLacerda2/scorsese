@@ -42,7 +42,7 @@ impl Tool for Read {
          hand it the `fingerprint` this reports: it says which document the edit \
          was made against, so a write cannot silently land on a change somebody \
          else made in the meantime. The \
-         format is documented in docs/project-format.md."
+         format is documented in `guide project-format`."
     }
 
     fn costs(&self) -> Costs {

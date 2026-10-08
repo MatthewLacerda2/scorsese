@@ -182,7 +182,7 @@ struct Arguments {
     /// (generated_video, generated_image, generated_audio) The sentence a
     /// provider will be paid to read: what the shot is of, what the still
     /// shows, the words spoken. Required to make one; replaces the old one
-    /// whole. docs/prompts.md has what certain words do.
+    /// whole. `guide prompts` has what certain words do.
     prompt: Option<String>,
     /// (synth_audio) Project-relative path of the recipe the asset is baked
     /// from, by convention under recipes/; the file has to exist. This
@@ -213,7 +213,7 @@ impl Tool for AssetSet {
          free sketch and brief of a generated shot, still or spoken line. A text is a \
          caption or a plain title; a shape a rectangle, an ellipse or an arrow. \
          For a title card, a lower third or a diagram of more than a couple of \
-         layers, write a page instead (page_write, docs/pages.md). **To make one, give its `kind`**; then place_clip puts it on \
+         layers, write a page instead (page_write, `guide pages`). **To make one, give its `kind`**; then place_clip puts it on \
          a track, with a duration. **To change one, name its \
          `asset`**: every argument you leave out stays exactly as it is, so \
          setting a size does not reset a font chosen two turns ago, and the \

@@ -8,6 +8,15 @@
 !rust-toolchain.toml
 !crates/
 !tools/icons/
+# The agent-facing guides: `scorsese-mcp`'s `guide` tool compiles them in with
+# `include_str!` (#909). Only these; the rest of docs/ is for developers.
+!docs/pages.md
+!docs/project-format.md
+!docs/recipes.md
+!docs/references.md
+!docs/prompts.md
+!docs/prices.md
+!docs/stock.md
 # The Chromium pin: `scorsese-providers` reads it at compile time, and the
 # image's `chromium` stage fetches the build it names (#778).
 !tools/chromium/

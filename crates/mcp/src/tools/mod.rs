@@ -21,6 +21,7 @@ mod create;
 mod design;
 mod edit;
 mod generate;
+mod guide;
 mod hear;
 mod icons;
 mod inspect;
@@ -335,6 +336,9 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         // answers a question about this build, not about the project, and it is
         // what a client calls before writing an icon asset at all.
         Box::new(icons::Icons),
+        // Beside icons, the other answer about this build rather than the
+        // project: the guides the other descriptions point at.
+        Box::new(guide::Read),
         // Before generate, because it is free and generate is not: a generic
         // shot is found here first, and a client reads this list in order.
         Box::new(stock::Search),

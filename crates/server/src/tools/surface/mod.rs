@@ -91,6 +91,7 @@ const STORED: &[&str] = &[
     "set_volume",
     "scale_pacing",
     "icons",
+    "guide",
     "voices",
     "stock_search",
     "stock_import",

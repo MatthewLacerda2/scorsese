@@ -197,7 +197,7 @@ impl Tool for Read {
     fn description(&self) -> &'static str {
         "Read a recipe file as it is on disk. Pair with synth_write to change a \
          sound: read it, change it, write it back, bake. The recipe format is \
-         documented in docs/recipes.md."
+         documented in `guide recipes`."
     }
 
     fn costs(&self) -> Costs {

@@ -41,7 +41,8 @@ struct Arguments {
     /// What to animate, as a property path: `opacity`, `transform.position.x`,
     /// `transform.rotation`, `shape.trim_end`, `reveal`, `number`,
     /// `glow.intensity`, `volume` … — the animatable table in
-    /// docs/project-format.md is the whole list, with what each number means.
+    /// `guide project-format`, section *What the compositor animates today*, is
+    /// the whole list, with what each number means.
     /// `transform.scale`, `transform.position` and `transform.flip` write both
     /// axes at once. An unknown path is refused with the closest one.
     property: Name,
@@ -76,7 +77,7 @@ impl Tool for ClipAnimate {
          any path in the animatable table. \
          It replaces that one property's keyframes on the clip, whoever wrote them, \
          and leaves every other property's alone; `keyframes: []` removes the \
-         property's animation. The table is in docs/project-format.md, and a pair \
+         property's animation. The table is in `guide project-format`, and a pair \
          stem such as `transform.scale` writes both its `.x` and `.y` with the same \
          keyframes. clip_set's position, \
          rotation and scale flatten what this wrote, and this replaces what they \

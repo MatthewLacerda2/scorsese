@@ -10,7 +10,7 @@
 //!
 //! How a page is written well — the contract it is drawn under, what it can
 //! load offline, why seekable animation beats an integrated loop — is
-//! `docs/pages.md`, which the descriptions point at.
+//! `docs/pages.md`, which the descriptions point at as `guide pages` (#909).
 
 use schemars::JsonSchema;
 use scorsese_core::{AssetId, AssetKind, write_page};
@@ -38,7 +38,7 @@ struct WriteArguments {
     /// asset is refused.
     page: Name,
     /// The complete HTML document. Not a patch — whatever is here replaces
-    /// the file. docs/pages.md has the contract it is drawn under.
+    /// the file. `guide pages` has the contract it is drawn under.
     html: String,
 }
 
@@ -67,7 +67,7 @@ impl Tool for Write {
          https://lib.scorsese/anime.min.js and lottie-web at \
          https://lib.scorsese/lottie.min.js, to play a Lottie stock_import \
          wrote beside the pages; where it draws nothing, the tracks \
-         below show through. Read docs/pages.md before writing one."
+         below show through. Read `guide pages` before writing one."
     }
 
     fn costs(&self) -> Costs {

@@ -1,6 +1,9 @@
 //! The page that plays a Lottie `stock_import` brought in (#903), handed back
-//! in the import's reply so any client can write it — the web's assistant
-//! cannot read `docs/pages.md`, whose worked page this is, recolouring aside.
+//! in the import's reply so any client can write it at once. It was first the
+//! web assistant's only way to the worked page in `docs/pages.md`; `guide
+//! pages` serves that page everywhere now (#909), and the reply keeps this
+//! one because it is the next thing written after every Lottie import, and a
+//! call to fetch the whole guide for it would be paid on each.
 
 /// The page that plays `file`, to write with `page_write` as it is or inside
 /// a larger page: lottie-web, never autoplaying, drawing the frame for the
@@ -8,8 +11,8 @@
 /// same as `docs/pages.md`'s worked page, minus the recolouring.
 pub(super) fn page(file: &str) -> String {
     format!(
-        "Play it from an html page beside it, driven from the page's clock (docs/pages.md, \
-         A Lottie animation) — this page loops it in a 720 px square; size and place the div \
+        "Play it from an html page beside it, driven from the page's clock (`guide pages`, \
+         section *A Lottie animation*) — this page loops it in a 720 px square; size and place the div \
          as you like, and use Math.min(at, anim.totalFrames - 1) to play it once:\n\
          <!doctype html><html><head><script src=\"https://lib.scorsese/lottie.min.js\"></script>\n\
          <style>html, body {{ margin: 0; height: 100%; }} body {{ display: grid; \

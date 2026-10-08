@@ -89,8 +89,12 @@ fn every_argument_of_every_tool_says_what_it_is() {
 
         for (argument, described) in properties {
             let description = described.get("description").and_then(Value::as_str);
+            // Over fifteen characters, the bar web MCP's own test holds every
+            // listed argument to (`crates/server/tests/mcp/described.rs`):
+            // a registry argument that cleared a lower bar here only failed
+            // there, in the one suite that needs a database (#909).
             assert!(
-                description.is_some_and(|text| text.len() >= 12),
+                description.is_some_and(|text| text.len() > 15),
                 "`{}`'s `{argument}` argument says nothing useful about itself",
                 tool.name()
             );
@@ -150,4 +154,47 @@ fn every_paid_tool_says_it_quotes_first_and_takes_the_token() {
             tool.name()
         );
     }
+}
+
+/// A pointer to more reading names the `guide` tool, never a path in this
+/// repository: a client on the web, or running an installed build, has no
+/// `docs/` to open (#909). And every pointer is followed here, so one naming a
+/// guide or a section that is not there fails rather than sending an agent to
+/// nothing.
+#[test]
+fn every_pointer_to_reading_is_a_guide_that_answers() {
+    let guide = registry()
+        .into_iter()
+        .find(|tool| tool.name() == "guide")
+        .expect("the guide tool is registered");
+    let mut followed = 0;
+    for tool in registry() {
+        let said = format!("{} {}", tool.description(), tool.schema());
+        assert!(
+            !said.contains("docs/"),
+            "`{}` points at a path in the repository; name `guide` instead",
+            tool.name()
+        );
+        for pointer in said.split("`guide ").skip(1) {
+            let (name, rest) = pointer.split_once('`').expect("a pointer closes");
+            if name.starts_with('<') {
+                continue;
+            }
+            let section = rest
+                .strip_prefix(", section *")
+                .and_then(|rest| rest.split_once('*'))
+                .map(|(section, _)| section);
+            let answer = guide.call(&serde_json::json!({
+                "project": "any.scor", "name": name, "section": section
+            }));
+            assert!(
+                answer.is_ok(),
+                "`{}` points at guide {name} {section:?}: {:?}",
+                tool.name(),
+                answer.err()
+            );
+            followed += 1;
+        }
+    }
+    assert!(followed > 5, "only {followed} pointers followed");
 }

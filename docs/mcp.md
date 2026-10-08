@@ -115,6 +115,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `synth_bake` | Render every synth_audio recipe whose sound is not already on disk, into generated/. | nothing |
 | `synth_survey` | Say what every song recipe in the project is made of, and count the same facts across the whole set. | nothing |
 | `icons` | Find an icon by a word, and answer with names — each one a string to give `asset_set` as `icon` (an icon asset's `name` in the document) or write into a page. | nothing |
+| `guide` | Read one of scorsese's guides: the how-to that no tool's description has room for. | nothing |
 | `stock_search` | Search free stock footage and photos (Pixabay) or free Lottie animations (LottieFiles, kind lottie), and see the candidates before choosing. | a key and a network, but no money |
 | `stock_import` | Bring stock footage, a photo or a Lottie animation that stock_search found into the project, by its id and kind. | a key and a network, but no money |
 | `voices` | List the ElevenLabs voices a narration can be read in, or check that one still exists. | a key and a network, but no money |
@@ -1673,7 +1674,8 @@ page_read   → what it says now, before the next write
 ```
 
 How to write one well — the contract a page is drawn under, what it can load
-offline, and four worked pages — is [`pages.md`](pages.md).
+offline, and four worked pages — is [`pages.md`](pages.md), which a client
+reads with `guide pages`.
 
 ## Making sound
 
@@ -1929,6 +1931,47 @@ travels with the call rather than being remembered here, and it is derived from
 the bytes on disk — so a client that disappears mid-edit leaves nothing behind
 to time out, and a fingerprint from an hour ago means exactly what one from a
 second ago does.
+
+## The guides: `guide`
+
+Some of what an agent needs is too long for any description: the contract a
+page is drawn under, the recipe format, what a word in a prompt makes Veo do.
+That lives in `docs/`, and a description that says *read docs/pages.md* works
+only for a client sitting in a checkout of this repository. The web assistant,
+a user's own client on web MCP, and anybody running an installed build have no
+such file (#909).
+
+So the agent-facing pages are served as a tool. `guide { name }` hands back
+`pages`, `project-format`, `recipes`, `references`, `prompts`, `prices` or
+`stock`, and **each is the file itself, compiled in with `include_str!`**: no
+copy to drift, and every gate the file is held to (the format page's examples
+parsed, its animatable table held to the code, the recipe examples held to the
+parser) holds what the tool says. The developer docs are not served; they are
+about building scorsese, not about making a film with it.
+
+```
+guide  { "project": "teaser.scor", "name": "pages" }
+       → docs/pages.md, whole
+guide  { "project": "teaser.scor", "name": "recipes" }
+       → its opening, then every heading in it, numbered and sized
+guide  { "project": "teaser.scor", "name": "recipes", "section": "Writing a chord as a chord" }
+       → that section, down to the next heading at its level
+```
+
+**A long guide answers with a map.** Anything over 32 KiB (about ten thousand
+tokens) comes back as its opening and a numbered list of the headings inside
+it, and `section` — a heading's words, or its number in the list — asks for one.
+The same rule applies to a section that is itself long, so no answer is ever
+over the limit. Measured when this was built: `pages` is about 8.7k tokens and
+comes back whole, since it is the one read before every page; `recipes` (42k)
+and `project-format` (about 50k) do not, because an answer stays in the
+conversation and is paid for again on every later model call.
+
+**A pointer names the tool.** A description that sends a client to more reading
+says `` `guide pages` ``, or `` `guide pages`, section *A Lottie animation* ``,
+never a path. `tests/described.rs` refuses a description or argument that
+mentions `docs/`, and follows every pointer, so one naming a guide or a
+section that is not there fails the build.
 
 ## Every tool describes itself, and that is a gate
 
