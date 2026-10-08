@@ -41,8 +41,11 @@ pub(super) fn check(tap: &Tap) -> (Vec<Step>, u64) {
     (vec![search_step(answer)], 0)
 }
 
+/// Reads one measurement off an animation's metadata.
+type Measure = fn(&Metadata) -> Option<f64>;
+
 /// The measurements the library reads, by the name the API gives them.
-const MEASURED: [(&str, fn(&Metadata) -> Option<f64>); 4] = [
+const MEASURED: [(&str, Measure); 4] = [
     ("width", |m| m.width),
     ("height", |m| m.height),
     ("frameRate", |m| m.frame_rate),

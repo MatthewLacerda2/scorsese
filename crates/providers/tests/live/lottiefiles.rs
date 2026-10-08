@@ -11,7 +11,10 @@ use super::{parsed, refused};
 /// The captured search, as the client reads it.
 fn found() -> Connection {
     let reply: Reply<Searched> = parsed("lottiefiles/search.json");
-    reply.into_data().unwrap().found
+    reply
+        .into_data()
+        .expect("the captured search has data")
+        .found
 }
 
 fn changed(found: Connection) -> String {
