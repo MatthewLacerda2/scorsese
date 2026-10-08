@@ -81,8 +81,11 @@ use crate::tools::Tools;
 /// `scorsese.words` (#811), for the same reason `clips` was 4. 7: lottie-web
 /// shipped (#903), and every shipped file a page loads recorded with its
 /// capture — a capture from before holds no such record, so a page refused
-/// `lottie.min.js` then would otherwise keep its empty frames.
-pub const PAGE_VERSION: u32 = 7;
+/// `lottie.min.js` then would otherwise keep its empty frames. 8: a changed
+/// tile drawn again whole (`--disable-partial-raster`, #912), which moves
+/// anti-aliased edges beside an animation by a few levels and makes a frame
+/// depend on its time alone, never on the frames before it.
+pub const PAGE_VERSION: u32 = 8;
 
 /// A capture, ready to be decoded.
 #[derive(Debug, Clone, PartialEq, Eq)]
