@@ -10,14 +10,15 @@ use super::candidate::{Candidate, Medium, Orientation};
 /// What to look for.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Query {
-    /// Footage or pictures.
+    /// Footage, pictures or animations.
     pub medium: Medium,
     /// The words, as a person would type them into a stock site.
     pub words: String,
     /// `film` or `animation` for footage; `photo`, `illustration` or
     /// `vector` for pictures. `None` means `film` or `photo` — real footage
     /// and real photographs, which is what a generic shot almost always is;
-    /// Pixabay's own default mixes in animation and clip art.
+    /// Pixabay's own default mixes in animation and clip art. Animations have
+    /// no style.
     pub style: Option<String>,
     /// Only results this way round. The vendor filters pictures itself and
     /// has no such filter for footage, so footage is filtered here, by its
@@ -25,7 +26,8 @@ pub struct Query {
     pub orientation: Option<Orientation>,
     /// Only footage at least this many seconds long.
     pub min_seconds: Option<u32>,
-    /// Only results suitable for all ages.
+    /// Only results suitable for all ages, where the vendor can say:
+    /// Pixabay can, LottieFiles' public search has no such filter.
     pub safe: bool,
 }
 
@@ -161,4 +163,26 @@ pub enum StockError {
     /// The download arrived and would not import.
     #[error(transparent)]
     Import(#[from] scorsese_core::ImportError),
+
+    /// What was downloaded as a Lottie animation is not one.
+    #[error("{library}'s animation {id} did not read as a Lottie file: {said}")]
+    NotLottie {
+        /// Who sent it.
+        library: &'static str,
+        /// The id.
+        id: u64,
+        /// What the reading said.
+        said: String,
+    },
+
+    /// A Lottie asked for as an asset: it is not footage or a picture, and
+    /// is imported for a page to play instead.
+    #[error(
+        "lottie {id} is an animation a page plays, not footage or a picture: import it as \
+         a lottie, and play it from a page (docs/pages.md)"
+    )]
+    NotMedia {
+        /// The id.
+        id: u64,
+    },
 }

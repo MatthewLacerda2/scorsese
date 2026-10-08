@@ -51,12 +51,15 @@ fn picture(id: u64) -> Candidate {
     Candidate {
         medium: Medium::Image,
         id,
+        title: String::new(),
         style: "photo".into(),
         tags: vec!["sunrise".into()],
         seconds: None,
+        fps: None,
         author: "someone".into(),
         page_url: format!("https://pixabay.com/photos/id-{id}/"),
         preview_url: format!("https://cdn.example.invalid/{id}_640.jpg"),
+        motion_url: None,
         ai_generated: false,
         renditions: vec![Rendition {
             name: "large".into(),

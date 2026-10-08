@@ -2,7 +2,8 @@
 
 use schemars::JsonSchema;
 use scorsese_providers::stock::{
-    self, Candidate, Found, LICENCE, Library, Orientation, Query, cache_dir, footage, previews,
+    self, Candidate, Found, Library, Medium, Orientation, Query, cache_dir, footage, licence,
+    previews,
 };
 use scorsese_render::contact::{self, Look, MAX_FRAMES};
 use scorsese_render::{Tools, frames};
@@ -13,7 +14,7 @@ use crate::tools::args::{self, ProjectDir};
 use crate::tools::scratch::Scratch;
 use crate::tools::{Costs, Part, Reply, Tool};
 
-/// Searching Pixabay.
+/// Searching Pixabay, or LottieFiles for animations.
 pub(crate) struct Search;
 
 /// What `stock_search` takes.
@@ -23,24 +24,27 @@ struct Arguments {
     /// What to find, in plain words as a stock site takes them: "city at
     /// night", "hands typing on a laptop", "cat asleep". English finds the most.
     query: Option<String>,
-    /// video (the default) for footage, image for photos and illustrations.
-    #[schemars(extend("enum" = ["video", "image"]))]
+    /// video (the default) for footage, image for photos and illustrations,
+    /// lottie for an animation from LottieFiles — a character, a mascot, an
+    /// animated icon or illustration — which a page plays.
+    #[schemars(extend("enum" = ["video", "image", "lottie"]))]
     kind: Option<String>,
     /// Only results this way round. For a vertical edit, vertical; footage
     /// is filtered by its measured size, since Pixabay cannot filter it.
     #[schemars(extend("enum" = ["horizontal", "vertical"]))]
     orientation: Option<String>,
     /// film or animation for video (default film); photo, illustration or
-    /// vector for image (default photo).
+    /// vector for image (default photo). Not for lottie.
     style: Option<String>,
-    /// Only footage at least this many seconds long.
+    /// Only footage, or animations, at least this many seconds long.
     min_seconds: Option<u32>,
     /// Which page of results, from 1. Each page is five results, one sheet.
     page: Option<u32>,
-    /// Only results suitable for all ages. Default true.
+    /// Only results suitable for all ages. Default true. LottieFiles has no
+    /// such filter, so it does nothing for lottie.
     safe: Option<bool>,
-    /// A video id from an earlier search to look through instead of
-    /// searching: five frames across the whole shot, from its smallest file,
+    /// A video or lottie id from an earlier search (with its kind) to look
+    /// through instead of searching: five frames across the whole of it,
     /// before importing it. Nothing is imported.
     look: Option<u64>,
 }
@@ -62,10 +66,17 @@ impl Arguments {
                 ));
             }
         };
+        let medium = super::medium(self.kind.as_deref())?;
+        let style = args::given(self.style.as_deref()).map(ToOwned::to_owned);
+        if medium == Medium::Lottie && style.is_some() {
+            return Err(String::from(
+                "`style` is for video and image; leave it out for lottie",
+            ));
+        }
         Ok(Query {
-            medium: super::medium(self.kind.as_deref())?,
+            medium,
             words: words.to_owned(),
-            style: args::given(self.style.as_deref()).map(ToOwned::to_owned),
+            style,
             orientation,
             min_seconds: self.min_seconds,
             safe: self.safe.unwrap_or(true),
@@ -79,19 +90,27 @@ impl Tool for Search {
     }
 
     fn description(&self) -> &'static str {
-        "Search Pixabay's free stock footage and photos, and see the candidates \
-         before choosing. FREE — no money, no quote — so for a generic shot (a \
-         city at night, hands on a keyboard, a sunrise, an office, a cat asleep) \
-         reach for this before generate, and keep generate for shots that have \
-         to be unique. Answers five results a page, each with its id, length, \
-         largest size, tags and Pixabay page, and ONE contact sheet of their \
-         previews numbered in order: look at it, because tags alone pick the \
-         wrong shot. For a video, pass look with its id to see five frames \
-         across the whole shot before importing. Then stock_import the chosen \
-         id. Results come from Pixabay and are cached for 24 hours. The \
-         Pixabay Content License allows commercial use with no attribution; \
-         identifiable people, logos or brands in a commercial video may need \
-         consent, which is the user's to get."
+        "Search free stock footage and photos (Pixabay) or free Lottie \
+         animations (LottieFiles, kind lottie), and see the candidates before \
+         choosing. FREE — no money, no quote — so for a generic shot (a city at \
+         night, hands on a keyboard, a sunrise, an office, a cat asleep) reach \
+         for this before generate, and keep generate for shots that have to be \
+         unique. For a character, mascot, animated icon or illustration in \
+         motion (a cat waving hello, a rocket taking off, a check mark ticking) \
+         search kind lottie: free, transparent, vector, and usually the right \
+         call, since it cannot be drawn well in code. A Lottie is not footage: \
+         stock_import writes it under pages/ and an html page plays it with \
+         the shipped lottie-web (docs/pages.md, A Lottie animation). Answers \
+         five results a page, each with its id, length, largest size, and \
+         tags or title, and ONE contact sheet of their previews numbered in \
+         order: look at it, because words alone pick the wrong one. For a \
+         video or a lottie, pass look with its id and kind to see five frames \
+         across the whole of it before importing. Then stock_import the chosen \
+         id with the same kind. Results are cached for 24 hours. Pixabay's \
+         licence allows commercial use with no attribution (identifiable \
+         people, logos or brands may need consent, the user's to get); \
+         LottieFiles' Lottie Simple License allows commercial use and \
+         changes, attribution encouraged."
     }
 
     fn costs(&self) -> Costs {
@@ -105,18 +124,19 @@ impl Tool for Search {
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let arguments: Arguments = args::parse(arguments)?;
         let cache = cache_dir(arguments.project.dir());
-        let library = super::library()?;
         if let Some(id) = arguments.look {
-            return looked(&cache, &library, id);
+            let medium = super::medium(arguments.kind.as_deref())?;
+            return looked(&cache, &*super::library(medium)?, medium, id);
         }
         let query = arguments.query()?;
-        let found = stock::search(&cache, &library, &query, arguments.page.unwrap_or(1))
+        let library = super::library(query.medium)?;
+        let found = stock::search(&cache, &*library, &query, arguments.page.unwrap_or(1))
             .map_err(|error| format!("{error}"))?;
-        let mut text = listed(&found);
+        let mut text = listed(&found, query.medium);
         if found.candidates.is_empty() {
             return Ok(text.into());
         }
-        match sheet(&cache, &library, &found.candidates, query.orientation) {
+        match sheet(&cache, &*library, &found.candidates, query.orientation) {
             Ok(png) => Ok(vec![Part::picture(text, &png)].into()),
             Err(why) => {
                 text.push_str(&format!("\n(No sheet of previews: {why}.)"));
@@ -128,7 +148,7 @@ impl Tool for Search {
 
 /// The results in words — everything the sheet shows, for a client that
 /// cannot see it.
-fn listed(found: &Found) -> String {
+fn listed(found: &Found, medium: Medium) -> String {
     let mut lines: Vec<String> = found
         .candidates
         .iter()
@@ -150,11 +170,18 @@ fn listed(found: &Found) -> String {
     }
     lines.push(format!("\n{}", found.summary()));
     if !found.candidates.is_empty() {
-        lines.push(String::from(
-            "Import with stock_import (kind and id); look through a video first with \
-             look: <id>.",
-        ));
-        lines.push(LICENCE.to_owned());
+        lines.push(String::from(match medium {
+            Medium::Lottie => {
+                "Import with stock_import (kind lottie and id): it lands under pages/ as \
+                 lottie-<id>.json, for an html page to play with lottie-web (docs/pages.md, \
+                 A Lottie animation). Look through one first with look: <id>."
+            }
+            Medium::Video | Medium::Image => {
+                "Import with stock_import (kind and id); look through a video first with \
+                 look: <id>."
+            }
+        }));
+        lines.push(licence(medium).to_owned());
     }
     lines.join("\n")
 }
@@ -189,9 +216,21 @@ fn png(tools: &Tools, image: &scorsese_render::Frame) -> Result<Vec<u8>, String>
     std::fs::read(&file.path).map_err(|error| format!("reading the sheet back: {error}"))
 }
 
-/// Five frames across video `id`, from its smallest file.
-fn looked(cache: &std::path::Path, library: &dyn Library, id: u64) -> Result<Reply, String> {
-    let (candidate, file) = footage(cache, library, id).map_err(|error| format!("{error}"))?;
+/// Five frames across video or animation `id`: a video's smallest file, an
+/// animation's own MP4 of itself.
+fn looked(
+    cache: &std::path::Path,
+    library: &dyn Library,
+    medium: Medium,
+    id: u64,
+) -> Result<Reply, String> {
+    if medium == Medium::Image {
+        return Err(String::from(
+            "look is for a video or a lottie (pass its kind); a photo is all in its preview",
+        ));
+    }
+    let (candidate, file) =
+        footage(cache, library, medium, id).map_err(|error| format!("{error}"))?;
     let tools = Tools::discover().map_err(|error| format!("{error}"))?;
     let seconds = f64::from(candidate.seconds.unwrap_or_default());
     let range = Look {
@@ -205,13 +244,15 @@ fn looked(cache: &std::path::Path, library: &dyn Library, id: u64) -> Result<Rep
         .map(|at| contact::label(*at))
         .collect();
     let text = format!(
-        "{}\n   by {} — {}\nFrames at {} of its {:.0}s, from Pixabay's smallest file of it. \
-         Import with stock_import (kind video, id {id}).",
+        "{}\n   by {} — {}\nFrames at {} of its {:.0}s, from {}'s smallest file of it. \
+         Import with stock_import (kind {}, id {id}).",
         candidate.says(),
         candidate.author,
         candidate.page_url,
         moments.join(", "),
         sheet.duration_seconds,
+        library.name(),
+        medium.word(),
     );
     Ok(vec![Part::picture(text, &png(&tools, &sheet.image)?)].into())
 }

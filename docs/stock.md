@@ -1,9 +1,10 @@
-# Stock footage and photos — before a shot is generated
+# Stock footage, photos and animations — before a shot is generated
 
 A shot comes from one of three places: the user's own footage, a paid
 generation (`generate`, `docs/prompts.md`, `docs/prices.md`), or **free stock**
 from Pixabay (#900). This page is about the third, and about when it is the
-right call.
+right call — and about its sibling, **free animations** from LottieFiles
+(#903), at the end.
 
 ## When stock, when a generation
 
@@ -71,3 +72,43 @@ quotes.
   modification with no attribution, but not reselling the media as-is.
   Identifiable people, logos or brands in a commercial video may need their
   consent, which is the user's responsibility.
+
+## Animations: Lottie from LottieFiles
+
+A character, a mascot, an animated icon or illustration — a cat waving hello, a
+rocket taking off, a check mark ticking — is the kind of thing an agent cannot
+draw well in a page and a generation charges for every time. LottieFiles hosts
+a very large library of them, made by artists: free, transparent, vector (sharp
+at any size) and seconds to place. **Reach for one first** when the idea is an
+illustration in motion rather than a filmed shot.
+
+1. **`stock_search` with `kind: lottie`** (`scorsese stock search --lottie`):
+   five a page, each with its id, title, length, frame rate and size, and the
+   same one contact sheet of their previews. `look: <id>` (with
+   `kind: lottie`) shows five frames across it from LottieFiles' own video of
+   it playing.
+2. **`stock_import` with `kind: lottie`** (`scorsese stock import --lottie`):
+   the animation's JSON is written **beside the pages**, as
+   `pages/lottie-<id>.json`. It is **not an asset** and is never placed by
+   itself: a page loads it and plays it with the shipped lottie-web, driven
+   from the page's clock, and the page goes on the timeline (`docs/pages.md`,
+   *A Lottie animation*, has the page to copy). Beside the pages rather than in
+   `assets/` because that is where a page's own files live, in a `.scor`
+   folder and on the web alike.
+
+**No key at all**: LottieFiles answers its public search anonymously. Results
+are cached 24 hours beside Pixabay's, in `cache/stock/`.
+
+**The licence** (Lottie Simple License) allows commercial use and changes —
+recolouring one to a brand colour is a page concern (`docs/pages.md`) —
+with attribution encouraged and not required. It forbids redistributing the
+files on their own or gathering them into a library or competing service, which
+is why scorsese **never ships one**: an animation is downloaded into one project
+when it is used, which is what the licence permits. Premium animations are not
+in the public search and are out of reach.
+
+**Limits worth knowing.** On the web a project keeps the files beside its pages
+up to 1 MB each, so a heavier animation (one with many pictures embedded)
+cannot be kept there; the import says so. A Lottie that names pictures it does
+not carry is rare, and the import names them. dotLottie (`.lottie`) files are
+not used: the plain JSON is enough.

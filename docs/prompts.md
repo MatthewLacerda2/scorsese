@@ -17,7 +17,9 @@ it.
 
 **Before a prompt is written at all**, ask whether the shot needs to be
 generated: a generic shot — a sunrise, a city at night, an office — is free
-from stock, and `docs/stock.md` says when that is the right call.
+from stock, and `docs/stock.md` says when that is the right call. A character,
+a mascot, an animated icon or illustration is usually a free Lottie from
+LottieFiles (`stock_search` with `kind: lottie`), played by a page.
 
 Everything below is Veo, because that is what has been generated so far.
 ElevenLabs entries belong on this page too, when there are some.

@@ -91,6 +91,8 @@ enum Sign {
     Header(&'static str),
     /// As this query parameter.
     Query(&'static str),
+    /// Nowhere: the API is public and takes no key — LottieFiles' (#903).
+    Anonymous,
 }
 
 /// A caller that can reach a vendor's API.
@@ -134,6 +136,18 @@ impl Caller {
         Self {
             sign: Sign::Query(parameter),
             ..Self::new(parameter, key)
+        }
+    }
+
+    /// A caller that sends no key at all — for a public API that asks for
+    /// none, LottieFiles' search (#903). Everything else about a request is
+    /// what a keyed caller's is.
+    pub fn anonymous() -> Self {
+        Self {
+            sign: Sign::Anonymous,
+            key: String::new(),
+            extra: Vec::new(),
+            tap: None,
         }
     }
 
@@ -194,6 +208,7 @@ impl Caller {
         let request = match self.sign {
             Sign::Header(header) => request.header(header, &self.key),
             Sign::Query(parameter) => request.query(parameter, &self.key),
+            Sign::Anonymous => request,
         };
         self.extra.iter().fold(request, |request, (header, value)| {
             request.header(*header, value)

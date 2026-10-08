@@ -6,10 +6,13 @@
 //! **The slot is named by what was asked**: the page's path, the raster, the
 //! rate, the clock's length, the browser's version, [`super::PAGE_VERSION`] and
 //! the shipped fonts. **Its contents are checked against what was loaded**: the
-//! page itself and every file it asked for, by hash, recorded while it ran. A
-//! page edited, or a picture it shows replaced, finds its slot holding a stale
+//! page itself and every file it asked for, by hash, recorded while it ran —
+//! the shipped libraries at `https://lib.scorsese/` among them, checked
+//! against what this build serves. A page edited, a picture it shows
+//! replaced, or a library it loads upgraded finds its slot holding a stale
 //! capture, which is captured again in place — so editing a page does not grow
-//! the cache by a capture per edit.
+//! the cache by a capture per edit, and upgrading lottie-web draws again only
+//! the pages that load it.
 //!
 //! **A slot also keeps pieces** (#809): a capture of only some of the page's
 //! frames — the few around a still, or a clip's stretch from its `source_in`
@@ -59,7 +62,7 @@ const SHELVES: usize = 8;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct Record {
     /// Every project file the page loaded, by path, with its hash — `None` for
-    /// one it asked for and did not find.
+    /// one it asked for and did not find — and every shipped file, by its URL.
     pub(crate) loaded: BTreeMap<String, Option<String>>,
     /// What the capture warned about, said again whenever it is reused.
     pub(crate) warnings: Vec<String>,
@@ -133,7 +136,11 @@ pub(super) fn read_fresh(
     }
     let record: Record = serde_json::from_slice(&std::fs::read(record).ok()?).ok()?;
     let unchanged = record.loaded.iter().all(|(path, hash)| {
-        let now = hash_file(&project_root.join(path)).ok();
+        let now = if super::origin::record_key(path).is_some() {
+            super::origin::shipped_hash(path)
+        } else {
+            hash_file(&project_root.join(path)).ok()
+        };
         &now == hash
     });
     (unchanged && record.told.holds_for(request)).then_some(record)
@@ -324,7 +331,7 @@ mod tests {
         let fresh = |request: &Request| fresh(&slot, &root, request).map(|(_, record)| record);
         assert_eq!(fresh(&at(1.0)), None, "no record, no capture");
         keep(&shelf.join(RECORD), &record).unwrap();
-        assert_eq!(fresh(&at(1.0)), Some(record));
+        assert_eq!(fresh(&at(1.0)), Some(record.clone()));
         assert_eq!(fresh(&at(1.5)), None, "a clip it read has moved");
         std::fs::write(root.join("missing.png"), "now here").unwrap();
         assert_eq!(
@@ -335,6 +342,36 @@ mod tests {
         std::fs::remove_file(root.join("missing.png")).unwrap();
         std::fs::write(root.join("page.html"), "two").unwrap();
         assert_eq!(fresh(&at(1.0)), None, "an edited page is captured again");
+        std::fs::write(root.join("page.html"), "one").unwrap();
+        let mut shipped = record.clone();
+        let lottie = "https://lib.scorsese/lottie.min.js".to_owned();
+        shipped
+            .loaded
+            .insert(lottie.clone(), super::super::origin::shipped_hash(&lottie));
+        keep(&shelf.join(RECORD), &shipped).unwrap();
+        assert!(
+            fresh(&at(1.0)).is_some(),
+            "a library unchanged keeps it fresh"
+        );
+        shipped
+            .loaded
+            .insert(lottie, Some(hash_bytes(b"another lottie-web")));
+        keep(&shelf.join(RECORD), &shipped).unwrap();
+        assert_eq!(
+            fresh(&at(1.0)),
+            None,
+            "a library upgraded draws its pages again"
+        );
+        let mut refused = record.clone();
+        refused
+            .loaded
+            .insert("https://lib.scorsese/anime.min.js".into(), None);
+        keep(&shelf.join(RECORD), &refused).unwrap();
+        assert_eq!(
+            fresh(&at(1.0)),
+            None,
+            "a library refused then and served now"
+        );
         let _ = std::fs::remove_dir_all(&root);
     }
 

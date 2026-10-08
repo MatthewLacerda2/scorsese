@@ -21,6 +21,7 @@ mod grouping;
 mod guide;
 mod icons;
 mod layout_notes;
+mod lottie;
 mod output;
 mod pages;
 mod partial;

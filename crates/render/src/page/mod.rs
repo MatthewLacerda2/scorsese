@@ -64,8 +64,10 @@ use crate::error::RenderError;
 use crate::tools::Tools;
 
 /// The version of the capture method itself — the clock shim, the page
-/// contract, the flags, the shipped libraries and the file the frames are kept
-/// in — and what a capture reports. Part of every capture's cache key, so
+/// contract, the flags and the file the frames are kept in — and what a
+/// capture reports. Not the shipped libraries, from 7 on: each one a page
+/// loads is in its capture's record (`cache`'s), so changing one draws again
+/// only the pages that load it. Part of every capture's cache key, so
 /// **bump it** when any of those changes what a page's frames look like or
 /// what is said about them, and every capture is redone. 2: layout notes
 /// (#813), which a capture kept from before them would never say. 3: no
@@ -76,8 +78,11 @@ use crate::tools::Tools;
 /// shelves, which a capture kept from before them is not on. 5: tiles drawn
 /// on the CPU (`--disable-gpu-rasterization`, #874), which moves a page's
 /// pixels a little and makes an animated blur the same every capture. 6:
-/// `scorsese.words` (#811), for the same reason `clips` was 4.
-pub const PAGE_VERSION: u32 = 6;
+/// `scorsese.words` (#811), for the same reason `clips` was 4. 7: lottie-web
+/// shipped (#903), and every shipped file a page loads recorded with its
+/// capture — a capture from before holds no such record, so a page refused
+/// `lottie.min.js` then would otherwise keep its empty frames.
+pub const PAGE_VERSION: u32 = 7;
 
 /// A capture, ready to be decoded.
 #[derive(Debug, Clone, PartialEq, Eq)]

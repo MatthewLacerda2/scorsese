@@ -4,7 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use super::fetch::Choice;
 
-/// Footage or a picture: what a search looks for and what an import becomes.
+/// Footage, a picture or an animation: what a search looks for and what an
+/// import becomes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Medium {
@@ -12,6 +13,10 @@ pub enum Medium {
     Video,
     /// A still — an `image` asset once imported.
     Image,
+    /// A Lottie animation from LottieFiles (#903) — not an asset at all once
+    /// imported, but a JSON file under `pages/` that a page plays with the
+    /// shipped lottie-web.
+    Lottie,
 }
 
 impl Medium {
@@ -20,15 +25,25 @@ impl Medium {
         match self {
             Self::Video => "video",
             Self::Image => "image",
+            Self::Lottie => "lottie",
         }
     }
 
-    /// The asset kind an import of this becomes.
-    pub const fn asset_kind(self) -> scorsese_core::AssetKind {
+    /// The asset kind an import of this becomes — none for a Lottie, which a
+    /// page plays rather than a clip.
+    pub const fn asset_kind(self) -> Option<scorsese_core::AssetKind> {
         match self {
-            Self::Video => scorsese_core::AssetKind::Video,
-            Self::Image => scorsese_core::AssetKind::Image,
+            Self::Video => Some(scorsese_core::AssetKind::Video),
+            Self::Image => Some(scorsese_core::AssetKind::Image),
+            Self::Lottie => None,
         }
+    }
+
+    /// The medium a word names: `video`, `image` or `lottie`.
+    pub fn named(word: &str) -> Option<Self> {
+        [Self::Video, Self::Image, Self::Lottie]
+            .into_iter()
+            .find(|medium| medium.word() == word)
     }
 }
 
@@ -95,19 +110,32 @@ pub struct Candidate {
     pub medium: Medium,
     /// The vendor's id for it, unique within its medium.
     pub id: u64,
-    /// `film`, `animation`, `photo`, `illustration`, `vector`.
+    /// Its title, where the vendor gives one — LottieFiles does, Pixabay
+    /// does not.
+    #[serde(default)]
+    pub title: String,
+    /// `film`, `animation`, `photo`, `illustration`, `vector`; empty for a
+    /// Lottie.
     pub style: String,
     /// The vendor's words for what is in it.
     pub tags: Vec<String>,
-    /// Seconds long, for footage.
+    /// Seconds long, for footage and animations — whole, rounded.
     #[serde(default)]
     pub seconds: Option<u32>,
+    /// Frames a second, for an animation: what it was authored at, which a
+    /// page plays it at whatever the render's rate.
+    #[serde(default)]
+    pub fps: Option<u32>,
     /// Who published it.
     pub author: String,
     /// Its page at the vendor.
     pub page_url: String,
-    /// A small JPEG of it, to look at before choosing.
+    /// A small picture of it, to look at before choosing.
     pub preview_url: String,
+    /// A small video of it moving, to look through before choosing, where
+    /// that is not one of its renditions — a Lottie's MP4.
+    #[serde(default)]
+    pub motion_url: Option<String>,
     /// Whether the vendor marks it as AI-generated.
     #[serde(default)]
     pub ai_generated: bool,
@@ -136,8 +164,14 @@ impl Candidate {
     /// The line a listing prints for this candidate.
     pub fn says(&self) -> String {
         let mut line = self.named();
+        if !self.title.is_empty() {
+            line.push_str(&format!("  \"{}\"", self.title));
+        }
         if let Some(seconds) = self.seconds {
             line.push_str(&format!("  {seconds}s"));
+        }
+        if let Some(fps) = self.fps {
+            line.push_str(&format!(" at {fps} fps"));
         }
         if let Some(largest) = self.largest() {
             line.push_str(&format!("  up to {}x{}", largest.width, largest.height));
@@ -148,7 +182,9 @@ impl Candidate {
         if self.ai_generated {
             line.push_str("  AI-generated");
         }
-        line.push_str(&format!("  ({})", self.tags.join(", ")));
+        if !self.tags.is_empty() {
+            line.push_str(&format!("  ({})", self.tags.join(", ")));
+        }
         line
     }
 
@@ -167,7 +203,7 @@ impl Candidate {
 }
 
 /// Every result `text` names the way [`Candidate::says`] does — a line that
-/// begins `video 39009` or `image 7`, after its number in a listing — in the
+/// begins `video 39009`, `image 7` or `lottie 121035`, after its number in a listing — in the
 /// order they appear, once each.
 ///
 /// The inverse of a listing's words, so whoever reads a reply an agent was
@@ -182,10 +218,8 @@ pub fn named_in(text: &str) -> Vec<Choice> {
             _ => line,
         };
         let mut words = line.split_whitespace();
-        let medium = match words.next() {
-            Some("video") => Medium::Video,
-            Some("image") => Medium::Image,
-            _ => continue,
+        let Some(medium) = words.next().and_then(Medium::named) else {
+            continue;
         };
         let Some(Ok(id)) = words.next().map(str::parse::<u64>) else {
             continue;
@@ -216,12 +250,15 @@ mod tests {
         Candidate {
             medium: Medium::Video,
             id: 1,
+            title: String::new(),
             style: String::from("film"),
             tags: vec![String::from("cat")],
             seconds: Some(11),
+            fps: None,
             author: String::from("someone"),
             page_url: String::new(),
             preview_url: String::new(),
+            motion_url: None,
             ai_generated: false,
             renditions,
         }

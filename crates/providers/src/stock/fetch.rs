@@ -76,24 +76,33 @@ pub fn previews(
         .collect()
 }
 
-/// The smallest rendition of video `id`, under the cache, for a contact
-/// sheet to be taken of before anything is imported.
+/// Something of `medium` `id` that moves, under the cache, for a contact
+/// sheet to be taken of before anything is imported: a video's smallest
+/// rendition, or an animation's MP4 of itself playing. A picture has none.
 pub fn footage(
     cache: &Path,
     library: &dyn Library,
+    medium: Medium,
     id: u64,
 ) -> Result<(Candidate, PathBuf), StockError> {
-    let candidate = find(cache, library, Medium::Video, id)?;
-    let smallest = candidate.renditions.first().ok_or(StockError::NoFile {
+    let candidate = find(cache, library, medium, id)?;
+    let moving = match medium {
+        Medium::Video => candidate.renditions.first().map(|one| one.url.clone()),
+        Medium::Lottie => candidate.motion_url.clone(),
+        Medium::Image => None,
+    };
+    let url = moving.ok_or(StockError::NoFile {
         library: library.name(),
-        medium: Medium::Video,
+        medium,
         id,
     })?;
-    let path = cache.join("looks").join(format!("video-{id}.mp4"));
+    let path = cache
+        .join("looks")
+        .join(format!("{}-{id}.mp4", medium.word()));
     let path = if path.is_file() {
         path
     } else {
-        download(library, &smallest.url.clone(), LOOK_LIMIT, &path)?
+        download(library, &url, LOOK_LIMIT, &path)?
     };
     Ok((candidate, path))
 }
@@ -101,7 +110,8 @@ pub fn footage(
 /// One result to import.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Choice {
-    /// Footage or a picture.
+    /// Footage or a picture — a Lottie is not imported as an asset
+    /// ([`super::keep`]).
     pub medium: Medium,
     /// The vendor's id for it.
     pub id: u64,
@@ -156,6 +166,7 @@ fn one(
     probe: &dyn ProbeMedia,
 ) -> Result<Fetched, StockError> {
     let Choice { medium, id } = choice;
+    let kind = medium.asset_kind().ok_or(StockError::NotMedia { id })?;
     let candidate = find(cache, library, medium, id)?;
     let rendition = candidate
         .rendition_for(width, height)
@@ -168,7 +179,7 @@ fn one(
     let name = format!("pixabay-{id}.{}", extension(&rendition.url, medium));
     let limit = match medium {
         Medium::Video => VIDEO_LIMIT,
-        Medium::Image => IMAGE_LIMIT,
+        Medium::Image | Medium::Lottie => IMAGE_LIMIT,
     };
     let path = download(
         library,
@@ -176,7 +187,7 @@ fn one(
         limit,
         &cache.join("downloads").join(name),
     )?;
-    let imported = import_path(project, root, &path, Some(medium.asset_kind()), probe);
+    let imported = import_path(project, root, &path, Some(kind), probe);
     // Copied into assets/ or refused: either way the download is done with.
     let _ = std::fs::remove_file(&path);
     let imported = imported?
@@ -209,6 +220,7 @@ fn extension(url: &str, medium: Medium) -> String {
         _ => String::from(match medium {
             Medium::Video => "mp4",
             Medium::Image => "jpg",
+            Medium::Lottie => "json",
         }),
     }
 }

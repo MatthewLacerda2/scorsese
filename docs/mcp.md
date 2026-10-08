@@ -115,8 +115,8 @@ the tools relate to each other, which is knowledge no single tool has.
 | `synth_bake` | Render every synth_audio recipe whose sound is not already on disk, into generated/. | nothing |
 | `synth_survey` | Say what every song recipe in the project is made of, and count the same facts across the whole set. | nothing |
 | `icons` | Find an icon by a word, and answer with names — each one a string to give `asset_set` as `icon` (an icon asset's `name` in the document) or write into a page. | nothing |
-| `stock_search` | Search Pixabay's free stock footage and photos, and see the candidates before choosing. | a key and a network, but no money |
-| `stock_import` | Bring stock footage or a photo that stock_search found into the project, by its id, as an ordinary video or image asset. | a key and a network, but no money |
+| `stock_search` | Search free stock footage and photos (Pixabay) or free Lottie animations (LottieFiles, kind lottie), and see the candidates before choosing. | a key and a network, but no money |
+| `stock_import` | Bring stock footage, a photo or a Lottie animation that stock_search found into the project, by its id and kind. | a key and a network, but no money |
 | `voices` | List the ElevenLabs voices a narration can be read in, or check that one still exists. | a key and a network, but no money |
 | `voice_design` | Design a new ElevenLabs voice from a description, for when no voice in either list is the one the video needs. | money, at a provider |
 | `generate` | Realise the sketched briefs — the one tool here that costs money, and it quotes before it spends. | money, at a provider |
@@ -389,7 +389,7 @@ the table entry goes: an imported file stays in `assets/` and a generated one
 in `generated/`, so putting a generated asset back with the same brief costs
 nothing.
 
-## Free stock footage and photos: `stock_search`, `stock_import`
+## Free stock footage, photos and animations: `stock_search`, `stock_import`
 
 A generic shot — a city at night, a sunrise, an office, a cat asleep — does not
 need a generation. Pixabay's library has it for **$0**, under a licence that
@@ -424,10 +424,28 @@ Pixabay's rendition names; the largest there is when none does, and the reply
 says so. Several ids import in one call, and one that fails costs none of the
 others.
 
-**Free, but not offline.** Both need `PIXABAY_API_KEY` and a network; neither
-quotes. Results are cached in `cache/stock/` for 24 hours, as Pixabay asks, so
-paging and importing what a search found ask Pixabay nothing more. Photos are at
-most 1280 px wide until Pixabay grants full API access.
+**Free, but not offline.** Footage and photos need `PIXABAY_API_KEY` and a
+network; neither tool quotes. Results are cached in `cache/stock/` for 24 hours,
+as Pixabay asks, so paging and importing what a search found ask Pixabay nothing
+more. Photos are at most 1280 px wide until Pixabay grants full API access.
+
+**Animations are `kind: lottie`** (#903). A character, a mascot, an animated
+icon or illustration comes from LottieFiles' free library the same way — search,
+look at the sheet, `look` through one, import by id — with no key at all. What
+differs is what it becomes: **not an asset**, but its JSON written beside the
+pages as `pages/lottie-<id>.json`, for an `html` page to play with the shipped
+lottie-web. The page goes on the timeline; `docs/pages.md`, *A Lottie
+animation*, has the one to copy.
+
+```
+stock_search  { "project": "teaser.scor", "query": "cat waving", "kind": "lottie" }
+       → "2. lottie 121035  \"Waving kitty\"  4s at 48 fps  up to 1291x1200  (…)
+             by Kati — https://lottiefiles.com/animations/waving-kitty-cKjwAiaWqg …"
+stock_import  { "project": "teaser.scor", "id": 121035, "kind": "lottie" }
+       → "pages/lottie-121035.json — \"Waving kitty\" by Kati, 1291x1200, 192 frames
+             at 48 fps (4.00s), 118 KB — …
+             from a page in pages/ it is \"lottie-121035.json\""
+```
 
 ## Finding the symbol you meant: `icons`
 

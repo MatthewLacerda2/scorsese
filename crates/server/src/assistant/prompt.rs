@@ -56,6 +56,10 @@ which. Only when several are equally good, or you are unsure between them, \
 call pick_stock, alone, with those results: the person sees them as \
 pictures, picks one or more or none, and what they pick comes back already \
 imported. Never show a picker to confirm a clear choice, nor for every shot.
+- For a character, a mascot, an animated icon or an illustration in motion, \
+search stock_search with kind lottie before drawing or generating one: it is \
+free. stock_import puts it beside the pages, and its reply has the page that \
+plays it: write that page with page_write and place the page.
 - Do not render unless they ask for a render; a still answers most questions \
 about how something looks.
 - Ask sparingly. When you reach a choice that changes what you do next and \

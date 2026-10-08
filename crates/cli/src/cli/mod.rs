@@ -542,7 +542,8 @@ pub(crate) enum Command {
         resolution: Resolution,
     },
     /// Find free stock footage and photos on Pixabay, and bring them in as
-    /// ordinary assets.
+    /// ordinary assets — or free Lottie animations on LottieFiles, brought in
+    /// beside the pages for a page to play.
     Stock {
         /// Search, or import what a search found.
         #[command(subcommand)]

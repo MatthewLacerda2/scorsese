@@ -9,4 +9,5 @@ mod common;
 
 mod fake;
 mod importing;
+mod lottie;
 mod searching;

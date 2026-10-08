@@ -63,8 +63,10 @@ impl Tool for Write {
          scorsese.clips[id] = {start, end} places every clip beside it in the \
          page's own seconds, so time the page to the narration's clip id \
          rather than copying seconds into it; the shipped \
-         fonts are there by name and anime.js at \
-         https://lib.scorsese/anime.min.js; where it draws nothing, the tracks \
+         fonts are there by name, anime.js at \
+         https://lib.scorsese/anime.min.js and lottie-web at \
+         https://lib.scorsese/lottie.min.js, to play a Lottie stock_import \
+         wrote beside the pages; where it draws nothing, the tracks \
          below show through. Read docs/pages.md before writing one."
     }
 
