@@ -1,7 +1,7 @@
 # Stock footage, photos and animations — before a shot is generated
 
 A shot comes from one of three places: the user's own footage, a paid
-generation (`generate`, `docs/prompts.md`, `docs/prices.md`), or **free stock**
+generation (`generate`; `guide prompts` and `guide prices`), or **free stock**
 from Pixabay (#900). This page is about the third, and about when it is the
 right call — and about its sibling, **free animations** from LottieFiles
 (#903), at the end.
@@ -12,7 +12,7 @@ Reach for stock first when the shot is **generic**: a city at night, hands
 typing on a laptop, a sunrise, an office, coffee being poured, a cat asleep,
 a crowd, traffic, nature. A large share of the shots in a promotional, product
 or social video are this kind, and Pixabay covers them for **$0**. The
-cheapest Veo shot is $0.64 for 8 s (`docs/prices.md`); real users have found a
+cheapest Veo shot is $0.64 for 8 s (`guide prices`); real users have found a
 few of those a video too expensive to repeat.
 
 Generate when the shot has to be **unique**: the user's product, a specific
@@ -92,16 +92,16 @@ illustration in motion rather than a filmed shot.
    the animation's JSON is written **beside the pages**, as
    `pages/lottie-<id>.json`. It is **not an asset** and is never placed by
    itself: a page loads it and plays it with the shipped lottie-web, driven
-   from the page's clock, and the page goes on the timeline (`docs/pages.md`,
-   *A Lottie animation*, has the page to copy). Beside the pages rather than in
-   `assets/` because that is where a page's own files live, in a `.scor`
-   folder and on the web alike.
+   from the page's clock, and the page goes on the timeline (`guide pages`,
+   section "A Lottie animation", has the page to copy). Beside the pages rather
+   than in `assets/` because that is where a page's own files live, in a
+   `.scor` folder and on the web alike.
 
 **No key at all**: LottieFiles answers its public search anonymously. Results
 are cached 24 hours beside Pixabay's, in `cache/stock/`.
 
 **The licence** (Lottie Simple License) allows commercial use and changes —
-recolouring one to a brand colour is a page concern (`docs/pages.md`) —
+recolouring one to a brand colour is a page concern (`guide pages`) —
 with attribution encouraged and not required. It forbids redistributing the
 files on their own or gathering them into a library or competing service, which
 is why scorsese **never ships one**: an animation is downloaded into one project

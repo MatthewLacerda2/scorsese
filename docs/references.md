@@ -11,7 +11,8 @@ it.
 how loud, how squeezed, where the energy sits and how wide. They say nothing
 about melody, groove or timbre, which is where a score actually succeeds or
 fails (see [what the numbers cannot capture](#what-the-numbers-cannot-capture)).
-[`recipes.md`](recipes.md#how-a-bake-came-out) holds the general rule: *a metric
+[`recipes.md`](recipes.md#how-a-bake-came-out) (`guide recipes`, section
+"How a bake came out") holds the general rule: *a metric
 treated as an ear produces music that optimises the number and gets worse.*
 
 The recordings are not in the repository and never will be: they are
@@ -58,7 +59,8 @@ scale, and that is a property of the file rather than a target
 (see [the files themselves](#the-files-themselves)).
 
 **The mean a bake can reach is about −1 minus its crest.** zimmer's limiter
-holds the true peak at −1 dBTP ([recipes.md](recipes.md#effects-recipe-patch)),
+holds the true peak at −1 dBTP ([recipes.md](recipes.md#effects-recipe-patch),
+`guide recipes`, section "Effects"),
 and crest is peak minus mean, so a bake with Billie Jean's crest of 15.5 lands
 near −16.5, not −14. Chase the **crest** and the **bands**; the mean follows
 from the crest, and how loud the music sits in the video is the clip's volume
@@ -134,7 +136,8 @@ What it says, in order of size:
   only 1–3 dB more dynamic than the record. Billie Jean is a dynamic mix too, so
   aiming its crest at Techno Syndrome's would be a mistake. Over the whole file
   the gap is about 4 dB, which glue on the sum
-  ([recipes.md](recipes.md#where-an-effect-goes)) is for.
+  ([recipes.md](recipes.md#where-an-effect-goes), `guide recipes`, section
+  "Where an effect goes") is for.
 - **The loudness gap is mostly the crest and the ceiling.** At −1 dBTP and the
   record's crest, a bake lands near −17.8. The rest of the 6.7 dB is the master
   running over full scale, which zimmer will not copy.

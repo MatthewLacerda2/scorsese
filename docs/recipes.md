@@ -2422,7 +2422,8 @@ trilha.wav  vs  trilha.prev.wav
 That is the form with the most teeth. An absolute number is hard to judge — is
 −14 dBFS good? it depends entirely — and a difference is not. Over MCP the same
 two answers come back from `hear`, given `against`. What real records measure,
-and which one to hold a cue against, is [`references.md`](references.md).
+and which one to hold a cue against, is [`references.md`](references.md)
+(`guide references`).
 
 **All of it is a signal and none of it is a gate.** There is no correct
 loudness: a sting is meant to be hot, a bed under narration is meant to be far
@@ -2696,6 +2697,7 @@ never mistaken for an accurate page.
 ## Where this fits
 
 `synth_audio` is one of the three generated asset kinds — see
-[`project-format.md`](project-format.md#assets). It does not replace
+[`project-format.md`](project-format.md#assets) (`guide project-format`,
+section "Assets"). It does not replace
 `generated_audio`: that one is ElevenLabs, for **voice**. No amount of
 arithmetic will read a line of narration aloud.

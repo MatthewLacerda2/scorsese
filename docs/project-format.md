@@ -171,7 +171,7 @@ re-importing or regenerating a file is one edit in one place.
 | `created_at` | optional | When the asset joined the table, as UTC RFC 3339 (`2026-08-04T14:20:00Z`) |
 | `queued_at` | optional, generated kinds | When a provider took the request. Not the same fact as `created_at` |
 | `operation` | optional, `generated_video` | The provider's name for work in flight, while `queued` |
-| `estimated_cost_cents` | optional, prompted kinds | What realising it was *calculated* to cost, in US cents — our arithmetic, never a bill. See [prices.md](prices.md) |
+| `estimated_cost_cents` | optional, prompted kinds | What realising it was *calculated* to cost, in US cents — our arithmetic, never a bill. See [prices.md](prices.md) (`guide prices`) |
 
 ```json asset
 { "id": "shot-city", "kind": "generated_video", "state": "sketch",
@@ -288,7 +288,8 @@ Only `prompt` is required. Every field above has a default, so an absent
 nothing else.
 
 The fields are the part that can be tabulated; the sentence is not. **What
-certain words do to the shot that comes back is [`prompts.md`](prompts.md)** —
+certain words do to the shot that comes back is [`prompts.md`](prompts.md)
+(`guide prompts`)** —
 provider behaviour that cost a generation to find out, which is the half of
 this brief no schema can describe.
 
@@ -346,7 +347,8 @@ of Google's four Gemini image models. Once drawn it is a picture like any
 imported `image` — no length of its own, held for as long as its clip says, and
 moved by the same keyframes: a slow push in, a pan across a wide frame, a grade
 that turns afternoon into dusk. It is the cheapest picture scorsese can
-generate (about a sixteenth of a Veo shot, [`prices.md`](prices.md)), and
+generate (about a sixteenth of a Veo shot, [`prices.md`](prices.md),
+`guide prices`), and
 unlike a shot it is reused: the same backdrop three scenes later.
 
 ```json asset
@@ -515,13 +517,15 @@ that rendered them, and `path` pointing at a hash the recipe no longer has —
 or that this build's synthesiser no longer produces — *is* what `stale` means
 for this kind. Nothing else has to record it, and a bake that a newer
 synthesiser has superseded is redone by the next `synth bake` without anyone
-finding it first. [`recipes.md`](recipes.md) has the whole of it.
+finding it first. [`recipes.md`](recipes.md) (`guide recipes`) has the whole
+of it.
 
 The recipe is a separate file rather than inline JSON because a recipe is
 long: a song is tracks, patterns and an arrangement, and inlining one would
 bury the timeline under note lists in the document an agent reads to
 understand the edit. It also makes the edit-and-rebake loop a single-file
-diff. **What to write in one is [`recipes.md`](recipes.md).**
+diff. **What to write in one is [`recipes.md`](recipes.md)
+(`guide recipes`).**
 
 `synth_audio` does not replace `generated_audio`. That one is for voice —
 a line of narration is a sentence, and no amount of arithmetic will read it
@@ -945,7 +949,7 @@ is three ordinary characters.
 
 Shadows are not here, and native text gains no new styling: a look this
 section cannot describe is a page's to draw ([Web pages](#web-pages),
-`docs/pages.md`). Bold is
+`guide pages`). Bold is
 `weight` on a variable font, and nothing more than that: there is no `bold`
 flag, because a flag would be a second, coarser way to say a number that
 already exists.
@@ -1613,10 +1617,10 @@ second. The page is told where the clip ends on that clock — `source_in` plus
 ends on the clip's last frame.
 
 `scorsese page <id> <file>` (and the `page_write` tool) writes one in place,
-making the asset when the id is new; **[`pages.md`](pages.md) is how to write
-one well**. `scorsese import page.html` (and the `import` tool) copies a page
-into `pages/` as an `html` asset. Pages come in one at a time: a directory import passes
-them over, because a page is a document rather than media.
+making the asset when the id is new; **[`pages.md`](pages.md) (`guide pages`) is
+how to write one well**. `scorsese import page.html` (and the `import` tool)
+copies a page into `pages/` as an `html` asset. Pages come in one at a time: a
+directory import passes them over, because a page is a document rather than media.
 
 **How it renders: captured by a headless browser, then played like footage.**
 Before a render draws, each page clip is captured, or found already captured in
@@ -1671,7 +1675,7 @@ What the page can count on:
   face, the same one on every machine.
 - **anime.js 3.2.2**, at `https://lib.scorsese/anime.min.js`, and
   **lottie-web 5.13.0**, at `https://lib.scorsese/lottie.min.js`, for a Lottie
-  file the page loads (`docs/pages.md`).
+  file the page loads (`guide pages`, section "A Lottie animation").
 
 **Pages render offline.** The page is served from `https://page.scorsese/`,
 whose paths are the project's, so `../assets/photo.png` from `pages/` is the

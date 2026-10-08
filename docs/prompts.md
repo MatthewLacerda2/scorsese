@@ -39,8 +39,9 @@ Every shot in Scene 1 of the Summit film wanted a period look, and every one of
 them asked for *"shot on grainy 16mm film"*. Veo rendered the film **object**:
 sprocket holes down both edges, edge codes and frame numbers, inside the
 picture, on all three shots. The recovery was a per-clip
-[`crop`](project-format.md#showing-part-of-a-source-crop), which costs nothing
-to apply and permanently trims a frame that was bought at full size.
+[`crop`](project-format.md#showing-part-of-a-source-crop)
+(`guide project-format`, section "Showing part of a source"), which costs
+nothing to apply and permanently trims a frame that was bought at full size.
 
 Film stock, 16mm, Super 8, VHS, Polaroid — each of those is a physical thing
 the model knows how to draw, and asked for the *look* of one it may draw the
@@ -55,6 +56,7 @@ reason this is written down.
 ## Slow motion is bought, not applied
 
 A clip's [`speed`](project-format.md#playing-faster-or-slower-speed)
+(`guide project-format`, section "Playing faster or slower")
 redistributes frames that already exist — at `0.5` each source frame covers two
 timeline frames, and nothing new is invented, by design. Slow motion asked for
 in a prompt is a different thing in kind: Veo renders the motion slow, which
@@ -103,14 +105,16 @@ otherwise be made by something that has not read the rest of the cut.
 ## Veo outputs 24 fps
 
 Generated video comes back at 24 fps. A project created at the default 30 will
-[conform](project-format.md#conforming-source-fps--timeline-fps) every one of
+[conform](project-format.md#conforming-source-fps--timeline-fps)
+(`guide project-format`, section "Conforming") every one of
 those shots by repeating source frames in the 2:3 pattern — so the judder lands
 on exactly the footage that cost money, on a timeline whose rate was never
 really chosen.
 
 That is a reason to decide it: `scorsese new film.scor --fps 24` for a cut
 built mostly out of generated shots. The
-[timeline framerate](project-format.md#the-timeline-framerate) is chosen at
+[timeline framerate](project-format.md#the-timeline-framerate)
+(`guide project-format`, section "The timeline framerate") is chosen at
 project creation and is not a field edit afterwards, so it is worth a moment at
 the start rather than a rescale later.
 
@@ -288,7 +292,7 @@ section is re-read against it and re-dated. When a paid lesson contradicts it,
 the lesson is written up first and a line beside the advice points at it.
 
 The gap this page fills has a mirror image on the free side: #189 says
-`docs/recipes.md` describes how a source is *built* and never what it *sounds
+`guide recipes` describes how a source is *built* and never what it *sounds
 like*. Both are the same shape of missing. A document can specify every field
 exhaustively and still not say what putting a particular word in one of them
 does, and only one of those two omissions can be discovered without a bill.
