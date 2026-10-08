@@ -87,7 +87,7 @@ pub const RATES: &[Row] = &[
 /// Fifty: the page lists a batch column beside every standard one, picture and
 /// input alike, and every batch figure is exactly half its standard
 /// neighbour — so it is one number here rather than a second table that could
-/// drift from the first. Read on the day [`CHECKED`] names; the day a batch
+/// drift from the first. Read on the same day as the rows; the day a batch
 /// figure is not half its neighbour, this becomes a table.
 pub const BATCH_PERCENT: u64 = 50;
 

@@ -5,6 +5,12 @@
 //! [`Brief::of`]'s order, the shape, the size, and a thinking level only when
 //! the brief names one. Each request is keyed by the file its picture lands
 //! in, so an answer finds its way home without the job's order mattering.
+//!
+//! `generateContent` takes no output type, so a batched picture may come back
+//! a PNG where one drawn now is always a JPEG. It is kept under the brief's
+//! `.jpg` name all the same — that name is the cache key — and that is safe
+//! because ffmpeg, which decodes every still here, reads the bytes rather than
+//! the extension (a PNG named `.jpg` probes as `png`, checked 2026-10-08).
 
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
