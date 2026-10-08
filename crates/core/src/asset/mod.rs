@@ -23,7 +23,9 @@ use crate::stamp::Timestamp;
 use crate::text::TextStyle;
 use crate::time::{Fps, Frames};
 
-pub use image::{ImageAspect, ImageModel, ImageRequest, ImageResolution, MAX_IMAGE_REFERENCES};
+pub use image::{
+    ImageAspect, ImageModel, ImageRequest, ImageResolution, ImageThinking, ReferenceKind,
+};
 pub(crate) use kind::is_page_path;
 pub use kind::{AssetKind, GenerationState};
 pub use sequence::{ImageSequence, SEQUENCE_FORMATS};

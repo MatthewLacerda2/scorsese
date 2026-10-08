@@ -168,7 +168,7 @@ mod tests {
 
     fn project() -> Project {
         Project::from_json(
-            r#"{ "schema_version": 45, "name": "T", "timeline_fps": { "num": 30, "den": 1 },
+            r#"{ "schema_version": 46, "name": "T", "timeline_fps": { "num": 30, "den": 1 },
               "assets": [ { "id": "title", "kind": "text", "text": "T" } ],
               "tracks": [ { "id": "v1", "kind": "video", "clips": [
                 { "id": "c1", "asset": "title", "start": 0, "duration": 30 },

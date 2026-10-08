@@ -1,5 +1,5 @@
 {
-  "schema_version": 45,
+  "schema_version": 46,
   "name": "counter",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [

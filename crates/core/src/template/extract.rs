@@ -172,7 +172,7 @@ fn needed(project: &Project, shown: impl Iterator<Item = AssetId>) -> BTreeSet<A
             pending.extend(brief.images().cloned());
         }
         if let Some(brief) = &asset.image {
-            pending.extend(brief.reference_images.iter().cloned());
+            pending.extend(brief.references().cloned());
         }
         if let Some(sequence) = &asset.sequence {
             pending.extend(sequence.stills.iter().cloned());
