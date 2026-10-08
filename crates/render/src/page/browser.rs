@@ -35,6 +35,17 @@ pub const CHROME_ENV: &str = "SCORSESE_CHROME";
 ///   two captures of the same page, and none with this flag, over four
 ///   browsers at once. It is also the faster path: 55 against 60 ms a frame at
 ///   640×360, 182 against 235 at 1080p.
+/// - `--disable-partial-raster`: a tile that changed is drawn again whole,
+///   never only its changed part over the picture it held before. Drawn in
+///   part, a frame depended on the frames before it: the changed region of an
+///   animated `box-shadow` ended inside the anti-aliased edge of the box beside
+///   it, so one moment of a looping glow was drawn one way in one cycle and
+///   another way in the next, and which way varied from one capture to the
+///   next. #912 measured 77 of 240 frames unlike the same moment a cycle
+///   earlier, and about one capture in eight parting from another for 50
+///   frames; with this flag every frame equals the one a cycle before it, and
+///   no capture parted in RUNS_TBD runs. So a frame is a function of its time
+///   alone, which the cache and a capture split into pieces both rest on.
 /// - Not here, but added at launch when the sandbox is off: `--no-sandbox`
 ///   (see [`NO_SANDBOX`]).
 /// - `--hide-scrollbars`: a page taller than the frame must not grow a bar.
@@ -56,6 +67,7 @@ const FLAGS: &[&str] = &[
     "--use-angle=swiftshader",
     "--enable-unsafe-swiftshader",
     "--disable-gpu-rasterization",
+    "--disable-partial-raster",
     "--hide-scrollbars",
     "--no-first-run",
     "--mute-audio",
