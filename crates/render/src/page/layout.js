@@ -14,6 +14,14 @@
 // Precision over recall throughout: text that is hidden, transparent or too
 // faint to read is skipped, and anything positioned out of its box on purpose
 // is not checked against that box.
+//
+// Each line is measured as much of it as can be seen: cut to the boxes that
+// clip it (`overflow` other than visible, and an `inset()` clip-path), so a
+// word a mask has slid out of view says nothing, and one half out is measured
+// by the half in. A clip edge at or past the frame's is left to the frame
+// checks, which say more about it. Masks (`mask-image`), SVG clip paths and
+// clip-path shapes other than `inset()` are not read: text under one is
+// measured whole.
 (margin) => {
   const W = innerWidth;
   const H = innerHeight;
@@ -70,6 +78,66 @@
     const inset = Math.max(0, (rect.height - size) / 2);
     return { left: rect.left, right: rect.right, top: rect.top + inset, bottom: rect.bottom - inset };
   };
+  const meet = (a, b) => ({
+    left: Math.max(a.left, b.left), right: Math.min(a.right, b.right),
+    top: Math.max(a.top, b.top), bottom: Math.min(a.bottom, b.bottom),
+  });
+  const EVERYWHERE = { left: -Infinity, right: Infinity, top: -Infinity, bottom: Infinity };
+  const CLIPPING = ["hidden", "clip", "scroll", "auto"];
+  // The box `inset(t r b l)` leaves of `el`, or everywhere for any other shape.
+  const insetOf = (el, clipPath, box) => {
+    const inner = clipPath.match(/^inset\(([^)]*)\)/);
+    if (!inner) return EVERYWHERE;
+    const values = inner[1].split(/\s+round\s+/)[0].trim().split(/\s+/);
+    if (values.some((v) => !/^-?[\d.]+(px|%)$/.test(v))) return EVERYWHERE;
+    const [t, r = t, b = t, l = r] = values;
+    // Lengths are in the element's own pixels; its box may be scaled.
+    const scale = el.offsetWidth > 0 ? box.width / el.offsetWidth : 1;
+    const length = (v, along) => parseFloat(v) * (v.endsWith("%") ? along / 100 : scale);
+    return {
+      left: box.left + length(l, box.width), right: box.right - length(r, box.width),
+      top: box.top + length(t, box.height), bottom: box.bottom - length(b, box.height),
+    };
+  };
+  // What `el` clips its own content to.
+  const ownClip = (el, style) => {
+    const box = el.getBoundingClientRect();
+    let clip = insetOf(el, style.clipPath, box);
+    if (CLIPPING.includes(style.overflowX)) clip = meet(clip, { ...EVERYWHERE, left: box.left, right: box.right });
+    if (CLIPPING.includes(style.overflowY)) clip = meet(clip, { ...EVERYWHERE, top: box.top, bottom: box.bottom });
+    return clip;
+  };
+  const transformed = (style) =>
+    style.transform !== "none" || style.filter !== "none" || style.perspective !== "none";
+  // Where the content of `el` can be seen: its own clip and its clipping
+  // ancestors'. An `overflow` clips only what it contains, so past a box placed
+  // absolutely the walk skips ancestors until its containing block (a fixed
+  // box's is a transformed ancestor, or the frame). `body` and the root are
+  // not read: their overflow is the frame's.
+  const seen = new Map();
+  const visibleArea = (el) => {
+    if (seen.has(el)) return seen.get(el);
+    let area = EVERYWHERE;
+    let escaped = null;
+    for (let at = el; at && at !== document.body && at !== document.documentElement; at = at.parentElement) {
+      const style = getComputedStyle(at);
+      const holds = escaped === null || transformed(style) ||
+        (escaped === "absolute" && style.position !== "static");
+      if (holds) escaped = null;
+      area = meet(area, holds ? ownClip(at, style) : insetOf(at, style.clipPath, at.getBoundingClientRect()));
+      if (escaped === null && ["absolute", "fixed"].includes(style.position)) escaped = style.position;
+    }
+    area = {
+      left: area.left <= SLACK ? -Infinity : area.left,
+      right: area.right >= W - SLACK ? Infinity : area.right,
+      top: area.top <= SLACK ? -Infinity : area.top,
+      bottom: area.bottom >= H - SLACK ? Infinity : area.bottom,
+    };
+    seen.set(el, area);
+    return area;
+  };
+  const visible = (lines, el) => lines.map((line) => meet(line, visibleArea(el)))
+    .filter((r) => r.right > r.left && r.bottom > r.top);
 
   // Blocks of text: the text nodes under one box, together.
   const blocks = new Map();
@@ -83,7 +151,8 @@
     const range = document.createRange();
     range.selectNodeContents(node);
     const size = parseFloat(style.fontSize);
-    const lines = [...range.getClientRects()].filter((r) => r.width > 0 && r.height > 0).map((r) => trimmed(r, size));
+    const measured = [...range.getClientRects()].filter((r) => r.width > 0 && r.height > 0).map((r) => trimmed(r, size));
+    const lines = visible(measured, parent);
     if (!lines.length) continue;
     let block = parent;
     while (!isBox(block) && block.parentElement) block = block.parentElement;
@@ -98,8 +167,9 @@
     const style = getComputedStyle(text);
     const box = text.getBoundingClientRect();
     if (!text.textContent.trim() || style.visibility !== "visible" || box.width <= 0 || box.height <= 0) continue;
-    const line = trimmed(box, parseFloat(style.fontSize));
-    blocks.set(text, { text: text.textContent, lines: [line], opacity: opacity(text), svg: true });
+    const lines = visible([trimmed(box, parseFloat(style.fontSize))], text);
+    if (!lines.length) continue;
+    blocks.set(text, { text: text.textContent, lines, opacity: opacity(text), svg: true });
   }
 
   const items = [];
@@ -148,10 +218,7 @@
     for (let j = i + 1; j < legible.length; j++) {
       const [a, b] = [legible[i], legible[j]];
       if (a.block.contains(b.block) || b.block.contains(a.block)) continue;
-      const clash = a.lines.flatMap((p) => b.lines.map((q) => ({
-        left: Math.max(p.left, q.left), right: Math.min(p.right, q.right),
-        top: Math.max(p.top, q.top), bottom: Math.min(p.bottom, q.bottom),
-      }))).find((r) => r.right - r.left > 2 && r.bottom - r.top > 2);
+      const clash = a.lines.flatMap((p) => b.lines.map((q) => meet(p, q))).find((r) => r.right - r.left > 2 && r.bottom - r.top > 2);
       if (!clash) continue;
       const message = `the texts ${a.name} and ${b.name} overlap`;
       const at = [clash.left, clash.top, clash.right, clash.bottom].map(Math.round).join(",");
