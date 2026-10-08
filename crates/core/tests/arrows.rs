@@ -10,7 +10,7 @@ use scorsese_core::{Curve, Geometry, Heads, Project, Shape};
 
 /// One arrow asset, with the two optional fields left out.
 const TERSE: &str = r##"{
-  "schema_version": 45,
+  "schema_version": 46,
   "name": "arrows",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [

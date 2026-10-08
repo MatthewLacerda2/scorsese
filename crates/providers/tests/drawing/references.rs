@@ -74,3 +74,40 @@ fn a_sheet_still_a_sketch_waits_for_the_next_run() {
     );
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// Objects go first, then characters; and the kind is never sent, so moving a
+/// picture from one kind to another is the same request and draws nothing.
+#[test]
+fn every_kind_is_sent_in_order_and_the_kind_is_not_the_brief() {
+    let (dir, mut project, id) = sketched("kinds", "the hero holding the cup");
+    for (name, bytes) in [("cup", "a cup"), ("hero", "a face")] {
+        write(&dir, &format!("assets/{name}.png"), bytes);
+        project.assets.push(Asset::imported(
+            AssetId::new(name),
+            AssetKind::Image,
+            ProjectPath::new(format!("assets/{name}.png")),
+        ));
+    }
+    asset_mut(&mut project, &id).image = Some(ImageRequest {
+        reference_images: vec![AssetId::new("cup")],
+        character_images: vec![AssetId::new("hero")],
+        ..ImageRequest::default()
+    });
+    let provider = Mock::willing();
+    generate(&mut project, &dir, &provider, Budget::unlimited(0)).expect("a run");
+    let sent: Vec<Vec<u8>> = provider.drawn.borrow()[0]
+        .reference_images
+        .iter()
+        .map(|still| still.bytes.clone())
+        .collect();
+    assert_eq!(sent, vec![b"a cup".to_vec(), b"a face".to_vec()]);
+
+    naming(&mut project, &id, &["cup", "hero"]);
+    generate(&mut project, &dir, &provider, Budget::unlimited(0)).expect("a run");
+    assert_eq!(
+        provider.requests(),
+        1,
+        "the same pictures, in the same order"
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}

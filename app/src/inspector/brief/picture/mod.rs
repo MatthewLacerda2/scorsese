@@ -3,17 +3,21 @@
 //!
 //! The third brief, beside [`shot`](super::shot) and [`line`](super::line),
 //! and kept apart from both for [`super`]'s reason. Its one constraint is shown
-//! the way theirs are: the cheaper model draws one size, so on that model the
-//! size is not offered — it says `1K — the only size lite draws` instead.
+//! the way theirs are: a model is offered only the sizes and shapes it draws,
+//! and Lite, which draws one size, says `1K — the only size lite draws`
+//! instead. Changing the model puts back to its default any size, shape or
+//! thinking level the new one would refuse.
 //!
 //! **References are listed, not picked.** Which pictures a still is drawn
 //! from is a structured choice — a character sheet, two props — and the rule
 //! for the window is that anything with structure to it is a sentence to an
-//! assistant. So the panel says what they are and leaves choosing them to that.
+//! assistant. So the panel says what they are, by kind, and leaves choosing
+//! them to that.
 
 use egui::{ComboBox, Grid, RichText, TextEdit, Ui};
 use scorsese_core::{
     Asset, AssetId, AssetKind, ImageAspect, ImageModel, ImageRequest, ImageResolution, Project,
+    ReferenceKind,
 };
 
 use crate::inspector::Inspector;
@@ -84,6 +88,15 @@ impl Inspector {
                     if request.resolution.is_some_and(|size| !model.supports(size)) {
                         request.resolution = None;
                     }
+                    if !model.draws(request.aspect) {
+                        request.aspect = ImageAspect::default();
+                    }
+                    if request
+                        .thinking
+                        .is_some_and(|level| !model.thinking_levels().contains(&level))
+                    {
+                        request.thinking = None;
+                    }
                 });
             }
             let sizes: Vec<ImageResolution> = ImageResolution::ALL
@@ -105,27 +118,42 @@ impl Inspector {
                     request_of(asset).resolution = Some(size);
                 });
             }
-            if let Some(aspect) = choose(
-                ui,
-                "Aspect",
-                request.aspect,
-                &ImageAspect::ALL,
-                ImageAspect::as_str,
-            ) {
+            let aspects: Vec<ImageAspect> = ImageAspect::ALL
+                .into_iter()
+                .filter(|aspect| request.model.draws(*aspect))
+                .collect();
+            if let Some(aspect) =
+                choose(ui, "Aspect", request.aspect, &aspects, ImageAspect::as_str)
+            {
                 self.attempt_brief(open, selected, &brief.asset, "the aspect", move |asset| {
                     request_of(asset).aspect = aspect;
                 });
             }
         });
 
-        let references = &request.reference_images;
-        let said = if references.is_empty() {
-            String::from("No reference images")
-        } else {
-            let names: Vec<&str> = references.iter().map(AssetId::as_str).collect();
-            format!("Drawn from {}", names.join(", "))
-        };
-        ui.label(RichText::new(said).weak().small());
+        let mut said: Vec<String> = ReferenceKind::ALL
+            .into_iter()
+            .filter_map(|kind| {
+                let named = request.references_of(kind);
+                let names: Vec<&str> = named.iter().map(AssetId::as_str).collect();
+                (!names.is_empty()).then(|| format!("{}: {}", kind_word(kind), names.join(", ")))
+            })
+            .collect();
+        if said.is_empty() {
+            said.push(String::from("No reference images"));
+        }
+        for line in said {
+            ui.label(RichText::new(line).weak().small());
+        }
+    }
+}
+
+/// What a kind of reference is called in the panel.
+fn kind_word(kind: ReferenceKind) -> &'static str {
+    match kind {
+        ReferenceKind::Object => "Objects",
+        ReferenceKind::Character => "Characters",
+        ReferenceKind::Style => "Style",
     }
 }
 

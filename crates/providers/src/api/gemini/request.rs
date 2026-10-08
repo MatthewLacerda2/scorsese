@@ -2,7 +2,8 @@
 //!
 //! Snake case throughout, which is the Interactions API's own spelling — unlike
 //! Veo's `predictLongRunning`, which is camel case. Checked against the curl
-//! examples on Google's image-generation page, 2026-10-02.
+//! examples on Google's image-generation page, 2026-10-02, and its thinking
+//! levels' `generation_config` on 2026-10-08.
 
 use serde::Serialize;
 
@@ -15,6 +16,10 @@ pub struct Create {
     pub input: Vec<Input>,
     /// What to send back: a picture, its type, shape and size.
     pub response_format: ResponseFormat,
+    /// How the model works before it draws; absent leaves every choice to the
+    /// model's own default.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub generation_config: Option<GenerationConfig>,
     /// Whether Google keeps the interaction to continue it later. Always
     /// `false`: scorsese never continues one — a new brief is a new drawing,
     /// and the vendor keeping a user's prompts and pictures for nothing is a
@@ -58,6 +63,14 @@ pub struct ResponseFormat {
     pub image_size: &'static str,
 }
 
+/// How the model works before it draws.
+#[derive(Debug, Clone, Serialize)]
+pub struct GenerationConfig {
+    /// `minimal`, `medium` or `high` — which of them a model takes is
+    /// [`scorsese_core::ImageModel::thinking_levels`].
+    pub thinking_level: &'static str,
+}
+
 /// The wire shape, spelled out, because a shape the compiler accepts and the
 /// endpoint does not is only caught by a test that writes the JSON down.
 #[cfg(test)]
@@ -84,6 +97,7 @@ mod tests {
                 aspect_ratio: "16:9",
                 image_size: "2K",
             },
+            generation_config: None,
             store: false,
         };
         assert_eq!(
@@ -103,5 +117,27 @@ mod tests {
                 "store": false,
             })
         );
+    }
+
+    #[test]
+    fn a_thinking_level_rides_in_the_generation_config() {
+        let body = Create {
+            model: "gemini-nano-banana-2.1",
+            input: vec![Input::Text {
+                text: String::from("a lighthouse"),
+            }],
+            response_format: ResponseFormat {
+                kind: "image",
+                mime_type: "image/jpeg",
+                aspect_ratio: "8:1",
+                image_size: "1K",
+            },
+            generation_config: Some(GenerationConfig {
+                thinking_level: "high",
+            }),
+            store: false,
+        };
+        let sent = serde_json::to_value(&body).unwrap();
+        assert_eq!(sent["generation_config"], json!({"thinking_level": "high"}));
     }
 }

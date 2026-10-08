@@ -52,7 +52,7 @@ pub fn still() -> ImageRequest {
         model: ImageModel::Flash,
         resolution: Some(ImageResolution::K05),
         aspect: ImageAspect::Square,
-        reference_images: Vec::new(),
+        ..ImageRequest::default()
     }
 }
 

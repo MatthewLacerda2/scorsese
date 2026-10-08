@@ -179,9 +179,10 @@ pub struct UnpricedImage {
 /// **What it counts:** the picture, at the published per-picture price for its
 /// size; every reference picture, at the 1,120 tokens Gemini 3 reads one as;
 /// and the prompt, at a token per four characters. **What it does not:** any
-/// thinking or text the model writes back ($3 a million on the full model) —
-/// at the default `minimal` thinking that is a fraction of a cent, and it is
-/// the one part no request can fix in advance. Rounded up to the cent, once,
+/// thinking or text the model writes back — $3 a million on Flash and $7.50 on
+/// Nano Banana 2.1, whose default is `medium`, so a thousand tokens of thought
+/// is under a cent there — because it is the one part no request can fix in
+/// advance. Rounded up to the cent, once,
 /// so the ceiling is never crossed a fraction at a time.
 pub fn image(
     request: &ImageRequest,

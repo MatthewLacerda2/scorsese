@@ -9,7 +9,7 @@ use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use scorsese_core::{ImageModel, ImageResolution};
 
-use crate::api::gemini::request::{Create, Input, ResponseFormat};
+use crate::api::gemini::request::{Create, GenerationConfig, Input, ResponseFormat};
 use crate::api::gemini::{Gemini, Model};
 use crate::credentials::Secret;
 
@@ -63,8 +63,10 @@ impl ImageProvider for GeminiProvider {
 /// Which model id a brief's model is.
 pub(crate) fn model_of(model: ImageModel) -> Model {
     match model {
+        ImageModel::NanoBanana21 => Model::NanoBanana21,
         ImageModel::Flash => Model::Flash,
         ImageModel::Lite => Model::Lite,
+        ImageModel::Pro => Model::Pro,
     }
 }
 
@@ -79,7 +81,10 @@ pub(crate) const fn size_of(resolution: ImageResolution) -> &'static str {
     }
 }
 
-/// The brief as the vendor's request body: the prompt, then each reference.
+/// The brief as the vendor's request body: the prompt, then each reference —
+/// objects, characters, styles, in that order, which is the order
+/// [`Brief::of`] read them in. A thinking level goes only when the brief names
+/// one, so a brief that leaves it to the model sends what it always sent.
 pub(crate) fn create(brief: &Brief) -> Create {
     let mut input = vec![Input::Text {
         text: brief.prompt.clone(),
@@ -97,6 +102,9 @@ pub(crate) fn create(brief: &Brief) -> Create {
             aspect_ratio: brief.request.aspect.as_str(),
             image_size: size_of(brief.request.size()),
         },
+        generation_config: brief.request.thinking.map(|level| GenerationConfig {
+            thinking_level: level.as_str(),
+        }),
         store: false,
     }
 }

@@ -1,4 +1,4 @@
-# `project.json` — schema v45
+# `project.json` — schema v46
 
 The contract between the CLI, the MCP server and the GUI — the contract *now*,
 not across time. It is meant to be hand-written: an agent should be able to
@@ -30,6 +30,7 @@ carries forward) up to this one.
 | v42 → v43 | the `image_sequence` kind and its `sequence` block (#462) | nothing: a kind was added with a block only it carries, and the stills it plays are ordinary `image` assets, so every v42 document passes through and only its version moves |
 | v43 → v44 | the `html` kind and the `pages/` directory (#774) | nothing: a kind was added that no v43 document can contain, with no block of its own — a page is a `path` like any file's — so every v43 document passes through and only its version moves |
 | v44 → v45 | a shot's `standard` tier and `4k` resolution (#891) | nothing: two values were added to fields that already existed, and every tier and raster a v44 shot names is the same one at the same price, so every v44 document passes through and only its version moves |
+| v45 → v46 | stills at parity with Google's image models (#893): `nano_banana_2.1` (the new default) and `pro`, the four long strips, `thinking`, and references split into `reference_images` (objects), `character_images` and `style_images` | two rewrites, so every still asks for what it did: a still that named no model is written out as `"model": "flash"`, the old default; and a `flash` still's references past the tenth move to `character_images`, the same pictures in the same order. Neither moves a brief's fingerprint, so nothing already drawn turns `stale` |
 
 A complete worked example lives in
 `crates/core/tests/fixtures/narrated_teaser.json`.
@@ -38,7 +39,7 @@ A complete worked example lives in
 
 ```json project
 {
-  "schema_version": 45,
+  "schema_version": 46,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -165,7 +166,7 @@ re-importing or regenerating a file is one edit in one place.
 | `sequence` | `image_sequence` | The stills it plays in order, how many frames each is held, and whether it loops — see below |
 | `note` | optional | Why this asset is what it is. Never rendered — see above |
 | `video` | optional, `generated_video` only | The rest of the brief: `model`, `resolution`, `seconds`, `aspect`, `first_image`, `last_image`, `reference_images` — see below |
-| `image` | optional, `generated_image` only | The rest of the brief: `model`, `resolution`, `aspect`, `reference_images` — see below |
+| `image` | optional, `generated_image` only | The rest of the brief: `model`, `resolution`, `aspect`, `thinking`, `reference_images`, `character_images`, `style_images` — see below |
 | `speech` | optional, `generated_audio` only | The rest of the brief: `model`, `voice_id`, `language`, `seed` — see below |
 | `created_at` | optional | When the asset joined the table, as UTC RFC 3339 (`2026-08-04T14:20:00Z`) |
 | `queued_at` | optional, generated kinds | When a provider took the request. Not the same fact as `created_at` |
@@ -340,40 +341,55 @@ a generation, so the refusal stays until one is paid for (#928).
 
 ### What a generated still asks for
 
-A `generated_image` is a still that does not exist yet: a prompt, drawn by
-Gemini 3.1 Flash Image ("Nano Banana 2") or its Lite sibling. Once drawn it is
-a picture like any imported `image` — no length of its own, held for as long as
-its clip says, and moved by the same keyframes: a slow push in, a pan across a
-wide frame, a grade that turns afternoon into dusk. It is the cheapest picture
-scorsese can generate (about a tenth of a Veo shot, [`prices.md`](prices.md)),
-and unlike a shot it is reused: the same backdrop three scenes later.
+A `generated_image` is a still that does not exist yet: a prompt, drawn by one
+of Google's four Gemini image models. Once drawn it is a picture like any
+imported `image` — no length of its own, held for as long as its clip says, and
+moved by the same keyframes: a slow push in, a pan across a wide frame, a grade
+that turns afternoon into dusk. It is the cheapest picture scorsese can
+generate (about a sixteenth of a Veo shot, [`prices.md`](prices.md)), and
+unlike a shot it is reused: the same backdrop three scenes later.
 
 ```json asset
 { "id": "hero-running", "kind": "generated_image", "state": "sketch",
   "note": "the chase opens on this; she must read as the same woman as the sheet",
   "prompt": "the woman from the reference, mid-stride across a wet rooftop at dusk, wide",
-  "image": { "model": "flash", "resolution": "2K", "aspect": "16:9",
-             "reference_images": ["hero-sheet"] } }
+  "image": { "model": "nano_banana_2.1", "resolution": "2K", "aspect": "16:9",
+             "character_images": ["hero-sheet"] } }
 ```
 
 | Field | Values | Default |
 | --- | --- | --- |
-| `model` | `flash`, `lite` | `flash` |
-| `resolution` | `0.5K`, `1K`, `2K`, `4K` | `2K` on `flash`, `1K` on `lite` |
-| `aspect` | `16:9`, `9:16`, `1:1`, `4:3`, `3:4`, `3:2`, `2:3`, `5:4`, `4:5`, `21:9` | `16:9` |
-| `reference_images` | up to 14 asset ids, each an `image` or a `generated_image` | — |
+| `model` | `nano_banana_2.1`, `flash`, `lite`, `pro` | `nano_banana_2.1` |
+| `resolution` | `0.5K`, `1K`, `2K`, `4K` | `2K`; `1K` on `lite` |
+| `aspect` | `16:9`, `9:16`, `1:1`, `4:3`, `3:4`, `3:2`, `2:3`, `5:4`, `4:5`, `21:9`, `4:1`, `1:4`, `8:1`, `1:8` | `16:9` |
+| `thinking` | `minimal`, `medium`, `high` | the model's own: `medium` on `nano_banana_2.1`, `minimal` on `flash` and `lite` |
+| `reference_images` | asset ids of **objects** to include faithfully — a product, a logo, a place | — |
+| `character_images` | asset ids of **characters** to keep looking like themselves | — |
+| `style_images` | asset ids of a **style** to draw in | — |
 
 Only `prompt` is required, and an absent `image` means every default. Every
 field — and the bytes of every reference — is hashed into the brief with the
-sentence, so editing any of them makes the asset `stale`. Writing the default
-size out explicitly is the same brief as leaving it out.
+sentence, so editing any of them makes the asset `stale`. Writing a default out
+explicitly (the size, the thinking level) is the same brief as leaving it out,
+and so is moving a reference from one kind to another: the vendor is never told
+the kind, so the request is the same.
+
+**Which model.** Speed is not a factor; quality against price per picture is,
+and what a model cannot do decides the rest. As Google documents them, read
+2026-10-08:
+
+| Model | For | Sizes | Shapes | References at most | Thinking |
+| --- | --- | --- | --- | --- | --- |
+| `nano_banana_2.1` | the default: Google's recommended model, the best text rendering and consistency, and cheaper than `flash` at every size it draws | 1K, 2K, 4K | all 14 | 10 objects, 4 characters | `minimal`, `medium`, `high` |
+| `flash` (Nano Banana 2) | 0.5K, the cheapest test of a prompt | 0.5K, 1K, 2K, 4K | all 14 | 10 objects, 4 characters | `minimal`, `high` |
+| `lite` (Nano Banana 2 Lite) | the cheapest picture, where the money matters more | 1K | the first 10 | 14 objects | `minimal`, `high` |
+| `pro` (Nano Banana Pro) | the most complex compositions, at the highest price | 1K, 2K, 4K | the first 10 | 6 objects, 5 characters, 3 styles | none to choose |
 
 **`resolution` is the money lever**: the picture is billed per image at a price
-fixed by its size, and `4K` is over three times `0.5K`. The default is `2K`
-because a 16:9 `2K` still is 2752×1536, which covers a 1080p frame with room to
-push into; a `1K` still is enlarged before it moves. `lite` costs half and draws
-`1K` only. `aspect` is its own field rather than a consequence of the size: the
-vendor draws every aspect at every size.
+fixed by its model and size. The default is `2K` because a 16:9 `2K` still is
+2752×1536, which covers a 1080p frame with room to push into; a `1K` still is
+enlarged before it moves. `aspect` is its own field rather than a consequence
+of the size: a model draws every shape it offers at every size it offers.
 
 **The `note` is what the still is for; the `prompt` is what is sent.** Write
 the note first — *the chase opens on this*, *must match the sheet* — and the
@@ -381,15 +397,19 @@ prompt from it. The note is never sent to anybody and is not part of the brief,
 so rewording it re-bills nothing.
 
 **References keep a subject looking like itself.** Name pictures by asset id,
-as Veo's `reference_images` does. A reference may itself be a `generated_image`:
-generate one character sheet first, then name it in every still after it. It
-has to be generated before a still drawn from it can be — a `generate` call
-draws the sheet and reports the other as *not yet*, and the next call draws it.
+as Veo's `reference_images` does, in the field for their kind; they are handed
+over objects first, then characters, then styles, and the prompt says what
+each is for. A reference may itself be a `generated_image`: generate one
+character sheet first, then name it in every still after it. It has to be
+generated before a still drawn from it can be — a `generate` call draws the
+sheet and reports the other as *not yet*, and the next call draws it.
 
 | Refused | Because |
 | --- | --- |
-| a `resolution` other than `1K` on `lite` | `lite` draws one size |
-| more than 14 `reference_images` | the provider accepts fourteen |
+| a `resolution` the model does not draw | `0.5K` is `flash`'s alone; `lite` draws `1K` only |
+| `4:1`, `1:4`, `8:1` or `1:8` on `lite` or `pro` | only `nano_banana_2.1` and `flash` draw the long strips |
+| a `thinking` level the model does not offer | `medium` is `nano_banana_2.1`'s alone; `pro` offers none |
+| more references of a kind than the model takes | refused with the number, never truncated — see the table above |
 | a reference that is not an `image` or `generated_image`, or not in the table | every reference handed over is a picture |
 | a still naming itself as a reference | it could never be drawn |
 
@@ -2600,7 +2620,7 @@ compositing-suite line.
 
 ```json project
 {
-  "schema_version": 45,
+  "schema_version": 46,
   "name": "wipe",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [

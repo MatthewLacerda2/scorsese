@@ -1222,18 +1222,18 @@ Gemini's image models, narration to ElevenLabs. Like every paid tool it **quotes
 generate  { "project": "teaser.scor" }
           → "hero: $0.96 — 8s of fast at 1080p
              wide: $0.20 — 4s of lite at 720p
-             backdrop: $0.11 — a 2K 16:9 still in flash
+             backdrop: $0.06 — a 2K 16:9 still in nano_banana_2.1
              vo-open: $0.01 — 58 characters in fast
-             About $1.28 in all — our arithmetic over published rates, never a
+             About $1.23 in all — our arithmetic over published rates, never a
              bill.
              Nothing has been sent. To spend this, call generate again with the
              same arguments and confirm: "quote-9c1e…" — once whoever is paying
-             has agreed to $1.28. …"
+             has agreed to $1.23. …"
 
 generate  { "project": "teaser.scor", "confirm": "quote-9c1e…" }
           → "hero: queued — models/veo-3.1-fast…/operations/…
              …
-             About $1.28 spent on this run — our calculation, never a bill."
+             About $1.23 spent on this run — our calculation, never a bill."
 ```
 
 **Each item is quoted on its own line and never averaged.** Eight seconds of

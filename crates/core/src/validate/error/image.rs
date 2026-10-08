@@ -14,11 +14,10 @@ pub enum ImageProblem {
     /// A size the chosen model does not draw.
     ///
     /// Names the model as well as the size, because either is the thing to
-    /// change: the cheaper model draws 1K only, and a still that has to be 4K
-    /// is a still that has to be drawn by the full one.
+    /// change, and the sizes it does draw, so the fix is in the message.
     #[error(
         "asset `{asset}` asks for a {resolution} still, and the `{model}` model does not draw \
-         that size — use `flash`, or 1K"
+         that size — it draws {draws}"
     )]
     ResolutionUnsupported {
         /// The asset asking for it.
@@ -27,17 +26,57 @@ pub enum ImageProblem {
         model: &'static str,
         /// The size as written.
         resolution: &'static str,
+        /// The sizes it does draw, listed.
+        draws: String,
     },
 
-    /// More reference images than the vendor accepts.
-    #[error("asset `{asset}` names {found} reference images, and at most {max} are accepted")]
+    /// A shape the chosen model does not draw — one of the long strips, on a
+    /// model that draws only the ten common ratios.
+    #[error(
+        "asset `{asset}` asks for a {aspect} still, and the `{model}` model does not draw \
+         that shape — use `nano_banana_2.1` or `flash`, or another aspect"
+    )]
+    AspectUnsupported {
+        /// The asset asking for it.
+        asset: AssetId,
+        /// The model that cannot.
+        model: &'static str,
+        /// The ratio as written.
+        aspect: &'static str,
+    },
+
+    /// More references of one kind than the chosen model accepts.
+    ///
+    /// Refused with the number, never truncated: which picture to drop is the
+    /// editor's choice, not the sender's.
+    #[error("asset `{asset}` names {found} {field}, and the `{model}` model takes at most {max}")]
     TooManyReferenceImages {
         /// The asset naming them.
         asset: AssetId,
+        /// The model asked.
+        model: &'static str,
+        /// The field holding them: `reference_images`, `character_images` or
+        /// `style_images`.
+        field: &'static str,
         /// How many were written.
         found: usize,
-        /// How many the vendor takes.
+        /// How many the model takes, zero when it takes none of that kind.
         max: usize,
+    },
+
+    /// A thinking level the chosen model does not offer.
+    #[error(
+        "asset `{asset}` asks the `{model}` model to think at `{thinking}`, and it offers {offers}"
+    )]
+    ThinkingUnsupported {
+        /// The asset asking for it.
+        asset: AssetId,
+        /// The model that cannot.
+        model: &'static str,
+        /// The level as written.
+        thinking: &'static str,
+        /// The levels it does offer, listed, or that it offers none.
+        offers: String,
     },
 
     /// A reference named by an id that is not in the assets table.

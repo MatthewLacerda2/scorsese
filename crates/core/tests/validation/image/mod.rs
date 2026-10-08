@@ -1,5 +1,7 @@
 //! What a generated still asks for, and what the vendor will not draw.
 
+mod limits;
+
 use crate::common::{assert_only_problem, asset_id, problems, project};
 use scorsese_core::{
     Asset, AssetField, AssetKind, AssetProblem, ImageModel, ImageProblem as I, ImageRequest,
@@ -7,7 +9,7 @@ use scorsese_core::{
 };
 
 /// The fixture project with a sketched still in it, its request edited.
-fn drawing(edit: impl FnOnce(&mut ImageRequest)) -> Project {
+pub(crate) fn drawing(edit: impl FnOnce(&mut ImageRequest)) -> Project {
     let mut p = project();
     let mut still = Asset::sketch(asset_id("poster"), AssetKind::GeneratedImage, "a poster");
     let mut request = ImageRequest::default();
@@ -34,6 +36,7 @@ fn the_cheaper_model_draws_one_size_and_says_so() {
             asset: asset_id("poster"),
             model: "lite",
             resolution: "4K",
+            draws: String::from("1K"),
         },
     );
 }
@@ -85,19 +88,6 @@ fn a_reference_that_names_nothing_or_itself_is_reported() {
         &p,
         I::ReferencesItself {
             asset: asset_id("poster"),
-        },
-    );
-}
-
-#[test]
-fn a_fifteenth_reference_is_one_too_many() {
-    let p = drawing(|r| r.reference_images = vec![asset_id("logo"); 15]);
-    assert_only_problem(
-        &p,
-        I::TooManyReferenceImages {
-            asset: asset_id("poster"),
-            found: 15,
-            max: 14,
         },
     );
 }

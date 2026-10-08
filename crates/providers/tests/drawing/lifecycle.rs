@@ -26,8 +26,8 @@ fn a_sketch_becomes_a_png_in_one_call_with_no_ticket() {
     assert_eq!(asset.queued_at, None);
     assert_eq!(
         asset.estimated_cost_cents,
-        Some(11),
-        "2K on flash: 10.1¢ and input"
+        Some(6),
+        "2K on Nano Banana 2.1, the default: 5.04¢ and input"
     );
     assert!(path.resolve(&dir).is_file());
     std::fs::remove_dir_all(&dir).ok();

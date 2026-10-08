@@ -22,6 +22,8 @@
 //! is read by the strict path from then on. That keeps "this build understands
 //! v38" a statement about one version rather than about a range.
 
+mod stills;
+
 use std::path::{Path, PathBuf};
 
 use serde_json::Value;
@@ -103,6 +105,10 @@ pub(crate) const STEPS: &[Step] = &[
     Step {
         from: 44,
         apply: veo_parity_arrives,
+    },
+    Step {
+        from: 45,
+        apply: stills::stills_parity_arrives,
     },
 ];
 

@@ -42,21 +42,27 @@ const MAX_REPLY_BYTES: u64 = 256 * 1024 * 1024;
 /// Which model draws a picture: the ids the API answers to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Model {
+    /// Gemini Nano Banana 2.1.
+    NanoBanana21,
     /// Gemini 3.1 Flash Image.
     Flash,
     /// Gemini 3.1 Flash Lite Image.
     Lite,
+    /// Gemini 3 Pro Image.
+    Pro,
 }
 
 impl Model {
     /// Every model scorsese offers.
-    pub const ALL: [Self; 2] = [Self::Flash, Self::Lite];
+    pub const ALL: [Self; 4] = [Self::NanoBanana21, Self::Flash, Self::Lite, Self::Pro];
 
     /// The id the request names.
     pub const fn id(self) -> &'static str {
         match self {
+            Self::NanoBanana21 => "gemini-nano-banana-2.1",
             Self::Flash => "gemini-3.1-flash-image",
             Self::Lite => "gemini-3.1-flash-lite-image",
+            Self::Pro => "gemini-3-pro-image",
         }
     }
 }
