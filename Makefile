@@ -330,19 +330,20 @@ docs: ## [gate] cargo doc with -D warnings: a broken intra-doc link is a failure
 # the reasoning; CI gets the same from a service container.
 #
 # The pinned chrome-headless-shell joins them for the same reason (#775): the
-# page goldens capture real pages and fail without it. `tools/chromium/fetch`
-# downloads and verifies the build `tools/chromium/pin` names.
-test: ## [gate] The whole suite, golden renders and database included (needs ffmpeg, Chromium, nextest, docker)
+# page goldens capture real pages and fail without it. `tools/with-chrome`
+# supplies it the way `tools/with-postgres` supplies a database: a set
+# SCORSESE_CHROME or one on PATH wins, and otherwise `tools/chromium/fetch`
+# names the pinned build, which costs nothing once it is cached and downloads
+# and verifies it once when it is not. So no export is needed first (#907). It
+# runs inside the recipe, never as a global `$(shell …)`, so only `make test`
+# and `make coverage` ever call fetch.
+test: ## [gate] The whole suite, golden renders and database included (needs ffmpeg, nextest, docker; fetches the pinned Chromium)
 	@command -v ffmpeg >/dev/null 2>&1 || { \
 		echo "test: ffmpeg is not on PATH -- the render and golden tests need it." >&2; \
 		echo "      Install it from your package manager, or point SCORSESE_FFMPEG at a binary." >&2; \
 		exit 1; }
-	@[ -x "$${SCORSESE_CHROME:-}" ] || command -v chrome-headless-shell >/dev/null 2>&1 || { \
-		echo "test: no chrome-headless-shell -- the page goldens capture with it." >&2; \
-		echo '      export SCORSESE_CHROME="$$(tools/chromium/fetch)"' >&2; \
-		exit 1; }
 	@$(NEXTEST_CHECK)
-	tools/with-postgres cargo nextest run --workspace --locked
+	tools/with-chrome tools/with-postgres cargo nextest run --workspace --locked
 	cargo test --doc --workspace --locked
 # Last, so it is the line still on screen when the suite goes green. nextest
 # has already counted the skip; this is what makes it a sentence.
@@ -580,7 +581,7 @@ coverage: ## Which pub items no test reaches. A signal: no threshold, blocks not
 		echo "          It also needs: rustup component add llvm-tools-preview" >&2; \
 		exit 1; }
 	@mkdir -p target
-	tools/with-postgres cargo llvm-cov --workspace --locked --exclude-from-report scorsese-golden \
+	tools/with-chrome tools/with-postgres cargo llvm-cov --workspace --locked --exclude-from-report scorsese-golden \
 		--json --output-path target/coverage.json
 	python3 .github/scripts/coverage-summary.py target/coverage.json
 

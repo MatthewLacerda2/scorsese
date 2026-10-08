@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Run a command with SCORSESE_CHROME naming the pinned chrome-headless-shell.
+#
+#   tools/with-chrome tools/with-postgres cargo nextest run --workspace --locked
+#
+# The page goldens capture real pages with that browser and fail without it
+# (#775), so `make test` runs through this. It used to refuse instead, until
+# SCORSESE_CHROME was exported by hand -- which every fresh worktree's shell had
+# forgotten, so every branch paid a failed gates run for it (#907).
+#
+# Which browser, in order:
+#
+# 1. SCORSESE_CHROME, when it is set. Used as named: an override that does not
+#    point at an executable fails here rather than falling past it to another
+#    build, for the reason crates/render/src/page/find.rs gives.
+# 2. A chrome-headless-shell on PATH, left for the tests to find themselves.
+# 3. Otherwise tools/chromium/fetch, which prints the cached pinned build and
+#    downloads nothing when it is already there, and downloads and verifies it
+#    against tools/chromium/pin when it is not. Either way the browser is the
+#    pinned one, which is what makes a page golden mean anything (#772).
+#
+# CI does not need this -- it exports SCORSESE_CHROME through $GITHUB_ENV --
+# but going through it there changes nothing, by (1).
+
+set -euo pipefail
+
+if [ -n "${SCORSESE_CHROME:-}" ]; then
+    if [ ! -x "$SCORSESE_CHROME" ]; then
+        echo "with-chrome: SCORSESE_CHROME is set but is not an executable: $SCORSESE_CHROME" >&2
+        echo "  Point it at the pinned build, or unset it and this fetches that build:" >&2
+        echo '  export SCORSESE_CHROME="$(tools/chromium/fetch)"' >&2
+        exit 1
+    fi
+    exec "$@"
+fi
+
+if command -v chrome-headless-shell >/dev/null 2>&1; then
+    exec "$@"
+fi
+
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+if ! chrome=$("$here/chromium/fetch"); then
+    echo "with-chrome: could not get the pinned chrome-headless-shell -- the page goldens" >&2
+    echo "  capture with it. tools/chromium/fetch said why, above. Once there is a build," >&2
+    echo "  name it by hand and run again:" >&2
+    echo '  export SCORSESE_CHROME="$(tools/chromium/fetch)"   # or any copy of the pinned build' >&2
+    exit 1
+fi
+export SCORSESE_CHROME=$chrome
+exec "$@"
