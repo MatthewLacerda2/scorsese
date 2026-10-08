@@ -122,13 +122,9 @@ impl Inspector {
                 .into_iter()
                 .filter(|aspect| request.model.draws(*aspect))
                 .collect();
-            if let Some(aspect) = choose(
-                ui,
-                "Aspect",
-                request.aspect,
-                &aspects,
-                ImageAspect::as_str,
-            ) {
+            if let Some(aspect) =
+                choose(ui, "Aspect", request.aspect, &aspects, ImageAspect::as_str)
+            {
                 self.attempt_brief(open, selected, &brief.asset, "the aspect", move |asset| {
                     request_of(asset).aspect = aspect;
                 });
