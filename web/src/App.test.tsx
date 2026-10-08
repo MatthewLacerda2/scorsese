@@ -1,37 +1,40 @@
-// Pages render at their URLs. Through `react-dom/server`, so no DOM: a query
-// with no seeded data stays pending and fetches nothing, and an effect (the
-// uploader) never runs — what is checked is what each page draws first.
+// Pages render at their URLs. Through `react-dom/static`'s `prerender`, so no
+// DOM: a query with no seeded data stays pending and fetches nothing, and an
+// effect (the uploader) never runs — what is checked is what each page draws
+// first. `prerender` waits for every Suspense boundary, so a lazy page (#896)
+// is rendered once its module has loaded, never as its fallback.
 
 import { expect, test } from "bun:test";
-import { renderToString } from "react-dom/server";
+import { prerender } from "react-dom/static";
 import { MemoryRouter } from "react-router";
 import { App } from "@/App";
 import type { Account, Balance, EditorProject } from "@/api";
 import { createQueryClient, ME } from "@/app/queryClient";
 
-function render(url: string, seed: (client: ReturnType<typeof createQueryClient>) => void) {
+async function render(url: string, seed: (client: ReturnType<typeof createQueryClient>) => void) {
   const client = createQueryClient();
   seed(client);
-  return renderToString(
+  const { prelude } = await prerender(
     <App
       language="en"
       queryClient={client}
       router={(routes) => <MemoryRouter initialEntries={[url]}>{routes}</MemoryRouter>}
     />,
   );
+  return new Response(prelude).text();
 }
 
 const ana: Account = { id: 1, email: "ana@example.com", created_at: 0 };
 
-test("the login page asks for an email and a password", () => {
-  const html = render("/login", (client) => client.setQueryData(ME, null));
+test("the login page asks for an email and a password", async () => {
+  const html = await render("/login", (client) => client.setQueryData(ME, null));
   expect(html).toContain('type="email"');
   expect(html).toContain('type="password"');
   expect(html).toContain("Log in");
 });
 
-test("the theme control offers Light, Dark and System, and System is the default", () => {
-  const html = render("/login", (client) => client.setQueryData(ME, null));
+test("the theme control offers Light, Dark and System, and System is the default", async () => {
+  const html = await render("/login", (client) => client.setQueryData(ME, null));
   // Each segment's pressed state, paired with its label (the text that ends the button).
   const pressed = [...html.matchAll(/aria-pressed="(\w+)".*?(\w+)<\/button>/g)].map(
     ([, on, label]) => `${label}:${on}`,
@@ -39,13 +42,15 @@ test("the theme control offers Light, Dark and System, and System is the default
   expect(pressed).toEqual(["Light:false", "Dark:false", "System:true"]);
 });
 
-test("signed in, the library sits in the shell with the balance in dollars", () => {
+test("signed in, the library sits in the shell with the balance in dollars", async () => {
   const balance: Balance = { balance_micros: 2_000_000 };
-  const html = render("/library", (client) => {
-    client.setQueryData(ME, ana);
-    client.setQueryData(["credits", "balance"], balance);
-    client.setQueryData(["library", "list", {}], []);
-  }).replaceAll(" ", " ");
+  const html = (
+    await render("/library", (client) => {
+      client.setQueryData(ME, ana);
+      client.setQueryData(["credits", "balance"], balance);
+      client.setQueryData(["library", "list", {}], []);
+    })
+  ).replaceAll(" ", " ");
   expect(html).toContain("Library");
   expect(html).toContain("$2.00");
   expect(html).not.toContain("R$");
@@ -53,8 +58,8 @@ test("signed in, the library sits in the shell with the balance in dollars", () 
   expect(html).toContain("Upload");
 });
 
-test("the projects page lists what the user has", () => {
-  const html = render("/projects", (client) => {
+test("the projects page lists what the user has", async () => {
+  const html = await render("/projects", (client) => {
     client.setQueryData(ME, ana);
     client.setQueryData(
       ["projects"],
@@ -69,7 +74,7 @@ test("the projects page lists what the user has", () => {
   expect(open).toBeLessThan(html.indexOf('href="/projects/4"'));
 });
 
-test("the editor draws the stored document: its tracks, clips and assets", () => {
+test("the editor draws the stored document: its tracks, clips and assets", async () => {
   const project: EditorProject = {
     id: 4,
     name: "teaser",
@@ -90,7 +95,7 @@ test("the editor draws the stored document: its tracks, clips and assets", () =>
       ],
     },
   };
-  const html = render("/projects/4/edit", (client) => {
+  const html = await render("/projects/4/edit", (client) => {
     client.setQueryData(ME, ana);
     client.setQueryData(["projects", "editor", 4], project);
   });
@@ -111,8 +116,8 @@ test("the editor draws the stored document: its tracks, clips and assets", () =>
   expect(html).not.toContain("Your library");
 });
 
-test("the header has room for a page's own controls, empty unless the page fills it", () => {
-  const html = render("/projects", (client) => {
+test("the header has room for a page's own controls, empty unless the page fills it", async () => {
+  const html = await render("/projects", (client) => {
     client.setQueryData(ME, ana);
   });
   const header = html.slice(html.indexOf("<header"), html.indexOf("</header>"));

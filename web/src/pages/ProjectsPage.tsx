@@ -4,9 +4,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "cn";
 import { ExternalLinkIcon, FolderOpenIcon, PlusIcon, Trash2Icon } from "lucide-react";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { api, type ProjectSummary } from "@/api";
+import { EditorPage } from "@/app/pages";
 import { useProjects } from "@/app/queries";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ import { formatDate } from "@/lib/format";
 export function ProjectsPage() {
   const projects = useProjects();
   const t = useT();
+  usePreloadEditor();
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
       <h1 className="font-heading text-2xl font-semibold">{t.common.nav.projects}</h1>
@@ -34,6 +36,23 @@ export function ProjectsPage() {
       </ul>
     </div>
   );
+}
+
+/**
+ * Fetch the editor's chunk once this page is idle, so opening a project from
+ * here does not wait on a download (#896). Safari has no `requestIdleCallback`,
+ * so there it is a short timeout instead.
+ */
+function usePreloadEditor() {
+  useEffect(() => {
+    const preload = () => void EditorPage.preload();
+    if ("requestIdleCallback" in window) {
+      const id = requestIdleCallback(preload);
+      return () => cancelIdleCallback(id);
+    }
+    const id = setTimeout(preload, 1000);
+    return () => clearTimeout(id);
+  }, []);
 }
 
 function NewProject() {

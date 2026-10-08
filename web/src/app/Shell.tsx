@@ -3,9 +3,10 @@
 // the user browses so an upload is never lost to a click. Between the nav and
 // the balance is room a page may fill with its own controls (`headerSlot.tsx`).
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { Link, NavLink, Outlet, useMatch, useNavigate } from "react-router";
 import { HeaderSlotProvider } from "@/app/headerSlot";
+import { PageFallback } from "@/app/PageFallback";
 import { useBalance } from "@/app/queries";
 import { SettingsButton } from "@/app/Settings";
 import { Button } from "@/components/ui/button";
@@ -72,7 +73,9 @@ export function Shell() {
         </header>
         <main className={editing ? "min-h-0 flex-1" : "flex-1 p-4 md:p-6"}>
           <HeaderSlotProvider value={slot}>
-            <Outlet />
+            <Suspense fallback={<PageFallback />}>
+              <Outlet />
+            </Suspense>
           </HeaderSlotProvider>
         </main>
         <UploadTray />
