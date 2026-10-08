@@ -146,3 +146,15 @@ fn every_kind_of_reference_must_name_a_picture() {
     let found = problems(&p);
     assert_eq!(found.len(), 2, "{found:?}");
 }
+
+/// A refusal names the field to edit, so the name it gives is the one
+/// `project.json` spells.
+#[test]
+fn each_kind_names_the_field_that_holds_it() {
+    for kind in ReferenceKind::ALL {
+        let mut request = scorsese_core::ImageRequest::default();
+        request.references_of_mut(kind).push(asset_id("logo"));
+        let written = serde_json::to_value(&request).expect("serialises");
+        assert!(written.get(kind.field()).is_some(), "{kind:?}: {written}");
+    }
+}
