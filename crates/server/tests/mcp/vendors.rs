@@ -66,7 +66,7 @@ impl ImageProvider for Mock {
     fn draw(&self, _: &image::Brief) -> Result<Vec<u8>, ProviderError> {
         self.drawn.fetch_add(1, Ordering::SeqCst);
         Ok(made(
-            "still.png",
+            "still.jpg",
             &["-f", "lavfi", "-i", "testsrc=s=64x36", "-frames:v", "1"],
         ))
     }

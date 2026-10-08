@@ -41,7 +41,7 @@ async fn a_still_lands_in_the_library_and_the_project(pool: PgPool) {
     assert_eq!(still.state, Some(GenerationState::Generated));
     let path = still.path.as_ref().expect("a path").as_str();
     assert!(
-        path.starts_with("generated/backdrop-") && path.ends_with(".png"),
+        path.starts_with("generated/backdrop-") && path.ends_with(".jpg"),
         "{path}"
     );
     let media = still.media.expect("measured");

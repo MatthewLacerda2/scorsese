@@ -1187,7 +1187,7 @@ generation actually cost*, so these are calculations, not receipts. That is why
 the field on the asset is called `estimated_cost_cents`.
 
 **A brief already generated is never sent again.** A generation lands at
-`generated/<asset-id>-<hash of the brief>.mp4` — `.png` for a still, `.mp3` for
+`generated/<asset-id>-<hash of the brief>.mp4` — `.jpg` for a still, `.mp3` for
 a line — and the hash covers every field of the request: for a shot or a still,
 that includes *the bytes of every picture it names*; for a line, the voice, the model, the language and the
 seed as well as the words. So calling this twice by mistake — or after a dropped

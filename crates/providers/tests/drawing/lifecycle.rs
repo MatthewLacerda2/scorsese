@@ -18,7 +18,7 @@ fn a_sketch_becomes_a_png_in_one_call_with_no_ticket() {
     let Outcome::Generated { path, .. } = &run[0].1 else {
         panic!("{:?}", run[0].1);
     };
-    assert!(path.as_str().ends_with(".png"), "{path}");
+    assert!(path.as_str().ends_with(".jpg"), "{path}");
     let asset = project.asset(&id).expect("the asset");
     assert_eq!(asset.state, Some(GenerationState::Generated));
     assert_eq!(asset.path.as_ref(), Some(path));

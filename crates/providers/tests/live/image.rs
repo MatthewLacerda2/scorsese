@@ -6,11 +6,17 @@ use scorsese_providers::live::image::{cost, picture_step};
 
 use super::{parsed, refused};
 
-/// A PNG header claiming 1024x1024 — what an ignored `image_size` gives back.
-const PNG_1K: &str = "iVBORw0KGgoAAAANSUhEUgAABAAAAAQACAIAAAA=";
+/// A JPEG frame header claiming 1024x1024 — what an ignored `image_size`
+/// gives back.
+const JPEG_1K: &str = "/9j/wAARCAQABAA=";
 
-/// The opening of a JPEG.
-const JPEG: &str = "/9j/4AAQSkZJRg==";
+/// A Huffman table, whose marker sits inside the frame markers' range without
+/// being one, ahead of a 640x360 progressive frame.
+const TABLE_THEN_FRAME: &str = "/9j/xAAHBAAEAAD/wgARCAFoAoA=";
+
+/// The opening of a 512x512 PNG: the right size, in the format the endpoint
+/// no longer draws.
+const PNG: &str = "iVBORw0KGgoAAAANSUhEUgAAAgAAAAIA";
 
 /// A reply whose one model output is this base64 picture.
 fn drawn(data: &str) -> Interaction {
@@ -29,26 +35,36 @@ fn field(answer: Interaction) -> String {
 }
 
 #[test]
-fn a_512_square_png_is_ok_and_says_so() {
+fn a_512_square_jpeg_is_ok_and_says_so() {
     let step = picture_step(Ok(parsed("gemini/interaction.json")));
     assert_eq!(step.verdict, Verdict::Ok, "{step:?}");
-    assert!(step.notes[0].starts_with("512x512 PNG"), "{:?}", step.notes);
+    assert!(
+        step.notes[0].starts_with("512x512 JPEG"),
+        "{:?}",
+        step.notes
+    );
 }
 
 /// The guess the check exists to settle: an ignored `"512"` comes back at
 /// the 1K default, billed as 0.5K, and only the picture's header shows it.
 #[test]
 fn a_picture_at_another_size_says_the_size_was_not_taken() {
-    let said = field(drawn(PNG_1K));
+    let said = field(drawn(JPEG_1K));
     assert!(
         said.contains("image_size") && said.contains("1024x1024"),
         "{said}"
     );
 }
 
+/// The size is read from the frame, never from a table that shares its range.
 #[test]
-fn a_picture_that_is_not_a_png_or_not_base64_is_a_shape_change() {
-    assert!(field(drawn(JPEG)).contains("expected a PNG"));
+fn a_table_before_the_frame_is_walked_past() {
+    assert!(field(drawn(TABLE_THEN_FRAME)).contains("640x360"));
+}
+
+#[test]
+fn a_picture_that_is_not_a_jpeg_or_not_base64_is_a_shape_change() {
+    assert!(field(drawn(PNG)).contains("expected a JPEG"));
     assert!(field(drawn("not base64!")).contains("not base64"));
 }
 

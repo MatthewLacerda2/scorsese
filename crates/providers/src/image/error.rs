@@ -1,4 +1,4 @@
-//! What can go wrong between a still in the document and a PNG in
+//! What can go wrong between a still in the document and a JPEG in
 //! `generated/` — in two types, for [`speech`](crate::speech)'s reason.
 //!
 //! [`Incomplete`] is **one still's** problem: no prompt yet, a reference not

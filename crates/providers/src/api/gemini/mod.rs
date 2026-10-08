@@ -35,7 +35,7 @@ const WAIT: Duration = Duration::from_secs(300);
 
 /// The most a reply carrying one picture is read to, in bytes.
 ///
-/// A 4K PNG is tens of megabytes and base64 adds a third; this is well above
+/// A 4K picture is tens of megabytes and base64 adds a third; this is well above
 /// that and bounds a reply that is something else entirely.
 const MAX_REPLY_BYTES: u64 = 256 * 1024 * 1024;
 

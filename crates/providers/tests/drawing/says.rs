@@ -6,11 +6,11 @@ use scorsese_providers::image::Outcome;
 
 #[test]
 fn every_still_outcome_reads_as_its_sentence() {
-    let path = || ProjectPath::new("generated/still-abc.png");
+    let path = || ProjectPath::new("generated/still-abc.jpg");
     let cases = [
         (
             Outcome::Cached { path: path() },
-            "already drawn — generated/still-abc.png",
+            "already drawn — generated/still-abc.jpg",
         ),
         (
             Outcome::Generated {
@@ -18,7 +18,7 @@ fn every_still_outcome_reads_as_its_sentence() {
                 bytes: 1234,
                 estimated_cost_cents: 2,
             },
-            "drawn — generated/still-abc.png (1234 bytes)",
+            "drawn — generated/still-abc.jpg (1234 bytes)",
         ),
         (
             Outcome::Incomplete {

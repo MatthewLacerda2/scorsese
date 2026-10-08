@@ -384,7 +384,8 @@ draws the sheet and reports the other as *not yet*, and the next call draws it.
 
 A still has no ticket: it comes back on the call that asked for it, so a
 `generated_image` is never `queued` and never carries an `operation`. It lands
-at `generated/<id>-<hash of the brief>.png`.
+at `generated/<id>-<hash of the brief>.jpg`: Gemini's image endpoint
+draws JPEGs only.
 
 ### What a spoken line asks for
 

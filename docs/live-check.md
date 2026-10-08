@@ -61,7 +61,7 @@ reply to check it against: the `interactions` endpoint and body, where the
 picture sits in the reply, and the `0.5K` size's spelling on the wire (`"512"`
 — the page writes "512px (05.K)" and never gives the value). A misspelt size
 is either refused, which costs nothing, or ignored and drawn at the 1K default;
-the check reads the PNG's header, so a picture that is not 512x512 is reported
+the check reads the JPEG's frame header, so a picture that is not 512x512 is reported
 as **shape changed** naming `image_size`.
 
 The Anthropic calls confirm the three things #540 could not: the stream's real
@@ -132,10 +132,10 @@ Every response shape scorsese parses, and where its test body came from.
 | ElevenLabs speech | bytes, an MP3 | — | nothing to parse |
 | ElevenLabs Voice Design | `api::elevenlabs::design::DesignReply` | `fixtures/elevenlabs/design.json` | hand-written |
 | ElevenLabs keep a candidate | `CreatedVoice` | — | not exercised: it leaves a voice in the account |
-| Veo model lookup | `api::veo::response::ModelInfo` | `fixtures/veo/model.json` | hand-written |
+| Veo model lookup | `api::veo::response::ModelInfo` | `fixtures/veo/model.json` | **captured** 2026-10-07 |
 | Veo submit | `Submitted` | `fixtures/veo/submitted.json` | hand-written |
 | Veo operation: running, done, failed | `Operation` | `fixtures/veo/{running,done,failed}.json` | hand-written |
-| Gemini image interaction | `api::gemini::response::Interaction` | `fixtures/gemini/interaction.json` | hand-written |
+| Gemini image interaction | `api::gemini::response::Interaction` | `fixtures/gemini/interaction.json` | **captured** 2026-10-07 (signature and picture cut down) |
 | Gemini refusals | carried whole, never parsed | inline in `tests/live/veo.rs`, `tests/live/image.rs` | hand-written |
 | Claude streams: tool use, answer, refusal, overload | `api::anthropic::stream` + `claude::Assembler` | `fixtures/anthropic/*.sse` | hand-written |
 | Anthropic refusals | carried whole, never parsed | inline in `tests/live/claude.rs` | hand-written |

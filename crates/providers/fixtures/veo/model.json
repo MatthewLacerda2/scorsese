@@ -1,7 +1,11 @@
 {
-  "_provenance": "HAND-WRITTEN from the vendor's reference, not captured from a live call. Replace it with the body `scorsese check-providers --record <dir>` writes, and drop this field - see docs/live-check.md.",
+  "_provenance": "captured by a live provider check on 2026-10-07, unedited.",
   "name": "models/veo-3.1-fast-generate-preview",
-  "displayName": "Veo 3.1 Fast",
+  "version": "3.1",
+  "displayName": "Veo 3.1 fast",
+  "description": "Veo 3.1 fast",
+  "inputTokenLimit": 480,
+  "outputTokenLimit": 8192,
   "supportedGenerationMethods": [
     "predictLongRunning"
   ]

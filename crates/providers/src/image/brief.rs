@@ -100,7 +100,7 @@ impl Brief {
     /// asset and the fingerprint, for [`video`](crate::video::Brief::output)'s
     /// reason: two stills with the same prompt are two takes.
     pub fn output(&self) -> ProjectPath {
-        ProjectPath::new(format!("{GENERATED_DIR}/{}-{}.png", self.id, self.digest()))
+        ProjectPath::new(format!("{GENERATED_DIR}/{}-{}.jpg", self.id, self.digest()))
     }
 
     /// Whether a drawing of this brief is already on disk — the answer to *has
