@@ -39,13 +39,43 @@ export interface QuoteView {
   expires_at: number;
 }
 
-/** `assistant::QuestionView` — a question the assistant asked mid-turn (#710). */
+/**
+ * `assistant::QuestionView` — a question the assistant asked mid-turn (#710),
+ * or a picker (#901): the same question with stock candidates to pick from.
+ */
 export interface QuestionView {
   question: string;
-  /** Two to four answers to pick from; the user may always write their own. */
+  /** Two to four answers to pick from; the user may always write their own. Empty on a picker. */
   options: string[];
-  /** What they answered, or `null` while it waits. */
+  /** What they answered — on a picker, the words beside their pick — or `null`. */
   answer: string | null;
+  /** A picker's candidates, in the order offered; absent on a question in words. */
+  candidates?: CandidateView[];
+  /** The keys picked, in the order shown (`[]` is none of them); absent while it waits or when answered in words. */
+  picked?: string[];
+}
+
+/**
+ * `assistant::CandidateView` — one result a picker offers (#901). `source` and
+ * `kind` say what it is (`pixabay`, `video` or `image`); every URL is the
+ * source's own, shown while the user chooses and never kept.
+ */
+export interface CandidateView {
+  /** What a pick names it by. */
+  key: string;
+  source: string;
+  kind: string;
+  id: string;
+  /** A still, for the grid. */
+  preview_url: string;
+  /** What the enlarged view shows: a video's smallest file (played muted), or a picture. */
+  look_url: string;
+  width: number;
+  height: number;
+  seconds: number | null;
+  author: string;
+  page_url: string;
+  tags: string[];
 }
 
 /** `assistant::TurnView` — one prompt and what the assistant did with it. */
@@ -148,7 +178,10 @@ export const chatApi = {
   /** Spend it, withdraw it, or withdraw it asking for `change` — one call, nothing spent. */
   answerQuote: (turnId: number, answer: QuoteAnswer) =>
     request<Answered>("POST", `/chat/turns/${turnId}/quote`, answer),
-  /** Answer the question the turn waits on: `202` with the same turn, running again. */
-  answerQuestion: (turnId: number, answer: string) =>
-    request<TurnView>("POST", `/chat/turns/${turnId}/answer`, { answer }),
+  /**
+   * Answer the question the turn waits on — or, with `picked`, its picker's
+   * candidates (`[]` is none): `202` with the same turn, running again.
+   */
+  answerQuestion: (turnId: number, answer: string, picked?: string[]) =>
+    request<TurnView>("POST", `/chat/turns/${turnId}/answer`, { answer, picked }),
 };
