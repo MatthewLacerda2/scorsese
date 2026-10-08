@@ -37,6 +37,14 @@ export interface QuoteView {
   /** What it takes from the balance, in micro-dollars. */
   micros: number;
   expires_at: number;
+  /** The call quoted its stills as a half-price batch (#947). */
+  batched?: boolean;
+  /**
+   * What the half-price batch offered beside a quote for now would take
+   * instead, in micro-dollars (#947) — the box's second yes. Absent or `null`
+   * when nothing was offered.
+   */
+  batch_micros?: number | null;
 }
 
 /**
@@ -152,8 +160,11 @@ export interface TurnDetail {
   tools: ToolCallView[];
 }
 
-/** `http::chat::QuoteAnswer` — yes, no, or a change asked for (`confirm: false`). */
-export type QuoteAnswer = { confirm: true } | { confirm: false; change?: string };
+/**
+ * `http::chat::QuoteAnswer` — yes (to the batch offered beside the quote, with
+ * `batch`), no, or a change asked for (`confirm: false`).
+ */
+export type QuoteAnswer = { confirm: true; batch?: true } | { confirm: false; change?: string };
 
 /** `assistant::Answered` — what answering a quote did. */
 export interface Answered {

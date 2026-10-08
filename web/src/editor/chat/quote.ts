@@ -1,7 +1,8 @@
 // What the quote box needs worked out before it draws (#709): a long prompt is
-// shown collapsed, and only a change with words in it can be sent.
+// shown collapsed, only a change with words in it can be sent, and a half-price
+// batch offered beside the price for now (#947) is a second yes.
 
-import type { QuoteAnswer } from "@/api/chat";
+import type { QuoteAnswer, QuoteView } from "@/api/chat";
 
 /** How much of a description shows before the expander. */
 export const PREVIEW_CHARS = 160;
@@ -19,4 +20,13 @@ export function preview(text: string, limit = PREVIEW_CHARS): { shown: string; c
 export function changeAnswer(text: string): QuoteAnswer | null {
   const change = text.trim();
   return change ? { confirm: false, change } : null;
+}
+
+/**
+ * The two prices a quote offers, in micro-dollars — now, and in the half-price
+ * batch beside it (#947) — or `null` when it offers only the one.
+ */
+export function offer(quote: QuoteView): { now: number; batch: number } | null {
+  const batch = quote.batch_micros;
+  return batch ? { now: quote.micros, batch } : null;
 }

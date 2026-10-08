@@ -86,6 +86,10 @@ export const chat = {
   },
   quote: {
     ask: (cost: string) => `This costs ${cost} from your credits. Go ahead?`,
+    choose: (now: string, batch: string) =>
+      `Now: ${now} · within 24 hours: ${batch}, half price for the stills. Which would you like?`,
+    now: (cost: string) => `Now — ${cost}`,
+    batch: (cost: string) => `Within 24 hours — ${cost}`,
     expired: "This quote has expired.",
     confirm: "Confirm",
     decline: "Decline",
