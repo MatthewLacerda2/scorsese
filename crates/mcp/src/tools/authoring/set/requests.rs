@@ -111,11 +111,11 @@ fn block(description: &str, properties: Value) -> Schema {
 /// The `video` argument's schema.
 pub(super) fn video_schema(_: &mut SchemaGenerator) -> Schema {
     block(
-        "(generated_video) The rest of the shot's brief. 1080p, reference images, \
+        "(generated_video) The rest of the shot's brief. 1080p, 4k, reference images, \
          or a first and last image together are eight seconds only.",
         serde_json::json!({
-            "model": { "enum": ["fast", "lite"], "description": "Default fast; lite costs less and takes no reference_images." },
-            "resolution": { "enum": ["720p", "1080p"] },
+            "model": { "enum": ["standard", "fast", "lite"], "description": "Default fast; standard is the full model and costs the most; lite costs less and takes no reference_images and no 4k." },
+            "resolution": { "enum": ["720p", "1080p", "4k"], "description": "Default 1080p." },
             "seconds": { "enum": [4, 6, 8] },
             "aspect": { "enum": ["16:9", "9:16"] },
             "first_image": { "type": "string", "description": "A still's asset id: the frame the shot opens on." },

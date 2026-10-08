@@ -9,10 +9,25 @@
 //!
 //! The provider's constraints are the interesting part. Several of these
 //! fields are not independent: choosing 1080p fixes the length, and choosing
-//! the cheaper tier removes reference images altogether. Those couplings are
-//! answered here, by asking the value what it supports, rather than matched on
-//! wherever a request happens to be built — so the next capability that
-//! differs between tiers has one place to land.
+//! the cheaper tier removes reference images and 4K altogether. Those
+//! couplings are answered here, by asking the value what it supports, rather
+//! than matched on wherever a request happens to be built — so the next
+//! capability that differs between tiers has one place to land.
+//!
+//! **Every option here is one Google's API sells, and every one it sells is
+//! here** (#891). Parity is the rule rather than a list of what somebody
+//! needed, because it makes upkeep mechanical: the vendor's
+//! [Veo page](https://ai.google.dev/gemini-api/docs/veo) is the checklist, and
+//! a difference between the two is either a decision written down below or
+//! something that was not maintained. Read against that page on 2026-10-08.
+//! The deliberate differences, each with its reason:
+//!
+//! - **Video extension** is not modelled: it is a new kind of request built
+//!   from a generated shot, not a new value of one, and needs its own design.
+//! - **A first and last image fix the length at eight seconds** although the
+//!   page names only 1080p, 4K and reference images. The lock predates the
+//!   page being re-read, and lifting it can only be confirmed by paying for a
+//!   generation, so it stays until somebody does.
 
 use serde::{Deserialize, Serialize};
 
@@ -29,28 +44,43 @@ pub const MAX_REFERENCE_IMAGES: usize = 3;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum VideoModel {
+    /// The full model, and the dearest by far: four times Fast's price at
+    /// 720p. For the shot that carries the film, when Fast's was not enough.
+    Standard,
     /// The default tier: the one to reach for unless there is a reason not to.
     #[default]
     Fast,
-    /// Cheaper, and less capable — see [`VideoModel::supports_reference_images`].
-    /// For shots where the picture matters less than the money.
+    /// Cheaper, and less capable — see [`VideoModel::supports_reference_images`]
+    /// and [`VideoModel::supports`]. For shots where the picture matters less
+    /// than the money.
     Lite,
 }
 
 impl VideoModel {
+    /// Every tier, dearest first.
+    pub const ALL: [Self; 3] = [Self::Standard, Self::Fast, Self::Lite];
+
     /// True when this tier accepts [`VideoRequest::reference_images`].
     ///
-    /// The one capability that differs between the tiers today, and the reason
-    /// this is a question rather than a comparison: switching a shot to the
+    /// A question rather than a comparison, because switching a shot to the
     /// cheaper tier to save money must not silently discard the images that
     /// were keeping a character looking like themselves.
     pub fn supports_reference_images(self) -> bool {
-        matches!(self, Self::Fast)
+        !matches!(self, Self::Lite)
+    }
+
+    /// True when this tier generates at `resolution`.
+    ///
+    /// Lite does not sell 4K. Asked here, for the same reason as the images:
+    /// a shot moved to Lite at 4K is refused by name, not quietly shrunk.
+    pub fn supports(self, resolution: VideoResolution) -> bool {
+        !(self == Self::Lite && resolution == VideoResolution::P4k)
     }
 
     /// The tier's name as `project.json` spells it.
     pub const fn as_str(self) -> &'static str {
         match self {
+            Self::Standard => "standard",
             Self::Fast => "fast",
             Self::Lite => "lite",
         }
@@ -59,8 +89,8 @@ impl VideoModel {
 
 /// How large the generated video comes back.
 ///
-/// Not a free number: the provider offers two, and one of them fixes the
-/// length — see [`VideoRequest::eight_second_lock`].
+/// Not a free number: the provider offers three, and all but the smallest fix
+/// the length — see [`VideoRequest::eight_second_lock`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum VideoResolution {
     /// 1280×720. The cheaper raster, and the only one that leaves the length
@@ -73,10 +103,17 @@ pub enum VideoResolution {
     #[default]
     #[serde(rename = "1080p")]
     P1080,
+    /// 3840×2160. Dearer than 1080p on every tier that sells it, and Lite does
+    /// not — see [`VideoModel::supports`]. For a cut delivered at 4K.
+    #[serde(rename = "4k")]
+    P4k,
 }
 
 impl VideoResolution {
-    /// How it is written where somebody reads it: `720p`, `1080p`.
+    /// Every raster, smallest first.
+    pub const ALL: [Self; 3] = [Self::P720, Self::P1080, Self::P4k];
+
+    /// How it is written where somebody reads it: `720p`, `1080p`, `4k`.
     ///
     /// The same spelling the format uses and the vendor takes, published once
     /// so a report, a schema and a request body cannot end up with three.
@@ -84,12 +121,13 @@ impl VideoResolution {
         match self {
             Self::P720 => "720p",
             Self::P1080 => "1080p",
+            Self::P4k => "4k",
         }
     }
 
     /// True when this raster is only generated at eight seconds.
     pub fn locks_length(self) -> bool {
-        matches!(self, Self::P1080)
+        !matches!(self, Self::P720)
     }
 }
 
@@ -175,8 +213,9 @@ impl Aspect {
 /// choices took the option away, since that is the one they might reconsider.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LengthLock {
-    /// The 1080p raster is only generated at eight seconds.
-    Resolution,
+    /// The 1080p and 4K rasters are only generated at eight seconds; this
+    /// carries which one was chosen, so the message can name it.
+    Resolution(VideoResolution),
     /// A request carrying reference images is only generated at eight seconds.
     ReferenceImages,
     /// A request interpolating between two stills is only generated at eight
@@ -188,7 +227,7 @@ impl LengthLock {
     /// The choice that fixed the length, named the way a message should say it.
     pub const fn cause(self) -> &'static str {
         match self {
-            Self::Resolution => "1080p",
+            Self::Resolution(resolution) => resolution.as_str(),
             Self::ReferenceImages => "reference images",
             Self::Interpolation => "a first and last image",
         }
@@ -243,7 +282,7 @@ impl VideoRequest {
     /// 720p is a smaller loss than giving up the images the shot is built from.
     pub fn eight_second_lock(&self) -> Option<LengthLock> {
         if self.resolution.locks_length() {
-            Some(LengthLock::Resolution)
+            Some(LengthLock::Resolution(self.resolution))
         } else if !self.reference_images.is_empty() {
             Some(LengthLock::ReferenceImages)
         } else if self.interpolates() {

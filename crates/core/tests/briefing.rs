@@ -29,6 +29,19 @@ fn a_request_is_spelled_the_way_the_page_says() {
     assert_eq!(request.aspect, Aspect::Tall);
 }
 
+#[test]
+fn the_full_tier_and_four_k_are_spelled_as_google_spells_them() {
+    let project = with_request(r#"{ "model": "standard", "resolution": "4k" }"#)
+        .expect("that is the documented spelling");
+    let request = project.assets[0].video_request();
+    assert_eq!(request.model, VideoModel::Standard);
+    assert_eq!(request.resolution, VideoResolution::P4k);
+    assert_eq!(
+        (request.model.as_str(), request.resolution.as_str()),
+        ("standard", "4k")
+    );
+}
+
 /// An absent request is every default rather than an absence — which is what
 /// lets the shortest useful brief be a sentence and nothing else.
 #[test]

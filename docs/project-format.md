@@ -1,4 +1,4 @@
-# `project.json` — schema v44
+# `project.json` — schema v45
 
 The contract between the CLI, the MCP server and the GUI — the contract *now*,
 not across time. It is meant to be hand-written: an agent should be able to
@@ -29,6 +29,7 @@ carries forward) up to this one.
 | v41 → v42 | the `generated_image` kind and its `image` block (#461) | nothing: a kind was added with a block only it carries, and a shot's stills may now name a generated still — which only admits documents v41 refused — so every v41 document passes through and only its version moves |
 | v42 → v43 | the `image_sequence` kind and its `sequence` block (#462) | nothing: a kind was added with a block only it carries, and the stills it plays are ordinary `image` assets, so every v42 document passes through and only its version moves |
 | v43 → v44 | the `html` kind and the `pages/` directory (#774) | nothing: a kind was added that no v43 document can contain, with no block of its own — a page is a `path` like any file's — so every v43 document passes through and only its version moves |
+| v44 → v45 | a shot's `standard` tier and `4k` resolution (#891) | nothing: two values were added to fields that already existed, and every tier and raster a v44 shot names is the same one at the same price, so every v44 document passes through and only its version moves |
 
 A complete worked example lives in
 `crates/core/tests/fixtures/narrated_teaser.json`.
@@ -37,7 +38,7 @@ A complete worked example lives in
 
 ```json project
 {
-  "schema_version": 44,
+  "schema_version": 45,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -273,8 +274,8 @@ asset `stale` exactly as rewording the prompt does.
 
 | Field | Values | Default |
 | --- | --- | --- |
-| `model` | `fast`, `lite` | `fast` |
-| `resolution` | `720p`, `1080p` | `1080p` |
+| `model` | `standard`, `fast`, `lite` | `fast` |
+| `resolution` | `720p`, `1080p`, `4k` | `1080p` |
 | `seconds` | `4`, `6`, `8` | `8` |
 | `aspect` | `16:9`, `9:16` | `16:9` |
 | `first_image` | a still's asset id — an `image` or a generated one | — |
@@ -310,10 +311,11 @@ message, not a round trip:
 
 | Refused | Because |
 | --- | --- |
-| `seconds` other than `8` at `1080p` | that raster is only generated at eight seconds |
+| `seconds` other than `8` at `1080p` or `4k` | those rasters are only generated at eight seconds |
 | `seconds` other than `8` with `reference_images` | likewise |
 | `seconds` other than `8` with a first **and** last image | likewise |
 | `reference_images` on `lite` | that tier does not take them |
+| `4k` on `lite` | that tier does not sell it |
 | more than 3 `reference_images` | the provider accepts three |
 | `last_image` without `first_image` | there is no journey from nowhere |
 | a still that is not an `image` or `generated_image` asset, or not in the table at all | every still handed over is a picture |
@@ -325,7 +327,16 @@ shot is built from.
 
 Switching a shot to `lite` to save money is the case to watch: it is the one
 change that can invalidate a brief rather than merely cheapen it, which is why
-it is refused rather than honoured with the images dropped.
+it is refused rather than honoured with the images dropped or the raster
+shrunk.
+
+These are Google's options, all of them: every tier and raster its
+[Veo page](https://ai.google.dev/gemini-api/docs/veo) sells is here, so that
+page is the checklist when it changes. Two differences are deliberate. Video
+extension — a longer shot grown from a generated one — is a different kind of
+request and is not modelled. And a first and last image fix the length at
+eight seconds although the page no longer says so: confirming otherwise costs
+a generation, so the refusal stays until one is paid for.
 
 ### What a generated still asks for
 
@@ -2589,7 +2600,7 @@ compositing-suite line.
 
 ```json project
 {
-  "schema_version": 44,
+  "schema_version": 45,
   "name": "wipe",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [

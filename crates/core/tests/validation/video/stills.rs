@@ -3,7 +3,7 @@
 
 use super::asking;
 use crate::common::{assert_only_problem, asset_id};
-use scorsese_core::{AssetId, AssetKind, VideoModel, VideoProblem as V};
+use scorsese_core::{AssetId, AssetKind, VideoModel, VideoProblem as V, VideoResolution};
 
 #[test]
 fn the_cheaper_tier_refuses_reference_images_rather_than_dropping_them() {
@@ -16,6 +16,31 @@ fn the_cheaper_tier_refuses_reference_images_rather_than_dropping_them() {
         V::ReferenceImagesUnsupported {
             asset: asset_id("shot-city"),
             model: "lite",
+        },
+    );
+}
+
+#[test]
+fn the_full_tier_takes_reference_images_as_fast_does() {
+    let p = asking(|r| {
+        r.model = VideoModel::Standard;
+        r.reference_images = vec![asset_id("logo")];
+    });
+    assert!(p.is_valid(), "standard takes reference images");
+}
+
+#[test]
+fn the_cheaper_tier_refuses_four_k_rather_than_shrinking_it() {
+    let p = asking(|r| {
+        r.model = VideoModel::Lite;
+        r.resolution = VideoResolution::P4k;
+    });
+    assert_only_problem(
+        &p,
+        V::ResolutionUnsupported {
+            asset: asset_id("shot-city"),
+            model: "lite",
+            resolution: "4k",
         },
     );
 }

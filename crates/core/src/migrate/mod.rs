@@ -100,6 +100,10 @@ pub(crate) const STEPS: &[Step] = &[
         from: 43,
         apply: pages_arrive,
     },
+    Step {
+        from: 44,
+        apply: veo_parity_arrives,
+    },
 ];
 
 /// v33 → v34: the `group` asset kind (#586).
@@ -220,6 +224,16 @@ fn sequences_arrive(_: &mut Value) -> Result<(), String> {
 /// `path` like any file-backed asset's — and nothing a v43 document can say
 /// changes meaning, so every v43 document reads the same at v44.
 fn pages_arrive(_: &mut Value) -> Result<(), String> {
+    Ok(())
+}
+
+/// v44 → v45: a shot's `standard` tier and `4k` resolution (#891).
+///
+/// Nothing to rewrite, for [`groups_arrive`]'s reason: two values arrived for
+/// fields that already existed, and no v44 document can hold either. Every
+/// tier and raster a v44 shot names is the same one at v45, at the same price,
+/// so every v44 document reads the same and only its version moves.
+fn veo_parity_arrives(_: &mut Value) -> Result<(), String> {
     Ok(())
 }
 

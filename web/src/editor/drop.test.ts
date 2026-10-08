@@ -15,7 +15,7 @@ const assets = [
 const project = (tracks: Track[]): EditorProject =>
   ({
     revision: 1,
-    document: { schema_version: 44, name: "t", timeline_fps: THIRTY, assets, tracks },
+    document: { schema_version: 45, name: "t", timeline_fps: THIRTY, assets, tracks },
   }) as unknown as EditorProject;
 
 /** A server that does what `track_new` and `place_clip` do, and remembers the calls. */

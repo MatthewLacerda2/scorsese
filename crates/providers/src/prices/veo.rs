@@ -2,30 +2,26 @@
 //!
 //! Laid out to be read beside <https://ai.google.dev/gemini-api/docs/pricing>
 //! and checked off row by row, which is the only way a hand-copied table stays
-//! true. That is also why it holds tiers scorsese does not offer: the artifact
-//! being audited is the vendor's price list, and a list missing rows is one
-//! nobody can tick through.
+//! true. Every row is something scorsese offers, because scorsese offers what
+//! Google sells (#891): a row here with no matching choice in
+//! [`VideoModel`](scorsese_core::VideoModel) or
+//! [`VideoResolution`](scorsese_core::VideoResolution) is a gap, not a
+//! decision.
 
 use super::checked::Checked;
 
 /// Which Veo tier a rate is for.
-///
-/// `Standard` is here because Google sells it, not because scorsese does —
-/// [`VideoModel`](scorsese_core::VideoModel) offers `Fast` and `Lite` only.
-/// Deleting the row would make this table cheaper and the audit impossible.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tier {
-    /// The full model. Not offered by scorsese.
+    /// The full model, and the dearest.
     Standard,
     /// scorsese's default.
     Fast,
-    /// Cheaper, and without reference images.
+    /// Cheaper, and without reference images or 4K.
     Lite,
 }
 
 /// Which output size a rate is for.
-///
-/// `P4k` is the same case as [`Tier::Standard`]: published, not offered.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Quality {
     /// 1280×720.
@@ -66,7 +62,7 @@ pub struct Row {
 }
 
 /// The day the table below was last checked, whole.
-const CHECKED: Checked = Checked::on(2026, 8, 4);
+const CHECKED: Checked = Checked::on(2026, 10, 8);
 
 /// A row of the table.
 const fn row(tier: Tier, quality: Quality, cents_per_second: u64) -> Row {
@@ -114,15 +110,6 @@ impl Tier {
             Self::Lite => "Veo 3.1 Lite",
         }
     }
-
-    /// Whether scorsese lets anybody choose this tier.
-    ///
-    /// Asked, never matched on at a call site — the same shape as
-    /// [`VideoModel::supports_reference_images`](scorsese_core::VideoModel::supports_reference_images),
-    /// so adding a tier is one arm here rather than a hunt through the crate.
-    pub const fn is_offered(self) -> bool {
-        !matches!(self, Self::Standard)
-    }
 }
 
 impl Quality {
@@ -134,16 +121,12 @@ impl Quality {
             Self::P4k => "4k",
         }
     }
-
-    /// Whether scorsese lets anybody choose this size.
-    pub const fn is_offered(self) -> bool {
-        !matches!(self, Self::P4k)
-    }
 }
 
 impl From<scorsese_core::VideoModel> for Tier {
     fn from(model: scorsese_core::VideoModel) -> Self {
         match model {
+            scorsese_core::VideoModel::Standard => Self::Standard,
             scorsese_core::VideoModel::Fast => Self::Fast,
             scorsese_core::VideoModel::Lite => Self::Lite,
         }
@@ -155,6 +138,7 @@ impl From<scorsese_core::VideoResolution> for Quality {
         match resolution {
             scorsese_core::VideoResolution::P720 => Self::P720,
             scorsese_core::VideoResolution::P1080 => Self::P1080,
+            scorsese_core::VideoResolution::P4k => Self::P4k,
         }
     }
 }

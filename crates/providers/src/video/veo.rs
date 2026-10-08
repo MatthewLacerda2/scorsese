@@ -76,6 +76,7 @@ impl VideoProvider for VeoProvider {
 /// through this too, so it tests the product's translation, not its own.
 pub(crate) fn model_of(brief: &Brief) -> Model {
     match brief.request.model {
+        scorsese_core::VideoModel::Standard => Model::Standard,
         scorsese_core::VideoModel::Fast => Model::Fast,
         scorsese_core::VideoModel::Lite => Model::Lite,
     }

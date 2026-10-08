@@ -109,7 +109,7 @@ fn references(
                 "not taken by {}",
                 match brief.request.model {
                     VideoModel::Lite => "Lite",
-                    VideoModel::Fast => "this model",
+                    VideoModel::Standard | VideoModel::Fast => "this model",
                 }
             ))
             .weak()
