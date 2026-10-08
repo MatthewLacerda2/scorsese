@@ -40,7 +40,8 @@ fn pictures_of_mixed_shapes_tile_letterboxed_in_order() {
     )
     .expect("a sheet of two pictures");
     let (width, height) = (sheet.resolution().width(), sheet.resolution().height());
-    assert_eq!((width, height), (960, 270));
+    // Two 480x270 cells, each with 34 rows of label under it (#919).
+    assert_eq!((width, height), (960, 270 + 34));
 
     let at = |x: u32, y: u32| {
         let index = ((y * width + x) * 4) as usize;
