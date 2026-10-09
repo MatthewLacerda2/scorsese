@@ -94,6 +94,23 @@ fn a_probed_source_framerate_round_trips_exactly() {
     assert_eq!(Project::from_json(&json).expect("reparse"), project);
 }
 
+/// A float is read back as the float that was written, to the last bit
+/// (#970). This one is a 39 747-frame bake's length, and serde_json's default
+/// parser read it back one bit high: the web compared the document it stored
+/// with the one a no-op bake wrote, saw them differ, and saved a new revision.
+#[test]
+fn a_measured_duration_reads_back_to_the_last_bit() {
+    let mut project = common::project();
+    let seconds = 39_747.0 / 44_100.0;
+    common::asset_mut(&mut project, "logo").media = Some(MediaMetadata {
+        duration_seconds: Some(seconds),
+        ..MediaMetadata::default()
+    });
+    let json = project.to_json().expect("serialise");
+    let reparsed = Project::from_json(&json).expect("reparse");
+    assert_eq!(reparsed.to_json().expect("serialise again"), json);
+}
+
 #[test]
 fn unknown_fields_are_refused() {
     let error = Project::from_json(&common::document(r#""trackz": []"#))

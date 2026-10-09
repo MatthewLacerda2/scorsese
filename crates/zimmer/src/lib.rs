@@ -474,7 +474,24 @@ pub use song::{Excerpt, PatchResolver, Song, Span, Window, render_excerpt, rende
 /// song reverb and a track delay. The map's own arithmetic is new rendering
 /// that no existing recipe can reach, and it is held to the analytic
 /// beat-to-seconds integral in `song::clock::map`'s tests instead.
-pub const SYNTH_VERSION: u32 = 7;
+///
+/// **Version 8 is a one-shot's file ending where its sound does** (#970).
+/// [`bake_note`] used to write the whole buffer the renderer had sized for the
+/// worst case — gate, release and every effect's longest tail — so a 0.1 s
+/// pop through a small room baked to 1.2 s of file. It now drops everything
+/// after the last frame within 60 dB of the peak (`core::trim`). Every patch
+/// bake on disk is a different file under the same recipe, which is the case
+/// this constant exists for, so it is bumped even though no sample that is
+/// kept moves: the trim runs after the limiter and only shortens the buffer,
+/// so the bytes before the cut are the old bytes by construction, and the
+/// diff answers it without a probe corpus. Songs are untouched — they render
+/// through `render_note` untrimmed and keep deciding their own length with
+/// `tail` — but they share the number, so a song bake misses the cache once
+/// and comes back byte-identical.
+///
+/// **rusty re-bakes** every one-shot the next time it moves its pin past this
+/// version, and gets the shorter files.
+pub const SYNTH_VERSION: u32 = 8;
 
 /// Render one note of `patch` and encode it as a stereo 16-bit PCM WAV.
 ///
@@ -483,7 +500,10 @@ pub const SYNTH_VERSION: u32 = 7;
 /// project keeps its bakes.
 ///
 /// The output is limited before encoding, always. A bake must not clip, and
-/// that is not the recipe's decision to make.
+/// that is not the recipe's decision to make. The file then ends where the
+/// sound falls 60 dB below its own peak for good, rather than where the
+/// renderer's worst-case allowance for the release and effect tails did: a
+/// clip placed for the whole of a source is as long as the file.
 pub fn bake_note(patch: &Patch, midi: f32, opts: &NoteOpts) -> Result<Bake, SynthError> {
     // Neither sections nor tracks: a one-shot is one gesture played by one
     // voice, so both tables would be the summary printed a second time.
