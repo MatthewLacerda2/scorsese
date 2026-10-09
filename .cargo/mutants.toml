@@ -218,10 +218,10 @@
 #   11 mutants in `crates/mcp/src/tools/confirm.rs` at `--jobs 2` took 9m 20s,
 #   baseline included: about 72s a mutant (35-190s to build, ~27s to test), so
 #   ~36s of wall clock each with two running. **Extrapolated, not measured:**
-#   1006 × 36s ≈ 10 hours, against the sweep's five-hour step. So the mcp week
-#   is cut short and says so (the sweep reports a truncated run as one), and
-#   cargo-mutants' shuffle means each truncated week audits a different
-#   half. #790 follows that up.
+#   1006 × 36s ≈ 10 hours, against the sweep's five-hour step. #790 split
+#   every week into four parallel shards merged back into one report, which
+#   puts mcp at ~2½ hours a shard by the same extrapolation; a shard that is
+#   still cut short says so (the sweep reports a truncated run as one).
 # - **What a request pays: nothing until it touches these paths**, and then by
 #   the size of its own diff, as above.
 examine_globs = [

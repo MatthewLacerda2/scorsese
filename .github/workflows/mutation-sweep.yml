@@ -67,11 +67,11 @@
 # in the estimate #339 worked from — so two to three times that is the honest
 # band: **seven to ten hours for the whole surface, against a six-hour job
 # limit.** A single crate at the same multiple is 2-4 hours, which fits with
-# room to spare.
+# room to spare — or did, until #760 (below, under *Shards*).
 #
 # So: **rotation, not truncation.** One crate a week, cycling, which sweeps all
-# of them every five weeks today — #339's guess of monthly, delivered in pieces
-# that fit. Three things make weekly-in-pieces better than monthly-in-one, and
+# of them every six weeks today (`mcp` made it six, #760) — #339's guess of
+# monthly, delivered in pieces that fit. Three things make weekly-in-pieces better than monthly-in-one, and
 # only the first is about the six-hour limit:
 #
 # - A monthly run would never see a warm cache. GitHub evicts a cache after
@@ -81,9 +81,10 @@
 #   evenly, but shard membership moves whenever the source does, so last
 #   month's shard 2 and this month's are not the same code and their catch
 #   rates are not comparable. A crate is the same crate. (`mutants-on-request.yml`
-#   does shard, and there is no contradiction: it reports on one request once
-#   and merges its shards back into a single report, so nothing there is ever
-#   compared to a shard of a different week.)
+#   does shard, and so does this, and there is no contradiction: both shard
+#   *one subject* — a request, or this week's whole crate — and merge the
+#   shards back into a single report before anything reads it, so no shard is
+#   ever compared to a shard of a different week. Below, under *Shards*.)
 # - Four readings a month beats one, at the same total cost.
 #
 # Before any of that, the surface is checked against the floor in
@@ -96,11 +97,35 @@
 # the job. A missing row would look like a sweep that never ran; a row with a
 # number in it would be a lie.
 #
-# If a crate ever outgrows the limit anyway, the report says so rather than
-# rounding down: cargo-mutants stamps an end time on the way out, and the
-# renderer reads a start with no end as a run that was stopped — the reading is
-# banner-marked and its history row says `cut short`. A truncated sweep
-# reporting as a complete one is the one outcome worse than no sweep.
+# ---------------------------------------------------------------------------
+# Shards: one crate, divided only in wall clock (#790)
+# ---------------------------------------------------------------------------
+#
+# One crate did outgrow it. #760 put `crates/mcp` on the surface, and each of
+# its mutants rebuilds a crate sitting on `render` and `providers`: 11 mutants
+# of `tools/confirm.rs` took 9m 20s at `--jobs 2` in a 4-core container, ~36s
+# of wall clock each. **Extrapolated, not measured:** 1006 × 36s ≈ 10 hours
+# against the five-hour step, so that week audited whichever shuffled half it
+# reached, and its history row was never over the same subject twice.
+#
+# So every week runs as `SHARDS` parallel jobs, `cargo mutants --shard k/n`
+# each, and `mutants-merge.py` puts them back together into the one run they
+# add up to before the renderer sees it — exactly what `mutants-on-request.yml`
+# does. The subject is still the whole crate, every week; only the wall clock is
+# divided, so the history column stays comparable. One `n` for every week keeps
+# this file simple: a small crate's shards just finish early, and a public
+# repository's runner minutes cost nothing. 4 puts mcp at ~250 mutants a shard,
+# ~2½ hours by the same extrapolation, under the 300-minute step with half of it
+# to spare. The first real mcp Saturday is the measurement; if it says
+# otherwise, this number is the one to change.
+#
+# If a shard outgrows the limit anyway, the report says so rather than
+# rounding down: cargo-mutants stamps an end time on the way out, the merge
+# gives the run an end only when every shard reported one, and the renderer
+# reads a start with no end as a run that was stopped — the reading is
+# banner-marked, names how many planned mutants it never reached, and its
+# history row says `cut short`. A truncated sweep reporting as a complete one is
+# the one outcome worse than no sweep.
 #
 # One caveat that belongs to `schedule:` and not to this workflow: a scheduled
 # run only ever fires from the default branch, and GitHub disables the schedule
@@ -109,10 +134,14 @@
 name: Mutation sweep
 
 on:
-  # Mondays, 04:17 UTC. Off the hour on purpose: scheduled runs pile up at the
-  # top of every hour across all of GitHub and are dispatched late when they do.
+  # Saturdays, 05:30 UTC — 02:30 in America/Fortaleza, the maintainer's call
+  # (#790), when a week's shards and their cold builds are least likely to
+  # share the account's runners with a queue of pull requests. Off the hour on purpose:
+  # scheduled runs pile up at the top of every hour across all of GitHub and are
+  # dispatched late when they do. Two days clear of the Thursday 00:00 UTC seam
+  # the rotation turns on (*This week's crate*, below).
   schedule:
-    - cron: "17 4 * * 1"
+    - cron: "30 5 * * 6"
 
   # For running one deliberately — after adding a crate to the mutated surface,
   # or to re-read one whose survivors have just been worked through.
@@ -136,28 +165,36 @@ on:
         # added to `.cargo/mutants.toml` fails the script tests until the crate
         # is added here too. A name not on the surface is refused at run time.
 
+# Read-only by default. Only the report job writes, and it runs no mutated
+# code; the shards run thousands of deliberately broken builds and have no
+# business holding a token that can edit an issue.
 permissions:
   contents: read
-  # To rewrite the tracking issue's body. Nothing else here writes anything.
-  issues: write
+  issues: read
 
 env:
   # Where the report lands: "Mutation sweep: the standing catch-rate report".
   # A number and not a search, so a sweep pointed at an issue that has been
   # closed or renamed stops and says so instead of quietly reporting nowhere.
   TRACKING_ISSUE: 341
+  # How many parallel jobs a week's crate is divided across (#790; the header's
+  # *Shards* has the arithmetic). The plan derives the matrix from it and the
+  # merge expects exactly this many, so it is written once.
+  SHARDS: 4
 
 jobs:
-  sweep:
-    name: mutation sweep (signal)
+  # Decide first, then fan out, as `mutants-on-request.yml` does: which crate,
+  # whether there is anywhere to report, whether the surface is intact and how
+  # many mutants the crate plans — all from `--list`, which builds nothing.
+  plan:
+    name: "mutation sweep: plan"
     runs-on: ubuntu-24.04
-    # Whatever happens in here — survivors, a broken flag, cargo-mutants
-    # falling over — the run stays green. Surviving mutants are a result, not a
-    # failure, and this workflow has no claim to break.
-    continue-on-error: true
-    # Under GitHub's six-hour ceiling, with the sweep step stopping earlier
-    # still (below) so there is time left to report what it did manage.
-    timeout-minutes: 330
+    timeout-minutes: 15
+    outputs:
+      crate: ${{ steps.pick.outputs.crate }}
+      collapsed: ${{ steps.surface.outputs.collapsed }}
+      in_scope: ${{ steps.scope.outputs.in_scope }}
+      matrix: ${{ steps.scope.outputs.matrix }}
     steps:
       - uses: actions/checkout@v7
 
@@ -165,7 +202,7 @@ jobs:
       # the slots out of `examine_globs` (#431). Weeks since the epoch rather
       # than an ISO week number, because `%V` has a 53rd week that would repeat
       # or skip a crate once a year. The epoch was a Thursday, so the boundary is Thursday
-      # 00:00 UTC and the Monday cron fires four days clear of it — no run can
+      # 00:00 UTC and the Saturday cron fires two days clear of it — no run can
       # land on the seam and pick the wrong side of it.
       - name: This week's crate
         id: pick
@@ -175,12 +212,12 @@ jobs:
           set -euo pipefail
           crate=$(python3 .github/scripts/mutants-rotation.py pick "${REQUESTED:-rotation}")
           echo "crate=$crate" >> "$GITHUB_OUTPUT"
-          echo "Sweeping $crate." >> "$GITHUB_STEP_SUMMARY"
+          echo "Sweeping $crate across $SHARDS shards." >> "$GITHUB_STEP_SUMMARY"
 
       # The tracking issue is the only place this run reports, so its absence
       # is the one thing here worth failing over. Checked before anything
-      # expensive: three hours of mutation with nowhere to write the answer is
-      # three hours wasted, and it would be discovered at the end.
+      # expensive: hours of mutation with nowhere to write the answer are
+      # hours wasted, and it would be discovered at the end.
       - name: The report has somewhere to go
         env:
           GH_TOKEN: ${{ github.token }}
@@ -195,21 +232,13 @@ jobs:
             exit 1
           fi
 
-      # Mutants in `crates/render/src/plan/` and `src/audio/` run that crate's
-      # tests, which decode real fixture media. Installed on every week's run
-      # rather than the render week's, because a conditional apt-get is a
-      # branch that is wrong most weeks and never exercised.
-      - name: Install ffmpeg
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
-
-      # One cache for the rotation, not one per crate. A per-crate key would be
-      # read once every five weeks, and GitHub evicts a cache after seven days
-      # without a read — so each week would restore nothing and build cold. The
-      # crates share most of their dependency tree anyway.
+      # Only for `--list`, which needs the crate graph and nothing compiled.
+      # Never saved from here: the shards' builds are what is worth keeping.
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
         with:
           key: mutation-sweep
+          save-if: false
 
       - name: Install cargo-mutants
         uses: taiki-e/install-action@cargo-mutants
@@ -217,11 +246,10 @@ jobs:
       # Is there a surface left to mutate at all? The whole surface and not
       # this crate's share of it, because the floor in `.cargo/mutants.toml` is
       # a floor under the whole — the same check `make mutants` and
-      # `mutants-on-request.yml` make, by the same script (#388). `--list`
-      # builds nothing, so it costs a second.
+      # `mutants-on-request.yml` make, by the same script (#388).
       #
       # It records rather than fails: a collapsed week still has a row to
-      # write (below), and the last step is what turns it red. A config with
+      # write (the report job), and that job is what turns it red. A config with
       # no `surface-floor:` line fails the script too, and counts as collapsed
       # — a deleted tripwire is not a satisfied one.
       - name: The surface is still there
@@ -234,10 +262,10 @@ jobs:
             echo "collapsed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      # `--list` builds nothing and runs nothing, so this is exact and costs a
-      # second. It goes in the report as the number the reading should be read
-      # against: a sweep that was cut short is obvious when the planned total
-      # is stated next to it.
+      # Exact, and it goes in the report twice: as the sentence the reading is
+      # read against, and as `--in-scope`, so a run that did not reach every
+      # planned mutant says how many it missed. Shards are 0-based: cargo-mutants
+      # refuses `--shard 4/4`.
       - name: What is in scope
         id: scope
         if: steps.surface.outputs.collapsed == 'false'
@@ -249,85 +277,184 @@ jobs:
           version=$(cargo mutants --version)
           echo "Swept \`$CRATE\`, the whole crate and not a diff:" \
                "$planned mutants planned on the surface" \
-               "\`.cargo/mutants.toml\` scopes, at $version." > scope.txt
+               "\`.cargo/mutants.toml\` scopes, at $version," \
+               "across $SHARDS shards." > scope.txt
           cat scope.txt
+          {
+            echo "in_scope=$planned"
+            echo "matrix=[$(seq 0 $((SHARDS - 1)) | paste -sd, -)]"
+          } >> "$GITHUB_OUTPUT"
+
+      # Handed to the report job: the scope sentence for a healthy week, the
+      # list `mutants-collapsed.py` reads for a collapsed one.
+      - name: Hand the plan on
+        uses: actions/upload-artifact@v7
+        with:
+          name: sweep-plan
+          path: |
+            mutants-list.txt
+            scope.txt
+          if-no-files-found: ignore
+          retention-days: 1
+
+  shard:
+    name: "mutation sweep: shard ${{ matrix.shard }}"
+    needs: plan
+    if: needs.plan.outputs.collapsed == 'false'
+    runs-on: ubuntu-24.04
+    # Whatever happens in here — survivors, a broken flag, cargo-mutants
+    # falling over — the run stays green. Surviving mutants are a result, not a
+    # failure, and this workflow has no claim to break. A shard that breaks
+    # takes its own slice with it; the merge counts it missing and the report
+    # names the gap.
+    continue-on-error: true
+    # Under GitHub's six-hour ceiling, with the sweep step stopping earlier
+    # still (below) so there is time left to upload what it did manage.
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # Mutants in `crates/render/src/plan/` and `src/audio/` run that crate's
+      # tests, which decode real fixture media. Installed on every week's run
+      # rather than the render week's, because a conditional apt-get is a
+      # branch that is wrong most weeks and never exercised.
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+
+      # One cache for the rotation, not one per crate. A per-crate key would be
+      # read once every six weeks, and GitHub evicts a cache after seven days
+      # without a read — so each week would restore nothing and build cold. The
+      # crates share most of their dependency tree anyway. Saved by one shard
+      # only: they hold the same thing, and four saves of one key race.
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: mutation-sweep
+          save-if: ${{ matrix.shard == 0 }}
+
+      - name: Install cargo-mutants
+        uses: taiki-e/install-action@cargo-mutants
 
       # No warm-up build, for the reason spelled out at the same place in
       # `mutants-on-request.yml`: the copy each mutant is built in has no
       # `target/` in it, so a build here compiles into a directory the sweep
-      # never reads. Only the crate downloads in `~/.cargo` reach a mutant
-      # build, and the cache above carries those.
-      #
-      # This one ran `cargo build -p "$CRATE" --tests --locked`, and the answer
-      # was the same as the per-pull-request job's (since removed, #651) even
-      # though the workloads were not: what the step buys does not scale with
-      # the number of mutants, so
-      # #394's measurement — the mutation step and cargo-mutants' own baseline
-      # build unchanged, warmed or cold, while the step itself cost about three
-      # minutes — settles both. It is a smaller share of a sweep that runs for
-      # hours than of a job that runs for five minutes; it is not a smaller
-      # waste. The one thing it did that this does not is fail early on a
-      # workspace that no longer compiles, and cargo-mutants' baseline reports
-      # that too, in the run's own words rather than a step's.
+      # never reads (#394 measured it). Only the crate downloads in `~/.cargo`
+      # reach a mutant build, and the cache above carries those.
 
       # No `--in-diff`: the whole crate, which is the entire point of this
-      # workflow existing.
+      # workflow existing — this shard's share of it.
       #
-      # Its own timeout, thirty minutes under the job's, so a crate that
-      # overruns still leaves time for the steps below to report what did run
-      # and to mark the reading as partial. A job-level timeout would cancel
-      # those steps too and the run would say nothing at all.
+      # Its own timeout, thirty minutes under the job's, so a shard that
+      # overruns still leaves time to upload what did run, and the merge marks
+      # the reading as partial. A job-level timeout would cancel the upload too
+      # and the shard would say nothing at all.
       #
       # `--jobs 2` matches `mutants-on-request.yml` and `make mutants`, and
       # `.cargo/mutants.toml` argues the number once, under "How wide a run
-      # fans out" — memory rather than cores is what bounds it, and this runner
-      # has about as much of that as the development machine. A public repo's
-      # runner has four cores, so 3 is available if a crate ever needs the
-      # headroom — cargo's own parallelism inside each mutant is what makes
-      # that a judgement call rather than free.
+      # fans out" — memory rather than cores is what bounds it.
+      #
+      # `ulimit -v`: at most 6 GiB of address space per process, so a mutant
+      # that allocates without end aborts its own test binary — caught —
+      # instead of taking the runner down with the shard's reading.
+      # `mutants-on-request.yml`'s *Mutate* step has the number's arithmetic
+      # and the measurement behind it, once (#651).
       - name: Sweep
-        id: sweep
-        if: steps.surface.outputs.collapsed == 'false'
         timeout-minutes: 300
         env:
-          CRATE: ${{ steps.pick.outputs.crate }}
-        # `ulimit -v`: at most 6 GiB of address space per process, so a mutant
-        # that allocates without end aborts its own test binary — caught —
-        # instead of taking the runner down with the whole week's reading.
-        # `mutants-on-request.yml`'s *Mutate* step has the number's arithmetic
-        # and the measurement behind it, once (#651).
+          CRATE: ${{ needs.plan.outputs.crate }}
+          SHARD: ${{ matrix.shard }}
         run: |
           ulimit -v 6291456
-          cargo mutants -p "$CRATE" --jobs 2 --colors never && status=0 || status=$?
+          cargo mutants -p "$CRATE" --shard "$SHARD/$SHARDS" --jobs 2 --colors never \
+            && status=0 || status=$?
           echo "MUTANTS_STATUS=$status" >> "$GITHUB_ENV"
+
+      - name: What this shard measured
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: sweep-shard-${{ matrix.shard }}
+          path: mutants.out/outcomes.json
+          if-no-files-found: ignore
+          retention-days: 1
+
+      # Red only for the tool broken. cargo-mutants' 2 is "found survivors"
+      # and 3 is "something timed out", both ordinary results. An unset status
+      # is the sweep step hitting its own timeout — not a broken tool either,
+      # and the report will say the run was cut short.
+      - name: Fail only if the tool broke
+        if: always()
+        run: |
+          case "${MUTANTS_STATUS:-cut-short}" in
+            0|2|3) echo "cargo-mutants ran (exit $MUTANTS_STATUS)" ;;
+            cut-short) echo "::warning::this shard was stopped before it finished" ;;
+            *) echo "::error::cargo-mutants exited $MUTANTS_STATUS"; exit 1 ;;
+          esac
+
+  # The one job that writes, and the one that runs none of the mutated code.
+  report:
+    name: "mutation sweep: report"
+    needs: [plan, shard]
+    # Gated on the plan having decided what it was sweeping: if it never got
+    # that far — no crate, no issue to write to — there is nothing to report
+    # and a second failure here would only bury the first one.
+    if: always() && (needs.plan.outputs.collapsed == 'true' || needs.plan.outputs.in_scope != '')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # To rewrite the tracking issue's body. Nothing else here writes anything.
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: The plan
+        uses: actions/download-artifact@v8
+        with:
+          name: sweep-plan
+
+      - name: What the shards measured
+        if: needs.plan.outputs.collapsed == 'false'
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          pattern: sweep-shard-*
+          path: shards
 
       # One renderer, several callers: `.github/scripts/mutants-summary.py` is
       # what `make mutants` and an on-request run print, and `--issue-body` is the same
       # report wrapped as this issue's body with the catch-rate history carried
       # over from the body it is replacing. A second renderer for the same data
-      # is how the two would drift.
+      # is how the two would drift. `mutants-merge.py` first, so what the
+      # renderer reads is the whole crate's run and not a shard of it;
+      # `--expect` turns a shard that vanished into a run marked unfinished
+      # rather than a smaller-looking one.
       #
       # The history is read from the issue itself rather than from a file in
       # the repo, which keeps this workflow out of `contents: write` and off
       # `main`'s history — a weekly commit whose only content is a number is a
       # weekly commit nobody wants to see in `git log`.
-      #
-      # Gated on the scope step rather than on `always()`: if the run never got
-      # as far as deciding what it was sweeping — no crate, no issue to write
-      # to — there is nothing to report and a second failure here would only
-      # bury the first one.
       - name: Rewrite the tracking issue
-        if: always() && steps.scope.outcome == 'success'
+        if: needs.plan.outputs.collapsed == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
-          CRATE: ${{ steps.pick.outputs.crate }}
+          CRATE: ${{ needs.plan.outputs.crate }}
+          IN_SCOPE: ${{ needs.plan.outputs.in_scope }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
+          shopt -s nullglob
+          measured=(shards/*/outcomes.json)
+          python3 .github/scripts/mutants-merge.py --expect "$SHARDS" \
+            "${measured[@]}" > outcomes.json
           gh api "repos/$REPO/issues/$TRACKING_ISSUE" --jq '.body // ""' > current.md
           python3 .github/scripts/mutants-summary.py \
-            mutants.out/outcomes.json "$(cat scope.txt)" \
+            outcomes.json "$(cat scope.txt)" --in-scope "$IN_SCOPE" \
             --issue-body current.md --subject "$CRATE" --run-url "$RUN_URL" \
             > body.md
           gh api -X PATCH "repos/$REPO/issues/$TRACKING_ISSUE" -F body=@body.md
@@ -338,13 +465,15 @@ jobs:
       # rate — with the report above the history marker left as it was.
       # `mutants-collapsed.py` reads the floor through `mutation-surface.py`
       # and keeps the history through `mutants-summary.py`, so the row is one
-      # the next healthy rewrite carries forward like any other.
+      # the next healthy rewrite carries forward like any other. Then red: the
+      # only thing in this workflow that is, because it is the instrument
+      # reporting on almost nothing rather than the code being unasserted.
       - name: Record the collapse in the history
-        if: always() && steps.surface.outputs.collapsed == 'true'
+        if: needs.plan.outputs.collapsed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
-          CRATE: ${{ steps.pick.outputs.crate }}
+          CRATE: ${{ needs.plan.outputs.crate }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
@@ -354,27 +483,6 @@ jobs:
             > body.md
           gh api -X PATCH "repos/$REPO/issues/$TRACKING_ISSUE" -F body=@body.md
           cat body.md >> "$GITHUB_STEP_SUMMARY"
-
-      # The only thing here that can go red, and it is reserved for the signal
-      # being broken rather than the code being unasserted: a collapsed surface
-      # (the instrument reporting on almost nothing), or cargo-mutants itself
-      # falling over. cargo-mutants
-      # distinguishes them: 2 is "found survivors" and 3 is "something timed
-      # out", both ordinary results. An unset status is the sweep step hitting
-      # its own timeout — not a broken tool either, and the report has already
-      # said the run was cut short.
-      - name: Fail only if the instrument broke
-        if: always()
-        env:
-          COLLAPSED: ${{ steps.surface.outputs.collapsed }}
-        run: |
-          if [ "$COLLAPSED" = true ]; then
-            echo "::error::the mutation surface collapsed; nothing was swept." \
-                 "The surface step's output says why, and #$TRACKING_ISSUE has the row."
-            exit 1
-          fi
-          case "${MUTANTS_STATUS:-cut-short}" in
-            0|2|3) echo "cargo-mutants ran (exit $MUTANTS_STATUS)" ;;
-            cut-short) echo "::warning::the sweep was stopped before it finished" ;;
-            *) echo "::error::cargo-mutants exited $MUTANTS_STATUS"; exit 1 ;;
-          esac
+          echo "::error::the mutation surface collapsed; nothing was swept." \
+               "The plan's surface step says why, and #$TRACKING_ISSUE has the row."
+          exit 1
