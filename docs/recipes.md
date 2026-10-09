@@ -1964,8 +1964,8 @@ the whole piece stays byte-identical across runs.
 ### Starting from a MIDI file
 
 When the notes already exist — a DAW export, a keyboard take, a transcription
-from a sheet-music site — `scorsese synth import rag.mid` (`synth_import` over
-MCP) reads the file into a song recipe and adds its asset exactly as
+from a sheet-music site — `scorsese synth import rag.mid` (on the command line
+only, #785) reads the file into a song recipe and adds its asset exactly as
 `synth new` would: `recipes/rag.json`, in `sketch`. `--name` picks another
 name; otherwise the file's does.
 
@@ -2015,7 +2015,7 @@ project keeps.
 
 ### Writing a song out as MIDI
 
-Going the other way, `scorsese synth export theme` (`synth_export` over MCP)
+Going the other way, `scorsese synth export theme` (on the command line only)
 writes a song recipe as a Standard MIDI File that opens in any DAW — which is
 how you check or finish a score with the tools you already know. It lands in
 `cache/midi/theme.mid` (rebuildable from the recipe, so it is not an asset), or
@@ -2513,8 +2513,8 @@ been a fix aimed at the mix rather than at the layer the mix said was wrong.
 
 ## What the whole set is made of
 
-Everything above measures **one** bake. `scorsese synth survey`, and
-`synth_survey` over MCP, read every song recipe in the project instead and say
+Everything above measures **one** bake. `scorsese synth survey` (on
+the command line only) reads every song recipe in the project instead and says
 what the set is made of:
 
 ```text

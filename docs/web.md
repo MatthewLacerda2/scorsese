@@ -92,7 +92,8 @@ new build, before it serves anything.
 
 - Exactly the file kinds scorsese supports today — no more, no fewer — and
   MIDI, which is notes rather than media: no thumbnail, never placed on a
-  track, read into a song by `synth_import` (#678).
+  track (#678). No tool reads one since #785 took `synth_import` and
+  `synth_export` off the list; the kind stays so stored files still load.
 - Stored **once per (user, SHA-256)**. A byte-identical re-upload is
   **refused** with "you already have this as *X*", whatever its name.
 - Lists carry thumbnail, name, kind and size only; the file is fetched when
@@ -909,9 +910,9 @@ crosses the network; the refusal at upload is the backstop.
 **Exactly the kinds `scorsese import` takes** — video, image, audio, by the same
 extension list (`scorsese_core::pool::infer_kind`) — **and MIDI** (`.mid`,
 `.midi`, #678), refused at announcement (`415`) before a byte is sent. A MIDI
-file is not media, so it is not probed: it is read by the same reader
-`synth_import` uses (`synth::check_midi`) and refused (`422`) in its words when
-it would not import as a song; it has no thumbnail, and `import` refuses it
+file is not media, so it is not probed: it is read by `zimmer`'s MIDI reader
+(`synth::check_midi`) and refused (`422`) in its words when it could not be
+read as a song; it has no thumbnail, and `import` refuses it
 — it never becomes a project asset. On arrival the server **hashes the bytes itself**
 and refuses (`422`) a file whose hash is not the one announced, then probes it
 and holds it to its kind with `pool::measure`, exactly as import does — a
@@ -1233,8 +1234,6 @@ the web — or be left off it — without a reason written down.
 | `stock_search`, `stock_import` | as they are, with the folder's `cache/stock/` linked to the user's own stock cache under `SCORSESE_CACHE/users/<id>/stock`, so Pixabay results stay cached 24 hours as Pixabay asks and an id a search returned is found again on the next call (#900). Each file `stock_import` downloads is **kept in the library** like an upload, before the document naming it is saved (`tools/fetched.rs`). A Lottie (`kind: lottie`, #903) is not media: its JSON lands in `pages/` and is kept with the project's files, up to their 1 MB cap, with nothing on the server knowing the difference. Free: the operator's `PIXABAY_API_KEY`, shared by every user's 100 requests a minute; LottieFiles needs no key; no credits |
 | `look`, `hear` | their file arguments must be paths inside the project (`assets/…`, `generated/…`) — locally they may name anything on the machine, and here the machine is everybody's |
 | `still` | without `out`: nothing is kept on the server's disk; the picture is in the reply |
-| `synth_import` | with `item` — a MIDI file in the user's library, by the id `library` lists — in place of `path`; the file is linked into the folder for the call, and the asset is named after the item unless `name` says otherwise (`tools/carried.rs`, #678) |
-| `synth_export` | without `out`; the `.mid` it writes is **kept in the library** as a MIDI file named `<asset>.mid`, where the user downloads it — the same notes exported again are the item already there (#678) |
 | `project_list`, `project_new` | the server's own: a project is a row, named by an id the client asks for |
 | `library`, `import` | the server's own: files come from the user's library by id (`core`'s `reference_asset`, the document half of an import), never from a path on the server — so an image sequence's stills come in one library file each, and `sequence` makes them one |
 | `render`, `jobs` | the server's own: a render is a job (*Renders*), downloaded from `/api/renders/{id}/file` with the same token; `jobs` says where any job is, and with `cancel` stops a render — locally a client stops one by cancelling the `render` call, which here has already answered |
@@ -1292,7 +1291,6 @@ recipes:
 - `synth_write`
 - `synth_set`
 - `synth_check`
-- `synth_survey`
 
 <!-- END PROJECT_FILES -->
 

@@ -1,8 +1,9 @@
 //! Reading every recipe a project carries, and saying what the set is made of.
 //!
-//! The one library call behind `scorsese synth survey` and `synth_survey`, so
-//! the CLI and the MCP server are both thin: whatever either of them shows, the
-//! other shows too, because there is one place that decides it.
+//! The one library call behind `scorsese synth survey`, so the CLI stays thin.
+//! It used to be an MCP tool too (`synth_survey`) and left the tool list in
+//! #785: it tunes the synthesiser's variety across songs, which is developing
+//! `zimmer` rather than making a video.
 //!
 //! **It costs nothing.** No bake, no samples, no ffmpeg, no network — the
 //! recipes are already on disk and this parses them. That is what makes it

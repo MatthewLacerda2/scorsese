@@ -66,7 +66,6 @@
 //! my project?" has one answer.
 
 mod bakes;
-mod carried;
 mod design;
 mod fetched;
 mod folder;

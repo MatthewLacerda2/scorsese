@@ -32,8 +32,8 @@ export interface StoredProject extends ProjectSummary {
 
 /**
  * The kinds a library file can be — `library::Kind`. A `midi` file is notes,
- * not media: it has no thumbnail and is never placed on a track; the assistant
- * reads it into a song (`synth_import`, #678).
+ * not media: it has no thumbnail and is never placed on a track. No tool reads
+ * one since #785; the kind stays so files already uploaded still list.
  */
 export const FILE_KINDS = ["video", "image", "audio", "midi"] as const;
 export type FileKind = (typeof FILE_KINDS)[number];

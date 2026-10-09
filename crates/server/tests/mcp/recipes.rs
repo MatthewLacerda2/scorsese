@@ -83,7 +83,7 @@ async fn a_script_is_kept_and_read_back_where_the_project_keeps_one(pool: PgPool
 }
 
 #[sqlx::test]
-async fn recipes_and_midi_are_offered(pool: PgPool) {
+async fn recipes_are_offered_and_midi_is_not(pool: PgPool) {
     let address = common::serve(pool.clone()).await;
     let (_, token) = member(&pool, "ana@example.com").await;
     let body = json!({ "jsonrpc": "2.0", "id": 1, "method": "tools/list" });
@@ -94,14 +94,13 @@ async fn recipes_and_midi_are_offered(pool: PgPool) {
         .iter()
         .filter_map(|tool| tool["name"].as_str())
         .collect();
-    for served in [
-        "synth_new",
-        "synth_bake",
-        "script_read",
-        "script_write",
-        "synth_import",
-        "synth_export",
-    ] {
+    for served in ["synth_new", "synth_bake", "script_read", "script_write"] {
         assert!(names.contains(&served), "{served}: {names:?}");
+    }
+    for gone in ["synth_import", "synth_export", "synth_survey"] {
+        assert!(
+            !names.contains(&gone),
+            "{gone} left the list in #785: {names:?}"
+        );
     }
 }

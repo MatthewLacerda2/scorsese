@@ -106,14 +106,11 @@ the tools relate to each other, which is knowledge no single tool has.
 | `page_read` | Read a web page's HTML exactly as it is on disk. | nothing |
 | `synth_new` | Start a new sound: writes a starter recipe into recipes/ and adds the synth_audio asset that points at it. | nothing |
 | `synth_kit` | List the ready-made instruments a recipe can start from, or show one instrument's patch. | nothing |
-| `synth_import` | Read a Standard MIDI File into a song recipe in recipes/ and add the synth_audio asset that points at it, the way synth_new does. | nothing |
-| `synth_export` | Write a song recipe out as a Standard MIDI File, to open in a DAW — synth_import the other way round. | nothing |
 | `synth_read` | Read a recipe file as it is on disk. | nothing |
 | `synth_write` | Replace a recipe file with the document given. | nothing |
 | `synth_set` | Change one number in a recipe and leave the rest of the document alone: a track's gain, pan or send, or the recipe's own bpm, seed, swing, duration or velocity. | nothing |
 | `synth_check` | Check a recipe file that was changed outside synth_write — edited with your own file tools, or copied in — and say what it is, without rendering it. | nothing |
 | `synth_bake` | Render every synth_audio recipe whose sound is not already on disk, into generated/. | nothing |
-| `synth_survey` | Say what every song recipe in the project is made of, and count the same facts across the whole set. | nothing |
 | `icons` | Find an icon by a word, and answer with names — each one a string to give `asset_set` as `icon` (an icon asset's `name` in the document) or write into a page. | nothing |
 | `guide` | Read one of scorsese's guides: the how-to that no tool's description has room for. | nothing |
 | `stock_search` | Search free stock footage and photos (Pixabay) or free Lottie animations (LottieFiles, kind lottie), and see the candidates before choosing. | a key and a network, but no money |
@@ -509,9 +506,8 @@ there is*, which for this tool is a wrong answer rather than a short one.
 **Nothing matching is an answer, not an error.** The reply says so, and says
 what was searched, so the next move is another word rather than a bug report.
 
-It costs nothing and needs nothing — no bake, no ffmpeg, no network — the same
-standing `synth_survey` has, and for the same reason: the catalogue is compiled
-into the binary. That also means the set is **the same for every project**; the
+It costs nothing and needs nothing — no bake, no ffmpeg, no network — because
+the catalogue is compiled into the binary. That also means the set is **the same for every project**; the
 `project` argument is the uniform shape every tool here has rather than a
 filter, and no project carries symbols of its own. `scorsese icons <query>` is
 the same lookup on the command line, over the same function.
@@ -1706,28 +1702,14 @@ of one.
 
 What to write in a recipe is [`recipes.md`](recipes.md).
 
-### Starting from notes that already exist: `synth_import`
+### Not on the list: MIDI and the survey
 
-`synth_import` is `synth_new` for a piece that already exists as a Standard
-MIDI File. It writes an ordinary song recipe and its asset, so the loop above
-carries on unchanged — and its first turn is nearly always `synth_write`,
-because every track arrives on a plain placeholder patch. The file maps across
-by structure (a track per MIDI track and channel, channel 10 as drums, the tempo
-map, the key signature, patterns of eight bars) and nothing is interpreted; the
-reply names what the song could not hold — the sustain pedal, pitch bends,
-program numbers — so a client can tell the user why the bake sounds drier than
-the file. `path` is relative to the project, like every path here, or absolute.
-[`recipes.md`](recipes.md#starting-from-a-midi-file) has the whole mapping.
-
-`synth_export` is the other way round: a song recipe out as a `.mid` a DAW
-opens, written as the song *plays* — the arrangement once with its transforms,
-chords and step strings as notes, swing and articulations applied, a tempo ramp
-as a step every sixteenth. A song cannot say which of its tracks are drums, so
-`drums` names them (`"kick=36"` puts every note of a track on General MIDI's
-kick; `"drums"` keeps an imported kit's keys). `out` is relative to the project
-like every path here, and defaults to `cache/midi/<asset>.mid`; the project is
-not changed. The reply names what the file could not carry.
-[`recipes.md`](recipes.md#writing-a-song-out-as-midi) has the whole mapping.
+A Standard MIDI File in or out (`scorsese synth import` / `synth export`) and
+the count across every song in a project (`scorsese synth survey`) are on the
+command line and not served as tools (#785). Bringing in a DAW's file is a
+musician's workflow, and the survey tunes the synthesiser's variety across a
+set of songs, which is developing `zimmer` rather than making a video; neither
+earned its place on a list every model call pays to read.
 
 ### Baking part of one, which is not baking
 
@@ -1884,41 +1866,6 @@ It is a **signal and never a gate** — there is no correct loudness — and it 
 not a critic. It finds defects: too quiet, clipping, muddy, a section flat
 where the arrangement said climax. It does not find taste, and a metric treated
 as an ear produces music that optimises the number and gets worse.
-
-### The one question that is about a set
-
-Everything above asks *how did this one come out*. `synth_survey` asks *what
-are all of these*, and it is the only tool that reads more than one recipe at
-a time. Six cues can each be baked, levelled and corrected, all pass, and still
-be one instrument playing in all six — which is the first thing a listener
-notices and the last thing any per-bake number can see.
-
-It costs nothing and needs nothing: no bake, no ffmpeg, no network. Everything
-it reports is already written down in `recipes/`, so this is parsing documents
-that were going to be parsed anyway. Per song it gives the tempo, the register
-and the pitch classes, then a row per track; under them, the same facts counted
-across the project.
-
-A **track row has two halves**, and the second is the one that earns the call.
-What the instrument *is* — source kind, gain, filter cutoff — does not predict
-what anyone hears: three cues written on `karplus`, `fm2` and `osc_stack` can be
-one plucked guitar to a listener, and changing the source kind does not move
-that complaint. So the row also says what the track *does*: the share of the
-arrangement it sounds over, its envelope's sustain, its notes per second, and
-the median pitch it sits at. What each column means, and why `sustain` is the
-envelope's rather than the source's, is in
-[`recipes.md`](recipes.md#what-the-whole-set-is-made-of).
-
-The rollup's **`loudest` is `gain × duty`**, not the highest written gain.
-Percussion is written loud precisely because it is short, so ranking on gain
-alone crowns a hi-hat — and the line that results reports a *more varied* set
-than exists, which is the one failure this report cannot afford. It stays a
-proxy: a plucked harp well down in the mix can still be the instrument you hear.
-
-**It counts and stops.** There is no score, no grade, no recommendation and no
-diversity number — a set of six variations on one instrument is a legitimate
-thing to write on purpose, and a metric of variety is precisely the one that
-would get optimised. A project of fewer than two songs has no set to report on.
 
 ## Stateless, on purpose
 
