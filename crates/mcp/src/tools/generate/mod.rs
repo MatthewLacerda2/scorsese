@@ -171,7 +171,7 @@ impl Tool for Generate {
 
         let landed = landed(&shots, &spoken);
         let shortened = measure(&mut project, dir, &landed, stills::landed(&drawn))?;
-        let mut reply = said(&shots, &drawn, &spoken);
+        let mut reply = said(&shots, &drawn, &spoken, dir);
         for one in &shortened {
             reply.push('\n');
             reply.push_str(&one.says());
@@ -303,14 +303,14 @@ fn spent_so_far(project: &Project, root: &Path) -> u64 {
 }
 
 /// What the run reads as.
-fn said(shots: &Run, drawn: &stills::Drawn, spoken: &lines::Spoken) -> String {
+fn said(shots: &Run, drawn: &stills::Drawn, spoken: &lines::Spoken, dir: &Path) -> String {
     if shots.outcomes.is_empty() && drawn.is_empty() && spoken.is_empty() {
         return String::from("Nothing to generate: no prompted assets in this project.");
     }
     let mut lines = Vec::new();
     shots::said(shots, &mut lines);
     stills::said(drawn, &mut lines);
-    lines::said(spoken, &mut lines);
+    lines::said(spoken, dir, &mut lines);
 
     let spent = shots.spent_cents
         + stills::spent(drawn)

@@ -201,8 +201,12 @@ pub use scorsese_compositor::icon;
 /// inspector is the caller this was opened for — it offers a clip's position,
 /// rotation and scale as plain values, and a window with its own copy of those
 /// names would drift the first time one was renamed.
+///
+/// `picture::caption` is the look a caption gets when nobody chose one, for
+/// the same reason: it names a shipped face.
 pub mod picture {
     pub use scorsese_compositor::path;
+    pub use scorsese_compositor::text::caption;
 }
 
 pub use cancel::Cancel;

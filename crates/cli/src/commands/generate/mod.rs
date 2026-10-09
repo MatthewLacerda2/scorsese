@@ -89,7 +89,7 @@ pub(crate) fn run(project_dir: &Path, asked: &Asked) -> Result<()> {
     if landed(&done.shots.outcomes, &done.lines) || done.drew() {
         measure(&mut project, project_dir)?;
     }
-    report(&done);
+    report(&done, project_dir);
     Ok(())
 }
 
@@ -343,14 +343,14 @@ fn spent_so_far(project: &Project, root: &Path) -> u64 {
 }
 
 /// Every brief's line, then the one total that spans every provider.
-fn report(done: &Done) {
+fn report(done: &Done, project_dir: &Path) {
     if done.shots.outcomes.is_empty() && done.stills.is_empty() && done.lines.is_empty() {
         println!("No generated assets in this project.");
         return;
     }
     shots::report(&done.shots);
     stills::report(&done.stills);
-    lines::report(&done.lines);
+    lines::report(&done.lines, project_dir);
 
     let spent = done.shots.spent_cents
         + done.stills_spent()

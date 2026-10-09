@@ -37,3 +37,23 @@ fn every_line_outcome_reads_as_its_sentence() {
         assert_eq!(outcome.says(), sentence);
     }
 }
+
+#[test]
+fn a_spoken_line_names_where_its_word_timings_were_saved() {
+    let root = std::env::temp_dir().join(format!("scorsese-says-in-{}", std::process::id()));
+    std::fs::create_dir_all(root.join("generated")).unwrap();
+    let outcome = Outcome::Cached {
+        path: ProjectPath::new("generated/vo-abc.mp3"),
+    };
+    assert_eq!(
+        outcome.says_in(&root),
+        outcome.says(),
+        "no file, nothing claimed"
+    );
+    std::fs::write(root.join("generated/vo-abc.words.json"), "{}").unwrap();
+    assert_eq!(
+        outcome.says_in(&root),
+        "already spoken — generated/vo-abc.mp3; word timings in generated/vo-abc.words.json"
+    );
+    std::fs::remove_dir_all(root).ok();
+}

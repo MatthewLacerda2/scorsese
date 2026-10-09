@@ -509,6 +509,29 @@ the two languages this is built for, and its accented letters are two bytes
 each — counting bytes would refuse a legal script a quarter short of the
 limit, and would have priced it wrong as well.
 
+#### When each word is said
+
+**A spoken line comes back with its word timings**, and they are kept beside
+its audio: `generated/vo-open-<hash>.mp3` has
+`generated/vo-open-<hash>.words.json` next to it, holding each word as it was
+written — punctuation included — with when it starts and ends, in seconds of
+the audio file. `generate` says where it saved them. Nothing in
+`project.json` changes, and a line generated before timings were kept, or
+speech that was imported rather than generated, has none: they are never
+guessed.
+
+**Anything timed to the voice reads them, never an ear or a silence
+detector.** `caption_narration` (`scorsese caption`) turns them into captions:
+each line cut at its sentences, commas and pauses into pieces of about two
+lines, each an ordinary `text` clip arriving whole on its first spoken word
+and leaving when the next arrives. It writes them on a video track of their
+own (`captions` unless named) as assets and clips called
+`caption-<narration clip>-<n>`, which is how a re-run finds and replaces its
+own work after a line is regenerated or moved — and why a hand edit to one is
+kept by renaming it. Pages read the same timings as `scorsese.words`
+([pages.md](pages.md), `guide pages`), and `project_describe` names the word being said at an
+instant.
+
 ### Synthesised audio
 
 ```json asset
@@ -3136,7 +3159,7 @@ A project directory holds five of its own:
 | Directory | What is in it | Survives a delete? |
 | --- | --- | --- |
 | `assets/` | imported media, copied in on import | no — the originals are elsewhere |
-| `generated/` | provider and synthesis output, named for the hash of its brief — a narration's word timings beside its audio, as `<same name>.words.json` | yes — it can be made again |
+| `generated/` | provider and synthesis output, named for the hash of its brief — a narration's word timings beside its audio, as `<same name>.words.json` (see *When each word is said*) | yes — it can be made again |
 | `recipes/` | authored synthesis documents | **no** — deleting one loses work |
 | `pages/` | authored web pages, played by `html` assets | **no** — deleting one loses work |
 | `cache/` | rebuildable scratch, gitignored | yes |

@@ -27,8 +27,8 @@ pub(super) fn pass(
 }
 
 /// What the narration in a run reads as.
-pub(super) fn said(spoken: &Spoken, lines: &mut Vec<String>) {
+pub(super) fn said(spoken: &Spoken, dir: &std::path::Path, lines: &mut Vec<String>) {
     for (id, outcome) in spoken {
-        lines.push(format!("{id}: {}", outcome.says()));
+        lines.push(format!("{id}: {}", outcome.says_in(dir)));
     }
 }

@@ -3,6 +3,7 @@
 //! `scorsese-core` or `scorsese-render`, never here.
 
 pub(crate) mod assets;
+pub(crate) mod caption;
 pub(crate) mod check;
 pub(crate) mod confirm;
 pub(crate) mod describe;

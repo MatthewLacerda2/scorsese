@@ -60,6 +60,7 @@
 //! document written by an older build forward to this one; [`mod@template`]
 //! lifts clips out of one edit and copies them into another; [`mod@words`]
 //! reads when a narration says each word and places them on the timeline;
+//! [`mod@captions`] turns those words into on-screen captions;
 //! [`mod@write`] is the one way a file leaves here; and [`mod@guide`] hands
 //! back the agent-facing pages of `docs/`, compiled in, so an installed build
 //! can still read them. [`note`] keeps its own as well — the paragraph
@@ -74,6 +75,7 @@
 pub(crate) mod asset;
 pub mod authoring;
 pub(crate) mod baseline;
+pub mod captions;
 pub(crate) mod chroma;
 pub(crate) mod color;
 pub mod dip;
