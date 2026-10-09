@@ -42,7 +42,9 @@ pub const SHIPPED_ORIGIN: &str = "https://lib.scorsese";
 /// lottie-web 5.13.0 (#903), the full build (every renderer, and expressions,
 /// which many published animations use), for the Lottie files `stock_import`
 /// brings in: a page drives it from the clock with `goToAndStop`, never its
-/// own playback. Both MIT, each licence vendored beside it.
+/// own playback. Both MIT, each licence vendored beside it. And scorsese's
+/// own motion kit (#812), `kit.js`: the helpers every timed page was writing
+/// for itself, on the page's seconds.
 ///
 /// Every file served from here is part of the capture of a page that loads it
 /// (`record`'s key), so changing one draws again only the pages that loaded
@@ -58,6 +60,7 @@ const SHIPPED: &[(&str, &[u8])] = &[
         "lottie.LICENSE.txt",
         include_bytes!("../shipped/lottie.LICENSE.txt"),
     ),
+    ("kit.js", include_bytes!("../shipped/kit.js")),
 ];
 
 /// What a request for a shipped file is kept under in a capture's record:

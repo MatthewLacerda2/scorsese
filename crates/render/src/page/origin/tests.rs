@@ -156,6 +156,13 @@ fn a_shipped_file_is_recorded_by_its_url_and_hashed_as_this_build_serves_it() {
             "../shipped/lottie.min.js"
         )))
     );
+    assert_eq!(
+        shipped_hash("https://lib.scorsese/kit.js"),
+        Some(scorsese_core::hash_bytes(include_bytes!(
+            "../shipped/kit.js"
+        ))),
+        "the motion kit is recorded like any shipped library"
+    );
     assert!(record_key("https://page.scorsese/pages/a.html").is_none());
     assert_eq!(shipped_hash("https://lib.scorsese/nothing.js"), None);
     assert_eq!(

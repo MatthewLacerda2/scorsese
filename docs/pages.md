@@ -60,11 +60,12 @@ that belongs to the clip. What it can count on:
   anime.js reads a timestamp of 0 as "not started yet" (#606). CSS animations,
   transitions, Web Animations and anime.js are unaffected. A script that reads
   the time itself must subtract it, or it runs **three frames early at 30 fps**,
-  and every exit timed back from `duration` ends before the cut (#917). Read the
-  page's seconds as `(performance.now() - start) / 1000`, where `start` is
-  `performance.now()` read when the script first runs, as *A Lottie animation*
-  below does. That is the page's time zero, and a trimmed clip still starts
-  part-way.
+  and every exit timed back from `duration` ends before the cut (#917). The
+  kit's `kit.frame` (*Sharing code between pages*) hands a callback the page's
+  seconds with it already taken off. Without the kit, read them as
+  `(performance.now() - start) / 1000`, where `start` is `performance.now()`
+  read when the script first runs, as *A Lottie animation* below does. That is
+  the page's time zero, and a trimmed clip still starts part-way.
 - **A transparent background.** Where the page draws nothing, the tracks below
   it show through. A page that should cover the frame paints its own
   background, on `body`.
@@ -151,6 +152,9 @@ request is a warning, and the page is drawn without what it asked for.
   `Playfair Display`, `Liberation Serif`, `JetBrains Mono`. Each in every weight
   it ships and in italic. A family the page names and was not given falls back
   to a shipped face, the same one everywhere.
+- **scorsese's motion kit**, at `https://lib.scorsese/kit.js`: the helpers a
+  timed page needs, on the page's own seconds. See *Sharing code between
+  pages*.
 - **anime.js 3.2.2**, at `https://lib.scorsese/anime.min.js`.
 - **lottie-web 5.13.0** (the full build: every renderer, and expressions), at
   `https://lib.scorsese/lottie.min.js`, to play a Lottie animation
@@ -167,8 +171,8 @@ request is a warning, and the page is drawn without what it asked for.
   carries loads with an ordinary `@font-face` rule. Nothing outside the project
   folder, so the project still survives being copied to another machine.
 
-**A shipped file is part of the page's capture.** A page that loads anime.js,
-lottie-web or an icon is drawn again when a build ships a different one, and
+**A shipped file is part of the page's capture.** A page that loads the kit,
+anime.js, lottie-web or an icon is drawn again when a build ships a different one, and
 a page that does not load it is not.
 
 **Inside Chromium's sandbox.** The browser that draws a page runs with its own
@@ -212,6 +216,55 @@ the few frames around that instant: the 2,550 before it are run, which is cheap
 for a page whose frame is a function of the time, and never drawn, which is
 nearly all a frame costs. A render draws each page clip's stretch from where it
 enters the page, a long one in pieces at once.
+
+## Sharing code between pages
+
+Pages in one project that share a look or a set of helpers load them from **one
+file in the project**, by relative path, rather than each carrying a copy:
+
+```html
+<script src="https://lib.scorsese/kit.js"></script>
+<script src="lib.js"></script>          <!-- the project's pages/lib.js -->
+<link rel="stylesheet" href="look.css"> <!-- the project's pages/look.css -->
+```
+
+**Every file a page loads is part of its capture**, by its contents. Edit
+`pages/lib.js` and every page that loaded it is drawn again on the next look;
+a page that never loaded it is not. Nothing else needs to be told. A shared
+file is an ordinary file of the project, under `pages/` beside the pages that
+load it; `page_write` writes only pages, so it is written to the project folder
+directly (a tool for it is #954).
+
+A classic script's top-level names are shared with the page that loads it and
+with every other script on it, so two `const`s of one name are an error. Keep a
+shared file to `function` declarations, and set anything else up inside one.
+*Two pages sharing a file*, in the worked pages, is the whole pattern.
+
+### The kit
+
+`https://lib.scorsese/kit.js` defines one global, `kit`: the dozen helpers
+every timed page was writing for itself. Each takes the time and answers a
+value, or sets an element's style, for that instant alone. Nothing is kept from
+one frame to the next, so a page written on the kit is seekable by construction.
+Times are the page's seconds.
+
+| helper | what |
+| --- | --- |
+| `kit.frame(draw)` | calls `draw(t)` on every frame with the page's seconds: 0 on its first frame, `scorsese.duration` on the clip's last. The clock's 100 ms origin is already taken off |
+| `kit.clamp(x, lo = 0, hi = 1)` | `x`, held inside `[lo, hi]` |
+| `kit.lerp(a, b, p)` | from `a` to `b` as `p` goes from 0 to 1 |
+| `kit.remap(x, a, b, c = 0, d = 1, ease)` | `x` from `[a, b]` onto `[c, d]`, held at the ends, eased on the way (linear by default) |
+| `kit.ease.linear`, `.in`, `.out`, `.inOut`, `.back` | easings, progress 0–1 to eased progress: cubic, and `back`, which overshoots and settles |
+| `kit.enter(t, at = 0, length = 0.6, ease = out)` | 0 before `at`, 1 once `length` seconds have passed |
+| `kit.exit(t, length = 0.3, ease = in)` | 1 until the clip's last `length` seconds, then down to 0 on its last frame, however long the clip is cut |
+| `kit.rise(element, t, at = 0, {length = 0.6, distance = 40, out = 0.3})` | fades `element` in as it rises `distance` px into place from `at`, and out with the clip's last `out` seconds (`out: 0` keeps it to the end) |
+| `kit.stagger(index, step = 0.15, first = 0)` | when the `index`th of a row enters: `first + index * step` |
+| `kit.count(t, at, length, to, {from = 0, decimals = 0, locale = "en-US"})` | the figure a count-up shows at `t`, grouped (`1,250,000`), eased out. Show it in `tabular-nums` |
+| `kit.random(seed)` | a generator answering the same numbers in `[0, 1)` for the same seed, on every frame and every machine. Draw what a page needs once, up front |
+| `kit.svg(tag, attributes, parent)` | an SVG element with its attributes set, appended to `parent` when one is given |
+
+Anything else is the page's own, or a shared file's. A helper joins the kit
+when pages keep writing it, and each one in it is used by a worked page below.
 
 ## What works
 
@@ -372,15 +425,15 @@ in, the name and role follow it, and all of it slides out at the end.
 
 ### A stat counter
 
-anime.js counting a figure up, in tabular figures so it never jitters. The
-number is drawn from the animated value every frame, never accumulated, so any
-frame stands on its own.
+A figure counting up, in tabular figures so it never jitters, and its label
+rising in under it. `kit.count` answers the figure for the time it is handed,
+never adding to the one before, so any frame stands on its own.
 
 ```html page stat-counter
 <!doctype html>
 <html>
 <head>
-<script src="https://lib.scorsese/anime.min.js"></script>
+<script src="https://lib.scorsese/kit.js"></script>
 <style>
   html, body { margin: 0; height: 100%; }
   body { display: grid; place-content: center; text-align: center; color: #fff; }
@@ -398,14 +451,12 @@ frame stands on its own.
   <div class="figure" id="figure">0</div>
   <div class="label" id="label">trees planted this year</div>
   <script>
-    const shown = { value: 0 };
     const figure = document.getElementById("figure");
-    anime.timeline({ easing: "easeOutExpo" })
-      .add({
-        targets: shown, value: 1250000, round: 1, duration: 2200,
-        update: () => { figure.textContent = shown.value.toLocaleString("en-US"); }
-      })
-      .add({ targets: "#label", opacity: [0, .85], translateY: [20, 0], duration: 700 }, 600);
+    const label = document.getElementById("label");
+    kit.frame((t) => {
+      figure.textContent = kit.count(t, 0, 2.2, 1250000);
+      kit.rise(label, t, 0.6, { distance: 20 });
+    });
   </script>
 </body>
 </html>
@@ -600,6 +651,140 @@ title never goes missing.
 </body>
 </html>
 ```
+
+### Two pages sharing a file
+
+An explainer's usual shape: a **diagram** that stays on screen the whole time,
+building up and lighting the part the narration is on, and short **close-ups**
+on the track above it, each drawing only the right half of the frame so the
+diagram shows through on the left. Both load the kit and the project's own
+`pages/lib.js`, which holds what they share: the palette, and how a labelled
+box is drawn.
+
+```js file pages/lib.js
+// What this project's pages share. Loaded after the kit.
+function palette() {
+  const root = document.documentElement.style;
+  root.setProperty("--paper", "#0f1b2d");
+  root.setProperty("--ink", "#f4efe6");
+  root.setProperty("--accent", "#f2b134");
+}
+
+// A labelled box on `svg`, as a group the page animates.
+function box(svg, x, y, width, height, label) {
+  const group = kit.svg("g", { class: "box" }, svg);
+  kit.svg("rect", { x, y, width, height, rx: 18 }, group);
+  kit.svg("text", { x: x + width / 2, y: y + height / 2 }, group).textContent = label;
+  return group;
+}
+
+palette();
+```
+
+The diagram's boxes pop in one after another, outlined, and each is filled
+while its narration line plays (`scorsese.clips`, as *In step with the narration*
+above), fading over 0.3 s at either end. A seeded drift of dust behind them
+moves with the time, never by steps.
+
+```html page diagram
+<!doctype html>
+<html>
+<head>
+<script src="https://lib.scorsese/kit.js"></script>
+<script src="lib.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--paper); }
+  svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .box { transform-box: fill-box; transform-origin: center; }
+  .box rect { fill: var(--accent); stroke: var(--ink); stroke-width: 3; }
+  .box text { font: 600 44px Inter; fill: var(--ink); text-anchor: middle; dominant-baseline: middle; }
+  circle { fill: var(--ink); opacity: .3; }
+</style>
+</head>
+<body>
+  <svg id="stage" viewBox="0 0 1920 1080"></svg>
+  <script>
+    const stage = document.getElementById("stage");
+    const dust = kit.random(7);
+    const motes = Array.from({ length: 40 }, () => ({
+      dot: kit.svg("circle", { cx: dust() * 1920, r: 2 + dust() * 3 }, stage),
+      y: dust() * 1080,
+    }));
+    const parts = ["Encoder", "Memory", "Decoder"].map((label, i) => ({
+      group: box(stage, 160, 230 + i * 230, 560, 160, label),
+      line: scorsese.clips["vo-" + label.toLowerCase()],
+    }));
+    kit.frame((t) => {
+      for (const { dot, y } of motes) {
+        dot.setAttribute("cy", kit.lerp(y, y - 80, t / scorsese.duration));
+      }
+      parts.forEach(({ group, line }, i) => {
+        const at = kit.stagger(i, 0.25);
+        const lit = line ? kit.enter(t, line.start, 0.3) * kit.clamp((line.end - t) / 0.3) : 0;
+        group.style.opacity = kit.enter(t, at, 0.3) * kit.exit(t, 0.6);
+        group.style.transform = `scale(${kit.lerp(0.8, 1, kit.enter(t, at, 0.6, kit.ease.back))})`;
+        group.querySelector("rect").style.fillOpacity = lit;
+      });
+    });
+  </script>
+</body>
+</html>
+```
+
+The close-up names nothing the diagram did not: the same palette, the same
+boxes, each filled to its share as it rises in.
+
+```html page close-up
+<!doctype html>
+<html>
+<head>
+<script src="https://lib.scorsese/kit.js"></script>
+<script src="lib.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; }
+  .half { position: absolute; inset: 0 0 0 50%; background: var(--paper); }
+  h2 { margin: 120px 0 0 110px; font: 700 72px Montserrat; color: var(--ink); opacity: 0; }
+  svg { position: absolute; left: 0; top: 280px; width: 960px; height: 720px; }
+  .box rect { fill: none; stroke: var(--ink); stroke-width: 3; }
+  .box text {
+    font: 600 40px Inter; fill: var(--ink); text-anchor: middle; dominant-baseline: middle;
+    stroke: var(--paper); stroke-width: 8px; paint-order: stroke;
+  }
+  .fill { fill: var(--accent); }
+</style>
+</head>
+<body>
+  <div class="half" id="half">
+    <h2 id="title">Inside the memory</h2>
+    <svg id="slots" viewBox="0 0 960 720"></svg>
+  </div>
+  <script>
+    const half = document.getElementById("half");
+    const title = document.getElementById("title");
+    const slots = document.getElementById("slots");
+    const shares = [["Keys", 0.9], ["Values", 0.6], ["Gates", 0.35]].map(([label, share], i) => ({
+      fill: kit.svg("rect", { class: "fill", x: 110, y: 40 + i * 200, height: 140, rx: 18 }, slots),
+      share,
+      group: box(slots, 110, 40 + i * 200, 740, 140, label),
+    }));
+    kit.frame((t) => {
+      half.style.opacity = kit.exit(t);
+      kit.rise(title, t, 0, { out: 0 });
+      shares.forEach(({ fill, share, group }, i) => {
+        const at = kit.stagger(i, 0.2, 0.4);
+        kit.rise(group, t, at, { out: 0 });
+        fill.setAttribute("width", kit.remap(t, at + 0.3, at + 1.3, 0, 740 * share, kit.ease.inOut));
+      });
+    });
+  </script>
+</body>
+</html>
+```
+
+Put the diagram on the lower video track for the whole stretch, and each
+close-up above it where its part is explained. Editing `pages/lib.js`, say the
+accent colour, draws both again.
 
 ### A Lottie animation
 
