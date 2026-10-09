@@ -14,6 +14,9 @@
 //! - [`place`] writes a new clip onto an existing track.
 //! - [`place_on_new_track`] writes one onto a new track of the kind its asset
 //!   needs — what a drop does where no lane can take it.
+//! - [`place_spilling`] writes a sound onto the first of a track's numbered
+//!   lanes with room for it, making the next lane when none has — the
+//!   lane-packing every set of overlapping sound effects needs.
 //! - [`trim`] changes where a placed clip starts, how long it runs, or where in
 //!   its source it opens.
 //! - [`relocate`] moves a placed clip onto another track, with any new bounds
@@ -26,7 +29,7 @@
 //!   and so the one that does not validate: it runs on a document a fresh
 //!   measurement has just made invalid.
 //!
-//! **The first five are all-or-nothing.** The change is worked out on a copy and only a
+//! **The first six are all-or-nothing.** The change is worked out on a copy and only a
 //! copy [`Project::validate`](crate::Project::validate) accepts becomes the
 //! document, exactly as [`crate::pacing`] does it. A clip that would overlap its
 //! neighbour, or reach past the end of the media it shows, leaves the project
@@ -43,6 +46,7 @@ mod new_track;
 mod place;
 mod relocate;
 mod remove;
+mod spill;
 mod trim;
 
 pub use fit::{Shortened, fit_to_sources};
@@ -50,6 +54,7 @@ pub use new_track::place_on_new_track;
 pub use place::{PlaceError, Placement, place};
 pub use relocate::{RelocateError, Relocation, relocate};
 pub use remove::{RemoveError, Removed, remove};
+pub use spill::place_spilling;
 pub use trim::{Trim, TrimError, trim};
 
 /// The document both halves are tested against, so a placement and a trim are

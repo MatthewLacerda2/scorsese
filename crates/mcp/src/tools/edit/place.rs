@@ -25,6 +25,12 @@ struct Arguments {
     /// there are. A visual asset needs a video track and an audible one an
     /// audio track.
     track: Name,
+    /// For sound effects that overlap: when the clip would land on one already
+    /// on `track`, put it on the first of `track-2`, `track-3`… with room
+    /// instead, making the next one when none has. The reply names the track
+    /// it landed on. Audio tracks only, and `track` itself must exist. Default
+    /// false: an overlap is refused.
+    spill_over: Option<bool>,
     /// When the clip begins on the timeline, in seconds from the head of the
     /// cut. Rounded to the nearest whole frame on the project's grid.
     start_seconds: f64,
@@ -70,7 +76,9 @@ impl Tool for PlaceClip {
          whole of the source from wherever you opened it. Nothing is written at \
          all unless the result is a document that still loads — a clip landing on \
          one already there, or a window reaching past the end of the media, is \
-         refused with the reason and the project is left exactly as it was."
+         refused with the reason and the project is left exactly as it was. \
+         For sound effects that overlap each other, set `spill_over` and each one \
+         lands on the first free lane of the track's set (`sfx`, `sfx-2`, …)."
     }
 
     fn costs(&self) -> Costs {
@@ -99,8 +107,12 @@ impl Tool for PlaceClip {
             source_in: fps.frames(source_in),
             id: arguments.clip.as_deref().map(ClipId::new),
         };
-        let clip = placing::place(&mut project, &placement)
-            .map_err(|error| format!("{error} — nothing was written"))?;
+        let (track, clip) = if arguments.spill_over.unwrap_or(false) {
+            placing::place_spilling(&mut project, &placement)
+        } else {
+            placing::place(&mut project, &placement).map(|clip| (placement.track.clone(), clip))
+        }
+        .map_err(|error| format!("{error} — nothing was written"))?;
         project
             .save(dir)
             .map_err(|error| format!("saving the project: {error}"))?;
@@ -108,7 +120,7 @@ impl Tool for PlaceClip {
         Ok(format!(
             "`{}` placed on `{}`: {}.",
             clip.id,
-            placement.track,
+            track,
             bounds(fps, &clip)
         )
         .into())
