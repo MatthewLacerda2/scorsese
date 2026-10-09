@@ -529,7 +529,7 @@ own (`captions` unless named) as assets and clips called
 `caption-<narration clip>-<n>`, which is how a re-run finds and replaces its
 own work after a line is regenerated or moved — and why a hand edit to one is
 kept by renaming it. Pages read the same timings as `scorsese.words`
-([pages.md](pages.md)), and `project_describe` names the word being said at an
+([pages.md](pages.md), `guide pages`), and `project_describe` names the word being said at an
 instant.
 
 ### Synthesised audio

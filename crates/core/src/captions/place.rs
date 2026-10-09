@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 use std::path::Path;
 
 use crate::keyframe::{Easing, Keyframe, KeyframeTrack};
-use crate::text::{Reveal, RevealUnit};
+use crate::text::Reveal;
 use crate::timeline::{Anchor, AnchorY, Clip, ClipId, Track, TrackId, TrackKind};
 use crate::words::Words;
 use crate::{Asset, AssetId, AssetKind, Frames, Project};
@@ -181,8 +181,8 @@ fn place(project: &mut Project, timed: Vec<Chunk>, asked: &Captioning) -> Result
 fn asset(id: &str, chunk: &Chunk, asked: &Captioning) -> Asset {
     let mut asset = Asset::text(AssetId::new(id), chunk.text.as_str());
     let mut style = asked.style.clone();
+    // Word by word, all at once: the words rise together.
     style.reveal = Some(Reveal {
-        unit: RevealUnit::Word,
         stagger: 0.0,
         ..Reveal::default()
     });

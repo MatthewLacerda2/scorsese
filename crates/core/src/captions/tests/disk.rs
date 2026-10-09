@@ -2,7 +2,7 @@
 
 use super::fixture::{asked, project};
 use crate::captions::{CaptionError, caption};
-use crate::{Asset, AssetId, Clip, ClipId, Frames, Track, TrackId, TrackKind};
+use crate::{AnchorY, Asset, AssetId, Clip, ClipId, Frames, Track, TrackId, TrackKind};
 
 #[test]
 fn each_caption_arrives_on_its_first_stored_word() {
@@ -36,6 +36,22 @@ fn each_caption_arrives_on_its_first_stored_word() {
     );
     let reveal = first.text_style().reveal.unwrap();
     assert_eq!(reveal.stagger, 0.0, "the whole caption arrives at once");
+    let clip = &track.clips[0];
+    assert_eq!(clip.anchor.y, AnchorY::Bottom);
+    let points = |property: &str| -> Vec<(u64, f64)> {
+        let track = clip
+            .keyframes
+            .iter()
+            .find(|k| k.property.as_str() == property);
+        track
+            .unwrap()
+            .keyframes
+            .iter()
+            .map(|k| (k.t.get(), k.value))
+            .collect()
+    };
+    assert_eq!(points("reveal"), [(0, 0.0), (8, 1.0)]);
+    assert_eq!(points("transform.position.y"), [(0, 0.2)]);
     assert!(project.validate().is_ok(), "{:?}", project.validate());
 }
 
@@ -52,6 +68,9 @@ fn a_rerun_replaces_its_own_captions_and_nothing_else() {
         Frames(30),
     ));
     project.assets.push(Asset::text(AssetId::new("t"), "Title"));
+    project
+        .assets
+        .push(Asset::text(AssetId::new("spare"), "unused"));
     project.tracks.push(titles);
 
     caption(&mut project, &dir, &asked).unwrap();
@@ -73,6 +92,9 @@ fn a_rerun_replaces_its_own_captions_and_nothing_else() {
         .filter(|a| a.id.as_str().starts_with("caption-"))
         .count();
     assert_eq!(captions, 2, "no stale caption assets left behind");
+    for kept in ["t", "spare"] {
+        assert!(project.asset(&AssetId::new(kept)).is_some(), "{kept}");
+    }
 }
 
 #[test]
@@ -97,4 +119,25 @@ fn a_clip_in_the_way_refuses_the_run_and_changes_nothing() {
     asked.track = TrackId::new("a1");
     let error = caption(&mut project, &dir, &asked).unwrap_err();
     assert_eq!(error, CaptionError::NotVideo(TrackId::new("a1")));
+}
+
+#[test]
+fn a_hand_made_clip_showing_a_caption_is_kept_and_its_asset_not_rewritten() {
+    let (dir, mut project) = project("reused");
+    caption(&mut project, &dir, &asked()).unwrap();
+    let mut again = Track::new(TrackId::new("v9"), TrackKind::Video);
+    again.clips.push(Clip::new(
+        ClipId::new("again"),
+        AssetId::new("caption-nar-1"),
+        Frames(200),
+        Frames(30),
+    ));
+    project.tracks.push(again);
+    let error = caption(&mut project, &dir, &asked()).unwrap_err();
+    assert_eq!(error, CaptionError::Taken("caption-nar-1".into()));
+    assert!(
+        project
+            .every_clip()
+            .any(|(_, clip)| clip.id.as_str() == "again")
+    );
 }
