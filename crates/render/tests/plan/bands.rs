@@ -4,7 +4,7 @@
 //! stays a clip in the mix and drops out of the picture, and the plan says
 //! which lines it left out.
 
-use scorsese_core::{AssetKind, Fps, Project};
+use scorsese_core::{AssetKind, Fps, Frames, Project};
 use scorsese_render::{Bands, FrameRange, Note, Plan};
 
 use crate::common::{
@@ -97,5 +97,14 @@ fn only_the_lines_inside_the_range_are_named() {
         left_out(&plan).len(),
         1,
         "a frame of the line is a frame of it"
+    );
+
+    // A shot that runs on past the line, so a range can start where it ends.
+    let mut longer = project.clone();
+    longer.tracks[0].clips[0].duration = Frames(90);
+    let plan = planned(&longer, "60:90".parse().expect("a range"), Bands::Omitted);
+    assert!(
+        left_out(&plan).is_empty(),
+        "the line ended as the range began"
     );
 }
