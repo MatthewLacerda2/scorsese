@@ -24,8 +24,8 @@ pub fn written(report: &RenderReport) -> String {
 }
 
 /// How the soundtrack came out of the delivered file, then what was done to
-/// keep it under full scale when anything was — one line each, and none at
-/// all for a silent render.
+/// bring it to a loudness target and to keep it under full scale when
+/// anything was — one line each, and none at all for a silent render.
 ///
 /// The file's level rather than the mix's, because the two differ whenever
 /// the codec is lossy and the file's is the one a listener hears.
@@ -33,6 +33,9 @@ pub fn delivery(report: &RenderReport) -> Vec<String> {
     let mut lines = Vec::new();
     if let Some(delivered) = &report.delivered {
         lines.push(format!("file   {}", super::loudness(delivered)));
+    }
+    if let Some(lift) = &report.lift {
+        lines.push(format!("loudness {lift}"));
     }
     if let Some(trim) = &report.trim {
         lines.push(format!("note: the soundtrack was {trim}"));

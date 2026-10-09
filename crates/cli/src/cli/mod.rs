@@ -16,7 +16,8 @@ use clap::{Parser, Subcommand};
 use scorsese_core::Fps;
 use scorsese_render::contact;
 use scorsese_render::{
-    AudioCodec, Bitrate, Container, Cue, FrameRange, Resolution, SampleRate, VideoCodec,
+    AudioCodec, Bitrate, Container, Cue, FrameRange, LoudnessTarget, Resolution, SampleRate,
+    VideoCodec,
 };
 
 /// The whole command line: one verb, plus the options that outlive the choice
@@ -466,6 +467,14 @@ pub(crate) enum Command {
         /// it, every band is drawn. Refused for a sound-only format.
         #[arg(long)]
         no_narration_bands: bool,
+        /// Deliver the soundtrack at this integrated loudness, in LUFS, e.g.
+        /// `-14`: the mix is measured, raised or lowered to it, and its peaks
+        /// held under -1 dBTP by a limiter, so a quiet mix arrives as loud as
+        /// the feed around it. Without it the mix is delivered as balanced,
+        /// turned down only as far as a lossy codec needs. The render says the
+        /// loudness before and after, and what it took.
+        #[arg(long, allow_hyphen_values = true)]
+        loudness: Option<LoudnessTarget>,
     },
     /// Write one frame as a PNG, composited exactly as a render would compose
     /// it — no encode, no video file, no sound. What `render --stills` costs a

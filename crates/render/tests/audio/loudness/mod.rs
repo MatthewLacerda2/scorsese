@@ -18,6 +18,7 @@ mod clips;
 mod headroom;
 mod measuring;
 mod mix;
+mod target;
 
 /// Decibels of slack between what the meter says and what the amplitude was.
 ///

@@ -185,3 +185,58 @@ about — and a line saying how far the soundtrack was turned down, when it was.
 same words from the same function (#519).
 `crates/render/tests/audio/loudness/headroom.rs` holds this to a square wave
 that overshoots AAC by more than 3 dB.
+
+## Delivering at a loudness target
+
+Turning a mix down is all the section above ever does. Bringing a quiet one
+**up** — so a short made for a social feed plays as loud as the feed around it,
+since every feed normalises what it plays — is a separate request, and an
+opt-in one: `scorsese render --loudness -14`, or the MCP `render` tool's
+`loudness: -14`. Without it nothing in this section runs, and a render is what
+it was before the option existed, bit for bit.
+
+With it:
+
+1. The finished mix is measured in **LUFS** — ITU-R BS.1770-4's gated,
+   K-weighted loudness, the unit platforms publish their figures in
+   (`scorsese_zimmer::level::Integrated`, held to EBU Tech 3341's reference
+   signals and, in the render's tests, to ffmpeg's own `ebur128` meter).
+2. It is raised or lowered by the difference, and every peak that gain pushes
+   past **−1 dBTP** is held there by a **true-peak limiter**: linked across the
+   two channels, with 2 ms of lookahead and a 60 ms release, judged on the
+   waveform between samples the way the report's meter is. Limiting takes some
+   loudness back, so the result is measured again and the gain corrected until
+   it lands within 0.1 LU of the target.
+3. The lossy rehearsal above runs as it always does. When a codec still needs
+   room, the mix is raised again with the limiter's ceiling lowered by that
+   room, so the codec's headroom comes out of the peaks rather than out of the
+   target.
+
+The limiter is the one place a render changes a mix's dynamics, and a target is
+the author asking for exactly that. It stays deterministic — the same mix
+limits the same way whatever size of chunk it is streamed through — and it has
+a limit of its own: no more than **6 dB** of gain beyond the plain difference is
+added to make up for what limiting takes. A mix whose loudness lives in its
+peaks (a drum hit, a burst of distortion) would only be crushed past that, so
+the render stops short instead.
+
+The report says what it took, beside the file's level and any trim. A quiet
+music bed with sharp clicks on it, delivered as an mp4 (ffmpeg's `ebur128`
+reads the same −25.9 and −14.0 from the two files; the ceiling is −1.4 rather
+than −1.0 because AAC needed that much room):
+
+```
+loudness -25.9 LUFS as mixed, -14.0 LUFS delivered (target -14.0 LUFS): raised 12.5 dB, the limiter taking up to 10.9 dB off peaks to hold them under -1.4 dBTP
+```
+
+A file that lands more than 0.5 LU short of its target says by how much, and a
+silent soundtrack — or one shorter than the 0.4 s a measurement needs — says
+there was no loudness to bring anywhere.
+
+**A number, not a destination, for now.** Presets named for where a video is
+going (`reels`, `tiktok`, `shorts`, `youtube`) are planned on top of the number,
+each figure copied from that platform's own published guidance with its date.
+Those come from the platform studies under #977; until they land, no platform's
+figure is written here, or anywhere in the code, from memory. The range a target
+may take is −40 to −5 LUFS: nothing is delivered quieter, and past −5 a mix is
+nearly all limiter.

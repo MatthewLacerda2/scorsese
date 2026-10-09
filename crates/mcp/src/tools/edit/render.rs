@@ -4,8 +4,8 @@ use std::path::{Path, PathBuf};
 
 use schemars::JsonSchema;
 use scorsese_render::{
-    AudioCodec, Bands, Cancel, Container, FrameRange, OutputFormat, RenderSettings, Renderer,
-    Resolution, Tools, VideoCodec, say,
+    AudioCodec, Bands, Cancel, Container, FrameRange, LoudnessTarget, OutputFormat, RenderSettings,
+    Renderer, Resolution, Tools, VideoCodec, say,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -64,6 +64,13 @@ struct Arguments {
     /// every line left out. Default true, every band drawn. Refused for a
     /// sound-only container.
     narration_bands: Option<bool>,
+    /// Deliver the soundtrack at this integrated loudness, in LUFS, e.g. -14:
+    /// the mix is measured, raised or lowered to it, and its peaks held under
+    /// -1 dBTP by a limiter, so a quiet mix arrives as loud as the feed around
+    /// it. Between -40 and -5. Without it the mix is delivered as balanced,
+    /// turned down only as far as a lossy codec needs. The reply gives the
+    /// loudness before and after, and the gain and limiting it took.
+    loudness: Option<f64>,
 }
 
 impl args::Arguments for Arguments {
@@ -83,6 +90,8 @@ impl Tool for Render {
          composites a frame. Sketch and stale generated assets render as slug \
          cards rather than failing, so a preview cut always produces something; \
          narration_bands: false leaves the narration lines' bands off the picture. \
+         loudness: -14 (any LUFS) brings the soundtrack to that loudness, with a \
+         limiter holding its peaks. \
          The reply says how loud the delivered file came out, and when the \
          soundtrack had to be turned down to keep a lossy codec from clipping, \
          and carries a note for each web page that could not be captured or \
@@ -193,6 +202,13 @@ fn prepared(dir: &Path, arguments: &Arguments) -> Result<(String, PathBuf, Work)
         Some(true) | None => Bands::Drawn,
     };
 
+    // The CLI's `--loudness`, held to the same range in the same words.
+    let loudness = arguments
+        .loudness
+        .map(LoudnessTarget::new)
+        .transpose()
+        .map_err(|problem| format!("{problem}"))?;
+
     // The CLI's `--range`, parsed by the CLI's parser: `FrameRange`'s own
     // `FromStr` is the one set of rules, so `30:`, `:120` and every refusal
     // read the same from either client. Parsed before ffmpeg is looked for,
@@ -212,7 +228,8 @@ fn prepared(dir: &Path, arguments: &Arguments) -> Result<(String, PathBuf, Work)
     // was authored against is the one output rate needing no conform.
     let settings = RenderSettings::new(resolution, project.timeline_fps)
         .with_format(format)
-        .with_bands(bands);
+        .with_bands(bands)
+        .with_loudness(loudness);
     let (dir, target, said) = (dir.to_owned(), path.clone(), out.clone());
     let work: Work = Box::new(move |progress, cancel| {
         let report = Renderer::new(&tools, settings)

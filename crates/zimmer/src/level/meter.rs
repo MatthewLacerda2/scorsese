@@ -12,7 +12,7 @@
 //! −0.2 dBFS can clip after AAC. That is precisely the case a delivery render
 //! should mention and precisely the one a sample peak cannot see.
 
-use super::intersample::{Channel, TAPS};
+use super::peaks::FramePeaks;
 
 /// Full scale, as the number a sample of `1.0` is.
 const FULL_SCALE: f64 = 1.0;
@@ -87,15 +87,9 @@ pub struct Meter {
     /// about the signal and a correlation is about the two sides of it.
     sum_of_left: f64,
     sum_of_right: f64,
-    /// The end of the signal so far: the frames not yet measured, preceded by
-    /// the [`TAPS`] already-measured frames that are their left-hand context.
-    ///
-    /// Never more than twice that many frames, whatever a caller feeds — this
-    /// is a window on the seam and not a copy of the signal.
-    recent: Vec<f32>,
-    /// How many leading frames of [`Meter::recent`] have already been counted.
-    /// The rest are waiting for their right-hand neighbours to arrive.
-    settled: usize,
+    /// Each frame's true peak, read across the seams between runs — so a
+    /// signal fed in pieces measures exactly as it would fed whole.
+    peaks: FramePeaks,
 }
 
 impl Meter {
@@ -116,8 +110,7 @@ impl Meter {
             sum_of_products: 0.0,
             sum_of_left: 0.0,
             sum_of_right: 0.0,
-            recent: Vec::new(),
-            settled: 0,
+            peaks: FramePeaks::new(channels),
         }
     }
 
@@ -137,7 +130,9 @@ impl Meter {
                 self.sum_of_right += right * right;
             }
         }
-        self.measure_true_peak(samples);
+        let true_peak = &mut self.true_peak;
+        self.peaks
+            .feed(samples, |peak| *true_peak = true_peak.max(peak));
     }
 
     /// What the signal came out as.
@@ -191,59 +186,17 @@ impl Meter {
         Some((self.sum_of_products / energy.sqrt()).clamp(-1.0, 1.0))
     }
 
-    /// Oversamples each channel and keeps the largest excursion found.
+    /// The largest excursion anywhere, including the frames still held back
+    /// for their right-hand neighbours — measured here as if the signal ended
+    /// now, because whoever is asking has stopped feeding.
     ///
     /// Per channel rather than across the interleaved buffer — see
-    /// [`Meter::new`] for why that distinction matters.
-    ///
-    /// **A frame is only measurable once both its neighbourhoods exist.** The
-    /// kernel reaches [`TAPS`] frames either side of the frame it reconstructs,
-    /// and anything outside the buffer reads as zero — so a frame measured
-    /// while it still sits at the end of the newest run is measured against a
-    /// silence that is about to be replaced by real samples. That fabricated edge rings, the ringing is an
-    /// excursion, and a running maximum keeps it forever: a signal fed in
-    /// 4 KB runs used to read a decibel hotter than the same signal fed whole.
-    ///
-    /// So each run measures the frames from [`Meter::settled`] up to `TAPS`
-    /// short of the end, keeps the last `TAPS` measured frames as the next
-    /// run's left-hand context, and holds the rest back. The one place the
-    /// zeros are real is the end of the signal, which is
-    /// [`Meter::true_peak`]'s business.
-    fn measure_true_peak(&mut self, samples: &[f32]) {
-        let mut joined = std::mem::take(&mut self.recent);
-        joined.extend_from_slice(samples);
-        let frames = joined.len() / self.channels;
-        // `max` rather than a bare subtraction: a run shorter than the kernel
-        // adds no measurable frames at all, and must not un-measure any.
-        let ready = frames.saturating_sub(TAPS).max(self.settled);
-        for index in 0..self.channels {
-            let channel = Channel::of(&joined, self.channels, index);
-            for frame in self.settled..ready {
-                self.true_peak = self.true_peak.max(channel.peak_from(frame));
-            }
-        }
-        let drop = ready.saturating_sub(TAPS);
-        self.settled = ready - drop;
-        joined.drain(..drop * self.channels);
-        self.recent = joined;
-    }
-
-    /// The largest excursion anywhere, including the frames still held back.
-    ///
-    /// Those are measured here rather than in [`Meter::feed`] because here is
-    /// the only moment their right-hand neighbours are known to be silence:
-    /// whoever is asking has stopped feeding, so the signal ends where the
-    /// buffer does. Read rather than accumulated, so asking twice — or asking
-    /// and then feeding more — gives the answer for the signal as it stands
-    /// each time.
+    /// [`Meter::new`] for why that distinction matters — and
+    /// [`FramePeaks`] has why a frame is only measured once both its
+    /// neighbourhoods exist.
     fn true_peak(&self) -> f64 {
         let mut peak = self.true_peak;
-        for index in 0..self.channels {
-            let channel = Channel::of(&self.recent, self.channels, index);
-            for frame in self.settled..channel.frames() {
-                peak = peak.max(channel.peak_from(frame));
-            }
-        }
+        self.peaks.tail(|frame| peak = peak.max(frame));
         peak
     }
 }
@@ -251,35 +204,4 @@ impl Meter {
 /// A linear amplitude ratio as decibels below full scale.
 fn ratio_to_dbfs(ratio: f64) -> f64 {
     20.0 * ratio.log10()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// **A meter never holds the signal**, which is the reason it is fed a run
-    /// at a time at all: a minute of stereo float is sixty megabytes to learn
-    /// three numbers. What it keeps between runs is a window on the seam — the
-    /// frames whose right-hand taps have not arrived, and the [`TAPS`] measured
-    /// frames that are their left-hand context — so twice the kernel's reach is
-    /// the ceiling, whatever it is fed and however often.
-    ///
-    /// Asserted from inside the module because the buffer is private and there
-    /// is no reason for it not to be. The invariant is real all the same: a
-    /// meter that quietly retained everything would report exactly the same
-    /// numbers and would make a long render run out of memory.
-    #[test]
-    fn a_meter_keeps_a_window_on_the_seam_and_never_the_signal() {
-        for channels in [1, 2] {
-            let mut meter = Meter::new(channels);
-            for _ in 0..20 {
-                meter.feed(&vec![0.5; 4_096]);
-                assert!(
-                    meter.recent.len() <= 2 * TAPS * channels,
-                    "{channels} channels held {} samples",
-                    meter.recent.len()
-                );
-            }
-        }
-    }
 }

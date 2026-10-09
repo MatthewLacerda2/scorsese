@@ -197,6 +197,7 @@ fn dispatch(cli: Cli) -> Result<()> {
             stills,
             at,
             no_narration_bands,
+            loudness,
         } => commands::render::run(
             &directory,
             &out,
@@ -218,6 +219,7 @@ fn dispatch(cli: Cli) -> Result<()> {
                 } else {
                     Bands::Drawn
                 },
+                loudness,
             },
         ),
         Command::Still {

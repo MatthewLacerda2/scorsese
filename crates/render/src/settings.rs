@@ -21,6 +21,7 @@ use std::str::FromStr;
 
 use scorsese_core::Fps;
 
+use crate::audio::LoudnessTarget;
 use crate::format::OutputFormat;
 
 pub use scorsese_compositor::{Resolution, ResolutionError};
@@ -204,6 +205,10 @@ pub struct RenderSettings {
     pub format: OutputFormat,
     /// Whether unmade sounds draw their slug band over the picture.
     pub bands: Bands,
+    /// The integrated loudness to deliver the soundtrack at, when one was
+    /// asked for. `None`, the default, delivers the mix as its author
+    /// balanced it, turned down only as far as a lossy codec needs.
+    pub loudness: Option<LoudnessTarget>,
 }
 
 impl RenderSettings {
@@ -219,6 +224,7 @@ impl RenderSettings {
             audio_bitrate: None,
             format: OutputFormat::default(),
             bands: Bands::default(),
+            loudness: None,
         }
     }
 
@@ -240,6 +246,11 @@ impl RenderSettings {
     /// Draws, or leaves out, the bands of sounds nobody has made yet.
     pub fn with_bands(self, bands: Bands) -> Self {
         Self { bands, ..self }
+    }
+
+    /// Brings the soundtrack to `loudness`, or leaves it as mixed for `None`.
+    pub fn with_loudness(self, loudness: Option<LoudnessTarget>) -> Self {
+        Self { loudness, ..self }
     }
 
     /// Sets both audio settings together, because a rate and a bitrate are
