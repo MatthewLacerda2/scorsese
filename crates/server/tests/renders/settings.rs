@@ -96,3 +96,46 @@ fn a_preview_is_its_quality_of_the_delivery_size_and_a_render_is_unmarked() {
         key(&project, &same_size).unwrap()
     );
 }
+
+#[test]
+fn narration_bands_left_out_are_kept_in_the_key_and_drawn_bands_are_not() {
+    let project = card(|_| {});
+    let drawn = Settings::from_ask(&Ask::default()).unwrap();
+    assert!(drawn.narration_bands);
+    // Drawn is the default, and left out of the stored form: every render
+    // asked for before the choice existed keeps its key.
+    let stored = serde_json::to_value(&drawn).unwrap();
+    assert!(stored.get("narration_bands").is_none(), "{stored}");
+    let asked_drawn = Ask {
+        narration_bands: Some(true),
+        ..Ask::default()
+    };
+    let same = Settings::from_ask(&asked_drawn).unwrap();
+    assert_eq!(
+        key(&project, &same).unwrap(),
+        key(&project, &drawn).unwrap()
+    );
+
+    let omitted = Settings::from_ask(&Ask {
+        narration_bands: Some(false),
+        ..Ask::default()
+    })
+    .unwrap();
+    assert!(!omitted.narration_bands);
+    assert_ne!(
+        key(&project, &omitted).unwrap(),
+        key(&project, &drawn).unwrap()
+    );
+    let back: Settings = serde_json::from_value(serde_json::to_value(&omitted).unwrap()).unwrap();
+    assert_eq!(back, omitted, "a stored row reads back as it was asked");
+    assert!(omitted.render(&project).is_ok());
+
+    let sound = Settings::from_ask(&Ask {
+        narration_bands: Some(false),
+        ..ask(Some("wav"), None)
+    });
+    assert!(
+        sound.unwrap_err().contains("leaving narration bands out"),
+        "refused in the stdio tool's words"
+    );
+}

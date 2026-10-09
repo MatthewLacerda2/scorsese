@@ -37,7 +37,8 @@ right, since that costs nothing. The same project, unchanged, in the same shape 
 once: asking again answers with the file already made. The reply is either the download \
 address, or the job making it; `jobs` says when that job is done and what it made. Download \
 with an HTTP GET on this server, with the same token. Sketch and stale generated assets render \
-as slug cards rather than failing.";
+as slug cards rather than failing; narration_bands: false leaves the narration lines' bands \
+off the picture.";
 
 /// `render`'s arguments: the shape of the file, as the stdio tool spells it.
 pub(super) fn render_schema() -> Value {
@@ -66,6 +67,16 @@ pub(super) fn render_schema() -> Value {
                 "type": "string",
                 "description": "Output size, e.g. 1920x1080 (the default). Refused for a \
                                 sound-only container, which has no picture to size."
+            },
+            "narration_bands": {
+                "type": "boolean",
+                "description": "false to leave out the band a narration line not yet \
+                                generated draws across the foot of the picture: for a preview \
+                                whose captions already carry the words. The line keeps its \
+                                place on the timeline, stays silent until generated and still \
+                                ducks the music, and the finished job's notes name every line \
+                                left out. Default true, every band drawn. Refused for a \
+                                sound-only container."
             }
         },
         "required": ["project"]

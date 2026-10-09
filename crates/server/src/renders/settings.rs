@@ -6,7 +6,7 @@
 
 use scorsese_core::{Project, hash_bytes};
 use scorsese_render::{
-    AudioCodec, Container, OutputFormat, Quality, RenderSettings, Resolution, VideoCodec,
+    AudioCodec, Bands, Container, OutputFormat, Quality, RenderSettings, Resolution, VideoCodec,
 };
 use serde::{Deserialize, Serialize};
 
@@ -28,6 +28,11 @@ pub struct Ask {
     /// `WIDTHxHEIGHT`; defaults to 1920x1080. Refused for sound only.
     #[serde(default)]
     pub resolution: Option<String>,
+    /// `false` leaves out the band an ungenerated narration line draws across
+    /// the foot of the picture (#966, #983); defaults to `true`, every band
+    /// drawn. Refused for sound only.
+    #[serde(default)]
+    pub narration_bands: Option<bool>,
 }
 
 /// A render's settings with every default filled in.
@@ -47,6 +52,21 @@ pub struct Settings {
     /// render's key is what it was before previews existed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preview: Option<String>,
+    /// Whether an ungenerated narration line draws its slug band. Left out of
+    /// the stored form when it does, the default — so every render asked for
+    /// before the choice existed keeps its key, and is not rendered again.
+    #[serde(default = "drawn", skip_serializing_if = "is_drawn")]
+    pub narration_bands: bool,
+}
+
+/// [`Settings::narration_bands`]' default: every band drawn.
+fn drawn() -> bool {
+    true
+}
+
+/// Whether `narration_bands` is the default, and so left out of the key.
+fn is_drawn(narration_bands: &bool) -> bool {
+    *narration_bands
 }
 
 /// A request for a preview of the cut (#542): the delivery size it previews,
@@ -67,13 +87,14 @@ impl Settings {
     /// What `ask` means, or why `docs/output-formats.md` does not allow it —
     /// in the words the CLI refuses it in, since it is the same constructor.
     pub fn from_ask(ask: &Ask) -> Result<Self, String> {
-        let (format, resolution) = parse(ask)?;
+        let (format, resolution, bands) = parse(ask)?;
         Ok(Self {
             container: format.container().name().to_owned(),
             video_codec: format.video().map(|codec| codec.name().to_owned()),
             audio_codec: format.audio().name().to_owned(),
             resolution: resolution.map(|resolution| resolution.to_string()),
             preview: None,
+            narration_bands: bands == Bands::Drawn,
         })
     }
 
@@ -114,14 +135,17 @@ impl Settings {
     /// [`Settings::from_ask`] — a job row edited by hand — are refused rather
     /// than trusted.
     pub fn render(&self, project: &Project) -> Result<RenderSettings, String> {
-        let (format, resolution) = parse(&Ask {
+        let (format, resolution, bands) = parse(&Ask {
             container: Some(self.container.clone()),
             video_codec: self.video_codec.clone(),
             audio_codec: Some(self.audio_codec.clone()),
             resolution: self.resolution.clone(),
+            narration_bands: Some(self.narration_bands),
         })?;
         let resolution = resolution.unwrap_or(Resolution::HD);
-        Ok(RenderSettings::new(resolution, project.timeline_fps).with_format(format))
+        Ok(RenderSettings::new(resolution, project.timeline_fps)
+            .with_format(format)
+            .with_bands(bands))
     }
 
     /// The delivered file's extension: the container's name (`docs/output-formats.md`).
@@ -144,8 +168,9 @@ impl Settings {
     }
 }
 
-/// The format `ask` names, and its picture's size — `None` for sound only.
-fn parse(ask: &Ask) -> Result<(OutputFormat, Option<Resolution>), String> {
+/// The format `ask` names, its picture's size — `None` for sound only — and
+/// whether narration bands are drawn.
+fn parse(ask: &Ask) -> Result<(OutputFormat, Option<Resolution>, Bands), String> {
     let container = match &ask.container {
         Some(name) => name.parse::<Container>().map_err(|e| e.to_string())?,
         None => Container::Mp4,
@@ -164,7 +189,18 @@ fn parse(ask: &Ask) -> Result<(OutputFormat, Option<Resolution>), String> {
         }
         None => format.has_picture().then_some(Resolution::HD),
     };
-    Ok((format, resolution))
+    // Refused for a format with no picture in the stdio tool's and the CLI's
+    // words.
+    let bands = match ask.narration_bands {
+        Some(false) => {
+            format
+                .picture_setting("leaving narration bands out")
+                .map_err(|e| e.to_string())?;
+            Bands::Omitted
+        }
+        Some(true) | None => Bands::Drawn,
+    };
+    Ok((format, resolution, bands))
 }
 
 /// The key a render of `project` with `settings` is kept under: a SHA-256 of
