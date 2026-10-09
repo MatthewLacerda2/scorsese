@@ -63,7 +63,9 @@ attack and shuts in 80 ms, with a little room around it.
 are legal microtonal pitches. It lives in the document because *which pitch* is
 part of what the asset is — a footstep and a gunshot can be the same instrument
 at different pitches. `duration` is how long the key is held; the release rings
-out after it, so the file is longer. `velocity` is `0..=1`. `seed` re-rolls the
+out after it, so the file is longer. It ends where the sound falls 60 dB below
+its own peak, so a reverb on a short pop costs its file only the ring you can
+hear. `velocity` is `0..=1`. `seed` re-rolls the
 stochastic sources — same seed, same bytes, forever.
 
 Only `note` and `patch` are required; the rest default.

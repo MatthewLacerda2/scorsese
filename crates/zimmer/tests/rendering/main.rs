@@ -5,6 +5,7 @@
 mod common;
 
 mod envelopes;
+mod length;
 mod shape;
 mod stages;
 mod velocity;

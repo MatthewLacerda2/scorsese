@@ -51,7 +51,8 @@
 //! harmonic series), [`noise`] (the one seeded RNG), [`nyquist`] (what any of
 //! them may place above the played pitch), [`source`] (which of those runs),
 //! [`mod@env`] (ADSR), [`filter`] (state-variable filter), [`tracks`] (the
-//! per-sample curves the stages walk: pitch, cutoff, tremolo).
+//! per-sample curves the stages walk: pitch, cutoff, tremolo), [`trim`] (where
+//! a baked one-shot's file ends).
 
 pub(crate) mod additive;
 pub(crate) mod env;
@@ -63,6 +64,7 @@ pub(crate) mod nyquist;
 pub(crate) mod osc;
 pub(crate) mod source;
 pub(crate) mod tracks;
+pub(crate) mod trim;
 
 use super::error::SynthError;
 use super::fx;
@@ -140,8 +142,9 @@ fn gate_length(duration: f32) -> Result<f32, SynthError> {
     Ok(duration)
 }
 
-/// Renders one note and limits it — what a single baked one-shot needs, so it
-/// cannot clip its own file.
+/// Renders one note, limits it and trims it — what a single baked one-shot
+/// needs, so it cannot clip its own file and its file ends where the sound
+/// does ([`trim`]).
 ///
 /// Kept apart from [`render_note`] because the song mixer wants the unlimited
 /// form: limiting every note before summing them would squash each one's
@@ -153,6 +156,7 @@ pub(crate) fn render_limited(
 ) -> Result<Stereo, SynthError> {
     let mut buf = render_note(patch, midi, opts)?;
     fx::limiter::apply(&mut buf, RATE);
+    trim::to_floor(&mut buf);
     Ok(buf)
 }
 
