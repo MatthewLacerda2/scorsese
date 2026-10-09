@@ -12,6 +12,7 @@ mod designing;
 mod drawing;
 mod editing;
 mod importing;
+mod narrating;
 mod offering;
 mod pages;
 mod paying;

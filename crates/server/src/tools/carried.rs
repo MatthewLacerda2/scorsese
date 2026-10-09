@@ -135,6 +135,7 @@ pub(super) async fn keep(
             extension,
             announced: None,
             brief_hash: None,
+            words: None,
         };
         let said = match caller.toolbox.library.admit(caller.user, arrival).await {
             Ok(item) => format!(

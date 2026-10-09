@@ -47,7 +47,7 @@ use super::{RenderCache, RenderView, Settings, evict, preview, store};
 use crate::captures::dispatch::{self, Pages};
 use crate::db::UserId;
 use crate::jobs::{Context, Handler, Job, Outcome};
-use crate::library::locate;
+use crate::library::locate::{self, Located};
 use crate::projects::ProjectFiles;
 use crate::projects::media::{hashes, materialise};
 use crate::storage::Storage;
@@ -240,7 +240,7 @@ fn produce(
     tools: &Tools,
     project: &Project,
     places: &Places,
-    media: &HashMap<String, PathBuf>,
+    media: &Located,
     drawn: Drawn,
     out: &Path,
 ) -> Result<Vec<String>, String> {
@@ -259,22 +259,28 @@ fn produce(
         Some(preview) => renderer.with_preview(preview),
         None => renderer,
     };
-    // Asked before the project is laid out, of a folder with no word timings
-    // in it — as the laid-out one has none either: the library keeps a line's
-    // audio and not its timings yet (#811's web half).
-    let requests = renderer
+    // Whether it shows a page decides where it is laid out; what each page is
+    // told is asked of the laid-out folder, which holds the word timings the
+    // render will read too (#886).
+    let shows_pages = !renderer
         .page_captures(project, &places.work)
-        .map_err(rendering)?;
-    let at = if requests.is_empty() {
-        places.work.clone()
-    } else {
+        .map_err(rendering)?
+        .is_empty();
+    let at = if shows_pages {
         places.pages.folder()
+    } else {
+        places.work.clone()
     };
-    let laid = materialise(project, &places.kept, &at, &|hash: &str| {
-        media.get(hash).cloned()
-    })
-    .map_err(|error| format!("laying the project out: {error}"))?;
+    let laid = materialise(project, &places.kept, &at, media)
+        .map_err(|error| format!("laying the project out: {error}"))?;
     super::refused::unrenderable(project, &laid)?;
+    let requests = if shows_pages {
+        renderer
+            .page_captures(project, laid.root())
+            .map_err(rendering)?
+    } else {
+        Vec::new()
+    };
     let (renderer, failed) = if requests.is_empty() {
         (renderer, HashMap::new())
     } else {
@@ -301,7 +307,7 @@ async fn library(
     storage: &Storage,
     user: UserId,
     project: &Project,
-) -> Result<HashMap<String, PathBuf>, String> {
+) -> Result<Located, String> {
     let hashes: Vec<String> = hashes(project).into_iter().map(str::to_owned).collect();
     let mut tx = context.scoped().await.map_err(database)?;
     let files = locate::by_hash(&mut tx, storage, user, &hashes)

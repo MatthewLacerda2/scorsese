@@ -971,6 +971,14 @@ settings, when, and what it cost — `estimated_cost_micros` by scorsese's own
 table, `charged_micros` from the ledger. The generation jobs that call these are web
 MCP's (*Web MCP*).
 
+**A spoken line keeps its word timings on its row** (#886): the `words`
+column, the document `scorsese_core::words::Words` serialises to, and `NULL`
+for everything else — uploads, shots, stills, and any line kept before it
+existed (never backfilled: that would mean paying for the line again). Laying
+a project out writes them beside the audio as `<audio>.words.json`, where a
+local project keeps them, so a render's pages get `scorsese.words` and
+`project_describe` names the word being said, as they do locally.
+
 | route | who | what |
 | --- | --- | --- |
 | `GET /api/library` | a member | their files, newest first: `id`, `name`, `kind`, `size_bytes`, `thumbnail`; `?kind=`, `?search=`, `?sha256=` and `?project=` (the files that project uses) narrow it |

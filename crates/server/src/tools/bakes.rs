@@ -59,6 +59,7 @@ pub(super) async fn keep(
             extension: "wav".to_owned(),
             announced: Some(sha256.clone()),
             brief_hash: Some(address.to_owned()),
+            words: None,
         };
         library
             .keep_generated(user, address, arrival)

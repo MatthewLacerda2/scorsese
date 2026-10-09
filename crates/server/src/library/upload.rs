@@ -221,6 +221,7 @@ impl Library {
             extension,
             announced: Some(sha256),
             brief_hash: None,
+            words: None,
         };
         let admitted = self.admit(user, arrival).await;
         // Finished either way: in the library, or refused and removed.

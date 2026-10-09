@@ -10,6 +10,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use scorsese_core::pool::{hash_file, measure};
+use scorsese_core::words::Words;
 use scorsese_core::{AssetKind, ImportError, MediaMetadata};
 use scorsese_providers::synth::check_midi;
 use scorsese_render::{Ffprobe, Tools};
@@ -36,6 +37,9 @@ pub struct Arrival {
     pub announced: Option<String>,
     /// For generated output, the hash of its brief.
     pub brief_hash: Option<String>,
+    /// For a spoken line, when each of its words is said (#886): kept on the
+    /// item, and written beside the audio wherever a project is laid out.
+    pub words: Option<Words>,
 }
 
 /// What reading a file found.
@@ -84,8 +88,8 @@ impl Library {
         }
         let row: ItemRow = sqlx::query_as(concat!(
             "INSERT INTO library_items
-                 (user_id, sha256, name, kind, extension, size_bytes, media, brief_hash)
-             VALUES (member_id(), $1, $2, $3, $4, $5, $6::jsonb, $7) RETURNING ",
+                 (user_id, sha256, name, kind, extension, size_bytes, media, brief_hash, words)
+             VALUES (member_id(), $1, $2, $3, $4, $5, $6::jsonb, $7, $8::jsonb) RETURNING ",
             item_columns!()
         ))
         .bind(&measured.sha256)
@@ -95,6 +99,7 @@ impl Library {
         .bind(i64::try_from(measured.size).unwrap_or(i64::MAX))
         .bind(&measured.media)
         .bind(&arrival.brief_hash)
+        .bind(arrival.words.as_ref().map(Words::to_json))
         .fetch_one(&mut *tx)
         .await
         .map_err(|error| match &error {

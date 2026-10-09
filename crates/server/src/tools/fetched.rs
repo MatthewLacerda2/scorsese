@@ -59,6 +59,7 @@ pub async fn keep(
             extension,
             announced: Some(sha256.clone()),
             brief_hash: None,
+            words: None,
         };
         match library.admit(user, arrival).await {
             // The same bytes already in the library are the file the

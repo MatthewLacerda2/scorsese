@@ -3,6 +3,7 @@
 
 use scorsese_core::Project;
 use scorsese_core::placing::Shortened;
+use scorsese_core::words::Words;
 use scorsese_render::Tools;
 use serde_json::json;
 
@@ -108,6 +109,18 @@ impl Work {
     /// Keep `bytes` in the library under this brief, charge `paid`, and bring
     /// the file into the project.
     pub(super) async fn keep(&self, paid: Paid, bytes: Vec<u8>, kind: Kind) -> Outcome {
+        self.keep_timed(paid, bytes, kind, None).await
+    }
+
+    /// [`Work::keep`], with a spoken line's word timings kept on its item
+    /// (#886) — `None` for output that has none.
+    pub(super) async fn keep_timed(
+        &self,
+        paid: Paid,
+        bytes: Vec<u8>,
+        kind: Kind,
+        words: Option<Words>,
+    ) -> Outcome {
         let extension = match kind {
             Kind::Audio => "mp3",
             Kind::Image => "jpg",
@@ -132,6 +145,7 @@ impl Work {
             extension: extension.to_owned(),
             announced: None,
             brief_hash: None,
+            words,
         };
         let item = match self
             .library

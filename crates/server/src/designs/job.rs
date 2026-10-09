@@ -171,6 +171,7 @@ impl Work {
                 extension: "mp3".to_owned(),
                 announced: None,
                 brief_hash: None,
+                words: None,
             };
             let item = self
                 .library
