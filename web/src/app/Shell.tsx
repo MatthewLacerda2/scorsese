@@ -1,6 +1,7 @@
 // The frame around every signed-in page: the header (where you are, what you
 // have to spend, who you are) and the upload tray, which stays on screen while
-// the user browses so an upload is never lost to a click. Between the nav and
+// the user browses so an upload is never lost to a click, and the toasts a
+// finished render raises on whichever page is open. Between the nav and
 // the balance is room a page may fill with its own controls (`headerSlot.tsx`).
 
 import { Suspense, useState } from "react";
@@ -8,6 +9,7 @@ import { Link, NavLink, Outlet, useMatch, useNavigate } from "react-router";
 import { HeaderSlotProvider } from "@/app/headerSlot";
 import { PageFallback } from "@/app/PageFallback";
 import { useBalance } from "@/app/queries";
+import { RenderToasts } from "@/app/RenderToasts";
 import { SettingsButton } from "@/app/Settings";
 import { Button } from "@/components/ui/button";
 import {
@@ -73,6 +75,7 @@ export function Shell() {
           </HeaderSlotProvider>
         </main>
         <UploadTray />
+        <RenderToasts />
       </div>
     </UploadsProvider>
   );

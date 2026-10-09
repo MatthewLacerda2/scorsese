@@ -85,7 +85,7 @@ export function EditorActions({
               <DialogTitle>{t.editor.page.renderTitle}</DialogTitle>
               <DialogDescription>{t.editor.page.renderDescription}</DialogDescription>
             </DialogHeader>
-            <RenderPanel projectId={projectId} shape={shape} />
+            <RenderPanel projectId={projectId} name={name} shape={shape} />
           </DialogContent>
         </Dialog>
       </div>
