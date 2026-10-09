@@ -21,6 +21,10 @@ async fn a_shape_the_output_formats_page_does_not_allow_is_refused_first(pool: P
         ),
         (json!({ "container": "webm" }), "webm"),
         (json!({ "resolution": "wide" }), "resolution"),
+        (
+            json!({ "container": "wav", "narration_bands": false }),
+            "narration bands",
+        ),
     ] {
         let (status, body) = call(address, &cookie, "POST", &path, Some(ask.clone())).await;
         assert_eq!(status, 400, "{ask}: {body}");
@@ -50,7 +54,7 @@ async fn a_new_render_is_queued_once_however_often_it_is_asked_for(pool: PgPool)
     assert_eq!(first["job"]["state"], "waiting");
 
     // `{}` and the defaults spelled out are one render.
-    let spelled = json!({ "container": "mp4", "resolution": "1920x1080" });
+    let spelled = json!({ "container": "mp4", "resolution": "1920x1080", "narration_bands": true });
     let (status, again) = call(address, &cookie, "POST", &path, Some(spelled)).await;
     assert_eq!(
         (status, &again["job"]["id"]),
@@ -68,6 +72,9 @@ async fn a_new_render_is_queued_once_however_often_it_is_asked_for(pool: PgPool)
     )
     .await;
     assert_ne!(other["job"]["id"], first["job"]["id"], "{other}");
+    let bandless = Some(json!({ "narration_bands": false }));
+    let (_, bandless) = call(address, &cookie, "POST", &path, bandless).await;
+    assert_ne!(bandless["job"]["id"], first["job"]["id"], "{bandless}");
 }
 
 #[sqlx::test]
