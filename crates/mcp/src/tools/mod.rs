@@ -326,14 +326,11 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         // Beside the tool that starts a recipe from one: choosing an
         // instrument and starting a sound are one thought.
         Box::new(synth::Kit),
-        Box::new(synth::Import),
-        Box::new(synth::Export),
         Box::new(synth::Read),
         Box::new(synth::Write),
         Box::new(synth::Set),
         Box::new(synth::Check),
         Box::new(synth::Bake),
-        Box::new(synth::Survey),
         // Beside the tools that read rather than the ones that write: it
         // answers a question about this build, not about the project, and it is
         // what a client calls before writing an icon asset at all.

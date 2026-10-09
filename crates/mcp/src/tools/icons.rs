@@ -14,8 +14,8 @@
 //! paste rather than something to interpret.
 //!
 //! It costs nothing and needs nothing: no bake, no ffmpeg, no network, no
-//! provider. The table is compiled into this binary, so this is the standing
-//! `synth_survey` has — a tool to call on a hunch rather than one to budget for.
+//! provider. The table is compiled into this binary, so this is a tool to call
+//! on a hunch rather than one to budget for.
 //!
 //! The lookup itself is [`scorsese_render::icon::search`], beside the
 //! catalogue, which is what keeps this and `scorsese icons` one answer instead

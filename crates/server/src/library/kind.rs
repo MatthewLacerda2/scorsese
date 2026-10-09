@@ -3,9 +3,12 @@
 //!
 //! A `.mid` is a library file like any other (#678): uploaded the way a song
 //! is, listed and deleted the same way. What sets it apart is that it is not
-//! media — no clip can show it — so it has no asset kind and no thumbnail;
-//! `synth_import` reads one into a song recipe, and `synth_export` keeps the
-//! one it writes here.
+//! media — no clip can show it — so it has no asset kind and no thumbnail.
+//!
+//! No tool reads or writes one any more: `synth_import` and `synth_export`
+//! left the tool list in #785. The kind stays because files of it are stored,
+//! and a stored row whose kind this build could not read would make the whole
+//! library unloadable for its owner.
 
 use std::path::Path;
 
@@ -25,8 +28,7 @@ pub enum Kind {
     Image,
     /// Sound alone.
     Audio,
-    /// A Standard MIDI File: notes, not sound. Read into a recipe by
-    /// `synth_import`, never placed as a clip.
+    /// A Standard MIDI File: notes, not sound. Never placed as a clip.
     Midi,
 }
 
@@ -68,7 +70,7 @@ impl Kind {
     }
 
     /// The asset kind a file of this kind is imported as — `None` for MIDI,
-    /// which a project takes in as a recipe (`synth_import`), not as a file.
+    /// which is notes, not media.
     pub fn asset_kind(self) -> Option<AssetKind> {
         match self {
             Self::Video => Some(AssetKind::Video),

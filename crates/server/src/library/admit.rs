@@ -155,9 +155,9 @@ fn read(tools: &Tools, file: &Path, kind: Kind) -> Result<Measured, LibraryError
     })
 }
 
-/// A MIDI file, held to what `synth_import` will read: nothing to probe — it
-/// is notes, not media — but a file that would be refused as a song is
-/// refused now, in the reader's words, rather than when somebody asks for it.
+/// A MIDI file, held to what `zimmer`'s reader takes: nothing to probe — it
+/// is notes, not media — but a file that could not be read as a song is
+/// refused now, in the reader's words, rather than kept as noise.
 fn notes(file: &Path) -> Result<MediaMetadata, LibraryError> {
     check_midi(&std::fs::read(file)?)
         .map_err(|why| LibraryError::Rejected(format!("this could not be read as MIDI: {why}")))?;

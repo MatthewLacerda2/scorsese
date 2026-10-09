@@ -47,9 +47,7 @@ mod sheeting;
 mod sketching;
 mod sounding;
 mod starting;
-mod surveying;
 mod syncing;
-mod transcribing;
 mod tuning;
 mod watching;
 

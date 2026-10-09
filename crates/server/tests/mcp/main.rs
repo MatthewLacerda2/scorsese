@@ -12,6 +12,7 @@ mod designing;
 mod drawing;
 mod editing;
 mod importing;
+mod midi;
 mod narrating;
 mod offering;
 mod pages;
@@ -22,7 +23,6 @@ mod shooting;
 mod shortening;
 mod stopping;
 mod studio;
-mod transcribing;
 mod transport;
 mod vendors;
 
