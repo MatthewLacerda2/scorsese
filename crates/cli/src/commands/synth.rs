@@ -69,16 +69,25 @@ pub(crate) fn starter(kind: Starter, instrument: Option<&str>) -> Result<Starter
 
 /// Lists the library, prints one instrument's patch, or copies every `kit:`
 /// name in a recipe into it.
-pub(crate) fn kit(instrument: Option<&str>, copy_into: Option<&Path>) -> Result<()> {
+///
+/// A relative recipe path is the project's, like every other path the CLI
+/// takes inside one — never the working directory's (#971). An absolute one
+/// is used as given, which is what [`Path::join`] does with it.
+pub(crate) fn kit(
+    project_dir: &Path,
+    instrument: Option<&str>,
+    copy_into: Option<&Path>,
+) -> Result<()> {
     if let Some(recipe) = copy_into {
-        let json = std::fs::read_to_string(recipe)
+        let file = project_dir.join(recipe);
+        let json = std::fs::read_to_string(&file)
             .with_context(|| format!("reading {}", recipe.display()))?;
         let expanded = kit::expand(&json).with_context(|| recipe.display().to_string())?;
         if expanded.copied.is_empty() {
             println!("{}: no `kit:` names — nothing to copy", recipe.display());
             return Ok(());
         }
-        scorsese_core::write::atomically(recipe, &expanded.json)
+        scorsese_core::write::atomically(&file, &expanded.json)
             .with_context(|| format!("writing {}", recipe.display()))?;
         println!(
             "{}: copied in {} — the recipe's own now",
