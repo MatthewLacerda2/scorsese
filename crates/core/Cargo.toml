@@ -11,7 +11,11 @@ workspace = true
 
 [dependencies]
 serde = { version = "1.0.229", features = ["derive"] }
-serde_json = "1.0.151"
+# `float_roundtrip`: a float reads back as the float that was written, to the
+# last bit. The default parser is faster and can land one bit off, so a
+# project loaded and saved again was not the same document (#970). Features
+# unify, so this holds for every crate that reads a project.
+serde_json = { version = "1.0.151", features = ["float_roundtrip"] }
 sha2 = "0.11.0"
 thiserror = "2.0.19"
 

@@ -44,20 +44,22 @@ pub(crate) fn project(label: &str) -> PathBuf {
     dir
 }
 
-/// The music bed: one noise blip, sounded once and left to ring out for the
-/// length of the cut. Cheap to render and audible.
+/// The music bed: a quiet hiss held for the length of the cut. Cheap to render
+/// and audible.
 ///
 /// It runs the whole twenty seconds `m1` plays it for, because a baked asset
 /// is a measured one and a clip may not reach past the media it shows. A
 /// two-tenths-of-a-second bed under a twenty-second title is a project that
-/// does not validate, not a small fixture.
+/// does not validate, not a small fixture. The hiss **sustains** rather than
+/// dying away, because a one-shot's file ends where its sound does (#970): a
+/// blip held for twenty seconds bakes to the blip.
 pub(crate) const BED: &str = r#"{
   "recipe": "patch",
   "note": "C3",
   "duration": 20.0,
   "patch": {
     "source": { "kind": "noise" },
-    "amp": { "a": 0.001, "d": 0.08, "s": 0.0, "r": 0.05 }
+    "amp": { "a": 0.001, "d": 0.08, "s": 0.2, "r": 0.05 }
   }
 }
 "#;
