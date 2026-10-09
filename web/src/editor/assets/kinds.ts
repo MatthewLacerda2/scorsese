@@ -1,6 +1,8 @@
 // An asset kind's name and colour, the same in the assets panel, on the
 // timeline's clips and in the inspector — three panels, one code, as the
 // desktop app does it. The names are the catalogue's (`assets.kinds`).
+// The hues are fixed, not theme tokens: a kind's colour is its identity, as a
+// chart series' is, and stays the same in light and dark.
 
 import type { Messages } from "@/i18n/catalogue";
 

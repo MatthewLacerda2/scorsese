@@ -47,7 +47,7 @@ function Open({ turn, question }: { turn: number; question: QuestionView }) {
   });
   const typed = typedAnswer(own);
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-sky-500/50 bg-sky-500/5 p-3 text-sm">
+    <div className="flex flex-col gap-2 rounded-lg border border-info/50 bg-info/5 p-3 text-sm">
       <p className="font-medium">{question.question}</p>
       <div className="flex flex-wrap gap-2">
         {question.options.map((option) => (

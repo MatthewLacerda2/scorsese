@@ -31,7 +31,7 @@ function Open({ turn, question }: { turn: number; question: QuestionView }) {
   const [open, setOpen] = useState(true);
   const candidates = question.candidates ?? [];
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-sky-500/50 bg-sky-500/5 p-3 text-sm">
+    <div className="flex flex-col gap-2 rounded-lg border border-info/50 bg-info/5 p-3 text-sm">
       <p className="font-medium">{question.question}</p>
       <Strip candidates={candidates.slice(0, 4)} />
       <Button size="sm" className="self-start" onClick={() => setOpen(true)}>
