@@ -27,6 +27,11 @@
   --color-destructive: var(--destructive);
   --color-success-foreground: var(--success-foreground);
   --color-success: var(--success);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning: var(--warning);
+  --color-info-foreground: var(--info-foreground);
+  --color-info: var(--info);
+  --color-playhead: var(--playhead);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -68,6 +73,15 @@
   --destructive: oklch(0.577 0.245 27.325);
   --success: oklch(0.527 0.154 150.069);
   --success-foreground: oklch(0.985 0 0);
+  /* Money is about to be spent: the quote box. Tailwind's amber-500. */
+  --warning: oklch(0.769 0.188 70.08);
+  --warning-foreground: oklch(0.205 0 0);
+  /* The assistant is asking something: question and picker cards. Sky-500. */
+  --info: oklch(0.685 0.169 237.323);
+  --info-foreground: oklch(0.985 0 0);
+  /* The timeline's "now" line. Its own token, not --destructive: it marks a
+     place, not a danger, and red-500 is a shade lighter than destructive. */
+  --playhead: oklch(0.637 0.237 25.331);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
@@ -105,6 +119,11 @@
   --destructive: oklch(0.704 0.191 22.216);
   --success: oklch(0.627 0.17 149.214);
   --success-foreground: oklch(0.145 0 0);
+  --warning: oklch(0.828 0.189 84.429);
+  --warning-foreground: oklch(0.205 0 0);
+  --info: oklch(0.746 0.16 232.661);
+  --info-foreground: oklch(0.145 0 0);
+  --playhead: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);

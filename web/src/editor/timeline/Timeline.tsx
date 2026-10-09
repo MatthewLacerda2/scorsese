@@ -162,7 +162,7 @@ export function Timeline(props: TimelineProps) {
             }
           />
           <div
-            className="pointer-events-none absolute top-0 bottom-0 z-20 w-px bg-red-500"
+            className="pointer-events-none absolute top-0 bottom-0 z-20 w-px bg-playhead"
             style={{ left: HEADER + framesToPx(playhead, zoom, fps) }}
             aria-hidden
           />

@@ -40,7 +40,7 @@ export function QuoteBox({ turn, quote }: { turn: number; quote: QuoteView }) {
   const asked = changeAnswer(change);
   const offered = offer(quote);
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-amber-500/50 bg-amber-500/5 p-3 text-sm">
+    <div className="flex flex-col gap-2 rounded-lg border border-warning/50 bg-warning/5 p-3 text-sm">
       <p className="font-medium">
         {offered
           ? t.chat.quote.choose(formatDollars(offered.now), formatDollars(offered.batch))
