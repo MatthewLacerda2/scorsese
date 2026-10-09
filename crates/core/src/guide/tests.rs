@@ -27,7 +27,8 @@ fn every_answer_is_bounded() {
 
 #[test]
 fn a_short_guide_comes_back_exactly_as_the_file_has_it() {
-    assert_eq!(read("pages", None).unwrap(), GUIDES[0].text);
+    let prompts = GUIDES.iter().find(|guide| guide.name == "prompts").unwrap();
+    assert_eq!(read("prompts", None).unwrap(), prompts.text);
 }
 
 #[test]

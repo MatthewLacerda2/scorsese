@@ -20,6 +20,7 @@ mod grain;
 mod grouping;
 mod guide;
 mod icons;
+mod kit;
 mod layout_notes;
 mod lottie;
 mod output;

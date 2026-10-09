@@ -1677,6 +1677,9 @@ What the page can count on:
   and the rest of the catalogue), plus any font file the project carries, loaded
   with `@font-face`. A font it names and was not given falls back to a shipped
   face, the same one on every machine.
+- **scorsese's motion kit**, at `https://lib.scorsese/kit.js`: a frame loop on
+  the page's own seconds, easings, entrances and exits, a count-up, a seeded
+  random (`guide pages`, section "The kit").
 - **anime.js 3.2.2**, at `https://lib.scorsese/anime.min.js`, and
   **lottie-web 5.13.0**, at `https://lib.scorsese/lottie.min.js`, for a Lottie
   file the page loads (`guide pages`, section "A Lottie animation").

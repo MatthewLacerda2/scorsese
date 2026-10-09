@@ -6,6 +6,10 @@
 //! script that threw — and draw something. A page that broke would otherwise
 //! go on teaching every agent that reads the guide, with nothing to say so.
 //!
+//! A file the guide gives for its pages to share — a ```` ```js file <path> ````
+//! block, `pages/lib.js` — is written into every project, as the stand-in
+//! Lottie is.
+//!
 //! A worked page that plays a Lottie loads `wave.json` beside it: the hand-made
 //! stand-in in `fixtures/lottie/` (see `lottie.rs`), written into every
 //! project, since a LottieFiles animation may not be redistributed on its own.
@@ -24,18 +28,29 @@ fn guide() -> String {
     std::fs::read_to_string(path).expect("docs/pages.md is in the repo")
 }
 
-/// Every worked page in `text`: its name, and its HTML.
-fn worked(text: &str) -> Vec<(String, String)> {
-    let mut pages = Vec::new();
+/// Every block in `text` whose opening fence starts with `fence`: what
+/// follows the fence on that line, and the block.
+fn blocks(text: &str, fence: &str) -> Vec<(String, String)> {
+    let mut found = Vec::new();
     let mut lines = text.lines();
     while let Some(line) = lines.next() {
-        let Some(name) = line.strip_prefix("```html page ") else {
+        let Some(name) = line.strip_prefix(fence) else {
             continue;
         };
-        let html: Vec<&str> = lines.by_ref().take_while(|line| *line != "```").collect();
-        pages.push((name.trim().to_owned(), html.join("\n")));
+        let body: Vec<&str> = lines.by_ref().take_while(|line| *line != "```").collect();
+        found.push((name.trim().to_owned(), body.join("\n")));
     }
-    pages
+    found
+}
+
+/// Every worked page in `text`: its name, and its HTML.
+fn worked(text: &str) -> Vec<(String, String)> {
+    blocks(text, "```html page ")
+}
+
+/// Every file the guide's pages share: its project path, and its contents.
+fn shared(text: &str) -> Vec<(String, String)> {
+    blocks(text, "```js file ")
 }
 
 /// Whether any pixel differs from the first: a page that drew nothing over
@@ -46,7 +61,7 @@ fn drew_something(frame: &Frame) -> bool {
 }
 
 #[test]
-fn the_guide_has_its_eight_worked_pages() {
+fn the_guide_has_its_ten_worked_pages_and_the_file_two_share() {
     let names: Vec<String> = worked(&guide()).into_iter().map(|(name, _)| name).collect();
     assert_eq!(
         names,
@@ -58,10 +73,14 @@ fn the_guide_has_its_eight_worked_pages() {
             "icons",
             "in-step",
             "on-the-word",
+            "diagram",
+            "close-up",
             "lottie"
         ],
         "the guide's worked pages, in order"
     );
+    let files: Vec<String> = shared(&guide()).into_iter().map(|(path, _)| path).collect();
+    assert_eq!(files, ["pages/lib.js"]);
 }
 
 #[test]
@@ -79,6 +98,9 @@ fn every_worked_page_captures_without_a_warning_and_draws() {
             include_str!("../fixtures/lottie/wave.json"),
         )
         .expect("the stand-in Lottie");
+        for (path, contents) in shared(&guide()) {
+            std::fs::write(dir.join(path), contents).expect("a shared file");
+        }
         let page = Asset::imported(
             AssetId::new(&name),
             AssetKind::Html,
