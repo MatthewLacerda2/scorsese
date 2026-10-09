@@ -35,15 +35,30 @@ fn a_kit_name_bakes_only_once_it_is_copied_in() {
     assert!(refused.failed, "{}", refused.output);
     refused.says("--copy-into");
 
-    let recipe = dir.join("recipes/beat.json");
-    let recipe = recipe.to_str().expect("a UTF-8 temp path");
-    run_in(&dir, &["synth", "kit", "--copy-into", recipe])
+    // Relative, and run from outside the project: the path is the project's,
+    // never the working directory's (#971).
+    run_in(&dir, &["synth", "kit", "--copy-into", "recipes/beat.json"])
         .ok()
         .says("kick, bass");
     let copied = std::fs::read_to_string(dir.join("recipes/beat.json")).expect("rewritten");
     assert!(!copied.contains("kit:"), "{copied}");
 
     run_in(&dir, &["synth", "bake"]).ok().says("beat — baked");
+}
+
+/// An absolute path is used as given, whatever the project.
+#[test]
+fn copy_into_takes_an_absolute_path_as_given() {
+    let dir = new_project("synth-kit-absolute");
+    let elsewhere = new_project("synth-kit-elsewhere");
+    let recipe = elsewhere.join("beat.json");
+    std::fs::write(&recipe, BEAT).expect("write the beat");
+    let path = recipe.to_str().expect("a UTF-8 temp path");
+    run_in(&dir, &["synth", "kit", "--copy-into", path])
+        .ok()
+        .says("kick, bass");
+    let copied = std::fs::read_to_string(&recipe).expect("rewritten");
+    assert!(!copied.contains("kit:"), "{copied}");
 }
 
 #[test]

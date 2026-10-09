@@ -96,6 +96,7 @@ pub(crate) enum SynthAction {
         #[arg(conflicts_with = "copy_into")]
         instrument: Option<String>,
         /// A recipe file to copy every `kit:` name into, rewritten in place.
+        /// A relative path is relative to the project, as `recipes/song.json`.
         #[arg(long, value_name = "RECIPE")]
         copy_into: Option<PathBuf>,
     },

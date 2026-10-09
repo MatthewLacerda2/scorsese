@@ -263,7 +263,7 @@ fn dispatch(cli: Cli) -> Result<()> {
             Some(SynthAction::Kit {
                 instrument,
                 copy_into,
-            }) => commands::synth::kit(instrument.as_deref(), copy_into.as_deref()),
+            }) => commands::synth::kit(&directory, instrument.as_deref(), copy_into.as_deref()),
             Some(SynthAction::Import { file, name }) => {
                 commands::synth::import(&directory, &file, name.as_deref())
             }
