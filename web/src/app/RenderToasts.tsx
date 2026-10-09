@@ -80,11 +80,15 @@ export function renderToast(
   }
 }
 
-/** The toaster, and the listener that feeds it finished renders. */
+/** The toaster and its listener, told which project is open by the route. */
 export function RenderToasts() {
-  const t = useT();
   const editing = useMatch("/projects/:id/edit");
-  const open = editing ? Number(editing.params.id) : null;
+  return <RenderToaster open={editing ? Number(editing.params.id) : null} />;
+}
+
+/** The toaster, and the listener that feeds it finished renders. */
+export function RenderToaster({ open }: { open: number | null }) {
+  const t = useT();
   useServerEvents((event) => {
     const shown = renderToast(event, open, t.editor.render);
     if (!shown) return;

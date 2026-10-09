@@ -4,12 +4,11 @@
 // finished render raises on whichever page is open. Between the nav and
 // the balance is room a page may fill with its own controls (`headerSlot.tsx`).
 
-import { Suspense, useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { Link, NavLink, Outlet, useMatch, useNavigate } from "react-router";
 import { HeaderSlotProvider } from "@/app/headerSlot";
 import { PageFallback } from "@/app/PageFallback";
 import { useBalance } from "@/app/queries";
-import { RenderToasts } from "@/app/RenderToasts";
 import { SettingsButton } from "@/app/Settings";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +24,13 @@ import { UploadsProvider } from "@/files/uploads";
 import { useT } from "@/i18n/I18nProvider";
 import { formatDollars } from "@/lib/money";
 import { useAccount, useLogout } from "@/session/session";
+
+// The toaster arrives in a chunk of its own once the shell is up, so a first
+// visit (the login page, #896) never downloads Sonner. A render takes longer
+// than that chunk, so no finished one is missed.
+const RenderToasts = lazy(() =>
+  import("@/app/RenderToasts").then((module) => ({ default: module.RenderToasts })),
+);
 
 const NAV = [
   { to: "/projects", key: "projects" },
@@ -75,7 +81,9 @@ export function Shell() {
           </HeaderSlotProvider>
         </main>
         <UploadTray />
-        <RenderToasts />
+        <Suspense fallback={null}>
+          <RenderToasts />
+        </Suspense>
       </div>
     </UploadsProvider>
   );

@@ -3,11 +3,10 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { act, render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
 import { toast } from "sonner";
 import type { JobView, ServerEvent } from "@/api/events";
 import { I18nProvider } from "@/i18n/I18nProvider";
-import { RenderToasts, rememberRender } from "./RenderToasts";
+import { RenderToaster, rememberRender } from "./RenderToasts";
 
 /** The one stream `useServerEvents` opens, held so a test can speak on it. */
 class FakeSource {
@@ -48,12 +47,11 @@ const job = (changed: Partial<JobView>): ServerEvent => ({
   ...changed,
 });
 
-function mount(at = "/projects") {
+/** The toaster, with project `open` in the editor (or none). */
+function mount(open: number | null = null) {
   render(
     <I18nProvider initial="en">
-      <MemoryRouter initialEntries={[at]}>
-        <RenderToasts />
-      </MemoryRouter>
+      <RenderToaster open={open} />
     </I18nProvider>,
   );
 }
@@ -65,7 +63,7 @@ function send(event: ServerEvent) {
 describe("a finished render", () => {
   test("says the video is ready, names its project and links the download", async () => {
     rememberRender(7, { id: 3, name: "Holiday cut" });
-    mount("/projects/5/edit");
+    mount(5);
     send(job({ id: 7, result: { render: 9, size: 10, file: "/api/renders/9/file" } }));
     expect(await screen.findByText("Your video is ready")).toBeTruthy();
     expect(screen.getByText("Holiday cut")).toBeTruthy();
@@ -75,7 +73,7 @@ describe("a finished render", () => {
 
   test("leaves the name out on the project it is of", async () => {
     rememberRender(8, { id: 3, name: "Holiday cut" });
-    mount("/projects/3/edit");
+    mount(3);
     send(job({ id: 8, result: { render: 9, size: 10, file: "/api/renders/9/file" } }));
     expect(await screen.findByText("Your video is ready")).toBeTruthy();
     expect(screen.queryByText("Holiday cut")).toBeNull();
