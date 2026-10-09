@@ -100,6 +100,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `clip_ungroup` | Undo clip_group: replace a clip of a group with the group's own clips, at exactly the times and places the group was showing them, and remove the group asset. | nothing |
 | `dissolve` | Dissolve one shot into the next, by writing ordinary opacity keyframes on both clips — the same ones you would place by hand, and they stay editable afterwards. | nothing |
 | `duck_music` | Lower a music track while narration plays over it, by writing ordinary volume keyframes on its clips. | nothing |
+| `caption_narration` | Put the narration's own words on screen as captions, timed from the word timings saved when each line was generated. | nothing |
 | `set_volume` | Set how loud one clip plays — a level, a mute, or a fade between two points — by writing the ordinary volume keyframes you would place by hand, which stay editable afterwards. | nothing |
 | `scale_pacing` | Move some clips toward or away from one instant, all by the same factor — the operation for pacing. | nothing |
 | `page_write` | Write a web page — a title card, a lower third, an animated chart — as an html asset the timeline plays like footage with alpha. | nothing |

@@ -39,6 +39,7 @@
 //! ([`scorsese_core::TextStyle`]) is turned into one of these where the render
 //! resolution is known.
 
+pub mod caption;
 mod colr;
 mod draw;
 mod figure;

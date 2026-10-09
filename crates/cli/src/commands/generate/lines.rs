@@ -27,8 +27,8 @@ pub(super) fn pass(
 }
 
 /// One line per line of narration.
-pub(super) fn report(outcomes: &[(AssetId, Outcome)]) {
+pub(super) fn report(outcomes: &[(AssetId, Outcome)], project_dir: &Path) {
     for (id, outcome) in outcomes {
-        println!("{id:<24} {}", outcome.says());
+        println!("{id:<24} {}", outcome.says_in(project_dir));
     }
 }

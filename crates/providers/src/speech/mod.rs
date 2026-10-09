@@ -41,7 +41,10 @@ mod error;
 mod provider;
 mod run;
 
+use std::path::Path;
+
 use scorsese_core::ProjectPath;
+use scorsese_core::words::Words;
 
 pub use brief::Brief;
 pub use elevenlabs::ElevenLabsProvider;
@@ -115,6 +118,26 @@ impl Outcome {
             // voice for yet is a cut being written, and the run carried on.
             Self::Incomplete { why } => format!("not yet — {why}"),
             Self::Failed { message } => format!("refused — {message}"),
+        }
+    }
+
+    /// Where this line's word timings are, when it was spoken (now or
+    /// before) and they are on disk under `root`.
+    pub fn timings(&self, root: &Path) -> Option<ProjectPath> {
+        let (Self::Cached { path } | Self::Generated { path, .. }) = self else {
+            return None;
+        };
+        let beside = Words::beside(path);
+        beside.resolve(root).is_file().then_some(beside)
+    }
+
+    /// [`Outcome::says`], and where the line's word timings were saved when
+    /// it has them — what times captions and pages to the voice, and what an
+    /// agent cannot use unless it is told the file is there.
+    pub fn says_in(&self, root: &Path) -> String {
+        match self.timings(root) {
+            Some(words) => format!("{}; word timings in {words}", self.says()),
+            None => self.says(),
         }
     }
 }

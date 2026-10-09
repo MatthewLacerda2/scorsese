@@ -62,6 +62,7 @@ const STORED: &[&str] = &[
     "clip_ungroup",
     "dissolve",
     "duck_music",
+    "caption_narration",
     "set_volume",
     "scale_pacing",
     "icons",

@@ -1266,6 +1266,7 @@ the web — or be left off it — without a reason written down.
 - `clip_ungroup`
 - `dissolve`
 - `duck_music`
+- `caption_narration`
 - `set_volume`
 - `scale_pacing`
 - `icons`

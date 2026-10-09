@@ -639,6 +639,10 @@ pub(crate) enum Command {
         #[arg(long)]
         under: Vec<String>,
     },
+    /// Put the narration's own words on screen as captions, timed from the
+    /// word timings saved beside each generated line. Safe to re-run: it
+    /// replaces only its own captions.
+    Caption(crate::commands::caption::Options),
     /// Say how a finished sound file came out — over its whole length, over
     /// time, and across the spectrum — and optionally how it differs from
     /// another. A signal, never a gate: there is no correct loudness, so
