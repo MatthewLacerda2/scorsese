@@ -60,8 +60,8 @@ name: Coverage
 
 on:
   # Mondays, 05:23 UTC: off the hour, for the reason the sweep's cron gives,
-  # and an hour clear of the sweep so the two are not both cold-building on
-  # the account's runners while a Monday's first pull requests queue.
+  # and on a different day from the sweep (Saturdays since #790) so the two
+  # are never cold-building on the account's runners at once.
   schedule:
     - cron: "23 5 * * 1"
   workflow_dispatch:

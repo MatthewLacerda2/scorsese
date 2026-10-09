@@ -10,8 +10,9 @@ produced it.
 
 Merging is deliberately not the renderer's job. How a run was *executed* — on
 one runner or on four — is a property of the job, and the report is a statement
-about the code. Keeping the seam here is what lets the scheduled sweep, which
-never shards, go on calling the renderer with the file cargo-mutants wrote.
+about the code. Keeping the seam here is what lets both sharding callers —
+`mutants-on-request.yml` and the scheduled sweep (#790) — and `make mutants`,
+which never shards, call the same renderer.
 
 Two things this will not do, both for the same reason: a report that quietly
 described less than it was asked about is the failure #399 was filed over.

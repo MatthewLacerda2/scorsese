@@ -174,7 +174,7 @@ Requests have a consequence worth naming: a line is audited when somebody
 thinks to ask about it, and otherwise never. A module whose tests were later
 weakened, or whose assertions moved to another crate, has nothing looking at
 it. So `.github/workflows/mutation-sweep.yml` sweeps the rest — no `--in-diff`,
-the whole crate — every Monday, **one crate at a time, cycling**. The crates
+the whole crate — every Saturday, **one crate at a time, cycling**. The crates
 are not listed anywhere: `.github/scripts/mutants-rotation.py` reads them out
 of `examine_globs` in `.cargo/mutants.toml`, one week for each crate a glob
 points into, in the order the globs first name it — today `core`,
@@ -196,10 +196,14 @@ than assumed: the whole surface extrapolates to seven to ten hours on a
 GitHub-hosted runner against a six-hour job limit, and a monthly cadence would
 also miss the seven-day cache eviction and build cold every time. The workflow's
 header carries the arithmetic and says plainly which half of it is a
-measurement. One week does not fit: `mcp`'s 1006 mutants extrapolate to about
-ten hours against the five-hour step (each mutant rebuilds a crate sitting on
-`render` and `providers`), so that week is cut short and reported as such —
-`.cargo/mutants.toml` has the measurement.
+measurement. One crate alone did not fit either: `mcp`'s 1006 mutants
+extrapolate to about ten hours against the five-hour step (each mutant rebuilds
+a crate sitting on `render` and `providers`; `.cargo/mutants.toml` has the
+measurement). So every week's crate runs as four parallel shards
+(`cargo mutants --shard k/4`), merged back into one report by
+`mutants-merge.py` exactly as a request's are (#790). The subject is still the
+whole crate every week, so its history row stays comparable; only the wall
+clock is divided.
 
 It reports into **one issue that rewrites itself** — [#341][sweep] — using the
 same renderer every other mutation report goes through. The report at the top is
