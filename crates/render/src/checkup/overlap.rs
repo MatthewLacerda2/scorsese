@@ -115,8 +115,27 @@ const TEXT_WINDOW: std::ops::Range<f64> = 0.5..0.85;
 /// really covers is only knowable by capturing it, which this check never does.
 /// So it is left out, the way a clip [`Layout`] cannot place is: silence over a
 /// number that would be a guess.
-fn immeasurable(placement: &Placement) -> bool {
-    placement.kind == AssetKind::Html
+///
+/// A video or image probed as carrying alpha is the same case for the same
+/// reason (#967): what it covers is only knowable by decoding it. It is also
+/// how a page reaches a render where pages cannot be captured — captured
+/// elsewhere, imported with alpha, laid over a background — so treating it as
+/// opaque reported every such scene as hiding all of what is under it. Only a
+/// recorded `true` counts: an unprobed source is one nobody has looked at, and
+/// is judged by its rectangle as before. Gifs and palette images are probed as
+/// having alpha too, which is right — they may draw nothing anywhere.
+fn immeasurable(placement: &Placement, alpha: &HashSet<&str>) -> bool {
+    placement.kind == AssetKind::Html || alpha.contains(placement.asset.as_str())
+}
+
+/// The assets whose probe recorded an alpha channel, by id.
+fn with_alpha(project: &Project) -> HashSet<&str> {
+    project
+        .assets
+        .iter()
+        .filter(|asset| asset.media.as_ref().and_then(|media| media.has_alpha) == Some(true))
+        .map(|asset| asset.id.as_str())
+        .collect()
 }
 
 /// The frame every rectangle here is worked out against.
@@ -155,6 +174,7 @@ pub(super) fn collisions(project: &Project, project_dir: &Path) -> Vec<String> {
         .filter(|track| track.kind == TrackKind::Video)
         .map(|track| track.id.as_str())
         .collect();
+    let alpha = with_alpha(project);
 
     let mut runs: Vec<Run> = Vec::new();
     for segment in plan.segments() {
@@ -172,7 +192,7 @@ pub(super) fn collisions(project: &Project, project_dir: &Path) -> Vec<String> {
             .placed
             .iter()
             .filter(|placement| picture.contains(placement.track.as_str()))
-            .filter(|placement| !immeasurable(placement))
+            .filter(|placement| !immeasurable(placement, &alpha))
             .collect();
         for (above, over) in layers.iter().enumerate() {
             // Bottom layer first, so everything before `above` is under it.
