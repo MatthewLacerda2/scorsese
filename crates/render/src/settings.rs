@@ -153,6 +153,33 @@ pub enum SampleRateError {
     Zero,
 }
 
+/// Whether a sound nobody has made yet draws its slug band over the picture.
+///
+/// A narration prompt that has not been generated, or a recipe not yet baked,
+/// is silence in the mix and — by default — a translucent band across the foot
+/// of the frame, saying what the line will be (`docs/project-format.md`,
+/// *Narration prompts are visible*). That is what lets a cut built around a
+/// voice-over be watched before a word of it is paid for, and it stays the
+/// default.
+///
+/// Leaving the bands out is for the other preview: one whose on-screen
+/// captions already carry every word, where the band would sit over them and
+/// repeat them in grey (#966). The clip stays on its track either way, so its
+/// place in the cut is kept and the mix still ducks under it.
+///
+/// Pages are not under this switch. A page's band is what an uncaptured page
+/// shows, a stand-in for picture that failed, and a page is never on an audio
+/// track, which is the only place a band is left out from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Bands {
+    /// Every sound not yet made draws its band. The default.
+    #[default]
+    Drawn,
+    /// No sound draws a band: the picture is exactly what it would be with the
+    /// audio tracks' unmade clips taken away, and the render says so.
+    Omitted,
+}
+
 /// Everything a render needs to know that the project does not decide.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RenderSettings {
@@ -175,6 +202,8 @@ pub struct RenderSettings {
     /// into it. Checked when the [`OutputFormat`] is built, so a render that
     /// gets this far cannot spend an encode producing a file nobody wants.
     pub format: OutputFormat,
+    /// Whether unmade sounds draw their slug band over the picture.
+    pub bands: Bands,
 }
 
 impl RenderSettings {
@@ -189,6 +218,7 @@ impl RenderSettings {
             sample_rate: SampleRate::DEFAULT,
             audio_bitrate: None,
             format: OutputFormat::default(),
+            bands: Bands::default(),
         }
     }
 
@@ -205,6 +235,11 @@ impl RenderSettings {
     /// the encoder discovers.
     pub fn with_format(self, format: OutputFormat) -> Self {
         Self { format, ..self }
+    }
+
+    /// Draws, or leaves out, the bands of sounds nobody has made yet.
+    pub fn with_bands(self, bands: Bands) -> Self {
+        Self { bands, ..self }
     }
 
     /// Sets both audio settings together, because a rate and a bitrate are

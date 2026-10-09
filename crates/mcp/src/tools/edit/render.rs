@@ -4,8 +4,8 @@ use std::path::{Path, PathBuf};
 
 use schemars::JsonSchema;
 use scorsese_render::{
-    AudioCodec, Cancel, Container, FrameRange, OutputFormat, RenderSettings, Renderer, Resolution,
-    Tools, VideoCodec, say,
+    AudioCodec, Bands, Cancel, Container, FrameRange, OutputFormat, RenderSettings, Renderer,
+    Resolution, Tools, VideoCodec, say,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -57,6 +57,13 @@ struct Arguments {
     /// to 120, 30: runs to the end, :120 from the start. Without it the whole
     /// timeline is rendered.
     range: Option<String>,
+    /// false to leave out the band a narration line not yet generated draws
+    /// across the foot of the picture: for a preview whose captions already
+    /// carry the words. The line keeps its place on the timeline, stays
+    /// silent until generated and still ducks the music, and the reply names
+    /// every line left out. Default true, every band drawn. Refused for a
+    /// sound-only container.
+    narration_bands: Option<bool>,
 }
 
 impl args::Arguments for Arguments {
@@ -74,7 +81,8 @@ impl Tool for Render {
          to check the cut is right, since that costs nothing. An out ending in \
          .mp3, .wav or .m4a delivers the soundtrack with no picture, and never \
          composites a frame. Sketch and stale generated assets render as slug \
-         cards rather than failing, so a preview cut always produces something. \
+         cards rather than failing, so a preview cut always produces something; \
+         narration_bands: false leaves the narration lines' bands off the picture. \
          The reply says how loud the delivered file came out, and when the \
          soundtrack had to be turned down to keep a lossy codec from clipping, \
          and carries a note for each web page that could not be captured or \
@@ -173,6 +181,18 @@ fn prepared(dir: &Path, arguments: &Arguments) -> Result<(String, PathBuf, Work)
         None => Resolution::HD,
     };
 
+    // The CLI's `--no-narration-bands`, refused for a format with no picture
+    // in the same words.
+    let bands = match arguments.narration_bands {
+        Some(false) => {
+            format
+                .picture_setting("leaving narration bands out")
+                .map_err(|problem| format!("{problem}"))?;
+            Bands::Omitted
+        }
+        Some(true) | None => Bands::Drawn,
+    };
+
     // The CLI's `--range`, parsed by the CLI's parser: `FrameRange`'s own
     // `FromStr` is the one set of rules, so `30:`, `:120` and every refusal
     // read the same from either client. Parsed before ffmpeg is looked for,
@@ -190,7 +210,9 @@ fn prepared(dir: &Path, arguments: &Arguments) -> Result<(String, PathBuf, Work)
     let tools = Tools::discover().map_err(|error| format!("{error}"))?;
     // The project's own grid by default: rendering at the rate the edit
     // was authored against is the one output rate needing no conform.
-    let settings = RenderSettings::new(resolution, project.timeline_fps).with_format(format);
+    let settings = RenderSettings::new(resolution, project.timeline_fps)
+        .with_format(format)
+        .with_bands(bands);
     let (dir, target, said) = (dir.to_owned(), path.clone(), out.clone());
     let work: Work = Box::new(move |progress, cancel| {
         let report = Renderer::new(&tools, settings)

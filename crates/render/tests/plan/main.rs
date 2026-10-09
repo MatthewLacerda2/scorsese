@@ -8,6 +8,7 @@
 mod common;
 
 mod audio;
+mod bands;
 mod embedded;
 mod grouping;
 mod image_sequence;

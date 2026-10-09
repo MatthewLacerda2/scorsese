@@ -106,12 +106,13 @@ fn the_container_flag_is_what_gets_checked() {
 fn a_picture_flag_for_a_sound_only_file_never_gets_as_far_as_ffmpeg() {
     let dir = new_project("sound-only");
     for flag in [
-        ["--resolution", "1280x720"],
-        ["--fps", "24"],
-        ["--video-codec", "h264"],
+        &["--resolution", "1280x720"][..],
+        &["--fps", "24"],
+        &["--video-codec", "h264"],
+        &["--no-narration-bands"],
     ] {
         let mut arguments = vec!["--out", "score.mp3"];
-        arguments.extend_from_slice(&flag);
+        arguments.extend_from_slice(flag);
         let run = render(&dir, &arguments);
         assert!(run.failed, "{flag:?} means nothing to an mp3");
         run.says("mp3 carries sound only");

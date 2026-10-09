@@ -25,6 +25,7 @@
 use scorsese_core::{Asset, AssetKind, Clip, Frames, Project, Track, TrackKind};
 
 use super::{PlanError, Segment, Showing};
+use crate::settings::Bands;
 
 /// True when this clip puts something on screen.
 ///
@@ -34,13 +35,36 @@ use super::{PlanError, Segment, Showing};
 /// built around a voice-over can be watched before the voice-over exists. Once
 /// it *has* been generated the card goes away and the picture is untouched —
 /// nothing is ever drawn over a shot for a sound that can be heard.
-pub(super) fn is_visible(project: &Project, track: &Track, clip: &Clip) -> bool {
+///
+/// [`Bands::Omitted`] asks for the card to be left out too, so no clip on an
+/// audio track is ever visible under it.
+pub(super) fn is_visible(project: &Project, track: &Track, clip: &Clip, bands: Bands) -> bool {
     match track.kind {
         TrackKind::Video => true,
-        TrackKind::Audio => project
-            .asset(&clip.asset)
-            .is_some_and(|asset| showing(asset) == Showing::Card),
+        TrackKind::Audio => bands == Bands::Drawn && is_band(project, clip),
     }
+}
+
+/// True when a clip on an audio track would draw a band: its sound has not
+/// been made.
+fn is_band(project: &Project, clip: &Clip) -> bool {
+    project
+        .asset(&clip.asset)
+        .is_some_and(|asset| showing(asset) == Showing::Card)
+}
+
+/// Every clip on an audio track whose band [`Bands::Omitted`] keeps off the
+/// picture somewhere in `start..end`, in project order — what the render
+/// report names, so a silent stretch is never mistaken for a bug.
+pub(super) fn bands_left_out(project: &Project, start: Frames, end: Frames) -> Vec<String> {
+    project
+        .tracks
+        .iter()
+        .filter(|track| track.kind == TrackKind::Audio)
+        .flat_map(|track| &track.clips)
+        .filter(|clip| clip.start < end && clip.end() > start && is_band(project, clip))
+        .map(|clip| clip.id.to_string())
+        .collect()
 }
 
 /// True when this clip puts sound into the mix.

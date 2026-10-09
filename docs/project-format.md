@@ -259,6 +259,15 @@ its clip covers, so a cut built around a voice-over can be watched before a
 word of it has been paid for. Once the audio exists the card is gone and the
 picture is untouched — a slug card is a stand-in, never a caption.
 
+A render can leave the bands out (`scorsese render --no-narration-bands`, or the
+MCP `render` tool's `narration_bands: false`): for a preview whose captions
+already carry every word, where a band would cover them. That is a choice made
+per render, like its resolution, and nothing in the project records it. The
+clips stay where they are — silent, still ducking the music — and the render
+reports each line it left out. A recipe not yet baked is a sound not yet made
+too, and its band goes with them; a page's card is not a sound and is always
+drawn.
+
 ### What a generated video asks for
 
 A prompt says what the shot is *of*. `video` says what the shot **is** — and
