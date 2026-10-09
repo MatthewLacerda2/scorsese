@@ -1,12 +1,15 @@
 // The toast a finished render raises (#958), fed through the live stream as
 // the server sends it: a stand-in `EventSource` carries the `job` messages.
+// Mounted under a router at a URL, so which project is open comes from the
+// route, as in the app (a router mounts here since #963).
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { act, render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
 import { toast } from "sonner";
 import type { JobView, ServerEvent } from "@/api/events";
 import { I18nProvider } from "@/i18n/I18nProvider";
-import { RenderToaster, rememberRender } from "./RenderToasts";
+import { RenderToasts, rememberRender } from "./RenderToasts";
 
 /** The one stream `useServerEvents` opens, held so a test can speak on it. */
 class FakeSource {
@@ -47,12 +50,14 @@ const job = (changed: Partial<JobView>): ServerEvent => ({
   ...changed,
 });
 
-/** The toaster, with project `open` in the editor (or none). */
+/** The toaster, with project `open` in the editor (or the library open). */
 function mount(open: number | null = null) {
   render(
-    <I18nProvider initial="en">
-      <RenderToaster open={open} />
-    </I18nProvider>,
+    <MemoryRouter initialEntries={[open === null ? "/library" : `/projects/${open}/edit`]}>
+      <I18nProvider initial="en">
+        <RenderToasts />
+      </I18nProvider>
+    </MemoryRouter>,
   );
 }
 

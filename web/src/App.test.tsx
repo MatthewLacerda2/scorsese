@@ -2,26 +2,27 @@
 // DOM: a query with no seeded data stays pending and fetches nothing, and an
 // effect (the uploader) never runs — what is checked is what each page draws
 // first. `prerender` waits for every Suspense boundary, so a lazy page (#896)
-// is rendered once its module has loaded, never as its fallback.
+// is rendered once its module has loaded, never as its fallback; and
+// `prerenderHtml` cleans up after it, so a DOM test of a router can follow in
+// the same process (#963).
 
 import { expect, test } from "bun:test";
-import { prerender } from "react-dom/static";
 import { MemoryRouter } from "react-router";
 import { App } from "@/App";
 import type { Account, Balance, EditorProject } from "@/api";
 import { createQueryClient, ME } from "@/app/queryClient";
+import { prerenderHtml } from "@/test/prerender";
 
 async function render(url: string, seed: (client: ReturnType<typeof createQueryClient>) => void) {
   const client = createQueryClient();
   seed(client);
-  const { prelude } = await prerender(
+  return prerenderHtml(
     <App
       language="en"
       queryClient={client}
       router={(routes) => <MemoryRouter initialEntries={[url]}>{routes}</MemoryRouter>}
     />,
   );
-  return new Response(prelude).text();
 }
 
 const ana: Account = { id: 1, email: "ana@example.com", created_at: 0 };

@@ -87,7 +87,7 @@ export function RenderToasts() {
 }
 
 /** The toaster, and the listener that feeds it finished renders. */
-export function RenderToaster({ open }: { open: number | null }) {
+function RenderToaster({ open }: { open: number | null }) {
   const t = useT();
   useServerEvents((event) => {
     const shown = renderToast(event, open, t.editor.render);
