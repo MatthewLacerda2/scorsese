@@ -6,7 +6,7 @@ use anyhow::{Context, Result};
 use scorsese_core::{Fps, Project};
 use scorsese_render::say;
 use scorsese_render::{
-    AudioCodec, Bitrate, Container, Cue, FrameRange, OutputFormat, RenderSettings, Renderer,
+    AudioCodec, Bands, Bitrate, Container, Cue, FrameRange, OutputFormat, RenderSettings, Renderer,
     Resolution, SampleRate, Tools, VideoCodec, Workers, frames,
 };
 
@@ -43,6 +43,8 @@ pub(crate) struct Options {
     /// Which instants to still. Empty means every segment boundary, which is
     /// where a cut can be one frame wrong.
     pub(crate) at: Vec<Cue>,
+    /// Whether a narration line not yet generated draws its band.
+    pub(crate) bands: Bands,
 }
 
 /// Renders the project to `out`, then prints what was written — for a headless
@@ -67,6 +69,10 @@ pub(crate) fn run(project_dir: &Path, out: &Path, options: Options) -> Result<()
         (options.bitrate.is_some(), "a video bitrate"),
         (options.threads.is_some(), "a compositing thread count"),
         (options.stills.is_some(), "stills"),
+        (
+            options.bands == Bands::Omitted,
+            "leaving narration bands out",
+        ),
     ] {
         if given {
             format.picture_setting(setting)?;
@@ -83,7 +89,8 @@ pub(crate) fn run(project_dir: &Path, out: &Path, options: Options) -> Result<()
     let settings = RenderSettings::new(resolution, fps)
         .with_bitrate(options.bitrate)
         .with_audio(options.sample_rate, options.audio_bitrate)
-        .with_format(format);
+        .with_format(format)
+        .with_bands(options.bands);
     let range = options.range.unwrap_or(FrameRange::ALL);
 
     let tools = Tools::discover()?;

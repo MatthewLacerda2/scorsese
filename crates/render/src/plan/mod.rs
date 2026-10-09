@@ -14,6 +14,7 @@ mod segments;
 use scorsese_core::{Asset, Clip, Fps, Frames, Project, Track, TrackId, TrackKind};
 
 use crate::report::Note;
+use crate::settings::Bands;
 
 pub use error::PlanError;
 pub use range::{FrameRange, FrameRangeError};
@@ -204,10 +205,24 @@ impl<'a> Plan<'a> {
     /// clip lasts, so that a cut driven by its voice-over can be watched before
     /// a word of it has been paid for.
     pub fn build(project: &'a Project, out_fps: Fps, range: FrameRange) -> Result<Self, PlanError> {
+        Self::drawing(project, out_fps, range, Bands::Drawn)
+    }
+
+    /// [`Plan::build`], with the bands of unmade sounds drawn or left out as
+    /// `bands` says ([`Bands`]). Leaving them out takes those clips out of the
+    /// picture only: they are still heard (as the silence they are) and still
+    /// what the mix ducks under, and the plan carries a
+    /// [`Note::BandsLeftOut`] naming them.
+    pub fn drawing(
+        project: &'a Project,
+        out_fps: Fps,
+        range: FrameRange,
+        bands: Bands,
+    ) -> Result<Self, PlanError> {
         if segments::tracks_of(project, TrackKind::Video).is_empty() {
             return Err(PlanError::NothingToRender);
         }
-        Self::sequence(project, out_fps, range)
+        Self::sequence(project, out_fps, range, bands)
     }
 
     /// [`Plan::build`], for a delivery with no picture in it — an mp3 of the
@@ -231,12 +246,17 @@ impl<'a> Plan<'a> {
         {
             return Err(PlanError::NothingToHear);
         }
-        Self::sequence(project, out_fps, range)
+        Self::sequence(project, out_fps, range, Bands::Drawn)
     }
 
     /// The sequencing both constructors share. Picture decides the length
     /// when there is any, and the audio tracks do when there is none.
-    fn sequence(project: &'a Project, out_fps: Fps, range: FrameRange) -> Result<Self, PlanError> {
+    fn sequence(
+        project: &'a Project,
+        out_fps: Fps,
+        range: FrameRange,
+        bands: Bands,
+    ) -> Result<Self, PlanError> {
         let tracks = segments::tracks_of(project, TrackKind::Video);
         let timeline_end = if tracks.is_empty() {
             segments::timeline_end(&segments::tracks_of(project, TrackKind::Audio))
@@ -246,7 +266,8 @@ impl<'a> Plan<'a> {
         let audible = |track: &Track, clip: &Clip| segments::is_audible(project, track, clip);
         let audio_tracks =
             segments::taking_part(project, &[TrackKind::Video, TrackKind::Audio], audible);
-        let visible = |track: &Track, clip: &Clip| segments::is_visible(project, track, clip);
+        let visible =
+            |track: &Track, clip: &Clip| segments::is_visible(project, track, clip, bands);
         let mut picture_tracks = tracks.clone();
         // After the video tracks rather than in document order: a narration
         // card belongs over the picture, and nothing on an audio track can be
@@ -280,6 +301,12 @@ impl<'a> Plan<'a> {
                 range,
                 timeline_end,
             });
+        }
+        if bands == Bands::Omitted {
+            let clips = segments::bands_left_out(project, start, end);
+            if !clips.is_empty() {
+                notes.push(Note::BandsLeftOut { clips });
+            }
         }
 
         Ok(Self {

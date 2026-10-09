@@ -50,7 +50,7 @@ pub(super) fn compose(
     project_root: &Path,
     at: Frames,
 ) -> Result<(Frame, Vec<Note>), RenderError> {
-    let plan = Plan::build(project, settings.fps, FrameRange::just(at))?;
+    let plan = Plan::drawing(project, settings.fps, FrameRange::just(at), settings.bands)?;
     let sizes = Sizes::measure(tools, &plan, project_root)?;
     // A still is the case a held animation is most often opened part-way
     // through: scrubbing two seconds into a gif must show where the gif is at

@@ -212,7 +212,7 @@ impl<'a> Renderer<'a> {
         // before the plan, which is a pure function of the document.
         let (project, probe_notes) = crate::probe::fill_media(self.tools, project, project_root);
         let plan = if picture {
-            Plan::build(&project, self.settings.fps, range)?
+            Plan::drawing(&project, self.settings.fps, range, self.settings.bands)?
         } else {
             Plan::build_sound(&project, self.settings.fps, range)?
         };

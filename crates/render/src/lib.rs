@@ -222,7 +222,8 @@ pub use properties::{ANIMATABLE, Unknown, unknown_in};
 pub use report::{Note, RenderReport, StandIn};
 pub use run::Renderer;
 pub use settings::{
-    Bitrate, BitrateError, RenderSettings, Resolution, ResolutionError, SampleRate, SampleRateError,
+    Bands, Bitrate, BitrateError, RenderSettings, Resolution, ResolutionError, SampleRate,
+    SampleRateError,
 };
 pub use slug::{Absent, wording};
 pub use symbol::{UnknownIcon, unknown_icons};

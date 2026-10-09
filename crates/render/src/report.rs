@@ -113,6 +113,14 @@ pub enum Note {
         /// What was put there instead.
         stood_in: StandIn,
     },
+    /// The bands of sounds nobody has made yet were left off the picture, as
+    /// the render was asked ([`crate::Bands::Omitted`]). These clips are
+    /// silent in the file and show nothing, which is what was wanted, and
+    /// worth saying so it is never taken for a sound that failed to play.
+    BandsLeftOut {
+        /// The audio clips whose bands were left out, in project order.
+        clips: Vec<String>,
+    },
     /// An icon asset names a symbol this build does not ship, so its layer came
     /// out empty.
     ///
@@ -264,6 +272,16 @@ impl fmt::Display for Note {
                 f,
                 "clip `{clip}` shows asset `{asset}`, which the project says was \
                  generated but has no file on disk — {stood_in} stood in for it"
+            ),
+            Self::BandsLeftOut { clips } => write!(
+                f,
+                "narration bands left out, as asked: {} not made yet, so silent \
+                 and not shown",
+                clips
+                    .iter()
+                    .map(|clip| format!("`{clip}`"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
             ),
             Self::UnknownIcon { clip, asset, named } => write!(
                 f,

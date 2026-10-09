@@ -459,6 +459,13 @@ pub(crate) enum Command {
         /// where a cut can be one frame wrong.
         #[arg(long, value_delimiter = ',', requires = "stills")]
         at: Vec<Cue>,
+        /// Leave out the band a narration line not yet generated draws over
+        /// the foot of the picture. The line keeps its place and stays silent
+        /// until it is generated, and the render says which lines it left
+        /// out. For a preview whose captions already carry the words; without
+        /// it, every band is drawn. Refused for a sound-only format.
+        #[arg(long)]
+        no_narration_bands: bool,
     },
     /// Write one frame as a PNG, composited exactly as a render would compose
     /// it — no encode, no video file, no sound. What `render --stills` costs a

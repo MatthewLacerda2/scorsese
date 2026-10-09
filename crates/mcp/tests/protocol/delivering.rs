@@ -106,6 +106,10 @@ fn a_format_scorsese_does_not_write_is_refused_the_way_the_command_line_refuses_
             json!({ "out": dir.join("score.wav"), "video_codec": "h264" }),
             "wav carries sound only, so a video codec has no picture to apply to",
         ),
+        (
+            json!({ "out": dir.join("score.m4a"), "resolution": null, "narration_bands": false }),
+            "m4a carries sound only, so leaving narration bands out has no picture",
+        ),
     ] {
         let (text, failed) = render(&dir, extra.clone());
         assert!(failed, "{extra} must be refused, and got: {text}");
@@ -118,6 +122,7 @@ fn a_format_scorsese_does_not_write_is_refused_the_way_the_command_line_refuses_
         "cut.mp4",
         "score.mp3",
         "score.wav",
+        "score.m4a",
     ] {
         assert!(!dir.join(name).exists(), "a refusal left {name} behind");
     }

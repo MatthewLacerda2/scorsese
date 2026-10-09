@@ -23,6 +23,7 @@ mod icons;
 mod kit;
 mod layout_notes;
 mod lottie;
+mod narration_bands;
 mod output;
 mod pages;
 mod partial;
