@@ -79,10 +79,13 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     # The server's database tests fail without a Postgres rather than skip, so
     # the job has one. `make test` gets the same from `tools/with-postgres`,
-    # which runs this same image -- change the two together.
+    # which runs this same image -- change the two together. Pulled from AWS's
+    # mirror of Docker's official images, not Docker Hub: a batch's worth of
+    # runs hits Docker Hub's anonymous pull limit and the job never starts
+    # (#986). Same image, same tag.
     services:
       postgres:
-        image: postgres:17-alpine
+        image: public.ecr.aws/docker/library/postgres:17-alpine
         env:
           POSTGRES_USER: scorsese
           POSTGRES_PASSWORD: scorsese
@@ -471,18 +474,19 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: The workspace
-        uses: EmbarkStudios/cargo-deny-action@v2
+      # The binary, not `EmbarkStudios/cargo-deny-action`: that is a Docker
+      # action whose image is built `FROM rust:…-alpine` pulled anonymously
+      # from Docker Hub on every run, and a batch's worth of runs hits Docker
+      # Hub's anonymous pull limit — a red gate that said nothing about the
+      # code (#986). The version is the one `make deny`'s callers pin
+      # (`.claude/hooks/session-start.sh`).
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@v2
         with:
-          command: check advisories bans sources licenses
+          tool: cargo-deny@0.20.2
 
-      # `--all-features` is repeated rather than inherited: `arguments`
-      # *replaces* the action's default of `--all-features`, so omitting it
-      # here would check the app with default features only and let a
-      # feature-gated dependency through the gate that exists to catch it.
-      - name: The desktop app
-        uses: EmbarkStudios/cargo-deny-action@v2
-        with:
-          manifest-path: app/Cargo.toml
-          arguments: --all-features --config deny.toml
-          command: check advisories bans sources licenses
+      # `make deny` is the gate itself, both steps of it — the workspace, then
+      # the app with `--all-features` against the same `deny.toml` — so CI and
+      # a local run cannot drift apart.
+      - name: Both workspaces
+        run: make deny
