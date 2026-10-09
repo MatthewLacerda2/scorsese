@@ -30,6 +30,7 @@ export const editor: Messages["editor"] = {
     audio: "audio",
     none: "Todavía no hay renderizados guardados para este proyecto.",
     note: "Los renderizados se guardan un tiempo y se vuelven a hacer cuando los pides; no cuestan créditos.",
+    ready: "Tu video está listo",
     jobs: {
       waiting: "En cola, detrás de otros renderizados…",
       running: "Renderizando…",

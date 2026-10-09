@@ -9,13 +9,21 @@ import { useState } from "react";
 import { api, type RenderView } from "@/api";
 import type { JobView } from "@/api/events";
 import { useServerEvents } from "@/app/events";
+import { rememberRender } from "@/app/RenderToasts";
 import { Button } from "@/components/ui/button";
 import { useLanguage, useT } from "@/i18n/I18nProvider";
 import { formatBytes, formatDate } from "@/lib/format";
 import { folded, JobProgressBar } from "./JobProgressBar";
 import { SHAPES, type Shape } from "./shape";
 
-export function RenderPanel({ projectId, shape }: { projectId: number; shape: Shape }) {
+interface Props {
+  projectId: number;
+  /** The project's name, for the toast its render raises on another page. */
+  name: string;
+  shape: Shape;
+}
+
+export function RenderPanel({ projectId, name, shape }: Props) {
   const queryClient = useQueryClient();
   const t = useT();
   const key = ["projects", "renders", projectId];
@@ -37,6 +45,7 @@ export function RenderPanel({ projectId, shape }: { projectId: number; shape: Sh
     setError(null);
     try {
       const asked = await api.renders.request(projectId, { resolution });
+      if (asked.job) rememberRender(asked.job.id, { id: projectId, name });
       setJob(asked.job);
       if (asked.render) queryClient.invalidateQueries({ queryKey: key });
     } catch (failed) {

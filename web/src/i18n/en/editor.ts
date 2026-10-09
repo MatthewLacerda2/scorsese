@@ -31,6 +31,7 @@ export const editor = {
     audio: "audio",
     none: "No renders kept for this project yet.",
     note: "Renders are kept for a while and made again on request; they cost no credits.",
+    ready: "Your video is ready",
     jobs: {
       waiting: "Queued behind other renders…",
       running: "Rendering…",
