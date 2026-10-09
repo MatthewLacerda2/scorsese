@@ -1,16 +1,17 @@
 //! Vendors that never spend a cent: a Veo, a Gemini — drawing now or in a
 //! batch — and an ElevenLabs —
 //! speech and voice design — answering from files ffmpeg made, and counting
-//! how often they were asked. The Gemini half is [`image`].
+//! how often they were asked. The Gemini half is [`image`], ElevenLabs'
+//! speech [`speech`].
 
 mod image;
+mod speech;
 
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
-use scorsese_providers::speech::{self, SpeechProvider};
 use scorsese_providers::video::{self, Progress, ProviderError, Ready, Ticket, VideoProvider};
 use scorsese_server::generations::{Image, Speech, Studio, Timing, Vendors, Video};
 use scorsese_server::http::AppState;
@@ -68,17 +69,6 @@ impl Vendors for Mock {
 
     fn studio(&self) -> Result<Studio, String> {
         Ok(Box::new(self.clone()))
-    }
-}
-
-impl SpeechProvider for Mock {
-    fn speak(&self, _: &speech::Brief) -> Result<speech::Spoken, ProviderError> {
-        self.spoken.fetch_add(1, Ordering::SeqCst);
-        Ok(made("line.mp3", &["-f", "lavfi", "-i", "sine=duration=1"]).into())
-    }
-
-    fn name(&self) -> &'static str {
-        "mock speech"
     }
 }
 

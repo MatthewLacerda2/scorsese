@@ -37,6 +37,7 @@ fn arrival(file: PathBuf) -> Arrival {
         extension: "wav".to_owned(),
         announced: None,
         brief_hash: None,
+        words: None,
     }
 }
 

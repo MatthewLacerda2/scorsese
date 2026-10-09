@@ -24,6 +24,11 @@
 //! saved. Written after the document and before any link, so neither a link
 //! nor a kept file can land where another already is.
 //!
+//! **A spoken line's word timings come too** (#886): the library keeps them
+//! on the line's item rather than as a file of their own, and they are
+//! written out at [`Words::beside`] its audio — where a local project keeps
+//! them, so pages and `project_describe` read them exactly as they do there.
+//!
 //! What starts a render, and where the folder goes, is the job queue's
 //! (#536, #541). This only builds and removes the folder.
 
@@ -31,9 +36,10 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use crate::projects::files::{self, ProjectFiles};
+use scorsese_core::words::Words;
 use scorsese_core::{
-    ASSETS_DIR, AssetId, CACHE_DIR, GENERATED_DIR, PROJECT_FILE_NAME, Project, ProjectPath,
-    RECIPES_DIR,
+    ASSETS_DIR, AssetId, AssetKind, CACHE_DIR, GENERATED_DIR, PROJECT_FILE_NAME, Project,
+    ProjectPath, RECIPES_DIR,
 };
 
 /// Where the bytes of a user's file with a given hash are, if they have one.
@@ -43,6 +49,13 @@ use scorsese_core::{
 pub trait MediaSource {
     /// The file with this `sha256`, if the user has one.
     fn locate(&self, sha256: &str) -> Option<PathBuf>;
+
+    /// The word timings kept with that file, if it is a spoken line that has
+    /// them. None by default: a source that only knows files knows no words.
+    fn words(&self, sha256: &str) -> Option<Words> {
+        let _ = sha256;
+        None
+    }
 }
 
 impl<F: Fn(&str) -> Option<PathBuf>> MediaSource for F {
@@ -182,6 +195,16 @@ pub fn materialise(
         }
         let source = std::path::absolute(&source).map_err(io(&source))?;
         link(&source, &target).map_err(io(&target))?;
+        if asset.kind == AssetKind::GeneratedAudio
+            && let Some(words) = media.words(hash)
+        {
+            let beside = Words::beside(path).resolve(at);
+            // Never through something already there: a link would carry the
+            // write out of the folder.
+            if beside.symlink_metadata().is_err() {
+                std::fs::write(&beside, words.to_json()).map_err(io(&beside))?;
+            }
+        }
     }
     Ok(folder)
 }

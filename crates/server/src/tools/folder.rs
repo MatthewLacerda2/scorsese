@@ -64,10 +64,8 @@ pub async fn lay_out(
 
     let (at, document, kept) = (storage.scratch(user), project.clone(), files.clone());
     let (laid, briefs) = tokio::task::spawn_blocking(move || {
-        let laid = materialise(&document, &kept, &at, &|hash: &str| {
-            media.get(hash).cloned()
-        })
-        .map_err(|error| format!("laying the project out: {error}"))?;
+        let laid = materialise(&document, &kept, &at, &media)
+            .map_err(|error| format!("laying the project out: {error}"))?;
         let briefs = briefs(&document, laid.root());
         Ok::<_, String>((laid, briefs))
     })
