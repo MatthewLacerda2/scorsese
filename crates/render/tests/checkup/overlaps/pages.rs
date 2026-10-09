@@ -8,7 +8,7 @@ use crate::common::{clip, held, project, shape_asset, video_track};
 /// Two layers made of `asset` stacked on two tracks, each drawn at nine tenths
 /// of the frame: just under the frame-filling line, so a pair of them is
 /// judged by its overlap rather than waved through as a background.
-fn stacked(asset: Asset) -> Project {
+pub(super) fn stacked(asset: Asset) -> Project {
     let near = |id: &str| {
         let shrunk = held(clip(id, "layer", 0, 60), "transform.scale.x", 0.9);
         held(shrunk, "transform.scale.y", 0.9)

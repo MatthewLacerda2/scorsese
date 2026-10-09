@@ -10,6 +10,7 @@ use std::path::Path;
 use scorsese_core::{Asset, AssetId, Frames, HashCheck, Project, Rgba, TextStyle};
 use scorsese_render::Checkup;
 
+mod alpha;
 mod pages;
 
 use crate::common::{clip, held, project, shape_asset, text_asset, video_track};
@@ -17,7 +18,13 @@ use crate::common::{clip, held, project, shape_asset, text_asset, video_track};
 /// Only what this module is about, out of a whole checkup — so a fixture that
 /// happens to warn about something else cannot make one of these pass.
 fn collisions(project: &Project) -> Vec<String> {
-    Checkup::of(project, Path::new("no-such-project.scor"), HashCheck::Skip)
+    collisions_in(project, Path::new("no-such-project.scor"))
+}
+
+/// [`collisions`], for a project whose media is on disk at `dir`: a file
+/// that is not there is a clip nothing can place, and so silent here.
+fn collisions_in(project: &Project, dir: &Path) -> Vec<String> {
+    Checkup::of(project, dir, HashCheck::Skip)
         .lines()
         .iter()
         .filter(|line| line.says.contains("drawn over each other"))
