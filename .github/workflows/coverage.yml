@@ -84,7 +84,7 @@ jobs:
     # The same tests as `ci.yml`'s `check`, so the same database.
     services:
       postgres:
-        image: postgres:17-alpine
+        image: public.ecr.aws/docker/library/postgres:17-alpine
         env:
           POSTGRES_USER: scorsese
           POSTGRES_PASSWORD: scorsese

@@ -79,10 +79,13 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     # The server's database tests fail without a Postgres rather than skip, so
     # the job has one. `make test` gets the same from `tools/with-postgres`,
-    # which runs this same image -- change the two together.
+    # which runs this same image -- change the two together. Pulled from AWS's
+    # mirror of Docker's official images, not Docker Hub: a batch's worth of
+    # runs hits Docker Hub's anonymous pull limit and the job never starts
+    # (#986). Same image, same tag.
     services:
       postgres:
-        image: postgres:17-alpine
+        image: public.ecr.aws/docker/library/postgres:17-alpine
         env:
           POSTGRES_USER: scorsese
           POSTGRES_PASSWORD: scorsese
