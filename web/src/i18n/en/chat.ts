@@ -31,6 +31,11 @@ export const chat = {
     noCredit: "You have no credit left for the assistant.",
     busy: "The assistant is still working on the last message.",
   },
+  /** The chat taking the whole page, and back (#1027). */
+  full: {
+    enter: "Full",
+    leave: "Back to the editor",
+  },
   composer: {
     placeholder: "Ask the assistant… (Enter sends, Shift+Enter for a new line)",
     answerPlaceholder:

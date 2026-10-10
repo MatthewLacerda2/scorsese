@@ -58,7 +58,7 @@ export function ModelPicker({ projectId, model, models, turns }: Props) {
   return (
     <div className="flex flex-col gap-1">
       <Select value={model} onValueChange={picked} disabled={choose.isPending}>
-        <SelectTrigger size="sm" aria-label={t.chat.model.label}>
+        <SelectTrigger size="sm" className="max-w-full" aria-label={t.chat.model.label}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

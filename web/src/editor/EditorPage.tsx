@@ -3,7 +3,9 @@
 // the right, and the timeline under the preview and the assets. That mirrors
 // the desktop app, whose assets sit on the left, on purpose (#943): on the web
 // the chat is how a video gets made, so it reads first, where chat-driven
-// builders put it; the desktop app has no assistant to put there.
+// builders put it; the desktop app has no assistant to put there. In full
+// mode (#1027) the chat is the whole page and the other panels step aside —
+// the chat's own element stays where it is, so nothing in it is lost.
 //
 // The page is thin on purpose (CLAUDE.md, *The GUI is thin*): the hand-edits
 // are place, move (along a lane or onto another), trim, delete, a plain value,
@@ -22,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { useT } from "@/i18n/I18nProvider";
 import { AssetsPanel } from "./assets/AssetsPanel";
 import { ChatPanel } from "./chat/ChatPanel";
+import { useFull } from "./chat/full";
 import { useDeleteKey } from "./deleting";
 import { useDrop } from "./drop";
 import { EditorHeader } from "./EditorHeader";
@@ -34,6 +37,9 @@ import { confirmThen, trackRemoval } from "./removing";
 import { choose, kept } from "./selection";
 import { SHAPES, type Shape, savedShape, saveShape } from "./shape";
 import { Timeline } from "./timeline/Timeline";
+
+/** Full mode's grid: the chat's three rows, all of them its own. */
+const FULL = { gridTemplateColumns: "minmax(0,1fr)", gridTemplateRows: "minmax(0,1fr) 0 0" };
 
 export function EditorPage() {
   const id = Number(useParams().id);
@@ -52,6 +58,7 @@ function Editor({ project }: { project: EditorProject }) {
   const [playhead, setPlayhead] = useState(0);
   const [picked, setPicked] = useState<string[]>([]);
   const [shape, setShape] = useState<Shape>(() => savedShape(id));
+  const [full, setFull] = useFull(id);
   const panels = usePanels();
   const drop = useDrop(id, edit, playhead, (clip) => setPicked([clip]));
   const deselect = useCallback(() => setPicked([]), []);
@@ -99,9 +106,9 @@ function Editor({ project }: { project: EditorProject }) {
         </div>
       )}
       {/* Each panel's edge is a handle with a track of its own (#863). */}
-      <div ref={panels.grid} className="grid min-h-0 flex-1" style={panels.style}>
+      <div ref={panels.grid} className="grid min-h-0 flex-1" style={full ? FULL : panels.style}>
         <aside className="col-start-1 row-span-3 row-start-1 flex min-h-0 flex-col">
-          {chosen && (
+          {chosen && !full && (
             <div className="max-h-[55%] shrink-0 overflow-y-auto border-b">
               <Inspector
                 clip={chosen.clip}
@@ -113,59 +120,75 @@ function Editor({ project }: { project: EditorProject }) {
             </div>
           )}
           <div className="min-h-0 flex-1">
-            <ChatPanel projectId={id} />
+            <ChatPanel
+              projectId={id}
+              full={full}
+              onFull={(next) => {
+                // A clip selected out of sight is not one the Delete key may take.
+                if (next) deselect();
+                setFull(next);
+              }}
+            />
           </div>
         </aside>
-        <Handle
-          grows="right"
-          size={panels.sizes.chat}
-          label={t.editor.page.resizeChat}
-          className="col-start-2 row-span-3 row-start-1"
-          onSize={(size) => panels.resize("chat", size)}
-          onReset={() => panels.reset("chat")}
-        />
-        <section className="col-start-3 row-start-1 min-h-0">
-          <Preview
-            projectId={id}
-            revision={revision}
-            document={document}
-            playhead={playhead}
-            onSeek={setPlayhead}
-            deliver={SHAPES[shape].deliver[0]}
-          />
-        </section>
-        <Handle
-          grows="left"
-          size={panels.sizes.assets}
-          label={t.editor.page.resizeAssets}
-          className="col-start-4 row-start-1"
-          onSize={(size) => panels.resize("assets", size)}
-          onReset={() => panels.reset("assets")}
-        />
-        <aside className="col-start-5 row-start-1 min-h-0">
-          <AssetsPanel projectId={id} document={document} edit={edit} playhead={playhead} />
-        </aside>
-        <Handle
-          grows="up"
-          size={panels.sizes.timeline}
-          label={t.editor.page.resizeTimeline}
-          className="col-span-3 col-start-3 row-start-2"
-          onSize={(size) => panels.resize("timeline", size)}
-          onReset={() => panels.reset("timeline")}
-        />
-        <section className="col-span-3 col-start-3 row-start-3 min-h-0">
-          <Timeline
-            document={document}
-            playhead={playhead}
-            onSeek={setPlayhead}
-            selected={selected}
-            onSelect={(clip, adding) => setPicked((now) => choose(now, clip, adding))}
-            onDeselect={deselect}
-            onRelease={({ tool, args }) => edit.run({ tool, args, edit: true })}
-            onDrop={(dragged, track, pointed, reach) => void drop(dragged, track, pointed, reach)}
-            onRemoveTrack={(track) => confirmThen(trackRemoval(track, t.editor.removal), edit.run)}
-          />
-        </section>
+        {!full && (
+          <>
+            <Handle
+              grows="right"
+              size={panels.sizes.chat}
+              label={t.editor.page.resizeChat}
+              className="col-start-2 row-span-3 row-start-1"
+              onSize={(size) => panels.resize("chat", size)}
+              onReset={() => panels.reset("chat")}
+            />
+            <section className="col-start-3 row-start-1 min-h-0">
+              <Preview
+                projectId={id}
+                revision={revision}
+                document={document}
+                playhead={playhead}
+                onSeek={setPlayhead}
+                deliver={SHAPES[shape].deliver[0]}
+              />
+            </section>
+            <Handle
+              grows="left"
+              size={panels.sizes.assets}
+              label={t.editor.page.resizeAssets}
+              className="col-start-4 row-start-1"
+              onSize={(size) => panels.resize("assets", size)}
+              onReset={() => panels.reset("assets")}
+            />
+            <aside className="col-start-5 row-start-1 min-h-0">
+              <AssetsPanel projectId={id} document={document} edit={edit} playhead={playhead} />
+            </aside>
+            <Handle
+              grows="up"
+              size={panels.sizes.timeline}
+              label={t.editor.page.resizeTimeline}
+              className="col-span-3 col-start-3 row-start-2"
+              onSize={(size) => panels.resize("timeline", size)}
+              onReset={() => panels.reset("timeline")}
+            />
+            <section className="col-span-3 col-start-3 row-start-3 min-h-0">
+              <Timeline
+                document={document}
+                playhead={playhead}
+                onSeek={setPlayhead}
+                selected={selected}
+                onSelect={(clip, adding) => setPicked((now) => choose(now, clip, adding))}
+                onDeselect={deselect}
+                onRelease={({ tool, args }) => edit.run({ tool, args, edit: true })}
+                onDrop={(dragged, track, pointed, reach) =>
+                  void drop(dragged, track, pointed, reach)
+                }
+                onRemoveTrack={(track) =>
+                  confirmThen(trackRemoval(track, t.editor.removal), edit.run)
+                }
+              />
+            </section>
+          </>
+        )}
       </div>
     </div>
   );

@@ -32,6 +32,10 @@ export const chat: Messages["chat"] = {
     noCredit: "Você não tem mais créditos para o assistente.",
     busy: "O assistente ainda está trabalhando na última mensagem.",
   },
+  full: {
+    enter: "Expandir",
+    leave: "Voltar ao editor",
+  },
   composer: {
     placeholder: "Pergunte ao assistente… (Enter envia, Shift+Enter pula linha)",
     answerPlaceholder:
