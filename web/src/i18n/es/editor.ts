@@ -105,6 +105,9 @@ export const editor: Messages["editor"] = {
     removeTitle: "Eliminar la plantilla — los videos donde se usó conservan sus copias",
     confirmRemove: (name: string) => `¿Eliminar la plantilla “${name}”?`,
     save: "Guardar como plantilla",
+    unavailable:
+      "Las plantillas son clips seleccionados para reutilizarlos. Selecciona clips en la línea de tiempo o pídeselo al asistente.",
+    where: "Las tuyas están en Plantillas, en el panel de recursos.",
     saveTitle:
       "Selecciona clips en la línea de tiempo (Mayús+clic para varios) y guárdalos para reutilizarlos",
     saveDescription: (count: number) =>

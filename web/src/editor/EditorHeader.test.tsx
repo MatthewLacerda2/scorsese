@@ -8,6 +8,9 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { renderToString } from "react-dom/server";
 import { HeaderSlotProvider } from "@/app/headerSlot";
 import { createQueryClient } from "@/app/queryClient";
+import { CATALOGUES } from "@/i18n/catalogue";
+import { I18nProvider } from "@/i18n/I18nProvider";
+import { LANGUAGES } from "@/i18n/language";
 import { EditorActions, type EditorActionsProps, EditorHeader } from "./EditorHeader";
 
 const props: EditorActionsProps = {
@@ -41,4 +44,26 @@ test("without a header to go into, the editor's controls draw nothing", () => {
       </HeaderSlotProvider>,
     ),
   ).toBe("");
+});
+
+test("with nothing selected, Save as template says why, in every language (#1005)", () => {
+  for (const { language } of LANGUAGES) {
+    const words = CATALOGUES[language].editor.templates;
+    const html = draw(
+      <I18nProvider initial={language}>
+        <EditorActions {...props} />
+      </I18nProvider>,
+    );
+    expect(html).toContain('aria-disabled="true"');
+    expect(html).not.toMatch(/<button[^>]*disabled=""/);
+    expect(html).toContain('role="tooltip"');
+    expect(html).toContain(words.unavailable);
+    expect(html).toContain(words.where);
+  }
+});
+
+test("with clips selected, Save as template is an ordinary button", () => {
+  const html = draw(<EditorActions {...props} selected={["c1"]} />);
+  expect(html).not.toContain("aria-disabled");
+  expect(html).not.toContain('role="tooltip"');
 });

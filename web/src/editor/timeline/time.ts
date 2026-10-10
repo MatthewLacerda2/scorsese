@@ -24,14 +24,15 @@ export function toFrames(seconds: number, fps: Fps): number {
   return Math.max(0, Math.round(seconds * rate(fps)));
 }
 
-/** `75` frames at 30 fps → `0:02.15` (minutes, seconds, frames). */
-export function timecode(frames: number, fps: Fps): string {
-  const perSecond = Math.max(1, Math.round(rate(fps)));
+/** A frame count as the preview's clock (#1006): `02:59` under an hour,
+ * `1:02:59` from one — whole seconds, rounded down. No frames: a part after a
+ * dot reads as hundredths, which frames are not. */
+export function clock(frames: number, fps: Fps): string {
   const whole = Math.floor(toSeconds(frames, fps));
-  const minutes = Math.floor(whole / 60);
+  const hours = Math.floor(whole / 3600);
+  const minutes = String(Math.floor(whole / 60) % 60).padStart(2, "0");
   const seconds = String(whole % 60).padStart(2, "0");
-  const rest = String(Math.max(0, frames - toFrames(whole, fps)) % perSecond).padStart(2, "0");
-  return `${minutes}:${seconds}.${rest}`;
+  return hours > 0 ? `${hours}:${minutes}:${seconds}` : `${minutes}:${seconds}`;
 }
 
 /** How the timeline is drawn: how many pixels one second takes. */

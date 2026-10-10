@@ -1799,8 +1799,8 @@ library file into a project is web MCP's `import` (*Web MCP*), and the editor's
 ## The editor
 
 `/projects/{id}/edit` (#545), laid out as the desktop app is: a sidebar on the
-left — the project's **Assets**, the user's **Templates**, and a **Library**
-button (#702) — the preview in the middle, the
+left — a **Library** button at the top (#702, #1006), then the project's
+**Assets** and the user's **Templates** — the preview in the middle, the
 timeline under both, and on the right the selected clip's inspector over the
 assistant's chat panel. The code is `web/src/editor/`, the route
 `crates/server/src/http/editor.rs`; their module docs carry each argument. It

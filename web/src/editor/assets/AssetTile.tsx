@@ -1,7 +1,9 @@
 // One of the project's assets as a tile in the sidebar's grid (#766): its
 // picture, its name under it, and a thin edge in its kind's colour — the
 // colour its clips have on the timeline, so an asset and its clips still pair
-// up at a glance. Dragged onto a lane it places a clip, as a row did; removing
+// up at a glance. The edge and the picture say the kind, so the words do not
+// (#1006); a state other than `generated` ("sketch") is written under the
+// name, since that is money waiting to be spent. Dragged onto a lane it places a clip, as a row did; removing
 // is a hover action in the corner, as the library page's tiles carry theirs.
 //
 // The picture is the library's own thumbnail of the file with the asset's
@@ -17,7 +19,7 @@ import type { Messages } from "@/i18n/catalogue";
 import { useT } from "@/i18n/I18nProvider";
 import { Unmade } from "../timeline/Unmade";
 import { carry } from "./dragged";
-import { kindColor, kindName } from "./kinds";
+import { kindColor } from "./kinds";
 import { type Look, look } from "./look";
 
 export interface TileProps {
@@ -28,8 +30,6 @@ export interface TileProps {
   stills: number;
   open: boolean;
   onFold: () => void;
-  /** How many clips show it. */
-  uses: number;
   pending: boolean;
   onRemove: () => void;
 }
@@ -61,9 +61,12 @@ interface ViewProps extends TileProps {
 
 /** The tile itself, with no hooks of its own — what the tests take apart. */
 export function TileView(props: ViewProps) {
-  const { asset, stills, uses, words: t } = props;
+  const { asset, stills, words: t } = props;
   const name = asset.text ?? asset.id;
-  const state = asset.state && (t.state as Record<string, string>)[asset.state];
+  const state =
+    asset.state && asset.state !== "generated"
+      ? ((t.state as Record<string, string>)[asset.state] ?? asset.state)
+      : undefined;
   const label = stills > 0 ? t.photos(name, stills) : name;
   return (
     <div
@@ -80,14 +83,17 @@ export function TileView(props: ViewProps) {
         className="flex w-full cursor-grab flex-col overflow-hidden rounded-md bg-background text-left active:cursor-grabbing"
       >
         <Picture shown={props.shown} src={props.src} state={asset.state} kind={asset.kind} />
-        <span className="w-full truncate px-1.5 pt-1 text-xs font-medium" title={label}>
+        <span
+          className={`w-full truncate px-1.5 pt-1 text-xs font-medium ${state ? "" : "pb-1"}`}
+          title={label}
+        >
           {label}
         </span>
-        <span className="w-full truncate px-1.5 pb-1 text-[11px] text-muted-foreground">
-          {kindName(asset.kind, t.kinds)}
-          {asset.state && asset.state !== "generated" ? ` · ${state ?? asset.state}` : ""}
-          {uses > 0 ? ` · ${uses}×` : ""}
-        </span>
+        {state && (
+          <span className="w-full truncate px-1.5 pb-1 text-[11px] text-muted-foreground">
+            {state}
+          </span>
+        )}
       </button>
       {stills > 0 && (
         <Button

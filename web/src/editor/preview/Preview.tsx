@@ -23,7 +23,7 @@ import type { ProjectDocument } from "@/api";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/i18n/I18nProvider";
 import { JobProgressBar } from "../JobProgressBar";
-import { timecode, toFrames, toSeconds } from "../timeline/time";
+import { clock, toFrames, toSeconds } from "../timeline/time";
 import { usePlayable, waiting } from "./playable";
 import { previewRaster, QUALITIES, type Quality, savedQuality, saveQuality } from "./quality";
 import { useStill } from "./still";
@@ -168,8 +168,9 @@ export function Preview({ projectId, revision, document, playhead, onSeek, deliv
           value={Math.min(playhead, Math.max(1, total))}
           onChange={(event) => seek(Number(event.target.value))}
         />
-        <span className="w-28 text-right font-mono text-xs tabular-nums">
-          {timecode(playhead, fps)} / {timecode(total, fps)}
+        {/* One line however narrow the panel (#1006). */}
+        <span className="shrink-0 whitespace-nowrap font-mono text-xs tabular-nums">
+          {clock(playhead, fps)} / {clock(total, fps)}
         </span>
         <select
           aria-label={t.quality}

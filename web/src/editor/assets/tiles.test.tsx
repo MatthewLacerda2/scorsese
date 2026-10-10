@@ -87,7 +87,7 @@ function handler<F>(
 }
 
 function tile(asset: DocumentAsset, onRemove = () => {}) {
-  const props = { asset, stills: 0, open: false, onFold: () => {}, uses: 0, pending: false };
+  const props = { asset, stills: 0, open: false, onFold: () => {}, pending: false };
   return TileView({ ...props, onRemove, shown: look(asset), src: undefined, words: en.assets });
 }
 
