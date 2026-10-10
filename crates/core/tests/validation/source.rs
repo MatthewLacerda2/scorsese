@@ -4,7 +4,7 @@
 //! length. The fixture's assets carry none, so each test says what it measured
 //! before it says what it expects.
 
-use crate::common::{assert_only_problem, asset_id, asset_mut, clip_id, project};
+use crate::common::{assert_only_problem, asset_id, asset_mut, clip_id, project, temp_project_dir};
 use scorsese_core::{Frames, MediaMetadata, Project, TimelineProblem as E};
 
 /// The fixture with `shot-city` measured at `seconds`, and its clip — from the
@@ -97,4 +97,27 @@ fn a_still_has_no_length_to_run_out_of() {
 #[test]
 fn a_source_measured_at_zero_holds_nothing() {
     assert_only_problem(&measured(0.0, 0, 30), outlasts(30, 0));
+}
+
+/// Loading to measure again holds back exactly this check and nothing else
+/// (#1007): a stale length must not stop `probe` opening the project that
+/// probing would fix, and a problem no measurement can change still does.
+#[test]
+fn loading_to_measure_holds_back_only_what_a_measurement_can_change() {
+    let dir = temp_project_dir("load-to-measure");
+    let stale = measured(8.0, 0, 300);
+    stale.save(&dir).expect("save");
+    assert!(Project::load(&dir).is_err(), "the strict path refuses it");
+    assert_eq!(Project::load_to_measure(&dir).expect("opens"), stale);
+
+    let mut overlapping = stale;
+    let mut again = overlapping.tracks[0].clips[0].clone();
+    again.id = clip_id("c-again");
+    overlapping.tracks[0].clips.push(again);
+    overlapping.save(&dir).expect("save");
+    assert!(
+        Project::load_to_measure(&dir).is_err(),
+        "an overlap is not measured"
+    );
+    std::fs::remove_dir_all(dir).ok();
 }

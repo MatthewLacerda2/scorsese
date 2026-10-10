@@ -115,3 +115,73 @@ fn without_ffprobe_it_says_so_rather_than_recording_nothing() {
     run.says("ffprobe");
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// A file regenerated outside scorsese that grew past its recorded length,
+/// with a clip grown to match (#1007). The stale `media` makes the project fail
+/// to load, and measuring it again is the fix.
+fn outgrown(label: &str, real_seconds: u32) -> PathBuf {
+    let stale = r#"{ "id": "shot", "kind": "video", "path": "assets/shot.mp4",
+                     "media": { "duration_seconds": 1.0 } }"#;
+    let dir = documents::project(
+        label,
+        &[stale.to_owned()],
+        &[documents::lasting("c", "shot", 0, 45)],
+    );
+    colour_video(&tools(), &dir, "shot", "blue", real_seconds);
+    dir
+}
+
+fn document(dir: &Path) -> String {
+    std::fs::read_to_string(dir.join(scorsese_core::PROJECT_FILE_NAME)).expect("project.json")
+}
+
+#[test]
+fn a_length_measured_before_the_file_grew_is_what_probe_all_repairs() {
+    let dir = outgrown("probe-outgrown", 2);
+    run_in(&dir, &["check"]).says("reaches 45f");
+
+    probe(&dir, &["--all"]).ok().says("1 probed");
+
+    run_in(&dir, &["check"]).ok();
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// Held back is not dropped: a file that really is too short is still refused
+/// after it is measured, against the length it turns out to have, and nothing
+/// is saved.
+#[test]
+fn a_file_that_really_is_too_short_is_refused_against_its_real_length() {
+    let dir = outgrown("probe-too-short", 1);
+    let before = document(&dir);
+    std::fs::write(
+        dir.join(scorsese_core::PROJECT_FILE_NAME),
+        before.replace("1.0", "0.5"),
+    )
+    .expect("record a shorter length still");
+    let before = document(&dir);
+
+    let run = probe(&dir, &["--all"]);
+
+    assert!(
+        run.failed,
+        "the clip still outruns its file:\n{}",
+        run.output
+    );
+    run.says("which is 30f long");
+    run.says("nothing saved");
+    assert_eq!(document(&dir), before, "the document did not move");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// Without `--all` the stale length is left alone, so the refusal stands and
+/// says how to measure it again.
+#[test]
+fn a_plain_probe_leaves_the_stale_length_and_says_how_to_replace_it() {
+    let dir = outgrown("probe-outgrown-plain", 2);
+
+    let run = probe(&dir, &[]);
+
+    assert!(run.failed, "the recorded length was kept:\n{}", run.output);
+    run.says("probe --all");
+    std::fs::remove_dir_all(&dir).ok();
+}

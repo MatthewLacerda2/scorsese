@@ -13,6 +13,11 @@ use scorsese_render::Ffprobe;
 /// left alone, so this costs one pass over the assets table on a pool that is
 /// up to date. `--all` is the way to say the recorded metadata is wrong and
 /// every file should be read again.
+///
+/// Opens a project whose only problem is a stale measurement — a clip longer
+/// than the length recorded for a file that has since grown (#1007) — because
+/// measuring is what fixes it. The document is validated after the probe and
+/// before the save, so what is written is always a project that loads.
 pub(crate) fn run(project_dir: &Path, all: bool) -> Result<()> {
     let mut project = open(project_dir)?;
     let probe = Ffprobe::discover().context("ffprobe is needed to probe media")?;
@@ -25,6 +30,12 @@ pub(crate) fn run(project_dir: &Path, all: bool) -> Result<()> {
     }
 
     let recorded = tally(&report, |outcome| *outcome == ProbeOutcome::Recorded);
+    if let Err(problems) = project.validate() {
+        anyhow::bail!(
+            "measured, nothing saved: {problems}{}",
+            if all { "" } else { RETRY }
+        );
+    }
     if recorded > 0 {
         project.save(project_dir).context("saving the project")?;
     }
@@ -78,11 +89,14 @@ fn summary(report: &[Probed], recorded: usize, all: bool) -> String {
     said
 }
 
+/// What a refusal adds when the measurement it rests on may be the stale one.
+const RETRY: &str = "\n(already-probed assets were left alone — `probe --all` measures them again)";
+
 fn tally(report: &[Probed], counts: impl Fn(&ProbeOutcome) -> bool) -> usize {
     report.iter().filter(|row| counts(&row.outcome)).count()
 }
 
 fn open(project_dir: &Path) -> Result<Project> {
-    Project::load(project_dir)
+    Project::load_to_measure(project_dir)
         .with_context(|| format!("opening the project in {}", project_dir.display()))
 }

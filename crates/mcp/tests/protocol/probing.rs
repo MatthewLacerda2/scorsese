@@ -117,3 +117,20 @@ fn reprobe_replaces_metadata_that_is_wrong() {
     assert!((seconds - 2.0).abs() < 0.1, "got {seconds}");
     std::fs::remove_dir_all(dir).ok();
 }
+
+/// The other side of the overrun (#1007): the recorded length is the stale
+/// one, half a second for a file that has grown to two, and the one-second
+/// clip is right. Measured before it is validated, `reprobe` writes it.
+#[test]
+fn reprobe_writes_a_clip_only_a_stale_length_would_refuse() {
+    let dir = project("probe-outgrown");
+    footage(&dir.join("assets/boat.mp4"), "2");
+    let stale = with_footage(r#", "media": { "duration_seconds": 0.5 }"#);
+
+    let (text, failed) = write(&dir, &stale, false);
+    assert!(failed && text.contains("reaches 30f"), "got {text}");
+
+    let (text, failed) = write(&dir, &stale, true);
+    assert!(!failed, "the measurement replaces what refused it: {text}");
+    std::fs::remove_dir_all(dir).ok();
+}
