@@ -610,6 +610,12 @@ pub(crate) enum Command {
         #[command(subcommand)]
         action: StockAction,
     },
+    /// Trace a picture — an image, or a generated image — into an SVG a page
+    /// draws on stroke by stroke with the kit's `kit.draw`: the outlines first,
+    /// each a single pen stroke, then the colours. Written to pages/<name>.svg.
+    /// Free and offline; made for flat art, where a photograph traces into
+    /// blobs.
+    Vectorize(crate::commands::vectorize::Options),
     /// Make sound from a recipe the project carries: an effect, or a score.
     /// No key, no network, no cost, and the same bytes every time this build
     /// renders it — a bake is named for the recipe and the synthesiser both,

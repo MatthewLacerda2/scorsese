@@ -29,5 +29,6 @@ pub(crate) mod settings;
 pub(crate) mod still;
 pub(crate) mod stock;
 pub(crate) mod synth;
+pub(crate) mod vectorize;
 pub(crate) mod voice;
 pub(crate) mod voices;

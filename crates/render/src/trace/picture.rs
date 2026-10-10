@@ -66,6 +66,30 @@ pub struct Vectorized {
     pub traced: Traced,
     /// Where it is, relative to the project root: `pages/<name>.svg`.
     pub path: String,
+    /// The id of its drawing group, which is the name it was given.
+    pub name: String,
+}
+
+impl Vectorized {
+    /// What was written, in the words both clients answer with.
+    pub fn summary(&self) -> String {
+        let traced = &self.traced;
+        format!(
+            "{} — {}x{}, {} pen strokes then {} filled shapes, in {} colours ({}), {} KB.\n\
+             From a page in pages/ it is \"{}.svg\"; its marks are the group \
+             id=\"{}\", in the order a hand would draw them.",
+            self.path,
+            traced.width,
+            traced.height,
+            traced.strokes,
+            traced.shapes,
+            traced.colours.len(),
+            traced.colours.join(" "),
+            traced.svg.len().div_ceil(1024),
+            self.name,
+            self.name,
+        )
+    }
 }
 
 /// Traces the picture `asset` into `pages/<name>.svg`.
@@ -106,6 +130,7 @@ pub fn vectorize(
     Ok(Vectorized {
         traced,
         path: relative,
+        name: name.to_owned(),
     })
 }
 
