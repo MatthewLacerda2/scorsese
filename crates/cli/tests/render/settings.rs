@@ -26,6 +26,21 @@ fn the_raster_and_the_rate_asked_for_are_what_the_file_has() {
     std::fs::remove_dir_all(&dir).ok();
 }
 
+/// A platform is a size preset: an upright feed gets an upright file, and
+/// asking for a size as well is refused, since one of them would be ignored.
+#[test]
+fn a_platform_sizes_the_file_for_its_placement() {
+    let dir = one_shot("platform", 2);
+    let file = render(&dir, "cut.mp4", &["--platform", "tiktok"]).file();
+
+    let stream = probe(&tools(), &file, "v:0", PICTURE);
+    assert_eq!(stream.number("width"), 1080);
+    assert_eq!(stream.number("height"), 1920);
+    let both = ["--platform", "youtube", "--resolution", "96x48"];
+    assert!(render(&dir, "both.mp4", &both).run.failed);
+    std::fs::remove_dir_all(&dir).ok();
+}
+
 #[test]
 fn the_projects_own_grid_is_what_a_render_defaults_to() {
     // The one output rate that conforms nothing, and the reason `--fps` is an

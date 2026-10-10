@@ -14,6 +14,7 @@ pub(crate) use args::{AssetsAction, KindArg, SequenceAction, StockAction, SynthA
 
 use clap::{Parser, Subcommand};
 use scorsese_core::Fps;
+use scorsese_core::style::Platform;
 use scorsese_render::contact;
 use scorsese_render::{
     AudioCodec, Bitrate, Container, Cue, FrameRange, LoudnessTarget, Resolution, SampleRate,
@@ -403,6 +404,14 @@ pub(crate) enum Command {
         /// sound-only format, which has no picture to size.
         #[arg(long)]
         resolution: Option<Resolution>,
+        /// Deliver for a placement, at the size it is watched in: `youtube`
+        /// (1920x1080), or `youtube_shorts`, `instagram_reels`,
+        /// `instagram_reels_ad`, `instagram_stories_ad`, `tiktok` or
+        /// `tiktok_ad` (1080x1920). A preset for this render only; the project
+        /// is not changed. Cannot be given with `--resolution`, and refused for
+        /// a sound-only format.
+        #[arg(long, conflicts_with = "resolution")]
+        platform: Option<Platform>,
         /// Output framerate. Defaults to the project's timeline framerate;
         /// anything else is conformed from it, nearest frame. Refused for a
         /// sound-only format.
