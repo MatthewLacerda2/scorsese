@@ -58,6 +58,7 @@ on:
       - "docs/recipes.md"
       - "docs/references.md"
       - "docs/stock.md"
+      - "docs/styles.md"
       - "docs/web.md"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
@@ -73,6 +74,7 @@ on:
       - "docs/recipes.md"
       - "docs/references.md"
       - "docs/stock.md"
+      - "docs/styles.md"
       - "docs/web.md"
 
 # `ubuntu-24.04` and not `ubuntu-latest`, everywhere below, and the reason is

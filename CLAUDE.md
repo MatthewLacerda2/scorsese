@@ -110,6 +110,10 @@ shape.
 - **docs/pages.md** — how to write a web page the timeline plays: the contract
   it is drawn under, what is there offline, and worked pages. Read it before
   writing one.
+- **docs/styles.md** — how each kind of video is made (a narrated vertical ad,
+  a product tour, a board that draws itself), one section per kind, each from a
+  video actually made. Read the section for the video in hand before laying
+  out its timeline.
 - **docs/prompts.md** — the other brief: what a provider actually does with
   certain words, each entry learned by paying for a generation. Read it before
   writing a prompt, because being wrong about one is not free.

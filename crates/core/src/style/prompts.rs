@@ -19,7 +19,9 @@ first and agree it before building anything.\n\
 Make: the narration, then its words, then the captions from those words — large, centred \
 in the safe middle of the frame, two to five words a chunk, the current word picked out. \
 Cut the b-roll to the chunk boundaries, one shot every one to three seconds. Music sits \
-low and ducks under the voice.";
+low and ducks under the voice.\n\
+Read `guide styles`, section \"Narrated captions\" first: the tools and timings a made \
+video of this kind used. Where it and this disagree, it wins.";
 
 /// [`kinetic_type`](super::STYLES).
 pub(super) const KINETIC_TYPE: &str = "\
@@ -46,7 +48,9 @@ summary.\n\
 Make: write and agree the script, record or generate the narration, then draw each beat \
 as a page whose strokes are timed to the words that name them (`guide pages`). Dark ink \
 on white, one accent colour, simple line art; the camera may push in to the drawing \
-being made and pull back for the summary. Light music, well under the voice.";
+being made and pull back for the summary. Light music, well under the voice.\n\
+Read `guide styles`, section \"Whiteboard\" first: the tools and timings a made video of \
+this kind used. Where it and this disagree, it wins.";
 
 /// [`flat_explainer`](super::STYLES).
 pub(super) const FLAT_EXPLAINER: &str = "\
@@ -74,7 +78,9 @@ Make: the script follows the screens, a sentence or two each. Show every screen 
 framed inside a device or a soft panel, and push in slowly to the part being named; a \
 short label or highlight marks it. Cut on the narration's sentences. Neutral music, \
 ducked under the voice. On an ad, the product and the call to action both appear in \
-the first five seconds and again at the end.";
+the first five seconds and again at the end.\n\
+Read `guide styles`, section \"Product tour\" first: the tools and timings a made video \
+of this kind used. Where it and this disagree, it wins.";
 
 /// [`photo_montage`](super::STYLES).
 pub(super) const PHOTO_MONTAGE: &str = "\
