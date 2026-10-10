@@ -12,7 +12,9 @@ mod common;
 
 mod bands;
 mod diff;
+mod integrated;
 mod meter;
+mod peaks;
 mod sections;
 mod tracks;
 mod width;

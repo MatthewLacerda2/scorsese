@@ -20,6 +20,7 @@
 pub(crate) mod gain;
 pub(crate) mod headroom;
 pub(crate) mod level;
+pub(crate) mod loudness;
 pub(crate) mod measure;
 pub(crate) mod mix;
 pub(crate) mod read;
@@ -42,6 +43,8 @@ use crate::tools::Tools;
 pub use gain::{Gain, path};
 pub use headroom::{DELIVERY_CEILING_DBTP, Trim};
 pub use level::{Levels, SoundLevels};
+pub use loudness::Lift;
+pub use loudness::target::{LoudnessTarget, LoudnessTargetError};
 pub use measure::measure;
 pub use mix::{CHANNELS, Mix, Ramp};
 pub use wave::{Findings, WaveError, Waveform, waveform};

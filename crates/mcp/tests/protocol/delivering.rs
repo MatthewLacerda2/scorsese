@@ -110,6 +110,10 @@ fn a_format_scorsese_does_not_write_is_refused_the_way_the_command_line_refuses_
             json!({ "out": dir.join("score.m4a"), "resolution": null, "narration_bands": false }),
             "m4a carries sound only, so leaving narration bands out has no picture",
         ),
+        (
+            json!({ "out": dir.join("loud.mp4"), "loudness": 14 }),
+            "a loudness in LUFS is negative: did you mean -14?",
+        ),
     ] {
         let (text, failed) = render(&dir, extra.clone());
         assert!(failed, "{extra} must be refused, and got: {text}");
@@ -123,6 +127,7 @@ fn a_format_scorsese_does_not_write_is_refused_the_way_the_command_line_refuses_
         "score.mp3",
         "score.wav",
         "score.m4a",
+        "loud.mp4",
     ] {
         assert!(!dir.join(name).exists(), "a refusal left {name} behind");
     }

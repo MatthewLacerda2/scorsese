@@ -52,7 +52,9 @@
 //! The `intersample` module reconstructs the waveform *between* two samples,
 //! and it is the only thing here read from outside: the master limiter holds a
 //! bake under a ceiling measured exactly the way [`Loudness::true_peak_dbfs`]
-//! reports it. That sharing is deliberate. A guarantee and a measurement that
+//! reports it, and [`FramePeaks`] hands the same per-frame reading to
+//! `scorsese-render`, whose delivery limiter holds a mix brought up to a
+//! loudness target under the same ceiling (#968). That sharing is deliberate. A guarantee and a measurement that
 //! disagree about where a waveform goes between its samples is how a bake came
 //! to be limited and reported as clipping at the same time, and neither file
 //! could have caught it alone.
@@ -77,13 +79,17 @@
 
 pub(crate) mod bands;
 pub(crate) mod diff;
+pub(crate) mod integrated;
 pub(crate) mod intersample;
 pub(crate) mod layer;
 pub(crate) mod meter;
+pub(crate) mod peaks;
 pub(crate) mod profile;
 
 pub use bands::{BandMeter, Bands};
 pub use diff::{BandsDifference, Difference};
+pub use integrated::Integrated;
 pub use layer::Layer;
 pub use meter::{Loudness, Meter};
+pub use peaks::FramePeaks;
 pub use profile::{Cut, Profile, Profiler, Span};

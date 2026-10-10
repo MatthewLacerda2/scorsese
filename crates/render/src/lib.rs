@@ -209,6 +209,7 @@ pub mod picture {
     pub use scorsese_compositor::text::caption;
 }
 
+pub use audio::{LoudnessTarget, LoudnessTargetError};
 pub use cancel::Cancel;
 pub use checkup::Checkup;
 pub use contact::{ContactError, Look, Sheet};

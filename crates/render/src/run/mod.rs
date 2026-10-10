@@ -289,9 +289,12 @@ impl<'a> Renderer<'a> {
         // on: a lossy codec overshoots by an amount only the material decides,
         // and this is the last moment the mix can still be turned down to
         // leave it room. A no-op for a lossless codec or a mix that fits.
-        let trim = match mix {
-            Some(mix) => audio::headroom::fit(self.tools, &self.settings, mix, out)?,
-            None => None,
+        // A loudness target, when one was asked for, is reached here too:
+        // before the rehearsal, so the room a codec needs comes out of the
+        // peaks rather than out of the target.
+        let (trim, mut lift) = match mix {
+            Some(mix) => audio::loudness::deliver(self.tools, &self.settings, mix, out)?,
+            None => (None, None),
         };
 
         if self.cancel.is_cancelled() {
@@ -324,10 +327,16 @@ impl<'a> Renderer<'a> {
         // Read back out of the file as delivered, because the mix's own level
         // is a statement about the samples we handed the encoder, and a lossy
         // one hands back different ones.
-        let delivered = if has_audio {
-            Some(audio::headroom::measure(self.tools, out)?)
-        } else {
-            None
+        let delivered = match (has_audio, &mut lift) {
+            (false, _) => None,
+            // A target is a promise about the file, so the file is what the
+            // report holds it to.
+            (true, Some(lift)) => {
+                let (loudness, lufs) = audio::loudness::measure(self.tools, out)?;
+                lift.delivered_lufs = lufs;
+                Some(loudness)
+            }
+            (true, None) => Some(audio::headroom::measure(self.tools, out)?),
         };
         let report = RenderReport {
             frames: written,
@@ -340,6 +349,7 @@ impl<'a> Renderer<'a> {
             levels,
             delivered,
             trim,
+            lift,
             notes,
             description: crate::describe::Description::of(&plan),
         };

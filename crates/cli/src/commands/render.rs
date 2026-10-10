@@ -6,8 +6,8 @@ use anyhow::{Context, Result};
 use scorsese_core::{Fps, Project};
 use scorsese_render::say;
 use scorsese_render::{
-    AudioCodec, Bands, Bitrate, Container, Cue, FrameRange, OutputFormat, RenderSettings, Renderer,
-    Resolution, SampleRate, Tools, VideoCodec, Workers, frames,
+    AudioCodec, Bands, Bitrate, Container, Cue, FrameRange, LoudnessTarget, OutputFormat,
+    RenderSettings, Renderer, Resolution, SampleRate, Tools, VideoCodec, Workers, frames,
 };
 
 /// Everything the command line can say about the file to produce. Gathered into
@@ -45,6 +45,8 @@ pub(crate) struct Options {
     pub(crate) at: Vec<Cue>,
     /// Whether a narration line not yet generated draws its band.
     pub(crate) bands: Bands,
+    /// `None` delivers the mix as balanced; a target brings it there.
+    pub(crate) loudness: Option<LoudnessTarget>,
 }
 
 /// Renders the project to `out`, then prints what was written — for a headless
@@ -90,7 +92,8 @@ pub(crate) fn run(project_dir: &Path, out: &Path, options: Options) -> Result<()
         .with_bitrate(options.bitrate)
         .with_audio(options.sample_rate, options.audio_bitrate)
         .with_format(format)
-        .with_bands(options.bands);
+        .with_bands(options.bands)
+        .with_loudness(options.loudness);
     let range = options.range.unwrap_or(FrameRange::ALL);
 
     let tools = Tools::discover()?;

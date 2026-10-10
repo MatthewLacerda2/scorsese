@@ -88,11 +88,6 @@ impl<'a> Channel<'a> {
         Self::of(samples, 1, 0)
     }
 
-    /// How many sample-frames long it is.
-    pub(crate) fn frames(&self) -> usize {
-        self.frames
-    }
-
     /// The largest excursion over the stretch `frame` names: from the sample
     /// itself up to, but not including, the next one.
     ///
@@ -246,8 +241,8 @@ mod tests {
             .collect();
         let left = Channel::of(&interleaved, 2, 0);
         let right = Channel::of(&interleaved, 2, 1);
-        assert_eq!(left.frames(), 32);
-        assert_eq!(right.frames(), 32);
+        assert_eq!(left.frames, 32);
+        assert_eq!(right.frames, 32);
         assert!(left.between(16, 0) > 0.0, "the left side is the high one");
         assert!(right.between(16, 0) < 0.0, "and the right is not");
         assert!((left.peak_from(16) - 1.0).abs() < 0.005);
@@ -257,7 +252,7 @@ mod tests {
     #[test]
     fn an_empty_run_has_no_frames_and_reads_as_silence() {
         let channel = Channel::mono(&[]);
-        assert_eq!(channel.frames(), 0);
+        assert_eq!(channel.frames, 0);
         assert_eq!(channel.peak_from(0), 0.0);
         assert_eq!(channel.at(-1), 0.0);
     }

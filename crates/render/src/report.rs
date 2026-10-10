@@ -4,7 +4,7 @@ use std::fmt;
 
 use scorsese_core::{Fps, Frames};
 
-use crate::audio::{SoundLevels, Trim};
+use crate::audio::{Lift, SoundLevels, Trim};
 use crate::describe::Description;
 use crate::settings::Resolution;
 use scorsese_zimmer::level::Loudness;
@@ -360,6 +360,11 @@ pub struct RenderReport {
     /// overshoot, when it had to be. `None` means the delivery is exactly as
     /// mixed. See [`crate::audio::DELIVERY_CEILING_DBTP`].
     pub trim: Option<Trim>,
+    /// What bringing the soundtrack to a loudness target came to, when the
+    /// render asked for one: the mix's loudness before, the file's after, and
+    /// the gain and limiting between them. `None` means no target was asked
+    /// for, or there was no audio stream to bring to one.
+    pub lift: Option<Lift>,
     /// Everything the render wants a second look at. Empty is the good case;
     /// a caller that ignores this is the failure mode [`Note`] exists for.
     pub notes: Vec<Note>,
