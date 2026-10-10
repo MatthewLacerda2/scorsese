@@ -46,7 +46,7 @@
 //! [`Project`] remembers about the file it was read from, so that saving it
 //! cannot quietly land on somebody else's edit.
 //!
-//! **Thirteen modules keep their path**, because what they publish is an
+//! **Fourteen modules keep their path**, because what they publish is an
 //! *operation* on a project rather than a part of one, and the verb needs the
 //! noun in front of it: [`mod@pool`] brings media in, hashes it, probes it and
 //! collects what nothing references; [`mod@authoring`] writes down the assets
@@ -63,7 +63,8 @@
 //! [`mod@captions`] turns those words into on-screen captions;
 //! [`mod@write`] is the one way a file leaves here; and [`mod@guide`] hands
 //! back the agent-facing pages of `docs/`, compiled in, so an installed build
-//! can still read them. [`note`] keeps its own as well — the paragraph
+//! can still read them; and [`mod@style`] is the menu a video starts from — the
+//! platforms it can be made for and the styles it can be made in. [`note`] keeps its own as well — the paragraph
 //! above sends the reader to it.
 //!
 //! **Everything else is `pub(crate)`.** How the document is parsed and saved,
@@ -99,6 +100,7 @@ pub mod probe;
 pub(crate) mod project;
 pub(crate) mod shape;
 pub(crate) mod stamp;
+pub mod style;
 pub mod template;
 pub(crate) mod text;
 pub(crate) mod time;
