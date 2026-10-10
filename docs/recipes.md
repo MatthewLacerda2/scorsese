@@ -2089,7 +2089,7 @@ halves to each other.
 Most songs reach for the same handful of instruments, and every one of them is
 five to ten numbers that have to be right before it sounds like itself at all.
 So there is a library of them — and of the everyday
-[sound effects](#effects-to-start-from) — and a track asks for one by name:
+[sound effects](#whooshes-pops-and-dings-to-start-from) — and a track asks for one by name:
 
 ```json recipe
 {
@@ -2160,7 +2160,7 @@ that instrument's patch before anything is copied anywhere. Every patch in it is
 an ordinary one, written in exactly the vocabulary this page documents, so
 reading one is also the quickest way to see what a working kick is made of.
 
-### Effects to start from
+### Whooshes, pops and dings to start from
 
 The kit also has the sound effects editors reach for over and over. Each is an
 ordinary one-shot patch — `synth_new` with `"instrument": "whoosh"` writes one
