@@ -25,9 +25,10 @@
 //! - **Video extension** is not modelled: it is a new kind of request built
 //!   from a generated shot, not a new value of one, and needs its own design.
 //! - **A first and last image fix the length at eight seconds** although the
-//!   page names only 1080p, 4K and reference images. The lock predates the
-//!   page being re-read, and lifting it can only be confirmed by paying for a
-//!   generation, so it stays until somebody does (#928).
+//!   page names only 1080p, 4K and reference images. Confirmed by paying for
+//!   it on 2026-10-10 (#928): Veo refused 4 and 6 seconds for such a shot on
+//!   Lite and Fast, with a 400 that says only "use case not supported", and
+//!   generated it at 8 (`docs/prompts.md`).
 
 use serde::{Deserialize, Serialize};
 

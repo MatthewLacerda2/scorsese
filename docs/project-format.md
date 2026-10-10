@@ -356,8 +356,10 @@ These are Google's options, all of them: every tier and raster its
 page is the checklist when it changes. Two differences are deliberate. Video
 extension — a longer shot grown from a generated one — is a different kind of
 request and is not modelled. And a first and last image fix the length at
-eight seconds although the page no longer says so: confirming otherwise costs
-a generation, so the refusal stays until one is paid for (#928).
+eight seconds although the page does not say so: Veo refused 4 and 6 seconds
+for such a shot on `lite` and `fast` when it was paid for on 2026-10-10
+(#928), with an error that never mentions the length
+([`prompts.md`](prompts.md), `guide prompts`).
 
 ### What a generated still asks for
 

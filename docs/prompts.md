@@ -118,6 +118,31 @@ built mostly out of generated shots. The
 project creation and is not a field edit afterwards, so it is worth a moment at
 the start rather than a rescale later.
 
+## A shot between two stills is eight seconds, on every tier
+
+Google's [Veo page](https://ai.google.dev/gemini-api/docs/veo), read
+2026-10-08, says a shot must be eight seconds at 1080p or 4K or with reference
+images, and says nothing of the kind about a first and a last image. So on
+2026-10-10 (#928) a 720p shot with both was asked for at shorter lengths:
+
+| tier | seconds | what came back |
+| --- | --- | --- |
+| `lite` | 4 | refused |
+| `lite` | 6 | refused |
+| `lite` | 8 | an 8.000 s shot, 1280×720, 24 fps |
+| `fast` | 4 | refused |
+
+Every refusal was the same 400 at submit, and was not charged: *"Your use case
+is currently not supported. Please refer to Gemini API documentation for
+current model offering."* It never mentions the length — so someone who meets
+it cannot tell from the message that the fix is `8`, and the documentation it
+points to does not say so either.
+
+What it means: a first and last image fix a shot at eight seconds whatever the
+tier and raster, exactly as reference images do, and `scorsese check` refuses
+anything shorter before it is sent. Standard was not tried; the rule is the
+same one Lite and Fast keep, and is held for it too.
+
 ## What the vendors advise
 
 Everything from here to *Adding to this page* is the vendors' guidance, not
@@ -176,6 +201,8 @@ these (`guide project-format`, section "What a generated video asks for"):
   what happens from there.
 - **A first and a last image** (`last_image` beside it) fix where the shot
   starts and where it ends; the prompt describes the action between them.
+  Such a shot is only generated at eight seconds, which the page does not
+  say ([paid for](#a-shot-between-two-stills-is-eight-seconds-on-every-tier)).
 - **Reference images** (`reference_images`, up to three, not on `lite`) of
   one person, character or product keep that subject looking the same; the
   prompt then says what the subject does.
