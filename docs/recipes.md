@@ -1894,6 +1894,9 @@ piece as written, so an accelerando speeds up every time round rather than
 leaving the second pass stuck at the final tempo. A **stretch** moves every
 tempo in the map by one factor, so the shape of the piece is kept and only its
 speed changes; the 25% limit is measured against the opening `bpm`.
+[Anchored sections](#fitting-a-song-to-the-cut) scale it the same way, one
+factor per stretch between two anchors — so a ramp that crosses an anchor
+keeps its shape on each side of it.
 
 A point on or before beat 0 is refused (the tempo there is `bpm`'s to say), so
 is a tempo that is not a positive number, and so are beats that do not ascend.
@@ -1944,6 +1947,52 @@ different lengths (each is named — make them one length, or give each clip its
 own recipe). A render never bakes, so one that would play a song baked for an
 older cut — or from an older recipe — says so in a `note:` line naming the
 asset; `synth bake` brings it up to date.
+
+**When the cut decides where sections start, anchor them.** `fit` keeps the
+song's *length* honest when the cut moves; it does not move the *moments* —
+the hit on the logo, the lift on the reveal, the last chord on the end card.
+`anchors` pins a section's first downbeat to a time:
+
+```json fields
+  "arrangement": ["a", "a", "a"],
+  "anchors": [{ "section": 2, "seconds": 4.2 }]
+```
+
+or, the usual way, to where a clip starts on the timeline:
+
+```jsonc
+"anchors": [
+  { "section": 3, "clip": "logo-scene" },
+  { "section": 6, "clip": "end-card" }
+]
+```
+
+A `section` is an arrangement entry, counted from 0 — the rows a [bake
+report](#how-a-bake-came-out) lists. The bake gives **each stretch between
+two anchors one tempo**, the one that lands the second on its time: the
+written tempo moved by a single factor, with a step on each anchored
+downbeat, where a crash or a change of groove covers it. In the example the
+first two sections play at 114.3 bpm instead of 120, so the third starts at
+4.2 s rather than 4. Sections after the last anchor keep their written tempo —
+unless `fit` is `stretch`, whose end is then one more anchor. A `once` fit pads
+after the music as before; a `loop` fit is refused, since a second pass has no
+times to land on.
+
+A `clip` anchor is measured from the clip that plays the song, on the same
+timeline (a group's own, for a song inside a group), counting its in-point
+and speed as `fit` does. Like `fit.to`, the time is part of what names the
+bake: move the clip and bake again, and the section follows; until then a
+render's `note:` says the bake is out of date.
+
+Write anchors in the order the song plays them, each with `seconds` or `clip`
+and never both. **Refused**, each naming the section — or the clips — at fault:
+an anchor past the arrangement; one on the first section anywhere but 0 s;
+sections or times that do not ascend (two clips the wrong way round on the
+timeline are both named); a clip the project does not have, one on a timeline
+no clip playing the song is on, or one starting before the song does; and,
+like `stretch`, any stretch whose tempo would move more than 25% from the one
+written — with the tempo it would have needed. A tempo map of your own is
+kept inside each stretch, scaled with it ([A tempo that moves](#a-tempo-that-moves)).
 
 A cut is always faded over about 20 ms, because a buffer truncated at an
 arbitrary sample ends mid-waveform, and that is a click.
@@ -2752,6 +2801,11 @@ exactly what nothing downstream can notice.
 
 - **[Tempo](#a-tempo-that-moves)** — a change on or before beat 0, a `bpm`
   that is not a positive number, and changes whose beats do not ascend.
+
+- **[Anchors](#fitting-a-song-to-the-cut)** — a section past the arrangement,
+  the first section anywhere but 0 s, sections or times that do not ascend, a
+  `clip` nothing resolved, both `seconds` and `clip` or neither, anchors beside
+  a `loop` fit, and a stretch between two of them moving the tempo past 25%.
 
 - **[Automation](#making-something-build)** — a curve naming a track the song
   does not have, two curves on one track and parameter, a list with no points
