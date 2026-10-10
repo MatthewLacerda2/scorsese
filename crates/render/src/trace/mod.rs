@@ -8,15 +8,15 @@
 //!
 //! The steps, in order:
 //!
-//! 1. [`palette`] reduces the picture to at most the colours asked for.
-//! 2. [`regions`] cuts it into regions of one colour each, absorbs the specks
+//! 1. `palette` reduces the picture to at most the colours asked for.
+//! 2. `regions` cuts it into regions of one colour each, absorbs the specks
 //!    smaller than the detail asked for, and drops the background unless it is
 //!    kept. No two regions overlap.
-//! 3. A dark region is **ink**, a pen line, and [`ink`] cuts it into strands,
+//! 3. A dark region is **ink**, a pen line, and `ink` cuts it into strands,
 //!    one per edge, each drawn as a single pass along that edge. Every other
 //!    region is a **colour**: its outline drawn in its own colour, then filled.
-//! 4. [`outline`] traces each one with visioncortex — the engine of vtracer,
-//!    MIT or Apache-2.0 — and [`svg`] writes the document in drawing order.
+//! 4. `outline` traces each one with visioncortex — the engine of vtracer,
+//!    MIT or Apache-2.0 — and `svg` writes the document in drawing order.
 //!
 //! **The drawing order is the document order**, because that is the order
 //! `kit.draw` draws in. The lines first, top to bottom, each region's outside

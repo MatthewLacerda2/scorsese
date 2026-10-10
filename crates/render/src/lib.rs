@@ -121,6 +121,9 @@
 //!
 //! [`mod@page`] keeps its path for the same reason: [`page::capture`] and
 //! [`page::cached`] are verbs, and [`page::Request`] is what they are asked.
+//! So does [`mod@trace`] (#999): [`trace::vectorize`] traces a project's picture
+//! into an SVG beside its pages, and [`trace::trace`] does the tracing on
+//! pixels alone.
 //!
 //! **Everything else is `pub(crate)`.** The ffmpeg processes themselves, the
 //! rasters a fit is worked out on, the slug-card furniture, the font cache and

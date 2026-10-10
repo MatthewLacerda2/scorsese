@@ -150,7 +150,7 @@ pub fn vectorize(
 }
 
 /// A picture file as RGBA pixels, four bytes each, with its width and height —
-/// no larger than [`LARGEST`] either way. Any still ffmpeg reads: PNG, JPEG,
+/// no larger than 2048 pixels either way. Any still ffmpeg reads: PNG, JPEG,
 /// WebP.
 pub fn read(tools: &Tools, file: &Path) -> Result<(Vec<u8>, usize, usize), TraceError> {
     let unreadable = |message: String| TraceError::Unreadable {
