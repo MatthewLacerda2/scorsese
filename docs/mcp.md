@@ -104,7 +104,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `set_volume` | Set how loud one clip plays — a level, a mute, or a fade between two points — by writing the ordinary volume keyframes you would place by hand, which stay editable afterwards. | nothing |
 | `scale_pacing` | Move some clips toward or away from one instant, all by the same factor — the operation for pacing. | nothing |
 | `page_write` | Write a web page — a title card, a lower third, an animated chart — as an html asset the timeline plays like footage with alpha. | nothing |
-| `page_read` | Read a web page's HTML exactly as it is on disk. | nothing |
+| `page_read` | Read a web page's HTML exactly as it is on disk — or, with `file`, a file beside the pages such as lib.js. | nothing |
 | `synth_new` | Start a new sound: writes a starter recipe into recipes/ and adds the synth_audio asset that points at it. | nothing |
 | `synth_kit` | List the ready-made instruments a recipe can start from, or show one instrument's patch. | nothing |
 | `synth_read` | Read a recipe file as it is on disk. | nothing |
@@ -1684,6 +1684,12 @@ place_clip  → on a video track, like any picture
 still       → look, and read the notes under the frame
 page_read   → what it says now, before the next write
 ```
+
+The same two tools reach the files beside the pages (#954): name `file` instead
+of `page` — `lib.js`, `look.css` — and the text is written to or read from
+`pages/<file>`. Such a file is no asset and is never placed; the pages that
+load it by relative path are drawn again when it changes. Only `.js`, `.css`,
+`.json` and `.svg`, at most 1 MB.
 
 How to write one well — the contract a page is drawn under, what it can load
 offline, and four worked pages — is [`pages.md`](pages.md), which a client

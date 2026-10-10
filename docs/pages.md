@@ -232,8 +232,12 @@ file in the project**, by relative path, rather than each carrying a copy:
 `pages/lib.js` and every page that loaded it is drawn again on the next look;
 a page that never loaded it is not. Nothing else needs to be told. A shared
 file is an ordinary file of the project, under `pages/` beside the pages that
-load it; `page_write` writes only pages, so it is written to the project folder
-directly (a tool for it is #954).
+load it, and never an asset: nothing places it. `page_write` writes one when
+named with `file` instead of `page` (`"file": "lib.js"`, its text in `html`),
+and `page_read` reads it back the same way — on the web that is the only way to
+write one. A shared file is a `.js`, `.css`, `.json` or `.svg` of at most 1 MB;
+a `.html` is refused, since an html file no asset points at is a page nothing
+plays.
 
 A classic script's top-level names are shared with the page that loads it and
 with every other script on it, so two `const`s of one name are an error. Keep a

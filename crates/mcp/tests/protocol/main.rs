@@ -44,6 +44,7 @@ mod sectioning;
 mod seeing;
 mod sequencing;
 mod setting;
+mod sharing;
 mod sheeting;
 mod sketching;
 mod sounding;
