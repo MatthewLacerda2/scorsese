@@ -237,9 +237,11 @@ impl Tool for Write {
          arithmetic: the bake is named for the recipe's hash, so the next \
          synth_bake redoes it and nothing has to be marked. The synthesiser's \
          own version is in that name too, so a bake never outlives the code \
-         that made it. A track whose patch is a library name — \"kit:kick\", \
-         see synth_kit — gets a copy of that instrument written in its place, \
-         so the recipe on disk carries the patch itself."
+         that made it — and so is the clip length a song's `fit` of \
+         `{\"to\": \"clip\"}` was fitted to, so re-cutting and baking again \
+         refits the music. A track whose patch is a library name — \
+         \"kit:kick\", see synth_kit — gets a copy of that instrument written \
+         in its place, so the recipe on disk carries the patch itself."
     }
 
     fn costs(&self) -> Costs {

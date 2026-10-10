@@ -96,7 +96,7 @@ pub fn bake_partial_unless(
         return Err(SynthesisError::NotSynthesised { id: id.clone() });
     }
 
-    let (recipe, file, _) = read_recipe(asset, project_root)?;
+    let super::Read { recipe, file, .. } = read_recipe(project, asset, project_root)?;
     // A one-shot is one gesture played by one voice: it has no arrangement to
     // window and no tracks to solo, so an excerpt of one is a question about a
     // document that cannot answer it. Refused rather than ignored, for the

@@ -1922,6 +1922,29 @@ optional, and absent means the song is as long as it is.
 and says what tempo it would have needed — a bed at 40% speed is not a bed.
 Reach for `loop` when that happens.
 
+**When the cut decides the length, fit to the clip instead of writing a
+number.** `to: "clip"` takes the place of `seconds`:
+
+```jsonc
+"fit": { "to": "clip", "mode": "stretch" }
+```
+
+When the song bakes, scorsese reads the clip on the timeline that plays the
+asset and fits the song to it — to the end of the music that clip reaches, so a
+clip that starts two seconds into the song, or plays it at another speed, still
+gets the last note on its last frame. The modes and the `fade` work exactly as
+with `seconds`. Shorten the video and bake again, and the music follows with
+nothing edited by hand: the length is part of what names the bake, so a changed
+clip is a fresh bake and an unchanged one is a cache hit. Prefer it whenever a
+song scores a whole cut whose length is still moving.
+
+Write one of `seconds` and `to`, never both. The bake refuses a `to: "clip"`
+song that no clip plays yet (place it first), and one placed in clips of
+different lengths (each is named — make them one length, or give each clip its
+own recipe). A render never bakes, so one that would play a song baked for an
+older cut — or from an older recipe — says so in a `note:` line naming the
+asset; `synth bake` brings it up to date.
+
 A cut is always faded over about 20 ms, because a buffer truncated at an
 arbitrary sample ends mid-waveform, and that is a click.
 

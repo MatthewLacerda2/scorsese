@@ -36,7 +36,7 @@ pub fn survey(project: &Project, project_root: &Path) -> Result<Survey, Synthesi
     let resolve = instruments(project_root);
     let mut songs = Vec::new();
     for asset in project.assets.iter().filter(|it| it.kind.is_synthesized()) {
-        let (recipe, _, _) = read_recipe(asset, project_root)?;
+        let recipe = read_recipe(project, asset, project_root)?.recipe;
         if let Recipe::Song(song) = recipe {
             songs.push(SongSurvey::of(asset.id.as_str(), &song, &resolve));
         }

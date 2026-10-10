@@ -95,6 +95,10 @@ pub(crate) fn run(project_dir: &Path, out: &Path, options: Options) -> Result<()
         .with_bands(options.bands)
         .with_loudness(options.loudness);
     let range = options.range.unwrap_or(FrameRange::ALL);
+    // A render plays whatever a synth asset was last baked to and never bakes
+    // it again, so a recipe edited since, or a clip a song is fitted to that
+    // has changed length, is said here rather than only heard (#1000).
+    let stale = scorsese_providers::synth::out_of_date(&project, project_dir);
 
     let tools = Tools::discover()?;
     // Nothing about the file changes with the thread count — the same project
@@ -143,6 +147,9 @@ pub(crate) fn run(project_dir: &Path, out: &Path, options: Options) -> Result<()
         println!("  bitrate {bitrate}");
     }
     for note in &report.notes {
+        println!("  note: {note}");
+    }
+    for note in &stale {
         println!("  note: {note}");
     }
     // What is actually in the file, which until now nobody could learn without

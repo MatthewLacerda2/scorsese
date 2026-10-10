@@ -25,10 +25,12 @@
 
 mod address;
 mod create;
+mod current;
 mod error;
 pub mod kit;
 mod midi;
 mod partial;
+mod placed;
 mod recipe;
 mod starter;
 mod survey;
@@ -56,6 +58,7 @@ pub use scorsese_zimmer::{Excerpt, Span, Window};
 pub use scorsese_zimmer::midi::Drum;
 
 pub use create::{check, create};
+pub use current::out_of_date;
 pub use error::SynthesisError;
 pub use midi::{FromMidi, MIDI_EXPORT_DIR, ToMidi, export_midi, import_midi};
 pub use partial::{Partial, bake_partial, bake_partial_unless};
@@ -189,8 +192,13 @@ pub fn bake_asset_unless(
         return Err(SynthesisError::NotSynthesised { id: id.clone() });
     }
 
-    let (recipe, file, digest) = read_recipe(asset, project_root)?;
-    let output = address::output(&digest, &named_patches(&recipe, project_root));
+    let Read {
+        recipe,
+        file,
+        digest,
+        placed,
+    } = read_recipe(project, asset, project_root)?;
+    let output = address::output(&digest, &named_patches(&recipe, project_root), &placed);
     let on_disk = output.resolve(project_root);
 
     let baked = if on_disk.is_file() {
@@ -212,12 +220,30 @@ pub fn bake_asset_unless(
     Ok(baked)
 }
 
-/// Reads and parses an asset's recipe, returning it with the file it came from
-/// and the digest of its bytes, which is half of what names its output.
+/// An asset's recipe, read, parsed and told what the project decides for it.
+pub(super) struct Read {
+    /// The document, with everything it left to the project filled in.
+    pub(super) recipe: Recipe,
+    /// The file it came from, for a message about it.
+    pub(super) file: PathBuf,
+    /// The digest of the file's bytes, which is half of what names its output.
+    pub(super) digest: String,
+    /// What it read from the project, as labelled lines for its address —
+    /// empty for a recipe that asks the project nothing (`placed`).
+    pub(super) placed: Vec<String>,
+}
+
+/// Reads and parses an asset's recipe, and resolves what it leaves to the
+/// project — a song fitted to the clip that plays it gets that clip's length.
+///
+/// Every reader of an asset's recipe comes through here — a bake, an excerpt,
+/// a survey, a MIDI export — so none of them can see a song at a length
+/// another would not.
 pub(super) fn read_recipe(
+    project: &Project,
     asset: &Asset,
     project_root: &Path,
-) -> Result<(Recipe, PathBuf, String), SynthesisError> {
+) -> Result<Read, SynthesisError> {
     let relative = asset
         .recipe
         .as_ref()
@@ -240,7 +266,7 @@ pub(super) fn read_recipe(
         source,
     })?;
     let text = String::from_utf8_lossy(&bytes);
-    let recipe = Recipe::from_json(&text).map_err(|source| SynthesisError::Malformed {
+    let mut recipe = Recipe::from_json(&text).map_err(|source| SynthesisError::Malformed {
         path: file.clone(),
         source,
     })?;
@@ -250,7 +276,13 @@ pub(super) fn read_recipe(
     // formatting rather than on what the author wrote. The synthesiser's own
     // version joins it in `address`.
     let digest = hash_bytes(&bytes);
-    Ok((recipe, file, digest))
+    let placed = placed::resolve(&mut recipe, project, &asset.id)?;
+    Ok(Read {
+        recipe,
+        file,
+        digest,
+        placed,
+    })
 }
 
 /// Renders a recipe to a complete WAV, or to nothing if `stop` says so first.

@@ -88,7 +88,7 @@ pub fn export_midi(
     if !asset.kind.is_synthesized() {
         return Err(SynthesisError::NotSynthesised { id: id.clone() });
     }
-    let (recipe, _, _) = read_recipe(asset, project_root)?;
+    let recipe = read_recipe(project, asset, project_root)?.recipe;
     let Recipe::Song(song) = &recipe else {
         return Err(SynthesisError::NoScore { id: id.clone() });
     };
