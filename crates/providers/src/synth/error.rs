@@ -88,6 +88,31 @@ pub enum SynthesisError {
         source: SynthError,
     },
 
+    /// A song fitted `to: "clip"` that no clip plays, so there is no length
+    /// to fit it to (#1000).
+    #[error(
+        "asset `{id}`: its song fits `to: \"clip\"`, and no clip plays it — place it on \
+         the timeline first, or write `fit.seconds` instead"
+    )]
+    NotPlaced {
+        /// The asset nothing plays.
+        id: AssetId,
+    },
+
+    /// A song fitted `to: "clip"` that plays in clips of different lengths:
+    /// there is no one length to fit it to, and picking one would leave the
+    /// others ending early or cut off.
+    #[error(
+        "asset `{id}`: its song fits `to: \"clip\"`, and the clips playing it differ in \
+         length ({clips}) — make them one length, or give each its own recipe"
+    )]
+    ClipsDisagree {
+        /// The asset placed more than once.
+        id: AssetId,
+        /// Each clip and the length it needs, already worded.
+        clips: String,
+    },
+
     /// Whoever started the bake asked it to stop, and it did (#661).
     ///
     /// Not a fault in the recipe: nothing was refused, and nothing half-made

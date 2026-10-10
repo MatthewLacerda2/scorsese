@@ -13,7 +13,7 @@ use super::setup::{BEATS, at, curve, frame, held, render, rms};
 /// The fixture at a target length, with a gain curve over `beats` of it.
 fn fitted(seconds: f32, mode: FitMode, beats: f32, to: f32) -> Song {
     let mut song = held(0.5);
-    song.fit = Some(Fit { seconds, mode });
+    song.fit = Some(Fit::lasting(seconds, mode));
     song.automation = vec![curve(Param::Gain, vec![at(0.0, 0.0), at(beats, to)])];
     song
 }
@@ -41,10 +41,7 @@ fn a_curve_does_not_go_back_when_the_arrangement_loops() {
 #[test]
 fn a_looped_bed_with_no_curve_is_the_same_level_both_passes() {
     let mut song = held(0.5);
-    song.fit = Some(Fit {
-        seconds: 8.0,
-        mode: FitMode::Loop,
-    });
+    song.fit = Some(Fit::lasting(8.0, FitMode::Loop));
     let mix = render(&song);
     let (first, second) = mix.split_at(frame(BEATS));
     let (before, after) = (rms(first), rms(second));
@@ -65,10 +62,7 @@ fn a_looped_bed_with_no_curve_is_the_same_level_both_passes() {
 fn a_stretch_fit_carries_the_curve_along_with_the_tempo() {
     let flat = {
         let mut song = held(0.5);
-        song.fit = Some(Fit {
-            seconds: 5.0,
-            mode: FitMode::Stretch,
-        });
+        song.fit = Some(Fit::lasting(5.0, FitMode::Stretch));
         song.automation = vec![curve(Param::Gain, vec![at(0.0, 0.5)])];
         render(&song)
     };

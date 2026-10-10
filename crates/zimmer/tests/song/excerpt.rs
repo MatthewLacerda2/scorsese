@@ -73,10 +73,7 @@ fn mixed() -> Song {
 /// different beats.
 fn looped() -> Song {
     let mut song = mixed();
-    song.fit = Some(Fit {
-        seconds: 6.0,
-        mode: FitMode::Loop,
-    });
+    song.fit = Some(Fit::lasting(6.0, FitMode::Loop));
     song
 }
 

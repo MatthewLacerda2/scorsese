@@ -14,7 +14,7 @@
 //! match here still names each of them, in the one arm that hands them over,
 //! so a new variant still does not compile until it has a home. What the
 //! compiler cannot check is that `length`'s match has an arm for every name
-//! in that list — which is why the list is five names long and the words sit
+//! in that list — which is why the list is six names long and the words sit
 //! right beside it, rather than a whole group of thirty being moved.
 
 mod length;
@@ -321,6 +321,7 @@ impl SynthError {
             // The length and level fields — `fit`, `fade` and `tail` — have
             // their words in `length`, the one group spelled out of this match.
             Self::BadFitSeconds { .. }
+            | Self::FitLength { .. }
             | Self::BadFade { .. }
             | Self::StretchTooFar { .. }
             | Self::WrapWith { .. }

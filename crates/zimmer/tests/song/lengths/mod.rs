@@ -7,5 +7,6 @@
 
 mod fitting;
 mod levels;
+mod resolving;
 mod setup;
 mod wrapping;

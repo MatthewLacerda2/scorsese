@@ -8,7 +8,7 @@ use super::setup::{close, ends, slowing};
 
 fn fitted(seconds: f32, mode: FitMode) -> Song {
     Song {
-        fit: Some(Fit { seconds, mode }),
+        fit: Some(Fit::lasting(seconds, mode)),
         ..slowing()
     }
 }

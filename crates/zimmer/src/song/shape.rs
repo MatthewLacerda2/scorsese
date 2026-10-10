@@ -51,7 +51,7 @@ pub(crate) fn limit(
     // was moved so the passes land there, and rounding the two separately can
     // leave them a sample apart — which would have `shape` cut, and fade, the
     // very end of a file that was meant to come round without a seam.
-    let at = song.fit.map_or(arrangement_end, |fit| samples(fit.seconds));
+    let at = fitted(song).map_or(arrangement_end, |(_, seconds)| samples(seconds));
     wrap(buf, at)?;
     limiter::apply_looped(buf, RATE);
     Ok(())
@@ -93,8 +93,8 @@ pub(crate) fn shape(song: &Song, buf: &mut Stereo, arrangement_end: usize) {
     if song.tail() == Tail::Exact {
         resize(buf, arrangement_end);
     }
-    if let Some(fit) = song.fit {
-        resize(buf, samples(fit.seconds));
+    if let Some((_, seconds)) = fitted(song) {
+        resize(buf, samples(seconds));
     }
     let fade = song.fade.unwrap_or_default();
     if !fade.is_silent_about_everything() {
@@ -111,7 +111,7 @@ pub(crate) fn shape(song: &Song, buf: &mut Stereo, arrangement_end: usize) {
 /// what actually lands it on the target sample.
 pub(crate) fn plan(song: &Song) -> (Clock, u32) {
     let written = Clock::written(song, 1);
-    let Some(fit) = song.fit else {
+    let Some((fit, seconds)) = fitted(song) else {
         return (written, 1);
     };
     let once = written.seconds(song.arrangement_beats());
@@ -123,13 +123,13 @@ pub(crate) fn plan(song: &Song) -> (Clock, u32) {
         // only ever has to cut. Padding a loop with silence would be a gap in
         // the middle of a bed.
         FitMode::Loop => {
-            let passes = passes(fit.seconds / once, f32::ceil);
+            let passes = passes(seconds / once, f32::ceil);
             (Clock::written(song, passes), passes)
         }
         FitMode::Once => (written, 1),
         FitMode::Stretch => {
-            let passes = passes(fit.seconds / once, f32::round);
-            (Clock::stretched(song, passes, fit.seconds), passes)
+            let passes = passes(seconds / once, f32::round);
+            (Clock::stretched(song, passes, seconds), passes)
         }
     }
 }
@@ -142,13 +142,25 @@ pub(crate) fn plan(song: &Song) -> (Clock, u32) {
 /// A song whose tempo moves is stretched by moving every tempo in it by the
 /// same factor, so the fraction is the same wherever it is read — and it is
 /// read at the first beat, against the `bpm` the document starts at.
-pub(crate) fn stretch_ratio(song: &Song, fit: Fit) -> Option<f32> {
+pub(crate) fn stretch_ratio(song: &Song, fit: Fit, seconds: f32) -> Option<f32> {
     let once = Clock::written(song, 1).seconds(song.arrangement_beats());
     if once <= 0.0 || fit.mode != FitMode::Stretch {
         return None;
     }
-    let passes = passes(fit.seconds / once, f32::round);
-    Some(Clock::stretched(song, passes, fit.seconds).bpm() / song.bpm - 1.0)
+    let passes = passes(seconds / once, f32::round);
+    Some(Clock::stretched(song, passes, seconds).bpm() / song.bpm - 1.0)
+}
+
+/// The song's fit and the length it lands on, when it has one to land on.
+///
+/// A fit whose `to` nobody resolved has no length, and every piece of
+/// arithmetic here treats it as absent: `validate` refuses it before a render
+/// starts, so the only reader that meets one is a question asked of the
+/// document without rendering it — where its sections fall, say — and the
+/// honest answer there is the song as written.
+fn fitted(song: &Song) -> Option<(Fit, f32)> {
+    let fit = song.fit?;
+    Some((fit, fit.seconds?))
 }
 
 /// A pass count of at least one, rounded the way the caller asked.

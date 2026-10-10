@@ -230,6 +230,9 @@ fn prepared(dir: &Path, arguments: &Arguments) -> Result<(String, PathBuf, Work)
         .with_format(format)
         .with_bands(bands)
         .with_loudness(loudness);
+    // What `scorsese render` prints as a note, in its words: a synth asset
+    // that would play a bake older than its recipe or its clip (#1000).
+    let stale = scorsese_providers::synth::out_of_date(&project, dir);
     let (dir, target, said) = (dir.to_owned(), path.clone(), out.clone());
     let work: Work = Box::new(move |progress, cancel| {
         let report = Renderer::new(&tools, settings)
@@ -248,6 +251,9 @@ fn prepared(dir: &Path, arguments: &Arguments) -> Result<(String, PathBuf, Work)
         // that could not be captured, or one that asked for something it was
         // not given (#777). An agent cannot fix what it is not told.
         for note in &report.notes {
+            words.push_str(&format!("\nnote: {note}"));
+        }
+        for note in &stale {
             words.push_str(&format!("\nnote: {note}"));
         }
         Ok(words)
