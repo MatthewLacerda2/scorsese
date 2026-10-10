@@ -90,10 +90,11 @@ new build, before it serves anything.
 
 ## Files
 
-- Exactly the file kinds scorsese supports today — no more, no fewer — and
-  MIDI, which is notes rather than media: no thumbnail, never placed on a
-  track (#678). No tool reads one since #785 took `synth_import` and
-  `synth_export` off the list; the kind stays so stored files still load.
+- Exactly the file kinds scorsese supports today — no more, no fewer. MIDI
+  was a library kind (#678) until #964: once #785 took `synth_import` and
+  `synth_export` off the list nothing on the web could use one, so a `.mid`
+  is refused like any other file scorsese cannot use, and migration `0025`
+  deleted the rows of the kind (there were none).
 - Stored **once per (user, SHA-256)**. A byte-identical re-upload is
   **refused** with "you already have this as *X*", whatever its name.
 - Lists carry thumbnail, name, kind and size only; the file is fetched when
@@ -908,12 +909,9 @@ hashes a file first and asks `GET /api/library?sha256=`, so a duplicate never
 crosses the network; the refusal at upload is the backstop.
 
 **Exactly the kinds `scorsese import` takes** — video, image, audio, by the same
-extension list (`scorsese_core::pool::infer_kind`) — **and MIDI** (`.mid`,
-`.midi`, #678), refused at announcement (`415`) before a byte is sent. A MIDI
-file is not media, so it is not probed: it is read by `zimmer`'s MIDI reader
-(`synth::check_midi`) and refused (`422`) in its words when it could not be
-read as a song; it has no thumbnail, and `import` refuses it
-— it never becomes a project asset. On arrival the server **hashes the bytes itself**
+extension list (`scorsese_core::pool::infer_kind`); any other file, a `.mid`
+included (#964), is refused at announcement (`415`) before a byte is sent. On
+arrival the server **hashes the bytes itself**
 and refuses (`422`) a file whose hash is not the one announced, then probes it
 and holds it to its kind with `pool::measure`, exactly as import does — a
 `.mp4` with no picture is refused, and the prober's words (which name server
@@ -1795,8 +1793,7 @@ with it* — and is meant to be tuned from use.
 The sidebar lists only the first. The Library button opens the library page's
 own browser in a modal, in picking mode, over the editor blurred behind it:
 picking a file is an `import`, which brings it into Assets without placing it,
-and the user drags it from there onto a lane. MIDI is never offered, since no
-track can hold it (#678). Templates are not in the modal — a template has no
+and the user drags it from there onto a lane. Templates are not in the modal — a template has no
 "in this project" state, it is inserted at the playhead, which the sidebar's
 Templates section already does.
 

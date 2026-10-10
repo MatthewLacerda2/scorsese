@@ -19,7 +19,6 @@ export const assets = {
     description:
       "Pick a file to add it to this project's assets, then drag it from there onto a track. " +
       "New files can be uploaded here, or dropped on this window.",
-    notTrack: "can't go on a track",
     inProject: "in this project",
   },
   kinds: {

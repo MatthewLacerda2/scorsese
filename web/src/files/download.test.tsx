@@ -14,7 +14,7 @@ import { UploadsProvider } from "./uploads";
 
 const tiles: LibraryTile[] = [
   { id: 7, name: "beach.mp4", kind: "video", size_bytes: 10, thumbnail: "/t/7" },
-  { id: 8, name: "theme.mid", kind: "midi", size_bytes: 10, thumbnail: "/t/8" },
+  { id: 8, name: "theme.mp3", kind: "audio", size_bytes: 10, thumbnail: "/t/8" },
 ];
 
 function render(picking?: Picking) {
@@ -45,7 +45,7 @@ test("the download URL asks for the file as an attachment", () => {
   expect(api.library.downloadUrl(7)).toBe("/api/library/7/file?download=1");
 });
 
-test("every tile on the library page can be downloaded, MIDI included", () => {
+test("every tile on the library page can be downloaded", () => {
   const links = downloads(render());
   // Newest first, so the higher id leads.
   expect(links.map((l) => l.href)).toEqual([
@@ -53,14 +53,13 @@ test("every tile on the library page can be downloaded, MIDI included", () => {
     "/api/library/7/file?download=1",
   ]);
   expect(links.every((l) => !l.insideButton)).toBe(true);
-  expect(render()).toContain('aria-label="Download theme.mid"');
+  expect(render()).toContain('aria-label="Download theme.mp3"');
 });
 
 test("in the picking modal a refused file still downloads, and not as a pick", () => {
   const picking: Picking = {
-    kinds: ["video", "midi"],
     pick: () => {},
-    refuse: (tile) => (tile.kind === "midi" ? "can't go on a track" : null),
+    refuse: (tile) => (tile.kind === "audio" ? "in this project" : null),
   };
   const links = downloads(render(picking));
   expect(links).toHaveLength(2);

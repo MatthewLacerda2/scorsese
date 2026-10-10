@@ -3,10 +3,9 @@
 // saying why (the editor's picking modal, #702), and carries `actions` beside
 // its main button — buttons of their own, since a button cannot hold one. The thumbnail is drawn by a job after the
 // file arrives and answers 404 until then, so a missing one shows the kind's
-// icon and is asked for again a little later. A MIDI file never has one — it
-// is notes, not a picture or a sound — so it shows a note icon from the start.
+// icon and is asked for again a little later.
 
-import { FileAudioIcon, FileImageIcon, FileMusicIcon, FileVideoIcon } from "lucide-react";
+import { FileAudioIcon, FileImageIcon, FileVideoIcon } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import type { FileKind, LibraryTile } from "@/api";
 import { useLanguage, useT } from "@/i18n/I18nProvider";
@@ -16,11 +15,7 @@ export const KIND_ICON = {
   video: FileVideoIcon,
   image: FileImageIcon,
   audio: FileAudioIcon,
-  midi: FileMusicIcon,
 };
-
-/** The kinds the server draws a thumbnail for; any other shows its icon. */
-const PICTURED: ReadonlySet<FileKind> = new Set(["video", "image", "audio"]);
 
 /** How often, and how many times, a thumbnail still being drawn is re-asked. */
 const RETRY_MS = 4000;
@@ -93,7 +88,7 @@ export function Thumbnail({ src, kind }: { src: string; kind: FileKind }) {
   const Icon = KIND_ICON[kind];
   return (
     <div className="relative flex aspect-video items-center justify-center overflow-hidden bg-muted">
-      {missing || !PICTURED.has(kind) ? (
+      {missing ? (
         <Icon className="size-10 text-muted-foreground" aria-hidden />
       ) : (
         <img
