@@ -1,9 +1,10 @@
-// The editor's right sidebar (#702, #943): **Assets**, what this project holds, as a
+// The editor's right sidebar (#702, #943): a **Library** button pinned at the
+// top (#1006), whose modal brings a file the user owns into Assets — the way
+// files come in is the first thing in the panel. Then **Assets**, what this project holds, as a
 // grid of tiles two across (#766, `AssetTile`) — each dragged onto a lane to
 // place it (the desktop app's pool, #543), or removed with the bin its tile
 // shows on hover, after a confirm listing the clips that go with it (#396) —
-// then **Templates**, inserted at the playhead (#546), and a
-// **Library** button whose modal brings a file the user owns into Assets.
+// then **Templates**, inserted at the playhead (#546).
 // The two lists are kept apart on purpose: what is *in* the project, and what
 // is merely *owned* and picked from, as every editor's media bin and import
 // dialog are.
@@ -41,6 +42,9 @@ export function AssetsPanel({ projectId, document, edit, playhead }: Props) {
     });
   return (
     <div className="flex h-full min-h-0 flex-col">
+      <div className="border-b p-3">
+        <LibraryModal projectId={projectId} edit={edit} />
+      </div>
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
         <section className="flex flex-col gap-1">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -50,9 +54,6 @@ export function AssetsPanel({ projectId, document, edit, playhead }: Props) {
           <AssetGrid document={document} edit={edit} unfolded={unfolded} onFold={fold} />
         </section>
         <TemplatesSection edit={edit} playhead={playhead} fps={document.timeline_fps} />
-      </div>
-      <div className="border-t p-3">
-        <LibraryModal projectId={projectId} edit={edit} />
       </div>
     </div>
   );

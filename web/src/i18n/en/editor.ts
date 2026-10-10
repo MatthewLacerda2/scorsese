@@ -105,6 +105,9 @@ export const editor = {
     removeTitle: "Delete the template — videos it went into keep their copies",
     confirmRemove: (name: string) => `Delete the template “${name}”?`,
     save: "Save as template",
+    unavailable:
+      "Templates are selected clips, kept to reuse. Select clips on the timeline or ask the assistant.",
+    where: "Yours are under Templates, in the assets panel.",
     saveTitle: "Select clips on the timeline (Shift-click for several), then save them to reuse",
     saveDescription: (count: number) =>
       `The ${count === 1 ? "1 clip" : `${count} clips`} selected, to put into any of your projects later. Changing the template never changes a video it was used in.`,

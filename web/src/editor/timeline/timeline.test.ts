@@ -13,7 +13,7 @@ import {
   toolCall,
   trimArguments,
 } from "./drag";
-import { framesToPx, pxToFrames, timecode, toFrames, toSeconds } from "./time";
+import { clock, framesToPx, pxToFrames, toFrames, toSeconds } from "./time";
 
 const THIRTY = { num: 30, den: 1 };
 const NTSC = { num: 30000, den: 1001 };
@@ -41,9 +41,11 @@ describe("time", () => {
     expect(pxToFrames(-40, zoom, THIRTY)).toBe(0);
   });
 
-  test("a timecode is minutes, seconds and frames", () => {
-    expect(timecode(75, THIRTY)).toBe("0:02.15");
-    expect(timecode(30 * 61, THIRTY)).toBe("1:01.00");
+  test("the clock is mm:ss under an hour, h:mm:ss from one, frames dropped", () => {
+    expect(clock(75, THIRTY)).toBe("00:02");
+    expect(clock(30 * 179 + 29, THIRTY)).toBe("02:59");
+    expect(clock(30 * 3600, THIRTY)).toBe("1:00:00");
+    expect(clock(30 * 3779, THIRTY)).toBe("1:02:59");
   });
 });
 

@@ -105,6 +105,9 @@ export const editor: Messages["editor"] = {
     removeTitle: "Excluir o modelo — os vídeos em que ele foi usado ficam com as cópias deles",
     confirmRemove: (name: string) => `Excluir o modelo “${name}”?`,
     save: "Salvar como modelo",
+    unavailable:
+      "Modelos são clipes selecionados para serem reutilizados. Selecione clipes na linha do tempo ou peça ao assistente.",
+    where: "Os seus ficam em Modelos, no painel de recursos.",
     saveTitle:
       "Selecione clipes na linha do tempo (Shift+clique para vários) e salve para reutilizar",
     saveDescription: (count: number) =>

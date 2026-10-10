@@ -34,7 +34,6 @@ export function AssetGrid({ document, edit, unfolded, onFold }: Props) {
             stills={stills.length}
             open={unfolded.has(asset.id)}
             onFold={() => onFold(asset.id)}
-            uses={showing(document, asset.id).length}
             pending={edit.pending}
             onRemove={() =>
               confirmThen(assetRemoval(document, asset.id, t.editor.removal), edit.run)
