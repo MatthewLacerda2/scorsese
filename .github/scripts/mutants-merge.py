@@ -31,7 +31,17 @@ one. It carries the fields the renderer reads and nothing else, because a
 merged document that looked like the tool's own output would invite somebody to
 read a field out of it that was never merged.
 
-    python3 .github/scripts/mutants-merge.py --expect 3 shards/*/outcomes.json
+    python3 .github/scripts/mutants-merge.py --expect 3 shards
+
+**A directory is searched, not globbed by the caller** (#992). The workflows
+download every shard's artifact under one directory, and where each file lands
+depends on how many artifacts matched: `download-artifact` puts several in a
+subdirectory each, and a lone one straight into the directory itself. The
+caller's old `shards/*/outcomes.json` matched only the first layout, so every
+one-shard run, which is nearly every request, reported none of what it
+measured: run 38002639511 tested 171 mutants, found two survivors, and printed
+"No mutants to run". Each shard artifact carries exactly one `outcomes.json`,
+so every one found under the directory is one shard, wherever it sits.
 """
 
 from __future__ import annotations
@@ -59,6 +69,19 @@ def shard(path: Path) -> dict | None:
     except (OSError, ValueError):
         return None
     return loaded if isinstance(loaded, dict) else None
+
+
+def found(paths: list[Path]) -> list[Path]:
+    """Each argument as the shard files it stands for.
+
+    A directory stands for every `outcomes.json` beneath it, in a stable order;
+    anything else is a shard file, so one that does not exist is still counted
+    as a shard that did not report rather than vanishing from the tally.
+    """
+    files: list[Path] = []
+    for path in paths:
+        files += sorted(path.rglob("outcomes.json")) if path.is_dir() else [path]
+    return files
 
 
 def merge(shards: list[dict | None], expected: int) -> dict:
@@ -91,7 +114,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         description="Combine sharded cargo-mutants runs into one outcomes document.",
     )
     parser.add_argument(
-        "shards", nargs="*", type=Path, help="each shard's outcomes.json, in any order"
+        "shards",
+        nargs="*",
+        type=Path,
+        help="each shard's outcomes.json, or a directory holding them at any depth",
     )
     parser.add_argument(
         "--expect",
@@ -107,9 +133,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 def main(argv: list[str]) -> int:
     """Merge, say what is missing, and print the document on stdout."""
     args = parse_args(argv)
-    shards = [shard(path) for path in args.shards]
+    paths = found(args.shards)
+    shards = [shard(path) for path in paths]
 
-    for path, loaded in zip(args.shards, shards):
+    for path, loaded in zip(paths, shards):
         if loaded is None:
             print(
                 f"mutants-merge: {path} is missing or unreadable, so its shard"
