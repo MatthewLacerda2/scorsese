@@ -1,11 +1,13 @@
 name: CI
 
-# Markdown-only changes skip CI — with one exception, and it is the whole
-# point of the exception. `docs/project-format.md` is read by tests: its JSON
-# examples are parsed and its animatable-property table is compared to the
-# code. Skipping CI for it would mean the one document under test is the one
-# document that can be broken without anything noticing. Patterns are ordered:
-# a later one overrides an earlier one for a path both match.
+# Markdown-only changes skip CI — except for the pages tests hold to the code,
+# and that is the whole point of the exceptions. `docs/project-format.md`'s
+# JSON examples are parsed and its animatable-property table is compared to
+# the code; `docs/mcp.md`'s tool table is generated from the registry; and
+# `docs/web.md`'s route tables are held to the server's router (#994).
+# Skipping CI for them would mean the documents under test are the ones that
+# can be broken without anything noticing. Patterns are ordered: a later one
+# overrides an earlier one for a path both match.
 #
 # CI speaks in two situations and no others: a pull request **claims to be
 # finished**, and `main` moves. Every job below carries `if: ${{ !DRAFT }}` —
@@ -41,12 +43,16 @@ on:
       - "**"
       - "!**.md"
       - "docs/project-format.md"
+      - "docs/mcp.md"
+      - "docs/web.md"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "**"
       - "!**.md"
       - "docs/project-format.md"
+      - "docs/mcp.md"
+      - "docs/web.md"
 
 # `ubuntu-24.04` and not `ubuntu-latest`, everywhere below, and the reason is
 # ffmpeg. It comes from the image's apt archive — 6.1.1-3ubuntu5 there — and
