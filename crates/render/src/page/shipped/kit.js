@@ -119,8 +119,12 @@
     }
     return measured.get(mark);
   };
+  // A mark inside a clip, a mask or `<defs>` is never drawn itself: it shapes
+  // what is, so it is left alone rather than timed and hidden until its turn.
+  const UNDRAWN = "defs, clipPath, mask, marker, pattern, symbol";
   const marks = (what) => (what instanceof Element
     ? (what.matches(MARKS) ? [what] : [...what.querySelectorAll(MARKS)])
+      .filter((mark) => !mark.parentElement?.closest(UNDRAWN))
     : [...what].flatMap(marks));
 
   // Draws the strokes of `what` (an SVG element, its marks, or a list of

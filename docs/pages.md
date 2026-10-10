@@ -956,3 +956,50 @@ are timed from what came before rather than from numbers of seconds.
 Draw any SVG this way: a figure written out by hand, as here, an icon fetched
 from the set (*Icons*), or a drawing `page_write` carries inline. A shape with
 only a fill, no stroke, appears at its turn rather than being drawn.
+
+### A traced picture, drawn on
+
+A figure drawn by hand in SVG is only as good as the agent drawing it. A
+generated illustration is better, and `vectorize` traces it into
+`pages/<name>.svg`, beside the pages, for a page like this one to draw. The
+SVG's marks are already in the order a hand would make them: the dark
+outlines first, each one a single pen stroke, then every colour sketched and
+filled. So the page only loads the file, sizes it, and hands its drawing group
+to `kit.draw`. The group's id is the name it was traced under, here `figure`.
+
+The figure starts when the narration (clip `vo`) says *teacher*, or 0.2 s in
+without a timed one, and is drawn within two and a half seconds whatever its
+size. Pass `speed` instead to let a busier drawing take longer.
+
+```html page traced
+<!doctype html>
+<html>
+<head>
+<script src="https://lib.scorsese/kit.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body { background: #f7f3ea; display: grid; place-content: center; }
+  #art svg { display: block; height: 900px; width: auto; }
+</style>
+</head>
+<body>
+  <div id="art"></div>
+  <script>
+    // When the narration says `word`, or `otherwise` without a timed one.
+    const cue = (word, otherwise) => scorsese.words["vo/" + word]?.start ?? otherwise;
+
+    fetch("figure.svg").then((r) => r.text()).then((svg) => {
+      document.getElementById("art").innerHTML = svg;
+      const figure = document.getElementById("figure");
+      kit.frame((t) => kit.draw(figure, t, cue("teacher", 0.2), { within: 2.5 }));
+    });
+  </script>
+</body>
+</html>
+```
+
+Two traced drawings can share a page: every id in one begins with its name.
+Placed on the board of *A board that draws itself*, a traced figure takes the
+place of the hand-written one, and `kit.camera` moves across it the same way.
+Trace again with other choices (`colours`, `detail`, `keep_background`) to
+change it; the page does not change.
