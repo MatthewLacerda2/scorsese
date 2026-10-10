@@ -106,6 +106,15 @@ a script when it does not, and would make the missing-file warning fire for
 every project that never had one. The MCP `script_write` tool creates the file
 and sets the field in one call, which is what a stub was for.
 
+A project **started for a platform or a style** is different, because it has
+something to say: `scorsese new --platform tiktok_ad --style kinetic_type`
+(or `project_new`'s `platform` and `style`) writes a real brief into
+`script.md` and points `script` at it — the placement and the render preset it
+means, the style's prompt, and the next step: propose the script scene by
+scene (narration, what is on screen, music or sound) before editing anything.
+From then on it is the script like any other, edited as text; nothing reads it
+back, so changing the style later is an edit, not a command.
+
 ### `note` — on anything with an `id`
 
 ```json asset

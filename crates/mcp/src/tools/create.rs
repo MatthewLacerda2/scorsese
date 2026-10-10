@@ -10,6 +10,7 @@
 use std::path::Path;
 
 use schemars::{JsonSchema, Schema, SchemaGenerator};
+use scorsese_core::style::{Platform, Start};
 use scorsese_core::{
     ASSETS_DIR, CACHE_DIR, Fps, GENERATED_DIR, PAGES_DIR, PROJECT_FILE_NAME, Project, RECIPES_DIR,
 };
@@ -45,6 +46,15 @@ struct Arguments {
     #[serde(default)]
     #[schemars(schema_with = "fps_schema")]
     fps: Option<Value>,
+    /// The placement the video is made for: youtube, youtube_shorts,
+    /// instagram_reels, instagram_reels_ad, instagram_stories_ad, tiktok or
+    /// tiktok_ad. Written into the brief with the render preset it means
+    /// (render's platform); the project stores no platform.
+    platform: Option<String>,
+    /// The kind of video, by id: kinetic_type, whiteboard, narrated_captions…
+    /// An unknown id, or one not made for platform, is refused with the ids
+    /// that fit. Its prompt is written into the brief.
+    style: Option<String>,
 }
 
 impl args::Arguments for Arguments {}
@@ -66,7 +76,12 @@ impl Tool for New {
          on one that already exists. The name defaults to the directory's own \
          and the grid to 30 fps, so the usual call names nothing but the path. \
          The directory must not already hold anything: a project is never laid \
-         over what was there before, and nothing is written when it refuses."
+         over what was there before, and nothing is written when it refuses. \
+         Give platform and/or style when the person has said where the video \
+         is going or what kind it is: the project then starts with a brief in \
+         script.md (script_read). Either way, before editing anything, propose \
+         the script to the person and agree it: scene by scene, each with its \
+         narration, what is on screen, and the music or sound."
     }
 
     fn costs(&self) -> Costs {
@@ -81,20 +96,39 @@ impl Tool for New {
         let arguments: Arguments = args::parse(arguments)?;
         let dir = arguments.project.dir();
         let fps = fps(arguments.fps.as_ref())?;
+        let start = start(arguments.platform.as_deref(), arguments.style.as_deref())?;
 
         vacant(dir)?;
-        let project = Project::create(dir, arguments.name.as_deref(), fps)
+        let mut project = Project::create(dir, arguments.name.as_deref(), fps)
             .map_err(|error| format!("creating a project in {}: {error}", dir.display()))?;
+        let script = start
+            .write(dir, &mut project)
+            .map_err(|error| format!("the project was made, but its brief: {error}"))?;
 
-        Ok(format!(
+        let mut reply = format!(
             "Created project \"{}\" at {} fps in {}\n  {PROJECT_FILE_NAME}, \
              {ASSETS_DIR}/, {GENERATED_DIR}/, {RECIPES_DIR}/, {PAGES_DIR}/, {CACHE_DIR}/",
             project.name,
             project.timeline_fps,
             dir.display()
-        )
-        .into())
+        );
+        if let Some(script) = script {
+            reply.push_str(&format!(
+                "\n  {script}: the brief. Read it, then propose the script, scene by scene."
+            ));
+        }
+        Ok(reply.into())
     }
+}
+
+/// The platform and style asked for, checked before anything is written, in
+/// `scorsese new`'s words.
+fn start(platform: Option<&str>, style: Option<&str>) -> Result<Start, String> {
+    let platform = platform
+        .map(str::parse::<Platform>)
+        .transpose()
+        .map_err(|problem| format!("platform: {problem}"))?;
+    Start::new(platform, style).map_err(|problem| format!("style: {problem}"))
 }
 
 /// The grid asked for, as either the text `scorsese new --fps` takes or the

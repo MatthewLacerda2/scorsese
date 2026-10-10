@@ -57,11 +57,7 @@ pub fn run() -> Result<()> {
 fn dispatch(cli: Cli) -> Result<()> {
     let directory = cli.project_dir();
     match cli.command {
-        Command::New {
-            directory,
-            name,
-            fps,
-        } => commands::new::run(&directory, name, fps),
+        Command::New(args) => commands::new::run(args),
         Command::Settings => commands::settings::run(),
         Command::Generate {
             dry_run,

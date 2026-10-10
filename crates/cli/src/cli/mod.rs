@@ -10,7 +10,7 @@ use std::path::PathBuf;
 
 mod args;
 
-pub(crate) use args::{AssetsAction, KindArg, SequenceAction, StockAction, SynthAction};
+pub(crate) use args::{AssetsAction, KindArg, NewArgs, SequenceAction, StockAction, SynthAction};
 
 use clap::{Parser, Subcommand};
 use scorsese_core::Fps;
@@ -295,19 +295,14 @@ pub(crate) enum Command {
         #[arg(long, default_value_t = 300)]
         wait: u64,
     },
-    /// Create a new project directory.
-    New {
-        /// Where to create it, e.g. `teaser.scor`.
-        directory: PathBuf,
-        /// Project name. Defaults to the directory's name.
-        #[arg(long)]
-        name: Option<String>,
-        /// The timeline framerate every clip and keyframe time is counted
-        /// in: `30`, or a rational like `30000/1001` for 29.97. Chosen once,
-        /// here — changing it later is a real operation, not a field edit.
-        #[arg(long, default_value = "30")]
-        fps: Fps,
-    },
+    /// Create a new project directory, optionally started for a platform
+    /// and a style.
+    ///
+    /// With `--platform` or `--style`, the project starts with a brief in
+    /// `script.md`: the placement and its render preset, the style's prompt,
+    /// and the next step — propose the script, scene by scene, before editing
+    /// anything. With neither, no script is written.
+    New(NewArgs),
     /// Copy media into the project and add it to the assets table.
     ///
     /// A directory brings in the media directly inside it, one asset each,
