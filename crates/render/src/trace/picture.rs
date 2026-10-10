@@ -22,6 +22,13 @@ use crate::tools::Tools;
 /// generated image's own, and more than any drawing needs on a 1080p board.
 const LARGEST: u32 = 2048;
 
+/// More marks than this is a mosaic rather than a drawing, and slow to draw.
+const HEAVY_MARKS: usize = 1_500;
+
+/// A file larger than this is one the web cannot keep beside the pages
+/// (`MAX_FILE_BYTES` in the server's project files).
+const HEAVY_BYTES: usize = 1 << 20;
+
 /// Why a picture could not be traced. Nothing is written by a refusal.
 #[derive(Debug, thiserror::Error)]
 pub enum TraceError {
@@ -74,7 +81,7 @@ impl Vectorized {
     /// What was written, in the words both clients answer with.
     pub fn summary(&self) -> String {
         let traced = &self.traced;
-        format!(
+        let mut said = format!(
             "{} — {}x{}, {} pen strokes then {} filled shapes, in {} colours ({}), {} KB.\n\
              From a page in pages/ it is \"{}.svg\"; its marks are the group \
              id=\"{}\", in the order a hand would draw them.",
@@ -88,7 +95,15 @@ impl Vectorized {
             traced.svg.len().div_ceil(1024),
             self.name,
             self.name,
-        )
+        );
+        if traced.strokes + traced.shapes > HEAVY_MARKS || traced.svg.len() > HEAVY_BYTES {
+            said.push_str(
+                "\nThat is heavy for one drawing — a photograph, shading or a gradient traces \
+                 this way, as a mosaic. Fewer colours or detail low make it lighter; the web \
+                 keeps no file over 1 MB beside the pages.",
+            );
+        }
+        said
     }
 }
 

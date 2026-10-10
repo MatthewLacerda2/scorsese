@@ -29,7 +29,7 @@ const MARGIN: f64 = 2.0;
 
 /// A document being written.
 pub(super) struct Drawing {
-    /// The opening tag and the clip definitions so far.
+    /// The clip definitions so far.
     defs: String,
     /// The marks so far.
     marks: String,

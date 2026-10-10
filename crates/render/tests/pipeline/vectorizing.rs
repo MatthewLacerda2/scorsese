@@ -6,7 +6,7 @@
 //! refusals that write nothing.
 
 use scorsese_core::{Asset, AssetId, AssetKind, GenerationState};
-use scorsese_render::trace::{TraceError, Tracing, vectorize};
+use scorsese_render::trace::{TraceError, Traced, Tracing, Vectorized, vectorize};
 
 use crate::common::ffmpeg::{fixture_dir, generate_asset, tools};
 use crate::common::project;
@@ -71,4 +71,22 @@ fn what_cannot_be_traced_writes_nothing() {
     assert!(matches!(refused("badge", "../x"), TraceError::BadName(_)));
     assert!(!dir.join("pages").exists());
     std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn a_mosaic_is_called_heavy() {
+    let traced = |strokes: usize, shapes: usize| Vectorized {
+        traced: Traced {
+            svg: String::new(),
+            width: 64,
+            height: 64,
+            colours: vec!["#000000".to_owned()],
+            strokes,
+            shapes,
+        },
+        path: "pages/a.svg".to_owned(),
+        name: "a".to_owned(),
+    };
+    assert!(!traced(17, 12).summary().contains("heavy"));
+    assert!(traced(80, 3_000).summary().contains("heavy"));
 }
