@@ -11,6 +11,7 @@ mod common;
 mod cancelled;
 mod evict;
 mod job;
+mod loudness;
 mod previews;
 mod progress;
 mod request;

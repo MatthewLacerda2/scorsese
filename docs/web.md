@@ -1057,7 +1057,7 @@ while its render streams.
 
 | route | who | what |
 | --- | --- | --- |
-| `POST /api/projects/{id}/renders` | a member | `{container?, video_codec?, audio_codec?, resolution?, narration_bands?}` → `200 {render}` when kept, `202 {job}` when queued or already on its way; `400` for a shape `docs/output-formats.md` does not allow |
+| `POST /api/projects/{id}/renders` | a member | `{container?, video_codec?, audio_codec?, resolution?, narration_bands?, loudness?}` → `200 {render}` when kept, `202 {job}` when queued or already on its way; `400` for a shape `docs/output-formats.md` does not allow |
 | `GET /api/projects/{id}/renders` | a member | the project's kept renders, most recently used first |
 | `GET /api/renders/{id}/file` | a member | the file as an attachment, in HTTP ranges; counts as use |
 
@@ -1065,7 +1065,9 @@ The job's state arrives on `GET /api/events` like any job's, and how far it
 has got as `job_progress` while it runs — shown as a bar with the phase beside
 it, since the percentage counts frames and stands at 0 while the sound is
 mixed and at 99 while the file is finished. Its result names the render and
-where to download it.
+where to download it, and its `notes` say how loud the delivered soundtrack
+came out — before and after, when a `loudness` target was asked for (#990) —
+and anything the render could not draw.
 
 **Previews are renders, marked** (#542). `POST /api/projects/{id}/previews`
 `{resolution?, quality?}` asks for the cut at a **preview quality** — `full`,

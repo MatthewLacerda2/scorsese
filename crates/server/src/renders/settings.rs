@@ -6,7 +6,8 @@
 
 use scorsese_core::{Project, hash_bytes};
 use scorsese_render::{
-    AudioCodec, Bands, Container, OutputFormat, Quality, RenderSettings, Resolution, VideoCodec,
+    AudioCodec, Bands, Container, LoudnessTarget, OutputFormat, Quality, RenderSettings,
+    Resolution, VideoCodec,
 };
 use serde::{Deserialize, Serialize};
 
@@ -33,10 +34,14 @@ pub struct Ask {
     /// drawn. Refused for sound only.
     #[serde(default)]
     pub narration_bands: Option<bool>,
+    /// The integrated loudness to deliver the soundtrack at, in LUFS, between
+    /// -40 and -5 (#968, #990); without it the mix is delivered as balanced.
+    #[serde(default)]
+    pub loudness: Option<f64>,
 }
 
 /// A render's settings with every default filled in.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Settings {
     /// The container, by name.
     pub container: String,
@@ -57,6 +62,11 @@ pub struct Settings {
     /// before the choice existed keeps its key, and is not rendered again.
     #[serde(default = "drawn", skip_serializing_if = "is_drawn")]
     pub narration_bands: bool,
+    /// The loudness target in LUFS, or `None` to deliver the mix as balanced.
+    /// Left out of the stored form when absent, so every render asked for
+    /// before the choice existed keeps its key.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub loudness: Option<f64>,
 }
 
 /// [`Settings::narration_bands`]' default: every band drawn.
@@ -87,7 +97,12 @@ impl Settings {
     /// What `ask` means, or why `docs/output-formats.md` does not allow it —
     /// in the words the CLI refuses it in, since it is the same constructor.
     pub fn from_ask(ask: &Ask) -> Result<Self, String> {
-        let (format, resolution, bands) = parse(ask)?;
+        let Parsed {
+            format,
+            resolution,
+            bands,
+            loudness,
+        } = parse(ask)?;
         Ok(Self {
             container: format.container().name().to_owned(),
             video_codec: format.video().map(|codec| codec.name().to_owned()),
@@ -95,6 +110,7 @@ impl Settings {
             resolution: resolution.map(|resolution| resolution.to_string()),
             preview: None,
             narration_bands: bands == Bands::Drawn,
+            loudness: loudness.map(LoudnessTarget::lufs),
         })
     }
 
@@ -135,17 +151,19 @@ impl Settings {
     /// [`Settings::from_ask`] — a job row edited by hand — are refused rather
     /// than trusted.
     pub fn render(&self, project: &Project) -> Result<RenderSettings, String> {
-        let (format, resolution, bands) = parse(&Ask {
+        let parsed = parse(&Ask {
             container: Some(self.container.clone()),
             video_codec: self.video_codec.clone(),
             audio_codec: Some(self.audio_codec.clone()),
             resolution: self.resolution.clone(),
             narration_bands: Some(self.narration_bands),
+            loudness: self.loudness,
         })?;
-        let resolution = resolution.unwrap_or(Resolution::HD);
+        let resolution = parsed.resolution.unwrap_or(Resolution::HD);
         Ok(RenderSettings::new(resolution, project.timeline_fps)
-            .with_format(format)
-            .with_bands(bands))
+            .with_format(parsed.format)
+            .with_bands(parsed.bands)
+            .with_loudness(parsed.loudness))
     }
 
     /// The delivered file's extension: the container's name (`docs/output-formats.md`).
@@ -168,9 +186,20 @@ impl Settings {
     }
 }
 
-/// The format `ask` names, its picture's size — `None` for sound only — and
-/// whether narration bands are drawn.
-fn parse(ask: &Ask) -> Result<(OutputFormat, Option<Resolution>, Bands), String> {
+/// What an [`Ask`] means to the renderer.
+struct Parsed {
+    /// The format it names.
+    format: OutputFormat,
+    /// Its picture's size — `None` for sound only.
+    resolution: Option<Resolution>,
+    /// Whether narration bands are drawn.
+    bands: Bands,
+    /// The loudness to deliver at, if any.
+    loudness: Option<LoudnessTarget>,
+}
+
+/// What `ask` means, or why it is refused.
+fn parse(ask: &Ask) -> Result<Parsed, String> {
     let container = match &ask.container {
         Some(name) => name.parse::<Container>().map_err(|e| e.to_string())?,
         None => Container::Mp4,
@@ -200,7 +229,16 @@ fn parse(ask: &Ask) -> Result<(OutputFormat, Option<Resolution>, Bands), String>
         }
         Some(true) | None => Bands::Drawn,
     };
-    Ok((format, resolution, bands))
+    // The CLI's `--loudness` and the stdio tool's `loudness`, held to the
+    // same range in the same words.
+    let loudness = ask.loudness.map(LoudnessTarget::new).transpose();
+    let loudness = loudness.map_err(|e| e.to_string())?;
+    Ok(Parsed {
+        format,
+        resolution,
+        bands,
+        loudness,
+    })
 }
 
 /// The key a render of `project` with `settings` is kept under: a SHA-256 of

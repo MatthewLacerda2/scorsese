@@ -25,6 +25,7 @@ async fn a_shape_the_output_formats_page_does_not_allow_is_refused_first(pool: P
             json!({ "container": "wav", "narration_bands": false }),
             "narration bands",
         ),
+        (json!({ "loudness": -50 }), "LUFS"),
     ] {
         let (status, body) = call(address, &cookie, "POST", &path, Some(ask.clone())).await;
         assert_eq!(status, 400, "{ask}: {body}");
@@ -75,6 +76,9 @@ async fn a_new_render_is_queued_once_however_often_it_is_asked_for(pool: PgPool)
     let bandless = Some(json!({ "narration_bands": false }));
     let (_, bandless) = call(address, &cookie, "POST", &path, bandless).await;
     assert_ne!(bandless["job"]["id"], first["job"]["id"], "{bandless}");
+    let loud = Some(json!({ "loudness": -14 }));
+    let (_, loud) = call(address, &cookie, "POST", &path, loud).await;
+    assert_ne!(loud["job"]["id"], first["job"]["id"], "{loud}");
 }
 
 #[sqlx::test]
