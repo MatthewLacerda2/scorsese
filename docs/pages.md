@@ -172,13 +172,21 @@ request is a warning, and the page is drawn without what it asked for.
   24-unit square stroked in `currentColor`, so the page decides colour and
   size; see *Icons* in the worked pages for the two ways. A plain `<img>` of
   one draws it black. A name the set lacks is a note naming the nearest ones.
+- **People**: [Humaaans](https://www.humaaans.com), Pablo Stanley's CC0
+  mix-and-match illustrations, as parts at
+  `https://lib.scorsese/humaaans/<kind>/<name>.svg` and listed at
+  `https://lib.scorsese/humaaans/index.json`. A person is a `head`, a `body` and
+  a `standing` or `sitting` lower half, put together and recoloured by
+  `kit.person`; see *People, put together and drawn on*. It fits modern people:
+  an office, a street, a product or an app in use. It does not fit period or
+  biblical figures, which want a generated picture traced with `vectorize`.
 - **The project's own files, by relative path.** From `pages/`, the project's
   `assets/photo.png` is `../assets/photo.png`, and a font file the project
   carries loads with an ordinary `@font-face` rule. Nothing outside the project
   folder, so the project still survives being copied to another machine.
 
 **A shipped file is part of the page's capture.** A page that loads the kit,
-anime.js, lottie-web, opentype.js, a face's file or an icon is drawn again when a build ships a different one, and
+anime.js, lottie-web, opentype.js, a face's file, an icon or a Humaaans part is drawn again when a build ships a different one, and
 a page that does not load it is not.
 
 **Inside Chromium's sandbox.** The browser that draws a page runs with its own
@@ -275,6 +283,7 @@ Times are the page's seconds.
 | `kit.draw(what, t, at = 0, {speed = 1500, within, fill = 0.4})` | draws the strokes of `what` (an SVG element, or a list of them) on in document order from `at`, at a constant `speed` in the drawing's own units a second, or all of them `within` that many seconds. A closed shape's fill fades in over `fill` seconds once its outline is done. Answers when the last mark is finished, so the next can start after it |
 | `kit.font(family, {weight = 400, italic = false})` | a promise of a shipped face (`"Montserrat"`, or its scorsese name `montserrat`) as opentype.js reads it, at the nearest weight it ships. Needs `opentype.min.js` loaded first. A family it does not ship is an error naming the ones it does |
 | `kit.write(parent, face, text, {x, y, size = 96, width, leading = 1.2, align = "start", fill, stroke, strokeWidth})` | `text` as glyph outlines on `parent`, baseline at `y`, broken at `width` or a `\n`, each line set from `x` by `align` (`start`, `middle`, `end`). Answers the group, which holds a `<g data-word>` per word named as `scorsese.words` names a spoken one (`free`, then `free@2`). Draw it, or one word of it, with `kit.draw` |
+| `kit.person(parent, {head, body, bottom, colours})` | a promise of a person put together from Humaaans parts in a new group on `parent`, in the parts' 300 × 426 frame with the head at the top: `bottom` is `standing/<name>` or `sitting/<name>`. `colours` sets regions by name, `{skin: "#8d5524", hair: "#2b1d16", top: "#2a9d8f"}`: `skin`, `hair`, `headwear`, `top`, `shirt` (under a coat), `bottom`, `shoes`, `seat`. Each region's `-shade` follows it unless given too. Unset ones keep the artist's colours. Draw it with `kit.draw` |
 | `kit.camera(canvas, t, views)` | moves `canvas`, an element at the page's top left larger than the frame, under a fixed camera: each view is `{at, x, y, zoom = 1, length = 1}`, the canvas point the frame centres on and how close, reached `length` seconds after `at`, eased in and out. The first view is where it starts |
 
 Anything else is the page's own, or a shared file's. A helper joins the kit
@@ -1005,3 +1014,53 @@ Placed on the board of *A board that draws itself*, a traced figure takes the
 place of the hand-written one, and `kit.camera` moves across it the same way.
 Trace again with other choices (`colours`, `detail`, `keep_background`) to
 change it; the page does not change.
+
+### People, put together and drawn on
+
+Two people from the Humaaans parts (*What is there offline*), each assembled
+by `kit.person` from a head, a body and a lower half, then drawn on in turn.
+The first is recoloured and the second keeps the artist's colours, so the same
+parts never have to make the same person twice. `index.json` lists every part
+by kind. A `sitting` lower half brings its own seat, and `scene/<name>` and
+`seat/<name>` are props in frames of their own.
+
+The parts are filled shapes with no outline, so the page gives them one, the
+colour of ink, for `kit.draw` to draw. The pack's shading is the black and
+white laid over the colours, and is left unoutlined. A part is placed and
+sized by the group it is put in.
+
+```html page people
+<!doctype html>
+<html>
+<head>
+<script src="https://lib.scorsese/kit.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body { background: #f7f3ea; }
+  #stage { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #stage :is(path, polygon, rect, circle, ellipse):not([fill="#000000"], [fill="#FFFFFF"]) {
+    stroke: #1d2433; stroke-width: 2; stroke-linejoin: round; }
+</style>
+</head>
+<body>
+  <svg id="stage" viewBox="0 0 1920 1080">
+    <g id="presenter" transform="translate(520 180) scale(1.9)"></g>
+    <g id="guest" transform="translate(1060 240) scale(1.75)"></g>
+  </svg>
+  <script>
+    Promise.all([
+      kit.person(document.getElementById("presenter"), {
+        head: "curly", body: "pointing-up", bottom: "standing/skinny-jeans",
+        colours: { skin: "#8d5524", hair: "#2b1d16", top: "#2a9d8f", bottom: "#264653" },
+      }),
+      kit.person(document.getElementById("guest"), {
+        head: "long", body: "turtle-neck", bottom: "sitting/sweat-pants",
+      }),
+    ]).then(([presenter, guest]) => kit.frame((t) => {
+      const drawn = kit.draw(presenter, t, 0.2, { within: 1 });
+      kit.draw(guest, t, drawn, { within: 1 });
+    }));
+  </script>
+</body>
+</html>
+```

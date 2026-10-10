@@ -89,6 +89,12 @@ under a fixed camera. The worked page is the starting point: copy it and grow
 it (`guide pages`, section "A board that draws itself"), and read the kit's
 table before writing more (`guide pages`, section "The kit").
 
+**People are drawn from parts, never as stick figures.** A modern person (at a
+desk, in the street, using an app) is put together from the shipped Humaaans
+with `kit.person`, recoloured, and drawn with `kit.draw` (`guide pages`,
+section "People, put together and drawn on"). A period or biblical figure, like
+this video's, is a generated picture traced with `vectorize` instead.
+
 **Every mark is anchored on a spoken word.** A drawing starts when the voice
 names it and a word is written as it is said, from `scorsese.words`. A mark
 timed in plain seconds drifts the first time a line is re-generated; one

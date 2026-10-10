@@ -3,9 +3,9 @@
 // The handful of helpers every timed page was writing for itself: a frame loop
 // on the page's own seconds, clamp / lerp / remap, named easings, entrances
 // and the clip's exit, stagger, a count-up, a seeded random, an SVG
-// builder, a constant-speed draw-on, text as drawable glyph outlines and a
-// camera over a canvas. Loaded with a plain <script src>, it defines one
-// global, `kit`.
+// builder, a constant-speed draw-on, text as drawable glyph outlines, a
+// camera over a canvas and a person put together from Humaaans parts. Loaded
+// with a plain <script src>, it defines one global, `kit`.
 //
 // Every helper is a pure function of the time it is handed: nothing is kept
 // from one frame to the next, so any frame stands on its own and a still or a
@@ -236,6 +236,34 @@
     return group;
   };
 
+  // A person put together from Humaaans parts (https://lib.scorsese/humaaans/
+  // index.json names them): a `head`, a `body`, and a `bottom` as
+  // `standing/<name>` or `sitting/<name>`, in a new group on `parent` in the
+  // parts' 300 × 426 frame. `colours` sets regions by name (`skin`, `hair`,
+  // `top`, `bottom`…); a region's `-shade` follows it unless given too. A
+  // promise of the group, so build what uses it in `then`.
+  const PEOPLE = "https://lib.scorsese/humaaans/";
+  const person = (parent, { head, body, bottom, colours = {} }) => Promise.all(
+    [`head/${head}`, bottom, `body/${body}`].map((part) => fetch(`${PEOPLE}${part}.svg`)
+      .then((r) => {
+        if (!r.ok) throw new Error(`kit.person: no part ${part} (${PEOPLE}index.json lists them)`);
+        return r.text();
+      })))
+    .then((parts) => {
+      const group = svg("g", {}, parent);
+      for (const [region, colour] of Object.entries(colours)) {
+        group.style.setProperty(`--person-${region}`, colour);
+        if (!region.endsWith("-shade") && !(`${region}-shade` in colours)) {
+          group.style.setProperty(`--person-${region}-shade`, `color-mix(in oklab, ${colour} 80%, black)`);
+        }
+      }
+      for (const part of parts) {
+        const drawn = new DOMParser().parseFromString(part, "image/svg+xml").documentElement;
+        group.append(...[...drawn.children].map((mark) => document.importNode(mark, true)));
+      }
+      return group;
+    });
+
   // Moves a canvas larger than the frame under a fixed camera. `canvas` is
   // drawn at the page's top left; each view is the canvas point `[x, y]` the
   // frame centres on at `zoom`, reached `length` seconds after its `at`,
@@ -254,6 +282,6 @@
 
   window.kit = Object.freeze({
     frame, clamp, lerp, remap, ease, enter, exit, rise, stagger, count, random, svg,
-    draw, font, write, camera,
+    draw, font, write, camera, person,
   });
 })();
