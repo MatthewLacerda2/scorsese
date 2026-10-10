@@ -77,6 +77,13 @@ they are missing, run it yourself (`CLAUDE_PROJECT_DIR=$PWD
   coder): `gh pr list`, `gh pr view --json` and `search/issues` fail, while
   REST (`gh api repos/{owner}/{repo}/…`) and the GitHub MCP tools work. A
   script meant to run here too uses REST.
+- **The web image cannot be built here.** `docker build` of
+  `deploy/web.Dockerfile` fails at `bun install` with
+  `SELF_SIGNED_CERT_IN_CHAIN` behind the sandbox's proxy (#904's coder,
+  2026-10-10). Reproduce the image's layout (only the files its dockerignore
+  lets in, at the same paths) and run `bun run build` there, and name it on
+  the *Gates* line. If Playwright's pinned Chromium cannot be fetched either,
+  point `E2E_CHROMIUM` at the container's headless shell (`web/README.md`).
 - **Every container so far has been `x86_64`.** If `uname -m` says otherwise,
   `cargo install --locked` the tools, expect `grade_*`/`vhs` to fail, and bless
   nothing.

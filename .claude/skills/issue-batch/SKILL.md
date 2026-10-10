@@ -57,6 +57,13 @@ The files where everything collides are the ones every feature appends to — an
 error list, a source enum, a pattern-entry type, a running record in a doc
 comment. Two branches landing there at once is the case to avoid.
 
+A file sitting at the size cap is one of them, whatever it holds: every branch
+that appends to it must first make room, and each makes it differently. On
+2026-10-10 #1014 left `crates/cli/src/lib.rs` at 298 of 300 lines of code, and
+#1008, #999 and #1015 each moved a different piece of dispatch out to fit
+their command. When a merge leaves a shared file within a few lines of the cap,
+say so in the next `Brief` of every sibling that touches it.
+
 **Lockfiles have one owner per wave.** Everything that touches a dependency
 collides in `Cargo.toml`s and `Cargo.lock` (and `app/Cargo.lock`), and a lockfile
 conflict is never a seconds-long rebase: it is a regeneration, a locked check and
@@ -467,6 +474,12 @@ sessions on a branch are the second kind, and paying top rate for them is where
 a night's budget quietly goes. A hint because the line is not crisp — a
 "mechanical" rebase that turns out to need two authors' prose reconciled is not
 mechanical — so whoever spawns the work calls it, and gets it wrong upwards.
+
+A cheaper model also follows the standing rules less closely, so read its
+*Gates* line before labelling. On 2026-10-10 #1043's Sonnet coder opened its
+pull request ready, having run `fmt`, `size`, `clippy` and one crate's tests
+rather than `make gates`. It was a string change and CI was green, but the
+claim a ready pull request makes was not one it had checked.
 
 ## When to hand back to the user
 
