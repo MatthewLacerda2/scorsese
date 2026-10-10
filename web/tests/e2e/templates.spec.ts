@@ -7,9 +7,7 @@ import { newProject } from "./session";
 
 const WHY = "Templates are selected clips, kept to reuse.";
 
-test("an unavailable Save as template explains itself on hover and on a tap", async ({
-  page,
-}) => {
+test("an unavailable Save as template explains itself on hover and on a tap", async ({ page }) => {
   await newProject(page, "Templates");
   const button = page.getByRole("button", { name: "Save as template" });
   const why = page.getByRole("tooltip");
