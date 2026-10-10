@@ -196,7 +196,21 @@ fn an_icon_the_set_lacks_is_named_not_refused() {
     let dir = project();
     assert!(matches!(
         answer("https://lib.scorsese/icons/clapperbord.svg", &dir.0, &[]),
-        Answer::UnknownIcon { name, nearest } if name == "clapperbord" && nearest.first() == Some(&"clapperboard")
+        Answer::Unknown { note } if note.contains("`clapperbord`") && note.contains("clapperboard")
+    ));
+}
+
+#[test]
+fn a_humaaans_part_is_shipped_and_a_wrong_one_is_named() {
+    let dir = project();
+    assert!(matches!(
+        answer("https://lib.scorsese/humaaans/head/afro.svg", &dir.0, &[]),
+        Answer::Shipped { body } if body.starts_with(b"<svg")
+    ));
+    assert!(shipped_hash("https://lib.scorsese/humaaans/index.json").is_some());
+    assert!(matches!(
+        answer("https://lib.scorsese/humaaans/head/afroo.svg", &dir.0, &[]),
+        Answer::Unknown { note } if note.contains("`head/afroo`") && note.contains("afro, airy")
     ));
 }
 

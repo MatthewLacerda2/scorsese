@@ -93,9 +93,9 @@ impl<'a> Visitor<'a> {
                 }
                 ("Fetch.fulfillRequest", fulfil(200, &body))
             }
-            Answer::UnknownIcon { name, nearest } => {
+            Answer::Unknown { note } => {
                 self.missed_shipped(url);
-                self.warn(super::icons::unknown(&name, &nearest));
+                self.warn(note);
                 ("Fetch.fulfillRequest", fulfil(404, b""))
             }
             Answer::Missing { path } => {

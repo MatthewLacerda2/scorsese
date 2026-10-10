@@ -37,6 +37,7 @@ mod cdp;
 mod encoder;
 mod find;
 mod fonts;
+mod humaaans;
 mod icons;
 mod layout;
 mod origin;

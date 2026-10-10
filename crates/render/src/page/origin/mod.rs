@@ -23,6 +23,7 @@
 use std::borrow::Cow;
 use std::path::{Component, Path, PathBuf};
 
+use super::humaaans;
 use super::icons::{self, Served};
 
 /// The origin a page is served from. Not a real host: nothing resolves it, and
@@ -35,7 +36,8 @@ pub const SHIPPED_ORIGIN: &str = "https://lib.scorsese";
 
 /// The libraries every page may load, by the file name they are served at.
 /// The shipped fonts are served beside them, under `fonts/` ([`super::fonts`]),
-/// and the icon set under `icons/` ([`super::icons`]).
+/// the icon set under `icons/` ([`super::icons`]) and the Humaaans people
+/// under `humaaans/` ([`super::humaaans`]).
 ///
 /// anime.js 3.2.2 because #606 measured it under the clock: a library that
 /// drives itself from `requestAnimationFrame` is seekable by construction.
@@ -98,14 +100,12 @@ pub(crate) fn shipped_hash(key: &str) -> Option<String> {
 pub(crate) enum Answer {
     /// A file of the project, by its path from the project root.
     File { path: String, body: Vec<u8> },
-    /// A library this build ships — a file compiled in, or an icon written
-    /// out on request.
+    /// A library this build ships — a file compiled in, or an icon or a
+    /// Humaaans part written out on request.
     Shipped { body: Cow<'static, [u8]> },
-    /// An icon the shipped set does not have, with the names it nearly was.
-    UnknownIcon {
-        name: String,
-        nearest: Vec<&'static str>,
-    },
+    /// An icon or a part the shipped sets do not have: a near miss on a real
+    /// library rather than a stranger's host, so its note names what is there.
+    Unknown { note: String },
     /// A path inside the project with no file at it.
     Missing { path: String },
     /// Anything outside the project — the internet, mostly.
@@ -186,7 +186,15 @@ pub(crate) fn answer(url: &str, project_root: &Path, follow: &[PathBuf]) -> Answ
                 Served::Svg(svg) => Answer::Shipped {
                     body: svg.into_bytes().into(),
                 },
-                Served::Unknown { name, nearest } => Answer::UnknownIcon { name, nearest },
+                Served::Unknown { name, nearest } => Answer::Unknown {
+                    note: icons::unknown(&name, &nearest),
+                },
+            };
+        }
+        if let Some(file) = name.strip_prefix("humaaans/") {
+            return match humaaans::serve(file) {
+                Ok(body) => Answer::Shipped { body: body.into() },
+                Err(note) => Answer::Unknown { note },
             };
         }
         return SHIPPED.iter().find(|(shipped, _)| *shipped == name).map_or(
