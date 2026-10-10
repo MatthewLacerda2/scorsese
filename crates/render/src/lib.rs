@@ -158,6 +158,7 @@ pub(crate) mod slug;
 pub(crate) mod symbol;
 pub(crate) mod text;
 pub mod tools;
+pub mod trace;
 pub(crate) mod workers;
 
 /// The frame buffer and raster types, which belong to the compositor — a frame
