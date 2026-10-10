@@ -83,7 +83,12 @@ fn each_region_is_the_colour_it_names() {
     let jeans = served("standing/skinny-jeans.svg");
     assert!(jeans.contains("fill:var(--person-bottom-shade,#191847)"));
     assert!(jeans.contains("fill:var(--person-bottom,#2F3676)"));
+    // The same colour is the near leg of one pair and the far leg of another.
+    assert!(served("standing/sprint.svg").contains("fill:var(--person-bottom-shade,#2F3676)"));
+    assert!(served("standing/jogging.svg").contains("fill:var(--person-bottom-shade,#DB2721)"));
+    assert!(served("body/pointing-forward.svg").contains("fill:var(--person-top-shade,#2026A2)"));
     assert!(served("sitting/sweat-pants.svg").contains("fill:var(--person-seat,#C5CFD6)"));
+    assert!(served("sitting/skinny-jeans.svg").contains("fill:var(--person-seat,#C5CFD6)"));
     // The shading laid over colours, and a wheelchair, are not clothing.
     assert!(!served("body/jacket.svg").contains("--person-top,#000000"));
     assert!(!served("sitting/wheelchair.svg").contains("#2F3676)"));
