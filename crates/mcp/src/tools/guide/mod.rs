@@ -35,7 +35,7 @@ struct Arguments {
     #[expect(dead_code, reason = "taken for the uniform surface, not read")]
     project: ProjectDir,
     /// Which guide to read; the tool's description says what each one holds.
-    #[schemars(extend("enum" = ["pages", "project-format", "recipes", "references", "prompts", "prices", "stock"]))]
+    #[schemars(extend("enum" = ["pages", "project-format", "recipes", "references", "prompts", "prices", "stock", "styles"]))]
     name: Name,
     /// Only this section: its heading's words (or the only heading containing
     /// them), or its number in the list a long guide answers with. Left out,
@@ -76,10 +76,12 @@ impl Tool for Read {
          score against. prompts: what certain words make a provider do, and \
          Google's and ElevenLabs' own prompting advice; read it before \
          writing a prompt. prices: the providers' rates, and why a cost \
-         is an estimate. stock: when free stock beats a generation. A short \
-         guide comes back whole; a long one (recipes, project-format) comes \
-         back as its opening and a numbered list of its sections, to call again \
-         with `section`. Costs nothing: the guides are compiled into this build."
+         is an estimate. stock: when free stock beats a generation. styles: \
+         how each kind of video is made (a narrated vertical ad, a product \
+         tour, a board that draws itself); read the one section for the video \
+         in hand. A short guide comes back whole; a long one (recipes, \
+         project-format) comes back as its opening and a numbered list of its \
+         sections, to call again with `section`. Costs nothing: the guides are compiled into this build."
     }
 
     fn costs(&self) -> Costs {

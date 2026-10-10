@@ -1961,8 +1961,8 @@ a user's own client on web MCP, and anybody running an installed build have no
 such file (#909).
 
 So the agent-facing pages are served as a tool. `guide { name }` hands back
-`pages`, `project-format`, `recipes`, `references`, `prompts`, `prices` or
-`stock`, and **each is the file itself, compiled in with `include_str!`**: no
+`pages`, `project-format`, `recipes`, `references`, `prompts`, `prices`,
+`stock` or `styles`, and **each is the file itself, compiled in with `include_str!`**: no
 copy to drift, and every gate the file is held to (the format page's examples
 parsed, its animatable table held to the code, the recipe examples held to the
 parser) holds what the tool says. The developer docs are not served; they are

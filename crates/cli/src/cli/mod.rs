@@ -209,7 +209,8 @@ pub(crate) enum Command {
     /// effects and songs. references: what real records measure, to hold a
     /// score against. prompts: what certain words make a provider do; read it
     /// before writing a prompt. prices: the providers' rates, and why a cost is
-    /// an estimate. stock: when free stock beats a generation.
+    /// an estimate. stock: when free stock beats a generation. styles: how
+    /// each kind of video is made; read the one section for the video in hand.
     ///
     /// A short guide prints whole; a long one (recipes, project-format) prints
     /// its opening and a numbered list of its sections, to ask for again with
@@ -218,7 +219,7 @@ pub(crate) enum Command {
     /// and no checkout of the repository is needed.
     Guide {
         /// Which guide: pages, project-format, recipes, references, prompts,
-        /// prices or stock.
+        /// prices, stock or styles.
         name: String,
         /// Only this section: its heading's words (or the only heading
         /// containing them), or its number in the list a long guide prints.

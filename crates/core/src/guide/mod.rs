@@ -76,6 +76,10 @@ const GUIDES: &[Guide] = &[
         name: "stock",
         text: include_str!("../../../../docs/stock.md"),
     },
+    Guide {
+        name: "styles",
+        text: include_str!("../../../../docs/styles.md"),
+    },
 ];
 
 /// The name of every guide, in the order they are listed — what a schema
