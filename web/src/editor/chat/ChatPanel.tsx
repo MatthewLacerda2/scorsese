@@ -96,9 +96,17 @@ export function ChatPanel({
               />
             )}
           </div>
-          <Button size="sm" variant="ghost" className="shrink-0" onClick={() => onFull(!full)}>
+          {/* Beside the picker in a narrow sidebar, the icon alone; named either way. */}
+          <Button
+            size={full ? "sm" : "icon-sm"}
+            variant="ghost"
+            className="shrink-0"
+            aria-label={full ? t.chat.full.leave : t.chat.full.enter}
+            title={full ? t.chat.full.leave : t.chat.full.enter}
+            onClick={() => onFull(!full)}
+          >
             {full ? <Minimize2Icon /> : <Maximize2Icon />}
-            {full ? t.chat.full.leave : t.chat.full.enter}
+            {full && t.chat.full.leave}
           </Button>
         </div>
       </div>
