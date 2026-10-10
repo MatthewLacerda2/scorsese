@@ -156,6 +156,12 @@ request is a warning, and the page is drawn without what it asked for.
   timed page needs, on the page's own seconds. See *Sharing code between
   pages*.
 - **anime.js 3.2.2**, at `https://lib.scorsese/anime.min.js`.
+- **opentype.js 2.0.0**, at `https://lib.scorsese/opentype.min.js`, which
+  reads a glyph's outline out of a face, a thing the browser never hands a
+  page. Load it for `kit.font` and `kit.write` (*The kit*), which read the
+  shipped faces with it, variable ones at any weight. The faces themselves are
+  at `https://lib.scorsese/fonts/<file>.ttf`, listed with their family, weight
+  and style at `https://lib.scorsese/fonts/index.json`.
 - **lottie-web 5.13.0** (the full build: every renderer, and expressions), at
   `https://lib.scorsese/lottie.min.js`, to play a Lottie animation
   `stock_import` brought in. See *A Lottie animation* below for the one way
@@ -172,7 +178,7 @@ request is a warning, and the page is drawn without what it asked for.
   folder, so the project still survives being copied to another machine.
 
 **A shipped file is part of the page's capture.** A page that loads the kit,
-anime.js, lottie-web or an icon is drawn again when a build ships a different one, and
+anime.js, lottie-web, opentype.js, a face's file or an icon is drawn again when a build ships a different one, and
 a page that does not load it is not.
 
 **Inside Chromium's sandbox.** The browser that draws a page runs with its own
@@ -246,7 +252,7 @@ shared file to `function` declarations, and set anything else up inside one.
 
 ### The kit
 
-`https://lib.scorsese/kit.js` defines one global, `kit`: the dozen helpers
+`https://lib.scorsese/kit.js` defines one global, `kit`: the helpers
 every timed page was writing for itself. Each takes the time and answers a
 value, or sets an element's style, for that instant alone. Nothing is kept from
 one frame to the next, so a page written on the kit is seekable by construction.
@@ -266,6 +272,10 @@ Times are the page's seconds.
 | `kit.count(t, at, length, to, {from = 0, decimals = 0, locale = "en-US"})` | the figure a count-up shows at `t`, grouped (`1,250,000`), eased out. Show it in `tabular-nums` |
 | `kit.random(seed)` | a generator answering the same numbers in `[0, 1)` for the same seed, on every frame and every machine. Draw what a page needs once, up front |
 | `kit.svg(tag, attributes, parent)` | an SVG element with its attributes set, appended to `parent` when one is given |
+| `kit.draw(what, t, at = 0, {speed = 1500, within, fill = 0.4})` | draws the strokes of `what` (an SVG element, or a list of them) on in document order from `at`, at a constant `speed` in the drawing's own units a second, or all of them `within` that many seconds. A closed shape's fill fades in over `fill` seconds once its outline is done. Answers when the last mark is finished, so the next can start after it |
+| `kit.font(family, {weight = 400, italic = false})` | a promise of a shipped face (`"Montserrat"`, or its scorsese name `montserrat`) as opentype.js reads it, at the nearest weight it ships. Needs `opentype.min.js` loaded first. A family it does not ship is an error naming the ones it does |
+| `kit.write(parent, face, text, {x, y, size = 96, width, leading = 1.2, align = "start", fill, stroke, strokeWidth})` | `text` as glyph outlines on `parent`, baseline at `y`, broken at `width` or a `\n`, each line set from `x` by `align` (`start`, `middle`, `end`). Answers the group, which holds a `<g data-word>` per word named as `scorsese.words` names a spoken one (`free`, then `free@2`). Draw it, or one word of it, with `kit.draw` |
+| `kit.camera(canvas, t, views)` | moves `canvas`, an element at the page's top left larger than the frame, under a fixed camera: each view is `{at, x, y, zoom = 1, length = 1}`, the canvas point the frame centres on and how close, reached `length` seconds after `at`, eased in and out. The first view is where it starts |
 
 Anything else is the page's own, or a shared file's. A helper joins the kit
 when pages keep writing it, and each one in it is used by a worked page below.
@@ -294,7 +304,9 @@ holds. Every one is a choice the page makes.
 - **Counting numbers keep their width**: `font-variant-numeric: tabular-nums`,
   so the figure does not jitter as its digits change.
 - **Lines draw with `stroke-dashoffset`.** Give an SVG path `pathLength="1"`,
-  set `stroke-dasharray: 1` and animate `stroke-dashoffset` from 1 to 0.
+  set `stroke-dasharray: 1` and animate `stroke-dashoffset` from 1 to 0. For a
+  drawing of many strokes that should look drawn by one hand, `kit.draw`
+  times them by their length instead, one after another.
 
 ## Warnings
 
@@ -866,3 +878,81 @@ keeping its shape, so size and place the `div` as anything else on the page.
 `still` shows where a frame of it lands. A file over 1 MB cannot be kept by a
 project on the web, which keeps the files beside its pages up to that size;
 choose a lighter one there.
+
+### A board that draws itself
+
+The whiteboard explainer: a drawing and the words beside it appear stroke by
+stroke, in step with the narration, on one canvas the camera moves across. The
+canvas is an SVG twice the frame each way, and the camera is `kit.camera`
+moving it. Here it frames the figure, pans to the verse once the figure is
+drawn, and pulls back to show the whole board for the clip's last second.
+
+The figure is ordinary SVG, drawn by `kit.draw` in the order it is written,
+each stroke taking as long as it is long. The verse is `kit.write`: each
+letter's outline drawn, then filled. Each word starts on the word the
+narration (clip `vo`) says, from `scorsese.words`, and without one it follows
+the word before. `free` is coloured by its `data-word` and pops once it is
+written. Every helper answers when it is finished, so the camera and the pop
+are timed from what came before rather than from numbers of seconds.
+
+```html page board
+<!doctype html>
+<html>
+<head>
+<script src="https://lib.scorsese/opentype.min.js"></script>
+<script src="https://lib.scorsese/kit.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body { background: #f7f3ea; }
+  #board { position: absolute; left: 0; top: 0; width: 3840px; height: 2160px; color: #1d2433; }
+  #figure > * { fill: none; stroke: currentColor; stroke-width: 10;
+    stroke-linecap: round; stroke-linejoin: round; }
+  #figure .sun { fill: #f2b134; }
+  [data-word="free"] { color: #c8452c; transform-box: fill-box; transform-origin: center; }
+</style>
+</head>
+<body>
+  <svg id="board" viewBox="0 0 3840 2160">
+    <g id="figure">
+      <circle class="sun" cx="960" cy="860" r="150" />
+      <line x1="960" y1="660" x2="960" y2="590" />
+      <line x1="1160" y1="860" x2="1230" y2="860" />
+      <line x1="760" y1="860" x2="690" y2="860" />
+      <line x1="1105" y1="715" x2="1155" y2="665" />
+      <line x1="815" y1="715" x2="765" y2="665" />
+      <path d="M 300 1440 C 560 1160 820 1160 1080 1380 S 1520 1200 1640 1440" />
+      <path d="M 960 1440 C 900 1500 1020 1560 960 1620" />
+    </g>
+  </svg>
+  <script>
+    const board = document.getElementById("board");
+    const figure = document.getElementById("figure");
+    // When the narration says `word`, or `otherwise` without a timed one.
+    const cue = (word, otherwise) => scorsese.words["vo/" + word]?.start ?? otherwise;
+
+    kit.font("Playfair Display", { weight: 700 }).then((face) => {
+      const verse = kit.write(board, face, "The truth will set you free.",
+        { x: 2880, y: 1060, size: 150, width: 1500, align: "middle", strokeWidth: 3 });
+      const free = verse.querySelector('[data-word="free"]');
+      kit.frame((t) => {
+        const drawn = kit.draw(figure, t, 0, { within: 1.2 });
+        let done = 0;
+        verse.querySelectorAll("[data-word]").forEach((word, i) => {
+          done = kit.draw(word, t, cue(word.dataset.word, drawn + 0.6 + i * 0.25), { speed: 4000 });
+        });
+        free.style.transform = `scale(${kit.lerp(1, 1.15, kit.enter(t, done, 0.4, kit.ease.back))})`;
+        kit.camera(board, t, [
+          { x: 960, y: 1080 },
+          { at: drawn, x: 2880, y: 1080, length: 0.8 },
+          { at: scorsese.duration - 1, x: 1920, y: 1080, zoom: 0.5 },
+        ]);
+      });
+    });
+  </script>
+</body>
+</html>
+```
+
+Draw any SVG this way: a figure written out by hand, as here, an icon fetched
+from the set (*Icons*), or a drawing `page_write` carries inline. A shape with
+only a fill, no stroke, appears at its turn rather than being drawn.

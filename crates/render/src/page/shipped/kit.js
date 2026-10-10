@@ -2,8 +2,10 @@
 //
 // The handful of helpers every timed page was writing for itself: a frame loop
 // on the page's own seconds, clamp / lerp / remap, named easings, entrances
-// and the clip's exit, stagger, a count-up, a seeded random and an SVG
-// builder. Loaded with a plain <script src>, it defines one global, `kit`.
+// and the clip's exit, stagger, a count-up, a seeded random, an SVG
+// builder, a constant-speed draw-on, text as drawable glyph outlines and a
+// camera over a canvas. Loaded with a plain <script src>, it defines one
+// global, `kit`.
 //
 // Every helper is a pure function of the time it is handed: nothing is kept
 // from one frame to the next, so any frame stands on its own and a still or a
@@ -94,7 +96,160 @@
     return element;
   };
 
+  // What `draw` reads of a mark once, from the page's own geometry: its
+  // length, its stroke's width, whether it closes, and the fill opacity its
+  // author gave it. Measured, never animated: the frame is still `t`'s alone.
+  const MARKS = "path, line, polyline, polygon, rect, circle, ellipse";
+  const measured = new WeakMap();
+  const measure = (mark) => {
+    if (!measured.has(mark)) {
+      const style = getComputedStyle(mark);
+      const tag = mark.tagName.toLowerCase();
+      const length = mark.getTotalLength();
+      const [from, to] = [mark.getPointAtLength(0), mark.getPointAtLength(length)];
+      measured.set(mark, {
+        length,
+        width: parseFloat(style.strokeWidth) || 0,
+        // A path or polyline closes with a `z`, or by ending where it began.
+        closed: ["path", "polyline"].includes(tag)
+          ? /z\s*$/i.test(mark.getAttribute("d") || "") || Math.hypot(to.x - from.x, to.y - from.y) < 0.5
+          : tag !== "line",
+        fill: parseFloat(style.fillOpacity),
+      });
+    }
+    return measured.get(mark);
+  };
+  const marks = (what) => (what instanceof Element
+    ? (what.matches(MARKS) ? [what] : [...what.querySelectorAll(MARKS)])
+    : [...what].flatMap(marks));
+
+  // Draws the strokes of `what` (an SVG element, its marks, or a list of
+  // either) on in document order from `at`, at `speed` user units a second —
+  // a long line takes longer than a short one — or all of them `within` that
+  // many seconds. A closed shape's fill fades in over `fill` seconds once its
+  // outline is done. Answers when the last mark is finished, so the next can
+  // start after it. A stroke is dashed `len (2·len + w)` from `len + w`, so
+  // its round cap never shows as a dot before it starts.
+  const draw = (what, t, at = 0, { speed = 1500, within = 0, fill = 0.4 } = {}) => {
+    const all = marks(what).map((mark) => [mark, measure(mark)]);
+    const total = all.reduce((sum, [, m]) => sum + m.length, 0);
+    const rate = within > 0 ? total / within : speed;
+    let start = at;
+    let done = at;
+    for (const [mark, m] of all) {
+      const end = start + m.length / rate;
+      const p = remap(t, start, end);
+      mark.style.strokeDasharray = `${m.length} ${2 * m.length + m.width}`;
+      mark.style.strokeDashoffset = (m.length + m.width) * (1 - p);
+      mark.style.visibility = p > 0 ? "" : "hidden";
+      if (m.closed) mark.style.fillOpacity = m.fill * remap(t, end, end + fill);
+      done = Math.max(done, end + (m.closed ? fill : 0));
+      start = end;
+    }
+    return done;
+  };
+
+  // A shipped face as opentype.js reads it (load https://lib.scorsese/
+  // opentype.min.js first), by the family name a page's CSS uses or its
+  // scorsese name: the nearest weight it ships, or the weight set on a
+  // variable one. A promise, so build what uses it in `then`.
+  const faces = {};
+  const font = (family, { weight = 400, italic = false } = {}) => {
+    const key = `${family}/${weight}/${italic}`;
+    faces[key] ??= fetch("https://lib.scorsese/fonts/index.json")
+      .then((r) => r.json())
+      .then((index) => {
+        const named = family.toLowerCase();
+        const cuts = index.filter((face) => [face.family, face.name]
+          .some((name) => name.toLowerCase() === named) && face.italic === italic);
+        if (!cuts.length) {
+          const families = [...new Set(index.map((face) => face.family))].join(", ");
+          throw new Error(`kit.font: no shipped face is called ${family} (there are ${families})`);
+        }
+        const off = (face) => (face.weight === null ? 0 : Math.abs(face.weight - weight));
+        const face = cuts.reduce((best, cut) => (off(cut) < off(best) ? cut : best));
+        return fetch(`https://lib.scorsese/fonts/${face.file}`)
+          .then((r) => r.arrayBuffer())
+          .then((bytes) => {
+            const parsed = opentype.parse(bytes);
+            const axis = parsed.tables.fvar?.axes.find((a) => a.tag === "wght");
+            if (axis) parsed.variation.set({ wght: clamp(weight, axis.minValue, axis.maxValue) });
+            return parsed;
+          });
+      });
+    return faces[key];
+  };
+
+  // A glyph's commands as path data, each contour closed. Not opentype.js
+  // 2.0.0's own `toPathData`, which leaves the `z`s out and, at some
+  // positions, writes a coordinate as NaN, cutting the glyph short.
+  const outline = (commands) => commands.map(({ type, x1, y1, x2, y2, x, y }, i) => {
+    if (type === "Z") return "";
+    const at = [x1, y1, x2, y2, x, y].filter((v) => v !== undefined).map((v) => +v.toFixed(2));
+    return `${type === "M" && i ? "Z" : ""}${type}${at.join(" ")}`;
+  }).join("") + "Z";
+
+  // `text` set in `face` (from `kit.font`) as glyph outlines, each a closed
+  // path, inside a new group on `parent`: a `<g data-word>` per word, named
+  // as `scorsese.words` names a spoken one (lowercased, bare, `amen@2` the
+  // second time), so a word can be drawn on its cue, coloured and popped. Baseline at `y`, lines
+  // `leading` × `size` apart, broken at `width` or a "\n", each set from `x`
+  // by `align` (start, middle or end). Draw it with `kit.draw`.
+  const write = (parent, face, text, { x = 0, y = 0, size = 96, width = Infinity, leading = 1.2,
+    align = "start", fill = "currentColor", stroke = fill, strokeWidth = size / 40 } = {}) => {
+    const group = svg("g", { fill, stroke, "stroke-width": strokeWidth,
+      "stroke-linejoin": "round", "stroke-linecap": "round" }, parent);
+    const space = face.getAdvanceWidth(" ", size);
+    const lines = [];
+    for (const paragraph of text.split("\n")) {
+      let line = [];
+      let used = 0;
+      for (const word of paragraph.split(/\s+/).filter(Boolean)) {
+        const advance = face.getAdvanceWidth(word, size);
+        if (line.length && used + space + advance > width) {
+          lines.push({ line, used });
+          line = [];
+          used = 0;
+        }
+        used += (line.length ? space : 0) + advance;
+        line.push({ word, advance });
+      }
+      lines.push({ line, used });
+    }
+    const said = {};
+    lines.forEach(({ line, used }, row) => {
+      let left = x - used * { start: 0, middle: 0.5, end: 1 }[align];
+      for (const { word, advance } of line) {
+        const name = word.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+        said[name] = (said[name] ?? 0) + 1;
+        const words = svg("g", { "data-word": said[name] > 1 ? `${name}@${said[name]}` : name }, group);
+        for (const glyph of face.getPaths(word, left, y + row * size * leading, size)) {
+          if (glyph.commands.length) svg("path", { d: outline(glyph.commands) }, words);
+        }
+        left += advance + space;
+      }
+    });
+    return group;
+  };
+
+  // Moves a canvas larger than the frame under a fixed camera. `canvas` is
+  // drawn at the page's top left; each view is the canvas point `[x, y]` the
+  // frame centres on at `zoom`, reached `length` seconds after its `at`,
+  // eased in and out. Before the second view, the first holds.
+  const camera = (canvas, t, views) => {
+    let [x, y, zoom] = [views[0].x, views[0].y, Math.log(views[0].zoom ?? 1)];
+    for (const view of views.slice(1)) {
+      const p = enter(t, view.at, view.length ?? 1, ease.inOut);
+      [x, y, zoom] = [lerp(x, view.x, p), lerp(y, view.y, p), lerp(zoom, Math.log(view.zoom ?? 1), p)];
+    }
+    const scale = Math.exp(zoom);
+    canvas.style.transformOrigin = "0 0";
+    canvas.style.transform = `translate(${scorsese.width / 2 - x * scale}px, ${
+      scorsese.height / 2 - y * scale}px) scale(${scale})`;
+  };
+
   window.kit = Object.freeze({
     frame, clamp, lerp, remap, ease, enter, exit, rise, stagger, count, random, svg,
+    draw, font, write, camera,
   });
 })();
