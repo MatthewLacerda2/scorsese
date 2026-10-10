@@ -6,7 +6,7 @@ author a whole video in this file and render it without touching a mouse.
 
 Changing this format is `architecture` work — it needs a `schema_version`
 bump **and a migration** from the previous version, in the same change
-(`CLAUDE.md`, *A schema bump ships with a migration*). Projects stored by the
+(`crates/core/CLAUDE.md`, *A schema bump ships with a migration*). Projects stored by the
 web app belong to other people, and a bump that stranded them would break
 them. The bump is still what makes a break honest — a document whose version
 is not this build's is refused on sight instead of being read as something it

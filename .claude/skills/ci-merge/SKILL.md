@@ -5,7 +5,33 @@ description: Take a finished branch through to merged — gates, CI, the mutatio
 
 # Getting a branch merged
 
-The steps, and the traps. `CLAUDE.md` carries why these exist; this is how.
+The steps, the traps, and the reasoning behind them. `CLAUDE.md` states each
+rule in a line; this is how to keep it and why it is shaped as it is.
+
+## What a ready pull request claims
+
+**A ready pull request claims it passes; a draft makes no such claim.** CI runs
+on ready pull requests and on `main`, nowhere else, so a red run always means a
+claim was broken — worth a notification every time. A draft is not decoration
+on unfinished work; it is **how work survives** a session that ends badly, and
+the durable context is the **issue**, written to be read cold. Never rely on a
+hand-back comment existing.
+
+**Gates block on correctness; signals inform on quality.** A check that proves
+correctness — build, test, `clippy -D warnings`, the golden renders, the size
+gate — is a hard gate: green to merge, no exceptions. A check that audits
+quality — coverage, mutation testing, perf tracking — is a signal: it runs on a
+schedule or when an agent asks for it, never in a pull request's CI run, and
+never blocks a merge. Coverage runs weekly on `main`; mutation sweeps one crate
+a week and otherwise runs when asked (*The mutation signal* below). Don't reach
+for a hard gate where a signal does the job.
+
+**CI is a different computer.** GitHub-hosted `ubuntu-24.04`: cold, no GPU,
+and, Arch being a rolling release, very often a different ffmpeg build than the
+one that produced a frame locally. "Works here" and "passes CI" are separate
+claims, which is why golden renders compare frames with tolerance rather than
+encoded bytes. The same goes for the GPU: anything GPU-dependent can be built
+and tried locally, but **can never be a merge gate**.
 
 ## Before marking a pull request ready
 
@@ -34,6 +60,8 @@ test suite says the tests still pass; only the comparison says nothing moved.
 
 Deliberately **not** before every push. Checkpoint commits stay cheap — the
 pre-commit hook is formatting and the size gate only, well under a second.
+`make setup`, once per clone, points git at the committed hooks; `git commit
+--no-verify` bypasses them for a deliberate work-in-progress.
 
 **A failure the machine caused is not the branch's.** `No space left on device`,
 `Disk quota exceeded`, `Cannot allocate memory`, or rustc or the linker killed
@@ -58,9 +86,26 @@ app panel snapshots that fail on macOS regardless — #597).
    gigabytes.
 
 Merging is serialized because Rust is compiled: two branches can each be green
-alone and break `main` together. The only exception is a pull request touching
-**only** Markdown, which CI skips. `docs/project-format.md` is not one of those —
-tests parse its examples.
+alone and break `main` together — a changed signature in one crate and a new
+caller in another compile apart and not together. No tooling repeals that, so
+**speculative CI and parallel merging stay out**: they answer a question this
+repo does not have. The only exception is a pull request touching **only**
+Markdown, which CI skips. `docs/project-format.md` is not one of those — tests
+parse its examples.
+
+What *may* be automated is **who does the waiting** (#491, #492). The rebase is
+a minute; the verify is a cold CI run, and it is the verify that serialises. A
+batch of 31 issues on 2026-08-29 paid it twenty times, twice over on one branch
+whose code did not change between attempts. Three constraints are not
+negotiable: a conflict is never resolved by a machine that cannot say *why* the
+code is shaped as it is; local green is never CI green; and the mutation signal
+never becomes a precondition, because a gate people route around teaches
+everyone to route around gates. The cheaper answer it was weighed against,
+*skip the run when the rebase changed nothing that matters*, turns out not to
+exist: a run's verdict is about a **tree**, and carries only to the same tree.
+Measured over that batch, the sound rule would have skipped **none** of its
+twenty-three re-runs. So the ten minutes are real, and the only thing to take
+off the critical path is who spends them. That is `make queue`.
 
 ### `make queue` does steps 1–5, so nobody sits through step 3
 
@@ -287,7 +332,10 @@ Nothing reports survivors after the branch is readied, and the queue merges
 without looking, so this is the last point one is cheap.
 
 Read the report when it lists survivors in code **this branch wrote**. A report
-with nothing in it, or whose survivors sit in untouched code, needs no reading.
+with nothing in it, or whose survivors sit in untouched code, needs no reading. There
+are three exits for a survivor and no fourth: **fix it**, **exclude it with a
+written reason**, or **file it as its own issue**. `docs/mutation-testing.md`
+has what the report deliberately does not list.
 
 Sort by cost:
 
@@ -330,7 +378,7 @@ the machine cannot carry it. That is why `make mutants-remote` is the default.
 ## `SYNTH_VERSION`
 
 Changing what a recipe renders to requires a bump, in the same commit. That rule
-is in `CLAUDE.md` and is not negotiable.
+is in `crates/zimmer/CLAUDE.md` and is not negotiable.
 
 **Verify by rendering only when the change touches rendering maths.** Build a
 probe corpus and bake it against both checkouts when there is genuine doubt — an

@@ -9,6 +9,11 @@ The unit of work here is a well-specified issue. A future Claude reads it **cold
 and says *"I understand the assignment, I know how to proceed."* That is what lets
 an issue run unattended, overnight, with nobody to ask.
 
+**An issue is how work is *planned*, not a toll on every change** (the user,
+2026-10-04). Work that needs planning, a decision, or to wait is an issue
+first; work that needs none of that goes straight to a branch and a pull
+request.
+
 ## What it contains
 
 - **What** — the change, concretely.
@@ -64,7 +69,8 @@ Filing is a **duty**, not an option (CLAUDE.md, *File what you notice*, #757):
 
 - **Nothing you find is dropped** — a bug, a missing feature, a design gap, a
   quality-of-life improvement. Bugs are not a class apart: each is folded into
-  the task at hand or filed, and which is your call.
+  the task at hand or filed, and which is your call. A finding that questions a
+  decision or surfaces a foundational problem is also told to the user.
 - **A change that needs the user's approval is never folded in**: one that
   changes how the user sees or understands their existing data or project,
   changes stored data, or needs a migration. Put its decisions to the user and
@@ -93,6 +99,11 @@ A branch that grows to cover everything it noticed is a branch nobody can review
   start it.
 - *(none)* — anyone can tell an agent "do issue N".
 
+**A stage label is the only thing that stops an issue being started**, and it is
+absolute. Absent one, an issue is startable the moment it exists, including one
+Claude filed a minute ago: the judgement lives in the label, and asking the
+question a second time when work begins adds nothing.
+
 **Stage labels are the user's to ask for** (CLAUDE.md, *Stage labels*,
 2026-10-07). An issue that is a breaking change, needs a judgement call,
 proposes a structural change, or meets the approval test above (changes how the
@@ -119,7 +130,8 @@ migration or rewrites stored data still goes to the user first.
 Type labels, combinable with a stage label:
 
 `architecture` (communication structure, conventions, `project.json` format,
-crate boundaries) · `infrastructure` (CI, harnesses, gates) · `bug` ·
+crate boundaries — a format change needs a `schema_version` bump with a
+migration, `crates/core/CLAUDE.md`) · `infrastructure` (CI, harnesses, gates) · `bug` ·
 `documentation` · `feature` (a capability serving the videos) · `foundation`
 (groundwork making the editor more complete) · `human`.
 
@@ -129,8 +141,13 @@ the user who decided this was worth filing.
 
 ## Priority
 
-**infrastructure → architecture → bug → foundation → feature.** `documentation`
-never waits its turn. A bug in the development tooling itself — CI, the gates,
+**infrastructure → architecture → bug → foundation → feature.** If the way we
+build isn't solid — a tool or guardrail missing (infrastructure), a structural
+shape or convention missing (architecture), or something broken (bug) — we halt
+and fix that first. Infrastructure leads because every branch after it runs on
+the faster, safer loop. Then foundation makes the editor more complete, then
+feature serves Claude, the user or the video. `documentation` never waits its
+turn. A bug in the development tooling itself — CI, the gates,
 the hooks, `make queue` / `make mergeable` — ranks as `infrastructure`, whatever
 its label.
 
