@@ -1,0 +1,10 @@
+{
+  "source": { "kind": "noise", "color": "pink" },
+  "amp": { "a": 0.22, "d": 0.3, "s": 0.0, "r": 0.15, "curve": -2.0 },
+  "filter": {
+    "kind": "bandpass", "cutoff": 350, "resonance": 0.45,
+    "vel_octaves": 1.0, "env_octaves": 2.5,
+    "adsr": { "a": 0.22, "d": 0.35, "s": 0.0, "r": 0.15, "curve": 1.5 }
+  },
+  "fx": [{ "fx": "reverb", "size": 0.35, "damp": 0.5, "mix": 0.15 }]
+}

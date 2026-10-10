@@ -1802,8 +1802,10 @@ so changing the recipe changes which file the asset wants, and the next
 `synth_bake` redoes it. Re-baking an unchanged recipe renders nothing.
 
 `synth_kit` is the shortcut past the first few turns of that loop: a library
-of ready-made instruments — drums, a bass, keys, brass, a pad — that a song
-names as `"patch": "kit:kick"`. `synth_write` copies each one into the recipe
+of ready-made instruments — drums, a bass, keys, brass, a pad — and everyday
+sound effects — a whoosh, a pop, a ding, typing, a pencil scribble — that a
+recipe names as `"patch": "kit:kick"`. The effects are starting points: each
+one's line says which numbers to change for a different take. `synth_write` copies each one into the recipe
 as it writes it, so the song owns its instruments from then on and an upgrade
 never changes how it sounds. `synth_new` with an `instrument` starts a one-shot
 of one.

@@ -35,7 +35,9 @@ impl Tool for Kit {
         "List the ready-made instruments a recipe can start from, or show one \
          instrument's patch. There is a drum machine's kick, snare, closed hat \
          and crash, a synth bass, a clav, a brass section, a pad and an \
-         electric piano. A song track uses one by writing \"patch\": \"kit:kick\" and \
+         electric piano; and sound effects to vary rather than use as they are \
+         (whoosh, riser, pop, click, ding, key, scribble, page, thud), each \
+         listed with the numbers that make a different take of it. A song track uses one by writing \"patch\": \"kit:kick\" and \
          passing the recipe to synth_write, which copies the patch into the \
          recipe: the song keeps its own copy, edits it freely, and never \
          changes sound when scorsese is upgraded. synth_new with an \

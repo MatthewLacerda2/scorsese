@@ -1,0 +1,7 @@
+{
+  "source": { "kind": "noise" },
+  "amp": { "a": 0.03, "d": 0.1, "s": 0.8, "r": 0.06, "curve": 2.0 },
+  "filter": { "kind": "bandpass", "cutoff": 4200, "resonance": 0.25 },
+  "lfo": { "rate": 7.0, "depth": 0.75, "target": "amp" },
+  "fx": [{ "fx": "eq", "bands": [{ "kind": "highpass", "freq": 900 }] }]
+}

@@ -1,7 +1,9 @@
 use super::*;
 use scorsese_zimmer::{NoteOpts, bake_named_note};
 
-fn bands_of(instrument: &Instrument) -> (u32, u32, u32) {
+mod effects;
+
+pub(super) fn bands_of(instrument: &Instrument) -> (u32, u32, u32) {
     let opts = NoteOpts {
         duration: 1.0,
         ..NoteOpts::default()

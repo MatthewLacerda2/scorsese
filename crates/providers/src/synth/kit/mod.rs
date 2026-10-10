@@ -7,6 +7,14 @@
 //! closed hat and crash, and a synth bass, a clav, a brass section, a pad and an
 //! electric piano. A recipe asks for one as `"patch": "kit:kick"`.
 //!
+//! Beside them, the effects every video kept rebuilding the same way: a whoosh,
+//! a riser, a pop, a click, a ding, a keystroke, a pencil scribble, a page turn
+//! and a thud. These are **starting points to vary, not finished sounds** (#1001):
+//! twenty pops in one video, or one whoosh across two, must not all be the same
+//! file. So each one's description names the numbers that make a different take
+//! of it — and for the noise-made ones says plainly that `note` is not among
+//! them, since noise has no pitch to move.
+//!
 //! **Copied on use, never referenced.** Writing a recipe through
 //! [`expand`] replaces each `kit:` name with the patch itself, inline, so the
 //! song carries its own copy from then on. That is the whole design, and the
@@ -68,7 +76,7 @@ impl Instrument {
     }
 }
 
-/// Every instrument, drums first.
+/// Every instrument, drums first and effects last.
 pub const KIT: &[Instrument] = &[
     Instrument {
         name: "kick",
@@ -123,6 +131,72 @@ pub const KIT: &[Instrument] = &[
         describes: "electric piano: an FM tine that rings and fades, bell-like when struck hard",
         home: "C4",
         json: include_str!("presets/epiano.json"),
+    },
+    Instrument {
+        name: "whoosh",
+        describes: "whoosh: air rushing past, swelling and falling away. Vary `amp.a` with \
+            `filter.adsr.a` (where it peaks), the `d`s (how long it trails), `cutoff` (how low it \
+            sits); noise ignores `note`",
+        home: "C4",
+        json: include_str!("presets/whoosh.json"),
+    },
+    Instrument {
+        name: "riser",
+        describes: "riser: hiss climbing for a second into a cut. Vary `amp.a`, `filter.adsr.a` \
+            and `duration` together (its length), `env_octaves` (how far it climbs); noise ignores \
+            `note`",
+        home: "C4",
+        json: include_str!("presets/riser.json"),
+    },
+    Instrument {
+        name: "pop",
+        describes: "pop: a round bubble-pop bouncing up onto its note. Vary `note` (its pitch), \
+            `pitch_env.semitones` (the bounce), `amp.d` (how long)",
+        home: "C5",
+        json: include_str!("presets/pop.json"),
+    },
+    Instrument {
+        name: "click",
+        describes: "click: a short, dry interface tick. Vary `note` (its pitch), `ratio` (its \
+            colour; fractional is metallic), `amp.d` (how long)",
+        home: "C6",
+        json: include_str!("presets/click.json"),
+    },
+    Instrument {
+        name: "ding",
+        describes: "ding: a notification bell that rings and fades. Vary `note` (two in a song \
+            make a chime), `ratio` and `index` (its metal), `amp.d` (the ring)",
+        home: "A5",
+        json: include_str!("presets/ding.json"),
+    },
+    Instrument {
+        name: "key",
+        describes: "key: one keystroke; typing is a run of `steps` of it with `humanize`. Vary \
+            `cutoff` (the keyboard's size), `velocity` (how hard); noise ignores `note`",
+        home: "C4",
+        json: include_str!("presets/key.json"),
+    },
+    Instrument {
+        name: "scribble",
+        describes: "scribble: pencil scratching on paper for as long as it is held. Vary \
+            `duration` (the drawing's length), `lfo.rate` (strokes a second), `cutoff` (the \
+            paper's grain); noise ignores `note`",
+        home: "C4",
+        json: include_str!("presets/scribble.json"),
+    },
+    Instrument {
+        name: "page",
+        describes: "page: a page turning, a soft papery swish. Vary `amp.a` and `amp.d` (how slow \
+            the hand), `cutoff` (heavy paper low, thin high); noise ignores `note`",
+        home: "C4",
+        json: include_str!("presets/page.json"),
+    },
+    Instrument {
+        name: "thud",
+        describes: "thud: a heavy impact, low and dull, in a room. Vary `note` (its weight; lower \
+            is heavier), `pitch_env.semitones` (the punch), `amp.d` (how long it booms)",
+        home: "C2",
+        json: include_str!("presets/thud.json"),
     },
 ];
 

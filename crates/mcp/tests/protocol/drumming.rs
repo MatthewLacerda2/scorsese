@@ -20,6 +20,8 @@ fn the_kit_lists_itself_and_shows_one_patch() {
         "kit:hat",
         "kit:crash",
         "kit:epiano",
+        "kit:whoosh",
+        "kit:scribble",
     ] {
         assert!(listed.contains(name), "{name} missing from {listed}");
     }
