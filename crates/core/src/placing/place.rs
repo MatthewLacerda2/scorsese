@@ -95,6 +95,17 @@ pub enum PlaceError {
         /// The asset with nowhere to go.
         asset: AssetId,
     },
+    /// Spilling onto the next free lane was asked of a track that is not an
+    /// audio track. A picture's track is what it is drawn over, so "whichever
+    /// one is free" has no meaning for it.
+    #[error(
+        "`{track}` is not an audio track — only sound spills onto the next free lane, \
+         because a picture's track is what it is drawn over"
+    )]
+    NotSound {
+        /// The track that was named.
+        track: TrackId,
+    },
     /// A clip covering no frame renders nothing and is not a clip.
     #[error("a clip has to cover at least one frame")]
     Empty,
@@ -149,7 +160,7 @@ pub fn place(project: &mut Project, placement: &Placement) -> Result<Clip, Place
 }
 
 /// How much source is left from `source_in` — what an omitted duration means.
-fn remaining(asset: &Asset, fps: Fps, source_in: Frames) -> Result<Frames, PlaceError> {
+pub(super) fn remaining(asset: &Asset, fps: Fps, source_in: Frames) -> Result<Frames, PlaceError> {
     let Some(length) = asset.length(fps) else {
         return Err(PlaceError::NoLength {
             asset: asset.id.clone(),

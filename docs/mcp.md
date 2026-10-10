@@ -589,6 +589,21 @@ with no measured length has no rest to take: a title, a still, a colour, a brief
 nobody has generated, and a file nobody has probed. There the duration is
 required, and the refusal says so rather than guessing a length.
 
+**Overlapping sound effects spill onto the next lane.** Clips on one track may
+not overlap, and sound design is exactly that: a pop per card, a whoosh per cut.
+With `"spill_over": true`, a sound that would land on a clip already on `track`
+goes to the first of `track-2`, `track-3`… with room for it, and the next one is
+made, right after the others, when none has. The reply names the lane it landed
+on. The set is spelled by the ids alone, so the format does not change; `track`
+itself must exist, and only audio tracks spill — a picture's track is what it is
+drawn over.
+
+```
+place_clip  { "project": "teaser.scor", "asset": "whoosh", "track": "sfx",
+              "start_seconds": 12.0, "spill_over": true }
+            → "`whoosh-4` placed on `sfx-2`: starts at 12.00s (frame 288), …"
+```
+
 **`clip_move` sets fields, not edges.** Each argument changes the field of the
 same name and nothing else, so a `start_seconds` on its own *moves* the clip, a
 `duration_seconds` on its own holds the start and moves the end, and a
