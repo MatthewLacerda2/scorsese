@@ -310,7 +310,7 @@ It is HTTPS, so logging in works as in production. What to know about it:
 
 - **The address changes every time the container starts** — after a power cut,
   after an `up` that recreates it. Read the log again and send the new link.
-- **It is public.** Anyone with the link reaches the login page, and the
+- **It is public.** Anyone with the link reaches the landing page, and the
   accounts are the only gate — there is no sign-up, so that is the operator
   creating an account per person (*Accounts*).
 - **Cloudflare's limits for it**: 200 requests in flight, no uptime guarantee,
@@ -515,7 +515,7 @@ rules are the same for both:
 
 - **Ten attempts in fifteen minutes**, then `429` with `Retry-After` and
   `{"error": "too many login attempts; try again in 15 minutes"}` — which the
-  login page shows as it stands, like any refusal. Ten is room for a typo, the
+  sign-in popup shows as it stands, like any refusal. Ten is room for a typo, the
   old password and the one before it, and for a household behind one address.
 - **The lock-out is fifteen minutes and doubles each time it recurs** — thirty,
   an hour, two… up to a day. A fixed lock-out only sets a rate, and ten guesses
@@ -1774,7 +1774,8 @@ laid out.
 
 | URL | what |
 | --- | --- |
-| `/login` | email and password; there is no sign-up, so the page says accounts are by invitation |
+| `/` | the landing page for a visitor without a session (#904): the film scorsese made of itself (`web/landing/`, `make landing-hero`), what it makes and what it costs, moved by the motion kit as it scrolls; with a session, the projects list |
+| `/login` | the landing page with the sign-in popup open: email and password; there is no sign-up, so it says accounts are by invitation |
 | `/projects` | create, open, rename, delete |
 | `/projects/{id}` | the library files that project uses (`GET /api/library?project=`) |
 | `/library` | every file: filter by kind, search by name, sort; upload by button or by dropping files |

@@ -8,7 +8,7 @@ export function account(): { email: string; password: string } {
   return JSON.parse(readFileSync(accountFile(), "utf8"));
 }
 
-/** Logs in through the login page, and waits for the projects list. */
+/** Logs in through `/login`'s popup, and waits for the projects list. */
 export async function logIn(page: Page) {
   const { email, password } = account();
   await page.goto("/login");

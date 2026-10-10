@@ -1,4 +1,4 @@
-// Strings the whole app shares — the header, Settings, the login page, the
+// Strings the whole app shares — the header, Settings, the sign-in popup, the
 // session guard — in English, the source the other catalogues are typed against.
 
 export const common = {
@@ -21,7 +21,6 @@ export const common = {
   },
   theme: { light: "Light", dark: "Dark", system: "System" },
   login: {
-    tagline: "Log in to your projects and files.",
     email: "Email",
     password: "Password",
     submit: "Log in",

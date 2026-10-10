@@ -32,7 +32,7 @@ It expects the server on `http://localhost:8080`; point it elsewhere with
 | `src/app/queryClient.ts` | the TanStack Query cache; keys start with their area (`["library", …]`), and any `401` logs the page out | invalidating an area after a change |
 | `src/app/queries.ts` | queries more than one page reads: projects, balance, library, one file | the editor's assets panel and header |
 | `src/app/routes.tsx` | every page by URL, behind `RequireSession` and inside `Shell` (which gives the editor the whole window) | adding a page |
-| `src/app/pages.ts` | every page as a **lazy** import (#896), each its own chunk: a page is added here and named in `routes.tsx`, **never imported statically**, so the login page never downloads the editor. `preload()` fetches one ahead (the projects list fetches the editor when idle) | adding a page |
+| `src/app/pages.ts` | every page as a **lazy** import (#896), each its own chunk: a page is added here and named in `routes.tsx`, **never imported statically**, so the landing page never downloads the editor. `preload()` fetches one ahead (the projects list fetches the editor when idle) | adding a page |
 | `src/build/budget.ts` | the entry chunk's budget, a Vite plugin: the build fails when what a first visit downloads outgrows it, and says why the number is what it is | — |
 | `src/app/events.ts` | `useServerEvents`: the one `EventSource` on `/api/events` a page holds, shared by every listener, with a `resync` after a reconnect | anything live — jobs, the assistant, a project another tab changed |
 | `src/session/` | `useAccount`, `useLogin`, `useLogout`, the `RequireSession` guard and the `?next=` rule | anything that needs to know who is logged in |
@@ -41,8 +41,10 @@ It expects the server on `http://localhost:8080`; point it elsewhere with
 | `src/lib/money.ts` | micro-dollars as dollars, by integer arithmetic | every figure of money on a page |
 | `src/i18n/` | the web app's languages (#704): one catalogue per language (`en/`, `pt-BR/`, `es/`, a file per area), the stored choice (`language.ts`), and `useT()` / `useLanguage()` | every user-visible string — see *Strings and languages* below |
 | `src/lib/theme.ts` | light or dark: the stored choice, else the system's; `index.html`'s inline script applies the same rule before the bundle loads, so a dark page never flashes white, and `theme.test.ts` runs that script to keep the two agreeing | the control (`src/app/ThemeControl.tsx`, in Settings and on the login page); colours come from index.css's tokens, never a fixed `bg-white` |
-| `public/` | the logo (login page) and the square icon (favicon, account button), resized from `app/assets/` | — |
-| `src/pages/` | login, projects, the two file views, the spending history | — |
+| `public/` | the square icon (favicon, account button), resized from `app/assets/`, and `landing/`: the landing page's film, poster and pictures, rendered by `make landing-hero` from the projects in `landing/` | — |
+| `landing/` | the landing page's two scorsese projects (`hero.scor`, `showcase.scor`): pages, native text and a synthesised score, so re-rendering them costs nothing | changing the film — edit the project, run `make landing-hero`, commit what it writes |
+| `src/landing/` | the landing page at `/` (#904): its sections, the sign-in popup, and `motion.ts`, which drives the motion kit's helpers (`crates/render/src/page/shipped/kit.js`, imported as it is) with the scroll as their clock. Its type is the shipped faces, loaded from `crates/compositor/fonts/` | — |
+| `src/pages/` | projects, the two file views, the spending history | — |
 | `src/editor/` | the editor (`/projects/:id/edit`): `timeline/` (the time↔pixel maths, drag, snap and the tool call a drag becomes, all plain functions), `preview/`, `inspector/`, `assets/`, `templates/` (save the selection, insert at the playhead — #546), `selection.ts` (one clip, or several with Shift), `chat/` (the assistant's panel, its transcript a pure reducer over the event stream); every edit goes through `project.ts`'s `useEdit`, a tool call — docs/web.md, *The editor* | — |
 
 **Uploads** hash a file in the browser first (streamed, so a large file is

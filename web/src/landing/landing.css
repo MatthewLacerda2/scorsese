@@ -1,0 +1,122 @@
+/* The landing page's own art direction (#904). Designed rather than themed:
+   it ignores the app's Light | Dark | System choice, since a first visitor has
+   chosen nothing, and wears the look of the film at its top (the same ink,
+   paper and gold as web/landing/hero.scor/pages/look.css).
+
+   The type is the faces scorsese ships with a video, served from the very
+   files the compositor draws with (crates/compositor/fonts/), never a CDN.
+   `swap`, so the words are readable before the faces arrive. */
+
+@font-face {
+  font-family: "Playfair Display";
+  src: url("../../../crates/compositor/fonts/PlayfairDisplay[wght].ttf") format("truetype");
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Playfair Display";
+  src: url("../../../crates/compositor/fonts/PlayfairDisplay-Italic[wght].ttf") format("truetype");
+  font-weight: 400 900;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Inter";
+  src: url("../../../crates/compositor/fonts/Inter-V.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("../../../crates/compositor/fonts/JetBrainsMono[wght].ttf") format("truetype");
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+.landing {
+  --ink: #07070a;
+  --paper: #f4efe6;
+  --gold: #f2b134;
+  --ember: #e4572e;
+  --dim: rgb(244 239 230 / 0.62);
+  color-scheme: dark;
+  min-height: 100svh;
+  overflow-x: clip;
+  background:
+    radial-gradient(1200px 800px at 85% -10%, rgb(242 177 52 / 0.12), transparent 70%),
+    radial-gradient(1000px 700px at 0% 40%, rgb(228 87 46 / 0.08), transparent 70%), var(--ink);
+  color: var(--paper);
+  font-family: Inter, sans-serif;
+}
+
+.landing .display {
+  font-family: "Playfair Display", serif;
+  letter-spacing: -0.02em;
+}
+.landing .mono {
+  font-family: "JetBrains Mono", monospace;
+}
+.landing .eyebrow {
+  color: var(--gold);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+}
+.landing .dim {
+  color: var(--dim);
+}
+.landing .gold {
+  color: var(--gold);
+}
+
+/* The film's frame: a soft gold light behind it, as if it were projected. */
+.landing .screen {
+  border-radius: 1.25rem;
+  box-shadow:
+    0 0 0 1px rgb(244 239 230 / 0.1),
+    0 40px 120px -20px rgb(0 0 0 / 0.8),
+    0 0 160px -40px rgb(242 177 52 / 0.35);
+}
+
+.landing .card {
+  border-radius: 1.25rem;
+  background: rgb(244 239 230 / 0.04);
+  box-shadow: inset 0 0 0 1px rgb(244 239 230 / 0.09);
+}
+
+.landing .cta {
+  border-radius: 999px;
+  background: var(--gold);
+  color: var(--ink);
+  font-weight: 600;
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease;
+  box-shadow: 0 10px 40px -10px rgb(242 177 52 / 0.6);
+}
+.landing .cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 50px -10px rgb(242 177 52 / 0.8);
+}
+.landing .cta:focus-visible,
+.landing .ghost:focus-visible {
+  outline: 2px solid var(--paper);
+  outline-offset: 3px;
+}
+.landing .ghost {
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgb(244 239 230 / 0.25);
+}
+
+/* A film's grain over the whole page, drawn once, never animated. */
+.landing .grain {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  opacity: 0.06;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}

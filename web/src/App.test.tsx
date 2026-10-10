@@ -11,6 +11,7 @@ import { MemoryRouter } from "react-router";
 import { App } from "@/App";
 import type { Account, Balance, EditorProject } from "@/api";
 import { createQueryClient, ME } from "@/app/queryClient";
+import { ThemeControl } from "@/app/ThemeControl";
 import { prerenderHtml } from "@/test/prerender";
 
 async function render(url: string, seed: (client: ReturnType<typeof createQueryClient>) => void) {
@@ -27,15 +28,15 @@ async function render(url: string, seed: (client: ReturnType<typeof createQueryC
 
 const ana: Account = { id: 1, email: "ana@example.com", created_at: 0 };
 
-test("the login page asks for an email and a password", async () => {
+test("/login draws the landing page, its film included", async () => {
+  // The popup itself is a portal, drawn only in a browser: landing/LandingPage.test.tsx.
   const html = await render("/login", (client) => client.setQueryData(ME, null));
-  expect(html).toContain('type="email"');
-  expect(html).toContain('type="password"');
-  expect(html).toContain("Log in");
+  expect(html).toContain("It gets made.");
+  expect(html).toContain('src="/landing/hero.mp4"');
 });
 
 test("the theme control offers Light, Dark and System, and System is the default", async () => {
-  const html = await render("/login", (client) => client.setQueryData(ME, null));
+  const html = await prerenderHtml(<ThemeControl />);
   // Each segment's pressed state, paired with its label (the text that ends the button).
   const pressed = [...html.matchAll(/aria-pressed="(\w+)".*?(\w+)<\/button>/g)].map(
     ([, on, label]) => `${label}:${on}`,

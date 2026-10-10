@@ -14,6 +14,8 @@ export const landing: Messages["landing"] = {
     lead: "Promos, anúncios e vídeos de eventos, cortados, com títulos, trilha e ritmo, sem contratar um editor nem aprender um programa.",
     videoLabel: "Um curta feito com o scorsese",
     scroll: "Veja como",
+    soundOn: "Ligar o som do filme",
+    soundOff: "Desligar o som do filme",
   },
   how: {
     eyebrow: "Como funciona",
@@ -50,10 +52,22 @@ export const landing: Messages["landing"] = {
   handles: {
     eyebrow: "O que ele faz por você",
     title: "Tudo o que um editor faria.",
-    music: { title: "Música", body: "Uma trilha feita para o corte, ou a sua música, por baixo de tudo." },
-    titles: { title: "Títulos", body: "Texto em movimento, com as fontes e as cores da sua marca." },
-    cuts: { title: "Cortes", body: "Os melhores momentos do seu material, numa ordem que conta a história." },
-    pacing: { title: "Ritmo", body: "Mais rápido ou mais lento, mais curto ou mais longo, numa frase." },
+    music: {
+      title: "Música",
+      body: "Uma trilha feita para o corte, ou a sua música, por baixo de tudo.",
+    },
+    titles: {
+      title: "Títulos",
+      body: "Texto em movimento, com as fontes e as cores da sua marca.",
+    },
+    cuts: {
+      title: "Cortes",
+      body: "Os melhores momentos do seu material, numa ordem que conta a história.",
+    },
+    pacing: {
+      title: "Ritmo",
+      body: "Mais rápido ou mais lento, mais curto ou mais longo, numa frase.",
+    },
     narration: { title: "Narração", body: "Uma voz que lê o seu roteiro, no tempo da imagem." },
   },
   price: {

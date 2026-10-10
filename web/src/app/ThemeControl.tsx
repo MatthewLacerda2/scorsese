@@ -1,5 +1,5 @@
-// The theme switch, in the two places it lives: the Settings panel once signed
-// in, and the corner of the login page. Either way it is three segments side
+// The theme switch, in the Settings panel once signed in (the landing page
+// has its own art direction and no switch, #904). It is three segments side
 // by side — Light | Dark | System — with the user's choice marked, so "follow
 // the system" (the default) is something they can see and pick back.
 

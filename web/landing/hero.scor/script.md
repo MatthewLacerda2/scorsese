@@ -17,3 +17,6 @@ Rules it keeps:
 - The score is 100 bpm, two bars a scene: each scene is 144 frames at 30 fps,
   and the crash lands on the cut to the name. Retiming a scene means changing
   the recipe's arrangement with it.
+- The landing page's *No surprises* section quotes this film's length (21.6 s)
+  and its scene count (4) in `web/src/landing/Sections.tsx`: change them there
+  when the film changes.

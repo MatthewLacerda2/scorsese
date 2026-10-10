@@ -4,7 +4,31 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/png" href="/icon.png" />
-    <title>scorsese</title>
+    <title>scorsese — send your files, describe the video, it gets made</title>
+    <!--
+      What a shared link shows (#904). A link preview reads this file and runs
+      no script, so it is written here, once for every URL, in English; the
+      landing page sets the title and description in the visitor's language
+      once it runs. The picture is a still of the landing page's own film
+      (web/landing/hero.scor, `make landing-hero`), by absolute URL
+      because the previews that matter refuse a relative one; it names the hosted
+      web app, the one place these links are shared from.
+    -->
+    <meta
+      name="description"
+      content="Promos, ads and event videos for your business, made from your files and a description. No editor to hire, no software to learn."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="scorsese" />
+    <meta property="og:title" content="scorsese — send your files, describe the video, it gets made" />
+    <meta
+      property="og:description"
+      content="Promos, ads and event videos for your business, made from your files and a description."
+    />
+    <meta property="og:image" content="https://scorsese.goalsgetter.org/landing/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
     <!--
       Light or dark before anything paints, so a dark page never flashes white:
       the stored choice, else the system's. It repeats src/lib/theme.ts's

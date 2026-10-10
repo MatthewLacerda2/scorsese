@@ -18,6 +18,8 @@ export const landing = {
     lead: "Promos, ads and event videos, cut, titled, scored and paced for you, without hiring an editor or learning a program.",
     videoLabel: "A short film made with scorsese",
     scroll: "See how",
+    soundOn: "Turn the film's sound on",
+    soundOff: "Turn the film's sound off",
   },
   how: {
     eyebrow: "How it works",
@@ -38,7 +40,10 @@ export const landing = {
   make: {
     eyebrow: "What you can make",
     title: "The videos a business actually needs.",
-    promo: { title: "A promo", body: "A launch, a sale, a new menu: thirty seconds that make people come in." },
+    promo: {
+      title: "A promo",
+      body: "A launch, a sale, a new menu: thirty seconds that make people come in.",
+    },
     event: {
       title: "An event recap",
       body: "The day's photos and footage, turned into the film everyone shares the morning after.",
@@ -51,11 +56,20 @@ export const landing = {
   handles: {
     eyebrow: "What it handles for you",
     title: "Everything an editor would do.",
-    music: { title: "Music", body: "A score written to the cut, or your song, sitting under everything else." },
+    music: {
+      title: "Music",
+      body: "A score written to the cut, or your song, sitting under everything else.",
+    },
     titles: { title: "Titles", body: "Type that moves, in the fonts and colours of your brand." },
-    cuts: { title: "Cuts", body: "The best moments of your footage, in an order that tells the story." },
+    cuts: {
+      title: "Cuts",
+      body: "The best moments of your footage, in an order that tells the story.",
+    },
     pacing: { title: "Pacing", body: "Faster or slower, shorter or longer, in one sentence." },
-    narration: { title: "Narration", body: "A voice that reads your script, timed to the picture." },
+    narration: {
+      title: "Narration",
+      body: "A voice that reads your script, timed to the picture.",
+    },
   },
   price: {
     eyebrow: "No surprises",

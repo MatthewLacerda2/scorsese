@@ -1,4 +1,4 @@
-// The language picker, in the Settings panel and the corner of the login page
+// The language picker, in the Settings panel and the landing page's header
 // (a reader who cannot read the page yet still has to find it). Each language
 // is named in itself, beside its flag (#770), so the list reads the same
 // whatever is chosen.

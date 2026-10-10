@@ -29,6 +29,9 @@ export default defineConfig({
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
   server: {
+    // The landing page (#904) loads two files from outside web/, so the faces
+    // and the motion kit it uses are the ones a video gets, never copies.
+    fs: { allow: [".", "../crates/compositor/fonts", "../crates/render/src/page/shipped"] },
     proxy: { "/api": { target: api, changeOrigin: true } },
   },
 });
