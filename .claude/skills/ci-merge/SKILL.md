@@ -90,8 +90,10 @@ alone and break `main` together — a changed signature in one crate and a new
 caller in another compile apart and not together. No tooling repeals that, so
 **speculative CI and parallel merging stay out**: they answer a question this
 repo does not have. The only exception is a pull request touching **only**
-Markdown, which CI skips. `docs/project-format.md` is not one of those — tests
-parse its examples.
+Markdown, which CI skips. A page the code reads is not one of those: the
+`paths:` list at the top of `ci.yml` re-includes every page a test or an
+`include_str!` reads (`docs/project-format.md`, the guides, `docs/web.md`…),
+and a script test holds that list to the code (#1040).
 
 What *may* be automated is **who does the waiting** (#491, #492). The rebase is
 a minute; the verify is a cold CI run, and it is the verify that serialises. A
@@ -219,7 +221,8 @@ already pushed is not pushed again. Status 1 is a real hand-back: read why
 
 **A Markdown-only pull request gets no run**, so `make queue` hands it back as
 absent and `make mergeable` cannot say yes. It is the one merge done by hand:
-check `gh pr diff N --name-only` is all `.md` and not `docs/project-format.md`,
+check `gh pr diff N --name-only` is all `.md` and none of the pages `ci.yml`'s
+`paths:` re-includes (those get a run, and go through the queue like code),
 that GitHub reports it mergeable, then `gh pr merge N --squash`. Don't label
 one `queue`: the watch would spend five minutes of everybody's turn learning
 there is no run, and hand it back.
